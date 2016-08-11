@@ -501,7 +501,7 @@ END IF
 END IF
 
 5  FORMAT(80('-'))
-4  FORMAT(<length>('-'),A<80-2*length>,<length>('-'))
+4  FORMAT(80('-'))
 
 
 END SUBROUTINE Protocol_linScalar

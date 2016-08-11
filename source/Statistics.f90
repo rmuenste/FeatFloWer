@@ -14,7 +14,7 @@
 
       IF (myOutFile.eq.0) THEN
        myFile = 669
-       OPEN (FILE='_data/Statistics.txt',UNIT=myFile,buffered="yes")
+       OPEN (FILE='_data/Statistics.txt',UNIT=myFile)
       ELSE
        myFile = myOutFile
       END IF

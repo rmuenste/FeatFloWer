@@ -16,7 +16,7 @@ C
 C
       IF (myid.eq.MASTER) RETURN
 C
-      OPEN (UNIT=MUNIT,FILE=CFILE,buffered="yes")
+      OPEN (UNIT=MUNIT,FILE=CFILE)
 C
       WRITE(MUNIT,'(A)')'gmvinput ascii'
 C
@@ -75,7 +75,7 @@ C
 C
 C
 C
-      OPEN (UNIT=MUNIT,FILE=cmesh,buffered="yes")
+      OPEN (UNIT=MUNIT,FILE=cmesh)
 C
       WRITE(MUNIT,'(A)')'gmvinput ascii'
       WRITE(MUNIT,*)'nodes ',NVT
@@ -125,7 +125,7 @@ C
 C
 C
 C
-      OPEN (UNIT=MUNIT,FILE=CFILE,buffered="yes")
+      OPEN (UNIT=MUNIT,FILE=CFILE)
       IF (ICOUNT.EQ.1) WRITE (MUNIT,*) ' '
 C
       WRITE(MUNIT,*) "Velocities           4",ICOUNT,"'Featflow' 2 1 0"

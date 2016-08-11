@@ -255,14 +255,14 @@ C
 
       IF (myid.ne.0) THEN
 
-      IF (iCleanUp) THEN
-!        WRITE(*,*) myid,"Cleaning up the outflow subdomain ..."
-       DO IEL=1,NEL
-        IF (DMID(3,IEL).LT.-0.42) THEN
-         IPE(IEL) = 100
-        END IF
-       END DO
-      END IF
+!      IF (iCleanUp) THEN
+!!        WRITE(*,*) myid,"Cleaning up the outflow subdomain ..."
+!       DO IEL=1,NEL
+!        IF (DMID(3,IEL).LT.-0.42) THEN
+!         IPE(IEL) = 100
+!        END IF
+!       END DO
+!      END IF
 
       END IF
 

@@ -1599,7 +1599,7 @@ CHARACTER*12 cf
 iOutUnit = 442
 
 WRITE(cf,'(A,I1.1,A,I2.2,A)') "gmv_",iInd,'_',myid,".gmv"
-OPEN (UNIT=iOutUnit,FILE=cf,buffered="yes")
+OPEN (UNIT=iOutUnit,FILE=cf)
 
 WRITE(iOutUnit,'(A)')'gmvinput ascii'
 WRITE(iOutUnit,*)'nodes ',NoOfVert
@@ -1653,7 +1653,7 @@ CHARACTER*12 cf
 iOutUnit = 442
 
 WRITE(cf,'(A,I1.1,A,I2.2,A)') "gmv_",iInd,'_',myid,".gmv"
-OPEN (UNIT=iOutUnit,FILE=cf,buffered="yes")
+OPEN (UNIT=iOutUnit,FILE=cf)
 
 WRITE(iOutUnit,'(A)')'gmvinput ascii'
 WRITE(iOutUnit,*)'nodes ',NoOfVert

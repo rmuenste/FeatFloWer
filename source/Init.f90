@@ -531,8 +531,8 @@ CLOSE (myFile)
   WRITE(mfile,'(A,A)') "Meshfolder = ",cGridFileName
   WRITE(mterm,'(A,A)') "Meshfolder = ",cGridFileName
 
-  WRITE(mfile,'(A,I)') "nSubCoarseMesh = ",nSubCoarseMesh
-  WRITE(mterm,'(A,I)') "nSubCoarseMesh = ",nSubCoarseMesh
+  WRITE(mfile,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
+  WRITE(mterm,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
 
   WRITE(mfile,'(A,A)') "ParticleFile = ",cFBM_File
   WRITE(mterm,'(A,A)') "ParticleFile = ",cFBM_File
@@ -576,14 +576,14 @@ CLOSE (myFile)
   WRITE(mfile,'(A,D12.4)') "MaxSimTime = ", TIMEMX
   WRITE(mterm,'(A,D12.4)') "MaxSimTime = ", TIMEMX
 
-  WRITE(mfile,'(A,I)') "MaxNumStep = ", NITNS
-  WRITE(mterm,'(A,I)') "MaxNumStep = ", NITNS
+  WRITE(mfile,'(A,I10)') "MaxNumStep = ", NITNS
+  WRITE(mterm,'(A,I10)') "MaxNumStep = ", NITNS
 
-  WRITE(mfile,'(A,I)') "BackUpFreq = ", INSAV
-  WRITE(mterm,'(A,I)') "BackUpFreq = ", INSAV
+  WRITE(mfile,'(A,I10)') "BackUpFreq = ", INSAV
+  WRITE(mterm,'(A,I10)') "BackUpFreq = ", INSAV
 
-  WRITE(mfile,'(A,I)') "BackUpNum = ", INSAVN
-  WRITE(mterm,'(A,I)') "BackUpNum = ", INSAVN
+  WRITE(mfile,'(A,I10)') "BackUpNum = ", INSAVN
+  WRITE(mterm,'(A,I10)') "BackUpNum = ", INSAVN
 
   WRITE(mfile,'(A,D12.4)') "OutputFreq = ", DTGMV
   WRITE(mterm,'(A,D12.4)') "OutputFreq = ", DTGMV
@@ -603,8 +603,8 @@ CLOSE (myFile)
    WRITE(mterm,'(A)') "No Initial Mesh Adaptation"
   END IF
 
-  WRITE(mfile,'(A,I)') "Number of Umbrella smoothening steps",nUmbrellaSteps
-  WRITE(mterm,'(A,I)') "Number of Umbrella smoothening steps",nUmbrellaSteps
+  WRITE(mfile,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
+  WRITE(mterm,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
 
   IF (bNoOutflow) THEN 
    WRITE(mfile,'(A)') "Matrix modification is to be performed due to the NoOuflow Condition"
@@ -624,9 +624,9 @@ CLOSE (myFile)
    WRITE(mterm,'(A)') "FlowType = Newtonian"
   END IF
 
-  WRITE(mfile,'(4A,I3,3A,<nFields+1>A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
+  WRITE(mfile,'(4A,I3,3A,100A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
                         myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"!,mylength,iPos
-  WRITE(mterm,'(4A,I3,3A,<nFields+1>A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
+  WRITE(mterm,'(4A,I3,3A,100A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
                         myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"!,mylength,iPos
  END IF
 

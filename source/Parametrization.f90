@@ -51,7 +51,7 @@ INTEGER   iType
   cAux = ADJUSTL(TRIM(myParBndr(iBnds)%Types))
   iType = 0
   IF (cAux(1:6).EQ.'Inflow') THEN
-   READ(cAux(7:),'(I)') iType
+   READ(cAux(7:),'(I2)') iType
   END IF
 
   DO i=1,NVT
@@ -466,7 +466,7 @@ SUBROUTINE GetFileList()
  INTEGER lenCommand,i,iPos,LenStr,iEnd
 
  nBnds = 0
- OPEN(UNIT=1,NAME=ADJUSTL(TRIM(cProjectFile)))
+ OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFile)))
  DO
   READ(1,FMT='(40A)',IOSTAT=iEnd) string
   IF (iEnd.EQ.-1) EXIT
