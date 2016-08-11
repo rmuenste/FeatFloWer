@@ -1,0 +1,27 @@
+# find lib2ds includes and library
+#
+# LIB2DS_INCLUDE_DIR - where the lib2ds directory containing the headers can be
+#                      found
+# LIB2DS_LIBRARY     - full path to the lib2ds library
+# LIB2DS_FOUND       - TRUE if lib2ds was found
+
+FIND_LIBRARY(FEATFLOW_LAPACK_LIBRARY NAMES lapack
+             PATHS $ENV{FEATFLOW1_LIBDIR} )
+
+
+IF(FEATFLOW_LAPACK_LIBRARY)
+    MESSAGE(STATUS "Found liblapack library: ${FEATFLOW_LAPACK_LIBRARY}")
+ELSE(FEATFLOW_LAPACK_LIBRARY)
+    MESSAGE(STATUS "Could NOT find liblapack library.")
+ENDIF(FEATFLOW_LAPACK_LIBRARY)
+
+
+IF(FEATFLOW_LAPACK_LIBRARY)
+    SET(FEATFLOW_FEAT2D_FOUND TRUE)
+ELSE(FEATFLOW_LAPACK_LIBRARY)
+    SET(FEATFLOW_FEAT2D_FOUND FALSE)
+    IF(FEATFLOW_LAPACK_LIBRARY_FIND_REQUIRED)
+        MESSAGE(FATAL_ERROR "Featflow liblapack not found")
+    ENDIF(FEATFLOW_LAPACK_LIBRARY_FIND_REQUIRED)
+ENDIF(FEATFLOW_LAPACK_LIBRARY)
+

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+checkfoldernamename=$(ls | grep -w source)
+if [ "$checkfoldernamename" == "" ]
+then
+ echo "This is not a right folder (source is missing...)"
+ exit 1
+fi
+
+prefix=bu_ParQ2P1_
+suffix=$(date '+%y%m%d')
+foldernamename=$prefix$suffix
+checkfoldernamename=$(ls | grep -w $foldernamename)
+if [ "$checkfoldernamename" != "" ]
+then
+ suffix=$(date '+%y%m%d%H%M')
+ foldernamename=$prefix$suffix
+fi
+echo "The back up folder is" $foldernamename
+
+mkdir $foldernamename
+rm -rf source/*~
+rm -rf source/*/*~
+cp -r source $foldernamename/.
+mkdir $foldernamename/"_data"
+cp "_data"/*.dat "_data"/ProcCtrl.txt "_data"/feat.msg $foldernamename/"_data"/.
+mkdir $foldernamename/"_mesh"
+cp -r "_adc" $foldernamename/.
+cp -r "cmake" $foldernamename/.
+cp Makefile merger partitioner update LiDoscript Hostfile Description.txt CMakeLists.txt $foldernamename/.
+mkdir $foldernamename/"_gmv"
+mkdir $foldernamename/"_vtk"
+mkdir $foldernamename/"_ns"
+mkdir $foldernamename/"o"
+mkdir $foldernamename/"_gmv"/"frames"
+mkdir $foldernamename/"_gmv"/"temp"
+
+# aflag=
+# bflag=
+# while getopts 'adf:' OPTION
+# do
+# case $OPTION in
+# a)	aflag=1
+# ;;
+# d)	bflag=1
+# 	bval="$OPTARG"
+# ;;
+# ?)	printf "Usage: %s: [-a] [-b value] args\n" $(basename $0) >&2
+# exit 2
+# ;;
+# esac
+# done
+# shift $(($OPTIND - 1))
+# 
+# if [ "$aflag" ]
+# then
+# 	printf "Option -a specified\n"
+# fi
+# if [ "$bflag" ]
+# then
+# 	printf 'Option -b "%s" specified\n' "$bval"
+# fi
+# printf "Remaining arguments are: %s\n" "$*"

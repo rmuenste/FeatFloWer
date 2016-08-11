@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -o output.dat
+#PBS -l walltime=48:00:00,nodes=5,vmem=12360mb
+#PBS -q long_ib
+#PBS -N Particle_FC
+#PBS -j oe
+# Get definition of 'module' command
+
+### Dies ist ein Kommentar
+#cat $PBS_NODEFILE > $HOME/pbs-machine
+cd /home/superman/nobackup/feat1otto/release/micro_sw/swimmer/bu_ParQ2P1_MacroScallop13/bin
+mpirun -np 5 ./q2p1

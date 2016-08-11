@@ -1,0 +1,563 @@
+      SUBROUTINE GETNORMALNP_OLD(DLS,DNORM,KVERT,KAREA,
+     *           KEDGE,DCORVG,AVOL,ILEV,ELE)
+C
+      USE PP3D_MPI, ONLY: COMMSUM,myid
+C
+      IMPLICIT REAL*8 (A,C-H,O-U,W-Z),LOGICAL(B)
+      REAL*4 AVOL(*)
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6)
+      PARAMETER (NNDIM=3)
+      CHARACTER FMT*15,SUB*6,CPARAM*120
+      DIMENSION DLS(*),DNORM(*)
+      DIMENSION KVERT(NNVE,*),KEDGE(NNEE,*),KAREA(NNAE,*),DCORVG(3,*)
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+      REAL*8 DMASS(NAT),DNORMAL(3,NEL)
+      SAVE
+
+      CALL LCL1(DMASS,NAT)
+      CALL LCL1(DNORM,3*NAT)
+      CALL LCL1(DNORMAL,3*NEL)
+c
+      BDER(1)=.TRUE.
+      BDER(2)=.TRUE.
+      BDER(3)=.TRUE.
+      BDER(4)=.TRUE.
+C
+      IELTYP=-1
+      NDIM=1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP) 
+C
+      DO 100 IEL=1,NEL
+C 
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+
+C--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
+!       NJALFA=0
+!       NIALFA=0
+!       DO I=1,IDFL
+!         IG=KDFG(I)
+!         IF (DLS(IG).LE.0d0) THEN
+!          NJALFA=NJALFA+1
+!         ELSE
+!          NIALFA=NIALFA+1
+!         ENDIF
+!       ENDDO
+!       IF(NJALFA.EQ.6.OR.NIALFA.EQ.6) GOTO 100
+C--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
+      IF (IER.LT.0) GOTO 99999
+C
+      DO 110 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+110   CONTINUE
+C
+      PXM=0.125D0*(DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))
+      PYM=0.125D0*(DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8)) 
+      PZM=0.125D0*(DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8)) 
+C
+      CALL ELE(0D0,0D0,0D0,-2)
+      CALL ELE(PXM,PYM,PZM,-3)
+c
+      UH1X=0D0
+      UH1Y=0D0
+      UH1Z=0D0
+C
+      DO 210 JDOFE=1,IDFL   
+      IEQ=KDFG(JDOFE)
+      ILO=KDFL(JDOFE)
+C
+      UH1X=UH1X+DLS(IEQ)*DBAS(1,ILO,2)
+      UH1Y=UH1Y+DLS(IEQ)*DBAS(1,ILO,3)
+      UH1Z=UH1Z+DLS(IEQ)*DBAS(1,ILO,4)
+210   CONTINUE
+C
+      DNORMAL(1,IEL) = UH1X
+      DNORMAL(2,IEL) = UH1Y
+      DNORMAL(3,IEL) = UH1Z
+C
+100   CONTINUE
+C
+      DO IEL=1,NEL
+       DDD=SQRT(DNORMAL(1,IEL)**2+DNORMAL(2,IEL)**2+DNORMAL(3,IEL)**2)
+       DNORMAL(1,IEL)=DNORMAL(1,IEL)/DDD
+       DNORMAL(2,IEL)=DNORMAL(2,IEL)/DDD
+       DNORMAL(3,IEL)=DNORMAL(3,IEL)/DDD
+      END DO
+
+      DO IEL=1,NEL
+
+       DDX = DNORMAL(1,IEL)
+       DDY = DNORMAL(2,IEL)
+       DDZ = DNORMAL(3,IEL)
+       DDMASS = AVOL(IEL)/6d0
+
+       DO IAT=1,6
+        IAREA=KAREA(IAT,IEL)
+        DNORM(0*NAT+IAREA) = DNORM(0*NAT+IAREA) + DDMASS*DDX
+        DNORM(1*NAT+IAREA) = DNORM(1*NAT+IAREA) + DDMASS*DDY
+        DNORM(2*NAT+IAREA) = DNORM(2*NAT+IAREA) + DDMASS*DDZ
+        DMASS(      IAREA) = DMASS(      IAREA) + DDMASS
+       END DO
+
+      END DO
+
+      CALL COMMSUM(DNORM(0*NAT+1),ILEV)
+      CALL COMMSUM(DNORM(1*NAT+1),ILEV)
+      CALL COMMSUM(DNORM(2*NAT+1),ILEV)
+      CALL COMMSUM(DMASS(1  ),ILEV)
+
+      DO IAT= 1,NAT
+       IF (DMASS(IAT).NE.0d0) THEN
+        DNORM(0*NAT+IAT) = DNORM(0*NAT+IAT)/DMASS(IAT)
+        DNORM(1*NAT+IAT) = DNORM(1*NAT+IAT)/DMASS(IAT)
+        DNORM(2*NAT+IAT) = DNORM(2*NAT+IAT)/DMASS(IAT)
+        DDDD = SQRT(DNORM(0*NAT+IAT)**2+
+     *         DNORM(1*NAT+IAT)**2+DNORM(2*NAT+IAT)**2)
+        IF (DDDD.GT.0d0) THEN
+         DNORM(0*NAT+IAT) = DNORM(0*NAT+IAT)/DDDD
+         DNORM(1*NAT+IAT) = DNORM(1*NAT+IAT)/DDDD
+         DNORM(2*NAT+IAT) = DNORM(2*NAT+IAT)/DDDD
+        ELSE
+         DNORM(0*NAT+IAT) = 0d0
+         DNORM(1*NAT+IAT) = 0d0
+         DNORM(2*NAT+IAT) = 0d0
+        END IF
+       END IF
+      END DO
+
+99999 END
+C
+C
+C
+************************************************************************
+      SUBROUTINE SURFTENSNP(DA,D1,D2,D3,DNORM,DLS,DEPS,SIGMA,KCOLA,KLDA,
+     *        KVERT,KAREA,KEDGE,KINT,DCORVG,KADJ,TSTEP,ELE,IDEF)
+************************************************************************
+*     Discrete convection operator: Q1~ elements (nonparametric)
+*-----------------------------------------------------------------------
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
+      REAL*8  DA(*),D1(*),D2(*),D3(*),DLS(*),DNORM(*),DCORVG(NNDIM,*)
+      INTEGER KINT(*),KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+      INTEGER KLDA(*),KCOLA(*)
+      DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
+      INTEGER KADJ(NNAE,*)
+      INTEGER KDFG(NNBAS),KDFL(NNBAS)
+      REAL*8 SIGMA,KAPPA
+C
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+      INTEGER ELEMS(NEL)
+C
+      IF (SIGMA.EQ.0d0) RETURN
+C
+      ! Clean up surface tension operator
+      NA=KLDA(NU+1)-1
+      CALL LCL1(DA,NA)
+C
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB=9
+      CALL CB3H(ICUB)
+      IF (IER.NE.0) GOTO 99999
+C
+C *** Loop over all elements
+      DO 100 IEL=1,NEL
+
+      BSurfTens = .FALSE.
+
+      ILINT=KINT(IEL)
+C
+C *** Set zero elements of Jacobian for axiparallel grid
+      IF (ILINT.EQ.2) THEN
+       DJAC(1,3)=0D0
+       DJAC(2,3)=0D0
+       DJAC(3,1)=0D0
+       DJAC(3,2)=0D0
+      ENDIF
+C
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Determine entry positions in matrix
+      DO 110 JDOFE=1,IDFL
+      ILD=KLDA(KDFG(JDOFE))
+      KENTRY(JDOFE,JDOFE)=ILD
+      DENTRY(JDOFE,JDOFE)=0D0
+      JCOL0=ILD
+      DO 111 IDOFE=1,IDFL
+      IF (IDOFE.EQ.JDOFE) GOTO 111
+      IDFG=KDFG(IDOFE)
+      DO 112 JCOL=JCOL0,NA
+      IF (KCOLA(JCOL).EQ.IDFG) GOTO 113
+112   CONTINUE
+113   JCOL0=JCOL+1
+      KENTRY(JDOFE,IDOFE)=JCOL
+      DENTRY(JDOFE,IDOFE)=0D0
+111   CONTINUE
+110   CONTINUE
+C
+C *** Evaluation of coordinates of the vertices
+      DO 120 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+120   CONTINUE
+C
+      IF (ILINT.EQ.2) THEN
+       DJ11=(DX(2)+DX(4))*Q2
+       DJ12=(DY(2)+DY(4))*Q2
+       DJ13=(DZ(1)+DZ(5))*Q2
+       DJAC(1,1)=(-DX(1)+DX(2))*Q2
+       DJAC(2,1)=(-DY(1)+DY(2))*Q2
+       DJAC(1,2)=(-DX(1)+DX(4))*Q2
+       DJAC(2,2)=(-DY(1)+DY(4))*Q2
+       DJAC(3,3)=(-DZ(1)+DZ(5))*Q2
+       DETJ=DJAC(3,3)*(DJAC(1,1)*DJAC(2,2)-DJAC(2,1)*DJAC(1,2))
+      ELSE IF (ILINT.EQ.1) THEN
+       DJ11=(DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+       DJ12=(DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+       DJ13=(DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+       DJAC(1,1)=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+       DJAC(2,1)=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+       DJAC(3,1)=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+       DJAC(1,2)=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+       DJAC(2,2)=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+       DJAC(3,2)=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+       DJAC(1,3)=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+       DJAC(2,3)=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+       DJAC(3,3)=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      ELSE
+       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+       DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+       DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+       DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+       DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+       DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+       DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+       DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+       DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+       DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+       DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+       DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+       DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+       DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+       DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+       DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+       DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+       DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+       DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+       DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+       DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+       DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+       DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+      ENDIF
+C
+      CALL ELE(0D0,0D0,0D0,-2)
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Loop over all cubature points
+      DO 200 ICUBP=1,NCUBP
+C
+      XI1=DXI(ICUBP,1)
+      XI2=DXI(ICUBP,2)
+      XI3=DXI(ICUBP,3)
+C
+C *** Jacobian of the bilinear mapping onto the reference element
+      IF (ILINT.EQ.0) THEN
+       DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
+       DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
+       DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
+       DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
+       DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
+       DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
+       DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
+       DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
+       DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      ENDIF
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
+C
+      IF (ILINT.EQ.2) THEN
+       XX=DJ11+DJAC(1,1)*XI1+DJAC(1,2)*XI2
+       YY=DJ12+DJAC(2,1)*XI1+DJAC(2,2)*XI2
+       ZZ=DJ13+DJAC(3,3)*XI3
+      ELSE IF (ILINT.EQ.1) THEN
+       XX=DJ11+DJAC(1,1)*XI1+DJAC(1,2)*XI2+DJAC(1,3)*XI3
+       YY=DJ12+DJAC(2,1)*XI1+DJAC(2,2)*XI2+DJAC(2,3)*XI3
+       ZZ=DJ13+DJAC(3,1)*XI1+DJAC(3,2)*XI2+DJAC(3,3)*XI3
+      ELSE
+       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
+       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
+       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
+      ENDIF
+C
+      CALL ELE(XX,YY,ZZ,-3)
+      IF (IER.LT.0) GOTO 99999
+C
+C-----------------------------------------------------------------
+C     Evaluate the surface normal components in the cubature point
+C-----------------------------------------------------------------
+C
+       KAPPA =0D0     ! ALFA x deriv
+
+       DALV  =0D0     ! ALFA value
+       DALX  =0D0     ! ALFA x deriv
+       DALY  =0D0     ! ALFA y deriv
+       DALZ  =0D0     ! ALFA z deriv
+       DO I=1,IDFL
+         IG = KDFG(I)
+         KAPPA = KAPPA - DNORM(0*NAT+IG)*DBAS(1,KDFL(I),2) -
+     *                   DNORM(1*NAT+IG)*DBAS(1,KDFL(I),3)
+         DALV  = DALV  + DLS(IG)*DBAS(1,KDFL(I),1)
+         DALX  = DALX  + DLS(IG)*DBAS(1,KDFL(I),2)
+         DALY  = DALY  + DLS(IG)*DBAS(1,KDFL(I),3)
+         DALZ  = DALZ  + DLS(IG)*DBAS(1,KDFL(I),4)
+       ENDDO
+C
+       DW = DALV/DEPS/SQRT(DALX**2+DALY**2)
+       IF (ABS(DW).LT.1D0) THEN
+
+       BSurfTens = .TRUE.
+
+       DIRAC = 35D0/32D0*(1D0-3D0*DW**2+3D0*DW**4-DW**6)/DEPS
+C
+!        write(*,*) DIRAC,SIGMA,TSTEP,KAPPA
+       IF (IDEF.NE.0) THEN
+         DO I=1,IDFL
+           IG = KDFG(I)
+           D1(IG) = D1(IG) +
+     *     TSTEP*DIRAC*SIGMA*KAPPA*DALX*DBAS(1,KDFL(I),1)*OM
+           D2(IG) = D2(IG) +
+     *     TSTEP*DIRAC*SIGMA*KAPPA*DALY*DBAS(1,KDFL(I),1)*OM
+           D3(IG) = D3(IG) +
+     *     TSTEP*DIRAC*SIGMA*KAPPA*DALZ*DBAS(1,KDFL(I),1)*OM
+         ENDDO
+       END IF
+C
+!        DO J=1,IDFL
+!          HBASJ2 = DBAS(1,KDFL(J),2)
+!          HBASJ3 = DBAS(1,KDFL(J),3)
+!          HBASJ4 = DBAS(1,KDFL(J),4)
+!          DSCLPRODJ = DALX*HBASJ2 + DALY*HBASJ3 + DALZ*HBASJ4
+!          HBASJ2 = HBASJ2 - DSCLPRODJ*DALX
+!          HBASJ3 = HBASJ3 - DSCLPRODJ*DALY
+!          HBASJ4 = HBASJ4 - DSCLPRODJ*DALZ
+!          DO I=1,IDFL
+!            HBASI2 = DBAS(1,KDFL(I),2)
+!            HBASI3 = DBAS(1,KDFL(I),3)
+!            HBASI4 = DBAS(1,KDFL(I),4)
+!            DSCLPRODI = DALX*HBASI2 + DALY*HBASI3 + DALZ*HBASI4
+!            HBASI2 = HBASI2 - DSCLPRODI*DALX
+!            HBASI3 = HBASI3 - DSCLPRODI*DALY
+!            HBASI4 = HBASI4 - DSCLPRODI*DALZ
+!            HSUM   = HBASI2*HBASJ2 + HBASI3*HBASJ3 + HBASI4*HBASJ4
+!            AH     = TSTEP*SIGMA*DIRAC*HSUM
+!            DENTRY(J,I) = DENTRY(J,I) - AH*OM
+!          ENDDO
+!        ENDDO
+
+       END IF
+C
+C--------------------------------------------------------------
+C
+200   CONTINUE !cubarure points
+C
+!        IF (BSurfTens) THEN
+!         DO J=1,IDFL
+!           DO I=1,IDFL
+!            DA(KENTRY(J,I)) = DA(KENTRY(J,I)) + DENTRY(J,I)*TSTEP!
+! !            WRITE(*,*) IEL,J,I,DA(KENTRY(J,I))
+!           ENDDO
+!         ENDDO
+! !         PAUSE
+!        END IF
+C
+C
+100   CONTINUE !elements
+C
+99999 END
+
+      SUBROUTINE GETNORMALNP(DLS,DNORM,KVERT,KAREA,
+     *           KEDGE,DCORVG,AVOL,ILEV,ELE)
+C
+      USE PP3D_MPI, ONLY: COMMSUM,myid
+C
+      IMPLICIT REAL*8 (A,C-H,O-U,W-Z),LOGICAL(B)
+      REAL*4 AVOL(*)
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6)
+      PARAMETER (NNDIM=3)
+      CHARACTER FMT*15,SUB*6,CPARAM*120
+      DIMENSION DLS(*),DNORM(*)
+      DIMENSION KVERT(NNVE,*),KEDGE(NNEE,*),KAREA(NNAE,*),DCORVG(3,*)
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+      REAL*8 DMASS(NAT),DNORMAL(3,NEL)
+      SAVE
+
+      CALL LCL1(DMASS,NAT)
+      CALL LCL1(DNORM,3*NAT)
+      CALL LCL1(DNORMAL,3*NEL)
+c
+      BDER(1)=.TRUE.
+      BDER(2)=.TRUE.
+      BDER(3)=.TRUE.
+      BDER(4)=.TRUE.
+C
+      IELTYP=-1
+      NDIM=1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP) 
+C
+      DO 100 IEL=1,NEL
+C 
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+
+C--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
+!       NJALFA=0
+!       NIALFA=0
+!       DO I=1,IDFL
+!         IG=KDFG(I)
+!         IF (DLS(IG).LE.0d0) THEN
+!          NJALFA=NJALFA+1
+!         ELSE
+!          NIALFA=NIALFA+1
+!         ENDIF
+!       ENDDO
+!       IF(NJALFA.EQ.6.OR.NIALFA.EQ.6) GOTO 100
+C--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
+      IF (IER.LT.0) GOTO 99999
+C
+      DO 110 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+110   CONTINUE
+C
+      PXM=0.125D0*(DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))
+      PYM=0.125D0*(DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8)) 
+      PZM=0.125D0*(DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8)) 
+C
+      CALL ELE(0D0,0D0,0D0,-2)
+      CALL ELE(PXM,PYM,PZM,-3)
+c
+      UH1X=0D0
+      UH1Y=0D0
+      UH1Z=0D0
+C
+      DO 210 JDOFE=1,IDFL   
+      IEQ=KDFG(JDOFE)
+      ILO=KDFL(JDOFE)
+C
+      UH1X=UH1X+DLS(IEQ)*DBAS(1,ILO,2)
+      UH1Y=UH1Y+DLS(IEQ)*DBAS(1,ILO,3)
+      UH1Z=UH1Z+DLS(IEQ)*DBAS(1,ILO,4)
+210   CONTINUE
+C
+      DNORMAL(1,IEL) = UH1X
+      DNORMAL(2,IEL) = UH1Y
+      DNORMAL(3,IEL) = UH1Z
+C
+100   CONTINUE
+C
+      DO IEL=1,NEL
+
+       DDX = DNORMAL(1,IEL)
+       DDY = DNORMAL(2,IEL)
+       DDZ = DNORMAL(3,IEL)
+       DDMASS = AVOL(IEL)/6d0
+
+       DO IAT=1,6
+        IAREA=KAREA(IAT,IEL)
+        DNORM(0*NAT+IAREA) = DNORM(0*NAT+IAREA) + DDMASS*DDX
+        DNORM(1*NAT+IAREA) = DNORM(1*NAT+IAREA) + DDMASS*DDY
+        DNORM(2*NAT+IAREA) = DNORM(2*NAT+IAREA) + DDMASS*DDZ
+        DMASS(      IAREA) = DMASS(      IAREA) + DDMASS
+       END DO
+
+      END DO
+
+      CALL COMMSUM(DNORM(0*NAT+1),ILEV)
+      CALL COMMSUM(DNORM(1*NAT+1),ILEV)
+      CALL COMMSUM(DNORM(2*NAT+1),ILEV)
+      CALL COMMSUM(DMASS(1  ),ILEV)
+
+      DO IAT= 1,NAT
+       IF (DMASS(IAT).NE.0d0) THEN
+        DNORM(0*NAT+IAT) = DNORM(0*NAT+IAT)/DMASS(IAT)
+        DNORM(1*NAT+IAT) = DNORM(1*NAT+IAT)/DMASS(IAT)
+        DNORM(2*NAT+IAT) = DNORM(2*NAT+IAT)/DMASS(IAT)
+       END IF
+      END DO
+
+99999 END
+C
+C
+C

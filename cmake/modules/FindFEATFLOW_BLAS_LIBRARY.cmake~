@@ -1,0 +1,27 @@
+# find lib2ds includes and library
+#
+# LIB2DS_INCLUDE_DIR - where the lib2ds directory containing the headers can be
+#                      found
+# LIB2DS_LIBRARY     - full path to the lib2ds library
+# LIB2DS_FOUND       - TRUE if lib2ds was found
+
+FIND_LIBRARY(FEATFLOW_BLAS_LIBRARY NAMES blas
+             PATHS $ENV{FEATFLOW1_LIBDIR} )
+
+
+IF(FEATFLOW_BLAS_LIBRARY)
+    MESSAGE(STATUS "Found libblas library: ${FEATFLOW_BLAS_LIBRARY}")
+ELSE(FEATFLOW_BLAS_LIBRARY)
+    MESSAGE(STATUS "Could NOT find libblas library.")
+ENDIF(FEATFLOW_BLAS_LIBRARY)
+
+
+IF(FEATFLOW_BLAS_LIBRARY)
+    SET(FEATFLOW_FEAT2D_FOUND TRUE)
+ELSE(FEATFLOW_BLAS_LIBRARY)
+    SET(FEATFLOW_FEAT2D_FOUND FALSE)
+    IF(FEATFLOW_BLAS_LIBRARY_FIND_REQUIRED)
+        MESSAGE(FATAL_ERROR "Featflow libblas not found")
+    ENDIF(FEATFLOW_BLAS_LIBRARY_FIND_REQUIRED)
+ENDIF(FEATFLOW_BLAS_LIBRARY)
+
