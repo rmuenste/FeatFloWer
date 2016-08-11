@@ -1,0 +1,11 @@
+*.[oa]
+*~
+*.tri
+_vtk/*
+_adc/*
+_mesh/*
+*.par
+*.vtk
+*.swp
+
+
