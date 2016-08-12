@@ -4,22 +4,14 @@
 
       real*8 :: PolyFLOW_Carreau
       real*8, intent (in) :: NormShearSquare
-      real*8 myTime,dt
 
-      REAL*8 :: dN,dValue,shearRate,istep
+      REAL*8 :: dN
 
       dN = Properties%PowerLawExp-1d0
-      dValue = 
-     *Properties%Viscosity(1)*(1d-4 + NormShearSquare**2d0)**dN
-      PolyFLOW_Carreau= MAX(Properties%Viscosity(1),dValue)
-!       shearRate = sqrt(NormShearSquare)
-!       PolyFLOW_Carreau = 1d0 !GetViscFunc(shearRate)
+      PolyFLOW_Carreau = 
+     *Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
 
-!      shearRate = dsqrt(NormShearSquare)
-!      PolyFLOW_Carreau = GetViscFunc(shearRate)
-
-c      write(*,*)'shearRate/visc: ',shearRate,HogenPowerlaw
-
+!      WRITE(*,*) Properties%Viscosity(1), NormShearSquare,dN
       RETURN
       END
 

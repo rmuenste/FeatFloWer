@@ -87,6 +87,13 @@ IF (iT.EQ.1) THEN
    END IF
 END IF
 
+IF (iT.EQ.2) THEN
+ dScale=0.2d0*(3d0/2d0)/(0.205d0*0.205d0)
+ ValU=dScale*Y*(0.41d0-Y)
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.EQ.6) THEN
  dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)*sin(t*PI/8d0)
  ValU=dScale*Y*(0.41d0-Y)*Z*(0.41d0-Z)

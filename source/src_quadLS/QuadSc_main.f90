@@ -1084,7 +1084,8 @@ END SUBROUTINE FBM_GetForces
 !
 SUBROUTINE FAC_GetForces(mfile)
 INTEGER mfile
-REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
+!REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
+REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
 REAL*8 :: Force2(3)
 INTEGER i,nn
 EXTERNAL E013
