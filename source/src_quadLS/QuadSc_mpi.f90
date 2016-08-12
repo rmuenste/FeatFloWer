@@ -11,6 +11,9 @@ ALLOCATE(MGE013(ILEV)%SP(subnodes))
 
 ! Get the number of elements that are needed from the other side 
 DO pID=1,subnodes
+ MGE013(ILEV)%SP(pID)%nElems = (/0, 0/)
+ MGE013(ILEV)%SP(pID)%nEntries = (/0, 0/)
+ MGE013(ILEV)%SP(pID)%Num = 0 
  IF (MGE013(ILEV)%ST(pID)%Num.GT.0.AND.pID.NE.myid) THEN
   ELEMS = 0
   DO I=1,MGE013(ILEV)%ST(pID)%Num
@@ -25,6 +28,7 @@ DO pID=1,subnodes
    IF (ELEMS(IEL).NE.0) NNEL=NNEL+1
   END DO
   MGE013(ILEV)%SP(pID)%nElems(1) = NNEL
+  !write(*,*) myid, "nElems=", NNEL
  END IF
 END DO
 
@@ -34,12 +38,15 @@ DO pID=1,subnodes
   DO pJD=1,subnodes
    IF (myid.NE.pJD) THEN
     CALL RECVI_myMPI(NNEL,pJD)
+    !write(*,*) "r:",myid,PJD,NNEL    
     MGE013(ILEV)%SP(pJD)%nElems(2) = NNEL
    END IF
   END DO
  ELSE
   NNEL = MGE013(ILEV)%SP(pID)%nElems(1)
+  !write(*,*) "s:",myid,PID,NNEL  
   CALL SENDI_myMPI(NNEL ,pID)
+
  END IF
 END DO
 
@@ -60,8 +67,11 @@ DO pID=1,subnodes
   END DO
   MGE013(ILEV)%SP(pID)%Num = MAX(MGE013(ILEV)%SP(pID)%nElems(1),MGE013(ILEV)%SP(pID)%nElems(2))
   ALLOCATE(MGE013(ILEV)%SP(pID)%VertLink(2,MGE013(ILEV)%SP(pID)%Num))
+  MGE013(ILEV)%SP(pID)%VertLink(:,:)=0
   ALLOCATE(MGE013(ILEV)%SP(pID)%SDVect(4*MGE013(ILEV)%SP(pID)%Num))
+  MGE013(ILEV)%SP(pID)%SDVect=0d0
   ALLOCATE(MGE013(ILEV)%SP(pID)%RDVect(4*MGE013(ILEV)%SP(pID)%Num))
+  MGE013(ILEV)%SP(pID)%RDVect=0d0
   NNEL = 0
   DO IEL=1,NEL
    IF (ELEMS(IEL).NE.0) THEN
@@ -81,11 +91,13 @@ DO pID=1,subnodes
    NNEL = NNEL + 1
    MNEL = MNEL + 1
    MGE013(ILEV)%SP(pID)%VertLink(2,NNEL) = MNEL
+   !WRITE(*,*) MGE013(ILEV)%SP(pID)%VertLink(1:2,1)
   END DO
  END IF
 END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
 
 END
 !
@@ -245,6 +257,7 @@ DO pID=1,subnodes
      MGE013(ILEV)%SP(pJD)%nEntries(2) = NNEL
      NNEL = MGE013(ILEV)%ST(pJD)%Num
      ALLOCATE (EntNumR(pJD)%a(NNEL))
+     EntNumR(pJD)%a=0
      CALL RECVK_myMPI(EntNumR(pJD)%a,NNEL,pJD)
 !      WRITE(789,*) "from - ",pJD
 !      WRITE(789,*) EntNumR(pJD)%a
@@ -314,10 +327,15 @@ DO pID=1,subnodes
    END DO
 
    ALLOCATE (KCOL_E(MGE013(ILEV)%SP(pID)%nEntries(1)))
+   KCOL_E=0
    ALLOCATE (KLD_E(MGE013(ILEV)%ST(pID)%Num+1))
+   KLD_E=0
    ALLOCATE (MAT_EX(4*MGE013(ILEV)%SP(pID)%nEntries(1)))
+   MAT_EX=0
    ALLOCATE (MAT_EY(4*MGE013(ILEV)%SP(pID)%nEntries(1)))
+   MAT_EY=0
    ALLOCATE (MAT_EZ(4*MGE013(ILEV)%SP(pID)%nEntries(1)))
+   MAT_EZ=0
 
    DO IEL=2,NEL
     ELEMS(IEL) = ELEMS(IEL) + ELEMS(IEL-1)
@@ -361,12 +379,17 @@ DO pID=1,subnodes
 
      NNEL = MGE013(ILEV)%ST(pJD)%Num+1
      ALLOCATE (KLD_E(NNEL))
+     KLD_E=0
      CALL RECVK_myMPI(KLD_E,NNEL,pJD)
      NNEL = MGE013(ILEV)%SP(pJD)%nEntries(2)
      ALLOCATE (KCOL_E(NNEL))
+     KCOL_E=0
      ALLOCATE (MAT_EX(4*NNEL))
      ALLOCATE (MAT_EY(4*NNEL))
      ALLOCATE (MAT_EZ(4*NNEL))
+     MAT_EX=0
+     MAT_EY=0
+     MAT_EZ=0     
      CALL RECVK_myMPI(KCOL_E,NNEL,pJD)
      CALL RECVD_myMPI(MAT_EX,4*NNEL,pJD)
      CALL RECVD_myMPI(MAT_EY,4*NNEL,pJD)
@@ -692,9 +715,9 @@ DO pID=1,subnodes
     P2X = CoorSP(pID)%dCoor(1,J)
     P2Y = CoorSP(pID)%dCoor(2,J)
     P2Z = CoorSP(pID)%dCoor(3,J)
-    IF (((ABS(P1X-P2X).LT.DEpsPrec)).AND.&
-        ((ABS(P1Y-P2Y).LT.DEpsPrec)).AND.&
-        ((ABS(P1Z-P2Z).LT.DEpsPrec))) THEN
+    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorSP(pID)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorSP(pID)%iCoor(J)
@@ -1054,9 +1077,9 @@ DO pID=1,subnodes
     P2X = CoorST(myid)%dCoor(1,J)
     P2Y = CoorST(myid)%dCoor(2,J)
     P2Z = CoorST(myid)%dCoor(3,J)
-    IF (((ABS(P1X-P2X).LT.DEpsPrec)).AND.&
-        ((ABS(P1Y-P2Y).LT.DEpsPrec)).AND.& 
-        ((ABS(P1Z-P2Z).LT.DEpsPrec))) THEN
+    IF ((ABS(P1X-P2X).LT.1D-5).AND.&
+        (ABS(P1Y-P2Y).LT.1D-5).AND.&
+        (ABS(P1Z-P2Z).LT.1D-5)) THEN
      jAux = jAux + 1
     END IF
    END DO
@@ -1087,9 +1110,9 @@ DO pID=1,subnodes
     P2X = CoorST(myid)%dCoor(1,J)
     P2Y = CoorST(myid)%dCoor(2,J)
     P2Z = CoorST(myid)%dCoor(3,J)
-    IF (((ABS(P1X-P2X).LT.DEpsPrec)).AND.&
-        ((ABS(P1Y-P2Y).LT.DEpsPrec)).AND.& 
-        ((ABS(P1Z-P2Z).LT.DEpsPrec))) THEN
+    IF ((ABS(P1X-P2X).LT.1D-5).AND.&
+        (ABS(P1Y-P2Y).LT.1D-5).AND.&
+        (ABS(P1Z-P2Z).LT.1D-5)) THEN
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
@@ -1472,6 +1495,7 @@ DO pID=1,subnodes
   DO pJD=1,subnodes
    IF (myid.NE.pJD.AND.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
      nSize = MGE013(ILEV)%SP(pJD)%nElems(2)
+     !write(*,*) "r", myid, pJD, nsize     
      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
      DO I=1,nSize
       II = 4*(I-1)+1
@@ -1495,12 +1519,14 @@ DO pID=1,subnodes
     MGE013(ILEV)%SP(pID)%SDVect(II+2) = P(JJ+2)
     MGE013(ILEV)%SP(pID)%SDVect(II+3) = P(JJ+3)
    END DO
+   !write(*,*) "s", myid, pID, nsize
    CALL SENDD_myMPI(MGE013(ILEV)%SP(pID)%SDVect,4*nSIZE,pID)
   END IF
  END IF
 END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
 
 ! JJ = 0
 ! DO pID=1,subnodes

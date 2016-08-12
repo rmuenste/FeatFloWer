@@ -1995,8 +1995,8 @@ END IF
 
 IF (nINL.EQ.0) THEN
  IF (PRESENT(cTitle)) THEN
-  WRITE(MTERM,4) cTitle
-  WRITE(MFILE,4) cTitle
+  WRITE(MTERM,4) !cTitle
+  WRITE(MFILE,4) !cTitle
  ELSE
   WRITE(MTERM,5)
   WRITE(MFILE,5)
@@ -2036,6 +2036,7 @@ INTEGER nINL,mfile
 INTEGER i,length
 CHARACTER C0*14,C1*14,C2*14,C3*14,C4*14,C5*14
 CHARACTER, OPTIONAL:: cTitle*(*)
+return
 
 IF (myid.eq.showID) THEN
 length =  LEN(myScalar%cName)

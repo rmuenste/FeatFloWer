@@ -22,63 +22,7 @@ INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
 REAL*8 tttt0,tttt1
 
-type t_fish
-  real*8 :: fScale = 0.075d0
-  real*8 :: barTop,barBot,barLength,barHeight,radius,period,ratio,barThick
-  real*8 :: t_glide,t_close,t_pause,t_open
-  real*8, dimension(2) :: centerRotDisp(2)
-  real*8 :: myCenterY,myVelY,myVelX
-  real*8 :: forceZ
-end type
-
-type(t_fish) :: myFish
-
 CONTAINS
-!
-! ----------------------------------------------
-!
-SUBROUTINE InitFish()
-IMPLICIT NONE
-
- myFish%period    = 4.6d0
- myFish%ratio     = 10.0d0/11.0d0  !0.87 
-
- myFish%barLength = 0.45d0 * myFish%fScale
- myFish%barLength = 0.525d0 * myFish%fScale 
- myFish%barHeight = 0.05d0 * myFish%fScale
- myFish%barThick  = 0.01
- myFish%radius    = 0.125d0 * myFish%fScale
- myFish%radius    = 0.0075d0
-
- myFish%t_open    = 3.4d0 !myFish%ratio * myFish%period
- myFish%t_pause   = 3.4d0
-
- myFish%t_close   = 4.0d0
- myFish%t_glide   = 4.6d0
-
- if(myid.eq.1)write(*,*)'radius: ',myFish%radius
- 
- !myFish%centerRotDisp(1) = 0.04d0 * myFish%fScale
- myFish%centerRotDisp(1) = 0.09d0 * myFish%fScale 
- myFish%centerRotDisp(2) = 0.07d0 * myFish%fScale
- 
- myFish%centerRotDisp(1) = 0.04d0 * myFish%fScale 
- !myFish%centerRotDisp(2) = 0.07d0 * myFish%fScale 
- 
- !myFish%centerRotDisp(2) = 0.1d0 * myFish%fScale 
- 
- myFish%forceZ = 0.0d0
-
- myFish%barTop  = myFish%centerRotDisp(1) + myFish%barHeight * 0.5d0
- myFish%barBot  = myFish%centerRotDisp(1) - myFish%barHeight * 0.5d0
- 
- myFish%myCenterY=0.1275d0
- myFish%myVelY=0.0d0
- myFish%myVelX=0.0d0  
- if(myid.eq.1)write(*,*)'center: ',myFish%myCenterY
- if(myid.eq.1)write(*,*)'vel: ',myFish%myVelY  
-
-end subroutine
 !
 ! ----------------------------------------------
 !
@@ -501,8 +445,6 @@ INTEGER I,J,ndof,mfile,LevDif
 
  CALL InitializeProlRest(QuadSc,LinSc)
 
- CALL readViscFunc()
-
 !  CALL OperatorRegenaration(1)
 
 ! CALL FAC_GetForces(1)
@@ -706,7 +648,6 @@ END SUBROUTINE QuadScalar_FictKnpr
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_MixerKnpr(dcorvg,dcorag,kvert,kedge,karea)
-implicit none
 REAL*8  dcorvg(3,*),dcorag(3,*)
 INTEGER kvert(8,*),kedge(12,*),karea(6,*)
 REAL*8 PX,PY,PZ,DIST
@@ -719,7 +660,7 @@ DO i=1,nvt
  PX = dcorvg(1,I)
  PY = dcorvg(2,I)
  PZ = dcorvg(3,I)
- CALL GetMixerKnpr(PX,PY,PZ,myFish%myCenterY,QuadScBoundary(i),MixerKNPR(i),Distamce(i),timens)
+ CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(i),MixerKNPR(i),Distamce(i),timens)
 END DO
 
 k=1
@@ -731,7 +672,7 @@ DO i=1,nel
    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   CALL GetMixerKnpr(PX,PY,PZ,myFish%myCenterY,QuadScBoundary(nvt+k),MixerKNPR(nvt+k),Distamce(nvt+k),timens)
+   CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),MixerKNPR(nvt+k),Distamce(nvt+k),timens)
    k = k + 1
   END IF
  END DO
@@ -748,7 +689,7 @@ DO i=1,nel
    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   CALL GetMixerKnpr(PX,PY,PZ,myFish%myCenterY,QuadScBoundary(nvt+net+k),MixerKNPR(nvt+net+k),Distamce(nvt+net+k),timens)
+   CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),MixerKNPR(nvt+net+k),Distamce(nvt+net+k),timens)
    k = k + 1
   END IF
  END DO
@@ -770,7 +711,7 @@ DO i=1,nel
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
  END DO
- CALL GetMixerKnpr(PX,PY,PZ,myFish%myCenterY,QuadScBoundary(nvt++net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
+ CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
 END DO
 
 END SUBROUTINE QuadScalar_MixerKnpr
@@ -1602,167 +1543,6 @@ DO i=1,nnn
 END DO
 
 END SUBROUTINE  StoreOrigCoor
-!
-! ----------------------------------------------
-!
-SUBROUTINE CalculateFishForce(itns,mfile)
-INTEGER mfile,i,ip,itns
-REAL*8 FishForce(3),myPI,daux
-Real*8 mass,density,dt,dv,tp,mass2,meanForce,volume,dfluid,massDiff,gravEffect
-REAL*8 :: PI = 4d0*ATAN(1d0)
-EXTERNAL E013
-
-ILEV=NLMAX
-CALL SETLEV(2)
-
-density = 1100.0d0
-dfluid  = 960.0d0
-
-!      dens    *  vol_bar  +  vol_cylinder
-mass = density * (myFish%barHeight*myFish%barLength*myFish%barThick + (PI*myFish%barThick*myFish%radius**2/2.0))
-
-mass2 = 1.0 * 2.0d0 * (0.000825 + (0.002455/2.0))
-
-volume = (myFish%radius)**3 * (4.0/3.0) * PI
-
-mass2 = ((myFish%radius)**3 * (4.0/3.0) * PI)*density
-
-mass2 = volume * density
-
-if(myid.eq.1)then
-  write(*,*)'mass/mass2: ',mass,mass2
-end if
-
-dt = tstep
-
-CALL GetFishForce(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
- LinSc%valP(NLMAX)%x,MixerKNPR,& !How separate????
- KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
- DWORK(L(LCORVG)),Viscosity,FishForce,E013)
-
-FishForce(1) = FishForce(1) + (-FishForce(1))
-
-meanForce = (myFish%forceZ + FishForce(3)) * 0.5d0
-
-dv = dt * meanForce/mass2
-
-myFish%forceZ = FishForce(3)
-
-!myFish%myVelY = myFish%myVelY + dv
-
-gravEffect = volume * (density - dfluid) * (1.0d0/mass2) * -9.81d0
-
-!myFish%myVelY = myFish%myVelY + dt * (gravEffect)
-
-!myFish%myCenterY = myFish%myCenterY + dt * (myFish%myVelY)
-
-IF (myid.eq.showID) THEN
-  WRITE(MTERM,5)
-  WRITE(MFILE,5)
-  write(mfile,'(A,4D12.4)') "Force_acting_on_the_fish: ",timens,FishForce(1:3)
-  write(mterm,'(A,4D12.4)') "Force_acting_on_the_fish: ",timens,FishForce(1:3)
-  write(mfile,'(A,2D12.4)') "Fish y-position: ",timens,myFish%myCenterY
-  write(mterm,'(A,2D12.4)') "Fish y-position: ",timens,myFish%myCenterY
-  write(mfile,'(A,2D12.4)') "Fish y-vel: ",timens,myFish%myVelY
-  write(mterm,'(A,2D12.4)') "Fish y-vel: ",timens,myFish%myVelY
-  write(mfile,'(A,2D12.4)') "Fish y-force: ",timens,FishForce(3)
-  write(mterm,'(A,2D12.4)') "Fish y-force: ",timens,FishForce(3)
-
-  
-END IF
-
-5  FORMAT(100('-'))
-
-END SUBROUTINE CalculateFishForce
-
-!
-! ----------------------------------------------
-!
-subroutine readViscFunc()
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid,SENDD_myMPI,RECVD_myMPI,subnodes
-USE var_QuadScalar, ONLY:myViscFunc
-IMPLICIT NONE
-
-INTEGER :: i, pid, j, nValues, io_error
-INTEGER :: myFile=555
-REAL*8  :: s,v
-
-!ALLOCATE(myViscFunc%visc(66),myViscFunc%shear_rate(66))
-
-if(myid.eq.0)then
-
-OPEN (UNIT=myFile,FILE='visc_func.txt',status='old',action='read',iostat=io_error)
-
- if(io_error == 0)then
-   do i=1,66
-     read(myFile,*) myViscFunc%shear_rate(i), myViscFunc%visc(i)
-     myViscFunc%visc(i) = myViscFunc%visc(i) * 0.1d0
-     !write(*,*)" shearrate/visc: ",myViscFunc%shear_rate(i),myViscFunc%visc(i)
-   end do
- end if
-
-CLOSE(unit=myFile)
-
-end if
-
-! master scatters data to non-master processes
-nValues=66
-IF(myid.eq.0)THEN
-  ! send to the other processes
-  DO pID=1,subnodes
-    CALL SENDD_myMPI(myViscFunc%shear_rate,nValues,pID)
-  END DO
-ELSE
- ! non-master processes receive data from master
- CALL RECVD_myMPI(myViscFunc%shear_rate,nValues,0)
-END IF
-
-IF(myid.eq.0)THEN
-  ! send to the other processes
-  DO pID=1,subnodes
-    CALL SENDD_myMPI(myViscFunc%visc,nValues,pID)
-  END DO
-ELSE
- ! non-master processes receive data from master
- CALL RECVD_myMPI(myViscFunc%visc,nValues,0)
-END IF
-
-end subroutine
-!
-! ----------------------------------------------
-!
-REAL FUNCTION GetViscFunc(shearRate)
-USE var_QuadScalar, ONLY:myViscFunc
-IMPLICIT NONE
-
-real*8 :: shearRate
-integer :: i
-real*8 alpha,myCap
-real*8 :: s_min,s_max,v_min,v_max
-
-s_min = 0.0
-s_max = 40.0
-v_min = 0.1
-v_max = 2.1
-
-if(shearRate .le. s_min)then
-  GetViscFunc = v_min
-  return
-else if(shearRate .gt. s_max)then
-  GetViscFunc = v_max  
-  return
-else
-  alpha = (shearRate - s_min)/(s_max-s_min)
-  GetViscFunc  = (1.0d0-alpha) * v_min + alpha * v_max  
-end if
-
-RETURN
-
-END FUNCTION
-!
-! ----------------------------------------------
-!
 
 END MODULE QuadScalar
 

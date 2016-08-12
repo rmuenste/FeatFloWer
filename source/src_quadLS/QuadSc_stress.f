@@ -1,5 +1,5 @@
       FUNCTION PolyFLOW_Carreau(NormShearSquare)
-      USE QuadScalar, ONLY : Properties, GetViscFunc
+      USE QuadScalar, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: PolyFLOW_Carreau

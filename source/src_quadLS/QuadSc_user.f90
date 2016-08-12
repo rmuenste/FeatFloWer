@@ -103,114 +103,91 @@ RETURN
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------
-SUBROUTINE GetMixerKnpr(X,Y,Z,myCenterY,iBndr,inpr,D,t)
-use QuadScalar, only: myFish
+SUBROUTINE GetMixerKnpr(X,Y,Z,iBndr,inpr,D,t)
 IMPLICIT NONE
 REAL*8 X,Y,Z,t,d
-REAL*8 :: PI = 4d0*ATAN(1d0)
-REAL*8 :: XT,YT,ZT,XB,YB,ZB,dAlpha
-REAL*8 :: myCenterY, myCenterRotY
-REAL*8 :: dist1,dist2,t_i
-INTEGER :: iBndr,inpr,iRot
+REAL*8 :: PI = 6.283185307179586232
+INTEGER :: inpr,iBndr
+REAL*8 :: RX0=0d0,RY0=0d0
+REAL*8 :: DA=0.268d0,DB=1.d0
+REAL*8 :: RAD = 0.145d0,dAlpha,XT,YT,ZT,XB,YB,ZB
+REAL*8 :: dBeta,XTT,YTT,ZTT,dist
+REAL*8 :: mBottom=0.15d0,mTop=0.55d0,mThickness=0.2d0
+REAL*8 dScale
 
 inpr = 0
+RETURN
+!IF (iBndr.NE.0) RETURN
+d=1d0
 
-myCenterRotY = myCenterY+myFish%centerRotDisp(2)
-
-dist1 = sqrt(x*x + y*y + (z-myCenterY)*(z-myCenterY)) - myFish%radius
-
-IF (dist1.lt.0d0) THEN
- inpr = 1
- D=dist1
-END IF
-
-XB = X - myFish%centerRotDisp(1)
-YB = Y - myCenterRotY
+! First screw
+XB = X
+YB = Y-0.125
 ZB = Z
 
-! !
-! iRot = INT(t/myFish%period)
-! t_i  = t - iRot*myFish%period
-! 
-! IF (t_i.le.myFish%t_open) THEN
-!  dAlpha =  0.601d0*(t_i/myFish%t_open)*PI + 0.025d0*PI
-! ! ELSEIF(t_i.le.myFish%t_pause)then
-! !  dAlpha =  0.626d0*PI
-! !elseif(t_i.le.myFish%t_close)then
-! else if(t_i.le.myFish%t_close)then
-!  dAlpha = -0.601d0*((t_i-myFish%t_pause)/(myFish%t_close-myFish%t_pause))*PI+ 0.626d0*PI
-! ELSE
-!  dAlpha = 0.025d0*PI 
-! End IF
-! 
-! XT = XB*cos(dAlpha) - YB*sin(dAlpha) + myFish%centerRotDisp(1)
-! YT = XB*sin(dAlpha) + YB*cos(dAlpha) + myCenterRotY
-! ZT = ZB
+! First the point needs to be transformed back to time = 0
+dAlpha = -t*PI
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
 
-! XT = XB
-! YT = XB
-! ZT = ZB
-! 
-! 
-! dist2 = -min(xT-myFish%barBot,-xT+myFish%barTop,yT-myCenterY,-yT+(myFish%barLength + myFish%centerRotDisp(1) + myCenterY)) 
-! IF (dist2.lt.0d0) THEN
-!  IF (inpr.ne.101) inpr = 102
-! END IF
-! 
-! D = MIN(dist1,dist2)
+! Next the point needs to be transformed back to Z = 0 level
+dBeta = -(ZT-mBottom)/(mThickness)*PI
+XTT = XT*cos(dBeta) - YT*sin(dBeta)
+YTT = XT*sin(dBeta) + YT*cos(dBeta)
+ZTT = ZT
+
+IF (ZTT.LE.mTop.AND.ZTT.GE.mBottom) THEN
+ DIST = SQRT((XTT-RX0)*(XTT-RX0)/DA+(YTT-RY0)*(YTT-RY0)/DB)
+ d=dist-rad
+ IF (DIST.LT.RAD) THEN
+  inpr = 101
+ END IF
+END IF
+
+! Second screw
+XB = X
+YB = Y+0.125
+ZB = Z
+
+! First the point needs to be transformed back to time = 0
+dAlpha = -t*PI+PI/4d0
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+! Next the point needs to be transformed back to Z = 0 level
+dBeta = -(ZT-mBottom)/(mThickness)*PI
+XTT = XT*cos(dBeta) - YT*sin(dBeta)
+YTT = XT*sin(dBeta) + YT*cos(dBeta)
+ZTT = ZT
+
+IF (ZTT.LE.mTop.AND.ZTT.GE.mBottom) THEN
+ DIST = SQRT((XTT-RX0)*(XTT-RX0)/DA+(YTT-RY0)*(YTT-RY0)/DB)
+ d=min(d,dist-rad)
+ IF (DIST.LT.RAD) THEN
+  inpr = 102
+ END IF
+END IF
 
 RETURN
 
 END SUBROUTINE GetMixerKnpr
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
-use QuadScalar, only: myFish
 IMPLICIT NONE
-REAL*8 :: PI = 4d0*ATAN(1d0),t_i
-INTEGER iP,iRot
+REAL*8 :: PI=6.283185307179586232
+INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
-REAL*8 :: myCenterRotY
 
-
-return
-ValU = 0d0
-ValV = 0d0
+IF (iP.EQ.101) THEN
+ ValU =  -PI*(Y-0.125d0)
+ELSE
+ ValU =  -PI*(Y+0.125d0)
+END IF
+ValV = PI*X
 ValW = 0d0
 
-! write(*,*) iP
-myCenterRotY = myFish%myCenterY + myFish%centerRotDisp(2)
-
-IF(ip.ne.0)THEN
- ValW=myFish%myVelY
-end if
-
-! IF (iP.EQ.101) THEN
-! 
-! ValV=myFish%myVelY
-! 
-! ELSE
-! 
-!  iRot = INT(t/myFish%period)
-!  t_i  = t - iRot*myFish%period
-! 
-!  IF (t_i.le.myFish%t_open) THEN
-!   ValU = +0.21d0*PI*(Y-(myFish%myCenterY+myFish%centerRotDisp(2)))
-!   ValV = -0.21d0*PI*(X-myFish%centerRotDisp(1)) + myFish%myVelY
-! !  ELSEIF(t_i.le.myFish%t_pause)then
-! !   ValU = 0.0d0
-! !   ValV = myFish%myVelY
-! ! elseif(t_i.le.myFish%t_close)then
-!  else if(t_i.le.myFish%t_close)then 
-!   !ValU = -0.9717d0*PI*(Y-(myFish%myCenterY+myFish%centerRotDisp(2)))
-!   !ValV = +0.9717d0*PI*(X-myFish%centerRotDisp(1)) + myFish%myVelY
-!   ValU = -1.0d0*PI*(Y-(myFish%myCenterY+myFish%centerRotDisp(2)))
-!   ValV = +1.0d0*PI*(X-myFish%centerRotDisp(1)) + myFish%myVelY  
-!   else
-!    ValU = 0.0d0
-!    ValV = myFish%myVelY  
-!  END IF
-
-!END IF
 
 END SUBROUTINE GetVeloMixerVal
 

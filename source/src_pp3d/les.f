@@ -27,7 +27,7 @@
      * Reinit_Interphase,dMaxSTF
       USE QuadScalar, ONLY : Init_QuadScalar_Stuctures,
      * InitCond_QuadScalar,Transport_QuadScalar,ProlongateSolution,
-     * ResetTimer,bTracer,StaticMeshAdaptation,InitFish
+     * ResetTimer,bTracer,StaticMeshAdaptation
       USE LinScalar, ONLY : Init_LinScalar,InitCond_LinScalar,
      * Transport_LinScalar
       USE PP3D_MPI, ONLY : myid,master,showid
@@ -45,7 +45,6 @@ C
 C
       CALL StaticMeshAdaptation()
 C
-      call InitFish()
       CALL Init_QuadScalar_Stuctures(mfile)
       CALL Init_LinScalar
       CALL InitCond_LinScalar()
