@@ -80,24 +80,19 @@ ValV = 0d0
 ValW = 0d0
 
 IF (iT.EQ.1) THEN
- ValU = -1d0*(120d0/60d0)*2d0*PI*Y
- ValV = +1d0*(120d0/60d0)*2d0*PI*X
-END IF 
+   dist = SQRT(z*z + y*y)
+   dScale = 5.0d0/R_inflow*R_inflow
+   IF (dist.lt.R_inflow) THEN
+    ValU= dScale*(dist+R_inflow)*(R_inflow-dist)
+   END IF
+END IF
 
-! IF (iT.EQ.1) THEN
-!    dist = SQRT(x*x + y*y)
-!    dScale = 5d0/R_inflow*R_inflow
-!    IF (dist.lt.R_inflow) THEN
-!     ValW= dScale*(dist+R_inflow)*(R_inflow-dist)
-!    END IF
-! END IF
-! 
-! IF (iT.EQ.6) THEN
-!  dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)*sin(t*PI/8d0)
-!  ValU=dScale*Y*(0.41d0-Y)*Z*(0.41d0-Z)
-!  ValV= 0d0
-!  ValW= 0d0
-! END IF
+IF (iT.EQ.6) THEN
+ dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)*sin(t*PI/8d0)
+ ValU=dScale*Y*(0.41d0-Y)*Z*(0.41d0-Z)
+ ValV= 0d0
+ ValW= 0d0
+END IF
 
 RETURN
 
