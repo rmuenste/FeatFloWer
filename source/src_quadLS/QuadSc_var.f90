@@ -257,5 +257,7 @@ END TYPE tViscFunc
 
 TYPE(tViscFunc) :: myViscFunc
 
+TYPE(tProperties)   Properties
+
 END MODULE var_QuadScalar
 

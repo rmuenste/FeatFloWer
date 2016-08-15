@@ -757,10 +757,17 @@ EXTERNAL E013
    END IF
   END IF
 
-  CALL DIFFQ2(myScalar%valU, myScalar%valV,myScalar%valW, &
-       Viscosity,mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-       KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),E013)
+  if(bNonNewtonian) THEN
+    CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+         KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+         DWORK(L(LCORVG)),E013)
+  else 
+    CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
+         qMat%LdA,&
+         KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+         DWORK(L(LCORVG)),E013)
+  end if
 
  END DO
 

@@ -13,7 +13,6 @@ IMPLICIT NONE
 TYPE(TQuadScalar)   QuadSc
 TYPE(TLinScalar)    LinSc
 TYPE(TParLinScalar) PLinSc
-TYPE(tProperties)   Properties
 REAL*8, ALLOCATABLE :: ST_force(:)
 REAL*8 :: Density_Secondary=1d0,Density_Primary=1d0
 REAL*8 :: myPowerLawFluid(3)
@@ -33,15 +32,9 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-!CALL updateMixerGeometry()
-
-
-
 IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBMGeometry()
 END IF
-
-!GOTO 55
 
 thstep = tstep*(1d0-theta)
 
@@ -106,8 +99,6 @@ IF (myid.ne.master) THEN
 
 END IF
 
-! write(*,*) "arrived ...",myid
-! pause
 CALL COMM_Maximum(RhsUVW)
 DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
 
@@ -231,33 +222,12 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-!CALL Calculate_Torque(mfile)
-
-!CALL CalculateFishForce(itns,mfile)
-
 IF (myFBM%nParticles.GT.0) THEN
  CALL FBM_GetForces()
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
 END IF
 
-! DO i=1,nvt
-!   if(mixerKNPR(i).ne.0)write(*,*)'not zero'
-! END DO
-
-
-!!!!--------------------------------------------------------------!!!!
-!55 continue
-!CALL CalculateFishForce(itns,mfile)
-!!!!--------------------------------------------------------------!!!!
-! IF (myFBM%nParticles.GT.0) THEN
-!  CALL FBM_GetForces()
-!  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
-! END IF
-
-
  CALL STORE_OLD_MESH(DWORK(L(KLCVG(NLMAX))))
- 
- !CALL updateMixerGeometry()
  
  CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
  
@@ -273,15 +243,6 @@ END IF
  IF (myFBM%nParticles.GT.0) THEN
   CALL updateFBMGeometry()
  END IF
-
-
-!!!!-------------------------------------------------------------- !!! 
-
-!IF (myFBM%nParticles.GT.0) THEN
-! CALL FBM_GetForces()
-! CALL updateFBM(Properties%Density(1),tstep,Properties%Gravity,myid)
-!END IF
-
 
 RETURN
 
