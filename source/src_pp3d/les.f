@@ -58,12 +58,12 @@ C
        IF (ISTART.EQ.1) THEN
         IF (myid.ne.0) CALL CreateDumpStructures(1)
 !        CALL FBM_FromFile(cFBM_File)
-        CALL LoadSmartDumpFiles(CSTART,1)
+        CALL SolFromFile(CSTART,1)
 !        CALL Load_DUMPProfiles(CSTART)
        ELSE
         IF (myid.ne.0) CALL CreateDumpStructures(0)
 !        CALL FBM_FromFile(cFBM_File)
-        CALL LoadSmartDumpFiles(CSTART,0)
+        CALL SolFromFile(CSTART,0)
 !        CALL Load_LowDUMPProfiles(CSTART)
         CALL ProlongateSolution()
         IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -101,7 +101,7 @@ C
 c      ! Output the solution in GMV or GiD format
        IF (itns.eq.1) THEN
         CALL ZTIME(myStat%t0)
-        CALL Output_Profiles(0)
+        CALL SolToFile(0)
         CALL ZTIME(myStat%t1)
         myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
        END IF
@@ -109,7 +109,7 @@ c      ! Output the solution in GMV or GiD format
         iOGMV = NINT(timens/dtgmv)
         IF (itns.ne.1) THEN
          CALL ZTIME(myStat%t0)
-         CALL Output_Profiles(iOGMV)
+         CALL SolToFile(iOGMV)
          CALL ZTIME(myStat%t1)
          myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
         END IF
@@ -118,7 +118,7 @@ c      ! Output the solution in GMV or GiD format
         IF (insav.NE.0.AND.itns.NE.1) THEN
          IF (MOD(iOGMV,insav).EQ.0) THEN
           CALL ZTIME(myStat%t0)
-          CALL ReleaseSmartDumpFiles(-1)
+          CALL SolToFile(-1)
 !          CALL Output_DUMPProfiles()
           CALL FBM_ToFile()
           CALL ZTIME(myStat%t1)
