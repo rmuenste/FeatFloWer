@@ -13,6 +13,10 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 # output the system name
 message(STATUS "Configuring Q2P1 for a ${CMAKE_SYSTEM} system")
 
+enable_testing()
+
+include(CTest)
+
 #--------------------------------------------------------------------------------------------------------------------
 #                                               general application settings
 #--------------------------------------------------------------------------------------------------------------------
@@ -262,27 +266,27 @@ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 
   set(FILELINKS partitioner)
   set(DIRECTORYCOPIES _data start)
-  set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution _vtk)
+  set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
 
-    message(STATUS "Configuring out-of source build")
-    # establish the directory links
-    FOREACH(dlink ${DIRECTORYLINKS})
-      IF(NOT EXISTS ${CMAKE_BINARY_DIR}/${dlink})
-        message(STATUS "${dlink} does not exist, creating symbolic link")
-        execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/${dlink}
-        ${CMAKE_BINARY_DIR}/${dlink})
-      ENDIF()
-    ENDFOREACH(dlink)
-    # establish the file links
-    FOREACH(flink ${FILELINKS})
-      IF(NOT EXISTS ${CMAKE_BINARY_DIR}/${flink})
-        execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
-        ${CMAKE_SOURCE_DIR}/${flink}
-        ${CMAKE_BINARY_DIR}/${flink})
-      ENDIF ()    
-    ENDFOREACH()
+  message(STATUS "Configuring out-of source build")
 
+  file(COPY ${CMAKE_SOURCE_DIR}/_data DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/start DESTINATION ${CMAKE_BINARY_DIR})
+
+  file(COPY ${CMAKE_SOURCE_DIR}/testcases DESTINATION ${CMAKE_BINARY_DIR})
+
+  file(COPY ${CMAKE_SOURCE_DIR}/testcases/fac/test1 DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/testcases/fac_nnewt/test2 DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/testcases/fallingparticle/test3 DESTINATION ${CMAKE_BINARY_DIR})
+
+  # establish the file links
+  FOREACH(flink ${FILELINKS})
+    IF(NOT EXISTS ${CMAKE_BINARY_DIR}/${flink})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
+      ${CMAKE_SOURCE_DIR}/${flink}
+      ${CMAKE_BINARY_DIR}/${flink})
+    ENDIF ()    
+  ENDFOREACH()
 
   # create the default directories if they are missing
   FOREACH(dir ${DEF_DIRECTORIES})
@@ -335,9 +339,7 @@ IF(NOT ${Q2P1_TESTCASE} STREQUAL "")
   
 ENDIF(NOT ${Q2P1_TESTCASE} STREQUAL "")
 
-
-
-
-
-
+add_test(q2p1-fac-newt ./test1)
+add_test(q2p1-fac-nnewt ./test2)
+add_test(q2p1-fallingparticle ./test3)
 

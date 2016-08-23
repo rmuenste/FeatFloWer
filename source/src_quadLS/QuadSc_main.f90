@@ -1064,6 +1064,7 @@ EXTERNAL E013
 ! CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
 ! BndrForce,mgViscosity(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),&
 ! KWORK(L(LEDGE)),DWORK(L(LCORVG)),Force2,E013)
+  
 
  Factor = 2d0/(U_mean*U_mean*D*H)
  Force = Factor*Force
