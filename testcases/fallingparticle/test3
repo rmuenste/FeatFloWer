@@ -1,0 +1,8 @@
+#!/bin/bash
+cp ./testcases/fallingparticle/_data/q2p1_param.dat _data
+cp ./testcases/fallingparticle/start/data.TXT start
+mpirun -np 7 ./q2p1
+cp _data/prot.txt fallingparticle_prot.txt
+echo "Sedimentation: Time Velocity:" >> ./testresults/results.txt
+grep 'PartVel' fallingparticle_prot.txt | tail -1 | awk '{print ""$5" "$4""}'  >> ./testresults/results.txt
+
