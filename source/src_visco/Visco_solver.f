@@ -1,0 +1,296 @@
+      SUBROUTINE Visco_SSOR_Solver(DA11,DA22,DA33,DA12,DA13,DA23,
+     *           KCOL,KLD,DX,DB,DD,DIAG,KNPR,NEQ,NIT,OMEGA,DEF0,DEF1)
+C
+      USE PP3D_MPI, ONLY : myid
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION KCOL(*),KLD(*),DX(*),DB(*),DD(*),KNPR(*),DIAG(*)
+      DIMENSION DA11(*),DA22(*),DA33(*),DA12(*),DA13(*),DA23(*)
+      REAL*8 DEF0(6),DEF1(6)
+      COMMON /ERRCTL/ IER,ICHECK
+      INTEGER MEQ1,MEQ2,MEQ3,MEQ4,MEQ5,MEQ6
+      SAVE /ERRCTL/
+C
+      MEQ1 = 0*NEQ
+      MEQ2 = 1*NEQ
+      MEQ3 = 2*NEQ
+      MEQ4 = 3*NEQ
+      MEQ5 = 4*NEQ
+      MEQ6 = 5*NEQ
+C
+      DO 5 IEQ=1,NEQ
+      DD(MEQ1+IEQ) = DB(MEQ1+IEQ)
+      DD(MEQ2+IEQ) = DB(MEQ2+IEQ)
+      DD(MEQ3+IEQ) = DB(MEQ3+IEQ)
+      DD(MEQ4+IEQ) = DB(MEQ4+IEQ)
+      DD(MEQ5+IEQ) = DB(MEQ5+IEQ)
+      DD(MEQ6+IEQ) = DB(MEQ6+IEQ)
+      DO 6 ICOL=KLD(IEQ),KLD(IEQ+1)-1
+       J = KCOL(ICOL)
+       DD(MEQ1+IEQ) = DD(MEQ1+IEQ) - DA11(ICOL)*DX(MEQ1+J)
+       DD(MEQ2+IEQ) = DD(MEQ2+IEQ) - DA22(ICOL)*DX(MEQ2+J)
+       DD(MEQ3+IEQ) = DD(MEQ3+IEQ) - DA33(ICOL)*DX(MEQ3+J)
+       DD(MEQ4+IEQ) = DD(MEQ4+IEQ) - DA12(ICOL)*DX(MEQ4+J)
+       DD(MEQ5+IEQ) = DD(MEQ5+IEQ) - DA13(ICOL)*DX(MEQ5+J)
+       DD(MEQ6+IEQ) = DD(MEQ6+IEQ) - DA23(ICOL)*DX(MEQ6+J)
+6     CONTINUE
+5     CONTINUE
+C
+      CALL E013Sum(DD(MEQ1+1))
+      CALL E013Sum(DD(MEQ2+1))
+      CALL E013Sum(DD(MEQ3+1))
+      CALL E013Sum(DD(MEQ4+1))
+      CALL E013Sum(DD(MEQ5+1))
+      CALL E013Sum(DD(MEQ6+1))
+      CALL LL21(DD(MEQ1+1),NEQ,DEF0(1))
+      CALL LL21(DD(MEQ2+1),NEQ,DEF0(2))
+      CALL LL21(DD(MEQ3+1),NEQ,DEF0(3))
+      CALL LL21(DD(MEQ4+1),NEQ,DEF0(4))
+      CALL LL21(DD(MEQ5+1),NEQ,DEF0(5))
+      CALL LL21(DD(MEQ6+1),NEQ,DEF0(6))
+C
+      DO 1 ITE=1,NIT
+C
+!     ----------------------------------------------
+!     The real SOR part is here
+!     ----------------------------------------------
+      DO 7 IEQ=1,NEQ
+       IF (KNPR(IEQ).NE.0) GOTO 7
+       AUX1=DB(MEQ1+IEQ)
+       AUX2=DB(MEQ2+IEQ)
+       AUX3=DB(MEQ3+IEQ)
+       AUX4=DB(MEQ4+IEQ)
+       AUX5=DB(MEQ5+IEQ)
+       AUX6=DB(MEQ6+IEQ)
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J=KCOL(ICOL)
+        AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)
+        AUX2=AUX2-DA22(ICOL)*DX(MEQ2+J)
+        AUX3=AUX3-DA33(ICOL)*DX(MEQ3+J)
+        AUX4=AUX4-DA12(ICOL)*DX(MEQ4+J)
+        AUX5=AUX5-DA13(ICOL)*DX(MEQ5+J)
+        AUX6=AUX6-DA23(ICOL)*DX(MEQ6+J)
+       END DO
+       AUX1=OMEGA*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+       AUX2=OMEGA*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+       AUX3=OMEGA*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+       AUX4=OMEGA*(AUX4/DA12(KLD(IEQ))-DX(MEQ4+IEQ))+DX(MEQ4+IEQ)
+       AUX5=OMEGA*(AUX5/DA13(KLD(IEQ))-DX(MEQ5+IEQ))+DX(MEQ5+IEQ)
+       AUX6=OMEGA*(AUX6/DA23(KLD(IEQ))-DX(MEQ6+IEQ))+DX(MEQ6+IEQ)
+       DX(MEQ1+IEQ)=AUX1
+       DX(MEQ2+IEQ)=AUX2
+       DX(MEQ3+IEQ)=AUX3
+       DX(MEQ4+IEQ)=AUX4
+       DX(MEQ5+IEQ)=AUX5
+       DX(MEQ6+IEQ)=AUX6
+7     CONTINUE
+C
+!     ----------------------------------------------
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO 8 IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 3
+       DD(MEQ1+IEQ) = DB(MEQ1+IEQ)
+       DD(MEQ2+IEQ) = DB(MEQ2+IEQ)
+       DD(MEQ3+IEQ) = DB(MEQ3+IEQ)
+       DD(MEQ4+IEQ) = DB(MEQ4+IEQ)
+       DD(MEQ5+IEQ) = DB(MEQ5+IEQ)
+       DD(MEQ6+IEQ) = DB(MEQ6+IEQ)
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-DA11(ICOL)*DX(MEQ1+J)
+        DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-DA22(ICOL)*DX(MEQ2+J)
+        DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-DA33(ICOL)*DX(MEQ3+J)
+        DD(MEQ4+IEQ)=DD(MEQ4+IEQ)-DA12(ICOL)*DX(MEQ4+J)
+        DD(MEQ5+IEQ)=DD(MEQ5+IEQ)-DA13(ICOL)*DX(MEQ5+J)
+        DD(MEQ6+IEQ)=DD(MEQ6+IEQ)-DA23(ICOL)*DX(MEQ6+J)
+       END DO
+8     CONTINUE
+C
+      CALL E013Sum(DD(MEQ1+1))
+      CALL E013Sum(DD(MEQ2+1))
+      CALL E013Sum(DD(MEQ3+1))
+      CALL E013Sum(DD(MEQ4+1))
+      CALL E013Sum(DD(MEQ5+1))
+      CALL E013Sum(DD(MEQ6+1))
+C
+      DO 9 IEQ=1,NEQ
+       DX(MEQ1+IEQ)=(1D0-OMEGA)*DX(MEQ1+IEQ)+
+     *          OMEGA*DD(MEQ1+IEQ)/DIAG(MEQ1+IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA)*DX(MEQ2+IEQ)+
+     *          OMEGA*DD(MEQ2+IEQ)/DIAG(MEQ2+IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA)*DX(MEQ3+IEQ)+
+     *          OMEGA*DD(MEQ3+IEQ)/DIAG(MEQ3+IEQ)
+       DX(MEQ4+IEQ)=(1D0-OMEGA)*DX(MEQ4+IEQ)+
+     *          OMEGA*DD(MEQ4+IEQ)/DIAG(MEQ4+IEQ)
+       DX(MEQ5+IEQ)=(1D0-OMEGA)*DX(MEQ5+IEQ)+
+     *          OMEGA*DD(MEQ5+IEQ)/DIAG(MEQ5+IEQ)
+       DX(MEQ6+IEQ)=(1D0-OMEGA)*DX(MEQ6+IEQ)+
+     *          OMEGA*DD(MEQ6+IEQ)/DIAG(MEQ6+IEQ)
+9     CONTINUE
+!     ----------------------------------------------
+C
+!     The real SOR part is here (going backwards)
+!     ----------------------------------------------
+      DO 22 IEQ=NEQ-1,1,-1
+       IF (KNPR(IEQ).NE.0) GOTO 22
+       AUX1=DB(MEQ1+IEQ)
+       AUX2=DB(MEQ2+IEQ)
+       AUX3=DB(MEQ3+IEQ)
+       AUX4=DB(MEQ4+IEQ)
+       AUX5=DB(MEQ5+IEQ)
+       AUX6=DB(MEQ6+IEQ)
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)
+        AUX2=AUX2-DA22(ICOL)*DX(MEQ2+J)
+        AUX3=AUX3-DA33(ICOL)*DX(MEQ3+J)
+        AUX4=AUX4-DA12(ICOL)*DX(MEQ4+J)
+        AUX5=AUX5-DA13(ICOL)*DX(MEQ5+J)
+        AUX6=AUX6-DA23(ICOL)*DX(MEQ6+J)
+       END DO
+       AUX1=OMEGA*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+       AUX2=OMEGA*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+       AUX3=OMEGA*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+       AUX4=OMEGA*(AUX4/DA12(KLD(IEQ))-DX(MEQ4+IEQ))+DX(MEQ4+IEQ)
+       AUX5=OMEGA*(AUX5/DA13(KLD(IEQ))-DX(MEQ5+IEQ))+DX(MEQ5+IEQ)
+       AUX6=OMEGA*(AUX6/DA23(KLD(IEQ))-DX(MEQ6+IEQ))+DX(MEQ6+IEQ)
+       DX(MEQ1+IEQ)=AUX1
+       DX(MEQ2+IEQ)=AUX2
+       DX(MEQ3+IEQ)=AUX3
+       DX(MEQ4+IEQ)=AUX4
+       DX(MEQ5+IEQ)=AUX5
+       DX(MEQ6+IEQ)=AUX6
+22    CONTINUE
+!     ----------------------------------------------
+
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO 33 IEQ=1,NEQ
+       DD(MEQ1+IEQ) = DB(MEQ1+IEQ)
+       DD(MEQ2+IEQ) = DB(MEQ2+IEQ)
+       DD(MEQ3+IEQ) = DB(MEQ3+IEQ)
+       DD(MEQ4+IEQ) = DB(MEQ4+IEQ)
+       DD(MEQ5+IEQ) = DB(MEQ5+IEQ)
+       DD(MEQ6+IEQ) = DB(MEQ6+IEQ)
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-DA11(ICOL)*DX(MEQ1+J)
+        DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-DA22(ICOL)*DX(MEQ2+J)
+        DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-DA33(ICOL)*DX(MEQ3+J)
+        DD(MEQ4+IEQ)=DD(MEQ4+IEQ)-DA12(ICOL)*DX(MEQ4+J)
+        DD(MEQ5+IEQ)=DD(MEQ5+IEQ)-DA13(ICOL)*DX(MEQ5+J)
+        DD(MEQ6+IEQ)=DD(MEQ6+IEQ)-DA23(ICOL)*DX(MEQ6+J)
+       END DO
+33    CONTINUE
+C
+      CALL E013Sum(DD(MEQ1+1))
+      CALL E013Sum(DD(MEQ2+1))
+      CALL E013Sum(DD(MEQ3+1))
+      CALL E013Sum(DD(MEQ4+1))
+      CALL E013Sum(DD(MEQ5+1))
+      CALL E013Sum(DD(MEQ6+1))
+C
+      DO 44 IEQ=1,NEQ
+       DX(MEQ1+IEQ)=(1D0-OMEGA)*DX(MEQ1+IEQ)+
+     *          OMEGA*DD(MEQ1+IEQ)/DIAG(MEQ1+IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA)*DX(MEQ2+IEQ)+
+     *          OMEGA*DD(MEQ2+IEQ)/DIAG(MEQ2+IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA)*DX(MEQ3+IEQ)+
+     *          OMEGA*DD(MEQ3+IEQ)/DIAG(MEQ3+IEQ)
+       DX(MEQ4+IEQ)=(1D0-OMEGA)*DX(MEQ4+IEQ)+
+     *          OMEGA*DD(MEQ4+IEQ)/DIAG(MEQ4+IEQ)
+       DX(MEQ5+IEQ)=(1D0-OMEGA)*DX(MEQ5+IEQ)+
+     *          OMEGA*DD(MEQ5+IEQ)/DIAG(MEQ5+IEQ)
+       DX(MEQ6+IEQ)=(1D0-OMEGA)*DX(MEQ6+IEQ)+
+     *          OMEGA*DD(MEQ6+IEQ)/DIAG(MEQ6+IEQ)
+44    CONTINUE
+!     ----------------------------------------------
+C
+1     CONTINUE
+C
+      DO 55 IEQ=1,NEQ
+      DD(MEQ1+IEQ) = DB(MEQ1+IEQ)
+      DD(MEQ2+IEQ) = DB(MEQ2+IEQ)
+      DD(MEQ3+IEQ) = DB(MEQ3+IEQ)
+      DD(MEQ4+IEQ) = DB(MEQ4+IEQ)
+      DD(MEQ5+IEQ) = DB(MEQ5+IEQ)
+      DD(MEQ6+IEQ) = DB(MEQ6+IEQ)
+      DO 66 ICOL=KLD(IEQ),KLD(IEQ+1)-1
+       J = KCOL(ICOL)
+       DD(MEQ1+IEQ) = DD(MEQ1+IEQ) - DA11(ICOL)*DX(MEQ1+J)
+       DD(MEQ2+IEQ) = DD(MEQ2+IEQ) - DA22(ICOL)*DX(MEQ2+J)
+       DD(MEQ3+IEQ) = DD(MEQ3+IEQ) - DA33(ICOL)*DX(MEQ3+J)
+       DD(MEQ4+IEQ) = DD(MEQ4+IEQ) - DA12(ICOL)*DX(MEQ4+J)
+       DD(MEQ5+IEQ) = DD(MEQ5+IEQ) - DA13(ICOL)*DX(MEQ5+J)
+       DD(MEQ6+IEQ) = DD(MEQ6+IEQ) - DA23(ICOL)*DX(MEQ6+J)
+66    CONTINUE
+55    CONTINUE
+C
+      CALL E013Sum(DD(MEQ1+1))
+      CALL E013Sum(DD(MEQ2+1))
+      CALL E013Sum(DD(MEQ3+1))
+      CALL E013Sum(DD(MEQ4+1))
+      CALL E013Sum(DD(MEQ5+1))
+      CALL E013Sum(DD(MEQ6+1))
+      CALL LL21(DD(MEQ1+1),NEQ,DEF1(1))
+      CALL LL21(DD(MEQ2+1),NEQ,DEF1(2))
+      CALL LL21(DD(MEQ3+1),NEQ,DEF1(3))
+      CALL LL21(DD(MEQ4+1),NEQ,DEF1(4))
+      CALL LL21(DD(MEQ5+1),NEQ,DEF1(5))
+      CALL LL21(DD(MEQ6+1),NEQ,DEF1(6))
+C
+      END
+C
+C
+C
+      SUBROUTINE Visco_CompDefect(DA11,DA22,DA33,DA12,DA13,DA23,
+     *           KCOL,KLD,DX,DB,DD,DIAG,KNPR,NEQ,DEF)
+C
+      USE PP3D_MPI, ONLY : myid
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION KCOL(*),KLD(*),DX(*),DB(*),DD(*),KNPR(*),DIAG(*)
+      DIMENSION DA11(*),DA22(*),DA33(*),DA12(*),DA13(*),DA23(*)
+      REAL*8 DEF(6)
+      COMMON /ERRCTL/ IER,ICHECK
+      INTEGER MEQ1,MEQ2,MEQ3,MEQ4,MEQ5,MEQ6
+      SAVE /ERRCTL/
+C
+      MEQ1 = 0*NEQ
+      MEQ2 = 1*NEQ
+      MEQ3 = 2*NEQ
+      MEQ4 = 3*NEQ
+      MEQ5 = 4*NEQ
+      MEQ6 = 5*NEQ
+C
+      DO 5 IEQ=1,NEQ
+      DD(MEQ1+IEQ) = DB(MEQ1+IEQ)
+      DD(MEQ2+IEQ) = DB(MEQ2+IEQ)
+      DD(MEQ3+IEQ) = DB(MEQ3+IEQ)
+      DD(MEQ4+IEQ) = DB(MEQ4+IEQ)
+      DD(MEQ5+IEQ) = DB(MEQ5+IEQ)
+      DD(MEQ6+IEQ) = DB(MEQ6+IEQ)
+      DO 6 ICOL=KLD(IEQ),KLD(IEQ+1)-1
+       J = KCOL(ICOL)
+       DD(MEQ1+IEQ) = DD(MEQ1+IEQ) - DA11(ICOL)*DX(MEQ1+J)
+       DD(MEQ2+IEQ) = DD(MEQ2+IEQ) - DA22(ICOL)*DX(MEQ2+J)
+       DD(MEQ3+IEQ) = DD(MEQ3+IEQ) - DA33(ICOL)*DX(MEQ3+J)
+       DD(MEQ4+IEQ) = DD(MEQ4+IEQ) - DA12(ICOL)*DX(MEQ4+J)
+       DD(MEQ5+IEQ) = DD(MEQ5+IEQ) - DA13(ICOL)*DX(MEQ5+J)
+       DD(MEQ6+IEQ) = DD(MEQ6+IEQ) - DA23(ICOL)*DX(MEQ6+J)
+6     CONTINUE
+5     CONTINUE
+C
+      CALL E013Sum(DD(MEQ1+1))
+      CALL E013Sum(DD(MEQ2+1))
+      CALL E013Sum(DD(MEQ3+1))
+      CALL E013Sum(DD(MEQ4+1))
+      CALL E013Sum(DD(MEQ5+1))
+      CALL E013Sum(DD(MEQ6+1))
+      CALL LL21(DD(MEQ1+1),NEQ,DEF(1))
+      CALL LL21(DD(MEQ2+1),NEQ,DEF(2))
+      CALL LL21(DD(MEQ3+1),NEQ,DEF(3))
+      CALL LL21(DD(MEQ4+1),NEQ,DEF(4))
+      CALL LL21(DD(MEQ5+1),NEQ,DEF(5))
+      CALL LL21(DD(MEQ6+1),NEQ,DEF(6))
+
+      END
