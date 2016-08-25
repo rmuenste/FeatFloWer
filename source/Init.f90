@@ -288,7 +288,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
 USE PP3D_MPI
 USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
     nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
-    myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile
+    myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
+    bViscoElastic
 
 IMPLICIT DOUBLE PRECISION(A-H,O-Z)
 PARAMETER (NNLEV=9)
@@ -416,6 +417,11 @@ DO
      READ(string(iEq+1:),*) cParam
      bTracer = .FALSE.
      IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bTracer = .TRUE.
+    CASE ("ViscoElastic")
+     cParam = " "
+     READ(string(iEq+1:),*) cParam
+     bViscoElastic = .FALSE.
+     IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
     CASE ("NoOutflow")
      cParam = " "
      READ(string(iEq+1:),*) cParam
@@ -614,6 +620,11 @@ CLOSE (myFile)
   IF (bTracer) THEN 
    WRITE(mfile,'(A)') "Tracer equation is included"
    WRITE(mterm,'(A)') "Tracer equation is included"
+  END IF
+
+  IF (bViscoElastic) THEN 
+   WRITE(mfile,'(A)') "Visco-elastic equation is included"
+   WRITE(mterm,'(A)') "Visco-elastic equation is included"
   END IF
 
   IF (bNonNewtonian) THEN 

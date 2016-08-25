@@ -273,6 +273,65 @@ END SUBROUTINE Create_MRhoMat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Create_MMat()
+EXTERNAL E013
+REAL*8  DML
+INTEGER I,J
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
+   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
+  ELSE
+   mg_Mmat(ILEV)%a=0d0
+  END IF
+
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),9,E013)
+
+  IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
+
+  DO I=1,qMat%nu
+   DML = 0d0
+   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+    DML = DML + mg_Mmat(ILEV)%a(J)
+   END DO
+   mg_MlMat(ILEV)%a(I) = DML
+  END DO
+
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat      => mg_qMat(NLMAX)
+ Mmat      => mg_Mmat(NLMAX)%a
+ MlMat     => mg_MlMat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+END SUBROUTINE Create_MMat
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_CMat(knprU,knprV,knprW,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*)
@@ -2743,6 +2802,14 @@ DO
     READ(string(iEq+1:),*) Props%PowerLawExp
     IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
     IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
+    CASE ("ViscoLambda")
+    READ(string(iEq+1:),*) Props%ViscoLambda
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
+    CASE ("ViscoModel")
+    READ(string(iEq+1:),*) Props%ViscoModel
+    IF (myid.eq.showid) write(mterm,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
+    IF (myid.eq.showid) write(mfile,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
   END SELECT
 
   END IF

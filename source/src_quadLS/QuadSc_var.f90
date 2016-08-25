@@ -24,7 +24,10 @@ INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
 TYPE(tMatrixRenewal) myMatrixRenewal
 LOGICAL :: bNonNewtonian=.TRUE.
-LOGICAL bNoOutflow,bTracer
+LOGICAL bNoOutflow,bTracer,bViscoElastic
+
+INTEGER, PARAMETER :: Giesekus = 0
+INTEGER, PARAMETER :: OldroydB = 1
 
 TYPE tStatistics
  INTEGER :: iNonLin=0,iLinUVW=0,iLinP=0
@@ -54,6 +57,8 @@ TYPE tProperties
  CHARACTER Material(2)*10
  REAL*8  Gravity(3)
  REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
+ REAL*8 :: ViscoLambda
+ INTEGER :: ViscoModel
 END TYPE tProperties
 
 TYPE tParamV
@@ -76,6 +81,16 @@ END TYPE mg_dVector
 TYPE mg_kVector
  INTEGER  , DIMENSION(:) , ALLOCATABLE :: x
 END TYPE mg_kVector
+
+TYPE TViscoScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val11,val22,val33,val12,val13,val23,rhs0,ValOld,diag
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol
+ TYPE(tParamV) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
 
 TYPE TQuadScalar
  CHARACTER cName*7
@@ -136,12 +151,14 @@ TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_lMat,mg_lPMat,mg_qMat
 REAL*8  , DIMENSION(:)  , POINTER :: BXMat,BYMat,BZMat
 REAL*8  , DIMENSION(:)  , POINTER :: BTXMat,BTYMat,BTZMat
 REAL*8  , DIMENSION(:)  , POINTER :: BXPMat,BYPMat,BZPMat
-REAL*8  , DIMENSION(:)  , POINTER :: Mmat,MlRhomat,MlRhoPmat
+REAL*8  , DIMENSION(:)  , POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
 REAL*8  , DIMENSION(:)  , POINTER :: DMat,Kmat,A11mat,A22mat,A33mat
 REAL*8  , DIMENSION(:)  , POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8  , DIMENSION(:)  , POINTER :: S11mat,S22mat,S33mat
 REAL*8  , DIMENSION(:)  , POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
 REAL*8  , DIMENSION(:)  , POINTER :: Cmat,CPMat
+REAL*8  , DIMENSION(:)  , POINTER :: VisMat_11,VisMat_22,VisMat_33
+REAL*8  , DIMENSION(:)  , POINTER :: VisMat_12,VisMat_13,VisMat_23
 
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
@@ -160,8 +177,10 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg_S33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlRhomat,mg_MlRhoPmat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlRhomat,mg_MlRhoPmat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_12,mg_VisMat_13,mg_VisMat_23
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E012Prol,mg_E013Prol,mg_E013Rest
 TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_E013ProlM,mg_E013RestM

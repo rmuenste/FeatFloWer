@@ -1512,15 +1512,17 @@ SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE QuadScalar,ONLY: MixerKnpr,FictKNPR
+USE QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE LinScalar,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myExport, Properties
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
-INTEGER kvert(8,*),iO,iUnit,ioffset,ive,ivt,iField
+INTEGER kvert(8,*),iO,iUnit,ioffset,ive,ivt,iField,i
 CHARACTER fileid*(5),filename*(27),procid*(3)
 INTEGER NoOfElem,NoOfVert
+REAL*8,ALLOCATABLE ::  tau(:,:)
+REAL*8 psi(6)
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -1549,6 +1551,29 @@ DO iField=1,SIZE(myExport%Fields)
   do ivt=1,NoOfVert
    write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValU(ivt)),REAL(QuadSc%ValV(ivt)),REAL(QuadSc%ValW(ivt))
   end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('Stress')
+
+  ALLOCATE(tau(6,NoOfVert))
+  DO i=1,NoOfVert
+   psi = [ViscoSc%Val11(i),ViscoSc%Val22(i),ViscoSc%Val33(i),&
+          ViscoSc%Val12(i),ViscoSc%Val13(i),ViscoSc%Val23(i)]
+   CALL ConvertPsiToTau(psi,tau(:,i))   
+     tau(1,i) = (tau(1,i) - 1d0)/Properties%ViscoLambda
+     tau(2,i) = (tau(2,i) - 1d0)/Properties%ViscoLambda
+     tau(3,i) = (tau(3,i) - 1d0)/Properties%ViscoLambda
+     tau(4,i) = (tau(4,i) - 0d0)/Properties%ViscoLambda
+     tau(5,i) = (tau(5,i) - 0d0)/Properties%ViscoLambda
+     tau(6,i) = (tau(6,i) - 0d0)/Properties%ViscoLambda
+  END DO
+
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,6E16.7)')"        ",REAL(tau(1,ivt)),REAL(tau(2,ivt)),REAL(tau(3,ivt)),REAL(tau(4,ivt)),REAL(tau(5,ivt)),REAL(tau(6,ivt))
+  end do
+
+  DEALLOCATE(tau)
   write(iunit, *)"        </DataArray>"
  
  CASE('MeshVelo')
@@ -1709,6 +1734,8 @@ DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
  CASE('Velocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
+ CASE('Stress')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6""/>"
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
  CASE('Pressure_V')

@@ -3,7 +3,7 @@ MODULE QuadScalar
 USE def_QuadScalar
 ! USE PP3D_MPI
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
-                   COMM_NLComplete,Comm_Summ
+                   COMM_NLComplete,Comm_Summ,Comm_SummN
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
@@ -12,10 +12,11 @@ IMPLICIT NONE
 
 TYPE(TQuadScalar)   QuadSc
 TYPE(TLinScalar)    LinSc
+TYPE(TViscoScalar)  ViscoSc
 TYPE(TParLinScalar) PLinSc
 REAL*8, ALLOCATABLE :: ST_force(:)
 REAL*8 :: Density_Secondary=1d0,Density_Primary=1d0
-REAL*8 :: myPowerLawFluid(3)
+REAL*8 :: myPowerLawFluid(3),ViscoElasticForce(3)
 REAL*8 :: Sigma=0.034D0,DiracEps=0.00625d0
 INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
@@ -53,10 +54,15 @@ IF (myid.ne.master) THEN
  ! Assemble the right hand side
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
- ! Add the pressure gradient
+ ! Add the pressure gradient to the rhs
  CALL AddPressureGradient()
 
- ! Add the gravity force
+ ! Add the viscoelastic stress to the rhs
+ IF(bViscoElastic)THEN
+   CALL AddViscoStress()
+ END IF
+
+ ! Add the gravity force to the rhs
  CALL AddGravForce()
 
  ! Set dirichlet boundary conditions on the defect
@@ -1047,7 +1053,9 @@ SUBROUTINE FAC_GetForces(mfile)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
 REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
 REAL*8 :: Force2(3)
+REAL*8 :: Scale
 INTEGER i,nn
 EXTERNAL E013
 
@@ -1065,9 +1073,16 @@ EXTERNAL E013
 ! BndrForce,mgViscosity(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),&
 ! KWORK(L(LEDGE)),DWORK(L(LCORVG)),Force2,E013)
   
+ if(bViscoElastic)then
+   Force = Force + ViscoElasticForce
+   CALL Comm_SummN(Force,3)
+   Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
+   Force = (4d0*Force)/Scale
+ else
+   Factor = 2d0/(U_mean*U_mean*D*H)
+   Force = Factor*Force
+ end if
 
- Factor = 2d0/(U_mean*U_mean*D*H)
- Force = Factor*Force
 ! Force2 = Factor*Force2
 
 ! NN=0
@@ -1083,6 +1098,10 @@ EXTERNAL E013
   write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
  ! write(mfile,'(A30,3D12.4)') "Force acting on the cylinder:",Force2
  ! write(mterm,'(A30,3D12.4)') "Force acting on the cylinder:",Force2
+  write(mfile,'(A30,4E16.8)') "ViscoForce acting on the cylinder:",timens,&
+    ViscoElasticForce*4.0d0/Scale
+  write(mterm,'(A30,4E16.8)') "ViscoForce acting on the cylinder:",timens,&
+    ViscoElasticForce*4.0d0/Scale
   WRITE(666,'(7G16.8)') Timens,Force
  END IF
 
@@ -1365,6 +1384,21 @@ IF (bCondition) THEN
 END IF
 
 END SUBROUTINE  GetNonNewtViscosity
+!
+! ----------------------------------------------
+!
+SUBROUTINE  AddViscoStress()
+EXTERNAL E013
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+CALL AssembleViscoStress(QuadSc%defU,QuadSc%defV,QuadSc%defW,BndrForce,&
+ ViscoSc%Val11,ViscoSc%Val22,ViscoSc%Val33,ViscoSc%Val12,ViscoSc%Val13,ViscoSc%Val23,&
+ KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),&
+ Properties%Viscosity(2),tstep,Properties%ViscoLambda,ViscoElasticForce,E013)
+
+END SUBROUTINE  AddViscoStress
 !
 ! ----------------------------------------------
 !

@@ -25,6 +25,7 @@ SimPar@OutputFreq = 0.50d0
 SimPar@MatrixRenewal = M2D3K3S0C2
 SimPar@FlowType = nonNewtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
 SimPar@Tracer = No                                                      ! Yes
+SimPar@bViscoElastic = No                                                      ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
 SimPar@OutputFields = "Pressure_V,Velocity,Viscosity"
 PossibleOutputFields = Temperature,Velocity,Pressure_E

@@ -1362,3 +1362,234 @@ C
 100   CONTINUE
 C
 99999 END
+c
+c
+c
+************************************************************************
+      SUBROUTINE AssembleViscoStress(D1,D2,D3,bAlpha,U11,U22,U33,U12,
+     *       U13,U23,KVERT,KAREA,KEDGE,DCORVG,dVis,dt,dLambda,dFRC,ELE)
+************************************************************************
+*
+*-----------------------------------------------------------------------
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
+      REAL*8 U11(*),U22(*),U33(*),U12(*),U13(*),U23(*)
+      REAL*8 DCORVG(NNDIM,*),D1(*),D2(*),D3(*),dFRC(3)
+      REAL*8 PSI(6),TAU(6)
+      LOGICAL bAlpha(*)
+      INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+C
+      INTEGER KDFG(NNBAS),KDFL(NNBAS)
+      REAL*8  DU(NNDIM,NNDIM,NNBAS)
+      REAL*8  DEF(NNDIM,NNBAS),GRADU(NNDIM,NNDIM)
+C
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+C
+!       return
+C
+      dFRC = 0d0
+C
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB=9
+      CALL CB3H(ICUB)
+      IF (IER.NE.0) GOTO 99999
+C
+************************************************************************
+C *** Calculation of the matrix - storage technique 7 or 8
+************************************************************************
+      ICUBP=ICUB
+      CALL ELE(0D0,0D0,0D0,-2)
+C
+C *** Loop over all elements
+      DO 100 IEL=1,NEL
+C
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Evaluation of coordinates of the vertices
+      DO 120 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+120   CONTINUE
+C
+      DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+      DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+      DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+      DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+      DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+      DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+      DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+      DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+      DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+      DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+      DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+      DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+      DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+      DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+      DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+      DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+      DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+C
+C *** Loop over all cubature points
+      DO 130 JDOFE=1,IDFL
+      JDFG=KDFG(JDOFE)
+      PSI(1) = U11(JDFG)
+      PSI(2) = U22(JDFG)
+      PSI(3) = U33(JDFG)
+      PSI(4) = U12(JDFG)
+      PSI(5) = U13(JDFG)
+      PSI(6) = U23(JDFG)
+
+      CALL ConvertPsiToTau(Psi,Tau)
+
+      DU(1,1,JDOFE) = TAU(1)
+      DU(2,2,JDOFE) = TAU(2)
+      DU(3,3,JDOFE) = TAU(3)
+      DU(1,2,JDOFE) = TAU(4)
+      DU(2,1,JDOFE) = TAU(4)
+      DU(1,3,JDOFE) = TAU(5)
+      DU(3,1,JDOFE) = TAU(5)
+      DU(2,3,JDOFE) = TAU(6)
+      DU(3,2,JDOFE) = TAU(6)
+      DO 140 JDER=1,NNDIM
+      DEF(JDER,JDOFE)=0D0
+ 140  CONTINUE
+ 130  CONTINUE
+C
+      DO 200 ICUBP=1,NCUBP
+C
+      XI1=DXI(ICUBP,1)
+      XI2=DXI(ICUBP,2)
+      XI3=DXI(ICUBP,3)
+C
+C *** Jacobian of the bilinear mapping onto the reference element
+      DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
+      DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
+      DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
+      DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
+      DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
+      DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
+      DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
+      DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
+      DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
+C
+      CALL ELE(XI1,XI2,XI3,-3)
+      IF (IER.LT.0) GOTO 99999
+C
+      DALX=0D0     ! ALFA x deriv
+      DALY=0D0     ! ALFA y deriv
+      DALZ=0D0     ! ALFA z deriv
+      DO JDOFE=1,IDFL
+       IG = KDFG(JDOFE)
+       IL = KDFL(JDOFE)
+       DBI2=DBAS(1,IL,2)
+       DBI3=DBAS(1,IL,3)
+       DBI4=DBAS(1,IL,4)
+       IF (bALPHA(IG)) THEN
+        DALPHA = 1d0
+       ELSE
+        DALPHA = 0d0
+       END IF
+       DALX = DALX + DALPHA*DBI2
+       DALY = DALY + DALPHA*DBI3
+       DALZ = DALZ + DALPHA*DBI4
+      END DO
+      DN1=-DALX
+      DN2=-DALY
+      DN3=-DALZ
+C
+      GRADU = 0d0
+      DO JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       DO JDER=1,NNDIM
+        DO IDER=1,NNDIM
+         DAUX=DU(JDER,IDER,JDOFE)
+         GRADU(IDER,JDER) = GRADU(IDER,JDER) + DAUX*DBAS(1,JDFL,1)
+        ENDDO
+       ENDDO
+      END DO
+C
+      DNY = dVis/dLambda
+      AH1 = DNY*((GRADU(1,1)-1d0)*DN1 + GRADU(1,2)*DN2 + GRADU(1,3)*DN3)
+      AH2 = DNY*(GRADU(2,1)*DN1 + (GRADU(2,2)-1d0)*DN2 + GRADU(2,3)*DN3)
+      AH3 = DNY*(GRADU(3,1)*DN1 + GRADU(3,2)*DN2 + (GRADU(3,3)-1d0)*DN3)
+C
+      dFRC(1) = dFRC(1) + AH1*OM
+      dFRC(2) = dFRC(2) + AH2*OM
+      dFRC(3) = dFRC(3) + AH3*OM
+C
+      DO 230 JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       DO JDER=1,NNDIM
+        DO IDER=1,NNDIM
+         DAUX= dVis*OM*GRADU(IDER,JDER)/dLambda
+         DEF(JDER,JDOFE) = DEF(JDER,JDOFE) + DAUX*DBAS(1,JDFL,IDER+1)
+        ENDDO
+       ENDDO  
+230   CONTINUE
+C
+200   CONTINUE
+C
+      DO 300 JDOFE=1,IDFL
+       JDFG=KDFG(JDOFE)
+!        write(*,*) DEF(:,JDOFE),dVis,dLam
+       D1(JDFG) = D1(JDFG) - dt*DEF(1,JDOFE)
+       D2(JDFG) = D2(JDFG) - dt*DEF(2,JDOFE)
+       D3(JDFG) = D3(JDFG) - dt*DEF(3,JDOFE)
+300   CONTINUE
+C
+100   CONTINUE
+C
+99999 END

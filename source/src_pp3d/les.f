@@ -27,7 +27,9 @@
      * Reinit_Interphase,dMaxSTF
       USE QuadScalar, ONLY : Init_QuadScalar_Stuctures,
      * InitCond_QuadScalar,Transport_QuadScalar,ProlongateSolution,
-     * ResetTimer,bTracer,StaticMeshAdaptation
+     * ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+      USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures,
+     * Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
       USE LinScalar, ONLY : Init_LinScalar,InitCond_LinScalar,
      * Transport_LinScalar
       USE PP3D_MPI, ONLY : myid,master,showid
@@ -46,6 +48,9 @@ C
       CALL StaticMeshAdaptation()
 C
       CALL Init_QuadScalar_Stuctures(mfile)
+
+      IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(mfile)
+
       CALL Init_LinScalar
       CALL InitCond_LinScalar()
                 
@@ -54,6 +59,8 @@ C
        IF (myid.ne.0) CALL CreateDumpStructures(1)
 !       CALL FBM_FromFile(cFBM_File)
        CALL InitCond_QuadScalar()
+!       Initial profiles for the viscoelastic stresses
+        IF(bViscoElastic)CALL IniProf_ViscoScalar()
       ELSE
        IF (ISTART.EQ.1) THEN
         IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -69,7 +76,6 @@ C
         IF (myid.ne.0) CALL CreateDumpStructures(1)
        END IF
       END IF
-
 
       tout = DBLE(INT(timens/dtgmv)+1)*dtgmv
       !CALL Output_Profiles(0)
@@ -89,6 +95,9 @@ C
 C
        IF (bstop) STOP
 
+       ! Viscoelastic transport equations
+       IF(bViscoElastic)CALL Transport_ViscoScalar(mfile)
+
        ! Solve Navier-Stokes
        CALL Transport_QuadScalar(mfile,inonln_u,itns)
 C
@@ -101,7 +110,7 @@ C
 c      ! Output the solution in GMV or GiD format
        IF (itns.eq.1) THEN
         CALL ZTIME(myStat%t0)
-        CALL SolToFile(0)
+        CALL Output_Profiles(0)
         CALL ZTIME(myStat%t1)
         myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
        END IF
@@ -109,7 +118,7 @@ c      ! Output the solution in GMV or GiD format
         iOGMV = NINT(timens/dtgmv)
         IF (itns.ne.1) THEN
          CALL ZTIME(myStat%t0)
-         CALL SolToFile(iOGMV)
+         CALL Output_Profiles(iOGMV)
          CALL ZTIME(myStat%t1)
          myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
         END IF

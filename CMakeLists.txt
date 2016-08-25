@@ -195,6 +195,11 @@ source/UmfpackSolver.f90
 source/inverse.f90
 source/Parametrization.f90
 source/distance.f90
+source/3x3EigenV.f
+source/src_visco/Visco_integration.f
+source/src_visco/Visco_solver.f
+source/src_visco/Visco_main.f90
+source/src_visco/Visco_def.f90
 )
 #--------------------------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
