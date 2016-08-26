@@ -1514,7 +1514,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE LinScalar,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -1554,6 +1554,7 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, *)"        </DataArray>"
 
  CASE('Stress')
+  if(bViscoElastic)then
 
   ALLOCATE(tau(6,NoOfVert))
   DO i=1,NoOfVert
@@ -1575,6 +1576,7 @@ DO iField=1,SIZE(myExport%Fields)
 
   DEALLOCATE(tau)
   write(iunit, *)"        </DataArray>"
+  end if
  
  CASE('MeshVelo')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
@@ -1708,7 +1710,7 @@ END SUBROUTINE Output_VTK_piece
 
 SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myExport,bViscoElastic
 USE def_FEAT
 
 IMPLICIT NONE
@@ -1735,7 +1737,9 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Velocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
  CASE('Stress')
+  if(bViscoElastic)then
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6""/>"
+  end if
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
  CASE('Pressure_V')

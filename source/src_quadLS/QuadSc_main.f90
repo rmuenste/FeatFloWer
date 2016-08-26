@@ -56,12 +56,14 @@ IF (myid.ne.master) THEN
 
  ! Add the pressure gradient to the rhs
  CALL AddPressureGradient()
+END IF
 
  ! Add the viscoelastic stress to the rhs
  IF(bViscoElastic)THEN
    CALL AddViscoStress()
  END IF
 
+IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
 
@@ -939,7 +941,7 @@ LOGICAL bHit
 
 bHit = .FALSE.
 
-IF (iType.EQ.2) THEN
+IF (iType.EQ.myMatrixRenewal%D) THEN
  CALL Create_DiffMat(QuadSc)
  bHit = .TRUE.
 END IF
@@ -1074,13 +1076,14 @@ EXTERNAL E013
 ! KWORK(L(LEDGE)),DWORK(L(LCORVG)),Force2,E013)
   
  if(bViscoElastic)then
-   Force = Force + ViscoElasticForce
-   CALL Comm_SummN(Force,3)
-   Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
-   Force = (4d0*Force)/Scale
+  Force = Force + ViscoElasticForce
+  !CALL Comm_SummN(Force,3)
+  Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
+  Force = (4d0*Force)/Scale
+  ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
  else
-   Factor = 2d0/(U_mean*U_mean*D*H)
-   Force = Factor*Force
+  Factor = 2d0/(U_mean*U_mean*D*H)
+  Force = Factor*Force
  end if
 
 ! Force2 = Factor*Force2
@@ -1091,19 +1094,25 @@ EXTERNAL E013
 ! END DO
 ! WRITE(*,*) NN
 
- IF (myid.eq.showID) THEN
-  WRITE(MTERM,5)
-  WRITE(MFILE,5)
-  write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
- ! write(mfile,'(A30,3D12.4)') "Force acting on the cylinder:",Force2
- ! write(mterm,'(A30,3D12.4)') "Force acting on the cylinder:",Force2
-  write(mfile,'(A30,4E16.8)') "ViscoForce acting on the cylinder:",timens,&
-    ViscoElasticForce*4.0d0/Scale
-  write(mterm,'(A30,4E16.8)') "ViscoForce acting on the cylinder:",timens,&
-    ViscoElasticForce*4.0d0/Scale
-  WRITE(666,'(7G16.8)') Timens,Force
- END IF
+IF (myid.eq.showID) THEN
+  if(bViscoElastic)then
+    WRITE(MTERM,5)
+    WRITE(MFILE,5)
+    write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+      timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+    write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+      timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+    WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
+      (Force-ViscoElasticForce),Force
+    WRITE(666,'(7G16.8)') Timens,Force
+  else
+    WRITE(MTERM,5)
+    WRITE(MFILE,5)
+    write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+    write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+    WRITE(666,'(7G16.8)') Timens,Force
+  end if
+END IF
 
 5  FORMAT(104('-'))
 
@@ -1112,66 +1121,66 @@ END SUBROUTINE FAC_GetForces
 ! ----------------------------------------------
 !
 SUBROUTINE GetPressureSample(dcorvg,nvt)
-INTEGER NVT
-REAL*8 dcorvg(3,*)
-INTEGER I,J1,J2
-REAL*8 :: P1X=0.55d0,P1Y=0.20d0,P1Z=0.205d0
-REAL*8 :: P2X=0.45d0,P2Y=0.20d0,P2Z=0.205d0
-REAL*8 DIST1,DIST2,MINDIST1,MINDIST2,PX,PY,PZ
+  INTEGER NVT
+  REAL*8 dcorvg(3,*)
+  INTEGER I,J1,J2
+  REAL*8 :: P1X=0.55d0,P1Y=0.20d0,P1Z=0.205d0
+  REAL*8 :: P2X=0.45d0,P2Y=0.20d0,P2Z=0.205d0
+  REAL*8 DIST1,DIST2,MINDIST1,MINDIST2,PX,PY,PZ
 
-IF (myid.ne.0) THEN
- MINDIST1 = 1d30
- MINDIST2 = 1d30
- DO i=1,nvt
-  PX = dcorvg(1,I)
-  PY = dcorvg(2,I)
-  PZ = dcorvg(3,I)
-  DIST1 = SQRT((PX-P1X)**2d0 + (PY-P1Y)**2d0 + (PZ-P1Z)**2d0)
-  DIST2 = SQRT((PX-P2X)**2d0 + (PY-P2Y)**2d0 + (PZ-P2Z)**2d0)
-  IF (DIST1.LT.MINDIST1) THEN
-   MINDIST1 = DIST1
-   J1 = I
+  IF (myid.ne.0) THEN
+    MINDIST1 = 1d30
+    MINDIST2 = 1d30
+    DO i=1,nvt
+    PX = dcorvg(1,I)
+    PY = dcorvg(2,I)
+    PZ = dcorvg(3,I)
+    DIST1 = SQRT((PX-P1X)**2d0 + (PY-P1Y)**2d0 + (PZ-P1Z)**2d0)
+    DIST2 = SQRT((PX-P2X)**2d0 + (PY-P2Y)**2d0 + (PZ-P2Z)**2d0)
+    IF (DIST1.LT.MINDIST1) THEN
+      MINDIST1 = DIST1
+      J1 = I
+    END IF
+    IF (DIST2.LT.MINDIST2) THEN
+      MINDIST2 = DIST2
+      J2 = I
+    END IF
+    END DO
+    MINDIST1 = -MINDIST1
+    MINDIST2 = -MINDIST2
+    DIST1 = MINDIST1
+    DIST2 = MINDIST2
+    !  WRITE(*,*) myid,J1,J2,MINDIST1,MINDIST2!PressureSample
   END IF
-  IF (DIST2.LT.MINDIST2) THEN
-   MINDIST2 = DIST2
-   J2 = I
+
+  CALL COMM_Maximum(MINDIST1)
+  CALL COMM_Maximum(MINDIST2)
+
+  IF (myid.ne.0) THEN
+    !  WRITE(*,*) myid,J1,J2,MINDIST1,MINDIST2!PressureSample
+    PressureSample = 0
+    IF (DIST1.EQ.MINDIST1) THEN
+      PressureSample(1) = J1
+    END IF
+    IF (DIST2.EQ.MINDIST2) THEN
+      PressureSample(2) = J2
+    END IF
+    !  WRITE(*,*) myid,MINDIST1,MINDIST2,PressureSample
   END IF
- END DO
- MINDIST1 = -MINDIST1
- MINDIST2 = -MINDIST2
- DIST1 = MINDIST1
- DIST2 = MINDIST2
-!  WRITE(*,*) myid,J1,J2,MINDIST1,MINDIST2!PressureSample
-END IF
-
-CALL COMM_Maximum(MINDIST1)
-CALL COMM_Maximum(MINDIST2)
-
-IF (myid.ne.0) THEN
-!  WRITE(*,*) myid,J1,J2,MINDIST1,MINDIST2!PressureSample
- PressureSample = 0
- IF (DIST1.EQ.MINDIST1) THEN
-  PressureSample(1) = J1
- END IF
- IF (DIST2.EQ.MINDIST2) THEN
-  PressureSample(2) = J2
- END IF
-!  WRITE(*,*) myid,MINDIST1,MINDIST2,PressureSample
-END IF
 
 END SUBROUTINE GetPressureSample
 
 
 SUBROUTINE Analyzer
-INTEGER I,J
+  INTEGER I,J
 
-J=0
-DO I=1,QuadSc%ndof
- IF (ABS(QuadSC%auxU(I)).GT.1d-10) THEN
-  J = J + 1
-!   WRITE(*,*) I,J,QuadSC%auxU(I)
- END IF
-END DO
+  J=0
+  DO I=1,QuadSc%ndof
+  IF (ABS(QuadSC%auxU(I)).GT.1d-10) THEN
+    J = J + 1
+    !   WRITE(*,*) I,J,QuadSC%auxU(I)
+  END IF
+  END DO
 
 END SUBROUTINE Analyzer
 !
@@ -1179,365 +1188,366 @@ END SUBROUTINE Analyzer
 !
 SUBROUTINE updateFBMGeometry()
 
-ILEV=NLMAX
-CALL SETLEV(2)
-CALL QuadScalar_FictKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-     KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  CALL QuadScalar_FictKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
+    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
 
 END SUBROUTINE  updateFBMGeometry
 !
 ! ----------------------------------------------
 !
 SUBROUTINE updateMixerGeometry()
-return
-ILEV=NLMAX
-CALL SETLEV(2)
-CALL QuadScalar_MixerKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-     KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+  return
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  CALL QuadScalar_MixerKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
+    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
 
 END SUBROUTINE  updateMixerGeometry
 !
 ! ----------------------------------------------
 !
 SUBROUTINE StaticMeshAdaptation()
-INTEGER iAdaptMeshLevel,idL
+  INTEGER iAdaptMeshLevel,idL
 
-IF (.NOT.bMeshAdaptation) RETURN
+  IF (.NOT.bMeshAdaptation) RETURN
 
-OPEN(474,FILE=ADJUSTL(TRIM(cAdaptedMeshFile))//"/level.prf")
-READ(474,*) iAdaptMeshLevel
-CLOSE(474)
+  OPEN(474,FILE=ADJUSTL(TRIM(cAdaptedMeshFile))//"/level.prf")
+  READ(474,*) iAdaptMeshLevel
+  CLOSE(474)
 
-idL = iAdaptMeshLevel - NLMAX
+  idL = iAdaptMeshLevel - NLMAX
 
-CALL CreateDumpStructures(idL)
-CALL LoadSmartAdaptedMeshFile(DWORK(L(KLCVG(1))),cAdaptedMeshFile,idL)
+  CALL CreateDumpStructures(idL)
+  CALL LoadSmartAdaptedMeshFile(DWORK(L(KLCVG(1))),cAdaptedMeshFile,idL)
 
-! ---------------------------- -  -    - -- -- - - - - - - - -   ----------------
+  ! ---------------------------- -  -    - -- -- - - - - - - - -   ----------------
 
-DO ILEV = iAdaptMeshLevel,NLMAX
+  DO ILEV = iAdaptMeshLevel,NLMAX
   CALL SETLEV(2)
   WRITE(*,*) 'mesh levels', ilev,iAdaptMeshLevel,NLMAX
   CALL RefreshCoordinates(DWORK(L(KLCVG(ILEV+1))),DWORK(L(KLCAG(ILEV))),&
-     KWORK(L(KLVERT(ILEV))),KWORK(L(KLEDGE(ILEV))),KWORK(L(KLAREA(ILEV))))
- END DO
+    KWORK(L(KLVERT(ILEV))),KWORK(L(KLEDGE(ILEV))),KWORK(L(KLAREA(ILEV))))
+  END DO
 
-! ---------------------------- -  -    - -- -- - - - - - - - -   ----------------
+  ! ---------------------------- -  -    - -- -- - - - - - - - -   ----------------
 
 END SUBROUTINE StaticMeshAdaptation
 !
 ! ----------------------------------------------
 !
 SUBROUTINE CoorWriter(dcorvg,nvt,cF)
-CHARACTER*(*) cF
-REAL*8 dcorvg(3,*)
-INTEGER i,nvt
+  CHARACTER*(*) cF
+  REAL*8 dcorvg(3,*)
+  INTEGER i,nvt
 
-OPEN(547,FILE=TRIM(ADJUSTL(cF)))
-DO i=1,nvt
-WRITE(547,*) dcorvg(:,i)
-END DO
-CLOSE(547)
+  OPEN(547,FILE=TRIM(ADJUSTL(cF)))
+  DO i=1,nvt
+  WRITE(547,*) dcorvg(:,i)
+  END DO
+  CLOSE(547)
 
 END SUBROUTINE CoorWriter
 !
 ! ----------------------------------------------
 !
 SUBROUTINE RefreshCoordinates(dcorvg,dcorag,kvert,kedge,karea)
-REAL*8  dcorvg(3,*),dcorag(3,*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-REAL*8 PX,PY,PZ,DIST
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-INTEGER NeighE(2,12),NeighA(4,6)
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  REAL*8  dcorvg(3,*),dcorag(3,*)
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  REAL*8 PX,PY,PZ,DIST
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-k=1
-DO i=1,nel
- DO j=1,12
+  k=1
+  DO i=1,nel
+  DO j=1,12
   IF (k.eq.kedge(j,i)) THEN
-   ivt1 = kvert(NeighE(1,j),i)
-   ivt2 = kvert(NeighE(2,j),i)
-   PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-   PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-   PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   dcorvg(1,nvt+k) = PX
-   dcorvg(2,nvt+k) = PY
-   dcorvg(3,nvt+k) = PZ
-   k = k + 1
+    ivt1 = kvert(NeighE(1,j),i)
+    ivt2 = kvert(NeighE(2,j),i)
+    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+    dcorvg(1,nvt+k) = PX
+    dcorvg(2,nvt+k) = PY
+    dcorvg(3,nvt+k) = PZ
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,6
+  k=1
+  DO i=1,nel
+  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   ivt1 = kvert(NeighA(1,j),i)
-   ivt2 = kvert(NeighA(2,j),i)
-   ivt3 = kvert(NeighA(3,j),i)
-   ivt4 = kvert(NeighA(4,j),i)
-   PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-   PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-   PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   dcorag(1,k) = PX
-   dcorag(2,k) = PY
-   dcorag(3,k) = PZ
-   dcorvg(1,nvt+net+k) = PX
-   dcorvg(2,nvt+net+k) = PY
-   dcorvg(3,nvt+net+k) = PZ
-   k = k + 1
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+    dcorag(1,k) = PX
+    dcorag(2,k) = PY
+    dcorag(3,k) = PZ
+    dcorvg(1,nvt+net+k) = PX
+    dcorvg(2,nvt+net+k) = PY
+    dcorvg(3,nvt+net+k) = PZ
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-DO i=1,nel
- PX = 0d0
- PY = 0d0
- PZ = 0d0
- DO j=1,8
+  DO i=1,nel
+  PX = 0d0
+  PY = 0d0
+  PZ = 0d0
+  DO j=1,8
   PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
- END DO
- dcorvg(1,nvt+net+nat+i) = PX
- dcorvg(2,nvt+net+nat+i) = PY
- dcorvg(3,nvt+net+nat+i) = PZ
-END DO
+  END DO
+  dcorvg(1,nvt+net+nat+i) = PX
+  dcorvg(2,nvt+net+nat+i) = PY
+  dcorvg(3,nvt+net+nat+i) = PZ
+  END DO
 
 END SUBROUTINE RefreshCoordinates
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  GetMonitor()
-implicit none
-INTEGER i
-REAL*8 daux,px,py,pz
- return
- ILEV = NLMAX
- CALL SETLEV(2)
+  implicit none
+  INTEGER i
+  REAL*8 daux,px,py,pz
+  return
+  ILEV = NLMAX
+  CALL SETLEV(2)
 
-!  
-! 
-!  DO i=1,nvt
-!  
-!    PX = dcorvg(1,i)
-!    PY = dcorvg(2,i)
-!    PZ = dcorvg(3,i)
-!    getdistanceid(px,py,pz,daux,i);
-!   
-!   myALE%Monitor(i) = sqrt(daux) !HogenPowerlaw(daux)
-! 
-!  END DO
+  !  
+  ! 
+  !  DO i=1,nvt
+  !  
+  !    PX = dcorvg(1,i)
+  !    PY = dcorvg(2,i)
+  !    PZ = dcorvg(3,i)
+  !    getdistanceid(px,py,pz,daux,i);
+  !   
+  !   myALE%Monitor(i) = sqrt(daux) !HogenPowerlaw(daux)
+  ! 
+  !  END DO
 
 END SUBROUTINE  GetMonitor
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  GetNonNewtViscosity()
-INTEGER i
-REAL*8 daux
-REAL*8 HogenPowerlaw
-REAL*8 PolyFLOW_Carreau
-LOGICAL bCondition
+  INTEGER i
+  REAL*8 daux
+  REAL*8 HogenPowerlaw
+  REAL*8 PolyFLOW_Carreau
+  LOGICAL bCondition
 
-bCondition = .FALSE.
+  bCondition = .FALSE.
 
-IF (bNonNewtonian) THEN
- DO i=1,SIZE(myExport%Fields)
-  IF (ADJUSTL(TRIM(myExport%Fields(i))).EQ.'Viscosity') bCondition=.TRUE.
- END DO
-END IF
+  IF (bNonNewtonian) THEN
+    DO i=1,SIZE(myExport%Fields)
+    IF (ADJUSTL(TRIM(myExport%Fields(i))).EQ.'Viscosity') bCondition=.TRUE.
+    END DO
+  END IF
 
-IF (bCondition) THEN
- ILEV = NLMAX
- CALL SETLEV(2)
+  IF (bCondition) THEN
+    ILEV = NLMAX
+    CALL SETLEV(2)
 
- CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
- CALL E013Sum(QuadSc%defU)
- CALL E013Sum(QuadSc%defV)
- CALL E013Sum(QuadSc%defW)
- CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+    CALL E013Sum(QuadSc%defU)
+    CALL E013Sum(QuadSc%defV)
+    CALL E013Sum(QuadSc%defW)
+    CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
 
- CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
- CALL E013Sum(QuadSc%defU)
- CALL E013Sum(QuadSc%defV)
- CALL E013Sum(QuadSc%defW)
- CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+    CALL E013Sum(QuadSc%defU)
+    CALL E013Sum(QuadSc%defV)
+    CALL E013Sum(QuadSc%defW)
+    CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
 
- CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
- CALL E013Sum(QuadSc%defU)
- CALL E013Sum(QuadSc%defV)
- CALL E013Sum(QuadSc%defW)
- CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+    CALL E013Sum(QuadSc%defU)
+    CALL E013Sum(QuadSc%defV)
+    CALL E013Sum(QuadSc%defW)
+    CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
 
- DO i=1,SIZE(QuadSc%ValU)
-  daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
-         0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
-         0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
-         0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+    DO i=1,SIZE(QuadSc%ValU)
+    daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
+      0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+      0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+      0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
-  Viscosity(i) = PolyFLOW_Carreau(daux)
+    Viscosity(i) = PolyFLOW_Carreau(daux)
 
- END DO
+    END DO
 
-END IF
+  END IF
 
 END SUBROUTINE  GetNonNewtViscosity
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  AddViscoStress()
-EXTERNAL E013
+  EXTERNAL E013
 
-ILEV=NLMAX
-CALL SETLEV(2)
+  ILEV=NLMAX
+  CALL SETLEV(2)
 
-CALL AssembleViscoStress(QuadSc%defU,QuadSc%defV,QuadSc%defW,BndrForce,&
- ViscoSc%Val11,ViscoSc%Val22,ViscoSc%Val33,ViscoSc%Val12,ViscoSc%Val13,ViscoSc%Val23,&
- KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),&
- Properties%Viscosity(2),tstep,Properties%ViscoLambda,ViscoElasticForce,E013)
+  CALL AssembleViscoStress(QuadSc%defU,QuadSc%defV,QuadSc%defW,BndrForce,&
+    ViscoSc%Val11,ViscoSc%Val22,ViscoSc%Val33,ViscoSc%Val12,ViscoSc%Val13,ViscoSc%Val23,&
+    KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),&
+    Properties%Viscosity(2),tstep,Properties%ViscoLambda,ViscoElasticForce,E013)
+  CALL Comm_SummN(ViscoElasticForce,3)
 
 END SUBROUTINE  AddViscoStress
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Calculate_Torque(mfile)
-INTEGER mfile,i
-REAL*8 Torque1(3), Torque2(3),myPI,daux
-EXTERNAL E013
-return
-ILEV=NLMAX
-CALL SETLEV(2)
+  INTEGER mfile,i
+  REAL*8 Torque1(3), Torque2(3),myPI,daux
+  EXTERNAL E013
+  return
+  ILEV=NLMAX
+  CALL SETLEV(2)
 
-! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!  LinSc%valP(NLMAX)%x,MixerKNPR,& !How separate????
-!  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-!  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
-! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!  LinSc%valP(NLMAX)%x,myBoundary%iInflow,& !How separate????
-!  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-!  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
+  ! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+  !  LinSc%valP(NLMAX)%x,MixerKNPR,& !How separate????
+  !  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+  !  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
+  ! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+  !  LinSc%valP(NLMAX)%x,myBoundary%iInflow,& !How separate????
+  !  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+  !  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
 
-!  DO i=1,size(myBoundary%bWall)
-!   if (myBoundary%bWall(i)) write(*,*) myid,' ---> ',i
-!  END DO
- myPI = dATAN(1d0)*4d0
- daux = 1D0*1e-9*myPI*(250d0/3d1)/2.5d0
+  !  DO i=1,size(myBoundary%bWall)
+  !   if (myBoundary%bWall(i)) write(*,*) myid,' ---> ',i
+  !  END DO
+  myPI = dATAN(1d0)*4d0
+  daux = 1D0*1e-9*myPI*(250d0/3d1)/2.5d0
 
-IF (myid.eq.showID) THEN
-  WRITE(MTERM,5)
-  WRITE(MFILE,5)
-  write(mfile,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
-  write(mterm,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
-!  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
-END IF
+  IF (myid.eq.showID) THEN
+    WRITE(MTERM,5)
+    WRITE(MFILE,5)
+    write(mfile,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
+    write(mterm,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
+    !  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
+  END IF
 
-5  FORMAT(100('-'))
+  5  FORMAT(100('-'))
 
 END SUBROUTINE Calculate_Torque
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  STORE_OLD_MESH(dcoor)
-REAL*8 dcoor(3,*) 
-INTEGER i
+  REAL*8 dcoor(3,*) 
+  INTEGER i
 
-DO i=1,QuadSc%ndof
- myALE%OldCoor(:,i) = dcoor(:,i)
-END DO
+  DO i=1,QuadSc%ndof
+  myALE%OldCoor(:,i) = dcoor(:,i)
+  END DO
 
 END SUBROUTINE  STORE_OLD_MESH
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  STORE_NEW_MESH(dcoor)
-REAL*8 dcoor(3,*) 
-INTEGER i
+  REAL*8 dcoor(3,*) 
+  INTEGER i
 
-DO i=1,QuadSc%ndof
- myALE%NewCoor(:,i) = dcoor(:,i)
-END DO
+  DO i=1,QuadSc%ndof
+  myALE%NewCoor(:,i) = dcoor(:,i)
+  END DO
 
 END SUBROUTINE  STORE_NEW_MESH
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  GET_MESH_VELO()
-INTEGER i
-REAL*8 dmax,daux
+  INTEGER i
+  REAL*8 dmax,daux
 
-dmax = 0d0
-DO i=1,QuadSc%ndof
- myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
-! myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
-daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0)
- IF (daux.gt.dmax) dmax = daux
-END DO
+  dmax = 0d0
+  DO i=1,QuadSc%ndof
+  myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
+  ! myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
+  daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0)
+  IF (daux.gt.dmax) dmax = daux
+  END DO
 
-CALL COMM_Maximum(dmax)
-IF (myid.eq.showid) WRITE(*,*) 'max mesh velocity: ', dmax
+  CALL COMM_Maximum(dmax)
+  IF (myid.eq.showid) WRITE(*,*) 'max mesh velocity: ', dmax
 
 END SUBROUTINE  GET_MESH_VELO
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  RotateMyMesh(dcoor)
-REAL*8 dcoor(3,*) 
-REAL*8 X,Y,Z,R,A,dAlpha
-REAL*8 :: PI = 3.141592654d0
-INTEGER i,nnn
+  REAL*8 dcoor(3,*) 
+  REAL*8 X,Y,Z,R,A,dAlpha
+  REAL*8 :: PI = 3.141592654d0
+  INTEGER i,nnn
 
-dAlpha = 1d0*(250d0/60d0)*2d0*timens*PI
-! dAlpha = 2d0*(250d0/60d0)*2d0*tstep*PI
+  dAlpha = 1d0*(250d0/60d0)*2d0*timens*PI
+  ! dAlpha = 2d0*(250d0/60d0)*2d0*tstep*PI
 
-IF (myid.eq.0) THEN
-nnn = KNVT(NLMAX)
-ELSE
-nnn = KNVT(NLMAX+1)
-END IF
+  IF (myid.eq.0) THEN
+    nnn = KNVT(NLMAX)
+  ELSE
+    nnn = KNVT(NLMAX+1)
+  END IF
 
-DO i=1,nnn
-!  X = dcoor(1,i)
-!  Y = dcoor(2,i)
- X = myALE%OrigCoor(1,i)
- Y = myALE%OrigCoor(2,i)
- R = DSQRT(X*X + Y*Y)
- A = DATAN(Y/X)
- IF (X.LT.0d0) A = A + PI
- A = A + dAlpha
- dcoor(1,i) = R*DCOS(A)
- dcoor(2,i) = R*DSIN(A)
- !IF (myid.eq.1) WRITE(*,'(2(2E12.4,A))') X,Y,' : ', dcoor(1:2,i)
-END DO
+  DO i=1,nnn
+  !  X = dcoor(1,i)
+  !  Y = dcoor(2,i)
+  X = myALE%OrigCoor(1,i)
+  Y = myALE%OrigCoor(2,i)
+  R = DSQRT(X*X + Y*Y)
+  A = DATAN(Y/X)
+  IF (X.LT.0d0) A = A + PI
+  A = A + dAlpha
+  dcoor(1,i) = R*DCOS(A)
+  dcoor(2,i) = R*DSIN(A)
+  !IF (myid.eq.1) WRITE(*,'(2(2E12.4,A))') X,Y,' : ', dcoor(1:2,i)
+  END DO
 
-ILEV = NLMIN
-CALL SETLEV(2)
+  ILEV = NLMIN
+  CALL SETLEV(2)
 
-CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
+  CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
 
-ILEV = NLMAX
-CALL SETLEV(2)
+  ILEV = NLMAX
+  CALL SETLEV(2)
 
-! pause
+  ! pause
 
 END SUBROUTINE  RotateMyMesh
 !
 ! ----------------------------------------------
 !
 SUBROUTINE  StoreOrigCoor(dcoor)
-INTEGER i,nnn
-REAL*8 dcoor(3,*) 
+  INTEGER i,nnn
+  REAL*8 dcoor(3,*) 
 
-IF (myid.eq.0) THEN
-nnn = KNVT(NLMAX)
-ELSE
-nnn = KNVT(NLMAX+1)
-END IF
+  IF (myid.eq.0) THEN
+    nnn = KNVT(NLMAX)
+  ELSE
+    nnn = KNVT(NLMAX+1)
+  END IF
 
-DO i=1,nnn
- myALE%OrigCoor(:,i) = dcoor(:,i)
-END DO
+  DO i=1,nnn
+  myALE%OrigCoor(:,i) = dcoor(:,i)
+  END DO
 
 END SUBROUTINE  StoreOrigCoor
 

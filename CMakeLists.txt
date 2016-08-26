@@ -283,6 +283,7 @@ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   file(COPY ${CMAKE_SOURCE_DIR}/testcases/fac/test1 DESTINATION ${CMAKE_BINARY_DIR})
   file(COPY ${CMAKE_SOURCE_DIR}/testcases/fac_nnewt/test2 DESTINATION ${CMAKE_BINARY_DIR})
   file(COPY ${CMAKE_SOURCE_DIR}/testcases/fallingparticle/test3 DESTINATION ${CMAKE_BINARY_DIR})
+  file(COPY ${CMAKE_SOURCE_DIR}/testcases/fac_visco/test4 DESTINATION ${CMAKE_BINARY_DIR})
 
   # establish the file links
   FOREACH(flink ${FILELINKS})
@@ -347,4 +348,5 @@ ENDIF(NOT ${Q2P1_TESTCASE} STREQUAL "")
 add_test(q2p1-fac-newt ./test1)
 add_test(q2p1-fac-nnewt ./test2)
 add_test(q2p1-fallingparticle ./test3)
+add_test(q2p1-visco-elastic ./test4)
 

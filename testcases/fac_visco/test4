@@ -1,9 +1,8 @@
 #!/bin/bash
-cp ./testcases/fac/_data/q2p1_param.dat _data
-cp ./testcases/fac/start/data.TXT start
+cp ./testcases/fac_visco/_data/q2p1_param.dat _data
+cp ./testcases/fac_visco/start/data.TXT start
 mpirun -np 5 ./q2p1
-cp _data/prot.txt fac_new_prot.txt
-echo "Test Results" >> ./testresults/results.txt
-echo "Newtonian: Drag Lift" >> ./testresults/results.txt
-grep 'Force acting' fac_new_prot.txt | tail -1 | awk '{print ""$7" "$8""}' >> ./testresults/results.txt
+cp _data/prot.txt fac_visco_prot.txt
+echo "Visco-Elastic: force(x,y,z)" >> ./testresults/results.txt
+grep 'TimevsForce' fac_visco_prot.txt | tail -1 | awk '{print ""$3" "$4" "$5""}' >> ./testresults/results.txt
 
