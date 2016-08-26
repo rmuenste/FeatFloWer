@@ -414,9 +414,7 @@ INTEGER I,J,ndof,mfile,LevDif
 
  CALL InitializeProlRest(QuadSc,LinSc)
 
-!  CALL OperatorRegenaration(1)
-
-! CALL FAC_GetForces(1)
+ CALL OperatorRegenaration(1)
 
 END SUBROUTINE Init_QuadScalar_Stuctures
 !
