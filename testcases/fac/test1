@@ -1,7 +1,7 @@
 #!/bin/bash
 cp ./testcases/fac/_data/q2p1_param.dat _data
 cp ./testcases/fac/start/data.TXT start
-mpirun -np 5 ./q2p1
+mpirun -np 5 ./q2p1 >/dev/null 2>/dev/null
 cp _data/prot.txt fac_new_prot.txt
 echo "Test Results" >> ./testresults/results.txt
 echo "Newtonian: Drag Lift" >> ./testresults/results.txt
