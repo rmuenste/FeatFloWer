@@ -21,7 +21,7 @@ SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 10
 SimPar@NoOutflow = No                                                    ! Yes
 SimPar@Umbrella = 0	
-SimPar@OutputFreq = 0.5000d0
+SimPar@OutputFreq = 0.1000d0
 SimPar@MatrixRenewal = M1D1K0S0C1
 SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
 SimPar@ViscoElastic = Yes                                                ! Yes
@@ -61,6 +61,7 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-3
 Pres@MGCriterion2 = 1d-10
 Pres@MGCycType = F
+Pres@MGCrsSolverType = 4
 ------------- Physical parameters --------------
 Prop@Gravity = 0d0,0d0,0d0
 Prop@Density = 1d0,1d0
