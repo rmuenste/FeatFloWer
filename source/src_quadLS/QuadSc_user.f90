@@ -33,7 +33,7 @@ END IF
 END SUBROUTINE GetCylKnpr
 !--------------------------------------------------
 SUBROUTINE GetVeloInitVal(X,Y,Z,ValU,ValV,ValW)
-USE var_QuadScalar, ONLY : bViscoElastic
+USE var_QuadScalar, ONLY : bViscoElastic,bViscoElasticFAC
 REAL*8 X,Y,Z,ValU,ValV,ValW
 REAL*8 PX,PY,dScale
 INTEGER iC
@@ -50,6 +50,14 @@ if(bViscoElastic)then
 else
   ValW = 0d0
 end if
+
+if(bViscoElasticFAC)then
+  ValV = 0d0
+  ValW = 0d0
+  dScale=3d0/2d0
+  ValU=dScale*(1d0-0.25d0*Y*Y)
+end if
+
 
 ! if (Y.lt.0.5d0) then
 !  ValU = tanh(3d1*(Y-0.25d0))
@@ -95,6 +103,13 @@ END IF
 IF (iT.EQ.2) THEN
  dScale=0.2d0*(3d0/2d0)/(0.205d0*0.205d0)
  ValU=dScale*Y*(0.41d0-Y)
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
+IF (iT.EQ.4.OR.iT.EQ.5) THEN
+ dScale=3d0/2d0
+ ValU=dScale*(1d0-0.25d0*Y*Y)
  ValV= 0d0
  ValW= 0d0
 END IF
