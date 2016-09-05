@@ -1,6 +1,6 @@
 SUBROUTINE SolToFile(iOutput)
 USE def_FEAT
-USE QuadScalar,ONLY:QuadSc,LinSc
+USE QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid
 
@@ -36,6 +36,11 @@ CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
 ! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 CALL WriteSol_Time(iOut)
 
+if(bViscoElastic)then
+  CALL WriteSol_Visco(iOut,0)
+end if
+
+
 END SUBROUTINE SolToFile
 !
 ! ----------------------------------------------
@@ -43,7 +48,7 @@ END SUBROUTINE SolToFile
 SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
-USE QuadScalar,ONLY:QuadSc,LinSc,SetUp_myQ2Coor
+USE QuadScalar,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE LinScalar,ONLY:Tracer
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
@@ -70,6 +75,10 @@ CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
      LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
 ! CALL ReadSol_Coor(cInFile,iLevel,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 CALL ReadSol_Time(cInFile)
+
+if(bViscoElastic)then
+  CALL ReadSol_Visco(cInFile, iLevel)
+end if
 
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MESH eXchange on coarse level !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -168,6 +177,29 @@ END SUBROUTINE WriteSol_Velo
 !
 !-------------------------------------------------------------------------------
 !
+SUBROUTINE WriteSol_Visco(iInd,iiLev)
+interface
+  SUBROUTINE WriteSol(iOut,iType,iiLev,cField,Field1,Field2,Field3,Field4)
+  USE def_FEAT
+  USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
+      RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
+  USE QuadScalar,ONLY:myDump
+  IMPLICIT NONE
+  INTEGER iOut,iType,iiLev
+  REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
+  CHARACTER cField*(20)
+  END SUBROUTINE WriteSol
+end interface
+INTEGER        iInd,iiLev
+INTEGER        :: iType= 3
+CHARACTER*(20) :: cFF='Stress'
+
+CALL WriteSol(iInd,iType,iiLev,cFF)
+
+END SUBROUTINE WriteSol_Visco
+!
+!-------------------------------------------------------------------------------
+!
 SUBROUTINE WriteSol_Pres(iInd,iiLev,Field1,Field2,Field3,Field4,Field5,nn)
 USE PP3D_MPI, ONLY:myid
 interface
@@ -239,7 +271,7 @@ SUBROUTINE WriteSol(iOut,iType,iiLev,cField,Field1,Field2,Field3,Field4)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-USE QuadScalar,ONLY:myDump
+USE QuadScalar,ONLY:myDump, ViscoSc
 IMPLICIT NONE
 INTEGER iOut,iType,iiLev
 REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -285,6 +317,15 @@ END IF
   IF (Present(Field2)) CALL CollectElemField(Field2)
   IF (Present(Field3)) CALL CollectElemField(Field3)
   IF (Present(Field4)) CALL CollectElemField(Field4)
+ END IF
+
+ IF (iType.eq.3) THEN
+   CALL CollectVertField(ViscoSc%val11)
+   CALL CollectVertField(ViscoSc%val22)
+   CALL CollectVertField(ViscoSc%val33)
+   CALL CollectVertField(ViscoSc%val12)
+   CALL CollectVertField(ViscoSc%val13)
+   CALL CollectVertField(ViscoSc%val23)
  END IF
 
  IF (myid.eq.0) THEN
@@ -465,6 +506,31 @@ END SUBROUTINE ReadSol_Velo
 !
 !-------------------------------------------------------------------------------
 !
+SUBROUTINE ReadSol_Visco(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid
+interface
+  SUBROUTINE ReadSol(cInFile,iLevel,iType,cField,Field1,Field2,Field3,Field4)
+  USE def_FEAT
+  USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
+      RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
+  USE QuadScalar,ONLY:myDump
+  IMPLICIT NONE
+  INTEGER iType,iLevel
+  REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
+  CHARACTER cField*(20),cInFile*(60)
+  END SUBROUTINE ReadSol
+end interface
+INTEGER        iLevel
+INTEGER        :: iType= 3
+CHARACTER*(20) :: cFF='Stress'
+CHARACTER*(60) :: cInFile
+
+CALL ReadSol(cInFile,iLevel,iType,cFF)
+
+END SUBROUTINE ReadSol_Visco
+!
+!-------------------------------------------------------------------------------
+!
 SUBROUTINE ReadSol_Pres(cInFile,iLevel,Field1,Field2,Field3,Field4,Field5,nn)
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
 interface
@@ -545,7 +611,7 @@ SUBROUTINE ReadSol(cInFile,iLevel,iType,cField,Field1,Field2,Field3,Field4)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-USE QuadScalar,ONLY:myDump
+USE QuadScalar,ONLY:myDump,ViscoSc
 IMPLICIT NONE
 INTEGER iInd,iType,iLevel
 REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -589,6 +655,15 @@ END IF
   IF (Present(Field2)) CALL DistributeElemField(Field2)
   IF (Present(Field3)) CALL DistributeElemField(Field3)
   IF (Present(Field4)) CALL DistributeElemField(Field4)
+ END IF
+
+ IF (iType.eq.3) THEN
+   CALL DistributeVertField(ViscoSc%val11)
+   CALL DistributeVertField(ViscoSc%val22)
+   CALL DistributeVertField(ViscoSc%val33)
+   CALL DistributeVertField(ViscoSc%val12)
+   CALL DistributeVertField(ViscoSc%val13)
+   CALL DistributeVertField(ViscoSc%val23)
  END IF
 
  IF (myid.eq.0) THEN

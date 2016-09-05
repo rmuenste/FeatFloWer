@@ -52,7 +52,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
     IF (iFile.LT.0.OR.iFile.GT.99) THEN
      IF (myid.EQ.showid) WRITE(MTERM,*) "Dump output could not be done ... "
     ELSE
-     CALL ReleaseSmartDumpFiles(iFile)
+     CALL SolToFile(iFile)
      CALL FBM_ToFile()
     END IF
 
@@ -60,7 +60,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
    CASE ("Dump_In")
 
     IF (myid.EQ.showid) write(*,*) cvalue
-    CALL LoadSmartDumpFiles(cvalue,1)
+    CALL SolFromFile(cvalue,1)
     CALL FBM_FromFile()
 
 ! -------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ SUBROUTINE Finalize(MFILE,MTERM)
  INTEGER iERR
 
  ! Save the final solution vector in unformatted form
- CALL ReleaseSmartDumpFiles(-1)
+ CALL SolToFile(-1)
 ! CALL Output_DUMPProfiles()
 
  IF (myid.eq.showid) THEN
