@@ -1,6 +1,7 @@
 SUBROUTINE SolToFile(iOutput)
 USE def_FEAT
 USE QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid
 
@@ -38,6 +39,10 @@ CALL WriteSol_Time(iOut)
 
 if(bViscoElastic)then
   CALL WriteSol_Visco(iOut,0)
+end if
+
+if(myid.eq.1 .and. myFBM%nParticles.gt.0)then
+  call writeparticles(iOut)
 end if
 
 
@@ -791,7 +796,7 @@ USE QuadScalar,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
-USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myExport,myFBM
 ! USE PLinScalar,ONLY:PLinScP1toQ1,OutputInterphase,PLinLS,&
 !                dNorm,IntPhaseElem,FracFieldQ1
 IMPLICIT NONE
@@ -834,6 +839,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
 
 END IF
 
+if(myid.eq.1 .and. myFBM%nParticles.gt.0)then
+  call writeparticles(iOutput)
+end if
 
 END
 !
@@ -1589,7 +1597,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE LinScalar,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -1624,10 +1632,13 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Velocity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValU(ivt)),REAL(QuadSc%ValV(ivt)),REAL(QuadSc%ValW(ivt))
+   write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValU(ivt)),&
+     REAL(QuadSc%ValV(ivt)),&
+     REAL(QuadSc%ValW(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
+   
  CASE('Stress')
   if(bViscoElastic)then
 
