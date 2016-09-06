@@ -78,6 +78,8 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
+use var_QuadScalar, only : myFBM
+USE PP3D_MPI, ONLY:myid
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
 INTEGER iT
@@ -123,6 +125,10 @@ END IF
 
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
+END IF
+
+IF (iT.EQ.99) THEN
+ ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
 
 RETURN
