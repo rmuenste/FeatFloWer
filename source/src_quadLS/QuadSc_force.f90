@@ -821,7 +821,9 @@
        myFBM%Force(iPointer)
        myFBM%ParticleNew(IP)%ResistanceForce(2) = &
        myFBM%Force(iPointer+1)
-       myFBM%ParticleNew(IP)%ResistanceForce(3) = 4.0 * &
+!       myFBM%ParticleNew(IP)%ResistanceForce(3) = 4.0 * &
+!       myFBM%Force(iPointer+2)
+       myFBM%ParticleNew(IP)%ResistanceForce(3) = 1.0 * &
        myFBM%Force(iPointer+2)
        myFBM%ParticleNew(IP)%TorqueForce(1) = &
        myFBM%Force(iPointer+3)
@@ -1458,7 +1460,7 @@ end subroutine GetForcesPerfCyl
       PARAMETER (PI=3.1415926535897931D0)
       REAL*8 RForce(3),dVelocity(3),dOmega(3),timecoll
       INTEGER :: iSubSteps
-      REAL*8 :: dSubStep
+      REAL*8 :: dSubStep,pz
       
       iSubSteps = 5
       call settimestep(dTime)
@@ -1510,6 +1512,13 @@ end subroutine GetForcesPerfCyl
         call startcollisionpipeline()
       end do
       call gettiming(timecoll)
+
+      pz=3.0d0 
+      ipc=0
+      call setpositionid(myFBM%particleNew(1)%Position(1),&
+                         myFBM%particleNew(1)%Position(2),&
+                         PZ,ipc)
+      myFBM%particleNEW(1)%Position(3) = pz
 
       ! set the particle parameters to the 
       ! values determined by the collision solver
@@ -1665,7 +1674,7 @@ end subroutine GetForcesPerfCyl
 SUBROUTINE GetVeloFictBCVal(X,Y,Z,ValU,ValV,ValW,IP,t)
 USE var_QuadScalar, ONLY : myFBM
 IMPLICIT NONE
-INTEGER iP
+INTEGER iP,ipc
 REAL*8 X,Y,Z,t,ValU,ValV,ValW
 REAL*8 PX,PY,PZ,RAD
 REAL*8 Velo(3),Pos(3),Omega(3)
@@ -1690,18 +1699,17 @@ if(IP .le. myFBM%nParticles)then
   DVELX_Y = -(Z-Pos(3))*Omega(1)
   DVELX_Z = +(Y-Pos(2))*Omega(1)
 
-  !ValU = Velo(1) !+ DVELZ_X + DVELY_X
-  !ValV = -3.0d-6!Velo(2) !+ DVELZ_Y + DVELX_Y
-  !if(valv.ne.0.0d0)write(*,*)"velo: ",valv
-  ValW = Velo(3) !+ DVELX_Z + DVELY_Z
+  ValU = Velo(1) !+ DVELZ_X + DVELY_X
+  ValV = Velo(2) !+ DVELZ_Y + DVELX_Y
+  ValW = 0.0d0 ! Velo(3) !+ DVELX_Z + DVELY_Z
+
   
-!   if(ValW.ne.0d0)then
-! 
-!     ValU = 0d0
-!     ValV = 0d0
-!     ValW = -0.1d0  
-!     
-!   end if
+  PZ = 3d0
+  ipc = 0
+  call setpositionid(Pos(1),Pos(2),PZ,ipc)
+  myFBM%particleNEW(IP)%Position(3) = pz
+  ! if(bMovingRef)then
+  !  end if
     
 else
   ValU = 0d0

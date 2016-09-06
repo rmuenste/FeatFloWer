@@ -2810,6 +2810,10 @@ DO
     READ(string(iEq+1:),*) Props%ViscoModel
     IF (myid.eq.showid) write(mterm,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
     IF (myid.eq.showid) write(mfile,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
+    CASE ("ForceScale")
+    READ(string(iEq+1:),*) Props%ForceScale
+    IF (myid.eq.showid) write(mterm,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
+    IF (myid.eq.showid) write(mfile,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
   END SELECT
 
   END IF

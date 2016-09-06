@@ -24,7 +24,7 @@ INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
 TYPE(tMatrixRenewal) myMatrixRenewal
 LOGICAL :: bNonNewtonian=.TRUE.
-LOGICAL bNoOutflow,bTracer,bViscoElastic
+LOGICAL bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
 
 INTEGER, PARAMETER :: Giesekus = 0
@@ -56,7 +56,7 @@ END TYPE tMGParamOut
 TYPE tProperties
  CHARACTER cName*7
  CHARACTER Material(2)*10
- REAL*8  Gravity(3)
+ REAL*8  Gravity(3),ForceScale(3)
  REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
  REAL*8 :: ViscoLambda
  INTEGER :: ViscoModel

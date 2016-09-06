@@ -1,3 +1,4 @@
 [submodule "FullC0ntact"]
 	path = FullC0ntact
 	url = https://github.com/rmuenste/FullC0ntact.git
+	branch = rafa-devel

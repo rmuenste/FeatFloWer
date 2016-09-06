@@ -427,6 +427,11 @@ DO
      READ(string(iEq+1:),*) cParam
      bViscoElasticFAC = .FALSE.
      IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
+    CASE ("ReferenceFrame")
+     cParam = " "
+     READ(string(iEq+1:),*) cParam
+     bRefFrame = .FALSE.
+     IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bRefFrame = .TRUE.
     CASE ("NoOutflow")
      cParam = " "
      READ(string(iEq+1:),*) cParam
