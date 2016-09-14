@@ -532,7 +532,7 @@
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
-      USE var_QuadScalar, ONLY : myFBM,myExport
+      USE var_QuadScalar, ONLY : myFBM,myExport,Properties
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 !
@@ -817,14 +817,21 @@
 
       DO IP = 1,myFBM%nParticles
        iPointer = 6*(IP-1)+1
+
+       ! Gather translational force
        myFBM%ParticleNew(IP)%ResistanceForce(1)= &
+       Properties%ForceScale(1) * &
        myFBM%Force(iPointer)
+
        myFBM%ParticleNew(IP)%ResistanceForce(2) = &
+       Properties%ForceScale(2) * &
        myFBM%Force(iPointer+1)
-!       myFBM%ParticleNew(IP)%ResistanceForce(3) = 4.0 * &
-!       myFBM%Force(iPointer+2)
-       myFBM%ParticleNew(IP)%ResistanceForce(3) = 1.0 * &
+
+       myFBM%ParticleNew(IP)%ResistanceForce(3) = &
+       Properties%ForceScale(3) * &
        myFBM%Force(iPointer+2)
+
+       ! Gather rotational force
        myFBM%ParticleNew(IP)%TorqueForce(1) = &
        myFBM%Force(iPointer+3)
        myFBM%ParticleNew(IP)%TorqueForce(2) = &
@@ -1460,7 +1467,7 @@ end subroutine GetForcesPerfCyl
       PARAMETER (PI=3.1415926535897931D0)
       REAL*8 RForce(3),dVelocity(3),dOmega(3),timecoll
       INTEGER :: iSubSteps
-      REAL*8 :: dSubStep,pz
+      REAL*8 :: dSubStep
       
       iSubSteps = 5
       call settimestep(dTime)
@@ -1513,12 +1520,12 @@ end subroutine GetForcesPerfCyl
       end do
       call gettiming(timecoll)
 
-      pz=3.0d0 
-      ipc=0
-      call setpositionid(myFBM%particleNew(1)%Position(1),&
-                         myFBM%particleNew(1)%Position(2),&
-                         PZ,ipc)
-      myFBM%particleNEW(1)%Position(3) = pz
+      !pz=3.0d0 
+      !ipc=0
+      !call setpositionid(myFBM%particleNew(1)%Position(1),&
+      !                   myFBM%particleNew(1)%Position(2),&
+      !                   PZ,ipc)
+      !myFBM%particleNEW(1)%Position(3) = pz
 
       ! set the particle parameters to the 
       ! values determined by the collision solver
@@ -1542,7 +1549,7 @@ end subroutine GetForcesPerfCyl
       !-------------------------------------------------------------------------------------
       DO IP = 1,myFBM%nParticles
       ipc = ip-1
-                                                                                        
+
       ! Backup the forces
       myFBM%particleOld(IP)%ResistanceForce = &
       myFBM%particleNew(IP)%ResistanceForce
@@ -1631,111 +1638,75 @@ end subroutine GetForcesPerfCyl
 !
 !-----------------------------------------------------------
 !
-!       SUBROUTINE CompElemList(vertices,visited)
-!       USE var_QuadScalar, ONLY : myFBM,FictKNPR
-!       IMPLICIT NONE
-!       integer, dimension(6,*) :: KADJ
-!       integer :: ip
-! 
-!       ! initialize the element list
-! 
-!       ! 
-! 
-! 
-!       END SUBROUTINE GetElemList
-! !
-! !-----------------------------------------------------------
-! !
-!       SUBROUTINE TraverseElements(iel,KADJ,visited)
-!       USE var_QuadScalar, ONLY : myFBM
-!       IMPLICIT NONE
-!       integer, dimension(6,*) :: kadj
-!       logical, dimension(*)   :: visited
-!       integer :: iel
-!       integer :: iP,n
-! 
-!       ! set the element to visited
-!       visited(iel) = .true.
-! 
-!       do n=1,6
-!         if(visited(kadj(n,iel)))cycle
-! 
-!         ! contains function calculates the
-!         ! number of dofs that are in a particle
-!         
-!       end do
-!       
-      
+      SUBROUTINE GetVeloFictBCVal(X,Y,Z,ValU,ValV,ValW,IP,t)
+      USE var_QuadScalar, ONLY : myFBM,bRefFrame
+      IMPLICIT NONE
+      INTEGER iP,ipc
+      REAL*8 X,Y,Z,t,ValU,ValV,ValW
+      REAL*8 PX,PY,PZ,RAD
+      REAL*8 Velo(3),Pos(3),Omega(3)
+      REAL*8 DVELZ_X,DVELZ_Y,DVELY_Z,DVELY_X,DVELX_Y,DVELX_Z
 
-!      END SUBROUTINE TraverseElements
+      ValU = 0d0
+      ValV = 0d0
+      ValW = 0d0
+
+      if(IP .le. myFBM%nParticles)then
+        Velo  = myFBM%particleNEW(IP)%Velocity
+        Pos   = myFBM%particleNEW(IP)%Position
+        Omega = myFBM%particleNEW(IP)%AngularVelocity
+
+        DVELZ_X = -(Y-Pos(2))*Omega(3)
+        DVELZ_Y = +(X-Pos(1))*Omega(3)
+
+        DVELY_Z = -(X-Pos(1))*Omega(2)
+        DVELY_X = +(Z-Pos(3))*Omega(2)
+
+        DVELX_Y = -(Z-Pos(3))*Omega(1)
+        DVELX_Z = +(Y-Pos(2))*Omega(1)
+
+        if(.NOT. bRefFrame)then
+          ValU = Velo(1) + DVELZ_X + DVELY_X
+          ValV = Velo(2) + DVELZ_Y + DVELX_Y
+          ValW = Velo(3) + DVELX_Z + DVELY_Z
+        else
+          ! For moving reference frame we set the
+          ! z-component to no velocity and
+          ! force the particle to remain at the
+          ! same position
+          ValW = 0.0d0
+          PZ = 3d0
+          ipc = 0
+
+          ! Enforce the particle position
+          call setpositionid(Pos(1),Pos(2),PZ,ipc)
+          myFBM%particleNEW(IP)%Position(3) = pz
+        end if
+      else
+        ValU = 0d0
+        ValV = 0d0
+        ValW = 0d0
+      end if
+
+      END SUBROUTINE GetVeloFictBCVal
 !
 !-----------------------------------------------------------
 !
-SUBROUTINE GetVeloFictBCVal(X,Y,Z,ValU,ValV,ValW,IP,t)
-USE var_QuadScalar, ONLY : myFBM
-IMPLICIT NONE
-INTEGER iP,ipc
-REAL*8 X,Y,Z,t,ValU,ValV,ValW
-REAL*8 PX,PY,PZ,RAD
-REAL*8 Velo(3),Pos(3),Omega(3)
-REAL*8 DVELZ_X,DVELZ_Y,DVELY_Z,DVELY_X,DVELX_Y,DVELX_Z
+      subroutine communicateforce(fx,fy,fz,tx,ty,tz)
+      use var_QuadScalar, only : myFBM
+      implicit none
+      real*8 fx(*),fy(*),fz(*),tx(*),ty(*),tz(*)
+      integer IP
 
-  ValU = 0d0
-  ValV = 0d0
-  ValW = 0d0
-
-
-if(IP .le. myFBM%nParticles)then
-  Velo  = myFBM%particleNEW(IP)%Velocity
-  Pos   = myFBM%particleNEW(IP)%Position
-  Omega = myFBM%particleNEW(IP)%AngularVelocity
-
-  DVELZ_X = -(Y-Pos(2))*Omega(3)
-  DVELZ_Y = +(X-Pos(1))*Omega(3)
-
-  DVELY_Z = -(X-Pos(1))*Omega(2)
-  DVELY_X = +(Z-Pos(3))*Omega(2)
-
-  DVELX_Y = -(Z-Pos(3))*Omega(1)
-  DVELX_Z = +(Y-Pos(2))*Omega(1)
-
-  ValU = Velo(1) !+ DVELZ_X + DVELY_X
-  ValV = Velo(2) !+ DVELZ_Y + DVELX_Y
-  ValW = 0.0d0 ! Velo(3) !+ DVELX_Z + DVELY_Z
-
-  
-  PZ = 3d0
-  ipc = 0
-  call setpositionid(Pos(1),Pos(2),PZ,ipc)
-  myFBM%particleNEW(IP)%Position(3) = pz
-  ! if(bMovingRef)then
-  !  end if
-    
-else
-  ValU = 0d0
-  ValV = 0d0
-  ValW = 0d0
-end if
-
-END SUBROUTINE GetVeloFictBCVal
-!
-!-----------------------------------------------------------
-!
-subroutine communicateforce(fx,fy,fz,tx,ty,tz)
-use var_QuadScalar, only : myFBM
-implicit none
-real*8 fx(*),fy(*),fz(*),tx(*),ty(*),tz(*)
-integer IP
-
-do IP = 1,myFBM%nParticles
-  fx(IP)=myFBM%particleNew(IP)%ResistanceForce(1)
-  fy(IP)=myFBM%particleNew(IP)%ResistanceForce(2)
-  fz(IP)=myFBM%particleNew(IP)%ResistanceForce(3)
-  tx(IP)=myFBM%particleNew(IP)%TorqueForce(1)
-  ty(IP)=myFBM%particleNew(IP)%TorqueForce(2)
-  tz(IP)=myFBM%particleNew(IP)%TorqueForce(3)
-end do
-end subroutine
+      do IP = 1,myFBM%nParticles
+        fx(IP)=myFBM%particleNew(IP)%ResistanceForce(1)
+        fy(IP)=myFBM%particleNew(IP)%ResistanceForce(2)
+        fz(IP)=myFBM%particleNew(IP)%ResistanceForce(3)
+        tx(IP)=myFBM%particleNew(IP)%TorqueForce(1)
+        ty(IP)=myFBM%particleNew(IP)%TorqueForce(2)
+        tz(IP)=myFBM%particleNew(IP)%TorqueForce(3)
+      end do
+      end subroutine
 !
 !-----------------------------------------------------------------------
 !

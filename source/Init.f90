@@ -289,7 +289,7 @@ USE PP3D_MPI
 USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
     nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
     myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-    bViscoElastic,bViscoElasticFAC
+    bViscoElastic,bViscoElasticFAC,bRefFrame
 
 IMPLICIT DOUBLE PRECISION(A-H,O-Z)
 PARAMETER (NNLEV=9)
