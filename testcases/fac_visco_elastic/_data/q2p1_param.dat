@@ -24,8 +24,9 @@ SimPar@Umbrella = 0
 SimPar@OutputFreq = 0.1000d0
 SimPar@MatrixRenewal = M1D1K0S0C1
 SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
-SimPar@ViscoElastic = Yes                                                ! Yes
-SimPar@ViscoElasticFAC = Yes                                                ! Yes
+SimPar@ViscoElastic = Yes                                               ! Yes
+SimPar@ViscoElasticFAC = Yes                                            ! Yes
+SimPar@bRefFrame = No                                                   ! No
 SimPar@Tracer = No                                                      ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
 SimPar@OutputFields = "Pressure_V,Velocity,Stress"
@@ -70,4 +71,5 @@ Prop@DiffCoeff = 1d-4,1d-4
 Prop@PowerLawExp = 0.75d0
 Prop@ViscoLambda = 0.1d0
 Prop@ViscoModel = 0
+Props%ForceScale = 1d0,1d0,1d0
 
