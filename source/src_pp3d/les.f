@@ -78,8 +78,8 @@ C
       END IF
 
       tout = DBLE(INT(timens/dtgmv)+1)*dtgmv
-      !CALL Output_Profiles(0)
-      !PAUSE
+!      CALL Output_Profiles(0)
+!      PAUSE
 
       CALL ZTIME(ttt0)
 

@@ -804,12 +804,12 @@
 100   CONTINUE
 !
       iPointer = 6*(IP-1)
-      myFBM%Force(iPointer+1) = 0.0d0!DResForceX
-      myFBM%Force(iPointer+2) = 0.0d0!DResForceY
+      myFBM%Force(iPointer+1) = DResForceX
+      myFBM%Force(iPointer+2) = DResForceY
       myFBM%Force(iPointer+3) = DResForceZ
-      myFBM%Force(iPointer+4) = 0d0 !DTrqForceX
-      myFBM%Force(iPointer+5) = 0d0 !DTrqForceY
-      myFBM%Force(iPointer+6) = 0d0 !DTrqForceZ
+      myFBM%Force(iPointer+4) = DTrqForceX
+      myFBM%Force(iPointer+5) = DTrqForceY
+      myFBM%Force(iPointer+6) = DTrqForceZ
 
       END DO ! nParticles
 
@@ -1682,10 +1682,6 @@ end subroutine GetForcesPerfCyl
           call setpositionid(Pos(1),Pos(2),PZ,ipc)
           myFBM%particleNEW(IP)%Position(3) = pz
         end if
-      else
-        ValU = 0d0
-        ValV = 0d0
-        ValW = 0d0
       end if
 
       END SUBROUTINE GetVeloFictBCVal

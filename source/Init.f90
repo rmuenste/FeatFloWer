@@ -184,9 +184,8 @@
       CALL E011_CreateComm(NDOF)
       
 !     ----------------------------------------------------------            
-     call fallingparticles()      
+     call init_fc_rigid_body(myid)      
      call FBM_GetParticles()
-     call setmyid(myid)
      CALL FBM_ScatterParticles()
 !     ----------------------------------------------------------        
 

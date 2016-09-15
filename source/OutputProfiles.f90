@@ -45,7 +45,6 @@ if(myid.eq.1 .and. myFBM%nParticles.gt.0)then
   call writeparticles(iOut)
 end if
 
-
 END SUBROUTINE SolToFile
 !
 ! ----------------------------------------------
@@ -2100,8 +2099,6 @@ USE var_QuadScalar,ONLY:myFBM
  myFBM%iel_ug=0
  
  ALLOCATE(myFBM%Force(6*myFBM%nParticles))
-
- if(myid.eq.1)write(*,*)'Number of particles: ',myFBM%nParticles
 
   DO iP = 1,myFBM%nParticles
    ipc=iP-1
