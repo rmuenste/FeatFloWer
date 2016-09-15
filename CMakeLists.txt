@@ -7,7 +7,7 @@ project(Q2P1 C CXX Fortran)
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
-# allow easier IF-else syntax
+# allow less strict IF-else syntax
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 
 # output the system name
@@ -37,7 +37,12 @@ message(STATUS "Checking build type...")
 set(CMAKE_C_COMPILER mpicc)
 set(CMAKE_CXX_COMPILER mpic++)
 set(CMAKE_Fortran_COMPILER mpif90)
-set(Q2P1_DEFAULT_COMPILER "intel")
+
+IF(NOT Q2P1_COMPILER)
+  set(Q2P1_DEFAULT_COMPILER "gcc")
+ELSE(NOT Q2P1_COMPILER)
+  set(Q2P1_DEFAULT_COMPILER ${Q2P1_COMPILER})
+ENDIF(NOT Q2P1_COMPILER)
 
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
