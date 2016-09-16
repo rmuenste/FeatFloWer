@@ -129,17 +129,6 @@
                  ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
                  SEDB,SADB)
 
-!        DO ILEV=NLMIN,NLMAX
-!         CALL SETLEV(2)
-!         IF (ILEV.EQ.1) THEN
-!          CALL InitParametrization()
-!         ELSE
-!          CALL ParametrizeBndr()
-!          IF (ilev.ne.nlmax) CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-!          KWORK(L(LEDGE)),nel,nvt,net,nat)
-!         END IF
-!        END DO
-
 !     ----------------------------------------------------------
 !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
       II=NLMIN
