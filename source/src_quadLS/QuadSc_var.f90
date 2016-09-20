@@ -30,6 +30,56 @@ LOGICAL :: bViscoElasticFAC=.FALSE.
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
 
+TYPE tMesh
+  ! Mesh integer parameters
+  integer :: NEL = 0
+  integer :: NVT = 0
+  integer :: NET = 0
+  integer :: NAT = 0
+  integer :: NBCT = 0
+  integer :: NVBD = 0
+  integer :: NEBD = 0
+  integer :: NABD = 0
+
+  integer :: NVE = 8
+  integer :: NEE = 12
+  integer :: NAE = 6
+
+  integer :: NVEL = 0
+
+  ! Coordinate arrays, _old is for mesh deformation 
+  real*8, allocatable, dimension(:,:) :: dcorvg
+
+  real*8, allocatable, dimension(:,:) :: dcorvg_old
+
+  ! Conntectivity arrays
+  integer, allocatable, dimension(:,:) :: kvert
+
+  integer, allocatable, dimension(:,:) :: kvel
+
+  integer, allocatable, dimension(:,:) :: kved
+
+  integer, allocatable, dimension(:,:) :: kvar
+
+  integer, allocatable, dimension(:,:) :: kedge
+
+  integer, allocatable, dimension(:,:) :: kadj
+
+  integer, allocatable, dimension(:,:) :: karea
+
+  integer, allocatable, dimension(:) :: knpr
+
+END TYPE
+
+TYPE tMultiMesh
+
+  integer :: nlmin
+  integer :: nlmax
+
+  type(tMesh), allocatable, dimension(:) :: level
+
+END TYPE
+
 TYPE tStatistics
  INTEGER :: iNonLin=0,iLinUVW=0,iLinP=0
  REAL*8  :: tMGUVW=0d0,tMGP=0d0,tDefUVW=0d0,tDefP=0d0,tCorrUVWP=0d0
@@ -209,6 +259,8 @@ END TYPE tMultiGrid
 TYPE (tMultiGrid) :: myMG
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgDensity(:),mgDiffCoeff(:)
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
+
+type(tMultiMesh) :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
