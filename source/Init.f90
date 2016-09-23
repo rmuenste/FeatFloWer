@@ -30,6 +30,8 @@ SUBROUTINE General_init(MDATA,MFILE)
   CHARACTER CFILE*60 !CFILE1*60,
   INTEGER kSubPart,iSubPart,iPart,LenFile
   CHARACTER command*100,CSimPar*7
+  CHARACTER (len = 60) :: afile 
+  CHARACTER (len = 60) :: bfile 
 
   INTEGER nLengthV,nLengthE,LevDif
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
@@ -101,17 +103,6 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   write(*,*)'max level:',NLMAX
 
-  IF (myid.EQ.0) then
-    mg_Mesh%nlmax = 1
-    mg_Mesh%nlmin = 1
-    allocate(mg_mesh%level(1))
-  else
-    allocate(mg_mesh%level(NLMAX))
-    mg_Mesh%nlmax = NLMAX
-    mg_Mesh%nlmin = NLMIN
-  end if
-
-  call readTriCoarse(CMESH1, mg_mesh)
   CALL XORSC (MMESH1,CMESH1)
 !  CALL CommBarrier()
 !  stop
@@ -141,33 +132,126 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   IF (myid.NE.0) NLMAX = NLMAX + 1
   ! 
-!  CALL XMSB3(0,MAX(1,ISE),ISA,ISVEL,ISEEL,ISAEL,&
-!    ISVED,ISAED,ISVAR,ISEAR,ISEVE,ISAVE,&
-!    ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
-!    SEDB,SADB)
+  CALL XMSB3(0,MAX(1,ISE),ISA,ISVEL,ISEEL,ISAEL,&
+    ISVED,ISAED,ISVAR,ISEAR,ISEVE,ISAVE,&
+    ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
+    SEDB,SADB)
   
-  call refineMesh(mg_mesh, NLMAX-1)  
-    
-  CALL CommBarrier()
-  stop
+  IF (myid.EQ.0) then
+    mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
+    mg_Mesh%nlmin = 1
+    allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
+  else
+    allocate(mg_mesh%level(NLMAX))
+    mg_Mesh%maxlevel = nlmax
+    mg_Mesh%nlmax = nlmax-1
+    mg_Mesh%nlmin = 1
+  end if
+
+  call readTriCoarse(CMESH1, mg_mesh)
+  IF (myid.EQ.0) then
+    call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
+  else
+    call refineMesh(mg_mesh, NLMAX)  
+  end if
+
+
+  IF (myid.EQ.0) then
+    call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
+  else
+    call refineMesh(mg_mesh, NLMAX)  
+  end if
+
+  write(*,*)'Refinement finished: ',myid
+
+!  IF (myid.eq.1)then
+!  II=NLMAX
+!  afile="arrays.new"
+!  call writeArrays(mg_mesh%level(II)%dcorvg,&
+!                      mg_mesh%level(II)%kvert,&
+!                      mg_mesh%level(II)%kedge,&
+!                      mg_mesh%level(II)%kadj,&
+!                      mg_mesh%level(II)%karea,&
+!                      mg_mesh%level(II)%nvt,&
+!                      mg_mesh%level(II)%nel,&
+!                      mg_mesh%level(II)%net,afile)
+!
+!  afile="meshnew.tri"
+!  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
+!                      mg_mesh%level(II)%kvert,&
+!                      mg_mesh%level(II)%kedge,&
+!                      mg_mesh%level(II)%kadj,&
+!                      mg_mesh%level(II)%karea,&
+!                      mg_mesh%level(II)%nvt,&
+!                      mg_mesh%level(II)%nel,&
+!                      mg_mesh%level(II)%net,afile)
+!  write(*,*)'nvt: ',knvt(II)
+!  write(*,*)'nvt: ',mg_mesh%level(2)%nvt
+!
+!  bfile="arrays.old"
+!  call writeArrays(DWORK(L(KLCVG(II))),&
+!    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
+!    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
+!    KNVT(II),KNEL(II),KNET(II),bfile)
+!
+!  bfile="meshold.tri"
+!  call writeTriArrays(DWORK(L(KLCVG(II))),&
+!    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
+!    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
+!    KNVT(II),KNEL(II),KNET(II),bfile)
+!
+!  end if
+
 
   !     ----------------------------------------------------------
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
+
+  !mg_mesh%level(NLMAX)%dcorvg
+
+
   II=NLMIN
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
-  CALL PARENTCOMM(KNAT(II),KNEL(II),KNVT(II),&
-    DWORK(L(KLCVG(II))),DWORK(L(KLCAG(II))),&
-    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))))
+
+!  CALL PARENTCOMM(KNAT(II),KNEL(II),KNVT(II),&
+!    DWORK(L(KLCVG(II))),DWORK(L(KLCAG(II))),&
+!    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))))
+
+  CALL PARENTCOMM(mg_mesh%level(II)%nat,&
+                  mg_mesh%level(II)%nel,&
+                  mg_mesh%level(II)%nvt,&
+                  mg_mesh%level(II)%dcorvg,&
+                  mg_mesh%level(II)%dcorag,&
+                  mg_mesh%level(II)%karea,&
+                  mg_mesh%level(II)%kvert)
+
   CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
+
+!  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
+
   IF (myid.EQ.0) NLMAX = 1
+
   DO II=NLMIN+1,NLMAX
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
   BLIN = .FALSE.
   !       IF (II.eq.NLMAX) BLIN = .TRUE.
-  CALL CREATECOMM(II,KNAT(II),KNEL(II),KNVT(II),&
-    DWORK(L(KLCAG(II))),DWORK(L(KLCVG(II))),KWORK(L(KLADJ(II))),&
-    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))),BLIN)
+
+!  CALL CREATECOMM(II,KNAT(II),KNEL(II),KNVT(II),&
+!    DWORK(L(KLCAG(II))),DWORK(L(KLCVG(II))),KWORK(L(KLADJ(II))),&
+!    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))),BLIN)
+
+  CALL CREATECOMM(II,&
+                  mg_mesh%level(II)%nat,&
+                  mg_mesh%level(II)%nel,&
+                  mg_mesh%level(II)%nvt,&
+                  mg_mesh%level(II)%dcorag,&
+                  mg_mesh%level(II)%dcorvg,&
+                  mg_mesh%level(II)%kadj,&
+                  mg_mesh%level(II)%karea,&
+                  mg_mesh%level(II)%kvert,&
+                  BLIN)
+
   END DO
+
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
@@ -179,15 +263,42 @@ SUBROUTINE General_init(MDATA,MFILE)
   ILEV=NLMIN
   CALL SETLEV(2)
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
-  CALL E013_CreateComm_coarse(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+
+!  CALL E013_CreateComm_coarse(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
+!    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
+!    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+
+  CALL E013_CreateComm_coarse(mg_mesh%level(ILEV)%dcorvg,&
+                              mg_mesh%level(ILEV)%dcorag,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              mg_mesh%level(ILEV)%kedge,&
+                              mg_mesh%level(ILEV)%karea,&
+                              mg_mesh%level(ILEV)%nvt,&
+                              mg_mesh%level(ILEV)%net,&
+                              mg_mesh%level(ILEV)%nat,&
+                              mg_mesh%level(ILEV)%nel,&
+                              LinSc%prm%MGprmIn%MedLev)
+
+
   DO ILEV=NLMIN+1,NLMAX
   CALL SETLEV(2)
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
-  CALL E013_CreateComm(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+
+!  CALL E013_CreateComm(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
+!    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
+!    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+
+  CALL E013_CreateComm(mg_mesh%level(ILEV)%dcorvg,&
+                       mg_mesh%level(ILEV)%dcorag,&
+                       mg_mesh%level(ILEV)%kvert,&
+                       mg_mesh%level(ILEV)%kedge,&
+                       mg_mesh%level(ILEV)%karea,&
+                       mg_mesh%level(ILEV)%nvt,&
+                       mg_mesh%level(ILEV)%net,&
+                       mg_mesh%level(ILEV)%nat,&
+                       mg_mesh%level(ILEV)%nel,&
+                       LinSc%prm%MGprmIn%MedLev)
+
   END DO
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
@@ -208,11 +319,24 @@ SUBROUTINE General_init(MDATA,MFILE)
     CALL ParametrizeBndr()
     IF (myid.eq.0.AND.ilev.eq.nlmax) THEN
     ELSE
-      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-        KWORK(L(LEDGE)),nel,nvt,net,nat)
+!      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
+!        KWORK(L(LEDGE)),nel,nvt,net,nat)
+
+!      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+!                                 mg_mesh%level(ILEV)%karea,&
+!                                 mg_mesh%level(ILEV)%kvert,&
+!                                 mg_mesh%level(ILEV)%kedge,&
+!                                 mg_mesh%level(ILEV)%nel,&
+!                                 mg_mesh%level(ILEV)%nvt,&
+!                                 mg_mesh%level(ILEV)%net,&
+!                                 mg_mesh%level(ILEV)%nat)
+
     END IF
   END IF
   END DO
+
+  CALL CommBarrier()
+  stop
 
   ! This part here is responsible for creation of structures enabling the mesh coordinate 
   ! transfer to the master node so that it can create the corresponding matrices

@@ -200,6 +200,8 @@ CONTAINS
     VXYZ(2,I)=DCORVG(2,I)
     VXYZ(3,I)=DCORVG(3,I)
     END DO
+
+
     pNVT=0
     IF (myid.eq.0) THEN
 

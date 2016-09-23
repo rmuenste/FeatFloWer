@@ -50,6 +50,8 @@ TYPE tMesh
   ! Coordinate arrays, _old is for mesh deformation 
   real*8, allocatable, dimension(:,:) :: dcorvg
 
+  real*8, allocatable, dimension(:,:) :: dcorag
+
   real*8, allocatable, dimension(:,:) :: dcorvg_old
 
   ! Conntectivity arrays
@@ -74,7 +76,12 @@ END TYPE
 TYPE tMultiMesh
 
   integer :: nlmin
+
+  ! maximum level used for computation
   integer :: nlmax
+
+  ! this is usually nlmax + 1
+  integer :: maxlevel
 
   type(tMesh), allocatable, dimension(:) :: level
 
