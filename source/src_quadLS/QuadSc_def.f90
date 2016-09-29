@@ -23,8 +23,13 @@ EXTERNAL E013,coefst
  DO ILEV=NLMIN,NLMAX
    CALL SETLEV(2)
 
-   NDOF = NVT+NET+NAT+NEL
+   ndof = mg_mesh%level(ilev)%nvt+&
+          mg_mesh%level(ilev)%net+&
+          mg_mesh%level(ilev)%nat+&
+          mg_mesh%level(ilev)%nel
+
    MatSize = 300*NDOF
+
    ALLOCATE(TempColA(MatSize))
    ALLOCATE(mg_qMat(ILEV)%LdA(NDOF+1))
    mg_qMat(ILEV)%nu = NDOF
@@ -34,19 +39,24 @@ EXTERNAL E013,coefst
 
    CALL AP7(TempColA,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%na,&
             mg_qMat(ILEV)%nu,E013,iSymm,nERow,&
-            KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea)
+
    IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
       "M,K,D,A matrix structure created",mg_qMat(ILEV)%nu,mg_qMat(ILEV)%na
 
    ALLOCATE(mg_qMat(ILEV)%ColA(mg_qMat(ILEV)%na))
    mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
    DEALLOCATE(TempColA)
+
 !    J = 0
 !    DO I=1,mg_qMat(ILEV)%nu
 !     IF (mg_qMat(ILEV)%LdA(I+1)-mg_qMat(ILEV)%LdA(I).GT.J) &
 !        J = mg_qMat(ILEV)%LdA(I+1)-mg_qMat(ILEV)%LdA(I)
 !    END DO
 !    write(*,*) myid,ilev,J
+
  END DO
 
  ILEV=NLMAX
@@ -70,8 +80,13 @@ EXTERNAL E011,E013,E010,coefst
  DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
 
-  NDOF = NVT+NET+NAT+NEL
-  MatSize = 16*27*NEL
+  NDOF = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+  MatSize = 16*27*mg_mesh%level(ilev)%nel
+
   ALLOCATE(TempColA(MatSize))
   ALLOCATE(mg_qlMat(ILEV)%LdA(NDOF+1))
   mg_qlMat(ILEV)%nu = NDOF
@@ -81,36 +96,47 @@ EXTERNAL E011,E013,E010,coefst
 
   CALL AP9(TempColA,mg_qlMat(ILEV)%LdA,mg_qlMat(ILEV)%na,&
            mg_qlMat(ILEV)%nu,E013,E010,nERow,&
-           KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+           mg_mesh%level(ILEV)%kvert,&
+           mg_mesh%level(ILEV)%kedge,&
+           mg_mesh%level(ILEV)%karea)
 
   mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
+
   ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
+
   CALL MatStructQ2P1(TempColA,mg_qlMat(ILEV)%ColA,mg_qlMat(ILEV)%LdA,&
        mg_qlMat(ILEV)%na,mg_qlMat(ILEV)%nu)
+
   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
    "B matrix structure created",mg_qlMat(ILEV)%nu,mg_qlMat(ILEV)%na
 
 !   CALL OutputMatrixStuct("MatB",mg_qlMat(ILEV))
 
-  MatSize = 4*27*NEL
-  ALLOCATE (TempLdA(4*NEL+1))
-  mg_lqMat(ILEV)%nu = NEL
+  MatSize = 4*27*mg_mesh%level(ilev)%nel
+  ALLOCATE (TempLdA(4*mg_mesh%level(ilev)%nel+1))
+  mg_lqMat(ILEV)%nu = mg_mesh%level(ilev)%nel
   mg_lqMat(ILEV)%na = MatSize
   iSymm =   0
   nERow =   27
 
   CALL AP9(TempColA,TempLdA,mg_lqMat(ILEV)%na,mg_lqMat(ILEV)%nu,E010,E013,nERow,&
-           KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+           mg_mesh%level(ILEV)%kvert,&
+           mg_mesh%level(ILEV)%kedge,&
+           mg_mesh%level(ILEV)%karea)
 
   mg_lqMat(ILEV)%nu = 4*mg_lqMat(ILEV)%nu
   mg_lqMat(ILEV)%na = 4*mg_lqMat(ILEV)%na
+
   ALLOCATE(mg_lqMat(ILEV)%LdA(mg_lqMat(ILEV)%nu+1))
   ALLOCATE(mg_lqMat(ILEV)%ColA(mg_lqMat(ILEV)%na))
-  CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,TempColA,mg_lqMat(ILEV)%ColA,MatSize,NEL)
+
+  CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,&
+                     TempColA,&
+                     mg_lqMat(ILEV)%ColA,&
+                     MatSize,mg_mesh%level(ilev)%nel)
+
   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
   "BT matrix structure created",mg_lqMat(ILEV)%nu,mg_lqMat(ILEV)%na
-
-!  CALL OutputMatrixStuct("MaBT",mg_lqMat(ILEV))
 
   DEALLOCATE(TempColA,TempLdA)
 
@@ -136,13 +162,22 @@ SUBROUTINE Create_LinMatStruct()
   qlMat => mg_qlMat(ILEV)
   qlPMat => mg_qlPMat(ILEV)
 
-  CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,KWORK(L(LVERT)),NEL,mg_lMat(ILEV)%na,1)
-  mg_lMat(ILEV)%nu = 4*NEL
+  CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
+                   mg_mesh%level(ILEV)%kvert,&
+                   mg_mesh%level(ilev)%nel,&
+                   mg_lMat(ILEV)%na,1)
+
+
+
+  mg_lMat(ILEV)%nu = 4*mg_mesh%level(ilev)%nel
   ALLOCATE (mg_lMat(ILEV)%LdA(mg_lMat(ILEV)%nu+1),mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
+
   mg_lMat(ILEV)%LdA=0
   mg_lMat(ILEV)%ColA=0
+
   CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
-       KWORK(L(LVERT)),NEL,mg_lMat(ILEV)%na,1)
+       KWORK(L(LVERT)),mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
+
   ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
   "C matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
@@ -221,8 +256,11 @@ INTEGER I,J
    END IF
   END IF
   CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-  KWORK(L(KLINT(NLMAX))),DWORK(L(LCORVG)),9,E013)
+  mg_mesh%level(ILEV)%kvert,&
+  mg_mesh%level(ILEV)%karea,&
+  mg_mesh%level(ILEV)%kedge,&
+  mg_mesh%level(ILEV)%dcorvg,&
+  9,E013)
 
   IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
 
@@ -370,8 +408,7 @@ INTEGER i,j,iEntry,jCol
     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
    END IF
   END IF
-!   CALL OutputMatrix("MATC",lMat,mg_CMat(ILEV)%a,ILEV)
-
+   !CALL OutputMatrix("MATC",lMat,mg_CMat(ILEV)%a,ILEV)
  END DO
 
  ILEV=NLMAX
@@ -524,7 +561,7 @@ INTEGER i
     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
    END IF
   END IF
-!   CALL OutputMatrix("MAPC",lPMat,mg_CPMat(ILEV)%a,ILEV)
+   CALL OutputMatrix("MAPC",lPMat,mg_CPMat(ILEV)%a,ILEV)
  END DO
 
  ILEV=NLMAX
@@ -610,8 +647,11 @@ EXTERNAL E011,E013
   END IF
   CALL Build_BMatP1(mg_BXMat(ILEV)%a,mg_BYMat(ILEV)%a,&
        mg_BZMat(ILEV)%a,qlMat%LdA,qlMat%ColA,&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-       DWORK(L(LCORVG)),qlMat%na,9,E013)
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+     qlMat%na,9,E013)
 
  END DO
 
@@ -643,8 +683,11 @@ DO ILEV=NLMIN,NLMAX
   END IF
   CALL Build_BTMatP1(mg_BTXMat(ILEV)%a,mg_BTYMat(ILEV)%a,&
        mg_BTZMat(ILEV)%a,lqMat%LdA,lqMat%ColA,&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-       DWORK(L(LCORVG)),lqMat%na,9,E013)
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+     lqMat%na,9,E013)
 
  END DO
 
@@ -695,7 +738,7 @@ INTEGER, ALLOCATABLE :: TempLdB(:)
   BYMat => mg_BYMat(ILEV)%a
   BZMat => mg_BZMat(ILEV)%a
 
-  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,NEL,ILEV)
+  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,mg_mesh%level(ILEV)%nel,ILEV)
 
   mg_qlPMat(ILEV)%nu = qlMat%nu
   ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
@@ -714,11 +757,15 @@ INTEGER, ALLOCATABLE :: TempLdB(:)
 
   ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
   TempLdB = mg_qlPMat(ILEV)%LdA
+
   ! Get the Par_COL_B structure
   CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
        mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
        mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
-       qlMat%LdA,qlMat%ColA,qlMat%nu,NEL,pNEL,ILEV)
+       qlMat%LdA,qlMat%ColA,qlMat%nu,&
+       mg_mesh%level(ILEV)%nel,&
+       pNEL,ILEV)
+
   DEALLOCATE(TempLdB)
 
  END DO
@@ -819,13 +866,19 @@ EXTERNAL E013
   if(bNonNewtonian) THEN
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-         KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-         DWORK(L(LCORVG)),E013)
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
   else 
     CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
          qMat%LdA,&
-         KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-         DWORK(L(LCORVG)),E013)
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
   end if
 
  END DO
@@ -901,8 +954,11 @@ INTEGER i
        mg_S12mat(ILEV)%a,mg_S13mat(ILEV)%a,mg_S23mat(ILEV)%a,&
        mg_S21mat(ILEV)%a,mg_S31mat(ILEV)%a,mg_S32mat(ILEV)%a,&
        qMat%na,qMat%ColA,qMat%LdA,&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),&
-       KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013)
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       E013)
 
  END DO
 
@@ -932,7 +988,6 @@ TYPE(TQuadScalar) myScalar
 INTEGER LINT
 EXTERNAL E013
 
-
  CALL ZTIME(myStat%t0)
 
  IF (.not.ALLOCATED(mg_Kmat)) ALLOCATE(mg_Kmat(NLMIN:NLMAX))
@@ -960,8 +1015,12 @@ EXTERNAL E013
 
   CALL CONVQ2(mgDensity(ILEV)%x,myScalar%valU,myScalar%valV,myScalar%valW,&
   myALE%MeshVelo,&
-  mg_Kmat(ILEV)%a,qMat%nu,qMat%ColA,qMat%LdA,KWORK(L(LVERT)),&
-  KWORK(L(LAREA)),KWORK(L(LEDGE)),KWORK(L(LINT)),DWORK(L(LCORVG)),E013)
+  mg_Kmat(ILEV)%a,qMat%nu,qMat%ColA,qMat%LdA,&
+  mg_mesh%level(ILEV)%kvert,&
+  mg_mesh%level(ILEV)%karea,&
+  mg_mesh%level(ILEV)%kedge,&
+  mg_mesh%level(ILEV)%dcorvg,&
+  E013)
 
  END DO
 
@@ -1149,8 +1208,15 @@ INTEGER NDOF,N
  ALLOCATE(myScalar%knprU(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprV(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprW(NLMIN:NLMAX))
+
  DO ILEV=NLMIN,NLMAX
-  NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+  !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+
+  NDOF = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
   ALLOCATE(myScalar%knprU(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprV(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprW(ILEV)%x(NDOF))
@@ -1158,7 +1224,12 @@ INTEGER NDOF,N
 
  ILEV=NLMAX
 
- NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+ !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+ NDOF = mg_mesh%level(ilev)%nvt+&
+        mg_mesh%level(ilev)%net+&
+        mg_mesh%level(ilev)%nat+&
+        mg_mesh%level(ilev)%nel
+
  myScalar%ndof = NDOF
  IF (ALLOCATED(mg_qMat)) myScalar%na = mg_qMat(ILEV)%na
 
@@ -1201,19 +1272,41 @@ INTEGER NDOF,N
  ALLOCATE(mg_E013RestM(NLMIN:NLMAX-1))
 
  DO ILEV=NLMIN,NLMAX-1
-  N = KNVT(ILEV+1) + 3*KNET(ILEV+1) + 9*KNAT(ILEV+1) + 27*KNEL(ILEV+1)
+
+  !N = KNVT(ILEV+1) + 3*KNET(ILEV+1) + 9*KNAT(ILEV+1) + 27*KNEL(ILEV+1)
+  !N = KNVT(ILEV+1) + 3*KNET(ILEV+1) + 9*KNAT(ILEV+1) + 27*KNEL(ILEV+1)
+  N =    mg_mesh%level(ilev+1)%nvt+&
+      3* mg_mesh%level(ilev+1)%net+&
+      9* mg_mesh%level(ilev+1)%nat+&
+      27*mg_mesh%level(ilev+1)%nel
+
   ALLOCATE(mg_E013Prol(ILEV)%a(N))
   ALLOCATE(mg_E013Rest(ILEV)%a(N))
   ALLOCATE(mg_E013ProlM(ILEV)%ColA(N))
   ALLOCATE(mg_E013RestM(ILEV)%ColA(N))
   mg_E013ProlM(ILEV)%na = N
   mg_E013RestM(ILEV)%na = N
-  NDOF = KNVT(ILEV+1)+KNET(ILEV+1)+KNAT(ILEV+1)+KNEL(ILEV+1)
+
+! NDOF = KNVT(ILEV+1)+KNET(ILEV+1)+KNAT(ILEV+1)+KNEL(ILEV+1)
+
+  NDOF = mg_mesh%level(ilev+1)%nvt+&
+         mg_mesh%level(ilev+1)%net+&
+         mg_mesh%level(ilev+1)%nat+&
+         mg_mesh%level(ilev+1)%nel
+
   mg_E013ProlM(ILEV)%nu = NDOF
   ALLOCATE(mg_E013ProlM(ILEV)%LdA(NDOF+1))
-  NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+
+  !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+  NDOF = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
   mg_E013RestM(ILEV)%nu = NDOF
   ALLOCATE(mg_E013RestM(ILEV)%LdA(NDOF+1))
+
+
  END DO
 
  ! Other Multilevel Vectors
@@ -1222,7 +1315,13 @@ INTEGER NDOF,N
  ALLOCATE(myScalar%aux(NLMIN:NLMAX))
  ALLOCATE(myScalar%sol(NLMIN:NLMAX))
  DO ILEV=NLMIN,NLMAX
-  NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+
+  !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+  NDOF = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
   ALLOCATE(myScalar%def(ILEV)%x(3*NDOF))
   ALLOCATE(myScalar%rhs(ILEV)%x(3*NDOF))
   ALLOCATE(myScalar%aux(ILEV)%x(3*NDOF))
@@ -1241,9 +1340,18 @@ INTEGER NDOF,NDOF2,N
 
  ILEV=NLMAX
 
- NDOF = 4*KNEL(ILEV)
- NDOF2= KNEL(ILEV)+KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)
- NVT  = KNVT(ILEV)
+ NDOF = 4*mg_mesh%level(ilev)%nel
+ write(*,*)'ndof linscalar:',ndof,ilev,mg_mesh%level(ilev)%nel
+
+ NDOF2 = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+! NDOF2= KNEL(ILEV)+KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)
+
+ NVT  = mg_mesh%level(ilev)%nvt
+
  myScalar%ndof = NDOF
  IF (ALLOCATED(mg_lMat)) myScalar%na = mg_lMat(ILEV)%na
 
@@ -1257,7 +1365,7 @@ INTEGER NDOF,NDOF2,N
  ALLOCATE(myScalar%defP(NLMIN:NLMAX))
  ALLOCATE(myScalar%auxP(NLMIN:NLMAX))
  DO ILEV=NLMIN,NLMAX
-  NDOF = 4*KNEL(ILEV)
+  NDOF = 4*mg_mesh%level(ilev)%nel
   ALLOCATE(myScalar%valP(ILEV)%x(NDOF))
   ALLOCATE(myScalar%defP(ILEV)%x(NDOF))
   ALLOCATE(myScalar%auxP(ILEV)%x(NDOF))
@@ -1266,7 +1374,7 @@ INTEGER NDOF,NDOF2,N
 
  ALLOCATE(mg_E012Prol(NLMIN:NLMAX-1))
  DO ILEV=NLMIN,NLMAX-1
-  NDOF = 4*KNEL(ILEV)
+  NDOF = 4*mg_mesh%level(ilev)%nel
   N = NDOF*32
   ALLOCATE(mg_E012Prol(ILEV)%a(N))
  END DO
@@ -2102,7 +2210,6 @@ INTEGER nINL,mfile
 INTEGER i,length
 CHARACTER C0*14,C1*14,C2*14,C3*14,C4*14,C5*14
 CHARACTER, OPTIONAL:: cTitle*(*)
-return
 
 IF (myid.eq.showID) THEN
 length =  LEN(myScalar%cName)
@@ -2126,13 +2233,15 @@ IF (PRESENT(cTitle)) THEN
  length = (104-length)/2
 END IF
 
- IF (PRESENT(cTitle)) THEN
-  WRITE(MTERM,4) cTitle
-  WRITE(MFILE,4) cTitle
- ELSE
-  WRITE(MTERM,5)
-  WRITE(MFILE,5)
- END IF
+! IF (PRESENT(cTitle)) THEN
+!  WRITE(MTERM,4) cTitle
+!  WRITE(MFILE,4) cTitle
+! ELSE
+!  WRITE(MTERM,5)
+!  WRITE(MFILE,5)
+! END IF
+ WRITE(MTERM,5)
+ WRITE(MFILE,5)
  WRITE(MTERM,'(8(1X,A13))')&
  TRIM(C0),TRIM(C1),TRIM(C5),TRIM(C2),TRIM(C3),TRIM(C4)
  WRITE(MFILE,'(8(1X,A13))')&

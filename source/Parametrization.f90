@@ -123,37 +123,49 @@ INTEGER   iType
 
 END SUBROUTINE InitBoundaryStructure
 !----------------------------------------------------------------------------------------
-SUBROUTINE ParametrizeBndr()
+SUBROUTINE ParametrizeBndr(mgMesh,ilevel)
+IMPLICIT NONE
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+
 INTEGER I1,I2
 
  DO iBnds = 1, nBnds
 
-  IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ILEV)%Vert)) THEN
-   ALLOCATE (myParBndr(iBnds)%Bndr(ILEV)%Vert(NVT))
-   ALLOCATE (myParBndr(iBnds)%Bndr(ILEV)%Face(2,NAT))
+  IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ilevel)%Vert)) THEN
+   ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Vert(mgMesh%level(ilevel)%NVT))
+   ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Face(2,mgMesh%level(ilevel)%NAT))
   END IF
 
-  myParBndr(iBnds)%Bndr(ILEV)%nVerts =0
-  myParBndr(iBnds)%Bndr(ILEV)%nFaces =0
-  myParBndr(iBnds)%Bndr(ILEV)%Vert =.FALSE.
-  myParBndr(iBnds)%Bndr(ILEV)%Face = 0
+  myParBndr(iBnds)%Bndr(ilevel)%nVerts =0
+  myParBndr(iBnds)%Bndr(ilevel)%nFaces =0
+  myParBndr(iBnds)%Bndr(ilevel)%Vert =.FALSE.
+  myParBndr(iBnds)%Bndr(ilevel)%Face = 0
 
 ! KVERT1,KEDGE1,KVERT2,KAREA2,KADJ2,NEL1,NVT1,NAT1
-  I1 = ILEV-1
-  I2 = ILEV
-  CALL GetHigherStructures(KWORK(L(KLVERT(I1))),KWORK(L(KLEDGE(I1))),&
-       KWORK(L(KLVERT(I2))),KWORK(L(KLAREA(I2))),KWORK(L(KLADJ(I2))),&
-       KNEL(I1),KNVT(I1),KNAT(I1),KNET(I1))
+  I1 = ilevel-1
+  I2 = ilevel
 
-  CALL Parametrize(DWORK(L(LCORVG)),NVT)
+  CALL GetHigherStructures(mgMesh%level(i1)%kvert,&
+                           mgMesh%level(i1)%kedge,&
+                           mgMesh%level(i2)%kvert,&
+                           mgMesh%level(i2)%karea,&
+                           mgMesh%level(i2)%kadj,&
+                           mgMesh%level(i1)%nel,&
+                           mgMesh%level(i1)%nvt,&
+                           mgMesh%level(i1)%nat,&
+                           mgMesh%level(i1)%net)
+
+  CALL Parametrize(mgmesh%level(i2)%dcorvg,mgmesh%level(i2)%nvt,ilevel)
 
  END DO
 
 END SUBROUTINE ParametrizeBndr
 !----------------------------------------------------------------------------------------
-SUBROUTINE Parametrize(DCORVG,NVT)
+SUBROUTINE Parametrize(DCORVG,NVT,ilevel)
  REAL*8 DCORVG(3,*)
  INTEGER NVT,NVT1
+ integer :: ilevel
  INTEGER i,j
  REAL*8 dx,dy,dz,dist,dFact
  REAL*8 px,py,pz
@@ -163,32 +175,32 @@ SUBROUTINE Parametrize(DCORVG,NVT)
  IF (myParBndr(iBnds)%nBndrPar.EQ.0) RETURN
 
  IF (myParBndr(iBnds)%nBndrPar.EQ.1) THEN
-  IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ILEV)%CoorList)) THEN
+  IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ilevel)%CoorList)) THEN
    j = 0
    DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
      j = j + 1
     END IF
    END DO
-   ALLOCATE (myParBndr(iBnds)%Bndr(ILEV)%CoorList(3,j))
+   ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%CoorList(3,j))
    j = 0
    DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
      j = j + 1
      dx = DCORVG(1,i)
      dy = DCORVG(2,i)
      dz = DCORVG(3,i)
-     myParBndr(iBnds)%Bndr(ILEV)%CoorList(:,j) = [dx,dy,dz]
+     myParBndr(iBnds)%Bndr(ilevel)%CoorList(:,j) = [dx,dy,dz]
     END IF
    END DO
   ELSE
    j = 0
    DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
      j = j + 1
-     px = myParBndr(iBnds)%Bndr(ILEV)%CoorList(1,j)
-     py = myParBndr(iBnds)%Bndr(ILEV)%CoorList(2,j)
-     pz = myParBndr(iBnds)%Bndr(ILEV)%CoorList(3,j)
+     px = myParBndr(iBnds)%Bndr(ilevel)%CoorList(1,j)
+     py = myParBndr(iBnds)%Bndr(ilevel)%CoorList(2,j)
+     pz = myParBndr(iBnds)%Bndr(ilevel)%CoorList(3,j)
      DCORVG(1,i) = px
      DCORVG(2,i) = py
      DCORVG(3,i) = pz
@@ -206,7 +218,7 @@ SUBROUTINE Parametrize(DCORVG,NVT)
 
   j = 0
   DO i=1,NVT
-   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
     j = j + 1
     dx = DCORVG(1,i)
     dy = DCORVG(2,i)
@@ -237,7 +249,7 @@ SUBROUTINE Parametrize(DCORVG,NVT)
 
   j = 0
   DO i=1,NVT
-   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
     j = j + 1
     dx = DCORVG(1,i)-RX
     dy = DCORVG(2,i)-RY
@@ -270,7 +282,7 @@ SUBROUTINE Parametrize(DCORVG,NVT)
 
   j = 0
   DO i=1,NVT
-   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   IF (myParBndr(iBnds)%Bndr(ilevel)%Vert(i)) THEN
     j = j + 1
     dx = DCORVG(1,i)-RX
     dy = DCORVG(2,i)-RY
@@ -404,15 +416,19 @@ SUBROUTINE GetHigherStructures(KVERT1,KEDGE1,KVERT2,KAREA2,KADJ2,NEL1,NVT1,NAT1,
 
 END SUBROUTINE GetHigherStructures
 !----------------------------------------------------------------------------------------
-SUBROUTINE InitParametrization()
+SUBROUTINE InitParametrization(mesh,ilevel)
+ type(tMesh) :: mesh
+ integer :: ilevel
  INTEGER i,iVert,iLong,iAux,iError
  CHARACTER cFile*100,string*10
 
  CALL GetFileList()
 
  DO iBnds = 1, nBnds
-  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Vert(NVT))
-  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Face(2,NAT))
+  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Vert(&
+    mesh%NVT))
+  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Face(2,&
+    mesh%NAT))
   cFile = ADJUSTL(TRIM(cProjectFolder))
   iLong = LEN(ADJUSTL(TRIM(cFile)))+1
 
@@ -426,7 +442,7 @@ SUBROUTINE InitParametrization()
 !  WRITE(*,*) myid,nBnds,cFile
   OPEN(FILE = TRIM(ADJUSTL(cFile)),UNIT = 333)
 
-  READ(333,*)  myParBndr(iBnds)%Bndr(ILEV)%nVerts, myParBndr(iBnds)%Types
+  READ(333,*)  myParBndr(iBnds)%Bndr(ilevel)%nVerts, myParBndr(iBnds)%Types
   READ(333,*)  myParBndr(iBnds)%Parameters
 
   myParBndr(iBnds)%Bndr(1)%Vert = .FALSE.
@@ -450,10 +466,10 @@ SUBROUTINE InitParametrization()
 !  WRITE(*,'(2I8,<myParBndr(iBnds)%nBndrPar>D12.4)') myid,myParBndr(iBnds)%nBndrPar,myParBndr(iBnds)%dBndrPar
 !  PAUSE
 
-  CALL GetFaces(KWORK(L(LVERT)),KWORK(L(LAREA)),NEL)
+  CALL GetFaces(mesh%kvert,mesh%karea,mesh%NEL)
   CALL GetEdges()
 
-  CALL Parametrize(DWORK(L(LCORVG)),NVT)
+  CALL Parametrize(mesh%dcorvg,mesh%NVT,ilevel)
 
  END DO
 

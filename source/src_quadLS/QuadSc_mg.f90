@@ -579,8 +579,11 @@ SUBROUTINE mgProlRestInit
   IF (MyMG%cVariable.EQ."Pressure") THEN
    DO mgLev = myMG%MedLev+1, myMG%MaxLev
     ILEV = mgLev
-    CALL InitE012ProlMat(mg_E012Prol(mgLev-1)%a,KWORK(L(KLADJ(mgLev))),&
-         KWORK(L(KLVERT(mgLev))),DWORK(L(KLCVG(mgLev))),KNEL(mgLev-1))
+    CALL InitE012ProlMat(mg_E012Prol(mgLev-1)%a,&
+                         mg_mesh%level(mgLev)%kadj,&
+                         mg_mesh%level(mgLev)%kvert,&
+                         mg_mesh%level(mgLev)%dcorvg,&
+                         mg_mesh%level(mgLev-1)%nel)
    END DO
   END IF
 
@@ -590,18 +593,28 @@ SUBROUTINE mgProlRestInit
     CALL InitE013ProlMat(mg_E013ProlM(mgLev-1)%na,&
          mg_E013Prol(mgLev-1)%a,mg_E013ProlM(mgLev-1)%LdA,mg_E013ProlM(mgLev-1)%ColA,&
          mg_E013Rest(mgLev-1)%a,mg_E013RestM(mgLev-1)%LdA,mg_E013RestM(mgLev-1)%ColA,&
-         KWORK(L(KLADJ(mgLev-1))),KWORK(L(KLVERT(mgLev-1))),KWORK(L(KLEDGE(mgLev-1))),&
-         KWORK(L(KLAREA(mgLev-1))),KNVT(mgLev-1),KNET(mgLev-1),KNAT(mgLev-1),KNEL(mgLev-1),&
-         KWORK(L(KLADJ(mgLev))),KWORK(L(KLVERT(mgLev))),KWORK(L(KLEDGE(mgLev))),&
-         KWORK(L(KLAREA(mgLev))),KNVT(mgLev),KNET(mgLev),KNAT(mgLev),KNEL(mgLev))
+         mg_mesh%level(mgLev-1)%kadj,mg_mesh%level(mgLev-1)%kvert,&
+         mg_mesh%level(mgLev-1)%kedge,&
+         mg_mesh%level(mgLev-1)%karea,mg_mesh%level(mgLev-1)%nvt,&
+         mg_mesh%level(mgLev-1)%net,mg_mesh%level(mgLev-1)%nat,&
+         mg_mesh%level(mgLev-1)%nel,&
+         mg_mesh%level(mgLev)%kadj,mg_mesh%level(mgLev)%kvert,&
+         mg_mesh%level(mgLev)%kedge,&
+         mg_mesh%level(mgLev)%karea,mg_mesh%level(mgLev)%nvt,&
+         mg_mesh%level(mgLev)%net,mg_mesh%level(mgLev)%nat,&
+         mg_mesh%level(mgLev)%nel)
    END DO
   END IF
  ELSE
  IF (MyMG%cVariable.EQ."Pressure") THEN
   DO mgLev = myMG%MinLev+1, myMG%MedLev
    ILEV = mgLev
-   CALL InitE012ProlMat(mg_E012Prol(mgLev-1)%a,KWORK(L(KLADJ(mgLev))),&
-        KWORK(L(KLVERT(mgLev))),DWORK(L(KLCVG(mgLev))),KNEL(mgLev-1))
+   CALL InitE012ProlMat(mg_E012Prol(mgLev-1)%a,&
+                        mg_mesh%level(mgLev)%kadj,&
+                        mg_mesh%level(mgLev)%kvert,&
+                        mg_mesh%level(mgLev)%dcorvg,&
+                        mg_mesh%level(mgLev-1)%nel)
+
   END DO
 !    write(*,*) mg_E012Prol(mgLev-1)%a
 !    write(*,*) 'asdasdas'
@@ -1704,9 +1717,9 @@ REAL*8 daux
 INTEGER iEntry,jCol
 EXTERNAL E011
 
-  IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
+  IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+  IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+  IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
 
   ILEV = mgLev
   CALL SETLEV(2)
@@ -1751,10 +1764,16 @@ EXTERNAL E011
      END IF
 
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,VWORK(L(KLVOL(mgLev))),KWORK(L(KLVERT(mgLev))))
+     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+       mg_mesh%level(mgLev)%dvol,&
+       mg_mesh%level(mgLev)%kvert)
 
-     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,KWORK(L(KLVERT(mgLev))),KWORK(L(KLAREA(mgLev))),&
-                   KWORK(L(KLEDGE(mgLev))),DWORK(L(KLCVG(mgLev))),E011)
+     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
+                    mg_mesh%level(mgLev)%kvert,&
+                    mg_mesh%level(mgLev)%karea,&
+                    mg_mesh%level(mgLev)%kedge,&
+                    mg_mesh%level(mgLev)%dcorvg,&
+                    E011)
 
      CALL crsSmoother()
 
@@ -2025,10 +2044,16 @@ EXTERNAL E011
      END IF
 
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,VWORK(L(KLVOL(mgLev))),KWORK(L(KLVERT(mgLev))))
+     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+       mg_mesh%level(mgLev)%dvol,&
+       mg_mesh%level(mgLev)%kvert)
      
-     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,KWORK(L(KLVERT(mgLev))),KWORK(L(KLAREA(mgLev))),&
-                   KWORK(L(KLEDGE(mgLev))),DWORK(L(KLCVG(mgLev))),E011)
+     CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
+                    mg_mesh%level(mgLev)%kvert,&
+                    mg_mesh%level(mgLev)%karea,&
+                    mg_mesh%level(mgLev)%kedge,&
+                    mg_mesh%level(mgLev)%dcorvg,&
+                    E011)
 
      CALL crsSmoother()
 

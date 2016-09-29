@@ -325,7 +325,8 @@ w(1:nvt) = 0d0
 !   END IF
  END DO
 
- CALL ParametrizeBndr()
+! TODO: Adjust to mesh data structure
+! CALL ParametrizeBndr()
 
 END DO
 
@@ -411,9 +412,10 @@ END
 !
 ! --------------------------------------------------------------
 !
-SUBROUTINE ProlongateCoordinates(dcorvg,karea,kvert,kedge,nel,nvt,net,nat)
+SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
 IMPLICIT NONE
 REAL*8  dcorvg(3,*)
+REAL*8  dcorvg2(3,*)
 INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
 REAL*8 PX,PY,PZ
 INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
@@ -430,7 +432,7 @@ DO i=1,nel
    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   dcorvg(:,nvt+k)=[PX,PY,PZ]
+   dcorvg2(:,nvt+k)=[PX,PY,PZ]
    k = k + 1
   END IF
  END DO
@@ -448,7 +450,7 @@ DO i=1,nel
    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   dcorvg(:,nvt+net+k)=[PX,PY,PZ]
+   dcorvg2(:,nvt+net+k)=[PX,PY,PZ]
    k = k + 1
   END IF
  END DO
@@ -463,7 +465,7 @@ DO i=1,nel
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
  END DO
- dcorvg(:,nvt+net+nat+i)=[PX,PY,PZ]
+ dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
 END DO
 
 END SUBROUTINE ProlongateCoordinates

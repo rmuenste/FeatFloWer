@@ -1,6 +1,6 @@
 ************************************************************************
       SUBROUTINE BuildMRhoMat(DENS,DA,NA,KCOLA,KLDA,KVERT,KAREA,
-     *                  KEDGE,KINT,DCORVG,ICUB,ELE)
+     *                  KEDGE,DCORVG,ICUB,ELE)
 ************************************************************************
 *     Discrete diffusion operator: Q1 elements
 *-----------------------------------------------------------------------
@@ -12,7 +12,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       DIMENSION DENS(*),DA(*)
-      DIMENSION KCOLA(*),KLDA(*),KINT(*),DCORVG(NNDIM,*)
+      DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)

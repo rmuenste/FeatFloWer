@@ -115,8 +115,8 @@ SUBROUTINE General_init(MDATA,MFILE)
   CLOSE(MMESH1)
 
   ISE=0
-  ISA=3
-  ISVEL=1
+  ISA=0
+  ISVEL=0
   ISEEL=0
   ISAEL=0
   ISVED=0
@@ -302,7 +302,9 @@ SUBROUTINE General_init(MDATA,MFILE)
   END DO
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
-  NDOF = KNVT(NLMAX) + KNAT(NLMAX) + KNEL(NLMAX) + KNET(NLMAX)
+  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
+         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
+
   CALL E011_CreateComm(NDOF)
 
   !     ----------------------------------------------------------            
@@ -312,31 +314,44 @@ SUBROUTINE General_init(MDATA,MFILE)
   !     ----------------------------------------------------------        
 
   DO ILEV=NLMIN,NLMAX
-  CALL SETLEV(2)
-  IF (ILEV.EQ.1) THEN
-    CALL InitParametrization()
-  ELSE
-    CALL ParametrizeBndr()
-    IF (myid.eq.0.AND.ilev.eq.nlmax) THEN
+  if(myid.eq.1)then
+
+  write(*,*)"old:",KNVT(ilev), KNAT(ilev), KNEL(ilev), KNET(ilev)
+  write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
+                   mg_mesh%level(ILEV)%nat,&
+                   mg_mesh%level(ILEV)%nel,&
+                   mg_mesh%level(ILEV)%net
+  
+  end if
+  end do
+
+  DO ILEV=NLMIN,NLMAX
+    CALL SETLEV(2)
+    IF (ILEV.EQ.1) THEN
+      CALL InitParametrization(mg_mesh%level(ILEV),ilev)
     ELSE
-!      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-!        KWORK(L(LEDGE)),nel,nvt,net,nat)
 
-!      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-!                                 mg_mesh%level(ILEV)%karea,&
-!                                 mg_mesh%level(ILEV)%kvert,&
-!                                 mg_mesh%level(ILEV)%kedge,&
-!                                 mg_mesh%level(ILEV)%nel,&
-!                                 mg_mesh%level(ILEV)%nvt,&
-!                                 mg_mesh%level(ILEV)%net,&
-!                                 mg_mesh%level(ILEV)%nat)
+      CALL ParametrizeBndr(mg_mesh,ilev)
 
+      IF (myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev) THEN
+      ELSE
+
+    !      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
+    !        KWORK(L(LEDGE)),nel,nvt,net,nat)
+
+        CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+                                   mg_mesh%level(ILEV+1)%dcorvg,&
+                                   mg_mesh%level(ILEV)%karea,&
+                                   mg_mesh%level(ILEV)%kvert,&
+                                   mg_mesh%level(ILEV)%kedge,&
+                                   mg_mesh%level(ILEV)%nel,&
+                                   mg_mesh%level(ILEV)%nvt,&
+                                   mg_mesh%level(ILEV)%net,&
+                                   mg_mesh%level(ILEV)%nat)
+
+      END IF
     END IF
-  END IF
   END DO
-
-  CALL CommBarrier()
-  stop
 
   ! This part here is responsible for creation of structures enabling the mesh coordinate 
   ! transfer to the master node so that it can create the corresponding matrices
@@ -350,12 +365,21 @@ SUBROUTINE General_init(MDATA,MFILE)
   !        CALL UmbrellaSmoother(timens,nUmbrellaSteps)
   !       END IF
 
+
   ILEV = LinSc%prm%MGprmIn%MedLev
   CALL SETLEV(2)
+
   nLengthV = (2**(ILEV-1)+1)**3
-  nLengthE = KNEL(NLMIN)
+  nLengthE = mg_mesh%level(NLMIN)%nel
+
   ALLOCATE(SendVect(3,nLengthV,nLengthE))
-  CALL SendNodeValuesToCoarse(SendVect,DWORK(L(LCORVG)),KWORK(L(LVERT)),nLengthV,nLengthE,NEL,NVT)
+
+  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              nLengthV,&
+                              nLengthE,&
+                              mg_mesh%level(ILEV)%nel,&
+                              mg_mesh%level(ILEV)%nvt)
   DEALLOCATE(SendVect)
 
   IF (myid.eq.showid) THEN
@@ -365,18 +389,26 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   DO II=NLMIN,NLMAX
 
+!  mg_mesh%level(ILEV)%dcorvg,&
+!  mg_mesh%level(ILEV)%karea,&
+!  mg_mesh%level(ILEV)%kvert,&
+!  mg_mesh%level(ILEV)%kedge,&
+!  mg_mesh%level(ILEV)%nel,&
+!  mg_mesh%level(ILEV)%nvt,&
+!  mg_mesh%level(ILEV)%net,&
+!  mg_mesh%level(ILEV)%nat
+
   ILEV=II
+
   NVT=KNVT(II)
   NAT=KNAT(II)
   NET=KNET(II)
   NEL=KNEL(II)
 
-  KLINT(II)=0
-  CALL ZNEW(NEL,3,KLINT(II),'KINT  ')
-  IF (IER.NE.0) GOTO 99999
-  CALL SETIEL(DWORK(L(KLCVG (II))),KWORK(L(KLVERT(II))),&
-    KWORK(L(KLAREA(II))),KWORK(L(KLINT (II))),NEL,&
-    NEL0,NEL1,NEL2)
+  NVT=mg_mesh%level(II)%nvt
+  NAT=mg_mesh%level(II)%nat
+  NET=mg_mesh%level(II)%net
+  NEL=mg_mesh%level(II)%nel
 
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
@@ -384,19 +416,30 @@ SUBROUTINE General_init(MDATA,MFILE)
   END IF
 
   CALL SETLEV(2)
-  CALL ZNEW(NEL+1,2,LVOL,'VVOL ')
-  IF (IER.NE.0) GOTO 99999
-  KLVOL(ILEV)=LVOL
-  CALL  SETARE(VWORK(L(LVOL)),NEL,KWORK(L(LVERT)),DWORK(L(LCORVG))) 
+
+  if(.not.allocated(mg_mesh%level(II)%dvol))then
+    allocate(mg_mesh%level(II)%dvol(NEL))
+  end if
+
+  CALL  SETARE(mg_mesh%level(II)%dvol,&
+               NEL,&
+               mg_mesh%level(II)%kvert,&
+               mg_mesh%level(II)%dcorvg)
+
   END DO
 
   IF (myid.ne.0) THEN
     ILEV=NLMAX +1 
-    CALL ZNEW(KNEL(ILEV)+1,2,LVOL,'VVOL ')
 
-    KLVOL(ILEV)=LVOL
-    CALL  SETARE(VWORK(L(LVOL)),NEL,KWORK(L(KLVERT(ILEV))),&
-      DWORK(L(KLCVG(ILEV))))
+    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
+      allocate(mg_mesh%level(ILEV)%dvol(NEL))
+    end if
+
+    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
+                 NEL,&
+                 mg_mesh%level(ILEV)%kvert,&
+                 mg_mesh%level(ILEV)%dcorvg)
+
   END IF
 
   CALL ZTIME(TTT1)
@@ -410,6 +453,9 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MTERM,*)
     WRITE(MFILE,*)
   END IF
+
+!  CALL CommBarrier()
+!  stop
 
   RETURN
 

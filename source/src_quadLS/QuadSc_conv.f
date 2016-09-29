@@ -1,6 +1,6 @@
 ************************************************************************
       SUBROUTINE CONVQ2(DENS,U1,U2,U3,dMeshVelo,DA,NU,KCOLA,
-     *           KLDA,KVERT,KAREA,KEDGE,KINT,DCORVG,ELE)
+     *           KLDA,KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *     Discrete convection operator: Q1 elements
 *-----------------------------------------------------------------------
@@ -12,7 +12,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       DIMENSION DENS(*),U1(*),U2(*),U3(*),DA(*),dMeshVelo(3,*)
-      DIMENSION KCOLA(*),KLDA(*),KINT(*),DCORVG(NNDIM,*)
+      DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
 C

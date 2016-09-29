@@ -2,6 +2,7 @@ MODULE def_LinScalar
 
 USE def_FEAT
 USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID
+USE var_QuadScalar, ONLY:mg_mesh
 
 IMPLICIT NONE
 
@@ -99,15 +100,17 @@ EXTERNAL E011,coefst
 ILEV=NLMAX
 CALL SETLEV(2)
 
-ALLOCATE(TempColA(100*NVT))
-ALLOCATE(lMat%LdA(NVT+1))
-lMat%nu = NVT
-lMat%na = 100*NVT
+ALLOCATE(TempColA(100*mg_mesh%level(ilev)%nvt))
+ALLOCATE(lMat%LdA(mg_mesh%level(ilev)%nvt+1))
+lMat%nu = mg_mesh%level(ilev)%nvt
+lMat%na = 100*mg_mesh%level(ilev)%nvt
 iSymm =   0
 nERow =   100
 
 CALL AP7(TempColA,lMat%LdA,lMat%na,lMat%nu,E011,iSymm,nERow,&
-         KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+         mg_mesh%level(ilev)%kvert,&
+         mg_mesh%level(ilev)%kedge,&
+         mg_mesh%level(ilev)%karea)
 
 ALLOCATE(lMat%ColA(lMat%na))
 lMat%ColA(:) = TempColA(1:lMat%na)
@@ -157,8 +160,12 @@ CALL SETLEV(2)
 ALLOCATE(Mmat(lMat%na))
 
 CALL AB07(Mmat,lMat%ColA,lMat%LdA,lMat%na,lMat%nu,nbloc,&
-          koff,KWORK(L(LVERT)),KWORK(L(LEDGE)),&
-          KWORK(L(LAREA)),DWORK(L(LCORVG)),E011,coefst,&
+          koff,&
+          mg_mesh%level(ilev)%kvert,&
+          mg_mesh%level(ilev)%kedge,&
+          mg_mesh%level(ilev)%karea,&
+          mg_mesh%level(ilev)%dcorvg,&
+          E011,coefst,&
           bcon,coecon,kabst,kabstn,icub,ISymm,lint)
 
 
@@ -226,8 +233,11 @@ ILEV=NLMAX
 CALL SETLEV(2)
 
 CALL DiffMatQ1(Alpha,DMat,lMat%nu,lMat%ColA,lMat%LdA,&
-KWORK(L(LVERT)),KWORK(L(LAREA)),&
-KWORK(L(LEDGE)),DWORK(L(LCORVG)),E011)
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%karea,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%dcorvg,&
+               E011)
 
 END SUBROUTINE Create_DiffMat
 !
@@ -239,7 +249,7 @@ TYPE(lScalar) myScalar
 ILEV=NLMAX
 CALL SETLEV(2)
 
-myScalar%ndof = KNVT(ILEV)
+myScalar%ndof = mg_mesh%level(ilev)%nvt
 myScalar%na = lMat%na
 
 ALLOCATE(myScalar%knpr(myScalar%ndof))
@@ -250,7 +260,7 @@ ALLOCATE(myScalar%val_old(myScalar%ndof))
 
 ALLOCATE(myScalar%val(NLMIN:NLMAX))
 DO ILEV=NLMIN,NLMAX
- ALLOCATE(myScalar%val(ILEV)%x(KNVT(ILEV)))
+ ALLOCATE(myScalar%val(ILEV)%x(mg_mesh%level(ilev)%nvt))
 END DO
 ! ALLOCATE(myScalar%src(myScalar%ndof))
 ! ALLOCATE(myScalar%snk(myScalar%ndof))
@@ -265,7 +275,7 @@ EXTERNAL myScalar_Knpr
 ILEV=NLMAX
 CALL SETLEV(2)
 
-CALL myScalar_Knpr(DWORK(L(LCORVG)))
+CALL myScalar_Knpr(mg_mesh%level(ilev)%dcorvg)
 
 END SUBROUTINE Create_Knpr
 !
@@ -277,7 +287,7 @@ EXTERNAL myScalar_InitCond
 ILEV=NLMAX
 CALL SETLEV(2)
 
-CALL myScalar_InitCond(DWORK(L(LCORVG)))
+CALL myScalar_InitCond(mg_mesh%level(ilev)%dcorvg)
 
 END SUBROUTINE InitCond
 !
@@ -392,7 +402,8 @@ IF (myid.ne.0) THEN
       myScalar%ndof,1D0,1D0)
 
  ! Set dirichlet boundary conditions on the solution
- CALL Bndry_Val(DWORK(L(LCORVG)))
+ CALL Bndry_Val(mg_mesh%level(NLMAX)%dcorvg)
+
 END IF
 
 END SUBROUTINE Solve_General_LinScalar
@@ -456,8 +467,6 @@ INTEGER i,length
 REAL*8 ResScalar,DefScalar,RhsScalar
 CHARACTER C1*14,C2*14,C3*14
 CHARACTER, OPTIONAL:: cTitle*(*)
-
-
 
 IF (myid.eq.showID) THEN
 length =  LEN(myScalar%cName)

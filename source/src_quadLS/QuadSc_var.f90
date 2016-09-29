@@ -52,6 +52,8 @@ TYPE tMesh
 
   real*8, allocatable, dimension(:,:) :: dcorag
 
+  real*8, allocatable, dimension(:) :: dvol
+
   real*8, allocatable, dimension(:,:) :: dcorvg_old
 
   ! Conntectivity arrays

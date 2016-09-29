@@ -32,7 +32,7 @@
      * Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
       USE LinScalar, ONLY : Init_LinScalar,InitCond_LinScalar,
      * Transport_LinScalar
-      USE PP3D_MPI, ONLY : myid,master,showid
+      USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
       USE var_QuadScalar, ONLY : myStat,cFBM_File
 
       IMPLICIT DOUBLE PRECISION(A,D-H,O-U,W-Z),LOGICAL(B)
@@ -45,14 +45,20 @@ C
       ! Initialization for FEATFLOW
       CALL General_init(79,mfile)
 C
+
       CALL StaticMeshAdaptation()
 C
+
       CALL Init_QuadScalar_Stuctures(mfile)
+
 
       IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(mfile)
 
       CALL Init_LinScalar
       CALL InitCond_LinScalar()
+
+!      call myMPI_Barrier()
+!      stop
                 
 C
       IF (ISTART.EQ.0) THEN

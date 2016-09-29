@@ -1454,8 +1454,8 @@ C
 !        CALL InitParametrization()
       ELSE
 !        CALL ParametrizeBndr()
-       CALL MIDDEF(DWORK(L(KLCVG(ILEV))),KWORK(L(KLVERT(ILEV))),
-     *      KWORK(L(KLAREA(ILEV))),KNEL(ILEV),DWORK(L(KLCAG(ILEV))))
+!       CALL MIDDEF(DWORK(L(KLCVG(ILEV))),KWORK(L(KLVERT(ILEV))),
+!     *      KWORK(L(KLAREA(ILEV))),KNEL(ILEV),DWORK(L(KLCAG(ILEV))))
       END IF
 C
 10    CONTINUE

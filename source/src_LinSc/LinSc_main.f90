@@ -184,7 +184,7 @@ CALL SETLEV(2)
 CALL InitCond(LinSc_InitCond)
 
 ! Set boundary conditions
-CALL Boundary_LinSc_Val(DWORK(L(LCORVG)))
+CALL Boundary_LinSc_Val(mg_mesh%level(ilev)%dcorvg)
 
 NLMAX = NLMAX - 1
 

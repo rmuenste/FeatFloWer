@@ -3,7 +3,8 @@ MODULE QuadScalar
 USE def_QuadScalar
 ! USE PP3D_MPI
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
-                   COMM_NLComplete,Comm_Summ,Comm_SummN
+                   COMM_NLComplete,Comm_Summ,Comm_SummN,&
+                   myMPI_Barrier
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
@@ -57,6 +58,7 @@ IF (myid.ne.master) THEN
  ! Add the pressure gradient to the rhs
  CALL AddPressureGradient()
 END IF
+
 
  ! Add the viscoelastic stress to the rhs
  IF(bViscoElastic)THEN
@@ -116,6 +118,7 @@ CALL Protocol_QuadScalar(mfile,QuadSc,0,&
 CALL ZTIME(tttt1)
 myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
+
 DO INL=1,QuadSc%prm%NLmax
 INLComplete = 0
 
@@ -161,6 +164,7 @@ IF (myid.ne.master) THEN
 
 END IF
 
+
 ! Checking convergence rates against criterions
 RhsUVW=DefUVW
 CALL COMM_Maximum(RhsUVW)
@@ -181,6 +185,7 @@ IF (INLComplete.eq.1) GOTO 1
 END DO
 
 1 CONTINUE
+
 
 ! return
 myStat%iNonLin = myStat%iNonLin + INL
@@ -274,6 +279,7 @@ END SUBROUTINE Init_QuadScalar
 SUBROUTINE Init_QuadScalar_Stuctures(mfile)
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
+integer :: mydof
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -281,13 +287,22 @@ INTEGER I,J,ndof,mfile,LevDif
  ! Initialize the scalar quantity
  CALL InitializeQuadScalar(QuadSc)
 
+
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
 
+
  ! Initialize the boundary list (QuadScBoundary)
- ALLOCATE (QuadScBoundary(NVT+NET+NAT+NEL))
- CALL InitBoundaryList(KWORK(L(LNPR)),KWORK(L(LVERT)),&
-      KWORK(L(LEDGE)),KWORK(L(LAREA)))
+ ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
+                          mg_mesh%level(ilev)%net+&
+                          mg_mesh%level(ilev)%nat+&
+                          mg_mesh%level(ilev)%nel))
+
+ CALL InitBoundaryList(KWORK(L(LNPR)),&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea)
+
 
 !  ! This part here is responsible for creation of structures enabling the mesh coordinate 
 !  ! transfer to the master node so that it can create the corresponding matrices
@@ -305,11 +320,20 @@ INTEGER I,J,ndof,mfile,LevDif
  CALL SETLEV(2)
 
  ! Set up the Coordinate Vector
- ALLOCATE(myQ2Coor(3,NVT+NET+NAT+NEL))
- CALL SetUp_myQ2Coor(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
+ ALLOCATE (myQ2Coor(3,mg_mesh%level(ilev)%nvt+&
+                      mg_mesh%level(ilev)%net+&
+                      mg_mesh%level(ilev)%nat+&
+                      mg_mesh%level(ilev)%nel))
 
- CALL InitBoundaryStructure(KWORK(L(LVERT)),KWORK(L(LEDGE)))
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
+
+ CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
+                            mg_mesh%level(ILEV)%kedge)
+
 
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
@@ -321,32 +345,46 @@ INTEGER I,J,ndof,mfile,LevDif
  ALLOCATE (mgDensity(NLMIN:NLMAX))
  ALLOCATE (mgNormShearStress(NLMIN:NLMAX))
  DO ILEV=NLMIN,NLMAX
-  ALLOCATE (mgDensity(ILEV)%x(KNEL(ILEV)))
-  ALLOCATE (mgNormShearStress(ILEV)%x(KNEL(ILEV)))
+
+  ALLOCATE (mgDensity(ILEV)%x(mg_mesh%level(ilev)%nel))
+  ALLOCATE (mgNormShearStress(ILEV)%x(mg_mesh%level(ilev)%nel))
   mgDensity(ILEV)%x          = Properties%Density(1)
   mgNormShearStress(ILEV)%x  = 0d0
+
  END DO
 
  ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
  DO ILEV=NLMIN,NLMAX+1
-  ALLOCATE (mgDiffCoeff(ILEV)%x(KNEL(ILEV)))
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
   mgDiffCoeff(ILEV)%x        = Properties%DiffCoeff(1)
  END DO
 
+
  ILEV = NLMAX
- ALLOCATE (Viscosity(KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
+ ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+
  Viscosity = Properties%Viscosity(1)
 
- ALLOCATE (myALE%Monitor(KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
- ALLOCATE (myALE%NewCoor(3,KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
- ALLOCATE (myALE%OldCoor(3,KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
- ALLOCATE (myALE%MeshVelo(3,KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
- ALLOCATE (myALE%OrigCoor(3,KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)))
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+ ALLOCATE (myALE%Monitor(mydof))
+ ALLOCATE (myALE%NewCoor(3,mydof))
+ ALLOCATE (myALE%OldCoor(3,mydof))
+ ALLOCATE (myALE%MeshVelo(3,mydof))
+ ALLOCATE (myALE%OrigCoor(3,mydof))
+
  myALE%Monitor   = 1d0
  myALE%MeshVelo  = 0d0
 
  ! Building up the E013/E013 matrix strucrures
  CALL Create_QuadMatStruct()
+
 
  ! Iteration matrix (only allocation)
  CALL Create_AMat() !(A)
@@ -356,6 +394,7 @@ INTEGER I,J,ndof,mfile,LevDif
 
  ! Building up the E012/E012 matrix strucrures
  CALL Create_LinMatStruct ()
+
 
  ! Pressure gradient matrix
  CALL Create_BMat() !(B,BT)
@@ -369,22 +408,28 @@ INTEGER I,J,ndof,mfile,LevDif
   CALL Create_ParLinMatStruct ()
  END IF
 
+
 ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
   CALL QuadScalar_Knpr()
  END DO
  ILEV=NLMAX
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
 
- ALLOCATE (FictKNPR(NVT+NET+NAT+NEL))
+ ALLOCATE (FictKNPR(mydof))
  FictKNPR=0
- ALLOCATE (Distance(NVT+NET+NAT+NEL))
+ ALLOCATE (Distance(mydof))
  Distance = 0d0
 
- ALLOCATE (MixerKNPR(NVT+NET+NAT+NEL))
+ ALLOCATE (MixerKNPR(mydof))
  MixerKNPR=0
- ALLOCATE (Distamce(NVT+NET+NAT+NEL))
+ ALLOCATE (Distamce(mydof))
  Distamce = 0d0
+
 
  !CALL GetPressureSample(DWORK(L(LCORVG)),KNVT(NLMAX))
 
@@ -440,12 +485,13 @@ CALL SETLEV(2)
  CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
  ILEV=NLMAX
  CALL SETLEV(2)
- CALL SetUp_myQ2Coor(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
+ CALL SetUp_myQ2Coor(mg_mesh%level(ilev)%dcorvg,&
+                     mg_mesh%level(ilev)%dcorag,&
+                     mg_mesh%level(ilev)%kvert,&
+                     mg_mesh%level(ilev)%karea,&
+                     mg_mesh%level(ilev)%kedge)
 
-!END DO
-
-CALL StoreOrigCoor(DWORK(L(KLCVG(NLMAX))))
+CALL StoreOrigCoor(mg_mesh%level(NLMAX)%dcorvg)
 
 IF (myid.ne.0) THEN
 
@@ -457,7 +503,8 @@ IF (myid.ne.0) THEN
  CALL Boundary_QuadScalar_Val()
 
  ! Set initial conditions
- CALL LinScalar_InitCond(DWORK(L(LCORVG)),KWORK(L(LVERT)))
+ CALL LinScalar_InitCond(mg_mesh%level(ilev)%dcorvg,&
+                         mg_mesh%level(ilev)%kvert)
 
 END IF
 
@@ -493,7 +540,10 @@ END SUBROUTINE LinScalar_InitCond
 SUBROUTINE QuadScalar_Knpr()
 INTEGER i,ndof
 
-ndof = nvt+ net + nat + nel
+ ndof  = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
 
 QuadSc%knprU(ILEV)%x = 0
 QuadSc%knprV(ILEV)%x = 0
@@ -689,7 +739,9 @@ SUBROUTINE QuadScalar_InitCond()
 REAL*8 PX,PY,PZ
 INTEGER i,ndof
 
-ndof = nvt + net + nat + nel
+ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
+       mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
+
 
 DO i=1,ndof
  PX = myQ2Coor(1,I)
@@ -731,7 +783,8 @@ SUBROUTINE Boundary_QuadScalar_Val()
 REAL*8 PX,PY,PZ
 INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
 
-ndof = nvt + net + nat + nel
+ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
+       mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
 DO i=1,ndof
  PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
@@ -923,10 +976,17 @@ ILEV=NLMAX
 CALL SETLEV(2)
 
 DAUX=SQRT(Properties%Gravity(1)**2d0+Properties%Gravity(2)**2d0+Properties%Gravity(3)**2d0)
+
 IF (DAUX.GT.0d0) THEN
  CALL Grav_QuadSc(QuadSc%defU,QuadSc%defV,QuadSc%defW,mgDensity(ILEV)%x,&
- Properties%Gravity,QuadSc%ndof,KWORK(L(LVERT)),KWORK(L(LAREA)),&
- KWORK(L(LEDGE)),KWORK(L(KLINT(NLMAX))),DWORK(L(LCORVG)),tstep,E013)
+                  Properties%Gravity,QuadSc%ndof,&
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  KWORK(L(KLINT(NLMAX))),&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  tstep,E013)
+
 END IF
 
 END SUBROUTINE AddGravForce
@@ -1188,8 +1248,12 @@ SUBROUTINE updateFBMGeometry()
 
   ILEV=NLMAX
   CALL SETLEV(2)
-  CALL QuadScalar_FictKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+  CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
+                           mg_mesh%level(ilev)%dcorag,&
+                           mg_mesh%level(ilev)%kvert,&
+                           mg_mesh%level(ilev)%kedge,&
+                           mg_mesh%level(ilev)%karea)
+
 
 END SUBROUTINE  updateFBMGeometry
 !
@@ -1199,8 +1263,11 @@ SUBROUTINE updateMixerGeometry()
   return
   ILEV=NLMAX
   CALL SETLEV(2)
-  CALL QuadScalar_MixerKnpr(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
+  CALL QuadScalar_MixerKnpr(mg_mesh%level(ilev)%dcorvg,&
+                            mg_mesh%level(ilev)%dcorag,&
+                            mg_mesh%level(ilev)%kvert,&
+                            mg_mesh%level(ilev)%kedge,&
+                            mg_mesh%level(ilev)%karea)
 
 END SUBROUTINE  updateMixerGeometry
 !
