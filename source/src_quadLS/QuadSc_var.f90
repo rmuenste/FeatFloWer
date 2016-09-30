@@ -341,5 +341,39 @@ TYPE(tViscFunc) :: myViscFunc
 
 TYPE(tProperties)   Properties
 
+contains 
+integer function KNEL(ilevel)
+  implicit none
+  integer, intent(in) :: ilevel
+
+   KNEL = mg_mesh%level(ilevel)%nel
+  return 
+end function KNEL
+
+integer function KNET(ilevel)
+  implicit none
+  integer, intent(in) :: ilevel
+
+   KNET = mg_mesh%level(ilevel)%net
+  return 
+end function KNET
+
+integer function KNAT(ilevel)
+  implicit none
+  integer, intent(in) :: ilevel
+
+   KNAT = mg_mesh%level(ilevel)%nat
+  return 
+end function KNAT
+
+integer function KNVT(ilevel)
+  implicit none
+  integer, intent(in) :: ilevel
+
+   KNVT = mg_mesh%level(ilevel)%nvt
+  return 
+end function KNVT
+
+
 END MODULE var_QuadScalar
 

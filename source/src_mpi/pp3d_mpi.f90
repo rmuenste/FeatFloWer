@@ -1976,29 +1976,6 @@ END SUBROUTINE COMMDEX
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE KNPRMPI(KNPR,IL,ILEV) !ok
-
-  INTEGER KNPR(*),IL,ILEV
-  INTEGER I,IERR
-  INTEGER pID,IMT
-
-  IF (myid.gt.0) THEN
-
-    DO pID=1,mg_mpi(ILEV)%NeighNum
-    DO I=1,mg_mpi(ILEV)%parST(pID)%Num
-    IMT = mg_mpi(ILEV)%parST(pID)%FaceLink(1,I)
-    KNPR(IMT) = IL
-    END DO
-    END DO
-
-  END IF
-
-  if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
-END SUBROUTINE KNPRMPI
-! ----------------------------------------------
-! ----------------------------------------------
-! ----------------------------------------------
 SUBROUTINE COMM_MGComplete(IMGComplete) !ok
 
   INTEGER IMGComplete

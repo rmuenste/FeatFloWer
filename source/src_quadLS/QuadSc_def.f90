@@ -176,7 +176,7 @@ SUBROUTINE Create_LinMatStruct()
   mg_lMat(ILEV)%ColA=0
 
   CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
-       KWORK(L(LVERT)),mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
+       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
 
   ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
@@ -202,14 +202,24 @@ SUBROUTINE Create_ParLinMatStruct()
 
   CALL SETLEV(2)
   qlPMat => mg_qlPMat(ILEV)
+  
 
-  CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,KWORK(L(LVERT)),NEL,mg_lPMat(ILEV)%na,2)
+
+
+  CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,&
+                   mg_mesh%level(ilev)%kvert,&
+                   mg_mesh%level(ilev)%nel,&
+                   mg_lPMat(ILEV)%na,2)
+
   mg_lPMat(ILEV)%nu = 4*NEL
   ALLOCATE (mg_lPMat(ILEV)%LdA(mg_lPMat(ILEV)%nu+1),mg_lPMat(ILEV)%ColA(mg_lPMat(ILEV)%na))
   mg_lPMat(ILEV)%LdA=0
   mg_lPMat(ILEV)%ColA=0
+
   CALL Get_CMatStruct(mg_lPMat(ILEV)%LdA,mg_lPMat(ILEV)%ColA,qlPMat%LdA,qlPMat%ColA,&
-       KWORK(L(LVERT)),NEL,mg_lPMat(ILEV)%na,2)
+       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,&
+       mg_lPMat(ILEV)%na,2)
+
   ! CALL OutputMatrixStuct("MaPC",mg_lPMat(ILEV))
   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
   "Parallel C matrix structure created",mg_lPMat(ILEV)%nu,mg_lPMat(ILEV)%na
@@ -341,7 +351,12 @@ INTEGER I,J
    END IF
   END IF
   CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),9,E013)
+                 mg_mesh%level(ILEV)%kvert,&
+                 mg_mesh%level(ILEV)%karea,&
+                 mg_mesh%level(ILEV)%kedge,&
+                 mg_mesh%level(ILEV)%dcorvg,&
+                 9,E013)
+
 
   IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
 
@@ -1048,10 +1063,15 @@ IF (myid.ne.0) THEN
  ILEV=NLMAX
  CALL SETLEV(2)
 
- CALL STRESS(myScalar%valU,myScalar%valV,&
-  myScalar%valW,myScalar%defU,myScalar%defV,myScalar%defW,&
-  Viscosity,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-  DWORK(L(LCORVG)),E013)
+ CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+ myScalar%defU, myScalar%defV, myScalar%defW,&
+ Viscosity,&
+ mg_mesh%level(ILEV)%kvert,&
+ mg_mesh%level(ILEV)%karea,&
+ mg_mesh%level(ILEV)%kedge,&
+ mg_mesh%level(ILEV)%dcorvg,&
+ E013 ) 
+
 END IF
 
 END SUBROUTINE AddStressToRHS
@@ -1072,7 +1092,11 @@ IF (myid.ne.0) THEN
  myScalar%defW=0.0d0
 
  CALL GetGradVelo_rhs_sub(x,myScalar%defU,myScalar%defV,myScalar%defW,&
- KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013)
+                          mg_mesh%level(ilev)%kvert,&
+                          mg_mesh%level(ilev)%karea,&
+                          mg_mesh%level(ilev)%kedge,&
+                          mg_mesh%level(ilev)%dcorvg,&
+                          E013)
 
 END IF
 
@@ -1817,10 +1841,16 @@ REAL*8 daux,tttx1,tttx0
 
    IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) THEN
     CALL ZTIME(tttx0)
+    
     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
     myScalar%defU, myScalar%defV, myScalar%defW,&
-    Viscosity,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-    KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013 ) ! S*u
+    Viscosity,&
+    mg_mesh%level(ILEV)%kvert,&
+    mg_mesh%level(ILEV)%karea,&
+    mg_mesh%level(ILEV)%kedge,&
+    mg_mesh%level(ILEV)%dcorvg,&
+    E013 ) ! S*u
+
     CALL ZTIME(tttx1)
     myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
    END IF
@@ -1868,10 +1898,16 @@ REAL*8 daux,tttx1,tttx0
      END IF
 
      CALL ZTIME(tttx0)
+
      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
      myScalar%defU, myScalar%defV, myScalar%defW,&
-     Viscosity,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-     KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013 ) ! S*u
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+
      CALL ZTIME(tttx1)
      myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
     END IF   
@@ -2275,9 +2311,17 @@ CALL SETLEV(2)
 lSc%Q2   = 0d0
 qSc%auxU = 0d0
 
-CALL IntP1toQ2(myQ2Coor,KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-    mg_MlRhomat(ILEV)%a,lSc%valP(ILEV)%x,lSc%Q2,qSc%auxU,&
-    KNEL(ILEV),KNVT(ILEV),KNET(ILEV),KNAT(ILEV))
+CALL IntP1toQ2(myQ2Coor,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%karea,&
+               mg_MlRhomat(ILEV)%a,&
+               lSc%valP(ILEV)%x,&
+               lSc%Q2,qSc%auxU,&
+               mg_mesh%level(ilev)%nel,&
+               mg_mesh%level(ilev)%nvt,&
+               mg_mesh%level(ilev)%net,&
+               mg_mesh%level(ilev)%nat)
 
 END SUBROUTINE QuadScP1toQ2
 !
@@ -2595,8 +2639,12 @@ EXTERNAL E013
 
 ILEV=NLMAX
 CALL SETLEV(2)
-CALL GetForces(U,V,W,P,FBM,Nu,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013)
+CALL GetForces(U,V,W,P,FBM,Nu,&
+               mg_mesh%level(ILEV)%kvert,&
+               mg_mesh%level(ILEV)%karea,&
+               mg_mesh%level(ILEV)%kedge,&
+               mg_mesh%level(ILEV)%dcorvg,&
+               E013)
 
 END SUBROUTINE EvaluateDragLift
 !

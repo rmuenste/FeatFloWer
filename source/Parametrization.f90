@@ -34,6 +34,7 @@ CHARACTER cAux*50,cType*50
 INTEGER   iType
  
  ndof = NVT + NET + NAT + NEL
+ write(*,*)'use of NVT is deprecated'
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
  ALLOCATE(myBoundary%bOutflow(ndof))

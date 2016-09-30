@@ -1320,135 +1320,140 @@ C
       KNVT(ILEV)  =NVT
       KNET(ILEV)  =NET
       KNAT(ILEV)  =NAT
-      KNVE(ILEV)  =NVE
-      KNEE(ILEV)  =NEE
-      KNAE(ILEV)  =NAE
-      KNVEL(ILEV) =NVEL
-      KNEEL(ILEV) =NEEL
-      KNVED(ILEV) =NVED
-      KNVAR(ILEV) =NVAR
-      KNEAR(ILEV) =NEAR
-      KNBCT(ILEV) =NBCT
-      KNVBD(ILEV) =NVBD
-      KNEBD(ILEV) =NEBD
-      KNABD(ILEV) =NABD
+!      KNVE(ILEV)  =NVE
+!      KNEE(ILEV)  =NEE
+!      KNAE(ILEV)  =NAE
+!      KNVEL(ILEV) =NVEL
+!      KNEEL(ILEV) =NEEL
+!      KNVED(ILEV) =NVED
+!      KNVAR(ILEV) =NVAR
+!      KNEAR(ILEV) =NEAR
+!      KNBCT(ILEV) =NBCT
+!      KNVBD(ILEV) =NVBD
+!      KNEBD(ILEV) =NEBD
+!      KNABD(ILEV) =NABD
 C
 C
 C *** Save arrays for all levels between NLMIN and NLMAX
 C
 C
-      IF (ILEV.LT.NLEV) THEN
-C
-C       CALL ZCPY(LCORVG,'DCORVG',KLCVG(ILEV),'DCVG0 ')
-C       IF (IER.NE.0) GOTO 99999
-       IF (LCORMG.NE.0) THEN
-        CALL ZCPY(LCORMG,'DCORMG',KLCMG(ILEV),'DCMG0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LCORAG.NE.0) THEN
-        CALL ZCPY(LCORAG,'DCORAG',KLCAG(ILEV),'DCAG0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       CALL ZCPY(LVERT,'KVERT ',KLVERT(ILEV),'KVERT0')
-       IF (IER.NE.0) GOTO 99999
-       IF (LEDGE.NE.0) THEN
-        CALL ZCPY(LEDGE,'KEDGE  ',KLEDGE(ILEV),'KEDG0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LAREA.NE.0) THEN
-        CALL ZCPY(LAREA,'KAREA  ',KLAREA(ILEV),'KARE0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LADJ.NE.0) THEN
-        CALL ZCPY(LADJ,'KADJ  ',KLADJ(ILEV),'KADJ0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LVEL.NE.0) THEN
-        CALL ZCPY(LVEL,'KVEL  ',KLVEL(ILEV),'KVEL0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LEEL.NE.0) THEN
-        CALL ZCPY(LEEL,'KEEL  ',KLEEL(ILEV),'KEEL0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LAEL.NE.0) THEN
-        CALL ZCPY(LAEL,'KAEL  ',KLAEL(ILEV),'KAEL0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LVED.NE.0) THEN
-        CALL ZCPY(LVED,'KVED  ',KLVED(ILEV),'KVED0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LAED.NE.0) THEN
-        CALL ZCPY(LAED,'KAED  ',KLAED(ILEV),'KAED0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LVAR.NE.0) THEN
-        CALL ZCPY(LVAR,'KVAR  ',KLVAR(ILEV),'KVAR0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LEAR.NE.0) THEN
-        CALL ZCPY(LEAR,'KEAR  ',KLEAR(ILEV),'KEAR0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LEVE.NE.0) THEN
-        CALL ZCPY(LEVE,'KEVE  ',KLEVE(ILEV),'KEVE0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LAVE.NE.0) THEN
-        CALL ZCPY(LAVE,'KAVE  ',KLAVE(ILEV),'KAVE0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       CALL ZCPY(LNPR,'KNPR  ',KLNPR(ILEV),'KNPR0 ')
-       IF (IER.NE.0) GOTO 99999
-       IF (LBCT.NE.0) THEN
-        CALL ZCPY(LBCT,'KLBCT ',KLBCT(ILEV),'KBCT0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LVBD.NE.0) THEN
-        CALL ZCPY(LVBD,'KVBD  ',KLVBD(ILEV),'KVBD0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LEBD.NE.0) THEN
-        CALL ZCPY(LEBD,'KEBD  ',KLEBD(ILEV),'KEBD0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF
-       IF (LABD.NE.0) THEN
-        CALL ZCPY(LABD,'KABD  ',KLABD(ILEV),'KABD0 ')
-        IF (IER.NE.0) GOTO 99999
-       ENDIF   
-C
-       ELSE
-C
-       KLCVG(ILEV) =LCORVG
-       KLCMG(ILEV) =LCORMG
-       KLCAG(ILEV) =LCORAG
-       KLVERT(ILEV)=LVERT
-       KLEDGE(ILEV)=LEDGE
-       KLAREA(ILEV)=LAREA
-       KLADJ(ILEV) =LADJ
-       KLVEL(ILEV) =LVEL
-       KLEEL(ILEV) =LEEL
-       KLAEL(ILEV) =LAEL
-       KLVED(ILEV) =LVED
-       KLAED(ILEV) =LAED
-       KLVAR(ILEV) =LVAR
-       KLEAR(ILEV) =LEAR
-       KLEVE(ILEV) =LEVE
-       KLAVE(ILEV) =LAVE
-       KLNPR(ILEV) =LNPR
-       KLBCT(ILEV) =LBCT
-       KLVBD(ILEV) =LVBD
-       KLEBD(ILEV) =LEBD
-       KLABD(ILEV) =LABD
-C     
-      ENDIF
+!      IF (ILEV.LT.NLEV) THEN
+!C
+!C       CALL ZCPY(LCORVG,'DCORVG',KLCVG(ILEV),'DCVG0 ')
+!C       IF (IER.NE.0) GOTO 99999
+!       IF (LCORMG.NE.0) THEN
+!        CALL ZCPY(LCORMG,'DCORMG',KLCMG(ILEV),'DCMG0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LCORAG.NE.0) THEN
+!        CALL ZCPY(LCORAG,'DCORAG',KLCAG(ILEV),'DCAG0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       CALL ZCPY(LVERT,'KVERT ',KLVERT(ILEV),'KVERT0')
+!       IF (IER.NE.0) GOTO 99999
+!       IF (LEDGE.NE.0) THEN
+!        CALL ZCPY(LEDGE,'KEDGE  ',KLEDGE(ILEV),'KEDG0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LAREA.NE.0) THEN
+!        CALL ZCPY(LAREA,'KAREA  ',KLAREA(ILEV),'KARE0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LADJ.NE.0) THEN
+!        CALL ZCPY(LADJ,'KADJ  ',KLADJ(ILEV),'KADJ0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LVEL.NE.0) THEN
+!        CALL ZCPY(LVEL,'KVEL  ',KLVEL(ILEV),'KVEL0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LEEL.NE.0) THEN
+!        CALL ZCPY(LEEL,'KEEL  ',KLEEL(ILEV),'KEEL0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LAEL.NE.0) THEN
+!        CALL ZCPY(LAEL,'KAEL  ',KLAEL(ILEV),'KAEL0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LVED.NE.0) THEN
+!        CALL ZCPY(LVED,'KVED  ',KLVED(ILEV),'KVED0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LAED.NE.0) THEN
+!        CALL ZCPY(LAED,'KAED  ',KLAED(ILEV),'KAED0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LVAR.NE.0) THEN
+!        CALL ZCPY(LVAR,'KVAR  ',KLVAR(ILEV),'KVAR0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LEAR.NE.0) THEN
+!        CALL ZCPY(LEAR,'KEAR  ',KLEAR(ILEV),'KEAR0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LEVE.NE.0) THEN
+!        CALL ZCPY(LEVE,'KEVE  ',KLEVE(ILEV),'KEVE0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LAVE.NE.0) THEN
+!        CALL ZCPY(LAVE,'KAVE  ',KLAVE(ILEV),'KAVE0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       CALL ZCPY(LNPR,'KNPR  ',KLNPR(ILEV),'KNPR0 ')
+!       IF (IER.NE.0) GOTO 99999
+!       IF (LBCT.NE.0) THEN
+!        CALL ZCPY(LBCT,'KLBCT ',KLBCT(ILEV),'KBCT0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LVBD.NE.0) THEN
+!        CALL ZCPY(LVBD,'KVBD  ',KLVBD(ILEV),'KVBD0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LEBD.NE.0) THEN
+!        CALL ZCPY(LEBD,'KEBD  ',KLEBD(ILEV),'KEBD0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF
+!       IF (LABD.NE.0) THEN
+!        CALL ZCPY(LABD,'KABD  ',KLABD(ILEV),'KABD0 ')
+!        IF (IER.NE.0) GOTO 99999
+!       ENDIF   
+!C
+!       ELSE
+!C
+!       KLCVG(ILEV) =LCORVG
+!       KLCMG(ILEV) =LCORMG
+!       KLCAG(ILEV) =LCORAG
+!       KLVERT(ILEV)=LVERT
+!       KLEDGE(ILEV)=LEDGE
+!       KLAREA(ILEV)=LAREA
+!       KLADJ(ILEV) =LADJ
+!       KLVEL(ILEV) =LVEL
+!       KLEEL(ILEV) =LEEL
+!       KLAEL(ILEV) =LAEL
+!       KLVED(ILEV) =LVED
+!       KLAED(ILEV) =LAED
+!       KLVAR(ILEV) =LVAR
+!       KLEAR(ILEV) =LEAR
+!       KLEVE(ILEV) =LEVE
+!       KLAVE(ILEV) =LAVE
+!       KLNPR(ILEV) =LNPR
+!       KLBCT(ILEV) =LBCT
+!       KLVBD(ILEV) =LVBD
+!       KLEBD(ILEV) =LEBD
+!       KLABD(ILEV) =LABD
+!C     
+!      ENDIF
 C
       DO 20 ILEVH=1,NLEV-1
-      KLCVG(ILEVH)=LCORVG
+!      KLCVG(ILEVH)=LCORVG
 20    CONTINUE
 C
       ENDIF
+
+
+      !CALL ZDISP(0,LCORVG,'DCVORG')
+      !CALL ZDISP(0,LCORVG,'DCVORG')
+
 C
       IF (ILEV.EQ.1) THEN
 !        CALL InitParametrization()

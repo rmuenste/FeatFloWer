@@ -131,7 +131,6 @@ source/src_pp3d/util.f
 source/src_pp3d/avs3d.f
 source/src_pp3d/period.f
 source/src_pp3d/parq3d.f
-source/src_pp3d/init1.f
 source/src_pp3d/xmrout.f
 source/src_pp3d/rdparm.f
 source/src_pp3d/les.f
@@ -144,7 +143,6 @@ source/src_pp3d/optcnl.f
 source/src_pp3d/dfkt.f
 source/src_pp3d/error.f
 source/src_pp3d/bmul.f
-source/src_pp3d/zvalue1.f
 source/src_pp3d/diff.f
 source/src_pp3d/nu_turb.f
 source/src_pp3d/prostp.f

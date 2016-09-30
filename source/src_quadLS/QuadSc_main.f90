@@ -138,6 +138,8 @@ IF (myid.ne.master) THEN
  QuadSc%defV = QuadSc%rhsV
  QuadSc%defW = QuadSc%rhsW
 END IF
+!call myMPI_Barrier()
+!stop
 
 IF (myid.ne.master) THEN
 
@@ -240,18 +242,26 @@ IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
 END IF
 
- CALL STORE_OLD_MESH(DWORK(L(KLCVG(NLMAX))))
+
+IF (myid.ne.0) THEN
+ CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+END IF
  
  CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
  
- CALL STORE_NEW_MESH(DWORK(L(KLCVG(NLMAX))))
+IF (myid.ne.0) THEN
+ CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+END IF
  
  CALL GET_MESH_VELO()
  
  ILEV=NLMAX
  CALL SETLEV(2)
- CALL SetUp_myQ2Coor(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
 
  IF (myFBM%nParticles.GT.0) THEN
   CALL updateFBMGeometry()
@@ -1056,8 +1066,10 @@ INTEGER NeighE(2,12),NeighA(4,6)
 DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
+
+
 DO i=1,nvt
- QuadScBoundary(i) = knpr(i)
+ QuadScBoundary(i) = mg_mesh%level(ilev)%knpr(i)
 !  IF (QuadScBoundary(i).eq.1) write(*,*) "type 1"
 END DO
 
@@ -1067,11 +1079,12 @@ DO i=1,nel
   IF (k.eq.kedge(j,i)) THEN
    ivt1 = kvert(NeighE(1,j),i)
    ivt2 = kvert(NeighE(2,j),i)
-   IF (knpr(ivt1).EQ.1.AND.knpr(ivt2).EQ.1) THEN
+   !IF (knpr(ivt1).EQ.1.AND.knpr(ivt2).EQ.1) THEN
     QuadScBoundary(nvt+k) = 1
-   ELSE
     QuadScBoundary(nvt+k) = 0
-   END IF
+   !ELSE
+    QuadScBoundary(nvt+k) = 0
+   !END IF
 !    IF (QuadScBoundary(nvt+k).eq.1) write(*,*) "type 2"
    k = k + 1
   END IF
@@ -1079,7 +1092,8 @@ DO i=1,nel
 END DO
 
 DO i=1,nat
- QuadScBoundary(nvt+net+i) = knpr(nvt+i)
+ !QuadScBoundary(nvt+net+i) = knpr(nvt+i)
+ QuadScBoundary(nvt+net+i) = 0! knpr(nvt+i)
 !  IF (QuadScBoundary(nvt+net+i).eq.1) write(*,*) "type 3"
 END DO
 
@@ -1518,6 +1532,7 @@ SUBROUTINE  STORE_OLD_MESH(dcoor)
   REAL*8 dcoor(3,*) 
   INTEGER i
 
+  !write(*,*)'ndof:',QuadSc%ndof,mg_mesh%level(NLMAX+1)%nvt
   DO i=1,QuadSc%ndof
   myALE%OldCoor(:,i) = dcoor(:,i)
   END DO

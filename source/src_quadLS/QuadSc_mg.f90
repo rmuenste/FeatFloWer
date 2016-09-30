@@ -2086,7 +2086,8 @@ REAL*8 daux
  ndof  = SIZE(myMG%X(mgLev)%x)
  
  CALL ZTIME(time0)
- CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,KNEL(mgLev))
+ CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,&
+                       mg_mesh%level(mgLev)%NEL)
  CALL ZTIME(time1)
  myStat%tRestP = myStat%tRestP + (time1-time0)
 

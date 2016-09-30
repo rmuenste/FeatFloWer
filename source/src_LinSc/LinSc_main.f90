@@ -2,7 +2,7 @@ MODULE LinScalar
 
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
-    Comm_Maximum,Comm_Summ,knprmpi,myid,master,CommSum
+    Comm_Maximum,Comm_Summ,myid,master,CommSum
 USE QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff
 
 IMPLICIT NONE
@@ -144,13 +144,14 @@ IF (myid.ne.master) THEN
 ! Iteration matrix (only allocation)
  CALL Create_AMat()
 
-END IF
-
 ! Initialize the scalar quantity
  CALL Initialize(Tracer)
 
 ! Set the types of boundary conditions (set up knpr)
  CALL Create_Knpr(LinSc_Knpr)
+
+END IF
+
 
 Tracer%cName = "Tracer"
 Tracer%prm%SolvIter = 1
@@ -318,17 +319,20 @@ END SUBROUTINE Boundary_LinSc_Mat
 SUBROUTINE Build_LinSc_Convection()
 INTEGER I,J,jLEV
 EXTERNAL E011
+integer invt, inet, inat, inel
 
 ILEV=NLMAX
 JLEV = ILEV-1
 CALL SETLEV(2)
 
+write(*,*)'evil subroutine'
+stop
 Kmat = 0d0
-CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
-lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
-KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
-KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
+!CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
+!lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+!DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
+!KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
+!KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)
@@ -342,9 +346,11 @@ END SUBROUTINE Build_LinSc_Convection
 ! ----------------------------------------------
 !
 SUBROUTINE dump_LinScalar_out()
+USE var_QuadScalar, only:knvt
 INTEGER ifilen,itwx,i
 CHARACTER COFile*15
 DATA ifilen/0/
+integer :: iend 
 
  IF (myid.EQ.0) RETURN
 
@@ -357,7 +363,8 @@ DATA ifilen/0/
  IF (myid.ge.10) WRITE(COFile(10:11),'(I2)') myid
  OPEN (UNIT=2,FILE=COFile,FORM="FORMATTED")
 
- DO I=1,KNVT(NLMAX)
+ iend = KNVT(NLMAX)
+ DO I=1,iend
   WRITE(2,'(G18.12)') Tracer%val(NLMAX)%x(i)
  END DO
 
@@ -368,8 +375,11 @@ END SUBROUTINE dump_LinScalar_out
 ! ----------------------------------------------
 !
 SUBROUTINE dump_LinScalar_in(cdump)
+USE var_QuadScalar, only:knvt
+implicit none
 INTEGER IFl,itwx,i
 CHARACTER CIFile*15,cdump*(*)
+integer :: iend 
 
  IF (myid.EQ.0) RETURN
 
@@ -379,7 +389,8 @@ CHARACTER CIFile*15,cdump*(*)
  IF (myid.ge.10) WRITE(CIFile(iFl+1:iFl+3),'(A1,I2)') '_',myid
  OPEN (UNIT=1,FILE=CIFile,STATUS="OLD",FORM="FORMATTED")
 
- DO I=1,KNVT(NLMAX)
+ iend = KNVT(NLMAX)
+ DO I=1,iend
   READ(1,*) Tracer%val(NLMAX)%x(i)
  END DO
 

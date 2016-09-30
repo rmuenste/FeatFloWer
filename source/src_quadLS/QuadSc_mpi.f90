@@ -1604,7 +1604,8 @@ END SUBROUTINE E013Sum
 ! ----------------------------------------------
 SUBROUTINE E013UVWSum(FX) !ok
 USE PP3D_MPI
-USE def_feat, ONLY: ILEV,KNVT,KNAT,KNET,KNEL
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel
 
 REAL*8  FX(*)
 INTEGER I,pID,pJD,nSIZE,nEIGH

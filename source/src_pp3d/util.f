@@ -663,6 +663,7 @@ c
 C=======================================================================
 C     Declarations
 C=======================================================================
+      use var_QuadScalar, only: mg_mesh
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
 C
 C *** global constants
@@ -733,6 +734,7 @@ C
 C
       SAVE 
 C-----------------------------------------------------------------------
+
 C *** elementary check
       IF (ILEV.LT.NLMIN .OR. ILEV.GT.NLMAX .OR. ISETLV.LT.1  .OR.
      *    ISETLV.GT.2 )  THEN
@@ -742,86 +744,132 @@ C *** elementary check
 C
 C *** update of /TRIAD/,/TRIAA/
 C
-      NEL =KNEL(ILEV)    
-      NVT =KNVT(ILEV)
-      NET =KNET(ILEV)
-      NAT =KNAT(ILEV)
-      NVE =KNVE(ILEV)
-      NEE =KNEE(ILEV)
-      NAE =KNAE(ILEV)
-      NVEL =KNVEL(ILEV)
-      NEEL =KNEEL(ILEV)
-      NVED =KNVED(ILEV)
-      NVAR =KNVAR(ILEV)
-      NEAR =KNEAR(ILEV)
-      NBCT =KNBCT(ILEV)
-      NVBD =KNVBD(ILEV)
-      NEBD =KNEBD(ILEV)
-      NABD =KNABD(ILEV)
-C
-      LCORVG =KLCVG(ILEV) 
-      LCORMG =KLCMG(ILEV) 
-      LCORAG =KLCAG(ILEV) 
-      LVERT  =KLVERT(ILEV)
-      LEDGE  =KLEDGE(ILEV) 
-      LAREA  =KLAREA(ILEV) 
-      LADJ   =KLADJ(ILEV) 
-      LVEL   =KLVEL(ILEV) 
-      LEEL   =KLEEL(ILEV)
-      LAEL   =KLAEL(ILEV)   
-      LVED   =KLVED(ILEV) 
-      LAED   =KLAED(ILEV) 
-      LVAR   =KLVAR(ILEV) 
-      LEAR   =KLEAR(ILEV) 
-      LEVE   =KLEVE(ILEV) 
-      LAVE   =KLAVE(ILEV) 
-      LNPR   =KLNPR(ILEV) 
-      LBCT   =KLBCT(ILEV) 
-      LVBD   =KLVBD(ILEV) 
-      LEBD   =KLEBD(ILEV) 
-      LABD   =KLABD(ILEV)
-      LNUT   =KLNUT(ILEV)
-      LVOL   =KLVOL(ILEV)
-      LKERI  =KKERI(ILEV)
-      LKERP  =KKERP(ILEV)
-      LKROS  =KKROS(ILEV)
+
+
+
+      NVT = mg_mesh%level(ILEV)%nvt    
+      NET = mg_mesh%level(ILEV)%net
+      NAT = mg_mesh%level(ILEV)%nat
+      NEL = mg_mesh%level(ILEV)%nel
+      NVE = mg_mesh%level(ILEV)%nve
+      NEE = mg_mesh%level(ILEV)%nee
+      NAE = mg_mesh%level(ILEV)%nae
+      !WRITE(MTERM,*) 'Use of S E T L E V is deprecated.'
+      return
+
+!      return    
+
+
+!      NVEL = KNVEL(ILEV)
+!      NEEL = KNEEL(ILEV)
+!      NVED = KNVED(ILEV)
+!      NVAR = KNVAR(ILEV)
+!      NEAR = KNEAR(ILEV)
+      NBCT = KNBCT(ILEV)
+      NVBD = KNVBD(ILEV)
+      NEBD = KNEBD(ILEV)
+      NABD = KNABD(ILEV)
+
+!      LCORVG =  KLCVG(ILEV) 
+!      LCORMG =  KLCMG(ILEV) 
+!      LCORAG =  KLCAG(ILEV) 
+!      LVERT  =  KLVERT(ILEV)
+!      LEDGE  =  KLEDGE(ILEV) 
+!      LAREA  =  KLAREA(ILEV) 
+!      LADJ   =  KLADJ(ILEV) 
+!      LVEL   =  KLVEL(ILEV) 
+!      LEEL   =  KLEEL(ILEV)
+!      LAEL   =  KLAEL(ILEV)   
+!      LVED   =  KLVED(ILEV) 
+!      LAED   =  KLAED(ILEV) 
+!      LVAR   =  KLVAR(ILEV) 
+!      LEAR   =  KLEAR(ILEV) 
+!      LEVE   =  KLEVE(ILEV) 
+!      LAVE   =  KLAVE(ILEV) 
+!      LNPR   =  KLNPR(ILEV) 
+!      LBCT   =  KLBCT(ILEV) 
+!      LVBD   =  KLVBD(ILEV) 
+!      LEBD   =  KLEBD(ILEV) 
+!      LABD   =  KLABD(ILEV)
+!      LNUT   =  KLNUT(ILEV)
+!      LVOL   =  KLVOL(ILEV)
+!      LKERI  =  KKERI(ILEV)
+!      LKERP  =  KKERP(ILEV)
+!      LKROS  =  KKROS(ILEV)
+
 C
 C *** update of /LEVDIM/,/ADRFLD/ if  ISETLV=2
 C
-      IF (ISETLV.EQ.2)  THEN
-C
-         NA =KNA  (ILEV)
-         NB =KNB  (ILEV)
-         NU =KNU  (ILEV)
-         NP =KNP  (ILEV)
-         NUP=KNUP (ILEV)
-C
-         KA1  =L(KLA    (ILEV))
-         KST1 =L(KLST   (ILEV))
-         KMASS1=L(KLMASS (ILEV))
-         KM1  =L(KLM    (ILEV))
-         KCOLA=L(KLCOLA (ILEV))
-         KLDA =L(KLLDA  (ILEV))
-         KB1  =L(KLB1   (ILEV))
-         KB2  =L(KLB2   (ILEV))
-         KB3  =L(KLB3   (ILEV))
-         KCOLB=L(KLCOLB (ILEV))
-         KLDB =L(KLLDB  (ILEV))
-         KU1  =L(KLUP   (ILEV))
-         KU2  =KU1+NU
-         KU3  =KU2+NU
-         KP   =KU3+NU
-         KF1  =L(KLF12P (ILEV))
-         KF2  =KF1+NU
-         KF3  =KF2+NU
-         KFP  =KF3+NU
-         KAUX1=L(KLAUX  (ILEV))
-         KAUX2=KAUX1+NU
-         KAUX3=KAUX2+NU
-         KAUXP=KAUX3+NU
-C
-      ENDIF
-C
+!      IF (ISETLV.EQ.9)  THEN
+!
+!         NA =KNA  (ILEV)
+!         NB =KNB  (ILEV)
+!         NU =KNU  (ILEV)
+!         NP =KNP  (ILEV)
+!         NUP=KNUP (ILEV)
+!
+!         KA1  =L(KLA    (ILEV))
+!         KST1 =L(KLST   (ILEV))
+!         KMASS1=L(KLMASS (ILEV))
+!         KM1  =L(KLM    (ILEV))
+!         KCOLA=L(KLCOLA (ILEV))
+!         KLDA =L(KLLDA  (ILEV))
+!         KB1  =L(KLB1   (ILEV))
+!         KB2  =L(KLB2   (ILEV))
+!         KB3  =L(KLB3   (ILEV))
+!         KCOLB=L(KLCOLB (ILEV))
+!         KLDB =L(KLLDB  (ILEV))
+!         KU1  =L(KLUP   (ILEV))
+!         KU2  =KU1+NU
+!         KU3  =KU2+NU
+!         KP   =KU3+NU
+!         KF1  =L(KLF12P (ILEV))
+!         KF2  =KF1+NU
+!         KF3  =KF2+NU
+!         KFP  =KF3+NU
+!         KAUX1=L(KLAUX  (ILEV))
+!         KAUX2=KAUX1+NU
+!         KAUX3=KAUX2+NU
+!         KAUXP=KAUX3+NU
+!
+!      ENDIF
+
+!      NVEL = -1  !KNVEL(ILEV)
+!      NEEL = -1  !KNEEL(ILEV)
+!      NVED = -1  !KNVED(ILEV)
+!      NVAR = -1  !KNVAR(ILEV)
+!      NEAR = -1  !KNEAR(ILEV)
+!      NBCT = -1  !KNBCT(ILEV)
+!      NVBD = -1  !KNVBD(ILEV)
+!      NEBD = -1  !KNEBD(ILEV)
+!      NABD = -1  !KNABD(ILEV)
+!
+!      LCORVG = -1! KLCVG(ILEV) 
+!      LCORMG = -1! KLCMG(ILEV) 
+!      LCORAG = -1! KLCAG(ILEV) 
+!      LVERT  = -1! KLVERT(ILEV)
+!      LEDGE  = -1! KLEDGE(ILEV) 
+!      LAREA  = -1! KLAREA(ILEV) 
+!      LADJ   = -1! KLADJ(ILEV) 
+!      LVEL   = -1! KLVEL(ILEV) 
+!      LEEL   = -1! KLEEL(ILEV)
+!      LAEL   = -1! KLAEL(ILEV)   
+!      LVED   = -1! KLVED(ILEV) 
+!      LAED   = -1! KLAED(ILEV) 
+!      LVAR   = -1! KLVAR(ILEV) 
+!      LEAR   = -1! KLEAR(ILEV) 
+!      LEVE   = -1! KLEVE(ILEV) 
+!      LAVE   = -1! KLAVE(ILEV) 
+!      LNPR   = -1! KLNPR(ILEV) 
+!      LBCT   = -1! KLBCT(ILEV) 
+!      LVBD   = -1! KLVBD(ILEV) 
+!      LEBD   = -1! KLEBD(ILEV) 
+!      LABD   = -1! KLABD(ILEV)
+!      LNUT   = -1! KLNUT(ILEV)
+!      LVOL   = -1! KLVOL(ILEV)
+!      LKERI  = -1! KKERI(ILEV)
+!      LKERP  = -1! KKERP(ILEV)
+!      LKROS  = -1! KKROS(ILEV)
       END
 c
 c

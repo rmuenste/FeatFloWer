@@ -103,7 +103,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   write(*,*)'max level:',NLMAX
 
-  CALL XORSC (MMESH1,CMESH1)
+!  CALL XORSC (MMESH1,CMESH1)
 !  CALL CommBarrier()
 !  stop
 
@@ -131,11 +131,11 @@ SUBROUTINE General_init(MDATA,MFILE)
   IDISP=1
 
   IF (myid.NE.0) NLMAX = NLMAX + 1
-  ! 
-  CALL XMSB3(0,MAX(1,ISE),ISA,ISVEL,ISEEL,ISAEL,&
-    ISVED,ISAED,ISVAR,ISEAR,ISEVE,ISAVE,&
-    ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
-    SEDB,SADB)
+
+!  CALL XMSB3(0,MAX(1,ISE),ISA,ISVEL,ISEEL,ISAEL,&
+!    ISVED,ISAED,ISVAR,ISEAR,ISEVE,ISAVE,&
+!    ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
+!    SEDB,SADB)
   
   IF (myid.EQ.0) then
     mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
@@ -154,7 +154,6 @@ SUBROUTINE General_init(MDATA,MFILE)
   else
     call refineMesh(mg_mesh, NLMAX)  
   end if
-
 
   IF (myid.EQ.0) then
     call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
@@ -208,13 +207,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   !mg_mesh%level(NLMAX)%dcorvg
 
-
   II=NLMIN
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
-
-!  CALL PARENTCOMM(KNAT(II),KNEL(II),KNVT(II),&
-!    DWORK(L(KLCVG(II))),DWORK(L(KLCAG(II))),&
-!    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))))
 
   CALL PARENTCOMM(mg_mesh%level(II)%nat,&
                   mg_mesh%level(II)%nel,&
@@ -224,8 +218,6 @@ SUBROUTINE General_init(MDATA,MFILE)
                   mg_mesh%level(II)%karea,&
                   mg_mesh%level(II)%kvert)
 
-  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
-
 !  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
 
   IF (myid.EQ.0) NLMAX = 1
@@ -234,10 +226,6 @@ SUBROUTINE General_init(MDATA,MFILE)
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
   BLIN = .FALSE.
   !       IF (II.eq.NLMAX) BLIN = .TRUE.
-
-!  CALL CREATECOMM(II,KNAT(II),KNEL(II),KNVT(II),&
-!    DWORK(L(KLCAG(II))),DWORK(L(KLCVG(II))),KWORK(L(KLADJ(II))),&
-!    KWORK(L(KLAREA(II))),KWORK(L(KLVERT(II))),BLIN)
 
   CALL CREATECOMM(II,&
                   mg_mesh%level(II)%nat,&
@@ -261,7 +249,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   ! Set up the communication structures for the Quadratic element
   ILEV=NLMIN
-  CALL SETLEV(2)
+  !CALL SETLEV(2)
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
 !  CALL E013_CreateComm_coarse(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
@@ -281,7 +269,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
 
   DO ILEV=NLMIN+1,NLMAX
-  CALL SETLEV(2)
+  !CALL SETLEV(2)
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
 !  CALL E013_CreateComm(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
@@ -316,7 +304,8 @@ SUBROUTINE General_init(MDATA,MFILE)
   DO ILEV=NLMIN,NLMAX
   if(myid.eq.1)then
 
-  write(*,*)"old:",KNVT(ilev), KNAT(ilev), KNEL(ilev), KNET(ilev)
+!  write(*,*)"old:",KNVT(ilev), KNAT(ilev), KNEL(ilev), KNET(ilev)
+
   write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
                    mg_mesh%level(ILEV)%nat,&
                    mg_mesh%level(ILEV)%nel,&
@@ -326,7 +315,7 @@ SUBROUTINE General_init(MDATA,MFILE)
   end do
 
   DO ILEV=NLMIN,NLMAX
-    CALL SETLEV(2)
+    !CALL SETLEV(2)
     IF (ILEV.EQ.1) THEN
       CALL InitParametrization(mg_mesh%level(ILEV),ilev)
     ELSE
@@ -367,7 +356,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
 
   ILEV = LinSc%prm%MGprmIn%MedLev
-  CALL SETLEV(2)
+  !CALL SETLEV(2)
 
   nLengthV = (2**(ILEV-1)+1)**3
   nLengthE = mg_mesh%level(NLMIN)%nel
@@ -400,10 +389,10 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   ILEV=II
 
-  NVT=KNVT(II)
-  NAT=KNAT(II)
-  NET=KNET(II)
-  NEL=KNEL(II)
+!  NVT=KNVT(II)
+!  NAT=KNAT(II)
+!  NET=KNET(II)
+!  NEL=KNEL(II)
 
   NVT=mg_mesh%level(II)%nvt
   NAT=mg_mesh%level(II)%nat
@@ -415,7 +404,12 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
   END IF
 
-  CALL SETLEV(2)
+  !CALL SETLEV(2)
+
+  IF (myid.eq.showid) THEN
+    WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+    WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+  END IF
 
   if(.not.allocated(mg_mesh%level(II)%dvol))then
     allocate(mg_mesh%level(II)%dvol(NEL))

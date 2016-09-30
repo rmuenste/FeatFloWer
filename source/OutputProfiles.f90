@@ -1,7 +1,7 @@
 SUBROUTINE SolToFile(iOutput)
 USE def_FEAT
 USE QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
-USE var_QuadScalar,ONLY:myFBM
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid
 
@@ -53,6 +53,7 @@ SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 USE QuadScalar,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE LinScalar,ONLY:Tracer
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
@@ -276,6 +277,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
 USE QuadScalar,ONLY:myDump, ViscoSc
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 INTEGER iOut,iType,iiLev
 REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -339,6 +341,7 @@ END IF
  CONTAINS
 ! -----------------------------------------------------------------
 SUBROUTINE CollectVertField(xField)
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 REAL*8 xField(*)
 
  IF (myid.ne.0) THEN
@@ -392,6 +395,7 @@ DEALLOCATE(Field)
 END SUBROUTINE CollectVertField
 ! -----------------------------------------------------------------
 SUBROUTINE CollectElemField(xField)
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 REAL*8 xField(*)
 
  IF (myid.ne.0) THEN
@@ -616,6 +620,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
 USE QuadScalar,ONLY:myDump,ViscoSc
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 INTEGER iInd,iType,iLevel
 REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -732,6 +737,7 @@ DEALLOCATE(Field)
 END SUBROUTINE DistributeVertField
 ! -----------------------------------------------------------------
 SUBROUTINE DistributeElemField(xField)
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 REAL*8 xField(*)
 
  IF (myid.ne.0) THEN
@@ -795,7 +801,8 @@ USE QuadScalar,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
-USE var_QuadScalar,ONLY:myExport,myFBM
+USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 ! USE PLinScalar,ONLY:PLinScP1toQ1,OutputInterphase,PLinLS,&
 !                dNorm,IntPhaseElem,FracFieldQ1
 IMPLICIT NONE
@@ -820,7 +827,9 @@ IF     (myExport%Format.EQ."GMV") THEN
   NLMAX = NLMAX + 1
   ILEV = myExport%Level
   CALL SETLEV(2)
-  CALL Output_GMV_fields(iOutput,DWORK(L(KLCVG(ILEV))),KWORK(L(KLVERT(ILEV))))
+  CALL Output_GMV_fields(iOutput,&
+    mg_mesh%level(ILEV)%dcorvg,&
+    mg_mesh%level(ILEV)%kvert)
   NLMAX = NLMAX - 1
  END IF
 
@@ -830,7 +839,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX + 1
   ILEV = myExport%Level
   CALL SETLEV(2)
-  CALL Output_VTK_piece(iOutput,DWORK(L(KLCVG(ILEV))),KWORK(L(KLVERT(ILEV))))
+  CALL Output_VTK_piece(iOutput,&
+    mg_mesh%level(ILEV)%dcorvg,&
+    mg_mesh%level(ILEV)%kvert)
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
@@ -849,6 +860,7 @@ END
 SUBROUTINE Output_Profiles_sub(U,V,W,P,T,kv,dx,&
            iO,nvt,nel,time)
 USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 REAL*8 dx(3,*),U(*),V(*),W(*),P(*),T(*),time
 REAL*8 DGP,DAUX
@@ -942,6 +954,7 @@ USE PP3D_MPI, ONLY:myid,showid
 USE QuadScalar,ONLY:QuadSc,LinSc,bTracer
 USE PLinScalar,ONLY:PLinLS
 USE LinScalar,ONLY:Tracer
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER COFile*15
 INTEGER itwx,ifilen,i
@@ -1060,6 +1073,7 @@ USE PP3D_MPI, ONLY:myid,showid,ShareValueD_myMPI
 USE QuadScalar,ONLY:QuadSc,LinSc,bTracer
 USE PLinScalar,ONLY:PLinLS
 USE LinScalar,ONLY:Tracer
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER CIFile*(30),cdump*(*)
 INTEGER IFl,I,ndof
@@ -1190,21 +1204,9 @@ END SUBROUTINE FBM_FromFile
 SUBROUTINE CreateDumpStructures(iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE QuadScalar,ONLY:myDump
+USE QuadScalar,ONLY:myDump,mg_mesh
 
 IMPLICIT NONE
-
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
 INTEGER iLevel
 INTEGER JEL,KEL,ivt,jvt,nLengthE,nLengthV
@@ -1217,7 +1219,7 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
  NLMAX = NLMAX+iLevel
 
  ILEV = NLMIN
- NEL  = KNEL(ILEV)
+ NEL  = mg_mesh%level(ilev)%nel
  nLengthE = 8**(NLMAX-1)
  nLengthV = (2**(NLMAX-1)+1)**3
  IF(ALLOCATED(myDump%Elements)) DEALLOCATE(myDump%Elements)
@@ -1225,7 +1227,7 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
  ALLOCATE(myDump%Elements(NEL,nLengthE))
  ALLOCATE(myDump%Vertices(NEL,nLengthV))
 
- DO IEL = 1,KNEL(NLMIN)
+ DO IEL = 1,mg_mesh%level(NLMIN)%nel
 
   myDump%Elements(IEL,1) = IEL
   iaux = 1
@@ -1233,7 +1235,8 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
    jaux = iaux
    DO jel=1,jaux
     kel = myDump%Elements(iel,jel)
-    CALL Get8Elem(KWORK(L(KLADJ(II))),kv,kel)
+    CALL Get8Elem(mg_mesh%level(II)%kadj,&
+      kv,kel)
     DO jj = 2,8
      iaux = iaux + 1
      myDump%Elements(iel,iaux) = kv(jj)
@@ -1242,14 +1245,15 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
   END DO
  END DO 
 
- ALLOCATE(bGot(KNVT(NLMAX)))
- DO IEL = 1,KNEL(NLMIN)
+ ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
+ DO IEL = 1,mg_mesh%level(NLMIN)%nel
   bGot = .FALSE.
   iaux = 0
   DO JEL = 1,nLengthE
    KEL = myDump%Elements(IEL,JEL)
    
-   CALL getVert(KWORK(L(KLVERT(NLMAX))),kv,KEL)
+   CALL getVert(mg_mesh%level(NLMAX)%kvert,&
+                kv,KEL)
 
    DO IVT = 1,8
     JVT = kv(IVT)
@@ -1306,6 +1310,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier
 USE QuadScalar,ONLY:QuadSc,LinSc,myDump
 USE PLinScalar,ONLY:PLinLS
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER cOutFile*20,command*100
 INTEGER iOutO
@@ -1436,6 +1441,7 @@ SUBROUTINE LoadSmartDumpFiles(cFldrInFile,iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse
 USE QuadScalar,ONLY:QuadSc,LinSc,myDump
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE PLinScalar,ONLY:PLinLS
 IMPLICIT NONE
 INTEGER iLevel
@@ -1523,6 +1529,7 @@ END SUBROUTINE LoadSmartDumpFiles
 SUBROUTINE LoadSmartAdaptedMeshFile(dcorvg,cMeshInFile,iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE QuadScalar,ONLY:myDump
 IMPLICIT NONE
 REAL*8 dcorvg(3,*)
@@ -1597,6 +1604,7 @@ USE QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,
 USE QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE LinScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -1796,6 +1804,7 @@ END SUBROUTINE Output_VTK_piece
 SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY:myExport,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE def_FEAT
 
 IMPLICIT NONE
@@ -1887,6 +1896,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE QuadScalar,ONLY:QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE LinScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
