@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
+#project(Q2P1)
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
@@ -33,10 +34,19 @@ ENDIF(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
 message(STATUS "Checking build type...")
 
-# set the mpi-compiler
-set(CMAKE_C_COMPILER mpicc)
-set(CMAKE_CXX_COMPILER mpic++)
-set(CMAKE_Fortran_COMPILER mpif90)
+#set(COMMAND_WHICH "which")
+#execute_process(COMMAND ${COMMAND_WHICH} mpicc -a OUTPUT_VARIABLE MYCC_PATH)
+#execute_process(COMMAND ${COMMAND_WHICH} mpicxx -a OUTPUT_VARIABLE MYCXX_PATH)
+#execute_process(COMMAND ${COMMAND_WHICH} mpif90 -a OUTPUT_VARIABLE MYFC_PATH)
+#
+#message(STATUS "Path: ${MYCC_PATH}")
+#message(STATUS "Path: ${MYCXX_PATH}")
+#message(STATUS "Path: ${MYFC_PATH}")
+#
+## set the mpi-compiler
+#set(CMAKE_C_COMPILER ${MYCC_PATH})
+#set(CMAKE_CXX_COMPILER ${MYCXX_PATH})
+#set(CMAKE_Fortran_COMPILER ${MYFC_PATH})
 
 IF(NOT Q2P1_COMPILER)
   set(Q2P1_DEFAULT_COMPILER "gcc")
@@ -102,6 +112,7 @@ IF(FC_CUDA_SUPPORT)
   add_subdirectory(FullC0ntact/cuda_addon)
 ENDIF(FC_CUDA_SUPPORT)
 
+add_subdirectory(extern/libraries/lapack-3.6.1)
 
 # assign the header files to the inshape3dcore_hdr variable
 set(src
@@ -214,38 +225,52 @@ add_executable(q2p1 ${src})
 #                                    search for the libraries and link them
 #--------------------------------------------------------------------------------------------------------------------
 
-find_package(FEATFLOW_FEAT3D_LIBRARY REQUIRED)
-find_package(FEATFLOW_FEAT2D_LIBRARY REQUIRED)
+
+#find_package(FEATFLOW_FEAT3D_LIBRARY REQUIRED)
+#find_package(FEATFLOW_FEAT2D_LIBRARY REQUIRED)
 find_package(FEATFLOW_SYSUTILS_LIBRARY REQUIRED)
-find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
+#find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
+#find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
 find_package(FEATFLOW_UMFPACK4_LIBRARY REQUIRED)
-find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
+#find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
+#find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
 find_package(FEATFLOW_AMD_LIBRARY REQUIRED)
 
 set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
+add_subdirectory(extern/libraries/feat2d)
+add_subdirectory(extern/libraries/feat3d)
 
 IF(NOT FC_CUDA_SUPPORT)
   target_link_libraries(q2p1 
-  ${FEATFLOW_FEAT3D_LIBRARY}
-  ${FEATFLOW_FEAT2D_LIBRARY}
+  #${FEATFLOW_FEAT2D_LIBRARY}
+  feat2d
+  #${FEATFLOW_FEAT3D_LIBRARY}
+  feat3d
   ${FEATFLOW_SYSUTILS_LIBRARY} 
-  ${FEATFLOW_LAPACK_LIBRARY}  
+  #${FEATFLOW_LAPACK_LIBRARY}  
+  lapack
   ${FEATFLOW_UMFPACK4_LIBRARY}
-  ${FEATFLOW_BLAS_LIBRARY}    
+  #${FEATFLOW_BLAS_LIBRARY}    
+  blas
   ${FEATFLOW_AMD_LIBRARY}     
   inshape3dcore
   Utility
   Math
-  
   )
 ELSE(NOT FC_CUDA_SUPPORT)  
   target_link_libraries(q2p1 
-  ${FEATFLOW_FEAT3D_LIBRARY}
-  ${FEATFLOW_FEAT2D_LIBRARY}
+  #${FEATFLOW_FEAT2D_LIBRARY}
+  feat2d
+  #${FEATFLOW_FEAT3D_LIBRARY}
+  feat3d
   ${FEATFLOW_SYSUTILS_LIBRARY} 
-  ${FEATFLOW_LAPACK_LIBRARY}  
+  #${FEATFLOW_LAPACK_LIBRARY}  
+  #${FEATFLOW_LAPACK_LIBRARY}  
+  lapack
   ${FEATFLOW_UMFPACK4_LIBRARY}
-  ${FEATFLOW_BLAS_LIBRARY}    
+  #  ${FEATFLOW_BLAS_LIBRARY}    
+  #${FEATFLOW_BLAS_LIBRARY}    
+  blas
   ${FEATFLOW_AMD_LIBRARY}     
   inshape3dcore
   particles_kernel

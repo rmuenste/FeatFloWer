@@ -111,6 +111,11 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
+!  if(NLMAX.eq.0)then
+!    write(*,*)'NLMAX=0 is invalid, exiting...'
+!  end if
+
+  write(*,*)'IER:',IER
   IF (IER.NE.0) GOTO 99999
   CLOSE(MMESH1)
 
@@ -163,30 +168,30 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   write(*,*)'Refinement finished: ',myid
 
-!  IF (myid.eq.1)then
-!  II=NLMAX
-!  afile="arrays.new"
-!  call writeArrays(mg_mesh%level(II)%dcorvg,&
-!                      mg_mesh%level(II)%kvert,&
-!                      mg_mesh%level(II)%kedge,&
-!                      mg_mesh%level(II)%kadj,&
-!                      mg_mesh%level(II)%karea,&
-!                      mg_mesh%level(II)%nvt,&
-!                      mg_mesh%level(II)%nel,&
-!                      mg_mesh%level(II)%net,afile)
-!
-!  afile="meshnew.tri"
-!  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
-!                      mg_mesh%level(II)%kvert,&
-!                      mg_mesh%level(II)%kedge,&
-!                      mg_mesh%level(II)%kadj,&
-!                      mg_mesh%level(II)%karea,&
-!                      mg_mesh%level(II)%nvt,&
-!                      mg_mesh%level(II)%nel,&
-!                      mg_mesh%level(II)%net,afile)
-!  write(*,*)'nvt: ',knvt(II)
-!  write(*,*)'nvt: ',mg_mesh%level(2)%nvt
-!
+  IF (myid.eq.1)then
+  II=NLMAX
+  afile="arrays.new"
+  call writeArrays(mg_mesh%level(II)%dcorvg,&
+                      mg_mesh%level(II)%kvert,&
+                      mg_mesh%level(II)%kedge,&
+                      mg_mesh%level(II)%kadj,&
+                      mg_mesh%level(II)%karea,&
+                      mg_mesh%level(II)%nvt,&
+                      mg_mesh%level(II)%nel,&
+                      mg_mesh%level(II)%net,afile)
+
+  afile="meshnew.tri"
+  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
+                      mg_mesh%level(II)%kvert,&
+                      mg_mesh%level(II)%kedge,&
+                      mg_mesh%level(II)%kadj,&
+                      mg_mesh%level(II)%karea,&
+                      mg_mesh%level(II)%nvt,&
+                      mg_mesh%level(II)%nel,&
+                      mg_mesh%level(II)%net,afile)
+!:  write(*,*)'nvt: ',knvt(II)
+!:  write(*,*)'nvt: ',mg_mesh%level(2)%nvt
+
 !  bfile="arrays.old"
 !  call writeArrays(DWORK(L(KLCVG(II))),&
 !    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
@@ -198,9 +203,11 @@ SUBROUTINE General_init(MDATA,MFILE)
 !    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
 !    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
 !    KNVT(II),KNEL(II),KNET(II),bfile)
-!
-!  end if
 
+  end if
+
+  CALL CommBarrier()
+  stop
 
   !     ----------------------------------------------------------
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES

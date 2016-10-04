@@ -1,0 +1,12 @@
+#include <stdio.h>
+#include <time.h>
+
+long twrap_(long* c, long* r)
+{
+    *c=CLOCKS_PER_SEC;
+    *r=clock();
+    
+	return 0 ;
+	
+		
+}

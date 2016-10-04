@@ -38,11 +38,13 @@ IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBMGeometry()
 END IF
 
+
 thstep = tstep*(1d0-theta)
 
 CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
+
 
 ! -------------------------------------------------
 ! Compute the momentum equations
@@ -138,8 +140,6 @@ IF (myid.ne.master) THEN
  QuadSc%defV = QuadSc%rhsV
  QuadSc%defW = QuadSc%rhsW
 END IF
-!call myMPI_Barrier()
-!stop
 
 IF (myid.ne.master) THEN
 
@@ -301,12 +301,12 @@ integer :: mydof
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
 
-
  ! Initialize the boundary list (QuadScBoundary)
  ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
                           mg_mesh%level(ilev)%net+&
                           mg_mesh%level(ilev)%nat+&
                           mg_mesh%level(ilev)%nel))
+
 
  CALL InitBoundaryList(KWORK(L(LNPR)),&
                       mg_mesh%level(ILEV)%kvert,&
@@ -395,16 +395,17 @@ integer :: mydof
  ! Building up the E013/E013 matrix strucrures
  CALL Create_QuadMatStruct()
 
-
  ! Iteration matrix (only allocation)
  CALL Create_AMat() !(A)
 
  ! Building up the E012/E013 E013/E012 and matrix structures
  CALL Create_QuadLinMatStruct() 
 
+! call myMPI_Barrier()
+! stop
+
  ! Building up the E012/E012 matrix strucrures
  CALL Create_LinMatStruct ()
-
 
  ! Pressure gradient matrix
  CALL Create_BMat() !(B,BT)

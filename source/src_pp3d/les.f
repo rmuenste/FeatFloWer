@@ -57,8 +57,6 @@ C
       CALL Init_LinScalar
       CALL InitCond_LinScalar()
 
-!      call myMPI_Barrier()
-!      stop
                 
 C
       IF (ISTART.EQ.0) THEN

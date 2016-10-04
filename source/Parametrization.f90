@@ -35,6 +35,7 @@ INTEGER   iType
  
  ndof = NVT + NET + NAT + NEL
  write(*,*)'use of NVT is deprecated'
+ write(*,*)'ndof: ',ndof
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
  ALLOCATE(myBoundary%bOutflow(ndof))

@@ -1,7 +1,8 @@
 MODULE def_QuadScalar
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
-                   COMM_Maximum,COMM_SUMM,COMM_NLComplete
+                   COMM_Maximum,COMM_SUMM,COMM_NLComplete,&
+                   myMPI_Barrier
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
@@ -99,6 +100,9 @@ EXTERNAL E011,E013,E010,coefst
            mg_mesh%level(ILEV)%kvert,&
            mg_mesh%level(ILEV)%kedge,&
            mg_mesh%level(ILEV)%karea)
+
+! call myMPI_Barrier()
+! stop
 
   mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
 

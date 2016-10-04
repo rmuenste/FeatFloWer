@@ -2,6 +2,7 @@ MODULE ViscoScalar
 
 USE QuadScalar
 USE def_ViscoScalar
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
 IMPLICIT NONE
 
@@ -26,6 +27,8 @@ CALL Boundary_ViscoScalar_Def(ViscoSc%def(NLMAX)%x)
 CALL GetMat_Visco(ViscoSc)
 
 CALL MatDef_Visco(ViscoSc,QuadSc,Properties%ViscoLambda)
+call myMPI_Barrier()
+stop
 
 CALL Boundary_ViscoScalar_Def(ViscoSc%def(NLMAX)%x)
 
@@ -194,7 +197,6 @@ REAL*8 def(*)
 REAL*8 PX,PZ
 INTEGER i
 
-! return
 DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PZ = myQ2Coor(3,i)
