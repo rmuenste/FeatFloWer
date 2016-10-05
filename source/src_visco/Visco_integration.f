@@ -290,7 +290,7 @@
 ************************************************************************
 *
 *-----------------------------------------------------------------------
-      USE PP3D_MPI, ONLY:myid
+      USE PP3D_MPI, ONLY:myid,myMPI_Barrier
 C
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -565,6 +565,7 @@ C
 C
 C
       SUBROUTINE GetOtherMatrices(GU,Q,E,O,B,R)
+      USE PP3D_MPI, ONLY:myid,myMPI_Barrier
       IMPLICIT NONE
       REAL*8 Q(3,3),E(3),O(3,3),B(3,3),R(3,3),GU(3,3)
       REAL*8 A1(3,3),QT(3,3),M(3,3),EE(3)
@@ -574,10 +575,13 @@ C
             
       DO I=1,3
        EE(I) = EXP(E(I))
+!      write(*,*)'EE(i)',EE(i) 
+!      write(*,*)'EXP(E(I))',EXP(E(I)) 
        DO J=1,3
         QT(I,J) = Q(J,I)
        END DO
       END DO
+
 
       DO I=1,3
        DO J=1,3
@@ -589,6 +593,7 @@ C
        END DO
       END DO
 
+
       DO I=1,3
        DO J=1,3
         DAUX = 0d0
@@ -599,9 +604,21 @@ C
        END DO
       END DO
 
+!      write(*,*)'EE(1)',EE(1) 
+!      write(*,*)'EE(2)',EE(2) 
+!      write(*,*)'EE(3)',EE(3) 
+
+
       OMEGA12 = (EE(2)*M(1,2) + EE(1)*M(2,1))/(EE(2) - EE(1))
       OMEGA13 = (EE(3)*M(1,3) + EE(1)*M(3,1))/(EE(3) - EE(1))
       OMEGA23 = (EE(3)*M(2,3) + EE(2)*M(3,2))/(EE(3) - EE(2))
+
+!      write(*,*)'omega12',OMEGA12 
+!      write(*,*)'omega13',OMEGA13 
+!      write(*,*)'omega23',OMEGA23 
+!
+!       call myMPI_Barrier()
+!       stop
 
       BB = 0d0
       BB(1,1) = M(1,1)

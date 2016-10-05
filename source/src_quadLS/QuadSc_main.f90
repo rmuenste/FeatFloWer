@@ -41,6 +41,7 @@ END IF
 
 thstep = tstep*(1d0-theta)
 
+
 CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
@@ -60,7 +61,6 @@ IF (myid.ne.master) THEN
  ! Add the pressure gradient to the rhs
  CALL AddPressureGradient()
 END IF
-
 
  ! Add the viscoelastic stress to the rhs
  IF(bViscoElastic)THEN
@@ -290,6 +290,8 @@ SUBROUTINE Init_QuadScalar_Stuctures(mfile)
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
 integer :: mydof
+integer :: maxlevel
+Real*8 :: dabl
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -298,8 +300,10 @@ integer :: mydof
  CALL InitializeQuadScalar(QuadSc)
 
 
+
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
+
 
  ! Initialize the boundary list (QuadScBoundary)
  ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
@@ -312,6 +316,7 @@ integer :: mydof
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%kedge,&
                       mg_mesh%level(ILEV)%karea)
+
 
 
 !  ! This part here is responsible for creation of structures enabling the mesh coordinate 
@@ -344,6 +349,7 @@ integer :: mydof
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
 
+!---------------------                          !
 
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
@@ -363,12 +369,32 @@ integer :: mydof
 
  END DO
 
+ if(myid.ne.0)then
+!---------------------                          
  ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
  DO ILEV=NLMIN,NLMAX+1
   ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
-  mgDiffCoeff(ILEV)%x        = Properties%DiffCoeff(1)
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
  END DO
+!---------------------                          
+else
+ maxlevel = mg_Mesh%nlmax
+ ALLOCATE (mgDiffCoeff(NLMIN:maxlevel))
+ DO ILEV=NLMIN,maxlevel
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
+ END DO
+end if
 
+!      IF (myid.eq.0) THEN
+!        dabl=0d0
+!        do while(.true.)
+!          dabl=dabl + 1.0e-10 
+!        end do
+!      end if
+!      write(*,*)dabl
+!
+!      call myMPI_Barrier()
 
  ILEV = NLMAX
  ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
@@ -391,6 +417,7 @@ integer :: mydof
 
  myALE%Monitor   = 1d0
  myALE%MeshVelo  = 0d0
+
 
  ! Building up the E013/E013 matrix strucrures
  CALL Create_QuadMatStruct()
@@ -1081,9 +1108,6 @@ DO i=1,nel
    ivt1 = kvert(NeighE(1,j),i)
    ivt2 = kvert(NeighE(2,j),i)
    !IF (knpr(ivt1).EQ.1.AND.knpr(ivt2).EQ.1) THEN
-    QuadScBoundary(nvt+k) = 1
-    QuadScBoundary(nvt+k) = 0
-   !ELSE
     QuadScBoundary(nvt+k) = 0
    !END IF
 !    IF (QuadScBoundary(nvt+k).eq.1) write(*,*) "type 2"
@@ -1484,8 +1508,12 @@ SUBROUTINE  AddViscoStress()
 
   CALL AssembleViscoStress(QuadSc%defU,QuadSc%defV,QuadSc%defW,BndrForce,&
     ViscoSc%Val11,ViscoSc%Val22,ViscoSc%Val33,ViscoSc%Val12,ViscoSc%Val13,ViscoSc%Val23,&
-    KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%karea,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%dcorvg,&
     Properties%Viscosity(2),tstep,Properties%ViscoLambda,ViscoElasticForce,E013)
+
   CALL Comm_SummN(ViscoElasticForce,3)
 
 END SUBROUTINE  AddViscoStress
@@ -1562,7 +1590,8 @@ SUBROUTINE  GET_MESH_VELO()
   DO i=1,QuadSc%ndof
   myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
   ! myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
-  daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0)
+  daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0 +&
+              myALE%MeshVelo(3,i)**2d0)
   IF (daux.gt.dmax) dmax = daux
   END DO
 

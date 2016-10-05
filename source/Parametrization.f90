@@ -25,6 +25,7 @@ TYPE (tParBndr), ALLOCATABLE :: myParBndr(:)
 CONTAINS
 !----------------------------------------------------------------------------------------
 SUBROUTINE InitBoundaryStructure(kvert,kedge)
+implicit none
 INTEGER kvert(8,*),kedge(12,*)
 INTEGER ndof,i,j,k,ivt1,ivt2,iLoc
 INTEGER iSym(3)
@@ -33,9 +34,9 @@ DATA Neigh/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 CHARACTER cAux*50,cType*50
 INTEGER   iType
  
- ndof = NVT + NET + NAT + NEL
- write(*,*)'use of NVT is deprecated'
- write(*,*)'ndof: ',ndof
+ ndof = KNVT(ilev) + KNET(ilev) + KNAT(ilev) + KNEL(ilev)
+! write(*,*)'use of NVT is deprecated'
+! write(*,*)'ndof: ',ndof
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
  ALLOCATE(myBoundary%bOutflow(ndof))

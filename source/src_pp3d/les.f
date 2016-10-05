@@ -46,15 +46,20 @@ C
       CALL General_init(79,mfile)
 C
 
+
       CALL StaticMeshAdaptation()
 C
+
 
       CALL Init_QuadScalar_Stuctures(mfile)
 
 
+
       IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(mfile)
 
+
       CALL Init_LinScalar
+
       CALL InitCond_LinScalar()
 
                 

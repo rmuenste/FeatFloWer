@@ -101,7 +101,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
   END IF                                               ! PARALLEL
 
-  write(*,*)'max level:',NLMAX
 
 !  CALL XORSC (MMESH1,CMESH1)
 !  CALL CommBarrier()
@@ -111,11 +110,11 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
-!  if(NLMAX.eq.0)then
-!    write(*,*)'NLMAX=0 is invalid, exiting...'
-!  end if
+  write(*,*)'max level:',NLMAX
+  if(NLMAX.eq.0)then
+    write(*,*)'NLMAX=0 is invalid, exiting...'
+  end if
 
-  write(*,*)'IER:',IER
   IF (IER.NE.0) GOTO 99999
   CLOSE(MMESH1)
 
@@ -168,27 +167,27 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   write(*,*)'Refinement finished: ',myid
 
-  IF (myid.eq.1)then
-  II=NLMAX
-  afile="arrays.new"
-  call writeArrays(mg_mesh%level(II)%dcorvg,&
-                      mg_mesh%level(II)%kvert,&
-                      mg_mesh%level(II)%kedge,&
-                      mg_mesh%level(II)%kadj,&
-                      mg_mesh%level(II)%karea,&
-                      mg_mesh%level(II)%nvt,&
-                      mg_mesh%level(II)%nel,&
-                      mg_mesh%level(II)%net,afile)
-
-  afile="meshnew.tri"
-  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
-                      mg_mesh%level(II)%kvert,&
-                      mg_mesh%level(II)%kedge,&
-                      mg_mesh%level(II)%kadj,&
-                      mg_mesh%level(II)%karea,&
-                      mg_mesh%level(II)%nvt,&
-                      mg_mesh%level(II)%nel,&
-                      mg_mesh%level(II)%net,afile)
+!  IF (myid.eq.1)then
+!  II=NLMAX
+!  afile="arrays.new"
+!  call writeArrays(mg_mesh%level(II)%dcorvg,&
+!                      mg_mesh%level(II)%kvert,&
+!                      mg_mesh%level(II)%kedge,&
+!                      mg_mesh%level(II)%kadj,&
+!                      mg_mesh%level(II)%karea,&
+!                      mg_mesh%level(II)%nvt,&
+!                      mg_mesh%level(II)%nel,&
+!                      mg_mesh%level(II)%net,afile)
+!
+!  afile="meshnew.tri"
+!  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
+!                      mg_mesh%level(II)%kvert,&
+!                      mg_mesh%level(II)%kedge,&
+!                      mg_mesh%level(II)%kadj,&
+!                      mg_mesh%level(II)%karea,&
+!                      mg_mesh%level(II)%nvt,&
+!                      mg_mesh%level(II)%nel,&
+!                      mg_mesh%level(II)%net,afile)
 !:  write(*,*)'nvt: ',knvt(II)
 !:  write(*,*)'nvt: ',mg_mesh%level(2)%nvt
 
@@ -203,11 +202,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 !    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
 !    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
 !    KNVT(II),KNEL(II),KNET(II),bfile)
-
-  end if
-
-  CALL CommBarrier()
-  stop
+!
+!  end if
 
   !     ----------------------------------------------------------
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
@@ -455,8 +451,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MFILE,*)
   END IF
 
-!  CALL CommBarrier()
-!  stop
 
   RETURN
 

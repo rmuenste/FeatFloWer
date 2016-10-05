@@ -90,7 +90,11 @@ C *** for the actual element
 3     ICUBP0=ICUBP
 C
 4     IF (ICHECK.EQ.0) GOTO 1100
-      IF (ABS(DETJ).LT.1D-70) CALL WERR(-132,'E013  ')
+      IF (ABS(DETJ).LT.1D-70)then
+        write(*,*)'detj:',detj
+        CALL WERR(-132,'E013  ')
+        stop
+      end if
 C *** No second order derivatives available
 C *** Used for second order problems only
       IF (BDER(5).OR.BDER(6).OR.BDER(7).OR.BDER(8).OR.BDER(9).OR.

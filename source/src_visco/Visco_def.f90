@@ -1,7 +1,7 @@
 MODULE def_ViscoScalar
 
 USE PP3D_MPI, ONLY:myid,showID,MGE013,COMM_Maximum,COMM_SUMM,COMM_NLComplete,&
-    subnodes,SENDI_myMPI,SENDD_myMPI,RECVI_myMPI,RECVD_myMPI
+    subnodes,SENDI_myMPI,SENDD_myMPI,RECVI_myMPI,RECVD_myMPI,myMPI_Barrier
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 
@@ -161,11 +161,17 @@ ViscoSc%val13,ViscoSc%def(ILEV)%x(4*ndof + 1),-1d0,1d0)
 CALL LAX17(VisMat_23,qMat%ColA,qMat%LdA,qMat%nu,&
 ViscoSc%val23,ViscoSc%def(ILEV)%x(5*ndof + 1),-1d0,1d0)
 
+
 CALL ViscoDriver_Def(VeloSc%ValU,VeloSc%ValV,VeloSc%ValW,myQ2coor,&
      ViscoSc%val11,ViscoSc%val22,ViscoSc%val33,ViscoSc%val12,ViscoSc%val13,ViscoSc%val23,&
      ViscoSc%def(ILEV)%x(0*ndof + 1),ViscoSc%def(ILEV)%x(1*ndof + 1),ViscoSc%def(ILEV)%x(2*ndof + 1),&
      ViscoSc%def(ILEV)%x(3*ndof + 1),ViscoSc%def(ILEV)%x(4*ndof + 1),ViscoSc%def(ILEV)%x(5*ndof + 1),&
-     KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013,dLambda,tstep)
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013,dLambda,tstep)
+
 
 END SUBROUTINE MatDef_Visco
 !

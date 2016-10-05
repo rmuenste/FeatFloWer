@@ -27,8 +27,6 @@ CALL Boundary_ViscoScalar_Def(ViscoSc%def(NLMAX)%x)
 CALL GetMat_Visco(ViscoSc)
 
 CALL MatDef_Visco(ViscoSc,QuadSc,Properties%ViscoLambda)
-call myMPI_Barrier()
-stop
 
 CALL Boundary_ViscoScalar_Def(ViscoSc%def(NLMAX)%x)
 
@@ -37,7 +35,6 @@ CALL Boundary_ViscoScalar_Def(ViscoSc%def(NLMAX)%x)
 ! ! pause
 
 CALL CopyOldSolution(ViscoSc)
-
 
 DO inl=1,ninl
 
@@ -59,13 +56,16 @@ DO inl=1,ninl
 
 END DO
 
+! call myMPI_Barrier()
+! stop
+
 ! ViscoSc%Val33 = 0d0
 ! ViscoSc%Val13 = 0d0
 ! ViscoSc%Val23 = 0d0
 
 !CALL EqualizeSolutions()
 
- CALL Output_BenchQuantity()
+! CALL Output_BenchQuantity()
 
 END SUBROUTINE Transport_ViscoScalar
 !
@@ -170,8 +170,8 @@ DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PY = myQ2Coor(2,i)
  daux = -Properties%ViscoLambda*0.75*PY
-! tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
- tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+ tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
+! tau = [1d0,1d0,1d0,0d0,0d0,0d0]
  CALL ConvertTauToPsi(tau,psi)
 
  ViscoSc%Val11(i) = psi(1)
@@ -296,6 +296,7 @@ DO i=1,KNVT(NLMAX+1)!ViscoSc%ndof
   k = k + 1
  END IF
 END DO
+
 
 daux(1) = DBLE(j)
 daux(2) = DBLE(k)
