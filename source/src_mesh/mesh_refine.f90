@@ -303,10 +303,12 @@
 
       call genMeshStructures(mgMesh%level(icurr))
 
-      write(*,*)'Refining to level: ',maxlevel
-      write(*,*)'Number of refinement steps needed: ',nfine
+      if(myid.eq.1)then
+        write(*,*)'Refining to level: ',maxlevel
+        write(*,*)'Number of refinement steps needed: ',nfine
+      end if
+
       do ilevel=1,nfine
-        write(*,*)'Refining to level: ',ilevel + mgMesh%nlmin
         icurr = icurr + 1 
         call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
         call genMeshStructures(mgMesh%level(icurr))
@@ -555,20 +557,75 @@
       use var_QuadScalar
       IMPLICIT NONE
       type(tMesh) :: mesh
+      real*8 ttt0,ttt1
+
+
+        CALL ZTIME(TTT0)
 
         call genKVEL(mesh) 
 
-        call genKEDGE(mesh)
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for KVEL : ',TTGRID
+        END IF
+
+        CALL ZTIME(TTT0)
+
+        call genKEDGE2(mesh)
+
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for KEDGE : ',TTGRID
+        END IF
 
         !call genKADJ(mesh)
 
+        CALL ZTIME(TTT0)
+
         call genKADJ2(mesh)
+
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for KADJ2 : ',TTGRID
+        END IF
+
+        CALL ZTIME(TTT0)
 
         call genKAREA(mesh)
 
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for KAREA : ',TTGRID
+        END IF
+
+        CALL ZTIME(TTT0)
+
         call genKVAR(mesh)
 
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for KVAR : ',TTGRID
+        END IF
+
+        CALL ZTIME(TTT0)
+
         call genDCORAG(mesh)
+        CALL ZTIME(TTT1)
+        TTGRID=TTT1-TTT0
+
+        IF (myid.eq.showid) THEN
+          WRITE(*,*) 'time for DCORAG : ',TTGRID
+        END IF
 
       end subroutine
 !+––––––––––––––––––––––––––––––––––––––––––––––
@@ -764,7 +821,7 @@
 
       ! ConnectorList is build, now sort it
       call tria_sortElements3DInt(p_IConnectList, iElements)
-      call tria_sortElements3D(p_IConnectList, iElements)
+      call tria_sortElements3D(p_IConnectList, iElements, 5)
 
       ! assign the neighbours at elements
       ! traverse the connector list
@@ -936,6 +993,159 @@
       end subroutine
 
       end subroutine
+!+––––––––––––––––––––––––––––––––––––––––––––––
+!| 
+!|      
+!|      
+!+––––––––––––––––––––––––––––––––––––––––––––––
+      subroutine genKEDGE2(mesh)
+      use PP3D_MPI, only:myid,showid
+      use var_QuadScalar
+      implicit none
+      type(tMesh) :: mesh
+      integer :: i,j,k,smiel_edge
+      integer :: iv1,iv2,ivt1,ivt2
+      integer :: smiel
+      integer :: iedge
+      integer, allocatable, dimension(:,:,:) :: verticesAtEdge
+
+      if(.not.allocated(mesh%kedge))then
+        allocate(mesh%kedge(mesh%nee,mesh%nel))
+      end if
+
+      if(.not.allocated(verticesAtEdge))then
+        allocate(verticesAtEdge(mesh%nee,mesh%nel,4))
+      end if
+
+      verticesAtEdge = 0
+
+      mesh%net = 0
+      iedge = 0
+
+      do i=1,mesh%nel
+        do j=1,mesh%nee
+          iv1 = KIV(1,j)
+          iv2 = KIV(2,j)
+
+          ivt1 = mesh%kvert(iv1,i)
+          ivt2 = mesh%kvert(iv2,i)
+
+          call findSmallestIEL(ivt1,ivt2,mesh,i,smiel)
+
+          verticesAtEdge(j,i,1)=ivt1
+          verticesAtEdge(j,i,2)=ivt2
+          verticesAtEdge(j,i,3)=smiel
+          verticesAtEdge(j,i,4)=-1
+
+          if(i.gt.smiel)then
+            cycle
+          end if
+
+          iedge   = iedge + 1
+
+          verticesAtEdge(j,i,4)=iedge
+
+        end do
+      end do
+
+      mesh%net = iedge
+
+      if(.not.allocated(mesh%kved))then
+        allocate(mesh%kved(2,mesh%net))
+      end if
+
+      mesh%kved=-1
+
+      do i=1,mesh%nel
+        do j=1,mesh%nee
+
+          if(verticesAtEdge(j,i,3) .eq. i)then
+            iedge = verticesAtEdge(j,i,4)
+
+            mesh%kved(1,iedge) = verticesAtEdge(j,i,1)
+            mesh%kved(2,iedge) = verticesAtEdge(j,i,2)
+            mesh%kedge(j,i)    = iedge
+          else
+
+            iv1 = KIV(1,j)
+            iv2 = KIV(2,j)
+
+            ivt1 = mesh%kvert(iv1,i)
+            ivt2 = mesh%kvert(iv2,i)
+            smiel = verticesAtEdge(j,i,3)
+
+            do k=1,mesh%nee
+
+              smiel_edge = mesh%kedge(k,smiel)
+
+              if(( (mesh%kved(1,smiel_edge).eq.ivt1).and.&
+                   (mesh%kved(2,smiel_edge).eq.ivt2)).or.&
+                 ( (mesh%kved(1,smiel_edge).eq.ivt2).and.&
+                   (mesh%kved(2,smiel_edge).eq.ivt1)))then
+
+                mesh%kedge(j,i)=smiel_edge
+                exit              
+              end if
+
+            end do
+
+!            if((myid.eq.0).and.(i.eq.7).and.(j.eq.7))then
+!              write(*,*)'else..',k,smiel
+!              call findSmallestIEL(ivt1,ivt2,mesh,i,smiel)
+!              write(*,*)'else..',k,smiel
+!            end if
+
+          end if
+
+        end do
+      end do
+
+!      do i=1,mesh%nel
+!        do j=1,mesh%nee
+!        if((mesh%kedge(j,i) .lt. 0).or.(mesh%kedge(j,i) .gt. mesh%net))then
+!          write(*,*)'error: kedge,myid',mesh%kedge(j,i),i,j,mesh%net,myid
+!          stop
+!        end if
+!
+!        end do
+!      end do
+
+      contains
+
+      subroutine findSmallestIEL(i1,i2,mesh,ciel,siel)
+      implicit none
+      integer :: i1,i2
+      type(tMesh) :: mesh
+      integer :: ciel
+      integer :: siel
+      integer :: iel1,iel2
+      integer :: i,j
+
+      ! set the smallest iel to the current
+      siel = ciel
+      ! loop over elements at vertex i1
+      do i=1,mesh%nvel
+        iel1 = mesh%kvel(i,i1)
+
+        ! if there are no more elements at the vertex: stop
+        if(iel1.eq.0)return
+
+        ! loop over the elements at vertex i2
+        do j=1,mesh%nvel
+          iel2 = mesh%kvel(j,i2)
+
+          ! if there are no more elements at the vertex: exit
+          if(iel2.eq.0)exit
+          if((iel1.eq.iel2).and.(iel1.lt.siel))then
+            siel = iel1
+          end if
+
+        end do
+      end do
+
+      end subroutine
+
+      end subroutine genKEDGE2
 !+––––––––––––––––––––––––––––––––––––––––––––––
 !| 
 !|      
@@ -1315,19 +1525,21 @@
 
       !************************************************************************
 
-      subroutine tria_sortElements3D(IConnectList, iElements)
+      subroutine tria_sortElements3D(IConnectList, iElements, components)
 
       ! This subroutine establishes the lexicographic
       ! ordering on the list of connectors in 3D
 
       integer, intent(in) :: iElements
 
+      integer, intent(in) :: components
+
       type(t_connector3D), dimension(:), intent(inout) :: IConnectList
 
         ! local
         integer :: j
 
-        do j = 5, 1, -1
+        do j = components, 1, -1
           call tria_mergesort(IConnectList, 1, iElements, j)
         end do
 
@@ -1337,8 +1549,8 @@
 
       subroutine tria_sortElements3DInt(IConnectList, iElements)
 
-      ! This subroutine establishes the sorted numbering
-      ! on the list of connectors in 3D
+      ! This subroutine establishes the internal sorted numbering
+      ! on the entries of the connector list in 3D
 
       ! parameter values
 

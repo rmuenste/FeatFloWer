@@ -159,13 +159,9 @@ SUBROUTINE General_init(MDATA,MFILE)
     call refineMesh(mg_mesh, NLMAX)  
   end if
 
-  IF (myid.EQ.0) then
-    call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
-  else
-    call refineMesh(mg_mesh, NLMAX)  
-  end if
-
   write(*,*)'Refinement finished: ',myid
+!  CALL CommBarrier()
+!  stop
 
 !  IF (myid.eq.1)then
 !  II=NLMAX
@@ -450,9 +446,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MTERM,*)
     WRITE(MFILE,*)
   END IF
-
-  CALL CommBarrier()
-  stop
 
   RETURN
 
