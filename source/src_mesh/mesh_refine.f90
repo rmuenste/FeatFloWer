@@ -8,6 +8,10 @@
       DATA KIAD/1,2,3,4, 1,2,6,5, 2,3,7,6, 3,4,8,7, 4,1,5,8, 5,6,7,8/
       !DATA KIAD/1,2,3,4, 1,5,6,2, 2,6,7,3, 3,7,8,4, 1,4,8,5, 5,8,7,6/
 
+      type t_connector3D
+        integer, dimension(6) :: I_conData
+      end type t_connector3D
+
       contains
 
       subroutine writeTriFile(mesh)
@@ -556,7 +560,9 @@
 
         call genKEDGE(mesh)
 
-        call genKADJ(mesh)
+        !call genKADJ(mesh)
+
+        call genKADJ2(mesh)
 
         call genKAREA(mesh)
 
@@ -728,6 +734,87 @@
       end do
 
       end subroutine
+!+––––––––––––––––––––––––––––––––––––––––––––––
+!| 
+!|      
+!|      
+!+––––––––––––––––––––––––––––––––––––––––––––––
+      subroutine genKADJ2(mesh)
+      use PP3D_MPI, only:myid,showid
+      use var_QuadScalar
+      IMPLICIT NONE
+      type(tMesh) :: mesh
+      integer :: iiel,iiar
+      integer :: j,k
+      integer :: iElements
+
+      ! the list of connectors
+      type(t_connector3D), dimension(:), pointer :: p_IConnectList
+
+      if(.not.allocated(mesh%kadj))then
+        allocate(mesh%kadj(mesh%nae,mesh%nel))
+      end if
+
+      mesh%kadj = 0
+
+      iElements = mesh%nel * 6
+      allocate(p_IConnectList(iElements))
+
+      call buildConnectorList(p_IConnectList, mesh)
+
+      ! ConnectorList is build, now sort it
+      call tria_sortElements3DInt(p_IConnectList, iElements)
+      call tria_sortElements3D(p_IConnectList, iElements)
+
+      ! assign the neighbours at elements
+      ! traverse the connector list
+      do iiel = 2, iElements
+
+        ! check for equivalent connectors... that means:
+        ! check if all 4 vertices that define the face are equal.
+        ! For mixed triangulations the fourth vertex may be zero but
+        ! this is the case for both items of the connector list
+        j = 0
+        do while(p_IConnectList(iiel-1)%I_conData(j+1) .eq. &
+                 p_IConnectList(iiel)%I_conData(j+1) )
+          ! increment counter
+          j = j+1
+        end do
+
+        ! assign information
+        if(j .eq. 4) then
+
+          mesh%kadj(p_IConnectList(iiel-1)%I_conData(6),&
+                    p_IConnectList(iiel-1)%I_conData(5)) = & 
+                    p_IConnectList(iiel)%I_conData(5)
+
+          mesh%kadj(p_IConnectList(iiel)%I_conData(6), &
+                    p_IConnectList(iiel)%I_conData(5)) = &
+                    p_IConnectList(iiel-1)%I_conData(5)
+        end if
+
+      end do
+
+      ! free list of connectors
+      deallocate(p_IConnectList)
+
+      !if(myid.eq.1)then
+
+!        k = 0 
+!        do iiel=1,mesh%nel
+!          do iiar=1,mesh%nae
+!            if(mesh%kadj(iiar,iiel) .ne. mesh%kadj2(iiar,iiel))then
+!              write(*,*)'not equal'
+!              write(*,'(I5,A,I5)')mesh%kadj(iiar,iiel),':',mesh%kadj2(iiar,iiel)
+!              k=k+1
+!            end if
+!          end do
+!        end do
+!        write(*,*)'not equal elements,myid: ',k,iElements,myid
+
+      !end if
+
+      end subroutine genKADJ2
 !+––––––––––––––––––––––––––––––––––––––––––––––
 !| 
 !|      
@@ -1035,5 +1122,383 @@
       mesh%nat = ifaceGlobal
 
       end subroutine
+
+      subroutine buildConnectorList(IConnectList, mesh)
+      use PP3D_MPI, only:myid,showid
+      use var_QuadScalar
+      IMPLICIT NONE
+
+      type(tMesh) :: mesh
+
+      ! the list of connectors this routine is supposed to build
+      type(t_connector3D), dimension(:), intent(inout) :: IConnectList
+
+      ! local variables
+      integer :: iiel,k,nfaces
+
+      integer :: ive1
+      integer :: ive2
+      integer :: ive3
+      integer :: ive4
+
+      integer :: ivt1
+      integer :: ivt2
+      integer :: ivt3
+      integer :: ivt4
+
+      ! function body
+
+      ! initialise the number of faces
+      nfaces = 0
+
+      ! loop through all elements
+      do iiel = 1, mesh%NEL
+
+        ! build connectors for each hexahedron
+
+        !=========================================================
+        ! first face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,1)
+        ive2=kiad(2,1)
+        ive3=kiad(3,1)
+        ive4=kiad(4,1)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 1
+
+        !=========================================================
+        ! sixth face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,6)
+        ive2=kiad(2,6)
+        ive3=kiad(3,6)
+        ive4=kiad(4,6)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 6
+
+        !=========================================================
+        ! second face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,2)
+        ive2=kiad(2,2)
+        ive3=kiad(3,2)
+        ive4=kiad(4,2)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 2
+
+        !=========================================================
+        ! fourth face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,4)
+        ive2=kiad(2,4)
+        ive3=kiad(3,4)
+        ive4=kiad(4,4)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 4
+
+        !=========================================================
+        ! third face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,3)
+        ive2=kiad(2,3)
+        ive3=kiad(3,3)
+        ive4=kiad(4,3)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 3
+
+        !=========================================================
+        ! fifth face
+        nfaces = nfaces+1
+
+        ive1=kiad(1,5)
+        ive2=kiad(2,5)
+        ive3=kiad(3,5)
+        ive4=kiad(4,5)
+
+        ivt1=mesh%kvert(ive1,iiel)
+        ivt2=mesh%kvert(ive2,iiel)
+        ivt3=mesh%kvert(ive3,iiel)
+        ivt4=mesh%kvert(ive4,iiel)
+
+        IConnectList(nfaces)%I_conData(1) = ivt1
+        IConnectList(nfaces)%I_conData(2) = ivt2
+        IConnectList(nfaces)%I_conData(3) = ivt3
+        IConnectList(nfaces)%I_conData(4) = ivt4
+
+
+        ! save the number of the element this face was found from
+        IConnectList(nfaces)%I_conData(5) = iiel
+
+        ! assign the local face number
+        IConnectList(nfaces)%I_conData(6) = 5
+
+        !=========================================================
+
+      end do
+
+      end subroutine buildConnectorList
+
+      !************************************************************************
+
+      subroutine tria_sortElements3D(IConnectList, iElements)
+
+      ! This subroutine establishes the lexicographic
+      ! ordering on the list of connectors in 3D
+
+      integer, intent(in) :: iElements
+
+      type(t_connector3D), dimension(:), intent(inout) :: IConnectList
+
+        ! local
+        integer :: j
+
+        do j = 5, 1, -1
+          call tria_mergesort(IConnectList, 1, iElements, j)
+        end do
+
+      end subroutine tria_sortElements3D
+
+      !************************************************************************
+
+      subroutine tria_sortElements3DInt(IConnectList, iElements)
+
+      ! This subroutine establishes the sorted numbering
+      ! on the list of connectors in 3D
+
+      ! parameter values
+
+      integer, intent(in) :: iElements
+
+      type(t_connector3D), dimension(:), intent(inout) :: IConnectList
+
+      ! local variables
+        integer :: i
+
+        ! create a sorted numbering in all connectors
+        do i = 1, iElements
+          call sort(IConnectList(i)%I_conData(1:4))
+        end do
+
+      contains
+
+        ! ---------------------------------------------------------------
+
+        pure subroutine sort(Idata)
+          integer, intent(inout), dimension(4) :: Idata
+
+          if (Idata(2) < Idata(1)) call swap(Idata(2), Idata(1))
+          if (Idata(3) < Idata(2)) call swap(Idata(3), Idata(2))
+          if (Idata(4) < Idata(3)) call swap(Idata(4), Idata(3))
+          if (Idata(2) < Idata(1)) call swap(Idata(2), Idata(1))
+          if (Idata(3) < Idata(2)) call swap(Idata(3), Idata(2))
+          if (Idata(2) < Idata(1)) call swap(Idata(2), Idata(1))
+        end subroutine sort
+
+        ! ---------------------------------------------------------------
+
+        elemental pure subroutine swap(a,b)
+          integer, intent(inout) :: a,b
+
+          ! local variables
+          integer :: c
+
+          c = a
+          a = b
+          b = c
+        end subroutine swap
+
+      end subroutine tria_sortElements3DInt
+
+      !************************************************************************
+
+      recursive subroutine tria_mergesort(IConnectList, l, r, pos)
+
+      ! This routine sorts a connector list it is used as an
+      ! auxilliary routine during the Neighbours at elements routine
+
+      ! the array positions l...r will be sorted
+      ! the sorting key is element 'pos' of the connector
+      integer, intent(in) :: l,r,pos
+
+      ! the list of connectors
+      type(t_connector3D), dimension(:), intent(inout) :: IConnectList
+
+        ! local variables
+        integer :: m
+
+        if(l < r) then
+
+          m = l + (r-l)/2
+
+          call tria_mergesort(IConnectList, l,   m, pos)
+          call tria_mergesort(IConnectList, m+1, r, pos)
+          call tria_merge(IConnectList, l, m, r, pos)
+
+        end if
+
+      end subroutine tria_mergesort
+
+      subroutine tria_merge(IConnectList, l, m, r, pos)
+
+      ! the array positions l...r will be sorted
+      ! the sorting key is element 'pos' of the connector
+      integer, intent(in) :: l,r,m,pos
+
+      ! the list of connectors
+      type(t_connector3D), dimension(:), intent(inout) :: IConnectList
+
+
+        ! local variables
+        integer :: i,j,n1,n2,k
+        type(t_connector3D), dimension(:), pointer :: p_L, p_R
+
+        ! init counters
+        n1 = m - l + 1
+
+        n2 = r - m
+
+        k = l
+
+        ! allocate memory for merging
+        allocate(p_L(n1))
+        allocate(p_R(n2))
+
+        ! fill left array
+        do i = 1, n1
+          p_L(i) = IConnectList(l+i-1)
+        end do
+
+        ! fill right array
+        do j = 1, n2
+          p_R(j) = IConnectList(m+j)
+        end do
+
+        i = 1
+        j = 1
+
+        ! merge
+        do
+          if( (i > n1 ) .or. (j > n2) ) exit
+
+          ! if the current element of the left array is smaller
+          ! copy it to p_ConnectorList
+          ! else
+          ! copy the element from the right array
+          if(p_L(i)%I_conData(pos) .le. p_R(j)%I_conData(pos)) then
+            IConnectList(k) = p_L(i)
+            i = i + 1
+            k = k + 1
+          else
+            IConnectList(k) = p_R(j)
+            j = j + 1
+            k = k + 1
+          end if
+
+        end do
+
+        ! copy the remaining entries of p_L (if present)
+        do
+          if(i > n1) exit
+
+          IConnectList(k) = p_L(i)
+          ! increment counters
+          k = k + 1
+          i = i + 1
+
+        end do
+
+        ! copy the remaining entries of p_R (if present)
+        do
+          if(j > n2) exit
+
+          IConnectList(k) = p_R(j)
+          ! increment counters
+          k = k + 1
+          j = j + 1
+
+        end do
+
+        ! done merging
+
+        ! free p_L and p_R
+        deallocate(p_L)
+        deallocate(p_R)
+
+      end subroutine tria_merge
 
 end Module

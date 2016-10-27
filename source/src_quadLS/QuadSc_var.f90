@@ -69,6 +69,8 @@ TYPE tMesh
 
   integer, allocatable, dimension(:,:) :: kadj
 
+  integer, allocatable, dimension(:,:) :: kadj2
+
   integer, allocatable, dimension(:,:) :: karea
 
   integer, allocatable, dimension(:) :: knpr

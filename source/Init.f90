@@ -451,6 +451,8 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MFILE,*)
   END IF
 
+  CALL CommBarrier()
+  stop
 
   RETURN
 
