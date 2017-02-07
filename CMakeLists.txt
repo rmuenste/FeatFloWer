@@ -1,9 +1,8 @@
 # cmake version
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.2)
 
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
-#project(Q2P1)
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
@@ -105,6 +104,7 @@ IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
   add_subdirectory(FullC0ntact/inshape3dcore)
   add_subdirectory(FullC0ntact/math)
   add_subdirectory(FullC0ntact/util)
+  add_subdirectory(FullC0ntact/libs/OpenMesh)
 ENDIF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
   
 # add the cuda source if it is desired
@@ -118,19 +118,6 @@ add_subdirectory(extern/libraries/lapack-3.6.1)
 set(src
 source/Elements/e013.f
 source/Elements/e012.f
-#source/src_fbm/fbm_main.f90
-#source/src_fbm/fbm_ptrace.f90
-#source/src_fbm/fbm_aux.f90
-#source/src_fbm/fbm_loc.f90
-#source/src_gd/gd_mon.f90
-#source/src_gd/gd_mov.f90
-#source/src_gd/gd_def.f90
-#source/src_gd/gd_main.f90
-#source/src_gd/gd_rhs.f
-#source/src_gd/gd_kernel.f90
-#source/src_gd/gdef_smoother.f90
-#source/src_gd/gdef_search.f90
-#source/src_gd/gd_aux.f90
 source/src_pp3d/projma.f
 source/src_pp3d/coeff.f
 source/src_pp3d/indat3d.f
@@ -187,6 +174,7 @@ source/tetra.f90
 source/Init.f90
 source/Statistics.f90
 source/Umbrella.f90
+source/src_wrapper/umf4_f77wrapper.c
 source/src_mpi/pp3d_mpi.f90
 source/src_LinSc/LinSc_def.f90
 source/src_LinSc/LinSc_dfkt.f90
@@ -231,45 +219,40 @@ add_executable(q2p1 ${src})
 find_package(FEATFLOW_SYSUTILS_LIBRARY REQUIRED)
 #find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
 #find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
-find_package(FEATFLOW_UMFPACK4_LIBRARY REQUIRED)
+#find_package(FEATFLOW_UMFPACK4_LIBRARY REQUIRED)
 #find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
 #find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
-find_package(FEATFLOW_AMD_LIBRARY REQUIRED)
+#find_package(FEATFLOW_AMD_LIBRARY REQUIRED)
 
 set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
+add_subdirectory(extern/libraries/suitesparse)
 
 IF(NOT FC_CUDA_SUPPORT)
   target_link_libraries(q2p1 
-  #${FEATFLOW_FEAT2D_LIBRARY}
   feat2d
-  #${FEATFLOW_FEAT3D_LIBRARY}
   feat3d
   ${FEATFLOW_SYSUTILS_LIBRARY} 
-  #${FEATFLOW_LAPACK_LIBRARY}  
   lapack
-  ${FEATFLOW_UMFPACK4_LIBRARY}
-  #${FEATFLOW_BLAS_LIBRARY}    
+  umfpack
+  #${FEATFLOW_UMFPACK4_LIBRARY}
   blas
-  ${FEATFLOW_AMD_LIBRARY}     
+  amd
+  #${FEATFLOW_AMD_LIBRARY}     
   inshape3dcore
   Utility
   Math
+  OpenMeshCore 
+  OpenMeshTools
   )
 ELSE(NOT FC_CUDA_SUPPORT)  
   target_link_libraries(q2p1 
-  #${FEATFLOW_FEAT2D_LIBRARY}
   feat2d
-  #${FEATFLOW_FEAT3D_LIBRARY}
   feat3d
   ${FEATFLOW_SYSUTILS_LIBRARY} 
-  #${FEATFLOW_LAPACK_LIBRARY}  
-  #${FEATFLOW_LAPACK_LIBRARY}  
   lapack
   ${FEATFLOW_UMFPACK4_LIBRARY}
-  #  ${FEATFLOW_BLAS_LIBRARY}    
-  #${FEATFLOW_BLAS_LIBRARY}    
   blas
   ${FEATFLOW_AMD_LIBRARY}     
   inshape3dcore
@@ -279,6 +262,25 @@ ELSE(NOT FC_CUDA_SUPPORT)
   )
 ENDIF(NOT FC_CUDA_SUPPORT)  
 
+target_include_directories(q2p1 PUBLIC 
+  "${suitesparseconfig_SOURCE_DIR}"
+  "${AMD_SOURCE_DIR}/Include"
+  "${CHOLMOD_SOURCE_DIR}/Include"
+  "${UMFPACK_SOURCE_DIR}/Include"
+  )
+
+#target_include_directories(q2p1 PUBLIC "${suitesparseconfig_SOURCE_DIR}")
+#target_include_directories(q2p1 PUBLIC "${AMD_SOURCE_DIR}/Include")
+#target_include_directories(q2p1 PUBLIC "${CHOLMOD_SOURCE_DIR}/Include")
+#target_include_directories(q2p1 PUBLIC "${UMFPACK_SOURCE_DIR}/Include")
+
+#message(FATAL_ERROR "Library: "
+#  " ${suitesparseconfig_SOURCE_DIR} \n"
+#  " ${suitesparseconfig_SOURCE_DIR} \n"
+#  " ${AMD_SOURCE_DIR}/Include \n"
+#  " ${CHOLMOD_SOURCE_DIR}/Include \n"
+#  " ${UMFPACK_SOURCE_DIR}/Include \n"
+#  )
 #--------------------------------------------------------------------------------------------------------------------
 #                                               Copy files for out-of-source build
 #--------------------------------------------------------------------------------------------------------------------
