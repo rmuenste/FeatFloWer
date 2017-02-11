@@ -15,7 +15,7 @@ set(AMD_INCLUDE_DIR ../amd/include ../amd/src)
 
 target_include_directories(umfpack4 PRIVATE ./include ./src ${AMD_INCLUDE_DIR})
 
-target_compile_options(umfpack4 PRIVATE -O3 )
+target_compile_options(umfpack4 PRIVATE)
 
 target_compile_definitions(umfpack4 PRIVATE INT=1 LP64=1 USE_NO_BLAS=1 DNTIMER=1)
 

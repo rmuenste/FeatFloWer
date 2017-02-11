@@ -61,3 +61,5 @@ if(FC_CUDA_SUPPORT)
 else(FC_CUDA_SUPPORT)
   add_library(feat3d ${src_feat3d})
 endif(FC_CUDA_SUPPORT)
+
+target_compile_options(feat3d PRIVATE ${Fortran_FLAGS})

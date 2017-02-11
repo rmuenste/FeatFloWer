@@ -220,13 +220,13 @@ endif()
 
 IF(NOT FC_CUDA_SUPPORT)
   target_link_libraries(q2p1 
+    amd
+    umfpack4
     feat2d
     feat3d
     sysutils 
     ${BLAS_LIBRARIES}
     ${LAPACK_LIBRARIES}
-    amd
-    umfpack4
     inshape3dcore
     Utility
     Math
@@ -249,6 +249,8 @@ ELSE(NOT FC_CUDA_SUPPORT)
     Math
     )
 ENDIF(NOT FC_CUDA_SUPPORT)  
+
+target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                               Copy files for out-of-source build

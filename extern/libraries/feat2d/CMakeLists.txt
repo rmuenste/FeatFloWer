@@ -225,3 +225,6 @@ if(FC_CUDA_SUPPORT)
 else(FC_CUDA_SUPPORT)
   add_library(feat2d ${src_feat2d})
 endif(FC_CUDA_SUPPORT)
+
+target_compile_options(feat2d PRIVATE ${Fortran_FLAGS})
+
