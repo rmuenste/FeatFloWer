@@ -58,9 +58,9 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "phenomIIx4-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -march=amdfam10 -msse4a -ffast-math -funroll-loops")
-  SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=amdfam10 -msse4a -ffast-math -funroll-loops")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3 -march=amdfam10 -msse4a -ffast-math -funroll-loops -cpp")
+  SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -march=native -std=c++11")
+  SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
+  SET(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}  -O3 -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 

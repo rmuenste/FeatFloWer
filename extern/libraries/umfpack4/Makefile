@@ -50,6 +50,8 @@ AUX= umf_multicompile_1 umf_multicompile_2 umf_multicompile_3 \
 
 UMF4FLAGS ?= -DINT -DLP64 -DUSE_NO_BLAS #fall back definition if not defined
 
+#CF = $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -O3 -fexceptions -fPIC -DNTIMER
+
 SRCLIST= $(addsuffix .c, $(UMF4) $(AUX))
 DEFS= $(UMF4FLAGS)
 

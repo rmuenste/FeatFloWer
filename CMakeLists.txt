@@ -21,31 +21,11 @@ include(CTest)
 #                                               general application settings
 #--------------------------------------------------------------------------------------------------------------------
 
-#set_TARGET_PROPERTIES(foo-static PROPERTIES OUTPUT_NAME "foo")
-
 #--------------------------------------------------------------------------------------------------------------------
 #                                               compiler settings
 #--------------------------------------------------------------------------------------------------------------------
 
-IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lrt")
-ENDIF(CMAKE_SYSTEM_NAME MATCHES "Linux")
-
 message(STATUS "Checking build type...")
-
-#set(COMMAND_WHICH "which")
-#execute_process(COMMAND ${COMMAND_WHICH} mpicc -a OUTPUT_VARIABLE MYCC_PATH)
-#execute_process(COMMAND ${COMMAND_WHICH} mpicxx -a OUTPUT_VARIABLE MYCXX_PATH)
-#execute_process(COMMAND ${COMMAND_WHICH} mpif90 -a OUTPUT_VARIABLE MYFC_PATH)
-#
-#message(STATUS "Path: ${MYCC_PATH}")
-#message(STATUS "Path: ${MYCXX_PATH}")
-#message(STATUS "Path: ${MYFC_PATH}")
-#
-## set the mpi-compiler
-#set(CMAKE_C_COMPILER ${MYCC_PATH})
-#set(CMAKE_CXX_COMPILER ${MYCXX_PATH})
-#set(CMAKE_Fortran_COMPILER ${MYFC_PATH})
 
 IF(NOT Q2P1_COMPILER)
   set(Q2P1_DEFAULT_COMPILER "gcc")
@@ -112,7 +92,6 @@ IF(FC_CUDA_SUPPORT)
   add_subdirectory(FullC0ntact/cuda_addon)
 ENDIF(FC_CUDA_SUPPORT)
 
-add_subdirectory(extern/libraries/lapack-3.6.1)
 
 # assign the header files to the inshape3dcore_hdr variable
 set(src
@@ -174,7 +153,6 @@ source/tetra.f90
 source/Init.f90
 source/Statistics.f90
 source/Umbrella.f90
-source/src_wrapper/umf4_f77wrapper.c
 source/src_mpi/pp3d_mpi.f90
 source/src_LinSc/LinSc_def.f90
 source/src_LinSc/LinSc_dfkt.f90
@@ -213,74 +191,65 @@ add_executable(q2p1 ${src})
 #                                    search for the libraries and link them
 #--------------------------------------------------------------------------------------------------------------------
 
-
 #find_package(FEATFLOW_FEAT3D_LIBRARY REQUIRED)
 #find_package(FEATFLOW_FEAT2D_LIBRARY REQUIRED)
-find_package(FEATFLOW_SYSUTILS_LIBRARY REQUIRED)
-#find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
-#find_package(FEATFLOW_LAPACK_LIBRARY REQUIRED)
-#find_package(FEATFLOW_UMFPACK4_LIBRARY REQUIRED)
-#find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
-#find_package(FEATFLOW_BLAS_LIBRARY REQUIRED)
-#find_package(FEATFLOW_AMD_LIBRARY REQUIRED)
+#find_package(FEATFLOW_SYSUTILS_LIBRARY REQUIRED)
+
+find_package(BLAS)
+find_package(LAPACK)
+
+if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
+  add_subdirectory(extern/libraries/lapack-3.6.1)
+  set(BLAS_LIBRARIES blas)
+  set(LAPACK_LIBRARIES lapack)
+endif()
 
 set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
-add_subdirectory(extern/libraries/suitesparse)
+add_subdirectory(extern/libraries/sysutils)
+add_subdirectory(extern/libraries/amd)
+add_subdirectory(extern/libraries/umfpack4)
+
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
+  FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
+  if(NOT LIBRT_LIBRARY)
+    message(FATAL_ERROR "You need to install the system library librt.")
+  endif()
+endif()
 
 IF(NOT FC_CUDA_SUPPORT)
   target_link_libraries(q2p1 
-  feat2d
-  feat3d
-  ${FEATFLOW_SYSUTILS_LIBRARY} 
-  lapack
-  umfpack
-  #${FEATFLOW_UMFPACK4_LIBRARY}
-  blas
-  amd
-  #${FEATFLOW_AMD_LIBRARY}     
-  inshape3dcore
-  Utility
-  Math
-  OpenMeshCore 
-  OpenMeshTools
-  )
+    feat2d
+    feat3d
+    sysutils 
+    ${BLAS_LIBRARIES}
+    ${LAPACK_LIBRARIES}
+    amd
+    umfpack4
+    inshape3dcore
+    Utility
+    Math
+    OpenMeshCore 
+    OpenMeshTools
+    ${LIBRT_LIBRARY}
+    )
 ELSE(NOT FC_CUDA_SUPPORT)  
   target_link_libraries(q2p1 
-  feat2d
-  feat3d
-  ${FEATFLOW_SYSUTILS_LIBRARY} 
-  lapack
-  ${FEATFLOW_UMFPACK4_LIBRARY}
-  blas
-  ${FEATFLOW_AMD_LIBRARY}     
-  inshape3dcore
-  particles_kernel
-  Utility
-  Math
-  )
+    feat2d
+    feat3d
+    ${FEATFLOW_SYSUTILS_LIBRARY} 
+    lapack
+    ${FEATFLOW_UMFPACK4_LIBRARY}
+    blas
+    ${FEATFLOW_AMD_LIBRARY}     
+    inshape3dcore
+    particles_kernel
+    Utility
+    Math
+    )
 ENDIF(NOT FC_CUDA_SUPPORT)  
 
-target_include_directories(q2p1 PUBLIC 
-  "${suitesparseconfig_SOURCE_DIR}"
-  "${AMD_SOURCE_DIR}/Include"
-  "${CHOLMOD_SOURCE_DIR}/Include"
-  "${UMFPACK_SOURCE_DIR}/Include"
-  )
-
-#target_include_directories(q2p1 PUBLIC "${suitesparseconfig_SOURCE_DIR}")
-#target_include_directories(q2p1 PUBLIC "${AMD_SOURCE_DIR}/Include")
-#target_include_directories(q2p1 PUBLIC "${CHOLMOD_SOURCE_DIR}/Include")
-#target_include_directories(q2p1 PUBLIC "${UMFPACK_SOURCE_DIR}/Include")
-
-#message(FATAL_ERROR "Library: "
-#  " ${suitesparseconfig_SOURCE_DIR} \n"
-#  " ${suitesparseconfig_SOURCE_DIR} \n"
-#  " ${AMD_SOURCE_DIR}/Include \n"
-#  " ${CHOLMOD_SOURCE_DIR}/Include \n"
-#  " ${UMFPACK_SOURCE_DIR}/Include \n"
-#  )
 #--------------------------------------------------------------------------------------------------------------------
 #                                               Copy files for out-of-source build
 #--------------------------------------------------------------------------------------------------------------------
@@ -293,8 +262,8 @@ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
     IF(NOT EXISTS ${CMAKE_BINARY_DIR}/_adc)
       message(STATUS "Found mesh directory creating symbolic link to $ENV{Q2P1_MESH_DIR}")
       execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-      $ENV{Q2P1_MESH_DIR}
-      ${CMAKE_BINARY_DIR}/_adc)
+        $ENV{Q2P1_MESH_DIR}
+        ${CMAKE_BINARY_DIR}/_adc)
     ENDIF()
   ELSE(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
     set(DIRECTORYLINKS _adc meshes)
@@ -321,8 +290,8 @@ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   FOREACH(flink ${FILELINKS})
     IF(NOT EXISTS ${CMAKE_BINARY_DIR}/${flink})
       execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
-      ${CMAKE_SOURCE_DIR}/${flink}
-      ${CMAKE_BINARY_DIR}/${flink})
+        ${CMAKE_SOURCE_DIR}/${flink}
+        ${CMAKE_BINARY_DIR}/${flink})
     ENDIF ()    
   ENDFOREACH()
 
@@ -363,18 +332,18 @@ IF(NOT ${Q2P1_TESTCASE} STREQUAL "")
       set(Q2P1_TESTCASE_FOUND true)    
     ENDIF()  
   ENDFOREACH()
-  
+
   IF(NOT Q2P1_TESTCASE_FOUND)
     message(FATAL_ERROR "Invalid test case specified ${Q2P1_TESTCASE}.")
   ENDIF(NOT Q2P1_TESTCASE_FOUND)
 
   execute_process(COMMAND ${CMAKE_COMMAND} -E copy 
-                 ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/start/data.TXT
-                 ${CMAKE_BINARY_DIR}/start/data.TXT)
+    ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/start/data.TXT
+    ${CMAKE_BINARY_DIR}/start/data.TXT)
   execute_process(COMMAND ${CMAKE_COMMAND} -E copy 
-                 ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/_data/q2p1_param.dat
-                 ${CMAKE_BINARY_DIR}/_data/q2p1_param.dat)
-  
+    ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/_data/q2p1_param.dat
+    ${CMAKE_BINARY_DIR}/_data/q2p1_param.dat)
+
 ENDIF(NOT ${Q2P1_TESTCASE} STREQUAL "")
 
 add_test(q2p1-fac-newt ./test1)

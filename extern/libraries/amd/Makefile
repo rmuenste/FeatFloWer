@@ -20,8 +20,6 @@ endif
 SRCLIST= $(addsuffix .c, $(AMD))
 DEFS= $(UMF4FLAGS)
 
-include $(FEATFLOW)/Rules_libs.mk
-
 update:
 	@echo "Based on UMFPACKv4.3."
 	@echo "Check http://www.cise.ufl.edu/research/sparse/umfpack/ for updates."
