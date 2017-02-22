@@ -35,6 +35,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   INTEGER nLengthV,nLengthE,LevDif
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+  logical :: bwait = .true.
+
 
   CALL ZTIME(TTT0)
 
@@ -64,7 +66,7 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(MFILE,*)  "Partitioning command:"
     WRITE(MTERM,*) command
     WRITE(MFILE,*) command
-    CALL system(command)
+    CALL execute_command_line(command,wait=bwait)
     WRITE(MTERM,'(37("-"),A30,37("-"))') " Grid Partititioning finished "
     WRITE(MFILE,'(37("-"),A30,37("-"))') " Grid Partititioning finished "
   END IF
@@ -110,7 +112,6 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
-  write(*,*)'max level:',NLMAX
   if(NLMAX.eq.0)then
     write(*,*)'NLMAX=0 is invalid, exiting...'
   end if
@@ -466,7 +467,7 @@ SUBROUTINE General_init(MDATA,MFILE)
     CHARACTER*7 cName
     CHARACTER letter
     INTEGER :: myFile=888
-    INTEGER iEnd,iAt,iEq,iLen,iCurrentStatus
+    INTEGER iEnd,iAt,iEq,iLen,iCurrentStatus,istat
     INTEGER iOutShift
     CHARACTER string*500,cVar*7,cPar*25,cLongString*400
     CHARACTER cParam*8,cParam2*20
@@ -496,10 +497,11 @@ SUBROUTINE General_init(MDATA,MFILE)
 
     SAVE 
 
-    ! IF (myid.eq.1) WRITE(*,*) "'",TRIM(ADJUSTL(myDataFile)),"'"
-    ! IF (myid.eq.1) WRITE(*,*) "'",TRIM(ADJUSTL(cName)),"'"
-
-    OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)))
+    OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action="read",iostat=istat)
+    if(istat .ne. 0)then
+      write(*,*)'Could not open data file: ',myDataFile
+      stop
+    end if
 
     bOutNMAX = .FALSE.
 
@@ -705,7 +707,14 @@ SUBROUTINE General_init(MDATA,MFILE)
     THSTEP=TSTEP*THETA
     IF (bOutNMAX) myExport%Level = NLMAX + iOutShift
 
-    OPEN (UNIT=mfile1,FILE=cfile1)
+    IF (myid.eq.showid) THEN
+      OPEN (UNIT=mfile1,FILE=cfile1,action="write",status="replace",iostat=istat)
+      if(istat .ne. 0)then
+        write(*,*)'Could not open protocal file for writing.'
+        stop
+      end if
+    end if
+
     IF (iCurrentStatus.EQ.0) THEN
       IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101)
       IF (myid.eq.showid) WRITE(UNIT=mfile,FMT=101)

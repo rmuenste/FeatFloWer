@@ -1446,7 +1446,6 @@ TYPE(TLinScalar) lScalar
 TYPE(TParLinScalar) lPScalar
 TYPE(TQuadScalar) qScalar
 REAL*8 def1,def2
-EXTERNAL Bndry_Def
 
 IF (idef.eq.1) THEN
 !  qScalar%valU(NLMAX)%x = 1d0
@@ -2659,11 +2658,16 @@ IMPLICIT NONE
 TYPE(tParamV) myParam
 CHARACTER*7 cName
 INTEGER mfile
-INTEGER myFile,iEnd,iAt,iEq
+INTEGER iEnd,iAt,iEq,istat
 CHARACTER string*100,param*50,cVar*7,cPar*50
 LOGICAL bOK
-
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)))
+INTEGER :: myFile=90909090
+  
+OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open data file: ",myDataFile  
+  stop          
+end if
 
 IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
@@ -2794,11 +2798,16 @@ IMPLICIT NONE
 TYPE(tParamP) myParam
 INTEGER mfile
 CHARACTER*7 cName
-INTEGER myFile,iEnd,iAt,iEq
+INTEGER iEnd,iAt,iEq,istat
 CHARACTER string*100,param*50,cVar*7,cPar*50
 LOGICAL bOK
-
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)))
+INTEGER :: myFile=90909090
+  
+OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open data file: ",myDataFile  
+  stop          
+end if
 
 !IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 !IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
@@ -2906,11 +2915,16 @@ TYPE(tProperties) Props
 INTEGER mfile
 CHARACTER*7 cName
 
-INTEGER myFile,iEnd,iAt,iEq
+INTEGER iEnd,iAt,iEq,istat
 CHARACTER string*100,param*50,cVar*7,cPar*50
 LOGICAL bOK
-
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)))
+INTEGER :: myFile=90909090
+  
+OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open data file: ",myDataFile  
+  stop          
+end if
 
 IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
@@ -2919,16 +2933,13 @@ DO
  READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
  IF (iEnd.EQ.-1) EXIT
  CALL StrStuct()
-!   IF (myid.eq.showid) write(*,*) myid,iAt,iEq,bOK
   IF (bOK) THEN
 
   READ(string(1:iAt-1),*) cVar
 
-!   IF (myid.eq.showid) write(*,*) myid,cVar,iAt,iEq,string
   IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
 
    READ(string(iAt+1:iEq-1),*) cPar
-!    IF (myid.eq.showid) write(*,*) myid,cPar
    SELECT CASE (TRIM(ADJUSTL(cPar)))
 
     CASE ("Material")

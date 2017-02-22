@@ -1608,11 +1608,12 @@ USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
-INTEGER kvert(8,*),iO,iUnit,ioffset,ive,ivt,iField,i
+INTEGER kvert(8,*),iO,ioffset,ive,ivt,iField,i,istat
 CHARACTER fileid*(5),filename*(27),procid*(3)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
+integer :: iunit = 908070
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -1624,7 +1625,11 @@ IF(myid.eq.showid) WRITE(*,'(104("="))')
 IF(myid.eq.showid) WRITE(*,*) "Outputting vtk file into ",filename
 WRITE(filename(15:17),'(I3.3)') myid
 
-OPEN (UNIT=iunit,FILE=filename)
+OPEN (UNIT=iunit,FILE=filename,action='write',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open file for writing. "
+  stop          
+end if
 
 write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
 write(iunit, *)"  <UnstructuredGrid>"

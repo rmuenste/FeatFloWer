@@ -18,9 +18,13 @@
       USE var_QuadScalar
       type(tMesh) :: mesh
       integer :: cunit = 123
-      integer :: ivert,ielem 
+      integer :: ivert,ielem,istat 
 
-      open (unit=cunit,file='mesh2.tri')
+      open (unit=cunit,file='mesh2.tri',action="write",iostat=istat)
+      if(istat .ne. 0)then
+        write(*,*)"Could not open file for writing. "
+      stop          
+      end if    
 
       write(cunit,'(A)')'Coarse mesh 3D'
       write(cunit,'(A)')'modified by tr2to3'
@@ -219,27 +223,24 @@
         type(tMultiMesh) :: mgMesh
         logical :: bExist
         integer :: cunit = 18
-        integer :: i
+        integer :: i,istat
 
-        INQUIRE(FILE=CFILE,EXIST=bExist)
-        IF (.NOT.bExist) THEN
-         WRITE(*,*) "File ",CFILE," could not be read ..."
-         RETURN
-        END IF
+        inquire(file=cfile,exist=bExist)
+        if (.not. bExist) then
+         write(*,*) "File ",cfile," could not be read ..."
+         return
+        end if
         
-      !  WRITE(*,*) "Found File ",CFile
-        open(cunit,file=cfile)
+        open(cunit,file=cfile,action="read",iostat=istat)
+        if(istat .ne. 0)then
+          write(*,*)'Could not open file: ',cfile
+        end if  
+
         read(cunit, *)
         read(cunit, *)
         read(cunit,*),mgMesh%level(1)%nel, mgMesh%level(1)%nvt, &
                       mgMesh%level(1)%nbct, mgMesh%level(1)%nve, &
                       mgMesh%level(1)%nee , mgMesh%level(1)%nae
-
-      !  if(myid.eq.0)then
-      !    write(*,*),mgMesh%level(1)%nel, mgMesh%level(1)%nvt, &
-      !               mgMesh%level(1)%nbct, mgMesh%level(1)%nve, &
-      !               mgMesh%level(1)%nee , mgMesh%level(1)%nae
-      !  end if
 
         read(cunit, *)
 
@@ -312,6 +313,9 @@
         icurr = icurr + 1 
         call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
         call genMeshStructures(mgMesh%level(icurr))
+        if(myid.eq.1)then
+          write(*,*)'-----RefinementLevelFinished-----'
+        end if
       end do
 
       end subroutine
@@ -646,6 +650,7 @@
       mesh%nvel = 0
 
       allocate(nvel_temp(mesh%nvt))
+
       nvel_temp = 0
 
       do i=1,mesh%nel
