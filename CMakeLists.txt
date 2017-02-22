@@ -184,7 +184,12 @@ if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
   set(LAPACK_LIBRARIES lapack)
 endif()
 
-set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
+
+find_package(MPI)
+
+message(STATUS "mpi include : ${MPI_Fortran_INCLUDE_PATH}")
+message(STATUS "mpi libs : ${MPI_Fortran_LIBRARIES}")
+
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
 add_subdirectory(extern/libraries/sysutils)
@@ -222,9 +227,14 @@ target_link_libraries(q2p1
   OpenMeshCore 
   OpenMeshTools
   ${LIBRT_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
   )
 
+
+target_include_directories(q2p1 PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+
 target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
+#set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                               Copy files for out-of-source build
