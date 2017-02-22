@@ -18,10 +18,6 @@ enable_testing()
 include(CTest)
 
 #--------------------------------------------------------------------------------------------------------------------
-#                                               general application settings
-#--------------------------------------------------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------------------------------------------------
 #                                               compiler settings
 #--------------------------------------------------------------------------------------------------------------------
 
@@ -36,65 +32,48 @@ ENDIF(NOT Q2P1_COMPILER)
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
 #--------------------------------------------------------------------------------------------------------------------
-#                                               Add definitions
-#--------------------------------------------------------------------------------------------------------------------
-
-add_definitions(-DFEATFLOWLIB)
-
-#--------------------------------------------------------------------------------------------------------------------
 #                                                   Options
 #--------------------------------------------------------------------------------------------------------------------
 
-option(FC_CUDA_SUPPORT
-    "Enables use of CUDA extensions"
-    OFF
-)
-
-# we need additional libraries to support CUDA
-IF(FC_CUDA_SUPPORT)
-
-  add_definitions(-DFC_CUDA_SUPPORT)
-  message(STATUS "CUDA define set")  
-
-  # check for openGL
-  FIND_PACKAGE(OpenGL REQUIRED)
-  
-  # check for the CUDA libraries
-  FIND_PACKAGE( CUDA )
-  
-  IF(CUDA_FOUND)
-    message(STATUS "Found CUDA")
-  ELSEIF(CUDA_FOUND)
-    message(FATAL_ERROR "The CUDA library was not found on the system.")
-  ENDIF(CUDA_FOUND)
-  
-  # search for cuda libraries
-  FIND_PACKAGE(CUDASDK)
-ENDIF(FC_CUDA_SUPPORT)
-
-set(Q2P1_TESTCASE "" CACHE STRING "Pre-configure the application for a certain test case")
+#option(FC_CUDA_SUPPORT
+#    "Enables use of CUDA extensions"
+#    OFF
+#)
+#
+## we need additional libraries to support CUDA
+#IF(FC_CUDA_SUPPORT)
+#
+#  add_definitions(-DFC_CUDA_SUPPORT)
+#  message(STATUS "CUDA define set")  
+#
+#  # check for openGL
+#  FIND_PACKAGE(OpenGL REQUIRED)
+#  
+#  # check for the CUDA libraries
+#  FIND_PACKAGE( CUDA )
+#  
+#  IF(CUDA_FOUND)
+#    message(STATUS "Found CUDA")
+#  ELSEIF(CUDA_FOUND)
+#    message(FATAL_ERROR "The CUDA library was not found on the system.")
+#  ENDIF(CUDA_FOUND)
+#  
+#  # search for cuda libraries
+#  FIND_PACKAGE(CUDASDK)
+#ENDIF(FC_CUDA_SUPPORT)
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                               project directories
 #--------------------------------------------------------------------------------------------------------------------
 
-# add subdirectories
-IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
-  message(STATUS "Found FullC0ntact library directory")  
-  add_subdirectory(FullC0ntact/inshape3dcore)
-  add_subdirectory(FullC0ntact/math)
-  add_subdirectory(FullC0ntact/util)
-  add_subdirectory(FullC0ntact/libs/OpenMesh)
-ENDIF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
-  
-# add the cuda source if it is desired
-IF(FC_CUDA_SUPPORT)
-  add_subdirectory(FullC0ntact/cuda_addon)
-ENDIF(FC_CUDA_SUPPORT)
+#option(USE_FC_LIB
+#    "Enables use FullC0ntact library"
+#    OFF
+#)
 
 
-# assign the header files to the inshape3dcore_hdr variable
-set(src
+# source files for standad q2p1 
+set(src_q2p1
 source/Elements/e013.f
 source/Elements/e012.f
 source/src_pp3d/projma.f
@@ -182,10 +161,11 @@ source/src_visco/Visco_main.f90
 source/src_visco/Visco_def.f90
 source/src_mesh/mesh_refine.f90
 )
+
 #--------------------------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
 #--------------------------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${src}) 
+add_executable(q2p1 ${src_q2p1}) 
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                    search for the libraries and link them
@@ -211,6 +191,16 @@ add_subdirectory(extern/libraries/sysutils)
 add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
 
+# add subdirectories
+IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
+  add_definitions(-DFEATFLOWLIB)
+  message(STATUS "Found FullC0ntact library directory")  
+  add_subdirectory(FullC0ntact/inshape3dcore)
+  add_subdirectory(FullC0ntact/math)
+  add_subdirectory(FullC0ntact/util)
+  add_subdirectory(FullC0ntact/libs/OpenMesh)
+ENDIF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
+
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
   if(NOT LIBRT_LIBRARY)
@@ -218,37 +208,21 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   endif()
 endif()
 
-IF(NOT FC_CUDA_SUPPORT)
-  target_link_libraries(q2p1 
-    amd
-    umfpack4
-    feat2d
-    feat3d
-    sysutils 
-    ${BLAS_LIBRARIES}
-    ${LAPACK_LIBRARIES}
-    inshape3dcore
-    Utility
-    Math
-    OpenMeshCore 
-    OpenMeshTools
-    ${LIBRT_LIBRARY}
-    )
-ELSE(NOT FC_CUDA_SUPPORT)  
-  target_link_libraries(q2p1 
-    feat2d
-    feat3d
-    ${FEATFLOW_SYSUTILS_LIBRARY} 
-    lapack
-    ${FEATFLOW_UMFPACK4_LIBRARY}
-    blas
-    ${FEATFLOW_AMD_LIBRARY}     
-    inshape3dcore
-    particles_kernel
-    Utility
-    Math
-    )
-ENDIF(NOT FC_CUDA_SUPPORT)  
+target_link_libraries(q2p1 
+  amd
+  umfpack4
+  feat2d
+  feat3d
+  sysutils 
+  ${BLAS_LIBRARIES}
+  ${LAPACK_LIBRARIES}
+  inshape3dcore
+  Utility
+  Math
+  OpenMeshCore 
+  OpenMeshTools
+  ${LIBRT_LIBRARY}
+  )
 
 target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
 
@@ -324,29 +298,8 @@ ENDFOREACH()
 
 
 #--------------------------------------------------------------------------------------------------------------------
-#                                           Check for predefined test cases
+#                                           Predefined test cases
 #--------------------------------------------------------------------------------------------------------------------
-IF(NOT ${Q2P1_TESTCASE} STREQUAL "")
-  set(Q2P1_TESTCASES "gpusedimentation" "cpusedimentation" "fluidizedbed" "meshdatastructures" "simplesedimentation" "dgs" "aneurysm")
-  set(Q2P1_TESTCASE_FOUND false)
-  FOREACH(case ${Q2P1_TESTCASES})
-    IF(${Q2P1_TESTCASE} STREQUAL ${case})
-      set(Q2P1_TESTCASE_FOUND true)    
-    ENDIF()  
-  ENDFOREACH()
-
-  IF(NOT Q2P1_TESTCASE_FOUND)
-    message(FATAL_ERROR "Invalid test case specified ${Q2P1_TESTCASE}.")
-  ENDIF(NOT Q2P1_TESTCASE_FOUND)
-
-  execute_process(COMMAND ${CMAKE_COMMAND} -E copy 
-    ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/start/data.TXT
-    ${CMAKE_BINARY_DIR}/start/data.TXT)
-  execute_process(COMMAND ${CMAKE_COMMAND} -E copy 
-    ${CMAKE_SOURCE_DIR}/testcases/${Q2P1_TESTCASE}/_data/q2p1_param.dat
-    ${CMAKE_BINARY_DIR}/_data/q2p1_param.dat)
-
-ENDIF(NOT ${Q2P1_TESTCASE} STREQUAL "")
 
 add_test(q2p1-fac-newt ./test1)
 add_test(q2p1-fac-nnewt ./test2)
