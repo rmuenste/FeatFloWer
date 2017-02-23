@@ -103,11 +103,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
   END IF                                               ! PARALLEL
 
-
-!  CALL XORSC (MMESH1,CMESH1)
-!  CALL CommBarrier()
-!  stop
-
   CALL Init_QuadScalar(mfile)
 
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
@@ -136,11 +131,6 @@ SUBROUTINE General_init(MDATA,MFILE)
   IDISP=1
 
   IF (myid.NE.0) NLMAX = NLMAX + 1
-
-!  CALL XMSB3(0,MAX(1,ISE),ISA,ISVEL,ISEEL,ISAEL,&
-!    ISVED,ISAED,ISVAR,ISEAR,ISEVE,ISAVE,&
-!    ISVBD,ISEBD,ISABD,IDISP,PARX,PARY,PARZ,&
-!    SEDB,SADB)
   
   IF (myid.EQ.0) then
     mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
@@ -161,51 +151,6 @@ SUBROUTINE General_init(MDATA,MFILE)
   end if
 
   write(*,*)'Refinement finished: ',myid
-!  CALL CommBarrier()
-!  stop
-
-!  IF (myid.eq.1)then
-!  II=NLMAX
-!  afile="arrays.new"
-!  call writeArrays(mg_mesh%level(II)%dcorvg,&
-!                      mg_mesh%level(II)%kvert,&
-!                      mg_mesh%level(II)%kedge,&
-!                      mg_mesh%level(II)%kadj,&
-!                      mg_mesh%level(II)%karea,&
-!                      mg_mesh%level(II)%nvt,&
-!                      mg_mesh%level(II)%nel,&
-!                      mg_mesh%level(II)%net,afile)
-!
-!  afile="meshnew.tri"
-!  call writeTriArrays(mg_mesh%level(II)%dcorvg,&
-!                      mg_mesh%level(II)%kvert,&
-!                      mg_mesh%level(II)%kedge,&
-!                      mg_mesh%level(II)%kadj,&
-!                      mg_mesh%level(II)%karea,&
-!                      mg_mesh%level(II)%nvt,&
-!                      mg_mesh%level(II)%nel,&
-!                      mg_mesh%level(II)%net,afile)
-!:  write(*,*)'nvt: ',knvt(II)
-!:  write(*,*)'nvt: ',mg_mesh%level(2)%nvt
-
-!  bfile="arrays.old"
-!  call writeArrays(DWORK(L(KLCVG(II))),&
-!    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
-!    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
-!    KNVT(II),KNEL(II),KNET(II),bfile)
-!
-!  bfile="meshold.tri"
-!  call writeTriArrays(DWORK(L(KLCVG(II))),&
-!    KWORK(L(KLVERT(II))), KWORK(L(KLEDGE(II))),&
-!    KWORK(L(KLADJ(II))), KWORK(L(KLAREA(II))),&
-!    KNVT(II),KNEL(II),KNET(II),bfile)
-!
-!  end if
-
-  !     ----------------------------------------------------------
-  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
-
-  !mg_mesh%level(NLMAX)%dcorvg
 
   II=NLMIN
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -225,7 +170,6 @@ SUBROUTINE General_init(MDATA,MFILE)
   DO II=NLMIN+1,NLMAX
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
   BLIN = .FALSE.
-  !       IF (II.eq.NLMAX) BLIN = .TRUE.
 
   CALL CREATECOMM(II,&
                   mg_mesh%level(II)%nat,&
@@ -249,12 +193,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   ! Set up the communication structures for the Quadratic element
   ILEV=NLMIN
-  !CALL SETLEV(2)
-  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
-!  CALL E013_CreateComm_coarse(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-!    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-!    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
   CALL E013_CreateComm_coarse(mg_mesh%level(ILEV)%dcorvg,&
                               mg_mesh%level(ILEV)%dcorag,&
@@ -269,12 +209,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 
 
   DO ILEV=NLMIN+1,NLMAX
-  !CALL SETLEV(2)
-  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
-!  CALL E013_CreateComm(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-!    KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-!    NVT,NET,NAT,NEL,LinSc%prm%MGprmIn%MedLev)
+  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
   CALL E013_CreateComm(mg_mesh%level(ILEV)%dcorvg,&
                        mg_mesh%level(ILEV)%dcorag,&
@@ -295,16 +231,8 @@ SUBROUTINE General_init(MDATA,MFILE)
 
   CALL E011_CreateComm(NDOF)
 
-  !     ----------------------------------------------------------            
-  call init_fc_rigid_body(myid)      
-  call FBM_GetParticles()
-  CALL FBM_ScatterParticles()
-  !     ----------------------------------------------------------        
-
   DO ILEV=NLMIN,NLMAX
   if(myid.eq.1)then
-
-!  write(*,*)"old:",KNVT(ilev), KNAT(ilev), KNEL(ilev), KNET(ilev)
 
   write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
                    mg_mesh%level(ILEV)%nat,&
@@ -696,10 +624,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     END DO
 
     CLOSE (myFile)
-
-    !       cGridFileName = "myNewMesh"
-    !       nSubCoarseMesh = 2
-    !       cFBM_File = "_data/particles.dat"
 
     M     = 1
     MT    = 1

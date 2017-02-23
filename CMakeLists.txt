@@ -71,7 +71,6 @@ include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)
 #    OFF
 #)
 
-
 # source files for standad q2p1 
 set(src_q2p1
 source/Elements/e013.f
@@ -111,8 +110,8 @@ source/src_quadLS/QuadSc_proj.f
 source/src_quadLS/QuadSc_conv.f
 source/src_quadLS/QuadSc_shear.f
 source/src_quadLS/QuadSc_stress.f
-source/src_quadLS/QuadSc_force.f90
-#source/src_quadLS/QuadSc_force.f
+#source/src_quadLS/QuadSc_force.f90
+source/src_quadLS/QuadSc_force.f
 source/src_quadLS/QuadSc_gravity.f
 source/src_quadLS/QuadSc_BMatrix.f
 source/src_mpi/smooth_mpi.f
@@ -171,10 +170,6 @@ add_executable(q2p1 ${src_q2p1})
 #                                    search for the libraries and link them
 #--------------------------------------------------------------------------------------------------------------------
 
-#find_package(FEATFLOW_FEAT3D_LIBRARY REQUIRED)
-#find_package(FEATFLOW_FEAT2D_LIBRARY REQUIRED)
-#find_package(FEATFLOW_SYSUTILS_LIBRARY REQUIRED)
-
 find_package(BLAS)
 find_package(LAPACK)
 
@@ -221,32 +216,46 @@ target_link_libraries(q2p1
   sysutils 
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
-  inshape3dcore
-  Utility
-  Math
-  OpenMeshCore 
-  OpenMeshTools
+  #  inshape3dcore
+  #  Utility
+  #  Math
+  #  OpenMeshCore 
+  #  OpenMeshTools
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )
-
 
 target_include_directories(q2p1 PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 
 target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
 #set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
 
-#--------------------------------------------------------------------------------------------------------------------
-#                                               Copy files for out-of-source build
-#--------------------------------------------------------------------------------------------------------------------
-
+#--------------------------------------------------------------------------------------------------
+#                                  Copy files for out-of-source build
+#--------------------------------------------------------------------------------------------------
 IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+  set(OUT_OF_SOURCE_BUILD True)
+  message(STATUS "Configuring out-of source build")
+else()
+  set(OUT_OF_SOURCE_BUILD False)
+ENDIF()
+
+IF(${OUT_OF_SOURCE_BUILD})
+  # check whether the $ENV{Q2P1_MESH_DIR} variable is set
+  IF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
+    message(STATUS "Found mesh directory : $ENV{Q2P1_MESH_DIR}")
+  ELSE(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
+    message(AUTHOR_WARNING "Mesh directory variable not found.")
+  ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
+endif()
+
+
+IF(${OUT_OF_SOURCE_BUILD})
+
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set
   IF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
     set(DIRECTORYLINKS meshes)
-    message(STATUS "Found mesh directory : $ENV{Q2P1_MESH_DIR}")
     IF(NOT EXISTS ${CMAKE_BINARY_DIR}/_adc)
-      message(STATUS "Found mesh directory creating symbolic link to $ENV{Q2P1_MESH_DIR}")
       execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
         $ENV{Q2P1_MESH_DIR}
         ${CMAKE_BINARY_DIR}/_adc)
@@ -259,7 +268,6 @@ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   set(DIRECTORYCOPIES _data start)
   set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
 
-  message(STATUS "Configuring out-of source build")
 
   file(COPY ${CMAKE_SOURCE_DIR}/_data DESTINATION ${CMAKE_BINARY_DIR})
   file(COPY ${CMAKE_SOURCE_DIR}/start DESTINATION ${CMAKE_BINARY_DIR})
@@ -306,10 +314,14 @@ FOREACH(sd ${SUBDIRS})
   ENDIF()  
 ENDFOREACH()
 
+#-------------------------------------------------------------------------------------------------
+#                                        Add applications
+#-------------------------------------------------------------------------------------------------
+add_subdirectory(applications)
 
-#--------------------------------------------------------------------------------------------------------------------
-#                                           Predefined test cases
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
+#                                      Predefined test cases
+#-------------------------------------------------------------------------------------------------
 
 add_test(q2p1-fac-newt ./test1)
 add_test(q2p1-fac-nnewt ./test2)

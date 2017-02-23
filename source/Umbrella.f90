@@ -253,7 +253,7 @@ w(1:nvt) = 0d0
    PY = dcorvg(2,i)
    PZ = dcorvg(3,i)
    !call GetMonitor()
-   call getdistanceid(px,py,pz,myALE%Monitor(i),ipc);
+   !call getdistanceid(px,py,pz,myALE%Monitor(i),ipc);
    IF (myALE%Monitor(i).GT.0d0) dIII = 75.1d0 * myALE%Monitor(i)
    IF (myALE%Monitor(i).LT.0d0) dIII = 75.1d0 * -2d0*myALE%Monitor(i)
    f(i) = f(i) * MAX((1.0d0-dIII),0.5d0)**6.5d0
