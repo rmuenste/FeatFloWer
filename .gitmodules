@@ -2,6 +2,3 @@
 	path = FullC0ntact
 	url = https://github.com/rmuenste/FullC0ntact.git
 	branch = devel
-[submodule "extern/libraries/suitesparse"]
-	path = extern/libraries/suitesparse
-	url = https://github.com/rmuenste/suitesparse-metis-for-windows.git
