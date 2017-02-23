@@ -66,10 +66,10 @@ include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)
 #                                               project directories
 #--------------------------------------------------------------------------------------------------------------------
 
-#option(USE_FC_LIB
-#    "Enables use FullC0ntact library"
-#    OFF
-#)
+option(BUILD_APPLICATIONS
+    "Enables build of applications"
+    OFF
+)
 
 # source files for standad q2p1 
 set(src_q2p1
@@ -191,16 +191,6 @@ add_subdirectory(extern/libraries/sysutils)
 add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
 
-# add subdirectories
-IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
-  add_definitions(-DFEATFLOWLIB)
-  message(STATUS "Found FullC0ntact library directory")  
-  add_subdirectory(FullC0ntact/inshape3dcore)
-  add_subdirectory(FullC0ntact/math)
-  add_subdirectory(FullC0ntact/util)
-  add_subdirectory(FullC0ntact/libs/OpenMesh)
-ENDIF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
-
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
   if(NOT LIBRT_LIBRARY)
@@ -317,7 +307,22 @@ ENDFOREACH()
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
-add_subdirectory(applications)
+## we need additional libraries to support CUDA
+IF(BUILD_APPLICATIONS)
+  # add subdirectories
+  IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
+    add_definitions(-DFEATFLOWLIB)
+    message(STATUS "Found FullC0ntact library directory")  
+    add_subdirectory(FullC0ntact/inshape3dcore)
+    add_subdirectory(FullC0ntact/math)
+    add_subdirectory(FullC0ntact/util)
+    add_subdirectory(FullC0ntact/libs/OpenMesh)
+  else()
+    message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
+  ENDIF()
+
+  add_subdirectory(applications)
+ENDIF(BUILD_APPLICATIONS)
 
 #-------------------------------------------------------------------------------------------------
 #                                      Predefined test cases

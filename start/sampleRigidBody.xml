@@ -4,7 +4,7 @@
     startType = "0"
     liquidSolid = "1" 
     solution = "solution/particles.start0"
-    nBodies = "1"
+    nBodies = "0"
     bodyInit = "0"
     bodyFile = "defaultBodies.i3d"
     defaultDensity = "1.5"
