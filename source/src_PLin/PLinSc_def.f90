@@ -245,8 +245,8 @@ END SUBROUTINE RISource
 SUBROUTINE InitMassMatrix(myPLinSc)
 TYPE(lScalar) myPLinSc
 INTEGER I,J,K
-LOGICAL BFLAG
 EXTERNAL E012
+integer :: errorflag = 0
 
 
  ILEV=NLMAX
@@ -260,7 +260,7 @@ EXTERNAL E012
  ALLOCATE(imMat(4,4,NEL))
 
  DO I=1,NEL
-  CALL FINDInv(mMat(:,:,I), imMat(:,:,I), 4, bflag)
+  CALL FINDInv(mMat(:,:,I), imMat(:,:,I), 4, errorflag)
  END DO
 
 END SUBROUTINE InitMassMatrix

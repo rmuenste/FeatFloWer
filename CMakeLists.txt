@@ -71,10 +71,7 @@ option(BUILD_APPLICATIONS
     OFF
 )
 
-# source files for standad q2p1 
-set(src_q2p1
-source/Elements/e013.f
-source/Elements/e012.f
+set(src_pp3d
 source/src_pp3d/projma.f
 source/src_pp3d/coeff.f
 source/src_pp3d/indat3d.f
@@ -101,7 +98,16 @@ source/src_pp3d/bmul.f
 source/src_pp3d/diff.f
 source/src_pp3d/nu_turb.f
 source/src_pp3d/prostp.f
+source/src_pp3d/def_feat.f90
 #source/src_pproc/pproc_main.f90
+)
+
+set(Elements
+source/Elements/e013.f
+source/Elements/e012.f
+)
+
+set(src_quadLS
 source/src_quadLS/QuadSc_solver.f
 source/src_quadLS/QuadSc_laplace.f
 source/src_quadLS/QuadSc_diff.f
@@ -114,27 +120,29 @@ source/src_quadLS/QuadSc_stress.f
 source/src_quadLS/QuadSc_force.f
 source/src_quadLS/QuadSc_gravity.f
 source/src_quadLS/QuadSc_BMatrix.f
-source/src_mpi/smooth_mpi.f
-source/src_mpi/master_mpi.f
-source/src_LinSc/LinSc_conv.f
-source/src_LinSc/LinSc_diff.f
-source/src_LinSc/LinSc_solver.f
-source/src_pp3d/def_feat.f90
-source/OutputProfiles.f90
 source/src_quadLS/QuadSc_mpi.f90
 source/src_quadLS/QuadSc_main.f90
 source/src_quadLS/QuadSc_var.f90
 source/src_quadLS/QuadSc_user.f90
 source/src_quadLS/QuadSc_mg.f90
 source/src_quadLS/QuadSc_def.f90
-source/tetra.f90
-source/Init.f90
-source/Statistics.f90
-source/Umbrella.f90
-source/src_mpi/pp3d_mpi.f90
+)
+
+set(src_mpi
+source/src_mpi/smooth_mpi.f
+source/src_mpi/master_mpi.f
+)
+
+set(src_LinSc
+source/src_LinSc/LinSc_conv.f
+source/src_LinSc/LinSc_diff.f
+source/src_LinSc/LinSc_solver.f
 source/src_LinSc/LinSc_def.f90
 source/src_LinSc/LinSc_dfkt.f90
 source/src_LinSc/LinSc_main.f90
+)
+
+set(src_PLin
 source/src_PLin/PLinSc_def.f90
 source/src_PLin/PLinSc_main.f90
 source/src_PLin/PLinSc_matstr.f
@@ -148,23 +156,52 @@ source/src_PLin/PLinSc_intpol.f
 source/src_PLin/PLinSc_limiter.f
 source/src_PLin/PLinSc_mpi.f
 source/src_PLin/PLinSc_density.f90
+)
+
+set(src_visco
+source/src_visco/Visco_integration.f
+source/src_visco/Visco_solver.f
+source/src_visco/Visco_main.f90
+source/src_visco/Visco_def.f90
+)
+
+set(src_mesh
+source/src_mesh/mesh_refine.f90
+)
+
+# source files for standard q2p1 
+set(src_q2p1
+source/OutputProfiles.f90
+source/tetra.f90
+source/Init.f90
+source/Statistics.f90
+source/Umbrella.f90
+source/src_mpi/pp3d_mpi.f90
 source/ProcCtrl.f90
 source/UmfpackSolver.f90
 source/inverse.f90
 source/Parametrization.f90
 source/distance.f90
 source/3x3EigenV.f
-source/src_visco/Visco_integration.f
-source/src_visco/Visco_solver.f
-source/src_visco/Visco_main.f90
-source/src_visco/Visco_def.f90
-source/src_mesh/mesh_refine.f90
 )
+
+#--------------------------------------------------------------------------------------------------------------------
+#                                 This will create source folders in Visual Studio
+#--------------------------------------------------------------------------------------------------------------------
+
+source_group(src_quadLS FILES ${src_q2p1})
+source_group(src_pp3d FILES ${src_pp3d})
+source_group(collision FILES ${src_mpi})
+source_group(src_PLin FILES ${src_PLin})
+source_group(src_LinSc FILES ${src_LinSc})
+source_group(src_quadLS FILES ${src_quadLS})
+source_group(src_visco FILES ${src_visco})
+source_group(src_mesh FILES ${src_mesh})
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
 #--------------------------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${src_q2p1}) 
+add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh}) 
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                    search for the libraries and link them

@@ -365,7 +365,7 @@ integer :: iend
 
  iend = KNVT(NLMAX)
  DO I=1,iend
-  WRITE(2,'(G18.12)') Tracer%val(NLMAX)%x(i)
+  WRITE(2,'(G19.12)') Tracer%val(NLMAX)%x(i)
  END DO
 
  CLOSE(2)

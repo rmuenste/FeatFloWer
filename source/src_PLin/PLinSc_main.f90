@@ -5,7 +5,7 @@ USE QuadScalar, ONLY: QuadSc,mgDensity,Density_Primary,&
 USE def_PLinScalar
 USE PP3D_MPI, ONLY:myid,master,showID,COMM_Maximum,COMM_NLComplete,&
                    Comm_Summ
-
+USE var_QuadScalar, ONLY: mg_mesh
 IMPLICIT NONE
 
 TYPE(lScalar) PLinLS
@@ -47,12 +47,16 @@ IF (myid.ne.0) THEN
  CALL InitFNormMatrix()
 
  ! Initialization element midpoints
- ALLOCATE(ElemMid(3,NEL))
- CALL GetElementMids(ElemMid,DWORK(L(LCORVG)),KWORK(L(LVERT)),NEL)
+ ALLOCATE(ElemMid(3,mg_mesh%level(ilev)%nel))
+ CALL GetElementMids(ElemMid,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ilev)%nel)
 
- ALLOCATE (IntPhaseElem(NEL))
- ALLOCATE (dNorm(3,NVT))
- ALLOCATE (FracFieldQ0(NEL),FracFieldQ1(NVT))
+ ALLOCATE (IntPhaseElem(mg_mesh%level(ilev)%nel))
+ ALLOCATE (dNorm(3,mg_mesh%level(ilev)%nvt))
+ ALLOCATE (FracFieldQ0(mg_mesh%level(ilev)%nel),&
+           FracFieldQ1(mg_mesh%level(ilev)%nvt))
 
 END IF
 
