@@ -542,7 +542,7 @@ C=======================================================================
 C     Declarations
 C=======================================================================
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      REAL*8 AVOL
+      REAL*4 AVOL
 C
       PARAMETER (NNVE=8)
       PARAMETER (A1=1D0/6D0)
