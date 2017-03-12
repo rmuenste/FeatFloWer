@@ -7,13 +7,11 @@ PROGRAM Q2P1_FC_EXT
   character(len=60)  :: CPP3D
   logical            :: bstop
   real               :: tout = 0.0
-  integer            :: ufile, uterm
+  integer            :: ufile, uterm,ilog
 
   !-------INIT PHASE-------
 
-  call init_q2p1_ext()
-  ufile=mfile
-  uterm=mterm
+  call init_q2p1_ext(ufile)
 
   tout = Real(INT(timens/dtgmv)+1)*dtgmv
 
@@ -31,10 +29,10 @@ PROGRAM Q2P1_FC_EXT
   IF (bstop) STOP
 
   ! Viscoelastic transport equations
-  IF(bViscoElastic)CALL Transport_ViscoScalar(mfile)
+  IF(bViscoElastic)CALL Transport_ViscoScalar(ufile)
 
   ! Solve Navier-Stokes
-  !CALL Transport_QuadScalar_fc_ext(mfile,inonln_u,itns)
+  !CALL Transport_QuadScalar_fc_ext(ufile,inonln_u,itns)
   CALL Transport_QuadScalar(ufile,inonln_u,itns)
 
   IF (bTracer) THEN
@@ -57,6 +55,6 @@ PROGRAM Q2P1_FC_EXT
 
 5     FORMAT(104('='))
 
-  call sim_finalize(ttt0,ttt1,mfile)
+  call sim_finalize(ttt0,ttt1,ufile)
 
 END PROGRAM Q2P1_FC_EXT

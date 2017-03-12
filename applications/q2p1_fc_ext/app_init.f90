@@ -1,4 +1,4 @@
-subroutine init_q2p1_ext
+subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
@@ -14,14 +14,16 @@ subroutine init_q2p1_ext
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
 
+  integer, intent(in) :: log_unit
+
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  CALL General_init_ext(79,mfile)
+  CALL General_init_ext(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(mfile)
+  CALL Init_QuadScalar_Stuctures(log_unit)
 
-  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(mfile)
+  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
 
   CALL Init_LinScalar
 
@@ -42,6 +44,7 @@ subroutine init_q2p1_ext
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF
   END IF
+
 
 end subroutine init_q2p1_ext
 !

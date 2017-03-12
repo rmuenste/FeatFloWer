@@ -235,7 +235,7 @@ implicit none
 
 real*8, intent(inout) :: dtimens, dtimemx, dt
 integer, intent(inout) :: istepns , istepmaxns
-integer(kind=2), intent(inout) :: ufile, uterm
+integer, intent(inout) :: ufile, uterm
 
 IF (myid.eq.showid) THEN
   write(uTERM,5)
