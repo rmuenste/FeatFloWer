@@ -273,6 +273,11 @@ END SUBROUTINE Transport_QuadScalar
 !
 ! ----------------------------------------------
 !
+! Include custom implementations of the Q2 transport equation
+include 'QuadSc_transport_extensions.f90'
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_QuadScalar(mfile)
 INTEGER I,J,ndof,mfile
 
@@ -508,10 +513,6 @@ INTEGER i
 
 ILEV=NLMAX
 CALL SETLEV(2)
-
-!CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
-
-!DO i=1,40
 
  ! Set initial conditions
  IF (myid.ne.0)then
@@ -1660,6 +1661,7 @@ SUBROUTINE  StoreOrigCoor(dcoor)
   END DO
 
 END SUBROUTINE  StoreOrigCoor
+
 
 END MODULE QuadScalar
 

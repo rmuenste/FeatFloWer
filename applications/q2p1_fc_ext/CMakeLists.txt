@@ -1,91 +1,41 @@
 # CMakeLists of q2p1_fc_ext application
+set(src_quadLS_ext
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+)
+
+# CMakeLists of q2p1_fc_ext application
+set(src_cinterface
+${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
+)
 
 # source files for standad q2p1 
 set(src_q2p1_fc_ext
-../../source/Elements/e013.f
-../../source/Elements/e012.f
-../../source/src_pp3d/projma.f
-../../source/src_pp3d/coeff.f
-../../source/src_pp3d/indat3d.f
-../../source/src_pp3d/gupwd.f
-../../source/src_pp3d/nsdef.f
-../../source/src_pp3d/bndry.f
-../../source/src_pp3d/conv.f
-../../source/src_pp3d/util.f
-../../source/src_pp3d/avs3d.f
-../../source/src_pp3d/period.f
-../../source/src_pp3d/parq3d.f
-../../source/src_pp3d/xmrout.f
-../../source/src_pp3d/rdparm.f
-../../source/src_pp3d/trsort.f
-../../source/src_pp3d/orsc.f
-../../source/src_pp3d/mgrout.f
-../../source/src_pp3d/inout.f
-../../source/src_pp3d/user.f
-../../source/src_pp3d/optcnl.f
-../../source/src_pp3d/dfkt.f
-../../source/src_pp3d/error.f
-../../source/src_pp3d/bmul.f
-../../source/src_pp3d/diff.f
-../../source/src_pp3d/nu_turb.f
-../../source/src_pp3d/prostp.f
-../../source/src_quadLS/QuadSc_solver.f
-../../source/src_quadLS/QuadSc_laplace.f
-../../source/src_quadLS/QuadSc_diff.f
-../../source/src_quadLS/QuadSc_massrho.f
-../../source/src_quadLS/QuadSc_proj.f
-../../source/src_quadLS/QuadSc_conv.f
-../../source/src_quadLS/QuadSc_shear.f
-../../source/src_quadLS/QuadSc_stress.f
-../../source/src_quadLS/QuadSc_force.f90
-../../source/src_quadLS/QuadSc_gravity.f
-../../source/src_quadLS/QuadSc_BMatrix.f
-../../source/src_mpi/smooth_mpi.f
-../../source/src_mpi/master_mpi.f
-../../source/src_LinSc/LinSc_conv.f
-../../source/src_LinSc/LinSc_diff.f
-../../source/src_LinSc/LinSc_solver.f
-../../source/src_pp3d/def_feat.f90
-../../source/OutputProfiles.f90
-../../source/src_quadLS/QuadSc_mpi.f90
-../../source/src_quadLS/QuadSc_main.f90
-../../source/src_quadLS/QuadSc_var.f90
-../../source/src_quadLS/QuadSc_user.f90
-../../source/src_quadLS/QuadSc_mg.f90
-../../source/src_quadLS/QuadSc_def.f90
-../../source/tetra.f90
-../../source/Init.f90
-../../source/Statistics.f90
-../../source/Umbrella.f90
-../../source/src_mpi/pp3d_mpi.f90
-../../source/src_LinSc/LinSc_def.f90
-../../source/src_LinSc/LinSc_dfkt.f90
-../../source/src_LinSc/LinSc_main.f90
-../../source/src_PLin/PLinSc_def.f90
-../../source/src_PLin/PLinSc_main.f90
-../../source/src_PLin/PLinSc_matstr.f
-../../source/src_PLin/PLinSc_mass.f
-../../source/src_PLin/PLinSc_user.f90
-../../source/src_PLin/PLinSc_conv.f
-../../source/src_PLin/PLinSc_norm.f
-../../source/src_PLin/PLinSc_flux.f
-../../source/src_PLin/PLinSc_intphase.f
-../../source/src_PLin/PLinSc_intpol.f
-../../source/src_PLin/PLinSc_limiter.f
-../../source/src_PLin/PLinSc_mpi.f
-../../source/src_PLin/PLinSc_density.f90
-../../source/ProcCtrl.f90
-../../source/UmfpackSolver.f90
-../../source/inverse.f90
-../../source/Parametrization.f90
-../../source/distance.f90
-../../source/3x3EigenV.f
-../../source/src_visco/Visco_integration.f
-../../source/src_visco/Visco_solver.f
-../../source/src_visco/Visco_main.f90
-../../source/src_visco/Visco_def.f90
-../../source/src_mesh/mesh_refine.f90
-../../source/cinterface/cinterface.f90
+${Elements} 
+${src_q2p1} 
+${src_pp3d} 
+${src_mpi} 
+${src_PLin} 
+${src_LinSc} 
+${src_quadLS_ext} 
+${src_visco} 
+${src_mesh}
+${src_cinterface}
 app_init.f90
 postprocessing.f90
 q2p1_fc_ext.f90
@@ -94,6 +44,18 @@ q2p1_fc_ext.f90
 
 # Add the application executable
 add_executable(q2p1_fc_ext ${src_q2p1_fc_ext}) 
+
+source_group(src_quadLS FILES ${src_q2p1})
+source_group(src_pp3d FILES ${src_pp3d})
+source_group(src_mpi FILES ${src_mpi})
+source_group(src_PLin FILES ${src_PLin})
+source_group(src_LinSc FILES ${src_LinSc})
+source_group(src_quadLS FILES ${src_quadLS_ext})
+source_group(src_visco FILES ${src_visco})
+source_group(src_mesh FILES ${src_mesh})
+source_group(src_cinterface FILES ${src_cinterface})
+source_group(Elements FILES ${Elements})
+
 
 target_link_libraries(q2p1_fc_ext 
   amd

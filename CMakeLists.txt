@@ -72,117 +72,116 @@ option(BUILD_APPLICATIONS
 )
 
 set(src_pp3d
-source/src_pp3d/projma.f
-source/src_pp3d/coeff.f
-source/src_pp3d/indat3d.f
-source/src_pp3d/gupwd.f
-source/src_pp3d/nsdef.f
-source/src_pp3d/bndry.f
-source/src_pp3d/conv.f
-source/src_pp3d/util.f
-source/src_pp3d/avs3d.f
-source/src_pp3d/period.f
-source/src_pp3d/parq3d.f
-source/src_pp3d/xmrout.f
-source/src_pp3d/rdparm.f
-source/src_pp3d/les.f
-source/src_pp3d/trsort.f
-source/src_pp3d/orsc.f
-source/src_pp3d/mgrout.f
-source/src_pp3d/inout.f
-source/src_pp3d/user.f
-source/src_pp3d/optcnl.f
-source/src_pp3d/dfkt.f
-source/src_pp3d/error.f
-source/src_pp3d/bmul.f
-source/src_pp3d/diff.f
-source/src_pp3d/nu_turb.f
-source/src_pp3d/prostp.f
-source/src_pp3d/def_feat.f90
+${CMAKE_SOURCE_DIR}/source/src_pp3d/projma.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/coeff.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/indat3d.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/gupwd.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/nsdef.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/bndry.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/conv.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/util.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/avs3d.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/period.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/parq3d.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/xmrout.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/rdparm.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/trsort.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/orsc.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/mgrout.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/inout.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/user.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/optcnl.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/dfkt.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/error.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/bmul.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/diff.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/nu_turb.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/prostp.f
+${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
 #source/src_pproc/pproc_main.f90
 )
 
 set(Elements
-source/Elements/e013.f
-source/Elements/e012.f
+${CMAKE_SOURCE_DIR}/source/Elements/e013.f
+${CMAKE_SOURCE_DIR}/source/Elements/e012.f
 )
 
 set(src_quadLS
-source/src_quadLS/QuadSc_solver.f
-source/src_quadLS/QuadSc_laplace.f
-source/src_quadLS/QuadSc_diff.f
-source/src_quadLS/QuadSc_massrho.f
-source/src_quadLS/QuadSc_proj.f
-source/src_quadLS/QuadSc_conv.f
-source/src_quadLS/QuadSc_shear.f
-source/src_quadLS/QuadSc_stress.f
-#source/src_quadLS/QuadSc_force.f90
-source/src_quadLS/QuadSc_force.f
-source/src_quadLS/QuadSc_gravity.f
-source/src_quadLS/QuadSc_BMatrix.f
-source/src_quadLS/QuadSc_mpi.f90
-source/src_quadLS/QuadSc_main.f90
-source/src_quadLS/QuadSc_var.f90
-source/src_quadLS/QuadSc_user.f90
-source/src_quadLS/QuadSc_mg.f90
-source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
+#${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 )
 
 set(src_mpi
-source/src_mpi/smooth_mpi.f
-source/src_mpi/master_mpi.f
+${CMAKE_SOURCE_DIR}/source/src_mpi/smooth_mpi.f
+${CMAKE_SOURCE_DIR}/source/src_mpi/master_mpi.f
 )
 
 set(src_LinSc
-source/src_LinSc/LinSc_conv.f
-source/src_LinSc/LinSc_diff.f
-source/src_LinSc/LinSc_solver.f
-source/src_LinSc/LinSc_def.f90
-source/src_LinSc/LinSc_dfkt.f90
-source/src_LinSc/LinSc_main.f90
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_dfkt.f90
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_main.f90
 )
 
 set(src_PLin
-source/src_PLin/PLinSc_def.f90
-source/src_PLin/PLinSc_main.f90
-source/src_PLin/PLinSc_matstr.f
-source/src_PLin/PLinSc_mass.f
-source/src_PLin/PLinSc_user.f90
-source/src_PLin/PLinSc_conv.f
-source/src_PLin/PLinSc_norm.f
-source/src_PLin/PLinSc_flux.f
-source/src_PLin/PLinSc_intphase.f
-source/src_PLin/PLinSc_intpol.f
-source/src_PLin/PLinSc_limiter.f
-source/src_PLin/PLinSc_mpi.f
-source/src_PLin/PLinSc_density.f90
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_main.f90
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_matstr.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mass.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_user.f90
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_conv.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_norm.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_flux.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intphase.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intpol.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_limiter.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mpi.f
+${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_density.f90
 )
 
 set(src_visco
-source/src_visco/Visco_integration.f
-source/src_visco/Visco_solver.f
-source/src_visco/Visco_main.f90
-source/src_visco/Visco_def.f90
+${CMAKE_SOURCE_DIR}/source/src_visco/Visco_integration.f
+${CMAKE_SOURCE_DIR}/source/src_visco/Visco_solver.f
+${CMAKE_SOURCE_DIR}/source/src_visco/Visco_main.f90
+${CMAKE_SOURCE_DIR}/source/src_visco/Visco_def.f90
 )
 
 set(src_mesh
-source/src_mesh/mesh_refine.f90
+${CMAKE_SOURCE_DIR}/source/src_mesh/mesh_refine.f90
 )
 
 # source files for standard q2p1 
 set(src_q2p1
-source/OutputProfiles.f90
-source/tetra.f90
-source/Init.f90
-source/Statistics.f90
-source/Umbrella.f90
-source/src_mpi/pp3d_mpi.f90
-source/ProcCtrl.f90
-source/UmfpackSolver.f90
-source/inverse.f90
-source/Parametrization.f90
-source/distance.f90
-source/3x3EigenV.f
+${CMAKE_SOURCE_DIR}/source/OutputProfiles.f90
+${CMAKE_SOURCE_DIR}/source/tetra.f90
+${CMAKE_SOURCE_DIR}/source/Init.f90
+${CMAKE_SOURCE_DIR}/source/Statistics.f90
+${CMAKE_SOURCE_DIR}/source/Umbrella.f90
+${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+${CMAKE_SOURCE_DIR}/source/ProcCtrl.f90
+${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
+${CMAKE_SOURCE_DIR}/source/inverse.f90
+${CMAKE_SOURCE_DIR}/source/Parametrization.f90
+${CMAKE_SOURCE_DIR}/source/distance.f90
+${CMAKE_SOURCE_DIR}/source/3x3EigenV.f
 )
 
 #--------------------------------------------------------------------------------------------------------------------
@@ -191,21 +190,28 @@ source/3x3EigenV.f
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
-source_group(collision FILES ${src_mpi})
+source_group(src_mpi FILES ${src_mpi})
 source_group(src_PLin FILES ${src_PLin})
 source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
+source_group(Elements FILES ${Elements})
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
 #--------------------------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh}) 
+add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh} ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
+
 
 #--------------------------------------------------------------------------------------------------------------------
 #                                    search for the libraries and link them
 #--------------------------------------------------------------------------------------------------------------------
+
+option(BUILD_METIS
+    "Enables build of metis library"
+    OFF
+)
 
 find_package(BLAS)
 find_package(LAPACK)
@@ -227,6 +233,10 @@ add_subdirectory(extern/libraries/feat3d)
 add_subdirectory(extern/libraries/sysutils)
 add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
+
+if(BUILD_METIS)
+  add_subdirectory(extern/libraries/metis-4.0.3)
+endif(BUILD_METIS)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)

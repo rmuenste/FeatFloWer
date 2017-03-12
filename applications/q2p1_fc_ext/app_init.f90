@@ -1,4 +1,53 @@
-SUBROUTINE General_init_ext(MDATA,MFILE)
+subroutine init_q2p1_ext
+    
+  USE def_FEAT
+  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
+    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
+    Reinit_Interphase,dMaxSTF
+  USE QuadScalar, ONLY : Init_QuadScalar_Stuctures, &
+    InitCond_QuadScalar,Transport_QuadScalar,ProlongateSolution, &
+    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
+    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
+  USE LinScalar, ONLY : Init_LinScalar,InitCond_LinScalar, &
+    Transport_LinScalar
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  USE var_QuadScalar, ONLY : myStat,cFBM_File
+
+  !-------INIT PHASE-------
+
+  ! Initialization for FEATFLOW
+  CALL General_init_ext(79,mfile)
+
+  CALL Init_QuadScalar_Stuctures(mfile)
+
+  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(mfile)
+
+  CALL Init_LinScalar
+
+  CALL InitCond_LinScalar()
+
+  IF (ISTART.EQ.0) THEN
+    IF (myid.ne.0) CALL CreateDumpStructures(1)
+    CALL InitCond_QuadScalar()
+    IF(bViscoElastic)CALL IniProf_ViscoScalar()
+  ELSE
+    IF (ISTART.EQ.1) THEN
+      IF (myid.ne.0) CALL CreateDumpStructures(1)
+      CALL SolFromFile(CSTART,1)
+    ELSE
+      IF (myid.ne.0) CALL CreateDumpStructures(0)
+      CALL SolFromFile(CSTART,0)
+      CALL ProlongateSolution()
+      IF (myid.ne.0) CALL CreateDumpStructures(1)
+    END IF
+  END IF
+
+end subroutine init_q2p1_ext
+!
+!----------------------------------------------
+!
+ SUBROUTINE General_init_ext(MDATA,MFILE)
   USE def_FEAT
   USE PP3D_MPI
   USE MESH_Structures
@@ -304,6 +353,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                               mg_mesh%level(ILEV)%nel,&
                               mg_mesh%level(ILEV)%nvt)
   DEALLOCATE(SendVect)
+
+  showid = 1
 
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
