@@ -5,17 +5,16 @@ PROGRAM Q2P1_FC_EXT
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
-  logical            :: bstop
-  real               :: tout = 0.0
+  real               :: dout = 0.0
   integer            :: ufile, uterm,ilog
+  real               :: tt0 = 0.0
 
   !-------INIT PHASE-------
 
   call init_q2p1_ext(ufile)
 
-  tout = Real(INT(timens/dtgmv)+1)*dtgmv
-
-  CALL ZTIME(ttt0)
+  CALL ZTIME(tt0)
+  dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
   !-------MAIN LOOP-------
 
@@ -26,14 +25,8 @@ PROGRAM Q2P1_FC_EXT
   dt=tstep
   timens=timens+dt
 
-  IF (bstop) STOP
-
-  ! Viscoelastic transport equations
-  IF(bViscoElastic)CALL Transport_ViscoScalar(ufile)
-
-  ! Solve Navier-Stokes
-  !CALL Transport_QuadScalar_fc_ext(ufile,inonln_u,itns)
-  CALL Transport_QuadScalar(ufile,inonln_u,itns)
+  ! Solve Navier-Stokes (add discretization in name + equation or quantity)
+  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
@@ -42,19 +35,17 @@ PROGRAM Q2P1_FC_EXT
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(tout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
 
-  call handle_statistics(ttt0,tttx,itns)
+  call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
-  call print_time(timens,timemx,tstep, itns, nitns, ufile,uterm)
+  call handle_statistics(tt0,itns)
 
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 
   END DO
 
-5     FORMAT(104('='))
-
-  call sim_finalize(ttt0,ttt1,ufile)
+  call sim_finalize(tt0,ufile)
 
 END PROGRAM Q2P1_FC_EXT

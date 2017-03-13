@@ -1,5 +1,5 @@
       FUNCTION PolyFLOW_Carreau(NormShearSquare)
-      USE QuadScalar, ONLY : Properties
+      USE Transport_UxyzP_Q2P1, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: PolyFLOW_Carreau
@@ -39,7 +39,7 @@
 !       END 
 
       FUNCTION HogenPowerlaw(NormShearSquare)
-      USE QuadScalar, ONLY : Properties
+      USE Transport_UxyzP_Q2P1, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: HogenPowerlaw

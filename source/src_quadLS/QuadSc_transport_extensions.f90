@@ -1,4 +1,4 @@
-SUBROUTINE Transport_QuadScalar_fc_ext(mfile,inl_u,itns)
+SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -240,7 +240,7 @@ END IF
 
 RETURN
 
-END SUBROUTINE Transport_QuadScalar_fc_ext
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
 !
 ! ----------------------------------------------
 !

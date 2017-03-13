@@ -1,4 +1,5 @@
-MODULE QuadScalar
+! TODO: new name Navier-Stokes + Q2 or similar
+MODULE Transport_UxyzP_Q2P1  
 
 USE def_QuadScalar
 ! USE PP3D_MPI
@@ -12,6 +13,7 @@ USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 IMPLICIT NONE
 
 TYPE(TQuadScalar)   QuadSc
+! TODO: Move these to var
 TYPE(TLinScalar)    LinSc
 TYPE(TViscoScalar)  ViscoSc
 TYPE(TParLinScalar) PLinSc
@@ -27,7 +29,7 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_QuadScalar(mfile,inl_u,itns)
+SUBROUTINE Transport_q2p1_UxyzP(mfile,inl_u,itns)
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -269,7 +271,7 @@ END IF
 
 RETURN
 
-END SUBROUTINE Transport_QuadScalar
+END SUBROUTINE Transport_q2p1_UxyzP
 !
 ! ----------------------------------------------
 !
@@ -1663,5 +1665,5 @@ SUBROUTINE  StoreOrigCoor(dcoor)
 END SUBROUTINE  StoreOrigCoor
 
 
-END MODULE QuadScalar
+END MODULE Transport_UxyzP_Q2P1
 

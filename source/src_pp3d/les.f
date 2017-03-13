@@ -25,8 +25,8 @@
       USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS,
      * UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS,
      * Reinit_Interphase,dMaxSTF
-      USE QuadScalar, ONLY : Init_QuadScalar_Stuctures,
-     * InitCond_QuadScalar,Transport_QuadScalar,ProlongateSolution,
+      USE Transport_UxyzP_Q2P1, ONLY : Init_QuadScalar_Stuctures,
+     * InitCond_QuadScalar,Transport_q2p1_UxyzP,ProlongateSolution,
      * ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
       USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures,
      * Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
@@ -108,7 +108,7 @@ C
        IF(bViscoElastic)CALL Transport_ViscoScalar(mfile)
 
        ! Solve Navier-Stokes
-       CALL Transport_QuadScalar(mfile,inonln_u,itns)
+       CALL Transport_q2p1_UxyzP(mfile,inonln_u,itns)
 C
        IF (bTracer) THEN
         CALL Transport_LinScalar(mfile,inonln_t)

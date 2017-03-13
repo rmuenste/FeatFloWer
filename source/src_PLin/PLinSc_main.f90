@@ -1,6 +1,6 @@
 MODULE PLinScalar
 
-USE QuadScalar, ONLY: QuadSc,mgDensity,Density_Primary,&
+USE Transport_UxyzP_Q2P1, ONLY: QuadSc,mgDensity,Density_Primary,&
     Density_Secondary,ST_force,DiracEps
 USE def_PLinScalar
 USE PP3D_MPI, ONLY:myid,master,showID,COMM_Maximum,COMM_NLComplete,&

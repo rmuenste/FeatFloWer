@@ -4,7 +4,7 @@
       USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
       IMPLICIT NONE
       REAL*8 daux,ttt,daux1,ds
-      INTEGER myFile,myOutFile,itms
+      INTEGER myFile,myOutFile,itms,istat
       LOGICAL bExist
 
       itms = min(itns-1,nitns-1)
@@ -14,7 +14,11 @@
 
       IF (myOutFile.eq.0) THEN
        myFile = 669
-       OPEN (FILE='_data/Statistics.txt',UNIT=myFile)
+       OPEN (UNIT=myFile, FILE='_data/Statistics.txt',action='write',iostat=istat)
+       if(istat .ne. 0)then
+         write(*,*)"Could not open file for writing in StatOut(). "
+       stop          
+       end if
       ELSE
        myFile = myOutFile
       END IF

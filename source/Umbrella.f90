@@ -1,6 +1,6 @@
 SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 USE var_QuadScalar
-USE QuadScalar, ONLY : QuadSc,LinSc
+USE Transport_UxyzP_Q2P1, ONLY : QuadSc,LinSc
 USE PP3D_MPI, ONLY: myid,coarse
 REAL*8 myTime
 INTEGEr nSteps,nUsedSteps
@@ -70,7 +70,7 @@ END
 ! --------------------------------------------------------------
 !
 SUBROUTINE SendNodeValuesToCoarse(sv,dcoor,kvert,nV,nE,nel,nvt)
- USE QuadScalar, ONLY : myDump
+ USE Transport_UxyzP_Q2P1, ONLY : myDump
  USE PP3D_MPI
 
  INTEGER kvert(8,*)

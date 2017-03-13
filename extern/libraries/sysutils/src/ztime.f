@@ -26,15 +26,15 @@
 *                                                                      *
 ************************************************************************
 C
-      SUBROUTINE ZTIME(T)
-C
-      DOUBLE PRECISION T
-      REAL ETIME,VTA
-      DIMENSION VTA(2)
-C
-      T=ETIME(VTA)
-C
-      END
+!      SUBROUTINE ZTIME(T)
+!C
+!      DOUBLE PRECISION T
+!      REAL ETIME,VTA
+!      DIMENSION VTA(2)
+!C
+!      T=ETIME(VTA)
+!C
+!      END
       SUBROUTINE ZVALUE1()
 C
       DOUBLE PRECISION T

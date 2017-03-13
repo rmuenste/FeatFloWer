@@ -1,6 +1,6 @@
 SUBROUTINE mySolToFile(iOutput)
 USE def_FEAT
-USE QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
+USE Transport_UxyzP_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid
@@ -51,7 +51,7 @@ END SUBROUTINE mySolToFile
 !
 SUBROUTINE myOutput_Profiles(iOutput)
 USE def_FEAT
-USE QuadScalar,ONLY:QuadSc,LinSc,PressureToGMV,&
+USE Transport_UxyzP_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE LinScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
@@ -107,7 +107,7 @@ END SUBROUTINE
 !
 !----------------------------------------------
 !
-SUBROUTINE TimeStepCtrl(dt,inlU,inlT,MFILE)
+SUBROUTINE TimeStepCtrl(dt,inlU,inlT, filehandle)
 
   USE PP3D_MPI,only :myid,ShowID
 
@@ -117,7 +117,9 @@ SUBROUTINE TimeStepCtrl(dt,inlU,inlT,MFILE)
 
   COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,IADTIM
 
-  INTEGER :: inlU,inlT,MFILE
+  integer, intent(in) :: filehandle
+
+  INTEGER :: inlU,inlT
   INTEGER :: iMem,nMEm=2
   REAL*8  :: dt, dt_old
   CHARACTER(len=9) :: char_dt
@@ -140,27 +142,28 @@ SUBROUTINE TimeStepCtrl(dt,inlU,inlT,MFILE)
 
   IF (dt.NE.dt_old.AND.myid.eq.ShowID) THEN
     WRITE(MTERM,1) dt_old,dt
-    WRITE(MFILE,1) dt_old,dt
-    !       WRITE(MTERM,*) 
-    !       WRITE(MFILE,*) 
+    WRITE(filehandle,1) dt_old,dt
   END IF
 
   IF (dt.NE.dt_old) iMem = 0
 
-  1     FORMAT('Time step change from ',D9.2,' to ',D9.2)
+  1  FORMAT('Time step change from ',D9.2,' to ',D9.2)
 
 END SUBROUTINE TimeStepCtrl
 !
 ! ----------------------------------------------
 !
-subroutine postprocessing_fc_ext(tout, iogmv, inlU,inlT,MFILE)
+subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
 implicit none
 
+integer, intent(in) :: filehandle
+
 integer, intent(inout) :: iogmv
-real, intent(inout) :: tout
+real, intent(inout) :: dout
+
 INTEGER :: inlU,inlT,MFILE
 
 ! Output the solution in GMV or GiD format
@@ -170,7 +173,9 @@ IF (itns.eq.1) THEN
   CALL ZTIME(myStat%t1)
   myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
 END IF
-IF(tout.LE.(timens+1e-10)) THEN
+
+IF(dout.LE.(timens+1e-10)) THEN
+
   iOGMV = NINT(timens/dtgmv)
   IF (itns.ne.1) THEN
     CALL ZTIME(myStat%t0)
@@ -178,38 +183,39 @@ IF(tout.LE.(timens+1e-10)) THEN
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
   END IF
-  tout=tout+dtgmv
+  dout=dout+dtgmv
+
   ! Save intermediate solution to a dump file
   IF (insav.NE.0.AND.itns.NE.1) THEN
     IF (MOD(iOGMV,insav).EQ.0) THEN
       CALL ZTIME(myStat%t0)
       CALL SolToFile(-1)
-      !          CALL Output_DUMPProfiles()
-      CALL FBM_ToFile()
       CALL ZTIME(myStat%t1)
       myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
     END IF
   END IF
+
 END IF
 
 ! Timestep control
-CALL TimeStepCtrl(tstep,inlU,inlT,mfile)
+CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
 ! Interaction from user
-CALL ProcessControl(mfile,mterm)
+CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_fc_ext
 !
 ! ----------------------------------------------
 !
-subroutine handle_statistics(dttt0, dtttx, istepns)
+subroutine handle_statistics(dttt0, istepns)
 
 include 'defs_include.h'
 
 implicit none
 
-real, intent(inout) :: dttt0, dtttx
+real, intent(inout) :: dttt0
 integer, intent(inout) :: istepns
+real :: dttx = 0.0
 
 ! Statistics reset
 IF (istepns.eq.1) THEN
@@ -218,8 +224,8 @@ IF (istepns.eq.1) THEN
 END IF
 
 IF (MOD(istepns,10).EQ.5) THEN
-  CALL ZTIME(dtttx)
-  CALL StatOut(dtttx-dttt0,0)
+  CALL ZTIME(dttx)
+  CALL StatOut(dttx-dttt0,0)
 END IF
 
 end subroutine handle_statistics
@@ -256,20 +262,32 @@ end subroutine print_time
 !
 ! ----------------------------------------------
 !
-subroutine sim_finalize(dttt0, dttt1, mfile)
+subroutine sim_finalize(dttt0, filehandle)
 
-include 'defs_include.h'
+USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 
-implicit none
+real, intent(inout) :: dttt0
+integer, intent(in) :: filehandle
 
-real, intent(inout) :: dttt0, dttt1
-integer, intent(in) :: mfile
+integer :: ierr
+integer :: terminal = 6
+real :: time
 
-CALL ZTIME(dttt1)
 
-CALL StatOut(dttt1-dttt0,MFILE)
-CALL StatOut(dttt1-dttt0,MTERM)
+CALL ZTIME(time)
+CALL StatOut(time-dttt0,0)
 
-CALL Finalize(MFILE,MTERM)
+CALL StatOut(time-dttt0,terminal)
+
+! Save the final solution vector in unformatted form
+CALL SolToFile(-1)
+
+IF (myid.eq.showid) THEN
+  WRITE(MTERM,*) "PP3D_LES has successfully finished. "
+  WRITE(filehandle,*) "PP3D_LES has successfully finished. "
+END IF
+
+CALL Barrier_myMPI()
+CALL MPI_Finalize(ierr)
 
 end subroutine sim_finalize

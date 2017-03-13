@@ -1,6 +1,6 @@
 MODULE ViscoScalar
 
-USE QuadScalar
+USE Transport_UxyzP_Q2P1
 USE def_ViscoScalar
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 

@@ -1,7 +1,7 @@
 SUBROUTINE ProcessControl(MFILE,MTERM)
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
- USE QuadScalar, ONLY : myDataFile,QuadSc,LinSc,Properties,&
+ USE Transport_UxyzP_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties,&
                         GetVeloParameters,GetPresParameters,GetPhysiclaParameters
  IMPLICIT NONE
  CHARACTER string*200,command*100,cvalue*100,CSimPar*7
@@ -136,7 +136,6 @@ SUBROUTINE Finalize(MFILE,MTERM)
 
  ! Save the final solution vector in unformatted form
  CALL SolToFile(-1)
-! CALL Output_DUMPProfiles()
 
  IF (myid.eq.showid) THEN
    WRITE(MTERM,*) "PP3D_LES has successfully finished. "
