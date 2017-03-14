@@ -2047,6 +2047,5 @@ implicit none
 Real, intent(inout) :: t
 
 call CPU_TIME(t)
-t = t * 1e6
 
 end subroutine ztime

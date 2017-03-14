@@ -62,7 +62,6 @@ target_link_libraries(q2p1_fc_ext
   umfpack4
   feat2d
   feat3d
-  sysutils 
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
   inshape3dcore

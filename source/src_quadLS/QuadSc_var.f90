@@ -93,12 +93,12 @@ END TYPE
 
 TYPE tStatistics
  INTEGER :: iNonLin=0,iLinUVW=0,iLinP=0
- REAL*8  :: tMGUVW=0d0,tMGP=0d0,tDefUVW=0d0,tDefP=0d0,tCorrUVWP=0d0
- REAL*8  :: tGMVOut=0d0,tDumpOut=0d0
- REAL*8  :: tSmat=0d0,tKmat=0d0,tDmat=0d0,tMmat=0d0,tCmat=0d0
- REAL*8  :: tRestUVW=0d0,tProlUVW=0d0,tSmthUVW=0d0,tSolvUVW=0d0
- REAL*8  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
- REAL*8  t0,t1
+ REAL  :: tMGUVW=0d0,tMGP=0d0,tDefUVW=0d0,tDefP=0d0,tCorrUVWP=0d0
+ REAL  :: tGMVOut=0d0,tDumpOut=0d0
+ REAL  :: tSmat=0d0,tKmat=0d0,tDmat=0d0,tMmat=0d0,tCmat=0d0
+ REAL  :: tRestUVW=0d0,tProlUVW=0d0,tSmthUVW=0d0,tSolvUVW=0d0
+ REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
+ REAL  :: t0,t1
 END TYPE tStatistics
 TYPE (tStatistics) myStat
 

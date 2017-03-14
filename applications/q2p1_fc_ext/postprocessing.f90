@@ -271,13 +271,16 @@ integer, intent(in) :: filehandle
 
 integer :: ierr
 integer :: terminal = 6
-real :: time
+real :: time,time_passed
 
 
 CALL ZTIME(time)
-CALL StatOut(time-dttt0,0)
 
-CALL StatOut(time-dttt0,terminal)
+time_passed = time - dttt0
+CALL StatOut(time_passed,0)
+
+write(*,*)'before statout: ',time_passed
+CALL StatOut(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
 CALL SolToFile(-1)

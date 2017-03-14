@@ -1,9 +1,12 @@
-      SUBROUTINE StatOut(ttt,myOutFile)
+      SUBROUTINE StatOut(time_passed,myOutFile)
       USE def_FEAT
       USE PP3D_MPI, ONLY : myid,master,showid,subnodes
       USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
       IMPLICIT NONE
-      REAL*8 daux,ttt,daux1,ds
+
+      Real, intent(in) :: time_passed
+
+      REAL*8 daux,daux1,ds
       INTEGER myFile,myOutFile,itms,istat
       LOGICAL bExist
 
@@ -31,19 +34,19 @@
       WRITE(myFile,7) "Average MG-P   iters per timesteps ",myStat%iLinP/DBLE(itms)
       WRITE(myFile,7) "Average NonLin iters per timesteps ",myStat%iNonLin/DBLE(itms)
       WRITE(myFile,*) 
-      WRITE(myFile,8) "Overall time           ",ttt,ttt*ds
+      WRITE(myFile,8) "Overall time           ",time_passed,time_passed*ds
       WRITE(myFile,*) 
 
       daux1=myStat%tDefUVW
       IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) daux1=myStat%tDefUVW-myStat%tSMat
 
       daux = myStat%tMGUVW+myStat%tMGP+daux1+myStat%tDefP + myStat%tCorrUVWP
-      WRITE(myFile,9) "Computation time        ",daux,daux*ds,1d2*daux/ttt
-      WRITE(myFile,9) "Linear MG UVW           ",myStat%tMGUVW,myStat%tMGUVW*ds,1d2*myStat%tMGUVW/ttt
-      WRITE(myFile,9) "Linear MG   P           ",myStat%tMGP,myStat%tMGP*ds,1d2*myStat%tMGP/ttt
-      WRITE(myFile,9) "Defect computation UVW  ",daux1,daux1*ds,1d2*daux1/ttt
-      WRITE(myFile,9) "Defect computation   P  ",myStat%tDefP,myStat%tDefP*ds,1d2*myStat%tDefP/ttt
-      WRITE(myFile,9) "Correction UVWP         ",myStat%tCorrUVWP,myStat%tCorrUVWP*ds,1d2*myStat%tCorrUVWP/ttt
+      WRITE(myFile,9) "Computation time        ",daux,daux*ds,1d2*daux/time_passed
+      WRITE(myFile,9) "Linear MG UVW           ",myStat%tMGUVW,myStat%tMGUVW*ds,1d2*myStat%tMGUVW/time_passed
+      WRITE(myFile,9) "Linear MG   P           ",myStat%tMGP,myStat%tMGP*ds,1d2*myStat%tMGP/time_passed
+      WRITE(myFile,9) "Defect computation UVW  ",daux1,daux1*ds,1d2*daux1/time_passed
+      WRITE(myFile,9) "Defect computation   P  ",myStat%tDefP,myStat%tDefP*ds,1d2*myStat%tDefP/time_passed
+      WRITE(myFile,9) "Correction UVWP         ",myStat%tCorrUVWP,myStat%tCorrUVWP*ds,1d2*myStat%tCorrUVWP/time_passed
       WRITE(myFile,*) 
       daux = myStat%tProlUVW+myStat%tRestUVW+myStat%tSmthUVW+myStat%tSolvUVW
       WRITE(myFile,9) "UVW Multigrid           ",daux,daux*ds,1d2*daux/myStat%tMGUVW
@@ -60,17 +63,17 @@
       WRITE(myFile,9) "Coarsegrid solver       ",myStat%tSolvP,myStat%tSolvP*ds,1d2*myStat%tSolvP/myStat%tMGP
       WRITE(myFile,*) 
       daux = myStat%tKMat+myStat%tDMat+myStat%tMMat+myStat%tCMat+myStat%tSMat
-      WRITE(myFile,9) "Operator assembly time  ",daux,daux*ds,1d2*daux/ttt
-      WRITE(myFile,9) "Convection matrix       ",myStat%tKMat,myStat%tKMat*ds,1d2*myStat%tKMat/ttt
-      WRITE(myFile,9) "Deformation matrix      ",myStat%tSMat,myStat%tSMat*ds,1d2*myStat%tSMat/ttt
-      WRITE(myFile,9) "Diffusion matrix        ",myStat%tDMat,myStat%tDMat*ds,1d2*myStat%tDMat/ttt
-      WRITE(myFile,9) "Mass matrix             ",myStat%tMMat,myStat%tMMat*ds,1d2*myStat%tMMat/ttt
-      WRITE(myFile,9) "Pressure-Schur matrix   ",myStat%tCMat,myStat%tCMat*ds,1d2*myStat%tCMat/ttt
+      WRITE(myFile,9) "Operator assembly time  ",daux,daux*ds,1d2*daux/time_passed
+      WRITE(myFile,9) "Convection matrix       ",myStat%tKMat,myStat%tKMat*ds,1d2*myStat%tKMat/time_passed
+      WRITE(myFile,9) "Deformation matrix      ",myStat%tSMat,myStat%tSMat*ds,1d2*myStat%tSMat/time_passed
+      WRITE(myFile,9) "Diffusion matrix        ",myStat%tDMat,myStat%tDMat*ds,1d2*myStat%tDMat/time_passed
+      WRITE(myFile,9) "Mass matrix             ",myStat%tMMat,myStat%tMMat*ds,1d2*myStat%tMMat/time_passed
+      WRITE(myFile,9) "Pressure-Schur matrix   ",myStat%tCMat,myStat%tCMat*ds,1d2*myStat%tCMat/time_passed
       WRITE(myFile,*) 
       daux = myStat%tGMVOut +myStat%tDumpOut
-      WRITE(myFile,9) "Output time             ",daux,daux*ds,1d2*daux/ttt
-      WRITE(myFile,9) "GMV output              ",myStat%tGMVOut,myStat%tGMVOut*ds,1d2*myStat%tGMVOut/ttt
-      WRITE(myFile,9) "Dump file output        ",myStat%tDumpOut,myStat%tDumpOut*ds,1d2*myStat%tDumpOut/ttt
+      WRITE(myFile,9) "Output time             ",daux,daux*ds,1d2*daux/time_passed
+      WRITE(myFile,9) "GMV output              ",myStat%tGMVOut,myStat%tGMVOut*ds,1d2*myStat%tGMVOut/time_passed
+      WRITE(myFile,9) "Dump file output        ",myStat%tDumpOut,myStat%tDumpOut*ds,1d2*myStat%tDumpOut/time_passed
 
       IF (myOutFile.eq.0) THEN
        CLOSE (myFile)

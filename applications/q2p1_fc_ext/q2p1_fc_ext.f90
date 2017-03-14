@@ -8,12 +8,15 @@ PROGRAM Q2P1_FC_EXT
   real               :: dout = 0.0
   integer            :: ufile, uterm,ilog
   real               :: tt0 = 0.0
+  real               :: dtt0 = 0.0
 
   !-------INIT PHASE-------
 
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
+  call ztime(dtt0)
+
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
   !-------MAIN LOOP-------

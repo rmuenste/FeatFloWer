@@ -230,7 +230,6 @@ message(STATUS "mpi libs : ${MPI_Fortran_LIBRARIES}")
 
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
-add_subdirectory(extern/libraries/sysutils)
 add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
 
@@ -250,7 +249,6 @@ target_link_libraries(q2p1
   umfpack4
   feat2d
   feat3d
-  sysutils 
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
   #  inshape3dcore
