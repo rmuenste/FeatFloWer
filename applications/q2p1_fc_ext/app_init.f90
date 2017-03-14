@@ -108,20 +108,6 @@ end subroutine init_q2p1_ext
   !     Grid generation
   !=======================================================================
 
-  IF (myid.eq.1) THEN
-    WRITE(MTERM,'(37("-"),A30,37("-"))') " Grid Partititioning starts  "
-    WRITE(MFILE,'(37("-"),A30,37("-"))') " Grid Partititioning starts  "
-    WRITE(MFILE,*)  "Partitioning command:"
-    WRITE(command,'(A,I4,A3,I3,5A)') "./partitioner",subnodes," 1 ",nSubCoarseMesh,&
-      ' "',TRIM(ADJUSTL(cGridFileName)),'" "',TRIM(ADJUSTL(cProjectFile)),'" 1> /dev/null'
-    WRITE(MTERM,*) "Partitioning command: "
-    WRITE(MFILE,*)  "Partitioning command:"
-    WRITE(MTERM,*) command
-    WRITE(MFILE,*) command
-    CALL execute_command_line(command,wait=bwait)
-    WRITE(MTERM,'(37("-"),A30,37("-"))') " Grid Partititioning finished "
-    WRITE(MFILE,'(37("-"),A30,37("-"))') " Grid Partititioning finished "
-  END IF
   CALL CommBarrier()
   CMESH1="_mesh/                 "                     ! PARALLEL
   LenFile = LEN((TRIM(ADJUSTL(cGridFileName))))
