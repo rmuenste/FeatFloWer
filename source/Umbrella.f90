@@ -437,7 +437,6 @@ DO i=1,nel
   END IF
  END DO
 END DO
-return
 
 k=1
 DO i=1,nel
@@ -548,3 +547,4 @@ END IF
 
 
 END SUBROUTINE ExchangeNodeValuesOnCoarseLevel
+

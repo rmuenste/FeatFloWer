@@ -163,8 +163,6 @@ SUBROUTINE General_init(MDATA,MFILE)
                   mg_mesh%level(II)%karea,&
                   mg_mesh%level(II)%kvert)
 
-!  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
-
   IF (myid.EQ.0) NLMAX = 1
 
   DO II=NLMIN+1,NLMAX
@@ -250,11 +248,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
       CALL ParametrizeBndr(mg_mesh,ilev)
 
-      IF (myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev) THEN
-      ELSE
-
-    !      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-    !        KWORK(L(LEDGE)),nel,nvt,net,nat)
+      IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
 
         CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                    mg_mesh%level(ILEV+1)%dcorvg,&

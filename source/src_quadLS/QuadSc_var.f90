@@ -47,16 +47,17 @@ TYPE tMesh
 
   integer :: NVEL = 0
 
-  ! Coordinate arrays, _old is for mesh deformation 
-  real*8, allocatable, dimension(:,:) :: dcorvg
-
-  real*8, allocatable, dimension(:,:) :: dcorag
-
-  real*8, allocatable, dimension(:) :: dvol
-
-  real*8, allocatable, dimension(:,:) :: dcorvg_old
-
   ! Conntectivity arrays
+
+  ! Coordinate arrays, _old is for mesh deformation 
+  real*8,  pointer, dimension(:,:) :: dcorvg => null()
+
+  real*8,  allocatable, dimension(:,:) :: dcorag
+
+  real*8,  allocatable, dimension(:) :: dvol
+
+  real*8,  allocatable, dimension(:,:) :: dcorvg_old
+
   integer, allocatable, dimension(:,:) :: kvert
 
   integer, allocatable, dimension(:,:) :: kvel
@@ -375,7 +376,6 @@ integer function KNVT(ilevel)
    KNVT = mg_mesh%level(ilevel)%nvt
   return 
 end function KNVT
-
 
 END MODULE var_QuadScalar
 

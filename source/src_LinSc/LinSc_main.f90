@@ -41,7 +41,7 @@ IF (myid.ne.0) THEN
  Tracer%rhs = Tracer%def
 
 ! Set dirichlet boundary conditions on the solution
- CALL Boundary_LinSc_Val(DWORK(L(LCORVG)))
+! CALL Boundary_LinSc_Val(DWORK(L(LCORVG)))
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_LinScalar(Tracer,-1,1)
@@ -175,14 +175,14 @@ END SUBROUTINE Init_LinScalar
 ! ----------------------------------------------
 !
 SUBROUTINE InitCond_LinScalar()
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
 NLMAX = NLMAX + 1
 
 ILEV=NLMAX
 CALL SETLEV(2)
 
-! Set initial conditions
-CALL InitCond(LinSc_InitCond)
+CALL LinSc_InitCond(mg_mesh%level(ilev)%dcorvg)
 
 ! Set boundary conditions
 CALL Boundary_LinSc_Val(mg_mesh%level(ilev)%dcorvg)
@@ -230,7 +230,7 @@ END SUBROUTINE LinSc_Knpr
 ! ----------------------------------------------
 !
 SUBROUTINE LinSc_InitCond(dcorvg)
-REAL*8 dcorvg(3,*)
+REAL*8, dimension(:,:), pointer :: dcorvg
 REAL*8 X,Y,Z
 REAL*8 :: RX = 0.0d0, RY = 0.0d0, RZ = 2.4d0
 REAL*8 :: RADx = 0.20d0,RADs=0.040
@@ -273,7 +273,7 @@ END SUBROUTINE Boundary_LinSc_Def
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_LinSc_Val(dcorvg)
-REAL*8 dcorvg(3,*)
+REAL*8, dimension(:,:), pointer :: dcorvg
 REAL*8 X,Y,Z
 REAL*8 :: RX = 0.0d0,RY = 0.0d0
 REAL*8 :: RADx = 0.2d0

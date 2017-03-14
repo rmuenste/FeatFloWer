@@ -297,8 +297,7 @@ end subroutine init_q2p1_ext
       IF (myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev) THEN
       ELSE
 
-    !      CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-    !        KWORK(L(LEDGE)),nel,nvt,net,nat)
+        write(*,*)'Prolongating: ',ilev, ilev+1
 
         CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                    mg_mesh%level(ILEV+1)%dcorvg,&

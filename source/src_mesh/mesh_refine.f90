@@ -244,7 +244,7 @@
 
         read(cunit, *)
 
-        if(.not.allocated(mgMesh%level(1)%dcorvg))then
+        if(.not.associated(mgMesh%level(1)%dcorvg))then
           allocate(mgMesh%level(1)%dcorvg(3,mgMesh%level(1)%nvt))
         end if
 
@@ -291,6 +291,7 @@
       subroutine refineMesh(mgMesh,maxlevel)
       use PP3D_MPI, only:myid,showid
       use var_QuadScalar
+      implicit none
 
       type(tMultiMesh) :: mgMesh
       integer :: maxlevel
@@ -310,13 +311,22 @@
       end if
 
       do ilevel=1,nfine
+
         icurr = icurr + 1 
         call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
         call genMeshStructures(mgMesh%level(icurr))
+
         if(myid.eq.1)then
           write(*,*)'-----RefinementLevelFinished-----'
         end if
+
       end do
+
+      do ilevel=1,maxlevel-1 
+        deallocate(mgMesh%level(ilevel)%dcorvg)
+        mgMesh%level(ilevel)%dcorvg => mgMesh%level(maxlevel)%dcorvg
+      end do
+
 
       end subroutine
 !+––––––––––––––––––––––––––––––––––––––––––––––
@@ -327,6 +337,7 @@
       subroutine refineMeshLevel(mesh0, mesh1)
       use PP3D_MPI, only:myid,showid
       use var_QuadScalar
+      implicit none
 
       type(tMesh) :: mesh0
       type(tMesh) :: mesh1
@@ -355,7 +366,7 @@
 
       mesh1%nvt = mesh0%nvt + mesh0%net + mesh0%nat + mesh0%nel
 
-      if(.not.allocated(mesh1%dcorvg))then
+      if(.not.associated(mesh1%dcorvg))then
         allocate(mesh1%dcorvg(3,mesh1%nvt))
       end if
 

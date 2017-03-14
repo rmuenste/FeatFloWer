@@ -262,6 +262,25 @@ end subroutine print_time
 !
 ! ----------------------------------------------
 !
+subroutine release_mesh() 
+USE PP3D_MPI, ONLY : myid,master,showid
+USE var_QuadScalar, only : mg_mesh
+implicit none
+
+integer :: i
+integer :: maxlevel
+
+maxlevel = mg_mesh%maxlevel
+
+do i=maxlevel,maxlevel
+  deallocate(mg_mesh%level(i)%dcorvg)
+  mg_mesh%level(i)%dcorvg => null()
+end do
+
+end subroutine release_mesh
+!
+! ----------------------------------------------
+!
 subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
@@ -279,7 +298,6 @@ CALL ZTIME(time)
 time_passed = time - dttt0
 CALL StatOut(time_passed,0)
 
-write(*,*)'before statout: ',time_passed
 CALL StatOut(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
@@ -290,6 +308,7 @@ IF (myid.eq.showid) THEN
   WRITE(filehandle,*) "PP3D_LES has successfully finished. "
 END IF
 
+call release_mesh()
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
 
