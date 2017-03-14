@@ -115,10 +115,13 @@ Exanple: ./PyPartitioner.py 12 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
 mkdir("_mesh")
 
 # Format-Check der Parameter
-if len(sys.argv)!=6 and sys.argv[1].isdigit() and sys.argv[2].isdigit and sys.argv[3].isdigit:
+if len(sys.argv)!=6:
   sys.exit(__doc__)
 if not os.path.exists(sys.argv[5]):
   sys.exit("Projekt file '%s' does not exist!" % sys.argv[5])
+if len(sys.argv) >= 3:
+  if not sys.argv[1].isdigit() or not sys.argv[2].isdigit() or not sys.argv[3].isdigit():
+    sys.exit(__doc__)
 
 # Sanity-Check der Parameter
 NPart=int(sys.argv[1])
