@@ -19,9 +19,15 @@
 /*************************************************************************
 * This function is the entry point for PMETIS
 **************************************************************************/
+#ifdef WIN32
 __declspec(dllexport) void METIS_PartGraphRecursive(int *nvtxs, idxtype *xadj, idxtype *adjncy, idxtype *vwgt,
                               idxtype *adjwgt, int *wgtflag, int *numflag, int *nparts, 
                               int *options, int *edgecut, idxtype *part)
+#else
+void METIS_PartGraphRecursive(int *nvtxs, idxtype *xadj, idxtype *adjncy, idxtype *vwgt,
+                              idxtype *adjwgt, int *wgtflag, int *numflag, int *nparts, 
+                              int *options, int *edgecut, idxtype *part)
+#endif
 {
   int i;
   float *tpwgts;

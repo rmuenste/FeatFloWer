@@ -19,9 +19,15 @@
 /*************************************************************************
 * This function is the entry point for KMETIS
 **************************************************************************/
+#ifdef WIN32
 __declspec(dllexport) void METIS_PartGraphVKway(int *nvtxs, idxtype *xadj, idxtype *adjncy, idxtype *vwgt,
                          idxtype *vsize, int *wgtflag, int *numflag, int *nparts, 
                          int *options, int *volume, idxtype *part)
+#else
+void METIS_PartGraphVKway(int *nvtxs, idxtype *xadj, idxtype *adjncy, idxtype *vwgt,
+                         idxtype *vsize, int *wgtflag, int *numflag, int *nparts, 
+                         int *options, int *volume, idxtype *part)
+#endif
 {
   int i;
   float *tpwgts;

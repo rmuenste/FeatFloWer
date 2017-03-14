@@ -145,12 +145,22 @@ void GrowBisectionNode(CtrlType *, GraphType *, float);
 void RandomBisection(CtrlType *, GraphType *, int *, float);
 
 /* kmetis.c */
+#ifdef WIN32
 __declspec(dllexport) void METIS_PartGraphKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#else
+void METIS_PartGraphKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#endif
+
 void METIS_WPartGraphKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, float *, int *, int *, idxtype *); 
 int MlevelKWayPartitioning(CtrlType *, GraphType *, int, idxtype *, float *, float);
 
 /* kvmetis.c */
+#ifdef WIN32
 __declspec(dllexport) void METIS_PartGraphVKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#else
+void METIS_PartGraphVKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#endif
+
 void METIS_WPartGraphVKway(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, float *, int *, int *, idxtype *);
 int MlevelVolKWayPartitioning(CtrlType *, GraphType *, int, idxtype *, float *, float);
 
@@ -356,7 +366,12 @@ void METIS_NodeComputeSeparator(int *, idxtype *, idxtype *, idxtype *, idxtype 
 void METIS_EdgeComputeSeparator(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, idxtype *); 
 
 /* pmetis.c */
+#ifdef WIN32
 __declspec(dllexport) void METIS_PartGraphRecursive(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#else
+void METIS_PartGraphRecursive(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, int *, int *, idxtype *);
+#endif
+
 void METIS_WPartGraphRecursive(int *, idxtype *, idxtype *, idxtype *, idxtype *, int *, int *, int *, float *, int *, int *, idxtype *); 
 int MlevelRecursiveBisection(CtrlType *, GraphType *, int, idxtype *, float *, float, int);
 void MlevelEdgeBisection(CtrlType *, GraphType *, int *, float);
