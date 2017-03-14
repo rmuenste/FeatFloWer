@@ -24,7 +24,7 @@ INTEGER :: iMGL
 ! -****--------------*-*********-*----------
 INTEGER IterCycle,mgLev,CoarseIter
 REAL*8 DefNorm
-REAL*8 time0,time1
+REAL time0,time1
 
 ! INTEGER, ALLOCATABLE :: A_LD(:),A_COL(:)
 ! REAL*8, ALLOCATABLE :: A_MAT(:),A_RHS(:),A_SOL(:)

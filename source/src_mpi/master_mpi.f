@@ -125,10 +125,16 @@ C *** definition of finite elements
       EXTERNAL E030,E031,EM30,EM31
 C *** Multigrid components
       EXTERNAL  YAXU,YPROLU,YRESTU,YSMU,YEXU,YEXAU,YDBCU,YSTEPU
+
+      Real :: dtt0 = 0.0
+      Real :: dtt1 = 0.0
 C
 C=======================================================================
 C     First generation of the nonlinear block A on level NLMAX
 C=======================================================================
+
+      write(*,*)'NSDEF0 deprecated'
+      stop
 C
       BSTOP =.FALSE.
       BNLEND=.FALSE.
@@ -150,7 +156,7 @@ C
       CALL COMMDISTRU(DWORK(KU2),NU)
       CALL COMMDISTRU(DWORK(KU3),NU)
 C
-      CALL ZTIME(TTT0)
+      CALL ZTIME(dtt0)
       IF (IUPW.EQ.0) THEN
         CALL MATDEF_AFC(DWORK(KU1),DWORK(KU2),DWORK(KU3),
      *       DWORK(KF1),DWORK(KF2),DWORK(KF3),
@@ -171,17 +177,17 @@ C
      *       KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
      *       DWORK(L(LNUT)),IELT,DWORK(KM1),DWORK(KMASS1),0)
       END IF
-      CALL ZTIME(TTT1)
+      CALL ZTIME(dtt1)
       TTADF=TTADF+TTT1-TTT0
 C
-      CALL ZTIME(TTT0)
+      CALL ZTIME(dtt0)
       CALL BDRYS(DWORK(KU1),DWORK(KU2),DWORK(KU3),
      *           DWORK(KF1),DWORK(KF2),DWORK(KF3),
      *           VWORK(KA1),KWORK(KLDA),KWORK(L(LABD)),
      *           NABD,KWORK(L(LNPR)),DWORK(L(KNFBD(ILEV))),
      *           NVT,THSTEP,ISTOK)
 C
-      CALL ZTIME(TTT1)
+      CALL ZTIME(dtt1)
       TTBDR=TTBDR+TTT1-TTT0  
 C
 C=======================================================================

@@ -23,7 +23,7 @@ REAL*8 :: myPowerLawFluid(3),ViscoElasticForce(3)
 REAL*8 :: Sigma=0.034D0,DiracEps=0.00625d0
 INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
-REAL*8 tttt0,tttt1
+REAL tttt0,tttt1
 
 CONTAINS
 !

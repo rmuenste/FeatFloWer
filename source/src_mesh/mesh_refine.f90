@@ -561,7 +561,7 @@
       use var_QuadScalar
       IMPLICIT NONE
       type(tMesh) :: mesh
-      real*8 ttt0,ttt1
+      real :: ttt0=0.0,ttt1=0.0
 
 
         CALL ZTIME(TTT0)

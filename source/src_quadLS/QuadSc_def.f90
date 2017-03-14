@@ -1561,7 +1561,8 @@ EXTERNAL E013
 INTEGER :: idef
 INTEGER I,J
 TYPE(TQuadScalar) myScalar
-REAL*8 daux,tttx1,tttx0
+REAL*8 daux
+REAL tttx1,tttx0
 
 ! Build up the matrix
  IF (idef.eq.-1) THEN
