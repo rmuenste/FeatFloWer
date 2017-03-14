@@ -52,17 +52,11 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     # Aufspaltung in Untergitter
     if pMethod in (1,2,3):
       myPart=GetParts(myNeigh,nSubMesh,pMethod)
-    elif pMethod<0:
+    else:
       try:
         myPart=PartitionAlongAxis(myGrid,nSubMesh,pMethod)
       except AssertionError as ErrorInst:
         sys.exit("Error at creating subgrids along axis: %s"%ErrorInst)
-      pMethod=1
-    else:
-      try:
-        myPart=PartitionWithSymmetry(myGrid,nSubMesh)
-      except AssertionError as ErrorInst:
-        sys.exit("Error at creating symmetrical subgrids: %s"%ErrorInst)
       pMethod=1
     # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete
     myParam=(myParNames,myParTypes,myParameters,myBoundaries)
@@ -115,13 +109,10 @@ Exanple: ./PyPartitioner.py 12 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
 mkdir("_mesh")
 
 # Format-Check der Parameter
-if len(sys.argv)!=6:
+if not(len(sys.argv)==6 and sys.argv[1].isdigit() and sys.argv[3].isdigit()):
   sys.exit(__doc__)
 if not os.path.exists(sys.argv[5]):
   sys.exit("Projekt file '%s' does not exist!" % sys.argv[5])
-if len(sys.argv) >= 3:
-  if not sys.argv[1].isdigit() or not sys.argv[2].isdigit() or not sys.argv[3].isdigit():
-    sys.exit(__doc__)
 
 # Sanity-Check der Parameter
 NPart=int(sys.argv[1])
@@ -131,11 +122,9 @@ if NPart <1:
   sys.exit("Number of Partitions has to be >=1 !")
 if NSubPart<1:
   sys.exit("There has to be at least one subgrid!")
-if PartMethod>3:
-  sys.exit("Only integer numbers <=3 are valid partitioning methods!")
-if PartMethod==0 and NSubPart!=2:
-  sys.exit("Partitioning Method 0 requires exactly 2 subgrids!")
-if PartMethod<0 and NSubPart<2:
+if not (PartMethod in (1,2,3) or str(-PartMethod).strip("123")==""):
+  sys.exit("Only integer numbers 1,2,3 or negative numbers containing the digits 1,2,3 are valid partitioning methods!")
+if PartMethod<0 and NSubPart==1:
   sys.exit("Partitionig Method %d requires more than 1 subgrid!"%PartMethod)
 MeshName=sys.argv[4]
 ProjektFile=sys.argv[5]

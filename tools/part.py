@@ -11,11 +11,17 @@ import os
 metis=None
 metis_func=[]
 
-#Kleine private Hilfsroutine
+#Kleine private Hilfsroutinen
 def _readAfterKeyword(fh,keyword):
   s=fh.readline()
   while keyword not in s:
     s=fh.readline()
+
+def _try_in_place_first(name):
+  tmp=os.path.join(os.curdir,name)
+  if not os.path.exists(tmp):
+    tmp=name
+  return CDLL(tmp)
 
 # Ab hier kommen die öffentlichen Funktionen des Moduls
 
@@ -168,7 +174,6 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   (ParNames,ParTypes,Parameters,Boundaries)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
-  # new_knpr=[0,]*len(knpr)
   for (iPart,iNeigh,iElem) in izip(Part,Neigh,kvert):
     for (Idx,f) in izip(iNeigh,face):
       if Idx>0 and Part[Idx-1]!=iPart:
@@ -176,27 +181,18 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
           new_knpr[iElem[f[k]]-1]=1
   # Für alle Rechengebiete
   for iPart in xrange(1,nPart+1):
-    # Bestimme, wieviele Zellen und Knoten in diesem
-    # Gebiet liegen und berechne neue Knotennummern
-    iCoor=set()
-    iElem=set()
-    for (p,elem,eNum) in izip(Part,kvert,count(0)):
-      if p==iPart:
-        iElem.add(eNum)
-        for j in xrange(8):
-          iCoor.add(elem[j]-1)
+    # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
+    iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
+    iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
     # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
     iCoor=list(iCoor)
     iCoor.sort()
-    iElem=list(iElem)
-    iElem.sort()
+    iCoor=tuple(iCoor)
     # Mappe Knotenkoordinaten und Knoteneigenschaften
     dCoor=tuple(coord[Idx] for Idx in iCoor)
     dKnpr=tuple(new_knpr[Idx] for Idx in iCoor)
     # Erzeuge Lookup-Liste: Alte Knotennummern->Neue Knotennummern
-    LookUp={}
-    for (i,j) in enumerate(iCoor,1):
-      LookUp[j+1]=i
+    LookUp=dict((k+1,v) for (v,k) in enumerate(iCoor,1))
     # Mappe die Knoten der Elemente
     dKvert=tuple(tuple(map(lambda x:LookUp[x],kvert[Idx])) for Idx in iElem)
     # Gitterausgabe
@@ -283,29 +279,21 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
       PosFak*=2
   return tuple(Part)
 
-def PartitionWithSymmetry(Grid,nSubMesh):
-  # Entpacke die Informationen in Parameter Grid
-  (nel,nvt,coord,kvert,knpr)=Grid
-  # <<< Rest noch zu erstellen! >>>
-  pass
-
 # Dokumentation
 __doc__ = \
 """
 Dieses Modul führt die Partitinierung eines Gitters mittels der Metis-Bibliothek durch.
 """
 # Startroutine des Moduls, die Metis lädt.
-
 if os.name=="posix":
-  #metis=CDLL(os.path.join(os.curdir,"./extern/libraries/metis-4.0.3/Lib/libmetis.so"))
-  metis=CDLL("libmetis.so")
+  metis=_try_in_place_first("libmetis.so")
 elif os.name=="nt":
-  metis=CDLL(os.path.join(os.curdir,"metis.dll"))
+  metis=_try_in_place_first("metis.dll")
 else:
-  sys.exit("Noch keine Methode zum Laden von Metis implementiert!")
+  sys.exit("Loading of Metis not yet implemented for platform '%s'!"%os.name)
 
 if metis==None:
-  sys.exit("Laden der Metis-Bibliothek hat nicht geklappt!")
+  sys.exit("Could not load the Metis library!")
 
 # Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
 _pidx=POINTER(c_int)
@@ -318,5 +306,5 @@ metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METI
 
 if __name__=="__main__":
   if metis!=None:
-    print "Die Metis-Bibliothek wurde geladen!"
+    print "Metis has been loaded."
 
