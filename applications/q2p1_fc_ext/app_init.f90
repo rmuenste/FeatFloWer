@@ -4,12 +4,12 @@ subroutine init_q2p1_ext(log_unit)
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
-  USE Transport_UxyzP_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
+  USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE LinScalar, ONLY : Init_LinScalar,InitCond_LinScalar, &
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
@@ -56,7 +56,7 @@ end subroutine init_q2p1_ext
   USE MESH_Structures
   USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
     cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
-  USE Transport_UxyzP_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
   IMPLICIT NONE
   ! -------------- workspace -------------------

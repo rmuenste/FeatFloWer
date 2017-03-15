@@ -506,7 +506,7 @@ C
 C
       SUBROUTINE   INVERSE_MASS(DM,DMC,AUX1,AUX2,AUX3,U1,U2,U3,
      *      KCOLA,KLDA,NDOF)
-      USE Transport_UxyzP_Q2P1, ONLY : Boundary_QuadScalar_Def
+      USE Transport_Q2P1, ONLY : Boundary_QuadScalar_Def
 
       IMPLICIT NONE
 

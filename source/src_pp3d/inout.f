@@ -2,7 +2,7 @@
 
 !       USE module_levelset, ONLY: levelset,normal
 !       USE LinScalar, ONLY: LevSet
-      USE Transport_UxyzP_Q2P1, ONLY: QuadSc
+      USE Transport_Q2P1, ONLY: QuadSc
 
       IMPLICIT DOUBLE PRECISION(A,D-H,O-U,W-Z),LOGICAL(B)
 C *** Standard COMMON blocks

@@ -1,7 +1,7 @@
       SUBROUTINE AddSurfaceTension()
 
       USE def_QuadScalar
-      USE Transport_UxyzP_Q2P1, ONLY : QuadSc,ST_force,Sigma
+      USE Transport_Q2P1, ONLY : QuadSc,ST_force,Sigma
       USE PLinScalar, ONLY : dNorm
       IMPLICIT NONE
       REAL*8 :: DEPS=0.015d0

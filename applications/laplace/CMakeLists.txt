@@ -1,5 +1,5 @@
 # CMakeLists of laplace application
-set(src_quadLS_ext
+set(src_quadLS_laplace
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
@@ -32,7 +32,7 @@ ${src_pp3d}
 ${src_mpi} 
 ${src_PLin} 
 ${src_LinSc} 
-${src_quadLS_ext} 
+${src_quadLS_laplace} 
 ${src_visco} 
 ${src_mesh}
 ${src_cinterface}
@@ -49,7 +49,7 @@ source_group(src_pp3d FILES ${src_pp3d})
 source_group(src_mpi FILES ${src_mpi})
 source_group(src_PLin FILES ${src_PLin})
 source_group(src_LinSc FILES ${src_LinSc})
-source_group(src_quadLS FILES ${src_quadLS_ext})
+source_group(src_quadLS FILES ${src_quadLS_laplace})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})

@@ -1,9 +1,9 @@
-MODULE LinScalar
+MODULE Transport_Q1
 
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
     Comm_Maximum,Comm_Summ,myid,master,CommSum
-USE Transport_UxyzP_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff
+USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff
 
 IMPLICIT NONE
 
@@ -404,4 +404,4 @@ include 'LinSc_transport_extensions.f90'
 !
 ! ----------------------------------------------
 !
-END MODULE LinScalar
+END MODULE Transport_Q1

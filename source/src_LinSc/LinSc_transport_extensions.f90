@@ -1,7 +1,7 @@
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_LinScalar_extension(mfile,INL)
+SUBROUTINE Transport_Q1_displacement(mfile,INL)
 INTEGER mfile,INL
 REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
 REAL*8 tstep_old,thstep_old
@@ -99,7 +99,7 @@ END DO
 
 NLMAX = NLMAX - 1
 
-END SUBROUTINE Transport_LinScalar
+END SUBROUTINE Transport_Q1_displacement
 !
 ! ----------------------------------------------
 !

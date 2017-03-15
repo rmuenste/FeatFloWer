@@ -1,5 +1,5 @@
 ! TODO: new name Navier-Stokes + Q2 or similar
-MODULE Transport_UxyzP_Q2P1  
+MODULE Transport_Q2P1  
 
 USE def_QuadScalar
 ! USE PP3D_MPI
@@ -29,7 +29,7 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_q2p1_UxyzP(mfile,inl_u,itns)
+SUBROUTINE Transport_Q2P1_UxyzP(mfile,inl_u,itns)
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -1665,5 +1665,5 @@ SUBROUTINE  StoreOrigCoor(dcoor)
 END SUBROUTINE  StoreOrigCoor
 
 
-END MODULE Transport_UxyzP_Q2P1
+END MODULE Transport_Q2P1
 

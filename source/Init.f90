@@ -4,7 +4,7 @@ SUBROUTINE General_init(MDATA,MFILE)
   USE MESH_Structures
   USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
     cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
-  USE Transport_UxyzP_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
   IMPLICIT NONE
   ! -------------- workspace -------------------
