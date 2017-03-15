@@ -400,4 +400,8 @@ END SUBROUTINE dump_LinScalar_in
 !
 ! ----------------------------------------------
 !
+include 'LinSc_transport_extensions.f90'
+!
+! ----------------------------------------------
+!
 END MODULE LinScalar
