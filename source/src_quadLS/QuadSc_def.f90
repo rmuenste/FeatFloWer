@@ -580,7 +580,7 @@ INTEGER i
     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
    END IF
   END IF
-   CALL OutputMatrix("MAPC",lPMat,mg_CPMat(ILEV)%a,ILEV)
+   !CALL OutputMatrix("MAPC",lPMat,mg_CPMat(ILEV)%a,ILEV)
  END DO
 
  ILEV=NLMAX
