@@ -2,7 +2,7 @@ SUBROUTINE mySolToFile(iOutput)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE LinScalar,ONLY:Tracer
+USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid
 
 IMPLICIT NONE
@@ -53,7 +53,7 @@ SUBROUTINE myOutput_Profiles(iOutput)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
-USE LinScalar,ONLY:Tracer
+USE Transport_Q1, ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
 USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel

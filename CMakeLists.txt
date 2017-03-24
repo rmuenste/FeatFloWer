@@ -264,7 +264,16 @@ target_link_libraries(q2p1
 target_include_directories(q2p1 PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 
 target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
-#set_property(TARGET q2p1 PROPERTY LINKER_LANGUAGE Fortran)
+
+#--------------------------------------------------------------------------------------------------
+#                                       INSTALL CONFIGURATION
+#--------------------------------------------------------------------------------------------------
+
+install(TARGETS q2p1
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
 
 #--------------------------------------------------------------------------------------------------
 #                                  Copy files for out-of-source build
