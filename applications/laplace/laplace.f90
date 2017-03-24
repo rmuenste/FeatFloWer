@@ -12,7 +12,7 @@ PROGRAM LAPLACE
 
   !-------INIT PHASE-------
 
-  call init_q2p1_ext(ufile)
+  call init_laplace(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
@@ -30,12 +30,12 @@ PROGRAM LAPLACE
 
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
-    CALL Transport_LinScalar(ufile,inonln_t)
+    CALL Transport_Q1_displacement(ufile,inonln_t)
   ELSE
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_laplace(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

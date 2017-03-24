@@ -115,6 +115,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 #${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f

@@ -32,39 +32,53 @@ INTEGER iSym(3)
 INTEGER Neigh(2,12)
 DATA Neigh/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 CHARACTER cAux*50,cType*50
-INTEGER   iType
+INTEGER   iType, iPhase, jPhase
+logical :: bOK
  
  ndof = KNVT(ilev) + KNET(ilev) + KNAT(ilev) + KNEL(ilev)
 ! write(*,*)'use of NVT is deprecated'
 ! write(*,*)'ndof: ',ndof
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
+ ALLOCATE(myBoundary%iPhase(ndof))
  ALLOCATE(myBoundary%bOutflow(ndof))
  ALLOCATE(myBoundary%bSymmetry(3,ndof))
  ALLOCATE(BndrForce(ndof))
+ ALLOCATE(myBoundary%LS_zero(ndof))
 
  myBoundary%bWall     = .FALSE.
  myBoundary%iInflow   = 0
+ myBoundary%iPhase    = 0
  myBoundary%bOutflow  = .FALSE.
  myBoundary%bSymmetry = .FALSE.
+ myBoundary%LS_zero   = .FALSE.
  BndrForce            = .FALSE.
 
+ jPhase = 0
  DO iBnds=1,nBnds
 
   cAux = ADJUSTL(TRIM(myParBndr(iBnds)%Types))
   iType = 0
   IF (cAux(1:6).EQ.'Inflow') THEN
-   READ(cAux(7:),'(I2)') iType
+   READ(cAux(7:),'(I1)') iType
+  END IF
+  iPhase = 0
+  IF (cAux(1:5).EQ.'Phase') THEN
+   READ(cAux(6:),'(I1)') iPhase
   END IF
 
+  
   DO i=1,NVT
    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble') myBoundary%LS_zero(i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
       myBoundary%bWall(i) = .TRUE.
       BndrForce(i) = .TRUE.
     END IF
     IF (iType.GT.0) myBoundary%iInflow(i) = iType
+    IF (iPhase.GT.0) myBoundary%iPhase(i) = iPhase
+!     IF (iPhase.GT.0) jPhase = jPhase + 1
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(i) = .TRUE.
     iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
     IF (ILOC.EQ.1) THEN
@@ -83,12 +97,15 @@ INTEGER   iType
      ivt1 = kvert(Neigh(1,j),i)
      ivt2 = kvert(Neigh(2,j),i)
      IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt1).AND.myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt2)) THEN
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble') myBoundary%LS_zero(nvt+k) = .TRUE.
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+k) = .TRUE.
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
         myBoundary%bWall(nvt+k) = .TRUE.
         BndrForce(nvt+k) = .TRUE.
       END IF
       IF (iType.GT.0) myBoundary%iInflow(nvt+k) = iType
+      IF (iPhase.GT.0) myBoundary%iPhase(nvt+k) = iPhase
+!       IF (iPhase.GT.0) jPhase = jPhase + 1
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+k) = .TRUE.
       iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
       IF (ILOC.EQ.1) THEN
@@ -105,12 +122,15 @@ INTEGER   iType
 
   DO i=1,NAT
    IF (myParBndr(iBnds)%Bndr(ILEV)%Face(1,i).NE.0) THEN
+    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble') myBoundary%LS_zero(nvt+net+i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+net+i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
       myBoundary%bWall(nvt+net+i) = .TRUE.
       BndrForce(nvt+net+i) = .TRUE.
     END IF
     IF (iType.GT.0) myBoundary%iInflow(nvt+net+i) = iType
+    IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+i) = iPhase
+!     IF (iPhase.GT.0) jPhase = jPhase + 1
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+net+i) = .TRUE.
     iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
     IF (ILOC.EQ.1) THEN
@@ -122,10 +142,65 @@ INTEGER   iType
    END IF   
   END DO
 
+  DO i=1,NEL
+   bOK = myParBndr(iBnds)%Bndr(ILEV)%Vert(kvert(1,i))
+   DO j=2,8
+     bOK = (bOK.AND.myParBndr(iBnds)%Bndr(ILEV)%Vert(kvert(j,i)))
+   END DO
+   IF (bOK) THEN
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble') myBoundary%LS_zero(nvt+net+nat+i) = .TRUE.
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+net+nat+i) = .TRUE.
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
+        myBoundary%bWall(nvt+net+nat+i) = .TRUE.
+        BndrForce(nvt+net+nat+i) = .TRUE.
+      END IF
+      IF (iType.GT.0) myBoundary%iInflow(nvt+net+nat+i) = iType
+      IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+nat+i) = iPhase
+      IF (iPhase.GT.0) jPhase = jPhase + 1
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+net+nat+i) = .TRUE.
+      iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
+      IF (ILOC.EQ.1) THEN
+       READ(myParBndr(iBnds)%Types(9:11),'(3I1)') iSym
+       IF (iSym(1).EQ.1) myBoundary%bSymmetry(1,nvt+net+nat+i) = .TRUE.
+       IF (iSym(2).EQ.1) myBoundary%bSymmetry(2,nvt+net+nat+i) = .TRUE.
+       IF (iSym(3).EQ.1) myBoundary%bSymmetry(3,nvt+net+nat+i) = .TRUE.
+      END IF
+   END IF
+  END DO
+ 
  END DO
 
 END SUBROUTINE InitBoundaryStructure
+!
 !----------------------------------------------------------------------------------------
+!
+SUBROUTINE ParametrizeQ2Nodes(dCoor)
+REAL*8 dCoor(3,*)
+INTEGER I1,I2
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ i1 = NVT+1
+ i2 = NVT+NET+NAT
+
+ NLMAX=NLMAX+1
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ DO iBnds = 1, nBnds
+  
+   CALL Parametrize(dCoor,i1,i2)
+
+ END DO
+
+ NLMAX=NLMAX-1
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+END SUBROUTINE ParametrizeQ2Nodes
+!
+!----------------------------------------------------------------------------------------
+!
 SUBROUTINE ParametrizeBndr(mgMesh,ilevel)
 IMPLICIT NONE
 integer :: ilevel
@@ -164,7 +239,9 @@ INTEGER I1,I2
  END DO
 
 END SUBROUTINE ParametrizeBndr
+!
 !----------------------------------------------------------------------------------------
+!
 SUBROUTINE Parametrize(DCORVG,NVT,ilevel)
  REAL*8 DCORVG(3,*)
  INTEGER NVT,NVT1
@@ -242,6 +319,28 @@ SUBROUTINE Parametrize(DCORVG,NVT,ilevel)
  END IF
 
  IF (myParBndr(iBnds)%nBndrPar.EQ.7) THEN
+
+ IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble'.AND.TIMENS.LT.1d-5) THEN
+  RETURN
+ END IF
+ 
+! IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Bubble'.AND.TIMENS.GT.1d-5) THEN
+!  DO i=NVT1,NVT2
+!   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i).and.myid.ne.0) THEN
+!    j = j + 1
+!    dx = DCORVG(1,i)
+!    dy = DCORVG(2,i)
+!    dz = DCORVG(3,i)
+!    CALL ParametrizePointOnTheBubble(dx,dy,dz,i)
+!    DCORVG(1,i) = dx
+!    DCORVG(2,i) = dy
+!    DCORVG(3,i) = dz
+!   END IF
+!  END DO
+!
+!  RETURN
+! END IF
+ 
   RX  = myParBndr(iBnds)%dBndrPar(1)
   RY  = myParBndr(iBnds)%dBndrPar(2)
   RZ  = myParBndr(iBnds)%dBndrPar(3)

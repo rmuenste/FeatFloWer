@@ -1,3 +1,146 @@
+SUBROUTINE  Comm_Coor(dc,d1,d2,d3,d4,n)
+USE PP3D_MPI
+IMPLICIT NONE
+REAL*8 dc(3,*),d1(*),d2(*),d3(*),d4(*)
+INTEGER i,n
+
+DO i=1,n
+ d1(i) = dc(1,i)
+ d2(i) = dc(2,i)
+ d3(i) = dc(3,i)
+ d4(i) = 1d0
+END DO
+
+CALL E013Sum(d1)
+CALL E013Sum(d2)
+CALL E013Sum(d3)
+CALL E013Sum(d4)
+
+DO i=1,n
+ dc(1,i) = d1(i)/d4(i)
+ dc(2,i) = d2(i)/d4(i)
+ dc(3,i) = d3(i)/d4(i)
+END DO
+
+END SUBROUTINE  Comm_Coor
+!
+! ----------------------------------------------
+!
+SUBROUTINE CommunicateSurface
+USE PP3D_MPI
+USE var_QuadScalar, ONLY : myTSurf
+!-------------------------------------------------------
+!-------------------------------------------------------
+IMPLICIT NONE
+INTEGER i,j,k,kk,pID,iaux,jaux
+REAL*8, ALLOCATABLE :: dpack(:)
+
+IF (myid.ne.0) THEN
+ CALL SENDI_myMPI(myTSurf%nT,0)
+ ALLOCATE(dpack(myTSurf%nT*9*3))
+ELSE
+ myTSurf%nT = 0
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(iaux,pID)
+  myTSurf%nT = myTSurf%nT + iaux
+ END DO
+ IF (ALLOCATED(myTSurf%T)) DEALLOCATE (myTSurf%T)
+ ALLOCATE (myTSurf%T(myTSurf%nT))
+ ALLOCATE (dpack(myTSurf%nT*9*3))
+END IF
+
+!IF (myid.eq.0) WRITE(*,*) "nT = ", myTSurf%nT
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+IF (myid.ne.0) THEN
+ CALL SENDI_myMPI(myTSurf%nT,0)
+ kk = 1
+ DO i=1,myTSurf%nT
+  DO j=1,9
+   DO k=1,3
+    dpack(kk) = myTSurf%T(i)%C(k,j)
+    kk = kk + 1
+   END DO
+  END DO
+ END DO
+ CALL SENDD_myMPI(dpack,myTSurf%nT*9*3,0)
+ELSE
+ jaux = 0
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(iaux,pID)
+  CALL RECVD_myMPI(dpack,iaux*9*3,pID)
+  kk = 1
+  DO i=jaux+1,jaux + iaux
+   DO j=1,9
+    DO k=1,3
+     myTSurf%T(i)%C(k,j) = dpack(kk) 
+     kk = kk + 1
+    END DO
+   END DO
+  END DO
+  jaux = jaux + iaux
+!  myTSurf%nT = myTSurf%nT + iaux
+ END DO
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+IF (myid.ne.0) THEN
+
+ DEALLOCATE (dpack,myTSurf%T)
+ CALL RECVI_myMPI(myTSurf%nT,0)
+ ALLOCATE(myTSurf%T(myTSurf%nT),dpack(myTSurf%nT*9*3))
+ CALL RECVD_myMPI(dpack,myTSurf%nT*9*3,0)
+ 
+ kk = 1
+ DO i=1,myTSurf%nT
+  DO j=1,9
+   DO k=1,3
+    myTSurf%T(i)%C(k,j) = dpack(kk)
+    kk = kk + 1
+   END DO
+  END DO
+ END DO
+
+ELSE
+
+ kk = 1
+ DO i=1,myTSurf%nT
+  DO j=1,9
+   DO k=1,3
+    dpack(kk) = myTSurf%T(i)%C(k,j)
+    kk = kk + 1
+   END DO
+  END DO
+ END DO
+
+ DO pID=1,subnodes
+  CALL SENDI_myMPI(myTSurf%nT,pID)
+  CALL SENDD_myMPI(dpack,myTSurf%nT*9*3,pID)
+ END DO
+
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+DEALLOCATE (dpack)
+
+  
+! IF (myid.eq.1) THEN
+!   WRITE(*,'(A,I,A)') "0 ", myTSurf%nT*5, "1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+!  DO i=1,myTSurf%nT
+!   DO j=1,5
+!    WRITE(*,'(3ES12.4)') myTSurf%T(i)%C(:,j)
+!   END DO
+! !    WRITE(*,'(5ES12.4)') myTSurf%T(i)%C(1,:)
+! !    WRITE(*,'(5ES12.4)') myTSurf%T(i)%C(2,:)
+! !    WRITE(*,'(5ES12.4)') myTSurf%T(i)%C(3,:)
+! !    WRITE(*,*) " - - - -  - - - - - - - - - - - - - - - - - - - - - -"
+!  END DO
+! END IF
+! pause
+
+END SUBROUTINE CommunicateSurface
 SUBROUTINE ParPresComm_Init(KCOL,KLD,NEQ,NEL,ILEV)
 USE PP3D_MPI
 !-------------------------------------------------------

@@ -3,11 +3,14 @@ MODULE Transport_Q1
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
     Comm_Maximum,Comm_Summ,myid,master,CommSum
-USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff
+USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
+    myBoundary,myQ2Coor,&
+    MoveInterfacePoints,myALE,Properties,getmeshvelocity
 
 IMPLICIT NONE
 
 TYPE(lScalar) Tracer
+TYPE(lScalar3) Tracer3
 CHARACTER*25 :: CInitFile="#data/LS02"
 
 CONTAINS
@@ -243,15 +246,6 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
 
  Tracer%val(NLMAX)%x(i) = 0.0d0
-
-!  IF (Z.GT.2.4d0) THEN
-!   DIST = SQRT((X-RX)**2D0+(Y-RY)**2D0)
-!   DIST = DIST + 0.1*(4d0-Z)
-!   Tracer%val(NLMAX)%x(i) = DIST - RADx
-!  ELSE
-!   DIST = SQRT((X-RX)**2D0+(Y-RY)**2D0+(Z-RZ)**2D0)
-!   Tracer%val(NLMAX)%x(i) = DIST - RADs
-!  END IF
 
 END DO
 

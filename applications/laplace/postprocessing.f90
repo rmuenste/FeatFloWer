@@ -153,7 +153,7 @@ END SUBROUTINE TimeStepCtrl
 !
 ! ----------------------------------------------
 !
-subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
+subroutine postprocessing_laplace(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
@@ -203,7 +203,7 @@ CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 ! Interaction from user
 CALL ProcessControl(filehandle,mterm)
 
-end subroutine postprocessing_fc_ext
+end subroutine postprocessing_laplace
 !
 ! ----------------------------------------------
 !
@@ -273,8 +273,10 @@ integer :: maxlevel
 maxlevel = mg_mesh%maxlevel
 
 do i=maxlevel,maxlevel
-  deallocate(mg_mesh%level(i)%dcorvg)
-  mg_mesh%level(i)%dcorvg => null()
+  if(associated(mg_mesh%level(i)%dcorvg))then
+    deallocate(mg_mesh%level(i)%dcorvg)
+    mg_mesh%level(i)%dcorvg => null()
+  end if
 end do
 
 end subroutine release_mesh

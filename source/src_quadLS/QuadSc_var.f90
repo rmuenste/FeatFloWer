@@ -303,7 +303,8 @@ REAL*8, ALLOCATABLE :: myQ2Coor(:,:)
 TYPE tBoundary
  LOGICAL, ALLOCATABLE :: nWall   ,nInflown,  nOutflow   ,nSymmetry
  LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:)
- INTEGER, ALLOCATABLE :: iInflow(:)
+ INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:)
+ LOGICAL, ALLOCATABLE :: LS_zero(:)
 END TYPE tBoundary
 TYPE (tBoundary) myBoundary
 
@@ -325,6 +326,17 @@ INTEGER nSubCoarseMesh
 
 CHARACTER*13 :: outfile="OutFile  .txt"
 
+TYPE tTriangle
+ REAL*8 :: C(3,9)
+END TYPE tTriangle
+
+TYPE tTriangulation
+ INTEGER nT
+ TYPE(tTriangle), ALLOCATABLE :: T(:)
+END TYPE tTriangulation
+
+TYPE(tTriangulation) myTSurf
+
 LOGICAL :: bMeshAdaptation = .FALSE.
 CHARACTER*100 cAdaptedMeshFile
 INTEGER nUmbrellaSteps
@@ -332,6 +344,8 @@ INTEGER nUmbrellaSteps
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
  REAL*8, ALLOCATABLE :: OldCoor(:,:), NewCoor(:,:),MeshVelo(:,:), OrigCoor(:,:)
+ REAL*8, ALLOCATABLE :: Q2coor_old(:,:)
+ REAL*8 dFrameVelocity(3),dFrameVelocityChange(3)
 END TYPE tALE
 
 TYPE(tALE) :: myALE

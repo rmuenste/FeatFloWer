@@ -6,7 +6,8 @@ USE def_QuadScalar
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier
-USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
+USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
+ParametrizeQ2Nodes
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -121,7 +122,6 @@ CALL Protocol_QuadScalar(mfile,QuadSc,0,&
 
 CALL ZTIME(tttt1)
 myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
-
 
 DO INL=1,QuadSc%prm%NLmax
 INLComplete = 0
@@ -294,6 +294,7 @@ END SUBROUTINE Init_QuadScalar
 ! ----------------------------------------------
 !
 SUBROUTINE Init_QuadScalar_Stuctures(mfile)
+implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
 integer :: mydof
@@ -306,11 +307,8 @@ Real*8 :: dabl
  ! Initialize the scalar quantity
  CALL InitializeQuadScalar(QuadSc)
 
-
-
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
-
 
  ! Initialize the boundary list (QuadScBoundary)
  ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
@@ -318,25 +316,10 @@ Real*8 :: dabl
                           mg_mesh%level(ilev)%nat+&
                           mg_mesh%level(ilev)%nel))
 
-
  CALL InitBoundaryList(KWORK(L(LNPR)),&
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%kedge,&
                       mg_mesh%level(ILEV)%karea)
-
-
-
-!  ! This part here is responsible for creation of structures enabling the mesh coordinate 
-!  ! transfer to the master node so that it can create the corresponding matrices
-!  IF (nUmbrellaSteps.GT.0) THEN
-!   IF (myid.EQ.0) THEN
-!    CALL CreateDumpStructures(0)
-!   ELSE
-!    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
-!    CALL CreateDumpStructures(LevDif)
-!   END IF
-!   CALL UmbrellaSmoother(timens,nUmbrellaSteps)
-!  END IF
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -353,10 +336,27 @@ Real*8 :: dabl
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
+ !
+ !IF (myid.ne.0) CALL ParametrizeQ2Nodes(myQ2Coor)
+ !
+
+ ALLOCATE(myALE%Q2coor_old(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+
+ myALE%Q2coor_old = myQ2Coor
+
+ ALLOCATE(myALE%MeshVelo(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+ myALE%MeshVelo = 0d0
+
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
-
-!---------------------                          !
 
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
@@ -393,16 +393,6 @@ else
  END DO
 end if
 
-!      IF (myid.eq.0) THEN
-!        dabl=0d0
-!        do while(.true.)
-!          dabl=dabl + 1.0e-10 
-!        end do
-!      end if
-!      write(*,*)dabl
-!
-!      call myMPI_Barrier()
-
  ILEV = NLMAX
  ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
                      mg_mesh%level(ilev)%net+&
@@ -419,12 +409,11 @@ end if
  ALLOCATE (myALE%Monitor(mydof))
  ALLOCATE (myALE%NewCoor(3,mydof))
  ALLOCATE (myALE%OldCoor(3,mydof))
- ALLOCATE (myALE%MeshVelo(3,mydof))
+! ALLOCATE (myALE%MeshVelo(3,mydof))
  ALLOCATE (myALE%OrigCoor(3,mydof))
 
  myALE%Monitor   = 1d0
  myALE%MeshVelo  = 0d0
-
 
  ! Building up the E013/E013 matrix strucrures
  CALL Create_QuadMatStruct()
@@ -435,14 +424,12 @@ end if
  ! Building up the E012/E013 E013/E012 and matrix structures
  CALL Create_QuadLinMatStruct() 
 
-! call myMPI_Barrier()
-! stop
-
  ! Building up the E012/E012 matrix strucrures
  CALL Create_LinMatStruct ()
 
  ! Pressure gradient matrix
  CALL Create_BMat() !(B,BT)
+
  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
  IF (myid.ne.master) THEN
@@ -452,7 +439,6 @@ end if
   ! Building up the Parallel E012/E012 matrix strucrures
   CALL Create_ParLinMatStruct ()
  END IF
-
 
 ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
@@ -474,9 +460,6 @@ end if
  MixerKNPR=0
  ALLOCATE (Distamce(mydof))
  Distamce = 0d0
-
-
- !CALL GetPressureSample(DWORK(L(LCORVG)),KNVT(NLMAX))
 
  ! SEt up the knpr vector showing dofs with parallel property ...
  IF (myid.ne.0) THEN
@@ -537,8 +520,6 @@ CALL StoreOrigCoor(mg_mesh%level(NLMAX)%dcorvg)
 IF (myid.ne.0) THEN
 
  CALL QuadScalar_InitCond()
-
-! CALL updateMixerGeometry()
 
  ! Set dirichlet boundary conditions on the solution
  CALL Boundary_QuadScalar_Val()
@@ -1663,7 +1644,214 @@ SUBROUTINE  StoreOrigCoor(dcoor)
   END DO
 
 END SUBROUTINE  StoreOrigCoor
+!
+! ----------------------------------------------
+!
+SUBROUTINE GetMeshVelocity()
+REAL*8 dMaxVelo,daux
+INTEGER i
 
+dMaxVelo = 0d0
+IF (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+  myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
+  daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
+  IF (dMaxVelo.lt.daux) dMaxVelo = daux
+ END DO
+END IF
 
+CALL COMM_Maximum(dMaxVelo)
+
+IF (myid.eq.1) THEN
+ WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+END IF
+
+END SUBROUTINE GetMeshVelocity
+!
+! ----------------------------------------------
+!
+SUBROUTINE MoveInterfacePoints(dcoor,MFILE)
+INTEGER mfile
+REAL*8 dcoor(3,*)
+REAL*8 Velo(3),Displacement(3),dMaxVelo,daux,dArea
+INTEGER i
+
+IF (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+   Velo = [QuadSc%ValU(i),QuadSc%ValV(i),QuadSc%ValW(i)]
+   Displacement = 1d0*tstep*Velo
+   myQ2Coor(:,i) = myQ2Coor(:,i) + Displacement
+ END DO
+END IF
+
+IF (myid.ne.0) then
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ DO i=1,NVT
+  dcoor(:,i) = myQ2Coor(:,i)
+ END DO
+ CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor)
+END IF
+
+CALL CommunicateSurface()
+
+! IF (myid.eq.1) THEN
+!  CALL GetCompleteArea(dArea)
+!  WRITE(MFILE,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+!  WRITE(MTERM,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+! END IF
+
+END SUBROUTINE MoveInterfacePoints
+!
+! ----------------------------------------------
+!
+SUBROUTINE ResetInterfacePoints(dcoor,MFILE)
+INTEGER mfile
+REAL*8 dcoor(3,*)
+INTEGER i
+
+IF (myid.ne.0) then
+ myQ2Coor = myALE%Q2Coor_old
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ DO i=1,NVT
+  dcoor(:,i) = myQ2Coor(:,i)
+ END DO
+end if
+
+END SUBROUTINE ResetInterfacePoints
+!
+! ----------------------------------------------
+!
+SUBROUTINE GetCompleteArea(DCompleteArea)
+REAL*8 DCompleteArea
+REAL*8 DA(3,3),dArea
+INTEGER i,j,IP1,IP2,IP3
+
+DCompleteArea = 0d0
+DO i=1,myTSurf%nT
+ DO j=1,8
+  IP1 = j
+  IP2 = MOD(j,8)+1
+  IP3 = 9
+  DA(1,2)=myTSurf%T(i)%C(1,IP2) - myTSurf%T(i)%C(1,IP1) !P2X-P1X
+  DA(2,2)=myTSurf%T(i)%C(2,IP2) - myTSurf%T(i)%C(2,IP1) !P2Y-P1Y
+  DA(3,2)=myTSurf%T(i)%C(3,IP2) - myTSurf%T(i)%C(3,IP1) !P2Z-P1Z
+  DA(1,3)=myTSurf%T(i)%C(1,IP3) - myTSurf%T(i)%C(1,IP1) !P3X-P1X
+  DA(2,3)=myTSurf%T(i)%C(2,IP3) - myTSurf%T(i)%C(2,IP1) !P3Y-P1Y
+  DA(3,3)=myTSurf%T(i)%C(3,IP3) - myTSurf%T(i)%C(3,IP1) !P3Z-P1Z
+
+  DA(1,1) = DA(2,3)*DA(3,2) - DA(3,3)*DA(2,2)
+  DA(2,1) = DA(3,3)*DA(1,2) - DA(1,3)*DA(3,2)
+  DA(3,1) = DA(1,3)*DA(2,2) - DA(2,3)*DA(1,2)
+  dArea = 0.5*SQRT(DA(1,1)*DA(1,1) + DA(2,1)*DA(2,1) + DA(3,1)*DA(3,1))
+  DCompleteArea = DCompleteArea + dArea
+ END DO
+END DO
+
+END SUBROUTINE GetCompleteArea
+!
+! ----------------------------------------------
+!
+SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg)
+REAL*8 dcorvg(3,*)
+INTEGER karea(6,*),kvert(8,*),kedge(12,*)
+INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
+INTEGER NeighA(4,6),NeighU(4,6)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+
+iT = 0
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   IF (myBoundary%LS_zero(nvt+net+k)) THEN
+    iT = iT + 1
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+IF (ALLOCATED(myTSurf%T)) DEALLOCATE(myTSurf%T)
+
+myTSurf%nT = iT
+ALLOCATE(myTSurf%T(myTSurf%nT))
+
+iT = 0
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   IF (myBoundary%LS_zero(nvt+net+k)) THEN
+    iT = iT + 1
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    myTSurf%T(iT)%C(:,1) = dcorvg(:,ivt1)
+    myTSurf%T(iT)%C(:,3) = dcorvg(:,ivt2)
+    myTSurf%T(iT)%C(:,5) = dcorvg(:,ivt3)
+    myTSurf%T(iT)%C(:,7) = dcorvg(:,ivt4)
+    ivt1 = kedge(NeighU(1,j),i)
+    ivt2 = kedge(NeighU(2,j),i)
+    ivt3 = kedge(NeighU(3,j),i)
+    ivt4 = kedge(NeighU(4,j),i)
+    myTSurf%T(iT)%C(:,2) = dcorvg(:,nvt+ivt1)
+    myTSurf%T(iT)%C(:,4) = dcorvg(:,nvt+ivt2)
+    myTSurf%T(iT)%C(:,6) = dcorvg(:,nvt+ivt3)
+    myTSurf%T(iT)%C(:,8) = dcorvg(:,nvt+ivt4)
+    myTSurf%T(iT)%C(:,9) = dcorvg(:,nvt+net+k)
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+END SUBROUTINE BuildUpTriangulation
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegrateQuantities(mfile)
+INTEGER mfile
+REAL*8 dArray(8)
+REAL*8 :: dR=0.25d0, myPI=4d0*ATAN(1d0), dWidth=0.05d0
+EXTERNAL E013
+
+IF (myid.ne.0) THEN
+ dArray = 0d0
+ ILEV = NLMAX
+ CALL SETLEV(2)
+ CALL GetSurface(KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+ myQ2coor,E013,dArray(1))
+ CALL GetVolume(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+      myQ2coor,E013,dArray(2),dArray(3:5),dArray(6:8))
+END IF
+
+CALL Comm_SummN(dArray,8)
+
+IF (myid.eq.1) THEN
+ WRITE(MTERM,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
+ WRITE(MTERM,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
+ (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
+ WRITE(MFILE,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
+ WRITE(MFILE,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
+ (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
+END IF
+
+myALE%dFrameVelocityChange = dArray(6:8)/dArray(2)
+myALE%dFrameVelocity = myALE%dFrameVelocity + 1d0*myALE%dFrameVelocityChange
+
+IF (myid.eq.1) THEN
+ WRITE(MTERM,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
+ WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
+END IF
+
+END SUBROUTINE IntegrateQuantities
+!
+! ----------------------------------------------
+!
 END MODULE Transport_Q2P1
 

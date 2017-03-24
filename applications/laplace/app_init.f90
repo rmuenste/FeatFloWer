@@ -1,4 +1,4 @@
-subroutine init_q2p1_ext(log_unit)
+subroutine init_laplace(log_unit)
     
   USE def_FEAT
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
@@ -9,8 +9,8 @@ subroutine init_q2p1_ext(log_unit)
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
-    Transport_LinScalar
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
+    Transport_LinScalar, Init_Disp_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
 
@@ -25,9 +25,9 @@ subroutine init_q2p1_ext(log_unit)
 
   IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
 
-  CALL Init_LinScalar
+  CALL Init_Disp_Q1()
 
-  CALL InitCond_LinScalar()
+  CALL InitCond_LinScalar_Q1()
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -45,8 +45,7 @@ subroutine init_q2p1_ext(log_unit)
     END IF
   END IF
 
-
-end subroutine init_q2p1_ext
+end subroutine init_laplace
 !
 !----------------------------------------------
 !
@@ -58,6 +57,7 @@ end subroutine init_q2p1_ext
     cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
   USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
+  
   IMPLICIT NONE
   ! -------------- workspace -------------------
   INTEGER  NNWORK
@@ -89,9 +89,7 @@ end subroutine init_q2p1_ext
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
   logical :: bwait = .true.
 
-
   CALL ZTIME(TTT0)
-
 
   !=======================================================================
   !     Data input
@@ -200,8 +198,6 @@ end subroutine init_q2p1_ext
                   mg_mesh%level(II)%dcorag,&
                   mg_mesh%level(II)%karea,&
                   mg_mesh%level(II)%kvert)
-
-!  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
 
   IF (myid.EQ.0) NLMAX = 1
 
@@ -351,21 +347,7 @@ end subroutine init_q2p1_ext
 
   DO II=NLMIN,NLMAX
 
-!  mg_mesh%level(ILEV)%dcorvg,&
-!  mg_mesh%level(ILEV)%karea,&
-!  mg_mesh%level(ILEV)%kvert,&
-!  mg_mesh%level(ILEV)%kedge,&
-!  mg_mesh%level(ILEV)%nel,&
-!  mg_mesh%level(ILEV)%nvt,&
-!  mg_mesh%level(ILEV)%net,&
-!  mg_mesh%level(ILEV)%nat
-
   ILEV=II
-
-!  NVT=KNVT(II)
-!  NAT=KNAT(II)
-!  NET=KNET(II)
-!  NEL=KNEL(II)
 
   NVT=mg_mesh%level(II)%nvt
   NAT=mg_mesh%level(II)%nat
@@ -376,8 +358,6 @@ end subroutine init_q2p1_ext
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
     WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
   END IF
-
-  !CALL SETLEV(2)
 
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET

@@ -1,3 +1,41 @@
+SUBROUTINE CoommunicateCoareGrid()
+USE var_QuadScalar
+USE Parametrization,ONLY : ParametrizeQ2Nodes
+USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor,Correct_myQ2Coor
+USE PP3D_MPI, ONLY: myid,coarse
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+! IF (myid.ne.0) THEN
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+!  CALL SetUp_myQ2Coor(DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
+!  CALL ParametrizeQ2Nodes(myQ2Coor)
+!  CALL Correct_myQ2Coor(DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
+! END IF
+
+IF (myid.EQ.0) THEN
+ CALL CreateDumpStructures(1)
+ELSE
+ LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX + 1 
+ CALL CreateDumpStructures(LevDif)
+END IF
+
+NLMAX = NLMAX + 1
+ ILEV = LinSc%prm%MGprmIn%MedLev+1
+ CALL SETLEV(2)
+ nLengthV = (2**(ILEV-1)+1)**3
+ nLengthE = KNEL(NLMIN)
+ ALLOCATE(SendVect(3,nLengthV,nLengthE))
+ CALL SendNodeValuesToCoarse(SendVect,myQ2Coor,KWORK(L(LVERT)),nLengthV,nLengthE,NEL,NVT)
+ DEALLOCATE(SendVect)
+NLMAX = NLMAX - 1
+
+IF (myid.ne.0) CALL CreateDumpStructures(1)
+
+END 
+!
+!
+!
 SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 USE var_QuadScalar
 USE Transport_Q2P1, ONLY : QuadSc,LinSc
@@ -32,9 +70,16 @@ DO ILEV = NLMIN+1,NLMAX
 
  nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
  CALL EdgeRunner(a1,a2,a3,a4,a5,a6,&
-      DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LEDGE)),NEL,NVT,NET,nUsedSteps,myTime)
- CALL ProlongateCoordinates(DWORK(L(LCORVG)),KWORK(L(LAREA)),KWORK(L(LVERT)),&
-      KWORK(L(LEDGE)),nel,nvt,net,nat)
+      mg_mesh%level(ilev)%dcorvg,&
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%kedge,&
+      NEL,NVT,NET,nUsedSteps,myTime)
+ CALL ProlongateCoordinates(&
+      mg_mesh%level(ilev)%dcorvg,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%kedge,&
+      nel,nvt,net,nat)
 
 END DO
 
@@ -42,28 +87,13 @@ DEALLOCATE(a1,a2,a3,a4,a5,a6)
 
 1 CONTINUE
 
-
-!  ILEV = LinSc%prm%MGprmIn%MedLev
-!  CALL SETLEV(2)
-!  nLengthV = (2**(ILEV-1)+1)**3
-!  nLengthE = KNEL(NLMIN)
-!  ALLOCATE(SendVect(3,nLengthV,nLengthE))
-!  CALL SendNodeValuesToCoarse(SendVect,DWORK(L(LCORVG)),KWORK(L(LVERT)),nLengthV,nLengthE,NEL,NVT)
-!  DEALLOCATE(SendVect)
-
 ILEV = NLMIN
 CALL SETLEV(2)
 
-CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
-
-
-! IF (myid.ne.0) THEN
-!  cFile="vertLink_00.txt"
-!  WRITE(cFile(10:11),'(I2.2)') myid
-!  OPEN (FILE=ADJUSTL(TRIM(cFile)),UNIT=555)
-!  WRITE(555,*) coarse%myVertLink(1:NVT)
-!  CLOSE(555)
-! END IF
+CALL ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%kvert,&
+  NVT,NEL)
 
 END
 !

@@ -19,6 +19,11 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
+! Type quantity
+! integer :: ncomponents
+! Type(lScalar), ALLOCATABLE :: c 
+! end type
+
 TYPE tParam
  REAL*8  defCrit,epsCrit,MinDef
  INTEGER NLmin,NLmax
@@ -29,6 +34,17 @@ END TYPE tParam
 TYPE mg_vector
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
 END TYPE mg_vector
+
+TYPE lScalar3
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
+ TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: valX,valY,valZ
+ TYPE(tParam) :: prm
+END TYPE
 
 TYPE lScalar
  CHARACTER cName*7
@@ -56,6 +72,8 @@ TYPE(TlMatrix) :: lMat
 
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Mmat,MLmat,Kmat,Dmat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: Amat
+
+REAL*4  , DIMENSION(:)  , ALLOCATABLE :: AmatX,AmatY,AmatZ
 
 CONTAINS
 !
@@ -517,5 +535,6 @@ END SUBROUTINE Protocol_linScalar
 !
 ! ----------------------------------------------
 !
+include 'LinSc_def_extension.f90'
 END MODULE def_LinScalar
 
