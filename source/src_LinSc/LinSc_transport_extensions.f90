@@ -98,8 +98,9 @@ CALL COMM_Maximum(RhsTemp)
 
 !CALL Protocol_linScalar(mfile,Tracer3,INL,&
 !     ResTemp,DefTemp,RhsTemp)
-!CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
-!     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
+
+CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
+     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
 
 IF ((DefTemp.LE.DefTempCrit).AND.&
     (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
