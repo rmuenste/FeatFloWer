@@ -1,0 +1,39 @@
+Number of timesteps                 :         1994
+Linear MG iterations UVW            :         9734
+Linear MG iterations   P            :         9412
+NonLinear iterations UVW            :         7974
+Average MG-UVW iters per NonLin     :       1.2207
+Average MG-P   iters per timesteps  :       4.7202
+Average NonLin iters per timesteps  :       3.9990
+
+ Overall time            :       0.0000s |      0.0000s
+
+Computation time         :    6822.4585s |  211496.2137s |     Infinity%
+Linear MG UVW            :    4022.5441s |  124698.8678s |     Infinity%
+Linear MG   P            :    2549.7703s |   79042.8801s |     Infinity%
+Defect computation UVW   :     238.4748s |    7392.7192s |     Infinity%
+Defect computation   P   :       4.0298s |     124.9232s |     Infinity%
+Correction UVWP          :       7.6395s |     236.8235s |     Infinity%
+
+UVW Multigrid            :    3747.9983s |  116187.9488s |      93.1748%
+Prolongation             :       6.9757s |     216.2473s |       0.1734%
+Restriction              :       9.3374s |     289.4588s |       0.2321%
+Smoothening              :    1440.4250s |   44653.1753s |      35.8088%
+Coarsegrid solver        :    2291.2602s |   71029.0674s |      56.9605%
+
+P    Multigrid           :    2464.4048s |   76396.5483s |      96.6520%
+Prolongation             :       0.5659s |      17.5437s |       0.0222%
+Restriction              :       0.8005s |      24.8167s |       0.0314%
+Smoothening              :    2218.3622s |   68769.2296s |      87.0024%
+Coarsegrid solver        :     244.6761s |    7584.9583s |       9.5960%
+
+Operator assembly time   :    1030.7944s |   31954.6252s |     Infinity%
+Convection matrix        :    1030.7944s |   31954.6252s |     Infinity%
+Deformation matrix       :       0.0000s |       0.0000s |       0.0000%
+Diffusion matrix         :       0.0000s |       0.0000s |       0.0000%
+Mass matrix              :       0.0000s |       0.0000s |       0.0000%
+Pressure-Schur matrix    :       0.0000s |       0.0000s |       0.0000%
+
+Output time              :     272.8266s |    8457.6241s |     Infinity%
+GMV output               :      18.6286s |     577.4857s |     Infinity%
+Dump file output         :     254.1980s |    7880.1384s |     Infinity%

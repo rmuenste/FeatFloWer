@@ -1,0 +1,56 @@
+0                                        number of particles
+Sphere                                   type of particle
+1.10d0                                   density of particle
+0.045d0                                   sizes
+0.10d0,0.10d0,0.10d0                     Position
+0.00d0,0.00d0,0.00d0                     Velocity
+0.00d0,0.00d0,0.00d0                     Angle
+0.00d0,0.00d0,0.00d0                     AngularVelocity
+0.00d0,0.00d0,0.00d0                     Acceleration
+0.00d0,0.00d0,0.00d0                     FrameVelocity
+0.00d0,0.00d0,0.00d0                     ResistanceForce
+0.00d0,0.00d0,0.00d0                     TorqueForce
+Sphere                                   type of particle
+0.90d0                                   density of particle
+0.045d0                                   sizes
+0.10d0,0.30d0,0.30d0                     Position
+0.00d0,0.00d0,0.00d0                     Velocity
+0.00d0,0.00d0,0.00d0                     Angle
+0.00d0,0.00d0,0.00d0                     AngularVelocity
+0.00d0,0.00d0,0.00d0                     Acceleration
+0.00d0,0.00d0,0.00d0                     FrameVelocity
+0.00d0,0.00d0,0.00d0                     ResistanceForce
+0.00d0,0.00d0,0.00d0                     TorqueForce
+Sphere                                   type of particle
+0.90d0                                   density of particle
+0.035d0                                   sizes
+0.10d0,0.10d0,0.30d0                     Position
+0.00d0,0.00d0,0.00d0                     Velocity
+0.00d0,0.00d0,0.00d0                     Angle
+0.00d0,0.00d0,0.00d0                     AngularVelocity
+0.00d0,0.00d0,0.00d0                     Acceleration
+0.00d0,0.00d0,0.00d0                     FrameVelocity
+0.00d0,0.00d0,0.00d0                     ResistanceForce
+0.00d0,0.00d0,0.00d0                     TorqueForce
+Sphere                                   type of particle
+1.10d0                                   density of particle
+0.035d0                                   sizes
+0.10d0,0.30d0,0.10d0                     Position
+0.00d0,0.00d0,0.00d0                     Velocity
+0.00d0,0.00d0,0.00d0                     Angle
+0.00d0,0.00d0,0.00d0                     AngularVelocity
+0.00d0,0.00d0,0.00d0                     Acceleration
+0.00d0,0.00d0,0.00d0                     FrameVelocity
+0.00d0,0.00d0,0.00d0                     ResistanceForce
+0.00d0,0.00d0,0.00d0                     TorqueForce
+Sphere                                   type of particle
+1.00d0                                   density of particle
+0.04d0                                   sizes
+0.10d0,0.20d0,0.20d0                     Position
+0.00d0,0.00d0,0.00d0                     Velocity
+0.00d0,0.00d0,0.00d0                     Angle
+0.00d0,0.00d0,0.00d0                     AngularVelocity
+0.00d0,0.00d0,0.00d0                     Acceleration
+0.00d0,0.00d0,0.00d0                     FrameVelocity
+0.00d0,0.00d0,0.00d0                     ResistanceForce
+0.00d0,0.00d0,0.00d0                     TorqueForce
