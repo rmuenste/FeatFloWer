@@ -192,6 +192,7 @@ END SUBROUTINE Protocol_linScalarQ1
 ! ----------------------------------------------
 !
 SUBROUTINE Init_Disp_Q1()
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
 NLMAX = NLMAX + 1
 
@@ -223,8 +224,17 @@ END IF
 
  CALL Initialize_Q1(Tracer3)
 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
 ! Set the types of boundary conditions (set up knpr)
- CALL Create_Knpr_Q1(LinSc_Knpr)
+ call LinSc_Knpr_Q1(mg_mesh%level(ilev)%dcorvg)
+
+ call myMPI_Barrier()
+ pause
+
+! CALL Create_Knpr_Q1(LinSc_Knpr_Q1)
+
 
 Tracer3%cName = "Tracer"
 Tracer3%prm%SolvIter = 50
@@ -242,6 +252,7 @@ Tracer3%prm%SolvType=1
 Tracer3%prm%iMass=1
 
 NLMAX = NLMAX - 1
+
 
 END SUBROUTINE Init_Disp_Q1
 !
@@ -267,6 +278,7 @@ END SUBROUTINE InitCond_LinScalar_Q1
 ! ----------------------------------------------
 !
 SUBROUTINE LinSc_Knpr_Q1(dcorvg)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
 REAL*8 :: PX=0.5d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
 INTEGER i
@@ -279,20 +291,24 @@ DO i=1,Tracer3%ndof
  Tracer3%knprY(I) = 0
  Tracer3%knprZ(I) = 0
 
-!  SPP1506
- IF (X.gt.+0.499d0) Tracer3%knprX(I) = 1
- IF (X.lt.-0.499d0) Tracer3%knprX(I) = 1
+ IF (myBoundary%LS_zero(i).ne.0.or.myBoundary%bDisp_DBC(i)) THEN
+   Tracer3%knprX(I) = 1
+   Tracer3%knprY(I) = 1
+   Tracer3%knprZ(I) = 1
+ END IF
 
- IF (Y.gt.+3.749d0) Tracer3%knprY(I) = 1
- IF (Y.lt.-2.749d0) Tracer3%knprY(I) = 1
- 
- IF (Z.gt.+0.099d0) Tracer3%knprZ(I) = 1
- IF (Z.lt.+0.001d0) Tracer3%knprZ(I) = 1
- 
- IF (myBoundary%LS_zero(i)) Tracer3%knprX(I) = 1
- IF (myBoundary%LS_zero(i)) Tracer3%knprY(I) = 1
- IF (myBoundary%LS_zero(i)) Tracer3%knprZ(I) = 1
-  
+ IF (myBoundary%bSymmetry(1,i)) THEN
+   Tracer3%knprX(I) = 1
+ END IF
+
+ IF (myBoundary%bSymmetry(2,i)) THEN
+   Tracer3%knprY(I) = 1
+ END IF
+
+ IF (myBoundary%bSymmetry(3,i)) THEN
+   Tracer3%knprZ(I) = 1
+ END IF
+
 END DO
 
 END SUBROUTINE LinSc_Knpr_Q1

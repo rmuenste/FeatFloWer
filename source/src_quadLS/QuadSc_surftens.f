@@ -98,8 +98,11 @@ C
       ivt3 = kvert(NeighA(3,IAT),IEL)
       ivt4 = kvert(NeighA(4,IAT),IEL)
       
-      IF (myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2).and.
-     *    myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4)) THEN
+      write(*,*)'Bad routine SurfIntegral. File: QuadSc_surftens'
+      stop
+      if(.true.)then
+c      IF (myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2).and.
+c     *    myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4)) THEN
 C      
       DHELP = F(IAT)%DHELP
 C      

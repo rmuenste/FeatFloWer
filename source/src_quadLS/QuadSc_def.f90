@@ -3021,136 +3021,136 @@ END SUBROUTINE GetPhysiclaParameters
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Correct_myQ2Coor(dcorvg,kvert,karea,kedge)
-REAL*8  dcorvg(3,*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-REAL*8 PX,PY,PZ
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,iedge1,iedge2
-INTEGER iat1,iat2,iat3,iat4,iat5,iat6
-INTEGER iBndr
-INTEGER NeighE(2,12),NeighA(4,6),NeighU(4,6)
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-DATA NeighU/1,2,3,4,  1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
-
-! return
-k=1
-DO i=1,nel
- DO j=1,6
-  IF (k.eq.karea(j,i)) THEN
-   ivt1 = kvert(NeighA(1,j),i)
-   ivt2 = kvert(NeighA(2,j),i)
-   ivt3 = kvert(NeighA(3,j),i)
-   ivt4 = kvert(NeighA(4,j),i)
-
-   IF ((     myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2)).and.&
-       .not.(myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4))) then
-    iedge1 = neighU(1,j)
-    iedge2 = neighU(3,j)
-    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
-    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
-    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
-!     WRITE(*,*) 'case: ',1
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-   END IF
-
-   IF ((     myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4)).and.&
-       .not.(myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2))) then
-    iedge1 = neighU(1,j)
-    iedge2 = neighU(3,j)
-    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
-    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
-    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
-!     WRITE(*,*) 'case: ',2
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-   END IF
-
-   
-   IF ((     myBoundary%LS_zero(ivt2).and.myBoundary%LS_zero(ivt3)).and.&
-       .not.(myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt4))) then
-    iedge1 = neighU(2,j)
-    iedge2 = neighU(4,j)
-    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
-    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
-    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
-!     WRITE(*,*) 'case: ',3
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-   END IF
-
-   IF ((     myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt4)).and.&
-       .not.(myBoundary%LS_zero(ivt2).and.myBoundary%LS_zero(ivt3))) then
-    iedge1 = neighU(2,j)
-    iedge2 = neighU(4,j)
-    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
-    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
-    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
-!     WRITE(*,*) 'case: ',4
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
-!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
-   END IF
-
-   k = k + 1
-  END IF
- END DO
-END DO
-
-! pause
-DO i=1,nel
-
- iat1 = karea(1,i)
- iat2 = karea(2,i)
- iat3 = karea(3,i)
- iat4 = karea(4,i)
- iat5 = karea(5,i)
- iat1 = karea(6,i)
-
- IF (myBoundary%LS_zero(nvt+net+iat1).and.(.not.myBoundary%LS_zero(nvt+net+iat6))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat1)+myQ2Coor(1,nvt+net+iat6))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat1)+myQ2Coor(2,nvt+net+iat6))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat1)+myQ2Coor(3,nvt+net+iat6))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
- IF (myBoundary%LS_zero(nvt+net+iat2).and.(.not.myBoundary%LS_zero(nvt+net+iat4))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat2)+myQ2Coor(1,nvt+net+iat4))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat2)+myQ2Coor(2,nvt+net+iat4))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat2)+myQ2Coor(3,nvt+net+iat4))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
- IF (myBoundary%LS_zero(nvt+net+iat3).and.(.not.myBoundary%LS_zero(nvt+net+iat5))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat3)+myQ2Coor(1,nvt+net+iat5))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat3)+myQ2Coor(2,nvt+net+iat5))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat3)+myQ2Coor(3,nvt+net+iat5))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
- IF (myBoundary%LS_zero(nvt+net+iat6).and.(.not.myBoundary%LS_zero(nvt+net+iat1))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat1)+myQ2Coor(1,nvt+net+iat6))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat1)+myQ2Coor(2,nvt+net+iat6))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat1)+myQ2Coor(3,nvt+net+iat6))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
- IF (myBoundary%LS_zero(nvt+net+iat4).and.(.not.myBoundary%LS_zero(nvt+net+iat2))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat2)+myQ2Coor(1,nvt+net+iat4))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat2)+myQ2Coor(2,nvt+net+iat4))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat2)+myQ2Coor(3,nvt+net+iat4))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
- IF (myBoundary%LS_zero(nvt+net+iat5).and.(.not.myBoundary%LS_zero(nvt+net+iat3))) then
-  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat3)+myQ2Coor(1,nvt+net+iat5))
-  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat3)+myQ2Coor(2,nvt+net+iat5))
-  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat3)+myQ2Coor(3,nvt+net+iat5))
-  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
- end if
-
-END DO
-
-END SUBROUTINE Correct_myQ2Coor
+!SUBROUTINE Correct_myQ2Coor(dcorvg,kvert,karea,kedge)
+!REAL*8  dcorvg(3,*)
+!INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+!REAL*8 PX,PY,PZ
+!INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,iedge1,iedge2
+!INTEGER iat1,iat2,iat3,iat4,iat5,iat6
+!INTEGER iBndr
+!INTEGER NeighE(2,12),NeighA(4,6),NeighU(4,6)
+!DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+!DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+!DATA NeighU/1,2,3,4,  1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+!
+!! return
+!k=1
+!DO i=1,nel
+! DO j=1,6
+!  IF (k.eq.karea(j,i)) THEN
+!   ivt1 = kvert(NeighA(1,j),i)
+!   ivt2 = kvert(NeighA(2,j),i)
+!   ivt3 = kvert(NeighA(3,j),i)
+!   ivt4 = kvert(NeighA(4,j),i)
+!
+!   IF ((     myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2)).and.&
+!       .not.(myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4))) then
+!    iedge1 = neighU(1,j)
+!    iedge2 = neighU(3,j)
+!    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
+!    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
+!    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
+!!     WRITE(*,*) 'case: ',1
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!   END IF
+!
+!   IF ((     myBoundary%LS_zero(ivt3).and.myBoundary%LS_zero(ivt4)).and.&
+!       .not.(myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt2))) then
+!    iedge1 = neighU(1,j)
+!    iedge2 = neighU(3,j)
+!    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
+!    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
+!    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
+!!     WRITE(*,*) 'case: ',2
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!   END IF
+!
+!   
+!   IF ((     myBoundary%LS_zero(ivt2).and.myBoundary%LS_zero(ivt3)).and.&
+!       .not.(myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt4))) then
+!    iedge1 = neighU(2,j)
+!    iedge2 = neighU(4,j)
+!    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
+!    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
+!    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
+!!     WRITE(*,*) 'case: ',3
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!   END IF
+!
+!   IF ((     myBoundary%LS_zero(ivt1).and.myBoundary%LS_zero(ivt4)).and.&
+!       .not.(myBoundary%LS_zero(ivt2).and.myBoundary%LS_zero(ivt3))) then
+!    iedge1 = neighU(2,j)
+!    iedge2 = neighU(4,j)
+!    PX = 0.5d0*(myQ2Coor(1,nvt+kedge(iedge1,i))+myQ2Coor(1,nvt+kedge(iedge2,i)))
+!    PY = 0.5d0*(myQ2Coor(2,nvt+kedge(iedge1,i))+myQ2Coor(2,nvt+kedge(iedge2,i)))
+!    PZ = 0.5d0*(myQ2Coor(3,nvt+kedge(iedge1,i))+myQ2Coor(3,nvt+kedge(iedge2,i)))
+!!     WRITE(*,*) 'case: ',4
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!    myQ2Coor(:,nvt+net+k)=[PX,PY,PZ]
+!!     WRITE(*,*) myQ2Coor(:,nvt+net+k)
+!   END IF
+!
+!   k = k + 1
+!  END IF
+! END DO
+!END DO
+!
+!! pause
+!DO i=1,nel
+!
+! iat1 = karea(1,i)
+! iat2 = karea(2,i)
+! iat3 = karea(3,i)
+! iat4 = karea(4,i)
+! iat5 = karea(5,i)
+! iat1 = karea(6,i)
+!
+! IF (myBoundary%LS_zero(nvt+net+iat1).and.(.not.myBoundary%LS_zero(nvt+net+iat6))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat1)+myQ2Coor(1,nvt+net+iat6))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat1)+myQ2Coor(2,nvt+net+iat6))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat1)+myQ2Coor(3,nvt+net+iat6))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+! IF (myBoundary%LS_zero(nvt+net+iat2).and.(.not.myBoundary%LS_zero(nvt+net+iat4))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat2)+myQ2Coor(1,nvt+net+iat4))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat2)+myQ2Coor(2,nvt+net+iat4))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat2)+myQ2Coor(3,nvt+net+iat4))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+! IF (myBoundary%LS_zero(nvt+net+iat3).and.(.not.myBoundary%LS_zero(nvt+net+iat5))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat3)+myQ2Coor(1,nvt+net+iat5))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat3)+myQ2Coor(2,nvt+net+iat5))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat3)+myQ2Coor(3,nvt+net+iat5))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+! IF (myBoundary%LS_zero(nvt+net+iat6).and.(.not.myBoundary%LS_zero(nvt+net+iat1))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat1)+myQ2Coor(1,nvt+net+iat6))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat1)+myQ2Coor(2,nvt+net+iat6))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat1)+myQ2Coor(3,nvt+net+iat6))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+! IF (myBoundary%LS_zero(nvt+net+iat4).and.(.not.myBoundary%LS_zero(nvt+net+iat2))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat2)+myQ2Coor(1,nvt+net+iat4))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat2)+myQ2Coor(2,nvt+net+iat4))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat2)+myQ2Coor(3,nvt+net+iat4))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+! IF (myBoundary%LS_zero(nvt+net+iat5).and.(.not.myBoundary%LS_zero(nvt+net+iat3))) then
+!  PX = 0.5d0*(myQ2Coor(1,nvt+net+iat3)+myQ2Coor(1,nvt+net+iat5))
+!  PY = 0.5d0*(myQ2Coor(2,nvt+net+iat3)+myQ2Coor(2,nvt+net+iat5))
+!  PZ = 0.5d0*(myQ2Coor(3,nvt+net+iat3)+myQ2Coor(3,nvt+net+iat5))
+!  myQ2Coor(:,nvt+net+nat+i)=[PX,PY,PZ]
+! end if
+!
+!END DO
+!
+!END SUBROUTINE Correct_myQ2Coor
 !
 ! ----------------------------------------------
 !

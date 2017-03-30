@@ -484,7 +484,6 @@ end if
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
-
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
@@ -1674,7 +1673,10 @@ SUBROUTINE MoveInterfacePoints(dcoor,MFILE)
 INTEGER mfile
 REAL*8 dcoor(3,*)
 REAL*8 Velo(3),Displacement(3),dMaxVelo,daux,dArea
-INTEGER i
+INTEGER i,iInterface
+
+write(*,*)'bad routine MoveInterfacePoints in QuadSc_main'
+stop
 
 IF (myid.ne.0) then
  DO i=1,QuadSc%ndof
@@ -1690,16 +1692,10 @@ IF (myid.ne.0) then
  DO i=1,NVT
   dcoor(:,i) = myQ2Coor(:,i)
  END DO
- CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor)
+ CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor,iInterface)
 END IF
 
 CALL CommunicateSurface()
-
-! IF (myid.eq.1) THEN
-!  CALL GetCompleteArea(dArea)
-!  WRITE(MFILE,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
-!  WRITE(MTERM,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
-! END IF
 
 END SUBROUTINE MoveInterfacePoints
 !
@@ -1753,10 +1749,10 @@ END SUBROUTINE GetCompleteArea
 !
 ! ----------------------------------------------
 !
-SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg)
+SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
 REAL*8 dcorvg(3,*)
 INTEGER karea(6,*),kvert(8,*),kedge(12,*)
-INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
+INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT,iIF
 INTEGER NeighA(4,6),NeighU(4,6)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
@@ -1766,7 +1762,7 @@ k=1
 DO i=1,nel
  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   IF (myBoundary%LS_zero(nvt+net+k)) THEN
+   IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
     iT = iT + 1
    END IF
    k = k + 1
@@ -1784,7 +1780,7 @@ k=1
 DO i=1,nel
  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   IF (myBoundary%LS_zero(nvt+net+k)) THEN
+   IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
     iT = iT + 1
     ivt1 = kvert(NeighA(1,j),i)
     ivt2 = kvert(NeighA(2,j),i)

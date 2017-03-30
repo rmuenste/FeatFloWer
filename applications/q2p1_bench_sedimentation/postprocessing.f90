@@ -53,7 +53,7 @@ SUBROUTINE myOutput_Profiles(iOutput)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
-USE Transport_Q1,ONLY:Tracer
+USE Transport_Q1, ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
 USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -153,7 +153,7 @@ END SUBROUTINE TimeStepCtrl
 !
 ! ----------------------------------------------
 !
-subroutine postprocessing_laplace(dout, iogmv, inlU,inlT,filehandle)
+subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
@@ -203,7 +203,7 @@ CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 ! Interaction from user
 CALL ProcessControl(filehandle,mterm)
 
-end subroutine postprocessing_laplace
+end subroutine postprocessing_fc_ext
 !
 ! ----------------------------------------------
 !
@@ -272,10 +272,10 @@ integer :: maxlevel
 
 maxlevel = mg_mesh%maxlevel
 
-if(associated(mg_mesh%level(maxlevel)%dcorvg))then
-  deallocate(mg_mesh%level(maxlevel)%dcorvg)
-  mg_mesh%level(maxlevel)%dcorvg => null()
-end if
+do i=maxlevel,maxlevel
+  deallocate(mg_mesh%level(i)%dcorvg)
+  mg_mesh%level(i)%dcorvg => null()
+end do
 
 end subroutine release_mesh
 !
@@ -301,7 +301,7 @@ CALL StatOut(time_passed,0)
 CALL StatOut(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
-!CALL SolToFile(-1)
+CALL SolToFile(-1)
 
 IF (myid.eq.showid) THEN
   WRITE(MTERM,*) "PP3D_LES has successfully finished. "
@@ -309,7 +309,6 @@ IF (myid.eq.showid) THEN
 END IF
 
 call release_mesh()
-
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
 

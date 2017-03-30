@@ -304,7 +304,8 @@ TYPE tBoundary
  LOGICAL, ALLOCATABLE :: nWall   ,nInflown,  nOutflow   ,nSymmetry
  LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:)
  INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:)
- LOGICAL, ALLOCATABLE :: LS_zero(:)
+ INTEGER, ALLOCATABLE :: LS_zero(:)
+ LOGICAL, ALLOCATABLE :: bDisp_DBC(:) 
 END TYPE tBoundary
 TYPE (tBoundary) myBoundary
 
@@ -339,7 +340,7 @@ TYPE(tTriangulation) myTSurf
 
 LOGICAL :: bMeshAdaptation = .FALSE.
 CHARACTER*100 cAdaptedMeshFile
-INTEGER nUmbrellaSteps
+INTEGER nUmbrellaSteps,nInitUmbrellaSteps
 
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
