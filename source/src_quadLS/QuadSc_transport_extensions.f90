@@ -9,7 +9,6 @@ IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBMGeometry()
 END IF
 
-
 thstep = tstep*(1d0-theta)
 
 

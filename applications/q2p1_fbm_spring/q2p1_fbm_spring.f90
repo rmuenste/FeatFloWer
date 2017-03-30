@@ -38,7 +38,7 @@ PROGRAM Q2P1_FBM_SPRING
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_fbm_spring(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

@@ -171,6 +171,7 @@ end subroutine init_laplace
   IF (myid.EQ.0) then
     mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
     mg_Mesh%nlmin = 1
+    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev
     allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
   else
     allocate(mg_mesh%level(NLMAX))

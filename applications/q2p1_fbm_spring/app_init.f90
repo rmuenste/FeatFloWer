@@ -45,7 +45,6 @@ subroutine init_q2p1_spring(log_unit)
     END IF
   END IF
 
-
 end subroutine init_q2p1_spring
 !
 !----------------------------------------------
@@ -173,6 +172,7 @@ end subroutine init_q2p1_spring
   IF (myid.EQ.0) then
     mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
     mg_Mesh%nlmin = 1
+    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev
     allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
   else
     allocate(mg_mesh%level(NLMAX))
@@ -270,7 +270,7 @@ end subroutine init_q2p1_spring
   CALL E011_CreateComm(NDOF)
 
   !     ----------------------------------------------------------            
-  call init_fc_rigid_body(myid)      
+  call init_fc_soft_body(myid)      
   call FBM_GetParticles()
   CALL FBM_ScatterParticles()
   !     ----------------------------------------------------------        

@@ -41,9 +41,6 @@ if(bViscoElastic)then
   CALL WriteSol_Visco(iOut,0)
 end if
 
-if(myid.eq.1 .and. myFBM%nParticles.gt.0)then
-  call writeparticles(iOut)
-end if
 
 END SUBROUTINE mySolToFile
 !
@@ -103,6 +100,10 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
 
 END IF
 
+if(myid.eq.1)then
+  call writesoftbody(iOutput)
+end if
+
 END SUBROUTINE 
 !
 !----------------------------------------------
@@ -153,7 +154,7 @@ END SUBROUTINE TimeStepCtrl
 !
 ! ----------------------------------------------
 !
-subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
+subroutine postprocessing_fbm_spring(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
@@ -169,7 +170,7 @@ INTEGER :: inlU,inlT,MFILE
 ! Output the solution in GMV or GiD format
 IF (itns.eq.1) THEN
   CALL ZTIME(myStat%t0)
-  CALL Output_Profiles(0)
+  CALL myOutput_Profiles(0)
   CALL ZTIME(myStat%t1)
   myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
 END IF
@@ -179,7 +180,7 @@ IF(dout.LE.(timens+1e-10)) THEN
   iOGMV = NINT(timens/dtgmv)
   IF (itns.ne.1) THEN
     CALL ZTIME(myStat%t0)
-    CALL Output_Profiles(iOGMV)
+    CALL myOutput_Profiles(iOGMV)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
   END IF
@@ -203,7 +204,7 @@ CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 ! Interaction from user
 CALL ProcessControl(filehandle,mterm)
 
-end subroutine postprocessing_fc_ext
+end subroutine postprocessing_fbm_spring
 !
 ! ----------------------------------------------
 !
