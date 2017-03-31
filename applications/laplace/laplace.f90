@@ -35,7 +35,7 @@ PROGRAM LAPLACE
     inonln_t = 2
   END IF
 
-  !call postprocessing_laplace(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_laplace(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

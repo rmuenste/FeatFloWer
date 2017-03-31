@@ -22,8 +22,9 @@ subroutine init_laplace(log_unit)
   CALL General_init_ext(79,log_unit)
 
   CALL Init_QuadScalar_Stuctures(log_unit)
-  return
-
+  CALL myOutput_Profiles(0)
+  call myMPI_Barrier()
+  pause
   
 !  IF(bViscoElastic)then
 !    write(*,*)'Viso'
@@ -33,9 +34,6 @@ subroutine init_laplace(log_unit)
 !  end if
 
   CALL Init_Disp_Q1()
-
-  call myMPI_Barrier()
-  stop
 
   CALL InitCond_LinScalar_Q1()
 

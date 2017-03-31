@@ -34,5 +34,5 @@ done
 #echo STACK_SIZE=$STACK_SIZE
 
 if [[ "$BUILDIDS" = "true" ]]; then
-  grep 'Q2P1_BUILD_ID STREQUAL' cmake/modules/buildids.cmake | awk -F '"' '{print $2}'
+  grep 'Q2P1_BUILD_ID STREQUAL' cmake/modules/SetFlagsForID.cmake | awk -F '"' '{print $2}'
 fi

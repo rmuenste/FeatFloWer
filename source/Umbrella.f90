@@ -696,7 +696,7 @@ w(1:nvt) = 0d0
  END IF
  
  ! TODO: jo
- !CALL ParametrizeBndr()
+ CALL ParametrizeBndr()
 
 END DO
 
