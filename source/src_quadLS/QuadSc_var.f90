@@ -123,6 +123,7 @@ TYPE tProperties
  REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
  REAL*8 :: ViscoLambda
  INTEGER :: ViscoModel
+ INTEGER :: nInterface
 END TYPE tProperties
 
 TYPE tParamV
@@ -336,7 +337,7 @@ TYPE tTriangulation
  TYPE(tTriangle), ALLOCATABLE :: T(:)
 END TYPE tTriangulation
 
-TYPE(tTriangulation) myTSurf
+TYPE(tTriangulation), ALLOCATABLE :: myTSurf(:)
 
 LOGICAL :: bMeshAdaptation = .FALSE.
 CHARACTER*100 cAdaptedMeshFile
@@ -346,6 +347,7 @@ TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
  REAL*8, ALLOCATABLE :: OldCoor(:,:), NewCoor(:,:),MeshVelo(:,:), OrigCoor(:,:)
  REAL*8, ALLOCATABLE :: Q2coor_old(:,:)
+ LOGICAL :: bUseFrameVelocity = .false.
  REAL*8 dFrameVelocity(3),dFrameVelocityChange(3)
 END TYPE tALE
 

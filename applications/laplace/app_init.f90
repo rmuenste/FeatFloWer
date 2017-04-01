@@ -22,9 +22,6 @@ subroutine init_laplace(log_unit)
   CALL General_init_ext(79,log_unit)
 
   CALL Init_QuadScalar_Stuctures(log_unit)
-  CALL myOutput_Profiles(0)
-  call myMPI_Barrier()
-  pause
   
 !  IF(bViscoElastic)then
 !    write(*,*)'Viso'
@@ -34,6 +31,10 @@ subroutine init_laplace(log_unit)
 !  end if
 
   CALL Init_Disp_Q1()
+
+  CALL myOutput_Profiles(0)
+  call myMPI_Barrier()
+  pause 
 
   CALL InitCond_LinScalar_Q1()
 
@@ -322,7 +323,7 @@ end subroutine init_laplace
   END IF
 
   IF (nInitUmbrellaSteps.GT.0) THEN
-    CALL InitUmbrellaSmoother(timens,nInitUmbrellaSteps)
+    CALL InitUmbrellaSmoother(timens,mg_mesh,nInitUmbrellaSteps)
   END IF
 
   showid = 1

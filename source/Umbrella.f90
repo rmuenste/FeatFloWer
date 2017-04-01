@@ -36,11 +36,12 @@ END SUBROUTINE CoommunicateCoarseGrid
 !
 ! --------------------------------------------------------------
 !
-SUBROUTINE InitUmbrellaSmoother(myTime,nSteps)
+SUBROUTINE InitUmbrellaSmoother(myTime,mgMesh,nSteps)
   USE var_QuadScalar
   USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
   USE PP3D_MPI, ONLY: myid,coarse
   REAL*8 myTime
+  type(tMultiMesh) :: mgMesh
   INTEGEr nSteps,nUsedSteps
   CHARACTER*60 :: cFile
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
@@ -70,7 +71,7 @@ SUBROUTINE InitUmbrellaSmoother(myTime,nSteps)
 
   nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
 
-  CALL EdgeRunner2(a1,a2,a3,a4,a5,a6,&
+  CALL EdgeRunner2(a1,a2,a3,a4,a5,a6,mgMesh,ilev,&
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
@@ -569,15 +570,19 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
     END SUBROUTINE ExchangeNodeValuesOnCoarseLevel
 
-SUBROUTINE EdgeRunner2(f,x,y,z,w,v,dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime,bInit)
+SUBROUTINE EdgeRunner2(f,x,y,z,w,v,mgMesh,ilevel,&
+dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime,bInit)
 USE Parametrization, ONLY: ParametrizeBndr
 USE Transport_Q2P1, ONLY : myBoundary
+USE var_QuadScalar, ONLY : tMultiMesh 
 IMPLICIT NONE
 
 LOGICAL bInit
 REAL*8 myTime
 REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
 INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
 INTEGER NeighE(2,12),iel
 DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux
@@ -696,7 +701,7 @@ w(1:nvt) = 0d0
  END IF
  
  ! TODO: jo
- CALL ParametrizeBndr()
+CALL ParametrizeBndr(mgMesh,ilevel)
 
 END DO
 

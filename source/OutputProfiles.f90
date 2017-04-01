@@ -2049,3 +2049,8 @@ Real, intent(inout) :: t
 call CPU_TIME(t)
 
 end subroutine ztime
+
+subroutine zvalue1()
+implicit none
+
+end subroutine zvalue1

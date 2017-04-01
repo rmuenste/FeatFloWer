@@ -1675,7 +1675,7 @@ REAL*8 dcoor(3,*)
 REAL*8 Velo(3),Displacement(3),dMaxVelo,daux,dArea
 INTEGER i,iInterface
 
-write(*,*)'bad routine MoveInterfacePoints in QuadSc_main'
+write(*,*)'New untested subroutine'
 stop
 
 IF (myid.ne.0) then
@@ -1686,56 +1686,61 @@ IF (myid.ne.0) then
  END DO
 END IF
 
+IF (.NOT.ALLOCATED(myTSurf)) ALLOCATE(myTSurf(Properties%nInterface))
+
 IF (myid.ne.0) then
  ILEV=NLMAX
  CALL SETLEV(2)
- DO i=1,NVT
+ DO i=1,QuadSc%ndof
   dcoor(:,i) = myQ2Coor(:,i)
  END DO
- CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor,iInterface)
+
+ DO iInterface=1,Properties%nInterface
+  CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor,iInterface)
+ END DO
 END IF
 
 CALL CommunicateSurface()
+
+IF (myid.ne.0) then
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ DO i=1,QuadSc%ndof
+  dcoor(:,i) = myALE%Q2coor_old(:,i)
+  myQ2Coor(:,i) = myALE%Q2coor_old(:,i)
+ END DO
+END IF
+
+! IF (myid.eq.1) THEN
+!  CALL GetCompleteArea(dArea,1)
+!  WRITE(MFILE,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+!  WRITE(MTERM,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+! END IF
 
 END SUBROUTINE MoveInterfacePoints
 !
 ! ----------------------------------------------
 !
-SUBROUTINE ResetInterfacePoints(dcoor,MFILE)
-INTEGER mfile
-REAL*8 dcoor(3,*)
-INTEGER i
-
-IF (myid.ne.0) then
- myQ2Coor = myALE%Q2Coor_old
- ILEV=NLMAX
- CALL SETLEV(2)
- DO i=1,NVT
-  dcoor(:,i) = myQ2Coor(:,i)
- END DO
-end if
-
-END SUBROUTINE ResetInterfacePoints
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetCompleteArea(DCompleteArea)
+SUBROUTINE GetCompleteArea(DCompleteArea,iIF)
 REAL*8 DCompleteArea
 REAL*8 DA(3,3),dArea
-INTEGER i,j,IP1,IP2,IP3
+INTEGER i,j,IP1,IP2,IP3,iIF
+
+write(*,*)'New untested subroutine'
+stop
 
 DCompleteArea = 0d0
-DO i=1,myTSurf%nT
+DO i=1,myTSurf(iIF)%nT
  DO j=1,8
   IP1 = j
   IP2 = MOD(j,8)+1
   IP3 = 9
-  DA(1,2)=myTSurf%T(i)%C(1,IP2) - myTSurf%T(i)%C(1,IP1) !P2X-P1X
-  DA(2,2)=myTSurf%T(i)%C(2,IP2) - myTSurf%T(i)%C(2,IP1) !P2Y-P1Y
-  DA(3,2)=myTSurf%T(i)%C(3,IP2) - myTSurf%T(i)%C(3,IP1) !P2Z-P1Z
-  DA(1,3)=myTSurf%T(i)%C(1,IP3) - myTSurf%T(i)%C(1,IP1) !P3X-P1X
-  DA(2,3)=myTSurf%T(i)%C(2,IP3) - myTSurf%T(i)%C(2,IP1) !P3Y-P1Y
-  DA(3,3)=myTSurf%T(i)%C(3,IP3) - myTSurf%T(i)%C(3,IP1) !P3Z-P1Z
+  DA(1,2)=myTSurf(iIF)%T(i)%C(1,IP2) - myTSurf(iIF)%T(i)%C(1,IP1) !P2X-P1X
+  DA(2,2)=myTSurf(iIF)%T(i)%C(2,IP2) - myTSurf(iIF)%T(i)%C(2,IP1) !P2Y-P1Y
+  DA(3,2)=myTSurf(iIF)%T(i)%C(3,IP2) - myTSurf(iIF)%T(i)%C(3,IP1) !P2Z-P1Z
+  DA(1,3)=myTSurf(iIF)%T(i)%C(1,IP3) - myTSurf(iIF)%T(i)%C(1,IP1) !P3X-P1X
+  DA(2,3)=myTSurf(iIF)%T(i)%C(2,IP3) - myTSurf(iIF)%T(i)%C(2,IP1) !P3Y-P1Y
+  DA(3,3)=myTSurf(iIF)%T(i)%C(3,IP3) - myTSurf(iIF)%T(i)%C(3,IP1) !P3Z-P1Z
 
   DA(1,1) = DA(2,3)*DA(3,2) - DA(3,3)*DA(2,2)
   DA(2,1) = DA(3,3)*DA(1,2) - DA(1,3)*DA(3,2)
@@ -1751,11 +1756,14 @@ END SUBROUTINE GetCompleteArea
 !
 SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
 REAL*8 dcorvg(3,*)
-INTEGER karea(6,*),kvert(8,*),kedge(12,*)
-INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT,iIF
+INTEGER karea(6,*),kvert(8,*),kedge(12,*),iIF
+INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
 INTEGER NeighA(4,6),NeighU(4,6)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+
+write(*,*)'New untested subroutine'
+stop
 
 iT = 0
 k=1
@@ -1770,10 +1778,10 @@ DO i=1,nel
  END DO
 END DO
 
-IF (ALLOCATED(myTSurf%T)) DEALLOCATE(myTSurf%T)
+IF (ALLOCATED(myTSurf(iIF)%T)) DEALLOCATE(myTSurf(iIF)%T)
 
-myTSurf%nT = iT
-ALLOCATE(myTSurf%T(myTSurf%nT))
+myTSurf(iIF)%nT = iT
+ALLOCATE(myTSurf(iIF)%T(myTSurf(iIF)%nT))
 
 iT = 0
 k=1
@@ -1786,19 +1794,19 @@ DO i=1,nel
     ivt2 = kvert(NeighA(2,j),i)
     ivt3 = kvert(NeighA(3,j),i)
     ivt4 = kvert(NeighA(4,j),i)
-    myTSurf%T(iT)%C(:,1) = dcorvg(:,ivt1)
-    myTSurf%T(iT)%C(:,3) = dcorvg(:,ivt2)
-    myTSurf%T(iT)%C(:,5) = dcorvg(:,ivt3)
-    myTSurf%T(iT)%C(:,7) = dcorvg(:,ivt4)
+    myTSurf(iIF)%T(iT)%C(:,1) = dcorvg(:,ivt1)
+    myTSurf(iIF)%T(iT)%C(:,3) = dcorvg(:,ivt2)
+    myTSurf(iIF)%T(iT)%C(:,5) = dcorvg(:,ivt3)
+    myTSurf(iIF)%T(iT)%C(:,7) = dcorvg(:,ivt4)
     ivt1 = kedge(NeighU(1,j),i)
     ivt2 = kedge(NeighU(2,j),i)
     ivt3 = kedge(NeighU(3,j),i)
     ivt4 = kedge(NeighU(4,j),i)
-    myTSurf%T(iT)%C(:,2) = dcorvg(:,nvt+ivt1)
-    myTSurf%T(iT)%C(:,4) = dcorvg(:,nvt+ivt2)
-    myTSurf%T(iT)%C(:,6) = dcorvg(:,nvt+ivt3)
-    myTSurf%T(iT)%C(:,8) = dcorvg(:,nvt+ivt4)
-    myTSurf%T(iT)%C(:,9) = dcorvg(:,nvt+net+k)
+    myTSurf(iIF)%T(iT)%C(:,2) = dcorvg(:,nvt+ivt1)
+    myTSurf(iIF)%T(iT)%C(:,4) = dcorvg(:,nvt+ivt2)
+    myTSurf(iIF)%T(iT)%C(:,6) = dcorvg(:,nvt+ivt3)
+    myTSurf(iIF)%T(iT)%C(:,8) = dcorvg(:,nvt+ivt4)
+    myTSurf(iIF)%T(iT)%C(:,9) = dcorvg(:,nvt+net+k)
    END IF
    k = k + 1
   END IF
@@ -1814,6 +1822,9 @@ INTEGER mfile
 REAL*8 dArray(8)
 REAL*8 :: dR=0.25d0, myPI=4d0*ATAN(1d0), dWidth=0.05d0
 EXTERNAL E013
+
+write(*,*)'New untested subroutine'
+stop
 
 IF (myid.ne.0) THEN
  dArray = 0d0
@@ -1837,14 +1848,18 @@ IF (myid.eq.1) THEN
  (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
 END IF
 
-myALE%dFrameVelocityChange = dArray(6:8)/dArray(2)
-myALE%dFrameVelocity = myALE%dFrameVelocity + 1d0*myALE%dFrameVelocityChange
+IF (myALE%bUseFrameVelocity) THEN
+ myALE%dFrameVelocityChange = dArray(6:8)/dArray(2)
+ myALE%dFrameVelocity = myALE%dFrameVelocity + 1d0*myALE%dFrameVelocityChange
+ELSE
+ myALE%dFrameVelocityChange = 0d0
+ myALE%dFrameVelocity       = 0d0
+END IF
 
 IF (myid.eq.1) THEN
  WRITE(MTERM,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
  WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
 END IF
-
 END SUBROUTINE IntegrateQuantities
 !
 ! ----------------------------------------------
