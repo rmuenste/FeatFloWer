@@ -1,6 +1,6 @@
 MODULE mg_QuadScalar
 
-USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,&
+USE PP3D_MPI, ONLY:E011DMat,myid,showID,& !E011Sum,
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free

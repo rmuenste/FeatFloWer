@@ -293,6 +293,7 @@ END SUBROUTINE mgDefectNorm
 ! ----------------------------------------------
 !
 SUBROUTINE mgUpdateDefect(imgLev,bDef)
+USE PP3D_MPI, only: E011SUM
 INTEGER i,j,ndof,imgLev,neq
 REAL*8  daux
 LOGICAL bDef

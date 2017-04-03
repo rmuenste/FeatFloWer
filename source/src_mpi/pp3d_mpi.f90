@@ -31,6 +31,11 @@ MODULE PP3D_MPI
 
   TYPE(TMGE013), DIMENSION(:), ALLOCATABLE :: MGE013
 
+  TYPE TMGE011
+   REAL*8 , DIMENSION(:)  , ALLOCATABLE     :: UE11,UE22,UE33
+  END TYPE
+  TYPE(TMGE011), DIMENSION(:), ALLOCATABLE :: MGE011
+
   TYPE TE012ST
     INTEGER :: Num = 0
     INTEGER :: Neigh = 0
@@ -1031,53 +1036,64 @@ END SUBROUTINE CREATECOMM
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E011Sum(FX) !ok
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE var_QuadScalar, only: knvt
+IMPLICIT NONE
 
-  REAL*8  FX(*)
-  INTEGER I,pID,pJD,nSIZE,nEIGH
+REAL*8  FX(*)
+INTEGER I,pID,pJD,nSIZE,nEIGH,NU
 
-  IF (myid.ne.MASTER) THEN
+IF (myid.ne.MASTER) THEN
 
-    DO pID=1,subnodes
-    IF (myid.NE.pID) THEN
-      DO pJD=1,subnodes
-      IF (pID.EQ.pJD.AND.E011ST(pJD)%Num.GT.0) THEN
-        nSIZE = E011ST(pJD)%Num
+ DO pID=1,subnodes
+  IF (myid.NE.pID) THEN
+   DO pJD=1,subnodes
+    IF (pID.EQ.pJD.AND.E011ST(pJD)%Num.GT.0) THEN
+     nSIZE = E011ST(pJD)%Num
 
-        DO I=1,nSIZE
-        E011ST(pJD)%SDVect(I) = FX(E011ST(pJD)%VertLink(1,I))
-        END DO
+     DO I=1,nSIZE
+      E011ST(pJD)%SDVect(I) = FX(E011ST(pJD)%VertLink(1,I))
+     END DO
 
-        CALL SENDD_myMPI(E011ST(pJD)%SDVect,nSIZE,pID)
+     CALL SENDD_myMPI(E011ST(pJD)%SDVect,nSIZE,pID)
 
-      END IF
-      END DO
-    ELSE
-      DO pJD=1,subnodes
-      IF (E011ST(pJD)%Num.GT.0) THEN
-        nSIZE = E011ST(pJD)%Num
-
-        CALL RECVD_myMPI(E011ST(pJD)%RDVect,nSIZE,pJD)
-
-      END IF
-      END DO
     END IF
-    END DO
-
-    DO pJD=1,subnodes
-    IF (E011ST(pJD)%Num.GT.0) THEN
+   END DO
+  ELSE
+   DO pJD=1,subnodes
+     IF (E011ST(pJD)%Num.GT.0) THEN
       nSIZE = E011ST(pJD)%Num
 
-      DO I=1,nSIZE
-      FX(E011ST(pJD)%VertLink(2,I)) = &
-        FX(E011ST(pJD)%VertLink(2,I)) +  E011ST(pJD)%RDVect(I)
-      END DO
+      CALL RECVD_myMPI(E011ST(pJD)%RDVect,nSIZE,pJD)
 
-    END IF
-    END DO
-
+     END IF
+   END DO
   END IF
+ END DO
 
-  if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ DO pJD=1,subnodes
+
+   NU = KNVT(ILEV)
+   IF (ILEV.lt.NLMIN.OR.ILEV.GT.NLMAX+1) THEN
+    WRITE(*,*) myid,ILEV,'problem'
+    pause
+   END IF
+   IF (E011ST(pJD)%Num.GT.0) THEN
+     nSIZE = E011ST(pJD)%Num
+
+     DO I=1,nSIZE
+      IF (E011ST(pJD)%VertLink(2,I).le.NU) THEN
+       FX(E011ST(pJD)%VertLink(2,I)) = &
+       FX(E011ST(pJD)%VertLink(2,I)) +  E011ST(pJD)%RDVect(I)
+      END IF
+     END DO
+
+   END IF
+ END DO
+
+END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 END SUBROUTINE E011Sum
 ! ----------------------------------------------
@@ -1717,6 +1733,71 @@ SUBROUTINE E011MAT(A,KLDA,NU) !ok
   if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 END SUBROUTINE E011MAT
+!
+!
+!
+!SUBROUTINE E011MAT(A,KLDA,NU) !ok
+!IMPLICIT NONE
+!
+!REAL*8 A(*)
+!INTEGER KLDA(*),NU
+!INTEGER I,J
+!INTEGER pID,pJD,nSIZE
+!
+!IF (myid.ne.MASTER) THEN
+!
+! DO I=1,NU
+!  E011_UE(I)=A(KLDA(I))
+! ENDDO
+!
+! DO pID=1,subnodes
+!  IF (myid.NE.pID) THEN
+!   DO pJD=1,subnodes
+!    IF (pID.EQ.pJD.AND.E011ST(pJD)%Num.GT.0) THEN
+!     nSIZE = E011ST(pJD)%Num
+!
+!     DO I=1,nSIZE
+!      E011ST(pJD)%SVVect(I) = E011_UE(E011ST(pJD)%VertLink(1,I))
+!     END DO
+!
+!     CALL SENDV_myMPI(E011ST(pJD)%SVVect,nSIZE,pID)
+!
+!    END IF
+!   END DO
+!  ELSE
+!   DO pJD=1,subnodes
+!    IF (E011ST(pJD)%Num.GT.0) THEN
+!
+!     nSIZE = E011ST(pJD)%Num
+!     CALL RECVV_myMPI(E011ST(pJD)%RVVect,nSIZE,pJD)
+!
+!    END IF
+!
+!   END DO
+!  END IF
+! END DO
+!
+! DO pJD=1,subnodes
+!
+!   IF (E011ST(pJD)%Num.GT.0) THEN
+!
+!     nSIZE = E011ST(pJD)%Num
+!
+!     DO I=1,nSIZE
+!       E011_UE(E011ST(pJD)%VertLink(2,I)) = &
+!       E011_UE(E011ST(pJD)%VertLink(2,I)) + E011ST(pJD)%RVVect(I)
+!     END DO
+!
+!   END IF
+!
+! END DO
+!
+!END IF
+!
+!if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+!
+!END SUBROUTINE E011MAT
+
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------

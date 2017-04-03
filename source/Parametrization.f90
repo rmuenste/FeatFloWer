@@ -70,7 +70,7 @@ logical :: bOK
   END IF
   iInterface = 0
   IF (cAux(1:6).EQ.'Bubble') THEN
-   READ(cAux(7:),'(I)') iInterface
+   READ(cAux(7:),'(I1)') iInterface
   END IF  
   
   DO i=1,NVT
