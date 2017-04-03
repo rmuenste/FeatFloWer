@@ -193,34 +193,17 @@ END SUBROUTINE Protocol_linScalarQ1
 !
 SUBROUTINE Init_Disp_Q1()
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE var_QuadScalar
+implicit none
+integer :: n, ndof
 
 NLMAX = NLMAX + 1
-
-IF (myid.ne.master) THEN
 
  ! Building up the matrix strucrures
  CALL Create_MatStruct_Q1()
 
- ! Building up the matrix strucrures
- CALL Create_AFCStruct_Q1()
-
- ! Building up linear operators
- ! Mass matrix
- CALL Create_MassMat_Q1()
-
-! Mass matrix
- CALL Create_LMassMat_Q1()
-
-! Convection matrix (only allocation)
- CALL Create_LKonvMat_Q1()
-
-! Diffusion matrix 
- CALL Create_DiffMat_Q1(mgDiffCoeff(NLMAX)%x)
-
 ! Iteration matrix (only allocation)
  CALL Create_AMat_Q1()
-
-END IF
 
  CALL Initialize_Q1(Tracer3)
 
@@ -230,11 +213,40 @@ END IF
 ! Set the types of boundary conditions (set up knpr)
  call LinSc_Knpr_Q1(mg_mesh%level(ilev)%dcorvg)
 
+ ! Prolongation Restriction Matrices
+ ALLOCATE(mg_E011Prol(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011Rest(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011ProlM(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011RestM(NLMIN:NLMAX-1))
+
+ DO ILEV=NLMIN,NLMAX-1
+  N = KNVT(ILEV+1) + 2*KNET(ILEV+1) + 4*KNAT(ILEV+1) + 8*KNEL(ILEV+1)
+  ALLOCATE(mg_E011Prol(ILEV)%a(N))
+  ALLOCATE(mg_E011Rest(ILEV)%a(N))
+  ALLOCATE(mg_E011ProlM(ILEV)%ColA(N))
+  ALLOCATE(mg_E011RestM(ILEV)%ColA(N))
+  mg_E011ProlM(ILEV)%na = N
+  mg_E011RestM(ILEV)%na = N
+  NDOF = KNVT(ILEV+1)!+KNET(ILEV+1)+KNAT(ILEV+1)+KNEL(ILEV+1)
+  mg_E011ProlM(ILEV)%nu = NDOF
+  ALLOCATE(mg_E011ProlM(ILEV)%LdA(NDOF+1))
+  NDOF = KNVT(ILEV)!+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
+  mg_E011RestM(ILEV)%nu = NDOF
+  ALLOCATE(mg_E011RestM(ILEV)%LdA(NDOF+1))
+ END DO
+
+CALL InitializeProlRest(Tracer3)
+
+Tracer3%cName = "Disp"
+
+!CALL GetDispParameters(Tracer3%prm,Tracer3%cName,mfile)
+
+NLMAX = NLMAX - 1 
+ 
  call myMPI_Barrier()
  pause
 
 ! CALL Create_Knpr_Q1(LinSc_Knpr_Q1)
-
 
 Tracer3%cName = "Tracer"
 Tracer3%prm%SolvIter = 50
@@ -430,6 +442,23 @@ Kmat = 0d0
 !KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),E011)
 
 END SUBROUTINE Build_LinSc_Convection_Q1
+!
+! ----------------------------------------------
+!
+SUBROUTINE InitializeProlRest(lSc)
+implicit none
+TYPE(lScalar3), INTENT(INOUT), TARGET :: lSc
+
+ MyMG%MinLev  = NLMIN
+ myMG%MedLev  = NLMIN
+ myMG%MaxLev  = NLMAX
+
+ IF(myid.eq.showid) WRITE(*,*) "Initialization of displacement prolongation matrix"
+ myMG%bProlRest => lSc%bProlRest
+ MyMG%cVariable = "Displacement"
+ CALL mgProlRestInit()
+
+END SUBROUTINE InitializeProlRest  
 !
 ! ----------------------------------------------
 !

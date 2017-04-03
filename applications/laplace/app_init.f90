@@ -175,12 +175,12 @@ end subroutine init_laplace
   ISABD=0
   IDISP=1
 
-  IF (myid.NE.0) NLMAX = NLMAX + 1
+  NLMAX = NLMAX + 1
   
   IF (myid.EQ.0) then
-    mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
+    mg_Mesh%maxlevel = nlmax
+    mg_Mesh%nlmax = nlmax-1
     mg_Mesh%nlmin = 1
-    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev
     allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
   else
     allocate(mg_mesh%level(NLMAX))
@@ -197,6 +197,8 @@ end subroutine init_laplace
   end if
 
   write(*,*)'Refinement finished: ',myid
+
+  if(myid.eq.0) NLMAX = NLMAX - 1
 
   II=NLMIN
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -230,6 +232,8 @@ end subroutine init_laplace
 
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+
+
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
   !     ----------------------------------------------------------
 
@@ -276,17 +280,6 @@ end subroutine init_laplace
   CALL E011_CreateComm(NDOF)
 
   DO ILEV=NLMIN,NLMAX
-    if(myid.eq.1)then
-
-    write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
-                     mg_mesh%level(ILEV)%nat,&
-                     mg_mesh%level(ILEV)%nel,&
-                     mg_mesh%level(ILEV)%net
-    
-    end if
-  end do
-
-  DO ILEV=NLMIN,NLMAX
     !CALL SETLEV(2)
     IF (ILEV.EQ.1) THEN
       CALL InitParametrization(mg_mesh%level(ILEV),ilev)
@@ -312,6 +305,13 @@ end subroutine init_laplace
       END IF
     END IF
   END DO
+
+  NLMAX = NLMAX + 1 
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL ParametrizeBndr(mg_mesh,ilev)
+  NLMAX = NLMAX - 1 
+  ILEV = NLMAX
 
   ! This part here is responsible for creation of structures enabling the mesh coordinate 
   ! transfer to the master node so that it can create the corresponding matrices

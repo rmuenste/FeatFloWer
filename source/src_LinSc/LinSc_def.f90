@@ -38,6 +38,7 @@ END TYPE mg_vector
 TYPE lScalar3
  CHARACTER cName*7
  INTEGER :: ndof,na
+ LOGICAL :: bProlRest=.FALSE. 
  INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old

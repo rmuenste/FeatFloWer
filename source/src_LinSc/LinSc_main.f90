@@ -6,6 +6,8 @@ USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
 USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     MoveInterfacePoints,myALE,Properties,getmeshvelocity
+USE var_QuadScalar, ONLY: mg_E011ProlM,mg_E011RestM,mg_E011Prol,mg_E011Rest,myMG
+USE mg_LinScalar, ONLY : mgProlRestInit
 
 IMPLICIT NONE
 

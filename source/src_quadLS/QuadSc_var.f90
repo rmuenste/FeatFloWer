@@ -250,6 +250,9 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_12,mg_VisMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E012Prol,mg_E013Prol,mg_E013Rest
 TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_E013ProlM,mg_E013RestM
 
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest
+TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011RestM
+
 TYPE tMultiGrid
  CHARACTER*10 cVariable
  CHARACTER*1 CycleType

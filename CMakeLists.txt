@@ -140,6 +140,7 @@ ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_dfkt.f90
 ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_main.f90
+${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mg.f90
 )
 
 set(src_PLin

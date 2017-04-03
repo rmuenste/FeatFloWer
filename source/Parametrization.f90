@@ -761,7 +761,9 @@ SUBROUTINE InitParametrization(mesh,ilevel)
 
 
 END SUBROUTINE InitParametrization
+!
 !----------------------------------------------------------------------------------------
+!
 SUBROUTINE GetFileList()
  CHARACTER(LEN=40) :: string,cFile
  CHARACTER cWD*40,cSub*40
@@ -781,8 +783,9 @@ SUBROUTINE GetFileList()
 
  ALLOCATE (myParBndr(nBnds))
 
+ Write(*,*)'Warning: Allocated an additional boundary level'
  DO iBnds = 1, nBnds
-  ALLOCATE (myParBndr(iBnds)%Bndr(NLMIN:NLMAX))
+  ALLOCATE (myParBndr(iBnds)%Bndr(NLMIN:NLMAX+1))
  END DO
 
  nBnds = 0
