@@ -2687,6 +2687,7 @@ DO
 
    READ(string(iAt+1:iEq-1),*) cPar
 !    IF (myid.eq.showid) write(*,*) myid,cPar
+
    SELECT CASE (TRIM(ADJUSTL(cPar)))
 
     CASE ("iMass")

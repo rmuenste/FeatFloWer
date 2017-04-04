@@ -31,30 +31,44 @@ END SUBROUTINE Create_AFCStruct_Q1
 ! ----------------------------------------------
 !
 SUBROUTINE Create_MatStruct_Q1()
+implicit none
 INTEGER iSymm,nERow
 INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
-INTEGER I,J
-
+INTEGER I,J,MatSize,NDOF
 EXTERNAL E011,coefst
 
-ILEV=NLMAX
-CALL SETLEV(2)
+ ALLOCATE(mg_lMat(NLMIN:NLMAX))
 
-ALLOCATE(TempColA(100*mg_mesh%level(ilev)%nvt))
-ALLOCATE(lMat%LdA(mg_mesh%level(ilev)%nvt+1))
-lMat%nu = mg_mesh%level(ilev)%nvt
-lMat%na = 100*mg_mesh%level(ilev)%nvt
-iSymm =   0
-nERow =   100
+ DO ILEV=NLMIN,NLMAX
+   CALL SETLEV(2)
 
-CALL AP7(TempColA,lMat%LdA,lMat%na,lMat%nu,E011,iSymm,nERow,&
-         mg_mesh%level(ilev)%kvert,&
-         mg_mesh%level(ilev)%kedge,&
-         mg_mesh%level(ilev)%karea)
+   NDOF = NVT
+   MatSize = 300*NDOF
+   ALLOCATE(TempColA(MatSize))
+   ALLOCATE(mg_lMat(ILEV)%LdA(NDOF+1))
+   mg_lMat(ILEV)%nu = NDOF
+   mg_lMat(ILEV)%na = MatSize
+   iSymm =   0
+   nERow =   300
 
-ALLOCATE(lMat%ColA(lMat%na))
-lMat%ColA(:) = TempColA(1:lMat%na)
-DEALLOCATE(TempColA)
+   CALL AP7(TempColA,mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%na,&
+            mg_lMat(ILEV)%nu,E011,iSymm,nERow,&
+            mg_mesh%level(ilev)%kvert,&
+            mg_mesh%level(ilev)%kedge,&
+            mg_mesh%level(ilev)%karea)
+
+
+   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+      "E011 matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
+
+   ALLOCATE(mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
+   mg_lMat(ILEV)%ColA(:) = TempColA(1:mg_lMat(ILEV)%na)
+   DEALLOCATE(TempColA)
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ plMat => mg_lMat(NLMAX)
 
 END SUBROUTINE Create_MatStruct_Q1
 !
@@ -202,30 +216,40 @@ SUBROUTINE Initialize_Q1(myScalar)
   ILEV=NLMAX
   CALL SETLEV(2)
 
-  myScalar%ndof = KNVT(ilev)
-  myScalar%na = lMat%na
+plMat   => mg_lMat(ILEV)
 
-  ALLOCATE(myScalar%knprX(myScalar%ndof))
-  ALLOCATE(myScalar%knprY(myScalar%ndof))
-  ALLOCATE(myScalar%knprZ(myScalar%ndof))
+myScalar%ndof = KNVT(ILEV)
+myScalar%na = plMat%na
 
-  ALLOCATE(myScalar%aux(myScalar%ndof))
-  ALLOCATE(myScalar%rhs(myScalar%ndof))
-  ALLOCATE(myScalar%defX(myScalar%ndof))
-  ALLOCATE(myScalar%defY(myScalar%ndof))
-  ALLOCATE(myScalar%defZ(myScalar%ndof))
-  ALLOCATE(myScalar%valX_old(myScalar%ndof))
-  ALLOCATE(myScalar%valY_old(myScalar%ndof))
-  ALLOCATE(myScalar%valZ_old(myScalar%ndof))
+ALLOCATE(myScalar%knprX(myScalar%ndof))
+ALLOCATE(myScalar%knprY(myScalar%ndof))
+ALLOCATE(myScalar%knprZ(myScalar%ndof))
 
-  ALLOCATE(myScalar%valX(NLMIN:NLMAX))
-  ALLOCATE(myScalar%valY(NLMIN:NLMAX))
-  ALLOCATE(myScalar%valZ(NLMIN:NLMAX))
-  DO ILEV=NLMIN,NLMAX
-  ALLOCATE(myScalar%valX(ILEV)%x(KNVT(ilev)))
-  ALLOCATE(myScalar%valY(ILEV)%x(KNVT(ilev)))
-  ALLOCATE(myScalar%valZ(ILEV)%x(KNVT(ilev)))
-  END DO
+ALLOCATE(myScalar%defX(myScalar%ndof))
+ALLOCATE(myScalar%defY(myScalar%ndof))
+ALLOCATE(myScalar%defZ(myScalar%ndof))
+ALLOCATE(myScalar%valX(myScalar%ndof))
+ALLOCATE(myScalar%valY(myScalar%ndof))
+ALLOCATE(myScalar%valZ(myScalar%ndof))
+ALLOCATE(myScalar%valX_old(myScalar%ndof))
+ALLOCATE(myScalar%valY_old(myScalar%ndof))
+ALLOCATE(myScalar%valZ_old(myScalar%ndof))
+
+ALLOCATE(myScalar%def(NLMIN:NLMAX))
+ALLOCATE(myScalar%sol(NLMIN:NLMAX))
+ALLOCATE(myScalar%aux(NLMIN:NLMAX))
+ALLOCATE(myScalar%rhs(NLMIN:NLMAX))
+ALLOCATE(MGE011(NLMIN:NLMAX))
+
+DO ILEV=NLMIN,NLMAX
+ ALLOCATE(myScalar%def(ILEV)%x(3*KNVT(ILEV)))
+ ALLOCATE(myScalar%sol(ILEV)%x(3*KNVT(ILEV)))
+ ALLOCATE(myScalar%aux(ILEV)%x(3*KNVT(ILEV)))
+ ALLOCATE(myScalar%rhs(ILEV)%x(3*KNVT(ILEV)))
+ ALLOCATE(MGE011(ILEV)%UE11(KNVT(ILEV)))
+ ALLOCATE(MGE011(ILEV)%UE22(KNVT(ILEV)))
+ ALLOCATE(MGE011(ILEV)%UE33(KNVT(ILEV)))
+END DO
 
 END SUBROUTINE Initialize_Q1
 !
@@ -259,53 +283,56 @@ SUBROUTINE Matdef_general_LinScalar_Q1(myScalar,idef,imat)
   INTEGER :: idef,imat
   TYPE(lScalar3) myScalar
 
-  ! Build up the matrix
-  IF (imat.eq.1) THEN
-    AmatX=REAL(-thstep*(DMat))
-    AmatY=REAL(-thstep*(DMat))
-    AmatZ=REAL(-thstep*(DMat))
-    !    Amat=REAL(-thstep*(Kmat+DMat))
-    !    Amat(lMat%LdA(1:lMat%nu))=Amat(lMat%LdA(1:lMat%nu))+REAL(MLmat)
-  END IF
+  WRITE(*,*)  'Subroutine Matdef_General_LinScalar is not tested. Exiting.'
+  stop
 
-  ! Build up the defect
-  IF (idef.eq. 1) THEN
-    IF (myScalar%prm%iMAss.EQ.1) THEN
-      myScalar%defX = 0d0 !MLmat*myScalar%val(NLMAX)%x
-      myScalar%defY = 0d0 !MLmat*myScalar%val(NLMAX)%x
-      myScalar%defZ = 0d0 !MLmat*myScalar%val(NLMAX)%x
-      !      CALL LAX17(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
-      !      myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
-      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valX(NLMAX)%x,myScalar%defX,thstep,1d0)
-      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valY(NLMAX)%x,myScalar%defY,thstep,1d0)
-      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valZ(NLMAX)%x,myScalar%defZ,thstep,1d0)
-    END IF
-    !   IF (myScalar%prm%iMAss.EQ.2) THEN
-    !      CALL LAX17(Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
-    !      myScalar%valX(NLMAX)%x,myScalar%def,1d0,0d0)
-    !   END IF
-  ELSE
-    IF (myScalar%prm%iMAss.EQ.1) THEN
-      CALL LAX37(AmatX,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valX(NLMAX)%x,myScalar%defX,-1d0,1d0)
-      CALL LAX37(AmatY,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valY(NLMAX)%x,myScalar%defY,-1d0,1d0)
-      CALL LAX37(AmatZ,lMat%ColA,lMat%LdA,lMat%nu,&
-        myScalar%valZ(NLMAX)%x,myScalar%defZ,-1d0,1d0)
-    END IF
-    !   IF (myScalar%prm%iMAss.EQ.2) THEN
-    !      CALL LAX17(-Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
-    !      myScalar%val(NLMAX)%x,myScalar%def,1d0,1d0)
-    !   END IF
-  END IF
-
-  ! Perform Algebraic Flux Correction (if needed)
-  IF (myScalar%prm%AFC) THEN
-    !    CALL DefTVD_LinScalar(myScalar%val(NLMAX)%x,myScalar%def,THSTEP)
-  END IF
+!  ! Build up the matrix
+!  IF (imat.eq.1) THEN
+!    AmatX=REAL(-thstep*(DMat))
+!    AmatY=REAL(-thstep*(DMat))
+!    AmatZ=REAL(-thstep*(DMat))
+!    !    Amat=REAL(-thstep*(Kmat+DMat))
+!    !    Amat(lMat%LdA(1:lMat%nu))=Amat(lMat%LdA(1:lMat%nu))+REAL(MLmat)
+!  END IF
+!
+!  ! Build up the defect
+!  IF (idef.eq. 1) THEN
+!    IF (myScalar%prm%iMAss.EQ.1) THEN
+!      myScalar%defX = 0d0 !MLmat*myScalar%val(NLMAX)%x
+!      myScalar%defY = 0d0 !MLmat*myScalar%val(NLMAX)%x
+!      myScalar%defZ = 0d0 !MLmat*myScalar%val(NLMAX)%x
+!      !      CALL LAX17(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
+!      !      myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
+!      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valX(NLMAX)%x,myScalar%defX,thstep,1d0)
+!      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valY(NLMAX)%x,myScalar%defY,thstep,1d0)
+!      CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valZ(NLMAX)%x,myScalar%defZ,thstep,1d0)
+!    END IF
+!    !   IF (myScalar%prm%iMAss.EQ.2) THEN
+!    !      CALL LAX17(Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
+!    !      myScalar%valX(NLMAX)%x,myScalar%def,1d0,0d0)
+!    !   END IF
+!  ELSE
+!    IF (myScalar%prm%iMAss.EQ.1) THEN
+!      CALL LAX37(AmatX,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valX(NLMAX)%x,myScalar%defX,-1d0,1d0)
+!      CALL LAX37(AmatY,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valY(NLMAX)%x,myScalar%defY,-1d0,1d0)
+!      CALL LAX37(AmatZ,lMat%ColA,lMat%LdA,lMat%nu,&
+!        myScalar%valZ(NLMAX)%x,myScalar%defZ,-1d0,1d0)
+!    END IF
+!    !   IF (myScalar%prm%iMAss.EQ.2) THEN
+!    !      CALL LAX17(-Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
+!    !      myScalar%val(NLMAX)%x,myScalar%def,1d0,1d0)
+!    !   END IF
+!  END IF
+!
+!  ! Perform Algebraic Flux Correction (if needed)
+!  IF (myScalar%prm%AFC) THEN
+!    !    CALL DefTVD_LinScalar(myScalar%val(NLMAX)%x,myScalar%def,THSTEP)
+!  END IF
 
 END SUBROUTINE Matdef_general_LinScalar_Q1
 !
@@ -337,134 +364,137 @@ SUBROUTINE Solve_General_LinScalar_Q1(myScalar,knpr,Bndry_Val,Bndry_Mat)
   TYPE(lScalar3), INTENT(INOUT) :: myScalar
   EXTERNAL Bndry_Val,Bndry_Mat
 
-  IF (myid.ne.0) THEN
-    CALL Bndry_Mat(AmatX,lMat%LdA,myScalar%knprX)
+  WRITE(*,*)  'Subroutine Solve_General_LinScalar is not tested. Exiting.'
+  stop
 
-    CALL E011Mat(AmatX,lMat%LdA,lMat%nu)
-
-    DO i=1,myScalar%ndof
-    if (myScalar%knprX(i).eq.1) myScalar%defX(i) = 0d0
-    END DO
-
-    CALL LCL1 (myScalar%valX(NLMAX)%x,myScalar%ndof)
-  END IF
-
-  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving X: ',DefInit,DefCurrent
-
-  CALL GetDefNorm(AmatX,lMat%ColA,lMat%LdA,myScalar%valX(NLMAX)%x,&
-    myScalar%defX,myScalar%aux,myScalar%ndof,DefInit)
-
-  DO iLinIter=1,5
-  IF (myid.ne.0) THEN
-    IF (myScalar%prm%SolvType.EQ.1) THEN
-      CALL SSORSolver(AmatX,lMat%ColA,lMat%LdA,&
-        myScalar%valX(NLMAX)%x,myScalar%defX,myScalar%aux,&
-        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-    IF (myScalar%prm%SolvType.EQ.2) THEN
-      CALL JacobiSolver(AmatX,lMat%ColA,lMat%LdA,&
-        myScalar%valX(NLMAX)%x,myScalar%defX,myScalar%aux,&
-        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-
-  END IF
-  CALL GetDefNorm(AmatX,lMat%ColA,lMat%LdA,myScalar%valX(NLMAX)%x,&
-    myScalar%defX,myScalar%aux,myScalar%ndof,DefCurrent)
-  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 1
-  END DO
-
-  1 CONTINUE
-
-
-  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving Y: ',DefInit,DefCurrent
-
-  IF (myid.ne.0) THEN
-    CALL Bndry_Mat(AmatY,lMat%LdA,myScalar%knprY)
-
-    CALL E011Mat(AmatY,lMat%LdA,lMat%nu)
-
-    DO i=1,myScalar%ndof
-    if (myScalar%knprY(i).eq.1) myScalar%defY(i) = 0d0
-    END DO
-
-    CALL LCL1 (myScalar%valY(NLMAX)%x,myScalar%ndof)
-  END IF
-
-  CALL GetDefNorm(AmatY,lMat%ColA,lMat%LdA,myScalar%valY(NLMAX)%x,&
-    myScalar%defY,myScalar%aux,myScalar%ndof,DefInit)
-
-  DO iLinIter=1,5
-  IF (myid.ne.0) THEN
-    IF (myScalar%prm%SolvType.EQ.1) THEN
-      CALL SSORSolver(AmatY,lMat%ColA,lMat%LdA,&
-        myScalar%valY(NLMAX)%x,myScalar%defY,myScalar%aux,&
-        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-    IF (myScalar%prm%SolvType.EQ.2) THEN
-      CALL JacobiSolver(AmatY,lMat%ColA,lMat%LdA,&
-        myScalar%valY(NLMAX)%x,myScalar%defY,myScalar%aux,&
-        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-
-  END IF
-  CALL GetDefNorm(AmatY,lMat%ColA,lMat%LdA,myScalar%valY(NLMAX)%x,&
-    myScalar%defY,myScalar%aux,myScalar%ndof,DefCurrent)
-  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 2
-  END DO
-
-  2 CONTINUE
-
-  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving Z: ',DefInit,DefCurrent
-
-  IF (myid.ne.0) THEN
-    CALL Bndry_Mat(AmatZ,lMat%LdA,myScalar%knprZ)
-
-    CALL E011Mat(AmatZ,lMat%LdA,lMat%nu)
-
-    DO i=1,myScalar%ndof
-    if (myScalar%knprZ(i).eq.1) myScalar%defZ(i) = 0d0
-    END DO
-
-    CALL LCL1 (myScalar%valZ(NLMAX)%x,myScalar%ndof)
-  END IF
-
-  CALL GetDefNorm(AmatZ,lMat%ColA,lMat%LdA,myScalar%valZ(NLMAX)%x,&
-    myScalar%defZ,myScalar%aux,myScalar%ndof,DefInit)
-
-  DO iLinIter=1,5
-  IF (myid.ne.0) THEN
-    IF (myScalar%prm%SolvType.EQ.1) THEN
-      CALL SSORSolver(AmatZ,lMat%ColA,lMat%LdA,&
-        myScalar%valZ(NLMAX)%x,myScalar%defZ,myScalar%aux,&
-        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-    IF (myScalar%prm%SolvType.EQ.2) THEN
-      CALL JacobiSolver(AmatZ,lMat%ColA,lMat%LdA,&
-        myScalar%valZ(NLMAX)%x,myScalar%defZ,myScalar%aux,&
-        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
-    ENDIF
-
-  END IF
-  CALL GetDefNorm(AmatZ,lMat%ColA,lMat%LdA,myScalar%valZ(NLMAX)%x,&
-    myScalar%defZ,myScalar%aux,myScalar%ndof,DefCurrent)
-  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 3
-  END DO
-
-  3 CONTINUE
-
-  ! IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
-
-  IF (myid.ne.0) THEN
-    ! Update the solution
-    CALL LLC1(myScalar%valX_old,myScalar%valX(NLMAX)%x,&
-      myScalar%ndof,1D0,1D0)
-    CALL LLC1(myScalar%valY_old,myScalar%valY(NLMAX)%x,&
-      myScalar%ndof,1D0,1D0)
-    CALL LLC1(myScalar%valZ_old,myScalar%valZ(NLMAX)%x,&
-      myScalar%ndof,1D0,1D0)
-    ! Set dirichlet boundary conditions on the solution
-    ! CALL Bndry_Val(mg_mesh%level(NLMAX)%dcorvg)
-  END IF
+!  IF (myid.ne.0) THEN
+!    CALL Bndry_Mat(AmatX,lMat%LdA,myScalar%knprX)
+!
+!    CALL E011Mat(AmatX,lMat%LdA,lMat%nu)
+!
+!    DO i=1,myScalar%ndof
+!    if (myScalar%knprX(i).eq.1) myScalar%defX(i) = 0d0
+!    END DO
+!
+!    CALL LCL1 (myScalar%valX(NLMAX)%x,myScalar%ndof)
+!  END IF
+!
+!  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving X: ',DefInit,DefCurrent
+!
+!  CALL GetDefNorm(AmatX,lMat%ColA,lMat%LdA,myScalar%valX(NLMAX)%x,&
+!    myScalar%defX,myScalar%aux,myScalar%ndof,DefInit)
+!
+!  DO iLinIter=1,5
+!  IF (myid.ne.0) THEN
+!    IF (myScalar%prm%SolvType.EQ.1) THEN
+!      CALL SSORSolver(AmatX,lMat%ColA,lMat%LdA,&
+!        myScalar%valX(NLMAX)%x,myScalar%defX,myScalar%aux,&
+!        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!    IF (myScalar%prm%SolvType.EQ.2) THEN
+!      CALL JacobiSolver(AmatX,lMat%ColA,lMat%LdA,&
+!        myScalar%valX(NLMAX)%x,myScalar%defX,myScalar%aux,&
+!        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!
+!  END IF
+!  CALL GetDefNorm(AmatX,lMat%ColA,lMat%LdA,myScalar%valX(NLMAX)%x,&
+!    myScalar%defX,myScalar%aux,myScalar%ndof,DefCurrent)
+!  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 1
+!  END DO
+!
+!  1 CONTINUE
+!
+!
+!  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving Y: ',DefInit,DefCurrent
+!
+!  IF (myid.ne.0) THEN
+!    CALL Bndry_Mat(AmatY,lMat%LdA,myScalar%knprY)
+!
+!    CALL E011Mat(AmatY,lMat%LdA,lMat%nu)
+!
+!    DO i=1,myScalar%ndof
+!    if (myScalar%knprY(i).eq.1) myScalar%defY(i) = 0d0
+!    END DO
+!
+!    CALL LCL1 (myScalar%valY(NLMAX)%x,myScalar%ndof)
+!  END IF
+!
+!  CALL GetDefNorm(AmatY,lMat%ColA,lMat%LdA,myScalar%valY(NLMAX)%x,&
+!    myScalar%defY,myScalar%aux,myScalar%ndof,DefInit)
+!
+!  DO iLinIter=1,5
+!  IF (myid.ne.0) THEN
+!    IF (myScalar%prm%SolvType.EQ.1) THEN
+!      CALL SSORSolver(AmatY,lMat%ColA,lMat%LdA,&
+!        myScalar%valY(NLMAX)%x,myScalar%defY,myScalar%aux,&
+!        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!    IF (myScalar%prm%SolvType.EQ.2) THEN
+!      CALL JacobiSolver(AmatY,lMat%ColA,lMat%LdA,&
+!        myScalar%valY(NLMAX)%x,myScalar%defY,myScalar%aux,&
+!        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!
+!  END IF
+!  CALL GetDefNorm(AmatY,lMat%ColA,lMat%LdA,myScalar%valY(NLMAX)%x,&
+!    myScalar%defY,myScalar%aux,myScalar%ndof,DefCurrent)
+!  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 2
+!  END DO
+!
+!  2 CONTINUE
+!
+!  IF (myid.eq.1) WRITE(*,'(A,2ES12.4)')  'solving Z: ',DefInit,DefCurrent
+!
+!  IF (myid.ne.0) THEN
+!    CALL Bndry_Mat(AmatZ,lMat%LdA,myScalar%knprZ)
+!
+!    CALL E011Mat(AmatZ,lMat%LdA,lMat%nu)
+!
+!    DO i=1,myScalar%ndof
+!    if (myScalar%knprZ(i).eq.1) myScalar%defZ(i) = 0d0
+!    END DO
+!
+!    CALL LCL1 (myScalar%valZ(NLMAX)%x,myScalar%ndof)
+!  END IF
+!
+!  CALL GetDefNorm(AmatZ,lMat%ColA,lMat%LdA,myScalar%valZ(NLMAX)%x,&
+!    myScalar%defZ,myScalar%aux,myScalar%ndof,DefInit)
+!
+!  DO iLinIter=1,5
+!  IF (myid.ne.0) THEN
+!    IF (myScalar%prm%SolvType.EQ.1) THEN
+!      CALL SSORSolver(AmatZ,lMat%ColA,lMat%LdA,&
+!        myScalar%valZ(NLMAX)%x,myScalar%defZ,myScalar%aux,&
+!        KNPR,myScalar%ndof,1*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!    IF (myScalar%prm%SolvType.EQ.2) THEN
+!      CALL JacobiSolver(AmatZ,lMat%ColA,lMat%LdA,&
+!        myScalar%valZ(NLMAX)%x,myScalar%defZ,myScalar%aux,&
+!        myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
+!    ENDIF
+!
+!  END IF
+!  CALL GetDefNorm(AmatZ,lMat%ColA,lMat%LdA,myScalar%valZ(NLMAX)%x,&
+!    myScalar%defZ,myScalar%aux,myScalar%ndof,DefCurrent)
+!  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 3
+!  END DO
+!
+!  3 CONTINUE
+!
+!  ! IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
+!
+!  IF (myid.ne.0) THEN
+!    ! Update the solution
+!    CALL LLC1(myScalar%valX_old,myScalar%valX(NLMAX)%x,&
+!      myScalar%ndof,1D0,1D0)
+!    CALL LLC1(myScalar%valY_old,myScalar%valY(NLMAX)%x,&
+!      myScalar%ndof,1D0,1D0)
+!    CALL LLC1(myScalar%valZ_old,myScalar%valZ(NLMAX)%x,&
+!      myScalar%ndof,1D0,1D0)
+!    ! Set dirichlet boundary conditions on the solution
+!    ! CALL Bndry_Val(mg_mesh%level(NLMAX)%dcorvg)
+!  END IF
 
 END SUBROUTINE Solve_General_LinScalar_Q1
 !

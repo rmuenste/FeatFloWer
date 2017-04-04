@@ -440,3 +440,30 @@ end if
  CALL OperatorRegenaration(1)
 
 END SUBROUTINE Init_Q2_Structures
+!
+! ----------------------------------------------
+!
+SUBROUTINE InitCond_Disp_QuadScalar()
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+IF (myid.ne.0) THEN
+
+ ! Set initial conditions
+ CALL QuadScalar_InitCond()
+
+ IF (myFBM%nParticles.GT.0) THEN
+  CALL updateFBMGeometry()
+ END IF
+
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_QuadScalar_Val()
+
+ ! Set initial conditions
+ CALL LinScalar_InitCond(mg_mesh%level(ilev)%dcorvg,&
+                         mg_mesh%level(ilev)%kvert)
+
+END IF
+
+END SUBROUTINE InitCond_Disp_QuadScalar

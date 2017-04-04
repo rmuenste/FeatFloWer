@@ -5,7 +5,7 @@ subroutine init_laplace(log_unit)
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
-    InitCond_QuadScalar,ProlongateSolution, &
+    InitCond_Disp_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
@@ -22,26 +22,12 @@ subroutine init_laplace(log_unit)
   CALL General_init_ext(79,log_unit)
 
   CALL Init_QuadScalar_Stuctures(log_unit)
-  
-!  IF(bViscoElastic)then
-!    write(*,*)'Viso'
-!  call myMPI_Barrier()
-!  stop
-!    CALL Init_ViscoScalar_Stuctures(log_unit)
-!  end if
 
-  CALL Init_Disp_Q1()
-
-  CALL myOutput_Profiles(0)
-  call myMPI_Barrier()
-  pause 
-
-  CALL InitCond_LinScalar_Q1()
+  CALL Init_Disp_Q1(log_unit)
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    CALL InitCond_QuadScalar()
-    IF(bViscoElastic)CALL IniProf_ViscoScalar()
+    CALL InitCond_Disp_QuadScalar()
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -53,6 +39,10 @@ subroutine init_laplace(log_unit)
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF
   END IF
+
+!  CALL myOutput_Profiles(0)
+!  call myMPI_Barrier()
+!  pause 
 
 end subroutine init_laplace
 !
@@ -181,7 +171,7 @@ end subroutine init_laplace
     mg_Mesh%maxlevel = nlmax
     mg_Mesh%nlmax = nlmax-1
     mg_Mesh%nlmin = 1
-    allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
+    allocate(mg_mesh%level(nlmax))
   else
     allocate(mg_mesh%level(NLMAX))
     mg_Mesh%maxlevel = nlmax
@@ -190,8 +180,9 @@ end subroutine init_laplace
   end if
 
   call readTriCoarse(CMESH1, mg_mesh)
+
   IF (myid.EQ.0) then
-    call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
+    call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
   else
     call refineMesh(mg_mesh, NLMAX)  
   end if

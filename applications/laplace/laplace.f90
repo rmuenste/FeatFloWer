@@ -30,7 +30,7 @@ PROGRAM LAPLACE
 
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
-    !CALL Transport_Q1_displacement(ufile,inonln_t)
+    CALL Transport_Q1_displacement(ufile,inonln_t)
   ELSE
     inonln_t = 2
   END IF

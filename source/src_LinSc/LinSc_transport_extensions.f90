@@ -8,121 +8,128 @@ REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
 REAL*8 tstep_old,thstep_old
 INTEGER INLComplete,I,J
 
+
 NLMAX = NLMAX + 1
 
 thstep = 0d0*tstep
 
-IF (myid.ne.0) THEN
+CALL myOutput_Profiles(0)
+call myMPI_Barrier()
+pause 
 
-! advect the scalar field
-CALL Create_NewDiffMat_Q1(myALE%Q2Coor_old,Properties%DiffCoeff(1))
-
-! Assemble the right hand side
- CALL LCL1(Tracer3%defX,Tracer3%ndof)
- CALL LCL1(Tracer3%defY,Tracer3%ndof)
- CALL LCL1(Tracer3%defZ,Tracer3%ndof)
- CALL Matdef_General_LinScalar_Q1(Tracer3,1,0)
-
-! Set dirichlet boundary conditions on the defect
- CALL Boundary_LinSc_Def_Q1()
-
-! Store the constant right hand side
- Tracer3%rhs = 0d0 !Tracer%def
-
- thstep = tstep
-
-! Set dirichlet boundary conditions on the solution
- CALL Boundary_LinSc_Val_Q1(mg_mesh%level(NLMAX)%dcorvg)
-
-! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar_Q1(Tracer3,-1,1)
- CALL E011Sum(Tracer3%defX)
- CALL E011Sum(Tracer3%defY)
- CALL E011Sum(Tracer3%defZ)
-
-! Set dirichlet boundary conditions on the defect
- CALL Boundary_LinSc_Def_Q1()
-
-! Save the old solution
- CALL LCP1(Tracer3%valX(NLMAX)%x,Tracer3%valX_old,Tracer3%ndof)
- CALL LCP1(Tracer3%valY(NLMAX)%x,Tracer3%valY_old,Tracer3%ndof)
- CALL LCP1(Tracer3%valZ(NLMAX)%x,Tracer3%valZ_old,Tracer3%ndof)
-
-! Compute the defect
- CALL Resdfk_General_LinScalar_Q1(Tracer3,ResTemp,DefTemp,RhsTemp)
-
-END IF
-
-CALL COMM_Maximum(RhsTemp)
-DefTempCrit=MAX(RhsTemp*Tracer3%prm%defCrit,Tracer3%prm%MinDef)
-
-CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
-     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
-
-DO INL=1,Tracer3%prm%NLmax
-INLComplete = 0
-
-! Calling the solver
-CALL Solve_General_LinScalar_Q1(Tracer3,ParKNPR,&
-Boundary_LinSc_Val,Boundary_LinSc_Mat)
-
-IF (myid.ne.0) THEN
-
-! Restore the constant right hand side
- Tracer3%defX = 0d0 !Tracer%rhs
- Tracer3%defY = 0d0 !Tracer%rhs
- Tracer3%defZ = 0d0 !Tracer%rhs
-
-! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar_Q1(Tracer3,-1,0)
- CALL E011Sum(Tracer3%defX)
- CALL E011Sum(Tracer3%defY)
- CALL E011Sum(Tracer3%defZ)
-
-! Set dirichlet boundary conditions on the defect
- CALL Boundary_LinSc_Def_Q1()
-
-! Save the old solution
- CALL LCP1(Tracer3%valX(NLMAX)%x,Tracer3%valX_old,Tracer3%ndof)
- CALL LCP1(Tracer3%valY(NLMAX)%x,Tracer3%valY_old,Tracer3%ndof)
- CALL LCP1(Tracer3%valZ(NLMAX)%x,Tracer3%valZ_old,Tracer3%ndof)
-
-! Compute the defect
- CALL Resdfk_General_LinScalar_Q1(Tracer3,ResTemp,DefTemp,RhsTemp)
-
-END IF
-
-! Checking convergence rates against criterions
-RhsTemp=DefTemp
-CALL COMM_Maximum(RhsTemp)
-
-!CALL Protocol_linScalar(mfile,Tracer3,INL,&
-!     ResTemp,DefTemp,RhsTemp)
-
-CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
-     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
-
-IF ((DefTemp.LE.DefTempCrit).AND.&
-    (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
-
-CALL COMM_NLComplete(INLComplete)
-IF (INLComplete.eq.1) GOTO 1
-
-END DO
-
-1 CONTINUE
-
-myQ2coor(1,:) = Tracer3%valX(NLMAX)%x
-myQ2coor(2,:) = Tracer3%valY(NLMAX)%x
-myQ2coor(3,:) = Tracer3%valZ(NLMAX)%x
-
-NLMAX = NLMAX - 1
-
-ILEV=NLMAX
-CALL SETLEV(2)
-
-!CALL CoommunicateCoareGrid()
-!CALL GetMeshVelocity()
+!IF (myid.ne.0) THEN
+!
+!! advect the scalar field
+!CALL Create_NewDiffMat_Q1(myALE%Q2Coor_old,Properties%DiffCoeff(1))
+!
+!! Assemble the right hand side
+! CALL LCL1(Tracer3%defX,Tracer3%ndof)
+! CALL LCL1(Tracer3%defY,Tracer3%ndof)
+! CALL LCL1(Tracer3%defZ,Tracer3%ndof)
+! CALL Matdef_General_LinScalar_Q1(Tracer3,1,0)
+!
+!! Set dirichlet boundary conditions on the defect
+! CALL Boundary_LinSc_Def_Q1()
+!
+!! Store the constant right hand side
+! Tracer3%rhs = 0d0 !Tracer%def
+!
+! thstep = tstep
+!
+!! Set dirichlet boundary conditions on the solution
+! CALL Boundary_LinSc_Val_Q1(mg_mesh%level(NLMAX)%dcorvg)
+!
+!! Assemble the defect vector and fine level matrix
+! CALL Matdef_General_LinScalar_Q1(Tracer3,-1,1)
+! CALL E011Sum(Tracer3%defX)
+! CALL E011Sum(Tracer3%defY)
+! CALL E011Sum(Tracer3%defZ)
+!
+!! Set dirichlet boundary conditions on the defect
+! CALL Boundary_LinSc_Def_Q1()
+!
+!! Save the old solution
+! CALL LCP1(Tracer3%valX(NLMAX)%x,Tracer3%valX_old,Tracer3%ndof)
+! CALL LCP1(Tracer3%valY(NLMAX)%x,Tracer3%valY_old,Tracer3%ndof)
+! CALL LCP1(Tracer3%valZ(NLMAX)%x,Tracer3%valZ_old,Tracer3%ndof)
+!
+!! Compute the defect
+! CALL Resdfk_General_LinScalar_Q1(Tracer3,ResTemp,DefTemp,RhsTemp)
+!
+!END IF
+!
+!CALL COMM_Maximum(RhsTemp)
+!DefTempCrit=MAX(RhsTemp*Tracer3%prm%defCrit,Tracer3%prm%MinDef)
+!
+!CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
+!     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
+!
+!DO INL=1,Tracer3%prm%NLmax
+!INLComplete = 0
+!
+!! Calling the solver
+!CALL Solve_General_LinScalar_Q1(Tracer3,ParKNPR,&
+!Boundary_LinSc_Val,Boundary_LinSc_Mat)
+!
+!IF (myid.ne.0) THEN
+!
+!! Restore the constant right hand side
+! Tracer3%defX = 0d0 !Tracer%rhs
+! Tracer3%defY = 0d0 !Tracer%rhs
+! Tracer3%defZ = 0d0 !Tracer%rhs
+!
+!! Assemble the defect vector and fine level matrix
+! CALL Matdef_General_LinScalar_Q1(Tracer3,-1,0)
+! CALL E011Sum(Tracer3%defX)
+! CALL E011Sum(Tracer3%defY)
+! CALL E011Sum(Tracer3%defZ)
+!
+!! Set dirichlet boundary conditions on the defect
+! CALL Boundary_LinSc_Def_Q1()
+!
+!! Save the old solution
+! CALL LCP1(Tracer3%valX(NLMAX)%x,Tracer3%valX_old,Tracer3%ndof)
+! CALL LCP1(Tracer3%valY(NLMAX)%x,Tracer3%valY_old,Tracer3%ndof)
+! CALL LCP1(Tracer3%valZ(NLMAX)%x,Tracer3%valZ_old,Tracer3%ndof)
+!
+!! Compute the defect
+! CALL Resdfk_General_LinScalar_Q1(Tracer3,ResTemp,DefTemp,RhsTemp)
+!
+!END IF
+!
+!! Checking convergence rates against criterions
+!RhsTemp=DefTemp
+!CALL COMM_Maximum(RhsTemp)
+!
+!!CALL Protocol_linScalar(mfile,Tracer3,INL,&
+!!     ResTemp,DefTemp,RhsTemp)
+!
+!CALL Protocol_linScalarQ1(mfile,Tracer3,0,&
+!     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
+!
+!IF ((DefTemp.LE.DefTempCrit).AND.&
+!    (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
+!
+!CALL COMM_NLComplete(INLComplete)
+!IF (INLComplete.eq.1) GOTO 1
+!
+!END DO
+!
+!1 CONTINUE
+!
+!myQ2coor(1,:) = Tracer3%valX(NLMAX)%x
+!myQ2coor(2,:) = Tracer3%valY(NLMAX)%x
+!myQ2coor(3,:) = Tracer3%valZ(NLMAX)%x
+!
+!NLMAX = NLMAX - 1
+!
+!ILEV=NLMAX
+!CALL SETLEV(2)
+!
+!!CALL CoommunicateCoareGrid()
+!!CALL GetMeshVelocity()
+write(*,*)'Subroutine Transport_Q1_displacement not fully implemented. Exiting.'
+stop
 
 END SUBROUTINE Transport_Q1_displacement
 !
@@ -191,19 +198,18 @@ END SUBROUTINE Protocol_linScalarQ1
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Init_Disp_Q1()
+SUBROUTINE Init_Disp_Q1(log_unit)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 USE var_QuadScalar
 implicit none
+integer, intent(in) :: log_unit
 integer :: n, ndof
+
 
 NLMAX = NLMAX + 1
 
  ! Building up the matrix strucrures
  CALL Create_MatStruct_Q1()
-
- call myMPI_Barrier()
- pause
 
 ! Iteration matrix (only allocation)
  CALL Create_AMat_Q1()
@@ -240,32 +246,12 @@ NLMAX = NLMAX + 1
 
 CALL InitializeProlRest(Tracer3)
 
+
 Tracer3%cName = "Disp"
 
-!CALL GetDispParameters(Tracer3%prm,Tracer3%cName,mfile)
+CALL GetDispParameters(Tracer3%prm,Tracer3%cName,log_unit)
 
 NLMAX = NLMAX - 1 
- 
-
-! CALL Create_Knpr_Q1(LinSc_Knpr_Q1)
-
-Tracer3%cName = "Tracer"
-Tracer3%prm%SolvIter = 50
-Tracer3%prm%AFC = .TRUE.
-IF (Tracer3%prm%AFC) THEN
- Tracer3%prm%NLmin = 1
-ELSE
- Tracer3%prm%NLmin = 1
-END IF
-Tracer3%prm%NLmax   =10
-Tracer3%prm%defCrit =1d-6
-Tracer3%prm%epsCrit =1d-3
-Tracer3%prm%MinDef  =1d-16
-Tracer3%prm%SolvType=1
-Tracer3%prm%iMass=1
-
-NLMAX = NLMAX - 1
-
 
 END SUBROUTINE Init_Disp_Q1
 !
@@ -278,11 +264,6 @@ NLMAX = NLMAX + 1
 
 ILEV=NLMAX
 CALL SETLEV(2)
-
-CALL LinSc_InitCond_Q1(mg_mesh%level(ilev)%dcorvg)
-
-! Set boundary conditions
-CALL Boundary_LinSc_Val_Q1(mg_mesh%level(ilev)%dcorvg)
 
 NLMAX = NLMAX - 1
 
@@ -342,10 +323,9 @@ DO i=1,Tracer3%ndof
  Y = dcorvg(2,i)
  Z = dcorvg(3,i)
 
- Tracer3%valX(NLMAX)%x(i) = X
- Tracer3%valY(NLMAX)%x(i) = Y
- Tracer3%valZ(NLMAX)%x(i) = Z
-
+ Tracer3%valX(i) = X
+ Tracer3%valY(i) = Y
+ Tracer3%valZ(i) = Z
 END DO
 
 END SUBROUTINE LinSc_InitCond_Q1
@@ -386,15 +366,15 @@ DO i=1,Tracer3%ndof
  Z = dcorvg(3,i)
 
  IF (Tracer3%knprX(i).eq.1) THEN
-  Tracer3%valX(NLMAX)%x(i) = myQ2Coor(1,i)
+  Tracer3%valX(i) = myQ2Coor(1,i)
  END IF
 
  IF (Tracer3%knprY(i).eq.1) THEN
-  Tracer3%valY(NLMAX)%x(i) = myQ2Coor(2,i)
+  Tracer3%valY(i) = myQ2Coor(2,i)
  END IF
  
  IF (Tracer3%knprZ(i).eq.1) THEN
-  Tracer3%valZ(NLMAX)%x(i) = myQ2Coor(3,i)
+  Tracer3%valZ(i) = myQ2Coor(3,i)
  END IF
 
 END DO
@@ -481,13 +461,13 @@ DATA ifilen/0/
  OPEN (UNIT=2,FILE=COFile,FORM="FORMATTED")
 
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valX(NLMAX)%x(i)
+  WRITE(2,'(G18.12)') Tracer3%valX(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valY(NLMAX)%x(i)
+  WRITE(2,'(G18.12)') Tracer3%valY(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valZ(NLMAX)%x(i)
+  WRITE(2,'(G18.12)') Tracer3%valZ(i)
  END DO
 
  CLOSE(2)
@@ -510,13 +490,13 @@ CHARACTER CIFile*15,cdump*(*)
  OPEN (UNIT=1,FILE=CIFile,STATUS="OLD",FORM="FORMATTED")
 
  DO I=1,KNVT(NLMAX)
-  READ(1,*) Tracer3%valX(NLMAX)%x(i)
+  READ(1,*) Tracer3%valX(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  READ(1,*) Tracer3%valY(NLMAX)%x(i)
+  READ(1,*) Tracer3%valY(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  READ(1,*) Tracer3%valZ(NLMAX)%x(i)
+  READ(1,*) Tracer3%valZ(i)
  END DO
 
  CLOSE(1)

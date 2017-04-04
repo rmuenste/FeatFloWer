@@ -1,17 +1,25 @@
 MODULE def_LinScalar
 
 USE def_FEAT
-USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID
-USE var_QuadScalar, ONLY: mg_E011ProlM,mg_E011RestM,mg_E011Prol,mg_E011Rest,myMG,&
-                          mg_mesh, mg_Matrix, TMatrix, mg_dVector
+USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011
+USE var_QuadScalar, ONLY: myMG,myDataFile,&
+                          mg_mesh, mg_Matrix, TMatrix, mg_dVector,&
+                          tMGParamIn, tMGParamOut
 
 IMPLICIT NONE
 
 TYPE tParam
+ Character*20 :: cEquation
+
  REAL*8  defCrit,epsCrit,MinDef
+
  INTEGER NLmin,NLmax
+
  INTEGER SolvIter,SolvType,iMass
+
  LOGICAL AFC
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut(3)
 END TYPE tParam
 
 TYPE mg_vector
@@ -22,12 +30,14 @@ TYPE lScalar3
  CHARACTER cName*7
  INTEGER :: ndof,na
  LOGICAL :: bProlRest=.FALSE. 
+
  INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX,valY,valZ
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
- TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: valX,valY,valZ,sol
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
  TYPE(tParam) :: prm
+ 
 END TYPE
 
 TYPE lScalar
@@ -76,6 +86,10 @@ REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, A11mat, A22mat, A33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat
+
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest
+TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011RestM
+
 
 CONTAINS
 !
@@ -641,6 +655,157 @@ END IF
 !END IF
 
 END SUBROUTINE Solve_Displacement_Q1
+!
+! ----------------------------------------------
+!
+SUBROUTINE GetDispParameters(myParam,cName,mfile)
+IMPLICIT NONE
+TYPE(tParam) myParam
+INTEGER mfile
+CHARACTER*7 cName
+integer :: iEnd,iAt,iEq
+CHARACTER string*100,param*50,cVar*7,cPar*50
+LOGICAL bOK
+INTEGER :: myFile = 990076
+integer :: istat
+
+OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open data file: ",myDataFile  
+  stop          
+end if
+
+IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+
+DO
+ READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
+ IF (iEnd.EQ.-1) EXIT
+ CALL StrStuct()
+!   IF (myid.eq.showid) write(*,*) myid,iAt,iEq,bOK
+  IF (bOK) THEN
+
+  READ(string(1:iAt-1),*) cVar
+
+!   IF (myid.eq.showid) write(*,*) myid,cVar,iAt,iEq,string
+  IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
+
+   READ(string(iAt+1:iEq-1),*) cPar
+
+!    IF (myid.eq.showid) write(*,*) myid,cPar
+   SELECT CASE (TRIM(ADJUSTL(cPar)))
+
+    CASE ("Equation")
+    READ(string(iEq+1:),*) param
+    myParam%cEquation = TRIM(ADJUSTL(param))
+    IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%cEquation
+    IF (myid.eq.showid) write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%cEquation
+    CASE ("epsCrit")
+    READ(string(iEq+1:),*) myParam%epsCrit
+!    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%epsCrit
+!    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%epsCrit
+    CASE ("defCrit")
+    READ(string(iEq+1:),*) myParam%defCrit
+!    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%defCrit
+!    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%defCrit
+    CASE ("MinDef")
+    READ(string(iEq+1:),*) myParam%MinDef
+!    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MinDef
+!    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MinDef
+!     CASE ("SolvType")
+!     READ(string(iEq+1:),*) myParam%SolvType
+!     IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%SolvType
+!     IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%SolvType
+    CASE ("NLmin")
+    READ(string(iEq+1:),*) myParam%NLmin
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmin
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmin
+    CASE ("NLmax")
+    READ(string(iEq+1:),*) myParam%NLmax
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmax
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmax
+    CASE ("MGMinLev")
+    READ(string(iEq+1:),*) myParam%MGprmIn%MinLev
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
+    CASE ("MGMedLev")
+    READ(string(iEq+1:),*) myParam%MGprmIn%MedLev
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
+    CASE ("MGMinIterCyc")
+    READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    CASE ("MGMaxIterCyc")
+    READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    CASE ("MGSmoothSteps")
+    READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    CASE ("MGIterCoarse")
+    READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
+    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    CASE ("MGDefImprCoarse")
+    READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
+!    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
+!    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
+    CASE ("MGCriterion1")
+    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1
+!    IF (myid.eq.showid) write(mterm,'(A,E0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
+!    IF (myid.eq.showid) write(mfile,'(A,E0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
+    CASE ("MGCriterion2")
+    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion2
+!    IF (myid.eq.showid) write(mterm,'(A,E0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
+!    IF (myid.eq.showid) write(mfile,'(A,E0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
+    CASE ("MGCycType")
+    READ(string(iEq+1:),*) param
+    myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
+    IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
+    IF (myid.eq.showid) write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
+!     CASE ("MGCrsSolverType")
+!     READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
+!     IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
+!     IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
+    CASE ("MGRelaxPrm")
+    READ(string(iEq+1:),*) myParam%MGprmIn%RLX
+!    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%RLX
+!    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%RLX
+    
+  END SELECT
+
+  END IF
+
+ END IF
+END DO
+
+IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+
+CLOSE (myFile)
+
+CONTAINS
+
+SUBROUTINE StrStuct()
+IMPLICIT NONE
+INTEGER i,n
+
+n = len(string)
+iAt = 0
+iEq = 0
+DO i=1,n
+ IF (string(i:i).EQ. '@') iAt = i
+ IF (string(i:i).EQ. '=') iEq = i
+END DO
+
+bOk=.FALSE.
+IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
+
+END SUBROUTINE StrStuct
+
+END SUBROUTINE GetDispParameters
 
 !
 ! ----------------------------------------------

@@ -2,7 +2,8 @@ MODULE mg_LinScalar
 
 USE PP3D_MPI, ONLY : myid,showID,&
               COMM_Maximum,COMM_SUMM,COMM_NLComplete
-USE var_QuadScalar
+USE var_QuadScalar, only: mymg,knvt,mystat,parknpr,mg_mesh
+use def_LinScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
 
 IMPLICIT NONE
@@ -576,10 +577,16 @@ SUBROUTINE mgProlRestInit
     CALL InitE011ProlMat(mg_E011ProlM(mgLev-1)%na,&
          mg_E011Prol(mgLev-1)%a,mg_E011ProlM(mgLev-1)%LdA,mg_E011ProlM(mgLev-1)%ColA,&
          mg_E011Rest(mgLev-1)%a,mg_E011RestM(mgLev-1)%LdA,mg_E011RestM(mgLev-1)%ColA,&
-         KWORK(L(KLADJ(mgLev-1))),KWORK(L(KLVERT(mgLev-1))),KWORK(L(KLEDGE(mgLev-1))),&
-         KWORK(L(KLAREA(mgLev-1))),KNVT(mgLev-1),KNET(mgLev-1),KNAT(mgLev-1),KNEL(mgLev-1),&
-         KWORK(L(KLADJ(mgLev))),KWORK(L(KLVERT(mgLev))),KWORK(L(KLEDGE(mgLev))),&
-         KWORK(L(KLAREA(mgLev))),KNVT(mgLev),KNET(mgLev),KNAT(mgLev),KNEL(mgLev))
+         mg_mesh%level(mgLev-1)%kadj,mg_mesh%level(mgLev-1)%kvert,&
+         mg_mesh%level(mgLev-1)%kedge,&
+         mg_mesh%level(mgLev-1)%karea,mg_mesh%level(mgLev-1)%nvt,&
+         mg_mesh%level(mgLev-1)%net,mg_mesh%level(mgLev-1)%nat,&
+         mg_mesh%level(mgLev-1)%nel,&
+         mg_mesh%level(mgLev)%kadj,mg_mesh%level(mgLev)%kvert,&
+         mg_mesh%level(mgLev)%kedge,&
+         mg_mesh%level(mgLev)%karea,mg_mesh%level(mgLev)%nvt,&
+         mg_mesh%level(mgLev)%net,mg_mesh%level(mgLev)%nat,&
+         mg_mesh%level(mgLev)%nel)
    END DO
   END IF
 
@@ -827,6 +834,7 @@ END SUBROUTINE E011_Lin
 SUBROUTINE JCB_Activation()
 INTEGER ndof,ndof_orig
 IF (myid.ne.0) THEN 
+
  ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
 
  IF (.NOT.myJCB%bActivated) THEN
@@ -841,6 +849,7 @@ IF (myid.ne.0) THEN
    ALLOCATE(myJCB%d1(3*ndof))
   END IF
  END IF
+
 END IF
 END SUBROUTINE JCB_Activation
 ! !
