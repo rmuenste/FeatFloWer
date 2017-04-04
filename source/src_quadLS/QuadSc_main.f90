@@ -1669,6 +1669,31 @@ END SUBROUTINE GetMeshVelocity
 !
 ! ----------------------------------------------
 !
+SUBROUTINE GetMeshVelocity2(mfile)
+integer mfile
+REAL*8 dMaxVelo,daux
+INTEGER i
+
+dMaxVelo = 0d0
+IF (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+  myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
+  daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
+  IF (dMaxVelo.lt.daux) dMaxVelo = daux
+ END DO
+END IF
+
+CALL COMM_Maximum(dMaxVelo)
+
+IF (myid.eq.1) THEN
+ WRITE(mfile,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+ WRITE(mterm,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+END IF
+
+END SUBROUTINE GetMeshVelocity2
+!
+! ----------------------------------------------
+!
 SUBROUTINE MoveInterfacePoints(dcoor,MFILE)
 INTEGER mfile
 REAL*8 dcoor(3,*)

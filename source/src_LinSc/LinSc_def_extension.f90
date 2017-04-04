@@ -192,18 +192,39 @@ SUBROUTINE Create_NewDiffMat_Q1(DCOOR,dAlpha)
   REAL*8 dAlpha
   integer :: i
 
-  IF (.not.allocated(DMat)) ALLOCATE(DMat(lMat%na))
-  DMat=0d0
+  IF (.not.allocated(mg_LaplaceMat)) ALLOCATE(mg_LaplaceMat(NLMIN:NLMAX))
 
-  ILEV=NLMAX
-  CALL SETLEV(2)
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
 
-  CALL CnstDiffMatQ1(dAlpha,DMat,lMat%nu,lMat%ColA,lMat%LdA,&
-    mg_mesh%level(ilev)%kvert,&
-    mg_mesh%level(ilev)%karea,&
-    mg_mesh%level(ilev)%kedge,&
-    dCOOR,&
-    E011)
+    IF (.NOT.ALLOCATED(mg_LaplaceMat(ILEV)%a))then
+      ALLOCATE(mg_LaplaceMat(ILEV)%a(mg_lMat(ILEV)%na))
+    end if
+
+    LaplaceMat=>mg_LaplaceMat(ILEV)%a
+    plMat=>mg_lMat(ILEV)
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    LaplaceMat=0d0
+
+    CALL CnstDiffMatQ1(LaplaceMat,&
+      plMat%nu,plMat%ColA,plMat%LdA,& 
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kedge,&
+      dCOOR,dAlpha,E011)
+
+  end do
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
 
 END SUBROUTINE Create_NewDiffMat_Q1
 !
@@ -252,6 +273,137 @@ DO ILEV=NLMIN,NLMAX
 END DO
 
 END SUBROUTINE Initialize_Q1
+!
+! ----------------------------------------------
+!
+SUBROUTINE Matdef_Laplace_LinScalar(dcoor,myScalar,idef,imat,dAlpha)
+REAL*8 dcoor(3,*),dALpha
+INTEGER :: idef,imat
+TYPE(lScalar3) myScalar
+INTEGER i,j
+REAL*8 daux
+EXTERNAL E011
+
+DO ILEV=NLMIN,NLMAX
+
+ CALL SETLEV(2)
+
+ LaplaceMat => mg_LaplaceMat(ILEV)%a
+ A11Mat => mg_A11Mat(ILEV)%a
+ A22Mat => mg_A22Mat(ILEV)%a
+ A33Mat => mg_A33Mat(ILEV)%a
+ plMat  => mg_lMat(ILEV)
+
+! Build up the matrix
+ DO I=1,plMat%nu
+  J = plMat%LdA(I)
+  daux = LaplaceMat(J)
+  A11mat(J) = daux
+  A22mat(J) = daux
+  A33mat(J) = daux
+  DO J=plMat%LdA(I)+1,plMat%LdA(I+1)-1
+   daux = LaplaceMat(J)
+   A11mat(J) =  daux
+   A22mat(J) =  daux
+   A33mat(J) =  daux
+  END DO
+ END DO
+ 
+END DO
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+LaplaceMat => mg_LaplaceMat(ILEV)%a
+A11Mat => mg_A11Mat(ILEV)%a
+A22Mat => mg_A22Mat(ILEV)%a
+A33Mat => mg_A33Mat(ILEV)%a
+plMat  => mg_lMat(ILEV)
+
+! Build up the defect
+IF (idef.eq. 1) THEN
+ myScalar%defX = 0d0 
+ myScalar%defY = 0d0 
+ myScalar%defZ = 0d0 
+ELSE
+ myScalar%defX = 0d0 
+ myScalar%defY = 0d0 
+ myScalar%defZ = 0d0 
+ CALL LAX17(A11Mat,plMat%ColA,plMat%LdA,plMat%nu,&
+ myScalar%valX,myScalar%defX,-1d0,1d0)
+ CALL LAX17(A22Mat,plMat%ColA,plMat%LdA,plMat%nu,&
+ myScalar%valY,myScalar%defY,-1d0,1d0)
+ CALL LAX17(A33Mat,plMat%ColA,plMat%LdA,plMat%nu,&
+ myScalar%valZ,myScalar%defZ,-1d0,1d0)
+END IF
+
+END SUBROUTINE Matdef_Laplace_LinScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE Matdef_DeformationTensor_LinScalar(dcoor,myScalar,idef,imat,dAlpha)
+REAL*8 dcoor(3,*),dALpha
+INTEGER :: idef,imat
+TYPE(lScalar3) myScalar
+INTEGER i,j
+REAL*8 daux
+EXTERNAL E011
+
+DO ILEV=NLMIN,NLMAX
+
+ CALL SETLEV(2)
+
+ LaplaceMat   => mg_LaplaceMat(ILEV)%a
+ A11Mat => mg_A11Mat(ILEV)%a
+ A22Mat => mg_A22Mat(ILEV)%a
+ A33Mat => mg_A33Mat(ILEV)%a
+ plMat   => mg_lMat(ILEV)
+
+! Build up the matrix
+ DO I=1,plMat%nu
+  J = plMat%LdA(I)
+  daux = 2d0*LaplaceMat(J)
+  A11mat(J) = daux
+  A22mat(J) = daux
+  A33mat(J) = daux
+  DO J=plMat%LdA(I)+1,plMat%LdA(I+1)-1
+   daux = 2d0*LaplaceMat(J)
+   A11mat(J) =  daux
+   A22mat(J) =  daux
+   A33mat(J) =  daux
+  END DO
+ END DO
+ 
+ END DO
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+LaplaceMat   => mg_LaplaceMat(ILEV)%a
+A11Mat => mg_A11Mat(ILEV)%a
+A22Mat => mg_A22Mat(ILEV)%a
+A33Mat => mg_A33Mat(ILEV)%a
+plMat   => mg_lMat(ILEV)
+
+ ! Build up the defect
+IF (idef.eq. 1) THEN
+ myScalar%defX = 0d0 
+ myScalar%defY = 0d0 
+ myScalar%defZ = 0d0 
+ELSE
+ myScalar%defX = 0d0 
+ myScalar%defY = 0d0 
+ myScalar%defZ = 0d0 
+
+ CALL STRESSQ1(dAlpha,myScalar%valX,myScalar%valY,myScalar%valZ,&
+               myScalar%defX, myScalar%defY, myScalar%defZ,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%karea,&
+               mg_mesh%level(ilev)%kedge,&
+               dcoor,E011)
+END IF
+
+END SUBROUTINE Matdef_DeformationTensor_LinScalar
 !
 ! ----------------------------------------------
 !
@@ -340,18 +492,24 @@ END SUBROUTINE Matdef_general_LinScalar_Q1
 !
 SUBROUTINE Resdfk_General_LinScalar_Q1(myScalar,&
     resScalar,defScalar,rhsScalar)
-  TYPE(lScalar3), INTENT(INOUT) :: myScalar
-  REAL*8  resScalar,defScalar,rhsScalar,RESF,RESU
+TYPE(lScalar3), INTENT(INOUT) :: myScalar
+REAL*8  resScalar(3),defScalar(3),rhsScalar(3),RESF,RESU
 
-  CALL LL21 (myScalar%rhs,myScalar%ndof,RESF)
-  RESF=MAX(1D-15,RESF)
+CALL LL21 (myScalar%defX,myScalar%ndof,RESU)
+resScalar(1) = 0d0 !RESU/RESF
+defScalar(1) = RESU
+rhsScalar(1) = 0d0 !RESF
+!write(*,*) RESU,RESF
 
-  CALL LL21 (myScalar%defX,myScalar%ndof,RESU)
+CALL LL21 (myScalar%defY,myScalar%ndof,RESU)
+resScalar(2) = 0d0 !RESU/RESF
+defScalar(2) = RESU
+rhsScalar(2) = 0d0 !RESF
 
-  resScalar = RESU/RESF
-  defScalar = RESU
-  rhsScalar = RESF
-  !write(*,*) RESU,RESF
+CALL LL21 (myScalar%defZ,myScalar%ndof,RESU)
+resScalar(3) = 0d0 !RESU/RESF
+defScalar(3) = RESU
+rhsScalar(3) = 0d0 !RESF
 
 END SUBROUTINE Resdfk_General_LinScalar_Q1
 !
@@ -500,6 +658,118 @@ END SUBROUTINE Solve_General_LinScalar_Q1
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Solve_General_MGLinScalar(myScalar,Bndry_Val,Bndry_Mat,mfile)
+use var_QuadScalar, only : myStat
+INTEGER mfile
+TYPE(lScalar3), INTENT(INOUT), TARGET :: myScalar
+REAL*8 daux,nrm_U,nrm_V,nrm_W
+INTEGER ndof
+EXTERNAL Bndry_Val,Bndry_Mat
+
+ CALL ZTIME(myStat%t0)
+
+ IF (myid.ne.0) THEN
+  DO ILEV = NLMIN,NLMAX
+    CALL Bndry_Mat(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,&
+         mg_lMat(ILEV)%LdA,myScalar%knprX,myScalar%knprY,myScalar%knprZ,mg_lMat(ILEV)%nu)
+        
+    CALL E011_UMAT(mg_A11mat(ILEV)%a,mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%nu,1)
+    CALL E011_UMAT(mg_A22mat(ILEV)%a,mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%nu,2)
+    CALL E011_UMAT(mg_A33mat(ILEV)%a,mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%nu,3)
+  END DO
+  
+  CALL LL21 (myScalar%defX,myScalar%ndof,nrm_U)
+  CALL LL21 (myScalar%defY,myScalar%ndof,nrm_V)
+  CALL LL21 (myScalar%defZ,myScalar%ndof,nrm_W)
+  CALL LCL1 (myScalar%valX,myScalar%ndof)
+  CALL LCL1 (myScalar%valY,myScalar%ndof)
+  CALL LCL1 (myScalar%valZ,myScalar%ndof)
+ END IF
+
+! daux = MAX(nrm_U,nrm_V,nrm_W)
+! CALL COMM_Maximum(daux)
+!
+!!--------------- Set up the MG driver -----------------!
+! IF (myid.ne.0) THEN
+!  MyMG%A11    => mg_A11Mat
+!  MyMG%A22    => mg_A22Mat
+!  MyMG%A33    => mg_A33Mat
+!
+!  MyMG%L    => mg_lMat
+!  MyMG%D    => myScalar%def
+!  MyMG%AUX  => myScalar%aux
+!  MyMG%KNPRU => myScalar%knprX
+!  MyMG%KNPRV => myScalar%knprY
+!  MyMG%KNPRW => myScalar%knprZ
+!  MyMG%bProlRest => myScalar%bProlRest
+!! Variable specific settings 
+! END IF
+! 
+! MyMG%cVariable          = "Displacement"
+! MyMG%MinIterCycle       = myScalar%prm%MGprmIn%MinIterCycle
+! MyMG%MaxIterCycle       = myScalar%prm%MGprmIn%MaxIterCycle
+! MyMG%nIterCoarse        = myScalar%prm%MGprmIn%nIterCoarse
+! MyMG%DefImprCoarse      = myScalar%prm%MGprmIn%DefImprCoarse
+! MyMG%nSmootherSteps     = myScalar%prm%MGprmIn%nSmootherSteps
+! MyMG%CycleType          = myScalar%prm%MGprmIn%CycleType
+! MyMG%Criterion1         = myScalar%prm%MGprmIn%Criterion1
+! MyMG%Criterion2         = myScalar%prm%MGprmIn%Criterion2*daux
+! MyMG%RLX                = myScalar%prm%MGprmIn%RLX
+! MyMG%MinLev             = myScalar%prm%MGprmIn%MinLev
+! MyMG%MedLev             = myScalar%prm%MGprmIn%MedLev
+! daux = DBLE(NLMAX)
+! CALL COMM_Maximum(daux)
+! MyMG%MaxLev             = NINT(daux)
+!
+!!-------------------  U - Component -------------------!
+! IF (myid.ne.0) THEN
+!  ndof = SIZE(myScalar%ValX)
+!
+!  myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValX
+!  myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValY
+!  myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValZ
+!  MyMG%X    => myScalar%sol
+!! 
+!  myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defX
+!  myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defY
+!  myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defZ
+!  MyMG%B    => myScalar%rhs
+! END IF
+! 
+! CALL MG_Solver(mfile,mterm)
+!
+! IF (myid.ne.0) THEN
+!  myScalar%ValX = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+!  myScalar%ValY = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+!  myScalar%ValZ = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+!
+!  myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
+!  myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
+!  myScalar%prm%MGprmOut(1)%DefInitial    = myMG%DefInitial
+!  myScalar%prm%MGprmOut(1)%DefFinal      = myMG%DefFinal
+!  myScalar%prm%MGprmOut(1)%RhoMG1        = myMG%RhoMG1
+!  myScalar%prm%MGprmOut(1)%RhoMG2        = myMG%RhoMG2
+!
+! ! Update the solution
+!  CALL LLC1(myScalar%valX_old,myScalar%valX,&
+!       myScalar%ndof,1D0,1D0)
+!  CALL LLC1(myScalar%valY_old,myScalar%valY,&
+!       myScalar%ndof,1D0,1D0)
+!  CALL LLC1(myScalar%valZ_old,myScalar%valZ,&
+!       myScalar%ndof,1D0,1D0)
+!
+! END IF
+!
+! CALL ZTIME(myStat%t1)
+! myStat%tMGUVW = myStat%tMGUVW + (myStat%t1-myStat%t0)
+! myStat%iLinUVW = myStat%iLinUVW + myScalar%prm%MGprmOut(1)%UsedIterCycle &
+!                                 + myScalar%prm%MGprmOut(2)%UsedIterCycle &
+!                                 + myScalar%prm%MGprmOut(3)%UsedIterCycle
+
+END SUBROUTINE Solve_General_MGLinScalar
+!
+! ----------------------------------------------
+!
 SUBROUTINE GMVoutput_Q1(value)
   INTEGER I
   REAL*8 , INTENT(IN) :: value(3,*)
@@ -606,4 +876,3 @@ SUBROUTINE Protocol_linScalar_Q1(mfile,myScalar,nINL,&
 
 
 END SUBROUTINE Protocol_linScalar_Q1
-

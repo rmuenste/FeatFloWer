@@ -81,10 +81,12 @@ TYPE(TMatrix), POINTER :: plMat
 
 !---------------------------------------------------------------------
 
+! Pointer to the entries of the multi-level matrices 
 REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, A11mat, A22mat, A33mat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 
+! A multi-level Matrix entries struct 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest

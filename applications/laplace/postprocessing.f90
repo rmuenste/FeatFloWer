@@ -170,7 +170,7 @@ INTEGER :: inlU,inlT,MFILE
 ! Output the solution in GMV or GiD format
 IF (itns.eq.1) THEN
   CALL ZTIME(myStat%t0)
-  CALL Output_Profiles(0)
+  CALL myOutput_Profiles(0)
   CALL ZTIME(myStat%t1)
   myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
 END IF
@@ -180,7 +180,7 @@ IF(dout.LE.(timens+1e-10)) THEN
   iOGMV = NINT(timens/dtgmv)
   IF (itns.ne.1) THEN
     CALL ZTIME(myStat%t0)
-    CALL Output_Profiles(iOGMV)
+    CALL myOutput_Profiles(iOGMV)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
   END IF
