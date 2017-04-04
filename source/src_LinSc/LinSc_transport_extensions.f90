@@ -202,6 +202,9 @@ NLMAX = NLMAX + 1
  ! Building up the matrix strucrures
  CALL Create_MatStruct_Q1()
 
+ call myMPI_Barrier()
+ pause
+
 ! Iteration matrix (only allocation)
  CALL Create_AMat_Q1()
 
@@ -243,8 +246,6 @@ Tracer3%cName = "Disp"
 
 NLMAX = NLMAX - 1 
  
- call myMPI_Barrier()
- pause
 
 ! CALL Create_Knpr_Q1(LinSc_Knpr_Q1)
 

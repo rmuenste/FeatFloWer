@@ -2,27 +2,10 @@ MODULE def_LinScalar
 
 USE def_FEAT
 USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID
-USE var_QuadScalar, ONLY:mg_mesh
+USE var_QuadScalar, ONLY: mg_E011ProlM,mg_E011RestM,mg_E011Prol,mg_E011Rest,myMG,&
+                          mg_mesh, mg_Matrix, TMatrix, mg_dVector
 
 IMPLICIT NONE
-
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
-! Type quantity
-! integer :: ncomponents
-! Type(lScalar), ALLOCATABLE :: c 
-! end type
 
 TYPE tParam
  REAL*8  defCrit,epsCrit,MinDef
@@ -43,7 +26,7 @@ TYPE lScalar3
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
- TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: valX,valY,valZ
+ TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: valX,valY,valZ,sol
  TYPE(tParam) :: prm
 END TYPE
 
@@ -69,12 +52,30 @@ TYPE TlMatrix
  INTEGER :: nu,na
  INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
 END TYPE
+
 TYPE(TlMatrix) :: lMat
+
+!---------------------------------------------------------------------
 
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Mmat,MLmat,Kmat,Dmat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: Amat
-
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: AmatX,AmatY,AmatZ
+
+!---------------------------------------------------------------------
+
+! A general Matrix structure for E011
+TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_lMat
+
+! A pointer for E011 matrix level to be used as a shorthand 
+TYPE(TMatrix), POINTER :: plMat
+
+!---------------------------------------------------------------------
+
+REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, A11mat, A22mat, A33mat
+
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
+
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat
 
 CONTAINS
 !
@@ -536,6 +537,116 @@ END SUBROUTINE Protocol_linScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Solve_Displacement_Q1(myScalar,knpr,Bndry_Val,Bndry_Mat)
+INTEGER KNPR(*)
+INTEGER iLinIter,i,ndof
+REAL*8 DefInit,DefCurrent,DefInitX,DefInitY,DefInitZ
+TYPE(lScalar3), INTENT(INOUT), TARGET :: myScalar
+EXTERNAL Bndry_Val,Bndry_Mat
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+! if (myid.eq.0) GOTO 191
+
+IF (myid.ne.0) THEN
+
+ ndof = myScalar%ndof
+
+ LaplaceMat => mg_LaplaceMat(ILEV)%a
+! A11Mat => mg_A11Mat(ILEV)%a
+! A22Mat => mg_A22Mat(ILEV)%a
+! A33Mat => mg_A33Mat(ILEV)%a
+! lMat   => mg_lMat(ILEV)
+
+! CALL Bndry_Mat(A11Mat,lMat%LdA,myScalar%knprX)
+! CALL Bndry_Mat(A22Mat,lMat%LdA,myScalar%knprY)
+! CALL Bndry_Mat(A33Mat,lMat%LdA,myScalar%knprZ)
+!        
+! CALL E011_UMAT(A11mat,lMat%LdA,lMat%nu,1)
+! CALL E011_UMAT(A22mat,lMat%LdA,lMat%nu,2)
+! CALL E011_UMAT(A33mat,lMat%LdA,lMat%nu,3)
+!
+! DO i=1,ndof
+!  if (myScalar%knprX(i).eq.1) myScalar%defX(i) = 0d0
+!  if (myScalar%knprY(i).eq.1) myScalar%defY(i) = 0d0
+!  if (myScalar%knprZ(i).eq.1) myScalar%defZ(i) = 0d0
+! END DO
+!
+! CALL LCL1 (myScalar%valX,ndof)
+! CALL LCL1 (myScalar%valY,ndof)
+! CALL LCL1 (myScalar%valZ,ndof)
+!
+! myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValX
+! myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValY
+! myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValZ
+! MyMG%X    => myScalar%sol
+!
+! myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defX
+! myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defY
+! myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defZ
+! MyMG%B    => myScalar%rhs
+!
+! CALL GetDefNorm(A11Mat,lMat%ColA,lMat%LdA,myScalar%valX,&
+!      myScalar%defX,myScalar%aux(NLMAX)%x,ndof,DefInitX)
+! CALL GetDefNorm(A22Mat,lMat%ColA,lMat%LdA,myScalar%valY,&
+!      myScalar%defY,myScalar%aux(NLMAX)%x,ndof,DefInitY)
+! CALL GetDefNorm(A33Mat,lMat%ColA,lMat%LdA,myScalar%valZ,&
+!      myScalar%defZ,myScalar%aux(NLMAX)%x,ndof,DefInitZ)
+     
+END IF
+
+!CALL COMM_Maximum(DefInitX)
+!CALL COMM_Maximum(DefInitY)
+!CALL COMM_Maximum(DefInitZ)
+!
+!DefInit=MAX(DefInitX,DefInitY,DefInitZ)
+!
+!DO iLinIter=1,5
+! IF (myid.ne.0) THEN
+!
+!   CALL SSORSolverXXX(A11Mat,A22Mat,A33Mat,lMat%ColA,lMat%LdA,&
+!        myScalar%sol(ILEV)%x,myScalar%rhs(ILEV)%x,myScalar%aux(ILEV)%x,&
+!        KNPR,ndof,myScalar%prm%MGprmIn%nIterCoarse, 0.7d0)
+!   CALL GetDefNorm(A11Mat,lMat%ColA,lMat%LdA,myScalar%valX,&
+!        myScalar%defX,myScalar%aux(NLMAX)%x,ndof,DefInitX)
+!   CALL GetDefNorm(A22Mat,lMat%ColA,lMat%LdA,myScalar%valY,&
+!        myScalar%defY,myScalar%aux(NLMAX)%x,ndof,DefInitY)
+!   CALL GetDefNorm(A33Mat,lMat%ColA,lMat%LdA,myScalar%valZ,&
+!        myScalar%defZ,myScalar%aux(NLMAX)%x,ndof,DefInitZ)
+!  END IF
+!  
+! CALL COMM_Maximum(DefInitX)
+! CALL COMM_Maximum(DefInitY)
+! CALL COMM_Maximum(DefInitZ)
+! DefCurrent=MAX(DefInitX,DefInitY,DefInitZ)
+! IF (DefCurrent/DefInit.LT.0.0001d0) GOTO 1
+!
+!END DO
+!
+!1 CONTINUE
+!
+!IF (myid.ne.0) THEN
+! ! Update the solution
+! myScalar%ValX = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+! myScalar%ValY = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+! myScalar%ValZ = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+!
+! CALL LLC1(myScalar%valX_old,myScalar%valX,&
+!      myScalar%ndof,1D0,1D0)
+! CALL LLC1(myScalar%valY_old,myScalar%valY,&
+!      myScalar%ndof,1D0,1D0)
+! CALL LLC1(myScalar%valZ_old,myScalar%valZ,&
+!      myScalar%ndof,1D0,1D0)
+!END IF
+
+END SUBROUTINE Solve_Displacement_Q1
+
+!
+! ----------------------------------------------
+!
+
 include 'LinSc_def_extension.f90'
+
 END MODULE def_LinScalar
 
