@@ -876,3 +876,59 @@ SUBROUTINE Protocol_linScalar_Q1(mfile,myScalar,nINL,&
 
 
 END SUBROUTINE Protocol_linScalar_Q1
+
+SUBROUTINE Protocol_linScalar_Disp_Q1(mfile,myScalar,nINL,&
+           ResScalar,DefScalar,RhsScalar,cTitle)
+TYPE(lscalar3), INTENT(INOUT) :: myScalar
+INTEGER nINL,mfile
+INTEGER i,length
+REAL*8 ResScalar(3),DefScalar(3),RhsScalar(3)
+CHARACTER, OPTIONAL:: cTitle*(*)
+
+IF (myid.eq.showID) THEN
+length =  LEN(myScalar%cName)
+
+IF (PRESENT(cTitle)) THEN
+ length = LEN(cTitle)
+ IF (MOD(length,2).eq.1) length = length + 1
+ length = (104-length)/2
+END IF
+
+IF (nINL.EQ.0) THEN
+ IF (PRESENT(cTitle)) THEN
+  WRITE(*,4)
+  WRITE(*,*) cTitle
+!  WRITE(MFILE,4) cTitle
+ ELSE
+  WRITE(*,5)
+!  WRITE(MFILE,5)
+ END IF
+
+ WRITE(MTERM,'(A8,5(2X,A14))') "INL",TRIM(myScalar%cName)//"_X",TRIM(myScalar%cName)//"_Y",TRIM(myScalar%cName)//"_Z"
+ WRITE(MFILE,'(A8,5(2X,A14))') "INL",TRIM(myScalar%cName)//"_X",TRIM(myScalar%cName)//"_Y",TRIM(myScalar%cName)//"_Z"
+ WRITE(MTERM,5)
+ WRITE(MFILE,5)
+ WRITE(MTERM,'(A8,3(6X,D10.4))') "Criteria",DefScalar(1)*myScalar%prm%defCrit,&
+                                            DefScalar(2)*myScalar%prm%defCrit,&
+                                            DefScalar(3)*myScalar%prm%defCrit
+ WRITE(MFILE,'(A8,5(6X,D10.4))') "Criteria",DefScalar(1)*myScalar%prm%defCrit,&
+                                            DefScalar(2)*myScalar%prm%defCrit,&
+                                            DefScalar(3)*myScalar%prm%defCrit
+ WRITE(MTERM,5)
+ WRITE(MFILE,5)
+ WRITE(MTERM,'(I8,3(6X,D10.4))') 0,DefScalar(1),DefScalar(2),DefScalar(3)
+ WRITE(MFILE,'(I8,3(6X,D10.4))') 0,DefScalar(1),DefScalar(2),DefScalar(3)
+ELSE
+ WRITE(MTERM,'(I8,3(6XD10.4),2I5,2XD10.4)') nINL,DefScalar(1),DefScalar(2),DefScalar(3),&
+ myScalar%prm%MGprmOut(1)%UsedIterCycle,myScalar%prm%MGprmOut(1)%nIterCoarse,myScalar%prm%MGprmOut(1)%RhoMG1
+ WRITE(MFILE,'(I8,3(6XD10.4),2I5,2XD10.4)') nINL,DefScalar(1),DefScalar(2),DefScalar(3),&
+ myScalar%prm%MGprmOut(1)%UsedIterCycle,myScalar%prm%MGprmOut(1)%nIterCoarse,myScalar%prm%MGprmOut(1)%RhoMG1
+END IF
+
+END IF
+
+5  FORMAT(104('-'))
+4  FORMAT(104('-'))
+
+
+END SUBROUTINE Protocol_linScalar_Disp_Q1

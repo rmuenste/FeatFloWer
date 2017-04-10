@@ -52,6 +52,8 @@ DefTempCrit(1)=MAX((RhsTemp(1))*Tracer3%prm%defCrit,Tracer3%prm%MinDef)
 DefTempCrit(2)=MAX((RhsTemp(2))*Tracer3%prm%defCrit,Tracer3%prm%MinDef)
 DefTempCrit(3)=MAX((RhsTemp(3))*Tracer3%prm%defCrit,Tracer3%prm%MinDef)
 
+CALL Protocol_linScalar_Disp_Q1(mfile,Tracer3,0,&
+       ResTemp,DefTemp,DefTempCrit," Laplace equation ")
 
 do INL=1,Tracer3%prm%NLmax
 INLComplete = 0
@@ -98,9 +100,8 @@ RhsTemp=DefTemp
 CALL COMM_Maximum(RhsTemp(1))
 CALL COMM_Maximum(RhsTemp(2))
 CALL COMM_Maximum(RhsTemp(3))
-
-!CALL Protocol_linScalar(mfile,Tracer,INL,&
-!     ResTemp,DefTemp,RhsTemp)
+CALL Protocol_linScalar_Disp_Q1(mfile,Tracer3,0,&
+       ResTemp,DefTemp,DefTempCrit," Laplace equation ")
 
 IF ((DefTemp(1).LE.DefTempCrit(1)).AND.&
     (DefTemp(2).LE.DefTempCrit(2)).AND.&
