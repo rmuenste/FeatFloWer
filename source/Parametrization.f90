@@ -36,8 +36,6 @@ INTEGER   iType, iPhase, jPhase, iInterface
 logical :: bOK
  
  ndof = KNVT(ilev) + KNET(ilev) + KNAT(ilev) + KNEL(ilev)
-! write(*,*)'use of NVT is deprecated'
-! write(*,*)'ndof: ',ndof
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
  ALLOCATE(myBoundary%iPhase(ndof))
@@ -52,7 +50,7 @@ logical :: bOK
  myBoundary%iPhase    = 0
  myBoundary%bOutflow  = .FALSE.
  myBoundary%bSymmetry = .FALSE.
- myBoundary%LS_zero   = .FALSE.
+ myBoundary%LS_zero   = 0
  BndrForce            = .FALSE.
  myBoundary%bDisp_DBC = .FALSE. 
 
@@ -83,6 +81,7 @@ logical :: bOK
     END IF
     IF (iType.GT.0) myBoundary%iInflow(i) = iType
     IF (iPhase.GT.0) myBoundary%iPhase(i) = iPhase
+    IF (iInterface.GT.0) myBoundary%LS_zero(i) = iInterface
 !     IF (iPhase.GT.0) jPhase = jPhase + 1
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(i) = .TRUE.
     iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
@@ -110,6 +109,7 @@ logical :: bOK
       END IF
       IF (iType.GT.0) myBoundary%iInflow(nvt+k) = iType
       IF (iPhase.GT.0) myBoundary%iPhase(nvt+k) = iPhase
+      IF (iInterface.GT.0) myBoundary%LS_zero(nvt+k) = iInterface
 !       IF (iPhase.GT.0) jPhase = jPhase + 1
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+k) = .TRUE.
       iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')
@@ -128,13 +128,14 @@ logical :: bOK
   DO i=1,NAT
    IF (myParBndr(iBnds)%Bndr(ILEV)%Face(1,i).NE.0) THEN
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+net+i) = .TRUE.
-    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Disp_DBC') myBoundary%bDisp_DBC(nvt+net+nat+i) = .TRUE.    
+    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Disp_DBC') myBoundary%bDisp_DBC(nvt+net+i) = .TRUE.    
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
       myBoundary%bWall(nvt+net+i) = .TRUE.
       BndrForce(nvt+net+i) = .TRUE.
     END IF
     IF (iType.GT.0) myBoundary%iInflow(nvt+net+i) = iType
     IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+i) = iPhase
+    IF (iInterface.GT.0) myBoundary%LS_zero(nvt+net+i) = iInterface
 !     IF (iPhase.GT.0) jPhase = jPhase + 1
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+net+i) = .TRUE.
     iLoc = INDEX(myParBndr(iBnds)%Types,'Symmetry')

@@ -93,7 +93,6 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX + 1
   ILEV = myExport%Level
   CALL SETLEV(2)
-  write(*,*)'vtk write...',myid
   CALL myOutput_VTK_piece(iOutput,&
     mg_mesh%level(ILEV)%dcorvg,&
     mg_mesh%level(ILEV)%kvert)
@@ -320,7 +319,7 @@ SUBROUTINE myOutput_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc
+USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc, myBoundary
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -334,6 +333,8 @@ INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
 integer :: iunit = 908070
+integer :: iPhase
+real*8 :: dp,daux,daux2
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -437,6 +438,12 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, '(A,E16.7)')"        ",REAL(myALE%monitor(ivt))
   end do
   write(iunit, *)"        </DataArray>"
+ CASE('PhaseProp_V')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","PhaseProp_V",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(myBoundary%iPhase(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
 
  END SELECT 
 
@@ -459,6 +466,49 @@ DO iField=1,SIZE(myExport%Fields)
    end do
    write(iunit, *)"        </DataArray>"
   END IF
+  IF (ILEV.EQ.NLMAX) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure_E",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    ive = 4*(ivt-1)+1
+    IF (ivt.le.NoOfElem/8d0) THEN
+     dP = LinSc%ValP(NLMAX-1)%x(ive)
+    ELSE
+     ive = ivt - NoOfElem/8d0 - 1
+     ive = (ive - mod(ive,7))/7 + 1
+     ive = 4*(ive-1)+1
+     dP = LinSc%ValP(NLMAX-1)%x(ive)
+    END IF
+    write(iunit, '(A,E16.7)')"        ",REAL(dP)
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+
+ CASE('PhaseProp_E')
+  write(iunit, '(A,A,A)')"        <DataArray type=""UInt8"" Name=""","PhaseProp_E",""" format=""ascii"">"
+  do ivt=1,NoOfElem
+
+  iPhase = 0
+!   IF (ivt.gt.KNVT(ILEV-1)+KNET(ILEV-1)+KNAT(ILEV-1)) THEN
+!    iPhase = myBoundary%iPhase(KNVT(ILEV-1)+KNET(ILEV-1)+KNAT(ILEV-1)+ivt)
+!  end if
+!
+!   IF (ivt.le.NoOfElem/8d0) THEN
+!    iPhase = myBoundary%iPhase(KNVT(ILEV-1)+KNET(ILEV-1)+KNAT(ILEV-1)+ivt)
+!    write(*,*)"phase if: ",iPhase
+!   ELSE
+!    ive = ivt - NoOfElem/8d0 - 1
+!    ive = (ive - mod(ive,7))/7 + 1
+!    iPhase = myBoundary%iPhase(KNVT(ILEV-1)+KNET(ILEV-1)+KNAT(ILEV-1)+ive)
+!    write(*,*)"phase else: ",iPhase,daux2
+!   END IF
+   write(iunit, '(A,I3)')"        ",iPhase
+   
+!    IF (bPhase) THEN
+!    ELSE
+!     write(iunit, '(A,I3)')"        ",0
+!    END IF
+  end do
+  write(iunit, *)"        </DataArray>"
 
  CASE('Viscosity_E')
   IF (ILEV.EQ.NLMAX-1) THEN
@@ -577,7 +627,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity","""/>"
  CASE('Monitor')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
-
+ CASE('PhaseProp_V')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","PhaseProp_V","""/>"
  END SELECT
 END DO
 
@@ -589,17 +640,14 @@ DO iField=1,SIZE(myExport%Fields)
 
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
  CASE('Pressure_E')
-!  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
-  IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
-  END IF
-
  CASE('Viscosity_E')
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
   END IF
-
+ CASE('PhaseProp_E')
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""UInt8"" Name=""","PhaseProp_E","""/>"
  END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"
