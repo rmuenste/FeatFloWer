@@ -47,6 +47,10 @@
       SAVE
 !
       IF (myid.eq.0) GOTO 999
+
+      if(myid.eq.1)then
+        write(*,*)'Number of particles: ',myFBM%nParticles
+      end if
 !
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.
@@ -65,7 +69,15 @@
       DO IP = 1,myFBM%nParticles
 
       Center = myFBM%particleNew(IP)%Position
-!
+
+      if(myid.eq.1)then
+        if(IP.eq.50)then
+        write(*,*)'Position: ',myFBM%particleNew(IP)%Position(1),&
+                               myFBM%particleNew(IP)%Position(2),&
+                               myFBM%particleNew(IP)%Position(3)
+        end if
+      end if
+
       DResForceX = 0D0
       DResForceY = 0D0
       DResForceZ = 0D0
@@ -85,9 +97,11 @@
        NIALFA=0
        DO I=1,IDFL
          IG=KDFG(I)
+         ! Count the number of dofs outside
          IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.IP))THEN
           NJALFA=NJALFA+1
          ENDIF
+         ! Count the number of dofs inside
          IF (ALPHA(IG).EQ.IP) THEN
           NIALFA=NIALFA+1
          ENDIF
@@ -198,10 +212,10 @@
 
        DO I=1,IDFL
          IG=KDFG(I)
-         DBI1=DBAS(1,KDFL(I),1)
-         DBI2=DBAS(1,KDFL(I),2)
-         DBI3=DBAS(1,KDFL(I),3)
-         DBI4=DBAS(1,KDFL(I),4)
+         DBI1=DBAS(1,KDFL(I),1) ! value
+         DBI2=DBAS(1,KDFL(I),2) ! d/dx
+         DBI3=DBAS(1,KDFL(I),3) ! d/dy
+         DBI4=DBAS(1,KDFL(I),4) ! d/dz
 !---------------FOR U1----------------
          DU1V=DU1V+U1(IG)*DBI1
          DU1X=DU1X+U1(IG)*DBI2
@@ -312,6 +326,12 @@
        myFBM%ParticleNew(IP)%TorqueForce(3) = &
        myFBM%Force(iPointer+5)
       END DO
+
+      if(myid.eq.1)then
+        write(*,*)'Force(50): ',myFBM%particleNew(50)%ResistanceForce(1),&
+                               myFBM%particleNew(50)%ResistanceForce(2),&
+                               myFBM%particleNew(50)%ResistanceForce(3)
+      end if
       
 !     write(*,*)'z-force: ',myFBM%ParticleNew(1)%ResistanceForce(3)
       
@@ -339,7 +359,7 @@
       
       iSubSteps = 1
       call settimestep(dTime)
-      if(myid.eq.1) write(*,*)'updating'
+
 !     communicate new force + torque
       DO IP = 1,myFBM%nParticles
       ipc = ip-1
@@ -354,10 +374,7 @@
        myFBM%particleOld(IP)%TorqueForce(3),ipc)
 
       END DO ! all particles
-            
-      ! in the first loop we updated the external force and
-      ! torque, with this we can start the collision handling
-#ifndef FC_CUDA_SUPPORT    
+
       ! update velocities by the force determined in the time step
       call settimestep(dTime)      
       call velocityupdate()     
@@ -370,29 +387,7 @@
       end do
       call gettiming(timecoll)
 
-      !pz=3.0d0 
-      !ipc=0
-      !call setpositionid(myFBM%particleNew(1)%Position(1),&
-      !                   myFBM%particleNew(1)%Position(2),&
-      !                   PZ,ipc)
-      !myFBM%particleNEW(1)%Position(3) = pz
-
-      ! set the particle parameters to the 
-      ! values determined by the collision solver
       call FBM_SetParticles()
-#else
-      if(myid.eq.0)then
-        ! update velocities on the gpu
-        !call velocityupdate()     
-
-        ! start the gpu particle handling on the master process       
-        ! call startcollisionpipeline()
-        
-      endif      
-        ! we scatter the particle data
-      CALL FBM_ScatterParticles()
-
-#endif
 
       !-------------------------------------------------------------------------------------
       ! Backup the particle parameters so the old values are available in the next timestep
@@ -424,36 +419,6 @@
       myFBM%particleOld(IP)%AngularVelocity = &
       myFBM%particleNew(IP)%AngularVelocity
 
-      IF((myid.eq.1) .and. (IP .eq. 1)) THEN
-        IF(myid.eq.1)THEN
-        write(*,*)'After collision handling'
-        WRITE(mfile,'(A19,3ES14.4)') "ResistanceForce: ",&
-            myFBM%particleNew(IP)%ResistanceForce
-        WRITE(*,'(A19,3ES14.4)') "ResistanceForce: ",&
-            myFBM%particleNew(IP)%ResistanceForce
-        WRITE(mfile,'(A19,3ES14.4)') "TorqueForce: ",&
-            myFBM%particleNew(IP)%TorqueForce        
-        WRITE(*,'(A19,3ES14.4)') "TorqueForce: ",&
-            myFBM%particleNew(IP)%TorqueForce
-        WRITE(mfile,'(A19,4ES14.4)') "Position: ",&
-            myFBM%particleNew(IP)%Position,simTime        
-        WRITE(*,'(A19,4ES14.4)') "Position: ",&
-            myFBM%particleNew(IP)%Position,simTime
-        WRITE(mfile,'(A19,4ES14.4)') "PartVel: ",&
-            myFBM%particleNew(IP)%Velocity,simTime        
-        WRITE(*,'(A19,4ES14.4)') "PartVel: ",&
-            myFBM%particleNew(IP)%Velocity,simTime
-        WRITE(mfile,'(A19,3ES14.4)') "Angle: ",&
-            myFBM%particleNew(IP)%Angle        
-        WRITE(*,'(A19,3ES14.4)') "Angle: ",&
-            myFBM%particleNew(IP)%Angle
-        WRITE(mfile,'(A19,3ES14.4)') "AngularVelocity: ",&
-            myFBM%particleNew(IP)%AngularVelocity        
-        WRITE(*,'(A19,3ES14.4)') "AngularVelocity: ",&
-            myFBM%particleNew(IP)%AngularVelocity
-
-        END IF
-      end if
       END DO ! all particles
 
       END

@@ -1,4 +1,7 @@
-SUBROUTINE FBM_SetParticles
+!
+!----------------------------------------------
+!
+SUBROUTINE FBM_SetParticles()
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:myFBM
  INTEGER iP,iParticles,ipc
@@ -31,27 +34,47 @@ USE var_QuadScalar,ONLY:myFBM
 
   END DO
 
-!     IF(myid.eq.1) THEN
-!       IP=1
-!       write(*,*)'new'
-!       WRITE(*,'(A19,3D12.4)') "ResistanceForce: ",&
-!           myFBM%particleNew(IP)%ResistanceForce
-!       WRITE(*,'(A19,3D12.4)') "TorqueForce: ",&
-!           myFBM%particleNew(IP)%TorqueForce
-!       WRITE(*,'(A19,3D12.4)') "Position: ",&
-!           myFBM%particleNew(IP)%Position
-!       WRITE(*,'(A19,3D12.4)') "Velocity: ",&
-!           myFBM%particleNew(IP)%Velocity
-!       WRITE(*,'(A19,3D12.4)') "Angle: ",&
-!           myFBM%particleNew(IP)%Angle
-!       WRITE(*,'(A19,3D12.4)') "AngularVelocity: ",&
-!           myFBM%particleNew(IP)%AngularVelocity
-!     END IF
-
 END SUBROUTINE FBM_SetParticles
-
+!
 !----------------------------------------------
+!
+SUBROUTINE FBM_GetSoftParticles
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:myFBM
+ INTEGER iP,iParticles,ipc
+ REAL*8 velx,vely,velz,angx,angy,angz,angvelx,angvely,angvelz
+ REAL*8 posx,posy,posz
 
+  DO iP = 1,myFBM%nParticles
+   ipc=iP-1
+
+   call getpos(posx,posy,posz,ipc)
+   call getvel(velx,vely,velz,ipc)
+   call getangle(angx,angy,angz,ipc)
+   call getangvel(angvelx,angvely,angvelz,ipc)
+
+   myFBM%ParticleNew(iP)%Position(1)=posx
+   myFBM%ParticleNew(iP)%Position(2)=posy
+   myFBM%ParticleNew(iP)%Position(3)=posz
+
+   myFBM%ParticleNew(iP)%Velocity(1)=velx
+   myFBM%ParticleNew(iP)%Velocity(2)=vely
+   myFBM%ParticleNew(iP)%Velocity(3)=velz 
+
+   myFBM%ParticleNew(iP)%Angle(1)=angx
+   myFBM%ParticleNew(iP)%Angle(2)=angy
+   myFBM%ParticleNew(iP)%Angle(3)=angz
+
+   myFBM%ParticleNew(iP)%AngularVelocity(1)=angvelx
+   myFBM%ParticleNew(iP)%AngularVelocity(2)=angvely
+   myFBM%ParticleNew(iP)%AngularVelocity(3)=angvelz
+
+  END DO
+
+END SUBROUTINE FBM_GetSoftParticles
+!
+!----------------------------------------------
+!
 SUBROUTINE FBM_GetParticles
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:myFBM
@@ -154,36 +177,6 @@ USE var_QuadScalar,ONLY:myFBM
    myFBM%ParticleNew(iP)%TorqueForce(3)=torquez
 
   END DO
-
-!     IF(myid.eq.1) THEN
-!       IP=1
-!       write(*,*)'new'
-!       WRITE(*,'(A19,3D12.4)') "ResistanceForce: ",&
-!           myFBM%particleNew(IP)%ResistanceForce
-!       WRITE(*,'(A19,3D12.4)') "TorqueForce: ",&
-!           myFBM%particleNew(IP)%TorqueForce
-!       WRITE(*,'(A19,3D12.4)') "Position: ",&
-!           myFBM%particleNew(IP)%Position
-!       WRITE(*,'(A19,3D12.4)') "Velocity: ",&
-!           myFBM%particleNew(IP)%Velocity
-!       WRITE(*,'(A19,3D12.4)') "Angle: ",&
-!           myFBM%particleNew(IP)%Angle
-!       WRITE(*,'(A19,3D12.4)') "AngularVelocity: ",&
-!           myFBM%particleNew(IP)%AngularVelocity
-!       write(*,*)'old'
-!       WRITE(*,'(A19,3D12.4)') "ResistanceForce: ",&
-!           myFBM%ParticleOld(IP)%ResistanceForce
-!       WRITE(*,'(A19,3D12.4)') "TorqueForce: ",&
-!           myFBM%ParticleOld(IP)%TorqueForce
-!       WRITE(*,'(A19,3D12.4)') "Position: ",&
-!           myFBM%ParticleOld(IP)%Position
-!       WRITE(*,'(A19,3D12.4)') "Velocity: ",&
-!           myFBM%ParticleOld(IP)%Velocity
-!       WRITE(*,'(A19,3D12.4)') "Angle: ",&
-!           myFBM%ParticleOld(IP)%Angle
-!       WRITE(*,'(A19,3D12.4)') "AngularVelocity: ",&
-!           myFBM%ParticleOld(IP)%AngularVelocity
-!     END IF
 
 END SUBROUTINE FBM_GetParticles
 !
