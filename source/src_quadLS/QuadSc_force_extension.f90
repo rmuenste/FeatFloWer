@@ -377,7 +377,7 @@
 
       ! update velocities by the force determined in the time step
       call settimestep(dTime)      
-      call velocityupdate()     
+      call velocityupdate_soft()     
             
       call settimestep(dTime/real(iSubSteps))
       call starttiming()      
