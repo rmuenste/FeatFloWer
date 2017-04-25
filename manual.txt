@@ -1,0 +1,26 @@
+
+git submodule update --init --recursive
+
+git fetch origin
+git remote -v
+
+git branch -v -r
+
+git rebase origin/master
+
+git log
+
+git status
+
+load-gcc-mpi61
+
+make -j8
+--------
+
+git status
+
+git diff $filename
+
+git commit -a -m "message"
+
+git push origin
