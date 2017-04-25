@@ -319,7 +319,7 @@ SUBROUTINE myOutput_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc, myBoundary
+USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc, myBoundary,myQ2Coor
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -529,7 +529,7 @@ write(iunit, '(A)')"    </CellData>"
 write(iunit, '(A)')"      <Points>"
 write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
 do ivt=1,NoOfVert
- write(iunit,'(A10,3E16.7)')"          ",REAL(dcoor(1,ivt)),REAL(dcoor(2,ivt)),REAL(dcoor(3,ivt))
+ write(iunit,'(A10,3E16.7)')"          ",REAL(myQ2Coor(1,ivt)),REAL(myQ2Coor(2,ivt)),REAL(myQ2Coor(3,ivt))
 end do
 write(iunit, *)"        </DataArray>"
 write(iunit, *)"      </Points>"

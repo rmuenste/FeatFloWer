@@ -14,6 +14,8 @@ thstep = 0d0*tstep
 
 IF (myid.ne.0) THEN
 
+myALE%Q2Coor_old = myQ2Coor
+
 ! advect the scalar field
 CALL Create_NewDiffMat_Q1(myALE%Q2Coor_old,Properties%DiffCoeff(1))
 
@@ -100,13 +102,13 @@ RhsTemp=DefTemp
 CALL COMM_Maximum(RhsTemp(1))
 CALL COMM_Maximum(RhsTemp(2))
 CALL COMM_Maximum(RhsTemp(3))
-CALL Protocol_linScalar_Disp_Q1(mfile,Tracer3,0,&
+CALL Protocol_linScalar_Disp_Q1(mfile,Tracer3,INL,&
        ResTemp,DefTemp,DefTempCrit," Laplace equation ")
 
 IF ((DefTemp(1).LE.DefTempCrit(1)).AND.&
     (DefTemp(2).LE.DefTempCrit(2)).AND.&
     (DefTemp(3).LE.DefTempCrit(3)).AND.&
-    (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
+    (INL.GE.Tracer3%prm%NLmin)) INLComplete = 1
 
 CALL COMM_NLComplete(INLComplete)
 IF (INLComplete.eq.1) GOTO 1
@@ -363,6 +365,10 @@ DO i=1,Tracer3%ndof
 
  IF (Tracer3%knprY(i).eq.1) THEN
   Tracer3%valY(i) = myQ2Coor(2,i)
+ END IF
+
+ IF (myBoundary%LS_zero(i).ne.0) THEN
+  Tracer3%valY(i) = myQ2Coor(2,i)+0.5
  END IF
  
  IF (Tracer3%knprZ(i).eq.1) THEN

@@ -2,8 +2,7 @@ MODULE mg_LinScalar
 
 USE PP3D_MPI, ONLY : myid,showID,&
               COMM_Maximum,COMM_SUMM,COMM_NLComplete
-USE var_QuadScalar, only: mymg,knvt,mystat,parknpr,mg_mesh
-use def_LinScalar
+USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
 
 IMPLICIT NONE
@@ -371,6 +370,7 @@ REAL*8 def,def0
 
  mgLev = myMG%MedLev
  ILEV = myMG%MedLev
+!   write(*,*) myMG%nIterCoarse,MyMG%cVariable
 
  IF (MyMG%cVariable.EQ."Displacement") THEN
   CALL ZTIME(time0)

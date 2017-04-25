@@ -1,10 +1,12 @@
 MODULE def_LinScalar
 
 USE def_FEAT
-USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011
+USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011,comm_maximum
 USE var_QuadScalar, ONLY: myMG,myDataFile,&
                           mg_mesh, mg_Matrix, TMatrix, mg_dVector,&
                           tMGParamIn, tMGParamOut
+USE mg_LinScalar, only:mg_solver
+
 
 IMPLICIT NONE
 

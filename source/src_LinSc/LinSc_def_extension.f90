@@ -686,85 +686,85 @@ EXTERNAL Bndry_Val,Bndry_Mat
   CALL LCL1 (myScalar%valZ,myScalar%ndof)
  END IF
 
-! daux = MAX(nrm_U,nrm_V,nrm_W)
-! CALL COMM_Maximum(daux)
-!
-!!--------------- Set up the MG driver -----------------!
-! IF (myid.ne.0) THEN
-!  MyMG%A11    => mg_A11Mat
-!  MyMG%A22    => mg_A22Mat
-!  MyMG%A33    => mg_A33Mat
-!
-!  MyMG%L    => mg_lMat
-!  MyMG%D    => myScalar%def
-!  MyMG%AUX  => myScalar%aux
-!  MyMG%KNPRU => myScalar%knprX
-!  MyMG%KNPRV => myScalar%knprY
-!  MyMG%KNPRW => myScalar%knprZ
-!  MyMG%bProlRest => myScalar%bProlRest
-!! Variable specific settings 
-! END IF
+daux = MAX(nrm_U,nrm_V,nrm_W)
+CALL COMM_Maximum(daux)
+
+!--------------- Set up the MG driver -----------------!
+IF (myid.ne.0) THEN
+ MyMG%A11    => mg_A11Mat
+ MyMG%A22    => mg_A22Mat
+ MyMG%A33    => mg_A33Mat
+
+ MyMG%L    => mg_lMat
+ MyMG%D    => myScalar%def
+ MyMG%AUX  => myScalar%aux
+ MyMG%KNPRU => myScalar%knprX
+ MyMG%KNPRV => myScalar%knprY
+ MyMG%KNPRW => myScalar%knprZ
+ MyMG%bProlRest => myScalar%bProlRest
+! Variable specific settings 
+END IF
+
+MyMG%cVariable          = "Displacement"
+MyMG%MinIterCycle       = myScalar%prm%MGprmIn%MinIterCycle
+MyMG%MaxIterCycle       = myScalar%prm%MGprmIn%MaxIterCycle
+MyMG%nIterCoarse        = myScalar%prm%MGprmIn%nIterCoarse
+MyMG%DefImprCoarse      = myScalar%prm%MGprmIn%DefImprCoarse
+MyMG%nSmootherSteps     = myScalar%prm%MGprmIn%nSmootherSteps
+MyMG%CycleType          = myScalar%prm%MGprmIn%CycleType
+MyMG%Criterion1         = myScalar%prm%MGprmIn%Criterion1
+MyMG%Criterion2         = myScalar%prm%MGprmIn%Criterion2*daux
+MyMG%RLX                = myScalar%prm%MGprmIn%RLX
+MyMG%MinLev             = myScalar%prm%MGprmIn%MinLev
+MyMG%MedLev             = myScalar%prm%MGprmIn%MedLev
+daux = DBLE(NLMAX)
+CALL COMM_Maximum(daux)
+MyMG%MaxLev             = NINT(daux)
+
+!-------------------  U - Component -------------------!
+IF (myid.ne.0) THEN
+ ndof = SIZE(myScalar%ValX)
+
+ myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValX
+ myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValY
+ myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValZ
+ MyMG%X    => myScalar%sol
 ! 
-! MyMG%cVariable          = "Displacement"
-! MyMG%MinIterCycle       = myScalar%prm%MGprmIn%MinIterCycle
-! MyMG%MaxIterCycle       = myScalar%prm%MGprmIn%MaxIterCycle
-! MyMG%nIterCoarse        = myScalar%prm%MGprmIn%nIterCoarse
-! MyMG%DefImprCoarse      = myScalar%prm%MGprmIn%DefImprCoarse
-! MyMG%nSmootherSteps     = myScalar%prm%MGprmIn%nSmootherSteps
-! MyMG%CycleType          = myScalar%prm%MGprmIn%CycleType
-! MyMG%Criterion1         = myScalar%prm%MGprmIn%Criterion1
-! MyMG%Criterion2         = myScalar%prm%MGprmIn%Criterion2*daux
-! MyMG%RLX                = myScalar%prm%MGprmIn%RLX
-! MyMG%MinLev             = myScalar%prm%MGprmIn%MinLev
-! MyMG%MedLev             = myScalar%prm%MGprmIn%MedLev
-! daux = DBLE(NLMAX)
-! CALL COMM_Maximum(daux)
-! MyMG%MaxLev             = NINT(daux)
-!
-!!-------------------  U - Component -------------------!
-! IF (myid.ne.0) THEN
-!  ndof = SIZE(myScalar%ValX)
-!
-!  myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValX
-!  myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValY
-!  myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValZ
-!  MyMG%X    => myScalar%sol
-!! 
-!  myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defX
-!  myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defY
-!  myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defZ
-!  MyMG%B    => myScalar%rhs
-! END IF
-! 
-! CALL MG_Solver(mfile,mterm)
-!
-! IF (myid.ne.0) THEN
-!  myScalar%ValX = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
-!  myScalar%ValY = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
-!  myScalar%ValZ = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
-!
-!  myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
-!  myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
-!  myScalar%prm%MGprmOut(1)%DefInitial    = myMG%DefInitial
-!  myScalar%prm%MGprmOut(1)%DefFinal      = myMG%DefFinal
-!  myScalar%prm%MGprmOut(1)%RhoMG1        = myMG%RhoMG1
-!  myScalar%prm%MGprmOut(1)%RhoMG2        = myMG%RhoMG2
-!
-! ! Update the solution
-!  CALL LLC1(myScalar%valX_old,myScalar%valX,&
-!       myScalar%ndof,1D0,1D0)
-!  CALL LLC1(myScalar%valY_old,myScalar%valY,&
-!       myScalar%ndof,1D0,1D0)
-!  CALL LLC1(myScalar%valZ_old,myScalar%valZ,&
-!       myScalar%ndof,1D0,1D0)
-!
-! END IF
-!
-! CALL ZTIME(myStat%t1)
-! myStat%tMGUVW = myStat%tMGUVW + (myStat%t1-myStat%t0)
-! myStat%iLinUVW = myStat%iLinUVW + myScalar%prm%MGprmOut(1)%UsedIterCycle &
-!                                 + myScalar%prm%MGprmOut(2)%UsedIterCycle &
-!                                 + myScalar%prm%MGprmOut(3)%UsedIterCycle
+ myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defX
+ myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defY
+ myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defZ
+ MyMG%B    => myScalar%rhs
+END IF
+
+CALL MG_Solver(mfile,mterm)
+
+IF (myid.ne.0) THEN
+ myScalar%ValX = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+ myScalar%ValY = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+ myScalar%ValZ = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+
+ myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
+ myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
+ myScalar%prm%MGprmOut(1)%DefInitial    = myMG%DefInitial
+ myScalar%prm%MGprmOut(1)%DefFinal      = myMG%DefFinal
+ myScalar%prm%MGprmOut(1)%RhoMG1        = myMG%RhoMG1
+ myScalar%prm%MGprmOut(1)%RhoMG2        = myMG%RhoMG2
+
+! Update the solution
+ CALL LLC1(myScalar%valX_old,myScalar%valX,&
+      myScalar%ndof,1D0,1D0)
+ CALL LLC1(myScalar%valY_old,myScalar%valY,&
+      myScalar%ndof,1D0,1D0)
+ CALL LLC1(myScalar%valZ_old,myScalar%valZ,&
+      myScalar%ndof,1D0,1D0)
+
+END IF
+
+CALL ZTIME(myStat%t1)
+myStat%tMGUVW = myStat%tMGUVW + (myStat%t1-myStat%t0)
+myStat%iLinUVW = myStat%iLinUVW + myScalar%prm%MGprmOut(1)%UsedIterCycle &
+                                + myScalar%prm%MGprmOut(2)%UsedIterCycle &
+                                + myScalar%prm%MGprmOut(3)%UsedIterCycle
 
 END SUBROUTINE Solve_General_MGLinScalar
 !
