@@ -1485,24 +1485,6 @@ end subroutine GetForcesPerfCyl
        myFBM%particleOld(IP)%TorqueForce(2), &
        myFBM%particleOld(IP)%TorqueForce(3),ipc)
 
-!       IF((myid.eq.1) .and. (IP .eq. 1)) THEN
-!       IF(myid.eq.1)THEN
-!       write(*,*)'Before collision handling'
-!       WRITE(*,'(A19,3D12.4)') "ResistanceForce: ",&
-!            myFBM%particleNew(IP)%ResistanceForce
-!       WRITE(*,'(A19,3D12.4)') "TorqueForce: ",&
-!            myFBM%particleNew(IP)%TorqueForce
-!       WRITE(*,'(A19,3D12.4)') "Position: ",&
-!            myFBM%particleNew(IP)%Position
-!       WRITE(*,'(A19,3D12.4)') "Velocity: ",&
-!            myFBM%particleNew(IP)%Velocity
-!       WRITE(*,'(A19,3D12.4)') "Angle: ",&
-!            myFBM%particleNew(IP)%Angle
-!       WRITE(*,'(A19,3D12.4)') "AngularVelocity: ",&
-!            myFBM%particleNew(IP)%AngularVelocity
-!       END IF
-!       end if
-
       END DO ! all particles
             
       ! in the first loop we updated the external force and
@@ -1626,7 +1608,7 @@ end subroutine GetForcesPerfCyl
         RAD =myFBM%particleNew(iP)%sizes(1)
         ipc=ip-1
         isin = 0
-        call getdistanceid(x,y,z,dist,ipc);        
+        !call getdistanceid(x,y,z,dist,ipc);        
         call isinelementid(x,y,z,ipc,isin)
         if(isin .gt. 0)then
           !inpr = isin+1

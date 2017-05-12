@@ -217,7 +217,7 @@ IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 END IF
  
- CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
+! CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
  
 IF (myid.ne.0) THEN
  CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)

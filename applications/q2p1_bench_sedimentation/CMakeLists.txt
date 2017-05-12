@@ -39,12 +39,12 @@ ${src_mesh}
 ${src_cinterface}
 app_init.f90
 postprocessing.f90
-q2p1_fc_ext.f90
+q2p1_bench_sedimentation.f90
 )
 
 
 # Add the application executable
-add_executable(q2p1_fc_ext ${src_q2p1_fc_ext}) 
+add_executable(q2p1_bench_sedimentation ${src_q2p1_fc_ext}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -58,7 +58,7 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 
-target_link_libraries(q2p1_fc_ext 
+target_link_libraries(q2p1_bench_sedimentation 
   amd
   umfpack4
   feat2d
@@ -74,9 +74,9 @@ target_link_libraries(q2p1_fc_ext
   ${MPI_Fortran_LIBRARIES}
   )
 
-target_include_directories(q2p1_fc_ext PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+target_include_directories(q2p1_bench_sedimentation PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 
-target_compile_options(q2p1_fc_ext PRIVATE ${Fortran_FLAGS})
+target_compile_options(q2p1_bench_sedimentation PRIVATE ${Fortran_FLAGS})
 
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
@@ -94,18 +94,8 @@ IF(${OUT_OF_SOURCE_BUILD})
     set(DIRECTORYLINKS _adc meshes)
   ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
 
-  set(FILELINKS partitioner)
   set(DIRECTORYCOPIES _data start)
   set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
-
-  # establish the file links
-  FOREACH(flink ${FILELINKS})
-    IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${flink})
-      execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
-        ${CMAKE_SOURCE_DIR}/${flink}
-        ${CMAKE_CURRENT_BINARY_DIR}/${flink})
-    ENDIF ()    
-  ENDFOREACH()
 
   # create the default directories if they are missing
   FOREACH(dir ${DEF_DIRECTORIES})
@@ -117,7 +107,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   # copy the data directories
   FOREACH(dir ${DIRECTORYCOPIES})
     IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
     ENDIF()
   ENDFOREACH()
 ENDIF()

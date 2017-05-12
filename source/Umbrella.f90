@@ -94,6 +94,68 @@ END SUBROUTINE InitUmbrellaSmoother
 !
 !
 !
+SUBROUTINE UmbrellaSmoother_ext(myTime,nSteps)
+USE var_QuadScalar
+USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
+USE PP3D_MPI, ONLY: myid,coarse
+REAL*8 myTime
+INTEGEr nSteps,nUsedSteps
+CHARACTER*60 :: cFile
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+REAL*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
+
+IF (nSteps.EQ.0) RETURN
+
+IF (myid.eq.0) GOTO 1
+
+  ndof = KNEL(NLMAX) + KNVT(NLMAX) + KNET(NLMAX) + KNAT(NLMAX)
+  ALLOCATE(a1(ndof))
+  ALLOCATE(a2(ndof))
+  ALLOCATE(a3(ndof))
+  ALLOCATE(a4(ndof))
+  ALLOCATE(a5(ndof))
+  ALLOCATE(a6(ndof))
+  a1 = 0d0
+  a2 = 0d0
+  a3 = 0d0
+  a4 = 0d0
+  a5 = 0d0
+  a6 = 0d0
+
+DO ILEV = NLMIN+1,NLMAX
+
+ CALL SETLEV(2)
+
+ nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
+
+  CALL EdgeRunner(a1,a2,a3,a4,a5,a6,&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    NEL,NVT,NET,nUsedSteps,myTime)
+
+  CALL ProlongateCoordinates_ext(&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%karea,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    nel,nvt,net,nat)
+
+END DO
+
+DEALLOCATE(a1,a2,a3,a4,a5,a6)
+
+1 CONTINUE
+
+ILEV = NLMIN
+CALL SETLEV(2)
+
+CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
+
+END SUBROUTINE UmbrellaSmoother_ext
+! 
+! 
+! 
 SUBROUTINE UmbrellaSmoother(myTime,nSteps)
   USE var_QuadScalar
   USE Transport_Q2P1, ONLY : QuadSc,LinSc
@@ -127,11 +189,13 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
   CALL SETLEV(2)
 
   nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
+
   CALL EdgeRunner(a1,a2,a3,a4,a5,a6,&
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
     NEL,NVT,NET,nUsedSteps,myTime)
+
   CALL ProlongateCoordinates(&
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%karea,&
@@ -435,6 +499,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
     ! --------------------------------------------------------------
     !
     SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
+    USE PP3D_MPI, ONLY: myid,coarse
       IMPLICIT NONE
       REAL*8  dcorvg(3,*)
       REAL*8  dcorvg2(3,*)
@@ -478,18 +543,78 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       END DO
 
       DO i=1,nel
-      PX = 0d0
-      PY = 0d0
-      PZ = 0d0
-      DO j=1,8
-      PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-      PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-      PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-      END DO
-      dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
+        PX = 0d0
+        PY = 0d0
+        PZ = 0d0
+        DO j=1,8
+          PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+          PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+          PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+        END DO
+        dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
+        !write(*,*)'myid: ',myid, nvt+net+nat+i 
       END DO
 
     END SUBROUTINE ProlongateCoordinates
+    !
+    ! --------------------------------------------------------------
+    !
+    SUBROUTINE ProlongateCoordinates_ext(dcorvg,karea,kvert,kedge,nel,nvt,net,nat)
+    USE PP3D_MPI, ONLY: myid,coarse
+      IMPLICIT NONE
+      REAL*8  dcorvg(3,*)
+      INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
+      REAL*8 PX,PY,PZ
+      INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+      INTEGER NeighE(2,12),NeighA(4,6)
+      DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+      DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+      k=1
+      DO i=1,nel
+      DO j=1,12
+      IF (k.eq.kedge(j,i)) THEN
+        ivt1 = kvert(NeighE(1,j),i)
+        ivt2 = kvert(NeighE(2,j),i)
+        PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+        PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+        PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+        dcorvg(:,nvt+k)=[PX,PY,PZ]
+        k = k + 1
+      END IF
+      END DO
+      END DO
+
+      k=1
+      DO i=1,nel
+      DO j=1,6
+      IF (k.eq.karea(j,i)) THEN
+        ivt1 = kvert(NeighA(1,j),i)
+        ivt2 = kvert(NeighA(2,j),i)
+        ivt3 = kvert(NeighA(3,j),i)
+        ivt4 = kvert(NeighA(4,j),i)
+        PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+        PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+        PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+        dcorvg(:,nvt+net+k)=[PX,PY,PZ]
+        k = k + 1
+      END IF
+      END DO
+      END DO
+
+      DO i=1,nel
+        PX = 0d0
+        PY = 0d0
+        PZ = 0d0
+        DO j=1,8
+          PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+          PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+          PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+        END DO
+        dcorvg(:,nvt+net+nat+i)=[PX,PY,PZ]
+      END DO
+
+    END SUBROUTINE ProlongateCoordinates_ext
     !
     ! ----------------------------------------------
     !

@@ -45,7 +45,6 @@ subroutine init_q2p1_ext(log_unit)
     END IF
   END IF
 
-
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------
@@ -89,9 +88,7 @@ end subroutine init_q2p1_ext
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
   logical :: bwait = .true.
 
-
   CALL ZTIME(TTT0)
-
 
   !=======================================================================
   !     Data input
@@ -201,8 +198,6 @@ end subroutine init_q2p1_ext
                   mg_mesh%level(II)%dcorag,&
                   mg_mesh%level(II)%karea,&
                   mg_mesh%level(II)%kvert)
-
-!  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
 
   IF (myid.EQ.0) NLMAX = 1
 
@@ -352,33 +347,12 @@ end subroutine init_q2p1_ext
 
   DO II=NLMIN,NLMAX
 
-!  mg_mesh%level(ILEV)%dcorvg,&
-!  mg_mesh%level(ILEV)%karea,&
-!  mg_mesh%level(ILEV)%kvert,&
-!  mg_mesh%level(ILEV)%kedge,&
-!  mg_mesh%level(ILEV)%nel,&
-!  mg_mesh%level(ILEV)%nvt,&
-!  mg_mesh%level(ILEV)%net,&
-!  mg_mesh%level(ILEV)%nat
-
   ILEV=II
-
-!  NVT=KNVT(II)
-!  NAT=KNAT(II)
-!  NET=KNET(II)
-!  NEL=KNEL(II)
 
   NVT=mg_mesh%level(II)%nvt
   NAT=mg_mesh%level(II)%nat
   NET=mg_mesh%level(II)%net
   NEL=mg_mesh%level(II)%nel
-
-  IF (myid.eq.showid) THEN
-    WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-    WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-  END IF
-
-  !CALL SETLEV(2)
 
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
