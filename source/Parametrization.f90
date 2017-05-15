@@ -226,7 +226,6 @@ INTEGER I1,I2
   myParBndr(iBnds)%Bndr(ilevel)%Vert =.FALSE.
   myParBndr(iBnds)%Bndr(ilevel)%Face = 0
 
-! KVERT1,KEDGE1,KVERT2,KAREA2,KADJ2,NEL1,NVT1,NAT1
   I1 = ilevel-1
   I2 = ilevel
 

@@ -101,7 +101,7 @@ TYPE tStatistics
  REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
  REAL  :: t0,t1
 END TYPE tStatistics
-TYPE (tStatistics) myStat
+TYPE (tStatistics),save :: myStat
 
 TYPE tMGParamIn
  INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType
@@ -276,7 +276,7 @@ TYPE (tMultiGrid) :: myMG
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgDensity(:),mgDiffCoeff(:)
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
 
-type(tMultiMesh) :: mg_mesh
+type(tMultiMesh),save :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
@@ -305,7 +305,7 @@ LOGICAL, ALLOCATABLE :: BndrForce(:)
 REAL*8, ALLOCATABLE :: myQ2Coor(:,:)
 
 TYPE tBoundary
- LOGICAL, ALLOCATABLE :: nWall   ,nInflown,  nOutflow   ,nSymmetry
+ LOGICAL, ALLOCATABLE :: nWall(:)   ,nInflown(:),  nOutflow(:)   ,nSymmetry(:)
  LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:)
  INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:)
  INTEGER, ALLOCATABLE :: LS_zero(:)
@@ -354,7 +354,7 @@ TYPE tALE
  REAL*8 dFrameVelocity(3),dFrameVelocityChange(3)
 END TYPE tALE
 
-TYPE(tALE) :: myALE
+TYPE(tALE),save :: myALE
 
 TYPE tViscFunc
  REAL*8 :: shear_rate(66),visc(66)
@@ -362,7 +362,7 @@ END TYPE tViscFunc
 
 TYPE(tViscFunc) :: myViscFunc
 
-TYPE(tProperties)   Properties
+TYPE(tProperties),save :: Properties
 
 contains 
 integer function KNEL(ilevel)

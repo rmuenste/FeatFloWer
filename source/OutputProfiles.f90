@@ -848,11 +848,6 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
 
 END IF
 
-
-if(myid.eq.1 .and. myFBM%nParticles.gt.0)then
-  call writeparticles(iOutput)
-end if
-
 END
 !
 ! ----------------------------------------------

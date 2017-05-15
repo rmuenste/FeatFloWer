@@ -321,38 +321,37 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       w(1:nvt) = 0d0
 
       DO iel=1,nel
-      DO i=1,8
-      j = kvert(i,iel)
-      f(j) = f(j) + abs(myVol(iel))
-      w(j) = w(j) + 1d0
-      END DO
+        DO i=1,8
+          j = kvert(i,iel)
+          f(j) = f(j) + abs(myVol(iel))
+          w(j) = w(j) + 1d0
+        END DO
       END DO
       CALL E013SUM(f)
       CALL E013SUM(w)
 
       DO i=1,nvt
-      f(i) = f(i)/w(i)
+        f(i) = f(i)/w(i)
       END DO
 
       DO i=1,nvt
-      PX = dcorvg(1,i)
-      PY = dcorvg(2,i)
-      PZ = dcorvg(3,i)
-      !call GetMonitor()
-      !call getdistanceid(px,py,pz,myALE%Monitor(i),ipc);
-      IF (myALE%Monitor(i).GT.0d0) dIII = 75.1d0 * myALE%Monitor(i)
-      IF (myALE%Monitor(i).LT.0d0) dIII = 75.1d0 * -2d0*myALE%Monitor(i)
-      f(i) = f(i) * MAX((1.0d0-dIII),0.5d0)**6.5d0
-      !IF (distamce(i).GT.0d0) dIII = distamce(i)
-      !IF (distamce(i).LT.0d0) dIII = -2d0*distamce(i)   
-      !f(i) = MAX((0.0333d0-dIII),0.016666d0)**1.25d0   
-      myALE%Monitor(i) = f(i)
-      !distance=f(i)
+        PX = dcorvg(1,i)
+        PY = dcorvg(2,i)
+        PZ = dcorvg(3,i)
+        call getdistanceid(px,py,pz,myALE%Monitor(i),ipc);
+        IF (myALE%Monitor(i).GT.0d0) dIII = 75.1d0 * myALE%Monitor(i)
+        IF (myALE%Monitor(i).LT.0d0) dIII = 75.1d0 * -2d0*myALE%Monitor(i)
+        f(i) = f(i) * MAX((1.0d0-dIII),0.5d0)**6.5d0
+        !IF (distamce(i).GT.0d0) dIII = distamce(i)
+        !IF (distamce(i).LT.0d0) dIII = -2d0*distamce(i)   
+        !f(i) = MAX((0.0333d0-dIII),0.016666d0)**1.25d0   
+        myALE%Monitor(i) = f(i)
+        !distance=f(i)
 
-      !    f(i) = MAX(2.5d0-MIN(ABS(distamce(i)-0.3d0),ABS(SQRT(PX*PX+PY*PY)-22.7)),1d0)
-      !    IF (distamce(i).lt.-2.5d0) f(i) =  0.333d0
-      !    f(i) = MIN(MAX(2.5d0,myALE%Monitor(i)),10d0)
-      !    CALL DistanceEstimation(PX,PY,PZ,f(i),myTime)
+        !    f(i) = MAX(2.5d0-MIN(ABS(distamce(i)-0.3d0),ABS(SQRT(PX*PX+PY*PY)-22.7)),1d0)
+        !    IF (distamce(i).lt.-2.5d0) f(i) =  0.333d0
+        !    f(i) = MIN(MAX(2.5d0,myALE%Monitor(i)),10d0)
+        !    CALL DistanceEstimation(PX,PY,PZ,f(i),myTime)
       END DO
       ! return
       !  DO i=1,nvt
@@ -366,33 +365,33 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
       k=1
       DO i=1,nel
-      DO j=1,12
-      IF (k.eq.kedge(j,i)) THEN
-        ivt1 = kvert(NeighE(1,j),i)
-        ivt2 = kvert(NeighE(2,j),i)
-        P1(:) = dcorvg(:,ivt1)
-        P2(:) = dcorvg(:,ivt2)
+        DO j=1,12
+        IF (k.eq.kedge(j,i)) THEN
+          ivt1 = kvert(NeighE(1,j),i)
+          ivt2 = kvert(NeighE(2,j),i)
+          P1(:) = dcorvg(:,ivt1)
+          P2(:) = dcorvg(:,ivt2)
 
-        daux1 = ABS(f(ivt1))
-        daux2 = ABS(f(ivt2))
-        !     DIST = SQRT((P1(1)-P2(1))**2d0 + (P1(2)-P2(2))**2d0 + (P1(3)-P2(3))**2d0)
-        !     daux1 = dIST**0.25d0
-        !     daux2 = dIST**0.25d0
-        WeightE = 1d0/(v(nvt + k))
+          daux1 = ABS(f(ivt1))
+          daux2 = ABS(f(ivt2))
+          !     DIST = SQRT((P1(1)-P2(1))**2d0 + (P1(2)-P2(2))**2d0 + (P1(3)-P2(3))**2d0)
+          !     daux1 = dIST**0.25d0
+          !     daux2 = dIST**0.25d0
+          WeightE = 1d0/(v(nvt + k))
 
-        x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
-        y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
-        z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
-        w(ivt1) = w(ivt1) + WeightE*daux2
+          x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
+          y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
+          z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
+          w(ivt1) = w(ivt1) + WeightE*daux2
 
-        x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
-        y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
-        z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
-        w(ivt2) = w(ivt2) + WeightE*daux1
+          x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
+          y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
+          z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
+          w(ivt2) = w(ivt2) + WeightE*daux1
 
-        k = k + 1
-      END IF
-      END DO
+          k = k + 1
+        END IF
+        END DO
       END DO
 
       CALL E013SUM(x)
@@ -499,7 +498,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
     ! --------------------------------------------------------------
     !
     SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
-    USE PP3D_MPI, ONLY: myid,coarse
+      USE PP3D_MPI, ONLY: myid,coarse
       IMPLICIT NONE
       REAL*8  dcorvg(3,*)
       REAL*8  dcorvg2(3,*)
@@ -543,16 +542,16 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       END DO
 
       DO i=1,nel
-        PX = 0d0
-        PY = 0d0
-        PZ = 0d0
-        DO j=1,8
-          PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-          PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-          PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-        END DO
-        dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
-        !write(*,*)'myid: ',myid, nvt+net+nat+i 
+      PX = 0d0
+      PY = 0d0
+      PZ = 0d0
+      DO j=1,8
+      PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+      PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+      PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+      END DO
+      dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
+      !write(*,*)'myid: ',myid, nvt+net+nat+i 
       END DO
 
     END SUBROUTINE ProlongateCoordinates
@@ -560,7 +559,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
     ! --------------------------------------------------------------
     !
     SUBROUTINE ProlongateCoordinates_ext(dcorvg,karea,kvert,kedge,nel,nvt,net,nat)
-    USE PP3D_MPI, ONLY: myid,coarse
+      USE PP3D_MPI, ONLY: myid,coarse
       IMPLICIT NONE
       REAL*8  dcorvg(3,*)
       INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
@@ -603,15 +602,15 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       END DO
 
       DO i=1,nel
-        PX = 0d0
-        PY = 0d0
-        PZ = 0d0
-        DO j=1,8
-          PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-          PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-          PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-        END DO
-        dcorvg(:,nvt+net+nat+i)=[PX,PY,PZ]
+      PX = 0d0
+      PY = 0d0
+      PZ = 0d0
+      DO j=1,8
+      PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+      PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+      PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+      END DO
+      dcorvg(:,nvt+net+nat+i)=[PX,PY,PZ]
       END DO
 
     END SUBROUTINE ProlongateCoordinates_ext
@@ -695,220 +694,220 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
     END SUBROUTINE ExchangeNodeValuesOnCoarseLevel
 
-SUBROUTINE EdgeRunner2(f,x,y,z,w,v,mgMesh,ilevel,&
-dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime,bInit)
-USE Parametrization, ONLY: ParametrizeBndr
-USE Transport_Q2P1, ONLY : myBoundary
-USE var_QuadScalar, ONLY : tMultiMesh 
-IMPLICIT NONE
+    SUBROUTINE EdgeRunner2(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime,bInit)
+      USE Parametrization, ONLY: ParametrizeBndr
+      USE Transport_Q2P1, ONLY : myBoundary
+      USE var_QuadScalar, ONLY : tMultiMesh 
+      IMPLICIT NONE
 
-LOGICAL bInit
-REAL*8 myTime
-REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
-integer :: ilevel
-type(tMultiMesh) :: mgMesh
-INTEGER NeighE(2,12),iel
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux
-REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,PXX,PYY,PZZ,dScale1,dScale2
-REAL*8 :: dOmega = 0.166667d0
-REAL*8 DIST,dFactor,dF1
-REAL*4, ALLOCATABLE :: myVol(:)
+      LOGICAL bInit
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
+      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
+      INTEGER NeighE(2,12),iel
+      DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+      INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux
+      REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,PXX,PYY,PZZ,dScale1,dScale2
+      REAL*8 :: dOmega = 0.166667d0
+      REAL*8 DIST,dFactor,dF1
+      REAL*4, ALLOCATABLE :: myVol(:)
 
-DO k=nvt+1,nvt+net
- v(k) = 1d0
-END DO
+      DO k=nvt+1,nvt+net
+      v(k) = 1d0
+      END DO
 
-CALL E013SUM(v)
+      CALL E013SUM(v)
 
-ALLOCATE(myVol(nel))
+      ALLOCATE(myVol(nel))
 
-DO iProjStep=1,nProjStep
+      DO iProjStep=1,nProjStep
 
- myVol = 0e0
- CALL  SETARE(myVol,nel,kvert,dcorvg)
+      myVol = 0e0
+      CALL  SETARE(myVol,nel,kvert,dcorvg)
 
-f(1:nvt) = 0d0
-w(1:nvt) = 0d0
+      f(1:nvt) = 0d0
+      w(1:nvt) = 0d0
 
- DO iel=1,nel
-  DO i=1,8
-   j = kvert(i,iel)
-   f(j) = f(j) + abs(myVol(iel))
-   w(j) = w(j) + 1d0
-  END DO
- END DO
- CALL E013SUM(f)
- CALL E013SUM(w)
+      DO iel=1,nel
+      DO i=1,8
+      j = kvert(i,iel)
+      f(j) = f(j) + abs(myVol(iel))
+      w(j) = w(j) + 1d0
+      END DO
+      END DO
+      CALL E013SUM(f)
+      CALL E013SUM(w)
 
- DO i=1,nvt
-  f(i) = f(i)/w(i)
- END DO
+      DO i=1,nvt
+      f(i) = f(i)/w(i)
+      END DO
 
- DO i=1,nvt
-   PX = dcorvg(1,i)
-   PY = dcorvg(2,i)
-   PZ = dcorvg(3,i)
- END DO
+      DO i=1,nvt
+      PX = dcorvg(1,i)
+      PY = dcorvg(2,i)
+      PZ = dcorvg(3,i)
+      END DO
 
- x(1:nvt) = 0d0
- y(1:nvt) = 0d0
- z(1:nvt) = 0d0
- w(1:nvt) = 0d0
+      x(1:nvt) = 0d0
+      y(1:nvt) = 0d0
+      z(1:nvt) = 0d0
+      w(1:nvt) = 0d0
 
- k=1
- DO i=1,nel
-  DO j=1,12
-   IF (k.eq.kedge(j,i)) THEN
-    ivt1 = kvert(NeighE(1,j),i)
-    ivt2 = kvert(NeighE(2,j),i)
-    P1(:) = dcorvg(:,ivt1)
-    P2(:) = dcorvg(:,ivt2)
+      k=1
+      DO i=1,nel
+      DO j=1,12
+      IF (k.eq.kedge(j,i)) THEN
+        ivt1 = kvert(NeighE(1,j),i)
+        ivt2 = kvert(NeighE(2,j),i)
+        P1(:) = dcorvg(:,ivt1)
+        P2(:) = dcorvg(:,ivt2)
 
-    daux1 = ABS(f(ivt1))
-    daux2 = ABS(f(ivt2))
-    WeightE = 1d0/(v(nvt + k))
+        daux1 = ABS(f(ivt1))
+        daux2 = ABS(f(ivt2))
+        WeightE = 1d0/(v(nvt + k))
 
-    x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
-    y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
-    z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
-    w(ivt1) = w(ivt1) + WeightE*daux2
+        x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
+        y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
+        z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
+        w(ivt1) = w(ivt1) + WeightE*daux2
 
-    x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
-    y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
-    z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
-    w(ivt2) = w(ivt2) + WeightE*daux1
+        x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
+        y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
+        z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
+        w(ivt2) = w(ivt2) + WeightE*daux1
 
-    k = k + 1
-   END IF
-  END DO
- END DO
+        k = k + 1
+      END IF
+      END DO
+      END DO
 
- CALL E013SUM(x)
- CALL E013SUM(y)
- CALL E013SUM(z)
- CALL E013SUM(w)
+      CALL E013SUM(x)
+      CALL E013SUM(y)
+      CALL E013SUM(z)
+      CALL E013SUM(w)
 
- IF (bInit) then
-  DO i=1,nvt
-    PX = x(i)/w(i)
-    PY = y(i)/w(i)
-    PZ = z(i)/w(i)
-    dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
-    dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
-    dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
-  END DO
- ELSE
-  DO i=1,nvt
-    PX = x(i)/w(i)
-    PY = y(i)/w(i)
-    PZ = z(i)/w(i)
-    IF ((myBoundary%LS_zero(i).ne.0).or.(myBoundary%bDisp_DBC(i)))then
-!     IF (myBoundary%LS_zero(i).ne.0.or.myBoundary%iInflow(i).ne.0) then
-     dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
-     dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
-     dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
-    END IF
-    IF (myBoundary%bSymmetry(1,i)) THEN
-     dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
-     dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
-    END IF
-    IF (myBoundary%bSymmetry(2,i)) THEN
-     dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
-     dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
-    END IF
-    IF (myBoundary%bSymmetry(3,i)) THEN
-     dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
-     dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
-    END IF
-  END DO
- END IF
- 
- ! TODO: jo
-CALL ParametrizeBndr(mgMesh,ilevel)
+      IF (bInit) then
+        DO i=1,nvt
+        PX = x(i)/w(i)
+        PY = y(i)/w(i)
+        PZ = z(i)/w(i)
+        dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+        dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+        dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+        END DO
+      ELSE
+        DO i=1,nvt
+        PX = x(i)/w(i)
+        PY = y(i)/w(i)
+        PZ = z(i)/w(i)
+        IF ((myBoundary%LS_zero(i).ne.0).or.(myBoundary%bDisp_DBC(i)))then
+          !     IF (myBoundary%LS_zero(i).ne.0.or.myBoundary%iInflow(i).ne.0) then
+          dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+          dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+          dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+        END IF
+        IF (myBoundary%bSymmetry(1,i)) THEN
+          dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+          dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+        END IF
+        IF (myBoundary%bSymmetry(2,i)) THEN
+          dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+          dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+        END IF
+        IF (myBoundary%bSymmetry(3,i)) THEN
+          dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+          dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+        END IF
+        END DO
+      END IF
 
-END DO
+      ! TODO: jo
+      CALL ParametrizeBndr(mgMesh,ilevel)
 
- CONTAINS
+      END DO
 
-SUBROUTINE DistanceEstimation(x1,y1,z1,f1,t)
-! USE Sigma_User, ONLY: mySigma
-INTEGER :: myCase = 0
-REAL*8 x1,y1,z1,f1,t
-REAL*8 a1,a2,xd1,xd2,xl1,xl2
-REAL*8 :: Width = 0.010d0,Base = 1d0, Height = 6d0
-REAL*8 :: xC1=1.5d0,yC1=0.3d0,zC1=0.2d0,Radius1 = 0.050d0
-REAL*8 :: xC2=2.0d0,yC2=0.1d0,zC2=0.2d0,Radius2 = 0.075d0
-REAL*8 :: xC3=0.5d0,yC3=0.2d0,xC,yC
+    CONTAINS
 
-IF (myCASE.EQ.0) THEN
- f1 = 1d0
-END IF
+    SUBROUTINE DistanceEstimation(x1,y1,z1,f1,t)
+      ! USE Sigma_User, ONLY: mySigma
+      INTEGER :: myCase = 0
+      REAL*8 x1,y1,z1,f1,t
+      REAL*8 a1,a2,xd1,xd2,xl1,xl2
+      REAL*8 :: Width = 0.010d0,Base = 1d0, Height = 6d0
+      REAL*8 :: xC1=1.5d0,yC1=0.3d0,zC1=0.2d0,Radius1 = 0.050d0
+      REAL*8 :: xC2=2.0d0,yC2=0.1d0,zC2=0.2d0,Radius2 = 0.075d0
+      REAL*8 :: xC3=0.5d0,yC3=0.2d0,xC,yC
 
-IF (myCASE.EQ.1) THEN
-xd1 = SQRT((x1-xC1)**2d0+(y1-yC1)**2d0+(z1-zC1)**2d0) - Radius1
+      IF (myCASE.EQ.0) THEN
+        f1 = 1d0
+      END IF
 
-xl1 = MAX(0d0,0.5d0*(2d0-ABS(xd1)))
+      IF (myCASE.EQ.1) THEN
+        xd1 = SQRT((x1-xC1)**2d0+(y1-yC1)**2d0+(z1-zC1)**2d0) - Radius1
 
-xd1=min(Width,ABS(xd1))
+        xl1 = MAX(0d0,0.5d0*(2d0-ABS(xd1)))
 
-xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
+        xd1=min(Width,ABS(xd1))
 
-xd1 = Base + xl1 + (Height-Base)*xd1
+        xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
 
-! --------------
-xd2 = SQRT((x1-xC2)**2d0+(y1-yC2)**2d0+(z1-zC2)**2d0) - Radius2
+        xd1 = Base + xl1 + (Height-Base)*xd1
 
-xl2 = MAX(0d0,0.5d0*(2d0-ABS(xd2)))
+        ! --------------
+        xd2 = SQRT((x1-xC2)**2d0+(y1-yC2)**2d0+(z1-zC2)**2d0) - Radius2
 
-xd2=min(Width,ABS(xd2))
+        xl2 = MAX(0d0,0.5d0*(2d0-ABS(xd2)))
 
-xd2 = (Width-xd2)*(xd2+Width)/(Width**2d0)
+        xd2=min(Width,ABS(xd2))
 
-xd2 = Base +  xl2 + (Height-Base)*xd2
+        xd2 = (Width-xd2)*(xd2+Width)/(Width**2d0)
 
-f1 = max(xd1,xd2)
-END IF
+        xd2 = Base +  xl2 + (Height-Base)*xd2
 
-IF (myCASE.EQ.2) THEN
+        f1 = max(xd1,xd2)
+      END IF
 
-xd1 = SQRT((x1-xC3)**2d0+(y1-yC3)**2d0) - Radius1
+      IF (myCASE.EQ.2) THEN
 
-xl1 = MAX(0d0,1.5d0*(2.5d0-ABS(xd1)))
+        xd1 = SQRT((x1-xC3)**2d0+(y1-yC3)**2d0) - Radius1
 
-xd1=min(Width,ABS(xd1))
+        xl1 = MAX(0d0,1.5d0*(2.5d0-ABS(xd1)))
 
-xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
+        xd1=min(Width,ABS(xd1))
 
-xd1 = Base + xl1 + (Height-Base)*xd1
+        xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
 
-f1 = xd1
+        xd1 = Base + xl1 + (Height-Base)*xd1
 
-END IF
+        f1 = xd1
 
-IF (myCASE.EQ.3) THEN
+      END IF
 
-xC = 1.75 + 0.1d0*SIN(t*6.2832)
-yC = 0.2  + 0.1d0*COS(t*6.2832)
+      IF (myCASE.EQ.3) THEN
 
-xd1 = SQRT((x1-xC)**2d0+(y1-yC)**2d0+(z1-zC1)**2d0) - Radius1
+        xC = 1.75 + 0.1d0*SIN(t*6.2832)
+        yC = 0.2  + 0.1d0*COS(t*6.2832)
 
-xl1 = MAX(0d0,0.5d0*(2d0-ABS(xd1)))
+        xd1 = SQRT((x1-xC)**2d0+(y1-yC)**2d0+(z1-zC1)**2d0) - Radius1
 
-xd1=min(Width,ABS(xd1))
+        xl1 = MAX(0d0,0.5d0*(2d0-ABS(xd1)))
 
-xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
+        xd1=min(Width,ABS(xd1))
 
-xd1 = Base + xl1 + (Height-Base)*xd1
+        xd1 = (Width-xd1)*(xd1+Width)/(Width**2d0)
 
-f1 = xd1
+        xd1 = Base + xl1 + (Height-Base)*xd1
 
-END IF
+        f1 = xd1
 
-END SUBROUTINE DistanceEstimation
+      END IF
 
-END
-!
-! --------------------------------------------------------------
-!
+    END SUBROUTINE DistanceEstimation
+
+    END
+    !
+    ! --------------------------------------------------------------
+    !

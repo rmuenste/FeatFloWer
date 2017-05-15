@@ -804,12 +804,20 @@
 100   CONTINUE
 !
       iPointer = 6*(IP-1)
-      myFBM%Force(iPointer+1) = DResForceX
-      myFBM%Force(iPointer+2) = DResForceY
+
+!      myFBM%Force(iPointer+1) = DResForceX
+!      myFBM%Force(iPointer+2) = DResForceY
+!      myFBM%Force(iPointer+3) = DResForceZ
+!      myFBM%Force(iPointer+4) = DTrqForceX
+!      myFBM%Force(iPointer+5) = DTrqForceY
+!      myFBM%Force(iPointer+6) = DTrqForceZ
+
+      myFBM%Force(iPointer+1) = 0.0d0
+      myFBM%Force(iPointer+2) = 0.0d0
       myFBM%Force(iPointer+3) = DResForceZ
-      myFBM%Force(iPointer+4) = DTrqForceX
-      myFBM%Force(iPointer+5) = DTrqForceY
-      myFBM%Force(iPointer+6) = DTrqForceZ
+      myFBM%Force(iPointer+4) = 0.0d0
+      myFBM%Force(iPointer+5) = 0.0d0
+      myFBM%Force(iPointer+6) = 0.0d0
 
       END DO ! nParticles
 
@@ -827,7 +835,7 @@
        Properties%ForceScale(2) * &
        myFBM%Force(iPointer+1)
 
-       myFBM%ParticleNew(IP)%ResistanceForce(3) = &
+       myFBM%ParticleNew(IP)%ResistanceForce(3) = 4.0 * &
        Properties%ForceScale(3) * &
        myFBM%Force(iPointer+2)
 
@@ -1469,7 +1477,7 @@ end subroutine GetForcesPerfCyl
       INTEGER :: iSubSteps
       REAL*8 :: dSubStep
       
-      iSubSteps = 5
+      iSubSteps = 1
       call settimestep(dTime)
       if(myid.eq.1) write(*,*)'updating'
 !     communicate new force + torque
@@ -1608,7 +1616,7 @@ end subroutine GetForcesPerfCyl
         RAD =myFBM%particleNew(iP)%sizes(1)
         ipc=ip-1
         isin = 0
-        !call getdistanceid(x,y,z,dist,ipc);        
+        call getdistanceid(x,y,z,dist,ipc);        
         call isinelementid(x,y,z,ipc,isin)
         if(isin .gt. 0)then
           !inpr = isin+1
@@ -1647,23 +1655,9 @@ end subroutine GetForcesPerfCyl
         DVELX_Y = -(Z-Pos(3))*Omega(1)
         DVELX_Z = +(Y-Pos(2))*Omega(1)
 
-        if(.NOT. bRefFrame)then
-          ValU = Velo(1) + DVELZ_X + DVELY_X
-          ValV = Velo(2) + DVELZ_Y + DVELX_Y
-          ValW = Velo(3) + DVELX_Z + DVELY_Z
-        else
-          ! For moving reference frame we set the
-          ! z-component to no velocity and
-          ! force the particle to remain at the
-          ! same position
-          ValW = 0.0d0
-          PZ = 3d0
-          ipc = 0
-
-          ! Enforce the particle position
-          call setpositionid(Pos(1),Pos(2),PZ,ipc)
-          myFBM%particleNEW(IP)%Position(3) = pz
-        end if
+        !ValU = Velo(1) + DVELZ_X + DVELY_X
+        !ValV = Velo(2) + DVELZ_Y + DVELX_Y
+        ValW = Velo(3)
       end if
 
       END SUBROUTINE GetVeloFictBCVal

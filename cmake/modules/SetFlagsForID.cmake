@@ -23,8 +23,8 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-intel-release")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CXX_FLAGS_FC -xhost -funroll-loops -fp-model precise -no-prec-div -std=c++11)
-  SET(Fortran_FLAGS -xhost -funroll-loops -assume underscore -assume buffered_io -fp-model precise -no-prec-div -fpp)
+  SET(CXX_FLAGS_FC -fPIC -DOpenMeshCore_EXPORTS)
+  SET(Fortran_FLAGS -xhost -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
