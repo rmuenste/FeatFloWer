@@ -37,21 +37,15 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-if(myid.eq.showid)write(*,*)'updateFBMGeometry'
-
 IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBMGeometry()
 END IF
 
 thstep = tstep*(1d0-theta)
 
-
-if(myid.eq.showid)write(*,*)'Operator Regeneration'
-
 CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
-
 
 ! -------------------------------------------------
 ! Compute the momentum equations
@@ -61,11 +55,9 @@ IF (myid.ne.master) THEN
 
  CALL ZTIME(tttt0)
 
- if(myid.eq.showid)write(*,*)'Matdef General'
  ! Assemble the right hand side
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
- if(myid.eq.showid)write(*,*)'AddPressureGradient'
  ! Add the pressure gradient to the rhs
  CALL AddPressureGradient()
 END IF
@@ -92,18 +84,13 @@ IF (myid.ne.master) THEN
 
 END IF
 
- if(myid.eq.showid)write(*,*)'Initial defect'
-
 thstep = tstep*theta
 
 IF (myid.ne.master) THEN
 
- if(myid.eq.showid)write(*,*)'Matdef General'
  ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
 
-
- if(myid.eq.showid)write(*,*)'Boundary QuadScalar Def'
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
 
@@ -119,8 +106,6 @@ IF (myid.ne.master) THEN
  CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
  CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
 
-
- if(myid.eq.showid)write(*,*)'Resdfk'
  ! Compute the norm of the defect
  CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
 
@@ -138,8 +123,7 @@ myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 DO INL=1,QuadSc%prm%NLmax
 INLComplete = 0
 
-if(myid.eq.showid)write(*,*)'Solve General'
-! ! Calling the solver
+! Calling the solver
 CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
 Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
 
@@ -158,7 +142,6 @@ END IF
 
 IF (myid.ne.master) THEN
 
-if(myid.eq.showid)write(*,*)'Matdef General'
  ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
 
@@ -260,7 +243,7 @@ IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 END IF
  
- CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
+ CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
  
 IF (myid.ne.0) THEN
  CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)

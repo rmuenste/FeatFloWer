@@ -11,11 +11,9 @@ END IF
 
 thstep = tstep*(1d0-theta)
 
-
 CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
-
 
 ! -------------------------------------------------
 ! Compute the momentum equations
@@ -136,7 +134,6 @@ IF (myid.ne.master) THEN
 
 END IF
 
-
 ! Checking convergence rates against criterions
 RhsUVW=DefUVW
 CALL COMM_Maximum(RhsUVW)
@@ -157,7 +154,6 @@ IF (INLComplete.eq.1) GOTO 1
 END DO
 
 1 CONTINUE
-
 
 ! return
 myStat%iNonLin = myStat%iNonLin + INL
@@ -217,7 +213,7 @@ IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 END IF
  
-! CALL UmbrellaSmoother(0d0,nUmbrellaSteps)
+CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
  
 IF (myid.ne.0) THEN
  CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)

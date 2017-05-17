@@ -97,12 +97,14 @@ END SUBROUTINE InitUmbrellaSmoother
 SUBROUTINE UmbrellaSmoother_ext(myTime,nSteps)
 USE var_QuadScalar
 USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
-USE PP3D_MPI, ONLY: myid,coarse
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+IMPLICIT NONE
 REAL*8 myTime
 INTEGEr nSteps,nUsedSteps
 CHARACTER*60 :: cFile
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 REAL*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
+integer :: ndof
 
 IF (nSteps.EQ.0) RETURN
 
@@ -124,15 +126,18 @@ IF (myid.eq.0) GOTO 1
 
 DO ILEV = NLMIN+1,NLMAX
 
- CALL SETLEV(2)
+  CALL SETLEV(2)
 
- nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
+  nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
 
   CALL EdgeRunner(a1,a2,a3,a4,a5,a6,&
+    mg_mesh,&
+    ilev,&
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
     NEL,NVT,NET,nUsedSteps,myTime)
+
 
   CALL ProlongateCoordinates_ext(&
     mg_mesh%level(ilev)%dcorvg,&
@@ -150,7 +155,10 @@ DEALLOCATE(a1,a2,a3,a4,a5,a6)
 ILEV = NLMIN
 CALL SETLEV(2)
 
-CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
+CALL ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%kvert,&
+  NVT,NEL)
 
 END SUBROUTINE UmbrellaSmoother_ext
 ! 
@@ -281,19 +289,23 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
     END IF
 
-    !  pause
     END
     !
     ! --------------------------------------------------------------
     !
-    SUBROUTINE EdgeRunner(f,x,y,z,w,v,dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
+    SUBROUTINE EdgeRunner(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
       USE Parametrization, ONLY: ParametrizeBndr
-      USE var_QuadScalar, ONLY : myALE,distamce,distance
+      USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+       
       IMPLICIT NONE
 
       REAL*8 myTime
       REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
       INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
       INTEGER NeighE(2,12)
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
       INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
@@ -338,25 +350,16 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
         PX = dcorvg(1,i)
         PY = dcorvg(2,i)
         PZ = dcorvg(3,i)
-        call getdistanceid(px,py,pz,myALE%Monitor(i),ipc);
+
+        call GetDistanceALE(px,py,pz,myALE%Monitor(i),ipc)
+       ! call getdistanceid(px,py,pz,myALE%Monitor(i),ipc)
+
         IF (myALE%Monitor(i).GT.0d0) dIII = 75.1d0 * myALE%Monitor(i)
         IF (myALE%Monitor(i).LT.0d0) dIII = 75.1d0 * -2d0*myALE%Monitor(i)
         f(i) = f(i) * MAX((1.0d0-dIII),0.5d0)**6.5d0
-        !IF (distamce(i).GT.0d0) dIII = distamce(i)
-        !IF (distamce(i).LT.0d0) dIII = -2d0*distamce(i)   
-        !f(i) = MAX((0.0333d0-dIII),0.016666d0)**1.25d0   
-        myALE%Monitor(i) = f(i)
-        !distance=f(i)
 
-        !    f(i) = MAX(2.5d0-MIN(ABS(distamce(i)-0.3d0),ABS(SQRT(PX*PX+PY*PY)-22.7)),1d0)
-        !    IF (distamce(i).lt.-2.5d0) f(i) =  0.333d0
-        !    f(i) = MIN(MAX(2.5d0,myALE%Monitor(i)),10d0)
-        !    CALL DistanceEstimation(PX,PY,PZ,f(i),myTime)
+        myALE%Monitor(i) = f(i)
       END DO
-      ! return
-      !  DO i=1,nvt
-      !   f(i) = 1d0
-      !  END DO
 
       x(1:nvt) = 0d0
       y(1:nvt) = 0d0
@@ -374,9 +377,6 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
           daux1 = ABS(f(ivt1))
           daux2 = ABS(f(ivt2))
-          !     DIST = SQRT((P1(1)-P2(1))**2d0 + (P1(2)-P2(2))**2d0 + (P1(3)-P2(3))**2d0)
-          !     daux1 = dIST**0.25d0
-          !     daux2 = dIST**0.25d0
           WeightE = 1d0/(v(nvt + k))
 
           x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
@@ -405,13 +405,10 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       PZ = z(i)/w(i)
       dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
       dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
-      !   IF (dcorvg(3,i).GT.1d0.OR.dcorvg(3,i).LT.-15d0) THEN
       dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
-      !   END IF
       END DO
 
-      ! TODO: Adjust to mesh data structure
-      ! CALL ParametrizeBndr()
+      CALL ParametrizeBndr(mgMesh,ilevel)
 
       END DO
 

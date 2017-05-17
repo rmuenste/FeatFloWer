@@ -208,6 +208,7 @@ END SUBROUTINE ParametrizeQ2Nodes
 !----------------------------------------------------------------------------------------
 !
 SUBROUTINE ParametrizeBndr(mgMesh,ilevel)
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 IMPLICIT NONE
 integer :: ilevel
 type(tMultiMesh) :: mgMesh
@@ -238,6 +239,7 @@ INTEGER I1,I2
                            mgMesh%level(i1)%nvt,&
                            mgMesh%level(i1)%nat,&
                            mgMesh%level(i1)%net)
+
 
   CALL Parametrize(mgmesh%level(i2)%dcorvg,1,mgmesh%level(i2)%nvt,ilevel)
 

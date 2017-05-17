@@ -6,14 +6,15 @@
 
       DIMENSION KIAD(4,6)
       DATA KIAD/1,2,3,4, 1,2,6,5, 2,3,7,6, 3,4,8,7, 4,1,5,8, 5,6,7,8/
-      !DATA KIAD/1,2,3,4, 1,5,6,2, 2,6,7,3, 3,7,8,4, 1,4,8,5, 5,8,7,6/
 
       type t_connector3D
         integer, dimension(6) :: I_conData
       end type t_connector3D
 
       contains
-
+      !
+      !-------------------------------------------------------------
+      !
       subroutine writeTriFile(mesh)
       USE var_QuadScalar
       type(tMesh) :: mesh
@@ -133,8 +134,6 @@
       mykarea, mnvt, mnel, mnet,cfile)
       USE var_QuadScalar
 
-      !REAL*8  mydcorvg(3,*)
-      !REAL*8, intent(in) ::  mydcorvg(3,:)
       REAL*8  mydcorvg(3,*)
 
       integer mykvert(8,*)
@@ -147,9 +146,6 @@
 
       CHARACTER (len = 60) :: cfile 
 
-!REAL*8  DCORAG(3,*),DCORVG(3,*)
-!INTEGER KVERT(8,*),KEDGE(12,*),KAREA(6,*)
-
       integer :: mnvt
       integer :: mnel 
       integer :: mnet 
@@ -159,7 +155,6 @@
 
       open (unit=cunit,file=cfile)
 
-      !write(cunit,'(A)')'modified by tr2to3'
       write(cunit,'(3I6,A)')mnel,mnvt,mnet,' NEL,NVT,NET'
 
       do ivert=1,mnvt
@@ -1729,4 +1724,4 @@
 
       end subroutine tria_merge
 
-end Module
+      end Module

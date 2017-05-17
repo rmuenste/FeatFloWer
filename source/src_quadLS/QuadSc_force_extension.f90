@@ -474,6 +474,19 @@
 !
 !-----------------------------------------------------------
 !
+      SUBROUTINE GetDistanceALE(X,Y,Z,ale_val,ipc)
+      USE var_QuadScalar, ONLY : myFBM
+      IMPLICIT NONE
+      REAL*8 X,Y,Z
+      REAL*8 ale_val
+      INTEGER ipc
+
+        call getdistanceid(x,y,z,ale_val,ipc)
+
+      END SUBROUTINE GetDistanceALE
+!
+!-----------------------------------------------------------
+!
       subroutine communicateforce(fx,fy,fz,tx,ty,tz)
       use var_QuadScalar, only : myFBM
       implicit none

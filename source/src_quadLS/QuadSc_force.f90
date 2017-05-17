@@ -522,11 +522,11 @@
 99999 CONTINUE
 
       END
-!
+#define myline __LINE__
 !-----------------------------------------------------------------------
 !
 !************************************************************************
-      SUBROUTINE GetForces(U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
+      SUBROUTINE GetForces(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
                            DCORVG,ELE)
 !************************************************************************
 !*     Discrete convection operator: Q1~ elements (nonparametric)
@@ -539,15 +539,27 @@
       PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,&
                  NNDIM=3,NNCOF=10)
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
+
+      ! An array of scaling factors
+      Real*8 :: factors(*)
 !
-      REAL*8  U1(*),U2(*),U3(*),P(*),DVISC(*),DCORVG(NNDIM,*)
-      INTEGER ALPHA(*)
+      ! U/V/W velocity components
+      REAL*8 :: U1(*),U2(*),U3(*)
+
+      ! Pressure, viscosity
+      Real*8 :: P(*),DVISC(*)
+      
+      ! Coordinates
+      Real*8 :: DCORVG(NNDIM,*)
+
+      ! Alpha function
+      integer :: ALPHA(*)
       INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       INTEGER KDFG(NNBAS),KDFL(NNBAS)
 !
-      REAL*8 DResForceX,DResForceY,DResForceZ
-      REAL*8 DTrqForceX,DTrqForceY,DTrqForceZ
-      REAL*8 Center(3),dForce(6)
+      REAL*8 :: DResForceX,DResForceY,DResForceZ
+      REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
+      REAL*8 :: Center(3),dForce(6)
 !
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -570,39 +582,43 @@
                     INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,&
                     ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,&
                     IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
-!
+ 
       SAVE
-!
+ 
       IF (myid.eq.0) GOTO 999
-!
-      DO 1 I= 1,NNDER
-1     BDER(I)=.FALSE.
-!
-      DO 2 I=1,4
-2     BDER(I)=.TRUE.
-!
+ 
+      DO I= 1,NNDER
+        BDER(I)=.FALSE.
+      end do
+ 
+      DO I=1,4
+        BDER(I)=.TRUE.
+      end do
+ 
       IELTYP=-1
       CALL ELE(0D0,0D0,0D0,IELTYP)
       IDFL=NDFL(IELTYP)
-!
+ 
       ICUB=9
       CALL CB3H(ICUB)
-      IF (IER.NE.0) GOTO 99999
-!
+      IF (IER.ne.0)then
+        call ExitError('Error in GetForces',605)
+      end if
+ 
       DO IP = 1,myFBM%nParticles
-
+ 
       Center = myFBM%particleNew(IP)%Position
-!
+ 
       DResForceX = 0D0
       DResForceY = 0D0
       DResForceZ = 0D0
       DTrqForceX = 0d0
       DTrqForceY = 0d0
       DTrqForceZ = 0d0
-!
+ 
 ! *** Loop over all elements
       nnel = 0
-      DO 100 IEL=1,NEL
+      DO IEL=1,NEL
 !
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
       IF (IER.LT.0) GOTO 99999
@@ -619,30 +635,33 @@
           NIALFA=NIALFA+1
          ENDIF
        ENDDO
-!--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
-      IF(NJALFA.EQ.27.OR.NIALFA.EQ.27) GOTO 100
-!--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
-!
+
+      ! Skip elements where all dofs are inside or
+      ! all dofs are outside
+      IF(NJALFA.EQ.27.OR.NIALFA.EQ.27) cycle
 
 !      myExport%p_DataScalarCell(1)%pData(iel)=2
       !write(*,*)'adding IELEval: ',IEL
       nnel = nnel + 1
       DNY = DVISC(IEL)
-!
-! *** Evaluation of coordinates of the vertices
+
+      ! *** Evaluation of coordinates of the vertices
       DX0 = 0d0
       DY0 = 0d0
       DZ0 = 0d0
-      DO 120 IVE=1,NVE
-      JP=KVERT(IVE,IEL)
-      KVE(IVE)=JP
-      DX(IVE)=DCORVG(1,JP)
-      DY(IVE)=DCORVG(2,JP)
-      DZ(IVE)=DCORVG(3,JP)
-      DX0 = DX0 + 0.125d0*DX(IVE)
-      DY0 = DY0 + 0.125d0*DY(IVE)
-      DZ0 = DZ0 + 0.125d0*DZ(IVE)
-120   CONTINUE
+
+      ! Calculate the element center in d0
+      ! and get the element vertices in dx
+      DO IVE=1,NVE
+        JP=KVERT(IVE,IEL)
+        KVE(IVE)=JP
+        DX(IVE)=DCORVG(1,JP)
+        DY(IVE)=DCORVG(2,JP)
+        DZ(IVE)=DCORVG(3,JP)
+        DX0 = DX0 + 0.125d0*DX(IVE)
+        DY0 = DY0 + 0.125d0*DY(IVE)
+        DZ0 = DZ0 + 0.125d0*DZ(IVE)
+      end do
 !
       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
@@ -673,7 +692,7 @@
       IF (IER.LT.0) GOTO 99999
 !
 ! *** Loop over all cubature points
-      DO 200 ICUBP=1,NCUBP
+      DO ICUBP=1,NCUBP
 !
       XI1=DXI(ICUBP,1)
       XI2=DXI(ICUBP,2)
@@ -729,22 +748,26 @@
          DBI2=DBAS(1,KDFL(I),2)
          DBI3=DBAS(1,KDFL(I),3)
          DBI4=DBAS(1,KDFL(I),4)
-!---------------FOR U1----------------
+
+         !------FOR U1--------
          DU1V=DU1V+U1(IG)*DBI1
          DU1X=DU1X+U1(IG)*DBI2
          DU1Y=DU1Y+U1(IG)*DBI3
          DU1Z=DU1Z+U1(IG)*DBI4
-!---------------FOR U2----------------
+
+         !------FOR U2--------
          DU2V=DU2V+U2(IG)*DBI1
          DU2X=DU2X+U2(IG)*DBI2
          DU2Y=DU2Y+U2(IG)*DBI3
          DU2Z=DU2Z+U2(IG)*DBI4
-!---------------FOR U3----------------
+
+         !------FOR U3--------
          DU3V=DU3V+U3(IG)*DBI1
          DU3X=DU3X+U3(IG)*DBI2
          DU3Y=DU3Y+U3(IG)*DBI3
          DU3Z=DU3Z+U3(IG)*DBI4
-!---------------FOR ALFA----------------
+
+         !------FOR ALFA------
          IF (ALPHA(IG).EQ.IP) THEN
           DALPHA = 1d0
          ELSE
@@ -755,7 +778,7 @@
          DALY=DALY+DALPHA*DBI3
          DALZ=DALZ+DALPHA*DBI4
        ENDDO
-!C
+
 !C---------------------------------------------------------
        JJ = 4*(IEL-1) + 1
        Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) + &
@@ -799,25 +822,25 @@
 !===============================================================
 !--------------UPDATE VELOCITY AND POSITION---------------------
 !
-200   CONTINUE
+      end do ! end loop cubature points
 !
-100   CONTINUE
+      end do ! end loop elements
 !
       iPointer = 6*(IP-1)
 
-!      myFBM%Force(iPointer+1) = DResForceX
-!      myFBM%Force(iPointer+2) = DResForceY
-!      myFBM%Force(iPointer+3) = DResForceZ
-!      myFBM%Force(iPointer+4) = DTrqForceX
-!      myFBM%Force(iPointer+5) = DTrqForceY
-!      myFBM%Force(iPointer+6) = DTrqForceZ
-
-      myFBM%Force(iPointer+1) = 0.0d0
-      myFBM%Force(iPointer+2) = 0.0d0
+      myFBM%Force(iPointer+1) = DResForceX
+      myFBM%Force(iPointer+2) = DResForceY
       myFBM%Force(iPointer+3) = DResForceZ
-      myFBM%Force(iPointer+4) = 0.0d0
-      myFBM%Force(iPointer+5) = 0.0d0
-      myFBM%Force(iPointer+6) = 0.0d0
+      myFBM%Force(iPointer+4) = DTrqForceX
+      myFBM%Force(iPointer+5) = DTrqForceY
+      myFBM%Force(iPointer+6) = DTrqForceZ
+
+!      myFBM%Force(iPointer+1) = 0.0d0
+!      myFBM%Force(iPointer+2) = 0.0d0
+!      myFBM%Force(iPointer+3) = DResForceZ
+!      myFBM%Force(iPointer+4) = 0.0d0
+!      myFBM%Force(iPointer+5) = 0.0d0
+!      myFBM%Force(iPointer+6) = 0.0d0
 
       END DO ! nParticles
 
@@ -828,24 +851,26 @@
 
        ! Gather translational force
        myFBM%ParticleNew(IP)%ResistanceForce(1)= &
-       Properties%ForceScale(1) * &
+       factors(1) * &
        myFBM%Force(iPointer)
 
        myFBM%ParticleNew(IP)%ResistanceForce(2) = &
-       Properties%ForceScale(2) * &
+       factors(2) * &
        myFBM%Force(iPointer+1)
 
-       myFBM%ParticleNew(IP)%ResistanceForce(3) = 4.0 * &
-       Properties%ForceScale(3) * &
+       myFBM%ParticleNew(IP)%ResistanceForce(3) = &
+       factors(3) * &
        myFBM%Force(iPointer+2)
 
        ! Gather rotational force
        myFBM%ParticleNew(IP)%TorqueForce(1) = &
-       myFBM%Force(iPointer+3)
+       factors(4) * myFBM%Force(iPointer+3)
+
        myFBM%ParticleNew(IP)%TorqueForce(2) = &
-       myFBM%Force(iPointer+4)
+       factors(5) * myFBM%Force(iPointer+4)
+
        myFBM%ParticleNew(IP)%TorqueForce(3) = &
-       myFBM%Force(iPointer+5)
+       factors(6) * myFBM%Force(iPointer+5)
       END DO
       
 !     write(*,*)'z-force: ',myFBM%ParticleNew(1)%ResistanceForce(3)
@@ -1661,6 +1686,19 @@ end subroutine GetForcesPerfCyl
       end if
 
       END SUBROUTINE GetVeloFictBCVal
+!
+!-----------------------------------------------------------
+!
+      SUBROUTINE GetDistanceALE(X,Y,Z,ale_val,ipc)
+      USE var_QuadScalar, ONLY : myFBM
+      IMPLICIT NONE
+      REAL*8 X,Y,Z
+      REAL*8 ale_val
+      INTEGER ipc
+
+        call getdistanceid(x,y,z,ale_val,ipc)
+
+      END SUBROUTINE GetDistanceALE
 !
 !-----------------------------------------------------------
 !

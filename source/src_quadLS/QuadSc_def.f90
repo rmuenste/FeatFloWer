@@ -2640,10 +2640,11 @@ REAL*8 U(*),V(*),W(*),P(*),Nu(*)
 INTEGER FBM(*)
 INTEGER I,J,K,JJ
 EXTERNAL E013
+Real*8, dimension(6) :: factors = (/0.0,0.0,4.0,0.0,0.0,0.0/)
 
 ILEV=NLMAX
 CALL SETLEV(2)
-CALL GetForces(U,V,W,P,FBM,Nu,&
+CALL GetForces(factors,U,V,W,P,FBM,Nu,&
                mg_mesh%level(ILEV)%kvert,&
                mg_mesh%level(ILEV)%karea,&
                mg_mesh%level(ILEV)%kedge,&

@@ -263,3 +263,16 @@ if(myid.ne.0)then
 end if
 
 END SUBROUTINE FBM_ScatterParticles
+
+SUBROUTINE ExitError(msg,line)
+implicit none
+character(*) :: msg  
+!character(*) :: myfile  
+integer      :: line
+
+print *,msg
+write(*,*)'Fatal error in file:  Line: ',line
+stop
+
+END SUBROUTINE ExitError
+

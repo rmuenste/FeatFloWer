@@ -221,15 +221,16 @@ find_package(LAPACK)
 
 if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
   add_subdirectory(extern/libraries/lapack-3.6.1)
+  message(STATUS "Lapack found: ${LAPACK_FOUND}")
+  message(STATUS "Blas found: ${BLAS_FOUND}")
   set(BLAS_LIBRARIES blas)
   set(LAPACK_LIBRARIES lapack)
 endif()
 
-
 find_package(MPI)
 
-message(STATUS "mpi include : ${MPI_Fortran_INCLUDE_PATH}")
-message(STATUS "mpi libs : ${MPI_Fortran_LIBRARIES}")
+message(STATUS "CMake MPI_FORTRAN_INCLUDE_PATH : ${MPI_Fortran_INCLUDE_PATH}")
+message(STATUS "CMake MPI_Fortran_LIBRARIES : ${MPI_Fortran_LIBRARIES}")
 
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)

@@ -700,6 +700,19 @@ C
       END DO
 
       END SUBROUTINE GetFictKnpr
+!
+!
+!
+      SUBROUTINE GetDistanceALE(X,Y,Z,ale_val,ipc)
+      USE var_QuadScalar, ONLY : myFBM
+      IMPLICIT NONE
+      REAL*8 X,Y,Z
+      REAL*8 ale_val
+      INTEGER ipc
+
+      !  call getdistanceid(px,py,pz,ale_val,ipc)
+
+      END SUBROUTINE GetDistanceALE
 C
 C
 C
@@ -746,10 +759,4 @@ C
         tz(IP)=myFBM%particleNew(IP)%TorqueForce(3)
       end do
       end subroutine
-
-
-
-
-
-
 
