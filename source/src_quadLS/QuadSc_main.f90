@@ -50,6 +50,7 @@ CALL OperatorRegenaration(3)
 ! -------------------------------------------------
 ! Compute the momentum equations
 ! -------------------------------------------------
+
 ! GOTO 1
 IF (myid.ne.master) THEN
 
@@ -1616,8 +1617,6 @@ SUBROUTINE  RotateMyMesh(dcoor)
 
   ILEV = NLMAX
   CALL SETLEV(2)
-
-  ! pause
 
 END SUBROUTINE  RotateMyMesh
 !
