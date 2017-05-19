@@ -402,7 +402,8 @@ C
 C
       USE PP3D_MPI
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      DIMENSION DA(*),KCOL(*),KLD(*),DX(*),DB(*),DD(*),KNPR(*)
+      REAL*4 DA(*)
+      DIMENSION KCOL(*),KLD(*),DX(*),DB(*),DD(*),KNPR(*)
       COMMON /ERRCTL/ IER,ICHECK
       SAVE /ERRCTL/
 C
@@ -756,7 +757,6 @@ C
       COMMON /ERRCTL/ IER,ICHECK
       SAVE /ERRCTL/
 C
-      IF (myid.ne.0) THEN
        DO IEQ=1,NEQ
         DD(IEQ) = 0d0
         DO ICOL=KLD(IEQ),KLD(IEQ+1)-1
@@ -771,6 +771,5 @@ C
        END DO
 C
        CALL LL21(DD,NEQ,DEF)
-      END IF
 
       END

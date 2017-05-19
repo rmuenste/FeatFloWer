@@ -660,6 +660,7 @@ END SUBROUTINE Solve_General_LinScalar_Q1
 !
 SUBROUTINE Solve_General_MGLinScalar(myScalar,Bndry_Val,Bndry_Mat,mfile)
 use var_QuadScalar, only : myStat
+USE mg_LinScalar, only:mg_solver
 INTEGER mfile
 TYPE(lScalar3), INTENT(INOUT), TARGET :: myScalar
 REAL*8 daux,nrm_U,nrm_V,nrm_W

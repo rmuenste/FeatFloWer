@@ -1,7 +1,8 @@
 MODULE def_LinScalar
 
 USE def_FEAT
-USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011,comm_maximum
+USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011,comm_maximum,&
+              myMPI_barrier
 USE var_QuadScalar, ONLY: myMG,myDataFile,&
                           mg_mesh, mg_Matrix, TMatrix, mg_dVector,&
                           tMGParamIn, tMGParamOut
@@ -406,10 +407,13 @@ IF (myid.ne.0) THEN
  CALL E011Mat(Amat,lMat%LdA,lMat%nu)
 
  CALL LCL1 (myScalar%val(NLMAX)%x,myScalar%ndof)
-END IF
 
-CALL GetDefNorm(Amat,lMat%ColA,lMat%LdA,myScalar%val(NLMAX)%x,&
-     myScalar%def,myScalar%aux,myScalar%ndof,DefInit)
+ CALL GetDefNorm(Amat,lMat%ColA,lMat%LdA,myScalar%val(NLMAX)%x,&
+      myScalar%def,myScalar%aux,myScalar%ndof,DefInit)
+
+END IF
+CALL COMM_Maximum(DefInit)
+
 
 DO iLinIter=1,5
  IF (myid.ne.0) THEN
@@ -424,15 +428,19 @@ DO iLinIter=1,5
         myScalar%ndof,4*myScalar%prm%SolvIter,0.7d0)
   ENDIF
 
+  CALL GetDefNorm(Amat,lMat%ColA,lMat%LdA,myScalar%val(NLMAX)%x,&
+       myScalar%def,myScalar%aux,myScalar%ndof,DefCurrent)
+
  END IF
- CALL GetDefNorm(Amat,lMat%ColA,lMat%LdA,myScalar%val(NLMAX)%x,&
-      myScalar%def,myScalar%aux,myScalar%ndof,DefCurrent)
+ 
+ CALL COMM_Maximum(DefCurrent)
+ 
  IF (DefCurrent/DefInit.LT.0.09d0) GOTO 1
 END DO
 
 1 CONTINUE
 
-! IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
+IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
 
 IF (myid.ne.0) THEN
  ! Update the solution
@@ -440,9 +448,13 @@ IF (myid.ne.0) THEN
       myScalar%ndof,1D0,1D0)
 
  ! Set dirichlet boundary conditions on the solution
- CALL Bndry_Val(mg_mesh%level(NLMAX)%dcorvg)
+ CALL Bndry_Val(Amat,lMat%LdA,KNPR)
 
 END IF
+
+CALL myMPI_barrier()
+write(*,*) 'sdf sdf  s  fsdf sd fs  fgf',myid
+pause
 
 END SUBROUTINE Solve_General_LinScalar
 !
@@ -524,24 +536,24 @@ END IF
 
 IF (nINL.EQ.0) THEN
  IF (PRESENT(cTitle)) THEN
-  WRITE(MTERM,4) cTitle
-  WRITE(MFILE,4) cTitle
+  WRITE(*,*) cTitle
+  WRITE(MFILE,*) cTitle
  ELSE
-  WRITE(MTERM,5)
+  WRITE(*,5)
   WRITE(MFILE,5)
  END IF
- WRITE(MTERM,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
+ WRITE(*,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
  WRITE(MFILE,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
- WRITE(MTERM,5)
+ WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(MTERM,'(A8,6XA10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(*,'(A8,6XA10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
  WRITE(MFILE,'(A8,6XA10,5(6X,D11.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
- WRITE(MTERM,5)
+ WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(MTERM,'(I8,5(6X,D11.4))') 0,ResScalar,DefScalar
+ WRITE(*,'(I8,5(6X,D11.4))') 0,ResScalar,DefScalar
  WRITE(MFILE,'(I8,5(6X,D11.4))') 0,ResScalar,DefScalar
 ELSE
- WRITE(MTERM,'(I8,5(6X,D11.4))') nINL,ResScalar,DefScalar,RhsScalar
+ WRITE(*,'(I8,5(6X,D11.4))') nINL,ResScalar,DefScalar,RhsScalar
  WRITE(MFILE,'(I8,5(6X,D11.4))') nINL,ResScalar,DefScalar,RhsScalar
 END IF
 

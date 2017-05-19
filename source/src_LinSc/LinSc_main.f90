@@ -2,7 +2,7 @@ MODULE Transport_Q1
 
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
-    Comm_Maximum,Comm_Summ,myid,master,CommSum
+    Comm_Maximum,Comm_Summ,myid,master,CommSum,myMPI_barrier
 USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     MoveInterfacePoints,myALE,Properties,getmeshvelocity
@@ -75,9 +75,14 @@ CALL Protocol_linScalar(mfile,Tracer,0,&
 DO INL=1,Tracer%prm%NLmax
 INLComplete = 0
 
+
 ! Calling the solver
 CALL Solve_General_LinScalar(Tracer,ParKNPR,&
 Boundary_LinSc_Val,Boundary_LinSc_Mat)
+
+CALL myMPI_barrier()
+write(*,*) 'sdf sdf  s  fsdf sd fs  f',myid
+pause
 
 IF (myid.ne.0) THEN
 
@@ -322,14 +327,30 @@ ILEV=NLMAX
 JLEV = ILEV-1
 CALL SETLEV(2)
 
-write(*,*)'evil subroutine'
-stop
+write(*,*)'evil subroutine1'
 Kmat = 0d0
-!CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
-!lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-!DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
-!KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
-!KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
+
+
+CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
+lMat%nu,lMat%ColA,lMat%LdA,&
+mg_mesh%level(ilev)%kvert,&
+mg_mesh%level(ilev)%karea,&
+mg_mesh%level(ilev)%kedge,&
+mg_mesh%level(ilev)%dcorvg,&
+mg_mesh%level(ilev)%kadj,&
+mg_mesh%level(jlev)%kvert,&
+mg_mesh%level(jlev)%karea,&
+mg_mesh%level(jlev)%kedge,&
+mg_mesh%level(jlev)%nel,&
+mg_mesh%level(jlev)%nvt,&
+mg_mesh%level(jlev)%net,&
+mg_mesh%level(jlev)%nat,E011)
+
+! CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
+! lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+! DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
+! KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
+! KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)

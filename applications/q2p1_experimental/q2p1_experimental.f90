@@ -6,7 +6,7 @@ PROGRAM Q2P1_EXPERIMENTAL
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile, uterm,ilog
+  integer            :: ufile=111, uterm,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
