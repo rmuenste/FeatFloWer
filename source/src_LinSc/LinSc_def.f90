@@ -738,20 +738,28 @@ DO
     IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
     CASE ("MGMinIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    IF (myid.eq.showid) write(mterm,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    IF (myid.eq.showid) write(mfile,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
     CASE ("MGMaxIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    IF (myid.eq.showid) write(mterm,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    IF (myid.eq.showid) write(mfile,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
     CASE ("MGSmoothSteps")
     READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    IF (myid.eq.showid) write(mterm,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    IF (myid.eq.showid) write(mfile,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
     CASE ("MGIterCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mterm,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mfile,'(A,I0)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    IF (myid.eq.showid) write(mterm,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    IF (myid.eq.showid) write(mfile,'(A,I0)') &
+      TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
     CASE ("MGDefImprCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
 !    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse

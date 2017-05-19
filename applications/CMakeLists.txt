@@ -8,3 +8,5 @@ add_subdirectory(q2p1_bench_sedimentation)
 add_subdirectory(laplace)
 
 add_subdirectory(q2p1_particles)
+
+add_subdirectory(q2p1_experimental)
