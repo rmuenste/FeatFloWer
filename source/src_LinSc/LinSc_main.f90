@@ -80,9 +80,9 @@ INLComplete = 0
 CALL Solve_General_LinScalar(Tracer,ParKNPR,&
 Boundary_LinSc_Val,Boundary_LinSc_Mat)
 
-CALL myMPI_barrier()
-write(*,*) 'sdf sdf  s  fsdf sd fs  f',myid
-pause
+!CALL myMPI_barrier()
+!write(*,*) 'sdf sdf  s  fsdf sd fs  f',myid
+!pause
 
 IF (myid.ne.0) THEN
 
@@ -196,7 +196,8 @@ CALL SETLEV(2)
 CALL LinSc_InitCond(mg_mesh%level(ilev)%dcorvg)
 
 ! Set boundary conditions
-CALL Boundary_LinSc_Val(mg_mesh%level(ilev)%dcorvg)
+!CALL Boundary_LinSc_Val(mg_mesh%level(ilev)%dcorvg)
+CALL Boundary_LinSc_Val()
 
 NLMAX = NLMAX - 1
 
@@ -274,8 +275,9 @@ END SUBROUTINE Boundary_LinSc_Def
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Boundary_LinSc_Val(dcorvg)
-REAL*8, dimension(:,:), pointer :: dcorvg
+!SUBROUTINE Boundary_LinSc_Val(dcorvg)
+SUBROUTINE Boundary_LinSc_Val()
+!REAL*8, dimension(:,:), pointer :: dcorvg
 REAL*8 X,Y,Z
 REAL*8 :: RX = 0.0d0,RY = 0.0d0
 REAL*8 :: RADx = 0.2d0
@@ -283,9 +285,9 @@ REAL*8 DIST
 INTEGER i
 
 DO i=1,Tracer%ndof
- X = dcorvg(1,i)
- Y = dcorvg(2,i)
- Z = dcorvg(3,i)
+ X = mg_mesh%level(ilev)%dcorvg(1,i)
+ Y = mg_mesh%level(ilev)%dcorvg(2,i)
+ Z = mg_mesh%level(ilev)%dcorvg(3,i)
 
  IF (Tracer%knpr(i).eq.1) THEN
   IF (X.LT.1d-4) THEN
@@ -327,9 +329,7 @@ ILEV=NLMAX
 JLEV = ILEV-1
 CALL SETLEV(2)
 
-write(*,*)'evil subroutine1'
 Kmat = 0d0
-
 
 CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
 lMat%nu,lMat%ColA,lMat%LdA,&

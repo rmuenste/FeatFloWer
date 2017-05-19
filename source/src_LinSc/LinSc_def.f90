@@ -397,8 +397,8 @@ END SUBROUTINE Resdfk_General_LinScalar
 SUBROUTINE Solve_General_LinScalar(myScalar,knpr,Bndry_Val,Bndry_Mat)
 INTEGER KNPR(*)
 INTEGER iLinIter
-REAL*8 DefInit,DefCurrent
 TYPE(lScalar), INTENT(INOUT) :: myScalar
+REAL*8 :: DefInit = 0.0, DefCurrent = 0.0
 EXTERNAL Bndry_Val,Bndry_Mat
 
 IF (myid.ne.0) THEN
@@ -412,8 +412,8 @@ IF (myid.ne.0) THEN
       myScalar%def,myScalar%aux,myScalar%ndof,DefInit)
 
 END IF
-CALL COMM_Maximum(DefInit)
 
+CALL COMM_Maximum(DefInit)
 
 DO iLinIter=1,5
  IF (myid.ne.0) THEN
@@ -440,7 +440,7 @@ END DO
 
 1 CONTINUE
 
-IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
+!IF (myid.eq.1) WRITE(*,'(I4,(3D12.4))') iLinIter,DefInit,DefCurrent,DefCurrent/DefInit
 
 IF (myid.ne.0) THEN
  ! Update the solution
@@ -448,13 +448,14 @@ IF (myid.ne.0) THEN
       myScalar%ndof,1D0,1D0)
 
  ! Set dirichlet boundary conditions on the solution
- CALL Bndry_Val(Amat,lMat%LdA,KNPR)
+!CALL Bndry_Val(Amat,lMat%LdA,KNPR)
+CALL Bndry_Val()
 
 END IF
 
-CALL myMPI_barrier()
-write(*,*) 'sdf sdf  s  fsdf sd fs  fgf',myid
-pause
+!CALL myMPI_barrier()
+!write(*,*) 'sdf sdf  s  fsdf sd fs  fgf',myid
+!pause
 
 END SUBROUTINE Solve_General_LinScalar
 !
@@ -536,7 +537,7 @@ END IF
 
 IF (nINL.EQ.0) THEN
  IF (PRESENT(cTitle)) THEN
-  WRITE(*,*) cTitle
+  WRITE(*,*) "|",cTitle,"|:"
   WRITE(MFILE,*) cTitle
  ELSE
   WRITE(*,5)
