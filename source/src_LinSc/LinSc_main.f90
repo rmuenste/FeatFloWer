@@ -207,7 +207,7 @@ END SUBROUTINE InitCond_LinScalar
 !
 SUBROUTINE LinSc_Knpr(dcorvg)
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
-REAL*8 :: PX=0.5d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
+REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
 INTEGER i
 
 DO i=1,Tracer%ndof
