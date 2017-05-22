@@ -102,7 +102,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   FOREACH(flink ${FILELINKS})
     IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${flink})
       execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
-        ${CMAKE_SOURCE_DIR}/${flink}
+        ${CMAKE_CURRENT_SOURCE_DIR}/${flink}
         ${CMAKE_CURRENT_BINARY_DIR}/${flink})
     ENDIF ()    
   ENDFOREACH()
@@ -117,7 +117,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   # copy the data directories
   FOREACH(dir ${DIRECTORYCOPIES})
     IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
     ENDIF()
   ENDFOREACH()
 ENDIF()

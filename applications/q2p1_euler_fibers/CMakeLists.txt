@@ -73,8 +73,10 @@ target_link_libraries(q2p1_euler_fibers
   )
 
 target_include_directories(q2p1_euler_fibers PUBLIC ${MPI_Fortran_INCLUDE_PATH})
-
 target_compile_options(q2p1_euler_fibers PRIVATE ${Fortran_FLAGS})
+
+#message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
+#message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
 
 IF(${OUT_OF_SOURCE_BUILD})
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set
@@ -97,7 +99,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   FOREACH(flink ${FILELINKS})
     IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${flink})
       execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
-        ${CMAKE_SOURCE_DIR}/${flink}
+        ${CMAKE_CURRENT_SOURCE_DIR}/${flink}
         ${CMAKE_CURRENT_BINARY_DIR}/${flink})
     ENDIF ()    
   ENDFOREACH()
@@ -112,7 +114,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   # copy the data directories
   FOREACH(dir ${DIRECTORYCOPIES})
     IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
     ENDIF()
   ENDFOREACH()
 ENDIF()
