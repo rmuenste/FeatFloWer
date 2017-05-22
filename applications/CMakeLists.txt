@@ -10,3 +10,5 @@ add_subdirectory(laplace)
 add_subdirectory(q2p1_particles)
 
 add_subdirectory(q2p1_experimental)
+
+add_subdirectory(q2p1_euler_fibers)
