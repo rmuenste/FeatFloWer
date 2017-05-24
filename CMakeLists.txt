@@ -35,6 +35,11 @@ include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)
 #                                                   Options
 #--------------------------------------------------------------------------------------------------------------------
 
+option(USE_OPENMESH
+  "Use the OpenMesh library"
+  OFF
+  )
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
