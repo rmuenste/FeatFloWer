@@ -40,6 +40,11 @@ option(USE_OPENMESH
   OFF
   )
 
+option(USE_OPTICALTWEEZERS
+  "Use the library for simulating optical forces"
+  OFF
+  )
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -246,6 +251,12 @@ if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
 
+
+if(USE_OPTICALTWEEZERS)
+  add_subdirectory(extern/libraries/opticaltweezers)
+endif(USE_OPTICALTWEEZERS)
+
+
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
   if(NOT LIBRT_LIBRARY)
@@ -276,6 +287,8 @@ include(${CMAKE_MODULE_PATH}/CreateWorkingDirectories.cmake)
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
+
+
 ## we need additional libraries to support CUDA
 IF(BUILD_APPLICATIONS)
   # add subdirectories
