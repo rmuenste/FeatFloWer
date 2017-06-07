@@ -831,6 +831,7 @@
       myFBM%Force(iPointer+1) = DResForceX
       myFBM%Force(iPointer+2) = DResForceY
       myFBM%Force(iPointer+3) = DResForceZ
+
       myFBM%Force(iPointer+4) = DTrqForceX
       myFBM%Force(iPointer+5) = DTrqForceY
       myFBM%Force(iPointer+6) = DTrqForceZ
@@ -872,8 +873,6 @@
        myFBM%ParticleNew(IP)%TorqueForce(3) = &
        factors(6) * myFBM%Force(iPointer+5)
       END DO
-      
-!     write(*,*)'z-force: ',myFBM%ParticleNew(1)%ResistanceForce(3)
       
 99999 CONTINUE
 
@@ -1526,6 +1525,11 @@ end subroutine GetForcesPerfCyl
       ! update velocities by the force determined in the time step
       call settimestep(dTime)      
       call velocityupdate()     
+
+#ifdef OPTIC_FORCES
+      if(myid.eq.1) write(*,*)'calculating laser force...'
+        call get_optic_forces()
+#endif
             
       call settimestep(dTime/real(iSubSteps))
       call starttiming()      
@@ -1680,9 +1684,9 @@ end subroutine GetForcesPerfCyl
         DVELX_Y = -(Z-Pos(3))*Omega(1)
         DVELX_Z = +(Y-Pos(2))*Omega(1)
 
-        !ValU = Velo(1) + DVELZ_X + DVELY_X
-        !ValV = Velo(2) + DVELZ_Y + DVELX_Y
-        ValW = Velo(3)
+        ValU = Velo(1) + DVELZ_X + DVELY_X
+        ValV = Velo(2) + DVELZ_Y + DVELX_Y
+        ValW = Velo(3) + DVELX_Z + DVELY_Z
       end if
 
       END SUBROUTINE GetVeloFictBCVal

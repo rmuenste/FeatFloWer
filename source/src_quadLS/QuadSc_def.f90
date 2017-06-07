@@ -2640,7 +2640,7 @@ REAL*8 U(*),V(*),W(*),P(*),Nu(*)
 INTEGER FBM(*)
 INTEGER I,J,K,JJ
 EXTERNAL E013
-Real*8, dimension(6) :: factors = (/0.0,0.0,4.0,0.0,0.0,0.0/)
+Real*8, dimension(6) :: factors = (/1.0,1.0,1.0,0.0,0.0,0.0/)
 
 ILEV=NLMAX
 CALL SETLEV(2)
