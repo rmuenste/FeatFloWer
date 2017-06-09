@@ -66,8 +66,6 @@ target_link_libraries(laplace
   inshape3dcore
   Utility
   Math
-  OpenMeshCore 
-  OpenMeshTools
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )
@@ -75,6 +73,8 @@ target_link_libraries(laplace
 target_include_directories(laplace PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 
 target_compile_options(laplace PRIVATE ${Fortran_FLAGS})
+
+set_target_properties(laplace PROPERTIES LINKER_LANGUAGE Fortran)
 
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")

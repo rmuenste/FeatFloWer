@@ -67,8 +67,6 @@ target_link_libraries(q2p1_optic_tweezers
   inshape3dcore
   Utility
   Math
-  OpenMeshCore 
-  OpenMeshTools
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )

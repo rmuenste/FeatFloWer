@@ -54,7 +54,7 @@
 * ------  ----                                                         *
 * IER     I*4    Error indicator                                       *
 *                -110  Read error on unit  MFILE                       *
-* The remaining output quantities are contained in COMMON block /TRIAD/*
+* The remaining output quantities are contained in COMMON block  TRIAD *
 *                                                                      *
 ************************************************************************
 C

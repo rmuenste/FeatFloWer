@@ -66,14 +66,14 @@ target_link_libraries(q2p1_euler_fibers
   inshape3dcore
   Utility
   Math
-  OpenMeshCore 
-  OpenMeshTools
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )
 
 target_include_directories(q2p1_euler_fibers PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 target_compile_options(q2p1_euler_fibers PRIVATE ${Fortran_FLAGS})
+
+set_target_properties(q2p1_euler_fibers PROPERTIES LINKER_LANGUAGE Fortran)
 
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")

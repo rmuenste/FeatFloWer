@@ -68,8 +68,6 @@ target_link_libraries(q2p1_fbm_spring
   inshape3dcore
   Utility
   Math
-  OpenMeshCore 
-  OpenMeshTools
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )
@@ -77,6 +75,8 @@ target_link_libraries(q2p1_fbm_spring
 target_include_directories(q2p1_fbm_spring PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 
 target_compile_options(q2p1_fbm_spring PRIVATE ${Fortran_FLAGS})
+
+set_target_properties(q2p1_fbm_spring PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set

@@ -13,4 +13,6 @@ add_subdirectory(q2p1_experimental)
 
 add_subdirectory(q2p1_euler_fibers)
 
-add_subdirectory(q2p1_optic_tweezers)
+if(USE_OPTICALTWEEZERS)
+  add_subdirectory(q2p1_optic_tweezers)
+endif(USE_OPTICALTWEEZERS)
