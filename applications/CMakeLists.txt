@@ -16,3 +16,12 @@ add_subdirectory(q2p1_euler_fibers)
 if(USE_OPTICALTWEEZERS)
   add_subdirectory(q2p1_optic_tweezers)
 endif(USE_OPTICALTWEEZERS)
+
+if(USE_MUMPS)
+  if(${Q2P1_BUILD_ID} MATCHES "intel")
+    add_subdirectory(mumps_test)
+  else(${Q2P1_BUILD_ID} MATCHES "intel")
+    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
+  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+endif(USE_MUMPS)
+

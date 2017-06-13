@@ -45,6 +45,12 @@ option(USE_OPTICALTWEEZERS
   OFF
   )
 
+option(USE_MUMPS
+  "Use the MUMPS MPI parallel direct coarse grid solver"
+  OFF
+  )
+
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -247,15 +253,22 @@ add_subdirectory(extern/libraries/feat3d)
 add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
 
+if(USE_MUMPS)
+  if(${Q2P1_BUILD_ID} MATCHES "intel")
+    add_definitions(-DMUMPS_AVAIL)
+    add_subdirectory(extern/libraries/MUMPS_5.0.1)
+  else(${Q2P1_BUILD_ID} MATCHES "intel")
+    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
+  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+endif(USE_MUMPS)
+
 if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
 
-
 if(USE_OPTICALTWEEZERS)
   add_subdirectory(extern/libraries/opticaltweezers)
 endif(USE_OPTICALTWEEZERS)
-
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
