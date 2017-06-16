@@ -1,3 +1,221 @@
+#ifdef MUMPS_AVAIL
+SUBROUTINE E013_Comm_Master(DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
+
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE var_QuadScalar, ONLY :my_crs_e013_map,my_crs_e010_map
+
+IMPLICIT NONE
+
+REAL*8  DCORVG(3,*)
+INTEGER KVERT(8,*),KEDGE(12,*),KAREA(6,*)
+INTEGER NAT,NEL,NVT,NET,ndof
+
+INTEGER NeighE(2,12),NeighA(4,6)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+REAL*8 PX,PY,PZ
+REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
+
+INTEGER,ALLOCATABLE :: iCoor(:),iAux(:)
+REAL*8, ALLOCATABLE :: dCoor(:,:),rCoor(:,:)
+
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,jaux
+INTEGER pndof,cndof,pID,myINDEX
+LOGICAL bFound
+
+ndof = NVT+NET+NAT+NEL
+
+ALLOCATE (iAux(1:ndof))
+ALLOCATE (dCoor(3,1:ndof))
+ALLOCATE (iCoor(1:ndof))
+
+DO i=1,nvt
+ PX = dcorvg(1,I)
+ PY = dcorvg(2,I)
+ PZ = dcorvg(3,I)
+ dCoor(:,i) = [PX,PY,PZ]
+END DO
+
+k=1
+DO i=1,nel
+ DO j=1,12
+  IF (k.eq.kedge(j,i)) THEN
+   ivt1 = kvert(NeighE(1,j),i)
+   ivt2 = kvert(NeighE(2,j),i)
+   PX = 0.5d0*(dcorvg(1,ivt1) + dcorvg(1,ivt2))
+   PY = 0.5d0*(dcorvg(2,ivt1) + dcorvg(2,ivt2))
+   PZ = 0.5d0*(dcorvg(3,ivt1) + dcorvg(3,ivt2))
+   dCoor(:,nvt+k) = [PX,PY,PZ]
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+   PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+   PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+   dCoor(:,nvt+net+k) = [PX,PY,PZ]
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+DO i=1,nel
+ PX = 0d0
+ PY = 0d0
+ PZ = 0d0
+ DO j=1,8
+  PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+  PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+  PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+ END DO
+ dCoor(:,nvt+net+nat+i) = [PX,PY,PZ]
+END DO
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(pNDOF,pID)
+  CALL SENDI_myMPI(ndof,pID)
+  CALL SENDD_myMPI(dCoor,3*ndof,pID)
+ END DO
+ELSE
+ CALL SENDI_myMPI(ndof,0)
+ CALL RECVI_myMPI(cNDOF,0)
+ ALLOCATE (rCoor(3,cndof))
+ CALL RECVD_myMPI(rCoor,3*cNdof,0)
+END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+jAux = 0
+IF (myid.NE.0) THEN
+ DO I=1,ndof
+  P1X = dCoor(1,I)
+  P1Y = dCoor(2,I)
+  P1Z = dCoor(3,I)
+  bFound = .FALSE.
+  DO J=1,cndof
+   P2X = rCoor(1,J)
+   P2Y = rCoor(2,J)
+   P2Z = rCoor(3,J)
+   IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+       (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+       (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+     iCoor(I) = j
+     jAux = jAux + 1
+     bFound = .TRUE.
+    END IF
+   END DO
+!    IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
+  END DO
+ END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+IF (myid.eq.0) THEN
+ ALLOCATE (my_crs_e013_map(subnodes))
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(pNDOF,pID)
+  my_crs_e013_map(pid)%ndof = pNDOF
+  ALLOCATE(my_crs_e013_map(pid)%ind(pNDOF))
+  CALL RECVK_myMPI(my_crs_e013_map(pid)%ind,pNdof,pID)
+ END DO
+ELSE
+ CALL SENDI_myMPI(ndof,0)
+ CALL SENDK_myMPI(iCoor,ndof,0)
+END IF
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  jaux = 0
+  DO i=1,my_crs_e013_map(pid)%ndof
+   jaux = jaux + 3
+  END DO
+  ALLOCATE(my_crs_e013_map(pid)%indE(jaux))
+  ALLOCATE(my_crs_e013_map(pid)%dBuffer(jaux))
+  my_crs_e013_map(pid)%cc_ndof = jaux
+
+  jaux = 0
+  DO i=1,my_crs_e013_map(pid)%ndof
+   myINDEX = my_crs_e013_map(pid)%ind(i)
+   my_crs_e013_map(pid)%indE(0*my_crs_e013_map(pid)%ndof + i) = 0*ndof + myINDEX
+   my_crs_e013_map(pid)%indE(1*my_crs_e013_map(pid)%ndof + i) = 1*ndof + myINDEX
+   my_crs_e013_map(pid)%indE(2*my_crs_e013_map(pid)%ndof + i) = 2*ndof + myINDEX
+   IF (myINDEX.gt.NVT+NET+NAT) THEN
+    jaux = jaux + 1
+    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+1) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+1
+    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+2) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+2
+    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+3) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+3
+    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+4) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+4
+   END IF
+  END DO
+
+ END DO
+END IF
+
+
+END
+!
+! ----------------------------------------------
+!
+! SUBROUTINE Create_GlobalNumbering
+! USE PP3D_MPI
+! USE def_feat
+! USE var_QuadScalar, ONLY : GlobalNumbering,my_crs_e013_map
+! IMPLICIT NONE
+! INTEGER i,j,ndof,nnQ2,nnP0,nQ2,nP0,iQ2,iP0,pID
+! REAL*8, ALLOCATABLE :: D(:)
+! REAL*8 daux
+! 
+! ILEV = NLMIN
+! CALL SETLEV(2)
+! 
+! nnQ2  = NEL+NVT+NAT+NET
+! nnP0 =  NEL
+! ndof = 3*nnQ2 + 4*nnP0
+! 
+! D = 0
+! 
+! nQ2=0
+! nP0=0
+! j = 0
+! 
+! IF (myid.eq.0) THEN
+! 
+!  DO pID=1,subnodes
+!   DO i=1,my_crs_e013_map(pid)%cc_ndof
+!    j = my_crs_e013_map(pid)%indE(i)
+!    my_crs_e013_map(pid)%dBuffer(i) = dble(j)
+!   END DO
+! !   write(*,*) myid, '<--', my_crs_e013_map(pid)%cc_ndof
+!   CALL sendD_myMPI(my_crs_e013_map(pid)%dBuffer,my_crs_e013_map(pid)%cc_ndof,pID)
+!  END DO
+! 
+! ELSE
+! 
+!   ALLOCATE (GlobalNumbering(ndof),D(ndof))
+! !   write(*,*) myid, '-->', ndof  
+!   CALL recvD_myMPI(D,ndof,0)
+!   GlobalNumbering = INT(D)
+!   DEALLOCATE (D)
+!   WRITE(*,*) GlobalNumbering
+! END IF
+! 
+! pause
+! END SUBROUTINE Create_GlobalNumbering
+!
+! ----------------------------------------------
+!
+#endif
 SUBROUTINE  Comm_Coor(dc,d1,d2,d3,d4,n)
 USE PP3D_MPI
 IMPLICIT NONE
@@ -1229,9 +1447,9 @@ DO pID=1,subnodes
     P2X = CoorST(myid)%dCoor(1,J)
     P2Y = CoorST(myid)%dCoor(2,J)
     P2Z = CoorST(myid)%dCoor(3,J)
-    IF ((ABS(P1X-P2X).LT.1D-5).AND.&
-        (ABS(P1Y-P2Y).LT.1D-5).AND.&
-        (ABS(P1Z-P2Z).LT.1D-5)) THEN
+    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
      jAux = jAux + 1
     END IF
    END DO
@@ -1262,9 +1480,9 @@ DO pID=1,subnodes
     P2X = CoorST(myid)%dCoor(1,J)
     P2Y = CoorST(myid)%dCoor(2,J)
     P2Z = CoorST(myid)%dCoor(3,J)
-    IF ((ABS(P1X-P2X).LT.1D-5).AND.&
-        (ABS(P1Y-P2Y).LT.1D-5).AND.&
-        (ABS(P1Z-P2Z).LT.1D-5)) THEN
+    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)

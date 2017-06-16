@@ -1,16 +1,16 @@
-subroutine init_laplace(log_unit)
+subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
-    InitCond_Disp_QuadScalar,ProlongateSolution, &
+    InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
-    Transport_LinScalar, Init_Disp_Q1
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
+    Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
 
@@ -23,11 +23,16 @@ subroutine init_laplace(log_unit)
 
   CALL Init_QuadScalar_Stuctures(log_unit)
 
-  CALL Init_Disp_Q1(log_unit)
+  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
+
+  CALL Init_LinScalar
+
+  CALL InitCond_LinScalar()
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    CALL InitCond_Disp_QuadScalar()
+    CALL InitCond_QuadScalar()
+    IF(bViscoElastic)CALL IniProf_ViscoScalar()
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -40,11 +45,8 @@ subroutine init_laplace(log_unit)
     END IF
   END IF
 
-!  CALL myOutput_Profiles(0)
-!  call myMPI_Barrier()
-!  pause 
 
-end subroutine init_laplace
+end subroutine init_q2p1_ext
 !
 !----------------------------------------------
 !
@@ -53,10 +55,9 @@ end subroutine init_laplace
   USE PP3D_MPI
   USE MESH_Structures
   USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
+    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
   USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
-  
   IMPLICIT NONE
   ! -------------- workspace -------------------
   INTEGER  NNWORK
@@ -88,7 +89,9 @@ end subroutine init_laplace
   REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
   logical :: bwait = .true.
 
+
   CALL ZTIME(TTT0)
+
 
   !=======================================================================
   !     Data input
@@ -165,13 +168,13 @@ end subroutine init_laplace
   ISABD=0
   IDISP=1
 
-  NLMAX = NLMAX + 1
+  IF (myid.NE.0) NLMAX = NLMAX + 1
   
   IF (myid.EQ.0) then
-    mg_Mesh%maxlevel = nlmax
-    mg_Mesh%nlmax = nlmax-1
+    mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
     mg_Mesh%nlmin = 1
-    allocate(mg_mesh%level(nlmax))
+    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev
+    allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
   else
     allocate(mg_mesh%level(NLMAX))
     mg_Mesh%maxlevel = nlmax
@@ -180,16 +183,13 @@ end subroutine init_laplace
   end if
 
   call readTriCoarse(CMESH1, mg_mesh)
-
   IF (myid.EQ.0) then
-    call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
+    call refineMesh(mg_mesh, LinSc%prm%MGprmIn%MedLev)  
   else
     call refineMesh(mg_mesh, NLMAX)  
   end if
 
   write(*,*)'Refinement finished: ',myid
-
-  if(myid.eq.0) NLMAX = NLMAX - 1
 
   II=NLMIN
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -201,6 +201,8 @@ end subroutine init_laplace
                   mg_mesh%level(II)%dcorag,&
                   mg_mesh%level(II)%karea,&
                   mg_mesh%level(II)%kvert)
+
+!  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
 
   IF (myid.EQ.0) NLMAX = 1
 
@@ -223,8 +225,6 @@ end subroutine init_laplace
 
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
   IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
-
-
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
   !     ----------------------------------------------------------
 
@@ -247,7 +247,21 @@ end subroutine init_laplace
                               LinSc%prm%MGprmIn%MedLev)
 
 
-  DO ILEV=NLMIN+1,NLMAX
+  CALL E013_Comm_Master(mg_mesh%level(ILEV)%dcorvg,&
+                        mg_mesh%level(ILEV)%kvert,&
+                        mg_mesh%level(ILEV)%kedge,&
+                        mg_mesh%level(ILEV)%karea,&
+                        mg_mesh%level(ILEV)%nvt,&
+                        mg_mesh%level(ILEV)%net,&
+                        mg_mesh%level(ILEV)%nat,&
+                        mg_mesh%level(ILEV)%nel)
+ 
+!                               DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
+!            NVT,NET,NAT,NEL)
+
+!   CALL Create_GlobalNumbering()
+
+ DO ILEV=NLMIN+1,NLMAX
 
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
@@ -269,6 +283,23 @@ end subroutine init_laplace
          mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
 
   CALL E011_CreateComm(NDOF)
+
+  !     ----------------------------------------------------------            
+  call init_fc_rigid_body(myid)      
+  call FBM_GetParticles()
+  CALL FBM_ScatterParticles()
+  !     ----------------------------------------------------------        
+
+  DO ILEV=NLMIN,NLMAX
+  if(myid.eq.1)then
+
+  write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
+                   mg_mesh%level(ILEV)%nat,&
+                   mg_mesh%level(ILEV)%nel,&
+                   mg_mesh%level(ILEV)%net
+  
+  end if
+  end do
 
   DO ILEV=NLMIN,NLMAX
     !CALL SETLEV(2)
@@ -297,13 +328,6 @@ end subroutine init_laplace
     END IF
   END DO
 
-  NLMAX = NLMAX + 1 
-  ILEV = NLMAX
-  CALL SETLEV(2)
-  CALL ParametrizeBndr(mg_mesh,ilev)
-  NLMAX = NLMAX - 1 
-  ILEV = NLMAX
-
   ! This part here is responsible for creation of structures enabling the mesh coordinate 
   ! transfer to the master node so that it can create the corresponding matrices
   IF (myid.EQ.0) THEN
@@ -312,12 +336,29 @@ end subroutine init_laplace
     LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
     CALL CreateDumpStructures(LevDif)
   END IF
+  !       IF (nUmbrellaSteps.GT.0) THEN
+  !        CALL UmbrellaSmoother(timens,nUmbrellaSteps)
+  !       END IF
 
-  IF (nInitUmbrellaSteps.GT.0) THEN
-    CALL InitUmbrellaSmoother(timens,mg_mesh,nInitUmbrellaSteps)
-  END IF
+
+  ILEV = LinSc%prm%MGprmIn%MedLev
+  !CALL SETLEV(2)
+
+  nLengthV = (2**(ILEV-1)+1)**3
+  nLengthE = mg_mesh%level(NLMIN)%nel
+
+  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              nLengthV,&
+                              nLengthE,&
+                              mg_mesh%level(ILEV)%nel,&
+                              mg_mesh%level(ILEV)%nvt)
+  DEALLOCATE(SendVect)
 
   showid = 1
+
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
     WRITE(MFILE,'(10(2XA8))') 'ILEV','NVT','NAT','NEL','NET','NDOF'
@@ -325,7 +366,21 @@ end subroutine init_laplace
 
   DO II=NLMIN,NLMAX
 
+!  mg_mesh%level(ILEV)%dcorvg,&
+!  mg_mesh%level(ILEV)%karea,&
+!  mg_mesh%level(ILEV)%kvert,&
+!  mg_mesh%level(ILEV)%kedge,&
+!  mg_mesh%level(ILEV)%nel,&
+!  mg_mesh%level(ILEV)%nvt,&
+!  mg_mesh%level(ILEV)%net,&
+!  mg_mesh%level(ILEV)%nat
+
   ILEV=II
+
+!  NVT=KNVT(II)
+!  NAT=KNAT(II)
+!  NET=KNET(II)
+!  NEL=KNEL(II)
 
   NVT=mg_mesh%level(II)%nvt
   NAT=mg_mesh%level(II)%nat
@@ -336,6 +391,8 @@ end subroutine init_laplace
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
     WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
   END IF
+
+  !CALL SETLEV(2)
 
   IF (myid.eq.showid) THEN
     WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
@@ -392,7 +449,7 @@ end subroutine init_laplace
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bViscoElasticFAC,bRefFrame,nInitUmbrellaSteps
+     bViscoElastic,bViscoElasticFAC,bRefFrame
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -469,8 +526,6 @@ end subroutine init_laplace
          READ(string(iEq+1:),*) ISTART
        CASE ("Umbrella")
          READ(string(iEq+1:),*) nUmbrellaSteps
-       CASE ("InitUmbrella")
-         READ(string(iEq+1:),*) nInitUmbrellaSteps
        CASE ("StartFile")
          READ(string(iEq+1:),*) CSTART
          !      iLen = LEN(TRIM(ADJUSTL(CSTART)))
