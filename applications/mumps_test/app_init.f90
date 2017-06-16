@@ -247,14 +247,14 @@ end subroutine init_q2p1_ext
                               LinSc%prm%MGprmIn%MedLev)
 
 
-  CALL E013_Comm_Master(mg_mesh%level(ILEV)%dcorvg,&
-                        mg_mesh%level(ILEV)%kvert,&
-                        mg_mesh%level(ILEV)%kedge,&
-                        mg_mesh%level(ILEV)%karea,&
-                        mg_mesh%level(ILEV)%nvt,&
-                        mg_mesh%level(ILEV)%net,&
-                        mg_mesh%level(ILEV)%nat,&
-                        mg_mesh%level(ILEV)%nel)
+  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              mg_mesh%level(ILEV)%kedge,&
+                              mg_mesh%level(ILEV)%karea,&
+                              mg_mesh%level(ILEV)%nvt,&
+                              mg_mesh%level(ILEV)%net,&
+                              mg_mesh%level(ILEV)%nat,&
+                              mg_mesh%level(ILEV)%nel)
  
 !                               DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
 !            NVT,NET,NAT,NEL)

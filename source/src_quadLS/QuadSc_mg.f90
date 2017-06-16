@@ -4,7 +4,10 @@ USE PP3D_MPI, ONLY:E011DMat,myid,showID,& !E011Sum,
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
-
+#ifdef MUMPS_AVAIL
+USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUp_SLAVE,MUMPS_SetUp_MASTER,&
+                 MUMPS_Solve,MUMPS_CleanUp
+#endif
 IMPLICIT NONE
 
 TYPE tCG
@@ -1712,7 +1715,7 @@ END SUBROUTINE outputsol1
 ! ----------------------------------------------
 !
 SUBROUTINE mgCoarseGridSolver_P()
-INTEGER Iter,i,j,ndof
+INTEGER Iter,i,j,k,ndof
 REAL*8 daux
 INTEGER iEntry,jCol
 EXTERNAL E011
@@ -1787,11 +1790,47 @@ EXTERNAL E011
   END IF
  END IF
 
+#ifdef MUMPS_AVAIL
+   IF (MyMG%CrsSolverType.EQ.5) THEN
+    
+    CALL MUMPS_Init()
+
+    IF (myid.eq.0) THEN
+     CALL MUMPS_SetUp_MASTER(myMG%L(mgLev),myMG%B(mgLev)%x)
+    ELSE
+     ndof  = SIZE(myMG%X(mgLev)%x)
+     CALL MUMPS_SetUp_SLAVE(myMg%A(mgLev)%a,myMg%AP(mgLev)%a,&
+                            myMG%L(mgLev),myMG%LP(mgLev),&
+                            myMG%X(mgLev)%X,myMG%XP,ndof)
+    END IF
+    
+    CALL MUMPS_Solve(myMG%X(mgLev)%x)
+    CoarseIter = 1
+
+    CALL MUMPS_CleanUp()
+
+   END IF
+#else
+   IF (MyMG%CrsSolverType.EQ.5) THEN
+    
+    IF (myid.eq.0) WRITE(*,*) 'MUMPS is not available!'
+    STOP
+    
+   END IF
+#endif
+
  IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
  IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
  IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
 
-!  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
+! SUBROUTINE outputsol1(x,dcoor,kvert,NoOfElem,NoOfVert,iInd)
+
+!  CALL outputsol1(myMG%X(mgLev)%x,&
+!                  mg_mesh%level(mgLev)%dcorvg,&
+!                  mg_mesh%level(mgLev)%kvert,&
+!                  mg_mesh%level(mgLev)%nel,&
+!                  mg_mesh%level(mgLev)%nvt,0)
+!  pause
 
  CALL E013SendK(0,showid,CoarseIter)
 

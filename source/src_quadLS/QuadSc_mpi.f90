@@ -1,9 +1,9 @@
 #ifdef MUMPS_AVAIL
-SUBROUTINE E013_Comm_Master(DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
+SUBROUTINE Create_GlobalNumbering(DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
 
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-USE var_QuadScalar, ONLY :my_crs_e013_map,my_crs_e010_map
+USE var_QuadScalar, ONLY :GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap
 
 IMPLICIT NONE
 
@@ -18,10 +18,10 @@ REAL*8 PX,PY,PZ
 REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
 
 INTEGER,ALLOCATABLE :: iCoor(:),iAux(:)
-REAL*8, ALLOCATABLE :: dCoor(:,:),rCoor(:,:)
+REAL*8, ALLOCATABLE :: dCoor(:,:),rCoor(:,:),D(:)
 
 INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,jaux
-INTEGER pndof,cndof,pID,myINDEX
+INTEGER nnQ2,nnP0,pndof,cndof,pID,myINDEX
 LOGICAL bFound
 
 ndof = NVT+NET+NAT+NEL
@@ -122,12 +122,12 @@ IF (myid.NE.0) THEN
 if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 IF (myid.eq.0) THEN
- ALLOCATE (my_crs_e013_map(subnodes))
+ ALLOCATE (myGlobalNumberingMap(subnodes))
  DO pID=1,subnodes
   CALL RECVI_myMPI(pNDOF,pID)
-  my_crs_e013_map(pid)%ndof = pNDOF
-  ALLOCATE(my_crs_e013_map(pid)%ind(pNDOF))
-  CALL RECVK_myMPI(my_crs_e013_map(pid)%ind,pNdof,pID)
+  myGlobalNumberingMap(pid)%ndof = pNDOF
+  ALLOCATE(myGlobalNumberingMap(pid)%ind(pNDOF))
+  CALL RECVK_myMPI(myGlobalNumberingMap(pid)%ind,pNdof,pID)
  END DO
 ELSE
  CALL SENDI_myMPI(ndof,0)
@@ -137,77 +137,170 @@ END IF
 IF (myid.eq.0) THEN
  DO pID=1,subnodes
   jaux = 0
-  DO i=1,my_crs_e013_map(pid)%ndof
+  DO i=1,myGlobalNumberingMap(pid)%ndof
    jaux = jaux + 3
   END DO
-  ALLOCATE(my_crs_e013_map(pid)%indE(jaux))
-  ALLOCATE(my_crs_e013_map(pid)%dBuffer(jaux))
-  my_crs_e013_map(pid)%cc_ndof = jaux
+  ALLOCATE(myGlobalNumberingMap(pid)%indQ2(jaux))
+  ALLOCATE(myGlobalNumberingMap(pid)%dBufferQ2(jaux))
+  myGlobalNumberingMap(pid)%ndof_Q2 = jaux
 
   jaux = 0
-  DO i=1,my_crs_e013_map(pid)%ndof
-   myINDEX = my_crs_e013_map(pid)%ind(i)
-   my_crs_e013_map(pid)%indE(0*my_crs_e013_map(pid)%ndof + i) = 0*ndof + myINDEX
-   my_crs_e013_map(pid)%indE(1*my_crs_e013_map(pid)%ndof + i) = 1*ndof + myINDEX
-   my_crs_e013_map(pid)%indE(2*my_crs_e013_map(pid)%ndof + i) = 2*ndof + myINDEX
+  DO i=1,myGlobalNumberingMap(pid)%ndof
+   myINDEX = myGlobalNumberingMap(pid)%ind(i)
+   myGlobalNumberingMap(pid)%indQ2(0*myGlobalNumberingMap(pid)%ndof + i) = 0*ndof + myINDEX
+   myGlobalNumberingMap(pid)%indQ2(1*myGlobalNumberingMap(pid)%ndof + i) = 1*ndof + myINDEX
+   myGlobalNumberingMap(pid)%indQ2(2*myGlobalNumberingMap(pid)%ndof + i) = 2*ndof + myINDEX
+  END DO
+
+ END DO
+END IF
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  jaux = 0
+  DO i=1,myGlobalNumberingMap(pid)%ndof
+   IF (myGlobalNumberingMap(pid)%ind(i).gt.NVT+NET+NAT) THEN
+    jaux = jaux + 4
+   END IF
+  END DO
+  ALLOCATE(myGlobalNumberingMap(pid)%indP1(jaux))
+  ALLOCATE(myGlobalNumberingMap(pid)%dBufferP1(jaux))
+  myGlobalNumberingMap(pid)%ndof_P1 = jaux
+
+  jaux = 0
+  DO i=1,myGlobalNumberingMap(pid)%ndof
+   myINDEX = myGlobalNumberingMap(pid)%ind(i)
    IF (myINDEX.gt.NVT+NET+NAT) THEN
     jaux = jaux + 1
-    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+1) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+1
-    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+2) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+2
-    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+3) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+3
-    my_crs_e013_map(pid)%indE(3*my_crs_e013_map(pid)%ndof + 4*(jaux-1)+4) = 3*ndof + 4*(myINDEX-(NVT+NET+NAT)-1)+4
+    myGlobalNumberingMap(pid)%indP1(4*(jaux-1)+1) = 4*(myINDEX-(NVT+NET+NAT)-1)+1
+    myGlobalNumberingMap(pid)%indP1(4*(jaux-1)+2) = 4*(myINDEX-(NVT+NET+NAT)-1)+2
+    myGlobalNumberingMap(pid)%indP1(4*(jaux-1)+3) = 4*(myINDEX-(NVT+NET+NAT)-1)+3
+    myGlobalNumberingMap(pid)%indP1(4*(jaux-1)+4) = 4*(myINDEX-(NVT+NET+NAT)-1)+4
    END IF
   END DO
 
  END DO
 END IF
 
+DEALLOCATE (iAux)
+DEALLOCATE (dCoor)
+DEALLOCATE (iCoor)
 
-END
+nnQ2  = NEL+NVT+NAT+NET
+nnP0 =  NEL
+
+D = 0
+j = 0
+
+ndof = 3*nnQ2
+IF (myid.eq.0) THEN
+
+ DO pID=1,subnodes
+  DO i=1,myGlobalNumberingMap(pid)%ndof_Q2
+   j = myGlobalNumberingMap(pid)%indQ2(i)
+   myGlobalNumberingMap(pid)%dBufferQ2(i) = dble(j)
+  END DO
+!   write(*,*) myid, '<--', myGlobalNumberingMap(pid)%cc_ndof
+  CALL sendD_myMPI(myGlobalNumberingMap(pid)%dBufferQ2,myGlobalNumberingMap(pid)%ndof_Q2,pID)
+ END DO
+
+ELSE
+
+  ALLOCATE (GlobalNumberingQ2(ndof),D(ndof))
+!   write(*,*) myid, '-->', ndof  
+  CALL recvD_myMPI(D,ndof,0)
+  GlobalNumberingQ2 = INT(D)
+  DEALLOCATE (D)
+!   WRITE(*,*) GlobalNumberingQ2
+END IF
+
+
+ndof = 4*nnP0
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  DO i=1,myGlobalNumberingMap(pid)%ndof_P1
+   j = myGlobalNumberingMap(pid)%indP1(i)
+   myGlobalNumberingMap(pid)%dBufferP1(i) = dble(j)
+  END DO
+!   write(*,*) myid, '<--', myGlobalNumberingMap(pid)%cc_ndof
+  CALL sendD_myMPI(myGlobalNumberingMap(pid)%dBufferP1,myGlobalNumberingMap(pid)%ndof_P1,pID)
+ END DO
+
+ELSE
+
+  ALLOCATE (GlobalNumberingP1(ndof),D(ndof))
+!   write(*,*) myid, '-->', ndof  
+  CALL recvD_myMPI(D,ndof,0)
+  GlobalNumberingP1 = INT(D)
+  DEALLOCATE (D)
+!   WRITE(*,*) GlobalNumberingP1
+END IF
+
+! pause
+
+END SUBROUTINE Create_GlobalNumbering
 !
 ! ----------------------------------------------
 !
 ! SUBROUTINE Create_GlobalNumbering
 ! USE PP3D_MPI
 ! USE def_feat
-! USE var_QuadScalar, ONLY : GlobalNumbering,my_crs_e013_map
+! USE var_QuadScalar, ONLY : GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap
 ! IMPLICIT NONE
-! INTEGER i,j,ndof,nnQ2,nnP0,nQ2,nP0,iQ2,iP0,pID
+! INTEGER i,j,ndof,nnQ2,nnP0,pID
 ! REAL*8, ALLOCATABLE :: D(:)
-! REAL*8 daux
 ! 
 ! ILEV = NLMIN
 ! CALL SETLEV(2)
 ! 
 ! nnQ2  = NEL+NVT+NAT+NET
 ! nnP0 =  NEL
-! ndof = 3*nnQ2 + 4*nnP0
 ! 
 ! D = 0
-! 
-! nQ2=0
-! nP0=0
 ! j = 0
 ! 
+! ndof = 3*nnQ2
 ! IF (myid.eq.0) THEN
 ! 
 !  DO pID=1,subnodes
-!   DO i=1,my_crs_e013_map(pid)%cc_ndof
-!    j = my_crs_e013_map(pid)%indE(i)
-!    my_crs_e013_map(pid)%dBuffer(i) = dble(j)
+!   DO i=1,myGlobalNumberingMap(pid)%ndof_Q2
+!    j = myGlobalNumberingMap(pid)%indQ2(i)
+!    myGlobalNumberingMap(pid)%dBufferQ2(i) = dble(j)
 !   END DO
-! !   write(*,*) myid, '<--', my_crs_e013_map(pid)%cc_ndof
-!   CALL sendD_myMPI(my_crs_e013_map(pid)%dBuffer,my_crs_e013_map(pid)%cc_ndof,pID)
+! !   write(*,*) myid, '<--', myGlobalNumberingMap(pid)%cc_ndof
+!   CALL sendD_myMPI(myGlobalNumberingMap(pid)%dBufferQ2,myGlobalNumberingMap(pid)%ndof_Q2,pID)
 !  END DO
 ! 
 ! ELSE
 ! 
-!   ALLOCATE (GlobalNumbering(ndof),D(ndof))
+!   ALLOCATE (GlobalNumberingQ2(ndof),D(ndof))
 ! !   write(*,*) myid, '-->', ndof  
 !   CALL recvD_myMPI(D,ndof,0)
-!   GlobalNumbering = INT(D)
+!   GlobalNumberingQ2 = INT(D)
 !   DEALLOCATE (D)
-!   WRITE(*,*) GlobalNumbering
+! !   WRITE(*,*) GlobalNumberingQ2
+! END IF
+! 
+! 
+! ndof = 4*nnP0
+! IF (myid.eq.0) THEN
+!  DO pID=1,subnodes
+!   DO i=1,myGlobalNumberingMap(pid)%ndof_P1
+!    j = myGlobalNumberingMap(pid)%indP1(i)
+!    myGlobalNumberingMap(pid)%dBufferP1(i) = dble(j)
+!   END DO
+! !   write(*,*) myid, '<--', myGlobalNumberingMap(pid)%cc_ndof
+!   CALL sendD_myMPI(myGlobalNumberingMap(pid)%dBufferP1,myGlobalNumberingMap(pid)%ndof_P1,pID)
+!  END DO
+! 
+! ELSE
+! 
+!   ALLOCATE (GlobalNumberingP1(ndof),D(ndof))
+! !   write(*,*) myid, '-->', ndof  
+!   CALL recvD_myMPI(D,ndof,0)
+!   GlobalNumberingP1 = INT(D)
+!   DEALLOCATE (D)
+!   WRITE(*,*) GlobalNumberingP1
 ! END IF
 ! 
 ! pause

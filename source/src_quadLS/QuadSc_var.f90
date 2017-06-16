@@ -230,14 +230,13 @@ REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
 
 #ifdef MUMPS_AVAIL
 TYPE tGlobalNumberingMap
- INTEGER  :: ndof,cc_ndof
+ INTEGER  :: ndof,ndof_Q2,ndof_P1
  INTEGER , allocatable :: ind(:)
- INTEGER , allocatable :: indE(:)
- REAL*8, allocatable   :: dBuffer(:)
+ INTEGER , allocatable :: indQ2(:),indP1(:)
+ REAL*8, allocatable   :: dBufferQ2(:),dBufferP1(:)
 END TYPE tGlobalNumberingMap
-TYPE(tGlobalNumberingMap), ALLOCATABLE :: my_crs_e013_map(:)
-TYPE(tGlobalNumberingMap), ALLOCATABLE :: my_crs_e010_map(:)
-!INTEGER, ALLOCATABLE :: GlobalNumbering(:)
+TYPE(tGlobalNumberingMap), ALLOCATABLE :: myGlobalNumberingMap(:)
+INTEGER, ALLOCATABLE :: GlobalNumberingQ2(:),GlobalNumberingP1(:)
 #endif
 
 TYPE mg_Matrix
