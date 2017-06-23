@@ -37,7 +37,7 @@ END SUBROUTINE MUMPS_Init
 !
 ! ------------------------------------------------------------------------
 !
-SUBROUTINE MUMPS_SetUp_MASTER(L,B)
+SUBROUTINE MUMPS_SetUpP1_MASTER(L,B)
 IMPLICIT NONE
 REAL*8 B(*)
 TYPE(tMatrix) L
@@ -60,11 +60,111 @@ INTEGER I,J,K
   mumps_par%RHS(I) = B(I)
  END DO
 
-END SUBROUTINE MUMPS_SetUp_MASTER
+END SUBROUTINE MUMPS_SetUpP1_MASTER
 !
 ! ------------------------------------------------------------------------
 !
-SUBROUTINE MUMPS_SetUp_SLAVE(A,AP,L,LP,X,XP,N)
+SUBROUTINE MUMPS_SetUpQ2_1_MASTER(L,B)
+IMPLICIT NONE
+INTEGER NJ
+REAL*8 B(*)
+TYPE(tMatrix) L
+INTEGER I,J,K
+
+ NJ = L%nu
+ mumps_par%N  = 3*L%nu
+ mumps_par%NZ = 3*L%na
+ ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
+ ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+ K = 0
+ DO I = 1, NJ
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   K = K + 1
+   mumps_par%IRN(k) = 0*NJ + I
+   mumps_par%JCN(k) = 0*NJ + L%ColA(J) 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN(k) = 1*NJ + I
+   mumps_par%JCN(k) = 1*NJ + L%ColA(J) 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN(k) = 2*NJ + I
+   mumps_par%JCN(k) = 2*NJ + L%ColA(J) 
+  END DO
+ END DO
+ 
+ ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
+ DO I = 1, mumps_par%N
+  mumps_par%RHS(I) = B(I)
+ END DO
+END SUBROUTINE MUMPS_SetUpQ2_1_MASTER
+!
+! ------------------------------------------------------------------------
+!
+SUBROUTINE MUMPS_SetUpQ2_3_MASTER(L,B)
+IMPLICIT NONE
+REAL*8 B(*)
+TYPE(tMatrix) L
+INTEGER I,J,K
+INTEGER NJ
+
+ NJ = L%nu
+ mumps_par%N  = 3*L%nu
+ mumps_par%NZ = 9*L%na
+ ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
+ ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+ K = 0
+ DO I = 1, NJ
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   K = K + 1
+   mumps_par%IRN(k) = 0*NJ + I
+   mumps_par%JCN(k) = 0*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 0*NJ + I
+   mumps_par%JCN(k) = 1*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 0*NJ + I
+   mumps_par%JCN(k) = 2*NJ + L%ColA(J) 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN(k) = 1*NJ + I
+   mumps_par%JCN(k) = 0*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 1*NJ + I
+   mumps_par%JCN(k) = 1*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 1*NJ + I
+   mumps_par%JCN(k) = 2*NJ + L%ColA(J) 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN(k) = 2*NJ + I
+   mumps_par%JCN(k) = 0*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 2*NJ + I
+   mumps_par%JCN(k) = 1*NJ + L%ColA(J) 
+
+   K = K + 1
+   mumps_par%IRN(k) = 2*NJ + I
+   mumps_par%JCN(k) = 2*NJ + L%ColA(J) 
+  END DO
+ END DO
+ 
+ ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
+ DO I = 1, mumps_par%N
+  mumps_par%RHS(I) = B(I)
+ END DO
+
+END SUBROUTINE MUMPS_SetUpQ2_3_MASTER
+!
+! ------------------------------------------------------------------------
+!
+SUBROUTINE MUMPS_SetUpP1_SLAVE(A,AP,L,LP,X,XP,N)
 IMPLICIT NONE
 INTEGER N
 REAL*8 A(*),AP(*),X(*),XP(*)
@@ -102,7 +202,133 @@ INTEGER I,J,K,iG,jG
   END DO
  END DO
      
-END SUBROUTINE MUMPS_SetUp_SLAVE
+END SUBROUTINE MUMPS_SetUpP1_SLAVE
+!
+! ------------------------------------------------------------------------
+!
+SUBROUTINE MUMPS_SetUpQ2_1_SLAVE(A11,a22,a33,L,X,N)
+IMPLICIT NONE
+INTEGER N
+REAL*8 A11(*),A22(*),A33(*),X(*)
+TYPE(tMatrix) L
+INTEGER I,J,K,iG,jG
+
+ mumps_par%NZ_loc = 3*L%na
+ ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+ ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+ ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+
+ K = 0
+
+ DO I = 1, L%nu
+  iG = 0*myGlobal_ndof + GlobalNumberingQ2(I) 
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   jG = 0*myGlobal_ndof + GlobalNumberingQ2(L%ColA(J)) 
+   K = K + 1
+   mumps_par%IRN_loc(k) = iG
+   mumps_par%JCN_loc(k) = jG
+   mumps_par%A_loc(k)   = A11(J)
+  END DO
+ END DO
+     
+ DO I = 1, L%nu
+  iG = 1*myGlobal_ndof + GlobalNumberingQ2(I) 
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   jG = 1*myGlobal_ndof + GlobalNumberingQ2(L%ColA(J)) 
+   K = K + 1
+   mumps_par%IRN_loc(k) = iG
+   mumps_par%JCN_loc(k) = jG
+   mumps_par%A_loc(k)   = A22(J)
+  END DO
+ END DO
+
+ DO I = 1, L%nu
+  iG = 2*myGlobal_ndof + GlobalNumberingQ2(I) 
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   jG = 2*myGlobal_ndof + GlobalNumberingQ2(L%ColA(J)) 
+   K = K + 1
+   mumps_par%IRN_loc(k) = iG
+   mumps_par%JCN_loc(k) = jG
+   mumps_par%A_loc(k)   = A33(J)
+  END DO
+ END DO
+ 
+END SUBROUTINE MUMPS_SetUpQ2_1_SLAVE
+!
+! ------------------------------------------------------------------------
+!
+SUBROUTINE MUMPS_SetUpQ2_3_SLAVE(A11,A12,A13,A21,A22,A23,A31,A32,A33,L,X,N)
+IMPLICIT NONE
+INTEGER N
+REAL*8 A11(*),A22(*),A33(*),X(*)
+REAL*8 A12(*),A13(*),A21(*),A23(*),A31(*),A32(*)
+TYPE(tMatrix) L
+INTEGER I,J,K,iG,jG
+INTEGER NJ,NI
+
+ NJ = L%nu
+ NI = myGlobal_ndof
+
+ mumps_par%NZ_loc = 9*L%na
+ ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+ ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+ ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+
+ K = 0
+
+ DO I = 1, NJ
+  iG = GlobalNumberingQ2(I) 
+  DO J = L%LdA(i),L%LdA(i+1)-1
+   jG = GlobalNumberingQ2(L%ColA(J)) 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN_loc(k) = 0*NI + iG
+   mumps_par%JCN_loc(k) = 0*NI + jG
+   mumps_par%A_loc(k)   = A11(J)
+
+   K = K + 1
+   mumps_par%IRN_loc(k) = 0*NI + iG
+   mumps_par%JCN_loc(k) = 1*NI + jG
+   mumps_par%A_loc(k)   = A12(J)
+   
+   K = K + 1
+   mumps_par%IRN_loc(k) = 0*NI + iG
+   mumps_par%JCN_loc(k) = 2*NI + jG
+   mumps_par%A_loc(k)   = A13(J)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN_loc(k) = 1*NI + iG
+   mumps_par%JCN_loc(k) = 0*NI + jG
+   mumps_par%A_loc(k)   = A21(J)
+
+   K = K + 1
+   mumps_par%IRN_loc(k) = 1*NI + iG
+   mumps_par%JCN_loc(k) = 1*NI + jG
+   mumps_par%A_loc(k)   = A22(J)
+   
+   K = K + 1
+   mumps_par%IRN_loc(k) = 1*NI + iG
+   mumps_par%JCN_loc(k) = 2*NI + jG
+   mumps_par%A_loc(k)   = A23(J)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   K = K + 1
+   mumps_par%IRN_loc(k) = 2*NI + iG
+   mumps_par%JCN_loc(k) = 0*NI + jG
+   mumps_par%A_loc(k)   = A31(J)
+
+   K = K + 1
+   mumps_par%IRN_loc(k) = 2*NI + iG
+   mumps_par%JCN_loc(k) = 1*NI + jG
+   mumps_par%A_loc(k)   = A32(J)
+   
+   K = K + 1
+   mumps_par%IRN_loc(k) = 2*NI + iG
+   mumps_par%JCN_loc(k) = 2*NI + jG
+   mumps_par%A_loc(k)   = A33(J)
+  END DO
+ END DO
+    
+END SUBROUTINE MUMPS_SetUpQ2_3_SLAVE
 !
 ! ------------------------------------------------------------------------
 !

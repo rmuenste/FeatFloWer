@@ -173,8 +173,8 @@ end subroutine init_q2p1_ext
   IF (myid.EQ.0) then
     mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
     mg_Mesh%nlmin = 1
-    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev
-    allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev))
+    mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev+1
+    allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev+1))
   else
     allocate(mg_mesh%level(NLMAX))
     mg_Mesh%maxlevel = nlmax
@@ -204,7 +204,7 @@ end subroutine init_q2p1_ext
 
 !  CALL KNPRMPI(KWORK(L(KLNPR(II))+KNVT(II)),0,II) ! PARALLEL
 
-  IF (myid.EQ.0) NLMAX = 1
+  IF (myid.EQ.0) NLMAX = NLMAX - 1
 
   DO II=NLMIN+1,NLMAX
   IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -228,8 +228,6 @@ end subroutine init_q2p1_ext
   !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
   !     ----------------------------------------------------------
 
-  IF (myid.NE.0) NLMAX = NLMAX - 1
-
   ! Set up the communication structures for the Quadratic element
   ILEV=NLMIN
 
@@ -247,6 +245,7 @@ end subroutine init_q2p1_ext
                               LinSc%prm%MGprmIn%MedLev)
 
 
+  ILEV = LinSc%prm%MGprmIn%MedLev
   CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
                               mg_mesh%level(ILEV)%kvert,&
                               mg_mesh%level(ILEV)%kedge,&
@@ -256,11 +255,8 @@ end subroutine init_q2p1_ext
                               mg_mesh%level(ILEV)%nat,&
                               mg_mesh%level(ILEV)%nel)
  
-!                               DWORK(L(LCORVG)),KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),&
-!            NVT,NET,NAT,NEL)
-
-!   CALL Create_GlobalNumbering()
-
+ IF (myid.NE.0) NLMAX = NLMAX - 1
+  
  DO ILEV=NLMIN+1,NLMAX
 
   IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
@@ -314,15 +310,15 @@ end subroutine init_q2p1_ext
 
         write(*,*)'Prolongating: ',ilev, ilev+1
 
-        CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-                                   mg_mesh%level(ILEV+1)%dcorvg,&
-                                   mg_mesh%level(ILEV)%karea,&
-                                   mg_mesh%level(ILEV)%kvert,&
-                                   mg_mesh%level(ILEV)%kedge,&
-                                   mg_mesh%level(ILEV)%nel,&
-                                   mg_mesh%level(ILEV)%nvt,&
-                                   mg_mesh%level(ILEV)%net,&
-                                   mg_mesh%level(ILEV)%nat)
+!         CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+!                                    mg_mesh%level(ILEV+1)%dcorvg,&
+!                                    mg_mesh%level(ILEV)%karea,&
+!                                    mg_mesh%level(ILEV)%kvert,&
+!                                    mg_mesh%level(ILEV)%kedge,&
+!                                    mg_mesh%level(ILEV)%nel,&
+!                                    mg_mesh%level(ILEV)%nvt,&
+!                                    mg_mesh%level(ILEV)%net,&
+!                                    mg_mesh%level(ILEV)%nat)
 
       END IF
     END IF

@@ -1,9 +1,8 @@
-#ifdef MUMPS_AVAIL
 SUBROUTINE Create_GlobalNumbering(DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
 
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-USE var_QuadScalar, ONLY :GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap
+USE var_QuadScalar, ONLY :GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap,myGlobal_ndof
 
 IMPLICIT NONE
 
@@ -236,6 +235,19 @@ ELSE
 !   WRITE(*,*) GlobalNumberingP1
 END IF
 
+
+IF (myid.eq.0) THEN
+ ndof = nnQ2
+ myGlobal_ndof = ndof
+ DO pID=1,subnodes
+  CALL sendI_myMPI(ndof,pID)
+ END DO
+
+ELSE
+  CALL recvI_myMPI(ndof,0)
+  myGlobal_ndof  = ndof
+END IF
+
 ! pause
 
 END SUBROUTINE Create_GlobalNumbering
@@ -308,7 +320,6 @@ END SUBROUTINE Create_GlobalNumbering
 !
 ! ----------------------------------------------
 !
-#endif
 SUBROUTINE  Comm_Coor(dc,d1,d2,d3,d4,n)
 USE PP3D_MPI
 IMPLICIT NONE
@@ -2646,6 +2657,68 @@ INTEGER pID,pN,I,J,II,JJ,III,JJJ,iu,ppN,iw
  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 END SUBROUTINE E012GATHR_L3
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE E013GATHR_L1(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE var_QuadScalar, ONLY :GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N,ndof
+INTEGER pID,pN,I,J
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  DO i=1,myGlobalNumberingMap(pid)%ndof_Q2
+   j = myGlobalNumberingMap(pid)%indQ2(i)
+   myGlobalNumberingMap(pid)%dBufferQ2(i) = D(j)
+  END DO
+ END DO
+END IF
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  ndof = myGlobalNumberingMap(pid)%ndof_Q2
+  CALL sendD_myMPI(myGlobalNumberingMap(pid)%dBufferQ2,ndof,pID)
+ END DO
+ELSE
+  ndof = 3*N
+  CALL recvD_myMPI(D,ndof,0)
+END IF
+
+END SUBROUTINE E013GATHR_L1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE E013DISTR_L1(D,N)
+USE var_QuadScalar, ONLY :GlobalNumberingQ2,GlobalNumberingP1,myGlobalNumberingMap
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N,ndof
+INTEGER pID,pN,I,J
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  ndof = myGlobalNumberingMap(pid)%ndof_Q2
+  CALL recvD_myMPI(myGlobalNumberingMap(pid)%dBufferQ2,ndof,pID)
+ END DO
+ELSE
+  ndof = 3*N
+  CALL sendD_myMPI(D,ndof,0)
+END IF
+
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+  DO i=1,myGlobalNumberingMap(pid)%ndof_Q2
+   j = myGlobalNumberingMap(pid)%indQ2(i)
+   D(j) = D(j) + myGlobalNumberingMap(pid)%dBufferQ2(i)
+  END DO
+ END DO
+END IF
+
+END SUBROUTINE E013DISTR_L1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 SUBROUTINE E013SendK(iP,jP,Num)
 USE PP3D_MPI

@@ -5,8 +5,8 @@ USE PP3D_MPI, ONLY:E011DMat,myid,showID,& !E011Sum,
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
 #ifdef MUMPS_AVAIL
-USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUp_SLAVE,MUMPS_SetUp_MASTER,&
-                 MUMPS_Solve,MUMPS_CleanUp
+USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUpQ2_1_SLAVE,MUMPS_SetUpQ2_3_SLAVE,&
+    MUMPS_SetUpQ2_1_MASTER,MUMPS_SetUpQ2_3_MASTER,MUMPS_Solve,MUMPS_SetUpP1_SLAVE,MUMPS_SetUpP1_MASTER,MUMPS_CleanUp
 #endif
 IMPLICIT NONE
 
@@ -42,10 +42,10 @@ INTEGER mfile,mterm
 INTEGER INLComplete,i
 REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter
 
-IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
-
- RETURN
-END IF
+! IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
+! 
+!  RETURN
+! END IF
 
 CALL mgInit()
 
@@ -53,7 +53,11 @@ CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
 !  IF (myid.eq.1) WRITE(*,*) "hhhuhh ",DefNorm
-IF (DefNorm.LT.1d-10*MyMG%Criterion2) GOTO 88
+IF (DefNorm.LT.1d-16*MyMG%Criterion2) GOTO 88
+
+! IF (myid.eq.showid) THEN
+!  WRITE(*,*) 'InitDef: ',myMG%DefInitial
+! END IF
 
 DefI1 = 0d0
 DefI2 = 0d0
@@ -75,6 +79,7 @@ DO IterCycle=1,MyMG%MaxIterCycle
      IterCycle.GE.MyMG%MinIterCycle) INLComplete = 1
  IF (IterCycle.GE.MyMG%MaxIterCycle) INLComplete = 1
  CALL COMM_NLComplete(INLComplete)
+!  IF (myid.eq.showid) THEN
  IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
   write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
   IterCycle,DefNorm,DefNorm/myMG%DefInitial,&
@@ -403,14 +408,9 @@ END SUBROUTINE mgProlongation
 ! ----------------------------------------------
 !
 SUBROUTINE mgCoarseGridSolver()
-INTEGER ndof,neq,nnSteps
-INTEGER ITE,I,j
-REAL*8 def,def0
 
  mgLev = myMG%MedLev
  ILEV = myMG%MedLev
- CoarseIter  = myMG%nIterCoarse
- ndof  = SIZE(myMG%X(mgLev)%x)
 
  IF (MyMG%cVariable.EQ."Pressure") THEN
 
@@ -423,50 +423,9 @@ REAL*8 def,def0
 
  IF (MyMG%cVariable.EQ."Velocity") THEN
   CALL ZTIME(time0)
-  IF (myid.ne.0) THEN
-   ILEV = mgLev
-   neq = KNVT(mgLev) + KNAT(mgLev) + KNET(mgLev) + KNEL(mgLev)
-   myMG%X(mgLev)%x = 0d0
-   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
-    CALL E013_JacobiSolver9(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-         myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
-         myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
-         myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-         myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,0,0.7d0,def0)
-   ELSE
-    CALL E013_JacobiSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-         myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-         myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,0,0.7d0,def0)
-   END IF
-  end if
-  def0 = MAX(1d-30,def0)
-  CALL COMM_maximum(def0)
-
-  nnSteps = myMG%nIterCoarse
-  ITE = 0
-  DO I=1,10
-   ITE = ITE + 1
-   IF (myid.ne.0) THEN
-    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
-     CALL E013_JacobiSolver9(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-          myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
-          myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
-          myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,nnSteps,myMG%RLX,def)
-    ELSE
-     CALL E013_JacobiSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-          myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,nnSteps,myMG%RLX,def)
-    END IF
-   END IF
-   def = MAX(1d-33,def)
-   CALL COMM_maximum(def)
-   
-!    if (myid.eq.showid) write(*,*) "def/def0",def/def0
-   IF (def/def0.LT.MyMG%DefImprCoarse) GOTO 1
-  END DO
-1 CONTINUE
-  CoarseIter = ITE*nnSteps
+  
+  CALL mgCoarseGridSolver_U()
+  
   CALL ZTIME(time1)
   myStat%tSolvUVW = myStat%tSolvUVW + (time1-time0)
  END IF
@@ -1714,6 +1673,113 @@ END SUBROUTINE outputsol1
 !
 ! ----------------------------------------------
 !
+SUBROUTINE mgCoarseGridSolver_U
+INTEGER ITE,i,j,k,ndof
+INTEGER nnSteps,neq
+REAL*8 def,def0
+
+! WRITE(*,*) 'MyMG%CrsSolverType',MyMG%CrsSolverType
+
+IF (MyMG%CrsSolverType.EQ.1) THEN !! SSOR with JACOBI at SUBBoundaries
+  
+  IF (myid.ne.0) THEN
+   ILEV = mgLev
+   neq = KNVT(mgLev) + KNAT(mgLev) + KNET(mgLev) + KNEL(mgLev)
+   myMG%X(mgLev)%x = 0d0
+   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    CALL E013_JacobiSolver9(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+         myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
+         myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
+         myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+         myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,0,0.7d0,def0)
+   ELSE
+    CALL E013_JacobiSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+         myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+         myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,0,0.7d0,def0)
+   END IF
+  end if
+  def0 = MAX(1d-30,def0)
+  CALL COMM_maximum(def0)
+
+  nnSteps = myMG%nIterCoarse
+  ITE = 0
+  DO I=1,10
+   ITE = ITE + 1
+   IF (myid.ne.0) THEN
+    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+     CALL E013_JacobiSolver9(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+          myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
+          myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
+          myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,nnSteps,myMG%RLX,def)
+    ELSE
+     CALL E013_JacobiSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+          myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,nnSteps,myMG%RLX,def)
+    END IF
+   END IF
+   def = MAX(1d-33,def)
+   CALL COMM_maximum(def)
+   
+!    if (myid.eq.showid) write(*,*) "def/def0",def/def0
+   IF (def/def0.LT.MyMG%DefImprCoarse) GOTO 1
+  END DO
+1 CONTINUE
+  CoarseIter = ITE*nnSteps
+ END IF
+  
+#ifdef MUMPS_AVAIL
+IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
+ ndof = mg_mesh%level(mgLev)%nel + mg_mesh%level(mgLev)%net + &
+        mg_mesh%level(mgLev)%nvt + mg_mesh%level(mgLev)%nat
+
+
+ CALL E013DISTR_L1(myMG%B(mgLev)%x,ndof)
+
+ CALL MUMPS_Init()
+
+ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+  IF (myid.eq.0) THEN
+   CALL MUMPS_SetUpQ2_3_MASTER(myMG%L(mgLev),myMG%B(mgLev)%x)
+  ELSE
+   ndof  = SIZE(myMG%X(mgLev)%x)
+   CALL MUMPS_SetUpQ2_3_SLAVE(myMg%A11(mgLev)%a,myMg%A12(mgLev)%a,myMg%A13(mgLev)%a,&
+                              myMg%A21(mgLev)%a,myMg%A22(mgLev)%a,myMg%A23(mgLev)%a,&
+                              myMg%A31(mgLev)%a,myMg%A32(mgLev)%a,myMg%A33(mgLev)%a,&
+                              myMG%L(mgLev),myMG%X(mgLev)%X,ndof)
+  END IF
+ ELSE
+  IF (myid.eq.0) THEN
+   CALL MUMPS_SetUpQ2_1_MASTER(myMG%L(mgLev),myMG%B(mgLev)%x)
+  ELSE
+   ndof  = SIZE(myMG%X(mgLev)%x)
+   CALL MUMPS_SetUpQ2_1_SLAVE(myMg%A11(mgLev)%a,myMg%A22(mgLev)%a,myMg%A33(mgLev)%a,myMG%L(mgLev),myMG%X(mgLev)%X,ndof)
+  END IF
+ END IF
+ 
+ CALL MUMPS_Solve(myMG%X(mgLev)%x)
+ CoarseIter = 1
+
+ CALL MUMPS_CleanUp()
+
+ CALL E013GATHR_L1(myMG%X(mgLev)%x,ndof)
+END IF
+#else
+   IF (MyMG%CrsSolverType.EQ.5) THEN
+    
+    IF (myid.eq.0) WRITE(*,*) 'MUMPS is not available!'
+    STOP
+    
+   END IF
+#endif
+
+!  WRITE(*,*) 'ok',myid
+!  pause
+
+END SUBROUTINE mgCoarseGridSolver_U
+!
+! ----------------------------------------------
+!
 SUBROUTINE mgCoarseGridSolver_P()
 INTEGER Iter,i,j,k,ndof
 REAL*8 daux
@@ -1796,12 +1862,12 @@ EXTERNAL E011
     CALL MUMPS_Init()
 
     IF (myid.eq.0) THEN
-     CALL MUMPS_SetUp_MASTER(myMG%L(mgLev),myMG%B(mgLev)%x)
+     CALL MUMPS_SetUpP1_MASTER(myMG%L(mgLev),myMG%B(mgLev)%x)
     ELSE
      ndof  = SIZE(myMG%X(mgLev)%x)
-     CALL MUMPS_SetUp_SLAVE(myMg%A(mgLev)%a,myMg%AP(mgLev)%a,&
-                            myMG%L(mgLev),myMG%LP(mgLev),&
-                            myMG%X(mgLev)%X,myMG%XP,ndof)
+     CALL MUMPS_SetUpP1_SLAVE(myMg%A(mgLev)%a,myMg%AP(mgLev)%a,&
+                              myMG%L(mgLev),myMG%LP(mgLev),&
+                              myMG%X(mgLev)%X,myMG%XP,ndof)
     END IF
     
     CALL MUMPS_Solve(myMG%X(mgLev)%x)

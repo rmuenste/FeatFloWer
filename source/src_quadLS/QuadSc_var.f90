@@ -237,6 +237,7 @@ TYPE tGlobalNumberingMap
 END TYPE tGlobalNumberingMap
 TYPE(tGlobalNumberingMap), ALLOCATABLE :: myGlobalNumberingMap(:)
 INTEGER, ALLOCATABLE :: GlobalNumberingQ2(:),GlobalNumberingP1(:)
+INTEGER myGlobal_ndof
 #endif
 
 TYPE mg_Matrix
