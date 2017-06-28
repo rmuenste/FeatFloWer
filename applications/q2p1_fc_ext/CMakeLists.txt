@@ -57,29 +57,15 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-
 target_link_libraries(q2p1_fc_ext 
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  inshape3dcore
-  Utility
-  Math
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
+  ${FF_APPLICATION_LIBS}
   )
 
-target_include_directories(q2p1_fc_ext PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+target_include_directories(q2p1_fc_ext PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
 target_compile_options(q2p1_fc_ext PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(q2p1_fc_ext PROPERTIES LINKER_LANGUAGE Fortran)
-
-#message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
-#message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
 
 IF(${OUT_OF_SOURCE_BUILD})
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set

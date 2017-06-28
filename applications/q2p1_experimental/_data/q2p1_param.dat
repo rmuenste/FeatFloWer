@@ -44,6 +44,7 @@ Velo@MGMinIterCyc = 1
 Velo@MGMaxIterCyc = 5
 Velo@MGSmoothSteps = 2
 Velo@MGIterCoarse = 5
+Velo@MGCrsSolverType = 1                                                   ! 1 SSOR + blockJacobi, 5 Mumps
 Velo@MGDefImprCoarse = 0.1d0
 Velo@MGCriterion1 = 0.9d-1
 Velo@MGCriterion2 = 0.9d-1

@@ -42,7 +42,6 @@ postprocessing.f90
 mumps_test.f90
 )
    
-find_package(MKL)
 
 # Add the application executable
 add_executable(mumps_test ${src_mumps_test}) 
@@ -59,21 +58,10 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(mumps_test 
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  inshape3dcore
-  Utility
-  Math
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
-  dmumps mumps_common pord ${MKL_SCALAPACK_LIBRARY} -Wl,--start-group ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_BLACS_LIBRARY} -Wl,--end-group -lpthread -lm -ldl
+  ${FF_APPLICATION_LIBS}
   )
 
-target_include_directories(mumps_test PUBLIC ${MPI_Fortran_INCLUDE_PATH} .)
+target_include_directories(mumps_test PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
 target_compile_options(mumps_test PRIVATE ${Fortran_FLAGS})
 

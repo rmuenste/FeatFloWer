@@ -56,29 +56,17 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-
 target_link_libraries(q2p1_optic_tweezers 
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  inshape3dcore
-  Utility
-  Math
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
+  ${FF_APPLICATION_LIBS}
   )
 
 target_include_directories(q2p1_optic_tweezers PUBLIC 
-${MPI_Fortran_INCLUDE_PATH} 
+${FF_APPLICATION_INCLUDE_PATH} 
 )
 
 target_compile_options(q2p1_optic_tweezers PRIVATE ${Fortran_FLAGS})
 
 target_compile_definitions(q2p1_optic_tweezers PUBLIC OPTIC_FORCES=1)
-
 
 IF(${OUT_OF_SOURCE_BUILD})
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set

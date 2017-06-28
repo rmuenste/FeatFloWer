@@ -57,20 +57,10 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_particles 
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  inshape3dcore
-  Utility
-  Math
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
+  ${FF_APPLICATION_LIBS}
   )
 
-target_include_directories(q2p1_particles PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+target_include_directories(q2p1_particles PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
 target_compile_options(q2p1_particles PRIVATE ${Fortran_FLAGS})
 

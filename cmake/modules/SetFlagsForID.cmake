@@ -95,6 +95,13 @@ IF(Q2P1_BUILD_ID STREQUAL "opteron-linux-intel-debug")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-intel-debug")
+  SET(CMAKE_BUILD_TYPE "Debug")
+  SET(CXX_FLAGS_FC -std=c++11)
+  SET(Fortran_FLAGS -assume underscore -fpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-gcc-debug")
   SET(CMAKE_BUILD_TYPE "Debug")
   SET(CXX_FLAGS_FC -std=c++11)

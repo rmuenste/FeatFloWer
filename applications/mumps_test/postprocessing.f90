@@ -266,16 +266,15 @@ subroutine release_mesh()
 USE PP3D_MPI, ONLY : myid,master,showid
 USE var_QuadScalar, only : mg_mesh
 implicit none
-
 integer :: i
 integer :: maxlevel
 
 maxlevel = mg_mesh%maxlevel
 
-do i=maxlevel,maxlevel
-  deallocate(mg_mesh%level(i)%dcorvg)
-  mg_mesh%level(i)%dcorvg => null()
-end do
+if(associated(mg_mesh%level(maxlevel)%dcorvg))then
+  deallocate(mg_mesh%level(maxlevel)%dcorvg)
+  mg_mesh%level(maxlevel)%dcorvg => null()
+end if
 
 end subroutine release_mesh
 !

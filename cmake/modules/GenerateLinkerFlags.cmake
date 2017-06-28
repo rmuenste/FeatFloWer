@@ -1,0 +1,43 @@
+#
+#if(USE_OPTICALTWEEZERS)
+#  add_subdirectory(extern/libraries/opticaltweezers)
+#endif(USE_OPTICALTWEEZERS)
+
+set(FF_DEFAULT_LIBS
+  amd
+  umfpack4
+  feat2d
+  feat3d
+  ${BLAS_LIBRARIES}
+  ${LAPACK_LIBRARIES}
+  ${LIBRT_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  )
+
+set(FF_APPLICATION_LIBS
+  amd
+  umfpack4
+  feat2d
+  feat3d
+  ${BLAS_LIBRARIES}
+  ${LAPACK_LIBRARIES}
+  inshape3dcore
+  Utility
+  Math
+  ${LIBRT_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  )
+
+if(USE_MUMPS)
+
+  set(MUMPS_LIBRARY_LIST
+    dmumps mumps_common pord ${MKL_SCALAPACK_LIBRARY} -Wl,--start-group ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_BLACS_LIBRARY} -Wl,--end-group -lpthread -lm -ldl
+    )
+
+  list(APPEND FF_DEFAULT_LIBS ${MUMPS_LIBRARY_LIST})
+
+  list(APPEND FF_APPLICATION_LIBS ${MUMPS_LIBRARY_LIST})
+
+endif(USE_MUMPS)
+
+

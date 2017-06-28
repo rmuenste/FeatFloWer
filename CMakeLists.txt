@@ -203,9 +203,9 @@ ${CMAKE_SOURCE_DIR}/source/distance.f90
 ${CMAKE_SOURCE_DIR}/source/3x3EigenV.f
 )
 
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                 This will create source folders in Visual Studio
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -217,15 +217,9 @@ source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
 source_group(Elements FILES ${Elements})
 
-#--------------------------------------------------------------------------------------------------------------------
-#                                    Configuration of the executable
-#--------------------------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh} ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
-
-
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                    search for the libraries and link them
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 
 option(BUILD_METIS
     "Enables build of metis library"
@@ -254,11 +248,11 @@ add_subdirectory(extern/libraries/amd)
 add_subdirectory(extern/libraries/umfpack4)
 
 if(USE_MUMPS)
+  find_package(MKL)
   if(${Q2P1_BUILD_ID} MATCHES "intel")
     add_definitions(-DMUMPS_AVAIL)
     add_subdirectory(extern/libraries/MUMPS_5.0.1)
     set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
-    #message(FATAL_ERROR "Source list ${src_q2p1}")    
   else(${Q2P1_BUILD_ID} MATCHES "intel")
     message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
@@ -279,30 +273,30 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   endif()
 endif()
 
-target_link_libraries(q2p1 
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
-  )
+include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
+include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
 
-target_include_directories(q2p1 PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+#-------------------------------------------------------------------------------------------------
+#                                    Configuration of the executable
+#-------------------------------------------------------------------------------------------------
+add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh} ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
+
+target_link_libraries(q2p1 
+${FF_DEFAULT_LIBS}
+)
+
+target_include_directories(q2p1 PUBLIC ${FF_DEFAULT_INCLUDE_PATH})
 
 target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
 
-#--------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                  Copy files for out-of-source build
-#--------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 include(${CMAKE_MODULE_PATH}/CreateWorkingDirectories.cmake)
 
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
-
 
 ## we need additional libraries to support CUDA
 IF(BUILD_APPLICATIONS)
@@ -322,11 +316,10 @@ IF(BUILD_APPLICATIONS)
 
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
-#--------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                       INSTALL CONFIGURATION
-#--------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 include(${CMAKE_MODULE_PATH}/ConfigureInstallDirectories.cmake)
-
 
 #-------------------------------------------------------------------------------------------------
 #                                      Predefined test cases

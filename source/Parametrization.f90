@@ -220,7 +220,6 @@ INTEGER I1,I2
   IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ilevel)%Vert)) THEN
    ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Vert(mgMesh%level(ilevel)%NVT))
    ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Face(2,mgMesh%level(ilevel)%NAT))
-  END IF
 
   myParBndr(iBnds)%Bndr(ilevel)%nVerts =0
   myParBndr(iBnds)%Bndr(ilevel)%nFaces =0
@@ -239,9 +238,9 @@ INTEGER I1,I2
                            mgMesh%level(i1)%nvt,&
                            mgMesh%level(i1)%nat,&
                            mgMesh%level(i1)%net)
+  END IF
 
-
-  CALL Parametrize(mgmesh%level(i2)%dcorvg,1,mgmesh%level(i2)%nvt,ilevel)
+  CALL Parametrize(mgmesh%level(ilevel)%dcorvg,1,mgmesh%level(ilevel)%nvt,ilevel)
 
  END DO
 
@@ -726,7 +725,7 @@ SUBROUTINE InitParametrization(mesh,ilevel)
 
   OPEN(UNIT = iunit, FILE = TRIM(ADJUSTL(cFile)), action='read',iostat=istat)
   if(istat .ne. 0)then
-    write(*,*)"Could not open file for writing. "
+    write(*,*)"Could not open file for reading. ",TRIM(ADJUSTL(cFile))
     stop          
   end if
 

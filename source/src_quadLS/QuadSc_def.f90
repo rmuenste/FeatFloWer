@@ -101,9 +101,6 @@ EXTERNAL E011,E013,E010,coefst
            mg_mesh%level(ILEV)%kedge,&
            mg_mesh%level(ILEV)%karea)
 
-! call myMPI_Barrier()
-! stop
-
   mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
 
   ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
@@ -2645,7 +2642,7 @@ REAL*8 U(*),V(*),W(*),P(*),Nu(*)
 INTEGER FBM(*)
 INTEGER I,J,K,JJ
 EXTERNAL E013
-Real*8, dimension(6) :: factors = (/1.0,1.0,1.0,0.0,0.0,0.0/)
+Real*8, dimension(6) :: factors = (/0.0,0.0,4.0,0.0,0.0,0.0/)
 
 ILEV=NLMAX
 CALL SETLEV(2)
