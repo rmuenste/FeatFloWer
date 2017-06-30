@@ -1,3 +1,253 @@
+SUBROUTINE Create_GlobalP1CommNumbering(lScalar,lPScalar,DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE var_QuadScalar, ONLY :mg_kVector,HlobalParallelList1,HlobalParallelList2,&
+    HlobalParallelBufferIn,HlobalParallelBufferOut,HlobalNList,HlobalNBuffer,&
+    HlobalParallelList3,TLinScalar,TParLinScalar
+implicit none
+TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
+TYPE(TParLinScalar), INTENT(INOUT), TARGET ::  lPScalar
+REAL*8  DCORVG(3,*)
+INTEGER KVERT(8,*),KEDGE(12,*),KAREA(6,*)
+INTEGER NAT,NEL,NVT,NET,ndof
+
+INTEGER NeighE(2,12),NeighA(4,6)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+REAL*8 PX,PY,PZ
+REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
+REAL*8 Point1(3),Point2(3),dist
+
+INTEGER,ALLOCATABLE :: iAux(:),offset(:)
+INTEGER iVertices,jVertices,pID,nLenght,nPLength
+INTEGER i,j,k,iSend,iRecv
+ 
+ IF (.not.Allocated(HlobalParallelList1)) ALLOCATE(HlobalParallelList1(NLMIN:NLMAX))
+ IF (.not.Allocated(HlobalParallelList2)) ALLOCATE(HlobalParallelList2(NLMIN:NLMAX))
+ IF (.not.Allocated(HlobalParallelList3)) ALLOCATE(HlobalParallelList3(NLMIN:NLMAX))
+ IF (.not.Allocated(HlobalNBuffer)) ALLOCATE(HlobalNBuffer(NLMIN:NLMAX))
+ IF (.not.Allocated(HlobalNList)) ALLOCATE(HlobalNList(NLMIN:NLMAX))
+
+ ndof = nel
+ allocate(iaux(ndof))
+ iaux = 0
+
+ DO pID=1,subnodes
+   DO I=1,MGE013(ILEV)%SP(pID)%nElems(1)
+    j=MGE013(ILEV)%SP(pID)%VertLink(1,I)
+    iaux(j) = 1
+   END DO
+ END DO
+
+ iVertices = 0
+ DO i=1,ndof
+  if (iaux(i).eq.1) iVertices  = iVertices + 1
+ END DO
+ 
+ HlobalNList(ILEV)   = iVertices
+ IF (.not.Allocated(HlobalParallelList1(ilev)%x)) ALLOCATE(HlobalParallelList1(ilev)%x(iVertices))
+ IF (.not.Allocated(HlobalParallelList2(ilev)%x)) ALLOCATE(HlobalParallelList2(ilev)%x(iVertices))
+
+ ALLOCATE(offset(subnodes+1))
+
+ offset(1) = 0
+ DO pID=1,subnodes
+  iSend = 0
+  if (myid.eq.pID) iSend = iVertices
+  CALL MPI_Allreduce(iSend,iRecv,1,MPI_INTEGER,MPI_SUM,MPI_COMM_SUBS,iERR)
+  iSend = iRecv
+  offset(pID+1) = offset(pID) + iSend 
+ END DO
+
+ nLenght=offset(subnodes+1)
+ HlobalNBuffer(ILEV) = nLenght
+ 
+ k = 0
+ lScalar%valP(ilev)%x= 0
+ 
+ DO i=1,ndof
+  if (iaux(i).eq.1) THEN
+   k = k + 1
+   HlobalParallelList1(ilev)%x(k) = offset(myid)+k
+   HlobalParallelList2(ilev)%x(k) = i
+   lScalar%valP(ilev)%x(i) = DBLE(offset(myid)+k) !DBLE((myid))!
+  end if
+ END DO
+
+ nPLength = 0
+ DO pID=1,subnodes
+  nPLength = nPLength + MGE013(ILEV)%SP(pID)%nElems(2)
+ END DO
+ 
+ CALL GetParPresEntries(lScalar%valP(ilev)%x,lPScalar%val)
+ IF (.not.Allocated(HlobalParallelList3(ilev)%x)) ALLOCATE(HlobalParallelList3(ilev)%x(nPLength))
+  
+ k = 0
+ do i=1,nPLength
+   k = k + 1
+   HlobalParallelList3(ilev)%x(k) = INT(lPScalar%val(i))
+ end do
+
+ if (ilev.eq.nlmax) ALLOCATE(HlobalParallelBufferIn(4*nLenght))
+ if (ilev.eq.nlmax) ALLOCATE(HlobalParallelBufferOut(4*nLenght))
+! !  WRITE(*,*) offset
+
+! if (ilev.eq.nlmax) then
+!  write(*,*) myid, nLenght,nPLength,' : ', HlobalParallelList3(ilev)%x 
+! END IF
+! if (ilev.eq.nlmax) pause
+ 
+ deallocate(iaux,offset)
+
+END SUBROUTINE Create_GlobalP1CommNumbering
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GlobalQ2CommNumbering(DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE var_QuadScalar, ONLY :mg_kVector,GlobalParallelList1,GlobalParallelList2,&
+    GlobalParallelBufferIn,GlobalParallelBufferOut,GlobalNList,GlobalNBuffer
+
+REAL*8  DCORVG(3,*)
+INTEGER KVERT(8,*),KEDGE(12,*),KAREA(6,*)
+INTEGER NAT,NEL,NVT,NET,ndof
+
+INTEGER NeighE(2,12),NeighA(4,6)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+REAL*8 PX,PY,PZ
+REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
+REAL*8 Point1(3),Point2(3),dist
+
+INTEGER,ALLOCATABLE :: iAux(:),offset(:)
+REAL*8 ,ALLOCATABLE :: dAux(:,:),dAuxO(:,:)
+INTEGER iVertices,jVertices,pID,nLenght
+
+ IF (.not.Allocated(GlobalParallelList1)) ALLOCATE(GlobalParallelList1(NLMIN:NLMAX))
+ IF (.not.Allocated(GlobalParallelList2)) ALLOCATE(GlobalParallelList2(NLMIN:NLMAX))
+ IF (.not.Allocated(GlobalNBuffer)) ALLOCATE(GlobalNBuffer(NLMIN:NLMAX))
+ IF (.not.Allocated(GlobalNList)) ALLOCATE(GlobalNList(NLMIN:NLMAX))
+
+
+ ndof = nvt+net+nat+nel
+ allocate(iaux(ndof))
+
+ iaux = 2**10
+
+ DO pID=1,subnodes
+   DO I=1,MGE013(ILEV)%ST(pID)%Num
+    j = MGE013(ILEV)%ST(pID)%VertLink(1,i)
+    iaux(j) = min(iaux(j),pID)
+   END DO
+ END DO
+
+ iVertices = 0
+ DO i=1,ndof
+  if (iaux(i).le.subnodes) iVertices  = iVertices + 1
+ END DO
+ IF (.not.Allocated(GlobalParallelList1(ilev)%x)) ALLOCATE(GlobalParallelList1(ilev)%x(iVertices))
+ IF (.not.Allocated(GlobalParallelList2(ilev)%x)) ALLOCATE(GlobalParallelList2(ilev)%x(iVertices))
+ 
+ jVertices = 0
+ DO i=1,ndof
+  if (iaux(i).le.subnodes.and.iaux(i).gt.myid) jVertices  = jVertices + 1
+ END DO
+
+
+ALLOCATE(offset(subnodes))
+
+offset(1) = 0
+DO pID=1,subnodes-1
+ iSend = 0
+ if (myid.eq.pID) iSend = jVertices
+ CALL MPI_Allreduce(iSend,iRecv,1,MPI_INTEGER,MPI_SUM,MPI_COMM_SUBS,iERR)
+ iSend = iRecv
+ offset(pID+1) = offset(pID) + iSend 
+END DO
+
+ nLenght=offset(subnodes)
+ ALLOCATE(dAux(3,nLenght),dAuxO(3,nLenght))
+
+ daux = 0d0
+ iaux = 2**10
+ k = offset(myid)
+ DO pID=1,subnodes
+   DO I=1,MGE013(ILEV)%ST(pID)%Num
+    j = MGE013(ILEV)%ST(pID)%VertLink(1,i)
+    if (iaux(j).gt.subnodes.and.pID.gt.myid) then
+     k = k + 1
+     daux(1,k) = dcorvg(1,j)
+     daux(2,k) = dcorvg(2,j)
+     daux(3,k) = dcorvg(3,j)
+    end if
+    iaux(j) = min(iaux(j),pID)
+   END DO
+ END DO
+
+ CALL MPI_Allreduce(dAux,dAuxO,3*nLenght,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_SUBS,iERR)
+
+!  if (myid.eq.5) write(*,*)iaux
+
+k = 0
+ DO i=1,ndof
+  inode = iaux(i)
+  IF (inode.le.subnodes) then
+   Point1 = dcorvg(:,i)
+   IF (inode.lt.myid) THEN
+    DO j=offset(inode)+1,offset(inode+1)
+     Point2 = dauxO(:,j)
+     dist = SQRT((Point1(1)-Point2(1))**2d0+(Point1(2)-Point2(2))**2d0+(Point1(3)-Point2(3))**2d0)
+     IF (dist.lt.dEpsPrec) THEN
+      k = k + 1
+      GlobalParallelList1(ilev)%x(k) = j
+      GlobalParallelList2(ilev)%x(k) = i
+!        IF (jnode.ne.myid.and.jnode.ne.inode) WRITE(*,*) 'Found ! ',i,myid,inode,jnode
+      GOTO 1 
+     END IF
+    END DO
+   ELSE
+    DO j=offset(myid)+1,offset(myid+1)
+     Point2 = dauxO(:,j)
+     dist = SQRT((Point1(1)-Point2(1))**2d0+(Point1(2)-Point2(2))**2d0+(Point1(3)-Point2(3))**2d0)
+     IF (dist.lt.dEpsPrec) THEN
+      k = k + 1
+      GlobalParallelList1(ilev)%x(k) = j
+      GlobalParallelList2(ilev)%x(k) = i
+!        IF (jnode.ne.myid.and.jnode.ne.inode) WRITE(*,*) 'Found ! ',i,myid,inode,jnode
+      GOTO 1 
+     END IF
+    END DO
+   END IF   
+!    DO jnode = 1,subnodes-1
+!    DO j=offset(jnode)+1,offset(jnode+1)
+!     Point2 = dauxO(:,j)
+!     dist = SQRT((Point1(1)-Point2(1))**2d0+(Point1(2)-Point2(2))**2d0+(Point1(3)-Point2(3))**2d0)
+!     IF (dist.lt.dEpsPrec) THEN
+!       IF (jnode.ne.myid.and.jnode.ne.inode) WRITE(*,*) 'Found ! ',i,myid,inode,jnode
+!      GOTO 1 
+!     END IF
+!    END DO
+!    END DO
+   WRITE(*,*) 'not found ... ',i,myid,inode
+1  CONTINUE
+  END IF
+ END DO
+
+
+ GlobalNBuffer(ILEV) = nLenght
+ GlobalNList(ILEV)   = iVertices
+ if (ilev.eq.nlmax) ALLOCATE(GlobalParallelBufferIn(3*nLenght))
+ if (ilev.eq.nlmax) ALLOCATE(GlobalParallelBufferOut(3*nLenght))
+
+ if (myid.eq.1) write(*,*) ilev,'offset: ',offset
+ DEALLOCATE(iaux)
+ DEALLOCATE(offset, daux, dauxO)
+
+END SUBROUTINE Create_GlobalQ2CommNumbering
+!
+! ----------------------------------------------
+!
 SUBROUTINE ExchangeVelocitySolutionCoarseSub(U,V,W,dU,dV,dW,N)
 USE PP3D_MPI
 
@@ -2273,17 +2523,16 @@ END DO
 !  pause
 
 END
-
-
-
-SUBROUTINE GetParPressure(P,PP)
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetParPresEntries(P,PP)
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
 
 IMPLICIT NONE
-INTEGER I,pID,pJD,nSize,II,JJ
+INTEGER I,J,pID,pJD,nSize
 REAL*8 P(*),PP(*)
-CHARACTER*10 myFile
 
 IF (myid.ne.MASTER) THEN
 
@@ -2292,7 +2541,386 @@ DO pID=1,subnodes
   DO pJD=1,subnodes
    IF (myid.NE.pJD.AND.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
      nSize = MGE013(ILEV)%SP(pJD)%nElems(2)
-     !write(*,*) "r", myid, pJD, nsize     
+     CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,nSIZE,pJD)
+     DO I=1,nSize
+      J = MGE013(ILEV)%SP(pJD)%VertLink(2,I)
+      PP(J) = MGE013(ILEV)%SP(pJD)%RDVect(I)
+     END DO
+
+   END IF
+  END DO
+ ELSE
+  IF (MGE013(ILEV)%SP(pID)%Num.GT.0) THEN
+   nSize = MGE013(ILEV)%SP(pID)%nElems(1)
+   DO I=1,nSize
+    J = MGE013(ILEV)%SP(pID)%VertLink(1,I)
+    MGE013(ILEV)%SP(pID)%SDVect(I) = P(J)
+   END DO
+   CALL SENDD_myMPI(MGE013(ILEV)%SP(pID)%SDVect,nSIZE,pID)
+  END IF
+ END IF
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetParPressure(P,PP)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 P(*),PP(*)
+
+if (iCommSwitch.eq.1) CALL GetParPressureNEW(P,PP)
+if (iCommSwitch.eq.2) CALL GetParPressureOLD(P,PP)
+if (iCommSwitch.eq.3) CALL GetParPressureSUPER(P,PP)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013SUM(FX)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 FX(*)
+
+if (iCommSwitch.eq.1) CALL E013SumNEW(FX)
+if (iCommSwitch.eq.2) CALL E013SumOLD(FX)
+if (iCommSwitch.eq.3) CALL E013SumSUPER(FX)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013Sum3(FX1,FX2,FX3)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 FX1(*),FX2(*),FX3(*)
+
+if (iCommSwitch.eq.2) CALL E013Sum3OLD(FX1,FX2,FX3)
+if (iCommSwitch.eq.3) CALL E013Sum3SUPER(FX1,FX2,FX3)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013UVWSum(FX)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 FX(*)
+
+if (iCommSwitch.eq.1) CALL E013UVWSumNEW(FX)
+if (iCommSwitch.eq.2) CALL E013UVWSumOLD(FX)
+if (iCommSwitch.eq.3) CALL E013UVWSumSUPER(FX)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013UVWMAT(A11,A22,A33,KLDA,NU) !ok
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 A11(*),A22(*),A33(*)
+INTEGER KLDA(*),NU
+
+if (iCommSwitch.eq.2) CALL E013UVWMAT_OLD(A11,A22,A33,KLDA,NU)
+if (iCommSwitch.eq.3) CALL E013UVWMAT_SUPER(A11,A22,A33,KLDA,NU)
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013MAT(A,KLDA,NU) !ok
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 A(*)
+INTEGER KLDA(*),NU
+
+if (iCommSwitch.eq.2) CALL E013MAT_OLD(A,KLDA,NU)
+if (iCommSwitch.eq.3) CALL E013MAT_SUPER(A,KLDA,NU)
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013SumNEW(FX) !ok
+USE var_QuadScalar, ONLY : GlobalParallelList1,GlobalParallelList2,GlobalParallelBufferIn,&
+    GlobalParallelBufferOut,GlobalNList,GlobalNBuffer,myStat
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+
+REAL*8  FX(*)
+INTEGER i,nLenght
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+ 
+ nLenght = GlobalNBuffer(ILEV)
+
+ GlobalParallelBufferIn(1:nLenght) = 0d0
+
+ DO i = 1,GlobalNList(ILEV)
+  GlobalParallelBufferIn(GlobalParallelList1(ILEV)%x(i)) = FX(GlobalParallelList2(ILEV)%x(i))
+ END DO
+
+ CALL MPI_Allreduce(GlobalParallelBufferIn,GlobalParallelBufferOut,nLenght,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_SUBS,iERR)
+
+ DO i = 1,GlobalNList(ILEV)
+  FX(GlobalParallelList2(ILEV)%x(i)) = GlobalParallelBufferOut(GlobalParallelList1(ILEV)%x(i))
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+END IF
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013UVWSumNEW(FX) !ok
+USE var_QuadScalar, ONLY : GlobalParallelList1,GlobalParallelList2,GlobalParallelBufferIn,&
+    GlobalParallelBufferOut,GlobalNList,GlobalNBuffer,knvt,knet,knat,knel,myStat
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+
+IMPLICIT NONE
+REAL*8  FX(*)
+INTEGER i,nLenght,ndof,ii,jj
+INTEGER MEQ1,MEQ2,MEQ3
+INTEGER LEQ1,LEQ2,LEQ3
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ nLenght = GlobalNBuffer(ILEV)
+ ndof = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
+
+ LEQ1 =0
+ LEQ2 =ndof
+ LEQ3 =2*ndof
+ MEQ1 = 0
+ MEQ2 = nLenght
+ MEQ3 = 2*nLenght
+
+ GlobalParallelBufferIn(1:3*nLenght) = 0d0
+
+ DO i = 1,GlobalNList(ILEV)
+  ii = GlobalParallelList1(ILEV)%x(i)
+  jj = GlobalParallelList2(ILEV)%x(i)
+  GlobalParallelBufferIn(MEQ1+ii) = FX(LEQ1+jj)
+  GlobalParallelBufferIn(MEQ2+ii) = FX(LEQ2+jj)
+  GlobalParallelBufferIn(MEQ3+ii) = FX(LEQ3+jj)
+ END DO
+ 
+ CALL MPI_Allreduce(GlobalParallelBufferIn,GlobalParallelBufferOut,3*nLenght,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_SUBS,iERR)
+
+ DO i = 1,GlobalNList(ILEV)
+  ii = GlobalParallelList1(ILEV)%x(i)
+  jj = GlobalParallelList2(ILEV)%x(i)
+  FX(LEQ1+jj) = GlobalParallelBufferOut(MEQ1+ii) 
+  FX(LEQ2+jj) = GlobalParallelBufferOut(MEQ2+ii) 
+  FX(LEQ3+jj) = GlobalParallelBufferOut(MEQ3+ii) 
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetParPressureNEW(P,PP)
+USE PP3D_MPI , ONLY: myid,master,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_SUBS
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY :HlobalParallelList1,HlobalParallelList2,&
+    HlobalParallelBufferIn,HlobalParallelBufferOut,HlobalNList,HlobalNBuffer,&
+    HlobalParallelList3,myStat
+
+IMPLICIT NONE
+INTEGER ierr
+INTEGER I,pID,pJD,nLenght,iP,jP
+REAL*8 P(*),PP(*)
+CHARACTER*80 cFile
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+ 
+ nLenght = HlobalNBuffer(ILEV)
+
+ HlobalParallelBufferIn  = 0d0
+
+ DO i=1,HlobalNList(ILEV)
+  iP = 4*(HlobalParallelList1(ilev)%x(i)-1) + 1
+  jP = 4*(HlobalParallelList2(ilev)%x(i)-1) + 1
+  HlobalParallelBufferIn(iP:iP+3) = P(jP:jP+3)
+ END DO
+
+ CALL MPI_Allreduce(HlobalParallelBufferIn,HlobalParallelBufferOut,4*nLenght,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_SUBS,iERR)
+
+ DO i=1,SIZE(HlobalParallelList3(ilev)%x)
+  iP = 4*(i-1) + 1
+  jP = 4*(HlobalParallelList3(ilev)%x(i)-1) + 1
+  PP(iP:iP+3) = HlobalParallelBufferOut(jP:jP+3) 
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommP = myStat%tCommP + (tt1-tt0)
+ 
+END IF
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetParPressureSUPER(P,PP)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY :CommOrder,myStat
+
+IMPLICIT NONE
+! INTEGER ierr
+INTEGER I,iRound,pJD,nLenght,iP,jP,nSize,II,JJ
+REAL*8 P(*),PP(*)
+CHARACTER*80 cFile
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
+      END DO
+     END IF
+     
+     IF (myid.gt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
+      END DO
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+     ELSE
+      CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommP = myStat%tCommP + (tt1-tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.gt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
+       PP(JJ+0) = MGE013(ILEV)%SP(pJD)%RDVect(II+0)
+       PP(JJ+1) = MGE013(ILEV)%SP(pJD)%RDVect(II+1)
+       PP(JJ+2) = MGE013(ILEV)%SP(pJD)%RDVect(II+2)
+       PP(JJ+3) = MGE013(ILEV)%SP(pJD)%RDVect(II+3)
+      END DO
+     END IF
+     
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
+       PP(JJ+0) = MGE013(ILEV)%SP(pJD)%RDVect(II+0)
+       PP(JJ+1) = MGE013(ILEV)%SP(pJD)%RDVect(II+1)
+       PP(JJ+2) = MGE013(ILEV)%SP(pJD)%RDVect(II+2)
+       PP(JJ+3) = MGE013(ILEV)%SP(pJD)%RDVect(II+3)
+      END DO
+     END IF
+
+    END IF
+ END DO
+
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetParPressureOLD(P,PP)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY : myStat
+
+IMPLICIT NONE
+! INTEGER ierr
+INTEGER I,pID,pJD,nLenght,iP,jP,nSize,II,JJ
+REAL*8 P(*),PP(*)
+CHARACTER*80 cFile
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+DO pID=1,subnodes
+ IF (myid.eq.pID) THEN
+  DO pJD=1,subnodes
+   IF (myid.NE.pJD.AND.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSize = MGE013(ILEV)%SP(pJD)%nElems(2)
      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
      DO I=1,nSize
       II = 4*(I-1)+1
@@ -2316,27 +2944,14 @@ DO pID=1,subnodes
     MGE013(ILEV)%SP(pID)%SDVect(II+2) = P(JJ+2)
     MGE013(ILEV)%SP(pID)%SDVect(II+3) = P(JJ+3)
    END DO
-   !write(*,*) "s", myid, pID, nsize
    CALL SENDD_myMPI(MGE013(ILEV)%SP(pID)%SDVect,4*nSIZE,pID)
   END IF
  END IF
 END DO
 
-CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
-
-! JJ = 0
-! DO pID=1,subnodes
-!  JJ = JJ + MGE013(ILEV)%SP(pID)%nElems(2)
-! END DO
-! ! 
-! WRITE(myFile(1:10),'(A4,I2,A4)') "file",myid,".txt"
-! OPEN(987,FILE=myFile)
-!  DO I=1,JJ
-!  WRITE(987,'(I8,4D12.4)') 4*(i-1)+1,PP((4*(I-1)+1):(4*(I-1)+4))
-!  END DO
-! CLOSE(987)
-! PAUSE
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommP = myStat%tCommP + (tt1-tt0)
 
 END IF
 
@@ -2344,15 +2959,125 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE E013Sum(FX) !ok
+SUBROUTINE ExtraxtParallelPattern() !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMAX
+USE var_QuadScalar, ONLY : CommOrder
+
+IMPLICIT NONE
+INTEGER I,J,pID,pJD,nSIZE,nEIGH
+REAL*4 tt0,tt1
+INTEGER, ALLOCATABLE :: iTableS(:,:),iTableR(:,:)
+
+ILEV = NLMAX
+
+ALLOCATE(iTableS(subnodes,subnodes))
+ALLOCATE(iTableR(subnodes,subnodes))
+iTableS = 0
+
+IF (myid.ne.MASTER) THEN
+ 
+ DO pID=1,subnodes
+  IF (myid.NE.pID) THEN
+   DO pJD=1,subnodes
+    IF (pID.EQ.pJD.AND.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+
+     iTableS(myid,pJD) = 1
+
+    END IF
+   END DO
+  END IF
+ END DO
+ 
+CALL MPI_Allreduce(iTableS,iTableR,subnodes*subnodes,MPI_INTEGER,MPI_SUM,MPI_COMM_SUBS,iERR)
+
+END IF
+
+CALL OrganizeComm(iTableR,subnodes)
+! WRITE(*,*) CommOrder(myid)%x
+! pause
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013SumSUPER(FX) !ok
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY : CommOrder,myStat
 
 REAL*8  FX(*)
-INTEGER I,pID,pJD,nSIZE,nEIGH
+INTEGER I,pJD,nSIZE,nEIGH,iRound
+REAL*4 tt0,tt1
 
 IF (myid.ne.MASTER) THEN
 
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+     ELSE
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO      
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     DO I=1,nSIZE
+       FX(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(I)
+     END DO
+   END IF
+  END DO
+
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013SumOLD(FX) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY : myStat
+
+REAL*8  FX(*)
+INTEGER I,pID,pJD,nSIZE,nEIGH
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+ 
  DO pID=1,subnodes
   IF (myid.NE.pID) THEN
    DO pJD=1,subnodes
@@ -2379,6 +3104,10 @@ IF (myid.ne.MASTER) THEN
   END IF
  END DO
 
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
  DO pJD=1,subnodes
    IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
      nSIZE = MGE013(ILEV)%ST(pJD)%Num
@@ -2389,25 +3118,25 @@ IF (myid.ne.MASTER) THEN
      END DO
 
    END IF
- END DO
+
+  END DO
 
 END IF
 
-if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
-END SUBROUTINE E013Sum
+END 
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE E013UVWSum(FX) !ok
+SUBROUTINE E013UVWSumSUPER(FX) !ok
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
-USE var_QuadScalar,ONLY:knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:CommOrder,knvt,knet,knat,knel,myStat
 
 REAL*8  FX(*)
-INTEGER I,pID,pJD,nSIZE,nEIGH
+INTEGER I,pJD,nSIZE,nEIGH
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
+REAL*4 tt0,tt1
 
 LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
 LEQ1 =0
@@ -2415,6 +3144,259 @@ LEQ2 =LEQ
 LEQ3 =2*LEQ
 
 IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX(LEQ1+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX(LEQ2+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX(LEQ3+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     ELSE
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX(LEQ1+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX(LEQ2+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX(LEQ3+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     DO I=1,nSIZE
+       FX(LEQ1+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX(LEQ1+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
+       FX(LEQ2+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX(LEQ2+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ2+I)
+       FX(LEQ3+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX(LEQ3+MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
+     END DO
+
+   END IF
+ END DO
+ 
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013Sum3SUPER(FX1,FX2,FX3) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:CommOrder,knvt,knet,knat,knel,myStat
+
+REAL*8  FX1(*),FX2(*),FX3(*)
+INTEGER I,pJD,nSIZE,nEIGH
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX1(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX2(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX3(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     ELSE
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX1(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX2(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX3(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     DO I=1,nSIZE
+       FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
+       FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ2+I)
+       FX3(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX3(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
+     END DO
+
+   END IF
+ END DO
+ 
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013Sum3OLD(FX1,FX2,FX3) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat
+
+REAL*8  FX1(*),FX2(*),FX3(*)
+INTEGER I,pID,pJD,nSIZE,nEIGH
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO pID=1,subnodes
+  IF (myid.NE.pID) THEN
+   DO pJD=1,subnodes
+    IF (pID.EQ.pJD.AND.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+!      write(*,'(10I10)')myid,leq1,leq2,leq3,meq1,meq2,meq3
+!      pause
+     DO I=1,nSIZE
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX1(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX2(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX3(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+     END DO
+
+     CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pID)
+
+    END IF
+   END DO
+  ELSE
+   DO pJD=1,subnodes
+     IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+      nSIZE = MGE013(ILEV)%ST(pJD)%Num
+
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+
+     END IF
+   END DO
+  END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     DO I=1,nSIZE
+       FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
+       FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ2+I)
+       FX3(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       FX3(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
+     END DO
+
+   END IF
+ END DO
+
+END IF
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013UVWSumOLD(FX) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat
+
+REAL*8  FX(*)
+INTEGER I,pID,pJD,nSIZE,nEIGH
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+INTEGER LEQ,LEQ1,LEQ2,LEQ3
+REAL*4 tt0,tt1
+
+
+LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
+LEQ1 =0
+LEQ2 =LEQ
+LEQ3 =2*LEQ
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
 
  DO pID=1,subnodes
   IF (myid.NE.pID) THEN
@@ -2450,6 +3432,10 @@ IF (myid.ne.MASTER) THEN
   END IF
  END DO
 
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
  DO pJD=1,subnodes
    IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
      nSIZE = MGE013(ILEV)%ST(pJD)%Num
@@ -2472,21 +3458,21 @@ IF (myid.ne.MASTER) THEN
 
 END IF
 
-if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
-END SUBROUTINE E013UVWSum
+END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE E013UVWMAT(A11,A22,A33,KLDA,NU) !ok
+SUBROUTINE E013UVWMAT_OLD(A11,A22,A33,KLDA,NU) !ok
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:myStat
 
 REAL*8 A11(*),A22(*),A33(*)
 INTEGER KLDA(*),NU
 INTEGER I,J
 INTEGER pID,pJD,nSIZE
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
+REAL*4 tt0,tt1
 
 IF (myid.ne.MASTER) THEN
 
@@ -2495,6 +3481,9 @@ IF (myid.ne.MASTER) THEN
   MGE013(ILEV)%UE22(I)=A22(KLDA(I))
   MGE013(ILEV)%UE33(I)=A33(KLDA(I))
  ENDDO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
 
  DO pID=1,subnodes
   IF (myid.NE.pID) THEN
@@ -2529,16 +3518,17 @@ IF (myid.ne.MASTER) THEN
   END IF
  END DO
 
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
  DO pJD=1,subnodes
-
    IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
-
      nSIZE = MGE013(ILEV)%ST(pJD)%Num
      MEQ = nSize
      MEQ1 = 0
      MEQ2 = MEQ
      MEQ3 = 2*MEQ
-
      DO I=1,nSIZE
        MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
        MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
@@ -2547,27 +3537,113 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
        MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
      END DO
-
    END IF
-
  END DO
 
 END IF
 
-if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
-END SUBROUTINE E013UVWMAT
+END SUBROUTINE E013UVWMAT_OLD
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE E013MAT(A,KLDA,NU) !ok
+SUBROUTINE E013UVWMAT_SUPER(A11,A22,A33,KLDA,NU) !ok
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:CommOrder,myStat
+
+REAL*8 A11(*),A22(*),A33(*)
+INTEGER KLDA(*),NU
+INTEGER I,J
+INTEGER pID,pJD,nSIZE
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ DO I=1,NU
+  MGE013(ILEV)%UE11(I)=A11(KLDA(I))
+  MGE013(ILEV)%UE22(I)=A22(KLDA(I))
+  MGE013(ILEV)%UE33(I)=A33(KLDA(I))
+ ENDDO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = MGE013(ILEV)%UE22(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+     ELSE
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = MGE013(ILEV)%UE22(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+       MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+     DO I=1,nSIZE
+       MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       MGE013(ILEV)%UE11(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
+       MGE013(ILEV)%UE22(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       MGE013(ILEV)%UE22(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(MEQ2+I)
+       MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
+     END DO
+   END IF
+ END DO
+
+END IF
+
+END SUBROUTINE E013UVWMAT_SUPER
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013MAT_OLD(A,KLDA,NU) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:myStat
 
 REAL*8 A(*)
 INTEGER KLDA(*),NU
 INTEGER I,J
 INTEGER pID,pJD,nSIZE
+REAL*4 tt0,tt1
 
 IF (myid.ne.MASTER) THEN
 
@@ -2603,25 +3679,91 @@ IF (myid.ne.MASTER) THEN
  END DO
 
  DO pJD=1,subnodes
-
    IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
-
      nSIZE = MGE013(ILEV)%ST(pJD)%Num
-
      DO I=1,nSIZE
        MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
        MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(I)
      END DO
-
    END IF
-
  END DO
 
 END IF
 
 if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
-END SUBROUTINE E013MAT
+END SUBROUTINE E013MAT_OLD
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013MAT_SUPER(A,KLDA,NU) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:CommOrder,myStat
+
+REAL*8 A(*)
+INTEGER KLDA(*),NU
+INTEGER I,J
+INTEGER pID,pJD,nSIZE
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO I=1,NU
+  MGE013(ILEV)%UE(I)=A(KLDA(I))
+ ENDDO
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(I) = MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO
+      
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+     ELSE
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+     ELSE
+      DO I=1,nSIZE
+       MGE013(ILEV)%ST(pJD)%SDVect(I) = MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      END DO      
+      CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     DO I=1,nSIZE
+       MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       MGE013(ILEV)%UE(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) + MGE013(ILEV)%ST(pJD)%RDVect(I)
+     END DO
+   END IF
+ END DO
+
+END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+END SUBROUTINE E013MAT_SUPER
 
 SUBROUTINE E012DISTR_L1(D,N)
 USE PP3D_MPI
@@ -3230,4 +4372,241 @@ ELSE
 END IF
 
 END SUBROUTINE COMM_cc_sol
+!
+!
+!
+SUBROUTINE OrganizeComm(T,nT)
+USE PP3D_MPI, ONLY : myid
+USE var_QuadScalar, ONLY : CommOrder,nSubCoarseMesh
+IMPLICIT NONE
+INTEGER nT
+INTEGER T(nT,nT)
+TYPE tPairs
+ INTEGER d(2)
+ LOGICAL p,o
+END TYPE tPairs
+TYPE(tPairs), ALLOCATABLE :: Pairs(:)
+TYPE(tPairs), ALLOCATABLE :: Comm(:,:)
+INTEGER nPairs,MaxPairs,UsedMaxPairs,MaxComm,LenComm,i,j,k
+
+ALLOCATE(CommOrder(nT))
+
+nPairs = 0
+DO i=1,nT
+ DO j=1,nT
+  IF (T(i,j).ne.0.and.i.lt.j) then
+   nPairs = nPairs + 1
+  END iF
+ END DO
+END DO
+
+ALLOCATE(Pairs(nPairs))
+
+nPairs = 0
+MaxPairs = 0
+DO i=1,nT
+ k=0
+ DO j=1,nT
+  IF (T(i,j).ne.0) k = k + 1 
+  IF (T(i,j).ne.0.and.i.lt.j) then
+   nPairs = nPairs + 1
+   Pairs(nPairs)%d = [i,j]
+  END iF
+ END DO
+ IF (MaxPairs.lt.k) THEN
+  MaxPairs = k
+  MaxComm  = i
+ END IF
+END DO
+
+j=mod(nT,2)
+LenComm=INT(0.5*(nT-j)) 
+
+UsedMaxPairs = MaxPairs*2
+ALLOCATE(Comm(UsedMaxPairs,LenComm))
+
+! write(*,*) "MaxPairs","nPairs","LComm","MComm","sComm"
+! write(*,*) MaxPairs,nPairs,LenComm,MaxComm,SIZE(Comm)
+
+CALL PackIt()
+
+CALL OutputComm()
+
+! pause
+Call ExtractSingleComm()
+
+ CONTAINS
+
+SUBROUTINE ExtractSingleComm
+INTEGER i1,i2
+
+ DO i=1,nT
+  ALLOCATE(CommOrder(i)%x(UsedMaxPairs))
+  CommOrder(i)%x(:) = 0
+ END DO
+ 
+ DO i=1,UsedMaxPairs
+  DO j=1,LenComm
+   if (comm(i,j)%p) then
+     i1 = Comm(i,j)%d(1)
+     i2 = Comm(i,j)%d(2)
+     CommOrder(i1)%x(i) = i2
+     CommOrder(i2)%x(i) = i1
+   END IF
+  END DO
+ END DO
+
+if (myid.eq.1) then
+!  WRITE(*,*) 
+!  DO i=1,nT
+!   WRITE(*,'(I,A$)') i," : "
+!   DO j=1,UsedMaxPairs
+!    WRITE(*,'(I3$)') CommOrder(i)%x(j)
+!   END DO
+!   WRITE(*,*) " |"
+!  END DO
+END if
+
+END 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE OutputComm
+INTEGER i1,i2
+CHARACTER cX*(1)
+
+WRITE(*,*) 'LenComm: ',LenComm,'UsedMaxPairs: ',UsedMaxPairs
+if (myid.eq.1) then
+ DO i=1,LenComm
+  DO j=1,UsedMaxPairs
+   IF (Comm(j,i)%d(1).ne.0) THEN
+    if (Comm(j,i)%o) then
+     WRITE(*,'(A1,I3,A1,I3,A1$)') '{',Comm(j,i)%d(1),',',Comm(j,i)%d(2),'}'
+    else
+     WRITE(*,'(A1,I3,A1,I3,A1$)') '[',Comm(j,i)%d(1),',',Comm(j,i)%d(2),']'
+    end if
+   ELSE
+    WRITE(*,'(A$)') '          '
+   END IF
+  END DO
+  write(*,*) ' '
+ END DO
+end if
+
+return
+if (myid.eq.1) then
+ DO i=1,UsedMaxPairs
+  DO j=1,LenComm
+   if (Comm(i,j)%o) then
+    cX=' '
+   else
+    cX='*'
+   end if
+   WRITE(*,'(A2,I3,A1,I3,A2,A$)') ' {',Comm(i,j)%d(1),',',Comm(i,j)%d(2),' }',cX
+  END DO
+  write(*,*) ' '
+ END DO
+end if
+
+! pause
+END
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE Packit
+LOGICAL, ALLOCATABLE :: f(:)
+INTEGER i1,i2,kSubPart
+
+ allocate(f(nT))
+
+ DO i=1,UsedMaxPairs
+  DO j=1,LenComm
+   Comm(i,j)%d = [0,0]
+   Comm(i,j)%p = .FALSE.
+   Comm(i,j)%o = .TRUE.
+  END DO
+ END DO
+ 
+ Pairs(:)%p = .FALSE.
+ DO i=1,SIZE(Pairs)
+    kSubPart = FLOOR(DBLE(nT)/DBLE(nSubCoarseMesh)-1d-10)+1
+    i1 = FLOOR(DBLE(Pairs(i)%d(1))/DBLE(kSubPart)-1d-10)+1
+    i2 = FLOOR(DBLE(Pairs(i)%d(2))/DBLE(kSubPart)-1d-10)+1
+!     i1 = nSubCoarseMesh - i1 + 1
+!     i2 = nSubCoarseMesh - i2 + 1
+!   i1 = INT(nSubCoarseMesh*Pairs(i)%d(1)/nT)
+!   i2 = INT(nSubCoarseMesh*Pairs(i)%d(2)/nT)
+  if (i1.eq.i2) then
+   Pairs(i)%o = .TRUE.
+   IF (myid.eq.1) WRITE(*,*) i1,' - ', Pairs(i)%d,nSubCoarseMesh
+  else
+   Pairs(i)%o = .FALSE.
+  end if
+ END DO
+  
+ DO i=1,UsedMaxPairs
+  f = .false.
+  DO j=1,LenComm
+   DO k=1,nPairs
+    IF ((.not.Pairs(k)%p).and.(.not.Pairs(k)%o)) THEN
+     i1 = Pairs(k)%d(1)
+     i2 = Pairs(k)%d(2)
+     if ((.not.f(i1)).and.(.not.f(i2))) then
+      Comm(i,j)%d = Pairs(k)%d
+      Comm(i,j)%o = Pairs(k)%o
+      Comm(i,j)%p = .true.
+      Pairs(k)%p  = .true.
+      f(i1)       = .true.
+      f(i2)       = .true.
+      exit
+     end if
+    END IF
+   END DO
+  END DO
+ END DO
+ 
+ DO i=1,UsedMaxPairs
+  f = .false.
+  DO j=1,LenComm
+     i1 = Comm(i,j)%d(1)
+     i2 = Comm(i,j)%d(2)
+     if (i1.ne.0.and.i2.ne.0) then
+     f(i1) = .true.
+     f(i2) = .true.
+     end if
+  END DO
+  
+  DO j=1,LenComm
+   IF (.not.Comm(i,j)%p) then
+   DO k=1,nPairs
+    IF (.not.Pairs(k)%p) THEN
+     i1 = Pairs(k)%d(1)
+     i2 = Pairs(k)%d(2)
+     if ((.not.f(i1)).and.(.not.f(i2))) then
+      Comm(i,j)%d = Pairs(k)%d
+      Comm(i,j)%o = Pairs(k)%o
+      Comm(i,j)%p = .true.
+      Pairs(k)%p  = .true.
+      f(i1)       = .true.
+      f(i2)       = .true.
+      exit
+     end if
+    END IF
+   END DO
+   end if
+  END DO
+ END DO
+
+ DO i=1,UsedMaxPairs
+  k = 0
+  DO j=1,LenComm
+   IF (Comm(i,j)%p) k = k + 1
+  END DO
+  if (k.eq.0) GOTO 1
+ END DO
+ 1 continue
+ 
+ UsedMaxPairs = i-1
+ 
+!  write(*,*) Pairs(:)%p
+!  write(*,*) "UsedMaxPairs:",UsedMaxPairs
+END 
+
+END 
 

@@ -19,6 +19,8 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
+INTEGER :: iCommSwitch=3
+
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
@@ -100,6 +102,8 @@ TYPE tStatistics
  REAL  :: tSmat=0d0,tKmat=0d0,tDmat=0d0,tMmat=0d0,tCmat=0d0
  REAL  :: tRestUVW=0d0,tProlUVW=0d0,tSmthUVW=0d0,tSolvUVW=0d0
  REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
+ REAL  :: tCommV = 0d0
+ REAL  :: tCommP = 0d0
  REAL  :: t0,t1
 END TYPE tStatistics
 TYPE (tStatistics),save :: myStat
@@ -241,6 +245,16 @@ END TYPE tGlobalNumberingMap
 TYPE(tGlobalNumberingMap), ALLOCATABLE :: myGlobalNumberingMap(:)
 INTEGER, ALLOCATABLE :: GlobalNumberingQ2(:),GlobalNumberingP1(:)
 INTEGER myGlobal_ndof
+
+TYPE(mg_kVector),ALLOCATABLE :: GlobalParallelList1(:),GlobalParallelList2(:)
+REAL*8, ALLOCATABLE          :: GlobalParallelBufferOut(:),GlobalParallelBufferIn(:)
+INTEGER, ALLOCATABLE         :: GlobalNList(:),GlobalNBuffer(:)
+
+TYPE(mg_kVector),ALLOCATABLE :: HlobalParallelList1(:),HlobalParallelList2(:),HlobalParallelList3(:)
+REAL*8, ALLOCATABLE          :: HlobalParallelBufferOut(:),HlobalParallelBufferIn(:)
+INTEGER, ALLOCATABLE         :: HlobalNList(:),HlobalNBuffer(:)
+
+TYPE(mg_kVector),ALLOCATABLE :: CommOrder(:)
 
 TYPE mg_Matrix
  REAL*8  , DIMENSION(:)  , ALLOCATABLE  :: a

@@ -270,6 +270,19 @@ DO ILEV=NLMIN+1,NLMAX
 
  END DO
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
+ 
+  DO ILEV=NLMIN,NLMAX
+  IF (myid.ne.0) THEN
+   CALL Create_GlobalQ2CommNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%nvt,&
+                      mg_mesh%level(ILEV)%net,&
+                      mg_mesh%level(ILEV)%nat,&
+                      mg_mesh%level(ILEV)%nel)   
+  end if
+  end do
 
  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net

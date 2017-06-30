@@ -235,6 +235,8 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
+if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
+
 IF (myFBM%nParticles.GT.0) THEN
  CALL FBM_GetForces()
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
@@ -430,10 +432,12 @@ end if
  IF (myid.ne.master) THEN
   ! Parallel E012/E013 matrix structure
   CALL Create_QuadLinParMatStruct(PLinSc) !(pB)
-
+  
   ! Building up the Parallel E012/E012 matrix strucrures
   CALL Create_ParLinMatStruct ()
- END IF
+
+  CALL BuildUpPressureCommunicator(LinSc,PLinSc)
+END IF
 
 ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
