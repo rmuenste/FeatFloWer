@@ -228,7 +228,6 @@ REAL*8  , DIMENSION(:)  , POINTER :: VisMat_12,VisMat_13,VisMat_23
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
 
-#ifdef MUMPS_AVAIL
 TYPE tGlobalNumberingMap
  INTEGER  :: ndof,ndof_Q2,ndof_P1
  INTEGER , allocatable :: ind(:)
@@ -238,7 +237,6 @@ END TYPE tGlobalNumberingMap
 TYPE(tGlobalNumberingMap), ALLOCATABLE :: myGlobalNumberingMap(:)
 INTEGER, ALLOCATABLE :: GlobalNumberingQ2(:),GlobalNumberingP1(:)
 INTEGER myGlobal_ndof
-#endif
 
 TYPE mg_Matrix
  REAL*8  , DIMENSION(:)  , ALLOCATABLE  :: a
