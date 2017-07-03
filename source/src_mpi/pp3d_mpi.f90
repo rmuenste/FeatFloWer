@@ -414,10 +414,11 @@ CONTAINS
     END IF
     END DO
 
-    !  DO pID=1,subnodes
-    !    write(*,'(6I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
-    !  END DO
+!      DO pID=1,subnodes
+!        write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
+!      END DO
 
+!     pause
     DO pID=1,subnodes
     ALLOCATE (NeighSt(pID)%Face(subnodes))
     END DO
