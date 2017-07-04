@@ -40,9 +40,17 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     pMethod-=10
   else:
     bReversed=False
+  # Speziller Marker für atomares Splitting, der nötig wird, wenn nSubMesh>1 ist
+  # und nnPart == #Gitterzellen des Hauptgitters
+  bAtomicSplitting=False
+  # Falls mit Untergittern gearbeitet werden soll, so spalte das Hauptgitter auf,
+  # ansonsten nehme das Hauptgitter als Untergitter Nr.1
   if nSubMesh > 1:
     # Lese Gitter ein
     myGrid=GetGrid(os.path.join(workPath,"GRID.tri"))
+    # (Anzahl der Gitterzellen == nnPart) => aktiviere atomares Splitting
+    if myGrid[0]==nnPart:
+      bAtomicSplitting=True
     # Erzeuge Nachbarschaftsinformationen für das Gitter
     myNeigh=GetNeigh(myGrid)
     # Lese Parametrisierungen und Ränder ein
@@ -92,7 +100,11 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     nPart=min(iPart+kSubPart,nnPart)-iPart
     # Partitionierung mittel verschiedener Methoden (WIP)    
     if pMethod in (1,2,3):
-      myPart=GetParts(myNeigh,nPart,pMethod)
+      if bAtomicSplitting:
+        myPart=GetAtomicSplitting(len(myNeigh))
+        nPart=max(myPart)
+      else:
+        myPart=GetParts(myNeigh,nPart,pMethod)
     else:
       sys.exit("Partitioning method %d is not available for subgrids!"%pMethod)
     # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete

@@ -132,7 +132,16 @@ def GetNeigh(Grid):
 def _print_c_array(A):
   print "("+", ".join(map(str,A))+")"
 
+def GetAtomicSplitting(Num):
+  return tuple(xrange(1,Num+1))
+
 def GetParts(Neigh,nPart,Method):
+  # Falls die Anzahl der gesuchten Unterteilungen größer oder gleich der Anzahl der Zellen ist,
+  # führen eine atomare Aufteilung des Gitters in einzelne Zellen durch.
+  # Dies behebt ein merkwürdiges Verhalten von Metis, dass in diesem Fall Unterteilungen
+  # mit 0 Elementen und mehr als einem Element erzeugt.
+  if len(Neigh)<=nPart:
+    return GetAtomicSplitting(len(Neigh))
   # Ein paar Einstellungsparameter
   cOpts=(c_int * 5)(0,100,4,1,1)
   cNum=c_int(1) # Nummerierung beginnt mit 1
