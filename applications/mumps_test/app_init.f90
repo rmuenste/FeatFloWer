@@ -116,6 +116,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
    iSubPart = FLOOR(DBLE(myid)/DBLE(kSubPart)-1d-10)+1
    iPart    = myid - (iSubPart-1)*kSubPart
+!    iSubPart = nSubCoarseMesh - iSubPart + 1
    IF     (iSubpart.lt.10 ) THEN
      WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A5,I1,A1)') "sub00",iSubpart,"/"  ! PARALLEL
    ELSEIF (iSubpart.lt.100) THEN
@@ -141,6 +142,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
 
+!  write(*,*) myid, CMESH1
+!  pause
  CALL Init_QuadScalar(mfile)
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev

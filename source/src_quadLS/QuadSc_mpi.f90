@@ -438,7 +438,6 @@ DEALLOCATE (iCoor)
 nnQ2  = NEL+NVT+NAT+NET
 nnP0 =  NEL
 
-D = 0
 j = 0
 
 ndof = 3*nnQ2
@@ -3552,10 +3551,11 @@ ALLOCATE(Comm(UsedMaxPairs,LenComm))
 ! write(*,*) "MaxPairs","nPairs","LComm","MComm","sComm"
 ! write(*,*) MaxPairs,nPairs,LenComm,MaxComm,SIZE(Comm)
 
-CALL Packit()
+CALL PackIt()
 
 CALL OutputComm()
 
+! pause
 Call ExtractSingleComm()
 
  CONTAINS
@@ -3596,6 +3596,25 @@ SUBROUTINE OutputComm
 INTEGER i1,i2
 CHARACTER cX*(1)
 
+WRITE(*,*) 'LenComm: ',LenComm,'UsedMaxPairs: ',UsedMaxPairs
+if (myid.eq.1) then
+ DO i=1,LenComm
+  DO j=1,UsedMaxPairs
+   IF (Comm(j,i)%d(1).ne.0) THEN
+    if (Comm(j,i)%o) then
+     WRITE(*,'(A1,I3,A1,I3,A1$)') '{',Comm(j,i)%d(1),',',Comm(j,i)%d(2),'}'
+    else
+     WRITE(*,'(A1,I3,A1,I3,A1$)') '[',Comm(j,i)%d(1),',',Comm(j,i)%d(2),']'
+    end if
+   ELSE
+    WRITE(*,'(A$)') '          '
+   END IF
+  END DO
+  write(*,*) ' '
+ END DO
+end if
+
+return
 if (myid.eq.1) then
  DO i=1,UsedMaxPairs
   DO j=1,LenComm
@@ -3609,6 +3628,7 @@ if (myid.eq.1) then
   write(*,*) ' '
  END DO
 end if
+
 ! pause
 END
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -3631,6 +3651,8 @@ INTEGER i1,i2,kSubPart
     kSubPart = FLOOR(DBLE(nT)/DBLE(nSubCoarseMesh)-1d-10)+1
     i1 = FLOOR(DBLE(Pairs(i)%d(1))/DBLE(kSubPart)-1d-10)+1
     i2 = FLOOR(DBLE(Pairs(i)%d(2))/DBLE(kSubPart)-1d-10)+1
+!     i1 = nSubCoarseMesh - i1 + 1
+!     i2 = nSubCoarseMesh - i2 + 1
 !   i1 = INT(nSubCoarseMesh*Pairs(i)%d(1)/nT)
 !   i2 = INT(nSubCoarseMesh*Pairs(i)%d(2)/nT)
   if (i1.eq.i2) then
