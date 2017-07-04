@@ -235,8 +235,6 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
-
 IF (myFBM%nParticles.GT.0) THEN
  CALL FBM_GetForces()
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)

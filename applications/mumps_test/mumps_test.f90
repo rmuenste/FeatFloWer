@@ -29,8 +29,7 @@ PROGRAM MUMPS_TEST
   timens=timens+dt
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP(ufile,inonln_u,itns)
-
+  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
   inonln_t = 2
 

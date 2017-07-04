@@ -208,6 +208,7 @@ IF (myFBM%nParticles.GT.0) THEN
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
 END IF
 
+if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
