@@ -202,7 +202,7 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
     else:
       localGridName=os.path.join(BaseName,"sub%03d"%iPart,"GRID.tri")
     OutputGrid(localGridName,localGrid)
-    # <<< bis hierhin portiert >>>
+    ###
     localRestriktion=set(LookUp.iterkeys())
     for iPar in xrange(nParFiles):
       if bSub:

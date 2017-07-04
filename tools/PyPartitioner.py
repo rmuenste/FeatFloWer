@@ -34,6 +34,12 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
   # Erzeuge zusätzliche Unterverzeichnisse falls Untergitter erzeugt werden sollen
   for i in xrange(1,nSubMesh+1):
     mkdir(os.path.join(workPath,"sub%03d" % i))
+  # Bestimme, ob die Untergitter in umgekehrter Reihenfolge abgespeichert werden sollen.
+  if pMethod in (11,12,13):
+    bReversed=True
+    pMethod-=10
+  else:
+    bReversed=False
   if nSubMesh > 1:
     # Lese Gitter ein
     myGrid=GetGrid(os.path.join(workPath,"GRID.tri"))
@@ -69,7 +75,8 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
   # Im Grunde "kSubPart=int(math.ceil(nnPart/float(nSubMesh)))"
   kSubPart= nnPart//nSubMesh if nnPart%nSubMesh==0 else nnPart//nSubMesh+1
   iPart=0
-  for i in xrange(1,nSubMesh+1):
+  rIter = xrange(nSubMesh,0,-1) if bReversed else xrange(1,nSubMesh+1)
+  for i in rIter:
     subPath=os.path.join(workPath,"sub%03d"%i)
     myGrid=GetGrid(os.path.join(subPath,"GRID.tri"))
     myNeigh=GetNeigh(myGrid)
@@ -122,8 +129,8 @@ if NPart <1:
   sys.exit("Number of Partitions has to be >=1 !")
 if NSubPart<1:
   sys.exit("There has to be at least one subgrid!")
-if not (PartMethod in (1,2,3) or str(-PartMethod).strip("123")==""):
-  sys.exit("Only integer numbers 1,2,3 or negative numbers containing the digits 1,2,3 are valid partitioning methods!")
+if not (PartMethod in (1,2,3,11,12,13) or str(-PartMethod).strip("123")==""):
+  sys.exit("Only integer numbers 1,2,3 (+10) or negative numbers containing the digits 1,2,3 are valid partitioning methods!")
 if PartMethod<0 and NSubPart==1:
   sys.exit("Partitionig Method %d requires more than 1 subgrid!"%PartMethod)
 MeshName=sys.argv[4]
