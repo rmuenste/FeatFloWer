@@ -94,6 +94,11 @@ MODULE PP3D_MPI
   TYPE(TparST), DIMENSION(:), ALLOCATABLE :: mg_mpi
   INTEGER NLMINp
 
+  TYPE tmQ2
+   INTEGER, ALLOCATABLE :: x(:)
+  END TYPE tmQ2
+  TYPE (tmQ2), ALLOCATABLE :: mQ2(:)
+
   REAL*8 :: DEpsPrec = 1d-5
   ! -------------- Subroutines -------------------
 CONTAINS

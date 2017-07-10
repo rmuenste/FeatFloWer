@@ -92,7 +92,7 @@ static void make_filename (Int filenum, char *prefix, char *filename)
 /* first we define a static pointer array which collects all pointers and
    wrap integer-handles to pointers                                           */
 
-#define N_HANDLECOUNT (4096)
+#define N_HANDLECOUNT (3276800)
 
 void* umf4handles [N_HANDLECOUNT];
 int initialized = 0;

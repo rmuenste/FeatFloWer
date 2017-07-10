@@ -1,4 +1,4 @@
-subroutine init_q2p1_ext(log_unit)
+subroutine init_q2p1_cc(log_unit)
     
   USE def_FEAT
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
@@ -13,25 +13,25 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
+  use Transport_cc
+  use transport_linear_cc
 
   integer, intent(in) :: log_unit
 
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  CALL General_init_ext(79,log_unit)
+  CALL General_init_cc(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(log_unit)
+  call Init_Q2P1_Structures_cc(log_unit)
 
-  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
+  call Init_LinScalar_cc()
 
-  CALL Init_LinScalar
-
-  CALL InitCond_LinScalar()
+  call InitCond_LinScalar_cc()
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    CALL InitCond_QuadScalar()
+    CALL InitCond_QuadScalar_cc()
     IF(bViscoElastic)CALL IniProf_ViscoScalar()
   ELSE
     IF (ISTART.EQ.1) THEN
@@ -45,11 +45,11 @@ subroutine init_q2p1_ext(log_unit)
     END IF
   END IF
 
-end subroutine init_q2p1_ext
+end subroutine init_q2p1_cc
 !
 !----------------------------------------------
 !
-SUBROUTINE General_init_ext(MDATA,MFILE)
+SUBROUTINE General_init_cc(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
  USE MESH_Structures
@@ -188,8 +188,6 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
- write(*,*)'Refinement finished: ',myid
-
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
@@ -228,6 +226,17 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  ! Set up the communication structures for the Quadratic element
  ILEV=NLMIN
 
+ IF (myid.eq.1) write(*,*) 'setting up mapping CC structures for Q2  on level : ',ILEV
+ CALL GetQ2CoarseMapper(mg_mesh%level(ILEV)%dcorvg,&
+                        mg_mesh%level(ILEV)%kvert,&
+                        mg_mesh%level(ILEV)%kedge,&
+                        mg_mesh%level(ILEV)%karea,&
+                        mg_mesh%level(ILEV)%nvt,&
+                        mg_mesh%level(ILEV)%net,&
+                        mg_mesh%level(ILEV)%nat,&
+                        mg_mesh%level(ILEV)%nel)
+
+
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
  CALL E013_CreateComm_coarse(mg_mesh%level(ILEV)%dcorvg,&
@@ -241,6 +250,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
+ CALL E013_Comm_Master(mg_mesh%level(ILEV)%dcorvg,&
+                       mg_mesh%level(ILEV)%kvert,&
+                       mg_mesh%level(ILEV)%kedge,&
+                       mg_mesh%level(ILEV)%karea,&
+                       mg_mesh%level(ILEV)%nvt,&
+                       mg_mesh%level(ILEV)%net,&
+                       mg_mesh%level(ILEV)%nat,&
+                       mg_mesh%level(ILEV)%nel)
+
+
  ILEV = LinSc%prm%MGprmIn%MedLev
 
  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
@@ -251,6 +270,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%net,&
                              mg_mesh%level(ILEV)%nat,&
                              mg_mesh%level(ILEV)%nel)
+
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  
@@ -269,7 +289,8 @@ DO ILEV=NLMIN+1,NLMAX
                       mg_mesh%level(ILEV)%nel,&
                       LinSc%prm%MGprmIn%MedLev)
 
- END DO
+END DO
+
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
@@ -277,11 +298,11 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL E011_CreateComm(NDOF)
 
- !     ----------------------------------------------------------            
+ !    ----------------------------------------------------------            
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
- !     ----------------------------------------------------------        
+ !    ----------------------------------------------------------        
 
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
@@ -291,8 +312,6 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,ilev)
 
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-
-     write(*,*)'Prolongating: ',ilev, ilev+1
 
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
@@ -356,13 +375,6 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
  END IF
 
- !CALL SETLEV(2)
-
- IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
- END IF
-
  if(.not.allocated(mg_mesh%level(II)%dvol))then
    allocate(mg_mesh%level(II)%dvol(NEL))
  end if
@@ -402,7 +414,7 @@ DO ILEV=NLMIN+1,NLMAX
 
  RETURN
 
-END SUBROUTINE General_init_ext
+END SUBROUTINE General_init_cc
  !
  !-----------------------------------------------------------------------
  !

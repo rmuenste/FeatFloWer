@@ -51,13 +51,6 @@ EXTERNAL E013,coefst
    mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
    DEALLOCATE(TempColA)
 
-!    J = 0
-!    DO I=1,mg_qMat(ILEV)%nu
-!     IF (mg_qMat(ILEV)%LdA(I+1)-mg_qMat(ILEV)%LdA(I).GT.J) &
-!        J = mg_qMat(ILEV)%LdA(I+1)-mg_qMat(ILEV)%LdA(I)
-!    END DO
-!    write(*,*) myid,ilev,J
-
  END DO
 
  ILEV=NLMAX
@@ -1339,6 +1332,9 @@ INTEGER NDOF,N
  ALLOCATE(myScalar%rhs(NLMIN:NLMAX))
  ALLOCATE(myScalar%aux(NLMIN:NLMAX))
  ALLOCATE(myScalar%sol(NLMIN:NLMAX))
+
+ ! For CC
+ ALLOCATE(myScalar%dsol(NLMIN:NLMAX))
  DO ILEV=NLMIN,NLMAX
 
   !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
@@ -1351,6 +1347,9 @@ INTEGER NDOF,N
   ALLOCATE(myScalar%rhs(ILEV)%x(3*NDOF))
   ALLOCATE(myScalar%aux(ILEV)%x(3*NDOF))
   ALLOCATE(myScalar%sol(ILEV)%x(3*NDOF))
+
+  ! For CC
+  ALLOCATE(myScalar%dsol(ILEV)%x(3*NDOF))
  END DO
 
  ILEV=NLMAX
@@ -1366,14 +1365,11 @@ INTEGER NDOF,NDOF2,N
  ILEV=NLMAX
 
  NDOF = 4*mg_mesh%level(ilev)%nel
- write(*,*)'ndof linscalar:',ndof,ilev,mg_mesh%level(ilev)%nel
 
  NDOF2 = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
          mg_mesh%level(ilev)%nat+&
          mg_mesh%level(ilev)%nel
-
-! NDOF2= KNEL(ILEV)+KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)
 
  NVT  = mg_mesh%level(ilev)%nvt
 
@@ -1386,12 +1382,20 @@ INTEGER NDOF,NDOF2,N
  ALLOCATE(myScalar%valP_GMV(myScalar%ndof*8))
 
  ALLOCATE(myScalar%valP(NLMIN:NLMAX))
+
+ ! For CC
+ ALLOCATE(myScalar%dvalP(NLMIN:NLMAX))
+
  ALLOCATE(myScalar%rhsP(NLMIN:NLMAX))
  ALLOCATE(myScalar%defP(NLMIN:NLMAX))
  ALLOCATE(myScalar%auxP(NLMIN:NLMAX))
  DO ILEV=NLMIN,NLMAX
   NDOF = 4*mg_mesh%level(ilev)%nel
   ALLOCATE(myScalar%valP(ILEV)%x(NDOF))
+
+  ! For CC
+  ALLOCATE(myScalar%dvalP(ILEV)%x(NDOF))
+
   ALLOCATE(myScalar%defP(ILEV)%x(NDOF))
   ALLOCATE(myScalar%auxP(ILEV)%x(NDOF))
   ALLOCATE(myScalar%rhsP(ILEV)%x(NDOF))
@@ -2666,6 +2670,7 @@ INTEGER iEnd,iAt,iEq,istat
 CHARACTER string*100,param*50,cVar*7,cPar*50
 LOGICAL bOK
 INTEGER :: myFile=90909090
+CHARACTER(20) :: out_string
   
 OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
 if(istat .ne. 0)then
@@ -2693,81 +2698,98 @@ DO
 
    SELECT CASE (TRIM(ADJUSTL(cPar)))
 
+    ! Problems with GCC: 
+    ! The gfortran compiler does not permit a statement like write(*,'(A,I)') where
+    ! the length of the integer I is not specified.
+    ! A way to solve this problem is to write the integer to a string:
+    ! write(string,'(i20)')myParam%iMass
+    ! that is long enough to hold all reasonable integer values
+    ! then adjust the length of the string write it out:
+    ! write(*,'(A)')adjustl(string)
     CASE ("iMass")
     READ(string(iEq+1:),*) myParam%iMass
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%iMass
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%iMass
+    write(out_string,'(i20)')myParam%iMass
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%iMass)
+
     CASE ("SolvType")
     READ(string(iEq+1:),*) param
     IF (TRIM(ADJUSTL(param)).EQ."Jacobi") myParam%SolvType = 1
     IF (TRIM(ADJUSTL(param)).EQ."BiCGSTAB")myParam%SolvType = 2
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%SolvType
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%SolvType
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%SolvType)
+
     CASE ("defCrit")
     READ(string(iEq+1:),*) myParam%defCrit
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%defCrit
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%defCrit
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%defCrit)
+
+    CASE ("Alpha")
+    READ(string(iEq+1:),*) myParam%Alpha
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%Alpha)
+
     CASE ("MinDef")
     READ(string(iEq+1:),*) myParam%MinDef
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MinDef
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MinDef
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MinDef)
+
     CASE ("NLmin")
     READ(string(iEq+1:),*) myParam%NLmin
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmin
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmin
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%NLmin)
+
     CASE ("NLmax")
     READ(string(iEq+1:),*) myParam%NLmax
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmax
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%NLmax
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%NLmax)
+
     CASE ("MGMinLev")
     READ(string(iEq+1:),*) myParam%MGprmIn%MinLev
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinLev)
+
     CASE ("MGMedLev")
     READ(string(iEq+1:),*) myParam%MGprmIn%MedLev
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MedLev)
+
     CASE ("MGMinIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinIterCycle)
+
     CASE ("MGMaxIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MaxIterCycle)
+
     CASE ("MGSmoothSteps")
     READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nSmootherSteps)
+
     CASE ("MGIterCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mterm,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mfile,'(A,I)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nIterCoarse)
+
+    CASE ("MG_VANKA")
+    READ(string(iEq+1:),*) myParam%MGprmIn%VANKA
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%VANKA)
+
     CASE ("MGCrsSolverType")
     READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
+
     CASE ("MGDefImprCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%DefImprCoarse)
+
     CASE ("MGCriterion1")
     READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion1)
+
     CASE ("MGCriterion2")
     READ(string(iEq+1:),*) myParam%MGprmIn%Criterion2
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion2)
+
     CASE ("MGCycType")
     READ(string(iEq+1:),*) param
     myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
     IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
     IF (myid.eq.showid) write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
+
     CASE ("MGRelaxPrm")
     READ(string(iEq+1:),*) myParam%MGprmIn%RLX
-    IF (myid.eq.showid) write(mterm,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%RLX
-    IF (myid.eq.showid) write(mfile,'(A,E)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%RLX
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%RLX)
   END SELECT
 
   END IF
@@ -2802,6 +2824,40 @@ END SUBROUTINE GetVeloParameters
 !
 ! ----------------------------------------------
 !
+subroutine write_param_real(unitid,cVar,cPar,out_string,val)
+  implicit none
+  integer :: unitid
+  character(len=*) :: cVar
+  character(len=*) :: cPar
+  character(len=*) :: out_string
+  Real*8 :: val
+
+  out_string = " "
+  write(out_string,'(E16.8)')val
+  IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
+  IF (myid.eq.showid) write(unitid,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
+
+end subroutine write_param_real
+!
+! ----------------------------------------------
+!
+subroutine write_param_int(unitid,cVar,cPar,out_string,val)
+  implicit none
+  integer :: unitid
+  character(len=*) :: cVar
+  character(len=*) :: cPar
+  character(len=*) :: out_string
+  integer :: val
+
+  out_string = " "
+  write(out_string,'(I20)')val
+  IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
+  IF (myid.eq.showid) write(unitid,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
+
+end subroutine write_param_int
+!
+! ----------------------------------------------
+!
 SUBROUTINE GetPresParameters(myParam,cName,mfile)
 IMPLICIT NONE
 TYPE(tParamP) myParam
@@ -2811,6 +2867,7 @@ INTEGER iEnd,iAt,iEq,istat
 CHARACTER string*100,param*50,cVar*7,cPar*50
 LOGICAL bOK
 INTEGER :: myFile=90909090
+character(len=20) :: out_string
   
 OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
 if(istat .ne. 0)then
@@ -2840,40 +2897,40 @@ DO
 
     CASE ("MGMinLev")
     READ(string(iEq+1:),*) myParam%MGprmIn%MinLev
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinLev
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinLev)
+
     CASE ("MGMedLev")
     READ(string(iEq+1:),*) myParam%MGprmIn%MedLev
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MedLev
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MedLev)
+
     CASE ("MGMinIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MinIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinIterCycle)
+
     CASE ("MGMaxIterCyc")
     READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%MaxIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MaxIterCycle)
+
     CASE ("MGSmoothSteps")
     READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nSmootherSteps
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nSmootherSteps)
+
     CASE ("MGIterCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%nIterCoarse
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nIterCoarse)
+
     CASE ("MGDefImprCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
-    IF (myid.eq.showid) write(mterm,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
-    IF (myid.eq.showid) write(mfile,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%DefImprCoarse
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%DefImprCoarse)
+
     CASE ("MGCriterion1")
     READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1
-    IF (myid.eq.showid) write(mterm,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
-    IF (myid.eq.showid) write(mfile,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion1
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion1)
+
     CASE ("MGCriterion2")
     READ(string(iEq+1:),*) myParam%MGprmIn%Criterion2
-    IF (myid.eq.showid) write(mterm,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
-    IF (myid.eq.showid) write(mfile,'(A,E)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%Criterion2
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion2)
+
     CASE ("MGCycType")
     READ(string(iEq+1:),*) param
     myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
@@ -2881,8 +2938,7 @@ DO
     IF (myid.eq.showid) write(mfile,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
     CASE ("MGCrsSolverType")
     READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
-    IF (myid.eq.showid) write(mterm,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
-    IF (myid.eq.showid) write(mfile,'(A,I)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CrsSolverType
+    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
     
   END SELECT
 

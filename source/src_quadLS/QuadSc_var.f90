@@ -105,8 +105,10 @@ TYPE (tStatistics),save :: myStat
 
 TYPE tMGParamIn
  INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType
+ integer :: vanka
  REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
  CHARACTER*1 CycleType
+ CHARACTER*10 MGProlongation
 END TYPE tMGParamIn
 
 TYPE tMGParamOut
@@ -128,6 +130,7 @@ END TYPE tProperties
 
 TYPE tParamV
  REAL*8  defCrit,MinDef
+ Real*8 :: Alpha
  INTEGER SolvType
  INTEGER iMass,NLmin,NLmax
  TYPE(tMGParamIn) :: MGprmIn
@@ -170,7 +173,7 @@ TYPE TQuadScalar
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valUx,valUy,valUz
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valVx,valVy,valVz
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valWx,valWy,valWz
- TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol,dsol
  TYPE(tParamV) :: prm
  LOGICAL :: bProlRest=.FALSE.
 END TYPE
@@ -182,7 +185,7 @@ TYPE TLinScalar
 ! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old
  REAL*8  , DIMENSION(:)  , ALLOCATABLE ::  ST_P,Q2
- TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: valP,defP,auxP,rhsP
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: valP,defP,auxP,rhsP,dvalP
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_GMV
  TYPE(tParamP) :: prm
  LOGICAL :: bProlRest=.FALSE.
@@ -253,7 +256,7 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlRhomat,mg_MlRhoPmat
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat,mg_P1MMat,mg_P1iMMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_12,mg_VisMat_13,mg_VisMat_23
 
@@ -266,14 +269,25 @@ TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011Re
 TYPE tMultiGrid
  CHARACTER*20 cVariable
  CHARACTER*1 CycleType
+
+ CHARACTER*10 MGProlongation
+
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
+
+ TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
+ TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p
+ TYPE (mg_Matrix), DIMENSION(:), POINTER :: BX,BY,BZ,BTX,BTY,BTZ
+ TYPE(TMatrix), DIMENSION(:),  POINTER   :: Lq,Lql,Llq
+
+
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X,D,AUX,B
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A,AP
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
  TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
  REAL*8  , DIMENSION(:)  , POINTER :: XP
  INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType
+ integer :: vanka
  REAL*8  DefImprCoarse
  REAL*8  Criterion1,Criterion2,RLX
 ! MGOutputs
@@ -283,6 +297,34 @@ TYPE tMultiGrid
 END TYPE tMultiGrid
 
 TYPE (tMultiGrid) :: myMG
+
+TYPE tMultiGrid_cc
+ CHARACTER*10 cVariable
+ CHARACTER*1  CycleType
+ CHARACTER*10 MGProlongation
+ LOGICAL, POINTER :: bProlRest
+ INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
+
+ TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
+ TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p
+ TYPE (mg_Matrix), DIMENSION(:), POINTER :: BX,BY,BZ,BTX,BTY,BTZ
+ TYPE(TMatrix), DIMENSION(:),  POINTER   :: Lq,Lql,Llq
+
+ TYPE(mg_dVector), DIMENSION(:), POINTER::  X,D,AUX,B
+ TYPE (mg_Matrix), DIMENSION(:), POINTER :: A,AP
+ TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
+ TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
+ REAL*8  , DIMENSION(:)  , POINTER :: XP
+ INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,VANKA
+ REAL*8  DefImprCoarse
+ REAL*8  Criterion1,Criterion2,RLX
+! MGOutputs
+ REAL*8  RhoMG1,RhoMG2,DefInitial,DefFinal
+ INTEGER UsedIterCycle
+
+END TYPE tMultiGrid_cc
+TYPE (tMultiGrid_cc) :: myMG_cc
+
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgDensity(:),mgDiffCoeff(:)
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
 
@@ -340,6 +382,61 @@ CHARACTER cGridFileName*40,cProjectFile*40,cProjectFolder*40,cProjectNumber*3
 INTEGER nSubCoarseMesh
 
 CHARACTER*13 :: outfile="OutFile  .txt"
+
+!                            Changes for CC
+!---------------------------------------------------------------------------
+TYPE tElementMatrix
+ REAL*8 A(85,85)
+ INTEGER H(2)
+END TYPE
+
+TYPE tMGElementMatrix
+ TYPE(tElementMatrix), ALLOCATABLE :: E(:)
+END TYPE
+
+TYPE(tmgElementMatrix), ALLOCATABLE :: CC_EMat(:)
+
+TYPE(TMatrix)          :: CC_crs_lMat
+REAL*8 , ALLOCATABLE   :: CC_crs_AMat(:)
+INTEGER CC_H(2)
+
+TYPE crs_e013_map
+ INTEGER  :: ndof,cc_ndof
+ INTEGER , allocatable :: ind(:)
+ INTEGER , allocatable :: indE(:)
+ REAL*8, allocatable   :: dBuffer(:)
+END TYPE crs_e013_map
+
+TYPE(crs_e013_map), ALLOCATABLE :: my_crs_e013_map(:)
+
+TYPE CC_Elem
+ INTEGER, ALLOCATABLE :: pairE(:,:),pairV(:,:)
+ INTEGER, ALLOCATABLE :: E_qq(:),E_lq(:),E_ql(:)
+ REAL*8 , ALLOCATABLE :: a(:)
+ INTEGEr sym,num
+END TYPE
+
+TYPE mg_CCPiece
+ INTEGER, ALLOCATABLE :: a(:,:)
+ INTEGER, ALLOCATABLE :: LdA_qq(:),ColA_qq(:)
+ INTEGER, ALLOCATABLE :: LdA_lq(:),ColA_lq(:)
+ INTEGER, ALLOCATABLE :: LdA_ql(:),ColA_ql(:)
+ TYPE(TMatrix):: MPatch,MPatchCopy
+ TYPE(CC_Elem), ALLOCATABLE :: E(:)
+ INTEGER :: nu_qq,na_qq,nu_ql,na_ql,nu_lq,na_lq
+END TYPE mg_CCPiece
+TYPE(mg_CCPiece),ALLOCATABLE :: my_mg_CCPiece(:)
+INTEGER, ALLOCATABLE :: GlobalNumbering(:)
+
+TYPE tCoarseMat
+ INTEGER na,nu
+ INTEGER, ALLOCATABLE   :: Row(:)
+ INTEGER, ALLOCATABLE   :: Col(:)
+ REAL*8 , ALLOCATABLE   :: A(:)
+ REAL*8 , ALLOCATABLE   :: D(:)
+END TYPE tCoarseMat
+TYPE(tCoarseMat) myCrsMat
+!---------------------------------------------------------------------------
 
 TYPE tTriangle
  REAL*8 :: C(3,9)
