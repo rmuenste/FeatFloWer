@@ -190,8 +190,6 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
- write(*,*)'Refinement finished: ',myid
-
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
@@ -301,18 +299,6 @@ DO ILEV=NLMIN+1,NLMAX
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
- DO ILEV=NLMIN,NLMAX
- if(myid.eq.1)then
-
- write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
-                  mg_mesh%level(ILEV)%nat,&
-                  mg_mesh%level(ILEV)%nel,&
-                  mg_mesh%level(ILEV)%net
- 
- end if
- end do
-
-
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  
@@ -321,9 +307,7 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,ilev)
 
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-
-     write(*,*)'Prolongating: ',ilev, ilev+1
-
+   
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
                                 mg_mesh%level(ILEV)%karea,&

@@ -98,9 +98,7 @@ IF (myid.ne.master) THEN
  QuadSc%auxU = QuadSc%defU
  QuadSc%auxV = QuadSc%defV
  QuadSc%auxW = QuadSc%defW
- CALL E013Sum(QuadSc%auxU)
- CALL E013Sum(QuadSc%auxV)
- CALL E013Sum(QuadSc%auxW)
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
 
  ! Save the old solution
  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
@@ -152,9 +150,7 @@ IF (myid.ne.master) THEN
  QuadSc%auxU = QuadSc%defU
  QuadSc%auxV = QuadSc%defV
  QuadSc%auxW = QuadSc%defW
- CALL E013Sum(QuadSc%auxU)
- CALL E013Sum(QuadSc%auxV)
- CALL E013Sum(QuadSc%auxW)
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
 
  ! Save the old solution
  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
@@ -946,9 +942,7 @@ INTEGER i
 CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%ValP(NLMAX)%x,&
      QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,-TSTEP,0d0)
 
-CALL E013Sum(QuadSc%defU)
-CALL E013Sum(QuadSc%defV)
-CALL E013Sum(QuadSc%defW)
+CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
 
 CALL Boundary_QuadScalar_Def()
 
@@ -957,10 +951,6 @@ DO I=1,QuadSc%ndof
  QuadSc%valV(i) = QuadSc%valV(i) - QuadSc%defV(i)/MlRhoPmat(i)
  QuadSc%valW(i) = QuadSc%valW(i) - QuadSc%defW(i)/MlRhoPmat(i)
 END DO
-
-! ! Set dirichlet boundary conditions on the solution
-!  CALL Boundary_QuadScalar_Val(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-!       KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)))
 
 END SUBROUTINE Velocity_Correction
 !
@@ -1443,21 +1433,15 @@ SUBROUTINE  GetNonNewtViscosity()
     CALL SETLEV(2)
 
     CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
-    CALL E013Sum(QuadSc%defU)
-    CALL E013Sum(QuadSc%defV)
-    CALL E013Sum(QuadSc%defW)
+    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
     CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
 
     CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
-    CALL E013Sum(QuadSc%defU)
-    CALL E013Sum(QuadSc%defV)
-    CALL E013Sum(QuadSc%defW)
+    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
     CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
 
     CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
-    CALL E013Sum(QuadSc%defU)
-    CALL E013Sum(QuadSc%defV)
-    CALL E013Sum(QuadSc%defW)
+    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
     CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
 
     DO i=1,SIZE(QuadSc%ValU)
