@@ -26,6 +26,7 @@ TYPE(tMatrixRenewal) myMatrixRenewal
 LOGICAL :: bNonNewtonian=.TRUE.
 LOGICAL bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
+LOGICAL :: bSteadyState =.FALSE.
 
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1

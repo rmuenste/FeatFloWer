@@ -423,7 +423,7 @@ END SUBROUTINE General_init_cc
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bViscoElasticFAC,bRefFrame
+     bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -562,6 +562,11 @@ END SUBROUTINE General_init_cc
          READ(string(iEq+1:),*) cParam
          bViscoElasticFAC = .FALSE.
          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
+       CASE ("SteadyState")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         bSteadyState = .FALSE.
+         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bSteadyState = .TRUE.
        CASE ("ReferenceFrame")
          cParam = " "
          READ(string(iEq+1:),*) cParam

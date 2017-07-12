@@ -51,7 +51,6 @@
       HogenPowerlaw = 
      *Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
 
-!      WRITE(*,*) Properties%Viscosity(1), NormShearSquare,dN
       RETURN
       END 
 C

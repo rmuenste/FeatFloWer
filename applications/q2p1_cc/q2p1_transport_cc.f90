@@ -295,6 +295,7 @@ IF (myid.ne.master) THEN
  QuadSc%valU_old = QuadSc%valU
  QuadSc%valV_old = QuadSc%valV
  QuadSc%valW_old = QuadSc%valW
+
  LinSc%valP_old  = LinSc%valP(NLMAX)%x
  CALL CC_GetDefect(QuadSc,LinSc)
  CALL Boundary_QuadScalar_Def()
@@ -360,14 +361,13 @@ IF (myid.eq.1) WRITE(*,'(i3,4ES12.4)') i,DefNormUVWP
 
 IF (DefNorm/DefNorm0.LT.1d-8.and.i.ge.QuadSc%prm%NLmin) exit
 
-CALL FAC_GetForces(mfile)
+CALL FAC_GetForces_CC(mfile)
 
 END DO
 
 CALL GetNonNewtViscosity()
 
-CALL QuadScP1toQ2(LinSc,QuadSc)
-
+CALL QuadScP1toQ2_cc(LinSc,QuadSc)
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
@@ -509,6 +509,48 @@ SUBROUTINE OperatorDeallocation()
 END DO
 
 END SUBROUTINE OperatorDeallocation
+!
+! ----------------------------------------------
+!
+SUBROUTINE FAC_GetForces_CC(mfile)
+INTEGER mfile
+REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+REAL*8 :: Force2(3)
+INTEGER i,nn
+EXTERNAL E013
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ IF (bNonNewtonian) THEN
+
+ CALL GetForceCyl_cc(QuadSc%valU,QuadSc%valV,&
+                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
+                     BndrForce,&
+                     mg_mesh%level(ILEV)%kvert,&
+                     mg_mesh%level(ILEV)%karea,&
+                     mg_mesh%level(ILEV)%kedge,&
+                     mg_mesh%level(ILEV)%dcorvg,&
+                     Force, E013)
+
+ ELSE
+  CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+  LinSc%valP(NLMAX)%x,BndrForce,Force)
+ END IF
+
+ Factor = 2d0/(U_mean*U_mean*D*H)
+ Force = Factor*Force
+
+ IF (myid.eq.showID) THEN
+  WRITE(MTERM,5)
+  WRITE(MFILE,5)
+  write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+  write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+  WRITE(666,'(7G16.8)') Timens,Force
+ END IF
+
+5  FORMAT(104('-'))
+
+END SUBROUTINE FAC_GetForces_CC
 !
 !----------------------------------------------
 !

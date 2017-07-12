@@ -259,12 +259,17 @@ INTEGER I,J
     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
    END IF
   END IF
+
   CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
   mg_mesh%level(ILEV)%kvert,&
   mg_mesh%level(ILEV)%karea,&
   mg_mesh%level(ILEV)%kedge,&
   mg_mesh%level(ILEV)%dcorvg,&
   9,E013)
+
+  if(bSteadyState)then
+    mg_MMat(ILEV)%a = 0d0
+  end if
 
   IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
 
@@ -282,22 +287,6 @@ INTEGER I,J
   CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
 
  END DO
-
-!  CALL OutputMatrix("MMAT",mg_qMat(2),mg_MMat(2)%a,2)
-!  STOP
-
-!  WRITE(*,*) myid,mg_qMat(2)%nu
-!  WRITE(outfile(8:9),'(A1,I1)') "K",myid
-!  OPEN(FILE=outfile,UNIT=987)
-!   DO I=1,mg_qMat(2)%nu
-!    WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_MlRhomat(2)%a(I)))
-!   END DO
-!   WRITE(987,'(G12.4)') "sadadadada"
-!   DO I=1,mg_qMat(2)%nu
-!    WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_MlRhoPmat(2)%a(I)))
-!   END DO
-!  CLOSE(987)
-!  STOP
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -996,6 +985,7 @@ SUBROUTINE Create_KMat(myScalar)
 TYPE(TQuadScalar) myScalar
 INTEGER LINT
 EXTERNAL E013
+! Assembly for Convection Kmat
 
  CALL ZTIME(myStat%t0)
 
@@ -2505,6 +2495,7 @@ END SUBROUTINE OutputMatrixStuct
 ! ----------------------------------------------
 !
 SUBROUTINE OutputMatrix(cFile,myMat,Mat,II)
+!  CALL OutputMatrix("MMAT",mg_qMat(2),mg_MMat(2)%a,2)
 TYPE(TMatrix) myMat
 REAL*8 Mat(*),DD
 CHARACTER*4 cFile

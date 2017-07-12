@@ -3,6 +3,8 @@ MODULE def_cc
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete,SORT2D
 USE var_QuadScalar
+USE def_QuadScalar, only:outputmatrix
+
 
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCFree, myUmfPack_CCFactorizeLocalMat
 
@@ -21,11 +23,11 @@ INTEGER I,J
 TYPE(TQuadScalar) myScalar
 REAL*8 daux,tttx1,tttx0
 
+
 ! Build up the matrix
  IF (idef.eq.-1) THEN
   DO ILEV=NLMIN,NLMAX
 
-    !!-------------------    POINTER Setup  -------------------!!
     IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
      A11Mat     => mg_A11Mat(ILEV)%a
      A22Mat     => mg_A22Mat(ILEV)%a
@@ -150,6 +152,8 @@ REAL*8 daux,tttx1,tttx0
 
   END DO
  END IF
+
+
     !!-------------------  MATRIX Assembly -------------------!!
 
     !!-------------------    POINTER Setup  -------------------!!
@@ -210,6 +214,20 @@ REAL*8 daux,tttx1,tttx0
  END IF
 
 END SUBROUTINE Matdef_general_QuadScalar_cc
+subroutine output_mata()
+implicit none
+
+CALL OutputMatrix("MatG",qMat,A11mat,3)
+
+end subroutine output_mata
+
+subroutine output_mmat()
+implicit none
+
+CALL OutputMatrix("MatM",qMat,MMat,3)
+
+end subroutine output_mmat
+  
 !
 ! ----------------------------------------------
 !
@@ -997,22 +1015,28 @@ EXTERNAL E013
 
      CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valU,qScalar%defU,1d0,1d0)
+
      CALL LAX17(A12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valV,qScalar%defU,1d0,1d0)
+
      CALL LAX17(A13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valW,qScalar%defU,1d0,1d0)
 
      CALL LAX17(A21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valU,qScalar%defV,1d0,1d0)
+
      CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valV,qScalar%defV,1d0,1d0)
+
      CALL LAX17(A23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valW,qScalar%defV,1d0,1d0)
 
      CALL LAX17(A31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valU,qScalar%defW,1d0,1d0)
+
      CALL LAX17(A32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valV,qScalar%defW,1d0,1d0)
+
      CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
      qScalar%valW,qScalar%defW,1d0,1d0)
 
@@ -1051,6 +1075,8 @@ EXTERNAL E013
 !      CALL ZTIME(tttx0)
 !      ILEV = NLMAX
 !      CALL SETLEV(2)
+     write(*,*)'stress called, which is not adjusted'
+     pause
      CALL STRESS(qScalar%valU,qScalar%valV,qScalar%valW,&
      qScalar%defU, qScalar%defV, qScalar%defW,&
      KWORK(L(LVERT)),KWORK(L(LAREA)),&
@@ -1896,6 +1922,40 @@ ILEV = NLMAX
 CALL SETLEV(2)
 
 END SUBROUTINE Special_CCMemFree
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScP1toQ2_cc(lSc,qSc)
+TYPE(TLinScalar) lSc
+TYPE(TQuadScalar) qSc
+INTEGER i
+EXTERNAL E013
+
+IF (myid.ne.0) THEN
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qSc%defU = 0d0
+ qSc%defV = 0d0
+
+ CALL IntP1toQ2_cc(qSc%defU,&
+                   qSc%defV,&
+                   lSc%valP(ILEV)%x,&
+                   mg_mesh%level(NLMAX)%kvert,&
+                   mg_mesh%level(NLMAX)%karea,&
+                   mg_mesh%level(NLMAX)%kedge,&
+                   mg_mesh%level(NLMAX)%dcorvg,&
+                   E013)
+
+ CALL E013Sum(qSc%defU)
+ CALL E013Sum(qSc%defV)
+
+ DO i=1,qSc%ndof
+  lSc%Q2(i) = qSc%defU(i)/qSc%defV(i)
+ END DO
+END IF
+
+END SUBROUTINE QuadScP1toQ2_cc
 !
 ! ----------------------------------------------
 !

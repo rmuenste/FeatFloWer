@@ -1145,6 +1145,7 @@ EXTERNAL E013
 
  ILEV=NLMAX
  CALL SETLEV(2)
+
  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
   CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
   LinSc%valP(NLMAX)%x,BndrForce,Force)
@@ -1152,10 +1153,6 @@ EXTERNAL E013
   CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
   LinSc%valP(NLMAX)%x,BndrForce,Force)
  END IF
-
-! CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
-! BndrForce,mgViscosity(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-! KWORK(L(LEDGE)),DWORK(L(LCORVG)),Force2,E013)
   
  if(bViscoElastic)then
   Force = Force + ViscoElasticForce
@@ -1167,14 +1164,6 @@ EXTERNAL E013
   Factor = 2d0/(U_mean*U_mean*D*H)
   Force = Factor*Force
  end if
-
-! Force2 = Factor*Force2
-
-! NN=0
-! DO I=1,SIZE(BndrForce)
-!  IF (BndrForce(i)) NN=NN+1
-! END DO
-! WRITE(*,*) NN
 
 IF (myid.eq.showID) THEN
   if(bViscoElastic)then
