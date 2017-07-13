@@ -2480,6 +2480,36 @@ REAL*4 tt0,tt1
 
 IF (myid.ne.MASTER) THEN
 
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
+      END DO
+     END IF
+     
+     IF (myid.gt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
+       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
+      END DO
+     END IF
+
+    END IF
+ END DO
+
  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt0)
 
@@ -2490,17 +2520,31 @@ IF (myid.ne.MASTER) THEN
 
      !!!!     sends pID ----> pJD
      IF (myid.lt.pJD) THEN
-      DO I=1,nSize
-       II = 4*(I-1)+1
-       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
-       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
-      END DO
       CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
      ELSE
       CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+     ELSE
+      CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
+     END IF
+
+    END IF
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommP = myStat%tCommP + (tt1-tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0.and.MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.gt.pJD) THEN
       DO I=1,nSize
        II = 4*(I-1)+1
        JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
@@ -2511,9 +2555,7 @@ IF (myid.ne.MASTER) THEN
       END DO
      END IF
      
-     !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
-      CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
       DO I=1,nSize
        II = 4*(I-1)+1
        JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
@@ -2522,24 +2564,10 @@ IF (myid.ne.MASTER) THEN
        PP(JJ+2) = MGE013(ILEV)%SP(pJD)%RDVect(II+2)
        PP(JJ+3) = MGE013(ILEV)%SP(pJD)%RDVect(II+3)
       END DO
-     ELSE
-      DO I=1,nSize
-       II = 4*(I-1)+1
-       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
-       MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+1) = P(JJ+1)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+2) = P(JJ+2)
-       MGE013(ILEV)%SP(pJD)%SDVect(II+3) = P(JJ+3)
-      END DO
-      CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
      END IF
 
     END IF
  END DO
-
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
- CALL ztime(tt1)
- myStat%tCommP = myStat%tCommP + (tt1-tt0)
 
 END IF
 
