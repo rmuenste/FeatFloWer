@@ -100,7 +100,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  !
  CALL INIT_MPI()                                 ! PARALLEL
  CSimPar = "SimPar"
- CALL  GDATNEW (CSimPar,0)
+ CALL  myGDATNEW (CSimPar,0)
 
  CFILE=CFILE1
  MFILE=MFILE1
@@ -803,45 +803,38 @@ END SUBROUTINE General_init_cc
 
 
    !-----------------------------------------------------------------------
-   101 FORMAT(/2X,100('=')/&
-     2X,"|",10X,"                                                "&
-     40X,"|"/&
-     2X,"|",10X,"Parellel Q2/P1 FEM Fluid Dynamics code          "&
-     40X,"|"/&
-     2X,"|",10X,"Developed by:                                   "&
-     40X,"|"/&
-     2X,"|",10X,"Otto Mierka, Dmitri Kuzmin and Stefan Turek     "&
-     40X,"|"/&
-     2X,"|",10X,"Developed at:                                   "&
-     40X,"|"/&
-     2X,"|",10X,"                                                "&
-     40X,"|"/&
-     2X,"|",10X,"##########  ##      ##      ",&
-     "                                                     ",7X,"|"/&
-     2X,"|",10X,"#   ##   #  ##      ##      ",&
-     "###     ###   ###   ##### #   #  #    #  #   #  ###  ",7X,"|"/&
-     2X,"|",10X,"    ##      ##      ##      ",&
-     "#  #   #   #  #  #    #   ## ##  #    #  ##  #  #  # ",7X,"|"/&
-     2X,"|",10X,"    ##      ##      ##  ####",&
-     "#   #  #   #  ###     #   # # #  #    #  # # #  #   #",7X,"|"/&
-     2X,"|",10X,"    ##      ##      ##      ",&
-     "#  #   #   #  #  #    #   #   #  #    #  #  ##  #  # ",7X,"|"/&
-     2X,"|",10X,"    ##      ##      ##      ",&
-     "###     ###   #   #   #   #   #   ####   #   #  ###  ",7X,"|"/&
-     2X,"|",10X,"    ##        ######        ",&
-     "                                                     ",7X,"|"/&
-     2X,"|",57X,"            Chair of Mathematics III",5X,"|"/&
-     2X,"|",57X,"    Applied Mathematics and Numerics",5X,"|"/&
-     2X,"|",57X,"                    Vogelopthsweg 87",5X,"|"/&
-     2X,"|",57X,"                      Dortmund 44225",5X,"|"/&
-     2X,"|",57X,"                                    ",5X,"|"/&
-     2X,"|",10X,"Based on FeatFlow (c)     ",&
-     "see also: http://www.featflow.de",30X,"|"/&
-     2X,"|",10X,"Correspondance:",73X,"|"/&
-     2X,"|",10X," otto.mierka@math.tu-dortmund.de, ",&
-     "stefan.turek@math.tu-dortmund.de",22X,"|"/&
-     2X,"|",98X,"|"/&
-     2X,100('=')/)
+   101 FORMAT(/&
+"  ===================================================================================================="/&
+"  |                                                                                                  |"/&
+"  |          Parallel Q2/P1 FEM Fluid Dynamics code           FeatFlowPro v1.00 - 2017.04.24         |"/&
+"  |          Developed by:                                                                           |"/&
+"  |          Otto Mierka, Dmitri Kuzmin and Stefan Turek                                             |"/&
+"  |                                                                                                  |"/&
+"  |==================================================================================================|"/&
+"  |          Modification by Robert Jendrny:                                                         |"/&
+"  |                      iso-parametric Newton-multigrid CC-version                                  |"/&
+"  |==================================================================================================|"/&
+"  |                                                                                                  |"/&
+"  |          Developed at:                                                                           |"/&
+"  |                                                                                                  |"/&
+"  |          ##########  ##      ##                                                                  |"/&
+"  |          #   ##   #  ##      ##      ###     ###   ###   ##### #   #  #    #  #   #  ###         |"/&
+"  |              ##      ##      ##      #  #   #   #  #  #    #   ## ##  #    #  ##  #  #  #        |"/&
+"  |              ##      ##      ##  #####   #  #   #  ###     #   # # #  #    #  # # #  #   #       |"/&
+"  |              ##      ##      ##      #  #   #   #  #  #    #   #   #  #    #  #  ##  #  #        |"/&
+"  |              ##      ##      ##      ###     ###   #   #   #   #   #   ####   #   #  ###         |"/&
+"  |              ##        ######                                                                    |"/&
+"  |                                                                     Chair of Mathematics III     |"/&
+"  |                                                             Applied Mathematics and Numerics     |"/&
+"  |                                                                             Vogelpothsweg 87     |"/&
+"  |                                                                               Dortmund 44227     |"/&
+"  |                                                                                                  |"/&
+"  |          Based on FeatFlow (c)     see also: http://www.featflow.de                              |"/&
+"  |          Correspondence:                                                                         |"/&
+"  |          otto.mierka@math.tu-dortmund.de, robert.jendrny@math.tu-dortmund.de,                    |"/&
+"  |          stefan.turek@math.tu-dortmund.de                                                        |"/&
+"  |                                                                                                  |"/&
+"  ===================================================================================================="/)
 
  CONTAINS
 

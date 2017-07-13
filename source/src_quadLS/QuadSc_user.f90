@@ -127,6 +127,19 @@ IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF
 
+IF (iT.EQ.25) THEN
+ ValU= 1d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
+IF (it.EQ.26) THEN
+ dScale=0.2d0*(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)
+ ValU=dScale*(0.41d0-Y)*Y*(0.41d0-Z)*Z
+ ValV=0d0
+ ValW=0d0
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF

@@ -283,6 +283,64 @@ end subroutine release_mesh
 !
 ! ----------------------------------------------
 !
+      SUBROUTINE StatOut_mod(time_passed,myOutFile)
+      USE def_FEAT
+      USE PP3D_MPI, ONLY : myid,master,showid,subnodes
+      USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
+      IMPLICIT NONE
+
+      Real, intent(in) :: time_passed
+
+      REAL*8 daux,daux1,ds
+      INTEGER myFile,myOutFile,itms,istat
+      LOGICAL bExist
+
+      itms = min(itns-1,nitns-1)
+      ds = DBLE(subnodes)
+
+      IF (myid.eq.showid) THEN
+
+      IF (myOutFile.eq.0) THEN
+       myFile = 669
+       OPEN (UNIT=myFile, FILE='_data/Statistics.txt',action='write',iostat=istat)
+       if(istat .ne. 0)then
+         write(*,*)"Could not open file for writing in StatOut(). "
+       stop          
+       end if
+      ELSE
+       myFile = myOutFile
+      END IF
+
+      daux = myStat%tKMat+myStat%tDMat+myStat%tMMat+myStat%tCMat+myStat%tSMat
+      daux1 = myStat%tGMVOut +myStat%tDumpOut
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Overall time            ",time_passed
+      WRITE(myFile,*)  
+      WRITE(myFile,8) " Solving time            ",time_passed-daux-daux1
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Operator assembly time  ",daux
+      WRITE(myFile,8) "  Convection matrix      ",myStat%tKMat
+      WRITE(myFile,8) "  Deformation matrix     ",myStat%tSMat
+      WRITE(myFile,8) "  Diffusion matrix       ",myStat%tDMat
+      WRITE(myFile,8) "  Mass matrix            ",myStat%tMMat
+      WRITE(myFile,8) "  Reactive term          ",myStat%tCMat
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Output time             ",daux1
+      WRITE(myFile,8) "  GMV output             ",myStat%tGMVOut
+      WRITE(myFile,8) "  Dump file output       ",myStat%tDumpOut
+
+      IF (myOutFile.eq.0) THEN
+       CLOSE (myFile)
+      END IF
+
+      END IF
+
+8     FORMAT(A24,' : ',F12.4,'s')
+
+      END SUBROUTINE StatOut_mod
+!
+! ----------------------------------------------
+!
 subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
@@ -298,16 +356,17 @@ real :: time,time_passed
 CALL ZTIME(time)
 
 time_passed = time - dttt0
-CALL StatOut(time_passed,0)
+CALL StatOut_mod(time_passed,filehandle)
 
-CALL StatOut(time_passed,terminal)
+CALL StatOut_mod(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
 !CALL mySolToFile(-1)
 CALL Output_Profiles(0)
 
 IF (myid.eq.showid) THEN
-  WRITE(MTERM,*) "PP3D_LES has successfully finished. "
+  WRITE(MTERM,*) "CC3D_iso_adaptive has successfully finished. "
+  WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
 END IF
 
 call release_mesh()
