@@ -15,7 +15,7 @@ PROGRAM Q2P1_PARTICLES
   call init_q2p1_cc(ufile)
 
   CALL ZTIME(tt0)
-  call ztime(dtt0)
+
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
@@ -37,7 +37,7 @@ PROGRAM Q2P1_PARTICLES
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
-  call handle_statistics(tt0,itns)
+  !call handle_statistics(tt0,itns)
 
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT

@@ -215,6 +215,7 @@ end if
 
  CALL OperatorRegenaration(1)
 
+
 END SUBROUTINE Init_Q2P1_Structures_cc
 !
 ! ----------------------------------------------
@@ -224,26 +225,35 @@ implicit none
 
 INTEGER mfile,INL,inl_u
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
-REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
-INTEGER INLComplete,I,J,IERR,iOuter,iITER
-REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
+INTEGER INLComplete,I,J,IERR,iOuter
+REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
+REAL*8 :: FORCES_NEW(3),FORCES_OLD(3),MGnonLin,digitcriterion
+REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 
 thstep = 0d0
+FORCES_OLD = 0d0
+iIterges = 0d0
+digitcriterion = 1d-1
+myTolerance = QuadSc%prm%MGprmIn%Criterion1
+ni = 0d0
+alpha = QuadSc%prm%Alpha
 
-CALL ExchangeVelocitySolutionCoarse()
 
-CALL OperatorRegenaration(2)
+ CALL ExchangeVelocitySolutionCoarse()
 
-CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration(2)
+
+ CALL OperatorRegenaration(3)
 
 ! -------------------------------------------------
 ! Compute the momentum equations
 ! -------------------------------------------------
 
-CALL ZTIME(tttt0)
+ CALL ZTIME(tttt0)
 
 ! Assemble the right hand side
-call Matdef_general_QuadScalar_cc(QuadSc,1)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,1)
 
 IF (myid.ne.master) THEN
 
@@ -259,24 +269,34 @@ END IF
 
 thstep = tstep
 
-CALL ExchangeVelocitySolutionCoarse()
+ CALL ExchangeVelocitySolutionCoarse()
 
-CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration(3)
 
 ! Assemble the defect vector and fine level matrix
-CALL Matdef_general_QuadScalar_cc(QuadSc,-1)
-CALL OperatorDeallocation()
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1)
+ CALL OperatorDeallocation()
 
 DO i=1,QuadSc%prm%NLmax
+ni = ni + 1d0
 
-IF (myid.eq.1) WRITE(*,*) "Iteration number : ", i
+IF (myid.eq.1) THEN
+  write(mfile,66) 
+  write(mterm,66)
+  write(mfile,'(A,I6)') "Iteration number: ",i
+  write(mterm,'(A,I6)') "Iteration number: ",i
+  write(mfile,'(A,F6.3,A,ES12.4)')" Parameter for Fixpoint-Newton-Adaptivity:", alpha,", Criterion for MG:", digitcriterion 
+  write(mterm,'(A,F6.3,A,ES12.4)')" Parameter for Fixpoint-Newton-Adaptivity:", alpha,", Criterion for MG:", digitcriterion
+  write(mfile,5)
+  write(mterm,5)
+END IF
 
 CALL myMPI_Barrier()
 CALL ZTIME(tttt0)
 
 IF (myid.eq.1) WRITE(*,'(A)') " Factorization of element matrices starts:"
 
-CALL Barrier_myMPI()
+ CALL Barrier_myMPI()
 
 IF (QuadSc%prm%MGprmIn%VANKA.eq.0) THEN
   CALL CC_Extraction(QuadSc)
@@ -284,12 +304,12 @@ ELSE
   CALL Special_CCExtraction(QuadSc)
 END IF
 
-CALL Barrier_myMPI()
+ CALL Barrier_myMPI()
 
-CALL ZTIME(tttt1)
+ CALL ZTIME(tttt1)
 IF (myid.eq.1) WRITE(*,'(A,ES12.4,A)') " was done in: ",tttt1-tttt0 ," s"
 
-CALL Special_CC_Coarse(QuadSc)
+ CALL Special_CC_Coarse(QuadSc)
 
 IF (myid.ne.master) THEN
 ! Set dirichlet boundary conditions on the solution
@@ -303,7 +323,7 @@ IF (myid.ne.master) THEN
  CALL Boundary_QuadScalar_Def()
 END IF
 
-CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP0)
+ CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP0)
 IF (i.eq.1) DefNorm0 = MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4))
 
 IF (myid.ne.master) THEN
@@ -314,13 +334,14 @@ IF (myid.ne.master) THEN
 END IF
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Solver !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-CALL myMPI_Barrier()
-CALL ZTIME(tttt0)
+ CALL myMPI_Barrier()
+ CALL ZTIME(tttt0)
 
-CALL CC_mgSolve(QuadSc,LinSc,mfile)
+ CALL CC_mgSolve(QuadSc,LinSc,mfile,iIter,digitcriterion)
+iIterges = iIterges + iIter
 
-CALL myMPI_Barrier()
-CALL ZTIME(tttt1)
+ CALL myMPI_Barrier()
+ CALL ZTIME(tttt1)
 IF (myid.eq.1) WRITE(*,'(A,ES12.4,A)') " Solution of linear system ... done! --> Time: ",tttt1-tttt0 ," s"
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Solver !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -332,21 +353,21 @@ ELSE
 END IF
 
 IF (myid.ne.master) THEN
- QuadSc%valU         = QuadSc%prm%Alpha*QuadSc%valU         + QuadSc%valU_old
- QuadSc%valV         = QuadSc%prm%Alpha*QuadSc%valV         + QuadSc%valV_old
- QuadSc%valW         = QuadSc%prm%Alpha*QuadSc%valW         + QuadSc%valW_old
- LinSc%valP(NLMAX)%x = QuadSc%prm%Alpha*LinSc%valP(NLMAX)%x + LinSc%valP_old 
+ QuadSc%valU         = QuadSc%valU         + QuadSc%valU_old
+ QuadSc%valV         = QuadSc%valV         + QuadSc%valV_old
+ QuadSc%valW         = QuadSc%valW         + QuadSc%valW_old
+ LinSc%valP(NLMAX)%x = LinSc%valP(NLMAX)%x + LinSc%valP_old 
 ! Set dirichlet boundary conditions on the solution
  CALL Boundary_QuadScalar_Val()
 END IF
 
-CALL ExchangeVelocitySolutionCoarse()
+ CALL ExchangeVelocitySolutionCoarse()
 
-CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration(3)
 
 ! Assemble the defect vector and fine level matrix
-CALL Matdef_General_QuadScalar(QuadSc,-1)
-CALL OperatorDeallocation()
+ CALL Matdef_General_QuadScalar(QuadSc,-1)
+ CALL OperatorDeallocation()
 
 ! Set dirichlet boundary conditions on the solution
 IF (myid.ne.master) THEN
@@ -355,19 +376,84 @@ IF (myid.ne.master) THEN
  CALL Boundary_QuadScalar_Def()
 END IF
 
-CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP)
-DefNorm = MAX(DefNormUVWP(1),DefNormUVWP(2),DefNormUVWP(3),DefNormUVWP(4))
 
-IF (myid.eq.1) WRITE(*,"(104('-'))")
-IF (myid.eq.1) WRITE(*,'(i3,4ES12.4)') i,DefNormUVWP
 
-IF (DefNorm/DefNorm0.LT.1d-8.and.i.ge.QuadSc%prm%NLmin) exit
+!!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
+ if(i.eq.1) then
+	DefNormOld = MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4))
+ else
+	DefNormOld = DefNorm
+ end if
+
+! PLEASE DO NOT COMMENT THESE TWO LINES
+ CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP)
+ DefNorm = MAX(DefNormUVWP(1),DefNormUVWP(2),DefNormUVWP(3),DefNormUVWP(4))
+! PLEASE DO NOT COMMENT THESE TWO LINES
+
+! Fixpoint-Newton-adaptivity
+ alpha = (0.2d0 + 1.46d0/(-0.48d0 + EXP(0.94d0*DefNorm/DefNormOld)))*alpha
+ if(alpha.gt.1d0) alpha = 1d0
+! digits to gain in MG
+ digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
+ if(digitcriterion.gt.1d-1) digitcriterion = 1d-1
+!!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
+
+
+
+IF (myid.eq.showid) THEN
+  write(mfile,5)
+  write(mterm,5)
+  write(mfile,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
+  write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
+END IF
+
+ CALL myFAC_GetForces(mfile,FORCES_NEW)
+diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
+diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
+
+
 
 CALL FAC_GetForces_CC(mfile)
 
+!IF (FORCES_NEW(1).LT.1d-7) THEN
+!  diffOne = diffOne/1d-7
+!ELSE
+!  diffOne = diffOne/ABS(FORCES_New(1))
+!END IF
+!IF (FORCES_NEW(2).LT.1d-7) THEN
+!  diffTwo = diffTwo/1d-7
+!ELSE
+!  diffTwo= diffTwo/ABS(FORCES_New(2))
+!END IF
+
+
+stopOne = max(diffOne,diffTwo)
+
+FORCES_OLD = FORCES_NEW
+
+!!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
+IF (DefNorm/DefNorm0.LT.myTolerance) exit
+!IF (stopOne.LT.1d-5) THEN
+!	IF (myid.eq.1) THEN
+!	write(mfile,55) 
+!  	write(mterm,55)
+!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!        END IF
+!        exit
+!END IF
 END DO
 
-CALL GetNonNewtViscosity()
+IF (myid.eq.showid) THEN
+MGnonLin = iIterges/ni
+  write(mfile,55) 
+  write(mterm,55)
+  write(mfile,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+  write(mterm,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+END IF
+
+
+ CALL GetNonNewtViscosity()
 
 CALL QuadScP1toQ2_cc(LinSc,QuadSc)
 
@@ -375,7 +461,9 @@ IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 END IF
 
-
+66  FORMAT(104('_'))
+5  FORMAT(104('-'))
+55  FORMAT(104('='))
 END SUBROUTINE Transport_q2p1_UxyzP_cc
 !
 ! ----------------------------------------------
@@ -556,5 +644,103 @@ END SUBROUTINE FAC_GetForces_CC
 !
 !----------------------------------------------
 !
+SUBROUTINE myFAC_GetForces(mfile,Force)
+INTEGER mfile
+!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: PI=dATAN(1d0)*4d0 
+REAL*8 :: Force2(3)
+INTEGER i,nn
+EXTERNAL E013
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+! CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
+!      BndrForce,KWORK(L(LVERT)),KWORK(L(LAREA)),&
+!      KWORK(L(LEDGE)),myQ2Coor,Force,E013)
+ 
+ IF (bNonNewtonian) THEN
+  IF (myMatrixRenewal%S.NE.0) THEN
+   ! At the moment we have this case 
+   CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+   LinSc%valP(NLMAX)%x,BndrForce,Force)
+  ELSE
+   CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
+        BndrForce,KWORK(L(LVERT)),KWORK(L(LAREA)),&
+        KWORK(L(LEDGE)),myQ2Coor,Force,E013)
+  END IF
+ ELSE
+  CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+  LinSc%valP(NLMAX)%x,BndrForce,Force)
+ END IF
+
+!Pipe
+! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+!Halfpipe/Quarterpipe
+! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R/2d0)
+!FAC
+ Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+ Force = Factor*Force
+
+
+ IF (myid.eq.showID) THEN
+  WRITE(MTERM,5)
+  WRITE(MFILE,5)
+  write(mfile,'(A30,4E16.8)') "Force acting on the sphere:",timens,Force
+  write(mterm,'(A30,4E16.8)') "Force acting on the sphere:",timens,Force
+  WRITE(666,'(7G16.8)') Timens,Force
+ END IF
+
+5  FORMAT(104('-'))
+
+END SUBROUTINE myFAC_GetForces
+!
+!----------------------------------------------
+!
+SUBROUTINE OperatorRegenaration_cc(iType)
+INTEGER iType
+LOGICAL bHit
+
+bHit = .FALSE.
+
+IF (iType.EQ.myMatrixRenewal%D) THEN
+ CALL Create_DiffMat(QuadSc)
+ bHit = .TRUE.
+END IF
+
+IF (iType.EQ.myMatrixRenewal%K) THEN
+ CALL Create_KMat(QuadSc)
+ bHit = .TRUE.
+END IF
+
+IF (iType.EQ.myMatrixRenewal%M) THEN
+ CALL Create_MRhoMat()
+ bHit = .TRUE.
+END IF
+
+IF (iType.EQ.myMatrixRenewal%S) THEN
+ CALL Create_SMat(QuadSc)
+ bHit = .TRUE.
+END IF
+
+IF (iType.EQ.myMatrixRenewal%C) THEN
+
+ CALL Create_BMat()
+ 
+ IF (myid.ne.master) THEN
+  CALL Fill_QuadLinParMat()
+ END IF
+
+ CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+ IF (myid.ne.master) THEN
+  CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
+ END IF
+ bHit = .TRUE.
+END IF
+
+IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
+
+END SUBROUTINE OperatorRegenaration_cc
 END MODULE Transport_CC
+
 
