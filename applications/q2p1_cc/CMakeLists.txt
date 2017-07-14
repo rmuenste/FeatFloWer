@@ -39,6 +39,7 @@ ${src_mesh}
 ${src_cinterface}
 app_init.f90
 assemblies_cc.f
+iso_assemblies.f
 postprocessing.f90
 lin_transport_cc.f90
 q2p1_def_cc.f90

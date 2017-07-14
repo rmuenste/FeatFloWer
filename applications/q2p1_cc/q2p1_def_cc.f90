@@ -2,7 +2,7 @@ MODULE def_cc
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete,SORT2D
-USE var_QuadScalar
+USE var_QuadScalar_newton
 USE def_QuadScalar, only:outputmatrix
 
 
@@ -1138,7 +1138,7 @@ CALL COMM_Maximum(DefNorm(2))
 CALL COMM_Maximum(DefNorm(3))
 CALL COMM_Maximum(DefNorm(4))
 
-IF (myid.eq.showid) WRITE(*,'(A,4ES12.3)') "DefNorms",DefNorm
+IF (myid.eq.showid) WRITE(*,'(A,4ES12.3)') "non-linear Defect",DefNorm
 
 END SUBROUTINE GetDefNorms
 !
@@ -1616,10 +1616,10 @@ END SUBROUTINE CC_MemFree
 !
 ! ----------------------------------------------
 !
-SUBROUTINE CC_mgSolve(qScalar,lScalar,mfile)
+SUBROUTINE CC_mgSolve(qScalar,lScalar,mfile,iter,digitcriterion)
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 TYPE(TLinScalar), INTENT(INOUT), TARGET  :: lScalar
-REAL*8 daux
+REAL*8 daux,iter,digitcriterion
 INTEGER mfile,i,j
 INTEGER ndof_u,ndof_p
 REAL*8 dmaxx(3)
@@ -1699,16 +1699,17 @@ REAL*8 dmaxx(3)
  MyMG%RLX                = qScalar%prm%MGprmIn%RLX
  MyMG%CycleType          = qScalar%prm%MGprmIn%CycleType
  MyMG%DefImprCoarse      = qScalar%prm%MGprmIn%DefImprCoarse
- MyMG%Criterion1         = qScalar%prm%MGprmIn%Criterion1
+ MyMG%Criterion1         = digitcriterion
  MyMG%Criterion2         = qScalar%prm%MGprmIn%Criterion2
+ MyMG%MinLev		 = qScalar%prm%MGprmIn%MinLev
+ MyMG%MedLev             = qScalar%prm%MGprmIn%MedLev
 
- MyMG%MinLev             = 1
  daux = DBLE(NLMAX)
  CALL COMM_Maximum(daux)
  MyMG%MaxLev             = NINT(daux)
 
 
- CALL MG_Solver_cc(mfile,mterm)
+ CALL MG_Solver_cc(mfile,mterm,iter)
 
  IF (myid.NE.0) THEN
   qScalar%ValU           = qScalar%dsol(NLMAX)%x(0*ndof_u+1:1*ndof_u)
@@ -1958,5 +1959,467 @@ END IF
 END SUBROUTINE QuadScP1toQ2_cc
 !
 ! ----------------------------------------------
+! MMat
+! ----------------------------------------------
 !
+SUBROUTINE Create_MRhoMat_iso()
+EXTERNAL E013
+REAL*8  DML
+INTEGER I,J
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
+   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
+  END IF
+
+  mg_Mmat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+
+  CALL BuildMRhoMat_iso(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+  mg_mesh%level(ILEV)%kvert,&
+  mg_mesh%level(ILEV)%karea,&
+  mg_mesh%level(ILEV)%kedge,&
+  mg_mesh%level(ILEV)%dcorvg,&
+  9,E013)
+
+  if(bSteadyState)then
+    mg_MMat(ILEV)%a = 0d0
+  end if
+
+  IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
+
+!  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling MLRho Matrix on Level [", ILEV,"]"
+  DO I=1,qMat%nu
+   DML = 0d0
+   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+    DML = DML + mg_Mmat(ILEV)%a(J)
+   END DO
+   mg_MlRhomat(ILEV)%a(I) = DML
+  END DO
+
+  IF (.not.ALLOCATED(mg_MlRhoPmat(ILEV)%a)) ALLOCATE(mg_MlRhoPmat(ILEV)%a(qMat%nu))
+  mg_MlRhoPmat(ILEV)%a = mg_MlRhomat(ILEV)%a
+  CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
+
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat      => mg_qMat(NLMAX)
+ Mmat      => mg_Mmat(NLMAX)%a
+ MlRhomat  => mg_MlRhomat(NLMAX)%a
+ MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+END SUBROUTINE Create_MRhoMat_iso
+!
+! ----------------------------------------------
+! barMMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_barMMat_iso(myScalar)
+TYPE(TQuadScalar) myScalar
+EXTERNAL E013
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_barM11mat)) ALLOCATE(mg_barM11mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM22mat)) ALLOCATE(mg_barM22mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM33mat)) ALLOCATE(mg_barM33mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM12mat)) ALLOCATE(mg_barM12mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM13mat)) ALLOCATE(mg_barM13mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM23mat)) ALLOCATE(mg_barM23mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM21mat)) ALLOCATE(mg_barM21mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM31mat)) ALLOCATE(mg_barM31mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM32mat)) ALLOCATE(mg_barM32mat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_barM11mat(ILEV)%a)) ALLOCATE(mg_barM11mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM22mat(ILEV)%a)) ALLOCATE(mg_barM22mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM33mat(ILEV)%a)) ALLOCATE(mg_barM33mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM12mat(ILEV)%a)) ALLOCATE(mg_barM12mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM13mat(ILEV)%a)) ALLOCATE(mg_barM13mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM23mat(ILEV)%a)) ALLOCATE(mg_barM23mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM21mat(ILEV)%a)) ALLOCATE(mg_barM21mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM31mat(ILEV)%a)) ALLOCATE(mg_barM31mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM32mat(ILEV)%a)) ALLOCATE(mg_barM32mat(ILEV)%a(qMat%na))
+
+  mg_barM11mat(ILEV)%a=0d0
+  mg_barM22mat(ILEV)%a=0d0
+  mg_barM33mat(ILEV)%a=0d0
+  mg_barM12mat(ILEV)%a=0d0
+  mg_barM13mat(ILEV)%a=0d0
+  mg_barM23mat(ILEV)%a=0d0
+  mg_barM21mat(ILEV)%a=0d0
+  mg_barM31mat(ILEV)%a=0d0
+  mg_barM32mat(ILEV)%a=0d0
+
+
+  CALL Build_barMMat_iso(mgDensity(ILEV)%x,qMat%na,qMat%ColA,qMat%LdA,&
+   mg_mesh%level(ILEV)%kvert,mg_mesh%level(ILEV)%karea,&
+   mg_mesh%level(ILEV)%kedge,mg_mesh%level(ILEV)%dcorvg,9,E013,&
+   mg_barM11mat(ILEV)%a,mg_barM12mat(ILEV)%a,mg_barM13mat(ILEV)%a,&
+   mg_barM21mat(ILEV)%a,mg_barM22mat(ILEV)%a,mg_barM23mat(ILEV)%a,&
+   mg_barM31mat(ILEV)%a,mg_barM32mat(ILEV)%a,mg_barM33mat(ILEV)%a,&
+   myScalar%valU,myScalar%valV,myScalar%valW)
+
+
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ barM11Mat => mg_barM11Mat(NLMAX)%a
+ barM22Mat => mg_barM22Mat(NLMAX)%a
+ barM33Mat => mg_barM33Mat(NLMAX)%a
+ barM12Mat => mg_barM12Mat(NLMAX)%a
+ barM13Mat => mg_barM13Mat(NLMAX)%a
+ barM23Mat => mg_barM23Mat(NLMAX)%a
+ barM21Mat => mg_barM21Mat(NLMAX)%a
+ barM31Mat => mg_barM31Mat(NLMAX)%a
+ barM32Mat => mg_barM32Mat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
+
+
+END SUBROUTINE Create_barMMat_iso
+!
+! ----------------------------------------------
+! KMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_KMat_iso(myScalar)
+TYPE(TQuadScalar) myScalar
+INTEGER LINT
+EXTERNAL E013
+! Assembly for Convection Kmat
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_Kmat)) ALLOCATE(mg_Kmat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_Kmat(ILEV)%a)) THEN
+   ALLOCATE(mg_Kmat(ILEV)%a(qMat%na))
+  END IF
+
+  mg_Kmat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [KRho]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+
+  LINT = KLINT(ILEV)
+
+  CALL CONVQ2_iso(mgDensity(ILEV)%x,myScalar%valU,myScalar%valV,myScalar%valW,&
+  myALE%MeshVelo,&
+  mg_Kmat(ILEV)%a,qMat%nu,qMat%ColA,qMat%LdA,&
+  mg_mesh%level(ILEV)%kvert,&
+  mg_mesh%level(ILEV)%karea,&
+  mg_mesh%level(ILEV)%kedge,&
+  mg_mesh%level(ILEV)%dcorvg,&
+  E013)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ KMat => mg_KMat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tKMat = myStat%tKMat + (myStat%t1-myStat%t0)
+!  WRITE(*,*) myid,myStat%tKMat,myStat%t1-myStat%t0
+
+END SUBROUTINE Create_KMat_iso
+!
+! ----------------------------------------------
+! SMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_SMat_iso(myScalar)
+TYPE(TQuadScalar) myScalar
+EXTERNAL E013
+INTEGER i
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_S11mat)) ALLOCATE(mg_S11mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S22mat)) ALLOCATE(mg_S22mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S33mat)) ALLOCATE(mg_S33mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S12mat)) ALLOCATE(mg_S12mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S13mat)) ALLOCATE(mg_S13mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S23mat)) ALLOCATE(mg_S23mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S21mat)) ALLOCATE(mg_S21mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S31mat)) ALLOCATE(mg_S31mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_S32mat)) ALLOCATE(mg_S32mat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_S11mat(ILEV)%a)) ALLOCATE(mg_S11mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S22mat(ILEV)%a)) ALLOCATE(mg_S22mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S33mat(ILEV)%a)) ALLOCATE(mg_S33mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S12mat(ILEV)%a)) ALLOCATE(mg_S12mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S13mat(ILEV)%a)) ALLOCATE(mg_S13mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S23mat(ILEV)%a)) ALLOCATE(mg_S23mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S21mat(ILEV)%a)) ALLOCATE(mg_S21mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S31mat(ILEV)%a)) ALLOCATE(mg_S31mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_S32mat(ILEV)%a)) ALLOCATE(mg_S32mat(ILEV)%a(qMat%na))
+
+  mg_S11mat(ILEV)%a=0d0
+  mg_S22mat(ILEV)%a=0d0
+  mg_S33mat(ILEV)%a=0d0
+  mg_S12mat(ILEV)%a=0d0
+  mg_S13mat(ILEV)%a=0d0
+  mg_S23mat(ILEV)%a=0d0
+  mg_S21mat(ILEV)%a=0d0
+  mg_S31mat(ILEV)%a=0d0
+  mg_S32mat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [S]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+!  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling S Matrix on Level", ILEV
+
+  CALL CUBATURESTRESS_iso(myScalar%valU, myScalar%valV,myScalar%valW, &
+       mg_S11mat(ILEV)%a,mg_S22mat(ILEV)%a,mg_S33mat(ILEV)%a,&
+       mg_S12mat(ILEV)%a,mg_S13mat(ILEV)%a,mg_S23mat(ILEV)%a,&
+       mg_S21mat(ILEV)%a,mg_S31mat(ILEV)%a,mg_S32mat(ILEV)%a,&
+       qMat%na,qMat%ColA,qMat%LdA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       E013)
+
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ S11Mat => mg_S11Mat(NLMAX)%a
+ S22Mat => mg_S22Mat(NLMAX)%a
+ S33Mat => mg_S33Mat(NLMAX)%a
+ S12Mat => mg_S12Mat(NLMAX)%a
+ S13Mat => mg_S13Mat(NLMAX)%a
+ S23Mat => mg_S23Mat(NLMAX)%a
+ S21Mat => mg_S21Mat(NLMAX)%a
+ S31Mat => mg_S31Mat(NLMAX)%a
+ S32Mat => mg_S32Mat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tSMat = myStat%tSMat + (myStat%t1-myStat%t0)
+
+END SUBROUTINE Create_SMat_iso
+!
+! ----------------------------------------------
+! DiffMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_DiffMat_iso(myScalar)
+TYPE(TQuadScalar) myScalar
+EXTERNAL E013
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_Dmat)) ALLOCATE(mg_Dmat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_Dmat(ILEV)%a)) THEN
+   ALLOCATE(mg_Dmat(ILEV)%a(qMat%na))
+  END IF
+
+  mg_Dmat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+
+  if(bNonNewtonian) THEN
+    CALL DIFFQ2_NNEWT_iso(myScalar%valU, myScalar%valV,myScalar%valW, &
+         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
+  else 
+    CALL DIFFQ2_NEWT_iso(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
+         qMat%LdA,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
+  end if
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ DMat => mg_DMat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+END SUBROUTINE Create_DiffMat_iso
+!
+! ----------------------------------------------
+! BMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_BMat_iso() !(B)
+INTEGER nERow,pNEL
+INTEGER I,J
+real*8 ddx,ddy,ddz
+CHARACTER*10 myFile
+EXTERNAL E011,E013
+
+ IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+
+  qlMat => mg_qlMat(ILEV)
+  IF (.NOT.ALLOCATED(mg_BXMat(ILEV)%a)) ALLOCATE(mg_BXMat(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BYMat(ILEV)%a)) ALLOCATE(mg_BYMat(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BZMat(ILEV)%a)) ALLOCATE(mg_BZMat(ILEV)%a(qlMat%na))
+  mg_BXMat(ILEV)%a=0d0
+  mg_BYMat(ILEV)%a=0d0
+  mg_BZMat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [B]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  CALL Build_BMatP1_iso(mg_BXMat(ILEV)%a,mg_BYMat(ILEV)%a,&
+       mg_BZMat(ILEV)%a,qlMat%LdA,qlMat%ColA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+     qlMat%na,9,E013)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ IF (.NOT.ALLOCATED(mg_BTXMat)) ALLOCATE(mg_BTXMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BTYMat)) ALLOCATE(mg_BTYMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BTZMat)) ALLOCATE(mg_BTZMat(NLMIN:NLMAX))
+
+DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+
+  lqMat => mg_lqMat(ILEV)
+  IF (.NOT.ALLOCATED(mg_BTXMat(ILEV)%a)) ALLOCATE(mg_BTXMat(ILEV)%a(lqMat%na))
+  IF (.NOT.ALLOCATED(mg_BTYMat(ILEV)%a)) ALLOCATE(mg_BTYMat(ILEV)%a(lqMat%na))
+  IF (.NOT.ALLOCATED(mg_BTZMat(ILEV)%a)) ALLOCATE(mg_BTZMat(ILEV)%a(lqMat%na))
+  mg_BTXMat(ILEV)%a=0d0
+  mg_BTYMat(ILEV)%a=0d0
+  mg_BTZMat(ILEV)%a=0d0
+
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T}]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  CALL Build_BTMatP1_iso(mg_BTXMat(ILEV)%a,mg_BTYMat(ILEV)%a,&
+       mg_BTZMat(ILEV)%a,lqMat%LdA,lqMat%ColA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+     lqMat%na,9,E013)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+
+55 CONTINUE
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qlMat  => mg_qlMat(NLMAX)
+ BXMat => mg_BXMat(NLMAX)%a
+ BYMat => mg_BYMat(NLMAX)%a
+ BZMat => mg_BZMat(NLMAX)%a
+
+ lqMat  => mg_lqMat(NLMAX)
+ BTXMat => mg_BTXMat(NLMAX)%a
+ BTYMat => mg_BTYMat(NLMAX)%a
+ BTZMat => mg_BTZMat(NLMAX)%a
+
+END SUBROUTINE Create_BMat_iso
+
 END MODULE def_cc

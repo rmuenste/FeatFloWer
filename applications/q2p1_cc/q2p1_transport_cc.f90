@@ -147,7 +147,7 @@ end if
  CALL Create_LinMatStruct ()
 
  ! Pressure gradient matrix
- CALL Create_BMat() !(B,BT)
+ CALL Create_BMat_iso() !(B,BT)
 
  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
@@ -213,7 +213,7 @@ end if
  END IF
  CALL InitializeProlRest(QuadSc,LinSc)
 
- CALL OperatorRegenaration(1)
+ CALL OperatorRegenaration_iso(1)
 
 
 END SUBROUTINE Init_Q2P1_Structures_cc
@@ -242,9 +242,9 @@ alpha = QuadSc%prm%Alpha
 
  CALL ExchangeVelocitySolutionCoarse()
 
- CALL OperatorRegenaration(2)
+ CALL OperatorRegenaration_iso(2)
 
- CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration_iso(3)
 
 ! -------------------------------------------------
 ! Compute the momentum equations
@@ -271,7 +271,7 @@ thstep = tstep
 
  CALL ExchangeVelocitySolutionCoarse()
 
- CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_general_QuadScalar_cc(QuadSc,-1)
@@ -363,7 +363,7 @@ END IF
 
  CALL ExchangeVelocitySolutionCoarse()
 
- CALL OperatorRegenaration(3)
+ CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
@@ -407,13 +407,10 @@ IF (myid.eq.showid) THEN
   write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
 END IF
 
- CALL myFAC_GetForces(mfile,FORCES_NEW)
+ CALL FAC_GetForces_CC(mfile,FORCES_NEW)
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
 diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
 
-
-
-CALL FAC_GetForces_CC(mfile)
 
 !IF (FORCES_NEW(1).LT.1d-7) THEN
 !  diffOne = diffOne/1d-7
@@ -602,9 +599,11 @@ END SUBROUTINE OperatorDeallocation
 !
 ! ----------------------------------------------
 !
-SUBROUTINE FAC_GetForces_CC(mfile)
+SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
 EXTERNAL E013
@@ -627,7 +626,12 @@ EXTERNAL E013
   LinSc%valP(NLMAX)%x,BndrForce,Force)
  END IF
 
- Factor = 2d0/(U_mean*U_mean*D*H)
+!Pipe
+! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+!Halfpipe/Quarterpipe
+! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R/2d0)
+!FAC
+ Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force
 
  IF (myid.eq.showID) THEN
@@ -635,7 +639,6 @@ EXTERNAL E013
   WRITE(MFILE,5)
   write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
   write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  WRITE(666,'(7G16.8)') Timens,Force
  END IF
 
 5  FORMAT(104('-'))
@@ -655,20 +658,12 @@ EXTERNAL E013
 
  ILEV=NLMAX
  CALL SETLEV(2)
-! CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
-!      BndrForce,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-!      KWORK(L(LEDGE)),myQ2Coor,Force,E013)
+
  
  IF (bNonNewtonian) THEN
-  IF (myMatrixRenewal%S.NE.0) THEN
    ! At the moment we have this case 
    CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
    LinSc%valP(NLMAX)%x,BndrForce,Force)
-  ELSE
-   CALL GetForceCyl(QuadSc%valU,QuadSc%valV,QuadSc%valW,LinSc%valP(NLMAX)%x,&
-        BndrForce,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-        KWORK(L(LEDGE)),myQ2Coor,Force,E013)
-  END IF
  ELSE
   CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
   LinSc%valP(NLMAX)%x,BndrForce,Force)
@@ -697,35 +692,36 @@ END SUBROUTINE myFAC_GetForces
 !
 !----------------------------------------------
 !
-SUBROUTINE OperatorRegenaration_cc(iType)
+SUBROUTINE OperatorRegenaration_iso(iType)
 INTEGER iType
 LOGICAL bHit
 
 bHit = .FALSE.
 
 IF (iType.EQ.myMatrixRenewal%D) THEN
- CALL Create_DiffMat(QuadSc)
+ CALL Create_DiffMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%K) THEN
- CALL Create_KMat(QuadSc)
+ CALL Create_KMat_iso(QuadSc)
+ CALL Create_barMMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%M) THEN
- CALL Create_MRhoMat()
+ CALL Create_MRhoMat_iso()
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%S) THEN
- CALL Create_SMat(QuadSc)
+ CALL Create_SMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%C) THEN
 
- CALL Create_BMat()
+ CALL Create_BMat_iso()
  
  IF (myid.ne.master) THEN
   CALL Fill_QuadLinParMat()
@@ -740,7 +736,7 @@ END IF
 
 IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
-END SUBROUTINE OperatorRegenaration_cc
+END SUBROUTINE OperatorRegenaration_iso
 END MODULE Transport_CC
 
 
