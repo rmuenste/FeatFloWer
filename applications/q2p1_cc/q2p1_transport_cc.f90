@@ -161,7 +161,9 @@ end if
 
  CALL Create_P1MMat() !(MP1,iMP1)
 
- CALL Create_Special_CCStructures()
+ IF (QuadSc%prm%MGprmIn%VANKA.eq.1) THEN
+   CALL Create_Special_CCStructures()
+ END IF 
  
  CALL Create_GlobalNumbering_CC()
 
@@ -311,7 +313,6 @@ IF (myid.ne.master) THEN
  LinSc%valP(NLMAX)%x  = 0d0 
 END IF
 
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Solver !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 CALL myMPI_Barrier()
 CALL ZTIME(tttt0)
@@ -323,6 +324,7 @@ CALL ZTIME(tttt1)
 IF (myid.eq.1) WRITE(*,'(A,ES12.4,A)') " Solution of linear system ... done! --> Time: ",tttt1-tttt0 ," s"
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Solver !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
+
 IF (QuadSc%prm%MGprmIn%VANKA.eq.0) THEN
   CALL CC_MemFree()
 ELSE

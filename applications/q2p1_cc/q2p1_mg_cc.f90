@@ -1,7 +1,7 @@
 MODULE mg_cc
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
-                   COMM_Maximum,COMM_SUMM,COMM_NLComplete
+                   COMM_Maximum,COMM_SUMM,COMM_NLComplete,myMPI_Barrier
 USE var_QuadScalar
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCSolve,myUmfPack_CCSolveMaster,&
                    myUmfPack_CCSolveLocalMat
@@ -565,17 +565,17 @@ END SUBROUTINE mgCoarseGridSolverShouldBe_cc
     ! the velocity rhs needs to be updated due to the parallelization ...
     CALL mgUpdateDefectForVanka()
 
-    CALL VANKA(mg_mesh%level(NLMAX)%kvert,&
-              mg_mesh%level(NLMAX)%karea,&
-              mg_mesh%level(NLMAX)%kedge,&
-              ndof_u,ndof_p,&
-              myMG%dX_u(mgLev)%x,&
-              myMG%dX_p(mgLev)%x,&
-              myMG%D_u(mgLev)%x,&
-              myMG%D_p(mgLev)%x,&
-              myMG%KNPRU,&
-              myMG%KNPRV,&
-              myMG%KNPRW)
+    CALL VANKA(mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%karea,&
+               mg_mesh%level(ilev)%kedge,&
+               ndof_u,ndof_p,&
+               myMG%dX_u(mgLev)%x,&
+               myMG%dX_p(mgLev)%x,&
+               myMG%D_u(mgLev)%x,&
+               myMG%D_p(mgLev)%x,&
+               myMG%KNPRU,&
+               myMG%KNPRV,&
+               myMG%KNPRW)
 
     END DO
  
@@ -612,9 +612,9 @@ REAL*8 daux
    CALL mgUpdateDefectForVanka()
 
    IF (myMG%VANKA.eq.1) THEN
-   CALL VANKA_new(mg_mesh%level(NLMAX)%kvert,&
-                  mg_mesh%level(NLMAX)%karea,&
-                  mg_mesh%level(NLMAX)%kedge,&
+   CALL VANKA_new(mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
                   ndof_u,ndof_p,&
                   myMG%dX_u(mgLev)%x,&
                   myMG%dX_p(mgLev)%x,&
@@ -625,9 +625,9 @@ REAL*8 daux
                   myMG%KNPRW)
 
    ELSE
-   CALL VANKA(mg_mesh%level(NLMAX)%kvert,&
-              mg_mesh%level(NLMAX)%karea,&
-              mg_mesh%level(NLMAX)%kedge,&
+   CALL VANKA(mg_mesh%level(ilev)%kvert,&
+              mg_mesh%level(ilev)%karea,&
+              mg_mesh%level(ilev)%kedge,&
               ndof_u,ndof_p,&
               myMG%dX_u(mgLev)%x,&
               myMG%dX_p(mgLev)%x,&
@@ -2236,6 +2236,7 @@ DO i = 1, 85
  END DO
 END DO
 
+!########################################################
 DO IEL = 1,KNEL(ILEV)
 
  CALL NDFGL(IEL,1,13,KVERT,KEDGE,KAREA,KDFG1,KDFL1)
@@ -2258,16 +2259,21 @@ DO IEL = 1,KNEL(ILEV)
    dV = VALU(IG2+jVelo)
    dW = VALU(IG3+jVelo)
    IF (jVelo.eq.IG) THEN
+
     DEF(IL1) = DEF(IL1) - (  MGE013(ILEV)%UE11(IG)*dU + MyMG%A12(mgLev)%a(JDFL)*dV + MyMG%A13(mgLev)%a(JDFL)*dW)
+
     DEF(IL2) = DEF(IL2) - (MyMG%A21(mgLev)%a(JDFL)*dU +   MGE013(ILEV)%UE22(IG)*dV + MyMG%A23(mgLev)%a(JDFL)*dW)
+
     DEF(IL3) = DEF(IL3) - (MyMG%A31(mgLev)%a(JDFL)*dU + MyMG%A32(mgLev)%a(JDFL)*dV +   MGE013(ILEV)%UE33(IG)*dW)
    ELSE
     DEF(IL1) = DEF(IL1) - (MyMG%A11(mgLev)%a(JDFL)*dU + MyMG%A12(mgLev)%a(JDFL)*dV + MyMG%A13(mgLev)%a(JDFL)*dW)
     DEF(IL2) = DEF(IL2) - (MyMG%A21(mgLev)%a(JDFL)*dU + MyMG%A22(mgLev)%a(JDFL)*dV + MyMG%A23(mgLev)%a(JDFL)*dW)
     DEF(IL3) = DEF(IL3) - (MyMG%A31(mgLev)%a(JDFL)*dU + MyMG%A32(mgLev)%a(JDFL)*dV + MyMG%A33(mgLev)%a(JDFL)*dW)
+
 !     DEF(IL1) = DEF(IL1) - myMg%A11(ILEV)%a(JDFL)*dU
 !     DEF(IL2) = DEF(IL2) - myMg%A22(ILEV)%a(JDFL)*dV
 !     DEF(IL3) = DEF(IL3) - myMg%A33(ILEV)%a(JDFL)*dW
+
    END IF
   END DO
 
@@ -2283,7 +2289,7 @@ DO IEL = 1,KNEL(ILEV)
   IF (KNV(IG).EQ.1) DEF(IL2) = 0d0
   IF (KNW(IG).EQ.1) DEF(IL3) = 0d0
 
- END DO
+ END DO ! idfl 1,27
 
  DO IDFL=1,4
   IL = 81 + IDFL
@@ -2299,7 +2305,8 @@ DO IEL = 1,KNEL(ILEV)
    DEF(IL) =  DEF(IL) - myMg%BTX(ILEV)%a(JDFL)*dU - myMg%BTY(ILEV)%a(JDFL)*dV - myMg%BTZ(ILEV)%a(JDFL)*dW
   END DO
 
- END DO
+ END DO ! idfl 1,4
+!########################################################
 
  CALL ll21(def,85,dNorm(1))
 
@@ -2319,10 +2326,7 @@ DO IEL = 1,KNEL(ILEV)
  DO IDFL=1,4
   VALP(4*(iel-1)+IDFL) = VALP(4*(iel-1)+IDFL) + SOL(81+IDFL)!*MyMG%RLX
  END DO       
-
-IF (myid.eq.1.AND.IEL.EQ.1) THEN
-
- END IF
+ 
 
 END DO
 
