@@ -293,6 +293,8 @@ END DO
 
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
+ CALL ExtraxtParallelPattern()
+
  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
 
