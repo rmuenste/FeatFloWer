@@ -5,8 +5,9 @@ USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
 USE var_QuadScalar
 USE var_QuadScalar_newton
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCSolve,myUmfPack_CCSolveMaster,&
-                   myUmfPack_CCSolveLocalMat
+                   myUmfPack_CCSolveLocalMat    
 
+USE UMFPackSolver, only : myUmfPack_Solve
 USE MumpsSolver, only : MUMPS_solver_Distributed
 
 
@@ -1723,43 +1724,43 @@ END SUBROUTINE E013_Lin
 !
 ! ----------------------------------------------
 !
-SUBROUTINE mgCoarseGridSolver_P()
-INTEGER Iter,i,j,ndof
-REAL*8 daux
-
-  IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
-
-  IF (myid.eq.0) THEN
-
-   myMG%X(mgLev)%x = 0d0
-
-   IF (myMG%MinLev.EQ.myMG%MedLev) THEN
-    CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-    CoarseIter = 1
-!    CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
-
-!    CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
-!         ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-!         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myMG%DefImprCoarse)
-   ELSE
-
-    CALL crs_cycle()
-!    CALL crs_oneStep()
- 
-  END IF
- END IF
-
- IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
-
-!  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
-
- CALL E013SendK(0,showid,CoarseIter)
-
-END SUBROUTINE mgCoarseGridSolver_P
+       SUBROUTINE mgCoarseGridSolver_P()
+       INTEGER Iter,i,j,ndof
+       REAL*8 daux
+       
+         IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
+         IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
+         IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
+       
+         IF (myid.eq.0) THEN
+       
+          myMG%X(mgLev)%x = 0d0
+       
+          IF (myMG%MinLev.EQ.myMG%MedLev) THEN
+           CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
+           CoarseIter = 1
+       !    CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
+       
+       !    CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
+       !         ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
+       !         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myMG%DefImprCoarse)
+          ELSE
+       
+           CALL crs_cycle()
+       !    CALL crs_oneStep()
+        
+         END IF
+        END IF
+       
+        IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
+        IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
+        IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
+       
+       !  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
+       
+        CALL E013SendK(0,showid,CoarseIter)
+       
+       END SUBROUTINE mgCoarseGridSolver_P
 !
 ! ----------------------------------------------
 !

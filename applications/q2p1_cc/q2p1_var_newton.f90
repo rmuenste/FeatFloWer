@@ -15,4 +15,8 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_AA11mat,mg_AA22mat,
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_AA12mat,mg_AA13mat,mg_AA23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_AA21mat,mg_AA31mat,mg_AA32mat
 
+! Force calculation
+REAL*8  , DIMENSION(:)  , POINTER :: BXMat_new,BYMat_new,BZMat_new
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat_new,mg_BYMat_new,mg_BZMat_new
+
 END MODULE var_QuadScalar_newton

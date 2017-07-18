@@ -2336,6 +2336,10 @@ EXTERNAL E011,E013
  IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
  IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
  IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
+! Helping Force calculation
+ IF (.NOT.ALLOCATED(mg_BXMat_new)) ALLOCATE(mg_BXMat_new(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BYMat_new)) ALLOCATE(mg_BYMat_new(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BZMat_new)) ALLOCATE(mg_BZMat_new(NLMIN:NLMAX))
 
  DO ILEV=NLMIN,NLMAX
 
@@ -2348,6 +2352,13 @@ EXTERNAL E011,E013
   mg_BXMat(ILEV)%a=0d0
   mg_BYMat(ILEV)%a=0d0
   mg_BZMat(ILEV)%a=0d0
+! Helping Force calculation
+  IF (.NOT.ALLOCATED(mg_BXMat_new(ILEV)%a)) ALLOCATE(mg_BXMat_new(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BYMat_new(ILEV)%a)) ALLOCATE(mg_BYMat_new(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BZMat_new(ILEV)%a)) ALLOCATE(mg_BZMat_new(ILEV)%a(qlMat%na))
+  mg_BXMat_new(ILEV)%a=0d0
+  mg_BYMat_new(ILEV)%a=0d0
+  mg_BZMat_new(ILEV)%a=0d0
 
   IF (myid.eq.showID) THEN
    IF (ILEV.EQ.NLMIN) THEN
@@ -2363,6 +2374,10 @@ EXTERNAL E011,E013
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
      qlMat%na,9,E013)
+! Helping Force calculation
+  mg_BXMat_new(ILEV)%a = mg_BXMat(ILEV)%a
+  mg_BYMat_new(ILEV)%a = mg_BYMat(ILEV)%a
+  mg_BZMat_new(ILEV)%a = mg_BZMat(ILEV)%a
 
  END DO
 
@@ -2414,6 +2429,10 @@ DO ILEV=NLMIN,NLMAX
  BXMat => mg_BXMat(NLMAX)%a
  BYMat => mg_BYMat(NLMAX)%a
  BZMat => mg_BZMat(NLMAX)%a
+! Helping Force calculation
+ BXMat_new => mg_BXMat_new(NLMAX)%a
+ BYMat_new => mg_BYMat_new(NLMAX)%a
+ BZMat_new => mg_BZMat_new(NLMAX)%a
 
  lqMat  => mg_lqMat(NLMAX)
  BTXMat => mg_BTXMat(NLMAX)%a

@@ -367,7 +367,7 @@ END IF
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
- CALL OperatorDeallocation()
+! CALL OperatorDeallocation()
 
 ! Set dirichlet boundary conditions on the solution
 IF (myid.ne.master) THEN
@@ -407,7 +407,9 @@ IF (myid.eq.showid) THEN
   write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
 END IF
 
- CALL FAC_GetForces_CC(mfile,FORCES_NEW)
+ CALL myFAC_GetForces(mfile,FORCES_NEW)
+ CALL OperatorDeallocation()
+
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
 diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
 
@@ -593,6 +595,17 @@ SUBROUTINE OperatorDeallocation()
 
   IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
 
+  IF (ALLOCATED(mg_barM11mat(ILEV)%A)) DEALLOCATE(mg_barM11mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM12mat(ILEV)%A)) DEALLOCATE(mg_barM12mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM13mat(ILEV)%A)) DEALLOCATE(mg_barM13mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM21mat(ILEV)%A)) DEALLOCATE(mg_barM21mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM22mat(ILEV)%A)) DEALLOCATE(mg_barM22mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM23mat(ILEV)%A)) DEALLOCATE(mg_barM23mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM31mat(ILEV)%A)) DEALLOCATE(mg_barM31mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM32mat(ILEV)%A)) DEALLOCATE(mg_barM32mat(ILEV)%a)
+  IF (ALLOCATED(mg_barM33mat(ILEV)%A)) DEALLOCATE(mg_barM33mat(ILEV)%a)
+
+
 END DO
 
 END SUBROUTINE OperatorDeallocation
@@ -612,7 +625,15 @@ EXTERNAL E013
  CALL SETLEV(2)
  IF (bNonNewtonian) THEN
 
- CALL GetForceCyl_cc(QuadSc%valU,QuadSc%valV,&
+! CALL GetForceCyl_cc(QuadSc%valU,QuadSc%valV,&
+!                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
+!                     BndrForce,&
+!                     mg_mesh%level(ILEV)%kvert,&
+!                     mg_mesh%level(ILEV)%karea,&
+!                     mg_mesh%level(ILEV)%kedge,&
+!                     mg_mesh%level(ILEV)%dcorvg,&
+!                     Force, E013)
+ CALL GetForceCyl_cc_iso(QuadSc%valU,QuadSc%valV,&
                      QuadSc%valW,LinSc%valP(NLMAX)%x,&
                      BndrForce,&
                      mg_mesh%level(ILEV)%kvert,&
@@ -662,7 +683,7 @@ EXTERNAL E013
  
  IF (bNonNewtonian) THEN
    ! At the moment we have this case 
-   CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+   CALL EvaluateDragLift9_mod(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
    LinSc%valP(NLMAX)%x,BndrForce,Force)
  ELSE
   CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
@@ -737,6 +758,58 @@ END IF
 IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE OperatorRegenaration_iso
+
+SUBROUTINE EvaluateDragLift9_mod(U,V,W,P,CYL,df)
+REAL*8 U(*),V(*),W(*),P(*)
+LOGICAL CYL(*)
+REAL*8 df(3)
+INTEGER I,J,K,JJ
+
+IF (myid.ne.0) THEN
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+S11Mat   => mg_S11Mat(ILEV)%a
+S22Mat   => mg_S22Mat(ILEV)%a
+S33Mat   => mg_S33Mat(ILEV)%a
+S12Mat   => mg_S12Mat(ILEV)%a
+S13Mat   => mg_S13Mat(ILEV)%a
+S23Mat   => mg_S23Mat(ILEV)%a
+S21Mat   => mg_S21Mat(ILEV)%a
+S31Mat   => mg_S31Mat(ILEV)%a
+S32Mat   => mg_S32Mat(ILEV)%a
+BXMat_new    => mg_BXMat_new(ILEV)%a
+BYMat_new    => mg_BYMat_new(ILEV)%a
+BZMat_new    => mg_BZMat_new(ILEV)%a
+qMat     => mg_qMat(ILEV)
+
+df = 0d0
+DO I=1,qMat%nu
+ IF (CYL(I)) THEN
+  DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+   K = qMat%ColA(J)
+   df(1) = df(1) - (S11Mat(J)*U(K) + S12Mat(J)*V(K) + S13Mat(J)*W(K))
+   df(2) = df(2) - (S21Mat(J)*U(K) + S22Mat(J)*V(K) + S23Mat(J)*W(K))
+   df(3) = df(3) - (S31Mat(J)*U(K) + S32Mat(J)*V(K) + S33Mat(J)*W(K))
+  END DO
+  DO J=qlMat%LdA(I),qlMat%LdA(I+1)-1
+   K = qlMat%ColA(J)
+   df(1) = df(1) + BXMat_new(J)*P(K)
+   df(2) = df(2) + BYMat_new(J)*P(K)
+   df(3) = df(3) + BZMat_new(J)*P(K)
+  END DO
+ END IF
+END DO
+
+END IF
+
+CALL COMM_SUMM(df(1))
+CALL COMM_SUMM(df(2))
+CALL COMM_SUMM(df(3))
+
+END SUBROUTINE EvaluateDragLift9_mod
+
 END MODULE Transport_CC
 
 
