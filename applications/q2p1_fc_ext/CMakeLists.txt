@@ -106,4 +106,10 @@ IF(${OUT_OF_SOURCE_BUILD})
       execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
     ENDIF()
   ENDFOREACH()
+
+  file(COPY run_q2p1_fc_ext DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 ENDIF()
+
+add_test(q2p1-fac-newt ./run_q2p1_fc_ext)
+#add_test(q2p1-fac-newt mpirun -np 5 ./q2p1_fc_ext)

@@ -328,8 +328,7 @@ include(${CMAKE_MODULE_PATH}/ConfigureInstallDirectories.cmake)
 #                                      Predefined test cases
 #-------------------------------------------------------------------------------------------------
 
-add_test(q2p1-fac-newt ./test1)
-add_test(q2p1-fac-nnewt ./test2)
-add_test(q2p1-fallingparticle ./test3)
-add_test(q2p1-visco-elastic ./test4)
+#add_test(q2p1-fac-nnewt ./test2)
+#add_test(q2p1-fallingparticle ./test3)
+#add_test(q2p1-visco-elastic ./test4)
 
