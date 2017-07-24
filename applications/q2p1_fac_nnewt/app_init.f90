@@ -189,6 +189,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+! write(*,*)'Refinement finished: ',myid
+
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
@@ -350,6 +352,13 @@ DO ILEV=NLMIN+1,NLMAX
  NAT=mg_mesh%level(II)%nat
  NET=mg_mesh%level(II)%net
  NEL=mg_mesh%level(II)%nel
+
+ IF (myid.eq.showid) THEN
+   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
+ END IF
+
+ !CALL SETLEV(2)
 
  IF (myid.eq.showid) THEN
    WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET

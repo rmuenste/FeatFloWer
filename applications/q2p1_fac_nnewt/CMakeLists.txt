@@ -1,4 +1,4 @@
-# CMakeLists of q2p1_fc_ext application
+# CMakeLists of q2p1_fac_nnewt application
 set(src_quadLS_ext
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
@@ -20,13 +20,13 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 )
 
-# CMakeLists of q2p1_fc_ext application
+# CMakeLists of q2p1_fac_nnewt application
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
 )
 
 # source files for standad q2p1 
-set(src_q2p1_fc_ext
+set(src_q2p1_fac_nnewt
 ${Elements} 
 ${src_q2p1} 
 ${src_pp3d} 
@@ -39,12 +39,12 @@ ${src_mesh}
 ${src_cinterface}
 app_init.f90
 postprocessing.f90
-q2p1_bench_sedimentation.f90
+q2p1_fac_nnewt.f90
 )
 
 
 # Add the application executable
-add_executable(q2p1_bench_sedimentation ${src_q2p1_fc_ext}) 
+add_executable(q2p1_fac_nnewt ${src_q2p1_fac_nnewt}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -57,19 +57,15 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-
-target_link_libraries(q2p1_bench_sedimentation 
+target_link_libraries(q2p1_fac_nnewt 
   ${FF_APPLICATION_LIBS}
   )
 
-target_include_directories(q2p1_bench_sedimentation PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+target_include_directories(q2p1_fac_nnewt PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
-target_compile_options(q2p1_bench_sedimentation PRIVATE ${Fortran_FLAGS})
+target_compile_options(q2p1_fac_nnewt PRIVATE ${Fortran_FLAGS})
 
-set_target_properties(q2p1_bench_sedimentation PROPERTIES LINKER_LANGUAGE Fortran)
-
-#message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
-#message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
+set_target_properties(q2p1_fac_nnewt PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set
@@ -84,8 +80,18 @@ IF(${OUT_OF_SOURCE_BUILD})
     set(DIRECTORYLINKS _adc meshes)
   ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
 
+  set(FILELINKS partitioner)
   set(DIRECTORYCOPIES _data start)
   set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
+
+  # establish the file links
+  FOREACH(flink ${FILELINKS})
+    IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${flink})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
+        ${CMAKE_SOURCE_DIR}/${flink}
+        ${CMAKE_CURRENT_BINARY_DIR}/${flink})
+    ENDIF ()    
+  ENDFOREACH()
 
   # create the default directories if they are missing
   FOREACH(dir ${DEF_DIRECTORIES})
@@ -101,9 +107,8 @@ IF(${OUT_OF_SOURCE_BUILD})
     ENDIF()
   ENDFOREACH()
 
-  file(COPY start_q2p1_bench_sedimentation DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY start_q2p1_fac_nnewt DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 ENDIF()
 
-add_test(q2p1-bench-sedimentation python ./start_q2p1_bench_sedimentation)
-
+add_test(q2p1-fac-non-newt python ./start_q2p1_fac_nnewt)

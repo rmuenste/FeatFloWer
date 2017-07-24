@@ -1,9 +1,10 @@
 #!/bin/bash
 
-module purge && module load intel/studio-xe/16.0.4.258 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet && module load cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90
-
 #PyPartitioner 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
-python /home/user/rmuenste/bin/PyPartitioner.py 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj 
+#python /home/user/rmuenste/bin/PyPartitioner.py 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj 
+
+python /home/rafa/bin/PyPartitioner.py 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj 
+
 #mpirun -np 5 ./q2p1_fc_ext >/dev/null 2>/dev/null
 mpirun -np 5 ./q2p1_fc_ext #>/dev/null 2>/dev/null
 #cp _data/prot.txt fac_new_prot.txt
