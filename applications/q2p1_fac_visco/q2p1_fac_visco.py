@@ -17,7 +17,7 @@ def usage():
   print("[-h, --help]: prints this message")
 ################
 
-def get_log_variable(file_name, var_name):
+def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
     lines = sources.readlines()
   
@@ -25,7 +25,7 @@ def get_log_variable(file_name, var_name):
   t_found = False
 
   for line in reversed(lines):
-    m = re.match(" Force acting on the cylinder:",line)
+    m = re.match(var_name,line)
     if m != None:
       mysplit = line.split(':')
       sim_time = mysplit[1].strip()
@@ -70,10 +70,10 @@ module_string = "module purge && module load gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/n
 
 PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
-force = get_log_variable("_data/prot.txt", " Force acting on the cylinder:")
+force = get_log_entry("_data/prot.txt", "TimevsForce")
 force = force.split()
-d = {'ID' : 'VISCO-FAC', 'Caption' : 'Visco-Elastic Flow Around A Cylinder', 
-'Drag': force[1], 'Lift' : force[2]}
+d = {'ID' : 'VISCO-FAS', 'Caption' : 'Visco-Elastic Flow Around A Cylinder', 
+'Drag': force[3], 'Lift' : 0}
 
 print(str(json.dumps(d)))
 with open('note.json','w') as f:

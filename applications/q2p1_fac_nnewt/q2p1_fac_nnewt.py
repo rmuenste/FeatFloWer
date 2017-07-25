@@ -17,7 +17,7 @@ def usage():
   print("[-h, --help]: prints this message")
 ################
 
-def get_log_variable(file_name, var_name):
+def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
     lines = sources.readlines()
   
