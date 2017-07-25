@@ -3,7 +3,7 @@
 import sys
 import getopt
 import platform
-sys.path.append('/home/rafa/bin/partitioner')
+sys.path.append('/home/user/rmuenste/bin/partitioner')
 import PyPartitioner
 import subprocess
 import re
@@ -15,28 +15,6 @@ def usage():
   print("Where options can be:")
   print("[-h, --help]: prints this message")
   print("[-h, --help]: prints this message")
-################
-
-def get_log_variable(file_name, var_name):
-  with open(file_name, "r") as sources:
-    lines = sources.readlines()
-  
-  it_found = False
-  t_found = False
-
-  for line in reversed(lines):
-    m = re.match(" Force acting on the cylinder:",line)
-    if m != None:
-      mysplit = line.split(':')
-      sim_time = mysplit[1].strip()
-      #print("Force = " + str(sim_time))
-      t_found = True
-      break
-
-  if t_found:
-    return sim_time
-  else :
-    return 0
 
 ###################################################################      
 
@@ -117,15 +95,4 @@ PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/benchSym/bench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_bench_sedimentation'],shell=True)
 data = get_col_data("_data/prot.txt")
 write_json_data(data)
-
-#force = get_log_variable("_data/prot.txt", " Force acting on the cylinder:")
-#force = force.split()
-#d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder', 
-#'Drag': force[1], 'Lift' : force[2]}
-#
-#print(str(json.dumps(d)))
-#with open('note.json','w') as f:
-#  f.write('[' + json.dumps(d) + ']\n')
-#with open('note_single.json','w') as f:
-#  f.write(json.dumps(d) + '\n')
 

@@ -3,7 +3,7 @@
 import sys
 import getopt
 import platform
-sys.path.append('/home/rafa/bin/partitioner')
+sys.path.append('/home/user/rmuenste/bin/partitioner')
 import PyPartitioner
 import subprocess
 import re
@@ -66,15 +66,13 @@ for opt, arg in opts:
 if params != '':
     print("Parameter params = " + params)
 
-print("Platform machine: " + platform.machine())
-print("Platform system: " + platform.system())
-print("System path: " + str(sys.path))
+module_string = "module purge && module load gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90"
 
-PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
+PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
+subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
 force = get_log_variable("_data/prot.txt", " Force acting on the cylinder:")
 force = force.split()
-d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder', 
+d = {'ID' : 'VISCO-FAC', 'Caption' : 'Visco-Elastic Flow Around A Cylinder', 
 'Drag': force[1], 'Lift' : force[2]}
 
 print(str(json.dumps(d)))

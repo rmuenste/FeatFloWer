@@ -3,6 +3,8 @@ add_subdirectory(q2p1_fc_ext)
 
 add_subdirectory(q2p1_fac_nnewt)
 
+add_subdirectory(q2p1_fac_visco)
+
 add_subdirectory(q2p1_fbm_spring)
 
 add_subdirectory(q2p1_bench_sedimentation)

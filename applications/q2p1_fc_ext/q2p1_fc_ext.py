@@ -3,7 +3,7 @@
 import sys
 import getopt
 import platform
-sys.path.append('/home/rafa/bin/partitioner')
+sys.path.append('/home/user/rmuenste/bin/partitioner')
 import PyPartitioner
 import subprocess
 import re
@@ -17,7 +17,7 @@ def usage():
   print("[-h, --help]: prints this message")
 ################
 
-def get_log_variable(file_name, var_name):
+def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
     lines = sources.readlines()
   
@@ -25,16 +25,15 @@ def get_log_variable(file_name, var_name):
   t_found = False
 
   for line in reversed(lines):
-    m = re.match(" Force acting on the cylinder:",line)
+    m = re.match(var_name,line)
     if m != None:
       mysplit = line.split(':')
-      sim_time = mysplit[1].strip()
-      #print("Force = " + str(sim_time))
+      val = mysplit[1].strip()
       t_found = True
       break
 
   if t_found:
-    return sim_time
+    return val
   else :
     return 0
 
@@ -71,10 +70,10 @@ print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
 PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_fac_nnewt'],shell=True)
-force = get_log_variable("_data/prot.txt", " Force acting on the cylinder:")
+subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
+force = get_log_entry("_data/prot.txt", " Force acting on the cylinder:")
 force = force.split()
-d = {'ID' : 'NON-NEWTFAC', 'Caption' : 'Non-Newtonian Flow Around A Cylinder', 
+d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder', 
 'Drag': force[1], 'Lift' : force[2]}
 
 print(str(json.dumps(d)))

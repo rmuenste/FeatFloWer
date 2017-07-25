@@ -101,9 +101,9 @@ IF(${OUT_OF_SOURCE_BUILD})
     ENDIF()
   ENDFOREACH()
 
-  file(COPY start_q2p1_bench_sedimentation DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY q2p1_bench_sedimentation.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 ENDIF()
 
-add_test(q2p1-bench-sedimentation python ./start_q2p1_bench_sedimentation)
+add_test(q2p1-bench-sedimentation python ./q2p1_bench_sedimentation.py)
 
