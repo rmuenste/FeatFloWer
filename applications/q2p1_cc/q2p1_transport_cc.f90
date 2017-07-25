@@ -506,7 +506,9 @@ SUBROUTINE OperatorDeallocation()
   IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
   IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
 
-  IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
+  if(allocated(mg_Kmat))then
+    IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
+  end if
 
 END DO
 
