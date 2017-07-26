@@ -795,9 +795,11 @@ END SUBROUTINE Boundary_QuadScalar_Def
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Val()
+implicit none
 REAL*8 PX,PY,PZ
 INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
 
+ilev = NLMAX
 ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
        mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
@@ -805,9 +807,9 @@ DO i=1,ndof
  PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
  inpr = 0
 
- IF (QuadSc%knprU(NLMAX)%x(i).EQ.1) QuadSc%valU(i)=0d0
- IF (QuadSc%knprV(NLMAX)%x(i).EQ.1) QuadSc%valV(i)=0d0
- IF (QuadSc%knprW(NLMAX)%x(i).EQ.1) QuadSc%valW(i)=0d0
+ IF (QuadSc%knprU(ilev)%x(i).EQ.1) QuadSc%valU(i)=0d0
+ IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
+ IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
 
  IF (myBoundary%iInflow(i).GT.0) THEN 
   inpr = 1

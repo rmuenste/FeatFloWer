@@ -41,10 +41,10 @@ INTEGER mfile,mterm
 INTEGER INLComplete,i
 REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter
 
-IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
-
- RETURN
-END IF
+!IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
+!
+! RETURN
+!END IF
 
 CALL mgInit_cc()
 
