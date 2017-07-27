@@ -36,7 +36,7 @@ CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
      LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
 ! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 
-!CALL WriteSol_Time(iOut)
+CALL WriteSol_Time(iOut)
 
 if(bViscoElastic)then
   CALL WriteSol_Visco(iOut,0)
@@ -86,18 +86,18 @@ IF     (myExport%Format.EQ."GMV") THEN
  END IF
 
 ELSEIF (myExport%Format.EQ."VTK") THEN
-!
-! IF (myid.NE.0) THEN
-!  NLMAX = NLMAX + 1
-!  ILEV = myExport%Level
-!  CALL SETLEV(2)
-!  CALL Output_VTK_piece(iOutput,&
-!    mg_mesh%level(ILEV)%dcorvg,&
-!    mg_mesh%level(ILEV)%kvert)
-!  NLMAX = NLMAX - 1
-! ELSE
-!  CALL Output_VTK_main(iOutput)
-! END IF
+
+ IF (myid.NE.0) THEN
+  NLMAX = NLMAX + 1
+  ILEV = myExport%Level
+  CALL SETLEV(2)
+  CALL Output_VTK_piece(iOutput,&
+    mg_mesh%level(ILEV)%dcorvg,&
+    mg_mesh%level(ILEV)%kvert)
+  NLMAX = NLMAX - 1
+ ELSE
+  CALL Output_VTK_main(iOutput)
+ END IF
 
 END IF
 
@@ -283,16 +283,59 @@ end subroutine release_mesh
 !
 ! ----------------------------------------------
 !
-subroutine sim_terminate()
+      SUBROUTINE StatOut_mod(time_passed,myOutFile)
+      USE def_FEAT
+      USE PP3D_MPI, ONLY : myid,master,showid,subnodes
+      USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
+      IMPLICIT NONE
 
-USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+      Real, intent(in) :: time_passed
 
-integer :: ierr
+      REAL*8 daux,daux1,ds
+      INTEGER myFile,myOutFile,itms,istat
+      LOGICAL bExist
 
-call myMPI_Barrier()
-CALL MPI_abort(MPI_COMM_WORLD,IERR)
+      itms = min(itns-1,nitns-1)
+      ds = DBLE(subnodes)
 
-end subroutine sim_terminate
+      IF (myid.eq.showid) THEN
+
+      IF (myOutFile.eq.0) THEN
+       myFile = 669
+       OPEN (UNIT=myFile, FILE='_data/Statistics.txt',action='write',iostat=istat)
+       if(istat .ne. 0)then
+         write(*,*)"Could not open file for writing in StatOut(). "
+       stop          
+       end if
+      ELSE
+       myFile = myOutFile
+      END IF
+
+      daux = myStat%tKMat+myStat%tDMat+myStat%tMMat+myStat%tCMat+myStat%tSMat
+      daux1 = myStat%tGMVOut +myStat%tDumpOut
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Overall time            ",time_passed
+      WRITE(myFile,*)  
+      WRITE(myFile,8) " Solving time            ",time_passed-daux-daux1
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Operator assembly time  ",daux
+      WRITE(myFile,8) "  Convection matrix      ",myStat%tKMat
+      WRITE(myFile,8) "  Deformation matrix     ",myStat%tSMat
+      WRITE(myFile,8) "  Diffusion matrix       ",myStat%tDMat
+      WRITE(myFile,8) "  Mass matrix            ",myStat%tMMat
+      WRITE(myFile,8) "  Reactive term          ",myStat%tCMat
+      WRITE(myFile,*) 
+      WRITE(myFile,8) " Output time             ",daux1
+
+      IF (myOutFile.eq.0) THEN
+       CLOSE (myFile)
+      END IF
+
+      END IF
+
+8     FORMAT(A24,' : ',F12.4,'s')
+
+      END SUBROUTINE StatOut_mod
 !
 ! ----------------------------------------------
 !
@@ -311,16 +354,17 @@ real :: time,time_passed
 CALL ZTIME(time)
 
 time_passed = time - dttt0
-CALL StatOut(time_passed,0)
+CALL StatOut_mod(time_passed,filehandle)
 
-CALL StatOut(time_passed,terminal)
+CALL StatOut_mod(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
 !CALL mySolToFile(-1)
-CALL Output_Profiles(0)
+CALL myOutput_Profiles(0)
 
 IF (myid.eq.showid) THEN
-  WRITE(MTERM,*) "PP3D_LES has successfully finished. "
+  WRITE(MTERM,*) "CC3D_iso_adaptive has successfully finished. "
+  WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
 END IF
 
 call release_mesh()

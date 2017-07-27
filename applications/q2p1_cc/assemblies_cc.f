@@ -211,16 +211,22 @@ C
       !
       !
       !
-      SUBROUTINE CC_Extraction_sub(KVERT,KAREA,KEDGE,NEL,KNU,KNV,KNW)
-      USE var_QuadScalar,ONLY : CC_EMat,mg_A11mat,mg_A22mat,mg_A33mat,
-     *    mg_A12mat,mg_A13mat,mg_A23mat,mg_A21mat,mg_A31mat,mg_A32mat,
+      SUBROUTINE CC_Extraction_sub(KVERT,KAREA,KEDGE,NEL,KNU,KNV,KNW,
+     *				iStringPos,iString)
+      USE var_QuadScalar,ONLY : CC_EMat,
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
      *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
+
+      USE var_QuadScalar_newton, ONLY : 
+     *    mg_AA11mat,mg_AA22mat,mg_AA33mat,
+     *    mg_AA12mat,mg_AA13mat,mg_AA23mat,
+     *    mg_AA21mat,mg_AA31mat,mg_AA32mat
+
       USE PP3D_MPI, ONLY: MGE013,myid,master
       USE UMFPackSolver_CC, ONLY : myUmfPack_CCFactorize
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      INTEGER KNU(*),KNV(*),KNW(*)
+      INTEGER KNU(*),KNV(*),KNW(*),iStringPos,iString
       INTEGER KVERT(8,*),KAREA(6,*),KEDGE(12,*),NEL
       INTEGER KDFG1(27),KDFL1(27),KDFG2(27),KDFL2(27)
       INTEGER LDA(86),COLA(85,85)
@@ -291,25 +297,25 @@ C
 !      *      mg_A33mat(ILEV)%a(LG)
 ! 
             CC_EMat(ILEV)%E(IEL)%a( 0 + IL, 0 + JL) = 
-     *      mg_A11mat(ILEV)%a(LG)
+     *      mg_AA11mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a( 0 + IL,27 + JL) = 
-     *      mg_A12mat(ILEV)%a(LG)
+     *      mg_AA12mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a( 0 + IL,54 + JL) = 
-     *      mg_A13mat(ILEV)%a(LG)
+     *      mg_AA13mat(ILEV)%a(LG)
 
             CC_EMat(ILEV)%E(IEL)%a(27 + IL, 0 + JL) = 
-     *      mg_A21mat(ILEV)%a(LG)
+     *      mg_AA21mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a(27 + IL,27 + JL) = 
-     *      mg_A22mat(ILEV)%a(LG)
+     *      mg_AA22mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a(27 + IL,54 + JL) = 
-     *      mg_A23mat(ILEV)%a(LG)
+     *      mg_AA23mat(ILEV)%a(LG)
 
             CC_EMat(ILEV)%E(IEL)%a(54 + IL, 0 + JL) = 
-     *      mg_A31mat(ILEV)%a(LG)
+     *      mg_AA31mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a(54 + IL,27 + JL) = 
-     *      mg_A32mat(ILEV)%a(LG)
+     *      mg_AA32mat(ILEV)%a(LG)
             CC_EMat(ILEV)%E(IEL)%a(54 + IL,54 + JL) = 
-     *      mg_A33mat(ILEV)%a(LG)
+     *      mg_AA33mat(ILEV)%a(LG)
 !            END IF
           END IF
          END DO
@@ -360,6 +366,16 @@ C
           END IF
          END DO
         END DO
+
+
+!!!!!!!!!!!! Visual OUTPUT !!!!!!!!!!!!!!!!!!!!
+	   if (20*iel/nel.ge.iString) THEN
+	    DO i=iStringPos+1,20*iel/nel
+	     IF (myid.eq.1) write(*,'(A$)') '%'
+	    END DO
+	    iString=20*iel/nel+1
+	    iStringPos=iString-1
+	   END IF
        END DO
 
 !       if (myid.eq.1) then
@@ -732,7 +748,7 @@ C
       COMMON /ERRCTL/ IER,ICHECK
       COMMON /CHAR/   SUB,FMT(3),CPARAM
       COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
-     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     * DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
      *                IEL,NDIM
       COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
      *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
@@ -740,14 +756,14 @@ C
       COMMON /COAUX1/ KDFG,KDFL,IDFL
 C
 C *** user COMMON blocks
-      INTEGER  VIPARM 
+      INTEGER  VIPARM
       DIMENSION VIPARM(100)
       EQUIVALENCE (IAUSAV,VIPARM)
       COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
      *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
      *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
      *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
-     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     * ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
      *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
 C
       SAVE
@@ -924,14 +940,14 @@ C---------------FOR ALFA----------------
          DALZ=DALZ+DALPHA*DBI4
        ENDDO
 C
-C ----=============================================---- 
+C ----=============================================----
        dShearSquare = DU1X**2d0 + DU2Y**2d0 + DU3Z**2d0
      *        + 0.5d0*(DU1Y+DU2X)**2d0
-     *        + 0.5d0*(DU1Z+DU3X)**2d0 
+     *        + 0.5d0*(DU1Z+DU3X)**2d0
      *        + 0.5d0*(DU2Z+DU3Y)**2d0
 
        dVisc = HogenPowerlaw(dShearSquare)
-C ----=============================================---- 
+C ----=============================================----
 
        JJ = 4*(IEL-1) + 1
        Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) +
@@ -960,4 +976,7 @@ C
 C
 99999 CONTINUE
 
-      END
+      END 
+
+
+

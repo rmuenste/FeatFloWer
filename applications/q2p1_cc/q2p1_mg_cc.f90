@@ -3,11 +3,12 @@ MODULE mg_cc
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete,myMPI_Barrier
 USE var_QuadScalar
+USE var_QuadScalar_newton
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCSolve,myUmfPack_CCSolveMaster,&
-                   myUmfPack_CCSolveLocalMat
+                   myUmfPack_CCSolveLocalMat    
 
-USE UMFPackSolver, ONLY : myUmfPack_Solve
-use MumpsSolver, only : MUMPS_solver_Distributed
+USE UMFPackSolver, only : myUmfPack_Solve
+USE MumpsSolver, only : MUMPS_solver_Distributed
 
 
 IMPLICIT NONE
@@ -35,46 +36,48 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE MG_Solver_CC(mfile,mterm)
+SUBROUTINE MG_Solver_CC(mfile,mterm,i)
 implicit none
 INTEGER mfile,mterm
-INTEGER INLComplete,i
-REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter
+INTEGER INLComplete
+REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter,DDNorm,i
 
-!IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
-!
-! RETURN
-!END IF
 
 CALL mgInit_cc()
-
-IterCycle = 0
-CALL mgComputeDefect_cc(myMG%MaxLev,.TRUE.)
+CALL mgComputeDefect_cc(MyMg%MaxLev,.TRUE.)
 
 DefI1 = 0d0
 DefI2 = 0d0
 AccCoarseIter = 0
+i=0d0
 
-DO IterCycle=1,MyMG%MaxIterCycle
-
+DO IterCycle=1,MyMg%MaxIterCycle
+ i=i+1
  INLComplete = 0
 
  CALL mg_cycle_cc()
+
+!  CALL ImposeBC(MyMg%MaxLev)
  
  ! Evaluation of new defect
- CALL mgComputeDefect_cc(myMG%MaxLev,.TRUE.)
+ CALL mgComputeDefect_cc(MyMg%MaxLev,.TRUE.)
 
  AccCoarseIter = AccCoarseIter + CoarseIter
- DefImpr = mgDefNorm/myMG%DefInitial
+ DefImpr = mgDefNorm/MyMg%DefInitial
 
-!  IF (myid.eq.1) write(*,'(I,10ES12.4)') IterCycle,mgDefNorm,myMG%DefInitial*MyMG%Criterion1,MyMG%Criterion2
-
- IF (mgDefNorm.LE.myMG%DefInitial*MyMG%Criterion1.AND.&
-     mgDefNorm.LE.MyMG%Criterion2.AND.&
-     IterCycle.GE.MyMG%MinIterCycle) INLComplete = 1
- IF (IterCycle.GE.MyMG%MaxIterCycle) INLComplete = 1
+ IF (mgDefNorm.LE.MyMg%DefInitial*MyMg%Criterion1.AND.&
+     mgDefNorm.LE.MyMg%Criterion2.AND.&
+     IterCycle.GE.MyMg%MinIterCycle) INLComplete = 1
+ IF (IterCycle.GE.MyMg%MaxIterCycle) INLComplete = 1
  CALL COMM_NLComplete(INLComplete)
-
+ IF (MyMg%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
+  write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  IterCycle,mgDefNorm,mgDefNorm/MyMg%DefInitial,&
+  " | ",CoarseIter," | ",MyMg%nSmootherSteps
+  write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  IterCycle,mgDefNorm,mgDefNorm/MyMg%DefInitial,&
+  " | ",CoarseIter," | ",MyMg%nSmootherSteps
+ END IF
  IF (INLComplete.eq.1) GOTO 88
  DEFI2 = DEFI1
  DEFI1 = mgDefNorm
@@ -83,11 +86,11 @@ END DO
 
 88 CONTINUE
 
-myMG%DefFinal = mgDefNorm
-myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
-myMG%RhoMG2 = (myMG%DefFinal/DEFI2)**(0.5d0)
-MyMG%UsedIterCycle = IterCycle
-MyMG%nIterCoarse = INT(AccCoarseIter/MAX(IterCycle,1))
+MyMg%DefFinal = mgDefNorm
+MyMg%RhoMG1 = (MyMg%DefFinal/MyMg%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
+MyMg%RhoMG2 = (MyMg%DefFinal/DEFI2)**(0.5d0)
+MyMg%UsedIterCycle = IterCycle
+MyMg%nIterCoarse = INT(AccCoarseIter/MAX(IterCycle,1))
 
 END SUBROUTINE MG_Solver_cc
 !
@@ -98,6 +101,7 @@ SUBROUTINE mg_cycle_cc()
 IF (MyMG%CycleType.EQ."W")  CALL mg_W_cycle_cc()
 IF (MyMG%CycleType.EQ."V")  CALL mg_V_cycle_cc()
 IF (MyMG%CycleType.EQ."F")  CALL mg_F_cycle_cc()
+IF (MyMG%CycleType.EQ."N")  CALL mgCoarseGridSolverShouldBe_cc()
 
 END SUBROUTINE mg_cycle_cc
 !
@@ -340,7 +344,7 @@ IF (bDef) THEN
  CALL COMM_Maximum(DefNorm(3))
  CALL COMM_Maximum(DefNorm(4))
 
- IF (myid.eq.showid) WRITE(*,'(A,I3,4ES12.3)') "DefNorm",mgLev,DefNorm
+ IF (myid.eq.showid) WRITE(*,'(A,I3,4ES12.3)') "linear Defect",mgLev,DefNorm
  IF (IterCycle.eq.0) THEN
   myMG%DefInitial = MAX(DefNorm(1),DefNorm(2),DefNorm(3),DefNorm(4))
  ELSE
@@ -1715,43 +1719,43 @@ END SUBROUTINE E013_Lin
 !
 ! ----------------------------------------------
 !
-SUBROUTINE mgCoarseGridSolver_P()
-INTEGER Iter,i,j,ndof
-REAL*8 daux
-
-  IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
-  IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
-
-  IF (myid.eq.0) THEN
-
-   myMG%X(mgLev)%x = 0d0
-
-   IF (myMG%MinLev.EQ.myMG%MedLev) THEN
-    CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-    CoarseIter = 1
-!    CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
-
-!    CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
-!         ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-!         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myMG%DefImprCoarse)
-   ELSE
-
-    CALL crs_cycle()
-!    CALL crs_oneStep()
- 
-  END IF
- END IF
-
- IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
-
-!  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
-
- CALL E013SendK(0,showid,CoarseIter)
-
-END SUBROUTINE mgCoarseGridSolver_P
+       SUBROUTINE mgCoarseGridSolver_P()
+       INTEGER Iter,i,j,ndof
+       REAL*8 daux
+       
+         IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
+         IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
+         IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
+       
+         IF (myid.eq.0) THEN
+       
+          myMG%X(mgLev)%x = 0d0
+       
+          IF (myMG%MinLev.EQ.myMG%MedLev) THEN
+           CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
+           CoarseIter = 1
+       !    CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
+       
+       !    CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
+       !         ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
+       !         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myMG%DefImprCoarse)
+          ELSE
+       
+           CALL crs_cycle()
+       !    CALL crs_oneStep()
+        
+         END IF
+        END IF
+       
+        IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
+        IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
+        IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
+       
+       !  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
+       
+        CALL E013SendK(0,showid,CoarseIter)
+       
+       END SUBROUTINE mgCoarseGridSolver_P
 !
 ! ----------------------------------------------
 !

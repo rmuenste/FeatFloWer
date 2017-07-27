@@ -39,6 +39,7 @@ ${src_mesh}
 ${src_cinterface}
 app_init.f90
 assemblies_cc.f
+iso_assemblies.f
 postprocessing.f90
 lin_transport_cc.f90
 q2p1_def_cc.f90
@@ -46,6 +47,7 @@ q2p1_mg_cc.f90
 q2p1_cc_umfpacksolver.f90
 q2p1_cc.f90
 q2p1_transport_cc.f90
+q2p1_var_newton.f90
 )
 
 # Add the application executable

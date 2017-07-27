@@ -57,6 +57,8 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE Transport_CC, ONLY: Init_CCParam
+ USE var_QuadScalar_newton, ONLY: ccParams
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -99,7 +101,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  !
  CALL INIT_MPI()                                 ! PARALLEL
  CSimPar = "SimPar"
- CALL  GDATNEW (CSimPar,0)
+ CALL  myGDATNEW (CSimPar,0)
 
  CFILE=CFILE1
  MFILE=MFILE1
@@ -141,9 +143,9 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
 
- CALL Init_QuadScalar(mfile)
+ CALL Init_CCParam(mfile)
 
- IF (myid.EQ.0) NLMAX = QuadSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) NLMAX = ccParams%MedLev
 
  if(NLMAX.eq.0)then
    write(*,*)'NLMAX=0 is invalid, exiting...'
@@ -170,16 +172,13 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  ISABD=0
  IDISP=1
 
- call myMPI_Barrier()
- call sanity_check_input()
-
  IF (myid.NE.0) NLMAX = NLMAX + 1
  
  IF (myid.EQ.0) then
-   mg_Mesh%nlmax = QuadSc%prm%MGprmIn%MedLev
+   mg_Mesh%nlmax = ccParams%MedLev
    mg_Mesh%nlmin = 1
-   mg_Mesh%maxlevel = QuadSc%prm%MGprmIn%MedLev+1
-   allocate(mg_mesh%level(QuadSc%prm%MGprmIn%MedLev+1))
+   mg_Mesh%maxlevel = ccParams%MedLev+1
+   allocate(mg_mesh%level(ccParams%MedLev+1))
  else
    allocate(mg_mesh%level(NLMAX))
    mg_Mesh%maxlevel = nlmax
@@ -192,7 +191,6 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
  II=NLMIN
-
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
  CALL PARENTCOMM(mg_mesh%level(II)%nat,&
@@ -226,13 +224,13 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
 
  ! This line of code I guess is wrong if you want to use multi-grid
  ! as the coarse grid solver (so beware):
- IF (myid.EQ.0) NLMAX = QuadSc%prm%MGprmIn%MinLev
+ IF (myid.EQ.0) NLMAX = ccParams%MedLev
  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
  !     ----------------------------------------------------------
 
  ! Set up the communication structures for the Quadratic element
  ! Computation minimum level
- ILEV=QuadSc%prm%MGprmIn%MinLev
+ ILEV=NLMIN
 
  IF (myid.eq.1) write(*,*) 'setting up mapping CC structures for Q2  on level : ',ILEV
  CALL GetQ2CoarseMapper(mg_mesh%level(ILEV)%dcorvg,&
@@ -256,7 +254,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
                              mg_mesh%level(ILEV)%net,&
                              mg_mesh%level(ILEV)%nat,&
                              mg_mesh%level(ILEV)%nel,&
-                             QuadSc%prm%MGprmIn%MedLev)
+                             ccParams%MedLev)
 
  CALL E013_Comm_Master(mg_mesh%level(ILEV)%dcorvg,&
                        mg_mesh%level(ILEV)%kvert,&
@@ -268,27 +266,27 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
                        mg_mesh%level(ILEV)%nel)
 
 
- ILEV = QuadSc%prm%MGprmIn%MedLev
+ ILEV = ccParams%MedLev
 
- IF (myid.NE.0) NLMAX = NLMAX - 1
+IF (myid.NE.0) NLMAX = NLMAX - 1
  
  ! Structures above the Computation minimum level
  DO ILEV=QuadSc%prm%MGprmIn%MinLev+1,QuadSc%prm%MGprmIn%MaxLev
 
    IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
-   CALL E013_CreateComm(mg_mesh%level(ILEV)%dcorvg,&
-                        mg_mesh%level(ILEV)%dcorag,&
-                        mg_mesh%level(ILEV)%kvert,&
-                        mg_mesh%level(ILEV)%kedge,&
-                        mg_mesh%level(ILEV)%karea,&
-                        mg_mesh%level(ILEV)%nvt,&
-                        mg_mesh%level(ILEV)%net,&
-                        mg_mesh%level(ILEV)%nat,&
-                        mg_mesh%level(ILEV)%nel,&
-                        QuadSc%prm%MGprmIn%MedLev)
+ CALL E013_CreateComm(mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%nvt,&
+                      mg_mesh%level(ILEV)%net,&
+                      mg_mesh%level(ILEV)%nat,&
+                      mg_mesh%level(ILEV)%nel,&
+                      ccParams%MedLev)
 
- END DO
+END DO
 
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
@@ -310,7 +308,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
 
    CALL ParametrizeBndr(mg_mesh,ilev)
 
-   IF (.not.(myid.eq.0.AND.ilev.gt.QuadSc%prm%MGprmIn%MedLev)) THEN
+   IF (.not.(myid.eq.0.AND.ilev.gt.ccParams%MedLev)) THEN
 
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
@@ -334,11 +332,11 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  IF (myid.EQ.0) THEN
    CALL CreateDumpStructures(0)
  ELSE
-   LevDif = QuadSc%prm%MGprmIn%MedLev - NLMAX
+   LevDif = ccParams%MedLev - NLMAX
    CALL CreateDumpStructures(LevDif)
  END IF
 
- ILEV = QuadSc%prm%MGprmIn%MedLev
+ ILEV = ccParams%MedLev
 
  nLengthV = (2**(ILEV-1)+1)**3
  nLengthE = mg_mesh%level(NLMIN)%nel
@@ -412,30 +410,13 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  END IF
 
  ! Set NLMIN to computational NLMIN 
- NLMIN = QuadSc%prm%MGprmIn%MinLev
+ NLMIN = ccParams%MinLev
  RETURN
 
 END SUBROUTINE General_init_cc
-!
-!-----------------------------------------------------------------------
-!
-subroutine sanity_check_input()
-  USE Transport_Q2P1, ONLY : QuadSc
-  USE PP3D_MPI, only : myid,myMPI_Barrier
-  implicit none
-
-  if(QuadSc%prm%MGprmIn%MinLev .ne. QuadSc%prm%MGprmIn%MedLev)then
-    if(myid.eq.0)then
-      write(*,*)"Error> MGMinLev != MGMedLev is not valid when using the MUMPS solver: exiting."
-    endif
-    call sim_terminate()
-  end if
- 
-
-end subroutine sanity_check_input
-!
-!-----------------------------------------------------------------------
-!
+ !
+ !-----------------------------------------------------------------------
+ !
 SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE PP3D_MPI
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
@@ -818,64 +799,57 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   END IF
 
 
-  !-----------------------------------------------------------------------
-  101 FORMAT(/2X,100('=')/&
-    2X,"|",10X,"                                                "&
-    40X,"|"/&
-    2X,"|",10X,"Parellel Q2/P1 FEM Fluid Dynamics code          "&
-    40X,"|"/&
-    2X,"|",10X,"Developed by:                                   "&
-    40X,"|"/&
-    2X,"|",10X,"Otto Mierka, Dmitri Kuzmin and Stefan Turek     "&
-    40X,"|"/&
-    2X,"|",10X,"Developed at:                                   "&
-    40X,"|"/&
-    2X,"|",10X,"                                                "&
-    40X,"|"/&
-    2X,"|",10X,"##########  ##      ##      ",&
-    "                                                     ",7X,"|"/&
-    2X,"|",10X,"#   ##   #  ##      ##      ",&
-    "###     ###   ###   ##### #   #  #    #  #   #  ###  ",7X,"|"/&
-    2X,"|",10X,"    ##      ##      ##      ",&
-    "#  #   #   #  #  #    #   ## ##  #    #  ##  #  #  # ",7X,"|"/&
-    2X,"|",10X,"    ##      ##      ##  ####",&
-    "#   #  #   #  ###     #   # # #  #    #  # # #  #   #",7X,"|"/&
-    2X,"|",10X,"    ##      ##      ##      ",&
-    "#  #   #   #  #  #    #   #   #  #    #  #  ##  #  # ",7X,"|"/&
-    2X,"|",10X,"    ##      ##      ##      ",&
-    "###     ###   #   #   #   #   #   ####   #   #  ###  ",7X,"|"/&
-    2X,"|",10X,"    ##        ######        ",&
-    "                                                     ",7X,"|"/&
-    2X,"|",57X,"            Chair of Mathematics III",5X,"|"/&
-    2X,"|",57X,"    Applied Mathematics and Numerics",5X,"|"/&
-    2X,"|",57X,"                    Vogelopthsweg 87",5X,"|"/&
-    2X,"|",57X,"                      Dortmund 44225",5X,"|"/&
-    2X,"|",57X,"                                    ",5X,"|"/&
-    2X,"|",10X,"Based on FeatFlow (c)     ",&
-    "see also: http://www.featflow.de",30X,"|"/&
-    2X,"|",10X,"Correspondance:",73X,"|"/&
-    2X,"|",10X," otto.mierka@math.tu-dortmund.de, ",&
-    "stefan.turek@math.tu-dortmund.de",22X,"|"/&
-    2X,"|",98X,"|"/&
-    2X,100('=')/)
+   !-----------------------------------------------------------------------
+   101 FORMAT(/&
+"  ===================================================================================================="/&
+"  |                                                                                                  |"/&
+"  |          Parallel Q2/P1 FEM Fluid Dynamics code           FeatFlowPro v1.00 - 2017.04.24         |"/&
+"  |          Developed by:                                                                           |"/&
+"  |          Otto Mierka, Dmitri Kuzmin and Stefan Turek                                             |"/&
+"  |                                                                                                  |"/&
+"  |==================================================================================================|"/&
+"  |          Modification by Robert Jendrny:                                                         |"/&
+"  |                      iso-parametric Newton-multigrid CC-version                                  |"/&
+"  |==================================================================================================|"/&
+"  |                                                                                                  |"/&
+"  |          Developed at:                                                                           |"/&
+"  |                                                                                                  |"/&
+"  |          ##########  ##      ##                                                                  |"/&
+"  |          #   ##   #  ##      ##      ###     ###   ###   ##### #   #  #    #  #   #  ###         |"/&
+"  |              ##      ##      ##      #  #   #   #  #  #    #   ## ##  #    #  ##  #  #  #        |"/&
+"  |              ##      ##      ##  #####   #  #   #  ###     #   # # #  #    #  # # #  #   #       |"/&
+"  |              ##      ##      ##      #  #   #   #  #  #    #   #   #  #    #  #  ##  #  #        |"/&
+"  |              ##      ##      ##      ###     ###   #   #   #   #   #   ####   #   #  ###         |"/&
+"  |              ##        ######                                                                    |"/&
+"  |                                                                     Chair of Mathematics III     |"/&
+"  |                                                             Applied Mathematics and Numerics     |"/&
+"  |                                                                             Vogelpothsweg 87     |"/&
+"  |                                                                               Dortmund 44227     |"/&
+"  |                                                                                                  |"/&
+"  |          Based on FeatFlow (c)     see also: http://www.featflow.de                              |"/&
+"  |          Correspondence:                                                                         |"/&
+"  |          otto.mierka@math.tu-dortmund.de, robert.jendrny@math.tu-dortmund.de,                    |"/&
+"  |          stefan.turek@math.tu-dortmund.de                                                        |"/&
+"  |                                                                                                  |"/&
+"  ===================================================================================================="/)
 
-CONTAINS
+ CONTAINS
 
-SUBROUTINE StrStuct()
-  IMPLICIT NONE
-  INTEGER i,n
+ SUBROUTINE StrStuct()
+   IMPLICIT NONE
+   INTEGER i,n
 
-  n = len(string)
-  iAt = 0
-  iEq = 0
-  DO i=1,n
-  IF (string(i:i).EQ. '@') iAt = i
-  IF (string(i:i).EQ. '=') iEq = i
-  END DO
+   n = len(string)
+   iAt = 0
+   iEq = 0
+   DO i=1,n
+   IF (string(i:i).EQ. '@') iAt = i
+   IF (string(i:i).EQ. '=') iEq = i
+   END DO
 
-  bOk=.FALSE.
-  IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
+   bOk=.FALSE.
+   IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
 
-END SUBROUTINE StrStuct
+ END SUBROUTINE StrStuct
 
-END SUBROUTINE myGDATNEW
+ END SUBROUTINE myGDATNEW
