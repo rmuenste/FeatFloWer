@@ -230,7 +230,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
 
  ! Set up the communication structures for the Quadratic element
  ! Computation minimum level
- ILEV=NLMIN
+ ILEV=ccParams%MinLev
 
  IF (myid.eq.1) write(*,*) 'setting up mapping CC structures for Q2  on level : ',ILEV
  CALL GetQ2CoarseMapper(mg_mesh%level(ILEV)%dcorvg,&
@@ -271,7 +271,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
 IF (myid.NE.0) NLMAX = NLMAX - 1
  
  ! Structures above the Computation minimum level
- DO ILEV=QuadSc%prm%MGprmIn%MinLev+1,QuadSc%prm%MGprmIn%MaxLev
+ DO ILEV=ccParams%MinLev+1,NLMAX
 
    IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
