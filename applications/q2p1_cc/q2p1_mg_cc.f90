@@ -107,6 +107,7 @@ SUBROUTINE mg_cycle_cc()
 IF (MyMG%CycleType.EQ."W")  CALL mg_W_cycle_cc()
 IF (MyMG%CycleType.EQ."V")  CALL mg_V_cycle_cc()
 IF (MyMG%CycleType.EQ."F")  CALL mg_F_cycle_cc()
+IF (MyMG%CycleType.EQ."N")  CALL mgCoarseGridSolverShouldBe_cc()
 
 END SUBROUTINE mg_cycle_cc
 !
@@ -747,6 +748,7 @@ SUBROUTINE mgProlRestInit
          KWORK(L(KLAREA(mgLev))),KNVT(mgLev),KNET(mgLev),KNAT(mgLev),KNEL(mgLev))
    END DO
   END IF
+
  ELSE
  IF (MyMG%cVariable.EQ."Pressure") THEN
   DO mgLev = myMG%MinLev+1, myMG%MinLev

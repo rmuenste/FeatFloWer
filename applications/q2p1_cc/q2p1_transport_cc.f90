@@ -138,7 +138,7 @@ end if
  CALL Create_QuadMatStruct()
 
  ! Iteration matrix (only allocation)
- CALL Create_AMat() !(A)
+ CALL Create_AMat_new() !(A)
 
  ! Building up the E012/E013 E013/E012 and matrix structures
  CALL Create_QuadLinMatStruct() 
@@ -161,10 +161,10 @@ end if
 
  CALL Create_P1MMat() !(MP1,iMP1)
 
- IF (QuadSc%prm%MGprmIn%VANKA.eq.1) THEN
+ IF (ccParams%VANKA.eq.1) THEN
    CALL Create_Special_CCStructures()
  END IF 
- 
+
  CALL Create_GlobalNumbering_CC()
 
 ! Set up the boundary condition types (knpr)
@@ -211,7 +211,8 @@ end if
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
- CALL InitializeProlRest(QuadSc,LinSc)
+
+ CALL InitializeProlRest_cc(ccParams)
 
  CALL OperatorRegenaration_iso(1)
 
@@ -235,9 +236,9 @@ thstep = 0d0
 FORCES_OLD = 0d0
 iIterges = 0d0
 digitcriterion = 1d-1
-myTolerance = QuadSc%prm%MGprmIn%Criterion1
+myTolerance = ccParams%StoppingCriterion
 ni = 0d0
-alpha = QuadSc%prm%Alpha
+alpha = ccParams%Alpha
 
 
  CALL ExchangeVelocitySolutionCoarse()
@@ -253,7 +254,7 @@ alpha = QuadSc%prm%Alpha
  CALL ZTIME(tttt0)
 
 ! Assemble the right hand side
- CALL Matdef_general_QuadScalar_cc(QuadSc,1)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha)
 
 IF (myid.ne.master) THEN
 
@@ -271,13 +272,11 @@ thstep = tstep
 
  CALL ExchangeVelocitySolutionCoarse()
 
- CALL OperatorRegenaration_iso(3)
-
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_general_QuadScalar_cc(QuadSc,-1)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
  CALL OperatorDeallocation()
 
-DO i=1,QuadSc%prm%NLmax
+DO i=1,ccParams%NLmax
 ni = ni + 1d0
 
 IF (myid.eq.1) THEN
@@ -291,14 +290,14 @@ IF (myid.eq.1) THEN
   write(mterm,5)
 END IF
 
-CALL myMPI_Barrier()
-CALL ZTIME(tttt0)
+ CALL myMPI_Barrier()
+ CALL ZTIME(tttt0)
 
-IF (myid.eq.1) WRITE(*,'(A)') " Factorization of element matrices starts:"
+IF (myid.eq.1) WRITE(*,'(A)') " Factorization of element matrices"
 
  CALL Barrier_myMPI()
 
-IF (QuadSc%prm%MGprmIn%VANKA.eq.0) THEN
+IF (ccParams%VANKA.eq.0) THEN
   CALL CC_Extraction(QuadSc)
 ELSE
   CALL Special_CCExtraction(QuadSc)
@@ -309,7 +308,13 @@ END IF
  CALL ZTIME(tttt1)
 IF (myid.eq.1) WRITE(*,'(A,ES12.4,A)') " was done in: ",tttt1-tttt0 ," s"
 
+
  CALL Special_CC_Coarse(QuadSc)
+!IF (ccParams%CycleType.eq."N") THEN
+! 	CALL Special_CC_Coarse(QuadSc,NLMAX)
+!ELSE
+!	CALL Special_CC_Coarse(QuadSc,NLMIN)
+!END IF
 
 IF (myid.ne.master) THEN
 ! Set dirichlet boundary conditions on the solution
@@ -366,8 +371,8 @@ END IF
  CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_QuadScalar(QuadSc,-1)
-! CALL OperatorDeallocation()
+ CALL Matdef_General_QuadScalar_cc(QuadSc,-1,alpha)
+! CALL OperatorDeallocation() ! after force calculation
 
 ! Set dirichlet boundary conditions on the solution
 IF (myid.ne.master) THEN
@@ -414,16 +419,16 @@ diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
 diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
 
 
-!IF (FORCES_NEW(1).LT.1d-7) THEN
-!  diffOne = diffOne/1d-7
-!ELSE
-!  diffOne = diffOne/ABS(FORCES_New(1))
-!END IF
-!IF (FORCES_NEW(2).LT.1d-7) THEN
-!  diffTwo = diffTwo/1d-7
-!ELSE
-!  diffTwo= diffTwo/ABS(FORCES_New(2))
-!END IF
+IF (FORCES_NEW(1).LT.1d-7) THEN
+  diffOne = diffOne/1d-7
+ELSE
+  diffOne = diffOne/ABS(FORCES_New(1))
+END IF
+IF (FORCES_NEW(2).LT.1d-7) THEN
+  diffTwo = diffTwo/1d-7
+ELSE
+  diffTwo= diffTwo/ABS(FORCES_New(2))
+END IF
 
 
 stopOne = max(diffOne,diffTwo)
@@ -432,15 +437,15 @@ FORCES_OLD = FORCES_NEW
 
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
 IF (DefNorm/DefNorm0.LT.myTolerance) exit
-!IF (stopOne.LT.1d-5) THEN
-!	IF (myid.eq.1) THEN
-!	write(mfile,55) 
-!  	write(mterm,55)
-!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!        END IF
-!        exit
-!END IF
+IF (stopOne.LT.1d-5) THEN
+	IF (myid.eq.1) THEN
+	write(mfile,55) 
+  	write(mterm,55)
+	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+        END IF
+        exit
+END IF
 END DO
 
 IF (myid.eq.showid) THEN
@@ -576,13 +581,12 @@ END SUBROUTINE LinScalar_InitCond_cc
 !
 SUBROUTINE OperatorDeallocation()
 
- !DO ILEV=NLMIN,NLMAX
-
- DO ILEV=1,1
+! DO ILEV=1,1
+DO ILEV=NLMIN,NLMAX
 
   CALL SETLEV(2)
   qMat => mg_qMat(ILEV)
-
+  
   IF (ALLOCATED(mg_S11mat(ILEV)%a)) DEALLOCATE(mg_S11mat(ILEV)%a)
   IF (ALLOCATED(mg_S22mat(ILEV)%a)) DEALLOCATE(mg_S22mat(ILEV)%a)
   IF (ALLOCATED(mg_S33mat(ILEV)%a)) DEALLOCATE(mg_S33mat(ILEV)%a)
@@ -593,17 +597,19 @@ SUBROUTINE OperatorDeallocation()
   IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
   IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
 
-  IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
+  IF (myMatrixRenewal%K.ne.0) THEN  
+    IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
 
-  IF (ALLOCATED(mg_barM11mat(ILEV)%A)) DEALLOCATE(mg_barM11mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM12mat(ILEV)%A)) DEALLOCATE(mg_barM12mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM13mat(ILEV)%A)) DEALLOCATE(mg_barM13mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM21mat(ILEV)%A)) DEALLOCATE(mg_barM21mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM22mat(ILEV)%A)) DEALLOCATE(mg_barM22mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM23mat(ILEV)%A)) DEALLOCATE(mg_barM23mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM31mat(ILEV)%A)) DEALLOCATE(mg_barM31mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM32mat(ILEV)%A)) DEALLOCATE(mg_barM32mat(ILEV)%a)
-  IF (ALLOCATED(mg_barM33mat(ILEV)%A)) DEALLOCATE(mg_barM33mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM11mat(ILEV)%a)) DEALLOCATE(mg_barM11mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM12mat(ILEV)%a)) DEALLOCATE(mg_barM12mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM13mat(ILEV)%a)) DEALLOCATE(mg_barM13mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM21mat(ILEV)%a)) DEALLOCATE(mg_barM21mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM22mat(ILEV)%a)) DEALLOCATE(mg_barM22mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM23mat(ILEV)%a)) DEALLOCATE(mg_barM23mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM31mat(ILEV)%a)) DEALLOCATE(mg_barM31mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM32mat(ILEV)%a)) DEALLOCATE(mg_barM32mat(ILEV)%a)
+    IF (ALLOCATED(mg_barM33mat(ILEV)%a)) DEALLOCATE(mg_barM33mat(ILEV)%a)
+  END IF
 
 
 END DO
@@ -758,7 +764,9 @@ END IF
 IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE OperatorRegenaration_iso
-
+!
+!----------------------------------------------
+!
 SUBROUTINE EvaluateDragLift9_mod(U,V,W,P,CYL,df)
 REAL*8 U(*),V(*),W(*),P(*)
 LOGICAL CYL(*)
@@ -809,6 +817,127 @@ CALL COMM_SUMM(df(2))
 CALL COMM_SUMM(df(3))
 
 END SUBROUTINE EvaluateDragLift9_mod
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_CCParam(mfile)
+IMPLICIT NONE
+CHARACTER*9 cName
+INTEGER mfile
+INTEGER iEnd,iAt,iEq,istat
+CHARACTER string*100,param*50,cVar*7,cPar*50
+LOGICAL bOK
+INTEGER :: myFile=90909090
+CHARACTER(20) :: out_string
+
+cName = "CCuvwp"
+  
+OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open data file: ",myDataFile  
+  stop          
+end if
+
+! IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+! IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+
+DO
+ READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
+ IF (iEnd.EQ.-1) EXIT
+ CALL StrStuct()
+  IF (bOK) THEN
+
+  READ(string(1:iAt-1),*) cVar
+
+  IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
+
+   READ(string(iAt+1:iEq-1),*) cPar
+
+   SELECT CASE (TRIM(ADJUSTL(cPar)))
+
+    ! Problems with GCC: 
+    ! The gfortran compiler does not permit a statement like write(*,'(A,I)') where
+    ! the length of the integer I is not specified.
+    ! A way to solve this problem is to write the integer to a string:
+    ! write(string,'(i20)')ccParams%iMass
+    ! that is long enough to hold all reasonable integer values
+    ! then adjust the length of the string write it out:
+    ! write(*,'(A)')adjustl(string)
+
+    CASE ("NLmin")
+    READ(string(iEq+1:),*) ccParams%NLmin
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%NLmin)
+    CASE ("NLmax")
+    READ(string(iEq+1:),*) ccParams%NLmax
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%NLmax)
+    CASE ("Alpha")
+    READ(string(iEq+1:),*) ccParams%Alpha
+    call write_param_real(mfile,cVar,cPar,out_string,ccParams%Alpha)
+    CASE ("Stopping")
+    READ(string(iEq+1:),*) ccParams%StoppingCriterion
+    call write_param_real(mfile,cVar,cPar,out_string,ccParams%StoppingCriterion)
+    CASE ("MGMinLev")
+    READ(string(iEq+1:),*) ccParams%MinLev
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%MinLev)
+    CASE ("MGMedLev")
+    READ(string(iEq+1:),*) ccParams%MedLev
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%MedLev)
+    CASE ("MGMinIterCyc")
+    READ(string(iEq+1:),*) ccParams%MinIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%MinIterCycle)
+    CASE ("MGMaxIterCyc")
+    READ(string(iEq+1:),*) ccParams%MaxIterCycle
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%MaxIterCycle)
+    CASE ("MGSmoothSteps")
+    READ(string(iEq+1:),*) ccParams%nSmootherSteps
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%nSmootherSteps)
+    CASE ("MGCriterion")
+    READ(string(iEq+1:),*) ccParams%Criterion
+    call write_param_real(mfile,cVar,cPar,out_string,ccParams%Criterion)
+    CASE ("MGRelaxPrm")
+    READ(string(iEq+1:),*) ccParams%RLX
+    call write_param_real(mfile,cVar,cPar,out_string,ccParams%RLX)
+    CASE ("MGCycType")
+    READ(string(iEq+1:),*) param
+    ccParams%CycleType = TRIM(ADJUSTL(param))
+    IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",ccParams%CycleType
+    IF (myid.eq.showid) write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",ccParams%CycleType
+    CASE ("MG_VANKA")
+    READ(string(iEq+1:),*) ccParams%VANKA
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%VANKA)
+
+
+  END SELECT
+
+  END IF
+ END IF
+END DO
+
+! IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+! IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+
+CLOSE (myFile)
+
+CONTAINS
+
+SUBROUTINE StrStuct()
+IMPLICIT NONE
+INTEGER i,n
+
+n = len(string)
+iAt = 0
+iEq = 0
+DO i=1,n
+ IF (string(i:i).EQ. '@') iAt = i
+ IF (string(i:i).EQ. '=') iEq = i
+END DO
+
+bOk=.FALSE.
+IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
+
+END SUBROUTINE StrStuct
+
+END SUBROUTINE Init_CCParam
 
 END MODULE Transport_CC
 

@@ -9,6 +9,7 @@ USE def_QuadScalar, only:outputmatrix
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCFree, myUmfPack_CCFactorizeLocalMat
 
 use mg_cc, only: MG_Solver_cc
+USE mg_QuadScalar, ONLY : mgProlRestInit
 
 IMPLICIT NONE
 
@@ -16,12 +17,128 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Matdef_general_QuadScalar_cc(myScalar,idef)
+SUBROUTINE Create_AMat_new()
+INTEGER NA,complete
+
+IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+  ALLOCATE(mg_A11mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A22mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A33mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A12mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A13mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A23mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A21mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A31mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A32mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA11mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA22mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA33mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA12mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA13mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA23mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA21mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA31mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA32mat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+   IF (myid.eq.showID) THEN
+    IF (ILEV.EQ.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') "Allocation of Aii Matrix on Level [", ILEV,"]"
+    END IF
+    IF (ILEV.EQ.NLMAX) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='yes') ", [",ILEV,"]"
+    END IF
+    IF (ILEV.NE.NLMAX.AND.ILEV.NE.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+    END IF
+   END IF
+
+   NA = mg_qMat(ILEV)%na
+   ALLOCATE(mg_A11mat(ILEV)%a(NA))
+   ALLOCATE(mg_A22mat(ILEV)%a(NA))
+   ALLOCATE(mg_A33mat(ILEV)%a(NA))
+   ALLOCATE(mg_A12mat(ILEV)%a(NA))
+   ALLOCATE(mg_A13mat(ILEV)%a(NA))
+   ALLOCATE(mg_A23mat(ILEV)%a(NA))
+   ALLOCATE(mg_A21mat(ILEV)%a(NA))
+   ALLOCATE(mg_A31mat(ILEV)%a(NA))
+   ALLOCATE(mg_A32mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA11mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA22mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA33mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA12mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA13mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA23mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA21mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA31mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA32mat(ILEV)%a(NA))
+  END DO
+  A11Mat => mg_A11mat(NLMAX)%a
+  A22Mat => mg_A22mat(NLMAX)%a
+  A33Mat => mg_A33mat(NLMAX)%a
+  A12Mat => mg_A12mat(NLMAX)%a
+  A13Mat => mg_A13mat(NLMAX)%a
+  A23Mat => mg_A23mat(NLMAX)%a
+  A21Mat => mg_A21mat(NLMAX)%a
+  A31Mat => mg_A31mat(NLMAX)%a
+  A32Mat => mg_A32mat(NLMAX)%a
+  AA11Mat => mg_AA11mat(NLMAX)%a
+  AA22Mat => mg_AA22mat(NLMAX)%a
+  AA33Mat => mg_AA33mat(NLMAX)%a
+  AA12Mat => mg_AA12mat(NLMAX)%a
+  AA13Mat => mg_AA13mat(NLMAX)%a
+  AA23Mat => mg_AA23mat(NLMAX)%a
+  AA21Mat => mg_AA21mat(NLMAX)%a
+  AA31Mat => mg_AA31mat(NLMAX)%a
+  AA32Mat => mg_AA32mat(NLMAX)%a
+ ELSE
+  ALLOCATE(mg_A11mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A22mat(NLMIN:NLMAX))
+  ALLOCATE(mg_A33mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA11mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA22mat(NLMIN:NLMAX))
+  ALLOCATE(mg_AA33mat(NLMIN:NLMAX))
+  DO ILEV=NLMIN,NLMAX
+
+   IF (myid.eq.showID) THEN
+    IF (ILEV.EQ.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') "Allocation of A Matrix on Level [", ILEV,"]"
+    END IF
+    IF (ILEV.EQ.NLMAX) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='yes') ", [",ILEV,"]"
+    END IF
+    IF (ILEV.NE.NLMAX.AND.ILEV.NE.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+    END IF
+   END IF
+
+   NA = mg_qMat(ILEV)%na
+   ALLOCATE(mg_A11mat(ILEV)%a(NA))
+   ALLOCATE(mg_A22mat(ILEV)%a(NA))
+   ALLOCATE(mg_A33mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA11mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA22mat(ILEV)%a(NA))
+   ALLOCATE(mg_AA33mat(ILEV)%a(NA))
+  END DO
+  A11Mat => mg_A11mat(NLMAX)%a
+  A22Mat => mg_A22mat(NLMAX)%a
+  A33Mat => mg_A33mat(NLMAX)%a
+  AA11Mat => mg_AA11mat(NLMAX)%a
+  AA22Mat => mg_AA22mat(NLMAX)%a
+  AA33Mat => mg_AA33mat(NLMAX)%a
+ END IF
+
+END SUBROUTINE Create_AMat_new
+!
+! ----------------------------------------------
+!
+SUBROUTINE Matdef_general_QuadScalar_cc(myScalar,idef,alpha)
 EXTERNAL E013
 INTEGER :: idef
 INTEGER I,J
 TYPE(TQuadScalar) myScalar
-REAL*8 daux,tttx1,tttx0
+REAL*8 daux,tttx1,tttx0,alpha
 
 
 ! Build up the matrix
@@ -38,10 +155,22 @@ REAL*8 daux,tttx1,tttx0
      A21Mat     => mg_A21Mat(ILEV)%a
      A31Mat     => mg_A31Mat(ILEV)%a
      A32Mat     => mg_A32Mat(ILEV)%a
+     AA11Mat     => mg_AA11Mat(ILEV)%a
+     AA22Mat     => mg_AA22Mat(ILEV)%a
+     AA33Mat     => mg_AA33Mat(ILEV)%a
+     AA12Mat     => mg_AA12Mat(ILEV)%a
+     AA13Mat     => mg_AA13Mat(ILEV)%a
+     AA23Mat     => mg_AA23Mat(ILEV)%a
+     AA21Mat     => mg_AA21Mat(ILEV)%a
+     AA31Mat     => mg_AA31Mat(ILEV)%a
+     AA32Mat     => mg_AA32Mat(ILEV)%a
     ELSE
      A11Mat     => mg_A11Mat(ILEV)%a
      A22Mat     => mg_A22Mat(ILEV)%a
      A33Mat     => mg_A33Mat(ILEV)%a
+     AA11Mat     => mg_AA11Mat(ILEV)%a
+     AA22Mat     => mg_AA22Mat(ILEV)%a
+     AA33Mat     => mg_AA33Mat(ILEV)%a
     END IF
 
     IF (myMatrixRenewal%S.GE.1) THEN
@@ -62,6 +191,21 @@ REAL*8 daux,tttx1,tttx0
 
     IF (myMatrixRenewal%K.GE.1) THEN
      KMat     => mg_KMat(ILEV)%a
+     IF(bNonNewtonian) THEN
+      barM11Mat     => mg_barM11Mat(ILEV)%a
+      barM22Mat     => mg_barM22Mat(ILEV)%a
+      barM33Mat     => mg_barM33Mat(ILEV)%a
+      barM12Mat     => mg_barM12Mat(ILEV)%a
+      barM13Mat     => mg_barM13Mat(ILEV)%a
+      barM23Mat     => mg_barM23Mat(ILEV)%a
+      barM21Mat     => mg_barM21Mat(ILEV)%a
+      barM31Mat     => mg_barM31Mat(ILEV)%a
+      barM32Mat     => mg_barM32Mat(ILEV)%a
+     ELSE
+      barM11Mat     => mg_barM11Mat(ILEV)%a
+      barM22Mat     => mg_barM22Mat(ILEV)%a
+      barM33Mat     => mg_barM33Mat(ILEV)%a
+     END IF
     END IF
 
     IF (myMatrixRenewal%M.GE.1) THEN
@@ -73,40 +217,56 @@ REAL*8 daux,tttx1,tttx0
     !!-------------------    POINTER Setup  -------------------!!
 
     !!-------------------  MATRIX Assembly -------------------!!
+
     IF (bNonNewtonian) THEN ! Non-Newtonian
      IF (myMatrixRenewal%S.EQ.0) THEN
-      IF (myMatrixRenewal%K.GE.1) THEN ! Non-Newtonian Navier-Stokes with D
-       DO I=1,qMat%nu
-        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-         daux = MMat(J) + thstep*(2d0*DMat(J)+KMat(J))! 
-         A11mat(J) =  daux
-         A22mat(J) =  daux
-         A33mat(J) =  daux
-        END DO
-       END DO
-      ELSE !Non-Newtonian with D
-       DO I=1,qMat%nu
-        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-         daux =  MMat(J) + thstep*(2d0*DMat(J))!
-         A11mat(J) =  daux
-         A22mat(J) =  daux
-         A33mat(J) =  daux
-        END DO
-       END DO 
-      END IF     
+!      IF (myMatrixRenewal%K.GE.1) THEN ! Non-Newtonian Navier-Stokes with D
+!       DO I=1,qMat%nu
+!        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!         daux = MMat(J) + thstep*(2d0*DMat(J)+KMat(J))! 
+!         daux2 = MMat(J) + thstep*(2d0*DMat(J)+KMat(J)+alpha*KnewMat(J))! 
+!         A11mat(J) =  daux
+!         A22mat(J) =  daux
+!         A33mat(J) =  daux
+!         AA11mat(J) =  daux2
+!         AA22mat(J) =  daux2
+!         AA33mat(J) =  daux2
+!        END DO
+!       END DO
+!      ELSE !Non-Newtonian Stokes with D
+!       DO I=1,qMat%nu
+!        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!         daux =  MMat(J) + thstep*(2d0*DMat(J))!
+!         A11mat(J) =  daux
+!         A22mat(J) =  daux
+!         A33mat(J) =  daux
+!        END DO
+!       END DO 
+!      END IF     
      ELSE
       IF (myMatrixRenewal%K.GE.1) THEN ! Non-Newtonian Navier-Stokes with S
        DO I=1,qMat%nu
         DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+         ! non-linear defect
          A11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J))
          A22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J))
          A33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J))
-         A12Mat(J) = MMat(J) + thstep*S12Mat(J)
-         A13Mat(J) = MMat(J) + thstep*S13Mat(J)
-         A23Mat(J) = MMat(J) + thstep*S23Mat(J)
-         A21Mat(J) = MMat(J) + thstep*S21Mat(J)
-         A31Mat(J) = MMat(J) + thstep*S31Mat(J)
-         A32Mat(J) = MMat(J) + thstep*S32Mat(J)
+         A12Mat(J) = S12Mat(J)
+         A13Mat(J) = S13Mat(J)
+         A23Mat(J) = S23Mat(J)
+         A21Mat(J) = S21Mat(J)
+         A31Mat(J) = S31Mat(J)
+         A32Mat(J) = S32Mat(J)
+         ! for multigrid
+         AA11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
+         AA22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
+         AA33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
+         AA12Mat(J) = S12Mat(J) + alpha * barM12Mat(J)
+         AA13Mat(J) = S13Mat(J) + alpha * barM13Mat(J)
+         AA23Mat(J) = S23Mat(J) + alpha * barM23Mat(J)
+         AA21Mat(J) = S21Mat(J) + alpha * barM21Mat(J)
+         AA31Mat(J) = S31Mat(J) + alpha * barM31Mat(J)
+         AA32Mat(J) = S32Mat(J) + alpha * barM32Mat(J)
         END DO
        END DO
       ELSE ! Non-Newtonian Stokes with S
@@ -115,45 +275,59 @@ REAL*8 daux,tttx1,tttx0
          A11mat(J) = MMat(J) + thstep*S11Mat(J)
          A22mat(J) = MMat(J) + thstep*S22Mat(J)
          A33mat(J) = MMat(J) + thstep*S33Mat(J)
-         A12Mat(J) = MMat(J) + thstep*S12Mat(J)
-         A13Mat(J) = MMat(J) + thstep*S13Mat(J)
-         A23Mat(J) = MMat(J) + thstep*S23Mat(J)
-         A21Mat(J) = MMat(J) + thstep*S21Mat(J)
-         A31Mat(J) = MMat(J) + thstep*S31Mat(J)
-         A32Mat(J) = MMat(J) + thstep*S32Mat(J)
+         A12Mat(J) = S12Mat(J)
+         A13Mat(J) = S13Mat(J)
+         A23Mat(J) = S23Mat(J)
+         A21Mat(J) = S21Mat(J)
+         A31Mat(J) = S31Mat(J)
+         A32Mat(J) = S32Mat(J)
+         AA11mat(J) = A11mat(J)
+         AA22mat(J) = A22mat(J)
+         AA33mat(J) = A33mat(J)
+         AA12Mat(J) = A12mat(J)
+         AA13Mat(J) = A13mat(J)
+         AA23Mat(J) = A23mat(J)
+         AA21Mat(J) = A21mat(J)
+         AA31Mat(J) = A31mat(J)
+         AA32Mat(J) = A32mat(J)
         END DO
        END DO
       END IF
      END IF
 
-    ELSE ! Newtonian Stokes
+    ELSE 
 
-     IF (myMatrixRenewal%K.GE.1) THEN
-      DO I=1,qMat%nu
-       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-        daux = MMat(J) + thstep*(DMat(J)+KMat(J))
-        A11mat(J) =  daux
-        A22mat(J) =  daux
-        A33mat(J) =  daux
-       END DO
-      END DO
-     ELSE ! Newtonian Stokes
-      DO I=1,qMat%nu
-       J = qMat%LdA(I)
-       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-        daux = MMat(J) + thstep*(DMat(J))
-        A11mat(J) =  daux
-        A22mat(J) =  daux
-        A33mat(J) =  daux
-       END DO
-      END DO
-     END IF
+! Newtonian Navier-Stokes
+!  ---> can be done with Non-newtonian problem
+
+!     IF (myMatrixRenewal%K.GE.1) THEN
+!      DO I=1,qMat%nu
+!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!        daux = MMat(J) + thstep*(DMat(J)+KMat(J))
+!        daux2 = MMat(J) + thstep*(DMat(J)+KMat(J)+alpha*KnewMat(J))
+!        A11mat(J) =  daux
+!        A22mat(J) =  daux
+!        A33mat(J) =  daux
+!        AA11mat(J) =  daux2
+!        AA22mat(J) =  daux2
+!        AA33mat(J) =  daux2
+!       END DO
+!      END DO
+!     ELSE ! Newtonian Stokes
+!      DO I=1,qMat%nu
+!       J = qMat%LdA(I)
+!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!        daux = MMat(J) + thstep*(DMat(J))
+!        A11mat(J) =  daux
+!        A22mat(J) =  daux
+!        A33mat(J) =  daux
+!       END DO
+!      END DO
+!     END IF
     END IF
 
   END DO
  END IF
-
-
     !!-------------------  MATRIX Assembly -------------------!!
 
     !!-------------------    POINTER Setup  -------------------!!
@@ -170,10 +344,22 @@ REAL*8 daux,tttx1,tttx0
   A21Mat     => mg_A21Mat(ILEV)%a
   A31Mat     => mg_A31Mat(ILEV)%a
   A32Mat     => mg_A32Mat(ILEV)%a
+  AA11Mat     => mg_AA11Mat(ILEV)%a
+  AA22Mat     => mg_AA22Mat(ILEV)%a
+  AA33Mat     => mg_AA33Mat(ILEV)%a
+  AA12Mat     => mg_AA12Mat(ILEV)%a
+  AA13Mat     => mg_AA13Mat(ILEV)%a
+  AA23Mat     => mg_AA23Mat(ILEV)%a
+  AA21Mat     => mg_AA21Mat(ILEV)%a
+  AA31Mat     => mg_AA31Mat(ILEV)%a
+  AA32Mat     => mg_AA32Mat(ILEV)%a
  ELSE
   A11Mat     => mg_A11Mat(ILEV)%a
   A22Mat     => mg_A22Mat(ILEV)%a
   A33Mat     => mg_A33Mat(ILEV)%a
+  AA11Mat     => mg_AA11Mat(ILEV)%a
+  AA22Mat     => mg_AA22Mat(ILEV)%a
+  AA33Mat     => mg_AA33Mat(ILEV)%a
  END IF
 
  IF (myMatrixRenewal%S.GE.1) THEN
@@ -194,6 +380,21 @@ REAL*8 daux,tttx1,tttx0
 
  IF (myMatrixRenewal%K.GE.1) THEN
   KMat     => mg_KMat(ILEV)%a
+     IF(bNonNewtonian) THEN
+      barM11Mat     => mg_barM11Mat(ILEV)%a
+      barM22Mat     => mg_barM22Mat(ILEV)%a
+      barM33Mat     => mg_barM33Mat(ILEV)%a
+      barM12Mat     => mg_barM12Mat(ILEV)%a
+      barM13Mat     => mg_barM13Mat(ILEV)%a
+      barM23Mat     => mg_barM23Mat(ILEV)%a
+      barM21Mat     => mg_barM21Mat(ILEV)%a
+      barM31Mat     => mg_barM31Mat(ILEV)%a
+      barM32Mat     => mg_barM32Mat(ILEV)%a
+     ELSE
+      barM11Mat     => mg_barM11Mat(ILEV)%a
+      barM22Mat     => mg_barM22Mat(ILEV)%a
+      barM33Mat     => mg_barM33Mat(ILEV)%a
+     END IF
  END IF
 
  IF (myMatrixRenewal%M.GE.1) THEN
@@ -1146,10 +1347,14 @@ END SUBROUTINE GetDefNorms
 !
 SUBROUTINE CC_Extraction(qScalar)
 TYPE(TQuadScalar) qScalar
+INTEGER iStringPos,iString
 
 IF (.NOT.(ALLOCATED(CC_EMat))) ALLOCATE(CC_EMat(NLMIN:NLMAX))
 
 DO ILEV = NLMIN,NLMAX
+ IF (myid.eq.1) write(*,'(A,I1.1,A$)') " Lev",ILEV,": "
+ iStringPos = 0
+ iString = 1
 
  CALL SETLEV(2)
 
@@ -1158,14 +1363,14 @@ DO ILEV = NLMIN,NLMAX
  endif
 
  IF (myid.ne.0)then
-   CALL E013UVWMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,&
-     mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
+   CALL E013UVWMAT(mg_AA11mat(ILEV)%a,mg_AA22mat(ILEV)%a,&
+     mg_AA33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
 
    CALL E013BCMAT(qScalar%knprU(ILEV)%x,&
      qScalar%knprV(ILEV)%x,qScalar%knprW(ILEV)%x)
 
-   CALL E013_PUTMAT(mg_A11mat(ILEV)%a,&
-     mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
+   CALL E013_PUTMAT(mg_AA11mat(ILEV)%a,&
+     mg_AA22mat(ILEV)%a,mg_AA33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
  end if
 
  CALL CC_Extraction_sub(mg_mesh%level(ilev)%kvert,&
@@ -1174,14 +1379,15 @@ DO ILEV = NLMIN,NLMAX
                         mg_mesh%level(ilev)%nel,&
                         qScalar%knprU(ILEV)%x,&
                         qScalar%knprV(ILEV)%x,&
-                        qScalar%knprW(ILEV)%x)
+                        qScalar%knprW(ILEV)%x,&
+			iStringPos,iString)
 
  IF (myid.ne.0)then
-   CALL E013_GETMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,&
-                    mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
+   CALL E013_GETMAT(mg_AA11mat(ILEV)%a,mg_AA22mat(ILEV)%a,&
+                    mg_AA33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
                     mg_qMat(ILEV)%nu)
  endif
-
+ IF (myid.eq.1) write(*,*)
 END DO
 
 END SUBROUTINE CC_Extraction
@@ -1197,13 +1403,13 @@ ndof = nvt+net+nat+nel
 DO i = 1,ndof
  IF (kU(i).eq.1) THEN
   ii = mg_qMat(ILEV)%LdA(i)
-  daux = mg_A11Mat(ILEV)%a(ii)
+  daux = mg_AA11Mat(ILEV)%a(ii)
   DO j = ii,mg_qMat(ILEV)%LdA(i+1)-1
-   mg_A11Mat(ILEV)%a(j) = 0d0
-   mg_A12Mat(ILEV)%a(j) = 0d0
-   mg_A13Mat(ILEV)%a(j) = 0d0
+   mg_AA11Mat(ILEV)%a(j) = 0d0
+   mg_AA12Mat(ILEV)%a(j) = 0d0
+   mg_AA13Mat(ILEV)%a(j) = 0d0
   END DO
-  mg_A11Mat(ILEV)%a(ii) = daux
+  mg_AA11Mat(ILEV)%a(ii) = daux
   ii = mg_qlMat(ILEV)%LdA(i)
   DO j = ii,mg_qlMat(ILEV)%LdA(i+1)-1
    mg_BXMat(ILEV)%a(j) = 0d0
@@ -1212,13 +1418,13 @@ DO i = 1,ndof
 
  IF (kV(i).eq.1) THEN
   ii = mg_qMat(ILEV)%LdA(i)
-  daux = mg_A22Mat(ILEV)%a(ii)
+  daux = mg_AA22Mat(ILEV)%a(ii)
   DO j = ii,mg_qMat(ILEV)%LdA(i+1)-1
-   mg_A21Mat(ILEV)%a(j) = 0d0
-   mg_A22Mat(ILEV)%a(j) = 0d0
-   mg_A23Mat(ILEV)%a(j) = 0d0
+   mg_AA21Mat(ILEV)%a(j) = 0d0
+   mg_AA22Mat(ILEV)%a(j) = 0d0
+   mg_AA23Mat(ILEV)%a(j) = 0d0
   END DO
-  mg_A22Mat(ILEV)%a(ii) = daux
+  mg_AA22Mat(ILEV)%a(ii) = daux
   ii = mg_qlMat(ILEV)%LdA(i)
   DO j = ii,mg_qlMat(ILEV)%LdA(i+1)-1
    mg_BYMat(ILEV)%a(j) = 0d0
@@ -1227,13 +1433,13 @@ DO i = 1,ndof
 
   IF (kW(i).eq.1) THEN
   ii = mg_qMat(ILEV)%LdA(i)
-  daux = mg_A33Mat(ILEV)%a(ii)
+  daux = mg_AA33Mat(ILEV)%a(ii)
   DO j = ii,mg_qMat(ILEV)%LdA(i+1)-1
-   mg_A31Mat(ILEV)%a(j) = 0d0
-   mg_A32Mat(ILEV)%a(j) = 0d0
-   mg_A33Mat(ILEV)%a(j) = 0d0
+   mg_AA31Mat(ILEV)%a(j) = 0d0
+   mg_AA32Mat(ILEV)%a(j) = 0d0
+   mg_AA33Mat(ILEV)%a(j) = 0d0
   END DO
-  mg_A33Mat(ILEV)%a(ii) = daux
+  mg_AA33Mat(ILEV)%a(ii) = daux
   ii = mg_qlMat(ILEV)%LdA(i)
   DO j = ii,mg_qlMat(ILEV)%LdA(i+1)-1
    mg_BZMat(ILEV)%a(j) = 0d0
@@ -1293,7 +1499,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A11Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA11Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1301,7 +1507,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A12Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA12Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1309,7 +1515,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A13Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA13Mat(ILEV)%a(j)
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
    jj = 3*iLenV + mg_qlMat(ILEV)%ColA(j)
@@ -1333,7 +1539,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A21Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA21Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1341,7 +1547,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A22Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA22Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1349,7 +1555,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A23Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA23Mat(ILEV)%a(j)
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
    jj = 3*iLenV + mg_qlMat(ILEV)%ColA(j)
@@ -1373,7 +1579,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A31Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA31Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1381,7 +1587,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A32Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA32Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jEq = mg_qMat(ILEV)%ColA(j)
@@ -1389,7 +1595,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = mg_A33Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = mg_AA33Mat(ILEV)%a(j)
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
    jj = 3*iLenV + mg_qlMat(ILEV)%ColA(j)
@@ -1460,7 +1666,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A11Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA11Mat(ILEV)%a(j)
    IF (dBC.eq.0d0.and.ii.eq.jj) myCrsMat%A  (k) = 1d0
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
@@ -1468,14 +1674,14 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A12Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA12Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jj = 2*iLenV + mg_qMat(ILEV)%ColA(j)
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A13Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA13Mat(ILEV)%a(j)
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
    jj = 3*iLenV + mg_qlMat(ILEV)%ColA(j)
@@ -1499,14 +1705,14 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A21Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA21Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jj = 1*iLenV + mg_qMat(ILEV)%ColA(j)
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A22Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA22Mat(ILEV)%a(j)
    IF (dBC.eq.0d0.and.ii.eq.jj) myCrsMat%A  (k) = 1d0
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
@@ -1514,7 +1720,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A23Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA23Mat(ILEV)%a(j)
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
    jj = 3*iLenV + mg_qlMat(ILEV)%ColA(j)
@@ -1537,21 +1743,21 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A31Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA31Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jj = 1*iLenV + mg_qMat(ILEV)%ColA(j)
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A32Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA32Mat(ILEV)%a(j)
   end do
   do j=mg_qMat(ILEV)%LdA(i),mg_qMat(ILEV)%LdA(i+1)-1
    jj = 2*iLenV + mg_qMat(ILEV)%ColA(j)
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = dBC*mg_A33Mat(ILEV)%a(j)
+   myCrsMat%A  (k) = dBC*mg_AA33Mat(ILEV)%a(j)
    IF (dBC.eq.0d0.and.ii.eq.jj) myCrsMat%A  (k) = 1d0
   end do
   do j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
@@ -1642,19 +1848,19 @@ REAL*8 dmaxx(3)
 
 ! Matrices
  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
-  MyMG%A11  => mg_A11Mat
-  MyMG%A22  => mg_A22Mat
-  MyMG%A33  => mg_A33Mat
-  MyMG%A12  => mg_A12Mat
-  MyMG%A13  => mg_A13Mat
-  MyMG%A23  => mg_A23Mat
-  MyMG%A21  => mg_A21Mat
-  MyMG%A31  => mg_A31Mat
-  MyMG%A32  => mg_A32Mat
+  MyMG%A11  => mg_AA11Mat
+  MyMG%A22  => mg_AA22Mat
+  MyMG%A33  => mg_AA33Mat
+  MyMG%A12  => mg_AA12Mat
+  MyMG%A13  => mg_AA13Mat
+  MyMG%A23  => mg_AA23Mat
+  MyMG%A21  => mg_AA21Mat
+  MyMG%A31  => mg_AA31Mat
+  MyMG%A32  => mg_AA32Mat
  ELSE
-  MyMG%A11    => mg_A11Mat
-  MyMG%A22    => mg_A22Mat
-  MyMG%A33    => mg_A33Mat
+  MyMG%A11    => mg_AA11Mat
+  MyMG%A22    => mg_AA22Mat
+  MyMG%A33    => mg_AA33Mat
  END IF
  MyMG%BX    => mg_BXMat
  MyMG%BY    => mg_BYMat
@@ -1691,18 +1897,16 @@ REAL*8 dmaxx(3)
 
 1 CONTINUE 
 
- MyMG%MinIterCycle       = qScalar%prm%MGprmIn%MinIterCycle
- MyMG%MaxIterCycle       = qScalar%prm%MGprmIn%MaxIterCycle
- MyMG%nIterCoarse        = qScalar%prm%MGprmIn%nIterCoarse
- MyMG%nSmootherSteps     = qScalar%prm%MGprmIn%nSmootherSteps
- MyMG%VANKA              = qScalar%prm%MGprmIn%VANKA
- MyMG%RLX                = qScalar%prm%MGprmIn%RLX
- MyMG%CycleType          = qScalar%prm%MGprmIn%CycleType
- MyMG%DefImprCoarse      = qScalar%prm%MGprmIn%DefImprCoarse
+ MyMG%MinIterCycle       = ccParams%MinIterCycle
+ MyMG%MaxIterCycle       = ccParams%MaxIterCycle
+ MyMG%nSmootherSteps     = ccParams%nSmootherSteps
+ MyMG%VANKA              = ccParams%VANKA
+ MyMG%RLX                = ccParams%RLX
+ MyMG%CycleType          = ccParams%CycleType
  MyMG%Criterion1         = digitcriterion
- MyMG%Criterion2         = qScalar%prm%MGprmIn%Criterion2
- MyMG%MinLev		 = qScalar%prm%MGprmIn%MinLev
- MyMG%MedLev             = qScalar%prm%MGprmIn%MedLev
+ MyMG%Criterion2         = ccParams%Criterion
+ MyMG%MinLev		 = ccParams%MinLev
+ MyMG%MedLev             = ccParams%MedLev
 
  daux = DBLE(NLMAX)
  CALL COMM_Maximum(daux)
@@ -1742,16 +1946,16 @@ DO ILEV = NLMIN,NLMAX
  
  CALL SETLEV(2)
 
- CALL E013UVWMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,&
-                 mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
+ CALL E013UVWMAT(mg_AA11mat(ILEV)%a,mg_AA22mat(ILEV)%a,&
+                 mg_AA33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
                  mg_qMat(ILEV)%nu)
 
  CALL E013BCMAT(qScalar%knprU(ILEV)%x,&
                 qScalar%knprV(ILEV)%x,&
                 qScalar%knprW(ILEV)%x)
 
- CALL E013_PUTMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,&
-                  mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
+ CALL E013_PUTMAT(mg_AA11mat(ILEV)%a,mg_AA22mat(ILEV)%a,&
+                  mg_AA33mat(ILEV)%a,mg_qMat(ILEV)%LdA,&
                   mg_qMat(ILEV)%nu)
  
  DO iel = 1,KNEL(1)
@@ -2440,5 +2644,27 @@ DO ILEV=NLMIN,NLMAX
  BTZMat => mg_BTZMat(NLMAX)%a
 
 END SUBROUTINE Create_BMat_iso
+
+SUBROUTINE InitializeProlRest_cc(Param)
+
+TYPE(tParamCC) Param
+LOGICAL, TARGET :: PR
+
+ PR = .FALSE.
+ MyMG%MinLev             = Param%MinLev
+ MyMG%MedLev             = Param%MedLev
+ myMG%MaxLev=NLMAX
+ IF(myid.eq.showid) WRITE(*,*) "Initialization of velocity prolongation matrix"
+ myMG%bProlRest => PR
+ MyMG%cVariable = "Velocity"
+ CALL mgProlRestInit()
+
+ PR = .FALSE.
+ IF(myid.eq.showid) WRITE(*,*) "Initialization of pressure prolongation matrix"
+ myMG%bProlRest => PR
+ MyMG%cVariable = "Pressure"
+ CALL mgProlRestInit()
+
+END SUBROUTINE InitializeProlRest_cc
 
 END MODULE def_cc

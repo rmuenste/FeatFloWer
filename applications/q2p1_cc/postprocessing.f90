@@ -36,7 +36,7 @@ CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
      LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
 ! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 
-!CALL WriteSol_Time(iOut)
+CALL WriteSol_Time(iOut)
 
 if(bViscoElastic)then
   CALL WriteSol_Visco(iOut,0)
@@ -86,18 +86,18 @@ IF     (myExport%Format.EQ."GMV") THEN
  END IF
 
 ELSEIF (myExport%Format.EQ."VTK") THEN
-!
-! IF (myid.NE.0) THEN
-!  NLMAX = NLMAX + 1
-!  ILEV = myExport%Level
-!  CALL SETLEV(2)
-!  CALL Output_VTK_piece(iOutput,&
-!    mg_mesh%level(ILEV)%dcorvg,&
-!    mg_mesh%level(ILEV)%kvert)
-!  NLMAX = NLMAX - 1
-! ELSE
-!  CALL Output_VTK_main(iOutput)
-! END IF
+
+ IF (myid.NE.0) THEN
+  NLMAX = NLMAX + 1
+  ILEV = myExport%Level
+  CALL SETLEV(2)
+  CALL Output_VTK_piece(iOutput,&
+    mg_mesh%level(ILEV)%dcorvg,&
+    mg_mesh%level(ILEV)%kvert)
+  NLMAX = NLMAX - 1
+ ELSE
+  CALL Output_VTK_main(iOutput)
+ END IF
 
 END IF
 
@@ -326,8 +326,6 @@ end subroutine release_mesh
       WRITE(myFile,8) "  Reactive term          ",myStat%tCMat
       WRITE(myFile,*) 
       WRITE(myFile,8) " Output time             ",daux1
-      WRITE(myFile,8) "  GMV output             ",myStat%tGMVOut
-      WRITE(myFile,8) "  Dump file output       ",myStat%tDumpOut
 
       IF (myOutFile.eq.0) THEN
        CLOSE (myFile)
@@ -361,8 +359,8 @@ CALL StatOut_mod(time_passed,filehandle)
 CALL StatOut_mod(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
-!CALL mySolToFile(-1)
-CALL Output_Profiles(0)
+CALL mySolToFile(-1)
+CALL myOutput_Profiles(0)
 
 IF (myid.eq.showid) THEN
   WRITE(MTERM,*) "CC3D_iso_adaptive has successfully finished. "

@@ -58,6 +58,8 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE Transport_CC, ONLY: Init_CCParam
+ USE var_QuadScalar_newton, ONLY: ccParams
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -142,9 +144,9 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
 
- CALL Init_QuadScalar(mfile)
+ CALL Init_CCParam(mfile)
 
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) NLMAX = ccParams%MedLev
 
  if(NLMAX.eq.0)then
    write(*,*)'NLMAX=0 is invalid, exiting...'
@@ -173,10 +175,10 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  IF (myid.NE.0) NLMAX = NLMAX + 1
  
  IF (myid.EQ.0) then
-   mg_Mesh%nlmax = LinSc%prm%MGprmIn%MedLev
+   mg_Mesh%nlmax = ccParams%MedLev
    mg_Mesh%nlmin = 1
-   mg_Mesh%maxlevel = LinSc%prm%MGprmIn%MedLev+1
-   allocate(mg_mesh%level(LinSc%prm%MGprmIn%MedLev+1))
+   mg_Mesh%maxlevel = ccParams%MedLev+1
+   allocate(mg_mesh%level(ccParams%MedLev+1))
  else
    allocate(mg_mesh%level(NLMAX))
    mg_Mesh%maxlevel = nlmax
@@ -219,7 +221,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  END DO
 
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) NLMAX = ccParams%MedLev
  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
  !     ----------------------------------------------------------
 
@@ -248,7 +250,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
                              mg_mesh%level(ILEV)%net,&
                              mg_mesh%level(ILEV)%nat,&
                              mg_mesh%level(ILEV)%nel,&
-                             LinSc%prm%MGprmIn%MedLev)
+                             ccParams%MedLev)
 
  CALL E013_Comm_Master(mg_mesh%level(ILEV)%dcorvg,&
                        mg_mesh%level(ILEV)%kvert,&
@@ -260,7 +262,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
                        mg_mesh%level(ILEV)%nel)
 
 
- ILEV = LinSc%prm%MGprmIn%MedLev
+ ILEV = ccParams%MedLev
 
  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
                              mg_mesh%level(ILEV)%kvert,&
@@ -287,7 +289,7 @@ DO ILEV=NLMIN+1,NLMAX
                       mg_mesh%level(ILEV)%net,&
                       mg_mesh%level(ILEV)%nat,&
                       mg_mesh%level(ILEV)%nel,&
-                      LinSc%prm%MGprmIn%MedLev)
+                      ccParams%MedLev)
 
 END DO
 
@@ -313,7 +315,7 @@ END DO
 
    CALL ParametrizeBndr(mg_mesh,ilev)
 
-   IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
+   IF (.not.(myid.eq.0.AND.ilev.gt.ccParams%MedLev)) THEN
 
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
@@ -337,11 +339,11 @@ END DO
  IF (myid.EQ.0) THEN
    CALL CreateDumpStructures(0)
  ELSE
-   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+   LevDif = ccParams%MedLev - NLMAX
    CALL CreateDumpStructures(LevDif)
  END IF
 
- ILEV = LinSc%prm%MGprmIn%MedLev
+ ILEV = ccParams%MedLev
 
  nLengthV = (2**(ILEV-1)+1)**3
  nLengthE = mg_mesh%level(NLMIN)%nel

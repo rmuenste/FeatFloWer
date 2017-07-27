@@ -60,7 +60,8 @@ logical :: bOK
   cAux = ADJUSTL(TRIM(myParBndr(iBnds)%Types))
   iType = 0
   IF (cAux(1:6).EQ.'Inflow') THEN
-   READ(cAux(7:),'(I1)') iType
+   !! CHANGED, because FURTHER inflow needed
+   READ(cAux(7:),'(I2)') iType
   END IF
   iPhase = 0
   IF (cAux(1:5).EQ.'Phase') THEN
