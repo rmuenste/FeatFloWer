@@ -172,6 +172,7 @@ end if
   CALL SETLEV(2)
   CALL QuadScalar_Knpr()
  END DO
+
  ILEV=NLMAX
  mydof = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
@@ -211,6 +212,7 @@ end if
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
+
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
@@ -489,9 +491,7 @@ END SUBROUTINE LinScalar_InitCond_cc
 !
 SUBROUTINE OperatorDeallocation()
 
- !DO ILEV=NLMIN,NLMAX
-
- DO ILEV=1,1
+DO ILEV=NLMIN,NLMAX
 
   CALL SETLEV(2)
   qMat => mg_qMat(ILEV)

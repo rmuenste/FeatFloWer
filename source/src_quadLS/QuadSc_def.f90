@@ -2814,6 +2814,11 @@ END DO
 
 CLOSE (myFile)
 
+myParam%MGprmIn%MaxLev = NLMAX
+out_string = ""
+write(out_string,'(i20)')myParam%iMass
+call write_param_int(mfile,"Velo","MGMaxLev",out_string,myParam%MGprmIn%MaxLev)
+
 CONTAINS
 
 SUBROUTINE StrStuct()

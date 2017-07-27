@@ -283,6 +283,19 @@ end subroutine release_mesh
 !
 ! ----------------------------------------------
 !
+subroutine sim_terminate()
+
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+
+integer :: ierr
+
+call myMPI_Barrier()
+CALL MPI_abort(MPI_COMM_WORLD,IERR)
+
+end subroutine sim_terminate
+!
+! ----------------------------------------------
+!
 subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI

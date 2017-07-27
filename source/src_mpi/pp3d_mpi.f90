@@ -584,6 +584,11 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   REAL :: txt1, txt0
 
   NLMINp = ILEV
+
+  if(myid.eq.0)then
+    goto 555
+  endif
+
   mg_mpi(ILEV)%NeighNum = mg_mpi(ILEV-1)%NeighNum
   ALLOCATE (mg_mpi(ILEV)%parST(mg_mpi(ILEV)%NeighNum))
   ALLOCATE (mg_mpi(ILEV)%UE(NAT))
@@ -615,7 +620,7 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   ALLOCATE(mg_mpi(ILEV)%parST(pID)%ElemLin2(2,nSIZE)) ! sorted elems
   ALLOCATE(mg_mpi(ILEV)%parST(pID)%FaceLin2(2,nSIZE)) ! sorted faces
   END DO
-
+  
   DO pID=1,mg_mpi(ILEV-1)%NeighNum
   !  if (myid.eq.1) write(*,*) mg_mpi(ILEV-1)%parST(pID)%Neigh
   DO I=1,mg_mpi(ILEV-1)%parST(pID)%Num
@@ -788,21 +793,13 @@ WRITE(*,*) mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I),&
 END DO
 END DO
 
-!   DO pID=1,mg_mpi(ILEV)%NeighNum
-!    nSIZE = mg_mpi(ILEV)%parST(pID)%Num
-!    DO I=1,nSIZE
-!     write(*,*) mg_mpi(ILEV)%parST(pID)%FaceLink(:,I)
-!    END DO
-!   END DO
-!   STOP
-
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkX)
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkY)
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkZ)
 
 if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
-IF (.NOT.BLIN) RETURN
+555 IF (.NOT.BLIN) RETURN
 
 IF (myid.NE.MASTER) THEN
 
@@ -885,9 +882,6 @@ IF (myid.NE.MASTER) THEN
 
   END DO
 
-
-  ! WRITE(*,*) myid,"has arrived!"
-
   ALLOCATE(CoorST(subnodes))
   DO pID=1,subnodes
   IF (myid.eq.pID) THEN
@@ -920,49 +914,11 @@ IF (myid.NE.MASTER) THEN
 
   END DO
 
-  ! if (myid.eq.1) OPEN(987,FILE='#data/VERT1.txt')
-  ! if (myid.eq.2) OPEN(987,FILE='#data/VERT2.txt')
-  ! if (myid.eq.3) OPEN(987,FILE='#data/VERT3.txt')
-  ! 
-  ! DO pID=1,subnodes
-  ! WRITE(987,*) pID
-  ! DO I=1,CoorST(pID)%Num
-  !  WRITE(987,*) CoorST(pID)%dCoor(:,I)
-  ! END DO
-  ! END DO
-  ! CLOSE(987)
-
-  ! write(*,'(I3,2(A,<subnodes>I5))') myid," : ",CoorSP(1:subnodes)%Num," : ",CoorST(1:subnodes)%Num
-  ! pause
-
   ALLOCATE(E011ST(subnodes))
 
   DO pID=1,subnodes
   E011ST(pID)%Num = CoorSP(pID)%Num
   END DO
-
-  ! DO pID=1,subnodes
-  !  jAux = 0
-  !  IF (pID.NE.myid) THEN
-  !   DO I=1,CoorST(pID)%Num
-  !    P1X = CoorST(pID)%dCoor(1,I)
-  !    P1Y = CoorST(pID)%dCoor(2,I)
-  !    P1Z = CoorST(pID)%dCoor(3,I)
-  !    DO J=1,CoorST(myid)%Num
-  !     P2X = CoorST(myid)%dCoor(1,J)
-  !     P2Y = CoorST(myid)%dCoor(2,J)
-  !     P2Z = CoorST(myid)%dCoor(3,J)
-  !     IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-  !         (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-  !         (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
-  !      jAux = jAux + 1
-  !     END IF
-  !    END DO
-  !   END DO
-  !  END IF
-  ! !  WRITE(*,*) myid,pID,jAux
-  !  E011ST(pID)%Num = jAux
-  ! END DO
 
   ALLOCATE(E011_UE(NVT))
 
@@ -1001,34 +957,6 @@ END DO
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 CALL ZTIME(txt1)
 IF (myid.eq.1) write(*,*) "measured full time:", txt1-txt0
-! pause
-
-! if (myid.eq.1) OPEN(987,FILE='#data/VERT1.txt')
-! if (myid.eq.2) OPEN(987,FILE='#data/VERT2.txt')
-! if (myid.eq.3) OPEN(987,FILE='#data/VERT3.txt')
-! 
-! DO pID=1,subnodes
-! WRITE(987,*) pID
-! DO I=1,E011ST(pID)%Num
-!  WRITE(987,*) E011ST(pID)%VertLink(:,I)
-! END DO
-! END DO
-! CLOSE(987)
-
-! E012 Element
-! ALLOCATE(E012ST(subnodes))
-! DO pID=1,mg_mpi(ILEV)%NeighNum
-!  nSIZE = mg_mpi(ILEV)%parST(pID)%Num
-!  E012ST(pID)%Num = nSIZE
-!  nEIGH = mg_mpi(ILEV)%parST(pID)%Neigh
-!  E012ST(pID)%Neigh = nEIGH
-!  ALLOCATE(E012ST(pID)%FaceLink(2,nSIZE))
-!  E012ST(pID)%FaceLink = mg_mpi(ILEV)%parST(pID)%FaceLink
-!  ALLOCATE(E012ST(pID)%SDVect(4*nSIZE),E012ST(pID)%RDVect(4*nSIZE))
-!  ALLOCATE(E012ST(pID)%SVVect(4*nSIZE),E012ST(pID)%RVVect(4*nSIZE))
-!  ALLOCATE(E012ST(pID)%SKVect(nSIZE),E012ST(pID)%RKVect(nSIZE))
-! END DO
-
 
 DEALLOCATE (CoorSP,CoorST)
 DEALLOCATE (iAux,dCoor,iCoor)

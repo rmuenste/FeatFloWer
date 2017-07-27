@@ -1702,7 +1702,7 @@ REAL*8 dmaxx(3)
  MyMG%Criterion1         = qScalar%prm%MGprmIn%Criterion1
  MyMG%Criterion2         = qScalar%prm%MGprmIn%Criterion2
 
- MyMG%MinLev             = 1
+ MyMG%MinLev             = qScalar%prm%MGprmIn%MinLev
  daux = DBLE(NLMAX)
  CALL COMM_Maximum(daux)
  MyMG%MaxLev             = NINT(daux)
