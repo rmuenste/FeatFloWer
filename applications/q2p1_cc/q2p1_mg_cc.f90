@@ -101,7 +101,6 @@ SUBROUTINE mg_cycle_cc()
 IF (MyMG%CycleType.EQ."W")  CALL mg_W_cycle_cc()
 IF (MyMG%CycleType.EQ."V")  CALL mg_V_cycle_cc()
 IF (MyMG%CycleType.EQ."F")  CALL mg_F_cycle_cc()
-IF (MyMG%CycleType.EQ."N")  CALL mgCoarseGridSolverShouldBe_cc()
 
 END SUBROUTINE mg_cycle_cc
 !

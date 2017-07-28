@@ -30,6 +30,7 @@ subroutine init_q2p1_cc(log_unit)
   call InitCond_LinScalar_cc()
 
   IF (ISTART.EQ.0) THEN
+    IF (myid.ne.0) CALL CreateDumpStructures(1)
     CALL InitCond_QuadScalar_cc()
     IF(bViscoElastic)CALL IniProf_ViscoScalar()
   ELSE

@@ -359,7 +359,7 @@ CALL StatOut_mod(time_passed,filehandle)
 CALL StatOut_mod(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
-!CALL mySolToFile(-1)
+CALL mySolToFile(-1)
 CALL myOutput_Profiles(0)
 
 IF (myid.eq.showid) THEN
