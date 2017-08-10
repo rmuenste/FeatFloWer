@@ -437,15 +437,15 @@ FORCES_OLD = FORCES_NEW
 
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
 IF (DefNorm/DefNorm0.LT.myTolerance) exit
-IF (stopOne.LT.1d-5) THEN
-	IF (myid.eq.1) THEN
-	write(mfile,55) 
-  	write(mterm,55)
-	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-        END IF
-        exit
-END IF
+!IF (stopOne.LT.1d-5) THEN
+!	IF (myid.eq.showid) THEN
+!	write(mfile,55) 
+!  	write(mterm,55)
+!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!        END IF
+!        exit
+!END IF
 END DO
 
 IF (myid.eq.showid) THEN
@@ -698,8 +698,6 @@ EXTERNAL E013
 
 !Pipe
 ! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
-!Halfpipe/Quarterpipe
-! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R/2d0)
 !FAC
  Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force

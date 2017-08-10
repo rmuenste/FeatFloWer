@@ -1,52 +1,3 @@
-SUBROUTINE mySolToFile(iOutput)
-USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
-USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q1,ONLY:Tracer
-USE PP3D_MPI, ONLY:myid
-
-IMPLICIT NONE
-INTEGER iOutput
-
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-INTEGER ifilen,iOut,nn
-DATA ifilen/0/
-
-IF (iOutput.LT.0) THEN
- ifilen=ifilen+1
- iOut=MOD(ifilen+insavn-1,insavn)+1
-ELSE
- iOut = iOutput
-END IF
-
-CALL WriteSol_Velo(iOut,0,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
-nn = knel(nlmax)
-CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
-     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
-! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
-
-CALL WriteSol_Time(iOut)
-
-if(bViscoElastic)then
-  CALL WriteSol_Visco(iOut,0)
-end if
-
-
-END SUBROUTINE mySolToFile
-!
-! ----------------------------------------------
-!
 SUBROUTINE myOutput_Profiles(iOutput)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
@@ -283,22 +234,22 @@ end subroutine release_mesh
 !
 ! ----------------------------------------------
 !
-      SUBROUTINE StatOut_mod(time_passed,myOutFile)
-      USE def_FEAT
-      USE PP3D_MPI, ONLY : myid,master,showid,subnodes
-      USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
-      IMPLICIT NONE
+SUBROUTINE myStatOut(time_passed,myOutFile)
+USE def_FEAT
+USE PP3D_MPI, ONLY : myid,master,showid,subnodes
+USE var_QuadScalar, ONLY : myStat,bNonNewtonian,myMatrixRenewal
+IMPLICIT NONE
 
-      Real, intent(in) :: time_passed
+Real, intent(in) :: time_passed
 
-      REAL*8 daux,daux1,ds
-      INTEGER myFile,myOutFile,itms,istat
-      LOGICAL bExist
+REAL*8 daux,daux1,ds
+INTEGER myFile,myOutFile,itms,istat
+LOGICAL bExist
 
-      itms = min(itns-1,nitns-1)
-      ds = DBLE(subnodes)
+itms = min(itns-1,nitns-1)
+ds = DBLE(subnodes)
 
-      IF (myid.eq.showid) THEN
+IF (myid.eq.showid) THEN
 
       IF (myOutFile.eq.0) THEN
        myFile = 669
@@ -331,11 +282,11 @@ end subroutine release_mesh
        CLOSE (myFile)
       END IF
 
-      END IF
+END IF
 
-8     FORMAT(A24,' : ',F12.4,'s')
+8  FORMAT(A24,' : ',F12.4,'s')
 
-      END SUBROUTINE StatOut_mod
+END SUBROUTINE myStatOut
 !
 ! ----------------------------------------------
 !
@@ -354,12 +305,13 @@ real :: time,time_passed
 CALL ZTIME(time)
 
 time_passed = time - dttt0
-CALL StatOut_mod(time_passed,filehandle)
+CALL myStatOut(time_passed,filehandle)
 
-CALL StatOut_mod(time_passed,terminal)
+CALL myStatOut(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
-CALL mySolToFile(-1)
+!CALL mySolToFile(-1)
+CALL myReleaseSmartDumpFiles(-1)
 CALL myOutput_Profiles(0)
 
 IF (myid.eq.showid) THEN
@@ -373,3 +325,329 @@ CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
 
 end subroutine sim_finalize
+!
+! ----------------------------------------------
+!
+SUBROUTINE myCreateDumpStructures(iLevel)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE Transport_Q2P1,ONLY:myDump,mg_mesh
+
+IMPLICIT NONE
+
+INTEGER iLevel
+INTEGER JEL,KEL,ivt,jvt,nLengthE,nLengthV
+INTEGER iaux,jaux,jj,kv(8),II
+LOGICAL ,ALLOCATABLE :: bGot(:)
+! -------------- workspace -------------------
+
+! IF (myid.NE.0) THEN
+
+ NLMAX = NLMAX+iLevel
+
+ ILEV = NLMIN
+ NEL  = mg_mesh%level(ilev)%nel
+ nLengthE = 8**(NLMAX-1)
+ nLengthV = (2**(NLMAX-1)+1)**3
+ IF(ALLOCATED(myDump%Elements)) DEALLOCATE(myDump%Elements)
+ IF(ALLOCATED(myDump%Vertices)) DEALLOCATE(myDump%Vertices)
+ ALLOCATE(myDump%Elements(NEL,nLengthE))
+ ALLOCATE(myDump%Vertices(NEL,nLengthV))
+
+ DO IEL = 1,mg_mesh%level(1)%nel
+
+  myDump%Elements(IEL,1) = IEL
+  iaux = 1
+  DO II=1+1,NLMAX
+   jaux = iaux
+   DO jel=1,jaux
+    kel = myDump%Elements(iel,jel)
+    CALL Get8Elem(mg_mesh%level(II)%kadj,&
+      kv,kel)
+    DO jj = 2,8
+     iaux = iaux + 1
+     myDump%Elements(iel,iaux) = kv(jj)
+    END DO
+   END DO
+  END DO
+ END DO 
+
+ ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
+ DO IEL = 1,mg_mesh%level(1)%nel
+  bGot = .FALSE.
+  iaux = 0
+  DO JEL = 1,nLengthE
+   KEL = myDump%Elements(IEL,JEL)
+   
+   CALL getVert(mg_mesh%level(NLMAX)%kvert,&
+                kv,KEL)
+
+   DO IVT = 1,8
+    JVT = kv(IVT)
+    IF (.NOT.bGot(JVT)) THEN
+     iaux = iaux + 1
+     myDump%Vertices(IEL,iaux) = JVT
+     bGot(JVT) = .TRUE.
+    END IF
+   END DO
+
+  END DO
+
+!  IF (iaux.ne.729) WRITE(*,*) myid,iel,iaux
+  
+ END DO
+ DEALLOCATE(bGot)
+
+ NLMAX = NLMAX - iLevel
+!   write(*,*) size(myDump%Vertices),"asdas dasd sad sa",myid
+!   pause
+
+! END IF
+
+
+ CONTAINS
+
+ SUBROUTINE Get8Elem(KADJ,k,el)
+ INTEGER KADJ(6,*),k(8),el
+
+ k(1) = el
+ k(2) = KADJ(3,k(1))
+ k(3) = KADJ(3,k(2))
+ k(4) = KADJ(3,k(3))
+ k(5) = KADJ(6,k(1))
+ k(6) = KADJ(3,k(5))
+ k(7) = KADJ(3,k(6))
+ k(8) = KADJ(3,k(7))
+
+ END SUBROUTINE Get8Elem
+
+ SUBROUTINE getVert(BigKv,SmallKv,elem)
+ INTEGER BigKv(8,*),SmallKv(8),elem
+
+ SmallKv(:) = BigKv(:,elem)
+
+ END SUBROUTINE getVert
+
+END SUBROUTINE myCreateDumpStructures
+!
+! ----------------------------------------------
+!
+SUBROUTINE myReleaseSmartDumpFiles(iOutO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
+USE PLinScalar,ONLY:PLinLS
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+IMPLICIT NONE
+CHARACTER cOutFile*20,command*100
+INTEGER iOutO
+INTEGER iOut,myCoarseElem,ivt,jvt,jel,kel,nLengthE,nLengthV
+INTEGER iP,lCmnd
+INTEGER ifilen,i
+DATA ifilen/0/
+
+IF (myid.NE.0) THEN
+
+ NLMAX = NLMAX+1
+
+ IF (iOutO.LT.0) THEN
+  ifilen=ifilen+1
+  iOut=MOD(ifilen+insavn-1,insavn)+1
+ ELSE
+  iOut = iOuto
+ END IF
+
+ ILEV = NLMIN
+
+ nLengthE = 8**(NLMAX-1)
+ nLengthV = (2**(NLMAX-1)+1)**3
+
+ IF (myid.eq.1) THEN
+
+  command = 'mkdir _dump'
+  WRITE(*,*) 'Executing command:"',TRIM(ADJUSTL(command)),'"'
+  CALL system(TRIM(ADJUSTL(command)))
+  lCmnd = LEN(TRIM(ADJUSTL(command)))
+  IF     (iOut.LT.10    ) THEN
+   WRITE(command(lCmnd+1:lCmnd+3),'(A2,I1)') '/0',iOut
+  ELSEIF (iOut.LT.100   ) THEN
+   WRITE(command(lCmnd+1:lCmnd+3),'(A1,I2)') '/',iOut
+  ELSE
+    WRITE(*,*) "Decrease the output index!"
+    STOP
+  END IF
+  WRITE(*,*) 'Executing command:"',TRIM(ADJUSTL(command)),'"'
+  CALL system(TRIM(ADJUSTL(command)))
+
+ END IF
+
+! pause
+ CALL myMPI_Barrier()
+
+ cOutFile = '_dump/00/******.prf'
+
+ IF     (iOut.LT.10    ) THEN
+  WRITE(cOutFile(7:8),'(A1,I1)') '0',iOut
+ ELSEIF (iOut.LT.100   ) THEN
+   WRITE(cOutFile(7:8),'(I2)') iOut
+ ELSE
+   WRITE(*,*) "Decrease the output index!"
+   STOP
+ END IF
+
+ IF (myid.EQ.1) THEN
+  WRITE(*,'(3A)') "Storing the ",TRIM(ADJUSTL(cOutFile))," series for solution backup ..."
+ END IF
+
+ DO IEL = 1,KNEL(1)
+  myCoarseElem = coarse%myELEMLINK(IEL)
+  IF     (myCoarseElem.LT.10    ) THEN
+   WRITE(cOutFile(10:15),'(A5,I1)') '00000',myCoarseElem
+  ELSEIF (myCoarseElem.LT.100   ) THEN
+   WRITE(cOutFile(10:15),'(A4,I2)') '0000',myCoarseElem
+  ELSEIF (myCoarseElem.LT.1000  ) THEN
+   WRITE(cOutFile(10:15),'(A3,I3)') '000',myCoarseElem
+  ELSEIF (myCoarseElem.LT.10000 ) THEN
+   WRITE(cOutFile(10:15),'(A2,I4)') '00',myCoarseElem
+  ELSEIF (myCoarseElem.LT.100000) THEN
+   WRITE(cOutFile(10:15),'(A1,I5)') '0',myCoarseElem
+  ELSE
+   WRITE(*,*) "Decrease the problem size!"
+   STOP
+  END IF
+
+  ! Velocities
+  OPEN (FILE=TRIM(ADJUSTL(cOutFile)),UNIT = 547)
+  WRITE(547,*)  "Velocities"
+  DO ivt=1,nLengthV
+   jvt = myDump%Vertices(IEL,ivt)
+   WRITE(547,'(3D16.8)') QuadSc%valU(jvt),QuadSc%valV(jvt),QuadSc%valW(jvt)
+  END DO
+
+  ! Pressure
+  WRITE(547,*)  "Pressure"
+  DO jel=1,nLengthE
+   kel = myDump%Elements(IEL,jel)
+   IF (kel.le.knel(NLMAX-1)) THEN
+    iP = 4*(kel-1)
+   WRITE(547,'(4D16.8)') LinSc%valP(NLMAX-1)%x(iP+1:iP+4)
+   END IF   
+  END DO
+
+  WRITE(547,*)  "EOF"
+  CLOSE(547)
+
+ END DO 
+
+ IF (myid.eq.1) THEN
+  cOutFile = '_dump/00/time.prf'
+  IF     (iOut.LT.10    ) THEN
+   WRITE(cOutFile(7:8),'(A1,I1)') '0',iOut
+  ELSEIF (iOut.LT.100   ) THEN
+    WRITE(cOutFile(7:8),'(I2)') iOut
+  ELSE
+    WRITE(*,*) "Decrease the output index!"
+    STOP
+  END IF
+
+  OPEN (FILE=TRIM(ADJUSTL(cOutFile)),UNIT = 547)
+  WRITE (547,*) "timens"
+  WRITE (547,'(D16.8)') timens
+  CLOSE(547)
+ END IF
+
+ NLMAX = NLMAX-1
+
+END IF
+
+END SUBROUTINE myReleaseSmartDumpFiles
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE myLoadSmartDumpFiles(cFldrInFile,iLevel)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,coarse
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE PLinScalar,ONLY:PLinLS
+IMPLICIT NONE
+INTEGER iLevel
+CHARACTER cInFile*99,cFldrInFile*(*)
+INTEGER myCoarseElem,ivt,jvt,jel,kel,nLengthE,nLengthV
+INTEGER iP,lStr
+
+IF (myid.NE.0) THEN
+
+ NLMAX = NLMAX+iLevel
+
+ ILEV = NLMIN
+
+ nLengthE = 8**(NLMAX-1)
+ nLengthV = (2**(NLMAX-1)+1)**3
+
+ cInFile = ' '
+ WRITE(cInFile(1:),'(A)') TRIM(ADJUSTL(cFldrInFile))
+ lStr = LEN(TRIM(ADJUSTL(cInFile)))
+
+ IF (myid.EQ.1) THEN
+  WRITE(*,'(3A)') "Reading the ",TRIM(ADJUSTL(cInFile))," series for initialization of profiles ..."
+ END IF
+
+ DO IEL = 1,KNEL(1)
+  myCoarseElem = coarse%myELEMLINK(IEL)
+  IF     (myCoarseElem.LT.10    ) THEN
+   WRITE(cInFile(lStr+1:lStr+11),'(A6,I1,A4)') '/00000',myCoarseElem,".prf"
+  ELSEIF (myCoarseElem.LT.100   ) THEN
+   WRITE(cInFile(lStr+1:lStr+11),'(A5,I2,A4)') '/0000',myCoarseElem,".prf"
+  ELSEIF (myCoarseElem.LT.1000  ) THEN
+   WRITE(cInFile(lStr+1:lStr+11),'(A4,I3,A4)') '/000',myCoarseElem,".prf"
+  ELSEIF (myCoarseElem.LT.10000 ) THEN
+   WRITE(cInFile(lStr+1:lStr+11),'(A3,I4,A4)') '/00',myCoarseElem,".prf"
+  ELSEIF (myCoarseElem.LT.100000) THEN
+   WRITE(cInFile(lStr+1:lStr+11),'(A2,I5,A4)') '/0',myCoarseElem,".prf"
+  ELSE
+   WRITE(*,*) "Decrease the problem size!"
+   STOP
+  END IF
+
+  ! Velocities
+  OPEN (FILE=TRIM(ADJUSTL(cInFile)),UNIT = 547)
+  READ(547,*)  
+  DO ivt=1,nLengthV
+   jvt = myDump%Vertices(IEL,ivt)
+   READ(547,*) QuadSc%valU(jvt),QuadSc%valV(jvt),QuadSc%valW(jvt)
+  END DO
+
+  ! Pressure
+  READ(547,*)  
+  DO jel=1,nLengthE
+   kel = myDump%Elements(IEL,jel)
+   IF (kel.le.knel(NLMAX-1)) THEN
+    iP = 4*(kel-1)
+   READ(547,*) LinSc%valP(NLMAX-1)%x(iP+1:iP+4)
+   END IF   
+  END DO
+
+  CLOSE(547)
+
+ END DO 
+END IF
+
+ cInFile = ' '
+ WRITE(cInFile(1:),'(A)') TRIM(ADJUSTL(cFldrInFile))
+ lStr = LEN(TRIM(ADJUSTL(cInFile)))
+ WRITE(cInFile(lStr+1:lStr+9),'(A)') '/time.prf'
+
+ OPEN (FILE=TRIM(ADJUSTL(cInFile)),UNIT = 547)
+ READ (547,*) 
+ READ (547,*) timens
+ CLOSE(547)
+
+IF (myid.NE.0) THEN
+
+ NLMAX = NLMAX-iLevel
+
+END IF
+
+END SUBROUTINE myLoadSmartDumpFiles
+

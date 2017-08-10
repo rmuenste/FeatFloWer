@@ -30,18 +30,20 @@ subroutine init_q2p1_cc(log_unit)
   call InitCond_LinScalar_cc()
 
   IF (ISTART.EQ.0) THEN
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
+    IF (myid.ne.0) CALL myCreateDumpStructures(1)
     CALL InitCond_QuadScalar_cc()
     IF(bViscoElastic)CALL IniProf_ViscoScalar()
   ELSE
     IF (ISTART.EQ.1) THEN
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-      CALL SolFromFile(CSTART,1)
+      IF (myid.ne.0) CALL myCreateDumpStructures(1)
+!      CALL mySolFromFile(CSTART,1)
+      CALL myLoadSmartDumpFiles(CSTART,1)
     ELSE
-      IF (myid.ne.0) CALL CreateDumpStructures(0)
-      CALL SolFromFile(CSTART,0)
+      IF (myid.ne.0) CALL myCreateDumpStructures(0)
+!      CALL mySolFromFile(CSTART,0)
+      CALL myLoadSmartDumpFiles(CSTART,0)
       CALL ProlongateSolution()
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
+      IF (myid.ne.0) CALL myCreateDumpStructures(1)
     END IF
   END IF
 
@@ -332,10 +334,10 @@ END DO
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
  IF (myid.EQ.0) THEN
-   CALL CreateDumpStructures(0)
+   CALL myCreateDumpStructures(0)
  ELSE
    LevDif = ccParams%MedLev - NLMAX
-   CALL CreateDumpStructures(LevDif)
+   CALL myCreateDumpStructures(LevDif)
  END IF
 
  ILEV = ccParams%MedLev
