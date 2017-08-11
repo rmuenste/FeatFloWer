@@ -122,7 +122,7 @@ INTEGER :: inlU,inlT,MFILE
 ! Output the solution in GMV or GiD format
 IF (itns.eq.1) THEN
   CALL ZTIME(myStat%t0)
-  CALL Output_Profiles(0)
+  CALL myOutput_Profiles(0)
   CALL ZTIME(myStat%t1)
   myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
 END IF
@@ -132,7 +132,7 @@ IF(dout.LE.(timens+1e-10)) THEN
   iOGMV = NINT(timens/dtgmv)
   IF (itns.ne.1) THEN
     CALL ZTIME(myStat%t0)
-    CALL Output_Profiles(iOGMV)
+    CALL myOutput_Profiles(iOGMV)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
   END IF
@@ -142,7 +142,8 @@ IF(dout.LE.(timens+1e-10)) THEN
   IF (insav.NE.0.AND.itns.NE.1) THEN
     IF (MOD(iOGMV,insav).EQ.0) THEN
       CALL ZTIME(myStat%t0)
-      CALL SolToFile(-1)
+      !CALL SolToFile(-1)
+      CALL myReleaseSmartDumpFiles(-1)
       CALL ZTIME(myStat%t1)
       myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
     END IF
@@ -277,6 +278,8 @@ IF (myid.eq.showid) THEN
       WRITE(myFile,8) "  Reactive term          ",myStat%tCMat
       WRITE(myFile,*) 
       WRITE(myFile,8) " Output time             ",daux1
+      WRITE(myFile,8) "  VTK/GMV Output time    ",myStat%tGMVOut
+      WRITE(myFile,8) "  Dump Output time       ",myStat%tDumpOut
 
       IF (myOutFile.eq.0) THEN
        CLOSE (myFile)
@@ -293,6 +296,7 @@ END SUBROUTINE myStatOut
 subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
+USE var_QuadScalar, ONLY : myStat
 
 real, intent(inout) :: dttt0
 integer, intent(in) :: filehandle
@@ -301,6 +305,12 @@ integer :: ierr
 integer :: terminal = 6
 real :: time,time_passed
 
+CALL ZTIME(myStat%t0)
+! Save the final solution vector in unformatted form
+!CALL mySolToFile(-1)
+CALL myReleaseSmartDumpFiles(-1)
+CALL ZTIME(myStat%t1)
+myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
 
 CALL ZTIME(time)
 
@@ -309,11 +319,7 @@ CALL myStatOut(time_passed,filehandle)
 
 CALL myStatOut(time_passed,terminal)
 
-! Save the final solution vector in unformatted form
-!CALL mySolToFile(-1)
-CALL myReleaseSmartDumpFiles(-1)
-CALL myOutput_Profiles(0)
-
+CALL Barrier_myMPI()
 IF (myid.eq.showid) THEN
   WRITE(MTERM,*) "CC3D_iso_adaptive has successfully finished. "
   WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
