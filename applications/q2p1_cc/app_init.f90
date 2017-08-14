@@ -36,12 +36,12 @@ subroutine init_q2p1_cc(log_unit)
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL myCreateDumpStructures(1)
-!      CALL mySolFromFile(CSTART,1)
-      CALL myLoadSmartDumpFiles(CSTART,1)
+      CALL mySolFromFile(CSTART,1)
+!      CALL myLoadSmartDumpFiles(CSTART,1)
     ELSE
       IF (myid.ne.0) CALL myCreateDumpStructures(0)
-!      CALL mySolFromFile(CSTART,0)
-      CALL myLoadSmartDumpFiles(CSTART,0)
+      CALL mySolFromFile(CSTART,0)
+!      CALL myLoadSmartDumpFiles(CSTART,0)
       CALL ProlongateSolution()
       IF (myid.ne.0) CALL myCreateDumpStructures(1)
     END IF
