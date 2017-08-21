@@ -75,17 +75,25 @@ END SUBROUTINE FBM_GetSoftParticles
 !
 !----------------------------------------------
 !
-SUBROUTINE FBM_GetParticles
+SUBROUTINE FBM_GetParticles(icorr)
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:myFBM
- INTEGER iP,iParticles,ipc
- REAL*8 velx,vely,velz,angx,angy,angz,angvelx,angvely,angvelz
- REAL*8 posx,posy,posz,drad,density
- REAL*8 forcex,forcey,forcez
- REAL*8 torquex,torquey,torquez
+integer, optional :: icorr
+INTEGER iP,iParticles,ipc,index_correction
+REAL*8 velx,vely,velz,angx,angy,angz,angvelx,angvely,angvelz
+REAL*8 posx,posy,posz,drad,density
+REAL*8 forcex,forcey,forcez
+REAL*8 torquex,torquey,torquez
+
+ if(present(icorr))then
+   index_correction = icorr
+ else
+   index_correction = 1
+ end if
 
  call getnumparticles(iParticles)
- myFBM%nParticles=iParticles-1
+
+ myFBM%nParticles=iParticles-index_correction
 
  ALLOCATE(myFBM%ParticleNew(myFBM%nParticles),myFBM%ParticleOld(myFBM%nParticles))
  ALLOCATE(myFBM%iel_ug(myFBM%nParticles))

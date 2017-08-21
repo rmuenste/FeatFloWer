@@ -1500,19 +1500,19 @@ end subroutine GetForcesPerfCyl
       REAL*8 RForce(3),dVelocity(3),dOmega(3),timecoll
       INTEGER :: iSubSteps
       REAL*8 :: dSubStep
-      
+       
       iSubSteps = 1
       call settimestep(dTime)
       if(myid.eq.1) write(*,*)'updating'
 !     communicate new force + torque
       DO IP = 1,myFBM%nParticles
-      ipc = ip-1
-      ! Communicate the force
+       ipc = ip-1
+       ! Communicate the force
        call setforce(myFBM%particleOld(IP)%ResistanceForce(1),&
        myFBM%particleOld(IP)%ResistanceForce(2),&
        myFBM%particleOld(IP)%ResistanceForce(3),ipc)
 
-      ! Communicate the torque
+       ! Communicate the torque
        call settorque(myFBM%particleOld(IP)%TorqueForce(1),&
        myFBM%particleOld(IP)%TorqueForce(2), &
        myFBM%particleOld(IP)%TorqueForce(3),ipc)
@@ -1530,7 +1530,6 @@ end subroutine GetForcesPerfCyl
       if(myid.eq.1) write(*,*)'calculating laser force...'
         call get_optic_forces()
 #endif
-            
       call settimestep(dTime/real(iSubSteps))
       call starttiming()      
       ! start the collision handling
@@ -1546,16 +1545,18 @@ end subroutine GetForcesPerfCyl
       !                   PZ,ipc)
       !myFBM%particleNEW(1)%Position(3) = pz
 
+      call ode_get_velocity()
+
       ! set the particle parameters to the 
       ! values determined by the collision solver
       call FBM_SetParticles()
 #else
       if(myid.eq.0)then
         ! update velocities on the gpu
-        !call velocityupdate()     
+        call velocityupdate()     
 
         ! start the gpu particle handling on the master process       
-        ! call startcollisionpipeline()
+        call startcollisionpipeline()
         
       endif      
         ! we scatter the particle data
@@ -1645,7 +1646,7 @@ end subroutine GetForcesPerfCyl
         RAD =myFBM%particleNew(iP)%sizes(1)
         ipc=ip-1
         isin = 0
-        call getdistanceid(x,y,z,dist,ipc);        
+!        call getdistanceid(x,y,z,dist,ipc);        
         call isinelementid(x,y,z,ipc,isin)
         if(isin .gt. 0)then
           !inpr = isin+1

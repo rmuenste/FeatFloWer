@@ -50,6 +50,10 @@ option(USE_MUMPS
   OFF
   )
 
+option(USE_ODE
+  "Use the ODE library"
+  OFF
+  )
 
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
@@ -313,6 +317,9 @@ IF(BUILD_APPLICATIONS)
   if(USE_OPENMESH)
     add_subdirectory(FullC0ntact/libs/OpenMesh)
   endif(USE_OPENMESH)
+  if(USE_ODE)
+    add_subdirectory(FullC0ntact/libs/ode-0.13-cmake)
+  endif(USE_ODE)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()
