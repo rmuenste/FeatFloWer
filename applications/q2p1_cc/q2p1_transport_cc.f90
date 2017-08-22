@@ -437,15 +437,15 @@ FORCES_OLD = FORCES_NEW
 
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
 IF (DefNorm/DefNorm0.LT.myTolerance) exit
-!IF (stopOne.LT.1d-5) THEN
-!	IF (myid.eq.showid) THEN
-!	write(mfile,55) 
-!  	write(mterm,55)
-!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!        END IF
-!        exit
-!END IF
+IF (stopOne.LT.1d-4) THEN
+	IF (myid.eq.showid) THEN
+	write(mfile,55) 
+  	write(mterm,55)
+	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+        END IF
+        exit
+END IF
 END DO
 
 IF (myid.eq.showid) THEN

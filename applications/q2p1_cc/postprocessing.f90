@@ -657,14 +657,12 @@ IF (myid.NE.0) THEN
 END IF
 
 END SUBROUTINE myLoadSmartDumpFiles
-
-
-
-
-
-
-
-
+!
+!-------------------------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------------------------
+!
 SUBROUTINE mySolToFile(iOutput)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
@@ -893,7 +891,9 @@ END IF
 CALL myWriteSol(iInd,iType,iiLev,cFF,Field1,Field2,Field3)
 
 END SUBROUTINE myWriteSol_Coor
-
+!
+!-------------------------------------------------------------------------------
+!
 SUBROUTINE myWriteSol(iOut,iType,iiLev,cField,Field1,Field2,Field3,Field4)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
