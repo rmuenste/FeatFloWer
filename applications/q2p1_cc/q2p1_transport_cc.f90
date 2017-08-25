@@ -310,11 +310,7 @@ IF (myid.eq.1) WRITE(*,'(A,ES12.4,A)') " was done in: ",tttt1-tttt0 ," s"
 
 
  CALL Special_CC_Coarse(QuadSc)
-!IF (ccParams%CycleType.eq."N") THEN
-! 	CALL Special_CC_Coarse(QuadSc,NLMAX)
-!ELSE
-!	CALL Special_CC_Coarse(QuadSc,NLMIN)
-!END IF
+
 
 IF (myid.ne.master) THEN
 ! Set dirichlet boundary conditions on the solution
