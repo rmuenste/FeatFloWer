@@ -17,9 +17,9 @@ enable_testing()
 
 include(CTest)
 
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                               compiler settings
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 
 message(STATUS "Checking build type...")
 
@@ -31,9 +31,9 @@ ENDIF(NOT Q2P1_COMPILER)
 
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                                   Options
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 
 option(USE_OPENMESH
   "Use the OpenMesh library"
@@ -52,6 +52,11 @@ option(USE_MUMPS
 
 option(USE_ODE
   "Use the ODE library"
+  OFF
+  )
+
+option(USE_SYSTEM_BLASLAPACK
+  "Use the system BLAS/LAPACK libraries if CMAKE can find them."
   OFF
   )
 
@@ -82,9 +87,9 @@ option(USE_ODE
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
 
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 #                                               project directories
-#--------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------
 
 option(BUILD_APPLICATIONS
     "Enables build of applications"
@@ -229,17 +234,50 @@ option(BUILD_METIS
     "Enables build of metis library"
     OFF
 )
+#-------------------------------------------------------------------------------------------------
+#                                    Configure BLAS/LAPACK 
+#-------------------------------------------------------------------------------------------------
 
-find_package(BLAS)
-find_package(LAPACK)
+if(USE_SYSTEM_BLASLAPACK)
 
-if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
+  # Try to find BLAS/LAPACK on the system
+  message(STATUS "Trying to find BLAS/LAPACK on the system.")
+  find_package(BLAS)
+  find_package(LAPACK)
+
+  # Use system libraries if they are found
+  if(BLAS_FOUND AND LAPACK_FOUND)
+    message(STATUS "Found BLAS/LAPACK on the system.")
+    message(STATUS "Blas library: ${BLAS_LIBRARIES}")
+    message(STATUS "Lapack library: ${LAPACK_LIBRARIES}")
+
+  # Use the sources from the repository if 
+  # no libraries are found on the system
+  else(BLAS_FOUND AND LAPACK_FOUND)
+    message(STATUS "BLAS/LAPACK not found on the system, using repository version.")
+    add_subdirectory(extern/libraries/lapack-3.6.1)
+    set(BLAS_LIBRARIES blas)
+    set(LAPACK_LIBRARIES lapack)
+  endif(BLAS_FOUND AND LAPACK_FOUND)
+
+else(USE_SYSTEM_BLASLAPACK)
+  # Use the sources from the repository  
+  message(STATUS "Using repository versions of BLAS/LAPACK")
   add_subdirectory(extern/libraries/lapack-3.6.1)
-  message(STATUS "Lapack found: ${LAPACK_FOUND}")
-  message(STATUS "Blas found: ${BLAS_FOUND}")
   set(BLAS_LIBRARIES blas)
   set(LAPACK_LIBRARIES lapack)
-endif()
+endif(USE_SYSTEM_BLASLAPACK)
+
+#find_package(BLAS)
+#find_package(LAPACK)
+#
+#if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
+#  add_subdirectory(extern/libraries/lapack-3.6.1)
+#  message(STATUS "Lapack found: ${LAPACK_FOUND}")
+#  message(STATUS "Blas found: ${BLAS_FOUND}")
+#  set(BLAS_LIBRARIES blas)
+#  set(LAPACK_LIBRARIES lapack)
+#endif()
 
 find_package(MPI)
 
