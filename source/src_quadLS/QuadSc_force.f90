@@ -1545,7 +1545,9 @@ end subroutine GetForcesPerfCyl
       !                   PZ,ipc)
       !myFBM%particleNEW(1)%Position(3) = pz
 
+#ifdef WITH_ODE 
       call ode_get_velocity()
+#endif
 
       ! set the particle parameters to the 
       ! values determined by the collision solver
