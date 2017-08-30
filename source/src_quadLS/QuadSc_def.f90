@@ -2659,11 +2659,10 @@ REAL*8 U(*),V(*),W(*),P(*),Nu(*)
 INTEGER FBM(*)
 INTEGER I,J,K,JJ
 EXTERNAL E013
-Real*8, dimension(6) :: factors = (/0.0,0.0,4.0,0.0,0.0,0.0/)
 
 ILEV=NLMAX
 CALL SETLEV(2)
-CALL GetForces(factors,U,V,W,P,FBM,Nu,&
+CALL GetForces(Properties%ForceScale,U,V,W,P,FBM,Nu,&
                mg_mesh%level(ILEV)%kvert,&
                mg_mesh%level(ILEV)%karea,&
                mg_mesh%level(ILEV)%kedge,&
@@ -3067,8 +3066,8 @@ DO
     IF (myid.eq.showid) write(mfile,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
     CASE ("ForceScale")
     READ(string(iEq+1:),*) Props%ForceScale
-    IF (myid.eq.showid) write(mterm,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
-    IF (myid.eq.showid) write(mfile,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
+    IF (myid.eq.showid) write(mterm,'(A,6E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
+    IF (myid.eq.showid) write(mfile,'(A,6E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
   END SELECT
 
   END IF

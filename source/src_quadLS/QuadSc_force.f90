@@ -1522,20 +1522,27 @@ end subroutine GetForcesPerfCyl
       ! in the first loop we updated the external force and
       ! torque, with this we can start the collision handling
 #ifndef FC_CUDA_SUPPORT    
-      ! update velocities by the force determined in the time step
       call settimestep(dTime)      
+
+      ! update velocities by the force determined in the time step
+      ! This function will transfer the current hydrodynamic forces
+      ! to the rigid body solver, so it can add those values in
+      ! the next rigid body solver step
       call velocityupdate()     
 
 #ifdef OPTIC_FORCES
       if(myid.eq.1) write(*,*)'calculating laser force...'
         call get_optic_forces()
 #endif
+
       call settimestep(dTime/real(iSubSteps))
       call starttiming()      
-      ! start the collision handling
+
+      ! Invoke a rigid body solver step 
       do iStep=1,iSubSteps
         call startcollisionpipeline()
       end do
+
       call gettiming(timecoll)
 
       !pz=3.0d0 
@@ -1549,9 +1556,10 @@ end subroutine GetForcesPerfCyl
       call ode_get_velocity()
 #endif
 
-      ! set the particle parameters to the 
-      ! values determined by the collision solver
-      call FBM_SetParticles()
+      ! After the rigid body solver has computed a 
+      ! step, we have to get the new particle state
+      ! values from the rigid body solver
+      call FBM_GetParticleStateUpdate()
 #else
       if(myid.eq.0)then
         ! update velocities on the gpu
@@ -1828,7 +1836,6 @@ end subroutine GetForcesPerfCyl
 !--------ONLY FOR THOSE ELEMENTS WHICH HAVE NONZERO GRAD ----------
 !
 
-
 !      myExport%p_DataScalarCell(1)%pData(iel)=2
       !write(*,*)'adding IELEval: ',IEL
       nnel = nnel + 1
@@ -2042,9 +2049,3 @@ end subroutine GetForcesPerfCyl
 99999 CONTINUE
 
       end subroutine
-
-
-
-
-
-

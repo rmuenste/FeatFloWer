@@ -383,7 +383,7 @@ SUBROUTINE General_init(MDATA,MFILE)
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState
+      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)

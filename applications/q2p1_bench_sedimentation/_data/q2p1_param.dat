@@ -63,6 +63,7 @@ Pres@MGCriterion2 = 1d-6
 Pres@MGCycType = F
 Pres@MGCrsSolverType = 4
 ------------- Physical parameters --------------
+Prop@ForceScale = 0d0,0d0,4d0,0d0,0d0,0d0
 Prop@Gravity = 0d0,0d0,0d0
 Prop@Density = 960d0,30d0
 Prop@Viscosity = 53d-3,1d0
