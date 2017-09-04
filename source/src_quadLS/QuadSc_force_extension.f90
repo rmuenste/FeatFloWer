@@ -343,6 +343,7 @@
 !
       SUBROUTINE updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
       USE var_QuadScalar, ONLY : myFBM
+      USE cinterface, only : FBM_SetParticles 
       INTEGER IP,ipc,myip
       INTEGER myid
       INTEGER mfile

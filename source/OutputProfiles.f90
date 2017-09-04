@@ -293,6 +293,9 @@ IF (myid.NE.0) THEN
  ILEV = NLMIN
 
  nLengthE = 8**((NLMAX+iiLev)-1)
+
+ ! (2^(NLMAX+iiLev)+1)^3
+ ! dofs on a cube
  nLengthV = (2**((NLMAX+iiLev))+1)**3
 
 !  WRITE(*,*)  'WRITE :::',nLengthE,nLengthV
@@ -350,6 +353,9 @@ REAL*8 xField(*)
   
   ALLOCATE(Field(nLengthV,KNEL(NLMIN))) 
 
+  ! row-column based output
+  ! myDump%Vertices stores the global indices (on the output level)
+  ! of vertices inside a coarse grid element
   DO iel = 1,KNEL(NLMIN)
    DO ivt=1,nLengthV
     jvt = myDump%Vertices(IEL,ivt)

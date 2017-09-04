@@ -59,6 +59,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE cinterface 
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -279,8 +280,13 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
+#ifdef WITH_ODE 
+ call init_fc_ode(myid)
+ call FBM_GetParticles(0)
+#else
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
+#endif
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 

@@ -533,6 +533,7 @@
 !*-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE var_QuadScalar, ONLY : myFBM,myExport,Properties
+      use cinterface
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 !
@@ -1491,6 +1492,8 @@ end subroutine GetForcesPerfCyl
 !
       SUBROUTINE updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
       USE var_QuadScalar, ONLY : myFBM
+      USE PP3D_MPI, ONLY: myMPI_Barrier
+      use cinterface
       INTEGER IP,ipc,myip
       INTEGER myid
       INTEGER mfile
@@ -1500,10 +1503,13 @@ end subroutine GetForcesPerfCyl
       REAL*8 RForce(3),dVelocity(3),dOmega(3),timecoll
       INTEGER :: iSubSteps
       REAL*8 :: dSubStep
+
+
        
       iSubSteps = 1
       call settimestep(dTime)
       if(myid.eq.1) write(*,*)'updating'
+
 !     communicate new force + torque
       DO IP = 1,myFBM%nParticles
        ipc = ip-1
@@ -1551,11 +1557,9 @@ end subroutine GetForcesPerfCyl
       !                   myFBM%particleNew(1)%Position(2),&
       !                   PZ,ipc)
       !myFBM%particleNEW(1)%Position(3) = pz
-
 #ifdef WITH_ODE 
       call ode_get_velocity()
 #endif
-
       ! After the rigid body solver has computed a 
       ! step, we have to get the new particle state
       ! values from the rigid body solver
@@ -1569,9 +1573,9 @@ end subroutine GetForcesPerfCyl
         call startcollisionpipeline()
         
       endif      
+
         ! we scatter the particle data
       CALL FBM_ScatterParticles()
-
 #endif
 
       !-------------------------------------------------------------------------------------

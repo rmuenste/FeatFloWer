@@ -494,7 +494,8 @@ CALL SETLEV(2)
  ! Set initial conditions
  IF (myid.ne.0)then
   IF (myFBM%nParticles.GT.0) THEN
-    CALL updateFBMGeometry()
+    write(*,*)'number of particles: ',myFBM%nParticles
+!    CALL updateFBMGeometry()
   END IF
  end if
 

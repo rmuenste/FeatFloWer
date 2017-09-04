@@ -45,7 +45,6 @@ subroutine init_q2p1_ext(log_unit)
     END IF
   END IF
 
-
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------
@@ -59,6 +58,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE cinterface 
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -188,8 +188,6 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  call readTriCoarse(CMESH1, mg_mesh)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
-
-! write(*,*)'Refinement finished: ',myid
 
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II

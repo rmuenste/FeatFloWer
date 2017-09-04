@@ -41,3 +41,12 @@ if(USE_MUMPS)
 endif(USE_MUMPS)
 
 
+if(USE_ODE)
+
+  list(APPEND FF_DEFAULT_LIBS ode)
+
+  list(APPEND FF_APPLICATION_LIBS ode)
+
+endif(USE_ODE)
+
+

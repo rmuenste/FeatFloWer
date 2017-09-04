@@ -59,6 +59,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE cinterface 
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
