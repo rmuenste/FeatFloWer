@@ -7,7 +7,7 @@
     nBodies = "1"
     bodyInit = "0"
     bodyFile = "defaultBodies.i3d"
-    defaultDensity = "1.5"
+    defaultDensity = "1120"
     liquidDensity = "962"
     defaultRadius = "0.05"
     gravity = "0.0 0.0 -9.81"
