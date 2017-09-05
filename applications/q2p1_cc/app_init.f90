@@ -60,6 +60,7 @@ SUBROUTINE General_init_cc(MDATA,MFILE)
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE Transport_CC, ONLY: Init_CCParam
  USE var_QuadScalar_newton, ONLY: ccParams
+ USE cinterface 
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
