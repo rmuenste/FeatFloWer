@@ -235,10 +235,10 @@ REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 thstep = 0d0
 FORCES_OLD = 0d0
 iIterges = 0d0
-digitcriterion = 1d-1
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
 alpha = ccParams%Alpha
+digitcriterion = 10**(-1-alpha)
 
 
  CALL ExchangeVelocitySolutionCoarse()
@@ -396,7 +396,7 @@ END IF
  if(alpha.gt.1d0) alpha = 1d0
 ! digits to gain in MG
  digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
- if(digitcriterion.gt.1d-1) digitcriterion = 1d-1
+ if(digitcriterion.gt.10**(-1-alpha)) digitcriterion = 10**(-1-alpha)
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
 
 
