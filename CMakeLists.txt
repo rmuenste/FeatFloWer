@@ -126,6 +126,10 @@ ${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
 #source/src_pproc/pproc_main.f90
 )
 
+set(postprocessing
+${CMAKE_SOURCE_DIR}/source/postprocessing/solution_output.f90
+)
+
 set(Elements
 ${CMAKE_SOURCE_DIR}/source/Elements/e013.f
 ${CMAKE_SOURCE_DIR}/source/Elements/e012.f
@@ -225,6 +229,7 @@ source_group(src_quadLS FILES ${src_quadLS})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
 source_group(Elements FILES ${Elements})
+source_group(postprocessing FILES ${postprocessing})
 
 #-------------------------------------------------------------------------------------------------
 #                                    search for the libraries and link them
@@ -324,7 +329,11 @@ include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)
 #-------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
 #-------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${Elements} ${src_q2p1} ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} ${src_quadLS} ${src_visco} ${src_mesh} ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
+add_executable(q2p1 ${Elements} ${src_q2p1}
+  ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} 
+  ${src_quadLS} ${src_visco} ${src_mesh}
+  ${postprocessing}
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
 
 target_link_libraries(q2p1 
 ${FF_DEFAULT_LIBS}

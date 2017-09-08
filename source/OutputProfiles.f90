@@ -3,10 +3,14 @@ USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
-USE PP3D_MPI, ONLY:myid
+USE PP3D_MPI, ONLY:myid,coarse
+use sol_out, only: write_pres_sol
+use var_QuadScalar, only: myDump
+
 
 IMPLICIT NONE
 INTEGER iOutput
+integer :: out_lev
 
 ! -------------- workspace -------------------
 INTEGER  NNWORK
@@ -35,6 +39,8 @@ nn = knel(nlmax)
 
 CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
      LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+
+call write_pres_sol(iOut,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
 !! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 
@@ -225,10 +231,10 @@ CHARACTER*(20) :: cFF='Pressure'
 
 IF (myid.ne.0) THEN
  DO i=1,nn
-  Field2(i) = Field1(4*(i-1)+1)
-  Field3(i) = Field1(4*(i-1)+2)
-  Field4(i) = Field1(4*(i-1)+3)
-  Field5(i) = Field1(4*(i-1)+4)
+  Field2(i) = Field1(4*(i-1)+1) ! mean
+  Field3(i) = Field1(4*(i-1)+2) ! d/dx
+  Field4(i) = Field1(4*(i-1)+3) ! d/dy 
+  Field5(i) = Field1(4*(i-1)+4) ! d/dz
  END DO
 !  WRITE(*,*) Field2(1:nn)
 END IF
@@ -341,7 +347,9 @@ END IF
  END IF
 
  CONTAINS
+!
 ! -----------------------------------------------------------------
+!
 SUBROUTINE CollectVertField(xField)
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 REAL*8 xField(*)
@@ -410,8 +418,13 @@ REAL*8 xField(*)
   
   ALLOCATE(Field(nLengthE,KNEL(NLMIN))) 
 
+  ! build a structure for each coarse mesh
+  ! element that stores the values
+  ! of the fine mesh dofs in it
   DO iel = 1,KNEL(NLMIN)
    DO ivt=1,nLengthE
+    ! jvt is the ivt-th local P1 dof
+    ! of local element IEL
     jvt = myDump%Elements(IEL,ivt)
     Field(ivt,iel) = xField(jvt)
    END DO
@@ -423,17 +436,29 @@ REAL*8 xField(*)
 
   DO pID =1,subnodes
 
+   ! number of sub-elements of a coarse mesh
+   ! element: nLengthE
    CALL RECVI_myMPI(nLengthE,pID)
    IF (pID.EQ.1) THEN
     pnel = INT(dMaxNel)
+
     ALLOCATE(Field(nLengthE,KNEL(NLMIN))) 
+
+    ! an array that stores the values
+    ! of the field from the partitions
     ALLOCATE(auxField(nLengthE,pnel)) 
    END IF
+
+   ! set the pnel to the number of coarse
+   ! grid elements for process pID
    CALL RECVI_myMPI(pnel,pID)
 
    CALL RECVD_myMPI(auxField,pnel*nLengthE,pID)
 
    DO I=1,pnel
+
+   ! map from local coarse grid element number I from
+   ! partition pID to global coarse grid elmenet number IEL
    IEL = coarse%pELEMLINK(pID,I)
     DO ivt=1,nLengthE
      Field(ivt,iel) = auxField(ivt,I)

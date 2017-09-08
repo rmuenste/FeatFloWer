@@ -1,3 +1,6 @@
+# In this cmake file we configure
+# the libraries and other parameters of the
+# applications related to the linking process
 #
 #if(USE_OPTICALTWEEZERS)
 #  add_subdirectory(extern/libraries/opticaltweezers)
@@ -40,7 +43,6 @@ if(USE_MUMPS)
 
 endif(USE_MUMPS)
 
-
 if(USE_ODE)
 
   list(APPEND FF_DEFAULT_LIBS ode)
@@ -48,5 +50,4 @@ if(USE_ODE)
   list(APPEND FF_APPLICATION_LIBS ode)
 
 endif(USE_ODE)
-
 
