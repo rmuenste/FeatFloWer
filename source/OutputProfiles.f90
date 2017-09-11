@@ -55,11 +55,14 @@ END SUBROUTINE SolToFile
 ! ----------------------------------------------
 !
 SUBROUTINE SolFromFile(cInFile,iLevel)
-USE PP3D_MPI, ONLY:myid
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
+use sol_out, only: read_pres_sol,write_pres_test
+use var_QuadScalar, only: myDump
+
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
 CHARACTER cInFile*(60)
@@ -79,11 +82,26 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 INTEGER nLengthV,nLengthE,LevDif
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
+CHARACTER FileA*(60)
+CHARACTER FileB*(60)
+
 CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 nn = knel(nlmax)
+
 CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
      LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
-! CALL ReadSol_Coor(cInFile,iLevel,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
+
+
+FileA='orig_p'
+call write_pres_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+
+! read in the pressure solution
+call read_pres_sol(cInFile,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
+                   myDump%Elements,LinSc%ValP(NLMAX)%x)
+
+FileB='new_p'
+call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+
 CALL ReadSol_Time(cInFile)
 
 if(bViscoElastic)then
