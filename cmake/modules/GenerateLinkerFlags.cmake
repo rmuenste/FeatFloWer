@@ -29,6 +29,7 @@ set(FF_APPLICATION_LIBS
   Math
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
+  stdc++fs
   )
 
 if(USE_MUMPS)

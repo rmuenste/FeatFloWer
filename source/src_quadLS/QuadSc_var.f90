@@ -183,6 +183,10 @@ TYPE TQuadScalar
  LOGICAL :: bProlRest=.FALSE.
 END TYPE
 
+type fieldPtr
+  type(real*8), dimension(:), pointer ::p
+end type fieldPtr
+
 TYPE TLinScalar
  CHARACTER cName*7
  INTEGER :: ndof,na
@@ -450,8 +454,11 @@ TYPE tCoarseMat
  REAL*8 , ALLOCATABLE   :: A(:)
  REAL*8 , ALLOCATABLE   :: D(:)
 END TYPE tCoarseMat
+
 TYPE(tCoarseMat) myCrsMat
 !---------------------------------------------------------------------------
+
+integer :: istep_ns = 1
 
 TYPE tTriangle
  REAL*8 :: C(3,9)

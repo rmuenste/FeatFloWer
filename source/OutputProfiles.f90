@@ -3,14 +3,15 @@ USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
-USE PP3D_MPI, ONLY:myid,coarse
-use sol_out, only: write_pres_sol
-use var_QuadScalar, only: myDump
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+use sol_out, only: write_pres_sol,write_vel_sol,write_time_sol
+use var_QuadScalar, only: myDump,istep_ns
 
 
 IMPLICIT NONE
 INTEGER iOutput
 integer :: out_lev
+integer :: ndof
 
 ! -------------- workspace -------------------
 INTEGER  NNWORK
@@ -27,6 +28,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 INTEGER ifilen,iOut,nn
 DATA ifilen/0/
 
+! filen is a global counter of the output file number
 IF (iOutput.LT.0) THEN
  ifilen=ifilen+1
  iOut=MOD(ifilen+insavn-1,insavn)+1
@@ -34,21 +36,28 @@ ELSE
  iOut = iOutput
 END IF
 
-CALL WriteSol_Velo(iOut,0,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+!call WriteSol_Velo(iOut,0,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 nn = knel(nlmax)
 
-CALL WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
-     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
+
+call write_vel_sol(iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+!call WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+!     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
 
 call write_pres_sol(iOut,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
 !! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 
-CALL WriteSol_Time(iOut)
+call write_time_sol(iOut,istep_ns, timens)
 
-if(bViscoElastic)then
-  CALL WriteSol_Visco(iOut,0)
-end if
+!CALL WriteSol_Time(iOut)
+
+!if(bViscoElastic)then
+!  CALL WriteSol_Visco(iOut,0)
+!end if
 
 END SUBROUTINE SolToFile
 !
@@ -60,8 +69,8 @@ USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
-use sol_out, only: read_pres_sol,write_pres_test
-use var_QuadScalar, only: myDump
+use sol_out
+use var_QuadScalar, only: myDump,istep_ns
 
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
@@ -82,27 +91,37 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 INTEGER nLengthV,nLengthE,LevDif
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
-CHARACTER FileA*(60)
-CHARACTER FileB*(60)
+character(60) :: FileA
+character(60) :: FileB
 
-CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+!CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 nn = knel(nlmax)
 
-CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
-     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+!FileA='orig_v'
+!call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
+call read_vel_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
-FileA='orig_p'
-call write_pres_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+!FileB='new_v'
+!call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+!CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+!     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+
+!FileA='orig_p'
+!call write_pres_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+
+!if(myid.ne.0)LinSc%ValP(NLMAX)%x(:)=0.0
 
 ! read in the pressure solution
-call read_pres_sol(cInFile,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
+call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
                    myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-FileB='new_p'
-call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+!FileB='new_p'
+!call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-CALL ReadSol_Time(cInFile)
+!CALL ReadSol_Time(cInFile)
+call read_time_sol(cInFile, istep_ns, timens)
 
 if(bViscoElastic)then
   CALL ReadSol_Visco(cInFile, iLevel)
@@ -141,6 +160,10 @@ end if
 ! !!!!!!!!!!!!!!!!!!!!!! ALE !!!!!!!!!!!!!!!!!!!!!!
 ! ! CALL StoreOrigCoor(DWORK(L(KLCVG(NLMAX))))
 ! !!!!!!!!!!!!!!!!!!!!!! ALE !!!!!!!!!!!!!!!!!!!!!!
+!write(*,*)'Timens: ',timens
+!write(*,*)'Step: ',istep_ns
+!call myMPI_Barrier()
+!pause
 
 END SUBROUTINE SolFromFile
 !
@@ -414,7 +437,6 @@ REAL*8 xField(*)
   END DO
  
   DEALLOCATE(auxField) 
-!  WRITE(321,'(A)') '-- - ---'
   DO iel=1,KNEL(NLMIN)
    !WRITE(321,'(<nLengthV>ES14.6)') Field(1:nLengthV,iel)
    WRITE(321,*) Field(1:nLengthV,iel)
@@ -869,7 +891,7 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
-IF     (myExport%Format.EQ."GMV") THEN
+IF (myExport%Format.EQ."GMV") THEN
 
  IF (myid.NE.0) THEN
   NLMAX = NLMAX + 1
