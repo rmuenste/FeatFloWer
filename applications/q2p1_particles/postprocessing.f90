@@ -209,83 +209,10 @@ end subroutine postprocessing_fc_ext
 !
 ! ----------------------------------------------
 !
-subroutine handle_statistics(dttt0, istepns)
-
-include 'defs_include.h'
-
-implicit none
-
-real, intent(inout) :: dttt0
-integer, intent(inout) :: istepns
-real :: dttx = 0.0
-
-! Statistics reset
-IF (istepns.eq.1) THEN
-  CALL ResetTimer()
-  CALL ZTIME(dttt0)
-END IF
-
-IF (MOD(istepns,10).EQ.5) THEN
-  CALL ZTIME(dttx)
-  CALL StatOut(dttx-dttt0,0)
-END IF
-
-end subroutine handle_statistics
-!
-! ----------------------------------------------
-!
-subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
-
-include 'defs_include.h'
-USE PP3D_MPI,only :myid,ShowID
-
-implicit none
-
-real*8, intent(inout) :: dtimens, dtimemx, dt
-integer, intent(inout) :: istepns , istepmaxns
-integer, intent(inout) :: ufile, uterm
-
-IF (myid.eq.showid) THEN
-  write(uTERM,5)
-  write(uFILE,5)
-  write(uTERM,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
-    "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
-    " | dt:",dt
-  write(uFILE,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
-    "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
-    " | dt:",dt
-  write(uTERM,5)
-  write(uFILE,5)
-END IF
-
-5 FORMAT(104('='))
-
-end subroutine print_time
-!
-! ----------------------------------------------
-!
-subroutine release_mesh() 
-USE PP3D_MPI, ONLY : myid,master,showid
-USE var_QuadScalar, only : mg_mesh
-implicit none
-
-integer :: i
-integer :: maxlevel
-
-maxlevel = mg_mesh%maxlevel
-
-if(associated(mg_mesh%level(maxlevel)%dcorvg))then
-  deallocate(mg_mesh%level(maxlevel)%dcorvg)
-  mg_mesh%level(maxlevel)%dcorvg => null()
-end if
-
-end subroutine release_mesh
-!
-! ----------------------------------------------
-!
 subroutine sim_finalize(dttt0, filehandle)
-
+use Mesh_Structures, only: release_mesh
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
+use var_QuadScalar, only: istep_ns,mg_mesh
 
 real, intent(inout) :: dttt0
 integer, intent(in) :: filehandle
@@ -293,7 +220,6 @@ integer, intent(in) :: filehandle
 integer :: ierr
 integer :: terminal = 6
 real :: time,time_passed
-
 
 CALL ZTIME(time)
 
@@ -303,15 +229,15 @@ CALL StatOut(time_passed,0)
 CALL StatOut(time_passed,terminal)
 
 ! Save the final solution vector in unformatted form
-!CALL mySolToFile(-1)
-CALL Output_Profiles(0)
+istep_ns = istep_ns - 1
+CALL SolToFile(-1)
 
 IF (myid.eq.showid) THEN
-  WRITE(MTERM,*) "PP3D_LES has successfully finished. "
+  WRITE(*,*) "PP3D_LES has successfully finished. "
+  WRITE(filehandle,*) "PP3D_LES has successfully finished. "
 END IF
 
-call release_mesh()
-
+call release_mesh(mg_mesh)
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
 

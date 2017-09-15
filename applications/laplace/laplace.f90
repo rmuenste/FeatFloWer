@@ -1,6 +1,8 @@
 PROGRAM LAPLACE
 
   include 'defs_include.h'
+  use var_QuadScalar, only: istep_ns
+  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
 
   integer            :: iOGMV,iTout
   character(len=200) :: command

@@ -1,10 +1,14 @@
 
 set(FF_DEFAULT_INCLUDE_PATH
   ${MPI_Fortran_INCLUDE_PATH}
+  ${CMAKE_SOURCE_DIR}/source/include
+  #${Boost_INCLUDE_DIR}
   )
 
 set(FF_APPLICATION_INCLUDE_PATH
   ${MPI_Fortran_INCLUDE_PATH}
+  ${CMAKE_SOURCE_DIR}/source/include
+  #${Boost_INCLUDE_DIR}
   )
 
 

@@ -1,6 +1,8 @@
 PROGRAM Q2P1_EXPERIMENTAL
 
   include 'defs_include.h'
+  use var_QuadScalar, only: istep_ns
+  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -38,12 +40,13 @@ PROGRAM Q2P1_EXPERIMENTAL
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
   call handle_statistics(tt0,itns)
 
+  istep_ns = istep_ns + 1
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 

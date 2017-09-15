@@ -207,61 +207,6 @@ end subroutine postprocessing_laplace
 !
 ! ----------------------------------------------
 !
-subroutine handle_statistics(dttt0, istepns)
-
-include 'defs_include.h'
-
-implicit none
-
-real, intent(inout) :: dttt0
-integer, intent(inout) :: istepns
-real :: dttx = 0.0
-
-! Statistics reset
-IF (istepns.eq.1) THEN
-  CALL ResetTimer()
-  CALL ZTIME(dttt0)
-END IF
-
-IF (MOD(istepns,10).EQ.5) THEN
-  CALL ZTIME(dttx)
-  CALL StatOut(dttx-dttt0,0)
-END IF
-
-end subroutine handle_statistics
-!
-! ----------------------------------------------
-!
-subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
-
-include 'defs_include.h'
-USE PP3D_MPI,only :myid,ShowID
-
-implicit none
-
-real*8, intent(inout) :: dtimens, dtimemx, dt
-integer, intent(inout) :: istepns , istepmaxns
-integer, intent(inout) :: ufile, uterm
-
-IF (myid.eq.showid) THEN
-  write(uTERM,5)
-  write(uFILE,5)
-  write(uTERM,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
-    "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
-    " | dt:",dt
-  write(uFILE,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
-    "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
-    " | dt:",dt
-  write(uTERM,5)
-  write(uFILE,5)
-END IF
-
-5 FORMAT(104('='))
-
-end subroutine print_time
-!
-! ----------------------------------------------
-!
 subroutine release_mesh() 
 USE PP3D_MPI, ONLY : myid,master,showid
 USE var_QuadScalar, only : mg_mesh

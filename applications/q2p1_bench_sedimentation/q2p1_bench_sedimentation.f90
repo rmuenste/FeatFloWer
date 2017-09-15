@@ -1,6 +1,8 @@
 PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   include 'defs_include.h'
+  use var_QuadScalar, only: istep_ns
+  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -33,7 +35,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   inonln_t = 2
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

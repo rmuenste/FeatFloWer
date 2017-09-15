@@ -12,7 +12,7 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File
+  use sol_out, only: read_sol_from_file
 
   integer, intent(in) :: log_unit
 
@@ -36,10 +36,10 @@ subroutine init_q2p1_ext(log_unit)
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-      CALL SolFromFile(CSTART,1)
+      CALL read_sol_from_file(CSTART,1,timens)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
-      CALL SolFromFile(CSTART,0)
+      CALL read_sol_from_file(CSTART,0,timens)
       CALL ProlongateSolution()
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF

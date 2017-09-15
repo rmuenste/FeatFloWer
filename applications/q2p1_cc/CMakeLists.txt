@@ -37,6 +37,7 @@ ${src_quadLS_ext}
 ${src_visco} 
 ${src_mesh}
 ${src_cinterface}
+${postprocessing}
 app_init.f90
 assemblies_cc.f
 iso_assemblies.f

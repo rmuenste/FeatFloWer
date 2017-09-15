@@ -184,7 +184,7 @@ TYPE TQuadScalar
 END TYPE
 
 type fieldPtr
-  type(real*8), dimension(:), pointer ::p
+  real*8, dimension(:), pointer ::p
 end type fieldPtr
 
 TYPE TLinScalar

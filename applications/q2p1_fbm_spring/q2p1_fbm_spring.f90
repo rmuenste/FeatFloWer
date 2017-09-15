@@ -1,6 +1,8 @@
 PROGRAM Q2P1_FBM_SPRING
 
   include 'defs_include.h'
+  use var_QuadScalar, only: istep_ns
+  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -44,6 +46,7 @@ PROGRAM Q2P1_FBM_SPRING
 
   call handle_statistics(tt0,itns)
 
+  istep_ns = istep_ns + 1
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 

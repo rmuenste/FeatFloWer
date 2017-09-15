@@ -15,6 +15,7 @@ set(FF_DEFAULT_LIBS
   ${LAPACK_LIBRARIES}
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
+  stdc++fs
   )
 
 set(FF_APPLICATION_LIBS

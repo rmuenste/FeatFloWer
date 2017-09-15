@@ -37,6 +37,7 @@ ${src_quadLS_mumps_test}
 ${src_visco} 
 ${src_mesh}
 ${src_cinterface}
+${postprocessing}
 app_init.f90
 postprocessing.f90
 mumps_test.f90

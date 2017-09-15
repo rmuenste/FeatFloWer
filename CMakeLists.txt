@@ -60,6 +60,16 @@ option(USE_SYSTEM_BLASLAPACK
   OFF
   )
 
+option(BUILD_METIS
+    "Enables build of metis library"
+    OFF
+)
+
+option(BUILD_APPLICATIONS
+    "Enables build of applications"
+    ON
+)
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -90,11 +100,6 @@ option(USE_SYSTEM_BLASLAPACK
 #-------------------------------------------------------------------------------------------------
 #                                               project directories
 #-------------------------------------------------------------------------------------------------
-
-option(BUILD_APPLICATIONS
-    "Enables build of applications"
-    OFF
-)
 
 set(src_pp3d
 ${CMAKE_SOURCE_DIR}/source/src_pp3d/projma.f
@@ -232,14 +237,6 @@ source_group(Elements FILES ${Elements})
 source_group(postprocessing FILES ${postprocessing})
 
 #-------------------------------------------------------------------------------------------------
-#                                    search for the libraries and link them
-#-------------------------------------------------------------------------------------------------
-
-option(BUILD_METIS
-    "Enables build of metis library"
-    OFF
-)
-#-------------------------------------------------------------------------------------------------
 #                                    Configure BLAS/LAPACK 
 #-------------------------------------------------------------------------------------------------
 
@@ -273,16 +270,9 @@ else(USE_SYSTEM_BLASLAPACK)
   set(LAPACK_LIBRARIES lapack)
 endif(USE_SYSTEM_BLASLAPACK)
 
-#find_package(BLAS)
-#find_package(LAPACK)
-#
-#if(NOT (${BLAS_FOUND} AND ${LAPACK_FOUND}))
-#  add_subdirectory(extern/libraries/lapack-3.6.1)
-#  message(STATUS "Lapack found: ${LAPACK_FOUND}")
-#  message(STATUS "Blas found: ${BLAS_FOUND}")
-#  set(BLAS_LIBRARIES blas)
-#  set(LAPACK_LIBRARIES lapack)
-#endif()
+#-------------------------------------------------------------------------------------------------
+#                           Configure MPI/MKL/MUMPS 
+#-------------------------------------------------------------------------------------------------
 
 find_package(MPI)
 
@@ -323,31 +313,39 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   endif()
 endif()
 
+#-------------------------------------------------------------------------------------------------
+#                               Configure BoostC++ 
+#-------------------------------------------------------------------------------------------------
+
+#find_package(Boost 1.56 COMPONENTS filesystem REQUIRED)
+#-------------------------------------------------------------------------------------------------
+#                      Set the flags/paths/etc. we have determined for libraries 
+#-------------------------------------------------------------------------------------------------
+
 include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
 include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
-
 #-------------------------------------------------------------------------------------------------
 #                                    Configuration of the executable
 #-------------------------------------------------------------------------------------------------
-add_executable(q2p1 ${Elements} ${src_q2p1}
-  ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} 
-  ${src_quadLS} ${src_visco} ${src_mesh}
-  ${postprocessing}
-  ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
 
-target_link_libraries(q2p1 
-${FF_DEFAULT_LIBS}
-)
-
-target_include_directories(q2p1 PUBLIC ${FF_DEFAULT_INCLUDE_PATH})
-
-target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
-
+#add_executable(q2p1 ${Elements} ${src_q2p1}
+#  ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} 
+#  ${src_quadLS} ${src_visco} ${src_mesh}
+#  ${postprocessing}
+#  ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
+#
+#target_link_libraries(q2p1 
+#${FF_DEFAULT_LIBS}
+#)
+#
+#target_include_directories(q2p1 PUBLIC ${FF_DEFAULT_INCLUDE_PATH})
+#
+#target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
 #-------------------------------------------------------------------------------------------------
 #                                  Copy files for out-of-source build
 #-------------------------------------------------------------------------------------------------
-include(${CMAKE_MODULE_PATH}/CreateWorkingDirectories.cmake)
 
+include(${CMAKE_MODULE_PATH}/CreateWorkingDirectories.cmake)
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
@@ -376,13 +374,6 @@ ENDIF(BUILD_APPLICATIONS)
 #-------------------------------------------------------------------------------------------------
 #                                       INSTALL CONFIGURATION
 #-------------------------------------------------------------------------------------------------
-include(${CMAKE_MODULE_PATH}/ConfigureInstallDirectories.cmake)
 
-#-------------------------------------------------------------------------------------------------
-#                                      Predefined test cases
-#-------------------------------------------------------------------------------------------------
-
-#add_test(q2p1-fac-nnewt ./test2)
-#add_test(q2p1-fallingparticle ./test3)
-#add_test(q2p1-visco-elastic ./test4)
+#include(${CMAKE_MODULE_PATH}/ConfigureInstallDirectories.cmake)
 
