@@ -231,13 +231,32 @@ INTEGER INLComplete,I,J,IERR,iOuter
 REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
 REAL*8 :: FORCES_NEW(3),FORCES_OLD(3),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
+REAL*8 B,a,h1,h2,h3
 
 thstep = 0d0
 FORCES_OLD = 0d0
 iIterges = 0d0
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
+
+!Adaptivity
+! F(x) = a + h1/(h2+exp(h3 x)); F(0) = B, F(1) = 0.9, F(0.5) = B/4 + 3/4
 alpha = ccParams%Alpha
+B = ccParams%ValAdap(1)
+a = ccParams%ValAdap(2)
+h1 = 1d0/(9d0*(10d0*a-9d0)*(B-1d0)**2d0) * (a**3d0*(96d0-80d0*B)+12d0*a**2d0*(5d0*B**2d0+6d0*B-15d0)+3d0*a*(10d0*B**3d0-57d0*B**2d0+36d0*B+27d0)+B*(-10d0*B**3d0+3d0*B**2d0+72d0*B-81d0))
+h2 = 2d0*(a-B)*(8d0*a*(5d0*B-6d0)+5d0*B**2d0-42d0*B+45d0)/(9d0*(10d0*a-9d0)*(B-1d0)**2d0)
+h3 = 2d0*log(2d0*(5d0*B-3d0)*(a-B)/(3d0*(10d0*a-9d0)*(B-1d0)))
+
+IF (myid.eq.1) THEN
+  write(mfile,77) 
+  write(mterm,77)
+  write(mfile,'(A,F6.3,A,F6.3,A,F6.3,A,F6.3,A)')"	ADAPTIVE-FUNCTION: ",a," + ",h1," / ( ",h2," + exp( ",h3," x ))" 
+  write(mterm,'(A,F6.3,A,F6.3,A,F6.3,A,F6.3,A)')"	ADAPTIVE-FUNCTION: ",a," + ",h1," / ( ",h2," + exp( ",h3," x ))"
+  write(mfile,77)
+  write(mterm,77)
+END IF
+
 digitcriterion = 10**(-1-alpha)
 
 
@@ -378,7 +397,7 @@ IF (myid.ne.master) THEN
 END IF
 
 
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
  if(i.eq.1) then
 	DefNormOld = MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4))
@@ -391,14 +410,27 @@ END IF
  DefNorm = MAX(DefNormUVWP(1),DefNormUVWP(2),DefNormUVWP(3),DefNormUVWP(4))
 ! PLEASE DO NOT COMMENT THESE TWO LINES
 
+!---------------------------
 ! Fixpoint-Newton-adaptivity
- alpha = (0.2d0 + 1.46d0/(-0.48d0 + EXP(0.94d0*DefNorm/DefNormOld)))*alpha
+!---------------------------
+!	continous
+ alpha = (a+h1/(h2+EXP(h3 * DefNorm/DefNormOld)))*alpha
  if(alpha.gt.1d0) alpha = 1d0
+!	discontinous
+! if(DefNorm/DefNormOld.lt.1d0) then
+!	alpha = 1.25d0*alpha
+! else
+!	alpha = 0.75d0*alpha
+! end if
+! if(alpha.gt.1d0) alpha = 1d0
+
+!---------------------
 ! digits to gain in MG
+!---------------------
  digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
  if(digitcriterion.gt.10**(-1-alpha)) digitcriterion = 10**(-1-alpha)
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 IF (myid.eq.showid) THEN
@@ -464,6 +496,7 @@ END IF
 66  FORMAT(104('_'))
 5  FORMAT(104('-'))
 55  FORMAT(104('='))
+77  FORMAT(104('*'))
 END SUBROUTINE Transport_q2p1_UxyzP_cc
 !
 ! ----------------------------------------------
@@ -650,8 +683,6 @@ EXTERNAL E013
 
 !Pipe
 ! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
-!Halfpipe/Quarterpipe
-! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R/2d0)
 !FAC
  Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force
@@ -672,8 +703,8 @@ END SUBROUTINE FAC_GetForces_CC
 !
 SUBROUTINE myFAC_GetForces(mfile,Force)
 INTEGER mfile
-!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+!REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -693,9 +724,9 @@ EXTERNAL E013
  END IF
 
 !Pipe
-! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+ Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
 !FAC
- Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+! Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force
 
 
@@ -867,6 +898,10 @@ DO
     CASE ("Alpha")
     READ(string(iEq+1:),*) ccParams%Alpha
     call write_param_real(mfile,cVar,cPar,out_string,ccParams%Alpha)
+    CASE ("ValAdap")
+    READ(string(iEq+1:),*) ccParams%ValAdap
+    IF (myid.eq.showid) write(mterm,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",ccParams%ValAdap
+    IF (myid.eq.showid) write(mfile,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",ccParams%ValAdap
     CASE ("Stopping")
     READ(string(iEq+1:),*) ccParams%StoppingCriterion
     call write_param_real(mfile,cVar,cPar,out_string,ccParams%StoppingCriterion)

@@ -22,7 +22,7 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat_new,mg_BYMat_
 
 TYPE tParamCC
  INTEGER NLmin,NLmax
- Real*8 :: Alpha,StoppingCriterion
+ Real*8 :: Alpha,StoppingCriterion,ValAdap(2)
  INTEGER MinLev,MedLev,MinIterCycle,MaxIterCycle,nSmootherSteps
  REAL*8 Criterion,RLX 
  CHARACTER*1 CycleType

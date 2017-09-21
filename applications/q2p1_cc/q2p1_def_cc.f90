@@ -135,22 +135,22 @@ REAL*8 daux,tttx1,tttx0,alpha
          A11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J))
          A22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J))
          A33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J))
-         A12Mat(J) = S12Mat(J)
-         A13Mat(J) = S13Mat(J)
-         A23Mat(J) = S23Mat(J)
-         A21Mat(J) = S21Mat(J)
-         A31Mat(J) = S31Mat(J)
-         A32Mat(J) = S32Mat(J)
+         A12Mat(J) = thstep*S12Mat(J)
+         A13Mat(J) = thstep*S13Mat(J)
+         A23Mat(J) = thstep*S23Mat(J)
+         A21Mat(J) = thstep*S21Mat(J)
+         A31Mat(J) = thstep*S31Mat(J)
+         A32Mat(J) = thstep*S32Mat(J)
          ! for multigrid
          AA11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
          AA22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
          AA33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
-         AA12Mat(J) = S12Mat(J) + alpha * barM12Mat(J)
-         AA13Mat(J) = S13Mat(J) + alpha * barM13Mat(J)
-         AA23Mat(J) = S23Mat(J) + alpha * barM23Mat(J)
-         AA21Mat(J) = S21Mat(J) + alpha * barM21Mat(J)
-         AA31Mat(J) = S31Mat(J) + alpha * barM31Mat(J)
-         AA32Mat(J) = S32Mat(J) + alpha * barM32Mat(J)
+         AA12Mat(J) = thstep*(S12Mat(J) + alpha * barM12Mat(J))
+         AA13Mat(J) = thstep*(S13Mat(J) + alpha * barM13Mat(J))
+         AA23Mat(J) = thstep*(S23Mat(J) + alpha * barM23Mat(J))
+         AA21Mat(J) = thstep*(S21Mat(J) + alpha * barM21Mat(J))
+         AA31Mat(J) = thstep*(S31Mat(J) + alpha * barM31Mat(J))
+         AA32Mat(J) = thstep*(S32Mat(J) + alpha * barM32Mat(J))
         END DO
        END DO
       ELSE ! Non-Newtonian Stokes with S
@@ -159,12 +159,12 @@ REAL*8 daux,tttx1,tttx0,alpha
          A11mat(J) = MMat(J) + thstep*S11Mat(J)
          A22mat(J) = MMat(J) + thstep*S22Mat(J)
          A33mat(J) = MMat(J) + thstep*S33Mat(J)
-         A12Mat(J) = S12Mat(J)
-         A13Mat(J) = S13Mat(J)
-         A23Mat(J) = S23Mat(J)
-         A21Mat(J) = S21Mat(J)
-         A31Mat(J) = S31Mat(J)
-         A32Mat(J) = S32Mat(J)
+         A12Mat(J) = thstep*S12Mat(J)
+         A13Mat(J) = thstep*S13Mat(J)
+         A23Mat(J) = thstep*S23Mat(J)
+         A21Mat(J) = thstep*S21Mat(J)
+         A31Mat(J) = thstep*S31Mat(J)
+         A32Mat(J) = thstep*S32Mat(J)
          AA11mat(J) = A11mat(J)
          AA22mat(J) = A22mat(J)
          AA33mat(J) = A33mat(J)
@@ -2468,6 +2468,11 @@ EXTERNAL E011,E013
   mg_BXMat_new(ILEV)%a = mg_BXMat(ILEV)%a
   mg_BYMat_new(ILEV)%a = mg_BYMat(ILEV)%a
   mg_BZMat_new(ILEV)%a = mg_BZMat(ILEV)%a
+
+! Scaling for timedependency
+  mg_BXMat(ILEV)%a = thstep*mg_BXMat(ILEV)%a
+  mg_BYMat(ILEV)%a = thstep*mg_BYMat(ILEV)%a
+  mg_BZMat(ILEV)%a = thstep*mg_BZMat(ILEV)%a
 
  END DO
 
