@@ -471,6 +471,7 @@ end subroutine write_vel_test
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
+!
 subroutine write_time_sol(iInd, istep, simTime)
 use pp3d_mpi, only:myid,coarse
 use var_QuadScalar, only: fieldPtr
@@ -497,6 +498,7 @@ end subroutine write_time_sol
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
+!
 subroutine read_time_sol(startFrom, istep, simTime)
 use pp3d_mpi, only:myid,coarse
 use var_QuadScalar, only: fieldPtr
@@ -519,11 +521,15 @@ end if
 end subroutine read_time_sol
 !
 !-------------------------------------------------------------------------------------------------
-! Read the time from file
+! A general postprocessing for a Feat_FloWer application
 !-------------------------------------------------------------------------------------------------
-! @param iInd number of the output
+! @param dout Output interval
+! @param iogmv Output index of the current file 
 ! @param istep number of the discrete time step
-! @param simTime current simulation time
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
 subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
@@ -578,9 +584,15 @@ CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
 !
-!----------------------------------------------
+!-------------------------------------------------------------------------------------------------
+! A simple time stepping routine
+!-------------------------------------------------------------------------------------------------
+! @param dt The current time step 
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
 !
-SUBROUTINE TimeStepCtrl(dt,inlU,inlT, filehandle)
+subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
 
   USE PP3D_MPI,only :myid,ShowID
 
@@ -592,11 +604,11 @@ SUBROUTINE TimeStepCtrl(dt,inlU,inlT, filehandle)
 
   integer, intent(in) :: filehandle
 
-  INTEGER :: inlU,inlT
-  INTEGER :: iMem,nMEm=2
-  REAL*8  :: dt, dt_old
-  CHARACTER(len=9) :: char_dt
-  DATA iMem/0/
+  integer :: inlU,inlT
+  integer :: iMem,nMEm=2
+  real*8  :: dt, dt_old
+  character(len=9) :: char_dt
+  data iMem/0/
 
   IF (IADTIM.EQ.0) RETURN
 
@@ -624,7 +636,11 @@ SUBROUTINE TimeStepCtrl(dt,inlU,inlT, filehandle)
 
 END SUBROUTINE TimeStepCtrl
 !
-! ----------------------------------------------
+!-------------------------------------------------------------------------------------------------
+! A routine for an application to start the statistics output
+!-------------------------------------------------------------------------------------------------
+! @param dttt0 
+! @param istepns   
 !
 subroutine handle_statistics(dttt0, istepns)
 include 'defs_include.h'
@@ -648,7 +664,16 @@ END IF
 
 end subroutine handle_statistics
 !
-! ----------------------------------------------
+!-------------------------------------------------------------------------------------------------
+! An output routine for printing time to the screen 
+!-------------------------------------------------------------------------------------------------
+! @param dtimens Simulation time 
+! @param dtimemx Maximum simulation time 
+! @param dt Time step of the simulation
+! @param istepns Discrete time step of the simulation   
+! @param istepmaxns Maximum discrete time step   
+! @param ufile Handle to the log file  
+! @param uterm Handle to the terminal  
 !
 subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
 
@@ -657,7 +682,7 @@ USE PP3D_MPI,only :myid,ShowID
 
 implicit none
 
-real*8, intent(in) :: dtimens, dtimemx, dt
+real*8, intent(in)  :: dtimens, dtimemx, dt
 integer, intent(in) :: istepns , istepmaxns
 integer, intent(in) :: ufile, uterm
 
