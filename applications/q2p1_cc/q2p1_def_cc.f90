@@ -291,21 +291,18 @@ REAL*8 daux,tttx1,tttx0,alpha
  qMat     => mg_qMat(ILEV)
     !!-------------------    POINTER Setup  -------------------!!
 
- ! Build up the defect
+ ! Build up the rhs
  IF (idef.eq. 1) THEN
-  if(bSteadyState)then
 
    myScalar%defU = 0d0
    myScalar%defV = 0d0
    myScalar%defW = 0d0
-  else
+
    IF (myMatrixRenewal%M.GE.1) THEN
      myScalar%defU = MMat*myScalar%valU
      myScalar%defV = MMat*myScalar%valV
      myScalar%defW = MMat*myScalar%valW
    END IF
-  end if
- 
 
 
  END IF

@@ -210,6 +210,14 @@ end if
   ELSE
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
+
+  INQUIRE (FILE="_data/BenchValues_time.txt", EXIST=bExist)
+  IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
+   OPEN(777,FILE="_data/BenchValues_time.txt")
+   WRITE(777,'(4A16)') "Time","Drag","Lift","ZForce"
+  ELSE
+   OPEN(777,FILE="_data/BenchValues_time.txt",ACCESS='APPEND')
+  END IF
  END IF
 
  CALL InitializeProlRest_cc(ccParams)
@@ -476,8 +484,11 @@ IF (stopOne.LT.1d-4) THEN
 END IF
 END DO
 
+
 IF (myid.eq.showid) THEN
-MGnonLin = iIterges/ni
+  WRITE(777,'(7G16.8)') Timens,FORCES_NEW
+
+  MGnonLin = iIterges/ni
   write(mfile,55) 
   write(mterm,55)
   write(mfile,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
@@ -703,8 +714,8 @@ END SUBROUTINE FAC_GetForces_CC
 !
 SUBROUTINE myFAC_GetForces(mfile,Force)
 INTEGER mfile
-REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-!REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -723,18 +734,18 @@ EXTERNAL E013
   LinSc%valP(NLMAX)%x,BndrForce,Force)
  END IF
 
-!Pipe
- Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
-!FAC
-! Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
- Force = Factor*Force
 
+!Pipe
+! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+!FAC
+ Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+ Force = Factor*Force
 
  IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A30,4E16.8)') "Force acting on the sphere:",timens,Force
-  write(mterm,'(A30,4E16.8)') "Force acting on the sphere:",timens,Force
+  write(mfile,'(A30,4E16.8)') "Force acting:",timens,Force
+  write(mterm,'(A30,4E16.8)') "Force acting:",timens,Force
   WRITE(666,'(7G16.8)') Timens,Force
  END IF
 

@@ -87,7 +87,7 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale
 REAL*8 DIST
-REAL*8 :: PI=3.141592654d0
+REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0
 
 ValU = 0d0
@@ -137,6 +137,12 @@ END IF
 ! used for FAC3Ds
 IF (it.EQ.26) THEN
  dScale=0.2d0*(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)
+ ValU=dScale*(0.41d0-Y)*Y*(0.41d0-Z)*Z
+ ValV=0d0
+ ValW=0d0
+END IF
+IF (it.EQ.27) THEN
+ dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)
  ValU=dScale*(0.41d0-Y)*Y*(0.41d0-Z)*Z
  ValV=0d0
  ValW=0d0
