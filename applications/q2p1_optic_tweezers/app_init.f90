@@ -274,28 +274,19 @@ DO ILEV=NLMIN+1,NLMAX
  END DO
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
 
+ CALL ExtraxtParallelPattern()
+
  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
 
  CALL E011_CreateComm(NDOF)
+
 
  !     ----------------------------------------------------------            
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
-
- DO ILEV=NLMIN,NLMAX
- if(myid.eq.1)then
-
- write(*,*)"new:",mg_mesh%level(ILEV)%nvt,&
-                  mg_mesh%level(ILEV)%nat,&
-                  mg_mesh%level(ILEV)%nel,&
-                  mg_mesh%level(ILEV)%net
- 
- end if
- end do
-
 
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
@@ -305,8 +296,6 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,ilev)
 
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-
-     write(*,*)'Prolongating: ',ilev, ilev+1
 
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
@@ -364,13 +353,6 @@ DO ILEV=NLMIN+1,NLMAX
  NAT=mg_mesh%level(II)%nat
  NET=mg_mesh%level(II)%net
  NEL=mg_mesh%level(II)%nel
-
- IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
- END IF
-
- !CALL SETLEV(2)
 
  IF (myid.eq.showid) THEN
    WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET

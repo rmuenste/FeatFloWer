@@ -438,6 +438,7 @@ END IF
   CALL SETLEV(2)
   CALL QuadScalar_Knpr()
  END DO
+
  ILEV=NLMAX
  mydof = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
@@ -456,10 +457,10 @@ END IF
 
  ! SEt up the knpr vector showing dofs with parallel property ...
  IF (myid.ne.0) THEN
-  ALLOCATE (ParKNPR(NVT+NET+NAT+NEL))
+  ALLOCATE (ParKNPR(mydof))
   QuadSc%auxU = 1d0
   CALL E013Sum(QuadSc%auxU)
-  DO I=1,NVT+NET+NAT+NEL
+  DO I=1,mydof
    IF (QuadSc%auxU(I).EQ.1d0) THEN
     ParKNPR(I) = 0
    ELSE
