@@ -354,6 +354,111 @@ end if
 end subroutine read_vel_sol
 !
 !-------------------------------------------------------------------------------------------------
+! Write a custom field to file 
+!-------------------------------------------------------------------------------------------------
+! @param fieldName Name of the user-defined field 
+! @param idx index of the output file 
+! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
+! @param nn the number of mesh elements on level NLMAX 
+! @param nmin NLMIN 
+! @param nmax NLMAX 
+! @param elemmap a map from local to global element index 
+! @param edofs a map from local to global element index 
+! @param edofs an array of the fine level dofs in a coarse mesh element 
+! @param icomp Number of components of the output field 
+! @param field_pack An array of structures that contain pointers to the 
+!                   components of the output field
+subroutine write_q2_sol(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
+use pp3d_mpi, only:myid,coarse
+use var_QuadScalar, only: fieldPtr
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+implicit none
+
+character(60) :: fieldName
+integer, intent(in) :: idx
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+
+integer, intent(in) :: icomp
+
+type(fieldPtr), dimension(:) :: field_pack
+
+! locals
+integer :: iunit = 321
+integer :: i
+
+!packed(1)%p => u
+!packed(2)%p => v
+!packed(3)%p => w
+
+if(myid.ne.0)then
+
+  !call init_output_structure(icomp) 
+  do i=1,icomp
+
+    call wrap_pointer(fieldName, idx, iiLev, nn,& 
+                      nmin, nmax,&
+                      elemmap, edofs, icomp, field_pack(i)%p)
+  end do
+
+  !call write_q2_sol(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
+
+end if
+
+end subroutine write_q2_sol
+
+subroutine wrap_pointer(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, p)
+use pp3d_mpi, only:myid,coarse
+use var_QuadScalar, only: fieldPtr
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+implicit none
+
+character(60) :: fieldName
+integer, intent(in) :: idx
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+
+integer, intent(in) :: icomp
+
+real*8, dimension(:) :: p
+
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+
+elemCoarse = KNEL(nmin)
+
+!packed(1)%p => u
+!packed(2)%p => v
+!packed(3)%p => w
+
+! the subdivision level of an element on the 
+! output level, i.e. lvl = 1, iiLev = 0
+! (2**(1) + 1)[#dofs on an edge] * 3[#edges in y] * 3[#layers in z]
+! = (2**(1)+1)**3 = 27
+!
+! Q2 dofs on a cube on level NLMAX+iiLev
+dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
+
+if(myid.eq.1)then
+  write(*,*)'Val: ',p(10)
+  call write_q2_comp(fieldName, idx, iiLev, icomp, nn,& 
+                     elemCoarse, dofsInCoarseElement,&
+                     elemmap, edofs, p)
+end if
+
+end subroutine wrap_pointer
+!
+!-------------------------------------------------------------------------------------------------
 ! Unit test function for P1 dump output 
 !-------------------------------------------------------------------------------------------------
 ! @param fileName Name of the output file

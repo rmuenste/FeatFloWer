@@ -4,14 +4,16 @@ USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
-use sol_out, only: write_pres_sol,write_vel_sol,write_time_sol
-use var_QuadScalar, only: myDump,istep_ns
+use sol_out, only: write_pres_sol,write_vel_sol,write_time_sol,write_q2_sol
+use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
 
 IMPLICIT NONE
 INTEGER iOutput
 integer :: out_lev
 integer :: ndof
+character(60) :: fieldName
+type(fieldPtr), dimension(3) :: packed
 
 ! -------------- workspace -------------------
 INTEGER  NNWORK
@@ -52,6 +54,19 @@ call write_pres_sol(iOut,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinS
 !! CALL WriteSol_Coor(iOut,0,DWORK(L(KLCVG(NLMAX))),QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
 
 call write_time_sol(iOut,istep_ns, timens)
+
+
+fieldName = "test"
+
+packed(1)%p => QuadSc%ValU
+packed(2)%p => QuadSc%ValV
+packed(3)%p => QuadSc%ValW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)
+
+call myMPI_Barrier()
+pause
 
 !CALL WriteSol_Time(iOut)
 

@@ -13,7 +13,7 @@ ParametrizeQ2Nodes
 ! USE LinScalar, ONLY: AddSurfaceTension
 IMPLICIT NONE
 
-TYPE(TQuadScalar)   QuadSc
+TYPE(TQuadScalar), target :: QuadSc
 ! TODO: Move these to var
 TYPE(TLinScalar)    LinSc
 TYPE(TViscoScalar)  ViscoSc
