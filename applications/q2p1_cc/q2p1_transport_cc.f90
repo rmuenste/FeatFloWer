@@ -214,7 +214,7 @@ end if
   INQUIRE (FILE="_data/BenchValues_time.txt", EXIST=bExist)
   IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
    OPEN(777,FILE="_data/BenchValues_time.txt")
-   WRITE(777,'(4A16)') "Time","Drag","Lift","ZForce"
+   WRITE(777,'(6A16)') "Time","Drag","Lift","ZForce","MGiter","nonLin"
   ELSE
    OPEN(777,FILE="_data/BenchValues_time.txt",ACCESS='APPEND')
   END IF
@@ -274,9 +274,7 @@ digitcriterion = 10**(-1-alpha)
 
  CALL OperatorRegenaration_iso(3)
 
-! -------------------------------------------------
-! Compute the momentum equations
-! -------------------------------------------------
+
 
  CALL ZTIME(tttt0)
 
@@ -486,7 +484,7 @@ END DO
 
 
 IF (myid.eq.showid) THEN
-  WRITE(777,'(7G16.8)') Timens,FORCES_NEW
+  WRITE(777,'(7G16.8)') Timens,FORCES_NEW,iIterges,ni
 
   MGnonLin = iIterges/ni
   write(mfile,55) 

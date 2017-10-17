@@ -2476,10 +2476,10 @@ EXTERNAL E011,E013
   mg_BYMat_new(ILEV)%a = mg_BYMat(ILEV)%a
   mg_BZMat_new(ILEV)%a = mg_BZMat(ILEV)%a
 
-! Scaling for timedependency
-  mg_BXMat(ILEV)%a = thstep*mg_BXMat(ILEV)%a
-  mg_BYMat(ILEV)%a = thstep*mg_BYMat(ILEV)%a
-  mg_BZMat(ILEV)%a = thstep*mg_BZMat(ILEV)%a
+!! Scaling for timedependency
+!  mg_BXMat(ILEV)%a = thstep*mg_BXMat(ILEV)%a
+!  mg_BYMat(ILEV)%a = thstep*mg_BYMat(ILEV)%a
+!  mg_BZMat(ILEV)%a = thstep*mg_BZMat(ILEV)%a
 
  END DO
 

@@ -5,11 +5,11 @@ PROGRAM Q2P1_CC
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
-  real               :: dout = 0.0
+  real*8             :: dout = 0.0
   integer            :: ufile,ilog
   integer            :: uterm = 6
-  real               :: tt0 = 0.0
-  real               :: dtt0 = 0.0
+  real*8               :: tt0 = 0.0
+  real*8             :: dt = 0.0
 
   !-------INIT PHASE-------
 
