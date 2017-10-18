@@ -142,8 +142,8 @@ IF(dout.LE.(timens+1e-10)) THEN
   IF (insav.NE.0.AND.itns.NE.1) THEN
     IF (MOD(iOGMV,insav).EQ.0) THEN
       CALL ZTIME(myStat%t0)
-      !CALL SolToFile(-1)
-      CALL myReleaseSmartDumpFiles(-1)
+      CALL mySolToFile(-1)
+      !CALL myReleaseSmartDumpFiles(-1)
       CALL ZTIME(myStat%t1)
       myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
     END IF

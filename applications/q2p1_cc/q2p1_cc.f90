@@ -8,7 +8,7 @@ PROGRAM Q2P1_CC
   real*8             :: dout = 0.0
   integer            :: ufile,ilog
   integer            :: uterm = 6
-  real*8               :: tt0 = 0.0
+  real*8             :: tt0 = 0.0
   real*8             :: dt = 0.0
 
   !-------INIT PHASE-------

@@ -2685,4 +2685,29 @@ END SUBROUTINE Create_AMat_new
 !
 ! ----------------------------------------------
 !
+SUBROUTINE myOutputMatrix(cFile,myMat,Mat)
+TYPE(TMatrix) myMat
+REAL*8 Mat(*),DD
+CHARACTER*4 cFile
+CHARACTER*12 myFile
+INTEGER I,J,II,K
+
+
+ IF (myid.EQ.0) THEN
+
+  WRITE(myFile(1:12),'(A3,A4)') cFile,".txt"
+
+!  WRITE(*,*) myid,myFile
+ OPEN(987,FILE=myFile)
+
+ DO I=1,myMat%nu
+   DO J=myMat%LdA(I),myMat%LdA(I+1)-1
+     WRITE(987,'(I10,I10,E16.8)') I,myMat%ColA(J),Mat(J)
+   END DO
+ END DO
+ CLOSE(987)
+
+ END IF
+
+END SUBROUTINE myOutputMatrix
 END MODULE def_cc

@@ -299,6 +299,18 @@ thstep = tstep
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
+
+! CALL myOutputMatrix("A11",qMat,AA11mat)
+! CALL myOutputMatrix("A12",qMat,AA12mat)
+! CALL myOutputMatrix("A13",qMat,AA13mat)
+! CALL myOutputMatrix("A21",qMat,AA21mat)
+! CALL myOutputMatrix("A22",qMat,AA22mat)
+! CALL myOutputMatrix("A23",qMat,AA23mat)
+! CALL myOutputMatrix("A31",qMat,AA31mat)
+! CALL myOutputMatrix("A32",qMat,AA32mat)
+! CALL myOutputMatrix("A33",qMat,AA33mat)
+! pause
+
  CALL OperatorDeallocation()
 
 DO i=1,ccParams%NLmax
@@ -713,7 +725,7 @@ END SUBROUTINE FAC_GetForces_CC
 SUBROUTINE myFAC_GetForces(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
