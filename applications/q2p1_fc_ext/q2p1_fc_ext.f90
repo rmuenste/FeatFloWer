@@ -40,7 +40,7 @@ PROGRAM Q2P1_FC_EXT
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, iogmv, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

@@ -6,13 +6,14 @@ USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 use sol_out, only: write_pres_sol,write_vel_sol,write_time_sol,write_q2_sol
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
-
+use, intrinsic :: iso_c_binding
 
 IMPLICIT NONE
 INTEGER iOutput
 integer :: out_lev
 integer :: ndof
 character(60) :: fieldName
+
 type(fieldPtr), dimension(3) :: packed
 
 ! -------------- workspace -------------------
@@ -56,23 +57,16 @@ call write_pres_sol(iOut,0,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinS
 call write_time_sol(iOut,istep_ns, timens)
 
 
-fieldName = "test"
+! This is how to output a custom field with 3 components:
+!fieldName = "myvel"
+!
+!packed(1)%p => QuadSc%ValU
+!packed(2)%p => QuadSc%ValV
+!packed(3)%p => QuadSc%ValW
+!
+!call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+!                  3, packed)
 
-packed(1)%p => QuadSc%ValU
-packed(2)%p => QuadSc%ValV
-packed(3)%p => QuadSc%ValW
-
-call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                  3, packed)
-
-call myMPI_Barrier()
-pause
-
-!CALL WriteSol_Time(iOut)
-
-!if(bViscoElastic)then
-!  CALL WriteSol_Visco(iOut,0)
-!end if
 
 END SUBROUTINE SolToFile
 !
@@ -85,11 +79,11 @@ USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
 use sol_out
-use var_QuadScalar, only: myDump,istep_ns
+use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
-CHARACTER cInFile*(60)
+character(60) :: cInFile
 
 ! -------------- workspace -------------------
 INTEGER  NNWORK
@@ -109,16 +103,23 @@ REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 character(60) :: FileA
 character(60) :: FileB
 
+!character(60) :: fieldName
+
+!type(fieldPtr), dimension(3) :: packed
+
+integer :: ndof
+
 !CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 nn = knel(nlmax)
+
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
+
+
+call read_vel_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
 !FileA='orig_v'
 !call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
-call read_vel_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
-
-!FileB='new_v'
-!call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
 !CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
 !     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
@@ -137,6 +138,19 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 
 !CALL ReadSol_Time(cInFile)
 call read_time_sol(cInFile, istep_ns, timens)
+
+!fieldName = "myvel"
+!
+!packed(1)%p => QuadSc%ValU
+!packed(2)%p => QuadSc%ValV
+!packed(3)%p => QuadSc%ValW
+!
+!call read_q2_sol(fieldName, cInFile,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+!                  3, packed)
+
+!FileB='new_v'
+!call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
 
 if(bViscoElastic)then
   CALL ReadSol_Visco(cInFile, iLevel)
@@ -177,8 +191,6 @@ end if
 ! !!!!!!!!!!!!!!!!!!!!!! ALE !!!!!!!!!!!!!!!!!!!!!!
 !write(*,*)'Timens: ',timens
 !write(*,*)'Step: ',istep_ns
-!call myMPI_Barrier()
-!pause
 
 END SUBROUTINE SolFromFile
 !

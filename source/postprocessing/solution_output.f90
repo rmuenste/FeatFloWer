@@ -20,7 +20,7 @@ contains
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
-use var_QuadScalar, only: myDump,istep_ns,myFBM
+use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr
 USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 
@@ -34,6 +34,9 @@ integer, optional :: output_idx
 integer :: iout
 integer :: ndof
 integer :: nelem
+character(60) :: fieldName
+
+type(fieldPtr), dimension(3) :: packed
 
 if(.not.present(output_idx))then
   ifile = ifile+1
@@ -54,6 +57,15 @@ call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
                     coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
 call write_time_sol(iout,istep_ns, time_ns)
+
+fieldName = "myvel"
+
+packed(1)%p => QuadSc%ValU
+packed(2)%p => QuadSc%ValV
+packed(3)%p => QuadSc%ValW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)
 
 end subroutine write_sol_to_file
 !
@@ -309,7 +321,9 @@ use pp3d_mpi, only:myid,coarse
 use var_QuadScalar, only: fieldPtr
 implicit none
 
+
 character(60), intent(in) :: startFrom
+
 integer, intent(in) :: iiLev
 integer, intent(in) :: nn
 integer, intent(in) :: nmin
@@ -354,7 +368,7 @@ end if
 end subroutine read_vel_sol
 !
 !-------------------------------------------------------------------------------------------------
-! Write a custom field to file 
+! Write a custom q2 field to file 
 !-------------------------------------------------------------------------------------------------
 ! @param fieldName Name of the user-defined field 
 ! @param idx index of the output file 
@@ -391,34 +405,49 @@ type(fieldPtr), dimension(:) :: field_pack
 ! locals
 integer :: iunit = 321
 integer :: i
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+
+elemCoarse = KNEL(nmin)
 
 !packed(1)%p => u
 !packed(2)%p => v
 !packed(3)%p => w
 
+! the subdivision level of an element on the 
+! output level, i.e. lvl = 1, iiLev = 0
+! (2**(1) + 1)[#dofs on an edge] * 3[#edges in y] * 3[#layers in z]
+! = (2**(1)+1)**3 = 27
+!
+! Q2 dofs on a cube on level NLMAX+iiLev
+dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
+
+
 if(myid.ne.0)then
 
-  !call init_output_structure(icomp) 
+  call clean_output_array(); 
+
   do i=1,icomp
 
-    call wrap_pointer(fieldName, idx, iiLev, nn,& 
+    call wrap_pointer(idx, iiLev, nn,& 
                       nmin, nmax,&
                       elemmap, edofs, icomp, field_pack(i)%p)
   end do
 
-  !call write_q2_sol(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
+  call write_sol_q2(TRIM(ADJUSTL(fieldName))//CHAR(0), idx, iiLev, icomp, nn,& 
+                    elemCoarse, dofsInCoarseElement,&
+                    elemmap, edofs)
 
 end if
 
-end subroutine write_q2_sol
+contains
 
-subroutine wrap_pointer(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, p)
+subroutine wrap_pointer(idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, p)
 use pp3d_mpi, only:myid,coarse
 use var_QuadScalar, only: fieldPtr
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 implicit none
 
-character(60) :: fieldName
 integer, intent(in) :: idx
 integer, intent(in) :: iiLev
 integer, intent(in) :: nn
@@ -449,14 +478,101 @@ elemCoarse = KNEL(nmin)
 ! Q2 dofs on a cube on level NLMAX+iiLev
 dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
 
-if(myid.eq.1)then
-  write(*,*)'Val: ',p(10)
-  call write_q2_comp(fieldName, idx, iiLev, icomp, nn,& 
-                     elemCoarse, dofsInCoarseElement,&
-                     elemmap, edofs, p)
-end if
+ call add_output_array(p)
 
 end subroutine wrap_pointer
+
+end subroutine write_q2_sol
+!
+!-------------------------------------------------------------------------------------------------
+! Read a custom q2 field from file 
+!-------------------------------------------------------------------------------------------------
+! @param fieldName Name of the user-defined field 
+! @param idx index of the output file 
+! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
+! @param nn the number of mesh elements on level NLMAX 
+! @param nmin NLMIN 
+! @param nmax NLMAX 
+! @param elemmap a map from local to global element index 
+! @param edofs a map from local to global element index 
+! @param edofs an array of the fine level dofs in a coarse mesh element 
+! @param icomp Number of components of the output field 
+! @param field_pack An array of structures that contain pointers to the 
+!                   components of the output field
+subroutine read_q2_sol(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
+use pp3d_mpi, only:myid,coarse
+use var_QuadScalar, only: fieldPtr
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+implicit none
+
+character(60) :: fieldName
+character(60) :: startFrom
+
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+
+integer, intent(in) :: icomp
+
+type(fieldPtr), dimension(:) :: field_pack
+
+! locals
+integer :: iunit = 321
+integer :: i
+integer :: idx = 0
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+
+elemCoarse = KNEL(nmin)
+
+!packed(1)%p => u
+!packed(2)%p => v
+!packed(3)%p => w
+
+! the subdivision level of an element on the 
+! output level, i.e. lvl = 1, iiLev = 0
+! (2**(1) + 1)[#dofs on an edge] * 3[#edges in y] * 3[#layers in z]
+! = (2**(1)+1)**3 = 27
+!
+! Q2 dofs on a cube on level NLMAX+iiLev
+dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
+
+
+if(myid.ne.0)then
+
+  call clean_output_array(); 
+
+  do i=1,icomp
+
+    call wrap_pointer(field_pack(i)%p)
+  end do
+
+  call read_sol_q2(TRIM(ADJUSTL(fieldName))//CHAR(0),TRIM(ADJUSTL(startFrom))//CHAR(0),&
+                   idx, iiLev, icomp, nn,& 
+                   elemCoarse, dofsInCoarseElement,&
+                   elemmap, edofs)
+
+end if
+
+contains
+
+subroutine wrap_pointer(p)
+use pp3d_mpi, only:myid,coarse
+use var_QuadScalar, only: fieldPtr
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+implicit none
+
+real*8, dimension(:) :: p
+
+ call add_output_array(p)
+
+end subroutine wrap_pointer
+
+end subroutine read_q2_sol
 !
 !-------------------------------------------------------------------------------------------------
 ! Unit test function for P1 dump output 
