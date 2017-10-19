@@ -39,7 +39,7 @@ ${src_mesh}
 ${src_cinterface}
 ${postprocessing}
 app_init.f90
-postprocessing.f90
+#postprocessing.f90
 q2p1_fc_ext.f90
 )
 

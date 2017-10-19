@@ -2,7 +2,11 @@ PROGRAM Q2P1_EXPERIMENTAL
 
   include 'defs_include.h'
   use var_QuadScalar, only: istep_ns
-  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
+  use sol_out, only: postprocessing_app
+  use post_utils, only: TimeStepCtrl,&
+                        handle_statistics,&
+                        print_time,&
+                        sim_finalize
 
   integer            :: iOGMV,iTout
   character(len=200) :: command

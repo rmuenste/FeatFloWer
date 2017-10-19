@@ -39,7 +39,6 @@ ${src_mesh}
 ${src_cinterface}
 ${postprocessing}
 app_init.f90
-postprocessing.f90
 q2p1_fac_nnewt.f90
 )
 

@@ -25,12 +25,13 @@ set(FF_APPLICATION_LIBS
   feat3d
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
+  stdc++
+  stdc++fs
   inshape3dcore
   Utility
   Math
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
-  stdc++fs
   )
 
 if(USE_MUMPS)
