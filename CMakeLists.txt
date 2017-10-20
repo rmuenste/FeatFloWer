@@ -301,7 +301,8 @@ if(BUILD_METIS)
 endif(BUILD_METIS)
 
 if(USE_OPTICALTWEEZERS)
-  add_subdirectory(extern/libraries/opticaltweezers)
+  set(OPTICALTWEEZERS_LIBRARY True)
+  add_subdirectory(extern/libraries/raytracing)
 endif(USE_OPTICALTWEEZERS)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
