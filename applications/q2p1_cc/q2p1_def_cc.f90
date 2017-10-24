@@ -1109,84 +1109,84 @@ EXTERNAL E013
 ! DAX := A1*DA*DX + A2*DAX 
 ! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
      CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defU,thstep,1d0)
+     qScalar%valU,qScalar%defU,1d0,1d0)
 
      CALL LAX17(A12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defU,thstep,1d0)
+     qScalar%valV,qScalar%defU,1d0,1d0)
 
      CALL LAX17(A13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defU,thstep,1d0)
+     qScalar%valW,qScalar%defU,1d0,1d0)
 
      CALL LAX17(A21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defV,thstep,1d0)
+     qScalar%valU,qScalar%defV,1d0,1d0)
 
      CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defV,thstep,1d0)
+     qScalar%valV,qScalar%defV,1d0,1d0)
 
      CALL LAX17(A23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defV,thstep,1d0)
+     qScalar%valW,qScalar%defV,1d0,1d0)
 
      CALL LAX17(A31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defW,thstep,1d0)
+     qScalar%valU,qScalar%defW,1d0,1d0)
 
      CALL LAX17(A32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defW,thstep,1d0)
+     qScalar%valV,qScalar%defW,1d0,1d0)
 
      CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defW,thstep,1d0)
+     qScalar%valW,qScalar%defW,1d0,1d0)
 
     ELSE
-     qScalar%defU = 0d0
-     qScalar%defV = 0d0
-     qScalar%defW = 0d0
+!     qScalar%defU = 0d0
+!     qScalar%defV = 0d0
+!     qScalar%defW = 0d0
 
-     IF (myMatrixRenewal%M.GE.1) THEN
-      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valU,qScalar%defU,thstep,1d0)
-      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valV,qScalar%defV,thstep,1d0)
-      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valW,qScalar%defW,thstep,1d0)
-     END IF
+!     IF (myMatrixRenewal%M.GE.1) THEN
+!      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valU,qScalar%defU,thstep,1d0)
+!      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valV,qScalar%defV,thstep,1d0)
+!      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valW,qScalar%defW,thstep,1d0)
+!     END IF
 
-     IF (myMatrixRenewal%K.GE.1) THEN
-      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valU,qScalar%defU,thstep,1d0)
-      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valV,qScalar%defV,thstep,1d0)
-      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valW,qScalar%defW,thstep,1d0)
-     END IF
+!     IF (myMatrixRenewal%K.GE.1) THEN
+!      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valU,qScalar%defU,thstep,1d0)
+!      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valV,qScalar%defV,thstep,1d0)
+!      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!      qScalar%valW,qScalar%defW,thstep,1d0)
+!     END IF
 
-!      IF (myMatrixRenewal%D.GE.1) THEN
-!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!       qScalar%valU,qScalar%defU,2d0*thstep,1d0)
-!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!       qScalar%valV,qScalar%defV,2d0*thstep,1d0)
-!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!       qScalar%valW,qScalar%defW,2d0*thstep,1d0)
-!      END IF
+!!      IF (myMatrixRenewal%D.GE.1) THEN
+!!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!!       qScalar%valU,qScalar%defU,2d0*thstep,1d0)
+!!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!!       qScalar%valV,qScalar%defV,2d0*thstep,1d0)
+!!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+!!       qScalar%valW,qScalar%defW,2d0*thstep,1d0)
+!!      END IF
 
-!      CALL ZTIME(tttx0)
-!      ILEV = NLMAX
-!      CALL SETLEV(2)
-     write(*,*)'stress called, which is not adjusted'
-     pause
-     CALL STRESS(qScalar%valU,qScalar%valV,qScalar%valW,&
-     qScalar%defU, qScalar%defV, qScalar%defW,&
-     KWORK(L(LVERT)),KWORK(L(LAREA)),&
-     KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013 ) ! S*u
-!      CALL ZTIME(tttx1)
-!      myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
+!!      CALL ZTIME(tttx0)
+!!      ILEV = NLMAX
+!!      CALL SETLEV(2)
+!     write(*,*)'stress called, which is not adjusted'
+!     pause
+!     CALL STRESS(qScalar%valU,qScalar%valV,qScalar%valW,&
+!     qScalar%defU, qScalar%defV, qScalar%defW,&
+!     KWORK(L(LVERT)),KWORK(L(LAREA)),&
+!     KWORK(L(LEDGE)),DWORK(L(LCORVG)),E013 ) ! S*u
+!!      CALL ZTIME(tttx1)
+!!      myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
     END IF   
    ELSE
 
     CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valU,qScalar%defU,thstep,0d0)
+    qScalar%valU,qScalar%defU,1d0,0d0)
     CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valV,qScalar%defV,thstep,0d0)
+    qScalar%valV,qScalar%defV,1d0,0d0)
     CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valW,qScalar%defW,thstep,0d0)
+    qScalar%valW,qScalar%defW,1d0,0d0)
 
    END IF
 
@@ -1422,7 +1422,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)
   end do
  end do
 
@@ -1462,7 +1462,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)
   end do
  end do
 
@@ -1502,7 +1502,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)
   end do
  end do
 
@@ -1584,11 +1584,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)
   end do
  end do
 
@@ -1623,11 +1623,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)
   end do
  end do
  do i=1,mg_qMat(ILEV)%nu
@@ -1661,11 +1661,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)
   end do
  end do
 
