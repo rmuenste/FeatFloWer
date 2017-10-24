@@ -7,5 +7,6 @@ _mesh/*
 *.par
 *.vtk
 *.swp
+*.pyc
 
 
