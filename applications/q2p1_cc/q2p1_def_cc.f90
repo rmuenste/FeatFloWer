@@ -1106,33 +1106,34 @@ EXTERNAL E013
      qScalar%defU = 0d0
      qScalar%defV = 0d0
      qScalar%defW = 0d0
-
+! DAX := A1*DA*DX + A2*DAX 
+! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
      CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defU,1d0,1d0)
+     qScalar%valU,qScalar%defU,thstep,1d0)
 
      CALL LAX17(A12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defU,1d0,1d0)
+     qScalar%valV,qScalar%defU,thstep,1d0)
 
      CALL LAX17(A13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defU,1d0,1d0)
+     qScalar%valW,qScalar%defU,thstep,1d0)
 
      CALL LAX17(A21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defV,1d0,1d0)
+     qScalar%valU,qScalar%defV,thstep,1d0)
 
      CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defV,1d0,1d0)
+     qScalar%valV,qScalar%defV,thstep,1d0)
 
      CALL LAX17(A23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defV,1d0,1d0)
+     qScalar%valW,qScalar%defV,thstep,1d0)
 
      CALL LAX17(A31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valU,qScalar%defW,1d0,1d0)
+     qScalar%valU,qScalar%defW,thstep,1d0)
 
      CALL LAX17(A32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valV,qScalar%defW,1d0,1d0)
+     qScalar%valV,qScalar%defW,thstep,1d0)
 
      CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     qScalar%valW,qScalar%defW,1d0,1d0)
+     qScalar%valW,qScalar%defW,thstep,1d0)
 
     ELSE
      qScalar%defU = 0d0
@@ -1141,11 +1142,11 @@ EXTERNAL E013
 
      IF (myMatrixRenewal%M.GE.1) THEN
       CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valU,qScalar%defU,1d0,1d0)
+      qScalar%valU,qScalar%defU,thstep,1d0)
       CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valV,qScalar%defV,1d0,1d0)
+      qScalar%valV,qScalar%defV,thstep,1d0)
       CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-      qScalar%valW,qScalar%defW,1d0,1d0)
+      qScalar%valW,qScalar%defW,thstep,1d0)
      END IF
 
      IF (myMatrixRenewal%K.GE.1) THEN
@@ -1181,11 +1182,11 @@ EXTERNAL E013
    ELSE
 
     CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valU,qScalar%defU,+1d0,0d0)
+    qScalar%valU,qScalar%defU,thstep,0d0)
     CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valV,qScalar%defV,+1d0,0d0)
+    qScalar%valV,qScalar%defV,thstep,0d0)
     CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
-    qScalar%valW,qScalar%defW,+1d0,0d0)
+    qScalar%valW,qScalar%defW,thstep,0d0)
 
    END IF
 
@@ -1360,7 +1361,9 @@ TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 INTEGER iLenV,iLenP,jEq,iEq
 INTEGER i,j,ii,jj,k
 CHARACTER cFile*(20)
-REAL*8 dBC
+REAL*8 dBC,dt
+
+dt = tstep
 
 
 IF (myid.ne.0) THEN
@@ -1415,11 +1418,11 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
   end do
  end do
 
@@ -1455,11 +1458,11 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
   end do
  end do
 
@@ -1495,11 +1498,11 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
   end do
  end do
 
@@ -1581,11 +1584,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
   end do
  end do
 
@@ -1620,11 +1623,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
   end do
  end do
  do i=1,mg_qMat(ILEV)%nu
@@ -1658,11 +1661,11 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
   end do
  end do
 
@@ -1827,6 +1830,9 @@ integer ilenp,ilenv,iO1,iO2
 REAL*8,aLLOCATABLE ::  A(:,:)
 CHARACTER cFile*20
 INTEGER iStringPos,iString
+REAL*8 dt
+
+dt = tstep
 
 IF (myid.eq.0) RETURN
 
@@ -1879,7 +1885,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -1907,7 +1913,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -1935,7 +1941,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
