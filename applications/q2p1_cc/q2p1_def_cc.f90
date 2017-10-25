@@ -1096,9 +1096,9 @@ EXTERNAL E013
  qMat     => mg_qMat(ILEV)
  
  lScalar%rhsP(ILEV)%x = 0d0
- qScalar%rhsU = 0d0
- qScalar%rhsV = 0d0
- qScalar%rhsW = 0d0
+! qScalar%rhsU = 0d0
+! qScalar%rhsV = 0d0
+! qScalar%rhsW = 0d0
 
    IF (bNonNewtonian) THEN
     IF(myMatrixRenewal%S.GE.1) THEN
