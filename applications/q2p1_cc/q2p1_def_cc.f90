@@ -294,13 +294,10 @@ REAL*8 daux,tttx1,tttx0,alpha
  ! Build up the rhs
  IF (idef.eq. 1) THEN
 
-   myScalar%defU = 0d0
-   myScalar%defV = 0d0
-   myScalar%defW = 0d0
-
    IF (myMatrixRenewal%M.GE.1) THEN
 
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+
      myScalar%valU,myScalar%defU,1d0,1d0)
 
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
@@ -310,7 +307,6 @@ REAL*8 daux,tttx1,tttx0,alpha
      myScalar%valW,myScalar%defW,1d0,1d0)
 
    END IF
-
 
  END IF
 
