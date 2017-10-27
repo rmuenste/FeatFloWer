@@ -37,6 +37,9 @@ subroutine init_q2p1_ext(log_unit)
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
       CALL SolFromFile(CSTART,1)
+    ELSEIF (ISTART.EQ.3) THEN
+      IF (myid.ne.0) CALL CreateDumpStructures(1)
+      call SolFromFile2(CSTART,1)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
       CALL SolFromFile(CSTART,0)

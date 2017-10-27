@@ -368,6 +368,102 @@ end if
 end subroutine read_vel_sol
 !
 !-------------------------------------------------------------------------------------------------
+! Read the velocity solution from a single file
+!-------------------------------------------------------------------------------------------------
+! @param startFrom A string representation of the start directory 
+! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
+! @param nn the number of mesh elements on level NLMAX 
+! @param nmin NLMIN 
+! @param nmax NLMAX 
+! @param elemmap a map from local to global element index 
+! @param edofs an array of the fine level dofs in a coarse mesh element 
+! @param u the array of u-velocity component 
+! @param v the array of v-velocity component 
+! @param w the array of w-velocity component 
+subroutine read_vel_sol_single(startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, u, v, w)
+use pp3d_mpi, only:myid,coarse
+use var_QuadScalar, only: fieldPtr
+implicit none
+
+
+character(60), intent(in) :: startFrom
+
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+real*8, dimension(:), target :: u
+real*8, dimension(:), target :: v
+real*8, dimension(:), target :: w
+
+! locals
+integer :: iunit = 321
+integer :: istatus
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+integer :: iel
+integer :: global_idx
+integer :: i_local
+integer :: comp
+
+comp = 3
+
+elemCoarse = KNEL(nmin)
+
+! the subdivision level of an element on the 
+! output level, i.e. lvl = 1, iiLev = 0
+! (2**(1) + 1)[#dofs on an edge] * 3[#edges in y] * 3[#layers in z]
+! = (2**(1)+1)**3 = 27
+!
+! Q2 dofs on a cube on level NLMAX+iiLev
+dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
+
+if(myid.ne.0)then
+
+  iunit = iunit + myid
+
+!  call read_sol_vel(startFrom, iiLev, comp, nn,& 
+!                    elemCoarse, dofsInCoarseElement,&
+!                    elemmap, edofs, u, v, w)
+
+! if(myid.eq.1)then
+!    DO i=1,elemCoarse
+!    Write(*,*)i, " :  ", elemmap(i)
+!    END DO
+! end if
+
+ i_local = 1
+ open(unit=iunit, file="velocity.dmp", iostat=istatus, action="read")
+
+ ! skip header
+ READ(iunit,*) 
+
+ DO iel=1,130
+  READ(iunit,"(I3)") global_idx 
+  if(elemmap(i_local) .eq. iel)then
+    ! skip 3 lines
+    READ(iunit,*) 
+    READ(iunit,*) 
+    READ(iunit,*) 
+    if(myid.eq.1)write(*,*)iel, " : ", i_local, " : ", elemmap(i_local)
+    i_local = i_local + 1
+  else
+    READ(iunit,*) 
+    READ(iunit,*) 
+    READ(iunit,*) 
+  end if
+ END DO
+
+ close(iunit)
+
+end if
+
+end subroutine read_vel_sol_single
+!
+!-------------------------------------------------------------------------------------------------
 ! Write a custom q2 field to file 
 !-------------------------------------------------------------------------------------------------
 ! @param fieldName Name of the user-defined field 
