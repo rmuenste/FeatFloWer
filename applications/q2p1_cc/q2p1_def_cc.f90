@@ -295,16 +295,17 @@ REAL*8 daux,tttx1,tttx0,alpha
  IF (idef.eq. 1) THEN
 
    IF (myMatrixRenewal%M.GE.1) THEN
+! DAX := A1*DA*DX + A2*DAX 
+! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
 
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-
-     myScalar%valU,myScalar%defU,1d0,1d0)
-
-     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defV,1d0,1d0)
+     myScalar%valU,myScalar%defU,1d0,0d0)
 
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defW,1d0,1d0)
+     myScalar%valV,myScalar%defV,1d0,0d0)
+
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,1d0,0d0)
 
    END IF
 
