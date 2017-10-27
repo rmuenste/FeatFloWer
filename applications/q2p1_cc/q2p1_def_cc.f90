@@ -299,15 +299,25 @@ REAL*8 daux,tttx1,tttx0,alpha
    myScalar%defW = 0d0
 
    IF (myMatrixRenewal%M.GE.1) THEN
-     myScalar%defU = MMat*myScalar%valU
-     myScalar%defV = MMat*myScalar%valV
-     myScalar%defW = MMat*myScalar%valW
+
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,1d0,1d0)
+
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,1d0,1d0)
+
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,1d0,1d0)
+
    END IF
 
 
  END IF
 
 END SUBROUTINE Matdef_general_QuadScalar_cc
+!
+! ----------------------------------------------
+!
 subroutine output_mata()
 implicit none
 
@@ -321,7 +331,6 @@ implicit none
 CALL OutputMatrix("MatM",qMat,MMat,3)
 
 end subroutine output_mmat
-  
 !
 ! ----------------------------------------------
 !

@@ -130,12 +130,12 @@ END IF
 IF(dout.LE.(timens+1e-10)) THEN
 
   iOGMV = NINT(timens/dtgmv)
-  IF (itns.ne.1) THEN
+!   IF (itns.ne.1) THEN
     CALL ZTIME(myStat%t0)
     CALL myOutput_Profiles(iOGMV)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
-  END IF
+!   END IF
   dout=dout+dtgmv
 
   ! Save intermediate solution to a dump file

@@ -376,7 +376,7 @@ END IF
  CALL ZTIME(tttt0)
 
  CALL CC_mgSolve(QuadSc,LinSc,mfile,iIter,digitcriterion)
-iIterges = iIterges + iIter
+ iIterges = iIterges + iIter
 
  CALL myMPI_Barrier()
  CALL ZTIME(tttt1)

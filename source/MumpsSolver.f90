@@ -551,5 +551,4 @@ integer*4, allocatable, dimension(:), target :: myIRN
   endif
 
 end subroutine MUMPS_solver_Distributed
-
 END MODULE MumpsSolver
