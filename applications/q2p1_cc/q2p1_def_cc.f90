@@ -1590,7 +1590,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1629,7 +1629,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1667,7 +1667,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)
+   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
