@@ -395,9 +395,9 @@ integer, intent(in) :: nmax
 
 integer, dimension(:) :: elemmap
 integer, dimension(:,:) :: edofs
-real*8, dimension(:), target :: u
-real*8, dimension(:), target :: v
-real*8, dimension(:), target :: w
+real*8, dimension(:), intent(inout) :: u
+real*8, dimension(:), intent(inout) :: v
+real*8, dimension(:), intent(inout) :: w
 
 ! locals
 integer :: iunit = 321
@@ -405,9 +405,15 @@ integer :: istatus
 integer :: dofsInCoarseElement
 integer :: elemCoarse
 integer :: iel
+
+integer :: ivt
+integer :: jvt
+
 integer :: global_idx
 integer :: i_local
 integer :: comp
+
+real*8, dimension(:), allocatable :: buf
 
 comp = 3
 
@@ -438,23 +444,56 @@ if(myid.ne.0)then
  i_local = 1
  open(unit=iunit, file="velocity.dmp", iostat=istatus, action="read")
 
+ allocate(buf(dofsInCoarseElement)) 
+
  ! skip header
  READ(iunit,*) 
 
  DO iel=1,130
+
   READ(iunit,"(I3)") global_idx 
+
   if(elemmap(i_local) .eq. iel)then
+
     ! skip 3 lines
-    READ(iunit,*) 
-    READ(iunit,*) 
-    READ(iunit,*) 
+    read(iunit,*) buf(1:dofsInCoarseElement)
+
+    do ivt=1,dofsInCoarseElement
+     jvt = edofs(ivt,iel)
+     !write(*,*)'jvt: ', jvt 
+
+     if(myid.eq.3)then 
+       u(1) = buf(ivt)
+     end if
+
+    end do
+
+    read(iunit,*)
+!    read(iunit,*) buf(1:dofsInCoarseElement)
+!
+!    do ivt=1,dofsInCoarseElement
+!     jvt = edofs(iel,ivt)
+!     v(jvt) = buf(ivt)
+!    end do
+
+    read(iunit,*)
+!    read(iunit,*) buf(1:dofsInCoarseElement)
+!
+!    do ivt=1,dofsInCoarseElement
+!     jvt = edofs(iel,ivt)
+!     w(jvt) = buf(ivt)
+!    end do
+
     if(myid.eq.1)write(*,*)iel, " : ", i_local, " : ", elemmap(i_local)
+!    if(myid.eq.1)write(*,*)buf(1:dofsInCoarseElement)
     i_local = i_local + 1
+
   else
     READ(iunit,*) 
     READ(iunit,*) 
     READ(iunit,*) 
   end if
+
  END DO
 
  close(iunit)

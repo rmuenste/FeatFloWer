@@ -109,11 +109,12 @@ nn = knel(nlmax)
 
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
-
-
 call read_vel_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                          coarse%myELEMLINK,myDump%Vertices,&
                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+call myMPI_Barrier()
+pause
 
 END SUBROUTINE SolFromFile2
 !
