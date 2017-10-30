@@ -132,7 +132,7 @@ ${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
 )
 
 set(postprocessing
-${CMAKE_SOURCE_DIR}/source/postprocessing/solution_output.f90
+${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
 ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
 )
 

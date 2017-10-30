@@ -3,11 +3,14 @@
 
 import os
 import sys
+import re
 
 # Scan what is in the _dump/processor_X folder 
 # for each .dmp field found there
 # read and join the partitioned files to
 # a single file per field 
+
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
 
 def cmp_entries(a, b):
 # sort the tuples in the list element_entries 
@@ -19,8 +22,11 @@ def cmp_entries(a, b):
   else:
     return -1
 
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
 
-def readSingleDumpFile(elem_entries, fileName):
+def readPartitionedField(elem_entries, fileName):
+# reads a single field from the file <fileName>
+# and stores it in elem_entries         
 
   header_info = {}
   header_line = ""
@@ -49,14 +55,14 @@ def readSingleDumpFile(elem_entries, fileName):
         line = line.strip()
         values = line.split(" ")
         entry[1].append(values)
-        #print(values)
-        #print("Number of values in element: " + str(len(values)))
 
       elem_entries.append(entry)
 
     return header_line
 
-def writeAllElements(elem_entries, header, components, fileName):
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
+
+def writeMergedField(elem_entries, header, components, fileName):
   with open(fileName, "w") as f:
     f.write(header)
     for e in elem_entries:
@@ -64,17 +70,31 @@ def writeAllElements(elem_entries, header, components, fileName):
       for i in range(components):
         f.write(" ".join(e[1][i]) + '\n')
 
-#print("Element index: " + str(element_entries[0][0]))
-#  for i in range(int(header_info['Components'])):
-#    print("Component_" + str(i))
-#    print(element_entries[0][1][i])
-  
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
+
+
+
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
+        
+# Parameters for reading and merging the field:
+# Number of processors: 
+# - equal to number of processor_* directories in the folder
+# - the dump folder index 
 
 dir_list = os.listdir("./_dump")
 
-step = 1
+dump_folder_idx = 1
 
-num_processors = len(dir_list)
+step = dump_folder_idx
+
+num_processors = 0
+
+for e in dir_list:
+  m = re.search(r"processor_\d+", e)
+  if m:
+    num_processors = num_processors + 1
+
+print("Found " + str(num_processors) + " processor_ directories")
 
 print("Dump directory: " + str(dir_list))
 
@@ -96,63 +116,15 @@ print("Backup files: " + str(os.listdir(dump_path)))
 header_line = ""
 element_entries = []
 
-#for i in range(1,num_processors+1):
-for i in range(1,5):
-  fileToRead = "./_dump/processor_" + str(i) + "/" + str(step) + "/" + "velocity.dmp"
-  header_line = readSingleDumpFile(element_entries, fileToRead)
-
-    #print("Using directories: " + "./_dump/processor_" + str(i) + "/" + str(step))
-
-element_entries.sort(cmp_entries)
-
-print("Number of elements entries: " + str(len(element_entries)))
-#print("Entry: " + str(element_entries[0]))
-
-with open("./velocity.dmp", "w") as f:
-  f.write(header_line)
-  for e in element_entries:
-    f.write(str(e[0]) + '\n')
-    for i in range(3):
-      f.write(" ".join(e[1][i]) + '\n')
-
-#print("elements: " + str(element_entries[31][0]))
-
-#with open("./_dump/processor_" + str(1) + "/" + str(step) + "/" + "velocity.dmp", "r") as f:
-#  header = f.readline()
-#  print(header)
-#  split_header = header.strip().split(",")
-#  print(split_header)
-#  header_info = {(pair[0]) : (pair[1]) for pair in (l.split(":") for l in split_header)}
-#  print(header_info['Components'])
+#for i in range(1,5):
+#  fileToRead = "./_dump/processor_" + str(i) + "/" + str(step) + "/" + "velocity.dmp"
+#  header_line = readPartitionedField(element_entries, fileToRead)
 #
-#  while True:
-#    line = f.readline()
+#    #print("Using directories: " + "./_dump/processor_" + str(i) + "/" + str(step))
 #
-#    if not line: break
+#element_entries.sort(cmp_entries)
 #
-#    element_idx = int(line)
-#    element_components = []
-#    entry = (element_idx, element_components)
-#    for i in range(int(header_info['Components'])):
-#      line = f.readline()
-#      if not line: break
-#      line = line.strip()
-#      values = line.split(" ")
-#      entry[1].append(values)
-#      #print(values)
-#      #print("Number of values in element: " + str(len(values)))
-#
-#    element_entries.append(entry)
-#
-##print("Element index: " + str(element_entries[0][0]))
 #print("Number of elements entries: " + str(len(element_entries)))
-#print("elements: " + str(element_entries[31][0]))
-##  for i in range(int(header_info['Components'])):
-##    print("Component_" + str(i))
-##    print(element_entries[0][1][i])
-#
-#
-#for i in range(1,num_processors+1):
-#    print("Using directories: " + "./_dump/processor_" + str(i) + "/" + str(step))
-
+#    
+#writeMergedField(element_entries, header_line, header_line['Components'], "velocity.dmp"):
 
