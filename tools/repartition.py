@@ -64,6 +64,7 @@ def readPartitionedField(elem_entries, fileName):
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def writeCombinedField(elem_entries, header, components, fileName):
+
   with open(fileName, "w") as f:
     f.write(header)
     for e in elem_entries:
@@ -88,7 +89,15 @@ def combineField(nprocs,fieldName, path, out_idx):
 
     writeCombinedField(element_entries, header_line, int(header_info['Components']), fieldName)
 
+
   print(fieldName + "\n" + header_info['Components'] + "\n" + header_line)
+
+  del header_info['DofsTotal']
+
+  header_info['NEL'] = len(element_entries)
+  header_string = str(header_info)
+
+  print(header_string)
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -151,9 +160,9 @@ def usage():
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 # Parameters for reading and merging the field:
-# Number of processors:
+# A)Number of processors:
 # - equal to number of processor_* directories in the folder
-# - the dump folder index
+# B)the dump folder index
 
 # The format of a .dmp file is as follows:
 # - it is a list of coarse element entries
@@ -183,8 +192,6 @@ for opt, arg in opts:
         dump_folder_idx = arg
     elif opt in ('-d', '--dump-path'):
         dump_folder_idx = arg
-#    elif opt in ('-p', '--params'):
-#        params = arg
     else:
         usage()
         sys.exit(2)
