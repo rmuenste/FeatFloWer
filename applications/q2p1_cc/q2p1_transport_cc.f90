@@ -300,16 +300,24 @@ thstep = tstep
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
 
-! CALL myOutputMatrix("A11",qMat,AA11mat)
-! CALL myOutputMatrix("A12",qMat,AA12mat)
-! CALL myOutputMatrix("A13",qMat,AA13mat)
-! CALL myOutputMatrix("A21",qMat,AA21mat)
-! CALL myOutputMatrix("A22",qMat,AA22mat)
-! CALL myOutputMatrix("A23",qMat,AA23mat)
-! CALL myOutputMatrix("A31",qMat,AA31mat)
-! CALL myOutputMatrix("A32",qMat,AA32mat)
-! CALL myOutputMatrix("A33",qMat,AA33mat)
-! pause
+! OUTPUT at the beginning
+! CALL myOutputMatrix("AA11",qMat,AA11mat)
+! CALL myOutputMatrix("AA12",qMat,AA12mat)
+! CALL myOutputMatrix("AA13",qMat,AA13mat)
+! CALL myOutputMatrix("AA21",qMat,AA21mat)
+! CALL myOutputMatrix("AA22",qMat,AA22mat)
+! CALL myOutputMatrix("AA23",qMat,AA23mat)
+! CALL myOutputMatrix("AA31",qMat,AA31mat)
+! CALL myOutputMatrix("AA32",qMat,AA32mat)
+! CALL myOutputMatrix("AA33",qMat,AA33mat)
+!
+! CALL myOutputMatrix("Bx",qlMat,BXMat)
+! CALL myOutputMatrix("By",qlMat,BYMat)
+! CALL myOutputMatrix("Bz",qlMat,BZMat)
+! CALL myOutputMatrix("BTx",lqMat,BTXMat)
+! CALL myOutputMatrix("BTy",lqMat,BTYMat)
+! CALL myOutputMatrix("BTz",lqMat,BTZMat)
+
 
  CALL OperatorDeallocation()
 
@@ -494,6 +502,19 @@ IF (stopOne.LT.1d-4) THEN
 END IF
 END DO
 
+
+! OUTPUT at the end
+! CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
+! CALL myOutputMatrix("EA11",qMat,AA11mat)
+! CALL myOutputMatrix("EA12",qMat,AA12mat)
+! CALL myOutputMatrix("EA13",qMat,AA13mat)
+! CALL myOutputMatrix("EA21",qMat,AA21mat)
+! CALL myOutputMatrix("EA22",qMat,AA22mat)
+! CALL myOutputMatrix("EA23",qMat,AA23mat)
+! CALL myOutputMatrix("EA31",qMat,AA31mat)
+! CALL myOutputMatrix("EA32",qMat,AA32mat)
+! CALL myOutputMatrix("EA33",qMat,AA33mat)
+! CALL OperatorDeallocation()
 
 IF (myid.eq.showid) THEN
   WRITE(777,'(7G16.8)') Timens,FORCES_NEW,iIterges,ni
