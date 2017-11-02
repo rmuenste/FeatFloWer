@@ -109,9 +109,28 @@ nn = knel(nlmax)
 
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
+! read in the velocity solution
 call read_vel_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                          coarse%myELEMLINK,myDump%Vertices,&
                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+! read in the pressure solution
+call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
+                          coarse%myELEMLINK,myDump%Elements,&
+                          LinSc%ValP(NLMAX)%x)
+
+FileA='time.dmp'
+call read_time_sol_single(FileA, istep_ns, timens)
+
+!fieldName = "myvel"
+!
+!packed(1)%p => QuadSc%ValU
+!packed(2)%p => QuadSc%ValV
+!packed(3)%p => QuadSc%ValW
+!
+!call read_q2_sol_single(fieldName, cInFile,0,ndof,NLMIN,NLMAX,&
+!                        coarse%myELEMLINK,myDump%Vertices,&
+!                        3, packed)
 
 call myMPI_Barrier()
 pause
@@ -151,31 +170,14 @@ REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 character(60) :: FileA
 character(60) :: FileB
 
-!character(60) :: fieldName
-
-!type(fieldPtr), dimension(3) :: packed
-
 integer :: ndof
 
-!CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 nn = knel(nlmax)
 
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
 
 call read_vel_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
-
-!FileA='orig_v'
-!call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
-
-
-!CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
-!     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
-
-!FileA='orig_p'
-!call write_pres_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
-
-!if(myid.ne.0)LinSc%ValP(NLMAX)%x(:)=0.0
 
 ! read in the pressure solution
 call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
@@ -184,7 +186,6 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 !FileB='new_p'
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-!CALL ReadSol_Time(cInFile)
 call read_time_sol(cInFile, istep_ns, timens)
 
 !fieldName = "myvel"
@@ -194,51 +195,14 @@ call read_time_sol(cInFile, istep_ns, timens)
 !packed(3)%p => QuadSc%ValW
 !
 !call read_q2_sol(fieldName, cInFile,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-!                  3, packed)
+!                 3, packed)
 
 !FileB='new_v'
 !call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
-
 if(bViscoElastic)then
   CALL ReadSol_Visco(cInFile, iLevel)
 end if
-
-! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MESH eXchange on coarse level !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! IF (myid.EQ.0) THEN
-!  CALL CreateDumpStructures(0)
-! ELSE
-!  LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
-!  CALL CreateDumpStructures(LevDif)
-! END IF
-! 
-! ILEV = LinSc%prm%MGprmIn%MedLev
-! CALL SETLEV(2)
-! nLengthV = (2**(ILEV-1)+1)**3
-! nLengthE = KNEL(NLMIN)
-! ALLOCATE(SendVect(3,nLengthV,nLengthE))
-! CALL SendNodeValuesToCoarse(SendVect,DWORK(L(LCORVG)),KWORK(L(LVERT)),nLengthV,nLengthE,NEL,NVT)
-! DEALLOCATE(SendVect)
-! 
-! IF (myid.ne.0) CALL CreateDumpStructures(1)
-! 
-! ! ILEV = NLMIN
-! ! CALL SETLEV(2)
-! ! CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
-! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MESH eXchange on coarse level !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 
-! ILEV=NLMAX
-! CALL SETLEV(2)
-! CALL SetUp_myQ2Coor(DWORK(L(LCORVG)),DWORK(L(LCORAG)),&
-!      KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)))
-! 
-! !!!!!!!!!!!!!!!!!!!!!! ALE !!!!!!!!!!!!!!!!!!!!!!
-! ! CALL StoreOrigCoor(DWORK(L(KLCVG(NLMAX))))
-! !!!!!!!!!!!!!!!!!!!!!! ALE !!!!!!!!!!!!!!!!!!!!!!
-!write(*,*)'Timens: ',timens
-!write(*,*)'Step: ',istep_ns
 
 END SUBROUTINE SolFromFile
 !
