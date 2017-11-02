@@ -415,6 +415,7 @@ integer :: global_idx
 integer :: i_local
 integer :: comp
 integer :: ndof
+character(1024) :: c_buf
 
 real*8, dimension(:), allocatable :: buf
 
@@ -423,6 +424,9 @@ ndof = KNVT(nmax) + KNAT(nmax) + KNET(nmax) + KNEL(nmax)
 comp = 3
 
 elemCoarse = KNEL(nmin)
+
+
+!(TRIM(ADJUSTL(fieldName))//CHAR(0), idx, iiLev, icomp, nn,& 
 
 ! the subdivision level of an element on the 
 ! output level, i.e. lvl = 1, iiLev = 0
@@ -446,7 +450,8 @@ if(myid.ne.0)then
  allocate(buf(dofsInCoarseElement)) 
 
  ! skip header
- READ(iunit,*) 
+ READ(iunit,'(A)')c_buf 
+ write(*,*)TRIM(ADJUSTL(c_buf))
 
  DO iel=1,130
 
