@@ -19,35 +19,45 @@ subroutine init_q2p1_ext(log_unit)
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  CALL General_init_ext(79,log_unit)
+  call General_init_ext(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(log_unit)
+  call Init_QuadScalar_Stuctures(log_unit)
 
-  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
+  IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
 
-  CALL Init_LinScalar
+  call Init_LinScalar
 
-  CALL InitCond_LinScalar()
+  call InitCond_LinScalar()
 
-  IF (ISTART.EQ.0) THEN
+  ! Normal start from inital configuration
+  if (istart.eq.0) then
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call InitCond_QuadScalar()
+    IF(bViscoElastic)call IniProf_ViscoScalar()
+
+  ! Start from a solution on the same lvl
+  ! with the same number of partitions
+  elseif (istart.eq.1) then
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call SolFromFile(CSTART,1)
+
+  ! Start from a solution on a lower lvl
+  ! with the same number of partitions
+  elseif (istart.eq.2)then
+    ! In order to read in from a lower level
+    ! the lower level structures are needed
+    if (myid.ne.0) call CreateDumpStructures(0)
+    call SolFromFile(CSTART,0)
+    call ProlongateSolution()
+    ! Now generate the structures for the actual level 
+    if (myid.ne.0) call CreateDumpStructures(1)
+
+  ! Start from a solution on the same lvl
+  ! with a different number of partitions
+  elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    CALL InitCond_QuadScalar()
-    IF(bViscoElastic)CALL IniProf_ViscoScalar()
-  ELSE
-    IF (ISTART.EQ.1) THEN
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-      CALL SolFromFile(CSTART,1)
-    ELSEIF (ISTART.EQ.3) THEN
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-      call SolFromFile2(CSTART,1)
-    ELSE
-      IF (myid.ne.0) CALL CreateDumpStructures(0)
-      CALL SolFromFile(CSTART,0)
-      CALL ProlongateSolution()
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-    END IF
-  END IF
-
+    call SolFromFile2(CSTART,1)
+  end if
 
 end subroutine init_q2p1_ext
 !

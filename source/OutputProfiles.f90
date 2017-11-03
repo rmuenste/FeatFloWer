@@ -114,26 +114,32 @@ call read_vel_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                          coarse%myELEMLINK,myDump%Vertices,&
                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
+FileA='single_v'
+call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
 ! read in the pressure solution
 call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                           coarse%myELEMLINK,myDump%Elements,&
                           LinSc%ValP(NLMAX)%x)
 
-FileA='time.dmp'
-call read_time_sol_single(FileA, istep_ns, timens)
+!FileB='single_p'
+!call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+!
+!FileA='time.dmp'
+!call read_time_sol_single(FileA, istep_ns, timens)
 
 !fieldName = "myvel"
-!
+
 !packed(1)%p => QuadSc%ValU
 !packed(2)%p => QuadSc%ValV
 !packed(3)%p => QuadSc%ValW
-!
+
 !call read_q2_sol_single(fieldName, cInFile,0,ndof,NLMIN,NLMAX,&
 !                        coarse%myELEMLINK,myDump%Vertices,&
 !                        3, packed)
 
-call myMPI_Barrier()
-pause
+!call myMPI_Barrier()
+!pause
 
 END SUBROUTINE SolFromFile2
 !

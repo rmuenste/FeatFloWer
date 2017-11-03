@@ -417,6 +417,8 @@ integer :: comp
 integer :: ndof
 character(1024) :: c_buf
 
+integer :: nel_coarse_global
+
 real*8, dimension(:), allocatable :: buf
 
 ndof = KNVT(nmax) + KNAT(nmax) + KNET(nmax) + KNEL(nmax)
@@ -440,22 +442,19 @@ if(myid.ne.0)then
 
   iunit = iunit + myid
 
-!  call read_sol_vel(startFrom, iiLev, comp, nn,& 
-!                    elemCoarse, dofsInCoarseElement,&
-!                    elemmap, edofs, u, v, w)
-
  i_local = 1
  open(unit=iunit, file="velocity.dmp", iostat=istatus, action="read")
 
  allocate(buf(dofsInCoarseElement)) 
 
- ! skip header
+ ! read header
  READ(iunit,'(A)')c_buf 
- write(*,*)TRIM(ADJUSTL(c_buf))
 
- DO iel=1,130
+ call parse_header_line(TRIM(ADJUSTL(c_buf))//CHAR(0), nel_coarse_global); 
 
-  READ(iunit,"(I3)") global_idx 
+ DO iel=1,nel_coarse_global
+
+  READ(iunit,"(I4)") global_idx 
 
   if(elemmap(i_local) .eq. iel)then
 
@@ -542,11 +541,13 @@ integer :: global_idx
 integer :: i_local
 integer :: comp
 integer :: ndof
+integer :: nel_coarse_global
 
 real*8, dimension(:), allocatable :: buf
 real*8, dimension(:), allocatable :: buf_dx
 real*8, dimension(:), allocatable :: buf_dy
 real*8, dimension(:), allocatable :: buf_dz
+character(1024) :: c_buf
 
 ndof = KNVT(nmax) + KNAT(nmax) + KNET(nmax) + KNEL(nmax)
 
@@ -573,10 +574,12 @@ if(myid.ne.0)then
   allocate(buf_dy(dofsInCoarseElement)) 
   allocate(buf_dz(dofsInCoarseElement)) 
 
-  ! skip header
-  read(iunit,*) 
+  ! read header
+  read(iunit,'(A)')c_buf 
 
-  do iel=1,130
+  call parse_header_line(TRIM(ADJUSTL(c_buf))//CHAR(0), nel_coarse_global); 
+
+  do iel=1,nel_coarse_global
 
     read(iunit,"(I4)") global_idx 
 
@@ -589,11 +592,11 @@ if(myid.ne.0)then
       read(iunit,*) buf_dz(1:dofsInCoarseElement)
 
       do idof=1,dofsInCoarseElement
-      idx = edofs(i_local,idof)
-      pres(4 * (idx-1) + 1) = buf(idof)
-      pres(4 * (idx-1) + 2) = buf_dx(idof)
-      pres(4 * (idx-1) + 3) = buf_dy(idof)
-      pres(4 * (idx-1) + 4) = buf_dz(idof)
+        idx = edofs(i_local,idof)
+        pres(4 * (idx-1) + 1) = buf(idof)
+        pres(4 * (idx-1) + 2) = buf_dx(idof)
+        pres(4 * (idx-1) + 3) = buf_dy(idof)
+        pres(4 * (idx-1) + 4) = buf_dz(idof)
       end do
 
       i_local = i_local + 1
@@ -831,7 +834,6 @@ end subroutine read_q2_sol
 ! @param edofs a map from local to global element index 
 ! @param edofs an array of the fine level dofs in a coarse mesh element 
 ! @param pres the array of pressure values on lvl NLMAX 
-
 subroutine write_pres_test(fileName, nn, nmin, nmax,elemmap,edofs,pres)
   use pp3d_mpi, only:myid,coarse
   implicit none
