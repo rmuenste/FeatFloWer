@@ -85,40 +85,30 @@ def combineField(nprocs,fieldName, path, out_idx):
 
     element_entries.sort(cmp_entries)
 
-    print("Number of elements entries: " + str(len(element_entries)))
-
-    writeCombinedField(element_entries, header_line, int(header_info['Components']), fieldName)
-
-  print(fieldName + "\n" + header_info['Components'] + "\n" + header_line)
+    #print("Number of elements entries: " + str(len(element_entries)))
 
   del header_info['DofsTotal']
 
   header_info['NEL'] = len(element_entries)
   header_string = str(header_info)
 
-  print(header_string)
-
-  header_bla=[]
+  header_l=[]
   for k, v in header_info.iteritems():
     entry=[]
     entry.append(str(k))
     entry.append(str(v))
     str_entry = ":".join(entry)
-    header_bla.append(str_entry)
+    header_l.append(str_entry)
 
-  print(header_bla) 
-  print(",".join(header_bla)) 
-
+  #print("Header_string:") 
+  #print(",".join(header_l)) 
+  header_mod = ",".join(header_l) 
+  header_mod = header_mod + "\n"
+  writeCombinedField(element_entries, header_mod, int(header_info['Components']), fieldName)
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 def getDumpFields(nprocs, path, out_idx):
-
-  print("Found " + str(nprocs) + " processor_ directories")
-
-  print("Dump directory: " + str(dir_list))
-
-  print("Number of processors: " + str(num_processors))
 
   dump_path = path + "/processor_" + str(1) + "/" + str(out_idx)
 
