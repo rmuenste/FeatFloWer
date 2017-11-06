@@ -1,4 +1,4 @@
-module sol_out
+module solution_io
 USE var_QuadScalar,ONLY:knvt,knet,knat,knel
 !-------------------------------------------------------------------------------------------------
 ! A module for saving the solution values to 
@@ -356,6 +356,7 @@ elemCoarse = KNEL(nmin)
 !
 ! Q2 dofs on a cube on level NLMAX+iiLev
 dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
+write(*,*)'dofsInCoarseElement: ', dofsInCoarseElement
 
 if(myid.ne.0)then
 
@@ -858,7 +859,7 @@ subroutine write_pres_test(fileName, nn, nmin, nmax,elemmap,edofs,pres)
   integer :: jvt
   integer :: iiLev = 0
 
-  elemCoarse = KNEL(nmin)
+  elemCoarse = KNEL(nmax)
 
   if(myid.ne.0)then
     write(idName,'(I0)')myid
@@ -916,7 +917,7 @@ subroutine write_vel_test(fileName, nn, nmin, nmax,elemmap,edofs,u, v, w)
   integer :: iiLev = 0
   character(20) :: idName
 
-  elemCoarse = KNEL(nmin)
+  elemCoarse = KNEL(nmax)
 
   if(myid.ne.0)then
     write(idName,'(I0)')myid
@@ -1042,7 +1043,6 @@ subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
 
   include 'defs_include.h'
   use var_QuadScalar, only: istep_ns
-  use post_utils, only: TimeStepCtrl
 
   implicit none
 
@@ -1092,6 +1092,58 @@ subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
+!
+!-------------------------------------------------------------------------------------------------
+! A simple time stepping routine
+!-------------------------------------------------------------------------------------------------
+! @param dt The current time step 
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
 
-end module sol_out
+  USE PP3D_MPI,only :myid,ShowID
+
+  INTEGER IADTIM
+
+  REAL*8  TIMEMX,DTMIN,DTMAX
+
+  COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,IADTIM
+
+  integer, intent(in) :: filehandle
+
+  integer :: inlU,inlT
+  integer :: iMem,nMEm=2
+  real*8  :: dt, dt_old
+  character(len=9) :: char_dt
+  data iMem/0/
+
+  IF (IADTIM.EQ.0) RETURN
+
+  iMem = iMem + 1
+  dt_old = dt
+  IF (((inlU.GT.3).OR. (inlT.GT.5)).AND.iMem.GE.nMem) THEN
+    dt=MAX(dt/1.1d0,DTMIN)
+    WRITE(char_dt,'(D9.2)') dt
+    READ (char_dt,'(D9.2)') dt
+  END IF
+  IF (((inlU.LT.3).AND.(inlT.LT.4)).AND.iMem.GE.nMem) THEN
+    dt=MIN(1.1d0*dt,DTMAX)
+    WRITE(char_dt,'(D9.2)') dt
+    READ (char_dt,'(D9.2)') dt
+  END IF
+
+  IF (dt.NE.dt_old.AND.myid.eq.ShowID) THEN
+    WRITE(MTERM,1) dt_old,dt
+    WRITE(filehandle,1) dt_old,dt
+  END IF
+
+  IF (dt.NE.dt_old) iMem = 0
+
+  1  FORMAT('Time step change from ',D9.2,' to ',D9.2)
+
+END SUBROUTINE TimeStepCtrl
+
+end module solution_io
 

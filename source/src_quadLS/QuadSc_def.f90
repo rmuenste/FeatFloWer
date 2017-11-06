@@ -2174,7 +2174,7 @@ IF (myid.ne.0) THEN
  MyMG%cVariable = "Pressure"
 
  ndof = 4*KNEL(K)
-!  lScalar%valP(K)%x = lScalar%valP(J)%x(1:ndof)
+ lScalar%valP(K)%x = lScalar%valP(J)%x(1:ndof)
 !  CALL ll21(lScalar%valP(K)%x,ndof,dNorm)
 !  WRITE(*,*) myid, "dnorm1 is: ", dnorm
  MyMG%X   => lScalar%valP

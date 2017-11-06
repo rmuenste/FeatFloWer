@@ -6,13 +6,14 @@ subroutine init_q2p1_ext(log_unit)
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
+    LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File
+  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
 
@@ -49,6 +50,7 @@ subroutine init_q2p1_ext(log_unit)
     if (myid.ne.0) call CreateDumpStructures(0)
     call SolFromFile(CSTART,0)
     call ProlongateSolution()
+
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
 
@@ -56,7 +58,7 @@ subroutine init_q2p1_ext(log_unit)
   ! with a different number of partitions
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFile2(CSTART,1)
+    call SolFromFileRepart(CSTART,1)
   end if
 
 end subroutine init_q2p1_ext

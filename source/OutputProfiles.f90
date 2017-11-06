@@ -4,7 +4,7 @@ USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
-use sol_out, only: write_pres_sol,write_vel_sol,write_time_sol,write_q2_sol
+use solution_io, only: write_pres_sol,write_vel_sol,write_time_sol,write_q2_sol
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 use, intrinsic :: iso_c_binding
 
@@ -72,13 +72,13 @@ END SUBROUTINE SolToFile
 !
 ! ----------------------------------------------
 !
-SUBROUTINE SolFromFile2(cInFile,iLevel)
+SUBROUTINE SolFromFileRepart(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
-use sol_out
+use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
 IMPLICIT NONE
@@ -138,20 +138,17 @@ call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !                        coarse%myELEMLINK,myDump%Vertices,&
 !                        3, packed)
 
-!call myMPI_Barrier()
-!pause
-
-END SUBROUTINE SolFromFile2
+END SUBROUTINE SolFromFileRepart
 !
 ! ----------------------------------------------
 !
-SUBROUTINE SolFromFile(cInFile,iLevel)
+SUBROUTINE DumpAllValues(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
-use sol_out
+use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
 IMPLICIT NONE
@@ -183,6 +180,53 @@ nn = knel(nlmax)
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
 
+FileA='dump_v'
+call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+FileB='dump_p'
+call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
+
+END SUBROUTINE DumpAllValues
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFile(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE def_FEAT
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE Transport_Q1,ONLY:Tracer
+use solution_io
+use var_QuadScalar, only: myDump,istep_ns,fieldPtr
+
+IMPLICIT NONE
+INTEGER mfile,iLevel,nn
+character(60) :: cInFile
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+character(60) :: FileA
+character(60) :: FileB
+
+integer :: ndof
+
+nn = knel(nlmax)
+
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
+
 call read_vel_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
 ! read in the pressure solution
@@ -192,7 +236,7 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 !FileB='new_p'
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-call read_time_sol(cInFile, istep_ns, timens)
+!call read_time_sol(cInFile, istep_ns, timens)
 
 !fieldName = "myvel"
 !

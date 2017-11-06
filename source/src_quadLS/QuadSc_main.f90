@@ -492,36 +492,36 @@ INTEGER i
 ILEV=NLMAX
 CALL SETLEV(2)
 
- ! Set initial conditions
- IF (myid.ne.0)then
+! Set initial conditions
+IF (myid.ne.0)then
   IF (myFBM%nParticles.GT.0) THEN
     write(*,*)'number of particles: ',myFBM%nParticles
-!    CALL updateFBMGeometry()
+    !    CALL updateFBMGeometry()
   END IF
- end if
+end if
 
- CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
+CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
 
- ILEV=NLMAX
- CALL SETLEV(2)
- CALL SetUp_myQ2Coor(mg_mesh%level(ilev)%dcorvg,&
-                     mg_mesh%level(ilev)%dcorag,&
-                     mg_mesh%level(ilev)%kvert,&
-                     mg_mesh%level(ilev)%karea,&
-                     mg_mesh%level(ilev)%kedge)
+ILEV=NLMAX
+CALL SETLEV(2)
+CALL SetUp_myQ2Coor(mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%dcorag,&
+  mg_mesh%level(ilev)%kvert,&
+  mg_mesh%level(ilev)%karea,&
+  mg_mesh%level(ilev)%kedge)
 
 CALL StoreOrigCoor(mg_mesh%level(NLMAX)%dcorvg)
 
 IF (myid.ne.0) THEN
 
- CALL QuadScalar_InitCond()
+  CALL QuadScalar_InitCond()
 
- ! Set dirichlet boundary conditions on the solution
- CALL Boundary_QuadScalar_Val()
+  ! Set dirichlet boundary conditions on the solution
+  CALL Boundary_QuadScalar_Val()
 
- ! Set initial conditions
- CALL LinScalar_InitCond(mg_mesh%level(ilev)%dcorvg,&
-                         mg_mesh%level(ilev)%kvert)
+  ! Set initial conditions
+  CALL LinScalar_InitCond(mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%kvert)
 
 END IF
 
@@ -530,151 +530,151 @@ END SUBROUTINE InitCond_QuadScalar
 ! ----------------------------------------------
 !
 SUBROUTINE LinScalar_InitCond(dcorvg,kvert)
-REAL*8 dcorvg(3,*)
-INTEGER kvert (8,*)
-REAL*8 PX,PY,PZ,dd
-INTEGER i,j,ivt,iPos
+  REAL*8 dcorvg(3,*)
+  INTEGER kvert (8,*)
+  REAL*8 PX,PY,PZ,dd
+  INTEGER i,j,ivt,iPos
 
-DO i=1,nel
- PX = 0d0
- PY = 0d0
- PZ = 0d0
+  DO i=1,nel
+  PX = 0d0
+  PY = 0d0
+  PZ = 0d0
 
- DO j =1,8
+  DO j =1,8
   ivt = kvert(j,i)
   PX = PX + 0.125d0*dcorvg(1,ivt)
   PY = PY + 0.125d0*dcorvg(2,ivt)
   PZ = PZ + 0.125d0*dcorvg(3,ivt)
- END DO
- iPos = 4*(i-1)
- CALL GetPresInitVal(PX,PY,PZ,LinSc%valP(NLMAX)%x(iPos+1:iPos+4))
-END DO
+  END DO
+  iPos = 4*(i-1)
+  CALL GetPresInitVal(PX,PY,PZ,LinSc%valP(NLMAX)%x(iPos+1:iPos+4))
+  END DO
 
 END SUBROUTINE LinScalar_InitCond
 !
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_Knpr()
-INTEGER i,ndof
+  INTEGER i,ndof
 
- ndof  = mg_mesh%level(ilev)%nvt+&
-         mg_mesh%level(ilev)%net+&
-         mg_mesh%level(ilev)%nat+&
-         mg_mesh%level(ilev)%nel
+  ndof  = mg_mesh%level(ilev)%nvt+&
+    mg_mesh%level(ilev)%net+&
+    mg_mesh%level(ilev)%nat+&
+    mg_mesh%level(ilev)%nel
 
-QuadSc%knprU(ILEV)%x = 0
-QuadSc%knprV(ILEV)%x = 0
-QuadSc%knprW(ILEV)%x = 0
+  QuadSc%knprU(ILEV)%x = 0
+  QuadSc%knprV(ILEV)%x = 0
+  QuadSc%knprW(ILEV)%x = 0
 
-DO i=1,ndof
+  DO i=1,ndof
 
- IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).GT.0) THEN
-  QuadSc%knprU(ILEV)%x(i) = 1
-  QuadSc%knprV(ILEV)%x(i) = 1
-  QuadSc%knprW(ILEV)%x(i) = 1
- END IF
+  IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).GT.0) THEN
+    QuadSc%knprU(ILEV)%x(i) = 1
+    QuadSc%knprV(ILEV)%x(i) = 1
+    QuadSc%knprW(ILEV)%x(i) = 1
+  END IF
 
- IF (myBoundary%bSymmetry(1,i)) THEN
-  QuadSc%knprU(ILEV)%x(i) = 1
-!  WRITE(*,*) myid,"Symmetry u"
- END IF
- IF (myBoundary%bSymmetry(2,i)) THEN
-  QuadSc%knprV(ILEV)%x(i) = 1
-!  WRITE(*,*) myid,"Symmetry v"
- END IF
- IF (myBoundary%bSymmetry(3,i)) THEN
-  QuadSc%knprW(ILEV)%x(i) = 1
-!  WRITE(*,*) myid,"Symmetry w"
- END IF
+  IF (myBoundary%bSymmetry(1,i)) THEN
+    QuadSc%knprU(ILEV)%x(i) = 1
+    !  WRITE(*,*) myid,"Symmetry u"
+  END IF
+  IF (myBoundary%bSymmetry(2,i)) THEN
+    QuadSc%knprV(ILEV)%x(i) = 1
+    !  WRITE(*,*) myid,"Symmetry v"
+  END IF
+  IF (myBoundary%bSymmetry(3,i)) THEN
+    QuadSc%knprW(ILEV)%x(i) = 1
+    !  WRITE(*,*) myid,"Symmetry w"
+  END IF
 
-END DO
+  END DO
 
-IF (myid.eq.0) THEN
-! bNoOutFlow = .TRUE.
-! bNoOutFlow = .FALSE.
-! DO i=1,nvt+net+nat+nel
-!  iBndr = QuadScBoundary(i)
-!  inprU  = QuadSc%knprU(ILEV)%x(i)
-!  inprV  = QuadSc%knprV(ILEV)%x(i)
-!  inprW  = QuadSc%knprW(ILEV)%x(i)
-!  IF (iBndr.EQ.1.AND.inprU.EQ.0) bNoOutFlow = .FALSE.
-! END DO
-END IF
+  IF (myid.eq.0) THEN
+    ! bNoOutFlow = .TRUE.
+    ! bNoOutFlow = .FALSE.
+    ! DO i=1,nvt+net+nat+nel
+    !  iBndr = QuadScBoundary(i)
+    !  inprU  = QuadSc%knprU(ILEV)%x(i)
+    !  inprV  = QuadSc%knprV(ILEV)%x(i)
+    !  inprW  = QuadSc%knprW(ILEV)%x(i)
+    !  IF (iBndr.EQ.1.AND.inprU.EQ.0) bNoOutFlow = .FALSE.
+    ! END DO
+  END IF
 
 END SUBROUTINE QuadScalar_Knpr
 !
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
-REAL*8  dcorvg(3,*),dcorag(3,*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-REAL*8 PX,PY,PZ,DIST
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-INTEGER NeighE(2,12),NeighA(4,6)
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  REAL*8  dcorvg(3,*),dcorag(3,*)
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  REAL*8 PX,PY,PZ,DIST
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-DO i=1,nvt
- PX = dcorvg(1,I)
- PY = dcorvg(2,I)
- PZ = dcorvg(3,I)
- CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i))
-END DO
+  DO i=1,nvt
+  PX = dcorvg(1,I)
+  PY = dcorvg(2,I)
+  PZ = dcorvg(3,I)
+  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i))
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,12
+  k=1
+  DO i=1,nel
+  DO j=1,12
   IF (k.eq.kedge(j,i)) THEN
-   ivt1 = kvert(NeighE(1,j),i)
-   ivt2 = kvert(NeighE(2,j),i)
-   PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-   PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-   PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k))
-   k = k + 1
+    ivt1 = kvert(NeighE(1,j),i)
+    ivt2 = kvert(NeighE(2,j),i)
+    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+    CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k))
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,6
+  k=1
+  DO i=1,nel
+  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   ivt1 = kvert(NeighA(1,j),i)
-   ivt2 = kvert(NeighA(2,j),i)
-   ivt3 = kvert(NeighA(3,j),i)
-   ivt4 = kvert(NeighA(4,j),i)
-   PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-   PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-   PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k))
-   k = k + 1
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+    CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k))
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-! DO i=1,nat
-!  PX = dcorag(1,I)
-!  PY = dcorag(2,I)
-!  PZ = dcorag(3,I)
-!  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+i),Distance(nvt+net+i))
-! END DO
+  ! DO i=1,nat
+  !  PX = dcorag(1,I)
+  !  PY = dcorag(2,I)
+  !  PZ = dcorag(3,I)
+  !  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+i),Distance(nvt+net+i))
+  ! END DO
 
-DO i=1,nel
- PX = 0d0
- PY = 0d0
- PZ = 0d0
- DO j=1,8
+  DO i=1,nel
+  PX = 0d0
+  PY = 0d0
+  PZ = 0d0
+  DO j=1,8
   PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
- END DO
- CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i))
-END DO
+  END DO
+  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i))
+  END DO
 
-do i=1,nvt+net+nat+nel
+  do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
-end do
+  end do
 
 
 END SUBROUTINE QuadScalar_FictKnpr
@@ -682,304 +682,304 @@ END SUBROUTINE QuadScalar_FictKnpr
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_MixerKnpr(dcorvg,dcorag,kvert,kedge,karea)
-REAL*8  dcorvg(3,*),dcorag(3,*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-REAL*8 PX,PY,PZ,DIST
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-INTEGER NeighE(2,12),NeighA(4,6)
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  REAL*8  dcorvg(3,*),dcorag(3,*)
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  REAL*8 PX,PY,PZ,DIST
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-DO i=1,nvt
- PX = dcorvg(1,I)
- PY = dcorvg(2,I)
- PZ = dcorvg(3,I)
- CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(i),MixerKNPR(i),Distamce(i),timens)
-END DO
+  DO i=1,nvt
+  PX = dcorvg(1,I)
+  PY = dcorvg(2,I)
+  PZ = dcorvg(3,I)
+  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(i),MixerKNPR(i),Distamce(i),timens)
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,12
+  k=1
+  DO i=1,nel
+  DO j=1,12
   IF (k.eq.kedge(j,i)) THEN
-   ivt1 = kvert(NeighE(1,j),i)
-   ivt2 = kvert(NeighE(2,j),i)
-   PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-   PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-   PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),MixerKNPR(nvt+k),Distamce(nvt+k),timens)
-   k = k + 1
+    ivt1 = kvert(NeighE(1,j),i)
+    ivt2 = kvert(NeighE(2,j),i)
+    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+    CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),MixerKNPR(nvt+k),Distamce(nvt+k),timens)
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,6
+  k=1
+  DO i=1,nel
+  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   ivt1 = kvert(NeighA(1,j),i)
-   ivt2 = kvert(NeighA(2,j),i)
-   ivt3 = kvert(NeighA(3,j),i)
-   ivt4 = kvert(NeighA(4,j),i)
-   PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-   PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-   PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),MixerKNPR(nvt+net+k),Distamce(nvt+net+k),timens)
-   k = k + 1
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+    CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),MixerKNPR(nvt+net+k),Distamce(nvt+net+k),timens)
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-! DO i=1,nat
-!  PX = dcorag(1,I)
-!  PY = dcorag(2,I)
-!  PZ = dcorag(3,I)
-!  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),MixerKNPR(nvt+net+i),Distamce(nvt+net+i),timens)
-! END DO
+  ! DO i=1,nat
+  !  PX = dcorag(1,I)
+  !  PY = dcorag(2,I)
+  !  PZ = dcorag(3,I)
+  !  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),MixerKNPR(nvt+net+i),Distamce(nvt+net+i),timens)
+  ! END DO
 
-DO i=1,nel
- PX = 0d0
- PY = 0d0
- PZ = 0d0
- DO j=1,8
+  DO i=1,nel
+  PX = 0d0
+  PY = 0d0
+  PZ = 0d0
+  DO j=1,8
   PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
- END DO
- CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
-END DO
+  END DO
+  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
+  END DO
 
 END SUBROUTINE QuadScalar_MixerKnpr
 !
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_InitCond()
-REAL*8 PX,PY,PZ
-INTEGER i,ndof
+  REAL*8 PX,PY,PZ
+  INTEGER i,ndof
 
-ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
-       mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
+  ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
+    mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
 
-DO i=1,ndof
- PX = myQ2Coor(1,I)
- PY = myQ2Coor(2,I)
- PZ = myQ2Coor(3,I)
- CALL GetVeloInitVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i))
-END DO
+  DO i=1,ndof
+  PX = myQ2Coor(1,I)
+  PY = myQ2Coor(2,I)
+  PZ = myQ2Coor(3,I)
+  CALL GetVeloInitVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i))
+  END DO
 
 END SUBROUTINE QuadScalar_InitCond
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Def()
-INTEGER i
+  INTEGER i
 
-DO i=1,QuadSc%ndof
+  DO i=1,QuadSc%ndof
 
- IF (QuadSc%knprU(ILEV)%x(i).eq.1) QuadSc%defU(i) = 0d0
- IF (QuadSc%knprV(ILEV)%x(i).eq.1) QuadSc%defV(i) = 0d0
- IF (QuadSc%knprW(ILEV)%x(i).eq.1) QuadSc%defW(i) = 0d0
+  IF (QuadSc%knprU(ILEV)%x(i).eq.1) QuadSc%defU(i) = 0d0
+  IF (QuadSc%knprV(ILEV)%x(i).eq.1) QuadSc%defV(i) = 0d0
+  IF (QuadSc%knprW(ILEV)%x(i).eq.1) QuadSc%defW(i) = 0d0
 
- IF (FictKNPR(i).ne.0) THEN
-  QuadSc%defU(i) = 0d0
-  QuadSc%defV(i) = 0d0
-  QuadSc%defW(i) = 0d0
- END IF
- IF (MixerKNPR(i).ne.0) THEN
-  QuadSc%defU(i) = 0d0
-  QuadSc%defV(i) = 0d0
-  QuadSc%defW(i) = 0d0
- END IF
-END DO
+  IF (FictKNPR(i).ne.0) THEN
+    QuadSc%defU(i) = 0d0
+    QuadSc%defV(i) = 0d0
+    QuadSc%defW(i) = 0d0
+  END IF
+  IF (MixerKNPR(i).ne.0) THEN
+    QuadSc%defU(i) = 0d0
+    QuadSc%defV(i) = 0d0
+    QuadSc%defW(i) = 0d0
+  END IF
+  END DO
 
 END SUBROUTINE Boundary_QuadScalar_Def
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Val()
-implicit none
-REAL*8 PX,PY,PZ
-INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
+  implicit none
+  REAL*8 PX,PY,PZ
+  INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
 
-ilev = NLMAX
-ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
-       mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
+  ilev = NLMAX
+  ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
+    mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
-DO i=1,ndof
- PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
- inpr = 0
+  DO i=1,ndof
+  PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
+  inpr = 0
 
- IF (QuadSc%knprU(ilev)%x(i).EQ.1) QuadSc%valU(i)=0d0
- IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
- IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
+  IF (QuadSc%knprU(ilev)%x(i).EQ.1) QuadSc%valU(i)=0d0
+  IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
+  IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
 
- IF (myBoundary%iInflow(i).GT.0) THEN 
-  inpr = 1
-  iType = myBoundary%iInflow(i)
-  CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
- END IF
- finpr = FictKNPR(i)
- minpr = MixerKNPR(i)
- IF (finpr.ne.0.and.inpr.eq.0) THEN
-  CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
- END IF
- IF (minpr.ne.0.and.inpr.eq.0) THEN
-  CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
- END IF
-END DO
+  IF (myBoundary%iInflow(i).GT.0) THEN 
+    inpr = 1
+    iType = myBoundary%iInflow(i)
+    CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
+  END IF
+  finpr = FictKNPR(i)
+  minpr = MixerKNPR(i)
+  IF (finpr.ne.0.and.inpr.eq.0) THEN
+    CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
+  END IF
+  IF (minpr.ne.0.and.inpr.eq.0) THEN
+    CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
+  END IF
+  END DO
 
 END SUBROUTINE Boundary_QuadScalar_Val
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
-           KNPRU,KNPRV,KNPRW,NDOF)
-REAL*8  DA11(*),DA22(*),DA33(*)
-INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
+    KNPRU,KNPRV,KNPRW,NDOF)
+  REAL*8  DA11(*),DA22(*),DA33(*)
+  INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
 
-DO I=1,NDOF
- IF (KNPRU(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+  DO I=1,NDOF
+  IF (KNPRU(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA11(ICOL) = 0d0
-   END DO
- END IF
- IF (KNPRV(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+    END DO
+  END IF
+  IF (KNPRV(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA22(ICOL) = 0d0
-   END DO
- END IF
- IF (KNPRW(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+    END DO
+  END IF
+  IF (KNPRW(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA33(ICOL) = 0d0
-   END DO
- END IF
-END DO
+    END DO
+  END IF
+  END DO
 
-DO I=1,NDOF
- IF (FictKNPR(I).NE.0.OR.MixerKNPR(I).NE.0) THEN
-!    DA(KLD(I))=1d-8
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+  DO I=1,NDOF
+  IF (FictKNPR(I).NE.0.OR.MixerKNPR(I).NE.0) THEN
+    !    DA(KLD(I))=1d-8
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA11(ICOL)=0E0
     DA22(ICOL)=0E0
     DA33(ICOL)=0E0
-   END DO
- END IF
-END DO
+    END DO
+  END IF
+  END DO
 
 END SUBROUTINE Boundary_QuadScalar_Mat
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Mat_9(DA11,DA22,DA33,DA12,DA13,DA23,DA21,DA31,DA32,&
-           KLD,KNPRU,KNPRV,KNPRW,NDOF)
-REAL*8 DA11(*),DA22(*),DA33(*),DA12(*),DA13(*),DA23(*),DA21(*),DA31(*),DA32(*)
-INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
+    KLD,KNPRU,KNPRV,KNPRW,NDOF)
+  REAL*8 DA11(*),DA22(*),DA33(*),DA12(*),DA13(*),DA23(*),DA21(*),DA31(*),DA32(*)
+  INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
 
-DO I=1,NDOF
- IF (KNPRU(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DA12(ICOL) = 0d0
-   DA13(ICOL) = 0d0
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+  DO I=1,NDOF
+  IF (KNPRU(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DA12(ICOL) = 0d0
+    DA13(ICOL) = 0d0
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA11(ICOL) = 0d0
     DA12(ICOL) = 0d0
     DA13(ICOL) = 0d0
-   END DO
- END IF
- IF (KNPRV(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DA23(ICOL) = 0d0
-   DA21(ICOL) = 0d0
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+    END DO
+  END IF
+  IF (KNPRV(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DA23(ICOL) = 0d0
+    DA21(ICOL) = 0d0
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA22(ICOL) = 0d0
     DA23(ICOL) = 0d0
     DA21(ICOL) = 0d0
-   END DO
- END IF
- IF (KNPRW(I).EQ.1) THEN
-   ICOL = KLD(I)
-   DA31(ICOL) = 0d0
-   DA32(ICOL) = 0d0
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
+    END DO
+  END IF
+  IF (KNPRW(I).EQ.1) THEN
+    ICOL = KLD(I)
+    DA31(ICOL) = 0d0
+    DA32(ICOL) = 0d0
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA33(ICOL) = 0d0
     DA31(ICOL) = 0d0
     DA32(ICOL) = 0d0
-   END DO
- END IF
-END DO
+    END DO
+  END IF
+  END DO
 
-DO I=1,NDOF
- IF (FictKNPR(I).NE.0.OR.MixerKNPR(I).NE.0) THEN
-   ICOL = KLD(I)
-   DA12(ICOL) = 0d0
-   DA13(ICOL) = 0d0
-   DA23(ICOL) = 0d0
-   DA21(ICOL) = 0d0
-   DA31(ICOL) = 0d0
-   DA32(ICOL) = 0d0
-   DO ICOL=KLD(I)+1,KLD(I+1)-1
-    DA11(ICOL) = 0d0
-    DA22(ICOL) = 0d0
-    DA33(ICOL) = 0d0
+  DO I=1,NDOF
+  IF (FictKNPR(I).NE.0.OR.MixerKNPR(I).NE.0) THEN
+    ICOL = KLD(I)
     DA12(ICOL) = 0d0
     DA13(ICOL) = 0d0
     DA23(ICOL) = 0d0
     DA21(ICOL) = 0d0
     DA31(ICOL) = 0d0
     DA32(ICOL) = 0d0
-   END DO
- END IF
-END DO
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
+    DA11(ICOL) = 0d0
+    DA22(ICOL) = 0d0
+    DA33(ICOL) = 0d0
+    DA12(ICOL) = 0d0
+    DA13(ICOL) = 0d0
+    DA23(ICOL) = 0d0
+    DA21(ICOL) = 0d0
+    DA31(ICOL) = 0d0
+    DA32(ICOL) = 0d0
+    END DO
+  END IF
+  END DO
 
 END SUBROUTINE Boundary_QuadScalar_Mat_9
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Velocity_Correction()
-INTEGER i
+  INTEGER i
 
-! *** Update of U = U~ - k M^-1 B P 
+  ! *** Update of U = U~ - k M^-1 B P 
 
-CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%ValP(NLMAX)%x,&
-     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,-TSTEP,0d0)
+  CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%ValP(NLMAX)%x,&
+    QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,-TSTEP,0d0)
 
-CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
 
-CALL Boundary_QuadScalar_Def()
+  CALL Boundary_QuadScalar_Def()
 
-DO I=1,QuadSc%ndof
- QuadSc%valU(i) = QuadSc%valU(i) - QuadSc%defU(i)/MlRhoPmat(i)
- QuadSc%valV(i) = QuadSc%valV(i) - QuadSc%defV(i)/MlRhoPmat(i)
- QuadSc%valW(i) = QuadSc%valW(i) - QuadSc%defW(i)/MlRhoPmat(i)
-END DO
+  DO I=1,QuadSc%ndof
+  QuadSc%valU(i) = QuadSc%valU(i) - QuadSc%defU(i)/MlRhoPmat(i)
+  QuadSc%valV(i) = QuadSc%valV(i) - QuadSc%defV(i)/MlRhoPmat(i)
+  QuadSc%valW(i) = QuadSc%valW(i) - QuadSc%defW(i)/MlRhoPmat(i)
+  END DO
 
 END SUBROUTINE Velocity_Correction
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Pressure_Correction()
-INTEGER I
-real*8 dR
+  INTEGER I
+  real*8 dR
 
-DO I=1,lMat%nu
- LinSc%valP(NLMAX)%x(i) = LinSc%valP(NLMAX)%x(i) + LinSc%valP_old(i)
-END DO
+  DO I=1,lMat%nu
+  LinSc%valP(NLMAX)%x(i) = LinSc%valP(NLMAX)%x(i) + LinSc%valP_old(i)
+  END DO
 
-! ! Set dirichlet boundary conditions on the solution
-! CALL Boundary_LinScalar_Val(DWORK(L(LCORVG)))
+  ! ! Set dirichlet boundary conditions on the solution
+  ! CALL Boundary_LinScalar_Val(DWORK(L(LCORVG)))
 
 END SUBROUTINE Pressure_Correction
 !
 ! ----------------------------------------------
 !
 SUBROUTINE AddPressureGradient()
-INTEGER I,J,IEL
-REAL*8 ddx,ddy,ddz,ddp
+  INTEGER I,J,IEL
+  REAL*8 ddx,ddy,ddz,ddp
 
-CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
+  CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
 
 END SUBROUTINE AddPressureGradient
@@ -987,73 +987,73 @@ END SUBROUTINE AddPressureGradient
 ! ----------------------------------------------
 !
 SUBROUTINE AddGravForce
-INTEGER I,LINT
-REAL*8 DAUX
-EXTERNAL E013
+  INTEGER I,LINT
+  REAL*8 DAUX
+  EXTERNAL E013
 
-ILEV=NLMAX
-CALL SETLEV(2)
+  ILEV=NLMAX
+  CALL SETLEV(2)
 
-DAUX=SQRT(Properties%Gravity(1)**2d0+Properties%Gravity(2)**2d0+Properties%Gravity(3)**2d0)
+  DAUX=SQRT(Properties%Gravity(1)**2d0+Properties%Gravity(2)**2d0+Properties%Gravity(3)**2d0)
 
-IF (DAUX.GT.0d0) THEN
- CALL Grav_QuadSc(QuadSc%defU,QuadSc%defV,QuadSc%defW,mgDensity(ILEV)%x,&
-                  Properties%Gravity,QuadSc%ndof,&
-                  mg_mesh%level(ilev)%kvert,&
-                  mg_mesh%level(ilev)%karea,&
-                  mg_mesh%level(ilev)%kedge,&
-                  KWORK(L(KLINT(NLMAX))),&
-                  mg_mesh%level(ilev)%dcorvg,&
-                  tstep,E013)
+  IF (DAUX.GT.0d0) THEN
+    CALL Grav_QuadSc(QuadSc%defU,QuadSc%defV,QuadSc%defW,mgDensity(ILEV)%x,&
+      Properties%Gravity,QuadSc%ndof,&
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kedge,&
+      KWORK(L(KLINT(NLMAX))),&
+      mg_mesh%level(ilev)%dcorvg,&
+      tstep,E013)
 
-END IF
+  END IF
 
 END SUBROUTINE AddGravForce
 !
 ! ----------------------------------------------
 !
 SUBROUTINE OperatorRegenaration(iType)
-INTEGER iType
-LOGICAL bHit
+  INTEGER iType
+  LOGICAL bHit
 
-bHit = .FALSE.
+  bHit = .FALSE.
 
-IF (iType.EQ.myMatrixRenewal%D) THEN
- CALL Create_DiffMat(QuadSc)
- bHit = .TRUE.
-END IF
+  IF (iType.EQ.myMatrixRenewal%D) THEN
+    CALL Create_DiffMat(QuadSc)
+    bHit = .TRUE.
+  END IF
 
-IF (iType.EQ.myMatrixRenewal%K) THEN
- CALL Create_KMat(QuadSc)
- bHit = .TRUE.
-END IF
+  IF (iType.EQ.myMatrixRenewal%K) THEN
+    CALL Create_KMat(QuadSc)
+    bHit = .TRUE.
+  END IF
 
-IF (iType.EQ.myMatrixRenewal%M) THEN
- CALL Create_MRhoMat()
- bHit = .TRUE.
-END IF
+  IF (iType.EQ.myMatrixRenewal%M) THEN
+    CALL Create_MRhoMat()
+    bHit = .TRUE.
+  END IF
 
-IF (iType.EQ.myMatrixRenewal%S) THEN
- CALL Create_SMat(QuadSc)
- bHit = .TRUE.
-END IF
+  IF (iType.EQ.myMatrixRenewal%S) THEN
+    CALL Create_SMat(QuadSc)
+    bHit = .TRUE.
+  END IF
 
-IF (iType.EQ.myMatrixRenewal%C) THEN
+  IF (iType.EQ.myMatrixRenewal%C) THEN
 
- CALL Create_BMat()
- 
- IF (myid.ne.master) THEN
-  CALL Fill_QuadLinParMat()
- END IF
+    CALL Create_BMat()
 
- CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
- IF (myid.ne.master) THEN
-  CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
- END IF
- bHit = .TRUE.
-END IF
+    IF (myid.ne.master) THEN
+      CALL Fill_QuadLinParMat()
+    END IF
 
-IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
+    CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+    IF (myid.ne.master) THEN
+      CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
+    END IF
+    bHit = .TRUE.
+  END IF
+
+  IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE OperatorRegenaration
 !
@@ -1061,60 +1061,60 @@ END SUBROUTINE OperatorRegenaration
 !
 SUBROUTINE ProlongateSolution()
 
-CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
-CALL QuadScP1toQ2(LinSc,QuadSc)
+  CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
+  CALL QuadScP1toQ2(LinSc,QuadSc)
 
 END SUBROUTINE ProlongateSolution
 !
 ! ----------------------------------------------
 !
 SUBROUTINE InitBoundaryList(knpr,kvert,kedge,karea)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*),knpr(*)
-INTEGER i,j,k,ivt1,ivt2
-INTEGER NeighE(2,12),NeighA(4,6)
-DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*),knpr(*)
+  INTEGER i,j,k,ivt1,ivt2
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
 
 
-DO i=1,nvt
- QuadScBoundary(i) = mg_mesh%level(ilev)%knpr(i)
-!  IF (QuadScBoundary(i).eq.1) write(*,*) "type 1"
-END DO
+  DO i=1,nvt
+  QuadScBoundary(i) = mg_mesh%level(ilev)%knpr(i)
+  !  IF (QuadScBoundary(i).eq.1) write(*,*) "type 1"
+  END DO
 
-k=1
-DO i=1,nel
- DO j=1,12
+  k=1
+  DO i=1,nel
+  DO j=1,12
   IF (k.eq.kedge(j,i)) THEN
-   ivt1 = kvert(NeighE(1,j),i)
-   ivt2 = kvert(NeighE(2,j),i)
-   !IF (knpr(ivt1).EQ.1.AND.knpr(ivt2).EQ.1) THEN
+    ivt1 = kvert(NeighE(1,j),i)
+    ivt2 = kvert(NeighE(2,j),i)
+    !IF (knpr(ivt1).EQ.1.AND.knpr(ivt2).EQ.1) THEN
     QuadScBoundary(nvt+k) = 0
-   !END IF
-!    IF (QuadScBoundary(nvt+k).eq.1) write(*,*) "type 2"
-   k = k + 1
+    !END IF
+    !    IF (QuadScBoundary(nvt+k).eq.1) write(*,*) "type 2"
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-DO i=1,nat
- !QuadScBoundary(nvt+net+i) = knpr(nvt+i)
- QuadScBoundary(nvt+net+i) = 0! knpr(nvt+i)
-!  IF (QuadScBoundary(nvt+net+i).eq.1) write(*,*) "type 3"
-END DO
+  DO i=1,nat
+  !QuadScBoundary(nvt+net+i) = knpr(nvt+i)
+  QuadScBoundary(nvt+net+i) = 0! knpr(nvt+i)
+  !  IF (QuadScBoundary(nvt+net+i).eq.1) write(*,*) "type 3"
+  END DO
 
-DO i=1,nel
- QuadScBoundary(nvt+net+nat+i) = 0
-END DO
+  DO i=1,nel
+  QuadScBoundary(nvt+net+nat+i) = 0
+  END DO
 
 END SUBROUTINE InitBoundaryList
 !
 ! ----------------------------------------------
 !
 SUBROUTINE TESTER(DX,DXP)
-REAL*8 DX(*),DXP(*)
+  REAL*8 DX(*),DXP(*)
 
-CALL GetParPressure(DX,DXP)
+  CALL GetParPressure(DX,DXP)
 
 END SUBROUTINE TESTER
 !
@@ -1122,66 +1122,66 @@ END SUBROUTINE TESTER
 !
 SUBROUTINE FBM_GetForces()
 
- CALL EvaluateDragLift(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
- LinSc%valP(NLMAX)%x,Viscosity,FictKNPR)
+  CALL EvaluateDragLift(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+    LinSc%valP(NLMAX)%x,Viscosity,FictKNPR)
 
 END SUBROUTINE FBM_GetForces
 !
 ! ----------------------------------------------
 !
 SUBROUTINE FAC_GetForces(mfile)
-INTEGER mfile
-!REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
-REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
-REAL*8 :: Force2(3)
-REAL*8 :: Scale
-INTEGER i,nn
-EXTERNAL E013
+  INTEGER mfile
+  !REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
+  REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+  REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
+  REAL*8 :: Force2(3)
+  REAL*8 :: Scale
+  INTEGER i,nn
+  EXTERNAL E013
 
- ILEV=NLMAX
- CALL SETLEV(2)
+  ILEV=NLMAX
+  CALL SETLEV(2)
 
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
-  CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  LinSc%valP(NLMAX)%x,BndrForce,Force)
- ELSE
-  CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  LinSc%valP(NLMAX)%x,BndrForce,Force)
- END IF
-  
- if(bViscoElastic)then
-  Force = Force + ViscoElasticForce
-  !CALL Comm_SummN(Force,3)
-  Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
-  Force = (4d0*Force)/Scale
-  ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
- else
-  Factor = 2d0/(U_mean*U_mean*D*H)
-  Force = Factor*Force
- end if
+  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
+    CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%valP(NLMAX)%x,BndrForce,Force)
+  ELSE
+    CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%valP(NLMAX)%x,BndrForce,Force)
+  END IF
 
-IF (myid.eq.showID) THEN
   if(bViscoElastic)then
-    WRITE(MTERM,5)
-    WRITE(MFILE,5)
-    write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
-      timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
-    write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
-      timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
-    WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
-      (Force-ViscoElasticForce),Force
-    WRITE(666,'(7G16.8)') Timens,Force
+    Force = Force + ViscoElasticForce
+    !CALL Comm_SummN(Force,3)
+    Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
+    Force = (4d0*Force)/Scale
+    ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
   else
-    WRITE(MTERM,5)
-    WRITE(MFILE,5)
-    write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-    write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-    WRITE(666,'(7G16.8)') Timens,Force
+    Factor = 2d0/(U_mean*U_mean*D*H)
+    Force = Factor*Force
   end if
-END IF
 
-5  FORMAT(104('-'))
+  IF (myid.eq.showID) THEN
+    if(bViscoElastic)then
+      WRITE(MTERM,5)
+      WRITE(MFILE,5)
+      write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+        timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+      write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+        timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+      WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
+        (Force-ViscoElasticForce),Force
+      WRITE(666,'(7G16.8)') Timens,Force
+    else
+      WRITE(MTERM,5)
+      WRITE(MFILE,5)
+      write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+      write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
+      WRITE(666,'(7G16.8)') Timens,Force
+    end if
+  END IF
+
+  5  FORMAT(104('-'))
 
 END SUBROUTINE FAC_GetForces
 !
@@ -1258,10 +1258,10 @@ SUBROUTINE updateFBMGeometry()
   ILEV=NLMAX
   CALL SETLEV(2)
   CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
-                           mg_mesh%level(ilev)%dcorag,&
-                           mg_mesh%level(ilev)%kvert,&
-                           mg_mesh%level(ilev)%kedge,&
-                           mg_mesh%level(ilev)%karea)
+    mg_mesh%level(ilev)%dcorag,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%karea)
 
 
 END SUBROUTINE  updateFBMGeometry
@@ -1273,10 +1273,10 @@ SUBROUTINE updateMixerGeometry()
   ILEV=NLMAX
   CALL SETLEV(2)
   CALL QuadScalar_MixerKnpr(mg_mesh%level(ilev)%dcorvg,&
-                            mg_mesh%level(ilev)%dcorag,&
-                            mg_mesh%level(ilev)%kvert,&
-                            mg_mesh%level(ilev)%kedge,&
-                            mg_mesh%level(ilev)%karea)
+    mg_mesh%level(ilev)%dcorag,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%karea)
 
 END SUBROUTINE  updateMixerGeometry
 !
@@ -1555,7 +1555,7 @@ SUBROUTINE  GET_MESH_VELO()
   myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
   ! myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
   daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0 +&
-              myALE%MeshVelo(3,i)**2d0)
+    myALE%MeshVelo(3,i)**2d0)
   IF (daux.gt.dmax) dmax = daux
   END DO
 
@@ -1626,116 +1626,116 @@ END SUBROUTINE  StoreOrigCoor
 ! ----------------------------------------------
 !
 SUBROUTINE GetMeshVelocity()
-REAL*8 dMaxVelo,daux
-INTEGER i
+  REAL*8 dMaxVelo,daux
+  INTEGER i
 
-dMaxVelo = 0d0
-IF (myid.ne.0) then
- DO i=1,QuadSc%ndof
-  myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
-  daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
-  IF (dMaxVelo.lt.daux) dMaxVelo = daux
- END DO
-END IF
+  dMaxVelo = 0d0
+  IF (myid.ne.0) then
+    DO i=1,QuadSc%ndof
+    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
+    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
+    IF (dMaxVelo.lt.daux) dMaxVelo = daux
+    END DO
+  END IF
 
-CALL COMM_Maximum(dMaxVelo)
+  CALL COMM_Maximum(dMaxVelo)
 
-IF (myid.eq.1) THEN
- WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-END IF
+  IF (myid.eq.1) THEN
+    WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+  END IF
 
 END SUBROUTINE GetMeshVelocity
 !
 ! ----------------------------------------------
 !
 SUBROUTINE GetMeshVelocity2(mfile)
-integer mfile
-REAL*8 dMaxVelo,daux
-INTEGER i
+  integer mfile
+  REAL*8 dMaxVelo,daux
+  INTEGER i
 
-dMaxVelo = 0d0
-IF (myid.ne.0) then
- DO i=1,QuadSc%ndof
-  myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
-  daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
-  IF (dMaxVelo.lt.daux) dMaxVelo = daux
- END DO
-END IF
+  dMaxVelo = 0d0
+  IF (myid.ne.0) then
+    DO i=1,QuadSc%ndof
+    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
+    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
+    IF (dMaxVelo.lt.daux) dMaxVelo = daux
+    END DO
+  END IF
 
-CALL COMM_Maximum(dMaxVelo)
+  CALL COMM_Maximum(dMaxVelo)
 
-IF (myid.eq.1) THEN
- WRITE(mfile,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
- WRITE(mterm,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-END IF
+  IF (myid.eq.1) THEN
+    WRITE(mfile,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+    WRITE(mterm,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+  END IF
 
 END SUBROUTINE GetMeshVelocity2
 !
 ! ----------------------------------------------
 !
 SUBROUTINE MoveInterfacePoints(dcoor,MFILE)
-INTEGER mfile
-REAL*8 dcoor(3,*)
-REAL*8 Velo(3),Displacement(3),dMaxVelo,daux,dArea
-INTEGER i,iInterface
+  INTEGER mfile
+  REAL*8 dcoor(3,*)
+  REAL*8 Velo(3),Displacement(3),dMaxVelo,daux,dArea
+  INTEGER i,iInterface
 
-write(*,*)'New untested subroutine'
-stop
+  write(*,*)'New untested subroutine'
+  stop
 
-IF (myid.ne.0) then
- DO i=1,QuadSc%ndof
-   Velo = [QuadSc%ValU(i),QuadSc%ValV(i),QuadSc%ValW(i)]
-   Displacement = 1d0*tstep*Velo
-   myQ2Coor(:,i) = myQ2Coor(:,i) + Displacement
- END DO
-END IF
+  IF (myid.ne.0) then
+    DO i=1,QuadSc%ndof
+    Velo = [QuadSc%ValU(i),QuadSc%ValV(i),QuadSc%ValW(i)]
+    Displacement = 1d0*tstep*Velo
+    myQ2Coor(:,i) = myQ2Coor(:,i) + Displacement
+    END DO
+  END IF
 
-IF (.NOT.ALLOCATED(myTSurf)) ALLOCATE(myTSurf(Properties%nInterface))
+  IF (.NOT.ALLOCATED(myTSurf)) ALLOCATE(myTSurf(Properties%nInterface))
 
-IF (myid.ne.0) then
- ILEV=NLMAX
- CALL SETLEV(2)
- DO i=1,QuadSc%ndof
-  dcoor(:,i) = myQ2Coor(:,i)
- END DO
+  IF (myid.ne.0) then
+    ILEV=NLMAX
+    CALL SETLEV(2)
+    DO i=1,QuadSc%ndof
+    dcoor(:,i) = myQ2Coor(:,i)
+    END DO
 
- DO iInterface=1,Properties%nInterface
-  CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor,iInterface)
- END DO
-END IF
+    DO iInterface=1,Properties%nInterface
+    CALL BuildUpTriangulation(KWORK(L(LVERT)),KWORK(L(LEDGE)),KWORK(L(LAREA)),myQ2Coor,iInterface)
+    END DO
+  END IF
 
-CALL CommunicateSurface()
+  CALL CommunicateSurface()
 
-IF (myid.ne.0) then
- ILEV=NLMAX
- CALL SETLEV(2)
- DO i=1,QuadSc%ndof
-  dcoor(:,i) = myALE%Q2coor_old(:,i)
-  myQ2Coor(:,i) = myALE%Q2coor_old(:,i)
- END DO
-END IF
+  IF (myid.ne.0) then
+    ILEV=NLMAX
+    CALL SETLEV(2)
+    DO i=1,QuadSc%ndof
+    dcoor(:,i) = myALE%Q2coor_old(:,i)
+    myQ2Coor(:,i) = myALE%Q2coor_old(:,i)
+    END DO
+  END IF
 
-! IF (myid.eq.1) THEN
-!  CALL GetCompleteArea(dArea,1)
-!  WRITE(MFILE,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
-!  WRITE(MTERM,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
-! END IF
+  ! IF (myid.eq.1) THEN
+  !  CALL GetCompleteArea(dArea,1)
+  !  WRITE(MFILE,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+  !  WRITE(MTERM,'(A,3ES14.6)') "CompleteSurfaceAreaAndCircularity: ", TIMENS,dArea, (0.05*(2*(4d0*ATAN(1d0))*0.25d0))/dArea
+  ! END IF
 
 END SUBROUTINE MoveInterfacePoints
 !
 ! ----------------------------------------------
 !
 SUBROUTINE GetCompleteArea(DCompleteArea,iIF)
-REAL*8 DCompleteArea
-REAL*8 DA(3,3),dArea
-INTEGER i,j,IP1,IP2,IP3,iIF
+  REAL*8 DCompleteArea
+  REAL*8 DA(3,3),dArea
+  INTEGER i,j,IP1,IP2,IP3,iIF
 
-write(*,*)'New untested subroutine'
-stop
+  write(*,*)'New untested subroutine'
+  stop
 
-DCompleteArea = 0d0
-DO i=1,myTSurf(iIF)%nT
- DO j=1,8
+  DCompleteArea = 0d0
+  DO i=1,myTSurf(iIF)%nT
+  DO j=1,8
   IP1 = j
   IP2 = MOD(j,8)+1
   IP3 = 9
@@ -1751,119 +1751,119 @@ DO i=1,myTSurf(iIF)%nT
   DA(3,1) = DA(1,3)*DA(2,2) - DA(2,3)*DA(1,2)
   dArea = 0.5*SQRT(DA(1,1)*DA(1,1) + DA(2,1)*DA(2,1) + DA(3,1)*DA(3,1))
   DCompleteArea = DCompleteArea + dArea
- END DO
-END DO
+  END DO
+  END DO
 
 END SUBROUTINE GetCompleteArea
 !
 ! ----------------------------------------------
 !
 SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
-REAL*8 dcorvg(3,*)
-INTEGER karea(6,*),kvert(8,*),kedge(12,*),iIF
-INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
-INTEGER NeighA(4,6),NeighU(4,6)
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+  REAL*8 dcorvg(3,*)
+  INTEGER karea(6,*),kvert(8,*),kedge(12,*),iIF
+  INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
+  INTEGER NeighA(4,6),NeighU(4,6)
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
 
-write(*,*)'New untested subroutine'
-stop
+  write(*,*)'New untested subroutine'
+  stop
 
-iT = 0
-k=1
-DO i=1,nel
- DO j=1,6
+  iT = 0
+  k=1
+  DO i=1,nel
+  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
-    iT = iT + 1
-   END IF
-   k = k + 1
+    IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
+      iT = iT + 1
+    END IF
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
-IF (ALLOCATED(myTSurf(iIF)%T)) DEALLOCATE(myTSurf(iIF)%T)
+  IF (ALLOCATED(myTSurf(iIF)%T)) DEALLOCATE(myTSurf(iIF)%T)
 
-myTSurf(iIF)%nT = iT
-ALLOCATE(myTSurf(iIF)%T(myTSurf(iIF)%nT))
+  myTSurf(iIF)%nT = iT
+  ALLOCATE(myTSurf(iIF)%T(myTSurf(iIF)%nT))
 
-iT = 0
-k=1
-DO i=1,nel
- DO j=1,6
+  iT = 0
+  k=1
+  DO i=1,nel
+  DO j=1,6
   IF (k.eq.karea(j,i)) THEN
-   IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
-    iT = iT + 1
-    ivt1 = kvert(NeighA(1,j),i)
-    ivt2 = kvert(NeighA(2,j),i)
-    ivt3 = kvert(NeighA(3,j),i)
-    ivt4 = kvert(NeighA(4,j),i)
-    myTSurf(iIF)%T(iT)%C(:,1) = dcorvg(:,ivt1)
-    myTSurf(iIF)%T(iT)%C(:,3) = dcorvg(:,ivt2)
-    myTSurf(iIF)%T(iT)%C(:,5) = dcorvg(:,ivt3)
-    myTSurf(iIF)%T(iT)%C(:,7) = dcorvg(:,ivt4)
-    ivt1 = kedge(NeighU(1,j),i)
-    ivt2 = kedge(NeighU(2,j),i)
-    ivt3 = kedge(NeighU(3,j),i)
-    ivt4 = kedge(NeighU(4,j),i)
-    myTSurf(iIF)%T(iT)%C(:,2) = dcorvg(:,nvt+ivt1)
-    myTSurf(iIF)%T(iT)%C(:,4) = dcorvg(:,nvt+ivt2)
-    myTSurf(iIF)%T(iT)%C(:,6) = dcorvg(:,nvt+ivt3)
-    myTSurf(iIF)%T(iT)%C(:,8) = dcorvg(:,nvt+ivt4)
-    myTSurf(iIF)%T(iT)%C(:,9) = dcorvg(:,nvt+net+k)
-   END IF
-   k = k + 1
+    IF (myBoundary%LS_zero(nvt+net+k).eq.iIF) THEN
+      iT = iT + 1
+      ivt1 = kvert(NeighA(1,j),i)
+      ivt2 = kvert(NeighA(2,j),i)
+      ivt3 = kvert(NeighA(3,j),i)
+      ivt4 = kvert(NeighA(4,j),i)
+      myTSurf(iIF)%T(iT)%C(:,1) = dcorvg(:,ivt1)
+      myTSurf(iIF)%T(iT)%C(:,3) = dcorvg(:,ivt2)
+      myTSurf(iIF)%T(iT)%C(:,5) = dcorvg(:,ivt3)
+      myTSurf(iIF)%T(iT)%C(:,7) = dcorvg(:,ivt4)
+      ivt1 = kedge(NeighU(1,j),i)
+      ivt2 = kedge(NeighU(2,j),i)
+      ivt3 = kedge(NeighU(3,j),i)
+      ivt4 = kedge(NeighU(4,j),i)
+      myTSurf(iIF)%T(iT)%C(:,2) = dcorvg(:,nvt+ivt1)
+      myTSurf(iIF)%T(iT)%C(:,4) = dcorvg(:,nvt+ivt2)
+      myTSurf(iIF)%T(iT)%C(:,6) = dcorvg(:,nvt+ivt3)
+      myTSurf(iIF)%T(iT)%C(:,8) = dcorvg(:,nvt+ivt4)
+      myTSurf(iIF)%T(iT)%C(:,9) = dcorvg(:,nvt+net+k)
+    END IF
+    k = k + 1
   END IF
- END DO
-END DO
+  END DO
+  END DO
 
 END SUBROUTINE BuildUpTriangulation
 !
 ! ----------------------------------------------
 !
 SUBROUTINE IntegrateQuantities(mfile)
-INTEGER mfile
-REAL*8 dArray(8)
-REAL*8 :: dR=0.25d0, myPI=4d0*ATAN(1d0), dWidth=0.05d0
-EXTERNAL E013
+  INTEGER mfile
+  REAL*8 dArray(8)
+  REAL*8 :: dR=0.25d0, myPI=4d0*ATAN(1d0), dWidth=0.05d0
+  EXTERNAL E013
 
-write(*,*)'New untested subroutine'
-stop
+  write(*,*)'New untested subroutine'
+  stop
 
-IF (myid.ne.0) THEN
- dArray = 0d0
- ILEV = NLMAX
- CALL SETLEV(2)
- CALL GetSurface(KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
- myQ2coor,E013,dArray(1))
- CALL GetVolume(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+  IF (myid.ne.0) THEN
+    dArray = 0d0
+    ILEV = NLMAX
+    CALL SETLEV(2)
+    CALL GetSurface(KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
+      myQ2coor,E013,dArray(1))
+    CALL GetVolume(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
       KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
       myQ2coor,E013,dArray(2),dArray(3:5),dArray(6:8))
-END IF
+  END IF
 
-CALL Comm_SummN(dArray,8)
+  CALL Comm_SummN(dArray,8)
 
-IF (myid.eq.1) THEN
- WRITE(MTERM,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
- WRITE(MTERM,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
- (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
- WRITE(MFILE,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
- WRITE(MFILE,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
- (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
-END IF
+  IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
+    WRITE(MTERM,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
+      (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
+    WRITE(MFILE,'(A)') "Time Circularity Mass Center RiseVelo RefFrame"
+    WRITE(MFILE,'(A,ES12.4,2ES14.6,10ES12.4)') "Stats: ", timens,&
+      (dWidth*(2*myPI*dR))/dArray(1),(dWidth*(myPI*dR*dR))/dArray(2),dArray(3:5)/dArray(2),dArray(6:8)/dArray(2),myALE%dFrameVelocity(2)
+  END IF
 
-IF (myALE%bUseFrameVelocity) THEN
- myALE%dFrameVelocityChange = dArray(6:8)/dArray(2)
- myALE%dFrameVelocity = myALE%dFrameVelocity + 1d0*myALE%dFrameVelocityChange
-ELSE
- myALE%dFrameVelocityChange = 0d0
- myALE%dFrameVelocity       = 0d0
-END IF
+  IF (myALE%bUseFrameVelocity) THEN
+    myALE%dFrameVelocityChange = dArray(6:8)/dArray(2)
+    myALE%dFrameVelocity = myALE%dFrameVelocity + 1d0*myALE%dFrameVelocityChange
+  ELSE
+    myALE%dFrameVelocityChange = 0d0
+    myALE%dFrameVelocity       = 0d0
+  END IF
 
-IF (myid.eq.1) THEN
- WRITE(MTERM,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
- WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
-END IF
+  IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
+    WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
+  END IF
 END SUBROUTINE IntegrateQuantities
 !
 ! ----------------------------------------------

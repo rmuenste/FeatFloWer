@@ -12,58 +12,6 @@ module post_utils
 contains
 !
 !-------------------------------------------------------------------------------------------------
-! A simple time stepping routine
-!-------------------------------------------------------------------------------------------------
-! @param dt The current time step 
-! @param inlU   
-! @param inlT 
-! @param filehandle Unit of the output file
-!
-subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
-
-  USE PP3D_MPI,only :myid,ShowID
-
-  INTEGER IADTIM
-
-  REAL*8  TIMEMX,DTMIN,DTMAX
-
-  COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,IADTIM
-
-  integer, intent(in) :: filehandle
-
-  integer :: inlU,inlT
-  integer :: iMem,nMEm=2
-  real*8  :: dt, dt_old
-  character(len=9) :: char_dt
-  data iMem/0/
-
-  IF (IADTIM.EQ.0) RETURN
-
-  iMem = iMem + 1
-  dt_old = dt
-  IF (((inlU.GT.3).OR. (inlT.GT.5)).AND.iMem.GE.nMem) THEN
-    dt=MAX(dt/1.1d0,DTMIN)
-    WRITE(char_dt,'(D9.2)') dt
-    READ (char_dt,'(D9.2)') dt
-  END IF
-  IF (((inlU.LT.3).AND.(inlT.LT.4)).AND.iMem.GE.nMem) THEN
-    dt=MIN(1.1d0*dt,DTMAX)
-    WRITE(char_dt,'(D9.2)') dt
-    READ (char_dt,'(D9.2)') dt
-  END IF
-
-  IF (dt.NE.dt_old.AND.myid.eq.ShowID) THEN
-    WRITE(MTERM,1) dt_old,dt
-    WRITE(filehandle,1) dt_old,dt
-  END IF
-
-  IF (dt.NE.dt_old) iMem = 0
-
-  1  FORMAT('Time step change from ',D9.2,' to ',D9.2)
-
-END SUBROUTINE TimeStepCtrl
-!
-!-------------------------------------------------------------------------------------------------
 ! A routine for an application to start the statistics output
 !-------------------------------------------------------------------------------------------------
 ! @param dttt0 
@@ -137,9 +85,11 @@ end subroutine print_time
 ! @param filehandle protocol file handle 
 ! ----------------------------------------------
 subroutine sim_finalize(dttt0, filehandle)
+  include 'defs_include.h'
   use Mesh_Structures, only: release_mesh
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   use var_QuadScalar, only: istep_ns,mg_mesh
+  use solution_io, only: write_sol_to_file
 
   real, intent(inout) :: dttt0
   integer, intent(in) :: filehandle
@@ -157,7 +107,8 @@ subroutine sim_finalize(dttt0, filehandle)
 
   ! Save the final solution vector in unformatted form
   istep_ns = istep_ns - 1
-  CALL SolToFile(-1)
+  !CALL SolToFile(-1)
+  call write_sol_to_file(insavn, timens)
 
   IF (myid.eq.showid) THEN
     WRITE(*,*) "PP3D_LES has successfully finished. "
