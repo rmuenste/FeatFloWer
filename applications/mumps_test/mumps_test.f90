@@ -2,7 +2,10 @@ PROGRAM MUMPS_TEST
 
   include 'defs_include.h'
   use var_QuadScalar, only: istep_ns
-  use sol_out, only: postprocessing_app,TimeStepCtrl,handle_statistics,print_time
+  use solution_io, only: postprocessing_app
+  use post_utils,  only: handle_statistics,&
+    print_time,&
+    sim_finalize
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -14,174 +17,151 @@ PROGRAM MUMPS_TEST
 
   !-------INIT PHASE-------
 
-  call init_q2p1_ext(ufile)
+  include 'mpif.h'
+  include 'dmumps_struc.h'
+  type (dmumps_struc) mumps_par
+  integer ierr, i
+  character cFile*(20)
+  integer :: myFile = 55
+  integer :: istat
 
-  CALL ZTIME(tt0)
-  call ztime(dtt0)
+  integer :: iloop
 
-  dout = Real(INT(timens/dtgmv)+1)*dtgmv
+  call MPI_INIT(IERR)
+  ! Define a communicator for the package.
+  mumps_par%COMM = MPI_COMM_WORLD
 
-  !-------MAIN LOOP-------
+  do iloop = 1,2
 
-  DO itns=1,nitns
+    !  Initialize an instance of the package
+    !  for L U factorization (sym = 0, with working host)
+    mumps_par%JOB = -1
+    mumps_par%SYM = 0
+    mumps_par%PAR = 0
+    call DMUMPS(mumps_par)
 
-  itnsr=0
-  timnsh=timens
-  dt=tstep
-  timens=timens+dt
+    if (mumps_par%INFOG(1).LT.0) then
+      write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+        "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
+        "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+      goto 500
+    end if
 
-  ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+    write(cFile,'(A,I2.2,A)')  'input_',mumps_par%MYID,'.txt'
 
-  inonln_t = 2
+    open(file=adjustl(trim(cFile)),unit=myFile, &
+      action="read",iostat=istat)
 
+    !  Define problem on the host (processor 0)
+    if ( mumps_par%myid .eq. 0 ) then
+      read(myFile,*) mumps_par%N
+      read(myFile,*) mumps_par%NZ
+      allocate( mumps_par%IRN ( mumps_par%NZ ) )
+      allocate( mumps_par%JCN ( mumps_par%NZ ) )
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+      !         ALLOCATE( mumps_par%A   ( mumps_par%NZ ) )
+      !mumps_par%A  = 0d0
 
-  call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
+      do I = 1, mumps_par%NZ
+      read(myFile,*) mumps_par%IRN(I),mumps_par%JCN(I)
+      end do
+      allocate( mumps_par%RHS ( mumps_par%N  ) )
+      do I = 1, mumps_par%N
+      read(myFile,*) mumps_par%RHS(I)
+      !          WRITE(*,*) mumps_par%rhs(I)
+      end do
+    else
 
-  call handle_statistics(tt0,itns)
+      read(myFile,*) mumps_par%NZ_loc
+      allocate( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+      allocate( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+      allocate( mumps_par%A_loc( mumps_par%NZ_loc) )
+      do I = 1, mumps_par%NZ_loc
+      read(myFile,*) mumps_par%IRN_loc(I),mumps_par%JCN_loc(I),&
+        mumps_par%A_loc(I)
+      end do
 
-  ! Exit if done
-  IF (timemx.LE.(timens+1D-10)) EXIT
+    end if
 
-  END DO
+    close(myFile)
 
-  call sim_finalize(tt0,ufile)
-  
+    !  Call package for solution
+    MUMPS_PAR%icntl(6)  = 7
+    !     pivot order (automatic)
+    MUMPS_PAR%icntl(7)  = 7
+    !     scaling (automatic)
+    MUMPS_PAR%icntl(8)  = 7
+    !     no transpose
+    MUMPS_PAR%icntl(9)  = 1
+    !     max steps for iterative refinement
+    MUMPS_PAR%icntl(10) = 0
+    !     statistics info
+    MUMPS_PAR%icntl(11) = 0 
+    !     controls parallelism
+    MUMPS_PAR%icntl(12) = 0
+    !     use ScaLAPACK for root node
+    MUMPS_PAR%icntl(13) = 0
+    !     percentage increase in estimated workspace
+    MUMPS_PAR%icntl(14) = 100
 
-!   IMPLICIT NONE
-!   INCLUDE 'mpif.h'
-!   INCLUDE 'dmumps_struc.h'
-!   TYPE (DMUMPS_STRUC) mumps_par
-!   INTEGER IERR, I
-!   CHARACTER cFile*(20)
-!   integer :: myFile = 55
-!   integer :: istat
-! 
-!   CALL MPI_INIT(IERR)
-!   ! Define a communicator for the package.
-!   mumps_par%COMM = MPI_COMM_WORLD
-! 
-!   !  Initialize an instance of the package
-!   !  for L U factorization (sym = 0, with working host)
-!   mumps_par%JOB = -1
-!   mumps_par%SYM = 0
-!   mumps_par%PAR = 0
-!   CALL DMUMPS(mumps_par)
-! 
-!   IF (mumps_par%INFOG(1).LT.0) THEN
-!     WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
-!     "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
-!     "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
-!     GOTO 500
-!   END IF
-! 
-!   WRITE(cFile,'(A,I2.2,A)')  'input_',mumps_par%MYID,'.txt'
-! 
-!   OPEN(FILE=ADJUSTL(TRIM(cFile)),UNIT=myFile, &
-!   action="read",iostat=istat)
-! 
-!   !  Define problem on the host (processor 0)
-!   IF ( mumps_par%MYID .eq. 0 ) THEN
-!     READ(myFile,*) mumps_par%N
-!     READ(myFile,*) mumps_par%NZ
-!     ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
-!     ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
-!     
-!     !         ALLOCATE( mumps_par%A   ( mumps_par%NZ ) )
-!     !mumps_par%A  = 0d0
-! 
-!     DO I = 1, mumps_par%NZ
-!     READ(myFile,*) mumps_par%IRN(I),mumps_par%JCN(I)
-!     END DO
-!     ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
-!     DO I = 1, mumps_par%N
-!     READ(myFile,*) mumps_par%RHS(I)
-!     !          WRITE(*,*) mumps_par%rhs(I)
-!     END DO
-!   ELSE
-! 
-!     READ(myFile,*) mumps_par%NZ_loc
-!     ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
-!     ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
-!     ALLOCATE( mumps_par%A_loc( mumps_par%NZ_loc) )
-!     DO I = 1, mumps_par%NZ_loc
-!     READ(myFile,*) mumps_par%IRN_loc(I),mumps_par%JCN_loc(I),&
-!     mumps_par%A_loc(I)
-!     END DO
-! 
-!   END IF
-! 
-!   CLOSE(myFile)
-! 
-!   !  Call package for solution
-!   MUMPS_PAR%icntl(6)  = 7
-!   !     pivot order (automatic)
-!   MUMPS_PAR%icntl(7)  = 7
-!   !     scaling (automatic)
-!   MUMPS_PAR%icntl(8)  = 7
-!   !     no transpose
-!   MUMPS_PAR%icntl(9)  = 1
-!   !     max steps for iterative refinement
-!   MUMPS_PAR%icntl(10) = 0
-!   !     statistics info
-!   MUMPS_PAR%icntl(11) = 0 
-!   !     controls parallelism
-!   MUMPS_PAR%icntl(12) = 0
-!   !     use ScaLAPACK for root node
-!   MUMPS_PAR%icntl(13) = 0
-!   !     percentage increase in estimated workspace
-!   MUMPS_PAR%icntl(14) = 100
-! 
-!   mumps_par%ICNTL(5)=0
-!   mumps_par%ICNTL(18)=3
-!   !     mumps_par%WRITE_PROBLEM='matrix'
-! 
-!   mumps_par%JOB = 6
-!   CALL DMUMPS(mumps_par)
-! 
-!   !       mumps_par%JOB = 2
-!   !       CALL DMUMPS(mumps_par)
-!   ! 
-!   !       mumps_par%JOB = 3
-!   !       CALL DMUMPS(mumps_par)
-! 
-!   IF (mumps_par%INFOG(1).LT.0) THEN
-!     WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
-!     "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),& 
-!     "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
-!     GOTO 500
-!   END IF
-! 
-!   !  Solution has been assembled on the host
-!   IF ( mumps_par%MYID .eq. 0 ) THEN
-!     WRITE( 6, * ) ' Solution is '
-!     DO I=1,mumps_par%N
-!     WRITE( 6, * ) mumps_par%RHS(I)
-!     END DO
-!   END IF
-! 
-!   !  Deallocate user data
-!   IF ( mumps_par%MYID .eq. 0 )THEN
-!     !         DEALLOCATE( mumps_par%A )
-!     DEALLOCATE( mumps_par%RHS )
-!   END IF
-! 
-!   !  Destroy the instance (deallocate internal data structures)
-!   mumps_par%JOB = -2
-!   CALL DMUMPS(mumps_par)
-!   IF (mumps_par%INFOG(1).LT.0) THEN
-!     WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
-!     "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),& 
-!     "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
-!     GOTO 500
-!   END IF
-! 
-!   500  CALL MPI_FINALIZE(IERR)
-!   STOP
-! 
-!   !       write(*,*) mumps_par%MYID,"... is done!"
-!   !       pause
+    mumps_par%ICNTL(5)=0
+    mumps_par%ICNTL(18)=3
+    !     mumps_par%WRITE_PROBLEM='matrix'
+
+    mumps_par%JOB = 6
+    CALL DMUMPS(mumps_par)
+
+    !       mumps_par%JOB = 2
+    !       CALL DMUMPS(mumps_par)
+    ! 
+    !       mumps_par%JOB = 3
+    !       CALL DMUMPS(mumps_par)
+
+    if (mumps_par%INFOG(1).lt.0) then
+      write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+        "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),& 
+        "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+      !    goto 500
+    end if
+
+    !  !  Solution has been assembled on the host
+    !  if ( mumps_par%MYID .eq. 0 ) then
+    !    write( 6, * ) ' Solution is '
+    !    do i=1,mumps_par%N
+    !    write( 6, * ) mumps_par%RHS(I)
+    !    end do
+    !  end if
+
+    !  Deallocate user data
+!    if ( mumps_par%MYID .eq. 0 )then
+      !         DEALLOCATE( mumps_par%A )
+!    end if
+
+    if(allocated( mumps_par%RHS)   ) deallocate( mumps_par%RHS)
+    if(allocated( mumps_par%IRN)   ) deallocate( mumps_par%IRN)
+    if(allocated( mumps_par%JCN)   ) deallocate( mumps_par%JCN)
+                                   
+    if(allocated( mumps_par%IRN_loc)) deallocate( mumps_par%IRN_loc)
+    if(allocated( mumps_par%JCN_loc)) deallocate( mumps_par%JCN_loc)
+    if(allocated( mumps_par%A_loc) ) deallocate( mumps_par%A_loc)
+
+    !  Destroy the instance (deallocate internal data structures)
+    mumps_par%JOB = -2
+    call DMUMPS(mumps_par)
+    if (mumps_par%INFOG(1).LT.0) then
+      write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+        "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),& 
+        "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+      goto 500
+    end if
+
+  end do
+
+  500  call mpi_finalize(ierr)
+
+  stop
+
+  !       write(*,*) mumps_par%MYID,"... is done!"
+  !       pause
 
 END PROGRAM MUMPS_TEST
