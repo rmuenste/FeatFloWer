@@ -2437,7 +2437,7 @@ CALL COMM_cc_def(rhs_cc,neq)
  
  IF (myid.eq.0) myCrsMat%D = rhs_cc
 !  CALL MUMPS_solver_Central()
- CALL MUMPS_solver_Distributed()
+ CALL MUMPS_solver_Distributed(myCrsMat)
  IF (myid.eq.0) sol_cc = myCrsMat%D
 !  IF (myid.eq.0) CALL myUmfPack_CCSolveMaster(sol_cc,rhs_cc,CC_crs_AMat,CC_crs_lMat%LdA,CC_crs_lMat%ColA,CC_H(1),CC_H(2),CC_crs_lMat%nu)
  

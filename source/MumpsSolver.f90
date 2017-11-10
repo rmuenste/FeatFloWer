@@ -42,6 +42,7 @@ IMPLICIT NONE
 REAL*8 B(*)
 TYPE(tMatrix) L
 INTEGER I,J,K
+!integer*4, allocatable, dimension(:), target :: myIRN
 
  mumps_par%N  = L%nu
  mumps_par%NZ = L%na
@@ -408,154 +409,147 @@ IF (mumps_par%INFOG(1).LT.0) THEN
  WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
  "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
  "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
- STOP
-END IF
+ stop
+end if
 
-END SUBROUTINE MUMPS_CleanUp
+end subroutine MUMPS_CleanUp
 !
 ! ------------------------------------------------------------------------
 !
-SUBROUTINE MUMPS_solver_Distributed()
-USE var_QuadScalar, ONLY:myCrsMat
-USE PP3D_MPI
-IMPLICIT NONE
-! INCLUDE 'mpif.h'
-INCLUDE 'dmumps_struc.h'
-TYPE (DMUMPS_STRUC) mumps_par
-INTEGER I
-CHARACTER cFile*(20)
+subroutine MUMPS_solver_Distributed(crs_mat)
+use var_QuadScalar, only: tCoarseMat
+use PP3D_MPI
+implicit none
 
-!CALL MPI_INIT(IERR)
+include 'dmumps_struc.h'
+type(tCoarseMat), intent(inout) :: crs_mat 
 
-! Define a communicator for the package.
-mumps_par%COMM = MPI_COMM_WORLD
-mumps_par%MYID = myid
-!  Initialize an instance of the package
-!  for L U factorization (sym = 0, with working host)
+!integer, dimension(:), target, intent(inout) :: pJCN
 
-mumps_par%JOB = -1
-mumps_par%SYM = 0
-mumps_par%PAR = 0
+! locals
+integer :: i
+type (DMUMPS_STRUC) :: mumps_par
+integer*4, allocatable, dimension(:), target :: myJCN
+integer*4, allocatable, dimension(:), target :: myIRN
 
-MUMPS_PAR%icntl(1)  = 0
-MUMPS_PAR%icntl(2)  = 0
-MUMPS_PAR%icntl(3)  = 0
+  ! Define a communicator for the package.
+  mumps_par%COMM = MPI_COMM_WORLD
+  mumps_par%MYID = myid
 
-CALL DMUMPS(mumps_par)
+  !  Initialize an instance of the package
+  !  for L U factorization (sym = 0, with working host)
+  mumps_par%JOB = -1
+  mumps_par%SYM = 0
+  mumps_par%PAR = 0
 
-IF (mumps_par%INFOG(1).LT.0) THEN
- WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
- "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
- "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
- GOTO 500
-END IF
+  MUMPS_PAR%icntl(1)  = 0
+  MUMPS_PAR%icntl(2)  = 0
+  MUMPS_PAR%icntl(3)  = 0
 
-! WRITE(cFile,'(A,I2.2,A)')  'input_',mumps_par%MYID,'.txt'
-! OPEN(FILE=ADJUSTL(TRIM(cFile)),UNIT=55)
+  call DMUMPS(mumps_par)
 
-!  Define problem on the host (processor 0)
-IF ( mumps_par%MYID .eq. 0 ) THEN
+  if (mumps_par%INFOG(1).LT.0) THEN
+    write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+      "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1), &
+      "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+    return 
+  end if
 
-  mumps_par%N  = myCrsMat%nu
-  mumps_par%NZ = myCrsMat%na
-  ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
-  ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
-!         ALLOCATE( mumps_par%A   ( mumps_par%NZ ) )
-!   mumps_par%A  = 0d0
-  DO I = 1, mumps_par%NZ
-    mumps_par%IRN(I) = myCrsMat%Row(i)
-    mumps_par%JCN(I) = myCrsMat%Col(i)
-  END DO
-  ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
-  DO I = 1, mumps_par%N
-   mumps_par%RHS(I) = myCrsMat%D(I)
-  END DO
-ELSE
-  
-  mumps_par%NZ_loc = myCrsMat%na
-  ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
-  ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
-  ALLOCATE( mumps_par%A_loc( mumps_par%NZ_loc) )
-  DO I = 1, mumps_par%NZ_loc
-    mumps_par%IRN_loc(I) = myCrsMat%Row(i)
-    mumps_par%JCN_loc(I) = myCrsMat%Col(i)
-    mumps_par%A_loc(I)   = myCrsMat%A(i)
-  END DO
-END IF
+  !  Define problem on the host (processor 0)
+  if ( mumps_par%MYID .eq. 0 ) then
 
-! CLOSE(55)  
-     
-MUMPS_PAR%icntl(1)  = 0 
-MUMPS_PAR%icntl(2)  = 0
-MUMPS_PAR%icntl(3)  = 0
-!  Call package for solution
-MUMPS_PAR%icntl(6)  = 7
-!     pivot order (automatic)
-MUMPS_PAR%icntl(7)  = 7
-!     scaling (automatic)
-MUMPS_PAR%icntl(8)  = 77
-!     no transpose
-MUMPS_PAR%icntl(9)  = 1
-!     max steps for iterative refinement
-MUMPS_PAR%icntl(10) = 0
-!     statistics info
-MUMPS_PAR%icntl(11) = 0
-!     controls parallelism
-MUMPS_PAR%icntl(12) = 0
-!     use ScaLAPACK for root node
-MUMPS_PAR%icntl(13) = 0
-!     percentage increase in estimated workspace
-MUMPS_PAR%icntl(14) = 100
+    mumps_par%N  = myCrsMat%nu
+    mumps_par%NZ = myCrsMat%na
 
-! MUMPS_PAR%icntl(4)  = 0
-! mumps_par%ICNTL(5)  = 0
-mumps_par%ICNTL(18) = 3
+    allocate( myIRN ( mumps_par%NZ  ) )
+    allocate( myJCN ( mumps_par%NZ  ) )
 
-mumps_par%JOB = 6
-CALL DMUMPS(mumps_par)
+    do i = 1, mumps_par%N
+      myIRN(i) = myCrsMat%Row(i)
+      myJCN(i) = myCrsMat%Col(i)
+    end do
 
-!       mumps_par%JOB = 2
-!       CALL DMUMPS(mumps_par)
-! 
-!       mumps_par%JOB = 3
-!       CALL DMUMPS(mumps_par)
+    mumps_par%IRN => myIRN 
+    mumps_par%JCN => myJCN 
 
-IF (mumps_par%INFOG(1).LT.0) THEN
- WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
- "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
- "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
- GOTO 500
-END IF
-!  Solution has been assembled on the hostCALL MPI_FINALIZE(IERR)
-IF ( mumps_par%MYID .eq. 0 ) THEN
-!   WRITE( 6, * ) ' Solution is '
- DO I=1,mumps_par%N
-!   WRITE( 6, * ) mumps_par%RHS(I)
-  myCrsMat%D(I) = mumps_par%RHS(I)
- END DO
-END IF
+    allocate( mumps_par%RHS ( mumps_par%N  ) )
+    do I = 1, mumps_par%N
+      mumps_par%RHS(I) = myCrsMat%D(I)
+    end do
 
-! write(*,*) myid,' is done!' 
-! pause
+  else
 
-!  Deallocate user data
-IF ( mumps_par%MYID .eq. 0 )THEN
-!         DEALLOCATE( mumps_par%A )
-  DEALLOCATE( mumps_par%RHS )
-END IF
-!  Destroy the instance (deallocate internal data structures)
+    mumps_par%NZ_loc = myCrsMat%na
+    allocate( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+    allocate( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+    allocate( mumps_par%A_loc( mumps_par%NZ_loc) )
+    do I = 1, mumps_par%NZ_loc
+      mumps_par%IRN_loc(I) = myCrsMat%Row(i)
+      mumps_par%JCN_loc(I) = myCrsMat%Col(i)
+      mumps_par%A_loc(I)   = myCrsMat%A(i)
+    end do
 
-mumps_par%JOB = -2
-CALL DMUMPS(mumps_par)
-IF (mumps_par%INFOG(1).LT.0) THEN
- WRITE(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
- "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
- "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
- GOTO 500
-END IF
+  end if
 
-500  CONTINUE
-!500  CALL MPI_FINALIZE(IERR)
+  MUMPS_PAR%icntl(1)  = 0 
+  MUMPS_PAR%icntl(2)  = 0
+  MUMPS_PAR%icntl(3)  = 0
+  !  Call package for solution
+  MUMPS_PAR%icntl(6)  = 7
+  !     pivot order (automatic)
+  MUMPS_PAR%icntl(7)  = 7
+  !     scaling (automatic)
+  MUMPS_PAR%icntl(8)  = 77
+  !     no transpose
+  MUMPS_PAR%icntl(9)  = 1
+  !     max steps for iterative refinement
+  MUMPS_PAR%icntl(10) = 0
+  !     statistics info
+  MUMPS_PAR%icntl(11) = 0
+  !     controls parallelism
+  MUMPS_PAR%icntl(12) = 0
+  !     use ScaLAPACK for root node
+  MUMPS_PAR%icntl(13) = 0
+  !     percentage increase in estimated workspace
+  MUMPS_PAR%icntl(14) = 100
 
-END SUBROUTINE MUMPS_solver_Distributed
+  ! MUMPS_PAR%icntl(4)  = 0
+  ! mumps_par%ICNTL(5)  = 0
+  mumps_par%ICNTL(18) = 3
+
+  mumps_par%JOB = 6
+  CALL DMUMPS(mumps_par)
+
+  if (mumps_par%INFOG(1).LT.0) then
+    write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+      "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
+      "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+    return
+  end if
+
+  ! ToDo: Does RHS_loc exist
+  if ( mumps_par%MYID .eq. 0 ) THEN
+    DO I=1,mumps_par%N
+    myCrsMat%D(I) = mumps_par%RHS(I)
+    end do
+  end if
+
+  !  Destroy the instance (deallocate internal data structures)
+  mumps_par%JOB = -2
+  call DMUMPS(mumps_par)
+  if (mumps_par%INFOG(1).LT.0) THEN
+    write(6,'(A,A,I6,A,I9)') " ERROR RETURN: ",&
+      "  mumps_par%INFOG(1)= ", mumps_par%INFOG(1),&
+      "  mumps_par%INFOG(2)= ", mumps_par%INFOG(2) 
+    return
+  end if
+
+  ! Check if this pointer is cleared correctly
+  IF (associated(mumps_par%future_niv2)) THEN
+    deallocate(mumps_par%future_niv2)
+    nullify(mumps_par%future_niv2)
+  endif
+
+end subroutine MUMPS_solver_Distributed
+
 END MODULE MumpsSolver

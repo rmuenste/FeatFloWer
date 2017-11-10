@@ -449,13 +449,14 @@ INTEGER, ALLOCATABLE :: GlobalNumbering(:)
 
 TYPE tCoarseMat
  INTEGER na,nu
- INTEGER, ALLOCATABLE   :: Row(:)
- INTEGER, ALLOCATABLE   :: Col(:)
+ INTEGER, dimension(:), allocatable   :: Row
+ INTEGER, dimension(:), allocatable   :: Col
+
  REAL*8 , ALLOCATABLE   :: A(:)
  REAL*8 , ALLOCATABLE   :: D(:)
 END TYPE tCoarseMat
 
-TYPE(tCoarseMat) myCrsMat
+TYPE(tCoarseMat), target :: myCrsMat
 !---------------------------------------------------------------------------
 
 integer :: istep_ns = 1
