@@ -170,7 +170,6 @@ C
 
       IF (myid.eq.0) GOTO 1
 
-      dt = TSTEP
 
       DO i=1,NDOF
 
@@ -189,9 +188,9 @@ C
        DO j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
         jPres = mg_qlMat(ILEV)%ColA(j)
         dP    = VALP(jPres)
-        DEFU(i) = DEFU(i) - dt*mg_BXmat(ILEV)%a(j)*dP
-        DEFV(i) = DEFV(i) - dt*mg_BYmat(ILEV)%a(j)*dP
-        DEFW(i) = DEFW(i) - dt*mg_BZmat(ILEV)%a(j)*dP
+        DEFU(i) = DEFU(i) - TSTEP*mg_BXmat(ILEV)%a(j)*dP
+        DEFV(i) = DEFV(i) - TSTEP*mg_BYmat(ILEV)%a(j)*dP
+        DEFW(i) = DEFW(i) - TSTEP*mg_BZmat(ILEV)%a(j)*dP
        END DO
       END DO
 
@@ -233,7 +232,6 @@ C
 
       IF (myid.eq.0) GOTO 1
 
-      dt = TSTEP
 
       DO i = 1, 86
        LdA(i) =  ((i-1)*85 + 1) - 1
@@ -326,11 +324,11 @@ C
          IF (KG.EQ.4*(IEL-1)+1) THEN
 !           IF (myid.eq.1) WRITE(*,*) "yes!",IEL,KG
           CC_EMat(ILEV)%E(IEL)%a( 0 + IL, 82:85) =
-     *    -mg_BXmat(ILEV)%a(LG:LG+3)*dt
+     *    -mg_BXmat(ILEV)%a(LG:LG+3)*TSTEP
           CC_EMat(ILEV)%E(IEL)%a(27 + IL, 82:85) =
-     *    -mg_BYmat(ILEV)%a(LG:LG+3)*dt
+     *    -mg_BYmat(ILEV)%a(LG:LG+3)*TSTEP
           CC_EMat(ILEV)%E(IEL)%a(54 + IL, 82:85) =
-     *    -mg_BZmat(ILEV)%a(LG:LG+3)*dt
+     *    -mg_BZmat(ILEV)%a(LG:LG+3)*TSTEP
          END IF
         END DO
 

@@ -279,6 +279,7 @@ digitcriterion = 10**(-1-alpha)
  CALL ZTIME(tttt0)
 
 ! Assemble the right hand side
+ thstep = tstep*(1d0-theta)
  CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha)
 
 IF (myid.ne.master) THEN
@@ -293,7 +294,7 @@ IF (myid.ne.master) THEN
 
 END IF
 
-thstep = tstep
+thstep = tstep*theta
 
  CALL ExchangeVelocitySolutionCoarse()
 
@@ -466,7 +467,7 @@ IF (myid.eq.showid) THEN
   write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
 END IF
 
- CALL myFAC_GetForces(mfile,FORCES_NEW)
+ CALL FAC_GetForces_CC(mfile,FORCES_NEW)
  CALL OperatorDeallocation()
 
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
