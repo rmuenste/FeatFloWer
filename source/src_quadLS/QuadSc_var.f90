@@ -19,6 +19,11 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
+! There seems to be a problem with this setting 
+! when the intel compiler is used, mesh deformation is
+! used in every time step (i.e. setting M2D2C2) AND
+! the game-of-thrones servers are used. It seems to 
+! run fine on BTTF and the LIDO-servers
 INTEGER :: iCommSwitch=3
 
 TYPE tMatrixRenewal

@@ -62,15 +62,15 @@ subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
   integer, intent(in) :: ufile, uterm
 
   IF (myid.eq.showid) THEN
-    write(uTERM,5)
+    write(uterm,5)
     write(uFILE,5)
-    write(uTERM,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
+    write(uterm,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
       "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
       " | dt:",dt
     write(uFILE,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
       "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
       " | dt:",dt
-    write(uTERM,5)
+    write(uterm,5)
     write(uFILE,5)
   END IF
 

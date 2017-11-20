@@ -136,7 +136,10 @@ DO ILEV = NLMIN+1,NLMAX
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
-    NEL,NVT,NET,nUsedSteps,myTime)
+    mg_mesh%level(ilev)%nel,&
+    mg_mesh%level(ilev)%nvt,&
+    mg_mesh%level(ilev)%net,&
+    nUsedSteps,myTime)
 
 
   CALL ProlongateCoordinates_ext(&
@@ -144,7 +147,10 @@ DO ILEV = NLMIN+1,NLMAX
     mg_mesh%level(ilev)%karea,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
-    nel,nvt,net,nat)
+    mg_mesh%level(ilev)%nel,&
+    mg_mesh%level(ilev)%nvt,&
+    mg_mesh%level(ilev)%net,&
+    mg_mesh%level(ilev)%nat)
 
 END DO
 
@@ -322,7 +328,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
       CALL E013SUM(v)
 
-      ALLOCATE(myVol(nel))
+      ALLOCATE(myVol(nel+1))
 
       DO iProjStep=1,nProjStep
 
@@ -718,7 +724,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
       CALL E013SUM(v)
 
-      ALLOCATE(myVol(nel))
+      ALLOCATE(myVol(nel+1))
 
       DO iProjStep=1,nProjStep
 
