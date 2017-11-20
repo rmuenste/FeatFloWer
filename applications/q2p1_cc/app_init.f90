@@ -807,13 +807,13 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
    101 FORMAT(/&
 "  ===================================================================================================="/&
 "  |                                                                                                  |"/&
-"  |          Parallel Q2/P1 FEM Fluid Dynamics code           FeatFlowPro v1.00 - 2017.04.24         |"/&
+"  |          Parallel Q2/P1 FEM Fluid Dynamics code           FeatFlowPro v1.00 - 2017.11.17         |"/&
 "  |          Developed by:                                                                           |"/&
 "  |          Otto Mierka, Dmitri Kuzmin and Stefan Turek                                             |"/&
 "  |                                                                                                  |"/&
 "  |==================================================================================================|"/&
 "  |          Modification by Robert Jendrny:                                                         |"/&
-"  |                      iso-parametric Newton-multigrid CC-version                                  |"/&
+"  |          iso-parametric Newton-multigrid CC-version for stationary and instationary problems     |"/&
 "  |==================================================================================================|"/&
 "  |                                                                                                  |"/&
 "  |          Developed at:                                                                           |"/&

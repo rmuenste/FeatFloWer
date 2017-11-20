@@ -463,11 +463,16 @@ END IF
 IF (myid.eq.showid) THEN
   write(mfile,5)
   write(mterm,5)
+  IF (bSteadyState) THEN
+  write(mfile,'(A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  needed:",myTolerance
+  write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  needed:",myTolerance
+  ELSE
   write(mfile,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
   write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
+  END IF
 END IF
 
- CALL FAC_GetForces_CC(mfile,FORCES_NEW)
+ CALL myFAC_GetForces(mfile,FORCES_NEW)
  CALL OperatorDeallocation()
 
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
@@ -491,7 +496,13 @@ stopOne = max(diffOne,diffTwo)
 FORCES_OLD = FORCES_NEW
 
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
-IF (DefNorm/DefNorm0.LT.myTolerance) exit
+
+IF (bSteadyState) THEN
+	IF(DefNorm.LT.myTolerance) exit
+ELSE 
+	IF (DefNorm/DefNorm0.LT.myTolerance) exit
+END IF
+
 IF (stopOne.LT.1d-4) THEN
 	IF (myid.eq.showid) THEN
 	write(mfile,55) 
@@ -692,7 +703,7 @@ END SUBROUTINE OperatorDeallocation
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -747,7 +758,7 @@ END SUBROUTINE FAC_GetForces_CC
 SUBROUTINE myFAC_GetForces(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
