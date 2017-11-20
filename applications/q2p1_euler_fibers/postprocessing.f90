@@ -232,7 +232,7 @@ end subroutine handle_statistics
 !
 ! ----------------------------------------------
 !
-subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
+subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile)
 
 include 'defs_include.h'
 USE PP3D_MPI,only :myid,ShowID
@@ -241,7 +241,7 @@ implicit none
 
 real*8, intent(inout) :: dtimens, dtimemx, dt
 integer, intent(inout) :: istepns , istepmaxns
-integer, intent(inout) :: ufile, uterm
+integer, intent(inout) :: ufile 
 
 IF (myid.eq.showid) THEN
   write(uTERM,5)

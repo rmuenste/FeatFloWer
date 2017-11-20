@@ -6,7 +6,7 @@ PROGRAM Q2P1_EULER_FIBERS
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile=111, uterm,ilog
+  integer            :: ufile=111,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
@@ -40,7 +40,7 @@ PROGRAM Q2P1_EULER_FIBERS
 
   call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
 
-  call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
+  call print_time(timens, timemx, tstep, itns, nitns, ufile)
 
   call handle_statistics(tt0,itns)
 

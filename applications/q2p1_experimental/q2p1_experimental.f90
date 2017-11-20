@@ -1,8 +1,9 @@
 PROGRAM Q2P1_EXPERIMENTAL
 
   include 'defs_include.h'
-  use var_QuadScalar, only: istep_ns
+
   use solution_io, only: postprocessing_app
+
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
@@ -11,7 +12,7 @@ PROGRAM Q2P1_EXPERIMENTAL
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile=111, uterm,ilog
+  integer            :: ufile=111,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 

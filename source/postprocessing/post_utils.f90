@@ -48,9 +48,9 @@ end subroutine handle_statistics
 ! @param istepns Discrete time step of the simulation   
 ! @param istepmaxns Maximum discrete time step   
 ! @param ufile Handle to the log file  
-! @param uterm Handle to the terminal  
+! @param term_out Handle to the terminal  
 !
-subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
+subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile, term_out)
 
   include 'defs_include.h'
   USE PP3D_MPI,only :myid,ShowID
@@ -59,18 +59,18 @@ subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile,uterm)
 
   real*8, intent(in)  :: dtimens, dtimemx, dt
   integer, intent(in) :: istepns , istepmaxns
-  integer, intent(in) :: ufile, uterm
+  integer, intent(in) :: ufile, term_out
 
   IF (myid.eq.showid) THEN
-    write(uterm,5)
+    write(term_out,5)
     write(uFILE,5)
-    write(uterm,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
+    write(term_out,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
       "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
       " | dt:",dt
     write(uFILE,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,D12.4)')&
       "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
       " | dt:",dt
-    write(uterm,5)
+    write(term_out,5)
     write(uFILE,5)
   END IF
 

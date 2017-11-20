@@ -26,6 +26,7 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 ! run fine on BTTF and the LIDO-servers
 INTEGER :: iCommSwitch=3
 
+
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
@@ -34,6 +35,9 @@ LOGICAL :: bNonNewtonian=.TRUE.
 LOGICAL bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
 LOGICAL :: bSteadyState =.FALSE.
+
+! Integer parameter for terminal output
+integer, parameter :: uterm = 6
 
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1

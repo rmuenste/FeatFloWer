@@ -1,11 +1,12 @@
 PROGRAM MUMPS_TEST
 
   include 'defs_include.h'
-  use var_QuadScalar, only: istep_ns
+
   use solution_io, only: postprocessing_app
+
   use post_utils,  only: handle_statistics,&
-    print_time,&
-    sim_finalize
+                         print_time,&
+                         sim_finalize
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
