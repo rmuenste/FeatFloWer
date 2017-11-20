@@ -7,7 +7,6 @@ PROGRAM Q2P1_CC
   character(len=60)  :: CPP3D
   real*8             :: dout = 0.0
   integer            :: ufile,ilog
-  integer            :: uterm = 6
   real*8             :: tt0 = 0.0
   real*8             :: dt = 0.0
 
@@ -36,7 +35,7 @@ PROGRAM Q2P1_CC
 
   call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
 
-  call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
+  call print_time(timens, timemx, tstep, itns, nitns, ufile)
 
   !call handle_statistics(tt0,itns)
 
