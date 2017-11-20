@@ -424,13 +424,15 @@ implicit none
 include 'dmumps_struc.h'
 type(tCoarseMat), intent(inout) :: crs_mat 
 
-!integer, dimension(:), target, intent(inout) :: pJCN
-
 ! locals
 integer :: i
 type (DMUMPS_STRUC) :: mumps_par
+
 integer*4, allocatable, dimension(:), target :: myJCN
+
 integer*4, allocatable, dimension(:), target :: myIRN
+
+real*8 , allocatable, dimension(:), target :: A_loc 
 
   ! Define a communicator for the package.
   mumps_par%COMM = MPI_COMM_WORLD
@@ -469,6 +471,8 @@ integer*4, allocatable, dimension(:), target :: myIRN
       myJCN(i) = myCrsMat%Col(i)
     end do
 
+    ! Set the pointer to the local allocatable array
+    ! as this memory will not be freed by MUMPS
     mumps_par%IRN => myIRN 
     mumps_par%JCN => myJCN 
 
@@ -480,9 +484,18 @@ integer*4, allocatable, dimension(:), target :: myIRN
   else
 
     mumps_par%NZ_loc = myCrsMat%na
-    allocate( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
-    allocate( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
-    allocate( mumps_par%A_loc( mumps_par%NZ_loc) )
+
+    allocate( A_loc( mumps_par%NZ_loc) )
+
+    allocate( myIRN ( mumps_par%NZ_loc  ) )
+    allocate( myJCN ( mumps_par%NZ_loc  ) )
+
+    ! Set the pointer to the local allocatable array
+    ! as this memory will not be freed by MUMPS
+    mumps_par%IRN_loc => myIRN 
+    mumps_par%JCN_loc => myJCN 
+    mumps_par%A_loc => A_loc 
+
     do I = 1, mumps_par%NZ_loc
       mumps_par%IRN_loc(I) = myCrsMat%Row(i)
       mumps_par%JCN_loc(I) = myCrsMat%Col(i)
