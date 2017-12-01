@@ -55,6 +55,11 @@ option(USE_ODE
   OFF
   )
 
+option(USE_CGAL
+  "Use CGAL library"
+  OFF
+  )
+
 option(USE_SYSTEM_BLASLAPACK
   "Use the system BLAS/LAPACK libraries if CMAKE can find them."
   OFF
@@ -300,10 +305,16 @@ if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
 
+# Add the optical tweezers library
 if(USE_OPTICALTWEEZERS)
   set(OPTICALTWEEZERS_LIBRARY True)
   add_subdirectory(extern/libraries/raytracing)
 endif(USE_OPTICALTWEEZERS)
+
+# Add the cgal library
+if(USE_CGAL)
+  add_subdirectory(extern/libraries/cgal)
+endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
