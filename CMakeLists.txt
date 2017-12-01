@@ -17,6 +17,8 @@ enable_testing()
 
 include(CTest)
 
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+
 #-------------------------------------------------------------------------------------------------
 #                                               compiler settings
 #-------------------------------------------------------------------------------------------------
@@ -313,7 +315,11 @@ endif(USE_OPTICALTWEEZERS)
 
 # Add the cgal library
 if(USE_CGAL)
-  add_subdirectory(extern/libraries/cgal)
+  ExternalProject_Add(CGAL_PRJ
+    SOURCE_DIR extern/libraries/cgal
+    )
+  #add_subdirectory(extern/libraries/cgal)
+
 endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
