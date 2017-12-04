@@ -17,6 +17,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   !-------INIT PHASE-------
 
+  ! !
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)

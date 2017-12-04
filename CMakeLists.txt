@@ -319,11 +319,21 @@ if(USE_CGAL)
     GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
     GIT_TAG rafa-devel
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install
+    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
    #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir -DBUILD_SHARED_LIBS=False
+   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
     )
+
   #add_subdirectory(extern/libraries/cgal)
+
+  set(CGAL_LIBRARIES 
+    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
+    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
+    )
+
+  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL_Core.a)
+  #  
+  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL.a)
 
 endif(USE_CGAL)
 

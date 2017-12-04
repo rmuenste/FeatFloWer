@@ -42,7 +42,6 @@ app_init.f90
 q2p1_bench_sedimentation.f90
 )
 
-
 # Add the application executable
 add_executable(q2p1_bench_sedimentation ${src_q2p1_fc_ext}) 
 
@@ -57,7 +56,6 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-
 target_link_libraries(q2p1_bench_sedimentation 
   ${FF_APPLICATION_LIBS}
   )
@@ -67,6 +65,8 @@ target_include_directories(q2p1_bench_sedimentation PUBLIC ${FF_APPLICATION_INCL
 target_compile_options(q2p1_bench_sedimentation PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(q2p1_bench_sedimentation PROPERTIES LINKER_LANGUAGE Fortran)
+
+add_dependencies(q2p1_bench_sedimentation CGAL_PRJ)
 
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
