@@ -1504,7 +1504,7 @@ end subroutine GetForcesPerfCyl
       INTEGER :: iSubSteps
       REAL*8 :: dSubStep
 
-
+#ifdef DO_DYNAMICS
        
       iSubSteps = 1
       call settimestep(dTime)
@@ -1639,8 +1639,9 @@ end subroutine GetForcesPerfCyl
         END IF
       end if
       END DO ! all particles
+#endif
 
-      END
+      END SUBROUTINE
 !
 !-----------------------------------------------------------
 !
@@ -1648,11 +1649,12 @@ end subroutine GetForcesPerfCyl
       USE var_QuadScalar, ONLY : myFBM
       IMPLICIT NONE
       REAL*8 X,Y,Z,Dist,daux
-      REAL*8 PX,PY,PZ,RAD
+      REAL*8 PX,PY,PZ,RAD,dist_sign
       INTEGER iBndr,inpr,iP,iaux,ipc,isin
 
        inpr = 0
-       !Dist = 0.05d0
+       dist_sign = 1
+       Dist = 0.05d0
        DO IP = 1,myFBM%nParticles
         PX = myFBM%particleNew(iP)%Position(1)
         PY = myFBM%particleNew(iP)%Position(2)
@@ -1660,12 +1662,14 @@ end subroutine GetForcesPerfCyl
         RAD =myFBM%particleNew(iP)%sizes(1)
         ipc=ip-1
         isin = 0
-!        call getdistanceid(x,y,z,dist,ipc);        
         call isinelementid(x,y,z,ipc,isin)
         if(isin .gt. 0)then
           !inpr = isin+1
           inpr = IP
+          dist_sign = -1
         end if
+        !call getdistanceid(x,y,z,dist,ipc);        
+        !dist = dist_sign * dist
        end do
 
       END SUBROUTINE GetFictKnpr

@@ -1255,6 +1255,8 @@ END SUBROUTINE Analyzer
 !
 SUBROUTINE updateFBMGeometry()
 
+  IF (myid.eq.showid) WRITE(*,*) '> FBM computation step'
+
   ILEV=NLMAX
   CALL SETLEV(2)
   CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
