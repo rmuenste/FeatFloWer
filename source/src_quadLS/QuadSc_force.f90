@@ -1665,8 +1665,9 @@ end subroutine GetForcesPerfCyl
         call isinelementid(x,y,z,ipc,isin)
         if(isin .gt. 0)then
           !inpr = isin+1
-          inpr = IP
+          inpr = 1 ! IP
           dist_sign = -1
+          return
         end if
         !call getdistanceid(x,y,z,dist,ipc);        
         !dist = dist_sign * dist
