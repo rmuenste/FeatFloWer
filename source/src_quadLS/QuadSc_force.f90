@@ -1648,13 +1648,13 @@ end subroutine GetForcesPerfCyl
       SUBROUTINE GetFictKnpr(X,Y,Z,iBndr,inpr,Dist)
       USE var_QuadScalar, ONLY : myFBM
       IMPLICIT NONE
-      REAL*8 X,Y,Z,Dist,daux
+      REAL*8 X,Y,Z,Dist,daux,d_temp
       REAL*8 PX,PY,PZ,RAD,dist_sign
       INTEGER iBndr,inpr,iP,iaux,ipc,isin
 
        inpr = 0
        dist_sign = 1
-       Dist = 0.05d0
+       Dist = 1000.0d0
        DO IP = 1,myFBM%nParticles
         PX = myFBM%particleNew(iP)%Position(1)
         PY = myFBM%particleNew(iP)%Position(2)
@@ -1667,9 +1667,17 @@ end subroutine GetForcesPerfCyl
           !inpr = isin+1
           inpr = 1 ! IP
           dist_sign = -1
-          return
+          call getdistanceid(x,y,z,d_temp,ipc);        
+          d_temp = dist_sign * d_temp
+          if(d_temp .lt. dist)then
+            dist = d_temp
+          end if
+        else
+            call getdistanceid(x,y,z,d_temp,ipc);        
+            if(d_temp .lt. dist)then
+              dist = d_temp
+            end if
         end if
-        !call getdistanceid(x,y,z,dist,ipc);        
         !dist = dist_sign * dist
        end do
 
