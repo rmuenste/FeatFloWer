@@ -324,16 +324,10 @@ if(USE_CGAL)
    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
     )
 
-  #add_subdirectory(extern/libraries/cgal)
-
   set(CGAL_LIBRARIES 
     ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
     ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
     )
-
-  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL_Core.a)
-  #  
-  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL.a)
 
 endif(USE_CGAL)
 
