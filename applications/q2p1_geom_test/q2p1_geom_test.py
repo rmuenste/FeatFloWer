@@ -91,8 +91,8 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/benchSym/bench.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_bench_sedimentation'],shell=True)
-data = get_col_data("_data/prot.txt")
-write_json_data(data)
+PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/nexxus/file.prj")
+subprocess.call(['mpirun -np 5 ./q2p1_geom_test'],shell=True)
+#data = get_col_data("_data/prot.txt")
+#write_json_data(data)
 
