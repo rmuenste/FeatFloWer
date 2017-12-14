@@ -396,6 +396,7 @@ SUBROUTINE General_init(MDATA,MFILE)
     CHARACTER cParam*8,cParam2*20
     LOGICAL bOK,bOutNMAX
     INTEGER, ALLOCATABLE :: iPos(:)
+    logical :: is_open
 
     !-----------------------------------------------------------------------
     !     C O M M O N S 
@@ -420,10 +421,13 @@ SUBROUTINE General_init(MDATA,MFILE)
 
     SAVE 
 
-    OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action="read",iostat=istat)
-    if(istat .ne. 0)then
-      write(*,*)'Could not open data file: ',myDataFile
-      stop
+    inquire(unit=myFile, OPENED=is_open)
+    if(.not. is_open)then
+      OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action="read",iostat=istat)
+      if(istat .ne. 0)then
+        write(*,*)'Could not open data file: ',myDataFile
+        stop
+      end if
     end if
 
     bOutNMAX = .FALSE.
@@ -631,11 +635,16 @@ SUBROUTINE General_init(MDATA,MFILE)
     THSTEP=TSTEP*THETA
     IF (bOutNMAX) myExport%Level = NLMAX + iOutShift
 
-    IF (myid.eq.showid) THEN
-      OPEN (UNIT=mfile1,FILE=cfile1,action="write",status="replace",iostat=istat)
-      if(istat .ne. 0)then
-        write(*,*)'Could not open protocal file for writing.'
-        stop
+
+
+    inquire(unit=myFile, OPENED=is_open)
+    if(.not. is_open)then
+      IF (myid.eq.showid) THEN
+        OPEN (UNIT=mfile1,FILE=cfile1,action="write",status="replace",iostat=istat)
+        if(istat .ne. 0)then
+          write(*,*)'Could not open protocol file for writing.'
+          stop
+        end if
       end if
     end if
 
