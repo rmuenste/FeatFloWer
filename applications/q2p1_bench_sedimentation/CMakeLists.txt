@@ -66,8 +66,6 @@ target_compile_options(q2p1_bench_sedimentation PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(q2p1_bench_sedimentation PROPERTIES LINKER_LANGUAGE Fortran)
 
-add_dependencies(q2p1_bench_sedimentation CGAL_PRJ)
-
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
 
