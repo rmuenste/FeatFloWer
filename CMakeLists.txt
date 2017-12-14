@@ -17,6 +17,8 @@ enable_testing()
 
 include(CTest)
 
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+
 #-------------------------------------------------------------------------------------------------
 #                                               compiler settings
 #-------------------------------------------------------------------------------------------------
@@ -52,6 +54,11 @@ option(USE_MUMPS
 
 option(USE_ODE
   "Use the ODE library"
+  OFF
+  )
+
+option(USE_CGAL
+  "Use CGAL library"
   OFF
   )
 
@@ -300,10 +307,29 @@ if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
 
+# Add the optical tweezers library
 if(USE_OPTICALTWEEZERS)
   set(OPTICALTWEEZERS_LIBRARY True)
   add_subdirectory(extern/libraries/raytracing)
 endif(USE_OPTICALTWEEZERS)
+
+# Add the cgal library
+if(USE_CGAL)
+  ExternalProject_Add(CGAL_PRJ
+    GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+    GIT_TAG rafa-devel
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
+    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
+   #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
+   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
+    )
+
+  set(CGAL_LIBRARIES 
+    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
+    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
+    )
+
+endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
@@ -318,8 +344,28 @@ endif()
 #-------------------------------------------------------------------------------------------------
 #                               Configure BoostC++ 
 #-------------------------------------------------------------------------------------------------
+# find_package(Boost 1.56 REQUIRED COMPONENTS thread): 
+# find_package(Boost [version] [EXACT] [REQUIRED] [COMPONENTS <libs> ...]) 
+# Here [version] denotes the minimum version of the library
+# In case the libraries are found the following variables are set:
+# 
+# Boost_INCLUDE_DIRS : - Boost include directories
+# Boost_LIBRARY_DIRS : - Boost library directories
+# Boost_LIBRARIES    : - Boost libraries to be linked
+# Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
-#find_package(Boost 1.56 COMPONENTS filesystem REQUIRED)
+find_package(Boost 1.56 REQUIRED COMPONENTS thread)
+#if(Boost_FOUND)
+#  message("Boost library version: ${Boost_VERSION}")
+#  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
+#  message("Boost include directory: ${Boost_INCLUDE_DIRS}")
+#  message("Boost library directory: ${Boost_LIBRARY_DIRS}")
+#  message("Boost library directory: ${Boost_LIBRARIES}")
+#  message(FATAL_ERROR "Found Boost library")
+#else()
+#  message(FATAL_ERROR "Did not find Boost library")
+#endif()
+
 #-------------------------------------------------------------------------------------------------
 #                      Set the flags/paths/etc. we have determined for libraries 
 #-------------------------------------------------------------------------------------------------

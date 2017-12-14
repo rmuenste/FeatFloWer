@@ -1873,6 +1873,13 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Distance')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Distance",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(Distance(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
  END SELECT 
 
 END DO
@@ -2012,6 +2019,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity","""/>"
  CASE('Monitor')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
+ CASE('Distance')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Distance","""/>"
 
  END SELECT
 END DO
