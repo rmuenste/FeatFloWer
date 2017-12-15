@@ -1490,40 +1490,37 @@ end subroutine GetForcesPerfCyl
 !
 !-----------------------------------------------------------------------
 !
-      SUBROUTINE updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
-      USE var_QuadScalar, ONLY : myFBM
-      USE PP3D_MPI, ONLY: myMPI_Barrier
-      use cinterface
-      INTEGER IP,ipc,myip
-      INTEGER myid
-      INTEGER mfile
-      REAL*8 DensityL,dTime,simTime,Gravity(3)
-      REAL*8 pi,volume,mass,massR,radius,dimomir
-      PARAMETER (PI=3.1415926535897931D0)
-      REAL*8 RForce(3),dVelocity(3),dOmega(3),timecoll
-      INTEGER :: iSubSteps
-      REAL*8 :: dSubStep
+subroutine updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+use var_QuadScalar, only : myFBM
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+integer :: IP,ipc
+integer :: myid
+integer :: mfile
+real*8 :: DensityL,dTime,simTime,Gravity(3),dSubStep
+real*8 :: pi,volume,mass,massR,radius,dimomir
+parameter :: (PI=3.1415926535897931D0)
+real*8 :: RForce(3),dVelocity(3),dOmega(3),timecoll
+integer :: iSubSteps
 
-#ifdef DO_DYNAMICS
-       
+#ifdef SKIP_DYNAMICS
       iSubSteps = 1
       call settimestep(dTime)
       if(myid.eq.1) write(*,*)'updating'
 
-!     communicate new force + torque
-      DO IP = 1,myFBM%nParticles
-       ipc = ip-1
-       ! Communicate the force
-       call setforce(myFBM%particleOld(IP)%ResistanceForce(1),&
-       myFBM%particleOld(IP)%ResistanceForce(2),&
-       myFBM%particleOld(IP)%ResistanceForce(3),ipc)
+      ! Communicate new force + torque
+      do IP = 1,myFBM%nParticles
+        ipc = ip-1
+        ! Communicate the force
+        call setforce(myFBM%particleOld(IP)%ResistanceForce(1),&
+                      myFBM%particleOld(IP)%ResistanceForce(2),&
+                      myFBM%particleOld(IP)%ResistanceForce(3),ipc)
 
-       ! Communicate the torque
-       call settorque(myFBM%particleOld(IP)%TorqueForce(1),&
-       myFBM%particleOld(IP)%TorqueForce(2), &
-       myFBM%particleOld(IP)%TorqueForce(3),ipc)
-
-      END DO ! all particles
+        ! Communicate the torque
+        call settorque(myFBM%particleOld(IP)%TorqueForce(1),&
+        myFBM%particleOld(IP)%TorqueForce(2),&
+        myFBM%particleOld(IP)%TorqueForce(3),ipc)
+      end do ! all particles
             
       ! in the first loop we updated the external force and
       ! torque, with this we can start the collision handling
@@ -1609,39 +1606,39 @@ end subroutine GetForcesPerfCyl
       myFBM%particleNew(IP)%AngularVelocity
 
       IF((myid.eq.1) .and. (IP .eq. 1)) THEN
-        IF(myid.eq.1)THEN
+        if(myid.eq.1)then
         write(*,*)'After collision handling'
-        WRITE(mfile,'(A19,3ES14.4)') "ResistanceForce: ",&
+        write(mfile,'(A19,3ES14.4)') "ResistanceForce: ",&
             myFBM%particleNew(IP)%ResistanceForce
-        WRITE(*,'(A19,3ES14.4)') "ResistanceForce: ",&
+        write(*,'(A19,3ES14.4)') "ResistanceForce: ",&
             myFBM%particleNew(IP)%ResistanceForce
-        WRITE(mfile,'(A19,3ES14.4)') "TorqueForce: ",&
+        write(mfile,'(A19,3ES14.4)') "TorqueForce: ",&
             myFBM%particleNew(IP)%TorqueForce        
-        WRITE(*,'(A19,3ES14.4)') "TorqueForce: ",&
+        write(*,'(A19,3ES14.4)') "TorqueForce: ",&
             myFBM%particleNew(IP)%TorqueForce
-        WRITE(mfile,'(A19,4ES14.4)') "Position: ",&
+        write(mfile,'(A19,4ES14.4)') "Position: ",&
             myFBM%particleNew(IP)%Position,simTime        
-        WRITE(*,'(A19,4ES14.4)') "Position: ",&
+        write(*,'(A19,4ES14.4)') "Position: ",&
             myFBM%particleNew(IP)%Position,simTime
-        WRITE(mfile,'(A19,4ES14.4)') "PartVel: ",&
+        write(mfile,'(A19,4ES14.4)') "PartVel: ",&
             myFBM%particleNew(IP)%Velocity,simTime        
-        WRITE(*,'(A19,4ES14.4)') "PartVel: ",&
+        write(*,'(A19,4ES14.4)') "PartVel: ",&
             myFBM%particleNew(IP)%Velocity,simTime
-        WRITE(mfile,'(A19,3ES14.4)') "Angle: ",&
+        write(mfile,'(A19,3ES14.4)') "Angle: ",&
             myFBM%particleNew(IP)%Angle        
-        WRITE(*,'(A19,3ES14.4)') "Angle: ",&
+        write(*,'(A19,3ES14.4)') "Angle: ",&
             myFBM%particleNew(IP)%Angle
-        WRITE(mfile,'(A19,3ES14.4)') "AngularVelocity: ",&
+        write(mfile,'(A19,3ES14.4)') "AngularVelocity: ",&
             myFBM%particleNew(IP)%AngularVelocity        
-        WRITE(*,'(A19,3ES14.4)') "AngularVelocity: ",&
+        write(*,'(A19,3ES14.4)') "AngularVelocity: ",&
             myFBM%particleNew(IP)%AngularVelocity
 
-        END IF
+        end if
       end if
-      END DO ! all particles
+      end do ! all particles
 #endif
 
-      END SUBROUTINE
+end subroutine updateFBM
 !
 !-----------------------------------------------------------
 !

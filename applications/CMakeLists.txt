@@ -17,7 +17,9 @@ add_subdirectory(q2p1_experimental)
 
 add_subdirectory(q2p1_euler_fibers)
 
-add_subdirectory(q2p1_geom_test)
+if(USE_CGAL)
+  add_subdirectory(q2p1_geom_test)
+endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)
   add_subdirectory(q2p1_optic_tweezers)
