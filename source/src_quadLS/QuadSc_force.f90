@@ -1498,8 +1498,8 @@ integer :: IP,ipc
 integer :: myid
 integer :: mfile
 real*8 :: DensityL,dTime,simTime,Gravity(3),dSubStep
-real*8 :: pi,volume,mass,massR,radius,dimomir
-parameter :: (PI=3.1415926535897931D0)
+real*8 :: volume,mass,massR,radius,dimomir
+real*8,parameter :: PI = 3.1415926535897931D0
 real*8 :: RForce(3),dVelocity(3),dOmega(3),timecoll
 integer :: iSubSteps
 

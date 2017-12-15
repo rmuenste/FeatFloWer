@@ -54,32 +54,32 @@ def write_json_data(col):
    }
   }
 
-#  with open("note_single_alt.json","w") as f:
-#    json.dump(d,f)
-#    f.write("\n")
-#
+  with open("note_single_alt.json","w") as f:
+    json.dump(d,f)
+    f.write("\n")
+
 #  with open("note_single_alt.json","r") as f:
 #    parsed = json.load(f)
 #    print(json.dumps(parsed, indent=2, sort_keys=True))
 
-  with open("note_single.json","w") as f:
-    f.write("{\n")
-    f.write('"ID": "BENCHSED", "Caption": "Sedimentation Benchmark", "data": \n')
-    ###############
-    f.write("{\n")
-    f.write('"cols": [\n')
-    f.write('{"label": "Time", "type": "number"},\n')
-    f.write('{"label": "U_z", "type": "number"}\n')
-    f.write("],\n")
-    f.write('"rows": [\n')
-    for i in range(len(col)-1):
-        f.write('{"c":[{"v":' + col[i][0] + '},{"v":' + col[i][1] + '}]},\n')
-
-    f.write('{"c":[{"v":' + col[len(col)-1][0] + '},{"v":' + col[len(col)-1][1] + '}]}\n')
-    f.write("]\n")
-    f.write("}\n")
-    ###############
-    f.write("}\n")
+#  with open("note_single.json","w") as f:
+#    f.write("{\n")
+#    f.write('"ID": "BENCHSED", "Caption": "Sedimentation Benchmark", "data": \n')
+#    ###############
+#    f.write("{\n")
+#    f.write('"cols": [\n')
+#    f.write('{"label": "Time", "type": "number"},\n')
+#    f.write('{"label": "U_z", "type": "number"}\n')
+#    f.write("],\n")
+#    f.write('"rows": [\n')
+#    for i in range(len(col)-1):
+#        f.write('{"c":[{"v":' + col[i][0] + '},{"v":' + col[i][1] + '}]},\n')
+#
+#    f.write('{"c":[{"v":' + col[len(col)-1][0] + '},{"v":' + col[len(col)-1][1] + '}]}\n')
+#    f.write("]\n")
+#    f.write("}\n")
+#    ###############
+#    f.write("}\n")
 
 
 
