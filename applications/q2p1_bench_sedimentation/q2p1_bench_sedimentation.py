@@ -54,7 +54,7 @@ def write_json_data(col):
    }
   }
 
-  with open("note_single_alt.json","w") as f:
+  with open("note_single.json","w") as f:
     json.dump(d,f)
     f.write("\n")
 
