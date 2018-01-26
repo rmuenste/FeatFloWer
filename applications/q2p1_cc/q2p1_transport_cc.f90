@@ -237,7 +237,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
 REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
-REAL*8 :: FORCES_NEW(3),FORCES_OLD(3),MGnonLin,digitcriterion
+REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 REAL*8 B,a,h1,h2,h3
 
@@ -265,7 +265,8 @@ IF (myid.eq.1) THEN
   write(mterm,77)
 END IF
 
-digitcriterion = 10**(-1-alpha)
+digitcriterion = 10d0**(-1d0-alpha)
+
 
 
  CALL ExchangeVelocitySolutionCoarse()
@@ -455,7 +456,7 @@ END IF
 ! digits to gain in MG
 !---------------------
  digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
- if(digitcriterion.gt.10**(-1-alpha)) digitcriterion = 10**(-1-alpha)
+ if(digitcriterion.gt.10**(-1d0-alpha)) digitcriterion = 10**(-1d0-alpha)
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -472,7 +473,7 @@ IF (myid.eq.showid) THEN
   END IF
 END IF
 
- CALL myFAC_GetForces(mfile,FORCES_NEW)
+ CALL FAC_GetForces_CC(mfile,FORCES_NEW)
  CALL OperatorDeallocation()
 
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
@@ -503,15 +504,15 @@ ELSE
 	IF (DefNorm/DefNorm0.LT.myTolerance) exit
 END IF
 
-IF (stopOne.LT.1d-4) THEN
-	IF (myid.eq.showid) THEN
-	write(mfile,55) 
-  	write(mterm,55)
-	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-        END IF
-        exit
-END IF
+!IF (stopOne.LT.1d-4) THEN
+!	IF (myid.eq.showid) THEN
+!	write(mfile,55) 
+!  	write(mterm,55)
+!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!        END IF
+!        exit
+!END IF
 END DO
 
 
@@ -529,7 +530,7 @@ END DO
 ! CALL OperatorDeallocation()
 
 IF (myid.eq.showid) THEN
-  WRITE(777,'(7G16.8)') Timens,FORCES_NEW,iIterges,ni
+  WRITE(777,'(10G16.8)') Timens,FORCES_NEW,iIterges,ni
 
   MGnonLin = iIterges/ni
   write(mfile,55) 
@@ -703,7 +704,7 @@ END SUBROUTINE OperatorDeallocation
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),U_mean=1d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -744,9 +745,9 @@ EXTERNAL E013
  IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  WRITE(666,'(7G16.8)') Timens,Force
+  write(mfile,'(A30,8E16.8)') "Force acting on the cylinder:",timens,Force
+  write(mterm,'(A30,8E16.8)') "Force acting on the cylinder:",timens,Force
+  WRITE(666,'(8G16.8)') Timens,Force
  END IF
 
 5  FORMAT(104('-'))
@@ -790,7 +791,7 @@ EXTERNAL E013
   WRITE(MFILE,5)
   write(mfile,'(A30,4E16.8)') "Force acting:",timens,Force
   write(mterm,'(A30,4E16.8)') "Force acting:",timens,Force
-  WRITE(666,'(7G16.8)') Timens,Force
+  WRITE(666,'(4G16.8)') Timens,Force
  END IF
 
 5  FORMAT(104('-'))
@@ -895,6 +896,7 @@ END IF
 CALL COMM_SUMM(df(1))
 CALL COMM_SUMM(df(2))
 CALL COMM_SUMM(df(3))
+
 
 END SUBROUTINE EvaluateDragLift9_mod
 !

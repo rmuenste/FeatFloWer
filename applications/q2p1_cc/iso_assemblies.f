@@ -2514,7 +2514,7 @@ C
 C
       LOGICAL bNonNewt
       REAL*8  U1(*),U2(*),U3(*),P(*),DCORVG(NNDIM,*)
-      REAL*8  DResForce(3)
+      REAL*8  DResForce(7)
       LOGICAL bALPHA(*)
       INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       INTEGER KDFG(NNBAS),KDFL(NNBAS)
@@ -2565,6 +2565,10 @@ C
       DResForce(1) = 0D0
       DResForce(2) = 0D0
       DResForce(3) = 0D0
+      DResForce(4) = 0D0
+      DResForce(5) = 0D0
+      DResForce(6) = 0D0
+      DResForce(7) = 0D0
 C
       DO ICUBP=1,NCUBP
        XI1=DXI(ICUBP,1)
@@ -2736,20 +2740,34 @@ C
 
        AH1=-Press*DN1+dVisc*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2 + ! full3D
      *     (DU1Z+DU3X)*DN3)
-       AH2=-Press*DN2+dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
+       AH4=-Press*DN2+dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
      *     (DU2Z+DU3Y)*DN3)
-       AH3=-Press*DN3+dVisc*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2 + ! full3D
+       AH7=-Press*DN3+dVisc*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2 + ! full3D
      *     (DU3Z+DU3Z)*DN3)
 C
        DResForce(1) = DResForce(1) + AH1*OM
+       DResForce(4) = DResForce(4) + AH4*OM
+       DResForce(7) = DResForce(7) + AH7*OM
+
+       AH2=dVisc*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2 + ! full3D
+     *     (DU1Z+DU3X)*DN3)
        DResForce(2) = DResForce(2) + AH2*OM
+       AH5=dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
+     *     (DU2Z+DU3Y)*DN3)
+       DResForce(5) = DResForce(5) + AH5*OM
+
+       AH3=-Press*DN1
        DResForce(3) = DResForce(3) + AH3*OM
+       AH6=-Press*DN2
+       DResForce(6) = DResForce(6) + AH6*OM
+
+
 C
 200   CONTINUE
 C
 100   CONTINUE
 C
-999   CALL COMM_SUMMN(DResForce,3)
+999   CALL COMM_SUMMN(DResForce,7)
 C
 99999 CONTINUE
 
