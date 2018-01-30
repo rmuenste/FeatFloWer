@@ -62,6 +62,11 @@ option(USE_CGAL
   OFF
   )
 
+option(USE_BOOST
+  "Use Boost library"
+  OFF
+  )
+
 option(USE_SYSTEM_BLASLAPACK
   "Use the system BLAS/LAPACK libraries if CMAKE can find them."
   OFF
@@ -315,6 +320,7 @@ endif(USE_OPTICALTWEEZERS)
 
 # Add the cgal library
 if(USE_CGAL)
+  set(USE_BOOST True)
   ExternalProject_Add(CGAL_PRJ
     GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
     GIT_TAG rafa-devel
@@ -354,7 +360,9 @@ endif()
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
-find_package(Boost 1.56 REQUIRED COMPONENTS thread)
+if(USE_BOOST)
+  find_package(Boost 1.56 REQUIRED COMPONENTS thread)
+endif(USE_BOOST)
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
