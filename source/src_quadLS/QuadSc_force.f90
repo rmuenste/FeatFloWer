@@ -1503,10 +1503,14 @@ real*8,parameter :: PI = 3.1415926535897931D0
 real*8 :: RForce(3),dVelocity(3),dOmega(3),timecoll
 integer :: iSubSteps
 
-#ifdef SKIP_DYNAMICS
+#ifndef SKIP_DYNAMICS
       iSubSteps = 1
       call settimestep(dTime)
       if(myid.eq.1) write(*,*)'updating'
+      ! After the rigid body solver has computed a 
+      ! step, we have to get the new particle state
+      ! values from the rigid body solver
+      call FBM_GetParticleStateUpdate()
 
       ! Communicate new force + torque
       do IP = 1,myFBM%nParticles
@@ -1557,6 +1561,7 @@ integer :: iSubSteps
 #ifdef WITH_ODE 
       call ode_get_velocity()
 #endif
+
       ! After the rigid body solver has computed a 
       ! step, we have to get the new particle state
       ! values from the rigid body solver
@@ -1636,6 +1641,8 @@ integer :: iSubSteps
         end if
       end if
       end do ! all particles
+#else
+  if(myid.eq.1) write(*,*)'> Skipping dynamics'
 #endif
 
 end subroutine updateFBM
@@ -1663,17 +1670,17 @@ end subroutine updateFBM
         if(isin .gt. 0)then
           !inpr = isin+1
           inpr = 1 ! IP
-          dist_sign = -1
-          call getdistanceid(x,y,z,d_temp,ipc);        
-          d_temp = dist_sign * d_temp
-          if(d_temp .lt. dist)then
-            dist = d_temp
-          end if
+!          dist_sign = -1
+!          call getdistanceid(x,y,z,d_temp,ipc);        
+!          d_temp = dist_sign * d_temp
+!          if(d_temp .lt. dist)then
+!            dist = d_temp
+!          end if
         else
-            call getdistanceid(x,y,z,d_temp,ipc);        
-            if(d_temp .lt. dist)then
-              dist = d_temp
-            end if
+!            call getdistanceid(x,y,z,d_temp,ipc);        
+!            if(d_temp .lt. dist)then
+!              dist = d_temp
+!            end if
         end if
         !dist = dist_sign * dist
        end do

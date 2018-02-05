@@ -62,7 +62,8 @@ target_link_libraries(q2p1_geom_test
 
 target_include_directories(q2p1_geom_test PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
-target_compile_options(q2p1_geom_test PRIVATE ${Fortran_FLAGS} SKIP_DYNAMICS=1)
+target_compile_options(q2p1_geom_test PRIVATE ${Fortran_FLAGS})
+target_compile_options(q2p1_geom_test PRIVATE -DSKIP_DYNAMICS=1)
 
 set_target_properties(q2p1_geom_test PROPERTIES LINKER_LANGUAGE Fortran)
 
