@@ -37,7 +37,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M0.obj"	  	  	  	  
+      meshFile = "meshes/M0.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -57,7 +57,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M1.obj"	  	  	  	  
+      meshFile = "meshes/M1.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -77,7 +77,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M2.obj"	  	  	  	  
+      meshFile = "meshes/M2.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -97,7 +97,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M3.obj"	  	  	  	  
+      meshFile = "meshes/M3.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -117,7 +117,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M4.obj"	  	  	  	  
+      meshFile = "meshes/M4.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -137,7 +137,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M5.obj"	  	  	  	  
+      meshFile = "meshes/M5.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -157,7 +157,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M6.obj"	  	  	  	  
+      meshFile = "meshes/M6.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -177,7 +177,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M7.obj"	  	  	  	  
+      meshFile = "meshes/M7.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -197,7 +197,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M8.obj"	  	  	  	  
+      meshFile = "meshes/M8.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -217,7 +217,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M9.obj"	  	  	  	  
+      meshFile = "meshes/M9.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -237,7 +237,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M10.obj"	  	  	  	  
+      meshFile = "meshes/M10.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -257,7 +257,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M11.obj"	  	  	  	  
+      meshFile = "meshes/M11.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -277,7 +277,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M12.obj"	  	  	  	  
+      meshFile = "meshes/M12.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -297,7 +297,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M13.obj"	  	  	  	  
+      meshFile = "meshes/M13.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -317,7 +317,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M14.obj"	  	  	  	  
+      meshFile = "meshes/M14.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -337,7 +337,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M15.obj"	  	  	  	  
+      meshFile = "meshes/M15.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -357,7 +357,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M16.obj"	  	  	  	  
+      meshFile = "meshes/M16.off"	  	  	  	  
       >
     </RigidBody>	
     <RigidBody
@@ -377,7 +377,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/M17.obj"	  	  	  	  
+      meshFile = "meshes/M17.off"	  	  	  	  
       >
     </RigidBody>	
   </RigidBodyList>
