@@ -1649,79 +1649,89 @@ end subroutine updateFBM
 !
 !-----------------------------------------------------------
 !
-      SUBROUTINE GetFictKnpr(X,Y,Z,iBndr,inpr,Dist)
-      USE var_QuadScalar, ONLY : myFBM
-      IMPLICIT NONE
-      REAL*8 X,Y,Z,Dist,daux,d_temp
-      REAL*8 PX,PY,PZ,RAD,dist_sign
-      INTEGER iBndr,inpr,iP,iaux,ipc,isin
+SUBROUTINE GetFictKnpr(X,Y,Z,iBndr,inpr,Dist)
+USE var_QuadScalar, ONLY : myFBM
+IMPLICIT NONE
+REAL*8 X,Y,Z,Dist,daux,d_temp
+REAL*8 PX,PY,PZ,RAD,dist_sign
+real*8 cx, cy, cz
+real*8 cpx, cpy, cpz
+INTEGER iBndr,inpr,iP,iaux,ipc,isin
 
-       inpr = 0
-       dist_sign = 1
-       Dist = 1000.0d0
-       DO IP = 1,myFBM%nParticles
-        PX = myFBM%particleNew(iP)%Position(1)
-        PY = myFBM%particleNew(iP)%Position(2)
-        PZ = myFBM%particleNew(iP)%Position(3)
-        RAD =myFBM%particleNew(iP)%sizes(1)
-        ipc=ip-1
-        isin = 0
-        call isinelementid(x,y,z,ipc,isin)
-        if(isin .gt. 0)then
-          !inpr = isin+1
-          inpr = 1 ! IP
-!          dist_sign = -1
-!          call getdistanceid(x,y,z,d_temp,ipc);        
-!          d_temp = dist_sign * d_temp
-!          if(d_temp .lt. dist)then
-!            dist = d_temp
-!          end if
-        else
-!            call getdistanceid(x,y,z,d_temp,ipc);        
-!            if(d_temp .lt. dist)then
-!              dist = d_temp
-!            end if
-        end if
-        !dist = dist_sign * dist
-       end do
+ inpr = 0
+ dist_sign = 1
+ Dist = 1000.0d0
+ DO IP = 1,myFBM%nParticles
+  PX = myFBM%particleNew(iP)%Position(1)
+  PY = myFBM%particleNew(iP)%Position(2)
+  PZ = myFBM%particleNew(iP)%Position(3)
+  RAD =myFBM%particleNew(iP)%sizes(1)
+  ipc=ip-1
+  isin = 0
+  call isinelementid(x,y,z,ipc,isin)
+  if(isin .gt. 0)then
+     inpr = isin+1
+    inpr = 1 ! IP
+!    dist_sign = -1
+    !call getdistanceid(x,y,z,d_temp,ipc);        
+!    call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc);        
+!    d_temp = dist_sign * d_temp
+!    if(d_temp .lt. dist)then
+!      dist = d_temp
+!      cx = cpx
+!      cy = cpy
+!      cz = cpz
+!    end if
+  else
+    !call getdistanceid(x,y,z,d_temp,ipc);        
+!    call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc);        
+!    if(d_temp .lt. dist)then
+!      dist = d_temp
+!      cx = cpx
+!      cy = cpy
+!      cz = cpz
+!    end if
+  end if
+  dist = dist_sign * dist
+ end do
 
-      END SUBROUTINE GetFictKnpr
+END SUBROUTINE GetFictKnpr
 !
 !-----------------------------------------------------------
 !
-      SUBROUTINE GetVeloFictBCVal(X,Y,Z,ValU,ValV,ValW,IP,t)
-      USE var_QuadScalar, ONLY : myFBM,bRefFrame
-      IMPLICIT NONE
-      INTEGER iP,ipc
-      REAL*8 X,Y,Z,t,ValU,ValV,ValW
-      REAL*8 PX,PY,PZ,RAD
-      REAL*8 Velo(3),Pos(3),Omega(3)
-      REAL*8 DVELZ_X,DVELZ_Y,DVELY_Z,DVELY_X,DVELX_Y,DVELX_Z
+SUBROUTINE GetVeloFictBCVal(X,Y,Z,ValU,ValV,ValW,IP,t)
+USE var_QuadScalar, ONLY : myFBM,bRefFrame
+IMPLICIT NONE
+INTEGER iP,ipc
+REAL*8 X,Y,Z,t,ValU,ValV,ValW
+REAL*8 PX,PY,PZ,RAD
+REAL*8 Velo(3),Pos(3),Omega(3)
+REAL*8 DVELZ_X,DVELZ_Y,DVELY_Z,DVELY_X,DVELX_Y,DVELX_Z
 
-      ValU = 0d0
-      ValV = 0d0
-      ValW = 0d0
+ValU = 0d0
+ValV = 0d0
+ValW = 0d0
 
-      if(IP .le. myFBM%nParticles)then
-        Velo  = myFBM%particleNEW(IP)%Velocity
-        Pos   = myFBM%particleNEW(IP)%Position
-        Omega = myFBM%particleNEW(IP)%AngularVelocity
+if(IP .le. myFBM%nParticles)then
+  Velo  = myFBM%particleNEW(IP)%Velocity
+  Pos   = myFBM%particleNEW(IP)%Position
+  Omega = myFBM%particleNEW(IP)%AngularVelocity
 
-        DVELZ_X = -(Y-Pos(2))*Omega(3)
-        DVELZ_Y = +(X-Pos(1))*Omega(3)
+  DVELZ_X = -(Y-Pos(2))*Omega(3)
+  DVELZ_Y = +(X-Pos(1))*Omega(3)
 
-        DVELY_Z = -(X-Pos(1))*Omega(2)
-        DVELY_X = +(Z-Pos(3))*Omega(2)
+  DVELY_Z = -(X-Pos(1))*Omega(2)
+  DVELY_X = +(Z-Pos(3))*Omega(2)
 
-        DVELX_Y = -(Z-Pos(3))*Omega(1)
-        DVELX_Z = +(Y-Pos(2))*Omega(1)
+  DVELX_Y = -(Z-Pos(3))*Omega(1)
+  DVELX_Z = +(Y-Pos(2))*Omega(1)
 
-        ValU = Velo(1) + DVELZ_X + DVELY_X
-        ValV = Velo(2) + DVELZ_Y + DVELX_Y
-        ValW = Velo(3) + DVELX_Z + DVELY_Z
-      end if
+  ValU = Velo(1) + DVELZ_X + DVELY_X
+  ValV = Velo(2) + DVELZ_Y + DVELX_Y
+  ValW = Velo(3) + DVELX_Z + DVELY_Z
+end if
 
-      END SUBROUTINE GetVeloFictBCVal
+END SUBROUTINE GetVeloFictBCVal
 !
 !-----------------------------------------------------------
 !
