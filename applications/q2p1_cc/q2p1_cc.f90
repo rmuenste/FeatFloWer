@@ -19,14 +19,23 @@ PROGRAM Q2P1_CC
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
-  !-------MAIN LOOP-------
+  IF (myid.ne.master) THEN
+  QuadSc%valU_old1 = QuadSc%valU
+  QuadSc%valV_old1 = QuadSc%valV
+  QuadSc%valW_old1 = QuadSc%valW
+  QuadSc%valU_help = QuadSc%valU
+  QuadSc%valV_help = QuadSc%valV
+  QuadSc%valW_help = QuadSc%valW
+  END IF
 
+  !-------MAIN LOOP-------
   DO itns=1,nitns
 
   itnsr=0
   timnsh=timens
   dt=tstep
   timens=timens+dt
+
 
   ! Solve Navier-Stokes 
   CALL Transport_q2p1_UxyzP_cc(ufile,inonln_u)

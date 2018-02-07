@@ -29,7 +29,14 @@ Real*8 :: dabl
 
  ! Initialize the scalar quantity
  CALL InitializeQuadScalar(QuadSc)
-
+ IF (ccParams%BDF.ne.0) THEN
+ 	ALLOCATE(QuadSc%valU_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valU_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_help(QuadSc%ndof))
+ END IF
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
 
@@ -276,6 +283,14 @@ digitcriterion = 10d0**(-1d0-alpha)
  CALL OperatorRegenaration_iso(3)
 
 
+!#######################################
+! Store the old solution for BDF to help
+!#######################################
+IF (myid.ne.master) THEN
+ QuadSc%valU_help = QuadSc%valU
+ QuadSc%valV_help = QuadSc%valV
+ QuadSc%valW_help = QuadSc%valW
+END IF
 
  CALL ZTIME(tttt0)
 
@@ -456,7 +471,7 @@ END IF
 ! digits to gain in MG
 !---------------------
  digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
- if(digitcriterion.gt.10**(-1d0-alpha)) digitcriterion = 10**(-1d0-alpha)
+ if(digitcriterion.gt.10d0**(-1d0-alpha)) digitcriterion = 10d0**(-1d0-alpha)
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -504,6 +519,8 @@ ELSE
 	IF (DefNorm/DefNorm0.LT.myTolerance) exit
 END IF
 
+IF (DefNorm.EQ.0d0) exit
+
 !IF (stopOne.LT.1d-4) THEN
 !	IF (myid.eq.showid) THEN
 !	write(mfile,55) 
@@ -515,6 +532,14 @@ END IF
 !END IF
 END DO
 
+!#######################################
+! Store the old solution for BDF to old1
+!#######################################
+IF (myid.ne.master) THEN
+ QuadSc%valU_old1 = QuadSc%valU_help
+ QuadSc%valV_old1 = QuadSc%valV_help
+ QuadSc%valW_old1 = QuadSc%valW_help
+END IF
 
 ! OUTPUT at the end
 ! CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
@@ -991,6 +1016,9 @@ DO
     CASE ("MG_VANKA")
     READ(string(iEq+1:),*) ccParams%VANKA
     call write_param_int(mfile,cVar,cPar,out_string,ccParams%VANKA)
+    CASE ("BDF")
+    READ(string(iEq+1:),*) ccParams%BDF
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%BDF)
 
 
   END SELECT

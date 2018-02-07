@@ -26,7 +26,7 @@ TYPE tParamCC
  INTEGER MinLev,MedLev,MinIterCycle,MaxIterCycle,nSmootherSteps
  REAL*8 Criterion,RLX 
  CHARACTER*1 CycleType
- integer :: vanka
+ integer :: vanka,BDF
 END TYPE tParamCC
 
 TYPE(tParamCC) ccParams
