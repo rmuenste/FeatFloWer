@@ -7,6 +7,7 @@
     nBodies = "18"
     bodyInit = "0"
     bodyFile = "defaultBodies.i3d"
+    cgalConfigFile = "mesh_names.offs"
     defaultDensity = "1120"
     liquidDensity = "962"
     defaultRadius = "0.05"
@@ -21,7 +22,7 @@
   </ApplicationSettings>
   <RigidBodyList size = "1">
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -41,7 +42,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -61,7 +62,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -81,7 +82,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -101,7 +102,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -121,7 +122,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -141,7 +142,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -161,7 +162,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -181,7 +182,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -201,7 +202,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -221,7 +222,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -241,7 +242,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -261,7 +262,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -281,7 +282,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -301,7 +302,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -321,7 +322,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -341,7 +342,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -361,7 +362,7 @@
       >
     </RigidBody>	
     <RigidBody
-      type = "9"
+      type = "15"
       position = "0.0 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
