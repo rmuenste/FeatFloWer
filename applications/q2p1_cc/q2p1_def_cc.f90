@@ -22,9 +22,16 @@ EXTERNAL E013
 INTEGER :: idef
 INTEGER I,J,tsm
 TYPE(TQuadScalar) myScalar
-REAL*8 daux,tttx1,tttx0,alpha
+REAL*8 daux,tttx1,tttx0,alpha,bdffactor
 
 tsm = ccParams%BDF
+
+IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+	bdffactor = 1d0
+ELSE IF (tsm.EQ.2) THEN
+	bdffactor = 2d0/3d0
+END IF
+
 
 ! Build up the matrix
  IF (idef.eq.-1) THEN
@@ -133,39 +140,39 @@ tsm = ccParams%BDF
        DO I=1,qMat%nu
         DO J=qMat%LdA(I),qMat%LdA(I+1)-1
          ! non-linear defect
-         A11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J))
-         A22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J))
-         A33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J))
-         A12Mat(J) = thstep*S12Mat(J)
-         A13Mat(J) = thstep*S13Mat(J)
-         A23Mat(J) = thstep*S23Mat(J)
-         A21Mat(J) = thstep*S21Mat(J)
-         A31Mat(J) = thstep*S31Mat(J)
-         A32Mat(J) = thstep*S32Mat(J)
+         A11mat(J) = MMat(J) + bdffactor*thstep*(S11Mat(J) + KMat(J))
+         A22mat(J) = MMat(J) + bdffactor*thstep*(S22Mat(J) + KMat(J))
+         A33mat(J) = MMat(J) + bdffactor*thstep*(S33Mat(J) + KMat(J))
+         A12Mat(J) = bdffactor*thstep*S12Mat(J)
+         A13Mat(J) = bdffactor*thstep*S13Mat(J)
+         A23Mat(J) = bdffactor*thstep*S23Mat(J)
+         A21Mat(J) = bdffactor*thstep*S21Mat(J)
+         A31Mat(J) = bdffactor*thstep*S31Mat(J)
+         A32Mat(J) = bdffactor*thstep*S32Mat(J)
          ! for multigrid
-         AA11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
-         AA22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
-         AA33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
-         AA12Mat(J) = thstep*(S12Mat(J) + alpha * barM12Mat(J))
-         AA13Mat(J) = thstep*(S13Mat(J) + alpha * barM13Mat(J))
-         AA23Mat(J) = thstep*(S23Mat(J) + alpha * barM23Mat(J))
-         AA21Mat(J) = thstep*(S21Mat(J) + alpha * barM21Mat(J))
-         AA31Mat(J) = thstep*(S31Mat(J) + alpha * barM31Mat(J))
-         AA32Mat(J) = thstep*(S32Mat(J) + alpha * barM32Mat(J))
+         AA11mat(J) = MMat(J) + bdffactor*thstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
+         AA22mat(J) = MMat(J) + bdffactor*thstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
+         AA33mat(J) = MMat(J) + bdffactor*thstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
+         AA12Mat(J) = bdffactor*thstep*(S12Mat(J) + alpha * barM12Mat(J))
+         AA13Mat(J) = bdffactor*thstep*(S13Mat(J) + alpha * barM13Mat(J))
+         AA23Mat(J) = bdffactor*thstep*(S23Mat(J) + alpha * barM23Mat(J))
+         AA21Mat(J) = bdffactor*thstep*(S21Mat(J) + alpha * barM21Mat(J))
+         AA31Mat(J) = bdffactor*thstep*(S31Mat(J) + alpha * barM31Mat(J))
+         AA32Mat(J) = bdffactor*thstep*(S32Mat(J) + alpha * barM32Mat(J))
         END DO
        END DO
       ELSE ! Non-Newtonian Stokes with S
        DO I=1,qMat%nu
         DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-         A11mat(J) = MMat(J) + thstep*S11Mat(J)
-         A22mat(J) = MMat(J) + thstep*S22Mat(J)
-         A33mat(J) = MMat(J) + thstep*S33Mat(J)
-         A12Mat(J) = thstep*S12Mat(J)
-         A13Mat(J) = thstep*S13Mat(J)
-         A23Mat(J) = thstep*S23Mat(J)
-         A21Mat(J) = thstep*S21Mat(J)
-         A31Mat(J) = thstep*S31Mat(J)
-         A32Mat(J) = thstep*S32Mat(J)
+         A11mat(J) = MMat(J) + bdffactor*thstep*S11Mat(J)
+         A22mat(J) = MMat(J) + bdffactor*thstep*S22Mat(J)
+         A33mat(J) = MMat(J) + bdffactor*thstep*S33Mat(J)
+         A12Mat(J) = bdffactor*thstep*S12Mat(J)
+         A13Mat(J) = bdffactor*thstep*S13Mat(J)
+         A23Mat(J) = bdffactor*thstep*S23Mat(J)
+         A21Mat(J) = bdffactor*thstep*S21Mat(J)
+         A31Mat(J) = bdffactor*thstep*S31Mat(J)
+         A32Mat(J) = bdffactor*thstep*S32Mat(J)
          AA11mat(J) = A11mat(J)
          AA22mat(J) = A22mat(J)
          AA33mat(J) = A33mat(J)
@@ -380,13 +387,13 @@ tsm = ccParams%BDF
 
      !-1/3 M u_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU_old1,myScalar%defU,-1d0/3d0,1d0)
+     myScalar%valU,myScalar%defU,-1d0/3d0,1d0)
      !-1/3 M v_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV_old1,myScalar%defV,-1d0/3d0,1d0)
+     myScalar%valV,myScalar%defV,-1d0/3d0,1d0)
      !-1/3 M w_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW_old1,myScalar%defW,-1d0/3d0,1d0)
+     myScalar%valW,myScalar%defW,-1d0/3d0,1d0)
    END IF
    END IF
    
