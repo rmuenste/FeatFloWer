@@ -55,7 +55,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
- USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+ USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc,ProjectPointToSTL
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
@@ -310,6 +310,8 @@ DO ILEV=NLMIN+1,NLMAX
  if(myid.ne.0)then
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
+
+  CALL ProjectPointToSTL()
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
