@@ -6,6 +6,43 @@ module cinterface
   !
   !----------------------------------------------
   !
+  logical function calculateDynamics()
+    use var_QuadScalar, only:myFBM
+
+    implicit none 
+
+    integer :: dodyn
+
+      call get_do_dynamics(dodyn)
+
+      if ((myFBM%nParticles.gt.0).and.(dodyn.gt.0)) then
+       calculateDynamics = .true.
+      else
+       calculateDynamics = .false.
+      end if
+
+  end function calculateDynamics
+  !
+  !----------------------------------------------
+  !
+  logical function calculateFBM()
+    use var_QuadScalar, only:myFBM
+    implicit none 
+
+    integer :: dofbm
+
+      call get_do_fbm(dofbm)
+
+      if((myFBM%nParticles.gt.0).and.(dofbm.gt.0)) then
+       calculateFBM  = .true.
+      else
+       calculateFBM  = .false.
+      end if
+
+  end function calculateFBM
+  !
+  !----------------------------------------------
+  !
   SUBROUTINE FBM_GetParticleStateUpdate()
     USE PP3D_MPI, ONLY:myid,showid
     USE var_QuadScalar,ONLY:myFBM

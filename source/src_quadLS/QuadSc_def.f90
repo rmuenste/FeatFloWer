@@ -1576,6 +1576,7 @@ INTEGER I,J
 TYPE(TQuadScalar) myScalar
 REAL*8 daux
 REAL tttx1,tttx0
+! the formula for crank-nicholson may be wrong
 
 ! Build up the matrix
  IF (idef.eq.-1) THEN

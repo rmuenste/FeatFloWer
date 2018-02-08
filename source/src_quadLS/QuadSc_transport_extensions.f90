@@ -1,11 +1,12 @@
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
+use cinterface, only: calculateDynamics,calculateFBM
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-IF (myFBM%nParticles.GT.0) THEN
+IF (calculateFBM()) THEN
  CALL updateFBMGeometry()
 END IF
 
@@ -203,7 +204,7 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-IF (myFBM%nParticles.GT.0) THEN
+IF (calculateDynamics()) THEN
  CALL FBM_GetForces()
  CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
 END IF
@@ -230,7 +231,7 @@ END IF
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
- IF (myFBM%nParticles.GT.0) THEN
+ IF (calculateFBM()) THEN
   CALL updateFBMGeometry()
  END IF
 
