@@ -148,6 +148,26 @@ IF (it.EQ.27) THEN
  ValW=0d0
 END IF
 
+IF (iT.EQ.21) THEN
+ R_inflow = 0.55d0
+ dist = SQRT((x-0.47)**2d0 + (y+0.60)**2d0 + (z-3.15)**2d0)
+ dScale = 0.1d0/R_inflow*R_inflow
+ IF (dist.lt.R_inflow) THEN
+  ValW= -dScale*(dist+R_inflow)*(R_inflow-dist)
+ END IF
+END IF
+
+IF (iT.EQ.22) THEN
+ R_inflow = 0.3d0
+ dist = SQRT((x-5.5)**2d0 + (y-0.01)**2d0 + (z+0.84)**2d0)
+ IF (dist.lt.R_inflow) THEN
+  dScale = 5.0d0/R_inflow*R_inflow
+  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+  ValV=  0d0
+  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+ END IF
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
