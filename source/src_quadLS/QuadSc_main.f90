@@ -669,7 +669,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
   END DO
-  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i))
+  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i))
   END DO
 
   do i=1,nvt+net+nat+nel
@@ -745,7 +745,7 @@ SUBROUTINE QuadScalar_MixerKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
   END DO
-  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt++net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
+  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
   END DO
 
 END SUBROUTINE QuadScalar_MixerKnpr
@@ -1867,6 +1867,42 @@ SUBROUTINE IntegrateQuantities(mfile)
     WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
   END IF
 END SUBROUTINE IntegrateQuantities
+!
+!-----------------------------------------------------------
+!
+SUBROUTINE ProjectPointToSTL()
+USE var_QuadScalar, ONLY : myBoundary
+IMPLICIT NONE
+REAL*8 X,Y,Z,Dist,daux,d_temp
+REAL*8 PX,PY,PZ,RAD,dist_sign
+real*8 cx, cy, cz
+real*8 cpx, cpy, cpz
+INTEGER i,ipc,iBnds
+
+if (myid.ne.0) then
+ ipc=0
+ ILEV=NLMAX+1
+!  CALL setlev(2)
+ 
+ DO iBnds = 1, size(myParBndr)
+  IF (myParBndr(iBnds)%Types(1:4).EQ.'Wall') THEN
+   DO i=1,mg_mesh%level(ILEV)%nvt
+    if (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) then
+     x = mg_mesh%level(ILEV)%dcorvg(1,i)
+     y = mg_mesh%level(ILEV)%dcorvg(2,i)
+     z = mg_mesh%level(ILEV)%dcorvg(3,i)
+     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ILEV)%dcorvg(1,i) = cpx
+     mg_mesh%level(ILEV)%dcorvg(2,i) = cpy
+     mg_mesh%level(ILEV)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+ END DO
+end if
+ 
+
+END SUBROUTINE ProjectPointToSTL
 !
 ! ----------------------------------------------
 !
