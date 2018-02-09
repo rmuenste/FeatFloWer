@@ -239,7 +239,7 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
 implicit none
 
-INTEGER mfile,INL,inl_u
+INTEGER mfile,INL,inl_u,tsm
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
@@ -253,6 +253,7 @@ FORCES_OLD = 0d0
 iIterges = 0d0
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
+tsm = ccParams%BDF
 
 !Adaptivity
 ! F(x) = a + h1/(h2+exp(h3 x)); F(0) = B, F(1) = 0.9, F(0.5) = B/4 + 3/4
@@ -296,7 +297,7 @@ END IF
 
 ! Assemble the right hand side
  thstep = tstep*(1d0-theta)
- CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha,tsm)
 
 IF (myid.ne.master) THEN
 
@@ -310,12 +311,17 @@ IF (myid.ne.master) THEN
 
 END IF
 
-thstep = tstep*theta
+IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+	thstep = tstep*theta
+ELSE IF (tsm.EQ.2) THEN
+	thstep = 2d0/3d0*tstep
+END IF
+
 
  CALL ExchangeVelocitySolutionCoarse()
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha,tsm)
 
 ! OUTPUT at the beginning
 ! CALL myOutputMatrix("AA11",qMat,AA11mat)
@@ -429,7 +435,7 @@ END IF
  CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_QuadScalar_cc(QuadSc,-1,alpha)
+ CALL Matdef_General_QuadScalar_cc(QuadSc,-1,alpha,tsm)
 ! CALL OperatorDeallocation() ! after force calculation
 
 ! Set dirichlet boundary conditions on the solution
