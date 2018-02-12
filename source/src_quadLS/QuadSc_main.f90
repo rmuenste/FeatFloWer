@@ -1892,7 +1892,7 @@ if (myid.ne.0) then
      x = mg_mesh%level(ii)%dcorvg(1,i)
      y = mg_mesh%level(ii)%dcorvg(2,i)
      z = mg_mesh%level(ii)%dcorvg(3,i)
-     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
      mg_mesh%level(ii)%dcorvg(1,i) = cpx
      mg_mesh%level(ii)%dcorvg(2,i) = cpy
      mg_mesh%level(ii)%dcorvg(3,i) = cpz
@@ -1906,7 +1906,7 @@ if (myid.ne.0) then
      x = mg_mesh%level(ii)%dcorvg(1,i)
      y = mg_mesh%level(ii)%dcorvg(2,i)
      z = mg_mesh%level(ii)%dcorvg(3,i)
-     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
      mg_mesh%level(ii)%dcorvg(1,i) = cpx
      mg_mesh%level(ii)%dcorvg(2,i) = cpy
      mg_mesh%level(ii)%dcorvg(3,i) = cpz
@@ -1920,7 +1920,7 @@ if (myid.ne.0) then
      x = mg_mesh%level(ii)%dcorvg(1,i)
      y = mg_mesh%level(ii)%dcorvg(2,i)
      z = mg_mesh%level(ii)%dcorvg(3,i)
-     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
      mg_mesh%level(ii)%dcorvg(1,i) = cpx
      mg_mesh%level(ii)%dcorvg(2,i) = cpy
      mg_mesh%level(ii)%dcorvg(3,i) = cpz
@@ -1934,13 +1934,57 @@ if (myid.ne.0) then
      x = mg_mesh%level(ii)%dcorvg(1,i)
      y = mg_mesh%level(ii)%dcorvg(2,i)
      z = mg_mesh%level(ii)%dcorvg(3,i)
-     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
      mg_mesh%level(ii)%dcorvg(1,i) = cpx
      mg_mesh%level(ii)%dcorvg(2,i) = cpy
      mg_mesh%level(ii)%dcorvg(3,i) = cpz
     END IF
    END DO
   END IF
+
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'bot') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=4
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'side') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=5
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'top') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=6
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  
  END DO
 end if
  
