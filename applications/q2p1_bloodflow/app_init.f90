@@ -80,6 +80,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER NEL0,NEL1,NEL2
  REAL ttt0,ttt1
  INTEGER II,NDOF
+ INTEGER iUmbrella
  LOGICAL BLIN
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
@@ -292,6 +293,8 @@ DO ILEV=NLMIN+1,NLMAX
 
    CALL ParametrizeBndr(mg_mesh,ilev)
 
+   CALL ProjectPointToSTL(ilev)
+   
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
 
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
@@ -311,8 +314,24 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
 
-  CALL ProjectPointToSTL()
+ DO iUmbrella=1,64
+  CALL UmbrellaSmoother_ext(0d0,1)
+  CALL ProjectPointToSTL(nlmax)
+ END DO
+ 
+IF (myid.ne.0) THEN
 
+  CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+			    mg_mesh%level(ILEV+1)%dcorvg,&
+			    mg_mesh%level(ILEV)%karea,&
+			    mg_mesh%level(ILEV)%kvert,&
+			    mg_mesh%level(ILEV)%kedge,&
+			    mg_mesh%level(ILEV)%nel,&
+			    mg_mesh%level(ILEV)%nvt,&
+			    mg_mesh%level(ILEV)%net,&
+			    mg_mesh%level(ILEV)%nat)
+END IF
+   
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
  IF (myid.EQ.0) THEN
@@ -336,6 +355,8 @@ DO ILEV=NLMIN+1,NLMAX
                              mg_mesh%level(ILEV)%nel,&
                              mg_mesh%level(ILEV)%nvt)
  DEALLOCATE(SendVect)
+
+
 
  showid = 1
 

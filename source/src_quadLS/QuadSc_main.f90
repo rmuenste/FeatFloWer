@@ -1870,9 +1870,10 @@ END SUBROUTINE IntegrateQuantities
 !
 !-----------------------------------------------------------
 !
-SUBROUTINE ProjectPointToSTL()
+SUBROUTINE ProjectPointToSTL(ii)
 USE var_QuadScalar, ONLY : myBoundary
 IMPLICIT NONE
+integer ii
 REAL*8 X,Y,Z,Dist,daux,d_temp
 REAL*8 PX,PY,PZ,RAD,dist_sign
 real*8 cx, cy, cz
@@ -1881,20 +1882,20 @@ INTEGER i,ipc,iBnds
 
 if (myid.ne.0) then
  ipc=0
- ILEV=NLMAX+1
+ ILEV=ii !NLMAX!+1
 !  CALL setlev(2)
  
  DO iBnds = 1, size(myParBndr)
-  IF (myParBndr(iBnds)%Types(1:4).EQ.'Wall') THEN
-   DO i=1,mg_mesh%level(ILEV)%nvt
-    if (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) then
-     x = mg_mesh%level(ILEV)%dcorvg(1,i)
-     y = mg_mesh%level(ILEV)%dcorvg(2,i)
-     z = mg_mesh%level(ILEV)%dcorvg(3,i)
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
      call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
-     mg_mesh%level(ILEV)%dcorvg(1,i) = cpx
-     mg_mesh%level(ILEV)%dcorvg(2,i) = cpy
-     mg_mesh%level(ILEV)%dcorvg(3,i) = cpz
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
     END IF
    END DO
   END IF
