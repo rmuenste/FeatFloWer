@@ -1881,13 +1881,55 @@ real*8 cpx, cpy, cpz
 INTEGER i,ipc,iBnds
 
 if (myid.ne.0) then
- ipc=0
  ILEV=ii !NLMAX!+1
 !  CALL setlev(2)
  
  DO iBnds = 1, size(myParBndr)
   IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') THEN
+   ipc=3
    DO i=1,mg_mesh%level(ii)%nvt
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Inflow21') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=2
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Inflow22') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=1
+    if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
+     x = mg_mesh%level(ii)%dcorvg(1,i)
+     y = mg_mesh%level(ii)%dcorvg(2,i)
+     z = mg_mesh%level(ii)%dcorvg(3,i)
+     call getclosestpointid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+     mg_mesh%level(ii)%dcorvg(1,i) = cpx
+     mg_mesh%level(ii)%dcorvg(2,i) = cpy
+     mg_mesh%level(ii)%dcorvg(3,i) = cpz
+    END IF
+   END DO
+  END IF
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') THEN
+   DO i=1,mg_mesh%level(ii)%nvt
+    ipc=0
     if (myParBndr(iBnds)%Bndr(ii)%Vert(i)) then
      x = mg_mesh%level(ii)%dcorvg(1,i)
      y = mg_mesh%level(ii)%dcorvg(2,i)

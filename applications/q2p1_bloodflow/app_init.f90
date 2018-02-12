@@ -314,7 +314,7 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
 
- DO iUmbrella=1,64
+ DO iUmbrella=1,256
   CALL UmbrellaSmoother_ext(0d0,1)
   CALL ProjectPointToSTL(nlmax)
  END DO
