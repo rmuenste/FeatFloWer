@@ -82,7 +82,7 @@ IF(${OUT_OF_SOURCE_BUILD})
 
   set(FILELINKS partitioner)
   set(DIRECTORYCOPIES _data start)
-  set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
+  set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk meshes)
 
   # establish the file links
   FOREACH(flink ${FILELINKS})

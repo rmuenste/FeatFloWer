@@ -322,15 +322,17 @@ DO ILEV=NLMIN+1,NLMAX
 IF (myid.ne.0) THEN
 
   CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-			    mg_mesh%level(ILEV+1)%dcorvg,&
-			    mg_mesh%level(ILEV)%karea,&
-			    mg_mesh%level(ILEV)%kvert,&
-			    mg_mesh%level(ILEV)%kedge,&
-			    mg_mesh%level(ILEV)%nel,&
-			    mg_mesh%level(ILEV)%nvt,&
-			    mg_mesh%level(ILEV)%net,&
-			    mg_mesh%level(ILEV)%nat)
+                             mg_mesh%level(ILEV+1)%dcorvg,&
+                             mg_mesh%level(ILEV)%karea,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             mg_mesh%level(ILEV)%kedge,&
+                             mg_mesh%level(ILEV)%nel,&
+                             mg_mesh%level(ILEV)%nvt,&
+                             mg_mesh%level(ILEV)%net,&
+                             mg_mesh%level(ILEV)%nat)
 END IF
+
+  CALL ProjectPointToSTL(nlmax+1)
    
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
