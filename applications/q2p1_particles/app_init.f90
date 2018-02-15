@@ -280,7 +280,6 @@ DO ILEV=NLMIN+1,NLMAX
 
  ! --------------------------------------------------------------            
 
-
 #ifdef WITH_ODE 
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles(1)

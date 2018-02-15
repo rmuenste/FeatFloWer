@@ -1558,9 +1558,6 @@ integer :: iSubSteps
       !                   myFBM%particleNew(1)%Position(2),&
       !                   PZ,ipc)
       !myFBM%particleNEW(1)%Position(3) = pz
-#ifdef WITH_ODE 
-      call ode_get_velocity()
-#endif
 
       ! After the rigid body solver has computed a 
       ! step, we have to get the new particle state
