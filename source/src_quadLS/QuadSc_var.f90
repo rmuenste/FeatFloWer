@@ -90,6 +90,14 @@ TYPE tMesh
 
 END TYPE
 
+TYPE tBndryNone
+ LOGICAL :: bOuterPoint=.FALSE.
+ LOGICAL :: ParamTypes(4)=.FALSE.
+ INTEGER :: nPoint=0,nLine=0,nSurf=0,nVolume=0
+ INTEGER, ALLOCATABLE :: P(:),L(:),S(:),V(:)
+END TYPE tBndryNone
+
+
 TYPE tMultiMesh
 
   integer :: nlmin
@@ -99,6 +107,8 @@ TYPE tMultiMesh
 
   ! this is usually nlmax + 1
   integer :: maxlevel
+  
+  type(tBndryNone), allocatable, dimension(:) :: BndryNodes
 
   type(tMesh), allocatable, dimension(:) :: level
 

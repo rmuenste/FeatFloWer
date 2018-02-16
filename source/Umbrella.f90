@@ -142,27 +142,27 @@ IF (myid.eq.0) GOTO 1
     nUsedSteps,myTime)
 
 
-  CALL ProlongateCoordinates_ext(&
-    mg_mesh%level(ilev)%dcorvg,&
-    mg_mesh%level(ilev)%karea,&
-    mg_mesh%level(ilev)%kvert,&
-    mg_mesh%level(ilev)%kedge,&
-    mg_mesh%level(ilev)%nel,&
-    mg_mesh%level(ilev)%nvt,&
-    mg_mesh%level(ilev)%net,&
-    mg_mesh%level(ilev)%nat)
+!   CALL ProlongateCoordinates_ext(&
+!     mg_mesh%level(ilev)%dcorvg,&
+!     mg_mesh%level(ilev)%karea,&
+!     mg_mesh%level(ilev)%kvert,&
+!     mg_mesh%level(ilev)%kedge,&
+!     mg_mesh%level(ilev)%nel,&
+!     mg_mesh%level(ilev)%nvt,&
+!     mg_mesh%level(ilev)%net,&
+!     mg_mesh%level(ilev)%nat)
 
 DEALLOCATE(a1,a2,a3,a4,a5,a6)
 
 1 CONTINUE
 
-ILEV = NLMIN
-CALL SETLEV(2)
-
-CALL ExchangeNodeValuesOnCoarseLevel(&
-  mg_mesh%level(ilev)%dcorvg,&
-  mg_mesh%level(ilev)%kvert,&
-  NVT,NEL)
+! ILEV = NLMIN
+! CALL SETLEV(2)
+! 
+! CALL ExchangeNodeValuesOnCoarseLevel(&
+!   mg_mesh%level(ilev)%dcorvg,&
+!   mg_mesh%level(ilev)%kvert,&
+!   NVT,NEL)
 
 END SUBROUTINE UmbrellaSmoother_ext
 ! 
@@ -500,7 +500,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
     !
     SUBROUTINE EdgeRunner_std(f,x,y,z,w,v,mgMesh,ilevel,&
         dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
-      USE Parametrization, ONLY: ParametrizeBndr
+      USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
       USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
       USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
        
@@ -608,7 +608,8 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
        dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
        END DO
 
-       CALL ParametrizeBndr(mgMesh,ilevel)
+       CALL ParametrizeBndryPoints_STRCT(mgMesh,ilevel)
+!        CALL ParametrizeBndr(mgMesh,ilevel)
 
       END DO
 

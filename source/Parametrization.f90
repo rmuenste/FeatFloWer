@@ -15,7 +15,7 @@ END TYPE tBndr
 TYPE tParBndr
  TYPE(tBndr), ALLOCATABLE :: Bndr(:)
  CHARACTER :: Names*40,Types*40,Parameters*200
- INTEGER :: nBndrPar
+ INTEGER :: nBndrPar,CGAL_ID,Dimens
  REAL*8, ALLOCATABLE :: dBndrPar(:)
 END TYPE tParBndr
 
@@ -208,6 +208,45 @@ END SUBROUTINE ParametrizeQ2Nodes
 !
 !----------------------------------------------------------------------------------------
 !
+SUBROUTINE ProlongateParametrization_STRCT(mgMesh,ilevel)
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+IMPLICIT NONE
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+
+INTEGER I1,I2
+
+ DO iBnds = 1, nBnds
+
+  IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ilevel)%Vert)) THEN
+   ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Vert(mgMesh%level(ilevel)%NVT))
+   ALLOCATE (myParBndr(iBnds)%Bndr(ilevel)%Face(2,mgMesh%level(ilevel)%NAT))
+
+  myParBndr(iBnds)%Bndr(ilevel)%nVerts =0
+  myParBndr(iBnds)%Bndr(ilevel)%nFaces =0
+  myParBndr(iBnds)%Bndr(ilevel)%Vert =.FALSE.
+  myParBndr(iBnds)%Bndr(ilevel)%Face = 0
+
+  I1 = ilevel-1
+  I2 = ilevel
+
+  CALL GetHigherStructures(mgMesh%level(i1)%kvert,&
+                           mgMesh%level(i1)%kedge,&
+                           mgMesh%level(i2)%kvert,&
+                           mgMesh%level(i2)%karea,&
+                           mgMesh%level(i2)%kadj,&
+                           mgMesh%level(i1)%nel,&
+                           mgMesh%level(i1)%nvt,&
+                           mgMesh%level(i1)%nat,&
+                           mgMesh%level(i1)%net)
+  END IF
+
+ END DO
+
+END SUBROUTINE ProlongateParametrization_STRCT
+!
+!----------------------------------------------------------------------------------------
+!
 SUBROUTINE ParametrizeBndr(mgMesh,ilevel)
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 IMPLICIT NONE
@@ -246,6 +285,22 @@ INTEGER I1,I2
  END DO
 
 END SUBROUTINE ParametrizeBndr
+!
+!----------------------------------------------------------------------------------------
+!
+SUBROUTINE ParametrizeBndryPoints(mgMesh,ilevel)
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+IMPLICIT NONE
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+
+ DO iBnds = 1, nBnds
+
+  CALL Parametrize(mgmesh%level(ilevel)%dcorvg,1,mgmesh%level(ilevel)%nvt,ilevel)
+
+ END DO
+
+END SUBROUTINE ParametrizeBndryPoints
 !
 !----------------------------------------------------------------------------------------
 !
@@ -699,7 +754,7 @@ END SUBROUTINE GetHigherStructures
 !
 !----------------------------------------------------------------------------------------
 !
-SUBROUTINE InitParametrization(mesh,ilevel)
+SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
  type(tMesh) :: mesh
  integer :: ilevel
  INTEGER i,iVert,iLong,iAux,iError
@@ -745,11 +800,383 @@ SUBROUTINE InitParametrization(mesh,ilevel)
 
 !  WRITE(*,'(I,3A)') myid,"|",myParBndr(iBnds)%Parameters,"|"
   READ(myParBndr(iBnds)%Parameters,*,IOSTAT=iError) myParBndr(iBnds)%nBndrPar
-  IF (myParBndr(iBnds)%nBndrPar.GT.0.AND.iError.EQ.0) THEN
-   ALLOCATE(myParBndr(iBnds)%dBndrPar(myParBndr(iBnds)%nBndrPar))
-   READ(myParBndr(iBnds)%Parameters,*) iAux,(myParBndr(iBnds)%dBndrPar(i),i=1,myParBndr(iBnds)%nBndrPar)
+  IF (iError.NE.0.OR.myParBndr(iBnds)%nBndrPar.EQ.0) THEN
+    myParBndr(iBnds)%nBndrPar = 0
   ELSE
-   myParBndr(iBnds)%nBndrPar = 0
+    IF (myParBndr(iBnds)%nBndrPar.GT.0) THEN
+      ALLOCATE(myParBndr(iBnds)%dBndrPar(myParBndr(iBnds)%nBndrPar))
+      READ(myParBndr(iBnds)%Parameters,*) iAux,(myParBndr(iBnds)%dBndrPar(i),i=1,myParBndr(iBnds)%nBndrPar)
+      myParBndr(iBnds)%Dimens = 3 ! ==> default:surface | will need to be redifened if we introduce specific line/point/volume parametrization ... 
+    ELSE
+      READ(myParBndr(iBnds)%Parameters,*) iAux,myParBndr(iBnds)%CGAL_ID
+      myParBndr(iBnds)%Dimens = ABS(iAux)
+      myParBndr(iBnds)%nBndrPar = 0
+!       if (myid.eq.1) WRITE(*,*) myParBndr(iBnds)%Dimens,myParBndr(iBnds)%CGAL_ID
+    END IF
+  END IF
+!  WRITE(*,'(2I8,<myParBndr(iBnds)%nBndrPar>D12.4)') myid,myParBndr(iBnds)%nBndrPar,myParBndr(iBnds)%dBndrPar
+
+  CALL GetFaces(mesh%kvert,mesh%karea,mesh%NEL)
+  CALL GetEdges()
+
+ END DO
+
+!   PAUSE
+
+END SUBROUTINE InitParametrization_STRCT
+!
+!----------------------------------------------------------------------------------------
+!
+SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
+ integer :: ilevel
+ type(tMultiMesh) :: mgMesh
+ integer inode,i,j,k,iel,iat,ivt1,ivt2,ivt3,ivt4,nn
+ REAL*8, ALLOCATABLE :: daux(:)
+ INTEGER NeighA(4,6),NeighU(4,6)
+ DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+ DATA NeighU/1,2,3,4,1,6,9,5,2,7,10,6,3,8,11,7,4,5,12,8,9,10,11,12/
+
+ ALLOCATE(mgMesh%BndryNodes(mgMesh%level(ilevel+1)%nvt))
+ ALLOCATE(daux(mgMesh%level(ilevel+1)%nvt))
+ daux = 0d0
+ 
+ DO iel=1,mgMesh%level(ilevel)%nel
+  DO j=1,6
+   k = mgMesh%level(ilevel)%karea(j,iel)
+   daux(mgMesh%level(ilevel)%nvt+mgMesh%level(ilevel)%net+k) = &
+   daux(mgMesh%level(ilevel)%nvt+mgMesh%level(ilevel)%net+k) + 1d0
+  END DO
+ END DO
+ 
+ ILEV = ilevel
+ CALL E013SUM(daux)
+
+ k = 1
+ DO iel=1,mgMesh%level(ilevel)%nel
+   DO j=1,6
+     IF (k.eq.mgMesh%level(ilevel)%karea(j,iel)) THEN
+       IF (daux(mgMesh%level(ilevel)%nvt+mgMesh%level(ilevel)%net+k).eq.1d0) THEN
+         ! CornerPoint
+         ivt1 = mgMesh%level(ilevel)%kvert(NeighA(1,j),iel)
+         ivt2 = mgMesh%level(ilevel)%kvert(NeighA(2,j),iel)
+         ivt3 = mgMesh%level(ilevel)%kvert(NeighA(3,j),iel)
+         ivt4 = mgMesh%level(ilevel)%kvert(NeighA(4,j),iel)
+         mgMesh%BndryNodes(ivt1)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(ivt2)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(ivt3)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(ivt4)%bOuterPoint = .TRUE.
+         ! EdgePoint
+         ivt1 = mgMesh%level(ilevel)%kedge(NeighU(1,j),iel)
+         ivt2 = mgMesh%level(ilevel)%kedge(NeighU(2,j),iel)
+         ivt3 = mgMesh%level(ilevel)%kedge(NeighU(3,j),iel)
+         ivt4 = mgMesh%level(ilevel)%kedge(NeighU(4,j),iel)
+         mgMesh%BndryNodes(mgMesh%level(ilevel)%nvt+ivt1)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(mgMesh%level(ilevel)%nvt+ivt2)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(mgMesh%level(ilevel)%nvt+ivt3)%bOuterPoint = .TRUE.
+         mgMesh%BndryNodes(mgMesh%level(ilevel)%nvt+ivt4)%bOuterPoint = .TRUE.
+         ! FacePoint
+         mgMesh%BndryNodes(mgMesh%level(ilevel)%nvt+mgMesh%level(ilevel)%net+k)%bOuterPoint = .TRUE.
+       ELSE
+!          WRITE(*,*)
+       END IF
+       k = k + 1
+     END IF
+   END DO
+ END DO
+
+ IF (myid.ne.0) then
+  DO iBnds = 1, nBnds
+    DO iNode=1,mgMesh%level(ilevel+1)%nvt
+      IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
+        IF (myParBndr(iBnds)%Dimens.eq.1) mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
+        IF (myParBndr(iBnds)%Dimens.eq.2) mgMesh%BndryNodes(iNode)%nLine    = mgMesh%BndryNodes(iNode)%nLine + 1
+        IF (myParBndr(iBnds)%Dimens.eq.3) mgMesh%BndryNodes(iNode)%nSurf    = mgMesh%BndryNodes(iNode)%nSurf + 1
+        IF (myParBndr(iBnds)%Dimens.eq.4) mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
+      END IF
+    END DO
+  END DO
+
+  DO iNode=1,mgMesh%level(ilevel+1)%nvt
+    IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%P(mgMesh%BndryNodes(iNode)%nPoint))
+    IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%L(mgMesh%BndryNodes(iNode)%nLine))
+    IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%S(mgMesh%BndryNodes(iNode)%nSurf))
+    IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%V(mgMesh%BndryNodes(iNode)%nVolume))
+  END DO
+
+  DO iNode=1,mgMesh%level(ilevel+1)%nvt
+    IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(1)=.TRUE.
+    IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(2)=.TRUE.
+    IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(3)=.TRUE.
+    IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(4)=.TRUE.
+  END DO
+  
+  mgMesh%BndryNodes(:)%nPoint  = 0
+  mgMesh%BndryNodes(:)%nLine   = 0
+  mgMesh%BndryNodes(:)%nSurf   = 0
+  mgMesh%BndryNodes(:)%nVolume = 0
+  
+!  IF (myid.ne.0) then
+  DO iBnds = 1, nBnds
+!     IF (myid.eq.1) WRITE(*,*) "dimens: ",myParBndr(iBnds)%Dimens
+    DO iNode=1,mgMesh%level(ilevel+1)%nvt
+      IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
+        IF (myParBndr(iBnds)%Dimens.eq.1) THEN
+!           IF (myid.eq.1) WRITE(*,*) 'P'
+          mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
+          nn = mgMesh%BndryNodes(iNode)%nPoint
+          mgMesh%BndryNodes(iNode)%P(nn) = iBnds
+        END IF
+        IF (myParBndr(iBnds)%Dimens.eq.2) THEN
+!           IF (myid.eq.1) WRITE(*,*) 'L'
+          mgMesh%BndryNodes(iNode)%nLine    = mgMesh%BndryNodes(iNode)%nLine + 1
+          nn = mgMesh%BndryNodes(iNode)%nLine
+          mgMesh%BndryNodes(iNode)%L(nn) = iBnds
+        END IF
+        IF (myParBndr(iBnds)%Dimens.eq.3) THEN 
+!           IF (myid.eq.1) WRITE(*,*) 'S'
+          mgMesh%BndryNodes(iNode)%nSurf    = mgMesh%BndryNodes(iNode)%nSurf + 1
+          nn = mgMesh%BndryNodes(iNode)%nSurf
+          mgMesh%BndryNodes(iNode)%S(nn) = iBnds
+        END IF
+        IF (myParBndr(iBnds)%Dimens.eq.4) THEN
+!           IF (myid.eq.1) WRITE(*,*) 'V'
+          mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
+          nn = mgMesh%BndryNodes(iNode)%nVolume
+          mgMesh%BndryNodes(iNode)%V(nn) = iBnds
+        END IF
+      END IF
+    END DO
+  END DO
+  
+  DO iNode=1,mgMesh%level(ilevel+1)%nvt
+    IF (mgMesh%BndryNodes(iNode)%bOuterPoint) THEN
+     IF (.NOT.(mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
+               mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
+               mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
+               mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
+         WRITE(*,'(I4,A,I8,A)') myid,'BNDRY POINT:',iNode,' is not assigned to any parametrizations ...!'
+     END IF
+    END IF
+  END DO
+! 
+ END IF
+ 
+END SUBROUTINE DeterminePointParametrization_STRCT
+!
+!----------------------------------------------------------------------------------------
+!
+SUBROUTINE ParametrizeBndryPoints_STRCT(mgMesh,ii)
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+IMPLICIT NONE
+integer :: ii
+type(tMultiMesh) :: mgMesh
+REAL*8 x,y,z,cpx,cpy,cpz,d_temp,xiS(3)
+INTEGER iNode,ipc,iBnds,iS,W
+
+ DO iNode = 1, mgmesh%level(ii)%nvt
+   IF ((mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
+        mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
+        mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
+        mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
+     IF (mgMesh%BndryNodes(iNode)%ParamTypes(1)) then
+     
+       GOTO 1
+     END IF
+     IF (mgMesh%BndryNodes(iNode)%ParamTypes(2)) then
+        iBnds = mgMesh%BndryNodes(iNode)%L(1)
+        ipc   = myParBndr(iBnds)%CGAL_ID
+        x = mg_mesh%level(ii)%dcorvg(1,iNode)
+        y = mg_mesh%level(ii)%dcorvg(2,iNode)
+        z = mg_mesh%level(ii)%dcorvg(3,iNode)
+        call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+        mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
+        mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
+        mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
+       GOTO 1
+     END IF
+     IF (mgMesh%BndryNodes(iNode)%ParamTypes(3)) then
+       xiS = 0d0
+       W = DBLE(mgMesh%BndryNodes(iNode)%nSurf)
+       DO iS=1,mgMesh%BndryNodes(iNode)%nSurf
+         iBnds = mgMesh%BndryNodes(iNode)%S(iS)
+         IF (myParBndr(iBnds)%nBndrPar.NE.0) THEN !analytical
+           x = mg_mesh%level(ii)%dcorvg(1,iNode)
+           y = mg_mesh%level(ii)%dcorvg(2,iNode)
+           z = mg_mesh%level(ii)%dcorvg(3,iNode)
+           CALL projectonanalyticplane(x,y,z,cpx,cpy,cpz,iBnds)
+           mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
+           mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
+           mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
+         ELSE  !CGAL
+           ipc   = myParBndr(iBnds)%CGAL_ID
+           x = mg_mesh%level(ii)%dcorvg(1,iNode)
+           y = mg_mesh%level(ii)%dcorvg(2,iNode)
+           z = mg_mesh%level(ii)%dcorvg(3,iNode)
+           call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+           mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
+           mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
+           mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
+         END IF
+       ENDDO
+       GOTO 1
+     END IF
+
+   END IF
+1  CONTINUE 
+ END DO
+
+END SUBROUTINE ParametrizeBndryPoints_STRCT
+!
+!----------------------------------------------------------------------------------------
+!
+SUBROUTINE projectonanalyticplane(x1,y1,z1,x2,y2,z2,iBnds)
+REAL*8 x1,y1,z1,x2,y2,z2
+REAL*8 dx,dy,dz,dist,dFact
+REAL*8 px,py,pz
+REAL*8 RX,RY,RZ,RAD,DFX,DFY,DFZ
+REAL*8 DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,DZ1,DZ2
+INTEGER iBnds
+
+ IF (myParBndr(iBnds)%nBndrPar.EQ.0) THEN
+  x2 = x1
+  y2 = y1
+  z2 = z1
+  RETURN
+ END IF
+
+ IF (myParBndr(iBnds)%nBndrPar.EQ.4) THEN
+  dA = myParBndr(iBnds)%dBndrPar(1)
+  dB = myParBndr(iBnds)%dBndrPar(2)
+  dC = myParBndr(iBnds)%dBndrPar(3)
+  dD = myParBndr(iBnds)%dBndrPar(4)
+!------------------------------------------------
+  DSquare = dA*dA + dB*dB + dC*dC
+  dx = x1
+  dy = y1
+  dz = z1
+  dSum = (dx*dA + dy*dB + dz*dC + dD)
+  px = dx - dA*dSum/dSquare
+  py = dy - dB*dSum/dSquare
+  pz = dz - dC*dSum/dSquare
+  x2 = px
+  y2 = py
+  z2 = pz
+  RETURN
+ END IF
+
+ IF (myParBndr(iBnds)%nBndrPar.EQ.7) THEN
+ 
+  RX  = myParBndr(iBnds)%dBndrPar(1)
+  RY  = myParBndr(iBnds)%dBndrPar(2)
+  RZ  = myParBndr(iBnds)%dBndrPar(3)
+  RAD = myParBndr(iBnds)%dBndrPar(4)
+  DFX = myParBndr(iBnds)%dBndrPar(5)
+  DFY = myParBndr(iBnds)%dBndrPar(6)
+  DFZ = myParBndr(iBnds)%dBndrPar(7)
+!------------------------------------------------
+  dx = x1-RX
+  dy = y1-RY
+  dz = z1-RZ
+  dist = DSQRT(DFX*dx**2d0 + DFY*dy**2d0 + DFZ*dz**2d0)
+  dFact = RAD/dist
+  px = (1d0-DFX)*x1 + DFX*(RX + dFact*dx)
+  py = (1d0-DFY)*y1 + DFY*(RY + dFact*dy)
+  pz = (1d0-DFZ)*z1 + DFZ*(RZ + dFact*dz)
+  x2 = px
+  y2 = py
+  z2 = pz
+  RETURN
+ END IF
+ 
+ ! Parametrization with respect to a varying radius cylinder
+ IF (myParBndr(iBnds)%nBndrPar.EQ.10) THEN
+  RX  = myParBndr(iBnds)%dBndrPar(1)
+  RY  = myParBndr(iBnds)%dBndrPar(2)
+  RZ  = myParBndr(iBnds)%dBndrPar(3)
+  RAD1 = myParBndr(iBnds)%dBndrPar(4)
+  DZ1 = myParBndr(iBnds)%dBndrPar(5)
+  RAD2 = myParBndr(iBnds)%dBndrPar(6)
+  DZ2 = myParBndr(iBnds)%dBndrPar(7)
+  DFX = myParBndr(iBnds)%dBndrPar(8)
+  DFY = myParBndr(iBnds)%dBndrPar(9)
+  DFZ = myParBndr(iBnds)%dBndrPar(10)
+!------------------------------------------------
+  dx = x1-RX
+  dy = y1-RY
+  dz = z1-RZ
+  dist = DSQRT(DFX*dx**2d0 + DFY*dy**2d0 + DFZ*dz**2d0)
+  RAD = RAD1 + (RAD2-RAD1)*(z1-DZ1)/(DZ2-DZ1)
+  dFact = RAD/dist
+  px = (1d0-DFX)*x1 + DFX*(RX + dFact*dx)
+  py = (1d0-DFY)*y1 + DFY*(RY + dFact*dy)
+  pz = (1d0-DFZ)*z1 + DFZ*(RZ + dFact*dz)
+  x2 = px
+  y2 = py
+  z2 = pz
+  RETURN
+ END IF
+
+END SUBROUTINE projectonanalyticplane
+!
+!----------------------------------------------------------------------------------------
+!
+ SUBROUTINE InitParametrization(mesh,ilevel)
+ type(tMesh) :: mesh
+ integer :: ilevel
+ INTEGER i,iVert,iLong,iAux,iError
+ CHARACTER cFile*100,string*10
+ integer :: iunit = 333
+ integer :: istat
+
+ CALL GetFileList()
+
+ DO iBnds = 1, nBnds
+  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Vert(&
+    mesh%NVT))
+  ALLOCATE (myParBndr(iBnds)%Bndr(1)%Face(2,&
+    mesh%NAT))
+  cFile = ADJUSTL(TRIM(cProjectFolder))
+  iLong = LEN(ADJUSTL(TRIM(cFile)))+1
+
+  string = myParBndr(iBnds)%Names
+  IF (myid.lt.1)     THEN 
+   WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
+  ELSE
+   WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+  END IF
+
+  OPEN(UNIT = iunit, FILE = TRIM(ADJUSTL(cFile)), action='read',iostat=istat)
+  if(istat .ne. 0)then
+    write(*,*)"Could not open file for reading. ",TRIM(ADJUSTL(cFile))
+    stop          
+  end if
+
+  READ(iunit,*)  myParBndr(iBnds)%Bndr(ilevel)%nVerts, myParBndr(iBnds)%Types
+  READ(iunit,*)  myParBndr(iBnds)%Parameters
+
+  myParBndr(iBnds)%Bndr(1)%Vert = .FALSE.
+  myParBndr(iBnds)%Bndr(1)%Face = 0
+
+  DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
+   READ(iunit,*) iVert
+   myParBndr(iBnds)%Bndr(1)%Vert(iVert) = .TRUE.
+  END DO
+
+  CLOSE(iunit)
+
+!  WRITE(*,'(I,3A)') myid,"|",myParBndr(iBnds)%Parameters,"|"
+  READ(myParBndr(iBnds)%Parameters,*,IOSTAT=iError) myParBndr(iBnds)%nBndrPar
+  IF (iError.NE.0.OR.myParBndr(iBnds)%nBndrPar.EQ.0) THEN
+    myParBndr(iBnds)%nBndrPar = 0
+  ELSE
+    IF (myParBndr(iBnds)%nBndrPar.GT.0) THEN
+      ALLOCATE(myParBndr(iBnds)%dBndrPar(myParBndr(iBnds)%nBndrPar))
+      READ(myParBndr(iBnds)%Parameters,*) iAux,(myParBndr(iBnds)%dBndrPar(i),i=1,myParBndr(iBnds)%nBndrPar)
+      myParBndr(iBnds)%Dimens = 3 ! ==> default:surface | will need to be redifened if we introduce specific line/point/volume parametrization ... 
+    ELSE
+      READ(myParBndr(iBnds)%Parameters,*) iAux,myParBndr(iBnds)%CGAL_ID
+      myParBndr(iBnds)%Dimens = ABS(iAux)
+    END IF
   END IF
 !  WRITE(*,'(2I8,<myParBndr(iBnds)%nBndrPar>D12.4)') myid,myParBndr(iBnds)%nBndrPar,myParBndr(iBnds)%dBndrPar
 !  PAUSE

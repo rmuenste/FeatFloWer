@@ -1758,7 +1758,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE Transport_Q1,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
@@ -1769,6 +1769,7 @@ INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
 integer :: iunit = 908070
+integer iX
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -1880,6 +1881,27 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('BndryType')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BndryType",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   iX = 5
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(1)) iX = Min(1,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(2)) iX = Min(2,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(3)) iX = Min(3,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(4)) iX = Min(4,iX)
+   iF (iX.eq.5) iX = 0
+   write(iunit, '(A,E16.7)')"        ",REAL(iX)
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('OuterPoint')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","OuterPoint",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   iX = 0
+   IF (mg_mesh%BndryNodes(ivt)%bOuterPoint) iX=1
+   write(iunit, '(A,E16.7)')"        ",REAL(iX)
+  end do
+  write(iunit, *)"        </DataArray>"
  END SELECT 
 
 END DO
@@ -2021,6 +2043,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
  CASE('Distance')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Distance","""/>"
+ CASE('BndryType')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","BndryType","""/>"
+ CASE('OuterPoint')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","OuterPoint","""/>"
 
  END SELECT
 END DO
