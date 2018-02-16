@@ -142,29 +142,84 @@ IF (myid.eq.0) GOTO 1
     nUsedSteps,myTime)
 
 
-!   CALL ProlongateCoordinates_ext(&
-!     mg_mesh%level(ilev)%dcorvg,&
-!     mg_mesh%level(ilev)%karea,&
-!     mg_mesh%level(ilev)%kvert,&
-!     mg_mesh%level(ilev)%kedge,&
-!     mg_mesh%level(ilev)%nel,&
-!     mg_mesh%level(ilev)%nvt,&
-!     mg_mesh%level(ilev)%net,&
-!     mg_mesh%level(ilev)%nat)
+  CALL ProlongateCoordinates_ext(&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%karea,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%nel,&
+    mg_mesh%level(ilev)%nvt,&
+    mg_mesh%level(ilev)%net,&
+    mg_mesh%level(ilev)%nat)
 
 DEALLOCATE(a1,a2,a3,a4,a5,a6)
 
 1 CONTINUE
 
-! ILEV = NLMIN
-! CALL SETLEV(2)
-! 
-! CALL ExchangeNodeValuesOnCoarseLevel(&
-!   mg_mesh%level(ilev)%dcorvg,&
-!   mg_mesh%level(ilev)%kvert,&
-!   NVT,NEL)
+ILEV = NLMIN
+CALL SETLEV(2)
+
+CALL ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%kvert,&
+  NVT,NEL)
 
 END SUBROUTINE UmbrellaSmoother_ext
+! 
+! 
+! 
+SUBROUTINE UmbrellaSmoother_STRCT(myTime,nSteps)
+USE var_QuadScalar
+USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+IMPLICIT NONE
+REAL*8 myTime
+INTEGEr nSteps,nUsedSteps
+CHARACTER*60 :: cFile
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+REAL*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
+integer :: ndof
+
+IF (nSteps.EQ.0) RETURN
+
+IF (myid.eq.0) GOTO 1
+
+  ndof = KNEL(NLMAX) + KNVT(NLMAX) + KNET(NLMAX) + KNAT(NLMAX)
+  ALLOCATE(a1(ndof))
+  ALLOCATE(a2(ndof))
+  ALLOCATE(a3(ndof))
+  ALLOCATE(a4(ndof))
+  ALLOCATE(a5(ndof))
+  ALLOCATE(a6(ndof))
+  a1 = 0d0
+  a2 = 0d0
+  a3 = 0d0
+  a4 = 0d0
+  a5 = 0d0
+  a6 = 0d0
+  
+  ILEV = NLMAX
+
+  CALL SETLEV(2)
+
+  nUsedSteps = nSteps
+
+  CALL EdgeRunner_STRCT(a1,a2,a3,a4,a5,a6,&
+    mg_mesh,&
+    ilev,&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%nel,&
+    mg_mesh%level(ilev)%nvt,&
+    mg_mesh%level(ilev)%net,&
+    nUsedSteps,myTime)
+
+DEALLOCATE(a1,a2,a3,a4,a5,a6)
+
+1 CONTINUE
+
+END SUBROUTINE UmbrellaSmoother_STRCT
 ! 
 ! 
 ! 
@@ -500,6 +555,124 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
     !
     SUBROUTINE EdgeRunner_std(f,x,y,z,w,v,mgMesh,ilevel,&
         dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
+      USE Parametrization, ONLY: ParametrizeBndr
+      USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+       
+      IMPLICIT NONE
+
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
+      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
+      INTEGER NeighE(2,12)
+      DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+      INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
+      REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,dScale1,dScale2
+      REAL*8 :: dOmega = 0.25d0
+      REAL*8 DIST,dIII,www,mydist,ipc
+      REAL*4, ALLOCATABLE :: myVol(:)
+
+      ipc=0
+
+      DO k=nvt+1,nvt+net
+      v(k) = 1d0
+      END DO
+
+      CALL E013SUM(v)
+
+      ALLOCATE(myVol(nel+1))
+
+      DO iProjStep=1,nProjStep
+
+      myVol = 0e0
+      CALL  SETARE(myVol,nel,kvert,dcorvg)
+
+      f(1:nvt) = 0d0
+      w(1:nvt) = 0d0
+
+      DO iel=1,nel
+        DO i=1,8
+          j = kvert(i,iel)
+          f(j) = f(j) + abs(myVol(iel))
+          w(j) = w(j) + 1d0
+        END DO
+      END DO
+      CALL E013SUM(f)
+      CALL E013SUM(w)
+
+      DO i=1,nvt
+        f(i) = f(i)/w(i)
+      END DO
+
+      DO i=1,nvt
+        PX = dcorvg(1,i)
+        PY = dcorvg(2,i)
+        PZ = dcorvg(3,i)
+
+        f(i) = 1d0
+
+!         myALE%Monitor(i) = f(i)
+      END DO
+
+      x(1:nvt) = 0d0
+      y(1:nvt) = 0d0
+      z(1:nvt) = 0d0
+      w(1:nvt) = 0d0
+
+      k=1
+      DO i=1,nel
+        DO j=1,12
+        IF (k.eq.kedge(j,i)) THEN
+          ivt1 = kvert(NeighE(1,j),i)
+          ivt2 = kvert(NeighE(2,j),i)
+          P1(:) = dcorvg(:,ivt1)
+          P2(:) = dcorvg(:,ivt2)
+
+          daux1 = ABS(f(ivt1))
+          daux2 = ABS(f(ivt2))
+          WeightE = 1d0/(v(nvt + k))
+
+          x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
+          y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
+          z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
+          w(ivt1) = w(ivt1) + WeightE*daux2
+
+          x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
+          y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
+          z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
+          w(ivt2) = w(ivt2) + WeightE*daux1
+
+          k = k + 1
+        END IF
+        END DO
+      END DO
+
+      CALL E013SUM(x)
+      CALL E013SUM(y)
+      CALL E013SUM(z)
+      CALL E013SUM(w)
+
+      DO i=1,nvt
+       PX = x(i)/w(i)
+       PY = y(i)/w(i)
+       PZ = z(i)/w(i)
+       dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+       dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+       dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+       END DO
+
+       CALL ParametrizeBndr(mgMesh,ilevel)
+
+      END DO
+
+    END SUBROUTINE EdgeRunner_std
+    !
+    ! --------------------------------------------------------------
+    !
+    SUBROUTINE EdgeRunner_STRCT(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
       USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
       USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
       USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
@@ -609,11 +782,10 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
        END DO
 
        CALL ParametrizeBndryPoints_STRCT(mgMesh,ilevel)
-!        CALL ParametrizeBndr(mgMesh,ilevel)
 
       END DO
 
-    END SUBROUTINE EdgeRunner_std
+    END SUBROUTINE EdgeRunner_STRCT
     !
     ! --------------------------------------------------------------
     !

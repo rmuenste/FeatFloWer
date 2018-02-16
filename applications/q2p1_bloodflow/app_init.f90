@@ -322,7 +322,7 @@ DO ILEV=NLMIN+1,NLMAX
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  DO iUmbrella=1,64
-  CALL UmbrellaSmoother_ext(0d0,1)
+  CALL UmbrellaSmoother_STRCT(0d0,1)
 !   CALL ProjectPointToSTL(nlmax)
  END DO
  
