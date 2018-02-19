@@ -381,13 +381,13 @@ REAL*8 daux,tttx1,tttx0,alpha
 
      !-1/3 M u_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU,myScalar%defU,-1d0/3d0,1d0)
+     myScalar%valU_old1,myScalar%defU,-1d0/3d0,1d0)
      !-1/3 M v_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defV,-1d0/3d0,1d0)
+     myScalar%valV_old1,myScalar%defV,-1d0/3d0,1d0)
      !-1/3 M w_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defW,-1d0/3d0,1d0)
+     myScalar%valW_old1,myScalar%defW,-1d0/3d0,1d0)
    END IF
    END IF
    

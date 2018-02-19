@@ -236,10 +236,10 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
+SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u,aa,bb,cc)
 implicit none
 
-INTEGER mfile,INL,inl_u,tsm
+INTEGER mfile,INL,inl_u,tsm,aa,bb,cc
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
@@ -291,10 +291,11 @@ IF (myid.ne.master) THEN
  QuadSc%valU_help = QuadSc%valU
  QuadSc%valV_help = QuadSc%valV
  QuadSc%valW_help = QuadSc%valW
+ cc = aa
 END IF
 
  CALL ZTIME(tttt0)
-
+if (myid.eq.showid) write(*,*) aa,bb,cc
 ! Assemble the right hand side
  thstep = tstep*(1d0-theta)
  CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha,tsm)
@@ -537,7 +538,7 @@ IF (DefNorm.EQ.0d0) exit
 !        exit
 !END IF
 END DO
-
+aa = aa+1
 !#######################################
 ! Store the old solution for BDF to old1
 !#######################################
@@ -545,6 +546,7 @@ IF (myid.ne.master) THEN
  QuadSc%valU_old1 = QuadSc%valU_help
  QuadSc%valV_old1 = QuadSc%valV_help
  QuadSc%valW_old1 = QuadSc%valW_help
+ bb = cc
 END IF
 
 ! OUTPUT at the end

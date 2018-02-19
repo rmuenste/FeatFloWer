@@ -156,6 +156,13 @@ if(it.eq.11)then
 end if
 
 !! InitBoundaryStructure: changed from I1 to I2 !!
+! used for Channel / BDF(2) validation
+IF (iT.EQ.21) THEN
+ dScale=0.2d0*(3d0/2d0)/(0.205d0*0.205d0)*t
+ ValU=dScale*Y*(0.41d0-Y)
+ ValV= 0d0
+ ValW= 0d0
+END IF
 ! used for pipe/pipesphere.prj
 IF (iT.EQ.25) THEN
  ValU= 1d0
