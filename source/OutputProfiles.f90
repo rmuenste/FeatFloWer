@@ -959,11 +959,13 @@ USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE Transport_Q1,ONLY:Tracer
-USE PP3D_MPI, ONLY:myid,showid,Comm_Summ
+USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,myMPI_Barrier
 USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 ! USE PLinScalar,ONLY:PLinScP1toQ1,OutputInterphase,PLinLS,&
 !                dNorm,IntPhaseElem,FracFieldQ1
+use cinterface, only: outputRigidBodies 
+
 IMPLICIT NONE
 INTEGER iOutput,mfile
 
@@ -1007,6 +1009,12 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
  END IF
 
 END IF
+
+IF (myid.eq.1) THEN
+  if(outputRigidBodies())then
+    call write_rigid_bodies(iOutput)
+  end if
+end if
 
 END
 !

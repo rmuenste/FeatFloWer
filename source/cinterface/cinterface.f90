@@ -43,6 +43,24 @@ module cinterface
   !
   !----------------------------------------------
   !
+  logical function outputRigidBodies()
+    use var_QuadScalar, only:myFBM
+    implicit none 
+
+    integer :: doOutput
+
+      call get_output_rigidbodies(doOutput)
+
+      if((myFBM%nParticles.gt.0).and.(doOutput.gt.0)) then
+       outputRigidBodies = .true.
+      else
+       outputRigidBodies = .false.
+      end if
+
+  end function outputRigidBodies
+  !
+  !----------------------------------------------
+  !
   SUBROUTINE FBM_GetParticleStateUpdate()
     USE PP3D_MPI, ONLY:myid,showid
     USE var_QuadScalar,ONLY:myFBM
