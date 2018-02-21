@@ -9,7 +9,6 @@ PROGRAM Q2P1_CC
   integer            :: ufile,ilog
   real*8             :: tt0 = 0.0
   real*8             :: dt = 0.0
-  integer 	     :: aa,bb,cc
 
   !-------INIT PHASE-------
 
@@ -27,9 +26,6 @@ PROGRAM Q2P1_CC
   QuadSc%valU_help = QuadSc%valU
   QuadSc%valV_help = QuadSc%valV
   QuadSc%valW_help = QuadSc%valW
-  aa = 0
-  bb = 0
-  cc = 0
   END IF
 
   !-------MAIN LOOP-------
@@ -42,7 +38,7 @@ PROGRAM Q2P1_CC
 
 
   ! Solve Navier-Stokes 
-  CALL Transport_q2p1_UxyzP_cc(ufile,inonln_u,aa,bb,cc)
+  CALL Transport_q2p1_UxyzP_cc(ufile,inonln_u)
 
   inonln_t = 2
 

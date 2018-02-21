@@ -162,6 +162,7 @@ C
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
      *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
       USE PP3D_MPI, ONLY: MGE013,myid,master
+      USE var_QuadScalar_newton, ONLY:zeitstep
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       REAL*8  DEFU(*),DEFV(*),DEFW(*),DEFP(*)
@@ -188,9 +189,9 @@ C
        DO j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
         jPres = mg_qlMat(ILEV)%ColA(j)
         dP    = VALP(jPres)
-        DEFU(i) = DEFU(i) - TSTEP*mg_BXmat(ILEV)%a(j)*dP
-        DEFV(i) = DEFV(i) - TSTEP*mg_BYmat(ILEV)%a(j)*dP
-        DEFW(i) = DEFW(i) - TSTEP*mg_BZmat(ILEV)%a(j)*dP
+        DEFU(i) = DEFU(i) - ZEITSTEP*mg_BXmat(ILEV)%a(j)*dP
+        DEFV(i) = DEFV(i) - ZEITSTEP*mg_BYmat(ILEV)%a(j)*dP
+        DEFW(i) = DEFW(i) - ZEITSTEP*mg_BZmat(ILEV)%a(j)*dP
        END DO
       END DO
 
@@ -223,6 +224,7 @@ C
 
       USE PP3D_MPI, ONLY: MGE013,myid,master
       USE UMFPackSolver_CC, ONLY : myUmfPack_CCFactorize
+      USE var_QuadScalar_newton, ONLY:zeitstep
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       INTEGER KNU(*),KNV(*),KNW(*),iStringPos,iString
@@ -324,11 +326,11 @@ C
          IF (KG.EQ.4*(IEL-1)+1) THEN
 !           IF (myid.eq.1) WRITE(*,*) "yes!",IEL,KG
           CC_EMat(ILEV)%E(IEL)%a( 0 + IL, 82:85) =
-     *    -mg_BXmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BXmat(ILEV)%a(LG:LG+3)*ZEITSTEP
           CC_EMat(ILEV)%E(IEL)%a(27 + IL, 82:85) =
-     *    -mg_BYmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BYmat(ILEV)%a(LG:LG+3)*ZEITSTEP
           CC_EMat(ILEV)%E(IEL)%a(54 + IL, 82:85) =
-     *    -mg_BZmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BZmat(ILEV)%a(LG:LG+3)*ZEITSTEP
          END IF
         END DO
 

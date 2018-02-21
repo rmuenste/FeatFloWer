@@ -9,6 +9,7 @@ USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
+use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
 
@@ -236,10 +237,10 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u,aa,bb,cc)
+SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
 implicit none
 
-INTEGER mfile,INL,inl_u,tsm,aa,bb,cc
+INTEGER mfile,INL,inl_u,tsm
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
@@ -291,13 +292,12 @@ IF (myid.ne.master) THEN
  QuadSc%valU_help = QuadSc%valU
  QuadSc%valV_help = QuadSc%valV
  QuadSc%valW_help = QuadSc%valW
- cc = aa
 END IF
 
  CALL ZTIME(tttt0)
-if (myid.eq.showid) write(*,*) aa,bb,cc
+
 ! Assemble the right hand side
- thstep = tstep*(1d0-theta)
+ zeitstep = tstep*(1d0-theta)
  CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha,tsm)
 
 IF (myid.ne.master) THEN
@@ -309,13 +309,15 @@ IF (myid.ne.master) THEN
  QuadSc%rhsU = QuadSc%defU
  QuadSc%rhsV = QuadSc%defV
  QuadSc%rhsW = QuadSc%defW
-
 END IF
 
+!##########################################
+! Set zeitstep as the right scalling factor
+!##########################################
 IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
-	thstep = tstep*theta
+	zeitstep = tstep*theta
 ELSE IF (tsm.EQ.2) THEN
-	thstep = 2d0/3d0*tstep
+	zeitstep = 2d0/3d0*tstep
 END IF
 
 
@@ -323,6 +325,7 @@ END IF
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha,tsm)
+
 
 ! OUTPUT at the beginning
 ! CALL myOutputMatrix("AA11",qMat,AA11mat)
@@ -436,7 +439,9 @@ END IF
  CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_QuadScalar_cc(QuadSc,-1,alpha,tsm)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha,tsm)
+
+
 ! CALL OperatorDeallocation() ! after force calculation
 
 ! Set dirichlet boundary conditions on the solution
@@ -538,7 +543,7 @@ IF (DefNorm.EQ.0d0) exit
 !        exit
 !END IF
 END DO
-aa = aa+1
+
 !#######################################
 ! Store the old solution for BDF to old1
 !#######################################
@@ -546,7 +551,6 @@ IF (myid.ne.master) THEN
  QuadSc%valU_old1 = QuadSc%valU_help
  QuadSc%valV_old1 = QuadSc%valV_help
  QuadSc%valW_old1 = QuadSc%valW_help
- bb = cc
 END IF
 
 ! OUTPUT at the end
