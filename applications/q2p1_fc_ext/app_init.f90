@@ -216,12 +216,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                  mg_mesh%level(II)%karea,&
                  mg_mesh%level(II)%kvert)
 
+
  IF (myid.EQ.0) NLMAX = NLMAX - 1
 
  DO II=NLMIN+1,NLMAX
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
  BLIN = .FALSE.
-
 
  CALL CREATECOMM(II,&
                  mg_mesh%level(II)%nat,&
@@ -300,6 +300,11 @@ DO ILEV=NLMIN+1,NLMAX
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
+
+
+! call myMPI_Barrier()
+! pause
+
 
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)

@@ -102,8 +102,15 @@ IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.0.AND.myMatrixRenewal%C.GE.2) THEN
 END IF
 
 myMG%DefFinal = DefNorm
+
 myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
-myMG%RhoMG2 = (myMG%DefFinal/DEFI2)**(0.5d0)
+
+if(IterCycle.le.2)then
+  myMG%RhoMG2 = 0d0 
+else
+  myMG%RhoMG2 = (myMG%DefFinal/DEFI2)**(0.5d0)
+end if
+
 MyMG%UsedIterCycle = IterCycle
 MyMG%nIterCoarse = INT(AccCoarseIter/MAX(IterCycle,1))
 
@@ -439,7 +446,7 @@ INTEGER Iter,i,j,ndof,neq
 REAL*8 daux
 
  Iter  = myMG%nSmootherSteps
- ndof  = SIZE(myMG%X(mgLev)%x)
+ if(myid.ne.0)ndof  = SIZE(myMG%X(mgLev)%x)
 
  IF (MyMG%cVariable.EQ."Pressure") THEN
   if (myid.ne.0) then
@@ -483,8 +490,11 @@ END SUBROUTINE mgSmoother
 SUBROUTINE CG_Activation()
 INTEGER ndof,ndof_orig
 
- ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
- IF (myid.eq.0) ndof  = SIZE(myMG%X(MyMG%MinLev)%x) 
+ IF (myid.eq.0)then
+   ndof  = SIZE(myMG%X(MyMG%MinLev)%x) 
+ else
+   ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
+ end if
 
  IF (.NOT.myCG%bActivated) THEN
 !   IF (myid.ne.0) THEN 
@@ -514,7 +524,11 @@ END SUBROUTINE CG_Activation
 SUBROUTINE JCB_Activation()
 INTEGER ndof,ndof_orig
 
- ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
+ ndof = -1
+
+ if(myid .ne. 0)then
+   ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
+ end if
 
  IF (.NOT.myJCB%bActivated) THEN
   IF (myid.ne.0) THEN 
@@ -522,11 +536,16 @@ INTEGER ndof,ndof_orig
   END IF
   myJCB%bActivated = .TRUE.
  ELSE
+
   ndof_orig  = SIZE(myJCB%d1)
-  IF (ndof_orig.LT.ndof.AND.myid.ne.0) THEN
+  if(myid.ne.0)then
+  IF (ndof_orig.LT.ndof) THEN
+
    DEALLOCATE(myJCB%d1)
    ALLOCATE(myJCB%d1(ndof))
+
   END IF
+  end if
  END IF
 
 END SUBROUTINE JCB_Activation
@@ -1677,6 +1696,9 @@ SUBROUTINE mgCoarseGridSolver_U
 INTEGER ITE,i,j,k,ndof
 INTEGER nnSteps,neq
 REAL*8 def,def0
+
+def0 = 0d0
+def = 0d0
 
 ! WRITE(*,*) 'MyMG%CrsSolverType',MyMG%CrsSolverType
 

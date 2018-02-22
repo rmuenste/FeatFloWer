@@ -121,8 +121,10 @@ ALLOCATE(AFC%qm(AFC%nu))
 DO I=1,AFC%nu
   ILOC=lMat%LdA(I)
 1 ILOC=ILOC+1 
-  IF (lMat%ColA(ILOC).LT.I.AND.ILOC.LT.lMat%LdA(I+1)) GOTO 1
-  AFC%isep(I)=ILOC-1
+  if(iloc .le. lMat%na)then
+    IF (lMat%ColA(ILOC).LT.I.AND.ILOC.LT.lMat%LdA(I+1)) GOTO 1
+    AFC%isep(I)=ILOC-1
+  end if
 END DO
 
 END SUBROUTINE Create_AFCStruct

@@ -1983,6 +1983,10 @@ REAL*8 daux,nrm_U,nrm_V,nrm_W
 INTEGER ndof
 EXTERNAL Bndry_Val,Bndry_Mat,Bndry_Mat_9
 
+nrm_U = 0d0
+nrm_V = 0d0
+nrm_W = 0d0
+
  CALL ZTIME(myStat%t0)
 
  IF (myid.ne.0) THEN

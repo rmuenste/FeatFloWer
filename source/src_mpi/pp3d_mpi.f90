@@ -498,6 +498,10 @@ CONTAINS
     CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Neigh,0)
     CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Num,0)
     ALLOCATE(mg_mpi(1)%parST(pID)%FaceLink(2,1:mg_mpi(1)%parST(pID)%Num))
+
+    ! REMINDER: If we pass the array mg_mpi(1)%parST(pID)%FaceLink(1,:) then
+    ! a temporary copy of the array is created because in the column-major 
+    ! ordering in FORTRAN FaceLink(1,:) is not a continuous portion of memory 
     CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(1,:),mg_mpi(1)%parST(pID)%Num,0)
     CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(2,:),mg_mpi(1)%parST(pID)%Num,0)
     ALLOCATE(mg_mpi(1)%parST(pID)%SideLink(1:mg_mpi(1)%parST(pID)%Num))
