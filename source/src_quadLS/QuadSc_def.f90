@@ -2272,7 +2272,7 @@ SUBROUTINE Protocol_LinScalar(mfile,myScalar,cTitle)
 TYPE(TLinScalar), INTENT(INOUT) :: myScalar
 INTEGER nINL,mfile
 INTEGER i,length
-CHARACTER C0*14,C1*14,C2*14,C3*14,C4*14,C5*14
+character(len=32) :: C0,C1,C2,C3,C4,C5
 CHARACTER, OPTIONAL:: cTitle*(*)
 
 IF (myid.eq.showID) THEN

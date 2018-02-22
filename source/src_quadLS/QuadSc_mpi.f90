@@ -3256,7 +3256,8 @@ IF (myid.ne.MASTER) THEN
 
  DO iRound=1,SIZE(CommOrder(myid)%x)
   pJD = CommOrder(myid)%x(iRound)
-  IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+  IF (pJD.ne.0) THEN
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
 
      nSIZE = MGE013(ILEV)%ST(pJD)%Num
      MEQ = nSize
@@ -3289,6 +3290,7 @@ IF (myid.ne.MASTER) THEN
      END IF
 
     END IF
+   END IF
  END DO
 
  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
