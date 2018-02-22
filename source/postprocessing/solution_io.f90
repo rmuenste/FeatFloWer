@@ -1039,35 +1039,41 @@ end subroutine read_time_sol_single
 ! @param inlT 
 ! @param filehandle Unit of the output file
 !
-subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
+subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 
   include 'defs_include.h'
+  
   use var_QuadScalar, only: istep_ns
 
   implicit none
 
   integer, intent(in) :: filehandle
 
-  integer, intent(inout) :: iogmv
   real, intent(inout) :: dout
+  integer iXgmv
 
   INTEGER :: inlU,inlT,MFILE
 
   ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
+!   write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
+  
   IF (itns.eq.1) THEN
     CALL ZTIME(myStat%t0)
     CALL Output_Profiles(0)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    CALL ZTIME(myStat%t0)
+    call write_sol_to_file(0, timens,0)
+    CALL ZTIME(myStat%t1)
   END IF
 
   IF(dout.LE.(timens+1e-10)) THEN
 
-    iOGMV = istep_ns
     IF (itns.ne.1) THEN
-      iogmv = iogmv - 1
+      iXgmv = iXgmv - 1
       CALL ZTIME(myStat%t0)
-      CALL Output_Profiles(iOGMV)
+      CALL Output_Profiles(iXgmv)
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
@@ -1075,7 +1081,7 @@ subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
 
     ! Save intermediate solution to a dump file
     IF (insav.NE.0.AND.itns.NE.1) THEN
-      IF (MOD(iOGMV,insav).EQ.0) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         call write_sol_to_file(insavn, timens)
         CALL ZTIME(myStat%t1)
@@ -1084,9 +1090,9 @@ subroutine postprocessing_app(dout, iogmv, inlU,inlT,filehandle)
     END IF
 
   END IF
-
+! 
   ! Timestep control
-  CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
+!   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
   CALL ProcessControl(filehandle,mterm)

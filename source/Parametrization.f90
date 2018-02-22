@@ -985,13 +985,13 @@ INTEGER iNode,ipc,iBnds,iS,W
      IF (mgMesh%BndryNodes(iNode)%ParamTypes(2)) then
         iBnds = mgMesh%BndryNodes(iNode)%L(1)
         ipc   = myParBndr(iBnds)%CGAL_ID
-        x = mg_mesh%level(ii)%dcorvg(1,iNode)
-        y = mg_mesh%level(ii)%dcorvg(2,iNode)
-        z = mg_mesh%level(ii)%dcorvg(3,iNode)
+        x = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(1,iNode)
+        y = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(2,iNode)
+        z = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(3,iNode)
         call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
-        mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
-        mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
-        mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
+        mg_mesh%level(ii)%dcorvg(1,iNode) = cpx/dCGALtoRealFactor
+        mg_mesh%level(ii)%dcorvg(2,iNode) = cpy/dCGALtoRealFactor
+        mg_mesh%level(ii)%dcorvg(3,iNode) = cpz/dCGALtoRealFactor
        GOTO 1
      END IF
      IF (mgMesh%BndryNodes(iNode)%ParamTypes(3)) then
@@ -1009,13 +1009,13 @@ INTEGER iNode,ipc,iBnds,iS,W
            mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
          ELSE  !CGAL
            ipc   = myParBndr(iBnds)%CGAL_ID
-           x = mg_mesh%level(ii)%dcorvg(1,iNode)
-           y = mg_mesh%level(ii)%dcorvg(2,iNode)
-           z = mg_mesh%level(ii)%dcorvg(3,iNode)
+           x = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(1,iNode)
+           y = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(2,iNode)
+           z = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(3,iNode)
            call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
-           mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
-           mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
-           mg_mesh%level(ii)%dcorvg(3,iNode) = cpz
+           mg_mesh%level(ii)%dcorvg(1,iNode) = cpx/dCGALtoRealFactor
+           mg_mesh%level(ii)%dcorvg(2,iNode) = cpy/dCGALtoRealFactor
+           mg_mesh%level(ii)%dcorvg(3,iNode) = cpz/dCGALtoRealFactor
          END IF
        ENDDO
        GOTO 1
@@ -1037,7 +1037,7 @@ REAL*8 RX,RY,RZ,RAD,DFX,DFY,DFZ
 REAL*8 DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,DZ1,DZ2
 INTEGER iBnds
 
- IF (myParBndr(iBnds)%nBndrPar.EQ.0) THEN
+ IF (myParBndr(iBnds)%nBndrPar.EQ.0.OR.myParBndr(iBnds)%nBndrPar.EQ.1) THEN
   x2 = x1
   y2 = y1
   z2 = z1

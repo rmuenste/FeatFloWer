@@ -382,8 +382,8 @@ SUBROUTINE General_init(MDATA,MFILE)
     USE PP3D_MPI
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
-      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties
+      myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
+      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -464,6 +464,8 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) ISTART
         CASE ("Umbrella")
           READ(string(iEq+1:),*) nUmbrellaSteps
+        CASE ("InitUmbrella")
+          READ(string(iEq+1:),*) nInitUmbrellaSteps
         CASE ("StartFile")
           READ(string(iEq+1:),*) CSTART
           !      iLen = LEN(TRIM(ADJUSTL(CSTART)))
@@ -592,6 +594,9 @@ SUBROUTINE General_init(MDATA,MFILE)
             myExport%Level = MAX(MIN(myExport%Level,myExport%LevelMax+1),1)
           END IF
 
+        CASE ("CGALtoRealFactor")
+         READ(string(iEq+1:),*)dCGALtoRealFactor
+         
         CASE ("OutputFormat")
           READ(string(iEq+1:),*) myExport%Format
         CASE ("OutputFields")
@@ -731,6 +736,9 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mterm,'(A)') "No Initial Mesh Adaptation"
       END IF
 
+      WRITE(mfile,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
+      WRITE(mterm,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
+
       WRITE(mfile,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
       WRITE(mterm,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
 
@@ -761,6 +769,10 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mfile,'(A)') "FlowType = Newtonian"
         WRITE(mterm,'(A)') "FlowType = Newtonian"
       END IF
+      
+      WRITE(mfile,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
+      WRITE(mterm,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
+      
 
       WRITE(mfile,'(4A,I3,3A,100A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
         myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"!,mylength,iPos

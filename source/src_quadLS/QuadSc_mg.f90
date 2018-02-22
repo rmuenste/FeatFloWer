@@ -598,7 +598,7 @@ REAL*8 drlx
 INTEGER i
 
 IF (myid.ne.0) THEN
- drlx=0.5d0
+ drlx=myMG%RLX
  ILEV = mgLev
 
  DO i=1,nIter
@@ -624,7 +624,7 @@ REAL*8 drlx
 INTEGER i
 
 IF (myid.ne.0) THEN
- drlx=0.9d0
+ drlx=myMG%RLX
  ILEV = mgLev
 
  DO i=1,2*nIter
@@ -645,7 +645,7 @@ REAL*8 DX(*),DB(*)
 REAL*8 drlx
 INTEGER i
 
-drlx=1.25d0
+drlx=myMG%RLX
 ILEV = mgLev
 
 DO i=1,2*nIter
@@ -662,7 +662,7 @@ INTEGER NEQ
 REAL*8 DX(*),DXP(*)
 REAL*8 drlx
 
-drlx=1.0d0
+drlx=myMG%RLX
 ILEV = mgLev
 CALL GetParPressure(DX,DXP)
 CALL PARID117(myMG%A(mgLev)%a,myMG%AP(mgLev)%a,myMG%L(mgLEV)%ColA,&
@@ -678,7 +678,7 @@ INTEGER NEQ
 REAL*8 DX(*)
 REAL*8 drlx
 
-drlx=0.5d0
+drlx=myMG%RLX
 ILEV = mgLev
 CALL PARID117_Master(myMG%A(mgLev)%a,myMG%L(mgLEV)%ColA,&
      myMG%L(mgLEV)%LdA,dx,neq,drlx)
@@ -692,7 +692,7 @@ INTEGER NEQ
 REAL*8 DX(*)
 REAL*8 drlx
 
-drlx=0.5d0
+drlx=myMG%RLX
 CALL PARID117_Master(crsSTR%A_MAT,crsSTR%A%ColA,crsSTR%A%LdA,dx,neq,drlx)
 
 END SUBROUTINE E012_DCG_Master_A

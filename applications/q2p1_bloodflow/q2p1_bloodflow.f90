@@ -2,7 +2,7 @@ PROGRAM Q2P1_BLOODFLOW
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app
+  use solution_io, only: postprocessing_app,write_sol_to_file
 
   use post_utils,  only: handle_statistics,&
                          print_time,&
@@ -12,7 +12,7 @@ PROGRAM Q2P1_BLOODFLOW
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile,ilog
+  integer            :: ufile,ilog,iXX
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
@@ -33,18 +33,15 @@ PROGRAM Q2P1_BLOODFLOW
   timnsh=timens
   dt=tstep
   timens=timens+dt
+  inonln_u = 2
+  inonln_t = 2
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_LinScalar(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
 
-  call postprocessing_app(dout, iogmv, inonln_u, inonln_t,ufile)
+!   write(*,*) myid, ' reached this stage'
+  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

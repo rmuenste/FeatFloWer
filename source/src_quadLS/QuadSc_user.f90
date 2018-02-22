@@ -85,10 +85,11 @@ REAL*8 :: tt=4d0
 INTEGER iT
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
-REAL*8  dScale
+REAL*8  dScale,dOuterRadius
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0
+
 
 ValU = 0d0
 ValV = 0d0
@@ -168,11 +169,60 @@ IF (iT.EQ.22) THEN
  END IF
 END IF
 
+IF (iT.EQ.33) THEN
+ R_inflow = 1.0d0
+ dist = SQRT((x+6.0)**2d0 + (y-12.9)**2d0 + (z-5.2)**2d0)
+ IF (dist.lt.R_inflow) THEN
+  dScale = 1.0d0/R_inflow*R_inflow
+  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+  ValU=  1.0084836*dScale
+  ValV= -2.0737041*dScale
+  ValW= -1.0046438*dScale
+ END IF
+END IF
+
+IF (iT.EQ.41) THEN
+ ValW=RotParabolicVelo(0d0,0d0,100d0,-1d0,0.495d0)
+END IF
+
+IF (iT.EQ.45) THEN
+ ValW=RotParabolicVelo(0d0,0d0,1449d0,1d0,2.495d0)
+END IF
+
+  
+IF (iT.EQ.51) THEN
+  ValW=RotParabolicVelo(0d0,0d0,2127d0,1d0,2.495d0)
+END IF
+IF (iT.EQ.52) THEN
+  ValW=RotParabolicVelo(0d0,6d0,54d0,1d0,1.245d0)
+END IF
+IF (iT.EQ.53) THEN
+  ValW=RotParabolicVelo(0d0,-6d0,54d0,1d0,1.245d0)
+END IF
+IF (iT.EQ.54) THEN
+  ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
 
 RETURN
+
+ CONTAINS
+ REAL*8 function RotParabolicVelo(XR,YR,DM,DRHO,dR)
+ REAL*8  dVolFlow,DM,DRHO,dR,daux,YR,XR
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) ! mm3/s
+  daux = (PI/2d0)*(DR**4d0)
+  dScale = (dVolFlow/1d0)/daux
+  DIST = SQRT((X-XR)**2d0+(Y-YR)**2d0)
+ IF (DIST.LT.dR) THEN
+  RotParabolicVelo = dScale*(DR - DIST)*(DR + DIST)
+ ELSE
+  RotParabolicVelo = 0d0
+ END IF
+ END 
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------
@@ -181,69 +231,31 @@ IMPLICIT NONE
 REAL*8 X,Y,Z,t,d
 REAL*8 :: PI = 6.283185307179586232
 INTEGER :: inpr,iBndr
-REAL*8 :: RX0=0d0,RY0=0d0
-REAL*8 :: DA=0.268d0,DB=1.d0
-REAL*8 :: RAD = 0.145d0,dAlpha,XT,YT,ZT,XB,YB,ZB
-REAL*8 :: dBeta,XTT,YTT,ZTT,dist
-REAL*8 :: mBottom=0.15d0,mTop=0.55d0,mThickness=0.2d0
+REAL*8 :: XT,YT,ZT,XB,YB,ZB
 REAL*8 dScale
 
+integer ipc,isin
+real*8 d_temp
+
 inpr = 0
-RETURN
-!IF (iBndr.NE.0) RETURN
-d=1d0
+ipc = 0
+isin = 0
 
-! First screw
-XB = X
-YB = Y-0.125
-ZB = Z
+xt = 1d1*x
+yt = 1d1*y
+zt = 1d1*z
 
-! First the point needs to be transformed back to time = 0
-dAlpha = -t*PI
-XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-ZT = ZB
+call isinelementid(xt,yt,zt,ipc,isin)
+call getclosestpointid(xt,yt,zt,xb,yb,zb,d_temp,ipc)
 
-! Next the point needs to be transformed back to Z = 0 level
-dBeta = -(ZT-mBottom)/(mThickness)*PI
-XTT = XT*cos(dBeta) - YT*sin(dBeta)
-YTT = XT*sin(dBeta) + YT*cos(dBeta)
-ZTT = ZT
+if (isin.gt.0) then
+ D = +abs(1d-1*d_temp)
+else
+ inpr = 103
+ D = -abs(1d-1*d_temp)
+end if
 
-IF (ZTT.LE.mTop.AND.ZTT.GE.mBottom) THEN
- DIST = SQRT((XTT-RX0)*(XTT-RX0)/DA+(YTT-RY0)*(YTT-RY0)/DB)
- d=dist-rad
- IF (DIST.LT.RAD) THEN
-  inpr = 101
- END IF
-END IF
-
-! Second screw
-XB = X
-YB = Y+0.125
-ZB = Z
-
-! First the point needs to be transformed back to time = 0
-dAlpha = -t*PI+PI/4d0
-XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-ZT = ZB
-
-! Next the point needs to be transformed back to Z = 0 level
-dBeta = -(ZT-mBottom)/(mThickness)*PI
-XTT = XT*cos(dBeta) - YT*sin(dBeta)
-YTT = XT*sin(dBeta) + YT*cos(dBeta)
-ZTT = ZT
-
-IF (ZTT.LE.mTop.AND.ZTT.GE.mBottom) THEN
- DIST = SQRT((XTT-RX0)*(XTT-RX0)/DA+(YTT-RY0)*(YTT-RY0)/DB)
- d=min(d,dist-rad)
- IF (DIST.LT.RAD) THEN
-  inpr = 102
- END IF
-END IF
-
-RETURN
+return
 
 END SUBROUTINE GetMixerKnpr
 !------------------------------------------------------------
@@ -253,13 +265,17 @@ REAL*8 :: PI=6.283185307179586232
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 
+ValU = 0d0
+ValV = 0d0
+ValW = 0d0
 IF (iP.EQ.101) THEN
  ValU =  -PI*(Y-0.125d0)
-ELSE
- ValU =  -PI*(Y+0.125d0)
+ ValV = PI*X
 END IF
-ValV = PI*X
-ValW = 0d0
+IF (iP.EQ.102) THEN
+ ValU =  -PI*(Y+0.125d0)
+ ValV = PI*X
+END IF
 
 
 END SUBROUTINE GetVeloMixerVal

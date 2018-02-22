@@ -1,3 +1,21 @@
+      FUNCTION Breyer_Carreau(NormShearSquare)
+      USE Transport_Q2P1, ONLY : Properties
+      IMPLICIT NONE
+
+      real*8 :: Breyer_Carreau
+      real*8, intent (in) :: NormShearSquare
+
+      REAL*8 :: dA,dB,dC,dStrs
+
+      dA = 3499.76071*1d1
+      dB = 0.08992
+      dC = 0.77067
+      
+       dStrs = DSQRT(NormShearSquare)
+       Breyer_Carreau = dA/(1d0+(dStrs/dB)**dC)
+      RETURN
+      END
+
       FUNCTION PolyFLOW_Carreau(NormShearSquare)
       USE Transport_Q2P1, ONLY : Properties
       IMPLICIT NONE

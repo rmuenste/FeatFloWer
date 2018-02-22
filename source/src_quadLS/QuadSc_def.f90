@@ -1547,6 +1547,7 @@ INTEGER :: I,J
  MyMG%nIterCoarse = lScalar%prm%MGprmIn%nIterCoarse
  MyMG%DefImprCoarse = lScalar%prm%MGprmIn%DefImprCoarse
  MyMG%nSmootherSteps = lScalar%prm%MGprmIn%nSmootherSteps
+ MyMG%RLX            = lScalar%prm%MGprmIn%RLX
  MyMG%CycleType = lScalar%prm%MGprmIn%CycleType
  MyMG%Criterion1 = lScalar%prm%MGprmIn%Criterion1
  MyMG%Criterion2 = dnormu*lScalar%prm%MGprmIn%Criterion2/TSTEP
@@ -2693,6 +2694,8 @@ end if
 
 ! IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 ! IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+myParam%MGprmIn%RLX = 0.66d0
+myParam%MGprmIn%CrsSolverType = 1
 
 DO
  READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
@@ -2895,6 +2898,7 @@ end if
 
 !IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 !IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+myParam%MGprmIn%RLX = 0.66d0
 
 DO
  READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
@@ -2954,11 +2958,16 @@ DO
     myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
     IF (myid.eq.showid) write(mterm,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
     IF (myid.eq.showid) write(mfile,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
+
     CASE ("MGCrsSolverType")
     READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
     call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
     
-  END SELECT
+    CASE ("MGRelaxPrm")
+    READ(string(iEq+1:),*) myParam%MGprmIn%RLX
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%RLX)
+
+   END SELECT
 
   END IF
  END IF

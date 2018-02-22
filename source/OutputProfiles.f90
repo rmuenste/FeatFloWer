@@ -236,7 +236,7 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 !FileB='new_p'
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-!call read_time_sol(cInFile, istep_ns, timens)
+call read_time_sol(cInFile, istep_ns, timens)
 
 !fieldName = "myvel"
 !
@@ -1006,6 +1006,10 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
+
+!   ILEV = NLMIN
+!   CALL SETLEV(2)
+!   CALL Output_Mesh(iOutput)
  END IF
 
 END IF
@@ -1017,6 +1021,45 @@ IF (myid.eq.1) THEN
 end if
 
 END
+!
+! ----------------------------------------------
+!
+SUBROUTINE Output_Mesh(iO)
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary
+IMPLICIT NONE
+INTEGER i,j,iO
+CHARACTER cf*(24)
+
+WRITE(cf,'(A11,I3.3,A4)') '_vtk/cMESH_',iO, '.tri'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(1,'(2I8,A)') mg_mesh%level(ilev)%NEL,mg_mesh%level(ilev)%NVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(1,'(A)') 'DCORVG'
+DO i = 1,mg_mesh%level(ilev)%nvt
+ WRITE(1,'(3ES13.5)') mg_mesh%level(ilev)%dcorvg(:,i)
+END DO
+
+WRITE(1,'(A)') 'KVERT'
+DO i = 1,mg_mesh%level(ilev)%nel
+ WRITE(1,'(8I8)') mg_mesh%level(ILEV)%kvert(:,i)
+END DO
+
+WRITE(1,'(A)') 'KNPR'
+DO i = 1,mg_mesh%level(ilev)%nvt
+ IF (myBoundary%bWall(i)) THEN
+  WRITE(1,'(I8)') 1
+ ELSE
+  WRITE(1,'(I8)') 0
+ END IF
+END DO
+
+CLOSE(1)
+
+END SUBROUTINE Output_Mesh
 !
 ! ----------------------------------------------
 !
@@ -1081,6 +1124,7 @@ INTEGER iO
  DO IVT=1,NVT
   WRITE(mf,1000) REAL(U(IVT))
  END DO
+
  DO IVT=1,NVT
   WRITE(mf,1000) REAL(V(IVT))
  END DO
@@ -1096,6 +1140,8 @@ INTEGER iO
 
  WRITE(mf,*)  'temperature 1'
  DO IVT=1,NVT
+
+
   WRITE(mf,1000) REAL(T(IVT))
  END DO
 
@@ -1861,6 +1907,13 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Distamce')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(Distance(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
  CASE('Mixer')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Mixer",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2043,6 +2096,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('Distamce')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Mixer","""/>"
  CASE('Viscosity')

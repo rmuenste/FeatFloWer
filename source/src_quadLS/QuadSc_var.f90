@@ -39,6 +39,7 @@ LOGICAL :: bSteadyState =.FALSE.
 ! Integer parameter for terminal output
 integer, parameter :: uterm = 6
 
+REAL*8  :: dCGALtoRealFactor = 1d0
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
 
@@ -128,7 +129,7 @@ END TYPE tStatistics
 TYPE (tStatistics),save :: myStat
 
 TYPE tMGParamIn
- INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType
+ INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
  CHARACTER*1 CycleType
@@ -324,7 +325,7 @@ TYPE tMultiGrid
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
  TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
  REAL*8  , DIMENSION(:)  , POINTER :: XP
- INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType
+ INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse
  REAL*8  Criterion1,Criterion2,RLX
