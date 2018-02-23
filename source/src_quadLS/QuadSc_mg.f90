@@ -40,7 +40,7 @@ CONTAINS
 SUBROUTINE MG_Solver(mfile,mterm)
 INTEGER mfile,mterm
 INTEGER INLComplete,i
-REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter
+REAL*8 :: DefI1,DefI2,DefImpr,DDD,AccCoarseIter
 
 AccCoarseIter = 0
 
@@ -50,54 +50,52 @@ CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
 
-IF (DefNorm.LT.1d-16) GOTO 88
+IF (.not. DefNorm.lt.1d-16) then
 
-! IF (myid.eq.showid) THEN
-!  WRITE(*,*) 'InitDef: ',myMG%DefInitial
-! END IF
+  DefI1 = 0d0
+  DefI2 = 0d0
 
-DefI1 = 0d0
-DefI2 = 0d0
+  DO IterCycle=1,MyMG%MaxIterCycle
 
-DO IterCycle=1,MyMG%MaxIterCycle
+    INLComplete = 0
 
- INLComplete = 0
+    CALL mg_cycle()
 
- CALL mg_cycle()
+    ! Evaluation of new defect
+    CALL mgUpdateDefect(myMG%MaxLev,.TRUE.)
 
- ! Evaluation of new defect
- CALL mgUpdateDefect(myMG%MaxLev,.TRUE.)
+    AccCoarseIter = AccCoarseIter + CoarseIter
 
- AccCoarseIter = AccCoarseIter + CoarseIter
+    if(IterCycle > 1)then
+     DefImpr = DefNorm/myMG%DefInitial
+    else
+     DefImpr = 1.0d0 
+    end if
 
- if(IterCycle > 1)then
-   DefImpr = DefNorm/myMG%DefInitial
- else
-   DefImpr = 1.0d0 
- end if
+    IF (DefNorm.LE.myMG%DefInitial*MyMG%Criterion1.AND.&
+       DefNorm.LE.MyMG%Criterion2.AND.&
+       IterCycle.GE.MyMG%MinIterCycle) INLComplete = 1
 
- IF (DefNorm.LE.myMG%DefInitial*MyMG%Criterion1.AND.&
-     DefNorm.LE.MyMG%Criterion2.AND.&
-     IterCycle.GE.MyMG%MinIterCycle) INLComplete = 1
- IF (IterCycle.GE.MyMG%MaxIterCycle) INLComplete = 1
- CALL COMM_NLComplete(INLComplete)
-!  IF (myid.eq.showid) THEN
- IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
-  write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
-  IterCycle,DefNorm,DefNorm/myMG%DefInitial,&
-  " | ",CoarseIter," | ",MyMG%nSmootherSteps
-  write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
-  IterCycle,DefNorm,DefNorm/myMG%DefInitial,&
-  " | ",CoarseIter," | ",MyMG%nSmootherSteps
- END IF
- IF (INLComplete.eq.1) GOTO 88
- DEFI2 = DEFI1
- DEFI1 = DefNorm
+    IF (IterCycle.GE.MyMG%MaxIterCycle) INLComplete = 1
 
-!       pause
-END DO
+    CALL COMM_NLComplete(INLComplete)
+    !  IF (myid.eq.showid) THEN
+    IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
+      write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
+      IterCycle,DefNorm, DefImpr,&
+      " | ",CoarseIter," | ",MyMG%nSmootherSteps
+      write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
+      IterCycle,DefNorm,DefImpr,&
+      " | ",CoarseIter," | ",MyMG%nSmootherSteps
+    END IF
 
-88 CONTINUE
+    IF (INLComplete.eq.1) exit
+
+    DEFI2 = DEFI1
+    DEFI1 = DefNorm
+  END DO
+
+end if ! if def norm
 
 IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.0.AND.myMatrixRenewal%C.GE.2) THEN
   CALL myUmfPack_Free()
