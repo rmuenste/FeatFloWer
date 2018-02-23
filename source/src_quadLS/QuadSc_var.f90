@@ -194,10 +194,10 @@ TYPE TQuadScalar
  TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprV
  TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprW
 ! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
-! In this part also valX_old1 and valX_help are added for the BDF(2) time-stepping (locally allocated in q2p1_cc)
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxU,rhsU,defU,valU_old,valU,valU_old1,valU_help
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxV,rhsV,defV,valV_old,valV,valV_old1,valV_help
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxW,rhsW,defW,valW_old,valW,valW_old1,valW_help
+! In this part also valX_old1/2 and valX_help are added for the BDF time-stepping (locally allocated in q2p1_cc)
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxU,rhsU,defU,valU_old,valU,valU_old1,valU_help,valU_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxV,rhsV,defV,valV_old,valV,valV_old1,valV_help,valV_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxW,rhsW,defW,valW_old,valW,valW_old1,valW_help,valW_old2
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valUx,valUy,valUz
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valVx,valVy,valVz
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valWx,valWy,valWz

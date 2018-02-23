@@ -364,7 +364,7 @@ REAL*8 daux,tttx1,tttx0,alpha
 
 
 !! BDF(2) !!
-   ELSE IF (tsm.EQ.2) THEN
+   ELSE IF (tsm.EQ.2 .OR. itns.EQ.2) THEN
 
    IF (myMatrixRenewal%M.GE.1) THEN
 ! DAX := A1*DA*DX + A2*DAX 
@@ -388,6 +388,43 @@ REAL*8 daux,tttx1,tttx0,alpha
      !-1/3 M w_(n-1)
      CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
      myScalar%valW_old1,myScalar%defW,-1d0/3d0,1d0)
+   END IF
+
+!! BDF(3) !!
+   ELSE IF (tsm.EQ.3) THEN
+
+   IF (myMatrixRenewal%M.GE.1) THEN
+! DAX := A1*DA*DX + A2*DAX 
+! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
+     !18/11 M u_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,18d0/11d0,1d0)
+     !18/11 M v_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,18d0/11d0,1d0)
+     !18/11 M w_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,18d0/11d0,1d0)
+
+     !-9/11 M u_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU_old1,myScalar%defU,-9d0/11d0,1d0)
+     !-9/11 M v_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV_old1,myScalar%defV,-9d0/11d0,1d0)
+     !-9/11 M w_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW_old1,myScalar%defW,-9d0/11d0,1d0)
+
+     !2/11 M u_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU_old2,myScalar%defU,2d0/11d0,1d0)
+     !2/11 M v_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV_old2,myScalar%defV,2d0/11d0,1d0)
+     !2/11 M w_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW_old2,myScalar%defW,2d0/11d0,1d0)
    END IF
    END IF
    

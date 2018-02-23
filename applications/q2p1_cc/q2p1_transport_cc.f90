@@ -37,6 +37,9 @@ Real*8 :: dabl
  	ALLOCATE(QuadSc%valV_help(QuadSc%ndof))
  	ALLOCATE(QuadSc%valW_old1(QuadSc%ndof))
  	ALLOCATE(QuadSc%valW_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valU_old2(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_old2(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_old2(QuadSc%ndof))
  END IF
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
@@ -312,12 +315,26 @@ IF (myid.ne.master) THEN
 END IF
 
 !##########################################
-! Set zeitstep as the right scalling factor
+! Set zeitstep as the right scaling factor
 !##########################################
 IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
 	zeitstep = tstep*theta
-ELSE IF (tsm.EQ.2) THEN
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'start'
+		write(mterm,'(A)')'start'
+	end if
+ELSE IF (tsm.EQ.2 .OR. itns.EQ.2) THEN
 	zeitstep = 2d0/3d0*tstep
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'BDF(2)'
+		write(mterm,'(A)')'BDF(2)'
+	end if
+ELSE IF (tsm.EQ.3) THEN
+	zeitstep = 6d0/11d0*tstep
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'BDF(3)'
+		write(mterm,'(A)')'BDF(3)'
+	end if
 END IF
 
 
@@ -544,10 +561,13 @@ IF (DefNorm.EQ.0d0) exit
 !END IF
 END DO
 
-!#######################################
-! Store the old solution for BDF to old1
-!#######################################
-IF (myid.ne.master) THEN
+!#########################################
+! Store the old solution for BDF to old1/2
+!#########################################
+IF (myid.ne.master) THEN 
+ QuadSc%valU_old2 = QuadSc%valU_old1
+ QuadSc%valV_old2 = QuadSc%valV_old1
+ QuadSc%valW_old2 = QuadSc%valW_old1
  QuadSc%valU_old1 = QuadSc%valU_help
  QuadSc%valV_old1 = QuadSc%valV_help
  QuadSc%valW_old1 = QuadSc%valW_help

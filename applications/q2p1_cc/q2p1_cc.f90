@@ -26,6 +26,9 @@ PROGRAM Q2P1_CC
   QuadSc%valU_help = QuadSc%valU
   QuadSc%valV_help = QuadSc%valV
   QuadSc%valW_help = QuadSc%valW
+  QuadSc%valU_old2 = QuadSc%valU
+  QuadSc%valV_old2 = QuadSc%valV
+  QuadSc%valW_old2 = QuadSc%valW
   END IF
 
   !-------MAIN LOOP-------
