@@ -216,6 +216,8 @@ ${CMAKE_SOURCE_DIR}/source/src_visco/Visco_def.f90
 
 set(src_mesh
 ${CMAKE_SOURCE_DIR}/source/src_mesh/mesh_refine.f90
+${CMAKE_SOURCE_DIR}/source/src_mesh/umbrella_smoother.f90
+${CMAKE_SOURCE_DIR}/source/src_mesh/geometry_processing.f90
 )
 
 # source files for standard q2p1 

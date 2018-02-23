@@ -496,6 +496,10 @@ LOGICAL :: bMeshAdaptation = .FALSE.
 CHARACTER*100 cAdaptedMeshFile
 INTEGER nUmbrellaSteps,nInitUmbrellaSteps
 
+
+integer :: nUmbrellaStepsLvl(9) = (/0, 4, 8, 0, 0, 0, 0, 0, 0/)
+integer :: nMainUmbrellaSteps = 4
+
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
  REAL*8, ALLOCATABLE :: OldCoor(:,:), NewCoor(:,:),MeshVelo(:,:), OrigCoor(:,:)

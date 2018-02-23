@@ -2,6 +2,8 @@
     use iniparser
     use Sigma_User
 
+    use, intrinsic :: ieee_arithmetic
+
     implicit none
 
     character(len=*), intent(in) :: cE3Dfile
@@ -16,6 +18,13 @@
     integer :: unitTerminal = 6 ! I guess you use mterm here
 
     type(t_parlist) :: parameterlist
+
+    real*8 :: myInf 
+
+    if(ieee_support_inf(myInf))then
+      myInf = ieee_value(myInf, ieee_negative_inf)
+    endif
+
 
     call inip_output_init(myid,showid,unitProtfile,unitTerminal)
 
@@ -36,10 +45,10 @@
      WRITE(*,*) '"',TRIM(myProcess%Rotation),'"'
     END IF
 ! 
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,0d0/0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
     DistTolerance = 1d0*mySigma%Dz_Out
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,0d0/0d0)
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,0d0/0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
 
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,-1)
     
@@ -72,8 +81,8 @@
       END IF
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition_[cm]",mySigma%mySegment(iSeg)%Min,0d0)
-      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
       mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
@@ -99,16 +108,16 @@
 
     
     myProcess%pTYPE = " "
-    myProcess%dPress=0d0/0d0
-    myProcess%Massestrom=0d0/0d0
+    myProcess%dPress=myInf
+    myProcess%Massestrom=myInf
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ProcessType", cProcessType)
     call inip_toupper_replace(cProcessType)
     IF (ADJUSTL(TRIM(cProcessType)).eq."PRESSUREDROP") THEN
-     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","deltaP", myProcess%dPress,0d0/0d0)
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","deltaP", myProcess%dPress,myInf)
      myProcess%pTYPE = "PRESSUREDROP"
     END IF
     IF (ADJUSTL(TRIM(cProcessType)).eq."THROUGHPUT") THEN
-     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","massthroughput", myProcess%Massestrom,0d0/0d0)
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","massthroughput", myProcess%Massestrom,myInf)
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MinInflowDiameter", myProcess%MinInflowDiameter,mySigma%Dz_In)
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaxInflowDiameter", myProcess%MaxInflowDiameter,mySigma%Dz_Out)
      myProcess%pTYPE = "THROUGHPUT"
@@ -120,23 +129,23 @@
      GOTO 10
     END IF
     
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,0d0/0d0)
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,0d0/0d0)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
 
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ScrewTemperatureAdiabatic", cTemperature,"YES")
     call inip_toupper_replace(cTemperature)
     IF (ADJUSTL(TRIM(cTemperature)).EQ."NO") THEN
-     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewTemperature",myProcess%Ti,0d0/0d0)
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewTemperature",myProcess%Ti,myInf)
     ELSE
-     myProcess%Ti=0d0/0d0
+     myProcess%Ti=myInf
     END IF
     cTemperature=" "
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","BarrelTemperatureAdiabatic", cTemperature,"YES")
     call inip_toupper_replace(cTemperature)
     IF (ADJUSTL(TRIM(cTemperature)).EQ."NO") THEN
-     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","BarrelTemperature",myProcess%Ta,0d0/0d0)
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","BarrelTemperature",myProcess%Ta,myInf)
     ELSE
-     myProcess%Ta=0d0/0d0
+     myProcess%Ta=myInf
     END IF
    
     myRheology%Equation = 0
@@ -144,20 +153,20 @@
     call inip_toupper_replace(cRheology)
     IF (ADJUSTL(TRIM(cRheology)).eq."CARREAU") THEN
       myRheology%Equation = 1
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","ZeroViscosity",myRheology%A,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","RecipVelocity",myRheology%B,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","Exponent",myRheology%C,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","ZeroViscosity",myRheology%A,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","RecipVelocity",myRheology%B,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","Exponent",myRheology%C,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POWERLAW".OR.ADJUSTL(TRIM(cRheology)).eq."POTENZ".OR.ADJUSTL(TRIM(cRheology)).eq."POWER") THEN
       myRheology%Equation = 2
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Consistence", myRheology%K,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Exponent",myRheology%n,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Consistence", myRheology%K,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Exponent",myRheology%n,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POLYFLOW") THEN
       myRheology%Equation = 3
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_A",myRheology%A,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_B",myRheology%B,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_C",myRheology%C,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_A",myRheology%A,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_B",myRheology%B,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_C",myRheology%C,myInf)
     END IF
 
     IF (myRheology%Equation.eq.0) THEN
@@ -181,15 +190,15 @@
     IF (ADJUSTL(TRIM(cRheology)).eq."C1C2") THEN
       myRheology%AtFunc = 2
       myRheology%Ts = 165d0
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C1",myRheology%C1,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C2",myRheology%C2,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C1",myRheology%C1,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C2",myRheology%C2,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."TBTS") THEN
       myRheology%AtFunc = 3
       myRheology%C1 = 8.86d0
       myRheology%C2 = 101.6d0
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","ReferenceTemperature",myRheology%Tb,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","StandardTemperature",myRheology%Ts,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","ReferenceTemperature",myRheology%Tb,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","StandardTemperature",myRheology%Ts,myInf)
     END IF
     IF (myRheology%AtFunc.eq.0) THEN
      WRITE(*,*) "no temperature correction is defined"
@@ -198,21 +207,21 @@
      GOTO 10
     END IF
 
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatConductivity",myThermodyn%lambda,0d0/0d0)
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatConductivitySlope",myThermodyn%lambdaSteig,0d0/0d0)
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacity",myThermodyn%cp,0d0/0d0)
-    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacitySlope",myThermodyn%CpSteig,0d0/0d0)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatConductivity",myThermodyn%lambda,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatConductivitySlope",myThermodyn%lambdaSteig,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacity",myThermodyn%cp,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacitySlope",myThermodyn%CpSteig,myInf)
 
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/ThermoData","DensityModel", cDensity)
     call inip_toupper_replace(cDensity)
-    myThermodyn%density=0d0/0d0
+    myThermodyn%density=myInf
     IF (ADJUSTL(TRIM(cDensity)).eq."DENSITY") THEN
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","Density",myThermodyn%Density,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","DensitySlope",myThermodyn%DensitySteig,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","Density",myThermodyn%Density,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","DensitySlope",myThermodyn%DensitySteig,myInf)
     END IF
     IF (ADJUSTL(TRIM(cDensity)).eq."SPECVOLUME") THEN
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolume",myThermodyn%Density,0d0/0d0)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolumeSlope",myThermodyn%DensitySteig,0d0/0d0)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolume",myThermodyn%Density,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolumeSlope",myThermodyn%DensitySteig,myInf)
       myThermodyn%Density = 1d0/myThermodyn%Density
     END IF
     IF (myRheology%AtFunc.eq.0) THEN
@@ -261,8 +270,8 @@
 !     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Periodicity",myProcess%Periodicity,1)
 !     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nSolutions",mySetup%nSolutions,1)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,0d0/0d0)
-!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,0d0/0d0)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
+!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,myInf)
     
     
     IF (myid.eq.1) then
@@ -281,7 +290,7 @@
      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
-      write(*,'(A,I1.1,A,I)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
@@ -374,17 +383,17 @@
 !      WRITE(*,*) 'myThermodyn%Gamma = ', myThermodyn%Gamma
 !     end if
 ! 
-    IF (.NOT.ISNAN(myProcess%dPress)) THEN
-    dZPeriodicLenght = mySigma%L
-    myProcess%dPress = 1d3*myProcess%dPress
-    bNoOutflow = .TRUE.
+    IF (ieee_is_finite(myProcess%dPress)) THEN
+      dZPeriodicLength = mySigma%L
+      myProcess%dPress = 1d3*myProcess%dPress
+      bNoOutflow = .TRUE.
     ELSE
-    bNoOutflow = .FALSE.
-    dZPeriodicLenght = 1d5*mySigma%L
+      bNoOutflow = .FALSE.
+      dZPeriodicLength = 1d5*mySigma%L
     END IF
 
     IF (myid.eq.1) then
-     write(*,*) "myProcess%dZPeriodicLenght",'=',dZPeriodicLenght
+     write(*,*) "myProcess%dZPeriodicLength",'=',dZPeriodicLength
      write(*,*) "myProcess%dPress",'=',myProcess%dPress
      write(*,*) "myProcess%NoOutFlow",'=',bNoOutFlow
      write(*,*) "=========================================================================="

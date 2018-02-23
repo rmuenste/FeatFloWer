@@ -1,3 +1,28 @@
+SUBROUTINE  Comm_Solution(d1,d2,d3,d4,n)
+USE PP3D_MPI
+IMPLICIT NONE
+REAL*8 d1(*),d2(*),d3(*),d4(*)
+INTEGER i,n
+
+DO i=1,n
+ d4(i) = 1d0
+END DO
+
+CALL E013Sum(d1)
+CALL E013Sum(d2)
+CALL E013Sum(d3)
+CALL E013Sum(d4)
+
+DO i=1,n
+ d1(i) = d1(i)/d4(i)
+ d2(i) = d2(i)/d4(i)
+ d3(i) = d3(i)/d4(i)
+END DO
+
+END SUBROUTINE  Comm_Solution
+!
+!----------------------------------------------------------------------------------------
+!
 SUBROUTINE Create_GlobalP1CommNumbering(lScalar,lPScalar,DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX

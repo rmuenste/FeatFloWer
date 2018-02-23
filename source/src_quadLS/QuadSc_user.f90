@@ -79,6 +79,7 @@ END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
 use var_QuadScalar, only : myFBM
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 USE PP3D_MPI, ONLY:myid
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
@@ -128,6 +129,11 @@ IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF
 
+if(it.eq.11)then
+  ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  ValW =   0d0
+end if
 !! InitBoundaryStructure: changed from I1 to I2 !!
 ! used for pipe/pipesphere.prj
 IF (iT.EQ.25) THEN

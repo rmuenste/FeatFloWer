@@ -100,6 +100,7 @@ MODULE PP3D_MPI
   TYPE (tmQ2), ALLOCATABLE :: mQ2(:)
 
   REAL*8 :: DEpsPrec = 1d-5
+  REAL*8 :: dZPeriodicLength
   ! -------------- Subroutines -------------------
 CONTAINS
   ! ----------------------------------------------

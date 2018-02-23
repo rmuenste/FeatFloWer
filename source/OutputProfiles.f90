@@ -1942,6 +1942,12 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, '(A,E16.7)')"        ",REAL(Distance(ivt))
   end do
   write(iunit, *)"        </DataArray>"
+ CASE('Shell')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(QuadSc%AuxV(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
 
  CASE('BndryType')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BndryType",""" format=""ascii"">"
@@ -2107,6 +2113,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
  CASE('Distance')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Distance","""/>"
+ CASE('Shell')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('BndryType')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","BndryType","""/>"
  CASE('OuterPoint')

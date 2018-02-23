@@ -479,6 +479,7 @@ END IF
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
+
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
@@ -1271,14 +1272,41 @@ END SUBROUTINE  updateFBMGeometry
 ! ----------------------------------------------
 !
 SUBROUTINE updateMixerGeometry()
-  return
-  ILEV=NLMAX
-  CALL SETLEV(2)
-  CALL QuadScalar_MixerKnpr(mg_mesh%level(ilev)%dcorvg,&
-    mg_mesh%level(ilev)%dcorag,&
-    mg_mesh%level(ilev)%kvert,&
-    mg_mesh%level(ilev)%kedge,&
-    mg_mesh%level(ilev)%karea)
+use geometry_processing, only : calcDistanceFunction, dEpsDist
+
+INTEGER i,mfile
+REAL :: tttt0,tttt1
+
+CALL myMPI_Barrier()
+CALL ZTIME(tttt0)
+
+ILEV=NLMAX
+CALL SETLEV(2)
+QuadSc%AuxU = dEpsDist
+QuadSc%AuxV = dEpsDist
+
+CALL calcDistanceFunction(mg_mesh%level(ilev)%dcorvg,&
+                          mg_mesh%level(ilev)%kvert,&
+                          mg_mesh%level(ilev)%kedge,&
+                          mg_mesh%level(ilev)%karea,&
+                          mg_mesh%level(ilev)%nel,&
+                          mg_mesh%level(ilev)%nvt,&
+                          mg_mesh%level(ilev)%nat,&
+                          mg_mesh%level(ilev)%net,&
+                          QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+
+DO i=1,nvt+net+nat+nel
+
+ Distance(i) = QuadSc%AuxV(i)
+ IF (Distance(i).le.0d0) THEN
+  MixerKNPR(i) = 103
+ END IF
+END DO
+
+CALL myMPI_Barrier()
+CALL ZTIME(tttt1)
+IF (myid.eq.1) WRITE(mterm,"(A,F6.1,A)") "Time used for FINE mesh distance estimation was: ", tttt1-tttt0, "s!"
+IF (myid.eq.1) WRITE(mfile,"(A,F6.1,A)") "Time used for FINE mesh distance estimation was: ", tttt1-tttt0, "s!"
 
 END SUBROUTINE  updateMixerGeometry
 !
@@ -1760,7 +1788,7 @@ END SUBROUTINE GetCompleteArea
 !
 ! ----------------------------------------------
 !
-SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
+subroutine BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
   REAL*8 dcorvg(3,*)
   INTEGER karea(6,*),kvert(8,*),kedge(12,*),iIF
   INTEGER iel,i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iT
@@ -1819,11 +1847,11 @@ SUBROUTINE BuildUpTriangulation(kvert,kedge,karea,dcorvg,iIF)
   END DO
   END DO
 
-END SUBROUTINE BuildUpTriangulation
+end subroutine BuildUpTriangulation
 !
 ! ----------------------------------------------
 !
-SUBROUTINE IntegrateQuantities(mfile)
+subroutine IntegrateQuantities(mfile)
   INTEGER mfile
   REAL*8 dArray(8)
   REAL*8 :: dR=0.25d0, myPI=4d0*ATAN(1d0), dWidth=0.05d0
@@ -1866,9 +1894,84 @@ SUBROUTINE IntegrateQuantities(mfile)
     WRITE(MTERM,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
     WRITE(MFILE,'(A,3ES12.4)') "ReferenceFrame: ", myALE%dFrameVelocity(2), myALE%dFrameVelocityChange(2)/TSTEP
   END IF
-END SUBROUTINE IntegrateQuantities
+end subroutine IntegrateQuantities
+!
+! ----------------------------------------------
+!
+subroutine InitMeshDeform(mfile, mgMesh)
+USE var_QuadScalar, ONLY : nMainUmbrellaSteps,tMultiMesh
+USE var_QuadScalar, ONLY : nUmbrellaStepsLvl
+use umbrella_smoother, only : us_UmbrellaSmoother
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE def_FEAT
+
+implicit none
+
+integer, intent(in) :: mfile
+
+type(tMultiMesh), intent(inout) :: mgMesh
+
+! local variables
+real :: dttt0,dttt1
+integer :: i
+
+CALL myMPI_Barrier()
+CALL ztime(dttt0)
+
+ilev=nlmax
+call setlev(2)
+
+do i=1,nMainUmbrellaSteps
+
+ call us_UmbrellaSmoother(0d0, nUmbrellaStepsLvl, mgMesh, QuadSc)
+
+ ilev=nlmax
+ call setlev(2)
+
+ call SetUp_myQ2Coor( mgMesh%level(ILEV)%dcorvg,&
+                      mgMesh%level(ILEV)%dcorag,&
+                      mgMesh%level(ILEV)%kvert,&
+                      mgMesh%level(ILEV)%karea,&
+                      mgMesh%level(ILEV)%kedge)
+
+END DO
+
+call myMPI_Barrier()
+call ztime(dttt1)
+if (myid.eq.1) write(mfile,"(A,F6.1,A)") "Time used for mesh smoothening was: ", dttt1-dttt0, "s!"
+if (myid.eq.1) write(*,"(A,F6.1,A)") "Time used for mesh smoothening was: ", dttt1-dttt0, "s!"
+
+end subroutine InitMeshDeform
+!
+! ----------------------------------------------
+!
+subroutine InitOperators(mfile, mgMesh)
+use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+use var_QuadScalar, only : tMultiMesh
+
+implicit none
+
+integer, intent(in) :: mfile
+
+type(tMultiMesh), intent(inout) :: mgMesh
+
+! local variables
+integer :: i
+
+call StoreOrigCoor(mgMesh%level(mgMesh%nlmax)%dcorvg)
+call store_old_mesh(mgMesh%level(mgMesh%nlmax)%dcorvg)
+
+ilev = mgMesh%nlmax
+call setlev(2)
+
+if (myid.ne.0) call updateMixerGeometry()
+
+call OperatorRegenaration(1)
+call OperatorRegenaration(2)
+call OperatorRegenaration(3)
+
+end subroutine InitOperators
 !
 ! ----------------------------------------------
 !
 END MODULE Transport_Q2P1
-

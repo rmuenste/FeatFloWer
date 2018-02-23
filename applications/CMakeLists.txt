@@ -20,6 +20,7 @@ add_subdirectory(q2p1_euler_fibers)
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
   add_subdirectory(q2p1_bloodflow)
+  add_subdirectory(q2p1_sse)
 endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)
