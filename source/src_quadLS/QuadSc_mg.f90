@@ -42,18 +42,15 @@ INTEGER mfile,mterm
 INTEGER INLComplete,i
 REAL*8 DefI1,DefI2,DefImpr,DDD,AccCoarseIter
 
-! IF (myMG%MaxLev.EQ.myMG%MinLev) THEN
-! 
-!  RETURN
-! END IF
+AccCoarseIter = 0
 
 CALL mgInit()
 
 CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
-!  IF (myid.eq.1) WRITE(*,*) "hhhuhh ",DefNorm
-IF (DefNorm.LT.1d-16*MyMG%Criterion2) GOTO 88
+
+IF (DefNorm.LT.1d-16) GOTO 88
 
 ! IF (myid.eq.showid) THEN
 !  WRITE(*,*) 'InitDef: ',myMG%DefInitial
@@ -61,7 +58,6 @@ IF (DefNorm.LT.1d-16*MyMG%Criterion2) GOTO 88
 
 DefI1 = 0d0
 DefI2 = 0d0
-AccCoarseIter = 0
 
 DO IterCycle=1,MyMG%MaxIterCycle
 
@@ -73,7 +69,13 @@ DO IterCycle=1,MyMG%MaxIterCycle
  CALL mgUpdateDefect(myMG%MaxLev,.TRUE.)
 
  AccCoarseIter = AccCoarseIter + CoarseIter
- DefImpr = DefNorm/myMG%DefInitial
+
+ if(IterCycle > 1)then
+   DefImpr = DefNorm/myMG%DefInitial
+ else
+   DefImpr = 1.0d0 
+ end if
+
  IF (DefNorm.LE.myMG%DefInitial*MyMG%Criterion1.AND.&
      DefNorm.LE.MyMG%Criterion2.AND.&
      IterCycle.GE.MyMG%MinIterCycle) INLComplete = 1
@@ -103,7 +105,11 @@ END IF
 
 myMG%DefFinal = DefNorm
 
-myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
+if(myMG%DefInitial < 1d-16)then
+  myMG%RhoMG1 = 0d0
+else
+  myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
+end if
 
 if(IterCycle.le.2)then
   myMG%RhoMG2 = 0d0 
