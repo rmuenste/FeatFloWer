@@ -33,5 +33,6 @@ TYPE(tParamCC) ccParams
 
 ! needed for BDF(2), better look than playing around with tstep
 REAL*8 :: zeitstep
+INTEGER :: tsm
 
 END MODULE var_QuadScalar_newton

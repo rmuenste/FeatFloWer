@@ -17,10 +17,10 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Matdef_general_QuadScalar_cc(myScalar,idef,alpha,tsm)
+SUBROUTINE Matdef_general_QuadScalar_cc(myScalar,idef,alpha)
 EXTERNAL E013
 INTEGER :: idef
-INTEGER I,J,tsm
+INTEGER I,J
 TYPE(TQuadScalar) myScalar
 REAL*8 daux,tttx1,tttx0,alpha
 
@@ -1487,7 +1487,14 @@ TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 INTEGER iLenV,iLenP,jEq,iEq
 INTEGER i,j,ii,jj,k
 CHARACTER cFile*(20)
-REAL*8 dBC
+REAL*8 dBC,dt
+
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 
 
@@ -1544,7 +1551,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1584,7 +1591,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1624,7 +1631,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1710,7 +1717,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1749,7 +1756,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1787,7 +1794,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*ZEITSTEP
+   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1955,9 +1962,14 @@ INTEGER my3by3_LocPatch(3,3),my1by3_LocPatch(1,3)
 integer ilenp,ilenv,iO1,iO2
 REAL*8,aLLOCATABLE ::  A(:,:)
 CHARACTER cFile*20
+REAL*8 :: dt
 INTEGER iStringPos,iString
 
-
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 IF (myid.eq.0) RETURN
 
@@ -2010,7 +2022,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)*ZEITSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -2038,7 +2050,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)*ZEITSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -2066,7 +2078,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)*ZEITSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 

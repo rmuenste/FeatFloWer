@@ -243,7 +243,7 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
 implicit none
 
-INTEGER mfile,INL,inl_u,tsm
+INTEGER mfile,INL,inl_u
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
@@ -301,7 +301,7 @@ END IF
 
 ! Assemble the right hand side
  zeitstep = tstep*(1d0-theta)
- CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha,tsm)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha)
 
 IF (myid.ne.master) THEN
 
@@ -320,8 +320,8 @@ END IF
 IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
 	zeitstep = tstep*theta
 	if (myid.eq.showid) then
-		write(mfile,'(A)')'start'
-		write(mterm,'(A)')'start'
+		write(mfile,'(A)')'BE/CN'
+		write(mterm,'(A)')'BE/CN'
 	end if
 ELSE IF (tsm.EQ.2 .OR. itns.EQ.2) THEN
 	zeitstep = 2d0/3d0*tstep
@@ -341,7 +341,7 @@ END IF
  CALL ExchangeVelocitySolutionCoarse()
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha,tsm)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
 
 
 ! OUTPUT at the beginning
@@ -456,7 +456,7 @@ END IF
  CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha,tsm)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
 
 
 ! CALL OperatorDeallocation() ! after force calculation
