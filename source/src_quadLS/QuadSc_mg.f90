@@ -66,11 +66,7 @@ IF (.not. DefNorm.lt.1d-16) then
 
     AccCoarseIter = AccCoarseIter + CoarseIter
 
-    if(IterCycle > 1)then
-     DefImpr = DefNorm/myMG%DefInitial
-    else
-     DefImpr = 1.0d0 
-    end if
+    DefImpr = DefNorm/myMG%DefInitial
 
     IF (DefNorm.LE.myMG%DefInitial*MyMG%Criterion1.AND.&
        DefNorm.LE.MyMG%Criterion2.AND.&
