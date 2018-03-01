@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import getopt
+from shutil import copyfile
 
 # Scan what is in the _dump/processor_X folder
 # for each .dmp field found there
@@ -65,6 +66,8 @@ def readPartitionedField(elem_entries, fileName):
 
 def writeCombinedField(elem_entries, header, components, fileName):
 
+  print("Writing combined files: " + str(fileName))
+
   with open(fileName, "w") as f:
     f.write(header)
     for e in elem_entries:
@@ -100,11 +103,16 @@ def combineField(nprocs,fieldName, path, out_idx):
     str_entry = ":".join(entry)
     header_l.append(str_entry)
 
-  #print("Header_string:") 
-  #print(",".join(header_l)) 
   header_mod = ",".join(header_l) 
   header_mod = header_mod + "\n"
-  writeCombinedField(element_entries, header_mod, int(header_info['Components']), fieldName)
+
+  myPath = "./_dump/" + str(out_idx)
+
+  if not os.path.exists(myPath):
+    os.mkdir("./_dump/" + str(out_idx))
+
+  outName = myPath + "/" + fieldName
+  writeCombinedField(element_entries, header_mod, int(header_info['Components']), outName)
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -120,8 +128,9 @@ def getDumpFields(nprocs, path, out_idx):
 
   for item in potential_files:
     m = re.search(r"\w+.dmp", item)
-    if m and item != "time.dmp":
-      files.append(item)
+    if m: 
+      if item != "time.dmp":
+        files.append(item)
 
   return files
 
@@ -148,6 +157,11 @@ def processDumpDir(nprocs, path, out_idx):
 
   for f in fields:
     combineField(num_processors, f, dump_folder_path, dump_folder_idx)
+
+  timeFile = dump_path + "/time.dmp"
+  if os.path.exists(timeFile):
+    print("Writing time file: " + dump_folder_path + "/" + str(dump_folder_idx) + "/time.dmp")
+    copyfile(timeFile, dump_folder_path + "/" + str(dump_folder_idx) + "/time.dmp")
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
