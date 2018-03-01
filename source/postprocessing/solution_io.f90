@@ -444,7 +444,7 @@ if(myid.ne.0)then
   iunit = iunit + myid
 
  i_local = 1
- open(unit=iunit, file="velocity.dmp", iostat=istatus, action="read")
+ open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/velocity.dmp", iostat=istatus, action="read")
 
  allocate(buf(dofsInCoarseElement)) 
 
@@ -568,7 +568,7 @@ if(myid.ne.0)then
   iunit = iunit + myid
 
   i_local = 1
-  open(unit=iunit, file="pressure.dmp", iostat=istatus, action="read")
+  open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/pressure.dmp", iostat=istatus, action="read")
 
   allocate(buf(dofsInCoarseElement)) 
   allocate(buf_dx(dofsInCoarseElement)) 
@@ -1013,10 +1013,8 @@ subroutine read_time_sol_single(fileName, istep, simTime)
 
   iunit = iunit + myid
 
-  if(myid.ne.0)then
 
-    open(unit=iunit, file=fileName, iostat=istatus, action="read")
-
+    open(unit=iunit, file="_dump/"//trim(adjustl(fileName))//"/time.dmp", iostat=istatus, action="read")
     read(iunit, *) simTime
 
     read(iunit, *) istep
@@ -1025,7 +1023,6 @@ subroutine read_time_sol_single(fileName, istep, simTime)
 
     istep = istep + 1
 
-  end if
 
 end subroutine read_time_sol_single
 !

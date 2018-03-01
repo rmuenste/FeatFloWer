@@ -105,6 +105,7 @@ character(60) :: FileB
 
 integer :: ndof
 
+
 nn = knel(nlmax)
 
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
@@ -114,9 +115,9 @@ call read_vel_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                          coarse%myELEMLINK,myDump%Vertices,&
                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
-FileA='single_v'
-call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
-
+!FileA='single_v'
+!call write_vel_test(FileA, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+!
 ! read in the pressure solution
 call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                           coarse%myELEMLINK,myDump%Elements,&
@@ -126,7 +127,7 @@ call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 !
 !FileA='time.dmp'
-!call read_time_sol_single(FileA, istep_ns, timens)
+call read_time_sol_single(cInFile, istep_ns, timens)
 
 !fieldName = "myvel"
 
