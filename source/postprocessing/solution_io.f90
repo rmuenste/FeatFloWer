@@ -982,11 +982,8 @@ subroutine read_time_sol(startFrom, istep, simTime)
   ! locals
   integer :: iunit = 321
 
-  if(myid.ne.0)then
-
-    call read_sol_time(startFrom, istep, simTime)
-    istep = istep + 1
-  end if
+  call read_sol_time(startFrom, istep, simTime)
+  istep = istep + 1
 
 end subroutine read_time_sol
 !
