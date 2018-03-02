@@ -88,7 +88,7 @@ REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,dOuterRadius
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
-REAL*8 :: R_inflow=4d0
+REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm
 
 
 ValU = 0d0
@@ -169,6 +169,7 @@ IF (iT.EQ.22) THEN
  END IF
 END IF
 
+!Aneurysm Case 1
 IF (iT.EQ.33) THEN
  R_inflow = 1.0d0
  dist = SQRT((x+6.0)**2d0 + (y-12.9)**2d0 + (z-5.2)**2d0)
@@ -181,6 +182,24 @@ IF (iT.EQ.33) THEN
  END IF
 END IF
 
+!Aneurysm Case 2
+IF (iT.EQ.34) THEN
+ dNx = 3.0218865
+ dNY = 1.3312501
+ dNz =-2.3385094
+ dNorm = SQRT(dNX*dNx +dNy*dNy + dNz*dNz)
+ dNx = dNx/dNorm
+ dNY = dNy/dNorm
+ dNz = dNz/dNorm
+ dist = SQRT((X-(-4.72736))*(X-(-4.72736)) + (Y-(-1.301935))*(Y-(-1.301935)) + (Z-(2.571679))*(Z-(2.571679)))
+!  dVectMag = 2d0*my_InFlow%VectMag*(1.12d0-dist*dist)
+ dScale = 5d0*(2d0*max(0d0,(1.12d0-dist*dist)))
+!  WRITE(*,*) dist,dVectMag
+ ValU = dNx*dScale
+ ValV = dNy*dScale
+ ValW = dNz*dScale
+END IF
+ 
 IF (iT.EQ.41) THEN
  ValW=RotParabolicVelo(0d0,0d0,100d0,-1d0,0.495d0)
 END IF
@@ -191,16 +210,20 @@ END IF
 
   
 IF (iT.EQ.51) THEN
-  ValW=RotParabolicVelo(0d0,0d0,2127d0,1d0,2.495d0)
+  ValW=RotParabolicVelo(0d0,0d0,1270d0,1d0,2.495d0)
+!   ValW=RotParabolicVelo(0d0,0d0,2127d0,1d0,2.495d0) !
 END IF
 IF (iT.EQ.52) THEN
-  ValW=RotParabolicVelo(0d0,6d0,54d0,1d0,1.245d0)
+  ValW=RotParabolicVelo(0d0,6d0,56d0,1d0,1.245d0)
+!  ValW=RotParabolicVelo(0d0,6d0,54d0,1d0,1.245d0)
 END IF
 IF (iT.EQ.53) THEN
-  ValW=RotParabolicVelo(0d0,-6d0,54d0,1d0,1.245d0)
+  ValW=RotParabolicVelo(0d0,-6d0,56d0,1d0,1.245d0)
+!  ValW=RotParabolicVelo(0d0,-6d0,54d0,1d0,1.245d0)
 END IF
 IF (iT.EQ.54) THEN
-  ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo(0d0,6d0,67d0,1d0,1.245d0)
+!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 
 IF (iT.EQ.99) THEN

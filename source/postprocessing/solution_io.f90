@@ -441,7 +441,8 @@ dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
 
 if(myid.ne.0)then
 
-  iunit = iunit + myid
+ IF (myid.eq.1) WRITE(*,*) "Reading merged velocity solution from: "//"_dump/"//trim(adjustl(startFrom))//"/velocity.dmp"
+ iunit = iunit + myid
 
  i_local = 1
  open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/velocity.dmp", iostat=istatus, action="read")
@@ -567,6 +568,7 @@ if(myid.ne.0)then
 
   iunit = iunit + myid
 
+  IF (myid.eq.1) WRITE(*,*) "Reading merged pressure solution from: "//"_dump/"//trim(adjustl(startFrom))//"/pressure.dmp"
   i_local = 1
   open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/pressure.dmp", iostat=istatus, action="read")
 
@@ -1011,6 +1013,8 @@ subroutine read_time_sol_single(fileName, istep, simTime)
   iunit = iunit + myid
 
 
+    IF (myid.eq.1) WRITE(*,*) "Reading merged time solution from: "//"_dump/"//trim(adjustl(fileName))//"/time.dmp"
+    
     open(unit=iunit, file="_dump/"//trim(adjustl(fileName))//"/time.dmp", iostat=istatus, action="read")
     read(iunit, *) simTime
 
@@ -1057,9 +1061,9 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
     CALL Output_Profiles(0)
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
-    CALL ZTIME(myStat%t0)
-    call write_sol_to_file(0, timens,0)
-    CALL ZTIME(myStat%t1)
+!     CALL ZTIME(myStat%t0)
+!     call write_sol_to_file(0, timens,0)
+!     CALL ZTIME(myStat%t1)
   END IF
 
   IF(dout.LE.(timens+1e-10)) THEN
