@@ -81,12 +81,15 @@ SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
 use var_QuadScalar, only : myFBM
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 USE PP3D_MPI, ONLY:myid
+implicit none
+
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
 INTEGER iT
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
-REAL*8  dScale,dOuterRadius
+REAL*8  dScale
+REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm
@@ -129,11 +132,29 @@ IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF
 
+if(it.eq.10)then
+
+  dInnerRadius = myProcess%MinInflowDiameter*0.5d0
+  dOuterRadius = myProcess%MaxInflowDiameter*0.5d0
+
+  dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
+  daux = (PI/6d0)*(dInnerRadius+dOuterRadius)*((dOuterRadius-dInnerRadius)**3d0)
+  dScale = (dVolFlow/1d0)/daux
+
+  DIST = SQRT(X**2d0+Y**2d0)
+
+  IF (DIST.GT.dInnerRadius.AND.DIST.LT.dOuterRadius) THEN
+   ValW= dScale*(DIST-dInnerRadius)*(dOuterRadius-DIST)
+  END IF
+end if
+
+
 if(it.eq.11)then
-  ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%ind)*PI*Y*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*PI*X*(myProcess%Umdr/3d1)
   ValW =   0d0
 end if
+
 !! InitBoundaryStructure: changed from I1 to I2 !!
 ! used for pipe/pipesphere.prj
 IF (iT.EQ.25) THEN
@@ -289,24 +310,83 @@ return
 END SUBROUTINE GetMixerKnpr
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 IMPLICIT NONE
-REAL*8 :: PI=6.283185307179586232
+REAL*8 :: myPI
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 
-ValU = 0d0
-ValV = 0d0
-ValW = 0d0
-IF (iP.EQ.101) THEN
- ValU =  -PI*(Y-0.125d0)
- ValV = PI*X
-END IF
-IF (iP.EQ.102) THEN
- ValU =  -PI*(Y+0.125d0)
- ValV = PI*X
-END IF
+myPI = dATAN(1d0)*4d0
+
+!  write(*,*)'vahhal'
+
+SELECT CASE(iP)
+ CASE (100) ! Y positiv
+  ValU = 0d0
+  ValV = 0d0
+  ValW = 0d0
+ CASE (101) ! Y positiv
+  ValU =  -DBLE(myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  ValW = 0d0
+ CASE (102) ! Y negativ
+  ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  ValW = 0d0
+ CASE (103) ! Y negativ
+  ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+!   write(*,*)'case 103 valu, valv:',valu,valv
+  ValW =   0d0
+ CASE (104) ! Y negativ
+  ValU =  0d0
+  ValV =  0d0
+  ValW =  00d0/60d0
+END SELECT
 
 
 END SUBROUTINE GetVeloMixerVal
+!
+!------------------------------------------------------------
+!
+FUNCTION ViscosityModel(NormShearSquare)
+USE Sigma_User, ONLY: myRheology
+IMPLICIT NONE
+
+real*8 :: ViscosityModel
+real*8, intent (in) :: NormShearSquare
+REAL*8 :: dStrs, aT = 1d0,dLimStrs
+REAL*8 :: VNN
+! REAL*8 :: VCN,VNN,frac
+
+dStrs = NormShearSquare**0.5d0
+dLimStrs = MIN(1d5,MAX(1d-2,ABS(dStrs)))
+
+! Paderborn Carreau
+IF (myRheology%Equation.EQ.1) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
+
+!PowerLaw
+IF (myRheology%Equation.EQ.2) THEN
+ VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+END IF
+
+!POLYFLOW carreau
+IF (myRheology%Equation.EQ.3) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**2d0))**(0.5d0*(myRheology%C-1d0)) 
+END IF
+
+!Ellis
+IF (myRheology%Equation.EQ.4) THEN
+ VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**myRheology%C) 
+END IF
+
+dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
+! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
+ViscosityModel = VNN
 
 
+RETURN
+
+end function ViscosityModel

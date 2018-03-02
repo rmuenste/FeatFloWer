@@ -20,6 +20,7 @@ C
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
       REAL*8    PolyFLOW_Carreau
+      REAL*8    ViscosityModel
 
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
@@ -199,7 +200,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = PolyFLOW_Carreau(dShearSquare)
+       dVisc = ViscoModel(dShearSquare)
 !       dVisc = HogenPowerlaw(dShearSquare)
 C ----=============================================---- 
 

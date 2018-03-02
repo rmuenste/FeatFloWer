@@ -383,7 +383,8 @@ SUBROUTINE General_init(MDATA,MFILE)
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
-      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor
+      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
+      nUmbrellaStepsLvl, nMainUmbrellaSteps
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -431,7 +432,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     end if
 
     bOutNMAX = .FALSE.
-
     DO
     READ (UNIT=myFile,FMT='(A500)',IOSTAT=iEnd) string
     IF (iEnd.EQ.-1) EXIT
@@ -466,6 +466,10 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) nUmbrellaSteps
         CASE ("InitUmbrella")
           READ(string(iEq+1:),*) nInitUmbrellaSteps
+        CASE ("UmbrellaStepM")
+          READ(string(iEq+1:),*) nMainUmbrellaSteps
+        CASE ("UmbrellaStepL")
+          READ(string(iEq+1:),*) nUmbrellaStepsLvl
         CASE ("StartFile")
           READ(string(iEq+1:),*) CSTART
           !      iLen = LEN(TRIM(ADJUSTL(CSTART)))

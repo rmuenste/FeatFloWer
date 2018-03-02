@@ -16,7 +16,7 @@ CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
 
-call updateMixerGeometry()
+call updateMixerGeometry(mfile)
 
 ! -------------------------------------------------
 ! Compute the momentum equations
@@ -490,7 +490,6 @@ CALL OperatorRegenaration(3)
 ! -------------------------------------------------
 ! Compute the momentum equations
 ! -------------------------------------------------
-! GOTO 1
 IF (myid.ne.master) THEN
 
  CALL ZTIME(tttt0)
@@ -554,74 +553,71 @@ CALL ZTIME(tttt1)
 myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
 DO INL=1,QuadSc%prm%NLmax
-INLComplete = 0
+  INLComplete = 0
 
-! ! Calling the solver
-CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
-Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+  ! ! Calling the solver
+  CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
+  Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
 
-!!!!!          Checking the quality of the result           !!!!
-!!!!! ----------------------------------------------------- !!!!
+  !!!!!          Checking the quality of the result           !!!!
+  !!!!! ----------------------------------------------------- !!!!
 
-CALL OperatorRegenaration(3)
+  CALL OperatorRegenaration(3)
 
-IF (myid.ne.master) THEN
-! Restore the constant right hand side
- CALL ZTIME(tttt0)
- QuadSc%defU = QuadSc%rhsU
- QuadSc%defV = QuadSc%rhsV
- QuadSc%defW = QuadSc%rhsW
-END IF
+  IF (myid.ne.master) THEN
+  ! Restore the constant right hand side
+   CALL ZTIME(tttt0)
+   QuadSc%defU = QuadSc%rhsU
+   QuadSc%defV = QuadSc%rhsV
+   QuadSc%defW = QuadSc%rhsW
+  END IF
 
-IF (myid.ne.master) THEN
+  IF (myid.ne.master) THEN
 
- ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_QuadScalar(QuadSc,-1)
+   ! Assemble the defect vector and fine level matrix
+   CALL Matdef_General_QuadScalar(QuadSc,-1)
 
- ! Set dirichlet boundary conditions on the defect
- CALL Boundary_QuadScalar_Def()
+   ! Set dirichlet boundary conditions on the defect
+   CALL Boundary_QuadScalar_Def()
 
- QuadSc%auxU = QuadSc%defU
- QuadSc%auxV = QuadSc%defV
- QuadSc%auxW = QuadSc%defW
- CALL E013Sum(QuadSc%auxU)
- CALL E013Sum(QuadSc%auxV)
- CALL E013Sum(QuadSc%auxW)
+   QuadSc%auxU = QuadSc%defU
+   QuadSc%auxV = QuadSc%defV
+   QuadSc%auxW = QuadSc%defW
+   CALL E013Sum(QuadSc%auxU)
+   CALL E013Sum(QuadSc%auxV)
+   CALL E013Sum(QuadSc%auxW)
 
- ! Save the old solution
- CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
- CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
- CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+   ! Save the old solution
+   CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+   CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+   CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
 
- ! Compute the defect
- CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+   ! Compute the defect
+   CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
 
-END IF
+  END IF
 
-! Checking convergence rates against criterions
-RhsUVW=DefUVW
-CALL COMM_Maximum(RhsUVW)
-CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
-     ResU,ResV,ResW,DefUVW,RhsUVW)
-IF (ISNAN(RhsUVW)) stop
+  ! Checking convergence rates against criterions
+  RhsUVW=DefUVW
+  CALL COMM_Maximum(RhsUVW)
+  CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
+       ResU,ResV,ResW,DefUVW,RhsUVW)
+  IF (ISNAN(RhsUVW)) stop
 
-IF ((DefUVW.LE.DefUVWCrit).AND.&
-   (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
+  IF ((DefUVW.LE.DefUVWCrit).AND.&
+     (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
 
-CALL COMM_NLComplete(INLComplete)
-CALL ZTIME(tttt1)
-myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+  CALL COMM_NLComplete(INLComplete)
+  CALL ZTIME(tttt1)
+  myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
-IF (INLComplete.eq.1) GOTO 1
-!IF (timens.lt.tstep+1d-8) GOTO 1
+  IF (INLComplete.eq.1) exit 
 
 END DO
 
-1 CONTINUE
-
 myStat%iNonLin = myStat%iNonLin + INL
 inl_u = INL
-!333 continue
+
 ! -------------------------------------------------
 ! Compute the pressure correction
 ! -------------------------------------------------

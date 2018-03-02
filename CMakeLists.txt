@@ -232,8 +232,15 @@ ${CMAKE_SOURCE_DIR}/source/ProcCtrl.f90
 ${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
 ${CMAKE_SOURCE_DIR}/source/inverse.f90
 ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
+${CMAKE_SOURCE_DIR}/source/src_ini/iniparser.f90
 ${CMAKE_SOURCE_DIR}/source/distance.f90
 ${CMAKE_SOURCE_DIR}/source/3x3EigenV.f
+)
+
+
+set(src_ini_c
+${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
+${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
 )
 
 #-------------------------------------------------------------------------------------------------
@@ -375,6 +382,12 @@ endif(USE_BOOST)
 #else()
 #  message(FATAL_ERROR "Did not find Boost library")
 #endif()
+
+#-------------------------------------------------------------------------------------------------
+#                     Build the C directory handling library  
+#-------------------------------------------------------------------------------------------------
+
+add_library(cdirs ${src_ini_c})
 
 #-------------------------------------------------------------------------------------------------
 #                      Set the flags/paths/etc. we have determined for libraries 

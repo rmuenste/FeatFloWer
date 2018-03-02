@@ -8,6 +8,8 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
                    myMPI_Barrier
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
+
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -285,6 +287,212 @@ END SUBROUTINE Init_QuadScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_QuadScalar_Structures_sse(mfile)
+implicit none
+LOGICAL bExist
+INTEGER I,J,ndof,mfile,LevDif
+integer :: mydof
+integer :: maxlevel
+Real*8 :: dabl
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Initialize the scalar quantity
+ CALL InitializeQuadScalar(QuadSc)
+
+ ! Initialize the scalar quantity
+ CALL InitializeLinScalar(LinSc)
+
+ ! Initialize the boundary list (QuadScBoundary)
+ ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
+                          mg_mesh%level(ilev)%net+&
+                          mg_mesh%level(ilev)%nat+&
+                          mg_mesh%level(ilev)%nel))
+
+ CALL InitBoundaryList(mg_mesh%level(ILEV)%knpr,&
+                       mg_mesh%level(ILEV)%kvert,&
+                       mg_mesh%level(ILEV)%kedge,&
+                       mg_mesh%level(ILEV)%karea)
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Set up the Coordinate Vector
+ ALLOCATE (myQ2Coor(3,mg_mesh%level(ilev)%nvt+&
+                      mg_mesh%level(ilev)%net+&
+                      mg_mesh%level(ilev)%nat+&
+                      mg_mesh%level(ilev)%nel))
+
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
+
+ !
+ !IF (myid.ne.0) CALL ParametrizeQ2Nodes(myQ2Coor)
+ !
+
+ ALLOCATE(myALE%Q2coor_old(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+
+ myALE%Q2coor_old = myQ2Coor
+
+ ALLOCATE(myALE%MeshVelo(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+ myALE%MeshVelo = 0d0
+
+ CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
+                            mg_mesh%level(ILEV)%kedge)
+
+ Properties%cName = "Prop"
+ CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
+
+ myPowerLawFluid(2) = 0.001d0
+ myPowerLawFluid(3) = 0.75d0
+
+ Properties%Density(1:2) = myThermodyn%Density
+ Properties%Gravity(1:3) = 0d0
+
+ ! Initialize the arrays and the distribution of physical properties
+ ALLOCATE (mgDensity(NLMIN:NLMAX))
+ ALLOCATE (mgNormShearStress(NLMIN:NLMAX))
+ DO ILEV=NLMIN,NLMAX
+
+  ALLOCATE (mgDensity(ILEV)%x(mg_mesh%level(ilev)%nel))
+  ALLOCATE (mgNormShearStress(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDensity(ILEV)%x          = Properties%Density(1)
+  mgNormShearStress(ILEV)%x  = 0d0
+
+ END DO
+
+ if(myid.ne.0)then
+!---------------------                          
+ ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
+ DO ILEV=NLMIN,NLMAX+1
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
+ END DO
+!---------------------                          
+else
+ maxlevel = mg_Mesh%nlmax
+ ALLOCATE (mgDiffCoeff(NLMIN:maxlevel))
+ DO ILEV=NLMIN,maxlevel
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
+ END DO
+end if
+
+ ILEV = NLMAX
+ ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+
+ Viscosity = Properties%Viscosity(1)
+
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+ ALLOCATE (myALE%Monitor(mydof))
+ ALLOCATE (myALE%NewCoor(3,mydof))
+ ALLOCATE (myALE%OldCoor(3,mydof))
+! ALLOCATE (myALE%MeshVelo(3,mydof))
+ ALLOCATE (myALE%OrigCoor(3,mydof))
+
+ myALE%Monitor   = 1d0
+ myALE%MeshVelo  = 0d0
+
+ ! Building up the E013/E013 matrix strucrures
+ CALL Create_QuadMatStruct()
+
+ ! Iteration matrix (only allocation)
+ CALL Create_AMat() !(A)
+
+ ! Building up the E012/E013 E013/E012 and matrix structures
+ CALL Create_QuadLinMatStruct() 
+
+ ! Building up the E012/E012 matrix strucrures
+ CALL Create_LinMatStruct ()
+
+ ! Pressure gradient matrix
+ CALL Create_BMat() !(B,BT)
+
+ IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
+
+ IF (myid.ne.master) THEN
+  ! Parallel E012/E013 matrix structure
+  CALL Create_QuadLinParMatStruct(PLinSc) !(pB)
+  
+  ! Building up the Parallel E012/E012 matrix strucrures
+  CALL Create_ParLinMatStruct ()
+
+  CALL BuildUpPressureCommunicator(LinSc,PLinSc)
+END IF
+
+! Set up the boundary condition types (knpr)
+ DO ILEV=NLMIN,NLMAX
+  CALL SETLEV(2)
+  CALL QuadScalar_Knpr()
+ END DO
+
+ ILEV=NLMAX
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+ ALLOCATE (FictKNPR(mydof))
+ FictKNPR=0
+ ALLOCATE (Distance(mydof))
+ Distance = 0d0
+
+ ALLOCATE (MixerKNPR(mydof))
+ MixerKNPR=0
+ ALLOCATE (Distamce(mydof))
+ Distamce = 0d0
+
+ ! SEt up the knpr vector showing dofs with parallel property ...
+ IF (myid.ne.0) THEN
+  ALLOCATE (ParKNPR(mydof))
+  QuadSc%auxU = 1d0
+  CALL E013Sum(QuadSc%auxU)
+  DO I=1,mydof
+   IF (QuadSc%auxU(I).EQ.1d0) THEN
+    ParKNPR(I) = 0
+   ELSE
+    ParKNPR(I) = 1
+   END IF
+  END DO
+ END IF
+
+ IF (myid.eq.showID) THEN
+  INQUIRE (FILE="_data/BenchValues.txt", EXIST=bExist)
+  IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
+   OPEN(666,FILE="_data/BenchValues.txt")
+   WRITE(666,'(4A16)') "Time","Drag","Lift","ZForce"
+  ELSE
+   OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
+  END IF
+ END IF
+
+ CALL InitializeProlRest(QuadSc,LinSc)
+
+ CALL OperatorRegenaration(1)
+
+END SUBROUTINE Init_QuadScalar_Structures_sse
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_QuadScalar_Stuctures(mfile)
 implicit none
 LOGICAL bExist
@@ -479,7 +687,6 @@ END IF
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
-
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
@@ -777,20 +984,21 @@ SUBROUTINE Boundary_QuadScalar_Def()
 
   DO i=1,QuadSc%ndof
 
-  IF (QuadSc%knprU(ILEV)%x(i).eq.1) QuadSc%defU(i) = 0d0
-  IF (QuadSc%knprV(ILEV)%x(i).eq.1) QuadSc%defV(i) = 0d0
-  IF (QuadSc%knprW(ILEV)%x(i).eq.1) QuadSc%defW(i) = 0d0
+    IF (QuadSc%knprU(ILEV)%x(i).eq.1) QuadSc%defU(i) = 0d0
+    IF (QuadSc%knprV(ILEV)%x(i).eq.1) QuadSc%defV(i) = 0d0
+    IF (QuadSc%knprW(ILEV)%x(i).eq.1) QuadSc%defW(i) = 0d0
 
-  IF (FictKNPR(i).ne.0) THEN
-    QuadSc%defU(i) = 0d0
-    QuadSc%defV(i) = 0d0
-    QuadSc%defW(i) = 0d0
-  END IF
-  IF (MixerKNPR(i).ne.0) THEN
-    QuadSc%defU(i) = 0d0
-    QuadSc%defV(i) = 0d0
-    QuadSc%defW(i) = 0d0
-  END IF
+    IF (FictKNPR(i).ne.0) THEN
+      QuadSc%defU(i) = 0d0
+      QuadSc%defV(i) = 0d0
+      QuadSc%defW(i) = 0d0
+    END IF
+    IF (MixerKNPR(i).ne.0) THEN
+      QuadSc%defU(i) = 0d0
+      QuadSc%defV(i) = 0d0
+      QuadSc%defW(i) = 0d0
+    END IF
+
   END DO
 
 END SUBROUTINE Boundary_QuadScalar_Def
@@ -806,27 +1014,28 @@ SUBROUTINE Boundary_QuadScalar_Val()
   ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
     mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
+
   DO i=1,ndof
-  PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
-  inpr = 0
+    PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
+    inpr = 0
 
-  IF (QuadSc%knprU(ilev)%x(i).EQ.1) QuadSc%valU(i)=0d0
-  IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
-  IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
+    IF (QuadSc%knprU(ilev)%x(i).EQ.1) QuadSc%valU(i)=0d0
+    IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
+    IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
 
-  IF (myBoundary%iInflow(i).GT.0) THEN 
-    inpr = 1
-    iType = myBoundary%iInflow(i)
-    CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
-  END IF
-  finpr = FictKNPR(i)
-  minpr = MixerKNPR(i)
-  IF (finpr.ne.0.and.inpr.eq.0) THEN
-    CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
-  END IF
-  IF (minpr.ne.0.and.inpr.eq.0) THEN
-    CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
-  END IF
+    IF (myBoundary%iInflow(i).GT.0) THEN 
+      inpr = 1
+      iType = myBoundary%iInflow(i)
+      CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
+    END IF
+    finpr = FictKNPR(i)
+    minpr = MixerKNPR(i)
+    IF (finpr.ne.0.and.inpr.eq.0) THEN
+      CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
+    END IF
+    IF (minpr.ne.0.and.inpr.eq.0) THEN
+      CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
+    END IF
   END DO
 
 END SUBROUTINE Boundary_QuadScalar_Val
@@ -863,9 +1072,9 @@ SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
   IF (FictKNPR(I).NE.0.OR.MixerKNPR(I).NE.0) THEN
     !    DA(KLD(I))=1d-8
     DO ICOL=KLD(I)+1,KLD(I+1)-1
-    DA11(ICOL)=0E0
-    DA22(ICOL)=0E0
-    DA33(ICOL)=0E0
+      DA11(ICOL)=0E0
+      DA22(ICOL)=0E0
+      DA33(ICOL)=0E0
     END DO
   END IF
   END DO
@@ -1271,10 +1480,13 @@ END SUBROUTINE  updateFBMGeometry
 !
 ! ----------------------------------------------
 !
-SUBROUTINE updateMixerGeometry()
+SUBROUTINE updateMixerGeometry(mfile)
 use geometry_processing, only : calcDistanceFunction, dEpsDist
 
-INTEGER i,mfile
+integer, intent(in) :: mfile
+
+integer :: i
+
 REAL :: tttt0,tttt1
 
 CALL myMPI_Barrier()
@@ -1294,6 +1506,9 @@ CALL calcDistanceFunction(mg_mesh%level(ilev)%dcorvg,&
                           mg_mesh%level(ilev)%nat,&
                           mg_mesh%level(ilev)%net,&
                           QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+
+
+MixerKNPR(:) = 0
 
 DO i=1,nvt+net+nat+nel
 
@@ -1928,11 +2143,11 @@ do i=1,nMainUmbrellaSteps
  ilev=nlmax
  call setlev(2)
 
- call SetUp_myQ2Coor( mgMesh%level(ILEV)%dcorvg,&
-                      mgMesh%level(ILEV)%dcorag,&
-                      mgMesh%level(ILEV)%kvert,&
-                      mgMesh%level(ILEV)%karea,&
-                      mgMesh%level(ILEV)%kedge)
+ call SetUp_myQ2Coor( mgMesh%level(ilev)%dcorvg,&
+                      mgMesh%level(ilev)%dcorag,&
+                      mgMesh%level(ilev)%kvert,&
+                      mgMesh%level(ilev)%karea,&
+                      mgMesh%level(ilev)%kedge)
 
 END DO
 
@@ -1964,7 +2179,7 @@ call store_old_mesh(mgMesh%level(mgMesh%nlmax)%dcorvg)
 ilev = mgMesh%nlmax
 call setlev(2)
 
-if (myid.ne.0) call updateMixerGeometry()
+if (myid.ne.0) call updateMixerGeometry(mfile)
 
 call OperatorRegenaration(1)
 call OperatorRegenaration(2)
