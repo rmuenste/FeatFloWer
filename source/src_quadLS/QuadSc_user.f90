@@ -350,6 +350,7 @@ END SUBROUTINE GetVeloMixerVal
 !------------------------------------------------------------
 !
 FUNCTION ViscosityModel(NormShearSquare)
+USE Transport_Q2P1, ONLY : Properties
 USE Sigma_User, ONLY: myRheology
 IMPLICIT NONE
 
@@ -357,6 +358,7 @@ real*8 :: ViscosityModel
 real*8, intent (in) :: NormShearSquare
 REAL*8 :: dStrs, aT = 1d0,dLimStrs
 REAL*8 :: VNN
+REAL*8 :: dN
 ! REAL*8 :: VCN,VNN,frac
 
 dStrs = NormShearSquare**0.5d0
@@ -381,6 +383,13 @@ END IF
 IF (myRheology%Equation.EQ.4) THEN
  VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**myRheology%C) 
 END IF
+
+! HogenPowerLaw
+IF (myRheology%Equation.EQ.5) THEN
+ dN = Properties%PowerLawExp-1d0
+ VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
+END IF
+
 
 dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min

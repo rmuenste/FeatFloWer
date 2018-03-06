@@ -22,10 +22,6 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 )
 
-set(src_util
-  ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
-)
-
 # CMakeLists of q2p1_fc_ext application
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
@@ -65,13 +61,8 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-set(src_ini_c
-${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
-${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
-)
-
 target_link_libraries(q2p1_sse 
-  ${FF_APPLICATION_LIBS} cdirs
+  ${FF_APPLICATION_LIBS}
   )
 
 target_include_directories(q2p1_sse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})

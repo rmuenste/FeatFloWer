@@ -46,12 +46,14 @@ END TYPE tProcess
 TYPE(tProcess) :: myProcess
 !------------------------------------------------------------
 TYPE tRheology
-   INTEGER :: Equation,AtFunc
+   INTEGER :: Equation = 5
+   INTEGER :: AtFunc
    REAL*8 :: A, B, C ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
    REAL*8 :: Ts, Tb, C1, C2 ! WLF Parameter
-   REAL*8 :: ViscoMin,ViscoMax
+   REAL*8 :: ViscoMin = 1e-4
+   REAL*8 :: ViscoMax = 1e10
 END TYPE tRheology
 
 TYPE(tRheology) :: myRheology

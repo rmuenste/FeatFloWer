@@ -25,6 +25,7 @@ set(FF_APPLICATION_LIBS
   feat3d
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
+  cdirs
   stdc++
   stdc++fs
   inshape3dcore
