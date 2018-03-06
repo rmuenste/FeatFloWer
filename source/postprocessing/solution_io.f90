@@ -1,19 +1,19 @@
 module solution_io
 USE var_QuadScalar,ONLY:knvt,knet,knat,knel
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 ! A module for saving the solution values to 
 ! a file. This output(dump) is mainly done
 ! to a binary file.
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 
 ! a variable for counting the outputs
 integer :: ifile = 0
 
 contains
 !
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 ! Wrapper routine for writing the solution to a file 
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
@@ -69,9 +69,9 @@ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Ve
 
 end subroutine write_sol_to_file
 !
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 ! Wrapper routine for reading the solution from a file 
-!-------------------------------------------------------------------------------------------------
+!------------------------------------------------------------------------------------------------
 ! @param startFrom character string containing the start folder
 ! @param iLevel level adjustment for reading a solution 
 ! @param time_ns simulation time
@@ -1163,24 +1163,33 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
   include 'defs_include.h'
   
-  use var_QuadScalar, only: istep_ns
+  use Transport_Q2P1, only: QuadSc,LinSc 
+  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
+                            Viscosity, Distance, Shearrate 
+  use vizsualization_out, only: viz_output_fields
 
   implicit none
 
   integer, intent(in) :: filehandle
 
   real, intent(inout) :: dout
-  integer iXgmv
+  integer :: iXgmv
 
   INTEGER :: inlU,inlT,MFILE
 
   ! Output the solution in GMV or GiD format
   iXgmv = istep_ns
-!   write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
+
+  ! write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
   
   IF (itns.eq.1) THEN
     CALL ZTIME(myStat%t0)
     CALL Output_Profiles(0)
+
+    call viz_output_fields(myExport, 0, QuadSc, LinSc,&
+                           Viscosity, Distance, Shearrate,&
+                           mg_mesh)
+
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     CALL ZTIME(myStat%t0)
@@ -1193,7 +1202,10 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
     IF (itns.ne.1) THEN
       iXgmv = iXgmv - 1
       CALL ZTIME(myStat%t0)
-      CALL Output_Profiles(iXgmv)
+
+      call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, &
+                             Viscosity, Distance, Shearrate, mg_mesh)
+
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF

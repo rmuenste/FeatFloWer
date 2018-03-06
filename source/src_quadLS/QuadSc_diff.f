@@ -200,8 +200,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscoModel(dShearSquare)
-!       dVisc = HogenPowerlaw(dShearSquare)
+       dVisc = ViscosityModel(dShearSquare)
 C ----=============================================---- 
 
 C *** Summing up over all pairs of multiindices

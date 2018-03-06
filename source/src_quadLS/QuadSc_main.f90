@@ -396,6 +396,12 @@ end if
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
 
+ ALLOCATE (Shearrate(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+ Shearrate = 1d0
+
  Viscosity = Properties%Viscosity(1)
 
  mydof = mg_mesh%level(ilev)%nvt+&
@@ -1666,8 +1672,8 @@ SUBROUTINE  GetNonNewtViscosity()
   INTEGER i
   REAL*8 daux
   REAL*8 HogenPowerlaw
-  REAL*8 PolyFLOW_Carreau
   LOGICAL bCondition
+  REAL*8 ViscosityModel
 
   bCondition = .FALSE.
 
@@ -1699,13 +1705,120 @@ SUBROUTINE  GetNonNewtViscosity()
       0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
       0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
-    Viscosity(i) = PolyFLOW_Carreau(daux)
+    if(allocated(Shearrate))then
+      Shearrate(i) = sqrt(2d0 * daux)
+    end if
+    Viscosity(i) = ViscosityModel(daux)
 
     END DO
 
   END IF
 
 END SUBROUTINE  GetNonNewtViscosity
+!
+! ----------------------------------------------
+!
+SUBROUTINE Calculate_Torque(mfile)
+implicit none
+INTEGER mfile,i
+REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
+REAL*8 dHeat,Ml_i,Shear,Visco
+
+integer :: ilevel
+
+EXTERNAL E013
+
+ilevel = mg_mesh%nlmax
+
+ call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
+                     mg_mesh%level(ilevel)%kvert,&
+                     mg_mesh%level(ilevel)%karea,&
+                     mg_mesh%level(ilevel)%kedge,&
+                     mg_mesh%level(ilevel)%dcorvg,&
+                     Viscosity,Torque1, E013,103)
+
+IF (myid.ne.0) then
+ call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow1,0.0d0)
+
+ call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow2,mySigma%L)
+
+END IF
+
+dHeat = 0d0
+DO i=1,QuadSc%ndof
+ IF (MixerKNPR(i).eq.0) THEN
+  Shear = Shearrate(i)
+  Visco = 0.1d0*Viscosity(i)
+  Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
+  dHeat = dHeat + Ml_i*Shear*Shear*Visco
+ END IF
+END DO
+
+CALL COMM_SUMM(dVolFlow1)
+CALL COMM_SUMM(dVolFlow2)
+CALL COMM_SUMM(dHeat)
+
+myPI = dATAN(1d0)*4d0
+daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
+
+IF (myid.eq.showID) THEN
+  WRITE(MTERM,5)
+  WRITE(MFILE,5)
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+  write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+  write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+!  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
+END IF
+
+5  FORMAT(100('-'))
+
+END SUBROUTINE Calculate_Torque
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegrateFlowrate(dcorvg,karea,kvert,nel,dVolFlow,dPar)
+REAL*8 dcorvg(3,*),dVolFlow
+INTEGER karea(6,*),kvert(8,*),nel
+REAL*8 dPar
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+
+dVolFlow = 0d0
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   IF (abs(dcorvg(3,ivt1)-dPar).lt.1d-4.and.abs(dcorvg(3,ivt2)-dPar).lt.1d-4.and. &
+       abs(dcorvg(3,ivt3)-dPar).lt.1d-4.and.abs(dcorvg(3,ivt4)-dPar).lt.1d-4) then
+       CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+       dVolFlow = dVolFlow + dA*(QuadSc%ValW(nvt+net+k))
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+END SUBROUTINE IntegrateFlowrate
 !
 ! ----------------------------------------------
 !
@@ -1726,43 +1839,6 @@ SUBROUTINE  AddViscoStress()
   CALL Comm_SummN(ViscoElasticForce,3)
 
 END SUBROUTINE  AddViscoStress
-!
-! ----------------------------------------------
-!
-SUBROUTINE Calculate_Torque(mfile)
-  INTEGER mfile,i
-  REAL*8 Torque1(3), Torque2(3),myPI,daux
-  EXTERNAL E013
-  return
-  ILEV=NLMAX
-  CALL SETLEV(2)
-
-  ! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  !  LinSc%valP(NLMAX)%x,MixerKNPR,& !How separate????
-  !  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-  !  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
-  ! CALL GetTorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  !  LinSc%valP(NLMAX)%x,myBoundary%iInflow,& !How separate????
-  !  KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-  !  DWORK(L(LCORVG)),Viscosity,Torque1, E013,101)
-
-  !  DO i=1,size(myBoundary%bWall)
-  !   if (myBoundary%bWall(i)) write(*,*) myid,' ---> ',i
-  !  END DO
-  myPI = dATAN(1d0)*4d0
-  daux = 1D0*1e-9*myPI*(250d0/3d1)/2.5d0
-
-  IF (myid.eq.showID) THEN
-    WRITE(MTERM,5)
-    WRITE(MFILE,5)
-    write(mfile,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
-    write(mterm,'(A,4ES14.4)') "Power_[W/m]_on_the_screw:",timens,daux*Torque1(3)
-    !  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
-  END IF
-
-  5  FORMAT(100('-'))
-
-END SUBROUTINE Calculate_Torque
 !
 ! ----------------------------------------------
 !

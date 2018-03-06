@@ -658,7 +658,7 @@ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL GetNonNewtViscosity()
 
-!!CALL Calculate_Torque(mfile)
+CALL Calculate_Torque(mfile)
 
 ILEV = NLMAX
 CALL SETLEV(2)

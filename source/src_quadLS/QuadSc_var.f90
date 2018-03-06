@@ -372,7 +372,7 @@ type(tMultiMesh),save :: mg_mesh
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:)
-REAL*8, ALLOCATABLE :: Viscosity(:)
+REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:) 
 
 TYPE tParticle
  CHARACTER cTYPE*10

@@ -146,6 +146,7 @@ ${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
 set(postprocessing
 ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
 ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
+${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
 )
 
 set(Elements
@@ -165,6 +166,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 #${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
