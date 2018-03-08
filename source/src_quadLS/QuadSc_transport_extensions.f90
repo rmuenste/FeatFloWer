@@ -16,8 +16,6 @@ CALL OperatorRegenaration(2)
 
 CALL OperatorRegenaration(3)
 
-call updateMixerGeometry(mfile)
-
 ! -------------------------------------------------
 ! Compute the momentum equations
 ! -------------------------------------------------
@@ -158,6 +156,7 @@ END DO
 
 1 CONTINUE
 
+! return
 myStat%iNonLin = myStat%iNonLin + INL
 inl_u = INL
 
@@ -174,12 +173,14 @@ IF (myid.ne.0) THEN
  ! Assemble the right hand side (RHS=1/k B^T U~)
  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
 
+!  ! Assemble the right hand side (RHS:=RHS-C*Q)
+!  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,2)
+
  ! Save the right hand side
  LinSc%rhsP(NLMAX)%x = LinSc%defP(NLMAX)%x
 
  CALL ZTIME(tttt1)
  myStat%tDefP = myStat%tDefP + (tttt1-tttt0)
-
 END IF
 
 ! Calling the solver

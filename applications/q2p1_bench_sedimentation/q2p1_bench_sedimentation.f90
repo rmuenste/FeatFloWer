@@ -4,6 +4,9 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   use solution_io, only: postprocessing_app
 
+  use app_initialization, only: init_q2p1_app
+
+
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
@@ -19,7 +22,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
   !-------INIT PHASE-------
 
   ! !
-  call init_q2p1_ext(ufile)
+  call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
