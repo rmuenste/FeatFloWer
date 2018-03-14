@@ -162,7 +162,7 @@ C
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
      *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
       USE PP3D_MPI, ONLY: MGE013,myid,master
-      USE var_QuadScalar_newton, ONLY:zeitstep,itns,tsm
+      USE var_QuadScalar_newton, ONLY:zeitstep,tsm
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       REAL*8  DEFU(*),DEFV(*),DEFW(*),DEFP(*)
@@ -231,7 +231,7 @@ C
 
       USE PP3D_MPI, ONLY: MGE013,myid,master
       USE UMFPackSolver_CC, ONLY : myUmfPack_CCFactorize
-      USE var_QuadScalar_newton, ONLY:zeitstep,itns,tsm
+      USE var_QuadScalar_newton, ONLY:zeitstep,tsm
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       INTEGER KNU(*),KNV(*),KNW(*),iStringPos,iString
