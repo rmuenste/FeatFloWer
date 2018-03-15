@@ -18,22 +18,39 @@ set(FF_DEFAULT_LIBS
   stdc++fs
   )
 
-set(FF_APPLICATION_LIBS
-  amd
-  umfpack4
-  feat2d
-  feat3d
-  ${BLAS_LIBRARIES}
-  ${LAPACK_LIBRARIES}
-  cdirs
-  stdc++
-  stdc++fs
-  inshape3dcore
-  Utility
-  Math
-  ${LIBRT_LIBRARY}
-  ${MPI_Fortran_LIBRARIES}
-  )
+if(WIN32)
+  set(FF_APPLICATION_LIBS
+    amd
+    umfpack4
+    feat2d
+    feat3d
+    ${BLAS_LIBRARIES}
+    ${LAPACK_LIBRARIES}
+    cdirs
+    inshape3dcore
+    Utility
+    Math
+    ${LIBRT_LIBRARY}
+    ${MPI_Fortran_LIBRARIES}
+    )
+else(WIN32)
+  set(FF_APPLICATION_LIBS
+    amd
+    umfpack4
+    feat2d
+    feat3d
+    ${BLAS_LIBRARIES}
+    ${LAPACK_LIBRARIES}
+    cdirs
+    stdc++
+    stdc++fs
+    inshape3dcore
+    Utility
+    Math
+    ${LIBRT_LIBRARY}
+    ${MPI_Fortran_LIBRARIES}
+    )
+endif(WIN32)
 
 if(USE_MUMPS)
 

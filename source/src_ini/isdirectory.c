@@ -41,6 +41,11 @@ void isdirectory(char *name, int *isdir, int *ierr)
   }
 }
 
+void ISDIRECTORY(char *name, int *isdir, int *ierr)
+{
+  isdirectory(name, isdir, ierr);
+}
+
 #else /* POSIX conformant implementation */
 
 #include <sys/stat.h>

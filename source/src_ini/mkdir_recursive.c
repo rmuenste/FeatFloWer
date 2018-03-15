@@ -101,6 +101,10 @@ void mkdir_recursive_(const char *path_name, int* ierr)
   mkdir_recursive(path_name, ierr);
 }
 
+void MKDIR_RECURSIVE(const char *path_name, int* ierr)
+{
+  mkdir_recursive(path_name, ierr);
+}
 
 void mkdir_recursive__(const char *path_name, int* ierr)
 {
