@@ -1108,6 +1108,7 @@ end subroutine postprocessing_app
 subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
 
   USE PP3D_MPI,only :myid,ShowID
+  implicit none
 
   INTEGER IADTIM
 
@@ -1139,7 +1140,7 @@ subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
   END IF
 
   IF (dt.NE.dt_old.AND.myid.eq.ShowID) THEN
-    WRITE(MTERM,1) dt_old,dt
+    WRITE(*,1) dt_old,dt
     WRITE(filehandle,1) dt_old,dt
   END IF
 

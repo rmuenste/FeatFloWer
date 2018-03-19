@@ -193,6 +193,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
