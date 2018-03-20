@@ -1185,7 +1185,6 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   
   IF (itns.eq.1) THEN
     CALL ZTIME(myStat%t0)
-    CALL Output_Profiles(0)
 
     call viz_output_fields(myExport, 0, QuadSc, LinSc,&
                            Viscosity, Distance, Shearrate,&

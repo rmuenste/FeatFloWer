@@ -61,7 +61,7 @@ if (sExport%Format .eq. "VTK") then
     mgMesh)
  else
 
-  call viz_write_pvtu_main(ioutput_lvl)
+  call viz_write_pvtu_main(iOutput)
  end if
 
 end if
