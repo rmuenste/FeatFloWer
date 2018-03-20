@@ -39,7 +39,7 @@
       volume = "0.0"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "_OFF/Reiloy_S1Main.off"	  	  	  	  
+      meshFile = "_adc/reiloy/Reiloy_S1Main.off"	  	  	  	  
       doDynamics = "0"
       doFBM = "1"
       >
