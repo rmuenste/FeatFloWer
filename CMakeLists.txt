@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.2)
 project(Q2P1 C CXX Fortran)
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 # allow less strict IF-else syntax
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
@@ -376,7 +376,6 @@ if(USE_CGAL)
     ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
     ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
     )
-
 endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
@@ -392,6 +391,23 @@ endif()
 #-------------------------------------------------------------------------------------------------
 #                               Configure BoostC++ 
 #-------------------------------------------------------------------------------------------------
+# If there are issues on WINDOWS finding the BoostC++ libraries, try to set these variables
+# that help CMake find the correct Boost location.
+#   Boost_DEBUG              - Set to ON to enable debug output from FindBoost.
+#                              Please enable this before filing any bug report.
+#   Boost_USE_MULTITHREADED  - Set to OFF to use the non-multithreaded
+#                              libraries ('mt' tag).  Default is ON.
+#   Boost_USE_STATIC_LIBS    - Set to ON to force the use of the static
+#                              libraries.  Default is OFF.
+#   Boost_USE_STATIC_RUNTIME - Set to ON or OFF to specify whether to use
+#                              libraries linked statically to the C++ runtime
+#                              ('s' tag).  Default is platform dependent.
+#   Boost_COMPILER           - Set to the compiler-specific library suffix
+#
+#   Boost_USE_DEBUG_RUNTIME  - Set to ON or OFF to specify whether to use
+#                              libraries linked to the MS debug C++ runtime
+#                              ('g' tag).  Default is ON.
+
 # find_package(Boost 1.56 REQUIRED COMPONENTS thread): 
 # find_package(Boost [version] [EXACT] [REQUIRED] [COMPONENTS <libs> ...]) 
 # Here [version] denotes the minimum version of the library
@@ -403,8 +419,11 @@ endif()
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
 if(USE_BOOST)
+  # UNCOMMENT THE LINE BELOW IF YOU HAVE ISSUES FINDING BOOST
+  # set(Boost_DEBUG True)
   find_package(Boost 1.56 REQUIRED COMPONENTS thread)
 endif(USE_BOOST)
+
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
@@ -415,6 +434,8 @@ endif(USE_BOOST)
 #else()
 #  message(FATAL_ERROR "Did not find Boost library")
 #endif()
+#
+#message(FATAL_ERROR "end")
 
 #-------------------------------------------------------------------------------------------------
 #                     Build the C directory handling library  
@@ -428,28 +449,7 @@ add_library(cdirs ${src_ini_c})
 
 include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
 include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
-#-------------------------------------------------------------------------------------------------
-#                                    Configuration of the executable
-#-------------------------------------------------------------------------------------------------
 
-#add_executable(q2p1 ${Elements} ${src_q2p1}
-#  ${src_pp3d} ${src_mpi} ${src_PLin} ${src_LinSc} 
-#  ${src_quadLS} ${src_visco} ${src_mesh}
-#  ${postprocessing}
-#  ${CMAKE_SOURCE_DIR}/source/src_pp3d/les.f) 
-#
-#target_link_libraries(q2p1 
-#${FF_DEFAULT_LIBS}
-#)
-#
-#target_include_directories(q2p1 PUBLIC ${FF_DEFAULT_INCLUDE_PATH})
-#
-#target_compile_options(q2p1 PRIVATE ${Fortran_FLAGS})
-#-------------------------------------------------------------------------------------------------
-#                                  Copy files for out-of-source build
-#-------------------------------------------------------------------------------------------------
-
-include(${CMAKE_MODULE_PATH}/CreateWorkingDirectories.cmake)
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
