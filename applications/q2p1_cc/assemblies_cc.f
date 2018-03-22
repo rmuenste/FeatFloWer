@@ -160,7 +160,7 @@ C
       USE var_QuadScalar,ONLY : CC_EMat,mg_A11mat,mg_A22mat,mg_A33mat,
      *    mg_A12mat,mg_A13mat,mg_A23mat,mg_A21mat,mg_A31mat,mg_A32mat,
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
-     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
+     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV,ITNS
       USE PP3D_MPI, ONLY: MGE013,myid,master
       USE var_QuadScalar_newton, ONLY:zeitstep,tsm
 
@@ -222,7 +222,7 @@ C
      *				iStringPos,iString)
       USE var_QuadScalar,ONLY : CC_EMat,
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
-     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
+     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV,ITNS
 
       USE var_QuadScalar_newton, ONLY : 
      *    mg_AA11mat,mg_AA22mat,mg_AA33mat,
