@@ -74,9 +74,6 @@ endif(USE_ODE)
 
 if(USE_CGAL)
 
-  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL_Core.a)
-  
-  #  list(APPEND FF_APPLICATION_LIBS ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/libCGAL.a)
   list(APPEND FF_APPLICATION_LIBS ${CGAL_LIBRARIES})
 
   list(APPEND FF_APPLICATION_LIBS ${Boost_LIBRARIES})

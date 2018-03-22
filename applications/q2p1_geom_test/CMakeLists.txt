@@ -48,4 +48,7 @@ set_target_properties(q2p1_geom_test PROPERTIES LINKER_LANGUAGE Fortran)
 
 #add_dependencies(q2p1_geom_test CGAL_PRJ)
 
-include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+IF(${OUT_OF_SOURCE_BUILD})
+  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+  createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+ENDIF()

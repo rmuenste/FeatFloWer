@@ -363,19 +363,38 @@ endif(USE_OPTICALTWEEZERS)
 # Add the cgal library
 if(USE_CGAL)
   set(USE_BOOST True)
-  ExternalProject_Add(CGAL_PRJ
-    GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-    GIT_TAG rafa-devel
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-    #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
-    )
-
-  set(CGAL_LIBRARIES 
-    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-    ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-    )
+  if(NOT WIN32)
+    ExternalProject_Add(CGAL_PRJ
+      GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+      GIT_TAG rafa-devel
+      SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
+      PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
+      #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
+      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
+      )
+    set(CGAL_LIBRARIES 
+      ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+      ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+      )
+  else(NOT WIN32)
+    find_package(CGAL REQUIRED COMPONENTS Core)
+    if(${CGAL_FOUND})
+      find_package(GMP)
+      find_package(MPFR)
+  
+      if(NOT ${GMP_FOUND})
+        message(WARNING "GMP library not found. Cannot build cgal applications.")
+      endif()
+  
+      if(NOT ${MPFR_FOUND})
+        message(WARNING "MPFR library not found. Cannot build cgal applications.")
+      endif()
+  
+    endif()	
+    message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
+    message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
+    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+  endif(NOT WIN32)
 endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
@@ -453,6 +472,11 @@ include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)
 #-------------------------------------------------------------------------------------------------
 #                                        Add applications
 #-------------------------------------------------------------------------------------------------
+SET(OUT_OF_SOURCE_BUILD True)
+if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
+  message(FATAL_ERROR "In-source builds are not allowed.")
+   SET(${OUT_OF_SOURCE_BUILD} False)
+endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
 ## we need additional libraries to support CUDA
 IF(BUILD_APPLICATIONS)

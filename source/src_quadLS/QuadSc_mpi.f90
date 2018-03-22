@@ -26,7 +26,7 @@ END SUBROUTINE  Comm_Solution
 SUBROUTINE Create_GlobalP1CommNumbering(lScalar,lPScalar,DCORVG,KVERT,KEDGE,KAREA,NVT,NET,NAT,NEL)
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-USE var_QuadScalar, ONLY :mg_kVector,HlobalParallelList1,HlobalParallelList2,&
+USE var_QuadScalar, ONLY : mg_kVector,HlobalParallelList1,HlobalParallelList2,&
     HlobalParallelBufferIn,HlobalParallelBufferOut,HlobalNList,HlobalNBuffer,&
     HlobalParallelList3,TLinScalar,TParLinScalar
 implicit none

@@ -47,7 +47,10 @@ set_target_properties(q2p1_bench_sedimentation PROPERTIES LINKER_LANGUAGE Fortra
 #message(STATUS "q2p1_fc_ext source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
 
-include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+IF(${OUT_OF_SOURCE_BUILD})
+  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+  createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+ENDIF()
 
 file(COPY q2p1_bench_sedimentation.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY cube.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

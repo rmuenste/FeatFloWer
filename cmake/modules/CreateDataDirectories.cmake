@@ -1,12 +1,12 @@
-IF(${OUT_OF_SOURCE_BUILD})
+function(createDefaultDirectories bdir sdir)
   # check whether the $ENV{Q2P1_MESH_DIR} variable is set
   if(NOT WIN32)
     IF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
       set(DIRECTORYLINKS meshes)
-      IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/_adc)
+      IF(NOT EXISTS ${bdir}/_adc)
         execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
           $ENV{Q2P1_MESH_DIR}
-          ${CMAKE_CURRENT_BINARY_DIR}/_adc)
+          ${bdir}/_adc)
       ENDIF()
     ELSE(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
       set(DIRECTORYLINKS _adc meshes)
@@ -20,26 +20,25 @@ IF(${OUT_OF_SOURCE_BUILD})
   if(NOT WIN32)
     # establish the file links
     FOREACH(flink ${FILELINKS})
-      IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${flink})
+      IF(NOT EXISTS ${bdir}/${flink})
         execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
           ${CMAKE_SOURCE_DIR}/${flink}
-          ${CMAKE_CURRENT_BINARY_DIR}/${flink})
+          ${bdir}/${flink})
       ENDIF ()    
     ENDFOREACH()
   endif(NOT WIN32)
 
   # create the default directories if they are missing
   FOREACH(dir ${DEF_DIRECTORIES})
-    IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-      file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+    IF(NOT EXISTS ${bdir}/${dir})
+      file(MAKE_DIRECTORY ${bdir}/${dir})
     ENDIF()
   ENDFOREACH()
 
   # copy the data directories
   FOREACH(dir ${DIRECTORYCOPIES})
-    IF(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+    IF(NOT EXISTS ${bdir}/${dir})
+      execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${sdir}/${dir} ${bdir}/${dir})
     ENDIF()
   ENDFOREACH()
-
-ENDIF()
+endfunction(createDefaultDirectories bdir sdir)
