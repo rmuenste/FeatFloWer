@@ -2852,7 +2852,7 @@ IF (myid.ne.MASTER) THEN
       DO I=1,nSize
        II = 4*(I-1)+1
        ! Here is something going on
-       ! JJ is negative sometimes
+       ! JJ is 0 sometimes
        JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
        if(jj .gt. 0)then
          MGE013(ILEV)%SP(pJD)%SDVect(II+0) = P(JJ+0)
@@ -2862,7 +2862,6 @@ IF (myid.ne.MASTER) THEN
        end if
       END DO
      END IF
-
    END IF
   END IF
  END DO
@@ -2929,7 +2928,6 @@ IF (myid.ne.MASTER) THEN
        end if
       END DO
      END IF
-
     END IF
    END IF
  END DO
@@ -2966,12 +2964,15 @@ DO pID=1,subnodes
      DO I=1,nSize
       II = 4*(I-1)+1
       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
-      PP(JJ+0) = MGE013(ILEV)%SP(pJD)%RDVect(II+0)
-      PP(JJ+1) = MGE013(ILEV)%SP(pJD)%RDVect(II+1)
-      PP(JJ+2) = MGE013(ILEV)%SP(pJD)%RDVect(II+2)
-      PP(JJ+3) = MGE013(ILEV)%SP(pJD)%RDVect(II+3)
+      ! Here is something going on
+      ! JJ is 0 sometimes
+      if(jj.gt.0)then
+        PP(JJ+0) = MGE013(ILEV)%SP(pJD)%RDVect(II+0)
+        PP(JJ+1) = MGE013(ILEV)%SP(pJD)%RDVect(II+1)
+        PP(JJ+2) = MGE013(ILEV)%SP(pJD)%RDVect(II+2)
+        PP(JJ+3) = MGE013(ILEV)%SP(pJD)%RDVect(II+3)
+      end if
      END DO
-
    END IF
   END DO
  ELSE
@@ -2980,10 +2981,12 @@ DO pID=1,subnodes
    DO I=1,nSize
     II = 4*(I-1)+1
     JJ = 4*(MGE013(ILEV)%SP(pID)%VertLink(1,I)-1)+1
-    MGE013(ILEV)%SP(pID)%SDVect(II+0) = P(JJ+0)
-    MGE013(ILEV)%SP(pID)%SDVect(II+1) = P(JJ+1)
-    MGE013(ILEV)%SP(pID)%SDVect(II+2) = P(JJ+2)
-    MGE013(ILEV)%SP(pID)%SDVect(II+3) = P(JJ+3)
+    if(jj.gt.0)then
+      MGE013(ILEV)%SP(pID)%SDVect(II+0) = P(JJ+0)
+      MGE013(ILEV)%SP(pID)%SDVect(II+1) = P(JJ+1)
+      MGE013(ILEV)%SP(pID)%SDVect(II+2) = P(JJ+2)
+      MGE013(ILEV)%SP(pID)%SDVect(II+3) = P(JJ+3)
+    end if
    END DO
    CALL SENDD_myMPI(MGE013(ILEV)%SP(pID)%SDVect,4*nSIZE,pID)
   END IF
