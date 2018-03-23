@@ -14,7 +14,7 @@ END TYPE tBndr
 
 TYPE tParBndr
  TYPE(tBndr), ALLOCATABLE :: Bndr(:)
- CHARACTER :: Names*40,Types*40,Parameters*200
+ CHARACTER :: Names*200,Types*200,Parameters*200
  INTEGER :: nBndrPar,CGAL_ID,Dimens
  REAL*8, ALLOCATABLE :: dBndrPar(:)
 END TYPE tParBndr
@@ -758,7 +758,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
  type(tMesh) :: mesh
  integer :: ilevel
  INTEGER i,iVert,iLong,iAux,iError
- CHARACTER cFile*100,string*10
+ CHARACTER cFile*200,string*200
  integer :: iunit = 333
  integer :: istat
 
@@ -1194,14 +1194,14 @@ END SUBROUTINE InitParametrization
 !----------------------------------------------------------------------------------------
 !
 SUBROUTINE GetFileList()
- CHARACTER(LEN=40) :: string,cFile
- CHARACTER cWD*40,cSub*40
+ CHARACTER(LEN=200) :: string,cFile
+ CHARACTER cWD*200,cSub*200
  INTEGER lenCommand,i,iPos,LenStr,iEnd
 
  nBnds = 0
  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFile)))
  DO
-  READ(1,FMT='(40A)',IOSTAT=iEnd) string
+  READ(1,FMT='(200A)',IOSTAT=iEnd) string
   IF (iEnd.EQ.-1) EXIT
   LenStr = LEN(ADJUSTL(TRIM(string)))
   IF (LenStr.gt.4) THEN
@@ -1221,7 +1221,7 @@ SUBROUTINE GetFileList()
  REWIND(1)
 
  DO
-  READ(1,FMT='(40A)',IOSTAT=iEnd) string
+  READ(1,FMT='(200A)',IOSTAT=iEnd) string
   IF (iEnd.EQ.-1) EXIT
   LenStr = LEN(ADJUSTL(TRIM(string)))
   IF (LenStr.gt.4) THEN
