@@ -258,6 +258,7 @@ END IF
 IF (iT.EQ.54) THEN
   ValW=RotParabolicVelo(0d0,6d0,67d0,1d0,1.245d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+END IF
 IF (iT.EQ.31) THEN
  dScale=0.2d0*(3d0/2d0)/(0.205d0*0.205d0)*sin(t*PI/8d0)
  ValU=dScale*Y*(0.41d0-Y)

@@ -10,6 +10,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
@@ -18,6 +19,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 )
 
 # CMakeLists of q2p1_fc_ext application
@@ -30,7 +32,7 @@ set(src_q2p1_cc
 ${Elements} 
 ${src_q2p1} 
 ${src_pp3d} 
-${src_mpi} 
+${src_mpi}  
 ${src_PLin} 
 ${src_LinSc} 
 ${src_quadLS_ext} 
