@@ -1047,3 +1047,402 @@ C
 10    DX(IEQ)=DX(IEQ)-AUX*OMEGA/DA(ILD)
 C
       END
+C
+C
+C
+      SUBROUTINE E013_BiCGStabSolver(DX,DB,NEQ,NIT,DAX0,
+     *DCG0C,BNOCON,DR,DR0,DP,DPA,DSA,DefDropCrit)
+
+      USE PP3D_MPI, ONLY :myid,COMM_SUMM,COMM_Maximum,
+     *                    COMM_NLComplete
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+      DIMENSION DX(*),DB(*),DR(*),DR0(*)
+      DIMENSION DP(*),DPA(*),DSA(*)
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      SAVE /OUTPUT/,/ERRCTL/,/CHAR/
+      DATA DEF/0D0/
+
+      IF (myid.ne.0) THEN
+C
+C *** Initialization
+      RHO0  =1D0
+      DALPHA=0D0
+      OMEGA0=1D0
+C
+      CALL LCP1(DB,DR,NEQ)
+      CALL DAX0(DX,DR,-1D0,1D0)
+      CALL E013UVWSum(DR)
+      IF (BNOCON) CALL DCG0C(DR,NEQ)
+      CALL LL21(DR,NEQ,DEF0)
+      CALL COMM_Maximum(DEF0)
+C
+      CALL LCP1(DR,DR0,NEQ)
+C
+C *** Iterative correction
+      DO 100 ITE=1,NIT
+C
+      INLComplete = 0
+      CALL LSP1(DR0,DR,NEQ,RHO1)
+      CALL COMM_SUMM(RHO1)
+      DBETA=(RHO1*DALPHA)/(RHO0*OMEGA0)
+      RHO0 =RHO1
+C
+      CALL LLC1(DR ,DP,NEQ,1D0,DBETA)
+      CALL LLC1(DPA,DP,NEQ,-DBETA*OMEGA0,1D0)
+C
+      CALL DAX0(DP,DPA,1D0,0D0)
+      CALL E013UVWSum(DPA)
+      IF (BNOCON) CALL DCG0C(DPA,NEQ)
+C
+      CALL LSP1(DR0,DPA,NEQ,DALPHA)
+      CALL COMM_SUMM(DALPHA)
+      DALPHA=RHO1/DALPHA
+C
+      CALL LLC1(DPA,DR,NEQ,-DALPHA,1D0)
+C
+      CALL DAX0(DR,DSA,1D0,0D0)
+      CALL E013UVWSum(DSA)
+      IF (BNOCON) CALL DCG0C(DSA,NEQ)
+C
+      CALL LSP1(DSA,DR ,NEQ,OMEGA1)
+      CALL COMM_SUMM(OMEGA1)
+      CALL LSP1(DSA,DSA,NEQ,OMEGA2)
+      CALL COMM_SUMM(OMEGA2)
+      OMEGA0=OMEGA1/OMEGA2
+C
+      CALL LLC1(DP ,DX ,NEQ,DALPHA,1D0)
+      CALL LLC1(DR ,DX ,NEQ,OMEGA0,1D0)
+C
+      CALL LLC1(DSA,DR,NEQ,-OMEGA0,1D0)
+C
+      CALL LL21(DR,NEQ,DEF)
+C
+      IF (DEF0.GT.1d-18) THEN
+       DefDrop = DEF/DEF0
+      ELSE
+       DefDrop = 0d0
+      END IF
+C
+      CALL COMM_Maximum(DefDrop)
+      CALL COMM_Maximum(Def)
+      IF (myid.eq.1) then
+!        WRITE(*,'(I,10ES12.4)')ite, DefDrop
+      end if
+C
+      IF (DefDrop.lt.DefDropCrit) INLComplete = 1
+!      IF (Def.lt.1d-11) INLComplete = 1
+      CALL COMM_NLComplete(INLComplete)
+      IF (ite.gt.4.and.INLComplete.eq.1) GOTO 88
+C
+100   CONTINUE
+C
+      ELSE ! Myid.eq.0
+
+      CALL COMM_Maximum(DEF0)
+
+      DO 200 ITE=1,NIT
+       CALL COMM_SUMM(RHO1)
+       CALL COMM_SUMM(DALPHA)
+       CALL COMM_SUMM(OMEGA1)
+       CALL COMM_SUMM(OMEGA2)
+
+       CALL COMM_Maximum(DefDrop)
+       CALL COMM_Maximum(Def)
+
+       CALL COMM_NLComplete(INLComplete)
+       IF (ite.gt.4.and.INLComplete.eq.1) GOTO 88
+200   CONTINUE
+C
+      END IF
+C
+88    CONTINUE
+C
+!       if (myid.eq.1) write(*,*) 'bicgstab: ',ITE,DEF0,DEF
+!       NIT = ITE
+      
+      NIT = ITE-1
+C
+99999 END
+C
+C
+C
+      SUBROUTINE PARID117_E013(DA11,DA22,DA33,KCOL,KLD,DX,DD,
+     *           KNPR,NEQ,OMEGA1,OMEGA2)
+C
+      USE def_feat, ONLY: ILEV
+      USE PP3D_MPI, ONLY : MGE013,myid
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION KCOL(*),KLD(*),DX(*),DD(*),KNPR(*)
+      DIMENSION DA11(*),DA22(*),DA33(*)
+      COMMON /ERRCTL/ IER,ICHECK
+      SAVE /ERRCTL/
+C
+      IF (ICHECK.GE.998) CALL OTRC('ID117 ','01/02/89')
+C
+!       if (myid.eq.1) write(*,*) 'here bin ich! '
+      
+      MEQ1 = 0
+      MEQ2 = NEQ
+      MEQ3 = 2*NEQ
+C
+!       DO 1 ITE=1,NIT
+C
+!     The real SOR part is here
+!     ----------------------------------------------
+      DO 2 IEQ=1,NEQ
+       IF (KNPR(IEQ).NE.0) GOTO 2
+       AUX1=0d0
+       AUX2=0d0
+       AUX3=0d0
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J=KCOL(ICOL)
+        AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)
+        AUX2=AUX2-DA22(ICOL)*DX(MEQ2+J)
+        AUX3=AUX3-DA33(ICOL)*DX(MEQ3+J)
+       END DO
+       AUX1=OMEGA2*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+       AUX2=OMEGA2*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+       AUX3=OMEGA2*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+       DX(MEQ1+IEQ)=AUX1
+       DX(MEQ2+IEQ)=AUX2
+       DX(MEQ3+IEQ)=AUX3
+2     CONTINUE
+!     ----------------------------------------------
+
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO 3 IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 3
+       DD(MEQ1+IEQ) = 0d0
+       DD(MEQ2+IEQ) = 0d0
+       DD(MEQ3+IEQ) = 0d0
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-DA11(ICOL)*DX(MEQ1+J)
+        DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-DA22(ICOL)*DX(MEQ2+J)
+        DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-DA33(ICOL)*DX(MEQ3+J)
+       END DO
+3     CONTINUE
+C
+      CALL E013UVWSum(DD)
+C
+      DO 4 IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 4
+       DX(MEQ1+IEQ)=(1D0-OMEGA1)*DX(MEQ1+IEQ)+
+     *          OMEGA1*DD(MEQ1+IEQ)/MGE013(ILEV)%UE11(IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA1)*DX(MEQ2+IEQ)+
+     *          OMEGA1*DD(MEQ2+IEQ)/MGE013(ILEV)%UE22(IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA1)*DX(MEQ3+IEQ)+
+     *          OMEGA1*DD(MEQ3+IEQ)/MGE013(ILEV)%UE33(IEQ)
+4     CONTINUE
+!     ----------------------------------------------
+C
+!     The real SOR part is here (going backwards)
+!     ----------------------------------------------
+      DO 22 IEQ=NEQ-1,1,-1
+       IF (KNPR(IEQ).NE.0) GOTO 22
+       AUX1=0d0
+       AUX2=0d0
+       AUX3=0d0
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)
+        AUX2=AUX2-DA22(ICOL)*DX(MEQ2+J)
+        AUX3=AUX3-DA33(ICOL)*DX(MEQ3+J)
+       END DO
+       AUX1=OMEGA2*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+       AUX2=OMEGA2*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+       AUX3=OMEGA2*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+       DX(MEQ1+IEQ)=AUX1
+       DX(MEQ2+IEQ)=AUX2
+       DX(MEQ3+IEQ)=AUX3
+22    CONTINUE
+!     ----------------------------------------------
+
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO 33 IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 33
+       DD(MEQ1+IEQ) = 0d0
+       DD(MEQ2+IEQ) = 0d0
+       DD(MEQ3+IEQ) = 0d0
+       DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+        J = KCOL(ICOL)
+        DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-DA11(ICOL)*DX(MEQ1+J)
+        DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-DA22(ICOL)*DX(MEQ2+J)
+        DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-DA33(ICOL)*DX(MEQ3+J)
+       END DO
+33    CONTINUE
+C
+      CALL E013UVWSum(DD)
+C
+      DO 44 IEQ=1,NEQ
+       DX(MEQ1+IEQ)=(1D0-OMEGA1)*DX(MEQ1+IEQ)+
+     *          OMEGA1*DD(MEQ1+IEQ)/MGE013(ILEV)%UE11(IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA1)*DX(MEQ2+IEQ)+
+     *          OMEGA1*DD(MEQ2+IEQ)/MGE013(ILEV)%UE22(IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA1)*DX(MEQ3+IEQ)+
+     *          OMEGA1*DD(MEQ3+IEQ)/MGE013(ILEV)%UE33(IEQ)
+44    CONTINUE
+!     ----------------------------------------------
+C
+1     CONTINUE
+
+      END
+C
+C
+C
+      SUBROUTINE PARID117_E0139(DA11,DA22,DA33,DA12,DA13,DA23,
+     *DA21,DA31,DA32,KCOL,KLD,DX,DD,KNPR,NEQ,OMEGA1,OMEGA2)
+C
+      USE def_feat, ONLY: ILEV
+      USE PP3D_MPI, ONLY : MGE013,myid
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION DA11(*),DA22(*),DA33(*)
+      DIMENSION DA12(*),DA13(*),DA23(*),DA21(*),DA31(*),DA32(*)
+      DIMENSION KCOL(*),KLD(*),DX(*),DD(*),KNPR(*)
+      COMMON /ERRCTL/ IER,ICHECK
+      INTEGER MEQ1,MEQ2,MEQ3
+      SAVE /ERRCTL/
+C
+      MEQ1 = 0
+      MEQ2 = NEQ
+      MEQ3 = 2*NEQ
+C
+!       DO ITE=1,NIT
+C
+!     The real SOR part is here
+!     ----------------------------------------------
+      DO IEQ=1,NEQ
+      IF (KNPR(IEQ).EQ.0) THEN
+      ICOL=KLD(IEQ)
+      J=KCOL(ICOL)
+      AUX1=-DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      AUX2=-DA21(ICOL)*DX(MEQ1+J)-DA23(ICOL)*DX(MEQ3+J)
+      AUX3=-DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)
+      DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+      J=KCOL(ICOL)
+      AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)-
+     *          DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      AUX2=AUX2-DA21(ICOL)*DX(MEQ1+J)-
+     *          DA22(ICOL)*DX(MEQ2+J)-DA23(ICOL)*DX(MEQ3+J)
+      AUX3=AUX3-DA31(ICOL)*DX(MEQ1+J)-
+     *          DA32(ICOL)*DX(MEQ2+J)-DA33(ICOL)*DX(MEQ3+J)
+      END DO
+      AUX1=OMEGA2*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+      AUX2=OMEGA2*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+      AUX3=OMEGA2*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+      DX(MEQ1+IEQ)=AUX1
+      DX(MEQ2+IEQ)=AUX2
+      DX(MEQ3+IEQ)=AUX3
+      END IF
+      END DO
+!
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 3
+      ICOL=KLD(IEQ)
+      J=KCOL(ICOL)
+      DD(MEQ1+IEQ) = 0d0-
+     *               DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      DD(MEQ2+IEQ) = 0d0-
+     *               DA21(ICOL)*DX(MEQ1+J)-DA23(ICOL)*DX(MEQ3+J)
+      DD(MEQ3+IEQ) = 0d0-
+     *               DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)
+      DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+      J = KCOL(ICOL)
+      DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-
+     *DA11(ICOL)*DX(MEQ1+J)-DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-
+     *DA21(ICOL)*DX(MEQ1+J)-DA22(ICOL)*DX(MEQ2+J)-DA23(ICOL)*DX(MEQ3+J)
+      DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-
+     *DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)-DA33(ICOL)*DX(MEQ3+J)
+      END DO
+      END DO
+C
+      CALL E013UVWSum(DD)
+C
+      DO IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 4
+       DX(MEQ1+IEQ)=(1D0-OMEGA1)*DX(MEQ1+IEQ)+
+     *          OMEGA1*DD(MEQ1+IEQ)/MGE013(ILEV)%UE11(IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA1)*DX(MEQ2+IEQ)+
+     *          OMEGA1*DD(MEQ2+IEQ)/MGE013(ILEV)%UE22(IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA1)*DX(MEQ3+IEQ)+
+     *          OMEGA1*DD(MEQ3+IEQ)/MGE013(ILEV)%UE33(IEQ)
+      END DO
+!     ----------------------------------------------
+!
+!     The real SOR part is here (going backwards)
+!     ----------------------------------------------
+      DO IEQ=NEQ-1,1,-1
+      IF (KNPR(IEQ).EQ.0) THEN
+      ICOL=KLD(IEQ)
+      J=KCOL(ICOL)
+      AUX1=0d0-DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      AUX2=0d0-DA21(ICOL)*DX(MEQ1+J)-DA23(ICOL)*DX(MEQ3+J)
+      AUX3=0d0-DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)
+      DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+      J=KCOL(ICOL)
+      AUX1=AUX1-DA11(ICOL)*DX(MEQ1+J)-
+     *          DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      AUX2=AUX2-DA21(ICOL)*DX(MEQ1+J)-
+     *          DA22(ICOL)*DX(MEQ2+J)-DA23(ICOL)*DX(MEQ3+J)
+      AUX3=AUX3-DA31(ICOL)*DX(MEQ1+J)-
+     *          DA32(ICOL)*DX(MEQ2+J)-DA33(ICOL)*DX(MEQ3+J)
+      END DO
+      AUX1=OMEGA2*(AUX1/DA11(KLD(IEQ))-DX(MEQ1+IEQ))+DX(MEQ1+IEQ)
+      AUX2=OMEGA2*(AUX2/DA22(KLD(IEQ))-DX(MEQ2+IEQ))+DX(MEQ2+IEQ)
+      AUX3=OMEGA2*(AUX3/DA33(KLD(IEQ))-DX(MEQ3+IEQ))+DX(MEQ3+IEQ)
+      DX(MEQ1+IEQ)=AUX1
+      DX(MEQ2+IEQ)=AUX2
+      DX(MEQ3+IEQ)=AUX3
+      END IF
+      END DO
+!     ----------------------------------------------
+
+!     The parallel nodes are handeld by Jacobi ...
+!     ----------------------------------------------
+      DO IEQ=1,NEQ
+!       IF (KNPR(IEQ).EQ.0) GOTO 3
+      ICOL=KLD(IEQ)
+      J=KCOL(ICOL)
+      DD(MEQ1+IEQ) = 0d0-
+     *               DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      DD(MEQ2+IEQ) = 0d0-
+     *               DA21(ICOL)*DX(MEQ1+J)-DA23(ICOL)*DX(MEQ3+J)
+      DD(MEQ3+IEQ) = 0d0-
+     *               DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)
+      DO ICOL=KLD(IEQ)+1,KLD(IEQ+1)-1
+      J = KCOL(ICOL)
+      DD(MEQ1+IEQ)=DD(MEQ1+IEQ)-
+     *DA11(ICOL)*DX(MEQ1+J)-DA12(ICOL)*DX(MEQ2+J)-DA13(ICOL)*DX(MEQ3+J)
+      DD(MEQ2+IEQ)=DD(MEQ2+IEQ)-
+     *DA21(ICOL)*DX(MEQ1+J)-DA22(ICOL)*DX(MEQ2+J)-DA23(ICOL)*DX(MEQ3+J)
+      DD(MEQ3+IEQ)=DD(MEQ3+IEQ)-
+     *DA31(ICOL)*DX(MEQ1+J)-DA32(ICOL)*DX(MEQ2+J)-DA33(ICOL)*DX(MEQ3+J)
+      END DO
+      END DO
+C
+      CALL E013UVWSum(DD)
+C
+      DO IEQ=1,NEQ
+       DX(MEQ1+IEQ)=(1D0-OMEGA1)*DX(MEQ1+IEQ)+
+     *          OMEGA1*DD(MEQ1+IEQ)/MGE013(ILEV)%UE11(IEQ)
+       DX(MEQ2+IEQ)=(1D0-OMEGA1)*DX(MEQ2+IEQ)+
+     *          OMEGA1*DD(MEQ2+IEQ)/MGE013(ILEV)%UE22(IEQ)
+       DX(MEQ3+IEQ)=(1D0-OMEGA1)*DX(MEQ3+IEQ)+
+     *          OMEGA1*DD(MEQ3+IEQ)/MGE013(ILEV)%UE33(IEQ)
+      END DO
+!     ----------------------------------------------
+C
+!       END DO
+C
+      END
+C
+C
+C

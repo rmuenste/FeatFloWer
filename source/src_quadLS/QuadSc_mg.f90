@@ -20,6 +20,7 @@ TYPE tJCB
  REAL*8, DIMENSION(:), ALLOCATABLE :: d1
 END TYPE tJCB
 
+! TYPE (tCG) :: mybiCG
 TYPE (tCG) :: myCG
 TYPE (tJCB) :: myJCB
 
@@ -290,6 +291,7 @@ END IF
 
 IF (MyMG%cVariable.EQ."Velocity") THEN
  CALL JCB_Activation()
+ CALL CG_Activation()
 END IF
 
 ! IF (myid.ne.0) THEN
@@ -503,17 +505,19 @@ INTEGER ndof,ndof_orig
    ALLOCATE(myCG%d3(ndof))
    ALLOCATE(myCG%d4(ndof))
    ALLOCATE(myCG%d5(ndof))
+   ALLOCATE(myCG%d6(ndof))
 !   END IF
   myCG%bActivated = .TRUE.
  ELSE
   ndof_orig  = SIZE(myCG%d1)
   IF (ndof_orig.LT.ndof) THEN
-   DEALLOCATE(myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5)
+   DEALLOCATE(myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myCG%d6)
    ALLOCATE(myCG%d1(ndof))
    ALLOCATE(myCG%d2(ndof))
    ALLOCATE(myCG%d3(ndof))
    ALLOCATE(myCG%d4(ndof))
    ALLOCATE(myCG%d5(ndof))
+   ALLOCATE(myCG%d6(ndof))
   END IF
  END IF
 
@@ -673,6 +677,30 @@ DO i=1,2*nIter
 END DO
 
 END SUBROUTINE crs_E012_SOR
+!
+! ----------------------------------------------
+!
+SUBROUTINE E013_DCG(DX,NEQ)
+INTEGER NEQ,ndof
+REAL*8 DX(*)
+REAL*8 drlx1,drlx2
+
+ILEV = mgLev
+ndof = NEQ/3
+drlx1 = myMG%RLX
+drlx2 = 0.66667d0
+
+IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+   CALL PARID117_E0139(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
+myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
+myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,DX,myCG%d6,ParKNPR,ndof,drlx1,drlx2)
+ELSE
+  CALL PARID117_E013(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,DX,myCG%d6,ParKNPR,ndof,drlx1,drlx2)
+END IF
+
+END SUBROUTINE E013_DCG
 !
 ! ----------------------------------------------
 !
@@ -1695,7 +1723,7 @@ END SUBROUTINE outputsol1
 SUBROUTINE mgCoarseGridSolver_U
 INTEGER ITE,i,j,k,ndof
 INTEGER nnSteps,neq
-REAL*8 def,def0
+REAL*8 def,def0,dCrit
 
 def0 = 0d0
 def = 0d0
@@ -1750,6 +1778,51 @@ IF (MyMG%CrsSolverType.EQ.1) THEN !! SSOR with JACOBI at SUBBoundaries
   CoarseIter = ITE*nnSteps
  END IF
   
+IF (MyMG%CrsSolverType.EQ.2) THEN !! BiCGSTAB
+
+  CALL ZTIME(time0)
+
+   CoarseIter  = myMG%nIterCoarse
+   dCrit = myMG%DefImprCoarse
+   ndof  = SIZE(myMG%X(mgLev)%x)
+   
+!    ALLOCATE(mybiCG%d1(ndof))
+!    ALLOCATE(mybiCG%d2(ndof))
+!    ALLOCATE(mybiCG%d3(ndof))
+!    ALLOCATE(mybiCG%d4(ndof))
+!    ALLOCATE(mybiCG%d5(ndof))
+!    ALLOCATE(mybiCG%d6(ndof))
+!    mybiCG%d1 = 0d0
+!    mybiCG%d2 = 0d0
+!    mybiCG%d3 = 0d0
+!    mybiCG%d4 = 0d0
+!    mybiCG%d5 = 0d0
+!    mybiCG%d6 = 0d0
+
+   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    CALL E013_BiCGStabSolver(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
+         ndof,CoarseIter,E013_DAX9,E013_DCG,.true.,&
+         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,dCrit)
+   ELSE
+    CALL E013_BiCGStabSolver(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
+         ndof,CoarseIter,E013_DAX,E013_DCG,.true.,&
+         myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,dCrit)
+   END IF
+
+!    write(*,*) 'yes!!!',myMG%nIterCoarse,CoarseIter
+   
+!    DEALLOCATE(mybiCG%d1)
+!    DEALLOCATE(mybiCG%d2)
+!    DEALLOCATE(mybiCG%d3)
+!    DEALLOCATE(mybiCG%d4)
+!    DEALLOCATE(mybiCG%d5)
+!    DEALLOCATE(mybiCG%d6)
+
+   CALL ZTIME(time1)
+   myStat%tSolvUVW = myStat%tSolvUVW + (time1-time0)
+
+END IF
+
 #ifdef MUMPS_AVAIL
 IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
  ndof = mg_mesh%level(mgLev)%nel + mg_mesh%level(mgLev)%net + &

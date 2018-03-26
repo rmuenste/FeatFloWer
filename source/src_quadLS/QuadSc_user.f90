@@ -253,6 +253,18 @@ IF (iT.EQ.54) THEN
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 
+! centroplast
+IF (iT.EQ.61) THEN
+  ValW=RotParabolicVelo(0d0,0d0,25d0,1d0,1.245d0)
+!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+END IF
+
+! egeplast
+IF (iT.EQ.62) THEN
+  ValW=RotParabolicVelo(2.4d0,-4.155d0,20d0,1d0,0.39d0)
+!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF

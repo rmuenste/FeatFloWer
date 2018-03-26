@@ -9,6 +9,7 @@ ${Elements}
 ${src_q2p1} 
 ${src_pp3d} 
 ${src_mpi} 
+${src_util} 
 ${src_PLin} 
 ${src_LinSc} 
 ${src_quadLS_app} 

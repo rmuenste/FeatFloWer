@@ -35,7 +35,7 @@
 
     call inip_readfromfile(parameterlist,ADJUSTL(TRIM(cE3Dfile)))
 
-    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","RotationDirection",cRotation)
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","RotationDirection",cRotation,'NoRotation')
     call inip_toupper_replace(cRotation)
     IF (ADJUSTL(TRIM(cRotation)).eq."R".OR.ADJUSTL(TRIM(cRotation)).eq."RECHTS".OR.ADJUSTL(TRIM(cRotation)).eq."RIGHT") myProcess%ind=1
     IF (ADJUSTL(TRIM(cRotation)).eq."LINKS".OR.ADJUSTL(TRIM(cRotation)).eq."LEFT".OR.ADJUSTL(TRIM(cRotation)).eq."L") myProcess%ind=-1
@@ -50,7 +50,7 @@
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,myInf)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
 
-    call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,-1)
+    call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
     
     IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
@@ -91,7 +91,7 @@
        WRITE(*,*) "STL geometry dscription files are missing"
        WRITE(*,*) 'screwOFF'
        bReadError=.TRUE.
-       GOTO 10
+       !GOTO 10
       END IF
       do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
@@ -102,7 +102,7 @@
       WRITE(*,*) "not a valid ",iSeg, "-segment"
       WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
       bReadError=.TRUE.
-      GOTO 10
+      !GOTO 10
      ENDIF
     END DO
 
@@ -110,7 +110,7 @@
     myProcess%pTYPE = " "
     myProcess%dPress=myInf
     myProcess%Massestrom=myInf
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ProcessType", cProcessType)
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ProcessType", cProcessType,'NoProcessType')
     call inip_toupper_replace(cProcessType)
     IF (ADJUSTL(TRIM(cProcessType)).eq."PRESSUREDROP") THEN
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","deltaP", myProcess%dPress,myInf)
@@ -126,7 +126,7 @@
      WRITE(*,*) "no valid process type is defined"
      WRITE(*,*) '"',TRIM(cProcessType),'"'
      bReadError=.TRUE.
-     GOTO 10
+     !GOTO 10
     END IF
     
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
@@ -149,7 +149,7 @@
     END IF
    
     myRheology%Equation = 0
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcVisco", cRheology)
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcVisco", cRheology,'NoRheology')
     call inip_toupper_replace(cRheology)
     IF (ADJUSTL(TRIM(cRheology)).eq."CARREAU") THEN
       myRheology%Equation = 1
@@ -173,7 +173,7 @@
      WRITE(*,*) "no valid rheology is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
-     GOTO 10
+     !GOTO 10
     END IF
    
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material","LimitViscoMin",myRheology%ViscoMin,1d0)
@@ -181,7 +181,7 @@
 
     myRheology%AtFunc = 0
     cRheology = ' '
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcTemp", cRheology)
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcTemp", cRheology,'ISOTHERM')
     call inip_toupper_replace(cRheology)
     
     IF (ADJUSTL(TRIM(cRheology)).eq."ISOTHERM") THEN
@@ -204,7 +204,7 @@
      WRITE(*,*) "no temperature correction is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
-     GOTO 10
+     !GOTO 10
     END IF
 
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatConductivity",myThermodyn%lambda,myInf)
@@ -212,7 +212,7 @@
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacity",myThermodyn%cp,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacitySlope",myThermodyn%CpSteig,myInf)
 
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/ThermoData","DensityModel", cDensity)
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/ThermoData","DensityModel", cDensity,'Density')
     call inip_toupper_replace(cDensity)
     myThermodyn%density=myInf
     IF (ADJUSTL(TRIM(cDensity)).eq."DENSITY") THEN
@@ -228,7 +228,7 @@
      WRITE(*,*) "density is not defined"
      WRITE(*,*) '"',TRIM(cDensity),'"'
      bReadError=.TRUE.
-     GOTO 10
+     !GOTO 10
     END IF
 
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output","NumberOf1DLayers",myOutput%nOf1DLayers,16)
@@ -245,7 +245,7 @@
     call inip_toupper_replace(mySetup%cMesher)
 
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
-     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshPath", mySetup%cMeshPath)
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshPath", mySetup%cMeshPath,'.')
     END IF
     
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."HOLLOWCYLINDER") THEN
@@ -256,10 +256,9 @@
       WRITE(*,*) "mesh resolution is not correctly defined"
       WRITE(*,*) '"',mySetup%m_nT,mySetup%m_nR,mySetup%m_nZ,'"'
       bReadError=.TRUE.
-      GOTO 10
+      !GOTO 10
      END IF
     END IF
-
 
 !     cMeshQuality=' '
 !     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SendEmail",cMeshQuality,"YES")
@@ -272,7 +271,6 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
 !     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,myInf)
-    
     
     IF (myid.eq.1) then
     write(*,*) "=========================================================================="
@@ -387,7 +385,9 @@
       dZPeriodicLength = mySigma%L
       myProcess%dPress = 1d3*myProcess%dPress
       bNoOutflow = .TRUE.
-    ELSE
+    END IF
+    
+    IF (ieee_is_finite(myProcess%Massestrom)) THEN
       bNoOutflow = .FALSE.
       dZPeriodicLength = 1d5*mySigma%L
     END IF

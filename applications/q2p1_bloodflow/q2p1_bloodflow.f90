@@ -26,6 +26,8 @@ PROGRAM Q2P1_BLOODFLOW
   call ztime(dtt0)
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
+  
+!   CALL ReadS3Dfile('_adc/egeplast/rheo.s3d')
 
   !-------MAIN LOOP-------
 
