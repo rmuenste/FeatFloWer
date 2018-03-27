@@ -685,8 +685,8 @@ DO I=1,IDFL
   dval(1) = dval(1) + ux(IG)     * DBAS(1,IL,1)
   dval(2) = dval(2) + uy(IG)     * DBAS(1,IL,1)
   dval(3) = dval(3) + uz(IG)     * DBAS(1,IL,1)
-  dval(4) = dval(4) + GDefInfo%monitorFunc(IG)      * DBAS(1,IL,1)
-  dval(5) = dval(5) + GDefInfo%volumesAtVertex(IG)  * DBAS(1,IL,1)
+!  dval(4) = dval(4) + GDefInfo%monitorFunc(IG)      * DBAS(1,IL,1)
+!  dval(5) = dval(5) + GDefInfo%volumesAtVertex(IG)  * DBAS(1,IL,1)
 END DO
 
 dval(4) = 1.0d0/dval(4)
@@ -780,7 +780,8 @@ end function
 !
 !****************************************************************************  
 !
-logical function fbmaux_PointInHex(X0,Y0,Z0,DPARX,DPARY,DPARZ,IEL,ICONV,DCORVG,KVERT)
+!logical function fbmaux_PointInHex(X0,Y0,Z0,DPARX,DPARY,DPARZ,IEL,ICONV,DCORVG,KVERT)
+logical function fbmaux_PointInHex(X0,Y0,Z0,x,y,z,DPARX,DPARY,DPARZ,IEL)
 !**@Description
  ! The subroutine transformes a point from a deformed element back to
  ! the reference element by computing the inverse transformation and
@@ -791,11 +792,16 @@ implicit none
 
 integer iel
 integer iconv
-real*8 dcorvg(3,*)
-integer kvert(8,*)
-real*8 x0,y0,z0,x(8),y(8),z(8),dparx,dpary,dparz
+real*8  :: x0,y0,z0,dparx,dpary,dparz
+
+real*8, dimension(8) :: x,y,z
+
 integer ive,ivt,i
 real*8 eps 
+
+
+!real*8 dcorvg(3,*)
+!integer kvert(8,*)
 
 ! a tolerance that is too high can 
 ! cause the algorithm to fail, especially when 
@@ -805,11 +811,11 @@ real*8 eps
 eps = 0.1d-6
 
 ! assign the points of the hexahedron
-do i=1,8
-  X(i)=DCORVG(1,KVERT(i,IEL))
-  Y(i)=DCORVG(2,KVERT(i,IEL))
-  Z(i)=DCORVG(3,KVERT(i,IEL))
-end do
+!do i=1,8
+!  x(i)=dcorvg(1,kvert(i,iel))
+!  y(i)=dcorvg(2,kvert(i,iel))
+!  z(i)=dcorvg(3,kvert(i,iel))
+!end do
 
 ! transform the point on the reference element
 call fbmaux_InvTrans(X,Y,Z,X0,Y0,Z0,DPARX,DPARY,DPARZ,iel,iconv)
@@ -1005,7 +1011,9 @@ logical function fbmaux_TestDomainBdry(dpoint,pid)
 !**@Description
 !    Tests if a point is inside the domain BdryBox
 !**End@Description
-use pp3d_mpi, only: myid,mgBoundingBox,subnodes
+use pp3d_mpi, only: myid,subnodes
+use var_QuadScalar, only: mgBoundingBox
+
 
 implicit none
 real*8, dimension(3)  :: dpoint
@@ -1055,7 +1063,7 @@ subroutine fbmaux_DomainCandidates(dpoint,icandidates,inumcand)
 !   Determines in which domains a point could be located
 !   based on their bounding box
 !**End@Description
-use pp3d_mpi, only: myid,mgBoundingBox,subnodes
+use pp3d_mpi, only: myid,subnodes
 
 implicit none
 real*8, dimension(3)  :: dpoint

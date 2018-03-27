@@ -156,6 +156,7 @@ ${CMAKE_SOURCE_DIR}/source/Elements/e012.f
 
 set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
 )
 
 

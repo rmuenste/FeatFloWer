@@ -1,6 +1,7 @@
 MODULE var_QuadScalar
 
-USE def_FEAT
+use def_FEAT
+use types
 
 IMPLICIT NONE
 
@@ -26,13 +27,12 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 ! run fine on BTTF and the LIDO-servers
 INTEGER :: iCommSwitch=3
 
-
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
 TYPE(tMatrixRenewal) myMatrixRenewal
 LOGICAL :: bNonNewtonian=.TRUE.
-LOGICAL bNoOutflow,bTracer,bViscoElastic,bRefFrame
+LOGICAL :: bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
 LOGICAL :: bSteadyState =.FALSE.
 
@@ -245,17 +245,17 @@ TYPE(TMatrix), POINTER :: qlMat,qlPMat,lqMat,lMat,lPMat,qMat
 TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_qlMat,mg_qlPMat,mg_lqMat
 TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_lMat,mg_lPMat,mg_qMat
 
-REAL*8  , DIMENSION(:)  , POINTER :: BXMat,BYMat,BZMat
-REAL*8  , DIMENSION(:)  , POINTER :: BTXMat,BTYMat,BTZMat
-REAL*8  , DIMENSION(:)  , POINTER :: BXPMat,BYPMat,BZPMat
-REAL*8  , DIMENSION(:)  , POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
-REAL*8  , DIMENSION(:)  , POINTER :: DMat,Kmat,A11mat,A22mat,A33mat
-REAL*8  , DIMENSION(:)  , POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
-REAL*8  , DIMENSION(:)  , POINTER :: S11mat,S22mat,S33mat
-REAL*8  , DIMENSION(:)  , POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
-REAL*8  , DIMENSION(:)  , POINTER :: Cmat,CPMat
-REAL*8  , DIMENSION(:)  , POINTER :: VisMat_11,VisMat_22,VisMat_33
-REAL*8  , DIMENSION(:)  , POINTER :: VisMat_12,VisMat_13,VisMat_23
+REAL*8, DIMENSION(:), POINTER :: BXMat,BYMat,BZMat
+REAL*8, DIMENSION(:), POINTER :: BTXMat,BTYMat,BTZMat
+REAL*8, DIMENSION(:), POINTER :: BXPMat,BYPMat,BZPMat
+REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
+REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat
+REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
+REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
+REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
+REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat
+REAL*8, DIMENSION(:), POINTER :: VisMat_11,VisMat_22,VisMat_33
+REAL*8, DIMENSION(:), POINTER :: VisMat_12,VisMat_13,VisMat_23
 
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
@@ -509,6 +509,9 @@ TYPE tALE
 END TYPE tALE
 
 TYPE(tALE),save :: myALE
+
+TYPE(tBoundingBox), dimension(:), allocatable :: mgBoundingBox
+
 
 TYPE tViscFunc
  REAL*8 :: shear_rate(66),visc(66)
