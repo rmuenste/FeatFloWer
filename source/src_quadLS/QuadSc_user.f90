@@ -201,7 +201,7 @@ IF (iT.EQ.33) THEN
  R_inflow = 1.0d0
  dist = SQRT((x+6.0)**2d0 + (y-12.9)**2d0 + (z-5.2)**2d0)
  IF (dist.lt.R_inflow) THEN
-  dScale = 1.0d0/R_inflow*R_inflow
+  dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
   dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
   ValU=  1.0084836*dScale
   ValV= -2.0737041*dScale
@@ -261,7 +261,7 @@ END IF
 
 ! egeplast
 IF (iT.EQ.62) THEN
-  ValW=RotParabolicVelo(2.4d0,-4.155d0,20d0,1d0,0.39d0)
+  ValW=RotParabolicVelo(2.4d0,-4.155d0,7.5d0,1d0,0.39d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 

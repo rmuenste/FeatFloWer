@@ -17,6 +17,7 @@ PROGRAM Q2P1_BLOODFLOW
   integer            :: ufile,ilog,iXX
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
+  logical            :: I_EXIST
 
   !-------INIT PHASE-------
 
@@ -27,7 +28,10 @@ PROGRAM Q2P1_BLOODFLOW
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
-!   CALL ReadS3Dfile('_adc/egeplast/rheo.s3d')
+  INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
+  if (I_EXIST) then
+   CALL ReadS3Dfile('_data/rheo.s3d')
+  end if
 
   !-------MAIN LOOP-------
 

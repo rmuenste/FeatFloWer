@@ -132,6 +132,7 @@ TYPE tMGParamIn
  INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
+ REAL*8 :: CrsRelaxPrm=2d0/3d0,CrsRelaxParPrm=1d0/3d0
  CHARACTER*1 CycleType
  CHARACTER*10 MGProlongation
 END TYPE tMGParamIn
@@ -328,7 +329,7 @@ TYPE tMultiGrid
  INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse
- REAL*8  Criterion1,Criterion2,RLX
+ REAL*8  Criterion1,Criterion2,RLX,CrsRelaxPrm,CrsRelaxParPrm
 ! MGOutputs
  REAL*8  RhoMG1,RhoMG2,DefInitial,DefFinal
  INTEGER UsedIterCycle

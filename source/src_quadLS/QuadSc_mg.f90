@@ -687,8 +687,8 @@ REAL*8 drlx1,drlx2
 
 ILEV = mgLev
 ndof = NEQ/3
-drlx1 = myMG%RLX
-drlx2 = 0.66667d0
+drlx1 = MyMG%CrsRelaxParPrm ! myMG%RLX
+drlx2 = MyMG%CrsRelaxPrm    ! 0.66667d0
 
 IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
    CALL PARID117_E0139(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
@@ -709,7 +709,7 @@ INTEGER NEQ
 REAL*8 DX(*),DXP(*)
 REAL*8 drlx
 
-drlx=myMG%RLX
+drlx=MyMG%CrsRelaxParPrm !myMG%RLX
 ILEV = mgLev
 CALL GetParPressure(DX,DXP)
 CALL PARID117(myMG%A(mgLev)%a,myMG%AP(mgLev)%a,myMG%L(mgLEV)%ColA,&
@@ -1780,24 +1780,9 @@ IF (MyMG%CrsSolverType.EQ.1) THEN !! SSOR with JACOBI at SUBBoundaries
   
 IF (MyMG%CrsSolverType.EQ.2) THEN !! BiCGSTAB
 
-  CALL ZTIME(time0)
-
    CoarseIter  = myMG%nIterCoarse
    dCrit = myMG%DefImprCoarse
    ndof  = SIZE(myMG%X(mgLev)%x)
-   
-!    ALLOCATE(mybiCG%d1(ndof))
-!    ALLOCATE(mybiCG%d2(ndof))
-!    ALLOCATE(mybiCG%d3(ndof))
-!    ALLOCATE(mybiCG%d4(ndof))
-!    ALLOCATE(mybiCG%d5(ndof))
-!    ALLOCATE(mybiCG%d6(ndof))
-!    mybiCG%d1 = 0d0
-!    mybiCG%d2 = 0d0
-!    mybiCG%d3 = 0d0
-!    mybiCG%d4 = 0d0
-!    mybiCG%d5 = 0d0
-!    mybiCG%d6 = 0d0
 
    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
     CALL E013_BiCGStabSolver(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
@@ -1808,18 +1793,6 @@ IF (MyMG%CrsSolverType.EQ.2) THEN !! BiCGSTAB
          ndof,CoarseIter,E013_DAX,E013_DCG,.true.,&
          myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,dCrit)
    END IF
-
-!    write(*,*) 'yes!!!',myMG%nIterCoarse,CoarseIter
-   
-!    DEALLOCATE(mybiCG%d1)
-!    DEALLOCATE(mybiCG%d2)
-!    DEALLOCATE(mybiCG%d3)
-!    DEALLOCATE(mybiCG%d4)
-!    DEALLOCATE(mybiCG%d5)
-!    DEALLOCATE(mybiCG%d6)
-
-   CALL ZTIME(time1)
-   myStat%tSolvUVW = myStat%tSolvUVW + (time1-time0)
 
 END IF
 

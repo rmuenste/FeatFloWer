@@ -1182,13 +1182,13 @@ C
 C
       IF (ICHECK.GE.998) CALL OTRC('ID117 ','01/02/89')
 C
-!       if (myid.eq.1) write(*,*) 'here bin ich! '
-      
+!      return
+C      
       MEQ1 = 0
       MEQ2 = NEQ
       MEQ3 = 2*NEQ
 C
-!       DO 1 ITE=1,NIT
+      DO 1 ITE=1,1
 C
 !     The real SOR part is here
 !     ----------------------------------------------
@@ -1308,11 +1308,13 @@ C
       INTEGER MEQ1,MEQ2,MEQ3
       SAVE /ERRCTL/
 C
+!      return
+C      
       MEQ1 = 0
       MEQ2 = NEQ
       MEQ3 = 2*NEQ
 C
-!       DO ITE=1,NIT
+      DO ITE=1,1!NIT
 C
 !     The real SOR part is here
 !     ----------------------------------------------
@@ -1440,7 +1442,7 @@ C
       END DO
 !     ----------------------------------------------
 C
-!       END DO
+      END DO
 C
       END
 C

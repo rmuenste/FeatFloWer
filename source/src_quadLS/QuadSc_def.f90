@@ -1533,10 +1533,11 @@ INTEGER :: I,J
  MyMG%AUX => lScalar%auxP
  MyMG%XP  => lPScalar%Val
  ! Set up the parameters for the Pressure MG driver 
- MyMG%cVariable = "Pressure"
- MyMG%MinLev = lScalar%prm%MGprmIn%MinLev
- MyMG%MedLev = lScalar%prm%MGprmIn%MedLev
+ MyMG%cVariable     = "Pressure"
+ MyMG%MinLev        = lScalar%prm%MGprmIn%MinLev
+ MyMG%MedLev        = lScalar%prm%MGprmIn%MedLev
  MyMG%CrsSolverType = lScalar%prm%MGprmIn%CrsSolverType
+ MyMG%CrsRelaxPrm   = lScalar%prm%MGprmIn%CrsRelaxPrm
  
  dnormu1 = DBLE(NLMAX)
  CALL COMM_Maximum(dnormu1)
@@ -2055,6 +2056,8 @@ nrm_W = 0d0
  MyMG%MinLev             = myScalar%prm%MGprmIn%MinLev
  MyMG%MedLev             = myScalar%prm%MGprmIn%MedLev
  MyMG%CrsSolverType      = myScalar%prm%MGprmIn%CrsSolverType
+ MyMG%CrsRelaxPrm        = myScalar%prm%MGprmIn%CrsRelaxPrm
+ MyMG%CrsRelaxParPrm     = myScalar%prm%MGprmIn%CrsRelaxParPrm
 
  daux = DBLE(NLMAX)
  CALL COMM_Maximum(daux)
@@ -2785,6 +2788,14 @@ DO
     READ(string(iEq+1:),*) myParam%MGprmIn%VANKA
     call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%VANKA)
 
+    CASE ("MGCrsRelaxPrm")
+    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxPrm
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxPrm)
+
+    CASE ("MGCrsRelaxParPrm")
+    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxParPrm
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxParPrm)
+
     CASE ("MGCrsSolverType")
     READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
     call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
@@ -2948,6 +2959,10 @@ DO
     CASE ("MGDefImprCoarse")
     READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
     call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%DefImprCoarse)
+
+    CASE ("MGCrsRelaxPrm")
+    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxPrm
+    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxPrm)
 
     CASE ("MGCriterion1")
     READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1

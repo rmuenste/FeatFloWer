@@ -1401,8 +1401,8 @@ end subroutine updateFBM
 !
 !-----------------------------------------------------------
 !
-SUBROUTINE GetFictKnprBREYER(X,Y,Z,iBndr,inpr,Dist)
-USE var_QuadScalar, ONLY : myFBM
+SUBROUTINE GetFictKnprInverse(X,Y,Z,iBndr,inpr,Dist)
+USE var_QuadScalar, ONLY : myFBM,dCGALtoRealFactor
 IMPLICIT NONE
 REAL*8 X,Y,Z,Dist,daux,d_temp
 REAL*8 PX,PY,PZ,RAD,dist_sign
@@ -1420,19 +1420,63 @@ INTEGER iBndr,inpr,iP,iaux,ipc,isin
   RAD =myFBM%particleNew(iP)%sizes(1)
   ipc=ip-1
   isin = 0
-  call isinelementid(1d1*x,1d1*y,1d1*z,ipc,isin)
+  call isinelementid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,ipc,isin)
   if(isin .gt. 0)then
    dist_sign = +1
-   call getclosestpointid(1d1*x,1d1*y,1d1*z,cpx,cpy,cpz,d_temp,ipc);        
+   call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
   else
     dist_sign = -1
     if (z.gt.-39d0) inpr = 1 ! IP
-   call getclosestpointid(1d1*x,1d1*y,1d1*z,cpx,cpy,cpz,d_temp,ipc);        
+   call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
   end if
   dist = dist_sign * d_temp
  end do
 
-END SUBROUTINE GetFictKnprBREYER
+END SUBROUTINE GetFictKnprInverse
+!
+!-----------------------------------------------------------
+!
+SUBROUTINE GetFictKnprRot(X,Y,Z,iBndr,inpr,Dist)
+USE var_QuadScalar, ONLY : myFBM,timens
+IMPLICIT NONE
+REAL*8 X,Y,Z,Dist,daux,d_temp
+REAL*8 PX,PY,PZ,RAD,dist_sign
+real*8 dScale
+real*8 cx, cy, cz , xt,yt,zt
+real*8 cpx, cpy, cpz
+INTEGER iBndr,inpr,iP,iaux,ipc,isin
+REAL*8 :: myPI = dATAN(1d0)*4d0, RotFreq = 6d0, dAlpha
+ 
+ dAlpha = -RotFreq*timens*2d0*myPI
+ XT = X*cos(dAlpha) - Y*sin(dAlpha)
+ YT = X*sin(dAlpha) + Y*cos(dAlpha)
+ ZT = 0.5d0*Z
+
+ inpr = 0
+ dist_sign = 1
+ dScale = 1d0/1.5d0
+ Dist = 1000.0d0
+ DO IP = 1,myFBM%nParticles
+  PX = myFBM%particleNew(iP)%Position(1)
+  PY = myFBM%particleNew(iP)%Position(2)
+  PZ = myFBM%particleNew(iP)%Position(3)
+  RAD =myFBM%particleNew(iP)%sizes(1)
+  ipc=ip-1
+  isin = 0
+  call isinelementid(dScale*xt,dScale*yt,dScale*zt,ipc,isin)
+  if(isin .gt. 0)then
+   dist_sign = -1
+   call getclosestpointid(dScale*xt,dScale*yt,dScale*zt,cpx,cpy,cpz,d_temp,ipc);
+   inpr = IP
+  else
+    dist_sign = +1
+!     if (z.gt.-39d0) inpr = 1 ! IP
+   call getclosestpointid(dScale*xt,dScale*yt,dScale*zt,cpx,cpy,cpz,d_temp,ipc);        
+  end if
+  dist = dist_sign * d_temp
+ end do
+
+END SUBROUTINE GetFictKnprRot
 !
 !-----------------------------------------------------------
 !
