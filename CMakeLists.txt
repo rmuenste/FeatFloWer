@@ -184,6 +184,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 )
 
 set(src_quadLS_app
+${src_util}
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f

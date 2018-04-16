@@ -38,6 +38,7 @@ ${src_LinSc}
 ${src_quadLS_ext} 
 ${src_visco} 
 ${src_mesh}
+${src_util}
 ${src_cinterface}
 ${postprocessing}
 app_init.f90
