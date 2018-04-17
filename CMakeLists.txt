@@ -13,6 +13,15 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 # output the system name
 message(STATUS "Configuring Q2P1 for a ${CMAKE_SYSTEM} system")
 
+if(UNIX)
+  find_program(LSB_RELEASE lsb_release)
+  execute_process(COMMAND ${LSB_RELEASE} -is
+    OUTPUT_VARIABLE LSB_RELEASE_ID_SHORT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+  message(STATUS "Linux flavor: ${LSB_RELEASE_ID_SHORT}")
+endif(UNIX)
+
 enable_testing()
 
 include(CTest)
@@ -73,14 +82,14 @@ option(USE_SYSTEM_BLASLAPACK
   )
 
 option(BUILD_METIS
-    "Enables build of metis library"
-    OFF
-)
+  "Enables build of metis library"
+  OFF
+  )
 
 option(BUILD_APPLICATIONS
-    "Enables build of applications"
-    ON
-)
+  "Enables build of applications"
+  ON
+  )
 
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
@@ -114,169 +123,169 @@ option(BUILD_APPLICATIONS
 #-------------------------------------------------------------------------------------------------
 
 set(src_pp3d
-${CMAKE_SOURCE_DIR}/source/src_pp3d/projma.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/coeff.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/indat3d.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/gupwd.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/nsdef.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/bndry.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/conv.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/util.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/avs3d.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/period.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/parq3d.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/xmrout.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/rdparm.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/trsort.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/orsc.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/mgrout.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/inout.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/user.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/optcnl.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/dfkt.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/error.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/bmul.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/diff.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/nu_turb.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/prostp.f
-${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
-#source/src_pproc/pproc_main.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/projma.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/coeff.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/indat3d.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/gupwd.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/nsdef.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/bndry.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/util.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/avs3d.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/period.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/parq3d.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/xmrout.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/rdparm.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/trsort.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/orsc.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/mgrout.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/inout.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/user.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/optcnl.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/dfkt.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/error.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/bmul.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/diff.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/nu_turb.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/prostp.f
+  ${CMAKE_SOURCE_DIR}/source/src_pp3d/def_feat.f90
+  #source/src_pproc/pproc_main.f90
+  )
 
 set(postprocessing
-${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
-${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
-${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
+  )
 
 set(Elements
-${CMAKE_SOURCE_DIR}/source/Elements/e013.f
-${CMAKE_SOURCE_DIR}/source/Elements/e012.f
-)
+  ${CMAKE_SOURCE_DIR}/source/Elements/e013.f
+  ${CMAKE_SOURCE_DIR}/source/Elements/e012.f
+  )
 
 set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
-)
+  )
 
 
 set(src_quadLS
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
-#${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
+  #${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+  )
 
 set(src_quadLS_app
-${src_util}
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
-${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
-)
+  ${src_util}
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
+  ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
+  )
 
 
 set(src_mpi
-${CMAKE_SOURCE_DIR}/source/src_mpi/smooth_mpi.f
-${CMAKE_SOURCE_DIR}/source/src_mpi/master_mpi.f
-)
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/smooth_mpi.f
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/master_mpi.f
+  )
 
 set(src_LinSc
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_dfkt.f90
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_main.f90
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mg.f90
-${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mpi.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_dfkt.f90
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mg.f90
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mpi.f90
+  )
 
 set(src_PLin
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_def.f90
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_main.f90
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_matstr.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mass.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_user.f90
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_norm.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_flux.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intphase.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intpol.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_limiter.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mpi.f
-${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_density.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_def.f90
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_matstr.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mass.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_user.f90
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_norm.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_flux.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intphase.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_intpol.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_limiter.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_mpi.f
+  ${CMAKE_SOURCE_DIR}/source/src_PLin/PLinSc_density.f90
+  )
 
 set(src_visco
-${CMAKE_SOURCE_DIR}/source/src_visco/Visco_integration.f
-${CMAKE_SOURCE_DIR}/source/src_visco/Visco_solver.f
-${CMAKE_SOURCE_DIR}/source/src_visco/Visco_main.f90
-${CMAKE_SOURCE_DIR}/source/src_visco/Visco_def.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_visco/Visco_integration.f
+  ${CMAKE_SOURCE_DIR}/source/src_visco/Visco_solver.f
+  ${CMAKE_SOURCE_DIR}/source/src_visco/Visco_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_visco/Visco_def.f90
+  )
 
 set(src_mesh
-${CMAKE_SOURCE_DIR}/source/src_mesh/mesh_refine.f90
-${CMAKE_SOURCE_DIR}/source/src_mesh/umbrella_smoother.f90
-${CMAKE_SOURCE_DIR}/source/src_mesh/geometry_processing.f90
-)
+  ${CMAKE_SOURCE_DIR}/source/src_mesh/mesh_refine.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mesh/umbrella_smoother.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mesh/geometry_processing.f90
+  )
 
 # source files for standard q2p1 
 set(src_q2p1
-${CMAKE_SOURCE_DIR}/source/OutputProfiles.f90
-${CMAKE_SOURCE_DIR}/source/tetra.f90
-${CMAKE_SOURCE_DIR}/source/Init.f90
-${CMAKE_SOURCE_DIR}/source/Statistics.f90
-${CMAKE_SOURCE_DIR}/source/Umbrella.f90
-${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
-${CMAKE_SOURCE_DIR}/source/ProcCtrl.f90
-${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
-${CMAKE_SOURCE_DIR}/source/inverse.f90
-${CMAKE_SOURCE_DIR}/source/Parametrization.f90
-${CMAKE_SOURCE_DIR}/source/src_ini/iniparser.f90
-${CMAKE_SOURCE_DIR}/source/distance.f90
-${CMAKE_SOURCE_DIR}/source/3x3EigenV.f
-)
+  ${CMAKE_SOURCE_DIR}/source/OutputProfiles.f90
+  ${CMAKE_SOURCE_DIR}/source/tetra.f90
+  ${CMAKE_SOURCE_DIR}/source/Init.f90
+  ${CMAKE_SOURCE_DIR}/source/Statistics.f90
+  ${CMAKE_SOURCE_DIR}/source/Umbrella.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/ProcCtrl.f90
+  ${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
+  ${CMAKE_SOURCE_DIR}/source/inverse.f90
+  ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
+  ${CMAKE_SOURCE_DIR}/source/src_ini/iniparser.f90
+  ${CMAKE_SOURCE_DIR}/source/distance.f90
+  ${CMAKE_SOURCE_DIR}/source/3x3EigenV.f
+  )
 
 
 set(src_ini_c
-${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
-${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
-)
+  ${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
+  ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
+  )
 
 #-------------------------------------------------------------------------------------------------
 #                                 This will create source folders in Visual Studio
@@ -310,8 +319,8 @@ if(USE_SYSTEM_BLASLAPACK)
     message(STATUS "Blas library: ${BLAS_LIBRARIES}")
     message(STATUS "Lapack library: ${LAPACK_LIBRARIES}")
 
-  # Use the sources from the repository if 
-  # no libraries are found on the system
+    # Use the sources from the repository if 
+    # no libraries are found on the system
   else(BLAS_FOUND AND LAPACK_FOUND)
     message(STATUS "BLAS/LAPACK not found on the system, using repository version.")
     add_subdirectory(extern/libraries/lapack-3.6.1)
@@ -374,24 +383,33 @@ if(USE_CGAL)
       #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
       CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False
       )
-    set(CGAL_LIBRARIES 
-      ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-      ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-      )
+
+    if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
+      set(CGAL_LIBRARIES 
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
+        )
+    else()
+      set(CGAL_LIBRARIES 
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+        )
+    endif()
+
   else(NOT WIN32)
     find_package(CGAL REQUIRED COMPONENTS Core)
     if(${CGAL_FOUND})
       find_package(GMP)
       find_package(MPFR)
-  
+
       if(NOT ${GMP_FOUND})
         message(WARNING "GMP library not found. Cannot build cgal applications.")
       endif()
-  
+
       if(NOT ${MPFR_FOUND})
         message(WARNING "MPFR library not found. Cannot build cgal applications.")
       endif()
-  
+
     endif()	
     message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
     message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
@@ -477,7 +495,7 @@ include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)
 SET(OUT_OF_SOURCE_BUILD True)
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   message(FATAL_ERROR "In-source builds are not allowed.")
-   SET(${OUT_OF_SOURCE_BUILD} False)
+  SET(${OUT_OF_SOURCE_BUILD} False)
 endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
 ## we need additional libraries to support CUDA
@@ -489,12 +507,12 @@ IF(BUILD_APPLICATIONS)
     add_subdirectory(FullC0ntact/inshape3dcore)
     add_subdirectory(FullC0ntact/math)
     add_subdirectory(FullC0ntact/util)
-  if(USE_OPENMESH)
-    add_subdirectory(FullC0ntact/libs/OpenMesh)
-  endif(USE_OPENMESH)
-  if(USE_ODE)
-    add_subdirectory(FullC0ntact/libs/ode-cmake)
-  endif(USE_ODE)
+    if(USE_OPENMESH)
+      add_subdirectory(FullC0ntact/libs/OpenMesh)
+    endif(USE_OPENMESH)
+    if(USE_ODE)
+      add_subdirectory(FullC0ntact/libs/ode-cmake)
+    endif(USE_ODE)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()

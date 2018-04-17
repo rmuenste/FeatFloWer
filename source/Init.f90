@@ -651,7 +651,7 @@ SUBROUTINE General_init(MDATA,MFILE)
 
 
 
-    inquire(unit=myFile, OPENED=is_open)
+    inquire(unit=mfile1, OPENED=is_open)
     if(.not. is_open)then
       IF (myid.eq.showid) THEN
         OPEN (UNIT=mfile1,FILE=cfile1,action="write",status="replace",iostat=istat)
