@@ -1,0 +1,312 @@
+\documentclass[12pt]{report}
+\setcounter{tocdepth}{5}
+\setcounter{secnumdepth}{5}
+\usepackage{geometry}
+\geometry{a4paper}
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{enumitem} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{spverbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+%\usepackage[ngerman]{babel} % German umlauts
+%\usepackage[T1]{fontenc}
+\usepackage{lmodern} % fancy fonts for PDF(Reader)
+\usepackage{graphicx} % show graphics
+\usepackage{listings} % Sourcecode
+\usepackage{color}
+\usepackage{courier}
+\usepackage{nameref}
+\usepackage{lastpage}
+\usepackage{hyphenat}
+\usepackage{textcomp}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{pbox}
+\usepackage{amsmath}
+\usepackage{MnSymbol}
+\usepackage{wasysym}
+\usepackage{parskip}
+\usepackage{pifont}
+\usepackage{pdfpages}
+\usepackage{longtable}
+\usepackage[table]{xcolor}
+
+\usepackage[defaultlines=4,all]{nowidow}
+\setnoclub[3]
+\setnowidow[3]
+
+\definecolor{tudogreen}{RGB}{132,184,24}
+\definecolor{TUDOGREEN}{RGB}{132,184,24}
+\definecolor{tudogreen10}{RGB}{243,248,232}
+\definecolor{tudogreen30}{RGB}{218,234,186}
+\definecolor{tudogray10}{RGB}{236,236,236}
+\definecolor{tudogray20}{RGB}{218,218,218}
+\definecolor{tudogray40}{RGB}{102,102,102}
+%\input{xtra-tudo-color.tex}
+%\input{xtra-tex-command.tex}
+
+\AtBeginDocument{\renewcommand\contentsname{\textcolor{tudogreen}{Table Of Contents}}}
+
+\usepackage{sectsty}
+\chapterfont{\color{tudogreen} \hypersetup{linkcolor=tudogreen}}
+\sectionfont{\color{tudogreen} \hypersetup{linkcolor=tudogreen}}
+\subsectionfont{\color{tudogreen} \hypersetup{linkcolor=tudogreen}}
+\subsubsectionfont{\color{tudogreen} \hypersetup{linkcolor=tudogreen}}
+\paragraphfont{\color{tudogreen}}
+\let\oldparagraph\paragraph\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}\\}
+\subparagraphfont{\color{tudogreen}}
+\let\oldsubparagraph\subparagraph\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}\\}
+\renewcommand{\labelitemi}{\color{tudogreen}$\filledsquare$}
+\renewcommand{\labelitemii}{\color{tudogreen}$\filledsquare$}
+\renewcommand{\labelitemiii}{\color{tudogreen}$\filledsquare$}
+\renewcommand{\labelitemiv}{\color{tudogreen}$\filledsquare$}
+
+\newcommand{\cmd}[1]{{{\color{blue}\colorbox{white}{> #1}}}}
+
+% Settings for listings
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\lstset{
+	basicstyle=\ttfamily\small,
+	%frame=single,
+	postbreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\color{tudogreen}\hookrightarrow\space}},
+%	backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}
+	breakatwhitespace=true,         % sets if automatic breaks should only happen at whitespace
+	breaklines=true,                 % sets automatic line breaking
+	aboveskip=-10pt,
+	keepspaces=true,
+	columns=flexible,
+%  captionpos=b,                    % sets the caption-position to bottom
+%  commentstyle=\color{mygreen},    % comment style
+%  deletekeywords={...},            % if you want to delete keywords from the given language
+%  escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+%  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+%  %frame=single,                    % adds a frame around the code
+%  keywordstyle=\color{blue},       % keyword style
+%  language=Octave,                 % the language of the code
+%  morekeywords={*,...},            % if you want to add more keywords to the set
+%  numbers=none,                    % where to put the line-numbers; possible values are (none, left, right)
+%  numbersep=5pt,                   % how far the line-numbers are from the code
+%  numberstyle=\tiny\color{mygray}, % the style that is used for the line-numbers
+%  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+%  showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+%  showstringspaces=false,          % underline spaces within strings only
+%  showtabs=false,                  % show tabs within strings adding particular underscores
+%  stepnumber=2,                    % the step between two line-numbers. If it's 1, each line will be numbered
+%  stringstyle=\color{mymauve},     % string literal style
+%  tabsize=2,                       % sets default tabsize to 2 space
+  title=\lstname,                  % show the filename of files included with \lstinputlisting; also try caption instead of title
+  moredelim=[is][\bfseries\color{tudostrongnr3}]{[*}{*]},
+literate=
+  {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+  {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+  {à}{{\`a}}1 {è}{{\'e}}1 {ì}{{\`i}}1 {ò}{{\`o}}1 {ò}{{\`u}}1
+  {À}{{\`A}}1 {È}{{\'E}}1 {Ì}{{\`I}}1 {Ò}{{\`O}}1 {Ò}{{\`U}}1
+  {ä}{{\"a}}1 {ë}{{\"e}}1 {ï}{{\"i}}1 {ö}{{\"o}}1 {ü}{{\"u}}1
+  {Ä}{{\"A}}1 {Ë}{{\"E}}1 {Ï}{{\"I}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1
+  {â}{{\^a}}1 {ê}{{\^e}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {û}{{\^u}}1
+  {Â}{{\^A}}1 {Ê}{{\^E}}1 {Î}{{\^I}}1 {Ô}{{\^O}}1 {Û}{{\^U}}1
+  {œ}{{\oe}}1 {Œ}{{\OE}}1 {æ}{{\ae}}1 {Æ}{{\AE}}1 {ß}{{\ss}}1
+  {ç}{{\c c}}1 {Ç}{{\c C}}1 {ø}{{\o}}1 {å}{{\r a}}1 {Å}{{\r A}}1
+  {€}{{\EUR}}1 {£}{{\pounds}}1
+}
+
+% add frame environment
+\usepackage[%
+    framemethod=tikz,
+    skipbelow=\topskip,
+    skipabove=\topskip
+]{mdframed}
+\mdfsetup{%
+    leftmargin=0pt,
+    rightmargin=0pt,
+    backgroundcolor=tudogreen10,
+    hidealllines=true,
+    roundcorner=10
+}
+
+\usepackage{etoolbox}% >= v2.1 2011-01-03
+\BeforeBeginEnvironment{lstlisting}{\begin{mdframed}\vspace{-0.7em}}
+\AfterEndEnvironment{lstlisting}{\vspace{-0.5em}\end{mdframed}}
+
+% needed for \lstcapt
+\def\ifempty#1{\def\temparg{#1}\ifx\temparg\empty}
+
+% make new caption command for listings
+\usepackage{caption}
+\newcommand{\lstcapt}[2][]{%
+    \ifempty{#1}%
+        \captionof{lstlisting}{#2}%
+    \else%
+        \captionof{lstlisting}[#1]{#2}%
+    \fi%
+    \vspace{0.75\baselineskip}%
+}
+%%% JOBNAME %%%
+\edef\Jobname{\jobname}
+\catcode`\*=\active
+\def*{ }
+\edef\Jobname{"\scantokens\expandafter{\Jobname\noexpand}"}
+\catcode`\*=12 %
+%\show\Jobname
+
+%%% HEADERS & FOOTERS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0.4pt} % customise the layout...
+\renewcommand{\footrulewidth}{0.4pt} % Default \footrulewidth is 0pt
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CHANGE HERE
+%\lhead{\includegraphics[scale=0.22]{./gfx/itmc_col.pdf}}
+\chead{}
+\rhead{\tiny IT \& Medien Centrum | FeatFlower | First Contact}
+\lfoot{\tiny FeatFlower | First Contact}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\cfoot{}
+\rfoot{\tiny page~\thepage~of~\pageref*{LastPage}}
+\setlength{\headheight}{18pt}
+
+
+%%% MAIN FONT %%%
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{ifxetex}
+\ifxetex
+  \usepackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX} % To support LaTeX quoting style
+  \setmainfont{Akkurat}
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\fi
+
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+%\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+%\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+%\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+%%% PDF details %%%
+\usepackage[hyphens]{url} %fance urls
+\definecolor{tudourlborder}{RGB}{15,15,255}
+\usepackage{hyperref}
+\usepackage{hyperxmp}
+  \hypersetup{
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CHANGE HERE
+    pdftitle={FeatFlower},
+    pdfsubject={FeatFlower, First Contact},
+    pdfauthor={CC HPC},
+    pdfproducer={Technische Universität Dortmund, IT \& Medien Centrum},
+    pdfkeywords={Technische Universität Dortmund, IT \& Medien Centrum, TUDo, ITMC, Dokumentation, FeatFlower (draft), First Contact},
+    pdfinfo={Copyright={\copyright \the\year, IT \& Medien Centrum, CC HPC.}},
+    pdfcopyright={\copyright \the\year, IT \& Medien Centrum, CC HPC.},
+    pdfcontactaddress={IT \& Medien Centrum der TU Dortmund, Otto-Hahn-Str. 12, 44227 Dortmund},
+    pdfcontacturl={http://www.itmc.tu-dortmund.de/beritmc/ueber-itmc/kontakt.html},
+    pdfcontactemail={lido-team.itmc@lists.tu-dortmund.de},
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    pdfcreator={LaTeX},
+    colorlinks=true,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=tudourlborder
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{soul}
+\setul{1pt}{.4pt}% 1pt below contents
+% hyperlinks as footnotes
+\let\oldhref\href\renewcommand{\href}[2]{\oldhref{#1}{#2}\footnote{\url{#1}}}
+%%% END Article customizations
+
+
+\begin{document}
+\title{Feat\_FloWer Manual}
+\author{Raphael~M\"unster}
+\date{\today}
+\maketitle
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagebreak
+\tableofcontents
+\addtocontents{toc}{\protect\thispagestyle{fancy}}
+\pagebreak
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Installation}\thispagestyle{fancy}
+\label{foo}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Prerequisites}\label{sec:prep}
+The Feat\_FloWer software package is accessible through the version control system \textit{Git}. The main repository of the software is hosted on the servers of the TU Dortmund.
+In order to checkout a copy of the code an account that provides access to the LS3 servers is required, so it is recommended to get such an account. Furthermore, the code repository does not include the meshes used in the example applications. The meshes are stored in a different repository. So, at first we will get this repository and set up
+an environment variable so that the configuration mechanism of Feat\_FloWer can find the mesh repository. The mesh repo can be checked out by: \\
+\cmd{git clone ssh://username@lannister/home/user/git/mesh\_repo.git}\\
+After you have checked out the mesh repository, it is time to set up the environment variable for Feat\_FloWer. For the \texttt{BASH} or \texttt{ZSH} shells this can be done by
+adding the following line to your \textit{.bashrc} or respectively \textit{.zsh}:\\
+\cmd{export Q2P1\_MESH\_DIR=/path/to/meshrepo/mesh\_repo}\\
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Checking out the Code from the Repository}\label{bar}
+ When you have acquired an appropriate account you can clone the Feat\_FloWer repository by opening a terminal and entering the following sequence of commands:\\
+\cmd{mkdir FeatFlower \&\& cd FeatFlower}\\
+\cmd{git clone {-{}-}recursive ssh://username@lannister/home/user/git/Feat\_FloWer.git}\\
+This will create a parent folder called FeatFlower and within this folder the source code will be contained. This is a preparation for building the code from source. The Feat\_Flower code supports only out-of-source builds, meaning the binary files are not built in the same directory as the source code. This is done in order to prevent that binary files or object files litter the source directory or that these files show up in the version control system.
+
+\section{Building the Code from Source}\label{baz}
+The Feat\_FloWer code can be build on Linux and Windows operating systems (and probably on MacOS, but this is not tested yet). On Linux systems an installation of the GNU compiler is needed, including the gfortran compiler and the matching OpenMPI libraries. The minimum requirement for the GCC is version 4.9.2. On Linux systems the Intel compiler can be used as an alternative compiler. On Windows systems the Intel compiler is a necessary requirement.
+\subsection{Linux Systems}
+After you have cloned the repository, navigate to the \textit{FeatFlower} folder that you have created in the previous step and create another folder that will contain the binaries:\\
+\cmd{mkdir bin}\\
+Verify with the command \textbf{pwd} that your FeatFlower folder now contains two subfolders \textit{bin} and \textit{Feat\_FloWer}. At the core of the Feat\_FloWer build system
+is the multi-platform build files generator CMake. On the servers of the TU Dortmund CMake is available as a loadable module. In order to successfully compile the code with the GNU compiler the following components are needed:
+\begin{itemize}
+  \item GCC the GNU Compiler Collection including the gfortran compiler
+	\item A matching OpenMPI installation
+	\item CMake with a minimum version of 2.8
+\end{itemize}
+On the servers of the TU Dortmund load for example the following modules or newer versions of them:
+\begin{itemize}
+  \item \cmd{module load gcc/6.1.0}
+  \item \cmd{module load openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet}
+  \item \cmd{module load cmake/3.5.2-ssl}	
+\end{itemize}
+After you have typed these commands verify that these module are loaded by checking the output of the command \textbf{module list}. The build of the basic software package is
+initiated by navigating into the \textit{bin} folder that you have created before and evoking CMake from there:\\
+\cmd{cd bin}\\
+\cmd{cmake ../Feat\_FloWer}\\
+The build process is then started by the command:\\
+\cmd{make -j 5}\\
+The option <-j 5> starts a parallel build using 5 processes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Test}
+\label{ch:test}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{TestSec}\label{sec:testsec}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{SubTest}\label{ssec:subtest}
+
+His rebus adducti et auctoritate Orgetorigis permoti constituerunt ea quae ad proficiscendum pertinerent comparare, iumentorum et carrorum quam maximum numerum coemere, sementes quam maximas facere, ut in itinere copia frumenti suppeteret, cum proximis civitatibus pacem et amicitiam confirmare. Ad eas res conficiendas biennium sibi satis esse duxerunt; in tertium annum profectionem lege confirmant. Ad eas res conficiendas Orgetorix deligitur. Is sibi legationem ad civitates suscipit. In eo itinere persuadet Castico, Catamantaloedis filio, Sequano, cuius pater regnum in Sequanis multos annos obtinuerat et a senatu populi Romani amicus appellatus erat, ut regnum in civitate sua occuparet, quod pater ante habuerit; itemque Dumnorigi Haeduo, fratri Diviciaci, qui eo tempore principatum in civitate obtinebat ac maxime plebi acceptus erat, ut idem conaretur persuadet eique filiam suam in matrimonium dat. Perfacile factu esse illis probat conata perficere, propterea quod ipse suae civitatis imperium obtenturus esset: non esse dubium quin totius Galliae plurimum Helvetii possent; se suis copiis suoque exercitu illis regna conciliaturum confirmat. Hac oratione adducti inter se fidem et ius iurandum dant et regno occupato per tres potentissimos ac firmissimos populos totius Galliae sese potiri posse sperant.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Appendix}\label{section:appendix}
+
+\textbf{TODO}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+
