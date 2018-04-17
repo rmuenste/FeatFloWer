@@ -35,6 +35,7 @@ LOGICAL :: bNonNewtonian=.TRUE.
 LOGICAL :: bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
 LOGICAL :: bSteadyState =.FALSE.
+LOGICAL :: bBoundaryCheck=.FALSE.
 
 ! Integer parameter for terminal output
 integer, parameter :: uterm = 6

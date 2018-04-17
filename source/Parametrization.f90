@@ -948,16 +948,18 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
     END DO
   END DO
   
-  DO iNode=1,mgMesh%level(ilevel+1)%nvt
-    IF (mgMesh%BndryNodes(iNode)%bOuterPoint) THEN
-     IF (.NOT.(mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
-               mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
-               mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
-               mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
-         WRITE(*,'(I4,A,I8,A)') myid,'BNDRY POINT:',iNode,' is not assigned to any parametrizations ...!'
+  IF (bBoundaryCheck) THEN
+   DO iNode=1,mgMesh%level(ilevel+1)%nvt
+     IF (mgMesh%BndryNodes(iNode)%bOuterPoint) THEN
+      IF (.NOT.(mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
+                mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
+                mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
+                mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
+          WRITE(*,'(I4,A,I8,A)') myid,'BNDRY POINT:',iNode,' is not assigned to any parametrizations ...!'
+      END IF
      END IF
-    END IF
-  END DO
+   END DO
+  END IF
 ! 
  END IF
  

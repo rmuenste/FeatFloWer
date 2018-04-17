@@ -384,7 +384,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
-      nUmbrellaStepsLvl, nMainUmbrellaSteps
+      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -561,6 +561,11 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) INSAV
         CASE ("BackUpNum")
           READ(string(iEq+1:),*) INSAVN
+        CASE ("BoundaryCheck")
+          cParam = " "
+          READ(string(iEq+1:),*) cParam
+          bBoundaryCheck = .FALSE.
+          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bBoundaryCheck = .true.
         CASE ("OutputFreq")
           READ(string(iEq+1:),*) DTGMV
         CASE ("MatrixRenewal")
@@ -764,6 +769,14 @@ SUBROUTINE General_init(MDATA,MFILE)
       IF (bViscoElasticFAC) THEN 
         WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
         WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
+      END IF
+
+      IF (bBoundaryCheck) THEN 
+        WRITE(mfile,'(A)') "BoundaryCheck is ON"
+        WRITE(mterm,'(A)') "BoundaryCheck is ON"
+      ELSE
+        WRITE(mfile,'(A)') "BoundaryCheck is OFF"
+        WRITE(mterm,'(A)') "BoundaryCheck is OFF"
       END IF
 
       IF (bNonNewtonian) THEN 
