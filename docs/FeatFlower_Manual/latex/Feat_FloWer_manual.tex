@@ -280,26 +280,40 @@ On the servers of the TU Dortmund load for example the following modules or newe
 After you have typed these commands verify that these module are loaded by checking the output of the command \textbf{module list}. The build of the basic software package is
 initiated by navigating into the \textit{bin} folder that you have created before and evoking CMake from there:\\
 \cmd{cd bin}\\
-\cmd{cmake ../Feat\_FloWer}\\
+\cmd{cmake -DBUILD\_METIS=True ../Feat\_FloWer}\\
 The build process is then started by the command:\\
 \cmd{make -j 5}\\
 The option <-j 5> starts a parallel build using 5 processes.
+\subsection{Windows Systems}
+Under construction
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Test}
-\label{ch:test}
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{TestSec}\label{sec:testsec}
+\chapter{Running a FeatFlower Application}
+\label{ch:applications}
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{SubTest}\label{ssec:subtest}
+\section{Introduction to the Application Framework}\label{sec:introduction}
+A FeatFlower application is a particular simulation case that is based on the underlying Finite-Element-Method framework. The possibility of a FeatFloWer application range from very simple CFD-Setups to well-known benchmark
+configurations to complex realistic configurations that have an industrial or scientific background. The FeatFlower code base comes with a number of preconfigured applications that demonstrate the capabilities of the software. The
+user can then change and adapt these preconfigured applications to his needs or add completely new applications based on the Featflower framework. A FeatFloWer applications roughly consists of a preprocessing step, a solving procedure and an output of the solution. At first we will introduce the tools used in the preprocessing step. 
+\subsection{Preprocessing and Mesh Generation}
+The main task in the preprocessing step is the creation of the mesh used for the FeatFloWer application. A mesh can be acquired by an external mesh generator, by manual construction or by taking a mesh from the FeatFloWer mesh
+repository.  
+\subsubsection{Using Meshes from the Mesh Repository}
+Taking a mesh from the mesh repository is the easiest scenario for a new user. Usually this means that a benchmark configuration or a preconfigured application is run by the user. All the user has to do in this case is to 
+partition the mesh according to the number of MPI processes that the user has to his disposal. The preferred partitioning tool for meshes from the mesh repository is the Python command line program \textit{PyPartitioner.py}. In order to demonstrate the use of the python partitioning tool, we will use the application \textit{q2p1\_fc\_ext}. The application can be found in the \textit{Feat\_FloWer/applications} directory. The python partitioner tool can be 
+found in the \textit{Feat\_FloWer/tools} directory. For our first contact with the tool, we will just copy the python files from the \textit{Feat\_FloWer/tools} directory to the \textit{bin/applications/q2p1\_fc\_ext}. So start by navigating to the \textit{bin/applications/q2p1\_fc\_ext} and copying the python files by:\\
+\cmd{cp ../../../Feat\_FloWer/tools/*.py .}\\
+Additionally, we need to copy the metis library so that the PyPartitioner can interface with that library:\\
+\cmd{cp ../../../bin/extern/libraries/metis-4.0.3/Lib/libmetis.so .}\\
+We can now invoke the PyPartitioner by typing:\\
+\cmd{python PyPartitioner.py 4 1 1 NEWFAC \_adc/2D\_FAC/2Dbench.prj}\\
+which will take the mesh referenced in the project file \textit{\_adc/2D\_FAC/2Dbench.prj} and decompose the domain into 4 partitions which are then stored in the \textit{NEWFAC} directory. The additional 1 1 parameters denote the
+type of the partitioning method. As the simulation requires a master node to control some processes the simulation should be launched with 4+1 processes by:\\
+\cmd{mpirun -np 5 ./q2p1\_fc\_ext}\\
 
-His rebus adducti et auctoritate Orgetorigis permoti constituerunt ea quae ad proficiscendum pertinerent comparare, iumentorum et carrorum quam maximum numerum coemere, sementes quam maximas facere, ut in itinere copia frumenti suppeteret, cum proximis civitatibus pacem et amicitiam confirmare. Ad eas res conficiendas biennium sibi satis esse duxerunt; in tertium annum profectionem lege confirmant. Ad eas res conficiendas Orgetorix deligitur. Is sibi legationem ad civitates suscipit. In eo itinere persuadet Castico, Catamantaloedis filio, Sequano, cuius pater regnum in Sequanis multos annos obtinuerat et a senatu populi Romani amicus appellatus erat, ut regnum in civitate sua occuparet, quod pater ante habuerit; itemque Dumnorigi Haeduo, fratri Diviciaci, qui eo tempore principatum in civitate obtinebat ac maxime plebi acceptus erat, ut idem conaretur persuadet eique filiam suam in matrimonium dat. Perfacile factu esse illis probat conata perficere, propterea quod ipse suae civitatis imperium obtenturus esset: non esse dubium quin totius Galliae plurimum Helvetii possent; se suis copiis suoque exercitu illis regna conciliaturum confirmat. Hac oratione adducti inter se fidem et ius iurandum dant et regno occupato per tres potentissimos ac firmissimos populos totius Galliae sese potiri posse sperant.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Appendix}\label{section:appendix}
