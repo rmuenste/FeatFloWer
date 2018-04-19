@@ -979,233 +979,233 @@ end subroutine fbmaux_GetFictKnprRot
 !fbmaux_IsInBoundingBox = .true.
 !     
 !end function
-!!
-!!****************************************************************************  
-!!
-!!logical function fbmaux_PointInHex(X0,Y0,Z0,DPARX,DPARY,DPARZ,IEL,ICONV,DCORVG,KVERT)
-!logical function fbmaux_PointInHex(X0,Y0,Z0,x,y,z,DPARX,DPARY,DPARZ,IEL)
-!!**@Description
-! ! The subroutine transformes a point from a deformed element back to
-! ! the reference element by computing the inverse transformation and
-! ! applying it to the point. The point on the reference element in returned
-! ! in dparx,dpary,dparz
-!!**End@Description  
-!implicit none
 !
-!integer iel
-!integer iconv
-!real*8  :: x0,y0,z0,dparx,dpary,dparz
+!****************************************************************************  
 !
-!real*8, dimension(8) :: x,y,z
-!
-!integer ive,ivt,i
-!real*8 eps 
-!
-!
-!!real*8 dcorvg(3,*)
-!!integer kvert(8,*)
-!
-!! a tolerance that is too high can 
-!! cause the algorithm to fail, especially when 
-!! the nodes are located on the boundary of two subdomains.
-!! These nodes need to have the same coordinates, so when they 
-!! differ only a little bit this can be problematic
-!eps = 0.1d-6
-!
-!! assign the points of the hexahedron
-!!do i=1,8
-!!  x(i)=dcorvg(1,kvert(i,iel))
-!!  y(i)=dcorvg(2,kvert(i,iel))
-!!  z(i)=dcorvg(3,kvert(i,iel))
-!!end do
-!
-!! transform the point on the reference element
-!call fbmaux_InvTrans(X,Y,Z,X0,Y0,Z0,DPARX,DPARY,DPARZ,iel,iconv)
-!
-!! check if the point is in the reference element
-!if(.not.((dparx.ge.-1.0d0-eps).and.(dparx.le.1.0d0+eps)))then
-!  fbmaux_PointInHex=.false.
-!  return
-!end if
-!
-!if(.not.((dpary.ge.-1.0d0-eps).and.(dpary.le.1.0d0+eps)))then
-!  fbmaux_PointInHex=.false.
-!  return
-!end if
-!
-!if(.not.((dparz.ge.-1.0d0-eps).and.(dparz.le.1.0d0+eps)))then
-!  fbmaux_PointInHex=.false.
-!  return
-!end if
-! 
-!fbmaux_PointInHex = .true.
-!
-!end function
-!!
-!!****************************************************************************  
-!!
-!subroutine fbmaux_InvTrans(x,y,z, x0,y0,z0,dparx,dpary,dparz,iel,iconv)
-!!**@Description
-! ! The subroutine transformes a point from a deformed element back to
-! ! the reference element by computing the inverse transformation and
-! ! applying it to the point. The point on the reference element in returned
-! ! in dparx,dpary,dparz
-!!**End@Description
-!use pp3d_mpi, only:myid
-!      
-!implicit none
-!      
-!! parameters
-!      
-!! coordinates of the evaluation point
-!real*8 :: dxreal,dyreal,dzreal
-!
-!! coordinates of the element vertices
-!real*8, dimension(3,8) :: coord
-!
-!! coordinates of (x,y,z) on the reference element
-!real*8 :: dparx,dpary,dparz
-!
-!integer :: iconv
-!
-!! coordinates on the element vertices
-!real*8 x(8),y(8),z(8)
-!
-!! local variables
-!real*8 :: doldx,doldy,doldz
-!
-!!      double precision q8,factor,f(3),fd(3,3)
-!real*8 q8,factor,f(24),jg(3,3),g(3),fd(3,3),&
-!                 det,detx,dety,detz,x0,y0,z0
-!
-!integer          maxit,i, iel
-!
-!q8 = 0.125d0
-!
-!f( 1)=( x(1)+x(2)+x(3)+x(4)+x(5)+x(6)+x(7)+x(8))*q8
-!f( 2)=( y(1)+y(2)+y(3)+y(4)+y(5)+y(6)+y(7)+y(8))*q8
-!f( 3)=( z(1)+z(2)+z(3)+z(4)+z(5)+z(6)+z(7)+z(8))*q8
-!
-!f( 4)=(-x(1)+x(2)+x(3)-x(4)-x(5)+x(6)+x(7)-x(8))*q8
-!f( 5)=(-y(1)+y(2)+y(3)-y(4)-y(5)+y(6)+y(7)-y(8))*q8
-!f( 6)=(-z(1)+z(2)+z(3)-z(4)-z(5)+z(6)+z(7)-z(8))*q8
-!
-!f( 7)=(-x(1)-x(2)+x(3)+x(4)-x(5)-x(6)+x(7)+x(8))*q8
-!f( 8)=(-y(1)-y(2)+y(3)+y(4)-y(5)-y(6)+y(7)+y(8))*q8
-!f( 9)=(-z(1)-z(2)+z(3)+z(4)-z(5)-z(6)+z(7)+z(8))*q8  
-!
-!f(10)=(-x(1)-x(2)-x(3)-x(4)+x(5)+x(6)+x(7)+x(8))*q8
-!f(11)=(-y(1)-y(2)-y(3)-y(4)+y(5)+y(6)+y(7)+y(8))*q8
-!f(12)=(-z(1)-z(2)-z(3)-z(4)+z(5)+z(6)+z(7)+z(8))*q8
-!
-!f(13)=( x(1)-x(2)+x(3)-x(4)+x(5)-x(6)+x(7)-x(8))*q8
-!f(14)=( y(1)-y(2)+y(3)-y(4)+y(5)-y(6)+y(7)-y(8))*q8
-!f(15)=( z(1)-z(2)+z(3)-z(4)+z(5)-z(6)+z(7)-z(8))*q8
-!
-!f(16)=( x(1)-x(2)-x(3)+x(4)-x(5)+x(6)+x(7)-x(8))*q8
-!f(17)=( y(1)-y(2)-y(3)+y(4)-y(5)+y(6)+y(7)-y(8))*q8
-!f(18)=( z(1)-z(2)-z(3)+z(4)-z(5)+z(6)+z(7)-z(8))*q8
-!
-!f(19)=( x(1)+x(2)-x(3)-x(4)-x(5)-x(6)+x(7)+x(8))*q8
-!f(20)=( y(1)+y(2)-y(3)-y(4)-y(5)-y(6)+y(7)+y(8))*q8
-!f(21)=( z(1)+z(2)-z(3)-z(4)-z(5)-z(6)+z(7)+z(8))*q8
-!
-!f(22)=(-x(1)+x(2)-x(3)+x(4)+x(5)-x(6)+x(7)-x(8))*q8
-!f(23)=(-y(1)+y(2)-y(3)+y(4)+y(5)-y(6)+y(7)-y(8))*q8
-!f(24)=(-z(1)+z(2)-z(3)+z(4)+z(5)-z(6)+z(7)-z(8))*q8
-!
-!! set an epsilon for zero testing
-!factor= 0.1e-7
-!
-!! set the start solution to 0
-!dparx = 0.0d0
-!dpary = 0.0d0
-!dparz = 0.0d0
-!
-!maxit = 100
-!
-!do i=1,maxit
-!  
-!  ! save the old solution vector
-!  doldx = dparx
-!  doldy = dpary
-!  doldz = dparz
-!
-!  ! set up the jacobian of the mapping
-!  jg(1,1)=f(4)+f(13)*dpary+f(16)*dparz+f(22)*dpary*dparz
-!
-!  jg(1,2)=f(7)+f(13)*dparx+f(19)*dparz+f(22)*dparx*dparz
-!
-!  jg(1,3)=f(10)+f(16)*dparx+f(19)*dpary+f(22)*dparx*dpary
-!
-!  jg(2,1)=f(5)+f(14)*dpary+f(17)*dparz+f(23)*dpary*dparz
-!
-!  jg(2,2)=f(8)+f(14)*dparx+f(20)*dparz+f(23)*dparx*dparz
-!
-!  jg(2,3)=f(11)+f(17)*dparx+f(20)*dpary+f(23)*dparx*dpary
-!
-!  jg(3,1)=f(6)+f(15)*dpary+f(18)*dparz+f(24)*dpary*dparz
-!
-!  jg(3,2)=f(9)+f(15)*dparx+f(21)*dparz+f(24)*dparx*dparz
-!
-!  jg(3,3)=f(12)+f(18)*dparx+f(21)*dpary+f(24)*dparx*dpary
-!
-!
-!  ! compute the RHS of the linear system
-!  g(1)=f(1)+jg(1,1)*dparx+f(7)*dpary+f(10)*dparz+f(19)*dpary*dparz-x0
-!
-!  g(2)=f(2)+f(5)*dparx+jg(2,2)*dpary+f(11)*dparz+f(17)*dparx*dparz-y0
-!
-!  g(3)=f(3)+f(6)*dparx+f(9)*dpary+jg(3,3)*dparz+ f(15)*dparx*dpary-z0
-!
-!  ! solve the linear system using cramer's rule
-!  det  =  jg(1,1)*(jg(2,2)*jg(3,3)-jg(3,2)*jg(2,3))- &
-!          jg(1,2)*(jg(2,1)*jg(3,3)-jg(3,1)*jg(2,3))+ &
-!          jg(1,3)*(jg(2,1)*jg(3,2)-jg(3,1)*jg(2,2))
-!
-!  detx =  g(1)   *(jg(2,2)*jg(3,3)-jg(3,2) *jg(2,3))- &
-!          jg(1,2)*( g(2)  *jg(3,3)- g(3)   *jg(2,3))+ &
-!          jg(1,3)*( g(2)  *jg(3,2)- g(3)   *jg(2,2))
-!
-!  dety =  jg(1,1)*( g(2)  *jg(3,3)- g(3)   *jg(2,3))- &
-!          g(1)   *(jg(2,1)*jg(3,3)-jg(3,1) *jg(2,3))+ &
-!          jg(1,3)*(jg(2,1)* g(3)  -jg(3,1) * g(2)  )
-!
-!  detz =  jg(1,1)*(jg(2,2)* g(3)  -jg(3,2) * g(2)  )- &
-!          jg(1,2)*(jg(2,1)* g(3)  -jg(3,1) * g(2)  )+ &
-!          g(1)   *(jg(2,1)*jg(3,2)-jg(3,1) *jg(2,2))
-!
-!  dparx = detx/det
-!  dpary = dety/det
-!  dparz = detz/det
-!
-!  dparx = doldx-dparx
-!  dpary = doldy-dpary
-!  dparz = doldz-dparz
-!
-!  ! check for divergence
-!  if(i.eq.10)then
-!  if(dparx.lt.-2.0d0.or.dparx.gt.2.0d0)then
-!    iconv=1
-!    return
-!  else if(dpary.lt.-2.0d0.or.dpary.gt.2.0d0)then
-!    iconv=1
-!    return
-!  else if(dparz.lt.-2.0d0.or.dparz.gt.2.0d0)then
-!    iconv=1
-!    return
-!  endif
-!  endif
-!
-!  ! check convergence criterion
-!  if ((abs(dparx-doldx).le.factor).and.(abs(dpary-doldy) &
-!      .le.factor).and.(abs(dparz-doldz).le.factor))then
-!      return
-!  endif
-!
+!logical function fbmaux_PointInHex(X0,Y0,Z0,DPARX,DPARY,DPARZ,IEL,ICONV,DCORVG,KVERT)
+logical function fbmaux_PointInHex(X0,Y0,Z0,x,y,z,DPARX,DPARY,DPARZ,IEL)
+!**@Description
+ ! The subroutine transformes a point from a deformed element back to
+ ! the reference element by computing the inverse transformation and
+ ! applying it to the point. The point on the reference element in returned
+ ! in dparx,dpary,dparz
+!**End@Description  
+implicit none
+
+integer iel
+integer iconv
+real*8  :: x0,y0,z0,dparx,dpary,dparz
+
+real*8, dimension(8) :: x,y,z
+
+integer ive,ivt,i
+real*8 eps 
+
+
+!real*8 dcorvg(3,*)
+!integer kvert(8,*)
+
+! a tolerance that is too high can 
+! cause the algorithm to fail, especially when 
+! the nodes are located on the boundary of two subdomains.
+! These nodes need to have the same coordinates, so when they 
+! differ only a little bit this can be problematic
+eps = 0.1d-6
+
+! assign the points of the hexahedron
+!do i=1,8
+!  x(i)=dcorvg(1,kvert(i,iel))
+!  y(i)=dcorvg(2,kvert(i,iel))
+!  z(i)=dcorvg(3,kvert(i,iel))
 !end do
-! 
-!end subroutine fbmaux_InvTrans
+
+! transform the point on the reference element
+call fbmaux_InvTrans(X,Y,Z,X0,Y0,Z0,DPARX,DPARY,DPARZ,iel,iconv)
+
+! check if the point is in the reference element
+if(.not.((dparx.ge.-1.0d0-eps).and.(dparx.le.1.0d0+eps)))then
+  fbmaux_PointInHex=.false.
+  return
+end if
+
+if(.not.((dpary.ge.-1.0d0-eps).and.(dpary.le.1.0d0+eps)))then
+  fbmaux_PointInHex=.false.
+  return
+end if
+
+if(.not.((dparz.ge.-1.0d0-eps).and.(dparz.le.1.0d0+eps)))then
+  fbmaux_PointInHex=.false.
+  return
+end if
+ 
+fbmaux_PointInHex = .true.
+
+end function
+!
+!****************************************************************************  
+!
+subroutine fbmaux_InvTrans(x,y,z, x0,y0,z0,dparx,dpary,dparz,iel,iconv)
+!**@Description
+ ! The subroutine transformes a point from a deformed element back to
+ ! the reference element by computing the inverse transformation and
+ ! applying it to the point. The point on the reference element in returned
+ ! in dparx,dpary,dparz
+!**End@Description
+use pp3d_mpi, only:myid
+      
+implicit none
+      
+! parameters
+      
+! coordinates of the evaluation point
+real*8 :: dxreal,dyreal,dzreal
+
+! coordinates of the element vertices
+real*8, dimension(3,8) :: coord
+
+! coordinates of (x,y,z) on the reference element
+real*8 :: dparx,dpary,dparz
+
+integer :: iconv
+
+! coordinates on the element vertices
+real*8 x(8),y(8),z(8)
+
+! local variables
+real*8 :: doldx,doldy,doldz
+
+!      double precision q8,factor,f(3),fd(3,3)
+real*8 q8,factor,f(24),jg(3,3),g(3),fd(3,3),&
+                 det,detx,dety,detz,x0,y0,z0
+
+integer          maxit,i, iel
+
+q8 = 0.125d0
+
+f( 1)=( x(1)+x(2)+x(3)+x(4)+x(5)+x(6)+x(7)+x(8))*q8
+f( 2)=( y(1)+y(2)+y(3)+y(4)+y(5)+y(6)+y(7)+y(8))*q8
+f( 3)=( z(1)+z(2)+z(3)+z(4)+z(5)+z(6)+z(7)+z(8))*q8
+
+f( 4)=(-x(1)+x(2)+x(3)-x(4)-x(5)+x(6)+x(7)-x(8))*q8
+f( 5)=(-y(1)+y(2)+y(3)-y(4)-y(5)+y(6)+y(7)-y(8))*q8
+f( 6)=(-z(1)+z(2)+z(3)-z(4)-z(5)+z(6)+z(7)-z(8))*q8
+
+f( 7)=(-x(1)-x(2)+x(3)+x(4)-x(5)-x(6)+x(7)+x(8))*q8
+f( 8)=(-y(1)-y(2)+y(3)+y(4)-y(5)-y(6)+y(7)+y(8))*q8
+f( 9)=(-z(1)-z(2)+z(3)+z(4)-z(5)-z(6)+z(7)+z(8))*q8  
+
+f(10)=(-x(1)-x(2)-x(3)-x(4)+x(5)+x(6)+x(7)+x(8))*q8
+f(11)=(-y(1)-y(2)-y(3)-y(4)+y(5)+y(6)+y(7)+y(8))*q8
+f(12)=(-z(1)-z(2)-z(3)-z(4)+z(5)+z(6)+z(7)+z(8))*q8
+
+f(13)=( x(1)-x(2)+x(3)-x(4)+x(5)-x(6)+x(7)-x(8))*q8
+f(14)=( y(1)-y(2)+y(3)-y(4)+y(5)-y(6)+y(7)-y(8))*q8
+f(15)=( z(1)-z(2)+z(3)-z(4)+z(5)-z(6)+z(7)-z(8))*q8
+
+f(16)=( x(1)-x(2)-x(3)+x(4)-x(5)+x(6)+x(7)-x(8))*q8
+f(17)=( y(1)-y(2)-y(3)+y(4)-y(5)+y(6)+y(7)-y(8))*q8
+f(18)=( z(1)-z(2)-z(3)+z(4)-z(5)+z(6)+z(7)-z(8))*q8
+
+f(19)=( x(1)+x(2)-x(3)-x(4)-x(5)-x(6)+x(7)+x(8))*q8
+f(20)=( y(1)+y(2)-y(3)-y(4)-y(5)-y(6)+y(7)+y(8))*q8
+f(21)=( z(1)+z(2)-z(3)-z(4)-z(5)-z(6)+z(7)+z(8))*q8
+
+f(22)=(-x(1)+x(2)-x(3)+x(4)+x(5)-x(6)+x(7)-x(8))*q8
+f(23)=(-y(1)+y(2)-y(3)+y(4)+y(5)-y(6)+y(7)-y(8))*q8
+f(24)=(-z(1)+z(2)-z(3)+z(4)+z(5)-z(6)+z(7)-z(8))*q8
+
+! set an epsilon for zero testing
+factor= 0.1e-7
+
+! set the start solution to 0
+dparx = 0.0d0
+dpary = 0.0d0
+dparz = 0.0d0
+
+maxit = 100
+
+do i=1,maxit
+  
+  ! save the old solution vector
+  doldx = dparx
+  doldy = dpary
+  doldz = dparz
+
+  ! set up the jacobian of the mapping
+  jg(1,1)=f(4)+f(13)*dpary+f(16)*dparz+f(22)*dpary*dparz
+
+  jg(1,2)=f(7)+f(13)*dparx+f(19)*dparz+f(22)*dparx*dparz
+
+  jg(1,3)=f(10)+f(16)*dparx+f(19)*dpary+f(22)*dparx*dpary
+
+  jg(2,1)=f(5)+f(14)*dpary+f(17)*dparz+f(23)*dpary*dparz
+
+  jg(2,2)=f(8)+f(14)*dparx+f(20)*dparz+f(23)*dparx*dparz
+
+  jg(2,3)=f(11)+f(17)*dparx+f(20)*dpary+f(23)*dparx*dpary
+
+  jg(3,1)=f(6)+f(15)*dpary+f(18)*dparz+f(24)*dpary*dparz
+
+  jg(3,2)=f(9)+f(15)*dparx+f(21)*dparz+f(24)*dparx*dparz
+
+  jg(3,3)=f(12)+f(18)*dparx+f(21)*dpary+f(24)*dparx*dpary
+
+
+  ! compute the RHS of the linear system
+  g(1)=f(1)+jg(1,1)*dparx+f(7)*dpary+f(10)*dparz+f(19)*dpary*dparz-x0
+
+  g(2)=f(2)+f(5)*dparx+jg(2,2)*dpary+f(11)*dparz+f(17)*dparx*dparz-y0
+
+  g(3)=f(3)+f(6)*dparx+f(9)*dpary+jg(3,3)*dparz+ f(15)*dparx*dpary-z0
+
+  ! solve the linear system using cramer's rule
+  det  =  jg(1,1)*(jg(2,2)*jg(3,3)-jg(3,2)*jg(2,3))- &
+          jg(1,2)*(jg(2,1)*jg(3,3)-jg(3,1)*jg(2,3))+ &
+          jg(1,3)*(jg(2,1)*jg(3,2)-jg(3,1)*jg(2,2))
+
+  detx =  g(1)   *(jg(2,2)*jg(3,3)-jg(3,2) *jg(2,3))- &
+          jg(1,2)*( g(2)  *jg(3,3)- g(3)   *jg(2,3))+ &
+          jg(1,3)*( g(2)  *jg(3,2)- g(3)   *jg(2,2))
+
+  dety =  jg(1,1)*( g(2)  *jg(3,3)- g(3)   *jg(2,3))- &
+          g(1)   *(jg(2,1)*jg(3,3)-jg(3,1) *jg(2,3))+ &
+          jg(1,3)*(jg(2,1)* g(3)  -jg(3,1) * g(2)  )
+
+  detz =  jg(1,1)*(jg(2,2)* g(3)  -jg(3,2) * g(2)  )- &
+          jg(1,2)*(jg(2,1)* g(3)  -jg(3,1) * g(2)  )+ &
+          g(1)   *(jg(2,1)*jg(3,2)-jg(3,1) *jg(2,2))
+
+  dparx = detx/det
+  dpary = dety/det
+  dparz = detz/det
+
+  dparx = doldx-dparx
+  dpary = doldy-dpary
+  dparz = doldz-dparz
+
+  ! check for divergence
+  if(i.eq.10)then
+  if(dparx.lt.-2.0d0.or.dparx.gt.2.0d0)then
+    iconv=1
+    return
+  else if(dpary.lt.-2.0d0.or.dpary.gt.2.0d0)then
+    iconv=1
+    return
+  else if(dparz.lt.-2.0d0.or.dparz.gt.2.0d0)then
+    iconv=1
+    return
+  endif
+  endif
+
+  ! check convergence criterion
+  if ((abs(dparx-doldx).le.factor).and.(abs(dpary-doldy) &
+      .le.factor).and.(abs(dparz-doldz).le.factor))then
+      return
+  endif
+
+end do
+ 
+end subroutine fbmaux_InvTrans
 !!
 !!****************************************************************************  
 !!
