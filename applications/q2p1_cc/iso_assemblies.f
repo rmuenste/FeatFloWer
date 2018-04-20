@@ -2498,13 +2498,14 @@ C
 99999 END
 
 ************************************************************************
-      SUBROUTINE GetForceCyl_cc_iso(U1,U2,U3,P,bALPHA,KVERT,KAREA,KEDGE,
-     *                     DCORVG,DResForce,ELE,bNonNewt)
+      SUBROUTINE GetForceCyl_cc_iso(U1,U2,U3,Pc,Po,bALPHA,KVERT,KAREA,
+     *                     KEDGE,DCORVG,DResForce,ELE,bNonNewt)
 ************************************************************************
 *     Discrete convection operator: Q1~ elements (nonparametric)
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE def_cc, ONLY : Properties
+      USE var_QuadScalar,ONLY : theta,itns
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -2513,7 +2514,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       LOGICAL bNonNewt
-      REAL*8  U1(*),U2(*),U3(*),P(*),DCORVG(NNDIM,*)
+      REAL*8  U1(*),U2(*),U3(*),Pc(*),Po(*),DCORVG(NNDIM,*)
       REAL*8  DResForce(7)
       LOGICAL bALPHA(*)
       INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
@@ -2724,8 +2725,19 @@ C ----=============================================----
 C ----=============================================---- 
 
        JJ = 4*(IEL-1) + 1
-       Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) +
-     *         (YY-DY0)*P(JJ+2) + (ZZ-DZ0)*P(JJ+3)
+
+	IF (theta.eq.0.5 .and. itns.gt.1) THEN
+       	PressC =          Pc(JJ  ) + (XX-DX0)*Pc(JJ+1) +
+     *         (YY-DY0)*Pc(JJ+2) + (ZZ-DZ0)*Pc(JJ+3)
+       	PressO =          Po(JJ  ) + (XX-DX0)*Po(JJ+1) +
+     *         (YY-DY0)*Po(JJ+2) + (ZZ-DZ0)*Po(JJ+3)
+
+	Press = PressC + 0.5d0 * (PressC-PressO)
+	ELSE
+       	Press =          Pc(JJ  ) + (XX-DX0)*Pc(JJ+1) +
+     *         (YY-DY0)*Pc(JJ+2) + (ZZ-DZ0)*Pc(JJ+3)
+	END IF
+
 C--------------------------------------------------------
 c-----------Form the integrand------------------
        DN1=-DALX

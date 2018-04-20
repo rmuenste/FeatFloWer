@@ -215,7 +215,7 @@ TYPE TLinScalar
  INTEGER :: ndof,na
 ! TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knpr
 ! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old,P_old,P_new
  REAL*8  , DIMENSION(:)  , ALLOCATABLE ::  ST_P,Q2
  TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: valP,defP,auxP,rhsP,dvalP
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_GMV

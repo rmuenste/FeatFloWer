@@ -295,6 +295,8 @@ IF (myid.ne.master) THEN
  QuadSc%valU_help = QuadSc%valU
  QuadSc%valV_help = QuadSc%valV
  QuadSc%valW_help = QuadSc%valW
+
+ LinSc%P_old  = LinSc%valP(NLMAX)%x
 END IF
 
  CALL ZTIME(tttt0)
@@ -767,6 +769,8 @@ REAL*8 :: Force2(3)
 INTEGER i,nn
 EXTERNAL E013
 
+
+
  ILEV=NLMAX
  CALL SETLEV(2)
  IF (bNonNewtonian) THEN
@@ -780,8 +784,8 @@ EXTERNAL E013
 !                     mg_mesh%level(ILEV)%dcorvg,&
 !                     Force, E013)
  CALL GetForceCyl_cc_iso(QuadSc%valU,QuadSc%valV,&
-                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
-                     BndrForce,&
+                     QuadSc%valW,LinSc%ValP(NLMAX)%x,&
+                     LinSc%P_old,BndrForce,&
                      mg_mesh%level(ILEV)%kvert,&
                      mg_mesh%level(ILEV)%karea,&
                      mg_mesh%level(ILEV)%kedge,&
