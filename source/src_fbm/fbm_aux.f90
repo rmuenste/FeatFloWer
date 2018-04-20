@@ -34,7 +34,7 @@ contains
 !
 !****************************************************************************  
 !
-subroutine fbmaux_GetFictKnpr(x,y,z,iBndr,inpr,Dist)
+subroutine fbmaux_GetFictKnpr(x, y, z, ibndr, inpr, timens, dist)
 !**@Description
 !  The function loops over all rigid bodies in the domain 
 !  and calculates the fbm function  
@@ -43,7 +43,11 @@ use var_QuadScalar,only:myFBM
 implicit none
 
 real*8 :: x, y, z
-integer :: iBndr, inpr 
+
+integer :: ibndr, inpr 
+
+real*8 :: timens
+
 real*8 :: dist
 
 real*8 :: px, py, pz
@@ -113,7 +117,7 @@ do ip = 1,myFBM%nParticles
 
   elseif(idynType == FBM_ROTATIONAL)then
 
-    call fbmaux_GetFictKnprRot(x,y,z, px, py, pz, ipc, inpr, dist)
+    call fbmaux_GetFictKnprRot(x,y,z, px, py, pz, ipc, timens, inpr, dist)
 
   elseif(idynType == FBM_ROTATIONAL_INVERSE)then
 
@@ -165,9 +169,8 @@ end subroutine fbmaux_GetFictKnprInverse
 !
 !-----------------------------------------------------------
 !
-subroutine fbmaux_GetFictKnprRot(x,y,z, px, py, pz, ipc, inpr, dist)
+subroutine fbmaux_GetFictKnprRot(x,y,z, px, py, pz, ipc, timens, inpr, dist)
 
-use var_QuadScalar, only : timens
 
 implicit none
 
@@ -176,6 +179,8 @@ real*8 :: x,y,z
 real*8 :: px,py,pz
 
 integer :: ipc, inpr
+
+real*8 :: timens
 
 real*8 :: dist
 

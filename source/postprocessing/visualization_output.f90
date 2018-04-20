@@ -1,4 +1,4 @@
-module vizsualization_out
+module visualization_out
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar 
 use  PP3D_MPI, only:myid,showid,subnodes
@@ -17,13 +17,20 @@ contains
 ! @param iOutput The output idx of the visulation file
 ! @param sQuadSc The velocity solution structure of the mesh 
 ! @param sLinSc The pressure solution structure of the mesh 
+! @param sTracer The solution of the scalar tracer equation 
 ! @param visc The viscosity solution  
 ! @param dist The distance solution  
 ! @param shear The shear rate solution  
 ! @param mgMesh The mesh that will be written out
+!subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, dist, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
+
+USE PP3D_MPI, ONLY:myid
+USE def_FEAT
+
+USE Transport_Q1,ONLY:Tracer
 
 implicit none
 
@@ -63,6 +70,13 @@ if (sExport%Format .eq. "VTK") then
 
   call viz_write_pvtu_main(iOutput)
  end if
+
+ call viz_OutputHistogram(iOutput, sQuadSc)
+
+! call viz_OutputRegionHistogram(iOutput)
+! 
+! SUBROUTINE viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer)
+ call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer)
 
 end if
 
@@ -412,4 +426,524 @@ end subroutine viz_write_pvtu_main
 ! A routine for outputting fields for an sse application 
 !-------------------------------------------------------------------------------------------------
 !
-end module vizsualization_out
+! @param iO Output file idx
+! @param dcoor Coordinate array of the mesh 
+! @param kvert Vertices at an element connectivity array of the mesh
+! @param sQuadSc The velocity solution structure of the mesh 
+! @param sLinSc The pressure solution structure of the mesh 
+! @param visc The viscosity solution  
+! @param dist The distance solution  
+! @param shear The shearrate solution  
+! @param ioutput_lvl Output level of the mesh
+! @param mgMesh The mesh that will be written out
+SUBROUTINE viz_OutputHistogram(iOut, sQuadSc)
+use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
+USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
+
+integer :: iOut
+
+type(tQuadScalar), intent(in) :: sQuadSc 
+
+! local variables
+integer :: i,j,nBin
+parameter (nBin=50)
+real*8 logShear,logVisco
+real*8 HistoEta(nBin),HistoVis(nBin),Ml_i,dauxVis,dauxEta
+real*8 :: BinEta(3,nBin),BinVis(3,nBin)
+real*8 minBinEta,mAXBinEta,minBinVis,mAXBinVis,dBinEta,dBinVis,meanEta,meanVis
+character*100 cHistoFile
+
+IF (myid.ne.0) THEN
+
+HistoVis = 0d0
+HistoEta = 0d0
+
+BinEta(1,   1)=-1d1
+BinVis(1,   1)=-1d1
+BinEta(2,nBin)=+1d1
+BinEta(2,nBin)=+1d1
+
+minBinEta = -1.50d0
+maxBinEta = +4.50d0
+minBinVis = +1.50d0
+maxBinVis = +5.00d0
+
+dBinEta = (maxBinEta-minBinEta)/DBLE(nBin-2)
+dBinVis = (maxBinVis-minBinVis)/DBLE(nBin-2)
+
+DO i=2,nBin
+ 
+ BinEta(2,i-1)= minBinEta + DBLE(i-2)*dBinEta
+ BinVis(2,i-1)= minBinVis + DBLE(i-2)*dBinVis
+ BinEta(3,i-1)= minBinEta + (DBLE(i)-2.5d0)*dBinEta
+ BinVis(3,i-1)= minBinVis + (DBLE(i)-2.5d0)*dBinVis
+ BinEta(1,i)  = BinEta(2,i-1)
+ BinVis(1,i)  = BinVis(2,i-1)
+
+END DO
+ BinEta(3,nBin)= minBinEta + (DBLE(nBin)-1.5d0)*dBinEta
+ BinVis(3,nBin)= minBinVis + (DBLE(nBin)-1.5d0)*dBinVis
+
+! IF (myid.eq.1) then
+!  DO i=1,nBin
+!   write(*,'(4ES14.4)') BinEta(:,i), BinVis(:,i)
+!  end do
+! end if
+! pause
+
+DO i=1,sQuadSc%ndof
+ 
+ IF (MixerKNPR(i).eq.0) THEN
+  logShear = LOG10(Shearrate(i))
+  logVisco = LOG10(0.1d0*Viscosity(i))
+  Ml_i = mg_MlRhoMat(NLMAX)%a(i)
+
+  DO j=1,nBin
+   IF (logShear.ge.BinEta(1,j).and.logShear.lt.BinEta(2,j)) HistoEta(j)  = HistoEta(j)  + Ml_i
+   IF (logVisco.ge.BinVis(1,j).and.logVisco.lt.BinVis(2,j)) HistoVis(j)  = HistoVis(j)  + Ml_i
+  END DO
+
+ END IF
+
+END DO
+END IF
+
+CALL COMM_SUMMn(HistoVis,nBin)
+CALL COMM_SUMMn(HistoEta,nBin)
+
+IF (myid.eq.1) THEN
+ dauxVis = 0d0; dauxEta = 0d0
+ DO i=1,nBin
+  dauxVis = dauxVis + HistoVis(i)
+  dauxEta = dauxEta + HistoEta(i)
+ END DO
+ 
+ meanVis = 0d0
+ meanEta = 0d0
+
+ DO i=1,nBin
+  meanVis = meanVis + HistoVis(i)*BinVis(3,i)/dauxVis
+  meanEta = meanEta + HistoEta(i)*BinEta(3,i)/dauxEta
+ END DO
+
+ WRITE(cHistoFile,'(A,I5.5,A)') "_hist/h_",iOut, ".txt"
+ WRITE(*,'(3A)')"'",ADJUSTL(TRIM(cHistoFile)),"'"
+ OPEN(FILE=ADJUSTL(TRIM(cHistoFile)),UNIT=652)
+ DO i=1,nBin
+  WRITE(652,'(2(2(ES14.4),A))') BinEta(3,i),HistoEta(i)/dauxEta, " | ",BinVis(3,i),HistoVis(i)!/dauxVis
+ END DO
+  WRITE(652,'(A)') "------------------------------------------------------"
+  WRITE(652,'(2(1(ES14.4),A))') 10d0**meanEta, " | ",10d0**meanVis
+
+ CLOSE(652)
+
+END IF
+
+end subroutine viz_OutputHistogram
+
+!SUBROUTINE viz_OutputHistogram(iOut, sQuadSc)
+!use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
+!USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
+
+!integer :: iOut
+
+!type(tQuadScalar), intent(in) :: sQuadSc 
+! @param iO Output file idx
+! @param dcoor Coordinate array of the mesh 
+! @param kvert Vertices at an element connectivity array of the mesh
+! @param sQuadSc The velocity solution structure of the mesh 
+! @param sLinSc The pressure solution structure of the mesh 
+! @param visc The viscosity solution  
+! @param dist The distance solution  
+! @param shear The shearrate solution  
+! @param ioutput_lvl Output level of the mesh
+! @param mgMesh The mesh that will be written out
+subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer)
+
+USE PP3D_MPI, ONLY:myid
+USE def_FEAT
+use def_LinScalar, only: lScalar
+USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol
+
+implicit none
+
+type(tQuadScalar), intent(in) :: sQuadSc 
+
+type(tLinScalar), intent(in) :: sLinSc 
+
+type(lScalar), intent(in) :: sTracer
+    
+integer :: iOut
+
+integer i,j
+character cf*17,cf2*30
+character(8)  :: cdate
+character(10) :: ctime
+character(5)  :: czone
+integer,dimension(8) :: values
+character(100) :: command
+
+ my1DOut(1)%cName = 'VelocityZ_[m/s]'
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1)
+
+ my1DOut(2)%cName = 'Pressure_[bar]'
+ CALL viz_OutPut_1D_sub(sLinSc%Q2,sLinSc%Q2,sLinSc%Q2,2)
+
+ my1DOut(3)%cName = 'Temperature_[K]'
+ CALL viz_OutPut_1D_sub(sTracer%val(NLMAX+1)%x,sLinSc%Q2,sLinSc%Q2,3)
+
+ my1DOut(4)%cName = 'Viscosity_[kg/m/s]'
+ CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4)
+
+ my1DOut(5)%cName = 'ShearRate_[1/s]'
+ CALL viz_OutPut_1D_sub(ShearRate,sLinSc%Q2,sLinSc%Q2,5)
+
+ my1DOut(6)%cName = 'VelocityX_[m/s]'
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,6)
+
+ my1DOut(7)%cName = 'VelocityY_[m/s]'
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,7)
+
+ my1DOut(8)%cName = 'VelocityM_[m/s]'
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,8)
+
+IF (myid.eq.1) THEN
+ WRITE(cf2,'(A,I4.4,A)') '_1D/extrud3d_',iOut,'.res'
+ OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)))
+ WRITE(120,'(A)')"[SigmaFileInfo]"
+ WRITE(120,'(A)')"FileType=ResultsExtrud3d"
+ call date_and_time(cdate,ctime,czone,values)
+ WRITE(120,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
+ WRITE(120,'(A)')"Extrud3dVersion=Extrud3d 2.0"
+ WRITE(120,'(A,I2.2)')"counter_pos=",my1DOut_nol
+ WRITE(120,'(A)')"counter_verl=15"
+!  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
+ WRITE(120,'(A)') "[InputSigmaFile]"
+ WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+ CLOSE(120)
+
+ command = ' '
+ command = "cat _data/SSE.dat >> "//TRIM(ADJUSTL(cf2))
+ CALL system(TRIM(ADJUSTL(command)))
+
+ OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
+
+ WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+ 
+ WRITE(120,'(A)')"[Positions]"
+ WRITE(120,'(A)')"ID=ELEMENT_LENGTH"
+ WRITE(120,'(A)')"Unit=0"
+ WRITE(120,'(A)')"SIUnit=[mm]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
+ END DO
+ WRITE(120,'(A)')"[Ergebnisse]"
+! Pressure
+ WRITE(120,'(A,A,(100("/")))')"#///////////","PRESSURE"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf0]"
+ WRITE(120,'(A)')"ID=PRESSURE_MIN"
+ WRITE(120,'(A)')"Unit=38"
+ WRITE(120,'(A)')"SIUnit=[bar]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf1]"
+ WRITE(120,'(A)')"ID=PRESSURE_MAX"
+ WRITE(120,'(A)')"Unit=38"
+ WRITE(120,'(A)')"SIUnit=[bar]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf2]"
+ WRITE(120,'(A)')"ID=PRESSURE_MED"
+ WRITE(120,'(A)')"Unit=38"
+ WRITE(120,'(A)')"SIUnit=[bar]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMean(i+1)
+ END DO
+
+! ! Temperature
+!  WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf3]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+!  END DO
+! 
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf4]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+!  END DO
+! 
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf5]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MED"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+!  END DO
+
+! Shearrate
+ WRITE(120,'(A,A,(100("/")))')"#///////////","SHEARRATE"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf6]"
+ WRITE(120,'(A)')"ID=GAMMA_P_MIN"
+ WRITE(120,'(A)')"Unit=17"
+ WRITE(120,'(A)')"SIUnit=[1/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf7]"
+ WRITE(120,'(A)')"ID=GAMMA_P_MAX"
+ WRITE(120,'(A)')"Unit=17"
+ WRITE(120,'(A)')"SIUnit=[1/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf8]"
+ WRITE(120,'(A)')"ID=GAMMA_P_MED"
+ WRITE(120,'(A)')"Unit=17"
+ WRITE(120,'(A)')"SIUnit=[1/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMean(i+1)
+ END DO
+
+! Viscosity
+ WRITE(120,'(A,A,(100("/")))')"#///////////","VISCOSITY"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf9]"
+ WRITE(120,'(A)')"ID=ETA_MIN"
+ WRITE(120,'(A)')"Unit=35"
+ WRITE(120,'(A)')"SIUnit=[Pa s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf10]"
+ WRITE(120,'(A)')"ID=ETA_MAX"
+ WRITE(120,'(A)')"Unit=35"
+ WRITE(120,'(A)')"SIUnit=[Pa s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf11]"
+ WRITE(120,'(A)')"ID=ETA_MED"
+ WRITE(120,'(A)')"Unit=35"
+ WRITE(120,'(A)')"SIUnit=[Pa s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMean(i+1)
+ END DO
+
+! AxialVelocity
+ WRITE(120,'(A,A,(100("/")))')"#///////////","AXIALVELOCITY"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf12]"
+ WRITE(120,'(A)')"ID=AX_V_MIN"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf13]"
+ WRITE(120,'(A)')"ID=AX_V_MAX"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf14]"
+ WRITE(120,'(A)')"ID=AX_V_MED"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMean(i+1)
+ END DO
+
+! Velocity-X
+ WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_XCOMP"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf15]"
+ WRITE(120,'(A)')"ID=ROTX_V_MIN"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf16]"
+ WRITE(120,'(A)')"ID=ROTX_V_MAX"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf17]"
+ WRITE(120,'(A)')"ID=ROTX_V_MED"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMean(i+1)
+ END DO
+
+! Velocity-Y
+ WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_YCOMP"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf18]"
+ WRITE(120,'(A)')"ID=ROTY_V_MIN"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf19]"
+ WRITE(120,'(A)')"ID=ROTY_V_MAX"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf20]"
+ WRITE(120,'(A)')"ID=ROTY_V_MED"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMean(i+1)
+ END DO
+
+! Velocity-Mag
+ WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_MAG"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
+ WRITE(120,'(A)')"ID=MAG_MIN"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
+ WRITE(120,'(A)')"ID=MAG_MAX"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
+ WRITE(120,'(A)')"ID=MAG_MED"
+ WRITE(120,'(A)')"Unit=20"
+ WRITE(120,'(A)')"SIUnit=[m/s]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
+ END DO
+
+ CLOSE(120)
+
+end if
+
+end subroutine
+!
+! ----------------------------------------------
+!
+subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D)
+REAL*8 dField1(*),dField2(*),dField3(*)
+INTEGER i1D
+REAL*8 :: dMinSample, dMaxSample
+INTEGER i,j,jj
+REAL*8 dZ,dWidth,daux,dScale
+
+!my1DOut_nol = myOutput%nOf1DLayers 
+
+!dMinSample = 0d0
+!dMaxSample = mySigma%L
+
+!IF (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
+!IF (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
+!IF (.not.allocated(my1DOut(i1D)%dMean)) ALLOCATE(my1DOut(i1D)%dMean(my1DOut_nol))
+!IF (.not.allocated(my1DOut(i1D)%dMin))  ALLOCATE(my1DOut(i1D)%dMin(my1DOut_nol))
+!IF (.not.allocated(my1DOut(i1D)%dMax))  ALLOCATE(my1DOut(i1D)%dMax(my1DOut_nol))
+!IF (.not.allocated(my1DOut(i1D)%dLoc))  ALLOCATE(my1DOut(i1D)%dLoc(my1DOut_nol))
+
+!IF (myid.ne.0) THEN 
+
+! IF (i1D.EQ.1) dScale = 1d-2    !z-velo
+! IF (i1D.EQ.2) dScale = 1d-6    !Pressure
+! IF (i1D.EQ.3) dScale = 1d0     !Temperature
+! IF (i1D.EQ.4) dScale = 1d-1    !viscosity
+! IF (i1D.EQ.5) dScale = 1d0     !gamma
+! IF (i1D.EQ.6) dScale = 1d-2    !x-velo  
+! IF (i1D.EQ.7) dScale = 1d-2    !y-velo
+! IF (i1D.EQ.8) dScale = 1d-2    !mag-velo
+
+!!  IF (i1D.EQ.1) dScale = 1d-2   !z-velo
+!!  IF (i1D.EQ.2) dScale = 1d-4   !Pressure
+!!  IF (i1D.EQ.3) dScale = 1d0    !Temperature
+!!  IF (i1D.EQ.4) dScale = 1d0    !gamma
+!!  IF (i1D.EQ.5) dScale = 1d-1   !viscosity
+!!  IF (i1D.EQ.6) dScale = 1d-2   !x-velo  
+!!  IF (i1D.EQ.7) dScale = 1d-2   !y-velo
+!!  IF (i1D.EQ.8) dScale = 1d-2   !mag-velo
+!!                                
+! dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
+
+! DO i=1,my1DOut_nol
+!  my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
+!  my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
+! END DO
+
+! my1DOut(i1D)%dMean   = 0d0
+! my1DWeight           = 0d0
+! my1DOut(i1D)%dMin    = 1d30
+! my1DOut(i1D)%dMax    =-1d30
+! MlRhoMat => mg_MlRhoMat(NLMAX)%a
+
+! DO i=1,SIZE(QuadSc%ValU)
+
+!  IF (MixerKNPR(i).eq.0) THEN
+!   jj=0  
+!   dZ = myQ2Coor(3,i) 
+!   DO j=1,my1DOut_nol
+!    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+!     jj = j
+!     EXIT
+!    END IF
+!   END DO
+
+!   IF (jj.NE.0) THEN
+!    daux = dScale*dField1(i)
+!    IF (i1D.EQ.6) daux = dScale*dField2(i)
+!    IF (i1D.EQ.7) daux = dScale*dField3(i)
+!    IF (i1D.EQ.8) daux = dScale*SQRT(dField1(i)**2d0+dField2(i)**2d0+dField3(i)**2d0)
+!    my1DOut(i1D)%dMean(jj)   = my1DOut(i1D)%dMean(jj)    + daux*MlRhoMat(i)
+!    my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
+!    my1DOut(i1D)%dMin(jj)    = MIN(my1DOut(i1D)%dMin(jj),daux)
+!    my1DOut(i1D)%dMax(jj)    = MAX(my1DOut(i1D)%dMax(jj),daux)
+!   END IF
+!  END IF
+! END DO
+!END IF
+
+!CALL COMM_SUMMN(my1DOut(i1D)%dMean,my1DOut_nol)
+!CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
+!CALL COMM_Maximumn(my1DOut(i1D)%dMax,my1DOut_nol)
+!CALL COMM_Minimumn(my1DOut(i1D)%dMin,my1DOut_nol)
+
+!IF (myid.ne.0) THEN 
+! DO i=1,my1DOut_nol
+!  my1DOut(i1D)%dMean(i) = my1DOut(i1D)%dMean(i)/my1DWeight(i)
+!  my1DOut(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
+! END DO
+!END IF
+
+END SUBROUTINE viz_OutPut_1D_sub
+
+end module visualization_out
