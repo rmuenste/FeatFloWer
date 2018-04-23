@@ -73,5 +73,14 @@ set_target_properties(q2p1_sse PROPERTIES LINKER_LANGUAGE Fortran)
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+
+  # create the sse specific directories 
+    IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_1D")
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_1D")
+    ENDIF()
+
+    IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_hist")
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_hist")
+    ENDIF()
 ENDIF()
 
