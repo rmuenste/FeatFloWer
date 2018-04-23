@@ -2069,6 +2069,113 @@ END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE COMM_Maximumn(DVAL,NN)
+  INTEGER NN
+  REAL*8 DVAL(NN)
+  REAL*8, ALLOCATABLE :: pVal(:)
+  INTEGER pID,i
+
+  ALLOCATE (pVal(NN))
+
+  IF (myid.eq.MASTER) THEN
+    DVAL = -1d30
+    DO pID=1,subnodes
+    CALL RECVD_myMPI(pVAL,NN,pID)
+    DO i=1,NN
+    DVal(i) = MAX(DVAL(i),pVal(i))
+    END DO
+    END DO
+
+    pVAL = DVAL
+    DO pID=1,subnodes
+    CALL SENDD_myMPI(pVAL,NN,pID)
+    END DO
+
+  ELSE
+    pVAL=DVAL
+    CALL SENDD_myMPI(pVAL,NN,0)
+    CALL RECVD_myMPI(pVAL,NN,0)
+    DVAL = pVal
+  END IF
+
+  DEALLOCATE (pVal)
+
+END SUBROUTINE COMM_Maximumn
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_Minimum(value) !ok
+
+REAL*8  value
+REAL*8  Val,pVal
+INTEGER pID
+
+! if (VARIABLE.EQ.2) write(*,*) "complete?",myid,IMGComplete
+IF (myid.eq.MASTER) THEN
+
+ Val=+1D99
+ DO pID=1,subnodes
+  CALL RECVDD_myMPI(pVal,pID)
+!  write(*,*) pID,piMG
+  Val=MIN(Val,pVal)
+ END DO
+ !write(*,*) "-----------"
+
+ pVal=Val
+ DO pID=1,subnodes
+  CALL SENDDD_myMPI(pVal,pID)
+ END DO
+ value=Val
+
+ELSE
+  pVal=value
+  CALL SENDDD_myMPI(pVal,0)
+  CALL RECVDD_myMPI(pVal,0)
+  value=pVal
+END IF
+
+! if (VARIABLE.EQ.2) write(*,*) "complete!",myid,IMGComplete
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE COMM_Minimum
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_Minimumn(DVAL,NN)
+  INTEGER NN
+  REAL*8 DVAL(NN)
+  REAL*8, ALLOCATABLE :: pVal(:)
+  INTEGER pID,i
+
+  ALLOCATE (pVal(NN))
+
+  IF (myid.eq.MASTER) THEN
+    DVAL = +1d30
+    DO pID=1,subnodes
+    CALL RECVD_myMPI(pVAL,NN,pID)
+    DO i=1,NN
+    DVal(i) = MIN(DVAL(i),pVal(i))
+    END DO
+    END DO
+
+    pVAL = DVAL
+    DO pID=1,subnodes
+    CALL SENDD_myMPI(pVAL,NN,pID)
+    END DO
+
+  ELSE
+    pVAL=DVAL
+    CALL SENDD_myMPI(pVAL,NN,0)
+    CALL RECVD_myMPI(pVAL,NN,0)
+    DVAL = pVal
+  END IF
+
+  DEALLOCATE (pVal)
+
+END SUBROUTINE COMM_Minimumn
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE COMM_NLComplete(INLComplete)
 
   INTEGER INLComplete

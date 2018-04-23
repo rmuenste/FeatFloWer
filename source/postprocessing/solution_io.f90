@@ -1162,74 +1162,76 @@ END SUBROUTINE TimeStepCtrl
 !
 subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
-!  include 'defs_include.h'
-!  
-!  use Transport_Q2P1, only: QuadSc,LinSc
-!  use Transport_Q1, only: Tracer
-!  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
-!                            Viscosity, Distance, Shearrate 
+  include 'defs_include.h'
+  
+  use Transport_Q2P1, only: QuadSc,LinSc
+  use Transport_Q1, only: Tracer
+  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
+                            Viscosity, Distance, Shearrate 
+  use Sigma_User, only: myProcess
 
-!  use vizsualization_out, only: viz_output_fields
+  use visualization_out, only: viz_output_fields
 
-!  implicit none
+  implicit none
 
-!  integer, intent(in) :: filehandle
+  real, intent(inout) :: dout
 
-!  real, intent(inout) :: dout
-!  integer :: iXgmv
+  integer, intent(in) :: filehandle
 
-!  INTEGER :: inlU,inlT,MFILE
+  integer :: inlU,inlT
+  
+  ! local variables
+  integer :: iXgmv
 
-!  ! Output the solution in GMV or GiD format
-!  iXgmv = istep_ns
+  ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
 
-!  ! write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
-!  
-!  IF (itns.eq.1) THEN
-!    CALL ZTIME(myStat%t0)
+  ! write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
+  
+  IF (itns.eq.1) THEN
+    CALL ZTIME(myStat%t0)
 
-!    call viz_output_fields(myExport, 0, QuadSc, LinSc, & !Tracer, &
-!                           Viscosity, Distance, Shearrate,&
-!                           mg_mesh)
+    call viz_output_fields(myExport, int(myProcess%angle), QuadSc, LinSc, & !Tracer, &
+                           Viscosity, Distance, Shearrate,&
+                           mg_mesh)
 
-!    CALL ZTIME(myStat%t1)
-!    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
-!    CALL ZTIME(myStat%t0)
-!    call write_sol_to_file(0, timens,0)
-!    CALL ZTIME(myStat%t1)
-!  END IF
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    CALL ZTIME(myStat%t0)
+    call write_sol_to_file(0, timens,0)
+    CALL ZTIME(myStat%t1)
+  END IF
 
-!  IF(dout.LE.(timens+1e-10)) THEN
+  IF(dout.LE.(timens+1e-10)) THEN
 
-!    IF (itns.ne.1) THEN
-!      iXgmv = iXgmv - 1
-!      CALL ZTIME(myStat%t0)
+    IF (itns.ne.1) THEN
+      CALL ZTIME(myStat%t0)
+      iXgmv = int(myProcess%angle)
+      call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+                             Viscosity, Distance, Shearrate, mg_mesh)
 
-!      call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
-!                             Viscosity, Distance, Shearrate, mg_mesh)
+      CALL ZTIME(myStat%t1)
+      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    END IF
+    dout=dout+dtgmv
 
-!      CALL ZTIME(myStat%t1)
-!      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
-!    END IF
-!    dout=dout+dtgmv
+    ! Save intermediate solution to a dump file
+    IF (insav.NE.0.AND.itns.NE.1) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
+        CALL ZTIME(myStat%t0)
+        call write_sol_to_file(insavn, timens)
+        CALL ZTIME(myStat%t1)
+        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+      END IF
+    END IF
 
-!    ! Save intermediate solution to a dump file
-!    IF (insav.NE.0.AND.itns.NE.1) THEN
-!      IF (MOD(iXgmv,insav).EQ.0) THEN
-!        CALL ZTIME(myStat%t0)
-!        call write_sol_to_file(insavn, timens)
-!        CALL ZTIME(myStat%t1)
-!        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
-!      END IF
-!    END IF
+  END IF
+! 
+  ! Timestep control
+!   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
-!  END IF
-!! 
-!  ! Timestep control
-!!   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
-
-!  ! Interaction from user
-!  CALL ProcessControl(filehandle,mterm)
+  ! Interaction from user
+  CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_sse
 

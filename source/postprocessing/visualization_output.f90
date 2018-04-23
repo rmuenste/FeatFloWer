@@ -1,7 +1,13 @@
 module visualization_out
 
-use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar 
-use  PP3D_MPI, only:myid,showid,subnodes
+use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor 
+  
+use Sigma_User, only: tOutput, tSigma
+
+use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
+use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,&
+                   COMM_Minimumn,COMM_NLComplete,Comm_Summ,myMPI_Barrier
 !------------------------------------------------------------------------------------------------
 ! A module for output routines for vtk, gmv or other output formats. 
 ! For an application that needs strongly different visualization output 
@@ -71,12 +77,11 @@ if (sExport%Format .eq. "VTK") then
   call viz_write_pvtu_main(iOutput)
  end if
 
- call viz_OutputHistogram(iOutput, sQuadSc)
+ call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
 ! call viz_OutputRegionHistogram(iOutput)
-! 
-! SUBROUTINE viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer)
- call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer)
+ 
+ call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
 end if
 
@@ -427,22 +432,19 @@ end subroutine viz_write_pvtu_main
 !-------------------------------------------------------------------------------------------------
 !
 ! @param iO Output file idx
-! @param dcoor Coordinate array of the mesh 
-! @param kvert Vertices at an element connectivity array of the mesh
 ! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param visc The viscosity solution  
-! @param dist The distance solution  
-! @param shear The shearrate solution  
-! @param ioutput_lvl Output level of the mesh
-! @param mgMesh The mesh that will be written out
-SUBROUTINE viz_OutputHistogram(iOut, sQuadSc)
+! @param maxlevel The maximum grid level used in computation (former NLMAX) 
+SUBROUTINE viz_OutputHistogram(iOut, sQuadSc, maxlevel)
 use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
+
+implicit none
 
 integer :: iOut
 
 type(tQuadScalar), intent(in) :: sQuadSc 
+
+integer, intent(in) :: maxlevel 
 
 ! local variables
 integer :: i,j,nBin
@@ -496,7 +498,7 @@ DO i=1,sQuadSc%ndof
  IF (MixerKNPR(i).eq.0) THEN
   logShear = LOG10(Shearrate(i))
   logVisco = LOG10(0.1d0*Viscosity(i))
-  Ml_i = mg_MlRhoMat(NLMAX)%a(i)
+  Ml_i = mg_MlRhoMat(maxlevel)%a(i)
 
   DO j=1,nBin
    IF (logShear.ge.BinEta(1,j).and.logShear.lt.BinEta(2,j)) HistoEta(j)  = HistoEta(j)  + Ml_i
@@ -530,7 +532,7 @@ IF (myid.eq.1) THEN
  WRITE(*,'(3A)')"'",ADJUSTL(TRIM(cHistoFile)),"'"
  OPEN(FILE=ADJUSTL(TRIM(cHistoFile)),UNIT=652)
  DO i=1,nBin
-  WRITE(652,'(2(2(ES14.4),A))') BinEta(3,i),HistoEta(i)/dauxEta, " | ",BinVis(3,i),HistoVis(i)!/dauxVis
+  WRITE(652,'(2(2(ES14.4),A))') BinEta(3,i),HistoEta(i)/dauxEta, " | ",BinVis(3,i),HistoVis(i)/dauxVis
  END DO
   WRITE(652,'(A)') "------------------------------------------------------"
   WRITE(652,'(2(1(ES14.4),A))') 10d0**meanEta, " | ",10d0**meanVis
@@ -540,30 +542,22 @@ IF (myid.eq.1) THEN
 END IF
 
 end subroutine viz_OutputHistogram
-
-!SUBROUTINE viz_OutputHistogram(iOut, sQuadSc)
-!use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
-!USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
-
-!integer :: iOut
-
-!type(tQuadScalar), intent(in) :: sQuadSc 
+!
+!-------------------------------------------------------------------------------------------------
+! A wrapper routine for outputting 1D fields for an sse application 
+!-------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
-! @param dcoor Coordinate array of the mesh 
-! @param kvert Vertices at an element connectivity array of the mesh
 ! @param sQuadSc The velocity solution structure of the mesh 
 ! @param sLinSc The pressure solution structure of the mesh 
-! @param visc The viscosity solution  
-! @param dist The distance solution  
-! @param shear The shearrate solution  
-! @param ioutput_lvl Output level of the mesh
-! @param mgMesh The mesh that will be written out
-subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer)
+! @param sTracer Scalar solution structure  
+! @param maxlevel The maximum grid level used in computation (former NLMAX) 
+subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel)
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 use def_LinScalar, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol
+use Sigma_User, only: myOutput, mySigma
 
 implicit none
 
@@ -572,6 +566,8 @@ type(tQuadScalar), intent(in) :: sQuadSc
 type(tLinScalar), intent(in) :: sLinSc 
 
 type(lScalar), intent(in) :: sTracer
+
+integer, intent(in) :: maxlevel
     
 integer :: iOut
 
@@ -584,51 +580,54 @@ integer,dimension(8) :: values
 character(100) :: command
 
  my1DOut(1)%cName = 'VelocityZ_[m/s]'
- CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1)
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(2)%cName = 'Pressure_[bar]'
- CALL viz_OutPut_1D_sub(sLinSc%Q2,sLinSc%Q2,sLinSc%Q2,2)
+ CALL viz_OutPut_1D_sub(sLinSc%Q2,sLinSc%Q2,sLinSc%Q2,2, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
- my1DOut(3)%cName = 'Temperature_[K]'
- CALL viz_OutPut_1D_sub(sTracer%val(NLMAX+1)%x,sLinSc%Q2,sLinSc%Q2,3)
+! my1DOut(3)%cName = 'Temperature_[K]'
+! CALL viz_OutPut_1D_sub(sTracer%val(maxlevel+1)%x,sLinSc%Q2,sLinSc%Q2,3, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+! write(*,*)'------------------done3:',myid
 
  my1DOut(4)%cName = 'Viscosity_[kg/m/s]'
- CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4)
+ CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(5)%cName = 'ShearRate_[1/s]'
- CALL viz_OutPut_1D_sub(ShearRate,sLinSc%Q2,sLinSc%Q2,5)
+ CALL viz_OutPut_1D_sub(ShearRate,sLinSc%Q2,sLinSc%Q2,5, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(6)%cName = 'VelocityX_[m/s]'
- CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,6)
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,6, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(7)%cName = 'VelocityY_[m/s]'
- CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,7)
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,7, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(8)%cName = 'VelocityM_[m/s]'
- CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,8)
+ CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,8, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
+! write(*,*)'------------------This should crash-----------------------------'
 IF (myid.eq.1) THEN
+
  WRITE(cf2,'(A,I4.4,A)') '_1D/extrud3d_',iOut,'.res'
- OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)))
- WRITE(120,'(A)')"[SigmaFileInfo]"
- WRITE(120,'(A)')"FileType=ResultsExtrud3d"
- call date_and_time(cdate,ctime,czone,values)
- WRITE(120,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
- WRITE(120,'(A)')"Extrud3dVersion=Extrud3d 2.0"
- WRITE(120,'(A,I2.2)')"counter_pos=",my1DOut_nol
- WRITE(120,'(A)')"counter_verl=15"
-!  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
- WRITE(120,'(A)') "[InputSigmaFile]"
- WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
- CLOSE(120)
+! OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)))
+! WRITE(120,'(A)')"[SigmaFileInfo]"
+! WRITE(120,'(A)')"FileType=ResultsExtrud3d"
+! call date_and_time(cdate,ctime,czone,values)
+! WRITE(120,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
+! WRITE(120,'(A)')"Extrud3dVersion=Extrud3d 2.0"
+! WRITE(120,'(A,I2.2)')"counter_pos=",my1DOut_nol
+! WRITE(120,'(A)')"counter_verl=15"
+!!  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
+! WRITE(120,'(A)') "[InputSigmaFile]"
+! WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+! CLOSE(120)
 
- command = ' '
- command = "cat _data/SSE.dat >> "//TRIM(ADJUSTL(cf2))
- CALL system(TRIM(ADJUSTL(command)))
-
+! command = ' '
+! command = "cat _data/Extrud3D.dat >> "//TRIM(ADJUSTL(cf2))
+! CALL system(TRIM(ADJUSTL(command)))
+ call write_1d_header(iOut,my1DOut_nol)
  OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
 
- WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+ !WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
  
  WRITE(120,'(A)')"[Positions]"
  WRITE(120,'(A)')"ID=ELEMENT_LENGTH"
@@ -852,98 +851,115 @@ end if
 
 end subroutine
 !
-! ----------------------------------------------
-!
-subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D)
-REAL*8 dField1(*),dField2(*),dField3(*)
-INTEGER i1D
-REAL*8 :: dMinSample, dMaxSample
-INTEGER i,j,jj
-REAL*8 dZ,dWidth,daux,dScale
+!-------------------------------------------------------------------------------------------------
+! The particular routine for outputting 1D fields for an sse application 
+!-------------------------------------------------------------------------------------------------
+! @param iO Output file idx
+! @param sQuadSc The velocity solution structure of the mesh 
+! @param sLinSc The pressure solution structure of the mesh 
+! @param sTracer Scalar solution structure  
+! @param sTracer Scalar solution structure  
+subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
+real*8 :: dField1(*),dField2(*),dField3(*)
+integer :: i1D
+integer :: my1DOut_nol
+type(t1DOutput), dimension(8) :: my1DOutput
+type(tOutput) :: myOutput
+type(tSigma) :: mySigma
+type(tQuadScalar), intent(in) :: sQuadSc 
+integer, intent(in) :: maxlevel 
 
-!my1DOut_nol = myOutput%nOf1DLayers 
+! local variables
+real*8  :: dMinSample, dMaxSample
+integer :: i,j,jj
+real*8  :: dZ,dWidth,daux,dScale
 
-!dMinSample = 0d0
-!dMaxSample = mySigma%L
+real*8, dimension(:,:), allocatable :: my1DIntervals
+real*8, dimension(:), allocatable :: my1DWeight
 
-!IF (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
-!IF (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
-!IF (.not.allocated(my1DOut(i1D)%dMean)) ALLOCATE(my1DOut(i1D)%dMean(my1DOut_nol))
-!IF (.not.allocated(my1DOut(i1D)%dMin))  ALLOCATE(my1DOut(i1D)%dMin(my1DOut_nol))
-!IF (.not.allocated(my1DOut(i1D)%dMax))  ALLOCATE(my1DOut(i1D)%dMax(my1DOut_nol))
-!IF (.not.allocated(my1DOut(i1D)%dLoc))  ALLOCATE(my1DOut(i1D)%dLoc(my1DOut_nol))
+my1DOut_nol = myOutput%nOf1DLayers 
 
-!IF (myid.ne.0) THEN 
+dMinSample = 0d0
+dMaxSample = mySigma%L
 
-! IF (i1D.EQ.1) dScale = 1d-2    !z-velo
-! IF (i1D.EQ.2) dScale = 1d-6    !Pressure
-! IF (i1D.EQ.3) dScale = 1d0     !Temperature
-! IF (i1D.EQ.4) dScale = 1d-1    !viscosity
-! IF (i1D.EQ.5) dScale = 1d0     !gamma
-! IF (i1D.EQ.6) dScale = 1d-2    !x-velo  
-! IF (i1D.EQ.7) dScale = 1d-2    !y-velo
-! IF (i1D.EQ.8) dScale = 1d-2    !mag-velo
+if (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
+if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
+if (.not.allocated(my1DOutput(i1D)%dMean)) ALLOCATE(my1DOutput(i1D)%dMean(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
 
-!!  IF (i1D.EQ.1) dScale = 1d-2   !z-velo
-!!  IF (i1D.EQ.2) dScale = 1d-4   !Pressure
-!!  IF (i1D.EQ.3) dScale = 1d0    !Temperature
-!!  IF (i1D.EQ.4) dScale = 1d0    !gamma
-!!  IF (i1D.EQ.5) dScale = 1d-1   !viscosity
-!!  IF (i1D.EQ.6) dScale = 1d-2   !x-velo  
-!!  IF (i1D.EQ.7) dScale = 1d-2   !y-velo
-!!  IF (i1D.EQ.8) dScale = 1d-2   !mag-velo
-!!                                
-! dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
+if (myid.ne.0) THEN 
 
-! DO i=1,my1DOut_nol
-!  my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
-!  my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
-! END DO
+ if (i1D.EQ.1) dScale = 1d-2    !z-velo
+ if (i1D.EQ.2) dScale = 1d-6    !Pressure
+ if (i1D.EQ.3) dScale = 1d0     !Temperature
+ if (i1D.EQ.4) dScale = 1d-1    !viscosity
+ if (i1D.EQ.5) dScale = 1d0     !gamma
+ if (i1D.EQ.6) dScale = 1d-2    !x-velo  
+ if (i1D.EQ.7) dScale = 1d-2    !y-velo
+ if (i1D.EQ.8) dScale = 1d-2    !mag-velo
 
-! my1DOut(i1D)%dMean   = 0d0
-! my1DWeight           = 0d0
-! my1DOut(i1D)%dMin    = 1d30
-! my1DOut(i1D)%dMax    =-1d30
-! MlRhoMat => mg_MlRhoMat(NLMAX)%a
+!  IF (i1D.EQ.1) dScale = 1d-2   !z-velo
+!  IF (i1D.EQ.2) dScale = 1d-4   !Pressure
+!  IF (i1D.EQ.3) dScale = 1d0    !Temperature
+!  IF (i1D.EQ.4) dScale = 1d0    !gamma
+!  IF (i1D.EQ.5) dScale = 1d-1   !viscosity
+!  IF (i1D.EQ.6) dScale = 1d-2   !x-velo  
+!  IF (i1D.EQ.7) dScale = 1d-2   !y-velo
+!  IF (i1D.EQ.8) dScale = 1d-2   !mag-velo
+!                                
+ dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
 
-! DO i=1,SIZE(QuadSc%ValU)
+ DO i=1,my1DOut_nol
+  my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
+  my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
+ END DO
 
-!  IF (MixerKNPR(i).eq.0) THEN
-!   jj=0  
-!   dZ = myQ2Coor(3,i) 
-!   DO j=1,my1DOut_nol
-!    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
-!     jj = j
-!     EXIT
-!    END IF
-!   END DO
+ my1DOutput(i1D)%dMean   = 0d0
+ my1DWeight           = 0d0
+ my1DOutput(i1D)%dMin    = 1d30
+ my1DOutput(i1D)%dMax    =-1d30
+ MlRhoMat => mg_MlRhoMat(maxlevel)%a
 
-!   IF (jj.NE.0) THEN
-!    daux = dScale*dField1(i)
-!    IF (i1D.EQ.6) daux = dScale*dField2(i)
-!    IF (i1D.EQ.7) daux = dScale*dField3(i)
-!    IF (i1D.EQ.8) daux = dScale*SQRT(dField1(i)**2d0+dField2(i)**2d0+dField3(i)**2d0)
-!    my1DOut(i1D)%dMean(jj)   = my1DOut(i1D)%dMean(jj)    + daux*MlRhoMat(i)
-!    my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
-!    my1DOut(i1D)%dMin(jj)    = MIN(my1DOut(i1D)%dMin(jj),daux)
-!    my1DOut(i1D)%dMax(jj)    = MAX(my1DOut(i1D)%dMax(jj),daux)
-!   END IF
-!  END IF
-! END DO
-!END IF
+ DO i=1,SIZE(sQuadSc%ValU)
 
-!CALL COMM_SUMMN(my1DOut(i1D)%dMean,my1DOut_nol)
-!CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
-!CALL COMM_Maximumn(my1DOut(i1D)%dMax,my1DOut_nol)
-!CALL COMM_Minimumn(my1DOut(i1D)%dMin,my1DOut_nol)
+  IF (MixerKNPR(i).eq.0) THEN
+   jj=0  
+   dZ = myQ2Coor(3,i) 
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
 
-!IF (myid.ne.0) THEN 
-! DO i=1,my1DOut_nol
-!  my1DOut(i1D)%dMean(i) = my1DOut(i1D)%dMean(i)/my1DWeight(i)
-!  my1DOut(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
-! END DO
-!END IF
+   IF (jj.NE.0) THEN
+    daux = dScale*dField1(i)
+    IF (i1D.EQ.6) daux = dScale*dField2(i)
+    IF (i1D.EQ.7) daux = dScale*dField3(i)
+    IF (i1D.EQ.8) daux = dScale*SQRT(dField1(i)**2d0+dField2(i)**2d0+dField3(i)**2d0)
+    my1DOutput(i1D)%dMean(jj)   = my1DOutput(i1D)%dMean(jj)    + daux*MlRhoMat(i)
+    my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
+    my1DOutput(i1D)%dMin(jj)    = MIN(my1DOutput(i1D)%dMin(jj),daux)
+    my1DOutput(i1D)%dMax(jj)    = MAX(my1DOutput(i1D)%dMax(jj),daux)
+   END IF
+  END IF
+ END DO
+END IF
 
-END SUBROUTINE viz_OutPut_1D_sub
+CALL COMM_SUMMN(my1DOutput(i1D)%dMean,my1DOut_nol)
+CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
+CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
+CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
+
+IF (myid.ne.0) THEN 
+ DO i=1,my1DOut_nol
+  my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
+ END DO
+END IF
+
+end subroutine viz_OutPut_1D_sub
 
 end module visualization_out

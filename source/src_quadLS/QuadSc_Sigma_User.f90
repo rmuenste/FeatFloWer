@@ -57,6 +57,7 @@ TYPE tRheology
 END TYPE tRheology
 
 TYPE(tRheology) :: myRheology
+
 !------------------------------------------------------------
 TYPE tThermodyn
    REAL*8 :: density, densitySteig
@@ -79,6 +80,7 @@ TYPE(tSetup) :: mySetup
 TYPE tOutput
  INTEGER nOf1DLayers,nRegion
 END TYPE tOutput
+
 TYPE(tOutput) :: myOutput
 
 LOGICAL bCtrl

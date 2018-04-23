@@ -46,7 +46,7 @@ PROGRAM Q2P1_SSE
     inonln_t = 2
   END IF
 
-!  call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
