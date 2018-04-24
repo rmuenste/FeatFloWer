@@ -31,7 +31,7 @@ END TYPE tParamCC
 
 TYPE(tParamCC) ccParams
 
-! needed for BDF(2), better look than playing around with tstep
+! needed for BDF(2) or BDF(3), better look than playing around with tstep
 REAL*8 :: zeitstep
 INTEGER :: tsm
 
