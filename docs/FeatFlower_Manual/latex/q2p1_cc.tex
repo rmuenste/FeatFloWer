@@ -59,7 +59,7 @@ In this parameter file you have to set up all simulation parameters. Since this 
 
 \subsection{Source files}
 \subsubsection*{q2p1\_cc.f90} 
-This is the main routine in which the application is configured: The application gets initialized, reads all parameters, runs the simulation and does some post-processing. You can laso find the time loop in this file. The initialization for all time-schemes is added compared to the first initial version.
+This is the main routine in which the application is configured: The application gets initialized, reads all parameters, runs the simulation and does some post-processing. You can also find the time loop in this file. The initialization for all time-schemes is added compared to the first initial version.
 
 \subsubsection*{app\_init.f90} 
 It is called by the main routine, initializes the parallel structures, prepares the mesh (via decomposing the mesh to subdomains) and reads the simulation parameters SimPar. Here old solutions from older simulations can be read in, too.
@@ -69,13 +69,13 @@ Two important files are included in this file: On the one hand there is the subr
 There is a subroutine which calculates the acting forces, too. But this is an old version because it is not of iso-parametric style.
 
 \subsubsection*{iso\_assemblies.f} 
-In this file all the iso-parametric stuff is included: You can find iso-assemblies of the matrices M, barM, K, S (and its further components), D (which is useless at the moment) and B. Additionally, there is the iso-parametric calculation of the forces (GetForceCyl\_cc\_iso). Here the acting forces are saved as follows: The first three entries are the components of the drag, the next three entries are the components of the lift and the last entry is the force in z-direction. The components of the drag and lift are sorted. First you have the complete force, then you see the velocity component and finally there is the pressure component of the acting force. Since there holds the triangular inequality the sum of the velocity and the pressure part can be greate thant the complete force.
+In this file all the iso-parametric stuff is included: You can find iso-parametric assemblies of the matrices M, barM, K, S (and its further components), D (which is useless at the moment) and B. Additionally, there is the iso-parametric calculation of the forces (GetForceCyl\_cc\_iso). Here the acting forces are saved as follows: The first three entries are the components of the drag, the next three entries are the components of the lift and the last entry is the force in z-direction. The components of the drag and lift are sorted. First you have the complete force, then you see the velocity component and finally there is the pressure component of the acting force. The sum of the velocity and the pressure part is the complete force. If you compare the components of each force with a reference one the sum of the component errors can be greater thant the error of the complete one since the triangular inequality holds.
 
 \subsubsection*{lin\_transport\_cc.f90} 
 ???
 
 \subsubsection*{postprocessing.f90} 
-It provides some helpful subroutines. Firstly, it writes the soultion to a vtk or gmv file. Secondly, the solver statistics are output at the end of the simulation. Finally, there are files that are important for the dump files: Some files are necessary to read old dump files and some needs to be called to write dump-files. At the moment you can choose between prf and dmp files: prf needs a lot of memory and dmp outputs the solution of all ids to one file for velocity or pressure. The code is adjusted to use dmp files at the moment.
+It provides some helpful subroutines. Firstly, it writes the soultion to a vtk or gmv file. Secondly, the solver statistics are output at the end of the simulation. Finally, there are routines that are important for the dump files: Some files are necessary to read old dump files and some needs to be called to write dump-files. At the moment you can choose between prf and dmp files: prf needs a lot of memory and dmp outputs the solution of all ids to one file for velocity or pressure. The code is adjusted to use dmp files at the moment.
 
 \subsubsection*{q2p1\_cc\_Umfpacksolver.f90} 
 Some files are needed for factorization of the coarse and element matrices. Since MUMPS is set as the coarse grid solver the solver routins of UMFPACK can be useless.
@@ -118,5 +118,10 @@ Additionally to QuadSc\_var.f90 you can find a few new variables:
 \item additional variables for the BDF schemes
 \end{itemize}
 
-
+\subsection{How to compile and run the code}
+The following comments compile the code and run it:\\
+{\scriptsize\cmd{cmake -DQ2P1\_BUILD\_ID=xeon-linux-intel-release -DBUILD\_APPLICATIONS=True -DUSE\_MUMPS=True ../Feat\_FloWer/}}\\
+\cmd{make -j4}\\
+\cmd{PyPartitioner.py 8 1 1 NEWFAC 'FILE.prj'}\\
+\cmd{mpirun -np 9 ./q2p1\_cc}\\
 
