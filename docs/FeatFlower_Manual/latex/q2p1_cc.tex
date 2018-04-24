@@ -1,0 +1,122 @@
+\section{q2p1\_cc ({\it by R. Jendrny})}
+
+\subsection{Systems that can be solved}
+Using this application you can solve the following systems in a coupled way:
+\begin{itemize}
+\item Stationary (Navier-) Stokes equations
+\begin{align*}
+\begin{pmatrix} L+K(u) & B \\ B^T & 0 \end{pmatrix} \begin{pmatrix} u \\ p \end{pmatrix} &= \begin{pmatrix} g \\ 0 \end{pmatrix},\\
+\text{with } K(v) w &\sim v \cdot \nabla w.
+\end{align*}
+In a defect-correction procedure it is written as:
+\begin{align*}
+\begin{bmatrix} u^n \\ p^n \end{bmatrix} = \begin{bmatrix} u^{n-1} \\ p^{n-1} \end{bmatrix} +  \begin{bmatrix} L+R(u^{n-1}) & B \\ B^T & 0 \end{bmatrix}^{-1} &\left( \begin{bmatrix} g \\ 0 \end{bmatrix} - \begin{bmatrix} L+K(u^{n-1}) & B \\ B^T & 0 \end{bmatrix} \begin{bmatrix} u^{n-1} \\ p^{n-1} \end{bmatrix}\right) \\
+\text{with } R(u^{n-1}) &= K(u^{n-1}) + \alpha \bar{M}(u^{n-1}).
+\end{align*}
+Changing the value $\alpha$ you can switch between Fixpoint and Newton method. If $\alpha$ = 0 the pure Fixpoint method will be used. If $\alpha \ne$ 0 the code uses an adaptive technique to switch between both methods.
+\item unsteady (Navier-) Stokes equations
+\begin{itemize}
+\item general $\theta$-scheme
+\begin{equation*}
+\begin{pmatrix} M+\theta\Delta t \{L+  K(u^{n+1})\} & \Delta t B \\ B^T & 0 \end{pmatrix} \begin{pmatrix} u^{n+1} \\ p^{n+1} \end{pmatrix} = \begin{pmatrix} M u^n - (1-\theta)\Delta t \{L+K(u^n)\} u^n  \\ 0 \end{pmatrix}
+\end{equation*}
+\item Backward Difference Formula (BDF)
+\begin{itemize}
+\item BDF(1): Backward Euler method is the same.
+\item BDF(2):
+\begin{equation*}
+\begin{pmatrix} M+\frac{2}{3}\Delta t \{L+K(u^{n+1})\} & \frac{2}{3}\Delta t B \\ B^T & 0 \end{pmatrix} \begin{pmatrix} u^{n+1} \\ p^{n+1} \end{pmatrix} = \begin{pmatrix} \frac{4}{3}M u^n - \frac{1}{3}M u^{n-1} \\ 0 \end{pmatrix}
+\end{equation*}
+\item BDF(3):
+\begin{equation*}
+\begin{pmatrix} M+\frac{6}{11}\Delta t \{L+K(u^{n+1})\} & \frac{6}{11}\Delta t B \\ B^T & 0 \end{pmatrix} \begin{pmatrix} u^{n+1} \\ p^{n+1} \end{pmatrix} = \begin{pmatrix} \frac{18}{11}M u^n - \frac{9}{11}M u^{n-1} + \frac{2}{11}M u^{n-2} \\ 0 \end{pmatrix}
+\end{equation*}
+\end{itemize}
+\end{itemize}
+\end{itemize}
+
+
+
+\subsection{q2p1\_param.dat}
+In this parameter file you have to set up all simulation parameters. Since this is a special case of the general program only the differences are listed:
+\begin{itemize}
+\item SimPar@TimeScheme: Choose between BE, CN (or FE); for stationary simulations this has to be BE.
+\item SimPar@TimeStep: any; for stationary this has to be 1d0.
+\item SimPar@MaxNumStep: Number of maximum time iterations; for stationary this has to be 1.
+\item SimPar@MatrixRenewal: Only M, K and S are active in this version; for Stokes K0.
+\item SimPar@FlowType: nonNewtonian is the only case that is working.
+\item SimPar@SteadyState: Choose between Yes or No; for stationary this has to be Yes and in SimPar@MatrixRenewal set M to 1.
+\item CCuvwp@NLmin: One possible choice is 1.
+\item CCuvwp@NLmax: Maximum of non-linear iteration in each time step; for Stokes this has to be 1.
+\item CCuvwp@Alpha: In general this is a value between 0d0 (Fixpoint) and 1d0 (Newton); for Stokes it is useful to take a big value (e.g. 11 which results in 1E-12 as the stopping)
+\item CCuvw@ValAdap: Insert two values for the adaptivity curve (1st greater than 1, 2nd lower than 0.9): Scaling factors for the adaptivity bewtween Fixpoint and Newton
+\item CCuvwp@Stopping: Relative stopping criterion for each time-step.
+\item CCuvwp@MGMinLev or MGMedLev: Set this as the value of SimPar@MaxMeshLevel and the linear equations are solved by MUMPS.
+\item CCuvwp@Vanka: Only 0 is working correctly.
+\item CCuvwp@BDF: Choose between 0 (for BE/CN or stationary), 2 (for BDF(2)) or 3 (for BDF(3)).
+\item Prop@PowerLawExp: Together with S in SimPar@MatrixRenewal the value 1.00d0 results in a Newtonian flow
+\end{itemize}
+
+\subsection{Source files}
+\subsubsection*{q2p1\_cc.f90} 
+This is the main routine in which the application is configured: The application gets initialized, reads all parameters, runs the simulation and does some post-processing. You can laso find the time loop in this file. The initialization for all time-schemes is added compared to the first initial version.
+
+\subsubsection*{app\_init.f90} 
+It is called by the main routine, initializes the parallel structures, prepares the mesh (via decomposing the mesh to subdomains) and reads the simulation parameters SimPar. Here old solutions from older simulations can be read in, too.
+
+\subsubsection*{assemblies\_cc.f}
+Two important files are included in this file: On the one hand there is the subroutine CC\_GetDefect\_sub and on the other hand the subroutine CC\_Extraction\_sub. Both are called in the file q2p1\_def\_cc.f90 and will be explained in this file.\\
+There is a subroutine which calculates the acting forces, too. But this is an old version because it is not of iso-parametric style.
+
+\subsubsection*{iso\_assemblies.f} 
+In this file all the iso-parametric stuff is included: You can find iso-assemblies of the matrices M, barM, K, S (and its further components), D (which is useless at the moment) and B. Additionally, there is the iso-parametric calculation of the forces (GetForceCyl\_cc\_iso). Here the acting forces are saved as follows: The first three entries are the components of the drag, the next three entries are the components of the lift and the last entry is the force in z-direction. The components of the drag and lift are sorted. First you have the complete force, then you see the velocity component and finally there is the pressure component of the acting force. Since there holds the triangular inequality the sum of the velocity and the pressure part can be greate thant the complete force.
+
+\subsubsection*{lin\_transport\_cc.f90} 
+???
+
+\subsubsection*{postprocessing.f90} 
+It provides some helpful subroutines. Firstly, it writes the soultion to a vtk or gmv file. Secondly, the solver statistics are output at the end of the simulation. Finally, there are files that are important for the dump files: Some files are necessary to read old dump files and some needs to be called to write dump-files. At the moment you can choose between prf and dmp files: prf needs a lot of memory and dmp outputs the solution of all ids to one file for velocity or pressure. The code is adjusted to use dmp files at the moment.
+
+\subsubsection*{q2p1\_cc\_Umfpacksolver.f90} 
+Some files are needed for factorization of the coarse and element matrices. Since MUMPS is set as the coarse grid solver the solver routins of UMFPACK can be useless.
+
+\subsubsection*{q2p1\_def\_cc.f90} 
+Creating the system matrices and working with these is one of the main tasks in this file. At the strat the system matrices are created: You have a big block matrix $A$ for the non-linear equations and to compute the defect and a block matrix $AA$ to perform the Preconditioner, i.e. $x^n = x^{n-1} + AA^{-1}(b-A x^{n-1}$. The block matrices will only work with S (D is not working; but with S you can simulate Newtonian fluids as well.). In the bottom of this file all matriy assemblies are called to create these using the iso-parametric concept.\\
+In this file you can find some more basic routines that are important for the CC code: One of them calculates the defect (using CC\_GetDefect\_sub) and the next calculates the norm of this (non-linear) defect. \\
+Of course, there are routines which are special for the CC version. There is a subroutine which creates special CC structures. These structures are used by CC\_Extraction and Special\_CC\_Coarse. Without these two subroutines the code uses wrong matrices in the solver and you will get wrong results.\\ 
+Ultimately the MG solver is initilaized and called in CC\_mgSolve.
+
+\subsubsection*{q2p1\_mg\_cc.f90} 
+??
+
+\subsubsection*{q2p1\_transport\_cc.f90} 
+Before the main working subroutine is implemented some structures for the CC solver are initialized.\\
+The main working/solving routine is Transport\_q2p1\_UxyzP\_cc. The following sketch will show how this routins is working:
+\begin{itemize}
+\item Generate the adaptive function to have a background how to switch between Fixpoint and Newton method.
+\item Assemble the right hand side.
+\item Regarding time schemes set the correct scaling factor.
+\item Assemble the system matrices
+\item Factorize the element matrices.
+\item Compute the initial defect.
+\item Call the MG solver.
+\item Perform a full update of the solution
+\item Depending on the change of the defects the code decides if it can endure more Newton influence or less. The scaling is influenced by the adaptive function.
+\item Depending on the change of the defects and the use of Newton or Fixpoint the stopping criterion for MG is changed.
+\item Calculate the acting forces.
+\item Does the solution fulfill the non-linear stopping criterion?
+\end{itemize}
+In this file you can also find two subroutines which calculate the acting forces: On the one hand FAC\_GetForces\_CC\_iso that is calling GetForceCyl\_cc\_iso and is the default decision; on the other hand there is a subroutine that calculates the forces using $S u + Bp$ (myFAC\_GetForces).\\
+The last important subroutine reads the CCuvwp parameters which are set in the param file.
+
+\subsubsection*{q2p1\_var\_newton.f90} 
+Additionally to QuadSc\_var.f90 you can find a few new variables:
+\begin{itemize}
+\item Variables for the Newton-Preconditioner: barMXYmat, mg\_barMXYmat, AAXYmat and mg\_AAXYmat,
+\item variables for the force calculation using myFAC\_GetForces: BXMat\_new, mg\_BXMat\_new (Since the general B matrices are influenced by the Dirichlet BC there was a need to have B matrices without these BC to have correct forces.),
+\item a new type for the CC parameters used in the param.dat: TYPE tParamCC and
+\item additional variables for the BDF schemes
+\end{itemize}
+
+
+
