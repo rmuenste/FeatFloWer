@@ -30,6 +30,7 @@ ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
 # source files for standad q2p1 
 set(src_q2p1_cc
 ${Elements} 
+${src_util}
 ${src_q2p1} 
 ${src_pp3d} 
 ${src_mpi}  
