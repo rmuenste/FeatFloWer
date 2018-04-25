@@ -118,15 +118,9 @@ print("Platform: " + sys.platform)
 
 prj_file = inspectCaseFolder(caseFolder)
 shutil.copyfile(caseFolder + "/Extrud3D.dat", "_data/Extrud3D_0.dat")
+
+
 #print("Project file: %s" % prj_file)
-
-#-------------------------------------------------------------------------------------
-numProcessors = int(numProcessors)
-
-part_main.mkdir("_mesh")
-
-part_main.MainProcess(numProcessors-1, 1, 1, "NEWFAC", prj_file)
-#-------------------------------------------------------------------------------------
 
 delta = 40
 nmin = 0
@@ -137,6 +131,19 @@ start = 0.0
 with open("_data/Extrud3D_0.dat", "a") as f:
   f.write("[E3DSimulationSettings]\n") 
   f.write("dAlpha=" + str(delta) + "\n") 
+
+subprocess.call(["./s3d_mesher"])
+
+if not os.path.exists("_data/meshDir"):
+  shutil.copytree(caseFolder + "/meshDir","_data/meshDir")
+
+#-------------------------------------------------------------------------------------
+numProcessors = int(numProcessors)
+
+part_main.mkdir("_mesh")
+
+part_main.MainProcess(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+#-------------------------------------------------------------------------------------
 
 for i in range(nmin,nmax):
   angle = start + i * delta
@@ -153,4 +160,6 @@ for i in range(nmin,nmax):
     shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
   else:
     subprocess.call(['mpirun -np %i ./q2p1_sse' % numProcessors],shell=True)
+    iangle = int(angle)
+    shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
