@@ -5,11 +5,10 @@ import getopt
 import platform
 import os
 import shutil
-#sys.path.append('/home/user/rmuenste/bin/partitioner')
-#import PyPartitioner
 import subprocess
 import re
 import json
+import part_main
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 def usage():
@@ -123,7 +122,10 @@ shutil.copyfile(caseFolder + "/Extrud3D.dat", "_data/Extrud3D_0.dat")
 
 #-------------------------------------------------------------------------------------
 numProcessors = int(numProcessors)
-#PyPartitioner.MainProcess(numProcessors-1, 1, 1, "NEWFAC", prj_file)
+
+part_main.mkdir("_mesh")
+
+part_main.MainProcess(numProcessors-1, 1, 1, "NEWFAC", prj_file)
 #-------------------------------------------------------------------------------------
 
 delta = 40

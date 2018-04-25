@@ -1234,6 +1234,36 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_sse
+!
+!------------------------------------------------------------------------------------------------
+! Wrapper routine for writing the solution to a file 
+!------------------------------------------------------------------------------------------------
+! @param iInd number of the output
+! @param istep number of the discrete time step
+! @param simTime current simulation time
+subroutine write_sse_1d_sol()
+
+  include 'defs_include.h'
+  
+  use Transport_Q2P1, only: QuadSc,LinSc
+  use Transport_Q1, only: Tracer
+  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
+                            Viscosity, Distance, Shearrate 
+  use Sigma_User, only: myProcess
+
+  use visualization_out, only: viz_output_1D_fields
+
+  implicit none
+  
+  ! local variables
+  integer :: iXgmv
+
+  iXgmv = int(myProcess%angle)
+
+  call viz_output_1D_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+                            Viscosity, Distance, Shearrate, mg_mesh)
+
+end subroutine write_sse_1d_sol
 
 end module solution_io
 

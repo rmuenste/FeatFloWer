@@ -961,5 +961,58 @@ IF (myid.ne.0) THEN
 END IF
 
 end subroutine viz_OutPut_1D_sub
+!
+!-------------------------------------------------------------------------------------------------
+! A wrapper routine for outputting 1d fields for an sse application 
+!-------------------------------------------------------------------------------------------------
+! @param sExport An export structure
+! @param iOutput The output idx of the visulation file
+! @param sQuadSc The velocity solution structure of the mesh 
+! @param sLinSc The pressure solution structure of the mesh 
+! @param sTracer The solution of the scalar tracer equation 
+! @param visc The viscosity solution  
+! @param dist The distance solution  
+! @param shear The shear rate solution  
+! @param mgMesh The mesh that will be written out
+!subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
+subroutine viz_output_1D_fields(sExport, iOutput, sQuadSc, sLinSc, visc, dist, shear, mgMesh)
+
+use var_QuadScalar, only:tExport
+
+USE PP3D_MPI, ONLY:myid
+USE def_FEAT
+
+USE Transport_Q1,ONLY:Tracer
+
+implicit none
+
+type(tExport), intent(in) :: sExport
+
+integer, intent(in) :: iOutput
+
+type(tQuadScalar), intent(in) :: sQuadSc 
+
+type(tLinScalar), intent(in) :: sLinSc 
+
+real*8, dimension(:), intent(in) :: visc
+
+real*8, dimension(:), intent(in) :: dist
+
+real*8, dimension(:), intent(in) :: shear
+
+type(tMultiMesh), intent(in) :: mgMesh
+
+! locals
+integer :: ioutput_lvl
+
+
+ call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+
+! call viz_OutputRegionHistogram(iOutput)
+ 
+ call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+
+
+end subroutine viz_output_1D_fields
 
 end module visualization_out
