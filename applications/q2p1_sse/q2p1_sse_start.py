@@ -72,13 +72,13 @@ def inspectCaseFolder(path):
   project_file = ''
 
   for item in dir_list:
-    m = re.search(r"file.prj", item)
+    m = re.search(r"Extrud3D.dat", item)
     if m: 
       prj_found = True
       project_file = item
 
   if not prj_found:
-    print("Error: The case folder %s does not contain a .prj project file. " % path)
+    print("Error: The case folder %s does not contain an Extrud3D.dat project file. " % path)
     sys.exit(2)
   else:
     return path + "/" + project_file
@@ -117,10 +117,7 @@ print("Platform system: " + platform.system())
 print("Platform: " + sys.platform)
 
 prj_file = inspectCaseFolder(caseFolder)
-shutil.copyfile(caseFolder + "/Extrud3D.dat", "_data/Extrud3D_0.dat")
-
-
-#print("Project file: %s" % prj_file)
+shutil.copyfile(prj_file, "_data/Extrud3D_0.dat")
 
 delta = 40
 nmin = 0
