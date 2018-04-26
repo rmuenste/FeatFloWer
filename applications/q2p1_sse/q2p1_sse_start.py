@@ -129,6 +129,9 @@ with open("_data/Extrud3D_0.dat", "a") as f:
   f.write("[E3DSimulationSettings]\n") 
   f.write("dAlpha=" + str(delta) + "\n") 
 
+if os.path.exists("_data/meshDir"):
+  shutil.rmtree("_data/meshDir")
+
 subprocess.call(["./s3d_mesher"])
 
 if not os.path.exists("_data/meshDir"):
@@ -142,7 +145,7 @@ part_main.mkdir("_mesh")
 part_main.MainProcess(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
 #-------------------------------------------------------------------------------------
 
-for i in range(nmin,nmax):
+for i in range(nmin,nmax):  # nmax means the loop goes to nmax-1
   angle = start + i * delta
   shutil.copyfile("_data/Extrud3D_0.dat","_data/Extrud3D.dat")
   with open("_data/Extrud3D.dat", "a") as f:

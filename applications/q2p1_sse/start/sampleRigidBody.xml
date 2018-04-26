@@ -17,7 +17,7 @@
     lcpSolverIterations = "1000"
     collPipelineIterations = "1"
     extents ="-2.5 2.5 -2.5 2.5 0.0 5.0 "
-    cgalConfigurationFile = "meshes_names.offs"	  	  	  	  
+    cgalConfigFile = "mesh_names.offs"    
     doFBM = "1"
     doDynamics = "0"
     >
@@ -41,6 +41,8 @@
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
       meshFile = "_adc/reiloy/Reiloy_S1Main.off"	  	  	  	  
+      doDynamics = "0"
+      doFBM = "1"
       >
     </RigidBody>	
   </RigidBodyList>
