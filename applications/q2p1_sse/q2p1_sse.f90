@@ -9,6 +9,7 @@ PROGRAM Q2P1_SSE
                          sim_finalize_sse
 
   use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
+  use Sigma_User, only : bKTPRelease
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -28,6 +29,9 @@ PROGRAM Q2P1_SSE
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
   !-------MAIN LOOP-------
+#if !defined WIN32
+  IF (bKTPRelease) CALL xSEND_START()
+#endif
 
   DO itns=1,nitns
 
@@ -57,6 +61,10 @@ PROGRAM Q2P1_SSE
   IF (timemx.LE.(timens+1D-10)) EXIT
 
   END DO
+
+#if !defined WIN32
+  IF (bKTPRelease) CALL xSEND_FINISH()
+#endif
 
   call sim_finalize_sse(tt0,ufile)
 
