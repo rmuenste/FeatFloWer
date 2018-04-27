@@ -122,7 +122,7 @@ shutil.copyfile(prj_file, "_data/Extrud3D_0.dat")
 delta = 40
 nmin = 0
 #nmax = nmin + 1
-nmax = 2
+nmax = 1
 start = 0.0
 
 with open("_data/Extrud3D_0.dat", "a") as f:
@@ -142,7 +142,7 @@ numProcessors = int(numProcessors)
 
 part_main.mkdir("_mesh")
 
-part_main.MainProcess(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+part_main.MainProcess(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
 #-------------------------------------------------------------------------------------
 
 for i in range(nmin,nmax):  # nmax means the loop goes to nmax-1

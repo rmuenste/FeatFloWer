@@ -40,7 +40,7 @@ subroutine calcDistanceFunction(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,ds
 
   real*8 ElemCoor(3,27),ElemDist(27),ElemRad,ElemSign,PointSign,dist
 
-  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist
+  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle
 
   real*8, dimension(3) :: point
 
@@ -55,6 +55,12 @@ subroutine calcDistanceFunction(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,ds
 
   ! If we find a discrete geometry segment
   IF (adjustl(trim(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+
+    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
+     dRotAngle = myProcess%Angle
+    ELSE
+     dRotAngle = 0d0
+    END IF
 
     IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
     IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
@@ -228,7 +234,7 @@ SUBROUTINE TransformPoints()
   REAL*8 :: myPI = dATAN(1d0)*4d0
   INTEGER iP
 
-  t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+  t = (dRotAngle/360d0)/(myProcess%Umdr/60d0)
 
   DO iP=1,27
 

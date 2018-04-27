@@ -125,7 +125,8 @@ module umbrella_smoother
 
   use PP3D_MPI
   !use PP3D_MPI, only: myid,coarse
-  use Parametrization, only: ParametrizeBndr
+      USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
+!   use Parametrization, only: ParametrizeBndr
   use Sigma_User, only: mySigma
   use var_QuadScalar, only: tMultiMesh,FictKNPR
   use geometry_processing, ONLY : calcDistanceFunction, dEpsDist
@@ -268,7 +269,7 @@ module umbrella_smoother
      dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
    end DO
   
-   CALL ParametrizeBndr(mgMesh,ilevel)
+   CALL ParametrizeBndryPoints_STRCT(mgMesh,ilevel)
   
   end DO
   
@@ -280,9 +281,10 @@ module umbrella_smoother
   
   subroutine GetWeight(x,y,z,t,f)
   IMPLICIT NONE
-  real*8 x,y,z,t,f,YY,dBase
-  real*8 d1,d2,d3,d33,d4,d5
-  real*8 f1,f2,f3,f4,f5
+  real*8 x,y,z,t,f
+  real*8 d1,d2,d3
+  real*8 f1,f2,f3
+  real*8 dScaleFactor
   integer iaux
   
   
@@ -290,35 +292,18 @@ module umbrella_smoother
    f = 1d0
   ELSE
   
-   d1 = 0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y)
-   d1 = 5d0*6d0*(6d0/mySigma%Dz_Out)*d1
-   d2 = 5d0*6d0*(6d0/mySigma%Dz_Out)*qscStruct%AuxU(i)
-   d3 = 5d0*6d0*(6d0/mySigma%Dz_Out)*qscStruct%AuxV(i)
-!   d2 = 1.0d0
-!   d3 = 1.0d0
-
-! if(myid.eq.1)then
-!   write(*,*)'mySigma%Dz',mySigma%Dz_Out
-!   write(*,*)'i',i
-!   write(*,*)'AuxU',qscStruct%AuxU(i)
-!   write(*,*)'d1, d2, d3',d1, d2, d3
-! end if
+   dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
+   
+   d1 = dScaleFactor*0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y)
+   d2 = dScaleFactor*qscStruct%AuxU(i)
+   d3 = dScaleFactor*qscStruct%AuxV(i)
   
    CALL KernelFunction(d1,f1)
    CALL KernelFunction(d2,f2)
    CALL KernelFunction(d3,f3)
-! if(myid.eq.1)then
-!   write(*,*)'f1, f2, f3',f1, f2, f3
-! end if
 
-  
    f = MIN(f1*f2*f3,25d0)
    f = f**2.3d0
-!   if(myid.eq.1)then
-!     write(*,*)'f',f
-!   end if
-!   call myMPI_Barrier()
-!   pause
   
   end IF
   

@@ -4530,8 +4530,8 @@ SUBROUTINE OutputComm
 INTEGER i1,i2
 CHARACTER cX*(1)
 
-WRITE(*,*) 'LenComm: ',LenComm,'UsedMaxPairs: ',UsedMaxPairs
 if (myid.eq.1) then
+ WRITE(*,*) 'LenComm: ',LenComm,'UsedMaxPairs: ',UsedMaxPairs
  DO i=1,LenComm
   DO j=1,UsedMaxPairs
    IF (Comm(j,i)%d(1).ne.0) THEN
@@ -4541,10 +4541,10 @@ if (myid.eq.1) then
      WRITE(*,'(A1,I3,A1,I3,A1$)') '[',Comm(j,i)%d(1),',',Comm(j,i)%d(2),']'
     end if
    ELSE
-    WRITE(*,'(A$)') '          '
+    WRITE(*,'(A$)') '         '
    END IF
   END DO
-  write(*,*) ' '
+  write(*,*) ' |'
  END DO
 end if
 
@@ -4591,7 +4591,7 @@ INTEGER i1,i2,kSubPart
 !   i2 = INT(nSubCoarseMesh*Pairs(i)%d(2)/nT)
   if (i1.eq.i2) then
    Pairs(i)%o = .TRUE.
-   IF (myid.eq.1) WRITE(*,*) i1,' - ', Pairs(i)%d,nSubCoarseMesh
+!   IF (myid.eq.1) WRITE(*,*) i1,' - ', Pairs(i)%d,nSubCoarseMesh
   else
    Pairs(i)%o = .FALSE.
   end if

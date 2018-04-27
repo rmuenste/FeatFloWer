@@ -29,7 +29,7 @@ contains
 ! @param shear The shear rate solution  
 ! @param mgMesh The mesh that will be written out
 !subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
-subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, dist, shear, mgMesh)
+subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
 
@@ -50,7 +50,9 @@ type(tLinScalar), intent(in) :: sLinSc
 
 real*8, dimension(:), intent(in) :: visc
 
-real*8, dimension(:), intent(in) :: dist
+real*8, dimension(:), intent(in) :: screw
+
+real*8, dimension(:), intent(in) :: shell
 
 real*8, dimension(:), intent(in) :: shear
 
@@ -70,7 +72,7 @@ if (sExport%Format .eq. "VTK") then
   call viz_write_vtu_process(iOutput,&
     mgMesh%level(ioutput_lvl)%dcorvg,&
     mgMesh%level(ioutput_lvl)%kvert, &
-    sQuadSc, sLinSc, visc, dist, shear, ioutput_lvl,&
+    sQuadSc, sLinSc, visc, screw, shell, shear, ioutput_lvl,&
     mgMesh)
  else
 
@@ -100,7 +102,7 @@ end subroutine viz_output_fields
 ! @param shear The shearrate solution  
 ! @param ioutput_lvl Output level of the mesh
 ! @param mgMesh The mesh that will be written out
-subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, dist, shear,&
+subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
 use var_QuadScalar,only:myExport,MixerKnpr
@@ -119,7 +121,9 @@ type(tLinScalar), intent(in) :: sLinSc
 
 real*8, dimension(:), intent(in) :: visc
 
-real*8, dimension(:), intent(in) :: dist
+real*8, dimension(:), intent(in) :: screw
+
+real*8, dimension(:), intent(in) :: shell
 
 real*8, dimension(:), intent(in) :: shear
 
@@ -206,19 +210,18 @@ do iField=1,size(myExport%Fields)
  case('Shell')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
   do ivt=1,NoOfVert
-!   write(iunit, '(A,E16.7)')"        ",REAL(1d1*DistanceToSurface(1,ivt))
-   write(iunit, '(A,E16.7)')"        ",REAL(1.0)
+   write(iunit, '(A,E16.7)')"        ",REAL(1d1*Shell(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
  case('Screw')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Screw",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",REAL(1d1*dist(ivt))
+   write(iunit, '(A,E16.7)')"        ",REAL(1d1*Screw(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
-  case('Viscosity')
+ case('Viscosity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Viscosity [Pa s]",""" format=""ascii"">"
 
   do ivt=1,NoOfVert
@@ -226,26 +229,12 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
- CASE('NormShearRate')
+ case('NormShearRate')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","NormShearRate [1/s]",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(shear(ivt))
   end do
   write(iunit, *)"        </DataArray>"
-
-!  CASE('Monitor')
-!  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Monitor",""" format=""ascii"">"
-!  do ivt=1,NoOfVert
-!   write(iunit, '(A,E16.7)')"        ",REAL(myALE%Monitor(ivt))
-!  end do
-!  write(iunit, *)"        </DataArray>"
-!
-!  CASE('FBM')
-!  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBM",""" format=""ascii"">"
-!  do ivt=1,NoOfVert
-!   write(iunit, '(A,E16.7)')"        ",REAL(MixerKNPR(ivt))
-!  end do
-!  write(iunit, *)"        </DataArray>"
 
  end select 
 

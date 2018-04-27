@@ -260,6 +260,19 @@
      END IF
     END IF
 
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."FULLCYLINDER") THEN
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Repetition",mySetup%m_nP,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Core",mySetup%m_nT,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Radial",mySetup%m_nR,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Axial",mySetup%m_nZ,0)
+     IF (mySetup%m_nT.eq.0.or.mySetup%m_nZ.eq.0.or.mySetup%m_nP.eq.0) THEN
+      WRITE(*,*) "mesh resolution is not correctly defined"
+      WRITE(*,*) '"',mySetup%m_nT,mySetup%m_nZ,mySetup%m_nP,'"'
+      bReadError=.TRUE.
+      GOTO 10
+     END IF
+    END IF
+    
 !     cMeshQuality=' '
 !     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SendEmail",cMeshQuality,"YES")
 !     call inip_toupper_replace(cMeshQuality)
@@ -361,6 +374,10 @@
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."HOLLOWCYLINDER") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
      write(*,*) "mySetup%Resolution[nR,nT,nZ]",'=',mySetup%m_nR,mySetup%m_nT,mySetup%m_nZ
+    END IF
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."FULLCYLINDER") THEN
+     write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
+     write(*,'(A,A,4I6)') " mySetup%Resolution[nP,nT,nR,nZ]",'=',mySetup%m_nP,mySetup%m_nR,mySetup%m_nT,mySetup%m_nZ
     END IF
     write(*,*)
     write(*,*) "myProcess%dAlpha",'=',myProcess%dAlpha

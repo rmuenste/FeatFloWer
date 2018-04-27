@@ -72,7 +72,7 @@ TYPE tSetup
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher
  INTEGER MeshResolution,nSolutions
- INTEGER m_nT,m_nR,m_nZ
+ INTEGER m_nT,m_nR,m_nZ,m_nP
  LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
 END TYPE tSetup
 TYPE(tSetup) :: mySetup

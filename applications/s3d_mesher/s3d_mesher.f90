@@ -2,7 +2,7 @@ Program e3d_mesher
 USE Sigma_User, ONLY : mySetup,mySigma,myProcess
 implicit none
 REAL*8 DZi,DZo,DL
-INTEGER nR,nT,nZ
+INTEGER nR,nT,nZ,nN,nM,nP
 REAL*8,  ALLOCATABLE ::  dCoor(:,:)
 INTEGER, ALLOCATABLE ::  kVert(:,:),knpr(:)
 INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
@@ -37,11 +37,39 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
   nZ = nZ + 1
  END IF
  
- CALL SetUpMesh()
+ CALL SetUpMesh_HC()
 
- CALL Parametrization()
+ CALL Parametrization_HC()
 
  CALL WriteMesh()
+ 
+ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
+
+ WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
+ CALL system(TRIM(ADJUSTL(command)))
+
+ nN = mySetup%m_nT;     nM = mySetup%m_nR;    nZ = mySetup%m_nZ;  nP = mySetup%m_nP  
+ Dzo = mySigma%Dz_out;  DL  = mySigma%L
+ 
+ IF (MOD(nZ,2).EQ.1) THEN
+  WRITE(*,*) "number of elements in Z is uneven and is to be set to: ", nZ+1
+  nZ = nZ + 1
+ END IF
+ 
+ CALL SetUpMesh_FC()
+ 
+ CALL Parametrization_FC()
+
+ CALL WriteMesh()
+
+ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."OFF") THEN
+
+ WRITE(*,*) "No mesh is being created ... (Hexmesher is turned OFF) "
+
+ELSE
+
+ WRITE(*,*) "No mesh is being created ... (unknown meshing keyword:'",ADJUSTL(TRIM(mySetup%cMesher)),"')"
+ 
 END IF
 
  CONTAINS 
@@ -58,7 +86,147 @@ END IF
 
 END SUBROUTINE ReadPar
 !-----------------------------------------------
-SUBROUTINE SetUpMesh()
+SUBROUTINE SetUpMesh_FC()
+REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
+INTEGER i,j,k,kk,nhalf
+REAL*8 dalphaCut1,dalphaCut2 
+REAL*8 PX_max,PX_min,PX_mid,PY_max,PY_min,PY_mid,ratio,dZOO
+INTEGER i1,i2,i3,i4,i5,i6,i7,i8
+
+REAL*8 P(2),dRadius
+integer ni,nnz,ll,mm1,mm2,iel
+
+!NVT = (1*(NR+1)*(nT))*(NZ+1)
+NVT = (NP*(NN*NN + NN) + NM*2*NN*NP +1 )*(NZ+1)
+NEL = NZ*NP*(NN*NN + NM*2*NN)
+!NEL = (1*NR*(nT) )*NZ
+
+write(*,*) 'NN,NM,NZ,NP ',NN,NM,NZ,NP
+write(*,*) 'NEL,NVT ',NEL,NVT
+
+ALLOCATE(dcoor(3,NVT))
+ALLOCATE(kVert(8,NEL))
+ALLOCATE(knpr(NVT))
+knpr = 0
+
+nnz=nz
+if (nz.eq.0) nnz=1
+
+kk = 1
+
+DO k=0,NZ
+
+ dCoor(:,kk) = [0d0, 0d0 ,DL*DBLE(k)/DBLE(nnZ)]
+ kk = kk + 1
+ 
+ DO j=1,NN
+  
+  ni = 2*NP*j
+
+  DO  i = 1,2*NP*j
+  
+   P = [0d0,(Dzo/2d0)*(DBLE(NN)/DBLE(NM+NN))*DBLE(j)/DBLE(NN)]
+   
+   dAlpha = 8d0*DATAN(1d0) * dble(i-1)/dble(ni)
+   dRadius = 1d0 !+ 0.25d0*DBLE(ABS(j-mod(i,2*j)))
+!    write(*,*) i,dRadius
+   P = dRadius * P
+
+   
+   dCoor(:,kk) = [P(1)*cos(dAlpha) - P(2)*sin(dAlpha),&
+                  P(1)*sin(dAlpha) + P(2)*cos(dAlpha),&
+                  DL*DBLE(k)/DBLE(nnZ)]
+   kk = kk + 1
+
+  END DO
+ END DO
+ 
+ DO j=1,NM
+
+  ni = 2*NP*NN
+
+  DO  i = 1,2*NP*NN
+   dAlpha = 8d0*DATAN(1d0) * dble(i-1)/dble(ni)
+   dRadius = 1d0 !+ 0.25d0*DBLE(ABS(j-mod(i,2*j)))
+   P = [0d0,((Dzo/2d0)*(DBLE(NN)/DBLE(NM+NN)))+(Dzo/2d0)*(DBLE(NM)/DBLE(NM+NN))*DBLE(j)/DBLE(NM)]
+   P = dRadius * P
+   
+   dCoor(:,kk) = [P(1)*cos(dAlpha) - P(2)*sin(dAlpha),&
+                  P(1)*sin(dAlpha) + P(2)*cos(dAlpha),&
+                  DL*DBLE(k)/DBLE(nnZ)]
+   kk = kk + 1
+  END DO
+ END DO
+ 
+END DO
+
+
+iel=0
+
+do k=1,NZ
+! k=1
+
+mm1 = (k-1)*(NP*(NN*NN + NN) + NM*2*NN*NP +1 )
+mm2 =    k *(NP*(NN*NN + NN) + NM*2*NN*NP +1 )
+kk =  NP*2+1
+ll =  1
+
+
+DO  j = 1,NP-1
+ i=2*(j-1)+1
+ iel = iel + 1
+ KVERT(:,iel) = [mm1+i+1,mm1+i+2,mm1+i+3,mm1+1,i+1+mm2,i+2+mm2,i+3+mm2,1+mm2]
+END DO
+j=NP
+i=2*(j-1)+1
+iel = iel + 1
+KVERT(:,iel) = [mm1+i+1,mm1+i+2,mm1+2,mm1+1,i+1+mm2,i+2+mm2,2+mm2,1+mm2]
+
+DO j=2,NN
+ DO  i = 1,2*NP*j
+  if (mod(i,2*j).ne.j.and.mod(i,2*j).ne.j+1) then
+   if (i.lt.2*NP*j) then
+    kk = kk + 1 
+    ll = ll + 1 
+    iel = iel + 1
+    KVERT(:,iel) = [mm1+kk,mm1+kk+1,mm1+ll+1,mm1+ll, kk+mm2,kk+1+mm2,ll+1+mm2,ll+mm2]
+   else
+    kk = kk + 1 
+    ll = ll + 1 
+    iel = iel + 1
+    KVERT(:,iel) = [mm1+kk,mm1+ll+1,mm1+ll+1-2*NP*(j-1),mm1+ll, kk+mm2,ll+1+mm2,ll+1-2*NP*(j-1)+mm2,ll+mm2]
+   end if
+  else
+   if (mod(i,2*j).eq.j) then
+    kk = kk + 1
+    iel = iel + 1
+    KVERT(:,iel) = [mm1+kk,mm1+kk+1,mm1+kk+2,mm1+ll+1, kk+mm2,kk+1+mm2,kk+2+mm2,ll+1+mm2]
+   else
+    kk = kk + 1
+   end if
+  end if
+ END DO 
+END DO 
+
+DO j=1,NM
+ DO  i = 1,2*NP*NN-1
+    kk = kk + 1
+    ll = ll + 1 
+    iel = iel + 1
+    KVERT(:,iel) = [mm1+kk,mm1+kk+1,mm1+ll+1,mm1+ll, kk+mm2,kk+1+mm2,ll+1+mm2,ll+mm2]
+ END DO
+ i=2*NP*NN
+ kk = kk + 1
+ ll = ll + 1 
+ iel = iel + 1
+ KVERT(:,iel) = [mm1+kk,mm1+ll+1,mm1+ll+1-i,mm1+ll, kk+mm2,ll+1+mm2,ll+1-i+mm2,ll+mm2]
+END DO
+
+END DO
+
+END SUBROUTINE SetUpMesh_FC
+!-----------------------------------------------
+SUBROUTINE SetUpMesh_HC()
 REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
 INTEGER i,j,k,kk,nhalf
 REAL*8 dalphaCut1,dalphaCut2 
@@ -126,9 +294,64 @@ DO k=1,nz
  END DO
 END DO
 
-END SUBROUTINE SetUpMesh
+END SUBROUTINE SetUpMesh_HC
 !-----------------------------------------------
-SUBROUTINE Parametrization()
+SUBROUTINE Parametrization_FC()
+INTEGER i,j,k
+INTEGER nHalf,ivt
+
+!! Outer cylinder
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/out.par',UNIT=1)
+WRITE(1,*) 2*NN*NP*(NZ+1), ' Wall'
+WRITE(1,'(A2,4E14.6,A)') "'7", 0e0,  0e0, 0e0, 0.5*DZo, " 1.0 1.0 0.0'"
+k = 0
+DO j=1,nZ+1
+ DO i=1,2*NN*NP
+  ivt = (NP*(NN*NN + NN) + NM*2*NN*NP +1 )*(j)- 2*NN*NP + i
+!   ivt = (NR+1)*(nT)*(j-1) + NR*(nT) + i
+  knpr(ivt) = 1
+  WRITE(1,'(I6)') ivt
+!   WRITE(1,'(I6)') ivt
+  k = k + 1
+END DO
+END DO
+CLOSE(1)
+
+!! Outflow
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=1)
+WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Outflow'
+WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", -DL, "'"
+k = 0
+DO j=1,NP*(NN*NN + NN) + NM*2*NN*NP +1
+  ivt = (NP*(NN*NN + NN) + NM*2*NN*NP +1)*NZ + j
+  knpr(ivt) = 1
+  WRITE(1,'(I6)') ivt
+  k = k + 1
+END DO
+CLOSE(1)
+! 
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z-.par',UNIT=1)
+WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Inflow10'
+WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", 0d0, "'"
+k = 0
+DO j=1,NP*(NN*NN + NN) + NM*2*NN*NP +1
+  ivt = j
+  knpr(ivt) = 1
+  WRITE(1,'(I6)') ivt
+  k = k + 1
+END DO
+CLOSE(1)
+
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/file.prj',UNIT=2)
+WRITE(2,'(A)') 'Mesh.tri'
+WRITE(2,'(A)') 'out.par'
+WRITE(2,'(A)') 'z-.par'
+WRITE(2,'(A)') 'z+.par'
+CLOSE(2)
+
+END SUBROUTINE Parametrization_FC
+!-----------------------------------------------
+SUBROUTINE Parametrization_HC()
 INTEGER i,j,k
 INTEGER nHalf,ivt
 ! INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
@@ -203,7 +426,15 @@ DO j=1,nR+1
 END DO
 CLOSE(1)
 
-END SUBROUTINE Parametrization
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/file.prj',UNIT=1)
+WRITE(1,'(A)') 'Mesh.tri'
+WRITE(1,'(A)') 'in.par'
+WRITE(1,'(A)') 'out.par'
+WRITE(1,'(A)') 'z-.par'
+WRITE(1,'(A)') 'z+.par'
+CLOSE(1)
+
+END SUBROUTINE Parametrization_HC
 !-----------------------------------------------
 SUBROUTINE WriteMesh()
 INTEGER k
@@ -227,14 +458,6 @@ DO k=1,nvt
  WRITE(2,'(I3)') knpr(k)
 END DO
 
-CLOSE(2)
-
-OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/file.prj',UNIT=2)
-WRITE(2,'(A)') 'Mesh.tri'
-WRITE(2,'(A)') 'in.par'
-WRITE(2,'(A)') 'out.par'
-WRITE(2,'(A)') 'z-.par'
-WRITE(2,'(A)') 'z+.par'
 CLOSE(2)
 
 END SUBROUTINE WriteMesh
