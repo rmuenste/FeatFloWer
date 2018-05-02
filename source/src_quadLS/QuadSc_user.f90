@@ -284,7 +284,7 @@ IF (iT.EQ.63) THEN
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 
-! Weber/G1
+! Weber/G2
 IF (iT.EQ.64) THEN
   ValW=RotParabolicVelo(+8.52d0,+20.57d0,-5d0,1d0,1.45d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)

@@ -292,18 +292,18 @@ module umbrella_smoother
    f = 1d0
   ELSE
   
-   dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
-   
-   d1 = dScaleFactor*0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y)
-   d2 = dScaleFactor*qscStruct%AuxU(i)
-   d3 = dScaleFactor*qscStruct%AuxV(i)
+  dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
   
-   CALL KernelFunction(d1,f1)
-   CALL KernelFunction(d2,f2)
-   CALL KernelFunction(d3,f3)
+  d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
+  d2 = dScaleFactor*qscStruct%AuxU(i)
+  d3 = dScaleFactor*qscStruct%AuxV(i)
+ 
+  CALL KernelFunction(d1,f1)
+  CALL KernelFunction(d2,f2)
+  CALL KernelFunction(d3,f3)
 
-   f = MIN(f1*f2*f3,25d0)
-   f = f**2.3d0
+  f = MIN(f1*f2*f3,25d0)
+  f = f**2.3d0
   
   end IF
   
