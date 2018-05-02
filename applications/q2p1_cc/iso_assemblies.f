@@ -2498,13 +2498,14 @@ C
 99999 END
 
 ************************************************************************
-      SUBROUTINE GetForceCyl_cc_iso(U1,U2,U3,P,bALPHA,KVERT,KAREA,KEDGE,
-     *                     DCORVG,DResForce,ELE,bNonNewt)
+      SUBROUTINE GetForceCyl_cc_iso(U1,U2,U3,Pc,Po,bALPHA,KVERT,KAREA,
+     *                     KEDGE,DCORVG,DResForce,ELE,bNonNewt)
 ************************************************************************
 *     Discrete convection operator: Q1~ elements (nonparametric)
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE def_cc, ONLY : Properties
+      USE var_QuadScalar,ONLY : theta,itns
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -2513,8 +2514,8 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       LOGICAL bNonNewt
-      REAL*8  U1(*),U2(*),U3(*),P(*),DCORVG(NNDIM,*)
-      REAL*8  DResForce(3)
+      REAL*8  U1(*),U2(*),U3(*),Pc(*),Po(*),DCORVG(NNDIM,*)
+      REAL*8  DResForce(7)
       LOGICAL bALPHA(*)
       INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       INTEGER KDFG(NNBAS),KDFL(NNBAS)
@@ -2565,6 +2566,10 @@ C
       DResForce(1) = 0D0
       DResForce(2) = 0D0
       DResForce(3) = 0D0
+      DResForce(4) = 0D0
+      DResForce(5) = 0D0
+      DResForce(6) = 0D0
+      DResForce(7) = 0D0
 C
       DO ICUBP=1,NCUBP
        XI1=DXI(ICUBP,1)
@@ -2720,8 +2725,19 @@ C ----=============================================----
 C ----=============================================---- 
 
        JJ = 4*(IEL-1) + 1
-       Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) +
-     *         (YY-DY0)*P(JJ+2) + (ZZ-DZ0)*P(JJ+3)
+
+	IF (theta.eq.0.5 .and. itns.gt.1) THEN
+       	PressC =          Pc(JJ  ) + (XX-DX0)*Pc(JJ+1) +
+     *         (YY-DY0)*Pc(JJ+2) + (ZZ-DZ0)*Pc(JJ+3)
+       	PressO =          Po(JJ  ) + (XX-DX0)*Po(JJ+1) +
+     *         (YY-DY0)*Po(JJ+2) + (ZZ-DZ0)*Po(JJ+3)
+
+	Press = PressC + 0.5d0 * (PressC-PressO)
+	ELSE
+       	Press =          Pc(JJ  ) + (XX-DX0)*Pc(JJ+1) +
+     *         (YY-DY0)*Pc(JJ+2) + (ZZ-DZ0)*Pc(JJ+3)
+	END IF
+
 C--------------------------------------------------------
 c-----------Form the integrand------------------
        DN1=-DALX
@@ -2736,20 +2752,34 @@ C
 
        AH1=-Press*DN1+dVisc*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2 + ! full3D
      *     (DU1Z+DU3X)*DN3)
-       AH2=-Press*DN2+dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
+       AH4=-Press*DN2+dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
      *     (DU2Z+DU3Y)*DN3)
-       AH3=-Press*DN3+dVisc*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2 + ! full3D
+       AH7=-Press*DN3+dVisc*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2 + ! full3D
      *     (DU3Z+DU3Z)*DN3)
 C
        DResForce(1) = DResForce(1) + AH1*OM
+       DResForce(4) = DResForce(4) + AH4*OM
+       DResForce(7) = DResForce(7) + AH7*OM
+
+       AH2=dVisc*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2 + ! full3D
+     *     (DU1Z+DU3X)*DN3)
        DResForce(2) = DResForce(2) + AH2*OM
+       AH5=dVisc*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
+     *     (DU2Z+DU3Y)*DN3)
+       DResForce(5) = DResForce(5) + AH5*OM
+
+       AH3=-Press*DN1
        DResForce(3) = DResForce(3) + AH3*OM
+       AH6=-Press*DN2
+       DResForce(6) = DResForce(6) + AH6*OM
+
+
 C
 200   CONTINUE
 C
 100   CONTINUE
 C
-999   CALL COMM_SUMMN(DResForce,3)
+999   CALL COMM_SUMMN(DResForce,7)
 C
 99999 CONTINUE
 

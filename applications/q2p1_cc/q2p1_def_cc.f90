@@ -25,6 +25,8 @@ TYPE(TQuadScalar) myScalar
 REAL*8 daux,tttx1,tttx0,alpha
 
 
+
+
 ! Build up the matrix
  IF (idef.eq.-1) THEN
   DO ILEV=NLMIN,NLMAX
@@ -107,8 +109,8 @@ REAL*8 daux,tttx1,tttx0,alpha
 !      IF (myMatrixRenewal%K.GE.1) THEN ! Non-Newtonian Navier-Stokes with D
 !       DO I=1,qMat%nu
 !        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!         daux = MMat(J) + thstep*(2d0*DMat(J)+KMat(J))! 
-!         daux2 = MMat(J) + thstep*(2d0*DMat(J)+KMat(J)+alpha*KnewMat(J))! 
+!         daux = MMat(J) + zeitstep*(2d0*DMat(J)+KMat(J))! 
+!         daux2 = MMat(J) + zeitstep*(2d0*DMat(J)+KMat(J)+alpha*KnewMat(J))! 
 !         A11mat(J) =  daux
 !         A22mat(J) =  daux
 !         A33mat(J) =  daux
@@ -120,7 +122,7 @@ REAL*8 daux,tttx1,tttx0,alpha
 !      ELSE !Non-Newtonian Stokes with D
 !       DO I=1,qMat%nu
 !        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!         daux =  MMat(J) + thstep*(2d0*DMat(J))!
+!         daux =  MMat(J) + zeitstep*(2d0*DMat(J))!
 !         A11mat(J) =  daux
 !         A22mat(J) =  daux
 !         A33mat(J) =  daux
@@ -132,39 +134,39 @@ REAL*8 daux,tttx1,tttx0,alpha
        DO I=1,qMat%nu
         DO J=qMat%LdA(I),qMat%LdA(I+1)-1
          ! non-linear defect
-         A11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J))
-         A22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J))
-         A33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J))
-         A12Mat(J) = thstep*S12Mat(J)
-         A13Mat(J) = thstep*S13Mat(J)
-         A23Mat(J) = thstep*S23Mat(J)
-         A21Mat(J) = thstep*S21Mat(J)
-         A31Mat(J) = thstep*S31Mat(J)
-         A32Mat(J) = thstep*S32Mat(J)
+         A11mat(J) = MMat(J) + zeitstep*(S11Mat(J) + KMat(J))
+         A22mat(J) = MMat(J) + zeitstep*(S22Mat(J) + KMat(J))
+         A33mat(J) = MMat(J) + zeitstep*(S33Mat(J) + KMat(J))
+         A12Mat(J) = zeitstep*S12Mat(J)
+         A13Mat(J) = zeitstep*S13Mat(J)
+         A23Mat(J) = zeitstep*S23Mat(J)
+         A21Mat(J) = zeitstep*S21Mat(J)
+         A31Mat(J) = zeitstep*S31Mat(J)
+         A32Mat(J) = zeitstep*S32Mat(J)
          ! for multigrid
-         AA11mat(J) = MMat(J) + thstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
-         AA22mat(J) = MMat(J) + thstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
-         AA33mat(J) = MMat(J) + thstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
-         AA12Mat(J) = thstep*(S12Mat(J) + alpha * barM12Mat(J))
-         AA13Mat(J) = thstep*(S13Mat(J) + alpha * barM13Mat(J))
-         AA23Mat(J) = thstep*(S23Mat(J) + alpha * barM23Mat(J))
-         AA21Mat(J) = thstep*(S21Mat(J) + alpha * barM21Mat(J))
-         AA31Mat(J) = thstep*(S31Mat(J) + alpha * barM31Mat(J))
-         AA32Mat(J) = thstep*(S32Mat(J) + alpha * barM32Mat(J))
+         AA11mat(J) = MMat(J) + zeitstep*(S11Mat(J) + KMat(J) + alpha * barM11Mat(J))
+         AA22mat(J) = MMat(J) + zeitstep*(S22Mat(J) + KMat(J) + alpha * barM22Mat(J))
+         AA33mat(J) = MMat(J) + zeitstep*(S33Mat(J) + KMat(J) + alpha * barM33Mat(J))
+         AA12Mat(J) = zeitstep*(S12Mat(J) + alpha * barM12Mat(J))
+         AA13Mat(J) = zeitstep*(S13Mat(J) + alpha * barM13Mat(J))
+         AA23Mat(J) = zeitstep*(S23Mat(J) + alpha * barM23Mat(J))
+         AA21Mat(J) = zeitstep*(S21Mat(J) + alpha * barM21Mat(J))
+         AA31Mat(J) = zeitstep*(S31Mat(J) + alpha * barM31Mat(J))
+         AA32Mat(J) = zeitstep*(S32Mat(J) + alpha * barM32Mat(J))
         END DO
        END DO
       ELSE ! Non-Newtonian Stokes with S
        DO I=1,qMat%nu
         DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-         A11mat(J) = MMat(J) + thstep*S11Mat(J)
-         A22mat(J) = MMat(J) + thstep*S22Mat(J)
-         A33mat(J) = MMat(J) + thstep*S33Mat(J)
-         A12Mat(J) = thstep*S12Mat(J)
-         A13Mat(J) = thstep*S13Mat(J)
-         A23Mat(J) = thstep*S23Mat(J)
-         A21Mat(J) = thstep*S21Mat(J)
-         A31Mat(J) = thstep*S31Mat(J)
-         A32Mat(J) = thstep*S32Mat(J)
+         A11mat(J) = MMat(J) + zeitstep*S11Mat(J)
+         A22mat(J) = MMat(J) + zeitstep*S22Mat(J)
+         A33mat(J) = MMat(J) + zeitstep*S33Mat(J)
+         A12Mat(J) = zeitstep*S12Mat(J)
+         A13Mat(J) = zeitstep*S13Mat(J)
+         A23Mat(J) = zeitstep*S23Mat(J)
+         A21Mat(J) = zeitstep*S21Mat(J)
+         A31Mat(J) = zeitstep*S31Mat(J)
+         A32Mat(J) = zeitstep*S32Mat(J)
          AA11mat(J) = A11mat(J)
          AA22mat(J) = A22mat(J)
          AA33mat(J) = A33mat(J)
@@ -187,8 +189,8 @@ REAL*8 daux,tttx1,tttx0,alpha
 !     IF (myMatrixRenewal%K.GE.1) THEN
 !      DO I=1,qMat%nu
 !       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + thstep*(DMat(J)+KMat(J))
-!        daux2 = MMat(J) + thstep*(DMat(J)+KMat(J)+alpha*KnewMat(J))
+!        daux = MMat(J) + zeitstep*(DMat(J)+KMat(J))
+!        daux2 = MMat(J) + zeitstep*(DMat(J)+KMat(J)+alpha*KnewMat(J))
 !        A11mat(J) =  daux
 !        A22mat(J) =  daux
 !        A33mat(J) =  daux
@@ -201,7 +203,7 @@ REAL*8 daux,tttx1,tttx0,alpha
 !      DO I=1,qMat%nu
 !       J = qMat%LdA(I)
 !       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + thstep*(DMat(J))
+!        daux = MMat(J) + zeitstep*(DMat(J))
 !        A11mat(J) =  daux
 !        A22mat(J) =  daux
 !        A33mat(J) =  daux
@@ -298,6 +300,10 @@ REAL*8 daux,tttx1,tttx0,alpha
    myScalar%defV = 0d0
    myScalar%defW = 0d0
 
+
+!! BE, CN or starting !!
+   IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+
    IF (myMatrixRenewal%M.GE.1) THEN
 ! DAX := A1*DA*DX + A2*DAX 
 ! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
@@ -313,51 +319,114 @@ REAL*8 daux,tttx1,tttx0,alpha
    END IF
 
    IF (myMatrixRenewal%S.GE.1) THEN
-     !thstep S11 u_n
+     !zeitstep S11 u_n
      CALL LAX17(S11Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU,myScalar%defU,-thstep,1d0)
-     !thstep S12 v_n
+     myScalar%valU,myScalar%defU,-zeitstep,1d0)
+     !zeitstep S12 v_n
      CALL LAX17(S12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defU,-thstep,1d0)
-     !thstep S13 w_n
+     myScalar%valV,myScalar%defU,-zeitstep,1d0)
+     !zeitstep S13 w_n
      CALL LAX17(S13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defU,-thstep,1d0)
+     myScalar%valW,myScalar%defU,-zeitstep,1d0)
 
-     !thstep S21 u_n
+     !zeitstep S21 u_n
      CALL LAX17(S21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU,myScalar%defV,-thstep,1d0)
-     !thstep S22 v_n
+     myScalar%valU,myScalar%defV,-zeitstep,1d0)
+     !zeitstep S22 v_n
      CALL LAX17(S22Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defV,-thstep,1d0)
-     !thstep S23 w_n
+     myScalar%valV,myScalar%defV,-zeitstep,1d0)
+     !zeitstep S23 w_n
      CALL LAX17(S23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defV,-thstep,1d0)
+     myScalar%valW,myScalar%defV,-zeitstep,1d0)
 
-     !thstep S31 u_n
+     !zeitstep S31 u_n
      CALL LAX17(S31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU,myScalar%defW,-thstep,1d0)
-     !thstep S32 v_n
+     myScalar%valU,myScalar%defW,-zeitstep,1d0)
+     !zeitstep S32 v_n
      CALL LAX17(S32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defW,-thstep,1d0)
-     !thstep S33 w_n
+     myScalar%valV,myScalar%defW,-zeitstep,1d0)
+     !zeitstep S33 w_n
      CALL LAX17(S33Mat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defW,-thstep,1d0)
+     myScalar%valW,myScalar%defW,-zeitstep,1d0)
    END IF
 
    IF (myMatrixRenewal%K.GE.1) THEN
-     !thstep K u_n
+     !zeitstep K u_n
      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valU,myScalar%defU,-thstep,1d0)
-     !thstep K v_n
+     myScalar%valU,myScalar%defU,-zeitstep,1d0)
+     !zeitstep K v_n
      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valV,myScalar%defV,-thstep,1d0)
-     !thstep K w_n
+     myScalar%valV,myScalar%defV,-zeitstep,1d0)
+     !zeitstep K w_n
      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-     myScalar%valW,myScalar%defW,-thstep,1d0)
+     myScalar%valW,myScalar%defW,-zeitstep,1d0)
    END IF
-   
 
 
+!! BDF(2) !!
+   ELSE IF (tsm.EQ.2 .OR. itns.EQ.2) THEN
+
+   IF (myMatrixRenewal%M.GE.1) THEN
+! DAX := A1*DA*DX + A2*DAX 
+! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
+     !4/3 M u_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,4d0/3d0,1d0)
+     !4/3 M v_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,4d0/3d0,1d0)
+     !4/3 M w_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,4d0/3d0,1d0)
+
+     !-1/3 M u_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU_old1,myScalar%defU,-1d0/3d0,1d0)
+     !-1/3 M v_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV_old1,myScalar%defV,-1d0/3d0,1d0)
+     !-1/3 M w_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW_old1,myScalar%defW,-1d0/3d0,1d0)
+   END IF
+
+!! BDF(3) !!
+   ELSE IF (tsm.EQ.3) THEN
+
+   IF (myMatrixRenewal%M.GE.1) THEN
+! DAX := A1*DA*DX + A2*DAX 
+! SUBROUTINE LAX17(DA,KCOL,KLD,NEQ,DX,DAX,A1,A2)
+     !18/11 M u_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,18d0/11d0,1d0)
+     !18/11 M v_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,18d0/11d0,1d0)
+     !18/11 M w_n
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,18d0/11d0,1d0)
+
+     !-9/11 M u_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU_old1,myScalar%defU,-9d0/11d0,1d0)
+     !-9/11 M v_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV_old1,myScalar%defV,-9d0/11d0,1d0)
+     !-9/11 M w_(n-1)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW_old1,myScalar%defW,-9d0/11d0,1d0)
+
+     !2/11 M u_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU_old2,myScalar%defU,2d0/11d0,1d0)
+     !2/11 M v_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV_old2,myScalar%defV,2d0/11d0,1d0)
+     !2/11 M w_(n-2)
+     CALL LAX17(Mmat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW_old2,myScalar%defW,2d0/11d0,1d0)
+   END IF
+   END IF
    
 
  END IF
@@ -1199,29 +1268,29 @@ EXTERNAL E013
 
 !     IF (myMatrixRenewal%M.GE.1) THEN
 !      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valU,qScalar%defU,thstep,1d0)
+!      qScalar%valU,qScalar%defU,zeitstep,1d0)
 !      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valV,qScalar%defV,thstep,1d0)
+!      qScalar%valV,qScalar%defV,zeitstep,1d0)
 !      CALL LAX17(MMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valW,qScalar%defW,thstep,1d0)
+!      qScalar%valW,qScalar%defW,zeitstep,1d0)
 !     END IF
 
 !     IF (myMatrixRenewal%K.GE.1) THEN
 !      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valU,qScalar%defU,thstep,1d0)
+!      qScalar%valU,qScalar%defU,zeitstep,1d0)
 !      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valV,qScalar%defV,thstep,1d0)
+!      qScalar%valV,qScalar%defV,zeitstep,1d0)
 !      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!      qScalar%valW,qScalar%defW,thstep,1d0)
+!      qScalar%valW,qScalar%defW,zeitstep,1d0)
 !     END IF
 
 !!      IF (myMatrixRenewal%D.GE.1) THEN
 !!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!!       qScalar%valU,qScalar%defU,2d0*thstep,1d0)
+!!       qScalar%valU,qScalar%defU,2d0*zeitstep,1d0)
 !!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!!       qScalar%valV,qScalar%defV,2d0*thstep,1d0)
+!!       qScalar%valV,qScalar%defV,2d0*zeitstep,1d0)
 !!       CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
-!!       qScalar%valW,qScalar%defW,2d0*thstep,1d0)
+!!       qScalar%valW,qScalar%defW,2d0*zeitstep,1d0)
 !!      END IF
 
 !!      CALL ZTIME(tttx0)
@@ -1418,7 +1487,14 @@ TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 INTEGER iLenV,iLenP,jEq,iEq
 INTEGER i,j,ii,jj,k
 CHARACTER cFile*(20)
-REAL*8 dBC
+REAL*8 dBC,dt
+
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 
 
@@ -1475,7 +1551,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1515,7 +1591,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1555,7 +1631,7 @@ IF (myid.ne.0) THEN
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(ii)
    myCrsMat%Col(k) = GlobalNumbering(jj)
-   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = GlobalNumbering(jj)
    myCrsMat%Col(k) = GlobalNumbering(ii)
@@ -1641,7 +1717,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -dBC*mg_BXMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1680,7 +1756,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -dBC*mg_BYMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1718,7 +1794,7 @@ else
    k = k + 1
    myCrsMat%Row(k) = ii
    myCrsMat%Col(k) = jj
-   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*TSTEP
+   myCrsMat%A  (k) = -dBC*mg_BZMat(ILEV)%a(j)*dt
    k = k + 1
    myCrsMat%Row(k) = jj
    myCrsMat%Col(k) = ii
@@ -1886,9 +1962,14 @@ INTEGER my3by3_LocPatch(3,3),my1by3_LocPatch(1,3)
 integer ilenp,ilenv,iO1,iO2
 REAL*8,aLLOCATABLE ::  A(:,:)
 CHARACTER cFile*20
+REAL*8 :: dt
 INTEGER iStringPos,iString
 
-
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 IF (myid.eq.0) RETURN
 
@@ -1941,7 +2022,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)*TSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BXMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -1969,7 +2050,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)*TSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BYMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 
@@ -1997,7 +2078,7 @@ DO ILEV = NLMIN,NLMAX
    
    DO j=my_mg_CCPiece(ILEV)%LdA_ql(i),my_mg_CCPiece(ILEV)%LdA_ql(i+1)-1
     ijEntry = my_mg_CCPiece(ILEV)%E(iel)%E_ql(j)
-    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)*TSTEP
+    my_mg_CCPiece(ILEV)%E(iel)%A(iPos) = -mg_BZMat(ILEV)%A(ijEntry)*dt
     iPos = iPos + 1
    END DO
 

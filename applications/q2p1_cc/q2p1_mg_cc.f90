@@ -281,7 +281,13 @@ IF (myid.ne.0) THEN
  mgLev = imgLev
  ndof_u  = KNEL(mgLev) + KNVT(mgLev) + KNET(mgLev) + KNAT(mgLev)
  ndof_p  = 4*KNEL(mgLev)
- dt = TSTEP
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
+
 
  DO i=1,ndof_u
 
@@ -363,7 +369,12 @@ REAL*8  daux_u(3),daux_v(3),dt,dP,daux_p,DefNorm(4)
 IF (myid.ne.0) THEN
  ndof_u  = KNEL(mgLev) + KNVT(mgLev) + KNET(mgLev) + KNAT(mgLev)
  ndof_p  = 4*KNEL(mgLev)
- dt = TSTEP
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
  DO i=1,ndof_u
 
@@ -2039,7 +2050,12 @@ REAL*8  daux_u(3),daux_v(3),dt,dP,daux_p,DefNorm(4)
 IF (myid.ne.0) THEN
  ndof_u  = KNEL(mgLev) + KNVT(mgLev) + KNET(mgLev) + KNAT(mgLev)
  ndof_p  = 4*KNEL(mgLev)
- dt = TSTEP
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
  DO i=1,ndof_u
 
@@ -2103,7 +2119,11 @@ INTEGER I,J,IL1,IL2,IL3,IG1,IG2,IG3,IL,IG,IEL,IDFL,JDFL
 INTEGER jVelo,jPres,nEq,jel
 REAL*8 dU,dV,dW,dP,dt,dNorm(2)
 
-dt = TSTEP
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 IG1 = 0
 IG2 = ndof_u
@@ -2224,7 +2244,11 @@ INTEGER I,J,IL1,IL2,IL3,IG1,IG2,IG3,IL,IG,IEL,IDFL,JDFL
 INTEGER jVelo,jPres
 REAL*8 dU,dV,dW,dP,dt,dNorm(2)
 
-dt = TSTEP
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 IG1 = 0
 IG2 = ndof_u
@@ -2349,7 +2373,12 @@ CALL SETLEV(2)
 
 ndof_u  = KNEL(mgLev) + KNVT(mgLev) + KNET(mgLev) + KNAT(mgLev)
 ndof_p  = 4*KNEL(mgLev)
-dt = TSTEP
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
 ALLOCATE(rhs_cc(3*ndof_u+ndof_p),sol_cc(3*ndof_u+ndof_p)) 
 

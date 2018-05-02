@@ -9,6 +9,7 @@ USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
+use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
 
@@ -29,7 +30,17 @@ Real*8 :: dabl
 
  ! Initialize the scalar quantity
  CALL InitializeQuadScalar(QuadSc)
-
+ IF (ccParams%BDF.ne.0) THEN
+ 	ALLOCATE(QuadSc%valU_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valU_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_old1(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_help(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valU_old2(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valV_old2(QuadSc%ndof))
+ 	ALLOCATE(QuadSc%valW_old2(QuadSc%ndof))
+ END IF
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
 
@@ -237,7 +248,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
 INTEGER INLComplete,I,J,IERR,iOuter
 REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
-REAL*8 :: FORCES_NEW(3),FORCES_OLD(3),MGnonLin,digitcriterion
+REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 REAL*8 B,a,h1,h2,h3
 
@@ -246,6 +257,7 @@ FORCES_OLD = 0d0
 iIterges = 0d0
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
+tsm = ccParams%BDF
 
 !Adaptivity
 ! F(x) = a + h1/(h2+exp(h3 x)); F(0) = B, F(1) = 0.9, F(0.5) = B/4 + 3/4
@@ -265,7 +277,8 @@ IF (myid.eq.1) THEN
   write(mterm,77)
 END IF
 
-digitcriterion = 10**(-1-alpha)
+digitcriterion = 10d0**(-1d0-alpha)
+
 
 
  CALL ExchangeVelocitySolutionCoarse()
@@ -275,11 +288,21 @@ digitcriterion = 10**(-1-alpha)
  CALL OperatorRegenaration_iso(3)
 
 
+!#######################################
+! Store the old solution for BDF to help
+!#######################################
+IF (myid.ne.master) THEN
+ QuadSc%valU_help = QuadSc%valU
+ QuadSc%valV_help = QuadSc%valV
+ QuadSc%valW_help = QuadSc%valW
+
+ LinSc%P_old  = LinSc%valP(NLMAX)%x
+END IF
 
  CALL ZTIME(tttt0)
 
 ! Assemble the right hand side
- thstep = tstep*(1d0-theta)
+ zeitstep = tstep*(1d0-theta)
  CALL Matdef_general_QuadScalar_cc(QuadSc,1,alpha)
 
 IF (myid.ne.master) THEN
@@ -291,15 +314,37 @@ IF (myid.ne.master) THEN
  QuadSc%rhsU = QuadSc%defU
  QuadSc%rhsV = QuadSc%defV
  QuadSc%rhsW = QuadSc%defW
-
 END IF
 
-thstep = tstep*theta
+!##########################################
+! Set zeitstep as the right scaling factor
+!##########################################
+IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+	zeitstep = tstep*theta
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'BE/CN'
+		write(mterm,'(A)')'BE/CN'
+	end if
+ELSE IF (tsm.EQ.2 .OR. itns.EQ.2) THEN
+	zeitstep = 2d0/3d0*tstep
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'BDF(2)'
+		write(mterm,'(A)')'BDF(2)'
+	end if
+ELSE IF (tsm.EQ.3) THEN
+	zeitstep = 6d0/11d0*tstep
+	if (myid.eq.showid) then
+		write(mfile,'(A)')'BDF(3)'
+		write(mterm,'(A)')'BDF(3)'
+	end if
+END IF
+
 
  CALL ExchangeVelocitySolutionCoarse()
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
+
 
 ! OUTPUT at the beginning
 ! CALL myOutputMatrix("AA11",qMat,AA11mat)
@@ -413,7 +458,9 @@ END IF
  CALL OperatorRegenaration_iso(3)
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_QuadScalar_cc(QuadSc,-1,alpha)
+ CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
+
+
 ! CALL OperatorDeallocation() ! after force calculation
 
 ! Set dirichlet boundary conditions on the solution
@@ -455,7 +502,7 @@ END IF
 ! digits to gain in MG
 !---------------------
  digitcriterion = (DefNorm/DefNormOld)**(2d0**alpha)
- if(digitcriterion.gt.10**(-1-alpha)) digitcriterion = 10**(-1-alpha)
+ if(digitcriterion.gt.10d0**(-1d0-alpha)) digitcriterion = 10d0**(-1d0-alpha)
 !!!!!!!!!!!!!!!!!!!! "ADAPTIVITY" !!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -463,8 +510,13 @@ END IF
 IF (myid.eq.showid) THEN
   write(mfile,5)
   write(mterm,5)
+  IF (bSteadyState) THEN
+  write(mfile,'(A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  needed:",myTolerance
+  write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  needed:",myTolerance
+  ELSE
   write(mfile,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
   write(mterm,'(A,ES12.4,A,ES12.4,A,ES12.4,A,ES12.4)') "INITIAL-DEF:",DefNorm0,",  ACTUAL-DEF:",DefNorm,",  ACTUAL-criterion:",DefNorm/DefNorm0,",  needed:",myTolerance
+  END IF
 END IF
 
  CALL FAC_GetForces_CC(mfile,FORCES_NEW)
@@ -491,18 +543,37 @@ stopOne = max(diffOne,diffTwo)
 FORCES_OLD = FORCES_NEW
 
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
-IF (DefNorm/DefNorm0.LT.myTolerance) exit
-IF (stopOne.LT.1d-4) THEN
-	IF (myid.eq.showid) THEN
-	write(mfile,55) 
-  	write(mterm,55)
-	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-        END IF
-        exit
+
+IF (bSteadyState) THEN
+	IF(DefNorm.LT.myTolerance) exit
+ELSE 
+	IF (DefNorm/DefNorm0.LT.myTolerance) exit
 END IF
+
+IF (DefNorm.EQ.0d0) exit
+
+!IF (stopOne.LT.1d-4) THEN
+!	IF (myid.eq.showid) THEN
+!	write(mfile,55) 
+!  	write(mterm,55)
+!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!        END IF
+!        exit
+!END IF
 END DO
 
+!#########################################
+! Store the old solution for BDF to old1/2
+!#########################################
+IF (myid.ne.master) THEN 
+ QuadSc%valU_old2 = QuadSc%valU_old1
+ QuadSc%valV_old2 = QuadSc%valV_old1
+ QuadSc%valW_old2 = QuadSc%valW_old1
+ QuadSc%valU_old1 = QuadSc%valU_help
+ QuadSc%valV_old1 = QuadSc%valV_help
+ QuadSc%valW_old1 = QuadSc%valW_help
+END IF
 
 ! OUTPUT at the end
 ! CALL Matdef_general_QuadScalar_cc(QuadSc,-1,alpha)
@@ -518,7 +589,7 @@ END DO
 ! CALL OperatorDeallocation()
 
 IF (myid.eq.showid) THEN
-  WRITE(777,'(7G16.8)') Timens,FORCES_NEW,iIterges,ni
+  WRITE(777,'(10G16.8)') Timens,FORCES_NEW,iIterges,ni
 
   MGnonLin = iIterges/ni
   write(mfile,55) 
@@ -692,11 +763,13 @@ END SUBROUTINE OperatorDeallocation
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),U_mean=1.0d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
 EXTERNAL E013
+
+
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -711,8 +784,8 @@ EXTERNAL E013
 !                     mg_mesh%level(ILEV)%dcorvg,&
 !                     Force, E013)
  CALL GetForceCyl_cc_iso(QuadSc%valU,QuadSc%valV,&
-                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
-                     BndrForce,&
+                     QuadSc%valW,LinSc%ValP(NLMAX)%x,&
+                     LinSc%P_old,BndrForce,&
                      mg_mesh%level(ILEV)%kvert,&
                      mg_mesh%level(ILEV)%karea,&
                      mg_mesh%level(ILEV)%kedge,&
@@ -733,9 +806,9 @@ EXTERNAL E013
  IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-  WRITE(666,'(7G16.8)') Timens,Force
+  write(mfile,'(A30,8E16.8)') "Force acting:",timens,Force
+  write(mterm,'(A30,8E16.8)') "Force acting:",timens,Force
+  WRITE(666,'(8G16.8)') Timens,Force
  END IF
 
 5  FORMAT(104('-'))
@@ -747,7 +820,7 @@ END SUBROUTINE FAC_GetForces_CC
 SUBROUTINE myFAC_GetForces(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(3),U_mean=1.0d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -779,7 +852,7 @@ EXTERNAL E013
   WRITE(MFILE,5)
   write(mfile,'(A30,4E16.8)') "Force acting:",timens,Force
   write(mterm,'(A30,4E16.8)') "Force acting:",timens,Force
-  WRITE(666,'(7G16.8)') Timens,Force
+  WRITE(666,'(4G16.8)') Timens,Force
  END IF
 
 5  FORMAT(104('-'))
@@ -885,6 +958,7 @@ CALL COMM_SUMM(df(1))
 CALL COMM_SUMM(df(2))
 CALL COMM_SUMM(df(3))
 
+
 END SUBROUTINE EvaluateDragLift9_mod
 !
 ! ----------------------------------------------
@@ -978,6 +1052,9 @@ DO
     CASE ("MG_VANKA")
     READ(string(iEq+1:),*) ccParams%VANKA
     call write_param_int(mfile,cVar,cPar,out_string,ccParams%VANKA)
+    CASE ("BDF")
+    READ(string(iEq+1:),*) ccParams%BDF
+    call write_param_int(mfile,cVar,cPar,out_string,ccParams%BDF)
 
 
   END SELECT

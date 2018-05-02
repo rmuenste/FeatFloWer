@@ -16,7 +16,7 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_AA12mat,mg_AA13mat,
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_AA21mat,mg_AA31mat,mg_AA32mat
 
 
-! Force calculation
+! (possible) Force calculation
 REAL*8  , DIMENSION(:)  , POINTER :: BXMat_new,BYMat_new,BZMat_new
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat_new,mg_BYMat_new,mg_BZMat_new
 
@@ -26,9 +26,13 @@ TYPE tParamCC
  INTEGER MinLev,MedLev,MinIterCycle,MaxIterCycle,nSmootherSteps
  REAL*8 Criterion,RLX 
  CHARACTER*1 CycleType
- integer :: vanka
+ integer :: vanka,BDF
 END TYPE tParamCC
 
 TYPE(tParamCC) ccParams
+
+! needed for BDF(2) or BDF(3), better look than playing around with tstep
+REAL*8 :: zeitstep
+INTEGER :: tsm
 
 END MODULE var_QuadScalar_newton

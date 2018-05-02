@@ -1389,6 +1389,10 @@ INTEGER NDOF,NDOF2,N
  IF (ALLOCATED(mg_lMat)) myScalar%na = mg_lMat(ILEV)%na
 
  ALLOCATE(myScalar%valP_old(myScalar%ndof))
+ ! For CC
+ ALLOCATE(myScalar%P_old(myScalar%ndof))
+ ALLOCATE(myScalar%P_new(myScalar%ndof))
+
  ALLOCATE(myScalar%ST_P(myScalar%ndof))
  ALLOCATE(myScalar%Q2(NDOF2))
  ALLOCATE(myScalar%valP_GMV(myScalar%ndof*8))

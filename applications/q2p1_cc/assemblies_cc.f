@@ -160,13 +160,21 @@ C
       USE var_QuadScalar,ONLY : CC_EMat,mg_A11mat,mg_A22mat,mg_A33mat,
      *    mg_A12mat,mg_A13mat,mg_A23mat,mg_A21mat,mg_A31mat,mg_A32mat,
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
-     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
+     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV,ITNS
       USE PP3D_MPI, ONLY: MGE013,myid,master
+      USE var_QuadScalar_newton, ONLY:zeitstep,tsm
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       REAL*8  DEFU(*),DEFV(*),DEFW(*),DEFP(*)
       REAL*8  VALU(*),VALV(*),VALW(*),VALP(*)
       INTEGER NDOF
+      REAL*8 dt
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
       IF (myid.eq.0) GOTO 1
 
@@ -188,9 +196,9 @@ C
        DO j=mg_qlMat(ILEV)%LdA(i),mg_qlMat(ILEV)%LdA(i+1)-1
         jPres = mg_qlMat(ILEV)%ColA(j)
         dP    = VALP(jPres)
-        DEFU(i) = DEFU(i) - TSTEP*mg_BXmat(ILEV)%a(j)*dP
-        DEFV(i) = DEFV(i) - TSTEP*mg_BYmat(ILEV)%a(j)*dP
-        DEFW(i) = DEFW(i) - TSTEP*mg_BZmat(ILEV)%a(j)*dP
+        DEFU(i) = DEFU(i) - dt*mg_BXmat(ILEV)%a(j)*dP
+        DEFV(i) = DEFV(i) - dt*mg_BYmat(ILEV)%a(j)*dP
+        DEFW(i) = DEFW(i) - dt*mg_BZmat(ILEV)%a(j)*dP
        END DO
       END DO
 
@@ -214,7 +222,7 @@ C
      *				iStringPos,iString)
       USE var_QuadScalar,ONLY : CC_EMat,
      *    mg_qMat,mg_qlMat,mg_BXmat,mg_BYmat,mg_BZmat,
-     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV
+     *    mg_lqMat,mg_BTXmat,mg_BTYmat,mg_BTZmat,NLMAX,TSTEP,ILEV,ITNS
 
       USE var_QuadScalar_newton, ONLY : 
      *    mg_AA11mat,mg_AA22mat,mg_AA33mat,
@@ -223,12 +231,20 @@ C
 
       USE PP3D_MPI, ONLY: MGE013,myid,master
       USE UMFPackSolver_CC, ONLY : myUmfPack_CCFactorize
+      USE var_QuadScalar_newton, ONLY:zeitstep,tsm
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       INTEGER KNU(*),KNV(*),KNW(*),iStringPos,iString
       INTEGER KVERT(8,*),KAREA(6,*),KEDGE(12,*),NEL
       INTEGER KDFG1(27),KDFL1(27),KDFG2(27),KDFL2(27)
       INTEGER LDA(86),COLA(85,85)
+      REAL*8 dt
+
+	IF (tsm.EQ.0 .OR. itns.EQ.1) THEN
+		dt = tstep
+	ELSE 
+		dt = zeitstep
+	END IF
 
       IF (myid.eq.0) GOTO 1
 
@@ -324,11 +340,11 @@ C
          IF (KG.EQ.4*(IEL-1)+1) THEN
 !           IF (myid.eq.1) WRITE(*,*) "yes!",IEL,KG
           CC_EMat(ILEV)%E(IEL)%a( 0 + IL, 82:85) =
-     *    -mg_BXmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BXmat(ILEV)%a(LG:LG+3)*dt
           CC_EMat(ILEV)%E(IEL)%a(27 + IL, 82:85) =
-     *    -mg_BYmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BYmat(ILEV)%a(LG:LG+3)*dt
           CC_EMat(ILEV)%E(IEL)%a(54 + IL, 82:85) =
-     *    -mg_BZmat(ILEV)%a(LG:LG+3)*TSTEP
+     *    -mg_BZmat(ILEV)%a(LG:LG+3)*dt
          END IF
         END DO
 
