@@ -22,13 +22,13 @@
   <RigidBodyList size = "1">
     <RigidBody
       type = "0"
-      position = "-0.015 0.0 0.0"	  
+      position = "-0.001 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
       orientation = "0.0 0.0 0.0"	  	  	  
       force = "0.0 0.0 0.0"	  	  	  
       torque = "0.0 0.0 0.0"	  	  	  
-      boxExtents = "0.03 0.02 0.02"	  	  	  
+      boxExtents = "0.002 0.02 0.02"	  	  	  
       U = "1.0 0.0 0.0"	  	  
       V = "0.0 1.0 0.0"	  	  
       W = "0.0 0.0 1.0"	  	  
