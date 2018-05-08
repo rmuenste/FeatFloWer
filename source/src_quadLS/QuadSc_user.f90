@@ -121,13 +121,6 @@ IF (iT.EQ.4.OR.iT.EQ.5) THEN
  ValW= 0d0
 END IF
 
-IF (iT.EQ.6) THEN
- dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)*sin(t*PI/8d0)
- ValU=dScale*Y*(0.41d0-Y)*Z*(0.41d0-Z)
- ValV= 0d0
- ValW= 0d0
-END IF
-
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF
@@ -181,6 +174,12 @@ IF (it.EQ.27) THEN
  ValU=dScale*(0.41d0-Y)*Y*(0.41d0-Z)*Z
  ValV=0d0
  ValW=0d0
+END IF
+IF (iT.EQ.28) THEN
+ dScale=(9d0/4d0)/(0.205d0*0.205d0*0.205d0*0.205d0)*sin(t*PI/8d0)
+ ValU=dScale*Y*(0.41d0-Y)*Z*(0.41d0-Z)
+ ValV= 0d0
+ ValW= 0d0
 END IF
 
 IF (iT.EQ.21) THEN

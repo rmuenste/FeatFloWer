@@ -750,19 +750,21 @@ SUBROUTINE LinScalar_InitCond(dcorvg,kvert)
   INTEGER i,j,ivt,iPos
 
   DO i=1,nel
-  PX = 0d0
-  PY = 0d0
-  PZ = 0d0
+   PX = 0d0
+   PY = 0d0
+   PZ = 0d0
 
-  DO j =1,8
-  ivt = kvert(j,i)
-  PX = PX + 0.125d0*dcorvg(1,ivt)
-  PY = PY + 0.125d0*dcorvg(2,ivt)
-  PZ = PZ + 0.125d0*dcorvg(3,ivt)
+   DO j =1,8
+   ivt = kvert(j,i)
+   PX = PX + 0.125d0*dcorvg(1,ivt)
+   PY = PY + 0.125d0*dcorvg(2,ivt)
+   PZ = PZ + 0.125d0*dcorvg(3,ivt)
+   END DO
+   iPos = 4*(i-1)
+   CALL GetPresInitVal(PX,PY,PZ,LinSc%valP(NLMAX)%x(iPos+1:iPos+4))
   END DO
-  iPos = 4*(i-1)
-  CALL GetPresInitVal(PX,PY,PZ,LinSc%valP(NLMAX)%x(iPos+1:iPos+4))
-  END DO
+  
+  LinSc%valP_old(:) = LinSc%valP(NLMAX)%x(:)
 
 END SUBROUTINE LinScalar_InitCond
 !
@@ -1181,7 +1183,8 @@ SUBROUTINE Pressure_Correction()
   real*8 dR
 
   DO I=1,lMat%nu
-  LinSc%valP(NLMAX)%x(i) = LinSc%valP(NLMAX)%x(i) + LinSc%valP_old(i)
+   LinSc%valP(NLMAX)%x(i) = LinSc%valP(NLMAX)%x(i) + LinSc%valP_old(i)
+   LinSc%P_new(i) = 1.5d0*LinSc%valP(NLMAX)%x(i) - 0.5d0*LinSc%valP_old(i)
   END DO
 
   ! ! Set dirichlet boundary conditions on the solution
@@ -1347,10 +1350,10 @@ END SUBROUTINE FBM_GetForces
 !
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
-  !REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
-  REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+  REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
+!   REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
   REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
-  REAL*8 :: Force2(3)
+  REAL*8 :: Force2(3),ForceV(3),ForceP(3)
   REAL*8 :: Scale
   INTEGER i,nn
   EXTERNAL E013
@@ -1360,10 +1363,10 @@ SUBROUTINE FAC_GetForces(mfile)
 
   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
     CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-      LinSc%valP(NLMAX)%x,BndrForce,Force)
+      LinSc%P_new,BndrForce,ForceV,ForceP)
   ELSE
     CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-      LinSc%valP(NLMAX)%x,BndrForce,Force)
+      LinSc%P_new,BndrForce,ForceV,ForceP)
   END IF
 
   if(bViscoElastic)then
@@ -1374,7 +1377,8 @@ SUBROUTINE FAC_GetForces(mfile)
     ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
   else
     Factor = 2d0/(U_mean*U_mean*D*H)
-    Force = Factor*Force
+    ForceP = Factor*ForceP
+    ForceV = Factor*ForceV
   end if
 
   IF (myid.eq.showID) THEN
@@ -1387,13 +1391,13 @@ SUBROUTINE FAC_GetForces(mfile)
         timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
       WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
         (Force-ViscoElasticForce),Force
-      WRITE(666,'(7G16.8)') Timens,Force
+      WRITE(666,'(10G16.8)') Timens,Force
     else
       WRITE(MTERM,5)
       WRITE(MFILE,5)
-      write(mfile,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-      write(mterm,'(A30,4E16.8)') "Force acting on the cylinder:",timens,Force
-      WRITE(666,'(7G16.8)') Timens,Force
+      write(mfile,'(A30,7E16.8)') "Force acting on the cylinder:",timens,ForceV,forceP
+      write(mterm,'(A30,7E16.8)') "Force acting on the cylinder:",timens,ForceV,forceP
+      WRITE(666,'(10G16.8)') Timens,ForceV,forceP
     end if
   END IF
 

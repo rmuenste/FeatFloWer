@@ -44,6 +44,11 @@ REAL*8  :: dCGALtoRealFactor = 1d0
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
 
+TYPE tTransform
+ INTEGER :: ILINT=1
+END TYPE
+TYPE (tTransform) Transform
+
 TYPE tMesh
   ! Mesh integer parameters
   integer :: NEL = 0

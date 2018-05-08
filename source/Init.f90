@@ -384,7 +384,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
-      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck
+      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -557,6 +557,9 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) TIMEMX
         CASE ("MaxNumStep")
           READ(string(iEq+1:),*) NITNS
+        CASE ("ElemTrans")
+          READ(string(iEq+1:),*) Transform%ilint
+          If (Transform%ilint.lt.1.or.Transform%ilint.gt.2) Transform%ilint = 1
         CASE ("BackUpFreq")
           READ(string(iEq+1:),*) INSAV
         CASE ("BackUpNum")
@@ -730,6 +733,9 @@ SUBROUTINE General_init(MDATA,MFILE)
       WRITE(mfile,'(A,D12.4)') "OutputFreq = ", DTGMV
       WRITE(mterm,'(A,D12.4)') "OutputFreq = ", DTGMV
 
+      WRITE(mfile,'(A,I1)') "ElemTransform = Q", Transform%ilint
+      WRITE(mterm,'(A,I1)') "ElemTransform = Q", Transform%ilint
+      
       WRITE(mfile,'(A,5(A6I1))') "Matrix Renewal scheme : ","  M = ",myMatrixRenewal%M,&
         ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
         ", C = ",myMatrixRenewal%C
