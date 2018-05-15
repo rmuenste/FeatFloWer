@@ -559,7 +559,7 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) NITNS
         CASE ("ElemTrans")
           READ(string(iEq+1:),*) Transform%ilint
-          If (Transform%ilint.lt.1.or.Transform%ilint.gt.2) Transform%ilint = 1
+          If (Transform%ilint.lt.1.or.Transform%ilint.gt.2) Transform%ilint = 2
         CASE ("BackUpFreq")
           READ(string(iEq+1:),*) INSAV
         CASE ("BackUpNum")

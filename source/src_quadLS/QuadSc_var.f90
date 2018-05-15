@@ -45,7 +45,7 @@ INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
 
 TYPE tTransform
- INTEGER :: ILINT=1
+ INTEGER :: ILINT=2
 END TYPE
 TYPE (tTransform) Transform
 

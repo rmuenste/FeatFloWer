@@ -688,7 +688,7 @@ END IF
   INQUIRE (FILE="_data/BenchValues.txt", EXIST=bExist)
   IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
    OPEN(666,FILE="_data/BenchValues.txt")
-   WRITE(666,'(4A16)') "Time","Drag","Lift","ZForce"
+   WRITE(666,'(10A16)') "Time","Drag","Lift","ZForce","ForceVx","ForceVy","ForceVz","ForcePx","ForcePy","ForcePz"
   ELSE
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
@@ -1350,8 +1350,8 @@ END SUBROUTINE FBM_GetForces
 !
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
-  REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
-!   REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+!   REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
+  REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
   REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
   REAL*8 :: Force2(3),ForceV(3),ForceP(3)
   REAL*8 :: Scale
@@ -1370,8 +1370,7 @@ SUBROUTINE FAC_GetForces(mfile)
   END IF
 
   if(bViscoElastic)then
-    Force = Force + ViscoElasticForce
-    !CALL Comm_SummN(Force,3)
+    Force = ForceV + ForceP + ViscoElasticForce
     Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
     Force = (4d0*Force)/Scale
     ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
@@ -1382,6 +1381,7 @@ SUBROUTINE FAC_GetForces(mfile)
   end if
 
   IF (myid.eq.showID) THEN
+   
     if(bViscoElastic)then
       WRITE(MTERM,5)
       WRITE(MFILE,5)
@@ -1395,9 +1395,13 @@ SUBROUTINE FAC_GetForces(mfile)
     else
       WRITE(MTERM,5)
       WRITE(MFILE,5)
-      write(mfile,'(A30,7E16.8)') "Force acting on the cylinder:",timens,ForceV,forceP
-      write(mterm,'(A30,7E16.8)') "Force acting on the cylinder:",timens,ForceV,forceP
-      WRITE(666,'(10G16.8)') Timens,ForceV,forceP
+      if (itns.eq.1) then
+       write(mfile,'(A30,7A14)') "ForceActingOnTheCylinder:","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
+       write(mterm,'(A30,7A14)') "ForceActingOnTheCylinder:","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
+      end if
+      write(mfile,'(A30,7E14.6)') "ForceActingOnTheCylinder:",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      write(mterm,'(A30,7E14.6)') "ForceActingOnTheCylinder:",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      WRITE(666,'(10G16.8)') Timens,ForceV+forceP,ForceV,forceP
     end if
   END IF
 
