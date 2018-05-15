@@ -170,47 +170,28 @@ set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
 )
 
-set(src_quadLS
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
-  #${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
-  )
+set(src_assemblies
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_laplace.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_diff.f  
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_massrho.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_conv.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_shear.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_stress.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_surftens.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
+)
 
 set(src_quadLS_app
 ${src_util}
 ${src_fbm}
+${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90

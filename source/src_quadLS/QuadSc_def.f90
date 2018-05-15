@@ -265,7 +265,7 @@ INTEGER I,J
   mg_mesh%level(ILEV)%karea,&
   mg_mesh%level(ILEV)%kedge,&
   mg_mesh%level(ILEV)%dcorvg,&
-  9,E013)
+  E013)
 
   if(bSteadyState)then
     mg_MMat(ILEV)%a = 0d0
@@ -338,7 +338,7 @@ INTEGER I,J
                  mg_mesh%level(ILEV)%karea,&
                  mg_mesh%level(ILEV)%kedge,&
                  mg_mesh%level(ILEV)%dcorvg,&
-                 9,E013)
+                 E013)
 
 
   IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
@@ -649,7 +649,7 @@ EXTERNAL E011,E013
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-     qlMat%na,9,E013)
+       qlMat%na,E013)
 
  END DO
 
@@ -685,7 +685,7 @@ DO ILEV=NLMIN,NLMAX
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-     lqMat%na,9,E013)
+       lqMat%na,E013)
 
  END DO
 
@@ -2565,10 +2565,10 @@ END SUBROUTINE OutputMatrix
 !
 ! ----------------------------------------------
 !
-SUBROUTINE EvaluateDragLift9_old(U,V,W,P,CYL,df)
+SUBROUTINE EvaluateDragLift9_old(U,V,W,P,CYL,dfV,dfP)
 REAL*8 U(*),V(*),W(*),P(*)
 LOGICAL CYL(*)
-REAL*8 df(3)
+REAL*8 dfV(3),dfP(3)
 INTEGER I,J,K,JJ
 
 IF (myid.ne.0) THEN
@@ -2590,38 +2590,41 @@ BYMat    => mg_BYMat(ILEV)%a
 BZMat    => mg_BZMat(ILEV)%a
 qMat     => mg_qMat(ILEV)
 
-df = 0d0
+dfV = 0d0; dfP = 0d0  
 DO I=1,qMat%nu
  IF (CYL(I)) THEN
   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
    K = qMat%ColA(J)
-   df(1) = df(1) - (S11Mat(J)*U(K) + S12Mat(J)*V(K) + S13Mat(J)*W(K))
-   df(2) = df(2) - (S21Mat(J)*U(K) + S22Mat(J)*V(K) + S23Mat(J)*W(K))
-   df(3) = df(3) - (S31Mat(J)*U(K) + S32Mat(J)*V(K) + S33Mat(J)*W(K))
+   dfV(1) = dfV(1) - (S11Mat(J)*U(K) + S12Mat(J)*V(K) + S13Mat(J)*W(K))
+   dfV(2) = dfV(2) - (S21Mat(J)*U(K) + S22Mat(J)*V(K) + S23Mat(J)*W(K))
+   dfV(3) = dfV(3) - (S31Mat(J)*U(K) + S32Mat(J)*V(K) + S33Mat(J)*W(K))
   END DO
   DO J=qlMat%LdA(I),qlMat%LdA(I+1)-1
    K = qlMat%ColA(J)
-   df(1) = df(1) + BXMat(J)*P(K)
-   df(2) = df(2) + BYMat(J)*P(K)
-   df(3) = df(3) + BZMat(J)*P(K)
+   dfP(1) = dfP(1) + BXMat(J)*P(K)
+   dfP(2) = dfP(2) + BYMat(J)*P(K)
+   dfP(3) = dfP(3) + BZMat(J)*P(K)
   END DO
  END IF
 END DO
 
 END IF
 
-CALL COMM_SUMM(df(1))
-CALL COMM_SUMM(df(2))
-CALL COMM_SUMM(df(3))
+CALL COMM_SUMM(dfV(1))
+CALL COMM_SUMM(dfV(2))
+CALL COMM_SUMM(dfV(3))
+CALL COMM_SUMM(dfP(1))
+CALL COMM_SUMM(dfP(2))
+CALL COMM_SUMM(dfP(3))
 
 END SUBROUTINE EvaluateDragLift9_old
 !
 ! ----------------------------------------------
 !
-SUBROUTINE EvaluateDragLift_old(U,V,W,P,CYL,df)
+SUBROUTINE EvaluateDragLift_old(U,V,W,P,CYL,dfV,dfP)
 REAL*8 U(*),V(*),W(*),P(*)
 LOGICAL CYL(*)
-REAL*8 df(3)
+REAL*8 dfV(3),dfP(3)
 INTEGER I,J,K,JJ
 
 IF (myid.ne.0) THEN
@@ -2637,20 +2640,20 @@ qMat     => mg_qMat(ILEV)
 
 ! CALL GetParPressure(P,PP)
 
-df = 0d0
+dfV = 0d0; dfP = 0d0  
 DO I=1,qMat%nu
  IF (CYL(I)) THEN
   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
    K = qMat%ColA(J)
-   df(1) = df(1) - DMat(J)*U(K)
-   df(2) = df(2) - DMat(J)*V(K)
-   df(3) = df(3) - DMat(J)*W(K)
+   dfV(1) = dfV(1) - DMat(J)*U(K)
+   dfV(2) = dfV(2) - DMat(J)*V(K)
+   dfV(3) = dfV(3) - DMat(J)*W(K)
   END DO
   DO J=qlMat%LdA(I),qlMat%LdA(I+1)-1
    K = qlMat%ColA(J)
-   df(1) = df(1) + BXMat(J)*P(K)
-   df(2) = df(2) + BYMat(J)*P(K)
-   df(3) = df(3) + BZMat(J)*P(K)
+   dfP(1) = dfP(1) + BXMat(J)*P(K)
+   dfP(2) = dfP(2) + BYMat(J)*P(K)
+   dfP(3) = dfP(3) + BZMat(J)*P(K)
   END DO
  END IF
 END DO
@@ -2659,9 +2662,12 @@ END DO
 
 END IF
 
-CALL COMM_SUMM(df(1))
-CALL COMM_SUMM(df(2))
-CALL COMM_SUMM(df(3))
+CALL COMM_SUMM(dfV(1))
+CALL COMM_SUMM(dfV(2))
+CALL COMM_SUMM(dfV(3))
+CALL COMM_SUMM(dfP(1))
+CALL COMM_SUMM(dfP(2))
+CALL COMM_SUMM(dfP(3))
 
 END SUBROUTINE EvaluateDragLift_old
 !
