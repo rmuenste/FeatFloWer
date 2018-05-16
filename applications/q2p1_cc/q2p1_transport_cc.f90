@@ -50,7 +50,7 @@ Real*8 :: dabl
                           mg_mesh%level(ilev)%nat+&
                           mg_mesh%level(ilev)%nel))
 
- CALL InitBoundaryList(KWORK(L(LNPR)),&
+ CALL InitBoundaryList(mg_mesh%level(ILEV)%knpr,&
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%kedge,&
                       mg_mesh%level(ILEV)%karea)
