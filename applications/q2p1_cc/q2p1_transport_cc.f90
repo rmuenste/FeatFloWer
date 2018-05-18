@@ -287,7 +287,7 @@ digitcriterion = 10d0**(-1d0-alpha)
 
  CALL OperatorRegenaration_iso(3)
 
-
+IF (ccParams%BDF.ne.0) THEN
 !#######################################
 ! Store the old solution for BDF to help
 !#######################################
@@ -297,6 +297,7 @@ IF (myid.ne.master) THEN
  QuadSc%valW_help = QuadSc%valW
 
  LinSc%P_old  = LinSc%valP(NLMAX)%x
+END IF
 END IF
 
  CALL ZTIME(tttt0)
@@ -563,6 +564,7 @@ IF (DefNorm.EQ.0d0) exit
 !END IF
 END DO
 
+IF (ccParams%BDF.ne.0) THEN
 !#########################################
 ! Store the old solution for BDF to old1/2
 !#########################################
@@ -573,6 +575,7 @@ IF (myid.ne.master) THEN
  QuadSc%valU_old1 = QuadSc%valU_help
  QuadSc%valV_old1 = QuadSc%valV_help
  QuadSc%valW_old1 = QuadSc%valW_help
+END IF
 END IF
 
 ! OUTPUT at the end
