@@ -295,10 +295,13 @@ IF (myid.ne.master) THEN
  QuadSc%valU_help = QuadSc%valU
  QuadSc%valV_help = QuadSc%valV
  QuadSc%valW_help = QuadSc%valW
+END IF
+END IF
 
+IF (myid.ne.master) THEN
  LinSc%P_old  = LinSc%valP(NLMAX)%x
 END IF
-END IF
+
 
  CALL ZTIME(tttt0)
 
