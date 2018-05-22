@@ -1350,8 +1350,8 @@ END SUBROUTINE FBM_GetForces
 !
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
-!   REAL*8 :: Force(3),U_mean=1d0,H=0.41d0,D=0.1d0,Factor
-  REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
+  REAL*8 :: Force(3),U_mean=0.2d0,H=0.205d0,D=0.1d0,Factor
+!   REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
   REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
   REAL*8 :: Force2(3),ForceV(3),ForceP(3)
   REAL*8 :: Scale
@@ -1391,17 +1391,17 @@ SUBROUTINE FAC_GetForces(mfile)
         timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
       WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
         (Force-ViscoElasticForce),Force
-      WRITE(666,'(10G16.8)') Timens,Force
+!       WRITE(666,'(10G16.8)') Timens,Force
     else
       WRITE(MTERM,5)
       WRITE(MFILE,5)
       if (itns.eq.1) then
-       write(mfile,'(A30,7A14)') "ForceActingOnTheCylinder:","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
-       write(mterm,'(A30,7A14)') "ForceActingOnTheCylinder:","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
+       write(mfile,'(A7,7A15)') "Force: ","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
+       write(mterm,'(A7,7A15)') "Force: ","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
       end if
-      write(mfile,'(A30,7E14.6)') "ForceActingOnTheCylinder:",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
-      write(mterm,'(A30,7E14.6)') "ForceActingOnTheCylinder:",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
-      WRITE(666,'(10G16.8)') Timens,ForceV+forceP,ForceV,forceP
+      write(mfile,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      write(mterm,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      WRITE(666,'(10ES16.8)') Timens,ForceV+forceP,ForceV,forceP
     end if
   END IF
 
