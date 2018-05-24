@@ -249,6 +249,8 @@ The Feat\_FloWer software package is accessible through the version control syst
 In order to checkout a copy of the code an account that provides access to the LS3 servers is required, so it is recommended to get such an account. Furthermore, the code repository does not include the meshes used in the example applications. The meshes are stored in a different repository. So, at first we will get this repository and set up
 an environment variable so that the configuration mechanism of Feat\_FloWer can find the mesh repository. The mesh repo can be checked out by: \\
 \cmd{git clone ssh://username@lannister/home/user/git/mesh\_repo.git}\\
+If the above command does not complete successfully it is very likely that you do not yet have access rights to the git mesh repository. In this case please ask your administrator to grant you
+the required access rights.
 After you have checked out the mesh repository, it is time to set up the environment variable for Feat\_FloWer. For the \texttt{BASH} or \texttt{ZSH} shells this can be done by
 adding the following line to your \textit{.bashrc} or respectively \textit{.zsh}:\\
 \cmd{export Q2P1\_MESH\_DIR=/path/to/meshrepo/mesh\_repo}\\
@@ -277,7 +279,22 @@ On the servers of the TU Dortmund load for example the following modules or newe
   \item \cmd{module load openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet}
   \item \cmd{module load cmake/3.5.2-ssl}	
 \end{itemize}
-After you have typed these commands verify that these module are loaded by checking the output of the command \textbf{module list}. The build of the basic software package is
+
+In order for CMake to use the compiler that has been added by the module system it is recommended to set the environment variables \texttt{CC}, \texttt{CXX}, \texttt{FC} accordingly. In detail this
+this means executing the commands (for \texttt{BASH} or \texttt{ZSH} shells):
+
+\begin{itemize}
+  \item \cmd{export CC=\$(which mpicc)}
+  \item \cmd{export CXX=\$(which mpicxx)}
+  \item \cmd{export FC=\$(which mpif90)}
+\end{itemize}
+for the \texttt{TCSH} or \texttt{CSH} shells use the syntax:
+\begin{itemize}
+  \item \cmd{setenv CC `which mpicc`}
+  \item \cmd{setenv CXX `which mpicxx`}
+  \item \cmd{setenv FC `which mpif90`}
+\end{itemize}
+It is advised to create shell aliases for these commands because they are used frequently. After you have entered the load commands, verify that these module are loaded by checking the output of the command \textbf{module list}. The build of the basic software package is
 initiated by navigating into the \textit{bin} folder that you have created before and evoking CMake from there:\\
 \cmd{cd bin}\\
 \cmd{cmake -DBUILD\_METIS=True ../Feat\_FloWer}\\
