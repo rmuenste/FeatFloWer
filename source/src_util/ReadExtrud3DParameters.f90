@@ -45,9 +45,29 @@
      WRITE(*,*) '"',TRIM(myProcess%Rotation),'"'
     END IF
 ! 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
+    call inip_toupper_replace(mySigma%cType)
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE")) THEN
+     WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
+    END IF
+
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
     DistTolerance = 1d0*mySigma%Dz_Out
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,myInf)
+
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","CenterlineDistance", mySigma%a ,myInf)
+    
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelStraightCut", mySigma%W ,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelCurvedCut", mySigma%Dzz ,myInf)
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","BarrelCut", mySigma%cZwickel ,"STRAIGHT")
+    call inip_toupper_replace(mySigma%cZwickel)
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND")) THEN
+     WRITE(*,*) "not a valid Zwickel region definition:", ADJUSTL(TRIM(mySigma%cZwickel))
+    END IF
+    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") mySigma%Dzz = myInf
+    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND")    mySigma%W = myInf
+
+
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
 
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
@@ -72,6 +92,158 @@
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
 
+!!!==============================================     FOERD    =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."FOERD".or.ADJUSTL(TRIM(cElemType)).eq."THREADED") THEN
+      mySigma%mySegment(iSeg)%ART   = "FOERD"
+      mySigma%mySegment(iSeg)%Unit='MM'
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
+
+      call INIP_getvalue_string(parameterlist,cElement_i,"KindOfConveying", cKindOfConveying," ")
+      call inip_toupper_replace(cKindOfConveying)
+      IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."CONVEYING".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."CONVEYING") THEN
+        mySigma%mySegment(iSeg)%t=1d0*mySigma%mySegment(iSeg)%t
+       END IF
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+        mySigma%mySegment(iSeg)%t=-1d0*mySigma%mySegment(iSeg)%t
+       END IF
+      ELSE
+       WRITE(*,*) "invalid kind of conveying segment"
+       WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
+      END IF
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
+     END IF
+!!!==============================================     KNET     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."KNET".or.ADJUSTL(TRIM(cElemType)).eq."KNEADING") THEN
+      mySigma%mySegment(iSeg)%ART   = "KNET"
+      mySigma%mySegment(iSeg)%Unit='MM'
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%N*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_string(parameterlist,cElement_i,"KindOfkneading", cKindOfConveying," ")
+      call inip_toupper_replace(cKindOfConveying)
+      IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."REKNEADING") THEN
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING") THEN
+        mySigma%mySegment(iSeg)%alpha=1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+        mySigma%mySegment(iSeg)%alpha=-1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+      ELSE
+       WRITE(*,*) "invalid kind of kneading segment"
+       WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
+      END IF
+     END IF
+!!!==============================================     SKNET    =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."SKNET".or.ADJUSTL(TRIM(cElemType)).eq."SHOULDEREDKNEADING") THEN
+      mySigma%mySegment(iSeg)%ART   = "SKNET"
+      mySigma%mySegment(iSeg)%Unit='MM'
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%N*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_string(parameterlist,cElement_i,"KindOfkneading", cKindOfConveying," ")
+      call inip_toupper_replace(cKindOfConveying)
+      IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."REKNEADING") THEN
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING") THEN
+        mySigma%mySegment(iSeg)%alpha=1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+        mySigma%mySegment(iSeg)%alpha=-1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+      ELSE
+       WRITE(*,*) "invalid kind of kneading segment"
+       WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
+       bReadError=.TRUE.
+!        GOTO 10
+      END IF
+     END IF
+!!!==============================================      SME     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."SME".or.ADJUSTL(TRIM(cElemType)).eq."SCREWMIXING") THEN
+      mySigma%mySegment(iSeg)%ART   = "SME"
+      mySigma%mySegment(iSeg)%Unit='MM'
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
+
+      call INIP_getvalue_string(parameterlist,cElement_i,"KindOfConveying", cKindOfConveying," ")
+      call inip_toupper_replace(cKindOfConveying)
+      IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."CONVEYING".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."CONVEYING") THEN
+        mySigma%mySegment(iSeg)%t=1d0*mySigma%mySegment(iSeg)%t
+       END IF
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+        mySigma%mySegment(iSeg)%t=-1d0*mySigma%mySegment(iSeg)%t
+       END IF
+      ELSE
+       WRITE(*,*) "invalid kind of screwmixing segment"
+       WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
+       bReadError=.TRUE.
+!        GOTO 10
+      END IF
+      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfGrooves",mySigma%mySegment(iSeg)%SecProf_N ,-1)
+      call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
+     END IF
+!!!==============================================      ZME     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."ZME".or.ADJUSTL(TRIM(cElemType)).eq."TOOTHMIXING") THEN
+      mySigma%mySegment(iSeg)%ART   = "ZME"
+      mySigma%mySegment(iSeg)%Unit='MM'
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfRows",mySigma%mySegment(iSeg)%ZME_N ,-1)
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%ZME_DiscThick,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscDiscGap", mySigma%mySegment(iSeg)%ZME_gap_SS,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscShellGap", mySigma%mySegment(iSeg)%ZME_gap_SG,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
+      mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
+
+      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfTeeth",mySigma%mySegment(iSeg)%SecProf_N ,-1)
+      call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + &
+      2d0*mySigma%mySegment(iSeg)%ZME_N * (mySigma%mySegment(iSeg)%ZME_DiscThick + mySigma%mySegment(iSeg)%ZME_gap_SS)
+      mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
+     END IF
+!!!==============================================      STL     =================================================================
+!!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."STL") THEN
       mySigma%mySegment(iSeg)%ART   = "STL"
       call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
@@ -80,7 +252,7 @@
         WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM units are allowed",mySigma%mySegment(iSeg)%Unit
       END IF
 
-      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition_[cm]",mySigma%mySegment(iSeg)%Min,0d0)
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
@@ -106,7 +278,6 @@
      ENDIF
     END DO
 
-    
     myProcess%pTYPE = " "
     myProcess%dPress=myInf
     myProcess%Massestrom=myInf
@@ -244,6 +415,7 @@
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
 
+    
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshPath", mySetup%cMeshPath,'.')
     END IF
@@ -269,8 +441,33 @@
       WRITE(*,*) "mesh resolution is not correctly defined"
       WRITE(*,*) '"',mySetup%m_nT,mySetup%m_nZ,mySetup%m_nP,'"'
       bReadError=.TRUE.
-      GOTO 10
+!       GOTO 10
      END IF
+    END IF
+    
+    mySetup%MeshResolution = 0
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshQuality",cMeshQuality,'GROB')
+    call inip_toupper_replace(cMeshQuality)
+    IF (ADJUSTL(TRIM(cMeshQuality)).eq."EXTREME".or.ADJUSTL(TRIM(cMeshQuality)).eq."EXTREM") THEN
+     mySetup%MeshResolution = 5
+    END IF
+    IF (ADJUSTL(TRIM(cMeshQuality)).eq."SUPER") THEN
+     mySetup%MeshResolution = 4
+    END IF
+    IF (ADJUSTL(TRIM(cMeshQuality)).eq."FINE".or.ADJUSTL(TRIM(cMeshQuality)).eq."FEIN") THEN
+     mySetup%MeshResolution = 3
+    END IF
+    IF (ADJUSTL(TRIM(cMeshQuality)).eq."MEDIUM".or.ADJUSTL(TRIM(cMeshQuality)).eq."MITTEL") THEN
+     mySetup%MeshResolution = 2
+    END IF
+    IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB") THEN
+     mySetup%MeshResolution = 1
+    END IF
+    IF (mySetup%MeshResolution.eq.0) THEN
+     WRITE(*,*) "mesh quality/resolution is not defined"
+     WRITE(*,*) '"',TRIM(cMeshQuality),'"'
+     bReadError=.TRUE.
+!      GOTO 10
     END IF
     
 !     cMeshQuality=' '
@@ -285,8 +482,12 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
 !     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,myInf)
     
-    IF (myid.eq.1) then
+    IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
+    write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
+    write(*,*) "mySigma%Zwickel",'=',trim(mySigma%cZwickel)
+    IF (mySigma%Dzz.ne.myinf) write(*,*) "mySigma%Dzz",'=',mySigma%Dzz
+    IF (mySigma%W.ne.myinf)   write(*,*) "mySigma%W",'=',mySigma%W
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
@@ -299,6 +500,66 @@
      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Min=',mySigma%mySegment(iSeg)%Min
      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."FOERD") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
+      IF (mySigma%mySegment(iSeg)%t.lt.0d0) THEN
+       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
+      END IF
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."KNET") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
+       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+      END IF
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."SKNET") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
+       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+      END IF
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."SME") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
+      IF (mySigma%mySegment(iSeg)%t.lt.0d0) THEN
+       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
+      END IF
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."ZME") THEN
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%ZME_N=',mySigma%mySegment(iSeg)%ZME_N
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_DiscThick=',mySigma%mySegment(iSeg)%ZME_DiscThick
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SG=',mySigma%mySegment(iSeg)%ZME_gap_SG
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SS=',mySigma%mySegment(iSeg)%ZME_gap_SS
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
+     END IF
+     
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
@@ -409,7 +670,7 @@
       dZPeriodicLength = 1d5*mySigma%L
     END IF
 
-    IF (myid.eq.1) then
+    IF (myid.eq.1.or.subnodes.eq.0) then
      write(*,*) "myProcess%dZPeriodicLength",'=',dZPeriodicLength
      write(*,*) "myProcess%dPress",'=',myProcess%dPress
      write(*,*) "myProcess%NoOutFlow",'=',bNoOutFlow

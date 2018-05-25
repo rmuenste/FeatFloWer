@@ -1,5 +1,5 @@
 MODULE Sigma_User
-USE PP3D_MPI, ONLY:myid,showid,dZPeriodicLength
+USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength
 USE var_QuadScalar ,ONLY : bNoOutflow
 
 IMPLICIT NONE
@@ -25,6 +25,7 @@ END TYPE tSegment
 !------------------------------------------------------------
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
+  CHARACTER cType*(50),cZwickel*(50)
   REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
   INTEGER :: NumberOfSeg, GANGZAHL,STLSeg=0

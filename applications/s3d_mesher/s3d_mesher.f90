@@ -1,8 +1,9 @@
 Program e3d_mesher
 USE Sigma_User, ONLY : mySetup,mySigma,myProcess
 implicit none
-REAL*8 DZi,DZo,DL
-INTEGER nR,nT,nZ,nN,nM,nP
+REAL*8 DZi,DZo,DL,Dzz,dx,DA
+INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2
+REAL*8 xCut, yCut
 REAL*8,  ALLOCATABLE ::  dCoor(:,:)
 INTEGER, ALLOCATABLE ::  kVert(:,:),knpr(:)
 INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
@@ -59,6 +60,52 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
  CALL SetUpMesh_FC()
  
  CALL Parametrization_FC()
+
+ CALL WriteMesh()
+
+ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
+
+ WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
+ CALL system(TRIM(ADJUSTL(command)))
+
+ DZo = mySigma%Dz_out;  DZi = mySigma%Dz_in; DA  = mySigma%a
+ DL  = mySigma%L;       dx  = mySigma%W;     DZz = mySigma%Dzz
+
+ IF (mySetup%MeshResolution.eq.1) THEN
+  nR  = 3
+  nT1 = 5
+  nT2 = 12
+ END IF
+ IF (mySetup%MeshResolution.eq.2) THEN
+  nR  = 4
+  nT1 = 6
+  nT2 = 17
+ END IF
+ IF (mySetup%MeshResolution.eq.3)  THEN
+  nR  =  5
+  nT1 =  7
+  nT2 = 22 
+ END IF
+ IF (mySetup%MeshResolution.eq.4)  THEN
+  nR  =  6
+  nT1 =  8
+  nT2 = 28 
+ END IF
+ IF (mySetup%MeshResolution.eq.5)  THEN
+  nR  =  6
+  nT1 =  10
+  nT2 =  35 
+ END IF
+ nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
+ 
+ IF (MOD(nZ,2).EQ.1) THEN
+  WRITE(*,*) "number of elements in Z is uneven and is to be set to: ", nZ+1
+  nZ = nZ + 1
+ END IF
+ 
+ CALL SetUpMesh_TSE()
+
+ CALL Parametrization_TSE()
 
  CALL WriteMesh()
 
@@ -296,6 +343,150 @@ END DO
 
 END SUBROUTINE SetUpMesh_HC
 !-----------------------------------------------
+SUBROUTINE SetUpMesh_TSE()
+REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
+INTEGER i,j,k,kk,nhalf
+REAL*8 dalphaCut1,dalphaCut2 
+REAL*8 PX_max,PX_min,PX_mid,PY_max,PY_min,PY_mid,ratio,dZOO
+INTEGER i1,i2,i3,i4,i5,i6,i7,i8
+
+nel = 0
+
+NVT = (2*(NR+1)*(NT1+NT2))*(NZ+1)
+NEL = (2*NR*(NT1+NT2) + NT1)*NZ
+!NEL = 2*NR*(NT1+NT2)*NZ
+
+ALLOCATE(dcoor(3,NVT))
+ALLOCATE(kVert(8,NEL))
+ALLOCATE(knpr(NVT))
+knpr = 0
+
+IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
+ xCut = (DZz**2d0 - DZo**2d0 + DA**2d0)/(4d0*DA)
+ yCut = SQRT((0.5*DZo)**2d0 - (xCut-0.5*DA)**2d0) 
+ENDIF
+IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") THEN
+ yCut = SQRT((0.5*DZo)**2d0 - (0.5*DA)**2d0) + dx
+ xCut = -SQRT((0.5*DZo)**2d0 - yCut**2d0) + 0.5*DA
+END IF
+
+
+dalphaCut1 = +(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
+dalphaCut2 = -(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
+
+! write(*,*) DZO,DZI,DA,DL,dx,DZZ,nR,NT1,nt2,nz
+! WRITE(*,*) ADJUSTL(TRIM(mySigma%cZwickel))
+! WRITE(*,*) xCut,yCut,dalphaCut1,dalphaCut2
+! pause
+! pause
+kk = 1
+
+nhalf = nvt/2
+
+DO k=0,NZ
+ DO j=0,NR
+
+  DO i=1,NT2
+   dAlpha = dalphaCut1 + DBLE(i)*(dalphaCut2-dalphaCut1)/(NT2)
+
+   daux = DBLE(j)/DBLE(NR)
+   dR = 0.5d0*(DZi +  daux*(DZo-DZi))
+
+   PX1 =  0.5*DA + dR*dCOS(dAlpha)
+   PX2 = -0.5*DA - dR*dCOS(dAlpha)
+   PY = dR*dSIN(dAlpha)
+   PZ = DL*DBLE(k)/DBLE(NZ)
+
+   dCoor(:,kk) = [PX1,PY,PZ]
+   dCoor(:,nhalf+kk) = [PX2,PY,PZ]
+!    WRITE(*,'(3ES11.4)') [PX,PY,PZ]
+   kk = kk + 1
+
+  END DO
+
+  DO i=1,NT1
+   dAlpha = dalphaCut2 + DBLE(i)*(8d0*DATAN(1d0)-(dalphaCut2-dalphaCut1))/(NT1)
+
+   PX_max = 0.5*DA + 0.5*DZo*dCOS(dAlpha)
+   PY_max =          0.5*DZo*dSIN(dAlpha)
+   PX_min = 0.5*DA
+   PY_min = 0.0      
+
+   ratio  = 1.0-(PX_max-xCut)/(PX_Max-PX_Min)
+   PY_mid = PY_min + ratio*(PY_max-PY_min)
+   dZOO   = DZo*PY_mid/PY_max
+!    write(*,*) dzoo,ratio
+!    pause
+
+   daux = DBLE(j)/DBLE(NR)
+   dR = 0.5d0*(DZi +  daux*(DZOO-DZi))
+
+   PX1 =  0.5*DA + dR*dCOS(dAlpha)
+   PX2 = -0.5*DA - dR*dCOS(dAlpha)
+  
+
+   PY = dR*dSIN(dAlpha)
+   PZ = DL*DBLE(k)/DBLE(NZ)
+
+   dCoor(:,kk) = [PX1,PY,PZ]
+   dCoor(:,nhalf+kk) = [PX2,PY,PZ]
+!    WRITE(*,'(3ES11.4)') [PX,PY,PZ]
+   kk = kk + 1
+
+  END DO
+
+ END DO
+END DO
+
+nhalf = NR*(NT1+NT2)*NZ
+
+kk = 1
+DO k=1,nz
+ DO j=1,NR
+  DO i=1,NT1+NT2
+
+   i1 = (k-1)*((NR+1)*(NT1+NT2)) + (j-1)*(NT1+NT2) + i
+   i2 = i1 + 1
+   IF (MOD(i1,NT1+NT2).eq.0) i2=i1-(NT1+NT2)+1
+   i3 = i1 + (NT1+NT2) + 1
+   IF (MOD(i1,NT1+NT2).eq.0) i3=i3-(NT1+NT2)
+   i4 = i1 + (NT1+NT2)
+   i5 = i1 + (NR+1)*(NT1+NT2)
+   i6 = i5 + 1
+   IF (MOD(i1,NT1+NT2).eq.0) i6=i6-(NT1+NT2)
+   i7 = i5 + (NT1+NT2) + 1
+   IF (MOD(i1,NT1+NT2).eq.0) i7=i7-(NT1+NT2)
+   i8 = i5 + (NT1+NT2)
+
+   KVERT(:,kk) = [i1,i2,i3,i4,i5,i6,i7,i8]
+   KVERT(:,nhalf+kk) = [nvt/2+i1,nvt/2+i2,nvt/2+i3,nvt/2+i4,nvt/2+i5,nvt/2+i6,nvt/2+i7,nvt/2+i8]
+!   WRITE(*,'(8I8)') 
+   kk = kk + 1
+  END DO
+ END DO
+END DO
+
+kk = 1
+ DO k=1,NZ
+  DO i=1,NT1
+
+   i1 = (k-1)*((NR+1)*(NT1+NT2)) + NR*(NT1+NT2) + NT2 + i -1
+   i2 = i1 + 1
+   i3 = i2 + nvt/2
+   i4 = i3 -1
+   i5 = (k-0)*((NR+1)*(NT1+NT2)) + NR*(NT1+NT2) + NT2 + i - 1
+   i6 = i5 + 1
+   i7 = i6 + nvt/2
+   i8 = i7 -1
+
+   KVERT(:,2*nhalf+kk) = [i1,i2,i3,i4,i5,i6,i7,i8]
+!   write(*,'(8I8)') [i1,i2,i3,i4,i5,i6,i7,i8]
+   kk = kk + 1
+  END DO
+ END DO
+
+END SUBROUTINE SetUpMesh_TSE
+!-----------------------------------------------
 SUBROUTINE Parametrization_FC()
 INTEGER i,j,k
 INTEGER nHalf,ivt
@@ -435,6 +626,148 @@ WRITE(1,'(A)') 'z+.par'
 CLOSE(1)
 
 END SUBROUTINE Parametrization_HC
+!-----------------------------------------------
+SUBROUTINE Parametrization_TSE()
+INTEGER i,j,k
+INTEGER nHalf,ivt
+! INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
+! INTEGER, ALLOCATABLE :: knpr_zMin(:),knpr_zMax(:)
+
+nHalf = nvt/2
+
+!! Inner cylinder
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/in+.par',UNIT=1)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/in-.par',UNIT=2)
+WRITE(1,*) (NT1+NT2)*(NZ+1), ' Inflow11'
+WRITE(1,'(A2,4E15.7,A)') "'7", 0e0,  0.5*DA, 0e0, 0.49*DZi, " 1.0 1.0 0.0'"
+WRITE(2,*) (NT1+NT2)*(NZ+1), ' Inflow12'
+WRITE(2,'(A2,4E15.7,A)') "'7", 0e0, -0.5*DA, 0e0, 0.49*DZi, " 1.0 1.0 0.0'"
+k = 0
+DO j=1,nZ+1
+ DO i=1,NT1+NT2
+  ivt = (NR+1)*(NT1+NT2)*(j-1) + i
+  knpr(ivt) = 1
+  knpr(ivt + nHalf) = 1
+  WRITE(1,'(I6)') ivt
+  WRITE(2,'(I6)') ivt + nHalf
+  k = k + 1
+END DO
+END DO
+CLOSE(1)
+CLOSE(2)
+
+
+!! Outer cylinder
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/out+.par',UNIT=1)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/out-.par',UNIT=2)
+WRITE(1,*) (NT2+1)*(NZ+1), ' Wall'
+WRITE(1,'(A2,4E15.7,A)') "'7", 0e0,  0.5*DA, 0e0, 0.5*DZo, " 1.0 1.0 0.0'"
+WRITE(2,*) (NT2+1)*(NZ+1), ' Wall'
+WRITE(2,'(A2,4E15.7,A)') "'7", 0e0, -0.5*DA, 0e0, 0.5*DZo, " 1.0 1.0 0.0'"
+k = 0
+DO j=1,nZ+1
+ DO i=1,NT2
+  ivt = (NR+1)*(NT1+NT2)*(j-1) + NR*(NT1+NT2) + i
+  knpr(ivt) = 1
+  knpr(ivt + nHalf) = 1
+  WRITE(1,'(I6)') ivt
+  WRITE(2,'(I6)') ivt + nHalf
+  k = k + 1
+END DO
+ivt = (NR+1)*(NT1+NT2)*(j)
+knpr(ivt) = 1
+knpr(ivt + nHalf) = 1
+WRITE(1,'(I6)') ivt
+WRITE(2,'(I6)') ivt + nHalf
+k = k + 1
+END DO
+CLOSE(1)
+CLOSE(2)
+
+!! Lines and straight
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/line1.par',UNIT=1)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/line2.par',UNIT=2)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/line3.par',UNIT=3)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/line4.par',UNIT=4)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/straight.par',UNIT=5)
+WRITE(1,*) (NZ+1), ' Wall'
+WRITE(1,'(A)') "'1 0.0'"
+WRITE(2,*) (NZ+1), ' Wall'
+WRITE(2,'(A)') "'1 0.0'"
+WRITE(3,*) (NZ+1), ' Wall'
+WRITE(3,'(A)') "'1 0.0'"
+WRITE(4,*) (NZ+1), ' Wall'
+WRITE(4,'(A)') "'1 0.0'"
+WRITE(5,*) 4*(NZ+1), ' Wall'
+IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") THEN
+ WRITE(5,'(A,ES12.4,A)') "'7 0.0 0.0 0.0 ", yCut, " 1.0 0.0 0.0'"
+END IF
+IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
+ WRITE(5,'(A,ES12.4,A)') "'7 0.0 0.0 0.0 ", DZz*0.5, " 1.0 1.0 0.0'"
+END IF
+k = 0
+DO j=1,nZ+1
+  ivt = (NR+1)*(NT1+NT2)*(j-1) + NR*(NT1+NT2) + NT2
+  WRITE(1,'(I6)') ivt
+  WRITE(5,'(I6)') ivt
+  WRITE(2,'(I6)') ivt + nHalf
+  WRITE(5,'(I6)') ivt + nHalf
+  ivt = (NR+1)*(NT1+NT2)*(j)
+  WRITE(3,'(I6)') ivt
+  WRITE(5,'(I6)') ivt
+  WRITE(4,'(I6)') ivt + nHalf
+  WRITE(5,'(I6)') ivt + nHalf
+  k = k + 1
+END DO
+CLOSE(1)
+CLOSE(2)
+CLOSE(3)
+CLOSE(4)
+CLOSE(5)
+
+!! Outflow
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=1)
+IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+ WRITE(1,*) 2*(NT2+NT1)*(NR+1), ' Outflow'
+ELSE
+ WRITE(1,*) 2*(NT2+NT1)*(NR+1), ' Symmetry110'
+END IF
+WRITE(1,'(A,E15.7,A)') "'4 0.0 0.0 1.0", -DL, "'"
+k = 0
+DO j=1,nR+1
+ DO i=1,NT1+NT2
+  ivt = (NR+1)*(NT1+NT2)*(nZ) + (j-1)*(NT1+NT2) + i
+  knpr(ivt) = 1
+  knpr(ivt + nHalf) = 1
+  WRITE(1,'(I6)') ivt
+  WRITE(1,'(I6)') ivt + nHalf
+  k = k + 1
+ END DO
+END DO
+CLOSE(1)
+
+!! Inflow
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z-.par',UNIT=2)
+IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+ WRITE(2,*) 2*(NT2+NT1)*(NR+1), ' Outflow'
+ELSE
+ WRITE(2,*) 2*(NT2+NT1)*(NR+1), ' Inflow1'
+END IF
+WRITE(2,'(A,E15.7,A)') "'4 0.0 0.0 1.0", 0.0, "'"
+k = 0
+DO j=1,nR+1
+ DO i=1,NT1+NT2
+  ivt = (j-1)*(NT1+NT2) + i
+  knpr(ivt) = 1
+  knpr(ivt + nHalf) = 1
+  WRITE(2,'(I6)') ivt
+  WRITE(2,'(I6)') ivt + nHalf
+  k = k + 1
+ END DO
+END DO
+CLOSE(2)
+
+END SUBROUTINE Parametrization_TSE
 !-----------------------------------------------
 SUBROUTINE WriteMesh()
 INTEGER k
