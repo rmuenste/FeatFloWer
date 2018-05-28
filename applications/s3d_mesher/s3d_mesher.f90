@@ -552,7 +552,7 @@ nHalf = nvt/2
 
 !! Inner cylinder
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/in.par',UNIT=1)
-WRITE(1,*) (nT)*(NZ+1), ' Inflow11'
+WRITE(1,*) (nT)*(NZ+1), ' Inflow13'
 WRITE(1,'(A2,4E14.6,A)') "'7", 0e0,  0e0, 0e0, 0.5*DZi, " 1.0 1.0 0.0'"
 
 k = 0
@@ -751,7 +751,7 @@ OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z-.par',UNIT=2)
 IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
  WRITE(2,*) 2*(NT2+NT1)*(NR+1), ' Outflow'
 ELSE
- WRITE(2,*) 2*(NT2+NT1)*(NR+1), ' Inflow1'
+ WRITE(2,*) 2*(NT2+NT1)*(NR+1), ' Inflow10'
 END IF
 WRITE(2,'(A,E15.7,A)') "'4 0.0 0.0 1.0", 0.0, "'"
 k = 0
@@ -765,6 +765,21 @@ DO j=1,nR+1
   k = k + 1
  END DO
 END DO
+CLOSE(2)
+
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/file.prj',UNIT=2)
+WRITE(2,'(A)') 'Mesh.tri'
+WRITE(2,'(A)') 'in+.par'
+WRITE(2,'(A)') 'in-.par'
+WRITE(2,'(A)') 'out+.par'
+WRITE(2,'(A)') 'out-.par'
+WRITE(2,'(A)') 'z-.par'
+WRITE(2,'(A)') 'z+.par'
+WRITE(2,'(A)') 'line2.par'
+WRITE(2,'(A)') 'line2.par'
+WRITE(2,'(A)') 'line3.par'
+WRITE(2,'(A)') 'line4.par'
+WRITE(2,'(A)') 'straight.par'
 CLOSE(2)
 
 END SUBROUTINE Parametrization_TSE

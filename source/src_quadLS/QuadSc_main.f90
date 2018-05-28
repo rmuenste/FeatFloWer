@@ -9,7 +9,7 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,GetMixerKnpr
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -467,6 +467,10 @@ END IF
  ALLOCATE (Distamce(mydof))
  Distamce = 0d0
 
+ IF (.NOT.ALLOCATED(Screw)) ALLOCATE(Screw(QuadSc%ndof))
+ IF (.NOT.ALLOCATED(ScrewDist)) ALLOCATE(ScrewDist(2,QuadSc%ndof))
+ IF (.NOT.ALLOCATED(Shell)) ALLOCATE(Shell(QuadSc%ndof))
+
  ! SEt up the knpr vector showing dofs with parallel property ...
  IF (myid.ne.0) THEN
   ALLOCATE (ParKNPR(mydof))
@@ -894,77 +898,6 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
 
 
 END SUBROUTINE QuadScalar_FictKnpr
-!
-! ----------------------------------------------
-!
-SUBROUTINE QuadScalar_MixerKnpr(dcorvg,dcorag,kvert,kedge,karea)
-  REAL*8  dcorvg(3,*),dcorag(3,*)
-  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-  REAL*8 PX,PY,PZ,DIST
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-  INTEGER NeighE(2,12),NeighA(4,6)
-  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-
-  DO i=1,nvt
-  PX = dcorvg(1,I)
-  PY = dcorvg(2,I)
-  PZ = dcorvg(3,I)
-  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(i),MixerKNPR(i),Distamce(i),timens)
-  END DO
-
-  k=1
-  DO i=1,nel
-  DO j=1,12
-  IF (k.eq.kedge(j,i)) THEN
-    ivt1 = kvert(NeighE(1,j),i)
-    ivt2 = kvert(NeighE(2,j),i)
-    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-    CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),MixerKNPR(nvt+k),Distamce(nvt+k),timens)
-    k = k + 1
-  END IF
-  END DO
-  END DO
-
-  k=1
-  DO i=1,nel
-  DO j=1,6
-  IF (k.eq.karea(j,i)) THEN
-    ivt1 = kvert(NeighA(1,j),i)
-    ivt2 = kvert(NeighA(2,j),i)
-    ivt3 = kvert(NeighA(3,j),i)
-    ivt4 = kvert(NeighA(4,j),i)
-    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-    CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),MixerKNPR(nvt+net+k),Distamce(nvt+net+k),timens)
-    k = k + 1
-  END IF
-  END DO
-  END DO
-
-  ! DO i=1,nat
-  !  PX = dcorag(1,I)
-  !  PY = dcorag(2,I)
-  !  PZ = dcorag(3,I)
-  !  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),MixerKNPR(nvt+net+i),Distamce(nvt+net+i),timens)
-  ! END DO
-
-  DO i=1,nel
-  PX = 0d0
-  PY = 0d0
-  PZ = 0d0
-  DO j=1,8
-  PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-  PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-  PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-  END DO
-  CALL GetMixerKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),MixerKNPR(nvt+net+nat+i),Distamce(nvt+net+nat+i),timens)
-  END DO
-
-END SUBROUTINE QuadScalar_MixerKnpr
 !
 ! ----------------------------------------------
 !
@@ -1495,7 +1428,7 @@ END SUBROUTINE  updateFBMGeometry
 ! ----------------------------------------------
 !
 SUBROUTINE updateMixerGeometry(mfile)
-use geometry_processing, only : calcDistanceFunction, dEpsDist
+use geometry_processing, only : calcDistanceFunction, QuadScalar_MixerKnpr,dEpsDist
 
 integer, intent(in) :: mfile
 
@@ -1511,34 +1444,32 @@ CALL SETLEV(2)
 QuadSc%AuxU = dEpsDist
 QuadSc%AuxV = dEpsDist
 
-CALL calcDistanceFunction(mg_mesh%level(ilev)%dcorvg,&
-                          mg_mesh%level(ilev)%kvert,&
-                          mg_mesh%level(ilev)%kedge,&
-                          mg_mesh%level(ilev)%karea,&
-                          mg_mesh%level(ilev)%nel,&
-                          mg_mesh%level(ilev)%nvt,&
-                          mg_mesh%level(ilev)%nat,&
-                          mg_mesh%level(ilev)%net,&
-                          QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
-
-
 MixerKNPR(:) = 0
 
-IF (.NOT.ALLOCATED(Screw)) ALLOCATE(Screw(QuadSc%ndof))
-IF (.NOT.ALLOCATED(Shell)) ALLOCATE(Shell(QuadSc%ndof))
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ CALL calcDistanceFunction(mg_mesh%level(ilev)%dcorvg,&
+                           mg_mesh%level(ilev)%kvert,&
+                           mg_mesh%level(ilev)%kedge,&
+                           mg_mesh%level(ilev)%karea,&
+                           mg_mesh%level(ilev)%nel,&
+                           mg_mesh%level(ilev)%nvt,&
+                           mg_mesh%level(ilev)%nat,&
+                           mg_mesh%level(ilev)%net,&
+                           QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+END IF
 
-DO i=1,nvt+net+nat+nel
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+ CALL QuadScalar_MixerKnpr(mg_mesh%level(ilev)%dcorvg,&
+                           mg_mesh%level(ilev)%kvert,&
+                           mg_mesh%level(ilev)%kedge,&
+                           mg_mesh%level(ilev)%karea,&
+                           mg_mesh%level(ilev)%nel,&
+                           mg_mesh%level(ilev)%nvt,&
+                           mg_mesh%level(ilev)%nat,&
+                           mg_mesh%level(ilev)%net,&
+                           QuadSc%AuxU,QuadSc%AuxV)
+END IF
 
- Shell(i) = QuadSc%AuxU(i)
- IF (Shell(i).le.0d0) THEN
-  MixerKNPR(i) = 100
- END IF
-
- Screw(i) = QuadSc%AuxV(i)
- IF (Screw(i).le.0d0) THEN
-  MixerKNPR(i) = 103
- END IF
-END DO
 
 CALL myMPI_Barrier()
 CALL ZTIME(tttt1)

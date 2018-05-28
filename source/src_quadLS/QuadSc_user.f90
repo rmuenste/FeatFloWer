@@ -127,26 +127,55 @@ END IF
 
 if(it.eq.10)then
 
-  dInnerRadius = myProcess%MinInflowDiameter*0.5d0
-  dOuterRadius = myProcess%MaxInflowDiameter*0.5d0
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+   dInnerRadius = 0.5d0*mySigma%Dz_In
 
-  dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
-  daux = (PI/6d0)*(dInnerRadius+dOuterRadius)*((dOuterRadius-dInnerRadius)**3d0)
-  dScale = (dVolFlow/1d0)/daux
+   dVolFlow = (1e6/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
+   daux = (PI/6d0)*(dInnerRadius+mySigma%a/2d0)*((mySigma%a/2d0-dInnerRadius)**3d0)
+   dScale = (dVolFlow/2d0)/daux
 
-  DIST = SQRT(X**2d0+Y**2d0)
+   IF (Y.LT.0) THEN
+    DIST = SQRT(X**2d0+(Y+mySigma%a/2d0)**2d0)
+   ELSE
+    DIST = SQRT(X**2d0+(Y-mySigma%a/2d0)**2d0)
+   END IF
+   IF (DIST.GT.dInnerRadius.AND.DIST.LT.mySigma%a/2d0) THEN
+    ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
+   END IF
+  END IF
 
-  IF (DIST.GT.dInnerRadius.AND.DIST.LT.dOuterRadius) THEN
-   ValW= dScale*(DIST-dInnerRadius)*(dOuterRadius-DIST)
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+   dInnerRadius = myProcess%MinInflowDiameter*0.5d0
+   dOuterRadius = myProcess%MaxInflowDiameter*0.5d0
+
+   dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
+   daux = (PI/6d0)*(dInnerRadius+dOuterRadius)*((dOuterRadius-dInnerRadius)**3d0)
+   dScale = (dVolFlow/1d0)/daux
+
+   DIST = SQRT(X**2d0+Y**2d0)
+
+   IF (DIST.GT.dInnerRadius.AND.DIST.LT.dOuterRadius) THEN
+    ValW= dScale*(DIST-dInnerRadius)*(dOuterRadius-DIST)
+   END IF
   END IF
 end if
 
-
 if(it.eq.11)then
+   ValU= -PI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValW = 0d0 !myProcess%FrameVelocity
+end if
+if(it.eq.12)then
+   ValU= -PI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValW = 0d0
+end if
+if(it.eq.13)then
   ValU =  -DBLE(myProcess%ind)*PI*Y*(myProcess%Umdr/3d1)
   ValV =   DBLE(myProcess%ind)*PI*X*(myProcess%Umdr/3d1)
   ValW =   0d0
 end if
+
 
 !! InitBoundaryStructure: changed from I1 to I2 !!
 ! used for Channel / BDF(2) validation
@@ -311,39 +340,6 @@ RETURN
  END 
 
 END SUBROUTINE GetVeloBCVal
-!------------------------------------------------------
-SUBROUTINE GetMixerKnpr(X,Y,Z,iBndr,inpr,D,t)
-IMPLICIT NONE
-REAL*8 X,Y,Z,t,d
-REAL*8 :: PI = 6.283185307179586232
-INTEGER :: inpr,iBndr
-REAL*8 :: XT,YT,ZT,XB,YB,ZB
-REAL*8 dScale
-
-integer ipc,isin
-real*8 d_temp
-
-inpr = 0
-ipc = 0
-isin = 0
-
-xt = 1d1*x
-yt = 1d1*y
-zt = 1d1*z
-
-call isinelementid(xt,yt,zt,ipc,isin)
-call getclosestpointid(xt,yt,zt,xb,yb,zb,d_temp,ipc)
-
-if (isin.gt.0) then
- D = +abs(1d-1*d_temp)
-else
- inpr = 103
- D = -abs(1d-1*d_temp)
-end if
-
-return
-
-END SUBROUTINE GetMixerKnpr
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess

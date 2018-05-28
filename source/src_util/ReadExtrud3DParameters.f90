@@ -12,14 +12,14 @@
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
 
     type(t_parlist) :: parameterlist
 
-    real*8 :: myInf 
+    real*8 :: myInf,dSizeScale
 
     if(ieee_support_inf(myInf))then
       myInf = ieee_value(myInf, ieee_negative_inf)
@@ -45,6 +45,17 @@
      WRITE(*,*) '"',TRIM(myProcess%Rotation),'"'
     END IF
 ! 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
+    call inip_toupper_replace(cUnit)
+    IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+      WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+      cUnit = 'CM'
+    END IF
+    if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
+    if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
+    if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
+    if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+    
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
     IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE")) THEN
@@ -52,12 +63,18 @@
     END IF
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
+    mySigma%Dz_out = dSizeScale*mySigma%Dz_out
     DistTolerance = 1d0*mySigma%Dz_Out
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","CenterlineDistance", mySigma%a ,myInf)
+    mySigma%a = dSizeScale*mySigma%a
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelStraightCut", mySigma%W ,myInf)
+    mySigma%W = dSizeScale*mySigma%W
+    
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelCurvedCut", mySigma%Dzz ,myInf)
+    mySigma%Dzz = dSizeScale*mySigma%Dzz
+    
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","BarrelCut", mySigma%cZwickel ,"STRAIGHT")
     call inip_toupper_replace(mySigma%cZwickel)
     IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND")) THEN
@@ -67,10 +84,14 @@
     IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND")    mySigma%W = myInf
 
 
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out/dSizeScale)
+    mySigma%Dz_in = dSizeScale*mySigma%Dz_in
+    
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
+    mySigma%L = dSizeScale*mySigma%L
 
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
+    call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfFlights", mySigma%GANGZAHL ,0)
     
     IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
@@ -88,6 +109,17 @@
        WRITE(*,*) "STL object type is invalid. Only screw, die, or obstacle types are allowed"
      END IF
 
+     call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
+     call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
+     IF (.NOT.(mySigma%mySegment(iSeg)%Unit.eq.'MM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'CM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'DM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'M')) THEN
+       WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed",mySigma%mySegment(iSeg)%Unit
+       mySigma%mySegment(iSeg)%Unit = 'CM'
+     END IF
+     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
+     if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
+     if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
+     if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+      
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
@@ -96,12 +128,22 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."FOERD".or.ADJUSTL(TRIM(cElemType)).eq."THREADED") THEN
       mySigma%mySegment(iSeg)%ART   = "FOERD"
-      mySigma%mySegment(iSeg)%Unit='MM'
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
+      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t
+
+
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
 
@@ -124,16 +166,25 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."KNET".or.ADJUSTL(TRIM(cElemType)).eq."KNEADING") THEN
       mySigma%mySegment(iSeg)%ART   = "KNET"
-      mySigma%mySegment(iSeg)%Unit='MM'
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
 
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
+      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      
       call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
+      
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%N*mySigma%mySegment(iSeg)%D
       mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
       
@@ -155,16 +206,26 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."SKNET".or.ADJUSTL(TRIM(cElemType)).eq."SHOULDEREDKNEADING") THEN
       mySigma%mySegment(iSeg)%ART   = "SKNET"
-      mySigma%mySegment(iSeg)%Unit='MM'
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
+      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      
       call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
+      
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%N*mySigma%mySegment(iSeg)%D
       mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
       
@@ -188,12 +249,21 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."SME".or.ADJUSTL(TRIM(cElemType)).eq."SCREWMIXING") THEN
       mySigma%mySegment(iSeg)%ART   = "SME"
-      mySigma%mySegment(iSeg)%Unit='MM'
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
+      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
 
@@ -213,31 +283,55 @@
 !        GOTO 10
       END IF
       call INIP_getvalue_int(parameterlist,cElement_i,"NoOfGrooves",mySigma%mySegment(iSeg)%SecProf_N ,-1)
+      
       call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_D = dSizeScale*mySigma%mySegment(iSeg)%SecProf_D
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L
+      
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
      END IF
 !!!==============================================      ZME     =================================================================
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."ZME".or.ADJUSTL(TRIM(cElemType)).eq."TOOTHMIXING") THEN
       mySigma%mySegment(iSeg)%ART   = "ZME"
-      mySigma%mySegment(iSeg)%Unit='MM'
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
       call INIP_getvalue_int(parameterlist,cElement_i,"NoOfRows",mySigma%mySegment(iSeg)%ZME_N ,-1)
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%ZME_DiscThick,myInf)
+      mySigma%mySegment(iSeg)%ZME_DiscThick = dSizeScale*mySigma%mySegment(iSeg)%ZME_DiscThick
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscDiscGap", mySigma%mySegment(iSeg)%ZME_gap_SS,myInf)
+      mySigma%mySegment(iSeg)%ZME_gap_SS = dSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SS
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscShellGap", mySigma%mySegment(iSeg)%ZME_gap_SG,myInf)
+      mySigma%mySegment(iSeg)%ZME_gap_SG = dSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SG
+
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
+      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 
       call INIP_getvalue_int(parameterlist,cElement_i,"NoOfTeeth",mySigma%mySegment(iSeg)%SecProf_N ,-1)
       call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_D = dSizeScale*mySigma%mySegment(iSeg)%SecProf_D
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
+      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L
+
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + &
       2d0*mySigma%mySegment(iSeg)%ZME_N * (mySigma%mySegment(iSeg)%ZME_DiscThick + mySigma%mySegment(iSeg)%ZME_gap_SS)
       mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
@@ -246,15 +340,16 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."STL") THEN
       mySigma%mySegment(iSeg)%ART   = "STL"
-      call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
-      call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
-      IF (.NOT.(mySigma%mySegment(iSeg)%Unit.eq.'MM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'CM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'DM')) THEN
-        WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM units are allowed",mySigma%mySegment(iSeg)%Unit
-      END IF
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
+      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
       mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
@@ -491,6 +586,8 @@
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
+    write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
+    write(*,*) "mySigma%NumberOfSeg",'=',mySigma%NumberOfSeg
     
     write(*,*) 
     DO iSeg=1,mySigma%NumberOfSeg
@@ -648,6 +745,24 @@
 !     write(*,*) "=========================================================================="
     END IF
 ! 
+    mySigma%mySegment(1)%StartAlpha = 0.0d0
+
+    mySigma%SegmentLength = mySigma%mySegment(1)%L
+    IF (mySigma%NumberOfSeg.GE.2) THEN
+    DO iSeg=2,mySigma%NumberOfSeg
+      IF (mySigma%mySegment(iSeg-1)%ART.EQ.'FOERD'.OR.mySigma%mySegment(iSeg-1)%ART.EQ.'SME') THEN
+      mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
+      END IF
+      IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET') THEN
+      mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
+      IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
+       mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
+      END IF
+      END IF
+      mySigma%SegmentLength = mySigma%SegmentLength + mySigma%mySegment(iSeg)%L
+    END DO
+    END IF
+
 !     myThermodyn%Alpha     = (1e6*myThermodyn%lambda)/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
 !     myThermodyn%Beta      = 1d1 ! !myProcess%Cnst_Lam/(myProcess%Cnst_Dens*myProcess%Cnst_Cp)
 !     myThermodyn%Gamma     = 1d0/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))

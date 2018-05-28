@@ -125,11 +125,11 @@ module umbrella_smoother
 
   use PP3D_MPI
   !use PP3D_MPI, only: myid,coarse
-      USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
+  USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
 !   use Parametrization, only: ParametrizeBndr
-  use Sigma_User, only: mySigma
+  use Sigma_User, only: mySigma,Shell_dist
   use var_QuadScalar, only: tMultiMesh,FictKNPR
-  use geometry_processing, ONLY : calcDistanceFunction, dEpsDist
+  use geometry_processing, ONLY : calcDistanceFunction, QuadScalar_MixerKnpr,dEpsDist
   
   !USE STL_Processing, ONLY : dEpsDist
   implicit none
@@ -208,9 +208,14 @@ module umbrella_smoother
    qscStruct%AuxU = dEpsDist
    qscStruct%AuxV = dEpsDist
 
-   CALL calcDistanceFunction(dcorvg,kvert2,kedge2,karea2,&
-                             nel2,nvt2,nat2,net2,&
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+    CALL calcDistanceFunction(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+   END IF
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+    CALL QuadScalar_MixerKnpr(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+                             qscStruct%AuxU,qscStruct%AuxV)
+   END IF
   
    DO i=1,nvt
      PX = dcorvg(1,i)
@@ -293,8 +298,16 @@ module umbrella_smoother
   ELSE
   
   dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
-  
-  d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+   d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
+  END IF
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+   CALL Shell_dist(x,y,z,d1)
+  END IF
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+   d1=5d0
+  END IF
   d2 = dScaleFactor*qscStruct%AuxU(i)
   d3 = dScaleFactor*qscStruct%AuxV(i)
  
