@@ -21,7 +21,13 @@ CHARACTER cExtrud3DFile*120
 call date_and_time(cdate,ctime,czone,values)
 
 !WRITE(CaseFile,'(5A)') 'Case_',cdate(3:4),cdate(5:6),cdate(7:8),ctime(1:6)
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( __WIN32__ )
+ CaseFile='_data\meshDir'
+WRITE(*,*) 'Windows'
+#else
  CaseFile='_data/meshDir'
+WRITE(*,*) 'Not Windows'
+#endif
 WRITE(*,*) CaseFile
 
 CALL ReadPar()
