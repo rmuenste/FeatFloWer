@@ -798,9 +798,6 @@ EXTERNAL E013
                      mg_mesh%level(ILEV)%dcorvg,&
                      Force, E013,bNonNewtonian)
 
- ELSE
-  CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  LinSc%valP(NLMAX)%x,BndrForce,Force)
  END IF
 
 !Pipe
@@ -840,9 +837,6 @@ EXTERNAL E013
    ! At the moment we have this case 
    CALL EvaluateDragLift9_mod(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
    LinSc%valP(NLMAX)%x,BndrForce,Force)
- ELSE
-  CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-  LinSc%valP(NLMAX)%x,BndrForce,Force)
  END IF
 
 

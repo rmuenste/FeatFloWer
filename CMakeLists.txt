@@ -28,10 +28,9 @@ include(CTest)
 
 include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 
-#-------------------------------------------------------------------------------------------------
-#                                               compiler settings
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#                         compiler settings
+#=========================================================================
 message(STATUS "Checking build type...")
 
 IF(NOT Q2P1_COMPILER)
@@ -42,9 +41,9 @@ ENDIF(NOT Q2P1_COMPILER)
 
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
-#-------------------------------------------------------------------------------------------------
-#                                                   Options
-#-------------------------------------------------------------------------------------------------
+#=========================================================================
+#                             Options
+#=========================================================================
 
 option(USE_OPENMESH
   "Use the OpenMesh library"
@@ -118,10 +117,9 @@ option(BUILD_APPLICATIONS
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
 
-#-------------------------------------------------------------------------------------------------
-#                                               project directories
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#                         project directories
+#=========================================================================
 set(src_pp3d
   ${CMAKE_SOURCE_DIR}/source/src_pp3d/projma.f
   ${CMAKE_SOURCE_DIR}/source/src_pp3d/coeff.f
@@ -172,47 +170,28 @@ set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
 )
 
-set(src_quadLS
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
-  #${CMAKE_SOURCE_DIR/}source/src_quadLS/QuadSc_force.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
-  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
-  )
+set(src_assemblies
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_laplace.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_diff.f  
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_massrho.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_conv.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_shear.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_stress.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_surftens.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
+)
 
 set(src_quadLS_app
 ${src_util}
 ${src_fbm}
+${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
@@ -291,10 +270,9 @@ set(src_ini_c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
   )
 
-#-------------------------------------------------------------------------------------------------
-#                                 This will create source folders in Visual Studio
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#         This will create source folders in Visual Studio
+#=========================================================================
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
 source_group(src_mpi FILES ${src_mpi})
@@ -306,10 +284,9 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(Elements FILES ${Elements})
 source_group(postprocessing FILES ${postprocessing})
 
-#-------------------------------------------------------------------------------------------------
-#                                    Configure BLAS/LAPACK 
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#                       Configure BLAS/LAPACK 
+#=========================================================================
 if(USE_SYSTEM_BLASLAPACK)
 
   # Try to find BLAS/LAPACK on the system
@@ -340,10 +317,9 @@ else(USE_SYSTEM_BLASLAPACK)
   set(LAPACK_LIBRARIES lapack)
 endif(USE_SYSTEM_BLASLAPACK)
 
-#-------------------------------------------------------------------------------------------------
-#                           Configure MPI/MKL/MUMPS 
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#                      Configure MPI/MKL/MUMPS 
+#=========================================================================
 find_package(MPI)
 
 message(STATUS "CMake MPI_FORTRAN_INCLUDE_PATH : ${MPI_Fortran_INCLUDE_PATH}")
@@ -369,13 +345,32 @@ if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
 
+#=========================================================================
 # Add the optical tweezers library
+#=========================================================================
 if(USE_OPTICALTWEEZERS)
   set(OPTICALTWEEZERS_LIBRARY True)
-  add_subdirectory(extern/libraries/raytracing)
+
+  ExternalProject_Add(OPTICALTWEEZERS_PRJ
+    GIT_REPOSITORY /data/warehouse14/rmuenste/code/GitHub/raytracing-ot/raytracing 
+    GIT_TAG mit_octree
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers
+    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers-dir
+    #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install -DBUILD_SHARED_LIBS=False -DOPTICALTWEEZERS_LIBRARY=True
+    )
+
+  set(OPTICALTWEEZERS_LIBRARIES 
+      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libvector.a
+      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libstrahl.a
+      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libot.a
+     )
+
 endif(USE_OPTICALTWEEZERS)
 
+#=========================================================================
 # Add the cgal library
+#=========================================================================
 if(USE_CGAL)
   set(USE_BOOST True)
   if(NOT WIN32)
@@ -431,9 +426,9 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   endif()
 endif()
 
-#-------------------------------------------------------------------------------------------------
-#                               Configure BoostC++ 
-#-------------------------------------------------------------------------------------------------
+#=========================================================================
+#                          Configure BoostC++ 
+#=========================================================================
 # If there are issues on WINDOWS finding the BoostC++ libraries, try to set these variables
 # that help CMake find the correct Boost location.
 #   Boost_DEBUG              - Set to ON to enable debug output from FindBoost.
@@ -480,22 +475,20 @@ endif(USE_BOOST)
 #
 #message(FATAL_ERROR "end")
 
-#-------------------------------------------------------------------------------------------------
-#                     Build the C directory handling library  
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#               Build the C directory handling library  
+#=========================================================================
 add_library(cdirs ${src_ini_c})
 
-#-------------------------------------------------------------------------------------------------
-#                      Set the flags/paths/etc. we have determined for libraries 
-#-------------------------------------------------------------------------------------------------
-
+#=========================================================================
+#      Set the flags/paths/etc. we have determined for libraries 
+#=========================================================================
 include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
 include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
 
-#-------------------------------------------------------------------------------------------------
-#                                        Add applications
-#-------------------------------------------------------------------------------------------------
+#=========================================================================
+#                         Add applications
+#=========================================================================
 SET(OUT_OF_SOURCE_BUILD True)
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   message(FATAL_ERROR "In-source builds are not allowed.")
@@ -523,9 +516,9 @@ IF(BUILD_APPLICATIONS)
 
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
-#-------------------------------------------------------------------------------------------------
-#                                       INSTALL CONFIGURATION
-#-------------------------------------------------------------------------------------------------
 
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
 #include(${CMAKE_MODULE_PATH}/ConfigureInstallDirectories.cmake)
 

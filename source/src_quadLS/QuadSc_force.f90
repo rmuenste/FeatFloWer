@@ -1401,38 +1401,47 @@ end subroutine updateFBM
 !
 !-----------------------------------------------------------
 !
-SUBROUTINE GetFictKnprInverse(X,Y,Z,iBndr,inpr,Dist)
+SUBROUTINE GetFictKnpr_Temporary(X,Y,Z,iBndr,inpr,Dist)
 USE var_QuadScalar, ONLY : myFBM,dCGALtoRealFactor
 IMPLICIT NONE
 REAL*8 X,Y,Z,Dist,daux,d_temp
 REAL*8 PX,PY,PZ,RAD,dist_sign
 real*8 cx, cy, cz
 real*8 cpx, cpy, cpz
-INTEGER iBndr,inpr,iP,iaux,ipc,isin
+INTEGER iBndr,inpr,iP,iaux,ipc,isin,idynType
 
  inpr = 0
  dist_sign = 1
- Dist = 1000.0d0
+ Dist = 1d8
+  
  DO IP = 1,myFBM%nParticles
+  
   PX = myFBM%particleNew(iP)%Position(1)
   PY = myFBM%particleNew(iP)%Position(2)
   PZ = myFBM%particleNew(iP)%Position(3)
   RAD =myFBM%particleNew(iP)%sizes(1)
   ipc=ip-1
   isin = 0
+  call get_dynamics_type(ipc, idynType) 
+  dist_sign = +1d0
+  if (idynType.eq.2) dist_sign = -1d0
+
   call isinelementid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,ipc,isin)
   if(isin .gt. 0)then
-   dist_sign = +1
+   dist_sign = -1d0*dist_sign
    call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
   else
-    dist_sign = -1
-    if (z.gt.-39d0) inpr = 1 ! IP
+   dist_sign = +1d0*dist_sign
    call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
   end if
-  dist = dist_sign * d_temp
+  
+  dist = min(dist,dist_sign * d_temp)
+  
  end do
+ 
+ if (dist.lt.0d0) inpr = 100
 
-END SUBROUTINE GetFictKnprInverse
+END SUBROUTINE GetFictKnpr_Temporary
 !
 !-----------------------------------------------------------
 !

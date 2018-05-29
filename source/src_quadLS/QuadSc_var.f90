@@ -44,6 +44,11 @@ REAL*8  :: dCGALtoRealFactor = 1d0
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
 
+TYPE tTransform
+ INTEGER :: ILINT=2
+END TYPE
+TYPE (tTransform) Transform
+
 TYPE tMesh
   ! Mesh integer parameters
   integer :: NEL = 0
@@ -374,7 +379,7 @@ type(tMultiMesh),save :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
-REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:)
+REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:) 
 
 TYPE tParticle

@@ -1,10 +1,13 @@
  
-************************************************************************
-      SUBROUTINE Build_BTMatP1(DAx,DAy,DAz,KLD,KCOL,KVERT,KAREA,KEDGE,
-     *           DCORVG,NA,ICUB,ELE)
+***************************************************
+      SUBROUTINE Build_BTMatP1(DAx,DAy,DAz,KLD,KCOL,KVERT,KAREA,
+     *           KEDGE,DCORVG,NA,ELE)
 ************************************************************************
 *     Discrete convection operator: Q1 elements
 *-----------------------------------------------------------------------
+      USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar, ONLY : transform
+C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -18,9 +21,14 @@ C
 C
       DIMENSION KDFG1(NNBAS),KDFL1(NNBAS)
       DIMENSION KDFG2(NNBAS),KDFL2(NNBAS)
+      DIMENSION KDFG3(NNBAS),KDFL3(NNBAS)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRYx(NNBAS,NNBAS)
       DIMENSION DENTRYy(NNBAS,NNBAS),DENTRYz(NNBAS,NNBAS)
-
+C
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -59,11 +67,20 @@ C
       CALL ELE(0D0,0D0,0D0,IELTYP2)
       IDFL2=NDFL(IELTYP2)
 C
+      ICUB = 9
       CALL CB3H(ICUB)
       IF (IER.NE.0) GOTO 99999
 C
       ICUBP=ICUB
       CALL ELE(0D0,0D0,0D0,-2)
+C
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+      END DO
 C
 C *** Loop over all elements
       DO 100 IEL=1,NEL
@@ -74,11 +91,6 @@ C
       CALL NDFGL(IEL,1,IELTYP2,KVERT,KEDGE,KAREA,KDFG2,KDFL2)
       IF (IER.LT.0) GOTO 99999
 C
-C *** Determine entry positions in matrix
-!       WRITE(*,*)IELTYP1,IELTYP2,KDFG1,KDFL1,KDFG2,KDFL2
-!       WRITE(*,*)IDFL1,IDFL2
-!       pause
-
       DO 110 JDOFE=1,IDFL1
       JCOL0=KLD(KDFG1(JDOFE))
       DO 110 IDOFE=1,IDFL2
@@ -93,46 +105,9 @@ C *** Determine entry positions in matrix
       DENTRYz(JDOFE,IDOFE)=0d0
 110   CONTINUE
 C
-!       PAUSE
-C *** Evaluation of coordinates of the vertices
-      DX0I = 0d0
-      DY0I = 0d0
-      DZ0I = 0d0
-      DO 120 IVE=1,NVE
-      IP=KVERT(IVE,IEL)
-      KVE(IVE)=IP
-      DX(IVE)=DCORVG(1,IP)
-      DY(IVE)=DCORVG(2,IP)
-      DZ(IVE)=DCORVG(3,IP)
-      DX0I = DX0I + 0.125d0*DCORVG(1,IP)
-      DY0I = DY0I + 0.125d0*DCORVG(2,IP)
-      DZ0I = DZ0I + 0.125d0*DCORVG(3,IP)
-120   CONTINUE
-C
-       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-       DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-       DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-       DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-       DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-       DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-       DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-       DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-       DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-       DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-       DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-       DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-       DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-       DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-       DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-       DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+      DX0I = DCORVG(1,KDFG2(27))
+      DY0I = DCORVG(2,KDFG2(27))
+      DZ0I = DCORVG(3,KDFG2(27))
 C
 C *** Loop over all cubature points
       DO 200 ICUBP=1,NCUBP
@@ -141,31 +116,61 @@ C
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
 C
-C *** Jacobian of the bilinear mapping onto the reference element
-       DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
-       DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
-       DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
-       DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
-       DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
-       DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
-       DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
-       DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
-       DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
-       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
-     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
-     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+      DJAC=0d0
+      IF (Transform%ILINT.eq.2) THEN ! Q2
+      DO JDOFE=1,27
+       JDFL=KDFL2(JDOFE)
+       JDFG=KDFG2(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
+      END DO
+      END IF
+      IF (Transform%ILINT.eq.1) THEN ! Q1
+      DO JDOFE=1,8
+       JDFL=KDFL2(JDOFE)
+       JDFG=KDFG2(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+      END IF
+C
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
       OM=DOMEGA(ICUBP)*ABS(DETJ)
-!       WRITE(*,*) detj
-!       pause
+C
+      CALL ELE(XI1,XI2,XI3,-3)
+      IF (IER.LT.0) GOTO 99999
 C
 ! ----------------------------------------------------------------
 !     Computation of the cartesian coordiante of the cubature point
-       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
-       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
-       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
-! ----------------------------------------------------------------
-      CALL ELE(XI1,XI2,XI3,-3)
-      IF (IER.LT.0) GOTO 99999
+      XX = 0d0; YY = 0d0; ZZ = 0d0
+      DO JDOFE=1,IDFL2
+       JDFL=KDFL2(JDOFE)
+       JDFG=KDFG2(JDOFE)
+       HBASI1 = DBAS(1,JDFL,1)
+       DPP(:) = DCORVG(:,JDFG)
+       XX = XX + DPP(1)*HBASI1
+       YY = YY + DPP(2)*HBASI1
+       ZZ = ZZ + DPP(3)*HBASI1
+      END DO
 C
       DBAS1(1) = 1d0
       DBAS1(2) = XX-DX0I
@@ -215,12 +220,14 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE Build_BMatP1(DAx,DAy,DAz,KLD,KCOL,KVERT,KAREA,KEDGE,
-     *           DCORVG,NA,ICUB,ELE)
+      SUBROUTINE Build_BMatP1(DAx,DAy,DAz,KLD,KCOL,KVERT,KAREA,
+     *           KEDGE,DCORVG,NA,ELE)
 ************************************************************************
 *     Discrete convection operator: Q1 elements
 *-----------------------------------------------------------------------
-      USE PP3D_MPI, ONLY : myid
+      USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar, ONLY : transform
+C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -236,7 +243,11 @@ C
       DIMENSION KDFG2(NNBAS),KDFL2(NNBAS)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRYx(NNBAS,NNBAS)
       DIMENSION DENTRYy(NNBAS,NNBAS),DENTRYz(NNBAS,NNBAS)
-
+C
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -275,11 +286,20 @@ C
       IELTYP2=12
       IDFL2=NDFL(IELTYP2)
 C
+      ICUB = 9
       CALL CB3H(ICUB)
       IF (IER.NE.0) GOTO 99999
 C
       ICUBP=ICUB
       CALL ELE(0D0,0D0,0D0,-2)
+C
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+      END DO
 C
 C *** Loop over all elements
       DO 100 IEL=1,NEL
@@ -290,11 +310,6 @@ C
       CALL NDFGL(IEL,1,IELTYP2,KVERT,KEDGE,KAREA,KDFG2,KDFL2)
       IF (IER.LT.0) GOTO 99999
 C
-C *** Determine entry positions in matrix
-!       WRITE(*,*)IELTYP1,IELTYP2,KDFG1,KDFL1,KDFG2,KDFL2
-!       WRITE(*,*)IDFL1,IDFL2
-!       pause
-
       DO 110 JDOFE=1,IDFL1
       JCOL0=KLD(KDFG1(JDOFE))
       DO 110 IDOFE=1,IDFL2
@@ -308,48 +323,11 @@ C *** Determine entry positions in matrix
       DENTRYy(JDOFE,IDOFE)=0d0
       DENTRYz(JDOFE,IDOFE)=0d0
 110   CONTINUE
-
 C
-!       PAUSE
 C *** Evaluation of coordinates of the vertices
-      DX0I = 0d0
-      DY0I = 0d0
-      DZ0I = 0d0
-      DO 120 IVE=1,NVE
-      IP=KVERT(IVE,IEL)
-      KVE(IVE)=IP
-      DX(IVE)=DCORVG(1,IP)
-      DY(IVE)=DCORVG(2,IP)
-      DZ(IVE)=DCORVG(3,IP)
-      DX0I = DX0I + 0.125d0*DCORVG(1,IP)
-      DY0I = DY0I + 0.125d0*DCORVG(2,IP)
-      DZ0I = DZ0I + 0.125d0*DCORVG(3,IP)
-120   CONTINUE
-C
-       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-       DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-       DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-       DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-       DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-       DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-       DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-       DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-       DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-       DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-       DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-       DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-       DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-       DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-       DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-       DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-       DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-       DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+      DX0I = DCORVG(1,KDFG1(27))
+      DY0I = DCORVG(2,KDFG1(27))
+      DZ0I = DCORVG(3,KDFG1(27))
 C
 C *** Loop over all cubature points
       DO 200 ICUBP=1,NCUBP
@@ -358,31 +336,61 @@ C
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
 C
-C *** Jacobian of the bilinear mapping onto the reference element
-       DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
-       DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
-       DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
-       DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
-       DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
-       DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
-       DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
-       DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
-       DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
-       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
-     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
-     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+      DJAC=0d0
+      IF (Transform%ILINT.eq.2) THEN ! Q2
+      DO JDOFE=1,27
+       JDFL=KDFL1(JDOFE)
+       JDFG=KDFG1(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
+      END DO
+      END IF
+      IF (Transform%ILINT.eq.1) THEN ! Q1
+      DO JDOFE=1,8
+       JDFL=KDFL1(JDOFE)
+       JDFG=KDFG1(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+      END IF
+C
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
       OM=DOMEGA(ICUBP)*ABS(DETJ)
-!       WRITE(*,*) detj
-!       pause
+C
+      CALL ELE(XI1,XI2,XI3,-3)
+      IF (IER.LT.0) GOTO 99999
 C
 ! ----------------------------------------------------------------
 !     Computation of the cartesian coordiante of the cubature point
-       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
-       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
-       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
-! ----------------------------------------------------------------
-      CALL ELE(XI1,XI2,XI3,-3)
-      IF (IER.LT.0) GOTO 99999
+      XX = 0d0; YY = 0d0; ZZ = 0d0
+      DO JDOFE=1,IDFL1
+       JDFL=KDFL1(JDOFE)
+       JDFG=KDFG1(JDOFE)
+       HBASI1 = DBAS(1,JDFL,1)
+       DPP(:) = DCORVG(:,JDFG)
+       XX = XX + DPP(1)*HBASI1
+       YY = YY + DPP(2)*HBASI1
+       ZZ = ZZ + DPP(3)*HBASI1
+      END DO
 C
       DBAS1(1) = 1d0
       DBAS1(2) = XX-DX0I
@@ -396,7 +404,6 @@ C *** Summing up over all pairs of multiindices
        HBASJ3=DBAS(1,JDOFEH,3)
        HBASJ4=DBAS(1,JDOFEH,4)
 C
-!        write(*,'(I4,4(1xG12.6))') JDOFE,hsumj,hbasj2,du1
        DO 240 IDOFE=1,IDFL2
         IDOFEH=KDFL2(IDOFE)
         HBASI1=DBAS1(IDOFEH)
@@ -414,7 +421,6 @@ C
 C
 200   CONTINUE
 C
-           
       DO 300 JDOFE=1,IDFL1
       DO 300 IDOFE=1,IDFL2
         IA    =KENTRY(JDOFE,IDOFE)
@@ -425,10 +431,11 @@ C
 C
 100   CONTINUE
 C
-!       IF (iEQ.EQ.1) WRITE(*,*) DMAXDIVU
 
 99999 END
-
+C
+C
+C
       SUBROUTINE ProlPressure(D1,D2,KADJ2,KVERT2,DCORVG2,NEL)
       IMPLICIT NONE
       INTEGER KVERT2(8,*),KADJ2(6,*),NEL

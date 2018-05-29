@@ -37,7 +37,7 @@ ${src_ini}
 ${src_util} 
 ${src_PLin} 
 ${src_LinSc} 
-${src_quadLS_ext} 
+${src_quadLS_app} 
 ${src_visco} 
 ${src_mesh}
 ${src_cinterface}

@@ -484,7 +484,9 @@ if(myid.ne.0)then
       w(jvt) = buf(ivt)
     end do
 
-    i_local = i_local + 1
+    IF (i_local.lt.elemCoarse) then
+     i_local = i_local + 1
+    END if
 
   else
     READ(iunit,*) 
@@ -602,7 +604,9 @@ if(myid.ne.0)then
         pres(4 * (idx-1) + 4) = buf_dz(idof)
       end do
 
-      i_local = i_local + 1
+      IF (i_local.lt.elemCoarse) then
+       i_local = i_local + 1
+      END if
 
     else
       read(iunit,*) 
