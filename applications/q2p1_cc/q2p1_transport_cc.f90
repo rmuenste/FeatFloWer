@@ -769,7 +769,7 @@ END SUBROUTINE OperatorDeallocation
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
 !REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(7),U_mean=1.0d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
