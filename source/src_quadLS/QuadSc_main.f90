@@ -1516,10 +1516,18 @@ CALL calcDistanceFunction(mg_mesh%level(ilev)%dcorvg,&
 
 MixerKNPR(:) = 0
 
+IF (.NOT.ALLOCATED(Screw)) ALLOCATE(Screw(QuadSc%ndof))
+IF (.NOT.ALLOCATED(Shell)) ALLOCATE(Shell(QuadSc%ndof))
+
 DO i=1,nvt+net+nat+nel
 
- Distance(i) = QuadSc%AuxV(i)
- IF (Distance(i).le.0d0) THEN
+ Shell(i) = QuadSc%AuxU(i)
+ IF (Shell(i).le.0d0) THEN
+  MixerKNPR(i) = 100
+ END IF
+
+ Screw(i) = QuadSc%AuxV(i)
+ IF (Screw(i).le.0d0) THEN
   MixerKNPR(i) = 103
  END IF
 END DO

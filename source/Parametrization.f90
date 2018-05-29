@@ -1214,7 +1214,7 @@ SUBROUTINE GetFileList()
 
  ALLOCATE (myParBndr(nBnds))
 
- Write(*,*)'Warning: Allocated an additional boundary level'
+ if (myid.eq.1) Write(*,*)'Warning: Allocated an additional boundary level'
  DO iBnds = 1, nBnds
   ALLOCATE (myParBndr(iBnds)%Bndr(NLMIN:NLMAX+1))
  END DO

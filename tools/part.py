@@ -7,6 +7,8 @@ from ctypes import CDLL, c_int, POINTER, byref
 from itertools import repeat, izip, imap, count
 from math import sqrt
 import os
+import sys
+from shutil import copy
 
 metis=None
 metis_func=[]

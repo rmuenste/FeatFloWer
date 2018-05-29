@@ -5,11 +5,10 @@ import getopt
 import platform
 import os
 import shutil
-#sys.path.append('/home/user/rmuenste/bin/partitioner')
-#import PyPartitioner
 import subprocess
 import re
 import json
+import part_main
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 def usage():
@@ -73,13 +72,13 @@ def inspectCaseFolder(path):
   project_file = ''
 
   for item in dir_list:
-    m = re.search(r"file.prj", item)
+    m = re.search(r"^Extrud3D.dat$", item)
     if m: 
       prj_found = True
       project_file = item
 
   if not prj_found:
-    print("Error: The case folder %s does not contain a .prj project file. " % path)
+    print("Error: The case folder %s does not contain an Extrud3D.dat project file. " % path)
     sys.exit(2)
   else:
     return path + "/" + project_file
@@ -117,26 +116,39 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("Platform: " + sys.platform)
 
+# Check the case folder for a Extrud3D.dat file
+# and return it if found
 prj_file = inspectCaseFolder(caseFolder)
-shutil.copyfile(caseFolder + "/Extrud3D.dat", "_data/Extrud3D_0.dat")
-#print("Project file: %s" % prj_file)
 
-#-------------------------------------------------------------------------------------
-numProcessors = int(numProcessors)
-#PyPartitioner.MainProcess(numProcessors-1, 1, 1, "NEWFAC", prj_file)
-#-------------------------------------------------------------------------------------
+shutil.copyfile(prj_file, "_data/Extrud3D_0.dat")
 
 delta = 40
 nmin = 0
 #nmax = nmin + 1
-nmax = 2
+nmax = 1
 start = 0.0
 
 with open("_data/Extrud3D_0.dat", "a") as f:
   f.write("[E3DSimulationSettings]\n") 
   f.write("dAlpha=" + str(delta) + "\n") 
 
-for i in range(nmin,nmax):
+if os.path.exists("_data/meshDir"):
+  shutil.rmtree("_data/meshDir")
+
+subprocess.call(["./s3d_mesher"])
+
+if not os.path.exists("_data/meshDir"):
+  shutil.copytree(caseFolder + "/meshDir","_data/meshDir")
+
+#-------------------------------------------------------------------------------------
+numProcessors = int(numProcessors)
+
+part_main.mkdir("_mesh")
+
+part_main.MainProcess(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
+#-------------------------------------------------------------------------------------
+
+for i in range(nmin,nmax):  # nmax means the loop goes to nmax-1
   angle = start + i * delta
   shutil.copyfile("_data/Extrud3D_0.dat","_data/Extrud3D.dat")
   with open("_data/Extrud3D.dat", "a") as f:
@@ -151,4 +163,6 @@ for i in range(nmin,nmax):
     shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
   else:
     subprocess.call(['mpirun -np %i ./q2p1_sse' % numProcessors],shell=True)
+    iangle = int(angle)
+    shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 

@@ -800,32 +800,23 @@ SUBROUTINE General_init(MDATA,MFILE)
 
     !-----------------------------------------------------------------------
     101 FORMAT(/2X,100('=')/&
-      2X,"|",10X,"                                                "&
-      40X,"|"/&
-      2X,"|",10X,"Parellel Q2/P1 FEM Fluid Dynamics code          "&
-      40X,"|"/&
-      2X,"|",10X,"Developed by:                                   "&
-      40X,"|"/&
-      2X,"|",10X,"Otto Mierka, Dmitri Kuzmin and Stefan Turek     "&
-      40X,"|"/&
-      2X,"|",10X,"Developed at:                                   "&
-      40X,"|"/&
-      2X,"|",10X,"                                                "&
-      40X,"|"/&
-      2X,"|",10X,"##########  ##      ##      ",&
-      "                                                     ",7X,"|"/&
-      2X,"|",10X,"#   ##   #  ##      ##      ",&
-      "###     ###   ###   ##### #   #  #    #  #   #  ###  ",7X,"|"/&
-      2X,"|",10X,"    ##      ##      ##      ",&
-      "#  #   #   #  #  #    #   ## ##  #    #  ##  #  #  # ",7X,"|"/&
-      2X,"|",10X,"    ##      ##      ##  ####",&
-      "#   #  #   #  ###     #   # # #  #    #  # # #  #   #",7X,"|"/&
-      2X,"|",10X,"    ##      ##      ##      ",&
-      "#  #   #   #  #  #    #   #   #  #    #  #  ##  #  # ",7X,"|"/&
-      2X,"|",10X,"    ##      ##      ##      ",&
-      "###     ###   #   #   #   #   #   ####   #   #  ###  ",7X,"|"/&
-      2X,"|",10X,"    ##        ######        ",&
-      "                                                     ",7X,"|"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"Parellel Q2/P1 FEM Fluid Dynamics code          FeatFloWer                              |"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"Developed by:                                   Otto Mierka, Raphael Münster            |"/&
+      2X,"|",10X,"under the supervision of:                       Stefan Turek and Dmitri Kuzmin          |"/&
+      2X,"|",10X,"additional contributions from:                  Robert Jendrny, Christoph Lohmann       |"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"Developed at:                                                                           |"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"     #####   #    #         ###     ###   ###   ##### #   #  #    #  #   #  ###         |"/&
+      2X,"|",10X,"       #     #    #         #  #   #   #  #  #    #   ## ##  #    #  ##  #  #  #        |"/&
+      2X,"|",10X,"       #     #    #   ###   #   #  #   #  ###     #   # # #  #    #  # # #  #   #       |"/&
+      2X,"|",10X,"       #     #    #         #  #   #   #  #  #    #   #   #  #    #  #  ##  #  #        |"/&
+      2X,"|",10X,"       #      ####          ###     ###   #   #   #   #   #   ####   #   #  ###         |"/&
+      2X,"|",10X,"                                                                                        |"/&
+      2X,"|",10X,"                                                                                        |"/&
       2X,"|",57X,"            Chair of Mathematics III",5X,"|"/&
       2X,"|",57X,"    Applied Mathematics and Numerics",5X,"|"/&
       2X,"|",57X,"                    Vogelopthsweg 87",5X,"|"/&
@@ -834,8 +825,8 @@ SUBROUTINE General_init(MDATA,MFILE)
       2X,"|",10X,"Based on FeatFlow (c)     ",&
       "see also: http://www.featflow.de",30X,"|"/&
       2X,"|",10X,"Correspondance:",73X,"|"/&
-      2X,"|",10X," otto.mierka@math.tu-dortmund.de, ",&
-      "stefan.turek@math.tu-dortmund.de",22X,"|"/&
+      2X,"|",10X,"otto.mierka@math.tu-dortmund.de, ",&
+      "stefan.turek@math.tu-dortmund.de",23X,"|"/&
       2X,"|",98X,"|"/&
       2X,100('=')/)
 

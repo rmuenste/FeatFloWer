@@ -120,5 +120,49 @@ subroutine sim_finalize(dttt0, filehandle)
   CALL MPI_Finalize(ierr)
 
 end subroutine sim_finalize
+!
+!-------------------------------------------------------------------------------------------------
+! A wrapper for mpi finalize 
+!-------------------------------------------------------------------------------------------------
+! @param dttt0 Simulation start time 
+! @param filehandle protocol file handle 
+! ----------------------------------------------
+subroutine sim_finalize_sse(dttt0, filehandle)
+  include 'defs_include.h'
+  use Mesh_Structures, only: release_mesh
+  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
+  use var_QuadScalar, only: istep_ns,mg_mesh
+  use solution_io, only: write_sol_to_file,write_sse_1d_sol
+
+  real, intent(inout) :: dttt0
+  integer, intent(in) :: filehandle
+
+  integer :: ierr
+  integer :: terminal = 6
+  real :: time,time_passed
+
+  CALL ZTIME(time)
+
+  time_passed = time - dttt0
+  CALL StatOut(time_passed,0)
+
+  CALL StatOut(time_passed,terminal)
+
+  ! Save the final solution vector in unformatted form
+  istep_ns = istep_ns - 1
+  !CALL SolToFile(-1)
+  call write_sol_to_file(insavn, timens)
+  call write_sse_1d_sol()
+
+  IF (myid.eq.showid) THEN
+    WRITE(*,*) "PP3D_LES has successfully finished. "
+    WRITE(filehandle,*) "PP3D_LES has successfully finished. "
+  END IF
+
+  call release_mesh(mg_mesh)
+  CALL Barrier_myMPI()
+  CALL MPI_Finalize(ierr)
+
+end subroutine sim_finalize_sse
 
 end module post_utils

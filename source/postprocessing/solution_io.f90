@@ -1167,7 +1167,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   use Transport_Q2P1, only: QuadSc,LinSc
   use Transport_Q1, only: Tracer
   use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
-                            Viscosity, Distance, Shearrate 
+                            Viscosity, Screw, Shell, Shearrate 
   use Sigma_User, only: myProcess
 
   use visualization_out, only: viz_output_fields
@@ -1186,20 +1186,18 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   ! Output the solution in GMV or GiD format
   iXgmv = istep_ns
 
-  ! write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
-  
   IF (itns.eq.1) THEN
     CALL ZTIME(myStat%t0)
 
     call viz_output_fields(myExport, int(myProcess%angle), QuadSc, LinSc, & !Tracer, &
-                           Viscosity, Distance, Shearrate,&
+                           Viscosity, Screw, Shell, Shearrate,&
                            mg_mesh)
 
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
-    CALL ZTIME(myStat%t0)
-    call write_sol_to_file(0, timens,0)
-    CALL ZTIME(myStat%t1)
+!     CALL ZTIME(myStat%t0)
+!     call write_sol_to_file(0, timens,0)
+!     CALL ZTIME(myStat%t1)
   END IF
 
   IF(dout.LE.(timens+1e-10)) THEN
@@ -1208,7 +1206,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       CALL ZTIME(myStat%t0)
       iXgmv = int(myProcess%angle)
       call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
-                             Viscosity, Distance, Shearrate, mg_mesh)
+                             Viscosity, Screw, Shell, Shearrate, mg_mesh)
 
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
@@ -1234,6 +1232,36 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_sse
+!
+!------------------------------------------------------------------------------------------------
+! Wrapper routine for writing the solution to a file 
+!------------------------------------------------------------------------------------------------
+! @param iInd number of the output
+! @param istep number of the discrete time step
+! @param simTime current simulation time
+subroutine write_sse_1d_sol()
+
+  include 'defs_include.h'
+  
+  use Transport_Q2P1, only: QuadSc,LinSc
+  use Transport_Q1, only: Tracer
+  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
+                            Viscosity, Distance, Shearrate 
+  use Sigma_User, only: myProcess
+
+  use visualization_out, only: viz_output_1D_fields
+
+  implicit none
+  
+  ! local variables
+  integer :: iXgmv
+
+  iXgmv = int(myProcess%angle)
+
+  call viz_output_1D_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+                            Viscosity, Distance, Shearrate, mg_mesh)
+
+end subroutine write_sse_1d_sol
 
 end module solution_io
 
