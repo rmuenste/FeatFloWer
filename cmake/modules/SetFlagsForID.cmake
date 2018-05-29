@@ -132,7 +132,7 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-intel-debug")
   SET(CMAKE_BUILD_TYPE "Debug")
-  SET(CXX_FLAGS_FC -std=c++11 -traceback -check -fpe0)
+  SET(CXX_FLAGS_FC -std=c++11 -traceback -fpe0)
   SET(Fortran_FLAGS -assume underscore -fpp -traceback -check all,noarg_temp_created -fpe0)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()

@@ -5,7 +5,7 @@ ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
 )
 
 # source files for standad q2p1 
-set(src_q2p1_fc_spring
+set(src_q2p1_fsi_spring
 ${Elements} 
 ${src_q2p1} 
 ${src_pp3d} 
