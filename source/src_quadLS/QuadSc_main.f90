@@ -1616,6 +1616,41 @@ END SUBROUTINE  GetMonitor
 ! ----------------------------------------------
 !
 SUBROUTINE  GetNonNewtViscosity()
+INTEGER i
+REAL*8 ViscosityModel
+integer :: ilevel
+
+EXTERNAL E013
+
+ilevel = mg_mesh%nlmax
+
+ IF (myid.ne.0) then
+  QuadSc%defU = 0d0
+  QuadSc%defV = 0d0
+  QuadSc%defW = 0d0
+  CALL L2ProjVisco(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+                   QuadSc%defU,QuadSc%defV,QuadSc%defW,&
+                   mg_mesh%level(ilevel)%kvert,&
+                   mg_mesh%level(ilevel)%karea,&
+                   mg_mesh%level(ilevel)%kedge,&
+                   mg_mesh%level(ilevel)%dcorvg,E013)
+
+  CALL E013Sum(QuadSc%defU)
+  CALL E013Sum(QuadSc%defV)
+  CALL E013Sum(QuadSc%defW)
+
+  DO i=1,QuadSc%ndof
+!    Shearrate(i) = QuadSc%defV(i)/QuadSc%defW(i)
+   Viscosity(i) = QuadSc%defU(i)/QuadSc%defW(i)
+  END DO
+
+ END IF
+
+END SUBROUTINE  GetNonNewtViscosity
+!
+! ----------------------------------------------
+!
+SUBROUTINE  GetNonNewtViscosityOld()
   INTEGER i
   REAL*8 daux
   REAL*8 HogenPowerlaw
@@ -1661,7 +1696,7 @@ SUBROUTINE  GetNonNewtViscosity()
 
   END IF
 
-END SUBROUTINE  GetNonNewtViscosity
+END SUBROUTINE  GetNonNewtViscosityOld
 !
 ! ----------------------------------------------
 !

@@ -1974,3 +1974,225 @@ C
 C
 C
 C
+************************************************************************
+      SUBROUTINE L2ProjVisco(U,V,W,D1,D2,D3,
+     *           KVERT,KAREA,KEDGE,DCORVG,ELE)
+************************************************************************
+      USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar, ONLY : transform
+*-----------------------------------------------------------------------
+      USE PP3D_MPI, ONLY:myid
+C
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
+      REAL*8    U(*),V(*),W(*),D1(*),D2(*),D3(*)
+      DIMENSION DCORVG(NNDIM,*)
+      DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+C
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      DIMENSION DU(NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM)
+C
+      REAL*8    DISCOSITY,dmyXi
+      REAL*8    ViscosityModel
+C
+      DIMENSION DU1(NNBAS), GRADU1(NNDIM)
+      DIMENSION DU2(NNBAS), GRADU2(NNDIM)
+      DIMENSION DU3(NNBAS), GRADU3(NNDIM)
+      REAL*8    DHELP(NNBAS,4,NNCUBP)
+C
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
+C
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+C
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB=9
+      CALL CB3H(ICUB)
+      IF (IER.NE.0) GOTO 99999
+C
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
+      END DO
+C
+************************************************************************
+C *** Calculation of the matrix - storage technique 7 or 8
+************************************************************************
+      ICUBP=ICUB
+      CALL ELE(0D0,0D0,0D0,-2)
+C
+C *** Loop over all elements
+      DO 100 IEL=1,NEL
+C
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Loop over all cubature points
+!---============================---
+      DO 130 JDOFE=1,IDFL
+      JDFG=KDFG(JDOFE)
+      JDFL=KDFL(JDOFE)
+      DU1(JDFL) = U(JDFG) 
+      DU2(JDFL) = V(JDFG)
+      DU3(JDFL) = W(JDFG)
+      DEF(1,JDFL)=0D0
+      DEF(2,JDFL)=0D0
+      DEF(3,JDFL)=0D0
+ 130  CONTINUE      
+C
+      DO 200 ICUBP=1,NCUBP
+C
+C *** Jacobian of the bilinear mapping onto the reference element
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+      DJAC=0d0
+      IF (Transform%ilint.eq.2) THEN ! Q2
+      DO JDOFE=1,27
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
+      END DO
+      END IF
+      IF (Transform%ilint.eq.1) THEN ! Q1
+      DO JDOFE=1,8
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+      END IF
+C      
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
+C
+      CALL ELE(XI1,XI2,XI3,-3)
+      IF (IER.LT.0) GOTO 99999
+C
+! C ---=========================---
+      GRADU1(1)=0D0!U
+      GRADU1(2)=0D0
+      GRADU1(3)=0D0
+
+      GRADU2(1)=0D0!V
+      GRADU2(2)=0D0
+      GRADU2(3)=0D0
+
+      GRADU3(1)=0D0!W
+      GRADU3(2)=0D0
+      GRADU3(3)=0D0 
+C
+      DO 220 JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)! local number of basic function
+
+       GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX 0
+       GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY 0
+       GRADU1(3)=GRADU1(3) + DU1(JDFL)*DBAS(1,JDFL,4)!DUZ 0
+
+       GRADU2(1)=GRADU2(1) + DU2(JDFL)*DBAS(1,JDFL,2)!DVX 0
+       GRADU2(2)=GRADU2(2) + DU2(JDFL)*DBAS(1,JDFL,3)!DVY 0
+       GRADU2(3)=GRADU2(3) + DU2(JDFL)*DBAS(1,JDFL,4)!DVZ 0
+
+       GRADU3(1)=GRADU3(1) + DU3(JDFL)*DBAS(1,JDFL,2)!DWX 0
+       GRADU3(2)=GRADU3(2) + DU3(JDFL)*DBAS(1,JDFL,3)!DWY 0
+       GRADU3(3)=GRADU3(3) + DU3(JDFL)*DBAS(1,JDFL,4)!DWZ 0
+
+ 220  CONTINUE
+
+C ----=============================================---- 
+       dShearSquare = GRADU1(1)**2d0 + GRADU2(2)**2d0 
+     *        + GRADU3(3)**2d0 + 0.5d0*(GRADU1(2)+GRADU2(1))**2d0
+     *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
+     *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
+
+         dmyXi = SQRT(dShearSquare)
+!         dmyXi = SQRT(2d0*dShearSquare)
+C       
+C ----=============================================---- 
+C
+      DShear = dmyXi
+      DISCOSITY = ViscosityModel(dShearSquare)
+!      DISCOSITY = ViscosityModel(2d0*dShearSquare)
+C
+      DO 230 JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       DEF(1,JDOFE) = DEF(1,JDOFE)+OM*DISCOSITY*DBAS(1,JDFL,1)
+       DEF(2,JDOFE) = DEF(2,JDOFE)+OM*DShear*DBAS(1,JDFL,1)
+       DEF(3,JDOFE) = DEF(3,JDOFE)+OM*1d0*DBAS(1,JDFL,1)
+230   CONTINUE
+C
+200   CONTINUE
+C
+      DO 300 JDOFE=1,IDFL
+       JDFG=KDFG(JDOFE)
+       D1(JDFG)=D1(JDFG)+DEF(1,JDOFE)
+       D2(JDFG)=D2(JDFG)+DEF(2,JDOFE)
+       D3(JDFG)=D3(JDFG)+DEF(3,JDOFE)
+300   CONTINUE
+C
+100   CONTINUE
+C
+99999 END
+C
+C
+C
