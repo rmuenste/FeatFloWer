@@ -83,7 +83,6 @@
     IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") mySigma%Dzz = myInf
     IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND")    mySigma%W = myInf
 
-
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out/dSizeScale)
     mySigma%Dz_in = dSizeScale*mySigma%Dz_in
     
@@ -417,6 +416,12 @@
     myRheology%Equation = 0
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcVisco", cRheology,'NoRheology')
     call inip_toupper_replace(cRheology)
+    IF (ADJUSTL(TRIM(cRheology)).eq."BINGHAM") THEN
+      myRheology%Equation = 6
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Bingham","ZeroViscosity",myRheology%A,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Bingham","Regularization",myRheology%B,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Bingham","YieldStress",myRheology%C,myInf)
+    END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."CARREAU") THEN
       myRheology%Equation = 1
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Carreau","ZeroViscosity",myRheology%A,myInf)
@@ -695,6 +700,12 @@
      write(*,*) "myRheology%B",'=',myRheology%B
      write(*,*) "myRheology%C",'=',myRheology%C
     END IF
+    IF (myRheology%Equation.eq.6) THEN
+     write(*,*) "myRheology%model",'=','Bingham'
+     write(*,*) "myRheology%A",'=',myRheology%A
+     write(*,*) "myRheology%B",'=',myRheology%B
+     write(*,*) "myRheology%C",'=',myRheology%C
+    END IF
     write(*,*) 
     IF (myRheology%AtFunc.eq.1) THEN
      write(*,*) "myRheology%TempModel",'=','ISOTHERM'
@@ -745,22 +756,23 @@
 !     write(*,*) "=========================================================================="
     END IF
 ! 
-    mySigma%mySegment(1)%StartAlpha = 0.0d0
-
-    mySigma%SegmentLength = mySigma%mySegment(1)%L
-    IF (mySigma%NumberOfSeg.GE.2) THEN
-    DO iSeg=2,mySigma%NumberOfSeg
-      IF (mySigma%mySegment(iSeg-1)%ART.EQ.'FOERD'.OR.mySigma%mySegment(iSeg-1)%ART.EQ.'SME') THEN
-      mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
-      END IF
-      IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET') THEN
-      mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
-      IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
-       mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
-      END IF
-      END IF
-      mySigma%SegmentLength = mySigma%SegmentLength + mySigma%mySegment(iSeg)%L
-    END DO
+    if (mySigma%NumberOfSeg.gt.0) THEN
+     mySigma%mySegment(1)%StartAlpha = 0.0d0
+     mySigma%SegmentLength = mySigma%mySegment(1)%L
+     IF (mySigma%NumberOfSeg.GE.2) THEN
+     DO iSeg=2,mySigma%NumberOfSeg
+       IF (mySigma%mySegment(iSeg-1)%ART.EQ.'FOERD'.OR.mySigma%mySegment(iSeg-1)%ART.EQ.'SME') THEN
+       mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
+       END IF
+       IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET') THEN
+       mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
+       IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
+	mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
+       END IF
+       END IF
+       mySigma%SegmentLength = mySigma%SegmentLength + mySigma%mySegment(iSeg)%L
+     END DO
+     END IF
     END IF
 
 !     myThermodyn%Alpha     = (1e6*myThermodyn%lambda)/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
