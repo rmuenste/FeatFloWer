@@ -308,13 +308,13 @@ END IF
 
 ! Weber/G1
 IF (iT.EQ.63) THEN
-  ValW=RotParabolicVelo(-8.46d0,-20.43d0,-5d0,1d0,2.95d0)
+  ValW=RotParabolicVelo(-8.46d0,-20.43d0,-200d0,1d0,2.95d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 
 ! Weber/G2
 IF (iT.EQ.64) THEN
-  ValW=RotParabolicVelo(+8.52d0,+20.57d0,-5d0,1d0,1.45d0)
+  ValW=RotParabolicVelo(+8.52d0,+20.57d0,-200d0,1d0,1.45d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
 END IF
 
@@ -422,6 +422,10 @@ IF (myRheology%Equation.EQ.5) THEN
  VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
 END IF
 
+! Bingham
+IF (myRheology%Equation.EQ.6) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
 
 dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min

@@ -3177,6 +3177,75 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE E013Max_SUPER(FX) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY : CommOrder,myStat
+
+INTEGER  FX(*)
+INTEGER I,pJD,nSIZE,nEIGH,iRound
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+
+  !IF (pJD.ne.0.and.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+  IF (pJD.ne.0) THEN
+    IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+
+       nSIZE = MGE013(ILEV)%ST(pJD)%Num
+
+       !!!!     sends pID ----> pJD
+       IF (myid.lt.pJD) THEN
+        DO I=1,nSIZE
+         MGE013(ILEV)%ST(pJD)%SDVect(I) = DBLE(FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I)))
+        END DO
+        
+        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+       ELSE
+        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+       END IF
+       
+       !!!!     sends pJD ----> pID
+       IF (myid.lt.pJD) THEN
+        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
+       ELSE
+        DO I=1,nSIZE
+         MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+        END DO      
+        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
+       END IF
+
+    END IF
+  END IF
+
+ END DO
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     DO I=1,nSIZE
+       FX(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+       NINT(MAX(DBLE(FX(MGE013(ILEV)%ST(pJD)%VertLink(2,I))),MGE013(ILEV)%ST(pJD)%RDVect(I)))
+     END DO
+   END IF
+  END DO
+
+END IF
+
+END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE E013UVWSumSUPER(FX) !ok
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV
