@@ -9,6 +9,7 @@ USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
+use def_QuadScalar
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
@@ -158,7 +159,7 @@ end if
  CALL Create_LinMatStruct ()
 
  ! Pressure gradient matrix
- CALL Create_BMat_iso() !(B,BT)
+ CALL Create_BMat() !(B,BT)
 
  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
@@ -868,29 +869,29 @@ LOGICAL bHit
 bHit = .FALSE.
 
 IF (iType.EQ.myMatrixRenewal%D) THEN
- CALL Create_DiffMat_iso(QuadSc)
+ CALL Create_DiffMat(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%K) THEN
- CALL Create_KMat_iso(QuadSc)
+ CALL Create_KMat(QuadSc)
  CALL Create_barMMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%M) THEN
- CALL Create_MRhoMat_iso()
+ CALL Create_MRhoMat()
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%S) THEN
- CALL Create_SMat_iso(QuadSc)
+ CALL Create_SMat(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%C) THEN
 
- CALL Create_BMat_iso()
+ CALL Create_BMat()
  
  IF (myid.ne.master) THEN
   CALL Fill_QuadLinParMat()

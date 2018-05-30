@@ -322,7 +322,7 @@ CALL myStatOut(time_passed,terminal)
 
 
 IF (myid.eq.showid) THEN
-  WRITE(MTERM,*) "CC3D_iso_adaptive has successfully finished. "
+  WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
   WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
 END IF
 
@@ -756,7 +756,7 @@ END SUBROUTINE mySolFromFile
 !
 SUBROUTINE myWriteSol_Time(iOut)
 USE def_FEAT
-USE PP3D_MPI, ONLY:myid,subnodes,RECVDD_myMPI,SENDDD_myMPI
+USE PP3D_MPI, ONLY:myid,subnodes,RECVDD_myMPI,SENDDD_myMPI,showid
 
 INTEGER iInd
 INTEGER pID

@@ -71,7 +71,9 @@ C
        CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
       END DO
 C
-      BDER(2-4)=.FALSE.
+      BDER(2)=.FALSE.
+      BDER(3)=.FALSE.
+      BDER(4)=.FALSE.
 C     
 ************************************************************************
 C *** Calculation of the matrix - storage technique 7 or 8
@@ -268,7 +270,10 @@ C
        CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
       END DO
 C
-      BDER(2-4)=.FALSE.
+      BDER(2)=.FALSE.
+      BDER(3)=.FALSE.
+      BDER(4)=.FALSE.
+
 C     
 ************************************************************************
 C *** Calculation of the matrix - storage technique 7 or 8
