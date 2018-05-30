@@ -1422,6 +1422,8 @@ SUBROUTINE updateFBMGeometry()
     mg_mesh%level(ilev)%kedge,&
     mg_mesh%level(ilev)%karea)
 
+  CALL E013Max_SUPER(FictKNPR)
+  if (myid.eq.1) write(*,*) 'CALL E013Max_SUPER(FictKNPR)'
 
 END SUBROUTINE  updateFBMGeometry
 !
@@ -1622,6 +1624,7 @@ integer :: ilevel
 
 EXTERNAL E013
 
+ilev   = mg_mesh%nlmax
 ilevel = mg_mesh%nlmax
 
  IF (myid.ne.0) then
