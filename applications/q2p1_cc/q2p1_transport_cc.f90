@@ -159,7 +159,7 @@ end if
  CALL Create_LinMatStruct ()
 
  ! Pressure gradient matrix
- CALL Create_BMat() !(B,BT)
+ CALL Create_BMat_mod() !(B,BT)
 
  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 

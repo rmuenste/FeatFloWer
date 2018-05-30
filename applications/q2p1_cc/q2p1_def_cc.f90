@@ -2244,9 +2244,9 @@ EXTERNAL E013
   mg_barM32mat(ILEV)%a=0d0
 
 
-  CALL Build_barMMat_iso(mgDensity(ILEV)%x,qMat%na,qMat%ColA,qMat%LdA,&
+  CALL Build_barMMat(mgDensity(ILEV)%x,qMat%na,qMat%ColA,qMat%LdA,&
    mg_mesh%level(ILEV)%kvert,mg_mesh%level(ILEV)%karea,&
-   mg_mesh%level(ILEV)%kedge,mg_mesh%level(ILEV)%dcorvg,9,E013,&
+   mg_mesh%level(ILEV)%kedge,mg_mesh%level(ILEV)%dcorvg,E013,&
    mg_barM11mat(ILEV)%a,mg_barM12mat(ILEV)%a,mg_barM13mat(ILEV)%a,&
    mg_barM21mat(ILEV)%a,mg_barM22mat(ILEV)%a,mg_barM23mat(ILEV)%a,&
    mg_barM31mat(ILEV)%a,mg_barM32mat(ILEV)%a,mg_barM33mat(ILEV)%a,&
@@ -2277,6 +2277,127 @@ END SUBROUTINE Create_barMMat_iso
 !
 ! ----------------------------------------------
 !
+!
+! ----------------------------------------------
+! BMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_BMat_mod() !(B)
+INTEGER nERow,pNEL
+INTEGER I,J
+real*8 ddx,ddy,ddz
+CHARACTER*10 myFile
+EXTERNAL E011,E013
+
+ IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
+! Helping Force calculation
+ IF (.NOT.ALLOCATED(mg_BXMat_new)) ALLOCATE(mg_BXMat_new(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BYMat_new)) ALLOCATE(mg_BYMat_new(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BZMat_new)) ALLOCATE(mg_BZMat_new(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+
+  qlMat => mg_qlMat(ILEV)
+  IF (.NOT.ALLOCATED(mg_BXMat(ILEV)%a)) ALLOCATE(mg_BXMat(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BYMat(ILEV)%a)) ALLOCATE(mg_BYMat(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BZMat(ILEV)%a)) ALLOCATE(mg_BZMat(ILEV)%a(qlMat%na))
+  mg_BXMat(ILEV)%a=0d0
+  mg_BYMat(ILEV)%a=0d0
+  mg_BZMat(ILEV)%a=0d0
+! Helping Force calculation
+  IF (.NOT.ALLOCATED(mg_BXMat_new(ILEV)%a)) ALLOCATE(mg_BXMat_new(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BYMat_new(ILEV)%a)) ALLOCATE(mg_BYMat_new(ILEV)%a(qlMat%na))
+  IF (.NOT.ALLOCATED(mg_BZMat_new(ILEV)%a)) ALLOCATE(mg_BZMat_new(ILEV)%a(qlMat%na))
+  mg_BXMat_new(ILEV)%a=0d0
+  mg_BYMat_new(ILEV)%a=0d0
+  mg_BZMat_new(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [B]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  CALL Build_BMatP1(mg_BXMat(ILEV)%a,mg_BYMat(ILEV)%a,&
+       mg_BZMat(ILEV)%a,qlMat%LdA,qlMat%ColA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       qlMat%na,E013)
+! Helping Force calculation
+  mg_BXMat_new(ILEV)%a = mg_BXMat(ILEV)%a
+  mg_BYMat_new(ILEV)%a = mg_BYMat(ILEV)%a
+  mg_BZMat_new(ILEV)%a = mg_BZMat(ILEV)%a
+
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ IF (.NOT.ALLOCATED(mg_BTXMat)) ALLOCATE(mg_BTXMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BTYMat)) ALLOCATE(mg_BTYMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_BTZMat)) ALLOCATE(mg_BTZMat(NLMIN:NLMAX))
+
+DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+
+  lqMat => mg_lqMat(ILEV)
+  IF (.NOT.ALLOCATED(mg_BTXMat(ILEV)%a)) ALLOCATE(mg_BTXMat(ILEV)%a(lqMat%na))
+  IF (.NOT.ALLOCATED(mg_BTYMat(ILEV)%a)) ALLOCATE(mg_BTYMat(ILEV)%a(lqMat%na))
+  IF (.NOT.ALLOCATED(mg_BTZMat(ILEV)%a)) ALLOCATE(mg_BTZMat(ILEV)%a(lqMat%na))
+  mg_BTXMat(ILEV)%a=0d0
+  mg_BTYMat(ILEV)%a=0d0
+  mg_BTZMat(ILEV)%a=0d0
+
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T}]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  CALL Build_BTMatP1(mg_BTXMat(ILEV)%a,mg_BTYMat(ILEV)%a,&
+       mg_BTZMat(ILEV)%a,lqMat%LdA,lqMat%ColA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       lqMat%na,E013)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+55 CONTINUE
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qlMat  => mg_qlMat(NLMAX)
+ BXMat => mg_BXMat(NLMAX)%a
+ BYMat => mg_BYMat(NLMAX)%a
+ BZMat => mg_BZMat(NLMAX)%a
+! Helping Force calculation
+ BXMat_new => mg_BXMat_new(NLMAX)%a
+ BYMat_new => mg_BYMat_new(NLMAX)%a
+ BZMat_new => mg_BZMat_new(NLMAX)%a
+
+ lqMat  => mg_lqMat(NLMAX)
+ BTXMat => mg_BTXMat(NLMAX)%a
+ BTYMat => mg_BTYMat(NLMAX)%a
+ BTZMat => mg_BTZMat(NLMAX)%a
+
+END SUBROUTINE Create_BMat_mod
+!
+! 
 SUBROUTINE InitializeProlRest_cc(Param)
 
 TYPE(tParamCC) Param

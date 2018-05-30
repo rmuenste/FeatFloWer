@@ -180,6 +180,7 @@ ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_stress.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
+${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_barMmatrix.f
 )
 
 set(src_quadLS_app
