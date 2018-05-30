@@ -1,18 +1,10 @@
 # CMakeLists of q2p1_fc_ext application
 set(src_quadLS_ext
+${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_laplace.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_diff.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_massrho.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_conv.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_shear.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_stress.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_surftens.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_gravity.f
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90

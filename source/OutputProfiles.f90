@@ -2028,7 +2028,8 @@ write(iunit, '(A)')"    </CellData>"
 write(iunit, '(A)')"      <Points>"
 write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
 do ivt=1,NoOfVert
- write(iunit,'(A10,3E16.7)')"          ",REAL(myALE%OldCoor(1,ivt)),REAL(myALE%OldCoor(2,ivt)),REAL(myALE%OldCoor(3,ivt))
+ write(iunit,'(A10,3E16.7)')"          ",REAL(dcoor(1,ivt)),REAL(dcoor(2,ivt)),REAL(dcoor(3,ivt))
+!  write(iunit,'(A10,3E16.7)')"          ",REAL(myALE%OldCoor(1,ivt)),REAL(myALE%OldCoor(2,ivt)),REAL(myALE%OldCoor(3,ivt))
 end do
 write(iunit, *)"        </DataArray>"
 write(iunit, *)"      </Points>"

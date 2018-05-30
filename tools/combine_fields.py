@@ -12,7 +12,7 @@ from shutil import copyfile
 # read and join the partitioned files to
 # a single file per field
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def cmp_entries(a, b):
 # sort the tuples in the list element_entries
@@ -24,11 +24,21 @@ def cmp_entries(a, b):
   else:
     return -1
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def readPartitionedField(elem_entries, fileName):
-# reads a single field from the file <fileName>
-# and stores it in elem_entries
+  """ This routine reads a single field from the file <fileName>
+      and stores it in elem_entries
+      .dmp solution file into a combined single solution file.
+
+      Args:
+          fieldName: The name of the field that is processed
+          elem_entries: The list of entries that is appended to
+      Returns:
+          header_line: The header line as a string
+          header_info: The header as a list
+          
+  """
 
   header_info = {}
   header_line = ""
@@ -62,9 +72,18 @@ def readPartitionedField(elem_entries, fileName):
 
     return header_line, header_info
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def writeCombinedField(elem_entries, header, components, fileName):
+  """ This routine handles the writing to a combined solution .dmp file
+      from a list of element entries.
+
+      Args:
+          elem_entries: The list of entries that are written to the file
+          header: The header info line
+          components: The number of scalar components of the solution
+          fieldName: The name of the combined output file
+  """
 
   print("Writing combined files: " + str(fileName))
 
@@ -75,9 +94,18 @@ def writeCombinedField(elem_entries, header, components, fileName):
       for i in range(components):
         f.write(" ".join(e[1][i]) + '\n')
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def combineField(nprocs,fieldName, path, out_idx):
+  """ This routine handles the reading and combining of a partitioned
+      .dmp solution file into a combined single solution file.
+
+      Args:
+          nprocs: The number of processor directories for the solution
+          fieldName: The name of the field that is processed
+          path: The path to the dump files
+          out_idx: The index of the solution directory
+  """
 
   element_entries = []
 
@@ -114,9 +142,17 @@ def combineField(nprocs,fieldName, path, out_idx):
   outName = myPath + "/" + fieldName
   writeCombinedField(element_entries, header_mod, int(header_info['Components']), outName)
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def getDumpFields(nprocs, path, out_idx):
+  """ Scans the directory for .dmp dump files and adds
+      them to a list.
+
+      Args:
+          nprocs: The number of processor directories for the solution
+          path: The path to the dump files
+          out_idx: The index of the solution directory
+  """
 
   dump_path = path + "/processor_" + str(1) + "/" + str(out_idx)
 
@@ -134,9 +170,17 @@ def getDumpFields(nprocs, path, out_idx):
 
   return files
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def processDumpDir(nprocs, path, out_idx):
+  """ Entry point routine that directs the reading and combining of the
+      dump folders and files.
+
+      Args:
+          nprocs: The number of processor directories for the solution
+          path: The path to the dump files
+          out_idx: The index of the solution directory
+  """
 
   print("Found " + str(nprocs) + " processor_ directories")
 
@@ -163,7 +207,7 @@ def processDumpDir(nprocs, path, out_idx):
     print("Writing time file: " + dump_folder_path + "/" + str(dump_folder_idx) + "/time.dmp")
     copyfile(timeFile, dump_folder_path + "/" + str(dump_folder_idx) + "/time.dmp")
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 def usage():
   print("Usage: python combine_fields.py [options]")
@@ -172,7 +216,7 @@ def usage():
   print("[-d, --dump-path]: path to the dump folder")
   print("[-i, --idx]: index of the dump folder")
 
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 # Parameters for reading and merging the field:
 # A)Number of processors:
@@ -187,7 +231,7 @@ def usage():
 # - in each 'component line' the values of fine mesh dofs in the coarse element are given in the FEATFLOW multi-level ordering
 
 # Script begin
-#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'i:d:h', ['idx=','dump-path=', 'help'])

@@ -1,6 +1,6 @@
 module geometry_processing
-  use Sigma_User, only: mySigma, myProcess
-  use var_QuadScalar, only: distance
+  use Sigma_User, only: mySigma, myProcess,GetMixerKnpr
+  use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist
   !------------------------------------------------------------------------------------------------
   ! A module for functions that perform operations on the 
   ! geometry immersed into the simulation domain or boundary geometry
@@ -13,6 +13,95 @@ module geometry_processing
   real*8 :: dEpsDist
 
 contains
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScalar_MixerKnpr(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dist1,dist2)
+REAL*8  dcorvg(3,*),dist1(*),dist2(*)
+integer nel,nvt,nat,net
+INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+REAL*8 PX,PY,PZ,DIST,d12,d4,d5,dS1,dS2,timeLevel
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+INTEGER NeighE(2,12),NeighA(4,6)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+
+DO i=1,nvt
+ PX = dcorvg(1,I)
+ PY = dcorvg(2,I)
+ PZ = dcorvg(3,I)
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS1,dS2,timeLevel)
+ Dist1(i) = dS1
+ Dist2(i) = dS2
+ ScrewDist(:,i) = [dS1,dS2]
+END DO
+
+k=1
+DO i=1,nel
+ DO j=1,12
+  IF (k.eq.kedge(j,i)) THEN
+   ivt1 = kvert(NeighE(1,j),i)
+   ivt2 = kvert(NeighE(2,j),i)
+   PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+   PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+   PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS1,dS2,timeLevel)
+   Dist1(nvt+k) = dS1
+   Dist2(nvt+k) = dS2
+   ScrewDist(:,nvt+k) = [dS1,dS2]
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+   PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+   PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS1,dS2,timeLevel)
+   Dist1(nvt+net+k) = dS1
+   Dist2(nvt+net+k) = dS2
+   ScrewDist(:,nvt+net+k) = [dS1,dS2]
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+DO i=1,nel
+ PX = 0d0
+ PY = 0d0
+ PZ = 0d0
+ DO j=1,8
+  PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+  PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+  PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+ END DO
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS1,dS2,timeLevel)
+ Dist1(nvt+net+nat+i) = dS1
+ Dist2(nvt+net+nat+i) = dS2
+ ScrewDist(:,nvt+net+nat+i) = [dS1,dS2]
+END DO
+
+do i=1,nvt+net+nat+nel
+ PX = dcorvg(1,I)
+ PY = dcorvg(2,I)
+ PZ = dcorvg(3,I)
+ Screw(i) = min(Dist1(i),Dist2(i))
+! Screw(i) = sqrt(PX*PX + PY*PY) - 75d0
+end do
+
+! if (myid.eq.2) WRITE(*,*) dcorvg(:,17146),Distamce(17146),nvt+net+nat
+
+END SUBROUTINE QuadScalar_MixerKnpr
 !------------------------------------------------------------------------------------------------
 ! The subroutine calculates a distance function on the mesh given 
 ! by dcorvg, etc. The distance is computed to the list of screw geometries
@@ -215,6 +304,18 @@ subroutine calcDistanceFunction(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,ds
   end if
   end do
 
+  DO i=1,ndof
+   Shell(i) = dst1(i)
+   IF (Shell(i).le.0d0) THEN
+    MixerKNPR(i) = 100
+   END IF
+
+   Screw(i) = dst2(i)
+   IF (Screw(i).le.0d0) THEN
+    MixerKNPR(i) = 103
+   END IF
+  END DO
+
 contains
 subroutine GetElemRad
   REAL*8 daux
@@ -241,7 +342,7 @@ SUBROUTINE TransformPoints()
   ! Point needs to be offseted to its segment position
   XB = dUnitScale*ElemCoor(1,iP)
   YB = dUnitScale*ElemCoor(2,iP)
-  ZB = dUnitScale*ElemCoor(3,iP) - dUnitScale*mySigma%mySegment(iSeg)%Min
+  ZB = dUnitScale*ElemCoor(3,iP) - mySigma%mySegment(iSeg)%Min
 
   ! Point needs to be transformed back to a time=0 due to the rotation
   dAlpha = 0d0- t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
