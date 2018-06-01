@@ -284,6 +284,10 @@ module cinterface
 
     END DO
 
+    if(myid.eq.1)then
+      write(*,*)'<FBM_GetParticles>: Number of particles=',myFBM%nParticles
+    end if
+
   END SUBROUTINE FBM_GetParticles
   !
   !----------------------------------------------
