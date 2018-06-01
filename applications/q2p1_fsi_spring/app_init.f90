@@ -297,7 +297,7 @@ DO ILEV=NLMIN+1,NLMAX
 
  !     ----------------------------------------------------------            
  call init_fc_soft_body(myid)
- call FBM_GetParticles()
+ call FBM_GetParticles(0)
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
