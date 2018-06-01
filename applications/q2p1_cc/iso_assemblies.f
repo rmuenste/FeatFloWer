@@ -7,7 +7,7 @@
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE def_cc, ONLY : Properties
-      USE var_QuadScalar,ONLY : theta,itns
+      USE var_QuadScalar,ONLY : theta,itns,transform
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -21,7 +21,12 @@ C
       LOGICAL bALPHA(*)
       INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       INTEGER KDFG(NNBAS),KDFL(NNBAS)
-      REAL*8    DHELP(NNBAS,4,NNCUBP),DPP(NNDIM),ViscosityModel
+      REAL*8    ViscosityModel
+
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -77,7 +82,8 @@ C
        XI1=DXI(ICUBP,1)
        XI2=DXI(ICUBP,2)
        XI3=DXI(ICUBP,3)
-       CALL E013A(XI1,XI2,XI3,DHELP,ICUBP)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
       END DO
 C      
 C *** Loop over all elements
@@ -121,22 +127,40 @@ C
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
 C
-C *** Jacobian of the bilinear mapping onto the reference element
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
       DJAC=0d0
-      DO JDOFE=1,IDFL
+      IF (Transform%ILINT.eq.2) THEN ! Q2
+      DO JDOFE=1,27
        JDFL=KDFL(JDOFE)
        JDFG=KDFG(JDOFE)
        DPP(:) = DCORVG(:,JDFG)
-       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP(JDFL,2,ICUBP)
-       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP(JDFL,2,ICUBP)
-       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP(JDFL,2,ICUBP)
-       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP(JDFL,3,ICUBP)
-       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP(JDFL,3,ICUBP)
-       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP(JDFL,3,ICUBP)
-       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP(JDFL,4,ICUBP)
-       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP(JDFL,4,ICUBP)
-       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP(JDFL,4,ICUBP)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
       END DO
+      END IF
+      IF (Transform%ILINT.eq.1) THEN ! Q1
+      DO JDOFE=1,8
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+      END IF
       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
      *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
      *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))

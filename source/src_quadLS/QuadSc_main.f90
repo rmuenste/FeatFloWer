@@ -1626,7 +1626,6 @@ EXTERNAL E013
 
 ilev   = mg_mesh%nlmax
 ilevel = mg_mesh%nlmax
-ilev = ilevel
 
  IF (myid.ne.0) then
   QuadSc%defU = 0d0

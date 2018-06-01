@@ -557,15 +557,15 @@ END IF
 
 IF (DefNorm.EQ.0d0) exit
 
-!IF (stopOne.LT.1d-4) THEN
-!	IF (myid.eq.showid) THEN
-!	write(mfile,55) 
-!  	write(mterm,55)
-!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-!        END IF
-!        exit
-!END IF
+IF (stopOne.LT.1d-4) THEN
+	IF (myid.eq.showid) THEN
+	write(mfile,55) 
+  	write(mterm,55)
+	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+        END IF
+        exit
+END IF
 END DO
 
 IF (ccParams%BDF.ne.0) THEN
@@ -769,8 +769,8 @@ END SUBROUTINE OperatorDeallocation
 !
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
-!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(7),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+!REAL*8 :: Force(7),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -802,9 +802,9 @@ EXTERNAL E013
  END IF
 
 !Pipe
-! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+ Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
 !FAC
- Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+! Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force
 
  IF (myid.eq.showID) THEN
