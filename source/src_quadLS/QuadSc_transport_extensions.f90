@@ -657,7 +657,7 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-CALL GetNonNewtViscosity()
+CALL GetNonNewtViscosity_sse()
 
 CALL Calculate_Torque(mfile)
 
