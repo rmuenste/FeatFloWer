@@ -491,9 +491,16 @@ END SUBROUTINE mgSmoother
 !
 SUBROUTINE CG_Activation()
 INTEGER ndof,ndof_orig
+integer :: ub
 
  IF (myid.eq.0)then
-   ndof  = SIZE(myMG%X(MyMG%MinLev)%x) 
+
+  IF (MyMG%cVariable.EQ."Velocity") THEN
+   ndof  = SIZE(myMG%X(1)%x) 
+  ELSE IF (MyMG%cVariable.EQ."Pressure") THEN
+   ndof  = SIZE(myMG%X(MyMG%MinLev)%x)
+  END IF
+
  else
    ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
  end if
