@@ -2,7 +2,7 @@
 # Add the subdirectories of the applications
 add_subdirectory(q2p1_fc_ext)
 
-add_subdirectory(q2p1_fsi_spring)
+#add_subdirectory(q2p1_fsi_spring)
 
 add_subdirectory(q2p1_fac_nnewt)
 
