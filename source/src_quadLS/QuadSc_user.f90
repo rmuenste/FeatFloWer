@@ -92,7 +92,7 @@ REAL*8  dScale
 REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
-REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm
+REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm, U_bar
 
 
 ValU = 0d0
@@ -316,6 +316,14 @@ END IF
 IF (iT.EQ.64) THEN
   ValW=RotParabolicVelo(+8.52d0,+20.57d0,-5d0,1d0,1.45d0)
 !   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+END IF
+
+IF (iT.EQ.70) THEN
+ U_bar = 2.0
+ dScale=((3d0/2d0)/(0.20d0*0.20d0)) * U_bar
+ ValU=dScale*Y*(0.4d0-Y)
+ ValV= 0d0
+ ValW= 0d0
 END IF
 
 IF (iT.EQ.99) THEN
