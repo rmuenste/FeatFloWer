@@ -611,7 +611,7 @@
       IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
        write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
       END IF
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
@@ -626,7 +626,7 @@
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
 
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."SME") THEN
@@ -638,20 +638,20 @@
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
 
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."ZME") THEN
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%ZME_N=',mySigma%mySegment(iSeg)%ZME_N
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%ZME_N=',mySigma%mySegment(iSeg)%ZME_N
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_DiscThick=',mySigma%mySegment(iSeg)%ZME_DiscThick
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SG=',mySigma%mySegment(iSeg)%ZME_gap_SG
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SS=',mySigma%mySegment(iSeg)%ZME_gap_SS
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
-      write(*,'(A,I1.1,A,i)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l

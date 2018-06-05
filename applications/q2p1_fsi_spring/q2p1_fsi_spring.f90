@@ -18,7 +18,16 @@ PROGRAM Q2P1_FC_EXT
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
-  !-------INIT PHASE-------
+  interface
+    function func (z)
+    real :: func
+    real, intent (in) :: z
+    end function func
+  end interface
+
+  procedure (func), pointer :: f_ptr => null ()
+
+!-------INIT PHASE-------
 
   call init_q2p1_app(ufile)
 

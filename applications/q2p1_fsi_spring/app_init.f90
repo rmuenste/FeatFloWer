@@ -1,67 +1,3 @@
-subroutine init_q2p1_ext(log_unit)
-    
-  USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
-  USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
-    InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
-    Transport_LinScalar
-  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
-
-  integer, intent(in) :: log_unit
-
-  !-------INIT PHASE-------
-
-  ! Initialization for FEATFLOW
-  call General_init_ext(79,log_unit)
-
-  call Init_QuadScalar_Stuctures(log_unit)
-
-  IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
-
-  call Init_LinScalar
-
-  call InitCond_LinScalar()
-
-  ! Normal start from inital configuration
-  if (istart.eq.0) then
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call InitCond_QuadScalar()
-    IF(bViscoElastic)call IniProf_ViscoScalar()
-
-  ! Start from a solution on the same lvl
-  ! with the same number of partitions
-  elseif (istart.eq.1) then
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
-
-  ! Start from a solution on a lower lvl
-  ! with the same number of partitions
-  elseif (istart.eq.2)then
-    ! In order to read in from a lower level
-    ! the lower level structures are needed
-    if (myid.ne.0) call CreateDumpStructures(0)
-    call SolFromFile(CSTART,0)
-    call ProlongateSolution()
-
-    ! Now generate the structures for the actual level 
-    if (myid.ne.0) call CreateDumpStructures(1)
-
-  ! Start from a solution on the same lvl
-  ! with a different number of partitions
-  elseif (istart.eq.3) then
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
-  end if
-
-end subroutine init_q2p1_ext
 !
 !----------------------------------------------
 !
@@ -75,6 +11,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
+ USE Transport_Q2P1, ONLY : fbm_up_handler_ptr, fbm_geom_handler_ptr 
+ use fbm, only: fbm_getSoftKnpr, fbm_updateSoftBodyDynamics
+
+
+
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -107,9 +48,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
 
-
  CALL ZTIME(TTT0)
-
 
  !=======================================================================
  !     Data input
@@ -125,7 +64,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !     Grid generation
  !=======================================================================
-
+ !
  CALL CommBarrier()
  CMESH1="_mesh/                 "                     ! PARALLEL
  LenFile = LEN((TRIM(ADJUSTL(cGridFileName))))
@@ -160,6 +99,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END IF                                               ! PARALLEL
 
  CALL Init_QuadScalar(mfile)
+
+ ! Set the function pointers for our
+ ! user-defined handlers
+ fbm_up_handler_ptr => fbm_updateSoftBodyDynamics
+ fbm_geom_handler_ptr => fbm_getSoftKnpr
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
