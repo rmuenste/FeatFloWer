@@ -426,6 +426,7 @@ end subroutine viz_write_pvtu_main
 SUBROUTINE viz_OutputHistogram(iOut, sQuadSc, maxlevel)
 use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
+use Sigma_User, only : myOutput
 
 implicit none
 
@@ -437,12 +438,17 @@ integer, intent(in) :: maxlevel
 
 ! local variables
 integer :: i,j,nBin
-parameter (nBin=50)
 real*8 logShear,logVisco
-real*8 HistoEta(nBin),HistoVis(nBin),Ml_i,dauxVis,dauxEta
-real*8 :: BinEta(3,nBin),BinVis(3,nBin)
+real*8,allocatable :: HistoEta(:),HistoVis(:),BinEta(:,:),BinVis(:,:)
+real*8 Ml_i,dauxVis,dauxEta
 real*8 minBinEta,mAXBinEta,minBinVis,mAXBinVis,dBinEta,dBinVis,meanEta,meanVis
 character*100 cHistoFile
+
+nBin = myOutput%nOfHistogramBins
+if (.not.allocated(HistoEta)) allocate(HistoEta(nBin))
+if (.not.allocated(HistoVis)) allocate(HistoVis(nBin))
+if (.not.allocated(BinEta))   allocate(BinEta(3,nBin))
+if (.not.allocated(BinVis))   allocate(BinVis(3,nBin))
 
 IF (myid.ne.0) THEN
 
@@ -454,10 +460,10 @@ BinVis(1,   1)=-1d1
 BinEta(2,nBin)=+1d1
 BinEta(2,nBin)=+1d1
 
-minBinEta = -1.50d0
-maxBinEta = +4.50d0
-minBinVis = +1.50d0
-maxBinVis = +5.00d0
+minBinEta = log10(myOutput%HistogramShearMin)
+maxBinEta = log10(myOutput%HistogramShearMax)
+minBinVis = log10(myOutput%HistogramViscoMin)
+maxBinVis = log10(myOutput%HistogramViscoMax)
 
 dBinEta = (maxBinEta-minBinEta)/DBLE(nBin-2)
 dBinVis = (maxBinVis-minBinVis)/DBLE(nBin-2)
