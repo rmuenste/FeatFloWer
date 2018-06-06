@@ -557,15 +557,15 @@ END IF
 
 IF (DefNorm.EQ.0d0) exit
 
-IF (stopOne.LT.1d-4) THEN
-	IF (myid.eq.showid) THEN
-	write(mfile,55) 
-  	write(mterm,55)
-	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
-        END IF
-        exit
-END IF
+!IF (stopOne.LT.1d-4) THEN
+!	IF (myid.eq.showid) THEN
+!	write(mfile,55) 
+!  	write(mterm,55)
+!	write(mfile,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!  	write(mterm,*) " !!!! FORCES REACHED CONVERGENCE CRITERION !!!!"
+!        END IF
+!        exit
+!END IF
 END DO
 
 IF (ccParams%BDF.ne.0) THEN
