@@ -29,7 +29,7 @@ SimPar@bViscoElastic = No						! Yes
 SimPar@SteadyState = No
 SimPar@noLoadAdaptedMesh = "_dump/msh"
 SimPar@OutputFields = "Pressure_V,Velocity,Viscosity"
-PossibleOutputFields = Temperature,Velocity,Pressure_E
+PossibleOutputFields = Temperature,Velocity,Pressure_E,Shearrate,LogShearrate
 SimPar@OutputFormat = "VTK"						! GMV,VTK
 SimPar@OutputLevel = MAX+1						! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ------------- CC parameters --------------

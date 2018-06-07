@@ -300,17 +300,17 @@ IF (iT.EQ.62) THEN
   ValW=RotParabolicVelo2Dz(2.4d0,-4.155d0,7.5d0,1d0,0.39d0)
 END IF
 
-! Weber/G1
+! Weber/G1  --> Middle layer
 IF (iT.EQ.63) THEN
-  ValW=RotParabolicVelo2Dz(-8.46d0,-20.43d0,-200d0,1d0,2.95d0)
+  ValW=RotParabolicVelo2Dz(-8.46d0,-20.43d0,-400d0,1d0,2.95d0)
 END IF
 
-! Weber/G2
+! Weber/G2  --> Outer layer
 IF (iT.EQ.64) THEN
-  ValW=RotParabolicVelo2Dz(+8.52d0,+20.57d0,-400d0,1d0,1.45d0)
+  ValW=RotParabolicVelo2Dz(+8.52d0,+20.57d0,-200d0,1d0,1.45d0)
 END IF
 
-! Weber/G3
+! Weber/G3  --> Inner layer
 IF (iT.EQ.65) THEN
  dCenter=[7.89d0,18.99d0,72.76d0]
  dNormal=[-0.346835,-0.837317,-0.422617]

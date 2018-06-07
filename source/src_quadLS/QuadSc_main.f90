@@ -1639,8 +1639,10 @@ ilevel = mg_mesh%nlmax
   CALL E013Sum(QuadSc%defV)
   CALL E013Sum(QuadSc%defW)
 
+  if(.not.allocated(Shearrate)) allocate(Shearrate(QuadSc%ndof))
+  
   DO i=1,QuadSc%ndof
-!    Shearrate(i) = QuadSc%defV(i)/QuadSc%defW(i)
+   Shearrate(i) = QuadSc%defV(i)/QuadSc%defW(i)
    Viscosity(i) = QuadSc%defU(i)/QuadSc%defW(i)
   END DO
 

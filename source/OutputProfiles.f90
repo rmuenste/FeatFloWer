@@ -1813,7 +1813,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE Transport_Q1,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
@@ -1905,6 +1905,20 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Temperature",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(Tracer%Val(NLMAX)%x(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('Shearrate')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shearrate",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(10d0**Shearrate(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('LogShearrate')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","LogShearrate",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(Shearrate(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2104,6 +2118,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('Shearrate')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shearrate","""/>"
+ CASE('LogShearrate')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","LogShearrate","""/>"
  CASE('Distamce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')
