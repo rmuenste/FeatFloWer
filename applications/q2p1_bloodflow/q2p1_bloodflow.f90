@@ -9,6 +9,8 @@ PROGRAM Q2P1_BLOODFLOW
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
+                         
+  use Transport_Q2P1,  only:        updateFBMGeometry                 
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -33,6 +35,7 @@ PROGRAM Q2P1_BLOODFLOW
    CALL ReadS3Dfile('_data/rheo.s3d')
   end if
 
+!   CALL updateFBMGeometry()
   !-------MAIN LOOP-------
 
   DO itns=1,nitns
@@ -45,8 +48,14 @@ PROGRAM Q2P1_BLOODFLOW
   inonln_t = 2
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+ CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
+!   IF (bTracer) THEN
+!     ! Solve transport equation for linear scalar
+!     CALL Transport_LinScalar(ufile,inonln_t)
+!   ELSE
+!     inonln_t = 2
+!   END IF
 
 !   write(*,*) myid, ' reached this stage'
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)

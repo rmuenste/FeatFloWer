@@ -1227,8 +1227,6 @@ SUBROUTINE InitBoundaryList(knpr,kvert,kedge,karea)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-
-
   DO i=1,nvt
   QuadScBoundary(i) = mg_mesh%level(ilev)%knpr(i)
   !  IF (QuadScBoundary(i).eq.1) write(*,*) "type 1"
@@ -1423,7 +1421,6 @@ SUBROUTINE updateFBMGeometry()
     mg_mesh%level(ilev)%karea)
 
   CALL E013Max_SUPER(FictKNPR)
-  if (myid.eq.1) write(*,*) 'CALL E013Max_SUPER(FictKNPR)'
 
 END SUBROUTINE  updateFBMGeometry
 !
@@ -1642,8 +1639,10 @@ ilevel = mg_mesh%nlmax
   CALL E013Sum(QuadSc%defV)
   CALL E013Sum(QuadSc%defW)
 
+  if(.not.allocated(Shearrate)) allocate(Shearrate(QuadSc%ndof))
+  
   DO i=1,QuadSc%ndof
-!    Shearrate(i) = QuadSc%defV(i)/QuadSc%defW(i)
+   Shearrate(i) = QuadSc%defV(i)/QuadSc%defW(i)
    Viscosity(i) = QuadSc%defU(i)/QuadSc%defW(i)
   END DO
 
@@ -1653,7 +1652,7 @@ END SUBROUTINE  GetNonNewtViscosity
 !
 ! ----------------------------------------------
 !
-SUBROUTINE  GetNonNewtViscosityOld()
+SUBROUTINE  GetNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux
   REAL*8 HogenPowerlaw
@@ -1699,7 +1698,7 @@ SUBROUTINE  GetNonNewtViscosityOld()
 
   END IF
 
-END SUBROUTINE  GetNonNewtViscosityOld
+END SUBROUTINE  GetNonNewtViscosity_sse
 !
 ! ----------------------------------------------
 !

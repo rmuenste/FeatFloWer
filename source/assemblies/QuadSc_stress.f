@@ -2170,7 +2170,7 @@ C ----=============================================----
 C       
 C ----=============================================---- 
 C
-      DShear = dmyXi
+      DShear = dlog10(max(dmyXi,1d-16))
       DISCOSITY = ViscosityModel(dShearSquare)
 !      DISCOSITY = ViscosityModel(2d0*dShearSquare)
 C

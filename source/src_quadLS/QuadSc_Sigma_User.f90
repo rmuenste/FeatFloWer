@@ -79,7 +79,9 @@ END TYPE tSetup
 TYPE(tSetup) :: mySetup
 
 TYPE tOutput
- INTEGER nOf1DLayers,nRegion
+ INTEGER :: nOf1DLayers=16
+ INTEGER :: nOfHistogramBins=16
+ REAL*8 :: HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
 END TYPE tOutput
 
 TYPE(tOutput) :: myOutput

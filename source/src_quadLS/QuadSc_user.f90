@@ -92,7 +92,7 @@ REAL*8  dScale
 REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
-REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm
+REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
 
 
 ValU = 0d0
@@ -263,29 +263,25 @@ IF (iT.EQ.34) THEN
 END IF
  
 IF (iT.EQ.41) THEN
- ValW=RotParabolicVelo(0d0,0d0,100d0,-1d0,0.495d0)
+ ValW=RotParabolicVelo2Dz(0d0,0d0,100d0,-1d0,0.495d0)
 END IF
 
 IF (iT.EQ.45) THEN
- ValW=RotParabolicVelo(0d0,0d0,1449d0,1d0,2.495d0)
+ ValW=RotParabolicVelo2Dz(0d0,0d0,1449d0,1d0,2.495d0)
 END IF
 
   
 IF (iT.EQ.51) THEN
-  ValW=RotParabolicVelo(0d0,0d0,1270d0,1d0,2.495d0)
-!   ValW=RotParabolicVelo(0d0,0d0,2127d0,1d0,2.495d0) !
+  ValW=RotParabolicVelo2Dz(0d0,0d0,1270d0,1d0,2.495d0)
 END IF
 IF (iT.EQ.52) THEN
-  ValW=RotParabolicVelo(0d0,6d0,56d0,1d0,1.245d0)
-!  ValW=RotParabolicVelo(0d0,6d0,54d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(0d0,6d0,56d0,1d0,1.245d0)
 END IF
 IF (iT.EQ.53) THEN
-  ValW=RotParabolicVelo(0d0,-6d0,56d0,1d0,1.245d0)
-!  ValW=RotParabolicVelo(0d0,-6d0,54d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(0d0,-6d0,56d0,1d0,1.245d0)
 END IF
 IF (iT.EQ.54) THEN
-  ValW=RotParabolicVelo(0d0,6d0,67d0,1d0,1.245d0)
-!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(0d0,6d0,67d0,1d0,1.245d0)
 END IF
 IF (iT.EQ.31) THEN
  dScale=0.2d0*(3d0/2d0)/(0.205d0*0.205d0)*sin(t*PI/8d0)
@@ -296,26 +292,32 @@ END IF
 
 ! centroplast
 IF (iT.EQ.61) THEN
-  ValW=RotParabolicVelo(0d0,0d0,25d0,1d0,1.245d0)
-!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(0d0,0d0,25d0,1d0,1.245d0)
 END IF
 
 ! egeplast
 IF (iT.EQ.62) THEN
-  ValW=RotParabolicVelo(2.4d0,-4.155d0,7.5d0,1d0,0.39d0)
-!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(2.4d0,-4.155d0,7.5d0,1d0,0.39d0)
 END IF
 
-! Weber/G1
+! Weber/G1  --> Middle layer
 IF (iT.EQ.63) THEN
-  ValW=RotParabolicVelo(-8.46d0,-20.43d0,-200d0,1d0,2.95d0)
-!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(-8.46d0,-20.43d0,-400d0,1d0,2.95d0)
 END IF
 
-! Weber/G2
+! Weber/G2  --> Outer layer
 IF (iT.EQ.64) THEN
-  ValW=RotParabolicVelo(+8.52d0,+20.57d0,-200d0,1d0,1.45d0)
-!   ValW=RotParabolicVelo(0d0,6d0,59d0,1d0,1.245d0)
+  ValW=RotParabolicVelo2Dz(+8.52d0,+20.57d0,-200d0,1d0,1.45d0)
+END IF
+
+! Weber/G3  --> Inner layer
+IF (iT.EQ.65) THEN
+ dCenter=[7.89d0,18.99d0,72.76d0]
+ dNormal=[-0.346835,-0.837317,-0.422617]
+ dProfil = RotParabolicVelo3D(200d0,1d0,1.65d0)
+ ValU = dProfil(1)
+ ValV = dProfil(2)
+ ValW = dProfil(3)
 END IF
 
 IF (iT.EQ.99) THEN
@@ -325,19 +327,70 @@ END IF
 RETURN
 
  CONTAINS
- REAL*8 function RotParabolicVelo(XR,YR,DM,DRHO,dR)
+ REAL*8 function RotParabolicVelo2Dx(YR,ZR,DM,DRHO,dR)
+ REAL*8  dVolFlow,DM,DRHO,dR,daux,YR,ZR
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
+  daux = (PI/2d0)*(DR**4d0)
+  dScale = (dVolFlow/1d0)/daux
+  DIST = SQRT((Y-YR)**2d0+(Z-ZR)**2d0)
+ IF (DIST.LT.dR) THEN
+  RotParabolicVelo2Dx = dScale*(DR - DIST)*(DR + DIST)
+ ELSE
+  RotParabolicVelo2Dx = 0d0
+ END IF
+ END 
+!------------------------------------------------------------------------------
+ REAL*8 function RotParabolicVelo2Dy(XR,ZR,DM,DRHO,dR)
+ REAL*8  dVolFlow,DM,DRHO,dR,daux,ZR,XR
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
+  daux = (PI/2d0)*(DR**4d0)
+  dScale = (dVolFlow/1d0)/daux
+  DIST = SQRT((X-XR)**2d0+(Z-ZR)**2d0)
+ IF (DIST.LT.dR) THEN
+  RotParabolicVelo2Dy = dScale*(DR - DIST)*(DR + DIST)
+ ELSE
+  RotParabolicVelo2Dy = 0d0
+ END IF
+ END 
+!------------------------------------------------------------------------------
+ REAL*8 function RotParabolicVelo2Dz(XR,YR,DM,DRHO,dR)
  REAL*8  dVolFlow,DM,DRHO,dR,daux,YR,XR
  
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) ! mm3/s
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
   daux = (PI/2d0)*(DR**4d0)
   dScale = (dVolFlow/1d0)/daux
   DIST = SQRT((X-XR)**2d0+(Y-YR)**2d0)
  IF (DIST.LT.dR) THEN
-  RotParabolicVelo = dScale*(DR - DIST)*(DR + DIST)
+  RotParabolicVelo2Dz = dScale*(DR - DIST)*(DR + DIST)
  ELSE
-  RotParabolicVelo = 0d0
+  RotParabolicVelo2Dz = 0d0
  END IF
  END 
+!------------------------------------------------------------------------------
+ function RotParabolicVelo3D(DM,DRHO,dR)
+ REAL*8  dVolFlow,DM,DRHO,dR,daux
+ REAL*8  dNRM
+ REAL*8, dimension(3) :: RotParabolicVelo3D
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+  daux = (PI/2d0)*(DR**4d0)
+  dScale = (dVolFlow/1d0)/daux
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
+
+  IF (DIST.LT.dR) THEN
+   RotParabolicVelo3D(:) = dNormal(:)*dScale*(DR - DIST)*(DR + DIST)
+  ELSE
+   RotParabolicVelo3D(:) = 0d0
+  END IF
+  
+  END 
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------

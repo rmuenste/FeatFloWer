@@ -502,8 +502,12 @@
      !GOTO 10
     END IF
 
-    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output","NumberOf1DLayers",myOutput%nOf1DLayers,16)
-    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output","NumberOfHistRegions",myOutput%nRegion,4)
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOf1DLayers"      ,myOutput%nOf1DLayers,16)
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOfHistogramBins" ,myOutput%nOfHistogramBins,16)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMax",myOutput%HistogramShearMax,1d5)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     
     cKTP=' '
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","KTPRelease",cKTP,"YES")
@@ -733,8 +737,12 @@
     write(*,*) "myThermodyn%DensitySlope",'=',myThermodyn%densitySteig
     write(*,*) 
 !     write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
-    write(*,*) "muOutput%NumberOf1DLayers = ",myOutput%nOf1DLayers
-    write(*,*) "muOutput%NumberOfHistRegions = ",myOutput%nRegion
+    write(*,*) "myOutput%nOf1DLayers = "      ,myOutput%nOf1DLayers
+    write(*,*) "myOutput%nOfHistogramBins = " ,myOutput%nOfHistogramBins
+    write(*,*) "myOutput%HistogramShearMax = ",myOutput%HistogramShearMax    
+    write(*,*) "myOutput%HistogramShearMin = ",myOutput%HistogramShearMin    
+    write(*,*) "myOutput%HistogramViscoMax = ",myOutput%HistogramViscoMax    
+    write(*,*) "myOutput%HistogramViscoMin = ",myOutput%HistogramViscoMin    
     write(*,*) 
    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
