@@ -1,14 +1,13 @@
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
+use fbm, only: fbm_updateFBM
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-IF (calculateFBM()) THEN
- CALL updateFBMGeometry()
-END IF
+CALL updateFBMGeometry()
 
 thstep = tstep*(1d0-theta)
 
@@ -204,10 +203,10 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-IF (calculateDynamics()) THEN
- CALL FBM_GetForces()
- CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
-END IF
+call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+                   Properties%Gravity,mfile,myid,&
+                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
 
 !if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
 
@@ -231,9 +230,7 @@ END IF
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
- IF (calculateFBM()) THEN
-  CALL updateFBMGeometry()
- END IF
+ CALL updateFBMGeometry()
 
 RETURN
 
