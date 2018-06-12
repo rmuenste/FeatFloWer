@@ -520,6 +520,8 @@ TYPE(tALE),save :: myALE
 
 TYPE(tBoundingBox), dimension(:), allocatable :: mgBoundingBox
 
+type(tPostprocessingParams) :: postParams
+
 TYPE t1DOutput
  REAL*8, ALLOCATABLE :: dMean(:),dMin(:),dMax(:),dLoc(:)
  CHARACTER cName*20

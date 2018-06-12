@@ -1126,7 +1126,7 @@ END SUBROUTINE projectonanalyticplane
  type(tMesh) :: mesh
  integer :: ilevel
  INTEGER i,iVert,iLong,iAux,iError
- CHARACTER cFile*100,string*10
+ CHARACTER cFile*200,string*200
  integer :: iunit = 333
  integer :: istat
 

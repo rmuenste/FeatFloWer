@@ -3,11 +3,11 @@
 import sys
 import getopt
 import platform
-sys.path.append('/home/user/rmuenste/bin/partitioner')
-import PyPartitioner
 import subprocess
 import re
 import json
+sys.path.append('/home/user/rmuenste/bin/partitioner')
+import part_main
 
 ################
 def usage():
@@ -69,9 +69,9 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
+part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
-force = get_log_entry("_data/prot.txt", " Force acting on the cylinder:")
+force = get_log_entry("_data/prot.txt", "BenchForce:")
 force = force.split()
 d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder', 
 'Drag': force[1], 'Lift' : force[2]}

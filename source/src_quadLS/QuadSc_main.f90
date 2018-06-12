@@ -249,7 +249,7 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-!CALL FAC_GetForces(mfile)
+CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
@@ -1319,10 +1319,7 @@ END SUBROUTINE FBM_GetForces
 !
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
-  REAL*8 :: Force(3),U_mean=0.2d0,H=0.205d0,D=0.1d0,Factor
-!   REAL*8 :: Force(3),U_mean=0.2d0,H=0.05d0,D=0.1d0,Factor
-  REAL*8 :: Sc_U = 1d0, Sc_Mu = 1d0, Sc_a = 1d0, PI = 3.141592654d0
-  REAL*8 :: Force2(3),ForceV(3),ForceP(3)
+  REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0
   REAL*8 :: Scale
   INTEGER i,nn
   EXTERNAL E013
@@ -1340,11 +1337,11 @@ SUBROUTINE FAC_GetForces(mfile)
 
   if(bViscoElastic)then
     Force = ForceV + ForceP + ViscoElasticForce
-    Scale = 6d0*PI*Sc_Mu*Sc_U*Sc_a
+    Scale = 6d0*PI*postParams%Sc_Mu*postParams%Sc_U*postParams%Sc_a
     Force = (4d0*Force)/Scale
     ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
   else
-    Factor = 2d0/(U_mean*U_mean*D*H)
+    Factor = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
     ForceP = Factor*ForceP
     ForceV = Factor*ForceV
   end if
@@ -1364,14 +1361,15 @@ SUBROUTINE FAC_GetForces(mfile)
     else
       WRITE(MTERM,5)
       WRITE(MFILE,5)
-      if (itns.eq.1) then
        write(mfile,'(A7,7A15)') "Force: ","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
-       write(mterm,'(A7,7A15)') "Force: ","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
-      end if
-      write(mfile,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
-      write(mterm,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
-      WRITE(666,'(10ES16.8)') Timens,ForceV+forceP,ForceV,forceP
+       write(*,'(A7,7A15)') "Force: ","Time","C_D","C_L","ForceVx","ForceVy","ForcePx","ForcePy"
     end if
+      write(mfile,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      write(*,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
+      write(mfile,'(A12,3ES15.7E2)') "BenchForce: ",timens,ForceV(1:2)+forceP(1:2)
+      write(*,'(A12,3ES15.7E2)') "BenchForce: ",timens,ForceV(1:2)+forceP(1:2)
+
+      WRITE(666,'(10ES16.8)') Timens,ForceV+forceP,ForceV,forceP
   END IF
 
   5  FORMAT(104('-'))

@@ -384,7 +384,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
-      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform
+      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -512,6 +512,21 @@ SUBROUTINE General_init(MDATA,MFILE)
           IF (TRIM(ADJUSTL(cParam)).EQ."FE") THETA = 0.0d0
         CASE ("TimeStep")
           READ(string(iEq+1:),*) TSTEP
+        CASE ("Bench_U_mean")
+          READ(string(iEq+1:),*) postParams%U_mean
+          write(*,*)'umean:',postParams%U_mean
+        CASE ("Bench_H")
+          READ(string(iEq+1:),*) postParams%H
+          write(*,*)'h:',postParams%h
+        CASE ("Bench_D")
+          READ(string(iEq+1:),*) postParams%D
+          write(*,*)'d:',postParams%d
+        CASE ("Bench_Sc_U")
+          READ(string(iEq+1:),*) postParams%Sc_U
+        CASE ("Bench_Sc_Mu")
+          READ(string(iEq+1:),*) postParams%Sc_Mu
+        CASE ("Bench_Sc_a")
+          READ(string(iEq+1:),*) postParams%Sc_a
         CASE ("TimeAdaptivity")
           cParam = " "
           READ(string(iEq+1:),*) cParam

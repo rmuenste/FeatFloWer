@@ -3,8 +3,9 @@
 import sys
 import getopt
 import platform
+# Here an environment variable needs to be set
 sys.path.append('/home/user/rmuenste/bin/partitioner')
-import PyPartitioner
+import part_main
 import subprocess
 import re
 import json
@@ -70,9 +71,9 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
+part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fac_nnewt'],shell=True)
-force = get_log_entry("_data/prot.txt", " Force acting on the cylinder:")
+force = get_log_entry("_data/prot.txt", "BenchForce:")
 force = force.split()
 d = {'ID' : 'NON-NEWTFAC', 'Caption' : 'Non-Newtonian Flow Around A Cylinder', 
 'Drag': force[1], 'Lift' : force[2]}
