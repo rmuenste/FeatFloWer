@@ -93,6 +93,7 @@ REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
+REAL*8 :: U_bar
 
 
 ValU = 0d0
@@ -318,6 +319,14 @@ IF (iT.EQ.65) THEN
  ValU = dProfil(1)
  ValV = dProfil(2)
  ValW = dProfil(3)
+END IF
+
+IF (iT.EQ.70) THEN
+ U_bar = 2.0
+ dScale=((3d0/2d0)/(0.20d0*0.20d0)) * U_bar
+ ValU=dScale*Y*(0.4d0-Y)
+ ValV= 0d0
+ ValW= 0d0
 END IF
 
 IF (iT.EQ.99) THEN

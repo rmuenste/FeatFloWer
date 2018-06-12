@@ -27,6 +27,26 @@ REAL*8 :: Sigma=0.034D0,DiracEps=0.00625d0
 INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
 REAL tttt0,tttt1
+external updateFBM
+external GetFictKnpr
+external GetVeloFictBCVal
+
+! interfaces for the fbm_update and fbm_geom function
+! handlers that process the dynamics update and
+! the geometric computations for fbm objects
+include 'fbm_geom_include.h'
+include 'fbm_up_include.h'
+include 'fbm_vel_bc_include.h'
+
+! The handler function for the dynamics update
+procedure(update_fbm_handler), pointer :: fbm_up_handler_ptr => null()
+
+! The handler function for the geometry update
+procedure(fbm_geom_handler), pointer :: fbm_geom_handler_ptr => null()
+
+! The handler function for the velocity boundary condition update
+! for the fictitious boundary object
+procedure(fbm_velBC_handler), pointer :: fbm_vel_bc_handler_ptr => null()
 
 CONTAINS
 !
@@ -35,14 +55,13 @@ CONTAINS
 SUBROUTINE Transport_Q2P1_UxyzP(mfile,inl_u,itns)
 
 use cinterface, only: calculateDynamics,calculateFBM
+use fbm, only: fbm_updateFBM
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
- IF (calculateFBM()) THEN
-  CALL updateFBMGeometry()
- END IF
+CALL updateFBMGeometry()
 
 thstep = tstep*(1d0-theta)
 
@@ -230,14 +249,14 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-CALL FAC_GetForces(mfile)
+!CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-IF (calculateDynamics()) THEN
- CALL FBM_GetForces()
- CALL updateFBM(Properties%Density(1),tstep,timens,Properties%Gravity,mfile,myid)
-END IF
+call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+                   Properties%Gravity,mfile,myid,&
+                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
@@ -259,9 +278,7 @@ END IF
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
- IF (calculateFBM()) THEN
-  CALL updateFBMGeometry()
- END IF
+ CALL updateFBMGeometry()
 
 RETURN
 
@@ -277,6 +294,8 @@ include 'QuadSc_transport_extensions.f90'
 SUBROUTINE Init_QuadScalar(mfile)
 INTEGER I,J,ndof,mfile
 
+ call Init_Default_Handlers()
+
  QuadSc%cName = "Velo"
  LinSc%cName = "Pres"
 
@@ -284,6 +303,19 @@ INTEGER I,J,ndof,mfile
  CALL GetPresParameters(LinSc%prm,LinSc%cName,mfile)
 
 END SUBROUTINE Init_QuadScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_Default_Handlers()
+! In this function we set the function handlers
+! for FBM, etc. to their default values
+implicit none
+
+ fbm_up_handler_ptr => updateFBM
+ fbm_geom_handler_ptr => GetFictKnpr
+ fbm_vel_bc_handler_ptr => GetVeloFictBCVal
+
+END SUBROUTINE Init_Default_Handlers
 !
 ! ----------------------------------------------
 !
@@ -826,6 +858,7 @@ END SUBROUTINE QuadScalar_Knpr
 ! ----------------------------------------------
 !
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
+  use fbm, only: fbm_updateFBMGeom
   REAL*8  dcorvg(3,*),dcorag(3,*)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
   REAL*8 PX,PY,PZ,DIST
@@ -838,7 +871,8 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PX = dcorvg(1,I)
   PY = dcorvg(2,I)
   PZ = dcorvg(3,I)
-  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i))
+  
+  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i),fbm_geom_handler_ptr)
   END DO
 
   k=1
@@ -850,7 +884,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
     PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
     PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
     PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-    CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k))
+    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k),fbm_geom_handler_ptr)
     k = k + 1
   END IF
   END DO
@@ -867,7 +901,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
     PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
     PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
     PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-    CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k))
+    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k),fbm_geom_handler_ptr)
     k = k + 1
   END IF
   END DO
@@ -889,7 +923,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
   END DO
-  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i))
+  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
   END DO
 
   do i=1,nvt+net+nat+nel
@@ -947,6 +981,7 @@ END SUBROUTINE Boundary_QuadScalar_Def
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Val()
+  use fbm, only: fbm_velBCUpdate
   implicit none
   REAL*8 PX,PY,PZ
   INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
@@ -972,7 +1007,10 @@ SUBROUTINE Boundary_QuadScalar_Val()
     finpr = FictKNPR(i)
     minpr = MixerKNPR(i)
     IF (finpr.ne.0.and.inpr.eq.0) THEN
-      CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
+      CALL fbm_velBCUpdate(PX,PY,PZ,&
+                           QuadSc%valU(i),QuadSc%valV(i),&
+                           QuadSc%valW(i),finpr,timens,&
+                           fbm_vel_bc_handler_ptr)
     END IF
     IF (minpr.ne.0.and.inpr.eq.0) THEN
       CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
@@ -1409,11 +1447,14 @@ END SUBROUTINE Analyzer
 ! ----------------------------------------------
 !
 SUBROUTINE updateFBMGeometry()
+use cinterface, only: calculateFBM
 
-  IF (myid.eq.showid) WRITE(*,*) '> FBM computation step'
+ if (calculateFBM()) then
+  if (myid.eq.showid) write(*,*) '> FBM computation step'
 
   ILEV=NLMAX
   CALL SETLEV(2)
+
   CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%dcorag,&
     mg_mesh%level(ilev)%kvert,&
@@ -1421,6 +1462,7 @@ SUBROUTINE updateFBMGeometry()
     mg_mesh%level(ilev)%karea)
 
   CALL E013Max_SUPER(FictKNPR)
+ end if
 
 END SUBROUTINE  updateFBMGeometry
 !

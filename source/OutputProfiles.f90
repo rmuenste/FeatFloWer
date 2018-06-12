@@ -1824,7 +1824,7 @@ INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
 integer :: iunit = 908070
-integer iX
+integer iX, ifbm
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -1860,7 +1860,24 @@ DO iField=1,SIZE(myExport%Fields)
      REAL(QuadSc%ValW(ivt))
   end do
   write(iunit, *)"        </DataArray>"
-
+ CASE('PartForce')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","PartForce",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   if((FictKNPR(ivt) .ne. 0).and.(FictKNPR(ivt).le.myFBM%nParticles))then
+     ifbm = 1
+     write(iunit, '(A,3E16.7)')"        ",&
+     REAL(real(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(1)),&
+     REAL(real(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(2)),&
+     REAL(real(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(3))
+   else
+     ifbm = 0
+     write(iunit, '(A,3E16.7)')"        ",&
+     REAL(0),&
+     REAL(0),&
+     REAL(0)
+   end if
+  end do
+  write(iunit, *)"        </DataArray>"
    
  CASE('Stress')
   if(bViscoElastic)then
@@ -2108,6 +2125,8 @@ DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
  CASE('Velocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
+ CASE('PartForce')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","PartForce",""" NumberOfComponents=""3""/>"
  CASE('Stress')
   if(bViscoElastic)then
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6""/>"
