@@ -1,4 +1,3 @@
-
 # CMakeLists of q2p1_fsi_spring application
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
@@ -18,7 +17,6 @@ ${src_mesh}
 ${src_cinterface}
 ${postprocessing}
 app_init.f90
-#postprocessing.f90
 q2p1_fsi_spring.f90
 )
 

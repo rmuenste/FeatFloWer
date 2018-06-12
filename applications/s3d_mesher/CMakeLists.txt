@@ -1,8 +1,16 @@
-# CMakeLists of s3d_mesher application
-set(src_quadLS_ext
+# CMakeLists of q2p1_fc_ext application
+set(src_cinterface
+${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
+)
+
+set(src_quadLS_mesher
+${src_util}
+${src_fbm}
+${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
@@ -13,23 +21,15 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 )
 
-# CMakeLists of q2p1_fc_ext application
-set(src_cinterface
-${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
-)
-
 # source files for standard q2p1 
 set(src_s3d_mesher
 ${Elements} 
-${src_assemblies} 
 ${src_q2p1} 
 ${src_pp3d} 
 ${src_mpi} 
-${src_ini} 
-${src_util} 
 ${src_PLin} 
 ${src_LinSc} 
-${src_quadLS_ext} 
+${src_quadLS_mesher} 
 ${src_visco} 
 ${src_mesh}
 ${src_cinterface}
