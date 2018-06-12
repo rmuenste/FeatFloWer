@@ -2,6 +2,8 @@
 !# ****************************************************************************
 !# <name> fbm </name>
 !# ****************************************************************************
+!# In this module we define functions that related to the handling of
+!# fictitious boundary components.
 !#
 !# 
 !##############################################################################
@@ -29,9 +31,9 @@ integer, parameter, public :: SRCH_MAXITER = 6
 integer, parameter, public :: SRCH_RES7 = 7
 
 contains
-!
-!****************************************************************************  
-!
+!=========================================================================
+! 
+!=========================================================================
 Subroutine fbm_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid,u,v,w,p,usr_updateFBM)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
@@ -297,6 +299,71 @@ integer :: iSubSteps
  end do ! all particles
 
 end subroutine fbm_updateSoftBodyDynamics
+!=========================================================================
+! 
+!=========================================================================
+Subroutine fbm_velBCUpdate(x,y,z,valu,valv,valw,ip,t,usr_velBCUpdate)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+include 'fbm_vel_bc_include.h'
+
+procedure(fbm_velBC_handler) :: usr_velBCUpdate 
+
+! The FBM value of the boundary vertex
+integer, intent(in) :: ip
+
+! The coordinates of the boundary vertex
+! and the simulation time
+real*8 , intent(in) :: x,y,z,t
+
+! The velocitiy values of the boundary vertex
+real*8 , intent(inout) :: valu,valv,valw
+
+call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t)
+
+end subroutine fbm_velBCUpdate
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_velBC(x,y,z,valu,valv,valw,ip,t)
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+integer, intent(in) :: ip
+real*8 , intent(in) :: x,y,z,t
+real*8 , intent(inout) :: valu,valv,valw
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+valu = 0d0
+valv = 0d0
+valw = 0d0
+
+if(ip .le. myFBM%nParticles)then
+  Velo  = myFBM%particleNEW(IP)%Velocity
+  Pos   = myFBM%particleNEW(IP)%Position
+  Omega = myFBM%particleNEW(IP)%AngularVelocity
+
+  dvelz_x = -(y-Pos(2))*Omega(3)
+  dvelz_y = +(x-Pos(1))*Omega(3)
+
+  dvely_z = -(x-Pos(1))*Omega(2)
+  dvely_x = +(z-Pos(3))*Omega(2)
+
+  dvelx_y = -(z-Pos(3))*Omega(1)
+  dvelx_z = +(y-Pos(2))*Omega(1)
+
+  valu = velo(1) + dvelz_x + dvely_x
+  valv = velo(2) + dvelz_y + dvelx_y
+  valw = velo(3) + dvelx_z + dvely_z
+end if
+
+end subroutine fbm_velBC
 !
 !****************************************************************************  
 !

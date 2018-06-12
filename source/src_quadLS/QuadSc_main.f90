@@ -29,14 +29,24 @@ INTEGER PressureSample(2)
 REAL tttt0,tttt1
 external updateFBM
 external GetFictKnpr
+external GetVeloFictBCVal
 
 ! interfaces for the fbm_update and fbm_geom function
 ! handlers that process the dynamics update and
 ! the geometric computations for fbm objects
 include 'fbm_geom_include.h'
 include 'fbm_up_include.h'
+include 'fbm_vel_bc_include.h'
+
+! The handler function for the dynamics update
 procedure(update_fbm_handler), pointer :: fbm_up_handler_ptr => null()
+
+! The handler function for the geometry update
 procedure(fbm_geom_handler), pointer :: fbm_geom_handler_ptr => null()
+
+! The handler function for the velocity boundary condition update
+! for the fictitious boundary object
+procedure(fbm_velBC_handler), pointer :: fbm_vel_bc_handler_ptr => null()
 
 CONTAINS
 !
@@ -296,13 +306,14 @@ END SUBROUTINE Init_QuadScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Init_Default_Handlers
+SUBROUTINE Init_Default_Handlers()
 ! In this function we set the function handlers
 ! for FBM, etc. to their default values
 implicit none
 
  fbm_up_handler_ptr => updateFBM
  fbm_geom_handler_ptr => GetFictKnpr
+ fbm_vel_bc_handler_ptr => GetVeloFictBCVal
 
 END SUBROUTINE Init_Default_Handlers
 !
@@ -970,6 +981,7 @@ END SUBROUTINE Boundary_QuadScalar_Def
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_QuadScalar_Val()
+  use fbm, only: fbm_velBCUpdate
   implicit none
   REAL*8 PX,PY,PZ
   INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
@@ -995,7 +1007,10 @@ SUBROUTINE Boundary_QuadScalar_Val()
     finpr = FictKNPR(i)
     minpr = MixerKNPR(i)
     IF (finpr.ne.0.and.inpr.eq.0) THEN
-      CALL GetVeloFictBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),finpr,timens)
+      CALL fbm_velBCUpdate(PX,PY,PZ,&
+                           QuadSc%valU(i),QuadSc%valV(i),&
+                           QuadSc%valW(i),finpr,timens,&
+                           fbm_vel_bc_handler_ptr)
     END IF
     IF (minpr.ne.0.and.inpr.eq.0) THEN
       CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
