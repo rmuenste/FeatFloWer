@@ -22,6 +22,7 @@ SimPar@BackUpNum = 10
 SimPar@NoOutflow = Yes                                                    ! Yes
 SimPar@Umbrella = 40
 SimPar@OutputFreq = 0.10d0
+SimPar@ElemTrans = 1
 SimPar@MatrixRenewal = M2D2K3S0C2
 SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
 SimPar@Tracer = No                                                      ! Yes
