@@ -3,11 +3,11 @@
 import sys
 import getopt
 import platform
-sys.path.append('/home/user/rmuenste/bin/partitioner')
-import PyPartitioner
 import subprocess
 import re
 import json
+sys.path.append('/home/user/rmuenste/bin/partitioner')
+import part_main
 
 ################
 def usage():
@@ -68,7 +68,7 @@ if params != '':
 
 module_string = "module purge && module load gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90"
 
-PyPartitioner.MainProcess(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
+part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
 force = get_log_entry("_data/prot.txt", "TimevsForce")
 force = force.split()
