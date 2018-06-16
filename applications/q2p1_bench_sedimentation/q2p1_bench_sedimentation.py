@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # vim: set filetype=python
+import os
+
 import sys
 import getopt
 import platform
 import subprocess
 import re
 import json
-sys.path.append('/home/user/rmuenste/bin/partitioner')
-import part_main
+sys.path.append(os.environ['FF_PY_HOME'])
+import partitioner
 
 ################
 def usage():
@@ -115,7 +117,7 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/benchSym/bench.prj")
+partitioner.partition(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_bench_sedimentation'],shell=True)
 data = get_col_data("_data/prot.txt")
 write_json_data(data)

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # vim: set filetype=python
+import os
+
 import sys
 import getopt
 import platform
-# Here an environment variable needs to be set
-sys.path.append('/home/user/rmuenste/bin/partitioner')
-import part_main
 import subprocess
 import re
 import json
+sys.path.append(os.environ['FF_PY_HOME'])
+import partitioner
 
 ################
 def usage():
@@ -71,7 +72,7 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
+partitioner.partition(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fac_nnewt'],shell=True)
 force = get_log_entry("_data/prot.txt", "BenchForce:")
 force = force.split()

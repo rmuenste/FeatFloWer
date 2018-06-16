@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 # vim: set filetype=python
+import os
+import shutil
+
 import sys
 import getopt
 import platform
 import subprocess
 import re
 import json
-sys.path.append('/home/user/rmuenste/bin/partitioner')
-import part_main
+sys.path.append(os.environ['FF_PY_HOME'])
+import partitioner
 
 ################
 def usage():
@@ -69,7 +72,8 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-part_main.MainProcess(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
+shutil.copyfile("_adc/2D_FAC/q2p1_param_2D.dat", "_data/q2p1_param.dat")
+partitioner.partition(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
 subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
 force = get_log_entry("_data/prot.txt", "BenchForce:")
 force = force.split()

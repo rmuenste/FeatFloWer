@@ -55,3 +55,4 @@ ENDIF()
 file(COPY q2p1_fc_ext.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test(q2p1-fac-newt python ./q2p1_fc_ext.py)
+add_test(q2p1-fac3D python ./q2p1_fac_3D.py)
