@@ -158,4 +158,10 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
   print "The partitioning was successful!"
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+def partition(NPart, PartMethod, NSubPart, MeshName, ProjektFile):
 
+    # Erzeuge benötigte Verzeichnisse, falls noch nicht vorhanden
+    mkdir("_mesh")
+
+    # Aufruf der Hauptroutine
+    MainProcess(NPart,PartMethod,NSubPart,MeshName,ProjektFile)
