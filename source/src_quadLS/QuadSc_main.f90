@@ -13,6 +13,8 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,GetMixerKnpr
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
+use fbm
+
 IMPLICIT NONE
 
 TYPE(TQuadScalar), target :: QuadSc
@@ -28,8 +30,8 @@ INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
 REAL tttt0,tttt1
 external updateFBM
-external GetFictKnpr
-external GetVeloFictBCVal
+! external GetFictKnpr
+! external GetVeloFictBCVal
 
 ! interfaces for the fbm_update and fbm_geom function
 ! handlers that process the dynamics update and
@@ -306,6 +308,17 @@ END SUBROUTINE Init_QuadScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_Die_Handlers()
+! In this function we set the function handlers
+! for Die FBM simulations --> as normal but return surface distances as well
+implicit none
+
+ fbm_geom_handler_ptr => GetFictKnpr_Die
+
+END SUBROUTINE Init_Die_Handlers
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_Default_Handlers()
 ! In this function we set the function handlers
 ! for FBM, etc. to their default values
@@ -313,7 +326,7 @@ implicit none
 
  fbm_up_handler_ptr => updateFBM
  fbm_geom_handler_ptr => GetFictKnpr
- fbm_vel_bc_handler_ptr => GetVeloFictBCVal
+ fbm_vel_bc_handler_ptr => fbm_velBC
 
 END SUBROUTINE Init_Default_Handlers
 !

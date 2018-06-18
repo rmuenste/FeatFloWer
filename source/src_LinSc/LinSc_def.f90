@@ -18,7 +18,7 @@ TYPE tParam
 
  INTEGER NLmin,NLmax
 
- INTEGER SolvIter,SolvType,iMass
+ INTEGER SolvIter,SolvType
 
  LOGICAL AFC
  TYPE(tMGParamIn) :: MGprmIn
@@ -346,26 +346,14 @@ TYPE(lScalar) myScalar
 
  ! Build up the defect
  IF (idef.eq. 1) THEN
-  IF (myScalar%prm%iMAss.EQ.1) THEN
-     myScalar%def = MLmat*myScalar%val(NLMAX)%x
-     CALL LAX17(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
-     myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
-     CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
-     myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
-  END IF
-  IF (myScalar%prm%iMAss.EQ.2) THEN
-     CALL LAX17(Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
-     myScalar%val(NLMAX)%x,myScalar%def,1d0,0d0)
-  END IF
+   myScalar%def = MLmat*myScalar%val(NLMAX)%x
+   CALL LAX17(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
+   CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
  ELSE
-  IF (myScalar%prm%iMAss.EQ.1) THEN
-     CALL LAX37(Amat,lMat%ColA,lMat%LdA,lMat%nu,&
-     myScalar%val(NLMAX)%x,myScalar%def,-1d0,1d0)
-  END IF
-  IF (myScalar%prm%iMAss.EQ.2) THEN
-     CALL LAX17(-Mmat+thstep*(Kmat+Dmat),lMat%ColA,lMat%LdA,lMat%nu,&
-     myScalar%val(NLMAX)%x,myScalar%def,1d0,1d0)
-  END IF
+   CALL LAX37(Amat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,-1d0,1d0)
  END IF
 
  ! Perform Algebraic Flux Correction (if needed)
