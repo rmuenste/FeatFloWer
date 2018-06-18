@@ -54,5 +54,5 @@ ENDIF()
 
 file(COPY q2p1_bench_sedimentation.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY cube.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-add_test(q2p1-bench-sedimentation python ./q2p1_bench_sedimentation.py)
+#add_test(q2p1-bench-sedimentation python ./q2p1_bench_sedimentation.py)
 

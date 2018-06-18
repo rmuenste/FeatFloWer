@@ -81,6 +81,7 @@ d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder',
 'Drag': force[1], 'Lift' : force[2]}
 
 print(str(json.dumps(d)))
-with open('../../note_single_fac2D-bench.json','w') as f:
+#with open('../../note_single_fac2D-bench.json','w') as f:
+with open('note_single.json','w') as f:
   f.write(json.dumps(d) + '\n')
 
