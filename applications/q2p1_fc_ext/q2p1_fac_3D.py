@@ -81,6 +81,6 @@ d = {'ID' : '3DFAC', 'Caption' : 'Full 3D Newtonian FAC',
 'Drag': force[1], 'Lift' : force[2]}
 
 print(str(json.dumps(d)))
-with open('note_single_fac3D.json','w') as f:
+with open('../../note_single_fac3D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')
 

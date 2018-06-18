@@ -78,8 +78,6 @@ d = {'ID' : 'VISCO-FAS', 'Caption' : 'Visco-Elastic Flow Around A Cylinder',
 'Drag': force[3], 'Lift' : 0}
 
 print(str(json.dumps(d)))
-with open('note.json','w') as f:
-  f.write('[' + json.dumps(d) + ']\n')
-with open('note_single.json','w') as f:
+with open('../../note_single_visco_fac2D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')
 
