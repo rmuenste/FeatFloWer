@@ -32,6 +32,7 @@
 \usepackage{pdfpages}
 \usepackage{longtable}
 \usepackage[table]{xcolor}
+\usepackage{fancyvrb}
 
 \usepackage[defaultlines=4,all]{nowidow}
 \setnoclub[3]
@@ -161,7 +162,7 @@ literate=
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CHANGE HERE
 %\lhead{\includegraphics[scale=0.22]{./gfx/itmc_col.pdf}}
 \chead{}
-\rhead{\tiny IT \& Medien Centrum | FeatFlower | First Contact}
+\rhead{\tiny FeatFlower | First Contact}
 \lfoot{\tiny FeatFlower | First Contact}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \cfoot{}
@@ -290,9 +291,9 @@ this means executing the commands (for \texttt{BASH} or \texttt{ZSH} shells):
 \end{itemize}
 for the \texttt{TCSH} or \texttt{CSH} shells use the syntax:
 \begin{itemize}
-  \item \cmd{setenv CC `which mpicc`}
-  \item \cmd{setenv CXX `which mpicxx`}
-  \item \cmd{setenv FC `which mpif90`}
+  \item \cmd{setenv CC mpicc}
+  \item \cmd{setenv CXX mpicxx}
+  \item \cmd{setenv FC mpif90}
 \end{itemize}
 It is advised to create shell aliases for these commands because they are used frequently. After you have entered the load commands, verify that these module are loaded by checking the output of the command \textbf{module list}. The build of the basic software package is
 initiated by navigating into the \textit{bin} folder that you have created before and evoking CMake from there:\\
@@ -336,8 +337,9 @@ type of the partitioning method. As the simulation requires a master node to con
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Appendix}\label{section:appendix}
-
 \textbf{TODO}
+
+\subsection{Recommended Shell Customizations For Linux Systems}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
