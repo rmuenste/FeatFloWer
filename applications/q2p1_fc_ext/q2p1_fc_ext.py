@@ -109,9 +109,6 @@ for l in range(2,4):
   force = get_log_entry("_data/prot.txt", "BenchForce:")
   force = force.split()
   rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[1]} ] })
-#  d = {'BENCHID' : 'NEWTFAC', 'Style' : 'Table', 'Caption' : 'Newtonian Flow Around A Cylinder', 
-#  'Drag': force[1], 'Lift' : force[2]}
-#  print(str(json.dumps(d)))
   
 
 d = {
@@ -127,6 +124,7 @@ d = {
    "rows" : rows_array
  }
 }
+
 #print(str(json.dumps(rows_array)))
 with open('../../note_single_fac2D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')

@@ -19,6 +19,16 @@ def usage():
   print("[-h, --help]: prints this message")
 ################
 
+def moveAndSetLevel(file_in, file_out, level):
+    maxLevelStr = "SimPar@MaxMeshLevel = " + str(level) 
+    with open(file_out, "w") as n:
+        with open(file_in, "r") as f:
+            for line in f:
+                new_line = re.sub(r"^[\s]*SimPar@MaxMeshLevel[\s]*=(\s | \w)*", maxLevelStr, line)
+                n.write(new_line)
+
+###################################################################      
+
 def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
     lines = sources.readlines()
@@ -68,16 +78,31 @@ for opt, arg in opts:
 if params != '':
     print("Parameter params = " + params)
 
-module_string = "module purge && module load gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90"
+rows_array = [] 
 
-partitioner.partition(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
-force = get_log_entry("_data/prot.txt", "TimevsForce")
-force = force.split()
-d = {'ID' : 'VISCO-FAS', 'Caption' : 'Visco-Elastic Flow Around A Cylinder', 
-'Drag': force[3], 'Lift' : 0}
+for l in range(2,4):
+  moveAndSetLevel("_adc/ViscoHex2/q2p1_param_visco_2D.dat", "_data/q2p1_param.dat",l)
+  partitioner.partition(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
+  subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
+  force = get_log_entry("_data/prot.txt", "TimevsForce")
+  print(str(force))
+  force = force.split()
+  rows_array.append({"c": [{"v" : l}, {"v" : force[3]}, {"v": 0} ] })
 
-print(str(json.dumps(d)))
+d = {
+ "benchName" : "VISCO-FAS", 
+ "tableCaption" : "Visco-Elastic Flow Around A Cylinder", 
+ "style" : "Table",
+ "data" : {
+   "cols": [
+   {"label" : "Level", "type" : "number"},
+   {"label" : "Drag", "type" : "number"},
+   {"label" : "Lift", "type" : "number"}
+   ],
+   "rows" : rows_array
+ }
+}
+
 with open('../../note_single_visco_fac2D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')
 
