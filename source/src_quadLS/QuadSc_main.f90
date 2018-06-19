@@ -325,7 +325,7 @@ SUBROUTINE Init_Default_Handlers()
 implicit none
 
  fbm_up_handler_ptr => updateFBM
- fbm_geom_handler_ptr => GetFictKnpr
+ fbm_geom_handler_ptr => fbm_getFictKnpr
  fbm_vel_bc_handler_ptr => fbm_velBC
 
 END SUBROUTINE Init_Default_Handlers
