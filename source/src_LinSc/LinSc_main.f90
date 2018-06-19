@@ -164,20 +164,15 @@ IF (myid.ne.master) THEN
 END IF
 
 
-Tracer%cName = "Tracer"
+Tracer%cName        = "Tracer"
 Tracer%prm%SolvIter = 1
-Tracer%prm%AFC = .TRUE.
-IF (Tracer%prm%AFC) THEN
- Tracer%prm%NLmin = 2
-ELSE
- Tracer%prm%NLmin = 2
-END IF
-Tracer%prm%NLmax   =20
-Tracer%prm%defCrit =1d-6
-Tracer%prm%epsCrit =1d-3
-Tracer%prm%MinDef  =1d-16
-Tracer%prm%SolvType=1
-Tracer%prm%iMass=1
+Tracer%prm%AFC      = .TRUE.
+Tracer%prm%NLmin    = 2
+Tracer%prm%NLmax    =20
+Tracer%prm%defCrit  =1d-6
+Tracer%prm%epsCrit  =1d-3
+Tracer%prm%MinDef   =1d-16
+Tracer%prm%SolvType =1
 
 NLMAX = NLMAX - 1
 
@@ -196,7 +191,6 @@ CALL SETLEV(2)
 CALL LinSc_InitCond(mg_mesh%level(ilev)%dcorvg)
 
 ! Set boundary conditions
-!CALL Boundary_LinSc_Val(mg_mesh%level(ilev)%dcorvg)
 CALL Boundary_LinSc_Val()
 
 NLMAX = NLMAX - 1
@@ -217,23 +211,9 @@ DO i=1,Tracer%ndof
  Tracer%knpr(I) = 0
 
  DIST = SQRT((X-PX)**2d0+(Y-PY)**2d0) - RAD
- IF (DIST.LT.1d-4) THEN
+ IF (abs(Z-74.68d0).lt.1d-4) THEN
   Tracer%knpr(I) = 1
  END IF
- IF (X.LT.1d-4) THEN
-  Tracer%knpr(I) = 1
- END IF
-
-!  IF (Y.LT.-0.0249d0) THEN
-!   xx = X - 0.015d0
-!   IF (ABS(xx).LT.0.0149d0) THEN
-!    Tracer%knpr(I) = 1
-!   END IF
-!   xx = X - 0.485d0
-!   IF (ABS(xx).LT.0.0149d0) THEN
-!    Tracer%knpr(I) = 1
-!   END IF
-!  END IF
 
 END DO
 
@@ -254,7 +234,7 @@ DO i=1,Tracer%ndof
  Y = dcorvg(2,i)
  Z = dcorvg(3,i)
 
- Tracer%val(NLMAX)%x(i) = 0.0d0
+ Tracer%val(NLMAX)%x(i) = 200.0d0
 
 END DO
 
@@ -275,26 +255,52 @@ END SUBROUTINE Boundary_LinSc_Def
 !
 ! ----------------------------------------------
 !
-!SUBROUTINE Boundary_LinSc_Val(dcorvg)
 SUBROUTINE Boundary_LinSc_Val()
-!REAL*8, dimension(:,:), pointer :: dcorvg
 REAL*8 X,Y,Z
-REAL*8 :: RX = 0.0d0,RY = 0.0d0
-REAL*8 :: RADx = 0.2d0
-REAL*8 DIST
-INTEGER i
+REAL*8 :: x0 = -0d0, y0 = -22.1d0, r0=3.0d0
+REAL*8 XT,YT,ZT,xR,yR,Tx,Ty
+REAL*8 :: PI=4d0*DATAN(1d0),dAlpha
+REAL*8 :: ProfXT(11,2),ProfYT(11,2)
+REAL*8 dist,frac
+INTEGER i,l
+DATA ProfXT/0.0d0,0.2d0,0.4d0,0.6d0,0.8d0,1.0d0,1.2d0,1.4d0,1.6d0,1.8d0,2.0d0,&
+            203d0,203d0,193d0,206d0,208d0,209d0,208d0,206d0,195d0,200d0,200d0/
+DATA ProfYT/0.0d0,0.2d0,0.4d0,0.6d0,0.8d0,1.0d0,1.2d0,1.4d0,1.6d0,1.8d0,2.0d0,&
+            203d0,205d0,207d0,208d0,209d0,209d0,209d0,209d0,209d0,209d0,209d0/
 
 DO i=1,Tracer%ndof
  X = mg_mesh%level(ilev)%dcorvg(1,i)
  Y = mg_mesh%level(ilev)%dcorvg(2,i)
  Z = mg_mesh%level(ilev)%dcorvg(3,i)
 
+ dAlpha = (22.5d0)*PI/180d0
+ XT = X*cos(dAlpha) - Y*sin(dAlpha)
+ YT = X*sin(dAlpha) + Y*cos(dAlpha)
+ ZT = Z
+ 
  IF (Tracer%knpr(i).eq.1) THEN
-  IF (X.LT.1d-4) THEN
-   Tracer%val(NLMAX)%x(i) = 0d0
-  ELSE
-   Tracer%val(NLMAX)%x(i) = 1d0
-  END IF
+  
+  dist = SQRT((XT-x0)**2d0 + (YT-y0)**2d0)
+  if (dist.lt.r0) then
+   yR = 1d0 + (xT-x0)/r0
+   xR = 2d0-(1d0 + (yT-y0)/r0)
+   do l=1,10
+    if (xR.gt.ProfXT(l,1).and.xR.le.ProfXT(l+1,1)) THEN
+     frac = (xR - ProfXT(l,1))/(ProfXT(l+1,1) - ProfXT(l,1))
+     Tx = ProfXT(l,2) + frac*(ProfXT(l+1,2)-ProfXT(l,2))
+    end if
+   end do
+   do l=1,10
+    if (yR.gt.ProfYT(l,1).and.yR.le.ProfYT(l+1,1)) THEN
+     frac = (yR - ProfYT(l,1))/(ProfYT(l+1,1) - ProfYT(l,1))
+     Ty = ProfYT(l,2) + frac*(ProfYT(l+1,2)-ProfYT(l,2)) - 209d0
+    end if
+   end do
+   Tracer%val(NLMAX)%x(i)= Tx + Ty
+  else
+   Tracer%val(NLMAX)%x(i)= 200d0
+  end if
+    
  END IF
 
 END DO
@@ -345,12 +351,6 @@ mg_mesh%level(jlev)%nel,&
 mg_mesh%level(jlev)%nvt,&
 mg_mesh%level(jlev)%net,&
 mg_mesh%level(jlev)%nat,E011)
-
-! CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
-! lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-! DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
-! KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
-! KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)

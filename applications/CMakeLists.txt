@@ -14,6 +14,8 @@ add_subdirectory(q2p1_bench_sedimentation)
 
 add_subdirectory(laplace)
 
+add_subdirectory(heat)
+
 add_subdirectory(q2p1_particles)
 
 add_subdirectory(q2p1_experimental)
@@ -26,7 +28,7 @@ add_subdirectory(s3d_mesher)
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
-  add_subdirectory(q2p1_bloodflow)
+  add_subdirectory(q2p1_devel)
   add_subdirectory(q2p1_sse)
 endif(USE_CGAL)
 
