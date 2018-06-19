@@ -89,7 +89,7 @@ for l in range(2,4):
   subprocess.call(['mpirun -np 5 ./q2p1_fac_nnewt'],shell=True)
   force = get_log_entry("_data/prot.txt", "BenchForce:")
   force = force.split()
-  rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[1]} ] })
+  rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]} ] })
   
 
 d = {
