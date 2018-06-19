@@ -19,6 +19,34 @@ def usage():
   print("[-h, --help]: prints this message")
   print("[-h, --help]: prints this message")
 ################
+def write_json_data(col, level):
+
+  rows_array = [] 
+  for i in range(len(col)-1):
+    rows_array.append({"c": [{"v" : level}, {"v" : col[i][0]}, {"v": col[i][1]}] })
+
+  d = {
+   "ID" : "BENCHSED", 
+   "Caption" : "Sedimentation Benchmark", 
+   "data" : {
+     "cols": [
+     {"label" : "Level", "type" : "number"},
+     {"label" : "Drag", "type" : "number"},
+     {"label" : "Lift", "type" : "number"}
+     ],
+     "rows" : rows_array
+   }
+  }
+###################################################################      
+def moveAndSetLevel(file_in, file_out, level):
+    maxLevelStr = "SimPar@MaxMeshLevel = " + str(level) 
+    with open(file_out, "w") as n:
+        with open(file_in, "r") as f:
+            for line in f:
+                new_line = re.sub(r"^[\s]*SimPar@MaxMeshLevel[\s]*=(\s | \w)*", maxLevelStr, line)
+                n.write(new_line)
+
+###################################################################      
 
 def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
@@ -72,16 +100,34 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-shutil.copyfile("_adc/2D_FAC/q2p1_param_2D.dat", "_data/q2p1_param.dat")
-partitioner.partition(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
-force = get_log_entry("_data/prot.txt", "BenchForce:")
-force = force.split()
-d = {'ID' : 'NEWTFAC', 'Caption' : 'Newtonian Flow Around A Cylinder', 
-'Drag': force[1], 'Lift' : force[2]}
+rows_array = [] 
 
-print(str(json.dumps(d)))
-#with open('../../note_single_fac2D-bench.json','w') as f:
-with open('note_single.json','w') as f:
+for l in range(2,4):
+  moveAndSetLevel("_adc/2D_FAC/q2p1_param_2D.dat", "_data/q2p1_param.dat",l)
+  partitioner.partition(4, 1, 1, "NEWFAC", "_adc/2D_FAC/2Dbench.prj")
+  subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
+  force = get_log_entry("_data/prot.txt", "BenchForce:")
+  force = force.split()
+  rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[1]} ] })
+#  d = {'BENCHID' : 'NEWTFAC', 'Style' : 'Table', 'Caption' : 'Newtonian Flow Around A Cylinder', 
+#  'Drag': force[1], 'Lift' : force[2]}
+#  print(str(json.dumps(d)))
+  
+
+d = {
+ "benchName" : "NEWTFAC", 
+ "tableCaption" : "Newtonian Flow Around A Cylinder", 
+ "style" : "Table",
+ "data" : {
+   "cols": [
+   {"label" : "Level", "type" : "number"},
+   {"label" : "Drag", "type" : "number"},
+   {"label" : "Lift", "type" : "number"}
+   ],
+   "rows" : rows_array
+ }
+}
+#print(str(json.dumps(rows_array)))
+with open('../../note_single_fac2D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')
 
