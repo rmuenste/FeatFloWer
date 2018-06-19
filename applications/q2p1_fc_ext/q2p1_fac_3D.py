@@ -20,6 +20,16 @@ def usage():
   print("[-h, --help]: prints this message")
 ################
 
+def moveAndSetLevel(file_in, file_out, level):
+    maxLevelStr = "SimPar@MaxMeshLevel = " + str(level) 
+    with open(file_out, "w") as n:
+        with open(file_in, "r") as f:
+            for line in f:
+                new_line = re.sub(r"^[\s]*SimPar@MaxMeshLevel[\s]*=(\s | \w)*", maxLevelStr, line)
+                n.write(new_line)
+
+###################################################################      
+
 def get_log_entry(file_name, var_name):
   with open(file_name, "r") as sources:
     lines = sources.readlines()
@@ -72,15 +82,31 @@ print("Platform machine: " + platform.machine())
 print("Platform system: " + platform.system())
 print("System path: " + str(sys.path))
 
-shutil.copyfile("_adc/FAC3Ds/q2p1_param_nonstat.dat", "_data/q2p1_param.dat")
-partitioner.partition(4, 1, 1, "NEWFAC", "_adc/FAC3Ds/fac3D_nonstat.prj")
-subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
-force = get_log_entry("_data/prot.txt", "BenchForce:")
-force = force.split()
-d = {'ID' : '3DFAC', 'Caption' : 'Full 3D Newtonian FAC', 
-'Drag': force[1], 'Lift' : force[2]}
+rows_array = [] 
 
-print(str(json.dumps(d)))
+for l in range(2,4):
+  moveAndSetLevel("_adc/FAC3Ds/q2p1_param_nonstat.dat", "_data/q2p1_param.dat",l)
+  partitioner.partition(4, 1, 1, "NEWFAC", "_adc/FAC3Ds/fac3D_nonstat.prj")
+  subprocess.call(['mpirun -np 5 ./q2p1_fc_ext'],shell=True)
+  force = get_log_entry("_data/prot.txt", "BenchForce:")
+  force = force.split()
+  rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]} ] })
+  
+
+d = {
+ "benchName" : "3DFAC", 
+ "tableCaption" : "3D Newtonian Flow Around A Cylinder", 
+ "style" : "Table",
+ "data" : {
+   "cols": [
+   {"label" : "Level", "type" : "number"},
+   {"label" : "Drag", "type" : "number"},
+   {"label" : "Lift", "type" : "number"}
+   ],
+   "rows" : rows_array
+ }
+}
+
 with open('../../note_single_fac3D-bench.json','w') as f:
   f.write(json.dumps(d) + '\n')
 
