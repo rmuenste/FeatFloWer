@@ -340,7 +340,97 @@ type of the partitioning method. As the simulation requires a master node to con
 \textbf{TODO}
 
 \subsection{Recommended Shell Customizations For Linux Systems}
+In order to work more efficiently with the FeatFloWer software, we recommended to add some environment variables and aliases 
+to your shell configuration files in order to make your experience with the software more pleasant. Sample configuration files are provided in the FeatFloWe repository you have cloned in the
+first steps. The configuration files can be found in the repository under the following path:
+\cmd{/path/to/Feat\_FloWer/tools/shell\_scripts}\\
+There sample configuration for different shells can be found. As can be seen in the following listings, the configuration files contain aliases for loading compiler settings, customizations for 
+the command line for the Git version control system and setting environment variables so that the different FeatFloWer auxilliary scripts are contained in the path and can be easily called from the
+command line.
+\subsubsection*{TCSH and CSH} 
 
+\begin{Verbatim}[numbers=left, frame=single, label=TCSH]
+#!/bin/csh
+
+set prompt = "%B%m%b:%~%# "
+
+#========================================================
+#        Environment variables for Feat_FloWer
+#========================================================
+# Adjust these paths to point them to the directories of
+# your local installation.
+setenv Q2P1_MESH_DIR /path/to/mesh_repo
+setenv FF_HOME /path/to/Feat_FloWer
+setenv FF_PY_HOME /path/to/Feat_FloWer/tools
+
+#========================================================
+#                  GCC Aliases
+#========================================================
+alias load-gcc-mpi51 'module purge ;; \
+module load cmake/3.5.2 \
+gcc/5.1.0 \
+openmpi/gcc5.1.x/1.10.2/threaded/no-cuda/ethernet \
+boost/1.56 python/2.7.11 ;; \
+setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+
+alias load-gcc-mpi61 'module purge ;;\
+module load cmake/3.4.0 \
+gcc/6.1.0 \
+openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet \
+boost/1.56 python/2.7.11 ;; \ 
+setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+
+#========================================================
+#               Intel Compiler Aliases
+#========================================================
+alias load-intel-mpi16 'module purge ;; \
+module load cmake/3.5.2-ssl \ 
+intel/studio-xe/16.0.4.258 \
+openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet \
+gcc/6.1.0 boost/1.56 python/2.7.11 ;; \
+setenv CC mpicc ;; \
+setenv CXX mpicxx ;; \
+setenv FC mpif90'
+
+
+#========================================================
+#               Library Path for Metis
+#========================================================
+setenv LD_LIBRARY_PATH \
+      $LD_LIBRARY_PATH:/path/to/metis-4.0.3/Lib
+
+
+#========================================================
+#        Customization for Git Version Control
+#========================================================
+source ~/autocompletion.tcsh
+
+#git completion
+source ~/.git-completion.tcsh
+
+# set prompt; with current git branch if available.
+alias __git_current_branch \
+
+'git rev-parse --abbrev-ref HEAD >& /dev/null && \
+echo "{`git rev-parse --abbrev-ref HEAD`}"'
+
+alias precmd \
+'set prompt="%n@%m[%c2]`__git_current_branch` "'
+
+#========================================================
+#                 PATH Variable
+#========================================================
+# Do further customization of your PATH here:
+setenv PATH $PATH:/path/to/Feat_FloWer/tools/partitioner
+
+module purge ;; module load gcc/6.1.0 \
+openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet \
+cmake 
+
+setenv CC mpicc
+setenv CXX mpicxx
+setenv FC mpif90
+\end{Verbatim}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \end{document}
