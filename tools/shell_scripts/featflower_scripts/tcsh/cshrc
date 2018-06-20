@@ -1,0 +1,51 @@
+#!/bin/csh
+
+set prompt = "%B%m%b:%~%# "
+
+#================================================================
+#             Environment variables for Feat_FloWer
+#================================================================
+# Adjust these paths to point them to the directories of your local
+# installation.
+setenv Q2P1_MESH_DIR /home/user/omierka/nobackup/mesh_repo
+setenv FF_HOME /home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer
+setenv FF_PY_HOME /home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer/tools
+
+#================================================================
+#                        GCC Aliases
+#================================================================
+alias load-gcc-mpi51 'module purge ;; module load cmake/3.5.2 gcc/5.1.0 openmpi/gcc5.1.x/1.10.2/threaded/no-cuda/ethernet boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+alias load-gcc-mpi61 'module purge ;; module load cmake/3.4.0 gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+
+#================================================================
+#                     Intel Compiler Aliases
+#================================================================
+alias load-intel-mpi16 'module purge ;; module load cmake/3.5.2-ssl intel/studio-xe/16.0.4.258 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet gcc/6.1.0 boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+
+
+#================================================================
+#                      Library Path for Metis
+#================================================================
+setenv LD_LIBRARY_PATH $LD_LIBRARY_PATH:/home/user/rmuenste/nobackup/code/test_system11/bin/extern/libraries/metis-4.0.3/Lib
+
+source ~/autocompletion.tcsh
+
+#git completion
+source ~/.git-completion.tcsh
+
+# set prompt; with current git branch if available.
+alias __git_current_branch 'git rev-parse --abbrev-ref HEAD >& /dev/null && echo "{`git rev-parse --abbrev-ref HEAD`}"'
+alias precmd 'set prompt="%n@%m[%c2]`__git_current_branch` "'
+
+#================================================================
+#                        PATH Variable
+#================================================================
+# Do further customization of your PATH here:
+setenv PATH $PATH:/home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer/tools/partitioner
+
+module purge ;; module load gcc/6.1.0 load openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet cmake 
+
+setenv CC mpicc
+setenv CXX mpicxx
+setenv FC mpif90
+

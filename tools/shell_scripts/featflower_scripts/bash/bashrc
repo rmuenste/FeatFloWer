@@ -1,0 +1,123 @@
+#!/bin/bash
+#=====================================================
+#Author: Raphael Muenster
+#This script automizes module loading
+#and console environment configuration
+#=====================================================
+
+
+# Uncomment this line and assign a value to the EDITOR
+# variable to set your default editor.
+#export EDITOR=
+
+#================================================================
+#             Environment variables for Feat_FloWer
+#================================================================
+# Adjust these paths to point them to the directories of your local
+# installation.
+export Q2P1_MESH_DIR=/home/user/rmuenste/nobackup/work/MESH/mesh_repo
+export FF_HOME=/home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer
+export FF_PY_HOME=/home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer/tools
+export PATH=$PATH:/home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer/tools/partitioner
+#================================================================
+#                   Cluster Logins
+#================================================================
+alias ssh-lido='ssh username@lidong1.itmc.tu-dortmund.de -L 11111:lidong1.itmc.tu-dortmund.de:11111'
+alias ssh-lido3='ssh username@gw02.lido.tu-dortmund.de -L 11111:gw02.lido.tu-dortmund.de:11111'
+
+#================================================================
+#                   TMUX Configuration
+#================================================================
+# Set the screen variable of the tmux terminal multiplexer
+alias tmux="TERM=screen-256color-bce tmux"
+
+#================================================================
+#                     Intel Compiler Aliases
+#================================================================
+alias load-intel-mpi15='module purge && module load intel/studio-xe/15.0.7.235 gcc/5.4.0 boost/1.56 openmpi/intel15.0.x/1.10.2/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-intel-mpi16='module purge && module load intel/studio-xe/16.0.4.258 binutils/2.25 gcc/6.1.0 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+
+#================================================================
+#                        GCC Aliases
+#================================================================
+alias load-gcc-mpi48='module purge && module load cmake gcc/4.8.5 boost/1.56 openmpi/gcc4.8.x/1.8.8/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-gcc-mpi492='module purge && module load cmake gcc/4.9.2 boost/1.56 openmpi/gcc4.9.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-gcc-mpi493='module purge && module load cmake gcc/4.9.3 boost/1.56 openmpi/gcc4.9.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-gcc-mpi52='module purge && module load cmake gcc/5.2.0 boost/1.56 openmpi/gcc5.2.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-gcc-mpi53='module purge && module load cmake gcc/5.3.0 boost/1.56 openmpi/gcc5.3.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
+alias load-gcc-mpi61='module purge && module load cmake gcc/6.1.0 boost/1.56 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+
+# enable programmable completion features (you don't need to enable                                                                                           
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile                                                                                          
+# sources /etc/bash.bashrc).                                                                                                                                  
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+    . /etc/bash_completion
+fi
+
+# make less more friendly for non-text input files, see lesspipe(1)
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+case "$TERM" in
+    xterm-color) color_prompt=yes;;
+esac
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+	# a case would tend to support setf rather than setaf.)
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
+fi
+
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]> '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+fi
+unset color_prompt force_color_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+
+source ~/.git-prompt
+
+export PS1='\[\033[01;31m\]\u@\h\[\033[1;34m\]\[\033[1;37m\]:\w\[\033[01;35m\] $(parse_git_branch_or_tag) 
+\[\033[1;34m\]>\[\033[00m\] '
+
+# Non-interactive shells did not parse /etc/bash.bashrc.loacl with the 'module'
+# command definition
+if [ -z "$MODULESHOME" ]; then
+    . /sfw/Modules/default/init/bash
+fi
+
+module load cmake
+
+#================================================================
+#                        PATH Variable
+#================================================================
+# Do further customization of your PATH here:
+#export PATH=$PATH:/home/user/rmuenste/nobackup/work/blender-2.59-linux-glibc27-x86_64:/home/user/rmuenste/rungui:$HOME/bin
+#export PATH=$PATH:/home/user/rmuenste/castnet/castNet:/data/warehouse14/rmuenste/bin:/home/user/rmuenste/nobackup/code/GitHub/pugixml/install:$HOME/nobackup/bin 
+
+#================================================================
+#                      Library Path for Metis
+#================================================================
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/user/rmuenste/nobackup/code/test_system11/bin/extern/libraries/metis-4.0.3/Lib
+
+module purge && module load gcc/6.1.0 && module load openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet && module load cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90
+
+
