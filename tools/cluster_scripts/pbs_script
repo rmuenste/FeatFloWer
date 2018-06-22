@@ -1,0 +1,14 @@
+#!/bin/bash
+#PBS -l walltime=12:00:00
+#PBS -l nodes=1:ppn=16:bttf-cpu
+#PBS -l vmem=110GB
+#PBS -N H34T
+#PBS -q batch
+
+
+module purge && module load intel/studio-xe/16.0.4.258 binutils/2.25 gcc/6.1.0 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90
+
+cd /home/user/rmuenste
+
+mpirun -np 16 ./q2p1_fsi_spring >solver.log 2>&1 
+
