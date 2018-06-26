@@ -9,6 +9,7 @@ USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use def_cc
+use def_QuadScalar
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
@@ -50,7 +51,7 @@ Real*8 :: dabl
                           mg_mesh%level(ilev)%nat+&
                           mg_mesh%level(ilev)%nel))
 
- CALL InitBoundaryList(KWORK(L(LNPR)),&
+ CALL InitBoundaryList(mg_mesh%level(ILEV)%knpr,&
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%kedge,&
                       mg_mesh%level(ILEV)%karea)
@@ -158,7 +159,7 @@ end if
  CALL Create_LinMatStruct ()
 
  ! Pressure gradient matrix
- CALL Create_BMat_iso() !(B,BT)
+ CALL Create_BMat_mod() !(B,BT)
 
  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
@@ -287,7 +288,7 @@ digitcriterion = 10d0**(-1d0-alpha)
 
  CALL OperatorRegenaration_iso(3)
 
-
+IF (ccParams%BDF.ne.0) THEN
 !#######################################
 ! Store the old solution for BDF to help
 !#######################################
@@ -295,9 +296,13 @@ IF (myid.ne.master) THEN
  QuadSc%valU_help = QuadSc%valU
  QuadSc%valV_help = QuadSc%valV
  QuadSc%valW_help = QuadSc%valW
+END IF
+END IF
 
+IF (myid.ne.master) THEN
  LinSc%P_old  = LinSc%valP(NLMAX)%x
 END IF
+
 
  CALL ZTIME(tttt0)
 
@@ -563,6 +568,7 @@ IF (DefNorm.EQ.0d0) exit
 !END IF
 END DO
 
+IF (ccParams%BDF.ne.0) THEN
 !#########################################
 ! Store the old solution for BDF to old1/2
 !#########################################
@@ -573,6 +579,7 @@ IF (myid.ne.master) THEN
  QuadSc%valU_old1 = QuadSc%valU_help
  QuadSc%valV_old1 = QuadSc%valV_help
  QuadSc%valW_old1 = QuadSc%valW_help
+END IF
 END IF
 
 ! OUTPUT at the end
@@ -762,8 +769,8 @@ END SUBROUTINE OperatorDeallocation
 !
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
-!REAL*8 :: Force(3),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-REAL*8 :: Force(7),U_mean=1.0d0,H=0.205d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
+!REAL*8 :: Force(7),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
@@ -795,9 +802,9 @@ EXTERNAL E013
  END IF
 
 !Pipe
-! Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
+ Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
 !FAC
- Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+! Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
  Force = Factor*Force
 
  IF (myid.eq.showID) THEN
@@ -862,29 +869,29 @@ LOGICAL bHit
 bHit = .FALSE.
 
 IF (iType.EQ.myMatrixRenewal%D) THEN
- CALL Create_DiffMat_iso(QuadSc)
+ CALL Create_DiffMat(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%K) THEN
- CALL Create_KMat_iso(QuadSc)
+ CALL Create_KMat(QuadSc)
  CALL Create_barMMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%M) THEN
- CALL Create_MRhoMat_iso()
+ CALL Create_MRhoMat()
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%S) THEN
- CALL Create_SMat_iso(QuadSc)
+ CALL Create_SMat(QuadSc)
  bHit = .TRUE.
 END IF
 
 IF (iType.EQ.myMatrixRenewal%C) THEN
 
- CALL Create_BMat_iso()
+ CALL Create_BMat()
  
  IF (myid.ne.master) THEN
   CALL Fill_QuadLinParMat()

@@ -19,6 +19,7 @@ PROGRAM Q2P1_CC
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
+  IF (ccParams%BDF.ne.0) THEN
   IF (myid.ne.master) THEN
   QuadSc%valU_old1 = QuadSc%valU
   QuadSc%valV_old1 = QuadSc%valV
@@ -29,6 +30,7 @@ PROGRAM Q2P1_CC
   QuadSc%valU_old2 = QuadSc%valU
   QuadSc%valV_old2 = QuadSc%valV
   QuadSc%valW_old2 = QuadSc%valW
+  END IF
   END IF
 
   !-------MAIN LOOP-------

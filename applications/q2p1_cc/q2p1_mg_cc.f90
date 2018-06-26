@@ -68,7 +68,11 @@ DO IterCycle=1,MyMg%MaxIterCycle
  IF (mgDefNorm.LE.MyMg%DefInitial*MyMg%Criterion1.AND.&
      mgDefNorm.LE.MyMg%Criterion2.AND.&
      IterCycle.GE.MyMg%MinIterCycle) INLComplete = 1
+
  IF (IterCycle.GE.MyMg%MaxIterCycle) INLComplete = 1
+
+ IF (mgDefNorm.LT.1d-16) INLComplete = 1
+
  CALL COMM_NLComplete(INLComplete)
  IF (MyMg%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
   write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
@@ -87,8 +91,17 @@ END DO
 88 CONTINUE
 
 MyMg%DefFinal = mgDefNorm
-MyMg%RhoMG1 = (MyMg%DefFinal/MyMg%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
-MyMg%RhoMG2 = (MyMg%DefFinal/DEFI2)**(0.5d0)
+if(myMG%DefInitial.lt.1d-16)then
+  myMG%RhoMG1 = 0d0
+else
+  myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
+end if
+
+if(IterCycle.le.2)then
+  myMG%RhoMG2 = 0d0 
+else
+  myMG%RhoMG2 = (myMG%DefFinal/DEFI2)**(0.5d0)
+end if
 MyMg%UsedIterCycle = IterCycle
 MyMg%nIterCoarse = INT(AccCoarseIter/MAX(IterCycle,1))
 

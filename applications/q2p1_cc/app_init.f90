@@ -426,7 +426,7 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
     nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
     myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-    bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState
+    bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,transform
 
   IMPLICIT DOUBLE PRECISION(A-H,O-Z)
   PARAMETER (NNLEV=9)
@@ -590,6 +590,9 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) TIMEMX
       CASE ("MaxNumStep")
         READ(string(iEq+1:),*) NITNS
+        CASE ("ElemTrans")
+          READ(string(iEq+1:),*) Transform%ilint
+          If (Transform%ilint.lt.1.or.Transform%ilint.gt.2) Transform%ilint = 2
       CASE ("BackUpFreq")
         READ(string(iEq+1:),*) INSAV
       CASE ("BackUpNum")
@@ -740,6 +743,9 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
 
     WRITE(mfile,'(A,I10)') "MaxNumStep = ", NITNS
     WRITE(mterm,'(A,I10)') "MaxNumStep = ", NITNS
+
+    WRITE(mfile,'(A,I1)') "ElemTransform = Q", Transform%ilint
+    WRITE(mterm,'(A,I1)') "ElemTransform = Q", Transform%ilint
 
     WRITE(mfile,'(A,I10)') "BackUpFreq = ", INSAV
     WRITE(mterm,'(A,I10)') "BackUpFreq = ", INSAV
