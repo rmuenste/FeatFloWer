@@ -769,13 +769,11 @@ END SUBROUTINE OperatorDeallocation
 !
 SUBROUTINE FAC_GetForces_CC(mfile,Force)
 INTEGER mfile
-REAL*8 :: Force(7),U_mean=1.0d0,R=0.5d0,dens_const=1.0d0,Factor
-!REAL*8 :: Force(7),U_mean=0.2d0,H=0.05d0,D=0.1d0,dens_const=1.0d0,Factor
+REAL*8 :: Force(7),dens_const=1.0d0,Factor
 REAL*8 :: PI=dATAN(1d0)*4d0 
 REAL*8 :: Force2(3)
 INTEGER i,nn
 EXTERNAL E013
-
 
 
  ILEV=NLMAX
@@ -801,10 +799,11 @@ EXTERNAL E013
 
  END IF
 
-!Pipe
- Factor = 2d0/(dens_const*U_mean*U_mean*PI*R*R)
-!FAC
-! Factor = 2d0/(dens_const*U_mean*U_mean*H*D)
+if (postParams%D.eq.0d0) then
+	Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*PI*postParams%H*postParams%H)
+else
+	Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*postParams%H*postParams%D)
+end if
  Force = Factor*Force
 
  IF (myid.eq.showID) THEN

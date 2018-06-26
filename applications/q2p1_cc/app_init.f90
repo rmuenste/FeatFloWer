@@ -426,7 +426,7 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
     nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
     myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-    bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,transform
+    bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,transform,postparams
 
   IMPLICIT DOUBLE PRECISION(A-H,O-Z)
   PARAMETER (NNLEV=9)
@@ -537,6 +537,15 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
           myExport%LevelMax = NLMAX
         END IF
         !     IF (myid.eq.MASTER) NLMAX=2
+
+        CASE ("Bench_U_mean")
+          READ(string(iEq+1:),*) postParams%U_mean
+        CASE ("Bench_H")
+          READ(string(iEq+1:),*) postParams%H
+        CASE ("Bench_D")
+          READ(string(iEq+1:),*) postParams%D
+
+
       CASE ("TimeScheme")
         cParam = " "
         READ(string(iEq+1:),*) cParam
@@ -719,6 +728,15 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
 
     WRITE(mfile,'(A,I1)') "MaxMeshLevel = ",NLMAX
     WRITE(mterm,'(A,I1)') "MaxMeshLevel = ",NLMAX
+
+    WRITE(mfile,'(A,D12.4)') "MeanVelo = ",postParams%U_mean
+    WRITE(mterm,'(A,D12.4)') "MeanVelo = ",postParams%U_mean
+
+    WRITE(mfile,'(A,D12.4)') "Bench_H = ",postParams%H
+    WRITE(mterm,'(A,D12.4)') "Bench_H = ",postParams%H
+
+    WRITE(mfile,'(A,D12.4)') "Bench_D = ",postParams%D
+    WRITE(mterm,'(A,D12.4)') "Bench_D = ",postParams%D
 
     WRITE(mfile,'(A,D12.4)') "TimeScheme = ",THETA
     WRITE(mterm,'(A,D12.4)') "TimeScheme = ",THETA
