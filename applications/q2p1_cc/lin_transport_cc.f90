@@ -55,7 +55,6 @@ Tracer%prm%defCrit =1d-6
 Tracer%prm%epsCrit =1d-3
 Tracer%prm%MinDef  =1d-16
 Tracer%prm%SolvType=1
-Tracer%prm%iMass=1
 
 NLMAX = NLMAX - 1
 

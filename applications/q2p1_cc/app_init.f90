@@ -863,3 +863,5 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
  END SUBROUTINE StrStuct
 
  END SUBROUTINE myGDATNEW
+ SUBROUTINE General_init_ext(MDATA,MFILE)
+ END SUBROUTINE General_init_ext
