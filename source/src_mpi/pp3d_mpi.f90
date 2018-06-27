@@ -2033,6 +2033,35 @@ END SUBROUTINE COMM_MGComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_Maximum(value) !ok
+USE var_QuadScalar, only :myStat
+
+  REAL*8  value
+  REAL*8  Val(1),pVal(1)
+  INTEGER pID,iEnt,IERR
+  REAL*8  tt1,tt0
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+  CALL ztime(tt0)
+
+  IF (myid.eq.MASTER) THEN
+   Val(1) = 0d0
+  ELSE
+   Val(1) = value
+  END IF
+  
+  CALL MPI_ALLREDUCE(Val,pVal,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,IERR)
+
+  value = pVal(1)
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+  CALL ztime(tt1)
+  myStat%tCommS = myStat%tCommS + (tt1-tt0)
+
+  END SUBROUTINE COMM_Maximum
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_Maximum_old(value) !ok
 
   REAL*8  value
   REAL*8  Val,pVal
@@ -2065,7 +2094,7 @@ SUBROUTINE COMM_Maximum(value) !ok
   ! if (VARIABLE.EQ.2) write(*,*) "complete!",myid,IMGComplete
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
-END SUBROUTINE COMM_Maximum
+END SUBROUTINE COMM_Maximum_old
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------

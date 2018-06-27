@@ -75,6 +75,13 @@
       WRITE(myFile,9) "GMV output              ",myStat%tGMVOut,myStat%tGMVOut*ds,1d2*myStat%tGMVOut/time_passed
       WRITE(myFile,9) "Dump file output        ",myStat%tDumpOut,myStat%tDumpOut*ds,1d2*myStat%tDumpOut/time_passed
 
+      daux = myStat%tCommS + myStat%tCommV + myStat%tCommP
+      WRITE(myFile,*) 
+      WRITE(myFile,9) "Communication time      ",daux,daux*ds,1d2*daux/time_passed
+      WRITE(myFile,9) "Maximum                 ",myStat%tCommS,myStat%tCommS*ds,1d2*myStat%tCommS/time_passed
+      WRITE(myFile,9) "Velocity                ",myStat%tCommV,myStat%tCommV*ds,1d2*myStat%tCommV/time_passed
+      WRITE(myFile,9) "Pressure                ",myStat%tCommP,myStat%tCommP*ds,1d2*myStat%tCommP/time_passed
+      
       IF (myOutFile.eq.0) THEN
        CLOSE (myFile)
       END IF

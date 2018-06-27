@@ -130,6 +130,7 @@ TYPE tStatistics
  REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
  REAL  :: tCommV = 0d0
  REAL  :: tCommP = 0d0
+ REAL  :: tCommS = 0d0
  REAL  :: t0,t1
 END TYPE tStatistics
 TYPE (tStatistics),save :: myStat
@@ -382,6 +383,13 @@ INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:) 
 
+TYPE tCGALObjects
+ REAL*8, ALLOCATABLE :: Block(:)
+ REAL*8, ALLOCATABLE :: Wire(:)
+ INTEGER, ALLOCATABLE :: Segment(:)
+END TYPE tCGALObjects
+TYPE (tCGALObjects) myHeatObjects
+
 TYPE tParticle
  CHARACTER cTYPE*10
  REAL*8 sizes(20),density
@@ -406,7 +414,7 @@ REAL*8, ALLOCATABLE :: myQ2Coor(:,:)
 TYPE tBoundary
  LOGICAL, ALLOCATABLE :: nWall(:)   ,nInflown(:),  nOutflow(:)   ,nSymmetry(:)
  LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:)
- INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:)
+ INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:),iTemperature(:)
  INTEGER, ALLOCATABLE :: LS_zero(:)
  LOGICAL, ALLOCATABLE :: bDisp_DBC(:) 
 END TYPE tBoundary
