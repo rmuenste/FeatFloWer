@@ -788,6 +788,7 @@ EXTERNAL E013
 !                     mg_mesh%level(ILEV)%kedge,&
 !                     mg_mesh%level(ILEV)%dcorvg,&
 !                     Force, E013)
+
  CALL GetForceCyl_cc_iso(QuadSc%valU,QuadSc%valV,&
                      QuadSc%valW,LinSc%ValP(NLMAX)%x,&
                      LinSc%P_old,BndrForce,&
@@ -799,18 +800,19 @@ EXTERNAL E013
 
  END IF
 
-if (postParams%D.eq.0d0) then
-	Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*PI*postParams%H*postParams%H)
-else
-	Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*postParams%H*postParams%D)
-end if
+ if (postParams%D.eq.0d0) then
+   Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*PI*postParams%H*postParams%H)
+ else
+   Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*postParams%H*postParams%D)
+ end if
+
  Force = Factor*Force
 
  IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A30,8E16.8)') "Force acting:",timens,Force
-  write(mterm,'(A30,8E16.8)') "Force acting:",timens,Force
+  write(mfile,'(A,8E16.8)') "Force acting:",timens,Force
+  write(mterm,'(A,8E16.8)') "Force acting:",timens,Force
   WRITE(666,'(8G16.8)') Timens,Force
  END IF
 
