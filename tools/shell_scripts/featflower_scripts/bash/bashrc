@@ -110,8 +110,7 @@ module load cmake
 #                        PATH Variable
 #================================================================
 # Do further customization of your PATH here:
-#export PATH=$PATH:/home/user/rmuenste/nobackup/work/blender-2.59-linux-glibc27-x86_64:/home/user/rmuenste/rungui:$HOME/bin
-#export PATH=$PATH:/home/user/rmuenste/castnet/castNet:/data/warehouse14/rmuenste/bin:/home/user/rmuenste/nobackup/code/GitHub/pugixml/install:$HOME/nobackup/bin 
+#export PATH=$PATH:$HOME/nobackup/bin 
 
 #================================================================
 #                      Library Path for Metis
