@@ -3,10 +3,9 @@
 ! objects
 interface 
   subroutine update_fbm_handler(rho, dt, simTime, g, mfile, pid)
-    use var_QuadScalar, only : myFBM
-    use PP3D_MPI, only: myMPI_Barrier, myid
-    use cinterface
 
+    implicit none
+    
     real*8, intent(in) :: rho      ! fluid density
     real*8, intent(in) :: dt       ! time step
     real*8, intent(in) :: simTime  ! simulation time

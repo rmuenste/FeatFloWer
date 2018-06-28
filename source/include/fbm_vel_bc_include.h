@@ -4,7 +4,6 @@
 interface 
   subroutine fbm_velBC_handler(x,y,z,valu,valv,valw,ip,t)
 
-  use var_QuadScalar, only : myFBM,bRefFrame
   implicit none
 
   ! The FBM value of the boundary vertex

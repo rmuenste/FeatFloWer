@@ -10,7 +10,8 @@ PROGRAM Q2P1_DEVEL
                          print_time,&
                          sim_finalize
                          
-  use Transport_Q2P1,  only:        updateFBMGeometry                 
+  use Transport_Q2P1,  only:        updateFBMGeometry
+!  use Transport_Q1,  only: Transport_GeneralLinScalar,Boundary_LinSc_Val_Weber,AddSource
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -23,7 +24,7 @@ PROGRAM Q2P1_DEVEL
 
   !-------INIT PHASE-------
 
-  call init_q2p1_app(ufile)
+  call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
@@ -48,11 +49,11 @@ PROGRAM Q2P1_DEVEL
   inonln_t = 2
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
- CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
 !   IF (bTracer) THEN
 !     ! Solve transport equation for linear scalar
-!     CALL Transport_LinScalar(ufile,inonln_t)
+!     CALL Transport_GeneralLinScalar(Boundary_LinSc_Val_Weber,AddSource,ufile,inonln_t)
 !   ELSE
 !     inonln_t = 2
 !   END IF

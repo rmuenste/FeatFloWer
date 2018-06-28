@@ -2,10 +2,9 @@
 ! the user to customize the handling of the FBM geom update.
 interface 
   subroutine fbm_geom_handler(px, py, pz, bndryId, fictId, dist)
-    use var_QuadScalar, only : myFBM
-    use PP3D_MPI, only: myMPI_Barrier, myid
-    use cinterface
 
+    implicit none
+   
     ! Coordinates of the query point 
     real*8, intent(in) :: px, py, pz 
 
