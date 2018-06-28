@@ -32,12 +32,13 @@ INTEGER iSym(3)
 INTEGER Neigh(2,12)
 DATA Neigh/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 CHARACTER cAux*50,cType*50
-INTEGER   iType, iPhase, jPhase, iInterface
+INTEGER   iType, iPhase, jPhase, iInterface,iTemp
 logical :: bOK
  
  ndof = KNVT(ilev) + KNET(ilev) + KNAT(ilev) + KNEL(ilev)
  ALLOCATE(myBoundary%bWall(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
+ ALLOCATE(myBoundary%iTemperature(ndof))
  ALLOCATE(myBoundary%iPhase(ndof))
  ALLOCATE(myBoundary%bOutflow(ndof))
  ALLOCATE(myBoundary%bSymmetry(3,ndof))
@@ -47,6 +48,7 @@ logical :: bOK
 
  myBoundary%bWall     = .FALSE.
  myBoundary%iInflow   = 0
+ myBoundary%iTemperature   = 0
  myBoundary%iPhase    = 0
  myBoundary%bOutflow  = .FALSE.
  myBoundary%bSymmetry = .FALSE.
@@ -60,8 +62,11 @@ logical :: bOK
   cAux = ADJUSTL(TRIM(myParBndr(iBnds)%Types))
   iType = 0
   IF (cAux(1:6).EQ.'Inflow') THEN
-   !! CHANGED, because FURTHER inflow needed
    READ(cAux(7:),'(I2)') iType
+  END IF
+  iTemp = 0
+  IF (cAux(1:11).EQ.'Temperature') THEN
+   READ(cAux(12:),'(I2)') iTemp
   END IF
   iPhase = 0
   IF (cAux(1:5).EQ.'Phase') THEN
@@ -81,6 +86,7 @@ logical :: bOK
       BndrForce(i) = .TRUE.
     END IF
     IF (iType.GT.0) myBoundary%iInflow(i) = iType
+    IF (iTemp.GT.0) myBoundary%iTemperature(i) = iTemp
     IF (iPhase.GT.0) myBoundary%iPhase(i) = iPhase
     IF (iInterface.GT.0) myBoundary%LS_zero(i) = iInterface
 !     IF (iPhase.GT.0) jPhase = jPhase + 1
@@ -109,6 +115,7 @@ logical :: bOK
         BndrForce(nvt+k) = .TRUE.
       END IF
       IF (iType.GT.0) myBoundary%iInflow(nvt+k) = iType
+      IF (iTemp.GT.0) myBoundary%iTemperature(nvt+k) = iTemp
       IF (iPhase.GT.0) myBoundary%iPhase(nvt+k) = iPhase
       IF (iInterface.GT.0) myBoundary%LS_zero(nvt+k) = iInterface
 !       IF (iPhase.GT.0) jPhase = jPhase + 1
@@ -135,6 +142,7 @@ logical :: bOK
       BndrForce(nvt+net+i) = .TRUE.
     END IF
     IF (iType.GT.0) myBoundary%iInflow(nvt+net+i) = iType
+    IF (iTemp.GT.0) myBoundary%iTemperature(nvt+net+i) = iTemp
     IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+i) = iPhase
     IF (iInterface.GT.0) myBoundary%LS_zero(nvt+net+i) = iInterface
 !     IF (iPhase.GT.0) jPhase = jPhase + 1
@@ -162,6 +170,7 @@ logical :: bOK
        BndrForce(nvt+net+nat+i) = .TRUE.
      END IF
      IF (iType.GT.0) myBoundary%iInflow(nvt+net+nat+i) = iType
+     IF (iTemp.GT.0) myBoundary%iTemperature(nvt+net+nat+i) = iTemp
      IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+nat+i) = iPhase
      IF (iPhase.GT.0) jPhase = jPhase + 1
      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Outflow') myBoundary%bOutFlow(nvt+net+nat+i) = .TRUE.

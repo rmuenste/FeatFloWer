@@ -6,7 +6,8 @@ module umbrella_smoother
 ! are available
 !-------------------------------------------------------------------------------------------------
   use var_QuadScalar, only : tMultiMesh, tQuadScalar
-  use geometry_processing, only: calcDistanceFunction
+  use geometry_processing, ONLY : calcDistanceFunction_sse, calcDistanceFunction_heat, &
+                                  QuadScalar_MixerKnpr,dEpsDist
 
   ! No implicit variables in this module
   implicit none
@@ -129,7 +130,6 @@ module umbrella_smoother
 !   use Parametrization, only: ParametrizeBndr
   use Sigma_User, only: mySigma,Shell_dist
   use var_QuadScalar, only: tMultiMesh,FictKNPR
-  use geometry_processing, ONLY : calcDistanceFunction, QuadScalar_MixerKnpr,dEpsDist
   
   !USE STL_Processing, ONLY : dEpsDist
   implicit none
@@ -208,8 +208,12 @@ module umbrella_smoother
    qscStruct%AuxU = dEpsDist
    qscStruct%AuxV = dEpsDist
 
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
+    CALL calcDistanceFunction_heat(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+   END IF
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
-    CALL calcDistanceFunction(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+    CALL calcDistanceFunction_sse(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
    END IF
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN

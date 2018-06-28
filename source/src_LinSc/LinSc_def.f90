@@ -198,7 +198,10 @@ CALL SETLEV(2)
  coecon = 0
  koff = 0
 
-ALLOCATE(Mmat(lMat%na))
+IF (.not.allocated(MMat)) ALLOCATE(Mmat(lMat%na))
+MMat = 0d0
+
+IF (myid.eq.showid) write(*,*) 'Regenerating M Matrix for Q1'
 
 CALL AB07(Mmat,lMat%ColA,lMat%LdA,lMat%na,lMat%nu,nbloc,&
           koff,&
@@ -233,7 +236,10 @@ REAL*8 DML
 ILEV=NLMAX
 CALL SETLEV(2)
 
-ALLOCATE(MLmat(lMat%nu))
+IF (.not.allocated(MLmat)) ALLOCATE(MLmat(lMat%nu))
+MLmat = 0d0
+
+IF (myid.eq.showid) write(*,*) 'Regenerating Ml Matrix for Q1'
 
 DO I=1,lMat%nu
  DML = 0d0
@@ -267,11 +273,13 @@ SUBROUTINE Create_DiffMat(Alpha)
 EXTERNAL E011
 REAL*8 Alpha(*)
 
-ALLOCATE(DMat(lMat%na))
+IF (.NOT.ALLOCATED(DMat)) ALLOCATE(DMat(lMat%na))
 DMat=0d0
 
 ILEV=NLMAX
 CALL SETLEV(2)
+
+IF (myid.eq.showid) write(*,*) 'Regenerating D Matrix for Q1'
 
 CALL DiffMatQ1(Alpha,DMat,lMat%nu,lMat%ColA,lMat%LdA,&
                mg_mesh%level(ilev)%kvert,&

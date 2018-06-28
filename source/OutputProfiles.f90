@@ -1813,7 +1813,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc
 USE Transport_Q1,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
 IMPLICIT NONE
@@ -1939,7 +1939,24 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
- CASE('Distamce')
+ CASE('HeatObjects')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Segment",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,I10)')"        ",myHeatObjects%Segment(ivt)
+  end do
+  write(iunit, *)"        </DataArray>"
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Block",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Block(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wire",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Wire(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+  CASE('Distamce')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(Distance(ivt))
@@ -2013,6 +2030,15 @@ write(iunit, '(A)')"    <CellData>"
 DO iField=1,SIZE(myExport%Fields)
 
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+!  CASE('Alpha_E')
+!   IF (ILEV.EQ.NLMAX-1) THEN
+!    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Alpha_E",""" format=""ascii"">"
+!    do ivt=1,NoOfElem
+!     write(iunit, '(A,E16.7)')"        ",REAL(mgDiffCoeff(NLMAX)%x(ivt))
+!    end do
+!    write(iunit, *)"        </DataArray>"
+!   END IF
+  
  CASE('Pressure_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure_E",""" format=""ascii"">"
@@ -2141,6 +2167,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shearrate","""/>"
  CASE('LogShearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","LogShearrate","""/>"
+ CASE('HeatObjects')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Segment","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Block","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wire","""/>"
  CASE('Distamce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')

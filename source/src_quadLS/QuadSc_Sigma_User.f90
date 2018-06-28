@@ -21,6 +21,10 @@ TYPE tSegment
   INTEGER :: ZME_N
   REAL*8  :: SecProf_W, SecProf_D,SecProf_L
   INTEGER :: SecProf_N, SecProf_I
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+  INTEGER :: MatInd
+  REAL*8 :: HeatSource,InitTemp,Volume
+  
 END TYPE tSegment
 !------------------------------------------------------------
 TYPE tSigma
@@ -28,7 +32,7 @@ TYPE tSigma
   CHARACTER cType*(50),cZwickel*(50)
   REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
-  INTEGER :: NumberOfSeg, GANGZAHL,STLSeg=0
+  INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
 END TYPE tSigma
 
@@ -42,6 +46,8 @@ TYPE tProcess
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+   REAL*8 :: AirTemperature
 END TYPE tProcess
 
 TYPE(tProcess) :: myProcess
@@ -67,6 +73,7 @@ TYPE tThermodyn
 END TYPE tThermodyn
 
 TYPE(tThermodyn) :: myThermodyn
+TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
 
 TYPE tSetup

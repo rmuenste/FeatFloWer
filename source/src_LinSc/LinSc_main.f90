@@ -2,12 +2,13 @@ MODULE Transport_Q1
 
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
-    Comm_Maximum,Comm_Summ,myid,master,CommSum,myMPI_barrier
+    Comm_Maximum,Comm_Summ,myid,master,CommSum,Comm_SummN,myMPI_barrier
 USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     MoveInterfacePoints,myALE,Properties,getmeshvelocity
-USE var_QuadScalar, ONLY: myMG
+USE var_QuadScalar, ONLY: myMG,myHeatObjects
 USE mg_LinScalar, ONLY : mgProlRestInit
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
 
 IMPLICIT NONE
 
@@ -40,14 +41,11 @@ IF (myid.ne.0) THEN
  CALL LCL1(Tracer%def,Tracer%ndof)
  CALL Matdef_General_LinScalar(Tracer,1,0)
 
-! Set dirichlet boundary conditions on the defect
+ ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
 
 ! Store the constant right hand side
  Tracer%rhs = Tracer%def
-
-! Set dirichlet boundary conditions on the solution
-! CALL Boundary_LinSc_Val(DWORK(L(LCORVG)))
 
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_LinScalar(Tracer,-1,1)
@@ -127,7 +125,8 @@ END SUBROUTINE Transport_LinScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Init_LinScalar
+SUBROUTINE Init_LinScalar(mfile)
+INTEGER mfile
 
 NLMAX = NLMAX + 1
 
@@ -180,6 +179,19 @@ END SUBROUTINE Init_LinScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE InitHeatObjects()
+
+ALLOCATE(myHeatObjects%Block(Tracer%ndof))
+ALLOCATE(myHeatObjects%Wire(Tracer%ndof))
+ALLOCATE(myHeatObjects%Segment(Tracer%ndof))
+myHeatObjects%Block = 0d0
+myHeatObjects%Wire  = 0d0
+myHeatObjects%Segment  = 0 ! Air
+
+END SUBROUTINE InitHeatObjects
+!
+! ----------------------------------------------
+!
 SUBROUTINE InitCond_LinScalar()
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
@@ -199,7 +211,48 @@ END SUBROUTINE InitCond_LinScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE InitCond_GeneralLinScalar(sub_IC,sub_BC)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+EXTERNAL sub_IC,sub_BC
+
+NLMAX = NLMAX + 1
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
+
+! Set boundary conditions
+CALL sub_BC()
+
+NLMAX = NLMAX - 1
+
+END SUBROUTINE InitCond_GeneralLinScalar
+!
+! ----------------------------------------------
+!
 SUBROUTINE LinSc_Knpr(dcorvg)
+REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
+REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
+INTEGER i
+
+DO i=1,Tracer%ndof
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+ Tracer%knpr(I) = 0
+
+ IF (myBoundary%iTemperature(i).GT.0) THEN
+  Tracer%knpr(I) = myBoundary%iTemperature(i)
+ END IF
+
+END DO
+
+END SUBROUTINE LinSc_Knpr
+!
+! ----------------------------------------------
+!
+SUBROUTINE LinSc_Knpr_Weber(dcorvg)
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
 REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
 INTEGER i
@@ -217,7 +270,7 @@ DO i=1,Tracer%ndof
 
 END DO
 
-END SUBROUTINE LinSc_Knpr
+END SUBROUTINE LinSc_Knpr_Weber
 !
 ! ----------------------------------------------
 !
@@ -227,18 +280,44 @@ REAL*8 X,Y,Z
 REAL*8 :: RX = 0.0d0, RY = 0.0d0, RZ = 2.4d0
 REAL*8 :: RADx = 0.20d0,RADs=0.040
 REAL*8 DIST
-INTEGER i
+INTEGER i,iSeg,iMat
 
 DO i=1,Tracer%ndof
  X = dcorvg(1,i)
  Y = dcorvg(2,i)
  Z = dcorvg(3,i)
 
- Tracer%val(NLMAX)%x(i) = 200.0d0
+ Tracer%val(NLMAX)%x(i) = 0d0
 
 END DO
 
 END SUBROUTINE LinSc_InitCond
+!
+! ----------------------------------------------
+!
+SUBROUTINE LinSc_InitCond_EWIKON(dcorvg)
+REAL*8, dimension(:,:), pointer :: dcorvg
+REAL*8 X,Y,Z
+REAL*8 :: RX = 0.0d0, RY = 0.0d0, RZ = 2.4d0
+REAL*8 :: RADx = 0.20d0,RADs=0.040
+REAL*8 DIST
+INTEGER i,iSeg,iMat
+
+DO i=1,Tracer%ndof
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+
+ iSeg = myHeatObjects%Segment(i)
+ 
+ IF (iSeg.eq.0) Tracer%val(NLMAX)%x(i) = myProcess%AirTemperature
+ IF (iSeg.ne.0) then
+  Tracer%val(NLMAX)%x(i) = mySigma%mySegment(iSeg)%InitTemp
+ END IF
+
+END DO
+
+END SUBROUTINE LinSc_InitCond_EWIKON
 !
 ! ----------------------------------------------
 !
@@ -255,7 +334,7 @@ END SUBROUTINE Boundary_LinSc_Def
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Boundary_LinSc_Val()
+SUBROUTINE Boundary_LinSc_Val_Weber()
 REAL*8 X,Y,Z
 REAL*8 :: x0 = -0d0, y0 = -22.1d0, r0=3.0d0
 REAL*8 XT,YT,ZT,xR,yR,Tx,Ty
@@ -305,7 +384,51 @@ DO i=1,Tracer%ndof
 
 END DO
 
+END SUBROUTINE Boundary_LinSc_Val_Weber
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_LinSc_Val()
+REAL*8 X,Y,Z
+REAL*8 :: PI=4d0*DATAN(1d0)
+INTEGER i,l
+
+DO i=1,Tracer%ndof
+ X = mg_mesh%level(ilev)%dcorvg(1,i)
+ Y = mg_mesh%level(ilev)%dcorvg(2,i)
+ Z = mg_mesh%level(ilev)%dcorvg(3,i)
+
+ IF (Tracer%knpr(i).eq.1) THEN
+  
+   Tracer%val(NLMAX)%x(i)= 1d0
+    
+ END IF
+
+END DO
+
 END SUBROUTINE Boundary_LinSc_Val
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_LinSc_Val_EWIKON()
+REAL*8 X,Y,Z
+REAL*8 :: PI=4d0*DATAN(1d0)
+INTEGER i,l
+
+DO i=1,Tracer%ndof
+ X = mg_mesh%level(ilev)%dcorvg(1,i)
+ Y = mg_mesh%level(ilev)%dcorvg(2,i)
+ Z = mg_mesh%level(ilev)%dcorvg(3,i)
+
+ IF (Tracer%knpr(i).eq.1) THEN
+  
+   Tracer%val(NLMAX)%x(i)= myProcess%AirTemperature
+    
+ END IF
+
+END DO
+
+END SUBROUTINE Boundary_LinSc_Val_EWIKON
 !
 ! ----------------------------------------------
 !
@@ -415,6 +538,175 @@ integer :: iend
  CLOSE(1)
 
 END SUBROUTINE dump_LinScalar_in
+!
+! ----------------------------------------------
+!
+subroutine AddSource()
+
+return
+
+end subroutine AddSource
+!
+! ----------------------------------------------
+!
+subroutine AddSource_EWIKON()
+integer i,iSeg,iMat
+real*8 dSource
+
+!   ! Q_dot = [kW]
+!   ! rho   = [g/cm3]
+!   ! Cp    = [kJ/(kg*K)] = [J/(g*K)]
+!   ! V     = [cm3]
+!   
+!   ! q_dot         Q_dot                    kW                       1000 * J/s           1000 K
+!   !__________ =  ____________   =   [_______________________] = [ _______________ ] = [__________ ]
+!   ! rho * Cp     V * rho * Cp        cm3 * (g/cm3) * J/(g*K)           J/K                 s
+! 
+DO i=1,Tracer%ndof
+ iSeg = myHeatObjects%Segment(i)
+ if (iSeg.eq.0) then
+  iMat= 0
+ else
+  iMat = mySigma%mySegment(iSeg)%MatInd
+ end if
+ 
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE'.OR.TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'MELT') THEN
+  dSource = 1e3*mySigma%mySegment(iSeg)%HeatSource/(mySigma%mySegment(iSeg)%Volume*myMaterials(iMat)%cp*myMaterials(iMat)%Density)
+!   if (dSource.ne.0d0) write(*,*) dSource
+  Tracer%def(i) = Tracer%def(i) + MLmat(i)*dSource*tstep
+ END IF
+END DO
+
+! DO i=1,Tracer%ndof
+!  iSeg = myHeatObjects%Segment(i)
+!  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+!   Tracer%def(i) = Tracer%def(i) + MLmat(i)*mySigma%mySegment(iSeg)%HeatSource*tstep
+!  END IF
+! END DO
+
+
+END subroutine AddSource_EWIKON
+!
+! ----------------------------------------------
+!
+subroutine InitLinearOperators(mfile, mgMesh)
+use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+use var_QuadScalar, only : tMultiMesh
+
+implicit none
+
+integer, intent(in) :: mfile
+
+type(tMultiMesh), intent(inout) :: mgMesh
+
+myHeatObjects%Block = 0d0
+myHeatObjects%Wire  = 0d0
+myHeatObjects%Segment  = 0 ! Air
+call updateHeatGeometry(mfile)
+
+! call OperatorRegenaration(1)
+! call OperatorRegenaration(2)
+! call OperatorRegenaration(3)
+
+end subroutine InitLinearOperators
+!
+! ----------------------------------------------
+!
+SUBROUTINE updateHeatGeometry(mfile)
+use geometry_processing, only : calcDistanceFunction_heat, dEpsDist
+
+integer, intent(in) :: mfile
+
+integer :: i,j,ivt,iSeg,jSeg,iMat,ndof
+REAL*8 dAvgDiffCoeff
+real*8, allocatable :: volume(:)
+
+REAL :: tttt0,tttt1
+
+CALL myMPI_Barrier()
+CALL ZTIME(tttt0)
+
+if (myid.ne.0) then
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ QuadSc%AuxU = dEpsDist
+ QuadSc%AuxV = dEpsDist
+
+ !MixerKNPR(:) = 0
+
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
+  CALL calcDistanceFunction_heat(mg_mesh%level(ilev)%dcorvg,&
+                            mg_mesh%level(ilev)%kvert,&
+                            mg_mesh%level(ilev)%kedge,&
+                            mg_mesh%level(ilev)%karea,&
+                            mg_mesh%level(ilev)%nel,&
+                            mg_mesh%level(ilev)%nvt,&
+                            mg_mesh%level(ilev)%nat,&
+                            mg_mesh%level(ilev)%net,&
+                            QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+ END IF
+
+ CALL myMPI_Barrier()
+ CALL ZTIME(tttt1)
+ IF (myid.eq.1) WRITE(mterm,"(A,F6.1,A)") "Time used for FINE mesh distance estimation was: ", tttt1-tttt0, "s!"
+ IF (myid.eq.1) WRITE(mfile,"(A,F6.1,A)") "Time used for FINE mesh distance estimation was: ", tttt1-tttt0, "s!"
+
+ NLMAX=NLMAX+1
+ ILEV=NLMAX
+ ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net + mg_mesh%level(ilev)%nat
+
+ DO I=1,mg_mesh%level(ilev)%nel
+  
+  dAvgDiffCoeff = 0d0
+  do j=1,8
+   ivt = mg_mesh%level(ilev)%kvert(j,i)
+   iSeg = myHeatObjects%Segment(ivt)
+   if (iSeg.eq.0) then
+    iMat= 0
+   else
+    iMat = mySigma%mySegment(iSeg)%MatInd
+   end if
+   dAvgDiffCoeff = dAvgDiffCoeff + 0.125d0*myMaterials(iMat)%Alpha
+  end do
+  
+  mgDiffCoeff(ilev)%x(i) = dAvgDiffCoeff
+ END DO
+ !   
+ ! if (myid.eq.1) write(*,*) mgDiffCoeff(NLMAX)%x
+ ! Diffusion matrix 
+ CALL Create_DiffMat(mgDiffCoeff(NLMAX)%x)
+
+! Mass matrix
+ CALL Create_MassMat()
+
+! Mass Lumped matrix
+ CALL Create_LMassMat()
+
+ NLMAX = NLMAX - 1
+end if
+
+allocate(volume(0:mySigma%NumberOfSeg))
+
+if (myid.ne.0) then
+ DO jSeg=0,mySigma%NumberOfSeg
+  Volume(jSeg) = 0d0
+  DO i=1,Tracer%ndof
+   iSeg = myHeatObjects%Segment(i)
+   IF (iSeg.eq.jSeg) THEN
+    Volume(jSeg) = Volume(jSeg) + MLmat(i)
+   END IF
+  END DO
+ END DO
+end if
+
+CALL Comm_SummN(Volume,mySigma%NumberOfSeg+1)
+mySigma%mySegment(:)%Volume = Volume(1:mySigma%NumberOfSeg)
+if (myid.eq.1) write(*,'(A,10ES12.4)') "Volume of segments: ",Volume
+deallocate(volume)
+! pause
+
+END SUBROUTINE  updateHeatGeometry
 !
 ! ----------------------------------------------
 !

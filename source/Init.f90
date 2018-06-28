@@ -769,8 +769,14 @@ SUBROUTINE General_init(MDATA,MFILE)
       WRITE(mfile,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
       WRITE(mterm,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
 
-      WRITE(mfile,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
-      WRITE(mterm,'(A,I10)') "Number of Umbrella smoothening steps",nUmbrellaSteps
+      WRITE(mfile,'(A,I10)') "Number of Umbrella smoothening steps: ",nUmbrellaSteps
+      WRITE(mterm,'(A,I10)') "Number of Umbrella smoothening steps:",nUmbrellaSteps
+
+      WRITE(mfile,'(A,I10)') "Number of Umbrella Loops: ", nMainUmbrellaSteps
+      WRITE(mterm,'(A,I10)') "Number of Umbrella Loops: ", nMainUmbrellaSteps
+      
+      WRITE(mfile,'(A,10I10)') "Number of Umbrella steps per levels: ", nUmbrellaStepsLvl
+      WRITE(mterm,'(A,10I10)') "Number of Umbrella steps per levels: ", nUmbrellaStepsLvl
 
       IF (bNoOutflow) THEN 
         WRITE(mfile,'(A)') "Matrix modification is to be performed due to the NoOuflow Condition"

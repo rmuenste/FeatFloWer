@@ -822,4 +822,221 @@
     ! Clean up the parameterlist
     call inip_done(parameterlist)
 
-end Subroutine ReadS3Dfile
+    end Subroutine ReadS3Dfile
+!
+! ---------------------------------------------------------------------------------------------
+!
+    Subroutine ReadEWIKONfile(cE3Dfile)
+    use iniparser
+    use Sigma_User
+
+    use, intrinsic :: ieee_arithmetic
+
+    implicit none
+
+    character(len=*), intent(in) :: cE3Dfile
+    logical :: bReadError=.FALSE.
+    integer :: i,iSeg,iFile,iaux
+
+    real*8 :: myPI = dATAN(1d0)*4d0
+    character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit
+    
+    integer :: unitProtfile = -1 ! I guess you use mfile here
+    integer :: unitTerminal = 6 ! I guess you use mterm here
+
+    type(t_parlist) :: parameterlist
+
+    real*8 :: myInf,dSizeScale
+    integer iMat
+
+    if(ieee_support_inf(myInf))then
+      myInf = ieee_value(myInf, ieee_negative_inf)
+    endif
+
+
+    call inip_output_init(myid,showid,unitProtfile,unitTerminal)
+
+    ! Init the parameterlist
+    call inip_init(parameterlist)
+
+!     READ (myFile,*) myProcess%Angle,myProcess%Phase
+
+    call inip_readfromfile(parameterlist,ADJUSTL(TRIM(cE3Dfile)))
+
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
+    call inip_toupper_replace(cUnit)
+    IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+      WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+      cUnit = 'CM'
+    END IF
+    if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
+    if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
+    if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
+    if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+    
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'HEAT')
+    call inip_toupper_replace(mySigma%cType)
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT")) THEN
+     WRITE(*,*) "not a valid Machine type:", ADJUSTL(TRIM(mySigma%cType))
+    END IF
+
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
+    mySigma%Dz_out = dSizeScale*mySigma%Dz_out
+    DistTolerance = 1d0*mySigma%Dz_Out
+
+    call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
+
+    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.29) THEN
+     ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
+    ELSE
+     WRITE(*,*) "not a valid number of segments"
+     WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
+    ENDIF
+
+    DO iSeg=1,mySigma%NumberOfSeg
+     WRITE(cElement_i,'(A,I1.1)') 'E3DGeometryData/Machine/Element_',iSeg
+
+     call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
+     call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
+     IF (.NOT.(TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE'.OR.TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'BLOCK'.OR.&
+               TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'MELT')) THEN
+       WRITE(*,*) "STL object type is invalid. Only BLOCK, MELT or WIRE types are allowed: '"//TRIM(mySigma%mySegment(iSeg)%ObjectType)//"'"
+     END IF
+
+     call INIP_getvalue_int(parameterlist,cElement_i,"MaterialIndex", mySigma%mySegment(iSeg)%MatInd ,0)
+     
+     call INIP_getvalue_double(parameterlist,cElement_i,"InitialTemperature", mySigma%mySegment(iSeg)%InitTemp ,0d0)
+
+     call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSource", mySigma%mySegment(iSeg)%HeatSource ,0d0)
+
+     call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
+     call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
+     IF (.NOT.(mySigma%mySegment(iSeg)%Unit.eq.'MM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'CM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'DM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'M')) THEN
+       WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed",mySigma%mySegment(iSeg)%Unit
+       mySigma%mySegment(iSeg)%Unit = 'CM'
+     END IF
+     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
+     if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
+     if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
+     if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+      
+     call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
+     mySigma%mySegment(iSeg)%ART = ' '
+     call inip_toupper_replace(cElemType)
+
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."STL") THEN
+      mySigma%mySegment(iSeg)%ART   = "STL"
+
+      mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
+      IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
+       ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
+      ELSE
+       WRITE(*,*) "STL geometry dscription files are missing"
+       WRITE(*,*) 'screwOFF'
+       bReadError=.TRUE.
+       !GOTO 10
+      END IF
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+        call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
+      end do
+     END IF
+     IF (mySigma%mySegment(iSeg)%ART.eq.' ') THEN
+      WRITE(*,*) "not a valid ",iSeg, "-segment"
+      WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
+      bReadError=.TRUE.
+      !GOTO 10
+     ENDIF
+    END DO
+
+    call INIP_getvalue_int(parameterlist,"E3DMaterialParameters","NoOfMaterials", mySigma%NumberOfMat ,0)
+    IF (mySigma%NumberOfMat.ge.1.and.mySigma%NumberOfMat.le.29) THEN
+     ALLOCATE (myMaterials(0:mySigma%NumberOfMat-1))
+    ELSE
+     WRITE(*,*) "not a valid number of materials"
+     WRITE(*,*) '"',mySigma%NumberOfMat,'"'
+    ENDIF
+    
+    DO iMat=0,mySigma%NumberOfMat-1
+      WRITE(cElement_i,'(A,I1.1)') 'E3DMaterialParameters/Mat_',iMat
+      call INIP_getvalue_double(parameterlist,cElement_i,"HeatConductivity",myMaterials(iMat)%lambda,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"HeatConductivitySlope",myMaterials(iMat)%lambdaSteig,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"HeatCapacity",myMaterials(iMat)%cp,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"HeatCapacitySlope",myMaterials(iMat)%CpSteig,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Density",myMaterials(iMat)%Density,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"DensitySlope",myMaterials(iMat)%DensitySteig,myInf)
+!     myThermodyn%Alpha     = (1e6*myThermodyn%lambda)/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
+!     myThermodyn%Beta      = 1d1 ! !myProcess%Cnst_Lam/(myProcess%Cnst_Dens*myProcess%Cnst_Cp)
+!     myThermodyn%Gamma     = 1d0/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
+      myMaterials(iMat)%Alpha = (1e5*myMaterials(iMat)%lambda)/((1e0*myMaterials(iMat)%Density)*(myMaterials(iMat)%Cp*1e7))
+    END DO
+    
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AirTemperature", myProcess%AirTemperature ,0d0)
+
+    IF (myid.eq.1.or.subnodes.eq.0) then
+    write(*,*) "=========================================================================="
+    write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
+    write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
+    write(*,*) "mySigma%NumberOfSeg",'=',mySigma%NumberOfSeg
+    write(*,*) "mySigma%NumberOfMat",'=',mySigma%NumberOfMat
+    
+    write(*,*) 
+    DO iSeg=1,mySigma%NumberOfSeg
+     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
+     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
+     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
+     write(*,'(A,I1.1,A,I)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
+     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%InitialTemperature=',mySigma%mySegment(iSeg)%InitTemp
+     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSource=',mySigma%mySegment(iSeg)%HeatSource
+     
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
+      END DO
+     END IF
+     write(*,*) 
+    END DO    
+
+    write(*,*) 
+    DO iMat=0,mySigma%NumberOfMat-1
+     write(*,'(A,I2.2,A)') "Material(",iMat,') properties:'
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatConductivity(",iMat,')=',myMaterials(iMat)%lambda
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatConductivitySlope(",iMat,')=',myMaterials(iMat)%lambdaSteig
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatCapacity(",iMat,')=',myMaterials(iMat)%cp
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatCapacitySlope(",iMat,')=',myMaterials(iMat)%cpSteig
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%Density(",iMat,')=',myMaterials(iMat)%density
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%DensitySlope(",iMat,')=',myMaterials(iMat)%densitySteig
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%ALPHA(",iMat,')=',myMaterials(iMat)%Alpha
+     write(*,'(A)') 
+    END DO
+    write(*,*) 
+    write(*,'(A,ES12.4)') "myProcess%AirTemperature=",myProcess%AirTemperature 
+    write(*,*) "=========================================================================="
+    END IF
+! 
+
+!     myThermodyn%Alpha     = (1e6*myThermodyn%lambda)/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
+!     myThermodyn%Beta      = 1d1 ! !myProcess%Cnst_Lam/(myProcess%Cnst_Dens*myProcess%Cnst_Cp)
+!     myThermodyn%Gamma     = 1d0/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
+! 
+!     IF (myid.eq.1) then
+!      WRITE(*,*) 
+!      WRITE(*,*) 'myThermodyn%Alpha = ', myThermodyn%Alpha
+!      WRITE(*,*) 'myThermodyn%Beta = ',  myThermodyn%Beta
+!      WRITE(*,*) 'myThermodyn%Gamma = ', myThermodyn%Gamma
+!     end if
+! 
+    10  CONTINUE
+
+!    ! Make some output on the terminal
+!     call inip_info(parameterlist)
+
+!     ! Write it into a file
+!      call inip_dumpToFile(parameterlist,"test_dump_parlst.dat",INIP_REPLACE)
+
+    ! Clean up the parameterlist
+    call inip_done(parameterlist)
+
+    end Subroutine ReadEWIKONfile

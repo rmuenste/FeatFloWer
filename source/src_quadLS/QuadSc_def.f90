@@ -3364,6 +3364,9 @@ SUBROUTINE ResetTimer()
  myStat%tProlP=0d0
  myStat%tSmthP=0d0
  myStat%tSolvP=0d0
+ myStat%tCommP=0d0
+ myStat%tCommV=0d0
+ myStat%tCommS=0d0
 
 END SUBROUTINE ResetTimer
 

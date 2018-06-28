@@ -1,39 +1,43 @@
 subroutine init_q2p1_ext(log_unit)
     
+!
+!-------------------------------------------------------------------------------------------------
+! Default routine to initialize a q2p1 application 
+!-------------------------------------------------------------------------------------------------
+! @param log_unit An integer unit for the log/protocol file
   USE def_FEAT
   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
-    InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+    InitCond_QuadScalar,ProlongateSolution, InitMeshDeform, &
+    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
+    LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
-    Transport_LinScalar
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_GeneralLinScalar,InitLinearOperators, &
+    Transport_LinScalar,InitHeatObjects,LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File
+  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
 
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  CALL General_init_ext(79,log_unit)
+  call General_init_ext(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(log_unit)
+  call Init_QuadScalar_Stuctures(log_unit)
 
-  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
+  CALL Init_LinScalar(log_unit)
 
-  CALL Init_LinScalar
-
-  CALL InitCond_LinScalar()
-  
   ! Normal start from inital configuration
   if (istart.eq.0) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitCond_QuadScalar()
-    IF(bViscoElastic)call IniProf_ViscoScalar()
+    call InitHeatObjects()
+    call InitMeshDeform(log_unit, mg_mesh)
+    call InitLinearOperators(log_unit, mg_mesh)
+    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
 
   ! Start from a solution on the same lvl
   ! with the same number of partitions
@@ -58,7 +62,7 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
-  end if  
+  end if
 
 end subroutine init_q2p1_ext
 !
@@ -108,7 +112,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
-
+ logical            :: I_EXIST
 
  CALL ZTIME(TTT0)
 
@@ -307,6 +311,13 @@ DO ILEV=NLMIN+1,NLMAX
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
+ INQUIRE (FILE='_data/heat.s3d', EXIST=I_EXIST)
+ if (I_EXIST) then
+!   CALL ReadS3Dfile('_data/heat.s3d')
+  CALL ReadEWIKONfile('_data/heat.s3d')
+  call Setup_STL_Segments()
+ end if
+
  ILEV=NLMIN
  CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)
 
@@ -465,3 +476,38 @@ END IF
  RETURN
 
 END SUBROUTINE General_init_ext
+!
+!-----------------------------------------------------------------------
+!
+SUBROUTINE Setup_STL_Segments()
+USE PP3D_MPI
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,DistTolerance,myOutput
+use geometry_processing, only: dEpsDist
+implicit none
+INTEGER iSeg,iFile,NumberOfSTLDescription
+
+    NumberOfSTLDescription = 0
+    DO iSeg=1,mySigma%NumberOfSeg
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgal(mySigma%mySegment(iSeg)%nOFFfiles))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
+      END DO
+     END IF
+    END DO
+
+    IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
+    IF (myid.eq.1) write(633,'(I0)') NumberOfSTLDescription
+    DO iSeg=1,mySigma%NumberOfSeg
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
+      END DO
+     END IF
+    END DO
+    IF (myid.eq.1) CLOSE(633)
+    
+    dEpsDist = 0.20d0*mySigma%Dz_Out
+    
+END SUBROUTINE Setup_STL_Segments

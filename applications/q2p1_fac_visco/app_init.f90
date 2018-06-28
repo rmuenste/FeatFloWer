@@ -25,7 +25,7 @@ subroutine init_q2p1_ext(log_unit)
 
   IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
 
-  CALL Init_LinScalar
+  CALL Init_LinScalar(log_unit)
 
   CALL InitCond_LinScalar()
 
