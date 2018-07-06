@@ -50,59 +50,76 @@ def get_log_entry(file_name, var_name):
   else :
     return 0
 
-###################################################################      
+#===============================================================================
+#                              Main function
+#===============================================================================
+def main():
+  try:
+      opts, args = getopt.getopt(sys.argv[1:], 'n:p:h', ['num-processors=', 'params=', 'help'])
+  except getopt.GetoptError:
+      usage()
+      sys.exit(2)
+  
+  params=''
 
-# Script begin
+  numProcessors=16
+  
+  for opt, arg in opts:
+      if opt in ('-h', '--help'):
+          usage()
+          sys.exit(2)
+      elif opt in ('-n', '--num-processors'):
+          numProcessors = int(arg)
+      elif opt in ('-p', '--params'):
+          params = arg
+      else:
+          usage()
+          sys.exit(2)
+  
+  if params != '':
+      print("Parameter params = " + params)
+  
+  print("Platform machine: " + platform.machine())
+  print("Platform system: " + platform.system())
+  print("System path: " + str(sys.path))
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'm:p:h', ['miner=', 'params=', 'help'])
-except getopt.GetoptError:
+
+  if numProcessors == 0:
+    print("Number of processors is 0")
     usage()
     sys.exit(2)
+  
+  rows_array = [] 
+  
+  partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
+  for l in range(2,4):
+    moveAndSetLevel("_adc/ViscoHex2/q2p1_param_visco_2D.dat", "_data/q2p1_param.dat",l)
+    subprocess.call(['mpirun -np %i ./q2p1_fac_visco' %numProcessors],shell=True)
+    force = get_log_entry("_data/prot.txt", "TimevsForce")
+    print(str(force))
+    force = force.split()
+    timeEntry = get_log_entry("_data/Statistics.txt", " Overall time")
+    timeEntry = timeEntry.split()
+    rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]}, {"v": timeEntry[0][:-3]} ] })
+    
+  
+  d = {
+   "benchName" : "VISCO-FAS", 
+   "tableCaption" : "Visco-Elastic Flow Around A Cylinder", 
+   "style" : "Table",
+   "data" : {
+     "cols": [
+     {"label" : "Level", "type" : "number"},
+     {"label" : "Drag", "type" : "number"},
+     {"label" : "Lift", "type" : "number"},
+     {"label" : "Time[s]", "type" : "number"}
+     ],
+     "rows" : rows_array
+   }
+  }
+  
+  with open('../../note_single_visco_fac2D-bench.json','w') as f:
+    f.write(json.dumps(d) + '\n')
 
-params=''
-miner_name=''
-
-for opt, arg in opts:
-    if opt in ('-h', '--help'):
-        usage()
-        sys.exit(2)
-    elif opt in ('-m', '--miner'):
-        miner_name = arg
-    elif opt in ('-p', '--params'):
-        params = arg
-    else:
-        usage()
-        sys.exit(2)
-
-if params != '':
-    print("Parameter params = " + params)
-
-rows_array = [] 
-
-for l in range(2,4):
-  moveAndSetLevel("_adc/ViscoHex2/q2p1_param_visco_2D.dat", "_data/q2p1_param.dat",l)
-  partitioner.partition(4, 1, 1, "NEWFAC", "_adc/ViscoHex2/aaa.prj")
-  subprocess.call(['mpirun -np 5 ./q2p1_fac_visco'],shell=True)
-  force = get_log_entry("_data/prot.txt", "TimevsForce")
-  print(str(force))
-  force = force.split()
-  rows_array.append({"c": [{"v" : l}, {"v" : force[3]}, {"v": 0} ] })
-
-d = {
- "benchName" : "VISCO-FAS", 
- "tableCaption" : "Visco-Elastic Flow Around A Cylinder", 
- "style" : "Table",
- "data" : {
-   "cols": [
-   {"label" : "Level", "type" : "number"},
-   {"label" : "Drag", "type" : "number"},
-   {"label" : "Lift", "type" : "number"}
-   ],
-   "rows" : rows_array
- }
-}
-
-with open('../../note_single_visco_fac2D-bench.json','w') as f:
-  f.write(json.dumps(d) + '\n')
-
+if __name__ == "__main__":
+  main()

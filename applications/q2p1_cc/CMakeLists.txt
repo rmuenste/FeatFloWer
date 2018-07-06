@@ -62,9 +62,10 @@ ENDIF()
 
 file(COPY q2p1_cc.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-set(NPROCS 16)
+set(NPROCS 0)
 if(NOT $ENV{NUM_PROCS} STREQUAL "")
   set(NPROCS $ENV{NUM_PROCS})
 endif(NOT $ENV{NUM_PROCS} STREQUAL "")
 
-add_test(q2p1-fac3D python ./q2p1_cc.py -n ${NPROCS})
+#add_test(q2p1-fac3D python ./q2p1_cc.py -n ${NPROCS})
+add_test(q2p1-fac3D-CC python ./q2p1_cc.py -n ${PROCS})

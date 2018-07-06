@@ -102,10 +102,13 @@ def main():
   print("Platform system: " + platform.system())
   print("System path: " + str(sys.path))
 
+
   if numProcessors == 0:
     print("Number of processors is 0")
     usage()
     sys.exit(2)
+
+  print("Starting CC Test with %i processors." %numProcessors)
   
   rows_array = [] 
   
@@ -115,7 +118,9 @@ def main():
     subprocess.call(['mpirun -np %i ./q2p1_cc' %numProcessors],shell=True)
     force = get_log_entry("_data/prot.txt", "BenchForce:")
     force = force.split()
-    rows_array.append({"c": [{"v" : l}, {"v" : force[0]}, {"v": force[1]} ] })
+    timeEntry = get_log_entry("_data/Statistics.txt", " Overall time")
+    timeEntry = timeEntry.split()
+    rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]}, {"v": timeEntry[0][:-3]} ] })
   
   d = {
    "benchName" : "CC3DSTAT", 
@@ -125,7 +130,8 @@ def main():
      "cols": [
      {"label" : "Level", "type" : "number"},
      {"label" : "Drag", "type" : "number"},
-     {"label" : "Lift", "type" : "number"}
+     {"label" : "Lift", "type" : "number"},
+     {"label" : "Time[s]", "type" : "number"}
      ],
      "rows" : rows_array
    }
