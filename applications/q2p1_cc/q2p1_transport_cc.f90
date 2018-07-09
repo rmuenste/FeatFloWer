@@ -814,8 +814,8 @@ EXTERNAL E013
   write(mfile,'(A,8E16.8)') "Force acting:",timens,Force
   write(mterm,'(A,8E16.8)') "Force acting:",timens,Force
   WRITE(mfile,'(8G16.8)') Timens,Force
-  write(mfile,'(A,2E16.8)') "BenchForce:",Force(1),Force(4)
-  write(mterm,'(A,2E16.8)') "BenchForce:",Force(1),Force(4)
+  write(mfile,'(A,3E16.8)') "BenchForce:",timens,Force(1),Force(4)
+  write(mterm,'(A,3E16.8)') "BenchForce:",timens,Force(1),Force(4)
  END IF
 
 5  FORMAT(104('-'))

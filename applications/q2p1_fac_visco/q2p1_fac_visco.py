@@ -100,7 +100,7 @@ def main():
     force = force.split()
     timeEntry = get_log_entry("_data/Statistics.txt", " Overall time")
     timeEntry = timeEntry.split()
-    rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]}, {"v": timeEntry[0][:-3]} ] })
+    rows_array.append({"c": [{"v" : l}, {"v" : force[3]}, {"v": 0}, {"v": timeEntry[0][:-3]} ] })
     
   
   d = {
