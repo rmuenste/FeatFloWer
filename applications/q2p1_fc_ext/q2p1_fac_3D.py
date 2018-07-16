@@ -90,9 +90,9 @@ def main():
   
   rows_array = [] 
 
-  partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_adc/FAC3Ds/fac3D_nonstat.prj")
+  partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_adc/FAC3Ds/fac3D_statRe20.prj")
   for l in range(2,4):
-    moveAndSetLevel("_adc/FAC3Ds/q2p1_param_nonstat.dat", "_data/q2p1_param.dat",l)
+    moveAndSetLevel("_adc/FAC3Ds/q2p1_param_stat.dat", "_data/q2p1_param.dat",l)
     subprocess.call(['mpirun -np %i ./q2p1_fc_ext' %numProcessors],shell=True)
     force = get_log_entry("_data/prot.txt", "BenchForce:")
     force = force.split()
