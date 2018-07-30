@@ -44,10 +44,10 @@ def writeTriFile(hexMesh, fileName):
                        int(h.nodeIds[4]), int(h.nodeIds[5]),
                        int(h.nodeIds[6]), int(h.nodeIds[7]))
 
-            f.write('%i %i %i %i %i %i %i %i\n' % (indices[0], indices[1],
-                                                   indices[2], indices[3],
-                                                   indices[4], indices[5],
-                                                   indices[6], indices[7]))
+            f.write('%i %i %i %i %i %i %i %i\n' % (indices[0]+1, indices[1]+1,
+                                                   indices[2]+1, indices[3]+1,
+                                                   indices[4]+1, indices[5]+1,
+                                                   indices[6]+1, indices[7]+1))
 
         f.write("KNPR\n")
         for n in hexMesh.nodes:
