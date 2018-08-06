@@ -161,31 +161,6 @@ end subroutine postprocessing_fc_ext
 !
 ! ----------------------------------------------
 !
-subroutine handle_statistics(dttt0, istepns)
-
-include 'defs_include.h'
-
-implicit none
-
-real, intent(inout) :: dttt0
-integer, intent(inout) :: istepns
-real :: dttx = 0.0
-
-! Statistics reset
-IF (istepns.eq.1) THEN
-  CALL ResetTimer()
-  CALL ZTIME(dttt0)
-END IF
-
-IF (MOD(istepns,10).EQ.5) THEN
-  CALL ZTIME(dttx)
-  CALL StatOut(dttx-dttt0,0)
-END IF
-
-end subroutine handle_statistics
-!
-! ----------------------------------------------
-!
 subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile)
 
 include 'defs_include.h'
@@ -252,7 +227,7 @@ ds = DBLE(subnodes)
 
 IF (myid.eq.showid) THEN
 
-      IF (myOutFile.eq.0) THEN
+      IF (myOutFile.ne.6) THEN
        myFile = 669
        OPEN (UNIT=myFile, FILE='_data/Statistics.txt',action='write',iostat=istat)
        if(istat .ne. 0)then
@@ -266,7 +241,7 @@ IF (myid.eq.showid) THEN
       daux = myStat%tKMat+myStat%tDMat+myStat%tMMat+myStat%tCMat+myStat%tSMat
       daux1 = myStat%tGMVOut +myStat%tDumpOut
       WRITE(myFile,*) 
-      WRITE(myFile,8) " Overall time            ",time_passed
+      WRITE(myFile,9) "Overall time           ",time_passed,time_passed*ds
       WRITE(myFile,*)  
       WRITE(myFile,8) " Solving time            ",time_passed-daux-daux1
       WRITE(myFile,*) 
@@ -281,13 +256,14 @@ IF (myid.eq.showid) THEN
       WRITE(myFile,8) "  VTK/GMV Output time    ",myStat%tGMVOut
       WRITE(myFile,8) "  Dump Output time       ",myStat%tDumpOut
 
-      IF (myOutFile.eq.0) THEN
+      IF (myOutFile.ne.6) THEN
        CLOSE (myFile)
       END IF
 
 END IF
 
 8  FORMAT(A24,' : ',F12.4,'s')
+9  FORMAT(A24,' : ',F12.4,'s |',F12.4,'s')
 
 END SUBROUTINE myStatOut
 !
@@ -316,8 +292,8 @@ CALL ZTIME(time)
 
 time_passed = time - dttt0
 CALL Barrier_myMPI()
-CALL myStatOut(time_passed,filehandle)
 
+CALL myStatOut(time_passed,filehandle)
 CALL myStatOut(time_passed,terminal)
 
 

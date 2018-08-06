@@ -51,8 +51,6 @@ PROGRAM Q2P1_CC
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile)
 
-  !call handle_statistics(tt0,itns)
-
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 
