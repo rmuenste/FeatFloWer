@@ -811,7 +811,6 @@
      write(*,*) "myProcess%NoOutFlow",'=',bNoOutFlow
      write(*,*) "=========================================================================="
     END IF
-    10  CONTINUE
 
 !    ! Make some output on the terminal
 !     call inip_info(parameterlist)
