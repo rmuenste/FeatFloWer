@@ -9,7 +9,7 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,GetMixerKnpr
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension

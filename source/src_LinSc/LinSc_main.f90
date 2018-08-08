@@ -17,6 +17,8 @@ TYPE(lScalar3) Tracer3
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 
+REAL*8 dArea,dFlux
+
 include 'LinSc_user_include.h'
 
 ! The handler function for the initial condition
@@ -169,7 +171,7 @@ IF (myid.ne.master) THEN
  CALL Create_LKonvMat()
 
 ! Diffusion matrix 
- CALL Create_DiffMat(mgDiffCoeff(NLMAX)%x)
+ CALL Create_ConstDiffMat()
 
 ! Iteration matrix (only allocation)
  CALL Create_AMat()
@@ -184,13 +186,13 @@ END IF
 
 
 Tracer%cName        = "Tracer"
-Tracer%prm%SolvIter = 1
+Tracer%prm%SolvIter = 4
 Tracer%prm%AFC      = .TRUE.
 Tracer%prm%NLmin    = 2
-Tracer%prm%NLmax    =20
-Tracer%prm%defCrit  =1d-6
+Tracer%prm%NLmax    = 8
+Tracer%prm%defCrit  =1d-4
 Tracer%prm%epsCrit  =1d-3
-Tracer%prm%MinDef   =1d-16
+Tracer%prm%MinDef   =1d-10
 Tracer%prm%SolvType =1
 
 NLMAX = NLMAX - 1
@@ -262,8 +264,11 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
  Tracer%knpr(I) = 0
 
- IF (myBoundary%iTemperature(i).GT.0) THEN
+ IF (myBoundary%iTemperature(i).EQ.1) THEN
   Tracer%knpr(I) = myBoundary%iTemperature(i)
+ END IF
+ IF (myBoundary%iTemperature(i).EQ.2) THEN
+
  END IF
 
 END DO
@@ -499,10 +504,6 @@ if (myid.ne.0) then
   
   mgDiffCoeff(ilev)%x(i) = dAvgDiffCoeff
  END DO
- !   
- ! if (myid.eq.1) write(*,*) mgDiffCoeff(NLMAX)%x
- ! Diffusion matrix 
- CALL Create_DiffMat(mgDiffCoeff(NLMAX)%x)
 
 ! Mass matrix
  CALL Create_MassMat()
@@ -532,6 +533,25 @@ mySigma%mySegment(:)%Volume = Volume(1:mySigma%NumberOfSeg)
 if (myid.eq.1) write(*,'(A,10ES12.4)') "Volume of segments: ",Volume
 deallocate(volume)
 ! pause
+
+if (myid.ne.0) then
+
+ NLMAX=NLMAX+1
+ 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Diffusion matrix 
+ CALL Create_LambdaDiffMat()
+
+ ! Mass matrix
+ CALL Create_CpRhoMassMat()
+
+! Mass Lumped matrix
+ CALL Create_LRhoCpMassMat()
+
+ NLMAX = NLMAX - 1
+end if
 
 END SUBROUTINE  updateHeatGeometry
 !

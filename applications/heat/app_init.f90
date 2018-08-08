@@ -168,6 +168,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL Init_QuadScalar(mfile)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  CALL Init_Die_Handlers()
+ INQUIRE (FILE='_data/heat.s3d', EXIST=I_EXIST)
+ if (I_EXIST) then
+!   CALL ReadS3Dfile('_data/heat.s3d')
+  CALL ReadEWIKONfile('_data/heat.s3d')
+  call Setup_STL_Segments()
+ end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
@@ -310,13 +316,6 @@ DO ILEV=NLMIN+1,NLMAX
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
-
- INQUIRE (FILE='_data/heat.s3d', EXIST=I_EXIST)
- if (I_EXIST) then
-!   CALL ReadS3Dfile('_data/heat.s3d')
-  CALL ReadEWIKONfile('_data/heat.s3d')
-  call Setup_STL_Segments()
- end if
 
  ILEV=NLMIN
  CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)

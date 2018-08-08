@@ -295,6 +295,9 @@ module umbrella_smoother
   real*8 f1,f2,f3
   real*8 dScaleFactor
   integer iaux
+  !!!!!!!!!!!!!!!!!!!!!!!
+  real*8 cpx,cpy,cpz,d_temp
+  integer ipc
   
   
   IF (iSwitch.EQ.0) THEN
@@ -307,6 +310,7 @@ module umbrella_smoother
    d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
   END IF
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+!    call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
    CALL Shell_dist(x,y,z,d1)
   END IF
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN

@@ -47,7 +47,7 @@ TYPE tProcess
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AirTemperature
+   REAL*8 :: AirTemperature,HeatTransferCoeff
 END TYPE tProcess
 
 TYPE(tProcess) :: myProcess
@@ -103,72 +103,33 @@ CONTAINS
 !
 !********************GEOMETRY****************************
 !
-SUBROUTINE DistanceToScrewShell(X,Y,Z,d1,d2,d3,t)
-REAL*8 X,Y,Z,t,d1,d2,d3
-REAL*8 dSeg1,dSeg2,tt
-INTEGER k,iaux
-
-d1 = 1d-1*DistTolerance
-d2 = 1d-1*DistTolerance
-tt = t
-
-!----------------------------------------------------------
-DO k=1, mySigma%NumberOfSeg
- IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
- IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
- IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
- IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
- IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
- d1 = MIN(dSeg1,d1)
- d2 = MIN(dSeg2,d2)
-END DO
-!-------------------------------------------------------
-
-CALL Shell_dist(X,Y,Z,d3)
-
-return
-
-END SUBROUTINE DistanceToScrewShell
-!
-!********************GEOMETRY****************************
-!
-SUBROUTINE GetMixerKnpr(X,Y,Z,inpr,D1,D2,t)
-IMPLICIT NONE
-REAL*8 X,Y,Z,t,d1,d2
-REAL*8 :: dKnetMin,dKnetMax
-INTEGER :: inpr, l, k, nmbr,lKnet
-REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
-REAL*8 :: dBeta,XTT,YTT,ZTT,dist
-REAL*8 dScale, dist1, dist2,dEps,dCut
-REAL*8 dSeg1,dSeg2,tt
-REAL*8 myPI
-
-dEps = mySigma%a/1d5
-
-myPI = dATAN(1d0)*4d0
-
-D1 = DistTolerance
-D2 = DistTolerance
-inpr = 0
-
-tt = t 
-!----------------------------------------------------------
-DO k=1, mySigma%NumberOfSeg
-!  IF (mySigma%mySegment(k)%ART.EQ.'STL' )  CALL STL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- D1 = max(-DistTolerance,min(dSeg1,D1))
- D2 = max(-DistTolerance,min(dSeg2,D2))
-END DO
-!-------------------------------------------------------
-
-return
-
-END SUBROUTINE GetMixerKnpr
-!
+! SUBROUTINE DistanceToScrewShell(X,Y,Z,d1,d2,d3,t)
+! REAL*8 X,Y,Z,t,d1,d2,d3
+! REAL*8 dSeg1,dSeg2,tt
+! INTEGER k,iaux
+! 
+! d1 = 1d-1*DistTolerance
+! d2 = 1d-1*DistTolerance
+! tt = t
+! 
+! !----------------------------------------------------------
+! DO k=1, mySigma%NumberOfSeg
+!  IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
+!  IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
+!  IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
+!  IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
+!  IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,iaux)
+!  d1 = MIN(dSeg1,d1)
+!  d2 = MIN(dSeg2,d2)
+! END DO
+! !-------------------------------------------------------
+! 
+! CALL Shell_dist(X,Y,Z,d3)
+! 
+! return
+! 
+! END SUBROUTINE DistanceToScrewShell
+! !
 !********************GEOMETRY****************************
 !
 SUBROUTINE Shell_dist(X,Y,Z,d)
@@ -637,58 +598,6 @@ IF (dist2.LT.0d0) THEN
 END IF
 
 END SUBROUTINE SME_elem
-!
-!********************GEOMETRY****************************
-!
-! SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d1,d2,inpr)
-! IMPLICIT NONE
-! INTEGER inpr
-! REAL*8 X,Y,Z,d1,d2
-! REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB
-! REAL*8 t,myPI
-! INTEGER iSTL,iSeg
-! 
-! ! d1 = 5d0
-! ! d2 = 5d0
-! 
-! t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
-! 
-! myPI = dATAN(1d0)*4d0
-! iSTL = 2
-! 
-! XB = X
-! YB = Y-mySigma%a/2d0
-! ZB = Z
-! 
-! ! First the point needs to be transformed back to time = 0
-! dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-! XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-! YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-! ZT = ZB
-! 
-! CALL GetDistToSTL(XT,YT,ZT,iSTL,d1,.TRUE.)
-! 
-! d1 = max(-DistTolerance,min(DistTolerance,d1))
-! if (d1.lt.0d0) inpr = 101
-! 
-! iSTL = 1
-! 
-! XB = X
-! YB = Y+mySigma%a/2d0
-! ZB = Z
-! 
-! ! First the point needs to be transformed back to time = 0
-! dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-! XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-! YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-! ZT = ZB
-! 
-! CALL GetDistToSTL(XT,YT,ZT,iSTL,d2,.TRUE.)
-! d2 = max(-DistTolerance,min(DistTolerance,d2))
-! if (d2.lt.0d0) inpr = 102
-! 
-! 
-! END SUBROUTINE STL_elem
 !
 !********************GEOMETRY****************************
 !

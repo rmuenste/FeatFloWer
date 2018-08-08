@@ -346,7 +346,7 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
       mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
       
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
       mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
       
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
@@ -972,6 +972,7 @@
     END DO
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AirTemperature", myProcess%AirTemperature ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HeatTransferCoeff", myProcess%HeatTransferCoeff ,0d0)
 
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
@@ -1012,6 +1013,7 @@
     END DO
     write(*,*) 
     write(*,'(A,ES12.4)') "myProcess%AirTemperature=",myProcess%AirTemperature 
+    write(*,'(A,ES12.4)') "myProcess%HeatTransferCoeff=", myProcess%HeatTransferCoeff    
     write(*,*) "=========================================================================="
     END IF
 ! 

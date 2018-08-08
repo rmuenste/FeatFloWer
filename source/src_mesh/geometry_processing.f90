@@ -1,5 +1,7 @@
 module geometry_processing
-  use Sigma_User, only: mySigma, myProcess,GetMixerKnpr
+  use Sigma_User, only: mySigma, myProcess,KNET_elem,SKNET_elem,&
+  FOERD_elem, SME_elem, ZME_elem , DistTolerance
+ 
   use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects
   !------------------------------------------------------------------------------------------------
   ! A module for functions that perform operations on the 
@@ -102,6 +104,137 @@ end do
 ! if (myid.eq.2) WRITE(*,*) dcorvg(:,17146),Distamce(17146),nvt+net+nat
 
 END SUBROUTINE QuadScalar_MixerKnpr
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE GetMixerKnpr(X,Y,Z,inpr,D1,D2,t)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t,d1,d2
+REAL*8 :: dKnetMin,dKnetMax
+INTEGER :: inpr, l, k, nmbr,lKnet
+REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
+REAL*8 :: dBeta,XTT,YTT,ZTT,dist
+REAL*8 dScale, dist1, dist2,dEps,dCut
+REAL*8 dSeg1,dSeg2,tt
+REAL*8 myPI
+
+dEps = mySigma%a/1d5
+
+myPI = dATAN(1d0)*4d0
+
+D1 = DistTolerance
+D2 = DistTolerance
+inpr = 0
+
+tt = t 
+!----------------------------------------------------------
+DO k=1, mySigma%NumberOfSeg
+ IF (mySigma%mySegment(k)%ART.EQ.'STL' )  CALL STL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ D1 = max(-DistTolerance,min(dSeg1,D1))
+ D2 = max(-DistTolerance,min(dSeg2,D2))
+END DO
+!-------------------------------------------------------
+
+return
+
+END SUBROUTINE GetMixerKnpr
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d1,d2,inpr)
+IMPLICIT NONE
+INTEGER inpr
+REAL*8 X,Y,Z,d1,d2
+REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
+REAL*8 t,myPI,dUnitScale
+INTEGER iSTL,iSeg,iFile
+
+! d1 = 5d0
+! d2 = 5d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
+IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'DM') dUnitScale = 1d-1
+
+t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+
+myPI = dATAN(1d0)*4d0
+
+CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+
+! XB = X
+! YB = Y-mySigma%a/2d0
+! ZB = Z
+
+! First the point needs to be transformed back to time = 0
+dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 1d0*myPI/2d0)*myProcess%ind
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+XT_STL = dUnitScale*XT
+YT_STL = dUnitScale*YT
+ZT_STL = dUnitScale*ZT
+
+DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+ iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+ CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
+ d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
+END DO
+
+if (d1.lt.0d0) inpr = 101
+
+! XB = X
+! YB = Y+mySigma%a/2d0
+! ZB = Z
+CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+
+! First the point needs to be transformed back to time = 0
+dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+XT_STL = dUnitScale*XT
+YT_STL = dUnitScale*YT
+ZT_STL = dUnitScale*ZT
+
+DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+ iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+ CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
+ d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
+END DO
+
+if (d2.lt.0d0) inpr = 102
+
+
+END SUBROUTINE STL_elem
+!
+!
+!
+SUBROUTINE TransformPointToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
+REAL*8 x1,y1,z1,x2,y2,z2,dS
+REAL*8 :: dAlpha=0.9d0*datan(1d0)/45d0, RotCenter = 501.82d0
+REAL*8 xb,yb,zb,xt,yt,zt
+
+XB = x1
+YB = y1
+ZB = z1 - RotCenter
+
+XT = XB
+YT = YB*cos(dS*dAlpha) - ZB*sin(dS*dAlpha)
+ZT = YB*sin(dS*dAlpha) + ZB*cos(dS*dAlpha)
+
+x2 = XT
+y2 = YT
+z2 = ZT + RotCenter
+
+END SUBROUTINE TransformPointToNonparallelRotAxis
+
 !------------------------------------------------------------------------------------------------
 ! The subroutine calculates a distance function on the mesh given 
 ! by dcorvg, etc. The distance is computed to the list of screw geometries

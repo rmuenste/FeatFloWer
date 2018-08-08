@@ -528,7 +528,14 @@ END DO
 CLOSE(1)
 ! 
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z-.par',UNIT=1)
-WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Inflow10'
+
+IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+ WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Outflow'
+ELSE
+ WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Inflow10'
+END IF
+
+
 WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", 0d0, "'"
 k = 0
 DO j=1,NP*(NN*NN + NN) + NM*2*NN*NP +1

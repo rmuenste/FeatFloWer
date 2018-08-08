@@ -131,7 +131,7 @@ if(it.eq.10)then
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
    dInnerRadius = 0.5d0*mySigma%Dz_In
 
-   dVolFlow = (1e6/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
+   dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
    daux = (PI/6d0)*(dInnerRadius+mySigma%a/2d0)*((mySigma%a/2d0-dInnerRadius)**3d0)
    dScale = (dVolFlow/2d0)/daux
 
@@ -149,7 +149,7 @@ if(it.eq.10)then
    dInnerRadius = myProcess%MinInflowDiameter*0.5d0
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0
 
-   dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! mm3/s
+   dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
    daux = (PI/6d0)*(dInnerRadius+dOuterRadius)*((dOuterRadius-dInnerRadius)**3d0)
    dScale = (dVolFlow/1d0)/daux
 
@@ -329,6 +329,14 @@ IF (iT.EQ.70) THEN
  ValW= 0d0
 END IF
 
+! Centroplast - Vollstab
+IF (iT.EQ.71) THEN
+  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-20d0,1d0,1.25d0)
+END IF
+IF (iT.EQ.72) THEN
+  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,+150d0,1d0,1.25d0)
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
@@ -405,10 +413,11 @@ END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
+use geometry_processing, ONLY : TransformPointToNonparallelRotAxis
 IMPLICIT NONE
 REAL*8 :: myPI
 INTEGER iP
-REAL*8 X,Y,Z,ValU,ValV,ValW,t
+REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb
 
 myPI = dATAN(1d0)*4d0
 
@@ -419,13 +428,23 @@ SELECT CASE(iP)
   ValU = 0d0
   ValV = 0d0
   ValW = 0d0
+!  CASE (101) ! Y positiv
+!   ValU =  -DBLE(myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
+!   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+!   ValW = 0d0
+!  CASE (102) ! Y negativ
+!   ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
+!   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+!   ValW = 0d0
  CASE (101) ! Y positiv
-  ValU =  -DBLE(myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
   ValW = 0d0
  CASE (102) ! Y negativ
-  ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
   ValW = 0d0
  CASE (103) ! Y negativ
   ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
@@ -497,3 +516,24 @@ ViscosityModel = VNN
 RETURN
 
 end function ViscosityModel
+!
+!
+!
+SUBROUTINE TransformPointToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
+REAL*8 x1,y1,z1,x2,y2,z2,dS
+REAL*8 :: dAlpha=0.9d0*datan(1d0)/45d0, RotCenter = 80d0
+REAL*8 xb,yb,zb,xt,yt,zt
+
+XB = x1
+YB = y1
+ZB = z1 - RotCenter
+
+XT = XB
+YT = YB*cos(dS*dAlpha) - ZB*sin(dS*dAlpha)
+ZT = YB*sin(dS*dAlpha) + ZB*cos(dS*dAlpha)
+
+x2 = XT
+y2 = YT
+z2 = ZT + RotCenter
+
+END SUBROUTINE TransformPointToNonparallelRotAxis
