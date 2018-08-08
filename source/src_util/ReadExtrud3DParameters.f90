@@ -985,7 +985,7 @@
      write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
      write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
      write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
-     write(*,'(A,I1.1,A,I)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
+     write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
      write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%InitialTemperature=',mySigma%mySegment(iSeg)%InitTemp
      write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSource=',mySigma%mySegment(iSeg)%HeatSource
      
