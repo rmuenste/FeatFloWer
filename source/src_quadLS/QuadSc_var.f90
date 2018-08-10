@@ -26,7 +26,7 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 ! the game-of-thrones servers are used. It seems to 
 ! run fine on BTTF and the LIDO-servers
 INTEGER :: iCommSwitch=3
-LOGICAL :: BaSynch=.true.
+LOGICAL :: BaSynch=.false.
 
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
