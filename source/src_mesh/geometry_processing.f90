@@ -164,11 +164,14 @@ t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 
 myPI = dATAN(1d0)*4d0
 
-CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+ XB = X
+ YB = Y-mySigma%a/2d0
+ ZB = Z
+ELSE
+ CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+END IF
 
-! XB = X
-! YB = Y-mySigma%a/2d0
-! ZB = Z
 
 ! First the point needs to be transformed back to time = 0
 dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 1d0*myPI/2d0)*myProcess%ind
@@ -188,10 +191,13 @@ END DO
 
 if (d1.lt.0d0) inpr = 101
 
-! XB = X
-! YB = Y+mySigma%a/2d0
-! ZB = Z
-CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+ XB = X
+ YB = Y+mySigma%a/2d0
+ ZB = Z
+ELSE
+ CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+END IF
 
 ! First the point needs to be transformed back to time = 0
 dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
@@ -213,28 +219,6 @@ if (d2.lt.0d0) inpr = 102
 
 
 END SUBROUTINE STL_elem
-!
-!
-!
-SUBROUTINE TransformPointToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
-REAL*8 x1,y1,z1,x2,y2,z2,dS
-REAL*8 :: dAlpha=0.9d0*datan(1d0)/45d0, RotCenter = 501.82d0
-REAL*8 xb,yb,zb,xt,yt,zt
-
-XB = x1
-YB = y1
-ZB = z1 - RotCenter
-
-XT = XB
-YT = YB*cos(dS*dAlpha) - ZB*sin(dS*dAlpha)
-ZT = YB*sin(dS*dAlpha) + ZB*cos(dS*dAlpha)
-
-x2 = XT
-y2 = YT
-z2 = ZT + RotCenter
-
-END SUBROUTINE TransformPointToNonparallelRotAxis
-
 !------------------------------------------------------------------------------------------------
 ! The subroutine calculates a distance function on the mesh given 
 ! by dcorvg, etc. The distance is computed to the list of screw geometries

@@ -66,9 +66,6 @@
     mySigma%Dz_out = dSizeScale*mySigma%Dz_out
     DistTolerance = 1d0*mySigma%Dz_Out
 
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","CenterlineDistance", mySigma%a ,myInf)
-    mySigma%a = dSizeScale*mySigma%a
-    
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelStraightCut", mySigma%W ,myInf)
     mySigma%W = dSizeScale*mySigma%W
     
@@ -98,6 +95,24 @@
      WRITE(*,*) "not a valid number of segments"
      WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
     ENDIF
+    
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+     
+     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","RotationAxis", mySigma%RotationAxis ,"PARALLEL")
+     call inip_toupper_replace(mySigma%RotationAxis)
+     
+     IF (.not.(ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."NONPARALLEL")) mySigma%RotationAxis = "PARALLEL"
+     
+     IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+      call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","CenterlineDistance", mySigma%a ,myInf)
+      mySigma%a = dSizeScale*mySigma%a
+     ELSE
+      call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","RotAxisAngle", mySigma%RotAxisAngle ,myInf)
+      mySigma%RotAxisAngle = 0.5d0*mySigma%RotAxisAngle*datan(1d0)/45d0
+      call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","RotAxisCenter", mySigma%RotAxisCenter ,myInf)
+      mySigma%RotAxisCenter = dSizeScale*mySigma%RotAxisCenter
+     END IF
+    END IF
     
     DO iSeg=1,mySigma%NumberOfSeg
      WRITE(cElement_i,'(A,I1.1)') 'E3DGeometryData/Machine/Element_',iSeg
@@ -596,6 +611,18 @@
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+     
+     write(*,*) "mySigma%RotationAxis",'=',mySigma%RotationAxis
+     
+     IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+      write(*,*) "mySigma%a",'=',mySigma%a
+     ELSE
+      write(*,*) "mySigma%RotAxisAngle",'=',mySigma%RotAxisAngle
+      write(*,*) "mySigma%RotAxisCenter",'=',mySigma%RotAxisCenter
+     END IF
+    END IF
+    
     write(*,*) "mySigma%NumberOfSeg",'=',mySigma%NumberOfSeg
     
     write(*,*) 

@@ -289,6 +289,7 @@ module umbrella_smoother
    CONTAINS
   
   subroutine GetWeight(x,y,z,t,f)
+  USE var_QuadScalar , ONLY :dCGALtoRealFactor
   IMPLICIT NONE
   real*8 x,y,z,t,f
   real*8 d1,d2,d3
@@ -296,7 +297,7 @@ module umbrella_smoother
   real*8 dScaleFactor
   integer iaux
   !!!!!!!!!!!!!!!!!!!!!!!
-  real*8 cpx,cpy,cpz,d_temp
+  real*8 cpx,cpy,cpz,d_temp1,d_temp2,xx,yy,zz
   integer ipc
   
   
@@ -310,8 +311,19 @@ module umbrella_smoother
    d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
   END IF
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
-!    call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
-   CALL Shell_dist(x,y,z,d1)
+   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+    CALL Shell_dist(x,y,z,d1)
+   ELSE
+    xx = dCGALtoRealFactor*x
+    yy = dCGALtoRealFactor*y
+    zz = dCGALtoRealFactor*z
+    call projectonboundaryid(xx,yy,zz,cpx,cpy,cpz,d_temp1,0)
+    d_temp1 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
+    call projectonboundaryid(xx,yy,zz,cpx,cpy,cpz,d_temp2,1)
+    d_temp2 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
+    d1  = MIN(d_temp1/dCGALtoRealFactor,d_temp2/dCGALtoRealFactor)
+   END IF
+!    write(*,*) d_temp1,d_temp2
   END IF
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
    d1=5d0

@@ -1759,7 +1759,7 @@ SUBROUTINE Calculate_Torque(mfile)
 implicit none
 INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
-REAL*8 dHeat,Ml_i,Shear,Visco
+REAL*8 dHeat,Ml_i,Shear,Visco,dVol
 
 integer :: ilevel
 
@@ -1767,6 +1767,25 @@ EXTERNAL E013
 
 ilevel = mg_mesh%nlmax
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+ call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
+                     mg_mesh%level(ilevel)%kvert,&
+                     mg_mesh%level(ilevel)%karea,&
+                     mg_mesh%level(ilevel)%kedge,&
+                     mg_mesh%level(ilevel)%dcorvg,&
+                     Viscosity,Torque1, E013,101)
+                     
+ call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
+                     mg_mesh%level(ilevel)%kvert,&
+                     mg_mesh%level(ilevel)%karea,&
+                     mg_mesh%level(ilevel)%kedge,&
+                     mg_mesh%level(ilevel)%dcorvg,&
+                     Viscosity,Torque2, E013,102)
+END IF
+
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
  call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                      LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
                      mg_mesh%level(ilevel)%kvert,&
@@ -1774,6 +1793,7 @@ ilevel = mg_mesh%nlmax
                      mg_mesh%level(ilevel)%kedge,&
                      mg_mesh%level(ilevel)%dcorvg,&
                      Viscosity,Torque1, E013,103)
+END IF
 
 IF (myid.ne.0) then
  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
@@ -1791,18 +1811,22 @@ IF (myid.ne.0) then
 END IF
 
 dHeat = 0d0
+dVol  = 0d0
+
 DO i=1,QuadSc%ndof
  IF (MixerKNPR(i).eq.0) THEN
   Shear = Shearrate(i)
   Visco = 0.1d0*Viscosity(i)
   Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
   dHeat = dHeat + Ml_i*Shear*Shear*Visco
+  dVol = dVol + mg_MlRhoMat(NLMAX)%a(i)*1e-3
  END IF
 END DO
 
 CALL COMM_SUMM(dVolFlow1)
 CALL COMM_SUMM(dVolFlow2)
 CALL COMM_SUMM(dHeat)
+CALL COMM_SUMM(dVol)
 
 myPI = dATAN(1d0)*4d0
 daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
@@ -1810,12 +1834,18 @@ daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
 IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density
-  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density
-  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
-  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*3600d0
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*3600d0
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+  write(mfile,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
+  write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
+END IF
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
   write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
   write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+END IF
 !  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
 END IF
 

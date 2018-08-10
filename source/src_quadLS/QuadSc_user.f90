@@ -88,8 +88,8 @@ REAL*8 :: tt=4d0
 INTEGER iT
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
-REAL*8  dScale
-REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux
+REAL*8  dScale,XX,YY,ZZ
+REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
@@ -131,18 +131,36 @@ if(it.eq.10)then
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
    dInnerRadius = 0.5d0*mySigma%Dz_In
 
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
    daux = (PI/6d0)*(dInnerRadius+mySigma%a/2d0)*((mySigma%a/2d0-dInnerRadius)**3d0)
    dScale = (dVolFlow/2d0)/daux
-
    IF (Y.LT.0) THEN
-    DIST = SQRT(X**2d0+(Y+mySigma%a/2d0)**2d0)
-   ELSE
-    DIST = SQRT(X**2d0+(Y-mySigma%a/2d0)**2d0)
+     DIST = SQRT(X**2d0+(Y+mySigma%a/2d0)**2d0)
+    ELSE
+     DIST = SQRT(X**2d0+(Y-mySigma%a/2d0)**2d0)
+    END IF
+    IF (DIST.GT.dInnerRadius.AND.DIST.LT.mySigma%a/2d0) THEN
+     ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
+    END IF
+  ELSE
+   CALL TransformPointToNonparallelRotAxis(0d0,0d0,0d0,XX,YY,ZZ,+1d0)
+   dInnerInflowRadius = abs(YY)
+   dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
+   daux = (PI/6d0)*(dInnerRadius+dInnerInflowRadius)*((dInnerInflowRadius-dInnerRadius)**3d0)
+   dScale = (dVolFlow/2d0)/daux
+   
+   IF (Y.LT.0) CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,+1d0)
+   IF (Y.GT.0) CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,-1d0)
+    
+   DIST = SQRT(XX**2d0 + YY**2d0)
+   
+   IF (DIST.GT.dInnerRadius.AND.DIST.LT.dInnerInflowRadius) THEN
+    ValW= dScale*(DIST-dInnerRadius)*(dInnerInflowRadius-DIST)
    END IF
-   IF (DIST.GT.dInnerRadius.AND.DIST.LT.mySigma%a/2d0) THEN
-    ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
-   END IF
+  END IF
+
+   
   END IF
 
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
@@ -337,6 +355,11 @@ IF (iT.EQ.72) THEN
   ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,+150d0,1d0,1.25d0)
 END IF
 
+! M+S --> for the meshes prepared by Jens and Raphael
+IF (iT.EQ.81) THEN
+  ValW=RotParabolicVelo2Dz(+0d0,+0d0,1d0,1d0,6.0d0)
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
@@ -413,7 +436,6 @@ END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
-use geometry_processing, ONLY : TransformPointToNonparallelRotAxis
 IMPLICIT NONE
 REAL*8 :: myPI
 INTEGER iP
@@ -520,20 +542,21 @@ end function ViscosityModel
 !
 !
 SUBROUTINE TransformPointToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
+USE Sigma_User, ONLY: mySigma
 REAL*8 x1,y1,z1,x2,y2,z2,dS
-REAL*8 :: dAlpha=0.9d0*datan(1d0)/45d0, RotCenter = 80d0
+! REAL*8 :: dAlpha=0.9d0*datan(1d0)/45d0, RotCenter = 501.82d0
 REAL*8 xb,yb,zb,xt,yt,zt
 
 XB = x1
 YB = y1
-ZB = z1 - RotCenter
+ZB = z1 - mySigma%RotAxisCenter
 
 XT = XB
-YT = YB*cos(dS*dAlpha) - ZB*sin(dS*dAlpha)
-ZT = YB*sin(dS*dAlpha) + ZB*cos(dS*dAlpha)
+YT = YB*cos(dS*mySigma%RotAxisAngle) - ZB*sin(dS*mySigma%RotAxisAngle)
+ZT = YB*sin(dS*mySigma%RotAxisAngle) + ZB*cos(dS*mySigma%RotAxisAngle)
 
 x2 = XT
 y2 = YT
-z2 = ZT + RotCenter
+z2 = ZT + mySigma%RotAxisCenter
 
 END SUBROUTINE TransformPointToNonparallelRotAxis

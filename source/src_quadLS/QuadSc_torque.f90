@@ -259,9 +259,33 @@
 !      *     (DU3Z+DU3Z)*DN3)
 
 !-------------------Torque force------------------------- 
-       XTORQUE = XX
-       YTORQUE = YY - dSignedAxisDist
-       ZTORQUE = 0D0
+       IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+
+        IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+
+         XTORQUE = XX
+         YTORQUE = YY - dSignedAxisDist
+         ZTORQUE = 0D0
+        
+        ELSE
+         IF (iref.eq.101) THEN
+          CALL TransformPointToNonparallelRotAxis(xx,yy,zz,XXX,YYY,ZZZ,-1d0)
+         END IF
+         IF (iref.eq.102) THEN
+          CALL TransformPointToNonparallelRotAxis(xx,yy,zz,XXX,YYY,ZZZ,+1d0)
+         END IF
+       
+         XTORQUE = XXX
+         YTORQUE = YYY
+         ZTORQUE = 0D0
+        END IF
+       END IF
+
+       IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+        XTORQUE = XX
+        YTORQUE = YY
+        ZTORQUE = 0D0
+       END IF
 !
        ATQX = YTORQUE*AH3 - ZTORQUE*AH2                        ! full3D
        ATQY = ZTORQUE*AH1 - XTORQUE*AH3                        ! full3D
