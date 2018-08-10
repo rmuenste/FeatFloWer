@@ -51,4 +51,4 @@ IF(${OUT_OF_SOURCE_BUILD})
 ENDIF()
 
 file(COPY q2p1_fac_visco.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-add_test(q2p1-fac-visco python ./q2p1_fac_visco.py ${PROCS})
+add_test(q2p1-fac-visco python ./q2p1_fac_visco.py -n ${PROCS})
