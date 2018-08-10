@@ -1260,7 +1260,6 @@ integer :: iSubSteps
 #ifndef SKIP_DYNAMICS
       iSubSteps = 1
       call settimestep(dTime)
-      if(myid.eq.1) write(*,*)'updating'
       ! After the rigid body solver has computed a 
       ! step, we have to get the new particle state
       ! values from the rigid body solver
@@ -1292,7 +1291,6 @@ integer :: iSubSteps
       call velocityupdate()     
 
 #ifdef OPTIC_FORCES
-      if(myid.eq.1) write(*,*)'calculating laser force...'
         call get_optic_forces()
 #endif
 

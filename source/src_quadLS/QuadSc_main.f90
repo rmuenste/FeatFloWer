@@ -1383,6 +1383,8 @@ SUBROUTINE FAC_GetForces(mfile)
       write(*,'(A12,3ES15.7E2)') "BenchForce: ",timens,ForceV(1:2)+forceP(1:2)
 
       WRITE(666,'(10ES16.8)') Timens,ForceV+forceP,ForceV,forceP
+      WRITE(MTERM,5)
+      WRITE(MFILE,5)
   END IF
 
   5  FORMAT(104('-'))
