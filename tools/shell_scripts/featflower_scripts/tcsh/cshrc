@@ -23,8 +23,8 @@ alias load-gcc-mpi81 'module purge ;; module load cmake/3.8.1 gcc/8.1.0 openmpi/
 #                     Intel Compiler Aliases
 #================================================================
 alias load-intel-mpi16 'module purge ;; module load cmake/3.5.2-ssl intel/studio-xe/16.0.4.258 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet gcc/6.1.0 boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
-alias load-intel-mpi17='module purge ;; module load load boost/1.53 intel/studio-xe/17.0.7.259 openmpi/3.1.1 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
-alias load-intel-mpi18='module purge ;; module load load boost/1.53 intel/studio-xe/18.0.3.222 openmpi/2.1.3 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
+alias load-intel-mpi17 'module purge ;; module load boost/1.53 intel/studio-xe/17.0.7.259 openmpi/3.1.1 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
+alias load-intel-mpi18 'module purge ;; module load boost/1.53 intel/studio-xe/18.0.3.222 openmpi/2.1.3 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
 
 
 #================================================================
