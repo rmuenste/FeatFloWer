@@ -749,18 +749,18 @@ C
 C
 C
 C
-      SUBROUTINE GetDefNorm(DA,KCOL,KLD,DX,DB,DD,NEQ,DEF)
+      SUBROUTINE GetDefNorm(VA,KCOL,KLD,DX,DB,DD,NEQ,DEF)
 C
       USE PP3D_MPI, only : e011sum
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      DIMENSION DA(*),KCOL(*),KLD(*),DX(*),DB(*),DD(*)
+      DIMENSION VA(*),KCOL(*),KLD(*),DX(*),DB(*),DD(*)
       COMMON /ERRCTL/ IER,ICHECK
       SAVE /ERRCTL/
 C
        DO IEQ=1,NEQ
         DD(IEQ) = 0d0
         DO ICOL=KLD(IEQ),KLD(IEQ+1)-1
-         DD(IEQ)=DD(IEQ)-DA(ICOL)*DX(KCOL(ICOL))
+         DD(IEQ)=DD(IEQ)-REAL(VA(ICOL))*DX(KCOL(ICOL))
         END DO
        END DO
 C
