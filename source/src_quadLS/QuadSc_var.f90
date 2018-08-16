@@ -44,6 +44,7 @@ integer, parameter :: uterm = 6
 REAL*8  :: dCGALtoRealFactor = 1d0
 INTEGER, PARAMETER :: Giesekus = 0
 INTEGER, PARAMETER :: OldroydB = 1
+INTEGER :: ProlongationDirection = 0
 
 TYPE tTransform
  INTEGER :: ILINT=2

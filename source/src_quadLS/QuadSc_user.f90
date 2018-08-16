@@ -331,12 +331,13 @@ END IF
 
 ! Weber/G3  --> Inner layer
 IF (iT.EQ.65) THEN
- dCenter=[7.89d0,18.99d0,72.76d0]
- dNormal=[-0.346835,-0.837317,-0.422617]
- dProfil = RotParabolicVelo3D(200d0,1d0,1.65d0)
- ValU = dProfil(1)
- ValV = dProfil(2)
- ValW = dProfil(3)
+  ValW=RotParabolicVelo2Dz(+0.0d0,+0d0,-200d0,1d0,1.49d0)
+!  dCenter=[7.89d0,18.99d0,72.76d0]
+!  dNormal=[-0.346835,-0.837317,-0.422617]
+!  dProfil = RotParabolicVelo3D(200d0,1d0,1.65d0)
+!  ValU = dProfil(1)
+!  ValV = dProfil(2)
+!  ValW = dProfil(3)
 END IF
 
 IF (iT.EQ.70) THEN
@@ -358,6 +359,11 @@ END IF
 ! M+S --> for the meshes prepared by Jens and Raphael
 IF (iT.EQ.81) THEN
   ValW=RotParabolicVelo2Dz(+0d0,+0d0,1d0,1d0,6.0d0)
+END IF
+
+! IDE
+IF (iT.EQ.82) THEN
+  ValV=RotParabolicVelo2Dy(+0.0d0,+0.0d0,-100d0,1d0,3.5d0)
 END IF
 
 IF (iT.EQ.99) THEN

@@ -786,67 +786,191 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       END DO
 
     END SUBROUTINE EdgeRunner_STRCT
-    !
-    ! --------------------------------------------------------------
-    !
-    SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
+!
+! --------------------------------------------------------------
+!
+SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
       USE PP3D_MPI, ONLY: myid,coarse
+      USE var_QuadScalar, ONLY : ProlongationDirection
       IMPLICIT NONE
+      INTEGER iDir
       REAL*8  dcorvg(3,*)
       REAL*8  dcorvg2(3,*)
       INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
       REAL*8 PX,PY,PZ
       INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
       INTEGER NeighE(2,12),NeighA(4,6)
+      REAL*8  PatchPoint(3,8)
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
       DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-      k=1
-      DO i=1,nel
-      DO j=1,12
-      IF (k.eq.kedge(j,i)) THEN
-        ivt1 = kvert(NeighE(1,j),i)
-        ivt2 = kvert(NeighE(2,j),i)
-        PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-        PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-        PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-        dcorvg2(:,nvt+k)=[PX,PY,PZ]
-        k = k + 1
-      END IF
-      END DO
-      END DO
+      iDir = ProlongationDirection
+      
+      if (myid.eq.1) write(*,*) 'new generation mesh prolongation with iDir=',iDir
 
       k=1
       DO i=1,nel
-      DO j=1,6
-      IF (k.eq.karea(j,i)) THEN
-        ivt1 = kvert(NeighA(1,j),i)
-        ivt2 = kvert(NeighA(2,j),i)
-        ivt3 = kvert(NeighA(3,j),i)
-        ivt4 = kvert(NeighA(4,j),i)
-        PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-        PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-        PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-        dcorvg2(:,nvt+net+k)=[PX,PY,PZ]
-        k = k + 1
-      END IF
+       DO j=1,12
+        IF (k.eq.kedge(j,i)) THEN
+         ivt1 = kvert(NeighE(1,j),i)
+         ivt2 = kvert(NeighE(2,j),i)
+         IF (iDir.eq.0) THEN
+          PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+          PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+          PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+          dcorvg2(:,nvt+k)=[PX,PY,PZ]
+         ELSE   
+          PatchPoint(:,1) = dcorvg(:,ivt1)
+          PatchPoint(:,2) = dcorvg(:,ivt2)
+          CALL SetPoint(PatchPoint,dcorvg2(:,nvt+k),2)
+         END IF
+         k = k + 1
+        END IF
+       END DO
       END DO
+
+      k=1
+      DO i=1,nel
+       DO j=1,6
+        IF (k.eq.karea(j,i)) THEN
+         ivt1 = kvert(NeighA(1,j),i)
+         ivt2 = kvert(NeighA(2,j),i)
+         ivt3 = kvert(NeighA(3,j),i)
+         ivt4 = kvert(NeighA(4,j),i)
+         IF (iDir.eq.0) THEN
+          PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+          PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+          PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+          dcorvg2(:,nvt+net+k)=[PX,PY,PZ]
+         ELSE
+          PatchPoint(:,1) = dcorvg(:,ivt1)
+          PatchPoint(:,2) = dcorvg(:,ivt2)
+          PatchPoint(:,3) = dcorvg(:,ivt3)
+          PatchPoint(:,4) = dcorvg(:,ivt4)
+          CALL SetPoint(PatchPoint,dcorvg2(:,nvt+net+k),4)
+         END IF
+         k = k + 1
+        END IF
+       END DO
       END DO
 
       DO i=1,nel
-      PX = 0d0
-      PY = 0d0
-      PZ = 0d0
-      DO j=1,8
-      PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-      PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-      PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-      END DO
-      dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
-      !write(*,*)'myid: ',myid, nvt+net+nat+i 
+       IF (iDir.eq.0) THEN
+        PX = 0d0
+        PY = 0d0
+        PZ = 0d0
+        DO j=1,8
+         PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+         PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+         PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+        END DO
+        dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
+       ELSE
+        DO j=1,8
+         PatchPoint(:,j)  = (dcorvg(:,kvert(j,i)))
+        END DO
+        CALL SetPoint(PatchPoint,dcorvg2(:,nvt+net+nat+i),8)
+       END IF
       END DO
 
-    END SUBROUTINE ProlongateCoordinates
+      CONTAINS
+      SUBROUTINE SetPoint(P,Q,n)
+      REAL*8 P(3,8),Q(3)
+      REAL*8 dR1,dR2
+      INTEGER l,n
+
+      dR1 = 0d0
+      DO l=1,n
+       IF (iDir.eq.1) dR1 = dR1 + SQRT(P(2,l)**2d0 + P(3,l)**2d0)
+       IF (iDir.eq.2) dR1 = dR1 + SQRT(P(1,l)**2d0 + P(3,l)**2d0)
+       IF (iDir.eq.3) dR1 = dR1 + SQRT(P(1,l)**2d0 + P(2,l)**2d0)
+      END DO
+
+      dR1 = dR1/DBLE(n)
+
+      IF (iDir.eq.1) dR2 = SQRT(Q(2)**2d0 + Q(3)**2d0)
+      IF (iDir.eq.2) dR2 = SQRT(Q(1)**2d0 + Q(3)**2d0)
+      IF (iDir.eq.3) dR2 = SQRT(Q(1)**2d0 + Q(2)**2d0)
+
+      IF (dr2.ne.0d0) then
+       IF (iDir.eq.1) THEN
+        Q(2) = dR1*Q(2)/dR2
+        Q(3) = dR1*Q(3)/dR2
+       END IF
+       IF (iDir.eq.2) THEN
+        Q(1) = dR1*Q(1)/dR2
+        Q(3) = dR1*Q(3)/dR2
+       END IF
+       IF (iDir.eq.3) THEN
+        Q(1) = dR1*Q(1)/dR2
+        Q(2) = dR1*Q(2)/dR2
+       END IF
+      end if
+
+END SUBROUTINE SetPoint
+
+END SUBROUTINE ProlongateCoordinates
+    !
+    ! --------------------------------------------------------------
+    !
+!     SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
+!       USE PP3D_MPI, ONLY: myid,coarse
+!       IMPLICIT NONE
+!       REAL*8  dcorvg(3,*)
+!       REAL*8  dcorvg2(3,*)
+!       INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
+!       REAL*8 PX,PY,PZ
+!       INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+!       INTEGER NeighE(2,12),NeighA(4,6)
+!       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+!       DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+! 
+!       k=1
+!       DO i=1,nel
+!       DO j=1,12
+!       IF (k.eq.kedge(j,i)) THEN
+!         ivt1 = kvert(NeighE(1,j),i)
+!         ivt2 = kvert(NeighE(2,j),i)
+!         PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+!         PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+!         PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+!         dcorvg2(:,nvt+k)=[PX,PY,PZ]
+!         k = k + 1
+!       END IF
+!       END DO
+!       END DO
+! 
+!       k=1
+!       DO i=1,nel
+!       DO j=1,6
+!       IF (k.eq.karea(j,i)) THEN
+!         ivt1 = kvert(NeighA(1,j),i)
+!         ivt2 = kvert(NeighA(2,j),i)
+!         ivt3 = kvert(NeighA(3,j),i)
+!         ivt4 = kvert(NeighA(4,j),i)
+!         PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+!         PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+!         PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+!         dcorvg2(:,nvt+net+k)=[PX,PY,PZ]
+!         k = k + 1
+!       END IF
+!       END DO
+!       END DO
+! 
+!       DO i=1,nel
+!       PX = 0d0
+!       PY = 0d0
+!       PZ = 0d0
+!       DO j=1,8
+!       PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+!       PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+!       PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+!       END DO
+!       dcorvg2(:,nvt+net+nat+i)=[PX,PY,PZ]
+!       !write(*,*)'myid: ',myid, nvt+net+nat+i 
+!       END DO
+! 
+!     END SUBROUTINE ProlongateCoordinates
     !
     ! --------------------------------------------------------------
     !

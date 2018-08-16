@@ -28,13 +28,16 @@ IF (myid.ne.0) THEN
 ! Add the source term to the RHS
  CALL sub_SRC()
 
+ CALL AddBoundaryHeatFlux(1)
+ 
 ! Add the boundary heat flux (explicit part)
- CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
-                        mg_mesh%level(nlmax)%karea,&
-                        mg_mesh%level(nlmax)%kvert,&
-                        mg_mesh%level(nlmax)%nvt,&
-                        mg_mesh%level(nlmax)%nel,&
-                        mg_mesh%level(nlmax)%net,1)
+
+!  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
+!                         mg_mesh%level(nlmax)%karea,&
+!                         mg_mesh%level(nlmax)%kvert,&
+!                         mg_mesh%level(nlmax)%nvt,&
+!                         mg_mesh%level(nlmax)%nel,&
+!                         mg_mesh%level(nlmax)%net,1)
 !  DO i=1,Tracer%ndof
 !   if (myBoundary%iTemperature(i).eq.2) then
 !    Tracer%def(i) = Tracer%def(i) + 1d3*dAlpha*MLmat(i)*TSTEP*tAmbient
@@ -50,13 +53,15 @@ IF (myid.ne.0) THEN
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_LinScalar(Tracer,-1,1)
 
+ CALL AddBoundaryHeatFlux(2)
+ 
 ! Add the boundary heat flux (implicit part)
- CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
-                        mg_mesh%level(nlmax)%karea,&
-                        mg_mesh%level(nlmax)%kvert,&
-                        mg_mesh%level(nlmax)%nvt,&
-                        mg_mesh%level(nlmax)%nel,&
-                        mg_mesh%level(nlmax)%net,2)
+!  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
+!                         mg_mesh%level(nlmax)%karea,&
+!                         mg_mesh%level(nlmax)%kvert,&
+!                         mg_mesh%level(nlmax)%nvt,&
+!                         mg_mesh%level(nlmax)%nel,&
+!                         mg_mesh%level(nlmax)%net,2)
 !  DO i=1,Tracer%ndof
 !   if (myBoundary%iTemperature(i).eq.2) then
 !    Amat(lMat%LdA(i)) = Amat(lMat%LdA(i)) + REAL(1d3*dAlpha*MLmat(i)*TSTEP)
@@ -141,7 +146,8 @@ CALL COMM_SUMM(dArea)
 CALL COMM_SUMM(dFlux)
 
 if (myid.eq.showid) then
- WRITE(*,'(A,2ES12.4)') 'Area [cm2] and overal heat flux: ', dArea,dFlux
+ WRITE(mterm,'(A,2ES12.4)') 'Area [cm2] and overal heat flux [W]: ', dArea,dFlux
+ WRITE(mfile,'(A,2ES12.4)') 'Area [cm2] and overal heat flux [W]: ', dArea,dFlux
 end if
 
 NLMAX = NLMAX - 1
@@ -682,24 +688,24 @@ END SUBROUTINE Boundary_LinSc_XYZMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE AddHeatFlux(dArea,dFlux)
-REAL*8 dArea,dFlux
+SUBROUTINE AddBoundaryHeatFlux(iSwitch)
+INTEGER iSwitch
 EXTERNAL E011
 
- return
+
 if (myid.ne.master) then
  ilev = NLMAX
  call setlev(2)
- CALL GetMySurface(Tracer%def,Tracer%oldSol,&
-                   mg_mesh%level(ilev)%kvert,&
-                   mg_mesh%level(ilev)%karea,&
-                   mg_mesh%level(ilev)%kedge,&
-                   mg_mesh%level(ilev)%dcorvg,&
-                   E011,dArea,dFlux)
-                   
+ CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                             Tracer%def,Tracer%oldSol,&
+                             mg_mesh%level(ilev)%kvert,&
+                             mg_mesh%level(ilev)%karea,&
+                             mg_mesh%level(ilev)%kedge,&
+                             mg_mesh%level(ilev)%dcorvg,&
+                             E011,dArea,dFlux,iSwitch)
 end if
 
-END SUBROUTINE AddHeatFlux
+END SUBROUTINE AddBoundaryHeatFlux
 !
 ! ----------------------------------------------
 !

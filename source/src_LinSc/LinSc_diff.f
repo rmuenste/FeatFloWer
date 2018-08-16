@@ -1,8 +1,8 @@
-      SUBROUTINE GetMySurface(DD,DT,KVERT,KAREA,KEDGE,DCORVG,ELE,
-     *           dArea,dFlux)
+      SUBROUTINE AddBoundaryHeatFluxSub(VA,KLDA,KCOLA,DD,DT,KVERT,KAREA,
+     *           KEDGE,DCORVG,ELE,dArea,dFlux,iSwitch)
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : myBoundary,myHeatObjects
-      USE Sigma_User, ONLY : myMaterials,mySigma
+      USE Sigma_User, ONLY : myMaterials,mySigma,myProcess
 C
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -11,23 +11,18 @@ C
      *           NNDIM=3,NNCOF=10)
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
+      REAL*4    VA(*)
+      INTEGER   KLDA(*),KCOLA(*)
       REAL*8    DT(*), DD(*), DCORVG(NNDIM,*)
       INTEGER   KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
       REAL*8    DMyOmgP(NNCUBP),DMyCubP(NNCUBP,NNAE,NNDIM)
       REAL*8    dNorm(NNDIM),GRADU(NNDIM,NNDIM),dN(3)
-      INTEGER   KENTRY(NNBAS,NNBAS)
+      REAL*8    KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
       REAL*8    ST(NNBAS,NNBAS),STT(NNBAS,NNBAS)
       REAL*8    dFluidNormal
       REAL*8    DHELP(8,4,NNCUBP),DPP(NNDIM),DMM(9)
-      TYPE tF
-       REAL*8   DHELP(8,4,NNCUBP)
-      END TYPE
-      TYPE(tF) F(6)
-      INTEGER   NeighA(4,6),NeighAE(4,6),imap(9)
-      DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-      DATA NeighAE/ 9,10,11,12,  9,14,17,13, 10,15,18,14, 
-     *             11,16,19,15, 12,13,20,16, 17,18,19,20/
+C      
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
       COMMON /CHAR/   SUB,FMT(3),CPARAM
@@ -55,8 +50,8 @@ C
 C
       dArea = 0d0
       dFlux = 0d0
-      dAlpha = 25d0 
-      tAmbient = 25d0 
+      dAlphaCoeff = myProcess%HeatTransferCoeff*(1d3) ! scaling 
+      tAmbient = myProcess%AirTemperature 
 C
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.
@@ -68,102 +63,193 @@ C
       CALL ELE(0D0,0D0,0D0,IELTYP)
       IDFL=NDFL(IELTYP)
 C
-      ICUB = 3 
-      CALL SetUpMyCub(DMyOmgP,DMyCubP,NCUBP,ICUB)
-C
-      DO IAT=1,NNAE
-      DO ICUBP=1,NCUBP
-       XI1=DMyCubP(ICUBP,IAT,1)
-       XI2=DMyCubP(ICUBP,IAT,2)
-       XI3=DMyCubP(ICUBP,IAT,3)
-       CALL E011A(XI1,XI2,XI3,DHELP,ICUBP)
-      END DO
-      F(IAT)%DHELP = DHELP
-      END DO
+      ICUB=7
+      CALL CB3H(ICUB)
+      IF (IER.NE.0) GOTO 99999
 C
 ************************************************************************
 C *** Calculation of the matrix - storage technique 7 or 8
 ************************************************************************
+      ICUBP=ICUB
+      CALL ELE(0D0,0D0,0D0,-2)
 C
 C *** Loop over all elements
       DO 100 IEL=1,NEL
+C
+      IALPHA = 0
+      JALPHA = 0
+      do j=1,8
+       ivt = KVERT(j,iel)
+       iSeg = myHeatObjects%Segment(ivt)
+       if (iSeg.eq.0) then
+        IALPHA = IALPHA + 1
+       else
+        JALPHA = JALPHA + 1
+       end if
+      end do
+C
+      IF (IALPHA.ne.8.and.JALPHA.NE.8) THEN ! IALPHA,JALPHA
 C      
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
-C
       IF (IER.LT.0) GOTO 99999
 C
-      DO 150 IAT=1,6
+C *** Determine entry positions in matrix
+      DO 110 JDOFE=1,IDFL
+      ILD=KLDA(KDFG(JDOFE))
+      KENTRY(JDOFE,JDOFE)=ILD
+      DENTRY(JDOFE,JDOFE)=0D0
+      JCOL0=ILD
+      DO 111 IDOFE=1,IDFL
+      IF (IDOFE.EQ.JDOFE) GOTO 111
+      IDFG=KDFG(IDOFE)
+      DO 112 JCOL=JCOL0,NA
+      IF (KCOLA(JCOL).EQ.IDFG) GOTO 113
+112   CONTINUE
+113   JCOL0=JCOL+1
+      KENTRY(JDOFE,IDOFE)=JCOL
+      DENTRY(JDOFE,IDOFE)=0D0
+111   CONTINUE
+110   CONTINUE
 C
-      ivt1 = kvert(NeighA(1,IAT),IEL)
-      ivt2 = kvert(NeighA(2,IAT),IEL)
-      ivt3 = kvert(NeighA(3,IAT),IEL)
-      ivt4 = kvert(NeighA(4,IAT),IEL)
-      
-      IF (myBoundary%iTemperature(ivt1).eq.2.and.
-     *    myBoundary%iTemperature(ivt2).eq.2.and.
-     *    myBoundary%iTemperature(ivt3).eq.2.and.
-     *    myBoundary%iTemperature(ivt4).eq.2) THEN
-C      
-      DHELP = F(IAT)%DHELP
-C      
+C *** Evaluation of coordinates of the vertices
+      DO 120 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+120   CONTINUE
+C
+      DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+      DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+      DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+      DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+      DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+      DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+      DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+      DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+      DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+      DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+      DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+      DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+      DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+      DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+      DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+      DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+      DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+      DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+      DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+C
+C *** Loop over all cubature points
       DO 200 ICUBP=1,NCUBP
 C
-      XI1=DMyCubP(ICUBP,IAT,1)
-      XI2=DMyCubP(ICUBP,IAT,2)
-      XI3=DMyCubP(ICUBP,IAT,3)
-      OM=DMyOmgP (ICUBP)
+      XI1=DXI(ICUBP,1)
+      XI2=DXI(ICUBP,2)
+      XI3=DXI(ICUBP,3)
 C
-      DJAC=0d0
-      DO JDOFE=1,IDFL
-       JDFL=KDFL(JDOFE)
-       JDFG=KDFG(JDOFE)
-       DPP(:) = DCORVG(:,JDFG)
-       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP(JDFL,2,ICUBP)
-       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP(JDFL,2,ICUBP)
-       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP(JDFL,2,ICUBP)
-       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP(JDFL,3,ICUBP)
-       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP(JDFL,3,ICUBP)
-       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP(JDFL,3,ICUBP)
-       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP(JDFL,4,ICUBP)
-       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP(JDFL,4,ICUBP)
-       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP(JDFL,4,ICUBP)
-      END DO
+C *** Jacobian of the bilinear mapping onto the reference element
+      DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
+      DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
+      DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
+      DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
+      DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
+      DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
+      DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
+      DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
+      DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
 C
-      DETJ = DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
-     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
-     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
-C
-      IF (IAT.eq.2.or.iat.eq.4) CALL SurfDet(DJAC,2,dA,dN)
-      IF (IAT.eq.1.or.iat.eq.6) CALL SurfDet(DJAC,3,dA,dN)
-      IF (IAT.eq.3.or.iat.eq.5) CALL SurfDet(DJAC,1,dA,dN)
-C
-      CALL ELE(XI1,XI2,XI3,0)
+      CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
 C
-      dTEMP = 0D0
-      DO JDFL=1,IDFL
-       IG=KDFG(JDFL)
-       IL=KDFL(JDFL)
-       HBAS=DBAS(1,IL,1)
-       dTEMP = dTEMP + DT(IG)*HBAS
-      END DO
+      DTMP=0D0     ! ALFA value
+      DALV=0D0     ! ALFA value
+      DALX=0D0     ! ALFA x deriv
+      DALY=0D0     ! ALFA y deriv
+      DALZ=0D0     ! ALFA z deriv
 C
-      DO I=1,IDFL
-        IG = KDFG(I)
-        IL = KDFL(I)
-        HBAS = DBAS(1,IL,1)
-!        DD(IG) = DD(IG) - 1d3*dAlpha*(-tAmbient)*dA*OM*HBAS*TSTEP 
-         DD(IG) = DD(IG) - 1d3*dAlpha*(dTemp-tAmbient)*dA*OM*HBAS*TSTEP 
-      ENDDO
-C      
-      dArea = dArea + dA*OM
-      dFlux = dFlux - 1d3*dAlpha*(dTemp-tAmbient)*dA*OM
+      DO 220 JDFL=1,IDFL
+       IG=KDFG(JDFL)
+       DBI1=DBAS(1,KDFL(JDFL),1)
+       DBI2=DBAS(1,KDFL(JDFL),2)
+       DBI3=DBAS(1,KDFL(JDFL),3)
+       DBI4=DBAS(1,KDFL(JDFL),4)
+       IF (myHeatObjects%Segment(IG).EQ.0) THEN
+        DALPHA = 1d0
+       ELSE
+        DALPHA = 0d0
+       END IF
+       DALV = DALV + DALPHA*DBI1
+       DALX = DALX + DALPHA*DBI2
+       DALY = DALY + DALPHA*DBI3
+       DALZ = DALZ + DALPHA*DBI4
+       DTMP = DTMP + DT(IG)*DBI1
+220   CONTINUE
+C
+       DNA = SQRT(DALX**2d0 + DALY**2d0 + DALZ**2d0)
+C
+C *** Summing up over all pairs of multiindices
+      DO 230 JDOFE=1,IDFL
+       JDOFEH=KDFL(JDOFE)
+       HBASJ=DBAS(1,JDOFEH,1)
+C
+       DO 240 IDOFE=1,IDFL
+        HBASJ =DBAS(1,JDOFEH,1)
+        IF (IDOFE.EQ.JDOFE) THEN
+         AH=HBASJ*HBASJ
+        ELSE
+         IDOFEH=KDFL(IDOFE)
+         HBASI =DBAS(1,IDOFEH,1)
+         AH=HBASI*HBASJ
+        ENDIF
+        DENTRY(JDOFE,IDOFE) = 
+     *  DENTRY(JDOFE,IDOFE) + dAlphaCoeff*DNA*OM*AH*TSTEP
+        dArea = dArea + 1d0*DNA*OM*AH
+        dFlux = dFlux + 1d0*DNA*OM*AH*dAlphaCoeff*(DTMP-tAmbient)*(1d-7) !Scaling to W/m2
+240    CONTINUE
+230   CONTINUE
+C
+! DO 230 JDOFE=1,IDFL
+!        JDOFEH=KDFL(JDOFE)
+!        HBASJ2=DBAS(1,JDOFEH,2)
+!        HBASJ3=DBAS(1,JDOFEH,3)
+!        HBASJ4=DBAS(1,JDOFEH,4)
+! C
+!        DO 240 IDOFE=1,IDFL
+!         IDOFEH=KDFL(IDOFE)
+!         HBASI2=DBAS(1,IDOFEH,2)
+!         HBASI3=DBAS(1,IDOFEH,3)
+!         HBASI4=DBAS(1,IDOFEH,4)
+!         AH = HBASJ2*DALX + HBASJ3*DALY + HBASJ4*DALZ
+!         DENTRY(JDOFE,IDOFE) = DENTRY(JDOFE,IDOFE) + OM*dIntensity*AH
+! 240    CONTINUE
+! 230   CONTINUE
 C
 200   CONTINUE
 C
-      END IF
-150   CONTINUE
+      DO 300 JDOFE=1,IDFL
+      DO 300 IDOFE=1,IDFL
+        if (iswitch.eq.1) then
+         IG=KDFG(IDOFE)
+         DD(IG) = DD(IG) + REAL(DENTRY(JDOFE,IDOFE))*tAmbient
+        end if
+        if (iswitch.eq.2) then
+         IA     = KENTRY(JDOFE,IDOFE)
+         VA(IA) = VA(IA) + REAL(DENTRY(JDOFE,IDOFE))
+        end if
+!        write(*,*) VA(IA)
+300   CONTINUE
 C
+      END IF ! IALPHA,JALPHA
+C      
 100   CONTINUE
 C
 99999 END

@@ -384,7 +384,8 @@ SUBROUTINE General_init(MDATA,MFILE)
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
-      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams
+      nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
+      ProlongationDirection
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -532,7 +533,9 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) cParam
           IADTIM = 0
           IF (TRIM(ADJUSTL(cParam)).EQ."Yes") IADTIM = 1
-        CASE ("Tracer")
+         CASE ("ProlongationDirection")
+          READ(string(iEq+1:),*) ProlongationDirection
+         CASE ("Tracer")
           cParam = " "
           READ(string(iEq+1:),*) cParam
           bTracer = .FALSE.
@@ -814,6 +817,24 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mterm,'(A)') "FlowType = Newtonian"
       END IF
       
+      IF (ProlongationDirection.eq.0) THEN 
+       WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"
+       WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"
+      ELSE
+       IF (ProlongationDirection.eq.1) THEN 
+        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in X axis"
+        WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in X axis"
+       END IF
+       IF (ProlongationDirection.eq.2) THEN 
+        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Y axis"
+        WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Y axis"
+       END IF
+       IF (ProlongationDirection.eq.3) THEN 
+        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Z axis"
+        WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Z axis"
+       END IF
+      END IF
+
       WRITE(mfile,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
       WRITE(mterm,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
       
