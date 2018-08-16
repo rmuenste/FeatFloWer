@@ -502,7 +502,7 @@ end subroutine calcDistanceFunction_sse
 ! maintained in the global structure mySigma. This function for distance computations
 ! is intented for screw setups only.
 !------------------------------------------------------------------------------------------------
-subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,dst2,dVaux)
+subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,dst2,dst3,dVaux)
 
   real*8, dimension(:,:), intent(inout) :: dcorvg
 
@@ -511,6 +511,9 @@ subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,ds
 
   ! output array for the distance to the screw
   real*8, dimension(:), intent(inout) :: dst2
+
+  ! output array for the distance to flowchannel
+  real*8, dimension(:), intent(inout) :: dst3
 
   real*8, dimension(:), intent(inout) :: dVaux
 
@@ -661,7 +664,7 @@ subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,ds
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! iSTL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."BLOCK") THEN
       do i=1,ndof
-      dst1(i) = min(dst1(i),dVaux(i)/dUnitScale)
+       dst1(i) = min(dst1(i),dVaux(i)/dUnitScale)
       end do
     end if  
 
@@ -671,6 +674,12 @@ subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,ds
       end do
     end if  
 
+    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."MELT") THEN
+      do i=1,ndof
+       dst3(i) = min(dst3(i),dVaux(i)/dUnitScale)
+      end do
+    end if  
+    
     end do
 
   end if
@@ -686,7 +695,13 @@ subroutine calcDistanceFunction_heat(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,ds
 !    IF (Screw(i).le.0d0) THEN
 ! !     MixerKNPR(i) = 103
 !    END IF
-  END DO
+
+    myHeatObjects%Channel(i) = -dst3(i)
+!     if (myHeatObjects%Channel(i).gt.0d0) then
+!      myHeatObjects%Channel(i) = max(myHeatObjects%Channel(i),myHeatObjects%Block(i))
+!     end if
+
+ END DO
 
 contains
 subroutine GetElemRad

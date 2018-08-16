@@ -1940,11 +1940,6 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, *)"        </DataArray>"
 
  CASE('HeatObjects')
-  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Segment",""" format=""ascii"">"
-  do ivt=1,NoOfVert
-   write(iunit, '(A,I10)')"        ",myHeatObjects%Segment(ivt)
-  end do
-  write(iunit, *)"        </DataArray>"
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Block",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Block(ivt))
@@ -1953,6 +1948,11 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wire",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Wire(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Melt",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",myHeatObjects%Channel(ivt)
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2168,9 +2168,9 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('LogShearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","LogShearrate","""/>"
  CASE('HeatObjects')
-  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Segment","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Block","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wire","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Melt","""/>"
  CASE('Distamce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')

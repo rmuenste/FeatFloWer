@@ -388,6 +388,7 @@ REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:)
 TYPE tCGALObjects
  REAL*8, ALLOCATABLE :: Block(:)
  REAL*8, ALLOCATABLE :: Wire(:)
+ REAL*8, ALLOCATABLE :: Channel(:)
  INTEGER, ALLOCATABLE :: Segment(:)
 END TYPE tCGALObjects
 TYPE (tCGALObjects) myHeatObjects

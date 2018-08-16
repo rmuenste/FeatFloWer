@@ -28,22 +28,9 @@ IF (myid.ne.0) THEN
 ! Add the source term to the RHS
  CALL sub_SRC()
 
+! Add the boundary heat flux (explicit part)
  CALL AddBoundaryHeatFlux(1)
  
-! Add the boundary heat flux (explicit part)
-
-!  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
-!                         mg_mesh%level(nlmax)%karea,&
-!                         mg_mesh%level(nlmax)%kvert,&
-!                         mg_mesh%level(nlmax)%nvt,&
-!                         mg_mesh%level(nlmax)%nel,&
-!                         mg_mesh%level(nlmax)%net,1)
-!  DO i=1,Tracer%ndof
-!   if (myBoundary%iTemperature(i).eq.2) then
-!    Tracer%def(i) = Tracer%def(i) + 1d3*dAlpha*MLmat(i)*TSTEP*tAmbient
-!   end if
-!  END DO
-
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
 
@@ -53,21 +40,9 @@ IF (myid.ne.0) THEN
 ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_LinScalar(Tracer,-1,1)
 
- CALL AddBoundaryHeatFlux(2)
- 
 ! Add the boundary heat flux (implicit part)
-!  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
-!                         mg_mesh%level(nlmax)%karea,&
-!                         mg_mesh%level(nlmax)%kvert,&
-!                         mg_mesh%level(nlmax)%nvt,&
-!                         mg_mesh%level(nlmax)%nel,&
-!                         mg_mesh%level(nlmax)%net,2)
-!  DO i=1,Tracer%ndof
-!   if (myBoundary%iTemperature(i).eq.2) then
-!    Amat(lMat%LdA(i)) = Amat(lMat%LdA(i)) + REAL(1d3*dAlpha*MLmat(i)*TSTEP)
-!   end if
-!  END DO
- 
+ CALL AddBoundaryHeatFlux(2)
+  
  CALL E011Sum(Tracer%def)
 
 ! Set dirichlet boundary conditions on the defect
@@ -709,6 +684,12 @@ END SUBROUTINE AddBoundaryHeatFlux
 !
 ! ----------------------------------------------
 !
+!  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
+!                         mg_mesh%level(nlmax)%karea,&
+!                         mg_mesh%level(nlmax)%kvert,&
+!                         mg_mesh%level(nlmax)%nvt,&
+!                         mg_mesh%level(nlmax)%nel,&
+!                         mg_mesh%level(nlmax)%net,1/2)
 SUBROUTINE AddLumpedHeatFlux(dcorvg,karea,kvert,nvt,nel,net,iSwitch)
 REAL*8 dcorvg(3,*)
 INTEGER karea(6,*),kvert(8,*),nel,net,nvt

@@ -205,9 +205,11 @@ SUBROUTINE InitHeatObjects()
 
 ALLOCATE(myHeatObjects%Block(Tracer%ndof))
 ALLOCATE(myHeatObjects%Wire(Tracer%ndof))
+ALLOCATE(myHeatObjects%Channel(Tracer%ndof))
 ALLOCATE(myHeatObjects%Segment(Tracer%ndof))
 myHeatObjects%Block = 0d0
 myHeatObjects%Wire  = 0d0
+myHeatObjects%Channel  = 0d0
 myHeatObjects%Segment  = 0 ! Air
 
 END SUBROUTINE InitHeatObjects
@@ -433,6 +435,7 @@ type(tMultiMesh), intent(inout) :: mgMesh
 
 myHeatObjects%Block = 0d0
 myHeatObjects%Wire  = 0d0
+myHeatObjects%Channel  = 0d0
 myHeatObjects%Segment  = 0 ! Air
 call updateHeatGeometry(mfile)
 
@@ -476,7 +479,7 @@ if (myid.ne.0) then
                             mg_mesh%level(ilev)%nvt,&
                             mg_mesh%level(ilev)%nat,&
                             mg_mesh%level(ilev)%net,&
-                            QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+                            QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%defU)
  END IF
 
  CALL myMPI_Barrier()

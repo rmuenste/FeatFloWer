@@ -205,18 +205,22 @@ module umbrella_smoother
     f(i) = f(i)/w(i)
    end DO
   
-   qscStruct%AuxU = dEpsDist
-   qscStruct%AuxV = dEpsDist
-
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
+    qscStruct%AuxU = dEpsDist
+    qscStruct%AuxV = dEpsDist
+    qscStruct%AuxW = dEpsDist
     CALL calcDistanceFunction_heat(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
-                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW,qscStruct%defW)
    END IF
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+    qscStruct%AuxU = dEpsDist
+    qscStruct%AuxV = dEpsDist
     CALL calcDistanceFunction_sse(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
    END IF
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+    qscStruct%AuxU = dEpsDist
+    qscStruct%AuxV = dEpsDist
     CALL QuadScalar_MixerKnpr(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
                              qscStruct%AuxU,qscStruct%AuxV)
    END IF
