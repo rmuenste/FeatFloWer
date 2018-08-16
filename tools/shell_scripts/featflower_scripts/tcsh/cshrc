@@ -16,11 +16,15 @@ setenv FF_PY_HOME /home/user/rmuenste/nobackup/code/ode_intermediate/Feat_FloWer
 #================================================================
 alias load-gcc-mpi51 'module purge ;; module load cmake/3.5.2 gcc/5.1.0 openmpi/gcc5.1.x/1.10.2/threaded/no-cuda/ethernet boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
 alias load-gcc-mpi61 'module purge ;; module load cmake/3.4.0 gcc/6.1.0 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+alias load-gcc-mpi64 'module purge ;; module load cmake/3.8.1 gcc/6.4.0 openmpi/2.1.3 boost/1.53 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+alias load-gcc-mpi81 'module purge ;; module load cmake/3.8.1 gcc/8.1.0 openmpi/2.1.3 boost/1.53 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
 
 #================================================================
 #                     Intel Compiler Aliases
 #================================================================
 alias load-intel-mpi16 'module purge ;; module load cmake/3.5.2-ssl intel/studio-xe/16.0.4.258 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet gcc/6.1.0 boost/1.56 python/2.7.11 ;; setenv CC mpicc ;; setenv CXX mpicxx ;; setenv FC mpif90'
+alias load-intel-mpi17='module purge ;; module load load boost/1.53 intel/studio-xe/17.0.7.259 openmpi/3.1.1 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
+alias load-intel-mpi18='module purge ;; module load load boost/1.53 intel/studio-xe/18.0.3.222 openmpi/2.1.3 serial/gcc/6.4.0 cmake/3.8.1 ;; setenv CC mpicc && setenv CXX mpicxx && setenv FC mpif90'
 
 
 #================================================================
