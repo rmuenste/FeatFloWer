@@ -373,6 +373,11 @@ endif(USE_OPTICALTWEEZERS)
 #=========================================================================
 # Add the cgal library
 #=========================================================================
+set(CGAL_LIBRARIES 
+  ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+  ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+  )
+message("CGAL path: ${CGAL_LIBRARIES} ")
 if(USE_CGAL)
   set(USE_BOOST True)
   if(NOT WIN32)
@@ -390,6 +395,12 @@ if(USE_CGAL)
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
         )
+    elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
+      set(CGAL_LIBRARIES 
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+        ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+        )
+        message("CGAL path: ${CGAL_LIBRARIES} ")
     else()
       set(CGAL_LIBRARIES 
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a

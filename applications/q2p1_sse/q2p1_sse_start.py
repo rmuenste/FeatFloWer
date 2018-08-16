@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # vim: set filetype=python
+"""
+A python launcher script for the FeatFloWer SSE application
+"""
 import sys
 import getopt
 import platform
@@ -8,7 +11,8 @@ import shutil
 import subprocess
 import re
 import json
-import part_main
+sys.path.append(os.environ['FF_PY_HOME'])
+import partitioner
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -191,9 +195,9 @@ def main():
   #-------------------------------------------------------------------------------------
   numProcessors = int(numProcessors)
 
-  part_main.mkdir("_mesh")
+  partitioner.mkdir("_mesh")
 
-  part_main.MainProcess(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
+  partitioner.MainProcess(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
   #-------------------------------------------------------------------------------------
 
   for i in range(nmin,nmax):  # nmax means the loop goes to nmax-1
