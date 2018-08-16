@@ -461,7 +461,7 @@ endif()
 if(USE_BOOST)
   # UNCOMMENT THE LINE BELOW IF YOU HAVE ISSUES FINDING BOOST
   # set(Boost_DEBUG True)
-  find_package(Boost 1.56 REQUIRED COMPONENTS thread)
+  find_package(Boost 1.53 REQUIRED COMPONENTS thread)
 endif(USE_BOOST)
 
 #if(Boost_FOUND)
