@@ -79,6 +79,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 ! USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE Sigma_User, ONLY: mySigma,myProcess,mySetup
  USE cinterface 
  use iniparser
 
@@ -111,6 +112,10 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
+ REAL*8 ViscosityModel
+ REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
+ CHARACTER sTimeStep*(9)
+ 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
@@ -182,6 +187,45 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  end if
  !------------------------------------------------------------------
 
+!=====================================================================================
+!=====================================================================================
+!=====================================================================================
+  IF (myid.eq.1) THEN
+   WRITE(MTERM,'(A)') 
+   WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+   WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+  END IF
+  IF (mySetup%bAutoamticTimeStepControl) THEN
+    ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
+   dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
+   dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
+   dCharShear     = dCharVelo/dCharSize
+   dCharVisco     = ViscosityModel(mySetup%CharacteristicShearRate)
+   TimeStep = 2d-1*(dCharSize**2d0) / dCharVisco
+   WRITE(sTimeStep,'(ES9.1)') TimeStep
+   READ(sTimeStep,*) TimeStep
+
+   IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
+    WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
+    WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+    WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+   END IF
+   
+   CALL AdjustTimeStepping(TimeStep)
+  END IF
+     
+  IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
+    WRITE(MFILE,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
+    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+    WRITE(MTERM,'(A)') 
+  END IF
+!=====================================================================================
+!=====================================================================================
+!=====================================================================================
+ 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
  if(NLMAX.eq.0)then
@@ -560,3 +604,29 @@ END IF
 END SUBROUTINE xSEND_FINISH
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #endif
+!
+! -----------------------------------------------------------------------
+!
+SUBROUTINE AdjustTimeStepping(dt)
+USE PP3D_MPI
+
+IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+REAL*8 dt
+
+!-----------------------------------------------------------------------
+!     C O M M O N S 
+!-----------------------------------------------------------------------
+! *** Standard COMMON blocks
+! *** COMMON blocks for time discretization
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+COMMON /NSSAVF/ DTFILM,DTFILO,DTAVS,DTAVSO,DTGMV,DTGMVO,&
+                      IFUSAV,IFPSAV,IFXSAV,IGID,IGMV,IFINIT
+COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,DTFACT,TIMEIN,EPSADI,EPSADL,&
+                      EPSADU,IEPSAD,IADIN,IREPIT,IADTIM,PRDIF1,PRDIF2
+SAVE 
+
+TSTEP  = dt
+DTGMV  = DBLE(100)*dt
+TIMEMX = DBLE(NITNS+1)*dt
+
+END SUBROUTINE AdjustTimeStepping

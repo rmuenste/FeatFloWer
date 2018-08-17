@@ -525,6 +525,14 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     
     cKTP=' '
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutoamticTimeStepControl",cKTP,"YES")
+    call inip_toupper_replace(cKTP)
+    IF (ADJUSTL(TRIM(cKTP)).eq."NO") THEN
+     mySetup%bAutoamticTimeStepControl = .FALSE.
+    END IF
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d1)
+
+    cKTP=' '
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","KTPRelease",cKTP,"YES")
     call inip_toupper_replace(cKTP)
     IF (ADJUSTL(TRIM(cKTP)).eq."NO") THEN

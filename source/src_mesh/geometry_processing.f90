@@ -174,14 +174,14 @@ END IF
 
 
 ! First the point needs to be transformed back to time = 0
-dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 1d0*myPI/2d0)*myProcess%ind
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
 XT_STL = dUnitScale*XT
 YT_STL = dUnitScale*YT
-ZT_STL = dUnitScale*ZT
+ZT_STL = dUnitScale*ZT - dUnitScale*mySigma%mySegment(iSeg)%Min
 
 DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
@@ -200,14 +200,19 @@ ELSE
 END IF
 
 ! First the point needs to be transformed back to time = 0
-dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+!dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
 XT_STL = dUnitScale*XT
 YT_STL = dUnitScale*YT
-ZT_STL = dUnitScale*ZT
+ZT_STL = dUnitScale*ZT  - dUnitScale*mySigma%mySegment(iSeg)%Min
 
 DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
