@@ -531,6 +531,9 @@
      mySetup%bAutoamticTimeStepControl = .FALSE.
     END IF
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d1)
+    
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
+    
 
     cKTP=' '
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","KTPRelease",cKTP,"YES")
@@ -779,7 +782,12 @@
     write(*,*) "myOutput%HistogramViscoMax = ",myOutput%HistogramViscoMax    
     write(*,*) "myOutput%HistogramViscoMin = ",myOutput%HistogramViscoMin    
     write(*,*) 
-   IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
+
+    write(*,*) "mySetup%AutoamticTimeStepControl = ",mySetup%bAutoamticTimeStepControl
+    write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
+    write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
+
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
      write(*,*) "mySetup%MeshPath",'=',ADJUSTL(TRIM(mySetup%cMeshPath))
     END IF

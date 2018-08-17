@@ -372,7 +372,7 @@ SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist)
 !   This subroutine handles the FBM geometric computations
 !   for a single(!) elastic or soft body.
 !
-use var_QuadScalar, only : dCGALtoRealFactor
+use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
 implicit none
 
 ! Coordinates of the query point 
@@ -416,7 +416,12 @@ real*8 :: dist_sign, cpx,cpy,cpz, d_temp
   
  end do
  
- if (dist.lt.0d0) inpr = 100
+ if (dist.lt.0d0) THEN
+  inpr = 100
+  if (z.lt.activeFBM_Z_Position/dCGALtoRealFactor) THEN
+   inpr = 0
+  end if
+ end if
 
 END SUBROUTINE GetFictKnpr_DIE
 !=========================================================================

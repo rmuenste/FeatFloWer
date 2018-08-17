@@ -327,6 +327,7 @@ module umbrella_smoother
     d_temp2 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
     d1  = MIN(d_temp1/dCGALtoRealFactor,d_temp2/dCGALtoRealFactor)
    END IF
+   d1 = dScaleFactor*d1
 !    write(*,*) d_temp1,d_temp2
   END IF
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN

@@ -1,6 +1,6 @@
 MODULE Sigma_User
 USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength
-USE var_QuadScalar ,ONLY : bNoOutflow
+USE var_QuadScalar ,ONLY : bNoOutflow,activeFBM_Z_Position
 
 IMPLICIT NONE
 
