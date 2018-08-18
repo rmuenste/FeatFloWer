@@ -121,9 +121,11 @@ CALL COMM_SUMM(dArea)
 CALL COMM_SUMM(dFlux)
 
 if (myid.eq.showid) then
- WRITE(mterm,'(A,2ES12.4)') 'Area [cm2] and overal heat flux [W]: ', dArea,dFlux
- WRITE(mfile,'(A,2ES12.4)') 'Area [cm2] and overal heat flux [W]: ', dArea,dFlux
+ WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea,1e-3*dFlux,dHeatSource
+ WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea,1e-3*dFlux,dHeatSource
 end if
+
+CALL IntegrateOutputQuantities(mfile)
 
 NLMAX = NLMAX - 1
 
@@ -681,6 +683,60 @@ if (myid.ne.master) then
 end if
 
 END SUBROUTINE AddBoundaryHeatFlux
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegrateOutputQuantities(mfile)
+EXTERNAL E011
+REAL*8 dQuant(12)
+integer mfile,iS,iSeg
+
+if (myid.ne.master) then
+ ilev = NLMAX
+ call setlev(2)
+ dQuant = 0d0
+ CALL IntegrateOutputQuantitiesSub(Tracer%oldSol,&
+                                   mg_mesh%level(ilev)%kvert,&
+                                   mg_mesh%level(ilev)%karea,&
+                                   mg_mesh%level(ilev)%kedge,&
+                                   mg_mesh%level(ilev)%dcorvg,&
+                                   E011,dQuant)
+end if
+
+CALL Comm_SummN(dQuant,12)
+
+IF (myid.eq.1) then
+ iS = 0
+ write(MTERM,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+ write(MFILE,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+ iS = 4
+ write(MTERM,'(A,20ES12.4)') 'IntQuantWIRE__t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+ write(MFILE,'(A,20ES12.4)') 'IntQuantWIRE__t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+ iS = 8
+ write(MTERM,'(A,20ES12.4)') 'IntQuantMELT__t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+ write(MFILE,'(A,20ES12.4)') 'IntQuantMELT__t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
+end if
+
+iS = 0
+iSeg = 0
+
+do 
+ iSeg = iSeg + 1
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+  IF (dQuant(iS+4)/dQuant(iS+3).gt.300d0) then
+   mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
+  END IF
+  IF (dQuant(iS+4)/dQuant(iS+3).lt.200d0) then
+   mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMax
+  END IF
+  dHeatSource = mySigma%mySegment(iSeg)%UseHeatSource
+  GOTO 1
+ END IF
+end do
+1 continue
+
+
+END SUBROUTINE IntegrateOutputQuantities
 !
 ! ----------------------------------------------
 !

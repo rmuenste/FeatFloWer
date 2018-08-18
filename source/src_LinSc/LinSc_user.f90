@@ -197,7 +197,7 @@ DO i=1,Tracer%ndof
  end if
  
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE'.OR.TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'MELT') THEN
-  dSource = 1e10*mySigma%mySegment(iSeg)%HeatSource/(mySigma%mySegment(iSeg)%Volume)
+  dSource = 1e10*mySigma%mySegment(iSeg)%UseHeatSource/(mySigma%mySegment(iSeg)%Volume)
 !  dSource = 1e3*mySigma%mySegment(iSeg)%HeatSource/(mySigma%mySegment(iSeg)%Volume*myMaterials(iMat)%cp*myMaterials(iMat)%Density)
   Tracer%def(i) = Tracer%def(i) + MLmat(i)*dSource*tstep
  END IF

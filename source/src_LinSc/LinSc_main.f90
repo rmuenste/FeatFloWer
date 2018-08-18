@@ -17,7 +17,7 @@ TYPE(lScalar3) Tracer3
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 
-REAL*8 dArea,dFlux
+REAL*8 dArea,dFlux,dHeatSource
 
 include 'LinSc_user_include.h'
 

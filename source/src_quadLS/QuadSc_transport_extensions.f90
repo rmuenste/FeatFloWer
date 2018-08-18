@@ -658,7 +658,9 @@ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL GetNonNewtViscosity_sse()
 
-CALL Calculate_Torque(mfile)
+IF (.not.bKTPRelease) then
+ CALL Calculate_Torque(mfile)
+END IF
 
 ILEV = NLMAX
 CALL SETLEV(2)

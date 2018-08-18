@@ -950,7 +950,9 @@
      
      call INIP_getvalue_double(parameterlist,cElement_i,"InitialTemperature", mySigma%mySegment(iSeg)%InitTemp ,0d0)
 
-     call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSource", mySigma%mySegment(iSeg)%HeatSource ,0d0)
+     call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSourceMax", mySigma%mySegment(iSeg)%HeatSourceMax ,0d0)
+     call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSourceMin", mySigma%mySegment(iSeg)%HeatSourceMin ,0d0)
+     mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
 
      call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
@@ -1031,7 +1033,8 @@
      write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
      write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%InitialTemperature=',mySigma%mySegment(iSeg)%InitTemp
-     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSource=',mySigma%mySegment(iSeg)%HeatSource
+     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMax=',mySigma%mySegment(iSeg)%HeatSourceMax
+     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
       write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles

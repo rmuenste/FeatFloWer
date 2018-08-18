@@ -23,7 +23,8 @@ TYPE tSegment
   INTEGER :: SecProf_N, SecProf_I
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
   INTEGER :: MatInd
-  REAL*8 :: HeatSource,InitTemp,Volume
+  REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
+  REAL*8 :: InitTemp,Volume
   
 END TYPE tSegment
 !------------------------------------------------------------
