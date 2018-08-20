@@ -413,7 +413,7 @@ def writeParFiles(hexMesh):
         for node in h.nodeIds:
             parDict[h.type].add(int(node))
 
-    layerOnePar = []
+    layerOnePar = set()
 
     for hidx, h in enumerate(hexMesh.hexas):
         for idx, item in enumerate(h.neighIdx):
@@ -425,13 +425,13 @@ def writeParFiles(hexMesh):
                 for node in bndryVertices:
                     parDict[h.type].add(int(node))
                     hexMesh.verticesAtBoundary[node] = h.type
-                    layerOnePar.append(int(node))
+                    layerOnePar.add(int(node))
 
     parFileNames = []
 
     parName = "layer1.par"
     parFileNames.append(parName)
-    with open(parName, "w") as parFile:
+    with open("prj_folder" + parName, "w") as parFile:
         parFile.write(str(len(layerOnePar)) + " Wall")
         parFile.write("' '")
         for nodeIdx in layerOnePar:
@@ -447,7 +447,7 @@ def writeParFiles(hexMesh):
 #            for nodeIdx in parList:
 #                parFile.write(str(nodeIdx + 1) + "\n")
 
-    with open("file.prj", "w") as prjFile:
+    with open("prj_folder/file.prj", "w") as prjFile:
         prjFile.write("mesh.tri\n")
         for name in parFileNames:
             prjFile.write(name + "\n")

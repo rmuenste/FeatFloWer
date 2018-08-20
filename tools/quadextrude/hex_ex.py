@@ -294,7 +294,7 @@ def main():
     """
 
     # Default output file name
-    outputFileName = "mesh.tri"
+    outputFileName = "prj_folder/mesh.tri"
 
     # Default value for levels
     levels = 4
