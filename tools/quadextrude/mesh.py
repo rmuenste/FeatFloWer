@@ -1,3 +1,4 @@
+import operator
 #/usr/bin/env python
 # vim: set filetype=python
 """
@@ -39,6 +40,7 @@ class Hexa:
         self.idx = idx
         self.layerIdx = 0
         self.type = 0
+        self.neighIdx = [-1] * 6
 
 #===============================================================================
 #                          A class for a QuadMesh
@@ -75,6 +77,11 @@ class HexMesh:
         self.nodes = nodes
         self.nodesLayer = 0
         self.hexasLayer = 0
+        self.elementsAtVertexIdx = []
+        self.elementsAtVertex = []
+        self.verticesAtBoundary = []
+        # GenElAtVert()
+        # GenElAtVert()
 
 
 #===============================================================================
@@ -215,6 +222,170 @@ def removeHexasLayer(hexMesh, levelIdx, typeIds):
 
 
 #===============================================================================
+#                       Function generateElementsAtVertex
+#===============================================================================
+def generateElementsAtVertex(hexMesh):
+    """
+    Compute the Elements attached to a particular vertex
+
+    Args:
+        hexMesh: The input/output hex mesh
+    """
+    elemAtVertIdx = []
+
+    for node in hexMesh.nodes:
+        elemAtVertIdx.append(list())
+
+    for idx, hex in enumerate(hexMesh.hexas):
+        for node in hex.nodeIds:
+            elemAtVertIdx[node].append(idx) 
+
+
+    hexMesh.elementsAtVertex = elemAtVertIdx
+
+
+#===============================================================================
+#                       Function generateNeighborsAtElement
+#===============================================================================
+def generateNeighborsAtElement(hexMesh):
+    """
+    Compute the neighbors at the faces of an element
+    Uses the connector data structure for a face:
+    connector[6]
+    connector[0-3] : the indices of the face
+    connector[4] : the idx of the hexa the face was found in 
+    connector[5] : the internal face index in the hexa 
+                   (0 for the first face, 1 for the 2nd,...) 
+
+    Args:
+        hexMesh: The input/output hex mesh
+    """
+
+    connectorList = []
+    for hidx, hex in enumerate(hexMesh.hexas):
+
+        connector = []
+        #=========================================================  
+        # first face
+        for i in range(4):  
+            connector.append(hex.nodeIds[i])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(0)
+
+        connectorList.append(connector)
+
+        #=========================================================  
+        # second face
+        connector = []
+        connector.append(hex.nodeIds[0])
+        connector.append(hex.nodeIds[1])
+        connector.append(hex.nodeIds[4])
+        connector.append(hex.nodeIds[5])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(1)
+
+        connectorList.append(connector)
+
+        #=========================================================  
+        # third face
+        connector = []
+        connector.append(hex.nodeIds[1])
+        connector.append(hex.nodeIds[2])
+        connector.append(hex.nodeIds[5])
+        connector.append(hex.nodeIds[6])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(2)
+
+        connectorList.append(connector)
+
+        #=========================================================  
+        # fourth face
+        connector = []
+        connector.append(hex.nodeIds[3])
+        connector.append(hex.nodeIds[2])
+        connector.append(hex.nodeIds[6])
+        connector.append(hex.nodeIds[7])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(3)
+
+        connectorList.append(connector)
+
+        #=========================================================  
+        # fifth face
+        connector = []
+        connector.append(hex.nodeIds[0])
+        connector.append(hex.nodeIds[3])
+        connector.append(hex.nodeIds[7])
+        connector.append(hex.nodeIds[4])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(4)
+
+        connectorList.append(connector)
+
+        #=========================================================  
+        # sixth face
+        connector = []
+        for i in range(4,8):  
+            connector.append(hex.nodeIds[i])
+
+        # The hexa idx
+        connector.append(hidx)
+
+        # The internal face idx
+        connector.append(5)
+
+        connectorList.append(connector)
+
+    for connector in connectorList:
+        connector[0:4] = sorted(connector[0:4])
+
+    connectorList = sorted(connectorList, key=operator.itemgetter(3))
+    connectorList = sorted(connectorList, key=operator.itemgetter(2))
+    connectorList = sorted(connectorList, key=operator.itemgetter(1))
+    connectorList = sorted(connectorList, key=operator.itemgetter(0))
+
+    testList = connectorList[0:36] 
+
+    for i in range(1,len(connectorList)):
+        ca = connectorList[i-1]
+        cb = connectorList[i]
+        if connectorList[i-1][0:4] == connectorList[i][0:4]: 
+            hexMesh.hexas[ca[4]].neighIdx[ca[5]] = cb[4]
+            hexMesh.hexas[cb[4]].neighIdx[cb[5]] = ca[4]
+
+ 
+
+#    print testList[13][0:4]
+#    print testList[12][0:4]
+#    if testList[11][0:4] == testList[13][0:4]:
+#        print("ja")
+#    else:
+#        print("nein")
+
+#    print("Hexas: " + str(6 * len(hexMesh.hexas)))
+#    print(str(len(connectorList)))
+
+#===============================================================================
 #                       Function writeParFiles
 #===============================================================================
 def writeParFiles(hexMesh):
@@ -227,6 +398,12 @@ def writeParFiles(hexMesh):
     typeIds = []
     parDict = {}
 
+    faceIndices = [[0, 1, 2, 3], [0, 1, 4, 5], [1, 2, 5, 6], [3, 2, 6, 7], [0, 3, 7, 4], [4, 5, 6, 7]]
+
+    hexMesh.verticesAtBoundary = [0] * len(hexMesh.nodes)
+
+    print("Number of nodes: " + str(len(hexMesh.nodes)))
+
     for h in hexMesh.hexas:
         if not int(h.type) in typeIds:
             typeIds.append(h.type)
@@ -235,6 +412,17 @@ def writeParFiles(hexMesh):
     for h in hexMesh.hexas:
         for node in h.nodeIds:
             parDict[h.type].add(int(node))
+
+    for hidx, h in enumerate(hexMesh.hexas):
+        for idx, item in enumerate(h.neighIdx):
+            if item == -1:
+                bndryVertices = [h.nodeIds[faceIndices[idx][0]], 
+                                 h.nodeIds[faceIndices[idx][1]],
+                                 h.nodeIds[faceIndices[idx][2]],
+                                 h.nodeIds[faceIndices[idx][3]]]
+                for node in bndryVertices:
+                    parDict[h.type].add(int(node))
+                    hexMesh.verticesAtBoundary[node] = h.type
 
     parFileNames = []
 

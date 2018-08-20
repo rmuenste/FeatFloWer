@@ -140,6 +140,12 @@ def writeHexMeshVTK(hexMesh, fileName):
         for h in hexMesh.hexas:
             f.write('%i\n' % (h.layerIdx))
 
+        f.write("POINT_DATA " + str(nVertices) + " \n")
+        f.write("SCALARS KNPR integer\n")
+        f.write("LOOKUP_TABLE default\n")
+        for val in hexMesh.verticesAtBoundary:
+            f.write('%i\n' % (val))
+
 
 #===============================================================================
 #                        Function readMeshFile
@@ -382,11 +388,18 @@ def main():
 
     renumberNodes(hm2)
 
+    generateElementsAtVertex(hm2)
+    generateNeighborsAtElement(hm2)
+
     writeParFiles(hm2)
 
     #writeHexMeshVTK(hm2, "hex.00.vtk")
     writeHexMeshVTK(hm2, "caseB.00.vtk")
     writeTriFile(hm2, outputFileName)
+
+#    for item, hexList in enumerate(hm2.elementsAtVertex):
+#        print("Vertex " + str(item) + ":" + str(hexList))
+        
 
 #===============================================================================
 #                             Main Boiler Plate
