@@ -431,8 +431,10 @@ def writeParFiles(hexMesh):
         parName = "parfile" + str(key) + ".par"
         parFileNames.append(parName)
         with open(parName, "w") as parFile:
+            parFile.write(str(len(parList)) + " Wall")
+            parFile.write("' '")
             for nodeIdx in parList:
-                parFile.write(str(nodeIdx) + "\n")
+                parFile.write(str(nodeIdx + 1) + "\n")
 
     with open("file.prj", "w") as prjFile:
         prjFile.write("mesh.tri\n")
