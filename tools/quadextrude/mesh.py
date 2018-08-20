@@ -212,3 +212,41 @@ def removeHexasLayer(hexMesh, levelIdx, typeIds):
             newHex.append(h)
 
     hexMesh.hexas = newHex
+
+
+#===============================================================================
+#                       Function writeParFiles
+#===============================================================================
+def writeParFiles(hexMesh):
+    """
+    Writes a list of .par files from the hexa typeIds
+
+    Args:
+        hexMesh: The input/output hex mesh
+    """
+    typeIds = []
+    parDict = {}
+
+    for h in hexMesh.hexas:
+        if not int(h.type) in typeIds:
+            typeIds.append(h.type)
+            parDict.update({int(h.type) : set()})
+
+    for h in hexMesh.hexas:
+        for node in h.nodeIds:
+            parDict[h.type].add(int(node))
+
+    parFileNames = []
+
+    for key in parDict:
+        parList = parDict[key]
+        parName = "parfile" + str(key) + ".par"
+        parFileNames.append(parName)
+        with open(parName, "w") as parFile:
+            for nodeIdx in parList:
+                parFile.write(str(nodeIdx) + "\n")
+
+    with open("file.prj", "w") as prjFile:
+        prjFile.write("mesh.tri\n")
+        for name in parFileNames:
+            prjFile.write(name + "\n")

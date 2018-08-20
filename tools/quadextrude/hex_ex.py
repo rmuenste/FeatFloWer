@@ -382,6 +382,8 @@ def main():
 
     renumberNodes(hm2)
 
+    writeParFiles(hm2)
+
     #writeHexMeshVTK(hm2, "hex.00.vtk")
     writeHexMeshVTK(hm2, "caseB.00.vtk")
     writeTriFile(hm2, outputFileName)
