@@ -17,6 +17,21 @@ myQuads = []
 myNodes = []
 
 #===============================================================================
+#                      Function: mkdir 
+#===============================================================================
+def mkdir(dir):
+  """
+  Erzeugt nur dann das Verzeichnis "dir", wenn es noch nicht vorhanden ist.
+  Falls eine Datei dieses Namens existieren sollte, wird sie durch das Verzeichnis ersetzt.
+  """
+  if os.path.exists(dir):
+    if os.path.isdir(dir):
+      return
+    else:
+      os.remove(dir)
+  os.mkdir(dir)
+
+#===============================================================================
 #                      Function:  Write Tri File
 #===============================================================================
 def writeTriFile(hexMesh, fileName):
@@ -35,7 +50,7 @@ def writeTriFile(hexMesh, fileName):
         f.write("DCORVG\n")
 
         for n in hexMesh.nodes:
-            f.write("%f %f %f\n" % (n[0], n[1], n[2]))
+            f.write("%f %f %f\n" % (0.1 * n[0], 0.1 * n[1], 0.1 * n[2]))
 
         f.write("KVERT\n")
         for h in hexMesh.hexas:
@@ -240,6 +255,26 @@ def parseLevelDistance(argin):
 
 
 #===============================================================================
+#                      Function:  calculateSliceIds
+#===============================================================================
+def calculateSliceIds(extrusionLayers):
+    levels = len(extrusionLayers)
+    slicesOnLevel = []
+    sliceCount = 0
+    for value in extrusionLayers:
+        slices = []
+        for i in range(sliceCount, sliceCount + value):
+            slices.append(i)
+            sliceCount = sliceCount + 1
+
+        slicesOnLevel.append(slices)
+
+    slicesOnLevel[levels-1].append(sliceCount)
+
+    return slicesOnLevel
+
+
+#===============================================================================
 #                      Function:  parseLevelDistance
 #===============================================================================
 def parseLevelIds(argin):
@@ -299,7 +334,7 @@ def main():
     """
 
     # Default output file name
-    outputFileName = "prj_folder/mesh.tri"
+    outputFileName = "meshDir/mesh.tri"
 
     # Default value for levels
     levels = 4
@@ -342,6 +377,10 @@ def main():
         else:
             usage()
             sys.exit(2)
+
+
+    # The slices on each level
+    slicesOnLevel = calculateSliceIds(extrusionLayers)
 
     #readMeshFile(inputName)
     with open(inputName, "r") as f:
@@ -397,8 +436,10 @@ def main():
     generateElementsAtVertex(hm2)
     generateNeighborsAtElement(hm2)
     generateFacesAtBoundary(hm2)
+    generateVerticesAtBoundary(hm2)
 
-    writeParFiles(hm2)
+    mkdir("meshDir")
+    writeParFiles(hm2, slicesOnLevel)
 
     #writeHexMeshVTK(hm2, "hex.00.vtk")
     writeHexMeshVTK(hm2, "caseB.00.vtk")
