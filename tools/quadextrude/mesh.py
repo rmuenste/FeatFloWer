@@ -22,6 +22,7 @@ class Quad:
         self.idx = idx
         self.traits = []
 
+
 #===============================================================================
 #                          A class for a hexa
 #===============================================================================
@@ -41,6 +42,28 @@ class Hexa:
         self.layerIdx = 0
         self.type = 0
         self.neighIdx = [-1] * 6
+        self.hasBoundaryFace = False
+
+
+#===============================================================================
+#                          A class for a face
+#===============================================================================
+class Face:
+    """
+    A class for face of a hexahedral element
+
+    Attributes:
+        nodeIds: A list of the node Ids (indices) of each vertex of the
+                 hexahedron
+        layerIdx: The level that the hexahedron belongs to
+        type: The type id of the hexahedral element
+    """
+    def __init__(self, nodeIds, idx, faceType = 'UNINITIALIZED'):
+        self.nodeIds = nodeIds
+        self.idx = idx
+        self.layerIdx = 0
+        self.faceType = faceType
+        
 
 #===============================================================================
 #                          A class for a QuadMesh
@@ -72,7 +95,7 @@ class HexMesh:
         nodesLayer: The number of nodes on an extrusion layer
         hexasLayer: The number of hexas on an extrusion layer
     """
-    def __init__(self, hexas=[], nodes=[]):
+    def __init__(self, hexas=[], nodes=[], sliceIds=[]):
         self.hexas = hexas
         self.nodes = nodes
         self.nodesLayer = 0
@@ -80,6 +103,9 @@ class HexMesh:
         self.elementsAtVertexIdx = []
         self.elementsAtVertex = []
         self.verticesAtBoundary = []
+        self.facesAtBoundary = []
+        self.nodesAtSlice = sliceIds
+        self.slice = 0
         # GenElAtVert()
         # GenElAtVert()
 
@@ -100,9 +126,12 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
     hexNodes = []
     hexHexas = []
     realHexas = []
+    nodeSliceIds = []
     for n in quadMesh.nodes:
         coords = (n[0], n[1], n[2], n[3])
         hexNodes.append([float(coords[1]), float(coords[2]), float(coords[3])])
+        nodeSliceIds.append(0)
+
 
     for q in quadMesh.quads:
         nodeIds = (int(q[5])-1, int(q[6])-1, int(q[7])-1, int(q[8])-1)
@@ -112,6 +141,7 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
     for n in quadMesh.nodes:
         coords = (n[0], n[1], n[2], n[3])
         hexNodes.append([float(coords[1]), float(coords[2]), float(coords[3])+dz])
+        nodeSliceIds.append(1)
 
     for idx, q in enumerate(quadMesh.quads):
         nodeIdsBot = (int(q[5])-1, int(q[6])-1, int(q[7])-1, int(q[8])-1)
@@ -124,7 +154,7 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
         h.type = int(q[4])
         realHexas.append(h)
 
-    return HexMesh(realHexas, hexNodes)
+    return HexMesh(realHexas, hexNodes, nodeSliceIds)
 
 
 #===============================================================================
@@ -146,6 +176,8 @@ def extrudeHexMeshZ(hexMesh, offsetHex, offsetNodes, layerNodes, layerIdx, dz):
     hexHexas = []
     newHexas = []
 
+    hexMesh.slice = hexMesh.slice + 1
+
     for nidx in range(offsetNodes, len(hexMesh.nodes)):
         coords = (hexMesh.nodes[nidx][0], hexMesh.nodes[nidx][1], hexMesh.nodes[nidx][2])
         hexNodes.append([coords[0], coords[1], coords[2]+dz])
@@ -164,6 +196,7 @@ def extrudeHexMeshZ(hexMesh, offsetHex, offsetNodes, layerNodes, layerIdx, dz):
 
     for n in hexNodes:
         hexMesh.nodes.append(n)
+        hexMesh.nodesAtSlice.append(hexMesh.slice)
 
 
 #===============================================================================
@@ -180,6 +213,7 @@ def renumberNodes(hexMesh):
     nodeMap = {}
     nodeCounter = 0
     newNodes = []
+    newNodesAtSlice = []
 
     for hidx in range(len(hexMesh.hexas)):
         newNodeIds = []
@@ -188,6 +222,7 @@ def renumberNodes(hexMesh):
                 nodeMap[idx] = nodeCounter
                 newNodeIds.append(nodeCounter)
                 newNodes.append(hexMesh.nodes[idx])
+                newNodesAtSlice.append(hexMesh.nodesAtSlice[idx])
                 nodeCounter = nodeCounter + 1
             else:
                 newNodeIds.append(nodeMap[idx])
@@ -195,6 +230,7 @@ def renumberNodes(hexMesh):
         hexMesh.hexas[hidx].nodeIds = newNodeIds
 
     hexMesh.nodes = newNodes
+    hexMesh.nodesAtSlice = newNodesAtSlice
 
 
 #===============================================================================
@@ -242,6 +278,39 @@ def generateElementsAtVertex(hexMesh):
 
 
     hexMesh.elementsAtVertex = elemAtVertIdx
+
+
+#===============================================================================
+#                       Function facesAtBoundary
+#===============================================================================
+def generateFacesAtBoundary(hexMesh):
+    """
+    Compute the boundary faces of the mesh
+
+    Args:
+        hexMesh: The input/output hex mesh
+    """
+    facesAtBoundary = []
+
+    faceIndices = [[0, 1, 2, 3], [0, 1, 4, 5], [1, 2, 5, 6], [3, 2, 6, 7], [0, 3, 7, 4], [4, 5, 6, 7]]
+
+    nfaces = 0
+    for hidx, h in enumerate(hexMesh.hexas):
+        for idx, item in enumerate(h.neighIdx):
+            if item == -1:
+                h.hasBoundaryFace = True 
+
+                bndryVertices = [h.nodeIds[faceIndices[idx][0]], 
+                                 h.nodeIds[faceIndices[idx][1]],
+                                 h.nodeIds[faceIndices[idx][2]],
+                                 h.nodeIds[faceIndices[idx][3]]]
+
+                bndryFace = Face(bndryVertices, nfaces, 'boundaryFace')
+                bndryFace.layerIdx = h.layerIdx
+                facesAtBoundary.append(bndryFace)
+                nfaces = nfaces + 1
+
+    hexMesh.facesAtBoundary = facesAtBoundary
 
 
 #===============================================================================
@@ -373,8 +442,6 @@ def generateNeighborsAtElement(hexMesh):
             hexMesh.hexas[ca[4]].neighIdx[ca[5]] = cb[4]
             hexMesh.hexas[cb[4]].neighIdx[cb[5]] = ca[4]
 
- 
-
 #    print testList[13][0:4]
 #    print testList[12][0:4]
 #    if testList[11][0:4] == testList[13][0:4]:
@@ -384,6 +451,44 @@ def generateNeighborsAtElement(hexMesh):
 
 #    print("Hexas: " + str(6 * len(hexMesh.hexas)))
 #    print(str(len(connectorList)))
+
+
+#===============================================================================
+#                       Function parFileFromSlice
+#===============================================================================
+def parFileFromSlice(hexMesh, sliceId):
+    """
+    Builds a par file from a hex mesh and a slice
+
+    Args:
+        hexMesh: The input/output hex mesh
+        sliceId: The id of the slice
+    """
+    layerOnePar = [] 
+    for idx, node in enumerate(hexMesh.nodes):
+        if hexMesh.nodesAtSlice[idx] == sliceId:
+            layerOnePar.append(idx)
+
+    return layerOnePar
+
+#===============================================================================
+#                       Function writeSingleParFile
+#===============================================================================
+def writeSingleParFile(nodeIds, fileName, bndryType):
+    """
+    Builds a par file from a hex mesh and a slice
+
+    Args:
+        hexMesh: The input/output hex mesh
+        sliceId: The id of the slice
+    """
+
+    parName = fileName 
+    with open("prj_folder/" + parName, "w") as parFile:
+        parFile.write(str(len(nodeIds)) + " " + bndryType + "\n")
+        parFile.write("' '\n")
+        for nodeIdx in nodeIds:
+            parFile.write(str(nodeIdx + 1) + "\n")
 
 #===============================================================================
 #                       Function writeParFiles
@@ -413,29 +518,102 @@ def writeParFiles(hexMesh):
         for node in h.nodeIds:
             parDict[h.type].add(int(node))
 
-    layerOnePar = set()
+    layerOnePar = parFileFromSlice(hexMesh, 0) 
+#    for idx, node in enumerate(hexMesh.nodes):
+#        if hexMesh.nodesAtSlice[idx] == 0:
+#            layerOnePar.append(idx)
 
-    for hidx, h in enumerate(hexMesh.hexas):
-        for idx, item in enumerate(h.neighIdx):
-            if item == -1 and h.layerIdx == 1:
-                bndryVertices = [h.nodeIds[faceIndices[idx][0]], 
-                                 h.nodeIds[faceIndices[idx][1]],
-                                 h.nodeIds[faceIndices[idx][2]],
-                                 h.nodeIds[faceIndices[idx][3]]]
-                for node in bndryVertices:
-                    parDict[h.type].add(int(node))
-                    hexMesh.verticesAtBoundary[node] = h.type
-                    layerOnePar.add(int(node))
+#    for hidx, h in enumerate(hexMesh.hexas):
+#        for idx, item in enumerate(h.neighIdx):
+#            if item == -1 and h.layerIdx == 1:
+#                bndryVertices = [h.nodeIds[faceIndices[idx][0]], 
+#                                 h.nodeIds[faceIndices[idx][1]],
+#                                 h.nodeIds[faceIndices[idx][2]],
+#                                 h.nodeIds[faceIndices[idx][3]]]
+#                for node in bndryVertices:
+#                    parDict[h.type].add(int(node))
+#                    hexMesh.verticesAtBoundary[node] = h.type
+#                    layerOnePar.add(int(node))
 
     parFileNames = []
 
-    parName = "layer1.par"
+    parName = "Inflow.par"
     parFileNames.append(parName)
-    with open("prj_folder" + parName, "w") as parFile:
-        parFile.write(str(len(layerOnePar)) + " Wall")
-        parFile.write("' '")
-        for nodeIdx in layerOnePar:
-            parFile.write(str(nodeIdx + 1) + "\n")
+
+    writeSingleParFile(layerOnePar, parName, "Inflow1")
+
+    layerOnePar = parFileFromSlice(hexMesh, 3) 
+    parName = "plane.par"
+    parFileNames.append(parName)
+
+    writeSingleParFile(layerOnePar, parName, "Wall")
+
+    layerOneCyl = []
+    for face in hexMesh.facesAtBoundary:
+        if face.layerIdx == 1:
+            sliceIds = [hexMesh.nodesAtSlice[face.nodeIds[0]], 
+                        hexMesh.nodesAtSlice[face.nodeIds[1]],
+                        hexMesh.nodesAtSlice[face.nodeIds[2]],
+                        hexMesh.nodesAtSlice[face.nodeIds[3]]]
+            if not sliceIds == [3, 3, 3, 3] and not sliceIds == [0, 0, 0, 0]:
+                for node in face.nodeIds:
+                    layerOneCyl.append(node)
+
+    parName = "cyl1.par"
+    parFileNames.append(parName)
+    writeSingleParFile(layerOneCyl, parName, "Wall")
+
+    cylinderLayer = []
+    for face in hexMesh.facesAtBoundary:
+        if face.layerIdx == 2:
+            for node in face.nodeIds:
+                cylinderLayer.append(node)
+
+    parName = "allcylinders.par"
+    parFileNames.append(parName)
+    writeSingleParFile(cylinderLayer, parName, "Wall")
+
+    layer18 = parFileFromSlice(hexMesh, 18) 
+    parName = "plane18.par"
+    parFileNames.append(parName)
+
+    writeSingleParFile(layer18, parName, "Wall")
+
+    layer21 = parFileFromSlice(hexMesh, 21) 
+    parName = "plane21.par"
+    parFileNames.append(parName)
+
+    writeSingleParFile(layer21, parName, "Wall")
+
+    layer26 = parFileFromSlice(hexMesh, 26) 
+    parName = "plane26.par"
+    parFileNames.append(parName)
+
+    writeSingleParFile(layer26, parName, "Outflow")
+
+    #===============================================
+    parName = "cyl3.par"
+    parFileNames.append(parName)
+
+    cylinder3Layer = []
+    for face in hexMesh.facesAtBoundary:
+        if face.layerIdx == 3:
+            for node in face.nodeIds:
+                cylinder3Layer.append(node)
+
+    writeSingleParFile(cylinder3Layer, parName, "Wall")
+
+
+#    for idx, node in enumerate(hexMesh.nodes):
+#        if hexMesh.nodesAtSlice[idx] == 0:
+#            layerOnePar.append(idx)
+
+
+#    with open("prj_folder/" + parName, "w") as parFile:
+#        parFile.write(str(len(layerOnePar)) + " Wall\n")
+#        parFile.write("' '\n")
+#        for nodeIdx in layerOnePar:
+#            parFile.write(str(nodeIdx + 1) + "\n")
 
 #    for key in parDict:
 #        parList = parDict[key]

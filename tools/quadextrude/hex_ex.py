@@ -146,6 +146,11 @@ def writeHexMeshVTK(hexMesh, fileName):
         for val in hexMesh.verticesAtBoundary:
             f.write('%i\n' % (val))
 
+        f.write("SCALARS SliceId integer\n")
+        f.write("LOOKUP_TABLE default\n")
+        for val in hexMesh.nodesAtSlice:
+            f.write('%i\n' % (val))
+
 
 #===============================================================================
 #                        Function readMeshFile
@@ -367,6 +372,7 @@ def main():
     extrusionLayers[0] = extrusionLayers[0] - 1
 
     hm2 = extrudeQuadMeshToHexMesh(qm, layerDz[0])
+    hm2.slice = 1
     writeHexMeshVTK(hm2, "caseB.01.vtk")
 
     hm2.nodesLayer = layerNodes
@@ -390,6 +396,7 @@ def main():
 
     generateElementsAtVertex(hm2)
     generateNeighborsAtElement(hm2)
+    generateFacesAtBoundary(hm2)
 
     writeParFiles(hm2)
 
