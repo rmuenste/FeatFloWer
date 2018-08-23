@@ -17,19 +17,19 @@ myQuads = []
 myNodes = []
 
 #===============================================================================
-#                      Function: mkdir 
+#                      Function: mkdir
 #===============================================================================
 def mkdir(dir):
-  """
-  Erzeugt nur dann das Verzeichnis "dir", wenn es noch nicht vorhanden ist.
-  Falls eine Datei dieses Namens existieren sollte, wird sie durch das Verzeichnis ersetzt.
-  """
-  if os.path.exists(dir):
-    if os.path.isdir(dir):
-      return
-    else:
-      os.remove(dir)
-  os.mkdir(dir)
+    """
+    Erzeugt nur dann das Verzeichnis "dir", wenn es noch nicht vorhanden ist.
+    Falls eine Datei dieses Namens existieren sollte, wird sie durch das Verzeichnis ersetzt.
+    """
+    if os.path.exists(dir):
+        if os.path.isdir(dir):
+            return
+        else:
+            os.remove(dir)
+    os.mkdir(dir)
 
 #===============================================================================
 #                      Function:  Write Tri File
@@ -177,6 +177,13 @@ def writeHexMeshVTK(hexMesh, fileName):
 #                        Function readNodes
 #===============================================================================
 def readNodes(f):
+    """
+    Reader for the nodes section of a .msh file
+
+    Args:
+        f: the file handle to the msh file 
+
+    """
 
     line = f.readline()
     if not line:
@@ -197,6 +204,13 @@ def readNodes(f):
 #                        Function readElements
 #===============================================================================
 def readElements(f):
+    """
+    Reader for the elements section of a .msh file
+
+    Args:
+        f: the file handle to the msh file 
+
+    """
 
     line = f.readline()
     if not line:
@@ -241,6 +255,10 @@ def computeDzLayers(layerSizeZ, nExtrusions):
 #                      Function:  parseExtrusionLayers
 #===============================================================================
 def parseExtrusionLayers(argin):
+    """
+    Parses the input argument <extrusion-layers> that tells us
+    the number of extrusions on each level
+    """
     ex = argin.split(",")
     ex = [int(x) for x in ex]
     return ex
@@ -249,6 +267,10 @@ def parseExtrusionLayers(argin):
 #                      Function:  parseLevelDistance
 #===============================================================================
 def parseLevelDistance(argin):
+    """
+    Parses the input argument <distance-levels> which tells us
+    the total extrusion length of a particular level
+    """
     d = argin.split(",")
     d = [float(x) for x in d]
     return d
@@ -258,6 +280,10 @@ def parseLevelDistance(argin):
 #                      Function:  calculateSliceIds
 #===============================================================================
 def calculateSliceIds(extrusionLayers):
+    """
+    The id for a particular extrusion slice is
+    calculated here
+    """
     levels = len(extrusionLayers)
     slicesOnLevel = []
     sliceCount = 0
@@ -275,9 +301,13 @@ def calculateSliceIds(extrusionLayers):
 
 
 #===============================================================================
-#                      Function:  parseLevelDistance
+#                      Function:  parseLevelIds
 #===============================================================================
 def parseLevelIds(argin):
+    """
+    Parses the input argument <ids-level> that tells us
+    which zone ids should be present on a particular extrusion level
+    """
     idsList = []
     levels = argin.split(";")
     for item in levels:
@@ -287,13 +317,13 @@ def parseLevelIds(argin):
         elif "-" in ids[1]:
             values = ids[1].split('-')
             values = [int(x) for x in values]
-            idsList.append(list(range(values[0],values[1])))
+            idsList.append(list(range(values[0], values[1])))
         elif "," in ids[1]:
             values = ids[1].split(',')
             values = [int(x) for x in values]
             idsList.append(values)
         else:
-            if not ids[1].isdigit(): 
+            if not ids[1].isdigit():
                 print("Malformed --ids-level expression: " + ids[1])
                 sys.exit(2)
             else:
@@ -354,7 +384,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'e:f:l:d:i:h',
                                    ['extrusion-layers=', 'mesh-file=',
-                                    'levels=', 'distance-levels=', 
+                                    'levels=', 'distance-levels=',
                                     'ids-level=', 'help'])
     except getopt.GetoptError:
         usage()
@@ -388,7 +418,8 @@ def main():
         while True:
             line = f.readline()
 
-            if not line: break
+            if not line:
+                break
 
             if re.match(r"^\$Nodes", line):
                 readNodes(f)
@@ -398,11 +429,11 @@ def main():
 
     nNodes = len(myNodes)
 
-    qm = QuadMesh(myQuads, myNodes)
+    quadMesh = QuadMesh(myQuads, myNodes)
     offsetNodes = int(nNodes)
     layerNodes = offsetNodes
     offsetHex = 0
-    nHex = len(qm.quads)
+    nHex = len(quadMesh.quads)
 
     layerDz = computeDzLayers(levelLengthZ, extrusionLayers)
 
@@ -410,7 +441,7 @@ def main():
     # adjust to the number of hex-extrusions steps
     extrusionLayers[0] = extrusionLayers[0] - 1
 
-    hm2 = extrudeQuadMeshToHexMesh(qm, layerDz[0])
+    hm2 = extrudeQuadMeshToHexMesh(quadMesh, layerDz[0])
     hm2.slice = 1
     writeHexMeshVTK(hm2, "caseB.01.vtk")
 
@@ -433,21 +464,17 @@ def main():
 
     renumberNodes(hm2)
 
-    generateElementsAtVertex(hm2)
-    generateNeighborsAtElement(hm2)
-    generateFacesAtBoundary(hm2)
-    generateVerticesAtBoundary(hm2)
+    hm2.generateElementsAtVertex()
+    hm2.generateNeighborsAtElement()
+    hm2.generateFacesAtBoundary()
+    hm2.generateVerticesAtBoundary()
 
     mkdir("meshDir")
     writeParFiles(hm2, slicesOnLevel)
 
-    #writeHexMeshVTK(hm2, "hex.00.vtk")
     writeHexMeshVTK(hm2, "caseB.00.vtk")
     writeTriFile(hm2, outputFileName)
 
-#    for item, hexList in enumerate(hm2.elementsAtVertex):
-#        print("Vertex " + str(item) + ":" + str(hexList))
-        
 
 #===============================================================================
 #                             Main Boiler Plate
