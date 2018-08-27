@@ -41,6 +41,11 @@ ENDIF(NOT Q2P1_COMPILER)
 
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
+message( STATUS "CMAKE_COMPILER_IS_GNUCC: " ${CMAKE_COMPILER_IS_GNUCC} )
+# if the compiler is a variant of g++, this should be set to 1 
+message( STATUS "CMAKE_COMPILER_IS_GNUCXX : " ${CMAKE_COMPILER_IS_GNUCXX} )
+message( STATUS "CMAKE_CXX_COMPILER_ID : " ${CMAKE_CXX_COMPILER_ID} )
+
 #=========================================================================
 #                             Options
 #=========================================================================
@@ -377,7 +382,7 @@ set(CGAL_LIBRARIES
   ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
   ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
   )
-message("CGAL path: ${CGAL_LIBRARIES} ")
+message( STATUS "CGAL path: ${CGAL_LIBRARIES} ")
 if(USE_CGAL)
   set(USE_BOOST True)
   if(NOT WIN32)
@@ -400,7 +405,7 @@ if(USE_CGAL)
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
         )
-        message("CGAL path: ${CGAL_LIBRARIES} ")
+      message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
     else()
       set(CGAL_LIBRARIES 
         ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a

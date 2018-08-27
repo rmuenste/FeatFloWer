@@ -23,6 +23,7 @@ q2p1_optic_tweezers.f90
 
 # Add the application executable
 add_executable(q2p1_optic_tweezers ${src_q2p1_optic_tweezers}) 
+set_target_properties(q2p1_optic_tweezers PROPERTIES LINKER_LANGUAGE Fortran)
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
