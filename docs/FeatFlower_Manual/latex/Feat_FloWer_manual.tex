@@ -319,20 +319,46 @@ A FeatFlower application is a particular simulation case that is based on the un
 configurations to complex realistic configurations that have an industrial or scientific background. The FeatFlower code base comes with a number of preconfigured applications that demonstrate the capabilities of the software. The
 user can then change and adapt these preconfigured applications to his needs or add completely new applications based on the Featflower framework. A FeatFloWer applications roughly consists of a preprocessing step, a solving procedure and an output of the solution. At first we will introduce the tools used in the preprocessing step. 
 \subsection{Preprocessing and Mesh Generation}
-The main task in the preprocessing step is the creation of the mesh used for the FeatFloWer application. A mesh can be acquired by an external mesh generator, by manual construction or by taking a mesh from the FeatFloWer mesh
-repository.  
-\subsubsection{Using Meshes from the Mesh Repository}
-Taking a mesh from the mesh repository is the easiest scenario for a new user. Usually this means that a benchmark configuration or a preconfigured application is run by the user. All the user has to do in this case is to 
-partition the mesh according to the number of MPI processes that the user has to his disposal. The preferred partitioning tool for meshes from the mesh repository is the Python command line program \textit{PyPartitioner.py}. In order to demonstrate the use of the python partitioning tool, we will use the application \textit{q2p1\_fc\_ext}. The application can be found in the \textit{Feat\_FloWer/applications} directory. The python partitioner tool can be 
-found in the \textit{Feat\_FloWer/tools} directory. For our first contact with the tool, we will just copy the python files from the \textit{Feat\_FloWer/tools} directory to the \textit{bin/applications/q2p1\_fc\_ext}. So start by navigating to the \textit{bin/applications/q2p1\_fc\_ext} and copying the python files by:\\
+The main task in the preprocessing step is the creation of the mesh used for the FeatFloWer application. A mesh can be acquired by an external mesh generator, by manual construction or by taking a 
+mesh from the FeatFloWer mesh repository. Before a mesh can be used in a parallel simulation it needs to be decomposed or partitioned so that the mpi processes can handle individual parts of the domain
+in parallel. In FeatFloWer the Metis library is used to partition a mesh into submeshes. The functionality of the Metis library is accessed by a set of Python scripts that is distributed with 
+FeatFloWer. We will now show how to prepare a mesh from the mesh repository for use in a parallel simulation. 
+\subsubsection{Mesh Decomposition using the Python Partitioner}
+In order to start a simulation we need a mesh at first, taking a mesh from the mesh repository is the easiest scenario for a new user. 
+Usually this means that a benchmark configuration or a preconfigured application is run by the user. All the user has to 
+do in this case is to partition the mesh according to the number of MPI processes that the user has to his disposal. The preferred partitioning tool for meshes from the mesh repository is the Python 
+command line program \textit{PyPartitioner.py}. In order to demonstrate the use of the python partitioning tool, we will use the application \textit{q2p1\_fc\_ext}. The application can be found in 
+the \textit{Feat\_FloWer/applications} directory. The python partitioner tool can be found in the \textit{Feat\_FloWer/tools} directory. For our first contact with the tool, we will just copy 
+the python files from the \textit{Feat\_FloWer/tools} directory to the \textit{bin/applications/q2p1\_fc\_ext}. So start by navigating to the \textit{bin/applications/q2p1\_fc\_ext} and copying the 
+python files by:\\
 \cmd{cp ../../../Feat\_FloWer/tools/*.py .}\\
 Additionally, we need to copy the metis library so that the PyPartitioner can interface with that library:\\
 \cmd{cp ../../../bin/extern/libraries/metis-4.0.3/Lib/libmetis.so .}\\
 We can now invoke the PyPartitioner by typing:\\
 \cmd{python PyPartitioner.py 4 1 1 NEWFAC \_adc/2D\_FAC/2Dbench.prj}\\
-which will take the mesh referenced in the project file \textit{\_adc/2D\_FAC/2Dbench.prj} and decompose the domain into 4 partitions which are then stored in the \textit{NEWFAC} directory. The additional 1 1 parameters denote the
-type of the partitioning method. As the simulation requires a master node to control some processes the simulation should be launched with 4+1 processes by:\\
+which will take the mesh referenced in the project file \textit{\_adc/2D\_FAC/2Dbench.prj} and decompose the domain into 4 partitions which are then stored in the \textit{NEWFAC} directory. 
+The additional 1 1 parameters denote the type of the partitioning method. You have now created a set of partitioned mesh files that are located in the NEWFAC directory that can by used in 
+a simulation with 4+1 processes. The syntax 4+1 refers to a setup with 1 master node and 4 slave nodes. You are now ready to run the application.
+\subsubsection{Setting Environment Variables for the Python Partitioner}
+Copying the Python files in the working directory of the application is not the most efficient workflow and as an additional downside you would have to repeat this process everytime an
+important update to the Python partitioner is done. So it is recommended to set environment variables to the location of the Python files in the FeatFloWer source tree, so they get updated
+when you fetch and apply new commits from the Git repository. The required environment variables for this to work are called:
+\begin{itemize}
+  \item \textbf{FF\_HOME}: Source directory of your FeatFloWer installation
+  \item \textbf{FF\_PY\_HOME}: Source directory of the python files of your FeatFloWer installation
+  \item \textbf{PATH}: Append the path to the python files to your PATH variable
+  \item \textbf{LD\_LIBRARY\_PATH}: Append the path to the Metis library to your LD\_LIBRARY\_PATH variable
+\end{itemize}
+Instructions and examples of how to set these variables in your shell configuration can be found in Section \ref{section:appendix}.
+\subsection{Running the Application}
+As we said before, the simulation requires a master node to control some the slave processes, so the simulation should be launched with 4+1 processes by:\\
 \cmd{mpirun -np 5 ./q2p1\_fc\_ext}\\
+When you start a FeatFloWer application you will see the simulation output on your terminal. Additionally, the simulation output will be stored in a log or protocol file that can be found 
+in the working directory of the particular application you are running under the path \textit{\_data/prot.txt}.
+\subsection{Application Output and Postprocessing}
+As we have mentioned the output of the simulation can be seen on the command line and in the protocol file. Detailed information such as the velocity or pressure fields of the solution 
+are stored in files that are located in the \textit{\_vtk/} folder in your application working directory. The files are stored in the \textit{VTK}-format so they can be opened in our 
+preferred postprocessing software \textit{ParaView}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \input{q2p1_cc.tex}
@@ -342,6 +368,7 @@ type of the partitioning method. As the simulation requires a master node to con
 \textbf{TODO}
 
 \subsection{Recommended Shell Customizations For Linux Systems}
+\label{sec:shell-customization}
 In order to work more efficiently with the FeatFloWer software, we recommended to add some environment variables and aliases 
 to your shell configuration files in order to make your experience with the software more pleasant. Sample configuration files are provided in the FeatFloWe repository you have cloned in the
 first steps. The configuration files can be found in the repository under the following path:
