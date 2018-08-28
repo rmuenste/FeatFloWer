@@ -82,6 +82,7 @@ class QuadMesh:
         self.quads = quads
         self.nodes = nodes
 
+
 #===============================================================================
 #                          A class for a HexMesh
 #===============================================================================
@@ -108,6 +109,7 @@ class HexMesh:
         self.slice = 0
         # GenElAtVert()
         # GenElAtVert()
+
 
 #===============================================================================
 #                       Function generateElementsAtVertex
@@ -428,7 +430,7 @@ def renumberNodes(hexMesh):
     for hidx in range(len(hexMesh.hexas)):
         newNodeIds = []
         for idx in hexMesh.hexas[hidx].nodeIds:
-            if not idx in nodeMap:
+            if idx not in nodeMap:
                 nodeMap[idx] = nodeCounter
                 newNodeIds.append(nodeCounter)
                 newNodes.append(hexMesh.nodes[idx])
@@ -467,7 +469,6 @@ def removeHexasLayer(hexMesh, levelIdx, typeIds):
     hexMesh.hexas = newHex
 
 
-
 #===============================================================================
 #                       Function parFileFromSlice
 #===============================================================================
@@ -485,6 +486,7 @@ def parFileFromSlice(hexMesh, sliceId):
             layerOnePar.append(idx)
 
     return layerOnePar
+
 
 #===============================================================================
 #                       Function writeSingleParFile
@@ -504,6 +506,7 @@ def writeSingleParFile(nodeIds, fileName, bndryType):
         parFile.write("' '\n")
         for nodeIdx in nodeIds:
             parFile.write(str(nodeIdx + 1) + "\n")
+
 
 #===============================================================================
 #                       Function writeParFiles
@@ -529,6 +532,7 @@ def writeParFiles(hexMesh, slicesOnLevel):
         for node in hexa.nodeIds:
             parDict[hexa.type].add(int(node))
 
+    #===============================================
     layerOnePar = parFileFromSlice(hexMesh, 0)
 
     parFileNames = []
@@ -538,13 +542,15 @@ def writeParFiles(hexMesh, slicesOnLevel):
 
     writeSingleParFile(layerOnePar, parName, "Inflow1")
 
-    lowerWallClosureIndex = slicesOnLevel[1][0]
-    layerOnePar = parFileFromSlice(hexMesh, lowerWallClosureIndex)
-    parName = "plane" + str(lowerWallClosureIndex) + ".par"
+    #===============================================
+    lowerCylTopCapIdx = slicesOnLevel[1][0]
+    lowerCylTopCap = parFileFromSlice(hexMesh, lowerCylTopCapIdx)
+    parName = "plane" + str(lowerCylTopCapIdx) + ".par"
     parFileNames.append(parName)
 
-    writeSingleParFile(layerOnePar, parName, "Wall")
+    writeSingleParFile(lowerCylTopCap, parName, "Wall")
 
+    #===============================================
     layerOneCyl = []
     for face in hexMesh.facesAtBoundary:
         if face.layerIdx == 1:
@@ -564,6 +570,7 @@ def writeParFiles(hexMesh, slicesOnLevel):
     parFileNames.append(parName)
     writeSingleParFile(layerOneCyl, parName, "Wall")
 
+    #===============================================
     cylinderLayer = []
     for face in hexMesh.facesAtBoundary:
         if face.layerIdx == 2:
@@ -574,22 +581,28 @@ def writeParFiles(hexMesh, slicesOnLevel):
     parFileNames.append(parName)
     writeSingleParFile(cylinderLayer, parName, "Wall")
 
-    topLowerWallIndex = slicesOnLevel[2][0]
-    layerTopLowerWall = parFileFromSlice(hexMesh, topLowerWallIndex)
-    parName = "plane" + str(topLowerWallIndex) + ".par"
+    #===============================================
+    topCylBottomCapIdx = slicesOnLevel[2][0]
+    topCylBottomCap = parFileFromSlice(hexMesh, topCylBottomCapIdx)
+
+    parName = "plane" + str(topCylBottomCapIdx) + ".par"
     parFileNames.append(parName)
 
-    writeSingleParFile(layerTopLowerWall, parName, "Wall")
+    writeSingleParFile(topCylBottomCap, parName, "Wall")
 
-    wallTopIndex = slicesOnLevel[3][0]
-    layerWallTop = parFileFromSlice(hexMesh, wallTopIndex)
-    parName = "plane" + str(wallTopIndex) + ".par"
+    #===============================================
+    topCylTopCapIdx = slicesOnLevel[3][0]
+    topCylTopCap = parFileFromSlice(hexMesh, topCylTopCapIdx)
+
+    parName = "plane" + str(topCylTopCapIdx) + ".par"
     parFileNames.append(parName)
 
-    writeSingleParFile(layerWallTop, parName, "Wall")
+    writeSingleParFile(topCylTopCap, parName, "Wall")
 
+    #===============================================
     topIndex = slicesOnLevel[3][len(slicesOnLevel[3])-1]
     layerOutflow = parFileFromSlice(hexMesh, topIndex)
+
     parName = "plane" + str(topIndex) + ".par"
     parFileNames.append(parName)
 
@@ -635,27 +648,6 @@ def writeParFiles(hexMesh, slicesOnLevel):
                     profileLayer.append(node)
 
     writeSingleParFile(profileLayer, parName, "Wall")
-
-#    for idx, node in enumerate(hexMesh.nodes):
-#        if hexMesh.nodesAtSlice[idx] == 0:
-#            layerOnePar.append(idx)
-
-
-#    with open("prj_folder/" + parName, "w") as parFile:
-#        parFile.write(str(len(layerOnePar)) + " Wall\n")
-#        parFile.write("' '\n")
-#        for nodeIdx in layerOnePar:
-#            parFile.write(str(nodeIdx + 1) + "\n")
-
-#    for key in parDict:
-#        parList = parDict[key]
-#        parName = "parfile" + str(key) + ".par"
-#        parFileNames.append(parName)
-#        with open(parName, "w") as parFile:
-#            parFile.write(str(len(parList)) + " Wall")
-#            parFile.write("' '")
-#            for nodeIdx in parList:
-#                parFile.write(str(nodeIdx + 1) + "\n")
 
     with open("meshDir/file.prj", "w") as prjFile:
         prjFile.write("mesh.tri\n")
