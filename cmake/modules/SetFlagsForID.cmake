@@ -70,6 +70,13 @@ IF(Q2P1_BUILD_ID STREQUAL "phenomIIx4-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "epyc16core-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -march=native -std=c++11)
+  SET(Fortran_FLAGS -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "opteronx2-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -march=native -std=c++11)
