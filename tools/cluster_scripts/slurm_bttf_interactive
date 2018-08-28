@@ -1,1 +1,5 @@
+# Interactive job on the bttf cluster
 srun -N 1 --ntasks=16 --mem-per-cpu=2G --constraint=bttf --pty bash -l
+
+# Interactive job on the epyx cluster
+srun -N 1 --ntasks=16 --mem-per-cpu=2G --constraint=epyx --pty bash -l
