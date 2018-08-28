@@ -38,18 +38,18 @@ alias load-intel-mpi15='module purge && module load intel/studio-xe/15.0.7.235 g
 alias load-intel-mpi16='module purge && module load intel/studio-xe/16.0.4.258 binutils/2.25 gcc/6.1.0 openmpi/intel16.0.x/1.8.8/non-threaded/no-cuda/ethernet cmake && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
 alias load-intel-mpi16a='module purge && module load boost/1.53 intel/studio-xe/16.0.5.266 openmpi/3.1.1 serial/gcc/6.4.0 cmake/3.8.1 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
 alias load-intel-mpi17='module purge && module load load boost/1.53 intel/studio-xe/17.0.7.259 openmpi/3.1.1 serial/gcc/6.4.0 cmake/3.8.1 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
-alias load-intel-mpi18='module purge && module load load boost/1.53 intel/studio-xe/18.0.3.222 openmpi/2.1.3 serial/gcc/6.4.0 cmake/3.8.1 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-intel-mpi18='module purge && module load load boost/1.53 intel/studio-xe/18.0.3.222 openmpi/2.1.5 serial/gcc/6.4.0 cmake/3.8.1 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
 
 #================================================================
 #                        GCC Aliases
 #================================================================
 alias load-gcc-mpi48='module purge && module load cmake gcc/4.8.5 boost/1.56 openmpi/gcc4.8.x/1.8.8/non-threaded/no-cuda/ethernet && export CC=mpicc && export CXX=mpicxx && export FC=mpif90'
-alias load-gcc-mpi49='module purge && module load cmake/3.8.1 gcc/4.9.4 boost/1.53 openmpi/2.1.3 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
-alias load-gcc-mpi55='module purge && module load cmake/3.8.1 gcc/5.5.0 boost/1.53 openmpi/2.1.3 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-gcc-mpi49='module purge && module load cmake/3.8.1 gcc/4.9.4 boost/1.53 openmpi/2.1.5 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-gcc-mpi55='module purge && module load cmake/3.8.1 gcc/5.5.0 boost/1.53 openmpi/2.1.5 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
 alias load-gcc-mpi61='module purge && module load cmake gcc/6.1.0 boost/1.56 openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
-alias load-gcc-mpi64='module purge && module load cmake/3.8.1 gcc/6.4.0 boost/1.53 openmpi/2.1.3 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
-alias load-gcc-mpi73='module purge && module load cmake/3.8.1 gcc/7.3.0 boost/1.53 openmpi/2.1.3 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
-alias load-gcc-mpi81='module purge && module load cmake/3.8.1 gcc/8.1.0 boost/1.53 openmpi/2.1.3 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-gcc-mpi64='module purge && module load cmake/3.8.1 gcc/6.4.0 boost/1.53 openmpi/2.1.5 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-gcc-mpi73='module purge && module load cmake/3.8.1 gcc/7.3.0 boost/1.53 openmpi/2.1.5 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
+alias load-gcc-mpi81='module purge && module load cmake/3.8.1 gcc/8.1.0 boost/1.53 openmpi/2.1.5 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90)'
 
 # enable programmable completion features (you don't need to enable                                                                                           
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile                                                                                          
