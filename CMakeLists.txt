@@ -41,11 +41,6 @@ ENDIF(NOT Q2P1_COMPILER)
 
 include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
 
-message( STATUS "CMAKE_COMPILER_IS_GNUCC: " ${CMAKE_COMPILER_IS_GNUCC} )
-# if the compiler is a variant of g++, this should be set to 1 
-message( STATUS "CMAKE_COMPILER_IS_GNUCXX : " ${CMAKE_COMPILER_IS_GNUCXX} )
-message( STATUS "CMAKE_CXX_COMPILER_ID : " ${CMAKE_CXX_COMPILER_ID} )
-
 #=========================================================================
 #                             Options
 #=========================================================================

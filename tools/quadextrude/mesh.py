@@ -554,7 +554,7 @@ def writeParFiles(hexMesh, slicesOnLevel):
     parName = "Inflow.par"
     parFileNames.append(parName)
 
-    writeSingleParFile(layerOnePar, parName, "Inflow1")
+    writeSingleParFile(layerOnePar, parName, "Inflow81")
 
     #===============================================
     lowerCylTopCapIdx = slicesOnLevel[1][0]

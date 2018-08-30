@@ -14,9 +14,6 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
     # so we select a default build
     set(CMAKE_BUILD_TYPE "Release")
     message(STATUS "No build id selected... trying to determine machine type and compiler settings")
-    message(STATUS "Compiler ${CMAKE_Fortran_COMPILER_ID}")
-    message(STATUS "Processor ${CMAKE_SYSTEM_PROCESSOR}")
-
     set(_vendor_id)
     set(_cpu_family)
     set(_cpu_model)
@@ -79,6 +76,17 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
     ELSE()
       message(FATAL_ERROR "Unknown CPU vendor, cannot set up default configuration")
     ENDIF()
+
+    message(STATUS "Processor ${CMAKE_SYSTEM_PROCESSOR}")
+    message(STATUS "CMAKE_Fortran_COMPILER_ID ${CMAKE_Fortran_COMPILER_ID}")
+    message(STATUS "CMAKE_CXX_COMPILER_ID : " ${CMAKE_CXX_COMPILER_ID} )
+    message(STATUS "CMAKE_CXX_COMPILER_VERSION : " ${CMAKE_CXX_COMPILER_VERSION} )
+
+    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      set(Q2P1_DEFAULT_COMPILER "gcc")
+    elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+      set(Q2P1_DEFAULT_COMPILER "intel")
+    endif()
 
     set(Q2P1_BUILD_ID "${Q2P1_CPU_TYPE}-${Q2P1_OS}-${Q2P1_DEFAULT_COMPILER}-${Q2P1_DEFAULT_BUILD}")
 
