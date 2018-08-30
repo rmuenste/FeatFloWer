@@ -323,6 +323,20 @@ class HexMesh:
 
 
 #===============================================================================
+#                    Function generateMeshStructures
+#===============================================================================
+    def generateMeshStructures(self):
+        """
+        Generate a standard set of neighborhood information structures
+
+        """
+        self.generateElementsAtVertex()
+        self.generateNeighborsAtElement()
+        self.generateFacesAtBoundary()
+        self.generateVerticesAtBoundary()
+
+
+#===============================================================================
 #                     Function extrudeQuadToHexMesh
 #===============================================================================
 def extrudeQuadMeshToHexMesh(quadMesh, dz):

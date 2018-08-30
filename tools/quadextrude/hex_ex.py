@@ -170,7 +170,20 @@ def writeHexMeshVTK(hexMesh, fileName):
 #===============================================================================
 #                        Function readMeshFile
 #===============================================================================
-#def readMeshFile(fileName):
+def readMeshFile(fileName):
+    with open(fileName, "r") as f:
+
+        while True:
+            line = f.readline()
+
+            if not line:
+                break
+
+            if re.match(r"^\$Nodes", line):
+                readNodes(f)
+
+            if re.match(r"^\$Elements", line):
+                readElements(f)
 
 
 #===============================================================================
@@ -199,6 +212,7 @@ def readNodes(f):
         myNodes.append((words[0], words[1], words[2], words[3]))
 
         line = f.readline()
+
 
 #===============================================================================
 #                        Function readElements
@@ -229,6 +243,7 @@ def readElements(f):
                             words[6], words[7], words[8]))
 
         line = f.readline()
+
 
 #===============================================================================
 #                        Function computeDzLayers
@@ -262,6 +277,7 @@ def parseExtrusionLayers(argin):
     ex = argin.split(",")
     ex = [int(x) for x in ex]
     return ex
+
 
 #===============================================================================
 #                      Function:  parseLevelDistance
@@ -412,20 +428,8 @@ def main():
     # The slices on each level
     slicesOnLevel = calculateSliceIds(extrusionLayers)
 
-    #readMeshFile(inputName)
-    with open(inputName, "r") as f:
-
-        while True:
-            line = f.readline()
-
-            if not line:
-                break
-
-            if re.match(r"^\$Nodes", line):
-                readNodes(f)
-
-            if re.match(r"^\$Elements", line):
-                readElements(f)
+    # Read the input mesh file
+    readMeshFile(inputName)
 
     nNodes = len(myNodes)
 
@@ -455,7 +459,6 @@ def main():
             offsetNodes = offsetNodes + layerNodes
             offsetHex = offsetHex + nHex
 
-
     for ilevel in range(levels):
         if not idsLevel[ilevel]:
             continue
@@ -464,10 +467,7 @@ def main():
 
     renumberNodes(hm2)
 
-    hm2.generateElementsAtVertex()
-    hm2.generateNeighborsAtElement()
-    hm2.generateFacesAtBoundary()
-    hm2.generateVerticesAtBoundary()
+    hm2.generateMeshStructures()
 
     mkdir("meshDir")
     writeParFiles(hm2, slicesOnLevel)
