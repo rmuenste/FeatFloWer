@@ -307,6 +307,23 @@ The option <-j 5> starts a parallel build using 5 processes.
 \subsection{Windows Systems}
 Under construction
 
+\subsection{Using CMake-gui to build the Code}
+The CMake build framework that is used to build the FeatFloWer software package comes with a GUI component. We will explain in this section how to use the GUI to build CMake from source.
+\begin{figure}[hb]
+  \begin{center}
+    \includegraphics[width=14.5cm]{cmake-gui.png}
+  \end{center}
+  \caption{The CMake configuration GUI}
+  \label{fig:cmake-gui}
+\end{figure}
+The main view of the CMake-gui shows you an overview of the CMake variables and their current values. Once you hit the configure button various tests are run that check for the availability of required libraries the results
+of these checks are printed to the output window of the CMake GUI. If a problem occurs with the current configuration an error message is printed to the output view and usually it is descriptive enough in order to 
+find and fix the configuration problem. Once there are no more configuration errors you can hit the generate button and an operating system specific build file is generated that you can use to build the code.
+Additionally, the CMake-gui can give you an overview of the optional components that can be used by FeatFloWer. These optional components give the user access to extended code functionalities, solver libraries or additional simulation libraries. In the \textit{Grouped} of CMake these optional components can be found and enabled in the \textit{USE} group (see figure \ref{fig:cmake-gui}).
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Running a FeatFlower Application}
 \label{ch:applications}
