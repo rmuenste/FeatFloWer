@@ -2038,7 +2038,7 @@ USE var_QuadScalar, only :myStat
   REAL*8  value
   REAL*8  Val(1),pVal(1)
   INTEGER pID,iEnt,IERR
-  REAL*8  tt1,tt0
+  REAL*4  tt1,tt0
 
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
   CALL ztime(tt0)
@@ -2055,7 +2055,7 @@ USE var_QuadScalar, only :myStat
 
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
   CALL ztime(tt1)
-  myStat%tCommS = myStat%tCommS + (tt1-tt0)
+  myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
 
   END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------

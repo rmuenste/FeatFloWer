@@ -29,7 +29,7 @@ IF (myid.ne.master) THEN
  CALL Create_LKonvMat()
 
 ! Diffusion matrix 
- CALL Create_DiffMat(mgDiffCoeff(NLMAX)%x)
+! CALL Create_DiffMat(mgDiffCoeff(NLMAX)%x)
 
 ! Iteration matrix (only allocation)
  CALL Create_AMat()
