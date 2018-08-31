@@ -14,6 +14,14 @@
 # The optional parameters to the script are:
 # [-DBUILD_STRING=]: the build string, i.e.: xeon-linux-gcc-release
 #
+# Example start command:
+# ctest -S ctest_driver.cmake \
+# -DBUILD_STRING=xeon-linux-gcc-release \
+# -DPROCS=16 \
+# -DSRC_DIR=$(pwd)/Feat_FloWer \
+# -DBIN_DIR=$(pwd)/bin-bttf \
+# --verbose
+#
 #=========================================================================
 # allow less strict IF-else syntax
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
@@ -24,6 +32,18 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 set(CTEST_SOURCE_DIRECTORY ${SRC_DIR})
 set(CTEST_BINARY_DIRECTORY ${BIN_DIR})
 set(CLEAN_BIN "")
+set(BENCH_PROCS ${PROCS})
+
+
+if(${BENCH_PROCS} STREQUAL "")
+  message(FATAL_ERROR "Required parameter PROCS is not set. Set it using the -DPROCS=<number> option.")
+else(${BENCH_PROCS} STREQUAL "")
+  message(STATUS "Using ${PROCS} processors for the benchmark.")
+endif(${BENCH_PROCS} STREQUAL "")
+
+if(${USER_BUILD_NAME} STREQUAL "")
+  set(USER_BUILD_NAME ${BUILD_STRING})
+endif(${USER_BUILD_NAME} STREQUAL "")
 
 message(STATUS "${CTEST_SOURCE_DIRECTORY} ${CTEST_BINARY_DIRECTORY}")
 
@@ -34,15 +54,6 @@ cmake_host_system_information(RESULT HNAME QUERY HOSTNAME)
 #========================================================================
 set(CTEST_TEST_TIMEOUT 7200) 
 
-set(BUILD_STRING_GCC "xeon-linux-gcc-release")
-
-#========================================================================
-# Set the name of the note file
-# The note file is a json-file that stores the simulation
-# output in json format, so it can be proccessed in the 
-# CDash website.
-#========================================================================
-set(CTEST_NOTES_FILES "${CTEST_BINARY_DIRECTORY}/note.json")
 
 #========================================================================
 # Here we configure the CTest variables that
@@ -50,9 +61,9 @@ set(CTEST_NOTES_FILES "${CTEST_BINARY_DIRECTORY}/note.json")
 #========================================================================
 set(CTEST_SITE ${HNAME})
 
-set(CTEST_BUILD_NAME ${BUILD_STRING})
-
 set(CTEST_DROP_METHOD "http")
+
+set(CTEST_BUILD_NAME ${USER_BUILD_NAME})
 
 set(CTEST_DROP_SITE "129.217.165.82/CDash/public")
 
@@ -127,7 +138,7 @@ endif()
 #set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DUSE_MUMPS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
 #set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DUSE_MUMPS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
 #set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING_GCC} -DUSE_SYSTEM_BLASLAPACK=True -DBUILD_APPLICATIONS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
+set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION} -DPROCS=${BENCH_PROCS}")
 
 set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} -DWITH_TESTING:BOOL=ON ${CTEST_BUILD_OPTIONS}")
 set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} \"-G${CTEST_CMAKE_GENERATOR}\"")
@@ -137,10 +148,16 @@ set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} \"${CTEST_SOURCE_DIRECTO
 # Call the CTest routines for invoking the particular tests
 #========================================================================
 ctest_start("Experimental")
+
 #ctest_update()
+
 ctest_configure()
+
 ctest_build()
+#ctest_test(START 3 END 3)
+
 ctest_test()
+
 if (WITH_COVERAGE AND CTEST_COVERAGE_COMMAND)
   ctest_coverage()
 endif (WITH_COVERAGE AND CTEST_COVERAGE_COMMAND)
@@ -149,8 +166,12 @@ if (WITH_MEMCHECK AND CTEST_MEMORYCHECK_COMMAND)
 endif (WITH_MEMCHECK AND CTEST_MEMORYCHECK_COMMAND)
 
 #========================================================================
-# Before the CTest submission step, the note file needs to be created 
+# Set the name of the note file
+# The note file is a json-file that stores the simulation
+# output in json format, so it can be proccessed in the 
+# CDash website.
 #========================================================================
-EXECUTE_PROCESS(COMMAND python ./join_notes.py ${BIN_DIR})
+file(GLOB FF_NOTES ${CTEST_BINARY_DIRECTORY}/*-bench.json)
+set(CTEST_NOTES_FILES ${FF_NOTES})
 
 ctest_submit()
