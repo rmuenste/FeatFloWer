@@ -59,6 +59,13 @@ IF(Q2P1_BUILD_ID STREQUAL "broadwell-linux-intel-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "xeongold-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -ipo -xCORE-AVX2  -funroll-loops -fp-model precise -no-prec-div)
+  SET(Fortran_FLAGS -ipo -xCORE-AVX2 -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "opteron-linux-intel-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -xhost -funroll-loops -fp-model precise -no-prec-div)
