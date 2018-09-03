@@ -89,7 +89,7 @@ INTEGER iT
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
-REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius
+REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
@@ -358,7 +358,10 @@ END IF
 
 ! M+S --> for the meshes prepared by Jens and Raphael
 IF (iT.EQ.81) THEN
-  ValW=RotParabolicVelo2Dz(+0d0,+0d0,1d0,1d0,6.0d0)
+   dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
+   dVolFlow = myProcess%Massestrom ! kg/h
+   dDensity = myThermodyn%density ! g/cm3
+   ValW=RotParabolicVelo2Dz(+0d0,+0d0,dVolFlow,dDensity,dOuterRadius)
 END IF
 
 ! IDE
