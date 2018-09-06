@@ -20,7 +20,7 @@ contains
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
-use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr
+use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
 USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 
@@ -67,6 +67,19 @@ packed(3)%p => QuadSc%ValW
 call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                   3, packed)
 
+fieldName = "coordinates"
+
+QuadSc%auxU = mg_mesh%level(nlmax+1)%dcorvg(1,:)
+QuadSc%auxV = mg_mesh%level(nlmax+1)%dcorvg(2,:)
+QuadSc%auxW = mg_mesh%level(nlmax+1)%dcorvg(3,:)
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)                 
+                  
 end subroutine write_sol_to_file
 !
 !------------------------------------------------------------------------------------------------
@@ -1045,7 +1058,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 
   include 'defs_include.h'
   
-  use var_QuadScalar, only: istep_ns
+  use var_QuadScalar, only: istep_ns,dTimeStepEnlargmentFactor
 
   implicit none
 
@@ -1079,6 +1092,8 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
+    tstep = dTimeStepEnlargmentFactor*tstep
+    dtgmv = dTimeStepEnlargmentFactor*dtgmv
     dout=dout+dtgmv
 
     ! Save intermediate solution to a dump file

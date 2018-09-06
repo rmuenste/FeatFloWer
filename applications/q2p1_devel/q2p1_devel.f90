@@ -11,7 +11,13 @@ PROGRAM Q2P1_DEVEL
                          sim_finalize
                          
   use Transport_Q2P1,  only:        updateFBMGeometry
+  USE Sigma_User, ONLY: mySigma,myProcess,mySetup
+  
 !  use Transport_Q1,  only: Transport_GeneralLinScalar,Boundary_LinSc_Val_Weber,AddSource
+
+  REAL*8 ViscosityModel
+  REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
+  CHARACTER sTimeStep*(9)
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -35,6 +41,44 @@ PROGRAM Q2P1_DEVEL
   if (I_EXIST) then
    CALL ReadS3Dfile('_data/rheo.s3d')
   end if
+
+!=====================================================================================
+!=====================================================================================
+!=====================================================================================
+  IF (myid.eq.1) THEN
+   WRITE(MTERM,'(A)') 
+   WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+   WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+  END IF
+  IF (mySetup%bAutoamticTimeStepControl) THEN
+    ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
+   dCharSize      = 0.5d0*myProcess%MaxInflowDiameter
+   dCharShear     = 3d0
+   dCharVisco     = ViscosityModel(dCharShear)
+   TimeStep       = 2.5d-3 * (dCharSize/dCharVisco)
+   WRITE(sTimeStep,'(ES9.1)') TimeStep
+   READ(sTimeStep,*) TimeStep
+
+   IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],shear[1/s]_E/U: ",dCharSize,dCharShear
+    WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],shear[1/s]_E/U: ",dCharSize,dCharShear
+    WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+    WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+   END IF
+   
+   CALL AdjustTimeStepping(TimeStep)
+  END IF
+     
+  IF (myid.eq.1) THEN
+    WRITE(MTERM,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
+    WRITE(MFILE,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
+    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
+    WRITE(MTERM,'(A)') 
+  END IF
+!=====================================================================================
+!=====================================================================================
+!=====================================================================================
 
 !   CALL updateFBMGeometry()
   !-------MAIN LOOP-------

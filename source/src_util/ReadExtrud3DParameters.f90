@@ -538,7 +538,7 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d1)
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
-    
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,1d0)
 
     cKTP=' '
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","KTPRelease",cKTP,"YES")
@@ -792,6 +792,7 @@
     write(*,*) "mySetup%AutoamticTimeStepControl = ",mySetup%bAutoamticTimeStepControl
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
+    write(*,*) "TimeStepEnlargmentFactor = ",dTimeStepEnlargmentFactor   
 
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))

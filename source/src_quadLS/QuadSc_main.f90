@@ -1836,8 +1836,8 @@ daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
 IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
-  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*3600d0
-  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*3600d0
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
   write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
   write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN

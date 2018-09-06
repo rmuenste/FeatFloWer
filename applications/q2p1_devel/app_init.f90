@@ -465,3 +465,32 @@ END IF
  RETURN
 
 END SUBROUTINE General_init_ext
+!
+! -----------------------------------------------------------------------
+!
+SUBROUTINE AdjustTimeStepping(dt)
+USE PP3D_MPI
+
+IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+REAL*8 dt
+integer nn0
+
+!-----------------------------------------------------------------------
+!     C O M M O N S 
+!-----------------------------------------------------------------------
+! *** Standard COMMON blocks
+! *** COMMON blocks for time discretization
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+COMMON /NSSAVF/ DTFILM,DTFILO,DTAVS,DTAVSO,DTGMV,DTGMVO,&
+                      IFUSAV,IFPSAV,IFXSAV,IGID,IGMV,IFINIT
+COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,DTFACT,TIMEIN,EPSADI,EPSADL,&
+                      EPSADU,IEPSAD,IADIN,IREPIT,IADTIM,PRDIF1,PRDIF2
+SAVE 
+
+nn = NINT(DTGMV/TSTEP)
+
+TSTEP  = dt
+DTGMV  = DBLE(nn)*dt
+TIMEMX = 1d8 
+
+END SUBROUTINE AdjustTimeStepping
