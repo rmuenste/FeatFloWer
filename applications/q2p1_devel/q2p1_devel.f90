@@ -35,8 +35,6 @@ PROGRAM Q2P1_DEVEL
   CALL ZTIME(tt0)
   call ztime(dtt0)
 
-  dout = Real(INT(timens/dtgmv)+1)*dtgmv
-  
   INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
   if (I_EXIST) then
    CALL ReadS3Dfile('_data/rheo.s3d')
@@ -80,6 +78,8 @@ PROGRAM Q2P1_DEVEL
 !=====================================================================================
 !=====================================================================================
 
+  dout = Real(INT(timens/dtgmv)+1)*dtgmv
+  
 !   CALL updateFBMGeometry()
   !-------MAIN LOOP-------
 

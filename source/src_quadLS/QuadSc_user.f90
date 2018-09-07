@@ -369,6 +369,33 @@ IF (iT.EQ.82) THEN
   ValV=RotParabolicVelo2Dy(+0.0d0,+0.0d0,-100d0,1d0,3.5d0)
 END IF
 
+! Reuter
+IF (iT.EQ.86) THEN
+  ValW=RotParabolicVelo2Dz(-0.4d0,+0.6d0,-43d0,1d0,2.1d0)
+END IF
+IF (iT.EQ.87) THEN
+ dCenter=[23.6d0,0.6d0,26.85d0]
+ dNormal=[-0.965923, 3.10658e-06, -0.25883]
+ dProfil = RotParabolicVelo3D(53d0,1d0,2.1d0)
+ ValU = dProfil(1)
+ ValV = dProfil(2)
+ ValW = dProfil(3)
+
+!  dNx = -0.965923
+!  dNY = +3.10658e-06     
+!  dNz = -0.25883
+!  dNorm = SQRT(dNX*dNx +dNy*dNy + dNz*dNz)
+!  dNx = dNx/dNorm
+!  dNY = dNy/dNorm
+!  dNz = dNz/dNorm
+!  dist = SQRT((X-23.6d0)*(X-23.6d0) + (Y-0.6d0)*(Y-0.6d0) + (Z-26.85d0)*(Z-26.85d0))
+! !  dVectMag = 2d0*my_InFlow%VectMag*(1.12d0-dist*dist)
+!  dScale = 5d0*(2d0*max(0d0,(1.12d0-dist*dist)))
+!  ValU = dNx*dScale
+!  ValV = dNy*dScale
+!  ValW = dNz*dScale
+END IF
+
 ! PP-Weber
 IF (iT.EQ.91) THEN
   ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-100d0,1d0,0.5d0)
