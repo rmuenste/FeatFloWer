@@ -530,7 +530,7 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     
     cKTP=' '
-    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutoamticTimeStepControl",cKTP,"YES")
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutoamticTimeStepControl",cKTP,"NO")
     call inip_toupper_replace(cKTP)
     IF (ADJUSTL(TRIM(cKTP)).eq."NO") THEN
      mySetup%bAutoamticTimeStepControl = .FALSE.
