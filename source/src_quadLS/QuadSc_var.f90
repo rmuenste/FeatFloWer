@@ -395,18 +395,18 @@ TYPE tCGALObjects
 END TYPE tCGALObjects
 TYPE (tCGALObjects) myHeatObjects
 
-TYPE tParticle
+TYPE tParticleFBM
  CHARACTER cTYPE*10
  REAL*8 sizes(20),density
  REAL*8 ResistanceForce(3),TorqueForce(3)
  REAL*8 Position(3),Velocity(3),Angle(3),AngularVelocity(3)
  REAL*8 Acceleration(3),FrameVelocity(3)
-END TYPE tParticle
+END TYPE tParticleFBM
 
 TYPE tFBM
  INTEGER nParticles
  REAL*8,ALLOCATABLE :: Force(:)
- TYPE (tParticle), ALLOCATABLE :: ParticleOld(:),ParticleNew(:)
+ TYPE (tParticleFBM), ALLOCATABLE :: ParticleOld(:),ParticleNew(:)
  integer, allocatable, dimension(:) :: iel_ug   
 END TYPE tFBM
 
