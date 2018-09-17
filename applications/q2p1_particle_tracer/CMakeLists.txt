@@ -18,6 +18,9 @@ ${src_cinterface}
 ${postprocessing}
 app_init.f90
 #postprocessing.f90
+part_step.f90
+part_input.f90
+part_tracer.f90
 q2p1_particle_tracer.f90
 )
 
