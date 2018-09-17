@@ -1,19 +1,19 @@
 module solution_io
 USE var_QuadScalar,ONLY:knvt,knet,knat,knel
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! A module for saving the solution values to 
 ! a file. This output(dump) is mainly done
 ! to a binary file.
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 
 ! a variable for counting the outputs
 integer :: ifile = 0
 
 contains
 !
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Wrapper routine for writing the solution to a file 
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
@@ -82,9 +82,9 @@ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Ve
                   
 end subroutine write_sol_to_file
 !
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Wrapper routine for reading the solution from a file 
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param startFrom character string containing the start folder
 ! @param iLevel level adjustment for reading a solution 
 ! @param time_ns simulation time
@@ -118,9 +118,9 @@ call read_time_sol(startFrom, istep_ns, time_ns)
 
 end subroutine read_sol_from_file
 !
-!------------------------------------------------------------------------------------------------- 
+!================================================================================================
 ! Write the pressure solution to file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! write_pres_sol: The structure of the pressure solution array is:
 ! pres(1:4*nn)
 ! the entries pres(4*(iel-1)+1) to pres(4*(iel-1)+4) contain
@@ -191,9 +191,9 @@ if(myid.ne.0)then
 end if
 
 end subroutine write_pres_sol
-!------------------------------------------------------------------------------------------------- 
+!================================================================================================
 ! Read the pressure solution from a file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! read_pres_sol: The structure of the pressure solution array is:
 ! pres(1:4*nn)
 ! the entries pres(4*(iel-1)+1) to pres(4*(iel-1)+4) contain
@@ -247,9 +247,9 @@ end if
 
 end subroutine read_pres_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Write the velocity solution to file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
 ! @param nn the number of mesh elements on level NLMAX 
@@ -315,9 +315,9 @@ end if
 
 end subroutine write_vel_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read the velocity solution from file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param startFrom A string representation of the start directory 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
 ! @param nn the number of mesh elements on level NLMAX 
@@ -381,9 +381,9 @@ end if
 
 end subroutine read_vel_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read the velocity solution from a single file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param startFrom A string representation of the start directory 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
 ! @param nn the number of mesh elements on level NLMAX 
@@ -515,9 +515,9 @@ end if
 
 end subroutine read_vel_sol_single
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read the pressure solution from a single file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param startFrom A string representation of the start directory 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
 ! @param nn the number of mesh elements on level NLMAX 
@@ -636,9 +636,9 @@ end if
 
 end subroutine read_pres_sol_single
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Write a custom q2 field to file 
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param fieldName Name of the user-defined field 
 ! @param idx index of the output file 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
@@ -753,9 +753,9 @@ contains
 
 end subroutine write_q2_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read a custom q2 field from file 
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param fieldName Name of the user-defined field 
 ! @param idx index of the output file 
 ! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
@@ -843,9 +843,9 @@ contains
 
 end subroutine read_q2_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Unit test function for P1 dump output 
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param fileName Name of the output file
 ! @param nn the number of mesh elements on level NLMAX 
 ! @param nmin NLMIN 
@@ -897,9 +897,9 @@ subroutine write_pres_test(fileName, nn, nmin, nmax,elemmap,edofs,pres)
 
 end subroutine write_pres_test
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Unit test function for Q2 dump output 
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param fileName Name of the output file
 ! @param nn the number of mesh elements on level NLMAX 
 ! @param nmin NLMIN 
@@ -954,9 +954,9 @@ subroutine write_vel_test(fileName, nn, nmin, nmax,elemmap,edofs,u, v, w)
 
 end subroutine write_vel_test
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Write the output time to file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
@@ -981,9 +981,9 @@ subroutine write_time_sol(iInd, istep, simTime)
 
 end subroutine write_time_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read the time from file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
@@ -1006,9 +1006,9 @@ subroutine read_time_sol(startFrom, istep, simTime)
 
 end subroutine read_time_sol
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Read the time from a single file
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
@@ -1044,9 +1044,9 @@ subroutine read_time_sol_single(fileName, istep, simTime)
 
 end subroutine read_time_sol_single
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! A general postprocessing for a Feat_FloWer application
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param dout Output interval
 ! @param iogmv Output index of the current file 
 ! @param istep number of the discrete time step
@@ -1116,9 +1116,9 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 
 end subroutine postprocessing_app
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! A simple time stepping routine
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param dt The current time step 
 ! @param inlU   
 ! @param inlT 
@@ -1169,9 +1169,9 @@ subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
 
 END SUBROUTINE TimeStepCtrl
 !
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Postprocessing for a sse application
-!-------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param dout Output interval
 ! @param iogmv Output index of the current file 
 ! @param istep number of the discrete time step
@@ -1252,9 +1252,9 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
 end subroutine postprocessing_sse
 !
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! Wrapper routine for writing the solution to a file 
-!------------------------------------------------------------------------------------------------
+!================================================================================================
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time

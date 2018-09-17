@@ -12,9 +12,10 @@ Module Mesh_Structures
   end type t_connector3D
 
 contains
-!
-!-------------------------------------------------------------
-!
+
+!================================================================================================
+!                                   Sub: writeTriFile 
+!================================================================================================
 subroutine writeTriFile(mesh)
   USE var_QuadScalar
   type(tMesh) :: mesh
@@ -61,11 +62,10 @@ subroutine writeTriFile(mesh)
   close(cunit)
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: writeTriArrays  
+!================================================================================================
 subroutine writeTriArrays(mydcorvg, mykvert, mykedge, mykadj,&
     mykarea, mnvt, mnel, mnet, cfile)
   USE var_QuadScalar
@@ -125,11 +125,10 @@ subroutine writeTriArrays(mydcorvg, mykvert, mykedge, mykadj,&
   close(cunit)
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: writeArrays  
+!================================================================================================
 subroutine writeArrays(mydcorvg, mykvert, mykedge, mykadj,&
     mykarea, mnvt, mnel, mnet,cfile)
   USE var_QuadScalar
@@ -206,11 +205,10 @@ subroutine writeArrays(mydcorvg, mykvert, mykedge, mykadj,&
   close(cunit)
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: readTriCoarse  
+!================================================================================================
 subroutine readTriCoarse(CFILE, mgMesh)
   USE var_QuadScalar
   USE PP3D_MPI
@@ -233,7 +231,7 @@ subroutine readTriCoarse(CFILE, mgMesh)
 
   read(cunit, *)
   read(cunit, *)
-  read(cunit,*),mgMesh%level(1)%nel, mgMesh%level(1)%nvt, &
+  read(cunit,*)mgMesh%level(1)%nel, mgMesh%level(1)%nvt, &
     mgMesh%level(1)%nbct, mgMesh%level(1)%nve, &
     mgMesh%level(1)%nee , mgMesh%level(1)%nae
 
@@ -252,7 +250,7 @@ subroutine readTriCoarse(CFILE, mgMesh)
   end if
 
   do i=1,mgMesh%level(1)%nvt
-  read(cunit,*),mgMesh%level(1)%dcorvg(1:3,i)
+  read(cunit,*)mgMesh%level(1)%dcorvg(1:3,i)
   !    if(myid.eq.0)then
   !      write(*,*),mgMesh%level(1)%dcorvg(1:3,i)
   !    end if
@@ -260,7 +258,7 @@ subroutine readTriCoarse(CFILE, mgMesh)
   read(cunit, *)
 
   do i=1,mgMesh%level(1)%nel
-  read(cunit,*),mgMesh%level(1)%kvert(1:8,i)
+  read(cunit,*)mgMesh%level(1)%kvert(1:8,i)
   !    if(myid.eq.0)then
   !      write(*,*),mgMesh%level(1)%kvert(1:8,i)
   !    end if
@@ -278,27 +276,35 @@ subroutine readTriCoarse(CFILE, mgMesh)
 
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
-subroutine refineMesh(mgMesh,maxlevel)
+
+!================================================================================================
+!                                 Sub: refineMesh  
+!================================================================================================
+subroutine refineMesh(mgMesh,maxlevel, extended)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
   implicit none
 
-  type(tMultiMesh) :: mgMesh
-  integer :: maxlevel
+  type(tMultiMesh), intent(inout) :: mgMesh
+  integer, intent(in) :: maxlevel
+  logical, optional, intent(in) :: extended
   integer :: nfine
   integer :: ilevel
   integer :: icurr
+
+  logical :: calculateExtendedConnectivity 
+
+  if(present(extended))then
+    calculateExtendedConnectivity = extended
+  else
+    calculateExtendedConnectivity = .false.
+  end if
 
   nfine = maxlevel-1
 
   icurr = 1
 
-  call genMeshStructures(mgMesh%level(icurr))
+  call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
 
   if(myid.eq.1)then
     write(*,*)'Refining to level: ',maxlevel
@@ -307,28 +313,26 @@ subroutine refineMesh(mgMesh,maxlevel)
 
   do ilevel=1,nfine
 
-  icurr = icurr + 1 
-  call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
-  call genMeshStructures(mgMesh%level(icurr))
+    icurr = icurr + 1 
+    call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
+    call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
 
-  if(myid.eq.1)then
-    write(*,*)'-----RefinementLevelFinished-----'
-  end if
+    if(myid.eq.1)then
+      write(*,*)'-----RefinementLevelFinished-----'
+    end if
 
   end do
 
   do ilevel=1,maxlevel-1 
-  deallocate(mgMesh%level(ilevel)%dcorvg)
-  mgMesh%level(ilevel)%dcorvg => mgMesh%level(maxlevel)%dcorvg
+    deallocate(mgMesh%level(ilevel)%dcorvg)
+    mgMesh%level(ilevel)%dcorvg => mgMesh%level(maxlevel)%dcorvg
   end do
 
-
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: refineMeshLevel  
+!================================================================================================
 subroutine refineMeshLevel(mesh0, mesh1)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -557,18 +561,26 @@ subroutine refineMeshLevel(mesh0, mesh1)
   mesh1%knpr=0
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
-subroutine genMeshStructures(mesh)
+
+!================================================================================================
+!                                 Sub: genMeshStructures  
+!================================================================================================
+subroutine genMeshStructures(mesh, extended)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
   IMPLICIT NONE
-  type(tMesh) :: mesh
-  real :: ttt0=0.0,ttt1=0.0
+  type(tMesh), intent(inout) :: mesh
+  logical, optional, intent(in) :: extended 
 
+  ! local variables
+  real :: ttt0=0.0,ttt1=0.0
+  logical :: calculateExtendedConnectivity 
+
+  if(present(extended))then
+    calculateExtendedConnectivity = extended
+  else
+    calculateExtendedConnectivity = .false.
+  end if
 
   CALL ZTIME(TTT0)
 
@@ -637,12 +649,22 @@ subroutine genMeshStructures(mesh)
     WRITE(*,*) 'time for DCORAG : ',TTGRID
   END IF
 
+  if(calculateExtendedConnectivity)then
+    CALL ZTIME(TTT0)
+    call tria_genElementsAtVertex3D(mesh)
+    CALL ZTIME(TTT1)
+    TTGRID=TTT1-TTT0
+
+    IF (myid.eq.showid) THEN
+      WRITE(*,*) 'time for elementsAtVertex : ',TTGRID
+    END IF
+  end if
+
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: genKVEL  
+!================================================================================================
 subroutine genKVEL(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -660,11 +682,11 @@ subroutine genKVEL(mesh)
   nvel_temp = 0
 
   do i=1,mesh%nel
-  do ive=1,mesh%nve
-  iglobal = mesh%kvert(ive,i) 
-  nvel_temp(iglobal) = nvel_temp(iglobal) + 1
-  mesh%nvel=max(mesh%nvel,nvel_temp(iglobal))
-  end do
+    do ive=1,mesh%nve
+      iglobal = mesh%kvert(ive,i) 
+      nvel_temp(iglobal) = nvel_temp(iglobal) + 1
+      mesh%nvel=max(mesh%nvel,nvel_temp(iglobal))
+    end do
   end do
 
   if(.not.allocated(mesh%kvel))then
@@ -673,37 +695,36 @@ subroutine genKVEL(mesh)
   end if
 
   do i=1,mesh%nel
-  do ive=1,mesh%nve
-  iglobal = mesh%kvert(ive,i) 
-  do j=1,mesh%nvel
-  if(mesh%kvel(j,iglobal).eq.0)then
-    mesh%kvel(j,iglobal) = i
-    exit
-  end if
-  end do
-  end do
+    do ive=1,mesh%nve
+      iglobal = mesh%kvert(ive,i) 
+      do j=1,mesh%nvel
+        if(mesh%kvel(j,iglobal).eq.0)then
+          mesh%kvel(j,iglobal) = i
+          exit
+        end if
+      end do
+    end do
   end do
 
   ! Sort kvel
   do i = 1,mesh%nvt
-  do j = 1,mesh%nvel
-  do k = j+1,mesh%nvel 
-  if(mesh%kvel(j,i).gt.mesh%kvel(k,i).and.&
-    (.not.mesh%kvel(k,i).eq.0))then
-    itemp = mesh%kvel(j,i)
-    mesh%kvel(j,i) = mesh%kvel(k,i)
-    mesh%kvel(k,i) = itemp
-  end if
-  end do
-  end do 
+    do j = 1,mesh%nvel
+      do k = j+1,mesh%nvel 
+        if(mesh%kvel(j,i).gt.mesh%kvel(k,i).and.&
+          (.not.mesh%kvel(k,i).eq.0))then
+          itemp = mesh%kvel(j,i)
+          mesh%kvel(j,i) = mesh%kvel(k,i)
+          mesh%kvel(k,i) = itemp
+        end if
+      end do
+    end do 
   end do
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                 Sub: genKADJ  
+!================================================================================================
 subroutine genKADJ(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -802,11 +823,10 @@ subroutine genKADJ(mesh)
   end do
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genKADJ2  
+!================================================================================================
 subroutine genKADJ2(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -883,11 +903,10 @@ subroutine genKADJ2(mesh)
   !end if
 
 end subroutine genKADJ2
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genKEDGE  
+!================================================================================================
 subroutine genKEDGE(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -1004,11 +1023,10 @@ subroutine findSmallestIEL(i1,i2,mesh,ciel,siel)
 end subroutine
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genKEDGE2  
+!================================================================================================
 subroutine genKEDGE2(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -1157,11 +1175,10 @@ subroutine findSmallestIEL(i1,i2,mesh,ciel,siel)
 end subroutine
 
 end subroutine genKEDGE2
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genKVAR  
+!================================================================================================
 subroutine genKVAR(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -1235,11 +1252,10 @@ subroutine genKVAR(mesh)
   end do
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genDCORAG  
+!================================================================================================
 subroutine genDCORAG(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -1266,11 +1282,10 @@ subroutine genDCORAG(mesh)
   end do
 
 end subroutine
-!+––––––––––––––––––––––––––––––––––––––––––––––
-!| 
-!|      
-!|      
-!+––––––––––––––––––––––––––––––––––––––––––––––
+
+!================================================================================================
+!                                    Sub: genKAREA  
+!================================================================================================
 subroutine genKAREA(mesh)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
@@ -1313,31 +1328,28 @@ subroutine genKAREA(mesh)
   mesh%karea=0
 
   do iiel=1,mesh%nel
-  do iface=1,mesh%nae
+    do iface=1,mesh%nae
 
-  if((mesh%kadj(iface,iiel).eq.0).or.&
-    (mesh%kadj(iface,iiel) > iiel))then
+      if((mesh%kadj(iface,iiel).eq.0).or.&
+        (mesh%kadj(iface,iiel) > iiel))then
 
-    ifaceGlobal = ifaceGlobal + 1 
+        ifaceGlobal = ifaceGlobal + 1 
 
-    mesh%karea(iface, iiel) = ifaceGlobal
+        mesh%karea(iface, iiel) = ifaceGlobal
+      else
+        jiel = mesh%kadj(iface,iiel) 
 
-  else
+        do jface=1,6
 
-    jiel = mesh%kadj(iface,iiel) 
+        if(iiel.eq.mesh%kadj(jface,jiel))then
+          mesh%karea(iface,iiel) = mesh%karea(jface,jiel)
+          exit
+        end if
+        end do
 
-    do jface=1,6
+      end if
 
-    if(iiel.eq.mesh%kadj(jface,jiel))then
-      mesh%karea(iface,iiel) = mesh%karea(jface,jiel)
-      exit
-    end if
     end do
-
-  end if
-
-  end do
-
   end do
 
   mesh%nat = ifaceGlobal
@@ -1534,8 +1546,92 @@ subroutine buildConnectorList(IConnectList, mesh)
 
 end subroutine buildConnectorList
 
-!************************************************************************
+!================================================================================================
+!                                    Sub: tria_sortElements3D  
+!================================================================================================
+subroutine tria_genElementsAtVertex3D(mesh)
+  use types
+  implicit none
+  ! The triangulation structure to be updated.
+  type(tMesh), intent(inout) :: mesh
 
+  ! local variables
+  integer :: iiel
+  integer :: iive
+  integer :: iivt, isize
+  integer, allocatable, dimension(:) :: auxArray
+
+  allocate(mesh%elementsAtVertexIdx(mesh%NVT+1)) 
+
+  mesh%elementsAtVertexIdx = 0
+
+  ! first we calculate the number of elements at each vertex simply
+  ! by counting; thus, loop over all elements
+  do iiel = 1, mesh%NEL
+
+    ! loop over all vertices at the element
+    do iive = 1, mesh%NVE
+
+      ! ivt is the ive-th vertex at element iel
+      iivt = mesh%kvert(iive,iiel)
+
+      ! increase the number of elements by one
+      mesh%elementsAtVertexIdx(iivt+1) = mesh%elementsAtVertexIdx(iivt+1) + 1
+
+    end do ! end ive
+  end do ! end iel
+
+  mesh%NNelAtVertex = 0
+
+  ! In the next step we sum up the number of elements at two
+  ! successive vertices to create the index array and find the 
+  ! length of elementsAtVertex. Calculate NNelAtVertex.
+  do iivt = 2, mesh%NVT+1
+    mesh%NNelAtVertex = max(mesh%NNelAtVertex, &
+                            mesh%elementsAtVertexIdx(iivt))
+
+    mesh%elementsAtVertexIdx(iivt) = mesh%elementsAtVertexIdx(iivt) + &
+                                    mesh%elementsAtVertexIdx(iivt-1)
+  end do
+
+  ! set the size
+  isize = mesh%elementsAtVertexIdx(mesh%NVT+1)
+  mesh%elementsAtVertexIdx(1) = 1
+
+  ! Isize contains now the length of the array where we store the
+  ! adjacency information (IelementsAtVertex).  Do we have (enough)
+  ! memory for that array?
+  allocate(mesh%elementsAtVertex(isize))
+
+
+  ! Duplicate the elementsAtVertexIdx array. We use that as
+  ! pointer and index if new elements at a vertex are found.
+  allocate(auxArray(mesh%NVT+1)) 
+  auxArray = mesh%elementsAtVertexIdx 
+
+  ! loop over all elements
+  do iiel = 1, mesh%NEL
+
+    ! loop over all vertices of the element
+    do iive = 1, mesh%NVE
+
+      ! ivt is the ive-th vertex at element iel
+      iivt = mesh%kvert(iive,iiel)
+
+      ! store the adjacency information at position p_Iaux1(ivt)
+      mesh%elementsAtVertex( auxArray(iivt) ) = iiel
+
+      ! increase the position of the next element in p_Iaux1(ivt)
+      auxArray(iivt) = auxArray(iivt) + 1
+
+    end do ! end iive
+  end do ! end iiel 
+
+end subroutine tria_genElementsAtVertex3D
+
+!================================================================================================
+!                                    Sub: tria_sortElements3D  
+!================================================================================================
 subroutine tria_sortElements3D(IConnectList, iElements, components)
 
   ! This subroutine establishes the lexicographic
@@ -1556,8 +1652,9 @@ subroutine tria_sortElements3D(IConnectList, iElements, components)
 
 end subroutine tria_sortElements3D
 
-!************************************************************************
-
+!================================================================================================
+!                                    Sub: tria_sortElements3DInt  
+!================================================================================================
 subroutine tria_sortElements3DInt(IConnectList, iElements)
 
   ! This subroutine establishes the internal sorted numbering
@@ -1723,9 +1820,10 @@ subroutine tria_merge(IConnectList, l, m, r, pos)
   deallocate(p_R)
 
 end subroutine tria_merge
-!
-! ----------------------------------------------
-!
+
+!================================================================================================
+!                                  Sub: release_mesh 
+!================================================================================================
 subroutine release_mesh(mgMesh) 
 
 use var_QuadScalar, only: tMultiMesh 
@@ -1742,5 +1840,23 @@ if(associated(mgMesh%level(maxlevel)%dcorvg))then
 end if
 
 end subroutine release_mesh
+
+!================================================================================================
+!                                  Sub: release_mesh 
+!================================================================================================
+subroutine testElementsAtVertex(mesh) 
+
+use types 
+implicit none
+
+type(tMesh) :: mesh
+
+integer :: ive
+
+do ive = 1, mesh%NVT
+  write(*,*)'Vertex: ', ive,'Number of elements:', mesh%elementsAtVertexIdx(ive+1) - mesh%elementsAtVertexIdx(ive)
+end do
+
+end subroutine testElementsAtVertex
 
 end Module
