@@ -213,8 +213,9 @@ def usage():
   print("Usage: python combine_fields.py [options]")
   print("Where options can be:")
   print("[-h, --help]: prints this message")
-  print("[-d, --dump-path]: path to the dump folder")
-  print("[-i, --idx]: index of the dump folder")
+  print("[-d, --dump-path]: path to the dump folder, default is ./_dump")
+  print("[-i, --idx]: index of the dump folder, default is 1")
+  print("example: python ./combine_fields.py --dump-path=_dump --idx=2")
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -250,7 +251,7 @@ for opt, arg in opts:
     elif opt in ('-i', '--idx'):
         dump_folder_idx = arg
     elif opt in ('-d', '--dump-path'):
-        dump_folder_idx = arg
+        dump_folder_path = arg
     else:
         usage()
         sys.exit(2)
