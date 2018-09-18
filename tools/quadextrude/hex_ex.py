@@ -328,22 +328,23 @@ def parseLevelIds(argin):
     levels = argin.split(";")
     for item in levels:
         ids = item.split(":")
-        if ids[1] == "":
-            idsList.append([])
-        elif "-" in ids[1]:
-            values = ids[1].split('-')
-            values = [int(x) for x in values]
-            idsList.append(list(range(values[0], values[1])))
-        elif "," in ids[1]:
-            values = ids[1].split(',')
-            values = [int(x) for x in values]
-            idsList.append(values)
-        else:
-            if not ids[1].isdigit():
-                print("Malformed --ids-level expression: " + ids[1])
+        exprList = ids[1].split(",")
+        idsLevel = []
+        for expr in exprList:
+            if expr == "":
+                idsLevel.extend([])
+                break
+            elif "-" in expr:
+                values = expr.split('-')
+                values = [int(x) for x in values]
+                idsLevel.extend(range(values[0], values[1]+1))
+            elif not expr.isdigit():
+                print("Malformed --ids-level expression: " + expr)
                 sys.exit(2)
             else:
-                idsList.append([int(ids[1])])
+                idsLevel.append(int(expr))
+
+        idsList.append(idsLevel)
 
     return idsList
 
