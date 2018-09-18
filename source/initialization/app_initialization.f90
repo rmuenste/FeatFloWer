@@ -91,7 +91,7 @@ subroutine init_q2p1_particle_tracer(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond, Init_QuadScalar 
+    LinScalar_InitCond, Init_QuadScalar, QuadSc 
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
@@ -101,18 +101,20 @@ subroutine init_q2p1_particle_tracer(log_unit)
 
   integer, intent(in) :: log_unit
 
+  integer :: i
+
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
-  call Init_QuadScalar(log_unit)
+  call Init_QuadScalar_Stuctures(log_unit)
 
   ! The particle tracer by default starts with a single 
   ! combined solution file 
   if (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
+    call SolFromFileRepartPartTracer(CSTART,1)
   else
     if(myid .eq. showid)then
       write(*,*)'Error: A particle tracer application needs setting istart = 3'
@@ -120,6 +122,12 @@ subroutine init_q2p1_particle_tracer(log_unit)
     call myMPI_Barrier()
     stop
   end if
+
+  do i = 1, mg_mesh%level(maxlevel)%NVT 
+    mg_mesh%level(maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+    mg_mesh%level(maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+    mg_mesh%level(maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+  end do
 
 end subroutine init_q2p1_particle_tracer
 

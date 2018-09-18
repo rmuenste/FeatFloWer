@@ -1,4 +1,4 @@
-PROGRAM Q2P1_GEOM_TEST
+PROGRAM Q2P1_PARTICLE_TRACER
 
   include 'defs_include.h'
 
@@ -26,15 +26,11 @@ PROGRAM Q2P1_GEOM_TEST
 
   call init_q2p1_particle_tracer(ufile)
 
-!  CALL Sigma_AdjustTimeParameters(tstep,timemx,dtgmv)
+!  call Init_Particle(mfile)
 !
-!  tout = DBLE(INT(timens/dtgmv)+1)*dtgmv
-
-  call Init_Particle(mfile)
-
-  call Transport_Particle(mfile)
+!  call Transport_Particle(mfile)
 
   call sim_finalize(tt0,ufile)
 
 
-END PROGRAM Q2P1_GEOM_TEST
+END PROGRAM Q2P1_PARTICLE_TRACER
