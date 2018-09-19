@@ -114,7 +114,7 @@ subroutine init_q2p1_particle_tracer(log_unit)
   ! combined solution file 
   if (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepartPartTracer(CSTART,1)
+    !call SolFromFileRepartPartTracer(CSTART,1)
   else
     if(myid .eq. showid)then
       write(*,*)'Error: A particle tracer application needs setting istart = 3'
