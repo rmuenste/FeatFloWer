@@ -17,7 +17,7 @@ class Quad:
                  quad
         idx: The index of the quad element
     """
-    def __init__(self, nodeIds, idx):
+    def __init__(self, nodeIds, idx, zoneId):
         self.nodeIds = nodeIds
         self.idx = idx
         self.traits = []
