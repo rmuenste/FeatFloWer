@@ -257,6 +257,8 @@ TYPE tMultiGrid
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
 
+ TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
+
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: BX,BY,BZ,BTX,BTY,BTZ
@@ -286,8 +288,6 @@ TYPE tMultiGrid_cc
  CHARACTER*10 MGProlongation
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
-
- TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
 
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p
