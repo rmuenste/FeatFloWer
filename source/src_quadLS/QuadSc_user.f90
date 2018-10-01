@@ -180,8 +180,8 @@ if(it.eq.10)then
 end if
 
 if(it.eq.11)then
-   ValU= -PI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
-   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValU= -PI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
+   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
    ValW = 0d0 !myProcess%FrameVelocity
 end if
 if(it.eq.12)then
@@ -404,6 +404,11 @@ IF (iT.EQ.92) THEN
   ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-900d0,1d0,2.5d0)
 END IF
 
+! RAIN CARBON
+IF (iT.EQ.93) THEN
+  ValU=RotParabolicVelo2Dx(+0.0d0,+0.0d0,9217d0,1d0,5.0d0)
+END IF
+
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
@@ -494,28 +499,29 @@ SELECT CASE(iP)
   ValU = 0d0
   ValV = 0d0
   ValW = 0d0
-!  CASE (101) ! Y positiv
-!   ValU =  -DBLE(myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
-!   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
-!   ValW = 0d0
-!  CASE (102) ! Y negativ
-!   ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
-!   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
-!   ValW = 0d0
  CASE (101) ! Y positiv
-  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
-  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
   ValW = 0d0
  CASE (102) ! Y negativ
-  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
-  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
   ValW = 0d0
+!  CASE (101) ! Y positiv
+!   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).NE."PARALLEL") THEN
+!    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+!    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+!    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+!   END IF
+!  CASE (102) ! Y negativ
+!   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).NE."PARALLEL") THEN
+!    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+!    ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+!    ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+!   END IF
  CASE (103) ! Y negativ
   ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
-!   write(*,*)'case 103 valu, valv:',valu,valv
   ValW =   0d0
  CASE (104) ! Y negativ
   ValU =  0d0

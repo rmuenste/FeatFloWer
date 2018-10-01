@@ -17,7 +17,7 @@ TYPE(lScalar3) Tracer3
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 
-REAL*8 dArea,dFlux,dHeatSource
+REAL*8 dArea1,dFlux1,dArea2,dFlux2,dHeatSource
 
 include 'LinSc_user_include.h'
 
@@ -467,6 +467,7 @@ if (myid.ne.0) then
  CALL SETLEV(2)
  QuadSc%AuxU = dEpsDist
  QuadSc%AuxV = dEpsDist
+ QuadSc%AuxW = dEpsDist
 
  !MixerKNPR(:) = 0
 

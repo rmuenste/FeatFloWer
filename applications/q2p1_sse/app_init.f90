@@ -526,7 +526,9 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
 
     NumberOfSTLDescription = 0
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
       ALLOCATE(mySigma%mySegment(iSeg)%idxCgal(mySigma%mySegment(iSeg)%nOFFfiles))
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        NumberOfSTLDescription = NumberOfSTLDescription + 1
@@ -538,7 +540,9 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
     IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
     IF (myid.eq.1) write(633,'(I0)') NumberOfSTLDescription
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
       END DO
@@ -625,8 +629,14 @@ COMMON /NSADAT/ TIMEMX,DTMIN,DTMAX,DTFACT,TIMEIN,EPSADI,EPSADL,&
                       EPSADU,IEPSAD,IADIN,IREPIT,IADTIM,PRDIF1,PRDIF2
 SAVE 
 
+nn = NINT(DTGMV/TSTEP)
+
 TSTEP  = dt
-DTGMV  = DBLE(100)*dt
-TIMEMX = DBLE(NITNS+1)*dt
+DTGMV  = (DBLE(nn)-0.5d0)*dt
+TIMEMX = 1d8 
+
+! TSTEP  = dt
+! DTGMV  = DBLE(100)*dt
+! TIMEMX = DBLE(NITNS+1)*dt
 
 END SUBROUTINE AdjustTimeStepping

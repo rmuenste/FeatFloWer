@@ -129,7 +129,9 @@ inpr = 0
 tt = t 
 !----------------------------------------------------------
 DO k=1, mySigma%NumberOfSeg
- IF (mySigma%mySegment(k)%ART.EQ.'STL' )  CALL STL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'STL_R')  CALL STLR_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'STL_L')  CALL STLL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'STL'  )  CALL STL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
@@ -224,6 +226,117 @@ if (d2.lt.0d0) inpr = 102
 
 
 END SUBROUTINE STL_elem
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE STLL_elem(X,Y,Z,t,iSeg,d1,d2,inpr)
+IMPLICIT NONE
+INTEGER inpr
+REAL*8 X,Y,Z,d1,d2
+REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
+REAL*8 t,myPI,dUnitScale
+INTEGER iSTL,iSeg,iFile
+
+! d1 = 5d0
+! d2 = 5d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
+IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'DM') dUnitScale = 1d-1
+
+t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+
+myPI = dATAN(1d0)*4d0
+
+IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+ XB = X
+ YB = Y-mySigma%a/2d0
+ ZB = Z
+ELSE
+ CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+END IF
+
+
+! First the point needs to be transformed back to time = 0
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(-myProcess%ind)
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+XT_STL = dUnitScale*XT
+YT_STL = dUnitScale*YT
+ZT_STL = dUnitScale*ZT - dUnitScale*mySigma%mySegment(iSeg)%Min
+
+DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+ iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+ CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
+ d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
+END DO
+d1 = d1 + 0.0d0
+
+if (d1.lt.0d0) inpr = 101
+
+d2 = DistTolerance
+if (d2.lt.0d0) inpr = 102
+
+END SUBROUTINE STLL_elem
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE STLR_elem(X,Y,Z,t,iSeg,d1,d2,inpr)
+IMPLICIT NONE
+INTEGER inpr
+REAL*8 X,Y,Z,d1,d2
+REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
+REAL*8 t,myPI,dUnitScale
+INTEGER iSTL,iSeg,iFile
+
+! d1 = 5d0
+! d2 = 5d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
+IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
+IF (mySigma%mySegment(iSeg)%Unit.eq.'DM') dUnitScale = 1d-1
+
+t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+
+myPI = dATAN(1d0)*4d0
+
+IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+ XB = X
+ YB = Y+mySigma%a/2d0
+ ZB = Z
+ELSE
+ CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+END IF
+
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+! ! First the point needs to be transformed back to time = 0
+! IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+! IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+! IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+! IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+!dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+XT_STL = dUnitScale*XT
+YT_STL = dUnitScale*YT
+ZT_STL = dUnitScale*ZT  - dUnitScale*mySigma%mySegment(iSeg)%Min
+
+DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+ iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+ CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
+ d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
+END DO
+d2 = d2 + 0.0d0
+
+if (d2.lt.0d0) inpr = 102
+
+d1 = DistTolerance
+if (d1.lt.0d0) inpr = 101
+
+END SUBROUTINE STLR_elem
 !------------------------------------------------------------------------------------------------
 ! The subroutine calculates a distance function on the mesh given 
 ! by dcorvg, etc. The distance is computed to the list of screw geometries

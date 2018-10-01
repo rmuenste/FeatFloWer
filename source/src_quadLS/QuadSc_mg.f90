@@ -376,7 +376,7 @@ INTEGER I,NDOF
 IF (myid.ne.0) THEN
  IF (MyMG%cVariable.EQ."Pressure") THEN
   CALL ZTIME(time0)
-  CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,KNEL(mgLev))
+  CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,myMG%KNPRP(mglev)%x,KNEL(mgLev))
   CALL ZTIME(time1)
   myStat%tRestP = myStat%tRestP + (time1-time0)
  END IF
@@ -399,7 +399,7 @@ INTEGER I,NDOF
 IF (myid.ne.0) THEN
  IF (MyMG%cVariable.EQ."Pressure") THEN
   CALL ZTIME(time0)
-  CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,KNEL(mgLev-1))
+  CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,myMG%KNPRP(mglev-1)%x,KNEL(mgLev-1))
   CALL ZTIME(time1)
   myStat%tProlP = myStat%tProlP + (time1-time0)
  END IF
@@ -453,9 +453,10 @@ REAL*8 daux
  IF (MyMG%cVariable.EQ."Pressure") THEN
   if (myid.ne.0) then
    CALL ZTIME(time0)
-   CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,Iter)
+   CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,iter)
    CALL ZTIME(time1)
   end if
+
   myStat%tSmthP = myStat%tSmthP + (time1-time0)
  END IF
  IF (MyMG%cVariable.EQ."Velocity") THEN
@@ -875,10 +876,10 @@ END SUBROUTINE InitE012ProlMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE E012_Prolongation(D2,D1,A,N)
+SUBROUTINE E012_Prolongation(D2,D1,A,KNPRP,N)
 IMPLICIT NONE
 REAL*8 A(8,4,4,*)
-INTEGER N
+INTEGER KNPRP(*),N
 REAL*8 D1(4,*),D2(4,*)
 INTEGER IEL,JEL(8),I,J,K,KEL
 
@@ -895,10 +896,12 @@ DO IEL=1,N
  DO I=1,4
   DO J=1,8
    KEL = JEL(J)
-   D2(I,KEL) = 0d0
-   DO K=1,4
-    D2(I,KEL) =  D2(I,KEL) + D1(K,IEL)*A(J,I,K,IEL)
-   END DO
+   IF (KNPRP(IEL).EQ.0) THEN
+    D2(I,KEL) = 0d0
+    DO K=1,4
+     D2(I,KEL) =  D2(I,KEL) + D1(K,IEL)*A(J,I,K,IEL)
+    END DO
+   END IF
   END DO
  END DO
 END DO
@@ -907,10 +910,10 @@ END SUBROUTINE E012_Prolongation
 !
 ! ----------------------------------------------
 !
-SUBROUTINE E012_Restriction(D2,D1,A,N)
+SUBROUTINE E012_Restriction(D2,D1,A,KNPRP,N)
 IMPLICIT NONE
 REAL*8 A(8,4,4,*)
-INTEGER N
+INTEGER KNPRP(*), N
 REAL*8 D1(4,*),D2(4,*)
 INTEGER IEL,JEL(8),I,J,K,KEL
 
@@ -926,12 +929,14 @@ DO IEL=1,N
 
  DO I=1,4
   D1(I,IEL) = 0d0
-  DO J=1,8
-   KEL = JEL(J)
-   DO K=1,4
-    D1(I,IEL) =  D1(I,IEL) + D2(K,KEL)*A(J,I,K,IEL)
+  IF (KNPRP(IEL).EQ.0) THEN
+   DO J=1,8
+    KEL = JEL(J)
+    DO K=1,4
+     D1(I,IEL) =  D1(I,IEL) + D2(K,KEL)*A(J,I,K,IEL)
+    END DO
    END DO
-  END DO
+  END IF
  END DO
 END DO
 
@@ -2130,7 +2135,7 @@ SUBROUTINE crsRestriction()
 INTEGER I,NDOF
 
  CALL ZTIME(time0)
- CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,KNEL(mgLev))
+ CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,myMG%KNPRP(mglev)%x,KNEL(mgLev))
  CALL ZTIME(time1)
  myStat%tRestP = myStat%tRestP + (time1-time0)
 
@@ -2142,7 +2147,7 @@ SUBROUTINE crsProlongation()
 INTEGER I,NDOF
 
  CALL ZTIME(time0)
- CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,KNEL(mgLev-1))
+ CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,myMG%KNPRP(mglev-1)%x,KNEL(mgLev-1))
  CALL ZTIME(time1)
  myStat%tProlP = myStat%tProlP + (time1-time0)
 
@@ -2266,7 +2271,7 @@ REAL*8 daux
  ndof  = SIZE(myMG%X(mgLev)%x)
  
  CALL ZTIME(time0)
- CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,&
+ CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,myMG%KNPRP(mglev)%x,&
                        mg_mesh%level(mgLev)%NEL)
  CALL ZTIME(time1)
  myStat%tRestP = myStat%tRestP + (time1-time0)
@@ -2291,7 +2296,7 @@ REAL*8 daux
  ndof  = SIZE(myMG%X(mgLev)%x)
 
  CALL ZTIME(time0)
- CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,KNEL(mgLev-1))
+ CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,myMG%KNPRP(mglev-1)%x,KNEL(mgLev-1))
  CALL ZTIME(time1)
  myStat%tProlP = myStat%tProlP + (time1-time0)
 

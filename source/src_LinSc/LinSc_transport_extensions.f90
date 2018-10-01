@@ -117,12 +117,14 @@ END DO
 
 1 CONTINUE
 
-CALL COMM_SUMM(dArea)
-CALL COMM_SUMM(dFlux)
+CALL COMM_SUMM(dArea1)
+CALL COMM_SUMM(dArea2)
+CALL COMM_SUMM(dFlux1)
+CALL COMM_SUMM(dFlux2)
 
 if (myid.eq.showid) then
- WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea,1e-3*dFlux,dHeatSource
- WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea,1e-3*dFlux,dHeatSource
+ WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
+ WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
 end if
 
 CALL IntegrateOutputQuantities(mfile)
@@ -679,7 +681,14 @@ if (myid.ne.master) then
                              mg_mesh%level(ilev)%karea,&
                              mg_mesh%level(ilev)%kedge,&
                              mg_mesh%level(ilev)%dcorvg,&
-                             E011,dArea,dFlux,iSwitch)
+                             E011,dArea1,dFlux1,iSwitch)
+ CALL AddConductiveHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                             Tracer%def,Tracer%oldSol,&
+                             mg_mesh%level(ilev)%kvert,&
+                             mg_mesh%level(ilev)%karea,&
+                             mg_mesh%level(ilev)%kedge,&
+                             mg_mesh%level(ilev)%dcorvg,&
+                             E011,dArea2,dFlux2,iSwitch)
 end if
 
 END SUBROUTINE AddBoundaryHeatFlux
@@ -723,7 +732,7 @@ iSeg = 0
 do 
  iSeg = iSeg + 1
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-  IF (dQuant(iS+4)/dQuant(iS+3).gt.300d0) then
+  IF (dQuant(iS+4)/dQuant(iS+3).gt.400d0) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
   END IF
   IF (dQuant(iS+4)/dQuant(iS+3).lt.200d0) then
@@ -746,54 +755,54 @@ END SUBROUTINE IntegrateOutputQuantities
 !                         mg_mesh%level(nlmax)%nvt,&
 !                         mg_mesh%level(nlmax)%nel,&
 !                         mg_mesh%level(nlmax)%net,1/2)
-SUBROUTINE AddLumpedHeatFlux(dcorvg,karea,kvert,nvt,nel,net,iSwitch)
-REAL*8 dcorvg(3,*)
-INTEGER karea(6,*),kvert(8,*),nel,net,nvt
-INTEGER iSwitch
-!---------------------------------
-INTEGER NeighA(4,6)
-REAL*8 P(3),dA,tLocal
-DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-
-if (iSwitch.eq.1) then
- dFlux = 0d0
- dArea = 0d0
-end if
-
-k=1
-DO i=1,nel
- DO j=1,6
-  IF (k.eq.karea(j,i)) THEN
-   ivt1 = kvert(NeighA(1,j),i)
-   ivt2 = kvert(NeighA(2,j),i)
-   ivt3 = kvert(NeighA(3,j),i)
-   ivt4 = kvert(NeighA(4,j),i)
-   IF (myBoundary%iTemperature(ivt1).eq.2.and. &
-       myBoundary%iTemperature(ivt2).eq.2.and. &
-       myBoundary%iTemperature(ivt3).eq.2.and. &
-       myBoundary%iTemperature(ivt4).eq.2) THEN
-       CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
-       if (iSwitch.eq.1) then
-        TLocal = 0.25d0*(Tracer%val(NLMAX)%x(ivt1) + Tracer%val(NLMAX)%x(ivt2) + &
-                         Tracer%val(NLMAX)%x(ivt3) + Tracer%val(NLMAX)%x(ivt4))
-        Tracer%def(ivt1) = Tracer%def(ivt1) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
-        Tracer%def(ivt2) = Tracer%def(ivt2) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
-        Tracer%def(ivt3) = Tracer%def(ivt3) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
-        Tracer%def(ivt4) = Tracer%def(ivt4) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
-        dFlux = dFlux     + myProcess%HeatTransferCoeff*(dA*1e-4)*(myProcess%AirTemperature-tLocal)
-        dArea = dArea     + dA
-       end if
-       if (iSwitch.eq.2) then
-        Amat(lMat%LdA(ivt1)) = Amat(lMat%LdA(ivt1)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
-        Amat(lMat%LdA(ivt2)) = Amat(lMat%LdA(ivt2)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
-        Amat(lMat%LdA(ivt3)) = Amat(lMat%LdA(ivt3)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
-        Amat(lMat%LdA(ivt4)) = Amat(lMat%LdA(ivt4)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
-       end if
-   END IF
-   k = k + 1
-  END IF
- END DO
-END DO
-
-END SUBROUTINE AddLumpedHeatFlux
+! SUBROUTINE AddLumpedHeatFlux(dcorvg,karea,kvert,nvt,nel,net,iSwitch)
+! REAL*8 dcorvg(3,*)
+! INTEGER karea(6,*),kvert(8,*),nel,net,nvt
+! INTEGER iSwitch
+! !---------------------------------
+! INTEGER NeighA(4,6)
+! REAL*8 P(3),dA,tLocal
+! DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+! INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+! 
+! if (iSwitch.eq.1) then
+!  dFlux = 0d0
+!  dArea = 0d0
+! end if
+! 
+! k=1
+! DO i=1,nel
+!  DO j=1,6
+!   IF (k.eq.karea(j,i)) THEN
+!    ivt1 = kvert(NeighA(1,j),i)
+!    ivt2 = kvert(NeighA(2,j),i)
+!    ivt3 = kvert(NeighA(3,j),i)
+!    ivt4 = kvert(NeighA(4,j),i)
+!    IF (myBoundary%iTemperature(ivt1).eq.2.and. &
+!        myBoundary%iTemperature(ivt2).eq.2.and. &
+!        myBoundary%iTemperature(ivt3).eq.2.and. &
+!        myBoundary%iTemperature(ivt4).eq.2) THEN
+!        CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+!        if (iSwitch.eq.1) then
+!         TLocal = 0.25d0*(Tracer%val(NLMAX)%x(ivt1) + Tracer%val(NLMAX)%x(ivt2) + &
+!                          Tracer%val(NLMAX)%x(ivt3) + Tracer%val(NLMAX)%x(ivt4))
+!         Tracer%def(ivt1) = Tracer%def(ivt1) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
+!         Tracer%def(ivt2) = Tracer%def(ivt2) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
+!         Tracer%def(ivt3) = Tracer%def(ivt3) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
+!         Tracer%def(ivt4) = Tracer%def(ivt4) + 1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP*myProcess%AirTemperature
+!         dFlux = dFlux     + myProcess%HeatTransferCoeff*(dA*1e-4)*(myProcess%AirTemperature-tLocal)
+!         dArea = dArea     + dA
+!        end if
+!        if (iSwitch.eq.2) then
+!         Amat(lMat%LdA(ivt1)) = Amat(lMat%LdA(ivt1)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
+!         Amat(lMat%LdA(ivt2)) = Amat(lMat%LdA(ivt2)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
+!         Amat(lMat%LdA(ivt3)) = Amat(lMat%LdA(ivt3)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
+!         Amat(lMat%LdA(ivt4)) = Amat(lMat%LdA(ivt4)) + REAL(1d3*myProcess%HeatTransferCoeff*(0.25d0*dA)*TSTEP)
+!        end if
+!    END IF
+!    k = k + 1
+!   END IF
+!  END DO
+! END DO
+! 
+! END SUBROUTINE AddLumpedHeatFlux

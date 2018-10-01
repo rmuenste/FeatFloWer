@@ -152,6 +152,7 @@ end type fieldPtr
 TYPE TLinScalar
  CHARACTER cName*7
  INTEGER :: ndof,na
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprP
 ! TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knpr
 ! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old,P_old,P_new
@@ -285,6 +286,8 @@ TYPE tMultiGrid_cc
  CHARACTER*10 MGProlongation
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
+
+ TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
 
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p

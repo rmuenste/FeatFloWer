@@ -1,3 +1,48 @@
+!
+! ----------------------------------------------
+!
+subroutine SendPressBCElemsToCoarse(iVect,nP)
+USE PP3D_MPI
+implicit none
+integer iVect(*),nP
+integer, allocatable :: iSend(:)
+integer nnp,i,iP
+
+if (myid.ne.0) then
+  call RECVI_myMPI(nnP,0)
+  allocate(iSend(nnp))
+  iSend = 0
+  do i=1,np
+   if (iVect(i).ne.0) iSend(coarse%myELEMLINK(i)) = 1   
+  end do
+else
+ do iP=1,subnodes 
+  call SENDI_myMPI(nP,IP)
+ end do
+ allocate(iSend(np))
+end if
+
+if (myid.ne.0) then
+  call SENDK_myMPI(iSend,nnP,0)
+else
+ nnP = nP
+ do iP=1,subnodes 
+  call RECVK_myMPI(iSend,nnP,iP)
+  do i=1,nnP
+   if (iSend(i).eq.1) iVect(i) = 1
+  end do
+ end do
+ do i=1,np
+!    if (iVect(i).ne.0) write(*,*) i  
+ end do
+end if
+
+deallocate(iSend)
+
+end subroutine SendPressBCElemsToCoarse
+!
+! ----------------------------------------------
+!
 SUBROUTINE  Comm_Solution(d1,d2,d3,d4,n)
 USE PP3D_MPI
 IMPLICIT NONE

@@ -48,7 +48,7 @@ TYPE tProcess
    REAL*8 :: dAlpha
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
-   INTEGER :: ind
+   INTEGER :: ind,iInd
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AirTemperature,HeatTransferCoeff
 END TYPE tProcess
@@ -85,7 +85,7 @@ TYPE tSetup
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher
  INTEGER MeshResolution,nSolutions
- INTEGER m_nT,m_nR,m_nZ,m_nP
+ INTEGER m_nT,m_nT1,m_nT2,m_nR,m_nZ,m_nP
  LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
 END TYPE tSetup
 TYPE(tSetup) :: mySetup

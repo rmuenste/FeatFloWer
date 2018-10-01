@@ -368,9 +368,9 @@ END SUBROUTINE Create_MMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_CMat(knprU,knprV,knprW,coarse_lev,coarse_solver) !(C)
+SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
-TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*)
+TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
 INTEGER i,j,iEntry,jCol
 
  CALL ZTIME(myStat%t0)
@@ -506,6 +506,11 @@ INTEGER i,j,iEntry,jCol
       END DO
      END DO
 
+     DO i=1,crsSTR%A%nu
+      j = 4*(i-1) + 1
+      if (KNPRP(ilev)%x(i).gt.0) crsSTR%A_Mat(crsSTR%A%LDA(i)) = 1d-8
+     END DO
+  
      IF (coarse_solver.EQ.4) THEN
       CALL myUmfPack_Factorize(crsSTR%A_MAT,crsSTR%A)
      END IF
@@ -1374,6 +1379,13 @@ SUBROUTINE InitializeLinScalar(myScalar)
 TYPE(TLinScalar) myScalar
 INTEGER NDOF,NDOF2,N
 
+ ALLOCATE(myScalar%knprP(NLMIN:NLMAX))
+ DO ILEV=NLMIN,NLMAX
+  NDOF = 4*mg_mesh%level(ilev)%nel
+  ALLOCATE(myScalar%knprP(ILEV)%x(NDOF))
+  myScalar%knprP(ilev)%x = 0
+ END DO
+
  ILEV=NLMAX
 
  NDOF = 4*mg_mesh%level(ilev)%nel
@@ -1507,7 +1519,7 @@ END SUBROUTINE Resdfk_General_LinScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Solve_General_LinScalar(lScalar,lPScalar,qScalar,mfile)
+SUBROUTINE Solve_General_LinScalar(lScalar,lPScalar,qScalar,Bndry_Mat,Bndry_Def,mfile)
 INTEGER mfile
 TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TParLinScalar), INTENT(INOUT), TARGET ::  lPScalar
@@ -1515,6 +1527,8 @@ TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 REAL*8 resP,resDP,res,ddd
 REAL*8 dnormu1,dnormu2,dnormu3,dnormu
 INTEGER :: I,J
+EXTERNAL Bndry_Mat,Bndry_Def
+
 ! REAL*8, ALLOCATABLE, DIMENSION(:) :: d1,D2,d3
 
  CALL ZTIME(myStat%t0)
@@ -1526,6 +1540,17 @@ INTEGER :: I,J
  IF (ABS(dnormu).LT.1D-8) dnormu=1D-8
  CALL COMM_Maximum(dnormu)
 
+  DO ILEV = NLMIN,NLMAX
+   CALL SETLEV(2)
+   CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
+   if (myid.ne.0) CALL Bndry_Mat(mg_CPMat(ILEV)%a,mg_lPMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,0)
+  END DO
+  if (myid.ne.0) then 
+   ILEV = NLMAX
+   CALL SETLEV(2)
+   CALL Bndry_Def(lScalar%rhsP(ILEV)%x,lScalar%knprP(ILEV)%x,nel)
+  end if
+ 
  ! Set up the pointers for the Pressure MG driver 
  MyMG%A   => mg_CMat
  MyMG%AP  => mg_CPMat
@@ -1536,6 +1561,8 @@ INTEGER :: I,J
  MyMG%B   => lScalar%rhsP
  MyMG%AUX => lScalar%auxP
  MyMG%XP  => lPScalar%Val
+ MyMG%KNPRP => lScalar%knprP
+ 
  ! Set up the parameters for the Pressure MG driver 
  MyMG%cVariable     = "Pressure"
  MyMG%MinLev        = lScalar%prm%MGprmIn%MinLev

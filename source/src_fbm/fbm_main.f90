@@ -402,6 +402,7 @@ real*8 :: dist_sign, cpx,cpy,cpz, d_temp
   call get_dynamics_type(ipc, idynType) 
   dist_sign = +1d0
   if (idynType.eq.2) dist_sign = -1d0
+!  if (IP.eq.1) dist_sign = -1d0
 
   call isinelementid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,ipc,isin)
   if(isin .gt. 0)then

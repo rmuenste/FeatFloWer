@@ -7,7 +7,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-CALL updateFBMGeometry()
+if (itns.eq.1) CALL updateFBMGeometry()
 
 thstep = tstep*(1d0-theta)
 
@@ -185,7 +185,7 @@ IF (myid.ne.0) THEN
 END IF
 
 ! Calling the solver
-CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,mfile)
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
 
 CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 
@@ -232,7 +232,7 @@ END IF
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
- CALL updateFBMGeometry()
+! CALL updateFBMGeometry()
 
 RETURN
 
@@ -640,7 +640,7 @@ IF (myid.ne.0) THEN
 END IF
 
 ! Calling the solver
-CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,mfile)
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
 
 CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 

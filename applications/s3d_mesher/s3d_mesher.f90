@@ -77,32 +77,37 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
  DZo = mySigma%Dz_out;  DZi = mySigma%Dz_in; DA  = mySigma%a
  DL  = mySigma%L;       dx  = mySigma%W;     DZz = mySigma%Dzz
 
+ nR  = mySetup%m_nR
+ nZ  = mySetup%m_nZ
+ nT1 = mySetup%m_nT1
+ nT2 = mySetup%m_nT2
+
  IF (mySetup%MeshResolution.eq.1) THEN
-  nR  = 3
-  nT1 = 5
-  nT2 = 12
+  if (mySetup%m_nR.eq.0)  nR  = 3
+  if (mySetup%m_nT1.eq.0) nT1 = 5
+  if (mySetup%m_nT2.eq.0) nT2 = 12
  END IF
  IF (mySetup%MeshResolution.eq.2) THEN
-  nR  = 4
-  nT1 = 6
-  nT2 = 17
+  if (mySetup%m_nR.eq.0)  nR  = 4
+  if (mySetup%m_nT1.eq.0) nT1 = 6
+  if (mySetup%m_nT2.eq.0) nT2 = 17
  END IF
  IF (mySetup%MeshResolution.eq.3)  THEN
-  nR  =  5
-  nT1 =  7
-  nT2 = 22 
+  if (mySetup%m_nR.eq.0)  nR  =  5
+  if (mySetup%m_nT1.eq.0) nT1 =  7
+  if (mySetup%m_nT2.eq.0) nT2 = 22 
  END IF
  IF (mySetup%MeshResolution.eq.4)  THEN
-  nR  =  6
-  nT1 =  8
-  nT2 = 28 
+  if (mySetup%m_nR.eq.0)  nR  =  6
+  if (mySetup%m_nT1.eq.0) nT1 =  8
+  if (mySetup%m_nT2.eq.0) nT2 = 28 
  END IF
  IF (mySetup%MeshResolution.eq.5)  THEN
-  nR  =  6
-  nT1 =  10
-  nT2 =  35 
+  if (mySetup%m_nR.eq.0)  nR  =  7
+  if (mySetup%m_nT1.eq.0) nT1 =  10
+  if (mySetup%m_nT2.eq.0) nT2 =  35 
  END IF
- nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
+ if (mySetup%m_nZ.eq.0) nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
  
  IF (MOD(nZ,2).EQ.1) THEN
   WRITE(*,*) "number of elements in Z is uneven and is to be set to: ", nZ+1

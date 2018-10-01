@@ -5,7 +5,7 @@ USE def_QuadScalar
 ! USE PP3D_MPI
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
-                   myMPI_Barrier
+                   myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
@@ -235,7 +235,7 @@ IF (myid.ne.0) THEN
 END IF
 
 ! Calling the solver
-CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,mfile)
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
 
 CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 
@@ -1034,6 +1034,43 @@ END SUBROUTINE Boundary_QuadScalar_Val
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Boundary_LinScalar_Mat(DA,KLD,KNPRP,NEL,iS)
+  REAL*8  DA(*)
+  INTEGER KLD(*),KNPRP(*),ICOL,I,NEL,J,JJ,iS
+ 
+  DO I=1,NEL
+   IF (KNPRP(I).EQ.1) THEN
+    DO J=1,4
+     JJ = 4*(I-1) + J
+     IF (iS.eq.1) DA(KLD(JJ)) = 1d-8
+     DO ICOL=KLD(JJ)+iS,KLD(JJ+1)-1
+      DA(ICOL) = 0d0
+     END DO
+    END DO
+   END IF
+  END DO
+
+END SUBROUTINE Boundary_LinScalar_Mat
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_LinScalar_Def(DD,KNPRP,NEL)
+  REAL*8  DD(*)
+  INTEGER KNPRP(*),ICOL,I,NEL,J,JJ
+ 
+  DO I=1,NEL
+   IF (KNPRP(I).EQ.1) THEN
+    DO J=1,4
+     JJ = 4*(I-1) + J
+     DD(JJ) = 0d0
+    END DO
+   END IF
+  END DO
+
+END SUBROUTINE Boundary_LinScalar_Def
+!
+! ----------------------------------------------
+!
 SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
     KNPRU,KNPRV,KNPRW,NDOF)
   REAL*8  DA11(*),DA22(*),DA33(*)
@@ -1249,7 +1286,7 @@ SUBROUTINE OperatorRegenaration(iType)
       CALL Fill_QuadLinParMat()
     END IF
 
-    CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+    CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
     IF (myid.ne.master) THEN
       CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
     END IF
@@ -2326,11 +2363,133 @@ call setlev(2)
 
 if (myid.ne.0) call updateMixerGeometry(mfile)
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ ilev=nlmin
+ CALL SETLEV(2)
+ CALL SetPressBC(mgMesh)
+ ! send them to the master
+ CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
+ if (myid.ne.0) then
+  ilev=nlmin+1
+  CALL SETLEV(2)
+ END IF
+ CALL SetPressBC(mgMesh)
+
+ do ilev=nlmin+2,nlmax
+  CALL SETLEV(2)
+  CALL GetMG_KNPRP(mgMesh)
+ end do
+
+ ! Set up the boundary condition types (knpr)
+ DO ILEV=NLMIN,NLMAX
+  CALL SETLEV(2)
+  CALL IncludeFBM_BCs(mgMesh)
+  CALL QuadScalar_Knpr()
+ END DO
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 call OperatorRegenaration(1)
 call OperatorRegenaration(2)
 call OperatorRegenaration(3)
 
 end subroutine InitOperators
+!
+! ----------------------------------------------
+!
+SUBROUTINE SetPressBC(mgMesh)
+type(tMultiMesh), intent(inout) :: mgMesh
+integer i,iel,ivt
+real*8 dnn
+
+dnn=0d0
+if (myid.ne.0) then
+ DO iel=1,nel
+  do i=1,8
+   ivt = mgMesh%level(ilev)%kvert(i,iel)
+   if (screw(ivt).gt.0d0) goto 1
+  end do
+  dnn = dnn + 1d0 
+!   write(*,*) 'Pressure BC !!!',myid,iel
+  LinSc%knprP(ilev)%x(iel) = 1
+ 1 continue
+ END DO
+END IF
+
+call Comm_Summ(dnn)
+
+if (Myid.eq.showid) write(*,*) 'Number of Pressure BC Elements:',int(dnn)
+
+END SUBROUTINE SetPressBC
+!
+! ----------------------------------------------
+!
+SUBROUTINE GetMG_KNPRP(mgMesh)
+type(tMultiMesh), intent(inout) :: mgMesh
+integer iel,jel(8),i
+
+do iel = 1,nel/8
+ if (LinSc%knprP(ilev-1)%x(iel).eq.1) then
+  JEL(1)  = iel
+  JEL(2)  = mgMesh%level(ilev)%kadj(3,JEL(1))
+  JEL(3)  = mgMesh%level(ilev)%kadj(3,JEL(2))
+  JEL(4)  = mgMesh%level(ilev)%kadj(3,JEL(3))
+  JEL(5)  = mgMesh%level(ilev)%kadj(6,JEL(1))
+  JEL(6)  = mgMesh%level(ilev)%kadj(6,JEL(2))
+  JEL(7)  = mgMesh%level(ilev)%kadj(6,JEL(3))
+  JEL(8)  = mgMesh%level(ilev)%kadj(6,JEL(4))
+  do i=1,8
+    LinSc%knprP(ilev)%x(jel(i)) = 1
+  end do
+ end if
+end do
+
+END SUBROUTINE GetMG_KNPRP
+!
+! ----------------------------------------------
+!
+SUBROUTINE IncludeFBM_BCs(mgMesh)
+
+type(tMultiMesh), intent(inout) :: mgMesh
+integer iel,i
+
+do iel = 1,nel
+ if (LinSc%knprP(ilev)%x(iel).eq.1) then
+  do i=1,8
+   myBoundary%bWall(mgMesh%level(ilev)%kvert(i,iel)) = .true.
+  end do
+
+  do i=1,12
+   myBoundary%bWall(nvt + mgMesh%level(ilev)%kedge(i,iel)) = .true.
+  end do
+
+  do i=1,6
+   myBoundary%bWall(nvt + net + mgMesh%level(ilev)%karea(i,iel)) = .true.
+  end do
+
+  myBoundary%bWall(nvt + net + nat + iel) = .true.
+ end if
+end do
+
+QuadSc%auxU = 0d0
+DO i=1,QuadSc%ndof
+ if (myBoundary%bWall(i)) QuadSc%auxU(i) = 1d0
+END DO
+
+CALL E013Sum(QuadSc%auxU)
+
+DO i=1,QuadSc%ndof
+ if (QuadSc%auxU(i).gt.0d0) myBoundary%bWall(i) = .true.
+END DO
+
+!!!! COMMUNICATION needed !!!!!
+
+
+END SUBROUTINE IncludeFBM_BCs
 !
 ! ----------------------------------------------
 !

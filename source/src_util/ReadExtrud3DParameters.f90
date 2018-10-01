@@ -35,6 +35,11 @@
 
     call inip_readfromfile(parameterlist,ADJUSTL(TRIM(cE3Dfile)))
 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","RotationType",cRotation,'co')
+    call inip_toupper_replace(cRotation)
+    myProcess%iInd =+1
+    IF (ADJUSTL(TRIM(cRotation)).eq."COUNTER".OR.ADJUSTL(TRIM(cRotation)).eq."COUNTERROTATING") myProcess%iInd=-1
+    
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","RotationDirection",cRotation,'NoRotation')
     call inip_toupper_replace(cRotation)
     IF (ADJUSTL(TRIM(cRotation)).eq."R".OR.ADJUSTL(TRIM(cRotation)).eq."RECHTS".OR.ADJUSTL(TRIM(cRotation)).eq."RIGHT") myProcess%ind=1
@@ -384,6 +389,68 @@
       end do
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
      END IF
+!!!==============================================      STL_R     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."STL_R") THEN
+      mySigma%mySegment(iSeg)%ART   = "STL_R"
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      
+      mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
+!       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
+      
+      mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
+      IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
+       ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
+      ELSE
+       WRITE(*,*) "STL_R geometry dscription files are missing"
+       WRITE(*,*) 'screwOFF'
+       bReadError=.TRUE.
+       !GOTO 10
+      END IF
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+        call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
+      end do
+      mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
+     END IF
+!!!==============================================      STL_R     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."STL_L") THEN
+      mySigma%mySegment(iSeg)%ART   = "STL_L"
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      
+      mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
+!       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
+      
+      mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
+      IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
+       ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
+      ELSE
+       WRITE(*,*) "STL_L geometry dscription files are missing"
+       WRITE(*,*) 'screwOFF'
+       bReadError=.TRUE.
+       !GOTO 10
+      END IF
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+        call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
+      end do
+      mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
+     END IF
      IF (mySigma%mySegment(iSeg)%ART.eq.' ') THEN
       WRITE(*,*) "not a valid ",iSeg, "-segment"
       WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
@@ -580,29 +647,35 @@
      END IF
     END IF
     
-    mySetup%MeshResolution = 0
-    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshQuality",cMeshQuality,'GROB')
-    call inip_toupper_replace(cMeshQuality)
-    IF (ADJUSTL(TRIM(cMeshQuality)).eq."EXTREME".or.ADJUSTL(TRIM(cMeshQuality)).eq."EXTREM") THEN
-     mySetup%MeshResolution = 5
-    END IF
-    IF (ADJUSTL(TRIM(cMeshQuality)).eq."SUPER") THEN
-     mySetup%MeshResolution = 4
-    END IF
-    IF (ADJUSTL(TRIM(cMeshQuality)).eq."FINE".or.ADJUSTL(TRIM(cMeshQuality)).eq."FEIN") THEN
-     mySetup%MeshResolution = 3
-    END IF
-    IF (ADJUSTL(TRIM(cMeshQuality)).eq."MEDIUM".or.ADJUSTL(TRIM(cMeshQuality)).eq."MITTEL") THEN
-     mySetup%MeshResolution = 2
-    END IF
-    IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB") THEN
-     mySetup%MeshResolution = 1
-    END IF
-    IF (mySetup%MeshResolution.eq.0) THEN
-     WRITE(*,*) "mesh quality/resolution is not defined"
-     WRITE(*,*) '"',TRIM(cMeshQuality),'"'
-     bReadError=.TRUE.
-!      GOTO 10
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."TWINSCREW") THEN
+     mySetup%MeshResolution = 0
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshQuality",cMeshQuality,'GROB')
+     call inip_toupper_replace(cMeshQuality)
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."EXTREME".or.ADJUSTL(TRIM(cMeshQuality)).eq."EXTREM") THEN
+      mySetup%MeshResolution = 5
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."SUPER") THEN
+      mySetup%MeshResolution = 4
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."FINE".or.ADJUSTL(TRIM(cMeshQuality)).eq."FEIN") THEN
+      mySetup%MeshResolution = 3
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."MEDIUM".or.ADJUSTL(TRIM(cMeshQuality)).eq."MITTEL") THEN
+      mySetup%MeshResolution = 2
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB") THEN
+      mySetup%MeshResolution = 1
+     END IF
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Tangential1",mySetup%m_nT1,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Tangential2",mySetup%m_nT2,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Radial",mySetup%m_nR,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Axial",mySetup%m_nZ,0)
+     IF (mySetup%MeshResolution.eq.0) THEN
+      WRITE(*,*) "mesh quality/resolution is not defined"
+      WRITE(*,*) '"',TRIM(cMeshQuality),'"'
+      bReadError=.TRUE.
+  !      GOTO 10
+     END IF
     END IF
     
 !     cMeshQuality=' '
@@ -627,6 +700,8 @@
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
+    if (myProcess%iInd.eq.-1) write(*,*) "mySigma%RotationType",'=','CounterRotating'
+    if (myProcess%iInd.eq.+1) write(*,*) "mySigma%RotationType",'=','CoRotating'
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
      
      write(*,*) "mySigma%RotationAxis",'=',mySigma%RotationAxis
@@ -717,6 +792,20 @@
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
      END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
+      END DO
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
+      END DO
+     END IF
      write(*,*) 
     END DO    
 
@@ -780,7 +869,7 @@
     write(*,*) "myThermodyn%Density",'=',myThermodyn%density
     write(*,*) "myThermodyn%DensitySlope",'=',myThermodyn%densitySteig
     write(*,*) 
-!     write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
+    write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
     write(*,*) "myOutput%nOf1DLayers = "      ,myOutput%nOf1DLayers
     write(*,*) "myOutput%nOfHistogramBins = " ,myOutput%nOfHistogramBins
     write(*,*) "myOutput%HistogramShearMax = ",myOutput%HistogramShearMax    
@@ -806,6 +895,11 @@
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
      write(*,'(A,A,4I6)') " mySetup%Resolution[nP,nT,nR,nZ]",'=',mySetup%m_nP,mySetup%m_nR,mySetup%m_nT,mySetup%m_nZ
     END IF
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."TWINSCREW") THEN
+     write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
+     write(*,'(A,A,4I6)') " mySetup%Resolution",'=',mySetup%MeshResolution
+     write(*,*) "mySetup%Resolution[nR,nT1,nT2,nZ]",'=',mySetup%m_nR,mySetup%m_nT1,mySetup%m_nT2,mySetup%m_nZ
+    END IF
     write(*,*)
     write(*,*) "myProcess%dAlpha",'=',myProcess%dAlpha
 !     write(*,*) "mySetup%bSendEmail",'=',mySetup%bSendEmail
@@ -820,13 +914,13 @@
      IF (mySigma%NumberOfSeg.GE.2) THEN
      DO iSeg=2,mySigma%NumberOfSeg
        IF (mySigma%mySegment(iSeg-1)%ART.EQ.'FOERD'.OR.mySigma%mySegment(iSeg-1)%ART.EQ.'SME') THEN
-       mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
+        mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
        END IF
        IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET') THEN
-       mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
-       IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
-	mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
-       END IF
+        mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
+        IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
+         mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
+        END IF
        END IF
        mySigma%SegmentLength = mySigma%SegmentLength + mySigma%mySegment(iSeg)%L
      END DO
