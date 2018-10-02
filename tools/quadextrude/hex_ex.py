@@ -13,8 +13,6 @@ from mesh import *
 
 from shutil import copyfile
 
-myQuads = []
-myNodes = []
 
 #===============================================================================
 #                      Function: mkdir
@@ -72,7 +70,7 @@ def writeTriFile(hexMesh, fileName):
 #===============================================================================
 #               A very simple VTK polygon writer
 #===============================================================================
-def writeQuadMeshVTK(quadMesh, zoneIds = []):
+def writeQuadMeshVTK(quadMesh):
     """
     Writes out a quadMesh in a very simple VTK format
 
@@ -93,23 +91,23 @@ def writeQuadMeshVTK(quadMesh, zoneIds = []):
         for n in quadMesh.nodes:
             f.write('%s %s %s\n' % (n[1], n[2], n[3]))
 
-        nElem = len(quadMesh.quads)
+        nElem = len(quadMesh.elements)
         f.write("CELLS " + str(nElem) + " " + str(nElem * 5) + " \n")
 
-        for q in quadMesh.quads:
-            indices = (int(q[5])-1, int(q[6])-1, int(q[7])-1, int(q[8])-1)
+        for q in quadMesh.elements:
+            indices = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
             f.write('4 %i %i %i %i\n' % (indices[0], indices[1],
                                          indices[2], indices[3]))
 
         f.write("CELL_TYPES " + str(nElem) + " \n")
-        for q in quadMesh.quads:
+        for q in quadMesh.elements:
             f.write('9\n')
 
         f.write("CELL_DATA " + str(nElem) + " \n")
         f.write("SCALARS ZoneId integer\n")
         f.write("LOOKUP_TABLE default\n")
-        for q in zoneIds:
-            f.write('%i\n' % (q))
+        for e in quadMesh.elements:
+            f.write('%i\n' % (e.zoneId))
 
 
 #===============================================================================
@@ -180,7 +178,10 @@ def writeHexMeshVTK(hexMesh, fileName):
 #===============================================================================
 #                        Function readMeshFile
 #===============================================================================
-def readMeshFile(fileName, zoneIds = []):
+def readMeshFile(fileName):
+
+    quadList = []
+    nodesList = []
     with open(fileName, "r") as f:
 
         while True:
@@ -190,10 +191,12 @@ def readMeshFile(fileName, zoneIds = []):
                 break
 
             if re.match(r"^\$Nodes", line):
-                readNodes(f)
+                nodesList = readNodes(f)
 
             if re.match(r"^\$Elements", line):
-                readElements(f, zoneIds)
+                quadList = readElements(f)
+
+    return QuadMesh(nodesList, quadList)
 
 
 #===============================================================================
@@ -210,6 +213,8 @@ def readNodes(f):
     <node-number x y z>
     """
 
+    meshNodes = []
+
     line = f.readline()
     if not line:
         return
@@ -221,15 +226,16 @@ def readNodes(f):
         if not line: break
 
         words = line.strip().split(" ")
-        myNodes.append((words[0], words[1], words[2], words[3]))
+        meshNodes.append((words[0], words[1], words[2], words[3]))
 
         line = f.readline()
 
+    return meshNodes
 
 #===============================================================================
 #                        Function readElements
 #===============================================================================
-def readElements(f, zoneIds = []):
+def readElements(f):
     """
     Reader for the elements section of a .msh file
 
@@ -240,6 +246,7 @@ def readElements(f, zoneIds = []):
     <elem-number elem-type number-of-tags 'number-of-tags tags ...' node-number-list>
     """
 
+    quads = []
     line = f.readline()
     if not line:
         return
@@ -250,15 +257,17 @@ def readElements(f, zoneIds = []):
 
         if not line: break
 
+        quadCnt = 0
         words = line.strip().split(" ")
         if words[1] == "3":
-            myQuads.append((words[0], words[1], words[2],
-                            words[3], words[4], words[5],
-                            words[6], words[7], words[8]))
-
-            zoneIds.append(int(words[4]))
+            nodeIds = [int(words[i]) for i in range(5, 9)]
+            quadElem = Quad(nodeIds, quadCnt, int(words[4]))
+            quads.append(quadElem)
+            quadCnt = quadCnt + 1
 
         line = f.readline()
+
+    return quads
 
 
 #===============================================================================
@@ -445,20 +454,17 @@ def main():
     # The slices on each level
     slicesOnLevel = calculateSliceIds(extrusionLayers)
 
-    zoneIds = []
-
     # Read the input mesh file
-    readMeshFile(inputName, zoneIds)
+    quadMesh = readMeshFile(inputName)
 
-    nNodes = len(myNodes)
+    nNodes = len(quadMesh.nodes)
 
-    quadMesh = QuadMesh(myQuads, myNodes)
-    writeQuadMeshVTK(quadMesh, zoneIds)
+    writeQuadMeshVTK(quadMesh)
 
     offsetNodes = int(nNodes)
     layerNodes = offsetNodes
     offsetHex = 0
-    nHex = len(quadMesh.quads)
+    nHex = len(quadMesh.elements)
 
     layerDz = computeDzLayers(levelLengthZ, extrusionLayers)
 

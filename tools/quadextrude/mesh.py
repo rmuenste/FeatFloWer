@@ -20,6 +20,7 @@ class Quad:
     def __init__(self, nodeIds, idx, zoneId):
         self.nodeIds = nodeIds
         self.idx = idx
+        self.zoneId = zoneId
         self.traits = []
 
 
@@ -78,9 +79,9 @@ class QuadMesh:
 
         nodes: A list of the coordinates of the nodes
     """
-    def __init__(self, quads, nodes):
-        self.quads = quads
+    def __init__(self, nodes, elems):
         self.nodes = nodes
+        self.elements = elems 
 
 
 #===============================================================================
@@ -359,8 +360,8 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
         nodeSliceIds.append(0)
 
 
-    for q in quadMesh.quads:
-        nodeIds = (int(q[5])-1, int(q[6])-1, int(q[7])-1, int(q[8])-1)
+    for q in quadMesh.elements:
+        nodeIds = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
         hexHexas.append([nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[3]])
 
     totalNodes = len(hexNodes)
@@ -369,15 +370,15 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
         hexNodes.append([float(coords[1]), float(coords[2]), float(coords[3])+dz])
         nodeSliceIds.append(1)
 
-    for idx, q in enumerate(quadMesh.quads):
-        nodeIdsBot = (int(q[5])-1, int(q[6])-1, int(q[7])-1, int(q[8])-1)
+    for idx, q in enumerate(quadMesh.elements):
+        nodeIdsBot = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
         hexHexas[idx].append(nodeIdsBot[0]+totalNodes)
         hexHexas[idx].append(nodeIdsBot[1]+totalNodes)
         hexHexas[idx].append(nodeIdsBot[2]+totalNodes)
         hexHexas[idx].append(nodeIdsBot[3]+totalNodes)
         h = Hexa(hexHexas[idx], idx)
         h.layerIdx = 1
-        h.type = int(q[4])
+        h.type = q.zoneId 
         realHexas.append(h)
 
     return HexMesh(realHexas, hexNodes, nodeSliceIds)
