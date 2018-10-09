@@ -16,6 +16,126 @@ from shutil import copyfile
 
 
 #===============================================================================
+#                        Function readTriFile
+#===============================================================================
+def readTriFile(fileName):
+
+    hexList = []
+    nodesList = []
+    with open(fileName, "r") as f:
+
+        while True:
+            line = f.readline()
+
+            if not line:
+                break
+
+            if re.match(r"^DCORVG", line):
+                print("found label DCORVG")
+                line = f.readline()
+                while line and not re.match(r"^KVERT", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodesList.append((float(words[0]), float(words[1]), float(words[2])))
+
+                    line = f.readline()
+
+            if re.match(r"^KVERT", line):
+                print("found label KVERT")
+
+                idx = 0
+                line = f.readline()
+                while line and not re.match(r"^KNPR", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodeIds = []
+                        nodeIds.append(int(words[0])-1)
+                        nodeIds.append(int(words[1])-1)
+                        nodeIds.append(int(words[2])-1)
+                        nodeIds.append(int(words[3])-1)
+                        nodeIds.append(int(words[4])-1)
+                        nodeIds.append(int(words[5])-1)
+                        nodeIds.append(int(words[6])-1)
+                        nodeIds.append(int(words[7])-1)
+
+                        h = Hexa(nodeIds, idx)
+                        h.layerIdx = 1
+                        h.type = 1
+                        hexList.append(h)
+                        idx = idx + 1
+
+                    line = f.readline()
+
+    return HexMesh(hexList, nodesList)
+
+
+#===============================================================================
+#                      Function: readMeshFromVTK 
+#===============================================================================
+def readMeshFromVTK(fileName):
+    """
+    Reads a hexMesh in VTK format
+
+    Args:
+        fileName: The file name of the VTK file
+
+    """
+
+    nodes = []
+    cells = []
+    with open(fileName, "r") as f:
+        while True:
+            line = f.readline()
+
+            if not line:
+                break
+
+            if re.match(r"^POINTS", line):
+                line = f.readline()
+
+                while line and not re.match(r"^CELLS", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodes.append((float(words[0]), float(words[1]), float(words[2])))
+
+                    line = f.readline()
+
+            if re.match(r"^CELLS", line):
+                line = f.readline()
+
+                idx = 0
+                while line and not re.match(r"^CELL_TYPES", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodeIds = []
+                        nodeIds.append(int(words[1]))
+                        nodeIds.append(int(words[2]))
+                        nodeIds.append(int(words[3]))
+                        nodeIds.append(int(words[4]))
+                        nodeIds.append(int(words[5]))
+                        nodeIds.append(int(words[6]))
+                        nodeIds.append(int(words[7]))
+                        nodeIds.append(int(words[8]))
+
+                        h = Hexa(nodeIds, idx)
+                        h.layerIdx = 1
+                        h.type = 1 
+                        cells.append(h)
+                        idx = idx + 1
+
+                    line = f.readline()
+
+#            if re.match(r"^\$Elements", line):
+#                quadList = readElements(f)
+
+    return HexMesh(cells, nodes)
+
+
+#===============================================================================
 #                      Function: mkdir
 #===============================================================================
 def mkdir(dir):
@@ -209,7 +329,6 @@ def main():
         else:
             usage()
             sys.exit(2)
-
 
     # The slices on each level
     slicesOnLevel = calculateSliceIds(extrusionLayers)
