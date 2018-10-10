@@ -301,11 +301,6 @@ DO ILEV=NLMIN+1,NLMAX
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
-
-! call myMPI_Barrier()
-! pause
-
-
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  

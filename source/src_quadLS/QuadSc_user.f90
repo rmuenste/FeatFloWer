@@ -334,31 +334,47 @@ END IF
 
 !STENT inflow 1
 IF (iT.EQ.38) THEN
- R_inflow = 0.250d0
- dist = SQRT((x-(-2.27d0))**2d0 + (y+0.00d0)**2d0 + (z-(-0.07d0))**2d0)
- IF (dist.lt.R_inflow) THEN
-  dScale = 1d0
+! R_inflow = 0.250d0
+! dist = SQRT((x-(-2.27d0))**2d0 + (y+0.00d0)**2d0 + (z-(-0.07d0))**2d0)
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 1d3
 !   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
-  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
-  ValU= +1.0000d0*dScale
-  ValV=  0.0000d0*dScale
-  ValW=  0.0000d0*dScale
- END IF
+!  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValU= +1.0000d0*dScale
+!  ValV=  0.0000d0*dScale
+!  ValW=  0.0000d0*dScale
+
+  dCenter=[-2.27, 0.0, -0.07]
+  dNormal=[1.0, 0.0, 0.0]
+  dProfil = RotParabolicVelo3D(60d0,1d0,0.250d0)
+  ValU = dProfil(1)
+  ValV = dProfil(2)
+  ValW = dProfil(3)
+
+! END IF
 END IF
 
 !STENT inflow 2
 IF (iT.EQ.39) THEN
- R_inflow = 0.175d0
- dist = SQRT((x-(-1.72d0))**2d0 + (y-0.02d0)**2d0 + (z-1.31)**2d0)
-!  write(*,*) dist
- IF (dist.lt.R_inflow) THEN
-  dScale = 1d0
-!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
-  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
-  ValU= +0.9650d0*dScale
-  ValV= -0.0000d0*dScale
-  ValW= -0.2588d0*dScale
- END IF
+! R_inflow = 0.175d0
+! dist = SQRT((x-(-1.72d0))**2d0 + (y-0.02d0)**2d0 + (z-1.31)**2d0)
+!!  write(*,*) dist
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 1d3
+!!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
+!  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValU= +0.9650d0*dScale
+!  ValV= -0.0000d0*dScale
+!  ValW= -0.2588d0*dScale
+! END IF
+
+  dCenter=[-1.72, 0.02, 1.31]
+  dNormal=[0.965, 0.0, -0.2588]
+  dProfil = RotParabolicVelo3D(30d0,1d0,0.175d0)
+  ValU = dProfil(1)
+  ValV = dProfil(2)
+  ValW = dProfil(3)
+
 END IF
  
 IF (iT.EQ.41) THEN
