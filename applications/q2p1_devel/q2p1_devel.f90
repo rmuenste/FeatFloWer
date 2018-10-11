@@ -35,6 +35,7 @@ PROGRAM Q2P1_DEVEL
   CALL ZTIME(tt0)
   call ztime(dtt0)
 
+  mySetup%bAutoamticTimeStepControl = .false.
   INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
   if (I_EXIST) then
    CALL ReadS3Dfile('_data/rheo.s3d')

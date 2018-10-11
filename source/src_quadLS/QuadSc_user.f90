@@ -280,6 +280,35 @@ IF (iT.EQ.34) THEN
  ValV = dNy*dScale
  ValW = dNz*dScale
 END IF
+
+!STENT inflow 1
+IF (iT.EQ.38) THEN
+ R_inflow = 0.250d0
+ dist = SQRT((x-(-2.27d0))**2d0 + (y+0.00d0)**2d0 + (z-(-0.07d0))**2d0)
+ IF (dist.lt.R_inflow) THEN
+  dScale = 1d0
+!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
+  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+  ValU= +1.0000d0*dScale
+  ValV=  0.0000d0*dScale
+  ValW=  0.0000d0*dScale
+ END IF
+END IF
+
+!STENT inflow 2
+IF (iT.EQ.39) THEN
+ R_inflow = 0.175d0
+ dist = SQRT((x-(-1.72d0))**2d0 + (y-0.02d0)**2d0 + (z-1.31)**2d0)
+!  write(*,*) dist
+ IF (dist.lt.R_inflow) THEN
+  dScale = 1d0
+!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
+  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+  ValU= +0.9650d0*dScale
+  ValV= -0.0000d0*dScale
+  ValW= -0.2588d0*dScale
+ END IF
+END IF
  
 IF (iT.EQ.41) THEN
  ValW=RotParabolicVelo2Dz(0d0,0d0,100d0,-1d0,0.495d0)
@@ -394,6 +423,16 @@ IF (iT.EQ.87) THEN
 !  ValU = dNx*dScale
 !  ValV = dNy*dScale
 !  ValW = dNz*dScale
+END IF
+
+! IDE 201810
+IF (iT.EQ.88) THEN
+  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-50d0,1d0,2.45d0)
+END IF
+
+!Weber 201810
+IF (iT.EQ.89) THEN
+  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-50d0,1d0,1.95d0)
 END IF
 
 ! PP-Weber
