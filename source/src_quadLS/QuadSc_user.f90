@@ -427,12 +427,12 @@ END IF
 
 ! IDE 201810
 IF (iT.EQ.88) THEN
-  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-50d0,1d0,2.45d0)
+  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-102d0,1d0,2.45d0)
 END IF
 
 !Weber 201810
 IF (iT.EQ.89) THEN
-  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-50d0,1d0,1.95d0)
+  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-150d0,1d0,1.95d0)
 END IF
 
 ! PP-Weber
