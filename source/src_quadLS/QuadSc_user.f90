@@ -437,10 +437,10 @@ END IF
 
 ! PP-Weber
 IF (iT.EQ.91) THEN
-  ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-100d0,1d0,0.5d0)
+  ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-50d0,1d0,0.5d0)
 END IF
 IF (iT.EQ.92) THEN
-  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-900d0,1d0,2.5d0)
+  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-450d0,1d0,2.5d0)
 END IF
 
 ! RAIN CARBON

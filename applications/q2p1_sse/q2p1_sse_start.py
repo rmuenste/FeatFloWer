@@ -176,7 +176,7 @@ def main():
   start = 0.0
 
   with open("_data/Extrud3D_0.dat", "a") as f:
-    f.write("[E3DSimulationSettings]\n") 
+    f.write("\n[E3DSimulationSettings]\n") 
     f.write("dAlpha=" + str(delta) + "\n") 
 
   if os.path.exists("_data/meshDir"):
