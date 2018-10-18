@@ -1,32 +1,32 @@
 module visualization_out
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
-                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor 
-  
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor
+
 use Sigma_User, only: tOutput, tSigma
 
 use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
 use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,&
                    COMM_Minimumn,COMM_NLComplete,Comm_Summ,myMPI_Barrier
 !------------------------------------------------------------------------------------------------
-! A module for output routines for vtk, gmv or other output formats. 
-! For an application that needs strongly different visualization output 
-! than the standard, these output routines should be implemented here. 
+! A module for output routines for vtk, gmv or other output formats.
+! For an application that needs strongly different visualization output
+! than the standard, these output routines should be implemented here.
 !------------------------------------------------------------------------------------------------
 
 contains
 !
 !-------------------------------------------------------------------------------------------------
-! A routine for outputting fields for an sse application 
+! A routine for outputting fields for an sse application
 !-------------------------------------------------------------------------------------------------
 ! @param sExport An export structure
 ! @param iOutput The output idx of the visulation file
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param sTracer The solution of the scalar tracer equation 
-! @param visc The viscosity solution  
-! @param dist The distance solution  
-! @param shear The shear rate solution  
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer The solution of the scalar tracer equation
+! @param visc The viscosity solution
+! @param dist The distance solution
+! @param shear The shear rate solution
 ! @param mgMesh The mesh that will be written out
 !subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
@@ -44,9 +44,9 @@ type(tExport), intent(in) :: sExport
 
 integer, intent(in) :: iOutput
 
-type(tQuadScalar), intent(in) :: sQuadSc 
+type(tQuadScalar), intent(in) :: sQuadSc
 
-type(tLinScalar), intent(in) :: sLinSc 
+type(tLinScalar), intent(in) :: sLinSc
 
 real*8, dimension(:), intent(in) :: visc
 
@@ -82,7 +82,7 @@ if (sExport%Format .eq. "VTK") then
  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
 ! call viz_OutputRegionHistogram(iOutput)
- 
+
  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
 end if
@@ -90,16 +90,16 @@ end if
 end subroutine viz_output_fields
 !
 !------------------------------------------------------------------------------------------------
-! Routine for writing out a VTK visualization of a process 
+! Routine for writing out a VTK visualization of a process
 !------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
-! @param dcoor Coordinate array of the mesh 
+! @param dcoor Coordinate array of the mesh
 ! @param kvert Vertices at an element connectivity array of the mesh
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param visc The viscosity solution  
-! @param dist The distance solution  
-! @param shear The shearrate solution  
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param visc The viscosity solution
+! @param dist The distance solution
+! @param shear The shearrate solution
 ! @param ioutput_lvl Output level of the mesh
 ! @param mgMesh The mesh that will be written out
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
@@ -115,9 +115,9 @@ real*8, dimension(:,:), intent(in) :: dcoor
 
 integer, dimension(:,:), intent(in) :: kvert
 
-type(tQuadScalar), intent(in) :: sQuadSc 
+type(tQuadScalar), intent(in) :: sQuadSc
 
-type(tLinScalar), intent(in) :: sLinSc 
+type(tLinScalar), intent(in) :: sLinSc
 
 real*8, dimension(:), intent(in) :: visc
 
@@ -156,14 +156,14 @@ filename=" "
 
 write(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_***.',iO,".vtu"
 
-if(myid.eq.showid) write(*,'(104("="))') 
+if(myid.eq.showid) write(*,'(104("="))')
 if(myid.eq.showid) write(*,*) "Outputting vtk file into ",filename
 write(filename(15:17),'(I3.3)') myid
 
 open (unit=iunit,file=filename,action='write',iostat=istat)
 if(istat .ne. 0)then
   write(*,*)"Could not open file for writing. "
-  stop          
+  stop
 end if
 
 write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
@@ -185,7 +185,7 @@ do iField=1,size(myExport%Fields)
    write(iunit, '(A,3E16.7)')"        ",REAL(DXX),REAL(DYY),REAL(DZZ)
   end do
   write(iunit, *)"        </DataArray>"
- 
+
 ! CASE('MeshVelo')
 !  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
 !  do ivt=1,NoOfVert
@@ -236,7 +236,7 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
- end select 
+ end select
 
 end do
 
@@ -284,7 +284,7 @@ write(iunit, *)"      </Points>"
 
 write(iunit, *)"      <Cells>"
 write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",NoOfElem-1,""">"
-do ive=1,NoOfElem   
+do ive=1,NoOfElem
  write(iunit, '(8I10)')kvert(1,ive)-1,kvert(2,ive)-1,kvert(3,ive)-1,kvert(4,ive)-1,&
                        kvert(5,ive)-1,kvert(6,ive)-1,kvert(7,ive)-1,kvert(8,ive)-1
 end do
@@ -312,10 +312,10 @@ do ive=ioffset+1,NoOfElem
  write(iunit, '(I10)')12
 end do
 write(iunit, '(A)')"        </DataArray>"
- 
+
 write(iunit, *)"      </Cells>"
 write(iunit, *)"    </Piece>"
-   
+
 write(iunit, *)"  </UnstructuredGrid>"
 write(iunit, *)"</VTKFile>"
 close(iunit)
@@ -323,7 +323,7 @@ close(iunit)
 end subroutine viz_write_vtu_process
 !
 !-------------------------------------------------------------------------------------------------
-! A routine for outputting fields for an sse application 
+! A routine for outputting fields for an sse application
 !-------------------------------------------------------------------------------------------------
 ! @param iO Output idx of the visualization file
 !
@@ -335,7 +335,7 @@ USE def_FEAT
 IMPLICIT NONE
 INTEGER iO,iproc,iField, istat
 INTEGER :: iMainUnit=555
-CHARACTER mainname*(20) 
+CHARACTER mainname*(20)
 CHARACTER filename*(26)
 
 ! generate the file name
@@ -345,7 +345,7 @@ WRITE(mainname(1:),'(A,I5.5,A5)') '_vtk/main.',iO,'.pvtu'
 OPEN (UNIT=imainunit,FILE=mainname,action='write',iostat=istat)
 if(istat .ne. 0)then
   write(*,*)"Could not open file for writing. "
-  stop          
+  stop
 end if
 
 write(imainunit, *)"<VTKFile type=""PUnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
@@ -408,7 +408,7 @@ write(imainunit, *)"    </PPoints>"
 do iproc=1,subnodes
  filename=" "
  WRITE(filename(1:),'(A9,I3.3,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
- write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"  
+ write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"
 end do
 write(imainunit, *)"  </PUnstructuredGrid>"
 write(imainunit, *)"  </VTKFile>"
@@ -417,12 +417,12 @@ close(imainunit)
 end subroutine viz_write_pvtu_main
 !
 !-------------------------------------------------------------------------------------------------
-! A routine for outputting fields for an sse application 
+! A routine for outputting fields for an sse application
 !-------------------------------------------------------------------------------------------------
 !
 ! @param iO Output file idx
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param maxlevel The maximum grid level used in computation (former NLMAX) 
+! @param sQuadSc The velocity solution structure of the mesh
+! @param maxlevel The maximum grid level used in computation (former NLMAX)
 SUBROUTINE viz_OutputHistogram(iOut, sQuadSc, maxlevel)
 use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
@@ -432,9 +432,9 @@ implicit none
 
 integer :: iOut
 
-type(tQuadScalar), intent(in) :: sQuadSc 
+type(tQuadScalar), intent(in) :: sQuadSc
 
-integer, intent(in) :: maxlevel 
+integer, intent(in) :: maxlevel
 
 ! local variables
 integer :: i,j,nBin
@@ -469,7 +469,7 @@ dBinEta = (maxBinEta-minBinEta)/DBLE(nBin-2)
 dBinVis = (maxBinVis-minBinVis)/DBLE(nBin-2)
 
 DO i=2,nBin
- 
+
  BinEta(2,i-1)= minBinEta + DBLE(i-2)*dBinEta
  BinVis(2,i-1)= minBinVis + DBLE(i-2)*dBinVis
  BinEta(3,i-1)= minBinEta + (DBLE(i)-2.5d0)*dBinEta
@@ -489,7 +489,7 @@ END DO
 ! pause
 
 DO i=1,sQuadSc%ndof
- 
+
  IF (MixerKNPR(i).eq.0) THEN
   logShear = LOG10(Shearrate(i))
   logVisco = LOG10(0.1d0*Viscosity(i))
@@ -514,7 +514,7 @@ IF (myid.eq.1) THEN
   dauxVis = dauxVis + HistoVis(i)
   dauxEta = dauxEta + HistoEta(i)
  END DO
- 
+
  meanVis = 0d0
  meanEta = 0d0
 
@@ -539,13 +539,13 @@ END IF
 end subroutine viz_OutputHistogram
 !
 !-------------------------------------------------------------------------------------------------
-! A wrapper routine for outputting 1D fields for an sse application 
+! A wrapper routine for outputting 1D fields for an sse application
 !-------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param sTracer Scalar solution structure  
-! @param maxlevel The maximum grid level used in computation (former NLMAX) 
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer Scalar solution structure
+! @param maxlevel The maximum grid level used in computation (former NLMAX)
 subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel)
 
 USE PP3D_MPI, ONLY:myid
@@ -556,14 +556,14 @@ use Sigma_User, only: myOutput, mySigma
 
 implicit none
 
-type(tQuadScalar), intent(in) :: sQuadSc 
+type(tQuadScalar), intent(in) :: sQuadSc
 
-type(tLinScalar), intent(in) :: sLinSc 
+type(tLinScalar), intent(in) :: sLinSc
 
 type(lScalar), intent(in) :: sTracer
 
 integer, intent(in) :: maxlevel
-    
+
 integer :: iOut
 
 integer i,j
@@ -619,11 +619,15 @@ IF (myid.eq.1) THEN
 ! command = ' '
 ! command = "cat _data/Extrud3D.dat >> "//TRIM(ADJUSTL(cf2))
 ! CALL system(TRIM(ADJUSTL(command)))
- call write_1d_header(iOut,my1DOut_nol)
+
+ ! At the moment we know how many outputs we produce: 7 Fields (Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity)
+ ! times 3 Quantities (min, max, med) => 21
+ ! If set to temperature this has to be adjusted, too
+ call write_1d_header(iOut,my1DOut_nol,21)
  OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
 
  !WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
- 
+
  WRITE(120,'(A)')"[Positions]"
  WRITE(120,'(A)')"ID=ELEMENT_LENGTH"
  WRITE(120,'(A)')"Unit=0"
@@ -658,35 +662,9 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMean(i+1)
  END DO
 
-! ! Temperature
-!  WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf3]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
-!  END DO
-! 
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf4]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
-!  END DO
-! 
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf5]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MED"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
-!  END DO
-
 ! Shearrate
  WRITE(120,'(A,A,(100("/")))')"#///////////","SHEARRATE"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf6]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf3]"
  WRITE(120,'(A)')"ID=GAMMA_P_MIN"
  WRITE(120,'(A)')"Unit=17"
  WRITE(120,'(A)')"SIUnit=[1/s]"
@@ -694,7 +672,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf7]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf4]"
  WRITE(120,'(A)')"ID=GAMMA_P_MAX"
  WRITE(120,'(A)')"Unit=17"
  WRITE(120,'(A)')"SIUnit=[1/s]"
@@ -702,7 +680,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf8]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf5]"
  WRITE(120,'(A)')"ID=GAMMA_P_MED"
  WRITE(120,'(A)')"Unit=17"
  WRITE(120,'(A)')"SIUnit=[1/s]"
@@ -712,7 +690,7 @@ IF (myid.eq.1) THEN
 
 ! Viscosity
  WRITE(120,'(A,A,(100("/")))')"#///////////","VISCOSITY"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf9]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf6]"
  WRITE(120,'(A)')"ID=ETA_MIN"
  WRITE(120,'(A)')"Unit=35"
  WRITE(120,'(A)')"SIUnit=[Pa s]"
@@ -720,7 +698,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf10]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf7]"
  WRITE(120,'(A)')"ID=ETA_MAX"
  WRITE(120,'(A)')"Unit=35"
  WRITE(120,'(A)')"SIUnit=[Pa s]"
@@ -728,7 +706,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf11]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf8]"
  WRITE(120,'(A)')"ID=ETA_MED"
  WRITE(120,'(A)')"Unit=35"
  WRITE(120,'(A)')"SIUnit=[Pa s]"
@@ -738,7 +716,7 @@ IF (myid.eq.1) THEN
 
 ! AxialVelocity
  WRITE(120,'(A,A,(100("/")))')"#///////////","AXIALVELOCITY"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf12]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf9]"
  WRITE(120,'(A)')"ID=AX_V_MIN"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -746,7 +724,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf13]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf10]"
  WRITE(120,'(A)')"ID=AX_V_MAX"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -754,7 +732,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf14]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf11]"
  WRITE(120,'(A)')"ID=AX_V_MED"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -764,7 +742,7 @@ IF (myid.eq.1) THEN
 
 ! Velocity-X
  WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_XCOMP"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf15]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf12]"
  WRITE(120,'(A)')"ID=ROTX_V_MIN"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -772,7 +750,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf16]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf13]"
  WRITE(120,'(A)')"ID=ROTX_V_MAX"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -780,7 +758,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf17]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf14]"
  WRITE(120,'(A)')"ID=ROTX_V_MED"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -790,7 +768,7 @@ IF (myid.eq.1) THEN
 
 ! Velocity-Y
  WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_YCOMP"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf18]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf15]"
  WRITE(120,'(A)')"ID=ROTY_V_MIN"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -798,7 +776,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf19]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf16]"
  WRITE(120,'(A)')"ID=ROTY_V_MAX"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -806,7 +784,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf20]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf17]"
  WRITE(120,'(A)')"ID=ROTY_V_MED"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -816,7 +794,7 @@ IF (myid.eq.1) THEN
 
 ! Velocity-Mag
  WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_MAG"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf18]"
  WRITE(120,'(A)')"ID=MAG_MIN"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -824,7 +802,7 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf19]"
  WRITE(120,'(A)')"ID=MAG_MAX"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
@@ -832,13 +810,41 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf20]"
  WRITE(120,'(A)')"ID=MAG_MED"
  WRITE(120,'(A)')"Unit=20"
  WRITE(120,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
  END DO
+
+
+ ! When activating temperatuer modifiy the 1d-header!
+! ! Temperature
+!  WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+!  END DO
+!
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+!  END DO
+!
+!  WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
+!  WRITE(120,'(A)')"ID=TEMPERATURE_MED"
+!  WRITE(120,'(A)')"Unit=24"
+!  WRITE(120,'(A)')"SIUnit=[K]"
+!  DO i=0,my1DOut_nol-1
+!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+!  END DO
 
  CLOSE(120)
 
@@ -847,13 +853,13 @@ end if
 end subroutine
 !
 !-------------------------------------------------------------------------------------------------
-! The particular routine for outputting 1D fields for an sse application 
+! The particular routine for outputting 1D fields for an sse application
 !-------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param sTracer Scalar solution structure  
-! @param sTracer Scalar solution structure  
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer Scalar solution structure
+! @param sTracer Scalar solution structure
 subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
 real*8 :: dField1(*),dField2(*),dField3(*)
 integer :: i1D
@@ -861,8 +867,8 @@ integer :: my1DOut_nol
 type(t1DOutput), dimension(8) :: my1DOutput
 type(tOutput) :: myOutput
 type(tSigma) :: mySigma
-type(tQuadScalar), intent(in) :: sQuadSc 
-integer, intent(in) :: maxlevel 
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
 
 ! local variables
 real*8  :: dMinSample, dMaxSample
@@ -872,7 +878,7 @@ real*8  :: dZ,dWidth,daux,dScale
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
 
-my1DOut_nol = myOutput%nOf1DLayers 
+my1DOut_nol = myOutput%nOf1DLayers
 
 dMinSample = 0d0
 dMaxSample = mySigma%L
@@ -884,14 +890,14 @@ if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut
 if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
 
-if (myid.ne.0) THEN 
+if (myid.ne.0) THEN
 
  if (i1D.EQ.1) dScale = 1d-2    !z-velo
  if (i1D.EQ.2) dScale = 1d-6    !Pressure
  if (i1D.EQ.3) dScale = 1d0     !Temperature
  if (i1D.EQ.4) dScale = 1d-1    !viscosity
  if (i1D.EQ.5) dScale = 1d0     !gamma
- if (i1D.EQ.6) dScale = 1d-2    !x-velo  
+ if (i1D.EQ.6) dScale = 1d-2    !x-velo
  if (i1D.EQ.7) dScale = 1d-2    !y-velo
  if (i1D.EQ.8) dScale = 1d-2    !mag-velo
 
@@ -900,10 +906,10 @@ if (myid.ne.0) THEN
 !  IF (i1D.EQ.3) dScale = 1d0    !Temperature
 !  IF (i1D.EQ.4) dScale = 1d0    !gamma
 !  IF (i1D.EQ.5) dScale = 1d-1   !viscosity
-!  IF (i1D.EQ.6) dScale = 1d-2   !x-velo  
+!  IF (i1D.EQ.6) dScale = 1d-2   !x-velo
 !  IF (i1D.EQ.7) dScale = 1d-2   !y-velo
 !  IF (i1D.EQ.8) dScale = 1d-2   !mag-velo
-!                                
+!
  dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
 
  DO i=1,my1DOut_nol
@@ -920,8 +926,8 @@ if (myid.ne.0) THEN
  DO i=1,SIZE(sQuadSc%ValU)
 
   IF (MixerKNPR(i).eq.0) THEN
-   jj=0  
-   dZ = myQ2Coor(3,i) 
+   jj=0
+   dZ = myQ2Coor(3,i)
    DO j=1,my1DOut_nol
     IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
      jj = j
@@ -948,7 +954,7 @@ CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
 CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
-IF (myid.ne.0) THEN 
+IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
   my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
   my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
@@ -958,16 +964,16 @@ END IF
 end subroutine viz_OutPut_1D_sub
 !
 !-------------------------------------------------------------------------------------------------
-! A wrapper routine for outputting 1d fields for an sse application 
+! A wrapper routine for outputting 1d fields for an sse application
 !-------------------------------------------------------------------------------------------------
 ! @param sExport An export structure
 ! @param iOutput The output idx of the visulation file
-! @param sQuadSc The velocity solution structure of the mesh 
-! @param sLinSc The pressure solution structure of the mesh 
-! @param sTracer The solution of the scalar tracer equation 
-! @param visc The viscosity solution  
-! @param dist The distance solution  
-! @param shear The shear rate solution  
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer The solution of the scalar tracer equation
+! @param visc The viscosity solution
+! @param dist The distance solution
+! @param shear The shear rate solution
 ! @param mgMesh The mesh that will be written out
 !subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
 subroutine viz_output_1D_fields(sExport, iOutput, sQuadSc, sLinSc, visc, dist, shear, mgMesh)
@@ -985,9 +991,9 @@ type(tExport), intent(in) :: sExport
 
 integer, intent(in) :: iOutput
 
-type(tQuadScalar), intent(in) :: sQuadSc 
+type(tQuadScalar), intent(in) :: sQuadSc
 
-type(tLinScalar), intent(in) :: sLinSc 
+type(tLinScalar), intent(in) :: sLinSc
 
 real*8, dimension(:), intent(in) :: visc
 
@@ -1004,7 +1010,7 @@ integer :: ioutput_lvl
  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
 ! call viz_OutputRegionHistogram(iOutput)
- 
+
  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
 
