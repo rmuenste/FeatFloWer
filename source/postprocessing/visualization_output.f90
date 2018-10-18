@@ -557,7 +557,8 @@ end subroutine viz_OutputHistogram
 ! @param sLinSc The pressure solution structure of the mesh
 ! @param sTracer Scalar solution structure
 ! @param maxlevel The maximum grid level used in computation (former NLMAX)
-subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel)
+! @param ptempSim Optional Parameter: Wether it is a temperature-simulation or not
+subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel,btempSim)
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
@@ -575,6 +576,8 @@ type(lScalar), intent(in) :: sTracer
 
 integer, intent(in) :: maxlevel
 
+logical, intent(in), optional :: btempSim
+
 integer :: iOut
 
 integer i,j
@@ -584,6 +587,32 @@ character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
 character(100) :: command
+logical :: bTemperatureSimulation
+integer :: iVerlaufMax
+
+ if (present(btempSim)) then
+   bTemperatureSimulation = btempSim
+ else
+   bTemperatureSimulation = .FALSE.
+ end if
+
+ ! The number of Verlauf-Outputs in the 1D-Files depends on wether it is a temperature-simulation
+ if (bTemperatureSimulation) then
+  ! If it is a Temperature-Simulation we have 8 Fields:
+  ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity, Temperature
+  ! For each field we output 3 Quantites: Min, Max, Med.
+  ! Therefore, we then have 3*8=24 Verlauf-Sections
+  iVerlaufMax = 24
+ else
+  ! If it is not a Temperature-Simulation we have only 7 Fields:
+  ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity
+  ! For each field we output 3 Quantites: Min, Max, Med.
+  ! Therefore, we then have 3*7=21 Verlauf-Sections
+  iVerlaufMax = 21
+ end if
+
+
+
 
  my1DOut(1)%cName = 'VelocityZ_[m/s]'
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
@@ -591,8 +620,11 @@ character(100) :: command
  my1DOut(2)%cName = 'Pressure_[bar]'
  CALL viz_OutPut_1D_sub(sLinSc%Q2,sLinSc%Q2,sLinSc%Q2,2, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
-! my1DOut(3)%cName = 'Temperature_[K]'
-! CALL viz_OutPut_1D_sub(sTracer%val(maxlevel+1)%x,sLinSc%Q2,sLinSc%Q2,3, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+ ! Add the temperature only if we have a temperature-simulation
+ if (bTemperatureSimulation) then
+  my1DOut(3)%cName = 'Temperature_[K]'
+  CALL viz_OutPut_1D_sub(sTracer%val(maxlevel+1)%x,sLinSc%Q2,sLinSc%Q2,3, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+ end if
 ! write(*,*)'------------------done3:',myid
 
  my1DOut(4)%cName = 'Viscosity_[kg/m/s]'
@@ -631,10 +663,10 @@ IF (myid.eq.1) THEN
 ! command = "cat _data/Extrud3D.dat >> "//TRIM(ADJUSTL(cf2))
 ! CALL system(TRIM(ADJUSTL(command)))
 
- ! At the moment we know how many outputs we produce: 7 Fields (Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity)
- ! times 3 Quantities (min, max, med) => 21
- ! If set to temperature this has to be adjusted, too
- call write_1d_header(iOut,my1DOut_nol,21)
+ ! Write the 1D-Header.
+ ! It depends on iVerlaufMax as this parameter tells us how many sections we
+ ! are going to find.
+ call write_1d_header(iOut,my1DOut_nol,iVerlaufMax)
  OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
 
  !WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
@@ -830,32 +862,34 @@ IF (myid.eq.1) THEN
  END DO
 
 
- ! When activating temperatuer modifiy the 1d-header!
-! ! Temperature
-!  WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
-!  END DO
-!
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
-!  END DO
-!
-!  WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
-!  WRITE(120,'(A)')"ID=TEMPERATURE_MED"
-!  WRITE(120,'(A)')"Unit=24"
-!  WRITE(120,'(A)')"SIUnit=[K]"
-!  DO i=0,my1DOut_nol-1
-!   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
-!  END DO
+ ! Only do temperature output if we have a temperature-simulation
+ if (bTemperatureSimulation) then
+  ! Temperature
+   WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
+   WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
+   WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
+   WRITE(120,'(A)')"Unit=24"
+   WRITE(120,'(A)')"SIUnit=[K]"
+   DO i=0,my1DOut_nol-1
+    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+   END DO
+
+   WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
+   WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
+   WRITE(120,'(A)')"Unit=24"
+   WRITE(120,'(A)')"SIUnit=[K]"
+   DO i=0,my1DOut_nol-1
+    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+   END DO
+
+   WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
+   WRITE(120,'(A)')"ID=TEMPERATURE_MED"
+   WRITE(120,'(A)')"Unit=24"
+   WRITE(120,'(A)')"SIUnit=[K]"
+   DO i=0,my1DOut_nol-1
+    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+   END DO
+ end if
 
  CLOSE(120)
 
