@@ -240,6 +240,11 @@ do iField=1,size(myExport%Fields)
 
 end do
 
+write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition",""" format=""ascii"">"
+do ivt=1,NoOfVert
+ write(iunit, '(A,I)')"        ", myid
+end do
+write(iunit, *)"        </DataArray>"
 write(iunit, '(A)')"    </PointData>"
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the cell field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -382,6 +387,8 @@ DO iField=1,SIZE(myExport%Fields)
 
  END SELECT
 END DO
+
+write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition","""/>"
 
 write(imainunit, '(A)')"    </PPointData>"
 
