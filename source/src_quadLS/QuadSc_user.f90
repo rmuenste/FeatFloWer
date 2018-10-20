@@ -85,7 +85,7 @@ implicit none
 
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
-INTEGER iT
+INTEGER iT,j
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
@@ -93,8 +93,8 @@ REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
-REAL*8 :: U_bar
-
+REAL*8 :: U_bar, h, normalizedTime, val
+real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 
 ValU = 0d0
 ValV = 0d0
@@ -279,6 +279,56 @@ IF (iT.EQ.34) THEN
  ValU = dNx*dScale
  ValV = dNy*dScale
  ValW = dNz*dScale
+END IF
+
+!STENT inflow 1
+IF (iT.EQ.38) THEN
+! R_inflow = 0.250d0
+! dist = SQRT((x-(-2.27d0))**2d0 + (y+0.00d0)**2d0 + (z-(-0.07d0))**2d0)
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 1d3
+!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
+!  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValU= +1.0000d0*dScale
+!  ValV=  0.0000d0*dScale
+!  ValW=  0.0000d0*dScale
+
+  dist = pulsativeProfile(t)
+
+  dCenter=[-2.27, 0.0, -0.07]
+  dNormal=[1.0, 0.0, 0.0]
+  dProfil = RotParabolicVelo3D(dist * 60d0,1d0,0.250d0)
+  ValU = dProfil(1)
+  ValV = dProfil(2)
+  ValW = dProfil(3)
+
+! END IF
+END IF
+
+!STENT inflow 2
+IF (iT.EQ.39) THEN
+! R_inflow = 0.175d0
+! dist = SQRT((x-(-1.72d0))**2d0 + (y-0.02d0)**2d0 + (z-1.31)**2d0)
+!!  write(*,*) dist
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 1d3
+!!   dScale = (0.1d0+0.9d0*abs(sin(t*2d0*PI/8d0)))/(R_inflow*R_inflow)
+!  dScale = dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValU= +0.9650d0*dScale
+!  ValV= -0.0000d0*dScale
+!  ValW= -0.2588d0*dScale
+! END IF
+
+  dist = pulsativeProfile(t)
+
+  dCenter=[-1.72, 0.02, 1.31]
+  dNormal=[0.965, 0.0, -0.2588]
+  dProfil = RotParabolicVelo3D(dist * 20.0d0,1d0,0.175d0)
+  ValU = dProfil(1)
+  ValV = dProfil(2)
+  ValW = dProfil(3)
+
+
 END IF
  
 IF (iT.EQ.41) THEN
@@ -480,6 +530,33 @@ RETURN
   END IF
   
   END 
+!------------------------------------------------------------------------------
+ real function pulsativeProfile(simTime)
+ implicit none
+ real*8 :: simTime
+ 
+  x_arr = (/0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0/)
+  y_arr = (/0.8,3.0,3.6,3.3,2.2,2.0,1.5,1.3,1.1,0.9,0.8/)
+
+  CC = (/0.6438, 1.0840, 1.1125, 0.8352, 0.6234, 0.5479, 0.4157, 0.3740, 0.3036, 0.2578, 0.0/)
+  DD = (/7.9528, 0.8514, -0.2817, -5.2633, 1.0272, -2.5377, -0.1073, -0.7253, -0.6836, -0.2325, 0.0/)
+  MM = (/0.0, -71.0134, -11.3310, -49.8165, 62.9046, -35.6481, 24.3032, -6.1801, 0.4173, 4.5111, 0.0/)
+
+  normalizedTime = simTime - real(floor(simTime)) 
+
+  j = 1
+  do while (normalizedTime .gt. x_arr(j+1))
+    j = j + 1
+  end do
+
+  h = x_arr(j+1) - x_arr(j)
+
+  pulsativeProfile = CC(j) + DD(j) * (normalizedTime - 0.5 * (x_arr(j) + x_arr(j+1))) + &
+                     1.0/(6.0 * h) * &
+                     (MM(j+1) * (normalizedTime - x_arr(j))**3.0 - &
+                     MM(j) * (normalizedTime - x_arr(j+1))**3.0) 
+  
+  end function pulsativeProfile
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------

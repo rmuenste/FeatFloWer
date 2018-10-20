@@ -22,7 +22,7 @@ subroutine init_q2p1_app(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond
+    LinScalar_InitCond, QuadSc
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
@@ -57,14 +57,89 @@ subroutine init_q2p1_app(log_unit)
     if (myid.ne.0) call CreateDumpStructures(1)
     call SolFromFile(CSTART,1)
 
+    if (myid .ne. 0) then
+      do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+
+        if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+          write(*,*)"myid: ", myid
+          write(*,*)"idx: ", i
+          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
+          write(*,*)"read: ",QuadSc%auxU(i)
+        end if
+
+      end do
+    end if
+
+    ILEV = NLMIN
+    CALL SETLEV(2)
+    write(*,*)"ilev: ",ilev
+    call myMPI_Barrier()
+    pause
+
+    call ExchangeNodeValuesOnCoarseLevel(&
+      mg_mesh%level(ilev)%dcorvg,&
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%nvt,&
+      mg_mesh%level(ilev)%nel)
+
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
     ! In order to read in from a lower level
     ! the lower level structures are needed
+
+
     if (myid.ne.0) call CreateDumpStructures(0)
+
     call SolFromFile(CSTART,0)
+
+    if (myid .ne. 0) then
+      do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+
+        if (abs(mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+          write(*,*)"myid: ", myid
+          write(*,*)"idx: ", i
+          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
+          write(*,*)"read: ",QuadSc%auxU(i)
+        end if
+
+      end do
+    end if
+
+    call ProlongateCoordinates(&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
+      
+    ILEV = NLMIN
+    CALL SETLEV(2)
+
+    call ExchangeNodeValuesOnCoarseLevel(&
+      mg_mesh%level(1)%dcorvg,&
+      mg_mesh%level(1)%kvert,&
+      mg_mesh%level(1)%nvt,&
+      mg_mesh%level(1)%nel)
+
     call ProlongateSolution()
+
+      call Output_Profiles(0) 
+
+!    call myMPI_Barrier()
+!    pause
 
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -74,7 +149,13 @@ subroutine init_q2p1_app(log_unit)
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
+    do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+    end do
   end if
+
 
 end subroutine init_q2p1_app
 
@@ -123,10 +204,10 @@ subroutine init_q2p1_particle_tracer(log_unit)
     stop
   end if
 
-  do i = 1, mg_mesh%level(maxlevel)%NVT 
-    mg_mesh%level(maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
-    mg_mesh%level(maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
-    mg_mesh%level(maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
   end do
 
 end subroutine init_q2p1_particle_tracer
