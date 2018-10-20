@@ -58,14 +58,14 @@ call write_time_sol(iOut,istep_ns, timens)
 
 
 ! This is how to output a custom field with 3 components:
-!fieldName = "myvel"
-!
-!packed(1)%p => QuadSc%ValU
-!packed(2)%p => QuadSc%ValV
-!packed(3)%p => QuadSc%ValW
-!
-!call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-!                  3, packed)
+fieldName = "coordinates"
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)
 
 
 END SUBROUTINE SolToFile
@@ -102,9 +102,11 @@ REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
 character(60) :: FileA
 character(60) :: FileB
+character(60) :: fieldName
 
 integer :: ndof
 
+type(fieldPtr), dimension(3) :: packed
 
 nn = knel(nlmax)
 
@@ -129,12 +131,12 @@ call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !FileA='time.dmp'
 call read_time_sol_single(cInFile, istep_ns, timens)
 
-!fieldName = "myvel"
-
-!packed(1)%p => QuadSc%ValU
-!packed(2)%p => QuadSc%ValV
-!packed(3)%p => QuadSc%ValW
-
+!fieldName = "coordinates"
+!
+!packed(1)%p => QuadSc%auxU
+!packed(2)%p => QuadSc%auxV
+!packed(3)%p => QuadSc%auxW
+!
 !call read_q2_sol_single(fieldName, cInFile,0,ndof,NLMIN,NLMAX,&
 !                        coarse%myELEMLINK,myDump%Vertices,&
 !                        3, packed)
@@ -221,8 +223,11 @@ REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
 character(60) :: FileA
 character(60) :: FileB
+character(60) :: fieldName
 
 integer :: ndof
+
+type(fieldPtr), dimension(3) :: packed
 
 nn = knel(nlmax)
 
@@ -239,14 +244,14 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 
 call read_time_sol(cInFile, istep_ns, timens)
 
-!fieldName = "myvel"
-!
-!packed(1)%p => QuadSc%ValU
-!packed(2)%p => QuadSc%ValV
-!packed(3)%p => QuadSc%ValW
-!
-!call read_q2_sol(fieldName, cInFile,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-!                 3, packed)
+fieldName = "coordinates"
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                 3, packed)
 
 !FileB='new_v'
 !call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)

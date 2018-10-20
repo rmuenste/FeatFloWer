@@ -932,7 +932,6 @@ subroutine read_q2_sol(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs,
   ! Q2 dofs on a cube on level NLMAX+iiLev
   dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
 
-
   if(myid.ne.0)then
 
     call clean_output_array(); 
