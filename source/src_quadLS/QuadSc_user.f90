@@ -387,11 +387,11 @@ END IF
 
 ! SKZ_Dietl_1
 IF (iT.EQ.73) THEN
- ValU=RotParabolicVelo2Dx(0d0,12d0,-10d0,1d0,1.6d0)
+ ValU=RotParabolicVelo2Dx(0d0,12d0,-30d0,1d0,1.6d0)
 END IF
 ! SKZ_Dietl_2
 IF (iT.EQ.74) THEN
- ValW=RotParabolicVelo2Dz(0d0,0d0,-10d0,1d0,0.9d0)
+ ValW=RotParabolicVelo2Dz(0d0,0d0,-6d0,1d0,0.9d0)
 END IF
 
 ! M+S --> for the meshes prepared by Jens and Raphael
