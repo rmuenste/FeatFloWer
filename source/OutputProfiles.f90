@@ -1008,7 +1008,7 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
  ELSE
   CALL Output_VTK_main(iOutput)
 
-!   ILEV = NLMIN
+!   ILEV = NLMAX
 !   CALL SETLEV(2)
 !   CALL Output_Mesh(iOutput)
  END IF
@@ -1028,8 +1028,9 @@ END
 SUBROUTINE Output_Mesh(iO)
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
 IMPLICIT NONE
-INTEGER i,j,iO
+INTEGER i,j,iO,iBnds
 CHARACTER cf*(24)
 
 WRITE(cf,'(A11,I3.3,A4)') '_vtk/cMESH_',iO, '.tri'
@@ -1059,6 +1060,27 @@ DO i = 1,mg_mesh%level(ilev)%nvt
 END DO
 
 CLOSE(1)
+
+ DO iBnds = 1, nBnds
+  cf = ' '
+  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+   j=0
+   DO i=1,mg_mesh%level(ilev)%nvt
+    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+     j = j + 1
+    END IF
+   END DO
+   WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+   WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
+   DO i=1,mg_mesh%level(ilev)%nvt
+    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+     WRITE(1,'(I8,A)') i
+    END IF
+   END DO
+   CLOSE(1)
+ END DO
 
 END SUBROUTINE Output_Mesh
 !
@@ -2389,3 +2411,74 @@ subroutine zvalue1()
 implicit none
 
 end subroutine zvalue1
+
+SUBROUTINE OutputTriMesh(dcorvg,kvert,knpr,nvt,nel,iO)
+!USE QuadScalar,ONLY:myQ2Coor
+USE Transport_Q2P1,ONLY:ilev
+USE Parametrization, ONLY : myParBndr,nBnds
+IMPLICIT NONE
+REAL*8 dcorvg(3,*)
+INTEGER nvt,nel,kvert(8,*),knpr(*),i,iO,j,iIt,iBnds
+CHARACTER cf*(40)
+
+WRITE(cf,'(A)') '_vtk/mesh.tri'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(1,'(2I8,A)') NEL,NVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(1,'(A)') 'DCORVG'
+DO i = 1 ,nvt
+ WRITE(1,'(3ES13.5)') dcorvg(:,i)
+END DO
+
+WRITE(1,'(A)') 'KVERT'
+DO i = 1 ,nel
+ WRITE(1,'(8I8)') kvert(:,i)
+END DO
+
+WRITE(1,'(A)') 'KNPR'
+DO i = 1 ,nvt
+ WRITE(1,'(I8)') knpr(i)
+END DO
+
+CLOSE(1)
+
+ DO iBnds = 1, nBnds
+  cf = ' '
+  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+   j=0
+   DO i=1,NVT
+    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+     j = j + 1
+    END IF
+   END DO
+   WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+   WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
+   DO i=1,NVT
+    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+     WRITE(1,'(I8,A)') i
+    END IF
+   END DO
+   CLOSE(1)
+ END DO
+ 
+! DO iIt=1,Properties%nInterface
+!  IF (allocated(myTSurf(iIT)%T)) then
+!  WRITE(cf,'(A11,I3.3,A1,I3.3,A4)') '_vtk/cSURF_',iO,'_',iIT,'.csv'
+!  write(*,*) "writing surface data to: '", ADJUSTL(trim(cf)),"'"
+!  OPEN(FILE=ADJUSTL(TRIM(cf)),UNIT=171)
+!  WRITE(171,'(A)') 'X, Y, Z'
+!  DO i=1,myTSurf(iIT)%nT
+!   DO j=1,9
+!    WRITE(171,'(2(ES12.4,A1),ES12.4)') myTSurf(iIT)%T(i)%C(1,j),",",myTSurf(iIT)%T(i)%C(2,j),',',myTSurf(iIT)%T(i)%C(3,j)
+!   END DO
+!  END DO
+!  CLOSE(171)
+!  end if
+! END DO
+
+END SUBROUTINE OutputTriMesh

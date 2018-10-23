@@ -385,6 +385,15 @@ IF (iT.EQ.72) THEN
   ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,+24d0,1d0,1.25d0)
 END IF
 
+! SKZ_Dietl_1
+IF (iT.EQ.73) THEN
+ ValU=RotParabolicVelo2Dx(0d0,12d0,-10d0,1d0,1.6d0)
+END IF
+! SKZ_Dietl_2
+IF (iT.EQ.74) THEN
+ ValW=RotParabolicVelo2Dz(0d0,0d0,-10d0,1d0,0.9d0)
+END IF
+
 ! M+S --> for the meshes prepared by Jens and Raphael
 IF (iT.EQ.81) THEN
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
@@ -445,12 +454,13 @@ END IF
 
 ! RAIN CARBON
 IF (iT.EQ.93) THEN
-  ValU=RotParabolicVelo2Dx(+0.0d0,+0.0d0,9217d0,1d0,5.0d0)
+  ValU=RotParabolicVelo2Dx(+0.0d0,+0.0d0,4600d0,1d0,5.0d0)
 END IF
 
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
+
 
 RETURN
 

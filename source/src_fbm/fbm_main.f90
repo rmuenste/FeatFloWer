@@ -390,6 +390,7 @@ real*8, intent(inout) :: dist
 ! local variables
 integer :: IP,ipc,isin, idynType
 real*8 :: dist_sign, cpx,cpy,cpz, d_temp
+real*8 :: dCGAL_X,dCGAL_Y,dCGAL_Z
 
  inpr = 0
  dist_sign = 1
@@ -402,15 +403,19 @@ real*8 :: dist_sign, cpx,cpy,cpz, d_temp
   call get_dynamics_type(ipc, idynType) 
   dist_sign = +1d0
   if (idynType.eq.2) dist_sign = -1d0
-!  if (IP.eq.1) dist_sign = -1d0
+!   if (IP.eq.1) dist_sign = -1d0
+  
+  dCGAL_X = dCGALtoRealFactor*x
+  dCGAL_Y = dCGALtoRealFactor*y
+  dCGAL_Z = dCGALtoRealFactor*z
 
-  call isinelementid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,ipc,isin)
+  call isinelementid(dCGAL_X,dCGAL_Y,dCGAL_Z,ipc,isin)
   if(isin .gt. 0)then
    dist_sign = -1d0*dist_sign
-   call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
+   call getclosestpointid(dCGAL_X,dCGAL_Y,dCGAL_Z,cpx,cpy,cpz,d_temp,ipc);        
   else
    dist_sign = +1d0*dist_sign
-   call getclosestpointid(dCGALtoRealFactor*x,dCGALtoRealFactor*y,dCGALtoRealFactor*z,cpx,cpy,cpz,d_temp,ipc);        
+   call getclosestpointid(dCGAL_X,dCGAL_Y,dCGAL_Z,cpx,cpy,cpz,d_temp,ipc);        
   end if
   
   dist = min(dist,dist_sign * d_temp)
