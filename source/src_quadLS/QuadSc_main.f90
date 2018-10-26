@@ -833,7 +833,7 @@ SUBROUTINE QuadScalar_Knpr()
 
   DO i=1,ndof
 
-  IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).GT.0) THEN
+  IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).NE.0) THEN
     QuadSc%knprU(ILEV)%x(i) = 1
     QuadSc%knprV(ILEV)%x(i) = 1
     QuadSc%knprW(ILEV)%x(i) = 1
@@ -1012,7 +1012,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
     IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
     IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
 
-    IF (myBoundary%iInflow(i).GT.0) THEN 
+    IF (myBoundary%iInflow(i).NE.0) THEN 
       inpr = 1
       iType = myBoundary%iInflow(i)
       CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)

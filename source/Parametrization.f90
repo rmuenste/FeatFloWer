@@ -62,19 +62,19 @@ logical :: bOK
   cAux = ADJUSTL(TRIM(myParBndr(iBnds)%Types))
   iType = 0
   IF (cAux(1:6).EQ.'Inflow') THEN
-   READ(cAux(7:),'(I2)') iType
+   READ(cAux(7:),'(I3)') iType
   END IF
   iTemp = 0
   IF (cAux(1:11).EQ.'Temperature') THEN
-   READ(cAux(12:),'(I2)') iTemp
+   READ(cAux(12:),'(I3)') iTemp
   END IF
   iPhase = 0
   IF (cAux(1:5).EQ.'Phase') THEN
-   READ(cAux(6:),'(I1)') iPhase
+   READ(cAux(6:),'(I2)') iPhase
   END IF
   iInterface = 0
   IF (cAux(1:6).EQ.'Bubble') THEN
-   READ(cAux(7:),'(I1)') iInterface
+   READ(cAux(7:),'(I2)') iInterface
   END IF  
   
   DO i=1,NVT
@@ -85,7 +85,7 @@ logical :: bOK
       myBoundary%bWall(i) = .TRUE.
       BndrForce(i) = .TRUE.
     END IF
-    IF (iType.GT.0) myBoundary%iInflow(i) = iType
+    IF (iType.NE.0) myBoundary%iInflow(i) = iType
     IF (iTemp.GT.0) myBoundary%iTemperature(i) = iTemp
     IF (iPhase.GT.0) myBoundary%iPhase(i) = iPhase
     IF (iInterface.GT.0) myBoundary%LS_zero(i) = iInterface
@@ -114,7 +114,7 @@ logical :: bOK
         myBoundary%bWall(nvt+k) = .TRUE.
         BndrForce(nvt+k) = .TRUE.
       END IF
-      IF (iType.GT.0) myBoundary%iInflow(nvt+k) = iType
+      IF (iType.NE.0) myBoundary%iInflow(nvt+k) = iType
       IF (iTemp.GT.0) myBoundary%iTemperature(nvt+k) = iTemp
       IF (iPhase.GT.0) myBoundary%iPhase(nvt+k) = iPhase
       IF (iInterface.GT.0) myBoundary%LS_zero(nvt+k) = iInterface
@@ -141,7 +141,7 @@ logical :: bOK
       myBoundary%bWall(nvt+net+i) = .TRUE.
       BndrForce(nvt+net+i) = .TRUE.
     END IF
-    IF (iType.GT.0) myBoundary%iInflow(nvt+net+i) = iType
+    IF (iType.NE.0) myBoundary%iInflow(nvt+net+i) = iType
     IF (iTemp.GT.0) myBoundary%iTemperature(nvt+net+i) = iTemp
     IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+i) = iPhase
     IF (iInterface.GT.0) myBoundary%LS_zero(nvt+net+i) = iInterface
@@ -169,7 +169,7 @@ logical :: bOK
        myBoundary%bWall(nvt+net+nat+i) = .TRUE.
        BndrForce(nvt+net+nat+i) = .TRUE.
      END IF
-     IF (iType.GT.0) myBoundary%iInflow(nvt+net+nat+i) = iType
+     IF (iType.NE.0) myBoundary%iInflow(nvt+net+nat+i) = iType
      IF (iTemp.GT.0) myBoundary%iTemperature(nvt+net+nat+i) = iTemp
      IF (iPhase.GT.0) myBoundary%iPhase(nvt+net+nat+i) = iPhase
      IF (iPhase.GT.0) jPhase = jPhase + 1
