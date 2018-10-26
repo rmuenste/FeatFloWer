@@ -239,7 +239,7 @@ do iField=1,size(myExport%Fields)
  case('Partitioning')
   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,I)')"        ", myid
+   write(iunit, '(A,I10)')"        ", myid
   end do
   write(iunit, *)"        </DataArray>"
 
