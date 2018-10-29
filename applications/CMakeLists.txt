@@ -30,6 +30,7 @@ if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
   add_subdirectory(q2p1_devel)
   add_subdirectory(q2p1_sse)
+  add_subdirectory(auto_param)
 endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)
