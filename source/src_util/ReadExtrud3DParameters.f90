@@ -558,8 +558,8 @@
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POWERLAW".OR.ADJUSTL(TRIM(cRheology)).eq."POTENZ".OR.ADJUSTL(TRIM(cRheology)).eq."POWER") THEN
       myRheology%Equation = 2
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Consistence", myRheology%K,myInf)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Exponent",myRheology%n,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Consistence", myRheology%K,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Exponent",myRheology%n,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POLYFLOW") THEN
       myRheology%Equation = 3
