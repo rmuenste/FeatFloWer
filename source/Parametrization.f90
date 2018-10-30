@@ -1,6 +1,6 @@
 MODULE Parametrization
 
-USE PP3D_MPI, ONLY:myid,showid,myMPI_Barrier
+USE PP3D_MPI, ONLY:myid,showid,myMPI_Barrier,master
 USE var_QuadScalar
 
 IMPLICIT NONE
@@ -772,7 +772,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
  integer :: istat
 
  CALL GetFileList()
-
+ 
  DO iBnds = 1, nBnds
   ALLOCATE (myParBndr(iBnds)%Bndr(1)%Vert(&
     mesh%NVT))
@@ -796,7 +796,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
 
   READ(iunit,*)  myParBndr(iBnds)%Bndr(ilevel)%nVerts, myParBndr(iBnds)%Types
   READ(iunit,*)  myParBndr(iBnds)%Parameters
-
+  
   myParBndr(iBnds)%Bndr(1)%Vert = .FALSE.
   myParBndr(iBnds)%Bndr(1)%Face = 0
 
@@ -858,7 +858,7 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
  END DO
  
  ILEV = ilevel
- CALL E013SUM(daux)
+ if (bParallel) CALL E013SUM(daux)
 
  k = 1
  DO iel=1,mgMesh%level(ilevel)%nel
@@ -893,8 +893,8 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
    END DO
  END DO
 
- IF (myid.ne.0) then
-  DO iBnds = 1, nBnds
+ IF (myid.ne.MASTER) then
+   DO iBnds = 1, nBnds
     DO iNode=1,mgMesh%level(ilevel+1)%nvt
       IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
         IF (myParBndr(iBnds)%Dimens.eq.1) mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
@@ -924,31 +924,25 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
   mgMesh%BndryNodes(:)%nSurf   = 0
   mgMesh%BndryNodes(:)%nVolume = 0
   
-!  IF (myid.ne.0) then
   DO iBnds = 1, nBnds
-!     IF (myid.eq.1) WRITE(*,*) "dimens: ",myParBndr(iBnds)%Dimens
     DO iNode=1,mgMesh%level(ilevel+1)%nvt
       IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
         IF (myParBndr(iBnds)%Dimens.eq.1) THEN
-!           IF (myid.eq.1) WRITE(*,*) 'P'
           mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
           nn = mgMesh%BndryNodes(iNode)%nPoint
           mgMesh%BndryNodes(iNode)%P(nn) = iBnds
         END IF
         IF (myParBndr(iBnds)%Dimens.eq.2) THEN
-!           IF (myid.eq.1) WRITE(*,*) 'L'
           mgMesh%BndryNodes(iNode)%nLine    = mgMesh%BndryNodes(iNode)%nLine + 1
           nn = mgMesh%BndryNodes(iNode)%nLine
           mgMesh%BndryNodes(iNode)%L(nn) = iBnds
         END IF
         IF (myParBndr(iBnds)%Dimens.eq.3) THEN 
-!           IF (myid.eq.1) WRITE(*,*) 'S'
           mgMesh%BndryNodes(iNode)%nSurf    = mgMesh%BndryNodes(iNode)%nSurf + 1
           nn = mgMesh%BndryNodes(iNode)%nSurf
           mgMesh%BndryNodes(iNode)%S(nn) = iBnds
         END IF
         IF (myParBndr(iBnds)%Dimens.eq.4) THEN
-!           IF (myid.eq.1) WRITE(*,*) 'V'
           mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
           nn = mgMesh%BndryNodes(iNode)%nVolume
           mgMesh%BndryNodes(iNode)%V(nn) = iBnds
@@ -969,8 +963,8 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
      END IF
    END DO
   END IF
-! 
- END IF
+
+  END IF
  
 END SUBROUTINE DeterminePointParametrization_STRCT
 !
@@ -1209,6 +1203,8 @@ SUBROUTINE GetFileList()
  CHARACTER cWD*200,cSub*200
  INTEGER lenCommand,i,iPos,LenStr,iEnd
 
+ if (myid.eq.1.or.(.not.bParallel))  Write(*,*)'Project File: "'//ADJUSTL(TRIM(cProjectFile))//'"'
+ 
  nBnds = 0
  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFile)))
  DO
@@ -1221,9 +1217,10 @@ SUBROUTINE GetFileList()
   END IF
  END DO
 
+ if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Number of boundary parametrizations: ',nBnds
  ALLOCATE (myParBndr(nBnds))
 
- if (myid.eq.1) Write(*,*)'Warning: Allocated an additional boundary level'
+ if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Warning: Allocated an additional boundary level'
  DO iBnds = 1, nBnds
   ALLOCATE (myParBndr(iBnds)%Bndr(NLMIN:NLMAX+1))
  END DO
@@ -1238,6 +1235,7 @@ SUBROUTINE GetFileList()
   IF (LenStr.gt.4) THEN
    cFile = ADJUSTL(TRIM(string))
    IF (cFile(LenStr-3:LenStr).EQ.".par") THEN
+    if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Boundary parametrization: "'//ADJUSTL(TRIM(cFile))//'"'
     nBnds = nBnds + 1
     READ(cFile(1:LenStr-4),"(A)") myParBndr(nBnds)%Names
    END IF

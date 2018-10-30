@@ -13,10 +13,8 @@ set(src_autoparam
 #${src_mesh}
 #${src_cinterface}
 #${postprocessing}
-bndry.f90
 meshproc_def.f90
 meshproc_main.f90
-umbrella.f90
 )
 
 # Add the application executable

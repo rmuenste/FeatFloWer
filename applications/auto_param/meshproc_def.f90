@@ -17,8 +17,6 @@ INTEGER nel,nvt,iArea,inArea,net
 
 INTEGER i,j,k,l,m
 
-REAL*8 :: myUmbrella_Relax=0.25
-
 TYPE tParamList
  integer :: nvt,nel
  REAL*8 , allocatable :: dcoor(:,:)
@@ -994,17 +992,6 @@ write(iunit, *)"</VTKFile>"
 close(iunit)
 
 END SUBROUTINE Output_VTK
-!------------------------------------------------------------
-SUBROUTINE Umbrella
-INTEGER :: nUsedSteps=16,ndof
-REAL*8, ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
-
-ndof = (nvt+net)
-
-ALLOCATE(a1(ndof),a2(ndof),a3(ndof),a4(ndof),a5(ndof),a6(ndof))
-CALL EdgeRunner(a1,a2,a3,a4,a5,a6,dcorvg,kvert,kedge,nel,nvt,net,nUsedSteps)
-
-END SUBROUTINE Umbrella
 !------------------------------------------------------------
 SUBROUTINE BuildOctTree
 integer i1

@@ -27,6 +27,7 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 ! run fine on BTTF and the LIDO-servers
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
+LOGICAL :: bParallel=.true.
 
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
@@ -370,7 +371,7 @@ END TYPE tExport
 TYPE(tExport) :: myExport
 
 INTEGER :: iOutput=0
-CHARACTER cGridFileName*40,cProjectFile*40,cProjectFolder*40,cProjectNumber*3
+CHARACTER cProjectGridFile*40,cGridFileName*40,cProjectFile*40,cProjectFolder*40,cProjectNumber*3
 INTEGER nSubCoarseMesh
 
 CHARACTER*13 :: outfile="OutFile  .txt"
