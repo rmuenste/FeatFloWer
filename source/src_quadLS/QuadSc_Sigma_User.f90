@@ -64,7 +64,7 @@ END TYPE tProcess
 TYPE(tProcess) :: myProcess
 !------------------------------------------------------------
 TYPE tRheology
-   INTEGER :: Equation = 2
+   INTEGER :: Equation = 5
    INTEGER :: AtFunc
    REAL*8 :: A, B, C ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
