@@ -1913,7 +1913,7 @@ EXTERNAL E011
      END IF
 
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+     CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
        mg_mesh%level(mgLev)%dvol,&
        mg_mesh%level(mgLev)%kvert)
 
@@ -2229,7 +2229,7 @@ EXTERNAL E011
      END IF
 
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+     CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
        mg_mesh%level(mgLev)%dvol,&
        mg_mesh%level(mgLev)%kvert)
      

@@ -10,6 +10,7 @@ REAL*8 ,ALLOCATABLE  :: dcorvg(:,:)
 INTEGER nArea,ninArea
 integer iix,iiy,iiz,iii
 CHARACTER*(100) :: cProjectFolder,cProjectFile
+character cfile*(200)
 
 INTEGER,ALLOCATABLE  :: khelp(:,:)
 
@@ -451,7 +452,7 @@ END SUBROUTINE BuildFaceNeighborhood
 SUBROUTINE ReadParametrization()
 integer, allocatable :: iVerts(:)
 integer in,nn,iFile,iiArea
-integer nnn,iiiArea
+integer nnn,iiiArea,LenStr,iReason
 
 allocate(iVerts(nvt))
 
@@ -487,26 +488,72 @@ end if
 
 DO iFile=1,nParFiles
 
- iVerts = 0
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/PAR/"//ADJUSTL(TRIM(cParFile(iFile))))
- READ(1,*) nn
- READ(1,*) 
- DO i=1,nn
-  READ(1,*) in
-  iVerts(in) = 1
- END DO
- CLOSE(1) 
-
- iiArea = 0
- do iArea=1,nArea
-    IF (iVerts(kfaces(1,iArea)).eq.1.and.iVerts(kfaces(1,iArea)).eq.1.and.&
-        iVerts(kfaces(3,iArea)).eq.1.and.iVerts(kfaces(4,iArea)).eq.1) THEN
-       iiArea = iiArea + 1
-       kNeighE(2,iArea) = -(NumberOfSurfaces + 1)
+ LenStr = LEN(ADJUSTL(TRIM(cParFile(iFile))))
+ IF (LenStr.gt.4) THEN
+  cFile = ADJUSTL(TRIM(cParFile(iFile)))
+  IF     (cFile(LenStr-3:LenStr).EQ.".csv") THEN
+   iVerts = 0
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/PAR/"//ADJUSTL(TRIM(cParFile(iFile))))
+   READ(1,*) 
+   nn = 0
+   DO 
+    READ(1,*,IOSTAT=iReason) in
+    IF (iReason > 0)  THEN
+     WRITE(*,*)'  ... something wrong by reading of the parametrization file: "'//ADJUSTL(TRIM(cParFile(iFile)))//'"'
+    ELSE IF (iReason < 0) THEN
+     EXIT
+!     WRITE(*,*)'  ... end of file reached ... '
+    ELSE
+     nn = nn + 1
+!     WRITE(*,*)'  ... do normal stuff ... '
     END IF
- end do
- NumberOfSurfaces = NumberOfSurfaces + 1
- WRITE(*,*) 'Read parametrization file:',NumberOfSurfaces, 'with nFaces, nVerts:', iiArea,nn
+   END DO
+   REWIND(1)
+   READ(1,*) 
+   DO i=1,nn
+    READ(1,*) in
+    iVerts(in) = 1
+   END DO
+   CLOSE(1) 
+   
+   iiArea = 0
+   do iArea=1,nArea
+      IF (iVerts(kfaces(1,iArea)).eq.1.and.iVerts(kfaces(1,iArea)).eq.1.and.&
+          iVerts(kfaces(3,iArea)).eq.1.and.iVerts(kfaces(4,iArea)).eq.1) THEN
+         iiArea = iiArea + 1
+         kNeighE(2,iArea) = -(NumberOfSurfaces + 1)
+      END IF
+   end do
+   NumberOfSurfaces = NumberOfSurfaces + 1
+   WRITE(*,*) 'Read parametrization file:',NumberOfSurfaces, 'with nFaces, nVerts:', iiArea,nn
+  
+  ELSEIF (cFile(LenStr-3:LenStr).EQ.".par") THEN
+   iVerts = 0
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/PAR/"//ADJUSTL(TRIM(cParFile(iFile))))
+   READ(1,*) nn
+   READ(1,*) 
+   DO i=1,nn
+    READ(1,*) in
+    iVerts(in) = 1
+   END DO
+   CLOSE(1) 
+
+   iiArea = 0
+   do iArea=1,nArea
+      IF (iVerts(kfaces(1,iArea)).eq.1.and.iVerts(kfaces(1,iArea)).eq.1.and.&
+          iVerts(kfaces(3,iArea)).eq.1.and.iVerts(kfaces(4,iArea)).eq.1) THEN
+         iiArea = iiArea + 1
+         kNeighE(2,iArea) = -(NumberOfSurfaces + 1)
+      END IF
+   end do
+   NumberOfSurfaces = NumberOfSurfaces + 1
+   WRITE(*,*) 'Read parametrization file:',NumberOfSurfaces, 'with nFaces, nVerts:', iiArea,nn
+  ELSE
+   WRITE(*,*) 'Unknown format of the parametrization file: "'//ADJUSTL(TRIM(cParFile(iFile)))//'"'
+  END IF
+ 
+ END IF
+   
 END DO !iFile
 
 WRITE(*,*) NumberOfSurfaces, ' parametrizations from files have been applied'
@@ -818,7 +865,6 @@ END SUBROUTINE Output_SingleSurfToVTK
 !----------------------------------------------------------
 SUBROUTINE Output_SurfToVTK
 integer iS,ivt,iel,nn
-character cfile*(200)
 
 DO iS = 1,NumberOfSurfaces
  write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.vtp'

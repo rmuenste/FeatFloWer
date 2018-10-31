@@ -371,7 +371,7 @@ END TYPE tExport
 TYPE(tExport) :: myExport
 
 INTEGER :: iOutput=0
-CHARACTER cProjectGridFile*40,cGridFileName*40,cProjectFile*40,cProjectFolder*40,cProjectNumber*3
+CHARACTER cProjectGridFile*60,cGridFileName*40,cProjectFile*40,cProjectFolder*40,cProjectNumber*3
 INTEGER nSubCoarseMesh
 
 CHARACTER*13 :: outfile="OutFile  .txt"

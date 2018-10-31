@@ -7,12 +7,16 @@ USE PP3D_MPI, ONLY:myid,master
 
 implicit none
 
-!type(tMultiMesh) mg_Mesh
-!CHARACTER*(200) :: cProjectFolder,cProjectFile,cMeshFile
+INTEGER lTriOutputLevel,lVTUOutputLevel
+
+CHARACTER*(200) :: cOutputFolder
 
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE GetParameters
+
+!  CHARACTER*(200) :: cmd
+ LOGICAL bExist
 
  OPEN(1,file='param.cfg')
 
@@ -24,8 +28,28 @@ SUBROUTINE GetParameters
  READ(1,*) cProjectGridFile
  cProjectGridFile = adjustl(trim(cProjectFolder))//adjustl(trim(cProjectGridFile))
  WRITE(*,*) adjustl(trim(cProjectGridFile))
+ READ(1,*) mg_Mesh%nlmax
+ mg_Mesh%nlmin = 1
+ WRITE(*,*) 'Min and Max levels: ', mg_Mesh%nlmin,mg_Mesh%nlmax
+ mg_Mesh%nlmin = 1
+ READ(1,*) nUmbrellaSteps
+ WRITE(*,*) '# of Umbrella Steps: ', nUmbrellaSteps
+ READ(1,*) dCGALtoRealFactor
+ WRITE(*,*) 'CGAL Scaling factor: ', dCGALtoRealFactor
+ READ(1,*) cOutputFolder
+ WRITE(*,*) 'Output Folder: "'//adjustl(trim(cOutputFolder))//'"'
+ READ(1,*) lTriOutputLevel
+ WRITE(*,*) 'Outputlevel for the ".tri" file: ', lTriOutputLevel
+ READ(1,*) lVTUOutputLevel
+ WRITE(*,*) 'Outputlevel for the ".vtu" file: ', lVTUOutputLevel
 
  CLOSE(1)
+
+ INQUIRE(DIRECTORY=adjustl(trim(cOutputFolder)),EXIST=bExist)
+ if (.not.bExist) then
+!   cmd='mkdir '//adjustl(trim(cOutputFolder))
+  CALL system('mkdir '//adjustl(trim(cOutputFolder)))
+ end if
 
 END SUBROUTINE GetParameters
 !----------------------------------------------------------
@@ -41,7 +65,7 @@ nel = mg_mesh%level(ilev)%nel
 nvt = mg_mesh%level(ilev)%nvt
 
 filename=" "
-WRITE(filename(1:),'(A)') "mesh.vtu"
+WRITE(filename(1:),'(A)') adjustl(trim(cOutputFolder))//"/mesh.vtu"
 
 WRITE(*,'(104("="))') 
 WRITE(*,*) "Outputting vtk file into ",filename
@@ -158,5 +182,133 @@ SUBROUTINE GetFileList()
  CLOSE(1)
 
 END SUBROUTINE GetFileList
+!----------------------------------------------------------
+SUBROUTINE SeqUmbrella(ilev,nProjStep)
+INTEGER ilev,nProjStep
+!!
+INTEGER ndof
+REAL*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
+
+ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net + mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
+
+ALLOCATE(a1(ndof))
+ALLOCATE(a2(ndof))
+ALLOCATE(a3(ndof))
+ALLOCATE(a4(ndof))
+ALLOCATE(a5(ndof))
+ALLOCATE(a6(ndof))
+
+CALL SeqEdgeRunner(a1,a2,a3,a4,a5,a6,&
+    mg_mesh,ilev,&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%nel,&
+    mg_mesh%level(ilev)%nvt,&
+    mg_mesh%level(ilev)%net,&
+    nProjStep)
+                   
+DEALLOCATE(a1,a2,a3,a4,a5,a6)
+  
+END SUBROUTINE SeqUmbrella
+!----------------------------------------------------------
+SUBROUTINE SeqEdgeRunner(f,x,y,z,w,v,mgMesh,ilevel,&
+  dcorvg,kvert,kedge,nel,nvt,net,nProjStep)
+ 
+IMPLICIT NONE
+
+REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
+INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+
+INTEGER NeighE(2,12)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
+REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ
+REAL*8 :: dOmega = 0.25d0
+REAL*8 :: DIST
+REAL*4, ALLOCATABLE :: myVol(:)
+
+DO k=nvt+1,nvt+net
+v(k) = 1d0
+END DO
+
+ALLOCATE(myVol(nel+1))
+
+DO iProjStep=1,nProjStep
+
+myVol = 0e0
+CALL  SETARE(myVol,nel,kvert,dcorvg)
+
+f(1:nvt) = 0d0
+w(1:nvt) = 0d0
+
+DO iel=1,nel
+  DO i=1,8
+    j = kvert(i,iel)
+    f(j) = f(j) + abs(myVol(iel))
+    w(j) = w(j) + 1d0
+  END DO
+END DO
+
+DO i=1,nvt
+  f(i) = f(i)/w(i)
+END DO
+
+! DO i=1,nvt
+!   PX = dcorvg(1,i)
+!   PY = dcorvg(2,i)
+!   PZ = dcorvg(3,i)
+!   f(i) = 1d0
+! END DO
+
+x(1:nvt) = 0d0
+y(1:nvt) = 0d0
+z(1:nvt) = 0d0
+w(1:nvt) = 0d0
+
+k=1
+DO i=1,nel
+  DO j=1,12
+  IF (k.eq.kedge(j,i)) THEN
+    ivt1 = kvert(NeighE(1,j),i)
+    ivt2 = kvert(NeighE(2,j),i)
+    P1(:) = dcorvg(:,ivt1)
+    P2(:) = dcorvg(:,ivt2)
+
+    daux1 = ABS(f(ivt1))
+    daux2 = ABS(f(ivt2))
+    WeightE = 1d0/(v(nvt + k))
+
+    x(ivt1) = x(ivt1) + WeightE*P2(1)*daux2
+    y(ivt1) = y(ivt1) + WeightE*P2(2)*daux2
+    z(ivt1) = z(ivt1) + WeightE*P2(3)*daux2
+    w(ivt1) = w(ivt1) + WeightE*daux2
+
+    x(ivt2) = x(ivt2) + WeightE*P1(1)*daux1
+    y(ivt2) = y(ivt2) + WeightE*P1(2)*daux1
+    z(ivt2) = z(ivt2) + WeightE*P1(3)*daux1
+    w(ivt2) = w(ivt2) + WeightE*daux1
+
+    k = k + 1
+  END IF
+  END DO
+END DO
+
+DO i=1,nvt
+ PX = x(i)/w(i)
+ PY = y(i)/w(i)
+ PZ = z(i)/w(i)
+ dcorvg(1,i) = MAX(0d0,(1d0-dOmega))*dcorvg(1,i) + dOmega*PX
+ dcorvg(2,i) = MAX(0d0,(1d0-dOmega))*dcorvg(2,i) + dOmega*PY
+ dcorvg(3,i) = MAX(0d0,(1d0-dOmega))*dcorvg(3,i) + dOmega*PZ
+ END DO
+
+ CALL ParametrizeBndryPoints_STRCT(mgMesh,ilevel)
+
+END DO
+
+END SUBROUTINE SeqEdgeRunner
 !----------------------------------------------------------
 END MODULE MeshProcDef

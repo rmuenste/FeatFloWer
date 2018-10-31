@@ -212,21 +212,21 @@ end subroutine
 subroutine readTriCoarse(CFILE, mgMesh)
   USE var_QuadScalar
   USE PP3D_MPI
-  CHARACTER (len = 60) :: CFILE 
+  CHARACTER (len = *) :: CFILE
   type(tMultiMesh) :: mgMesh
   logical :: bExist
   integer :: cunit = 18
   integer :: i,istat
 
-  inquire(file=cfile,exist=bExist)
+  inquire(file=adjustl(trim(cfile)),exist=bExist)
   if (.not. bExist) then
-    write(*,*) "File ",cfile," could not be read ..."
+    write(*,*) "File '"//adjustl(trim(cfile)),"' could not be read ..."
     return
   end if
 
-  open(cunit,file=cfile,action="read",iostat=istat)
+  open(cunit,file=adjustl(trim(cfile)),action="read",iostat=istat)
   if(istat .ne. 0)then
-    write(*,*)'Could not open file: ',cfile
+    write(*,*)'Could not open file: ',adjustl(trim(cfile))
   end if  
 
   read(cunit, *)

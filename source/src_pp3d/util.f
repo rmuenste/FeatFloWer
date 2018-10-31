@@ -395,6 +395,73 @@ C
 C
 C
 ************************************************************************
+      SUBROUTINE   INTPVBDBLE (DP,DPL,DAUX,DVOL,KVERT)
+************************************************************************
+*    Purpose:  - Interpolates the solution pressure DP to
+*                the (REAL) vector VPL of dimension NVT with
+*                values in the vertices
+*-----------------------------------------------------------------------
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      REAL*8 DVOL
+C
+      PARAMETER (NNVE=8)
+C
+      REAL*8  DAUX
+      DIMENSION DP(*),DPL(*),DAUX(*),KVERT(NNVE,*),DVOL(*)
+C
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+C
+      SAVE
+C-----------------------------------------------------------------------
+      CALL  LCL1 (DAUX,NVT)
+      CALL  LCL1 (DPL,NVT)
+
+      DO 10 IEL=1,NEL
+C
+      DPIEL=REAL(DP(IEL))
+      DDAVOL=DVOL(IEL)
+C
+      IV1=KVERT(1,IEL)
+      IV2=KVERT(2,IEL)
+      IV3=KVERT(3,IEL)
+      IV4=KVERT(4,IEL)
+      IV5=KVERT(5,IEL)
+      IV6=KVERT(6,IEL)
+      IV7=KVERT(7,IEL)
+      IV8=KVERT(8,IEL)
+C
+      DPL(IV1)=DPL(IV1)+0.125E0*DDAVOL*DPIEL
+      DPL(IV2)=DPL(IV2)+0.125E0*DDAVOL*DPIEL
+      DPL(IV3)=DPL(IV3)+0.125E0*DDAVOL*DPIEL
+      DPL(IV4)=DPL(IV4)+0.125E0*DDAVOL*DPIEL
+      DPL(IV5)=DPL(IV5)+0.125E0*DDAVOL*DPIEL
+      DPL(IV6)=DPL(IV6)+0.125E0*DDAVOL*DPIEL
+      DPL(IV7)=DPL(IV7)+0.125E0*DDAVOL*DPIEL
+      DPL(IV8)=DPL(IV8)+0.125E0*DDAVOL*DPIEL
+C
+      DAUX(IV1)=DAUX(IV1)+0.125E0*DDAVOL
+      DAUX(IV2)=DAUX(IV2)+0.125E0*DDAVOL
+      DAUX(IV3)=DAUX(IV3)+0.125E0*DDAVOL
+      DAUX(IV4)=DAUX(IV4)+0.125E0*DDAVOL
+      DAUX(IV5)=DAUX(IV5)+0.125E0*DDAVOL
+      DAUX(IV6)=DAUX(IV6)+0.125E0*DDAVOL
+      DAUX(IV7)=DAUX(IV7)+0.125E0*DDAVOL
+      DAUX(IV8)=DAUX(IV8)+0.125E0*DDAVOL
+C
+10    CONTINUE
+C
+C
+      DO 20 IVT=1,NVT
+20    DPL(IVT)=DPL(IVT)/DAUX(IVT)
+C
+C
+C
+      END
+C
+C
+C
+************************************************************************
       SUBROUTINE   INTPVB (DP,DPL,VAUX,AVOL,KVERT)
 ************************************************************************
 *    Purpose:  - Interpolates the solution pressure DP to
