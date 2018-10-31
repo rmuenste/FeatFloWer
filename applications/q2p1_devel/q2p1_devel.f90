@@ -60,9 +60,9 @@ PROGRAM Q2P1_DEVEL
 
    IF (myid.eq.1) THEN
     WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],shear[1/s]_E/U: ",dCharSize,dCharShear
-    WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],shear[1/s]_E/U: ",dCharSize,dCharShear
+    WRITE(ufile,'(A,5ES12.4,A)') " Characteristic size[cm],shear[1/s]_E/U: ",dCharSize,dCharShear
     WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
-    WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+    WRITE(ufile,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
    END IF
    
    CALL AdjustTimeStepping(TimeStep)
@@ -70,7 +70,7 @@ PROGRAM Q2P1_DEVEL
      
   IF (myid.eq.1) THEN
     WRITE(MTERM,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
-    WRITE(MFILE,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
+    WRITE(ufile,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS
     WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
     WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
     WRITE(MTERM,'(A)') 
