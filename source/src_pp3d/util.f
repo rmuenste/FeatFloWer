@@ -394,70 +394,138 @@ C
 C
 C
 C
-************************************************************************
-      SUBROUTINE   INTPVB (DP,DPL,VAUX,AVOL,KVERT)
-************************************************************************
-*    Purpose:  - Interpolates the solution pressure DP to
-*                the (REAL) vector VPL of dimension NVT with
-*                values in the vertices
-*-----------------------------------------------------------------------
-      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      REAL*4 AVOL
-C
-      PARAMETER (NNVE=8)
-C
-      REAL  VAUX
-      DIMENSION DP(*),DPL(*),VAUX(*),KVERT(NNVE,*),AVOL(*)
-C
-      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
-     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
-C
-      SAVE
-C-----------------------------------------------------------------------
-      CALL  LCL2 (VAUX,NVT)
-      CALL  LCL1 (DPL,NVT)
-
-      DO 10 IEL=1,NEL
-C
-      VPIEL=REAL(DP(IEL))
-      VAVOL=AVOL(IEL)
-C
-      IV1=KVERT(1,IEL)
-      IV2=KVERT(2,IEL)
-      IV3=KVERT(3,IEL)
-      IV4=KVERT(4,IEL)
-      IV5=KVERT(5,IEL)
-      IV6=KVERT(6,IEL)
-      IV7=KVERT(7,IEL)
-      IV8=KVERT(8,IEL)
-C
-      DPL(IV1)=DPL(IV1)+0.125E0*VAVOL*VPIEL
-      DPL(IV2)=DPL(IV2)+0.125E0*VAVOL*VPIEL
-      DPL(IV3)=DPL(IV3)+0.125E0*VAVOL*VPIEL
-      DPL(IV4)=DPL(IV4)+0.125E0*VAVOL*VPIEL
-      DPL(IV5)=DPL(IV5)+0.125E0*VAVOL*VPIEL
-      DPL(IV6)=DPL(IV6)+0.125E0*VAVOL*VPIEL
-      DPL(IV7)=DPL(IV7)+0.125E0*VAVOL*VPIEL
-      DPL(IV8)=DPL(IV8)+0.125E0*VAVOL*VPIEL
-C
-      VAUX(IV1)=VAUX(IV1)+0.125E0*VAVOL
-      VAUX(IV2)=VAUX(IV2)+0.125E0*VAVOL
-      VAUX(IV3)=VAUX(IV3)+0.125E0*VAVOL
-      VAUX(IV4)=VAUX(IV4)+0.125E0*VAVOL
-      VAUX(IV5)=VAUX(IV5)+0.125E0*VAVOL
-      VAUX(IV6)=VAUX(IV6)+0.125E0*VAVOL
-      VAUX(IV7)=VAUX(IV7)+0.125E0*VAVOL
-      VAUX(IV8)=VAUX(IV8)+0.125E0*VAVOL
-C
-10    CONTINUE
-C
-C
-      DO 20 IVT=1,NVT
-20    DPL(IVT)=DPL(IVT)/VAUX(IVT)
-C
-C
-C
-      END
+! ************************************************************************
+!       SUBROUTINE   INTPVBDBLE (DP,DPL,DAUX,DVOL,KVERT)
+! ************************************************************************
+! *    Purpose:  - Interpolates the solution pressure DP to
+! *                the (REAL) vector VPL of dimension NVT with
+! *                values in the vertices
+! *-----------------------------------------------------------------------
+!       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+! C
+!       REAL*8 DDAVOL,DVOL
+! !      REAL*4 DDAVOL,DVOL
+!       PARAMETER (NNVE=8)
+! C
+!       DIMENSION DP(*),DPL(*),DAUX(*),KVERT(NNVE,*),DVOL(*)
+! C
+!       COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+!      *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+! C
+!       SAVE
+! C-----------------------------------------------------------------------
+! !       CALL  LCL1 (DAUX,NVT)
+! !       CALL  LCL1 (DPL,NVT)
+! 
+!       DO 10 IEL=1,NEL
+! C
+!       DPIEL=DP(IEL)
+!       DDAVOL=DVOL(IEL)
+! !       write(*,*)DVOL(IEL)
+! C
+!       IV1=KVERT(1,IEL)
+!       IV2=KVERT(2,IEL)
+!       IV3=KVERT(3,IEL)
+!       IV4=KVERT(4,IEL)
+!       IV5=KVERT(5,IEL)
+!       IV6=KVERT(6,IEL)
+!       IV7=KVERT(7,IEL)
+!       IV8=KVERT(8,IEL)
+! C
+!       DPL(IV1)=DPL(IV1)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV2)=DPL(IV2)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV3)=DPL(IV3)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV4)=DPL(IV4)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV5)=DPL(IV5)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV6)=DPL(IV6)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV7)=DPL(IV7)+0.125d0*DDAVOL*DPIEL
+!       DPL(IV8)=DPL(IV8)+0.125d0*DDAVOL*DPIEL
+! C
+!       DAUX(IV1)=DAUX(IV1)+0.125d0*DDAVOL
+!       DAUX(IV2)=DAUX(IV2)+0.125d0*DDAVOL
+!       DAUX(IV3)=DAUX(IV3)+0.125d0*DDAVOL
+!       DAUX(IV4)=DAUX(IV4)+0.125d0*DDAVOL
+!       DAUX(IV5)=DAUX(IV5)+0.125d0*DDAVOL
+!       DAUX(IV6)=DAUX(IV6)+0.125d0*DDAVOL
+!       DAUX(IV7)=DAUX(IV7)+0.125d0*DDAVOL
+!       DAUX(IV8)=DAUX(IV8)+0.125d0*DDAVOL
+! C
+! 10    CONTINUE
+! C
+! C
+!       DO 20 IVT=1,NVT
+! 20    DPL(IVT)=DPL(IVT)/DAUX(IVT)
+! C
+! C
+! C
+!       END
+! C
+! C
+! C
+! ************************************************************************
+!       SUBROUTINE   INTPVB (DP,DPL,VAUX,AVOL,KVERT)
+! ************************************************************************
+! *    Purpose:  - Interpolates the solution pressure DP to
+! *                the (REAL) vector VPL of dimension NVT with
+! *                values in the vertices
+! *-----------------------------------------------------------------------
+!       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+!       REAL*4 AVOL
+! C
+!       PARAMETER (NNVE=8)
+! C
+!       REAL  VAUX
+!       DIMENSION DP(*),DPL(*),VAUX(*),KVERT(NNVE,*),AVOL(*)
+! C
+!       COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+!      *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+! C
+!       SAVE
+! C-----------------------------------------------------------------------
+!       CALL  LCL2 (VAUX,NVT)
+!       CALL  LCL1 (DPL,NVT)
+! 
+!       DO 10 IEL=1,NEL
+! C
+!       VPIEL=REAL(DP(IEL))
+!       VAVOL=AVOL(IEL)
+! C
+!       IV1=KVERT(1,IEL)
+!       IV2=KVERT(2,IEL)
+!       IV3=KVERT(3,IEL)
+!       IV4=KVERT(4,IEL)
+!       IV5=KVERT(5,IEL)
+!       IV6=KVERT(6,IEL)
+!       IV7=KVERT(7,IEL)
+!       IV8=KVERT(8,IEL)
+! C
+!       DPL(IV1)=DPL(IV1)+0.125E0*VAVOL*VPIEL
+!       DPL(IV2)=DPL(IV2)+0.125E0*VAVOL*VPIEL
+!       DPL(IV3)=DPL(IV3)+0.125E0*VAVOL*VPIEL
+!       DPL(IV4)=DPL(IV4)+0.125E0*VAVOL*VPIEL
+!       DPL(IV5)=DPL(IV5)+0.125E0*VAVOL*VPIEL
+!       DPL(IV6)=DPL(IV6)+0.125E0*VAVOL*VPIEL
+!       DPL(IV7)=DPL(IV7)+0.125E0*VAVOL*VPIEL
+!       DPL(IV8)=DPL(IV8)+0.125E0*VAVOL*VPIEL
+! C
+!       VAUX(IV1)=VAUX(IV1)+0.125E0*VAVOL
+!       VAUX(IV2)=VAUX(IV2)+0.125E0*VAVOL
+!       VAUX(IV3)=VAUX(IV3)+0.125E0*VAVOL
+!       VAUX(IV4)=VAUX(IV4)+0.125E0*VAVOL
+!       VAUX(IV5)=VAUX(IV5)+0.125E0*VAVOL
+!       VAUX(IV6)=VAUX(IV6)+0.125E0*VAVOL
+!       VAUX(IV7)=VAUX(IV7)+0.125E0*VAVOL
+!       VAUX(IV8)=VAUX(IV8)+0.125E0*VAVOL
+! C
+! 10    CONTINUE
+! C
+! C
+!       DO 20 IVT=1,NVT
+! 20    DPL(IVT)=DPL(IVT)/VAUX(IVT)
+! C
+! C
+! C
+!       END
 C
 C
 C
@@ -528,96 +596,193 @@ C
 C
 C
 C
-************************************************************************
-      SUBROUTINE   SETARE  (AVOL,NEL,KVERT,DCORVG)
-************************************************************************
-*
-*   Purpose: - writes on  AVOL(IEL)  the VOLUME of the element IEL,
-*              IEL=1,...,NEL
-*            - writes on  AVOL(NEL+1) the sum of all  AVOL(IEL)
-*            - KVERT,DCORVG are the usual FEAT arrays
-*
-************************************************************************
-C=======================================================================
-C     Declarations
-C=======================================================================
-      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
-      REAL*4 AVOL
-C
-      PARAMETER (NNVE=8)
-      PARAMETER (A1=1D0/6D0)
-C
-      DIMENSION  AVOL(*),KVERT(NNVE,*),DCORVG(3,*)
-C=======================================================================
-      SUM=0.D0
-      DO  11  IEL=1,NEL
-C
-      I1=KVERT(1,IEL)
-      I2=KVERT(2,IEL)
-      I3=KVERT(3,IEL)
-      I4=KVERT(4,IEL)
-      I5=KVERT(5,IEL)
-      I6=KVERT(6,IEL)
-      I7=KVERT(7,IEL)
-      I8=KVERT(8,IEL)
-C
-      X1=DCORVG(1,I1)
-      X2=DCORVG(1,I2)
-      X3=DCORVG(1,I3)
-      X4=DCORVG(1,I4)
-      X5=DCORVG(1,I5)
-      X6=DCORVG(1,I6)
-      X7=DCORVG(1,I7)
-      X8=DCORVG(1,I8)
-C
-      Y1=DCORVG(2,I1)
-      Y2=DCORVG(2,I2)
-      Y3=DCORVG(2,I3)
-      Y4=DCORVG(2,I4)
-      Y5=DCORVG(2,I5)
-      Y6=DCORVG(2,I6)
-      Y7=DCORVG(2,I7)
-      Y8=DCORVG(2,I8)
-C
-      Z1=DCORVG(3,I1)
-      Z2=DCORVG(3,I2)
-      Z3=DCORVG(3,I3)
-      Z4=DCORVG(3,I4)
-      Z5=DCORVG(3,I5)
-      Z6=DCORVG(3,I6)
-      Z7=DCORVG(3,I7)
-      Z8=DCORVG(3,I8)
-C
-      AAA=A1*((DABS((X4-X1)*(Y4-Y3)*(Z4-Z8)+(Y4-Y1)*
-     *       (Z4-Z3)*(X4-X8)+(Z4-Z1)*(X4-X3)*(Y4-Y8)-
-     *       (X4-X8)*(Y4-Y3)*(Z4-Z1)-(Y4-Y8)*(Z4-Z3)*
-     *       (X4-X1)-(Z4-Z8)*(X4-X3)*(Y4-Y1)))+
-     *       (DABS((X2-X3)*(Y2-Y1)*(Z2-Z6)+(Y2-Y3)*
-     *       (Z2-Z1)*(X2-X6)+(Z2-Z3)*(X2-X1)*(Y2-Y6)-
-     *       (X2-X6)*(Y2-Y1)*(Z2-Z3)-(Y2-Y6)*(Z2-Z1)*
-     *       (X2-X3)-(Z2-Z6)*(X2-X1)*(Y2-Y3)))+
-     *       (DABS((X5-X8)*(Y5-Y6)*(Z5-Z1)+(Y5-Y8)*
-     *       (Z5-Z6)*(X5-X1)+(Z5-Z8)*(X5-X6)*(Y5-Y1)-
-     *       (X5-X1)*(Y5-Y6)*(Z5-Z8)-(Y5-Y1)*(Z5-Z6)*
-     *       (X5-X8)-(Z5-Z1)*(X5-X6)*(Y5-Y8)))+
-     *       (DABS((X7-X6)*(Y7-Y8)*(Z7-Z3)+(Y7-Y6)*
-     *       (Z7-Z8)*(X7-X3)+(Z7-Z6)*(X7-X8)*(Y7-Y3)-
-     *       (X7-X3)*(Y7-Y8)*(Z7-Z6)-(Y7-Y3)*(Z7-Z8)*
-     *       (X7-X6)-(Z7-Z3)*(X7-X8)*(Y7-Y6)))+
-     *       (DABS((X1-X3)*(Y1-Y8)*(Z1-Z6)+(Y1-Y3)*
-     *       (Z1-Z8)*(X1-X6)+(Z1-Z3)*(X1-X8)*(Y1-Y6)-
-     *       (X1-X6)*(Y1-Y8)*(Z1-Z3)-(Y1-Y6)*(Z1-Z8)*
-     *       (X1-X3)-(Z1-Z6)*(X1-X8)*(Y1-Y3))))
-      AVOL(IEL)=REAL(AAA)
-      SUM=SUM+AAA
-  11  CONTINUE
-C
-      AVOL(NEL+1)=REAL(SUM)
-C
-      END
-c
-c
-c
+! ************************************************************************
+!       SUBROUTINE   SETARE  (AVOL,NEL,KVERT,DCORVG)
+! ************************************************************************
+! *
+! *   Purpose: - writes on  AVOL(IEL)  the VOLUME of the element IEL,
+! *              IEL=1,...,NEL
+! *            - writes on  AVOL(NEL+1) the sum of all  AVOL(IEL)
+! *            - KVERT,DCORVG are the usual FEAT arrays
+! *
+! ************************************************************************
+! C=======================================================================
+! C     Declarations
+! C=======================================================================
+!       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+!       REAL*4 AVOL
+! C
+!       PARAMETER (NNVE=8)
+!       PARAMETER (A1=1D0/6D0)
+! C
+!       DIMENSION  AVOL(*),KVERT(NNVE,*),DCORVG(3,*)
+! C=======================================================================
+!       SUM=0.D0
+!       DO  11  IEL=1,NEL
+! C
+!       I1=KVERT(1,IEL)
+!       I2=KVERT(2,IEL)
+!       I3=KVERT(3,IEL)
+!       I4=KVERT(4,IEL)
+!       I5=KVERT(5,IEL)
+!       I6=KVERT(6,IEL)
+!       I7=KVERT(7,IEL)
+!       I8=KVERT(8,IEL)
+! C
+!       X1=DCORVG(1,I1)
+!       X2=DCORVG(1,I2)
+!       X3=DCORVG(1,I3)
+!       X4=DCORVG(1,I4)
+!       X5=DCORVG(1,I5)
+!       X6=DCORVG(1,I6)
+!       X7=DCORVG(1,I7)
+!       X8=DCORVG(1,I8)
+! C
+!       Y1=DCORVG(2,I1)
+!       Y2=DCORVG(2,I2)
+!       Y3=DCORVG(2,I3)
+!       Y4=DCORVG(2,I4)
+!       Y5=DCORVG(2,I5)
+!       Y6=DCORVG(2,I6)
+!       Y7=DCORVG(2,I7)
+!       Y8=DCORVG(2,I8)
+! C
+!       Z1=DCORVG(3,I1)
+!       Z2=DCORVG(3,I2)
+!       Z3=DCORVG(3,I3)
+!       Z4=DCORVG(3,I4)
+!       Z5=DCORVG(3,I5)
+!       Z6=DCORVG(3,I6)
+!       Z7=DCORVG(3,I7)
+!       Z8=DCORVG(3,I8)
+! C
+!       AAA=A1*((DABS((X4-X1)*(Y4-Y3)*(Z4-Z8)+(Y4-Y1)*
+!      *       (Z4-Z3)*(X4-X8)+(Z4-Z1)*(X4-X3)*(Y4-Y8)-
+!      *       (X4-X8)*(Y4-Y3)*(Z4-Z1)-(Y4-Y8)*(Z4-Z3)*
+!      *       (X4-X1)-(Z4-Z8)*(X4-X3)*(Y4-Y1)))+
+!      *       (DABS((X2-X3)*(Y2-Y1)*(Z2-Z6)+(Y2-Y3)*
+!      *       (Z2-Z1)*(X2-X6)+(Z2-Z3)*(X2-X1)*(Y2-Y6)-
+!      *       (X2-X6)*(Y2-Y1)*(Z2-Z3)-(Y2-Y6)*(Z2-Z1)*
+!      *       (X2-X3)-(Z2-Z6)*(X2-X1)*(Y2-Y3)))+
+!      *       (DABS((X5-X8)*(Y5-Y6)*(Z5-Z1)+(Y5-Y8)*
+!      *       (Z5-Z6)*(X5-X1)+(Z5-Z8)*(X5-X6)*(Y5-Y1)-
+!      *       (X5-X1)*(Y5-Y6)*(Z5-Z8)-(Y5-Y1)*(Z5-Z6)*
+!      *       (X5-X8)-(Z5-Z1)*(X5-X6)*(Y5-Y8)))+
+!      *       (DABS((X7-X6)*(Y7-Y8)*(Z7-Z3)+(Y7-Y6)*
+!      *       (Z7-Z8)*(X7-X3)+(Z7-Z6)*(X7-X8)*(Y7-Y3)-
+!      *       (X7-X3)*(Y7-Y8)*(Z7-Z6)-(Y7-Y3)*(Z7-Z8)*
+!      *       (X7-X6)-(Z7-Z3)*(X7-X8)*(Y7-Y6)))+
+!      *       (DABS((X1-X3)*(Y1-Y8)*(Z1-Z6)+(Y1-Y3)*
+!      *       (Z1-Z8)*(X1-X6)+(Z1-Z3)*(X1-X8)*(Y1-Y6)-
+!      *       (X1-X6)*(Y1-Y8)*(Z1-Z3)-(Y1-Y6)*(Z1-Z8)*
+!      *       (X1-X3)-(Z1-Z6)*(X1-X8)*(Y1-Y3))))
+!       AVOL(IEL)=REAL(AAA)
+!       SUM=SUM+AAA
+!   11  CONTINUE
+! C
+!       AVOL(NEL+1)=REAL(SUM)
+! C
+!       END
+! c
+! c
+! c
+! ************************************************************************
+!       SUBROUTINE   SETAREDBLE  (DVOL,NEL,KVERT,DCORVG)
+! ************************************************************************
+! *
+! *   Purpose: - writes on  AVOL(IEL)  the VOLUME of the element IEL,
+! *              IEL=1,...,NEL
+! *            - writes on  AVOL(NEL+1) the sum of all  AVOL(IEL)
+! *            - KVERT,DCORVG are the usual FEAT arrays
+! *
+! ************************************************************************
+! C=======================================================================
+! C     Declarations
+! C=======================================================================
+!       INTEGER NNVE
+!       REAL*8 A1
+!       PARAMETER (NNVE=8)
+!       PARAMETER (A1=1D0/6D0)
+! C      
+!       REAL*8 DVOL(*),DCORVG(3,*)
+!       INTEGER KVERT(NNVE,*)
+!       
+!       INTEGER I1,I2,I3,I4,I5,I6,I7,I8
+!       REAL*8  X1,X2,X3,X4,X5,X6,X7,X8
+!       REAL*8  Y1,Y2,Y3,Y4,Y5,Y6,Y7,Y8
+!       REAL*8  Z1,Z2,Z3,Z4,Z5,Z6,Z7,Z8
+!       REAL*8 SUM,AAA
+! C     
+! C=======================================================================
+!       SUM=0.D0
+!       DO  11  IEL=1,NEL
+! C
+!       I1=KVERT(1,IEL)
+!       I2=KVERT(2,IEL)
+!       I3=KVERT(3,IEL)
+!       I4=KVERT(4,IEL)
+!       I5=KVERT(5,IEL)
+!       I6=KVERT(6,IEL)
+!       I7=KVERT(7,IEL)
+!       I8=KVERT(8,IEL)
+! C
+!       X1=DCORVG(1,I1)
+!       X2=DCORVG(1,I2)
+!       X3=DCORVG(1,I3)
+!       X4=DCORVG(1,I4)
+!       X5=DCORVG(1,I5)
+!       X6=DCORVG(1,I6)
+!       X7=DCORVG(1,I7)
+!       X8=DCORVG(1,I8)
+! C
+!       Y1=DCORVG(2,I1)
+!       Y2=DCORVG(2,I2)
+!       Y3=DCORVG(2,I3)
+!       Y4=DCORVG(2,I4)
+!       Y5=DCORVG(2,I5)
+!       Y6=DCORVG(2,I6)
+!       Y7=DCORVG(2,I7)
+!       Y8=DCORVG(2,I8)
+! C
+!       Z1=DCORVG(3,I1)
+!       Z2=DCORVG(3,I2)
+!       Z3=DCORVG(3,I3)
+!       Z4=DCORVG(3,I4)
+!       Z5=DCORVG(3,I5)
+!       Z6=DCORVG(3,I6)
+!       Z7=DCORVG(3,I7)
+!       Z8=DCORVG(3,I8)
+! C
+!       AAA=A1*((DABS((X4-X1)*(Y4-Y3)*(Z4-Z8)+(Y4-Y1)*
+!      *       (Z4-Z3)*(X4-X8)+(Z4-Z1)*(X4-X3)*(Y4-Y8)-
+!      *       (X4-X8)*(Y4-Y3)*(Z4-Z1)-(Y4-Y8)*(Z4-Z3)*
+!      *       (X4-X1)-(Z4-Z8)*(X4-X3)*(Y4-Y1)))+
+!      *       (DABS((X2-X3)*(Y2-Y1)*(Z2-Z6)+(Y2-Y3)*
+!      *       (Z2-Z1)*(X2-X6)+(Z2-Z3)*(X2-X1)*(Y2-Y6)-
+!      *       (X2-X6)*(Y2-Y1)*(Z2-Z3)-(Y2-Y6)*(Z2-Z1)*
+!      *       (X2-X3)-(Z2-Z6)*(X2-X1)*(Y2-Y3)))+
+!      *       (DABS((X5-X8)*(Y5-Y6)*(Z5-Z1)+(Y5-Y8)*
+!      *       (Z5-Z6)*(X5-X1)+(Z5-Z8)*(X5-X6)*(Y5-Y1)-
+!      *       (X5-X1)*(Y5-Y6)*(Z5-Z8)-(Y5-Y1)*(Z5-Z6)*
+!      *       (X5-X8)-(Z5-Z1)*(X5-X6)*(Y5-Y8)))+
+!      *       (DABS((X7-X6)*(Y7-Y8)*(Z7-Z3)+(Y7-Y6)*
+!      *       (Z7-Z8)*(X7-X3)+(Z7-Z6)*(X7-X8)*(Y7-Y3)-
+!      *       (X7-X3)*(Y7-Y8)*(Z7-Z6)-(Y7-Y3)*(Z7-Z8)*
+!      *       (X7-X6)-(Z7-Z3)*(X7-X8)*(Y7-Y6)))+
+!      *       (DABS((X1-X3)*(Y1-Y8)*(Z1-Z6)+(Y1-Y3)*
+!      *       (Z1-Z8)*(X1-X6)+(Z1-Z3)*(X1-X8)*(Y1-Y6)-
+!      *       (X1-X6)*(Y1-Y8)*(Z1-Z3)-(Y1-Y6)*(Z1-Z8)*
+!      *       (X1-X3)-(Z1-Z6)*(X1-X8)*(Y1-Y3))))
+!       DVOL(IEL)=REAL(AAA)
+!       SUM=SUM+AAA
+!   11  CONTINUE
+! C
+!       DVOL(NEL+1)=SUM
+! C
+!       END
+! c
+! c
+! c
 ************************************************************************
       SUBROUTINE    TOL20A  (P,AVOL, NEL,INEUM)
 ************************************************************************

@@ -833,7 +833,7 @@ SUBROUTINE QuadScalar_Knpr()
 
   DO i=1,ndof
 
-  IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).GT.0) THEN
+  IF (myBoundary%bWall(i).OR.myBoundary%iInflow(i).NE.0) THEN
     QuadSc%knprU(ILEV)%x(i) = 1
     QuadSc%knprV(ILEV)%x(i) = 1
     QuadSc%knprW(ILEV)%x(i) = 1
@@ -1012,7 +1012,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
     IF (QuadSc%knprV(ilev)%x(i).EQ.1) QuadSc%valV(i)=0d0
     IF (QuadSc%knprW(ilev)%x(i).EQ.1) QuadSc%valW(i)=0d0
 
-    IF (myBoundary%iInflow(i).GT.0) THEN 
+    IF (myBoundary%iInflow(i).NE.0) THEN 
       inpr = 1
       iType = myBoundary%iInflow(i)
       CALL GetVeloBCVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),iType,timens)
@@ -1798,7 +1798,9 @@ SUBROUTINE Calculate_Torque(mfile)
 implicit none
 INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
-REAL*8 dHeat,Ml_i,Shear,Visco,dVol
+REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
+REAL*8 dIntPres1,dIntPres2,dPressureDifference
+
 
 integer :: ilevel
 
@@ -1846,7 +1848,20 @@ IF (myid.ne.0) then
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
                         dVolFlow2,mySigma%L)
+END IF
 
+IF (myid.ne.0) then
+ call IntegratePressure(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dIntPres1,dArea1,0.0d0)
+
+ call IntegratePressure(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dIntPres2,dArea2,mySigma%L)
 END IF
 
 dHeat = 0d0
@@ -1864,8 +1879,13 @@ END DO
 
 CALL COMM_SUMM(dVolFlow1)
 CALL COMM_SUMM(dVolFlow2)
+CALL COMM_SUMM(dArea1)
+CALL COMM_SUMM(dArea2)
+CALL COMM_SUMM(dIntPres1)
+CALL COMM_SUMM(dIntPres2)
 CALL COMM_SUMM(dHeat)
 CALL COMM_SUMM(dVol)
+dPressureDifference = ((dIntPres2/dArea2) - (dIntPres1/dArea1))*1e-6 !!! [Bar]
 
 myPI = dATAN(1d0)*4d0
 daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
@@ -1875,8 +1895,8 @@ IF (myid.eq.showID) THEN
   WRITE(MFILE,5)
   write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
   write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
-  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
-  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]:                      ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density
+  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]:  ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference
+  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]:  ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
   write(mfile,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
   write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
@@ -1925,6 +1945,42 @@ DO i=1,nel
 END DO
 
 END SUBROUTINE IntegrateFlowrate
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegratePressure(dcorvg,karea,kvert,nel,dIntPres,dArea,dPar)
+REAL*8 dcorvg(3,*),dIntPres
+INTEGER karea(6,*),kvert(8,*),nel
+REAL*8 dPar,dArea
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+
+dIntPres = 0d0
+dArea   = 0d0
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   IF (abs(dcorvg(3,ivt1)-dPar).lt.1d-4.and.abs(dcorvg(3,ivt2)-dPar).lt.1d-4.and. &
+       abs(dcorvg(3,ivt3)-dPar).lt.1d-4.and.abs(dcorvg(3,ivt4)-dPar).lt.1d-4) then
+       CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+       dIntPres = dIntPres + dA*(LinSc%ValP(NLMAX)%x(4*(i-1)+1))
+       dArea = dArea + dA
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+END SUBROUTINE IntegratePressure
 !
 ! ----------------------------------------------
 !

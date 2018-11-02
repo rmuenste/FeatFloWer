@@ -8,10 +8,12 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux
+    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal
+
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
@@ -499,7 +501,46 @@
     ELSE
      myProcess%Ta=myInf
     END IF
-   
+       
+    call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfInflows"      ,myProcess%nOfInflows,0)
+    ALLOCATE(myProcess%myInflow(myProcess%nOfInflows))
+    DO iInflow=1,myProcess%nOfInflows
+     if (iInflow.gt.0.and.iInflow.le.9) WRITE(cInflow_i,'(A,I1.1)') 'E3DProcessParameters/Inflow_',iInflow
+     if (iInflow.gt.9.and.iInflow.le.99) WRITE(cInflow_i,'(A,I2.2)') 'E3DProcessParameters/Inflow_',iInflow
+     if (iInflow.gt.99.and.iInflow.le.999) WRITE(cInflow_i,'(A,I3.3)') 'E3DProcessParameters/Inflow_',iInflow
+     call INIP_getvalue_string(parameterlist,cInflow_i,"Type",cBCtype,'unknown')
+     call inip_toupper_replace(cBCtype)
+     myProcess%myInflow(iInflow)%iBCtype = 0
+     IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA1") THEN
+      myProcess%myInflow(iInflow)%iBCtype = 1
+     END IF
+     IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA2") THEN
+      myProcess%myInflow(iInflow)%iBCtype = 2
+     END IF
+     if (myProcess%myInflow(iInflow)%iBCtype.eq.0) write(*,*) 'UNDEFINED Inflow type!!'
+     call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
+     if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
+     call INIP_getvalue_double(parameterlist,cInflow_i,"density",myProcess%myInflow(iInflow)%density,myInf)
+     if (myProcess%myInflow(iInflow)%density.eq.myInf) write(*,*) 'UNDEFINED density forInflow',iInflow,' !!'
+     call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
+     if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
+     call INIP_getvalue_double(parameterlist,cInflow_i,"outerradius",myProcess%myInflow(iInflow)%outerradius,myInf)
+     if (myProcess%myInflow(iInflow)%outerradius.eq.myInf) write(*,*) 'UNDEFINED outer radius for Inflow',iInflow,' !!'
+     call INIP_getvalue_string(parameterlist,cInflow_i,"center",cCenter,'unknown')
+     call INIP_getvalue_string(parameterlist,cInflow_i,"normal",cNormal,'unknown')
+     read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
+     if (iInflowErr.ne.0) write(*,*) 'WRONGLY DEFINED center for Inflow',iInflow,' !!'
+     read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
+     if (iInflowErr.ne.0) write(*,*) 'WRONGLY DEFINED normal for Inflow',iInflow,' !!'
+     GOTO 57     
+55   write(*,*) 'WRONGLY DEFINED center for Inflow',iInflow,' !!'
+     GOTO 57
+56   write(*,*) 'WRONGLY DEFINED normal for Inflow',iInflow,' !!'  
+     GOTO 57
+57   CONTINUE
+     
+    END DO
+    
     myRheology%Equation = 0
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcVisco", cRheology,'NoRheology')
     call inip_toupper_replace(cRheology)
@@ -517,8 +558,8 @@
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POWERLAW".OR.ADJUSTL(TRIM(cRheology)).eq."POTENZ".OR.ADJUSTL(TRIM(cRheology)).eq."POWER") THEN
       myRheology%Equation = 2
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Consistence", myRheology%K,myInf)
-      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Exponent",myRheology%n,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Consistence", myRheology%K,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Exponent",myRheology%n,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POLYFLOW") THEN
       myRheology%Equation = 3
@@ -817,6 +858,23 @@
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
     write(*,*) "myProcess%T0",'=',myProcess%T0
+
+    write(*,*) 
+    write(*,*) "myProcess%nOfInflows",'=',myProcess%nOfInflows
+    DO iInflow=1,myProcess%nOfInflows
+     if (iInflow.gt.0.and.iInflow.le.9) WRITE(cInflow_i,'(A,I1.1)') 'Inflow_',iInflow
+     if (iInflow.gt.9.and.iInflow.le.99) WRITE(cInflow_i,'(A,I2.2)') 'Inflow_',iInflow
+     if (iInflow.gt.99.and.iInflow.le.999) WRITE(cInflow_i,'(A,I3.3)') 'Inflow_',iInflow
+     
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Density','=',myProcess%myInflow(iInflow)%density
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%center
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_normal'//'=',myProcess%myInflow(iInflow)%normal
+    END DO
+
     write(*,*) 
     write(*,*) "myRheology%ViscoMin",'=',myRheology%ViscoMin
     write(*,*) "myRheology%ViscoMax",'=',myRheology%ViscoMax

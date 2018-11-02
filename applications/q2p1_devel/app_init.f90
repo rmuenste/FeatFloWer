@@ -19,11 +19,17 @@ subroutine init_q2p1_ext(log_unit)
       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 
   integer, intent(in) :: log_unit
+  logical            :: I_EXIST
 
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
   CALL General_init_ext(79,log_unit)
+
+  INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
+  if (I_EXIST) then
+   CALL ReadS3Dfile('_data/rheo.s3d')
+  end if
 
   CALL Init_QuadScalar_Stuctures(log_unit)
 

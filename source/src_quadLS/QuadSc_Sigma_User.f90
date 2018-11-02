@@ -41,6 +41,12 @@ END TYPE tSigma
 
 TYPE(tSigma) :: mySigma
 !------------------------------------------------------------
+TYPE tInflow
+ INTEGER iBCtype
+ REAL*8  massflowrate, density,outerradius,innerradius
+ REAL*8  center(3),normal(3)
+END TYPE tInflow
+
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0, Massestrom, Dreh, Angle, dPress,Phase
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
@@ -51,6 +57,8 @@ TYPE tProcess
    INTEGER :: ind,iInd
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AirTemperature,HeatTransferCoeff
+   integer   nOfInflows
+   TYPE (tInflow), allocatable :: myInflow(:)
 END TYPE tProcess
 
 TYPE(tProcess) :: myProcess

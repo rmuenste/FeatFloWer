@@ -26,10 +26,9 @@ PROGRAM Q2P1_DEVEL
   integer            :: ufile,ilog,iXX
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
-  logical            :: I_EXIST
 
-  !-------INIT PHASE-------
-
+  mySetup%bAutoamticTimeStepControl = .false.
+  
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
