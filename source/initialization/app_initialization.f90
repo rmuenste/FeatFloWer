@@ -64,21 +64,11 @@ subroutine init_q2p1_app(log_unit)
         mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
         mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
 
-        if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i)) > 1.0E-5) then
-          write(*,*)"myid: ", myid
-          write(*,*)"idx: ", i
-          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
-          write(*,*)"read: ",QuadSc%auxU(i)
-        end if
-
       end do
     end if
 
     ILEV = NLMIN
     CALL SETLEV(2)
-    write(*,*)"ilev: ",ilev
-    call myMPI_Barrier()
-    pause
 
     call ExchangeNodeValuesOnCoarseLevel(&
       mg_mesh%level(ilev)%dcorvg,&
@@ -136,10 +126,7 @@ subroutine init_q2p1_app(log_unit)
 
     call ProlongateSolution()
 
-      call Output_Profiles(0) 
-
-!    call myMPI_Barrier()
-!    pause
+    call Output_Profiles(0) 
 
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -154,6 +141,31 @@ subroutine init_q2p1_app(log_unit)
       mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
       mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
     end do
+
+    call ProlongateCoordinates(&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
+      
+    ILEV = NLMIN
+    CALL SETLEV(2)
+
+    call ExchangeNodeValuesOnCoarseLevel(&
+      mg_mesh%level(1)%dcorvg,&
+      mg_mesh%level(1)%kvert,&
+      mg_mesh%level(1)%nvt,&
+      mg_mesh%level(1)%nel)
+
+    call ProlongateSolution()
+
+    call Output_Profiles(0) 
+
   end if
 
 

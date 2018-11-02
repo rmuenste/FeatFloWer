@@ -125,12 +125,9 @@ subroutine init_q2p1_ext(log_unit)
       mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
 
 
-!    IF (myid.ne.0) THEN
-!       CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
-!    END IF
-
-
-
+    IF (myid.ne.0) THEN
+       CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
+    END IF
       
     ILEV = NLMIN
     CALL SETLEV(2)
