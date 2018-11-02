@@ -1911,12 +1911,23 @@ EXTERNAL E011
       CALL myUmfPack_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A_MAT,crsSTR%A,1)
       CoarseIter = 1
      END IF
-
+     
+!      WRITE(*,*) size(mg_mesh%level(mgLev)%dvol),SIZE(myCG%d1),SIZE(myCG%d2),mg_mesh%level(mgLev)%nel,mg_mesh%level(mgLev)%nvt
+     myCG%d1 = 0d0
+     myCG%d2 = 0d0
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
        mg_mesh%level(mgLev)%dvol,&
-       mg_mesh%level(mgLev)%kvert)
-
+       mg_mesh%level(mgLev)%kvert,&
+       mg_mesh%level(mgLev)%nel,&
+       mg_mesh%level(mgLev)%nvt)
+!      CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+!        mg_mesh%level(mgLev)%dvol,&
+!        mg_mesh%level(mgLev)%kvert)
+!       WRITE(*,*) myCG%d1(1:mg_mesh%level(mgLev)%nvt)
+!       pause
+! 
+!      pause
      CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
                     mg_mesh%level(mgLev)%kvert,&
                     mg_mesh%level(mgLev)%karea,&
@@ -2229,9 +2240,14 @@ EXTERNAL E011
      END IF
 
      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-     CALL INTPVBDBLE(crsSTR%A_SOL,myCG%d1,myCG%d2,&
-       mg_mesh%level(mgLev)%dvol,&
-       mg_mesh%level(mgLev)%kvert)
+!      CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+!        mg_mesh%level(mgLev)%dvol,&
+!        mg_mesh%level(mgLev)%kvert)
+     CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,&
+     mg_mesh%level(mgLev)%dvol,&
+     mg_mesh%level(mgLev)%kvert,&
+     mg_mesh%level(mgLev)%nel,&
+     mg_mesh%level(mgLev)%nvt)
      
      CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
                     mg_mesh%level(mgLev)%kvert,&
@@ -2311,5 +2327,63 @@ END SUBROUTINE crs_oneStep
 !
 ! ----------------------------------------------
 !
+SUBROUTINE INTPVB(DP,DPL,DAUX,DVOL,KVERT,nel,nvt)
+!***********************************************************************
+!    Purpose:  - Interpolates the solution pressure DP to
+!                the vector VPL of dimension NVT with
+!                values in the vertices
+!-----------------------------------------------------------------------
+IMPLICIT NONE
+
+INTEGER NNVE,NEL,NVT
+PARAMETER (NNVE=8)
+REAL*8 DDAVOL,DPIEL,DVOL(*)
+INTEGER KVERT(NNVE,*)
+REAL*8 DP(*),DPL(*),DAUX(*)
+integer iv1,iv2,iv3,iv4,iv5,iv6,iv7,iv8,iel,ivt
+!-----------------------------------------------------------------------
+
+CALL  LCL1 (DAUX,NVT)
+CALL  LCL1 (DPL,NVT)
+
+DO IEL=1,NEL
+
+ DPIEL=DP(IEL)
+ DDAVOL=DVOL(IEL)
+
+ IV1=KVERT(1,IEL)
+ IV2=KVERT(2,IEL)
+ IV3=KVERT(3,IEL)
+ IV4=KVERT(4,IEL)
+ IV5=KVERT(5,IEL)
+ IV6=KVERT(6,IEL)
+ IV7=KVERT(7,IEL)
+ IV8=KVERT(8,IEL)
+
+ DPL(IV1)=DPL(IV1)+0.125d0*DDAVOL*DPIEL
+ DPL(IV2)=DPL(IV2)+0.125d0*DDAVOL*DPIEL
+ DPL(IV3)=DPL(IV3)+0.125d0*DDAVOL*DPIEL
+ DPL(IV4)=DPL(IV4)+0.125d0*DDAVOL*DPIEL
+ DPL(IV5)=DPL(IV5)+0.125d0*DDAVOL*DPIEL
+ DPL(IV6)=DPL(IV6)+0.125d0*DDAVOL*DPIEL
+ DPL(IV7)=DPL(IV7)+0.125d0*DDAVOL*DPIEL
+ DPL(IV8)=DPL(IV8)+0.125d0*DDAVOL*DPIEL
+
+ DAUX(IV1)=DAUX(IV1)+0.125d0*DDAVOL
+ DAUX(IV2)=DAUX(IV2)+0.125d0*DDAVOL
+ DAUX(IV3)=DAUX(IV3)+0.125d0*DDAVOL
+ DAUX(IV4)=DAUX(IV4)+0.125d0*DDAVOL
+ DAUX(IV5)=DAUX(IV5)+0.125d0*DDAVOL
+ DAUX(IV6)=DAUX(IV6)+0.125d0*DDAVOL
+ DAUX(IV7)=DAUX(IV7)+0.125d0*DDAVOL
+ DAUX(IV8)=DAUX(IV8)+0.125d0*DDAVOL
+
+END DO
+
+DO IVT=1,NVT
+ DPL(IVT)=DPL(IVT)/DAUX(IVT)
+END DO
+
+END SUBROUTINE INTPVB
 
 END MODULE mg_QuadScalar

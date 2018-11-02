@@ -8,6 +8,7 @@ module umbrella_smoother
   use var_QuadScalar, only : tMultiMesh, tQuadScalar
   use geometry_processing, ONLY : calcDistanceFunction_sse, calcDistanceFunction_heat, &
                                   QuadScalar_MixerKnpr,dEpsDist
+  use Mesh_Structures, ONLY : SETARE
 
   ! No implicit variables in this module
   implicit none
@@ -168,7 +169,7 @@ module umbrella_smoother
   real*8 DIST,dIII
   real*8 :: dCrit1,dCrit2 
   real*8 dFactor,dKernel,dPower
-  REAL*4, ALLOCATABLE :: myVol(:)
+  REAL*8, ALLOCATABLE :: myVol(:)
   real*8, ALLOCATABLE :: DXXX(:)
   
   DO k=nvt+1,nvt+net

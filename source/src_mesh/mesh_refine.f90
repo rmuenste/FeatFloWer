@@ -1858,5 +1858,103 @@ do ive = 1, mesh%NVT
 end do
 
 end subroutine testElementsAtVertex
+!================================================================================================
+!                                  Sub: release_mesh 
+!================================================================================================
+subroutine SETARE(DVOL,NEL,KVERT,DCORVG)
+!***********************************************************************
+!
+!   Purpose: - writes on  AVOL(IEL)  the VOLUME of the element IEL,
+!              IEL=1,...,NEL
+!            - writes on  AVOL(NEL+1) the sum of all  AVOL(IEL)
+!            - KVERT,DCORVG are the usual FEAT arrays
+!
+!***********************************************************************
+!=======================================================================
+!     Declarations
+!=======================================================================
+INTEGER NNVE
+REAL*8 A1
+PARAMETER (NNVE=8)
+PARAMETER (A1=1D0/6D0)
+!      
+REAL*8 DVOL(*),DCORVG(3,*)
+INTEGER KVERT(NNVE,*)
+
+INTEGER I1,I2,I3,I4,I5,I6,I7,I8
+REAL*8  X1,X2,X3,X4,X5,X6,X7,X8
+REAL*8  Y1,Y2,Y3,Y4,Y5,Y6,Y7,Y8
+REAL*8  Z1,Z2,Z3,Z4,Z5,Z6,Z7,Z8
+REAL*8 SUM,AAA
+!     
+!=======================================================================
+
+SUM=0.D0
+
+DO IEL=1,NEL
+ 
+ I1=KVERT(1,IEL)
+ I2=KVERT(2,IEL)
+ I3=KVERT(3,IEL)
+ I4=KVERT(4,IEL)
+ I5=KVERT(5,IEL)
+ I6=KVERT(6,IEL)
+ I7=KVERT(7,IEL)
+ I8=KVERT(8,IEL)
+ 
+ X1=DCORVG(1,I1)
+ X2=DCORVG(1,I2)
+ X3=DCORVG(1,I3)
+ X4=DCORVG(1,I4)
+ X5=DCORVG(1,I5)
+ X6=DCORVG(1,I6)
+ X7=DCORVG(1,I7)
+ X8=DCORVG(1,I8)
+ 
+ Y1=DCORVG(2,I1)
+ Y2=DCORVG(2,I2)
+ Y3=DCORVG(2,I3)
+ Y4=DCORVG(2,I4)
+ Y5=DCORVG(2,I5)
+ Y6=DCORVG(2,I6)
+ Y7=DCORVG(2,I7)
+ Y8=DCORVG(2,I8)
+ 
+ Z1=DCORVG(3,I1)
+ Z2=DCORVG(3,I2)
+ Z3=DCORVG(3,I3)
+ Z4=DCORVG(3,I4)
+ Z5=DCORVG(3,I5)
+ Z6=DCORVG(3,I6)
+ Z7=DCORVG(3,I7)
+ Z8=DCORVG(3,I8)
+ 
+ AAA=A1*((DABS((X4-X1)*(Y4-Y3)*(Z4-Z8)+(Y4-Y1)*  &
+        (Z4-Z3)*(X4-X8)+(Z4-Z1)*(X4-X3)*(Y4-Y8)- &
+        (X4-X8)*(Y4-Y3)*(Z4-Z1)-(Y4-Y8)*(Z4-Z3)* &
+        (X4-X1)-(Z4-Z8)*(X4-X3)*(Y4-Y1)))+       &
+        (DABS((X2-X3)*(Y2-Y1)*(Z2-Z6)+(Y2-Y3)*   &
+        (Z2-Z1)*(X2-X6)+(Z2-Z3)*(X2-X1)*(Y2-Y6)- &
+        (X2-X6)*(Y2-Y1)*(Z2-Z3)-(Y2-Y6)*(Z2-Z1)* &
+        (X2-X3)-(Z2-Z6)*(X2-X1)*(Y2-Y3)))+       &
+        (DABS((X5-X8)*(Y5-Y6)*(Z5-Z1)+(Y5-Y8)*   &
+        (Z5-Z6)*(X5-X1)+(Z5-Z8)*(X5-X6)*(Y5-Y1)- &
+        (X5-X1)*(Y5-Y6)*(Z5-Z8)-(Y5-Y1)*(Z5-Z6)* &
+        (X5-X8)-(Z5-Z1)*(X5-X6)*(Y5-Y8)))+       &
+        (DABS((X7-X6)*(Y7-Y8)*(Z7-Z3)+(Y7-Y6)*   &
+        (Z7-Z8)*(X7-X3)+(Z7-Z6)*(X7-X8)*(Y7-Y3)- &
+        (X7-X3)*(Y7-Y8)*(Z7-Z6)-(Y7-Y3)*(Z7-Z8)* &
+        (X7-X6)-(Z7-Z3)*(X7-X8)*(Y7-Y6)))+       &
+        (DABS((X1-X3)*(Y1-Y8)*(Z1-Z6)+(Y1-Y3)*   &
+        (Z1-Z8)*(X1-X6)+(Z1-Z3)*(X1-X8)*(Y1-Y6)- &
+        (X1-X6)*(Y1-Y8)*(Z1-Z3)-(Y1-Y6)*(Z1-Z8)* &
+        (X1-X3)-(Z1-Z6)*(X1-X8)*(Y1-Y3))))
+ DVOL(IEL)=REAL(AAA)
+ SUM=SUM+AAA
+END DO
+
+DVOL(NEL+1)=SUM
+
+End subroutine SETARE
 
 end Module

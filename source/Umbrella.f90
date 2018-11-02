@@ -357,6 +357,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       USE Parametrization, ONLY: ParametrizeBndr
       USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
       USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
        
       IMPLICIT NONE
 
@@ -371,7 +372,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,dScale1,dScale2
       REAL*8 :: dOmega = 0.25d0
       REAL*8 DIST,dIII,www,mydist,ipc
-      REAL*4, ALLOCATABLE :: myVol(:)
+      REAL*8, ALLOCATABLE :: myVol(:)
 
       ipc=0
 
@@ -558,6 +559,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       USE Parametrization, ONLY: ParametrizeBndr
       USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
       USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
        
       IMPLICIT NONE
 
@@ -572,7 +574,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,dScale1,dScale2
       REAL*8 :: dOmega = 0.25d0
       REAL*8 DIST,dIII,www,mydist,ipc
-      REAL*4, ALLOCATABLE :: myVol(:)
+      REAL*8, ALLOCATABLE :: myVol(:)
 
       ipc=0
 
@@ -676,6 +678,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
       USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
       USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
        
       IMPLICIT NONE
 
@@ -690,7 +693,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,dScale1,dScale2
       REAL*8 :: dOmega = 0.25d0
       REAL*8 DIST,dIII,www,mydist,ipc
-      REAL*4, ALLOCATABLE :: myVol(:)
+      REAL*8, ALLOCATABLE :: myVol(:)
 
       ipc=0
 
@@ -1115,6 +1118,7 @@ END SUBROUTINE ProlongateCoordinates
       USE Parametrization, ONLY: ParametrizeBndr
       USE Transport_Q2P1, ONLY : myBoundary
       USE var_QuadScalar, ONLY : tMultiMesh 
+      use Mesh_Structures, ONLY : SETARE
       IMPLICIT NONE
 
       LOGICAL bInit
@@ -1129,7 +1133,7 @@ END SUBROUTINE ProlongateCoordinates
       REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,PXX,PYY,PZZ,dScale1,dScale2
       REAL*8 :: dOmega = 0.166667d0
       REAL*8 DIST,dFactor,dF1
-      REAL*4, ALLOCATABLE :: myVol(:)
+      REAL*8, ALLOCATABLE :: myVol(:)
 
       DO k=nvt+1,nvt+net
       v(k) = 1d0
