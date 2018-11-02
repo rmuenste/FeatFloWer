@@ -362,8 +362,10 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       IMPLICIT NONE
 
       REAL*8 myTime
-      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
       INTEGER NeighE(2,12)
@@ -564,8 +566,10 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       IMPLICIT NONE
 
       REAL*8 myTime
-      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
       INTEGER NeighE(2,12)
@@ -683,8 +687,12 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       IMPLICIT NONE
 
       REAL*8 myTime
-      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
       INTEGER NeighE(2,12)
@@ -1123,8 +1131,12 @@ END SUBROUTINE ProlongateCoordinates
 
       LOGICAL bInit
       REAL*8 myTime
-      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-      INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
       INTEGER NeighE(2,12),iel

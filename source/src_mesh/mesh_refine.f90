@@ -1862,6 +1862,7 @@ end subroutine testElementsAtVertex
 !                                  Sub: release_mesh 
 !================================================================================================
 subroutine SETARE(DVOL,NEL,KVERT,DCORVG)
+implicit none
 !***********************************************************************
 !
 !   Purpose: - writes on  AVOL(IEL)  the VOLUME of the element IEL,
@@ -1873,23 +1874,23 @@ subroutine SETARE(DVOL,NEL,KVERT,DCORVG)
 !=======================================================================
 !     Declarations
 !=======================================================================
-INTEGER NNVE
-REAL*8 A1
-PARAMETER (NNVE=8)
-PARAMETER (A1=1D0/6D0)
+integer, parameter :: nnve=8
+real*8,parameter :: a1=1d0/6d0
 !      
-REAL*8 DVOL(*),DCORVG(3,*)
-INTEGER KVERT(NNVE,*)
+integer, intent(in) :: nel
+real*8, intent(inout), dimension(:) :: dvol
+real*8, intent(in), dimension(:,:) :: dcorvg
+integer, intent(in), dimension(:,:) :: kvert
 
-INTEGER I1,I2,I3,I4,I5,I6,I7,I8
-REAL*8  X1,X2,X3,X4,X5,X6,X7,X8
-REAL*8  Y1,Y2,Y3,Y4,Y5,Y6,Y7,Y8
-REAL*8  Z1,Z2,Z3,Z4,Z5,Z6,Z7,Z8
-REAL*8 SUM,AAA
-!     
+! locals    
 !=======================================================================
+real*8 :: sum,aaa
+integer :: i1,i2,i3,i4,i5,i6,i7,i8,iel
+real*8  :: x1,x2,x3,x4,x5,x6,x7,x8
+real*8  :: y1,y2,y3,y4,y5,y6,y7,y8
+real*8  :: z1,z2,z3,z4,z5,z6,z7,z8
 
-SUM=0.D0
+sum = 0.0
 
 DO IEL=1,NEL
  

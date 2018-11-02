@@ -404,10 +404,6 @@ DO ILEV=NLMIN+1,NLMAX
 !                 mg_mesh%level(ILEV)%kvert,&
 !                 mg_mesh%level(ILEV)%dcorvg)
 
-   DO iel = 1,NEL+1
-!     mg_mesh%level(ILEV)%dvol(iel) = DBLE(mg_mesh%level(ILEV)%dvol(iel))
-    write(*,*) mg_mesh%level(ILEV)%dvol(iel)
-   END DO
 
 !    pause
  END IF
