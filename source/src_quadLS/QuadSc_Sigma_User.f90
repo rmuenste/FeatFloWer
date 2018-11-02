@@ -88,7 +88,7 @@ TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
 
 TYPE tSetup
- LOGICAL :: bAutoamticTimeStepControl = .TRUE.
+ LOGICAL :: bAutomaticTimeStepControl = .TRUE.
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher

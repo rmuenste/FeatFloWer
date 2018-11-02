@@ -638,11 +638,15 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     
     cKTP=' '
-    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutoamticTimeStepControl",cKTP,"NO")
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutomaticTimeStepControl",cKTP,"NO")
     call inip_toupper_replace(cKTP)
     IF (ADJUSTL(TRIM(cKTP)).eq."NO") THEN
-     mySetup%bAutoamticTimeStepControl = .FALSE.
+     mySetup%bAutomaticTimeStepControl = .FALSE.
     END IF
+    IF (ADJUSTL(TRIM(cKTP)).eq."YES") THEN
+     mySetup%bAutomaticTimeStepControl = .TRUE.
+    END IF
+    
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d1)
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
@@ -936,7 +940,7 @@
     write(*,*) "myOutput%HistogramViscoMin = ",myOutput%HistogramViscoMin    
     write(*,*) 
 
-    write(*,*) "mySetup%AutoamticTimeStepControl = ",mySetup%bAutoamticTimeStepControl
+    write(*,*) "mySetup%AutomaticTimeStepControl = ",mySetup%bAutomaticTimeStepControl
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
     write(*,*) "TimeStepEnlargmentFactor = ",dTimeStepEnlargmentFactor   

@@ -195,7 +195,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
   END IF
-  IF (mySetup%bAutoamticTimeStepControl) THEN
+  IF (mySetup%bAutomaticTimeStepControl) THEN
     ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
    dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
    dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)

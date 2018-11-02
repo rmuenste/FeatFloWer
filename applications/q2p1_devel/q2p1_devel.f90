@@ -27,18 +27,12 @@ PROGRAM Q2P1_DEVEL
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
-  mySetup%bAutoamticTimeStepControl = .false.
+  mySetup%bAutomaticTimeStepControl = .false.
   
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
-
-  mySetup%bAutoamticTimeStepControl = .false.
-  INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
-  if (I_EXIST) then
-   CALL ReadS3Dfile('_data/rheo.s3d')
-  end if
 
 !=====================================================================================
 !=====================================================================================
@@ -48,7 +42,7 @@ PROGRAM Q2P1_DEVEL
    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
    WRITE(MTERM,'(A)') " - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - "
   END IF
-  IF (mySetup%bAutoamticTimeStepControl) THEN
+  IF (mySetup%bAutomaticTimeStepControl) THEN
     ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
    dCharSize      = 0.5d0*myProcess%MaxInflowDiameter
    dCharShear     = 3d0
