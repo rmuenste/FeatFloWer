@@ -40,6 +40,30 @@ SUBROUTINE InitUmbrellaSmoother(myTime,mgMesh,nSteps)
   USE var_QuadScalar
   USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
   USE PP3D_MPI, ONLY: myid,coarse
+
+  interface
+    SUBROUTINE EdgeRunner2(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime,bInit)
+      USE Parametrization, ONLY: ParametrizeBndr
+      USE Transport_Q2P1, ONLY : myBoundary
+      USE var_QuadScalar, ONLY : tMultiMesh 
+      use Mesh_Structures, ONLY : SETARE
+      IMPLICIT NONE
+
+      LOGICAL bInit
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+
+      integer :: ilevel, iProjStep
+      type(tMultiMesh) :: mgMesh
+    end SUBROUTINE EdgeRunner2
+  end interface
+
+
   REAL*8 myTime
   type(tMultiMesh) :: mgMesh
   INTEGEr nSteps,nUsedSteps
@@ -99,6 +123,29 @@ USE var_QuadScalar
 USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 IMPLICIT NONE
+
+interface
+    SUBROUTINE EdgeRunner_std(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
+      USE Parametrization, ONLY: ParametrizeBndr
+      USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
+       
+      IMPLICIT NONE
+
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
+    end SUBROUTINE EdgeRunner_std
+end interface
+
+
+
 REAL*8 myTime
 INTEGEr nSteps,nUsedSteps
 CHARACTER*60 :: cFile
@@ -173,6 +220,29 @@ USE var_QuadScalar
 USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 IMPLICIT NONE
+
+interface
+    SUBROUTINE EdgeRunner_STRCT(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
+      USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
+      USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
+       
+      IMPLICIT NONE
+
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
+  end SUBROUTINE EdgeRunner_STRCT
+end interface
+
 REAL*8 myTime
 INTEGEr nSteps,nUsedSteps
 CHARACTER*60 :: cFile
@@ -227,6 +297,27 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
   USE var_QuadScalar
   USE Transport_Q2P1, ONLY : QuadSc,LinSc
   USE PP3D_MPI, ONLY: myid,coarse
+
+  interface
+    SUBROUTINE EdgeRunner(f,x,y,z,w,v,mgMesh,ilevel,&
+        dcorvg,kvert,kedge,nel,nvt,net,nProjStep,myTime)
+      USE Parametrization, ONLY: ParametrizeBndr
+      USE var_QuadScalar, ONLY : myALE,distamce,distance,tMultiMesh
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+      use Mesh_Structures, ONLY : SETARE
+       
+      IMPLICIT NONE
+
+      REAL*8 myTime
+      REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+      REAL*8, intent(inout), dimension(:,:) :: dcorvg
+      integer, intent(in), dimension(:,:) :: kvert
+      INTEGER kedge(12,*),nel,nvt,net,nProjStep
+      integer :: ilevel
+      type(tMultiMesh) :: mgMesh
+    end SUBROUTINE EdgeRunner
+  end interface
+  
   REAL*8 myTime
   INTEGEr nSteps,nUsedSteps
   CHARACTER*60 :: cFile
@@ -258,6 +349,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
   nUsedSteps = max(1,nSteps/(4**(ILEV-(NLMIN+1))))
 
   CALL EdgeRunner(a1,a2,a3,a4,a5,a6,&
+    mg_mesh, ilev,&
     mg_mesh%level(ilev)%dcorvg,&
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
@@ -368,6 +460,9 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       INTEGER kedge(12,*),nel,nvt,net,nProjStep
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
+
+
+
       INTEGER NeighE(2,12)
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
       INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
@@ -572,6 +667,8 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
       integer, intent(in), dimension(:,:) :: kvert
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
+
+
       INTEGER NeighE(2,12)
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
       INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
@@ -695,6 +792,8 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 
       integer :: ilevel
       type(tMultiMesh) :: mgMesh
+
+
       INTEGER NeighE(2,12)
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
       INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
@@ -1137,11 +1236,12 @@ END SUBROUTINE ProlongateCoordinates
       REAL*8, intent(inout), dimension(:,:) :: dcorvg
       integer, intent(in), dimension(:,:) :: kvert
 
-      integer :: ilevel
+      integer :: ilevel, iProjStep
       type(tMultiMesh) :: mgMesh
+
       INTEGER NeighE(2,12),iel
       DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-      INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux
+      INTEGER i,j,k,ivt1,ivt2,iaux
       REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ,PXX,PYY,PZZ,dScale1,dScale2
       REAL*8 :: dOmega = 0.166667d0
       REAL*8 DIST,dFactor,dF1
