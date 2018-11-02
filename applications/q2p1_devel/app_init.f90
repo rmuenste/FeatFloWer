@@ -376,7 +376,6 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
  IF (myid.EQ.0) THEN
@@ -432,7 +431,7 @@ END IF
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -446,7 +445,7 @@ END IF
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
