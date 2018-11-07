@@ -131,15 +131,14 @@ call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !FileA='time.dmp'
 call read_time_sol_single(cInFile, istep_ns, timens)
 
-!fieldName = "coordinates"
-!
-!packed(1)%p => QuadSc%auxU
-!packed(2)%p => QuadSc%auxV
-!packed(3)%p => QuadSc%auxW
-!
-!call read_q2_sol_single(fieldName, cInFile,0,ndof,NLMIN,NLMAX,&
-!                        coarse%myELEMLINK,myDump%Vertices,&
-!                        3, packed)
+fieldName = "coordinates"
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                 3, packed)
 
 END SUBROUTINE SolFromFileRepart
 !

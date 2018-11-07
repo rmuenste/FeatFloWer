@@ -1,6 +1,9 @@
 module app_initialization
 
 use var_QuadScalar,only:knvt,knet,knat,knel
+USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE Transport_Q2P1, ONLY: QuadSc,ProlongateSolution,OperatorRegenaration 
 !-------------------------------------------------------------------------------------------------
 ! A module for saving the solution values to 
 ! a file. This output(dump) is mainly done
@@ -20,15 +23,13 @@ subroutine init_q2p1_app(log_unit)
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
-    InitCond_QuadScalar,ProlongateSolution, &
+    InitCond_QuadScalar, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond, QuadSc
+    LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
-  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
 
@@ -54,117 +55,20 @@ subroutine init_q2p1_app(log_unit)
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
 
-    if (myid .ne. 0) then
-      do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
-
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
-
-      end do
-    end if
-
-    ILEV = NLMIN
-    CALL SETLEV(2)
-
-    call ExchangeNodeValuesOnCoarseLevel(&
-      mg_mesh%level(ilev)%dcorvg,&
-      mg_mesh%level(ilev)%kvert,&
-      mg_mesh%level(ilev)%nvt,&
-      mg_mesh%level(ilev)%nel)
+  call init_sol_same_level()
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
-    ! In order to read in from a lower level
-    ! the lower level structures are needed
 
-
-    if (myid.ne.0) call CreateDumpStructures(0)
-
-    call SolFromFile(CSTART,0)
-
-    if (myid .ne. 0) then
-      do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
-
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
-
-        if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i)) > 1.0E-5) then
-          write(*,*)"myid: ", myid
-          write(*,*)"idx: ", i
-          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
-          write(*,*)"read: ",QuadSc%auxU(i)
-        end if
-
-      end do
-    end if
-
-    call ProlongateCoordinates(&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
-      
-    ILEV = NLMIN
-    CALL SETLEV(2)
-
-    call ExchangeNodeValuesOnCoarseLevel(&
-      mg_mesh%level(1)%dcorvg,&
-      mg_mesh%level(1)%kvert,&
-      mg_mesh%level(1)%nvt,&
-      mg_mesh%level(1)%nel)
-
-    call ProlongateSolution()
-
-    call Output_Profiles(0) 
-
-    ! Now generate the structures for the actual level 
-    if (myid.ne.0) call CreateDumpStructures(1)
+    call init_sol_lower_level(CSTART)
 
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
-    do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
-    end do
 
-    call ProlongateCoordinates(&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
-      
-    ILEV = NLMIN
-    CALL SETLEV(2)
-
-    call ExchangeNodeValuesOnCoarseLevel(&
-      mg_mesh%level(1)%dcorvg,&
-      mg_mesh%level(1)%kvert,&
-      mg_mesh%level(1)%nvt,&
-      mg_mesh%level(1)%nel)
-
-    call ProlongateSolution()
-
-    call Output_Profiles(0) 
+    call init_sol_repart(CSTART)
 
   end if
 
@@ -184,13 +88,11 @@ subroutine init_q2p1_particle_tracer(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond, Init_QuadScalar, QuadSc 
+    LinScalar_InitCond, Init_QuadScalar 
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
-  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
 
@@ -223,5 +125,146 @@ subroutine init_q2p1_particle_tracer(log_unit)
   end do
 
 end subroutine init_q2p1_particle_tracer
+!========================================================================================
+!                             Sub: init_sol_same_level
+!========================================================================================
+subroutine init_sol_same_level()
+implicit none
+
+! Locals
+integer :: i, ilev
+
+
+if (myid .ne. 0) then
+  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+
+  end do
+end if
+
+ilev = mg_Mesh%nlmin
+
+call ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%kvert,&
+  mg_mesh%level(ilev)%nvt,&
+  mg_mesh%level(ilev)%nel)
+
+call OperatorRegenaration(1)
+call OperatorRegenaration(2)
+call OperatorRegenaration(3)
+
+end subroutine init_sol_same_level
+!========================================================================================
+!                             Sub: init_sol_lower_level
+!========================================================================================
+subroutine init_sol_lower_level(start_file)
+implicit none
+
+character(len=*), intent(in) :: start_file
+
+! Locals
+integer :: i
+
+! In order to read in from a lower level
+! the lower level structures are needed
+if (myid.ne.0) call CreateDumpStructures(0)
+
+call SolFromFile(start_file,0)
+
+
+if (myid .ne. 0) then
+  do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+
+    mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+    mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+    mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+
+    if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i)) > 1.0E-5) then
+      write(*,*)"myid: ", myid
+      write(*,*)"idx: ", i
+      write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
+      write(*,*)"read: ",QuadSc%auxU(i)
+    end if
+
+  end do
+end if
+
+call ProlongateCoordinates(&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
+  mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
+
+call ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(1)%dcorvg,&
+  mg_mesh%level(1)%kvert,&
+  mg_mesh%level(1)%nvt,&
+  mg_mesh%level(1)%nel)
+
+call ProlongateSolution()
+
+call OperatorRegenaration(1)
+call OperatorRegenaration(2)
+call OperatorRegenaration(3)
+
+! Now generate the structures for the actual level 
+if (myid.ne.0) call CreateDumpStructures(1)
+
+
+end subroutine init_sol_lower_level
+!========================================================================================
+!                             Sub: init_sol_repart
+!========================================================================================
+subroutine init_sol_repart(start_file)
+implicit none
+
+character(len=*), intent(in) :: start_file
+
+! Locals
+integer :: i
+
+IF (myid.ne.0) CALL CreateDumpStructures(1)
+
+call SolFromFileRepart(start_file,1)
+
+do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+  mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+  mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+  mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+end do
+
+call ProlongateCoordinates(&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
+  mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
+  mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
+
+call ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(1)%dcorvg,&
+  mg_mesh%level(1)%kvert,&
+  mg_mesh%level(1)%nvt,&
+  mg_mesh%level(1)%nel)
+
+call ProlongateSolution()
+
+call OperatorRegenaration(1)
+call OperatorRegenaration(2)
+call OperatorRegenaration(3)
+
+end subroutine init_sol_repart
 
 end module app_initialization
