@@ -36,6 +36,7 @@ ${src_cinterface}
 ${postprocessing}
 meshproc_main.f90
 meshproc_def.f90
+meshproc_PDE.f90
 )
 
 # Add the application executable

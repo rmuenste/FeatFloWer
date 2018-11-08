@@ -164,6 +164,7 @@ set(Elements
 set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
   )
 
 set(src_fbm

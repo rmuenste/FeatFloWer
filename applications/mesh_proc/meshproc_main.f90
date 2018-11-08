@@ -1,9 +1,12 @@
 PROGRAM AutoParam
 USE MeshProcDef
+USE MeshProcPDE
 USE MESH_Structures
 
 !USE Parametrization, ONLY : InitParametrization
 IMPLICIT NONE
+LOGICAL :: bA_MD=.false.
+LOGICAL :: bPDE_MD=.true.
 
 MASTER = 0
 bParallel = .false.
@@ -42,18 +45,27 @@ myid = 1
 ilev = mg_Mesh%nlmax
 CALL DeterminePointParametrization_STRCT(mg_mesh,ilev)
  
-!!! performing parametrization
-ilev = mg_Mesh%maxlevel
-CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
+IF (bA_MD) then
+ !!! performing parametrization
+ ilev = mg_Mesh%maxlevel
+ CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
 
+ !!! smoothening of the mesh  + parametrization
+ CALL SeqUmbrella(mg_Mesh%maxlevel,nUmbrellaSteps)
+END IF
 
-!!! smoothening of the mesh  + parametrization
-CALL SeqUmbrella(mg_Mesh%maxlevel,nUmbrellaSteps)
+IF (bPDE_MD) then
+
+ ilev = mg_Mesh%maxlevel
+ CALL BuildUpMatrixStruct()
+
+END IF
 
 ilev = lTriOutputLevel
 CALL Output_Mesh(1,cOutputFolder)
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()
+
 
 END PROGRAM AutoParam

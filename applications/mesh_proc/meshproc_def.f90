@@ -218,13 +218,11 @@ SUBROUTINE SeqEdgeRunner(f,x,y,z,w,v,mgMesh,ilevel,&
  
 IMPLICIT NONE
 
-REAL*8, intent(inout), dimension(:,:) :: dcorvg
-integer, intent(in), dimension(:,:) :: kvert
-
 REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
-INTEGER kedge(12,*),nel,nvt,net,nProjStep
-
-
+INTEGER nel,nvt,net,nProjStep
+REAL*8, intent(inout), dimension(:,:) :: dcorvg
+integer, intent(in), dimension(:,:) :: kvert,kedge
+        
 integer :: ilevel
 type(tMultiMesh) :: mgMesh
 

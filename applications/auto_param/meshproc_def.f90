@@ -797,6 +797,7 @@ END SUBROUTINE SORT
 SUBROUTINE Output_SingleSurfToVTK
 integer iS,ivt,iel,nn
 character cfile*(200)
+logical bExist
 
  iS = 0
  write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.vtp'
@@ -861,6 +862,33 @@ character cfile*(200)
  write(1,'(A)')'  </PolyData>'
  write(1,'(A)')'</VTKFile>'
 
+ INQUIRE(directory=trim(cProjectFolder)//'/PAR',EXIST=bExist)
+ if (.not.bExist) then
+  call system('mkdir '//trim(cProjectFolder)//'/PAR')
+ end if
+ write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/PAR/mesh.tri'
+ open(1,file=trim(cFile))
+ WRITE(1,*) 'Coarse mesh exported by ParQ2P1 TRI3D exporter'
+ WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+ WRITE(1,'(2I8,A)') NEL,NVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+ write(1,*) 'DCORVG'
+ DO i=1,nvt
+ WRITE(1,'(3ES16.8)') 1d-1*dcorvg(:,i)
+ END DO
+
+ write(1,*) 'KVERT'
+ DO i=1,nel
+  write(1,'(8I8)') kvert(:,i)
+ END DO
+
+ write(1,*) 'KNPR'
+ DO i=1,nvt
+  write(1,'(I8)') 0
+ END DO
+
+ CLOSE(1)
+ 
 END SUBROUTINE Output_SingleSurfToVTK
 !----------------------------------------------------------
 SUBROUTINE Output_SurfToVTK
@@ -926,6 +954,7 @@ DO iS = 1,NumberOfSurfaces
  write(1,'(A)')'  </PolyData>'
  write(1,'(A)')'</VTKFile>'
 END DO
+
 
 END SUBROUTINE Output_SurfToVTK
 !----------------------------------------------------------
