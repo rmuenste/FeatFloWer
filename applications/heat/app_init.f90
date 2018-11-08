@@ -449,8 +449,8 @@ END IF
  IF (myid.ne.0) THEN
    ILEV=NLMAX +1 
 
-   if(.not.allocated(mg_mesh%level(II)%dvol))then
-     allocate(mg_mesh%level(II)%dvol(NEL))
+   if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
