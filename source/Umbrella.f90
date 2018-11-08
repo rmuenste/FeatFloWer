@@ -89,7 +89,7 @@ SUBROUTINE InitUmbrellaSmoother(myTime,mgMesh,nSteps)
   a5 = 0d0
   a6 = 0d0
 
-  DO ILEV = NLMIN+1,NLMAX
+  DO ILEV = NLMIN+1,NLMAX-1
 
   CALL SETLEV(2)
 
@@ -900,7 +900,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
 ! --------------------------------------------------------------
 !
 SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
-      USE PP3D_MPI, ONLY: myid,coarse
+      USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier 
       USE var_QuadScalar, ONLY : ProlongationDirection
       IMPLICIT NONE
       INTEGER iDir
@@ -915,7 +915,8 @@ SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,na
       DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
       iDir = ProlongationDirection
-      
+!      iDir = 0
+
       if (myid.eq.1) write(*,*) 'new generation mesh prolongation with iDir=',iDir
 
       k=1

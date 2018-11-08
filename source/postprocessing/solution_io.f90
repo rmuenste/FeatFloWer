@@ -58,15 +58,6 @@ call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
 
 call write_time_sol(iout,istep_ns, time_ns)
 
-fieldName = "myvel"
-
-packed(1)%p => QuadSc%ValU
-packed(2)%p => QuadSc%ValV
-packed(3)%p => QuadSc%ValW
-
-call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                  3, packed)
-
 fieldName = "coordinates"
 
 QuadSc%auxU = mg_mesh%level(nlmax+1)%dcorvg(1,:)
@@ -931,7 +922,6 @@ subroutine read_q2_sol(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs,
   !
   ! Q2 dofs on a cube on level NLMAX+iiLev
   dofsInCoarseElement = (2**((nmax+iiLev))+1)**3
-
 
   if(myid.ne.0)then
 

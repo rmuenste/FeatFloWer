@@ -6,13 +6,17 @@ subroutine init_q2p1_ext(log_unit)
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation, QuadSc,&
+    OperatorRegenaration
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_GeneralLinScalar, &
     LinSc_InitCond_Weber,Boundary_LinSc_Val_Weber
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File
+  USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh
+  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
+      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
+      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 
   integer, intent(in) :: log_unit
   logical            :: I_EXIST
@@ -33,13 +37,14 @@ subroutine init_q2p1_ext(log_unit)
 
   CALL Init_LinScalar(log_unit)
 
-  call InitCond_GeneralLinScalar(LinSc_InitCond_Weber,Boundary_LinSc_Val_Weber)
+  !call InitCond_GeneralLinScalar(LinSc_InitCond_Weber,Boundary_LinSc_Val_Weber)
   
   ! Normal start from inital configuration
   if (istart.eq.0) then
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitCond_QuadScalar()
     IF(bViscoElastic)call IniProf_ViscoScalar()
+    call Output_Profiles(1)
 
   ! Start from a solution on the same lvl
   ! with the same number of partitions
@@ -47,24 +52,115 @@ subroutine init_q2p1_ext(log_unit)
     if (myid.ne.0) call CreateDumpStructures(1)
     call SolFromFile(CSTART,1)
 
+    if (myid .ne. 0) then
+      do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+
+        if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+          write(*,*)"myid: ", myid
+          write(*,*)"idx: ", i
+          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
+          write(*,*)"read: ",QuadSc%auxU(i)
+        end if
+
+      end do
+    end if
+
+    ILEV = NLMIN
+    CALL SETLEV(2)
+    write(*,*)"ilev: ",ilev
+
+    call ExchangeNodeValuesOnCoarseLevel(&
+      mg_mesh%level(ilev)%dcorvg,&
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%nvt,&
+      mg_mesh%level(ilev)%nel)
+
+  call OperatorRegenaration(1)
+  call OperatorRegenaration(2)
+  call OperatorRegenaration(3)
+
+  call Output_Profiles(1)
+
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
     ! In order to read in from a lower level
     ! the lower level structures are needed
+
+
     if (myid.ne.0) call CreateDumpStructures(0)
+
     call SolFromFile(CSTART,0)
+
+    if (myid .ne. 0) then
+      do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+
+        if (abs(mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+          write(*,*)"myid: ", myid
+          write(*,*)"idx: ", i
+          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
+          write(*,*)"read: ",QuadSc%auxU(i)
+        end if
+
+      end do
+    end if
+
+    call ProlongateCoordinates(&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
+      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
+
+
+    IF (myid.ne.0) THEN
+       CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
+    END IF
+      
+    ILEV = NLMIN
+    CALL SETLEV(2)
+
+    call ExchangeNodeValuesOnCoarseLevel(&
+      mg_mesh%level(1)%dcorvg,&
+      mg_mesh%level(1)%kvert,&
+      mg_mesh%level(1)%nvt,&
+      mg_mesh%level(1)%nel)
+
     call ProlongateSolution()
 
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
+
+    call SolToFile(3)
+    call Output_Profiles(1)
+
+    call OperatorRegenaration(1)
+    call OperatorRegenaration(2)
+    call OperatorRegenaration(3)
 
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
-  end if  
+    do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
+      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
+    end do
+  end if
 
 end subroutine init_q2p1_ext
 !
@@ -369,13 +465,12 @@ END IF
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (myid.ne.0) THEN
-   CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
-!    CALL ProjectPointToSTL(ilev+1)
-END IF
+!IF (myid.ne.0) THEN
+!   CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
+!END IF
 !!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+   
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
  IF (myid.EQ.0) THEN

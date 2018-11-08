@@ -2220,6 +2220,8 @@ IF (myid.ne.0) THEN
  MyMG%X   => lScalar%valP
  MyMG%AUX => lScalar%auxP
 
+ MyMG%KNPRP => lScalar%knprp
+
  CALL mgProlongation()
 
  lScalar%valP(J)%x = MyMG%AUX(J)%x

@@ -4,6 +4,7 @@ USE Parametrization, ONLY: InitParametrization_STRCT,ParametrizeBndryPoints_STRC
     DeterminePointParametrization_STRCT,ProlongateParametrization_STRCT,myParBndr,nBnds
 USE var_QuadScalar
 USE PP3D_MPI, ONLY:myid,master
+USE MESH_Structures
 
 implicit none
 
@@ -217,8 +218,13 @@ SUBROUTINE SeqEdgeRunner(f,x,y,z,w,v,mgMesh,ilevel,&
  
 IMPLICIT NONE
 
-REAL*8 f(*),x(*),y(*),z(*),w(*),v(*),dcorvg(3,*)
-INTEGER kedge(12,*),kvert(8,*),nel,nvt,net,nProjStep
+REAL*8, intent(inout), dimension(:,:) :: dcorvg
+integer, intent(in), dimension(:,:) :: kvert
+
+REAL*8 f(*),x(*),y(*),z(*),w(*),v(*)
+INTEGER kedge(12,*),nel,nvt,net,nProjStep
+
+
 integer :: ilevel
 type(tMultiMesh) :: mgMesh
 
@@ -228,7 +234,7 @@ INTEGER i,j,k,ivt1,ivt2,iProjStep,iaux,iel
 REAL*8 WeightE,P1(3),P2(3),daux2,daux1,PX,PY,PZ
 REAL*8 :: dOmega = 0.25d0
 REAL*8 :: DIST
-REAL*4, ALLOCATABLE :: myVol(:)
+REAL*8, ALLOCATABLE :: myVol(:)
 
 DO k=nvt+1,nvt+net
 v(k) = 1d0

@@ -22,7 +22,7 @@ add_subdirectory(q2p1_experimental)
 
 add_subdirectory(q2p1_euler_fibers)
 
-add_subdirectory(q2p1_particle_tracer)
+#add_subdirectory(q2p1_particle_tracer)
 
 add_subdirectory(s3d_mesher)
 

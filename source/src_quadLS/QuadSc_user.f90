@@ -85,71 +85,20 @@ implicit none
 
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
-INTEGER iT,iInflow
+INTEGER iT,j
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
-REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity
+REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
-REAL*8 :: U_bar
-
-
-!  INTEGER iBCtype
-!  REAL*8  massflowrate, density,outerradius,innerradius
-!  REAL*8  center(3),normal(3)
+REAL*8 :: U_bar, h, normalizedTime, val
+real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 
 ValU = 0d0
 ValV = 0d0
 ValW = 0d0
-
-IF (iT.lt.0) THEN
-  
- iInflow = ABS(iT)
- 
- IF (ALLOCATED(myProcess%myInflow)) then
-  IF (SIZE(myProcess%myInflow).le.iInflow) then
- 
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
-
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
-  else
-   write(*,*) 'Inflow array is not allocated!!'
-   stop
-  END IF
- else
-  write(*,*) 'Size of allocated inflow array is smaller then requred index:',iInflow
-  stop
- END IF
- 
-END IF
-! ! PP-Weber
-! IF (iT.EQ.-1) THEN
-!   ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-50d0,1d0,0.5d0)
-! END IF
 
 IF (iT.EQ.1) THEN
    dist = SQRT(z*z + y*y)
@@ -344,9 +293,12 @@ IF (iT.EQ.38) THEN
 !  ValV=  0.0000d0*dScale
 !  ValW=  0.0000d0*dScale
 
+  dist = pulsativeProfile(t)
+
   dCenter=[-2.27, 0.0, -0.07]
   dNormal=[1.0, 0.0, 0.0]
-  dProfil = RotParabolicVelo3D(60d0,1d0,0.250d0)
+  dProfil = RotParabolicVelo3D(dist * 60d0,1d0,0.250d0)
+
   ValU = dProfil(1)
   ValV = dProfil(2)
   ValW = dProfil(3)
@@ -368,12 +320,16 @@ IF (iT.EQ.39) THEN
 !  ValW= -0.2588d0*dScale
 ! END IF
 
+  dist = pulsativeProfile(t)
+
   dCenter=[-1.72, 0.02, 1.31]
   dNormal=[0.965, 0.0, -0.2588]
-  dProfil = RotParabolicVelo3D(30d0,1d0,0.175d0)
+  dProfil = RotParabolicVelo3D(dist * 20.0d0,1d0,0.175d0)
+
   ValU = dProfil(1)
   ValV = dProfil(2)
   ValW = dProfil(3)
+
 
 END IF
  
@@ -452,15 +408,6 @@ IF (iT.EQ.72) THEN
   ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,+24d0,1d0,1.25d0)
 END IF
 
-! SKZ_Dietl_1
-IF (iT.EQ.73) THEN
- ValU=RotParabolicVelo2Dx(0d0,12d0,-30d0,1d0,1.6d0)
-END IF
-! SKZ_Dietl_2
-IF (iT.EQ.74) THEN
- ValW=RotParabolicVelo2Dz(0d0,0d0,-6d0,1d0,0.9d0)
-END IF
-
 ! M+S --> for the meshes prepared by Jens and Raphael
 IF (iT.EQ.81) THEN
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
@@ -501,33 +448,22 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
-! IDE 201810
-IF (iT.EQ.88) THEN
-  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-102d0,1d0,2.45d0)
-END IF
-
-!Weber 201810
-IF (iT.EQ.89) THEN
-  ValW=RotParabolicVelo2Dz(-0.0d0,+0.0d0,-150d0,1d0,1.95d0)
-END IF
-
 ! PP-Weber
 IF (iT.EQ.91) THEN
-  ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-50d0,1d0,0.5d0)
+  ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-100d0,1d0,0.5d0)
 END IF
 IF (iT.EQ.92) THEN
-  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-450d0,1d0,2.5d0)
+  ValW=RotParabolicVelo2Dz(+0.0d0,+0.0d0,-900d0,1d0,2.5d0)
 END IF
 
 ! RAIN CARBON
 IF (iT.EQ.93) THEN
-  ValU=RotParabolicVelo2Dx(+0.0d0,+0.0d0,4600d0,1d0,5.0d0)
+  ValU=RotParabolicVelo2Dx(+0.0d0,+0.0d0,9217d0,1d0,5.0d0)
 END IF
 
 IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
-
 
 RETURN
 
@@ -589,11 +525,6 @@ RETURN
   dNormal(3) = dNormal(3)/dNRM
   dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
 
-!     write(*,*) 'normal: ',dnormal
-!     write(*,*) 'dcenter: ',dCenter
-!     write(*,*) 'applied c/n: ',dScale,dist,dr
-!     
-
   IF (DIST.LT.dR) THEN
    RotParabolicVelo3D(:) = dNormal(:)*dScale*(DR - DIST)*(DR + DIST)
   ELSE
@@ -602,28 +533,32 @@ RETURN
   
   END 
 !------------------------------------------------------------------------------
- function RotDoubleParabolicVelo3D(DM,DRHO,dR1,dR2)
- REAL*8  dVolFlow,DM,DRHO,dR1,dR2,daux
- REAL*8  dNRM
- REAL*8, dimension(3) :: RotDoubleParabolicVelo3D
+ real function pulsativeProfile(simTime)
+ implicit none
+ real*8 :: simTime
  
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
-  daux = (PI/6d0)*(dR1+dR2)*((dR2-dR1)**3d0)
-  dScale = (dVolFlow/1d0)/daux
+  x_arr = (/0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0/)
+  y_arr = (/0.8,3.0,3.6,3.3,2.2,2.0,1.5,1.3,1.1,0.9,0.8/)
 
-  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
-  dNormal(1) = dNormal(1)/dNRM
-  dNormal(2) = dNormal(2)/dNRM
-  dNormal(3) = dNormal(3)/dNRM
-  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
+  CC = (/0.6438, 1.0840, 1.1125, 0.8352, 0.6234, 0.5479, 0.4157, 0.3740, 0.3036, 0.2578, 0.0/)
+  DD = (/7.9528, 0.8514, -0.2817, -5.2633, 1.0272, -2.5377, -0.1073, -0.7253, -0.6836, -0.2325, 0.0/)
+  MM = (/0.0, -71.0134, -11.3310, -49.8165, 62.9046, -35.6481, 24.3032, -6.1801, 0.4173, 4.5111, 0.0/)
 
-  IF (DIST.LT.dR2.and.DIST.GT.dR1) THEN
-   RotDoubleParabolicVelo3D(:) = dNormal(:)*dScale*(DR2 - DIST)*(DIST - DR1)
-  ELSE
-   RotDoubleParabolicVelo3D(:) = 0d0
-  END IF
+  normalizedTime = simTime - real(floor(simTime)) 
+
+  j = 1
+  do while (normalizedTime .gt. x_arr(j+1))
+    j = j + 1
+  end do
+
+  h = x_arr(j+1) - x_arr(j)
+
+  pulsativeProfile = CC(j) + DD(j) * (normalizedTime - 0.5 * (x_arr(j) + x_arr(j+1))) + &
+                     1.0/(6.0 * h) * &
+                     (MM(j+1) * (normalizedTime - x_arr(j))**3.0 - &
+                     MM(j) * (normalizedTime - x_arr(j+1))**3.0) 
   
-  END 
+  end function pulsativeProfile
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------

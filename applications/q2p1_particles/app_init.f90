@@ -363,7 +363,7 @@ DO ILEV=NLMIN+1,NLMAX
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -377,7 +377,7 @@ DO ILEV=NLMIN+1,NLMAX
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
