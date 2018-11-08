@@ -380,18 +380,14 @@ DO ILEV=NLMIN+1,NLMAX
               NEL,&
               mg_mesh%level(II)%kvert,&
               mg_mesh%level(II)%dcorvg)
-!    CALL  SETAREDBLE(mg_mesh%level(ILEV)%dvol,&
-!                 NEL,&
-!                 mg_mesh%level(ILEV)%kvert,&
-!                 mg_mesh%level(ILEV)%dcorvg)
 
  END DO
 
  IF (myid.ne.0) THEN
    ILEV=NLMAX +1 
 
-   if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+   if(.not.allocated(mg_mesh%level(II)%dvol))then
+     allocate(mg_mesh%level(II)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
@@ -399,13 +395,6 @@ DO ILEV=NLMIN+1,NLMAX
                 mg_mesh%level(ILEV)%kvert,&
                 mg_mesh%level(ILEV)%dcorvg)
                 
-!    CALL  SETAREDBLE(mg_mesh%level(ILEV)%dvol,&
-!                 NEL,&
-!                 mg_mesh%level(ILEV)%kvert,&
-!                 mg_mesh%level(ILEV)%dcorvg)
-
-
-!    pause
  END IF
 
  CALL ZTIME(TTT1)

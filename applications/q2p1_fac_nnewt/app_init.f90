@@ -91,9 +91,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
 
-
  CALL ZTIME(TTT0)
-
 
  !=======================================================================
  !     Data input
@@ -364,7 +362,7 @@ DO ILEV=NLMIN+1,NLMAX
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -372,13 +370,14 @@ DO ILEV=NLMIN+1,NLMAX
               mg_mesh%level(II)%kvert,&
               mg_mesh%level(II)%dcorvg)
 
+
  END DO
 
  IF (myid.ne.0) THEN
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
