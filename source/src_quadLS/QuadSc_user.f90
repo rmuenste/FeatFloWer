@@ -85,11 +85,11 @@ implicit none
 
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
-INTEGER iT,j
+INTEGER iT,j,iInflow
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
-REAL*8 dInnerRadius,dOuterRadius,dVolFlow,daux,dInnerInflowRadius,dDensity
+REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
@@ -99,6 +99,48 @@ real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 ValU = 0d0
 ValV = 0d0
 ValW = 0d0
+
+IF (iT.lt.0) THEN
+  
+ iInflow = ABS(iT)
+ 
+ IF (ALLOCATED(myProcess%myInflow)) then
+  IF (SIZE(myProcess%myInflow).le.iInflow) then
+ 
+   IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
+    dCenter       = myProcess%myInflow(iInflow)%center
+    dNormal       = myProcess%myInflow(iInflow)%normal
+    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+    ddensity      = myProcess%myInflow(iInflow)%density
+    douterradius  = myProcess%myInflow(iInflow)%outerradius
+    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+    dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+    ValU = dProfil(1)
+    ValV = dProfil(2)
+    ValW = dProfil(3)
+   END IF
+
+   IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
+    dCenter       = myProcess%myInflow(iInflow)%center
+    dNormal       = myProcess%myInflow(iInflow)%normal
+    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+    ddensity      = myProcess%myInflow(iInflow)%density
+    douterradius  = myProcess%myInflow(iInflow)%outerradius
+    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+    dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+    ValU = dProfil(1)
+    ValV = dProfil(2)
+    ValW = dProfil(3)
+   END IF
+  else
+   write(*,*) 'Inflow array is not allocated!!'
+   stop
+  END IF
+ else
+  write(*,*) 'Size of allocated inflow array is smaller then requred index:',iInflow
+  stop
+ END IF
+END IF
 
 IF (iT.EQ.1) THEN
    dist = SQRT(z*z + y*y)
@@ -533,6 +575,29 @@ RETURN
   
   END 
 !------------------------------------------------------------------------------
+ function RotDoubleParabolicVelo3D(DM,DRHO,dR1,dR2)
+ REAL*8  dVolFlow,DM,DRHO,dR1,dR2,daux
+ REAL*8  dNRM
+ REAL*8, dimension(3) :: RotDoubleParabolicVelo3D
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+  daux = (PI/6d0)*(dR1+dR2)*((dR2-dR1)**3d0)
+  dScale = (dVolFlow/1d0)/daux
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
+
+  IF (DIST.LT.dR2.and.DIST.GT.dR1) THEN
+   RotDoubleParabolicVelo3D(:) = dNormal(:)*dScale*(DR2 - DIST)*(DIST - DR1)
+  ELSE
+   RotDoubleParabolicVelo3D(:) = 0d0
+  END IF
+  
+  END 
+!------------------------------------------------------------
  real function pulsativeProfile(simTime)
  implicit none
  real*8 :: simTime
