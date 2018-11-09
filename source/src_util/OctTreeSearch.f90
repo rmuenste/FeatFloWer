@@ -14,7 +14,7 @@ TYPE tOctTree
 END TYPE tOctTree
 TYPE (tOctTree) OctTree 
 
-Logical :: bWrite=.true.
+Logical :: bWrite=.false.
 
 CONTAINS
 !

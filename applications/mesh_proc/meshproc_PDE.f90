@@ -8,22 +8,22 @@ USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
 
 TYPE(lScalar3) MeshDef
-
+REAL*8, ALLOCATABLE :: OrigCoor(:,:)
 contains
 
-SUBROUTINE BuildUpMatrixStruct()
+SUBROUTINE MeshDefPDE()
 
 ILEV = mg_Mesh%nlmax
-
-! Building up the matrix strucrures
-CALL Create_MatStruct()
-
-! Building up the Diffusion operator
-CALL Create_ConstDiffMat()
-
-! Initialize the MeshDef field structures
-WRITE(*,*) 'Init MeshDef structures'
-CALL Init_MeshDefField()
+! 
+! ! Building up the matrix strucrures
+! CALL Create_MatStruct()
+! 
+! ! Building up the Diffusion operator
+! CALL Create_ConstDiffMat()
+! 
+! ! Initialize the MeshDef field structures
+! WRITE(*,*) 'Init MeshDef structures'
+! CALL Init_MeshDefField()
 
 CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
 
@@ -63,7 +63,7 @@ CALL Boundary_MeshDef_Def()
 
 CALL GetRes_MeshDef()
 
-END SUBROUTINE BuildUpMatrixStruct          
+END SUBROUTINE MeshDefPDE          
 !
 ! ----------------------------------------------
 !
@@ -204,4 +204,23 @@ END SUBROUTINE Boundary_MeshDef_Mat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE InitMeshDef()
+
+ILEV = mg_Mesh%nlmax
+
+if (.not.allocated(OrigCoor)) allocate(OrigCoor(3,MeshDef%ndof))
+OrigCoor(1:3,:) = mg_mesh%level(ilev)%dcorvg(1:3,1:MeshDef%ndof)
+
+! Building up the matrix strucrures
+CALL Create_MatStruct()
+
+! Building up the Diffusion operator
+CALL Create_ConstDiffMat()
+
+! Initialize the MeshDef field structures
+WRITE(*,*) 'Init MeshDef structures'
+CALL Init_MeshDefField()
+
+END SUBROUTINE InitMeshDef
+
 END MODULE MeshProcPDE

@@ -5,8 +5,8 @@ USE MESH_Structures
 
 !USE Parametrization, ONLY : InitParametrization
 IMPLICIT NONE
-LOGICAL :: bA_MD=.false.
-LOGICAL :: bPDE_MD=.true.
+! LOGICAL :: bA_MD=.true.
+! LOGICAL :: bPDE_MD=.false.
 
 MASTER = 0
 bParallel = .false.
@@ -28,7 +28,6 @@ call readTriCoarse(ADJUSTL(TRIM(cProjectGridFile)), mg_mesh)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! READING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
 !!! building up the mesh structures
 call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
@@ -45,6 +44,10 @@ myid = 1
 ilev = mg_Mesh%nlmax
 CALL DeterminePointParametrization_STRCT(mg_mesh,ilev)
  
+IF (bPDE_MD) then
+ CALL InitMeshDef()
+END IF
+
 IF (bA_MD) then
  !!! performing parametrization
  ilev = mg_Mesh%maxlevel
@@ -56,9 +59,11 @@ END IF
 
 IF (bPDE_MD) then
 
- ilev = mg_Mesh%maxlevel
- CALL BuildUpMatrixStruct()
+ CALL MeshDefPDE()
 
+ ilev = mg_Mesh%maxlevel
+ CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
+ 
 END IF
 
 ilev = lTriOutputLevel
@@ -66,6 +71,5 @@ CALL Output_Mesh(1,cOutputFolder)
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()
-
 
 END PROGRAM AutoParam

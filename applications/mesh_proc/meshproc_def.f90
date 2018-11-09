@@ -5,16 +5,20 @@ USE Parametrization, ONLY: InitParametrization_STRCT,ParametrizeBndryPoints_STRC
 USE var_QuadScalar
 USE PP3D_MPI, ONLY:myid,master
 USE MESH_Structures
+use iniparser
 
 implicit none
 
 INTEGER lTriOutputLevel,lVTUOutputLevel
 
 CHARACTER*(200) :: cOutputFolder
+LOGICAL :: bA_MD=.false.
+LOGICAL :: bPDE_MD=.false.
 
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE GetParameters
+CHARACTER*(10) :: cParam
 
 !  CHARACTER*(200) :: cmd
  LOGICAL bExist
@@ -33,10 +37,28 @@ SUBROUTINE GetParameters
  mg_Mesh%nlmin = 1
  WRITE(*,*) 'Min and Max levels: ', mg_Mesh%nlmin,mg_Mesh%nlmax
  mg_Mesh%nlmin = 1
+ READ(1,*) cParam
+ call inip_toupper_replace(cParam)
+ IF (trim(adjustl(cParam)).eq.'ON') THEN
+  bA_MD=.TRUE.
+  WRITE(*,*) 'Alghebraic Mesh Smoother is ON!'
+ ELSE
+  bA_MD=.FALSE.
+  WRITE(*,*) 'Alghebraic Mesh Smoother is OFF!'
+ END IF
+ READ(1,*) cParam
+ call inip_toupper_replace(cParam)
+ IF (trim(adjustl(cParam)).eq.'ON') THEN
+  bPDE_MD=.TRUE.
+  WRITE(*,*) 'PDE based Mesh Smoother ON!'
+ ELSE
+  bPDE_MD=.FALSE.
+  WRITE(*,*) 'PDE based Mesh Smoother is OFF!'
+ END IF
  READ(1,*) nUmbrellaSteps
  WRITE(*,*) '# of Umbrella Steps: ', nUmbrellaSteps
  READ(1,*) dCGALtoRealFactor
- WRITE(*,*) 'CGAL Scaling factor: ', dCGALtoRealFactor
+ WRITE(*,'(A,ES12.4)') ' CGAL Scaling factor: ', dCGALtoRealFactor
  READ(1,*) cOutputFolder
  WRITE(*,*) 'Output Folder: "'//adjustl(trim(cOutputFolder))//'"'
  READ(1,*) lTriOutputLevel
