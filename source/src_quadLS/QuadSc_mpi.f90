@@ -588,7 +588,7 @@ INTEGER NeighE(2,12),NeighA(4,6)
 DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 REAL*8 PX,PY,PZ
-REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
+REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z,dist
 
 INTEGER,ALLOCATABLE :: iCoor(:),iAux(:)
 REAL*8, ALLOCATABLE :: dCoor(:,:),rCoor(:,:),D(:)
@@ -671,27 +671,38 @@ END IF
 
 if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
+
 jAux = 0
 IF (myid.NE.0) THEN
+ CALL InitOctTree(rCoor,cndof)
  DO I=1,ndof
-  P1X = dCoor(1,I)
-  P1Y = dCoor(2,I)
-  P1Z = dCoor(3,I)
-  bFound = .FALSE.
-  DO J=1,cndof
-   P2X = rCoor(1,J)
-   P2Y = rCoor(2,J)
-   P2Z = rCoor(3,J)
-   IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-       (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-       (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
-     iCoor(I) = j
-     jAux = jAux + 1
-     bFound = .TRUE.
-    END IF
-   END DO
+  CALL FindInOctTree(rCoor,cndof,dCoor(:,i),J,dist)
+  IF (J.lt.0) then
+   WRITE(*,*) I,"PROBLEM of Q2 dof assignement ..."
+  end if
+  IF (DIST.LT.DEpsPrec) THEN 
+   iCoor(I) = j
+   jAux = jAux + 1
+  END IF
+!   P1X = dCoor(1,I)
+!   P1Y = dCoor(2,I)
+!   P1Z = dCoor(3,I)
+!   bFound = .FALSE.
+!   DO J=1,cndof
+!    P2X = rCoor(1,J)
+!    P2Y = rCoor(2,J)
+!    P2Z = rCoor(3,J)
+!    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+!        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+!        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!      iCoor(I) = j
+!      jAux = jAux + 1
+!      bFound = .TRUE.
+!     END IF
+!    END DO
 !    IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
   END DO
+ CALL FreeOctTree()
  END IF
 
 if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
@@ -2014,6 +2025,7 @@ NVT,NET,NAT,NEL,iMedLev)
 
 USE PP3D_MPI
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE OctTreeSearch
 
 IMPLICIT NONE
 
@@ -2029,7 +2041,7 @@ INTEGER :: IVT(4),IV(4)
 INTEGER :: IET(4),IE(4)
 INTEGER Neigh(2,12)
 DATA Neigh/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z
+REAL*8 P1X,P1Y,P1Z,P2X,P2Y,P2Z,dist
 
 IF (.NOT.ALLOCATED(MGE013)) ALLOCATE(MGE013(NLMIN:NLMAX))
 
@@ -2183,23 +2195,32 @@ ALLOCATE(MGE013(ILEV)%UE11(NDOF))
 ALLOCATE(MGE013(ILEV)%UE22(NDOF))
 ALLOCATE(MGE013(ILEV)%UE33(NDOF))
 
+CALL InitOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num)
+
 DO pID=1,subnodes
  jAux = 0
  IF (pID.NE.myid) THEN
   DO I=1,CoorST(pID)%Num
-   P1X = CoorST(pID)%dCoor(1,I)
-   P1Y = CoorST(pID)%dCoor(2,I)
-   P1Z = CoorST(pID)%dCoor(3,I)
-   DO J=1,CoorST(myid)%Num
-    P2X = CoorST(myid)%dCoor(1,J)
-    P2Y = CoorST(myid)%dCoor(2,J)
-    P2Z = CoorST(myid)%dCoor(3,J)
-    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+   CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
+   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+    IF (DIST.LT.DEpsPrec) THEN 
      jAux = jAux + 1
     END IF
-   END DO
+   END IF
+
+!    P1X = CoorST(pID)%dCoor(1,I)
+!    P1Y = CoorST(pID)%dCoor(2,I)
+!    P1Z = CoorST(pID)%dCoor(3,I)
+!    DO J=1,CoorST(myid)%Num
+!     P2X = CoorST(myid)%dCoor(1,J)
+!     P2Y = CoorST(myid)%dCoor(2,J)
+!     P2Z = CoorST(myid)%dCoor(3,J)
+!     IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+!         (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+!         (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!      jAux = jAux + 1
+!     END IF
+!    END DO
   END DO
  END IF
 !  WRITE(*,*) myid,pID,jAux
@@ -2220,22 +2241,30 @@ DO pID=1,subnodes
   ALLOCATE(MGE013(ILEV)%ST(pID)%SBVect  (  MGE013(ILEV)%ST(pID)%Num))
   ALLOCATE(MGE013(ILEV)%ST(pID)%RBVect  (  MGE013(ILEV)%ST(pID)%Num))
   DO I=1,CoorST(pID)%Num
-   P1X = CoorST(pID)%dCoor(1,I)
-   P1Y = CoorST(pID)%dCoor(2,I)
-   P1Z = CoorST(pID)%dCoor(3,I)
-   DO J=1,CoorST(myid)%Num
-    P2X = CoorST(myid)%dCoor(1,J)
-    P2Y = CoorST(myid)%dCoor(2,J)
-    P2Z = CoorST(myid)%dCoor(3,J)
-    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+   CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
+   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+    IF (DIST.LT.DEpsPrec) THEN 
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
-     EXIT
     END IF
-   END DO
+   END IF
+!    P1X = CoorST(pID)%dCoor(1,I)
+!    P1Y = CoorST(pID)%dCoor(2,I)
+!    P1Z = CoorST(pID)%dCoor(3,I)
+!    DO J=1,CoorST(myid)%Num
+!     P2X = CoorST(myid)%dCoor(1,J)
+!     P2Y = CoorST(myid)%dCoor(2,J)
+!     P2Z = CoorST(myid)%dCoor(3,J)
+!     IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
+!         (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
+!         (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!      jAux = jAux + 1
+!      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
+!      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
+!      EXIT
+!     END IF
+!    END DO
   END DO
   CALL SORT1D(MGE013(ILEV)%ST(pID)%VertLink(1,:),MGE013(ILEV)%ST(pID)%Num)
 
@@ -2246,6 +2275,8 @@ DO pID=1,subnodes
 
  END IF
 END DO
+
+CALL FreeOctTree()
 
 ! CLOSE(994)
 

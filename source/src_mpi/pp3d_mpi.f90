@@ -1,4 +1,5 @@
 MODULE PP3D_MPI
+  USE OctTreeSearch
   IMPLICIT NONE
 
   include 'mpif.h'
@@ -217,6 +218,8 @@ CONTAINS
     IF (myid.eq.0) THEN
 
       coarse%pVERTLINK = 0
+      
+      CALL InitOctTree(DCORVG,nvt)
 
       DO pID=1,subnodes
       CALL RECVI_myMPI(pNVT ,pID)
@@ -224,30 +227,19 @@ CONTAINS
       coarse%pNVT(pID)=pNVT
 
       DO I=1,pNVT
-      DO J=1,NVT
-
-      DIST = SQRT((pVXYZ(1,I)-VXYZ(1,J))**2d0 + &
-        (pVXYZ(2,I)-VXYZ(2,J))**2d0 + &
-        (pVXYZ(3,I)-VXYZ(3,J))**2d0)
-      IF (DIST.LT.DEpsPrec) THEN
-
-        !    IF (ABS(pPXYZ(1,I)-PXYZ(1,J)).LT.DEpsPrec.AND.&
-        !        ABS(pPXYZ(2,I)-PXYZ(2,J)).LT.DEpsPrec.AND.&
-        !        ABS(pPXYZ(3,I)-PXYZ(3,J)).LT.DEpsPrec) THEN
-
-        coarse%pVERTLINK(pID,I)=J
-        !            WRITE(*,'(6(1XF12.4))') pPXYZ(1,I),PXYZ(1,J),
-        !      *                             pPXYZ(2,I),PXYZ(2,J),
-        !      *                             pPXYZ(3,I),PXYZ(3,J)
-
-        !        GOTO 1
+      
+      CALL FindInOctTree(dcorvg,nvt,pVXYZ(:,I),J,DIST)
+      IF (J.lt.0) then
+       WRITE(*,*) I,"PROBLEM of vert assignement ..."
+      end if
+      IF (DIST.LT.DEpsPrec) THEN 
+       coarse%pVERTLINK(pID,I)=J
       END IF
+      
+      END DO
+      END DO
 
-      END DO
-      !  WRITE(*,*) I,"PROBLEM of elem assignement ..."
-      ! 1  CONTINUE
-      END DO
-      END DO
+      CALL FreeOctTree()
 
       DO pID=1,subnodes
       iaux = 0
@@ -301,37 +293,27 @@ CONTAINS
 
       coarse%pELEMLINK = 0
 
+      CALL InitOctTree(PXYZ,nel)
+
       DO pID=1,subnodes
       CALL RECVI_myMPI(pNEL ,pID)
       CALL RECVD_myMPI(pPXYZ,3*pNEL,pID)
       coarse%pNEL(pID)=pNEL
 
       DO I=1,pNEL
-      DO J=1,NEL
-
-      DIST = SQRT((pPXYZ(1,I)-PXYZ(1,J))**2d0 + &
-        (pPXYZ(2,I)-PXYZ(2,J))**2d0 + &
-        (pPXYZ(3,I)-PXYZ(3,J))**2d0)
-      IF (DIST.LT.DEpsPrec) THEN
-
-        !    IF (ABS(pPXYZ(1,I)-PXYZ(1,J)).LT.DEpsPrec.AND.&
-        !        ABS(pPXYZ(2,I)-PXYZ(2,J)).LT.DEpsPrec.AND.&
-        !        ABS(pPXYZ(3,I)-PXYZ(3,J)).LT.DEpsPrec) THEN
-
+       CALL FindInOctTree(PXYZ,nel,pPXYZ(:,I),J,DIST)
+       IF (J.lt.0) then
+        WRITE(*,*) I,"PROBLEM of elem assignement ..."
+       end if
+       IF (DIST.LT.DEpsPrec) THEN
         coarse%pELEMLINK(pID,I)=J
-        !            WRITE(*,'(6(1XF12.4))') pPXYZ(1,I),PXYZ(1,J),
-        !      *                             pPXYZ(2,I),PXYZ(2,J),
-        !      *                             pPXYZ(3,I),PXYZ(3,J)
-
-        GOTO 1
-      END IF
-
-      END DO
-      WRITE(*,*) I,"PROBLEM of elem assignement ..."
-      1  CONTINUE
+       END IF
+      
       END DO
       END DO
 
+      CALL FreeOctTree()
+       
       DO pID=1,subnodes
       iaux = 0
       DO I=1,NEL
@@ -375,38 +357,33 @@ CONTAINS
       ALLOCATE (ParFind(4,NAT))
       ParFind=0; NodeTab=0
 
+      CALL InitOctTree(PXYZ,nat)
+
       DO pID=1,subnodes
       CALL RECVI_myMPI(pNAT ,pID)
       CALL RECVD_myMPI(pPXYZ,3*pNAT,pID)
 
       DO I=1,pNAT
-      DO J=1,NAT
-
-      IF (ABS(pPXYZ(1,I)-PXYZ(1,J)).LT.DEpsPrec.AND.&
-        ABS(pPXYZ(2,I)-PXYZ(2,J)).LT.DEpsPrec.AND.&
-        ABS(pPXYZ(3,I)-PXYZ(3,J)).LT.DEpsPrec) THEN
-
-      coarse%pFACELINK(pID,I)=J
-      IF (ParFind(1,J).EQ.0) THEN
-        ParFind(1,J) = pID
-        ParFind(2,J) = I
-      ELSE
-        ParFind(3,J) = pID
-        ParFind(4,J) = I
+      CALL FindInOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST)
+      IF (J.lt.0) then
+       WRITE(*,*) I,"PROBLEM of face assignement ..."
+      end if
+      IF (DIST.LT.DEpsPrec) THEN
+       coarse%pFACELINK(pID,I)=J
+       IF (ParFind(1,J).EQ.0) THEN
+         ParFind(1,J) = pID
+         ParFind(2,J) = I
+       ELSE
+         ParFind(3,J) = pID
+         ParFind(4,J) = I
+       END IF
       END IF
-      !            WRITE(*,'(6(1XF12.4))') pPXYZ(1,I),PXYZ(1,J),
-      !      *                             pPXYZ(2,I),PXYZ(2,J),
-      !      *                             pPXYZ(3,I),PXYZ(3,J)
 
-      GOTO 2
-    END IF
-
-    END DO
-    WRITE(*,*) "PROBLEM of face assignement ..."
-    2  CONTINUE
     END DO
     END DO
 
+    CALL FreeOctTree()
+      
     ! Here I try to build up the structures for communication
     DO I=1,NAT
     IF (ParFind(3,I).NE.0) THEN
@@ -584,7 +561,7 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   INTEGER, ALLOCATABLE :: iAux(:),iCoor(:)
   INTEGER IV1,IV2,IV3,IV4,IVT,IVT1,IVT2,IVT3,IVT4
   INTEGER jAux,pNVT
-  REAL*8  P1X,P2X,P1Y,P2Y,P1Z,P2Z
+  REAL*8  P1X,P2X,P1Y,P2Y,P1Z,P2Z,pPoint(3),dist
   LOGICAL BLIN
   REAL :: txt1, txt0
 
@@ -798,6 +775,32 @@ WRITE(*,*) mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I),&
 END DO
 END DO
 
+!   DO pID=1,mg_mpi(ILEV)%NeighNum
+!   nSIZE = mg_mpi(ILEV)%parST(pID)%Num
+!   !   write(*,*)myid,"|",(mg_mpi(ILEV)%parST(pID)%ElemLink(1,I),I=1,nSIZE)
+!   CALL InitOctTreeC(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,:),&
+!                     mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,:),&
+!                     mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,:),&
+!                     nsize)
+!   DO I=1,nSIZE
+!   pPoint = [mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,i),&
+!             mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,i),&
+!             mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,i)]
+!   CALL FindInOctTreeC(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,:),&
+!                       mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,:),&
+!                       mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,:),&
+!                       nsize,pPoint,J,DIST)
+!       IF (J.lt.0) then
+!        WRITE(*,*) I,"PROBLEM of parallel assignement ..."
+!       end if
+!       IF (DIST.LT.DEpsPrec) THEN
+!        mg_mpi(ILEV)%parST(pID)%FaceLink(2,J) = mg_mpi(ILEV)%parST(pID)%FaceLink(1,I)
+!        mg_mpi(ILEV)%parST(pID)%ElemLink(2,J) = mg_mpi(ILEV)%parST(pID)%ElemLink(1,I)
+!       END IF
+!   END DO
+!     CALL FreeOctTree()
+!   END DO
+
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkX)
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkY)
 DEALLOCATE(mg_mpi(ILEV)%parST(1)%CoragLinkZ)
@@ -937,7 +940,20 @@ IF (myid.NE.MASTER) THEN
     ALLOCATE(E011ST(pID)%RDVect  (  E011ST(pID)%Num))
     ALLOCATE(E011ST(pID)%SBVect  (  E011ST(pID)%Num))
     ALLOCATE(E011ST(pID)%RBVect  (  E011ST(pID)%Num))
+
+!     CALL InitOctTree(CoorSP(pID)%dCoor,CoorSP(pID)%Num)
+    
     DO I=1,CoorST(pID)%Num
+!      CALL FindInOctTree(CoorSP(pID)%dCoor,CoorSP(pID)%Num,CoorST(pID)%dCoor(:,I),J,DIST)
+!       IF (J.lt.0) then
+!        WRITE(*,*) I,"PROBLEM of parallel assignement SP/ST..."
+!       end if
+!       IF (DIST.LT.DEpsPrec) THEN
+!        jAux = jAux + 1
+!        E011ST(pID)%VertLink(1,jAux) = CoorSP(pID)%iCoor(J)
+!        E011ST(pID)%VertLink(2,jAux) = CoorSP(pID)%iCoor(J)
+!       END IF
+     
     P1X = CoorST(pID)%dCoor(1,I)
     P1Y = CoorST(pID)%dCoor(2,I)
     P1Z = CoorST(pID)%dCoor(3,I)
@@ -956,6 +972,7 @@ IF (myid.NE.MASTER) THEN
   END DO
   END DO
   CALL SORT1D(E011ST(pID)%VertLink(1,:),E011ST(pID)%Num)
+!   CALL FreeOctTree()
 END IF
 END DO
 ! 
