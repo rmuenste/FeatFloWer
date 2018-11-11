@@ -5,6 +5,7 @@ A module for mesh related classes and functions
 """
 import operator
 import sys
+import numpy as np
 
 #===============================================================================
 #                          A class for a quad
@@ -106,7 +107,8 @@ class QuadMesh:
         self.elements = elems[:] 
         self.elementsAtVertex = []
         self.verticesAtBoundary = []
-        self.facesAtBoundary = []
+        self.edgesAtBoundary = []
+        self.area = []
 
 
 #===============================================================================
@@ -123,8 +125,56 @@ class QuadMesh:
                     str(len(self.elementsAtVertex[idx])) + " " +  
                     str(self.verticesAtBoundary[idx])
                     )
-                print("This mesh connectivity is invalid.Exiting...")
                 sys.exit(2)
+
+
+#===============================================================================
+#                       Function checkMeshValidity1
+#===============================================================================
+    def quadArea(self):
+        """
+          Check the connectivity of the mesh
+        """
+
+        count = 0
+        for quad in (self.elements):
+            #print("idx: " + str(count))
+            count = count + 1
+            triangleA = (quad.nodeIds[0]-1, quad.nodeIds[1]-1, quad.nodeIds[2]-1)
+            triangleB = (quad.nodeIds[0]-1, quad.nodeIds[3]-1, quad.nodeIds[2]-1)
+
+            p0 = np.array(list(self.nodes[triangleA[0]]))  
+            p1 = np.array(list(self.nodes[triangleA[1]]))  
+            p2 = np.array(list(self.nodes[triangleA[2]]))  
+
+    #        print("Area: " + str(getTriangleArea(p0, p1, p2)))
+            area1 = getTriangleArea2(p0, p1, p2)
+
+            p0 = np.array(list(self.nodes[triangleB[0]]))  
+            p1 = np.array(list(self.nodes[triangleB[1]]))  
+            p2 = np.array(list(self.nodes[triangleB[2]]))  
+
+            area2 = getTriangleArea2(p0, p1, p2)
+            self.area.append(area1 + area2)
+
+        minArea = np.min(self.area)
+        maxArea = np.max(self.area)
+        print("Minimum Area: " + str(minArea))
+        print("Maximum Area: " + str(maxArea))
+        print("Factor: " + str(maxArea/minArea))
+
+#        quad = self.elements[0]
+#
+#        triangleA = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2])
+#
+#        p0 = np.array(list(self.nodes[triangleA[0]]))  
+#        p1 = np.array(list(self.nodes[triangleA[1]]))  
+#        p2 = np.array(list(self.nodes[triangleA[2]]))  
+#
+#        getTriangleArea2(p0, p1, p2)
+
+#        print("Area: " + str(getTriangleArea(p0, p1, p2)))
+#        print("Area: " + str(getTriangleArea(p0, p1, p2)))
 
 #===============================================================================
 #                       Function generateElementsAtVertex
@@ -773,6 +823,102 @@ def parFileFromSlice(hexMesh, sliceId):
             layerOnePar.append(idx)
 
     return layerOnePar
+
+
+#===============================================================================
+#                       Function getTriangleArea
+#===============================================================================
+def getTriangleArea(p0, p1, p2):
+
+    
+    a0 = p1 - p0  
+    a1 = p2 - p0  
+    a2 = p2 - p1  
+
+    l0 = np.linalg.norm(a0)
+    l1 = np.linalg.norm(a1)
+    l2 = np.linalg.norm(a2)
+
+    #print(np.linalg.norm(a0))
+    #print(np.linalg.norm(a1))
+    #print(np.linalg.norm(a2))
+
+    maxIdx = 0
+    if l0 >= l1:
+        if l0 >= l2:
+            maxIdx = 0
+        else:
+            maxIdx = 2
+    else:
+        if l1 >= l2:
+            maxIdx = 1
+        else:
+            maxIdx = 2
+
+    #print(np.max([l0, l1, l2]))
+
+    na = [a1[1], -a1[0], 0.0]
+    ln = 1.0/np.linalg.norm(na)
+#        na[0] = ln * na[0]
+#        na[1] = ln * na[1]
+#        na[2] = ln * na[2]
+    na = np.multiply(ln, na)
+
+    height = np.abs(np.dot(na,p2-p1))
+    if maxIdx == 0:
+        height = np.abs(np.dot(na,p2-p0))
+    elif maxIdx == 1:
+        height = np.abs(np.dot(na,p2-p1))
+    else:
+        height = np.abs(np.dot(na,p1-p0))
+
+    #print("height: ")
+    #print(height)
+
+    return height * l1 * 0.5 
+
+
+#===============================================================================
+#                       Function getTriangleArea2
+#===============================================================================
+def getTriangleArea2(p0, p1, p2):
+    
+    c = p1 - p0  
+    b = p2 - p0  
+    a = p2 - p1  
+
+    cl = np.linalg.norm(c)
+    bl = np.linalg.norm(b)
+    al = np.linalg.norm(c)
+    
+    coAlpha = np.dot(c, b)/(cl * bl)
+
+    alpha = np.arccos(coAlpha)
+
+    area = 0.5 * cl * bl * np.sin(alpha)
+
+    #print("angle: " + str(alpha))
+
+    return area
+
+#    ln = 1.0/np.linalg.norm(na)
+##        na[0] = ln * na[0]
+##        na[1] = ln * na[1]
+##        na[2] = ln * na[2]
+#    na = np.multiply(ln, na)
+#
+#    height = np.abs(np.dot(na,p2-p1))
+#    if maxIdx == 0:
+#        height = np.abs(np.dot(na,p2-p0))
+#    elif maxIdx == 1:
+#        height = np.abs(np.dot(na,p2-p1))
+#    else:
+#        height = np.abs(np.dot(na,p1-p0))
+#
+#    #print("height: ")
+#    #print(height)
+#
+#    return height * l1 * 0.5 
 
 
 #===============================================================================

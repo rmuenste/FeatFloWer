@@ -211,6 +211,11 @@ def writeQuadMeshVTK(quadMesh, idxAdjust, fileName):
         for e in quadMesh.elements:
             f.write('%i\n' % (e.zoneId))
 
+        f.write("SCALARS Area double\n")
+        f.write("LOOKUP_TABLE default\n")
+        for e in quadMesh.area:
+            f.write('%f\n' % (e))
+
 #        f.write("POINT_DATA " + str(nVertices) + " \n")
 #        f.write("SCALARS KNPR integer\n")
 #        f.write("LOOKUP_TABLE default\n")
