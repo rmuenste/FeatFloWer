@@ -9,21 +9,20 @@ USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
 
 TYPE(lScalar3) MeshDef
 REAL*8, ALLOCATABLE :: OrigCoor(:,:)
+Logical :: bDefTensor = .false.
 contains
 
 SUBROUTINE MeshDefPDE()
 
 ILEV = mg_Mesh%nlmax
-! 
-! ! Building up the matrix strucrures
-! CALL Create_MatStruct()
-! 
-! ! Building up the Diffusion operator
-! CALL Create_ConstDiffMat()
-! 
-! ! Initialize the MeshDef field structures
-! WRITE(*,*) 'Init MeshDef structures'
-! CALL Init_MeshDefField()
+
+do i=1,MeshDef%ndof
+ if (.not.mg_Mesh%BndryNodes(i)%bOuterPoint) then
+  mg_mesh%level(ilev)%dcorvg(1,i) = OrigCoor(1,i)
+  mg_mesh%level(ilev)%dcorvg(2,i) = OrigCoor(2,i)
+  mg_mesh%level(ilev)%dcorvg(3,i) = OrigCoor(3,i)
+ end if
+END DO
 
 CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
 
@@ -35,13 +34,25 @@ MeshDef%valZ = mg_mesh%level(ilev)%dcorvg(3,1:MeshDef%ndof)
 WRITE(*,*) 'Set Dirichlet BC'
 CALL LinSc_Knpr_MeshDef()
 
-CALL Boundary_MeshDef_Mat(DMat,lMat%LdA)
+if (bDefTensor) then
+ CALL Boundary_MeshDef_MatS(S11Mat,S22Mat,S33Mat,&
+                            S12Mat,S13Mat,S23Mat,&
+                            S21Mat,S31Mat,S32Mat,&
+                            lMat%LdA)
+ELSE
+ CALL Boundary_MeshDef_Mat(DMat,lMat%LdA)
+END IF
 
 MeshDef%defX = 0d0
 MeshDef%defY = 0d0
 MeshDef%defZ = 0d0
 
-CALL MatDef_MeshDef()
+
+if (bDefTensor) then
+ CALL MatDef_MeshDefS()
+else
+ CALL MatDef_MeshDef()
+end if
 
 CALL Boundary_MeshDef_Def()
 
@@ -49,19 +60,27 @@ CALL GetRes_MeshDef()
 
 ! Initialize Umfack / factorization of the matrix
 WRITE(*,*) 'Init_UmfPack'
-CALL Init_UmfPack()
+if (bDefTensor) then
+ CALL Init_UmfPackS()
+ELSE
+ CALL Init_UmfPack()
+END IF
 
-CALL Solve_UmfPack()
+if (bDefTensor) then
+ CALL Solve_UmfPackS()
+ELSE
+ CALL Solve_UmfPack()
+END IF
 
 mg_mesh%level(ilev)%dcorvg(1,1:MeshDef%ndof) = MeshDef%valX
 mg_mesh%level(ilev)%dcorvg(2,1:MeshDef%ndof) = MeshDef%valY
 mg_mesh%level(ilev)%dcorvg(3,1:MeshDef%ndof) = MeshDef%valZ
                                             
-CALL MatDef_MeshDef()
-
-CALL Boundary_MeshDef_Def()
-
-CALL GetRes_MeshDef()
+! CALL MatDef_MeshDefS()
+! 
+! CALL Boundary_MeshDef_Def()
+! 
+! CALL GetRes_MeshDef()
 
 END SUBROUTINE MeshDefPDE          
 !
@@ -96,6 +115,93 @@ END SUBROUTINE Init_MeshDefField
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_UmfPackS()
+
+IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(9*lMat%na))
+IF (.not.ALLOCATED(UMF_lMat%ColA)) ALLOCATE (UMF_lMat%ColA(9*lMat%na))
+IF (.not.ALLOCATED(UMF_lMat%LdA)) ALLOCATE (UMF_lMat%LdA(3*lMat%nu+1))
+UMF_lMat%nu   = 3*lMat%nu
+UMF_lMat%na   = 9*lMat%na
+
+k = 0
+UMF_lMat%LdA(1) = 1
+
+do i=1,lMat%nu
+ kk = 0
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S11Mat(j)
+  UMF_lMat%ColA(k) = 0*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k) = S12Mat(j)
+  UMF_lMat%ColA(k) = 1*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k) = S13Mat(j)
+  UMF_lMat%ColA(k) = 2*lMat%nu + lMat%ColA(j)
+ end do
+ UMF_lMat%LdA(0*lMat%nu + i+1) = UMF_lMat%LdA(0*lMat%nu + i) + kk 
+end do
+
+do i=1,lMat%nu
+ kk = 0
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S21Mat(j)
+  UMF_lMat%ColA(k) = 0*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S22Mat(j)
+  UMF_lMat%ColA(k) = 1*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S23Mat(j)
+  UMF_lMat%ColA(k) = 2*lMat%nu + lMat%ColA(j)
+ end do
+ UMF_lMat%LdA(1*lMat%nu + i+1) = UMF_lMat%LdA(1*lMat%nu + i) + kk 
+end do
+
+do i=1,lMat%nu
+ kk = 0
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S31Mat(j)
+  UMF_lMat%ColA(k) = 0*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S32Mat(j)
+  UMF_lMat%ColA(k) = 1*lMat%nu + lMat%ColA(j)
+ end do
+ do j=lMat%LdA(i),lMat%LdA(i+1)-1
+  k  = k  + 1
+  kk = kk + 1
+  UMF_CMat(k)      = S33Mat(j)
+  UMF_lMat%ColA(k) = 2*lMat%nu + lMat%ColA(j)
+ end do
+ UMF_lMat%LdA(2*lMat%nu + i+1) = UMF_lMat%LdA(2*lMat%nu + i) + kk 
+end do
+
+CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
+
+pause
+END SUBROUTINE Init_UmfPackS
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_UmfPack()
 
 IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(lMat%na))
@@ -112,12 +218,38 @@ END SUBROUTINE Init_UmfPack
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Solve_UmfPackS()
+real*8, allocatable :: sol(:),rhs(:)
+
+MeshDef%valX_old = MeshDef%valX
+MeshDef%valY_old = MeshDef%valY
+MeshDef%valZ_old = MeshDef%valZ
+
+allocate(sol(3*MeshDef%ndof))
+allocate(rhs(3*MeshDef%ndof))
+
+sol(0*MeshDef%ndof+1:) = MeshDef%valX
+sol(1*MeshDef%ndof+1:) = MeshDef%valY
+sol(2*MeshDef%ndof+1:) = MeshDef%valZ
+
+rhs(0*MeshDef%ndof+1:) = MeshDef%defX
+rhs(1*MeshDef%ndof+1:) = MeshDef%defY
+rhs(2*MeshDef%ndof+1:) = MeshDef%defZ
+
+CALL myUmfPack_Solve(sol,rhs,UMF_CMat,UMF_lMat,1)
+
+DO i=1,MeshDef%ndof
+ MeshDef%valX(i) = MeshDef%valX_old(i) - sol(0*MeshDef%ndof+i)
+ MeshDef%valY(i) = MeshDef%valY_old(i) - sol(1*MeshDef%ndof+i)
+ MeshDef%valZ(i) = MeshDef%valZ_old(i) - sol(2*MeshDef%ndof+i)
+END DO
+
+END SUBROUTINE Solve_UmfPackS
+!
+! ----------------------------------------------
+!
 SUBROUTINE Solve_UmfPack()
 
-! DO i=1,MeshDef%ndof
-!  write(*,*) MeshDef%defX(i),MeshDef%defY(i),MeshDef%defZ(i)
-! END DO
-! pause
 MeshDef%valX_old = MeshDef%valX
 MeshDef%valY_old = MeshDef%valY
 MeshDef%valZ_old = MeshDef%valZ
@@ -126,15 +258,10 @@ CALL myUmfPack_Solve(MeshDef%valX,MeshDef%defX,UMF_CMat,UMF_lMat,1)
 CALL myUmfPack_Solve(MeshDef%valY,MeshDef%defY,UMF_CMat,UMF_lMat,1)
 CALL myUmfPack_Solve(MeshDef%valZ,MeshDef%defZ,UMF_CMat,UMF_lMat,1)
 
-! CALL LLC1(MeshDef%valX_old,MeshDef%valX,MeshDef%ndof,1D0,1D0)
-! CALL LLC1(MeshDef%valY_old,MeshDef%valY,MeshDef%ndof,1D0,1D0)
-! CALL LLC1(MeshDef%valZ_old,MeshDef%valZ,MeshDef%ndof,1D0,1D0)
-
 DO i=1,MeshDef%ndof
  MeshDef%valX(i) = MeshDef%valX_old(i) - MeshDef%valX(i)
  MeshDef%valY(i) = MeshDef%valY_old(i) - MeshDef%valY(i)
  MeshDef%valZ(i) = MeshDef%valZ_old(i) - MeshDef%valZ(i)
-!  write(*,*) MeshDef%valX(i),MeshDef%valY(i),MeshDef%valZ(i)
 END DO
 
 END SUBROUTINE Solve_UmfPack
@@ -165,6 +292,34 @@ CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
 MeshDef%valZ,MeshDef%defZ,1d0,0d0)
 
 END SUBROUTINE MatDef_MeshDef
+!
+! ----------------------------------------------
+!
+SUBROUTINE MatDef_MeshDefS()
+REAL*8 resX,resY,resZ
+
+CALL LAX17(S11Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valX,MeshDef%defX,1d0,0d0)
+CALL LAX17(S12Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valY,MeshDef%defX,1d0,1d0)
+CALL LAX17(S13Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valZ,MeshDef%defX,1d0,1d0)
+
+CALL LAX17(S21Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valX,MeshDef%defY,1d0,0d0)
+CALL LAX17(S22Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valY,MeshDef%defY,1d0,1d0)
+CALL LAX17(S23Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valZ,MeshDef%defY,1d0,1d0)
+
+CALL LAX17(S31Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valX,MeshDef%defZ,1d0,0d0)
+CALL LAX17(S32Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valY,MeshDef%defZ,1d0,1d0)
+CALL LAX17(S33Mat,lMat%ColA,lMat%LdA,lMat%nu,&
+MeshDef%valZ,MeshDef%defZ,1d0,1d0)
+
+END SUBROUTINE MatDef_MeshDefS
 !
 ! ----------------------------------------------
 !
@@ -204,22 +359,68 @@ END SUBROUTINE Boundary_MeshDef_Mat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Boundary_MeshDef_MatS(DS11,DS22,DS33,&
+           DS12,DS13,DS23,DS21,DS31,DS32,KLD)
+REAL*8  DS11(*),DS22(*),DS33(*)
+REAL*8  DS12(*),DS13(*),DS23(*),DS21(*),DS31(*),DS32(*)
+INTEGER KLD(*),ICOL,I
+
+DO I=1,MeshDef%ndof
+ if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
+  ICOL = KLD(I)
+  DS12(ICOL) = 0d0
+  DS13(ICOL) = 0d0
+  DO ICOL=KLD(I)+1,KLD(I+1)-1
+   DS11(ICOL) = 0d0
+   DS12(ICOL) = 0d0
+   DS13(ICOL) = 0d0
+  END DO
+  
+  ICOL = KLD(I)
+  DS23(ICOL) = 0d0
+  DS21(ICOL) = 0d0
+  DO ICOL=KLD(I)+1,KLD(I+1)-1
+   DS22(ICOL) = 0d0
+   DS23(ICOL) = 0d0
+   DS21(ICOL) = 0d0
+  END DO
+
+  ICOL = KLD(I)
+  DS31(ICOL) = 0d0
+  DS32(ICOL) = 0d0
+  DO ICOL=KLD(I)+1,KLD(I+1)-1
+   DS33(ICOL) = 0d0
+   DS31(ICOL) = 0d0
+   DS32(ICOL) = 0d0
+  END DO
+ END IF
+END DO
+
+END SUBROUTINE Boundary_MeshDef_MatS
+!
+! ----------------------------------------------
+!
 SUBROUTINE InitMeshDef()
 
 ILEV = mg_Mesh%nlmax
 
-if (.not.allocated(OrigCoor)) allocate(OrigCoor(3,MeshDef%ndof))
-OrigCoor(1:3,:) = mg_mesh%level(ilev)%dcorvg(1:3,1:MeshDef%ndof)
-
 ! Building up the matrix strucrures
 CALL Create_MatStruct()
 
-! Building up the Diffusion operator
-CALL Create_ConstDiffMat()
+if (bDefTensor) then
+ ! Building up the Deformation tensor operator
+ CALL Create_ConstDeformationMat()
+else
+ ! Building up the Diffusion operator
+ CALL Create_ConstDiffMat()
+end if
 
 ! Initialize the MeshDef field structures
 WRITE(*,*) 'Init MeshDef structures'
 CALL Init_MeshDefField()
+
+if (.not.allocated(OrigCoor)) allocate(OrigCoor(3,MeshDef%ndof))
+OrigCoor(1:3,:) = mg_mesh%level(ilev)%dcorvg(1:3,1:MeshDef%ndof)
 
 END SUBROUTINE InitMeshDef
 

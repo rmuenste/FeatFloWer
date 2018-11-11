@@ -70,6 +70,8 @@ TYPE(TlMatrix) :: lMat
 
 !---------------------------------------------------------------------
 
+REAL*8  , DIMENSION(:)  , ALLOCATABLE :: S11Mat,S22Mat,S33Mat
+REAL*8  , DIMENSION(:)  , ALLOCATABLE :: S12Mat,S13Mat,S23Mat,S21Mat,S31Mat,S32Mat
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Mmat,MLmat,MLRhoCpMat,Kmat,Dmat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: Amat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: AmatX,AmatY,AmatZ
@@ -312,6 +314,48 @@ SUBROUTINE Create_AMat()
 ALLOCATE(Amat(lMat%na))
 
 END SUBROUTINE Create_AMat
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_ConstDeformationMat
+EXTERNAL E011
+
+IF (.NOT.ALLOCATED(S11Mat)) ALLOCATE(S11Mat(lMat%na))
+IF (.NOT.ALLOCATED(S22Mat)) ALLOCATE(S22Mat(lMat%na))
+IF (.NOT.ALLOCATED(S33Mat)) ALLOCATE(S33Mat(lMat%na))
+IF (.NOT.ALLOCATED(S12Mat)) ALLOCATE(S12Mat(lMat%na))
+IF (.NOT.ALLOCATED(S13Mat)) ALLOCATE(S13Mat(lMat%na))
+IF (.NOT.ALLOCATED(S21Mat)) ALLOCATE(S21Mat(lMat%na))
+IF (.NOT.ALLOCATED(S23Mat)) ALLOCATE(S23Mat(lMat%na))
+IF (.NOT.ALLOCATED(S31Mat)) ALLOCATE(S31Mat(lMat%na))
+IF (.NOT.ALLOCATED(S32Mat)) ALLOCATE(S32Mat(lMat%na))
+
+S11Mat = 0d0
+S22Mat = 0d0
+S33Mat = 0d0
+S12Mat = 0d0
+S13Mat = 0d0
+S21Mat = 0d0
+S23Mat = 0d0
+S31Mat = 0d0
+S32Mat = 0d0
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+IF (myid.eq.showid) write(*,*) 'Regenerating Sxy Matrix for Q1'
+
+CALL DeformMatq1(S11Mat,S22Mat,S33Mat,&
+                  S12Mat,S13Mat,S23Mat,&
+                  S21Mat,S31Mat,S32Mat,&
+                  lMat%na,lMat%ColA,lMat%LdA,&
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  1d0,E011)
+                   
+END SUBROUTINE Create_ConstDeformationMat
 !
 ! ----------------------------------------------
 !
