@@ -4,6 +4,7 @@
 A module for mesh related classes and functions
 """
 import operator
+import sys
 
 #===============================================================================
 #                          A class for a quad
@@ -17,11 +18,32 @@ class Quad:
                  quad
         idx: The index of the quad element
     """
-    def __init__(self, nodeIds, idx, zoneId):
+    def __init__(self, nodeIds, zoneId, idx):
         self.nodeIds = nodeIds
         self.idx = idx
         self.zoneId = zoneId
         self.traits = []
+        self.type = 0
+        self.neighIdx = [-1] * 4
+        self.hasBoundaryFace = False
+
+#===============================================================================
+#                          A class for an edge
+#===============================================================================
+class Edge:
+    """
+    A class for an edge of a quadrilateral element
+
+    Attributes:
+        nodeIds: A list of the node Ids (indices) of each vertex of the
+                 edge
+        layerIdx: The level that the edge belongs to
+        type: The type id of the edge element
+    """
+    def __init__(self, nodeIds, idx, edgeType='UNINITIALIZED'):
+        self.nodeIds = nodeIds
+        self.idx = idx
+        self.edgeType = edgeType
 
 
 #===============================================================================
@@ -80,8 +102,214 @@ class QuadMesh:
         nodes: A list of the coordinates of the nodes
     """
     def __init__(self, nodes, elems):
-        self.nodes = nodes
-        self.elements = elems 
+        self.nodes = nodes[:]
+        self.elements = elems[:] 
+        self.elementsAtVertex = []
+        self.verticesAtBoundary = []
+        self.facesAtBoundary = []
+
+
+#===============================================================================
+#                       Function checkMeshValidity1
+#===============================================================================
+    def checkMeshValidity1(self):
+        """
+          Check the connectivity of the mesh
+        """
+
+        for idx, node in enumerate(self.nodes):
+            if len(self.elementsAtVertex[idx]) == 2 and self.verticesAtBoundary[idx] == 0:
+                print(str(idx) + " " + " Elem at Vertex: " + 
+                    str(len(self.elementsAtVertex[idx])) + " " +  
+                    str(self.verticesAtBoundary[idx])
+                    )
+                print("This mesh connectivity is invalid.Exiting...")
+                sys.exit(2)
+
+#===============================================================================
+#                       Function generateElementsAtVertex
+#===============================================================================
+    def generateElementsAtVertex(self):
+        """
+        Compute the Elements attached to a particular vertex
+
+        Args:
+            hexMesh: The input/output hex mesh
+        """
+        elemAtVertIdx = []
+
+        for node in self.nodes:
+            elemAtVertIdx.append(list())
+
+        for idx, quad in enumerate(self.elements):
+            for node in quad.nodeIds:
+                elemAtVertIdx[node].append(idx)
+
+
+        self.elementsAtVertex = elemAtVertIdx
+
+#===============================================================================
+#                       Function generateNeighborsAtElement
+#===============================================================================
+    def generateNeighborsAtElement(self):
+        """
+        Compute the neighbors at the faces of an element
+        Uses the connector data structure for a face:
+        connector[4]
+        connector[0-1] : the indices of the edge
+        connector[2] : the idx of the quad the edge was found in
+        connector[3] : the internal edge index in the quad
+                       (0 for the first edge, 1 for the 2nd,...)
+
+        Args:
+            self: The input/output hex mesh
+        """
+
+        connectorList = []
+        for qidx, quad in enumerate(self.elements):
+
+            connector = []
+            #=========================================================
+            # first edge
+            for i in range(2):
+                connector.append(quad.nodeIds[i])
+
+            # The quad idx
+            connector.append(qidx)
+
+            # The internal edge idx
+            connector.append(0)
+
+            connectorList.append(connector)
+
+            #=========================================================
+            # second edge
+            connector = []
+            connector.append(quad.nodeIds[1])
+            connector.append(quad.nodeIds[2])
+
+            # The quad idx
+            connector.append(qidx)
+
+            # The internal edge idx
+            connector.append(1)
+
+            connectorList.append(connector)
+
+            #=========================================================
+            # third edge
+            connector = []
+            connector.append(quad.nodeIds[2])
+            connector.append(quad.nodeIds[3])
+
+            # The edge idx
+            connector.append(qidx)
+
+            # The internal edge idx
+            connector.append(2)
+
+            connectorList.append(connector)
+
+            #=========================================================
+            # fourth edge
+            connector = []
+            connector.append(quad.nodeIds[3])
+            connector.append(quad.nodeIds[0])
+
+            # The hexa idx
+            connector.append(qidx)
+
+            # The internal edge idx
+            connector.append(3)
+
+            connectorList.append(connector)
+
+        for connector in connectorList:
+            connector[0:2] = sorted(connector[0:2])
+
+        connectorList = sorted(connectorList, key=operator.itemgetter(1))
+        connectorList = sorted(connectorList, key=operator.itemgetter(0))
+
+        for i in range(1, len(connectorList)):
+            neighA = connectorList[i-1]
+            neighB = connectorList[i]
+            if connectorList[i-1][0:2] == connectorList[i][0:2]:
+                self.elements[neighA[2]].neighIdx[neighA[3]] = neighB[2]
+                self.elements[neighB[2]].neighIdx[neighB[3]] = neighA[2]
+
+
+#===============================================================================
+#                       Function facesAtBoundary
+#===============================================================================
+    def generateEdgesAtBoundary(self):
+        """
+        Compute the boundary edges of the mesh
+
+        Args:
+            self: The input/output hex mesh
+        """
+        edgesAtBoundary = []
+
+        edgeIndices = [[0, 1], [1, 2],
+                       [2, 3], [3, 0]]
+
+        nedges = 0
+        for q in self.elements:
+            for idx, item in enumerate(q.neighIdx):
+                if item == -1:
+                    q.hasBoundaryFace = True
+
+                    bndryVertices = [q.nodeIds[edgeIndices[idx][0]],
+                                     q.nodeIds[edgeIndices[idx][1]]]
+
+                    bndryEdge = Edge(bndryVertices, nedges, 'boundaryEdge')
+                    edgesAtBoundary.append(bndryEdge)
+                    nedges = nedges + 1
+
+        self.edgesAtBoundary = edgesAtBoundary
+
+
+#===============================================================================
+#                       Function verticesAtBoundary
+#===============================================================================
+    def generateVerticesAtBoundary(self):
+        """
+        Compute the boundary vertices of the mesh
+
+        Args:
+            self: The input/output hex mesh
+        """
+        verticesAtBoundarySet = set()
+        self.verticesAtBoundary = [0] * len(self.nodes)
+
+        for edge in self.edgesAtBoundary:
+            verticesAtBoundarySet.add(edge.nodeIds[0])
+            verticesAtBoundarySet.add(edge.nodeIds[1])
+
+
+        for idx in range(len(self.nodes)):
+            if idx in verticesAtBoundarySet:
+                self.verticesAtBoundary[idx] = 1
+
+
+
+
+#===============================================================================
+#                    Function generateMeshStructures
+#===============================================================================
+    def generateMeshStructures(self):
+        """
+        Generate a standard set of neighborhood information structures
+
+        """
+        self.generateElementsAtVertex()
+        self.generateNeighborsAtElement()
+#        print(self.elements[0].neighIdx)
+        self.generateEdgesAtBoundary()
+        self.generateVerticesAtBoundary()
+
+
+
 
 
 #===============================================================================
@@ -355,8 +583,8 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
     realHexas = []
     nodeSliceIds = []
     for n in quadMesh.nodes:
-        coords = (n[0], n[1], n[2], n[3])
-        hexNodes.append([float(coords[1]), float(coords[2]), float(coords[3])])
+        coords = (n[0], n[1], n[2])
+        hexNodes.append([float(coords[0]), float(coords[1]), float(coords[2])])
         nodeSliceIds.append(0)
 
 
@@ -366,8 +594,8 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
 
     totalNodes = len(hexNodes)
     for n in quadMesh.nodes:
-        coords = (n[0], n[1], n[2], n[3])
-        hexNodes.append([float(coords[1]), float(coords[2]), float(coords[3])+dz])
+        coords = (n[0], n[1], n[2])
+        hexNodes.append([float(coords[0]), float(coords[1]), float(coords[2])+dz])
         nodeSliceIds.append(1)
 
     for idx, q in enumerate(quadMesh.elements):
@@ -458,6 +686,50 @@ def renumberNodes(hexMesh):
 
     hexMesh.nodes = newNodes
     hexMesh.nodesAtSlice = newNodesAtSlice
+
+
+#===============================================================================
+#                         Function renumberNodes
+#===============================================================================
+def renumberQuadMesh(quadMesh, zoneId):
+    """
+    Applies a renumbering algorithm to the mesh. As a side consequence
+    it removes all nodes that are not connected to a hexahedron
+
+    Args:
+        hexMesh: The input/output hex mesh
+    """
+    nodeMap = {}
+    nodeCounter = 0
+    newNodes = []
+
+    newQuads = []
+
+    print("old NEL: " + str(len(quadMesh.elements)))  
+
+    for q in quadMesh.elements:
+        if q.zoneId == zoneId:
+            newQuad = Quad(q.nodeIds, q.zoneId, q.idx)
+            newQuads.append(newQuad)
+
+    newQuadMesh = QuadMesh(quadMesh.nodes, newQuads)
+
+    for qidx in newQuadMesh.elements:
+        newNodeIds = []
+        for idx in qidx.nodeIds:
+            if idx not in nodeMap:
+                nodeMap[idx] = nodeCounter
+                newNodeIds.append(nodeCounter)
+                newNodes.append(newQuadMesh.nodes[idx-1])
+                nodeCounter = nodeCounter + 1
+            else:
+                newNodeIds.append(nodeMap[idx])
+
+        qidx.nodeIds = newNodeIds
+
+    newQuadMesh.nodes = newNodes
+
+    return newQuadMesh
 
 
 #===============================================================================

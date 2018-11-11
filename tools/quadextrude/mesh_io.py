@@ -172,7 +172,7 @@ def writeTriFile(hexMesh, fileName):
 #===============================================================================
 #               A very simple VTK polygon writer
 #===============================================================================
-def writeQuadMeshVTK(quadMesh):
+def writeQuadMeshVTK(quadMesh, idxAdjust, fileName):
     """
     Writes out a quadMesh in a very simple VTK format
 
@@ -182,7 +182,7 @@ def writeQuadMeshVTK(quadMesh):
 
     """
 
-    with open("quadmesh.00.vtk", "w") as f:
+    with open(fileName, "w") as f:
         f.write("# vtk DataFile Version 4.2 \n")
         f.write("vtk output \n")
         f.write("ASCII \n")
@@ -191,13 +191,13 @@ def writeQuadMeshVTK(quadMesh):
         f.write("DATASET UNSTRUCTURED_GRID\n")
         f.write("POINTS " + str(nVertices) + " float\n")
         for n in quadMesh.nodes:
-            f.write('%s %s %s\n' % (n[1], n[2], n[3]))
+            f.write('%f %f %f\n' % (n[0], n[1], n[2]))
 
         nElem = len(quadMesh.elements)
         f.write("CELLS " + str(nElem) + " " + str(nElem * 5) + " \n")
 
         for q in quadMesh.elements:
-            indices = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
+            indices = (q.nodeIds[0]-idxAdjust, q.nodeIds[1]-idxAdjust, q.nodeIds[2]-idxAdjust, q.nodeIds[3]-idxAdjust)
             f.write('4 %i %i %i %i\n' % (indices[0], indices[1],
                                          indices[2], indices[3]))
 
@@ -210,6 +210,12 @@ def writeQuadMeshVTK(quadMesh):
         f.write("LOOKUP_TABLE default\n")
         for e in quadMesh.elements:
             f.write('%i\n' % (e.zoneId))
+
+#        f.write("POINT_DATA " + str(nVertices) + " \n")
+#        f.write("SCALARS KNPR integer\n")
+#        f.write("LOOKUP_TABLE default\n")
+#        for val in quadMesh.verticesAtBoundary:
+#            f.write('%i\n' % (val))
 
 
 #===============================================================================
@@ -328,7 +334,7 @@ def readNodes(f):
         if not line: break
 
         words = line.strip().split(" ")
-        meshNodes.append((words[0], words[1], words[2], words[3]))
+        meshNodes.append((float(words[1]), float(words[2]), float(words[3])))
 
         line = f.readline()
 
@@ -363,7 +369,7 @@ def readElements(f):
         words = line.strip().split(" ")
         if words[1] == "3":
             nodeIds = [int(words[i]) for i in range(5, 9)]
-            quadElem = Quad(nodeIds, quadCnt, int(words[4]))
+            quadElem = Quad(nodeIds, int(words[4]), quadCnt)
             quads.append(quadElem)
             quadCnt = quadCnt + 1
 
