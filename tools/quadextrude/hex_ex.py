@@ -150,7 +150,8 @@ def usage():
     print("[-i', '--ids-levels]: The element ids that should be present on each level, this string should be put into quotation marks")
     print("[-h', '--help']: prints this message")
     print("Example: python hex_ex.py  -f testfall.msh --extrusion-layers=3,15,3,5 --levels=4 --distance-levels=7.5,40.0,7.5,5.0 --ids-level='1:;2:3,4,5,6,7,8,9,10;3:2-13;4:11'")
-
+    #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
+    #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7,8,9,10;2:3,4,5,6,7,8,9,10;3:2-12;4:11'
 
 #===============================================================================
 #                        Main Script Function
@@ -218,7 +219,12 @@ def main():
 
     nNodes = len(quadMesh.nodes)
 
-    writeQuadMeshVTK(quadMesh)
+    qm2 = renumberQuadMesh(quadMesh, 1)
+    qm2.generateMeshStructures()
+    qm2.checkMeshValidity1()
+    writeQuadMeshVTK(quadMesh, 1, "quadmesh.00.vtk")
+    writeQuadMeshVTK(qm2, 0, "quadmesh.01.vtk")
+#    sys.exit(2)
 
     offsetNodes = int(nNodes)
     layerNodes = offsetNodes
