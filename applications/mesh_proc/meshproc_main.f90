@@ -45,7 +45,7 @@ ilev = mg_Mesh%nlmax
 CALL DeterminePointParametrization_STRCT(mg_mesh,ilev)
  
 IF (bPDE_MD) then
- CALL InitMeshDef()
+ CALL InitMeshDef(bDefTensor)
 END IF
 
 IF (bA_MD) then
@@ -59,7 +59,7 @@ END IF
 
 IF (bPDE_MD) then
 
- CALL MeshDefPDE()
+ CALL MeshDefPDE(bDefTensor)
 
  ilev = mg_Mesh%maxlevel
  CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)

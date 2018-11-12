@@ -14,6 +14,7 @@ INTEGER lTriOutputLevel,lVTUOutputLevel
 CHARACTER*(200) :: cOutputFolder
 LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
+Logical :: bDefTensor = .true.
 
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -48,13 +49,21 @@ CHARACTER*(10) :: cParam
  END IF
  READ(1,*) cParam
  call inip_toupper_replace(cParam)
- IF (trim(adjustl(cParam)).eq.'ON') THEN
+ bPDE_MD=.FALSE.
+ IF (trim(adjustl(cParam)).eq.'LAPLACE'.OR.trim(adjustl(cParam)).eq.'ON') THEN
   bPDE_MD=.TRUE.
-  WRITE(*,*) 'PDE based Mesh Smoother ON!'
- ELSE
-  bPDE_MD=.FALSE.
+  bDefTensor = .false.
+  WRITE(*,*) 'PDE based Mesh Smoother with LAPLACE!'
+ END IF
+ IF (trim(adjustl(cParam)).eq.'DEFTENSOR') THEN
+  bPDE_MD=.TRUE.
+  bDefTensor = .true.
+  WRITE(*,*) 'PDE based Mesh Smoother with DEFTENSOR!'
+ END IF
+ IF (.NOT.bPDE_MD) THEN
   WRITE(*,*) 'PDE based Mesh Smoother is OFF!'
  END IF
+
  READ(1,*) nUmbrellaSteps
  WRITE(*,*) '# of Umbrella Steps: ', nUmbrellaSteps
  READ(1,*) dCGALtoRealFactor
