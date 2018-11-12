@@ -113,6 +113,10 @@
      IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
       call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","CenterlineDistance", mySigma%a ,myInf)
       mySigma%a = dSizeScale*mySigma%a
+      call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","RotationalAxisXOffset", mySigma%bX ,0d0)
+      mySigma%bX = dSizeScale*mySigma%bX
+      call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","RotationalAxisYOffset", mySigma%bY ,0d0)
+      mySigma%bY = dSizeScale*mySigma%bY
      ELSE
       call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","RotAxisAngle", mySigma%RotAxisAngle ,myInf)
       mySigma%RotAxisAngle = 0.5d0*mySigma%RotAxisAngle*datan(1d0)/45d0
@@ -753,6 +757,8 @@
      
      IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
       write(*,*) "mySigma%a",'=',mySigma%a
+      write(*,*) "mySigma%bX",'=',mySigma%bX
+      write(*,*) "mySigma%bY",'=',mySigma%bY
      ELSE
       write(*,*) "mySigma%RotAxisAngle",'=',mySigma%RotAxisAngle
       write(*,*) "mySigma%RotAxisCenter",'=',mySigma%RotAxisCenter

@@ -644,25 +644,25 @@ SELECT CASE(iP)
   ValV = 0d0
   ValW = 0d0
  CASE (101) ! Y positiv
-  ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
-  ValW = 0d0
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*(Y-mySigma%bY-mySigma%a/2d0)*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*(X-mySigma%bX)*(myProcess%Umdr/3d1)
+   ValW = 0d0
+  ELSE
+   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  END IF
  CASE (102) ! Y negativ
-  ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
-  ValW = 0d0
-!  CASE (101) ! Y positiv
-!   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).NE."PARALLEL") THEN
-!    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
-!    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-!    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
-!   END IF
-!  CASE (102) ! Y negativ
-!   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).NE."PARALLEL") THEN
-!    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
-!    ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-!    ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
-!   END IF
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+   ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%bY+mySigma%a/2d0)*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%ind)*myPI*(X-mySigma%bX)*(myProcess%Umdr/3d1)
+   ValW = 0d0
+  ELSE
+   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+   ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  END IF
  CASE (103) ! Y negativ
   ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
