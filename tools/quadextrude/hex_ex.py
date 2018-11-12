@@ -150,7 +150,8 @@ def usage():
     print("[-i', '--ids-levels]: The element ids that should be present on each level, this string should be put into quotation marks")
     print("[-h', '--help']: prints this message")
     print("Example: python hex_ex.py  -f testfall.msh --extrusion-layers=3,15,3,5 --levels=4 --distance-levels=7.5,40.0,7.5,5.0 --ids-level='1:;2:3,4,5,6,7,8,9,10;3:2-13;4:11'")
-    #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
+    # Commands for cases:
+    #python hex_ex.py  -f .\case1\mesh.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
     #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7,8,9,10;2:3,4,5,6,7,8,9,10;3:2-12;4:11'
 
 #===============================================================================
@@ -183,6 +184,8 @@ def main():
 
     # The number of layer extrusions on each level
     idsLevel = [[], list(range(3, 11)), list(range(2, 13)), [11]]
+
+    meshQualityOK = True
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'e:f:l:d:i:h',
@@ -219,12 +222,35 @@ def main():
 
     nNodes = len(quadMesh.nodes)
 
-    qm2 = renumberQuadMesh(quadMesh, 1)
+    # Extract a quad mesh for the base layer
+    qm2 = extractQuadMesh(quadMesh, 1)
+
+    # Extract a quad mesh for the top layer
+    qm3 = extractQuadMesh(quadMesh, 2)
+
+    # Check the validity of the base layer
     qm2.generateMeshStructures()
     qm2.checkMeshValidity1()
-    writeQuadMeshVTK(quadMesh, 1, "quadmesh.00.vtk")
-    writeQuadMeshVTK(qm2, 0, "quadmesh.01.vtk")
-#    sys.exit(2)
+
+    # Check the validity of the top layer
+    qm3.generateMeshStructures()
+    qm3.checkMeshValidity1()
+
+    # Calculate the area distribution in the whole mesh
+    meshQualityOK = meshQualityOK & quadMesh.quadArea()
+    writeQuadMeshVTK(quadMesh, "quadmesh.00.vtk")
+
+    # Calculate the area distribution in base layer
+    meshQualityOK = meshQualityOK & qm2.quadArea()
+    writeQuadMeshVTK(qm2, "quadmesh.01.vtk")
+
+    # Calculate the area distribution in top layer
+    meshQualityOK = meshQualityOK & qm3.quadArea()
+    writeQuadMeshVTK(qm3, "quadmesh.02.vtk")
+
+    if not meshQualityOK:
+        print("The input mesh failed to fulfill the mesh quality criterions.")
+        sys.exit(2)
 
     offsetNodes = int(nNodes)
     layerNodes = offsetNodes

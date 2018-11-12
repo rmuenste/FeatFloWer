@@ -109,6 +109,7 @@ class QuadMesh:
         self.verticesAtBoundary = []
         self.edgesAtBoundary = []
         self.area = []
+        #self.area = [0.0] * len(elems)
 
 
 #===============================================================================
@@ -120,61 +121,60 @@ class QuadMesh:
         """
 
         for idx, node in enumerate(self.nodes):
-            if len(self.elementsAtVertex[idx]) == 2 and self.verticesAtBoundary[idx] == 0:
-                print(str(idx) + " " + " Elem at Vertex: " + 
+            if len(self.elementsAtVertex[idx]) <= 2 and self.verticesAtBoundary[idx] == 0:
+                print("Vertex index: " + str(idx) + "," + " Elements at vertex: " + 
                     str(len(self.elementsAtVertex[idx])) + " " +  
                     str(self.verticesAtBoundary[idx])
                     )
+                print("An inner vertex with <= 2 incident quad elements was found. This mesh topology is invalid. Exiting") 
                 sys.exit(2)
 
 
 #===============================================================================
-#                       Function checkMeshValidity1
+#                       Function quadArea
 #===============================================================================
     def quadArea(self):
         """
-          Check the connectivity of the mesh
+          Calculate the area of each quad in the mesh
         """
-
-        count = 0
         for quad in (self.elements):
-            #print("idx: " + str(count))
-            count = count + 1
-            triangleA = (quad.nodeIds[0]-1, quad.nodeIds[1]-1, quad.nodeIds[2]-1)
-            triangleB = (quad.nodeIds[0]-1, quad.nodeIds[3]-1, quad.nodeIds[2]-1)
+
+            triangleA = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2])
+            triangleB = (quad.nodeIds[0], quad.nodeIds[3], quad.nodeIds[2])
 
             p0 = np.array(list(self.nodes[triangleA[0]]))  
             p1 = np.array(list(self.nodes[triangleA[1]]))  
             p2 = np.array(list(self.nodes[triangleA[2]]))  
 
-    #        print("Area: " + str(getTriangleArea(p0, p1, p2)))
-            area1 = getTriangleArea2(p0, p1, p2)
+            area1 = getTriangleArea(p0, p1, p2)
 
             p0 = np.array(list(self.nodes[triangleB[0]]))  
             p1 = np.array(list(self.nodes[triangleB[1]]))  
             p2 = np.array(list(self.nodes[triangleB[2]]))  
 
-            area2 = getTriangleArea2(p0, p1, p2)
+            area2 = getTriangleArea(p0, p1, p2)
             self.area.append(area1 + area2)
+#            print("Idx: " + str(count) + " old idx: " + str(quad.idx))
+#            print("Area1: " + str(area1))
+#            print("Area2: " + str(area2))
+#            count = count + 1
 
         minArea = np.min(self.area)
         maxArea = np.max(self.area)
+        factor = maxArea/minArea
+
+        print("=======Quad mesh element area distribution=======")
         print("Minimum Area: " + str(minArea))
         print("Maximum Area: " + str(maxArea))
-        print("Factor: " + str(maxArea/minArea))
+        if factor < 1000.0: 
+            print("Factor " + str(factor) + " < 1000.0 -> OK")
+            return True
+        else:
+            print("Factor " + str(factor) + " >= 1000.0 -> Exiting")
+            print("The input quad mesh failed the element area distribution criterion.")
+            return False
+            #sys.exit(2)
 
-#        quad = self.elements[0]
-#
-#        triangleA = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2])
-#
-#        p0 = np.array(list(self.nodes[triangleA[0]]))  
-#        p1 = np.array(list(self.nodes[triangleA[1]]))  
-#        p2 = np.array(list(self.nodes[triangleA[2]]))  
-#
-#        getTriangleArea2(p0, p1, p2)
-
-#        print("Area: " + str(getTriangleArea(p0, p1, p2)))
-#        print("Area: " + str(getTriangleArea(p0, p1, p2)))
 
 #===============================================================================
 #                       Function generateElementsAtVertex
@@ -639,7 +639,7 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
 
 
     for q in quadMesh.elements:
-        nodeIds = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
+        nodeIds = (q.nodeIds[0], q.nodeIds[1], q.nodeIds[2], q.nodeIds[3])
         hexHexas.append([nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[3]])
 
     totalNodes = len(hexNodes)
@@ -649,7 +649,7 @@ def extrudeQuadMeshToHexMesh(quadMesh, dz):
         nodeSliceIds.append(1)
 
     for idx, q in enumerate(quadMesh.elements):
-        nodeIdsBot = (q.nodeIds[0]-1, q.nodeIds[1]-1, q.nodeIds[2]-1, q.nodeIds[3]-1)
+        nodeIdsBot = (q.nodeIds[0], q.nodeIds[1], q.nodeIds[2], q.nodeIds[3])
         hexHexas[idx].append(nodeIdsBot[0]+totalNodes)
         hexHexas[idx].append(nodeIdsBot[1]+totalNodes)
         hexHexas[idx].append(nodeIdsBot[2]+totalNodes)
@@ -739,15 +739,19 @@ def renumberNodes(hexMesh):
 
 
 #===============================================================================
-#                         Function renumberNodes
+#                         Function extractQuadMesh
 #===============================================================================
-def renumberQuadMesh(quadMesh, zoneId):
+def extractQuadMesh(quadMesh, zoneId):
     """
-    Applies a renumbering algorithm to the mesh. As a side consequence
-    it removes all nodes that are not connected to a hexahedron
+    This function extracts a quad mesh from another quad mesh.
+    We are dealing with topological quad meshes that can contain
+    several sub-meshes that are associated with different zoneIds(=sub-mesh ID).
+    This function takes such a mesh as an input and returns a quad mesh
+    that only consists of the sub-mesh with a certain ID.
 
     Args:
-        hexMesh: The input/output hex mesh
+        quadMesh: The input topological quad mesh
+        zoneId: The ID of the sub-mesh that should be extracted
     """
     nodeMap = {}
     nodeCounter = 0
@@ -755,12 +759,12 @@ def renumberQuadMesh(quadMesh, zoneId):
 
     newQuads = []
 
-    print("old NEL: " + str(len(quadMesh.elements)))  
-
+    old_idx = 0
     for q in quadMesh.elements:
         if q.zoneId == zoneId:
-            newQuad = Quad(q.nodeIds, q.zoneId, q.idx)
+            newQuad = Quad(q.nodeIds, q.zoneId, old_idx)
             newQuads.append(newQuad)
+        old_idx = old_idx + 1
 
     newQuadMesh = QuadMesh(quadMesh.nodes, newQuads)
 
@@ -770,7 +774,7 @@ def renumberQuadMesh(quadMesh, zoneId):
             if idx not in nodeMap:
                 nodeMap[idx] = nodeCounter
                 newNodeIds.append(nodeCounter)
-                newNodes.append(newQuadMesh.nodes[idx-1])
+                newNodes.append(newQuadMesh.nodes[idx])
                 nodeCounter = nodeCounter + 1
             else:
                 newNodeIds.append(nodeMap[idx])
@@ -829,67 +833,12 @@ def parFileFromSlice(hexMesh, sliceId):
 #                       Function getTriangleArea
 #===============================================================================
 def getTriangleArea(p0, p1, p2):
-
-    
-    a0 = p1 - p0  
-    a1 = p2 - p0  
-    a2 = p2 - p1  
-
-    l0 = np.linalg.norm(a0)
-    l1 = np.linalg.norm(a1)
-    l2 = np.linalg.norm(a2)
-
-    #print(np.linalg.norm(a0))
-    #print(np.linalg.norm(a1))
-    #print(np.linalg.norm(a2))
-
-    maxIdx = 0
-    if l0 >= l1:
-        if l0 >= l2:
-            maxIdx = 0
-        else:
-            maxIdx = 2
-    else:
-        if l1 >= l2:
-            maxIdx = 1
-        else:
-            maxIdx = 2
-
-    #print(np.max([l0, l1, l2]))
-
-    na = [a1[1], -a1[0], 0.0]
-    ln = 1.0/np.linalg.norm(na)
-#        na[0] = ln * na[0]
-#        na[1] = ln * na[1]
-#        na[2] = ln * na[2]
-    na = np.multiply(ln, na)
-
-    height = np.abs(np.dot(na,p2-p1))
-    if maxIdx == 0:
-        height = np.abs(np.dot(na,p2-p0))
-    elif maxIdx == 1:
-        height = np.abs(np.dot(na,p2-p1))
-    else:
-        height = np.abs(np.dot(na,p1-p0))
-
-    #print("height: ")
-    #print(height)
-
-    return height * l1 * 0.5 
-
-
-#===============================================================================
-#                       Function getTriangleArea2
-#===============================================================================
-def getTriangleArea2(p0, p1, p2):
     
     c = p1 - p0  
     b = p2 - p0  
-    a = p2 - p1  
 
     cl = np.linalg.norm(c)
     bl = np.linalg.norm(b)
-    al = np.linalg.norm(c)
     
     coAlpha = np.dot(c, b)/(cl * bl)
 
@@ -897,28 +846,7 @@ def getTriangleArea2(p0, p1, p2):
 
     area = 0.5 * cl * bl * np.sin(alpha)
 
-    #print("angle: " + str(alpha))
-
     return area
-
-#    ln = 1.0/np.linalg.norm(na)
-##        na[0] = ln * na[0]
-##        na[1] = ln * na[1]
-##        na[2] = ln * na[2]
-#    na = np.multiply(ln, na)
-#
-#    height = np.abs(np.dot(na,p2-p1))
-#    if maxIdx == 0:
-#        height = np.abs(np.dot(na,p2-p0))
-#    elif maxIdx == 1:
-#        height = np.abs(np.dot(na,p2-p1))
-#    else:
-#        height = np.abs(np.dot(na,p1-p0))
-#
-#    #print("height: ")
-#    #print(height)
-#
-#    return height * l1 * 0.5 
 
 
 #===============================================================================

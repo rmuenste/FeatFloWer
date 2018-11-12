@@ -172,7 +172,7 @@ def writeTriFile(hexMesh, fileName):
 #===============================================================================
 #               A very simple VTK polygon writer
 #===============================================================================
-def writeQuadMeshVTK(quadMesh, idxAdjust, fileName):
+def writeQuadMeshVTK(quadMesh, fileName):
     """
     Writes out a quadMesh in a very simple VTK format
 
@@ -197,7 +197,7 @@ def writeQuadMeshVTK(quadMesh, idxAdjust, fileName):
         f.write("CELLS " + str(nElem) + " " + str(nElem * 5) + " \n")
 
         for q in quadMesh.elements:
-            indices = (q.nodeIds[0]-idxAdjust, q.nodeIds[1]-idxAdjust, q.nodeIds[2]-idxAdjust, q.nodeIds[3]-idxAdjust)
+            indices = (q.nodeIds[0], q.nodeIds[1], q.nodeIds[2], q.nodeIds[3])
             f.write('4 %i %i %i %i\n' % (indices[0], indices[1],
                                          indices[2], indices[3]))
 
@@ -373,7 +373,7 @@ def readElements(f):
         quadCnt = 0
         words = line.strip().split(" ")
         if words[1] == "3":
-            nodeIds = [int(words[i]) for i in range(5, 9)]
+            nodeIds = [(int(words[i])-1) for i in range(5, 9)]
             quadElem = Quad(nodeIds, int(words[4]), quadCnt)
             quads.append(quadElem)
             quadCnt = quadCnt + 1
