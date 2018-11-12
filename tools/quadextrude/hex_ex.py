@@ -152,6 +152,7 @@ def usage():
     print("Example: python hex_ex.py  -f testfall.msh --extrusion-layers=3,15,3,5 --levels=4 --distance-levels=7.5,40.0,7.5,5.0 --ids-level='1:;2:3,4,5,6,7,8,9,10;3:2-13;4:11'")
     # Commands for cases:
     #python hex_ex.py  -f .\case1\mesh.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
+    #python hex_ex.py  -f .\case2\mesh.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
     #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7,8,9,10;2:3,4,5,6,7,8,9,10;3:2-12;4:11'
 
 #===============================================================================
@@ -248,10 +249,6 @@ def main():
     meshQualityOK = meshQualityOK & qm3.quadArea()
     writeQuadMeshVTK(qm3, "quadmesh.02.vtk")
 
-    if not meshQualityOK:
-        print("The input mesh failed to fulfill the mesh quality criterions.")
-        sys.exit(2)
-
     offsetNodes = int(nNodes)
     layerNodes = offsetNodes
     offsetHex = 0
@@ -291,6 +288,11 @@ def main():
     writeParFiles(hm2, slicesOnLevel)
 
     writeHexMeshVTK(hm2, "caseB.00.vtk")
+
+    if not meshQualityOK:
+        print("The input mesh failed to fulfill the mesh quality criterions.")
+        sys.exit(2)
+
     writeTriFile(hm2, outputFileName)
 
 
