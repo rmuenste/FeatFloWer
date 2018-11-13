@@ -171,9 +171,9 @@ do iix=1,OctTree%nx
  end do
 end do
 
-if (bWrite) write(*,'(A,2I)') 'Check if all entities were assigned to OctTree Structure nn(1,2) = ', iii, nvt
+!if (bWrite) write(*,'(A,2I)') 'Check if all entities were assigned to OctTree Structure nn(1,2) = ', iii, nvt
 if (iii.ne.nvt) then
- write(*,'(A,2I)') 'problem with initialization of the OctTree Structure nn(1,2) = ', iii, nvt
+ write(*,'(A,2I0)') 'problem with initialization of the OctTree Structure nn(1,2) = ', iii, nvt
  stop
 end if
 
