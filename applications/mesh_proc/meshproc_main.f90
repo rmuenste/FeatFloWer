@@ -57,14 +57,22 @@ IF (bA_MD) then
  CALL SeqUmbrella(mg_Mesh%maxlevel,nUmbrellaSteps)
 END IF
 
+CALL InitBoundaryFields()
+
 IF (bPDE_MD) then
 
  CALL MeshDefPDE(bDefTensor)
 
+ CALL refineMeshLevel(mg_mesh%level(mg_Mesh%nlmax),mg_mesh%level(mg_Mesh%maxlevel))
+ 
  ilev = mg_Mesh%maxlevel
  CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
  
+ CALL Correct_myQ2Coor()
+ 
 END IF
+
+CALL RecoverSurfaceNormals()
 
 ilev = lTriOutputLevel
 CALL Output_Mesh(1,cOutputFolder)

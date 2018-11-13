@@ -2,10 +2,12 @@ MODULE MeshProcPDE
 
 USE def_LinScalar
 USE types, ONLY: tMultiMesh,tMesh
-USE var_QuadScalar, ONLY : UMF_CMat,UMF_lMat
+USE var_QuadScalar, ONLY : UMF_CMat,UMF_lMat,myBoundary
 USE PP3D_MPI, ONLY:myid,master
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
+USE MeshProcDef, ONLY : norm_u,norm_v,norm_w,norm_d
+
 
 TYPE(lScalar3) MeshDef
 REAL*8, ALLOCATABLE :: OrigCoor(:,:)
@@ -200,21 +202,6 @@ do i=1,lMat%nu
  end do
  UMF_lMat%LdA(2*lMat%nu + i+1) = UMF_lMat%LdA(2*lMat%nu + i) + kk 
 end do
-
-! do i=1,MeshDef%ndof
-!  if (.not.mg_Mesh%BndryNodes(i)%bOuterPoint) then
-!  else
-! !   write(*,'(I0,6ES12.4)') i,sol(0*MeshDef%ndof+i),rhs(0*MeshDef%ndof+i),&
-! !   sol(1*MeshDef%ndof+i),rhs(1*MeshDef%ndof+i),sol(2*MeshDef%ndof+i),rhs(2*MeshDef%ndof+i)
-!   write(*,'(999ES12.4)') UMF_CMat(UMF_lMat%LdA(i):UMF_lMat%LdA(i+1)-1)
-!   write(*,'(999ES12.4)') S11Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S12Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S13Mat(lMat%LdA(i):lMat%LdA(i+1)-1)
-!   write(*,'(999ES12.4)') S21Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S22Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S23Mat(lMat%LdA(i):lMat%LdA(i+1)-1)
-!   write(*,'(999ES12.4)') S31Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S32Mat(lMat%LdA(i):lMat%LdA(i+1)-1),S33Mat(lMat%LdA(i):lMat%LdA(i+1)-1)
-!   write(*,'(A)') ' - - - - - -  - - - - --  -- - - - - - -  -- - - -'
-!   pause
-!  end if
-! END DO
-! pause
 
 CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
 
@@ -447,5 +434,154 @@ if (.not.allocated(OrigCoor)) allocate(OrigCoor(3,MeshDef%ndof))
 OrigCoor(1:3,:) = mg_mesh%level(ilev)%dcorvg(1:3,1:MeshDef%ndof)
 
 END SUBROUTINE InitMeshDef
+!----------------------------------------------------------
+SUBROUTINE InitBoundaryFields()
+EXTERNAL E013
+integer ndof
 
+ILEV = mg_Mesh%nlmax
+ndof = mg_Mesh%level(ilev)%nvt + mg_Mesh%level(ilev)%net + mg_Mesh%level(ilev)%nat + mg_Mesh%level(ilev)%nel
+allocate(norm_u(ndof),norm_v(ndof),norm_w(ndof),norm_d(ndof))
+allocate(myBoundary%LS_zero(ndof))
+allocate(myBoundary%iPhase(ndof))
+myBoundary%LS_zero = 0
+myBoundary%iPhase = 1
+
+do i=1,ndof
+ if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
+  myBoundary%LS_zero(i) = 1
+ end if
+END DO
+
+END SUBROUTINE InitBoundaryFields
+!----------------------------------------------------------
+SUBROUTINE RecoverSurfaceNormals()
+EXTERNAL E013
+integer ndof
+
+ILEV = mg_Mesh%nlmax
+ndof = mg_Mesh%level(ilev)%nvt + mg_Mesh%level(ilev)%net + mg_Mesh%level(ilev)%nat + mg_Mesh%level(ilev)%nel
+
+norm_u = 0d0
+norm_v = 0d0
+norm_w = 0d0
+norm_d = 0d0
+
+CALL SETLEV(2)
+CALL RecoverNormals(norm_u,norm_v,norm_w,norm_d,&
+ mg_mesh%level(ilev)%kvert,&
+ mg_mesh%level(ilev)%karea,&
+ mg_mesh%level(ilev)%kedge,&
+ mg_mesh%level(ilev)%dcorvg,&
+ E013)
+
+do i=1,ndof
+ if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
+  norm_u(i) = norm_u(i)/norm_d(i)
+  norm_v(i) = norm_v(i)/norm_d(i)
+  norm_w(i) = norm_w(i)/norm_d(i)
+ end if
+END DO
+
+END SUBROUTINE RecoverSurfaceNormals
+!----------------------------------------------------------
+SUBROUTINE Correct_myQ2Coor()
+implicit none
+REAL*8 PX,PY,PZ,dl1,dl2,dl3
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,ivt6,ivt7,ivt8
+INTEGER NeighE(2,12),NeighA(4,6),NeighAE(4,6)
+DATA NeighE /1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+DATA NeighA /1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+DATA NeighAE/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+
+ILEV = mg_Mesh%nlmax
+
+k=1
+DO i=1,mg_Mesh%level(ilev)%nel
+ DO j=1,6
+  IF (k.eq.mg_Mesh%level(ilev)%karea(j,i)) THEN
+   ivt1 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%kedge(NeighAE(1,j),i)
+   ivt2 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%kedge(NeighAE(2,j),i)
+   ivt3 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%kedge(NeighAE(3,j),i)
+   ivt4 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%kedge(NeighAE(4,j),i)
+   
+   IF (myBoundary%LS_zero(mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+k).eq.0) THEN
+   IF (myBoundary%LS_zero(ivt1).ne.0.OR.myBoundary%LS_zero(ivt2).ne.0.OR.&
+       myBoundary%LS_zero(ivt3).ne.0.OR.myBoundary%LS_zero(ivt4).ne.0) THEN
+   
+    DL1 = (mg_Mesh%level(ilev)%dcorvg(1,ivt1)-mg_Mesh%level(ilev)%dcorvg(1,ivt3))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(2,ivt1)-mg_Mesh%level(ilev)%dcorvg(2,ivt3))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(3,ivt1)-mg_Mesh%level(ilev)%dcorvg(3,ivt3))**2d0 
+    DL2 = (mg_Mesh%level(ilev)%dcorvg(1,ivt2)-mg_Mesh%level(ilev)%dcorvg(1,ivt4))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(2,ivt2)-mg_Mesh%level(ilev)%dcorvg(2,ivt4))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(3,ivt2)-mg_Mesh%level(ilev)%dcorvg(3,ivt4))**2d0 
+
+    IF (DL1.lt.DL2) THEN
+     PX = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(1,ivt1)+mg_Mesh%level(ilev)%dcorvg(1,ivt3))
+     PY = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(2,ivt1)+mg_Mesh%level(ilev)%dcorvg(2,ivt3))
+     PZ = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(3,ivt1)+mg_Mesh%level(ilev)%dcorvg(3,ivt3))
+    ELSE
+     PX = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(1,ivt2)+mg_Mesh%level(ilev)%dcorvg(1,ivt4))
+     PY = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(2,ivt2)+mg_Mesh%level(ilev)%dcorvg(2,ivt4))
+     PZ = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(3,ivt2)+mg_Mesh%level(ilev)%dcorvg(3,ivt4))
+    END IF
+   
+    mg_Mesh%level(ilev)%dcorvg(:,mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+k)=[PX,PY,PZ]
+
+   END IF
+   END IF
+   
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+DO i=1,mg_Mesh%level(ilev)%nel
+ PX = 0d0
+ PY = 0d0
+ PZ = 0d0
+ ivt1 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(1,i)
+ ivt2 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(2,i)
+ ivt3 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(3,i)
+ ivt4 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(4,i)
+ ivt5 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(5,i)
+ ivt6 = mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%karea(6,i)
+
+ IF (myBoundary%LS_zero(ivt1).ne.0.OR.myBoundary%LS_zero(ivt2).ne.0.OR.&
+     myBoundary%LS_zero(ivt3).ne.0.OR.myBoundary%LS_zero(ivt4).ne.0.OR.&
+     myBoundary%LS_zero(ivt5).ne.0.OR.myBoundary%LS_zero(ivt6).ne.0) THEN
+   
+    DL1 = (mg_Mesh%level(ilev)%dcorvg(1,ivt1)-mg_Mesh%level(ilev)%dcorvg(1,ivt6))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(2,ivt1)-mg_Mesh%level(ilev)%dcorvg(2,ivt6))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(3,ivt1)-mg_Mesh%level(ilev)%dcorvg(3,ivt6))**2d0 
+    DL2 = (mg_Mesh%level(ilev)%dcorvg(1,ivt2)-mg_Mesh%level(ilev)%dcorvg(1,ivt4))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(2,ivt2)-mg_Mesh%level(ilev)%dcorvg(2,ivt4))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(3,ivt2)-mg_Mesh%level(ilev)%dcorvg(3,ivt4))**2d0 
+    DL3 = (mg_Mesh%level(ilev)%dcorvg(1,ivt3)-mg_Mesh%level(ilev)%dcorvg(1,ivt5))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(2,ivt3)-mg_Mesh%level(ilev)%dcorvg(2,ivt5))**2d0 +\
+          (mg_Mesh%level(ilev)%dcorvg(3,ivt3)-mg_Mesh%level(ilev)%dcorvg(3,ivt5))**2d0 
+
+    IF (DL1.lt.DL2.and.DL1.lt.DL3) THEN
+     PX = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(1,ivt1)+mg_Mesh%level(ilev)%dcorvg(1,ivt6))
+     PY = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(2,ivt1)+mg_Mesh%level(ilev)%dcorvg(2,ivt6))
+     PZ = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(3,ivt1)+mg_Mesh%level(ilev)%dcorvg(3,ivt6))
+    END IF
+    IF (DL2.lt.DL1.and.DL2.lt.DL3) THEN
+     PX = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(1,ivt2)+mg_Mesh%level(ilev)%dcorvg(1,ivt4))
+     PY = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(2,ivt2)+mg_Mesh%level(ilev)%dcorvg(2,ivt4))
+     PZ = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(3,ivt2)+mg_Mesh%level(ilev)%dcorvg(3,ivt4))
+    END IF
+    IF (DL3.lt.DL1.and.DL3.lt.DL2) THEN
+     PX = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(1,ivt3)+mg_Mesh%level(ilev)%dcorvg(1,ivt5))
+     PY = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(2,ivt3)+mg_Mesh%level(ilev)%dcorvg(2,ivt5))
+     PZ = 0.5d0*(mg_Mesh%level(ilev)%dcorvg(3,ivt3)+mg_Mesh%level(ilev)%dcorvg(3,ivt5))
+    END IF
+   
+    mg_Mesh%level(ilev)%dcorvg(:,mg_Mesh%level(ilev)%nvt+mg_Mesh%level(ilev)%net+mg_Mesh%level(ilev)%nat+i)=[PX,PY,PZ]
+    
+ END IF
+END DO
+
+END SUBROUTINE Correct_myQ2Coor
+!----------------------------------------------------------
 END MODULE MeshProcPDE

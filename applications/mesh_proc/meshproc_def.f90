@@ -15,6 +15,7 @@ CHARACTER*(200) :: cOutputFolder
 LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
 Logical :: bDefTensor = .true.
+real*8, allocatable, dimension(:) :: norm_u,norm_v,norm_w,norm_d
 
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -114,6 +115,12 @@ write(iunit, '(A)')"    <PointData>"
  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ID",""" format=""ascii"">"
  do ivt=1,nvt
   write(iunit, '(A,E16.7)')"        ",REAL(ivt)
+ end do
+ write(iunit, *)"        </DataArray>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","SurfaceNormal",""" NumberOfComponents=""3"" format=""ascii"">"
+ do ivt=1,nvt
+  write(iunit, '(A,3E16.7)')"        ",REAL(norm_u(ivt)),REAL(norm_v(ivt)),REAL(norm_w(ivt))
  end do
  write(iunit, *)"        </DataArray>"
 

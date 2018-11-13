@@ -699,4 +699,169 @@ C
       dA=0.5D0*(DNAR1+DNAR2)
 
       END SUBROUTINE GET_area
+C
+C
+C
+      SUBROUTINE RecoverNormals(NU,NV,NW,DD,KVERT,
+     *           KAREA,KEDGE,DCORVG,ELE)
+      USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar, ONLY : myBoundary
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
 
+      REAL*8 NU(*),NV(*),NW(*)
+      REAL*8 DD(*), DCORVG(NNDIM,*)
+      INTEGER  KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      REAL*8 DMyOmgP(NNCUBP),DMyCubP(NNCUBP,NNAE,NNDIM)
+      REAL*8    TSTEP,dN(3)
+      REAL*8    DHELP(NNBAS,4,NNCUBP),DPP(NNDIM),dNorm(3)
+      TYPE tF
+       REAL*8   DHELP(NNBAS,4,NNCUBP)
+      END TYPE
+      TYPE(tF) F(6)
+      REAL*8    dFluidNormal,PointC(3),PointA(3),dLine(3),dVELO(3)
+      INTEGER NeighA(4,6)
+      DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB = 3 
+      CALL SetUpMyCub(DMyOmgP,DMyCubP,NCUBP,ICUB)
+C
+      DO IAT=1,NNAE
+      DO ICUBP=1,NCUBP
+       XI1=DMyCubP(ICUBP,IAT,1)
+       XI2=DMyCubP(ICUBP,IAT,2)
+       XI3=DMyCubP(ICUBP,IAT,3)
+       CALL E013A(XI1,XI2,XI3,DHELP,ICUBP)
+      END DO
+      F(IAT)%DHELP = DHELP
+      END DO
+C
+************************************************************************
+C *** Calculation of the matrix - storage technique 7 or 8
+************************************************************************
+C
+C *** Loop over all elements
+      DO 100 IEL=1,NEL
+C      
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+C
+      IF (IER.LT.0) GOTO 99999
+C
+      IF (myBoundary%iPhase(NVT+NET+NAT+IEL).ne.0) THEN
+       dFluidNormal = +1d0
+      ELSE
+       dFluidNormal = 0d0
+      END IF
+C     
+      PointC(:) = DCORVG(:,NVT+NET+NAT+IEL)
+C      
+      DO 150 IAT=1,6
+C
+      ivt1 = kvert(NeighA(1,IAT),IEL)
+      ivt2 = kvert(NeighA(2,IAT),IEL)
+      ivt3 = kvert(NeighA(3,IAT),IEL)
+      ivt4 = kvert(NeighA(4,IAT),IEL)
+      
+      IF (myBoundary%LS_zero(ivt1).ne.0.and.
+     *    myBoundary%LS_zero(ivt2).ne.0.and.
+     *    myBoundary%LS_zero(ivt3).ne.0.and.
+     *    myBoundary%LS_zero(ivt4).ne.0) THEN
+C     
+      PointA(:) = DCORVG(:,NVT+NET+KAREA(IAT,IEL))
+      dLine(:)  = PointC(:) - PointA(:)
+C      
+      DHELP = F(IAT)%DHELP
+C      
+      DO 200 ICUBP=1,NCUBP
+C
+      XI1=DMyCubP(ICUBP,IAT,1)
+      XI2=DMyCubP(ICUBP,IAT,2)
+      XI3=DMyCubP(ICUBP,IAT,3)
+      OM=DMyOmgP (ICUBP)
+C
+      DJAC=0d0
+      DO JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP(JDFL,4,ICUBP)
+      END DO
+C
+      DETJ = DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+C
+      IF (IAT.eq.2.or.iat.eq.4) CALL SurfDet(DJAC,2,dA,dN)
+      IF (IAT.eq.1.or.iat.eq.6) CALL SurfDet(DJAC,3,dA,dN)
+      IF (IAT.eq.3.or.iat.eq.5) CALL SurfDet(DJAC,1,dA,dN)
+C
+      CALL ELE(XI1,XI2,XI3,0)
+      IF (IER.LT.0) GOTO 99999
+C
+      dNorm = dFluidNormal*dN
+      dDotProd = dNorm(1)*dLine(1)+dNorm(2)*dLine(2)+dNorm(3)*dLine(3)
+      IF (dDotProd.lt.0d0) dNorm = -dNorm
+C
+      DO I=1,IDFL
+        IG = KDFG(I)
+        IL = KDFL(I)
+        HBAS = DBAS(1,IL,1)
+        NU(IG) = NU(IG) - dA*OM*dNorm(1)*HBAS
+        NV(IG) = NV(IG) - dA*OM*dNorm(2)*HBAS
+        NW(IG) = NW(IG) - dA*OM*dNorm(3)*HBAS
+        DD(IG) = DD(IG) + dA*OM*HBAS
+      ENDDO
+
+200   CONTINUE
+      END IF
+150   CONTINUE
+100   CONTINUE
+99999 END
