@@ -148,8 +148,9 @@ def usage():
     print("[-f', '--mesh-file']: The path to the gmsh .msh input file")
     print("[-l', '--levels]: The number of extrusion levels")
     print("[-i', '--ids-levels]: The element ids that should be present on each level, this string should be put into quotation marks")
+    print("[-o', '--output-dir]: The output directory for the .tri mesh")
     print("[-h', '--help']: prints this message")
-    print("Example: python hex_ex.py  -f testfall.msh --extrusion-layers=3,15,3,5 --levels=4 --distance-levels=7.5,40.0,7.5,5.0 --ids-level='1:;2:3,4,5,6,7,8,9,10;3:2-13;4:11'")
+    print("Example: python hex_ex.py  -f testfall.msh --extrusion-layers=3,15,3,5 --output-dir=meshDir --levels=4 --distance-levels=7.5,40.0,7.5,5.0 --ids-level='1:;2:3,4,5,6,7,8,9,10;3:2-13;4:11'")
     # Commands for cases:
     #python hex_ex.py  -f .\case1\mesh.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
     #python hex_ex.py  -f .\case2\mesh.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7;2:3,4,5,6,7;3:2-8;4:8'
@@ -167,9 +168,11 @@ def main():
         levels: The number of main extrusion levels
         layers: The number of subdivision layers on the levels
     """
+    # Default output file name
+    outputDirName = "meshDir"
 
     # Default output file name
-    outputFileName = "meshDir/mesh.tri"
+    outputFileName = outputDirName + "/mesh.tri"
 
     # Default value for levels
     levels = 4
@@ -189,10 +192,10 @@ def main():
     meshQualityOK = True
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'e:f:l:d:i:h',
+        opts, args = getopt.getopt(sys.argv[1:], 'e:f:l:d:i:o:h',
                                    ['extrusion-layers=', 'mesh-file=',
                                     'levels=', 'distance-levels=',
-                                    'ids-level=', 'help'])
+                                    'ids-level=', 'output-dir=', 'help'])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -211,6 +214,9 @@ def main():
             levelLengthZ = parseLevelDistance(arg)
         elif opt in ('-i', '--ids-level'):
             idsLevel = parseLevelIds(arg)
+        elif opt in ('-o', '--output-dir'):
+            outputDirName = arg
+            outputFileName = outputDirName + "/mesh.tri"
         else:
             usage()
             sys.exit(2)
@@ -283,9 +289,9 @@ def main():
     renumberNodes(hm2)
 
     hm2.generateMeshStructures()
-
-    mkdir("meshDir")
-    writeParFiles(hm2, slicesOnLevel)
+ 
+    mkdir(outputDirName)
+    writeParFiles(hm2, slicesOnLevel, outputDirName)
 
     writeHexMeshVTK(hm2, "caseB.00.vtk")
 
