@@ -23,7 +23,7 @@ NLMIN = mg_Mesh%nlmin
 mg_Mesh%maxlevel = mg_Mesh%nlmax+1
 allocate(mg_mesh%level(mg_Mesh%maxlevel))
 
-write(*,*) 'ADJUSTL(TRIM(cProjectGridFile)) = "'//ADJUSTL(TRIM(cProjectGridFile))//'"'
+write(*,*) 'Project Grid File: = "'//ADJUSTL(TRIM(cProjectGridFile))//'"'
 call readTriCoarse(ADJUSTL(TRIM(cProjectGridFile)), mg_mesh)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! READING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

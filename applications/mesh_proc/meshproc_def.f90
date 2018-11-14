@@ -21,6 +21,7 @@ CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE GetParameters
 CHARACTER*(10) :: cParam
+integer ilong
 
 !  CHARACTER*(200) :: cmd
  LOGICAL bExist
@@ -28,13 +29,16 @@ CHARACTER*(10) :: cParam
  OPEN(1,file='param.cfg')
 
  READ(1,*) cProjectFolder
+ iLong = LEN(ADJUSTL(TRIM(cProjectFolder)))+1
+ WRITE(cProjectFolder(iLong:),"(A)") "/"
  WRITE(*,*) adjustl(trim(cProjectFolder))
+ 
  READ(1,*) cProjectFile
  cProjectFile = adjustl(trim(cProjectFolder))//adjustl(trim(cProjectFile))
  WRITE(*,*) adjustl(trim(cProjectFile))
- READ(1,*) cProjectGridFile
- cProjectGridFile = adjustl(trim(cProjectFolder))//adjustl(trim(cProjectGridFile))
- WRITE(*,*) adjustl(trim(cProjectGridFile))
+ 
+ CALL ExtractMeshfile()
+ 
  READ(1,*) mg_Mesh%nlmax
  mg_Mesh%nlmin = 1
  WRITE(*,*) 'Min and Max levels: ', mg_Mesh%nlmin,mg_Mesh%nlmax
@@ -180,7 +184,7 @@ SUBROUTINE GetFileList()
  INTEGER lenCommand,i,iPos,LenStr,iEnd,iBnds
  
  nBnds = 0
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//'/'//ADJUSTL(TRIM(cProjectFile)))
+ OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//ADJUSTL(TRIM(cProjectFile)))
  DO
   READ(1,FMT='(200A)',IOSTAT=iEnd) string
   IF (iEnd.EQ.-1) EXIT
@@ -353,4 +357,34 @@ END DO
 
 END SUBROUTINE SeqEdgeRunner
 !----------------------------------------------------------
+SUBROUTINE ExtractMeshfile()
+IMPLICIT NONE
+INTEGER LenStr,iEnd
+CHARACTER(LEN=200) :: string,cFile
+logical :: bFound=.false.
+
+OPEN(unit=2,file=adjustl(trim(cProjectFile)))
+
+DO
+ READ(2,FMT='(200A)',IOSTAT=iEnd) string
+ IF (iEnd.EQ.-1) EXIT
+ LenStr = LEN(ADJUSTL(TRIM(string)))
+ IF (LenStr.gt.4) THEN
+  cFile = ADJUSTL(TRIM(string))
+  IF (cFile(LenStr-3:LenStr).EQ.".tri") THEN
+   cProjectGridFile = adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cFile))
+   Write(*,*) 'Mesh file: "'//ADJUSTL(TRIM(cProjectGridFile))//'"'
+   bFound=.true.
+   exit
+  END IF
+ END IF
+END DO
+
+CLOSE(2)
+if (.not.bFound) then
+ Write(*,*) 'Mesh file was NOT found in Project file! '
+end if
+
+END SUBROUTINE ExtractMeshfile
+
 END MODULE MeshProcDef
