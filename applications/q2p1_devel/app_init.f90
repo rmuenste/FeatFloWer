@@ -59,12 +59,12 @@ subroutine init_q2p1_ext(log_unit)
         mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
         mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
 
-        if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
-          write(*,*)"myid: ", myid
-          write(*,*)"idx: ", i
-          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
-          write(*,*)"read: ",QuadSc%auxU(i)
-        end if
+!         if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+!           write(*,*)"myid: ", myid
+!           write(*,*)"idx: ", i
+!           write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
+!           write(*,*)"read: ",QuadSc%auxU(i)
+!         end if
 
       end do
     end if
@@ -103,12 +103,12 @@ subroutine init_q2p1_ext(log_unit)
         mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
         mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
 
-        if (abs(mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
-          write(*,*)"myid: ", myid
-          write(*,*)"idx: ", i
-          write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
-          write(*,*)"read: ",QuadSc%auxU(i)
-        end if
+!         if (abs(mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
+!           write(*,*)"myid: ", myid
+!           write(*,*)"idx: ", i
+!           write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
+!           write(*,*)"read: ",QuadSc%auxU(i)
+!         end if
 
       end do
     end if
