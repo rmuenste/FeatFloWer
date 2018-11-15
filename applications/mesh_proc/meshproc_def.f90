@@ -11,7 +11,7 @@ implicit none
 
 INTEGER lTriOutputLevel,lVTUOutputLevel
 
-CHARACTER*(200) :: cOutputFolder
+CHARACTER*(200) :: cOutputFolder,cShortProjectFile
 LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
 Logical :: bDefTensor = .true.
@@ -33,8 +33,8 @@ integer ilong
  WRITE(cProjectFolder(iLong:),"(A)") "/"
  WRITE(*,*) adjustl(trim(cProjectFolder))
  
- READ(1,*) cProjectFile
- cProjectFile = adjustl(trim(cProjectFolder))//adjustl(trim(cProjectFile))
+ READ(1,*) cShortProjectFile
+ cProjectFile = adjustl(trim(cProjectFolder))//adjustl(trim(cShortProjectFile))
  WRITE(*,*) adjustl(trim(cProjectFile))
  
  CALL ExtractMeshfile()
@@ -177,54 +177,6 @@ write(iunit, *)"</VTKFile>"
 close(iunit)
 
 END SUBROUTINE Output_VTK
-!----------------------------------------------------------
-SUBROUTINE GetFileList()
- CHARACTER(LEN=200) :: string,cFile
- CHARACTER cWD*200,cSub*200
- INTEGER lenCommand,i,iPos,LenStr,iEnd,iBnds
- 
- nBnds = 0
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//ADJUSTL(TRIM(cProjectFile)))
- DO
-  READ(1,FMT='(200A)',IOSTAT=iEnd) string
-  IF (iEnd.EQ.-1) EXIT
-  LenStr = LEN(ADJUSTL(TRIM(string)))
-  IF (LenStr.gt.4) THEN
-   cFile = ADJUSTL(TRIM(string))
-   IF (cFile(LenStr-3:LenStr).EQ.".par") nBnds = nBnds + 1
-  END IF
- END DO
-
- ALLOCATE (myParBndr(nBnds))
-
- Write(*,*)'Number of boundary parametrizations: ',nBnds
- DO iBnds = 1, nBnds
-  ALLOCATE (myParBndr(iBnds)%Bndr(mg_Mesh%NLMIN:mg_Mesh%NLMAX+1))
- END DO
-
- nBnds = 0
- REWIND(1)
-
- DO
-  READ(1,FMT='(200A)',IOSTAT=iEnd) string
-  IF (iEnd.EQ.-1) EXIT
-  LenStr = LEN(ADJUSTL(TRIM(string)))
-  IF (LenStr.gt.4) THEN
-   cFile = ADJUSTL(TRIM(string))
-   IF (cFile(LenStr-3:LenStr).EQ.".par") THEN
-    Write(*,*)'Boundary parametrization: "'//ADJUSTL(TRIM(cFile))//'"'
-    nBnds = nBnds + 1
-    READ(cFile(1:LenStr-4),"(A)") myParBndr(nBnds)%Names
-   END IF
-   IF (cFile(LenStr-3:LenStr).EQ.".tri") THEN
-    READ(cFile(1:LenStr),"(A)") cGridFileName
-    Write(*,*)'Mesh file: "'//ADJUSTL(TRIM(cFile))//'"'
-   END IF
-  END IF
- END DO
- CLOSE(1)
-
-END SUBROUTINE GetFileList
 !----------------------------------------------------------
 SUBROUTINE SeqUmbrella(ilev,nProjStep)
 INTEGER ilev,nProjStep
@@ -372,7 +324,8 @@ DO
  IF (LenStr.gt.4) THEN
   cFile = ADJUSTL(TRIM(string))
   IF (cFile(LenStr-3:LenStr).EQ.".tri") THEN
-   cProjectGridFile = adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cFile))
+   cProjectGridFile = adjustl(trim(cFile))
+!    cProjectGridFile = adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cFile))
    Write(*,*) 'Mesh file: "'//ADJUSTL(TRIM(cProjectGridFile))//'"'
    bFound=.true.
    exit
@@ -386,5 +339,76 @@ if (.not.bFound) then
 end if
 
 END SUBROUTINE ExtractMeshfile
+! ----------------------------------------------
+SUBROUTINE Output_TriMesh()
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+IMPLICIT NONE
+INTEGER i,j,iBnds
+CHARACTER cf*(256)
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cProjectGridFile))
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(1,'(2I8,A)') mg_mesh%level(ilev)%NEL,mg_mesh%level(ilev)%NVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(1,'(A)') 'DCORVG'
+DO i = 1,mg_mesh%level(ilev)%nvt
+ WRITE(1,'(3ES13.5)') mg_mesh%level(ilev)%dcorvg(:,i)
+END DO
+
+WRITE(1,'(A)') 'KVERT'
+DO i = 1,mg_mesh%level(ilev)%nel
+ WRITE(1,'(8I8)') mg_mesh%level(ILEV)%kvert(:,i)
+END DO
+
+WRITE(1,'(A)') 'KNPR'
+IF (allocated(myBoundary%bWall)) then
+ DO i = 1,mg_mesh%level(ilev)%nvt
+  IF (myBoundary%bWall(i)) THEN
+   WRITE(1,'(I8)') 1
+  ELSE
+   WRITE(1,'(I8)') 0
+  END IF
+ END DO
+ELSE
+ DO i = 1,mg_mesh%level(ilev)%nvt
+  WRITE(1,'(I8)') 0
+ END DO
+END IF
+
+CLOSE(1)
+
+OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cShortProjectFile)))
+!WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
+WRITE(2,'(A)') adjustl(trim(cProjectGridFile))
+ 
+DO iBnds = 1, nBnds
+ cf = ' '
+ WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+ WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+ WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+ j=0
+ DO i=1,mg_mesh%level(ilev)%nvt
+  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   j = j + 1
+  END IF
+ END DO
+ WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+ WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+ DO i=1,mg_mesh%level(ilev)%nvt
+  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   WRITE(1,'(I8,A)') i
+  END IF
+ END DO
+ CLOSE(1)
+END DO
+CLOSE(2)
+
+END SUBROUTINE Output_TriMesh
 
 END MODULE MeshProcDef

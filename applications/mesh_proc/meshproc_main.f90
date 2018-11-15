@@ -23,8 +23,8 @@ NLMIN = mg_Mesh%nlmin
 mg_Mesh%maxlevel = mg_Mesh%nlmax+1
 allocate(mg_mesh%level(mg_Mesh%maxlevel))
 
-write(*,*) 'Project Grid File: = "'//ADJUSTL(TRIM(cProjectGridFile))//'"'
-call readTriCoarse(ADJUSTL(TRIM(cProjectGridFile)), mg_mesh)
+write(*,*) 'Project Grid File: = "'//adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cProjectGridFile))
+call readTriCoarse(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cProjectGridFile)), mg_mesh)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! READING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -75,7 +75,7 @@ END IF
 CALL RecoverSurfaceNormals()
 
 ilev = lTriOutputLevel
-CALL Output_Mesh(1,cOutputFolder)
+CALL Output_TriMesh()
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()

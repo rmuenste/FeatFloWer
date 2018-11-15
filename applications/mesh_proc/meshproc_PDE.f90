@@ -6,7 +6,7 @@ USE var_QuadScalar, ONLY : UMF_CMat,UMF_lMat,myBoundary
 USE PP3D_MPI, ONLY:myid,master
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
-USE MeshProcDef, ONLY : norm_u,norm_v,norm_w,norm_d
+USE MeshProcDef, ONLY : norm_u,norm_v,norm_w,norm_d,cOutputFolder
 
 
 TYPE(lScalar3) MeshDef
@@ -17,6 +17,8 @@ SUBROUTINE MeshDefPDE(bDefTensor)
 Logical :: bDefTensor
 
 ILEV = mg_Mesh%nlmax
+
+!mg_Mesh%BndryNodes(:)%bOuterPoint = .false.
 
 do i=1,MeshDef%ndof
  if (.not.mg_Mesh%BndryNodes(i)%bOuterPoint) then
@@ -124,6 +126,7 @@ END SUBROUTINE Init_MeshDefField
 ! ----------------------------------------------
 !
 SUBROUTINE Init_UmfPackS()
+integer iC,kk
 
 IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(9*lMat%na))
 IF (.not.ALLOCATED(UMF_lMat%ColA)) ALLOCATE (UMF_lMat%ColA(9*lMat%na))
@@ -202,6 +205,30 @@ do i=1,lMat%nu
  end do
  UMF_lMat%LdA(2*lMat%nu + i+1) = UMF_lMat%LdA(2*lMat%nu + i) + kk 
 end do
+
+
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/mat.dat')
+! write(3,'(A,I0,A,I0)') 'nu= 3*',lMat%nu,', na= ',UMF_lMat%na
+! write(3,'(A10," ",A10," ",A12)') 'i','j','a_ij'
+! 
+! kk = 0
+! iC = 0
+! do i=1,UMF_lMat%nu
+!  kk = kk + 1
+!  if (kk.gt.lMat%nu) then
+!   kk = 0
+!   iC= iC + 1
+!  end if
+!  
+!  do j=UMF_lMat%LdA(i),UMF_lMat%LdA(i+1)-1
+!   k  = UMF_lMat%ColA(j)
+!   if (iC.eq.0) write(3,'(A1," "I10," ",I10," ",ES12.4)') 'x',i,k,UMF_CMat(j)
+!   if (iC.eq.1) write(3,'(A1," "I10," ",I10," ",ES12.4)') 'y',i,k,UMF_CMat(j)
+!   if (iC.eq.2) write(3,'(A1," "I10," ",I10," ",ES12.4)') 'z',i,k,UMF_CMat(j)
+!   if (iC.eq.3) write(3,'(A1," "I10," ",I10," ",ES12.4)') '*',i,k,UMF_CMat(j)
+!  end do
+! end do
+! close(3)
 
 CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
 
@@ -457,7 +484,7 @@ END SUBROUTINE InitBoundaryFields
 !----------------------------------------------------------
 SUBROUTINE RecoverSurfaceNormals()
 EXTERNAL E013
-integer ndof
+integer ndof,k
 
 ILEV = mg_Mesh%nlmax
 ndof = mg_Mesh%level(ilev)%nvt + mg_Mesh%level(ilev)%net + mg_Mesh%level(ilev)%nat + mg_Mesh%level(ilev)%nel
@@ -475,13 +502,25 @@ CALL RecoverNormals(norm_u,norm_v,norm_w,norm_d,&
  mg_mesh%level(ilev)%dcorvg,&
  E013)
 
+k = 0
 do i=1,ndof
  if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
+  k = k + 1
   norm_u(i) = norm_u(i)/norm_d(i)
   norm_v(i) = norm_v(i)/norm_d(i)
   norm_w(i) = norm_w(i)/norm_d(i)
  end if
 END DO
+
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/norm.dat')
+! write(3,'(A,I0,A,I0)') 'nu= ',ndof, ', n_bc= ',k 
+! write(3,'(6(A10," "))') 'n_x','n_y','n_z','bc_x','bc_y','bc_z'
+! do i=1,ndof
+!  if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
+!   write(3,'(I10,6ES12.4)') i,norm_u(i),norm_v(i),norm_w(i),mg_mesh%level(ilev)%dcorvg(:,i)
+!  end if
+! end do
+! close(3)
 
 END SUBROUTINE RecoverSurfaceNormals
 !----------------------------------------------------------
