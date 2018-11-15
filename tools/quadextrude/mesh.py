@@ -27,6 +27,82 @@ class Quad:
         self.type = 0
         self.neighIdx = [-1] * 4
         self.hasBoundaryFace = False
+        self.edgeLength = [-1.0] * 4
+        self.principalAxes = []
+        self.diagonals = []
+        self.vertexNormals = []
+        self.normVertexNormals = []
+        self.edgeVectors = []
+        self.alphaArea = []
+        self.area = 0.0
+        self.signedArea = 0.0
+        self.jacobian = 0.0
+        self.edgeRatio = 0.0
+        self.aspectRatio = 0.0
+
+
+#===============================================================================
+#                       Function computeEdgeLength
+#===============================================================================
+    def computeEdgeLength(self, vertices):
+        self.edgeVectors.append((vertices[1] - vertices[0]))  
+        self.edgeVectors.append((vertices[2] - vertices[1]))  
+        self.edgeVectors.append((vertices[3] - vertices[2]))  
+        self.edgeVectors.append((vertices[0] - vertices[3]))  
+
+        self.edgeLength[0] = np.linalg.norm(self.edgeVectors[0])  
+        self.edgeLength[1] = np.linalg.norm(self.edgeVectors[1])  
+        self.edgeLength[2] = np.linalg.norm(self.edgeVectors[2])  
+        self.edgeLength[3] = np.linalg.norm(self.edgeVectors[3])  
+
+
+#===============================================================================
+#                       Function computeDiagonals
+#===============================================================================
+    def computeDiagonals(self, vertices):
+        self.diagonals.append(np.linalg.norm(vertices[2] - vertices[0]))  
+        self.diagonals.append(np.linalg.norm(vertices[3] - vertices[1]))  
+
+
+#===============================================================================
+#                       Function computePrincipalAxes
+#===============================================================================
+    def computePrincipalAxes(self, vertices):
+        self.principalAxes.append((vertices[1] - vertices[0]) + (vertices[2] - vertices[3]))  
+        self.principalAxes.append((vertices[2] - vertices[1]) + (vertices[3] - vertices[0]))  
+
+
+#===============================================================================
+#                       Function computeVertexNormals
+#===============================================================================
+    def computeVertexNormals(self, vertices):
+        self.vertexNormals.append(np.cross(self.edgeVectors[3], self.edgeVectors[0]))  
+        self.vertexNormals.append(np.cross(self.edgeVectors[0], self.edgeVectors[1]))  
+        self.vertexNormals.append(np.cross(self.edgeVectors[1], self.edgeVectors[2]))  
+        self.vertexNormals.append(np.cross(self.edgeVectors[2], self.edgeVectors[3]))  
+        self.vertexNormals.append(np.cross(self.principalAxes[0], self.principalAxes[1]))  
+        
+        self.normVertexNormals.append(self.vertexNormals[0]/np.linalg.norm(self.vertexNormals[0]))
+        self.normVertexNormals.append(self.vertexNormals[1]/np.linalg.norm(self.vertexNormals[1]))
+        self.normVertexNormals.append(self.vertexNormals[2]/np.linalg.norm(self.vertexNormals[2]))
+        self.normVertexNormals.append(self.vertexNormals[3]/np.linalg.norm(self.vertexNormals[3]))
+
+        self.normVertexNormals.append(self.vertexNormals[4]/np.linalg.norm(self.vertexNormals[4]))
+
+
+#===============================================================================
+#                       Function computeAlphaArea
+#===============================================================================
+    def computeAlphaArea(self, vertices):
+        for i in range(4):
+            self.alphaArea.append(np.dot(self.normVertexNormals[4], self.vertexNormals[i]))
+#            print("Alpha area: " + str(np.dot(self.normVertexNormals[4], self.vertexNormals[i])))
+#            print("Normal: ")
+#            print(self.vertexNormals[i])
+#
+#        print("Center Normal: ")
+#        print(self.normVertexNormals[4])
+
 
 #===============================================================================
 #                          A class for an edge
@@ -109,7 +185,6 @@ class QuadMesh:
         self.verticesAtBoundary = []
         self.edgesAtBoundary = []
         self.area = []
-        #self.area = [0.0] * len(elems)
 
 
 #===============================================================================
@@ -129,6 +204,124 @@ class QuadMesh:
                 print("An inner vertex with <= 2 incident quad elements was found. This mesh topology is invalid. Exiting") 
                 sys.exit(2)
 
+
+#===============================================================================
+#                       Function quadMeasuresInit
+#===============================================================================
+    def quadQualityMeasures(self):
+        """
+        Compute some auxilliary quad quantities for the quad quality measures
+        """
+
+        for quad in self.elements:
+            quadIdx = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2], quad.nodeIds[3])
+
+            p0 = np.array(list(self.nodes[quadIdx[0]]))  
+            p1 = np.array(list(self.nodes[quadIdx[1]]))  
+            p2 = np.array(list(self.nodes[quadIdx[2]]))  
+            p3 = np.array(list(self.nodes[quadIdx[3]]))  
+
+            quadVertices = [p0, p1, p2, p3] 
+
+            quad.computeEdgeLength(quadVertices)
+            quad.computeEdgeLength(quadVertices)
+            quad.computeDiagonals(quadVertices)
+            quad.computePrincipalAxes(quadVertices)
+            quad.computeVertexNormals(quadVertices)
+            quad.computeAlphaArea(quadVertices)
+
+        self.quadAspectRatio()
+        self.quadSignedArea()
+        self.quadEdgeRatio()
+        self.quadJacobian()
+
+
+#===============================================================================
+#                       Function signedArea
+#===============================================================================
+    def quadSignedArea(self):
+        """
+        Compute the signed area of the elements
+        """
+
+        for quad in self.elements:
+
+            signedArea = 0.0
+            for i in range(len(quad.alphaArea)):
+                signedArea = signedArea + quad.alphaArea[i]
+
+            quad.signedArea = 0.25 * signedArea 
+
+#        print("SignedArea = " + str(signedArea))
+#        print("RealArea = " + str(quad.area))
+
+
+#===============================================================================
+#                       Function edgeRatio
+#===============================================================================
+    def quadJacobian(self):
+        """
+        Compute the jacobian of the element by using the alpha area
+        """
+
+        for quad in self.elements:
+            quad.jacobian = np.min(quad.alphaArea)
+
+
+#===============================================================================
+#                       Function edgeRatio
+#===============================================================================
+    def quadEdgeRatio(self):
+        """
+        Compute the edge ratio of the elements
+        """
+
+        for quad in self.elements:
+            Lmax = np.max(quad.edgeLength)
+            Lmin = np.min(quad.edgeLength)
+
+            quad.edgeRatio = Lmax/Lmin
+
+#        print("Edge Ration = " + str(edgeRatio))
+
+#===============================================================================
+#                       Function aspectRatio
+#===============================================================================
+    def quadAspectRatio(self):
+        """
+        Compute some auxilliary quad quantities for the quad quality measures
+        """
+        quad = self.elements[0]
+
+        for quad in self.elements:
+            quadIdx = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2], quad.nodeIds[3])
+
+            p0 = np.array(list(self.nodes[quadIdx[0]]))  
+            p1 = np.array(list(self.nodes[quadIdx[1]]))  
+            p2 = np.array(list(self.nodes[quadIdx[2]]))  
+            p3 = np.array(list(self.nodes[quadIdx[3]]))  
+
+            triangleA = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2])
+            triangleB = (quad.nodeIds[0], quad.nodeIds[3], quad.nodeIds[2])
+
+            v0 = np.array(list(self.nodes[triangleA[0]]))  
+            v1 = np.array(list(self.nodes[triangleA[1]]))  
+            v2 = np.array(list(self.nodes[triangleA[2]]))  
+
+            area1 = getTriangleArea(v0, v1, v2)
+
+            v0 = np.array(list(self.nodes[triangleB[0]]))  
+            v1 = np.array(list(self.nodes[triangleB[1]]))  
+            v2 = np.array(list(self.nodes[triangleB[2]]))  
+
+            area2 = getTriangleArea(v0, v1, v2)
+            A = area1 + area2
+
+            Lmax = np.max(quad.edgeLength)
+
+            quad.aspectRatio = (Lmax * (quad.edgeLength[0] + quad.edgeLength[1] + quad.edgeLength[2] + quad.edgeLength[3]))/(4.0 * A) 
+
+#        print("Aspect Ration = " + str(aspectRatio))
 
 #===============================================================================
 #                       Function quadArea
@@ -153,6 +346,7 @@ class QuadMesh:
             p2 = np.array(list(self.nodes[triangleB[2]]))  
 
             area2 = getTriangleArea(p0, p1, p2)
+            quad.area = area1 + area2
             self.area.append(area1 + area2)
 #            print("Idx: " + str(count) + " old idx: " + str(quad.idx))
 #            print("Area1: " + str(area1))
