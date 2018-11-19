@@ -120,7 +120,7 @@ END TYPE
 
 TYPE tBndryNone
  LOGICAL :: bOuterPoint=.FALSE.
- LOGICAL :: ParamTypes(4)=.FALSE.
+ LOGICAL :: ParamTypes(1:4)=.FALSE.
  INTEGER :: nPoint=0,nLine=0,nSurf=0,nVolume=0
  INTEGER, ALLOCATABLE :: P(:),L(:),S(:),V(:)
 END TYPE tBndryNone
