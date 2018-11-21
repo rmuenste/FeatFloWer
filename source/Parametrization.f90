@@ -913,6 +913,7 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
   END DO
 
   DO iNode=1,mgMesh%level(ilevel+1)%nvt
+    mgMesh%BndryNodes(iNode)%ParamTypes(1:4)=.FALSE.
     IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(1)=.TRUE.
     IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(2)=.TRUE.
     IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(3)=.TRUE.
@@ -978,6 +979,8 @@ type(tMultiMesh) :: mgMesh
 REAL*8 x,y,z,cpx,cpy,cpz,d_temp,xiS(3)
 INTEGER iNode,ipc,iBnds,iS,W
 
+ IF (myid.eq.MASTER) return
+ 
  DO iNode = 1, mgmesh%level(ii)%nvt
    IF ((mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
         mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&

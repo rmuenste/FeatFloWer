@@ -890,6 +890,7 @@ EXTERNAL E013
 
   if(bNonNewtonian) THEN
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+         Temperature,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
          mg_mesh%level(ILEV)%kvert,&
          mg_mesh%level(ILEV)%karea,&
@@ -975,6 +976,7 @@ INTEGER i
 !  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling S Matrix on Level", ILEV
 
   CALL CUBATURESTRESS(myScalar%valU, myScalar%valV,myScalar%valW, &
+       Temperature,&
        mg_S11mat(ILEV)%a,mg_S22mat(ILEV)%a,mg_S33mat(ILEV)%a,&
        mg_S12mat(ILEV)%a,mg_S13mat(ILEV)%a,mg_S23mat(ILEV)%a,&
        mg_S21mat(ILEV)%a,mg_S31mat(ILEV)%a,mg_S32mat(ILEV)%a,&
@@ -1075,6 +1077,7 @@ IF (myid.ne.0) THEN
  CALL SETLEV(2)
 
  CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+ Temperature,&
  myScalar%defU, myScalar%defV, myScalar%defW,&
  Viscosity,&
  mg_mesh%level(ILEV)%kvert,&
@@ -1894,6 +1897,7 @@ REAL tttx1,tttx0
     CALL ZTIME(tttx0)
     
     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+    Temperature,&
     myScalar%defU, myScalar%defV, myScalar%defW,&
     Viscosity,&
     mg_mesh%level(ILEV)%kvert,&
@@ -1951,6 +1955,7 @@ REAL tttx1,tttx0
      CALL ZTIME(tttx0)
 
      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     Temperature,&
      myScalar%defU, myScalar%defV, myScalar%defW,&
      Viscosity,&
      mg_mesh%level(ILEV)%kvert,&

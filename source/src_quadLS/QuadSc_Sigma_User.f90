@@ -49,7 +49,7 @@ TYPE tInflow
 END TYPE tInflow
 
 TYPE tProcess
-   REAL*8 :: Umdr, Ta, Ti, T0, Massestrom, Dreh, Angle, dPress,Phase
+   REAL*8 :: Umdr, Ta, Ti, T0=0d0, Massestrom, Dreh, Angle, dPress,Phase
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity
    REAL*8 :: dAlpha
@@ -65,8 +65,8 @@ END TYPE tProcess
 TYPE(tProcess) :: myProcess
 !------------------------------------------------------------
 TYPE tRheology
-   INTEGER :: Equation = 5
-   INTEGER :: AtFunc
+   INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
+   INTEGER :: AtFunc = 1 !-->> isotherm
    REAL*8 :: A, B, C ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 

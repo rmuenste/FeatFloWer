@@ -1,7 +1,7 @@
 module visualization_out
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
-                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor,temperature
 
 use Sigma_User, only: tOutput, tSigma
 
@@ -229,6 +229,14 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ case('Temperature')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Temperature [C]",""" format=""ascii"">"
+
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(temperature(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
  case('NormShearRate')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","NormShearRate [1/s]",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -379,6 +387,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Screw","""/>"
  CASE('Viscosity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity [Pa s]","""/>"
+ CASE('Temperature')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature [C]","""/>"
  CASE('NormShearRate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","NormShearRate [1/s]","""/>"
 !  CASE('Monitor')

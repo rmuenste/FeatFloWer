@@ -19,7 +19,7 @@ contains
 ! @param simTime current simulation time
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic,Temperature
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
 USE Transport_Q1,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
@@ -70,6 +70,14 @@ packed(3)%p => QuadSc%auxW
 
 call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                   3, packed)                 
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ QuadSc%auxU = Temperature
+ packed(1)%p => QuadSc%auxU
+ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   1, packed)                 
+END IF                  
                   
 end subroutine write_sol_to_file
 !
@@ -83,19 +91,25 @@ subroutine read_sol_from_file(startFrom, iLevel, time_ns)
 
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
-USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
+USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
 USE Transport_Q1,ONLY:Tracer
 
 implicit none
 
 character(60), intent(in) :: startFrom
+character(60) :: fieldName
 integer, intent(in) :: iLevel
+INTEGER ndof,nelem
 real*8, intent(inout) :: time_ns
+type(fieldPtr), dimension(3) :: packed
 
-integer :: nelem
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
 
 nelem = knel(nlmax)
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
 call read_vel_sol(startFrom,iLevel-1,nelem,NLMIN,NLMAX,&
                   coarse%myELEMLINK,myDump%Vertices,&
@@ -106,6 +120,47 @@ call read_pres_sol(startFrom,iLevel-1,nelem,NLMIN,NLMAX,&
                    myDump%Elements,LinSc%ValP(NLMAX)%x)
 
 call read_time_sol(startFrom, istep_ns, time_ns)
+
+
+fieldName = "coordinates"
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+call read_q2_sol(fieldName, startFrom,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,3, packed)
+mg_mesh%level(nlmax+1)%dcorvg(1,:) = QuadSc%auxU
+mg_mesh%level(nlmax+1)%dcorvg(2,:) = QuadSc%auxV
+mg_mesh%level(nlmax+1)%dcorvg(3,:) = QuadSc%auxW
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ Temperature = QuadSc%auxU
+END IF                  
+
+! This part here is responsible for creation of structures enabling the mesh coordinate 
+! transfer to the master node so that it can create the corresponding matrices
+IF (myid.EQ.0) THEN
+  CALL CreateDumpStructures(0)
+ELSE
+  LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+  CALL CreateDumpStructures(LevDif)
+END IF
+
+ilev = LinSc%prm%MGprmIn%MedLev
+
+nLengthV = (2**(ilev-1)+1)**3
+nLengthE = mg_mesh%level(NLMIN)%nel
+
+ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                            mg_mesh%level(ilev)%kvert,&
+                            nLengthV,&
+                            nLengthE,&
+                            mg_mesh%level(ilev)%nel,&
+                            mg_mesh%level(ilev)%nvt)
+DEALLOCATE(SendVect)
 
 end subroutine read_sol_from_file
 !

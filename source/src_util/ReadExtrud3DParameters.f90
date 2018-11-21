@@ -81,11 +81,11 @@
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","BarrelCut", mySigma%cZwickel ,"STRAIGHT")
     call inip_toupper_replace(mySigma%cZwickel)
-    IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND")) THEN
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND").OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."CURVED") THEN
      WRITE(*,*) "not a valid Zwickel region definition:", ADJUSTL(TRIM(mySigma%cZwickel))
     END IF
     IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") mySigma%Dzz = myInf
-    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND")    mySigma%W = myInf
+    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."CURVED")    mySigma%W = myInf
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out/dSizeScale)
     mySigma%Dz_in = dSizeScale*mySigma%Dz_in
