@@ -979,6 +979,8 @@ type(tMultiMesh) :: mgMesh
 REAL*8 x,y,z,cpx,cpy,cpz,d_temp,xiS(3)
 INTEGER iNode,ipc,iBnds,iS,W
 
+IF (myID.eq.MASTER) RETURN
+
  DO iNode = 1, mgmesh%level(ii)%nvt
    IF ((mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
         mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
