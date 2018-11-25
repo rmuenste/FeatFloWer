@@ -1403,7 +1403,10 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
     IF (insav.NE.0.AND.itns.NE.1) THEN
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
-        call write_sol_to_file(insavn, timens)
+        
+        CALL Release_ListFiles_SSE(int(myProcess%Angle))
+        
+!        call write_sol_to_file(insavn, timens)
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF

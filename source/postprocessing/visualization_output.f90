@@ -1,7 +1,7 @@
 module visualization_out
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
-                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, myQ2Coor,temperature
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
 
 use Sigma_User, only: tOutput, tSigma
 
@@ -573,7 +573,7 @@ subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel,btempSim)
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 use def_LinScalar, only: lScalar
-USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol
+USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
 use Sigma_User, only: myOutput, mySigma
 
 implicit none
@@ -597,32 +597,31 @@ character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
 character(100) :: command
-logical :: bTemperatureSimulation
+! logical :: bTemperatureSimulation
 integer :: iVerlaufMax
 
- if (present(btempSim)) then
-   bTemperatureSimulation = btempSim
- else
-   bTemperatureSimulation = .FALSE.
- end if
+!  if (present(btempSim)) then
+!    bTemperatureSimulation = btempSim
+!  else
+!    bTemperatureSimulation = .FALSE.
+!  end if
+! 
+!  ! The number of Verlauf-Outputs in the 1D-Files depends on wether it is a temperature-simulation
+!  if (bTemperatureSimulation) then
+!   ! If it is a Temperature-Simulation we have 8 Fields:
+!   ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity, Temperature
+!   ! For each field we output 3 Quantites: Min, Max, Med.
+!   ! Therefore, we then have 3*8=24 Verlauf-Sections
+!   iVerlaufMax = 24
+!  else
+!   ! If it is not a Temperature-Simulation we have only 7 Fields:
+!   ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity
+!   ! For each field we output 3 Quantites: Min, Max, Med.
+!   ! Therefore, we then have 3*7=21 Verlauf-Sections
+!   iVerlaufMax = 21
+!  end if
 
- ! The number of Verlauf-Outputs in the 1D-Files depends on wether it is a temperature-simulation
- if (bTemperatureSimulation) then
-  ! If it is a Temperature-Simulation we have 8 Fields:
-  ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity, Temperature
-  ! For each field we output 3 Quantites: Min, Max, Med.
-  ! Therefore, we then have 3*8=24 Verlauf-Sections
-  iVerlaufMax = 24
- else
-  ! If it is not a Temperature-Simulation we have only 7 Fields:
-  ! Pressure, Velocity_Mag, AxialVelocity, RotX-Velocity, RotY-Velocity, Shearrate, Viscosity
-  ! For each field we output 3 Quantites: Min, Max, Med.
-  ! Therefore, we then have 3*7=21 Verlauf-Sections
-  iVerlaufMax = 21
- end if
-
-
-
+ iVerlaufMax = 33
 
  my1DOut(1)%cName = 'VelocityZ_[m/s]'
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
@@ -630,12 +629,8 @@ integer :: iVerlaufMax
  my1DOut(2)%cName = 'Pressure_[bar]'
  CALL viz_OutPut_1D_sub(sLinSc%Q2,sLinSc%Q2,sLinSc%Q2,2, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
- ! Add the temperature only if we have a temperature-simulation
- if (bTemperatureSimulation) then
-  my1DOut(3)%cName = 'Temperature_[K]'
-  CALL viz_OutPut_1D_sub(sTracer%val(maxlevel+1)%x,sLinSc%Q2,sLinSc%Q2,3, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
- end if
-! write(*,*)'------------------done3:',myid
+ my1DOut(3)%cName = 'Temperature_[C]'
+ CALL viz_OutPut_1D_sub(Temperature,sLinSc%Q2,sLinSc%Q2,3, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(4)%cName = 'Viscosity_[kg/m/s]'
  CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
@@ -652,7 +647,16 @@ integer :: iVerlaufMax
  my1DOut(8)%cName = 'VelocityM_[m/s]'
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,8, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
-! write(*,*)'------------------This should crash-----------------------------'
+ my1DOut(9)%cName = 'ShearSG_[1/s]'
+ CALL OutPut_1D_subExtra(ShearRate,ScrewDist,9, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+
+ my1DOut(10)%cName = 'ShearSS_[1/s]'
+ CALL OutPut_1D_subExtra(ShearRate,ScrewDist,10, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+
+ my1DOut(11)%cName = 'VelocityWSS_[m/s]'
+ CALL OutPut_1D_subExtra(sQuadSc%valW,ScrewDist,11, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+
+ ! write(*,*)'------------------This should crash-----------------------------'
 IF (myid.eq.1) THEN
 
  WRITE(cf2,'(A,I4.4,A)') '_1D/extrud3d_',iOut,'.res'
@@ -871,37 +875,103 @@ IF (myid.eq.1) THEN
   WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
  END DO
 
+! Temperature
+ WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
+ WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
+ WRITE(120,'(A)')"Unit=23"
+ WRITE(120,'(A)')"SIUnit=[C]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+ END DO
 
- ! Only do temperature output if we have a temperature-simulation
- if (bTemperatureSimulation) then
-  ! Temperature
-   WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
-   WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
-   WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
-   WRITE(120,'(A)')"Unit=24"
-   WRITE(120,'(A)')"SIUnit=[K]"
-   DO i=0,my1DOut_nol-1
-    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
-   END DO
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
+ WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
+ WRITE(120,'(A)')"Unit=23"
+ WRITE(120,'(A)')"SIUnit=[C]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+ END DO
 
-   WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
-   WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
-   WRITE(120,'(A)')"Unit=24"
-   WRITE(120,'(A)')"SIUnit=[K]"
-   DO i=0,my1DOut_nol-1
-    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
-   END DO
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
+ WRITE(120,'(A)')"ID=TEMPERATURE_MED"
+ WRITE(120,'(A)')"Unit=23"
+ WRITE(120,'(A)')"SIUnit=[C]"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+ END DO
 
-   WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
-   WRITE(120,'(A)')"ID=TEMPERATURE_MED"
-   WRITE(120,'(A)')"Unit=24"
-   WRITE(120,'(A)')"SIUnit=[K]"
-   DO i=0,my1DOut_nol-1
-    WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
-   END DO
- end if
+! ShearSG
+ WRITE(120,'(A,A,(100("/")))')"#///////////","SHEAR_SG"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf24]"
+ WRITE(120,'(A)')"ID=GAMMA_SG_MIN"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf25]"
+ WRITE(120,'(A)')"ID=GAMMA_SG_MAX"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf26]"
+ WRITE(120,'(A)')"ID=GAMMA_SG_MED"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMean(i+1)
+ END DO
+
+! ShearSS
+ WRITE(120,'(A,A,(100("/")))')"#///////////","SHEAR_SS"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf27]"
+ WRITE(120,'(A)')"ID=GAMMA_SS_MIN"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf28]"
+ WRITE(120,'(A)')"ID=GAMMA_SS_MAX"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf29]"
+ WRITE(120,'(A)')"ID=GAMMA_SS_MED"
+ WRITE(120,'(A)')"Unit=17"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMean(i+1)
+ END DO
+
+! Velocity-W-SS
+ WRITE(120,'(A,A,(100("/")))')"#///////////","VELO_Z_SS"
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf30]"
+ WRITE(120,'(A)')"ID=VELO_Z_SS_MIN"
+ WRITE(120,'(A)')"Unit=20"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMin(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf31]"
+ WRITE(120,'(A)')"ID=VELO_Z_SS_MAX"
+ WRITE(120,'(A)')"Unit=20"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMax(i+1)
+ END DO
+
+ WRITE(120,'(A)')"[Ergebnisse/Verlauf32]"
+ WRITE(120,'(A)')"ID=VELO_Z_SS_MED"
+ WRITE(120,'(A)')"Unit=20"
+ DO i=0,my1DOut_nol-1
+  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMean(i+1)
+ END DO
 
  CLOSE(120)
+
 
 end if
 
@@ -982,7 +1052,7 @@ if (myid.ne.0) THEN
 
   IF (MixerKNPR(i).eq.0) THEN
    jj=0
-   dZ = myQ2Coor(3,i)
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
    DO j=1,my1DOut_nol
     IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
      jj = j
@@ -1017,6 +1087,145 @@ IF (myid.ne.0) THEN
 END IF
 
 end subroutine viz_OutPut_1D_sub
+!
+! ----------------------------------------------
+!
+SUBROUTINE  OutPut_1D_subEXTRA(dField1,ScrewDist,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
+implicit none
+real*8 :: dField1(*),ScrewDist(2,*)
+integer :: i1D
+integer :: my1DOut_nol
+type(t1DOutput), dimension(8) :: my1DOutput
+type(tOutput) :: myOutput
+type(tSigma) :: mySigma
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
+
+! local variables
+real*8  :: dMinSample, dMaxSample
+integer :: i,j,jj
+real*8  :: dX,dY,dZ,dWidth,daux,dScale,dR,dDist,dRadius
+
+real*8, dimension(:,:), allocatable :: my1DIntervals
+real*8, dimension(:), allocatable :: my1DWeight
+
+LOGICAL bValid
+INTEGER iSeg
+
+my1DOut_nol = myOutput%nOf1DLayers
+ 
+dMinSample = mySigma%mySegment(1)%Min
+dMaxSample = mySigma%mySegment(mySigma%NumberOfSeg)%Max
+
+if (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
+if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
+if (.not.allocated(my1DOutput(i1D)%dMean)) ALLOCATE(my1DOutput(i1D)%dMean(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
+if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
+
+IF (myid.ne.0) THEN 
+
+ IF (i1D.EQ.9)  dScale = 1d0     !Shear SG
+ IF (i1D.EQ.10) dScale = 1d0     !Shear SS
+ IF (i1D.EQ.11) dScale = 1d-3    !VelozityZ SS
+
+ dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
+
+ DO i=1,my1DOut_nol
+  my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
+  my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
+ END DO
+
+ my1DOutput(i1D)%dMean   = 0d0
+ my1DWeight              = 0d0
+ my1DOutput(i1D)%dMin    = 1d30
+ my1DOutput(i1D)%dMax    =-1d30
+ MlRhoMat => mg_MlRhoMat(maxlevel)%a
+ 
+
+ DO iSeg=1,mySigma%NumberOfSeg
+ 
+ DO i=1,SIZE(sQuadSc%ValU)
+
+  IF (MixerKNPR(i).eq.0) THEN
+   jj=0  
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i) 
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
+
+   IF (jj.NE.0) THEN
+    bValid = .FALSE.
+    IF (i1D.EQ.9) THEN
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     dDist = ABS(min(ScrewDist(1,i),ScrewDist(2,i)))
+!     dDist = ABS(Distamce(i))
+     IF (dY.gt.0d0)  dR = SQRT(dX**2d0+(dY-mySigma%a/2d0)**2d0)
+     IF (dY.le.0d0)  dR = SQRT(dX**2d0+(dY+mySigma%a/2d0)**2d0)
+!      write(*,*) mySigma%mySegment(iSeg)%delta,mySigma%mySegment(iSeg)%Ds,dDist,dR
+!      pause
+     IF (dR.gt.0.5d0*mySigma%mySegment(iSeg)%Ds.and.dDist.le.mySigma%mySegment(iSeg)%delta) THEN
+      daux = dScale*dField1(i)
+      bValid = .TRUE.
+     END IF
+    END IF
+    IF (i1D.EQ.10) THEN
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     IF (ABS(ScrewDist(1,i).lt.mySigma%mySegment(iSeg)%s).and.ABS(ScrewDist(2,i).lt.mySigma%mySegment(iSeg)%s))  THEN
+!      IF (dY.gt.-0.5d0*mySigma%a.and.dY.lt.+0.5d0*mySigma%a.and.&
+!          dX.gt.-0.5d0*mySigma%s.and.dX.lt.+0.5d0*mySigma%s)  THEN
+      daux = dScale*dField1(i)
+      bValid = .TRUE.
+     END IF
+    END IF
+    IF (i1D.EQ.11) THEN
+
+     IF (ISNAN(mySigma%DZz)) THEN
+      mySigma%DZz = 2d0*(SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W)
+     END IF 
+
+     dRadius = 0.5d0*mySigma%DZz
+!      dRadius = ((0.5d0*mySigma%Dz)**2d0 - (0.5d0*mySigma%a)**2d0)**0.5d0 + mySigma%V
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     dR = SQRT(dX**2d0+dY**2d0)
+     IF (dR.lt.dRadius)  THEN
+      daux = dScale*dField1(i)
+      bValid = .TRUE.
+     END IF
+    END IF   
+
+    IF (bValid) THEN
+     my1DOutput(i1D)%dMean(jj)   = my1DOutput(i1D)%dMean(jj)    + daux*MlRhoMat(i)
+     my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
+     my1DOutput(i1D)%dMin(jj)    = MIN(my1DOutput(i1D)%dMin(jj),daux)
+     my1DOutput(i1D)%dMax(jj)    = MAX(my1DOutput(i1D)%dMax(jj),daux)
+    END IF
+   END IF
+  END IF
+ END DO
+ END DO
+END IF
+
+CALL COMM_SUMMN(my1DOutput(i1D)%dMean,my1DOut_nol)
+CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
+CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
+CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
+
+IF (myid.ne.0) THEN 
+ DO i=1,my1DOut_nol
+  my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
+ END DO
+END IF
+
+END SUBROUTINE  OutPut_1D_subEXTRA
 !
 !-------------------------------------------------------------------------------------------------
 ! A wrapper routine for outputting 1d fields for an sse application

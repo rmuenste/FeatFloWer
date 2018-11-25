@@ -16,6 +16,7 @@ subroutine init_q2p1_ext(log_unit)
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl
   use solution_io, only: read_sol_from_file
+  use Sigma_User, only: myProcess
 
 
   integer, intent(in) :: log_unit
@@ -44,7 +45,9 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call read_sol_from_file(CSTART,1,timens)
+    call Load_ListFiles_SSE(int(myProcess%Angle))
+    call Load_ListFile('t',int(myProcess%Angle))
+!    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitOperators(log_unit, mg_mesh)
 
