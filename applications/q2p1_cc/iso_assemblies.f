@@ -244,7 +244,7 @@ C ----=============================================----
      *        + 0.5d0*(DU1Z+DU3X)**2d0 
      *        + 0.5d0*(DU2Z+DU3Y)**2d0
 
-       dVisc = ViscosityModel(dShearSquare,0d0)
+       dVisc = ViscosityModel(dShearSquare)
        ELSE
        dVisc = Properties%Viscosity(1) 
        END IF

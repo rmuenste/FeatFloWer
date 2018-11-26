@@ -684,7 +684,8 @@ USE Sigma_User, ONLY: myRheology
 IMPLICIT NONE
 
 real*8 :: ViscosityModel
-real*8, intent (in) :: NormShearSquare,Temperature
+real*8, intent (in) :: NormShearSquare
+real*8, intent (in), optional :: Temperature
 REAL*8 :: dStrs, aT, dLimStrs
 REAL*8 :: VNN,daux
 REAL*8 :: dN
@@ -693,16 +694,18 @@ REAL*8 :: dN
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 aT = 1d0
 
-IF (myRheology%AtFunc.EQ.2) THEN
- daux = - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
- aT = EXP(daux)
-END IF
+if (present(Temperature)) then
+ IF (myRheology%AtFunc.EQ.2) THEN
+  daux = - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+  aT = EXP(daux)
+ END IF
 
-IF (myRheology%AtFunc.EQ.3) THEN
- daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
- daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
- aT = EXP(daux)
-END IF
+ IF (myRheology%AtFunc.EQ.3) THEN
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
+  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+  aT = EXP(daux)
+ END IF
+end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
