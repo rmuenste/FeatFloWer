@@ -480,6 +480,103 @@ END SUBROUTINE FindInOctTree
 !
 !-------------------------------------------------------------------------------------
 !
+SUBROUTINE FindInPeriodicOctTree(dcorvg,nvt,pp,iP,dist,dPerio)
+integer :: nvt,iP
+real*8 :: dcorvg(3,nvt),pp(3)
+real*8, intent(in), optional :: dPerio(3)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+integer i,i1,iii,iix,iiy,iiz,iiix,iiiy,iiiz
+real*8 dmax,dmin,p(3)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+REAL*8 :: q(3),dist,daux
+REAL*8 :: dPSign(2)=[-1d0,1d0]
+integer k,iDirection,iPerio
+ 
+ dist = 1d30
+ iP = -1
+ 
+ iF (.not.present(dPerio)) return
+ 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ DO iDirection = 1,3
+ 
+ DO iPerio=1,2
+ 
+ p = pp
+ 
+ p(iDirection) = p(iDirection) + dPSign(iPerio)*dPerio(iDirection)
+ 
+ if ((p(1).ge. OctTree%xmin.and.p(1).le. OctTree%xmax).and.&
+     (p(2).ge. OctTree%ymin.and.p(2).le. OctTree%ymax).and.&
+     (p(3).ge. OctTree%zmin.and.p(3).le. OctTree%zmax)) then
+ 
+ do i1=1,OctTree%nx
+  dmin = OctTree%xmin + dble(i1-1)*OctTree%dx/dble(OctTree%nx)
+  dmax = OctTree%xmin + dble(i1-0)*OctTree%dx/dble(OctTree%nx)
+  if (p(1).ge.dmin.and.p(1).le.dmax) then
+   iiX = i1
+  end if  
+ end do
+
+ do i1=1,OctTree%ny
+  dmin = OctTree%ymin + dble(i1-1)*OctTree%dy/dble(OctTree%ny)
+  dmax = OctTree%ymin + dble(i1-0)*OctTree%dy/dble(OctTree%ny)
+  if (p(2).ge.dmin.and.p(2).le.dmax) then
+   iiY = i1
+  end if  
+ end do
+
+ do i1=1,OctTree%nz
+  dmin = OctTree%zmin + dble(i1-1)*OctTree%dz/dble(OctTree%nz)
+  dmax = OctTree%zmin + dble(i1-0)*OctTree%dz/dble(OctTree%nz)
+  if (p(3).ge.dmin.and.p(3).le.dmax) then
+   iiZ = i1
+  end if  
+ end do
+
+ if ((iiX.lt.1).or.(iiX.gt.OctTree%nx).or.&
+     (iiY.lt.1).or.(iiY.gt.OctTree%ny).or.&
+     (iiZ.lt.1).or.(iiZ.gt.OctTree%nz)) then
+      dist = 1d30
+      iP = -1
+      return
+!      write(*,*) 'fatal problem in OctTreeSearch'
+!      pause
+ end if
+
+ do iiix=iix-1,iix+1
+  do iiiy=iiy-1,iiy+1
+   do iiiz=iiz-1,iiz+1
+    do iii = 1,OctTree%E(iiix,iiiy,iiiz)%N
+     k = OctTree%E(iiix,iiiy,iiiz)%L(iii)
+     q = dcorvg(:,k)
+     daux = sqrt((p(1)-q(1))**2d0 + (p(2)-q(2))**2d0 + (p(3)-q(3))**2d0)
+     IF (daux.lt.dist) then
+      dist = daux
+      iP = k
+!       write(*,*) dist
+!       pause
+     END IF
+!      bFound = .true.
+!      GOTO 1
+    end do
+   end do
+  end do
+ end do
+ 
+ END IF !point is in octtree structures .... 
+ 
+ END DO
+ 
+ END DO
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+END SUBROUTINE FindInPeriodicOctTree
+!
+!-------------------------------------------------------------------------------------
+!
 SUBROUTINE FreeOctTree
 
 deallocate(OctTree%E)

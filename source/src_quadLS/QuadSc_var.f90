@@ -363,6 +363,8 @@ TYPE tDump
 END TYPE tDump
 TYPE(tDump) :: myDump
 
+REAL*8, ALLOCATABLE :: dPeriodicVector(:)
+
 TYPE tExport
  INTEGER :: Level,LevelMax
  CHARACTER*(3) :: Format

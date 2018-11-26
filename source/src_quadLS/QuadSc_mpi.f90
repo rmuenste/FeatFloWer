@@ -684,6 +684,11 @@ IF (myid.NE.0) THEN
    iCoor(I) = j
    jAux = jAux + 1
   END IF
+  CALL FindInPeriodicOctTree(rCoor,cndof,dCoor(:,i),J,dist,dPeriodicity)
+  IF (DIST.LT.DEpsPrec) THEN 
+   iCoor(I) = j
+   jAux = jAux + 1
+  END IF
 !   P1X = dCoor(1,I)
 !   P1Y = dCoor(2,I)
 !   P1Z = dCoor(3,I)
@@ -692,9 +697,9 @@ IF (myid.NE.0) THEN
 !    P2X = rCoor(1,J)
 !    P2Y = rCoor(2,J)
 !    P2Z = rCoor(3,J)
-!    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-!        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-!        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
 !      iCoor(I) = j
 !      jAux = jAux + 1
 !      bFound = .TRUE.
@@ -1843,9 +1848,9 @@ DO pID=1,subnodes
     P2X = CoorSP(pID)%dCoor(1,J)
     P2Y = CoorSP(pID)%dCoor(2,J)
     P2Z = CoorSP(pID)%dCoor(3,J)
-    IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-        (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-        (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+    IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+        ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.&
+        ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorSP(pID)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorSP(pID)%iCoor(J)
@@ -2207,6 +2212,12 @@ DO pID=1,subnodes
      jAux = jAux + 1
     END IF
    END IF
+  CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
+   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+    IF (DIST.LT.DEpsPrec) THEN 
+     jAux = jAux + 1
+    END IF
+   END IF
 
 !    P1X = CoorST(pID)%dCoor(1,I)
 !    P1Y = CoorST(pID)%dCoor(2,I)
@@ -2215,9 +2226,9 @@ DO pID=1,subnodes
 !     P2X = CoorST(myid)%dCoor(1,J)
 !     P2Y = CoorST(myid)%dCoor(2,J)
 !     P2Z = CoorST(myid)%dCoor(3,J)
-!     IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-!         (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-!         (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
 !      jAux = jAux + 1
 !     END IF
 !    END DO
@@ -2249,6 +2260,14 @@ DO pID=1,subnodes
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
     END IF
    END IF
+   CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
+   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+    IF (DIST.LT.DEpsPrec) THEN 
+     jAux = jAux + 1
+     MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
+     MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
+    END IF
+   END IF
 !    P1X = CoorST(pID)%dCoor(1,I)
 !    P1Y = CoorST(pID)%dCoor(2,I)
 !    P1Z = CoorST(pID)%dCoor(3,I)
@@ -2256,9 +2275,9 @@ DO pID=1,subnodes
 !     P2X = CoorST(myid)%dCoor(1,J)
 !     P2Y = CoorST(myid)%dCoor(2,J)
 !     P2Z = CoorST(myid)%dCoor(3,J)
-!     IF ((ABS(P1X-P2X).LT.DEpsPrec).AND.&
-!         (ABS(P1Y-P2Y).LT.DEpsPrec).AND.&
-!         (ABS(P1Z-P2Z).LT.DEpsPrec)) THEN
+!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
 !      jAux = jAux + 1
 !      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
 !      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
@@ -2783,6 +2802,84 @@ IF (myid.ne.MASTER) THEN
 END IF
 
 END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013PerSum(FX1,FX2,DC) !ok
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+
+REAL*8  FX1(*),FX2(*),DC(*)
+INTEGER I,pID,pJD,nSIZE,nEIGH
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+
+
+IF (myid.ne.MASTER) THEN
+
+ DO pID=1,subnodes
+  IF (myid.NE.pID) THEN
+   DO pJD=1,subnodes
+    IF (pID.EQ.pJD.AND.MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     DO I=1,nSIZE
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ1+I) = FX1(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ2+I) = FX2(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+      MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) =  DC(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
+     END DO
+
+     CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pID)
+
+    END IF
+   END DO
+  ELSE
+   DO pJD=1,subnodes
+     IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+      nSIZE = MGE013(ILEV)%ST(pJD)%Num
+
+      CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
+
+     END IF
+   END DO
+  END IF
+ END DO
+
+ DO pJD=1,subnodes
+   IF (MGE013(ILEV)%ST(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%ST(pJD)%Num
+     MEQ = nSize
+     MEQ1 = 0
+     MEQ2 = MEQ
+     MEQ3 = 2*MEQ
+
+     jCount = 0
+     DO I=1,nSIZE
+       DC_my   = DC(MGE013(ILEV)%ST(pJD)%VertLink(2,I))
+       DC_recv = MGE013(ILEV)%ST(pJD)%RDVect(MEQ3+I)
+       IF (ABS(DC_my-DC_recv).lt.dEpsPrec) THEN
+
+        FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+        FX1(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ1+I)
+        FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) = &
+        FX2(MGE013(ILEV)%ST(pJD)%VertLink(2,I)) +  MGE013(ILEV)%ST(pJD)%RDVect(MEQ2+I)
+      ELSE
+!        jCount =      jCount + 1
+      END IF
+     END DO
+!      IF (jCount.GT.0)  WRITE(*,'(A,3I)') "na ja ...", myid,pjd,jCount
+
+   END IF
+ END DO
+
+END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+END SUBROUTINE E013PerSum
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------

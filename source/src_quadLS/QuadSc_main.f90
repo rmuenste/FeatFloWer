@@ -15,6 +15,8 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,BKTPRELEASE
 ! USE LinScalar, ONLY: AddSurfaceTension
 use fbm
 
+use, intrinsic :: ieee_arithmetic
+
 IMPLICIT NONE
 
 TYPE(TQuadScalar), target :: QuadSc
@@ -1223,6 +1225,21 @@ SUBROUTINE AddPressureGradient()
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
 
 END SUBROUTINE AddPressureGradient
+!
+! ----------------------------------------------
+!
+SUBROUTINE AddPeriodicPressureGradient()
+  INTEGER I,J,IEL
+  REAL*8 ddx,ddy,ddz,ddp
+
+  CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
+  QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
+
+  DO I=1,QuadSc%ndof
+   QuadSc%defW(i) = QuadSc%defW(i) + TSTEP*dPeriodicVector(i)
+  END DO
+  
+END SUBROUTINE AddPeriodicPressureGradient
 !
 ! ----------------------------------------------
 !
@@ -2546,6 +2563,40 @@ END DO
 
 
 END SUBROUTINE IncludeFBM_BCs
+!
+! ----------------------------------------------
+!
+SUBROUTINE  Setup_PeriodicVelocityRHS()
+INTEGER i
+
+IF (.NOT.(ALLOCATED(dPeriodicVector))) ALLOCATE(dPeriodicVector(QuadSc%ndof))
+
+IF (ieee_is_finite(myProcess%dPress)) THEN
+!IF (.NOT.ISNAN(myProcess%dPress)) THEN
+
+DO i=1,SIZE(LinSc%AuxP(NLMAX)%x)
+ IF (MOD(i,4).EQ.1) then
+  LinSc%AuxP(NLMAX)%x(i) = myProcess%dPress
+ ELSE
+  LinSc%AuxP(NLMAX)%x(i) = 0d0
+ END IF
+END DO
+
+CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%auxP(NLMAX)%x,&
+     QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof,+1d0,0d0)
+
+DO I=1,QuadSc%ndof
+ IF ((myQ2Coor(3,i)     .LT.+1e-3)) THEN
+  dPeriodicVector(i) = QuadSc%auxW(i)
+ ELSE
+  dPeriodicVector(i) = 0d0
+ END IF
+END DO
+ELSE
+  dPeriodicVector = 0d0
+END IF
+
+END SUBROUTINE  Setup_PeriodicVelocityRHS
 !
 ! ----------------------------------------------
 !

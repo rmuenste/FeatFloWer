@@ -1,11 +1,13 @@
 MODULE def_QuadScalar
 
-USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
+USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete,&
                    myMPI_Barrier
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
+
+use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
@@ -2457,6 +2459,117 @@ Q2(i) = Q2(i)/Aux(i)
 END DO
 
 END SUBROUTINE IntP1toQ2
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScP1toQ2Periodic(lSc,qSc)
+TYPE(TLinScalar) lSc
+TYPE(TQuadScalar) qSc
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+lSc%Q2   = 0d0
+qSc%auxU = 0d0
+
+CALL IntP1toQ2Periodic(myQ2Coor,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%karea,&
+               mg_MlRhomat(ILEV)%a,&
+               lSc%valP(ILEV)%x,&
+               lSc%Q2,qSc%auxU,qSc%auxV,qSc%auxW,&
+               mg_mesh%level(ilev)%nel,&
+               mg_mesh%level(ilev)%nvt,&
+               mg_mesh%level(ilev)%net,&
+               mg_mesh%level(ilev)%nat)
+
+END SUBROUTINE QuadScP1toQ2Periodic
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntP1toQ2Periodic(dcorvg,kvert,kedge,karea,Ml,P1,Q2,Aux,PP,MM,nel,nvt,net,nat)
+INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+INTEGER nel,nvt,net,nat
+REAL*8  dcorvg(3,*),Ml(*),P1(4,*),Q2(*),Aux(*),PP(*),MM(*)
+REAL*8 dC(3),dP(3),Val,ddsum(2)
+INTEGER i,iel,ivt,iet,iat,ndof
+
+IF (myid.ne.0) THEN
+DO iel=1,nel
+
+dC(1) = 0d0
+dC(2) = 0d0
+dC(3) = 0d0
+DO i = 1,8
+ ivt = kvert(i,iel)
+ dC(1) = dC(1) +  dcorvg(1,ivt)
+ dC(2) = dC(2) +  dcorvg(2,ivt)
+ dC(3) = dC(3) +  dcorvg(3,ivt)
+END DO
+dC(1) = 0.125d0*dC(1)
+dC(2) = 0.125d0*dC(2)
+dC(3) = 0.125d0*dC(3)
+
+DO i = 1,8
+ ivt   = kvert(i,iel)
+ dP(:) = dcorvg(:,ivt)
+ Val   = P1(1,iel) + (P1(2,iel)*(dP(1)-dC(1))) + (P1(3,iel)*(dP(2)-dC(2))) &
+                   + (P1(4,iel)*(dP(3)-dC(3)))
+ Q2(ivt)  = Q2(ivt)  + Val*Ml(ivt)
+ Aux(ivt) = Aux(ivt) + Ml(ivt)
+END DO
+
+DO i=1,12
+ iet = kedge(i,iel)
+ ivt = nvt + iet
+ dP(:) = dcorvg(:,ivt)
+ Val   = P1(1,iel) + (P1(2,iel)*(dP(1)-dC(1))) + (P1(3,iel)*(dP(2)-dC(2))) &
+                   + (P1(4,iel)*(dP(3)-dC(3)))
+ Q2(ivt)  = Q2(ivt)  + Val*Ml(ivt)
+ Aux(ivt) = Aux(ivt) + Ml(ivt)
+END DO
+
+DO i = 1,6
+ iat   = karea(i,iel)
+ ivt = nvt + net + iat
+ dP(:) = dcorvg(:,ivt)
+ Val   = P1(1,iel) + (P1(2,iel)*(dP(1)-dC(1))) + (P1(3,iel)*(dP(2)-dC(2))) &
+                   + (P1(4,iel)*(dP(3)-dC(3)))
+ Q2(ivt)  = Q2(ivt)  + Val*Ml(ivt)
+ Aux(ivt) = Aux(ivt) + Ml(ivt)
+END DO
+
+ivt = nvt + net + nat + iel
+Val   = P1(1,iel)
+Q2(ivt)  = Q2(ivt)  + Val*Ml(ivt)
+Aux(ivt) = Aux(ivt) + Ml(ivt)
+
+END DO
+
+ddsum(1:2) = 0d0
+DO i = 1,nvt+net+nat+nel
+ ddSum(1) = Q2(i) + ddSum(1)
+ ddSum(2) = Aux(i) + ddSum(2)
+END DO
+
+END IF
+
+CALL COMM_SUMMN(ddSum,2)
+
+IF (myid.ne.0) THEN
+
+ndof = nvt + net + nat + nel
+PP(1:ndof) = dcorvg(3,1:ndof)
+CALL E013PerSum(Q2,Aux,PP)
+
+DO i=1,nvt + net + nat + nel
+  Q2(i) = Q2(i)/Aux(i) - ddsum(1)/ddsum(2)
+END DO
+
+END IF
+
+END SUBROUTINE IntP1toQ2Periodic
 !
 ! ----------------------------------------------
 !

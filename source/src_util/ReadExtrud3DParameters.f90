@@ -1008,6 +1008,7 @@
 ! 
     IF (ieee_is_finite(myProcess%dPress)) THEN
       dZPeriodicLength = mySigma%L
+      dPeriodicity     = [1d9,1d9,mySigma%L]
       myProcess%dPress = 1d3*myProcess%dPress
       bNoOutflow = .TRUE.
     END IF

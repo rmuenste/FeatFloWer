@@ -101,7 +101,7 @@ MODULE PP3D_MPI
   TYPE (tmQ2), ALLOCATABLE :: mQ2(:)
 
   REAL*8 :: DEpsPrec = 1d-5
-  REAL*8 :: dZPeriodicLength
+  REAL*8 :: dZPeriodicLength,dPeriodicity(3)=[1d9,1d9,1d9]
   ! -------------- Subroutines -------------------
 CONTAINS
   ! ----------------------------------------------
@@ -379,6 +379,18 @@ CONTAINS
        END IF
       END IF
 
+      CALL FindInPeriodicOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST,dPeriodicity)
+      IF (DIST.LT.DEpsPrec) THEN
+       coarse%pFACELINK(pID,I)=J
+       IF (ParFind(1,J).EQ.0) THEN
+         ParFind(1,J) = pID
+         ParFind(2,J) = I
+       ELSE
+         ParFind(3,J) = pID
+         ParFind(4,J) = I
+       END IF
+      END IF
+      
     END DO
     END DO
 
@@ -392,9 +404,11 @@ CONTAINS
     END IF
     END DO
 
-!      DO pID=1,subnodes
-!        write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
-!      END DO
+     DO pID=1,subnodes
+       write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
+     END DO
+!      write(*,*) 'dPeriodicity: ',dPeriodicity
+!      pause
 
 !     pause
     DO pID=1,subnodes
@@ -753,12 +767,12 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   !                            mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,I)
   !      end if
   DO J=1,nSIZE
-  IF ((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-&
-    mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J)).LT.DEpsPrec).AND.&
-    (ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-&
-    mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J)).LT.DEpsPrec).AND.&
-    (ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-&
-    mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J)).LT.DEpsPrec)) THEN
+     IF (((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J)).LT.DEpsPrec).OR.&
+           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J))-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+         ((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J)).LT.DEpsPrec).OR.&
+           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J))-dPeriodicity(2)).LT.DEpsPrec)).AND.&
+         ((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J)).LT.DEpsPrec).OR.&
+           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J))-dPeriodicity(3)).LT.DEpsPrec))) THEN
 
   !        if (myid.eq.1.and.ilev.eq.2) write(*,*) I,J
   mg_mpi(ILEV)%parST(pID)%FaceLink(2,J) = mg_mpi(ILEV)%parST(pID)%FaceLink(1,I)

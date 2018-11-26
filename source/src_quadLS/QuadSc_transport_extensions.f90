@@ -483,7 +483,7 @@ CALL OperatorRegenaration(2)
 !CALL Setup_PeriodicPressureRHS(LinSc,PLinSc,QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
 ILEV = NLMAX
 CALL SETLEV(2)
-! CALL Setup_PeriodicVelocityRHS()
+CALL Setup_PeriodicVelocityRHS()
 
 CALL OperatorRegenaration(3)
 
@@ -498,7 +498,7 @@ IF (myid.ne.master) THEN
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
  ! Add the pressure gradient
- CALL AddPressureGradient()
+ CALL AddPeriodicPressureGradient()
 
  ! Add the gravity force
  CALL AddGravForce()
@@ -654,7 +654,7 @@ IF (myid.ne.0) THEN
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
 END IF
 
-CALL QuadScP1toQ2(LinSc,QuadSc)
+CALL QuadScP1toQ2Periodic(LinSc,QuadSc)
 
 CALL GetNonNewtViscosity_sse()
 
