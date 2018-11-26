@@ -222,15 +222,28 @@ if(it.eq.10)then
 end if
 
 if(it.eq.11)then
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
    ValU= -PI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
    ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
    ValW = 0d0 !myProcess%FrameVelocity
+  ELSE
+   CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,-1d0)
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*PI*YY*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*PI*XX*(myProcess%Umdr/3d1)
+  END IF
 end if
 if(it.eq.12)then
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
    ValU= -PI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
    ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
    ValW = 0d0
+  ELSE
+   CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,+1d0)
+   ValU =  -DBLE(myProcess%ind)*PI*YY*(myProcess%Umdr/3d1)
+   ValV =   DBLE(myProcess%ind)*PI*XX*(myProcess%Umdr/3d1)
+  END IF
 end if
+
 if(it.eq.13)then
   ValU =  -DBLE(myProcess%ind)*PI*Y*(myProcess%Umdr/3d1)
   ValV =   DBLE(myProcess%ind)*PI*X*(myProcess%Umdr/3d1)
