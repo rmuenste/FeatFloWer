@@ -1,0 +1,11 @@
+# Section 1. Could have any name
+[section1]
+var = 1
+var2 = 2.3
+var3 = hallo
+var4 = 'welt'
+var5 = "welt"
+
+[tralala]
+myFunnyName = true
+foo = baz

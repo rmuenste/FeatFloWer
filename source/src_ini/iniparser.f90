@@ -25,7 +25,7 @@ module iniparser
   !<constantblock>
 
   ! Maximum length of a section name.
-  integer, parameter, public :: INIP_MLSECTION = 64
+  integer, parameter, public :: INIP_MLSECTION = 256
 
   ! Maximum length of parameter names: 32 characters
   integer, parameter, public :: INIP_MLNAME = 32
@@ -228,6 +228,11 @@ module iniparser
   public :: INIP_getStringRepresentation
   public :: INIP_querysubstrings
   public :: inip_toupper_replace
+  public :: inip_toupper_copy
+  public :: inip_toupper
+  public :: INIP_indentAllSections
+  public :: INIP_indentSection
+  public :: INIP_indentAllSectionsButOne
 
   interface inip_toupper
     module procedure inip_toupper_replace
@@ -4515,6 +4520,68 @@ contains
     end do
 
   end subroutine
+
+  ! ***************************************************************************
+   subroutine INIP_indentAllSections(rparlist,sindent)
+
+     type(t_parlist), intent(inout) :: rparlist
+     character(LEN=*), intent(in) :: sindent
+
+     ! Local variables
+     character(LEN=INIP_MLSECTION) :: newsectionname
+     character(LEN=INIP_MLSECTION) :: sindentUpper
+     integer :: isection
+
+     call inip_toupper(sindent,sindentUpper)
+     do isection=1,rparlist%isectionCount
+       write(rparlist%p_Rsections(isection)%ssectionName,'(A,A1,A)') &
+        trim(adjustl(sindentUpper)), '/',trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
+     end do
+  end subroutine
+
+  ! ***************************************************************************
+  subroutine INIP_indentSection(rparlist,ssectionName,sindent)
+    type(t_parlist), intent(inout) :: rparlist
+    character(LEN=*), intent(in) :: ssectionName
+    character(LEN=*), intent(in) :: sindent
+
+    ! local variables
+    type(t_parlstSection), pointer :: p_rsection
+    character(LEN=INIP_MLSECTION) :: sindentUpper
+
+    call inip_toupper(sindent,sindentUpper)
+    ! Get the section
+    call INIP_querysection(rparlist, ssectionName, p_rsection)
+    if (.not. associated(p_rsection)) then
+        call inip_output_line ('Section not found: '//trim(ssectionName))
+        call inip_sys_halt()
+    end if
+    write(p_rsection%ssectionName,'(A,A1,A)') &
+      trim(adjustl(sindentUpper)), '/',trim(adjustl(p_rsection%ssectionName))
+  end subroutine
+
+  ! ***************************************************************************
+  subroutine INIP_indentAllSectionsButOne(rparlist,sSectionNotToIndent_in,sindent)
+
+    type(t_parlist), intent(inout) :: rparlist
+    character(LEN=*), intent(in) :: sSectionNotToIndent_in
+    character(LEN=*), intent(in) :: sindent
+
+    ! Local variables
+    character(LEN=INIP_MLSECTION) :: newsectionname
+    character(LEN=INIP_MLSECTION) :: sindentUpper
+    character(LEN=INIP_MLSECTION) :: sSectionNotToIndent
+    integer :: isection
+
+    call inip_toupper(sindent,sindentUpper)
+    call inip_toupper(sSectionNotToIndent_in,sSectionNotToIndent)
+    do isection=1,rparlist%isectionCount
+      if (trim(adjustl(rparlist%p_Rsections(isection)%ssectionName)) .ne. trim(adjustl(sSectionNotToIndent))) then
+        write(rparlist%p_Rsections(isection)%ssectionName,'(A,A1,A)') &
+         trim(adjustl(sindentUpper)), '/',trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
+      end if
+    end do
+ end subroutine
 
   ! ***************************************************************************
 
