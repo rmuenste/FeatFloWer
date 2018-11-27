@@ -10,6 +10,7 @@ program parserdemonstration
     character(len=INIP_STRLEN) somestring1, somestring2
     character(len=INIP_STRLEN) somestring3, somestring4
     logical :: somebool
+    integer :: iunit
 
     ! Usually the application that uses the parser is parallel.
     ! Only one of the threads should write out, the one that
@@ -99,6 +100,11 @@ program parserdemonstration
     ! OR all sections
     call INIP_indentAllSections(parameterlist,"myIndentionForALL")
     call inip_dumpToFile(parameterlist,"demo_dump_parlst_indented.dat",INIP_REPLACE)
+
+    ! We can also dump to a unit
+    ! First we need to open the unit
+    call inip_openFileForWriting("someFile.dat", iunit, INIP_REPLACE)
+    call inip_dumpToUnit(parameterlist,iunit)
 
     ! Clean up the parameterlist
     call inip_done(parameterlist)

@@ -233,6 +233,9 @@ module iniparser
   public :: INIP_indentAllSections
   public :: INIP_indentSection
   public :: INIP_indentAllSectionsButOne
+  public :: INIP_dumpToUnit
+  public :: inip_openFileForReading
+  public :: inip_openFileForWriting
 
   interface inip_toupper
     module procedure inip_toupper_replace
@@ -3873,74 +3876,7 @@ contains
 
   end subroutine
 
-  ! ***************************************************************************
 
-  !<subroutine>
-
-  subroutine INIP_info (rparlist)
-
-    !<description>
-    ! Prints the parameter list rparlist to the terminal.
-    !</description>
-
-    !<input>
-    ! The parameter list which is to be printed to the terminal.
-    type(t_parlist), intent(in) :: rparlist
-    !</input>
-
-    !</subroutine>
-
-
-    integer :: isection,ivalue,ientry,icount
-    character(len=INIP_LENLINEBUF) :: sbuf
-
-    if (rparlist%isectionCount .eq. 0) then
-      call inip_output_line ('Parameter list not initialised')
-      call inip_sys_halt()
-    end if
-
-    ! Loop through all sections
-    do isection = 1,rparlist%isectionCount
-
-      ! Append the section name. May be empty for the unnamed section,
-      ! which is always the first one.
-      if (isection .gt. 1) then
-        ! Empty line before
-        call inip_output_lbrk()
-        call inip_output_line('['//trim(rparlist%p_Rsections(isection)%ssectionName)//']')
-      end if
-
-      ! Loop through the values in the section
-      do ivalue = 1,rparlist%p_Rsections(isection)%iparamCount
-
-        ! Do we have one or multiple entries to that parameter?
-        icount = rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%nsize
-        if (icount .eq. 0) then
-          ! Write "name=value"
-          call inip_charArrayToString(&
-            rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%p_sentry,sbuf)
-          call inip_output_line(&
-            trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
-            //"="//trim(sbuf))
-        else
-          ! Write "name(icount)="
-          call inip_output_line(&
-            trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
-            //"("//trim(inip_siL(icount, 10))//")=")
-          ! Write all the entries of that value, one each line.
-          do ientry = 1,icount
-            call inip_charArrayToString(&
-              rparlist%p_Rsections(isection)%p_Rvalues(ivalue)% &
-              p_SentryList(:,ientry),sbuf)
-            call inip_output_line(trim(sbuf))
-          end do
-        end if
-
-      end do ! ivalue
-
-    end do ! isection
-
-  end subroutine
 
   ! ***************************************************************************
 
@@ -4587,6 +4523,108 @@ contains
 
   !<subroutine>
 
+  subroutine INIP_dumpToUnit(rparlist, iunit)
+
+    !<description>
+    ! This subroutine dumps a given parameter list into an open unit in
+    ! INI-file form. Note that no additional comments are exported but
+    ! just the tuples `parameter = value` in the corresponding sections.
+    !</description>
+
+    !<input>
+
+    ! The parameter list.
+    type(t_parlist), intent(in) :: rparlist
+
+    ! The unit
+    integer, intent(in) :: iunit
+
+    !</input>
+    !</subroutine>
+
+    ! local variables
+    character(len=INIP_LENLINEBUF) :: sbuf
+    integer :: isection,ivalue,ientry,icount
+    integer :: istatus
+    character(len=INIP_STRLEN) :: sreadwrite,swrite
+    logical :: unit_ok, unit_writable
+
+    if (rparlist%isectionCount .eq. 0) then
+      call inip_output_line ('Parameter list not initialised')
+      call inip_sys_halt()
+    end if
+
+    if (inip_id .eq. inip_showid) then
+
+      ! Check the unit
+      unit_ok = .FALSE.
+      inquire(unit=iunit,iostat=istatus,write=swrite,readwrite=sreadwrite)
+      unit_ok = (istatus .eq. 0)
+      unit_writable = .FALSE.
+      if ((trim(adjustl(swrite)) .eq. 'YES') .or. &
+          (trim(adjustl(sreadwrite)) .eq. 'YES')) then
+         unit_writable = .TRUE.
+      end if
+      unit_ok = unit_ok .and. unit_writable
+
+      if (unit_ok .ne. .true.) then
+        call inip_output_line ('Something is wrong with the unit. Cannot write there!')
+        call inip_sys_halt()
+      end if
+
+      ! Loop through all sections
+      do isection = 1,rparlist%isectionCount
+
+        ! Append the section name. May be empty for the unnamed section,
+        ! which is always the first one.
+        if (isection .gt. 1) then
+          ! Empty line before
+          write(iunit,*)
+          write(iunit,*) '['//trim(rparlist%p_Rsections(isection)%ssectionName)//']'
+        end if
+
+        ! Loop through the values in the section
+        do ivalue = 1,rparlist%p_Rsections(isection)%iparamCount
+
+          ! Do we have one or multiple entries to that parameter?
+          icount = rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%nsize
+          if (icount .eq. 0) then
+            ! Write "name=value"
+            call inip_charArrayToString(&
+              rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%p_sentry,sbuf)
+            write(iunit,*)&
+              trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
+              //" = "//trim(sbuf)
+          else
+            ! Write "name(icount)="
+            write(iunit,*)&
+              trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
+              //"("//trim(inip_siL(icount, 10))//") = "
+            ! Write all the entries of that value, one each line.
+            do ientry = 1,icount
+              call inip_charArrayToString(&
+                rparlist%p_Rsections(isection)%p_Rvalues(ivalue)% &
+                p_SentryList(:,ientry),sbuf)
+              write(iunit,*) trim(sbuf)
+            end do
+          end if
+
+        end do ! ivalue
+
+      end do ! isection
+
+      ! Close file
+      close(iunit)
+
+    end if
+
+  end subroutine INIP_dumpToUnit
+
+
+  ! ***************************************************************************
+
+  !<subroutine>
+
   subroutine INIP_dumpToFile(rparlist, sfilename, cflag)
 
     !<description>
@@ -4674,6 +4712,79 @@ contains
     end if
 
   end subroutine INIP_dumpToFile
+
+  ! ***************************************************************************
+
+
+
+  !<subroutine>
+
+  subroutine INIP_info (rparlist)
+
+    !<description>
+    ! Prints the parameter list rparlist to the terminal.
+    !</description>
+
+    !<input>
+    ! The parameter list which is to be printed to the terminal.
+    type(t_parlist), intent(in) :: rparlist
+    !</input>
+
+    !</subroutine>
+
+
+    integer :: isection,ivalue,ientry,icount
+    character(len=INIP_LENLINEBUF) :: sbuf
+
+    if (rparlist%isectionCount .eq. 0) then
+      call inip_output_line ('Parameter list not initialised')
+      call inip_sys_halt()
+    end if
+
+    ! Loop through all sections
+    do isection = 1,rparlist%isectionCount
+
+      ! Append the section name. May be empty for the unnamed section,
+      ! which is always the first one.
+      if (isection .gt. 1) then
+        ! Empty line before
+        call inip_output_lbrk()
+        call inip_output_line('['//trim(rparlist%p_Rsections(isection)%ssectionName)//']')
+      end if
+
+      ! Loop through the values in the section
+      do ivalue = 1,rparlist%p_Rsections(isection)%iparamCount
+
+        ! Do we have one or multiple entries to that parameter?
+        icount = rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%nsize
+        if (icount .eq. 0) then
+          ! Write "name=value"
+          call inip_charArrayToString(&
+            rparlist%p_Rsections(isection)%p_Rvalues(ivalue)%p_sentry,sbuf)
+          call inip_output_line(&
+            trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
+            //"="//trim(sbuf))
+        else
+          ! Write "name(icount)="
+          call inip_output_line(&
+            trim(rparlist%p_Rsections(isection)%p_Sparameters(ivalue)) &
+            //"("//trim(inip_siL(icount, 10))//")=")
+          ! Write all the entries of that value, one each line.
+          do ientry = 1,icount
+            call inip_charArrayToString(&
+              rparlist%p_Rsections(isection)%p_Rvalues(ivalue)% &
+              p_SentryList(:,ientry),sbuf)
+            call inip_output_line(trim(sbuf))
+          end do
+        end if
+
+      end do ! ivalue
+
+    end do ! isection
+
+  end subroutine
+
+  ! *******************************************************************
 
   !<function>
 
