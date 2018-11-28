@@ -697,19 +697,39 @@ END SUBROUTINE GetVeloMixerVal
 !
 !------------------------------------------------------------
 !
-FUNCTION ViscosityModel(NormShearSquare)
+FUNCTION ViscosityModel(NormShearSquare,Temperature)
 USE Transport_Q2P1, ONLY : Properties
 USE Sigma_User, ONLY: myRheology
 IMPLICIT NONE
 
 real*8 :: ViscosityModel
 real*8, intent (in) :: NormShearSquare
-REAL*8 :: dStrs, aT = 1d0,dLimStrs
-REAL*8 :: VNN
+real*8, intent (in), optional :: Temperature
+REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: VNN,daux
 REAL*8 :: dN
-! REAL*8 :: VCN,VNN,frac
 
-dStrs = NormShearSquare**0.5d0
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+aT = 1d0
+
+if (present(Temperature)) then
+ IF (myRheology%AtFunc.EQ.2) THEN
+  daux = - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+  aT = EXP(daux)
+ END IF
+
+ IF (myRheology%AtFunc.EQ.3) THEN
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
+  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+  aT = EXP(daux)
+ END IF
+end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+dStrs = (2d0*NormShearSquare)**0.5d0
+
 dLimStrs = MIN(1d5,MAX(1d-2,ABS(dStrs)))
 
 ! Paderborn Carreau

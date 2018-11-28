@@ -5,7 +5,7 @@ subroutine init_q2p1_ext(log_unit)
     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Structures_sse, &
-    InitCond_QuadScalar,ProlongateSolution, &
+    InitCond_QuadScalar,ProlongateSolution,updateFBMGeometry, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
@@ -15,6 +15,9 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl
+  use solution_io, only: read_sol_from_file
+  use Sigma_User, only: myProcess
+
 
   integer, intent(in) :: log_unit
 
@@ -37,13 +40,16 @@ subroutine init_q2p1_ext(log_unit)
     call InitMeshDeform(log_unit, mg_mesh)
     call InitOperators(log_unit, mg_mesh)
     call InitCond_QuadScalar()
-    if(bViscoElastic)call IniProf_ViscoScalar()
 
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
+    call Load_ListFiles_SSE(int(myProcess%Angle))
+    call Load_ListFile('t',int(myProcess%Angle))
+!    call read_sol_from_file(CSTART,1,timens)
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call InitOperators(log_unit, mg_mesh)
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
@@ -51,17 +57,19 @@ subroutine init_q2p1_ext(log_unit)
     ! In order to read in from a lower level
     ! the lower level structures are needed
     if (myid.ne.0) call CreateDumpStructures(0)
-    call SolFromFile(CSTART,0)
+    call read_sol_from_file(CSTART,0,timens)
     call ProlongateSolution()
-
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
-
+    call InitOperators(log_unit, mg_mesh)
+    
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call InitOperators(log_unit, mg_mesh)
   end if
 
 end subroutine init_q2p1_ext
@@ -200,7 +208,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
    dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
    dCharShear     = dCharVelo/dCharSize
-   dCharVisco     = ViscosityModel(mySetup%CharacteristicShearRate)
+   dCharVisco     = ViscosityModel(mySetup%CharacteristicShearRate,myProcess%T0)
    TimeStep       = 1d-1 * (dCharSize/dCharVisco)
    WRITE(sTimeStep,'(ES9.1)') TimeStep
    READ(sTimeStep,*) TimeStep

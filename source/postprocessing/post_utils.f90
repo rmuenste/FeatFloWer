@@ -86,7 +86,7 @@ end subroutine print_time
 ! ----------------------------------------------
 subroutine sim_finalize(dttt0, filehandle)
   include 'defs_include.h'
-  use Mesh_Structures, only: release_mesh
+!   use Mesh_Structures, only: release_mesh
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   use var_QuadScalar, only: istep_ns,mg_mesh
   use solution_io, only: write_sol_to_file
@@ -129,7 +129,7 @@ end subroutine sim_finalize
 ! ----------------------------------------------
 subroutine sim_finalize_sse(dttt0, filehandle)
   include 'defs_include.h'
-  use Mesh_Structures, only: release_mesh
+!   use Mesh_Structures, only: release_mesh
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   use var_QuadScalar, only: istep_ns,mg_mesh
   use solution_io, only: write_sol_to_file,write_sse_1d_sol

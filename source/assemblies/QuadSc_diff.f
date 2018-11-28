@@ -1,5 +1,5 @@
 ************************************************************************
-      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,DA,NA,KCOLA,KLDA,KVERT,KAREA,
+      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,T,DA,NA,KCOLA,KLDA,KVERT,KAREA,
      *                  KEDGE,DCORVG,ELE)
 ************************************************************************
 *     Discrete diffusion operator: Q2 elements ---PREPARED !!
@@ -14,11 +14,12 @@ C
      *           NNDIM=3,NNCOF=10)
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
-      DIMENSION U1(*),U2(*),U3(*),DA(*)
+      REAL*8 U1(*),U2(*),U3(*),T(*),DA(*)
       DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
@@ -126,7 +127,7 @@ C
       DU1(JDFL) = U1(JDFG) 
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
-
+      DTT(JDFL) =  T(JDFG)
  130  CONTINUE      
 ! ---===========================---
 
@@ -192,9 +193,14 @@ C ---=========================---
       GRADU3(1)=0D0!W
       GRADU3(2)=0D0
       GRADU3(3)=0D0 
+      
+      DTEMP    =0D0 
+
 C
       DO 220 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
+       
+       DTEMP   =DTEMP      + DTT(JDFL)*DBAS(1,JDFL,1)!temperature
        
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY
@@ -216,7 +222,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityModel(dShearSquare)
+       dVisc = ViscosityModel(dShearSquare,DTEMP)
 C ----=============================================---- 
 
 C *** Summing up over all pairs of multiindices

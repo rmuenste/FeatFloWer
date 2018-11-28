@@ -318,7 +318,7 @@ type(tMultiMesh),save :: mg_mesh
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
-REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:) 
+REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:)
 
 TYPE tCGALObjects
  REAL*8, ALLOCATABLE :: Block(:)
@@ -474,7 +474,7 @@ TYPE t1DOutput
  REAL*8, ALLOCATABLE :: dMean(:),dMin(:),dMax(:),dLoc(:)
  CHARACTER cName*20
 END TYPE t1DOutput
-TYPE(t1DOutput) :: my1DOut(8)
+TYPE(t1DOutput) :: my1DOut(11)
 REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:)
 INTEGER my1DOut_nol
 

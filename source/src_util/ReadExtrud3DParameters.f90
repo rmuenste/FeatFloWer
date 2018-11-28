@@ -81,11 +81,11 @@
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","BarrelCut", mySigma%cZwickel ,"STRAIGHT")
     call inip_toupper_replace(mySigma%cZwickel)
-    IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND")) THEN
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cZwickel)).EQ."STRAIGHT".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."ROUND").OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."CURVED") THEN
      WRITE(*,*) "not a valid Zwickel region definition:", ADJUSTL(TRIM(mySigma%cZwickel))
     END IF
     IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") mySigma%Dzz = myInf
-    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND")    mySigma%W = myInf
+    IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND".OR.ADJUSTL(TRIM(mySigma%cZwickel)).EQ."CURVED")    mySigma%W = myInf
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out/dSizeScale)
     mySigma%Dz_in = dSizeScale*mySigma%Dz_in
@@ -378,6 +378,14 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
       mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
       
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
       
@@ -837,6 +845,10 @@
      END IF
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
