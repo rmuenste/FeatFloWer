@@ -2463,29 +2463,29 @@ if (myid.ne.0) call updateMixerGeometry(mfile)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- ilev=nlmin
- CALL SETLEV(2)
- CALL SetPressBC(mgMesh)
- ! send them to the master
- CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
- if (myid.ne.0) then
-  ilev=nlmin+1
-  CALL SETLEV(2)
- END IF
- CALL SetPressBC(mgMesh)
-
- do ilev=nlmin+2,nlmax
-  CALL SETLEV(2)
-  CALL GetMG_KNPRP(mgMesh)
- end do
-
- ! Set up the boundary condition types (knpr)
- DO ILEV=NLMIN,NLMAX
-  CALL SETLEV(2)
-  CALL IncludeFBM_BCs(mgMesh)
-  CALL QuadScalar_Knpr()
- END DO
+!  ilev=nlmin
+!  CALL SETLEV(2)
+!  CALL SetPressBC(mgMesh)
+!  ! send them to the master
+!  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
+!  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  if (myid.ne.0) then
+!   ilev=nlmin+1
+!   CALL SETLEV(2)
+!  END IF
+!  CALL SetPressBC(mgMesh)
+! 
+!  do ilev=nlmin+2,nlmax
+!   CALL SETLEV(2)
+!   CALL GetMG_KNPRP(mgMesh)
+!  end do
+! 
+!  ! Set up the boundary condition types (knpr)
+!  DO ILEV=NLMIN,NLMAX
+!   CALL SETLEV(2)
+!   CALL IncludeFBM_BCs(mgMesh)
+!   CALL QuadScalar_Knpr()
+!  END DO
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
