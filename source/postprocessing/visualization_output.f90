@@ -1177,7 +1177,7 @@ IF (myid.ne.0) THEN
     IF (i1D.EQ.10) THEN
      dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
      dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
-     IF (ABS(ScrewDist(1,i).lt.mySigma%mySegment(iSeg)%s).and.ABS(ScrewDist(2,i).lt.mySigma%mySegment(iSeg)%s))  THEN
+     IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s)  THEN
 !      IF (dY.gt.-0.5d0*mySigma%a.and.dY.lt.+0.5d0*mySigma%a.and.&
 !          dX.gt.-0.5d0*mySigma%s.and.dX.lt.+0.5d0*mySigma%s)  THEN
       daux = dScale*dField1(i)

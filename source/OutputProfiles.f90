@@ -2633,11 +2633,11 @@ if (myid.eq.0) return
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(I0)') myid
 ! write(*,*) ilen,cfile
- inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ inquire(file=trim(adjustl(cfile)),Exist=bExists)
  if (.not.bExists) return
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(A,I0)') "/",iO
- inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ inquire(file=trim(adjustl(cfile)),Exist=bExists)
  if (.not.bExists) return
  ilen = len(trim(adjustl(cfile)))
  
@@ -2746,11 +2746,11 @@ if (myid.eq.0) return
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(I0)') myid
 ! write(*,*) ilen,cfile
- inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ inquire(file=trim(adjustl(cfile)),Exist=bExists)
  if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(A,I0)') "/",iO
- inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ inquire(file=trim(adjustl(cfile)),Exist=bExists)
  if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
  ilen = len(trim(adjustl(cfile)))
  if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN

@@ -4567,7 +4567,7 @@ contains
       end if
       unit_ok = unit_ok .and. unit_writable
 
-      if (unit_ok .ne. .true.) then
+      if (unit_ok .neqv. .true.) then
         call inip_output_line ('Something is wrong with the unit. Cannot write there!')
         call inip_sys_halt()
       end if

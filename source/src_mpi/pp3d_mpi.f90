@@ -405,7 +405,7 @@ CONTAINS
     END DO
 
      DO pID=1,subnodes
-       write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
+!       write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
      END DO
 !      write(*,*) 'dPeriodicity: ',dPeriodicity
 !      pause
@@ -768,11 +768,11 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   !      end if
   DO J=1,nSIZE
      IF (((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J)).LT.DEpsPrec).OR.&
-           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J))-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+           (ABS(ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkX(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkX(2,J))-dPeriodicity(1)).LT.DEpsPrec)).AND.&
          ((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J)).LT.DEpsPrec).OR.&
-           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J))-dPeriodicity(2)).LT.DEpsPrec)).AND.&
+           (ABS(ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkY(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkY(2,J))-dPeriodicity(2)).LT.DEpsPrec)).AND.&
          ((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J)).LT.DEpsPrec).OR.&
-           ABS((ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J))-dPeriodicity(3)).LT.DEpsPrec))) THEN
+           (ABS(ABS(mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,I)-mg_mpi(ILEV)%parST(pID)%CoragLinkZ(2,J))-dPeriodicity(3)).LT.DEpsPrec))) THEN
 
   !        if (myid.eq.1.and.ilev.eq.2) write(*,*) I,J
   mg_mpi(ILEV)%parST(pID)%FaceLink(2,J) = mg_mpi(ILEV)%parST(pID)%FaceLink(1,I)
