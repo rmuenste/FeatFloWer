@@ -2499,3 +2499,331 @@ CLOSE(1)
 ! END DO
 
 END SUBROUTINE OutputTriMesh
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Release_ListFiles_SSE(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+call Release_ListFile('v',iO)
+call Release_ListFile('p',iO)
+call Release_ListFile('d',iO)
+
+ CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
+ call Release_ListFile('x',iO)
+
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  QuadSc%AuxU(i) = dc(1,i)
+  QuadSc%AuxV(i) = dc(2,i)
+  QuadSc%AuxW(i) = dc(3,i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Release_ListFiles_SSE
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Load_ListFiles_SSE(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,master
+USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+integer nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+ call Load_ListFile('t',iO)
+ call Load_ListFile('p',iO)
+ call Load_ListFile('v',iO)
+ call Load_ListFile('d',iO)
+ call Load_ListFile('x',iO)
+ 
+ if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+!  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
+ 
+ IF (myid.EQ.0) THEN
+   CALL CreateDumpStructures(0)
+ ELSE
+   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+   CALL CreateDumpStructures(LevDif)
+ END IF
+ 
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ nLengthV = (2**(ILEV-1)+1)**3
+ nLengthE = mg_mesh%level(NLMIN)%nel
+
+ ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+ CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             nLengthV,&
+                             nLengthE,&
+                             mg_mesh%level(ILEV)%nel,&
+                             mg_mesh%level(ILEV)%nvt)
+ DEALLOCATE(SendVect)
+ 
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  dc(1,i) = QuadSc%AuxU(i)
+  dc(2,i) = QuadSc%AuxV(i)
+  dc(3,i) = QuadSc%AuxW(i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Load_ListFiles_SSE
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Load_ListFile(cF,iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+implicit none
+integer :: iO
+character :: cf*(*)
+CHARACTER*(512) :: cFile
+integer ilen,ndofs,ivt
+logical :: bExists
+
+if (myid.eq.0) return
+ 
+ cfile = '_dump/processor_'
+ ilen = len(trim(adjustl(cfile)))
+ write(cfile(ilen+1:),'(I0)') myid
+! write(*,*) ilen,cfile
+ inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ if (.not.bExists) return
+ ilen = len(trim(adjustl(cfile)))
+ write(cfile(ilen+1:),'(A,I0)') "/",iO
+ inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ if (.not.bExists) return
+ ilen = len(trim(adjustl(cfile)))
+ 
+ if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
+   write(cfile(ilen+1:),'(A)') "/temperature.lst"
+   inquire(file=trim(adjustl(cfile)),Exist=bExists)
+   if (.not.bExists) then
+    write(*,*) 'file does not exist: "'//trim(adjustl(cfile))//'"'
+    return
+   end if
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   read(927,*)
+
+   DO ivt=1,ndofs
+    read(927,*) temperature(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
+   write(cfile(ilen+1:),'(A)') "/pressure.lst"
+   inquire(file=trim(adjustl(cfile)),Exist=bExists)
+   if (.not.bExists) return
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = LinSc%ndof
+   read(927,*)
+
+   DO ivt=1,ndofs
+    read(927,*) LinSc%ValP(NLMAX)%x(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'v'.or.adjustl(trim(cf)).eq.'V') THEN
+   write(cfile(ilen+1:),'(A)') "/velocity.lst"
+   inquire(file=trim(adjustl(cfile)),Exist=bExists)
+   if (.not.bExists) return
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   read(927,*)
+
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%ValU(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%ValV(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%ValW(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'x'.or.adjustl(trim(cf)).eq.'X') THEN
+   write(cfile(ilen+1:),'(A)') "/coordinates.lst"
+   inquire(file=trim(adjustl(cfile)),Exist=bExists)
+   if (.not.bExists) return
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   read(927,*)
+
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%AuxU(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%AuxV(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    read(927,*) QuadSc%AuxW(ivt)
+   END DO 
+  END IF
+  if (adjustl(trim(cf)).eq.'d'.or.adjustl(trim(cf)).eq.'D') THEN
+   write(cfile(ilen+1:),'(A)') "/distance.lst"
+   inquire(file=trim(adjustl(cfile)),Exist=bExists)
+   if (.not.bExists) return
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   read(927,*)
+
+   DO ivt=1,ndofs
+    read(927,*) Screw(ivt)
+   END DO 
+  END IF
+  
+  write(*,*) 'file loaded: "'//trim(adjustl(cfile))//'"'
+ close(927)
+
+END SUBROUTINE Load_ListFile
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Release_ListFile(cF,iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+implicit none
+integer :: iO
+character :: cf*(*)
+CHARACTER*(512) :: cFile
+integer ilen,ndofs,ivt
+logical :: bExists
+
+if (myid.eq.0) return
+ 
+ cfile = '_dump/processor_'
+ ilen = len(trim(adjustl(cfile)))
+ write(cfile(ilen+1:),'(I0)') myid
+! write(*,*) ilen,cfile
+ inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
+ ilen = len(trim(adjustl(cfile)))
+ write(cfile(ilen+1:),'(A,I0)') "/",iO
+ inquire(directory=trim(adjustl(cfile)),Exist=bExists)
+ if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
+ ilen = len(trim(adjustl(cfile)))
+ if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
+   write(cfile(ilen+1:),'(A)') "/temperature.lst"
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   write(927,'(A,I0)') "DofsTotal:",ndofs
+
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') temperature(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
+   write(cfile(ilen+1:),'(A)') "/pressure.lst"
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = LinSc%ndof
+   write(927,'(A,I0)') "DofsTotal:",ndofs
+
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') LinSc%ValP(NLMAX)%x(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'v'.or.adjustl(trim(cf)).eq.'V') THEN
+   write(cfile(ilen+1:),'(A)') "/velocity.lst"
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   write(927,'(A,I0)') "DofsTotal:",ndofs
+
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%ValU(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%ValV(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%ValW(ivt)
+   END DO 
+  END IF
+ if (adjustl(trim(cf)).eq.'x'.or.adjustl(trim(cf)).eq.'X') THEN
+   write(cfile(ilen+1:),'(A)') "/coordinates.lst"
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   write(927,'(A,I0)') "DofsTotal:",ndofs
+
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%AuxU(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%AuxV(ivt)
+   END DO 
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') QuadSc%AuxW(ivt)
+   END DO 
+  END IF
+  if (adjustl(trim(cf)).eq.'d'.or.adjustl(trim(cf)).eq.'D') THEN
+   write(cfile(ilen+1:),'(A)') "/distance.lst"
+
+   open(unit=927,file = trim(adjustl(cfile)))
+   ndofs = QuadSc%ndof
+   write(927,'(A,I0)') "DofsTotal:",ndofs
+
+   DO ivt=1,ndofs
+    write(927,'(ES14.6)') Screw(ivt)
+   END DO 
+  END IF
+
+ close(927)
+
+END SUBROUTINE Release_ListFile
+!
+!---------------------------------------------------------------------------
+!

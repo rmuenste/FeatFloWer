@@ -449,7 +449,7 @@ C$$$99999 END
 
 
 ************************************************************************
-      SUBROUTINE CUBATURESTRESS(U1,U2,U3,
+      SUBROUTINE CUBATURESTRESS(U1,U2,U3,T,
      *           DS11,DS22,DS33,DS12,DS13,DS23,DS21,DS31,DS32,
      *           NA,KCOLA,KLDA,KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
@@ -467,7 +467,7 @@ C
 C
       REAL*8    DS11(*),DS22(*),DS33(*)
       REAL*8    DS12(*),DS13(*),DS23(*),DS21(*),DS31(*),DS32(*)
-      REAL*8    U1(*),U2(*),U3(*), dETA0,dExp, dVisc, dShear
+      REAL*8    T(*),U1(*),U2(*),U3(*), dETA0,dExp, dVisc, dShear
 C
       DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
@@ -478,6 +478,7 @@ C
       REAL*8    ViscosityModel
 C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
@@ -607,7 +608,7 @@ C
       DU1(JDFL) = U1(JDFG) 
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
-
+      DTT(JDFL) = T(JDFG)
  130  CONTINUE      
 ! ---===========================---
 C *** Loop over all cubature points
@@ -672,9 +673,14 @@ C ---=========================---
       GRADU3(1)=0D0!W
       GRADU3(2)=0D0
       GRADU3(3)=0D0 
+      
+      DTEMP    =0D0 
+      
 C
       DO 220 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
+
+       DTEMP    =DTEMP     + DTT(JDFL)*DBAS(1,JDFL,1)!Temperature
        
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY
@@ -696,7 +702,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityModel(dShearSquare)
+       dVisc = ViscosityModel(dShearSquare,DTEMP)
 !       dVisc = HogenPowerlaw(dShearSquare)
 C ----=============================================---- 
 C
@@ -1308,7 +1314,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE STRESS(U1,U2,U3,D1,D2,D3,DVISCOS,
+      SUBROUTINE STRESS(U1,U2,U3,T,D1,D2,D3,DVISCOS,
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *
@@ -1323,13 +1329,14 @@ C
      *           NNDIM=3,NNCOF=10)
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
-      DIMENSION U1(*),U2(*),U3(*),D1(*),D2(*),D3(*)
-      DIMENSION DVISCOS(*),DCORVG(NNDIM,*)
+      REAL*8 U1(*),U2(*),U3(*),T(*),D1(*),D2(*),D3(*)
+      REAL*8 DVISCOS(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
       DIMENSION DU(NNDIM,NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM,NNDIM)
 
+      DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
@@ -1430,7 +1437,7 @@ C
       DU1(JDFL) = U1(JDFG) 
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
-
+      DTT(JDFL) =  T(JDFG)
  150  CONTINUE      
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
@@ -1494,9 +1501,13 @@ C ---=========================---
       GRADU3(1)=0D0!W
       GRADU3(2)=0D0
       GRADU3(3)=0D0 
+      
+      DTEMP    =0D0 
 C
       DO 205 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
+       
+       DTEMP    =DTEMP     + DTT(JDFL)*DBAS(1,JDFL,1)!DUX
        
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY
@@ -1518,8 +1529,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityModel(dShearSquare)
-!       dVisc = HogenPowerlaw(dShearSquare)
+       dVisc = ViscosityModel(dShearSquare,DTEMP)
 C ----=============================================---- 
       DO 210 JDER=1,NNDIM
       DO 210 IDER=1,NNDIM
@@ -1975,7 +1985,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE L2ProjVisco(U,V,W,D1,D2,D3,
+      SUBROUTINE L2ProjVisco(U,V,W,T,D1,D2,D3,
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
       USE PP3D_MPI, ONLY:myid
@@ -1990,7 +2000,7 @@ C
      *           NNDIM=3,NNCOF=10)
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
-      REAL*8    U(*),V(*),W(*),D1(*),D2(*),D3(*)
+      REAL*8    U(*),V(*),W(*),T(*),D1(*),D2(*),D3(*)
       DIMENSION DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
@@ -2000,6 +2010,7 @@ C
       REAL*8    DISCOSITY,dmyXi
       REAL*8    ViscosityModel
 C
+      DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
@@ -2078,6 +2089,7 @@ C *** Loop over all cubature points
       DU1(JDFL) = U(JDFG) 
       DU2(JDFL) = V(JDFG)
       DU3(JDFL) = W(JDFG)
+      DTT(JDFL) = T(JDFG)
       DEF(1,JDFL)=0D0
       DEF(2,JDFL)=0D0
       DEF(3,JDFL)=0D0
@@ -2141,10 +2153,14 @@ C
       GRADU3(1)=0D0!W
       GRADU3(2)=0D0
       GRADU3(3)=0D0 
+
+      DTEMP    =0D0 
 C
       DO 220 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
 
+       DTEMP    =DTEMP     + DTT(JDFL)*DBAS(1,JDFL,1)!Temperature
+       
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX 0
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY 0
        GRADU1(3)=GRADU1(3) + DU1(JDFL)*DBAS(1,JDFL,4)!DUZ 0
@@ -2165,14 +2181,12 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-         dmyXi = SQRT(dShearSquare)
-!         dmyXi = SQRT(2d0*dShearSquare)
+         dmyXi = SQRT(2d0*dShearSquare)
 C       
 C ----=============================================---- 
 C
       DShear = dlog10(max(dmyXi,1d-16))
-      DISCOSITY = ViscosityModel(dShearSquare)
-!      DISCOSITY = ViscosityModel(2d0*dShearSquare)
+      DISCOSITY = ViscosityModel(dShearSquare,DTEMP)
 C
       DO 230 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)

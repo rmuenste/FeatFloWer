@@ -500,9 +500,6 @@ IF (myid.ne.master) THEN
  ! Add the pressure gradient
  CALL AddPeriodicPressureGradient()
 
- ! Add the gravity force
- CALL AddGravForce()
-
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
 
@@ -516,6 +513,7 @@ IF (myid.ne.master) THEN
 
 END IF
 
+  
 thstep = tstep*theta
 
 IF (myid.ne.master) THEN

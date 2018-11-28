@@ -46,7 +46,7 @@ PROGRAM Q2P1_DEVEL
     ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
    dCharSize      = 0.5d0*myProcess%MaxInflowDiameter
    dCharShear     = 3d0
-   dCharVisco     = ViscosityModel(dCharShear)
+   dCharVisco     = ViscosityModel(dCharShear,myProcess%T0)
    TimeStep       = 2.5d-3 * (dCharSize/dCharVisco)
    WRITE(sTimeStep,'(ES9.1)') TimeStep
    READ(sTimeStep,*) TimeStep

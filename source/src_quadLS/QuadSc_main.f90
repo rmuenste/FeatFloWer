@@ -447,9 +447,15 @@ end if
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
+ ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
  Shearrate = 1d0
 
  Viscosity = Properties%Viscosity(1)
+
+ Temperature = myProcess%T0
 
  mydof = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
@@ -656,7 +662,14 @@ end if
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
 
+ ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+                     
  Viscosity = Properties%Viscosity(1)
+ 
+ Temperature = myProcess%T0
 
  mydof = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
@@ -1738,6 +1751,7 @@ ilevel = mg_mesh%nlmax
   QuadSc%defV = 0d0
   QuadSc%defW = 0d0
   CALL L2ProjVisco(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+                   Temperature,&
                    QuadSc%defU,QuadSc%defV,QuadSc%defW,&
                    mg_mesh%level(ilevel)%kvert,&
                    mg_mesh%level(ilevel)%karea,&
@@ -1763,7 +1777,7 @@ END SUBROUTINE  GetNonNewtViscosity
 !
 SUBROUTINE  GetNonNewtViscosity_sse()
   INTEGER i
-  REAL*8 daux
+  REAL*8 daux,taux
   REAL*8 HogenPowerlaw
   LOGICAL bCondition
   REAL*8 ViscosityModel
@@ -1797,11 +1811,12 @@ SUBROUTINE  GetNonNewtViscosity_sse()
       0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
       0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
       0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+    taux = Temperature(i)
 
     if(allocated(Shearrate))then
       Shearrate(i) = sqrt(2d0 * daux)
     end if
-    Viscosity(i) = ViscosityModel(daux)
+    Viscosity(i) = ViscosityModel(daux,taux)
 
     END DO
 
@@ -2427,6 +2442,15 @@ type(tMultiMesh), intent(inout) :: mgMesh
 
 ! local variables
 integer :: i
+
+ilev = mgMesh%nlmax
+call setlev(2)
+
+call SetUp_myQ2Coor( mgMesh%level(ilev)%dcorvg,&
+                     mgMesh%level(ilev)%dcorag,&
+                     mgMesh%level(ilev)%kvert,&
+                     mgMesh%level(ilev)%karea,&
+                     mgMesh%level(ilev)%kedge)
 
 call StoreOrigCoor(mgMesh%level(mgMesh%nlmax)%dcorvg)
 call store_old_mesh(mgMesh%level(mgMesh%nlmax)%dcorvg)
