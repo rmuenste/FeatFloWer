@@ -1353,7 +1353,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   use Transport_Q2P1, only: QuadSc,LinSc
   use Transport_Q1, only: Tracer
   use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
-                            Viscosity, Screw, Shell, Shearrate 
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess
 
   use visualization_out, only: viz_output_fields
@@ -1407,6 +1407,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
         CALL Release_ListFiles_SSE(int(myProcess%Angle))
         
 !        call write_sol_to_file(insavn, timens)
+        tstep = dTimeStepEnlargmentFactor*tstep
+        dtgmv = dTimeStepEnlargmentFactor*dtgmv
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF
