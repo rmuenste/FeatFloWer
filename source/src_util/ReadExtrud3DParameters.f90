@@ -23,6 +23,8 @@
 
     real*8 :: myInf,dSizeScale
 
+
+
     if(ieee_support_inf(myInf))then
       myInf = ieee_value(myInf, ieee_negative_inf)
     endif
@@ -62,6 +64,7 @@
     if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
     if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
     if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
@@ -191,18 +194,63 @@
 !!!=============================================================================================================================
      IF (ADJUSTL(TRIM(cElemType)).eq."KNET".or.ADJUSTL(TRIM(cElemType)).eq."KNEADING") THEN
       mySigma%mySegment(iSeg)%ART   = "KNET"
+     
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
       mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
       mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
-      
+     
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
       mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
       
-      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out-mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
 
+      call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
+      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      
+      call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
+      
+      mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%N*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_string(parameterlist,cElement_i,"KindOfkneading", cKindOfConveying," ")
+      call inip_toupper_replace(cKindOfConveying)
+      IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."REKNEADING") THEN
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq." ".OR.ADJUSTL(TRIM(cKindOfConveying)).eq."KNEADING") THEN
+        mySigma%mySegment(iSeg)%alpha=1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+       IF (ADJUSTL(TRIM(cKindOfConveying)).eq."RECONVEYING") THEN
+        mySigma%mySegment(iSeg)%alpha=-1d0*mySigma%mySegment(iSeg)%alpha
+       END IF
+      ELSE
+       WRITE(*,*) "invalid kind of kneading segment"
+       WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
+      END IF
+     END IF
+!!!==============================================     EKNET     =================================================================
+!!!=============================================================================================================================
+     IF (ADJUSTL(TRIM(cElemType)).eq."EKNET".or.ADJUSTL(TRIM(cElemType)).eq."Excentrical") THEN
+      mySigma%mySegment(iSeg)%ART   = "EKNET"
+     
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"Excentre", mySigma%mySegment(iSeg)%excentre, myInf)
+      mySigma%mySegment(iSeg)%excentre = dSizeScale*mySigma%mySegment(iSeg)%excentre
+     
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out-2d0*mySigma%mySegment(iSeg)%excentre-mySigma%mySegment(iSeg)%Ds)/2d0
+      mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s - mySigma%mySegment(iSeg)%excentre))
+    
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
       mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
       
@@ -989,16 +1037,16 @@
     END IF
 ! 
     if (mySigma%NumberOfSeg.gt.0) THEN
-     mySigma%mySegment(1)%StartAlpha = 0.0d0
+     mySigma%mySegment(1)%StartAlpha = myPI/6d0
      mySigma%SegmentLength = mySigma%mySegment(1)%L
      IF (mySigma%NumberOfSeg.GE.2) THEN
      DO iSeg=2,mySigma%NumberOfSeg
        IF (mySigma%mySegment(iSeg-1)%ART.EQ.'FOERD'.OR.mySigma%mySegment(iSeg-1)%ART.EQ.'SME') THEN
         mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg-1)%StartAlpha + mySigma%mySegment(iSeg-1)%L/mySigma%mySegment(iSeg-1)%t*2d0*myPI
        END IF
-       IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET') THEN
+       IF (mySigma%mySegment(iSeg-1)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'SKNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'EKNET') THEN
         mySigma%mySegment(iSeg)%StartAlpha =  mySigma%mySegment(iSeg-1)%StartAlpha + myPI*DBLE(mySigma%mySegment(iSeg-1)%N-1)*mySigma%mySegment(iSeg-1)%Alpha/1.8d2
-        IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET') THEN
+        IF (mySigma%mySegment(iSeg)%ART.EQ.'KNET'.or.mySigma%mySegment(iSeg)%ART.EQ.'SKNET'.or.mySigma%mySegment(iSeg-1)%ART.EQ.'EKNET') THEN
          mySigma%mySegment(iSeg)%StartAlpha = mySigma%mySegment(iSeg)%StartAlpha + myPI*mySigma%mySegment(iSeg)%Alpha/1.8d2
         END IF
        END IF
