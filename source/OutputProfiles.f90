@@ -2568,7 +2568,7 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
- call Load_ListFile('t',iO)
+! call Load_ListFile('t',iO)
  call Load_ListFile('p',iO)
  call Load_ListFile('v',iO)
  call Load_ListFile('d',iO)
@@ -2620,11 +2620,12 @@ SUBROUTINE Load_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
 USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE iniparser, ONLY : inip_openFileForReading
 implicit none
 integer :: iO
 character :: cf*(*)
 CHARACTER*(512) :: cFile
-integer ilen,ndofs,ivt
+integer ilen,ndofs,ivt,ifile
 logical :: bExists
 
 if (myid.eq.0) return
@@ -2632,98 +2633,86 @@ if (myid.eq.0) return
  cfile = '_dump/processor_'
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(I0)') myid
-! write(*,*) ilen,cfile
- inquire(file=trim(adjustl(cfile)),Exist=bExists)
- if (.not.bExists) return
+ 
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(A,I0)') "/",iO
- inquire(file=trim(adjustl(cfile)),Exist=bExists)
- if (.not.bExists) return
+
  ilen = len(trim(adjustl(cfile)))
  
  if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
    write(cfile(ilen+1:),'(A)') "/temperature.lst"
-   inquire(file=trim(adjustl(cfile)),Exist=bExists)
-   if (.not.bExists) then
-    write(*,*) 'file does not exist: "'//trim(adjustl(cfile))//'"'
-    return
-   end if
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForReading(cfile, ifile, .true.)
    ndofs = QuadSc%ndof
-   read(927,*)
+   read(ifile,*)
 
    DO ivt=1,ndofs
-    read(927,*) temperature(ivt)
+    read(ifile,*) temperature(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
    write(cfile(ilen+1:),'(A)') "/pressure.lst"
-   inquire(file=trim(adjustl(cfile)),Exist=bExists)
-   if (.not.bExists) return
-
-   open(unit=927,file = trim(adjustl(cfile)))
+   
+   call inip_openFileForReading(cfile, ifile, .true.)
+   
    ndofs = LinSc%ndof
-   read(927,*)
+   read(ifile,*)
 
    DO ivt=1,ndofs
-    read(927,*) LinSc%ValP(NLMAX)%x(ivt)
+    read(ifile,*) LinSc%ValP(NLMAX)%x(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'v'.or.adjustl(trim(cf)).eq.'V') THEN
    write(cfile(ilen+1:),'(A)') "/velocity.lst"
-   inquire(file=trim(adjustl(cfile)),Exist=bExists)
-   if (.not.bExists) return
-
-   open(unit=927,file = trim(adjustl(cfile)))
+   
+   call inip_openFileForReading(cfile, ifile, .true.)
+   
    ndofs = QuadSc%ndof
-   read(927,*)
+   read(ifile,*)
 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%ValU(ivt)
+    read(ifile,*) QuadSc%ValU(ivt)
    END DO 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%ValV(ivt)
+    read(ifile,*) QuadSc%ValV(ivt)
    END DO 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%ValW(ivt)
+    read(ifile,*) QuadSc%ValW(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'x'.or.adjustl(trim(cf)).eq.'X') THEN
    write(cfile(ilen+1:),'(A)') "/coordinates.lst"
-   inquire(file=trim(adjustl(cfile)),Exist=bExists)
-   if (.not.bExists) return
-
-   open(unit=927,file = trim(adjustl(cfile)))
+   
+   call inip_openFileForReading(cfile, ifile, .true.)
+   
    ndofs = QuadSc%ndof
-   read(927,*)
+   read(ifile,*)
 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%AuxU(ivt)
+    read(ifile,*) QuadSc%AuxU(ivt)
    END DO 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%AuxV(ivt)
+    read(ifile,*) QuadSc%AuxV(ivt)
    END DO 
    DO ivt=1,ndofs
-    read(927,*) QuadSc%AuxW(ivt)
+    read(ifile,*) QuadSc%AuxW(ivt)
    END DO 
   END IF
   if (adjustl(trim(cf)).eq.'d'.or.adjustl(trim(cf)).eq.'D') THEN
    write(cfile(ilen+1:),'(A)') "/distance.lst"
-   inquire(file=trim(adjustl(cfile)),Exist=bExists)
-   if (.not.bExists) return
-
-   open(unit=927,file = trim(adjustl(cfile)))
+   
+   call inip_openFileForReading(cfile, ifile, .true.)
+   
    ndofs = QuadSc%ndof
-   read(927,*)
+   read(ifile,*)
 
    DO ivt=1,ndofs
-    read(927,*) Screw(ivt)
+    read(ifile,*) Screw(ivt)
    END DO 
   END IF
   
   write(*,*) 'file loaded: "'//trim(adjustl(cfile))//'"'
- close(927)
+ close(ifile)
 
 END SUBROUTINE Load_ListFile
 !
@@ -2733,11 +2722,12 @@ SUBROUTINE Release_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
 USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE iniparser, ONLY : INIP_REPLACE,inip_openFileForWriting
 implicit none
 integer :: iO
 character :: cf*(*)
 CHARACTER*(512) :: cFile
-integer ilen,ndofs,ivt
+integer ilen,ndofs,ivt,ifile
 logical :: bExists
 
 if (myid.eq.0) return
@@ -2745,83 +2735,87 @@ if (myid.eq.0) return
  cfile = '_dump/processor_'
  ilen = len(trim(adjustl(cfile)))
  write(cfile(ilen+1:),'(I0)') myid
-! write(*,*) ilen,cfile
- inquire(file=trim(adjustl(cfile)),Exist=bExists)
- if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
+
+!  inquire(=trim(adjustl(cfile)),Exist=bExists)
+!  if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
+ 
  ilen = len(trim(adjustl(cfile)))
+ 
  write(cfile(ilen+1:),'(A,I0)') "/",iO
- inquire(file=trim(adjustl(cfile)),Exist=bExists)
- if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
+!  inquire(file=trim(adjustl(cfile)),Exist=bExists)
+ 
+!  if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
  ilen = len(trim(adjustl(cfile)))
  if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
    write(cfile(ilen+1:),'(A)') "/temperature.lst"
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
+   
    ndofs = QuadSc%ndof
-   write(927,'(A,I0)') "DofsTotal:",ndofs
+   write(ifile,'(A,I0)') "DofsTotal:",ndofs
 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') temperature(ivt)
+    write(ifile,'(ES14.6)') temperature(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
    write(cfile(ilen+1:),'(A)') "/pressure.lst"
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
    ndofs = LinSc%ndof
-   write(927,'(A,I0)') "DofsTotal:",ndofs
+   write(ifile,'(A,I0)') "DofsTotal:",ndofs
 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') LinSc%ValP(NLMAX)%x(ivt)
+    write(ifile,'(ES14.6)') LinSc%ValP(NLMAX)%x(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'v'.or.adjustl(trim(cf)).eq.'V') THEN
    write(cfile(ilen+1:),'(A)') "/velocity.lst"
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
    ndofs = QuadSc%ndof
-   write(927,'(A,I0)') "DofsTotal:",ndofs
+   write(ifile,'(A,I0)') "DofsTotal:",ndofs
 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%ValU(ivt)
+    write(ifile,'(ES14.6)') QuadSc%ValU(ivt)
    END DO 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%ValV(ivt)
+    write(ifile,'(ES14.6)') QuadSc%ValV(ivt)
    END DO 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%ValW(ivt)
+    write(ifile,'(ES14.6)') QuadSc%ValW(ivt)
    END DO 
   END IF
  if (adjustl(trim(cf)).eq.'x'.or.adjustl(trim(cf)).eq.'X') THEN
    write(cfile(ilen+1:),'(A)') "/coordinates.lst"
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
    ndofs = QuadSc%ndof
-   write(927,'(A,I0)') "DofsTotal:",ndofs
+   write(ifile,'(A,I0)') "DofsTotal:",ndofs
 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%AuxU(ivt)
+    write(ifile,'(ES14.6)') QuadSc%AuxU(ivt)
    END DO 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%AuxV(ivt)
+    write(ifile,'(ES14.6)') QuadSc%AuxV(ivt)
    END DO 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') QuadSc%AuxW(ivt)
+    write(ifile,'(ES14.6)') QuadSc%AuxW(ivt)
    END DO 
   END IF
   if (adjustl(trim(cf)).eq.'d'.or.adjustl(trim(cf)).eq.'D') THEN
    write(cfile(ilen+1:),'(A)') "/distance.lst"
 
-   open(unit=927,file = trim(adjustl(cfile)))
+   call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
    ndofs = QuadSc%ndof
-   write(927,'(A,I0)') "DofsTotal:",ndofs
+   write(ifile,'(A,I0)') "DofsTotal:",ndofs
 
    DO ivt=1,ndofs
-    write(927,'(ES14.6)') Screw(ivt)
+    write(ifile,'(ES14.6)') Screw(ivt)
    END DO 
   END IF
 
- close(927)
+ close(ifile)
 
 END SUBROUTINE Release_ListFile
 !

@@ -1397,6 +1397,9 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
+    
+    tstep = dTimeStepEnlargmentFactor*tstep
+    dtgmv = dTimeStepEnlargmentFactor*dtgmv
     dout=dout+dtgmv
 
     ! Save intermediate solution to a dump file
@@ -1407,8 +1410,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
         CALL Release_ListFiles_SSE(int(myProcess%Angle))
         
 !        call write_sol_to_file(insavn, timens)
-        tstep = dTimeStepEnlargmentFactor*tstep
-        dtgmv = dTimeStepEnlargmentFactor*dtgmv
+
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF

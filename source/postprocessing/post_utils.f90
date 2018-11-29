@@ -133,6 +133,7 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   use var_QuadScalar, only: istep_ns,mg_mesh
   use solution_io, only: write_sol_to_file,write_sse_1d_sol
+  use Sigma_User, only: myProcess
 
   real, intent(inout) :: dttt0
   integer, intent(in) :: filehandle
@@ -151,7 +152,8 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   ! Save the final solution vector in unformatted form
   istep_ns = istep_ns - 1
   !CALL SolToFile(-1)
-  call write_sol_to_file(insavn, timens)
+  CALL Release_ListFiles_SSE(int(myProcess%Angle))
+!  call write_sol_to_file(insavn, timens)
   call write_sse_1d_sol()
 
   IF (myid.eq.showid) THEN
