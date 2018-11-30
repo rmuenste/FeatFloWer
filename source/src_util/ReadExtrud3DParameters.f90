@@ -707,7 +707,7 @@
      mySetup%bAutomaticTimeStepControl = .TRUE.
     END IF
     
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d1)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d0)
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,1d0)

@@ -2524,6 +2524,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 call Release_ListFile('v',iO)
 call Release_ListFile('p',iO)
 call Release_ListFile('d',iO)
+call Release_ListFile('t',iO)
 
  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 ! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -2573,6 +2574,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  call Load_ListFile('v',iO)
  call Load_ListFile('d',iO)
  call Load_ListFile('x',iO)
+ call Load_ListFile('t',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -2711,7 +2713,7 @@ if (myid.eq.0) return
    END DO 
   END IF
   
-  write(*,*) 'file loaded: "'//trim(adjustl(cfile))//'"'
+  write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
  close(ifile)
 
 END SUBROUTINE Load_ListFile
@@ -2815,6 +2817,7 @@ if (myid.eq.0) return
    END DO 
   END IF
 
+  write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
  close(ifile)
 
 END SUBROUTINE Release_ListFile
