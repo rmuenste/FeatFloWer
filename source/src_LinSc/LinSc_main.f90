@@ -6,7 +6,7 @@ USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
 USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     MoveInterfacePoints,myALE,Properties,getmeshvelocity
-USE var_QuadScalar, ONLY: myMG,myHeatObjects
+USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties
 USE mg_LinScalar, ONLY : mgProlRestInit
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
 
@@ -61,7 +61,7 @@ IF (myid.ne.0) THEN
 
 ! Assemble the right hand side
  CALL LCL1(Tracer%def,Tracer%ndof)
- CALL Matdef_General_LinScalar(Tracer,1,0)
+ CALL Matdef_LinScalar(Tracer,1,0)
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
@@ -70,7 +70,7 @@ IF (myid.ne.0) THEN
  Tracer%rhs = Tracer%def
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar(Tracer,-1,1)
+ CALL Matdef_LinScalar(Tracer,-1,1)
  CALL E011Sum(Tracer%def)
 
 ! Set dirichlet boundary conditions on the defect
@@ -95,7 +95,6 @@ CALL Protocol_linScalar(mfile,Tracer,0,&
 DO INL=1,Tracer%prm%NLmax
 INLComplete = 0
 
-
 ! Calling the solver
 CALL Solve_General_LinScalar(Tracer,ParKNPR,&
 Boundary_LinSc_Val,Boundary_LinSc_Mat)
@@ -111,7 +110,7 @@ IF (myid.ne.0) THEN
  Tracer%def = Tracer%rhs
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar(Tracer,-1,0)
+ CALL Matdef_LinScalar(Tracer,-1,0)
  CALL E011Sum(Tracer%def)
 
 ! Set dirichlet boundary conditions on the defect
@@ -171,7 +170,7 @@ IF (myid.ne.master) THEN
  CALL Create_LKonvMat()
 
 ! Diffusion matrix 
- CALL Create_ConstDiffMat()
+ CALL Create_ConstDiffMat(Properties%DiffCoeff(1))
 
 ! Iteration matrix (only allocation)
  CALL Create_AMat()

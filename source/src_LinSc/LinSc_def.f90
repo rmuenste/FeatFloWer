@@ -359,7 +359,8 @@ END SUBROUTINE Create_ConstDeformationMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_ConstDiffMat()
+SUBROUTINE Create_ConstDiffMat(dAlpha)
+real*8 dAlpha
 EXTERNAL E011
 
 IF (.NOT.ALLOCATED(DMat)) ALLOCATE(DMat(lMat%na))
@@ -375,7 +376,7 @@ CALL CnstDiffMatQ1(DMat,lMat%nu,lMat%ColA,lMat%LdA,&
                    mg_mesh%level(ilev)%karea,&
                    mg_mesh%level(ilev)%kedge,&
                    mg_mesh%level(ilev)%dcorvg,&
-                   1d0,E011)
+                   dAlpha,E011)
 
 END SUBROUTINE Create_ConstDiffMat
 !
