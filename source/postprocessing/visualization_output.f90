@@ -575,6 +575,7 @@ USE def_FEAT
 use def_LinScalar, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
 use Sigma_User, only: myOutput, mySigma
+use iniparser
 
 implicit none
 
@@ -599,13 +600,18 @@ integer,dimension(8) :: values
 character(100) :: command
 ! logical :: bTemperatureSimulation
 integer :: iVerlaufMax
+integer :: ifile
+logical :: bfileExists
+
+! For dumping the e3dfile
+type(t_parlist) :: parameterlistModifiedKTP1D
 
 !  if (present(btempSim)) then
 !    bTemperatureSimulation = btempSim
 !  else
 !    bTemperatureSimulation = .FALSE.
 !  end if
-! 
+!
 !  ! The number of Verlauf-Outputs in the 1D-Files depends on wether it is a temperature-simulation
 !  if (bTemperatureSimulation) then
 !   ! If it is a Temperature-Simulation we have 8 Fields:
@@ -656,22 +662,32 @@ integer :: iVerlaufMax
  my1DOut(11)%cName = 'VelocityWSS_[m/s]'
  CALL OutPut_1D_subExtra(sQuadSc%valW,ScrewDist,11, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
+
+ call inip_init(parameterlistModifiedKTP1D)
  ! write(*,*)'------------------This should crash-----------------------------'
 IF (myid.eq.1) THEN
 
+ ! We need to dump the e3dfile to the 1d-files, so lets read it in
+ call inip_readfromfile(parameterlistModifiedKTP1D,trim(adjustl("_data/Extrud3D.dat")))
+ ! KPT needs them modified, all sections should be indeted by one level
+ call INIP_indentAllSections(parameterlistModifiedKTP1D,"InputSigmaFile")
+
  WRITE(cf2,'(A,I4.4,A)') '_1D/extrud3d_',iOut,'.res'
+
+ call inip_openFileForWriting(cf2, ifile, INIP_REPLACE, bfileExists, .TRUE.)
 ! OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)))
-! WRITE(120,'(A)')"[SigmaFileInfo]"
-! WRITE(120,'(A)')"FileType=ResultsExtrud3d"
-! call date_and_time(cdate,ctime,czone,values)
-! WRITE(120,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
-! WRITE(120,'(A)')"Extrud3dVersion=Extrud3d 2.0"
-! WRITE(120,'(A,I2.2)')"counter_pos=",my1DOut_nol
-! WRITE(120,'(A)')"counter_verl=15"
-!!  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
-! WRITE(120,'(A)') "[InputSigmaFile]"
-! WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+ WRITE(ifile,'(A)')"[SigmaFileInfo]"
+ WRITE(ifile,'(A)')"FileType=ResultsExtrud3d"
+ call date_and_time(cdate,ctime,czone,values)
+ WRITE(ifile,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
+ WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 2.0"
+ WRITE(ifile,'(A,I2.2)')"counter_pos=",my1DOut_nol
+ WRITE(ifile,'(A,I2.2)')"counter_verl=",iVerlaufMax
+!  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
+ WRITE(ifile,'(A)') "[InputSigmaFile]"
+ WRITE(ifile,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
 ! CLOSE(120)
+ call inip_dumpToUnit(parameterlistModifiedKTP1D,ifile)
 
 ! command = ' '
 ! command = "cat _data/Extrud3D.dat >> "//TRIM(ADJUSTL(cf2))
@@ -680,300 +696,301 @@ IF (myid.eq.1) THEN
  ! Write the 1D-Header.
  ! It depends on iVerlaufMax as this parameter tells us how many sections we
  ! are going to find.
- call write_1d_header(iOut,my1DOut_nol,iVerlaufMax)
- OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
+!  call write_1d_header(iOut,my1DOut_nol,iVerlaufMax)
+!  OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)),ACCESS='APPEND')
 
- !WRITE(120,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
+ WRITE(ifile,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
 
- WRITE(120,'(A)')"[Positions]"
- WRITE(120,'(A)')"ID=ELEMENT_LENGTH"
- WRITE(120,'(A)')"Unit=0"
- WRITE(120,'(A)')"SIUnit=[mm]"
+ WRITE(ifile,'(A)')"[Positions]"
+ WRITE(ifile,'(A)')"ID=ELEMENT_LENGTH"
+ WRITE(ifile,'(A)')"Unit=0"
+ WRITE(ifile,'(A)')"SIUnit=[mm]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
  END DO
- WRITE(120,'(A)')"[Ergebnisse]"
+ WRITE(ifile,'(A)')"[Ergebnisse]"
 ! Pressure
- WRITE(120,'(A,A,(100("/")))')"#///////////","PRESSURE"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf0]"
- WRITE(120,'(A)')"ID=PRESSURE_MIN"
- WRITE(120,'(A)')"Unit=38"
- WRITE(120,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","PRESSURE"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf0]"
+ WRITE(ifile,'(A)')"ID=PRESSURE_MIN"
+ WRITE(ifile,'(A)')"Unit=38"
+ WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf1]"
- WRITE(120,'(A)')"ID=PRESSURE_MAX"
- WRITE(120,'(A)')"Unit=38"
- WRITE(120,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf1]"
+ WRITE(ifile,'(A)')"ID=PRESSURE_MAX"
+ WRITE(ifile,'(A)')"Unit=38"
+ WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf2]"
- WRITE(120,'(A)')"ID=PRESSURE_MED"
- WRITE(120,'(A)')"Unit=38"
- WRITE(120,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf2]"
+ WRITE(ifile,'(A)')"ID=PRESSURE_MED"
+ WRITE(ifile,'(A)')"Unit=38"
+ WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMean(i+1)
  END DO
 
 ! Shearrate
- WRITE(120,'(A,A,(100("/")))')"#///////////","SHEARRATE"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf3]"
- WRITE(120,'(A)')"ID=GAMMA_P_MIN"
- WRITE(120,'(A)')"Unit=17"
- WRITE(120,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","SHEARRATE"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf3]"
+ WRITE(ifile,'(A)')"ID=GAMMA_P_MIN"
+ WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf4]"
- WRITE(120,'(A)')"ID=GAMMA_P_MAX"
- WRITE(120,'(A)')"Unit=17"
- WRITE(120,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf4]"
+ WRITE(ifile,'(A)')"ID=GAMMA_P_MAX"
+ WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf5]"
- WRITE(120,'(A)')"ID=GAMMA_P_MED"
- WRITE(120,'(A)')"Unit=17"
- WRITE(120,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf5]"
+ WRITE(ifile,'(A)')"ID=GAMMA_P_MED"
+ WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMean(i+1)
  END DO
 
 ! Viscosity
- WRITE(120,'(A,A,(100("/")))')"#///////////","VISCOSITY"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf6]"
- WRITE(120,'(A)')"ID=ETA_MIN"
- WRITE(120,'(A)')"Unit=35"
- WRITE(120,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","VISCOSITY"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf6]"
+ WRITE(ifile,'(A)')"ID=ETA_MIN"
+ WRITE(ifile,'(A)')"Unit=35"
+ WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf7]"
- WRITE(120,'(A)')"ID=ETA_MAX"
- WRITE(120,'(A)')"Unit=35"
- WRITE(120,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf7]"
+ WRITE(ifile,'(A)')"ID=ETA_MAX"
+ WRITE(ifile,'(A)')"Unit=35"
+ WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf8]"
- WRITE(120,'(A)')"ID=ETA_MED"
- WRITE(120,'(A)')"Unit=35"
- WRITE(120,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf8]"
+ WRITE(ifile,'(A)')"ID=ETA_MED"
+ WRITE(ifile,'(A)')"Unit=35"
+ WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMean(i+1)
  END DO
 
 ! AxialVelocity
- WRITE(120,'(A,A,(100("/")))')"#///////////","AXIALVELOCITY"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf9]"
- WRITE(120,'(A)')"ID=AX_V_MIN"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","AXIALVELOCITY"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf9]"
+ WRITE(ifile,'(A)')"ID=AX_V_MIN"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf10]"
- WRITE(120,'(A)')"ID=AX_V_MAX"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf10]"
+ WRITE(ifile,'(A)')"ID=AX_V_MAX"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf11]"
- WRITE(120,'(A)')"ID=AX_V_MED"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf11]"
+ WRITE(ifile,'(A)')"ID=AX_V_MED"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMean(i+1)
  END DO
 
 ! Velocity-X
- WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_XCOMP"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf12]"
- WRITE(120,'(A)')"ID=ROTX_V_MIN"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","VELOCITY_XCOMP"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf12]"
+ WRITE(ifile,'(A)')"ID=ROTX_V_MIN"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf13]"
- WRITE(120,'(A)')"ID=ROTX_V_MAX"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf13]"
+ WRITE(ifile,'(A)')"ID=ROTX_V_MAX"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf14]"
- WRITE(120,'(A)')"ID=ROTX_V_MED"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf14]"
+ WRITE(ifile,'(A)')"ID=ROTX_V_MED"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMean(i+1)
  END DO
 
 ! Velocity-Y
- WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_YCOMP"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf15]"
- WRITE(120,'(A)')"ID=ROTY_V_MIN"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","VELOCITY_YCOMP"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf15]"
+ WRITE(ifile,'(A)')"ID=ROTY_V_MIN"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf16]"
- WRITE(120,'(A)')"ID=ROTY_V_MAX"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf16]"
+ WRITE(ifile,'(A)')"ID=ROTY_V_MAX"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf17]"
- WRITE(120,'(A)')"ID=ROTY_V_MED"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf17]"
+ WRITE(ifile,'(A)')"ID=ROTY_V_MED"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMean(i+1)
  END DO
 
 ! Velocity-Mag
- WRITE(120,'(A,A,(100("/")))')"#///////////","VELOCITY_MAG"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf18]"
- WRITE(120,'(A)')"ID=MAG_MIN"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","VELOCITY_MAG"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf18]"
+ WRITE(ifile,'(A)')"ID=MAG_MIN"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf19]"
- WRITE(120,'(A)')"ID=MAG_MAX"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf19]"
+ WRITE(ifile,'(A)')"ID=MAG_MAX"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf20]"
- WRITE(120,'(A)')"ID=MAG_MED"
- WRITE(120,'(A)')"Unit=20"
- WRITE(120,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf20]"
+ WRITE(ifile,'(A)')"ID=MAG_MED"
+ WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
  END DO
 
 ! Temperature
- WRITE(120,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf21]"
- WRITE(120,'(A)')"ID=TEMPERATURE_MIN"
- WRITE(120,'(A)')"Unit=23"
- WRITE(120,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","TEMPERATURE"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf21]"
+ WRITE(ifile,'(A)')"ID=TEMPERATURE_MIN"
+ WRITE(ifile,'(A)')"Unit=23"
+ WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf22]"
- WRITE(120,'(A)')"ID=TEMPERATURE_MAX"
- WRITE(120,'(A)')"Unit=23"
- WRITE(120,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf22]"
+ WRITE(ifile,'(A)')"ID=TEMPERATURE_MAX"
+ WRITE(ifile,'(A)')"Unit=23"
+ WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf23]"
- WRITE(120,'(A)')"ID=TEMPERATURE_MED"
- WRITE(120,'(A)')"Unit=23"
- WRITE(120,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf23]"
+ WRITE(ifile,'(A)')"ID=TEMPERATURE_MED"
+ WRITE(ifile,'(A)')"Unit=23"
+ WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
  END DO
 
 ! ShearSG
- WRITE(120,'(A,A,(100("/")))')"#///////////","SHEAR_SG"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf24]"
- WRITE(120,'(A)')"ID=GAMMA_SG_MIN"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","SHEAR_SG"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf24]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SG_MIN"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf25]"
- WRITE(120,'(A)')"ID=GAMMA_SG_MAX"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf25]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SG_MAX"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf26]"
- WRITE(120,'(A)')"ID=GAMMA_SG_MED"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf26]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SG_MED"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMean(i+1)
  END DO
 
 ! ShearSS
- WRITE(120,'(A,A,(100("/")))')"#///////////","SHEAR_SS"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf27]"
- WRITE(120,'(A)')"ID=GAMMA_SS_MIN"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","SHEAR_SS"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf27]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SS_MIN"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf28]"
- WRITE(120,'(A)')"ID=GAMMA_SS_MAX"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf28]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SS_MAX"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf29]"
- WRITE(120,'(A)')"ID=GAMMA_SS_MED"
- WRITE(120,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf29]"
+ WRITE(ifile,'(A)')"ID=GAMMA_SS_MED"
+ WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMean(i+1)
  END DO
 
 ! Velocity-W-SS
- WRITE(120,'(A,A,(100("/")))')"#///////////","VELO_Z_SS"
- WRITE(120,'(A)')"[Ergebnisse/Verlauf30]"
- WRITE(120,'(A)')"ID=VELO_Z_SS_MIN"
- WRITE(120,'(A)')"Unit=20"
+ WRITE(ifile,'(A,A,(100("/")))')"#///////////","VELO_Z_SS"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf30]"
+ WRITE(ifile,'(A)')"ID=VELO_Z_SS_MIN"
+ WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMin(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMin(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf31]"
- WRITE(120,'(A)')"ID=VELO_Z_SS_MAX"
- WRITE(120,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf31]"
+ WRITE(ifile,'(A)')"ID=VELO_Z_SS_MAX"
+ WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMax(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMax(i+1)
  END DO
 
- WRITE(120,'(A)')"[Ergebnisse/Verlauf32]"
- WRITE(120,'(A)')"ID=VELO_Z_SS_MED"
- WRITE(120,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"[Ergebnisse/Verlauf32]"
+ WRITE(ifile,'(A)')"ID=VELO_Z_SS_MED"
+ WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(120,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMean(i+1)
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMean(i+1)
  END DO
 
- CLOSE(120)
+ CLOSE(ifile)
 
 
 end if
+call inip_done(parameterlistModifiedKTP1D)
 
 end subroutine
 !
@@ -1113,7 +1130,7 @@ LOGICAL bValid
 INTEGER iSeg
 
 my1DOut_nol = myOutput%nOf1DLayers
- 
+
 dMinSample = mySigma%mySegment(1)%Min
 dMaxSample = mySigma%mySegment(mySigma%NumberOfSeg)%Max
 
@@ -1124,7 +1141,7 @@ if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut
 if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
 
-IF (myid.ne.0) THEN 
+IF (myid.ne.0) THEN
 
  IF (i1D.EQ.9)  dScale = 1d0     !Shear SG
  IF (i1D.EQ.10) dScale = 1d0     !Shear SS
@@ -1142,15 +1159,15 @@ IF (myid.ne.0) THEN
  my1DOutput(i1D)%dMin    = 1d30
  my1DOutput(i1D)%dMax    =-1d30
  MlRhoMat => mg_MlRhoMat(maxlevel)%a
- 
+
 
  DO iSeg=1,mySigma%NumberOfSeg
- 
+
  DO i=1,SIZE(sQuadSc%ValU)
 
   IF (MixerKNPR(i).eq.0) THEN
-   jj=0  
-   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i) 
+   jj=0
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
    DO j=1,my1DOut_nol
     IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
      jj = j
@@ -1161,8 +1178,8 @@ IF (myid.ne.0) THEN
    IF (jj.NE.0) THEN
     bValid = .FALSE.
     IF (i1D.EQ.9) THEN
-     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
-     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
      dDist = ABS(min(ScrewDist(1,i),ScrewDist(2,i)))
 !     dDist = ABS(Distamce(i))
      IF (dY.gt.0d0)  dR = SQRT(dX**2d0+(dY-mySigma%a/2d0)**2d0)
@@ -1175,8 +1192,8 @@ IF (myid.ne.0) THEN
      END IF
     END IF
     IF (i1D.EQ.10) THEN
-     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
-     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
      IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s)  THEN
 !      IF (dY.gt.-0.5d0*mySigma%a.and.dY.lt.+0.5d0*mySigma%a.and.&
 !          dX.gt.-0.5d0*mySigma%s.and.dX.lt.+0.5d0*mySigma%s)  THEN
@@ -1188,18 +1205,18 @@ IF (myid.ne.0) THEN
 
      IF (ISNAN(mySigma%DZz)) THEN
       mySigma%DZz = 2d0*(SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W)
-     END IF 
+     END IF
 
      dRadius = 0.5d0*mySigma%DZz
 !      dRadius = ((0.5d0*mySigma%Dz)**2d0 - (0.5d0*mySigma%a)**2d0)**0.5d0 + mySigma%V
-     dX = mg_mesh%level(maxlevel)%dcorvg(1,i) 
-     dY = mg_mesh%level(maxlevel)%dcorvg(2,i) 
+     dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+     dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
      dR = SQRT(dX**2d0+dY**2d0)
      IF (dR.lt.dRadius)  THEN
       daux = dScale*dField1(i)
       bValid = .TRUE.
      END IF
-    END IF   
+    END IF
 
     IF (bValid) THEN
      my1DOutput(i1D)%dMean(jj)   = my1DOutput(i1D)%dMean(jj)    + daux*MlRhoMat(i)
@@ -1218,7 +1235,7 @@ CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
 CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
-IF (myid.ne.0) THEN 
+IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
   my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
   my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
