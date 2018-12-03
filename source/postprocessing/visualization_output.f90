@@ -1108,6 +1108,7 @@ end subroutine viz_OutPut_1D_sub
 ! ----------------------------------------------
 !
 SUBROUTINE  OutPut_1D_subEXTRA(dField1,ScrewDist,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
+use, intrinsic :: ieee_arithmetic
 implicit none
 real*8 :: dField1(*),ScrewDist(2,*)
 integer :: i1D
@@ -1130,9 +1131,8 @@ LOGICAL bValid
 INTEGER iSeg
 
 my1DOut_nol = myOutput%nOf1DLayers
-
-dMinSample = mySigma%mySegment(1)%Min
-dMaxSample = mySigma%mySegment(mySigma%NumberOfSeg)%Max
+dMinSample = 0d0
+dMaxSample = mySigma%L
 
 if (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
 if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
@@ -1203,15 +1203,17 @@ IF (myid.ne.0) THEN
     END IF
     IF (i1D.EQ.11) THEN
 
-     IF (ISNAN(mySigma%DZz)) THEN
-      mySigma%DZz = 2d0*(SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W)
-     END IF
-
-     dRadius = 0.5d0*mySigma%DZz
+     IF (ieee_is_finite(mySigma%DZz)) THEN
+      dRadius = 0.5d0*mySigma%DZz
+     ELSE 
+      dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+     END IF 
+     
 !      dRadius = ((0.5d0*mySigma%Dz)**2d0 - (0.5d0*mySigma%a)**2d0)**0.5d0 + mySigma%V
      dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
      dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
      dR = SQRT(dX**2d0+dY**2d0)
+     
      IF (dR.lt.dRadius)  THEN
       daux = dScale*dField1(i)
       bValid = .TRUE.
