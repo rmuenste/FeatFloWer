@@ -4529,6 +4529,7 @@ contains
     ! This subroutine dumps a given parameter list into an open unit in
     ! INI-file form. Note that no additional comments are exported but
     ! just the tuples `parameter = value` in the corresponding sections.
+    ! Keep in mind that the unit will not be closed by this routine!
     !</description>
 
     !<input>
@@ -4614,7 +4615,7 @@ contains
       end do ! isection
 
       ! Close file
-      close(iunit)
+!       close(iunit)
 
     end if
 
