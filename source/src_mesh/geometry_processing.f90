@@ -249,8 +249,8 @@ t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 myPI = dATAN(1d0)*4d0
 
 IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
- XB = X - mySigma%bX
- YB = Y - mySigma%bY - mySigma%a/2d0
+ XB = X 
+ YB = Y - mySigma%a/2d0
  ZB = Z
 ELSE
  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
@@ -302,8 +302,8 @@ t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 myPI = dATAN(1d0)*4d0
 
 IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
- XB = X - mySigma%bX
- YB = Y + mySigma%bY + mySigma%a/2d0
+ XB = X 
+ YB = Y +  mySigma%a/2d0
  ZB = Z
 ELSE
  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)

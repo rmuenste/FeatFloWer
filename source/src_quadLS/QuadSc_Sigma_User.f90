@@ -32,7 +32,6 @@ TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   REAL*8 :: RotAxisCenter,RotAxisAngle
-  REAL*8 :: bX = 0d0,bY = 0d0
   REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
   INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
@@ -900,7 +899,7 @@ END IF
 ! First screw
 dist1 = DistTolerance
 XB = X
-YB = Y-mySigma%a/2d0+exc
+YB = Y-mySigma%a/2d0!+exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -908,6 +907,8 @@ dAlpha = mySigma%mySegment(iSeg)%StartAlpha - t*myPI*(myProcess%Umdr/3d1)*myProc
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
+
+YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
@@ -950,7 +951,7 @@ END IF
 ! Second screw
 dist2 = DistTolerance
 XB = X
-YB = Y+mySigma%a/2d0 +exc
+YB = Y+mySigma%a/2d0 !+exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -963,6 +964,8 @@ IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*m
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
+
+YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
