@@ -191,7 +191,6 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !------------------------------------------------------------------
  cExtrud3DFile = '_data/Extrud3D.dat'
  inquire(file=cExtrud3DFile,Exist=bExist)
- mySetup%bAutomaticTimeStepControl = .true.
  if (bExist) then
   call ReadS3Dfile(cExtrud3DFile)
   call Setup_STL_Segments()
@@ -579,7 +578,7 @@ character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
 
-! IF (myProcess%Phase.eq.0.or.myProcess%Phase.eq.3) THEN
+IF (myProcess%Phase.eq.0.or.myProcess%Phase.eq.3) THEN
 
 call date_and_time(cdate,ctime,czone,values)
 WRITE(CaseFile,'(15A)') 'Case_',cdate(7:8),".",cdate(5:6),".",cdate(3:4)," ",ctime(1:2),":",ctime(3:4),":",ctime(5:6)
@@ -590,7 +589,7 @@ IF (myid.eq.1) THEN
  CALL system(TRIM(ADJUSTL(command)))
 END IF
 
-! END IF
+END IF
 
 END SUBROUTINE xSEND_START
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -604,7 +603,7 @@ character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
 
-! IF (myProcess%Phase.eq.2.or.myProcess%Phase.eq.3) THEN
+IF (myProcess%Phase.eq.2.or.myProcess%Phase.eq.3) THEN
 
 call date_and_time(cdate,ctime,czone,values)
 WRITE(CaseFile,'(15A)') 'Case_',cdate(7:8),".",cdate(5:6),".",cdate(3:4)," ",ctime(1:2),":",ctime(3:4),":",ctime(5:6)
@@ -616,7 +615,7 @@ IF (myid.eq.1) THEN
  CALL system(TRIM(ADJUSTL(command)))
 END IF
 
-! END IF
+END IF
 
 END SUBROUTINE xSEND_FINISH
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

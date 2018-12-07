@@ -229,7 +229,7 @@
      END IF
 !!!==============================================     EKNET     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."EKNET".or.ADJUSTL(TRIM(cElemType)).eq."Excentrical") THEN
+     IF (ADJUSTL(TRIM(cElemType)).eq."EKNET".or.ADJUSTL(TRIM(cElemType)).eq."ECCENTRIC".or.ADJUSTL(TRIM(cElemType)).eq."EXCENTRIC") THEN
       mySigma%mySegment(iSeg)%ART   = "EKNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
@@ -238,7 +238,7 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
       mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
 
-      call INIP_getvalue_double(parameterlist,cElement_i,"Excentre", mySigma%mySegment(iSeg)%excentre, myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Eccentricity", mySigma%mySegment(iSeg)%excentre, myInf)
       mySigma%mySegment(iSeg)%excentre = dSizeScale*mySigma%mySegment(iSeg)%excentre
      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
@@ -694,7 +694,14 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     
     cKTP=' '
-    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutomaticTimeStepControl",cKTP,"NO")
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutomaticTimeStepControl",cKTP,"YES")
+     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,5d0)
+    ELSE
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutomaticTimeStepControl",cKTP,"NO")
+     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,1d0)
+    END IF
+    
     call inip_toupper_replace(cKTP)
     IF (ADJUSTL(TRIM(cKTP)).eq."NO") THEN
      mySetup%bAutomaticTimeStepControl = .FALSE.
@@ -706,7 +713,6 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d0)
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,1d0)
 
     cKTP=' '
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","KTPRelease",cKTP,"YES")
@@ -789,7 +795,7 @@
 !     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nSolutions",mySetup%nSolutions,1)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
-!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,myInf)
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
@@ -841,6 +847,18 @@
       END IF
       write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."EKNET") THEN
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
+       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+      END IF
+      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%E=',mySigma%mySegment(iSeg)%excentre
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
       write(*,'(A,I1.1,A,f12.2)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
@@ -1026,7 +1044,7 @@
     write(*,*) "myProcess%dAlpha",'=',myProcess%dAlpha
 !     write(*,*) "mySetup%bSendEmail",'=',mySetup%bSendEmail
     write(*,*) "myProcess%Angle",'=',myProcess%Angle
-!     write(*,*) "myProcess%Phase",'=',myProcess%Phase
+    write(*,*) "myProcess%Phase",'=',myProcess%Phase
 !     write(*,*) "=========================================================================="
     END IF
 ! 

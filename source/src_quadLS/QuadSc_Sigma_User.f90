@@ -48,9 +48,9 @@ TYPE tInflow
 END TYPE tInflow
 
 TYPE tProcess
-   REAL*8 :: Umdr, Ta, Ti, T0=0d0, Massestrom, Dreh, Angle, dPress,Phase
+   REAL*8 :: Umdr, Ta, Ti, T0=0d0, Massestrom, Dreh, Angle, dPress
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
-   INTEGER :: Periodicity
+   INTEGER :: Periodicity,Phase
    REAL*8 :: dAlpha
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
