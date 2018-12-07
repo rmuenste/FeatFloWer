@@ -191,6 +191,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !------------------------------------------------------------------
  cExtrud3DFile = '_data/Extrud3D.dat'
  inquire(file=cExtrud3DFile,Exist=bExist)
+ mySetup%bAutomaticTimeStepControl = .true.
  if (bExist) then
   call ReadS3Dfile(cExtrud3DFile)
   call Setup_STL_Segments()
