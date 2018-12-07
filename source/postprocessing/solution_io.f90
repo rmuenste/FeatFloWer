@@ -19,10 +19,11 @@ contains
 ! @param simTime current simulation time
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic,Temperature
+USE Transport_Q2P1,ONLY: QuadSc,LinSc,bViscoElastic,Temperature
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
-USE Transport_Q1,ONLY:Tracer
-USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE Transport_Q1, ONLY: Tracer
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+USE cinterface, ONLY: outputRigidBodies
 
 implicit none
 integer, intent(in) :: imax_out
@@ -78,6 +79,12 @@ IF (allocated(Temperature)) then
  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                    1, packed)                 
 END IF                  
+
+IF (myid.eq.1) THEN
+  if(outputRigidBodies())then
+    call write_sol_rb(iOut)
+  end if
+end if
                   
 end subroutine write_sol_to_file
 !

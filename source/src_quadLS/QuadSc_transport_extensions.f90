@@ -7,7 +7,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
-if (itns.eq.1) CALL updateFBMGeometry()
+CALL updateFBMGeometry()
 
 thstep = tstep*(1d0-theta)
 
@@ -232,7 +232,7 @@ END IF
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
 
-! CALL updateFBMGeometry()
+CALL updateFBMGeometry()
 
 RETURN
 

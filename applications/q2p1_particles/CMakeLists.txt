@@ -35,7 +35,7 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_particles 
-  ${FF_APPLICATION_LIBS}
+  ${FF_APPLICATION_LIBS} pthread
   )
 
 target_include_directories(q2p1_particles PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
