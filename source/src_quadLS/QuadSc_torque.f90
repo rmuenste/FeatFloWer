@@ -247,16 +247,13 @@
 !-------------------Acting force-------------------------
 !--------------Deformation calculation-------------
 !
-       AH1=-Press*DN1 + dny*(DU1X*DN1 + DU1Y*DN2 + DU1Z*DN3)
-       AH2=-Press*DN2 + dny*(DU2X*DN1 + DU2Y*DN2 + DU2Z*DN3)
-       AH3=-Press*DN3 + dny*(DU3X*DN1 + DU3Y*DN2 + DU3Z*DN3)
+!        AH1=-Press*DN1 + dny*(DU1X*DN1 + DU1Y*DN2 + DU1Z*DN3)
+!        AH2=-Press*DN2 + dny*(DU2X*DN1 + DU2Y*DN2 + DU2Z*DN3)
+!        AH3=-Press*DN3 + dny*(DU3X*DN1 + DU3Y*DN2 + DU3Z*DN3)
 
-!        AH1=-Press*DN1 + DNY*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2 + ! full3D
-!      *     (DU1Z+DU3X)*DN3)
-!        AH2=-Press*DN2 + DNY*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2 + ! full3D
-!      *     (DU2Z+DU3Y)*DN3)
-!        AH3=-Press*DN3 + DNY*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2 + ! full3D
-!      *     (DU3Z+DU3Z)*DN3)
+       AH1=-Press*DN1 + DNY*((DU1X+DU1X)*DN1+(DU1Y+DU2X)*DN2+(DU1Z+DU3X)*DN3)
+       AH2=-Press*DN2 + DNY*((DU2X+DU1Y)*DN1+(DU2Y+DU2Y)*DN2+(DU2Z+DU3Y)*DN3)
+       AH3=-Press*DN3 + DNY*((DU3X+DU1Z)*DN1+(DU3Y+DU2Z)*DN2+(DU3Z+DU3Z)*DN3)
 
 !-------------------Torque force------------------------- 
        IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
