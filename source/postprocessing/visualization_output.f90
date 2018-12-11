@@ -706,7 +706,8 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=0"
  WRITE(ifile,'(A)')"SIUnit=[mm]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
+!  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
+  CALL outputLine('POS',1d1*my1DOut(1)%dLoc(i+1))
  END DO
  WRITE(ifile,'(A)')"[Ergebnisse]"
 ! Pressure
@@ -716,7 +717,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(2)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf1]"
@@ -724,7 +725,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(2)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf2]"
@@ -732,7 +733,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(2)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(2)%dMean(i+1))
  END DO
 
 ! Shearrate
@@ -742,7 +743,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=17"
  WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(5)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf4]"
@@ -750,7 +751,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=17"
  WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(5)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf5]"
@@ -758,7 +759,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=17"
  WRITE(ifile,'(A)')"SIUnit=[1/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(5)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(5)%dMean(i+1))
  END DO
 
 ! Viscosity
@@ -768,7 +769,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=35"
  WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(4)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf7]"
@@ -776,7 +777,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=35"
  WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(4)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf8]"
@@ -784,7 +785,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=35"
  WRITE(ifile,'(A)')"SIUnit=[Pa s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(4)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(4)%dMean(i+1))
  END DO
 
 ! AxialVelocity
@@ -794,7 +795,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(1)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf10]"
@@ -802,7 +803,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(1)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf11]"
@@ -810,7 +811,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(1)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(1)%dMean(i+1))
  END DO
 
 ! Velocity-X
@@ -820,7 +821,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(6)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf13]"
@@ -828,7 +829,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(6)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf14]"
@@ -836,7 +837,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(6)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(6)%dMean(i+1))
  END DO
 
 ! Velocity-Y
@@ -846,7 +847,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(7)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf16]"
@@ -854,7 +855,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(7)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf17]"
@@ -862,7 +863,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(7)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(7)%dMean(i+1))
  END DO
 
 ! Velocity-Mag
@@ -872,7 +873,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(8)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf19]"
@@ -880,7 +881,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(8)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf20]"
@@ -888,7 +889,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=20"
  WRITE(ifile,'(A)')"SIUnit=[m/s]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(8)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(8)%dMean(i+1))
  END DO
 
 ! Temperature
@@ -898,7 +899,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=23"
  WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(3)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf22]"
@@ -906,7 +907,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=23"
  WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(3)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf23]"
@@ -914,7 +915,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=23"
  WRITE(ifile,'(A)')"SIUnit=[C]"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(3)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(3)%dMean(i+1))
  END DO
 
 ! ShearSG
@@ -923,21 +924,21 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MIN"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(9)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf25]"
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MAX"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(9)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf26]"
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MED"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(9)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(9)%dMean(i+1))
  END DO
 
 ! ShearSS
@@ -946,21 +947,21 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MIN"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(10)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf28]"
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MAX"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(10)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf29]"
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MED"
  WRITE(ifile,'(A)')"Unit=17"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(10)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(10)%dMean(i+1))
  END DO
 
 ! Velocity-W-SS
@@ -969,21 +970,21 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MIN"
  WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMin(i+1)
+  CALL outputLine('ST',my1DOut(11)%dMin(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf31]"
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MAX"
  WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMax(i+1)
+  CALL outputLine('ST',my1DOut(11)%dMax(i+1))
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf32]"
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MED"
  WRITE(ifile,'(A)')"Unit=20"
  DO i=0,my1DOut_nol-1
-  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "ST",i,"=",my1DOut(11)%dMean(i+1)
+  CALL outputLine('ST',my1DOut(11)%dMean(i+1))
  END DO
 
  CLOSE(ifile)
@@ -992,7 +993,22 @@ IF (myid.eq.1) THEN
 end if
 call inip_done(parameterlistModifiedKTP1D)
 
+contains
+SUBROUTINE outputLine(c,dV)
+character*(*) c
+REAL*8 dV
+
+IF (abs(dV).ge.1d29) THEN
+ WRITE(ifile,'(A,I2.2,A,1X)') c,i,"= _INVALID_"
+ELSE
+ WRITE(ifile,'(A,I2.2,A,E14.6,1X)') c,i,"=",dV
+END IF
+
+END SUBROUTINE outputLine
+
 end subroutine
+
+
 !
 !-------------------------------------------------------------------------------------------------
 ! The particular routine for outputting 1D fields for an sse application
@@ -1098,7 +1114,11 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
-  my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  if (my1DWeight(i).eq.0d0) then
+   my1DOutput(i1D)%dMean(i)=1d30
+  else
+   my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  end if
   my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
  END DO
 END IF
@@ -1239,10 +1259,15 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
-  my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  if (my1DWeight(i).eq.0d0) then
+   my1DOutput(i1D)%dMean(i)=1d30
+  else
+   my1DOutput(i1D)%dMean(i) = my1DOutput(i1D)%dMean(i)/my1DWeight(i)
+  end if
   my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
  END DO
 END IF
+
 
 END SUBROUTINE  OutPut_1D_subEXTRA
 !
