@@ -4470,8 +4470,8 @@ contains
 
      call inip_toupper(sindent,sindentUpper)
      do isection=1,rparlist%isectionCount
-       write(rparlist%p_Rsections(isection)%ssectionName,'(A,A1,A)') &
-        trim(adjustl(sindentUpper)), '/',trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
+       write(rparlist%p_Rsections(isection)%ssectionName,'(A)') &
+        trim(adjustl(sindentUpper))//'/'//trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
      end do
   end subroutine
 
@@ -4492,8 +4492,8 @@ contains
         call inip_output_line ('Section not found: '//trim(ssectionName))
         call inip_sys_halt()
     end if
-    write(p_rsection%ssectionName,'(A,A1,A)') &
-      trim(adjustl(sindentUpper)), '/',trim(adjustl(p_rsection%ssectionName))
+    write(p_rsection%ssectionName,'(A)') &
+      trim(adjustl(sindentUpper))//'/'//trim(adjustl(p_rsection%ssectionName))
   end subroutine
 
   ! ***************************************************************************
@@ -4513,8 +4513,8 @@ contains
     call inip_toupper(sSectionNotToIndent_in,sSectionNotToIndent)
     do isection=1,rparlist%isectionCount
       if (trim(adjustl(rparlist%p_Rsections(isection)%ssectionName)) .ne. trim(adjustl(sSectionNotToIndent))) then
-        write(rparlist%p_Rsections(isection)%ssectionName,'(A,A1,A)') &
-         trim(adjustl(sindentUpper)), '/',trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
+        write(rparlist%p_Rsections(isection)%ssectionName,'(A)') &
+         trim(adjustl(sindentUpper))//'/'//trim(adjustl(rparlist%p_Rsections(isection)%ssectionName))
       end if
     end do
  end subroutine
