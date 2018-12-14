@@ -23,6 +23,8 @@
 
     real*8 :: myInf,dSizeScale
 
+    real*8 dExtract_Val
+    character(len=INIP_STRLEN) cText,sExtract_Dim
 
 
     if(ieee_support_inf(myInf))then
@@ -522,8 +524,18 @@
     myProcess%Massestrom=myInf
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ProcessType", cProcessType,'NoProcessType')
     call inip_toupper_replace(cProcessType)
+    
     IF (ADJUSTL(TRIM(cProcessType)).eq."PRESSUREDROP") THEN
-     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","deltaP", myProcess%dPress,myInf)
+    
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","deltaP", cText,"_INVALID_")
+    call inip_toupper_replace(cText)
+    call ReadDoubleFromDimensionalString()
+    IF (TRIM(adjustl(sExtract_Dim)).eq.'BAR') myProcess%dPress = 1d6*dExtract_Val
+    IF (TRIM(adjustl(sExtract_Dim)).eq.'PA') myProcess%dPress  = 1d1*dExtract_Val
+    IF (TRIM(adjustl(sExtract_Dim)).eq.'KPA') myProcess%dPress = 1d4*dExtract_Val
+    IF (TRIM(adjustl(sExtract_Dim)).eq.'MPA') myProcess%dPress = 1d7*dExtract_Val
+!     
+!      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","deltaP", myProcess%dPress,myInf)
      myProcess%pTYPE = "PRESSUREDROP"
     END IF
     IF (ADJUSTL(TRIM(cProcessType)).eq."THROUGHPUT") THEN
@@ -1081,7 +1093,7 @@
     IF (ieee_is_finite(myProcess%dPress)) THEN
       dZPeriodicLength = mySigma%L
       dPeriodicity     = [1d9,1d9,mySigma%L]
-      myProcess%dPress = 1d3*myProcess%dPress
+!       myProcess%dPress = 1d6*myProcess%dPress
       bNoOutflow = .TRUE.
     END IF
     
@@ -1106,6 +1118,36 @@
     ! Clean up the parameterlist
     call inip_done(parameterlist)
 
+    CONTAINS
+
+    SUBROUTINE ReadDoubleFromDimensionalString()
+    IMPLICIT NONE
+    INTEGER i,n,i1,i2
+    LOGICAL :: bOK
+
+    n = len(cText)
+    i1 = 0
+    i2 = 0
+    DO i=1,n
+     IF (cText(i:i).EQ. '[') i1 = i
+     IF (cText(i:i).EQ. ']') i2 = i
+    END DO
+
+    bOk=.FALSE.
+    IF (i1.ne.0.AND.i2.ne.0) bOk=.TRUE.
+    
+    IF (bOK) THEN
+     read(cText(1:i1-1),*)     dExtract_Val
+     read(cText(i1+1:i2-1),*) sExtract_Dim
+    ELSE
+     dExtract_Val = myInf
+    END IF
+!     write(*,*) 'hoho',i1,i2,adjustl(trim(cText))
+!     write(*,*) dExtract_Val,'"'//adjustl(trim(sExtract_Dim))//'"'
+!     pause
+
+    END SUBROUTINE ReadDoubleFromDimensionalString
+    
     end Subroutine ReadS3Dfile
 !
 ! ---------------------------------------------------------------------------------------------

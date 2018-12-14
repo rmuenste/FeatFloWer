@@ -185,9 +185,9 @@ END IF
 
 
 Tracer%cName        = "Tracer"
-Tracer%prm%SolvIter = 4
+Tracer%prm%SolvIter = 8
 Tracer%prm%AFC      = .TRUE.
-Tracer%prm%NLmin    = 2
+Tracer%prm%NLmin    = 4
 Tracer%prm%NLmax    = 8
 Tracer%prm%defCrit  =1d-4
 Tracer%prm%epsCrit  =1d-3

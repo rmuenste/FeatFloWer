@@ -17,6 +17,7 @@ subroutine init_q2p1_ext(log_unit)
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
       ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
+  USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
 
   integer, intent(in) :: log_unit
   logical            :: I_EXIST
@@ -41,125 +42,28 @@ subroutine init_q2p1_ext(log_unit)
   
   ! Normal start from inital configuration
   if (istart.eq.0) then
+  
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitCond_QuadScalar()
-    IF(bViscoElastic)call IniProf_ViscoScalar()
-    call Output_Profiles(1)
 
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
 
-    if (myid .ne. 0) then
-      do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
-
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
-        mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
-
-!         if (abs(mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
-!           write(*,*)"myid: ", myid
-!           write(*,*)"idx: ", i
-!           write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i)
-!           write(*,*)"read: ",QuadSc%auxU(i)
-!         end if
-
-      end do
-    end if
-
-    ILEV = NLMIN
-    CALL SETLEV(2)
-    write(*,*)"ilev: ",ilev
-
-    call ExchangeNodeValuesOnCoarseLevel(&
-      mg_mesh%level(ilev)%dcorvg,&
-      mg_mesh%level(ilev)%kvert,&
-      mg_mesh%level(ilev)%nvt,&
-      mg_mesh%level(ilev)%nel)
-
-  call OperatorRegenaration(1)
-  call OperatorRegenaration(2)
-  call OperatorRegenaration(3)
-
-  call Output_Profiles(1)
+  call init_sol_same_level(CSTART)
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
-    ! In order to read in from a lower level
-    ! the lower level structures are needed
 
-
-    if (myid.ne.0) call CreateDumpStructures(0)
-
-    call SolFromFile(CSTART,0)
-
-    if (myid .ne. 0) then
-      do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
-
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
-        mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
-
-!         if (abs(mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) - QuadSc%auxU(i) > 1.0E-5)) then
-!           write(*,*)"myid: ", myid
-!           write(*,*)"idx: ", i
-!           write(*,*)"computed: " , mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i)
-!           write(*,*)"read: ",QuadSc%auxU(i)
-!         end if
-
-      end do
-    end if
-
-    call ProlongateCoordinates(&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel)%dcorvg,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%karea,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kvert,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%kedge,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nel,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nvt,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%net,&
-      mg_mesh%level(mg_Mesh%maxlevel-1)%nat)
-
-
-    IF (myid.ne.0) THEN
-       CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
-    END IF
-      
-    ILEV = NLMIN
-    CALL SETLEV(2)
-
-    call ExchangeNodeValuesOnCoarseLevel(&
-      mg_mesh%level(1)%dcorvg,&
-      mg_mesh%level(1)%kvert,&
-      mg_mesh%level(1)%nvt,&
-      mg_mesh%level(1)%nel)
-
-    call ProlongateSolution()
-
-    ! Now generate the structures for the actual level 
-    if (myid.ne.0) call CreateDumpStructures(1)
-
-    call SolToFile(3)
-    call Output_Profiles(1)
-
-    call OperatorRegenaration(1)
-    call OperatorRegenaration(2)
-    call OperatorRegenaration(3)
+    call init_sol_lower_level(CSTART)
 
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
-    do i = 1, mg_mesh%level(mg_Mesh%maxlevel-1)%NVT 
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(1,i) = QuadSc%auxU(i)
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(2,i) = QuadSc%auxV(i)
-      mg_mesh%level(mg_Mesh%maxlevel-1)%dcorvg(3,i) = QuadSc%auxW(i)
-    end do
+
+    call init_sol_repart(CSTART)
+
   end if
 
 end subroutine init_q2p1_ext

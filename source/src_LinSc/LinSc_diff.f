@@ -498,7 +498,7 @@ C
       DO 300 IDOFE=1,IDFL
         if (iswitch.eq.1) then
          IG=KDFG(IDOFE)
-         DD(IG) = DD(IG) + REAL(DENTRY(JDOFE,IDOFE))*tAmbient
+         DD(IG) = DD(IG) + DENTRY(JDOFE,IDOFE)*tAmbient
         end if
         if (iswitch.eq.2) then
          IA     = KENTRY(JDOFE,IDOFE)
@@ -689,12 +689,16 @@ C
       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
 C
+      dAreaSwitch = 0d0
+      
       IF (YY.lt.-0.95d0) then
        dAreaSwitch = 1d0
-      ELSE
-       dAreaSwitch = 0d0
       end if
 C      
+      IF (YY.gt.5.25d0) then
+       dAreaSwitch = 1d0
+      end if
+C
       CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
 C
@@ -755,7 +759,7 @@ C
       DO 300 IDOFE=1,IDFL
         if (iswitch.eq.1) then
          IG=KDFG(IDOFE)
-         DD(IG) = DD(IG) + REAL(DENTRY(JDOFE,IDOFE))*dLambda*dGradient
+         DD(IG) = DD(IG) + DENTRY(JDOFE,IDOFE)*dLambda*dGradient
         end if
 300   CONTINUE
 C

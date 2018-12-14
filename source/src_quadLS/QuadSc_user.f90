@@ -1,16 +1,21 @@
 SUBROUTINE GetPresInitVal(X,Y,Z,Val)
+USE Sigma_User, ONLY : myProcess,mySigma
 REAL*8 X,Y,Z,Val(4)
 REAL*8 :: dScale = (8.55/5.35)*0.008d0*0.45D0/(0.41D0**2d0)
 
-! Val(1) = dScale*(2.5d0-X)
-! Val(2) = -dScale
-! Val(3) = 0d0
-! Val(4) = 0d0!-1d1
-
-Val(1) = 0d0!-1d1*X
-Val(2) = 0d0!-1d1
+Val(1) = 0d0
+Val(2) = 0d0
 Val(3) = 0d0
 Val(4) = 0d0
+
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ IF (ADJUSTL(TRIM(myProcess%pTYPE)).EQ."PRESSUREDROP") THEN
+  Val(1) = myProcess%dPress/mySigma%L*Z
+  Val(2) = 0d0!-1d1
+  Val(3) = 0d0
+  Val(4) = myProcess%dPress/mySigma%L
+ END IF
+END IF
 
 RETURN
 
