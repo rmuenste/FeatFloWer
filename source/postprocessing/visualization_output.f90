@@ -214,7 +214,14 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
- case('Screw')
+  case('FBM')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBM",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(MixerKNPR(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+  case('Screw')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Screw",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(1d1*Screw(ivt))
@@ -383,6 +390,8 @@ DO iField=1,SIZE(myExport%Fields)
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
+ CASE('FBM')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBM","""/>"
  CASE('Screw')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Screw","""/>"
  CASE('Viscosity')
@@ -1022,7 +1031,7 @@ subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D, my1DOut_nol, my1DOutpu
 real*8 :: dField1(*),dField2(*),dField3(*)
 integer :: i1D
 integer :: my1DOut_nol
-type(t1DOutput), dimension(8) :: my1DOutput
+type(t1DOutput), dimension(:) :: my1DOutput
 type(tOutput) :: myOutput
 type(tSigma) :: mySigma
 type(tQuadScalar), intent(in) :: sQuadSc
@@ -1133,7 +1142,7 @@ implicit none
 real*8 :: dField1(*),ScrewDist(2,*)
 integer :: i1D
 integer :: my1DOut_nol
-type(t1DOutput), dimension(8) :: my1DOutput
+type(t1DOutput), dimension(:) :: my1DOutput
 type(tOutput) :: myOutput
 type(tSigma) :: mySigma
 type(tQuadScalar), intent(in) :: sQuadSc

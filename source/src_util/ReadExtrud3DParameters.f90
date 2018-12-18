@@ -131,7 +131,8 @@
 
      call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
      call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
-     IF (.NOT.(mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'DIE'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE')) THEN
+     IF (.NOT.(mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'NSCREW'.OR.&
+               mySigma%mySegment(iSeg)%ObjectType.eq.'DIE'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE')) THEN
        WRITE(*,*) "STL object type is invalid. Only screw, die, or obstacle types are allowed"
      END IF
 

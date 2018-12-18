@@ -365,7 +365,7 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
   real*8 ElemCoor(3,27),ElemDist(27),ElemRad,ElemSign,PointSign,dist
 
-  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle
+  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle,dYcShift,dYtShift
 
   real*8, dimension(3) :: point
 
@@ -383,8 +383,18 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
     IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
      dRotAngle = myProcess%Angle
-    ELSE
-     dRotAngle = 0d0
+     dYtShift   = 0d0
+     dYcShift   = 0d0
+    END IF
+    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'NSCREW') THEN
+     dRotAngle = myProcess%Angle
+     dYtShift   = 2d0*8.8d0*dcos(myProcess%Angle*(dATAN(1d0)*8d0)/360d0)
+     dYcShift   = 2d0*8.8d0
+    END IF
+    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
+     dRotAngle  = 0d0
+     dYtShift   = 0d0
+     dYcShift   = 0d0
     END IF
 
     IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
@@ -523,7 +533,7 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 !    distance(i) = dist
 !  end do
 
-    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW") THEN
+    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW".or.adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."NSCREW") THEN
       do i=1,ndof
       dst2(i) = min(dst2(i),+dVaux(i)/dUnitScale)
       end do
@@ -577,7 +587,7 @@ SUBROUTINE TransformPoints()
 
   ! Point needs to be offseted to its segment position
   XB = dUnitScale*ElemCoor(1,iP)
-  YB = dUnitScale*ElemCoor(2,iP)
+  YB = dUnitScale*ElemCoor(2,iP) + dYtShift
   ZB = dUnitScale*ElemCoor(3,iP) - mySigma%mySegment(iSeg)%Min
 
   ! Point needs to be transformed back to a time=0 due to the rotation
@@ -585,6 +595,8 @@ SUBROUTINE TransformPoints()
   XT = XB*cos(dAlpha) - YB*sin(dAlpha)
   YT = XB*sin(dAlpha) + YB*cos(dAlpha)
   ZT = ZB
+
+  YT = YT - dYcShift
 
   ElemCoor(1,iP) = XT
   ElemCoor(2,iP) = YT

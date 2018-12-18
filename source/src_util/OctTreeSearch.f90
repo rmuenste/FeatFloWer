@@ -421,6 +421,8 @@ real*8 dmax,dmin
 REAL*8 :: q(3),dist,daux
 integer k
  
+ iiX = 0
+ 
  do i1=1,OctTree%nx
   dmin = OctTree%xmin + dble(i1-1)*OctTree%dx/dble(OctTree%nx)
   dmax = OctTree%xmin + dble(i1-0)*OctTree%dx/dble(OctTree%nx)
@@ -429,6 +431,7 @@ integer k
   end if  
  end do
 
+ iiY = 0
  do i1=1,OctTree%ny
   dmin = OctTree%ymin + dble(i1-1)*OctTree%dy/dble(OctTree%ny)
   dmax = OctTree%ymin + dble(i1-0)*OctTree%dy/dble(OctTree%ny)
@@ -437,6 +440,7 @@ integer k
   end if  
  end do
 
+ iiZ = 0
  do i1=1,OctTree%nz
   dmin = OctTree%zmin + dble(i1-1)*OctTree%dz/dble(OctTree%nz)
   dmax = OctTree%zmin + dble(i1-0)*OctTree%dz/dble(OctTree%nz)
@@ -450,9 +454,9 @@ integer k
      (iiZ.lt.1).or.(iiZ.gt.OctTree%nz)) then
       dist = 1d30
       iP = -1
-      return
-!      write(*,*) 'fatal problem in OctTreeSearch'
-!      pause
+!       return
+     write(*,*) 'fatal problem in OctTreeSearch'
+     pause
  end if
 
  dist = 1d30
