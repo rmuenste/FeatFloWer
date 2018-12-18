@@ -5,6 +5,7 @@ A python launcher script for a FeatFloWer application
 """
 import os
 
+import xml.etree.ElementTree as ET
 import sys
 import getopt
 import platform
@@ -34,6 +35,19 @@ def moveAndSetLevel(fileIn, fileOut, level):
             for line in file:
                 newLine = re.sub(r"^[\s]*SimPar@MaxMeshLevel[\s]*=(\s | \w)*", maxLevelStr, line)
                 newFile.write(newLine)
+
+
+#===============================================================================
+#                      Function: readTestConfiguration
+#===============================================================================
+def readTestConfiguration():
+    tree = ET.parse("test-config.xml")
+    root = tree.getroot()
+
+    for child in root:
+        print(child.tag, child.attrib)
+        for k, v in child.attrib.items():
+            print("Key : {0}, Value : {1}".format(k,v))
 
 
 #===============================================================================
@@ -132,4 +146,5 @@ def main():
 #                           Main "Boiler Plate"
 #===============================================================================
 if __name__ == "__main__":
-    main()
+    readTestConfiguration() 
+    #main()
