@@ -455,8 +455,8 @@ integer k
       dist = 1d30
       iP = -1
 !       return
-     write(*,*) 'fatal problem in OctTreeSearch'
-     pause
+!      write(*,*) 'fatal problem in OctTreeSearch'
+!      pause
  end if
 
  dist = 1d30
