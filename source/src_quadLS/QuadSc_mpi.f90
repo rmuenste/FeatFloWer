@@ -2206,32 +2206,32 @@ DO pID=1,subnodes
  jAux = 0
  IF (pID.NE.myid) THEN
   DO I=1,CoorST(pID)%Num
-   CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
-   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
-    IF (DIST.LT.DEpsPrec) THEN 
-     jAux = jAux + 1
-    END IF
-   END IF
-  CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
-   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
-    IF (DIST.LT.DEpsPrec) THEN 
-     jAux = jAux + 1
-    END IF
-   END IF
-
-!    P1X = CoorST(pID)%dCoor(1,I)
-!    P1Y = CoorST(pID)%dCoor(2,I)
-!    P1Z = CoorST(pID)%dCoor(3,I)
-!    DO J=1,CoorST(myid)%Num
-!     P2X = CoorST(myid)%dCoor(1,J)
-!     P2Y = CoorST(myid)%dCoor(2,J)
-!     P2Z = CoorST(myid)%dCoor(3,J)
-!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
-!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
-!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
+!    CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
+!    IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+!     IF (DIST.LT.DEpsPrec) THEN 
 !      jAux = jAux + 1
 !     END IF
-!    END DO
+!    END IF
+!   CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
+!    IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+!     IF (DIST.LT.DEpsPrec) THEN 
+!      jAux = jAux + 1
+!     END IF
+!    END IF
+
+   P1X = CoorST(pID)%dCoor(1,I)
+   P1Y = CoorST(pID)%dCoor(2,I)
+   P1Z = CoorST(pID)%dCoor(3,I)
+   DO J=1,CoorST(myid)%Num
+    P2X = CoorST(myid)%dCoor(1,J)
+    P2Y = CoorST(myid)%dCoor(2,J)
+    P2Z = CoorST(myid)%dCoor(3,J)
+    IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+        ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+        ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
+     jAux = jAux + 1
+    END IF
+   END DO
   END DO
  END IF
 !  WRITE(*,*) myid,pID,jAux
@@ -2252,38 +2252,38 @@ DO pID=1,subnodes
   ALLOCATE(MGE013(ILEV)%ST(pID)%SBVect  (  MGE013(ILEV)%ST(pID)%Num))
   ALLOCATE(MGE013(ILEV)%ST(pID)%RBVect  (  MGE013(ILEV)%ST(pID)%Num))
   DO I=1,CoorST(pID)%Num
-   CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
-   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
-    IF (DIST.LT.DEpsPrec) THEN 
-     jAux = jAux + 1
-     MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
-     MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
-    END IF
-   END IF
-   CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
-   IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
-    IF (DIST.LT.DEpsPrec) THEN 
-     jAux = jAux + 1
-     MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
-     MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
-    END IF
-   END IF
-!    P1X = CoorST(pID)%dCoor(1,I)
-!    P1Y = CoorST(pID)%dCoor(2,I)
-!    P1Z = CoorST(pID)%dCoor(3,I)
-!    DO J=1,CoorST(myid)%Num
-!     P2X = CoorST(myid)%dCoor(1,J)
-!     P2Y = CoorST(myid)%dCoor(2,J)
-!     P2Z = CoorST(myid)%dCoor(3,J)
-!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
-!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
-!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
+!    CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
+!    IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+!     IF (DIST.LT.DEpsPrec) THEN 
 !      jAux = jAux + 1
 !      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
 !      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
-!      EXIT
 !     END IF
-!    END DO
+!    END IF
+!    CALL FindInPeriodicOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist,dPeriodicity)
+!    IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
+!     IF (DIST.LT.DEpsPrec) THEN 
+!      jAux = jAux + 1
+!      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
+!      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
+!     END IF
+!    END IF
+   P1X = CoorST(pID)%dCoor(1,I)
+   P1Y = CoorST(pID)%dCoor(2,I)
+   P1Z = CoorST(pID)%dCoor(3,I)
+   DO J=1,CoorST(myid)%Num
+    P2X = CoorST(myid)%dCoor(1,J)
+    P2Y = CoorST(myid)%dCoor(2,J)
+    P2Z = CoorST(myid)%dCoor(3,J)
+    IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+        ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+        ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
+     jAux = jAux + 1
+     MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorST(myid)%iCoor(J)
+     MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorST(myid)%iCoor(J)
+     EXIT
+    END IF
+   END DO
   END DO
   CALL SORT1D(MGE013(ILEV)%ST(pID)%VertLink(1,:),MGE013(ILEV)%ST(pID)%Num)
 
