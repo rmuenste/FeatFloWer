@@ -712,7 +712,7 @@ SELECT CASE(iP)
   ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
   ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
   ValW =   0d0
-!   ValV =   ValV + dYShiftdt
+  ValV =   ValV + dYShiftdt
   
 !  write(*,*) dYShiftdt
   
