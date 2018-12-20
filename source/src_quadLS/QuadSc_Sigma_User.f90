@@ -899,7 +899,7 @@ END IF
 ! First screw
 dist1 = DistTolerance
 XB = X
-YB = Y-mySigma%a/2d0!+exc
+YB = Y-mySigma%a/2d0 +exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -908,7 +908,7 @@ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
-YT = YT + exc
+! YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
@@ -951,7 +951,7 @@ END IF
 ! Second screw
 dist2 = DistTolerance
 XB = X
-YB = Y+mySigma%a/2d0 !+exc
+YB = Y+mySigma%a/2d0 +exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -965,7 +965,7 @@ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
-YT = YT + exc
+! YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
@@ -1040,7 +1040,7 @@ SUBROUTINE Schnecke_nGang(XP,YP,iSeg,Dif)
 INTEGER iSeg
 REAL*8  Dz, a, delta, s, Ds, exc    
 REAL*8 dTheta, XP, YP, Dif, XB, YB
-REAL*8 R1, R2, R3, dAlpha,dGamma,dCutAngle,dRadius,dN
+REAL*8 R1, R2, R3, dAlpha,dGamma,dCutAngle,dRadius,dN,dCrit1,dCrit2
 REAL*8  :: myPI = dATAN(1d0)*4d0
 INTEGER iAux
 
@@ -1079,8 +1079,39 @@ XB = (dRadius*COS(dGamma))
 YB = (dRadius*SIN(dGamma))
 
 dTheta = 0.5d0*(myPI/dN - 2d0*ACOS(R3/(2d0*R2)))
+!dTheta = 0.5d0*(myPI/dN - 2d0*ACOS((a-s)/(mySigma%Dz_out-2d0*exc-2d0*delta)))
+
+IF (delta.lt.0) THEN
+ if (myid.eq.1) then
+  WRITE(*,*) "the screw could not be created : wrong delta"
+  WRITE(*,*) "theta [deg]", 180d0*dtheta/myPi
+  WRITE(*,*) "Ds: ", Ds
+  WRITE(*,*) "delta: ", delta
+  WRITE(*,*) "s: ", s
+  WRITE(*,*) "exc: ", exc
+  WRITE(*,*) "a: ", a
+  WRITE(*,*) "Dz,Dz*: ", mySigma%Dz_out,Dz
+  WRITE(*,*) "R2,R3: ", R2,R3
+!   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
+!   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
+ END IF
+ stop
+END IF
+
 IF (dTheta.lt.0d0) THEN
- WRITE(*,*) "the screw could not be created (wrong theta)", dTheta
+ if (myid.eq.1) then
+  WRITE(*,*) "the screw could not be created : wrong angle"
+  WRITE(*,*) "theta [deg]", 180d0*dtheta/myPi
+  WRITE(*,*) "Ds: ", Ds
+  WRITE(*,*) "delta: ", delta
+  WRITE(*,*) "s: ", s
+  WRITE(*,*) "exc: ", exc
+  WRITE(*,*) "a: ", a
+  WRITE(*,*) "Dz,Dz*: ", mySigma%Dz_out,Dz
+  WRITE(*,*) "R2,R3: ", R2,R3
+!   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
+!   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
+ END IF
  stop
 ENDIF
 

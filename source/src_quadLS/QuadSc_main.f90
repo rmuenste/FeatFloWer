@@ -1549,7 +1549,8 @@ END SUBROUTINE  updateFBMGeometry
 ! ----------------------------------------------
 !
 SUBROUTINE updateMixerGeometry(mfile)
-use geometry_processing, only : calcDistanceFunction_sse, QuadScalar_MixerKnpr,dEpsDist
+use geometry_processing, only : calcDistanceFunction_sse, QuadScalar_MixerKnpr,&
+    calcDistanceFunction_netzsch,dEpsDist
 
 integer, intent(in) :: mfile
 
@@ -1569,6 +1570,18 @@ MixerKNPR(:) = 0
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  CALL calcDistanceFunction_sse(mg_mesh%level(ilev)%dcorvg,&
+                           mg_mesh%level(ilev)%kvert,&
+                           mg_mesh%level(ilev)%kedge,&
+                           mg_mesh%level(ilev)%karea,&
+                           mg_mesh%level(ilev)%nel,&
+                           mg_mesh%level(ilev)%nvt,&
+                           mg_mesh%level(ilev)%nat,&
+                           mg_mesh%level(ilev)%net,&
+                           QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
+END IF
+
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH") THEN
+ CALL calcDistanceFunction_netzsch(mg_mesh%level(ilev)%dcorvg,&
                            mg_mesh%level(ilev)%kvert,&
                            mg_mesh%level(ilev)%kedge,&
                            mg_mesh%level(ilev)%karea,&

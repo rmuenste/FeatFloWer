@@ -8,7 +8,8 @@ Val(2) = 0d0
 Val(3) = 0d0
 Val(4) = 0d0
 
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.&
+    ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH") THEN
  IF (ADJUSTL(TRIM(myProcess%pTYPE)).EQ."PRESSUREDROP") THEN
   Val(1) = myProcess%dPress/mySigma%L*Z
   Val(2) = 0d0!-1d1
@@ -659,7 +660,7 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 IMPLICIT NONE
 REAL*8 :: myPI
 INTEGER iP
-REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb
+REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
 
 myPI = dATAN(1d0)*4d0
 
@@ -695,9 +696,26 @@ SELECT CASE(iP)
   ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
   ValW =   0d0
  CASE (104) ! Y negativ
-  ValU =  0d0
-  ValV =  0d0
-  ValW =  00d0/60d0
+  dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*(dATAN(1d0)*8d0)/360d0)
+  
+  timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+!  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
+  dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*(dATAN(1d0)*8d0))
+  
+  
+
+  dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*(dATAN(1d0)*8d0)/360d0)
+  dYShiftdt  = (myProcess%Umdr/60d0)*(dATAN(1d0)*8d0)*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*(dATAN(1d0)*8d0))
+  
+  YB = Y + dYShift
+  XB = X 
+  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
+  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  ValW =   0d0
+!   ValV =   ValV + dYShiftdt
+  
+!  write(*,*) dYShiftdt
+  
 END SELECT
 
 
