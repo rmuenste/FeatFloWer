@@ -450,7 +450,7 @@ if (bDefTensor) then
  CALL Create_ConstDeformationMat()
 else
  ! Building up the Diffusion operator
- CALL Create_ConstDiffMat()
+ CALL Create_ConstDiffMat(1d0)
 end if
 
 ! Initialize the MeshDef field structures
@@ -519,6 +519,22 @@ END DO
 !  if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
 !   write(3,'(I10,6ES12.4)') i,norm_u(i),norm_v(i),norm_w(i),mg_mesh%level(ilev)%dcorvg(:,i)
 !  end if
+! end do
+! close(3)
+! 
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/end_coor.dat')
+! write(3,'(A,I0,A,I0)') 'nV= ',ndof 
+! write(3,'(6(A10," "))') 'x','y','z'
+! do i=1,ndof
+!  write(3,'(I10,6ES12.4)') i,mg_mesh%level(ilev)%dcorvg(:,i)
+! end do
+! close(3)
+! 
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/start_coor.dat')
+! write(3,'(A,I0,A,I0)') 'nV= ',ndof
+! write(3,'(6(A10," "))') 'x','y','z'
+! do i=1,ndof
+!  write(3,'(I10,6ES12.4)') i,OrigCoor(:,i)
 ! end do
 ! close(3)
 
