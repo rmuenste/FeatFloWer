@@ -899,7 +899,7 @@ END IF
 ! First screw
 dist1 = DistTolerance
 XB = X
-YB = Y-mySigma%a/2d0 +exc
+YB = Y-mySigma%a/2d0 !+exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -908,7 +908,7 @@ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
-! YT = YT + exc
+YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
@@ -951,7 +951,7 @@ END IF
 ! Second screw
 dist2 = DistTolerance
 XB = X
-YB = Y+mySigma%a/2d0 +exc
+YB = Y+mySigma%a/2d0 !+exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
@@ -965,7 +965,7 @@ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
 
-! YT = YT + exc
+YT = YT + exc
 
 DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
 
