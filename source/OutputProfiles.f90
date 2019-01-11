@@ -1850,7 +1850,7 @@ SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc
+USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -1960,7 +1960,7 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Temperature')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Temperature",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",REAL(Tracer%Val(NLMAX)%x(ivt))
+   write(iunit, '(A,E16.7)')"        ",REAL(Temperature(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
