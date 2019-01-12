@@ -13,6 +13,7 @@
 # 
 # The optional parameters to the script are:
 # [-DBUILD_STRING=]: the build string, i.e.: xeon-linux-gcc-release
+# [-DCLEAN_BIN=]: Set this to <True> to clean the bin dir before building
 #
 # Example start command:
 # ctest -S ctest_driver.cmake \
@@ -33,13 +34,18 @@ set(CTEST_SOURCE_DIRECTORY ${SRC_DIR})
 set(CTEST_BINARY_DIRECTORY ${BIN_DIR})
 set(CLEAN_BIN "")
 set(BENCH_PROCS ${PROCS})
+set(USER_BUILD_NAME "")
 
 
-if(${BENCH_PROCS} STREQUAL "")
+if("${BENCH_PROCS}" STREQUAL "")
   message(FATAL_ERROR "Required parameter PROCS is not set. Set it using the -DPROCS=<number> option.")
-else(${BENCH_PROCS} STREQUAL "")
+else("${BENCH_PROCS}" STREQUAL "")
   message(STATUS "Using ${PROCS} processors for the benchmark.")
-endif(${BENCH_PROCS} STREQUAL "")
+endif("${BENCH_PROCS}" STREQUAL "")
+
+if("${USER_BUILD_NAME}" STREQUAL "")
+  set(USER_BUILD_NAME ${BUILD_STRING})
+endif("${USER_BUILD_NAME}" STREQUAL "")
 
 message(STATUS "${CTEST_SOURCE_DIRECTORY} ${CTEST_BINARY_DIRECTORY}")
 
@@ -50,7 +56,6 @@ cmake_host_system_information(RESULT HNAME QUERY HOSTNAME)
 #========================================================================
 set(CTEST_TEST_TIMEOUT 7200) 
 
-set(BUILD_STRING_GCC "xeon-linux-gcc-release")
 
 #========================================================================
 # Here we configure the CTest variables that
@@ -58,11 +63,11 @@ set(BUILD_STRING_GCC "xeon-linux-gcc-release")
 #========================================================================
 set(CTEST_SITE ${HNAME})
 
-set(CTEST_BUILD_NAME ${BUILD_STRING})
-
 set(CTEST_DROP_METHOD "http")
 
-set(CTEST_DROP_SITE "129.217.165.82/CDash/public")
+set(CTEST_BUILD_NAME "${USER_BUILD_NAME}")
+
+set(CTEST_DROP_SITE "localhost/CDash/public")
 
 set(CTEST_DROP_LOCATION "/submit.php?project=Feat_FloWer")
 
@@ -97,11 +102,11 @@ set(WITH_COVERAGE false)
 #========================================================================
 set(CLEAN_BIN_DIR "")
 
-if(NOT ${CLEAN_BIN} STREQUAL "")
+if(NOT "${CLEAN_BIN}" STREQUAL "")
   set(CLEAN_BIN_DIR ${CLEAN_BIN})
-endif(NOT ${CLEAN_BIN} STREQUAL "")
+endif(NOT "${CLEAN_BIN}" STREQUAL "")
 
-if(NOT ${CLEAN_BIN_DIR} STREQUAL "")
+if(NOT "${CLEAN_BIN_DIR}" STREQUAL "")
   set(CLEAN_BIN_DIR ${CLEAN_BIN})
 
   message(STATUS "Preparing to delete the binary directory.")
@@ -109,7 +114,7 @@ if(NOT ${CLEAN_BIN_DIR} STREQUAL "")
     message(STATUS "Deleting the binary directory.")
     ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
   endif()
-endif(NOT ${CLEAN_BIN_DIR} STREQUAL "")
+endif(NOT "${CLEAN_BIN_DIR}" STREQUAL "")
 
 #========================================================================
 # Configure the git checkout command
@@ -124,17 +129,12 @@ find_program(CTEST_MEMORYCHECK_COMMAND NAMES valgrind)
 # If the source directory does not exist, get it from the repo
 #========================================================================
 if(NOT EXISTS "${CTEST_SOURCE_DIRECTORY}")
-  set(CTEST_CHECKOUT_COMMAND "${CTEST_GIT_COMMAND} clone --recursive ssh://rmuenste@lannister/home/user/git/Feat_FloWer.git")
+  message(FATAL_ERROR "CTest source not found: ${CTEST_SOURCE_DIRECTORY}")
+  set(CTEST_CHECKOUT_COMMAND "${CTEST_GIT_COMMAND} clone --recursive ssh://rmuenste@arryn.mathematik.tu-dortmund.de/home/user/git/Feat_FloWer.git")
 endif()
 
-#set(CTEST_UPDATE_COMMAND "git status")
+set(CTEST_UPDATE_COMMAND "git")
 
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING_GCC} -DUSE_SYSTEM_BLASLAPACK=True -DBUILD_APPLICATIONS=True -DUSE_ODE=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DUSE_MUMPS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DUSE_MUMPS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DUSE_MUMPS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
-#set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING_GCC} -DUSE_SYSTEM_BLASLAPACK=True -DBUILD_APPLICATIONS=True -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION}")
 set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION} -DPROCS=${BENCH_PROCS}")
 
 set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} -DWITH_TESTING:BOOL=ON ${CTEST_BUILD_OPTIONS}")
@@ -144,12 +144,22 @@ set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} \"${CTEST_SOURCE_DIRECTO
 #========================================================================
 # Call the CTest routines for invoking the particular tests
 #========================================================================
+#set(CTEST_SOURCE_DIRECTORY "/home/user/rmuenste/nobackup/code/ode_intermediate/Feat_Flower")
+#set(CTEST_SOURCE_DIRECTORY "/data/warehouse14/rmuenste/code/ode_intermediate/Feat_Flower")
+#message(FATAL_ERROR "${CTEST_SOURCE_DIRECTORY}")
+
 ctest_start("Experimental")
+
 #ctest_update()
-ctest_configure()
-ctest_build()
-#ctest_test(START 1 END 1)
-ctest_test()
+
+#ctest_configure()
+
+#ctest_build()
+
+ctest_test(START 4 END 4)
+
+#ctest_test()
+
 if (WITH_COVERAGE AND CTEST_COVERAGE_COMMAND)
   ctest_coverage()
 endif (WITH_COVERAGE AND CTEST_COVERAGE_COMMAND)

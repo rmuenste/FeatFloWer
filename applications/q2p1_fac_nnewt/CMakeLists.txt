@@ -50,6 +50,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
-file(COPY q2p1_fac_nnewt.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-add_test(q2p1-fac-non-newt python ./q2p1_fac_nnewt.py -n ${PROCS})
+file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+add_test(q2p1-fac-non-newt python ./q2p1_ctest_start.py)
 #message("Using command: q2p1-fac-non-newt python ./q2p1_fac_nnewt.py -n ${PROCS}")
