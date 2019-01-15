@@ -157,7 +157,13 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.1) THEN
   
-   Tracer%val(NLMAX)%x(i)= myProcess%AirTemperature
+   Tracer%val(NLMAX)%x(i)= 65d0
+    
+ END IF
+
+ IF (Tracer%knpr(i).eq.2) THEN
+  
+   Tracer%val(NLMAX)%x(i)= 45d0
     
  END IF
 

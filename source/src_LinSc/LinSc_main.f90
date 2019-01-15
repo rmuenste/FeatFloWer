@@ -265,13 +265,10 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
  Tracer%knpr(I) = 0
 
- IF (myBoundary%iTemperature(i).EQ.1) THEN
+ IF (myBoundary%iTemperature(i).ne.0) THEN
   Tracer%knpr(I) = myBoundary%iTemperature(i)
  END IF
- IF (myBoundary%iTemperature(i).EQ.2) THEN
-
- END IF
-
+ 
 END DO
 
 END SUBROUTINE LinSc_Knpr
@@ -304,7 +301,7 @@ SUBROUTINE Boundary_LinSc_Def()
 INTEGER i
 
 DO i=1,Tracer%ndof
- IF (Tracer%knpr(i).eq.1) THEN
+ IF (Tracer%knpr(i).ne.0) THEN
   Tracer%def(i) = 0d0
  END IF
 END DO
@@ -318,7 +315,7 @@ REAL*4  VA(*)
 INTEGER KLD(*),KNPR(*),ICOL,I
 
 DO I=1,Tracer%ndof
- IF (KNPR(I).eq.1) THEN
+ IF (KNPR(I).ne.0) THEN
    VA(KLD(I))=1E0
    DO ICOL=KLD(I)+1,KLD(I+1)-1
     VA(ICOL)=0E0
@@ -550,7 +547,10 @@ if (myid.ne.0) then
  ! Mass matrix
  CALL Create_CpRhoMassMat()
 
-! Mass Lumped matrix
+ ! Convection matrix
+ CALL Create_RhoCpConvMat(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+
+ ! Mass Lumped matrix
  CALL Create_LRhoCpMassMat()
 
  NLMAX = NLMAX - 1

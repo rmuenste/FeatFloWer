@@ -568,8 +568,11 @@ C
       dArea = 0d0
       dFlux = 0d0
 C      
-      dLambda   = 40d0*1d5
-      dGradient = -25d0
+!       dLambda   = 40d0*1d5
+!       dGradient = -25d0
+C
+      dLambda   = myProcess%ConductiveLambda*1d5   ! 
+      dGradient = myProcess%ConductiveGradient     ! K/cm
 C      
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.

@@ -18,7 +18,9 @@ IF (myid.ne.0) THEN
 
  Tracer%oldSol = Tracer%val(NLMAX)%x
  
- CALL Build_LinSc_Convection()
+ ! Convection matrix
+ CALL Create_RhoCpConvMat(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+! CALL Build_LinSc_Convection()
  IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar()
 
 ! Assemble the right hand side
@@ -42,7 +44,7 @@ IF (myid.ne.0) THEN
 
 ! Add the boundary heat flux (implicit part)
  CALL AddBoundaryHeatFlux(2)
-  
+   
  CALL E011Sum(Tracer%def)
 
 ! Set dirichlet boundary conditions on the defect
@@ -728,9 +730,14 @@ end if
 
 iS = 0
 iSeg = 0
+dHeatSource = 0d0
 
 do 
  iSeg = iSeg + 1
+ 
+ mySigma%mySegment(iSeg)%UseHeatSource = 0d0
+ 
+ if (iSeg.gt.mySigma%NumberOfSeg) exit 
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
   IF (dQuant(iS+4)/dQuant(iS+3).gt.400d0) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
@@ -744,6 +751,7 @@ do
 end do
 1 continue
 
+return
 
 END SUBROUTINE IntegrateOutputQuantities
 !

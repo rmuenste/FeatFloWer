@@ -427,6 +427,46 @@ END SUBROUTINE Create_LambdaDiffMat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Create_RhoCpConvMat(U,V,W)
+REAL*8 U(*),V(*),W(*)
+INTEGER I,J,jLEV
+EXTERNAL E011
+integer invt, inet, inat, inel
+
+ILEV=NLMAX
+JLEV = ILEV-1
+CALL SETLEV(2)
+
+IF (myid.eq.showid) write(*,*) 'Regenerating K Matrix for Q1'
+
+Kmat = 0d0
+
+CALL RhoCpConvMat(U,V,W,Kmat,&
+lMat%nu,lMat%ColA,lMat%LdA,&
+mg_mesh%level(ilev)%kvert,&
+mg_mesh%level(ilev)%karea,&
+mg_mesh%level(ilev)%kedge,&
+mg_mesh%level(ilev)%dcorvg,&
+mg_mesh%level(ilev)%kadj,&
+mg_mesh%level(jlev)%kvert,&
+mg_mesh%level(jlev)%karea,&
+mg_mesh%level(jlev)%kedge,&
+mg_mesh%level(jlev)%nel,&
+mg_mesh%level(jlev)%nvt,&
+mg_mesh%level(jlev)%net,&
+mg_mesh%level(jlev)%nat,E011)
+
+!ILEV=NLMAX
+!CALL SETLEV(2)
+
+!CALL Conv_LinSc1(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
+!lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),&
+!KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),E011)
+
+END SUBROUTINE Create_RhoCpConvMat
+!
+! ----------------------------------------------
+!
 SUBROUTINE Initialize(myScalar)
 TYPE(lScalar) myScalar
 

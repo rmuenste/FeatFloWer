@@ -1303,6 +1303,8 @@
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AirTemperature", myProcess%AirTemperature ,0d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HeatTransferCoeff", myProcess%HeatTransferCoeff ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveLambda", myProcess%ConductiveLambda ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveGradient", myProcess%ConductiveGradient ,0d0)
 
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
@@ -1345,6 +1347,8 @@
     write(*,*) 
     write(*,'(A,ES12.4)') "myProcess%AirTemperature=",myProcess%AirTemperature 
     write(*,'(A,ES12.4)') "myProcess%HeatTransferCoeff=", myProcess%HeatTransferCoeff    
+    write(*,'(A,ES12.4)') "myProcess%ConductiveLambda=",myProcess%ConductiveLambda 
+    write(*,'(A,ES12.4)') "myProcess%ConductiveGradient=", myProcess%ConductiveGradient
     write(*,*) "=========================================================================="
     END IF
 ! 

@@ -19,6 +19,7 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar,InitHeatObjects,LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
+  USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
 
   integer, intent(in) :: log_unit
 
@@ -42,8 +43,14 @@ subroutine init_q2p1_ext(log_unit)
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
+
+    call InitHeatObjects()
+    call init_sol_same_level(CSTART)
+    call InitLinearOperators(log_unit, mg_mesh)
+    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+!     
+!     if (myid.ne.0) call CreateDumpStructures(1)
+!     call SolFromFile(CSTART,1)
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions

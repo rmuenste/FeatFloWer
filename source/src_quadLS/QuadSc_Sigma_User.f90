@@ -56,7 +56,7 @@ TYPE tProcess
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AirTemperature,HeatTransferCoeff
+   REAL*8 :: AirTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
    integer   nOfInflows
    TYPE (tInflow), allocatable :: myInflow(:)
 END TYPE tProcess
