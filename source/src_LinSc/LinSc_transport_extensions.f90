@@ -131,7 +131,12 @@ end if
 
 CALL IntegrateOutputQuantities(mfile)
 
+if (myid.ne.master) then
+ Temperature = Tracer%val(NLMAX)%x
+end if
+
 NLMAX = NLMAX - 1
+
 
 END SUBROUTINE Transport_GeneralLinScalar
 !

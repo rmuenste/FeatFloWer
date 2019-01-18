@@ -67,8 +67,13 @@ subroutine init_q2p1_ext(log_unit)
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
+!     IF (myid.ne.0) CALL CreateDumpStructures(1)
+!     call SolFromFileRepart(CSTART,1)
+    call InitHeatObjects()
+    call init_sol_repart(CSTART)
+    call InitLinearOperators(log_unit, mg_mesh)
+    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+    
   end if
 
 end subroutine init_q2p1_ext

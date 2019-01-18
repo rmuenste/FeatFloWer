@@ -112,6 +112,7 @@ nn = knel(nlmax)
 
 ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
 
+!subroutine read_vel_sol_single(startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, u, v, w)
 ! read in the velocity solution
 call read_vel_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                          coarse%myELEMLINK,myDump%Vertices,&
@@ -137,8 +138,13 @@ packed(1)%p => QuadSc%auxU
 packed(2)%p => QuadSc%auxV
 packed(3)%p => QuadSc%auxW
 
-call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                 3, packed)
+!subroutine read_q2_sol_single(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
+call read_q2_sol_single(fieldName,cInFile,iLevel-1,nn,NLMIN,NLMAX,&
+                        coarse%myELEMLINK,myDump%Vertices,&
+                        3,packed)
+! 
+! call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+!                  3, packed)
 
 END SUBROUTINE SolFromFileRepart
 !

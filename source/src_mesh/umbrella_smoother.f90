@@ -302,7 +302,7 @@ module umbrella_smoother
   real*8 dScaleFactor
   integer iaux
   !!!!!!!!!!!!!!!!!!!!!!!
-  real*8 cpx,cpy,cpz,d_temp1,d_temp2,xx,yy,zz
+  real*8 cpx,cpy,cpz,d_temp1,d_temp2,d_temp3,d_temp4,xx,yy,zz
   integer ipc
   
   
@@ -319,6 +319,7 @@ module umbrella_smoother
    IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
     CALL Shell_dist(x,y,z,d1)
    ELSE
+!    d1 = 1d5
     xx = dCGALtoRealFactor*x
     yy = dCGALtoRealFactor*y
     zz = dCGALtoRealFactor*z
@@ -326,7 +327,11 @@ module umbrella_smoother
     d_temp1 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
     call projectonboundaryid(xx,yy,zz,cpx,cpy,cpz,d_temp2,1)
     d_temp2 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
-    d1  = MIN(d_temp1/dCGALtoRealFactor,d_temp2/dCGALtoRealFactor)
+    call projectonboundaryid(xx,yy,zz,cpx,cpy,cpz,d_temp3,2)
+    d_temp3 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
+    call projectonboundaryid(xx,yy,zz,cpx,cpy,cpz,d_temp4,3)
+    d_temp4 = sqrt((cpx-xx)**2d0+(cpy-yy)**2d0+(cpz-zz)**2d0)
+    d1  = MIN(d_temp1/dCGALtoRealFactor,d_temp2/dCGALtoRealFactor,d_temp3/dCGALtoRealFactor,d_temp4/dCGALtoRealFactor)
    END IF
    d1 = dScaleFactor*d1
 !    write(*,*) d_temp1,d_temp2
