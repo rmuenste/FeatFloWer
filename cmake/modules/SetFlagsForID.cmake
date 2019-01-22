@@ -128,8 +128,8 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "broadwell-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CXX_FLAGS_FC -march=native)
-  SET(Fortran_FLAGS -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(CXX_FLAGS_FC -march=native -g)
+  SET(Fortran_FLAGS -march=native -g -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 

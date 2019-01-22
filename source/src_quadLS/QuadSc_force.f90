@@ -360,6 +360,7 @@
         call ExitError('Error in GetForces',605)
       end if
 
+      if(myid.eq.1) write(*,*)'> FBM Force Calculation'
       DO IP = 1,myFBM%nParticles
  
       Center = myFBM%particleNew(IP)%Position
@@ -1257,143 +1258,122 @@ real*8,parameter :: PI = 3.1415926535897931D0
 real*8 :: RForce(3),dVelocity(3),dOmega(3),timecoll
 integer :: iSubSteps
 
-#ifndef SKIP_DYNAMICS
-      iSubSteps = 1
-      call settimestep(dTime)
-      ! After the rigid body solver has computed a 
-      ! step, we have to get the new particle state
-      ! values from the rigid body solver
-      call FBM_GetParticleStateUpdate()
+  iSubSteps = 1
+  call settimestep(dTime)
+  ! After the rigid body solver has computed a 
+  ! step, we have to get the new particle state
+  ! values from the rigid body solver
+  call FBM_GetParticleStateUpdate()
 
-      ! Communicate new force + torque
-      do IP = 1,myFBM%nParticles
-        ipc = ip-1
-        ! Communicate the force
-        call setforce(myFBM%particleOld(IP)%ResistanceForce(1),&
-                      myFBM%particleOld(IP)%ResistanceForce(2),&
-                      myFBM%particleOld(IP)%ResistanceForce(3),ipc)
+  ! Communicate new force + torque
+  do IP = 1,myFBM%nParticles
+    ipc = ip-1
+    ! Communicate the force
+    call setforce(myFBM%particleOld(IP)%ResistanceForce(1),&
+                  myFBM%particleOld(IP)%ResistanceForce(2),&
+                  myFBM%particleOld(IP)%ResistanceForce(3),ipc)
 
-        ! Communicate the torque
-        call settorque(myFBM%particleOld(IP)%TorqueForce(1),&
-        myFBM%particleOld(IP)%TorqueForce(2),&
-        myFBM%particleOld(IP)%TorqueForce(3),ipc)
-      end do ! all particles
-            
-      ! in the first loop we updated the external force and
-      ! torque, with this we can start the collision handling
-#ifndef FC_CUDA_SUPPORT    
-      call settimestep(dTime)      
-
-      ! update velocities by the force determined in the time step
-      ! This function will transfer the current hydrodynamic forces
-      ! to the rigid body solver, so it can add those values in
-      ! the next rigid body solver step
-      call velocityupdate()     
-
-#ifdef OPTIC_FORCES
-        call get_optic_forces()
-#endif
-
-      call settimestep(dTime/real(iSubSteps))
-      call starttiming()      
-
-      ! Invoke a rigid body solver step 
-      do iStep=1,iSubSteps
-        call startcollisionpipeline()
-      end do
-
-      call gettiming(timecoll)
-
-      !pz=3.0d0 
-      !ipc=0
-      !call setpositionid(myFBM%particleNew(1)%Position(1),&
-      !                   myFBM%particleNew(1)%Position(2),&
-      !                   PZ,ipc)
-      !myFBM%particleNEW(1)%Position(3) = pz
-
-      ! After the rigid body solver has computed a 
-      ! step, we have to get the new particle state
-      ! values from the rigid body solver
-      call FBM_GetParticleStateUpdate()
-#else
-      if(myid.eq.0)then
-        ! update velocities on the gpu
-        call velocityupdate()     
-
-        ! start the gpu particle handling on the master process       
-        call startcollisionpipeline()
+    ! Communicate the torque
+    call settorque(myFBM%particleOld(IP)%TorqueForce(1),&
+    myFBM%particleOld(IP)%TorqueForce(2),&
+    myFBM%particleOld(IP)%TorqueForce(3),ipc)
+  end do ! all particles
         
-      endif      
+  ! in the first loop we updated the external force and
+  ! torque, with this we can start the collision handling
+  call settimestep(dTime)      
 
-        ! we scatter the particle data
-      CALL FBM_ScatterParticles()
-#endif
+  ! update velocities by the force determined in the time step
+  ! This function will transfer the current hydrodynamic forces
+  ! to the rigid body solver, so it can add those values in
+  ! the next rigid body solver step
+  call velocityupdate()     
 
-      !-------------------------------------------------------------------------------------
-      ! Backup the particle parameters so the old values are available in the next timestep
-      !-------------------------------------------------------------------------------------
-      DO IP = 1,myFBM%nParticles
-      ipc = ip-1
+  call settimestep(dTime/real(iSubSteps))
+  call starttiming()      
 
-      ! Backup the forces
-      myFBM%particleOld(IP)%ResistanceForce = &
-      myFBM%particleNew(IP)%ResistanceForce
-         
-      ! Backup the torque
-      myFBM%particleOld(IP)%TorqueForce = &
-      myFBM%particleNew(IP)%TorqueForce
+  if(myid.eq.1) write(*,*)'> Collision Step'
+  ! Invoke a rigid body solver step 
+  do iStep=1,iSubSteps
+    call startcollisionpipeline()
+  end do
 
-      ! Backup the positions
-      myFBM%particleOld(IP)%Position = &
-      myFBM%particleNew(IP)%Position
+  call gettiming(timecoll)
 
-      ! Backup the velocities
-      myFBM%particleOld(IP)%Velocity = &
-      myFBM%particleNew(IP)%Velocity
+  !pz=3.0d0 
+  !ipc=0
+  !call setpositionid(myFBM%particleNew(1)%Position(1),&
+  !                   myFBM%particleNew(1)%Position(2),&
+  !                   PZ,ipc)
+  !myFBM%particleNEW(1)%Position(3) = pz
 
-      ! Backup the angles
-      myFBM%particleOld(IP)%Angle = &
-      myFBM%particleNew(IP)%Angle
+  ! After the rigid body solver has computed a 
+  ! step, we have to get the new particle state
+  ! values from the rigid body solver
+  if(myid.eq.1) write(*,*)'> Particle Update Step'
+  call FBM_GetParticleStateUpdate()
 
-      ! Backup the angular velocity
-      myFBM%particleOld(IP)%AngularVelocity = &
-      myFBM%particleNew(IP)%AngularVelocity
+  !-------------------------------------------------------------------------------------
+  ! Backup the particle parameters so the old values are available in the next timestep
+  !-------------------------------------------------------------------------------------
+  DO IP = 1,myFBM%nParticles
+  ipc = ip-1
 
-      IF((myid.eq.1) .and. (IP .lt. 2)) THEN
-        if(myid.eq.1)then
-        write(*,*)'After collision handling'
-        write(mfile,'(A19,3ES14.4)') "ResistanceForce: ",&
-            myFBM%particleNew(IP)%ResistanceForce
-        write(*,'(A19,3ES14.4)') "ResistanceForce: ",&
-            myFBM%particleNew(IP)%ResistanceForce
-        write(mfile,'(A19,3ES14.4)') "TorqueForce: ",&
-            myFBM%particleNew(IP)%TorqueForce        
-        write(*,'(A19,3ES14.4)') "TorqueForce: ",&
-            myFBM%particleNew(IP)%TorqueForce
-        write(mfile,'(A19,4ES14.4)') "Position: ",&
-            myFBM%particleNew(IP)%Position,simTime        
-        write(*,'(A19,4ES14.4)') "Position: ",&
-            myFBM%particleNew(IP)%Position,simTime
-        write(mfile,'(A19,4ES14.4)') "PartVel: ",&
-            myFBM%particleNew(IP)%Velocity,simTime        
-        write(*,'(A19,4ES14.4)') "PartVel: ",&
-            myFBM%particleNew(IP)%Velocity,simTime
-        write(mfile,'(A19,3ES14.4)') "Angle: ",&
-            myFBM%particleNew(IP)%Angle        
-        write(*,'(A19,3ES14.4)') "Angle: ",&
-            myFBM%particleNew(IP)%Angle
-        write(mfile,'(A19,3ES14.4)') "AngularVelocity: ",&
-            myFBM%particleNew(IP)%AngularVelocity        
-        write(*,'(A19,3ES14.4)') "AngularVelocity: ",&
-            myFBM%particleNew(IP)%AngularVelocity
+  ! Backup the forces
+  myFBM%particleOld(IP)%ResistanceForce = &
+  myFBM%particleNew(IP)%ResistanceForce
+     
+  ! Backup the torque
+  myFBM%particleOld(IP)%TorqueForce = &
+  myFBM%particleNew(IP)%TorqueForce
 
-        end if
-      end if
-      end do ! all particles
+  ! Backup the positions
+  myFBM%particleOld(IP)%Position = &
+  myFBM%particleNew(IP)%Position
 
-#else
-  if(myid.eq.1) write(*,*)'> Skipping dynamics'
-#endif
+  ! Backup the velocities
+  myFBM%particleOld(IP)%Velocity = &
+  myFBM%particleNew(IP)%Velocity
+
+  ! Backup the angles
+  myFBM%particleOld(IP)%Angle = &
+  myFBM%particleNew(IP)%Angle
+
+  ! Backup the angular velocity
+  myFBM%particleOld(IP)%AngularVelocity = &
+  myFBM%particleNew(IP)%AngularVelocity
+
+  IF((myid.eq.1) .and. (IP .lt. 2)) THEN
+    if(myid.eq.1)then
+    write(*,*)'After collision handling'
+    write(mfile,'(A19,3ES14.4)') "ResistanceForce: ",&
+        myFBM%particleNew(IP)%ResistanceForce
+    write(*,'(A19,3ES14.4)') "ResistanceForce: ",&
+        myFBM%particleNew(IP)%ResistanceForce
+    write(mfile,'(A19,3ES14.4)') "TorqueForce: ",&
+        myFBM%particleNew(IP)%TorqueForce        
+    write(*,'(A19,3ES14.4)') "TorqueForce: ",&
+        myFBM%particleNew(IP)%TorqueForce
+    write(mfile,'(A19,4ES14.4)') "Position: ",&
+        myFBM%particleNew(IP)%Position,simTime        
+    write(*,'(A19,4ES14.4)') "Position: ",&
+        myFBM%particleNew(IP)%Position,simTime
+    write(mfile,'(A19,4ES14.4)') "PartVel: ",&
+        myFBM%particleNew(IP)%Velocity,simTime        
+    write(*,'(A19,4ES14.4)') "PartVel: ",&
+        myFBM%particleNew(IP)%Velocity,simTime
+    write(mfile,'(A19,3ES14.4)') "Angle: ",&
+        myFBM%particleNew(IP)%Angle        
+    write(*,'(A19,3ES14.4)') "Angle: ",&
+        myFBM%particleNew(IP)%Angle
+    write(mfile,'(A19,3ES14.4)') "AngularVelocity: ",&
+        myFBM%particleNew(IP)%AngularVelocity        
+    write(*,'(A19,3ES14.4)') "AngularVelocity: ",&
+        myFBM%particleNew(IP)%AngularVelocity
+
+    end if
+  end if
+  end do ! all particles
 
 end subroutine updateFBM
 !

@@ -80,6 +80,7 @@ if (calculateDynamics()) then
                 mg_mesh%level(ilevel)%dcorvg,&
                 E013)
 
+ if(myid.eq.1) write(*,*)'> Dynamics Module Step'
  call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
 
 end if
