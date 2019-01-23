@@ -437,14 +437,20 @@
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
       
             
-      call INIP_getvalue_int(parameterlist,cElement_i,"OFF_FileNumber",mySigma%mySegment(iSeg)%nOFFfiles,0)
+      mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
 
       IF (mySigma%mySegment(iSeg)%nOFFfiles.ne.0) THEN
-       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileList", cOFF_Files,'empty')
+       
        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
-       CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfiles)
+       
+       do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
+       end do
+       
       ELSE
-       mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileList", cOFF_Files,' ')
+       
+       CALL ExtractNomOfCharFromString(cOFF_Files,mySigma%mySegment(iSeg)%nOFFfiles)
        
        IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
         ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
@@ -454,10 +460,9 @@
         bReadError=.TRUE.
         !GOTO 10
        END IF
-      
-       do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
-         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
-       end do
+       
+       CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfiles)
+       
       END IF
       
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
@@ -1163,6 +1168,51 @@
     END SUBROUTINE ReadDoubleFromDimensionalString
 
     
+    SUBROUTINE ExtractNomOfCharFromString(sL,j)
+    CHARACTER*(*) :: sL
+    CHARACTER*(256) saux
+    INTEGER i,n,i1,i2,i3,j,nS
+    
+    n = len(sL)
+    
+    j=0
+    i2 = 1
+    DO i=i1,n
+     IF (sL(i:i).EQ. ',') THEN
+      j = j + 1
+      
+      i3 = i
+      READ(sL(i2:i3-1),'(A)') saux
+      
+      saux = trim(adjustl(saux))
+      CALL inip_toupper_replace(saux)
+      nS = LEN(trim(saux))
+      IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
+      
+      i2 = i3+1
+     END IF
+    END DO
+    
+    j = j + 1
+    i3 = i
+    READ(sL(i2:i3-1),'(A)') saux
+    saux = trim(adjustl(saux))
+    CALL inip_toupper_replace(saux)
+    nS = LEN(trim(saux))
+    IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
+    
+10  CONTINUE
+     
+    RETURN
+    
+    WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
+    WRITE(*,*) 'Program stops ... '
+    STOP
+    
+    
+    END SUBROUTINE ExtractNomOfCharFromString
+    
+    
     SUBROUTINE ExtractCharArrayFromString(sL,sS)
     IMPLICIT NONE
     CHARACTER*(*) :: sS(:),sL
@@ -1177,7 +1227,6 @@
      IF (sL(i:i).EQ. ',') THEN
       j = j + 1
       
-      if (j.gt.size(sS)) GOTO 5
       i3 = i
       READ(sL(i2:i3-1),'(A)') saux
       sS(j) = ADJUSTL(TRIM(saux))
@@ -1186,14 +1235,12 @@
       saux = sS(j)
       CALL inip_toupper_replace(saux)
       nS = LEN(trim(saux))
-      IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
       
       i2 = i3+1
      END IF
     END DO
     
     j = j + 1
-    if (j.gt.size(sS)) GOTO 5
     i3 = i
     READ(sL(i2:i3-1),'(A)') saux
     sS(j) = ADJUSTL(TRIM(saux))
@@ -1202,26 +1249,8 @@
     saux = sS(j)
     CALL inip_toupper_replace(saux)
     nS = LEN(trim(saux))
-    IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
-    
-    if (j.ne.size(sS)) GOTO 15    
     
     return
-    
-5   CONTINUE
-    WRITE(*,*) 'There are more OFF files defined than their number was set to .... ',size(sS)
-    WRITE(*,*) 'Program stops ... '
-    STOP
-    
-10  CONTINUE
-    WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
-    WRITE(*,*) 'Program stops ... '
-    STOP
-
-15  CONTINUE
-    WRITE(*,*) 'There are less OFF files defined than their number was set to .... ',size(sS)
-    WRITE(*,*) 'Program stops ... '
-    STOP
 
     END SUBROUTINE ExtractCharArrayFromString
     
