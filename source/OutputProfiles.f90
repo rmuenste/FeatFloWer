@@ -201,7 +201,7 @@ END SUBROUTINE DumpAllValues
 SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
 use solution_io
@@ -247,6 +247,13 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 !FileB='new_p'
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ Temperature = QuadSc%auxU
+END IF                  
+
 call read_time_sol(cInFile, istep_ns, timens)
 
 fieldName = "coordinates"
@@ -258,8 +265,6 @@ packed(3)%p => QuadSc%auxW
 call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                  3, packed)
 
-!FileB='new_v'
-!call write_vel_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
 
 if(bViscoElastic)then
   CALL ReadSol_Visco(cInFile, iLevel)

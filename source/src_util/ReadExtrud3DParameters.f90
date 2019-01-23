@@ -14,7 +14,7 @@
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit,cOFF_Files
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -413,7 +413,7 @@
      END IF
 !!!==============================================      STL     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(cElemType)).eq."STL".OR.ADJUSTL(TRIM(cElemType)).eq."OFF") THEN
       mySigma%mySegment(iSeg)%ART   = "STL"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
@@ -436,18 +436,30 @@
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
       
-      mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
-      IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
+            
+      call INIP_getvalue_int(parameterlist,cElement_i,"OFF_FileNumber",mySigma%mySegment(iSeg)%nOFFfiles,0)
+
+      IF (mySigma%mySegment(iSeg)%nOFFfiles.ne.0) THEN
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileList", cOFF_Files,'empty')
        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
+       CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfiles)
       ELSE
-       WRITE(*,*) "STL geometry dscription files are missing"
-       WRITE(*,*) 'screwOFF'
-       bReadError=.TRUE.
-       !GOTO 10
+       mySigma%mySegment(iSeg)%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"screwOFF")
+       
+       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
+        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
+       ELSE
+        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) 'screwOFF'
+        bReadError=.TRUE.
+        !GOTO 10
+       END IF
+      
+       do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
+       end do
       END IF
-      do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
-        call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
-      end do
+      
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
      END IF
 !!!==============================================      STL_R     =================================================================
@@ -1147,7 +1159,72 @@
 !     write(*,*) dExtract_Val,'"'//adjustl(trim(sExtract_Dim))//'"'
 !     pause
 
+
     END SUBROUTINE ReadDoubleFromDimensionalString
+
+    
+    SUBROUTINE ExtractCharArrayFromString(sL,sS)
+    IMPLICIT NONE
+    CHARACTER*(*) :: sS(:),sL
+    CHARACTER*(256) saux
+    INTEGER i,n,i1,i2,i3,j,nS
+    
+    n = len(sL)
+    
+    j=0
+    i2 = 1
+    DO i=i1,n
+     IF (sL(i:i).EQ. ',') THEN
+      j = j + 1
+      
+      if (j.gt.size(sS)) GOTO 5
+      i3 = i
+      READ(sL(i2:i3-1),'(A)') saux
+      sS(j) = ADJUSTL(TRIM(saux))
+      if (myid.eq.1) write(*,*) "'"//trim(sS(j))//"'"
+      
+      saux = sS(j)
+      CALL inip_toupper_replace(saux)
+      nS = LEN(trim(saux))
+      IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
+      
+      i2 = i3+1
+     END IF
+    END DO
+    
+    j = j + 1
+    if (j.gt.size(sS)) GOTO 5
+    i3 = i
+    READ(sL(i2:i3-1),'(A)') saux
+    sS(j) = ADJUSTL(TRIM(saux))
+    if (myid.eq.1) write(*,*) "'"//trim(sS(j))//"'"
+    
+    saux = sS(j)
+    CALL inip_toupper_replace(saux)
+    nS = LEN(trim(saux))
+    IF (saux(nS-3:nS).ne.'.OFF') GOTO 10      
+    
+    if (j.ne.size(sS)) GOTO 15    
+    
+    return
+    
+5   CONTINUE
+    WRITE(*,*) 'There are more OFF files defined than their number was set to .... ',size(sS)
+    WRITE(*,*) 'Program stops ... '
+    STOP
+    
+10  CONTINUE
+    WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
+    WRITE(*,*) 'Program stops ... '
+    STOP
+
+15  CONTINUE
+    WRITE(*,*) 'There are less OFF files defined than their number was set to .... ',size(sS)
+    WRITE(*,*) 'Program stops ... '
+    STOP
+
+    END SUBROUTINE ExtractCharArrayFromString
+    
     
     end Subroutine ReadS3Dfile
 !
