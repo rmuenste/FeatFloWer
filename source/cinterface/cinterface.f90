@@ -1,6 +1,15 @@
 module cinterface
 
+  use iso_c_binding
+
   implicit none
+
+  type, bind(C) :: c1dOutput
+    integer(C_INT) :: length
+    type(c_ptr) :: dMean 
+    type(c_ptr) :: dMin
+    type(c_ptr) :: dMax
+  end type c1dOutput
 
   contains
   !

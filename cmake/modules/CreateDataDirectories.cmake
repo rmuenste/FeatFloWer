@@ -37,7 +37,7 @@ function(createDefaultDirectories bdir sdir)
 
   # copy the data directories
   FOREACH(dir ${DIRECTORYCOPIES})
-    IF(NOT EXISTS ${bdir}/${dir})
+    IF(EXISTS ${sdir}/${dir} AND NOT EXISTS ${bdir}/${dir})
       execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory ${sdir}/${dir} ${bdir}/${dir})
     ENDIF()
   ENDFOREACH()
