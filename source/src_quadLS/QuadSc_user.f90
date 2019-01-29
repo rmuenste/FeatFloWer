@@ -226,7 +226,7 @@ if(it.eq.10)then
    dScale = (dVolFlow/1d0)/daux
 
    DIST = SQRT(X**2d0+Y**2d0)
-
+   
    IF (DIST.GT.dInnerRadius.AND.DIST.LT.dOuterRadius) THEN
     ValW= dScale*(DIST-dInnerRadius)*(dOuterRadius-DIST)
    END IF
@@ -775,7 +775,7 @@ END IF
 
 !Ellis
 IF (myRheology%Equation.EQ.4) THEN
- VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**myRheology%C) 
+ VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**(myRheology%C-1d0)) 
 END IF
 
 ! HogenPowerLaw

@@ -579,7 +579,7 @@ SUBROUTINE TransformPoints()
   ! Point needs to be offseted to its segment position
   XB = dUnitScale*ElemCoor(1,iP)
   YB = dUnitScale*ElemCoor(2,iP)
-  ZB = dUnitScale*ElemCoor(3,iP) - mySigma%mySegment(iSeg)%Min
+  ZB = dUnitScale*(ElemCoor(3,iP) - mySigma%mySegment(iSeg)%Min)
 
   ! Point needs to be transformed back to a time=0 due to the rotation
   dAlpha = 0d0- t*myPI*(myProcess%Umdr/3d1)*myProcess%ind

@@ -653,6 +653,12 @@
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_B",myRheology%B,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Polyflow","Polyflow_C",myRheology%C,myInf)
     END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."ELLIS") THEN
+      myRheology%Equation = 4
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Ellis","ZeroViscosity",myRheology%A,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Ellis","Gamma0",myRheology%B,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Ellis","Exponent",myRheology%C,myInf)
+    END IF
 
     IF (myRheology%Equation.eq.0) THEN
      WRITE(*,*) "no valid rheology is defined"
@@ -1003,6 +1009,12 @@
     END IF
     IF (myRheology%Equation.eq.3) THEN
      write(*,*) "myRheology%model",'=','Polyflow'
+     write(*,*) "myRheology%A",'=',myRheology%A
+     write(*,*) "myRheology%B",'=',myRheology%B
+     write(*,*) "myRheology%C",'=',myRheology%C
+    END IF
+    IF (myRheology%Equation.eq.4) THEN
+     write(*,*) "myRheology%model",'=','Ellis'
      write(*,*) "myRheology%A",'=',myRheology%A
      write(*,*) "myRheology%B",'=',myRheology%B
      write(*,*) "myRheology%C",'=',myRheology%C
