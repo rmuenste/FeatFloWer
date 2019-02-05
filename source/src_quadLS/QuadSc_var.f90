@@ -474,7 +474,7 @@ TYPE t1DOutput
  REAL*8, ALLOCATABLE :: dMean(:),dMin(:),dMax(:),dLoc(:)
  CHARACTER cName*20
 END TYPE t1DOutput
-TYPE(t1DOutput) :: my1DOut(11)
+TYPE(t1DOutput), TARGET :: my1DOut(11)
 REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:)
 INTEGER my1DOut_nol
 

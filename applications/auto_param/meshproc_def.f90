@@ -373,7 +373,7 @@ DO iel=1,nel
 do iat = 1,6
  if (karea(iat,iel).eq.iarea) then
   if (kNeighE(2,iarea).eq.0) then
-   if (bShow) write(*,'(2I,A$)') kk,iarea,' :'
+   if (bShow) write(*,'(2I0,A$)') kk,iarea,' :'
    ind = kfaces(:,iarea)
 ! ! !    write(*,*) iel,'ind= ',ind
    DO jat=1,4
@@ -804,7 +804,7 @@ logical bExist
  open(1,file=trim(cFile))
  write(1,'(A)')'<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">'
  write(1,'(A)')'  <PolyData>'
- write(1,'(A,I,A,I,A)')'    <Piece NumberOfPoints="',myPar(iS)%nvt,'" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="',myPar(iS)%nel,'">'
+ write(1,'(A,I0,A,I0,A)')'    <Piece NumberOfPoints="',myPar(iS)%nvt,'" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="',myPar(iS)%nel,'">'
  write(1,'(A)')'      <PointData>'
  write(1,'(A)')'        <DataArray type="Float32" Name="ID" format="ascii" RangeMin="17" RangeMax="2074.25">'
  do ivt=1,myPar(iS)%nvt
@@ -862,7 +862,14 @@ logical bExist
  write(1,'(A)')'  </PolyData>'
  write(1,'(A)')'</VTKFile>'
 
+#ifdef __GFORTRAN__
+ INQUIRE(file=trim(cProjectFolder)//'/PAR',EXIST=bExist)
+#elif defined __INTEL_COMPILER
  INQUIRE(directory=trim(cProjectFolder)//'/PAR',EXIST=bExist)
+#else
+ INQUIRE(file=trim(cProjectFolder)//'/PAR',EXIST=bExist)
+#endif
+
  if (.not.bExist) then
   call system('mkdir '//trim(cProjectFolder)//'/PAR')
  end if
@@ -899,7 +906,7 @@ DO iS = 1,NumberOfSurfaces
  open(1,file=trim(cFile))
  write(1,'(A)')'<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">'
  write(1,'(A)')'  <PolyData>'
- write(1,'(A,I,A,I,A)')'    <Piece NumberOfPoints="',myPar(iS)%nvt,'" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="',myPar(iS)%nel,'">'
+ write(1,'(A,I0,A,I0,A)')'    <Piece NumberOfPoints="',myPar(iS)%nvt,'" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="',myPar(iS)%nel,'">'
  write(1,'(A)')'      <PointData>'
  write(1,'(A)')'        <DataArray type="Float32" Name="ID" format="ascii" RangeMin="17" RangeMax="2074.25">'
  do ivt=1,myPar(iS)%nvt
@@ -971,7 +978,7 @@ WRITE(filename(1:),'(A)') "mesh.vtu"
 WRITE(*,'(104("="))') 
 WRITE(*,*) "Outputting vtk file into ",filename
 
-OPEN (UNIT=iunit,FILE=filename,buffered="yes")
+OPEN (UNIT=iunit,FILE=filename)
 
 write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
 write(iunit, *)"  <UnstructuredGrid>"

@@ -9,17 +9,23 @@ integer Reason,iFile
 CHARACTER sCommand*(200)
 LOGICAL THERE
 
+write(*,*)'param'
 CALL GetParameters()
 
+write(*,*)'readmesh'
 CALL ReadMEsh()
 
+write(*,*)'octtree'
 !CALL BuildKedge()
 CALL BuildOctTree()
 
+write(*,*)'buildkarea'
 CALL BuildKarea()
 
+write(*,*)'buildfaceneigh'
 CALL BuildFaceNeighborhood()
 
+write(*,*)'param'
 CALL ReadParametrization()
 
 DO i=1,nLoops
@@ -35,21 +41,6 @@ CALL Output_SurfToVTK()
 
 CALL Output_VTK()
 
-! IF (nStitchFiles.gt.0) THEN
-!  sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/STITCH/*.par'
-!  CALL system(ADJUSTL(TRIM(sCommand)))
-! 
-!  iFile = 0
-!  DO 
-!   iFile = iFile + 1
-!   write(sFile,'(A,I1,A)')
-!   INQUIRE(FILE=ADJUSTL(TRIM(cProjectFolder))//"/PAR/stitch",iFile,".par", EXIST=THERE) 
-!   
-!   sCommand = 'mv '//ADJUSTL(TRIM(cProjectFolder))//'01.par '//ADJUSTL(TRIM(cProjectFolder))//'/PAR/stitch.par'
-!   CALL system(ADJUSTL(TRIM(sCommand)))
-!  END DO
-! END IF
-
 DEALLOCATE(dcorvg)
 DEALLOCATE(kvert)
 
@@ -59,13 +50,17 @@ SUBROUTINE GetParameters
 OPEN(1,file='param.cfg')
 
 READ(1,*) cProjectFolder
+write(*,*)cProjectFolder
 READ(1,*) nLoops
+write(*,*)nLoops
 allocate(nTol(nLoops),aTol(nLoops))
 
 DO i=1,nLoops
  READ(1,*) nTol(i),aTol(i)
+ write(*,*) nTol(i),aTol(i)
 END DO
 
+#if defined __INTEL_COMPILER
 allocate(cParFile(1000))
 DO 
  READ(1,*,IOSTAT=Reason) cParFile(nParFiles+1)
@@ -81,6 +76,8 @@ DO
  WRITE(*,*) ADJUSTL(TRIM(cStitchFile(nStitchFiles+1)))
  nStitchFiles = nStitchFiles + 1
 END DO
+#endif
+
 CLOSE(1)
 
 END SUBROUTINE GetParameters

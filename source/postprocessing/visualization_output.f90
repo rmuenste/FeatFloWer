@@ -1,5 +1,7 @@
 module visualization_out
 
+use cinterface
+
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
                          t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
 
@@ -588,6 +590,14 @@ use iniparser
 
 implicit none
 
+interface
+  subroutine c_write_json(thetype) bind(C, name="c_write_json")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    type(c1dOutput) :: thetype
+  end subroutine c_write_json
+end interface
+
 type(tQuadScalar), intent(in) :: sQuadSc
 
 type(tLinScalar), intent(in) :: sLinSc
@@ -612,8 +622,19 @@ integer :: iVerlaufMax
 integer :: ifile
 logical :: bfileExists
 
+type(c1dOutput) :: thestruct
+
 ! For dumping the e3dfile
 type(t_parlist) :: parameterlistModifiedKTP1D
+
+! The layout of the t1DOutput structure
+!TYPE t1DOutput
+! REAL*8, ALLOCATABLE :: dMean(:),dMin(:),dMax(:),dLoc(:)
+! CHARACTER cName*20
+!END TYPE t1DOutput
+!TYPE(t1DOutput) :: my1DOut(11)
+!REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:)
+!INTEGER my1DOut_nol
 
 !  if (present(btempSim)) then
 !    bTemperatureSimulation = btempSim
@@ -635,6 +656,7 @@ type(t_parlist) :: parameterlistModifiedKTP1D
 !   ! Therefore, we then have 3*7=21 Verlauf-Sections
 !   iVerlaufMax = 21
 !  end if
+
 
  iVerlaufMax = 33
 
@@ -670,6 +692,20 @@ type(t_parlist) :: parameterlistModifiedKTP1D
 
  my1DOut(11)%cName = 'VelocityWSS_[m/s]'
  CALL OutPut_1D_subExtra(sQuadSc%valW,ScrewDist,11, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+
+ thestruct%length = my1DOut_nol
+ thestruct%dmean = c_loc(my1DOut(2)%dMean)
+ thestruct%dmin = c_loc(my1DOut(2)%dMin)
+ thestruct%dmax = c_loc(my1DOut(2)%dMax)
+
+! IF (myid.eq.1) THEN
+!    write(*,*)'Len Fortran: ',my1DOut_nol
+!    write(*,*)'arr(1)',my1DOut(2)%dMean(1)
+! end if
+!
+! call c_write_json(thestruct) 
+! call myMPI_Barrier()
+! stop
 
 
  call inip_init(parameterlistModifiedKTP1D)

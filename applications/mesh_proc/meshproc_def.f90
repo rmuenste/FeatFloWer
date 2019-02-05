@@ -82,7 +82,14 @@ integer ilong
 
  CLOSE(1)
 
- INQUIRE(DIRECTORY=adjustl(trim(cOutputFolder)),EXIST=bExist)
+#ifdef __GFORTRAN__
+ INQUIRE(file=adjustl(trim(cOutputFolder)),EXIST=bExist)
+#elif defined __INTEL_COMPILER
+ INQUIRE(directory=adjustl(trim(cOutputFolder)),EXIST=bExist)
+#else
+ INQUIRE(file=adjustl(trim(cOutputFolder)),EXIST=bExist)
+#endif
+
  if (.not.bExist) then
 !   cmd='mkdir '//adjustl(trim(cOutputFolder))
   CALL system('mkdir '//adjustl(trim(cOutputFolder)))
@@ -107,7 +114,7 @@ WRITE(filename(1:),'(A)') adjustl(trim(cOutputFolder))//"/mesh.vtu"
 WRITE(*,'(104("="))') 
 WRITE(*,*) "Outputting vtk file into ",filename
 
-OPEN (UNIT=iunit,FILE=filename,buffered="yes")
+OPEN (UNIT=iunit,FILE=filename)
 
 write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
 write(iunit, *)"  <UnstructuredGrid>"
