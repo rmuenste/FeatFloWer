@@ -9,7 +9,7 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,BKTPRELEASE
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,BKTPRELEASE
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -1601,7 +1601,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
                            mg_mesh%level(ilev)%nvt,&
                            mg_mesh%level(ilev)%nat,&
                            mg_mesh%level(ilev)%net,&
-                           QuadSc%AuxU,QuadSc%AuxV)
+                           QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW)
 END IF
 
 
@@ -2476,29 +2476,31 @@ if (myid.ne.0) call updateMixerGeometry(mfile)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!  ilev=nlmin
-!  CALL SETLEV(2)
-!  CALL SetPressBC(mgMesh)
-!  ! send them to the master
-!  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
-!  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
-!  if (myid.ne.0) then
-!   ilev=nlmin+1
-!   CALL SETLEV(2)
-!  END IF
-!  CALL SetPressBC(mgMesh)
-! 
-!  do ilev=nlmin+2,nlmax
-!   CALL SETLEV(2)
-!   CALL GetMG_KNPRP(mgMesh)
-!  end do
-! 
-!  ! Set up the boundary condition types (knpr)
-!  DO ILEV=NLMIN,NLMAX
-!   CALL SETLEV(2)
-!   CALL IncludeFBM_BCs(mgMesh)
-!   CALL QuadScalar_Knpr()
-!  END DO
+IF (mySetup%bPressureFBM) THEN
+ ilev=nlmin
+ CALL SETLEV(2)
+ CALL SetPressBC(mgMesh)
+ ! send them to the master
+ CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
+ if (myid.ne.0) then
+  ilev=nlmin+1
+  CALL SETLEV(2)
+ END IF
+ CALL SetPressBC(mgMesh)
+
+ do ilev=nlmin+2,nlmax
+  CALL SETLEV(2)
+  CALL GetMG_KNPRP(mgMesh)
+ end do
+
+ ! Set up the boundary condition types (knpr)
+ DO ILEV=NLMIN,NLMAX
+  CALL SETLEV(2)
+  CALL IncludeFBM_BCs(mgMesh)
+  CALL QuadScalar_Knpr()
+ END DO
+END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2521,7 +2523,7 @@ if (myid.ne.0) then
  DO iel=1,nel
   do i=1,8
    ivt = mgMesh%level(ilev)%kvert(i,iel)
-   if (screw(ivt).gt.0d0) goto 1
+   if (screw(ivt).gt.0d0.and.shell(ivt).gt.0d0) goto 1
   end do
   dnn = dnn + 1d0 
 !   write(*,*) 'Pressure BC !!!',myid,iel

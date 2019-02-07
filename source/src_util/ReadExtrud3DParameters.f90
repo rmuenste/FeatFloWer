@@ -11,7 +11,7 @@
     integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr
 
     real*8 :: myPI = dATAN(1d0)*4d0
-    character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
+    character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit,cOFF_Files
@@ -603,6 +603,9 @@
      IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA2") THEN
       myProcess%myInflow(iInflow)%iBCtype = 2
      END IF
+     IF (ADJUSTL(TRIM(cBCtype)).eq."FLAT") THEN
+      myProcess%myInflow(iInflow)%iBCtype = 3
+     END IF
      if (myProcess%myInflow(iInflow)%iBCtype.eq.0) write(*,*) 'UNDEFINED Inflow type!!'
      call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
      if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
@@ -757,10 +760,14 @@
      bKTPRelease = .FALSE.
     END IF
 
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","PressureFBM", cPressureFBM,"OFF")
+    IF (ADJUSTL(TRIM(cPressureFBM)).eq."ON".OR.ADJUSTL(TRIM(cPressureFBM)).eq."YES") THEN
+     mySetup%bPressureFBM = .true.
+    ENDIF
+
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
 
-    
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshPath", mySetup%cMeshPath,'.')
     END IF
@@ -1060,6 +1067,7 @@
     write(*,*) "myOutput%HistogramViscoMin = ",myOutput%HistogramViscoMin    
     write(*,*) 
 
+    write(*,*) "mySetup%PressureFBM = ",mySetup%bPressureFBM
     write(*,*) "mySetup%AutomaticTimeStepControl = ",mySetup%bAutomaticTimeStepControl
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
@@ -1091,7 +1099,7 @@
     END IF
 ! 
     if (mySigma%NumberOfSeg.gt.0) THEN
-     mySigma%mySegment(1)%StartAlpha = myPI/6d0
+     mySigma%mySegment(1)%StartAlpha = 0d0 !myPI/0d0
      mySigma%SegmentLength = mySigma%mySegment(1)%L
      IF (mySigma%NumberOfSeg.GE.2) THEN
      DO iSeg=2,mySigma%NumberOfSeg

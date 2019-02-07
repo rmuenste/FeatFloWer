@@ -222,8 +222,9 @@ module umbrella_smoother
    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
     qscStruct%AuxU = dEpsDist
     qscStruct%AuxV = dEpsDist
+    qscStruct%AuxW = dEpsDist
     CALL QuadScalar_MixerKnpr(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
-                             qscStruct%AuxU,qscStruct%AuxV)
+                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
    END IF
   
    DO i=1,nvt
@@ -318,6 +319,7 @@ module umbrella_smoother
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
    IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
     CALL Shell_dist(x,y,z,d1)
+    d1 = qscStruct%AuxW(i)
    ELSE
 !    d1 = 1d5
     xx = dCGALtoRealFactor*x

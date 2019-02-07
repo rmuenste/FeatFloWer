@@ -700,8 +700,8 @@ SUBROUTINE General_init(MDATA,MFILE)
       WRITE(mfile,'(A,A)') "ParticleFile = ",cFBM_File
       WRITE(mterm,'(A,A)') "ParticleFile = ",cFBM_File
 
-      WRITE(mfile,'(A,A)') "ProjectFile = ",CProjectFile
-      WRITE(mterm,'(A,A)') "ProjectFile = ",CProjectFile
+      WRITE(mfile,'(A,A)') "ProjectFile = ",TRIM(CProjectFile)
+      WRITE(mterm,'(A,A)') "ProjectFile = ",TRIM(CProjectFile)
 
       WRITE(mfile,'(A,I1)') "StartingProc = ", ISTART
       WRITE(mterm,'(A,I1)') "StartingProc = ", ISTART

@@ -138,6 +138,18 @@ IF (iT.lt.0) THEN
     ValV = dProfil(2)
     ValW = dProfil(3)
    END IF
+   
+   IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
+    dCenter       = myProcess%myInflow(iInflow)%center
+    dNormal       = myProcess%myInflow(iInflow)%normal
+    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+    ddensity      = myProcess%myInflow(iInflow)%density
+    douterradius  = myProcess%myInflow(iInflow)%outerradius
+    dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+    ValU = dProfil(1)
+    ValV = dProfil(2)
+    ValW = dProfil(3)
+   END IF
   else
    write(*,*) 'Inflow array is not allocated!!'
    stop
@@ -579,6 +591,29 @@ RETURN
   RotParabolicVelo2Dz = 0d0
  END IF
  END 
+!------------------------------------------------------------------------------
+ function FlatVelo3D(DM,DRHO,dR)
+ REAL*8  dVolFlow,DM,DRHO,dR
+ REAL*8  dNRM,dArea,dAvgVelo
+ REAL*8, dimension(3) :: FlatVelo3D
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+  dArea = PI*DR**2d0
+  dAvgVelo = dVolFlow/dArea
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
+
+  IF (DIST.LT.dR) THEN
+   FlatVelo3D(:) = dNormal(:)*dAvgVelo
+  ELSE
+   FlatVelo3D(:) = 0d0
+  END IF
+  
+  END 
 !------------------------------------------------------------------------------
  function RotParabolicVelo3D(DM,DRHO,dR)
  REAL*8  dVolFlow,DM,DRHO,dR,daux

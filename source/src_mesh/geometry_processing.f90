@@ -18,11 +18,11 @@ contains
 !
 ! ----------------------------------------------
 !
-SUBROUTINE QuadScalar_MixerKnpr(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dist1,dist2)
-REAL*8  dcorvg(3,*),dist1(*),dist2(*)
+SUBROUTINE QuadScalar_MixerKnpr(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dist1,dist2,dist3)
+REAL*8  dcorvg(3,*),dist1(*),dist2(*),dist3(*)
 integer nel,nvt,nat,net
 INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-REAL*8 PX,PY,PZ,DIST,d12,d4,d5,dS1,dS2,timeLevel
+REAL*8 PX,PY,PZ,DIST,d12,d4,d5,dS0,dS1,dS2,timeLevel
 INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
 INTEGER NeighE(2,12),NeighA(4,6)
 DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
@@ -34,9 +34,10 @@ DO i=1,nvt
  PX = dcorvg(1,I)
  PY = dcorvg(2,I)
  PZ = dcorvg(3,I)
- CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS1,dS2,timeLevel)
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS0,dS1,dS2,timeLevel)
  Dist1(i) = dS1
  Dist2(i) = dS2
+ Dist3(i) = dS0
  ScrewDist(:,i) = [dS1,dS2]
 END DO
 
@@ -49,9 +50,10 @@ DO i=1,nel
    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS1,dS2,timeLevel)
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS0,dS1,dS2,timeLevel)
    Dist1(nvt+k) = dS1
    Dist2(nvt+k) = dS2
+   Dist3(nvt+k) = dS0
    ScrewDist(:,nvt+k) = [dS1,dS2]
    k = k + 1
   END IF
@@ -69,9 +71,10 @@ DO i=1,nel
    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS1,dS2,timeLevel)
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS0,dS1,dS2,timeLevel)
    Dist1(nvt+net+k) = dS1
    Dist2(nvt+net+k) = dS2
+   Dist3(nvt+net+k) = dS0
    ScrewDist(:,nvt+net+k) = [dS1,dS2]
    k = k + 1
   END IF
@@ -87,9 +90,10 @@ DO i=1,nel
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
  END DO
- CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS1,dS2,timeLevel)
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS0,dS1,dS2,timeLevel)
  Dist1(nvt+net+nat+i) = dS1
  Dist2(nvt+net+nat+i) = dS2
+ Dist3(nvt+net+nat+i) = dS0
  ScrewDist(:,nvt+net+nat+i) = [dS1,dS2]
 END DO
 
@@ -98,6 +102,7 @@ do i=1,nvt+net+nat+nel
  PY = dcorvg(2,I)
  PZ = dcorvg(3,I)
  Screw(i) = min(Dist1(i),Dist2(i))
+ Shell(i) = Dist3(i)
 ! Screw(i) = sqrt(PX*PX + PY*PY) - 75d0
 end do
 
@@ -107,21 +112,22 @@ END SUBROUTINE QuadScalar_MixerKnpr
 !
 !********************GEOMETRY****************************
 !
-SUBROUTINE GetMixerKnpr(X,Y,Z,inpr,D1,D2,t)
+SUBROUTINE GetMixerKnpr(X,Y,Z,inpr,D0,D1,D2,t)
 IMPLICIT NONE
-REAL*8 X,Y,Z,t,d1,d2
+REAL*8 X,Y,Z,t,d0,d1,d2
 REAL*8 :: dKnetMin,dKnetMax
 INTEGER :: inpr, l, k, nmbr,lKnet
 REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
 REAL*8 :: dBeta,XTT,YTT,ZTT,dist
 REAL*8 dScale, dist1, dist2,dEps,dCut
-REAL*8 dSeg1,dSeg2,tt
+REAL*8 dSeg0,dSeg1,dSeg2,tt
 REAL*8 myPI
 
 dEps = mySigma%a/1d5
 
 myPI = dATAN(1d0)*4d0
 
+D0 = DistTolerance
 D1 = DistTolerance
 D2 = DistTolerance
 inpr = 0
@@ -129,15 +135,20 @@ inpr = 0
 tt = t 
 !----------------------------------------------------------
 DO k=1, mySigma%NumberOfSeg
+ dSeg0=DistTolerance
+ dSeg1=DistTolerance
+ dSeg2=DistTolerance
+ 
  IF (mySigma%mySegment(k)%ART.EQ.'STL_R')  CALL STLR_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'STL_L')  CALL STLL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
- IF (mySigma%mySegment(k)%ART.EQ.'STL'  )  CALL STL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ IF (mySigma%mySegment(k)%ART.EQ.'STL'  )  CALL STL_elem(X,Y,Z,tt,k,dSeg0,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'EKNET') CALL EKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'SKNET') CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'FOERD') CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
  IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ D0 = max(-DistTolerance,min(dSeg0,D0))
  D1 = max(-DistTolerance,min(dSeg1,D1))
  D2 = max(-DistTolerance,min(dSeg2,D2))
 END DO
@@ -149,10 +160,10 @@ END SUBROUTINE GetMixerKnpr
 !
 !********************GEOMETRY****************************
 !
-SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d1,d2,inpr)
+SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d0,d1,d2,inpr)
 IMPLICIT NONE
 INTEGER inpr
-REAL*8 X,Y,Z,d1,d2
+REAL*8 X,Y,Z,d1,d2,d0,daux
 REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
 REAL*8 t,myPI,dUnitScale
 INTEGER iSTL,iSeg,iFile
@@ -163,68 +174,106 @@ IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
 IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
 IF (mySigma%mySegment(iSeg)%Unit.eq.'DM') dUnitScale = 1d-1
 
-t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
 
-myPI = dATAN(1d0)*4d0
+  t = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 
-IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
- XB = X
- YB = Y-mySigma%a/2d0
- ZB = Z
-ELSE
- CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+  myPI = dATAN(1d0)*4d0
+
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+  XB = X
+  YB = Y-mySigma%a/2d0
+  ZB = Z
+  ELSE
+  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+  END IF
+
+
+  ! First the point needs to be transformed back to time = 0
+  dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+  XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+  YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+  ZT = ZB
+
+  XT_STL = dUnitScale*XT
+  YT_STL = dUnitScale*YT
+  ZT_STL = dUnitScale*ZT - dUnitScale*mySigma%mySegment(iSeg)%Min
+
+  DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+  CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
+  d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
+  END DO
+
+  if (d1.lt.0d0) inpr = 101
+
+  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+  XB = X
+  YB = Y+mySigma%a/2d0
+  ZB = Z
+  ELSE
+  CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+  END IF
+
+  ! First the point needs to be transformed back to time = 0
+  IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+  IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+  IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+  IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+  !dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+
+  XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+  YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+  ZT = ZB
+
+  XT_STL = dUnitScale*XT
+  YT_STL = dUnitScale*YT
+  ZT_STL = dUnitScale*ZT  - dUnitScale*mySigma%mySegment(iSeg)%Min
+
+  DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+  CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
+  d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
+  END DO
+
+  if (d2.lt.0d0) inpr = 102
 END IF
 
 
-! First the point needs to be transformed back to time = 0
-dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
-XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-ZT = ZB
+IF (mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
 
-XT_STL = dUnitScale*XT
-YT_STL = dUnitScale*YT
-ZT_STL = dUnitScale*ZT - dUnitScale*mySigma%mySegment(iSeg)%Min
-
-DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
- iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
- CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
- d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
-END DO
-
-if (d1.lt.0d0) inpr = 101
-
-IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
- XB = X
- YB = Y+mySigma%a/2d0
- ZB = Z
-ELSE
- CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+  XT_STL = dUnitScale*X
+  YT_STL = dUnitScale*Y
+  ZT_STL = dUnitScale*Z - dUnitScale*mySigma%mySegment(iSeg)%Min
+  
+  DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+   iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+   CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,daux,.TRUE.)
+   daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
+   d0   = min(daux,d0)
+  END DO
+  
+  if (d0.lt.0d0) inpr = 100
+  
 END IF
 
-! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
-!dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
 
-XT = XB*cos(dAlpha) - YB*sin(dAlpha)
-YT = XB*sin(dAlpha) + YB*cos(dAlpha)
-ZT = ZB
-
-XT_STL = dUnitScale*XT
-YT_STL = dUnitScale*YT
-ZT_STL = dUnitScale*ZT  - dUnitScale*mySigma%mySegment(iSeg)%Min
-
-DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
- iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
- CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
- d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
-END DO
-
-if (d2.lt.0d0) inpr = 102
-
+  XT_STL = dUnitScale*X
+  YT_STL = dUnitScale*Y
+  ZT_STL = dUnitScale*Z - dUnitScale*mySigma%mySegment(iSeg)%Min
+  
+  DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+   iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
+   CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,daux,.TRUE.)
+   daux = -daux
+   daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
+   d0   = min(daux,d0)
+  END DO
+  
+  if (d0.lt.0d0) inpr = 100
+  
+END IF
 
 END SUBROUTINE STL_elem
 !
@@ -259,6 +308,7 @@ END IF
 
 ! First the point needs to be transformed back to time = 0
 dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(-myProcess%ind)
+! write(*,*) 'L',dAlpha
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
 ZT = ZB
@@ -310,6 +360,7 @@ ELSE
 END IF
 
 dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+! write(*,*) 'R',dAlpha
 ! ! First the point needs to be transformed back to time = 0
 ! IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
 ! IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
