@@ -11,7 +11,7 @@ PROGRAM Q2P1_DEVEL
                          sim_finalize
                          
   use Transport_Q2P1,  only:        updateFBMGeometry
-  USE Sigma_User, ONLY: mySigma,myProcess,mySetup
+  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease
   
 !  use Transport_Q1,  only: Transport_GeneralLinScalar,Boundary_LinSc_Val_Weber,AddSource
 
@@ -30,6 +30,10 @@ PROGRAM Q2P1_DEVEL
   mySetup%bAutomaticTimeStepControl = .false.
   
   call init_q2p1_ext(ufile)
+
+#if !defined WIN32
+  IF (bKTPRelease) CALL xSEND_START()
+#endif
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
