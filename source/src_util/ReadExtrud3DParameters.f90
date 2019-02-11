@@ -14,7 +14,7 @@
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit,cOFF_Files
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -706,21 +706,21 @@
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacity",myThermodyn%cp,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData","HeatCapacitySlope",myThermodyn%CpSteig,myInf)
 
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/ThermoData","DensityModel", cDensity,'Density')
-    call inip_toupper_replace(cDensity)
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/ThermoData","DensityModel", myThermodyn%DensityModel,'no')
+    call inip_toupper_replace(myThermodyn%DensityModel)
     myThermodyn%density=myInf
-    IF (ADJUSTL(TRIM(cDensity)).eq."DENSITY") THEN
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."DENSITY") THEN
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","Density",myThermodyn%Density,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/Density","DensitySlope",myThermodyn%DensitySteig,myInf)
     END IF
-    IF (ADJUSTL(TRIM(cDensity)).eq."SPECVOLUME") THEN
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolume",myThermodyn%Density,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/ThermoData/SpecVolume","SpecVolumeSlope",myThermodyn%DensitySteig,myInf)
       myThermodyn%Density = 1d0/myThermodyn%Density
     END IF
-    IF (myRheology%AtFunc.eq.0) THEN
+    IF (myThermodyn%density.eq.myinf) THEN
      WRITE(*,*) "density is not defined"
-     WRITE(*,*) '"',TRIM(cDensity),'"'
+     WRITE(*,*) '"',TRIM(myThermodyn%DensityModel),'"'
      bReadError=.TRUE.
      !GOTO 10
     END IF
@@ -1050,7 +1050,8 @@
      write(*,*) "myRheology%Tb",'=',myRheology%Tb
      write(*,*) "myRheology%Ts",'=',myRheology%Ts
     END IF
-    write(*,*) 
+    write(*,*)
+    write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
     write(*,*) "myThermodyn%HeatConductivity",'=',myThermodyn%lambda
     write(*,*) "myThermodyn%HeatConductivitySlope",'=',myThermodyn%lambdaSteig
     write(*,*) "myThermodyn%HeatCapacity",'=',myThermodyn%cp

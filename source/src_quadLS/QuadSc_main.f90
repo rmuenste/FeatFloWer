@@ -627,6 +627,12 @@ Real*8 :: dabl
  myPowerLawFluid(2) = 0.001d0
  myPowerLawFluid(3) = 0.75d0
 
+ !!!!!!!!!!!!!!!!!!!!! otherwise the code takes the density from the q2p1_param.dat file  !!!!!!!!!!!!!!
+ IF (TRIM(ADJUSTL(myThermodyn%DensityModel)).ne.'NO') THEN
+  IF (myThermodyn%density.gt.0d0) Properties%Density(1) = myThermodyn%density
+ END IF
+ !!!!!!!!!!!!!!!!!!!!! otherwise the code takes the density from the q2p1_param.dat file  !!!!!!!!!!!!!!
+
  ! Initialize the arrays and the distribution of physical properties
  ALLOCATE (mgDensity(NLMIN:NLMAX))
  ALLOCATE (mgNormShearStress(NLMIN:NLMAX))

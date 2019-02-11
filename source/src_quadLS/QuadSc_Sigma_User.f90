@@ -78,9 +78,10 @@ TYPE(tRheology) :: myRheology
 
 !------------------------------------------------------------
 TYPE tThermodyn
-   REAL*8 :: density, densitySteig
-   REAL*8 :: lambda, Cp, lambdaSteig,CpSteig 
-   REAL*8 :: Alpha, Beta, Gamma
+   CHARACTER*60 :: DensityModel='NO'
+   REAL*8 :: density=0d0, densitySteig=0d0
+   REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
+   REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
 END TYPE tThermodyn
 
 TYPE(tThermodyn) :: myThermodyn
