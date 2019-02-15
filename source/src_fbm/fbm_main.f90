@@ -374,8 +374,13 @@ SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist)
 !   for a single(!) elastic or soft body.
 !
 use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
+use def_FEAT, only: itns
+use cinterface
+
 implicit none
 
+include 'fbm_up_include.h'
+ 
 ! Coordinates of the query point 
 real*8, intent(in) :: x, y, z 
 
@@ -393,10 +398,12 @@ integer :: IP,ipc,isin, idynType
 real*8 :: dist_sign, cpx,cpy,cpz, d_temp
 real*8 :: dCGAL_X,dCGAL_Y,dCGAL_Z
 
+  
+if (calculateDynamics().or.itns.eq.1) then
  inpr = 0
  dist_sign = 1
  Dist = 1d8
-  
+ 
  DO IP = 1,myFBM%nParticles
   
   ipc=ip-1
@@ -429,6 +436,7 @@ real*8 :: dCGAL_X,dCGAL_Y,dCGAL_Z
    inpr = 0
   end if
  end if
+end if
 
 END SUBROUTINE GetFictKnpr_DIE
 !=========================================================================

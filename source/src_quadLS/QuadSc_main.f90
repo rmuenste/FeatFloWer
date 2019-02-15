@@ -905,7 +905,6 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PX = dcorvg(1,I)
   PY = dcorvg(2,I)
   PZ = dcorvg(3,I)
-  
   call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i),fbm_geom_handler_ptr)
   END DO
 
