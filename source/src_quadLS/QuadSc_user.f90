@@ -47,8 +47,6 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-!  dScale = 16D0*0.45D0/(0.41D0**4) 
-!  Val = dScale*Y*(0.41D0-Y)*Z*(0.41D0-Z)
 ValU = 0d0
 ValV = 0d0
 if(bViscoElastic)then
@@ -97,7 +95,7 @@ REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
 REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 DIST
-REAL*8 :: PI=dATAN(1d0)*4d0
+REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
 REAL*8 :: U_bar, h, normalizedTime, val
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
@@ -247,33 +245,33 @@ end if
 
 if(it.eq.11)then
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU= -PI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
-   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%iInd*myProcess%ind)
+   ValU= -myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
+   ValV = myTwoPI*X*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
    ValW = 0d0
   ELSE
    CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,-1d0)
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*PI*YY*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*PI*XX*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
   END IF
 end if
 
 if(it.eq.12)then
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU= -PI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
-   ValV = PI*X*(myProcess%Umdr/3d1)*REAL(myProcess%ind)
+   ValU= -myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)*REAL(myProcess%ind)
+   ValV = myTwoPI*X*(myProcess%Umdr/6d1)*REAL(myProcess%ind)
    ValW = 0d0
   ELSE
    CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,+1d0)
-   ValU =  -DBLE(myProcess%ind)*PI*YY*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%ind)*PI*XX*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
   END IF
 end if
 
 if(it.eq.13)then
-  ValU =  -DBLE(myProcess%ind)*PI*Y*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*PI*X*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+  ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
   ValW =   0d0
 end if
 
@@ -693,13 +691,9 @@ END SUBROUTINE GetVeloBCVal
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 IMPLICIT NONE
-REAL*8 :: myPI
+REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
-
-myPI = dATAN(1d0)*4d0
-
-!  write(*,*)'vahhal'
 
 SELECT CASE(iP)
  CASE (100) ! Y positiv
@@ -708,44 +702,44 @@ SELECT CASE(iP)
   ValW = 0d0
  CASE (101) ! Y positiv
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*(X)*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
    ValW = 0d0
   ELSE
    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
   END IF
  CASE (102) ! Y negativ
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%ind)*myPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%ind)*myPI*(X)*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
    ValW = 0d0
   ELSE
    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
-   ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-   ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
   END IF
  CASE (103) ! Y negativ
-  ValU =  -DBLE(myProcess%ind)*myPI*Y*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*X*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+  ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
   ValW =   0d0
  CASE (104) ! Y negativ
-  dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*(dATAN(1d0)*8d0)/360d0)
+  dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
   
   timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 !  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
-  dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*(dATAN(1d0)*8d0))
+  dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
   
   
 
-  dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*(dATAN(1d0)*8d0)/360d0)
-  dYShiftdt  = (myProcess%Umdr/60d0)*(dATAN(1d0)*8d0)*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*(dATAN(1d0)*8d0))
+  dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
+  dYShiftdt  = (myProcess%Umdr/60d0)*myTwoPI*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
   
   YB = Y + dYShift
   XB = X 
-  ValU =  -DBLE(myProcess%ind)*myPI*YB*(myProcess%Umdr/3d1)
-  ValV =   DBLE(myProcess%ind)*myPI*XB*(myProcess%Umdr/3d1)
+  ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+  ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
   ValW =   0d0
   ValV =   ValV + dYShiftdt
   

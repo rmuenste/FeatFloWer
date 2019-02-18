@@ -472,55 +472,6 @@ END SUBROUTINE General_init_ext
 !
 ! -----------------------------------------------------------------------
 !
-#if !defined WIN32
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-SUBROUTINE xSEND_START()
-USE Sigma_User, ONLY: myProcess
-USE PP3D_MPI, ONLY : myid
-
-CHARACTER command*(200),CaseFile*(22)
-character(8)  :: cdate
-character(10) :: ctime
-character(5)  :: czone
-integer,dimension(8) :: values
-
-call date_and_time(cdate,ctime,czone,values)
-WRITE(CaseFile,'(15A)') 'Case_',cdate(7:8),".",cdate(5:6),".",cdate(3:4)," ",ctime(1:2),":",ctime(3:4),":",ctime(5:6)
-
-IF (myid.eq.1) THEN
- command = " "
- WRITE(command,'(3A)') 'echo `pwd` | cat - _data/rheo.s3d | mail -s "',CaseFile,'_start" omierka@mathematik.uni-dortmund.de'
- CALL system(TRIM(ADJUSTL(command)))
-END IF
-
-END SUBROUTINE xSEND_START
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-SUBROUTINE xSEND_FINISH()
-USE Sigma_User, ONLY: myProcess
-USE PP3D_MPI, ONLY : myid
-
-CHARACTER command*(200),CaseFile*(22)
-character(8)  :: cdate
-character(10) :: ctime
-character(5)  :: czone
-integer,dimension(8) :: values
-
-call date_and_time(cdate,ctime,czone,values)
-WRITE(CaseFile,'(15A)') 'Case_',cdate(7:8),".",cdate(5:6),".",cdate(3:4)," ",ctime(1:2),":",ctime(3:4),":",ctime(5:6)
-
-IF (myid.eq.1) THEN
- command = " "
- WRITE(command,'(3A)') 'echo `pwd` | cat - _data/rheo.s3d | mail -s "',CaseFile,'_finish" omierka@mathematik.uni-dortmund.de'
-! WRITE(*,'(3A)') "[",TRIM(ADJUSTL(command)),"]"
- CALL system(TRIM(ADJUSTL(command)))
-END IF
-
-END SUBROUTINE xSEND_FINISH
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#endif
-!
-! -----------------------------------------------------------------------
-!
 SUBROUTINE AdjustTimeStepping(dt)
 USE PP3D_MPI
 
