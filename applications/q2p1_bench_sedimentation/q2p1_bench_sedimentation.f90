@@ -49,6 +49,8 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   call handle_statistics(tt0,itns)
 
+  istep_ns = istep_ns + 1
+
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 
