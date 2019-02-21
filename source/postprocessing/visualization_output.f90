@@ -587,15 +587,41 @@ use def_LinScalar, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
 use Sigma_User, only: myOutput, mySigma
 use iniparser
+use iso_c_binding, only: C_CHAR, C_NULL_CHAR
 
 implicit none
 
 interface
-  subroutine c_write_json(thetype) bind(C, name="c_write_json")
+  subroutine c_write_json(thetype, dataName) bind(C, name="c_write_json")
     use cinterface, only: c1dOutput
     use iso_c_binding
     type(c1dOutput) :: thetype
+    character(kind=c_char) :: dataName(*)
   end subroutine c_write_json
+end interface
+
+interface
+  subroutine c_add_json_array(thetype, dataName) bind(C, name="c_add_json_array")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    type(c1dOutput) :: thetype
+    character(kind=c_char) :: dataName(*)
+  end subroutine c_add_json_array 
+end interface
+
+interface
+  subroutine c_init_json_output(thetype) bind(C, name="c_init_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    type(c1dOutput) :: thetype
+  end subroutine c_init_json_output
+end interface
+
+interface
+  subroutine c_write_json_output() bind(C, name="c_write_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+  end subroutine c_write_json_output
 end interface
 
 type(tQuadScalar), intent(in) :: sQuadSc
@@ -698,15 +724,23 @@ type(t_parlist) :: parameterlistModifiedKTP1D
  thestruct%dmin = c_loc(my1DOut(2)%dMin)
  thestruct%dmax = c_loc(my1DOut(2)%dMax)
 
-! IF (myid.eq.1) THEN
-!    write(*,*)'Len Fortran: ',my1DOut_nol
-!    write(*,*)'arr(1)',my1DOut(2)%dMean(1)
-! end if
-!
-! call c_write_json(thestruct) 
-! call myMPI_Barrier()
-! stop
 
+ IF (myid.eq.1) THEN
+    write(*,*)'Len Fortran: ',my1DOut_nol
+    write(*,*)'arr(1)',my1DOut(2)%dMean(1)
+ end if
+
+ call c_init_json_output(thestruct) 
+
+ call c_add_json_array(thestruct, C_CHAR_"Pressure_[bar]"//C_NULL_CHAR) 
+
+ thestruct%dmean = c_loc(my1DOut(1)%dMean)
+ thestruct%dmin = c_loc(my1DOut(1)%dMin)
+ thestruct%dmax = c_loc(my1DOut(1)%dMax)
+
+ call c_add_json_array(thestruct, C_CHAR_"VelocityZ_[m/s]"//C_NULL_CHAR) 
+
+ call c_write_json_output() 
 
  call inip_init(parameterlistModifiedKTP1D)
  ! write(*,*)'------------------This should crash-----------------------------'
