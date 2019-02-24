@@ -11,7 +11,11 @@ import shutil
 import subprocess
 import re
 import json
-sys.path.append(os.environ['FF_PY_HOME'])
+try:
+    sys.path.append(os.environ['FF_PY_HOME'])
+except:
+    print("Warning: Environment variable <FF_PY_HOME> is not set. "  +
+          "Trying to use local install of FeatFloWer python modules.")
 import partitioner
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -195,9 +199,7 @@ def main():
   #-------------------------------------------------------------------------------------
   numProcessors = int(numProcessors)
 
-  partitioner.mkdir("_mesh")
-
-  partitioner.MainProcess(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
+  partitioner.partition(numProcessors-1, -3, 2, "NEWFAC", "_data/meshDir/file.prj")
   #-------------------------------------------------------------------------------------
 
   for i in range(nmin,nmax):  # nmax means the loop goes to nmax-1

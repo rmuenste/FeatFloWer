@@ -1,20 +1,20 @@
-install(TARGETS q2p1
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+install(TARGETS q2p1_sse
+    RUNTIME DESTINATION /home/rafa/FeatFlower/bin
+    LIBRARY DESTINATION /home/rafa/FeatFlower/lib
+    ARCHIVE DESTINATION /home/rafa/FeatFlower/lib
     )
 
 set(DEF_DIRS _mesh _vtk _data _dump _adc start testresults testcases)
 
-FOREACH(dir ${DEF_DIRS})
-  list(APPEND mydirs ${CMAKE_BINARY_DIR}/${dir})
-ENDFOREACH()
+#FOREACH(dir ${DEF_DIRS})
+#  list(APPEND mydirs ${CMAKE_BINARY_DIR}/${dir})
+#ENDFOREACH()
 
 #message(installdirs "${installdirs}")
 #message(FATAL_ERROR "${mydirs}")
 
-install(DIRECTORY ${mydirs} DESTINATION bin)
-install(PROGRAMS partitioner DESTINATION bin)
+#install(DIRECTORY ${mydirs} DESTINATION bin)
+#install(PROGRAMS partitioner DESTINATION bin)
 
 # create the default directories if they are missing
 #FOREACH(dir ${DEF_DIRECTORIES})

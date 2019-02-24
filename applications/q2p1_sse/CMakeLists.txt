@@ -89,3 +89,22 @@ IF(${OUT_OF_SOURCE_BUILD})
 
 ENDIF()
 
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+install(TARGETS q2p1_sse
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+install(FILES q2p1_sse_start.py DESTINATION bin)
+
+set(DEF_DIRS _mesh _vtk _data _dump start)
+
+FOREACH(dir ${DEF_DIRS})
+  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+ENDFOREACH()
+
+install(DIRECTORY ${mydirs} DESTINATION bin)
+#install(PROGRAMS partitioner DESTINATION bin)

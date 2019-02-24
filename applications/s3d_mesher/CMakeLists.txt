@@ -61,3 +61,12 @@ target_compile_options(s3d_mesher PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(s3d_mesher PROPERTIES LINKER_LANGUAGE Fortran)
 
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+install(TARGETS s3d_mesher
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+

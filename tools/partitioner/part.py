@@ -23,7 +23,13 @@ def _try_in_place_first(name):
   tmp=os.path.join(os.curdir,name)
   if not os.path.exists(tmp):
     tmp=name
-  return CDLL(tmp)
+  
+  try:
+      theLib = CDLL(tmp)
+  except:
+      tmp=os.path.join(os.curdir,"../lib",name)
+      theLib = CDLL(tmp)
+  return theLib 
 
 # Ab hier kommen die öffentlichen Funktionen des Moduls
 
