@@ -534,3 +534,12 @@ ENDIF(BUILD_APPLICATIONS)
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(DIRECTORY tools/partitioner DESTINATION bin)
+
+#=========================================================================
+#                       CPACK CONFIGURATION
+#=========================================================================
+
+include(${CMAKE_MODULE_PATH}/GeneratePackageDeb.cmake)  
+
+include(CPack)
+

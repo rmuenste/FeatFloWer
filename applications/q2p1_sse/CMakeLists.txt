@@ -75,17 +75,17 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
   # create the sse specific directories 
-    IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_1D")
-      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_1D")
-    ENDIF()
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_1D")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_1D")
+  ENDIF()
 
-    IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_hist")
-      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_hist")
-    ENDIF()
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_hist")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_hist")
+  ENDIF()
 
-    IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py")
-      file(COPY q2p1_sse_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-    ENDIF()
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py")
+    file(COPY q2p1_sse_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  ENDIF()
 
 ENDIF()
 
@@ -100,7 +100,7 @@ install(TARGETS q2p1_sse
 
 install(FILES q2p1_sse_start.py DESTINATION bin)
 
-set(DEF_DIRS _mesh _vtk _data _dump start)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
