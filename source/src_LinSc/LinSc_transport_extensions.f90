@@ -31,7 +31,7 @@ IF (myid.ne.0) THEN
  CALL sub_SRC()
 
 ! Add the boundary heat flux (explicit part)
- CALL AddBoundaryHeatFlux(1)
+!  CALL AddBoundaryHeatFlux(1)
  
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
@@ -43,7 +43,7 @@ IF (myid.ne.0) THEN
  CALL Matdef_General_LinScalar(Tracer,-1,1)
 
 ! Add the boundary heat flux (implicit part)
- CALL AddBoundaryHeatFlux(2)
+!  CALL AddBoundaryHeatFlux(2)
    
  CALL E011Sum(Tracer%def)
 
@@ -704,10 +704,30 @@ END SUBROUTINE AddBoundaryHeatFlux
 !
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
-REAL*8 dQuant(12)
-integer mfile,iS,iSeg
+REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
+REAL*8 :: dTotalEnthalpy(2)=0d0
+integer mfile,iS,iSeg,i
+
+Q = myProcess%TemperatureSensorCoor
 
 if (myid.ne.master) then
+ ilev = NLMAX
+ call setlev(2)
+ dSensorTemperature = 0d0
+ do i=1,mg_mesh%level(ilev)%nvt
+  P = mg_mesh%level(ilev)%dcorvg(:,i)
+  dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+  IF (dist.le.myProcess%TemperatureSensorRadius) then
+   dSensorTemperature(1) = dSensorTemperature(1) + MLmat(i)*Tracer%oldSol(i)
+   dSensorTemperature(2) = dSensorTemperature(2) + MLmat(i)
+  END IF
+ end do
+
+ dTotalEnthalpy(1) = 0d0
+ do i=1,mg_mesh%level(ilev)%nvt
+   dTotalEnthalpy(1) = dTotalEnthalpy(1) + MLRhoCpMat(i)*Tracer%oldSol(i)*1e-10
+ end do
+
  ilev = NLMAX
  call setlev(2)
  dQuant = 0d0
@@ -719,9 +739,17 @@ if (myid.ne.master) then
                                    E011,dQuant)
 end if
 
+CALL Comm_SummN(dTotalEnthalpy,1)
+CALL Comm_SummN(dSensorTemperature,2)
 CALL Comm_SummN(dQuant,12)
 
+if (itns.eq.1) then
+ dTotalEnthalpy(2) = dTotalEnthalpy(1)
+end if
+
 IF (myid.eq.1) then
+ write(MTERM,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
+ write(MFILE,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
  iS = 0
  write(MTERM,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
  write(MFILE,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
@@ -744,10 +772,12 @@ do
  
  if (iSeg.gt.mySigma%NumberOfSeg) exit 
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-  IF (dQuant(iS+4)/dQuant(iS+3).gt.400d0) then
+!   IF (dQuant(iS+4)/dQuant(iS+3).gt.291d0) then
+  IF (dSensorTemperature(1)/dSensorTemperature(2).gt.291d0) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
   END IF
-  IF (dQuant(iS+4)/dQuant(iS+3).lt.200d0) then
+  IF (dSensorTemperature(1)/dSensorTemperature(2).lt.289d0) then
+!  IF (dQuant(iS+4)/dQuant(iS+3).lt.289d0) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMax
   END IF
   dHeatSource = mySigma%mySegment(iSeg)%UseHeatSource

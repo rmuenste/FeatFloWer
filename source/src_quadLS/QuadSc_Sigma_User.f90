@@ -25,7 +25,8 @@ TYPE tSegment
   INTEGER :: MatInd
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
   REAL*8 :: InitTemp,Volume
-  
+  CHARACTER*200 :: TemperatureBC
+   
 END TYPE tSegment
 !------------------------------------------------------------
 TYPE tSigma
@@ -59,6 +60,7 @@ TYPE tProcess
    REAL*8 :: AirTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
    integer   nOfInflows
    TYPE (tInflow), allocatable :: myInflow(:)
+   REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
 END TYPE tProcess
 
 TYPE(tProcess) :: myProcess

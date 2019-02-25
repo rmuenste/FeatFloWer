@@ -229,6 +229,7 @@ end do
 !  end do
 ! end do
 ! close(3)
+! pause
 
 CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
 
@@ -512,31 +513,34 @@ do i=1,ndof
  end if
 END DO
 
-! open(unit=3,file=adjustl(trim(cOutputFolder))//'/norm.dat')
-! write(3,'(A,I0,A,I0)') 'nu= ',ndof, ', n_bc= ',k 
-! write(3,'(6(A10," "))') 'n_x','n_y','n_z','bc_x','bc_y','bc_z'
+! ndof = mg_Mesh%level(ilev)%nvt
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/norm.csv')
+! !write(3,'(A,I0,A,I0)') 'nu= ',ndof, ', n_bc= ',k 
+! write(3,'(A10,6(A13))') 'id, ','n_x, ','n_y, ','n_z, ','bc_x, ','bc_y, ','bc_z'
 ! do i=1,ndof
 !  if (mg_Mesh%BndryNodes(i)%bOuterPoint) then
-!   write(3,'(I10,6ES12.4)') i,norm_u(i),norm_v(i),norm_w(i),mg_mesh%level(ilev)%dcorvg(:,i)
+!   write(3,'(I10,6(A1,ES12.4))') i,', ',norm_u(i),', ',norm_v(i),', ',norm_w(i),', ',&
+!   mg_mesh%level(ilev)%dcorvg(1,i),', ',mg_mesh%level(ilev)%dcorvg(2,i),', ',mg_mesh%level(ilev)%dcorvg(3,i)
 !  end if
 ! end do
 ! close(3)
 ! 
-! open(unit=3,file=adjustl(trim(cOutputFolder))//'/end_coor.dat')
-! write(3,'(A,I0,A,I0)') 'nV= ',ndof 
-! write(3,'(6(A10," "))') 'x','y','z'
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/end_coor.csv')
+! !write(3,'(A,I0,A,I0)') 'nV= ',ndof 
+! write(3,'(7(A10," "))') 'id, ','x, ','y, ','z, '
 ! do i=1,ndof
-!  write(3,'(I10,6ES12.4)') i,mg_mesh%level(ilev)%dcorvg(:,i)
+!  write(3,'(I10,6(A1,ES12.4))') i,', ',mg_mesh%level(ilev)%dcorvg(1,i),', ',mg_mesh%level(ilev)%dcorvg(2,i),', ',mg_mesh%level(ilev)%dcorvg(3,i)
 ! end do
 ! close(3)
 ! 
-! open(unit=3,file=adjustl(trim(cOutputFolder))//'/start_coor.dat')
-! write(3,'(A,I0,A,I0)') 'nV= ',ndof
-! write(3,'(6(A10," "))') 'x','y','z'
+! open(unit=3,file=adjustl(trim(cOutputFolder))//'/start_coor.csv')
+! ! write(3,'(A,I0,A,I0)') 'nV= ',ndof
+! write(3,'(7(A10," "))') 'id, ','x, ','y, ','z, '
 ! do i=1,ndof
-!  write(3,'(I10,6ES12.4)') i,OrigCoor(:,i)
+!  write(3,'(I10,6(A1,ES12.4))') i,', ',OrigCoor(1,i),', ',OrigCoor(2,i),', ',OrigCoor(3,i)
 ! end do
 ! close(3)
+! pause
 
 END SUBROUTINE RecoverSurfaceNormals
 !----------------------------------------------------------

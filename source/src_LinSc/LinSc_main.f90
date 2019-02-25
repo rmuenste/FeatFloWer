@@ -178,8 +178,8 @@ IF (myid.ne.master) THEN
 ! Initialize the scalar quantity
  CALL Initialize(Tracer)
 
-! Set the types of boundary conditions (set up knpr)
- CALL Create_Knpr(LinSc_Knpr)
+! ! Set the types of boundary conditions (set up knpr)
+!  CALL Create_Knpr(LinSc_Knpr)
 
 END IF
 
@@ -243,6 +243,10 @@ NLMAX = NLMAX + 1
 ILEV=NLMAX
 CALL SETLEV(2)
 
+! Set the types of boundary conditions (set up knpr)
+CALL Create_Knpr(LinSc_Knpr)
+
+! Set The initial Conditions
 CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
 
 ! Set boundary conditions
@@ -257,7 +261,7 @@ END SUBROUTINE InitCond_GeneralLinScalar
 SUBROUTINE LinSc_Knpr(dcorvg)
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
 REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
-INTEGER i
+INTEGER i,iSeg,jSeg,k
 
 DO i=1,Tracer%ndof
  X = dcorvg(1,i)
@@ -270,6 +274,19 @@ DO i=1,Tracer%ndof
  END IF
  
 END DO
+
+if (myid.ne.0) then
+ DO jSeg=1,mySigma%NumberOfSeg
+  DO i=1,Tracer%ndof
+   iSeg = myHeatObjects%Segment(i)
+   IF (iSeg.eq.jSeg) THEN
+    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT') THEN
+     Tracer%knpr(I) = 3
+    END IF
+   END IF
+  END DO
+ END DO
+end if
 
 END SUBROUTINE LinSc_Knpr
 !

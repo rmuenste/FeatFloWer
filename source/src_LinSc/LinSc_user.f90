@@ -163,10 +163,16 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.2) THEN
   
-   Tracer%val(NLMAX)%x(i)= 60d0
+   Tracer%val(NLMAX)%x(i)= 80d0
     
  END IF
 
+ IF (Tracer%knpr(i).eq.3) THEN
+  
+   Tracer%val(NLMAX)%x(i)= 290d0
+    
+ END IF
+ 
 END DO
 
 END SUBROUTINE Boundary_LinSc_Val_EWIKON

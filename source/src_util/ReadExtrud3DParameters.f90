@@ -1294,7 +1294,7 @@
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit,sCoorString
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -1366,6 +1366,13 @@
      call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSourceMin", mySigma%mySegment(iSeg)%HeatSourceMin ,0d0)
      mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
 
+     call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureBC",mySigma%mySegment(iSeg)%TemperatureBC,'NO')
+     call inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureBC)
+     if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.or.mySigma%mySegment(iSeg)%TemperatureBC.eq.'NO')) THEN
+       WRITE(*,*) "Undefined thermal condition: ",mySigma%mySegment(iSeg)%TemperatureBC
+     END IF
+     
+
      call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
      IF (.NOT.(mySigma%mySegment(iSeg)%Unit.eq.'MM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'CM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'DM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'M')) THEN
@@ -1429,6 +1436,14 @@
     END DO
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AirTemperature", myProcess%AirTemperature ,0d0)
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Process","TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
+    read(sCoorString,*) myProcess%TemperatureSensorCoor
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","TemperatureSensorRadius", myProcess%TemperatureSensorRadius,-1d0)
+    if (myProcess%TemperatureSensorRadius.le.0d0) then
+     myProcess%TemperatureSensorRadius = 0d0
+     WRITE(*,*) "Temperature sensor is undefined, Radius=", myProcess%TemperatureSensorRadius
+    end if
+    
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HeatTransferCoeff", myProcess%HeatTransferCoeff ,0d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveLambda", myProcess%ConductiveLambda ,0d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveGradient", myProcess%ConductiveGradient ,0d0)
@@ -1473,6 +1488,8 @@
     END DO
     write(*,*) 
     write(*,'(A,ES12.4)') "myProcess%AirTemperature=",myProcess%AirTemperature 
+    write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
+    write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
     write(*,'(A,ES12.4)') "myProcess%HeatTransferCoeff=", myProcess%HeatTransferCoeff    
     write(*,'(A,ES12.4)') "myProcess%ConductiveLambda=",myProcess%ConductiveLambda 
     write(*,'(A,ES12.4)') "myProcess%ConductiveGradient=", myProcess%ConductiveGradient
