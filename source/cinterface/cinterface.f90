@@ -10,10 +10,27 @@ module cinterface
     type(c_ptr) :: dMin
     type(c_ptr) :: dMax
     type(c_ptr) :: dLoc
-    character(kind = c_char, len=255) :: unit_name
+    character(kind = c_char) :: unit_name(255)
   end type c1dOutput
 
   contains
+  !
+  !----------------------------------------------
+  !
+  subroutine cf_make_c_char(buffer, unit_name)
+
+    implicit none 
+
+    character(kind = c_char, len=*), intent(in) :: buffer
+    character(kind = c_char), intent(out) :: unit_name(*)
+
+    integer :: i
+
+    do i=1,len_trim(buffer)
+      unit_name(i) = buffer(i:i) 
+    end do
+
+  end subroutine cf_make_c_char
   !
   !----------------------------------------------
   !

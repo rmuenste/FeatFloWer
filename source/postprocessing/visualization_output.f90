@@ -725,8 +725,7 @@ type(t_parlist) :: parameterlistModifiedKTP1D
  thestruct%dmax = c_loc(my1DOut(2)%dMax)
  thestruct%dLoc = c_loc(my1DOut(2)%dLoc) 
 
- thestruct%unit_name = C_CHAR_"cm"//C_NULL_CHAR
-
+ call cf_make_c_char(C_CHAR_"cm"//C_NULL_CHAR, thestruct%unit_name)
 
  IF (myid.eq.1) THEN
     write(*,*)'Len Fortran: ',my1DOut_nol
@@ -735,14 +734,15 @@ type(t_parlist) :: parameterlistModifiedKTP1D
 
  call c_init_json_output(thestruct) 
 
- thestruct%unit_name = C_CHAR_"Bar"//C_NULL_CHAR
+ call cf_make_c_char(C_CHAR_"bar"//C_NULL_CHAR, thestruct%unit_name)
 
  call c_add_json_array(thestruct, C_CHAR_"Pressure"//C_NULL_CHAR) 
 
  thestruct%dmean = c_loc(my1DOut(1)%dMean)
  thestruct%dmin = c_loc(my1DOut(1)%dMin)
  thestruct%dmax = c_loc(my1DOut(1)%dMax)
- thestruct%unit_name = C_CHAR_"m/s"//C_NULL_CHAR
+ call cf_make_c_char(C_CHAR_"m/s"//C_NULL_CHAR, thestruct%unit_name)
+
 
  call c_add_json_array(thestruct, C_CHAR_"VelocityZ"//C_NULL_CHAR) 
 
