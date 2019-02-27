@@ -9,6 +9,8 @@ module cinterface
     type(c_ptr) :: dMean 
     type(c_ptr) :: dMin
     type(c_ptr) :: dMax
+    type(c_ptr) :: dLoc
+    character(kind = c_char, len=255) :: unit_name
   end type c1dOutput
 
   contains
