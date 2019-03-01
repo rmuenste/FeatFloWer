@@ -83,6 +83,22 @@ IF(${OUT_OF_SOURCE_BUILD})
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_hist")
   ENDIF()
 
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_prot0")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_prot0")
+  ENDIF()
+
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_prot1")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_prot1")
+  ENDIF()
+
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_RTD")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_RTD")
+  ENDIF()
+
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_data_BU")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_data_BU")
+  ENDIF()
+
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py")
     file(COPY q2p1_sse_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
@@ -99,12 +115,12 @@ install(TARGETS q2p1_sse
     )
 
 install(FILES q2p1_sse_start.py DESTINATION bin)
+#install(FILES partitioner DESTINATION bin PERMISSIONS WORLD_EXECUTE)
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
 ENDFOREACH()
 
 install(DIRECTORY ${mydirs} DESTINATION bin)
-#install(PROGRAMS partitioner DESTINATION bin)

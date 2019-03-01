@@ -27,6 +27,7 @@ enable_testing()
 include(CTest)
 
 include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+
 #=========================================================================
 #                         custom targets  
 #=========================================================================
@@ -538,6 +539,9 @@ ENDIF(BUILD_APPLICATIONS)
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(DIRECTORY tools/partitioner DESTINATION bin)
+file(GLOB E3D_SCRIPTS "tools/e3d_scripts/e3d_*")
+install(FILES ${E3D_SCRIPTS} DESTINATION bin
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 #=========================================================================
 #                       CPACK CONFIGURATION

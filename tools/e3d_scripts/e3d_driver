@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+
+usage()
+{
+cat << EOF
+usage: 
+
+$0 {-f Filename} {-n NumOfProcs}
+
+OPTIONS:
+   -f      Configuration folder provided by the E3D GUI
+   -n      Total number of processors required for the simulations - constrained within <3,99>
+   -p      Periodicity of the solution (1,2,3 ... most of the time flight number)
+   -a      Angular stepsize between simulation points (automatically is used 10)
+   -h      Hostfile including list of nodes available for the simulation (for deatils see the manual of OpenMPI)
+   -r      Rankfile coding the assignement of subdomains to nodes (for deatils see the manual of OpenMPI)
+   -t      Number of timelevels covering 360 deg (4:90deg, 10:36deg, 36:10deg, 40:9deg)
+EOF
+}
+
+crankfile=""
+chostfile=""
+NumberOfTimeLevels=36
+Periodicity=1
+delta=10
+
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
+
+while [ $# != 0 ]; do
+ flag="$1"
+ case "$flag" in
+  -f) if [ $# -gt 1 ]; then
+       parameterfolder="$2"
+       parameterfile="$2/setup.e3d"
+       shift
+      else
+       echo "You did not provide an argument for the -f flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -n)  if [ $# -gt 1 ]; then
+        numofproc="$2"
+        shift
+       else
+        echo "You did not provide an argument for the -n flag"
+        usage
+        exit 1
+       fi
+   ;;
+  -a)  if [ $# -gt 0 ]; then
+        delta="$2"
+        shift
+       else
+        echo "The provided argument for the -a flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -t)  if [ $# -gt 1 ]; then
+        NumberOfTimeLevels="$2"
+        shift
+       else
+        echo "The provided argument for the -t flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -p)  if [ $# -gt 0 ]; then
+        Periodicity="$2"
+        shift
+       else
+        echo "The provided argument for the -p flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -h) if [ $# -gt 1 ]; then
+       hostfile="$2"
+       checkfilename=$(ls $hostfile | grep -w $hostfile )
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing hostfile '$hostfile' ...                         "
+        exit 1
+       fi
+       chostfile="-hostfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -h flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -r) if [ $# -gt 1 ]; then
+       rankfile="$2"
+       checkfilename=$(ls $rankfile | grep -w $rankfile)
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing rankfile '$rankfile' ...                         "
+        exit 1
+       fi
+       crankfile="-rankfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -r flag"
+        usage
+        exit 1
+      fi
+   ;;
+   *) echo "Unrecognized flag or argument: $flag"
+      usage
+      exit 1
+   ;;
+ esac
+ shift
+done
+
+
+# if [[ -z $NumberOfTimeLevels ]]
+# then
+# NumberOfTimeLevels=36
+# echo "Number of time levels is set to 36!"
+# fi
+
+if [[ -z $parameterfile ]] || [[ -z $numofproc ]]
+then
+  echo " ------------------------------------------------------------------------------ "
+  echo "                       Missing arguments ...                                    "
+  echo " ------------------------------------------------------------------------------ "
+  usage
+  exit 1
+fi
+
+checkfilename=$(ls $parameterfile | grep -w $parameterfile)
+if [ "$checkfilename" == "" ]
+then
+echo " ------------------------------------------------------------------------------ "
+echo "             Missing parameterfile '$parameterfile' ...                         "
+echo " ------------------------------------------------------------------------------ "
+exit 1
+fi
+
+cp ${parameterfile} _data/Extrud3D_0.dat
+cp ${parameterfolder}/*.off . 1> /dev/null
+cp ${parameterfolder}/*.OFF . 1> /dev/null
+
+./s3d_mesher 1> /dev/null
+
+let s=numofproc-1
+./partitioner  ${s} -30   2 "NEWFAC" "_data/meshDir/file.prj" 1> /dev/null
+
+echo "  "
+echo "  ----------------------------------------------------------------------------------------------------- "
+echo "                                        Launching E3D...                                           "
+echo "  ----------------------------------------------------------------------------------------------------- "
+echo "  "
+echo "  "
+
+if [ ${delta} -ne 0 ] ; then
+
+ let nmax=360/delta
+
+else
+
+  if [ ${NumberOfTimeLevels} -eq 2 ] ; then
+  nmax=2
+  delta=180
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 3 ] ; then
+  nmax=3
+  delta=120
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 4 ] ; then
+  nmax=4
+  delta=90
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 6 ] ; then
+  nmax=6
+  delta=60
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 8 ] ; then
+  nmax=8
+  delta=45
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 10 ] ; then
+  nmax=10
+  delta=36
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 12 ] ; then
+  nmax=12
+  delta=30
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 20 ] ; then
+  nmax=20
+  delta=18
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 24 ] ; then
+  nmax=24
+  delta=15
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 30 ] ; then
+  nmax=30
+  delta=12
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 36 ] ; then
+  nmax=36
+  delta=10
+  fi
+
+  if [ ${NumberOfTimeLevels} -eq 40 ] ; then
+  nmax=40
+  delta=9
+  fi
+fi
+
+if [ ${NumberOfTimeLevels} -eq 0 ] || [ ${NumberOfTimeLevels} -eq 1 ] ; then
+ nmax=0
+ delta=0
+else
+ let nmax=360/Periodicity/delta
+fi
+#  if [ $GangZahl == 0 ]
+#  then
+#   let nmax=360/delta
+#  else
+#   let nmax=360/Periodicity/delta
+#  fi
+# fi
+
+nmin=0
+start=0
+
+echo " " | cat >> _data/Extrud3D_0.dat
+echo "[E3DSimulationSettings]" | cat >> _data/Extrud3D_0.dat
+echo "dAlpha="${delta} | cat >> _data/Extrud3D_0.dat
+echo "Periodicity="$Periodicity | cat >> _data/Extrud3D_0.dat
+echo "nSolutions="${NumberOfTimeLevels} | cat >> _data/Extrud3D_0.dat
+
+for ((i=${nmin}; i<=${nmax};i++))
+do
+
+ cat _data/Extrud3D_0.dat > _data/Extrud3D.dat
+ 
+ let angle=start+i*delta
+ if [ ${i} -eq ${nmin} ] || [ ${i} -eq ${nmax} ]
+ then
+  if [ ${i} -eq ${nmin} ] && [ ${i} -ne ${nmax} ]
+  then
+   echo "Angle=${angle}" | cat >> _data/Extrud3D.dat
+   echo "Phase=0" | cat >> _data/Extrud3D.dat
+  fi
+  if [ ${i} -eq ${nmax} ] && [ ${i} -ne ${nmin} ]
+  then
+   echo "Angle=${angle}" | cat >> _data/Extrud3D.dat
+   echo "Phase=2" | cat >> _data/Extrud3D.dat
+  fi
+  if [ ${i} -eq ${nmin} ] && [ ${i} -eq ${nmax} ]
+  then
+   echo "Angle=${angle}" | cat >> _data/Extrud3D.dat
+   echo "Phase=3" | cat >> _data/Extrud3D.dat
+  fi
+ else
+   echo "Angle=${angle}" | cat >> _data/Extrud3D.dat
+   echo "Phase=1" | cat >> _data/Extrud3D.dat
+ fi
+
+#  cat angle.txt _data/Extrud3D_0.dat > _data/Extrud3D.dat
+ echo "angle: " $i $angle
+ mpirun -np $numofproc $chostfile $crankfile ./q2p1_sse
+
+ if [ ${angle} -lt 10 ]
+ then
+   zeros=000
+ else
+  if [ ${angle} -lt 100 ]
+  then
+   zeros=00
+  else
+   if [ ${angle} -lt 1000 ]
+   then
+    zeros=0
+   else
+    zeros=
+   fi
+  fi
+ fi
+ 
+ mv _data/prot.txt _data/prot_${zeros}${angle}.txt
+
+done
+
+rm *.off  1> /dev/null
+rm *.OFF  1> /dev/null
+
+exit 1

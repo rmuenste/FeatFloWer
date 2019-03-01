@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+
+usage()
+{
+cat << EOF
+usage: 
+
+$0 {-f Filename} {-n NumOfProcs}
+
+OPTIONS:
+   -f      Configuration folder provided by the E3D GUI
+   -n      Total number of processors required for the simulations - constrained within <3,99>
+   -p      Periodicity of the solution (1,2,3 ... most of the time flight number)
+   -a      Angular stepsize between simulation points (automatically is used 10)
+   -h      Hostfile including list of nodes available for the simulation (for deatils see the manual of OpenMPI)
+   -r      Rankfile coding the assignement of subdomains to nodes (for deatils see the manual of OpenMPI)
+   -t      Number of timelevels covering 360 deg (4:90deg, 10:36deg, 36:10deg, 40:9deg)
+EOF
+}
+
+crankfile=""
+chostfile=""
+NumberOfTimeLevels=36
+Periodicity=1
+delta=10
+
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
+
+while [ $# != 0 ]; do
+ flag="$1"
+ case "$flag" in
+  -f) if [ $# -gt 1 ]; then
+       parameterfolder="$2"
+       parameterfile="$2/setup.e3d"
+       shift
+      else
+       echo "You did not provide an argument for the -f flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -n)  if [ $# -gt 1 ]; then
+        numofproc="$2"
+        shift
+       else
+        echo "You did not provide an argument for the -n flag"
+        usage
+        exit 1
+       fi
+   ;;
+  -a)  if [ $# -gt 0 ]; then
+        delta="$2"
+        shift
+       else
+        echo "The provided argument for the -a flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -t)  if [ $# -gt 1 ]; then
+        NumberOfTimeLevels="$2"
+        shift
+       else
+        echo "The provided argument for the -t flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -p)  if [ $# -gt 0 ]; then
+        Periodicity="$2"
+        shift
+       else
+        echo "The provided argument for the -p flag is incorrrect: ",$2
+        usage
+        exit 1
+       fi
+   ;;
+  -h) if [ $# -gt 1 ]; then
+       hostfile="$2"
+       checkfilename=$(ls $hostfile | grep -w $hostfile )
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing hostfile '$hostfile' ...                         "
+        exit 1
+       fi
+       chostfile="-hostfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -h flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -r) if [ $# -gt 1 ]; then
+       rankfile="$2"
+       checkfilename=$(ls $rankfile | grep -w $rankfile)
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing rankfile '$rankfile' ...                         "
+        exit 1
+       fi
+       crankfile="-rankfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -r flag"
+        usage
+        exit 1
+      fi
+   ;;
+   *) echo "Unrecognized flag or argument: $flag"
+      usage
+      exit 1
+   ;;
+ esac
+ shift
+done
+
+cp _data_BU/q2p1_paramT_0.dat _data/q2p1_paramT.dat
+cp _data_BU/q2p1_paramV_0.dat _data/q2p1_param.dat
+./e3d_driver -f $parameterfolder -n $numofproc  -p $Periodicity -t $NumberOfTimeLevels -a $delta
+mpirun -n $numofproc e3d_temp_bin
+mkdir _prot0
+mv _data/prot* _prot0/.
+
+cp _data_BU/q2p1_paramT_1.dat _data/q2p1_paramT.dat
+cp _data_BU/q2p1_paramV_1.dat _data/q2p1_param.dat
+./e3d_driver -f $parameterfolder -n $numofproc  -p $Periodicity -t $NumberOfTimeLevels -a $delta
+mpirun -n $numofproc e3d_temp_bin
+mkdir _prot1
+mv _data/prot* _prot1/
+
+cp _data_BU/q2p1_paramV_2.dat _data/q2p1_param.dat
+./e3d_driver -f $parameterfolder -n $numofproc  -p $Periodicity -t $NumberOfTimeLevels -a $delta
+
+exit 1
