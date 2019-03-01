@@ -27,6 +27,10 @@ enable_testing()
 include(CTest)
 
 include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+#=========================================================================
+#                         custom targets  
+#=========================================================================
+include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
 
 #=========================================================================
 #                         compiler settings
