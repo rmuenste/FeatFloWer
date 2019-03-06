@@ -310,7 +310,7 @@ C
       dArea = 0d0
       dFlux = 0d0
       dAlphaCoeff = myProcess%HeatTransferCoeff*(1d3) ! scaling 
-      tAmbient = myProcess%AirTemperature 
+      tAmbient = myProcess%AmbientTemperature 
 C
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.

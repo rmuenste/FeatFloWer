@@ -236,6 +236,7 @@ module iniparser
   public :: INIP_dumpToUnit
   public :: inip_openFileForReading
   public :: inip_openFileForWriting
+  public :: inip_makeDirectory  
 
   interface inip_toupper
     module procedure inip_toupper_replace

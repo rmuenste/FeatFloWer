@@ -242,15 +242,15 @@ IF (myid.ne.0) CALL CreateDumpStructures(1)
 
 call SolFromFileRepart(start_file,1)
 
-!if (myid .ne. 0) then
-!  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
-!
-!    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
-!    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
-!    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
-!
-!  end do
-!end if
+if (myid .ne. 0) then
+ do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+
+   mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+   mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+   mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+
+ end do
+end if
 
 ilev = mg_Mesh%nlmin
 

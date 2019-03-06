@@ -16,7 +16,8 @@ subroutine init_q2p1_ext(log_unit)
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_GeneralLinScalar,InitLinearOperators, &
-    Transport_LinScalar,InitHeatObjects,LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON
+    Transport_LinScalar,InitHeatObjects,LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON,&
+    SetTracerToLoadedTemperatue
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
@@ -47,7 +48,8 @@ subroutine init_q2p1_ext(log_unit)
     call InitHeatObjects()
     call init_sol_same_level(CSTART)
     call InitLinearOperators(log_unit, mg_mesh)
-    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+!     call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+    call SetTracerToLoadedTemperatue(Boundary_LinSc_Val_EWIKON)
 !     
 !     if (myid.ne.0) call CreateDumpStructures(1)
 !     call SolFromFile(CSTART,1)

@@ -1,5 +1,6 @@
 Program e3d_mesher
 USE Sigma_User, ONLY : mySetup,mySigma,myProcess
+USE iniparser, ONLY : inip_makeDirectory
 implicit none
 REAL*8 DZi,DZo,DL,Dzz,dx,DA
 INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2
@@ -32,9 +33,11 @@ WRITE(*,*) CaseFile
 
 CALL ReadPar()
 
+
 IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
- WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
- CALL system(TRIM(ADJUSTL(command)))
+!  WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
+!  CALL system(TRIM(ADJUSTL(command)))
+ call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
 
  nR = mySetup%m_nR;     nT = mySetup%m_nT;    nZ = mySetup%m_nZ
  Dzo = mySigma%Dz_out;  Dzi = mySigma%Dz_in;  DL  = mySigma%L
@@ -52,8 +55,9 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
 
- WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
- CALL system(TRIM(ADJUSTL(command)))
+!  WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
+!  CALL system(TRIM(ADJUSTL(command)))
+ call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
 
  nN = mySetup%m_nT;     nM = mySetup%m_nR;    nZ = mySetup%m_nZ;  nP = mySetup%m_nP  
  Dzo = mySigma%Dz_out;  DL  = mySigma%L
@@ -71,8 +75,9 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
 
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
 
- WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
- CALL system(TRIM(ADJUSTL(command)))
+!  WRITE(command,'(2A)') 'mkdir ',TRIM(ADJUSTL(CaseFile))
+!  CALL system(TRIM(ADJUSTL(command)))
+ call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
 
  DZo = mySigma%Dz_out;  DZi = mySigma%Dz_in; DA  = mySigma%a
  DL  = mySigma%L;       dx  = mySigma%W;     DZz = mySigma%Dzz

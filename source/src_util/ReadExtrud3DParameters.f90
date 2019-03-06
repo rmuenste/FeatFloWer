@@ -59,7 +59,7 @@
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
     call inip_toupper_replace(cUnit)
     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
-      WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+      WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
       cUnit = 'CM'
     END IF
     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
@@ -1435,13 +1435,16 @@
       myMaterials(iMat)%Alpha = (1e5*myMaterials(iMat)%lambda)/((1e0*myMaterials(iMat)%Density)*(myMaterials(iMat)%Cp*1e7))
     END DO
     
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AirTemperature", myProcess%AirTemperature ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AmbientTemperature", myProcess%AmbientTemperature ,myInf)
+    if (myProcess%AmbientTemperature.eq.myInf) then
+     if (myid.eq.1) WRITE(*,*)  "Ambient temperature is undefined ==>", myProcess%AmbientTemperature
+    end if
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Process","TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
     read(sCoorString,*) myProcess%TemperatureSensorCoor
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","TemperatureSensorRadius", myProcess%TemperatureSensorRadius,-1d0)
-    if (myProcess%TemperatureSensorRadius.le.0d0) then
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","TemperatureSensorRadius", myProcess%TemperatureSensorRadius,myInf)
+    if (myProcess%TemperatureSensorRadius.eq.myInf) then
      myProcess%TemperatureSensorRadius = 0d0
-     WRITE(*,*) "Temperature sensor is undefined, Radius=", myProcess%TemperatureSensorRadius
+     if (myid.eq.1) WRITE(*,*) "Temperature sensor is undefined, Radius=", myProcess%TemperatureSensorRadius
     end if
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HeatTransferCoeff", myProcess%HeatTransferCoeff ,0d0)
@@ -1487,7 +1490,7 @@
      write(*,'(A)') 
     END DO
     write(*,*) 
-    write(*,'(A,ES12.4)') "myProcess%AirTemperature=",myProcess%AirTemperature 
+    write(*,'(A,ES12.4)') "myProcess%AmbientTemperature=",myProcess%AmbientTemperature 
     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
     write(*,'(A,ES12.4)') "myProcess%HeatTransferCoeff=", myProcess%HeatTransferCoeff    

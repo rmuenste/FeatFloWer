@@ -234,6 +234,31 @@ END SUBROUTINE InitCond_LinScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SetTracerToLoadedTemperatue(sub_BC)
+USE PP3D_MPI, ONLY : myid
+EXTERNAL sub_BC
+
+NLMAX = NLMAX + 1
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+! Set the types of boundary conditions (set up knpr)
+CALL Create_Knpr(LinSc_Knpr)
+
+if (myid.ne.0) then
+ Tracer%Val(NLMAX)%x = Temperature
+end if
+
+! Set boundary conditions
+CALL sub_BC()
+
+NLMAX = NLMAX - 1
+
+END SUBROUTINE SetTracerToLoadedTemperatue
+!
+! ----------------------------------------------
+!
 SUBROUTINE InitCond_GeneralLinScalar(sub_IC,sub_BC)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 EXTERNAL sub_IC,sub_BC
@@ -248,6 +273,10 @@ CALL Create_Knpr(LinSc_Knpr)
 
 ! Set The initial Conditions
 CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
+
+if (myid.ne.0) then
+ Tracer%Val(NLMAX)%x = Temperature
+end if
 
 ! Set boundary conditions
 CALL sub_BC()

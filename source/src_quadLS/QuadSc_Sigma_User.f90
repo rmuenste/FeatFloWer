@@ -57,7 +57,7 @@ TYPE tProcess
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AirTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
+   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
    integer   nOfInflows
    TYPE (tInflow), allocatable :: myInflow(:)
    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]

@@ -58,7 +58,7 @@ DO i=1,Tracer%ndof
 
  iSeg = myHeatObjects%Segment(i)
  
- IF (iSeg.eq.0) Tracer%val(NLMAX)%x(i) = myProcess%AirTemperature
+ IF (iSeg.eq.0) Tracer%val(NLMAX)%x(i) = myProcess%AmbientTemperature
  IF (iSeg.ne.0) then
   Tracer%val(NLMAX)%x(i) = mySigma%mySegment(iSeg)%InitTemp
  END IF
@@ -168,11 +168,23 @@ DO i=1,Tracer%ndof
  END IF
 
  IF (Tracer%knpr(i).eq.3) THEN
-  
+
    Tracer%val(NLMAX)%x(i)= 290d0
+
+ END IF
+
+ IF (Tracer%knpr(i).eq.4) THEN
+  
+   Tracer%val(NLMAX)%x(i)= 300d0
     
  END IF
  
+ IF (Tracer%knpr(i).eq.5) THEN
+
+   Tracer%val(NLMAX)%x(i)= 310d0
+
+ END IF
+
 END DO
 
 END SUBROUTINE Boundary_LinSc_Val_EWIKON
