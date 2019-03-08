@@ -95,8 +95,9 @@ IF(${OUT_OF_SOURCE_BUILD})
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_RTD")
   ENDIF()
 
+  # copy the data directories
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_data_BU")
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_data_BU")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_data_BU" "${CMAKE_CURRENT_BINARY_DIR}/_data_BU" )
   ENDIF()
 
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py")
@@ -115,7 +116,9 @@ install(TARGETS q2p1_sse
     )
 
 install(FILES q2p1_sse_start.py DESTINATION bin)
-#install(FILES partitioner DESTINATION bin PERMISSIONS WORLD_EXECUTE)
+
+install(FILES partitioner DESTINATION bin
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU)
 
