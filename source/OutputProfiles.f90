@@ -1861,7 +1861,7 @@ SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature
+USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature,myBoundary
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -1979,6 +1979,17 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shearrate",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(10d0**Shearrate(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('Wall')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wall",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   IF (myBoundary%bWall(ivt)) THEN
+    write(iunit, '(A,E16.7)')"        ",1d0
+   ELSE
+    write(iunit, '(A,E16.7)')"        ",0d0
+   END IF
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2215,6 +2226,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
  CASE('Shearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shearrate","""/>"
+ CASE('Wall')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wall","""/>"
  CASE('LogShearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","LogShearrate","""/>"
  CASE('HeatObjects')

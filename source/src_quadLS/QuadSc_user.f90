@@ -109,7 +109,7 @@ IF (iT.lt.0) THEN
  iInflow = ABS(iT)
  
  IF (ALLOCATED(myProcess%myInflow)) then
-  IF (SIZE(myProcess%myInflow).le.iInflow) then
+  IF (SIZE(myProcess%myInflow).ge.iInflow) then
  
    IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
     dCenter       = myProcess%myInflow(iInflow)%center
@@ -149,7 +149,7 @@ IF (iT.lt.0) THEN
     ValW = dProfil(3)
    END IF
   else
-   write(*,*) 'Inflow array is not allocated!!'
+   write(*,*) 'Inflow array is not allocated!!', iInflow,SIZE(myProcess%myInflow)
    stop
   END IF
  else

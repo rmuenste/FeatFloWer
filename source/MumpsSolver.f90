@@ -6,6 +6,10 @@ IMPLICIT NONE
 INCLUDE 'dmumps_struc.h'
 TYPE (DMUMPS_STRUC) mumps_par
 
+integer*4, allocatable, dimension(:), target :: myJCN_P
+integer*4, allocatable, dimension(:), target :: myIRN_p
+real*8 , allocatable, dimension(:), target :: A_loc_P
+
  CONTAINS
 !
 ! ------------------------------------------------------------------------
@@ -42,12 +46,18 @@ IMPLICIT NONE
 REAL*8 B(*)
 TYPE(tMatrix) L
 INTEGER I,J,K
-!integer*4, allocatable, dimension(:), target :: myIRN
 
  mumps_par%N  = L%nu
  mumps_par%NZ = L%na
- ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
- ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+ 
+ allocate( myIRN_P ( mumps_par%NZ  ) )
+ allocate( myJCN_P ( mumps_par%NZ  ) )
+
+ mumps_par%IRN => myIRN_P
+ mumps_par%JCN => myJCN_P 
+ 
  K = 0
  DO I = 1, L%nu
   DO J = L%LdA(i),L%LdA(i+1)-1
@@ -75,8 +85,15 @@ INTEGER I,J,K
  NJ = L%nu
  mumps_par%N  = 3*L%nu
  mumps_par%NZ = 3*L%na
- ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
- ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+
+ allocate( myIRN_P ( mumps_par%NZ  ) )
+ allocate( myJCN_P ( mumps_par%NZ  ) )
+
+ mumps_par%IRN => myIRN_P
+ mumps_par%JCN => myJCN_P 
+
  K = 0
  DO I = 1, NJ
   DO J = L%LdA(i),L%LdA(i+1)-1
@@ -113,8 +130,15 @@ INTEGER NJ
  NJ = L%nu
  mumps_par%N  = 3*L%nu
  mumps_par%NZ = 9*L%na
- ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
- ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
+!  ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
+
+ allocate( myIRN_P ( mumps_par%NZ  ) )
+ allocate( myJCN_P ( mumps_par%NZ  ) )
+
+ mumps_par%IRN => myIRN_P
+ mumps_par%JCN => myJCN_P 
+ 
  K = 0
  DO I = 1, NJ
   DO J = L%LdA(i),L%LdA(i+1)-1
@@ -179,9 +203,21 @@ INTEGER I,J,K,iG,jG
  CALL GetParPressure(X,XP)
 
  mumps_par%NZ_loc = L%na + LP%na
- ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+ 
+!  ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+
+  allocate( A_loc_P( mumps_par%NZ_loc) )
+  allocate( myIRN_P ( mumps_par%NZ_loc  ) )
+  allocate( myJCN_P ( mumps_par%NZ_loc  ) )
+
+  ! Set the pointer to the local allocatable array
+  ! as this memory will not be freed by MUMPS
+  mumps_par%IRN_loc => myIRN_P
+  mumps_par%JCN_loc => myJCN_P 
+  mumps_par%A_loc => A_loc_P 
+
  K = 0
  DO I = 1, L%nu
   iG = GlobalNumberingP1(I) 
@@ -215,9 +251,18 @@ TYPE(tMatrix) L
 INTEGER I,J,K,iG,jG
 
  mumps_par%NZ_loc = 3*L%na
- ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+ allocate( A_loc_P( mumps_par%NZ_loc) )
+ allocate( myIRN_P ( mumps_par%NZ_loc  ) )
+ allocate( myJCN_P ( mumps_par%NZ_loc  ) )
+
+ ! Set the pointer to the local allocatable array
+ ! as this memory will not be freed by MUMPS
+ mumps_par%IRN_loc => myIRN_P
+ mumps_par%JCN_loc => myJCN_P 
+ mumps_par%A_loc => A_loc_P 
 
  K = 0
 
@@ -271,10 +316,20 @@ INTEGER NJ,NI
  NI = myGlobal_ndof
 
  mumps_par%NZ_loc = 9*L%na
- ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
- ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%IRN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
+!  ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
 
+ allocate( A_loc_P( mumps_par%NZ_loc) )
+ allocate( myIRN_P ( mumps_par%NZ_loc  ) )
+ allocate( myJCN_P ( mumps_par%NZ_loc  ) )
+
+ ! Set the pointer to the local allocatable array
+ ! as this memory will not be freed by MUMPS
+ mumps_par%IRN_loc => myIRN_P
+ mumps_par%JCN_loc => myJCN_P 
+ mumps_par%A_loc => A_loc_P 
+  
  K = 0
 
  DO I = 1, NJ
@@ -399,6 +454,10 @@ SUBROUTINE MUMPS_CleanUp
 IMPLICIT NONE
 
 !  Deallocate user data
+IF (ALLOCATED(myIRN_P)) DEALLOCATE( myIRN_P )
+IF (ALLOCATED(myJCN_P)) DEALLOCATE( myJCN_P )
+IF (ALLOCATED(A_loc_P)) DEALLOCATE( A_loc_P )
+
 IF ( mumps_par%MYID .eq. 0 )THEN
   DEALLOCATE( mumps_par%RHS )
 END IF

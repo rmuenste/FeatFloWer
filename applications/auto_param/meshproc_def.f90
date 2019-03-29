@@ -694,7 +694,7 @@ DO iS = 1,NumberOfSurfaces
  
  write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.par'
  open(1,file=trim(cFile))
- write(1,*) myPar(iS)%nvt, 'nothing'
+ write(1,*) myPar(iS)%nvt, 'Wall'
  write(1,*) '" "'
  nm = 0
  do ivt=1,nvt

@@ -848,6 +848,12 @@ SUBROUTINE QuadScalar_Knpr()
     mg_mesh%level(ilev)%nat+&
     mg_mesh%level(ilev)%nel
 
+  DO i=1,ndof
+   IF (myBoundary%bWall(i)) THEN
+    IF (.not.(mg_mesh%BndryNodes(i)%bOuterPoint)) myBoundary%bWall(i) = .FALSE.
+   END IF
+  END DO  
+    
   QuadSc%knprU(ILEV)%x = 0
   QuadSc%knprV(ILEV)%x = 0
   QuadSc%knprW(ILEV)%x = 0

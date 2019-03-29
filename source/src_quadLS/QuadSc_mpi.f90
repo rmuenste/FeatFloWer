@@ -676,36 +676,36 @@ jAux = 0
 IF (myid.NE.0) THEN
  CALL InitOctTree(rCoor,cndof)
  DO I=1,ndof
-  CALL FindInOctTree(rCoor,cndof,dCoor(:,i),J,dist)
-  IF (J.lt.0) then
-   WRITE(*,*) I,"PROBLEM of Q2 dof assignement ..."
-  end if
-  IF (DIST.LT.DEpsPrec) THEN 
-   iCoor(I) = j
-   jAux = jAux + 1
-  END IF
-  CALL FindInPeriodicOctTree(rCoor,cndof,dCoor(:,i),J,dist,dPeriodicity)
-  IF (DIST.LT.DEpsPrec) THEN 
-   iCoor(I) = j
-   jAux = jAux + 1
-  END IF
-!   P1X = dCoor(1,I)
-!   P1Y = dCoor(2,I)
-!   P1Z = dCoor(3,I)
-!   bFound = .FALSE.
-!   DO J=1,cndof
-!    P2X = rCoor(1,J)
-!    P2Y = rCoor(2,J)
-!    P2Z = rCoor(3,J)
-!     IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
-!         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
-!         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
-!      iCoor(I) = j
-!      jAux = jAux + 1
-!      bFound = .TRUE.
-!     END IF
-!    END DO
-!    IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
+!   CALL FindInOctTree(rCoor,cndof,dCoor(:,i),J,dist)
+!   IF (J.lt.0) then
+!    WRITE(*,*) I,"PROBLEM of Q2 dof assignement ..."
+!   end if
+!   IF (DIST.LT.DEpsPrec) THEN 
+!    iCoor(I) = j
+!    jAux = jAux + 1
+!   END IF
+!   CALL FindInPeriodicOctTree(rCoor,cndof,dCoor(:,i),J,dist,dPeriodicity)
+!   IF (DIST.LT.DEpsPrec) THEN 
+!    iCoor(I) = j
+!    jAux = jAux + 1
+!   END IF
+  P1X = dCoor(1,I)
+  P1Y = dCoor(2,I)
+  P1Z = dCoor(3,I)
+  bFound = .FALSE.
+  DO J=1,cndof
+   P2X = rCoor(1,J)
+   P2Y = rCoor(2,J)
+   P2Z = rCoor(3,J)
+    IF (((ABS(P1X-P2X).LT.DEpsPrec).OR.(ABS(ABS(P1X-P2X)-dPeriodicity(1)).LT.DEpsPrec)).AND.&
+        ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
+        ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
+     iCoor(I) = j
+     jAux = jAux + 1
+     bFound = .TRUE.
+    END IF
+   END DO
+   IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
   END DO
  CALL FreeOctTree()
  END IF
