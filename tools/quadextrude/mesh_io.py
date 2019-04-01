@@ -382,3 +382,37 @@ def readElements(f):
 
     return quads
 
+#===============================================================================
+#                        Function readInpFile
+#===============================================================================
+def readInpFile(fileName):
+    """
+    Reader for a quad mesh in the *.inp file format 
+
+    Args:
+        fileName: the file handle to the msh file 
+
+    Attention !!
+    ONLY QUAD MESHES ARE READ CORRECTLY
+    """
+
+    nodesList = []
+    quads = []
+    totalNodes = 0
+    with open(fileName, "r") as f:
+        line = f.readline()
+        words = line.split(" ")
+        totalNodes = int(words[0])
+        totalElements = int(words[1])        
+        for i in range(totalNodes):
+            line = f.readline()
+            words = line.split(" ")
+            nodesList.append((float(words[1]), float(words[2]), float(words[3])))        
+        for i in range(totalElements):    
+            line = f.readline()
+            words = line.split(" ")
+            nodeIds = [int(words[i]) for i in range(3,7)]    
+            quadElem = Quad(nodeIds, int(words[1]), int(words[0]))
+            quads.append(quadElem)
+
+    return QuadMesh(nodesList, quads)
