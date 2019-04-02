@@ -660,10 +660,39 @@ END SUBROUTINE BuildFaceLists
 SUBROUTINE ExportParFiles()
 character cfile*(200)
 integer, allocatable :: iVerts(:)
-integer nn,nm,ivt,iel,iS
+integer nn,nm,nw,ivt,iel,iS
 
 allocate(iVerts(nvt))
 allocate(myPar(0:NumberOfSurfaces))
+
+nn = 0
+nm = 0
+nw = 0
+iVerts = 0
+DO iS = 1,NumberOfSurfaces
+ do iArea=1,nArea
+  if (kNeighE(2,iArea).eq.-iS) then
+   nn = nn + 1
+   iVerts(kfaces(:,iArea)) = 1
+  end if
+ end do
+ do ivt=1,nvt
+  if (iVerts(ivt).eq.1) nm = nm + 1
+ end do
+END DO
+
+do iel=1,nel
+ j = 0
+ do i=1,8
+  ivt = kvert(i,iel)
+  j = j + iVerts(ivt)
+ end do
+ if (j.eq.8) then
+!   write(*,*) 'warning:, Element has all nodes at the boundary: ',iel
+  nw = nw + 1
+ end if
+end do
+if (nw.ne.0) write(*,*) 'WARNING: There are ',nw,' element(s) having all nodes at the boundary!'
 
 DO iS = 1,NumberOfSurfaces
  iVerts = 0
