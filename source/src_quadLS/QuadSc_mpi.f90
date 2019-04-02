@@ -518,7 +518,7 @@ IF (myid.NE.0) THEN
      bFound = .TRUE.
     END IF
    END DO
-!    IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
+!    IF (.NOT.BFOUND) WRITE(*,*) 'pair was not found!', myid,i
   END DO
  END IF
 
@@ -705,7 +705,7 @@ IF (myid.NE.0) THEN
 !      bFound = .TRUE.
 !     END IF
 !    END DO
-!    IF (.NOT.BFOUND) WRITE(*,*) 'shit!!', myid,i
+!    IF (.NOT.BFOUND) WRITE(*,*) 'pair was not found!', myid,i
   END DO
  CALL FreeOctTree()
  END IF
