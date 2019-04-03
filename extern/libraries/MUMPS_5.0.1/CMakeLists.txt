@@ -55,7 +55,10 @@ add_library(mumps_common ${mumps_common_src})
 
 set_target_properties(mumps_common PROPERTIES LINKER_LANGUAGE Fortran)
 
-target_include_directories(mumps_common PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/PORD/include /sfw/openmpi/intel16.0.x/1.10.2/nonthreaded/include)
+target_include_directories(mumps_common PRIVATE 
+  ${CMAKE_CURRENT_SOURCE_DIR}/include 
+  ${CMAKE_CURRENT_SOURCE_DIR}/PORD/include 
+  /sfw/openmpi/intel16.0.x/1.10.2/nonthreaded/include)
 
 target_compile_definitions(mumps_common PRIVATE Add_=1 pord=1 MUMPS_ARITH=MUMPS_Arith_d)
 

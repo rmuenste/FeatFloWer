@@ -1,5 +1,4 @@
-# cmake version
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.0)
 
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
@@ -325,30 +324,6 @@ else(USE_SYSTEM_BLASLAPACK)
   set(LAPACK_LIBRARIES lapack)
 endif(USE_SYSTEM_BLASLAPACK)
 
-#=========================================================================
-#                      Configure MPI/MKL/MUMPS 
-#=========================================================================
-find_package(MPI)
-
-message(STATUS "CMake MPI_FORTRAN_INCLUDE_PATH : ${MPI_Fortran_INCLUDE_PATH}")
-message(STATUS "CMake MPI_Fortran_LIBRARIES : ${MPI_Fortran_LIBRARIES}")
-
-add_subdirectory(extern/libraries/feat2d)
-add_subdirectory(extern/libraries/feat3d)
-add_subdirectory(extern/libraries/amd)
-add_subdirectory(extern/libraries/umfpack4)
-
-if(USE_MUMPS)
-  find_package(MKL)
-  if(${Q2P1_BUILD_ID} MATCHES "intel")
-    add_definitions(-DMUMPS_AVAIL)
-    add_subdirectory(extern/libraries/MUMPS_5.0.1)
-    set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
-  else(${Q2P1_BUILD_ID} MATCHES "intel")
-    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
-  endif(${Q2P1_BUILD_ID} MATCHES "intel")
-endif(USE_MUMPS)
-
 if(BUILD_METIS)
   add_subdirectory(extern/libraries/metis-4.0.3)
 endif(BUILD_METIS)
@@ -387,14 +362,14 @@ message( STATUS "CGAL path: ${CGAL_LIBRARIES} ")
 if(USE_CGAL)
   set(USE_BOOST True)
   if(NOT WIN32)
-    ExternalProject_Add(CGAL_PRJ
-      GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-      GIT_TAG rafa-devel
-      SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-      PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-      #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
-      )
+        ExternalProject_Add(CGAL_PRJ
+          GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+          GIT_TAG rafa-devel
+          SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
+          PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
+          #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
+          CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
+          )
 
     if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
       set(CGAL_LIBRARIES 
@@ -480,6 +455,32 @@ if(USE_BOOST)
   # set(Boost_DEBUG True)
   find_package(Boost 1.53 REQUIRED COMPONENTS thread)
 endif(USE_BOOST)
+
+#=========================================================================
+#                      Configure MPI/MKL/MUMPS 
+#=========================================================================
+find_package(MPI)
+
+SET(MPI_VENDOR "openmpi" CACHE STRING "Variant of the OpenMPI implementation")
+
+message(STATUS "CMake MPI_FORTRAN_INCLUDE_PATH : ${MPI_Fortran_INCLUDE_PATH}")
+message(STATUS "CMake MPI_Fortran_LIBRARIES : ${MPI_Fortran_LIBRARIES}")
+
+add_subdirectory(extern/libraries/feat2d)
+add_subdirectory(extern/libraries/feat3d)
+add_subdirectory(extern/libraries/amd)
+add_subdirectory(extern/libraries/umfpack4)
+
+if(USE_MUMPS)
+  find_package(MKL)
+  if(${Q2P1_BUILD_ID} MATCHES "intel")
+    add_definitions(-DMUMPS_AVAIL)
+    add_subdirectory(extern/libraries/MUMPS_5.0.1)
+    set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
+  else(${Q2P1_BUILD_ID} MATCHES "intel")
+    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
+  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+endif(USE_MUMPS)
 
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
