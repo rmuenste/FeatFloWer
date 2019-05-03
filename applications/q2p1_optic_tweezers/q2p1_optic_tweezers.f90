@@ -44,7 +44,7 @@ PROGRAM Q2P1_OPTIC_TWEEZERS
     inonln_t = 2
   END IF
 
-  call postprocessing_fc_ext(dout, iogmv, inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
