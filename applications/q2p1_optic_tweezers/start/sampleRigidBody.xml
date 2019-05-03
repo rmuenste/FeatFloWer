@@ -14,6 +14,7 @@
     totalTimesteps = "1000"
     timeStep = "0.001"
     solverType = "0"
+    outputRigidBodies = "1"
     lcpSolverIterations = "1000"
     collPipelineIterations = "1"
     extents ="-0.1 0.1 -0.1 0.1 -0.1 0.1 "
@@ -21,7 +22,7 @@
   </ApplicationSettings>
   <RigidBodyList size = "1">
     <RigidBody
-      type = "0"
+      type = "15"
       position = "-0.001 0.0 0.0"	  
       velocity = "0.0 0.0 0.0"	  	  
       angularVelocity = "0.0 0.0 0.0"	  	  	  
@@ -33,11 +34,11 @@
       V = "0.0 1.0 0.0"	  	  
       W = "0.0 0.0 1.0"	  	  
       density = "1180"
-      tensor = "0.0 0.0 0.0"
-      volume = "0.0"
+      tensor = "1.58139e+10 1.58139e+10 1.58139e+10"
+      volume = "3.34933e-08"
       restitution = "0.0"	  	  	  
       affectedByGravity = "1"
-      meshFile = "meshes/engrave.obj"	  	  	  	  
+      meshFile = "meshes/sphere.off"	  	  	  	  
       >
     </RigidBody>	
   </RigidBodyList>
