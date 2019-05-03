@@ -31,9 +31,6 @@ REAL*8 :: Sigma=0.034D0,DiracEps=0.00625d0
 INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
 REAL tttt0,tttt1
-external updateFBM
-! external GetFictKnpr
-! external GetVeloFictBCVal
 
 ! interfaces for the fbm_update and fbm_geom function
 ! handlers that process the dynamics update and
@@ -321,12 +318,21 @@ END SUBROUTINE Init_Die_Handlers
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_Laser_Handlers()
+implicit none
+
+ fbm_up_handler_ptr => fbm_updateLaser
+
+END SUBROUTINE Init_Laser_Handlers
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_Default_Handlers()
 ! In this function we set the function handlers
 ! for FBM, etc. to their default values
 implicit none
 
- fbm_up_handler_ptr => updateFBM
+ fbm_up_handler_ptr => fbm_updateDefault
  fbm_geom_handler_ptr => fbm_getFictKnpr
  fbm_vel_bc_handler_ptr => fbm_velBC
 

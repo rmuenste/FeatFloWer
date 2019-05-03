@@ -56,7 +56,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
- USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+ USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc, &
+                            Init_Laser_Handlers
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
@@ -145,6 +146,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END IF                                               ! PARALLEL
 
  CALL Init_QuadScalar(mfile)
+ call Init_Laser_Handlers()
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 

@@ -335,7 +335,7 @@ if(USE_OPTICALTWEEZERS)
   set(OPTICALTWEEZERS_LIBRARY True)
 
   ExternalProject_Add(OPTICALTWEEZERS_PRJ
-    GIT_REPOSITORY /data/warehouse14/rmuenste/code/GitHub/raytracing-ot/raytracing 
+    GIT_REPOSITORY ssh://rmuenste@arryn.mathematik.tu-dortmund.de/data/warehouse14/rmuenste/code/GitHub/raytracing-ot/raytracing 
     GIT_TAG mit_octree
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers
     PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers-dir
