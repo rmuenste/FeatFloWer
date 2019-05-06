@@ -3246,6 +3246,14 @@ DO
     READ(string(iEq+1:),*) Props%ViscoLambda
     IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
     IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
+    CASE ("ViscoAlphaImp")
+    READ(string(iEq+1:),*) Props%ViscoAlphaImp
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaImp
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaImp
+    CASE ("ViscoAlphaExp")
+    READ(string(iEq+1:),*) Props%ViscoAlphaExp
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
     CASE ("ViscoModel")
     READ(string(iEq+1:),*) Props%ViscoModel
     IF (myid.eq.showid) write(mterm,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel

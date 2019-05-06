@@ -63,6 +63,10 @@ if(bViscoElasticFAC)then
 end if
 
 
+ValU = 0d0
+ValV = 0d0
+ValW = 0d0
+
 ! if (Y.lt.0.5d0) then
 !  ValU = tanh(3d1*(Y-0.25d0))
 ! else

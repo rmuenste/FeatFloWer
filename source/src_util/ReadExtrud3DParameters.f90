@@ -813,7 +813,7 @@
      IF (ADJUSTL(TRIM(cMeshQuality)).eq."MEDIUM".or.ADJUSTL(TRIM(cMeshQuality)).eq."MITTEL") THEN
       mySetup%MeshResolution = 2
      END IF
-     IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB") THEN
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB".or.ADJUSTL(TRIM(cMeshQuality)).eq."COARSE") THEN
       mySetup%MeshResolution = 1
      END IF
      call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Tangential1",mySetup%m_nT1,0)

@@ -56,14 +56,9 @@ DO inl=1,ninl
 
 END DO
 
-! call myMPI_Barrier()
-! stop
+CALL ExtractViscoGradients()
 
-! ViscoSc%Val33 = 0d0
-! ViscoSc%Val13 = 0d0
-! ViscoSc%Val23 = 0d0
-
-!CALL EqualizeSolutions()
+! CALL EqualizeSolutions()
 
 ! CALL Output_BenchQuantity()
 
@@ -86,6 +81,14 @@ ALLOCATE(ViscoSc%Val33(ndof))
 ALLOCATE(ViscoSc%Val12(ndof))
 ALLOCATE(ViscoSc%Val13(ndof))
 ALLOCATE(ViscoSc%Val23(ndof))
+
+CALL AllocateStressGrad(ViscoSc%grad11)
+CALL AllocateStressGrad(ViscoSc%grad22)
+CALL AllocateStressGrad(ViscoSc%grad33)
+CALL AllocateStressGrad(ViscoSc%grad12)
+CALL AllocateStressGrad(ViscoSc%grad13)
+CALL AllocateStressGrad(ViscoSc%grad23)
+
 ViscoSc%Val11 = 1d0
 ViscoSc%Val22 = 1d0
 ViscoSc%Val33 = 1d0
@@ -149,6 +152,9 @@ END DO
 
 CALL Create_MMat()
 
+CALL Create_ViscoDiffMat()
+
+
 END SUBROUTINE Init_ViscoScalar_Stuctures
 !
 ! ----------------------------------------------
@@ -200,7 +206,7 @@ INTEGER i
 DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PZ = myQ2Coor(3,i)
- IF (PZ.lt.-11.99d0) THEN
+ IF (PX.lt.-19.99d0) THEN
   def(0*ViscoSc%ndof+i) = 0d0
   def(1*ViscoSc%ndof+i) = 0d0
   def(2*ViscoSc%ndof+i) = 0d0
@@ -224,10 +230,10 @@ DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PY = myQ2Coor(2,i)
  PZ = myQ2Coor(3,i)
- IF (PZ.lt.-11.99d0) THEN
+ IF (PX.lt.-19.99d0) THEN
   daux = -Properties%ViscoLambda*0.75d0*PY
-!   tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
-  tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+  tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
+!  tau = [1d0,1d0,1d0,0d0,0d0,0d0]
   CALL ConvertTauToPsi(tau,psi)
 
   ViscoSc%Val11(i) = psi(1)
@@ -390,4 +396,74 @@ END SUBROUTINE ProlongateViscoSolution
 !
 ! ----------------------------------------------
 !
+SUBROUTINE ExtractViscoGradients()
+integer :: ilevel
+integer i,ndof
+
+EXTERNAL E013
+
+ilev   = mg_mesh%nlmax
+ilevel = mg_mesh%nlmax
+
+ IF (myid.ne.0) then
+
+  ndof = ViscoSc%ndof
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val11,ViscoSc%grad11)
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val22,ViscoSc%grad22)
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val33,ViscoSc%grad33)
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val12,ViscoSc%grad12)
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val13,ViscoSc%grad13)
+  CALL  ExtractViscoGradientsComp(ViscoSc%def(ilevel)%x,ViscoSc%Val23,ViscoSc%grad23)
+
+ END IF
+ 
+CONTAINS 
+
+SUBROUTINE ExtractViscoGradientsComp(dd,uu,grad)
+TYPE(tGradient) :: grad
+REAL*8 dd(*),uu(*)
+
+  dd(0:ndof) = 0d0
+
+  grad%x = 0d0
+  grad%y = 0d0
+  grad%z = 0d0
+  
+  CALL L2ProjGradScalar(uu,grad%x,grad%y,grad%z,dd,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kedge,&
+                        mg_mesh%level(ilevel)%dcorvg,E013)
+
+  CALL E013Sum(grad%x)
+  CALL E013Sum(grad%y)
+  CALL E013Sum(grad%z)
+  CALL E013Sum(dd)
+
+  DO i=1,ndof
+   grad%x(i) = grad%x(i)/dd(i)
+   grad%y(i) = grad%y(i)/dd(i)
+   grad%z(i) = grad%z(i)/dd(i)
+  END DO
+
+END SUBROUTINE ExtractViscoGradientsComp
+
+END SUBROUTINE ExtractViscoGradients
+!
+! ----------------------------------------------
+!
+SUBROUTINE AllocateStressGrad(grad)
+TYPE(tGradient) :: grad
+integer ndof
+
+ ndof = ViscoSc%ndof
+ if (.not.allocated(grad%x)) ALLOCATE(grad%x(ndof))
+ if (.not.allocated(grad%y)) ALLOCATE(grad%y(ndof))
+ if (.not.allocated(grad%z)) ALLOCATE(grad%z(ndof))
+ grad%x = 0d0
+ grad%y = 0d0
+ grad%z = 0d0
+ 
+END SUBROUTINE AllocateStressGrad
+
 END MODULE ViscoScalar

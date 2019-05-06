@@ -90,7 +90,7 @@ TYPE tProperties
  REAL*8 :: Gravity(3)
  REAL*8, dimension(6) :: ForceScale = (/1d0, 1d0, 1d0, 1d0, 1d0, 1d0/)
  REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
- REAL*8 :: ViscoLambda
+ REAL*8 :: ViscoLambda,ViscoAlphaExp,ViscoAlphaImp
  INTEGER :: ViscoModel
  INTEGER :: nInterface
 END TYPE tProperties
@@ -117,12 +117,17 @@ TYPE mg_kVector
  INTEGER  , DIMENSION(:) , ALLOCATABLE :: x
 END TYPE mg_kVector
 
+TYPE tGradient
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x,y,z
+END TYPE tGradient
+
 TYPE TViscoScalar
  CHARACTER cName*7
  INTEGER :: ndof,na
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val11,val22,val33,val12,val13,val23,rhs0,ValOld,diag
  INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
  TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol
+ TYPE(tGradient) :: grad11,grad22,grad33,grad12,grad13,grad23
  TYPE(tParamV) :: prm
  LOGICAL :: bProlRest=.FALSE.
 END TYPE
@@ -193,7 +198,7 @@ REAL*8, DIMENSION(:), POINTER :: BXMat,BYMat,BZMat
 REAL*8, DIMENSION(:), POINTER :: BTXMat,BTYMat,BTZMat
 REAL*8, DIMENSION(:), POINTER :: BXPMat,BYPMat,BZPMat
 REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
-REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat
+REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ViscoDMat
 REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
 REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
@@ -231,7 +236,7 @@ END TYPE mg_Matrix
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat,mg_BYMat,mg_BZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BTXMat,mg_BTYMat,mg_BTZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXPMat,mg_BYPMat,mg_BZPMat
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_DMat,mg_KMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_DMat,mg_KMat,mg_ViscoDMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A12mat,mg_A13mat,mg_A23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg_A32mat

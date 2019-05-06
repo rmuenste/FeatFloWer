@@ -1946,6 +1946,11 @@ DO iField=1,SIZE(myExport%Fields)
   END DO
 
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
+!   do ivt=1,NoOfVert
+!    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Val11(ivt)),REAL(ViscoSc%Val22(ivt)),REAL(ViscoSc%Val33(ivt)),REAL(ViscoSc%Val12(ivt)),REAL(ViscoSc%Val13(ivt)),REAL(ViscoSc%Val23(ivt))
+!   end do
+
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,6E16.7)')"        ",REAL(tau(1,ivt)),REAL(tau(2,ivt)),REAL(tau(3,ivt)),REAL(tau(4,ivt)),REAL(tau(5,ivt)),REAL(tau(6,ivt))
   end do
@@ -1954,6 +1959,45 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, *)"        </DataArray>"
   end if
  
+ CASE('GradStress')
+  if(bViscoElastic)then
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_11",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad11%x(ivt)),REAL(ViscoSc%Grad11%y(ivt)),REAL(ViscoSc%Grad11%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_22",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad22%x(ivt)),REAL(ViscoSc%Grad22%y(ivt)),REAL(ViscoSc%Grad22%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_33",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad33%x(ivt)),REAL(ViscoSc%Grad33%y(ivt)),REAL(ViscoSc%Grad33%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_12",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad12%x(ivt)),REAL(ViscoSc%Grad12%y(ivt)),REAL(ViscoSc%Grad12%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_13",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad13%x(ivt)),REAL(ViscoSc%Grad13%y(ivt)),REAL(ViscoSc%Grad13%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+
+    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","GradStress_23",""" NumberOfComponents=""3"" format=""ascii"">"
+    do ivt=1,NoOfVert
+    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Grad23%x(ivt)),REAL(ViscoSc%Grad23%y(ivt)),REAL(ViscoSc%Grad23%z(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+  end if
+  
  CASE('MeshVelo')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2217,6 +2261,15 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Stress')
   if(bViscoElastic)then
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6""/>"
+  end if
+ CASE('GradStress')
+  if(bViscoElastic)then
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_11",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_22",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_33",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_12",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_13",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_23",""" NumberOfComponents=""3""/>"
   end if
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
