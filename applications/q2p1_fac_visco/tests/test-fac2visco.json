@@ -1,0 +1,62 @@
+{
+    "TestConfiguration": {
+        "DetailedConfiguration": {
+            "meshFolderPath": "_adc/ViscoHex2",
+            "meshProjectFile": "_adc/ViscoHex2/aaa.prj",
+            "testDataFile": "_adc/ViscoHex2/q2p1_param_visco_2D.dat",
+            "testBinaryName": "q2p1_fac_visco",
+            "testNoteName": "fac2Dvisco-bench",
+            "testLevels": "1",
+            "processorCount": "5"
+        },
+        "DashBoardConfiguration": {
+            "name": "conf1",
+            "DashBoardAttributes": {
+                "benchName": "FAC-Visco",
+                "DashBoardData": {
+                    "benchKeyword": "TimevsForce",
+                    "DataValues": {
+                        "count": "1",
+                        "value": [
+                            "3"
+                        ]
+                    }
+                },
+                "DashBoardVisualization": {
+                    "name": "Vis1",
+                    "type": "table",
+                    "DashBoardTable": {
+                        "Tables": [{
+                            "DataGenerator": {
+                                "benchKeyword": "TimevsForce",
+                                "DataValues": {
+                                    "count": "1",
+                                    "value": [
+                                        "3"
+                                    ]
+                                }
+                            },
+                            "benchName": "FAC-Visco",
+                            "tableCaption": "Visco-Elastic FAC",
+                            "data": {
+                                "cols": [{
+                                        "label": "Level",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Drag",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Time[s]",
+                                        "type": "number"
+                                    }
+                                ]
+                            }
+                        }]
+                    }
+                }
+            }
+        }
+    }
+}

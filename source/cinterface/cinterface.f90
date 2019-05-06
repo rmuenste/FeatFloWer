@@ -78,30 +78,30 @@ module cinterface
     REAL*8 posx,posy,posz
 
     DO iP = 1,myFBM%nParticles
-    ipc=iP-1
+      ipc=iP-1
 
-    call update_particle_state(posx,posy,posz,&
-      velx,vely,velz,&
-      angx,angy,angz,&
-      angvelx,angvely,angvelz,&
-      ipc)
+      call update_particle_state(posx,posy,posz,&
+        velx,vely,velz,&
+        angx,angy,angz,&
+        angvelx,angvely,angvelz,&
+        ipc)
 
-    myFBM%ParticleNew(iP)%Position(1)=posx
-    myFBM%ParticleNew(iP)%Position(2)=posy
-    myFBM%ParticleNew(iP)%Position(3)=posz
+      myFBM%ParticleNew(iP)%Position(1)=posx
+      myFBM%ParticleNew(iP)%Position(2)=posy
+      myFBM%ParticleNew(iP)%Position(3)=posz
 
-    myFBM%ParticleNew(iP)%Velocity(1)=velx
-    myFBM%ParticleNew(iP)%Velocity(2)=vely
-    myFBM%ParticleNew(iP)%Velocity(3)=velz 
+      myFBM%ParticleNew(iP)%Velocity(1)=velx
+      myFBM%ParticleNew(iP)%Velocity(2)=vely
+      myFBM%ParticleNew(iP)%Velocity(3)=velz 
 
-    myFBM%ParticleNew(iP)%Angle(1)=angx
-    myFBM%ParticleNew(iP)%Angle(2)=angy
-    myFBM%ParticleNew(iP)%Angle(3)=angz
+      myFBM%ParticleNew(iP)%Angle(1)=angx
+      myFBM%ParticleNew(iP)%Angle(2)=angy
+      myFBM%ParticleNew(iP)%Angle(3)=angz
 
-    myFBM%ParticleNew(iP)%AngularVelocity(1)=angvelx
-    myFBM%ParticleNew(iP)%AngularVelocity(2)=angvely
-    myFBM%ParticleNew(iP)%AngularVelocity(3)=angvelz
-
+      myFBM%ParticleNew(iP)%AngularVelocity(1)=angvelx
+      myFBM%ParticleNew(iP)%AngularVelocity(2)=angvely
+      myFBM%ParticleNew(iP)%AngularVelocity(3)=angvelz
+      
     END DO
 
   END SUBROUTINE FBM_GetParticleStateUpdate

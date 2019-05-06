@@ -1,0 +1,59 @@
+{
+    "TestConfiguration": {
+        "DetailedConfiguration": {
+            "meshFolderPath": "_adc/2D_FAC", 
+            "meshProjectFile": "_adc/2D_FAC/2Dbench.prj", 
+            "testDataFile": "_adc/2D_FAC/q2p1_param_2D.dat", 
+            "testBinaryName": "q2p1_fc_ext", 
+            "testNoteName": "fac2D-bench", 
+            "testLevels": "1", 
+            "processorCount": "16"
+        }, 
+        "DashBoardConfiguration": {
+            "name": "conf1", 
+            "DashBoardAttributes": {
+                "benchName": "NEWTFAC", 
+                "DashBoardData": {
+                    "benchKeyword": "BenchForce:", 
+                    "DataValues": {
+                        "count": "2", 
+                        "value": [
+                            "1", 
+                            "2"
+                        ]
+                    }
+                }, 
+                "DashBoardVisualization": {
+                    "name": "Vis1", 
+                    "type": "table",
+                    "DashBoardTable": [
+                        {
+                            "benchName": "NEWTFAC", 
+                            "tableCaption": "Newt 2D Flow Around A Cylinder", 
+                            "data": {
+                                "cols": [
+                                    {
+                                        "label": "Level", 
+                                        "type": "number"
+                                    }, 
+                                    {
+                                        "label": "Drag", 
+                                        "type": "number"
+                                    }, 
+                                    {
+                                        "label": "Lift", 
+                                        "type": "number"
+                                    }, 
+                                    {
+                                        "label": "Time[s]", 
+                                        "type": "number"
+                                    }
+                                ]
+                            }
+                        } 
+                    ]
+                }
+            }
+        }
+    }
+}
