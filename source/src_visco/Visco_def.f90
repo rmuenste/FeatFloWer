@@ -21,13 +21,13 @@ EXTERNAL E013
 ILEV = NLMAX
 CALL SETLEV(2)
 
-VisMat_11 => mg_VisMat_11(ILEV)%a
-VisMat_22 => mg_VisMat_22(ILEV)%a
-VisMat_33 => mg_VisMat_33(ILEV)%a
-VisMat_12 => mg_VisMat_12(ILEV)%a
-VisMat_13 => mg_VisMat_13(ILEV)%a
-VisMat_23 => mg_VisMat_23(ILEV)%a
-ViscoDMat => mg_ViscoDMat(ILEV)%a
+ VisMat_11 => mg_VisMat_11(ILEV)%a
+ VisMat_22 => mg_VisMat_22(ILEV)%a
+ VisMat_33 => mg_VisMat_33(ILEV)%a
+ VisMat_12 => mg_VisMat_12(ILEV)%a
+ VisMat_13 => mg_VisMat_13(ILEV)%a
+ VisMat_23 => mg_VisMat_23(ILEV)%a
+ ConstDMat => mg_ConstDMat(ILEV)%a
 
 MlMat     => mg_MlMat(ILEV)%a
 KMat      => mg_KMat(ILEV)%a
@@ -57,17 +57,17 @@ Scalar%val13,Scalar%def(ILEV)%x(4*ndof + 1),-thstep,1d0)
 CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
 Scalar%val23,Scalar%def(ILEV)%x(5*ndof + 1),-thstep,1d0)
 
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val11,Scalar%def(ILEV)%x(0*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val22,Scalar%def(ILEV)%x(1*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val33,Scalar%def(ILEV)%x(2*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val12,Scalar%def(ILEV)%x(3*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val13,Scalar%def(ILEV)%x(4*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
-! CALL LAX17(ViscoDMat,qMat%ColA,qMat%LdA,qMat%nu,&
+! CALL LAX17(ConstDMat,qMat%ColA,qMat%LdA,qMat%nu,&
 ! Scalar%val23,Scalar%def(ILEV)%x(5*ndof + 1),-tstep*Properties%ViscoAlphaExp,1d0)
 
 CALL   DivGradStress(Scalar%val11,&
@@ -77,7 +77,7 @@ CALL   DivGradStress(Scalar%val11,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
 
 CALL   DivGradStress(Scalar%val22,&
        Scalar%grad22%x,Scalar%grad22%y,Scalar%grad22%z,&
@@ -86,7 +86,7 @@ CALL   DivGradStress(Scalar%val22,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
 
 CALL   DivGradStress(Scalar%val33,&
        Scalar%grad33%x,Scalar%grad33%y,Scalar%grad33%z,&
@@ -95,7 +95,7 @@ CALL   DivGradStress(Scalar%val33,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
 
 CALL   DivGradStress(Scalar%val12,&
        Scalar%grad12%x,Scalar%grad12%y,Scalar%grad12%z,&
@@ -104,7 +104,7 @@ CALL   DivGradStress(Scalar%val12,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
 
 CALL   DivGradStress(Scalar%val13,&
        Scalar%grad13%x,Scalar%grad13%y,Scalar%grad13%z,&
@@ -113,7 +113,7 @@ CALL   DivGradStress(Scalar%val13,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
        
 CALL   DivGradStress(Scalar%val23,&
        Scalar%grad23%x,Scalar%grad23%y,Scalar%grad23%z,&
@@ -122,62 +122,11 @@ CALL   DivGradStress(Scalar%val23,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp)
+       E013,Properties%ViscoAlphaExp,0d0)
 
 Scalar%rhs0 = Scalar%def(ILEV)%x
 
 END SUBROUTINE GetRHS_Visco
-!
-! ----------------------------------------------
-!
-SUBROUTINE Create_ViscoDiffMat
-EXTERNAL E013
-
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_ViscoDmat)) ALLOCATE(mg_ViscoDmat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_ViscoDmat(ILEV)%a)) THEN
-   ALLOCATE(mg_ViscoDmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_ViscoDmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  CALL DIFFQ2_alpha(mg_ViscoDmat(ILEV)%a,qMat%na,qMat%ColA,&
-       qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013,1d0)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat      => mg_qMat(NLMAX)
- ViscoDmat => mg_ViscoDmat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
-
-END SUBROUTINE Create_ViscoDiffMat
 !
 ! ----------------------------------------------
 !
@@ -196,14 +145,14 @@ DO ILEV = NLMIN,NLMAX
  VisMat_12 => mg_VisMat_12(ILEV)%a
  VisMat_13 => mg_VisMat_13(ILEV)%a
  VisMat_23 => mg_VisMat_23(ILEV)%a
- ViscoDMat => mg_ViscoDMat(ILEV)%a
+ ConstDMat => mg_ConstDMat(ILEV)%a
  MlMat     => mg_MlMat(ILEV)%a
  KMat      => mg_KMat(ILEV)%a
  qMat      => mg_qMat(ILEV)
 
  DO I=1,qMat%nu
   J = qMat%LdA(I)
-  daux = MlMat(I) + thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ViscoDMat(J)
+  daux = MlMat(I) + thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ConstDMat(J)
   VisMat_11(J) = daux
   VisMat_22(J) = daux
   VisMat_33(J) = daux
@@ -211,7 +160,7 @@ DO ILEV = NLMIN,NLMAX
   VisMat_13(J) = daux
   VisMat_23(J) = daux
   DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
-   daux = thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ViscoDMat(J)
+   daux = thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ConstDMat(J)
    VisMat_11(J) = daux
    VisMat_22(J) = daux
    VisMat_33(J) = daux

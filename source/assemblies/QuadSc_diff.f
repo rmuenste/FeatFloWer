@@ -544,8 +544,6 @@ C *** Calculation of the matrix - storage technique 7 or 8
       ICUBP=ICUB
       CALL ELE(0D0,0D0,0D0,-2)
 C
-      dvisc = dAlpha
-C
 C *** Loop over all elements
       DO 100 IEL=1,NEL
 
@@ -578,6 +576,12 @@ C *** Evaluation of coordinates of the vertices
       DY(IVE)=DCORVG(2,JP)
       DZ(IVE)=DCORVG(3,JP)
 120   CONTINUE
+C
+      CALL GetElemVol(DX,DY,DZ,DVOL)
+      dHHH = DVOL**0.3333d0
+!      IF (dAlpha.ge.0.1d0) write(*,*) dHHH,DVOL
+C
+      dVisc = dHHH**(dAlpha)
 C
 C *** Loop over all cubature points
       DO 200 ICUBP=1,NCUBP

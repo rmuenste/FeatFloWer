@@ -152,8 +152,9 @@ END DO
 
 CALL Create_MMat()
 
-CALL Create_ViscoDiffMat()
+CALL Create_ConstDiffMat()
 
+IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE Init_ViscoScalar_Stuctures
 !

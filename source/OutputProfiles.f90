@@ -1910,6 +1910,26 @@ DO iField=1,SIZE(myExport%Fields)
      REAL(QuadSc%ValW(ivt))
   end do
   write(iunit, *)"        </DataArray>"
+  
+ CASE('GradVelocity')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValUx(ivt)),REAL(QuadSc%ValUy(ivt)),REAL(QuadSc%ValUz(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity_y",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValVx(ivt)),REAL(QuadSc%ValVy(ivt)),REAL(QuadSc%ValVz(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity_z",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,3E16.7)')"        ",REAL(QuadSc%ValWx(ivt)),REAL(QuadSc%ValWy(ivt)),REAL(QuadSc%ValWz(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
  CASE('PartForce')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","PartForce",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -1945,7 +1965,7 @@ DO iField=1,SIZE(myExport%Fields)
      tau(6,i) = (tau(6,i) - 0d0)/Properties%ViscoLambda
   END DO
 
-  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
+!  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
 !   do ivt=1,NoOfVert
 !    write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Val11(ivt)),REAL(ViscoSc%Val22(ivt)),REAL(ViscoSc%Val33(ivt)),REAL(ViscoSc%Val12(ivt)),REAL(ViscoSc%Val13(ivt)),REAL(ViscoSc%Val23(ivt))
 !   end do
@@ -2256,6 +2276,10 @@ DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
  CASE('Velocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
+ CASE('GradVelocity')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_y",""" NumberOfComponents=""3""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_z",""" NumberOfComponents=""3""/>"
  CASE('PartForce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","PartForce",""" NumberOfComponents=""3""/>"
  CASE('Stress')

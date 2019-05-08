@@ -385,7 +385,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
-      ProlongationDirection
+      ProlongationDirection,bNS_Stabilization
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -587,6 +587,11 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) cParam
           bBoundaryCheck = .FALSE.
           IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bBoundaryCheck = .true.
+        CASE ("NS_Stabilization")
+          cParam = " "
+          READ(string(iEq+1:),*) cParam
+          bNS_Stabilization = .FALSE.
+          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bNS_Stabilization = .true.
         CASE ("OutputFreq")
           READ(string(iEq+1:),*) DTGMV
         CASE ("MatrixRenewal")

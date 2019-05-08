@@ -38,6 +38,7 @@ LOGICAL :: bNoOutflow,bTracer,bViscoElastic,bRefFrame
 LOGICAL :: bViscoElasticFAC=.FALSE.
 LOGICAL :: bSteadyState =.FALSE.
 LOGICAL :: bBoundaryCheck=.FALSE.
+LOGICAL :: bNS_Stabilization=.FALSE.
 
 ! Integer parameter for terminal output
 integer, parameter :: uterm = 6
@@ -90,7 +91,9 @@ TYPE tProperties
  REAL*8 :: Gravity(3)
  REAL*8, dimension(6) :: ForceScale = (/1d0, 1d0, 1d0, 1d0, 1d0, 1d0/)
  REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
- REAL*8 :: ViscoLambda,ViscoAlphaExp,ViscoAlphaImp
+ REAL*8 :: ViscoLambda
+ REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
+ REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
  INTEGER :: ViscoModel
  INTEGER :: nInterface
 END TYPE tProperties
@@ -198,7 +201,7 @@ REAL*8, DIMENSION(:), POINTER :: BXMat,BYMat,BZMat
 REAL*8, DIMENSION(:), POINTER :: BTXMat,BTYMat,BTZMat
 REAL*8, DIMENSION(:), POINTER :: BXPMat,BYPMat,BZPMat
 REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
-REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ViscoDMat
+REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ConstDMat,hDMat
 REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
 REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
@@ -236,7 +239,7 @@ END TYPE mg_Matrix
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat,mg_BYMat,mg_BZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BTXMat,mg_BTYMat,mg_BTZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXPMat,mg_BYPMat,mg_BZPMat
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_DMat,mg_KMat,mg_ViscoDMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_DMat,mg_KMat,mg_ConstDMat,mg_hDMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A12mat,mg_A13mat,mg_A23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg_A32mat

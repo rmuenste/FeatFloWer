@@ -1342,6 +1342,11 @@ SUBROUTINE OperatorRegenaration(iType)
     bHit = .TRUE.
   END IF
 
+  IF (iType.EQ.1.and.bNS_Stabilization) then
+   CALL Create_hDiffMat()
+   bHit = .TRUE.
+  END IF
+
   IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE OperatorRegenaration
@@ -1804,6 +1809,27 @@ ilevel = mg_mesh%nlmax
  END IF
 
 END SUBROUTINE  GetNonNewtViscosity
+!
+! ----------------------------------------------
+!
+SUBROUTINE ExtractVeloGradients()
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+
+END SUBROUTINE ExtractVeloGradients
 !
 ! ----------------------------------------------
 !

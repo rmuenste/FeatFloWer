@@ -863,6 +863,122 @@ END SUBROUTINE Fill_QuadLinParMat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Create_hDiffMat()
+EXTERNAL E013
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_hDmat)) THEN
+  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+ ELSE
+  IF (myid.eq.showID) THEN
+   WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: Exists |"
+  END IF
+  RETURN
+ END IF
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_hDmat(ILEV)%a)) THEN
+   ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))
+  END IF
+
+  mg_hDmat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+
+  CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
+       qMat%LdA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       E013,1d0)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ hDMat => mg_hDMat(NLMAX)%a
+ 
+ CALL ZTIME(myStat%t1)
+ myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+END SUBROUTINE Create_hDiffMat
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_ConstDiffMat()
+EXTERNAL E013
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_ConstDMat)) THEN
+  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+ ELSE
+  IF (myid.eq.showID) THEN
+   WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: Exists |"
+  END IF
+  RETURN
+ END IF
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_ConstDMat(ILEV)%a)) THEN
+   ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))
+  END IF
+
+  mg_ConstDMat(ILEV)%a=0d0
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+
+  CALL DIFFQ2_alpha(mg_ConstDMat(ILEV)%a,qMat%na,qMat%ColA,&
+       qMat%LdA,&
+       mg_mesh%level(ILEV)%kvert,&
+       mg_mesh%level(ILEV)%karea,&
+       mg_mesh%level(ILEV)%kedge,&
+       mg_mesh%level(ILEV)%dcorvg,&
+       E013,0d0)
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat      => mg_qMat(NLMAX)
+ ConstDMat => mg_ConstDMat(NLMAX)%a
+ 
+ CALL ZTIME(myStat%t1)
+ myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+END SUBROUTINE Create_ConstDiffMat
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_DiffMat(myScalar)
 TYPE(TQuadScalar) myScalar
 EXTERNAL E013
@@ -1649,6 +1765,10 @@ REAL tttx1,tttx0
      S32Mat   => mg_S32Mat(ILEV)%a
     END IF
 
+    IF (bNS_Stabilization) THEN
+     hDmat  => mg_hDmat(ILEV)%a
+    END IF
+    
     IF (myMatrixRenewal%D.GE.1) THEN
      DMat     => mg_DMat(ILEV)%a
     END IF
@@ -1792,6 +1912,17 @@ REAL tttx1,tttx0
 
   END DO
  END IF
+ 
+ IF (bNS_Stabilization) THEN
+  DO I=1,qMat%nu
+   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+    daux =  +tstep*Properties%NS_StabAlpha_Imp*hDmat(J)
+    A11mat(J) = A11mat(J) + daux
+    A22mat(J) = A22mat(J) + daux
+    A33mat(J) = A33mat(J) + daux
+   END DO
+  END DO
+ END IF
     !!-------------------  MATRIX Assembly -------------------!!
 
     !!-------------------    POINTER Setup  -------------------!!
@@ -1863,6 +1994,35 @@ REAL tttx1,tttx0
     myScalar%valW,myScalar%defW,-thstep,1d0)
    END IF
 
+   IF (bNS_Stabilization) THEN
+    CALL DivGradStress(myScalar%valU,&
+         myScalar%ValUx,myScalar%ValUy,myScalar%ValUz,&
+         myScalar%defU,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+         
+    CALL DivGradStress(myScalar%valV,&
+         myScalar%ValVx,myScalar%ValVy,myScalar%ValVz,&
+         myScalar%defV,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+         
+    CALL DivGradStress(myScalar%valW,&
+         myScalar%ValWx,myScalar%ValWy,myScalar%ValWz,&
+         myScalar%defW,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+   END IF
+ 
    IF (myMatrixRenewal%K.GE.1) THEN
     CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
     myScalar%valU,myScalar%defU,-thstep,1d0)
@@ -3254,6 +3414,14 @@ DO
     READ(string(iEq+1:),*) Props%ViscoAlphaExp
     IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
     IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
+    CASE ("NS_StabAlpha_Imp")
+    READ(string(iEq+1:),*) Props%NS_StabAlpha_Imp
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Imp
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Imp
+    CASE ("NS_StabAlpha_Exp")
+    READ(string(iEq+1:),*) Props%NS_StabAlpha_Exp
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Exp
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Exp
     CASE ("ViscoModel")
     READ(string(iEq+1:),*) Props%ViscoModel
     IF (myid.eq.showid) write(mterm,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
