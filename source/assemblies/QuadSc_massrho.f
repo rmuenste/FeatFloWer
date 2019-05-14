@@ -389,3 +389,20 @@ C
 100   CONTINUE
 C
 99999 END
+C
+C
+C
+      SUBROUTINE Q1ElemShapeFunction(X1,X2,X3,DPHI)
+      REAL*8 X1,X2,X3,DPHI(8)
+      REAL*8 :: Q8=0.125D0
+
+      DPHI(1)=Q8*(1D0-X1)*(1D0-X2)*(1D0-X3)
+      DPHI(2)=Q8*(1D0+X1)*(1D0-X2)*(1D0-X3)
+      DPHI(3)=Q8*(1D0+X1)*(1D0+X2)*(1D0-X3)
+      DPHI(4)=Q8*(1D0-X1)*(1D0+X2)*(1D0-X3)
+      DPHI(5)=Q8*(1D0-X1)*(1D0-X2)*(1D0+X3)
+      DPHI(6)=Q8*(1D0+X1)*(1D0-X2)*(1D0+X3)
+      DPHI(7)=Q8*(1D0+X1)*(1D0+X2)*(1D0+X3)
+      DPHI(8)=Q8*(1D0-X1)*(1D0+X2)*(1D0+X3)
+
+      END

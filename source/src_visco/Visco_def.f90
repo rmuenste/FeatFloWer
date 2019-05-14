@@ -27,7 +27,7 @@ CALL SETLEV(2)
  VisMat_12 => mg_VisMat_12(ILEV)%a
  VisMat_13 => mg_VisMat_13(ILEV)%a
  VisMat_23 => mg_VisMat_23(ILEV)%a
- ConstDMat => mg_ConstDMat(ILEV)%a
+ !ConstDMat => mg_ConstDMat(ILEV)%a
 
 MlMat     => mg_MlMat(ILEV)%a
 KMat      => mg_KMat(ILEV)%a
@@ -77,7 +77,7 @@ CALL   DivGradStress(Scalar%val11,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
 
 CALL   DivGradStress(Scalar%val22,&
        Scalar%grad22%x,Scalar%grad22%y,Scalar%grad22%z,&
@@ -86,7 +86,7 @@ CALL   DivGradStress(Scalar%val22,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
 
 CALL   DivGradStress(Scalar%val33,&
        Scalar%grad33%x,Scalar%grad33%y,Scalar%grad33%z,&
@@ -95,7 +95,7 @@ CALL   DivGradStress(Scalar%val33,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
 
 CALL   DivGradStress(Scalar%val12,&
        Scalar%grad12%x,Scalar%grad12%y,Scalar%grad12%z,&
@@ -104,7 +104,7 @@ CALL   DivGradStress(Scalar%val12,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
 
 CALL   DivGradStress(Scalar%val13,&
        Scalar%grad13%x,Scalar%grad13%y,Scalar%grad13%z,&
@@ -113,7 +113,7 @@ CALL   DivGradStress(Scalar%val13,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
        
 CALL   DivGradStress(Scalar%val23,&
        Scalar%grad23%x,Scalar%grad23%y,Scalar%grad23%z,&
@@ -122,7 +122,7 @@ CALL   DivGradStress(Scalar%val23,&
        mg_mesh%level(ILEV)%karea,&
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
-       E013,Properties%ViscoAlphaExp,0d0)
+       E013,Properties%ViscoAlphaExp,1d0)
 
 Scalar%rhs0 = Scalar%def(ILEV)%x
 
@@ -145,14 +145,15 @@ DO ILEV = NLMIN,NLMAX
  VisMat_12 => mg_VisMat_12(ILEV)%a
  VisMat_13 => mg_VisMat_13(ILEV)%a
  VisMat_23 => mg_VisMat_23(ILEV)%a
- ConstDMat => mg_ConstDMat(ILEV)%a
+ !ConstDMat => mg_ConstDMat(ILEV)%a
+ hDMat => mg_hDMat(ILEV)%a
  MlMat     => mg_MlMat(ILEV)%a
  KMat      => mg_KMat(ILEV)%a
  qMat      => mg_qMat(ILEV)
 
  DO I=1,qMat%nu
   J = qMat%LdA(I)
-  daux = MlMat(I) + thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ConstDMat(J)
+  daux = MlMat(I) + thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*hDMat(J)
   VisMat_11(J) = daux
   VisMat_22(J) = daux
   VisMat_33(J) = daux
@@ -160,7 +161,7 @@ DO ILEV = NLMIN,NLMAX
   VisMat_13(J) = daux
   VisMat_23(J) = daux
   DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
-   daux = thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*ConstDMat(J)
+   daux = thstep*KMat(J) + tstep*Properties%ViscoAlphaImp*hDMat(J)
    VisMat_11(J) = daux
    VisMat_22(J) = daux
    VisMat_33(J) = daux
@@ -323,7 +324,7 @@ ViscoSc%diag((5*ndof + 1):(6*ndof)) = MGE013(ILEV)%UE33
 ! write(*,'(A,3G16.8)') 'norm of the 1/diagonal entries ', def1
 
 dRelax = 0.7d0
-nIter = 2
+nIter = 4
 ViscoSc%sol(ILEV)%x = 0d0
 CALL Visco_SSOR_Solver(VisMat_11,VisMat_22,VisMat_33,VisMat_12,VisMat_13,VisMat_23,qMat%ColA,qMat%LdA,&
                        ViscoSc%sol(ILEV)%x,ViscoSc%def(ILEV)%x,ViscoSc%aux(ILEV)%x,ViscoSc%diag,&

@@ -326,7 +326,7 @@ type(tMultiMesh),save :: mg_mesh
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
-REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:)
+REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:)
 
 TYPE tCGALObjects
  REAL*8, ALLOCATABLE :: Block(:)

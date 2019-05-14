@@ -2214,7 +2214,8 @@ C
       SUBROUTINE DivGradStress(DU,DU1,DU2,DU3,DD,KVERT,KAREA,KEDGE,
      *           DCORVG,ELE,dAlpha,dHExp)
 ************************************************************************
-      USE var_QuadScalar, ONLY : Properties
+      USE var_QuadScalar, ONLY : Properties,ElemSizeDist
+      USE PP3D_MPI, ONLY:myid
 *-----------------------------------------------------------------------
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -2229,7 +2230,7 @@ C
       INTEGEr KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
       INTEGER KDFG(NNBAS),KDFL(NNBAS)
-      REAl*8  DEF(NNBAS),GRADU(NNDIM)
+      REAl*8  DEF(NNBAS),GRADU(NNDIM),DQ1BAS(8)
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -2295,7 +2296,7 @@ C
       CALL GetElemVol(DX,DY,DZ,DVOL)
       dHHH = DVOL**0.3333d0
 C      
-      dVisc = dAlpha*dHHH**(dHExp)
+      dVisc = dAlpha*dHHH**(dHExp)  ! constant size per element
 C
       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
@@ -2332,6 +2333,15 @@ C
       XI1=DXI(ICUBP,1)
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
+C
+      CALL Q1ElemShapeFunction(XI1,XI2,XI3,DQ1BAS)
+      DHHH1 = 0d0
+      DO IDOFE=1,8
+       JDFL=KDFL(IDOFE)
+       JDFG=KDFG(IDOFE)
+       DHHH1 = DHHH1 + DQ1BAS(JDFL)*ElemSizeDist(JDFG)
+      END DO 
+      !dVisc = dAlpha*dHHH**(dHExp) ! interpolated size 
 C
 C *** Jacobian of the bilinear mapping onto the reference element
       DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3

@@ -469,7 +469,7 @@ C
 *     Discrete diffusion operator: Q2 elements ---PREPARED !!
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
-      USE var_QuadScalar, ONLY : transform
+      USE var_QuadScalar, ONLY : transform,ElemSizeDist
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
 
@@ -484,6 +484,7 @@ C
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      REAL*8    DQ1BAS(8)
 
 C     --------------------------- Transformation -------------------------------
       REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
@@ -579,9 +580,8 @@ C *** Evaluation of coordinates of the vertices
 C
       CALL GetElemVol(DX,DY,DZ,DVOL)
       dHHH = DVOL**0.3333d0
-!      IF (dAlpha.ge.0.1d0) write(*,*) dHHH,DVOL
 C
-      dVisc = dHHH**(dAlpha)
+      dVisc = dHHH**(dAlpha) ! constant size per element
 C
 C *** Loop over all cubature points
       DO 200 ICUBP=1,NCUBP
@@ -590,6 +590,15 @@ C
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
 C
+      CALL Q1ElemShapeFunction(XI1,XI2,XI3,DQ1BAS)
+      DHHH = 0d0
+      DO IDOFE=1,8
+       JDFL=KDFL(IDOFE)
+       JDFG=KDFG(IDOFE)
+       DHHH = DHHH + DQ1BAS(JDFL)*ElemSizeDist(JDFG)
+      END DO
+      !dVisc = dHHH**(dAlpha) ! interpolated size 
+C      
 C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
       DJAC=0d0
       IF (Transform%ILINT.eq.2) THEN ! Q2

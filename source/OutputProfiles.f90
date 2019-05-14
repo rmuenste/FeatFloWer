@@ -1864,7 +1864,7 @@ USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStr
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature,myBoundary
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
-USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2081,7 +2081,14 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
-  CASE('Distamce')
+CASE('ElemSizeDist')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ElemSizeDist",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(ElemSizeDist(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
+ CASE('Distamce')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(Distance(ivt))
@@ -2311,6 +2318,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Block","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wire","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Melt","""/>"
+ CASE('ElemSizeDist')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","ElemSizeDist","""/>"
  CASE('Distamce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')

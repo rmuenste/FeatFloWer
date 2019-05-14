@@ -6,7 +6,7 @@ USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
 IMPLICIT NONE
 
-INTEGER :: ninl=3
+INTEGER :: ninl=5
 CONTAINS
 !
 ! ----------------------------------------------
@@ -152,7 +152,7 @@ END DO
 
 CALL Create_MMat()
 
-CALL Create_ConstDiffMat()
+CALL Create_hDiffMat()
 
 IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
@@ -178,7 +178,7 @@ DO i=1,ViscoSc%ndof
  PY = myQ2Coor(2,i)
  daux = -Properties%ViscoLambda*0.75*PY
  tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
-! tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+tau = [1d0,1d0,1d0,0d0,0d0,0d0]
  CALL ConvertTauToPsi(tau,psi)
 
  ViscoSc%Val11(i) = psi(1)
@@ -207,7 +207,8 @@ INTEGER i
 DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PZ = myQ2Coor(3,i)
- IF (PX.lt.-19.99d0) THEN
+ IF (PZ.lt.-11.99d0) THEN
+! IF (PX.lt.-19.99d0) THEN
   def(0*ViscoSc%ndof+i) = 0d0
   def(1*ViscoSc%ndof+i) = 0d0
   def(2*ViscoSc%ndof+i) = 0d0
@@ -231,10 +232,11 @@ DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PY = myQ2Coor(2,i)
  PZ = myQ2Coor(3,i)
- IF (PX.lt.-19.99d0) THEN
+! IF (PX.lt.-19.99d0) THEN
+ IF (PZ.lt.-11.99d0) THEN
   daux = -Properties%ViscoLambda*0.75d0*PY
   tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
-!  tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+ tau = [1d0,1d0,1d0,0d0,0d0,0d0]
   CALL ConvertTauToPsi(tau,psi)
 
   ViscoSc%Val11(i) = psi(1)
