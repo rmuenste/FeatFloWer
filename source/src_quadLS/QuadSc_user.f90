@@ -63,9 +63,9 @@ if(bViscoElasticFAC)then
 end if
 
 
-ValU = 0d0
-ValV = 0d0
-ValW = 0d0
+! ValU = 0d0
+! ValV = 0d0
+! ValW = 0d0
 
 ! if (Y.lt.0.5d0) then
 !  ValU = tanh(3d1*(Y-0.25d0))
@@ -148,6 +148,19 @@ IF (iT.lt.0) THEN
     ddensity      = myProcess%myInflow(iInflow)%density
     douterradius  = myProcess%myInflow(iInflow)%outerradius
     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+    ValU = dProfil(1)
+    ValV = dProfil(2)
+    ValW = dProfil(3)
+   END IF
+   
+   IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
+    dCenter       = myProcess%myInflow(iInflow)%center
+    dNormal       = myProcess%myInflow(iInflow)%normal
+    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+    ddensity      = myProcess%myInflow(iInflow)%density
+    douterradius  = myProcess%myInflow(iInflow)%outerradius
+    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+    dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
     ValU = dProfil(1)
     ValV = dProfil(2)
     ValW = dProfil(3)
@@ -613,6 +626,40 @@ RETURN
    FlatVelo3D(:) = dNormal(:)*dAvgVelo
   ELSE
    FlatVelo3D(:) = 0d0
+  END IF
+  
+  END 
+!------------------------------------------------------------------------------
+ function CurvedFlatVelo3D(DM,DRHO,dR2,dR3)
+ REAL*8  dVolFlow,DM,DRHO,dR2,dR3
+ REAL*8  dNRM,dAux1,dAux2,dAux3,dP1,dP2,dScale
+ REAL*8, dimension(3) :: CurvedFlatVelo3D
+ 
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
+  
+  dP1 = dR3
+  dP2 = (dR2 + dR3)/2d0
+  
+  dAux1 = -2d0*PI*( (dP1**4d0)/4d0 - ((dR2+dR3)*dP1**3d0)/3d0 + (dR2*dR3*dP1**2d0)/2d0 )
+  dAux2 = -2d0*PI*( (dP2**4d0)/4d0 - ((dR2+dR3)*dP2**3d0)/3d0 + (dR2*dR3*dP2**2d0)/2d0 )
+  dAux3 = 1d0*PI*( ((dR3-dR2)*(dR2+dR3)/4d0)**2d0)
+  
+  dScale = dVolFlow/(dAux1 - dAux2 + dAux3)
+
+  IF (DIST.LT.(dR2+dR3)*0.5d0) THEN
+   CurvedFlatVelo3D(:) =  dNormal(:)*dScale*0.25d0*(dR3-dR2)**2d0
+  ELSE
+   IF (DIST.LT.dR3) THEN
+    CurvedFlatVelo3D(:) =  dNormal(:)*dScale*(DR3 - DIST)*(DIST - DR2)
+   ELSE
+    CurvedFlatVelo3D(:) = 0d0
+   END IF
   END IF
   
   END 

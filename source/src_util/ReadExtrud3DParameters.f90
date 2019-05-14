@@ -606,6 +606,9 @@
      IF (ADJUSTL(TRIM(cBCtype)).eq."FLAT") THEN
       myProcess%myInflow(iInflow)%iBCtype = 3
      END IF
+     IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
+      myProcess%myInflow(iInflow)%iBCtype = 4
+     END IF
      if (myProcess%myInflow(iInflow)%iBCtype.eq.0) write(*,*) 'UNDEFINED Inflow type!!'
      call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
      if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
