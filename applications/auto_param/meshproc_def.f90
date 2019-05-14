@@ -721,7 +721,7 @@ DO iS = 1,NumberOfSurfaces
  myPar(iS)%nvt = nm
  write(*,*) iS,' : ', myPar(iS)%nel,myPar(iS)%nvt
  
- write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.par'
+ write(cFile,'(A,I3.3,A)') trim(cProjectFolder)//'/',iS,'.par'
  open(1,file=trim(cFile))
  write(1,*) myPar(iS)%nvt, 'Wall'
  write(1,*) '" "'
@@ -829,7 +829,7 @@ character cfile*(200)
 logical bExist
 
  iS = 0
- write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.vtp'
+ write(cFile,'(A,I3.3,A)') trim(cProjectFolder)//'/',iS,'.vtp'
  open(1,file=trim(cFile))
  write(1,'(A)')'<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">'
  write(1,'(A)')'  <PolyData>'
@@ -931,7 +931,7 @@ SUBROUTINE Output_SurfToVTK
 integer iS,ivt,iel,nn
 
 DO iS = 1,NumberOfSurfaces
- write(cFile,'(A,I2.2,A)') trim(cProjectFolder)//'/',iS,'.vtp'
+ write(cFile,'(A,I3.3,A)') trim(cProjectFolder)//'/',iS,'.vtp'
  open(1,file=trim(cFile))
  write(1,'(A)')'<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian" header_type="UInt64">'
  write(1,'(A)')'  <PolyData>'
