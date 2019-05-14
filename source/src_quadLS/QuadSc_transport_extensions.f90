@@ -164,6 +164,9 @@ inl_u = INL
 ! -------------------------------------------------
 ! Compute the pressure correction
 ! -------------------------------------------------
+
+CALL MonitorVeloMag(QuadSc)
+
 IF (myid.ne.0) THEN
 
  CALL ZTIME(tttt0)
@@ -237,6 +240,8 @@ END IF
                       mg_mesh%level(ILEV)%kedge)
 
 CALL updateFBMGeometry()
+
+CALL MonitorVeloMag(QuadSc)
 
 RETURN
 

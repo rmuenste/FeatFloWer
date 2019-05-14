@@ -3692,6 +3692,29 @@ SUBROUTINE ResetTimer()
  myStat%tCommS=0d0
 
 END SUBROUTINE ResetTimer
+!
+! ----------------------------------------------
+!
+SUBROUTINE MonitorVeloMag(myScalar)
+TYPE(TQuadScalar) myScalar
+real*8 dmax,daux
+integer i
+
+dmax = 0d0
+if (myid.ne.0) then
+ DO i=1,myScalar%ndof
+  daux = SQRT(myScalar%Valu(i)**2d0 + myScalar%Valv(i)**2d0 + myScalar%ValW(i)**2d0)
+  dmax = max(dmax,daux)
+ end do
+end if
+
+CALL COMM_Maximum(dmax)
+
+if (myid.eq.1) then
+ write(*,*) 'maximum norm of velocity: ', dmax
+end if
+
+END SUBROUTINE MonitorVeloMag
 
 END MODULE def_QuadScalar
 
