@@ -459,8 +459,35 @@ SUBROUTINE viz_OutputHistogram(iOut, sQuadSc, maxlevel)
 use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
 use Sigma_User, only : myOutput
-
 implicit none
+
+interface
+  subroutine c_write_histogram() bind(C, name="c_write_histogram")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+!    type(c1dOutput) :: thetype
+!    character(kind=c_char) :: dataName(*)
+  end subroutine c_write_histogram
+end interface
+
+interface
+  subroutine c_add_histogram(histogram) bind(C, name="c_add_histogram")
+    use cinterface, only: histoData
+    use iso_c_binding
+    type(histoData) :: histogram
+  end subroutine c_add_histogram
+end interface
+
+interface
+  subroutine c_init_histogram_section() bind(C, name="c_init_histogram_section")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+!    type(c1dOutput) :: thetype
+!    character(kind=c_char) :: dataName(*)
+  end subroutine c_init_histogram_section
+end interface
+
+
 
 integer :: iOut
 
@@ -469,9 +496,15 @@ type(tQuadScalar), intent(in) :: sQuadSc
 integer, intent(in) :: maxlevel
 
 ! local variables
+type(histoData) :: histData
 integer :: i,j,nBin
 real*8 logShear,logVisco
-real*8,allocatable :: HistoEta(:),HistoVis(:),BinEta(:,:),BinVis(:,:)
+real*8,allocatable ::BinEta(:,:),BinVis(:,:)
+
+real*8,allocatable, dimension(:), target :: HistoEta
+real*8,allocatable, dimension(:), target :: HistoVis
+real*8,allocatable, dimension(:), target :: JsonBin
+
 real*8 Ml_i,dauxVis,dauxEta
 real*8 minBinEta,mAXBinEta,minBinVis,mAXBinVis,dBinEta,dBinVis,meanEta,meanVis
 character*100 cHistoFile
@@ -479,6 +512,7 @@ character*100 cHistoFile
 nBin = myOutput%nOfHistogramBins
 if (.not.allocated(HistoEta)) allocate(HistoEta(nBin))
 if (.not.allocated(HistoVis)) allocate(HistoVis(nBin))
+if (.not.allocated(JsonBin)) allocate(JsonBin(nBin))
 if (.not.allocated(BinEta))   allocate(BinEta(3,nBin))
 if (.not.allocated(BinVis))   allocate(BinVis(3,nBin))
 
@@ -555,6 +589,7 @@ IF (myid.eq.1) THEN
   meanEta = meanEta + HistoEta(i)*BinEta(3,i)/dauxEta
  END DO
 
+
  WRITE(cHistoFile,'(A,I5.5,A)') "_hist/h_",iOut, ".txt"
  WRITE(*,'(3A)')"'",ADJUSTL(TRIM(cHistoFile)),"'"
  OPEN(FILE=ADJUSTL(TRIM(cHistoFile)),UNIT=652)
@@ -565,6 +600,33 @@ IF (myid.eq.1) THEN
   WRITE(652,'(2(1(ES14.4),A))') 10d0**meanEta, " | ",10d0**meanVis
 
  CLOSE(652)
+
+ DO i=1,nBin
+  HistoEta(i) = HistoEta(i)/dauxEta
+  HistoVis(i) = HistoVis(i)/dauxVis
+  JsonBin(i) = BinEta(3,i)
+ END DO
+
+ call c_init_histogram_section()
+
+ histData%binPos = c_loc(JsonBin)
+ histData%binHeight = c_loc(HistoEta)
+ histData%mean = 10d0**meanEta 
+ histData%length = nBin 
+ call cf_make_c_char(C_CHAR_"Eta"//C_NULL_CHAR, histData%name )
+
+ call c_add_histogram(histData)
+
+ DO i=1,nBin
+  JsonBin(i) = BinVis(3,i)
+ END DO
+
+ histData%binPos = c_loc(JsonBin)
+ histData%binHeight = c_loc(HistoVis)
+ histData%mean = 10d0**meanVis 
+ call cf_make_c_char(C_CHAR_"Viscosity"//C_NULL_CHAR, histData%name )
+
+ call c_add_histogram(histData)
 
 END IF
 
@@ -617,13 +679,6 @@ interface
   end subroutine c_init_json_output
 end interface
 
-interface
-  subroutine c_write_json_output() bind(C, name="c_write_json_output")
-    use cinterface, only: c1dOutput
-    use iso_c_binding
-  end subroutine c_write_json_output
-end interface
-
 type(tQuadScalar), intent(in) :: sQuadSc
 
 type(tLinScalar), intent(in) :: sLinSc
@@ -652,6 +707,37 @@ type(c1dOutput) :: thestruct
 
 ! For dumping the e3dfile
 type(t_parlist) :: parameterlistModifiedKTP1D
+
+! The layout of the t1DOutput structure
+type t1dname
+ character(kind = c_char, len=20) :: name
+ character(kind = c_char, len=20) :: unit
+end type t1dname
+
+type(t1dname) :: names1d(11)
+ call cf_make_c_char(C_CHAR_"VelocityZ"//C_NULL_CHAR, names1d(1)%name )
+ call cf_make_c_char(C_CHAR_"Pressure"//C_NULL_CHAR, names1d(2)%name )
+ call cf_make_c_char(C_CHAR_"Temperature"//C_NULL_CHAR, names1d(3)%name )
+ call cf_make_c_char(C_CHAR_"Viscosity"//C_NULL_CHAR, names1d(4)%name )
+ call cf_make_c_char(C_CHAR_"ShearRate"//C_NULL_CHAR, names1d(5)%name )
+ call cf_make_c_char(C_CHAR_"VelocityX"//C_NULL_CHAR, names1d(6)%name )
+ call cf_make_c_char(C_CHAR_"VelocityY"//C_NULL_CHAR, names1d(7)%name )
+ call cf_make_c_char(C_CHAR_"VelocityM"//C_NULL_CHAR, names1d(8)%name )
+ call cf_make_c_char(C_CHAR_"ShearSG"//C_NULL_CHAR, names1d(9)%name )
+ call cf_make_c_char(C_CHAR_"ShearSS"//C_NULL_CHAR, names1d(10)%name )
+ call cf_make_c_char(C_CHAR_"VelocityWSS"//C_NULL_CHAR, names1d(11)%name )
+
+ call cf_make_c_char(C_CHAR_'m/s'//C_NULL_CHAR, names1d(1)%unit )
+ call cf_make_c_char(C_CHAR_'bar'//C_NULL_CHAR, names1d(2)%unit )
+ call cf_make_c_char(C_CHAR_'C'//C_NULL_CHAR, names1d(3)%unit )
+ call cf_make_c_char(C_CHAR_'kg/m/s'//C_NULL_CHAR, names1d(4)%unit )
+ call cf_make_c_char(C_CHAR_'1/s'//C_NULL_CHAR, names1d(5)%unit )
+ call cf_make_c_char(C_CHAR_'m/s'//C_NULL_CHAR, names1d(6)%unit )
+ call cf_make_c_char(C_CHAR_'m/s'//C_NULL_CHAR, names1d(7)%unit )
+ call cf_make_c_char(C_CHAR_'m/s'//C_NULL_CHAR, names1d(8)%unit )
+ call cf_make_c_char(C_CHAR_'1/s'//C_NULL_CHAR, names1d(9)%unit )
+ call cf_make_c_char(C_CHAR_'1/s'//C_NULL_CHAR, names1d(10)%unit )
+ call cf_make_c_char(C_CHAR_'m/s'//C_NULL_CHAR, names1d(11)%unit )
 
 ! The layout of the t1DOutput structure
 !TYPE t1DOutput
@@ -720,10 +806,10 @@ type(t_parlist) :: parameterlistModifiedKTP1D
  CALL OutPut_1D_subExtra(sQuadSc%valW,ScrewDist,11, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  thestruct%length = my1DOut_nol
- thestruct%dmean = c_loc(my1DOut(2)%dMean)
- thestruct%dmin = c_loc(my1DOut(2)%dMin)
- thestruct%dmax = c_loc(my1DOut(2)%dMax)
- thestruct%dLoc = c_loc(my1DOut(2)%dLoc) 
+ thestruct%dmean = c_loc(my1DOut(1)%dMean)
+ thestruct%dmin = c_loc(my1DOut(1)%dMin)
+ thestruct%dmax = c_loc(my1DOut(1)%dMax)
+ thestruct%dLoc = c_loc(my1DOut(1)%dLoc) 
 
  call cf_make_c_char(C_CHAR_"cm"//C_NULL_CHAR, thestruct%unit_name)
 
@@ -734,19 +820,14 @@ type(t_parlist) :: parameterlistModifiedKTP1D
 
  call c_init_json_output(thestruct) 
 
- call cf_make_c_char(C_CHAR_"bar"//C_NULL_CHAR, thestruct%unit_name)
-
- call c_add_json_array(thestruct, C_CHAR_"Pressure"//C_NULL_CHAR) 
-
- thestruct%dmean = c_loc(my1DOut(1)%dMean)
- thestruct%dmin = c_loc(my1DOut(1)%dMin)
- thestruct%dmax = c_loc(my1DOut(1)%dMax)
- call cf_make_c_char(C_CHAR_"m/s"//C_NULL_CHAR, thestruct%unit_name)
-
-
- call c_add_json_array(thestruct, C_CHAR_"VelocityZ"//C_NULL_CHAR) 
-
- call c_write_json_output() 
+ do i=1,11
+   thestruct%dmean = c_loc(my1DOut(i)%dMean)
+   thestruct%dmin = c_loc(my1DOut(i)%dMin)
+   thestruct%dmax = c_loc(my1DOut(i)%dMax)
+   thestruct%dLoc = c_loc(my1DOut(i)%dLoc) 
+   call cf_make_c_char(names1d(i)%unit, thestruct%unit_name)
+   call c_add_json_array(thestruct, names1d(i)%name)
+ end do
 
  call inip_init(parameterlistModifiedKTP1D)
  ! write(*,*)'------------------This should crash-----------------------------'
@@ -1380,6 +1461,13 @@ USE Transport_Q1,ONLY:Tracer
 
 implicit none
 
+interface
+  subroutine c_write_json_output() bind(C, name="c_write_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+  end subroutine c_write_json_output
+end interface
+
 type(tExport), intent(in) :: sExport
 
 integer, intent(in) :: iOutput
@@ -1406,6 +1494,7 @@ integer :: ioutput_lvl
 
  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
+ call c_write_json_output() 
 
 end subroutine viz_output_1D_fields
 

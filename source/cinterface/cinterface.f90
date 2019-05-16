@@ -13,6 +13,14 @@ module cinterface
     character(kind = c_char) :: unit_name(255)
   end type c1dOutput
 
+  type, bind(C) :: histoData
+    integer(C_INT) :: length
+    type(c_ptr) :: binPos 
+    type(c_ptr) :: binHeight
+    real(kind = c_double) :: mean
+    character(kind = c_char) :: name(255)
+  end type histoData
+
   contains
   !
   !----------------------------------------------
