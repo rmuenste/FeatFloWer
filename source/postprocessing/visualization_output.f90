@@ -813,11 +813,6 @@ type(t1dname) :: names1d(11)
 
  call cf_make_c_char(C_CHAR_"cm"//C_NULL_CHAR, thestruct%unit_name)
 
- IF (myid.eq.1) THEN
-    write(*,*)'Len Fortran: ',my1DOut_nol
-    write(*,*)'arr(1)',my1DOut(2)%dMean(1)
- end if
-
  call c_init_json_output(thestruct) 
 
  do i=1,11
