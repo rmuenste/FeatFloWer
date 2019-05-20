@@ -188,10 +188,10 @@
        WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
       END IF
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
-     END IF
+     
 !!!==============================================     KNET     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."KNET".or.ADJUSTL(TRIM(cElemType)).eq."KNEADING") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."KNET".or.ADJUSTL(TRIM(cElemType)).eq."KNEADING") THEN
       mySigma%mySegment(iSeg)%ART   = "KNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
@@ -229,10 +229,10 @@
        WRITE(*,*) "invalid kind of kneading segment"
        WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
       END IF
-     END IF
+     
 !!!==============================================     EKNET     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."EKNET".or.ADJUSTL(TRIM(cElemType)).eq."ECCENTRIC".or.ADJUSTL(TRIM(cElemType)).eq."EXCENTRIC") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."EKNET".or.ADJUSTL(TRIM(cElemType)).eq."ECCENTRIC".or.ADJUSTL(TRIM(cElemType)).eq."EXCENTRIC") THEN
       mySigma%mySegment(iSeg)%ART   = "EKNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
@@ -273,10 +273,10 @@
        WRITE(*,*) "invalid kind of kneading segment"
        WRITE(*,*) '"',ADJUSTL(TRIM(cKindOfConveying)),'"'
       END IF
-     END IF
+     
 !!!==============================================     SKNET    =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."SKNET".or.ADJUSTL(TRIM(cElemType)).eq."SHOULDEREDKNEADING") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."SKNET".or.ADJUSTL(TRIM(cElemType)).eq."SHOULDEREDKNEADING") THEN
       mySigma%mySegment(iSeg)%ART   = "SKNET"
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
@@ -316,10 +316,10 @@
        bReadError=.TRUE.
 !        GOTO 10
       END IF
-     END IF
+     
 !!!==============================================      SME     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."SME".or.ADJUSTL(TRIM(cElemType)).eq."SCREWMIXING") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."SME".or.ADJUSTL(TRIM(cElemType)).eq."SCREWMIXING") THEN
       mySigma%mySegment(iSeg)%ART   = "SME"
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
       mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
@@ -368,10 +368,10 @@
       mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L
       
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
-     END IF
+     
 !!!==============================================      ZME     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."ZME".or.ADJUSTL(TRIM(cElemType)).eq."TOOTHMIXING") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."ZME".or.ADJUSTL(TRIM(cElemType)).eq."TOOTHMIXING") THEN
       mySigma%mySegment(iSeg)%ART   = "ZME"
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
@@ -410,10 +410,10 @@
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + &
       2d0*mySigma%mySegment(iSeg)%ZME_N * (mySigma%mySegment(iSeg)%ZME_DiscThick + mySigma%mySegment(iSeg)%ZME_gap_SS)
       mySigma%mySegment(iSeg)%L = mySigma%mySegment(iSeg)%Max - mySigma%mySegment(iSeg)%Min
-     END IF
+     
 !!!==============================================      STL     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."STL".OR.ADJUSTL(TRIM(cElemType)).eq."OFF") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."STL".OR.ADJUSTL(TRIM(cElemType)).eq."OFF") THEN
       mySigma%mySegment(iSeg)%ART   = "STL"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
@@ -464,12 +464,20 @@
        CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfiles)
        
       END IF
+
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+        if (trim(adjustl(mySigma%mySegment(iSeg)%OFFfiles(iFile))) .eq. '') then
+          write(*,'(A30,I3)') 'geometry description file ', iFile
+          write(*,'(A15,I3,A20)') 'for element ', iSeg, ' is empty string!'
+          bReadError = .TRUE.
+        end if
+      end do
       
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
-     END IF
+     
 !!!==============================================      STL_R     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."STL_R") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."STL_R") THEN
       mySigma%mySegment(iSeg)%ART   = "STL_R"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
@@ -497,10 +505,10 @@
         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
       end do
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
-     END IF
+     
 !!!==============================================      STL_R     =================================================================
 !!!=============================================================================================================================
-     IF (ADJUSTL(TRIM(cElemType)).eq."STL_L") THEN
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."STL_L") THEN
       mySigma%mySegment(iSeg)%ART   = "STL_L"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
@@ -528,7 +536,15 @@
         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFF",mySigma%mySegment(iSeg)%OFFfiles(iFile),isubstring=iFile)
       end do
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
+
+     ELSE
+       write(*,*) 'Unknown Elementtype ' // trim(adjustl(cElemType))
+       bReadError = .TRUE.
      END IF
+
+!!!=============================================================
+!!! End reading Elementtyps
+!!!=============================================================
      IF (mySigma%mySegment(iSeg)%ART.eq.' ') THEN
       WRITE(*,*) "not a valid ",iSeg, "-segment"
       WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
@@ -1159,6 +1175,11 @@
 
     ! Clean up the parameterlist
     call inip_done(parameterlist)
+
+    if (bReadError) then
+      write(*,*) 'Error during reading the file ', trim(adjustl(ce3dfile)), '. Stopping. See output above.'
+      stop
+    end if
 
     CONTAINS
 
