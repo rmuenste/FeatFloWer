@@ -524,7 +524,7 @@ HistoEta = 0d0
 BinEta(1,   1)=-1d1
 BinVis(1,   1)=-1d1
 BinEta(2,nBin)=+1d1
-BinEta(2,nBin)=+1d1
+BinVis(2,nBin)=+1d1
 
 minBinEta = log10(myOutput%HistogramShearMin)
 maxBinEta = log10(myOutput%HistogramShearMax)
@@ -631,6 +631,127 @@ IF (myid.eq.1) THEN
 END IF
 
 end subroutine viz_OutputHistogram
+!
+!-------------------------------------------------------------------------------------------------
+! A routine for outputting fields for an sse application
+!-------------------------------------------------------------------------------------------------
+!
+! @param iO Output file idx
+! @param sQuadSc The velocity solution structure of the mesh
+! @param maxlevel The maximum grid level used in computation (former NLMAX)
+SUBROUTINE viz_CreateHistogram(field, mass,nData,minV,maxV,dCrit,bLog)
+USE PP3D_MPI, ONLY:myid,showid,Comm_Summn
+use Sigma_User, only : myOutput
+
+implicit none
+
+integer, intent(in) :: nData
+
+logical, intent(in) :: bLog
+
+real*8, intent(in) :: field(*), mass(*)
+
+real*8, intent(inout) :: minV,maxV
+
+real*8, intent(in) :: dCrit
+
+real*8 :: d_low,d_high
+
+! local variables
+integer :: i,j,nBin
+real*8 logShear,dMinCrit
+real*8,allocatable :: HistoEta(:),BinEta(:,:)
+real*8 Ml_i,dauxEta
+real*8 minBinEta,mAXBinEta,dBinEta,meanEta
+
+nBin = 100
+
+if (.not.allocated(HistoEta)) allocate(HistoEta(nBin))
+if (.not.allocated(BinEta))   allocate(BinEta(3,nBin))
+
+IF (myid.ne.0) THEN
+
+HistoEta = 0d0
+
+if (bLog) then
+ minBinEta = log10(minV)
+ maxBinEta = log10(maxV)
+else
+ minBinEta = minV
+ maxBinEta = maxV
+end if
+
+BinEta(1,   1)=minBinEta
+BinEta(2,nBin)=maxBinEta
+
+dBinEta = (maxBinEta-minBinEta)/DBLE(nBin-2)
+
+DO i=2,nBin
+
+ BinEta(2,i-1)= minBinEta + DBLE(i-2)*dBinEta
+ BinEta(3,i-1)= minBinEta + (DBLE(i)-2.5d0)*dBinEta
+ BinEta(1,i)  = BinEta(2,i-1)
+
+END DO
+BinEta(3,nBin)= minBinEta + (DBLE(nBin)-1.5d0)*dBinEta
+
+
+DO i=1,nData
+
+if (bLog) then
+  logShear = LOG10(field(i))
+else
+  logShear = field(i)
+end if
+
+  Ml_i = mass(i)
+
+  DO j=1,nBin
+   IF (logShear.ge.BinEta(1,j).and.logShear.lt.BinEta(2,j)) HistoEta(j)  = HistoEta(j)  + Ml_i
+  END DO
+
+END DO
+END IF
+
+CALL COMM_SUMMn(HistoEta,nBin)
+
+dauxEta = 0d0
+DO i=1,nBin
+ dauxEta = dauxEta + HistoEta(i)
+END DO
+
+dMinCrit = dauxEta*dCrit
+
+d_low  = BinEta(1,1)
+d_high = BinEta(2,nBin)
+
+dauxEta = 0d0
+DO i=1,nBin
+ dauxEta = dauxEta + HistoEta(i)
+ if (dauxEta.gt.dMinCrit) then
+  if (bLog) then
+   minV = 10d0**BinEta(1,i)
+  else
+   minV = BinEta(1,i)
+  end if
+  exit
+ end if
+END DO
+
+dauxEta = 0d0
+DO i=nBin,1,-1
+ dauxEta = dauxEta + HistoEta(i)
+ if (dauxEta.gt.dMinCrit) then
+  if (bLog) then
+   maxV = 10d0**BinEta(2,i)
+  else
+   maxV = BinEta(2,i)
+  end if
+  exit
+ end if
+END DO
+
+end subroutine viz_CreateHistogram
 !
 !-------------------------------------------------------------------------------------------------
 ! A wrapper routine for outputting 1D fields for an sse application
@@ -1189,6 +1310,13 @@ type(tSigma) :: mySigma
 type(tQuadScalar), intent(in) :: sQuadSc
 integer, intent(in) :: maxlevel
 
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist), allocatable :: myHist(:)
+
 ! local variables
 real*8  :: dMinSample, dMaxSample
 integer :: i,j,jj
@@ -1208,6 +1336,15 @@ if (.not.allocated(my1DOutput(i1D)%dMean)) ALLOCATE(my1DOutput(i1D)%dMean(my1DOu
 if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
+
+allocate(myHist(my1DOut_nol))
+do i=1,my1DOut_nol
+ allocate(myHist(i)%x(SIZE(sQuadSc%ValU)))
+ allocate(myHist(i)%m(SIZE(sQuadSc%ValU)))
+ myHist(i)%x = 0d0
+ myHist(i)%m = 0d0
+ myHist(i)%n = 0
+end do
 
 if (myid.ne.0) THEN
 
@@ -1255,6 +1392,7 @@ if (myid.ne.0) THEN
    END DO
 
    IF (jj.NE.0) THEN
+    myHist(jj)%n = myHist(jj)%n + 1
     daux = dScale*dField1(i)
     IF (i1D.EQ.6) daux = dScale*dField2(i)
     IF (i1D.EQ.7) daux = dScale*dField3(i)
@@ -1263,6 +1401,8 @@ if (myid.ne.0) THEN
     my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
     my1DOutput(i1D)%dMin(jj)    = MIN(my1DOutput(i1D)%dMin(jj),daux)
     my1DOutput(i1D)%dMax(jj)    = MAX(my1DOutput(i1D)%dMax(jj),daux)
+    myHist(jj)%x(myHist(jj)%n) = daux
+    myHist(jj)%m(myHist(jj)%n) = MlRhoMat(i)
    END IF
   END IF
  END DO
@@ -1272,6 +1412,14 @@ CALL COMM_SUMMN(my1DOutput(i1D)%dMean,my1DOut_nol)
 CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
 CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
+
+DO j=1,my1DOut_nol
+ if (i1D.eq.5) then
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+ else
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+ end if
+END DO
 
 IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
@@ -1283,6 +1431,8 @@ IF (myid.ne.0) THEN
   my1DOutput(i1D)%dLoc(i)  = 0.5d0*(my1DIntervals(i,1)+my1DIntervals(i,2))
  END DO
 END IF
+
+deallocate(myHist)
 
 end subroutine viz_OutPut_1D_sub
 !
@@ -1299,6 +1449,13 @@ type(tOutput) :: myOutput
 type(tSigma) :: mySigma
 type(tQuadScalar), intent(in) :: sQuadSc
 integer, intent(in) :: maxlevel
+
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist), allocatable :: myHist(:)
 
 ! local variables
 real*8  :: dMinSample, dMaxSample
@@ -1321,6 +1478,15 @@ if (.not.allocated(my1DOutput(i1D)%dMean)) ALLOCATE(my1DOutput(i1D)%dMean(my1DOu
 if (.not.allocated(my1DOutput(i1D)%dMin))  ALLOCATE(my1DOutput(i1D)%dMin(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dMax))  ALLOCATE(my1DOutput(i1D)%dMax(my1DOut_nol))
 if (.not.allocated(my1DOutput(i1D)%dLoc))  ALLOCATE(my1DOutput(i1D)%dLoc(my1DOut_nol))
+
+allocate(myHist(my1DOut_nol))
+do i=1,my1DOut_nol
+ allocate(myHist(i)%x(SIZE(sQuadSc%ValU)))
+ allocate(myHist(i)%m(SIZE(sQuadSc%ValU)))
+ myHist(i)%x = 0d0
+ myHist(i)%m = 0d0
+ myHist(i)%n = 0
+end do
 
 IF (myid.ne.0) THEN
 
@@ -1402,10 +1568,13 @@ IF (myid.ne.0) THEN
     END IF
 
     IF (bValid) THEN
+     myHist(jj)%n = myHist(jj)%n + 1
      my1DOutput(i1D)%dMean(jj)   = my1DOutput(i1D)%dMean(jj)    + daux*MlRhoMat(i)
      my1DWeight(jj)              = my1DWeight(jj) + MlRhoMat(i)
      my1DOutput(i1D)%dMin(jj)    = MIN(my1DOutput(i1D)%dMin(jj),daux)
      my1DOutput(i1D)%dMax(jj)    = MAX(my1DOutput(i1D)%dMax(jj),daux)
+     myHist(jj)%x(myHist(jj)%n) = daux
+     myHist(jj)%m(myHist(jj)%n) = MlRhoMat(i)
     END IF
    END IF
   END IF
@@ -1418,6 +1587,14 @@ CALL COMM_SUMMN(my1DWeight,my1DOut_nol)
 CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
+DO j=1,my1DOut_nol
+ if (i1D.eq.9.or.i1D.eq.10) then
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+ else
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+ end if
+END DO
+
 IF (myid.ne.0) THEN
  DO i=1,my1DOut_nol
   if (my1DWeight(i).eq.0d0) then
@@ -1429,6 +1606,7 @@ IF (myid.ne.0) THEN
  END DO
 END IF
 
+deallocate(myHist)
 
 END SUBROUTINE  OutPut_1D_subEXTRA
 !

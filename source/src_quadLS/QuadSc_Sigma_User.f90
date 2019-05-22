@@ -105,7 +105,8 @@ TYPE(tSetup) :: mySetup
 TYPE tOutput
  INTEGER :: nOf1DLayers=16
  INTEGER :: nOfHistogramBins=16
- REAL*8 :: HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
+ REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
+ REAL*8  :: CutDtata_1D=0.04d0
 END TYPE tOutput
 
 TYPE(tOutput) :: myOutput
