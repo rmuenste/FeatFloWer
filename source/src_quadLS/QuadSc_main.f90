@@ -457,6 +457,9 @@ end if
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
+
+ CALL ExtractElemSizeDistribution()
+ 
  Shearrate = 1d0
 
  Viscosity = Properties%Viscosity(1)
@@ -1427,7 +1430,9 @@ SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
   REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0
   REAL*8 :: Scale
+  REAL*8 :: U_mean=1.0d0,H=0.20d0,D=1d0
   INTEGER i,nn
+  LOGICAL :: b2DBench=.TRUE.,b3DBench=.FALSE.
   EXTERNAL E013
 
   ILEV=NLMAX
@@ -1443,9 +1448,16 @@ SUBROUTINE FAC_GetForces(mfile)
 
   if(bViscoElastic)then
     Force = ForceV + ForceP + ViscoElasticForce
-    Scale = 6d0*PI*postParams%Sc_Mu*postParams%Sc_U*postParams%Sc_a
-    Force = (4d0*Force)/Scale
-    ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
+    IF (b2DBench) THEN
+     Scale = 2d0/(U_mean*U_mean*D*H)
+     Force = Scale*Force
+     ViscoElasticForce = (ViscoElasticForce)*Scale
+    END IF
+    IF (b3DBench) THEN
+     Scale = 6d0*PI*postParams%Sc_Mu*postParams%Sc_U*postParams%Sc_a
+     Force = (4d0*Force)/Scale
+     ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
+    END IF
   else
     Factor = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
     ForceP = Factor*ForceP
@@ -1457,13 +1469,22 @@ SUBROUTINE FAC_GetForces(mfile)
     if(bViscoElastic)then
       WRITE(MTERM,5)
       WRITE(MFILE,5)
-      write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
-        timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
-      write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
-        timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
-      WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
-        (Force-ViscoElasticForce),Force
-!       WRITE(666,'(10G16.8)') Timens,Force
+      IF (b2DBench) THEN
+       write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+         timens,ViscoElasticForce(1),(Force(1)-ViscoElasticForce(1)),Force(1)
+       write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+         timens,ViscoElasticForce(1),(Force(1)-ViscoElasticForce(1)),Force(1)
+       WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
+         (Force-ViscoElasticForce),Force
+      END IF
+      IF (b3DBench) THEN
+       write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+         timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+       write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
+         timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
+       WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
+         (Force-ViscoElasticForce),Force
+      END IF
     else
       WRITE(MTERM,5)
       WRITE(MFILE,5)
@@ -2028,6 +2049,9 @@ dPressureDifference = ((dIntPres2/dArea2) - (dIntPres1/dArea1))*1e-6 !!! [Bar]
 
 myPI = dATAN(1d0)*4d0
 daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
+
+dHeat = dHeat / myThermodyn%density
+dVol = dVol / myThermodyn%density
 
 IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
