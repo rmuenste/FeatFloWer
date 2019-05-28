@@ -35,7 +35,8 @@ END TYPE tMatrixRenewal
 TYPE(tMatrixRenewal) myMatrixRenewal
 LOGICAL :: bNonNewtonian=.TRUE.
 LOGICAL :: bNoOutflow,bTracer,bViscoElastic,bRefFrame
-LOGICAL :: bViscoElasticFAC=.FALSE.
+LOGICAL :: b2DViscoBench=.FALSE.,b3DViscoBench=.FALSE.
+
 LOGICAL :: bSteadyState =.FALSE.
 LOGICAL :: bBoundaryCheck=.FALSE.
 LOGICAL :: bNS_Stabilization=.FALSE.

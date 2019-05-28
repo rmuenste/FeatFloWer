@@ -383,9 +383,9 @@ SUBROUTINE General_init(MDATA,MFILE)
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
-      bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
+      bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
-      ProlongationDirection,bNS_Stabilization
+      ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -545,11 +545,12 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) cParam
           bViscoElastic = .FALSE.
           IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
-        CASE ("ViscoElasticFAC")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bViscoElasticFAC = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
+        CASE ("ViscoElasticBench")
+          READ(string(iEq+1:),*) iVisco
+          b2DViscoBench = .false.
+          b3DViscoBench = .false.
+          if (iVisco.eq.2) b2DViscoBench = .true.
+          if (iVisco.eq.3) b3DViscoBench = .true.
         CASE ("SteadyState")
           cParam = " "
           READ(string(iEq+1:),*) cParam
@@ -801,9 +802,9 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mterm,'(A)') "Visco-elastic equation is included"
       END IF
 
-      IF (bViscoElasticFAC) THEN 
-        WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
-        WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
+      IF (b2DViscoBench.or.b3DViscoBench) THEN 
+        WRITE(mfile,'(A,I1,A)') "Visco-elastic benchmark computation for ",iVisco,"D"
+        WRITE(mterm,'(A,I1,A)') "Visco-elastic benchmark computation for ",iVisco,"D"
       END IF
 
       IF (bBoundaryCheck) THEN 

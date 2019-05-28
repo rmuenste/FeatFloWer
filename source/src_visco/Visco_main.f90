@@ -177,8 +177,11 @@ DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PY = myQ2Coor(2,i)
  daux = -Properties%ViscoLambda*0.75*PY
- tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
-tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+ if (b2DViscoBench) then
+  tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
+ else
+  tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+ end if
  CALL ConvertTauToPsi(tau,psi)
 
  ViscoSc%Val11(i) = psi(1)
@@ -207,8 +210,7 @@ INTEGER i
 DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PZ = myQ2Coor(3,i)
- IF (PZ.lt.-11.99d0) THEN
-! IF (PX.lt.-19.99d0) THEN
+ if ((b2DViscoBench.and.PX.lt.-19.99d0).or.(b3DViscoBench.and.PZ.lt.-11.99d0)) THEN
   def(0*ViscoSc%ndof+i) = 0d0
   def(1*ViscoSc%ndof+i) = 0d0
   def(2*ViscoSc%ndof+i) = 0d0
@@ -232,26 +234,39 @@ DO i=1,ViscoSc%ndof
  PX = myQ2Coor(1,i)
  PY = myQ2Coor(2,i)
  PZ = myQ2Coor(3,i)
-! IF (PX.lt.-19.99d0) THEN
- IF (PZ.lt.-11.99d0) THEN
+ 
+ if (b2DViscoBench) then
+  IF (PX.lt.-19.99d0) THEN
   daux = -Properties%ViscoLambda*0.75d0*PY
   tau = [1d0 + 2d0*daux*daux,1d0,1d0,daux,0d0,0d0]
- tau = [1d0,1d0,1d0,0d0,0d0,0d0]
-  CALL ConvertTauToPsi(tau,psi)
+ 
+   CALL ConvertTauToPsi(tau,psi)
 
-  ViscoSc%Val11(i) = psi(1)
-  ViscoSc%Val22(i) = psi(2)
-  ViscoSc%Val33(i) = psi(3)
-  ViscoSc%Val12(i) = psi(4)
-  ViscoSc%Val13(i) = psi(5)
-  ViscoSc%Val23(i) = psi(6)
-!   ViscoSc%Val11(i) = 1d0 + 2d0*daux*daux
-!   ViscoSc%Val22(i) = 1d0
-!   ViscoSc%Val33(i) = 1d0
-!   ViscoSc%Val12(i) = daux
-!   ViscoSc%Val13(i) = 0d0
-!   ViscoSc%Val23(i) = 0d0
- END IF
+   ViscoSc%Val11(i) = psi(1)
+   ViscoSc%Val22(i) = psi(2)
+   ViscoSc%Val33(i) = psi(3)
+   ViscoSc%Val12(i) = psi(4)
+   ViscoSc%Val13(i) = psi(5)
+   ViscoSc%Val23(i) = psi(6)
+  end if
+ end if
+ 
+ if (b3DViscoBench) then
+  IF (PZ.lt.-11.99d0) THEN
+   tau = [1d0,1d0,1d0,0d0,0d0,0d0]
+
+   CALL ConvertTauToPsi(tau,psi)
+
+   ViscoSc%Val11(i) = psi(1)
+   ViscoSc%Val22(i) = psi(2)
+   ViscoSc%Val33(i) = psi(3)
+   ViscoSc%Val12(i) = psi(4)
+   ViscoSc%Val13(i) = psi(5)
+   ViscoSc%Val23(i) = psi(6)
+   
+  end if
+ end if
+ 
 END DO
 
 END SUBROUTINE Boundary_ViscoScalar_Val
@@ -267,7 +282,7 @@ REAL*8  PX,PZ
 DO I=1,NDOF
  PX = myQ2Coor(1,i)
  PZ = myQ2Coor(3,i)
- IF (PZ.LT.-11.99d0) THEN
+ if ((b2DViscoBench.and.PX.lt.-19.99d0).or.(b3DViscoBench.and.PZ.lt.-11.99d0)) THEN
    ICOL = KLD(I)
    DO ICOL=KLD(I)+1,KLD(I+1)-1
     DA11(ICOL) = 0d0

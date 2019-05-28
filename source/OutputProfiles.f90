@@ -1949,6 +1949,18 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
    
+ CASE('Psi')
+  if(bViscoElastic)then
+
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Psi",""" NumberOfComponents=""6"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,6E16.7)')"        ",REAL(ViscoSc%Val11(ivt)),REAL(ViscoSc%Val22(ivt)),REAL(ViscoSc%Val33(ivt)),&
+                                        REAL(ViscoSc%Val12(ivt)),REAL(ViscoSc%Val13(ivt)),REAL(ViscoSc%Val23(ivt)) 
+  end do
+
+  write(iunit, *)"        </DataArray>"
+  end if
+
  CASE('Stress')
   if(bViscoElastic)then
 
@@ -1957,12 +1969,12 @@ DO iField=1,SIZE(myExport%Fields)
    psi = [ViscoSc%Val11(i),ViscoSc%Val22(i),ViscoSc%Val33(i),&
           ViscoSc%Val12(i),ViscoSc%Val13(i),ViscoSc%Val23(i)]
    CALL ConvertPsiToTau(psi,tau(:,i))   
-     tau(1,i) = (tau(1,i) - 1d0)/Properties%ViscoLambda
-     tau(2,i) = (tau(2,i) - 1d0)/Properties%ViscoLambda
-     tau(3,i) = (tau(3,i) - 1d0)/Properties%ViscoLambda
-     tau(4,i) = (tau(4,i) - 0d0)/Properties%ViscoLambda
-     tau(5,i) = (tau(5,i) - 0d0)/Properties%ViscoLambda
-     tau(6,i) = (tau(6,i) - 0d0)/Properties%ViscoLambda
+!      tau(1,i) = (tau(1,i) - 1d0)/Properties%ViscoLambda
+!      tau(2,i) = (tau(2,i) - 1d0)/Properties%ViscoLambda
+!      tau(3,i) = (tau(3,i) - 1d0)/Properties%ViscoLambda
+!      tau(4,i) = (tau(4,i) - 0d0)/Properties%ViscoLambda
+!      tau(5,i) = (tau(5,i) - 0d0)/Properties%ViscoLambda
+!      tau(6,i) = (tau(6,i) - 0d0)/Properties%ViscoLambda
   END DO
 
 !  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6"" format=""ascii"">"
@@ -2289,6 +2301,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_z",""" NumberOfComponents=""3""/>"
  CASE('PartForce')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","PartForce",""" NumberOfComponents=""3""/>"
+ CASE('Psi')
+  if(bViscoElastic)then
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Psi",""" NumberOfComponents=""6""/>"
+  end if
  CASE('Stress')
   if(bViscoElastic)then
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Stress",""" NumberOfComponents=""6""/>"

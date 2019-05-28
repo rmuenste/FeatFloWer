@@ -1432,7 +1432,6 @@ SUBROUTINE FAC_GetForces(mfile)
   REAL*8 :: Scale
   REAL*8 :: U_mean=1.0d0,H=0.20d0,D=1d0
   INTEGER i,nn
-  LOGICAL :: b2DBench=.TRUE.,b3DBench=.FALSE.
   EXTERNAL E013
 
   ILEV=NLMAX
@@ -1448,12 +1447,12 @@ SUBROUTINE FAC_GetForces(mfile)
 
   if(bViscoElastic)then
     Force = ForceV + ForceP + ViscoElasticForce
-    IF (b2DBench) THEN
+    IF (b2DViscoBench) THEN
      Scale = 2d0/(U_mean*U_mean*D*H)
      Force = Scale*Force
      ViscoElasticForce = (ViscoElasticForce)*Scale
     END IF
-    IF (b3DBench) THEN
+    IF (b3DViscoBench) THEN
      Scale = 6d0*PI*postParams%Sc_Mu*postParams%Sc_U*postParams%Sc_a
      Force = (4d0*Force)/Scale
      ViscoElasticForce = (4d0*ViscoElasticForce)/Scale
@@ -1469,7 +1468,7 @@ SUBROUTINE FAC_GetForces(mfile)
     if(bViscoElastic)then
       WRITE(MTERM,5)
       WRITE(MFILE,5)
-      IF (b2DBench) THEN
+      IF (b2DViscoBench) THEN
        write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
          timens,ViscoElasticForce(1),(Force(1)-ViscoElasticForce(1)),Force(1)
        write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
@@ -1477,7 +1476,7 @@ SUBROUTINE FAC_GetForces(mfile)
        WRITE(666,'(10ES13.5)')timens,ViscoElasticForce,&
          (Force-ViscoElasticForce),Force
       END IF
-      IF (b3DBench) THEN
+      IF (b3DViscoBench) THEN
        write(mfile,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&
          timens,ViscoElasticForce(3),(Force(3)-ViscoElasticForce(3)),Force(3)
        write(mterm,'(A,10ES13.5)') "TimevsForce(Visco,Hydro,Full):",&

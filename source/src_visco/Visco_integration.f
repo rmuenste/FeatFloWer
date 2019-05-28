@@ -291,6 +291,7 @@
 *
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,myMPI_Barrier
+      USE var_QuadScalar, ONLY : transform
 C
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -314,11 +315,16 @@ C
       REAL*8 DU3(NNBAS)
 
       REAL*8 AMAT(3,3),QMAT(3,3),EVCT(3),OMAT(3,3),BMAT(3,3)
-      REAL*8 GRADU(3,3),TAU(6),RMAT(3,3)
+      REAL*8 GRADU(3,3),TAU(6),RMAT(3,3),RIMAT(3,3)
 
       REAL*8 DEF1(NNBAS),DEF4(NNBAS),DUU1(NNBAS),DUU4(NNBAS)
       REAL*8 DEF2(NNBAS),DEF5(NNBAS),DUU2(NNBAS),DUU5(NNBAS)
       REAL*8 DEF3(NNBAS),DEF6(NNBAS),DUU3(NNBAS),DUU6(NNBAS)
+C
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
 C
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -363,6 +369,14 @@ C
       CALL CB3H(ICUB)
       IF (IER.NE.0) GOTO 99999
 C
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
+      END DO
+C
 ************************************************************************
 C *** Calculation of the matrix - storage technique 7 or 8
 ************************************************************************
@@ -383,31 +397,6 @@ C *** Evaluation of coordinates of the vertices
       DY(IVE)=DCORVG(2,JP)
       DZ(IVE)=DCORVG(3,JP)
 120   CONTINUE
-C
-      DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-      DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-      DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-      DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-      DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-      DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-      DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-      DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-      DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-      DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
-      DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
-      DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
-      DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-      DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-      DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
-      DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
-      DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
-      DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
-      DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
-      DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
-      DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
-      DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
-      DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
-      DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
 C
 C *** Loop over all cubature points
       DO JDOFE=1,IDFL
@@ -436,23 +425,48 @@ C
       XI3=DXI(ICUBP,3)
 C
 C *** Jacobian of the bilinear mapping onto the reference element
-      DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
-      DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
-      DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
-      DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
-      DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
-      DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
-      DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
-      DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
-      DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+      DJAC=0d0
+      IF (Transform%ILINT.eq.2) THEN ! Q2
+      DO JDOFE=1,27
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
+      END DO
+      END IF
+      IF (Transform%ILINT.eq.1) THEN ! Q1
+      DO JDOFE=1,8
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+      END IF
+C      
       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
      *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
      *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
       OM=DOMEGA(ICUBP)*ABS(DETJ)
 C
-       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
-       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
-       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
+!        XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
+!        YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
+!        ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
 C
       CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
@@ -488,7 +502,7 @@ C
 C
       CALL DSYEVD3(AMAT,QMAT,EVCT)
 C
-      CALL GetOtherMatrices(GRADU,QMAT,EVCT,OMAT,BMAT,RMAT)
+      CALL GetOtherMatrices(GRADU,QMAT,EVCT,OMAT,BMAT,RMAT,RIMAT)
 C
 !       IF (myid.eq.1) WRITE(*,*) "AMAT"
 !       IF (myid.eq.1) WRITE(*,*) AMAT
@@ -512,37 +526,38 @@ C
 !       IF (myid.eq.1) WRITE(*,*) OMAT
 !       pause
       dLam = dLm
+      dA = 0d0
 C     
       DO 230 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)
        HBAS = DBAS(1,JDFL,1)
 
        DEF1(JDOFE) = DEF1(JDOFE) + (
-     * 2d0*(OMAT(1,2)*AMAT(2,1) + OMAT(1,3)*AMAT(3,1) +
-     * BMAT(1,1)) + (RMAT(1,1) - 1d0)/dLam)*OM*HBAS
+     * 2d0*(OMAT(1,2)*AMAT(2,1) + OMAT(1,3)*AMAT(3,1) + BMAT(1,1)) + 
+     * ((1d0-dA)*RMAT(1,1) - (1d0-2d0*dA) - dA*RIMAT(1,1))/dLam)*OM*HBAS
 
        DEF2(JDOFE) = DEF2(JDOFE) + (
-     * 2d0*(OMAT(2,1)*AMAT(2,1) + OMAT(2,3)*AMAT(2,3) + 
-     * BMAT(2,2)) + (RMAT(2,2) - 1d0)/dLam)*OM*HBAS
+     * 2d0*(OMAT(2,1)*AMAT(2,1) + OMAT(2,3)*AMAT(2,3) + BMAT(2,2)) + 
+     * ((1d0-dA)*RMAT(2,2) - (1d0-2d0*dA) - dA*RIMAT(2,2))/dLam)*OM*HBAS
 
        DEF3(JDOFE) = DEF3(JDOFE) + (
-     * 2d0*(OMAT(3,1)*AMAT(3,1) + OMAT(3,2)*AMAT(3,2) + 
-     * BMAT(3,3)) + (RMAT(3,3) - 1d0)/dLam)*OM*HBAS
+     * 2d0*(OMAT(3,1)*AMAT(3,1) + OMAT(3,2)*AMAT(3,2) + BMAT(3,3)) + 
+     * ((1d0-dA)*RMAT(3,3) - (1d0-2d0*dA) - dA*RIMAT(3,3))/dLam)*OM*HBAS
 
        DEF4(JDOFE) = DEF4(JDOFE) + (
      * OMAT(1,2)*(AMAT(2,2) - AMAT(1,1)) +
-     * OMAT(1,3)*AMAT(3,2) - OMAT(3,2)*AMAT(1,3) +
-     * 2d0*BMAT(1,2) + (RMAT(1,2) - 0d0)/dLam)*OM*HBAS
+     * OMAT(1,3)*AMAT(3,2) - OMAT(3,2)*AMAT(1,3) + 2d0*BMAT(1,2) + 
+     * ((1d0-dA)*RMAT(1,2) - dA*RIMAT(1,2))/dLam)*OM*HBAS
 
        DEF5(JDOFE) = DEF5(JDOFE) + (
      * OMAT(1,3)*(AMAT(3,3) - AMAT(1,1)) +
-     * OMAT(1,2)*AMAT(2,3) - OMAT(2,3)*AMAT(1,2) +
-     * 2d0*BMAT(1,3) + (RMAT(1,3) - 0d0)/dLam)*OM*HBAS
+     * OMAT(1,2)*AMAT(2,3) - OMAT(2,3)*AMAT(1,2) + 2d0*BMAT(1,3) + 
+     * ((1d0-dA)*RMAT(1,3) - dA*RIMAT(1,3))/dLam)*OM*HBAS
 
        DEF6(JDOFE) = DEF6(JDOFE) + (
      * OMAT(2,3)*(AMAT(3,3) - AMAT(2,2)) +
-     * OMAT(2,1)*AMAT(1,3) - OMAT(1,3)*AMAT(2,1) +
-     * 2d0*BMAT(2,3) + (RMAT(2,3) - 0d0)/dLam)*OM*HBAS
+     * OMAT(2,1)*AMAT(1,3) - OMAT(1,3)*AMAT(2,1) + 2d0*BMAT(2,3) + 
+     * ((1d0-dA)*RMAT(2,3) - dA*RIMAT(2,3))/dLam)*OM*HBAS
 
 230   CONTINUE
 C
@@ -564,11 +579,11 @@ C
 C
 C
 C
-      SUBROUTINE GetOtherMatrices(GU,Q,E,O,B,R)
+      SUBROUTINE GetOtherMatrices(GU,Q,E,O,B,R,RI)
       USE PP3D_MPI, ONLY:myid,myMPI_Barrier
       IMPLICIT NONE
-      REAL*8 Q(3,3),E(3),O(3,3),B(3,3),R(3,3),GU(3,3)
-      REAL*8 A1(3,3),QT(3,3),M(3,3),EE(3)
+      REAL*8 Q(3,3),E(3),O(3,3),B(3,3),R(3,3),GU(3,3),RI(3,3)
+      REAL*8 A1(3,3),QT(3,3),M(3,3),EE(3),RIR(3,3)
       REAL*8 BB(3,3),OO(3,3),RR(3,3)
       REAL*8 DAUX,OMEGA12,OMEGA13,OMEGA23
       INTEGER I,J,K
@@ -629,6 +644,11 @@ C
       RR(1,1) = 1d0/EE(1)
       RR(2,2) = 1d0/EE(2)
       RR(3,3) = 1d0/EE(3)
+
+      RIR = 0d0
+      RIR(1,1) = EE(1)
+      RIR(2,2) = EE(2)
+      RIR(3,3) = EE(3)
 
       OO(1,:) = [ 0d0, OMEGA12, OMEGA13]
       OO(2,:) = [-OMEGA12, 0d0, OMEGA23]
@@ -694,6 +714,26 @@ C
        END DO
       END DO
 
+      DO I=1,3
+       DO J=1,3
+        DAUX = 0d0
+        DO K=1,3
+        DAUX = DAUX + Q(I,K)*RIR(K,J)
+        END DO
+        A1(I,J) = DAUX
+       END DO
+      END DO
+
+      DO I=1,3
+       DO J=1,3
+        DAUX = 0d0
+        DO K=1,3
+        DAUX = DAUX + A1(I,K)*QT(K,J)
+        END DO
+        RI(I,J) = DAUX
+       END DO
+      END DO
+      
       END
 C
 C
@@ -815,8 +855,8 @@ C
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
       USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar, ONLY : transform
 *-----------------------------------------------------------------------
-      USE PP3D_MPI, ONLY:myid
 C
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -835,7 +875,7 @@ C
       REAL*8    DHELP(NNBAS,4,NNCUBP)
 C
 C     --------------------------- Transformation -------------------------------
-      REAL*8    DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
       REAL*8    DPP(3)
 C     --------------------------------------------------------------------------
 C
@@ -884,6 +924,7 @@ C
        XI2=DXI(ICUBP,2)
        XI3=DXI(ICUBP,3)
        CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
       END DO
 C
 ************************************************************************
@@ -912,9 +953,25 @@ C *** Loop over all cubature points
 C
       DO 200 ICUBP=1,NCUBP
 C
-C *** Jacobian of the bilinear mapping onto the reference element
-C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+C *** Jacobian of the (trilinear,triquadratic) mapping onto the reference element
       DJAC=0d0
+      IF (Transform%ILINT.eq.2) THEN ! Q2
+      DO JDOFE=1,27
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
+      END DO
+      END IF
+      IF (Transform%ILINT.eq.1) THEN ! Q1
       DO JDOFE=1,8
        JDFL=KDFL(JDOFE)
        JDFG=KDFG(JDOFE)
@@ -929,6 +986,7 @@ C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the refere
        DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
        DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
       END DO
+      END IF
 C      
       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
      *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
