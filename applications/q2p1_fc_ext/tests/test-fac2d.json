@@ -7,7 +7,7 @@
             "testBinaryName": "q2p1_fc_ext",
             "testNoteName": "fac2D-bench",
             "testLevels": "1",
-            "processorCount": "5"
+            "processorCount": "16"
         },
         "DashBoardConfiguration": {
             "name": "conf1",
