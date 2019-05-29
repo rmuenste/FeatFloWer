@@ -8,8 +8,6 @@ SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 3
 SimPar@MatrixRenewal = M1D1K3S0C1
-SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
-SimPar@noLoadAdaptedMesh = "_dump/msh"
 SimPar@OutputFields = " "
 SimPar@CGALtoRealFactor = 1d0
 ----------------- Velocity --------------------
