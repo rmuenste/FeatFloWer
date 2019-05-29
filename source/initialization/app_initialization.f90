@@ -106,34 +106,34 @@ subroutine init_q2p1_particle_tracer(log_unit)
 
   call Init_QuadScalar_Stuctures(log_unit)
 
+  if (myid.ne.0) call CreateDumpStructures(1)
+  
   ! The particle tracer by default starts with a single 
   ! combined solution file 
   ! Normal start from inital configuration
-  if (istart.eq.0) then
-  
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call InitCond_QuadScalar()
-    IF(bViscoElastic)call IniProf_ViscoScalar()
-
-  ! Start from a solution on the same lvl
-  ! with the same number of partitions
-  elseif (istart.eq.1) then
-
-  call init_sol_same_level(CSTART)
-
-  ! Start from a solution on a lower lvl
-  ! with the same number of partitions
-  elseif (istart.eq.2)then
-
-    call init_sol_lower_level(CSTART)
-
-  ! Start from a solution on the same lvl
-  ! with a different number of partitions
-  elseif (istart.eq.3) then
-
-    call init_sol_repart(CSTART)
-
-  end if
+!   if (istart.eq.0) then
+!   
+!    if (myid.ne.0) call CreateDumpStructures(1)
+! 
+!   ! Start from a solution on the same lvl
+!   ! with the same number of partitions
+!   elseif (istart.eq.1) then
+! 
+!   call init_sol_same_level(CSTART)
+! 
+!   ! Start from a solution on a lower lvl
+!   ! with the same number of partitions
+!   elseif (istart.eq.2)then
+! 
+!     call init_sol_lower_level(CSTART)
+! 
+!   ! Start from a solution on the same lvl
+!   ! with a different number of partitions
+!   elseif (istart.eq.3) then
+! 
+!     call init_sol_repart(CSTART)
+! 
+!   end if
 
 end subroutine init_q2p1_particle_tracer
 !========================================================================================

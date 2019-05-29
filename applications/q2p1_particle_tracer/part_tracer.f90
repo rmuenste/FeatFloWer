@@ -8,7 +8,7 @@ USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ
 ! USE Sigma_User, ONLY: myRTD
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 
-!USE app_initialization, ONLY : init_sol_same_level,init_sol_repart
+USE app_initialization, ONLY : init_sol_same_level,init_sol_repart
 
 USE particles_input
 use particle_step
@@ -62,8 +62,12 @@ dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 ! !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
 
 ALLOCATE(myVelo(1))
+
 WRITE(cFile,'(A)') '3'
-CALL SolFromFile(cFile,1)
+! CALL SolFromFile(cFile,1)
+CALL init_sol_same_level(cFile)
+! CALL init_sol_repart(cFile)
+
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
 ALLOCATE(myVelo(1)%z(QuadSc%ndof))
