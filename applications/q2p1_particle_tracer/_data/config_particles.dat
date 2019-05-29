@@ -8,6 +8,7 @@ startingprocedure = 1
 sourcefile=_data/seed.csv
 nElements = 1
 nSegmentsColoring = 1 
+Epsilon=0.001
 nRotation = 1
 D_Out = 5.0
 D_in = 1.0

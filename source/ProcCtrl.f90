@@ -146,3 +146,23 @@ SUBROUTINE Finalize(MFILE,MTERM)
  CALL MPI_Finalize(ierr)
 
 END SUBROUTINE Finalize
+
+
+SUBROUTINE Finalize_Particles(MFILE,MTERM)
+ USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
+ IMPLICIT NONE
+ INTEGER MFILE,MTERM
+ INTEGER iERR
+
+!  ! Save the final solution vector in unformatted form
+!  CALL SolToFile(-1)
+
+ IF (myid.eq.showid) THEN
+   WRITE(MTERM,*) "PP3D_LES has successfully finished. "
+   WRITE(MFILE,*) "PP3D_LES has successfully finished. "
+ END IF
+
+ CALL Barrier_myMPI()
+ CALL MPI_Finalize(ierr)
+
+END SUBROUTINE Finalize_Particles
