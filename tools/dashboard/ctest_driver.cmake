@@ -18,6 +18,7 @@
 # Example start command:
 # ctest -S ctest_driver.cmake \
 # -DBUILD_STRING=xeon-linux-gcc-release \
+# -DCONSTRAINT=epyx \
 # -DPROCS=16 \
 # -DSRC_DIR=$(pwd)/Feat_FloWer \
 # -DBIN_DIR=$(pwd)/bin-bttf \
@@ -32,20 +33,17 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 #========================================================================
 set(CTEST_SOURCE_DIRECTORY ${SRC_DIR})
 set(CTEST_BINARY_DIRECTORY ${BIN_DIR})
-set(CLEAN_BIN "")
+set(BENCH_CLEAN_BIN ${CLEAN_BIN})
 set(BENCH_PROCS ${PROCS})
-set(USER_BUILD_NAME "")
 
+set(USER_BUILD_NAME ${BUILD_STRING})
+set(SLURM_CONSTRAINT ${CONSTRAINT})
 
 if("${BENCH_PROCS}" STREQUAL "")
   message(FATAL_ERROR "Required parameter PROCS is not set. Set it using the -DPROCS=<number> option.")
 else("${BENCH_PROCS}" STREQUAL "")
   message(STATUS "Using ${PROCS} processors for the benchmark.")
 endif("${BENCH_PROCS}" STREQUAL "")
-
-if("${USER_BUILD_NAME}" STREQUAL "")
-  set(USER_BUILD_NAME ${BUILD_STRING})
-endif("${USER_BUILD_NAME}" STREQUAL "")
 
 message(STATUS "${CTEST_SOURCE_DIRECTORY} ${CTEST_BINARY_DIRECTORY}")
 
@@ -65,7 +63,7 @@ set(CTEST_SITE ${HNAME})
 
 set(CTEST_DROP_METHOD "http")
 
-set(CTEST_BUILD_NAME "${USER_BUILD_NAME}")
+set(CTEST_BUILD_NAME "${BUILD_STRING}-${CONSTRAINT}")
 
 set(CTEST_DROP_SITE "localhost/CDash/public")
 
@@ -102,19 +100,15 @@ set(WITH_COVERAGE false)
 #========================================================================
 set(CLEAN_BIN_DIR "")
 
-if(NOT "${CLEAN_BIN}" STREQUAL "")
-  set(CLEAN_BIN_DIR ${CLEAN_BIN})
-endif(NOT "${CLEAN_BIN}" STREQUAL "")
-
-if(NOT "${CLEAN_BIN_DIR}" STREQUAL "")
-  set(CLEAN_BIN_DIR ${CLEAN_BIN})
-
+if(CLEAN_BIN)
   message(STATUS "Preparing to delete the binary directory.")
   if(EXISTS ${CTEST_BINARY_DIRECTORY})
     message(STATUS "Deleting the binary directory.")
     ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
   endif()
-endif(NOT "${CLEAN_BIN_DIR}" STREQUAL "")
+else(CLEAN_BIN)
+  message(STATUS "Using the current contents of the binary directory")
+endif(CLEAN_BIN)
 
 #========================================================================
 # Configure the git checkout command
@@ -135,7 +129,7 @@ endif()
 
 set(CTEST_UPDATE_COMMAND "git")
 
-set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DQ2P1_BUILD_ID:STRING=${BUILD_STRING} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION} -DPROCS=${BENCH_PROCS}")
+set(CTEST_CONFIGURE_COMMAND "${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE:STRING=${CTEST_BUILD_CONFIGURATION} -DPROCS=${BENCH_PROCS}")
 
 set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} -DWITH_TESTING:BOOL=ON ${CTEST_BUILD_OPTIONS}")
 set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} \"-G${CTEST_CMAKE_GENERATOR}\"")
@@ -152,11 +146,11 @@ ctest_start("Experimental")
 
 #ctest_update()
 
-#ctest_configure()
+ctest_configure()
 
-#ctest_build()
+ctest_build()
 
-ctest_test(START 4 END 4)
+ctest_test(START 1 END 3 STRIDE 1)
 
 #ctest_test()
 
