@@ -147,7 +147,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call readTriCoarse(CMESH1, mg_mesh)
 
- call refineMesh(mg_mesh, mg_Mesh%maxlevel, .true.)  
+ call refineMesh(mg_mesh, mg_Mesh%maxlevel,.TRUE.)  
 
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -245,11 +245,6 @@ DO ILEV=NLMIN+1,NLMAX
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
-
-! call myMPI_Barrier()
-! pause
-
-
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  
@@ -322,7 +317,7 @@ DO ILEV=NLMIN+1,NLMAX
  END IF
 
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -336,14 +331,14 @@ DO ILEV=NLMIN+1,NLMAX
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
                 NEL,&
                 mg_mesh%level(ILEV)%kvert,&
                 mg_mesh%level(ILEV)%dcorvg)
-
+                
  END IF
 
  CALL ZTIME(TTT1)

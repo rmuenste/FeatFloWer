@@ -495,6 +495,8 @@ TYPE(tViscFunc) :: myViscFunc
 
 TYPE(tProperties),save :: Properties
 
+TYPE (tParticleParam) :: myParticleParam
+
 contains 
 integer function KNEL(ilevel)
   implicit none

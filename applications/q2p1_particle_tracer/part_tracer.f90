@@ -8,13 +8,13 @@ USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ
 ! USE Sigma_User, ONLY: myRTD
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 
+!USE app_initialization, ONLY : init_sol_same_level,init_sol_repart
+
 USE particles_input
 use particle_step
 
 INTEGER nBuffer
 PARAMETER (nBuffer=40)
-
-TYPE (tParticleParam) :: myParticleParam
 
 REAL*8, ALLOCATABLE :: Lambda(:),Length(:,:)
 REAL*8, ALLOCATABLE :: ZPosParticles(:,:,:)
@@ -62,20 +62,14 @@ dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 ! !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
 
 ALLOCATE(myVelo(1))
-WRITE(cFile,'(A,I2.2)') '_dump/',0
-CALL SolFromFile(CFile,1)
+WRITE(cFile,'(A)') '3'
+CALL SolFromFile(cFile,1)
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
 ALLOCATE(myVelo(1)%z(QuadSc%ndof))
 myVelo(1)%x = QuadSc%ValU
 myVelo(1)%y = QuadSc%ValV
 myVelo(1)%z = QuadSc%ValW
-
-
-
-
-
-
 
 IF (myid.ne.0) THEN
  ILEV=NLMAX-1
@@ -86,8 +80,8 @@ CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%kedge,&
                       mg_mesh%level(ILEV)%karea,&
-                      KWORK(L(KLVEL(ILEV))),&
-                      KNVEL(ILEV),&
+                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                      mg_mesh%level(ILEV)%elementsAtVertex,&
                       QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
                       nvt,net,nat,nel,dTime)
 
@@ -97,6 +91,7 @@ IF (myid.ne.0) THEN
  ILEV=NLMAX
  CALL SETLEV(2)
 END IF
+
 call GetMeshBounds(mg_mesh%level(NLMAX)%dcorvg,nvt,xmin,xmax,ymin,ymax,zmin,zmax)
 myMeshInfo%xmin = xmin
 myMeshInfo%xmax = xmax
@@ -112,7 +107,6 @@ if (myid .eq. showid) then
   write(mterm,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Y-Dimension ymin: ",myMeshInfo%ymin, " ymax: ", myMeshInfo%ymax
   write(mterm,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Z-Dimension zmin: ",myMeshInfo%zmin, " zmax: ", myMeshInfo%zmax
 end if ! Dump mesh-info
-
 
 IF (myid.eq.1) OPEN(FILE='_RTD/RTD.csv',UNIT=947)
 dBuffer = 0d0
@@ -135,8 +129,8 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
   dStart = dTime
   dTime = dTime + dTimeStep
 
-  IF (myid.eq.1) WRITE(MFILE,'(A,I8,A,I8,A,2I0)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,iLevel1
-  IF (myid.eq.1) WRITE(MTERM,'(A,I8,A,I8,A,2I0)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,iLevel1
+  IF (myid.eq.1) WRITE(MFILE,'(A,I8,A,I8,A,I0,A,I0,ES14.6)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,'/',iLevel1,dTime
+  IF (myid.eq.1) WRITE(MTERM,'(A,I8,A,I8,A,I0,A,I0,ES14.6)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,'/',iLevel1,dTime
 
   DO
    IF (myid.ne.0) THEN
@@ -144,8 +138,8 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
                        mg_mesh%level(ILEV)%kvert,&
                        mg_mesh%level(ILEV)%kedge,&
                        mg_mesh%level(ILEV)%karea,&
-                       KWORK(L(KLVEL(ILEV))),&
-                       KNVEL(ILEV),&
+                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                       mg_mesh%level(ILEV)%elementsAtVertex,&
                        myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
                        myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
                        nvt,net,nat,nel,dTime,dStart)
@@ -177,8 +171,8 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
                           mg_mesh%level(ILEV)%kvert,&
                           mg_mesh%level(ILEV)%kedge,&
                           mg_mesh%level(ILEV)%karea,&
-                          KWORK(L(KLVEL(ILEV))),&
-                          KNVEL(ILEV),&
+                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                          mg_mesh%level(ILEV)%elementsAtVertex,&
                           QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
                           nvt,net,nat,nel,dTime)
 
@@ -408,7 +402,7 @@ END SUBROUTINE Init_Particles_from_parameterfile
 SUBROUTINE Init_Particles_from_csv(mfile)
 INTEGER i,j,iParticles, iElements, iElement
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
-REAL*8 dBuff(3)
+REAL*8 dCrap(5),dBuff(3)
 INTEGER iO
 
 ! Count how many particles are in the sourcefile!
@@ -418,7 +412,7 @@ OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
 READ(745,*)
 iElements = 0
 DO
-   READ(745,*,IOSTAT=io)  dBuff
+   READ(745,*,IOSTAT=io)  dCrap,dBuff
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
       EXIT
@@ -461,7 +455,7 @@ READ(745,*)
 ! We read the file in one round
 DO iElement=1,iElements
 
-  READ(745,*,IOSTAT=io)  dBuff
+  READ(745,*,IOSTAT=io)  dCrap,dBuff
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
   ! Calculate the indices of the particles that we
@@ -488,9 +482,15 @@ DO iElement=1,iElements
   myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
   myExchangeSet(idx4)%time    = 0d0
   myExchangeSet(idx4)%indice  = idx4
+  
+!   if (myid.eq.1) write(*,*) myExchangeSet(idx1)%coor(:)
+!   if (myid.eq.1) write(*,*) myExchangeSet(idx2)%coor(:)
+!   if (myid.eq.1) write(*,*) myExchangeSet(idx3)%coor(:)
+!   if (myid.eq.1) write(*,*) myExchangeSet(idx4)%coor(:)
 
 END DO
 
+! pause
 CLOSE(745)
 
 nExchangeSet = myParticleParam%nParticles

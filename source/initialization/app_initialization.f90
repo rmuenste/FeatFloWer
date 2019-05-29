@@ -108,22 +108,32 @@ subroutine init_q2p1_particle_tracer(log_unit)
 
   ! The particle tracer by default starts with a single 
   ! combined solution file 
-  if (istart.eq.3) then
-    IF (myid.ne.0) CALL CreateDumpStructures(1)
-    !call SolFromFileRepartPartTracer(CSTART,1)
-  else
-    if(myid .eq. showid)then
-      write(*,*)'Error: A particle tracer application needs setting istart = 3'
-    end if
-    call myMPI_Barrier()
-    stop
-  end if
+  ! Normal start from inital configuration
+  if (istart.eq.0) then
+  
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call InitCond_QuadScalar()
+    IF(bViscoElastic)call IniProf_ViscoScalar()
 
-  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
-    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
-    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
-    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
-  end do
+  ! Start from a solution on the same lvl
+  ! with the same number of partitions
+  elseif (istart.eq.1) then
+
+  call init_sol_same_level(CSTART)
+
+  ! Start from a solution on a lower lvl
+  ! with the same number of partitions
+  elseif (istart.eq.2)then
+
+    call init_sol_lower_level(CSTART)
+
+  ! Start from a solution on the same lvl
+  ! with a different number of partitions
+  elseif (istart.eq.3) then
+
+    call init_sol_repart(CSTART)
+
+  end if
 
 end subroutine init_q2p1_particle_tracer
 !========================================================================================

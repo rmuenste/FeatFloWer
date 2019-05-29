@@ -1,4 +1,5 @@
-# CMakeLists of q2p1_fc_ext application
+
+# CMakeLists of q2p1_particle_tracer application
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
 )
@@ -31,8 +32,6 @@ add_executable(q2p1_particle_tracer ${src_q2p1_particle_tracer})
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
 source_group(src_mpi FILES ${src_mpi})
-source_group(src_fbm_aux FILES ${src_fbm})
-source_group(src_util FILES ${src_util})
 source_group(src_PLin FILES ${src_PLin})
 source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS_ext})
@@ -49,11 +48,14 @@ target_include_directories(q2p1_particle_tracer PUBLIC ${FF_APPLICATION_INCLUDE_
 
 target_compile_options(q2p1_particle_tracer PRIVATE ${Fortran_FLAGS})
 
-target_compile_options(q2p1_particle_tracer PRIVATE -DSKIP_DYNAMICS=1)
-
 set_target_properties(q2p1_particle_tracer PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
+
+#file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+#add_test(q2p1-fac-newt python ./q2p1_ctest_start.py)

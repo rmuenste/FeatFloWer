@@ -21,14 +21,14 @@ PROGRAM Q2P1_PARTICLE_TRACER
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
   real*8, dimension(8) :: x,y,z
-  real*8 :: xx,yy,zz,DPARX,DPARY,DPARZ
+  !real*8 :: xx,yy,zz,DPARX,DPARY,DPARZ
   integer :: ielem = 0
 
   call init_q2p1_particle_tracer(ufile)
 
-!  call Init_Particle(mfile)
-!
-!  call Transport_Particle(mfile)
+  call Init_Particle(ufile)
+
+  call Transport_Particle(ufile)
 
   call sim_finalize(tt0,ufile)
 

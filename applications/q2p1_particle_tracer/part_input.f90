@@ -33,7 +33,7 @@ contains
     Z2 = 0.00
     hSize = 0.1
     Epsilon = 5d-2
-
+    
     ! Init the output from the iniparser
     call inip_output_init(myid,showid,mfile,mterm)
 
