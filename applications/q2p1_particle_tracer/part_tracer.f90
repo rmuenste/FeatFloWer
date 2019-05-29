@@ -289,7 +289,7 @@ end if
 
 ! Now the part that is identical for all initialisations
 if (myParticleParam%nZposCutplanes .gt. 0 ) then
-  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,3,1:myParticleParam%nParticles))
+  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,4,1:myParticleParam%nParticles))
   ! Initialisation with zero - always good to have known values in there
   ZPosParticles = 0.0d0
   ALLOCATE(bPosParticles(myParticleParam%nZposCutplanes,1:myParticleParam%nParticles))
@@ -833,7 +833,7 @@ END SUBROUTINE GetLambda
 !
 SUBROUTINE GetCutplanes()
 INTEGEr nH,i,j, iZpos
-REAL*8 X,Y,Z,ddd
+REAL*8 X,Y,Z,ddd,t
 
 IF (myid.eq.1) THEN
 !  DO i=1,nCompleteSet
@@ -861,13 +861,28 @@ IF (myid.eq.1) THEN
     X = myCompleteSet(i)%coor(1)
     Y = myCompleteSet(i)%coor(2)
     Z = myCompleteSet(i)%coor(3)
+    t = myCompleteSet(i)%time
     do iZpos = 1,myParticleParam%nZposCutplanes
-      IF (z.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
-       ZPosParticles(iZpos,:,j) = [X,Y,myParticleParam%cutplanePositions(iZpos)]
-       bPosParticles(iZpos,j)   = .FALSE.
+      IF (x.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
+       ZPosParticles(iZpos,1:3,j) = [myParticleParam%cutplanePositions(iZpos),Y,Z]
+       ZPosParticles(iZpos,4,j)   = t
+       bPosParticles(iZpos,j)     = .FALSE.
       END IF
     end do ! loop over all z positions
   end do ! over the complete set
+
+!   do i=1,nCompleteSet
+!     j = myCompleteSet(i)%indice
+!     X = myCompleteSet(i)%coor(1)
+!     Y = myCompleteSet(i)%coor(2)
+!     Z = myCompleteSet(i)%coor(3)
+!     do iZpos = 1,myParticleParam%nZposCutplanes
+!       IF (z.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
+!        ZPosParticles(iZpos,:,j) = [X,Y,myParticleParam%cutplanePositions(iZpos)]
+!        bPosParticles(iZpos,j)   = .FALSE.
+!       END IF
+!     end do ! loop over all z positions
+!   end do ! over the complete set
 END IF
 
 END SUBROUTINE GetCutplanes
@@ -915,13 +930,15 @@ IF (myid.eq.1) THEN
     write(cFile,'(A18,I2.2,A4)' ) '_RTD/ParticlesAtZ_' , izPos , '.csv'
     OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-    WRITE(412,'(4A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"'
+    WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
     DO j=1,myParticleParam%nParticles
 
       IF (.NOT.bPosParticles(iZpos,j)) THEN
-       WRITE(412,'(3(E16.7,A),8I0)') REAL(ZPosParticles(iZpos,1,j)*myParticleParam%dFacUnitOut),',', &
+       WRITE(412,'(3(E16.7,A),I0,A,ES16.7)') &
+                                     REAL(ZPosParticles(iZpos,1,j)*myParticleParam%dFacUnitOut),',', &
                                      REAL(ZPosParticles(iZpos,2,j)*myParticleParam%dFacUnitOut),',', &
-                                     REAL(ZPosParticles(iZpos,3,j)*myParticleParam%dFacUnitOut),',',j
+                                     REAL(ZPosParticles(iZpos,3,j)*myParticleParam%dFacUnitOut),',',j,',',&
+                                     REAL(ZPosParticles(iZpos,4,j))
       END IF
     END DO
     CLOSE(412)
