@@ -24,8 +24,6 @@ LOGICAL, ALLOCATABLE :: pPresent(:)
 LOGICAL bOutputLambda
 INTEGER iOutputLambda
 
-
-
 !------------------------------------------------------------
 
 CONTAINS
@@ -63,7 +61,7 @@ dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 
 ALLOCATE(myVelo(1))
 
-WRITE(cFile,'(A)') '3'
+WRITE(cFile,'(A)') '7'
 ! CALL SolFromFile(cFile,1)
 CALL init_sol_same_level(cFile)
 ! CALL init_sol_repart(cFile)
@@ -146,7 +144,7 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
                        mg_mesh%level(ILEV)%elementsAtVertex,&
                        myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
                        myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                       nvt,net,nat,nel,dTime,dStart)
+                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
    END IF
 
    daux = DBLE(nActiveSet)
@@ -160,8 +158,8 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
    nExSum =INT(daux)
 
    iCycle = iCycle + 1
-   IF (myid.eq.1) WRITE(MFILE,'(A,I0,A,2I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,nActSum
-   IF (myid.eq.1) WRITE(MTERM,'(A,I0,A,2I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,nActSum
+   IF (myid.eq.1) WRITE(MFILE,'(A,I0,A,I0,A,I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,'/',nActSum
+   IF (myid.eq.1) WRITE(MTERM,'(A,I0,A,I0,A,I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,'/',nActSum
 
 
    IF (nExSum.EQ.0) THEN
@@ -262,6 +260,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mterm,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
  WRITE(mterm,*) 'myParticleParam%nRotation   = ', myParticleParam%nRotation
+ WRITE(mterm,*) 'myParticleParam%d_CorrDist  = ', myParticleParam%d_CorrDist
  WRITE(mterm,*) 'myParticleParam%minFrac     = ', myParticleParam%minFrac
  WRITE(mterm,*) 'myParticleParam%Raster      = ', myParticleParam%Raster
  WRITE(mterm,*) 'myParticleParam%dEps1       = ', myParticleParam%dEps1
@@ -417,17 +416,26 @@ READ(745,*)
 iElements = 0
 DO
    READ(745,*,IOSTAT=io)  dCrap,dBuff
+   
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
       EXIT
    ELSE IF (io < 0) THEN
-      IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles
+      IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElements
       EXIT
    ELSE
-      iElements = iElements + 1
+      cdx = 1d1*dBuff(1)
+      cdy = 1d1*dBuff(2)
+      cdz = 1d1*dBuff(3)
+      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!       write(*,*) dist_CGAL
+      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
+       iElements = iElements + 1
+      end if
    END IF
 END DO
 CLOSE(745)
+
 
 ! We will create 4 times the number of particles
 ! from the sourcefile - because we will create
@@ -457,43 +465,60 @@ OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
 READ(745,*)
 
 ! We read the file in one round
-DO iElement=1,iElements
+iElement = 0
+DO
+!DO iElement=1,iElements
 
   READ(745,*,IOSTAT=io)  dCrap,dBuff
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
-  ! Calculate the indices of the particles that we
-  ! are generating. We create them elementwise:
-  ! First those from element 1, then those from
-  ! element two, then those from element 3, ...
-  idx1 = 4*iElement - 3
-  idx2 = 4*iElement - 2
-  idx3 = 4*iElement - 1
-  idx4 = 4*iElement - 0
+   IF (io > 0) THEN
+      WRITE(*,*) 'Check input.  Something was wrong'
+      EXIT
+   ELSE IF (io < 0) THEN
+      IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElement
+      EXIT
+   ELSE
 
-  myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
-  myExchangeSet(idx1)%time    = 0d0
-  myExchangeSet(idx1)%indice  = idx1
+!       if (myid.eq.1) write(*,*) dBuff
+      cdx = 1d1*dBuff(1)
+      cdy = 1d1*dBuff(2)
+      cdz = 1d1*dBuff(3)
+      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
+         
+         iElement = iElement+ 1
+         
+         ! Calculate the indices of the particles that we
+         ! are generating. We create them elementwise:
+         ! First those from element 1, then those from
+         ! element two, then those from element 3, ...
+         idx1 = 4*iElement - 3
+         idx2 = 4*iElement - 2
+         idx3 = 4*iElement - 1
+         idx4 = 4*iElement - 0
 
-  myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
-  myExchangeSet(idx2)%time    = 0d0
-  myExchangeSet(idx2)%indice  = idx2
+         myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx1)%time    = 0d0
+         myExchangeSet(idx1)%indice  = idx1
 
-  myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
-  myExchangeSet(idx3)%time    = 0d0
-  myExchangeSet(idx3)%indice  = idx3
+         myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx2)%time    = 0d0
+         myExchangeSet(idx2)%indice  = idx2
 
-  myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
-  myExchangeSet(idx4)%time    = 0d0
-  myExchangeSet(idx4)%indice  = idx4
-  
-!   if (myid.eq.1) write(*,*) myExchangeSet(idx1)%coor(:)
-!   if (myid.eq.1) write(*,*) myExchangeSet(idx2)%coor(:)
-!   if (myid.eq.1) write(*,*) myExchangeSet(idx3)%coor(:)
-!   if (myid.eq.1) write(*,*) myExchangeSet(idx4)%coor(:)
+         myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+         myExchangeSet(idx3)%time    = 0d0
+         myExchangeSet(idx3)%indice  = idx3
 
+         myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+         myExchangeSet(idx4)%time    = 0d0
+         myExchangeSet(idx4)%indice  = idx4
+     
+      END IF
+   END IF
 END DO
 
+! write(*,*) iElement
 ! pause
 CLOSE(745)
 
@@ -616,10 +641,10 @@ IF (myid.eq.1) THEN
   WRITE(412,'(4A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"'
   ! Now output the particles to the file
   DO i=1,nLostSet
-   WRITE(412,'(3(E16.7,A),8I0)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
+   WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(2)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(3)*myParticleParam%dFacUnitOut),',',&
-                                myLostSet(i)%indice
+                                myLostSet(i)%indice,',',REAL(myLostSet(i)%time)
   END DO
 
   CLOSE(412)

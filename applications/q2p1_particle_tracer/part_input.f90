@@ -122,6 +122,8 @@ contains
     ! Maximum number of rotations that has to be performed
     call inip_getvalue_int(parameterlist, "GeneralSettings","nRotation",ParticleParam%nRotation)
 
+    call inip_getvalue_double(parameterlist, "GeneralSettings","d_CorrDist",ParticleParam%d_CorrDist,1d-2)
+
     call inip_getvalue_double(parameterlist, "GeneralSettings","minFrac",ParticleParam%minFrac,minFrac)
     call inip_getvalue_int(parameterlist, "GeneralSettings","Raster",ParticleParam%Raster,50)
     call inip_getvalue_double(parameterlist, "GeneralSettings","dEps1",ParticleParam%dEps1,dEps1)

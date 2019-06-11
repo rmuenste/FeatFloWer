@@ -166,7 +166,7 @@ INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
 
 TYPE tParticleParam
- REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize
+ REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist
  REAL*8 :: minFrac
  INTEGER :: nTimeLevels,nParticles,nRotation,Raster
  ! What kind of starting procedure?

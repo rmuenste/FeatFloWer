@@ -1,5 +1,9 @@
 module particle_step
 
+USE geometry_processing, only : GetDistToSTL
+
+REAL*8 dist_CGAL,cdx,cdy,cdz,d_CorrDist
+
 real*8 DJ(8,3),q8
 PARAMETER (Q8=0.125D0)
 REAL*8 DJACI(3,3),DJAC(3,3),DBAS(27),DV0(3,27),DV1(3,27)
@@ -596,12 +600,12 @@ END SUBROUTINE Gather_Particle
 !                           Sub: Move_Particle
 !========================================================================================
 subroutine Move_Particle(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
-                         Vel0U,Vel0V,Vel0W,Vel1U,Vel1V,Vel1W,nvt,net,nat,nel,tDelta,tStart)
+                         Vel0U,Vel0V,Vel0W,Vel1U,Vel1V,Vel1W,nvt,net,nat,nel,tDelta,tStart,d_CorrDist)
 USE PP3D_MPI, ONLY : myid
 USE types, ONLY : myActiveSet,myExchangeSet,nActiveSet,nExchangeSet,nStartActiveSet
 
 IMPLICIT NONE
-REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart
+REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart,d_CorrDist
 REAL*8 Vel0U(*),Vel0V(*),Vel0W(*),Vel1U(*),Vel1V(*),Vel1W(*)
 INTEGER nvt,net,nat,nel
 INTEGER kel_LdA(*),kel_ColA(*)
@@ -615,6 +619,7 @@ INTEGER iMonitor(40),iAux
 REAL*8  dMonitor(40),dAux
 INTEGER nXX,kk,iMon
 PARAMETER (nXX = 40)
+REAL*8 cpx,cpy,cpz,cnormal(3)
 
 iLostParticel = 0
 iActiveParticel = 0
@@ -710,7 +715,30 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   
   CALL MovePointInElement(tLevel,tDelta,tStart,iParticel,jel)
   
-  point = P
+  cdx = 1d1*P(1)
+  cdy = 1d1*P(2)
+  cdz = 1d1*P(3)
+  
+  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
+!    write(*,*) 'Particel: ', iParticel 
+!   write(*,*) 'before: ', P   
+   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+   
+   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+   cnormal = cnormal/daux
+   
+   cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+   cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+   cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   
+   P=0.1d0*[cdx,cdy,cdz]
+!   write(*,*) 'after: ', P   
+!   pause
+  end if
+  
+!   point = [abs(P(1)),P(2),P(3)]
   
   iFoundElem = jel
   GOTO 1
@@ -720,6 +748,30 @@ END DO
 END DO
 
 IF (.not.bFound) THEN
+  cdx = 1d1*point(1)
+  cdy = 1d1*point(2)
+  cdz = 1d1*point(3)
+
+  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+  
+!   write(*,*) point,dist_CGAL
+!   if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
+! !    write(*,*) 'Particel: ', iParticel 
+! !   write(*,*) 'before: ', P   
+!    call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!    
+!    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+!    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+!    cnormal = cnormal/daux
+!    
+!    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+!    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+!    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+!    
+!    point=0.1d0*[cdx,cdy,cdz]
+!    
+!    CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!    call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
 ! myActiveSet(iParticel)%coor = point
 ! myActiveSet(iParticel)%time = tLevel
  iLostParticel = iLostParticel + 1
