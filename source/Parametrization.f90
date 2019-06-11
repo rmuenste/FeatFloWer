@@ -903,69 +903,86 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
         IF (myParBndr(iBnds)%Dimens.eq.4) mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
       END IF
     END DO
-  END DO
+   END DO
 
-  DO iNode=1,mgMesh%level(ilevel+1)%nvt
-    IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%P(mgMesh%BndryNodes(iNode)%nPoint))
-    IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%L(mgMesh%BndryNodes(iNode)%nLine))
-    IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%S(mgMesh%BndryNodes(iNode)%nSurf))
-    IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%V(mgMesh%BndryNodes(iNode)%nVolume))
-  END DO
+   DO iNode=1,mgMesh%level(ilevel+1)%nvt
+     IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%P(mgMesh%BndryNodes(iNode)%nPoint))
+     IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%L(mgMesh%BndryNodes(iNode)%nLine))
+     IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%S(mgMesh%BndryNodes(iNode)%nSurf))
+     IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%V(mgMesh%BndryNodes(iNode)%nVolume))
+   END DO
 
-  DO iNode=1,mgMesh%level(ilevel+1)%nvt
-    mgMesh%BndryNodes(iNode)%ParamTypes(1:4)=.FALSE.
-    IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(1)=.TRUE.
-    IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(2)=.TRUE.
-    IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(3)=.TRUE.
-    IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(4)=.TRUE.
-  END DO
+   DO iNode=1,mgMesh%level(ilevel+1)%nvt
+     mgMesh%BndryNodes(iNode)%ParamTypes(1:4)=.FALSE.
+     IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(1)=.TRUE.
+     IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(2)=.TRUE.
+     IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(3)=.TRUE.
+     IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) mgMesh%BndryNodes(iNode)%ParamTypes(4)=.TRUE.
+   END DO
+   
+   mgMesh%BndryNodes(:)%nPoint  = 0
+   mgMesh%BndryNodes(:)%nLine   = 0
+   mgMesh%BndryNodes(:)%nSurf   = 0
+   mgMesh%BndryNodes(:)%nVolume = 0
+   
+   DO iBnds = 1, nBnds
+     DO iNode=1,mgMesh%level(ilevel+1)%nvt
+       IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
+         IF (myParBndr(iBnds)%Dimens.eq.1) THEN
+           mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
+           nn = mgMesh%BndryNodes(iNode)%nPoint
+           mgMesh%BndryNodes(iNode)%P(nn) = iBnds
+         END IF
+         IF (myParBndr(iBnds)%Dimens.eq.2) THEN
+           mgMesh%BndryNodes(iNode)%nLine    = mgMesh%BndryNodes(iNode)%nLine + 1
+           nn = mgMesh%BndryNodes(iNode)%nLine
+           mgMesh%BndryNodes(iNode)%L(nn) = iBnds
+         END IF
+         IF (myParBndr(iBnds)%Dimens.eq.3) THEN 
+           mgMesh%BndryNodes(iNode)%nSurf    = mgMesh%BndryNodes(iNode)%nSurf + 1
+           nn = mgMesh%BndryNodes(iNode)%nSurf
+           mgMesh%BndryNodes(iNode)%S(nn) = iBnds
+         END IF
+         IF (myParBndr(iBnds)%Dimens.eq.4) THEN
+           mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
+           nn = mgMesh%BndryNodes(iNode)%nVolume
+           mgMesh%BndryNodes(iNode)%V(nn) = iBnds
+         END IF
+       END IF
+     END DO
+   END DO
   
-  mgMesh%BndryNodes(:)%nPoint  = 0
-  mgMesh%BndryNodes(:)%nLine   = 0
-  mgMesh%BndryNodes(:)%nSurf   = 0
-  mgMesh%BndryNodes(:)%nVolume = 0
-  
-  DO iBnds = 1, nBnds
+   IF (bBoundaryCheck) THEN
     DO iNode=1,mgMesh%level(ilevel+1)%nvt
-      IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
-        IF (myParBndr(iBnds)%Dimens.eq.1) THEN
-          mgMesh%BndryNodes(iNode)%nPoint   = mgMesh%BndryNodes(iNode)%nPoint + 1
-          nn = mgMesh%BndryNodes(iNode)%nPoint
-          mgMesh%BndryNodes(iNode)%P(nn) = iBnds
-        END IF
-        IF (myParBndr(iBnds)%Dimens.eq.2) THEN
-          mgMesh%BndryNodes(iNode)%nLine    = mgMesh%BndryNodes(iNode)%nLine + 1
-          nn = mgMesh%BndryNodes(iNode)%nLine
-          mgMesh%BndryNodes(iNode)%L(nn) = iBnds
-        END IF
-        IF (myParBndr(iBnds)%Dimens.eq.3) THEN 
-          mgMesh%BndryNodes(iNode)%nSurf    = mgMesh%BndryNodes(iNode)%nSurf + 1
-          nn = mgMesh%BndryNodes(iNode)%nSurf
-          mgMesh%BndryNodes(iNode)%S(nn) = iBnds
-        END IF
-        IF (myParBndr(iBnds)%Dimens.eq.4) THEN
-          mgMesh%BndryNodes(iNode)%nVolume  = mgMesh%BndryNodes(iNode)%nVolume + 1
-          nn = mgMesh%BndryNodes(iNode)%nVolume
-          mgMesh%BndryNodes(iNode)%V(nn) = iBnds
-        END IF
+      IF (mgMesh%BndryNodes(iNode)%bOuterPoint) THEN
+       IF (.NOT.(mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
+                 mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
+                 mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
+                 mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
+           WRITE(*,'(I4,A,I8,A)') myid,'BNDRY POINT:',iNode,' is not assigned to any parametrizations ...!'
+       END IF
       END IF
     END DO
-  END DO
-  
-  IF (bBoundaryCheck) THEN
-   DO iNode=1,mgMesh%level(ilevel+1)%nvt
-     IF (mgMesh%BndryNodes(iNode)%bOuterPoint) THEN
-      IF (.NOT.(mgMesh%BndryNodes(iNode)%ParamTypes(1).OR.&
-                mgMesh%BndryNodes(iNode)%ParamTypes(2).OR.&
-                mgMesh%BndryNodes(iNode)%ParamTypes(3).OR.&
-                mgMesh%BndryNodes(iNode)%ParamTypes(4))) then
-          WRITE(*,'(I4,A,I8,A)') myid,'BNDRY POINT:',iNode,' is not assigned to any parametrizations ...!'
-      END IF
-     END IF
-   END DO
-  END IF
+   END IF
 
-  END IF
+ END IF
+ 
+ if (bParallel) then
+  daux = 0d0
+  do i=1,mgMesh%level(ilevel+1)%nvt
+   if (mgMesh%BndryNodes(i)%bOuterPoint) then
+    daux(i) = 1d0
+   end if
+  end do
+  CALL E013SUM(daux)
+  do i=1,mgMesh%level(ilevel+1)%nvt
+   if (daux(i).ge.1d0) then
+    mgMesh%BndryNodes(i)%bOuterPoint = .true.
+   end if
+  end do
+ end if
+ 
+ deallocate(daux)
  
 END SUBROUTINE DeterminePointParametrization_STRCT
 !
