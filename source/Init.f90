@@ -775,6 +775,14 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mterm,'(A)') "No Initial Mesh Adaptation"
       END IF
 
+      IF (bNS_Stabilization) THEN 
+        WRITE(mfile,'(A,A)') "Stabilization of Navier-Stokes is ::  ON"
+        WRITE(mterm,'(A,A)') "Stabilization of Navier-Stokes is ::  ON"
+      ELSE
+        WRITE(mfile,'(A,A)') "Stabilization of Navier-Stokes is ::  OFF"
+        WRITE(mterm,'(A,A)') "Stabilization of Navier-Stokes is ::  OFF"
+      END IF
+
       WRITE(mfile,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
       WRITE(mterm,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
 
