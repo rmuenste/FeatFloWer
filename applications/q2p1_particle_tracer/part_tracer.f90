@@ -640,7 +640,7 @@ IF (myid.eq.1) THEN
   cFile= '_RTD/ParticlesAtOutflow.csv'
   OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-  WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"','"time"'
+  WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
   ! Now output the particles to the file
   DO i=1,nLostSet
    WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
@@ -765,12 +765,12 @@ IF (myid.eq.1) THEN
 WRITE(cFile,'(A,I8.8,A4)') '_RTD/Particles_',iT,'.csv'
 OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-WRITE(412,'(4A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"'
+WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
 DO i=1,nCompleteSet
- WRITE(412,'(3(E16.7,A),8I0)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
+ WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(2)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(3)*myParticleParam%dFacUnitOut),',', &
-                               myCompleteSet(i)%indice
+                                myLostSet(i)%indice,',',REAL(myLostSet(i)%time)
 END DO
 
 CLOSE(412)
