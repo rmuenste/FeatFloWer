@@ -283,7 +283,7 @@ tLevel = myExchangeSet(iParticel)%time
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
   if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
-    write(*,*) 'Particel: ', iParticel 
+!     write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
    call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
    
