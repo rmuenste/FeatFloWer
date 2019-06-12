@@ -56,11 +56,11 @@
      WRITE(*,*) '"',TRIM(myProcess%Rotation),'"'
     END IF
 ! 
-    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'MM')
     call inip_toupper_replace(cUnit)
     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
-      cUnit = 'CM'
+      cUnit = 'MM'
     END IF
     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
     if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
@@ -136,17 +136,20 @@
        WRITE(*,*) "STL object type is invalid. Only screw, die, or obstacle types are allowed"
      END IF
 
-     call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'CM')
+     call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'MM')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%Unit)
      IF (.NOT.(mySigma%mySegment(iSeg)%Unit.eq.'MM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'CM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'DM'.OR.mySigma%mySegment(iSeg)%Unit.eq.'M')) THEN
        WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed",mySigma%mySegment(iSeg)%Unit
-       mySigma%mySegment(iSeg)%Unit = 'CM'
+       bReadError=.TRUE.
+!       mySigma%mySegment(iSeg)%Unit = 'MM'
      END IF
-     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
-     if (TRIM(cUnit).eq.'CM') dSizeScale = 1.000d0
-     if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
-     if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'MM') dSizeScale = 0.100d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'CM') dSizeScale = 1.000d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'DM') dSizeScale = 10.00d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'M')  dSizeScale = 100.0d0
       
+     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dSizeScale
+
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
@@ -417,6 +420,7 @@
       mySigma%mySegment(iSeg)%ART   = "STL"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
+      write(*,*) 'dSizeScale: ',dSizeScale
       mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
@@ -575,7 +579,9 @@
     IF (ADJUSTL(TRIM(cProcessType)).eq."THROUGHPUT") THEN
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","massthroughput", myProcess%Massestrom,myInf)
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MinInflowDiameter", myProcess%MinInflowDiameter,mySigma%Dz_In)
+     myProcess%MinInflowDiameter = dSizeScale*myProcess%MinInflowDiameter
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaxInflowDiameter", myProcess%MaxInflowDiameter,mySigma%Dz_Out)
+     myProcess%MaxInflowDiameter = dSizeScale*myProcess%MaxInflowDiameter
      myProcess%pTYPE = "THROUGHPUT"
     END IF
     IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq." ") THEN
@@ -713,6 +719,11 @@
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","ReferenceTemperature",myRheology%Tb,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/TBTS","StandardTemperature",myRheology%Ts,myInf)
     END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."ETB") THEN
+      myRheology%AtFunc = 4
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/ETB","ActivatingEnergy",myRheology%E,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/ETB","ReferenceTemperature",myRheology%TB,myInf)
+    END IF
     IF (myRheology%AtFunc.eq.0) THEN
      WRITE(*,*) "no temperature correction is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
@@ -793,12 +804,32 @@
     END IF
     
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."HOLLOWCYLINDER") THEN
+    
+     mySetup%MeshResolution = 0
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","MeshQuality",cMeshQuality,'NO')
+     call inip_toupper_replace(cMeshQuality)
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."EXTREME".or.ADJUSTL(TRIM(cMeshQuality)).eq."EXTREM") THEN
+      mySetup%MeshResolution = 5
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."SUPER") THEN
+      mySetup%MeshResolution = 4
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."FINE".or.ADJUSTL(TRIM(cMeshQuality)).eq."FEIN") THEN
+      mySetup%MeshResolution = 3
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."MEDIUM".or.ADJUSTL(TRIM(cMeshQuality)).eq."MITTEL") THEN
+      mySetup%MeshResolution = 2
+     END IF
+     IF (ADJUSTL(TRIM(cMeshQuality)).eq."ROUGH".or.ADJUSTL(TRIM(cMeshQuality)).eq."GROB".or.ADJUSTL(TRIM(cMeshQuality)).eq."COARSE") THEN
+      mySetup%MeshResolution = 1
+     END IF
+     
      call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Tangential",mySetup%m_nT,0)
      call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Radial",mySetup%m_nR,0)
      call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nEl_Axial",mySetup%m_nZ,0)
-     IF (mySetup%m_nT.eq.0.or.mySetup%m_nR.eq.0.or.mySetup%m_nZ.eq.0) THEN
-      WRITE(*,*) "mesh resolution is not correctly defined"
-      WRITE(*,*) '"',mySetup%m_nT,mySetup%m_nR,mySetup%m_nZ,'"'
+     IF ((mySetup%m_nT.eq.0.or.mySetup%m_nR.eq.0.or.mySetup%m_nZ.eq.0).and.mySetup%MeshResolution.eq.0) THEN
+      WRITE(*,*) "mesh resolution is not correctly defined: nT,nR,nZ & nRes"
+      WRITE(*,*) '"',mySetup%m_nT,mySetup%m_nR,mySetup%m_nZ,mySetup%MeshResolution,'"'
       bReadError=.TRUE.
       !GOTO 10
      END IF
@@ -1070,6 +1101,11 @@
      write(*,*) "myRheology%Tb",'=',myRheology%Tb
      write(*,*) "myRheology%Ts",'=',myRheology%Ts
     END IF
+    IF (myRheology%AtFunc.eq.4) THEN
+     write(*,*) "myRheology%TempModel",'=','ETB'
+     write(*,*) "myRheology%E",'=',myRheology%E
+     write(*,*) "myRheology%Tb",'=',myRheology%Tb
+    END IF
     write(*,*)
     write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
     write(*,*) "myThermodyn%HeatConductivity",'=',myThermodyn%lambda
@@ -1079,7 +1115,7 @@
     write(*,*) "myThermodyn%Density",'=',myThermodyn%density
     write(*,*) "myThermodyn%DensitySlope",'=',myThermodyn%densitySteig
     write(*,*) 
-    write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
+!     write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
     write(*,*) "myOutput%nOf1DLayers = "      ,myOutput%nOf1DLayers
     write(*,*) "myOutput%nOfHistogramBins = " ,myOutput%nOfHistogramBins
     write(*,*) "myOutput%HistogramShearMax = ",myOutput%HistogramShearMax    
@@ -1102,6 +1138,7 @@
     END IF
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."HOLLOWCYLINDER") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
+     write(*,'(A,A,4I6)') " mySetup%Resolution",'=',mySetup%MeshResolution
      write(*,*) "mySetup%Resolution[nR,nT,nZ]",'=',mySetup%m_nR,mySetup%m_nT,mySetup%m_nZ
     END IF
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."FULLCYLINDER") THEN

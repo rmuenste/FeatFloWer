@@ -917,6 +917,7 @@ type(t1dname) :: names1d(11)
  my1DOut(8)%cName = 'VelocityM_[m/s]'
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,8, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  my1DOut(9)%cName = 'ShearSG_[1/s]'
  CALL OutPut_1D_subExtra(ShearRate,ScrewDist,9, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
@@ -925,6 +926,7 @@ type(t1dname) :: names1d(11)
 
  my1DOut(11)%cName = 'VelocityWSS_[m/s]'
  CALL OutPut_1D_subExtra(sQuadSc%valW,ScrewDist,11, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
+END IF
 
  thestruct%length = my1DOut_nol
  thestruct%dmean = c_loc(my1DOut(1)%dMean)
@@ -936,14 +938,25 @@ type(t1dname) :: names1d(11)
 
  call c_init_json_output(thestruct) 
 
- do i=1,11
-   thestruct%dmean = c_loc(my1DOut(i)%dMean)
-   thestruct%dmin = c_loc(my1DOut(i)%dMin)
-   thestruct%dmax = c_loc(my1DOut(i)%dMax)
-   thestruct%dLoc = c_loc(my1DOut(i)%dLoc) 
-   call cf_make_c_char(names1d(i)%unit, thestruct%unit_name)
-   call c_add_json_array(thestruct, names1d(i)%name)
- end do
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+  do i=1,11
+    thestruct%dmean = c_loc(my1DOut(i)%dMean)
+    thestruct%dmin = c_loc(my1DOut(i)%dMin)
+    thestruct%dmax = c_loc(my1DOut(i)%dMax)
+    thestruct%dLoc = c_loc(my1DOut(i)%dLoc) 
+    call cf_make_c_char(names1d(i)%unit, thestruct%unit_name)
+    call c_add_json_array(thestruct, names1d(i)%name)
+  end do
+ ELSE
+  do i=1,8
+    thestruct%dmean = c_loc(my1DOut(i)%dMean)
+    thestruct%dmin = c_loc(my1DOut(i)%dMin)
+    thestruct%dmax = c_loc(my1DOut(i)%dMax)
+    thestruct%dLoc = c_loc(my1DOut(i)%dLoc) 
+    call cf_make_c_char(names1d(i)%unit, thestruct%unit_name)
+    call c_add_json_array(thestruct, names1d(i)%name)
+  end do
+ END IF
 
  call inip_init(parameterlistModifiedKTP1D)
  ! write(*,*)'------------------This should crash-----------------------------'
@@ -952,7 +965,10 @@ IF (myid.eq.1) THEN
  ! We need to dump the e3dfile to the 1d-files, so lets read it in
  call inip_readfromfile(parameterlistModifiedKTP1D,trim(adjustl("_data/Extrud3D.dat")))
  ! KPT needs them modified, all sections should be indeted by one level
- call INIP_indentAllSections(parameterlistModifiedKTP1D,"InputSigmaFile")
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") call INIP_indentAllSections(parameterlistModifiedKTP1D,"InputSigmaFile")
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") call INIP_indentAllSections(parameterlistModifiedKTP1D,"InputREXFile")
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") call INIP_indentAllSections(parameterlistModifiedKTP1D,"InputDIEFile")
+ 
 
  WRITE(cf2,'(A,I4.4,A)') '_1D/extrud3d_',iOut,'.res'
 
@@ -1200,6 +1216,7 @@ IF (myid.eq.1) THEN
   CALL outputLine('ST',my1DOut(3)%dMean(i+1))
  END DO
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
 ! ShearSG
  WRITE(ifile,'(A,A,(100("/")))')"#///////////","SHEAR_SG"
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf24]"
@@ -1268,6 +1285,8 @@ IF (myid.eq.1) THEN
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(11)%dMean(i+1))
  END DO
+
+END IF
 
  CLOSE(ifile)
 

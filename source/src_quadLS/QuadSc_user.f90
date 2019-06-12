@@ -831,6 +831,12 @@ if (present(Temperature)) then
   daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
   aT = EXP(daux)
  END IF
+ 
+ IF (myRheology%AtFunc.EQ.4) THEN
+  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) + 1d0/(myRheology%TB+273.15d0))
+  aT = EXP(daux)
+ END IF
+ 
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -39,13 +39,40 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
 !  CALL system(TRIM(ADJUSTL(command)))
  call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
 
- nR = mySetup%m_nR;     nT = mySetup%m_nT;    nZ = mySetup%m_nZ
- Dzo = mySigma%Dz_out;  Dzi = mySigma%Dz_in;  DL  = mySigma%L
+ nR = mySetup%m_nR
+ nT = mySetup%m_nT
+ nZ = mySetup%m_nZ
+ Dzo = mySigma%Dz_out
+ Dzi = mySigma%Dz_in
+ DL  = mySigma%L
+
+ IF (mySetup%MeshResolution.eq.1) THEN
+  if (mySetup%m_nR.eq.0)  nR  = 2
+ END IF
+ IF (mySetup%MeshResolution.eq.2) THEN
+  if (mySetup%m_nR.eq.0)  nR  =  3
+ END IF
+ IF (mySetup%MeshResolution.eq.3)  THEN
+  if (mySetup%m_nR.eq.0)  nR  =  4
+ END IF
+ IF (mySetup%MeshResolution.eq.4)  THEN
+  if (mySetup%m_nR.eq.0)  nR  =  5
+ END IF
+ IF (mySetup%MeshResolution.eq.5)  THEN
+  if (mySetup%m_nR.eq.0)  nR  =  6
+ END IF
+ 
+ IF (mySetup%MeshResolution.ne.0)  THEN
+  nT = INT(1.0d0*DBLE(nR)*(3.14*(Dzo+Dzi)*0.5)/(Dzo-Dzi))
+  nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
+ END IF
 
  IF (MOD(nZ,2).EQ.1) THEN
   WRITE(*,*) "number of elements in Z is uneven and is to be set to: ", nZ+1
   nZ = nZ + 1
  END IF
+ 
+ WRITE(*,'(A,3I)') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
  
  CALL SetUpMesh_HC()
 
