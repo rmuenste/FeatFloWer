@@ -640,7 +640,7 @@ IF (myid.eq.1) THEN
   cFile= '_RTD/ParticlesAtOutflow.csv'
   OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-  WRITE(412,'(4A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"'
+  WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice"','"time"'
   ! Now output the particles to the file
   DO i=1,nLostSet
    WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&

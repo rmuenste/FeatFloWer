@@ -254,6 +254,7 @@ INTEGER nXX,kk,iMon
 PARAMETER (nXX = 40)
 REAL*8 , ALLOCATABLE :: dSendVector(:),dRecvVector(:)
 INTEGER, ALLOCATABLE :: iRecvVector(:)
+REAL*8 cpx,cpy,cpz,cnormal(3)
 
 ALLOCATE(dSendVector(nExchangeSet),iRecvVector(nExchangeSet),dRecvVector(nExchangeSet))
 dSendVector = 1d30
@@ -275,6 +276,32 @@ iIter = 0
 
 point  = myExchangeSet(iParticel)%coor
 tLevel = myExchangeSet(iParticel)%time
+
+  cdx = 1d1*point(1)
+  cdy = 1d1*point(2)
+  cdz = 1d1*point(3)
+  
+  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
+    write(*,*) 'Particel: ', iParticel 
+!   write(*,*) 'before: ', P   
+   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+   
+   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+   cnormal = cnormal/daux
+   
+   cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+   cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+   cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   
+   P=0.1d0*[cdx,cdy,cdz]
+!   write(*,*) 'after: ', P   
+!   pause
+  point = [P(1),P(2),P(3)]
+  end if
+  
+  myExchangeSet(iParticel)%coor = point
 
 55 CONTINUE
 
