@@ -61,7 +61,7 @@ dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 
 ALLOCATE(myVelo(1))
 
-WRITE(cFile,'(A)') '7'
+WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 ! CALL SolFromFile(cFile,1)
 CALL init_sol_same_level(cFile)
 ! CALL init_sol_repart(cFile)
@@ -244,6 +244,7 @@ INTEGER inittype
 call prt_read_config(myParticleParam, mfile, mterm)
 
 IF (myid.eq.1) THEN
+ WRITE(mfile,*) 'myParticleParam%dump_in_file = ',myParticleParam%dump_in_file
  WRITE(mfile,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mfile,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
  WRITE(mfile,*) 'myParticleParam%nRotation   = ', myParticleParam%nRotation
@@ -257,6 +258,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mfile,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mfile,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
+ WRITE(mterm,*) 'myParticleParam%dump_in_file = ', myParticleParam%dump_in_file
  WRITE(mterm,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mterm,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
  WRITE(mterm,*) 'myParticleParam%nRotation   = ', myParticleParam%nRotation

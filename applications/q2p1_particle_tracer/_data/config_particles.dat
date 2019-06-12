@@ -1,20 +1,23 @@
 [GeneralSettings]
 particle_datafile=aa.txt
 machine_datafile=bb.e3d
+dump_in_file=14
 unitIN = CM
 unitOUT = CM
 unitSourcefile = CM
 startingprocedure = 1
-sourcefile=_data/seed.csv
+sourcefile=_data/seed_Centro.csv
 nElements = 1
 nSegmentsColoring = 1 
 Epsilon=0.001
-nRotation = 1
+nRotation = 10
+TimeLevels = 72
+d_CorrDist=0.1
 D_Out = 5.0
 D_in = 1.0
-f=5.0
+f=0.2
 zCutplanePositions(4)=
-0.1
-0.21
-0.33
-0.44
+5
+10
+20
+40

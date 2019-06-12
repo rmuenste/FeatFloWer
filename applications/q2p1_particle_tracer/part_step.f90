@@ -738,7 +738,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !   pause
   end if
   
-!   point = [abs(P(1)),P(2),P(3)]
+  point = [P(1),P(2),P(3)]
+!  point = [abs(P(1)),P(2),P(3)]
   
   iFoundElem = jel
   GOTO 1

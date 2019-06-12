@@ -108,6 +108,8 @@ contains
       end if
     end if
 
+    call inip_getvalue_int(parameterlist,"GeneralSettings","dump_in_file",ParticleParam%dump_in_file,-1)
+    
     ! TimeLevels. Default is 72
     call inip_getvalue_int(parameterlist,"GeneralSettings","TimeLevels",ParticleParam%nTimeLevels,72)
 
