@@ -148,7 +148,7 @@
      if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'DM') dSizeScale = 10.00d0
      if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'M')  dSizeScale = 100.0d0
       
-     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dSizeScale
+!     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dSizeScale
 
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
@@ -420,7 +420,7 @@
       mySigma%mySegment(iSeg)%ART   = "STL"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
-      write(*,*) 'dSizeScale: ',dSizeScale
+!       write(*,*) 'dSizeScale: ',dSizeScale
       mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
@@ -674,6 +674,13 @@
       myRheology%Equation = 2
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Consistence", myRheology%K,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Powerlaw","Exponent",myRheology%n,myInf)
+      if (myRheology%K.eq.myInf) then
+       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Consistence", myRheology%K,myInf)
+      end if
+      if (myRheology%n.eq.myInf) then
+       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/Power","Exponent",myRheology%n,myInf)
+      end if
+      
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POLYFLOW") THEN
       myRheology%Equation = 3

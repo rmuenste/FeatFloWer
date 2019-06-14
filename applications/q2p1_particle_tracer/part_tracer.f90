@@ -770,7 +770,7 @@ DO i=1,nCompleteSet
  WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(2)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(3)*myParticleParam%dFacUnitOut),',', &
-                                myLostSet(i)%indice,',',REAL(myLostSet(i)%time)
+                                myCompleteSet(i)%indice,',',REAL(myCompleteSet(i)%time)
 END DO
 
 CLOSE(412)
