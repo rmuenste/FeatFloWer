@@ -1494,6 +1494,12 @@ SUBROUTINE FAC_GetForces(mfile)
       write(*,'(A7,7ES15.7E2)') "Force: ",timens,ForceV(1:2)+forceP(1:2),ForceV(1:2),forceP(1:2)
       write(mfile,'(A12,3ES15.7E2)') "BenchForce: ",timens,ForceV(1:2)+forceP(1:2)
       write(*,'(A12,3ES15.7E2)') "BenchForce: ",timens,ForceV(1:2)+forceP(1:2)
+!      write(*,'(A12,3ES15.7E2)') "FBMForce: ",timens,myFBM%ParticleNew(1)%ResistanceForce(1:2)
+
+!      write(mfile,'(A12,3ES15.7E2)') "TotalForce: ",timens,myFBM%ParticleNew(1)%ResistanceForce(1:2) + &
+!      ForceV(1:2)+forceP(1:2)
+!      write(*,'(A12,3ES15.7E2)') "TotalForce: ",timens,myFBM%ParticleNew(1)%ResistanceForce(1:2) + &
+!      ForceV(1:2)+forceP(1:2)
 
       WRITE(666,'(10ES16.8)') Timens,ForceV+forceP,ForceV,forceP
       WRITE(MTERM,5)
