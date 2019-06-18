@@ -72,7 +72,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
   nZ = nZ + 1
  END IF
  
- WRITE(*,'(A,3I)') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
+ WRITE(*,'(A,3I0)') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
  
  CALL SetUpMesh_HC()
 
