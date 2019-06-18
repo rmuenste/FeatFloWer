@@ -294,6 +294,19 @@ if(it.eq.13)then
 end if
 
 
+IF (iT.EQ.20) THEN
+
+   dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
+   dVolFlow = myProcess%Massestrom ! kg/h
+   dDensity = myThermodyn%density ! g/cm3
+   if (x.gt.0d0) then
+    ValW=RotParabolicVelo2Dz(+0.395d0,-0.065d0,dVolFlow,dDensity,dOuterRadius)
+   else
+    ValW=RotParabolicVelo2Dz(-0.395d0,+0.065d0,dVolFlow,dDensity,dOuterRadius)
+   end if
+   
+END IF
+
 !! InitBoundaryStructure: changed from I1 to I2 !!
 ! used for Channel / BDF(2) validation
 IF (iT.EQ.21) THEN
