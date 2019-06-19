@@ -5,7 +5,7 @@ use cinterface
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
                          t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
 
-use Sigma_User, only: tOutput, tSigma
+use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
 
 use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
 use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,&
@@ -67,6 +67,10 @@ integer :: ioutput_lvl
 
 if (sExport%Format .eq. "VTK") then
 
+ call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+
+ call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+ 
  if (myid.ne.0) then
 
   ioutput_lvl = sExport%Level
@@ -80,12 +84,6 @@ if (sExport%Format .eq. "VTK") then
 
   call viz_write_pvtu_main(iOutput)
  end if
-
- call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
-
-! call viz_OutputRegionHistogram(iOutput)
-
- call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
 end if
 
@@ -198,7 +196,7 @@ do iField=1,size(myExport%Fields)
  case('Pressure_V')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure [bar]",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%Q2(ivt))
+   write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%Q2(ivt)-dMinOutputPressure)
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -1015,7 +1013,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  CALL outputLine('ST',my1DOut(2)%dMin(i+1))
+  CALL outputLine('ST',my1DOut(2)%dMin(i+1)-dMinOutputPressure)
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf1]"
@@ -1023,7 +1021,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  CALL outputLine('ST',my1DOut(2)%dMax(i+1))
+  CALL outputLine('ST',my1DOut(2)%dMax(i+1)-dMinOutputPressure)
  END DO
 
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf2]"
@@ -1031,7 +1029,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"Unit=38"
  WRITE(ifile,'(A)')"SIUnit=[bar]"
  DO i=0,my1DOut_nol-1
-  CALL outputLine('ST',my1DOut(2)%dMean(i+1))
+  CALL outputLine('ST',my1DOut(2)%dMean(i+1)-dMinOutputPressure)
  END DO
 
 ! Shearrate
@@ -1452,6 +1450,17 @@ IF (myid.ne.0) THEN
 END IF
 
 deallocate(myHist)
+
+dMinOutputPressure = 0d0
+IF (myid.ne.0) THEN
+ if (i1D.eq.2) then
+  DO j=1,my1DOut_nol
+   dMinOutputPressure = MIN(dMinOutputPressure,my1DOutput(i1D)%dMean(j))
+  END DO
+!  write(*,*) 'dMinOutputPressure: ',dMinOutputPressure,myid
+ end if
+end if
+
 
 end subroutine viz_OutPut_1D_sub
 !

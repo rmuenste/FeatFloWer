@@ -113,6 +113,7 @@ TYPE(tOutput) :: myOutput
 
 LOGICAL bCtrl
 REAL*8 DistTolerance
+REAL*8 :: dMinOutputPressure = 0d0
 LOGICAL :: bKTPRelease = .TRUE.
 
 CONTAINS
