@@ -1451,13 +1451,16 @@ END IF
 
 deallocate(myHist)
 
-dMinOutputPressure = 0d0
 IF (myid.ne.0) THEN
  if (i1D.eq.2) then
+  dMinOutputPressure = my1DOutput(i1D)%dMean(1)
   DO j=1,my1DOut_nol
    dMinOutputPressure = MIN(dMinOutputPressure,my1DOutput(i1D)%dMean(j))
   END DO
-!  write(*,*) 'dMinOutputPressure: ',dMinOutputPressure,myid
+  IF (myid.eq.1) THEN
+   write(*,*) 'dMinOutputPressure: ',dMinOutputPressure,myid
+!   write(*,*) 'dMinOutputPressureValues: ',my1DOutput(i1D)%dMean(:)
+  end if
  end if
 end if
 
