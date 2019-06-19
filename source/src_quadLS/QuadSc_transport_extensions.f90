@@ -478,6 +478,8 @@ end subroutine InitCond_Disp_QuadScalar
 !
 subroutine Transport_q2p1_UxyzP_sse(mfile, inl_u, itns)
 
+use, intrinsic :: ieee_arithmetic
+
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
@@ -661,7 +663,11 @@ IF (myid.ne.0) THEN
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
 END IF
 
-CALL QuadScP1toQ2Periodic(LinSc,QuadSc)
+IF (ieee_is_finite(myProcess%dPress)) THEN
+ CALL QuadScP1toQ2Periodic(LinSc,QuadSc)
+ELSE
+ CALL QuadScP1toQ2(LinSc,QuadSc)
+END IF
 
 CALL GetNonNewtViscosity_sse()
 
