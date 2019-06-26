@@ -846,7 +846,7 @@ if (present(Temperature)) then
  END IF
  
  IF (myRheology%AtFunc.EQ.4) THEN
-  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) + 1d0/(myRheology%TB+273.15d0))
+  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
  END IF
  
@@ -891,7 +891,7 @@ END IF
 
 dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
-ViscosityModel = VNN
+ViscosityModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
 
 
 RETURN
