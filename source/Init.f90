@@ -823,6 +823,12 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mterm,'(A)') "BoundaryCheck is OFF"
       END IF
 
+      WRITE(mfile,'(A,3ES14.4)') "Newtonian FAC Benchamrk params (U,H,D) : ",postParams%U_mean,postParams%H,postParams%D
+      WRITE(mterm,'(A,3ES14.4)') "Newtonian FAC Benchamrk params (U,H,D) : ",postParams%U_mean,postParams%H,postParams%D
+      
+      WRITE(mfile,'(A,3ES14.4)') "Viscoelastic Benchamrk params (Sc_U,Sc_Mu,Sc_a) : ",postParams%Sc_U,postParams%Sc_Mu,postParams%Sc_a
+      WRITE(mterm,'(A,3ES14.4)') "Viscoelastic Benchamrk params (Sc_U,Sc_Mu,Sc_a) : ",postParams%Sc_U,postParams%Sc_Mu,postParams%Sc_a
+          
       IF (bNonNewtonian) THEN 
         WRITE(mfile,'(A)') "FlowType = non-Newtonian"
         WRITE(mterm,'(A)') "FlowType = non-Newtonian"

@@ -707,15 +707,15 @@
 
     myRheology%AtFunc = 0
     cRheology = ' '
-    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcTemp", cRheology,'ISOTHERM')
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters/Material/RheologicalData","CalcTemp", cRheology,'TEMPERATUREINDEPENDENT')
     call inip_toupper_replace(cRheology)
     
-    IF (ADJUSTL(TRIM(cRheology)).eq."ISOTHERM") THEN
+    IF (ADJUSTL(TRIM(cRheology)).eq."ISOTHERM".or.ADJUSTL(TRIM(cRheology)).eq."TEMPERATUREINDEPENDENT") THEN
       myRheology%AtFunc = 1
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."C1C2") THEN
       myRheology%AtFunc = 2
-      myRheology%Ts = 165d0
+      myRheology%Tb = 165d0
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C1",myRheology%C1,myInf)
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters/Material/RheologicalData/C1C2","C2",myRheology%C2,myInf)
     END IF

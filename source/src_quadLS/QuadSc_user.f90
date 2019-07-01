@@ -833,18 +833,22 @@ REAL*8 :: dN
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 aT = 1d0
 
+! C1C2
 if (present(Temperature)) then
  IF (myRheology%AtFunc.EQ.2) THEN
-  daux = - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+  daux = - myRheology%C1*(Temperature-myRheology%Tb)/(myRheology%C2 + Temperature- myRheology%Tb)
   aT = EXP(daux)
  END IF
 
+ ! TBTS
  IF (myRheology%AtFunc.EQ.3) THEN
   daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
   daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
-  aT = EXP(daux)
+!   aT = EXP(daux)
+  aT = 1d1**daux
  END IF
  
+!ETB
  IF (myRheology%AtFunc.EQ.4) THEN
   daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
