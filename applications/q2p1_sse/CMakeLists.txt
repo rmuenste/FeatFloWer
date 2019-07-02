@@ -105,6 +105,10 @@ IF(${OUT_OF_SOURCE_BUILD})
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_data_BU" "${CMAKE_CURRENT_BINARY_DIR}/_data_BU" )
   ENDIF()
 
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_ianus")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_ianus" "${CMAKE_CURRENT_BINARY_DIR}/_ianus" )
+  ENDIF()
+
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py")
     file(COPY q2p1_sse_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
@@ -125,7 +129,7 @@ install(FILES q2p1_sse_start.py DESTINATION bin)
 install(FILES partitioner DESTINATION bin
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
