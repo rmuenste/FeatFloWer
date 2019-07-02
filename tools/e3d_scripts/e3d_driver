@@ -148,10 +148,12 @@ cp ${parameterfile} _data/Extrud3D_0.dat
 cp ${parameterfolder}/*.off . 1> /dev/null
 cp ${parameterfolder}/*.OFF . 1> /dev/null
 
+rm -fr _data/meshDir
+
 ./s3d_mesher 1> /dev/null
 
 let s=numofproc-1
-./partitioner  ${s} -30   2 "NEWFAC" "_data/meshDir/file.prj" 1> /dev/null
+./partitioner  ${s} 1  1 "NEWFAC" "_data/meshDir/file.prj" 1> /dev/null
 
 echo "  "
 echo "  ----------------------------------------------------------------------------------------------------- "
