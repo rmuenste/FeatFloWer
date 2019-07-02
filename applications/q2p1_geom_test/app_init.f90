@@ -424,7 +424,7 @@ END SUBROUTINE General_init_ext
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bViscoElasticFAC,bRefFrame
+     bViscoElastic,bRefFrame
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -558,11 +558,6 @@ END SUBROUTINE General_init_ext
          READ(string(iEq+1:),*) cParam
          bViscoElastic = .FALSE.
          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
-       CASE ("ViscoElasticFAC")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bViscoElasticFAC = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
        CASE ("ReferenceFrame")
          cParam = " "
          READ(string(iEq+1:),*) cParam
@@ -774,11 +769,6 @@ END SUBROUTINE General_init_ext
      IF (bViscoElastic) THEN 
        WRITE(mfile,'(A)') "Visco-elastic equation is included"
        WRITE(mterm,'(A)') "Visco-elastic equation is included"
-     END IF
-
-     IF (bViscoElasticFAC) THEN 
-       WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
-       WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
      END IF
 
      IF (bNonNewtonian) THEN 
