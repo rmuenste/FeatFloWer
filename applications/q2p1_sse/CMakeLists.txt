@@ -46,6 +46,11 @@ app_init.f90
 q2p1_sse.f90
 )
 
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "${ORIGIN}/../lib")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Add the application executable
 add_executable(q2p1_sse ${src_q2p1_sse}) 
 

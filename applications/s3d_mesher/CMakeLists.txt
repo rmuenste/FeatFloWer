@@ -37,6 +37,11 @@ ${postprocessing}
 s3d_mesher.f90
 )
 
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "${ORIGIN}/../lib")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Add the application executable
 add_executable(s3d_mesher ${src_s3d_mesher}) 
 
