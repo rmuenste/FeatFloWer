@@ -1000,7 +1000,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Positions]"
  WRITE(ifile,'(A)')"ID=ELEMENT_LENGTH"
  WRITE(ifile,'(A)')"Unit=0"
- WRITE(ifile,'(A)')"SIUnit=[mm]"
+ WRITE(ifile,'(A)')"SIUnit=mm"
  DO i=0,my1DOut_nol-1
 !  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') "POS",i,"=",1d1*my1DOut(1)%dLoc(i+1)
   CALL outputLine('POS',1d1*my1DOut(1)%dLoc(i+1))
@@ -1011,7 +1011,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf0]"
  WRITE(ifile,'(A)')"ID=PRESSURE_MIN"
  WRITE(ifile,'(A)')"Unit=38"
- WRITE(ifile,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A)')"SIUnit=bar"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(2)%dMin(i+1)-dMinOutputPressure)
  END DO
@@ -1019,7 +1019,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf1]"
  WRITE(ifile,'(A)')"ID=PRESSURE_MAX"
  WRITE(ifile,'(A)')"Unit=38"
- WRITE(ifile,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A)')"SIUnit=bar"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(2)%dMax(i+1)-dMinOutputPressure)
  END DO
@@ -1027,7 +1027,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf2]"
  WRITE(ifile,'(A)')"ID=PRESSURE_MED"
  WRITE(ifile,'(A)')"Unit=38"
- WRITE(ifile,'(A)')"SIUnit=[bar]"
+ WRITE(ifile,'(A)')"SIUnit=bar"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(2)%dMean(i+1)-dMinOutputPressure)
  END DO
@@ -1037,7 +1037,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf3]"
  WRITE(ifile,'(A)')"ID=GAMMA_P_MIN"
  WRITE(ifile,'(A)')"Unit=17"
- WRITE(ifile,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(5)%dMin(i+1))
  END DO
@@ -1045,7 +1045,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf4]"
  WRITE(ifile,'(A)')"ID=GAMMA_P_MAX"
  WRITE(ifile,'(A)')"Unit=17"
- WRITE(ifile,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(5)%dMax(i+1))
  END DO
@@ -1053,7 +1053,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf5]"
  WRITE(ifile,'(A)')"ID=GAMMA_P_MED"
  WRITE(ifile,'(A)')"Unit=17"
- WRITE(ifile,'(A)')"SIUnit=[1/s]"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(5)%dMean(i+1))
  END DO
@@ -1063,7 +1063,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf6]"
  WRITE(ifile,'(A)')"ID=ETA_MIN"
  WRITE(ifile,'(A)')"Unit=35"
- WRITE(ifile,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A)')"SIUnit=Pa s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(4)%dMin(i+1))
  END DO
@@ -1071,7 +1071,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf7]"
  WRITE(ifile,'(A)')"ID=ETA_MAX"
  WRITE(ifile,'(A)')"Unit=35"
- WRITE(ifile,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A)')"SIUnit=Pa s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(4)%dMax(i+1))
  END DO
@@ -1079,7 +1079,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf8]"
  WRITE(ifile,'(A)')"ID=ETA_MED"
  WRITE(ifile,'(A)')"Unit=35"
- WRITE(ifile,'(A)')"SIUnit=[Pa s]"
+ WRITE(ifile,'(A)')"SIUnit=Pa s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(4)%dMean(i+1))
  END DO
@@ -1089,7 +1089,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf9]"
  WRITE(ifile,'(A)')"ID=AX_V_MIN"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(1)%dMin(i+1))
  END DO
@@ -1097,7 +1097,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf10]"
  WRITE(ifile,'(A)')"ID=AX_V_MAX"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(1)%dMax(i+1))
  END DO
@@ -1105,7 +1105,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf11]"
  WRITE(ifile,'(A)')"ID=AX_V_MED"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(1)%dMean(i+1))
  END DO
@@ -1115,7 +1115,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf12]"
  WRITE(ifile,'(A)')"ID=ROTX_V_MIN"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(6)%dMin(i+1))
  END DO
@@ -1123,7 +1123,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf13]"
  WRITE(ifile,'(A)')"ID=ROTX_V_MAX"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(6)%dMax(i+1))
  END DO
@@ -1131,7 +1131,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf14]"
  WRITE(ifile,'(A)')"ID=ROTX_V_MED"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(6)%dMean(i+1))
  END DO
@@ -1141,7 +1141,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf15]"
  WRITE(ifile,'(A)')"ID=ROTY_V_MIN"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(7)%dMin(i+1))
  END DO
@@ -1149,7 +1149,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf16]"
  WRITE(ifile,'(A)')"ID=ROTY_V_MAX"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(7)%dMax(i+1))
  END DO
@@ -1157,7 +1157,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf17]"
  WRITE(ifile,'(A)')"ID=ROTY_V_MED"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(7)%dMean(i+1))
  END DO
@@ -1167,7 +1167,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf18]"
  WRITE(ifile,'(A)')"ID=MAG_MIN"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(8)%dMin(i+1))
  END DO
@@ -1175,7 +1175,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf19]"
  WRITE(ifile,'(A)')"ID=MAG_MAX"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(8)%dMax(i+1))
  END DO
@@ -1183,7 +1183,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf20]"
  WRITE(ifile,'(A)')"ID=MAG_MED"
  WRITE(ifile,'(A)')"Unit=20"
- WRITE(ifile,'(A)')"SIUnit=[m/s]"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(8)%dMean(i+1))
  END DO
@@ -1193,7 +1193,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf21]"
  WRITE(ifile,'(A)')"ID=TEMPERATURE_MIN"
  WRITE(ifile,'(A)')"Unit=23"
- WRITE(ifile,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A)')"SIUnit=C"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(3)%dMin(i+1))
  END DO
@@ -1201,7 +1201,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf22]"
  WRITE(ifile,'(A)')"ID=TEMPERATURE_MAX"
  WRITE(ifile,'(A)')"Unit=23"
- WRITE(ifile,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A)')"SIUnit=C"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(3)%dMax(i+1))
  END DO
@@ -1209,7 +1209,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf23]"
  WRITE(ifile,'(A)')"ID=TEMPERATURE_MED"
  WRITE(ifile,'(A)')"Unit=23"
- WRITE(ifile,'(A)')"SIUnit=[C]"
+ WRITE(ifile,'(A)')"SIUnit=C"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(3)%dMean(i+1))
  END DO
@@ -1220,6 +1220,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf24]"
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MIN"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(9)%dMin(i+1))
  END DO
@@ -1227,6 +1228,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf25]"
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MAX"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(9)%dMax(i+1))
  END DO
@@ -1234,6 +1236,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf26]"
  WRITE(ifile,'(A)')"ID=GAMMA_SG_MED"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(9)%dMean(i+1))
  END DO
@@ -1243,6 +1246,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf27]"
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MIN"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(10)%dMin(i+1))
  END DO
@@ -1250,6 +1254,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf28]"
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MAX"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(10)%dMax(i+1))
  END DO
@@ -1257,6 +1262,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf29]"
  WRITE(ifile,'(A)')"ID=GAMMA_SS_MED"
  WRITE(ifile,'(A)')"Unit=17"
+ WRITE(ifile,'(A)')"SIUnit=1/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(10)%dMean(i+1))
  END DO
@@ -1266,6 +1272,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf30]"
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MIN"
  WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(11)%dMin(i+1))
  END DO
@@ -1273,6 +1280,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf31]"
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MAX"
  WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(11)%dMax(i+1))
  END DO
@@ -1280,6 +1288,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
  WRITE(ifile,'(A)')"[Ergebnisse/Verlauf32]"
  WRITE(ifile,'(A)')"ID=VELO_Z_SS_MED"
  WRITE(ifile,'(A)')"Unit=20"
+ WRITE(ifile,'(A)')"SIUnit=m/s"
  DO i=0,my1DOut_nol-1
   CALL outputLine('ST',my1DOut(11)%dMean(i+1))
  END DO
@@ -1298,9 +1307,31 @@ character*(*) c
 REAL*8 dV
 
 IF (abs(dV).ge.1d29) THEN
- WRITE(ifile,'(A,I2.2,A,1X)') c,i,"= _INVALID_"
+ IF     (i.ge.0     .and.i.lt.    10) THEN
+  WRITE(ifile,'(A,I1.1,A,1X)') c,i,"= _INVAILD_"
+ ELSEIF (i.ge.10    .and.i.lt.   100) THEN
+  WRITE(ifile,'(A,I2.2,A,1X)') c,i,"= _INVALID_"
+ ELSEIF (i.ge.100   .and.i.lt.  1000) THEN
+  WRITE(ifile,'(A,I3.3,A,1X)') c,i,"= _INVALID_"
+ ELSEIF (i.ge.1000  .and.i.lt. 10000) THEN
+  WRITE(ifile,'(A,I4.4,A,1X)') c,i,"= _INVALID_"
+ ELSE
+
+ ENDIF 
+!  WRITE(ifile,'(A,I2.2,A,1X)') c,i,"= _INVALID_"
 ELSE
- WRITE(ifile,'(A,I2.2,A,E14.6,1X)') c,i,"=",dV
+ IF     (i.ge.0     .and.i.lt.    10) THEN
+  WRITE(ifile,'(A,I1.1,A,E14.6,1X)') c,i,"=",dV
+ ELSEIF (i.ge.10    .and.i.lt.   100) THEN
+  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') c,i,"=",dV
+ ELSEIF (i.ge.100   .and.i.lt.  1000) THEN
+  WRITE(ifile,'(A,I3.3,A,E14.6,1X)') c,i,"=",dV
+ ELSEIF (i.ge.1000  .and.i.lt. 10000) THEN
+  WRITE(ifile,'(A,I4.4,A,E14.6,1X)') c,i,"=",dV
+ ELSE
+
+ ENDIF 
+!  WRITE(ifile,'(A,I2.2,A,E14.6,1X)') c,i,"=",dV
 END IF
 
 END SUBROUTINE outputLine

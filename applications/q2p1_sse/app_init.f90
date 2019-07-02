@@ -212,8 +212,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
   
   !Release the flow-curve to json database for 3 temperatures and a range of shearrates
   if (myid.eq.1) then
-   WRITE(mterm,'(A))') '========================== Flow Curve ==================='
-   WRITE(mfile,'(A))') '========================== Flow Curve ==================='
+   WRITE(mterm,'(A)') '========================== Flow Curve ==================='
+   WRITE(mfile,'(A)') '========================== Flow Curve ==================='
    do j=1,3
     dTemp(j)  = myProcess%T0 + dble(j)*10.0
    end do
@@ -221,8 +221,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    WRITE(mterm,'(A14,4(A4,ES10.3))') '- ', '  T=',dTemp(1), '  T=',dTemp(2), '  T=',dTemp(3)
    WRITE(mfile,'(5(A14))') 'Gamma_[1/s]', 'mu_[Pa.s]', 'mu_[Pa.s]', 'mu_[Pa.s]'
    WRITE(mfile,'(A14,4(A4,ES10.3))') '- ', '  T=',dTemp(1), '  T=',dTemp(2), '  T=',dTemp(3)
-   WRITE(mterm,'(A))') '---------------------------------------------------------'
-   WRITE(mfile,'(A))') '---------------------------------------------------------'
+   WRITE(mterm,'(A)') '---------------------------------------------------------'
+   WRITE(mfile,'(A)') '---------------------------------------------------------'
    do i= -2,5
     dShear = 10**dble(i)
     do j=-1,1
@@ -232,8 +232,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
     WRITE(mterm,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
     WRITE(mfile,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
    end do
-   WRITE(mterm,'(A))') '========================================================='
-   WRITE(mfile,'(A))') '========================================================='
+   WRITE(mterm,'(A)') '========================================================='
+   WRITE(mfile,'(A)') '========================================================='
   end if
 
    
