@@ -972,7 +972,9 @@ IF (myid.eq.1) THEN
 
  call inip_openFileForWriting(cf2, ifile, INIP_REPLACE, bfileExists, .TRUE.)
 ! OPEN(UNIT=120,FILE=TRIM(ADJUSTL(cf2)))
- WRITE(ifile,'(A)')"[SigmaFileInfo]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") WRITE(ifile,'(A)')"[SigmaFileInfo]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") WRITE(ifile,'(A)')"[REXFileInfo]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") WRITE(ifile,'(A)')"[DIEFileInfo]"
  WRITE(ifile,'(A)')"FileType=ResultsExtrud3d"
  call date_and_time(cdate,ctime,czone,values)
  WRITE(ifile,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
@@ -980,7 +982,9 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A,I2.2)')"counter_pos=",my1DOut_nol
  WRITE(ifile,'(A,I2.2)')"counter_verl=",iVerlaufMax
 !  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
- WRITE(ifile,'(A)') "[InputSigmaFile]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") WRITE(ifile,'(A)') "[InputSigmaFile]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") WRITE(ifile,'(A)') "[InputREXFile]"
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") WRITE(ifile,'(A)') "[InputDIEFile]"
  WRITE(ifile,'(("#")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-")("-COPY-"))')
 ! CLOSE(120)
  call inip_dumpToUnit(parameterlistModifiedKTP1D,ifile)
