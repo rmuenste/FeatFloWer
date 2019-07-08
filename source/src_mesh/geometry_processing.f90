@@ -190,7 +190,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
 
 
   ! First the point needs to be transformed back to time = 0
-  dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
+  dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%iInd
   XT = XB*cos(dAlpha) - YB*sin(dAlpha)
   YT = XB*sin(dAlpha) + YB*cos(dAlpha)
   ZT = ZB
@@ -307,7 +307,7 @@ END IF
 
 
 ! First the point needs to be transformed back to time = 0
-dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(-myProcess%ind)
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(myProcess%iInd)
 ! write(*,*) 'L',dAlpha
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
