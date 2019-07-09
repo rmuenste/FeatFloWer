@@ -2,9 +2,19 @@
 # -*- coding: utf-8 -*-
 
 # Alles was man zum Laden von Metis benötigt
-
 from ctypes import CDLL, c_int, POINTER, byref
-from itertools import repeat, izip, imap, count
+
+#from future.standard_library import install_aliases
+#install_aliases()
+
+from functools import reduce
+
+from six.moves import zip
+
+from itertools import repeat, count
+
+from collections import Counter
+
 from math import sqrt
 import os
 import sys
@@ -23,13 +33,7 @@ def _try_in_place_first(name):
   tmp=os.path.join(os.curdir,name)
   if not os.path.exists(tmp):
     tmp=name
-  
-  try:
-      theLib = CDLL(tmp)
-  except:
-      tmp=os.path.join(os.curdir,"../lib",name)
-      theLib = CDLL(tmp)
-  return theLib 
+  return CDLL(tmp)
 
 # Ab hier kommen die öffentlichen Funktionen des Moduls
 
@@ -54,63 +58,63 @@ def GetFileList(cProjName):
         myParFiles.append(os.path.join(ProjektDir,s))
         myParNames.append(prefix)
   fProjekt.close()
-  print "The projekt folder consists of the following files:"
-  print "- Grid File:", myGridFile
-  print "- Boundary Files:"
-  print "\n".join(map(lambda x: "  * %s" % x,myParFiles))
+  print("The projekt folder consists of the following files:")
+  print("- Grid File:", myGridFile)
+  print("- Boundary Files:")
+  print("\n".join(map(lambda x: "  * %s" % x,myParFiles)))
   return (nPar,myGridFile,myParFiles,myParNames)
 
 def GetGrid(GridFileName):
-  """
-  Liest ein Gitter aus der Datei "GridFileName".
-  Der Rückgabewert hat die Struktur: (NEL,NVT,Coord,KVert,Knpr)
-  """
-  print "Grid input file: '%s'" % GridFileName
-  f=open(GridFileName,'r')
-  f.readline()
-  f.readline()
-  # Lese Anzahl der Zellen und Knoten
-  g=f.readline().split()
-  NEL=int(g[0])
-  NVT=int(g[1])
-  # Lese die Koordinaten
-  _readAfterKeyword(f,"DCORVG")
-  Coord=[]
-  for i in xrange(NVT):
+    """
+    Liest ein Gitter aus der Datei "GridFileName".
+    Der Rückgabewert hat die Struktur: (NEL,NVT,Coord,KVert,Knpr)
+    """
+    print("Grid input file: '%s'" % GridFileName)
+    f=open(GridFileName,'r')
+    f.readline()
+    f.readline()
+    # Lese Anzahl der Zellen und Knoten
     g=f.readline().split()
-    Coord.append(tuple(map(float,g)))
-  # Lese die Zelldaten
-  _readAfterKeyword(f,"KVERT")
-  Kvert=[]
-  for i in xrange(NEL):
-    g=f.readline().split()
-    Kvert.append(tuple(map(int,g)))
-  # Lese die Randdaten
-  _readAfterKeyword(f,"KNPR")
-  g=f.read().split()
-  Knpr=tuple(map(int,g))
-  # Fertig
-  #f.close()
-  return (NEL,NVT,tuple(Coord),tuple(Kvert),Knpr)
+    NEL=int(g[0])
+    NVT=int(g[1])
+    # Lese die Koordinaten
+    _readAfterKeyword(f,"DCORVG")
+    Coord=[]
+    for i in range(NVT):
+        g=f.readline().split()
+        Coord.append(tuple(map(float,g)))
+    # Lese die Zelldaten
+    _readAfterKeyword(f,"KVERT")
+    Kvert=[]
+    for i in range(NEL):
+        g=f.readline().split()
+        Kvert.append(tuple(map(int,g)))
+    # Lese die Randdaten
+    _readAfterKeyword(f,"KNPR")
+    g=f.read().split()
+    Knpr=tuple(map(int,g))
+    # Fertig
+    #f.close()
+    return (NEL,NVT,tuple(Coord),tuple(Kvert),Knpr)
 
 def GetPar(ParFileName,NVT):
-  """
-  Lese Randbeschreibungen aus einer Parameterdatei. Maximale Knotenzahl NVT
-  bestimmt zudem die Länge der Randliste.
-  Rückgabe: (Name des Randes, Daten des Randes, Boolsche Liste für alle Knoten)
-  """
-  print "Parameter input file: '%s'" % ParFileName
-  with open(ParFileName,'r') as f:
-    g=f.readline().split()
-    pPar=int(g[0])
-    Type=g[1]
-    Parameter=f.readline().strip()
-    #if len(Parameter)>=2:
-    #  Parameter=Parameter[1:-1]
-    if not Parameter:
-      Parameter="0"
-    Boundary=set(map(int,f.read().split()))
-  return (Type,Parameter,Boundary)
+    """
+    Lese Randbeschreibungen aus einer Parameterdatei. Maximale Knotenzahl NVT
+    bestimmt zudem die Länge der Randliste.
+    Rückgabe: (Name des Randes, Daten des Randes, Boolsche Liste für alle Knoten)
+    """
+    print("Parameter input file: '%s'" % ParFileName)
+    with open(ParFileName,'r') as f:
+        g=f.readline().split()
+        pPar=int(g[0])
+        Type=g[1]
+        Parameter=f.readline().strip()
+        #if len(Parameter)>=2:
+        #  Parameter=Parameter[1:-1]
+        if not Parameter:
+            Parameter="0"
+        Boundary=set(map(int,f.read().split()))
+    return (Type,Parameter,Boundary)
 
 def GetNeigh(Grid):
   """
@@ -120,7 +124,7 @@ def GetNeigh(Grid):
   (NEL,NVT,KVert)=Grid[:2]+Grid[3:4]
   # Erzeuge für jeden Knoten eine Liste mit Elementen,
   # welche diesen Knoten enthalten.
-  AuxStruct=[set() for i in xrange(NVT)]
+  AuxStruct=[set() for i in range(NVT)]
   for (Elem_Num,Elem) in enumerate(KVert,1):
     for Vert in Elem:
       AuxStruct[Vert-1].add(Elem_Num)
@@ -138,10 +142,10 @@ def GetNeigh(Grid):
   return tuple(Neigh)
 
 def _print_c_array(A):
-  print "("+", ".join(map(str,A))+")"
+  print("("+", ".join(map(str,A))+")")
 
 def GetAtomicSplitting(Num):
-  return tuple(xrange(1,Num+1))
+  return tuple(range(1,Num+1))
 
 def GetParts(Neigh,nPart,Method):
   # Falls die Anzahl der gesuchten Unterteilungen größer oder gleich der Anzahl der Zellen ist,
@@ -154,8 +158,10 @@ def GetParts(Neigh,nPart,Method):
   cOpts=(c_int * 5)(0,100,4,1,1)
   cNum=c_int(1) # Nummerierung beginnt mit 1
   cWeight=c_int(0) # Keine Gewichte
+
   # Zähle alle nichtnull Elemente der Nachbarschaftsliste
-  iCount=sum(map(lambda x: map(lambda y: bool(y),x).count(True),Neigh))
+  iCount=sum(list(map(lambda x: list(map(lambda y: bool(y),x)).count(True),Neigh)))
+
   # Alloziere die Listen MetisA, MetisB und Part
   NEL=len(Neigh)
   MetisA=(c_int * (NEL+1))()
@@ -175,11 +181,11 @@ def GetParts(Neigh,nPart,Method):
   cNEL=c_int(NEL)
   cnPart=c_int(nPart)
   EdgeCut=c_int()
-  print "Calling Metis..."
+  print("Calling Metis...")
   metis_func[Method-1](byref(cNEL),MetisA,MetisB,null_ptr,null_ptr,\
                        byref(cWeight),byref(cNum),byref(cnPart),cOpts,\
                        byref(EdgeCut),Part)
-  print "%d edges were cut by Metis." % EdgeCut.value
+  print("%d edges were cut by Metis." % EdgeCut.value)
   # Fertig
   return tuple(Part)
 
@@ -191,13 +197,14 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   (ParNames,ParTypes,Parameters,Boundaries)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
-  for (iPart,iNeigh,iElem) in izip(Part,Neigh,kvert):
-    for (Idx,f) in izip(iNeigh,face):
+
+  for (iPart,iNeigh,iElem) in zip(Part,Neigh,kvert):
+    for (Idx,f) in zip(iNeigh,face):
       if Idx>0 and Part[Idx-1]!=iPart:
         for k in range(4):
           new_knpr[iElem[f[k]]-1]=1
   # Für alle Rechengebiete
-  for iPart in xrange(1,nPart+1):
+  for iPart in range(1,nPart+1):
     # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
     iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
     iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
@@ -219,9 +226,11 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
     else:
       localGridName=os.path.join(BaseName,"sub%03d"%iPart,"GRID.tri")
     OutputGrid(localGridName,localGrid)
+
     ###
-    localRestriktion=set(LookUp.iterkeys())
-    for iPar in xrange(nParFiles):
+
+    localRestriktion=set(LookUp.keys())
+    for iPar in range(nParFiles):
       if bSub:
         localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
       else:
@@ -234,7 +243,7 @@ def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
 
 def OutputParFile(Name,Type,Parameters,Boundary):
-  print "Output parameter file: "+Name
+  print("Output parameter file: " + Name)
   with open(Name,"w") as f:
     f.write("%d %s\n"%(len(Boundary),Type))
     f.write(Parameters+"\n")
@@ -244,7 +253,7 @@ def OutputParFile(Name,Type,Parameters,Boundary):
 def OutputGrid(Name,Grid):
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
-  print "Output grid file: "+Name
+  print("Output grid file: " + Name)
   with open(Name,'w') as f:
     f.write("Coarse mesh exported by Partitioner\n")
     f.write("Parametrisierung PARXC, PARYC, TMAXC\n")
@@ -323,5 +332,5 @@ metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METI
 
 if __name__=="__main__":
   if metis!=None:
-    print "Metis has been loaded."
+    print("Metis has been loaded.")
 
