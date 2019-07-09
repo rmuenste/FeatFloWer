@@ -1312,7 +1312,7 @@ REAL*8 dV
 
 IF (abs(dV).ge.1d29) THEN
  IF     (i.ge.0     .and.i.lt.    10) THEN
-  WRITE(ifile,'(A,I1.1,A,1X)') c,i,"= _INVAILD_"
+  WRITE(ifile,'(A,I1.1,A,1X)') c,i,"= _INVALID_"
  ELSEIF (i.ge.10    .and.i.lt.   100) THEN
   WRITE(ifile,'(A,I2.2,A,1X)') c,i,"= _INVALID_"
  ELSEIF (i.ge.100   .and.i.lt.  1000) THEN
