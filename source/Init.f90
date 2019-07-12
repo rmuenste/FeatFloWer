@@ -385,7 +385,8 @@ SUBROUTINE General_init(MDATA,MFILE)
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
-      ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench
+      ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
+      SSE_HAS_ANGLE, extruder_angle
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -459,6 +460,11 @@ SUBROUTINE General_init(MDATA,MFILE)
           MMESH1=61
         CASE ("ProtocolFile")
           READ(string(iEq+1:),*) CFILE1
+          if (SSE_HAS_ANGLE)then
+            CFILE1='' 
+            iangle = int(extruder_angle)
+            write(cfile1,'(a, I4.4,a)') '_data/prot.',iangle,'.txt'
+          end if
           MFILE1=62
           MFILE=MFILE1
         CASE ("StartingProc")

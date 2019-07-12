@@ -10,6 +10,8 @@ PROGRAM Q2P1_SSE
 
   use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
   use Sigma_User, only : bKTPRelease
+  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle
+  use f90getopt
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -18,6 +20,35 @@ PROGRAM Q2P1_SSE
   integer            :: ufile,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
+
+  character(len=*), parameter :: version = '1.0'
+  real*8                      :: angle = 0.0
+  integer                     :: iangle = 0
+  type(option_s)              :: opts(3)
+
+  opts(1) = option_s('angle', .true.,  'a')
+  opts(2) = option_s('version',  .false., 'v')
+  opts(3) = option_s('help',  .false., 'h')
+
+  do
+      select case (getopt('a:vh', opts))
+          case (char(0))
+              exit
+          case ('a')
+              read(optarg,*) angle
+              iangle = int(angle)
+              extruder_angle = angle
+              print *, "option angle=", angle
+              write(*, '(a, I3.3)') 'bla',iangle
+              SSE_HAS_ANGLE=.true.
+          case ('v')
+              print '(a, f3.1)', 'version ', version
+              call exit(0)
+          case ('h')
+            call print_help()
+            call exit(0)
+      end select
+  end do
 
   !-------INIT PHASE-------
 
@@ -67,5 +98,14 @@ PROGRAM Q2P1_SSE
 #endif
 
   call sim_finalize_sse(tt0,ufile)
+
+  contains
+
+    subroutine print_help()
+        print '(a, /)', 'command-line options:'
+        print '(a)',    '  -v, --version     print version information and exit'
+        print '(a)',    '  -h, --help        print usage information and exit'
+        print '(a)',    '  -a, --angle       the angle position for the simulation'
+    end subroutine print_help  
 
 END PROGRAM Q2P1_SSE

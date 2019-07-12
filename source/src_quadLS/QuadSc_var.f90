@@ -29,6 +29,9 @@ INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
 
+LOGICAL :: SSE_HAS_ANGLE=.false.
+real*8  :: extruder_angle = 0.0
+
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal

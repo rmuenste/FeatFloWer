@@ -1,6 +1,7 @@
     Subroutine ReadS3Dfile(cE3Dfile)
     use iniparser
     use Sigma_User
+    USE var_QuadScalar, ONLY : SSE_HAS_ANGLE, extruder_angle
 
     use, intrinsic :: ieee_arithmetic
 
@@ -915,6 +916,9 @@
 !     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nSolutions",mySetup%nSolutions,1)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
+    if (SSE_HAS_ANGLE)then
+      myProcess%Angle = extruder_angle
+    end if
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
     

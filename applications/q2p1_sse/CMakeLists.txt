@@ -44,6 +44,7 @@ ${src_visco}
 ${src_mesh}
 ${src_cinterface}
 ${postprocessing}
+f90getopt.f90
 app_init.f90
 q2p1_sse.f90
 )
