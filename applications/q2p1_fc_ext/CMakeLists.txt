@@ -1,3 +1,4 @@
+include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
 
 # CMakeLists of q2p1_fc_ext application
 set(src_cinterface
@@ -22,8 +23,10 @@ app_init.f90
 q2p1_fc_ext.f90
 )
 
+#add_custom_target(output-build-fc-ext DEPENDS ${CUSTOM_DEPENDENCY})
 
 # Add the application executable
+#add_executable(q2p1_fc_ext ${src_q2p1_fc_ext} ${CUSTOM_DEPENDENCY}) 
 add_executable(q2p1_fc_ext ${src_q2p1_fc_ext}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
@@ -37,6 +40,9 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
+addCompilerInfo("q2p1_fc_ext")
+
+# Target related settings
 target_link_libraries(q2p1_fc_ext 
   ${FF_APPLICATION_LIBS}
   )

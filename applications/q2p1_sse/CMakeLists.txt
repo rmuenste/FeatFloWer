@@ -1,3 +1,5 @@
+include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+
 # CMakeLists of q2p1_fc_ext application
 set(src_quadLS_ext
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
@@ -64,6 +66,8 @@ source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
+
+addCompilerInfo("q2p1_sse")
 
 target_link_libraries(q2p1_sse 
   ${FF_APPLICATION_LIBS}
