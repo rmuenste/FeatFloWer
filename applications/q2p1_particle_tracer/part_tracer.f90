@@ -63,7 +63,10 @@ ALLOCATE(myVelo(1))
 
 WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 ! CALL SolFromFile(cFile,1)
-CALL init_sol_same_level(cFile)
+
+!!!!!!!!!!!!!!!!!!! choose one fof these !!!!!!!!!!!!!!!!!!!!!!
+! CALL init_sol_same_level(cFile)
+CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
 ! CALL init_sol_repart(cFile)
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
@@ -85,7 +88,7 @@ CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
                       mg_mesh%level(ILEV)%elementsAtVertex,&
                       QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                      nvt,net,nat,nel,dTime)
+                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
 
 ! Get the bounds of the mesh. Note: We need to set it to nlmax because else
 ! it won't work
@@ -176,7 +179,7 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
                           mg_mesh%level(ILEV)%elementsAtVertexIdx,&
                           mg_mesh%level(ILEV)%elementsAtVertex,&
                           QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                          nvt,net,nat,nel,dTime)
+                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
 
    END IF
 
@@ -210,6 +213,7 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
   nActSumOld = nActSum
 
   IF (DBLE(nActSum0-nActSum)/DBLE(nActSum0).ge.myParticleParam%minFrac) EXIT
+  
 
 END DO
 
@@ -431,7 +435,8 @@ DO
       cdz = 1d1*dBuff(3)
       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
 !       write(*,*) dist_CGAL
-      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!       if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
        iElements = iElements + 1
       end if
    END IF
@@ -487,7 +492,8 @@ DO
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
          
          iElement = iElement+ 1
          

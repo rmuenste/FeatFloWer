@@ -1,8 +1,9 @@
 module particle_step
 
+USE var_QuadScalar, only : myParticleParam
 USE geometry_processing, only : GetDistToSTL
 
-REAL*8 dist_CGAL,cdx,cdy,cdz,d_CorrDist
+REAL*8 dist_CGAL,cdx,cdy,cdz
 
 real*8 DJ(8,3),q8
 PARAMETER (Q8=0.125D0)
@@ -231,7 +232,7 @@ end subroutine M33INV
 !                                Sub: Extract_Particle
 !========================================================================================
 SUBROUTINE Extract_Particle(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
-                           VelU,VelV,VelW,nvt,net,nat,nel,tDelta)
+                           VelU,VelV,VelW,nvt,net,nat,nel,tDelta,d_CorrDist)
 USE PP3D_MPI, ONLY : myid,master,showid,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,RECVK_myMPI,SENDK_myMPI,MPI_COMM_WORLD
 
@@ -239,7 +240,7 @@ USE types, ONLY : myCompleteSet,myActiveSet,nActiveSet,myExchangeSet,myLostSet,&
                          nExchangeSet,nStartActiveSet,nLostSet
 
 IMPLICIT NONE
-REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta
+REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta,d_CorrDist
 INTEGER nkel,nvt,net,nat,nel
 INTEGER kel_LdA(*),kel_ColA(*)
 INTEGER kvert(8,*),kedge(12,*),karea(6,*)
@@ -282,7 +283,8 @@ tLevel = myExchangeSet(iParticel)%time
   cdz = 1d1*point(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
+  if (dist_CGAL.lt.+d_CorrDist*0.5d0) then
+!  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !     write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
    call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
@@ -298,8 +300,23 @@ tLevel = myExchangeSet(iParticel)%time
    P=0.1d0*[cdx,cdy,cdz]
 !   write(*,*) 'after: ', P   
 !   pause
-  point = [P(1),P(2),P(3)]
+   point = [P(1),P(2),P(3)]
   end if
+  
+!  point = [4.6d0, 0d0, 0d0]
+  
+  dist = (point(1)**2d0 + point(2)**2d0)**0.5d0
+  dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
+  if (dist_CGAL.lt.+0.1d0*d_CorrDist*1d0) then
+   daux = myParticleParam%D_Out*0.5d0 - 0.1d0*d_CorrDist*1.0d0
+   cdx = point(1)*daux/dist
+   cdy = point(2)*daux/dist
+   cdz = point(3)
+   if (myid.eq.0) write(*,'(A,3Es12.4,I)') 'corrected:', myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+   point = [cdx,cdy,cdz]
+  end if
+  
+!  pause
   
   myExchangeSet(iParticel)%coor = point
 
@@ -434,6 +451,7 @@ DO iParticel = 1,nExchangeSet
  IF (iRecvVector(iParticel).eq.0) THEN
   nLostSet = nLostSet + 1
   myLostSet(nLostSet) = myExchangeSet(iParticel)
+  if (myid.eq.0) write(*,'(A,3Es12.4,I)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
  END IF
 END DO
 
@@ -747,7 +765,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdz = 1d1*P(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
+  if (dist_CGAL.lt.d_CorrDist*0.5d0) then
+!  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !    write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
    call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
@@ -765,6 +784,16 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !   pause
   end if
   
+  dist = (P(1)**2d0 + P(2)**2d0)**0.5d0
+  dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
+  if (dist_CGAL.lt.+d_CorrDist*1.0d0) then
+   daux = myParticleParam%D_Out*0.5d0 - d_CorrDist*1.0d0
+   cdx = P(1)*daux/dist
+   cdy = P(2)*daux/dist
+   cdz = P(3)
+   P = [cdx,cdy,cdz]
+  end if
+
   point = [P(1),P(2),P(3)]
 !  point = [abs(P(1)),P(2),P(3)]
   
@@ -776,11 +805,11 @@ END DO
 END DO
 
 IF (.not.bFound) THEN
-  cdx = 1d1*point(1)
-  cdy = 1d1*point(2)
-  cdz = 1d1*point(3)
-
-  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!   cdx = 1d1*point(1)
+!   cdy = 1d1*point(2)
+!   cdz = 1d1*point(3)
+! 
+!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
   
 !   write(*,*) point,dist_CGAL
 !   if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
@@ -1071,7 +1100,7 @@ REAL*8 :: DV_Rot(3),dVV(3)
 REAL*8 :: dAlpha,XB,YB,ZB,dtheta
 REAL*8 :: RK_Velo(3,4)
 REAL*8 :: dRR,dU_r,dU_theta,dU_z,dRho,dRho0,dRho1,dZ,daux,dFact
-LOGICAL :: bRotationalMovement=.false.
+LOGICAL :: bRotationalMovement=.true.
 
 if (bRotationalMovement) then
  DV_Rot = [-2d0*dPI*dFreq*P(2), 2d0*dPI*dFreq*P(1),0d0]

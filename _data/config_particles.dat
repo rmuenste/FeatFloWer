@@ -1,0 +1,23 @@
+[GeneralSettings]
+particle_datafile=aa.txt
+machine_datafile=bb.e3d
+unitIN = CM
+unitOUT = CM
+unitSourcefile = CM
+startingprocedure = 1
+dump_in_file = 7
+sourcefile=_data/ReiloySRC2.csv
+nElements = 1
+nSegmentsColoring = 1 
+Epsilon=0.01
+nRotation = 70
+TimeLevels = 72
+d_CorrDist = 0.03
+D_Out = 9.0
+D_in = 1.0
+f=129
+zCutplanePositions(4)=
+5
+10
+20
+40
