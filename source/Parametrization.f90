@@ -1060,7 +1060,8 @@ REAL*8 dx,dy,dz,dist,dFact
 REAL*8 px,py,pz
 REAL*8 RX,RY,RZ,RAD,DFX,DFY,DFZ
 REAL*8 DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,DZ1,DZ2
-INTEGER iBnds
+INTEGER iBnds,iSec,nSec
+REAL*8, ALLOCATABLE :: Sec(:,:)
 
  IF (myParBndr(iBnds)%nBndrPar.EQ.0.OR.myParBndr(iBnds)%nBndrPar.EQ.1) THEN
   x2 = x1
@@ -1114,30 +1115,46 @@ INTEGER iBnds
  END IF
  
  ! Parametrization with respect to a varying radius cylinder
- IF (myParBndr(iBnds)%nBndrPar.EQ.10) THEN
+ IF (myParBndr(iBnds)%nBndrPar.GE.10) THEN
+ 
+  nSec = (myParBndr(iBnds)%nBndrPar - 6)/2
+  allocate(Sec(2,nSec))
   RX  = myParBndr(iBnds)%dBndrPar(1)
   RY  = myParBndr(iBnds)%dBndrPar(2)
   RZ  = myParBndr(iBnds)%dBndrPar(3)
-  RAD1 = myParBndr(iBnds)%dBndrPar(4)
-  DZ1 = myParBndr(iBnds)%dBndrPar(5)
-  RAD2 = myParBndr(iBnds)%dBndrPar(6)
-  DZ2 = myParBndr(iBnds)%dBndrPar(7)
-  DFX = myParBndr(iBnds)%dBndrPar(8)
-  DFY = myParBndr(iBnds)%dBndrPar(9)
-  DFZ = myParBndr(iBnds)%dBndrPar(10)
+  do iSec=1,nSec
+   Sec(2,iSec) = myParBndr(iBnds)%dBndrPar(3+iSec)
+  end do
+  do iSec=1,nSec
+   Sec(1,iSec) = myParBndr(iBnds)%dBndrPar(3+nSec+iSec)
+  end do
+  DFX = myParBndr(iBnds)%dBndrPar(3+2*(nSec-1)+3)
+  DFY = myParBndr(iBnds)%dBndrPar(3+2*(nSec-1)+4)
+  DFZ = myParBndr(iBnds)%dBndrPar(3+2*(nSec-1)+5)
+  
 !------------------------------------------------
+
   dx = x1-RX
   dy = y1-RY
   dz = z1-RZ
-  dist = DSQRT(DFX*dx**2d0 + DFY*dy**2d0 + DFZ*dz**2d0)
-  RAD = RAD1 + (RAD2-RAD1)*(z1-DZ1)/(DZ2-DZ1)
-  dFact = RAD/dist
-  px = (1d0-DFX)*x1 + DFX*(RX + dFact*dx)
-  py = (1d0-DFY)*y1 + DFY*(RY + dFact*dy)
-  pz = (1d0-DFZ)*z1 + DFZ*(RZ + dFact*dz)
+  do iSec=1,nSec-1
+   RAD1= Sec(1,iSec  )
+   RAD2= Sec(1,iSec+1)
+   DZ1= Sec(2,iSec  )
+   DZ2= Sec(2,iSec+1)
+   if (dz.ge.DZ1.and.dz.le.DZ2) then
+    dist = DSQRT(DFX*dx**2d0 + DFY*dy**2d0 + DFZ*dz**2d0)
+    RAD = RAD1 + (RAD2-RAD1)*(z1-DZ1)/(DZ2-DZ1)
+    dFact = RAD/dist
+    px = (1d0-DFX)*x1 + DFX*(RX + dFact*dx)
+    py = (1d0-DFY)*y1 + DFY*(RY + dFact*dy)
+    pz = (1d0-DFZ)*z1 + DFZ*(RZ + dFact*dz)
+   end if
+  end do
   x2 = px
   y2 = py
   z2 = pz
+  deallocate(Sec)
   RETURN
  END IF
 

@@ -12,7 +12,7 @@
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
-    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files
     
@@ -95,6 +95,16 @@
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","InnerDiameter", mySigma%Dz_in ,mySigma%Dz_Out/dSizeScale)
     mySigma%Dz_in = dSizeScale*mySigma%Dz_in
     
+    call INIP_getvalue_Int(parameterlist,"E3DGeometryData/Machine","InnerDiameterNList", mySigma%InnerDiamNParam ,0)
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","InnerDiameterAxiList", cauxD ,"no")
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","InnerDiameterRadList", cauxZ ,"no")
+    allocate(mySigma%InnerDiamDParam(mySigma%InnerDiamNParam))
+    allocate(mySigma%InnerDiamZParam(mySigma%InnerDiamNParam))
+    read(cauxD,*) mySigma%InnerDiamDParam
+    read(cauxZ,*) mySigma%InnerDiamZParam
+    mySigma%InnerDiamDParam = dSizeScale*mySigma%InnerDiamDParam
+    mySigma%InnerDiamZParam = dSizeScale*mySigma%InnerDiamZParam
+
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
     mySigma%L = dSizeScale*mySigma%L
 
@@ -902,6 +912,10 @@
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
     write(*,*) "mySigma%Zwickel",'=',trim(mySigma%cZwickel)
+    write(*,*) "mySigma%InnerDiamNParam",'=',mySigma%InnerDiamNParam
+    write(*,'(A,A,100ES12.4)') "mySigma%InnerDiamDParam",'=',mySigma%InnerDiamDParam
+    write(*,'(A,A,100ES12.4)') "mySigma%InnerDiamZParam",'=',mySigma%InnerDiamZParam
+    
     IF (mySigma%Dzz.ne.myinf) write(*,*) "mySigma%Dzz",'=',mySigma%Dzz
     IF (mySigma%W.ne.myinf)   write(*,*) "mySigma%W",'=',mySigma%W
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out

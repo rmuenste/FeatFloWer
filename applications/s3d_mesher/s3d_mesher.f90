@@ -595,6 +595,7 @@ END SUBROUTINE Parametrization_FC
 SUBROUTINE Parametrization_HC()
 INTEGER i,j,k
 INTEGER nHalf,ivt
+character*200 cFormat
 ! INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
 ! INTEGER, ALLOCATABLE :: knpr_zMin(:),knpr_zMax(:)
 
@@ -603,7 +604,14 @@ nHalf = nvt/2
 !! Inner cylinder
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/in.par',UNIT=1)
 WRITE(1,*) (nT)*(NZ+1), ' Inflow13'
-WRITE(1,'(A2,4E14.6,A)') "'7", 0e0,  0e0, 0e0, 0.5*DZi, " 1.0 1.0 0.0'"
+
+if (mySigma%InnerDiamNParam.eq.0) then
+ WRITE(1,'(A2,4E14.6,A)') "'7", 0e0,  0e0, 0e0, 0.5*DZi, " 1.0 1.0 0.0'"
+else
+ cFormat = '(A,I2,A,xxE14.6,A)'
+ write(cFormat(9:10),'(I2.2)') mySigma%InnerDiamNParam*2
+ WRITE(1,cFormat) "'",mySigma%InnerDiamNParam*2+6," 0.0 0.0 0.0", mySigma%InnerDiamDParam,mySigma%InnerDiamZParam, " 1.0 1.0 0.0'"
+end if
 
 k = 0
 DO j=1,nZ+1
@@ -635,7 +643,12 @@ CLOSE(1)
 
 !! Outflow
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=1)
-WRITE(1,*) (nT)*(NR+1), ' Outflow'
+
+IF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+ WRITE(1,*) (nT)*(NR+1), ' Outflow'
+ELSE
+ WRITE(1,*) (nT)*(NR+1), ' Symmetry110'
+END IF
 WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", -DL, "'"
 k = 0
 DO j=1,nR+1

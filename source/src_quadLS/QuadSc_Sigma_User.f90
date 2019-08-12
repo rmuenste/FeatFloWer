@@ -37,6 +37,8 @@ TYPE tSigma
   REAL*8 :: SecStr_W,SecStr_D
   INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
+  INTEGER :: InnerDiamNParam=0
+  REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
   
 END TYPE tSigma
 
