@@ -979,8 +979,8 @@ IF (myid.eq.1) THEN
  call date_and_time(cdate,ctime,czone,values)
  WRITE(ifile,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
  WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 2.0"
- WRITE(ifile,'(A,I2.2)')"counter_pos=",my1DOut_nol
- WRITE(ifile,'(A,I2.2)')"counter_verl=",iVerlaufMax
+ WRITE(ifile,'(A,I4.4)')"counter_pos=",my1DOut_nol
+ WRITE(ifile,'(A,I4.4)')"counter_verl=",iVerlaufMax
 !  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") WRITE(ifile,'(A)') "[InputSigmaFile]"
  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") WRITE(ifile,'(A)') "[InputREXFile]"
@@ -1532,7 +1532,7 @@ real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
 
 LOGICAL bValid
-INTEGER iSeg
+INTEGER iSeg,jSeg
 
 my1DOut_nol = myOutput%nOf1DLayers
 dMinSample = 0d0
@@ -1574,8 +1574,6 @@ IF (myid.ne.0) THEN
  MlRhoMat => mg_MlRhoMat(maxlevel)%a
 
 
- DO iSeg=1,mySigma%NumberOfSeg
-
  DO i=1,SIZE(sQuadSc%ValU)
 
   IF (MixerKNPR(i).eq.0) THEN
@@ -1584,6 +1582,20 @@ IF (myid.ne.0) THEN
    DO j=1,my1DOut_nol
     IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
      jj = j
+     iSeg = -1
+     DO jSeg=1,mySigma%NumberOfSeg
+      if (jSeg.lt.mySigma%NumberOfSeg) then
+       if (dZ.ge.mySigma%mySegment(jSeg)%Min.and.dZ.lt.mySigma%mySegment(jSeg)%Max) then
+        iSeg=jSeg
+        exit
+       end if
+      else
+       if (dZ.ge.mySigma%mySegment(jSeg)%Min.and.dZ.le.mySigma%mySegment(jSeg)%Max) then
+        iSeg=jSeg
+        exit
+       end if
+      end if
+     END DO
      EXIT
     END IF
    END DO
@@ -1644,7 +1656,6 @@ IF (myid.ne.0) THEN
     END IF
    END IF
   END IF
- END DO
  END DO
 END IF
 

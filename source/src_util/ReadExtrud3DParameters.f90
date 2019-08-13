@@ -12,7 +12,7 @@
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
-    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files
     
@@ -111,6 +111,13 @@
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfFlights", mySigma%GANGZAHL ,0)
     
+
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","OnlyBarrelAdaptation", cOnlyBarrelAdaptation,"NO")
+    call inip_toupper_replace(cOnlyBarrelAdaptation)
+    IF (ADJUSTL(TRIM(cOnlyBarrelAdaptation)).EQ."YES") THEN
+     mySigma%bOnlyBarrelAdaptation = .true.
+    END IF
+
     IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
     ELSE
@@ -918,6 +925,12 @@
     
     IF (mySigma%Dzz.ne.myinf) write(*,*) "mySigma%Dzz",'=',mySigma%Dzz
     IF (mySigma%W.ne.myinf)   write(*,*) "mySigma%W",'=',mySigma%W
+    if (mySigma%bOnlyBarrelAdaptation) then
+     write(*,*) "mySigma%OnlyBarrelAdaptation",'= YES'
+    else
+     write(*,*) "mySigma%OnlyBarrelAdaptation",'= NO'
+    end if
+    
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L

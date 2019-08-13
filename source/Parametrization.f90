@@ -995,6 +995,7 @@ integer :: ii
 type(tMultiMesh) :: mgMesh
 REAL*8 x,y,z,cpx,cpy,cpz,d_temp,xiS(3)
 INTEGER iNode,ipc,iBnds,iS,W
+integer :: iRepeat,nRepeat=8
 
  IF (myid.eq.MASTER) return
  
@@ -1022,6 +1023,7 @@ INTEGER iNode,ipc,iBnds,iS,W
      IF (mgMesh%BndryNodes(iNode)%ParamTypes(3)) then
        xiS = 0d0
        W = DBLE(mgMesh%BndryNodes(iNode)%nSurf)
+       DO iRepeat=1,nRepeat
        DO iS=1,mgMesh%BndryNodes(iNode)%nSurf
          iBnds = mgMesh%BndryNodes(iNode)%S(iS)
          IF (myParBndr(iBnds)%nBndrPar.NE.0) THEN !analytical
@@ -1042,6 +1044,7 @@ INTEGER iNode,ipc,iBnds,iS,W
            mg_mesh%level(ii)%dcorvg(2,iNode) = cpy/dCGALtoRealFactor
            mg_mesh%level(ii)%dcorvg(3,iNode) = cpz/dCGALtoRealFactor
          END IF
+       ENDDO
        ENDDO
        GOTO 1
      END IF

@@ -319,7 +319,7 @@ module umbrella_smoother
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
    IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
     CALL Shell_dist(x,y,z,d1)
-    d1 = qscStruct%AuxW(i)
+    d1 = min(qscStruct%AuxW(i),d1)
    ELSE
 !    d1 = 1d5
     xx = dCGALtoRealFactor*x
@@ -347,6 +347,11 @@ module umbrella_smoother
   CALL KernelFunction(d1,f1)
   CALL KernelFunction(d2,f2)
   CALL KernelFunction(d3,f3)
+  
+  if (mySigma%bOnlyBarrelAdaptation) then
+   f2=1d0
+   f3=1d0
+  end if
 
   f = MIN(f1*f2*f3,25d0)
   f = f**2.3d0

@@ -39,6 +39,7 @@ TYPE tSigma
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
   INTEGER :: InnerDiamNParam=0
   REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
+  LOGICAL :: bOnlyBarrelAdaptation=.false.
   
 END TYPE tSigma
 
