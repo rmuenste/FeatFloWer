@@ -16,8 +16,9 @@ PROGRAM Q2P1_SSE
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
+  character(len=60)  :: arg
   real               :: dout = 0.0
-  integer            :: ufile,ilog
+  integer            :: ufile,ilog,i
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
@@ -38,8 +39,6 @@ PROGRAM Q2P1_SSE
               read(optarg,*) angle
               iangle = int(angle)
               extruder_angle = angle
-              print *, "option angle=", angle
-              write(*, '(a, I3.3)') 'bla',iangle
               SSE_HAS_ANGLE=.true.
           case ('v')
               print '(a, f3.1)', 'version ', version
