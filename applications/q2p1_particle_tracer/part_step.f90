@@ -356,6 +356,8 @@ DO iMon = 1,nXX
 
 iPoint = iMonitor(iMon)
 
+if (iPoint.ge.1.and.iPoint.le.nvt) then
+
 DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  
  jel = kel_ColA(iel)
@@ -394,6 +396,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 
 END DO
 
+end if
 ! write(*,*) '-->',myid,iMon,iMon,dist,bFound
 END DO
 
@@ -710,6 +713,8 @@ DO iMon = 1,nXX
 
 iPoint = iMonitor(iMon)
 
+if (iPoint.ge.1.and.iPoint.le.nvt) then
+
 DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  
  jel = kel_ColA(iel)
@@ -802,6 +807,9 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  END IF
 
 END DO
+
+end if
+
 END DO
 
 IF (.not.bFound) THEN

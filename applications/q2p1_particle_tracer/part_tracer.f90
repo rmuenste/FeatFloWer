@@ -194,7 +194,7 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
    iOutputLambda = iTimeSteps/myParticleParam%nTimeLevels
 
    ! not the end of the simulation - so call getLambda with false
-   !CALL GetLambda(.false.)
+   CALL GetLambda(.false.)
 
   END IF
 
@@ -226,7 +226,7 @@ END IF
 CALL OutputParticlesAtZtoCSV()
 
 ! Now its the end of the simulation - so output the final lambda
-!call GetLambda(.true.)
+call GetLambda(.true.)
 
 IF (myid.eq.1) CLOSE(947)
 
