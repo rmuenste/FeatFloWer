@@ -12,14 +12,12 @@ import getopt
 import shutil
 import subprocess
 import math
-try:
-    sys.path.append(os.environ['FF_PY_HOME'])
-except:
-    print("Warning: Environment variable <FF_PY_HOME> is not set. "  +
-          "Trying to use local install of FeatFloWer python modules.")
 import partitioner
 
-from pathlib2 import Path
+if sys.version_info[0] < 3:
+    from pathlib2 import Path
+else:
+    from pathlib import Path
 
 #===============================================================================
 #                        usage function
@@ -34,7 +32,9 @@ def usage():
     print("[-n', '--num-processors]: Number of processors to use")
     print("[-p', '--periodicity']: Periodicity of the solution (1, 2, 3, ... " +
           "usually the time flight number)")
-    print("[-a', '--angle]: The angular step size between two simulations in " +
+    print("[-a', '--angle]: If this parameter is present a single simulation with " +
+          "that specific angle will be done.")
+    print("[-d', '--delta-angle]: The angular step size between two simulations " +
           "the sim loop (default 10)")
     print("[-c', '--host-conf]: A hostfile as input for the mpirun command")
     print("[-r', '--rank-file]: A rankfile as input for the mpirun command")
@@ -42,6 +42,35 @@ def usage():
     print("[-h', '--help']: prints this message")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 
+#===============================================================================
+#                          setup the case folder 
+#===============================================================================
+def folderSetup(workingDir, projectFile, projectPath, projectFolder):
+    if not projectFile.is_file():
+        projectFile = Path(projectPath / 'Extrud3D.dat')
+        if not projectFile.is_file():
+            print("Could not find a valid parameter file in the project folder: " +
+                  str(projectPath))
+            sys.exit(2)
+
+    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
+    destDataFile = Path("_data") / Path("q2p1_param.dat")
+
+    shutil.copyfile(str(backupDataFile), str(destDataFile))
+    shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
+
+    offList = []
+    if not sys.platform == "win32":
+        offList = list(Path(projectFolder).glob('*.off')) + list(Path(projectFolder).glob('*.OFF'))
+    else: 
+        offList = list(Path(projectFolder).glob('*.off'))
+
+    for item in offList:
+        shutil.copyfile(str(item), str(workingDir / item.name))
+
+    if Path("_data/meshDir").exists():
+        print("meshDir exists")
+        shutil.rmtree("_data/meshDir")
 
 #===============================================================================
 #                        Main Script Function
@@ -62,6 +91,9 @@ def main():
     # Angular step size
     deltaAngle = 10.0
 
+    # Single angle 
+    singleAngle = -10.0 
+
     # Hostfile 
     hostFile = ""
 
@@ -80,14 +112,19 @@ def main():
     # The project folder
     projectFolder = ""
 
+    skipSetup = False
+
+    skipSimulation = False
+
     # Number of simulation for a full rotation 
     nmax = 0
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:a:c:r:t:h',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smh',
                                    ['num-processors=', 'project-folder=',
-                                    'periodicity=', 'angle=',
-                                    'host-conf=', 'rank-file=', 'time=', 'help'])
+                                    'periodicity=', 'delta-angle=', 'angle=',
+                                    'host-conf=', 'rank-file=', 'time=', 'skip-setup',
+                                    'skip-simulation', 'help'])
 
     except getopt.GetoptError:
         usage()
@@ -104,6 +141,8 @@ def main():
         elif opt in ('-p', '--periodicity'):
             periodicity = int(arg)
         elif opt in ('-a', '--angle'):
+            singleAngle = float(arg)
+        elif opt in ('-d', '--delta-angle'):
             deltaAngle = float(arg)
         elif opt in ('-c', '--host-conf'):
             hostFile = arg
@@ -111,6 +150,10 @@ def main():
             rankFile = arg
         elif opt in ('-t', '--time'):
             timeLevels = int(arg)
+        elif opt in ('-s', '--skip-setup'):
+            skipSetup = True
+        elif opt in ('-m', '--skip-simulation'):
+            skipSimulation = True
         else:
             usage()
             sys.exit(2)
@@ -124,38 +167,13 @@ def main():
     projectPath = Path(workingDir / projectFolder)
     projectFile = Path(projectPath / 'setup.e3d')
 
-    if not projectFile.is_file():
-        projectFile = Path(projectPath / 'Extrud3D.dat')
-        if not projectFile.is_file():
-            print("Could not find a valid parameter file in the project folder: " +
-                  str(projectPath))
-            sys.exit(2)
+    if not skipSetup:
+        folderSetup(workingDir, projectFile, projectPath, projectFolder)
+        subprocess.call(["./s3d_mesher"])
+        partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
 
-    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
-    destDataFile = Path("_data") / Path("q2p1_param.dat")
-
-    shutil.copyfile(str(backupDataFile), str(destDataFile))
-    shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
-
-    offList = []
-    if not sys.platform == "win32":
-        offList = list(Path(projectFolder).glob('*.off')) + list(Path(projectFolder).glob('*.OFF'))
-    else: 
-        offList = list(Path(projectFolder).glob('*.off'))
-
-    print(offList)
-    print(projectFolder)
-
-    for item in offList:
-        shutil.copyfile(str(item), str(workingDir / item.name))
-
-    if Path("_data/meshDir").exists():
-        print("meshDir exists")
-        shutil.rmtree("_data/meshDir")
-
-    subprocess.call(["./s3d_mesher"])
-
-    partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    if skipSimulation:
+        sys.exit()
 
     print("  ")
     print("  ----------------------------------------------------------------------------------------------------- ")
@@ -172,7 +190,10 @@ def main():
         deltaAngle = 360.0 / float(timeLevels)
         nmax = int(math.ceil(360.0 / periodicity / deltaAngle))
 
-    mpiPath =Path("mpirun")
+    if singleAngle >= 0.0:
+        nmax = 1
+
+    mpiPath = Path("mpirun")
     if sys.platform == "win32":
         mpiPath = Path(os.environ['MSMPI_BIN']) / Path("mpiexec.exe")
 
@@ -185,7 +206,11 @@ def main():
         f.write("nSolutions=" + str(timeLevels) + "\n")
 
     for i in range(nmin, nmax):  # nmax means the loop goes to nmax-1
-        angle = start + i * deltaAngle
+        if singleAngle >= 0.0:
+            angle = singleAngle
+        else:
+            angle = start + i * deltaAngle
+
         shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
 
         with open("_data/Extrud3D.dat", "a") as f:
@@ -194,10 +219,13 @@ def main():
         if sys.platform == "win32":
             subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
-            subprocess.call(['mpirun -np %i ./q2p1_sse' % numProcessors],shell=True)
+            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
+            subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)],shell=True)
 
         iangle = int(angle)
-        shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
+
+#        if not singleAngle >= 0.0:
+#            shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
     if not sys.platform == "win32":
         offList = list(workingDir.glob('*.off')) + list(workingDir.glob('*.OFF'))

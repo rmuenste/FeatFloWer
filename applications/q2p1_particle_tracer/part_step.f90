@@ -312,7 +312,7 @@ tLevel = myExchangeSet(iParticel)%time
    cdx = point(1)*daux/dist
    cdy = point(2)*daux/dist
    cdz = point(3)
-   if (myid.eq.0) write(*,'(A,3Es12.4,I)') 'corrected:', myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+   if (myid.eq.0) write(*,'(A,3Es12.4,I0)') 'corrected:', myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
    point = [cdx,cdy,cdz]
   end if
   
@@ -454,7 +454,7 @@ DO iParticel = 1,nExchangeSet
  IF (iRecvVector(iParticel).eq.0) THEN
   nLostSet = nLostSet + 1
   myLostSet(nLostSet) = myExchangeSet(iParticel)
-  if (myid.eq.0) write(*,'(A,3Es12.4,I)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+  if (myid.eq.0) write(*,'(A,3Es12.4,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
  END IF
 END DO
 
