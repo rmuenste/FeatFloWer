@@ -26,6 +26,8 @@ TYPE tSegment
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
+  !!!!!!!!!!!!!!!!!!!
+  INTEGER GANGZAHL
    
 END TYPE tSegment
 !------------------------------------------------------------
@@ -203,7 +205,7 @@ REAL*8 :: ZME_SegThick
 dEps = mySigma%a/1d5
 
 dInnerRadius = 0.5d0*mySigma%Dz_in
-! IF (mySigma%GANGZAHL.NE.0) THEN
+! IF (mySigma%mySegment(iSeg)%GANGZAHL.NE.0) THEN
 !  dInnerRadius = 1d0*(mySigma%A - 0.5d0*mySigma%Ds - 1d0*mySigma%s)
 ! ELSE
 !  dInnerRadius = 1d0*0.5d0*mySigma%Ds
@@ -421,10 +423,10 @@ YB = Y+mySigma%a/2d0
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 
 ! First the point needs to be transformed back to time = 0
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -581,10 +583,10 @@ YB = Y+mySigma%a/2d0
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 
 ! First the point needs to be transformed back to time = 0
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -698,10 +700,10 @@ YB = Y+mySigma%a/2d0
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 
 ! First the point needs to be transformed back to time = 0
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -826,10 +828,10 @@ YB = Y+mySigma%a/2d0
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 
 ! First the point needs to be transformed back to time = 0
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -964,10 +966,10 @@ YB = Y+mySigma%a/2d0 !+exc
 ZB = Z
 
 ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 
 ! First the point needs to be transformed back to time = 0
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -1053,7 +1055,12 @@ REAL*8 R1, R2, R3, dAlpha,dGamma,dCutAngle,dRadius,dN,dCrit1,dCrit2
 REAL*8  :: myPI = dATAN(1d0)*4d0
 INTEGER iAux
 
-dN=DBLE(mySigma%GANGZAHL)
+if (mySigma%mySegment(iSeg)%GANGZAHL.eq.-1) then
+ dN=DBLE(mySigma%mySegment(iSeg)%GANGZAHL)
+else
+ dN=DBLE(mySigma%mySegment(iSeg)%GANGZAHL)
+end if
+
 Dz=mySigma%Dz_out
 a=mySigma%a
 delta=mySigma%mySegment(iSeg)%delta

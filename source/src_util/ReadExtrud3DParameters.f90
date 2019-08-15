@@ -167,6 +167,8 @@
       
 !     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dSizeScale
 
+     call INIP_getvalue_int(parameterlist,cElement_i,"NoOfFlights", mySigma%mySegment(iSeg)%GANGZAHL,-1)
+
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
@@ -915,6 +917,11 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
+    
+    DO iSeg=1,mySigma%NumberOfSeg
+     IF (mySigma%mySegment(iSeg)%GANGZAHL.eq.-1) mySigma%mySegment(iSeg)%GANGZAHL=mySigma%GANGZAHL
+    END DO
+    
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
@@ -959,6 +966,8 @@
      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Min=',mySigma%mySegment(iSeg)%Min
      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
+     write(*,'(A,I1.1,A,I5)') " mySIGMA%Segment(",iSeg,')%nFl=',mySigma%mySegment(iSeg)%GANGZAHL
+     
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."FOERD") THEN
       write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
       IF (mySigma%mySegment(iSeg)%t.lt.0d0) THEN
