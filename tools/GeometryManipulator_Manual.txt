@@ -1,0 +1,54 @@
+This is the Geometry-Manipulator written by Malte Schuh
+
+The intention of the code is that it might support you in situations
+where you need perform easy manipulations on a geometry-file.
+
+It can import Salome-Dat-Files, OFF-Files and Ply-files.
+The geometries can be translated, rotated and scaled.
+To clarify: Scaling means that the coordinates are multiplied with a factor.
+The modified geometry can then be saved as OFF, PLY or STL-File.
+
+If you do not modify the goemetry it can also be used to
+convert between the different file formats.
+
+
+Usage:
+
+Start python
+
+Then in the Python environment type following commands:
+
+import GeometryManipulator as gm
+myGeo = gm.GeometryObject()
+
+Now import a geometry. Options are:
+myGeo.ReadSalomeDat('/path/to/geo')
+myGeo.ReadOff('/path/to/geo')
+myGeo.ReadPly('/path/to/geo')
+
+Now you can manipulate the object if you want to:
+myGeo.TranslateObject(translation_x,translation_y,translation_z)
+myGeo.ScaleObject(scale_x,scale_y,scale_z)
+
+myGeo.RotateX(angle)
+myGeo.RotateY(angle)
+myGeo.RotateZ(angle)
+
+If you want to provide the angle in Radians that is also possible by:
+myGeo.RotateX(angle,rad=True)
+
+After manipulation, you can now save the geometry:
+myGeo.ExportOff('/path/to/geo.off')
+myGeo.ExportPly('/path/to/geo.ply')
+myGeo.ExportStl('/path/to/geo.stl')
+
+Note that all directories that are in the save-path will be
+created if they do not exist.
+
+If you want to work with the next file, you can either
+myGeo2 = gm.GeometryObject()
+or
+myGeo.DeleteGeo()
+
+the last command will clean the Geometry structure
+so that it can load a new file. 
