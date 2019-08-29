@@ -68,7 +68,11 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-addCompilerInfo("q2p1_sse")
+
+if(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
+else(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
+  addCompilerInfo("q2p1_sse")
+endif(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
 
 target_link_libraries(q2p1_sse 
   ${FF_APPLICATION_LIBS}

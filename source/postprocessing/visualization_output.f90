@@ -1702,7 +1702,7 @@ END SUBROUTINE  OutPut_1D_subEXTRA
 !subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
 subroutine viz_output_1D_fields(sExport, iOutput, sQuadSc, sLinSc, visc, dist, shear, mgMesh)
 
-use var_QuadScalar, only:tExport
+use var_QuadScalar, only:tExport, extruder_angle
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
@@ -1712,9 +1712,10 @@ USE Transport_Q1,ONLY:Tracer
 implicit none
 
 interface
-  subroutine c_write_json_output() bind(C, name="c_write_json_output")
+  subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
     use cinterface, only: c1dOutput
     use iso_c_binding
+    integer(c_int) :: angle
   end subroutine c_write_json_output
 end interface
 
@@ -1734,9 +1735,10 @@ real*8, dimension(:), intent(in) :: shear
 
 type(tMultiMesh), intent(in) :: mgMesh
 
+integer(c_int) :: iangle
+
 ! locals
 integer :: ioutput_lvl
-
 
  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
@@ -1744,7 +1746,9 @@ integer :: ioutput_lvl
 
  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
- call c_write_json_output() 
+ iangle = int(extruder_angle)
+
+ call c_write_json_output(iangle) 
 
 end subroutine viz_output_1D_fields
 
