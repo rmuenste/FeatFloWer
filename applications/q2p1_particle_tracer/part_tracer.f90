@@ -65,8 +65,8 @@ WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 ! CALL SolFromFile(cFile,1)
 
 !!!!!!!!!!!!!!!!!!! choose one fof these !!!!!!!!!!!!!!!!!!!!!!
-! CALL init_sol_same_level(cFile)
-CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
+if (myParticleParam%DumpFormat.eq.1) CALL init_sol_same_level(cFile)
+if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
 ! CALL init_sol_repart(cFile)
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
@@ -259,6 +259,8 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mfile,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mfile,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mfile,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
+ WRITE(mfile,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mfile,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mfile,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mfile,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
@@ -274,6 +276,8 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mterm,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mterm,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mterm,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
+ WRITE(mterm,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mterm,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mterm,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mterm,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
@@ -434,10 +438,9 @@ DO
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-!       write(*,*) dist_CGAL
-      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
-!       if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
-       iElements = iElements + 1
+      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+        iElements = iElements + 1
       end if
    END IF
 END DO
@@ -492,8 +495,8 @@ DO
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
-!      if (dist_CGAL.lt.-myParticleParam%d_CorrDist) then
+      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
          
          iElement = iElement+ 1
          

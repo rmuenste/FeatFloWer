@@ -85,6 +85,20 @@ contains
       stop
     end if
 
+    ParticleParam%bRotationalMovement=.false.
+    call inip_getvalue_string(parameterlist,"GeneralSettings","RotationalMovement",tmpstring,"YES")
+    call inip_toupper_replace(tmpstring)
+    IF (tmpstring.eq."NO") THEN
+     ParticleParam%bRotationalMovement = .FALSE.
+    ELSE
+     ParticleParam%bRotationalMovement = .TRUE.
+    END IF
+    
+    call inip_getvalue_string(parameterlist,"GeneralSettings","DumpFormat",tmpstring,"DMP")
+    call inip_toupper_replace(tmpstring)
+    IF (tmpstring.eq."DMP") ParticleParam%DumpFormat = 1
+    IF (tmpstring.eq."LST") ParticleParam%DumpFormat = 2
+
     ! Get the starting procedure
     call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)
 

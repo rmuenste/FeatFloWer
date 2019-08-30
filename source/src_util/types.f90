@@ -187,10 +187,15 @@ TYPE tParticleParam
  ! We can make z-cutplanes at as many positions as we want.
  ! However, we will limit it to 99
  integer :: nZposCutplanes
+ 
+ integer :: DumpFormat=1
  real*8, allocatable :: cutplanePositions(:)
 
  ! Now many segments do we take for coloring?
  real*8 :: numberSegments
+ 
+ LOGICAL :: bRotationalMovement=.true.
+
 END TYPE tParticleParam
 
 ! Define parameters to find out where the particle-seed comes from

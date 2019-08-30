@@ -283,7 +283,9 @@ tLevel = myExchangeSet(iParticel)%time
   cdz = 1d1*point(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if (dist_CGAL.lt.+d_CorrDist*0.5d0) then
+  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.lt. d_CorrDist*0.5d0).or. &
+      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.gt.-d_CorrDist*0.5d0)) then
+ ! if (dist_CGAL.lt.+d_CorrDist*0.5d0) then
 !  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !     write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
@@ -292,10 +294,16 @@ tLevel = myExchangeSet(iParticel)%time
    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
    cnormal = cnormal/daux
-   
-   cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-   cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-   cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+
+   if (myParticleParam%bRotationalMovement) then
+    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   else
+    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   end if
    
    P=0.1d0*[cdx,cdy,cdz]
 !   write(*,*) 'after: ', P   
@@ -307,7 +315,7 @@ tLevel = myExchangeSet(iParticel)%time
   
   dist = (point(1)**2d0 + point(2)**2d0)**0.5d0
   dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
-  if (dist_CGAL.lt.+0.1d0*d_CorrDist*1d0) then
+  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+0.1d0*d_CorrDist*1d0) then
    daux = myParticleParam%D_Out*0.5d0 - 0.1d0*d_CorrDist*1.0d0
    cdx = point(1)*daux/dist
    cdy = point(2)*daux/dist
@@ -770,7 +778,9 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdz = 1d1*P(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if (dist_CGAL.lt.d_CorrDist*0.5d0) then
+  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.lt. d_CorrDist*0.5d0).or. &
+      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.gt.-d_CorrDist*0.5d0)) then
+!   if (dist_CGAL.lt.d_CorrDist*0.5d0) then
 !  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !    write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
@@ -780,9 +790,19 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
    cnormal = cnormal/daux
    
-   cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-   cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-   cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   if (myParticleParam%bRotationalMovement) then
+    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   else
+    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   end if
+   
+!    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
+!    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
+!    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
    
    P=0.1d0*[cdx,cdy,cdz]
 !   write(*,*) 'after: ', P   
@@ -791,7 +811,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   
   dist = (P(1)**2d0 + P(2)**2d0)**0.5d0
   dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
-  if (dist_CGAL.lt.+d_CorrDist*1.0d0) then
+  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+d_CorrDist*1.0d0) then
    daux = myParticleParam%D_Out*0.5d0 - d_CorrDist*1.0d0
    cdx = P(1)*daux/dist
    cdy = P(2)*daux/dist
@@ -1108,9 +1128,9 @@ REAL*8 :: DV_Rot(3),dVV(3)
 REAL*8 :: dAlpha,XB,YB,ZB,dtheta
 REAL*8 :: RK_Velo(3,4)
 REAL*8 :: dRR,dU_r,dU_theta,dU_z,dRho,dRho0,dRho1,dZ,daux,dFact
-LOGICAL :: bRotationalMovement=.true.
+!LOGICAL :: bRotationalMovement=.false.
 
-if (bRotationalMovement) then
+if (myParticleParam%bRotationalMovement) then
  DV_Rot = [-2d0*dPI*dFreq*P(2), 2d0*dPI*dFreq*P(1),0d0]
  dtheta = datan(P(2)/P(1))
  IF (P(1).lt.0d0) THEN
