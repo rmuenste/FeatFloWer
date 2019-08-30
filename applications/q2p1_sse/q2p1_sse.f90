@@ -31,6 +31,7 @@ PROGRAM Q2P1_SSE
   opts(2) = option_s('version',  .false., 'v')
   opts(3) = option_s('help',  .false., 'h')
 
+  ! check the command line arguments
   do
       select case (getopt('a:vh', opts))
           case (char(0))

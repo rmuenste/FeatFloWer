@@ -19,6 +19,8 @@ if(UNIX)
     OUTPUT_STRIP_TRAILING_WHITESPACE
     )
   message(STATUS "Linux flavor: ${LSB_RELEASE_ID_SHORT}")
+
+  find_program(MODULE_COMMAND modulecmd PATHS $ENV{MODULESHOME}/bin)
 endif(UNIX)
 
 enable_testing()

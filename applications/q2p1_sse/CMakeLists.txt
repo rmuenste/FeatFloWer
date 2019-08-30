@@ -69,10 +69,9 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 
-if(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
-else(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
+if(MODULE_COMMAND)
   addCompilerInfo("q2p1_sse")
-endif(WIN32 OR ${LSB_RELEASE_ID_SHORT} STREQUAL "Ubuntu")
+endif(MODULE_COMMAND)
 
 target_link_libraries(q2p1_sse 
   ${FF_APPLICATION_LIBS}
