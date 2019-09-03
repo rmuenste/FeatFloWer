@@ -3,8 +3,9 @@ USE Sigma_User, ONLY : mySetup,mySigma,myProcess
 USE iniparser, ONLY : inip_makeDirectory
 implicit none
 REAL*8 DZi,DZo,DL,Dzz,dx,DA
-INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2
-REAL*8 xCut, yCut
+INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2,nDEl,deltaNR
+REAL*8 dbW,dbH,dbL,dSize
+REAL*8 xCut, yCut, dalphaCut1,dalphaCut2 
 REAL*8,  ALLOCATABLE ::  dCoor(:,:)
 INTEGER, ALLOCATABLE ::  kVert(:,:),knpr(:)
 INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
@@ -114,37 +115,105 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
  nT1 = mySetup%m_nT1
  nT2 = mySetup%m_nT2
 
+ !!! calculate the relevant sizes
+ IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
+  xCut = (DZz**2d0 - DZo**2d0 + DA**2d0)/(4d0*DA)
+  yCut = SQRT((0.5*DZo)**2d0 - (xCut-0.5*DA)**2d0) 
+ ENDIF
+ IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") THEN
+  yCut = SQRT((0.5*DZo)**2d0 - (0.5*DA)**2d0) + dx
+  xCut = -SQRT((0.5*DZo)**2d0 - yCut**2d0) + 0.5*DA
+ END IF
+ dalphaCut1 = +(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
+ dalphaCut2 = -(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
+ 
+ !barrel thickness
+ dbW = (DZo-DZi)*0.5d0
+ !barrel height through the V cut
+ dbH = 2d0*yCut
+ !outer barrel circumference
+ dbL = ABS(dalphaCut1)*DZo
+
+ deltaNR = 0
+ 
+
+ IF (mySetup%MeshResolution.ne.0) THEN
+  nR = 2
+
+ 1 CONTINUE
+  dSize = dbW / DBLE(nR)
+  nT1 = MAX(1,INT(0.80d0*dbH/dSize))
+  nT2 = MAX(1,INT(0.30d0*dbL/dSize))
+
+  nDEL=2*NR*(NT1+NT2) + NT1
+  if (nDEl.lt.72) THEN
+   nR = nR + 1
+   GOTO 1
+  end if
+  
+  !!! shift the resolution to this factor higher (because in 2D there were too few elements)
+  deltaNR = nR - 2
+ END IF
+
  IF (mySetup%MeshResolution.eq.1) THEN
-  if (mySetup%m_nR.eq.0)  nR  = 3
-  if (mySetup%m_nT1.eq.0) nT1 = 5
-  if (mySetup%m_nT2.eq.0) nT2 = 12
+  if (mySetup%m_nR.eq.0)  nR  = 2
+!  if (mySetup%m_nT1.eq.0) nT1 = 5
+!  if (mySetup%m_nT2.eq.0) nT2 = 12
  END IF
  IF (mySetup%MeshResolution.eq.2) THEN
-  if (mySetup%m_nR.eq.0)  nR  = 4
-  if (mySetup%m_nT1.eq.0) nT1 = 6
-  if (mySetup%m_nT2.eq.0) nT2 = 17
+  if (mySetup%m_nR.eq.0)  nR  = 3
+!  if (mySetup%m_nT1.eq.0) nT1 = 6
+!  if (mySetup%m_nT2.eq.0) nT2 = 17
  END IF
  IF (mySetup%MeshResolution.eq.3)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  5
-  if (mySetup%m_nT1.eq.0) nT1 =  7
-  if (mySetup%m_nT2.eq.0) nT2 = 22 
+  if (mySetup%m_nR.eq.0)  nR  =  4
+!  if (mySetup%m_nT1.eq.0) nT1 =  7
+!  if (mySetup%m_nT2.eq.0) nT2 = 22 
  END IF
  IF (mySetup%MeshResolution.eq.4)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  6
-  if (mySetup%m_nT1.eq.0) nT1 =  8
-  if (mySetup%m_nT2.eq.0) nT2 = 28 
+  if (mySetup%m_nR.eq.0)  nR  =  5
+!  if (mySetup%m_nT1.eq.0) nT1 =  8
+!  if (mySetup%m_nT2.eq.0) nT2 = 28 
  END IF
  IF (mySetup%MeshResolution.eq.5)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  7
-  if (mySetup%m_nT1.eq.0) nT1 =  10
-  if (mySetup%m_nT2.eq.0) nT2 =  35 
+  if (mySetup%m_nR.eq.0)  nR  =  6
+!  if (mySetup%m_nT1.eq.0) nT1 =  10
+!  if (mySetup%m_nT2.eq.0) nT2 =  35 
  END IF
+ IF (mySetup%MeshResolution.eq.6)  THEN
+  if (mySetup%m_nR.eq.0)  nR  =  7
+!  if (mySetup%m_nT1.eq.0) nT1 =  10
+!  if (mySetup%m_nT2.eq.0) nT2 =  35 
+ END IF
+ IF (mySetup%MeshResolution.ge.7)  THEN
+  if (mySetup%m_nR.eq.0)  nR  =  8
+!  if (mySetup%m_nT1.eq.0) nT1 =  10
+!  if (mySetup%m_nT2.eq.0) nT2 =  35 
+ END IF
+ 
+ IF (mySetup%MeshResolution.ne.0) THEN
+  nR = nR + deltaNR
+  dSize = dbW / DBLE(nR)
+  nT1 = MAX(1,INT(0.80d0*dbH/dSize))
+  nT2 = MAX(1,INT(0.30d0*dbL/dSize))
+ END IF
+ 
+ !2DMesh resolution
+ nDEL=2*NR*(NT1+NT2) + NT1
+!  if (nDEl.lt.60) THEN
+!   mySetup%MeshResolution = mySetup%MeshResolution + 1
+!   mySetup%m_nR = 0
+!   GOTO 1
+!  end if
+ 
  if (mySetup%m_nZ.eq.0) nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
  
  IF (MOD(nZ,2).EQ.1) THEN
   WRITE(*,*) "number of elements in Z is uneven and is to be set to: ", nZ+1
   nZ = nZ + 1
  END IF
+ write(*,*) dbW,dbH,dbL,dSize
+ WRITE(*,'(A,I0,6(","I0))') "resolution parameters are [nR,nT1,nT2,nZ] + n2D_EL + ndRes: ",nR,nT1,nT2,nZ,nDEl,deltaNR,nDEl*nZ
  
  CALL SetUpMesh_TSE()
 
@@ -179,7 +248,6 @@ END SUBROUTINE ReadPar
 SUBROUTINE SetUpMesh_FC()
 REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
 INTEGER i,j,k,kk,nhalf
-REAL*8 dalphaCut1,dalphaCut2 
 REAL*8 PX_max,PX_min,PX_mid,PY_max,PY_min,PY_mid,ratio,dZOO
 INTEGER i1,i2,i3,i4,i5,i6,i7,i8
 
@@ -404,19 +472,17 @@ ALLOCATE(kVert(8,NEL))
 ALLOCATE(knpr(NVT))
 knpr = 0
 
-IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
- xCut = (DZz**2d0 - DZo**2d0 + DA**2d0)/(4d0*DA)
- yCut = SQRT((0.5*DZo)**2d0 - (xCut-0.5*DA)**2d0) 
-ENDIF
-IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") THEN
- yCut = SQRT((0.5*DZo)**2d0 - (0.5*DA)**2d0) + dx
- xCut = -SQRT((0.5*DZo)**2d0 - yCut**2d0) + 0.5*DA
-END IF
-
-
-dalphaCut1 = +(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
-dalphaCut2 = -(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
-
+ !!! calculate the relevant sizes
+ IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
+  xCut = (DZz**2d0 - DZo**2d0 + DA**2d0)/(4d0*DA)
+  yCut = SQRT((0.5*DZo)**2d0 - (xCut-0.5*DA)**2d0) 
+ ENDIF
+ IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."STRAIGHT") THEN
+  yCut = SQRT((0.5*DZo)**2d0 - (0.5*DA)**2d0) + dx
+  xCut = -SQRT((0.5*DZo)**2d0 - yCut**2d0) + 0.5*DA
+ END IF
+ dalphaCut1 = +(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
+ dalphaCut2 = -(-2d0*DATAN(1d0) + DATAN((xCut-0.5*DA)/yCut))
 ! write(*,*) DZO,DZI,DA,DL,dx,DZZ,nR,NT1,nt2,nz
 ! WRITE(*,*) ADJUSTL(TRIM(mySigma%cZwickel))
 ! WRITE(*,*) xCut,yCut,dalphaCut1,dalphaCut2

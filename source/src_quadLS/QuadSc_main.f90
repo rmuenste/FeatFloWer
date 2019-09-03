@@ -2542,6 +2542,10 @@ CALL ztime(dttt0)
 ilev=nlmax
 call setlev(2)
 
+if (nMainUmbrellaSteps.ne.0) then
+ nMainUmbrellaSteps =nMainUmbrellaSteps + (mySetup%MeshResolution-1)
+end if
+
 do i=1,nMainUmbrellaSteps
 
  call us_UmbrellaSmoother(0d0, nUmbrellaStepsLvl, mgMesh, QuadSc)

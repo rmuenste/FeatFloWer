@@ -285,6 +285,14 @@ IF (myid.eq.0) GOTO 1
     mg_mesh%level(ilev)%net,&
     nUsedSteps,myTime)
 
+  CALL ProlongateCoordinates(&
+    mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev+1)%dcorvg,&
+    mg_mesh%level(ilev)%karea,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    nel,nvt,net,nat)
+    
 DEALLOCATE(a1,a2,a3,a4,a5,a6)
 
 1 CONTINUE
