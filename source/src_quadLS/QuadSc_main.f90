@@ -464,12 +464,14 @@ end if
 
  Viscosity = Properties%Viscosity(1)
 
- Temperature = myProcess%T0
 
  mydof = mg_mesh%level(ilev)%nvt+&
          mg_mesh%level(ilev)%net+&
          mg_mesh%level(ilev)%nat+&
          mg_mesh%level(ilev)%nel
+         
+! Temperature = myProcess%T0
+ CALL SetInitialTemperature(Temperature,myQ2Coor,mydof)
 
  ALLOCATE (myALE%Monitor(mydof))
  ALLOCATE (myALE%NewCoor(3,mydof))

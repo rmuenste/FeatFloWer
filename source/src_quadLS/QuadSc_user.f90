@@ -923,3 +923,23 @@ y2 = YT
 z2 = ZT + mySigma%RotAxisCenter
 
 END SUBROUTINE TransformPointToNonparallelRotAxis
+!
+!
+!
+SUBROUTINE SetInitialTemperature(T,Coor,ndof)
+USE Sigma_User, ONLY: myProcess
+integer ndof
+real*8 T(*),coor(3,*)
+integer i
+real*8 Z
+
+DO i=1,ndof
+
+ Z = coor(3,i)
+ T(i) = myProcess%T0 + Z*myProcess%T0_slope
+ 
+end do
+
+Temperature = myProcess%T0
+
+END SUBROUTINE SetInitialTemperature

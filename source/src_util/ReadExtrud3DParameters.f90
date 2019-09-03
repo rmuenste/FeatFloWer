@@ -613,6 +613,7 @@
     
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
 
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ScrewTemperatureAdiabatic", cTemperature,"YES")
     call inip_toupper_replace(cTemperature)
@@ -1081,6 +1082,7 @@
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
     write(*,*) "myProcess%T0",'=',myProcess%T0
+    write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
 
     write(*,*) 
     write(*,*) "myProcess%nOfInflows",'=',myProcess%nOfInflows
