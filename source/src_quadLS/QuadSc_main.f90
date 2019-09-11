@@ -313,6 +313,7 @@ SUBROUTINE Init_Die_Handlers()
 implicit none
 
  fbm_geom_handler_ptr => GetFictKnpr_Die
+ fbm_vel_bc_handler_ptr => FictKnpr_velBC
 
 END SUBROUTINE Init_Die_Handlers
 !
@@ -731,6 +732,12 @@ end if
   CALL BuildUpPressureCommunicator(LinSc,PLinSc)
 END IF
 
+ ! Correct the wall BCs
+ IF (allocated(mg_mesh%BndryNodes))  then
+  ilev = nlmax
+  CALL RestrictWallBC()
+ END IF
+ 
 ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
@@ -861,14 +868,6 @@ SUBROUTINE QuadScalar_Knpr()
   mg_mesh%level(ilev)%nat+&
   mg_mesh%level(ilev)%nel
 
-  IF (allocated(mg_mesh%BndryNodes))  then
-   DO i=1,ndof
-    IF (myBoundary%bWall(i)) THEN
-     IF (.not.(mg_mesh%BndryNodes(i)%bOuterPoint)) myBoundary%bWall(i) = .FALSE.
-    END IF
-   END DO  
-  END IF
-    
   QuadSc%knprU(ILEV)%x = 0
   QuadSc%knprV(ILEV)%x = 0
   QuadSc%knprW(ILEV)%x = 0
@@ -2768,4 +2767,93 @@ END SUBROUTINE  Setup_PeriodicVelocityRHS
 !
 ! ----------------------------------------------
 !
+SUBROUTINE RestrictWallBC()
+INTEGER ndof
+INTEGER i,j,k
+integer iat,ivt1,ivt2,ivt3,ivt4
+INTEGER NeighA(4,6),NeighU(4,6)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+
+ ndof  = mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel
+ 
+ nvt  = mg_mesh%level(ilev)%nvt
+ net  = mg_mesh%level(ilev)%net
+ nat  = mg_mesh%level(ilev)%nat
+ nel  = mg_mesh%level(ilev)%nel
+ 
+ ! overlap outper points with wall ==> inner 'wall' markers will disappear
+ DO i=1,ndof
+  IF (myBoundary%bWall(i)) THEN
+   IF (.not.(mg_mesh%BndryNodes(i)%bOuterPoint)) myBoundary%bWall(i) = .FALSE.
+  END IF
+ END DO 
+ 
+!  remove all outflow / inflow dofs
+  k=1
+  DO i=1,nel
+   DO j=1,6
+    IF (k.eq.mg_mesh%level(ilev)%karea(j,i)) THEN
+     if (myBoundary%iInflow(nvt+net+k).ne.0.or.myBoundary%bOutflow(nvt+net+k)) then
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(1,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(2,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(3,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(4,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(1,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(2,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(3,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(4,j),i)) = .false.
+      myBoundary%bWall(nvt+net+k) = .false.
+     end if
+     k = k + 1
+    END IF
+   END DO
+  END DO
+ 
+!  remove all symmetry dofs
+  k=1
+  DO i=1,nel
+   DO j=1,6
+    IF (k.eq.mg_mesh%level(ilev)%karea(j,i)) THEN
+     if (myBoundary%bSymmetry(1,nvt+net+k).or.myBoundary%bSymmetry(2,nvt+net+k).or.myBoundary%bSymmetry(3,nvt+net+k)) then
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(1,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(2,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(3,j),i)) = .false.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(4,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(1,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(2,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(3,j),i)) = .false.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(4,j),i)) = .false.
+      myBoundary%bWall(nvt+net+k) = .false.
+     end if
+     k = k + 1
+    END IF
+   END DO
+  END DO
+
+  ! refresh Wall
+  k=1
+  DO i=1,nel
+   DO j=1,6
+    IF (k.eq.mg_mesh%level(ilev)%karea(j,i)) THEN
+     if (myBoundary%bWall(nvt+net+k)) then
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(1,j),i)) = .true.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(2,j),i)) = .true.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(3,j),i)) = .true.
+      myBoundary%bWall(mg_mesh%level(ilev)%kvert(NeighA(4,j),i)) = .true.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(1,j),i)) = .true.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(2,j),i)) = .true.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(3,j),i)) = .true.
+      myBoundary%bWall(nvt+mg_mesh%level(ilev)%kedge(NeighU(4,j),i)) = .true.
+     end if
+     k = k + 1
+    END IF
+   END DO
+  END DO
+   
+END SUBROUTINE RestrictWallBC
+   
 END MODULE Transport_Q2P1

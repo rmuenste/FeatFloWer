@@ -327,6 +327,22 @@ end subroutine fbm_velBCUpdate
 !=========================================================================
 ! 
 !=========================================================================
+subroutine FictKnpr_velBC(x,y,z,valu,valv,valw,ip,t)
+use Sigma_User, only : myProcess
+
+! Parameters
+integer, intent(in) :: ip
+real*8 , intent(in) :: x,y,z,t
+real*8 , intent(inout) :: valu,valv,valw
+
+valu = myProcess%FBMVeloBC(1)
+valv = myProcess%FBMVeloBC(2)
+valw = myProcess%FBMVeloBC(3)
+
+end subroutine FictKnpr_velBC
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_velBC(x,y,z,valu,valv,valw,ip,t)
 use var_QuadScalar, only : myFBM,bRefFrame
 implicit none

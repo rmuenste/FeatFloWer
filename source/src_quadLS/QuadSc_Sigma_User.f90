@@ -61,10 +61,11 @@ TYPE tProcess
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
-  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
+   REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
    integer   nOfInflows
    TYPE (tInflow), allocatable :: myInflow(:)
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
 END TYPE tProcess
 

@@ -98,6 +98,7 @@ contains
     call inip_toupper_replace(tmpstring)
     IF (tmpstring.eq."DMP") ParticleParam%DumpFormat = 1
     IF (tmpstring.eq."LST") ParticleParam%DumpFormat = 2
+    IF (tmpstring.eq."REPART") ParticleParam%DumpFormat = 3
 
     ! Get the starting procedure
     call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)

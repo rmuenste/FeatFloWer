@@ -13,7 +13,7 @@
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
-    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files
     
@@ -611,6 +611,17 @@
      !GOTO 10
     END IF
     
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","FBMVeloBC",cVelo,'unknown')
+    call inip_toupper_replace(cVelo)
+    if (adjustl(trim(cVelo)).ne.'UNKNOWN') then
+     read(cVelo,*,err=66) myProcess%FBMVeloBC
+    else
+     myProcess%FBMVeloBC = [0d0,0d0,0d0]
+    end if
+    GOTO 67     
+66   write(*,*) 'WRONGLY DEFINED FBM velocity !!'
+67  CONTINUE
+
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
@@ -1074,6 +1085,7 @@
      write(*,*) 
     END DO    
 
+    write(*,'(A,A,3ES12.4)') "myProcess%FBMVeloBC",'=',myProcess%FBMVeloBC
     write(*,*) "myProcess%Rotation",'=',myProcess%Rotation
     write(*,*) "myProcess%ind",'=',myProcess%ind
     write(*,*) "myProcess%deltaP",'=',myProcess%dPress
