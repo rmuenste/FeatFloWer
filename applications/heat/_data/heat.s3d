@@ -1,0 +1,117 @@
+[SigmaFileInfo]
+FileType=ToExtrud3D
+FileVersion=SIGMA 10.0
+Date=01/09/18
+SigmaVersion=SIGMA 11.0.3(4229)
+
+[E3DGeometryData]
+[E3DGeometryData/Machine]
+Type=heat
+Unit=mm
+BarrelDiameter=80.0
+NoOfElements=5
+
+[E3DGeometryData/Machine/Element_1]
+Type=STL
+ObjectType=block
+MaterialIndex=1
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 0.0d0
+Unit=mm
+ScrewOFF(5)=
+_ianus/HEAT/EWIKON/block.off
+_ianus/HEAT/EWIKON/box.off
+_ianus/HEAT/EWIKON/box3.off
+_ianus/HEAT/EWIKON/insert.off
+_ianus/HEAT/EWIKON/WorkBench.off
+
+
+[E3DGeometryData/Machine/Element_2]
+Type=STL
+ObjectType=wire
+MaterialIndex=1
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 2.2d0
+Unit=mm
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON/myWIRE.off
+
+[E3DGeometryData/Machine/Element_3]
+Type=STL
+ObjectType=melt
+MaterialIndex=3
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 0.0d0
+Unit=cm
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON/myMELT.off
+
+[E3DGeometryData/Machine/Element_4]
+Type=STL
+ObjectType=block
+MaterialIndex=2
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 0.0d0
+Unit=mm
+ScrewOFF(3)=
+_ianus/HEAT/EWIKON/ring_1.off
+_ianus/HEAT/EWIKON/ring_2.off
+_ianus/HEAT/EWIKON/ring_3.off
+
+[E3DGeometryData/Machine/Element_5]
+Type=STL
+ObjectType=block
+MaterialIndex=1
+TemperatureBC = constant
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 0.0d0
+Unit=cm
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON/ConstTemp.off
+
+[E3DMaterialParameters]
+NoOfMaterials=4
+
+[E3DMaterialParameters/Mat_0]
+HeatConductivity=0.026
+HeatCapacity=1.007
+Density=0.0012
+HeatConductivitySlope=0.0
+HeatCapacitySlope=0.0
+DensitySlope=0.0
+
+[E3DMaterialParameters/Mat_1]
+HeatConductivity=21.0
+HeatCapacity=0.50
+Density=7.85
+HeatConductivitySlope=0.0
+HeatCapacitySlope=0.0
+DensitySlope=0.0
+
+[E3DMaterialParameters/Mat_2]
+HeatConductivity=6.7
+HeatCapacity=0.526
+Density=4.43
+HeatConductivitySlope=0.0
+HeatCapacitySlope=0.0
+DensitySlope=0.0
+
+[E3DMaterialParameters/Mat_3]
+HeatConductivity=0.11
+HeatCapacity=2.00
+Density=1.20
+HeatConductivitySlope=0.0
+HeatCapacitySlope=0.0
+DensitySlope=0.0
+
+[E3DGeometryData/Process]
+AirTemperature=280.0
+TemperatureSensorCoor = 3.75, 2.15,-1.73
+TemperatureSensorRadius =0.205
+
+KTPRelease=NO
