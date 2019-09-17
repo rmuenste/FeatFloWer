@@ -279,6 +279,11 @@ set(src_ini_c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
   )
 
+set(src_particles
+  ${CMAKE_SOURCE_DIR}/source/src_particles/part_input.f90
+  ${CMAKE_SOURCE_DIR}/source/src_particles/part_step.f90
+  ${CMAKE_SOURCE_DIR}/source/src_particles/part_tracer.f90
+  )
 #=========================================================================
 #         This will create source folders in Visual Studio
 #=========================================================================
@@ -290,6 +295,7 @@ source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
+source_group(src_particles FILES ${src_particles})
 source_group(Elements FILES ${Elements})
 source_group(postprocessing FILES ${postprocessing})
 

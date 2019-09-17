@@ -15,13 +15,14 @@ ${src_LinSc}
 ${src_quadLS_app} 
 ${src_visco} 
 ${src_mesh}
+${src_particles}
 ${src_cinterface}
 ${postprocessing}
 app_init.f90
 #postprocessing.f90
-part_step.f90
-part_input.f90
-part_tracer.f90
+# part_step.f90
+# part_input.f90
+# part_tracer.f90
 q2p1_particle_tracer.f90
 )
 
@@ -37,6 +38,7 @@ source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS_ext})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
+source_group(src_particles FILES ${src_particles})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 

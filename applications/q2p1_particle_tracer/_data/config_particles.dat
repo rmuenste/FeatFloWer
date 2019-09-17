@@ -1,12 +1,14 @@
 [GeneralSettings]
 particle_datafile=aa.txt
 machine_datafile=bb.e3d
-dump_in_file=14
 unitIN = CM
 unitOUT = CM
 unitSourcefile = CM
 startingprocedure = 1
+dump_in_file = 2
 sourcefile=_data/seed_Centro.csv
+RotationalMovement = NO
+DumpFormat = REPART
 nElements = 1
 nSegmentsColoring = 1 
 Epsilon=0.001
