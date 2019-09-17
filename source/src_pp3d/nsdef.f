@@ -739,7 +739,7 @@ C
       DO I=1,NEQ
       J1=KLD(I)
       J2=KLD(I+1)-1
-      WRITE(*,'(A2,15(1XG12.6))') '*|',(VA(J),J=J1,J2)
+      WRITE(*,'(A2,15(1XG12.5))') '*|',(VA(J),J=J1,J2)
       END DO
 
       END

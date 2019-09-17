@@ -282,12 +282,12 @@ C *** Standard dimensioning for workspace concept
       OPEN (UNIT=1,FILE=CIFile,STATUS="OLD",FORM="FORMATTED")
 
       ! Hydrodynamic variables
-      READ(1,'(G12.6)') timens
+      READ(1,'(G12.5)') timens
       DO I=1,NAT
-       READ(1,'(3(1XG12.6))') du_x(i),du_y(i),du_z(i)
+       READ(1,'(3(1XG12.5))') du_x(i),du_y(i),du_z(i)
       END DO
       DO I=1,NEL
-       READ(1,'(G12.6)') dp  (i)
+       READ(1,'(G12.5)') dp  (i)
       END DO
 !       READ(UNIT=1) time,(du_x(i),i=1,NAT),
 !      *                   (du_y(i),i=1,NAT),
@@ -337,12 +337,12 @@ C
 !      *                       (du_y(i),i=1,NAT),
 !      *                       (du_z(i),i=1,NAT),
 !      *                       (dp  (i),i=1,NEL)
-      WRITE(2,'(G12.6)') timens
+      WRITE(2,'(G12.5)') timens
       DO I=1,NAT
-       WRITE(2,'(3(1XG12.6))') du_x(i),du_y(i),du_z(i)
+       WRITE(2,'(3(1XG12.5))') du_x(i),du_y(i),du_z(i)
       END DO
       DO I=1,NEL
-       WRITE(2,'(G12.6)') dp  (i)
+       WRITE(2,'(G12.5)') dp  (i)
       END DO
 
       CLOSE(2)
@@ -383,12 +383,12 @@ C
 !      *                   (DUL(ku2L+i-1),i=1,nuL),
 !      *                   (DUL(ku3L+i-1),i=1,nuL),
 !      *                   (DUL(kpL +i-1),i=1,npL)
-      READ(1,'(G12.6)') timens
+      READ(1,'(G12.5)') timens
       DO I=1,nuL
-       READ(1,'(3(1XG12.6))') DUL(ku1L+i-1),DUL(ku2L+i-1),DUL(ku3L+i-1)
+       READ(1,'(3(1XG12.5))') DUL(ku1L+i-1),DUL(ku2L+i-1),DUL(ku3L+i-1)
       END DO
       DO I=1,npL
-       READ(1,'(G12.6)') DUL(kpL +i-1)
+       READ(1,'(G12.5)') DUL(kpL +i-1)
       END DO
 
       IF (timens.LE.1d-10) timens=time

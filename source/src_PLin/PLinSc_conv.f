@@ -241,7 +241,7 @@ C
        HBASJ4=DBAS(1,JDOFEH,4)
        HSUMJ=HBASJ1*DIVU+(HBASJ2*DU1+HBASJ3*DU2+HBASJ4*DU3)
 C
-!        write(*,'(I4,4(1xG12.6))') JDOFE,hsumj,hbasj2,du1
+!        write(*,'(I4,4(1xG12.5))') JDOFE,hsumj,hbasj2,du1
        DO 240 IDOFE=1,IDFL1
         IF (IDOFE.EQ.JDOFE) THEN
          AH=HSUMJ*HBASJ1

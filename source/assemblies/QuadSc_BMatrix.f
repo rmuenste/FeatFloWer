@@ -183,7 +183,7 @@ C *** Summing up over all pairs of multiindices
        HBASJ1=DBAS1(JDOFEH)
        HSUMJ=HBASJ1
 C
-!        write(*,'(I4,4(1xG12.6))') JDOFE,hsumj,hbasj2,du1
+!        write(*,'(I4,4(1xG12.5))') JDOFE,hsumj,hbasj2,du1
        DO 240 IDOFE=1,IDFL2
         IDOFEH=KDFL2(IDOFE)
         HBASI2=DBAS(1,IDOFEH,2)

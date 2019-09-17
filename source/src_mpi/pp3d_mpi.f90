@@ -708,9 +708,9 @@ SUBROUTINE CREATECOMM(ILEV,NAT,NEL,NVT,DCORAG,DCORVG,&
   mg_mpi(ILEV)%parST(pID)%CoragLinkZ(1,4*(I-1)+4) = DCORAG(3,IM4)
 
   !    IF (IAT.EQ.6) THEN
-  !      write(*,'(4(1xG12.6))') DCORAG(1,IM1),DCORAG(1,IM2),DCORAG(1,IM3),DCORAG(1,IM4)
-  !      write(*,'(4(1xG12.6))') DCORAG(2,IM1),DCORAG(2,IM2),DCORAG(2,IM3),DCORAG(2,IM4)
-  !      write(*,'(4(1xG12.6))') DCORAG(3,IM1),DCORAG(3,IM2),DCORAG(3,IM3),DCORAG(3,IM4)
+  !      write(*,'(4(1xG12.5))') DCORAG(1,IM1),DCORAG(1,IM2),DCORAG(1,IM3),DCORAG(1,IM4)
+  !      write(*,'(4(1xG12.5))') DCORAG(2,IM1),DCORAG(2,IM2),DCORAG(2,IM3),DCORAG(2,IM4)
+  !      write(*,'(4(1xG12.5))') DCORAG(3,IM1),DCORAG(3,IM2),DCORAG(3,IM3),DCORAG(3,IM4)
   !    END IF
   !    if (myid.eq.1) then
   !     write(*,*) DCORAG(1,IM1),DCORAG(2,IM1),DCORAG(3,IM1),IAT

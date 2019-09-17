@@ -51,31 +51,31 @@ C *** user COMMON blocks
       READ(*,'(A)') prompt
 
       IF     ((prompt.EQ."TD ").or.(prompt.EQ."td ")) THEN
-          WRITE(*,'(A10,G12.6)') " tstep = ", tstep
+          WRITE(*,'(A10,G12.5)') " tstep = ", tstep
           READ (*,*,ERR=2) tstep
       ELSEIF ((prompt.EQ."T  ").or.(prompt.EQ."t  ")) THEN
-          WRITE(*,'(A10,G12.6)') " timens = ", timens
+          WRITE(*,'(A10,G12.5)') " timens = ", timens
           READ (*,*,ERR=2) timens
       ELSEIF ((prompt.EQ."TM ").or.(prompt.EQ."tm ")) THEN
-          WRITE(*,'(A10,G12.6)') " timemx = ", timemx
+          WRITE(*,'(A10,G12.5)') " timemx = ", timemx
           READ (*,*,ERR=2) timemx
       ELSEIF ((prompt.EQ."ED ").or.(prompt.EQ."ed ")) THEN
-          WRITE(*,'(A10,G12.6)') " epsud = ", epsud
+          WRITE(*,'(A10,G12.5)') " epsud = ", epsud
           READ (*,*,ERR=2) epsud
       ELSEIF ((prompt.EQ."ER ").or.(prompt.EQ."er ")) THEN
-          WRITE(*,'(A10,G12.6)') " epsur = ", epsur
+          WRITE(*,'(A10,G12.5)') " epsur = ", epsur
           READ (*,*,ERR=2) epsur
       ELSEIF ((prompt.EQ."DS ").or.(prompt.EQ."ds ")) THEN
-          WRITE(*,'(A10,G12.6)') " dsmag = ", d_smag
+          WRITE(*,'(A10,G12.5)') " dsmag = ", d_smag
           READ (*,*,ERR=2) d_smag
       ELSEIF ((prompt.EQ."D  ").or.(prompt.EQ."d  ")) THEN
-          WRITE(*,'(A10,G12.6)') " re = ", re
+          WRITE(*,'(A10,G12.5)') " re = ", re
           READ (*,*,ERR=2) re
           ny0=ny
           ny = 1D0/re
           CALL ReCompute_RE(ny0)
       ELSEIF ((prompt.EQ."TG ").or.(prompt.EQ."tg ")) THEN
-          WRITE(*,'(A10,G12.6)') " dtgmv = ", dtgmv
+          WRITE(*,'(A10,G12.5)') " dtgmv = ", dtgmv
           READ (*,*,ERR=2) dtgmv
       ELSEIF ((prompt.EQ."W  ").or.(prompt.EQ."w  ")) THEN
           WRITE(*,*)

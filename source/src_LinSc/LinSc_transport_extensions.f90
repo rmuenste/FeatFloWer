@@ -314,15 +314,15 @@ IF (nINL.EQ.0) THEN
  WRITE(MFILE,'(A8,5(2X,A14))') "INL",TRIM(C1),TRIM(C2),TRIM(C3)
  WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(*,'(A8,6XA10,5(6X,D10.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
- WRITE(MFILE,'(A8,6XA10,5(6X,D10.4))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(*,'(A8,6XA10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
+ WRITE(MFILE,'(A8,6XA10,5(6X,ES10.3))') "Criteria"," ",DefScalar*myScalar%prm%defCrit,RhsScalar
  WRITE(*,5)
  WRITE(MFILE,5)
- WRITE(*,'(I8,5(6X,D10.4))') 0,ResScalar,DefScalar
- WRITE(MFILE,'(I8,5(6X,D10.4))') 0,ResScalar,DefScalar
+ WRITE(*,'(I8,5(6X,ES10.3))') 0,ResScalar,DefScalar
+ WRITE(MFILE,'(I8,5(6X,ES10.3))') 0,ResScalar,DefScalar
 ELSE
- WRITE(*,'(I8,5(6X,D10.4))') nINL,ResScalar,DefScalar,RhsScalar
- WRITE(MFILE,'(I8,5(6X,D10.4))') nINL,ResScalar,DefScalar,RhsScalar
+ WRITE(*,'(I8,5(6X,ES10.3))') nINL,ResScalar,DefScalar,RhsScalar
+ WRITE(MFILE,'(I8,5(6X,ES10.3))') nINL,ResScalar,DefScalar,RhsScalar
 END IF
 
 END IF
@@ -600,13 +600,13 @@ DATA ifilen/0/
  OPEN (UNIT=2,FILE=COFile,FORM="FORMATTED")
 
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valX(i)
+  WRITE(2,'(G18.11)') Tracer3%valX(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valY(i)
+  WRITE(2,'(G18.11)') Tracer3%valY(i)
  END DO
  DO I=1,KNVT(NLMAX)
-  WRITE(2,'(G18.12)') Tracer3%valZ(i)
+  WRITE(2,'(G18.11)') Tracer3%valZ(i)
  END DO
 
  CLOSE(2)
