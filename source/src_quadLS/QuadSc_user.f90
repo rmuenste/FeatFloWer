@@ -299,6 +299,8 @@ IF (iT.EQ.20) THEN
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
    dVolFlow = myProcess%Massestrom ! kg/h
    dDensity = myThermodyn%density ! g/cm3
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
    if (x.gt.0d0) then
     ValW=RotParabolicVelo2Dz(+0.395d0,-0.065d0,dVolFlow,dDensity,dOuterRadius)
    else

@@ -288,8 +288,10 @@ tLevel = myExchangeSet(iParticel)%time
  ! if (dist_CGAL.lt.+d_CorrDist*0.5d0) then
 !  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !     write(*,*) 'Particel: ', iParticel 
-!   write(*,*) 'before: ', P   
-   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!   write(*,*) 'before: ', P 
+
+    call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0);
+!   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
    
    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
@@ -784,7 +786,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
 !    write(*,*) 'Particel: ', iParticel 
 !   write(*,*) 'before: ', P   
-   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
    
    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
