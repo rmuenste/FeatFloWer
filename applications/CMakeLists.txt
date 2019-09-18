@@ -24,8 +24,6 @@ add_subdirectory(q2p1_euler_fibers)
 
 add_subdirectory(iniparser_demo)
 
-add_subdirectory(q2p1_particle_tracer)
-
 add_subdirectory(s3d_mesher)
 
 if(USE_CGAL)
@@ -34,6 +32,8 @@ if(USE_CGAL)
   add_subdirectory(q2p1_sse)
   add_subdirectory(auto_param)
   add_subdirectory(mesh_proc)
+  add_subdirectory(q2p1_particle_tracer)
+  add_subdirectory(q2p1_particle_tracer_xse)
 endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)
