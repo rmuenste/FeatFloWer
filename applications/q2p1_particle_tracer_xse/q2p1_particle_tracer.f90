@@ -10,9 +10,9 @@ PROGRAM Q2P1_PARTICLE_TRACER
 
   call init_q2p1_particle_tracer(ufile)
 
-  call Init_Particle(ufile)
+  call Init_Particle_xse(ufile)
 
-  call Transport_Particle(ufile)
+  call Transport_Particle_xse(ufile)
   
   call Finalize_Particles(tt0,ufile)
 

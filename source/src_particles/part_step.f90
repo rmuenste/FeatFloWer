@@ -231,6 +231,256 @@ end subroutine M33INV
 !========================================================================================
 !                                Sub: Extract_Particle
 !========================================================================================
+SUBROUTINE Extract_Particle_xse(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
+                           VelU,VelV,VelW,nvt,net,nat,nel,tDelta,d_CorrDist)
+USE PP3D_MPI, ONLY : myid,master,showid,subnodes,&
+    RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,RECVK_myMPI,SENDK_myMPI,MPI_COMM_WORLD
+
+USE types, ONLY : myCompleteSet,myActiveSet,nActiveSet,myExchangeSet,myLostSet,&
+                         nExchangeSet,nStartActiveSet,nLostSet
+use Sigma_User, only: myProcess
+
+IMPLICIT NONE
+REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta,d_CorrDist
+INTEGER nkel,nvt,net,nat,nel
+INTEGER kel_LdA(*),kel_ColA(*)
+INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+INTEGER KDFG(27),KDFL(27)
+INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem,pID,IERR
+REAL*8 dist,pointR(3),LocVel(3,27)
+LOGICAL :: bFound,bOut=.FALSE.
+INTEGER :: nIter = 100, iIter, iLoc,iParticel,iActiveParticel
+INTEGER iMonitor(40),iAux
+REAL*8  dMonitor(40),dAux
+INTEGER nXX,kk,iMon
+PARAMETER (nXX = 40)
+REAL*8 , ALLOCATABLE :: dSendVector(:),dRecvVector(:)
+INTEGER, ALLOCATABLE :: iRecvVector(:)
+REAL*8 cpx,cpy,cpz,cnormal(3)
+LOGICAL :: bProjection=.true.
+Integer iProjection
+
+ALLOCATE(dSendVector(nExchangeSet),iRecvVector(nExchangeSet),dRecvVector(nExchangeSet))
+dSendVector = 1d30
+iRecvVector = 0
+
+! if (myid.eq.1) then
+! DO iParticel = 1,nExchangeSet
+!  write(*,*) myExchangeSet(iParticel)%coor(1:3)
+! end do
+! end if
+! pause
+! 
+
+IF (myid.ne.0) THEN
+
+DO iParticel = 1,nExchangeSet
+
+iIter = 0
+
+point  = myExchangeSet(iParticel)%coor
+tLevel = myExchangeSet(iParticel)%time
+
+  cdx = 1d0*point(1)
+  cdy = 1d0*point(2)
+  cdz = 1d0*point(3)
+  
+  myProcess%Angle = 360d0*tLevel/(6d1/myProcess%Umdr)
+!  if (bProjection) then
+!   cdX = 0.0d0
+!   cdY = 1.5d0
+!   cdZ = 5.0d0
+!  end if
+  CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cpx,cpy,cpz,iProjection)
+  
+  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+   
+   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+   if (dist_CGAL.gt.0d0) then
+    cnormal = -cnormal/daux
+   else
+    cnormal = cnormal/daux
+   end if
+
+!    if (iProjection.eq.-1) then
+!     cdx = cpx - cnormal(1)*d_CorrDist*0.5d0
+!     cdy = cpy - cnormal(2)*d_CorrDist*0.5d0
+!     cdz = cpz - cnormal(3)*d_CorrDist*0.5d0
+! !     write(*,*) 'E projecting point ... -1'
+!    else
+    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+!     write(*,*) 'E projecting point ... +1'
+!    end if
+   
+! if (bProjection) then
+!  if (myid.eq.1) write(*,*) 'o ', cdx,cdy,cdz,iProjection
+!  pause
+! end if
+
+   P=1d0*[cdx,cdy,cdz]
+!   write(*,*) 'after: ', P   
+!   pause
+   point = [P(1),P(2),P(3)]
+  end if
+  
+  myExchangeSet(iParticel)%coor = point
+
+55 CONTINUE
+
+bFound = .FALSE.
+
+dMonitor = 1d30
+iMonitor = 0
+
+DO i=1,nvt
+
+ dist = sqrt((dcorvg(1,i)-point(1))**2d0 + (dcorvg(2,i)-point(2))**2d0 + (dcorvg(3,i)-point(3))**2d0)
+ IF (dist.lt.dMonitor(nXX)) THEN
+  dMonitor(nXX) = dist
+  iMonitor(nXX) = i
+  DO kk=nXX-1,1,-1
+   IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
+    iAux = iMonitor(kk)
+    dAux = dMonitor(kk)
+    iMonitor(kk) = iMonitor(kk+1)
+    dMonitor(kk) = dMonitor(kk+1)
+    iMonitor(kk+1) = iAux
+    dMonitor(kk+1) = dAux
+   END IF
+  END DO
+ END IF
+
+END DO
+
+
+! write(*,*) myid,point
+! write(*,*) myid,dMonitor
+! pause
+
+DO iMon = 1,nXX
+
+iPoint = iMonitor(iMon)
+
+if (iPoint.ge.1.and.iPoint.le.nvt) then
+
+DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
+ 
+ jel = kel_ColA(iel)
+!DO iel = 1,nkel
+
+! jel = kel(iel,iPoint)
+
+ if (jel.ne.0) then
+  DO i=1,8
+   ivt = kvert(i,jel)
+   P8(:,i) = dcorvg(:,ivt)
+  END DO
+ ELSE
+  EXIT
+ END IF
+
+ dist = 1d30
+ jPoint = 0
+
+ DO i=1,8
+  daux = sqrt((P8(1,i)-point(1))**2d0 + (P8(2,i)-point(2))**2d0 + (P8(3,i)-point(3))**2d0)
+  IF (daux.lt.dist) THEN
+   dist = daux
+   jPoint = i
+  END IF
+ END DO
+
+!  write(*,*) '-->',myid,iMon,dist,nkel
+!  pause
+ 
+ CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+
+ IF (bFound) THEN
+  GOTO 1
+ END IF
+
+END DO
+
+end if
+! write(*,*) '-->',myid,iMon,iMon,dist,bFound
+END DO
+
+IF (.not.bFound) GOTO 2
+
+1 CONTINUE
+
+dSendVector(iParticel) = MAX(pointR(1),pointR(2),pointR(3))
+
+2 CONTINUE
+
+! write(*,*) '-->',myid,iMon,dist,bFound
+! pause
+
+END DO
+
+END IF
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+   CALL RECVD_myMPI(dRecvVector,nExchangeSet,pID)
+   DO i=1,nExchangeSet
+    IF (dRecvVector(i).lt.dSendVector(i)) THEN
+     dSendVector(i) = dRecvVector(i)
+     iRecvVector(i) = pID
+    END IF
+   END DO
+ END DO
+
+ELSE
+  CALL SENDD_myMPI(dSendVector,nExchangeSet,0)
+END IF
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+IF (myid.eq.0) THEN
+ DO pID=1,subnodes
+   CALL SENDK_myMPI(iRecvVector,nExchangeSet,pID)
+ END DO
+ELSE
+  CALL RECVK_myMPI(iRecvVector,nExchangeSet,0)
+END IF
+
+nStartActiveSet = nActiveSet
+iActiveParticel = 0
+
+DO iParticel = 1,nExchangeSet
+ IF (iRecvVector(iParticel).eq.myid) THEN
+  iActiveParticel = iActiveParticel + 1
+  myActiveSet(nStartActiveSet+iActiveParticel) = myExchangeSet(iParticel)
+ END IF
+ IF (iRecvVector(iParticel).eq.0) THEN
+  nLostSet = nLostSet + 1
+  myLostSet(nLostSet) = myExchangeSet(iParticel)
+  if (myid.eq.0) write(*,'(A,3Es12.4,1X,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+ END IF
+END DO
+
+DEALLOCATE(dSendVector,iRecvVector,dRecvVector)
+
+nActiveSet = nStartActiveSet+iActiveParticel
+IF (bOut) WRITE(*,*) "My Active Set of Particles after exchange: ", nActiveSet
+
+! write(*,*) myid,"My Active Set of Particles after exchange: ", nActiveSet,nkel
+! pause
+
+! pause
+
+END SUBROUTINE Extract_Particle_xse
+
+!========================================================================================
+!                                Sub: Extract_Particle
+!========================================================================================
 SUBROUTINE Extract_Particle(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
                            VelU,VelV,VelW,nvt,net,nat,nel,tDelta,d_CorrDist)
 USE PP3D_MPI, ONLY : myid,master,showid,subnodes,&
@@ -464,7 +714,7 @@ DO iParticel = 1,nExchangeSet
  IF (iRecvVector(iParticel).eq.0) THEN
   nLostSet = nLostSet + 1
   myLostSet(nLostSet) = myExchangeSet(iParticel)
-  if (myid.eq.0) write(*,'(A,3Es12.4,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+  if (myid.eq.0) write(*,'(A,3Es12.4,1X,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
  END IF
 END DO
 
@@ -654,6 +904,217 @@ END IF
 DEALLOCATE(dAux,iAux)
 
 END SUBROUTINE Gather_Particle
+!========================================================================================
+!                           Sub: Move_Particle
+!========================================================================================
+subroutine Move_Particle_xse(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
+                         Vel0U,Vel0V,Vel0W,Vel1U,Vel1V,Vel1W,nvt,net,nat,nel,tDelta,tStart,d_CorrDist)
+USE PP3D_MPI, ONLY : myid
+USE types, ONLY : myActiveSet,myExchangeSet,nActiveSet,nExchangeSet,nStartActiveSet
+use Sigma_User, only: myProcess
+
+IMPLICIT NONE
+REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart,d_CorrDist
+REAL*8 Vel0U(*),Vel0V(*),Vel0W(*),Vel1U(*),Vel1V(*),Vel1W(*)
+INTEGER nvt,net,nat,nel
+INTEGER kel_LdA(*),kel_ColA(*)
+INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+INTEGER KDFG(27),KDFL(27)
+INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem
+REAL*8 dist,pointR(3),LocVel0(3,27),LocVel1(3,27)
+LOGICAL :: bFound,bOut=.FALSE.
+INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel
+INTEGER iMonitor(40),iAux
+REAL*8  dMonitor(40),dAux
+INTEGER nXX,kk,iMon
+PARAMETER (nXX = 40)
+REAL*8 cpx,cpy,cpz,cnormal(3)
+LOGICAL :: bProjection=.true.
+integer iProjection
+
+myParticleParam%bRotationalMovement = .false.
+
+iLostParticel = 0
+iActiveParticel = 0
+
+DO iParticel = nStartActiveSet+1,nActiveSet
+
+iIter = 0
+
+point  = myActiveSet(iParticel)%coor
+tLevel = myActiveSet(iParticel)%time
+
+55 CONTINUE
+
+dist = 1d30
+iPoint = 0
+bFound = .FALSE.
+
+dMonitor = 1d30
+iMonitor = 0
+
+DO i=1,nvt
+
+ dist = sqrt((dcorvg(1,i)-point(1))**2d0 + (dcorvg(2,i)-point(2))**2d0 + (dcorvg(3,i)-point(3))**2d0)
+ IF (dist.lt.dMonitor(nXX)) THEN
+  dMonitor(nXX) = dist
+  iMonitor(nXX) = i
+  DO kk=nXX-1,1,-1
+   IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
+    iAux = iMonitor(kk)
+    dAux = dMonitor(kk)
+    iMonitor(kk) = iMonitor(kk+1)
+    dMonitor(kk) = dMonitor(kk+1)
+    iMonitor(kk+1) = iAux
+    dMonitor(kk+1) = dAux
+   END IF
+  END DO
+ END IF
+
+END DO
+
+
+DO iMon = 1,nXX
+
+iPoint = iMonitor(iMon)
+
+if (iPoint.ge.1.and.iPoint.le.nvt) then
+
+DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
+ 
+ jel = kel_ColA(iel)
+! DO iel = 1,nkel
+! 
+!  jel = kel(iel,iPoint)
+
+ IF (jel.ne.0) then
+  DO i=1,8
+   ivt = kvert(i,jel)
+   P8(:,i) = dcorvg(:,ivt)
+  END DO
+ ELSE
+  EXIT
+ END IF
+
+ dist = 1d30
+ jPoint = 0
+
+ DO i=1,8
+  daux = sqrt((P8(1,i)-point(1))**2d0 + (P8(2,i)-point(2))**2d0 + (P8(3,i)-point(3))**2d0)
+  IF (daux.lt.dist) THEN
+   dist = daux
+   jPoint = i
+  END IF
+ END DO
+
+ CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+
+ IF (bFound) THEN
+
+  CALL NDFGL(JEL,1,13,KVERT,KEDGE,KAREA,KDFG,KDFL)
+  DO i=1,27
+   ivt  = KDFG(i)
+   iLoc = KDFL(i)
+   LocVel0(:,iLoc) = [Vel0U(ivt),Vel0V(ivt),Vel0W(ivt)]
+   LocVel1(:,iLoc) = [Vel1U(ivt),Vel1V(ivt),Vel1W(ivt)]
+  END DO
+
+  IF (bOut) WRITE(*,'(A,I0,3E14.4,A)') '------------   point ', myActiveSet(iParticel)%indice, point, '  ------------'
+
+  DV0 = LocVel0
+  DV1 = LocVel1
+  P   = point 
+  PR  = pointR
+  
+  CALL MovePointInElement(tLevel,tDelta,tStart,iParticel,jel)
+  
+  cdx = 1d0*P(1)
+  cdy = 1d0*P(2)
+  cdz = 1d0*P(3)
+  
+  myProcess%Angle = 360d0*tLevel/(6d1/myProcess%Umdr)
+  CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cpx,cpy,cpz,iProjection)
+  
+  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+
+   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+   if (dist_CGAL.gt.0d0) then
+    cnormal = -cnormal/daux
+   else
+    cnormal = cnormal/daux
+   end if
+   
+!    if (iProjection.eq.-1) then
+!     cdx = cpx - cnormal(1)*d_CorrDist*0.5d0
+!     cdy = cpy - cnormal(2)*d_CorrDist*0.5d0
+!     cdz = cpz - cnormal(3)*d_CorrDist*0.5d0
+! !     write(*,*) 'M projecting point ... -1'
+!    else
+    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+!     write(*,*) 'M projecting point ... +1'
+!    end if
+   
+   P=1d0*[cdx,cdy,cdz]
+   
+  end if
+
+  point = [P(1),P(2),P(3)]
+  
+  iFoundElem = jel
+  GOTO 1
+ END IF
+
+END DO
+
+end if
+
+END DO
+
+IF (.not.bFound) THEN
+ iLostParticel = iLostParticel + 1
+ myExchangeSet(iLostParticel)%coor   = point
+ myExchangeSet(iLostParticel)%time   = tLevel
+ myExchangeSet(iLostParticel)%indice = myActiveSet(iParticel)%indice
+ GOTO 2
+END IF
+
+1 CONTINUE
+
+iIter = iIter + 1
+IF (tLevel.lt.tDelta.AND.iIter.LT.nIter) GOTO 55
+
+IF (bFound.AND.bOut) WRITE(*,'(A,I0,3E14.4,A)') '------------   point ', myActiveSet(iParticel)%indice, point, '  ------------'
+IF (bFound.AND.bOut) WRITE(*,'(A,I0,I0,3E14.4,A)') '-------  point ', myActiveSet(iParticel)%indice,iIter,point, '  has been successfully treated -----------'
+
+iActiveParticel = iActiveParticel + 1
+myActiveSet(nStartActiveSet+iActiveParticel)%coor   = point
+myActiveSet(nStartActiveSet+iActiveParticel)%time   = tLevel
+myActiveSet(nStartActiveSet+iActiveParticel)%indice = myActiveSet(iParticel)%indice
+
+2 CONTINUE
+
+END DO
+
+nActiveSet      = nStartActiveSet+iActiveParticel
+nExchangeSet    = iLostParticel
+nStartActiveSet = nActiveSet
+
+IF (bOut) WRITE(*,*) 'nActiveSet,nExchangeSet: ',nActiveSet,nExchangeSet
+
+! pause
+! DO iParticel=nActiveSet+1,SIZE(myActiveSet)
+!  myActiveSet(iActiveParticel)%coor   = 0d0
+!  myActiveSet(iActiveParticel)%time   = 0d0
+!  myActiveSet(iActiveParticel)%indice = 0
+! END DO
+
+! pause
+
+END SUBROUTINE Move_Particle_xse
+
 !========================================================================================
 !                           Sub: Move_Particle
 !========================================================================================

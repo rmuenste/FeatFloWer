@@ -127,6 +127,9 @@ contains
     
     ! TimeLevels. Default is 72
     call inip_getvalue_int(parameterlist,"GeneralSettings","TimeLevels",ParticleParam%nTimeLevels,72)
+    
+    call inip_getvalue_int(parameterlist,"GeneralSettings","Periodicity",ParticleParam%nPeriodicity,1)
+    
 
     ! The number of particles. We only need them if we seed from the parameterfile
     ! Default is 32000

@@ -46,10 +46,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER command*100,CSimPar*7
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
+ CHARACTER (len = 120) :: cExtrud3DFile
 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ logical :: bexist = .false.
 
 
  CALL ZTIME(TTT0)
@@ -104,6 +106,17 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END IF                                               ! PARALLEL
 
  CALL Init_QuadScalar(mfile)
+
+ !------------------------------------------------------------------
+ cExtrud3DFile = '_data/Extrud3D_0.dat'
+ inquire(file=cExtrud3DFile,Exist=bExist)
+ if (bExist) then
+  call ReadS3Dfile(cExtrud3DFile)
+  call Setup_STL_Segments()
+ else
+  write(*,*) 'file: "',adjustl(trim(cExtrud3DFile)),'" does not exist!'
+ end if
+ !------------------------------------------------------------------
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
@@ -421,3 +434,42 @@ call read_q2_sol_single(fieldName, cInFile,0,ndof,NLMIN,NLMAX,&
 
 
 END SUBROUTINE SolFromFileRepartPartTracer
+!
+!-----------------------------------------------------------------------
+!
+SUBROUTINE Setup_STL_Segments()
+USE PP3D_MPI
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,DistTolerance,myOutput
+use geometry_processing, only: dEpsDist
+implicit none
+INTEGER iSeg,iFile,NumberOfSTLDescription
+
+    NumberOfSTLDescription = 0
+    DO iSeg=1,mySigma%NumberOfSeg
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgal(mySigma%mySegment(iSeg)%nOFFfiles))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
+      END DO
+     END IF
+    END DO
+
+    IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
+    IF (myid.eq.1) write(633,'(I0)') NumberOfSTLDescription
+    DO iSeg=1,mySigma%NumberOfSeg
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L".OR.&
+         ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
+      END DO
+     END IF
+    END DO
+    IF (myid.eq.1) CLOSE(633)
+    
+    dEpsDist = 0.20d0*mySigma%Dz_Out
+    
+END SUBROUTINE Setup_STL_Segments
