@@ -4,10 +4,10 @@
     startType = "0"
     liquidSolid = "1" 
     solution = "solution/particles.start0"
-    nBodies = "0"
+    nBodies = "1"
     bodyInit = "0"
     bodyFile = "defaultBodies.i3d"
-    defaultDensity = "1120"
+    defaultDensity = "1.5"
     liquidDensity = "962"
     defaultRadius = "0.05"
     gravity = "0.0 0.0 -9.81"
@@ -17,45 +17,33 @@
     lcpSolverIterations = "1000"
     collPipelineIterations = "1"
     extents ="-2.5 2.5 -2.5 2.5 0.0 5.0 "
-    doFBM = "0"
+    cgalConfigFile = "mesh_names.offs"    
+    doFBM = "1"
     doDynamics = "0"
     >
   </ApplicationSettings>
-  <BoundaryDescription ncomponents = "7">
-    <BoundaryShape
-      type = "1"
-      meshFile = "meshes/med_bot.off"	  	  	  	  
-    >
-    </BoundaryShape>
-    <BoundaryShape
-      type = "1"
-      meshFile = "meshes/med_side.off"	  	  	  	  
-    >
-    </BoundaryShape>
-    <BoundaryShape
-      type = "1"
-      meshFile = "meshes/med_top.off"	  	  	  	  
-    >
-    </BoundaryShape>
-    <BoundaryShape
-      type = "1"
-      meshFile = "meshes/medicalopen.off"	  	  	  	  
-    >
-    </BoundaryShape>            
-    <BoundaryShape
-      type = "0"
-      meshFile = "meshes/med_ring_bot.obj"	  	  	  	  
-    >
-    </BoundaryShape>
-    <BoundaryShape
-      type = "0"
-      meshFile = "meshes/med_ring_side.obj"	  	  	  	  
-    >
-    </BoundaryShape>
-    <BoundaryShape
-      type = "0"
-      meshFile = "meshes/med_ring_top.obj"	  	  	  	  
-    >
-    </BoundaryShape>    
-  </BoundaryDescription>
+  <RigidBodyList size = "1">
+    <RigidBody
+      type = "15"
+      position = "0.0 0.0 0.0"    
+      velocity = "0.0 0.0 0.0"            
+      angularVelocity = "0.0 0.0 0.0"                     
+      orientation = "0.0 0.0 0.0"                         
+      force = "0.0 0.0 0.0"                       
+      torque = "0.0 0.0 0.0"                      
+      boxExtents = "0.0075 0.0075 0.0075"                         
+      U = "1.0 0.0 0.0"           
+      V = "0.0 1.0 0.0"           
+      W = "0.0 0.0 1.0"           
+      density = "1120"
+      tensor = "0.0 0.0 0.0"
+      volume = "0.0"
+      restitution = "0.0"                         
+      affectedByGravity = "1"
+      meshFile = "_adc/reiloy/Reiloy_S1Main.off"                                  
+      doDynamics = "0"
+      doFBM = "1"
+      >
+    </RigidBody>        
+  </RigidBodyList>
 </root>

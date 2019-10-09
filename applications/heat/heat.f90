@@ -11,7 +11,7 @@ PROGRAM HEAT
                          sim_finalize
                          
   use Transport_Q2P1,  only:        updateFBMGeometry       
-  use Transport_Q1, ONLY : AddSource_EWIKON,Boundary_LinSc_Val_EWIKON,Transport_GeneralLinScalar
+  use Transport_Q1, ONLY : AddSource_EWIKON,Boundary_LinSc_Val_EWIKON,Transport_LinScalar_EWIKON
 
 
   integer            :: iOGMV,iTout
@@ -44,7 +44,7 @@ PROGRAM HEAT
   inonln_t = 2
 
   ! Solve transport equation for linear scalar
-  CALL Transport_GeneralLinScalar(Boundary_LinSc_Val_EWIKON,AddSource_EWIKON,ufile,inonln_t)
+  CALL Transport_LinScalar_EWIKON(Boundary_LinSc_Val_EWIKON,AddSource_EWIKON,ufile,inonln_t)
 
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 

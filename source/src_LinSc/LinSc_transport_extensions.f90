@@ -1,7 +1,115 @@
+SUBROUTINE Transport_GeneralLinScalar(sub_BC,sub_SRC,mfile,INL)
+INTEGER mfile,INL
+REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
+REAL*8 tstep_old,thstep_old
+INTEGER INLComplete,I,J
+
+EXTERNAL sub_BC,sub_SRC
+
+NLMAX = NLMAX + 1
+
+thstep = 0.5d0*tstep
+
+! advect the scalar field
+IF (myid.ne.0) THEN
+
+ Tracer%oldSol = Tracer%val(NLMAX)%x
+ 
+ IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar()
+
+! Assemble the right hand side
+ CALL LCL1(Tracer%def,Tracer%ndof)
+ CALL Matdef_LinScalar(Tracer,1,0)
+
+ ! Add the source term to the RHS
+ CALL sub_SRC()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+ ! Store the constant right hand side
+ Tracer%rhs = Tracer%def
+
+! Assemble the defect vector and fine level matrix
+ CALL Matdef_LinScalar(Tracer,-1,1)
+
+ CALL E011Sum(Tracer%def)
+
+! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+! Save the old solution
+ CALL LCP1(Tracer%val(NLMAX)%x,Tracer%val_old,Tracer%ndof)
+
+! Compute the defect
+ CALL Resdfk_General_LinScalar(Tracer,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! WRITE(*,'(I5,3D12.4)') myid,ResTemp,DefTemp,RhsTemp
+
+CALL COMM_Maximum(RhsTemp)
+DefTempCrit=MAX(RhsTemp*Tracer%prm%defCrit,Tracer%prm%MinDef)
+
+CALL Protocol_linScalar(mfile,Tracer,0,&
+     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
+
+DO INL=1,Tracer%prm%NLmax
+INLComplete = 0
+
+! Calling the solver
+CALL Solve_General_LinScalar(Tracer,ParKNPR,sub_BC,Boundary_LinSc_Mat)
+
+IF (myid.ne.0) THEN
+
+!!!!          Checking the quality of the result           !!!!
+! Restore the constant right hand side
+ Tracer%def = Tracer%rhs
+
+! Assemble the defect vector and fine level matrix
+ CALL Matdef_LinScalar(Tracer,-1,0)
+
+ CALL E011Sum(Tracer%def)
+
+! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+! Save the old solution
+ CALL LCP1(Tracer%val(NLMAX)%x,Tracer%val_old,Tracer%ndof)
+
+! Compute the defect
+ CALL Resdfk_General_LinScalar(Tracer,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsTemp=DefTemp
+CALL COMM_Maximum(RhsTemp)
+CALL Protocol_linScalar(mfile,Tracer,INL,&
+     ResTemp,DefTemp,RhsTemp)
+
+IF ((DefTemp.LE.DefTempCrit).AND.&
+    (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+IF (INLComplete.eq.1) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+if (myid.ne.master) then
+ Temperature = Tracer%val(NLMAX)%x
+end if
+
+NLMAX = NLMAX - 1
+
+
+END SUBROUTINE Transport_GeneralLinScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Transport_GeneralLinScalar(sub_BC,sub_SRC,mfile,INL)
+SUBROUTINE Transport_LinScalar_EWIKON(sub_BC,sub_SRC,mfile,INL)
 INTEGER mfile,INL
 REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
 REAL*8 tstep_old,thstep_old
@@ -25,7 +133,7 @@ IF (myid.ne.0) THEN
 
 ! Assemble the right hand side
  CALL LCL1(Tracer%def,Tracer%ndof)
- CALL Matdef_General_LinScalar(Tracer,1,0)
+ CALL Matdef_LinScalar_EWIKON(Tracer,1,0)
 
 ! Add the source term to the RHS
  CALL sub_SRC()
@@ -40,7 +148,7 @@ IF (myid.ne.0) THEN
  Tracer%rhs = Tracer%def
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar(Tracer,-1,1)
+ CALL Matdef_LinScalar_EWIKON(Tracer,-1,1)
 
 ! Add the boundary heat flux (implicit part)
 !  CALL AddBoundaryHeatFlux(2)
@@ -85,7 +193,7 @@ IF (myid.ne.0) THEN
  Tracer%def = Tracer%rhs
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_General_LinScalar(Tracer,-1,0)
+ CALL Matdef_LinScalar_EWIKON(Tracer,-1,0)
 
  ! Add the boundary heat flux
 !  CALL  AddHeatFlux(dArea,dFlux)
@@ -138,7 +246,7 @@ end if
 NLMAX = NLMAX - 1
 
 
-END SUBROUTINE Transport_GeneralLinScalar
+END SUBROUTINE Transport_LinScalar_EWIKON
 !
 ! ----------------------------------------------
 !
@@ -539,7 +647,8 @@ END SUBROUTINE Boundary_LinSc_Mat_Q1
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Build_LinSc_Convection_Q1()
+SUBROUTINE Build_LinSc_Convection_Q1(U,V,W)
+REAL*8 U(*),V(*),W(*)
 INTEGER I,J,jLEV
 EXTERNAL E011
 
@@ -548,11 +657,22 @@ JLEV = ILEV-1
 CALL SETLEV(2)
 
 Kmat = 0d0
-!CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
-!lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),&
-!DWORK(L(LCORVG)),KWORK(L(LADJ)),KWORK(L(KLVERT(JLEV))),&
-!KWORK(L(KLAREA(JLEV))),KWORK(L(KLEDGE(JLEV))),KNEL(JLEV),&
-!KNVT(JLEV),KNET(JLEV),KNAT(JLEV),E011)
+IF (myid.eq.showid) write(*,*) 'Regenerating K Matrix for Q1'
+
+CALL Conv_LinSc2(U,V,W,Kmat,&
+lMat%nu,lMat%ColA,lMat%LdA,&
+mg_mesh%level(ilev)%kvert,&
+mg_mesh%level(ilev)%karea,&
+mg_mesh%level(ilev)%kedge,&
+mg_mesh%level(ilev)%dcorvg,&
+mg_mesh%level(ilev)%kadj,&
+mg_mesh%level(jlev)%kvert,&
+mg_mesh%level(jlev)%karea,&
+mg_mesh%level(jlev)%kedge,&
+mg_mesh%level(jlev)%nel,&
+mg_mesh%level(jlev)%nvt,&
+mg_mesh%level(jlev)%net,&
+mg_mesh%level(jlev)%nat,E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)
@@ -792,6 +912,22 @@ END SUBROUTINE IntegrateOutputQuantities
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Assemble_GeneralLinScalar_Operators()
+
+! Convection matrix
+CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+
+! ! Diffusion matrix
+! CALL Build_LinSc_Diffusion_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+! 
+! ! Mass matrix
+! CALL Build_LinSc_Mass_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+
+END SUBROUTINE Assemble_GeneralLinScalar_Operators
+!
+! ----------------------------------------------
+!
+
 !  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
 !                         mg_mesh%level(nlmax)%karea,&
 !                         mg_mesh%level(nlmax)%kvert,&

@@ -22,6 +22,28 @@ END SUBROUTINE LinSc_InitCond
 !
 ! ----------------------------------------------
 !
+SUBROUTINE LinSc_InitCond_General(dcorvg)
+!use Sigma_User, only : myProcess
+REAL*8, dimension(:,:), pointer :: dcorvg
+REAL*8 X,Y,Z
+REAL*8 :: RX = 0.0d0, RY = 0.0d0, RZ = 2.4d0
+REAL*8 :: RADx = 0.20d0,RADs=0.040
+REAL*8 DIST
+INTEGER i,iSeg,iMat
+
+DO i=1,Tracer%ndof
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+
+ Tracer%val(NLMAX)%x(i) = myProcess%T0
+  
+END DO
+
+END SUBROUTINE LinSc_InitCond_General
+!
+! ----------------------------------------------
+!
 SUBROUTINE LinSc_InitCond_Weber(dcorvg)
 REAL*8, dimension(:,:), pointer :: dcorvg
 REAL*8 X,Y,Z
@@ -66,6 +88,24 @@ DO i=1,Tracer%ndof
 END DO
 
 END SUBROUTINE LinSc_InitCond_EWIKON
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_LinSc_Val_General()
+REAL*8 X,Y,Z
+INTEGER i
+
+DO i=1,Tracer%ndof
+ X = mg_mesh%level(ilev)%dcorvg(1,i)
+ Y = mg_mesh%level(ilev)%dcorvg(2,i)
+ Z = mg_mesh%level(ilev)%dcorvg(3,i)
+ 
+ IF (Tracer%knpr(i).eq.1) THEN
+  Tracer%val(NLMAX)%x(i)= 205d0
+ END IF
+END DO
+
+END SUBROUTINE Boundary_LinSc_Val_General
 !
 ! ----------------------------------------------
 !
@@ -196,6 +236,14 @@ subroutine AddSource()
 return
 
 end subroutine AddSource
+!
+! ----------------------------------------------
+!
+subroutine AddSource_General()
+
+return
+
+end subroutine AddSource_General
 !
 ! ----------------------------------------------
 !

@@ -518,7 +518,7 @@ END SUBROUTINE InitCond
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Matdef_general_LinScalar(myScalar,idef,imat)
+SUBROUTINE Matdef_LinScalar_EWIKON(myScalar,idef,imat)
 INTEGER :: idef,imat
 TYPE(lScalar) myScalar
 
@@ -545,7 +545,7 @@ TYPE(lScalar) myScalar
    CALL DefTVD_LinScalar(myScalar%val(NLMAX)%x,myScalar%def,THSTEP)
  END IF
 
-END SUBROUTINE Matdef_general_LinScalar
+END SUBROUTINE Matdef_LinScalar_EWIKON
 !
 ! ----------------------------------------------
 !
