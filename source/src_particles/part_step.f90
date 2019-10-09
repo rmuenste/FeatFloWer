@@ -488,6 +488,7 @@ USE PP3D_MPI, ONLY : myid,master,showid,subnodes,&
 
 USE types, ONLY : myCompleteSet,myActiveSet,nActiveSet,myExchangeSet,myLostSet,&
                          nExchangeSet,nStartActiveSet,nLostSet
+USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
 
 IMPLICIT NONE
 REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta,d_CorrDist
@@ -498,7 +499,7 @@ INTEGER KDFG(27),KDFL(27)
 INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem,pID,IERR
 REAL*8 dist,pointR(3),LocVel(3,27)
 LOGICAL :: bFound,bOut=.FALSE.
-INTEGER :: nIter = 100, iIter, iLoc,iParticel,iActiveParticel
+INTEGER :: nIter = 100, iIter, iLoc,iParticel,iActiveParticel,idynType
 INTEGER iMonitor(40),iAux
 REAL*8  dMonitor(40),dAux
 INTEGER nXX,kk,iMon
@@ -533,33 +534,30 @@ tLevel = myExchangeSet(iParticel)%time
   cdz = 1d1*point(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.lt. d_CorrDist*0.5d0).or. &
-      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.gt.-d_CorrDist*0.5d0)) then
- ! if (dist_CGAL.lt.+d_CorrDist*0.5d0) then
-!  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
-!     write(*,*) 'Particel: ', iParticel 
-!   write(*,*) 'before: ', P 
-
-    call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0);
-!   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  call get_dynamics_type(0, idynType)
+  if(idynType == FBM_STATIC) then
+   dist_CGAL = -dist_CGAL
+  end if
+  if(idynType == FBM_STATIC_COMPLEMENT) then
+   dist_CGAL = +dist_CGAL
+  end if
+  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  
+  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    
    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
-   cnormal = cnormal/daux
-
-   if (myParticleParam%bRotationalMovement) then
-    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   if (dist_CGAL.gt.0d0) then
+    cnormal = -cnormal/daux
    else
-    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+    cnormal = cnormal/daux
    end if
-   
+
+   cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+   cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+   cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+
    P=0.1d0*[cdx,cdy,cdz]
-!   write(*,*) 'after: ', P   
-!   pause
    point = [P(1),P(2),P(3)]
   end if
   
@@ -1122,6 +1120,7 @@ subroutine Move_Particle(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
                          Vel0U,Vel0V,Vel0W,Vel1U,Vel1V,Vel1W,nvt,net,nat,nel,tDelta,tStart,d_CorrDist)
 USE PP3D_MPI, ONLY : myid
 USE types, ONLY : myActiveSet,myExchangeSet,nActiveSet,nExchangeSet,nStartActiveSet
+USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
 
 IMPLICIT NONE
 REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart,d_CorrDist
@@ -1133,7 +1132,7 @@ INTEGER KDFG(27),KDFL(27)
 INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem
 REAL*8 dist,pointR(3),LocVel0(3,27),LocVel1(3,27)
 LOGICAL :: bFound,bOut=.FALSE.
-INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel
+INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel,idynType
 INTEGER iMonitor(40),iAux
 REAL*8  dMonitor(40),dAux
 INTEGER nXX,kk,iMon
@@ -1241,36 +1240,31 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdz = 1d1*P(3)
   
   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.lt. d_CorrDist*0.5d0).or. &
-      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.gt.-d_CorrDist*0.5d0)) then
-!   if (dist_CGAL.lt.d_CorrDist*0.5d0) then
-!  if (dist_CGAL.gt.-d_CorrDist*0.5d0) then
-!    write(*,*) 'Particel: ', iParticel 
-!   write(*,*) 'before: ', P   
-   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
-!   call projectonboundaryid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  call get_dynamics_type(0, idynType)
+  if(idynType == FBM_STATIC) then
+   dist_CGAL = -dist_CGAL
+  end if
+  if(idynType == FBM_STATIC_COMPLEMENT) then
+   dist_CGAL = +dist_CGAL
+  end if
+  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  
+  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    
    cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
    daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
-   cnormal = cnormal/daux
-   
-   if (myParticleParam%bRotationalMovement) then
-    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+   if (dist_CGAL.gt.0d0) then
+    cnormal = -cnormal/daux
    else
-    cdx = cpx + cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-    cdy = cpy + cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-    cdz = cpz + cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
+    cnormal = cnormal/daux
    end if
-   
-!    cdx = cpx - cnormal(1)*d_CorrDist*0.5d0!/dist_CGAL
-!    cdy = cpy - cnormal(2)*d_CorrDist*0.5d0!/dist_CGAL
-!    cdz = cpz - cnormal(3)*d_CorrDist*0.5d0!/dist_CGAL
-   
+
+   cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+   cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+   cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+
    P=0.1d0*[cdx,cdy,cdz]
-!   write(*,*) 'after: ', P   
-!   pause
+   point = [P(1),P(2),P(3)]
   end if
   
   dist = (P(1)**2d0 + P(2)**2d0)**0.5d0

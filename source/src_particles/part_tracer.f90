@@ -62,7 +62,7 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
  IF (myid.eq.1) WRITE(*,*) 'File ',iFile, ' is loaded... ==> angle :', iFile*iAngle
  
  if (myParticleParam%nPeriodicity.gt.1) then
-  DO iPerio = 1,myParticleParam%nPeriodicity
+  DO iPerio = 1,myParticleParam%nPeriodicity-1
    jFile = iFile + iPeriodicityShift*(iPerio) 
    ALLOCATE(myVelo(jFile)%x(QuadSc%ndof))
    ALLOCATE(myVelo(jFile)%y(QuadSc%ndof))
@@ -951,7 +951,7 @@ DO
 END DO
 
 write(*,*) iElement
-pause
+!pause
 CLOSE(745)
 
 nExchangeSet = myParticleParam%nParticles

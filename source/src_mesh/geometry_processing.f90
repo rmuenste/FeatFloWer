@@ -211,7 +211,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
    ProjP(1) =  ProjP(1)/dUnitScale
    ProjP(2) =  ProjP(2)/dUnitScale
-   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
    XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
    YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
    ZT = ProjP(3)
@@ -254,7 +254,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
    ProjP(1) =  ProjP(1)/dUnitScale
    ProjP(2) =  ProjP(2)/dUnitScale
-   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
    XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
    YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
    ZT = ProjP(3)
@@ -282,7 +282,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
     call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
     ProjP(1) =  ProjP(1)/dUnitScale
     ProjP(2) =  ProjP(2)/dUnitScale
-    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
    end if
    daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
    d0   = min(daux,d0)
@@ -306,7 +306,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
     call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
     ProjP(1) =  ProjP(1)/dUnitScale
     ProjP(2) =  ProjP(2)/dUnitScale
-    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
 !    write(*,*) 'P',XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,DDDD
    end if
    daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
@@ -369,7 +369,7 @@ DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,iSTL-1)
   ProjP(1) =  ProjP(1)/dUnitScale
   ProjP(2) =  ProjP(2)/dUnitScale
-  ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+  ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
   XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
   YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
   ZT = ProjP(3)
@@ -443,7 +443,7 @@ DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,iSTL-1)
   ProjP(1) =  ProjP(1)/dUnitScale
   ProjP(2) =  ProjP(2)/dUnitScale
-  ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min)/dUnitScale
+  ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
   XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
   YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
   ZT = ProjP(3)
