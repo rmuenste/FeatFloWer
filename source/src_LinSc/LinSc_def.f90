@@ -382,9 +382,9 @@ END SUBROUTINE Create_ConstDiffMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_DiffMat(Alpha)
-EXTERNAL E011
+SUBROUTINE Create_DIE_DiffMat(Alpha)
 REAL*8 Alpha(*)
+EXTERNAL E011
 
 IF (.NOT.ALLOCATED(DMat)) ALLOCATE(DMat(lMat%na))
 DMat=0d0
@@ -392,16 +392,16 @@ DMat=0d0
 ILEV=NLMAX
 CALL SETLEV(2)
 
-IF (myid.eq.showid) write(*,*) 'Regenerating D Matrix for Q1'
+IF (myid.eq.showid) write(*,*) 'Regenerating D Matrix with Lambda=f(x) for Q1'
 
-CALL DiffMatQ1(Alpha,DMat,lMat%nu,lMat%ColA,lMat%LdA,&
-               mg_mesh%level(ilev)%kvert,&
-               mg_mesh%level(ilev)%karea,&
-               mg_mesh%level(ilev)%kedge,&
-               mg_mesh%level(ilev)%dcorvg,&
-               E011)
+CALL DIE_DiffMatQ1(DMat,Alpha,lMat%nu,lMat%ColA,lMat%LdA,&
+                   mg_mesh%level(ilev)%kvert,&
+                   mg_mesh%level(ilev)%karea,&
+                   mg_mesh%level(ilev)%kedge,&
+                   mg_mesh%level(ilev)%dcorvg,&
+                   E011)
 
-END SUBROUTINE Create_DiffMat
+END SUBROUTINE Create_DIE_DiffMat
 !
 ! ----------------------------------------------
 !

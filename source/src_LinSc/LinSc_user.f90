@@ -92,17 +92,30 @@ END SUBROUTINE LinSc_InitCond_EWIKON
 ! ----------------------------------------------
 !
 SUBROUTINE Boundary_LinSc_Val_General()
+use, intrinsic :: ieee_arithmetic
+
 REAL*8 X,Y,Z
 INTEGER i
+real*8 :: myInf
+
+if(ieee_support_inf(myInf))then
+  myInf = ieee_value(myInf, ieee_negative_inf)
+endif
 
 DO i=1,Tracer%ndof
+
  X = mg_mesh%level(ilev)%dcorvg(1,i)
  Y = mg_mesh%level(ilev)%dcorvg(2,i)
  Z = mg_mesh%level(ilev)%dcorvg(3,i)
  
  IF (Tracer%knpr(i).eq.1) THEN
-  Tracer%val(NLMAX)%x(i)= 205d0
+  Tracer%val(NLMAX)%x(i)= myProcess%T0
  END IF
+ 
+ IF (Tracer%knpr(i).eq.2) THEN
+  Tracer%val(NLMAX)%x(i)= myProcess%Ta
+ END IF
+ 
 END DO
 
 END SUBROUTINE Boundary_LinSc_Val_General

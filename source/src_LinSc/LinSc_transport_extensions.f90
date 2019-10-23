@@ -1,4 +1,4 @@
-SUBROUTINE Transport_GeneralLinScalar(sub_BC,sub_SRC,mfile,INL)
+SUBROUTINE Transport_LinScalar_General(sub_BC,sub_SRC,mfile,INL)
 INTEGER mfile,INL
 REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
 REAL*8 tstep_old,thstep_old
@@ -105,7 +105,7 @@ end if
 NLMAX = NLMAX - 1
 
 
-END SUBROUTINE Transport_GeneralLinScalar
+END SUBROUTINE Transport_LinScalar_General
 !
 ! ----------------------------------------------
 !
@@ -912,18 +912,61 @@ END SUBROUTINE IntegrateOutputQuantities
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Assemble_GeneralLinScalar_Operators()
+SUBROUTINE Assemble_LinScOperators_General()
+USE var_QuadScalar, ONLY : distance
 
-! Convection matrix
-CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+REAL*8 myDiffCoeff_melt,myDiffCoeff_steel
+REAL*8, ALLOCATABLE ::  AlphaDiff(:)
+INTEGER iel,ivt,i
 
-! ! Diffusion matrix
-! CALL Build_LinSc_Diffusion_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
-! 
-! ! Mass matrix
-! CALL Build_LinSc_Mass_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+if (myid.ne.0) then 
 
-END SUBROUTINE Assemble_GeneralLinScalar_Operators
+  NLMAX = NLMAX + 1
+  
+  ! Convection matrix
+  CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+
+  ! Diffusion matrix 
+!  myDiffCoeff = Properties%DiffCoeff(1)
+  !      W         cm3        (k)g . K           J         cm3   1       1        cm3     1     cm2 . cm      1    cm2
+  ! ------------* ----- * ------------ =  ------------* ----- * ---- = --------* ----- * --- =  ---------- = ----* ----
+  !    m . K        g          (k)J           s . m         1    J      s . m      1      1       100cm .s    100    s
+ 
+  myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
+  myDiffCoeff_steel = 5E-2 ! cm2/s
+  if (myid.eq.1)  write(*,'(A,2ES12.4)') 'myDiffCoeff_steel,myDiffCoeff_melt: ',myDiffCoeff_steel,myDiffCoeff_melt
+  
+  ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
+  AlphaDiff = 0d0
+  
+  DO iel = 1,mg_mesh%level(NLMAX)%nel
+   do ivt=1,8
+    i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+    IF (distance(i).ge.0d0) THEN
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
+    ELSE
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
+    END IF
+   END DO
+  END DO
+  
+!   write(*,*) 'size(AlphaDiff)=',size(AlphaDiff)
+!  CALL Create_ConstDiffMat(myDiffCoeff_melt)  
+  CALL Create_DIE_DiffMat(AlphaDiff)
+
+  DEALLOCATE(AlphaDiff)
+  
+  ! Mass matrix
+  CALL Create_MassMat()
+
+ ! Lumped Mass matrix
+  CALL Create_LMassMat()
+  
+  NLMAX = NLMAX - 1
+
+end if
+
+END SUBROUTINE Assemble_LinScOperators_General
 !
 ! ----------------------------------------------
 !
@@ -953,7 +996,7 @@ END SUBROUTINE Assemble_GeneralLinScalar_Operators
 ! DO i=1,nel
 !  DO j=1,6
 !   IF (k.eq.karea(j,i)) THEN
-!    ivt1 = kvert(NeighA(1,j),i)
+!    ivt1 = (NeighA(1,j),i)
 !    ivt2 = kvert(NeighA(2,j),i)
 !    ivt3 = kvert(NeighA(3,j),i)
 !    ivt4 = kvert(NeighA(4,j),i)

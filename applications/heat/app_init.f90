@@ -15,7 +15,7 @@ subroutine init_q2p1_ext(log_unit)
     LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_GeneralLinScalar,InitLinearOperators, &
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_EWIKON,InitLinearOperators, &
     Transport_LinScalar,InitHeatObjects,LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON,&
     SetTracerToLoadedTemperatue
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -39,7 +39,7 @@ subroutine init_q2p1_ext(log_unit)
     call InitHeatObjects()
     call InitMeshDeform(log_unit, mg_mesh)
     call InitLinearOperators(log_unit, mg_mesh)
-    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+    call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
 
   ! Start from a solution on the same lvl
   ! with the same number of partitions
@@ -48,7 +48,7 @@ subroutine init_q2p1_ext(log_unit)
     call InitHeatObjects()
     call init_sol_same_level(CSTART)
     call InitLinearOperators(log_unit, mg_mesh)
-!     call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+!     call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
     call SetTracerToLoadedTemperatue(Boundary_LinSc_Val_EWIKON)
 !     
 !     if (myid.ne.0) call CreateDumpStructures(1)
@@ -74,7 +74,7 @@ subroutine init_q2p1_ext(log_unit)
     call InitHeatObjects()
     call init_sol_repart(CSTART)
     call InitLinearOperators(log_unit, mg_mesh)
-    call InitCond_GeneralLinScalar(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+    call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
     
   end if
 

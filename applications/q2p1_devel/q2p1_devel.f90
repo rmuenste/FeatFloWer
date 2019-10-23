@@ -12,6 +12,7 @@ PROGRAM Q2P1_DEVEL
                          
   use Transport_Q2P1,  only:        updateFBMGeometry
   USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease
+  use var_QuadScalar, only : dTimeStepEnlargmentFactor,istep_ns
   
 !  use Transport_Q1,  only: Transport_GeneralLinScalar,Boundary_LinSc_Val_Weber,AddSource
 
@@ -28,7 +29,8 @@ PROGRAM Q2P1_DEVEL
   real               :: dtt0 = 0.0
 
   mySetup%bAutomaticTimeStepControl = .false.
-  
+  dTimeStepEnlargmentFactor = 1d0
+ 
   call init_q2p1_ext(ufile)
 
 #if !defined WIN32
@@ -75,6 +77,8 @@ PROGRAM Q2P1_DEVEL
 !=====================================================================================
 !=====================================================================================
 !=====================================================================================
+  timens=0d0
+  istep_ns = 1
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
@@ -92,13 +96,6 @@ PROGRAM Q2P1_DEVEL
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
-
-!   IF (bTracer) THEN
-!     ! Solve transport equation for linear scalar
-!     CALL Transport_GeneralLinScalar(Boundary_LinSc_Val_Weber,AddSource,ufile,inonln_t)
-!   ELSE
-!     inonln_t = 2
-!   END IF
 
 !   write(*,*) myid, ' reached this stage'
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)

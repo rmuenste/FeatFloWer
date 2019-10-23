@@ -10,7 +10,7 @@ subroutine init_q2p1_ext(log_unit)
     OperatorRegenaration
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
-  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_GeneralLinScalar, &
+  USE Transport_Q1, ONLY : Init_LinScalar, &
     LinSc_InitCond_Weber,Boundary_LinSc_Val_Weber
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh
@@ -38,8 +38,6 @@ subroutine init_q2p1_ext(log_unit)
 
   CALL Init_LinScalar(log_unit)
 
-  !call InitCond_GeneralLinScalar(LinSc_InitCond_Weber,Boundary_LinSc_Val_Weber)
-  
   ! Normal start from inital configuration
   if (istart.eq.0) then
   
