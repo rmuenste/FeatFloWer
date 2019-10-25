@@ -85,7 +85,6 @@ PROGRAM Q2P1_DEVEL
 
      istep_ns = istep_ns + 1
     
-     goto 55
     END DO
     
     myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360/myProcess%Periodicity)
