@@ -1,70 +1,25 @@
 ----------- Simulation Parameters --------------
 SimPar@MeshFolder = "NEWFAC"
-SimPar@SubMeshNumber = 1                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
+SimPar@SubMeshNumber = 2                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
 SimPar@ParticleFile = "_data/particles.dat"
-SimPar@ProjectFile = "_adc/bloodflow2/file.prj"
+SimPar@ProjectFile = "_data/meshDir/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
-SimPar@StartFile = "_dump/01"
+SimPar@StartFile = 0
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
-SimPar@MaxMeshLevel = 2
-SimPar@TimeScheme = BE                                                  ! CN,BE,FE
-SimPar@TimeStep = 0.01d0
-SimPar@TimeAdaptivity = No                                              ! Yes
-SimPar@MinTimeAdapt = 0.00001d0
-SimPar@MaxTimeAdapt = 0.050d0
-SimPar@StartSimTime = 0d0
-SimPar@MaxSimTime = 2.5001d0
-SimPar@MaxNumStep = 1000000
-SimPar@BackUpFreq = 1
-SimPar@BackUpNum = 10
-SimPar@NoOutflow = No                                                    ! Yes
-SimPar@Umbrella = 0	
-SimPar@OutputFreq = 0.250d0
+SimPar@MaxMeshLevel = 3
 SimPar@MatrixRenewal = M1D1K3S0C1
-SimPar@FlowType = Newtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
-SimPar@Tracer = No                                                      ! Yes
-SimPar@bViscoElastic = No                                                      ! Yes
-SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Pressure_V,Velocity,Viscosity,Distance"
-PossibleOutputFields = Temperature,Velocity,Pressure_E
+SimPar@MaxNumStep = 10
+SimPar@OutputFields = " "
+SimPar@CGALtoRealFactor = 1d0
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! To Delete Later  !!!!!!!!!!!!!!!!!!!!!!!!!!!
+SimPar@OutputFields = "Velocity,Temperature,Screw,Viscosity,NormShearRate"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
------------------ Velocity 5--------------------
-Velo@defCrit =1d-6
-Velo@epsCrit =1d-5
-Velo@MinDef  =1d-10
-Velo@NLmin = 2
-Velo@NLmax = 3
-Velo@Alpha = 1d0
+----------------- Velocity --------------------
 Velo@MGMinLev = 1
 Velo@MGMedLev = 1
-Velo@MGMinIterCyc = 1
-Velo@MGMaxIterCyc = 5
-Velo@MGSmoothSteps = 2
-Velo@MGIterCoarse = 5
-Velo@MGDefImprCoarse = 0.1d0
-Velo@MGCriterion1 = 0.9d-1
-Velo@MGCriterion2 = 0.9d-1
-Velo@MGCycType = F
-Velo@MGRelaxPrm = 0.7d0
 ----------------- Pressure ---------------------
 Pres@MGMinLev = 1
 Pres@MGMedLev = 1
-Pres@MGMinIterCyc = 2
-Pres@MGMaxIterCyc = 20
-Pres@MGSmoothSteps = 16
-Pres@MGIterCoarse = 799
-Pres@MGDefImprCoarse = 1d-3
-Pres@MGCriterion1 = 1d-3
-Pres@MGCriterion2 = 1d-10
-Pres@MGCycType = F
-Pres@MGCrsSolverType = 4
-------------- Physical parameters --------------
-Prop@Gravity = 0d0,0d0,0d0
-Prop@Density = 1d0,1d0
-Prop@Viscosity = 1d-2,1d0
-Prop@DiffCoeff = 1d-4,1d-4
-Prop@PowerLawExp = 1.0
-
