@@ -56,7 +56,7 @@ END TYPE tInflow
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
-   INTEGER :: Periodicity,Phase
+   INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
    REAL*8 :: dAlpha
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
@@ -97,7 +97,7 @@ TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
 
 TYPE tTransientSolution
- INTEGER :: nTimeLevels=36, nPeriodicity=1, nTimeSubStep = 2, DumpFormat=2 ! LST
+ INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
  TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
@@ -111,7 +111,7 @@ TYPE tSetup
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher
- INTEGER MeshResolution,nSolutions
+ INTEGER MeshResolution
  INTEGER m_nT,m_nT1,m_nT2,m_nR,m_nZ,m_nP
  LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
 END TYPE tSetup

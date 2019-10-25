@@ -381,6 +381,7 @@ TYPE tExport
  INTEGER :: Level,LevelMax
  CHARACTER*(3) :: Format
  CHARACTER*(40),ALLOCATABLE, DIMENSION(:) :: Fields
+ CHARACTER*(10) :: cFileName(2)=['res','main']
 END TYPE tExport
 TYPE(tExport) :: myExport
 

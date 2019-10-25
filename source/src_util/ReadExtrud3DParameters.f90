@@ -927,9 +927,16 @@
 !     IF (ADJUSTL(TRIM(cMeshQuality)).eq."NO") THEN
 !      mySetup%bSendEmail = .FALSE.
 !     END IF
-!     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Periodicity",myProcess%Periodicity,1)
 !     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","nSolutions",mySetup%nSolutions,1)
+
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Periodicity",myProcess%Periodicity,1)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
+    
+    myProcess%nTimeLevels = INT(360d0/myProcess%dAlpha)
+    if (myProcess%nTimeLevels*INT(myProcess%dAlpha)-360.ne.0) THEN
+     if (myid.eq.1) WRITE(*,*) 'Wrong [E3DSimulationSettings/dAlpha] value defined (results in non-integer time-level number!) '
+    END IF
+    
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
     if (SSE_HAS_ANGLE)then
       myProcess%Angle = extruder_angle
@@ -1216,6 +1223,8 @@
     END IF
     write(*,*)
     write(*,*) "myProcess%dAlpha",'=',myProcess%dAlpha
+    write(*,*) "myProcess%Periodicity",'=',myProcess%Periodicity
+    write(*,*) "myProcess%nTimeLevels",'=',myProcess%nTimeLevels
 !     write(*,*) "mySetup%bSendEmail",'=',mySetup%bSendEmail
     write(*,*) "myProcess%Angle",'=',myProcess%Angle
     write(*,*) "myProcess%Phase",'=',myProcess%Phase

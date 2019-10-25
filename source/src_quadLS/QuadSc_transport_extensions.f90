@@ -693,7 +693,7 @@ REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
 iL1 = iL
 iL2 = iL+1
-if (iL2.eq.myTransientSolution%nTimeLevels) iL2 = 0
+if (iL2.eq.myProcess%nTimeLevels) iL2 = 0
 
 ILEV = NLMAX
 

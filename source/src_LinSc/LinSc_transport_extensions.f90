@@ -1062,7 +1062,7 @@ if (myid.ne.0) then
   !!!   -     ---   Diffusion Matrix Setup --- -    !!!
   myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
   myDiffCoeff_steel = 1E-1 ! cm2/s
-  if (myid.eq.1)  write(*,'(A,2ES12.4)') 'myDiffCoeff_steel,myDiffCoeff_melt: ',myDiffCoeff_steel,myDiffCoeff_melt
+  if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
   
   ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
   AlphaDiff = 0d0
@@ -1121,7 +1121,7 @@ if (myid.ne.0) then
  
   myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
   myDiffCoeff_steel = 5E-2 ! cm2/s
-  if (myid.eq.1)  write(*,'(A,2ES12.4)') 'myDiffCoeff_steel,myDiffCoeff_melt: ',myDiffCoeff_steel,myDiffCoeff_melt
+  if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
   
   ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
   AlphaDiff = 0d0

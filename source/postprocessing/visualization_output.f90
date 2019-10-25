@@ -220,7 +220,7 @@ inlmax = mgMesh%maxlevel
 
 filename=" "
 
-write(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_***.',iO,".vtu"
+write(filename(1:),'(A,A,A,I5.5,A4)') '_vtk/',ADJUSTL(TRIM(myExport%cFileName(1))),'_node_***.',iO,".vtu"
 
 if(myid.eq.showid) write(*,'(104("="))')
 if(myid.eq.showid) write(*,*) "Outputting vtk file into ",filename
@@ -429,7 +429,7 @@ CHARACTER filename*(26)
 
 ! generate the file name
 mainname=' '
-WRITE(mainname(1:),'(A,I5.5,A5)') '_vtk/main.',iO,'.pvtu'
+WRITE(mainname(1:),'(A,A,A,I5.5,A5)') '_vtk/',ADJUSTL(TRIM(myExport%cFileName(2))),'.',iO,'.pvtu'
 
 OPEN (UNIT=imainunit,FILE=mainname,action='write',iostat=istat)
 if(istat .ne. 0)then
@@ -503,7 +503,7 @@ write(imainunit, *)"    </PPoints>"
 
 do iproc=1,subnodes
  filename=" "
- WRITE(filename(1:),'(A9,I3.3,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
+ WRITE(filename(1:),'(A,A,I3.3,A1,I5.5,A4)') ADJUSTL(TRIM(myExport%cFileName(1))),'_node_',iproc,'.',iO,".vtu"
  write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"
 end do
 write(imainunit, *)"  </PUnstructuredGrid>"
