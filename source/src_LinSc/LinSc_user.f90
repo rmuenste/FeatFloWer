@@ -22,6 +22,21 @@ END SUBROUTINE LinSc_InitCond
 !
 ! ----------------------------------------------
 !
+SUBROUTINE LinSc_InitCond_XSE(dcorvg)
+!use Sigma_User, only : myProcess
+REAL*8, dimension(:,:), pointer :: dcorvg
+REAL*8 X,Y,Z
+REAL*8 :: RX = 0.0d0, RY = 0.0d0, RZ = 2.4d0
+REAL*8 :: RADx = 0.20d0,RADs=0.040
+REAL*8 DIST
+INTEGER i,iSeg,iMat
+
+RETURN
+
+END SUBROUTINE LinSc_InitCond_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE LinSc_InitCond_General(dcorvg)
 !use Sigma_User, only : myProcess
 REAL*8, dimension(:,:), pointer :: dcorvg
@@ -88,6 +103,36 @@ DO i=1,Tracer%ndof
 END DO
 
 END SUBROUTINE LinSc_InitCond_EWIKON
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_LinSc_Val_XSE()
+
+REAL*8 X,Y,Z
+INTEGER i
+
+DO i=1,Tracer%ndof
+
+ X = mg_mesh%level(ilev)%dcorvg(1,i)
+ Y = mg_mesh%level(ilev)%dcorvg(2,i)
+ Z = mg_mesh%level(ilev)%dcorvg(3,i)
+ 
+ IF (Tracer%knpr(i).eq.1) THEN
+  Tracer%val(NLMAX)%x(i)= myProcess%T0
+ END IF
+ 
+ IF (Tracer%knpr(i).eq.2) THEN
+  Tracer%val(NLMAX)%x(i)= myProcess%Ta
+ END IF
+ 
+ IF (Tracer%knpr(i).eq.3) THEN
+  Tracer%val(NLMAX)%x(i)= myProcess%Ti
+ END IF
+
+ 
+END DO
+
+END SUBROUTINE Boundary_LinSc_Val_XSE
 !
 ! ----------------------------------------------
 !
@@ -249,6 +294,32 @@ subroutine AddSource()
 return
 
 end subroutine AddSource
+!
+! ----------------------------------------------
+!
+subroutine AddSource_XSE()
+USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate,dIntegralHeat
+
+integer i
+real*8 daux
+
+!    g      1   1   cm3   (k)g . K    0.1 . kg    1    1e-6 . m3     g . K          s2       0.1 . 1     1    1e-6 . 1     1 . K           1        1e-7 . K
+! --------*---*---*----* ---------- = --------- *----* ----------- * --------- * --------- = --------- *----* ----------- * --------- * --------- = ---------
+!  cm . s   s   s    g      (k)J       m . s      s2        g           1         kg . m2     1 . s       1        1           1         1 . 1          s
+
+dIntegralHeat = 0d0
+
+DO i = 1,Tracer%ndof
+  
+  daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myThermodyn%density*myThermodyn%cp)
+  
+ IF (Screw(i).ge.0d0) THEN
+   Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
+   dIntegralHeat = dIntegralHeat + daux * MlMat(i)
+ END IF
+END DO
+
+end subroutine AddSource_XSE
 !
 ! ----------------------------------------------
 !

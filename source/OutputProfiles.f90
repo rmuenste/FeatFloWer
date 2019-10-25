@@ -2673,6 +2673,31 @@ END SUBROUTINE Release_ListFiles_SSE
 !
 !---------------------------------------------------------------------------
 !
+SUBROUTINE Release_ListFiles_SSE_temp(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+call Release_ListFile('t',iO)
+
+END SUBROUTINE Release_ListFiles_SSE_temp
+!
+!---------------------------------------------------------------------------
+!
 SUBROUTINE Load_ListFiles_PRT_Tracer(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
@@ -2808,6 +2833,74 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  END SUBROUTINE SetCoor
  
 END SUBROUTINE Load_ListFiles_SSE
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Load_ListFiles_SSE_temp(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,master
+USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+integer nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+ call Load_ListFile('v',iO)
+ call Load_ListFile('d',iO)
+ call Load_ListFile('x',iO)
+ call Load_ListFile('t',iO)
+ 
+ if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+ 
+ IF (myid.EQ.0) THEN
+   CALL CreateDumpStructures(0)
+ ELSE
+   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+   CALL CreateDumpStructures(LevDif)
+ END IF
+ 
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ nLengthV = (2**(ILEV-1)+1)**3
+ nLengthE = mg_mesh%level(NLMIN)%nel
+
+ ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+ CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             nLengthV,&
+                             nLengthE,&
+                             mg_mesh%level(ILEV)%nel,&
+                             mg_mesh%level(ILEV)%nvt)
+ DEALLOCATE(SendVect)
+ 
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  dc(1,i) = QuadSc%AuxU(i)
+  dc(2,i) = QuadSc%AuxV(i)
+  dc(3,i) = QuadSc%AuxW(i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Load_ListFiles_SSE_temp
 !
 !---------------------------------------------------------------------------
 !

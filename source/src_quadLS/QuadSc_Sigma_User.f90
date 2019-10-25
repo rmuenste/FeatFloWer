@@ -1,6 +1,6 @@
 MODULE Sigma_User
 USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity
-USE var_QuadScalar ,ONLY : bNoOutflow,activeFBM_Z_Position,dTimeStepEnlargmentFactor
+USE var_QuadScalar ,ONLY : bNoOutflow,activeFBM_Z_Position,dTimeStepEnlargmentFactor,mg_dVector
 
 IMPLICIT NONE
 
@@ -95,6 +95,15 @@ END TYPE tThermodyn
 TYPE(tThermodyn) :: myThermodyn
 TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
+
+TYPE tTransientSolution
+ INTEGER :: nTimeLevels=36, nPeriodicity=1, nTimeSubStep = 2, DumpFormat=2 ! LST
+ TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+END TYPE tTransientSolution
+TYPE (tTransientSolution) myTransientSolution
 
 TYPE tSetup
  LOGICAL :: bPressureFBM = .FALSE.

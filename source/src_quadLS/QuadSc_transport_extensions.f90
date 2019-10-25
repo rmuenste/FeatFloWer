@@ -680,3 +680,83 @@ CALL SETLEV(2)
 CALL Comm_Solution(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,QuadSc%auxU,QuadSc%ndof)
 
 end subroutine Transport_q2p1_UxyzP_sse
+!
+! ----------------------------------------------
+!
+SUBROUTINE TemporalFieldInterpolator(iL,iS)
+USE Sigma_User, Only : myTransientSolution
+INTEGER iL,iS,iL1,iS1,iL2,iS2
+INTEGER i,nnn
+REAL*8 dS,t_bu,MeshVelo(3)
+integer nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+iL1 = iL
+iL2 = iL+1
+if (iL2.eq.myTransientSolution%nTimeLevels) iL2 = 0
+
+ILEV = NLMAX
+
+dS = DBLE(iS)/DBLE(myTransientSolution%nTimeSubStep)
+if (myid.eq.1) write(*,*) 'Time fraction: ',dS,LinSc%prm%MGprmIn%MedLev
+IF (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+ 
+  QuadSc%ValU(i)                  = (1d0-dS)*myTransientSolution%Velo(1,iL1)%x(i) + (dS)*myTransientSolution%Velo(1,iL2)%x(i)
+  QuadSc%ValV(i)                  = (1d0-dS)*myTransientSolution%Velo(2,iL1)%x(i) + (dS)*myTransientSolution%Velo(2,iL2)%x(i)
+  QuadSc%ValW(i)                  = (1d0-dS)*myTransientSolution%Velo(3,iL1)%x(i) + (dS)*myTransientSolution%Velo(3,iL2)%x(i)
+
+  mg_mesh%level(ILEV)%dcorvg(1,i) = (1d0-dS)*myTransientSolution%Coor(1,iL1)%x(i) + (dS)*myTransientSolution%Coor(1,iL2)%x(i)
+  mg_mesh%level(ILEV)%dcorvg(2,i) = (1d0-dS)*myTransientSolution%Coor(2,iL1)%x(i) + (dS)*myTransientSolution%Coor(2,iL2)%x(i)
+  mg_mesh%level(ILEV)%dcorvg(3,i) = (1d0-dS)*myTransientSolution%Coor(3,iL1)%x(i) + (dS)*myTransientSolution%Coor(3,iL2)%x(i)
+ 
+  Screw(i) = (1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)
+  
+ END DO
+END IF
+
+IF (myid.EQ.0) THEN
+  CALL CreateDumpStructures(0)
+ELSE
+  LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+  CALL CreateDumpStructures(LevDif)
+END IF
+ 
+ILEV = LinSc%prm%MGprmIn%MedLev
+
+nLengthV = (2**(ILEV-1)+1)**3
+nLengthE = mg_mesh%level(NLMIN)%nel
+
+ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                            mg_mesh%level(ILEV)%kvert,&
+                            nLengthV,&
+                            nLengthE,&
+                            mg_mesh%level(ILEV)%nel,&
+                            mg_mesh%level(ILEV)%nvt)
+DEALLOCATE(SendVect)
+
+CALL Create_MRhoMat()
+IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
+
+CALL GetNonNewtViscosity_sse()
+
+!!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
+
+IF (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+ 
+  MeshVelo(1)     = (myTransientSolution%Coor(1,iL2)%x(i)-myTransientSolution%Coor(1,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
+  MeshVelo(2)     = (myTransientSolution%Coor(2,iL2)%x(i)-myTransientSolution%Coor(2,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
+  MeshVelo(3)     = (myTransientSolution%Coor(3,iL2)%x(i)-myTransientSolution%Coor(3,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
+  
+  QuadSc%ValU(i)  = QuadSc%ValU(i) - MeshVelo(1)
+  QuadSc%ValV(i)  = QuadSc%ValV(i) - MeshVelo(2)
+  QuadSc%ValW(i)  = QuadSc%ValW(i) - MeshVelo(3)
+  
+ END DO
+END IF
+!!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
+
+END SUBROUTINE TemporalFieldInterpolator

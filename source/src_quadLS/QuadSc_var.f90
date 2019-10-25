@@ -467,6 +467,7 @@ INTEGER nUmbrellaSteps,nInitUmbrellaSteps
 
 integer :: nUmbrellaStepsLvl(9) = (/0, 0, 0, 0, 0, 0, 0, 0, 0/)
 integer :: nMainUmbrellaSteps = 0
+REAL*8 :: dIntegralHeat = 0d0
 
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)

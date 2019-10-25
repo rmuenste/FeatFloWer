@@ -88,6 +88,72 @@ if (sExport%Format .eq. "VTK") then
 end if
 
 end subroutine viz_output_fields
+!-------------------------------------------------------------------------------------------------
+! A routine for outputting fields for an sse temp_application
+!-------------------------------------------------------------------------------------------------
+! @param sExport An export structure
+! @param iOutput The output idx of the visulation file
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer The solution of the scalar tracer equation
+! @param visc The viscosity solution
+! @param dist The distance solution
+! @param shear The shear rate solution
+! @param mgMesh The mesh that will be written out
+!subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
+subroutine viz_output_fields_Simple(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
+
+use var_QuadScalar, only:tExport
+
+USE PP3D_MPI, ONLY:myid
+USE def_FEAT
+
+USE Transport_Q1,ONLY:Tracer
+
+implicit none
+
+type(tExport), intent(in) :: sExport
+
+integer, intent(in) :: iOutput
+
+type(tQuadScalar), intent(in) :: sQuadSc
+
+type(tLinScalar), intent(in) :: sLinSc
+
+real*8, dimension(:), intent(in) :: visc
+
+real*8, dimension(:), intent(in) :: screw
+
+real*8, dimension(:), intent(in) :: shell
+
+real*8, dimension(:), intent(in) :: shear
+
+type(tMultiMesh), intent(in) :: mgMesh
+
+! locals
+integer :: ioutput_lvl
+
+!type(fieldPtr), dimension(3) :: packed
+
+if (sExport%Format .eq. "VTK") then
+
+ if (myid.ne.0) then
+
+  ioutput_lvl = sExport%Level
+
+  call viz_write_vtu_process(iOutput,&
+    mgMesh%level(ioutput_lvl)%dcorvg,&
+    mgMesh%level(ioutput_lvl)%kvert, &
+    sQuadSc, sLinSc, visc, screw, shell, shear, ioutput_lvl,&
+    mgMesh)
+ else
+
+  call viz_write_pvtu_main(iOutput)
+ end if
+
+end if
+
+end subroutine viz_output_fields_Simple
 !
 !------------------------------------------------------------------------------------------------
 ! Routine for writing out a VTK visualization of a process

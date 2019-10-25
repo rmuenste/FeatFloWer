@@ -6,7 +6,7 @@ USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
 USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     MoveInterfacePoints,myALE,Properties,getmeshvelocity,Temperature
-USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties
+USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
 USE mg_LinScalar, ONLY : mgProlRestInit
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
 
@@ -287,6 +287,32 @@ END SUBROUTINE InitCond_LinScalar_EWIKON
 !
 ! ----------------------------------------------
 !
+SUBROUTINE InitCond_LinScalar_XSE(sub_IC,sub_BC)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+
+EXTERNAL sub_IC,sub_BC
+integer i
+
+NLMAX = NLMAX + 1
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+! Set the types of boundary conditions (set up knpr)
+CALL Create_Knpr(LinSc_Knpr_XSE)
+
+! Set The initial Conditions
+CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
+
+! Set boundary conditions
+CALL sub_BC()
+
+NLMAX = NLMAX - 1
+
+END SUBROUTINE InitCond_LinScalar_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE InitCond_LinScalar_General(sub_IC,sub_BC)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 
@@ -354,6 +380,40 @@ if (myid.ne.0) then
 end if
 
 END SUBROUTINE LinSc_Knpr
+!
+! ----------------------------------------------
+!
+SUBROUTINE LinSc_Knpr_XSE(dcorvg)
+use, intrinsic :: ieee_arithmetic
+
+REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
+REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
+INTEGER i,iSeg,jSeg,k
+real*8 :: myInf
+
+if(ieee_support_inf(myInf))then
+  myInf = ieee_value(myInf, ieee_negative_inf)
+endif
+
+DO i=1,Tracer%ndof
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+ Tracer%knpr(I) = 0
+
+ IF (myBoundary%iInflow(i).eq.10) Tracer%knpr(I) = 1
+ 
+ IF (myBoundary%bWall(i).and.myProcess%Ta.ne.myInf) THEN
+  Tracer%knpr(I) = 2
+ END IF
+ 
+ IF (myBoundary%iInflow(i).gt.10.and.myProcess%Ti.ne.myInf) THEN
+  Tracer%knpr(I) = 3
+ END IF
+
+END DO
+
+END SUBROUTINE LinSc_Knpr_XSE
 !
 ! ----------------------------------------------
 !

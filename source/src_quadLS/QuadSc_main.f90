@@ -1913,18 +1913,8 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux
   REAL*8 HogenPowerlaw
-  LOGICAL bCondition
   REAL*8 ViscosityModel
 
-  bCondition = .FALSE.
-
-  IF (bNonNewtonian) THEN
-    DO i=1,SIZE(myExport%Fields)
-    IF (ADJUSTL(TRIM(myExport%Fields(i))).EQ.'Viscosity') bCondition=.TRUE.
-    END DO
-  END IF
-
-  IF (bCondition) THEN
     ILEV = NLMAX
     CALL SETLEV(2)
 
@@ -1947,14 +1937,10 @@ SUBROUTINE  GetNonNewtViscosity_sse()
       0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
     taux = Temperature(i)
 
-    if(allocated(Shearrate))then
-      Shearrate(i) = sqrt(2d0 * daux)
-    end if
+    Shearrate(i) = sqrt(2d0 * daux)
     Viscosity(i) = ViscosityModel(daux,taux)
 
     END DO
-
-  END IF
 
 END SUBROUTINE  GetNonNewtViscosity_sse
 !

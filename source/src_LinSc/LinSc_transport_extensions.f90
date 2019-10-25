@@ -109,6 +109,128 @@ END SUBROUTINE Transport_LinScalar_General
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Transport_LinScalar_XSE(sub_BC,sub_SRC,mfile,INL)
+INTEGER mfile,INL
+REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
+REAL*8 tstep_old,thstep_old
+INTEGER INLComplete,I,J
+
+EXTERNAL sub_BC,sub_SRC
+
+NLMAX = NLMAX + 1
+
+thstep = 0.5d0*tstep
+
+! advect the scalar field
+IF (myid.ne.0) THEN
+
+ Tracer%oldSol = Tracer%val(NLMAX)%x
+ 
+ IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar()
+
+! Assemble the right hand side
+ CALL LCL1(Tracer%def,Tracer%ndof)
+ CALL Matdef_LinScalar(Tracer,1,0)
+
+ ! Add the source term to the RHS
+ CALL sub_SRC()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+ ! Store the constant right hand side
+ Tracer%rhs = Tracer%def
+
+! Assemble the defect vector and fine level matrix
+ CALL Matdef_LinScalar(Tracer,-1,1)
+
+ CALL E011Sum(Tracer%def)
+
+! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+! Save the old solution
+ CALL LCP1(Tracer%val(NLMAX)%x,Tracer%val_old,Tracer%ndof)
+
+! Compute the defect
+ CALL Resdfk_General_LinScalar(Tracer,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! WRITE(*,'(I5,3D12.4)') myid,ResTemp,DefTemp,RhsTemp
+
+CALL COMM_Maximum(RhsTemp)
+DefTempCrit=MAX(RhsTemp*Tracer%prm%defCrit,Tracer%prm%MinDef)
+
+CALL Protocol_linScalar(mfile,Tracer,0,&
+     ResTemp,DefTemp,DefTempCrit," Scalar advection ")
+
+DO INL=1,Tracer%prm%NLmax
+INLComplete = 0
+
+! Calling the solver
+CALL Solve_General_LinScalar(Tracer,ParKNPR,sub_BC,Boundary_LinSc_Mat)
+
+IF (myid.ne.0) THEN
+
+!!!!          Checking the quality of the result           !!!!
+! Restore the constant right hand side
+ Tracer%def = Tracer%rhs
+
+! Assemble the defect vector and fine level matrix
+ CALL Matdef_LinScalar(Tracer,-1,0)
+
+ CALL E011Sum(Tracer%def)
+
+! Set dirichlet boundary conditions on the defect
+ CALL Boundary_LinSc_Def()
+
+! Save the old solution
+ CALL LCP1(Tracer%val(NLMAX)%x,Tracer%val_old,Tracer%ndof)
+
+! Compute the defect
+ CALL Resdfk_General_LinScalar(Tracer,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsTemp=DefTemp
+CALL COMM_Maximum(RhsTemp)
+CALL Protocol_linScalar(mfile,Tracer,INL,&
+     ResTemp,DefTemp,RhsTemp)
+
+IF ((DefTemp.LE.DefTempCrit).AND.&
+    (INL.GE.Tracer%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+IF (INLComplete.eq.1) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+if (myid.ne.master) then
+ Temperature = Tracer%val(NLMAX)%x
+end if
+
+NLMAX = NLMAX - 1
+
+CALL COMM_SUMM(dIntegralHeat)
+IF (myid.eq.1) WRITE(*,*) 'IntegralHeatRate_[W]: ',dIntegralHeat*(myThermodyn%density*myThermodyn%cp)
+IF (myid.eq.1) WRITE(mfile,*) 'IntegralHeatRate_[W]: ',dIntegralHeat*(myThermodyn%density*myThermodyn%cp)
+
+ilev=nlmax
+call setlev(2)
+CALL IntegrateOutflowTemp(mg_mesh%level(ilev)%dcorvg,&
+                          mg_mesh%level(ilev)%karea,&
+                          mg_mesh%level(ilev)%kvert,&
+                          mg_mesh%level(ilev)%nel,&
+                          mfile)
+
+END SUBROUTINE Transport_LinScalar_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE Transport_LinScalar_EWIKON(sub_BC,sub_SRC,mfile,INL)
 INTEGER mfile,INL
 REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
@@ -912,6 +1034,71 @@ END SUBROUTINE IntegrateOutputQuantities
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Assemble_LinScOperators_XSE(mfile)
+USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate
+
+integer mfile
+REAL*8 myDiffCoeff_melt,myDiffCoeff_steel,daux,dHeat
+REAL*8, ALLOCATABLE ::  AlphaDiff(:)
+INTEGER iel,ivt,i
+
+dHeat = 0d0
+
+if (myid.ne.0) then 
+
+  NLMAX = NLMAX + 1
+  
+  ! Convection matrix
+  CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+
+  ! Diffusion matrix 
+!  myDiffCoeff = Properties%DiffCoeff(1)
+  !      W         cm3        (k)g . K           J         cm3   1       1        cm3     1     cm2 . cm      1    cm2
+  ! ------------* ----- * ------------ =  ------------* ----- * ---- = --------* ----- * --- =  ---------- = ----* ----
+  !    m . K        g          (k)J           s . m         1    J      s . m      1      1       100cm .s    100    s
+ 
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!   -     ---   Diffusion Matrix Setup --- -    !!!
+  myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
+  myDiffCoeff_steel = 1E-1 ! cm2/s
+  if (myid.eq.1)  write(*,'(A,2ES12.4)') 'myDiffCoeff_steel,myDiffCoeff_melt: ',myDiffCoeff_steel,myDiffCoeff_melt
+  
+  ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
+  AlphaDiff = 0d0
+  
+  DO iel = 1,mg_mesh%level(NLMAX)%nel
+   do ivt=1,8
+    i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+    IF (Screw(i).ge.0d0) THEN
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
+    ELSE
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
+    END IF
+   END DO
+  END DO
+  
+  CALL Create_XSE_DiffMat(AlphaDiff)
+  
+  DEALLOCATE(AlphaDiff)
+  !!!   -     ---   Diffusion Matrix Setup --- -    !!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! Mass matrix
+  CALL Create_MassMat()
+
+ ! Lumped Mass matrix
+  CALL Create_LMassMat()
+
+  NLMAX = NLMAX - 1
+
+end if
+
+!   pause
+END SUBROUTINE Assemble_LinScOperators_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE Assemble_LinScOperators_General()
 USE var_QuadScalar, ONLY : distance
 
@@ -967,6 +1154,69 @@ if (myid.ne.0) then
 end if
 
 END SUBROUTINE Assemble_LinScOperators_General
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegrateOutflowTemp(dcorvg,karea,kvert,nel,mfile)
+INTEGER mfile
+REAL*8 dcorvg(3,*),T_Avg
+INTEGER karea(6,*),kvert(8,*),nel
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA,dVolFlow,dVolFlowT,dArea
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+LOGICAL BB(4)
+
+if (myid.ne.0) then
+dVolFlow = 0d0
+dVolFlowT = 0d0
+dArea = 0d0
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   
+   BB(1) = (myBoundary%bSymmetry(1,ivt1).and.myBoundary%bSymmetry(2,ivt1))
+   BB(2) = (myBoundary%bSymmetry(1,ivt2).and.myBoundary%bSymmetry(2,ivt2))
+   BB(3) = (myBoundary%bSymmetry(1,ivt3).and.myBoundary%bSymmetry(2,ivt3))
+   BB(4) = (myBoundary%bSymmetry(1,ivt4).and.myBoundary%bSymmetry(2,ivt4))
+   
+   IF (BB(1).and.BB(2).and.BB(3).and.BB(4)) THEN
+!    IF (abs(dcorvg(3,ivt1)-1.0d0*mySigma%L).lt.1d-3.and.&
+!        abs(dcorvg(3,ivt2)-1.0d0*mySigma%L).lt.1d-3.and.&
+!        abs(dcorvg(3,ivt3)-1.0d0*mySigma%L).lt.1d-3.and.&
+!        abs(dcorvg(3,ivt4)-1.0d0*mySigma%L).lt.1d-3) THEN
+
+       CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+       dArea = dArea + DABS(dA)
+       dVolFlow  = dVolFlow  + dA*QuadSc%ValW(nvt+net+k)
+       dVolFlowT = dVolFlowT + dA*QuadSc%ValW(nvt+net+k)*Tracer%val(NLMAX+1)%x(nvt+net+k)
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+end if
+
+CALL COMM_SUMM(dVolFlow)
+CALL COMM_SUMM(dVolFlowT)
+CALL COMM_SUMM(dArea)
+
+if (myid.ne.0) then
+ T_Avg = dVolFlowT/dVolFlow
+end if
+
+IF (myid.eq.1) WRITE(MTERM,'(A,3ES14.6)') 'OutflowTemp_[C]_Area_[mm2]_VolFlow_[l/h]: ',T_Avg,dArea,3.6d0*dVolFlow
+IF (myid.eq.1) WRITE(MFILE,'(A,3ES14.6)') 'OutflowTemp_[C]_Area_[mm2]_VolFlow_[l/h]: ',T_Avg,dArea,3.6d0*dVolFlow
+
+
+END SUBROUTINE IntegrateOutflowTemp
 !
 ! ----------------------------------------------
 !
