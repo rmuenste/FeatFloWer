@@ -104,11 +104,9 @@ PROGRAM Q2P1_DEVEL
 
   END DO
 
-55 continue
-  
   IF (myid.eq.showid) THEN
     WRITE(*,*) "PP3D_LES has successfully finished. "
-    WRITE(filehandle,*) "PP3D_LES has successfully finished. "
+    WRITE(ufile,*) "PP3D_LES has successfully finished. "
   END IF
 
   CALL Barrier_myMPI()
