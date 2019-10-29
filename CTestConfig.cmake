@@ -8,7 +8,7 @@ set(CTEST_PROJECT_NAME "FlowAroundACylinder")
 #set(CTEST_NIGHTLY_START_TIME "01:00:00 UTC")
 
 set(CTEST_DROP_METHOD "http")
-set(CTEST_DROP_SITE "129.217.165.82/CDash/public")
+set(CTEST_DROP_SITE "arthurdayne.mathematik.tu-dortmund.de/CDash/public")
 set(CTEST_DROP_LOCATION "/submit.php?project=Feat_FloWer")
 set(CTEST_DROP_SITE_CDASH TRUE)
 
