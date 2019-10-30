@@ -305,30 +305,31 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
       PosFak*=2
   return tuple(Part)
 
-# Dokumentation
-__doc__ = \
-"""
-Dieses Modul führt die Partitinierung eines Gitters mittels der Metis-Bibliothek durch.
-"""
-# Startroutine des Moduls, die Metis lädt.
-if os.name=="posix":
-  metis=_try_in_place_first("libmetis.so")
-elif os.name=="nt":
-  metis=_try_in_place_first("metis.dll")
-else:
-  sys.exit("Loading of Metis not yet implemented for platform '%s'!"%os.name)
+def loadMetisLibrary():
+  # Dokumentation
+  __doc__ = \
+  """
+  Dieses Modul führt die Partitionierung eines Gitters mittels der Metis-Bibliothek durch.
+  """
+  # Startroutine des Moduls, die Metis lädt.
+  if os.name=="posix":
+    metis=_try_in_place_first("libmetis.so")
+  elif os.name=="nt":
+    metis=_try_in_place_first("metis.dll")
+  else:
+    sys.exit("Loading of Metis not yet implemented for platform '%s'!"%os.name)
 
-if metis==None:
-  sys.exit("Could not load the Metis library!")
+  if metis==None:
+    sys.exit("Could not load the Metis library!")
 
-# Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
-_pidx=POINTER(c_int)
-_pint=POINTER(c_int)
-_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
-metis.METIS_PartGraphRecursive.argtypes=_PartArgs
-metis.METIS_PartGraphVKway.argtypes=_PartArgs
-metis.METIS_PartGraphKway.argtypes=_PartArgs
-metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
+  # Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
+  _pidx=POINTER(c_int)
+  _pint=POINTER(c_int)
+  _PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
+  metis.METIS_PartGraphRecursive.argtypes=_PartArgs
+  metis.METIS_PartGraphVKway.argtypes=_PartArgs
+  metis.METIS_PartGraphKway.argtypes=_PartArgs
+  metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
 
 if __name__=="__main__":
   if metis!=None:

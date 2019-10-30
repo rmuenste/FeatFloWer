@@ -14,10 +14,34 @@ import subprocess
 import math
 import partitioner
 
+import datetime
+
 if sys.version_info[0] < 3:
     from pathlib2 import Path
 else:
     from pathlib import Path
+
+paramDict = {
+    "deltaAngle": 10.0, # Angular step size
+    "singleAngle": -10.0, # Single angle to compute 
+    "hostFile" : "", # Hostfile
+    "rankFile" : "" , # Rankfile 
+    "timeLevels" : 0, # timeLevels
+    "periodicity" : 1, # Periodicity 
+    "numProcessors" : 5, # Number of processors 
+    "projectFolder" : "", # The project folder
+    "skipSetup" :  False,
+    "skipSimulation" : False,
+    "temperature" : False
+}
+#===============================================================================
+#                        version function
+#===============================================================================
+def version():
+    """
+    Print out version information
+    """
+    print("E3D + Reporter for SIGMA Version 19.10, Copyright 2019 IANUS Simulation")
 
 #===============================================================================
 #                        usage function
@@ -39,8 +63,21 @@ def usage():
     print("[-c', '--host-conf]: A hostfile as input for the mpirun command")
     print("[-r', '--rank-file]: A rankfile as input for the mpirun command")
     print("[-t', '--time]: Number of time levels to complete a full 360 rotation")
+    print("['-o', '--do-temperature']: The simulation loop will do a temperature simulation")
     print("[-h', '--help']: prints this message")
+    print("[-v', '--version']: prints out version information")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
+
+#===============================================================================
+#                          custom mkdir
+#===============================================================================
+def mkdir(dir):
+    if os.path.exists(dir):
+        if os.path.isdir(dir):
+            return
+        else:
+            os.remove(dir)
+    os.mkdir(dir)
 
 #===============================================================================
 #                          setup the case folder 
@@ -73,6 +110,125 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
         shutil.rmtree("_data/meshDir")
 
 #===============================================================================
+#                             Simulation Setup 
+#===============================================================================
+def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
+    folderSetup(workingDir, projectFile, projectPath, projectFolder)
+    subprocess.call(["./s3d_mesher"])
+    partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+
+#===============================================================================
+#                Compute maximum number of simulation iterations
+#===============================================================================
+def calcMaxSimIterations():
+    nmax = 0
+
+    if not paramDict['deltaAngle'] == 0.0 and paramDict['timeLevels'] in (0, 1):
+        nmax = 1
+    elif not paramDict['deltaAngle'] == 0.0:
+        nmax = int(math.ceil(360.0 / paramDict['periodicity'] / paramDict['deltaAngle']))
+    else:
+        paramDict['deltaAngle'] = 360.0 / float(paramDict['timeLevels'])
+        nmax = int(math.ceil(360.0 / paramDict['periodicity'] / paramDict['deltaAngle']))
+
+    if paramDict['singleAngle'] >= 0.0:
+        nmax = 1
+
+    return nmax
+
+#===============================================================================
+#                Compute maximum number of simulation iterations
+#===============================================================================
+def setupMPICommand():
+    mpiPath = Path("mpirun")
+    if sys.platform == "win32":
+        mpiPath = Path(os.environ['MSMPI_BIN']) / Path("mpiexec.exe")
+
+    paramDict['mpiCmd'] = mpiPath
+
+#===============================================================================
+#                The simulatio loop for velocity calculation
+#===============================================================================
+def simLoopVelocity(workingDir):
+    nmax = calcMaxSimIterations()
+
+    mpiPath = paramDict['mpiCmd']
+    numProcessors = paramDict['numProcessors']
+
+    nmin = 0
+    start = 0.0
+    with open("_data/Extrud3D_0.dat", "a") as f:
+        f.write("\n[E3DSimulationSettings]\n")
+        f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
+        f.write("Periodicity=" + str(paramDict['periodicity']) + "\n")
+        f.write("nSolutions=" + str(paramDict['timeLevels']) + "\n")
+
+    for i in range(nmin, nmax):  # nmax means the loop goes to nmax-1
+        if paramDict['singleAngle'] >= 0.0:
+            angle = paramDict['singleAngle']
+        else:
+            angle = start + i * paramDict['deltaAngle']
+
+        shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
+
+        with open("_data/Extrud3D.dat", "a") as f:
+            f.write("Angle=" + str(angle) + "\n")
+
+        if sys.platform == "win32":
+            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
+        else:
+            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
+            subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)],shell=True)
+
+        iangle = int(angle)
+        if not paramDict['singleAngle'] >= 0.0:
+            if os.path.exists(Path("_data/prot.txt")):
+                shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
+
+#===============================================================================
+#                The simulatio loop for velocity calculation
+#===============================================================================
+def cleanWorkingDir(workingDir):
+    if not sys.platform == "win32":
+        offList = list(workingDir.glob('*.off')) + list(workingDir.glob('*.OFF'))
+    else: 
+        offList = list(workingDir.glob('*.off'))
+
+    for item in offList:
+        os.remove(str(item))
+
+#===============================================================================
+#                The simulatio loop for velocity calculation
+#===============================================================================
+def simLoopTemperatureCombined(workingDir):
+
+    maxIterations = 2
+    for iter in range(maxIterations):
+        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
+        backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_%01d.dat" % iter)
+        veloDestFile = Path("_data") / Path("q2p1_param.dat")
+        temperatureDestFile = Path("_data") / Path("q2p1_paramT.dat")
+        print("Copying: ", backupVeloFile, veloDestFile)
+        print("Copying: ", backupTemperatureFile, temperatureDestFile)
+        shutil.copyfile(str(backupVeloFile), str(veloDestFile))
+        shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
+        simLoopVelocity(workingDir)
+        print("temperature simulation")
+        dirName = Path("_prot%01d" % iter)
+        mkdir(dirName)
+        protList = list(Path("_data").glob('prot*'))
+        print(protList)
+        for item in protList:
+            shutil.copy(str(item), dirName)
+            os.remove(item)
+
+    backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % maxIterations)
+    veloDestFile = Path("_data") / Path("q2p1_param.dat")
+    print("Copying: ", backupVeloFile, veloDestFile)
+    shutil.copyfile(str(backupVeloFile), str(veloDestFile))
+    simLoopVelocity(workingDir)
+
+#===============================================================================
 #                        Main Script Function
 #===============================================================================
 def main():
@@ -88,43 +244,13 @@ def main():
         rank-file: A rankfile as input for the mpirun command
         time: Number of time levels to complete a full 360 rotation 
     """
-    # Angular step size
-    deltaAngle = 10.0
-
-    # Single angle 
-    singleAngle = -10.0 
-
-    # Hostfile 
-    hostFile = ""
-
-    # Rankfile 
-    rankFile = ""
-
-    # timeLevels 
-    timeLevels = 0
-
-    # Periodicity 
-    periodicity = 1
-
-    # Number of processors 
-    numProcessors = 5
-
-    # The project folder
-    projectFolder = ""
-
-    skipSetup = False
-
-    skipSimulation = False
-
-    # Number of simulation for a full rotation 
-    nmax = 0
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smh',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smhov',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup',
-                                    'skip-simulation', 'help'])
+                                    'skip-simulation', 'help','do-temperature','version'])
 
     except getopt.GetoptError:
         usage()
@@ -135,44 +261,51 @@ def main():
             usage()
             sys.exit(2)
         elif opt in ('-f', '--project-folder'):
-            projectFolder = arg
+            paramDict['projectFolder'] = arg
         elif opt in ('-n', '--num-processors'):
-            numProcessors = int(arg)
+            paramDict['numProcessors'] = int(arg)
         elif opt in ('-p', '--periodicity'):
-            periodicity = int(arg)
+            paramDict['periodicity'] = int(arg)
         elif opt in ('-a', '--angle'):
-            singleAngle = float(arg)
+            paramDict['singleAngle'] = float(arg)
         elif opt in ('-d', '--delta-angle'):
-            deltaAngle = float(arg)
+            paramDict['deltaAngle'] = float(arg)
         elif opt in ('-c', '--host-conf'):
-            hostFile = arg
+            paramDict['hostFile'] = arg
         elif opt in ('-r', '--rank-file'):
-            rankFile = arg
+            paramDict['rankFile'] = arg
         elif opt in ('-t', '--time'):
-            timeLevels = int(arg)
+            paramDict['timeLevels'] = int(arg)
         elif opt in ('-s', '--skip-setup'):
-            skipSetup = True
-        elif opt in ('-m', '--skip-simulation'):
-            skipSimulation = True
+            paramDict['skipSetup'] = True
+        elif opt in ('-s', '--skip-simulation'):
+            paramDict['skipSimulation'] = True
+        elif opt in ('-o', '--do-temperature'):
+            paramDict['temperature'] = True
+        elif opt in ('-v', '--version'):
+            version()
+            sys.exit(2)
         else:
             usage()
             sys.exit(2)
 
-    if projectFolder == "":
+    if paramDict['projectFolder'] == "":
         print("Error: no project folder specified.")
         usage()
         sys.exit(2)
 
+    # Get the case/working dir paths
+    projectFolder = paramDict['projectFolder'] 
     workingDir = Path('.')
     projectPath = Path(workingDir / projectFolder)
     projectFile = Path(projectPath / 'setup.e3d')
 
-    if not skipSetup:
-        folderSetup(workingDir, projectFile, projectPath, projectFolder)
-        subprocess.call(["./s3d_mesher"])
-        partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    setupMPICommand()
 
-    if skipSimulation:
+    if not paramDict['skipSetup']:
+        simulationSetup(workingDir, projectFile, projectPath, projectFolder)
+
+    if paramDict['skipSimulation']:
         sys.exit()
 
     print("  ")
@@ -182,62 +315,20 @@ def main():
     print("  ")
     print("  ")
 
-    if not deltaAngle == 0.0 and timeLevels in (0, 1):
-        nmax = 1
-    elif not deltaAngle == 0.0:
-        nmax = int(math.ceil(360.0 / periodicity / deltaAngle))
+    if not paramDict['temperature']:
+        simLoopVelocity(workingDir)
+        cleanWorkingDir(workingDir)
     else:
-        deltaAngle = 360.0 / float(timeLevels)
-        nmax = int(math.ceil(360.0 / periodicity / deltaAngle))
-
-    if singleAngle >= 0.0:
-        nmax = 1
-
-    mpiPath = Path("mpirun")
-    if sys.platform == "win32":
-        mpiPath = Path(os.environ['MSMPI_BIN']) / Path("mpiexec.exe")
-
-    nmin = 0
-    start = 0.0
-    with open("_data/Extrud3D_0.dat", "a") as f:
-        f.write("\n[E3DSimulationSettings]\n")
-        f.write("dAlpha=" + str(deltaAngle) + "\n")
-        f.write("Periodicity=" + str(periodicity) + "\n")
-        f.write("nSolutions=" + str(timeLevels) + "\n")
-
-    for i in range(nmin, nmax):  # nmax means the loop goes to nmax-1
-        if singleAngle >= 0.0:
-            angle = singleAngle
-        else:
-            angle = start + i * deltaAngle
-
-        shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
-
-        with open("_data/Extrud3D.dat", "a") as f:
-            f.write("Angle=" + str(angle) + "\n")
-
-        if sys.platform == "win32":
-            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
-        else:
-            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)],shell=True)
-
-        iangle = int(angle)
-
-#        if not singleAngle >= 0.0:
-#            shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
-
-    if not sys.platform == "win32":
-        offList = list(workingDir.glob('*.off')) + list(workingDir.glob('*.OFF'))
-    else: 
-        offList = list(workingDir.glob('*.off'))
-
-    for item in offList:
-        os.remove(str(item))
-
+        simLoopTemperatureCombined(workingDir)
+        cleanWorkingDir(workingDir)
 
 #===============================================================================
 #                             Main Boiler Plate
 #===============================================================================
 if __name__ == "__main__":
+    with open("e3d.log", "w") as log:
+        log.write("E3D started at: " + str(datetime.datetime.now()) + "\n")
+        log.write("E3D running\n")
     main()
+    with open("e3d.log", "a") as log:
+        log.write("E3D stopped at: " + str(datetime.datetime.now()) + "\n")

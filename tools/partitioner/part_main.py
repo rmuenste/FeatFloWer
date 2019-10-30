@@ -177,5 +177,7 @@ def partition(NPart, PartMethod, NSubPart, MeshName, ProjektFile):
     # Erzeuge benötigte Verzeichnisse, falls noch nicht vorhanden
     mkdir("_mesh")
 
+    loadMetisLibrary()
+
     # Aufruf der Hauptroutine
     MainProcess(NPart,PartMethod,NSubPart,MeshName,ProjektFile)
