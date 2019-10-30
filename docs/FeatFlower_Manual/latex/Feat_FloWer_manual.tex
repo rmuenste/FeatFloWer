@@ -247,23 +247,58 @@ literate=
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Prerequisites}\label{sec:prep}
 The Feat\_FloWer software package is accessible through the version control system \textit{Git}. The main repository of the software is hosted on the servers of the TU Dortmund.
-In order to checkout a copy of the code an account that provides access to the LS3 servers is required, so it is recommended to get such an account. Furthermore, the code repository does not include the meshes used in the example applications. The meshes are stored in a different repository. So, at first we will get this repository and set up
-an environment variable so that the configuration mechanism of Feat\_FloWer can find the mesh repository. The mesh repo can be checked out by: \\
-\cmd{git clone ssh://username@lannister/home/user/git/mesh\_repo.git}\\
-If the above command does not complete successfully it is very likely that you do not yet have access rights to the git mesh repository. In this case please ask your administrator to grant you
-the required access rights.
-After you have checked out the mesh repository, it is time to set up the environment variable for Feat\_FloWer. For the \texttt{BASH} or \texttt{ZSH} shells this can be done by
-adding the following line to your \textit{.bashrc} or respectively \textit{.zsh}:\\
-\cmd{export Q2P1\_MESH\_DIR=/path/to/meshrepo/mesh\_repo}\\
+In order to checkout a copy of the code an account that provides access to the LS3 servers is required, so it is recommended to get such an account. Furthermore, the code repository does 
+not include the meshes used in the example applications. The meshes are stored in a different repository. Another prerequisite for FeatFloWer is the partitioner software. The partitioner is a tool to decompose 
+a computational mesh into a set of submeshes. In a parallel computation each of the MPI processes gets assigned a mesh on which a solution will be computed. In this document we will describe how to build or install 
+the following prerequisites:
+  \begin{itemize}
+    \item The mesh repository
+    \item The partitioner tool
+  \end{itemize}
+To get started with this task we will check out the FeatFloWer code from the repository in the next section.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Checking out the Code from the Repository}\label{bar}
- When you have acquired an appropriate account you can clone the Feat\_FloWer repository by opening a terminal and entering the following sequence of commands:\\
+The code from the FeatFloWer repository contains the source code of the partitioner tool, so we need it to build the partitioner. We recommend that you to set up a new folder for your FeatFloWer installation. 
+Create a new folder for your FeatFloWer installation at your chosen location and change to this folder by the following command:
 \cmd{mkdir FeatFlower \&\& cd FeatFlower}\\
-\cmd{git clone {-{}-}recursive ssh://username@lannister/home/user/git/Feat\_FloWer.git}\\
-This will create a parent folder called FeatFlower and within this folder the source code will be contained. This is a preparation for building the code from source. The Feat\_Flower code supports only out-of-source builds, meaning the binary files are not built in the same directory as the source code. This is done in order to prevent that binary files or object files litter the source directory or that these files show up in the version control system.
+%\cmd{mkdir FeatFlower \&\& cd FeatFlower}\\
+When you have acquired an appropriate account you can clone the FeatFloWer repository by following command:\\
+\cmd{git clone {-{}-}recursive ssh://username@server/home/user/git/Feat\_FloWer.git}\\
+This will create a parent folder called FeatFlower and within this folder the source code will be contained. This is a preparation for building the code from source. The FeatFlower code supports only 
+out-of-source builds, meaning the binary files are not built in the same directory as the source code. This is done in order to prevent that binary files or object files clutter the source directory or that 
+these files show up in the version control system. You should now have a directory structure that looks like in fig. \ref{fig:folder1}:
+\begin{figure}[hb]
+  \begin{center}
+    \includegraphics[width=10.0cm]{folder1.png}
+  \end{center}
+  \caption{Directory structure after cloning the source repository}
+  \label{fig:folder1}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Checking out Mesh Repository}\label{mesh-repo}
+As we said, the meshes are stored in a separate git repository that can be cloned by the following command: \\
+\cmd{git clone ssh://username@server/home/user/git/mesh\_repo.git}\\
+If the above command does not complete successfully it is very likely that you do not yet have access rights to the git mesh repository. In this case please ask your administrator to grant you
+the required access rights. Your folder structure should look in fig. \ref{fig:folder2} after cloning the mesh repository:
+\begin{figure}[hb]
+  \begin{center}
+    \includegraphics[width=10.0cm]{folder2.png}
+  \end{center}
+  \caption{Directory structure after cloning the mesh repository}
+  \label{fig:folder2}
+\end{figure}
 
+\FloatBarrier
+After you have checked out the mesh repository, it is time to set up an environment variable for the mesh directory. The environment variable is used during the installation of FeatFloWer, so that the mesh 
+repository can be found. For the \texttt{BASH} or \texttt{ZSH} shells this can be done by adding the following line to your \textit{.bashrc} or respectively \textit{.zsh}:\\
+\cmd{export Q2P1\_MESH\_DIR=/path/to/meshrepo/mesh\_repo}\\
+If you are unsure how to set environment variables please learn how to set up and use environment variables in the terminal environment that you are using. Examples of shell configuration files can be found in 
+section \ref{sec:shell-customization}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Building the Code from Source}\label{baz}
-The Feat\_FloWer code can be build on Linux and Windows operating systems (and probably on MacOS, but this is not tested yet). On Linux systems an installation of the GNU compiler is needed, including the gfortran compiler and the matching OpenMPI libraries. The minimum requirement for the GCC is version 4.9.2. On Linux systems the Intel compiler can be used as an alternative compiler. On Windows systems the Intel compiler is a necessary requirement.
+The FeatFloWer code can be build on Linux and Windows operating systems (and probably on MacOS, but this is not tested yet). On Linux systems an installation of the GNU compiler is needed, including the gfortran compiler and the matching OpenMPI libraries. The minimum requirement for the GCC is version 4.9.2. On Linux systems the Intel compiler can be used as an alternative compiler. On Windows systems the Intel compiler is a necessary requirement.
 For Linux and derivates we recommended setting a number of environment variables and adding some customization to your shell configuration files in order to work more efficiently within the FeatFloWer framework. See section \ref{section:appendix} for more details.
 
 \subsection{Linux Systems}
@@ -276,14 +311,14 @@ is the multi-platform build files generator CMake. On the servers of the TU Dort
 	\item A matching OpenMPI installation
 	\item CMake with a minimum version of 2.8
 \end{itemize}
-On the servers of the TU Dortmund load for example the following modules or newer versions of them:
+On the servers of the TU Dortmund you need modules for the following software:
 \begin{itemize}
-  \item \cmd{module load gcc/6.1.0}
-  \item \cmd{module load openmpi/gcc6.1.x/1.10.2/non-threaded/no-cuda/ethernet}
-  \item \cmd{module load cmake/3.5.2-ssl}	
+  \item A module for a gcc version (> 4.9.2)
+  \item A module for openmpi (> 2.1.5)
+  \item A module for cmake (> 2.8).	
 \end{itemize}
-
-In order for CMake to use the compiler that has been added by the module system it is recommended to set the environment variables \texttt{CC}, \texttt{CXX}, \texttt{FC} accordingly. In detail this
+The modules on the TU Dortmund Servers are regularly updated and do undergo frequent name changes, so we do not reference specific module names here. If in doubt, ask a more experienced colleague or the 
+administrator. In order for CMake to use the compiler that has been added by the module system it is recommended to set the environment variables \texttt{CC}, \texttt{CXX}, \texttt{FC} accordingly. In detail this
 this means executing the commands (for \texttt{BASH} or \texttt{ZSH} shells):
 
 \begin{itemize}
@@ -306,6 +341,16 @@ The build process is then started by the command:\\
 The option <-j 5> starts a parallel build using 5 processes.
 \subsection{Windows Systems}
 Under construction
+\subsection{Installation of the Partitioner}
+By installing the partitioner we mean that it is configured in a way that you can simply call it in a terminal, just as you would with any other terminal command. In order to do this, we set environment variables to 
+the location of the necessary files in the FeatFloWer source tree, so they get updated when you fetch and apply new commits from the Git repository. The required environment variables for this to work are:
+\begin{itemize}
+  \item \textbf{FF\_HOME}: Source directory of your FeatFloWer installation
+  \item \textbf{FF\_PY\_HOME}: Source directory of the python files of your FeatFloWer installation
+  \item \textbf{PATH}: Append the path to the python files to your PATH variable
+  \item \textbf{LD\_LIBRARY\_PATH}: Append the path to the Metis library to your LD\_LIBRARY\_PATH variable
+\end{itemize}
+Instructions and examples of how to set these variables in your shell configuration can be found in Section \ref{section:appendix}.
 
 \subsection{Using CMake-gui to build the Code}
 The CMake build framework that is used to build the FeatFloWer software package comes with a GUI component. We will explain in this section how to use the GUI to build CMake from source.
@@ -313,8 +358,7 @@ The CMake build framework that is used to build the FeatFloWer software package 
   \begin{center}
     \includegraphics[width=14.5cm]{cmake-gui.png}
   \end{center}
-  \caption{The CMake configuration GUI}
-  \label{fig:cmake-gui}
+  \caption{The CMake configuration GUI \label{fig:cmake-gui}}
 \end{figure}
 The main view of the CMake-gui shows you an overview of the CMake variables and their current values. Once you hit the configure button various tests are run that check for the availability of required libraries the results
 of these checks are printed to the output window of the CMake GUI. If a problem occurs with the current configuration an error message is printed to the output view and usually it is descriptive enough in order to 
@@ -356,17 +400,6 @@ We can now invoke the PyPartitioner by typing:\\
 which will take the mesh referenced in the project file \textit{\_adc/2D\_FAC/2Dbench.prj} and decompose the domain into 4 partitions which are then stored in the \textit{NEWFAC} directory. 
 The additional 1 1 parameters denote the type of the partitioning method. You have now created a set of partitioned mesh files that are located in the NEWFAC directory that can by used in 
 a simulation with 4+1 processes. The syntax 4+1 refers to a setup with 1 master node and 4 slave nodes. You are now ready to run the application.
-\subsubsection{Setting Environment Variables for the Python Partitioner}
-Copying the Python files in the working directory of the application is not the most efficient workflow and as an additional downside you would have to repeat this process everytime an
-important update to the Python partitioner is done. So it is recommended to set environment variables to the location of the Python files in the FeatFloWer source tree, so they get updated
-when you fetch and apply new commits from the Git repository. The required environment variables for this to work are called:
-\begin{itemize}
-  \item \textbf{FF\_HOME}: Source directory of your FeatFloWer installation
-  \item \textbf{FF\_PY\_HOME}: Source directory of the python files of your FeatFloWer installation
-  \item \textbf{PATH}: Append the path to the python files to your PATH variable
-  \item \textbf{LD\_LIBRARY\_PATH}: Append the path to the Metis library to your LD\_LIBRARY\_PATH variable
-\end{itemize}
-Instructions and examples of how to set these variables in your shell configuration can be found in Section \ref{section:appendix}.
 \subsection{Running the Application}
 As we said before, the simulation requires a master node to control some the slave processes, so the simulation should be launched with 4+1 processes by:\\
 \cmd{mpirun -np 5 ./q2p1\_fc\_ext}\\
