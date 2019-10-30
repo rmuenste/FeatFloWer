@@ -696,7 +696,6 @@ SUBROUTINE General_init(MDATA,MFILE)
     end if
 
     IF (iCurrentStatus.EQ.0) THEN
-      IF (myid.eq.showid) WRITE(*,*) " adasdasdsad", VersionString
       IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101) ApplicationString,VersionString
       IF (myid.eq.showid) WRITE(UNIT=mfile,FMT=101) ApplicationString,VersionString
     END IF
