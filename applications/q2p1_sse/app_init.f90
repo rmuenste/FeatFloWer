@@ -14,7 +14,8 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl
+  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
+      ApplicationString
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess
   USE iniparser, ONLY : inip_output_init
@@ -23,7 +24,11 @@ subroutine init_q2p1_ext(log_unit)
   integer, intent(in) :: log_unit
 
   !-------INIT PHASE-------
-
+  ApplicationString = &
+"  |                                                          SSE-FluidDynmaics module                |"
+!  |                                                          SSE-FluidDynmaics module                |
+  
+  
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 

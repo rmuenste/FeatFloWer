@@ -386,7 +386,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
       ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
-      SSE_HAS_ANGLE, extruder_angle
+      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -696,8 +696,9 @@ SUBROUTINE General_init(MDATA,MFILE)
     end if
 
     IF (iCurrentStatus.EQ.0) THEN
-      IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101)
-      IF (myid.eq.showid) WRITE(UNIT=mfile,FMT=101)
+      IF (myid.eq.showid) WRITE(*,*) " adasdasdsad", VersionString
+      IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101) ApplicationString,VersionString
+      IF (myid.eq.showid) WRITE(UNIT=mfile,FMT=101) ApplicationString,VersionString
     END IF
 
     ! Printout of all loaded parameters
@@ -876,6 +877,8 @@ SUBROUTINE General_init(MDATA,MFILE)
     101 FORMAT(/2X,100('=')/&
       2X,"|",10X,"                                                                                        |"/&
       2X,"|",10X,"Parellel Q2/P1 FEM Fluid Dynamics code          FeatFloWer                              |"/&
+      A104,/&
+      A104,/&
       2X,"|",10X,"                                                                                        |"/&
       2X,"|",10X,"Developed by:                                   Otto Mierka, Raphael Münster            |"/&
       2X,"|",10X,"under the supervision of:                       Stefan Turek and Dmitri Kuzmin          |"/&

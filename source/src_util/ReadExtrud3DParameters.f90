@@ -74,6 +74,16 @@
     IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
      WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
     END IF
+    
+!     WRITE(*,*) "asdsadsa sad sa dsad as as :",ADJUSTL(TRIM(mySigma%cType))
+    
+    IF (SoftwareRelease.ne."XSE") THEN
+    IF (SoftwareRelease.NE.ADJUSTL(TRIM(mySigma%cType))) THEN
+     WRITE(*,*) "No Valid '"//SoftwareRelease//"' setup!"
+     WRITE(*,*) "Program stops!"
+     STOP
+    END IF
+    END IF
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
     mySigma%Dz_out = dSizeScale*mySigma%Dz_out
@@ -188,7 +198,7 @@
       mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
-      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t
+      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
 
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
@@ -236,6 +246,7 @@
       mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
       
       call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
       
@@ -280,6 +291,7 @@
       mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
       
       call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
       
@@ -321,6 +333,7 @@
       mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
+      mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
       
       call INIP_getvalue_int(parameterlist,cElement_i,"KneadingDiscs", mySigma%mySegment(iSeg)%N,-1)
       
@@ -354,7 +367,7 @@
       mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
-      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t
+      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
       mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
@@ -391,7 +404,7 @@
       mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L
+      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
       
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
      
@@ -431,7 +444,7 @@
       mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L
+      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
 
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + &
       2d0*mySigma%mySegment(iSeg)%ZME_N * (mySigma%mySegment(iSeg)%ZME_DiscThick + mySigma%mySegment(iSeg)%ZME_gap_SS)

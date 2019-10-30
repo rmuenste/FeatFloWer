@@ -14,7 +14,7 @@ subroutine init_q2p1_ext(log_unit)
     LinSc_InitCond_XSE,Boundary_LinSc_Val_XSE,Tracer
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh, myVelo,Screw,Shell,Shearrate,&
-      Viscosity,Temperature,myExport
+      Viscosity,Temperature,myExport,ApplicationString
 !   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
 !       ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
 !       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
@@ -26,6 +26,8 @@ subroutine init_q2p1_ext(log_unit)
   real*8 dTimeStep,dPeriod
 
   !-------INIT PHASE-------
+  ApplicationString = &
+"  |                                                          SSE-Temperature module                  |"
 
   ! Initialization for FEATFLOW
   CALL General_init_ext(79,log_unit)
