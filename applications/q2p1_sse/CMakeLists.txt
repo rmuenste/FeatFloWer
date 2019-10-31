@@ -132,11 +132,6 @@ install(TARGETS q2p1_sse
     ARCHIVE DESTINATION lib
     )
 
-install(FILES q2p1_sse_start.py DESTINATION bin)
-
-install(FILES partitioner DESTINATION bin
-    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
-
 set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
 
 FOREACH(dir ${DEF_DIRS})

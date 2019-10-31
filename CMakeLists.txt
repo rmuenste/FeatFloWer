@@ -362,62 +362,62 @@ endif(USE_OPTICALTWEEZERS)
 #=========================================================================
 # Add the cgal library
 #=========================================================================
-set(CGAL_LIBRARIES 
-  ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-  ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-  )
-
-set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
-if(USE_CGAL)
-  set(USE_BOOST True)
-  if(NOT WIN32)
-        ExternalProject_Add(CGAL_PRJ
-          GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-          GIT_TAG rafa-devel
-          SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-          PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-          #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-          CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
-          )
-
-    if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
-      set(CGAL_LIBRARIES 
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
-        )
-    elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
-      set(CGAL_LIBRARIES 
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-        )
-      message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
-    else()
-      set(CGAL_LIBRARIES 
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-        )
-    endif()
-
-  else(NOT WIN32)
-    find_package(CGAL REQUIRED COMPONENTS Core)
-    if(${CGAL_FOUND})
-      find_package(GMP)
-      find_package(MPFR)
-
-      if(NOT ${GMP_FOUND})
-        message(WARNING "GMP library not found. Cannot build cgal applications.")
-      endif()
-
-      if(NOT ${MPFR_FOUND})
-        message(WARNING "MPFR library not found. Cannot build cgal applications.")
-      endif()
-
-    endif()	
-    message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
-    message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
-    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-  endif(NOT WIN32)
-endif(USE_CGAL)
+	set(CGAL_LIBRARIES 
+	  ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+	  ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+	  )
+	
+	set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
+	if(USE_CGAL)
+	  set(USE_BOOST True)
+	  if(NOT WIN32)
+	        ExternalProject_Add(CGAL_PRJ
+	          GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+	          GIT_TAG rafa-devel
+	          SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
+	          PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
+	          #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
+	          CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
+	          )
+	
+	    if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
+	      set(CGAL_LIBRARIES 
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
+	        )
+	    elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
+	      set(CGAL_LIBRARIES 
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+	        )
+	      message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
+	    else()
+	      set(CGAL_LIBRARIES 
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
+	        ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
+	        )
+	    endif()
+	
+	  else(NOT WIN32)
+	    find_package(CGAL REQUIRED COMPONENTS Core)
+	    if(${CGAL_FOUND})
+	      find_package(GMP)
+	      find_package(MPFR)
+	
+	      if(NOT ${GMP_FOUND})
+	        message(WARNING "GMP library not found. Cannot build cgal applications.")
+	      endif()
+	
+	      if(NOT ${MPFR_FOUND})
+	        message(WARNING "MPFR library not found. Cannot build cgal applications.")
+	      endif()
+	
+	    endif()	
+	    message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
+	    message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
+	    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+	  endif(NOT WIN32)
+	endif(USE_CGAL)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
   FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
@@ -548,7 +548,7 @@ ENDIF(BUILD_APPLICATIONS)
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
-#install(DIRECTORY tools/partitioner DESTINATION bin)
+install(DIRECTORY tools/partitioner DESTINATION bin)
 file(GLOB E3D_SCRIPTS "tools/e3d_scripts/e3d_start.py")
 install(FILES ${E3D_SCRIPTS} DESTINATION bin
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
