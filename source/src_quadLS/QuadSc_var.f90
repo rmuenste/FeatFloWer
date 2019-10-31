@@ -20,7 +20,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
 CHARACTER*200 :: ApplicationString
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:1.001  Date:2019.10.29          |"
+"  |                                                          Version:19.11  Date:2019.10.29          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
