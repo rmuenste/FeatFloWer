@@ -283,7 +283,7 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
   assert Method<0, "Only Methods <0 are valid!"
   tmp=str(-Method)
   assert tmp.strip("123")=="", "Only 1, 2, or 3 are valid axis!"
-  Axis=map(lambda char: char in tmp,"123")
+  Axis=list(map(lambda char: char in tmp,"123"))
   NumAxis=sum(Axis)
   nSub=2**NumAxis
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
