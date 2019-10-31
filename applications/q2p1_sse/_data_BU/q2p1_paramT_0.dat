@@ -1,63 +1,25 @@
 ----------- Simulation Parameters --------------
 SimPar@MeshFolder = "NEWFAC"
-SimPar@SubMeshNumber = 1                                               ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
+SimPar@SubMeshNumber = 1                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
 SimPar@ParticleFile = "_data/particles.dat"
 SimPar@ProjectFile = "_data/meshDir/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
-SimPar@StartFile = "_dump/01"
+SimPar@StartFile = 0
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 3
-SimPar@TimeScheme = CN                                                  ! CN,BE,FE
-SimPar@TimeStep = 5.0d-3
-SimPar@TimeAdaptivity = No                                              ! Yes
-SimPar@MinTimeAdapt = 0.0000010d0
-SimPar@MaxTimeAdapt = 0.050d0
-SimPar@StartSimTime = 0d0
-SimPar@MaxSimTime = 4.80001d-1
+SimPar@MatrixRenewal = M1D1K3S0C1
 SimPar@MaxNumStep = 20
-SimPar@BackUpFreq = 1
-SimPar@BackUpNum = 4
-SimPar@NoOutflow = No                                                    ! Yes
-SimPar@Umbrella = 64	
-SimPar@OutputFreq = 4d-4
-SimPar@MatrixRenewal = M1D3K0S0C1
-SimPar@FlowType = nonNewtonian                                              ! Newtonian (anything else leads to non-newtonian ... )
-SimPar@Tracer = No                                                      ! Yes
-SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Temperature,NormShearRate,Velocity,Mixer"
-PossibleOutputFields = Temperature
+SimPar@OutputFields = " "
+SimPar@CGALtoRealFactor = 1d0
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! To Delete Later  !!!!!!!!!!!!!!!!!!!!!!!!!!!
+SimPar@OutputFields = "Velocity,Temperature,Screw,Viscosity,NormShearRate"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
-SimPar@OutputLevel = MAX+1                                           ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
------------------ Velocity 5--------------------
-Velo@defCrit =1d-3
-Velo@epsCrit =1d-3
-Velo@MinDef  =1d-3
-Velo@NLmin = 2
-Velo@NLmax = 4
-Velo@Alpha = 1d0
+SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+----------------- Velocity --------------------
 Velo@MGMinLev = 1
 Velo@MGMedLev = 1
-Velo@MGMinIterCyc = 1
-Velo@MGMaxIterCyc = 2
-Velo@MGSmoothSteps = 1
-Velo@MGIterCoarse = 10
-Velo@MGDefImprCoarse = 0.9d-1
-Velo@MGCriterion1 = 0.9d-1
-Velo@MGCriterion2 = 0.9d-1
-Velo@MGCycType = V
-Velo@MGRelaxPrm = 0.75d0
 ----------------- Pressure ---------------------
 Pres@MGMinLev = 1
 Pres@MGMedLev = 1
-Pres@MGMinIterCyc = 1
-Pres@MGMaxIterCyc = 2
-Pres@MGSmoothSteps = 64
-Pres@MGIterCoarse = 799
-Pres@MGDefImprCoarse = 1d-3
-Pres@MGCriterion1 = 1d-3
-Pres@MGCriterion2 = 1d-4
-Pres@MGCycType = F
-Pres@MGCrsSolverType = 4
-

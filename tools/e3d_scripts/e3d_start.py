@@ -201,7 +201,9 @@ def cleanWorkingDir(workingDir):
 #                The simulatio loop for velocity calculation
 #===============================================================================
 def simLoopTemperatureCombined(workingDir):
-
+ 
+    numProcessors = paramDict['numProcessors']
+    mpiPath = paramDict['mpiCmd']
     maxIterations = 2
     for iter in range(maxIterations):
         backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
@@ -214,6 +216,13 @@ def simLoopTemperatureCombined(workingDir):
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
         simLoopVelocity(workingDir)
         print("temperature simulation")
+
+        if sys.platform == "win32":
+            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
+        else:
+            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
+            subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
+        
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
         protList = list(Path("_data").glob('prot*'))

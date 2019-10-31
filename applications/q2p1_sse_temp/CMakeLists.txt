@@ -52,3 +52,12 @@ IF(${OUT_OF_SOURCE_BUILD})
 ENDIF()
 
 file(COPY q2p1_sse_temp.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+install(TARGETS q2p1_sse_temp
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
