@@ -26,7 +26,7 @@ paramDict = {
     "singleAngle": -10.0, # Single angle to compute 
     "hostFile" : "", # Hostfile
     "rankFile" : "" , # Rankfile 
-    "timeLevels" : 0, # timeLevels
+    "timeLevels" : 36, # timeLevels
     "periodicity" : 1, # Periodicity 
     "numProcessors" : 5, # Number of processors 
     "projectFolder" : "", # The project folder
@@ -133,6 +133,8 @@ def calcMaxSimIterations():
 
     if paramDict['singleAngle'] >= 0.0:
         nmax = 1
+    
+    print("nmax: ",nmax)
 
     return nmax
 
@@ -202,6 +204,8 @@ def cleanWorkingDir(workingDir):
 #===============================================================================
 def simLoopTemperatureCombined(workingDir):
  
+    print("Temperature simulation is activated!")
+    
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
     maxIterations = 2
