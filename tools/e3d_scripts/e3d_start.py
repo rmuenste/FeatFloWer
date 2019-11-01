@@ -289,6 +289,7 @@ def main():
             paramDict['rankFile'] = arg
         elif opt in ('-t', '--time'):
             paramDict['timeLevels'] = int(arg)
+            paramDict['deltaAngle'] = 0
         elif opt in ('-s', '--skip-setup'):
             paramDict['skipSetup'] = True
         elif opt in ('-s', '--skip-simulation'):
