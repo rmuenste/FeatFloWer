@@ -73,9 +73,15 @@ if(MODULE_COMMAND)
   addCompilerInfo("q2p1_sse")
 endif(MODULE_COMMAND)
 
-target_link_libraries(q2p1_sse 
-  ${FF_APPLICATION_LIBS}
-  )
+if(Q1P1_SSE_LINK_STATIC_FORTRAN)
+  target_link_libraries(q2p1_sse 
+    ${FF_APPLICATION_LIBS} -static-libgfortran
+    )
+else(Q1P1_SSE_LINK_STATIC_FORTRAN)
+  target_link_libraries(q2p1_sse 
+    ${FF_APPLICATION_LIBS}
+    )
+endif(Q1P1_SSE_LINK_STATIC_FORTRAN)
 
 target_include_directories(q2p1_sse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 

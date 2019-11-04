@@ -40,8 +40,6 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-addCompilerInfo("q2p1_fc_ext")
-
 # Target related settings
 target_link_libraries(q2p1_fc_ext 
   ${FF_APPLICATION_LIBS}

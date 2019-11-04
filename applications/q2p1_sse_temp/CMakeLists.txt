@@ -36,9 +36,15 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-target_link_libraries(q2p1_sse_temp 
-  ${FF_APPLICATION_LIBS}
-  )
+if(Q1P1_SSE_LINK_STATIC_FORTRAN)
+  target_link_libraries(q2p1_sse_temp 
+    ${FF_APPLICATION_LIBS} -static-libgfortran
+    )
+else(Q1P1_SSE_LINK_STATIC_FORTRAN)
+  target_link_libraries(q2p1_sse_temp 
+    ${FF_APPLICATION_LIBS}
+    )
+endif(Q1P1_SSE_LINK_STATIC_FORTRAN)
 
 target_include_directories(q2p1_sse_temp PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 

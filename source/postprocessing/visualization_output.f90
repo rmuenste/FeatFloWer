@@ -1812,9 +1812,7 @@ integer :: ioutput_lvl
 
  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
 
- iangle = int(extruder_angle)
-
- call c_write_json_output(iangle) 
+ call c_write_json_output(iOutput) 
 
 end subroutine viz_output_1D_fields
 

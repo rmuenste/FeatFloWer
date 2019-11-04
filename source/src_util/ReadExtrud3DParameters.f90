@@ -953,6 +953,8 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","Angle",myProcess%Angle,myInf)
     if (SSE_HAS_ANGLE)then
       myProcess%Angle = extruder_angle
+    else 
+      extruder_angle = myProcess%Angle
     end if
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
