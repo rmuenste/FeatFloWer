@@ -115,8 +115,18 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
     subprocess.call(["./s3d_mesher"])
+    
+    if not Path("_data/meshDir").exists():    
+      meshDirPath = projectPath / Path("meshDir")
+      if meshDirPath.exists():
+         print('Copying meshDir from Project Folder!')
+         shutil.copytree(str(meshDirPath), "_data/meshDir")
+      else:
+         print("Error: No mesh automatically generated and no <meshDir> " + 
+               "folder present the case folder " + str(projectPath))
+         sys.exit(2)    
+    
     partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
-
 #===============================================================================
 #                Compute maximum number of simulation iterations
 #===============================================================================
