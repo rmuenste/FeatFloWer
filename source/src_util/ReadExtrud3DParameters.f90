@@ -1178,7 +1178,7 @@
      write(*,*) "myRheology%TempModel",'=','C1C2'
      write(*,*) "myRheology%C1",'=',myRheology%C1
      write(*,*) "myRheology%C2",'=',myRheology%C2
-     write(*,*) "myRheology%Ts",'=',myRheology%Ts
+     write(*,*) "myRheology%Tb",'=',myRheology%Tb
     END IF
     IF (myRheology%AtFunc.eq.3) THEN
      write(*,*) "myRheology%TempModel",'=','TBTS'

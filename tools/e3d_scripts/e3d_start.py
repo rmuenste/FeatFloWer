@@ -193,9 +193,8 @@ def simLoopVelocity(workingDir):
             subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)],shell=True)
 
         iangle = int(angle)
-        if not paramDict['singleAngle'] >= 0.0:
-            if os.path.exists(Path("_data/prot.txt")):
-                shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
+        if os.path.exists(Path("_data/prot.txt")):
+            shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
