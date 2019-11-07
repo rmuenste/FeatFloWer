@@ -1,8 +1,10 @@
 subroutine init_particle_tracer(log_unit)
-    
+  USE var_QuadScalar, ONLY : ApplicationString
 
   integer, intent(in) :: log_unit
 
+  ApplicationString = &
+"  |                                                          SSE-FluidDynmaics module                |"
 
 end subroutine init_particle_tracer
 
