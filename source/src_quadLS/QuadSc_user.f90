@@ -561,6 +561,21 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!! INNOSPIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (iT.EQ.222) THEN
+ ValW=-1d0
+END IF
+
+IF (iT.EQ.223) THEN
+ ValW=RotParabolicVelo2Dz(0.0d0,0.0d0,-1d0,1d0,0.55d0)
+END IF
+
+IF (iT.EQ.224) THEN
+ ValW=RotParabolicVelo2Dz(1.0d0,0.0d0,-1d0,1d0,0.25d0)
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!! INNOSPIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 ! PP-Weber
 IF (iT.EQ.91) THEN
   ValV=RotParabolicVelo2Dy(+0.0d0,+35.2d0,-100d0,1d0,0.5d0)
