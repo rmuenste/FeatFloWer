@@ -203,8 +203,8 @@ endif(USE_OPTICALTWEEZERS)
 #=========================================================================
 if(USE_CGAL)
 
-  set(USE_BOOST True)
   if(NOT USE_CGAL_LOCAL)
+    set(USE_BOOST True)
     set(CGAL_LIBRARIES 
       ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
       ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
