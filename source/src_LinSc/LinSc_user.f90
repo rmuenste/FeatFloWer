@@ -113,9 +113,9 @@ INTEGER i
 
 DO i=1,Tracer%ndof
 
- X = mg_mesh%level(ilev)%dcorvg(1,i)
- Y = mg_mesh%level(ilev)%dcorvg(2,i)
- Z = mg_mesh%level(ilev)%dcorvg(3,i)
+ X = mg_mesh%level(nlmax)%dcorvg(1,i)
+ Y = mg_mesh%level(nlmax)%dcorvg(2,i)
+ Z = mg_mesh%level(nlmax)%dcorvg(3,i)
  
  IF (Tracer%knpr(i).eq.1) THEN
   Tracer%val(NLMAX)%x(i)= myProcess%T0

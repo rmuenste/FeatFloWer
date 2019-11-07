@@ -458,7 +458,7 @@ INTEGER KLD(*),KNPR(*),ICOL,I
 
 DO I=1,Tracer%ndof
  IF (KNPR(I).ne.0) THEN
-   VA(KLD(I))=1E0
+   VA(KLD(I))=1E-16
    DO ICOL=KLD(I)+1,KLD(I+1)-1
     VA(ICOL)=0E0
    END DO

@@ -18,7 +18,9 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
-CHARACTER*200 :: ApplicationString
+CHARACTER*200 :: ApplicationString=&
+"  |                                                                                                  |"
+
 CHARACTER*200 :: VersionString=&
 "  |                                                          Version:19.11  Date:2019.10.29          |"
 
