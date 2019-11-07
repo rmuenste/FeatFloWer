@@ -1843,17 +1843,25 @@ END SUBROUTINE  GetNonNewtViscosity
 !
 SUBROUTINE ExtractElemSizeDistribution()
 real*8 x(8),y(8),z(8),dVol
-real*8, allocatable :: daux(:)
-integer iel,i
+real*8, allocatable :: daux(:),daux2(:)
+integer iel,i,nQ2_dof
+
+if (myid.ne.0) then
 
  ILEV = NLMAX
  CALL SETLEV(2)
  
+ nQ2_dof = mg_mesh%level(ilev)%nvt + &
+           mg_mesh%level(ilev)%net + &
+           mg_mesh%level(ilev)%nat + &
+           mg_mesh%level(ilev)%nel 
+           
+ allocate(daux(nQ2_dof))
+ allocate(daux2(nQ2_dof))
  IF (.not.allocated(ElemSizeDist)) allocate(ElemSizeDist(mg_mesh%level(ilev)%nvt))
- allocate(daux(mg_mesh%level(ilev)%nvt))
  
- ElemSizeDist = 0d0
- daux         = 0d0
+ daux2 = 0d0
+ daux  = 0d0
  
  do iel=1,mg_mesh%level(ilev)%nel
   
@@ -1862,28 +1870,22 @@ integer iel,i
   z(:) = mg_mesh%level(ilev)%dcorvg(3,mg_mesh%level(ilev)%kvert(:,iel))
   CALL GetElemVol(x,y,z,dVol)
 
-  ElemSizeDist(mg_mesh%level(ilev)%kvert(:,iel)) = ElemSizeDist(mg_mesh%level(ilev)%kvert(:,iel)) + 0.125d0*(dVol**0.333d0)
-  daux(mg_mesh%level(ilev)%kvert(:,iel))         = daux(mg_mesh%level(ilev)%kvert(:,iel)) + 0.125d0
+  daux2(mg_mesh%level(ilev)%kvert(:,iel)) = daux2(mg_mesh%level(ilev)%kvert(:,iel)) + 0.125d0*(dVol**0.333d0)
+  daux(mg_mesh%level(ilev)%kvert(:,iel))  = daux(mg_mesh%level(ilev)%kvert(:,iel)) + 0.125d0
  
  end do
   
- if (myid.ne.0) then
-  ILEV = NLMAX-1
-  CALL SETLEV(2)
-
-  CALL E013Sum(ElemSizeDist)
-  CALL E013Sum(daux)
-
-  ILEV = NLMAX
-  CALL SETLEV(2)
- end if
+ CALL E013Sum(daux2)
+ CALL E013Sum(daux)
 
  do i=1,mg_mesh%level(ilev)%nvt
-  ElemSizeDist(i) = ElemSizeDist(i)/daux(i)
+  ElemSizeDist(i) = daux2(i)/daux(i)
  end do
   
- deallocate(daux)
+ deallocate(daux,daux2)
 
+end if
+ 
 END SUBROUTINE ExtractElemSizeDistribution
 !
 ! ----------------------------------------------
