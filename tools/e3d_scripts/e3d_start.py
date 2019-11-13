@@ -32,6 +32,8 @@ paramDict = {
     "projectFolder" : "", # The project folder
     "skipSetup" :  False,
     "skipSimulation" : False,
+    "hasDeltaAngle": False,
+    "hasTimeLevels": False,
     "temperature" : False
 }
 #===============================================================================
@@ -133,10 +135,11 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
 def calcMaxSimIterations():
     nmax = 0
 
-    if not paramDict['deltaAngle'] == 0.0 and paramDict['timeLevels'] in (0, 1):
+    if paramDict['hasDeltaAngle']:
+        paramDict['timeLevels'] = 360.0 / paramDict['deltaAngle'] 
+
+    if paramDict['timeLevels'] == 1:
         nmax = 1
-    elif not paramDict['deltaAngle'] == 0.0:
-        nmax = int(math.ceil(360.0 / paramDict['periodicity'] / paramDict['deltaAngle']))
     else:
         paramDict['deltaAngle'] = 360.0 / float(paramDict['timeLevels'])
         nmax = int(math.ceil(360.0 / paramDict['periodicity'] / paramDict['deltaAngle']))
@@ -190,7 +193,7 @@ def simLoopVelocity(workingDir):
             subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)],shell=True)
+            subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
@@ -292,13 +295,20 @@ def main():
             paramDict['singleAngle'] = float(arg)
         elif opt in ('-d', '--delta-angle'):
             paramDict['deltaAngle'] = float(arg)
+            paramDict['hasDeltaAngle'] = True 
+            if paramDict['deltaAngle'] <= 0.0:
+                print("Parameter deltaAngle is set to a number <= 0 which is invalid. Please enter a number > 0")
+                sys.exit(2)
         elif opt in ('-c', '--host-conf'):
             paramDict['hostFile'] = arg
         elif opt in ('-r', '--rank-file'):
             paramDict['rankFile'] = arg
         elif opt in ('-t', '--time'):
             paramDict['timeLevels'] = int(arg)
-            paramDict['deltaAngle'] = 0
+            paramDict['hasTimeLevels'] = True 
+            if paramDict['timeLevels'] == 0:
+                print("Parameter timeLevels is set to a number <= 0 which is invalid. Please enter a number > 0")
+                sys.exit(2)
         elif opt in ('-s', '--skip-setup'):
             paramDict['skipSetup'] = True
         elif opt in ('-s', '--skip-simulation'):
@@ -315,6 +325,10 @@ def main():
     if paramDict['projectFolder'] == "":
         print("Error: no project folder specified.")
         usage()
+        sys.exit(2)
+
+    if paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']:
+        print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
         sys.exit(2)
 
     # Get the case/working dir paths
