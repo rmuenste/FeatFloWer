@@ -657,7 +657,7 @@ Real*8 :: dabl
 
  END DO
 
- if(myid.ne.0)then
+ if(myid.ne.0) then
 !---------------------                          
  ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
  DO ILEV=NLMIN,NLMAX+1
@@ -687,6 +687,8 @@ end if
                      
  CALL ExtractElemSizeDistribution()
  
+ CALL ExtractBoundaryNormals(QuadSc)
+
  Viscosity = Properties%Viscosity(1)
  
  Temperature = myProcess%T0
@@ -1009,6 +1011,7 @@ END SUBROUTINE QuadScalar_InitCond
 !
 SUBROUTINE Boundary_QuadScalar_Def()
   INTEGER i
+  REAL*8 daux
 
   DO i=1,QuadSc%ndof
 
@@ -1026,6 +1029,19 @@ SUBROUTINE Boundary_QuadScalar_Def()
       QuadSc%defV(i) = 0d0
       QuadSc%defW(i) = 0d0
     END IF
+    
+    IF (myBoundary%bSlip(i)) then
+    
+     DAUX = QuadSc%defU(i) * BoundaryNormal(1,i) + &
+            QuadSc%defV(i) * BoundaryNormal(2,i) + &
+            QuadSc%defV(i) * BoundaryNormal(3,i)
+           
+     QuadSc%defU(i) = QuadSc%defU(i) - DAUX*BoundaryNormal(1,i)
+     QuadSc%defV(i) = QuadSc%defV(i) - DAUX*BoundaryNormal(2,i)
+     QuadSc%defW(i) = QuadSc%defW(i) - DAUX*BoundaryNormal(3,i)
+     
+    END IF
+       
 
   END DO
 
@@ -1036,7 +1052,7 @@ END SUBROUTINE Boundary_QuadScalar_Def
 SUBROUTINE Boundary_QuadScalar_Val()
   use fbm, only: fbm_velBCUpdate
   implicit none
-  REAL*8 PX,PY,PZ
+  REAL*8 PX,PY,PZ,DAUX
   INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
 
   ilev = NLMAX
@@ -1070,6 +1086,18 @@ SUBROUTINE Boundary_QuadScalar_Val()
     END IF
   END DO
 
+  DO i=1,ndof
+    IF (myBoundary%bSlip(i)) then
+     DAUX = QuadSc%ValU(i) * BoundaryNormal(1,i) + &
+            QuadSc%ValV(i) * BoundaryNormal(2,i) + &
+            QuadSc%ValV(i) * BoundaryNormal(3,i)
+           
+     QuadSc%ValU(i) = QuadSc%ValU(i) - DAUX*BoundaryNormal(1,i)
+     QuadSc%ValV(i) = QuadSc%ValV(i) - DAUX*BoundaryNormal(2,i)
+     QuadSc%ValW(i) = QuadSc%ValW(i) - DAUX*BoundaryNormal(3,i)
+    END IF
+  END DO
+  
 END SUBROUTINE Boundary_QuadScalar_Val
 !
 ! ----------------------------------------------
@@ -1115,6 +1143,7 @@ SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
     KNPRU,KNPRV,KNPRW,NDOF)
   REAL*8  DA11(*),DA22(*),DA33(*)
   INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
+  REAL*8 DAUX
 
   DO I=1,NDOF
   IF (KNPRU(I).EQ.1) THEN
@@ -1148,6 +1177,20 @@ SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
   END IF
   END DO
 
+  DO I=1,NDOF
+    IF (myBoundary%bSlip(i)) then
+    ICOL = KLD(I)
+    DO ICOL=KLD(I)+1,KLD(I+1)-1
+      DA11(ICOL)=0E0
+      DA22(ICOL)=0E0
+      DA33(ICOL)=0E0
+    END DO
+     
+    END IF
+  END DO
+
+  
+  
 END SUBROUTINE Boundary_QuadScalar_Mat
 !
 ! ----------------------------------------------
@@ -1340,7 +1383,9 @@ SUBROUTINE OperatorRegenaration(iType)
     IF (myid.ne.master) THEN
       CALL Fill_QuadLinParMat()
     END IF
-
+    
+    CALL SetSlipOnBandBT()
+    
     CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
     IF (myid.ne.master) THEN
       CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)

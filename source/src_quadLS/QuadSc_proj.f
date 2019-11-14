@@ -1,3 +1,75 @@
+      !Slip BC from Dmitri:
+      !/data/warehouse14b/omierka/Fortran/K_Eps_3D/KEps_Neumann_Step/bndry.f
+      SUBROUTINE SetSlipOnBandBT_sub(CLD,CCOL,BX,BY,BZ,BLD,BCOL,
+     *           BTX,BTY,BTZ,BTLD,BTCOL,NEL,NDOF)
+      USE PP3D_MPI, ONLY:myid
+      USE var_QuadScalar,ONLY:BoundaryNormal,myBoundary
+!      
+      IMPLICIT NONE
+      REAL*8  BX(*),BY(*),BZ(*),BTX(*),BTY(*),BTZ(*)
+      INTEGER CLD(*),CCOL(*),BLD(*),BCOL(*),BTLD(*),BTCOL(*)
+      INTEGER NDOF,NEL
+      INTEGER IEL,JEL,KEL,IDOF,IC,IB,JB,II,JJ
+      REAL*8  DBTX,DBTY,DBTZ,DBX,DBY,DBZ,DMU,DMV,DMW,DC,DAUX
+      LOGICAL BNEU
+
+      JJ = 0
+      DO IEL = 1, NEL
+       DO IC = CLD(IEL),CLD(IEL+1)-1
+        JEL = CCOL(IC)
+        II=0
+        DO IB = BTLD(IEL),BTLD(IEL+1)-1
+         IDOF = BTCOL(IB)
+          DO JB=BLD(IDOF),BLD(IDOF+1)-1
+           KEL =  BCOL(JB)
+           IF (KEL.EQ.JEL) GOTO 1
+          END DO
+          GOTO 2
+1         CONTINUE
+          II=II+1
+          DBTX  = BTX(IB)
+          DBTY  = BTY(IB)
+          DBTZ  = BTZ(IB)
+          
+          DBX  =  BX(JB)
+          DBY  =  BY(JB)
+          DBZ  =  BZ(JB)
+          
+          IF (myBoundary%bSlip(IDOF)) then
+           DAUX = DBTX*BoundaryNormal(1,IDOF) + 
+     *            DBTY*BoundaryNormal(2,IDOF) + 
+     *            DBTZ*BoundaryNormal(3,IDOF)
+           DBTX  = DBTX - DAUX*BoundaryNormal(1,IDOF)
+           DBTY  = DBTY - DAUX*BoundaryNormal(2,IDOF)
+           DBTZ  = DBTZ - DAUX*BoundaryNormal(3,IDOF)
+           
+           DAUX = DBX*BoundaryNormal(1,IDOF) + 
+     *            DBY*BoundaryNormal(2,IDOF) + 
+     *            DBZ*BoundaryNormal(3,IDOF)
+           DBX  = DBX - DAUX*BoundaryNormal(1,IDOF)
+           DBY  = DBY - DAUX*BoundaryNormal(2,IDOF)
+           DBZ  = DBZ - DAUX*BoundaryNormal(3,IDOF)
+           
+           BX(JB) = DBX   
+           BY(JB) = DBY   
+           BZ(JB) = DBZ   
+
+           BTX(IB) = DBTX   
+           BTY(IB) = DBTY   
+           BTZ(IB) = DBTZ   
+           
+          END IF
+          
+2         CONTINUE
+        END DO
+        JJ = JJ + II
+       END DO
+      END DO
+
+      END
+C
+C
+C
       SUBROUTINE Get_CMat(M,C,CLD,CCOL,BX,BY,BZ,BLD,BCOL,
      *           BTX,BTY,BTZ,BTLD,BTCOL,KNPRU,KNPRV,KNPRW,NEL,NDOF)
       USE PP3D_MPI, ONLY:myid

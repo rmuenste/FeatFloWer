@@ -370,6 +370,61 @@ END SUBROUTINE Create_MMat
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SetSlipOnBandBT()
+
+ CALL ZTIME(myStat%t0)
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat      => mg_qMat(ILEV)
+  lMat      => mg_lMat(ILEV)
+  qlMat     => mg_qlMat(ILEV)
+  lqMat     => mg_lqMat(ILEV)
+  BXMat     => mg_BXMat(ILEV)%a
+  BYMat     => mg_BYMat(ILEV)%a
+  BZMat     => mg_BZMat(ILEV)%a
+  BTXMat    => mg_BTXMat(ILEV)%a
+  BTYMat    => mg_BTYMat(ILEV)%a
+  BTZMat    => mg_BTZMat(ILEV)%a
+
+  CALL SetSlipOnBandBT_sub(lMat%LdA,lMat%ColA,&
+       BXMat,BYMat,BZMat,qlMat%LdA,qlMat%ColA,&
+       BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
+       lMat%nu,qMat%nu)
+
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T} MRho{-1} B]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat      => mg_qMat(NLMAX)
+ lMat      => mg_lMat(NLMAX)
+ qlMat     => mg_qlMat(NLMAX)
+ lqMat     => mg_lqMat(NLMAX)
+ BXMat     => mg_BXMat(NLMAX)%a
+ BYMat     => mg_BYMat(NLMAX)%a
+ BZMat     => mg_BZMat(NLMAX)%a
+ BTXMat    => mg_BTXMat(NLMAX)%a
+ BTYMat    => mg_BTYMat(NLMAX)%a
+ BTZMat    => mg_BTZMat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+
+END SUBROUTINE SetSlipOnBandBT
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
@@ -526,7 +581,8 @@ INTEGER i,j,iEntry,jCol
  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
 
 
-END SUBROUTINE Create_CMat!
+END SUBROUTINE Create_CMat
+!
 ! ----------------------------------------------
 !
 SUBROUTINE Create_ParCMat(knprU,knprV,knprW) !(C)
@@ -3594,6 +3650,107 @@ END SUBROUTINE GetPhysiclaParameters
 !END DO
 !
 !END SUBROUTINE Correct_myQ2Coor
+!
+! ----------------------------------------------
+!
+SUBROUTINE ExtractBoundaryNormals(qSc)
+TYPE(TQuadScalar) qSc
+integer i,ndof
+REAL*8, allocatable :: aux(:)
+reaL*8 DAUX
+REAL*8 RESF,RESF0,RESF_U,RESF_V,RESF_W
+
+INTEGER NeighA(4,6),NeighU(4,6)
+INTEGER iel,ivt,iat,iet,iface_dof,iedge_dof,ivert_dof
+DATA NeighA/1,2,3,4,  1,2,6,5, 2,3,7,6,  3,4,8,7,  4,1,5,8,  5,6,7,8/
+DATA NeighU/1,2,3,4,  1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
+EXTERNAL E013
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ 
+ ndof = mg_mesh%level(ILEV)%nvt + &
+        mg_mesh%level(ILEV)%net + &
+        mg_mesh%level(ILEV)%nat + &
+        mg_mesh%level(ILEV)%nel 
+        
+ if (.not.allocated(BoundaryNormal)) allocate(BoundaryNormal(3,ndof))
+ allocate(aux(ndof))
+ 
+ BoundaryNormal = 0d0
+ aux = 0d0
+
+ if (myid.eq.1) WRITE(*,*) 'Reconstruction of Boundary normals ...'
+
+ QSc%rhsU = 0d0
+ QSc%rhsV = 0d0
+ QSc%rhsW = 0d0
+ QSc%auxU = 0d0
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ 
+ IF (Transform%ILINT.eq.1) THEN ! Q1
+  CALL ExtractBoundaryNormals_Q1(qSc%rhsU,qSc%rhsV,qSc%rhsW,qSc%auxU,&
+                    mg_mesh%level(ILEV)%kvert,&
+                    mg_mesh%level(ILEV)%karea,&
+                    mg_mesh%level(ILEV)%kedge,&
+                    mg_mesh%level(ILEV)%dcorvg,&
+                    E013)
+ END IF
+ IF (Transform%ILINT.eq.2) THEN ! Q2
+  CALL ExtractBoundaryNormals_Q2(qSc%rhsU,qSc%rhsV,qSc%rhsW,qSc%auxU,&
+                    mg_mesh%level(ILEV)%kvert,&
+                    mg_mesh%level(ILEV)%karea,&
+                    mg_mesh%level(ILEV)%kedge,&
+                    mg_mesh%level(ILEV)%dcorvg,&
+                    E013)
+ END IF
+
+ CALL E013Sum(qSc%auxU)
+
+ qSc%defU = qSc%rhsU
+ qSc%defV = qSc%rhsV
+ qSc%defW = qSc%rhsW
+
+!   CALL LL21 (qSc%defU,qSc%ndof,RESF_U)
+!   CALL LL21 (qSc%defV,qSc%ndof,RESF_V)
+!   CALL LL21 (qSc%defW,qSc%ndof,RESF_W)
+!   RESF0 = MAX(RESF_U,RESF_V,RESF_W)
+!   CALL COMM_Maximum(RESF0)
+! !  IF (myid.eq.1) WRITE(*,*)  "RESF : ",0, RESF0
+
+ CALL E013Sum(qSc%defU)
+ CALL E013Sum(qSc%defV)
+ CALL E013Sum(qSc%defW)
+
+ DO i=1,SIZE(qSc%ValU)
+  if (qSc%auxU(i).ne.0d0) then
+   BoundaryNormal(1,i) = BoundaryNormal(1,i) + qSc%defU(i)/qSc%auxU(i)
+   BoundaryNormal(2,i) = BoundaryNormal(2,i) + qSc%defV(i)/qSc%auxU(i)
+   BoundaryNormal(3,i) = BoundaryNormal(3,i) + qSc%defW(i)/qSc%auxU(i)
+  else
+   BoundaryNormal(1,i) = 0d0
+   BoundaryNormal(2,i) = 0d0
+   BoundaryNormal(3,i) = 0d0
+  end if
+ END DO
+ 
+ DO i=1,ndof
+   daux = (BoundaryNormal(1,i)**2d0 + &
+           BoundaryNormal(2,i)**2d0 + &
+           BoundaryNormal(3,i)**2d0)**0.5d0
+ 
+  if (Daux.ne.0d0) then
+   BoundaryNormal(1,i) = BoundaryNormal(1,i)/daux
+   BoundaryNormal(2,i) = BoundaryNormal(2,i)/daux
+   BoundaryNormal(3,i) = BoundaryNormal(3,i)/daux
+  END IF
+ END do
+ 
+ deallocate(aux)
+ 
+END SUBROUTINE ExtractBoundaryNormals
 !
 ! ----------------------------------------------
 !

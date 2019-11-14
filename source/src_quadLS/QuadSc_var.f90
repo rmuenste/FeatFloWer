@@ -365,11 +365,11 @@ CHARACTER cFBM_File*30
 TYPE (tFBM) myFBM
 
 LOGICAL, ALLOCATABLE :: BndrForce(:)
-REAL*8, ALLOCATABLE :: myQ2Coor(:,:)
+REAL*8, ALLOCATABLE :: myQ2Coor(:,:), BoundaryNormal(:,:)
 
 TYPE tBoundary
  LOGICAL, ALLOCATABLE :: nWall(:)   ,nInflown(:),  nOutflow(:)   ,nSymmetry(:)
- LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:)
+ LOGICAL, ALLOCATABLE :: bWall(:),bOutflow(:),bSymmetry(:,:),bSlip(:)
  INTEGER, ALLOCATABLE :: iInflow(:), iPhase(:),iTemperature(:)
  INTEGER, ALLOCATABLE :: LS_zero(:)
  LOGICAL, ALLOCATABLE :: bDisp_DBC(:) 

@@ -37,6 +37,7 @@ logical :: bOK
  
  ndof = KNVT(ilev) + KNET(ilev) + KNAT(ilev) + KNEL(ilev)
  ALLOCATE(myBoundary%bWall(ndof))
+ ALLOCATE(myBoundary%bSlip(ndof))
  ALLOCATE(myBoundary%iInflow(ndof))
  ALLOCATE(myBoundary%iTemperature(ndof))
  ALLOCATE(myBoundary%iPhase(ndof))
@@ -47,6 +48,7 @@ logical :: bOK
  ALLOCATE(myBoundary%bDisp_DBC(ndof)) 
 
  myBoundary%bWall     = .FALSE.
+ myBoundary%bSlip     = .FALSE.
  myBoundary%iInflow   = 0
  myBoundary%iTemperature   = 0
  myBoundary%iPhase    = 0
@@ -80,6 +82,7 @@ logical :: bOK
   DO i=1,NVT
    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(i) = .TRUE.     
+    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Slip') myBoundary%bSlip(i) = .TRUE.     
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Disp_DBC') myBoundary%bDisp_DBC(i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
       myBoundary%bWall(i) = .TRUE.
@@ -109,6 +112,7 @@ logical :: bOK
      ivt2 = kvert(Neigh(2,j),i)
      IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt1).AND.myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt2)) THEN
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+k) = .TRUE.
+      IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Slip') myBoundary%bSlip(nvt+k) = .TRUE.
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Disp_DBC') myBoundary%bDisp_DBC(nvt+k) = .TRUE.      
       IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
         myBoundary%bWall(nvt+k) = .TRUE.
@@ -136,6 +140,7 @@ logical :: bOK
   DO i=1,NAT
    IF (myParBndr(iBnds)%Bndr(ILEV)%Face(1,i).NE.0) THEN
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') myBoundary%bWall(nvt+net+i) = .TRUE.
+    IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Slip') myBoundary%bSlip(nvt+net+i) = .TRUE.
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Disp_DBC') myBoundary%bDisp_DBC(nvt+net+i) = .TRUE.    
     IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'WallF') THEN
       myBoundary%bWall(nvt+net+i) = .TRUE.

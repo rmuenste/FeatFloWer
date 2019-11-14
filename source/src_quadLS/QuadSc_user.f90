@@ -204,6 +204,19 @@ IF (iT.EQ.4.OR.iT.EQ.5) THEN
  ValW= 0d0
 END IF
 
+! 2D FAC  with Slip
+IF (iT.EQ.6) THEN
+    dCenter       = [0.05d0, 0.055d0, 0.0d0]
+    dNormal       = [1.0d0, 1.0d0, 0.0d0]
+    dMassFlow     = 1.0d0
+    ddensity      = 1.0d0
+    douterradius  = 0.200d0
+    dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+    ValU = dProfil(1)
+    ValV = dProfil(2)
+    ValW = dProfil(3)
+END IF
+
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF

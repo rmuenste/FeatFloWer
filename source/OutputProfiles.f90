@@ -1864,7 +1864,7 @@ USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStr
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature,myBoundary
 USE Transport_Q1,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
-USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2034,6 +2034,13 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,3E16.7)')"        ",REAL(myALE%MeshVelo(1,ivt)),REAL(myALE%MeshVelo(2,ivt)),REAL(myALE%MeshVelo(3,ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('BoundaryNormal')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BoundaryNormal",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,3E16.7)')"        ",REAL(BoundaryNormal(1,ivt)),REAL(BoundaryNormal(2,ivt)),REAL(BoundaryNormal(3,ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2320,6 +2327,8 @@ DO iField=1,SIZE(myExport%Fields)
   end if
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
+ CASE('BoundaryNormal')
+  write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BoundaryNormal",""" NumberOfComponents=""3""/>"
  CASE('Pressure_V')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')
