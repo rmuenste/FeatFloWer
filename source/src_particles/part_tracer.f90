@@ -288,7 +288,8 @@ myVelo(1)%y = QuadSc%ValV
 myVelo(1)%z = QuadSc%ValW
 
 IF (myid.ne.0) THEN
- ILEV=NLMAX-1
+ ILEV=NLMAX
+!  ILEV=NLMAX-1
  CALL SETLEV(2)
 END IF
 nStartActiveSet = 0
