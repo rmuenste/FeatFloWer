@@ -1030,7 +1030,7 @@ SUBROUTINE Boundary_QuadScalar_Def()
       QuadSc%defW(i) = 0d0
     END IF
     
-    IF (myBoundary%bSlip(i)) then
+    IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
     
      DAUX = QuadSc%defU(i) * BoundaryNormal(1,i) + &
             QuadSc%defV(i) * BoundaryNormal(2,i) + &
@@ -1087,7 +1087,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
   END DO
 
   DO i=1,ndof
-    IF (myBoundary%bSlip(i)) then
+    IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
      DAUX = QuadSc%ValU(i) * BoundaryNormal(1,i) + &
             QuadSc%ValV(i) * BoundaryNormal(2,i) + &
             QuadSc%ValV(i) * BoundaryNormal(3,i)
@@ -1178,7 +1178,7 @@ SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
   END DO
 
   DO I=1,NDOF
-    IF (myBoundary%bSlip(i)) then
+    IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
     ICOL = KLD(I)
     DO ICOL=KLD(I)+1,KLD(I+1)-1
       DA11(ICOL)=0E0

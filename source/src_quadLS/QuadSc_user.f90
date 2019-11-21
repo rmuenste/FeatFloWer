@@ -217,6 +217,19 @@ IF (iT.EQ.6) THEN
     ValW = dProfil(3)
 END IF
 
+IF (iT.EQ.770) THEN
+  ValU =  -myTwoPI*Y*(1d0/6d1)
+  ValV =   myTwoPI*X*(1d0/6d1)
+  ValW =   0.0d0
+END IF
+
+IF (iT.EQ.771) THEN
+  ValU =  -myTwoPI*Y*(1d0/6d1)
+  ValV =   myTwoPI*X*(1d0/6d1)
+  ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
+  ValW =   -0.77d0/60d0
+END IF
+
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
  ValW = 1d0
 END IF
