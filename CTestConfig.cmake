@@ -9,6 +9,6 @@ set(CTEST_PROJECT_NAME "FlowAroundACylinder")
 
 set(CTEST_DROP_METHOD "http")
 set(CTEST_DROP_SITE "arthurdayne.mathematik.tu-dortmund.de/CDash/public")
-set(CTEST_DROP_LOCATION "/submit.php?project=Feat_FloWer")
+set(CTEST_DROP_LOCATION "/submit.php?project=FeatFloWer")
 set(CTEST_DROP_SITE_CDASH TRUE)
 
