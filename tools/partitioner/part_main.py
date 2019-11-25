@@ -11,7 +11,7 @@ __doc__ = \
 """
 Partition a grid for multiprocessing.
 Calling convention: ./PyPartitioner.py NPart PartMethod NSubPart MeshName ProjektFile
-Exanple: ./PyPartitioner.py 12 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
+Example: ./PyPartitioner.py 12 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
 """
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

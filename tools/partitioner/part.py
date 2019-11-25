@@ -31,9 +31,16 @@ def _readAfterKeyword(fh,keyword):
 
 def _try_in_place_first(name):
   tmp=os.path.join(os.curdir,name)
-  if not os.path.exists(tmp):
-    tmp=name
-  return CDLL(tmp)
+  try:
+    if not os.path.exists(tmp):
+      tmp=name
+    return CDLL(tmp)
+  except OSError:
+    print("An error of type OSError occurred while trying to find the metis library:")
+    print("The metis library was neither found in the current folder nor in the system library path.")
+  except:
+    print("An error occurred loading the metis library:")
+    print("The metis library was neither found in the current folder nor in the system library path.")
 
 # Ab hier kommen die öffentlichen Funktionen des Moduls
 
