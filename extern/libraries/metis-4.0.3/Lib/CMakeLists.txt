@@ -7,6 +7,6 @@ add_library(metis SHARED ${metis_SRC})
 
 install(TARGETS metis
     RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
+    LIBRARY DESTINATION bin
     ARCHIVE DESTINATION lib
     )

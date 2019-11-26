@@ -93,7 +93,7 @@ option(USE_SYSTEM_BLASLAPACK
 
 option(BUILD_METIS
   "Enables build of metis library"
-  OFF
+  ON
   )
 
 option(BUILD_APPLICATIONS
@@ -371,7 +371,7 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   SET(${OUT_OF_SOURCE_BUILD} False)
 endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
-## we need additional libraries to support CUDA
+# we need additional libraries to support CUDA
 IF(BUILD_APPLICATIONS)
   # add subdirectories
   IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
