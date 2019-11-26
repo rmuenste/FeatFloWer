@@ -7,7 +7,7 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation, QuadSc,&
-    OperatorRegenaration
+    OperatorRegenaration,UpdateMaterialProperties
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar, &
@@ -64,6 +64,8 @@ subroutine init_q2p1_ext(log_unit)
 
   end if
 
+  CALL UpdateMaterialProperties()
+  
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------

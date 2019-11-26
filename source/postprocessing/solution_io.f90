@@ -19,7 +19,7 @@ contains
 ! @param simTime current simulation time
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
-USE Transport_Q2P1,ONLY: QuadSc,LinSc,bViscoElastic,Temperature
+USE Transport_Q2P1,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
 USE Transport_Q1, ONLY: Tracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
@@ -70,7 +70,9 @@ packed(2)%p => QuadSc%auxV
 packed(3)%p => QuadSc%auxW
 
 call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                  3, packed)                 
+                  3, packed)    
+                  
+                 
 
 IF (allocated(Temperature)) then
  fieldName = "temperature"
@@ -79,6 +81,16 @@ IF (allocated(Temperature)) then
  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                    1, packed)                 
 END IF                  
+
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) = MaterialDistribution(NLMAX)%x(1:knel(NLMAX))
+ packed(1)%p => QuadSc%auxU
+ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   1, packed)                 
+END IF                  
+
 
 IF (myid.eq.1) THEN
   if(outputRigidBodies())then
@@ -98,7 +110,7 @@ subroutine read_sol_from_file(startFrom, iLevel, time_ns)
 
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
 USE Transport_Q1,ONLY:Tracer
 
@@ -143,6 +155,14 @@ IF (allocated(Temperature)) then
  packed(1)%p => QuadSc%auxU
  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  Temperature = QuadSc%auxU
+END IF                  
+
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
 END IF                  
 
 ! This part here is responsible for creation of structures enabling the mesh coordinate 
@@ -244,6 +264,64 @@ if(myid.ne.0)then
 end if
 
 end subroutine write_pres_sol
+! @param iInd 
+! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
+! @param nn the number of mesh elements on level NLMAX 
+! @param nmin NLMIN 
+! @param nmax NLMAX 
+! @param elemmap a map from local to global element index 
+! @param edofs an array of the fine level dofs in a coarse mesh element 
+! @param pres the array of pressure values on lvl NLMAX 
+subroutine write_Q0_sol(iInd,iiLev,nn, nmin, nmax,elemmap,edofs,q0)
+use pp3d_mpi, only:myid,coarse
+implicit none
+
+integer, intent(in) :: iInd
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+real*8, dimension(:) :: q0
+
+! locals
+integer :: iunit = 321
+integer :: istatus
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+integer :: iel
+integer :: ivt
+integer :: jvt
+character(60) :: fileName
+
+elemCoarse = KNEL(nmin)
+
+! DO i=1,nn
+!  Field2(i) = Field1(4*(i-1)+1)
+!  Field3(i) = Field1(4*(i-1)+2)
+!  Field4(i) = Field1(4*(i-1)+3)
+!  Field5(i) = Field1(4*(i-1)+4)
+! END DO
+
+! the subdivision level of an element on the 
+! output level, NLMAX = 2, iiLev = 0
+! 8**(2-1) = 8
+! meaning on level 2 a coarse grid
+! element is divided into 8 elements
+dofsInCoarseElement = 8**((nmax+iiLev)-1)
+
+if(myid.ne.0)then
+
+ fileName = 'myarraypressure'
+ call write_sol_pres(fileName, iInd, iiLev, nn ,elemCoarse, dofsInCoarseElement, elemmap, edofs, q0) 
+
+end if
+
+
+end subroutine write_Q0_sol
+
 !================================================================================================
 ! Read the pressure solution from a file
 !================================================================================================

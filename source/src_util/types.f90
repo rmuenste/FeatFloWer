@@ -165,6 +165,10 @@ TYPE(tVelo), ALLOCATABLE :: myVelo(:)
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
 
+TYPE tParticleInflow
+ REAL*8 :: Center(3), Radius
+END TYPE tParticleInflow
+
 TYPE tParticleParam
  REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist
  REAL*8 :: minFrac
@@ -196,6 +200,11 @@ TYPE tParticleParam
  
  LOGICAL :: bRotationalMovement=.true.
 
+ LOGICAL :: bBacktrace=.false.
+ 
+ INTEGER :: NumberOfInflowRegions=0
+ TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
+ 
 END TYPE tParticleParam
 
 ! Define parameters to find out where the particle-seed comes from
@@ -207,6 +216,9 @@ integer, parameter, public :: ParticleSeed_CSVFILE = 1
 ! This matches the description of the outputfiles this code produces - therefore this is good
 ! for benchmarks.
 integer, parameter, public :: ParticleSeed_OUTPUTFILE = 2
+
+! This setting makes possible to seed the particles in the element center of the hex mesh on the finest level
+integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
 
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax

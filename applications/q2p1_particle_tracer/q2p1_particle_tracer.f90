@@ -12,7 +12,11 @@ PROGRAM Q2P1_PARTICLE_TRACER
 
   call Init_Particle(ufile)
 
-  call Transport_Particle(ufile)
+  if (myParticleParam%bBacktrace) THEN
+   call BackTransport_Particle(ufile)
+  else
+   call Transport_Particle(ufile)
+  end if
   
   call Finalize_Particles(tt0,ufile)
 

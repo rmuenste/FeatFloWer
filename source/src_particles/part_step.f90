@@ -1666,5 +1666,41 @@ END DO
 1 CONTINUE
 
 end subroutine FindPoint
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+Subroutine AssignInflowPropertyToParticles(m)
+USE types, ONLY : myLostSet,nLostSet
+USE PP3D_MPI, ONLY : myid,master
+
+implicit none
+integer iParticle,iInflowRegion
+real*8 point(3),dist
+integer iMat
+integer m(*)
+
+DO iParticle = 1,nLostSet
+
+ point = myLostSet(iParticle)%coor
+ iMat    = 0
+ 
+ DO iInflowRegion = 1,myParticleParam%NumberOfInflowRegions
+  dist = sqrt((myParticleParam%InflowRegion(iInflowRegion)%Center(1)-point(1))**2d0+&
+              (myParticleParam%InflowRegion(iInflowRegion)%Center(2)-point(2))**2d0+&
+              (myParticleParam%InflowRegion(iInflowRegion)%Center(3)-point(3))**2d0)
+  
+  if (dist.lt.myParticleParam%InflowRegion(iInflowRegion)%Radius) then
+   m(myLostSet(iParticle)%indice) = iInflowRegion
+!   WRITE(*,'(A,10I0)') "particle was assigned to inflow region... ",iParticle,myLostSet(iParticle)%indice,myid,iInflowRegion
+  ELSE
+!   WRITE(*,*) "particle was not possible to assign to inflow region... ",iParticle,distMin
+  end if
+  
+ END DO
+
+ 
+END DO
+
+end Subroutine AssignInflowPropertyToParticles
 
 end module particle_step

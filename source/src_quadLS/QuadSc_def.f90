@@ -1064,7 +1064,7 @@ EXTERNAL E013
 
   if(bNonNewtonian) THEN
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
-         Temperature,&
+         Temperature,MaterialDistribution(ILEV)%x,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
          mg_mesh%level(ILEV)%kvert,&
          mg_mesh%level(ILEV)%karea,&
@@ -1242,27 +1242,27 @@ END SUBROUTINE Create_KMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE AddStressToRHS(myScalar)
-TYPE(TQuadScalar) myScalar
-EXTERNAL E013
-
-IF (myid.ne.0) THEN
- ILEV=NLMAX
- CALL SETLEV(2)
-
- CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
- Temperature,&
- myScalar%defU, myScalar%defV, myScalar%defW,&
- Viscosity,&
- mg_mesh%level(ILEV)%kvert,&
- mg_mesh%level(ILEV)%karea,&
- mg_mesh%level(ILEV)%kedge,&
- mg_mesh%level(ILEV)%dcorvg,&
- E013 ) 
-
-END IF
-
-END SUBROUTINE AddStressToRHS
+! SUBROUTINE AddStressToRHS(myScalar)
+! TYPE(TQuadScalar) myScalar
+! EXTERNAL E013
+! 
+! IF (myid.ne.0) THEN
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+!  Temperature,MaterialDistribution%Mat(ilev),&
+!  myScalar%defU, myScalar%defV, myScalar%defW,&
+!  Viscosity,&
+!  mg_mesh%level(ILEV)%kvert,&
+!  mg_mesh%level(ILEV)%karea,&
+!  mg_mesh%level(ILEV)%kedge,&
+!  mg_mesh%level(ILEV)%dcorvg,&
+!  E013 ) 
+! 
+! END IF
+! 
+! END SUBROUTINE AddStressToRHS
 !
 ! ----------------------------------------------
 !
@@ -2115,7 +2115,7 @@ REAL tttx1,tttx0
     CALL ZTIME(tttx0)
     
     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-    Temperature,&
+    Temperature,MaterialDistribution(ilev)%x,&
     myScalar%defU, myScalar%defV, myScalar%defW,&
     Viscosity,&
     mg_mesh%level(ILEV)%kvert,&
@@ -2173,7 +2173,7 @@ REAL tttx1,tttx0
      CALL ZTIME(tttx0)
 
      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-     Temperature,&
+     Temperature,MaterialDistribution(ilev)%x,&
      myScalar%defU, myScalar%defV, myScalar%defW,&
      Viscosity,&
      mg_mesh%level(ILEV)%kvert,&

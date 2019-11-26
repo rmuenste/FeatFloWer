@@ -9,7 +9,7 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,BKTPRELEASE
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEASE
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -635,6 +635,12 @@ Real*8 :: dabl
 
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
+
+ IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+ DO ilev=NLMIN,NLMAX
+  IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
+  MaterialDistribution(ilev)%x = myMultiMat%initMaterial
+ END DO
 
  myPowerLawFluid(2) = 0.001d0
  myPowerLawFluid(3) = 0.75d0
@@ -1862,7 +1868,7 @@ ilevel = mg_mesh%nlmax
   QuadSc%defV = 0d0
   QuadSc%defW = 0d0
   CALL L2ProjVisco(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                   Temperature,&
+                   Temperature,MaterialDistribution(ilev)%x,&
                    QuadSc%defU,QuadSc%defV,QuadSc%defW,&
                    mg_mesh%level(ilevel)%kvert,&
                    mg_mesh%level(ilevel)%karea,&
@@ -2888,5 +2894,65 @@ DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
   END DO
    
 END SUBROUTINE RestrictWallBC
+!
+! ----------------------------------------------
+!
+SUBROUTINE UpdateMaterialProperties
+integer ii,iMat,jel(8),ndof_nel,iMaxFrac
+REAL*8 dMaxFrac
+REAL*8, allocatable :: dFrac(:)
+
+
+if (myid.eq.1) WRITE(*,*) 'updating Material Properties Distribution... '
+
+IF (myid.ne.0) then
+
+ IF (allocated(MaterialDistribution)) then
+  ndof_nel = (knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))
+  allocate(dFrac(myMultiMat%nOfMaterials))
+
+  DO ilev=NLMAX-1,NLMIN,-1
+   ndof_nel = (knvt(ilev+1) + knat(ilev+1) + knet(ilev+1))
+   do iel = 1,mg_mesh%level(ilev)%nel
+     jel(1) = iel
+     jel(2) = mg_mesh%level(ilev+1)%kadj(3,jel(1))
+     jel(3) = mg_mesh%level(ilev+1)%kadj(3,jel(2))
+     jel(4) = mg_mesh%level(ilev+1)%kadj(3,jel(3))
+     jel(5) = mg_mesh%level(ilev+1)%kadj(6,jel(1))
+     jel(6) = mg_mesh%level(ilev+1)%kadj(6,jel(2))
+     jel(7) = mg_mesh%level(ilev+1)%kadj(6,jel(3))
+     jel(8) = mg_mesh%level(ilev+1)%kadj(6,jel(4))
+
+!      write(*,*) jel
+     dFrac = 0d0
+     do ii=1,8
+      iMat = MaterialDistribution(ilev+1)%x(jel(ii))
+      dFrac(iMat) = dFrac(iMat) + 1d0 !mg_mesh%level(ilev+1)%dvol(jel(ii))
+     end do
+     dMaxFrac = 0d0
+!      write(*,*) dFrac
+     do ii=1,myMultiMat%nOfMaterials
+      IF (dFrac(ii).gt.dMaxFrac) THEN
+       dMaxFrac = dFrac(ii)
+       iMaxFrac = ii
+      END IF
+!       if (dMaxFrac.le.8d0) write(*,*) dFrac,dMaxFrac
+     end do
+     
+     MaterialDistribution(ilev)%x(jel(1)) = iMaxFrac
+     
+    end do
+  END DO
+  deallocate(dFrac)
+ end if
+
+else 
+ DO ilev=NLMAX,NLMIN,-1
+  MaterialDistribution(ilev)%x = myMultiMat%InitMaterial
+ end do
+! write(*,*) MaterialDistribution(nlmax)%x
+end if
+
+END SUBROUTINE UpdateMaterialProperties
    
 END MODULE Transport_Q2P1

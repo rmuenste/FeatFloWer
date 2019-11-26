@@ -48,8 +48,8 @@ END TYPE tSigma
 TYPE(tSigma) :: mySigma
 !------------------------------------------------------------
 TYPE tInflow
- INTEGER iBCtype
- REAL*8  massflowrate, density,outerradius,innerradius
+ INTEGER iBCtype,Material
+ REAL*8  massflowrate, outerradius,innerradius
  REAL*8  center(3),normal(3)
 END TYPE tInflow
 
@@ -82,8 +82,6 @@ TYPE tRheology
    REAL*8 :: ViscoMax = 1e10
 END TYPE tRheology
 
-TYPE(tRheology) :: myRheology
-
 !------------------------------------------------------------
 TYPE tThermodyn
    CHARACTER*60 :: DensityModel='NO'
@@ -95,6 +93,19 @@ END TYPE tThermodyn
 TYPE(tThermodyn) :: myThermodyn
 TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
+
+TYPE tSingleMat
+   CHARACTER*256 :: cMatNAme='UnknownMaterial'
+   TYPE(tRheology)  :: Rheology
+   TYPE(tThermodyn) :: Thermodyn
+END TYPE tSingleMat
+
+TYPE tMultiMat
+   Integer :: nOfMaterials=1,initMaterial=1
+   TYPE(tSingleMat) , Allocatable  :: Mat(:)
+END TYPE tMultiMat
+
+TYPE(tMultiMat), target :: myMultiMat
 
 TYPE tTransientSolution
  INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST

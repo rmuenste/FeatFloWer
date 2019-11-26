@@ -1314,7 +1314,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE STRESS(U1,U2,U3,T,D1,D2,D3,DVISCOS,
+      SUBROUTINE STRESS(U1,U2,U3,T,kMat,D1,D2,D3,DVISCOS,
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *
@@ -1331,6 +1331,7 @@ C
 C
       REAL*8 U1(*),U2(*),U3(*),T(*),D1(*),D2(*),D3(*)
       REAL*8 DVISCOS(*),DCORVG(NNDIM,*)
+      INTEGER kMat(*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
@@ -1340,7 +1341,7 @@ C
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
-      REAL*8    ViscosityModel
+      REAL*8    ViscosityMatModel
 C
 C     --------------------------- Transformation -------------------------------
       REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
@@ -1529,7 +1530,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityModel(dShearSquare,DTEMP)
+       dVisc = ViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
 C ----=============================================---- 
       DO 210 JDER=1,NNDIM
       DO 210 IDER=1,NNDIM
@@ -2000,7 +2001,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE L2ProjVisco(U,V,W,T,D1,D2,D3,
+      SUBROUTINE L2ProjVisco(U,V,W,T,kMat,D1,D2,D3,
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
       USE PP3D_MPI, ONLY:myid
@@ -2016,6 +2017,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       REAL*8    U(*),V(*),W(*),T(*),D1(*),D2(*),D3(*)
+      INTEGER   kMat(*)
       DIMENSION DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
@@ -2023,7 +2025,7 @@ C
       DIMENSION DU(NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM)
 C
       REAL*8    DISCOSITY,dmyXi
-      REAL*8    ViscosityModel
+      REAL*8    ViscosityMatModel
 C
       DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
@@ -2201,7 +2203,7 @@ C
 C ----=============================================---- 
 C
       DShear = dlog10(max(dmyXi,1d-16))
-      DISCOSITY = ViscosityModel(dShearSquare,DTEMP)
+      DISCOSITY = ViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
 C
       DO 230 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)

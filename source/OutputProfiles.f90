@@ -201,7 +201,7 @@ END SUBROUTINE DumpAllValues
 SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE Transport_Q1,ONLY:Tracer
 use solution_io
@@ -252,6 +252,14 @@ IF (allocated(Temperature)) then
  packed(1)%p => QuadSc%auxU
  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  Temperature = QuadSc%auxU
+END IF                  
+
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
 END IF                  
 
 call read_time_sol(cInFile, istep_ns, timens)
@@ -1863,7 +1871,7 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature,myBoundary
 USE Transport_Q1,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 
 IMPLICIT NONE
@@ -2209,6 +2217,16 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Material_E",""" format=""ascii"">"
+   do iel=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(MaterialDistribution(ILEV)%x(iel))
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+  END IF
  END SELECT
 
 END DO
@@ -2269,7 +2287,7 @@ END SUBROUTINE Output_VTK_piece
 
 SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport,bViscoElastic
+USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE def_FEAT
 
@@ -2382,6 +2400,14 @@ DO iField=1,SIZE(myExport%Fields)
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
+  END IF
+
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  WRITE(*,*) "myExport%Level.LE.myExport%LevelMax  ",myExport%Level,myExport%LevelMax
+  IF (myExport%Level.LE.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Material_E","""/>"
+  END IF
   END IF
 
  END SELECT

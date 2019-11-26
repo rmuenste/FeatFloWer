@@ -328,6 +328,8 @@ TYPE tMultiGrid_cc
 END TYPE tMultiGrid_cc
 TYPE (tMultiGrid_cc) :: myMG_cc
 
+TYPE(mg_kVector), ALLOCATABLE :: MaterialDistribution(:)
+
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgDensity(:),mgDiffCoeff(:)
 TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
 
