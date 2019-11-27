@@ -409,6 +409,12 @@ Real*8 :: dabl
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
 
+ IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+ DO ilev=NLMIN,NLMAX
+  IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
+  MaterialDistribution(ilev)%x = myMultiMat%initMaterial
+ END DO
+ 
  myPowerLawFluid(2) = 0.001d0
  myPowerLawFluid(3) = 0.75d0
 

@@ -205,6 +205,10 @@ TYPE tParticleParam
  INTEGER :: NumberOfInflowRegions=0
  TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
  
+ !!!! Seeding 
+ INTEGER  :: Plane = 0, PlaneParticles = 0
+ REAL*8   :: PlaneOffset=0d0
+ 
 END TYPE tParticleParam
 
 ! Define parameters to find out where the particle-seed comes from
@@ -219,6 +223,9 @@ integer, parameter, public :: ParticleSeed_OUTPUTFILE = 2
 
 ! This setting makes possible to seed the particles in the element center of the hex mesh on the finest level
 integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
+
+! This defines a planar seeding
+integer, parameter, public :: ParticleSeed_PLANE = 8
 
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax

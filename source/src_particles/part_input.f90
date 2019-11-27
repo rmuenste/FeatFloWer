@@ -22,7 +22,7 @@ contains
     ! A parameterlist
     type(t_parlist) :: parameterlist
 
-    character(len=256) :: tmpstring,cSeg
+    character(len=256) :: tmpstring,cSeg,cInitType,cInitTypeUpper
     integer :: i, numberOfElements
 
     ! Declare default parameters
@@ -133,12 +133,56 @@ contains
 56  CONTINUE
 
     ! Get the starting procedure
-    call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)
+    call inip_getvalue_string(parameterlist,"GeneralSettings","startingprocedure",cInitType,bdequote=.TRUE.)
+    cInitTypeUpper = cInitType
+    call inip_toupper_replace(cInitTypeUpper)
+    IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'CSV').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_CSVFILE
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=').ne.0) THEN
+       ParticleParam%Plane = 1
+       READ(cInitType(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=')+5:),*) ParticleParam%sourcefile
+       if (myid.eq.1) WRITE(*,*) "Particle sourcefile: '",ADJUSTL(TRIM(ParticleParam%sourcefile)),"'"
+      END IF
+    ELSEIF (ADJUSTL(TRIM(cInitTypeUpper)).eq.'ELEM') THEN
+      ParticleParam%inittype  = ParticleSeed_ELEMCENTER
+    ELSEIF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'PLANE').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_PLANE
+      ParticleParam%Plane = 0
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'X=').ne.0) THEN
+       ParticleParam%Plane = 1
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'X=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Y=').ne.0) THEN
+       ParticleParam%Plane = 2
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Y=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Z=').ne.0) THEN
+       ParticleParam%Plane = 3
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Z=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (ParticleParam%Plane.eq.0) THEN
+       WRITE(*,*) 'no plane for planar seedoing is defined'
+       STOP
+      END IF
+      
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=').ne.0) THEN
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=')+2:),*) ParticleParam%PlaneParticles
+      ELSE
+       WRITE(*,*) 'no numbner of particle is defined ...'
+       STOP
+      END IF
+      
+      WRITE(*,*) ParticleSeed_PLANE,ParticleParam%PlaneParticles, ParticleParam%Plane ,ParticleParam%PlaneOffset
+     
+    END IF
+    
+    
+!    call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)
 
     ! If we have to read something then lets do it
     if (ParticleParam%inittype .eq. ParticleSeed_CSVFILE .or. &
         ParticleParam%inittype .eq. ParticleSeed_OUTPUTFILE) then
-      call inip_getvalue_string(parameterlist,"GeneralSettings","sourcefile",ParticleParam%sourcefile,bdequote=.TRUE.)
+!       call inip_getvalue_string(parameterlist,"GeneralSettings","sourcefile",ParticleParam%sourcefile,bdequote=.TRUE.)
 
       ! Get the unit of the sourcefile
       ! Example: If we read that the particle has the position 2.5cm , we can leave it as it is.

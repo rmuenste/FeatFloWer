@@ -4,7 +4,7 @@ use var_QuadScalar
 USE Transport_Q2P1, ONLY: QuadSc,UMF_CMat,UMF_lMat,MaterialDistribution
 
 USE types
-USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ,Comm_SummN,subnodes
+USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ,Comm_SummN,subnodes,COMM_Maximum,COMM_Minimum
 ! USE Sigma_User, ONLY: myRTD
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 
@@ -294,7 +294,6 @@ WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 if (myParticleParam%DumpFormat.eq.1) CALL init_sol_same_level(cFile)
 if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
 if (myParticleParam%DumpFormat.eq.3) CALL init_sol_repart(cFile)
-! 
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
@@ -856,6 +855,8 @@ else if(myParticleParam%inittype .eq. ParticleSeed_OUTPUTFILE) then
   call Init_Particles_from_old_output(mfile)
 else if(myParticleParam%inittype .eq. ParticleSeed_ELEMCENTER) then
   call Init_Particles_in_all_elemCenters(mfile)
+else if(myParticleParam%inittype .eq. ParticleSeed_PLANE) then
+  call Init_Particles_inPlane(mfile)
 else
   write(mterm,*) "ERROR: Unknown Starting procedure ", myParticleParam%inittype
   write(mfile,*) "ERROR: Unknown starting procedure ", myParticleParam%inittype
@@ -873,6 +874,143 @@ if (myParticleParam%nZposCutplanes .gt. 0 ) then
 end if
 
 END SUBROUTINE Init_Particle
+!
+!-------------------------------------------------------------------
+!
+SUBROUTINE Init_Particles_inPlane(mfile)
+REAL*8 xmax,ymax,zmax,xmin,ymin,zmin
+REAL*8 myRandomNumber(3),xxmin,yymin,xxmax,yymax,myRandomX,myRandomY
+integer i,idx1,idx2,idx3,idx4,iElement,numberOfFluidElements 
+REAL*8 cdX0,cdY0,cdZ0,dist_CGAL
+logical :: bProjection=.false.
+integer iProjection
+
+xmax = -1d30
+ymax = -1d30
+ymax = -1d30
+
+xmin = +1d30
+ymin = +1d30
+zmin = +1d30
+
+ILEV = NLMAX
+
+DO i=1,mg_mesh%level(ILEV)%nvt
+ if (xmin > mg_mesh%level(ILEV)%dcorvg(1,i)) xmin = mg_mesh%level(ILEV)%dcorvg(1,i)
+ if (xmax < mg_mesh%level(ILEV)%dcorvg(1,i)) xmax = mg_mesh%level(ILEV)%dcorvg(1,i)
+ 
+ if (ymin > mg_mesh%level(ILEV)%dcorvg(2,i)) ymin = mg_mesh%level(ILEV)%dcorvg(2,i)
+ if (ymax < mg_mesh%level(ILEV)%dcorvg(2,i)) ymax = mg_mesh%level(ILEV)%dcorvg(2,i)
+ 
+ if (zmin > mg_mesh%level(ILEV)%dcorvg(3,i)) zmin = mg_mesh%level(ILEV)%dcorvg(3,i)
+ if (zmax < mg_mesh%level(ILEV)%dcorvg(3,i)) zmax = mg_mesh%level(ILEV)%dcorvg(3,i)
+end do
+
+call COMM_Maximum(xmax)
+call COMM_Maximum(ymax)
+call COMM_Maximum(zmax)
+call COMM_Minimum(xmin)
+call COMM_Minimum(ymin)
+call COMM_Minimum(zmin)
+
+IF (myParticleParam%Plane.eq.1) then
+ xxmin = ymin
+ xxmax = ymax
+ yymin = zmin
+ yymax = zmax
+END IF
+
+IF (myParticleParam%Plane.eq.2) then
+ xxmin = xmin
+ xxmax = xmax
+ yymin = zmin
+ yymax = zmax
+END IF
+
+IF (myParticleParam%Plane.eq.3) then
+ xxmin = xmin
+ xxmax = xmax
+ yymin = ymin
+ yymax = ymax
+END IF
+
+iElement = 0
+
+numberOfFluidElements = myParticleParam%PlaneParticles
+myParticleParam%nParticles = myParticleParam%PlaneParticles*4
+
+ALLOCATE(myCompleteSet(1:myParticleParam%nParticles))
+ALLOCATE(myActiveSet  (1:myParticleParam%nParticles))
+ALLOCATE(myExchangeSet(1:myParticleParam%nParticles))
+ALLOCATE(myLostSet    (1:myParticleParam%nParticles))
+
+ALLOCATE(Lambda(numberOfFluidElements),Length(myParticleParam%nParticles,3))
+ALLOCATE(pPresent(myParticleParam%nParticles))
+
+if (myid.eq.1) then
+write(*,'(6A12)')   'xmax','ymax','zmax','xmin','ymin','zmin'
+write(*,'(6ES12.4)') xmax,ymax,zmax,xmin,ymin,zmin
+write(*,'(6ES12.4)') xxmax,yymax,xxmin,yymin
+END IF
+
+do 
+
+ myRandomX = xxmin + (xxmax-xxmin)*rand(0)
+ myRandomY = yymin + (yymax-yymin)*rand(0)
+
+ IF (myParticleParam%Plane.eq.1)  myRandomNumber = [myParticleParam%PlaneOffSet,myRandomX,myRandomY]
+ IF (myParticleParam%Plane.eq.2)  myRandomNumber = [myRandomX,myParticleParam%PlaneOffSet,myRandomY]
+ IF (myParticleParam%Plane.eq.3)  myRandomNumber = [myRandomX,myRandomY,myParticleParam%PlaneOffSet]
+ 
+ cdx = 1d1*myRandomNumber(1)
+ cdy = 1d1*myRandomNumber(2)
+ cdz = 1d1*myRandomNumber(3)
+ 
+ CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+ if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+     (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+    
+   iElement = iElement+ 1
+   
+   ! Calculate the indices of the particles that we
+   ! are generating. We create them elementwise:
+   ! First those from element 1, then those from
+   ! element two, then those from element 3, ...
+   idx1 = 4*iElement - 3
+   idx2 = 4*iElement - 2
+   idx3 = 4*iElement - 1
+   idx4 = 4*iElement - 0
+
+   if (myid.eq.1) write(*,*) myRandomNumber(1),myRandomNumber(2),myRandomNumber(3),iElement
+   
+   myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx1)%time    = 0d0
+   myExchangeSet(idx1)%indice  = idx1
+
+   myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx2)%time    = 0d0
+   myExchangeSet(idx2)%indice  = idx2
+
+   myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+   myExchangeSet(idx3)%time    = 0d0
+   myExchangeSet(idx3)%indice  = idx3
+
+   myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+   myExchangeSet(idx4)%time    = 0d0
+   myExchangeSet(idx4)%indice  = idx4
+   
+ END IF
+ 
+ if (iElement.ge.myParticleParam%PlaneParticles) exit
+ 
+END DO
+
+write(*,*) iElement
+CLOSE(745)
+
+nExchangeSet = myParticleParam%nParticles
+
+END SUBROUTINE Init_Particles_inPlane
 !
 !-------------------------------------------------------------------
 !
@@ -1070,7 +1208,11 @@ implicit none
 INTEGER i,j,iParticles, iElements, iElement, mfile
 integer idx1,idx2,idx3,idx4
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min,dist
-REAL*8 dCrap(5),dBuff(3),cdX0,cdY0,cdZ0
+REAL*8 dBuff(3),cdX0,cdY0,cdZ0
+
+Character*256 cHeader
+INTEGER nColumns,Columns(4)
+REAL*8, allocatable :: dValues(:)
 INTEGER iO
 logical :: bProjection=.false.
 integer iProjection
@@ -1084,10 +1226,15 @@ iParticles = 0
 myProcess%Angle = 0d0
 
 OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
-READ(745,*)
+READ(745,'(A)') cHeader
+
+!!! Estimate the number of columns in csv
+CALL getSubstring(cHeader,',',nColumns,Columns)
+ALLOCATE(dValues(nColumns))
+
 iElements = 0
 DO
-   READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
    
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -1096,6 +1243,7 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElements
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
       cdx = myParticleParam%dFacUnitSourcefile*dBuff(1)
       cdy = myParticleParam%dFacUnitSourcefile*dBuff(2)
       cdz = myParticleParam%dFacUnitSourcefile*dBuff(3)
@@ -1143,7 +1291,8 @@ iElement = 0
 DO
 !DO iElement=1,iElements
 
-  READ(745,*,IOSTAT=io)  dCrap,dBuff
+  READ(745,*,IOSTAT=io)  dValues
+  dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
@@ -1205,17 +1354,26 @@ END SUBROUTINE Init_Particles_from_csv_xse
 SUBROUTINE Init_Particles_from_csv(mfile)
 INTEGER i,j,iParticles, iElements, iElement
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
-REAL*8 dCrap(5),dBuff(3)
+Character*256 cHeader
+REAL*8 dBuff(3)
+INTEGER nColumns,Columns(4)
+REAL*8, allocatable :: dValues(:)
 INTEGER iO
 
 ! Count how many particles are in the sourcefile!
 ! We allocate one element per particle that we find
 iParticles = 0
 OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
-READ(745,*)
+READ(745,'(A)') cHeader
+
+!!! Estimate the number of columns in csv
+CALL getSubstring(cHeader,',',nColumns,Columns)
+ALLOCATE(dValues(nColumns))
+
 iElements = 0
 DO
-   READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
+!   READ(745,*,IOSTAT=io)  dCrap,dBuff
    
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -1224,6 +1382,7 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElements
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
       cdx = 1d1*dBuff(1)
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
@@ -1269,7 +1428,10 @@ iElement = 0
 DO
 !DO iElement=1,iElements
 
-  READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
+   dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
+   
+!  READ(745,*,IOSTAT=io)  dCrap,dBuff
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
@@ -1349,7 +1511,7 @@ INTEGER iO
 ! to keep the old indicies, we still need to allocate
 ! arrays for 32000 particles.
 ! We also need to cope with the case that we found
-! 31999 particles in the file (and the maximum index is
+! 31999 particles in the file (and the  um index is
 ! 31999 - the calculation of the elongation will fail
 ! if we allocate arrays for only 31999 particles, we still
 ! need to allocate arrays for 32000 particles.)
@@ -1689,8 +1851,8 @@ IF (myid.eq.1) THEN
     Z = myCompleteSet(i)%coor(3)
     t = myCompleteSet(i)%time
     do iZpos = 1,myParticleParam%nZposCutplanes
-      IF (x.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
-       ZPosParticles(iZpos,1:3,j) = [myParticleParam%cutplanePositions(iZpos),Y,Z]
+      IF (z.lt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
+       ZPosParticles(iZpos,1:3,j) = [X,Y,myParticleParam%cutplanePositions(iZpos)]
        ZPosParticles(iZpos,4,j)   = t
        bPosParticles(iZpos,j)     = .FALSE.
       END IF
@@ -2003,6 +2165,75 @@ END DO
 
 END SUBROUTINE subPostProcessRTD
 
+SUBROUTINE getSubstring(cH,cS,nC,iC)
+use iniparser, only : inip_toupper_replace
+Character*256 cH
+Character*60 cF
+Character*1 cS
+integer iC(4),nC
+
+integer i,jPos1,jPos2
+integer, allocatable :: iPos(:)
+Character*1 cA
+Integer nS
+
+nC = 0
+iC = 0
+
+if (myid.eq.1) write(*,*) ",",adjustl(trim(cH)),","
+
+nS = 0
+Do i=1,256
+ READ(cH(i:i),'(A1)') cA
+ if (cA.eq.cS) nS = nS + 1
+END DO
+
+allocate(iPos(nS+1))
+iPos = 0
+
+!write(*,*) 'nS=',nS
+
+nS = 0
+Do i=1,256
+ READ(cH(i:i),'(A1)') cA
+ if (cA.eq.cS) THEN
+  nS = nS + 1
+  iPos(nS) = i
+ end if
+END DO
+
+iPos(nS+1) = LEN(adjustl(trim(cH)))
+nC = nS + 1
+
+if (myid.eq.1) write(*,*) 'nS=',nS, 'iPos= ',iPos
+
+jPos1 = 0
+Do i=1,nS+1
+ jPos2 = iPos(i)
+ READ(cH(jPos1+1:jPos2-1),'(A)') cF
+ CALL inip_toupper_replace(cF)
+ if (INDEX(ADJUSTL(TRIM(cF)),"RESULT").ne.0) then
+  if (myid.eq.1) write(*,*) 'res-column is :', i,ADJUSTL(TRIM(cF))
+   iC(1) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:0").ne.0) then
+  if (myid.eq.1) write(*,*) 'x-column is :', i,ADJUSTL(TRIM(cF))
+  iC(2) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:1").ne.0) then
+  if (myid.eq.1) write(*,*) 'y-column is :', i,ADJUSTL(TRIM(cF))
+  iC(3) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:2").ne.0) then
+  iC(4) = i
+  if (myid.eq.1) write(*,*) 'z-column is :', i,ADJUSTL(TRIM(cF))
+ end if
+ jPos1=jPos2
+END DO
+
+! pause
+
+END SUBROUTINE getSubstring
 END
 !
 !-------------------------------------------------------
@@ -2105,6 +2336,5 @@ if (bProjection) then
  end if
 end if
 
-
-
 END SUBROUTINE SearchPointsWRT_STLs
+
