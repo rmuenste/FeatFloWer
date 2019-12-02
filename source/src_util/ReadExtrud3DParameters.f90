@@ -668,9 +668,6 @@
     cParserString = "E3DProcessParameters"
     CALL FillUpInflows(myProcess%nOfInflows,myProcess%myInflow,cParserString)
 
-    cParserString = "E3DProcessParameters/Material/ThermoData"
-    CALL FillUpThermoData(myThermodyn,cParserString)
-
     call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
     IF (myMultiMat%nOfMaterials.ne.0) then
 
@@ -680,6 +677,10 @@
      
      DO iMat = 1, myMultiMat%nOfMaterials
      
+     WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
+     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
+     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
+
       WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
       CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
 
@@ -691,6 +692,17 @@
      myMultiMat%nOfMaterials = 1
      ALLOCATE(myMultiMat%Mat(1))
      myMultiMat%InitMaterial = 1
+     
+     cParserString = "E3DProcessParameters/Material/ThermoData"
+     CALL FillUpThermoData(myThermodyn,cParserString)
+
+     cParserString = "E3DProcessParameters/Material"
+     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(1)%Rheology%ViscoMin,1d0)
+     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(1)%Rheology%ViscoMax,1d5)
+
+     cParserString = "E3DProcessParameters/Material/RheologicalData"
+     CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
+     
      myMultiMat%Mat(1)%Thermodyn = myThermodyn
     END IF
 !     pause
@@ -1063,6 +1075,13 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(iMat)%Rheology%B
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(iMat)%Rheology%C
      END IF
+     IF (myMultiMat%Mat(iMat)%Rheology%Equation.eq.7) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','MAS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%mu_0",'=',myMultiMat%Mat(iMat)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%k",'=',myMultiMat%Mat(iMat)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(iMat)%Rheology%C
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(iMat)%Rheology%D
+     END IF
      write(*,*) 
      IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
@@ -1323,14 +1342,14 @@
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POWERLAW".OR.ADJUSTL(TRIM(cRheology)).eq."POTENZ".OR.ADJUSTL(TRIM(cRheology)).eq."POWER") THEN
       t%Equation = 2
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Powerlaw","Consistence", t%K,myInf)
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Powerlaw","Exponent",t%n,myInf)
-      if (t%K.eq.myInf) then
-       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Consistence", t%K,myInf)
-      end if
-      if (t%n.eq.myInf) then
-       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Exponent",t%n,myInf)
-      end if
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Consistence", t%K,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Exponent",t%n,myInf)
+!       if (t%K.eq.myInf) then
+!        call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Consistence", t%K,myInf)
+!       end if
+!       if (t%n.eq.myInf) then
+!        call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Exponent",t%n,myInf)
+!       end if
       
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."POLYFLOW") THEN
@@ -1345,15 +1364,18 @@
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Ellis","Gamma0",t%B,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Ellis","Exponent",t%C,myInf)
     END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."MAS") THEN
+      t%Equation = 7
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_mu0",t%A,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_k",t%B,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_n",t%C,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_a",t%D,myInf)
+    END IF
     IF (t%Equation.eq.0) THEN
      WRITE(*,*) "no valid rheology is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
     END IF
-
-
-    call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI)),"LimitViscoMin",t%ViscoMin,1d0)
-    call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI)),"LimitViscoMax",t%ViscoMax,1d5)
 
     t%AtFunc = 0
     cRheology = ' '
@@ -1376,6 +1398,7 @@
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","ReferenceTemperature",t%Tb,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","StandardTemperature",t%Ts,myInf)
     END IF
+    !ETB myRheology%E is in J/mol
     IF (ADJUSTL(TRIM(cRheology)).eq."ETB") THEN
       t%AtFunc = 4
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/ETB","ActivatingEnergy",t%E,myInf)

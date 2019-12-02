@@ -104,6 +104,7 @@ REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
 REAL*8 :: U_bar, h, normalizedTime, val
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
+real*8 dRPM
 
 ValU = 0d0
 ValV = 0d0
@@ -228,10 +229,11 @@ IF (iT.EQ.770) THEN
 END IF
 
 IF (iT.EQ.771) THEN
-  ValU =  -myTwoPI*Y*(1d0/6d1)
-  ValV =   myTwoPI*X*(1d0/6d1)
+  dRPM = 12d0 
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
-  ValW =   -0.77d0/60d0
+  ValW =   -0.77d0*(dRPM/60d0)
 END IF
 
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
@@ -979,7 +981,7 @@ aT = 1d0
 
 myRheology => myMultiMat%Mat(iMat)%Rheology
 
-!if (imat.eq.0) write(*,*)myid,myRheology%Equation,myRheology%n
+!if (imat.eq.0) write(*,*)myid,myRheology%Equation,myRheology%n,myRheology%AtFunc
 
 ! C1C2
 if (present(Temperature)) then
@@ -996,7 +998,7 @@ if (present(Temperature)) then
   aT = 1d1**daux
  END IF
  
-!ETB
+!ETB myRheology%E is in J/mol
  IF (myRheology%AtFunc.EQ.4) THEN
   daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
@@ -1028,6 +1030,11 @@ END IF
 !Ellis
 IF (myRheology%Equation.EQ.4) THEN
  VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**(myRheology%C-1d0)) 
+END IF
+
+!MAS
+IF (myRheology%Equation.EQ.7) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
 END IF
 
 ! HogenPowerLaw

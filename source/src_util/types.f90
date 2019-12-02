@@ -148,6 +148,7 @@ TYPE tParticle
  REAL*8 time
  REAL*8 coor(3)
  INTEGER indice
+ INTEGER :: ID=1
 END TYPE tParticle
 
 TYPE tVelo
@@ -206,7 +207,7 @@ TYPE tParticleParam
  TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
  
  !!!! Seeding 
- INTEGER  :: Plane = 0, PlaneParticles = 0
+ INTEGER  :: Plane = 0, PlaneParticles = 0, VolumeParticles = 0
  REAL*8   :: PlaneOffset=0d0
  
 END TYPE tParticleParam
@@ -226,6 +227,9 @@ integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
 
 ! This defines a planar seeding
 integer, parameter, public :: ParticleSeed_PLANE = 8
+
+! This defines a planar seeding
+integer, parameter, public :: ParticleSeed_VOLUME = 9
 
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax

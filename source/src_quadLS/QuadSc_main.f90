@@ -409,6 +409,12 @@ Real*8 :: dabl
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
 
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+!   myMultiMat%Mat(1)%Rheology%Equation = 5
+!   myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
  IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
  DO ilev=NLMIN,NLMAX
   IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
@@ -642,6 +648,12 @@ Real*8 :: dabl
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
 
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+!   myMultiMat%Mat(1)%Rheology%Equation = 5
+!   myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
  IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
  DO ilev=NLMIN,NLMAX
   IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
@@ -1972,7 +1984,7 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux
   REAL*8 HogenPowerlaw
-  REAL*8 ViscosityModel
+  REAL*8 ViscosityMatModel
 
     ILEV = NLMAX
     CALL SETLEV(2)
@@ -1997,7 +2009,7 @@ SUBROUTINE  GetNonNewtViscosity_sse()
     taux = Temperature(i)
 
     Shearrate(i) = sqrt(2d0 * daux)
-    Viscosity(i) = ViscosityModel(daux,taux)
+    Viscosity(i) = ViscosityMatModel(daux,1,taux)
 
     END DO
 

@@ -117,7 +117,8 @@ contains
     ! Get the number of Inflow regions for Particle Backtracing
     call inip_getvalue_int(parameterlist,"GeneralSettings","NumberOfInflowRegions",ParticleParam%NumberOfInflowRegions,0)
     IF (ParticleParam%NumberOfInflowRegions.eq.0) THEN
-     ParticleParam%NumberOfInflowRegions = 1 
+     ParticleParam%NumberOfInflowRegions = 1
+     GOTO 56
     ELSE
      allocate(ParticleParam%InflowRegion(ParticleParam%NumberOfInflowRegions))
      DO i=1,ParticleParam%NumberOfInflowRegions
@@ -173,6 +174,17 @@ contains
       END IF
       
       WRITE(*,*) ParticleSeed_PLANE,ParticleParam%PlaneParticles, ParticleParam%Plane ,ParticleParam%PlaneOffset
+    ELSEIF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'VOLUME').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_VOLUME
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=').ne.0) THEN
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=')+2:),*) ParticleParam%VolumeParticles
+      ELSE
+       WRITE(*,*) 'no numbner of particle is defined ...'
+       STOP
+      END IF
+      
+      WRITE(*,*) ParticleSeed_VOLUME,ParticleParam%VolumeParticles
+     
      
     END IF
     

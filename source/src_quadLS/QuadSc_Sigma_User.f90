@@ -74,7 +74,7 @@ TYPE(tProcess) :: myProcess
 TYPE tRheology
    INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
    INTEGER :: AtFunc = 1 !-->> isotherm
-   REAL*8 :: A, B, C ! Carreau Parameter
+   REAL*8 :: A, B, C, D ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
    REAL*8 :: Ts, Tb, C1, C2, E! WLF Parameter
