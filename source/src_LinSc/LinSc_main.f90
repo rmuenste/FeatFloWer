@@ -274,9 +274,9 @@ CALL Create_Knpr(LinSc_Knpr)
 ! Set The initial Conditions
 CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
 
-if (myid.ne.0) then
- Tracer%Val(NLMAX)%x = Temperature
-end if
+! if (myid.ne.0) then
+!  Tracer%Val(NLMAX)%x = Temperature
+! end if
 
 ! Set boundary conditions
 CALL sub_BC()

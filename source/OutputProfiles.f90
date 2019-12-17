@@ -198,6 +198,108 @@ END SUBROUTINE DumpAllValues
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SolToFile_Compact(iOutput)
+USE def_FEAT
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE Transport_Q1,ONLY:Tracer
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+use var_QuadScalar, only: myDump,mg_mesh
+
+IMPLICIT NONE
+INTEGER iOutput
+
+INTEGER ifilen,iOut,nn
+DATA ifilen/0/
+
+! filen is a global counter of the output file number
+IF (iOutput.LT.0) THEN
+ ifilen=ifilen+1
+ iOut=MOD(ifilen+insavn-1,insavn)+1
+ELSE
+ iOut = iOutput
+END IF
+
+call WriteSol_Velo(iOut,0,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+nn = knel(nlmax)
+call WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+    LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+
+CALL WriteSol_Coor(iOut,0,mg_mesh%level(nlmax+1)%dcorvg,QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
+
+call WriteSol_Time(iOut)
+
+
+END SUBROUTINE SolToFile_Compact
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFile_Compact(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE def_FEAT
+USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only: myDump,mg_mesh
+
+IMPLICIT NONE
+INTEGER mfile,iLevel,nn
+character(60) :: cInFile
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+nn = knel(nlmax)
+
+CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+    
+CALL ReadSol_Coor(cInFile,iLevel,mg_mesh%level(nlmax+1)%dcorvg,QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
+
+! This part here is responsible for creation of structures enabling the mesh coordinate 
+! transfer to the master node so that it can create the corresponding matrices
+IF (myid.EQ.0) THEN
+  CALL CreateDumpStructures(0)
+ELSE
+  LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+  CALL CreateDumpStructures(LevDif)
+END IF
+
+ilev = LinSc%prm%MGprmIn%MedLev
+
+nLengthV = (2**(ilev-1)+1)**3
+nLengthE = mg_mesh%level(NLMIN)%nel
+
+ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                            mg_mesh%level(ilev)%kvert,&
+                            nLengthV,&
+                            nLengthE,&
+                            mg_mesh%level(ilev)%nel,&
+                            mg_mesh%level(ilev)%nvt)
+DEALLOCATE(SendVect)
+
+
+END SUBROUTINE SolFromFile_Compact
+!
+! ----------------------------------------------
+!
 SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
