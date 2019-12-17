@@ -834,6 +834,19 @@
      END IF
     END IF
     
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'10,10,10')
+     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,-1)
+     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherX",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(1,:)
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherY",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(2,:)
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherZ",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(3,:)
+     
+    END IF
 !     cMeshQuality=' '
 !     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SendEmail",cMeshQuality,"YES")
 !     call inip_toupper_replace(cMeshQuality)

@@ -1420,6 +1420,7 @@ INTEGER NDOF,N
  ALLOCATE(myScalar%knprU(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprV(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprW(NLMIN:NLMAX))
+ ALLOCATE(myScalar%knprT(NLMIN:NLMAX))
 
  DO ILEV=NLMIN,NLMAX
   !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
@@ -1432,6 +1433,8 @@ INTEGER NDOF,N
   ALLOCATE(myScalar%knprU(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprV(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprW(ILEV)%x(NDOF))
+  ALLOCATE(myScalar%knprT(ILEV)%x(NDOF))
+  myScalar%knprT(ILEV)%x = 0
  END DO
 
  ILEV=NLMAX
@@ -2393,9 +2396,10 @@ END SUBROUTINE Solve_General_QuadScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val)
+SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val,Temperature)
 TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
+REAL*8, optional :: Temperature(*)
 INTEGER J,K,ndof
 REAL*8 dnorm
 EXTERNAL Bndry_Val
@@ -2408,6 +2412,27 @@ IF (myid.ne.0) THEN
  J = NLMAX
  K = NLMAX-1
  mgLev = J
+
+IF (present(Temperature)) then
+ IF(myid.eq.showid) WRITE(*,*) "Prolongation of temperature solution to a higher level"
+
+ MyMG%cVariable = "Velocity"
+ MyMG%KNPRU => qScalar%knprT(J)%x
+ MyMG%KNPRV => qScalar%knprV(J)%x
+ MyMG%KNPRW => qScalar%knprW(J)%x
+
+ ndof = KNVT(K) + KNAT(K) + KNET(K) + KNEL(K)
+ qScalar%sol(K)%x(0*ndof+1:1*ndof) = Temperature(1:ndof)
+ qScalar%sol(K)%x(1*ndof+1:2*ndof) = Temperature(1:ndof)
+ qScalar%sol(K)%x(2*ndof+1:3*ndof) = Temperature(1:ndof)
+ MyMG%X    => qScalar%sol
+ MyMG%AUX  => qScalar%aux
+
+ CALL mgProlongation()
+
+ ndof = KNVT(J) + KNAT(J) + KNET(J) + KNEL(J)
+ Temperature(0*ndof+1:1*ndof) = qScalar%aux(J)%x(0*ndof+1:1*ndof)
+END IF
 
  IF(myid.eq.showid) WRITE(*,*) "Prolongation of velocity solution to a higher level"
 

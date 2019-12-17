@@ -464,20 +464,20 @@ IF (myid.eq.showid) write(*,*) 'Regenerating K Matrix for Q1'
 
 Kmat = 0d0
 
-CALL RhoCpConvMat(U,V,W,Kmat,&
-lMat%nu,lMat%ColA,lMat%LdA,&
-mg_mesh%level(ilev)%kvert,&
-mg_mesh%level(ilev)%karea,&
-mg_mesh%level(ilev)%kedge,&
-mg_mesh%level(ilev)%dcorvg,&
-mg_mesh%level(ilev)%kadj,&
-mg_mesh%level(jlev)%kvert,&
-mg_mesh%level(jlev)%karea,&
-mg_mesh%level(jlev)%kedge,&
-mg_mesh%level(jlev)%nel,&
-mg_mesh%level(jlev)%nvt,&
-mg_mesh%level(jlev)%net,&
-mg_mesh%level(jlev)%nat,E011)
+! CALL RhoCpConvMat(U,V,W,Kmat,&
+! lMat%nu,lMat%ColA,lMat%LdA,&
+! mg_mesh%level(ilev)%kvert,&
+! mg_mesh%level(ilev)%karea,&
+! mg_mesh%level(ilev)%kedge,&
+! mg_mesh%level(ilev)%dcorvg,&
+! mg_mesh%level(ilev)%kadj,&
+! mg_mesh%level(jlev)%kvert,&
+! mg_mesh%level(jlev)%karea,&
+! mg_mesh%level(jlev)%kedge,&
+! mg_mesh%level(jlev)%nel,&
+! mg_mesh%level(jlev)%nvt,&
+! mg_mesh%level(jlev)%net,&
+! mg_mesh%level(jlev)%nat,E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)

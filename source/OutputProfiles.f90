@@ -259,7 +259,7 @@ IF (allocated(MaterialDistribution)) then
  QuadSc%auxU = 0
  packed(1)%p => QuadSc%auxU
  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
- MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
+ MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
 END IF                  
 
 call read_time_sol(cInFile, istep_ns, timens)

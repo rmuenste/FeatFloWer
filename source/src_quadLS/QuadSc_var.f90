@@ -151,6 +151,7 @@ TYPE TQuadScalar
  TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprU
  TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprV
  TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprW
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprT
 ! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
 ! In this part also valX_old1/2 and valX_help are added for the BDF time-stepping (locally allocated in q2p1_cc)
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxU,rhsU,defU,valU_old,valU,valU_old1,valU_help,valU_old2

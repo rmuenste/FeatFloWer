@@ -1430,8 +1430,12 @@ END SUBROUTINE OperatorRegenaration
 !
 SUBROUTINE ProlongateSolution()
 
+ IF (allocated(Temperature)) then
+  CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val,Temperature)
+ else
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
-  CALL QuadScP1toQ2(LinSc,QuadSc)
+ end if
+ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 END SUBROUTINE ProlongateSolution
 !
@@ -2922,10 +2926,32 @@ REAL*8, allocatable :: dFrac(:)
 
 
 if (myid.eq.1) WRITE(*,*) 'updating Material Properties Distribution... '
-
 IF (myid.ne.0) then
 
+!  write(*,*) MaterialDistribution(NLMAX+0-1)%x(1:knel(NLMAX+0-1))
+! pause
+
  IF (allocated(MaterialDistribution)) then
+ 
+  if (istart.eq.2) then
+    do iel = 1,mg_mesh%level(nlmax-1)%nel
+      jel(1) = iel
+      jel(2) = mg_mesh%level(ilev+1)%kadj(3,jel(1))
+      jel(3) = mg_mesh%level(ilev+1)%kadj(3,jel(2))
+      jel(4) = mg_mesh%level(ilev+1)%kadj(3,jel(3))
+      jel(5) = mg_mesh%level(ilev+1)%kadj(6,jel(1))
+      jel(6) = mg_mesh%level(ilev+1)%kadj(6,jel(2))
+      jel(7) = mg_mesh%level(ilev+1)%kadj(6,jel(3))
+      jel(8) = mg_mesh%level(ilev+1)%kadj(6,jel(4))
+   
+      iMat = MaterialDistribution(nlmax-1)%x(jel(1))
+!       write(*,*) iMAt
+      do ii=1,8
+       MaterialDistribution(nlmax)%x(jel(1)) = iMat
+      end do
+     end do
+  end if
+  
   ndof_nel = (knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))
   allocate(dFrac(myMultiMat%nOfMaterials))
 
@@ -2954,13 +2980,13 @@ IF (myid.ne.0) then
        dMaxFrac = dFrac(ii)
        iMaxFrac = ii
       END IF
-!       if (dMaxFrac.le.8d0) write(*,*) dFrac,dMaxFrac
      end do
      
      MaterialDistribution(ilev)%x(jel(1)) = iMaxFrac
      
     end do
   END DO
+  
   deallocate(dFrac)
  end if
 
@@ -2971,6 +2997,8 @@ else
 ! write(*,*) MaterialDistribution(nlmax)%x
 end if
 
+! write(*,*) MaterialDistribution(NLMAX)%x(1:knel(NLMAX))
+! pause
 END SUBROUTINE UpdateMaterialProperties
    
 END MODULE Transport_Q2P1

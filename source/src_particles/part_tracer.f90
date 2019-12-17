@@ -886,7 +886,7 @@ REAL*8 myRandomNumber(3),xxmin,yymin,xxmax,yymax,myRandomX,myRandomY,myRandomZ
 
 xmax = -1d30
 ymax = -1d30
-ymax = -1d30
+zmax = -1d30
 
 xmin = +1d30
 ymin = +1d30
@@ -946,9 +946,12 @@ do
  cdy = 1d1*myRandomNumber(2)
  cdz = 1d1*myRandomNumber(3)
 
- CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
- if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-     (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+ CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+ 
+ if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
     
    iElement = iElement+ 1
    
@@ -1005,7 +1008,7 @@ integer iProjection
 
 xmax = -1d30
 ymax = -1d30
-ymax = -1d30
+zmax = -1d30
 
 xmin = +1d30
 ymin = +1d30
@@ -1023,6 +1026,7 @@ DO i=1,mg_mesh%level(ILEV)%nvt
  if (zmin > mg_mesh%level(ILEV)%dcorvg(3,i)) zmin = mg_mesh%level(ILEV)%dcorvg(3,i)
  if (zmax < mg_mesh%level(ILEV)%dcorvg(3,i)) zmax = mg_mesh%level(ILEV)%dcorvg(3,i)
 end do
+
 
 call COMM_Maximum(xmax)
 call COMM_Maximum(ymax)
@@ -1084,10 +1088,14 @@ do
  cdy = 1d1*myRandomNumber(2)
  cdz = 1d1*myRandomNumber(3)
  
- CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
- if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-     (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
-    
+ CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+ 
+ if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+ 
+!  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+!     
    iElement = iElement+ 1
    
    ! Calculate the indices of the particles that we
@@ -1117,7 +1125,7 @@ do
    myExchangeSet(idx4)%time    = 0d0
    myExchangeSet(idx4)%indice  = idx4
    
- END IF
+  END IF
  
  if (iElement.ge.myParticleParam%PlaneParticles) exit
  
@@ -1504,9 +1512,12 @@ DO
       cdx = 1d1*dBuff(1)
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
-      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+      CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+      
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!       if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!           (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
         iElements = iElements + 1
       end if
    END IF
@@ -1564,9 +1575,14 @@ DO
       cdx = 1d1*dBuff(1)
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
-      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+      
+      CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+      
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+      
+!       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!       if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!           (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
          
          iElement = iElement+ 1
          
@@ -2462,4 +2478,43 @@ if (bProjection) then
 end if
 
 END SUBROUTINE SearchPointsWRT_STLs
+!
+!-------------------------------------------------------
+!
+SUBROUTINE GetDistAndProjPToAllSTLs(X,Y,Z,X0,Y0,Z0,dist)
+use fbm, only : myFBM
 
+implicit none
+REAL*8 X,Y,Z,X0,Y0,Z0,dist,X1,Y1,Z1
+real*8 dist_sign,d_temp,daux
+integer ip,ipc,isin,idynType
+
+ Dist = 1d8
+ 
+ DO IP = 1,myFBM%nParticles
+  
+  ipc=ip-1
+  isin = 0
+  call get_dynamics_type(ipc, idynType) 
+  
+  dist_sign = +1d0
+  if (idynType.eq.2) dist_sign = -1d0
+  
+  call isinelementid(X,Y,Z,ipc,isin)
+  if(isin .gt. 0)then
+   dist_sign = -1d0*dist_sign
+  else
+   dist_sign = +1d0*dist_sign
+  end if
+  call getclosestpointid(X,Y,Z,x1,y1,z1,d_temp,ipc);
+
+  if (dist_sign * d_temp.lt.dist) then
+   dist = dist_sign * d_temp
+   x0 = x1
+   y0 = y1
+   z0 = z1
+  end if
+  
+ end do
+
+END SUBROUTINE GetDistAndProjPToAllSTLs

@@ -533,15 +533,19 @@ tLevel = myExchangeSet(iParticel)%time
   cdy = 1d1*point(2)
   cdz = 1d1*point(3)
   
-  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  call get_dynamics_type(0, idynType)
-  if(idynType == FBM_STATIC) then
-   dist_CGAL = -dist_CGAL
-  end if
-  if(idynType == FBM_STATIC_COMPLEMENT) then
-   dist_CGAL = +dist_CGAL
-  end if
-  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+  
+!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!   call get_dynamics_type(0, idynType)
+!   if(idynType == FBM_STATIC) then
+!    dist_CGAL = -dist_CGAL
+!   end if
+!   if(idynType == FBM_STATIC_COMPLEMENT) then
+!    dist_CGAL = +dist_CGAL
+!   end if
+!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  
+  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
   
   if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    
@@ -1245,15 +1249,17 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdy = 1d1*P(2)
   cdz = 1d1*P(3)
   
-  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  call get_dynamics_type(0, idynType)
-  if(idynType == FBM_STATIC) then
-   dist_CGAL = -dist_CGAL
-  end if
-  if(idynType == FBM_STATIC_COMPLEMENT) then
-   dist_CGAL = +dist_CGAL
-  end if
-  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+
+!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!   call get_dynamics_type(0, idynType)
+!   if(idynType == FBM_STATIC) then
+!    dist_CGAL = -dist_CGAL
+!   end if
+!   if(idynType == FBM_STATIC_COMPLEMENT) then
+!    dist_CGAL = +dist_CGAL
+!   end if
+!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
   
   if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    

@@ -261,7 +261,7 @@ IF (myid.ne.0) THEN
  CALL sub_SRC()
 
 ! Add the boundary heat flux (explicit part)
-!  CALL AddBoundaryHeatFlux(1)
+ CALL AddBoundaryHeatFlux(1)
  
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
@@ -273,7 +273,7 @@ IF (myid.ne.0) THEN
  CALL Matdef_LinScalar_EWIKON(Tracer,-1,1)
 
 ! Add the boundary heat flux (implicit part)
-!  CALL AddBoundaryHeatFlux(2)
+ CALL AddBoundaryHeatFlux(2)
    
  CALL E011Sum(Tracer%def)
 
@@ -924,13 +924,13 @@ EXTERNAL E011
 if (myid.ne.master) then
  ilev = NLMAX
  call setlev(2)
- CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
-                             Tracer%def,Tracer%oldSol,&
-                             mg_mesh%level(ilev)%kvert,&
-                             mg_mesh%level(ilev)%karea,&
-                             mg_mesh%level(ilev)%kedge,&
-                             mg_mesh%level(ilev)%dcorvg,&
-                             E011,dArea1,dFlux1,iSwitch)
+!  CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+!                              Tracer%def,Tracer%oldSol,&
+!                              mg_mesh%level(ilev)%kvert,&
+!                              mg_mesh%level(ilev)%karea,&
+!                              mg_mesh%level(ilev)%kedge,&
+!                              mg_mesh%level(ilev)%dcorvg,&
+!                              E011,dArea1,dFlux1,iSwitch)
  CALL AddConductiveHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
                              Tracer%def,Tracer%oldSol,&
                              mg_mesh%level(ilev)%kvert,&
