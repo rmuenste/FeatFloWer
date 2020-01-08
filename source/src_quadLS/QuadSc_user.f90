@@ -196,6 +196,13 @@ IF (iT.EQ.2) THEN
  ValW= 0d0
 END IF
 
+IF (iT.EQ.200) THEN
+ dScale=1.0d0*(3d0/2d0)/(0.205d0*0.205d0)
+ ValU=dScale*Y*(0.41d0-Y)*sin(t*PI/8d0)
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.EQ.3) THEN
  ValU= 1d0
  ValV= 0d0

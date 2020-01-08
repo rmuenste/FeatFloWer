@@ -747,6 +747,7 @@
     END IF
 
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","PressureFBM", cPressureFBM,"OFF")
+    call inip_toupper_replace(cPressureFBM)
     IF (ADJUSTL(TRIM(cPressureFBM)).eq."ON".OR.ADJUSTL(TRIM(cPressureFBM)).eq."YES") THEN
      mySetup%bPressureFBM = .true.
     ENDIF

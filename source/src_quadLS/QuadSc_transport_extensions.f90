@@ -196,6 +196,7 @@ CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 
 IF (myid.ne.0) THEN
  CALL ZTIME(tttt0)
+ !if (myid.eq.1) write(*,*) 'no correction ... '
  CALL Velocity_Correction()
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)

@@ -34,6 +34,7 @@ contains
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
+USE Sigma_User, ONLY: mySigma
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
@@ -67,9 +68,11 @@ integer :: ioutput_lvl
 
 if (sExport%Format .eq. "VTK") then
 
- call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+ if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
+  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
- call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+ end if
  
  if (myid.ne.0) then
 

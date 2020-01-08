@@ -2343,7 +2343,7 @@ Do i=1,256
  end if
 END DO
 
-iPos(nS+1) = LEN(adjustl(trim(cH)))
+iPos(nS+1) = LEN(adjustl(trim(cH)))+1
 nC = nS + 1
 
 if (myid.eq.1) write(*,*) 'nS=',nS, 'iPos= ',iPos
