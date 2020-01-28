@@ -319,6 +319,18 @@ END SUBROUTINE Init_Die_Handlers
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_Wangen_Handlers()
+! In this function we set the function handlers
+! for Die FBM simulations --> as normal but return surface distances as well
+implicit none
+
+ fbm_geom_handler_ptr => GetFictKnpr_Wangen
+ fbm_vel_bc_handler_ptr => FictKnpr_velBC_Wangen
+
+END SUBROUTINE Init_Wangen_Handlers
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_Laser_Handlers()
 implicit none
 

@@ -1035,6 +1035,16 @@ integer :: iRepeat,nRepeat=8
            x = mg_mesh%level(ii)%dcorvg(1,iNode)
            y = mg_mesh%level(ii)%dcorvg(2,iNode)
            z = mg_mesh%level(ii)%dcorvg(3,iNode)
+           if (myParBndr(iBnds)%nBndrPar.EQ.1) then
+            if (.not.mgMesh%BndryNodes(iNode)%bx) then
+             mgMesh%BndryNodes(iNode)%x = [x,y,z]
+             mgMesh%BndryNodes(iNode)%bx = .true.
+            else 
+             x = mgMesh%BndryNodes(iNode)%x(1)
+             y = mgMesh%BndryNodes(iNode)%x(2)
+             z = mgMesh%BndryNodes(iNode)%x(3)
+            end if
+           end if
            CALL projectonanalyticplane(x,y,z,cpx,cpy,cpz,iBnds)
            mg_mesh%level(ii)%dcorvg(1,iNode) = cpx
            mg_mesh%level(ii)%dcorvg(2,iNode) = cpy
@@ -1071,7 +1081,14 @@ REAL*8 DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,DZ1,DZ2
 INTEGER iBnds,iSec,nSec
 REAL*8, ALLOCATABLE :: Sec(:,:)
 
- IF (myParBndr(iBnds)%nBndrPar.EQ.0.OR.myParBndr(iBnds)%nBndrPar.EQ.1) THEN
+ IF (myParBndr(iBnds)%nBndrPar.EQ.0) THEN
+  x2 = x1
+  y2 = y1
+  z2 = z1
+  RETURN
+ END IF
+
+ IF (myParBndr(iBnds)%nBndrPar.EQ.1) THEN
   x2 = x1
   y2 = y1
   z2 = z1
