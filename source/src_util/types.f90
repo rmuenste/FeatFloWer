@@ -123,6 +123,8 @@ TYPE tBndryNone
  LOGICAL :: ParamTypes(4)
  INTEGER :: nPoint=0,nLine=0,nSurf=0,nVolume=0
  INTEGER, ALLOCATABLE :: P(:),L(:),S(:),V(:)
+ real*8    :: x(3)
+ logical   :: bx=.false.
 END TYPE tBndryNone
 
 !================================================================================================
