@@ -952,6 +952,7 @@ EXTERNAL E013
    END IF
   END IF
 
+  if (myid.ne.0) then
   CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
        qMat%LdA,&
        mg_mesh%level(ILEV)%kvert,&
@@ -959,6 +960,7 @@ EXTERNAL E013
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
        E013,1d0)
+  end if
 
  END DO
 
