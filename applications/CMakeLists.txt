@@ -28,6 +28,7 @@ add_subdirectory(s3d_mesher)
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
+  add_subdirectory(q2p1_movbc)
   add_subdirectory(q2p1_devel)
   add_subdirectory(q2p1_devel_temp)
   add_subdirectory(q2p1_sse)
