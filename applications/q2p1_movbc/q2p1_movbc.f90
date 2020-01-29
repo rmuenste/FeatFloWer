@@ -4,8 +4,6 @@ PROGRAM Q2P1_FC_EXT
 
   use solution_io, only: postprocessing_app
 
-  use app_initialization, only: init_q2p1_app
-
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
@@ -20,7 +18,7 @@ PROGRAM Q2P1_FC_EXT
 
   !-------INIT PHASE-------
 
-  call init_q2p1_app(ufile)
+  call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)

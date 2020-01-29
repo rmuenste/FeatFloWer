@@ -346,6 +346,7 @@ end subroutine FictKnpr_velBC
 subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t)
 use Sigma_User, only : myProcess
 use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
+use PP3D_MPI, only: myid
 
 ! Parameters
 integer, intent(in) :: ip
@@ -360,6 +361,10 @@ real*8  :: Umdr = 60d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
 real*8  :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevation
 
 real*8  :: P_in(3),P_out(3),myaxis(3),velo(3),new_velo(3)
+
+valu =  0d0
+valv =  0d0
+valw =  0d0
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 actual_time = t
@@ -384,7 +389,6 @@ IF (IP.eq.111) then
 END IF
 
 IF (IP.eq.112) then
-
  myaxis = [1.0,0.0,0.0]
  P_in = [X,Y,Z]
  CALL RotatePointY(P_in,P_out,dAngle2)
@@ -403,7 +407,6 @@ IF (IP.eq.112) then
  valu = velo(1) +  new_velo(1)
  valv = velo(2) +  new_velo(2)
  valw = velo(3) +  new_velo(3)
- 
 END IF
 
 IF (IP.eq.113) then
@@ -448,6 +451,8 @@ Pout(3) = Pin(3)
 
 END SUBROUTINE ElevatePoint
 
+end subroutine FictKnpr_velBC_Wangen
+!---------------------------------------------------------------------------------------------------------
 subroutine rotation_axis_vector ( axis, angle, v, w )
 
 !*****************************************************************************80
@@ -556,9 +561,7 @@ subroutine rotation_axis_vector ( axis, angle, v, w )
   w(1:dim_num) = parallel(1:dim_num) + rot(1:dim_num)
 
   return
-end
-
-end subroutine FictKnpr_velBC_Wangen
+end subroutine rotation_axis_vector
 !=========================================================================
 ! 
 !=========================================================================
