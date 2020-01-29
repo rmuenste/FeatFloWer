@@ -116,7 +116,9 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
-    subprocess.call(["./s3d_mesher"])
+
+    subprocess.call(["./s3d_mesher"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+    #subprocess.call(["./s3d_mesher"])
     
     if not Path("_data/meshDir").exists():    
       meshDirPath = projectPath / Path("meshDir")
