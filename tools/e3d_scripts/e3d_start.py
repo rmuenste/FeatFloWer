@@ -31,6 +31,7 @@ paramDict = {
     "numProcessors" : 5, # Number of processors 
     "projectFolder" : "", # The project folder
     "skipSetup" :  False,
+    "shortTest" :  False, 
     "skipSimulation" : False,
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
@@ -68,6 +69,7 @@ def usage():
     print("['-o', '--do-temperature']: The simulation loop will do a temperature simulation")
     print("[-h', '--help']: prints this message")
     print("[-v', '--version']: prints out version information")
+    print("[-x', '--short-test']: configures the program for a short test")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 
 #===============================================================================
@@ -92,7 +94,12 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
                   str(projectPath))
             sys.exit(2)
 
-    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
+    if paramDict['shortTest']:
+        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
+    else:
+        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
+    
+#    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     destDataFile = Path("_data") / Path("q2p1_param.dat")
 
     shutil.copyfile(str(backupDataFile), str(destDataFile))
@@ -116,9 +123,7 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
-
-    subprocess.call(["./s3d_mesher"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
-    #subprocess.call(["./s3d_mesher"])
+    subprocess.call(["./s3d_mesher"])
     
     if not Path("_data/meshDir").exists():    
       meshDirPath = projectPath / Path("meshDir")
@@ -273,11 +278,11 @@ def main():
     """
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smhov',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhov',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup',
-                                    'skip-simulation', 'help','do-temperature','version'])
+                                    'skip-simulation','short-test', 'help','do-temperature','version'])
 
     except getopt.GetoptError:
         usage()
@@ -313,13 +318,15 @@ def main():
                 sys.exit(2)
         elif opt in ('-s', '--skip-setup'):
             paramDict['skipSetup'] = True
-        elif opt in ('-s', '--skip-simulation'):
+        elif opt in ('-m', '--skip-simulation'):
             paramDict['skipSimulation'] = True
         elif opt in ('-o', '--do-temperature'):
             paramDict['temperature'] = True
         elif opt in ('-v', '--version'):
             version()
             sys.exit(2)
+        elif opt in ('-x', '--short-test'):
+            paramDict['shortTest'] = True
         else:
             usage()
             sys.exit(2)
