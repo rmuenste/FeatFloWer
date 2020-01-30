@@ -357,7 +357,7 @@ real*8 , intent(inout) :: valu,valv,valw
 integer :: ipc,isin, idynType
 real*8  :: dist_sign, cpx,cpy,cpz, d_temp
 real*8  :: dCGAL_X,dCGAL_Y,dCGAL_Z
-real*8  :: Umdr = 60d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
+real*8  :: Umdr = 540d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
 real*8  :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevation
 
 real*8  :: P_in(3),P_out(3),myaxis(3),velo(3),new_velo(3)
@@ -422,6 +422,11 @@ IF (IP.eq.113) then
  
 END IF
 
+IF (IP.eq.114) then
+ valu =  0d0
+ valv =  0d0
+ valw =  0d0
+END IF
 CONTAINS
 !---------------------------------------------------------------------------------------------------------
 SUBROUTINE RotatePointZ(Pin,Pout,dA)
@@ -969,7 +974,7 @@ real*8, intent(inout) :: dist
 integer :: IP,ipc,isin, idynType
 real*8 :: dist_sign, cpx,cpy,cpz, d_temp
 real*8 :: dCGAL_X,dCGAL_Y,dCGAL_Z
-real*8 :: Umdr = 60d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
+real*8 :: Umdr = 540d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
 real*8 :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevation
 
 real*8 :: P_in(3),P_out(3)
@@ -1032,6 +1037,13 @@ dAngle2 = -dATAN(dElevation/LengthOfStraightTube)
    dCGAL_Z = dCGALtoRealFactor*P_Out(3)
   END IF
   
+  IF (IP.eq.4) then
+   dist_sign = -1d0
+   P_in = [X,Y,Z]
+   dCGAL_X = dCGALtoRealFactor*P_In(1)
+   dCGAL_Y = dCGALtoRealFactor*P_In(2)
+   dCGAL_Z = dCGALtoRealFactor*P_In(3)
+  END IF
 
   call isinelementid(dCGAL_X,dCGAL_Y,dCGAL_Z,ipc,isin)
   if(isin .gt. 0)then
