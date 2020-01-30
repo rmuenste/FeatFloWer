@@ -16,12 +16,18 @@ subroutine init_q2p1_ext(log_unit)
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
+  logical            :: I_EXIST
 
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
+  INQUIRE (FILE='_data/rheo.s3d', EXIST=I_EXIST)
+  if (I_EXIST) then
+   CALL ReadS3Dfile('_data/rheo.s3d')
+  end if
+  
   call Init_QuadScalar_Stuctures(log_unit)
 
   IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
