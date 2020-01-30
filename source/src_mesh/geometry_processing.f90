@@ -507,7 +507,7 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
     IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
      dRotAngle = myProcess%Angle
     END IF
-    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
+    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE'.or.mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
      dRotAngle  = 0d0
     END IF
 
