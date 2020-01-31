@@ -954,10 +954,16 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   REAL*8  dcorvg(3,*),dcorag(3,*)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
   REAL*8 PX,PY,PZ,DIST
+  REAL tttx0,tttx1
   INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
   INTEGER NeighE(2,12),NeighA(4,6)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+  if (myid.eq.0) return
+  
+  CALL myMPI_Barrier()
+  call ztime(tttx0)
 
   DO i=1,nvt
   PX = dcorvg(1,I)
@@ -1014,8 +1020,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
   END DO
-  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
+  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+nat+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
   END DO
+
+  CALL myMPI_Barrier()
+  call ztime(tttx1)
+  if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
 
   do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
@@ -1023,6 +1033,165 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
 
 
 END SUBROUTINE QuadScalar_FictKnpr
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
+  use fbm, only: fbm_updateFBMGeom,myFBM
+  REAL*8  dcorvg(3,*),dcorag(3,*)
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  REAL*8 PX,PY,PZ,DIST,P(3),dR,distX,distY
+  REAL tttx0,tttx1
+  INTEGER i,j,k,ivt,ndof,IP,minpr,IPP
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  LOGICAL, allocatable :: bMark(:)
+  REAL*8 :: iCount(3)
+  
+  iCount = 0d0
+  ndof = nvt+nat+net+nel
+  
+  if (myid.eq.0) goto 1
+  
+  CALL myMPI_Barrier()
+  call ztime(tttx0)
+  
+  ALLOCATE(bMark(ndof))
+  bMark = .false.
+  Distance = 1d8
+  
+  DO IPP = 1,myFBM%nParticles
+  IP = IPP
+  
+  DO i=1,nel
+   PX = 0d0
+   PY = 0d0
+   PZ = 0d0
+   DO j=1,8
+    PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+    PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+    PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+   END DO
+   call fbm_updateFBMGeom(PX,PY,PZ,IP,minpr,distX,fbm_geom_handler_ptr)
+   
+   if (distX.lt.Distance(nvt+net+nat+i)) then
+    FictKNPR(nvt+net+nat+i) = minpr
+    Distance(nvt+net+nat+i) = distX
+    bMark(nvt+net+nat+i) = .true.
+   end if
+   iCount(1) = iCount(1) + 1d0
+   
+   dR = 0d0
+   do j = 1,8
+    ivt = kvert(j,i)
+    P = dcorvg(:,ivt)
+    dR = max(dR, SQRT((P(1)-PX)**2d0 + (P(2)-PY)**2d0 + (P(3)-PZ)**2d0))
+   end do
+   
+   IF (1.4d0*dR.gt.distX) then
+    ! nvt
+    do j = 1,8
+     ivt = kvert(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(2) = iCount(2) + 1d0
+     end if
+    end do
+   
+    ! net
+    do j = 1,12
+     ivt = nvt + kedge(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(2) = iCount(2) + 1d0
+     end if
+    end do
+    
+    ! nat
+    do j = 1,6
+     ivt = nvt + net + karea(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(3) = iCount(3) + 1d0
+     end if
+    end do
+    
+   ELSE
+   
+    ! nvt
+    do j = 1,8
+     ivt = kvert(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+   
+    ! net
+    do j = 1,12
+     ivt = nvt + kedge(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+    
+    ! nat
+    do j = 1,6
+     ivt = nvt + net + karea(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+   
+   END IF
+   
+  END DO
+  
+  END DO ! IP
+  
+1 continue
+
+  iCount(3) = 4*ndof
+  call Comm_SummN(iCount,3)
+  call ztime(tttx1)
+  if (myid.eq.1) WRITE(*,'(A,ES12.4,A,I0,A,I0,A,2(ES12.4,A))') &
+  'FBM time : ', tttx1-tttt0, ' s | ',int(iCount(1))+int(iCount(2)),' / ',int(iCount(3)) ,'=> ',1d2*iCount(1)/iCount(3),'%, ',1d2*iCount(2)/iCount(3),'%'
+!  if (myid.eq.1) WRITE(*,'(3I10,2ES12.4)') int(iCount(1:3)),1d2*iCount(1)/iCount(3),1d2*iCount(2)/iCount(3)
+
+  do i=1,nvt+net+nat+nel
+   myALE%Monitor(i)=distance(i)
+  end do
+  if (myid.ne.0) then
+!    do i=1,nvt+net+nat+nel
+!     myALE%Monitor(i)=0d0
+!     if (bMark(i))  myALE%Monitor(i)=1d0
+!    end do
+
+   DEALLOCATE(bMark)
+  end if
+
+END SUBROUTINE QuadScalar_FictKnpr_Wangen
 !
 ! ----------------------------------------------
 !
@@ -1664,6 +1833,29 @@ END SUBROUTINE Analyzer
 !
 ! ----------------------------------------------
 !
+SUBROUTINE updateFBMGeometry_Wangen()
+use cinterface, only: calculateFBM
+
+ if (calculateFBM()) then
+  if (myid.eq.showid) write(*,*) '> FBM computation step'
+
+  ILEV=NLMAX
+  CALL SETLEV(2)
+
+  CALL QuadScalar_FictKnpr_Wangen(mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%dcorag,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%karea)
+    
+  CALL E013Max_SUPER(FictKNPR)
+  
+ end if
+
+END SUBROUTINE  updateFBMGeometry_Wangen
+!
+! ----------------------------------------------
+!
 SUBROUTINE updateFBMGeometry()
 use cinterface, only: calculateFBM
 
@@ -1678,8 +1870,9 @@ use cinterface, only: calculateFBM
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
     mg_mesh%level(ilev)%karea)
-
+    
   CALL E013Max_SUPER(FictKNPR)
+  
  end if
 
 END SUBROUTINE  updateFBMGeometry
@@ -2940,6 +3133,13 @@ REAL*8, allocatable :: dFrac(:)
 if (myid.eq.1) WRITE(*,*) 'updating Material Properties Distribution... '
 IF (myid.ne.0) then
 
+!     do iel = 1,mg_mesh%level(nlmax)%nel
+!      ii = mg_mesh%level(nlmax)%nvt + mg_mesh%level(nlmax)%net + mg_mesh%level(nlmax)%nat + iel
+!      if (mg_mesh%level(nlmax)%dcorvg(3,ii).gt.92d0) then
+!       MaterialDistribution(nlmax)%x(iel) = 2
+!      end if
+!     end do
+     
 !  write(*,*) MaterialDistribution(NLMAX+0-1)%x(1:knel(NLMAX+0-1))
 ! pause
 

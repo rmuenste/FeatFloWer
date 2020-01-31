@@ -979,6 +979,7 @@ real*8 :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevat
 
 real*8 :: P_in(3),P_out(3)
 
+IP = iBndr
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 actual_time = timens
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -994,7 +995,7 @@ dAngle2 = -dATAN(dElevation/LengthOfStraightTube)
  dist_sign = 1
  Dist = 1d8
  
- DO IP = 1,myFBM%nParticles
+! DO IP = 1,myFBM%nParticles
   
   ipc=ip-1
   isin = 0
@@ -1048,10 +1049,10 @@ dAngle2 = -dATAN(dElevation/LengthOfStraightTube)
   call isinelementid(dCGAL_X,dCGAL_Y,dCGAL_Z,ipc,isin)
   if(isin .gt. 0)then
    dist_sign = -1d0*dist_sign
-   call getclosestpointid(dCGAL_X,dCGAL_Y,dCGAL_Z,cpx,cpy,cpz,d_temp,ipc);        
+   call getdistanceid(dCGAL_X,dCGAL_Y,dCGAL_Z,d_temp,ipc)
   else
    dist_sign = +1d0*dist_sign
-   call getclosestpointid(dCGAL_X,dCGAL_Y,dCGAL_Z,cpx,cpy,cpz,d_temp,ipc);        
+   call getdistanceid(dCGAL_X,dCGAL_Y,dCGAL_Z,d_temp,ipc)
   end if
   
   IF (dist.gt.dist_sign * d_temp) then 
@@ -1062,7 +1063,7 @@ dAngle2 = -dATAN(dElevation/LengthOfStraightTube)
   END IF
 !  dist = min(dist,dist_sign * d_temp)
   
- end do
+! end do
  
 ! if (dist.lt.0d0) THEN
 !  inpr = 100

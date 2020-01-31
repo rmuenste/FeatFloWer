@@ -7,7 +7,8 @@
 
   use Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,Transport_q2p1_UxyzP,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,Transport_q2p1_UxyzP_fc_ext
+    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,Transport_q2p1_UxyzP_fc_ext,&
+    Transport_q2p1_UxyzP_fc_ext_static
 
   use ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution

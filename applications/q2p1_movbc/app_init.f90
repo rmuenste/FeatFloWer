@@ -7,12 +7,12 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond
+    LinScalar_InitCond,UpdateMaterialProperties
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
-  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier,Barrier_myMPI
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
@@ -66,6 +66,8 @@ subroutine init_q2p1_ext(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
   end if
+
+  CALL UpdateMaterialProperties()
 
 end subroutine init_q2p1_ext
 !

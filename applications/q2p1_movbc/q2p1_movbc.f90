@@ -8,6 +8,8 @@ PROGRAM Q2P1_FC_EXT
                          print_time,&
                          sim_finalize
 
+  USE PP3D_MPI, ONLY:myid,master,myMPI_Barrier,Barrier_myMPI
+                     
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
@@ -33,9 +35,9 @@ PROGRAM Q2P1_FC_EXT
   timnsh=timens
   dt=tstep
   timens=timens+dt
-
+  
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  CALL Transport_q2p1_UxyzP_fc_ext_static(ufile,inonln_u,itns)
 
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
