@@ -278,7 +278,8 @@
         END IF
        END IF
 
-       IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+       IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.
+           ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
         XTORQUE = XX
         YTORQUE = YY
         ZTORQUE = 0D0
