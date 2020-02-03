@@ -2268,6 +2268,16 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
                      Viscosity,Torque1, E013,103)
 END IF
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
+                     mg_mesh%level(ilevel)%kvert,&
+                     mg_mesh%level(ilevel)%karea,&
+                     mg_mesh%level(ilevel)%kedge,&
+                     mg_mesh%level(ilevel)%dcorvg,&
+                     Viscosity,Torque1, E013,103)
+END IF
+
 IF (myid.ne.0) then
  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
@@ -2337,6 +2347,10 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
   write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
 END IF
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+  write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+  write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+END IF
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
   write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
   write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
 END IF
