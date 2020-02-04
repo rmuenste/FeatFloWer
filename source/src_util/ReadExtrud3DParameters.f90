@@ -716,7 +716,7 @@
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","CutDtata_1D",myOutput%CutDtata_1D,0.005d0)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","CutDtata_1D",myOutput%CutDtata_1D,0.001d0)
     
     cKTP=' '
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
