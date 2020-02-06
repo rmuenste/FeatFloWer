@@ -1593,7 +1593,7 @@ end type tHist
 type (tHist), allocatable :: myHist(:)
 
 ! local variables
-real*8  :: dMinSample, dMaxSample
+real*8  :: dMinSample, dMaxSample, dLim
 integer :: i,j,jj
 real*8  :: dX,dY,dZ,dWidth,daux,dScale,dR,dDist,dRadius
 
@@ -1735,9 +1735,11 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
  if (i1D.eq.9.or.i1D.eq.10) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+  dLim = MIN(0.1d0,myOutput%CutDtata_1D*100d0)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+  dLim = MIN(0.01d0,myOutput%CutDtata_1D*10d0)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
 
