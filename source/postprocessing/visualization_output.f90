@@ -1735,10 +1735,10 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
  if (i1D.eq.9.or.i1D.eq.10) then
-  dLim = MIN(0.03d0,myOutput%CutDtata_1D*30d0)
+  dLim = MIN(0.05d0,myOutput%CutDtata_1D*50d0)
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  dLim = MIN(0.005d0,myOutput%CutDtata_1D*5d0)
+  dLim = MIN(0.01d0,myOutput%CutDtata_1D*10d0)
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
