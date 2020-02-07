@@ -1,23 +1,7 @@
 include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
 
-# CMakeLists of q2p1_movbc application
-set(src_cinterface
-${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
-)
-
 # source files for standad q2p1 
 set(src_q2p1_fc_ext
-${Elements} 
-${src_q2p1} 
-${src_pp3d} 
-${src_mpi} 
-${src_PLin} 
-${src_LinSc} 
-${src_quadLS_app} 
-${src_visco} 
-${src_mesh}
-${src_cinterface}
-${postprocessing}
 app_init.f90
 #postprocessing.f90
 q2p1_movbc.f90

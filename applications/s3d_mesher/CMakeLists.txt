@@ -27,7 +27,6 @@ ${Elements}
 ${src_q2p1} 
 ${src_pp3d} 
 ${src_mpi} 
-${src_PLin} 
 ${src_LinSc} 
 ${src_quadLS_mesher} 
 ${src_visco} 
@@ -48,7 +47,6 @@ add_executable(s3d_mesher ${src_s3d_mesher})
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
 source_group(src_mpi FILES ${src_mpi})
-source_group(src_PLin FILES ${src_PLin})
 source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS_ext})
 source_group(src_visco FILES ${src_visco})

@@ -23,11 +23,11 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-#message(FATAL_ERROR "LIBS: ${FF_APPLICATION_LIBS2}")
+#message(FATAL_ERROR "LIBS: ${FF_APPLICATION_LIBS}")
 
 # Target related settings
 target_link_libraries(q2p1_fc_ext 
-  ${FF_APPLICATION_LIBS2}
+  ${FF_APPLICATION_LIBS}
   )
 
 target_include_directories(q2p1_fc_ext PUBLIC ${FF_APPLICATION_INCLUDE_PATH})

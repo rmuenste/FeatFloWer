@@ -22,7 +22,7 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_euler_fibers 
-  ${FF_APPLICATION_LIBS2}
+  ${FF_APPLICATION_LIBS}
   )
 
 target_include_directories(q2p1_euler_fibers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})

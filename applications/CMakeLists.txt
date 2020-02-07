@@ -1,29 +1,17 @@
 
 # Add the subdirectories of the applications
 add_subdirectory(q2p1_fc_ext)
-
 add_subdirectory(q2p1_fsi_spring)
-
 add_subdirectory(q2p1_fac_nnewt)
-
 add_subdirectory(q2p1_fac_visco)
-
 add_subdirectory(q2p1_fbm_spring)
-
 add_subdirectory(q2p1_bench_sedimentation)
-
 add_subdirectory(laplace)
-
 add_subdirectory(heat)
-
 add_subdirectory(q2p1_particles)
-
 add_subdirectory(q2p1_experimental)
-
 add_subdirectory(q2p1_euler_fibers)
-
 add_subdirectory(iniparser_demo)
-
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
@@ -35,8 +23,8 @@ if(USE_CGAL)
   add_subdirectory(q2p1_sse_temp)
   add_subdirectory(auto_param)
   add_subdirectory(mesh_proc)
-  add_subdirectory(q2p1_particle_tracer)
-  add_subdirectory(q2p1_particle_tracer_xse)
+#  add_subdirectory(q2p1_particle_tracer)
+#  add_subdirectory(q2p1_particle_tracer_xse)
 endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)

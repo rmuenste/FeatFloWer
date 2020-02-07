@@ -1127,4 +1127,13 @@ CLOSE(2)
 
 END SUBROUTINE WriteMesh_XYZ
 
+subroutine ztime(t)
+implicit none
+
+Real, intent(inout) :: t
+
+call CPU_TIME(t)
+
+end subroutine ztime
+
 END Program e3d_mesher

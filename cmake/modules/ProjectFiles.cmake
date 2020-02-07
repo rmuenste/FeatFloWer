@@ -186,7 +186,7 @@ set(src_LinSc
 #                       LinSc Library Source
 #=========================================================================
 add_library(ff_LinSc ${src_LinSc})
-target_link_libraries(ff_LinSc ff_util ff_mesh ff_assemblies ff_elements ff_le_solvers ${FF_DEFAULT_LIBS})
+target_link_libraries(ff_LinSc ${FF_DEFAULT_LIBS} ff_util ff_mesh ff_assemblies ff_elements ff_le_solvers)
 target_include_directories(ff_LinSc PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_LinSc PUBLIC ${Fortran_FLAGS})
 

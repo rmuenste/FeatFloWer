@@ -22,7 +22,7 @@ source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(heat 
-  ${FF_APPLICATION_LIBS2}
+  ${FF_APPLICATION_LIBS}
   )
 
 target_include_directories(heat PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
