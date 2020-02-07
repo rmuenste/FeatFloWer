@@ -15,15 +15,13 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEA
 ! USE LinScalar, ONLY: AddSurfaceTension
 use fbm
 
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc
+
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
-TYPE(TQuadScalar), target :: QuadSc
-! TODO: Move these to var
-TYPE(TLinScalar)    LinSc
-TYPE(TViscoScalar)  ViscoSc
-TYPE(TParLinScalar) PLinSc
+
 REAL*8, ALLOCATABLE :: ST_force(:)
 REAL*8 :: Density_Secondary=1d0,Density_Primary=1d0
 REAL*8 :: myPowerLawFluid(3),ViscoElasticForce(3)
@@ -2554,29 +2552,6 @@ SUBROUTINE  StoreOrigCoor(dcoor)
   END DO
 
 END SUBROUTINE  StoreOrigCoor
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetMeshVelocity()
-  REAL*8 dMaxVelo,daux
-  INTEGER i
-
-  dMaxVelo = 0d0
-  IF (myid.ne.0) then
-    DO i=1,QuadSc%ndof
-    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
-    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
-    IF (dMaxVelo.lt.daux) dMaxVelo = daux
-    END DO
-  END IF
-
-  CALL COMM_Maximum(dMaxVelo)
-
-  IF (myid.eq.1) THEN
-    WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-  END IF
-
-END SUBROUTINE GetMeshVelocity
 !
 ! ----------------------------------------------
 !

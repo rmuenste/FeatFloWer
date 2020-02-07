@@ -39,7 +39,7 @@ USE Sigma_User, ONLY: mySigma
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
 
@@ -119,7 +119,7 @@ use var_QuadScalar, only:tExport
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
 
@@ -841,7 +841,7 @@ subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel,btempSim)
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
-use def_LinScalar, only: lScalar
+use types, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
 use Sigma_User, only: myOutput, mySigma
 use iniparser
@@ -1941,7 +1941,7 @@ use var_QuadScalar, only:tExport, extruder_angle
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
 

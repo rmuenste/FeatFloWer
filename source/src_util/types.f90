@@ -153,6 +153,223 @@ TYPE tParticle
  INTEGER :: ID=1
 END TYPE tParticle
 
+! Careful this is a type from PLinSc
+!TYPE tParam
+! REAL*8  thetaRI,AvgGradPhiTol
+! REAL*8  defCrit,epsCrit,MinDef,theta
+! INTEGER NLminRI,NLmaxRI,nRI
+! INTEGER NLmin,NLmax
+! INTEGER SolvIter,SolvType,iMass
+! INTEGER StabScheme,SrfCubF,VolCubF
+! LOGICAL SlopeLimit
+!END TYPE tParam
+
+TYPE tMGParamIn
+ INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
+ integer :: vanka
+ REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
+ REAL*8 :: CrsRelaxPrm=2d0/3d0,CrsRelaxParPrm=1d0/3d0
+ CHARACTER*1 CycleType
+ CHARACTER*10 MGProlongation
+END TYPE tMGParamIn
+
+TYPE tMGParamOut
+ REAL*8 DefInitial,DefFinal
+ REAL*8 RhoMG1,RhoMG2
+ INTEGER UsedIterCycle,nIterCoarse
+END TYPE tMGParamOut
+
+TYPE tParam
+ Character*20 :: cEquation
+
+ REAL*8  defCrit,epsCrit,MinDef
+
+ INTEGER NLmin,NLmax
+
+ INTEGER SolvIter,SolvType
+
+ LOGICAL AFC
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut(3)
+END TYPE tParam
+
+
+TYPE mg_vector
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
+END TYPE mg_vector
+
+TYPE tAFC
+ INTEGER :: iedge,nedge,nu
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: inod,jnod,iaux,isep
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aedge
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: pp,pm,qm,qp
+END TYPE
+TYPE(tAFC) AFC
+
+TYPE TlMatrix
+ INTEGER :: nu,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
+END TYPE
+
+
+! Careful this type is from PLinScalar and
+! has the same name as the one from LinScalar
+!TYPE lScalar
+! CHARACTER cName*7
+! INTEGER :: ndof,na,nel,iNumFace
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,val_ad
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Q1
+! INTEGER , DIMENSION(:,:), ALLOCATABLE :: iParFace
+! REAL*8  , DIMENSION(:,:), ALLOCATABLE :: dParFace,dParMidC
+! TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
+! TYPE(tParam) :: prm
+!END TYPE
+
+TYPE lScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,oldSol
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: src,snk
+ TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
+ TYPE(tParam) :: prm
+END TYPE
+
+TYPE tStatistics
+ INTEGER :: iNonLin=0,iLinUVW=0,iLinP=0
+ REAL  :: tMGUVW=0d0,tMGP=0d0,tDefUVW=0d0,tDefP=0d0,tCorrUVWP=0d0
+ REAL  :: tGMVOut=0d0,tDumpOut=0d0
+ REAL  :: tSmat=0d0,tKmat=0d0,tDmat=0d0,tMmat=0d0,tCmat=0d0
+ REAL  :: tRestUVW=0d0,tProlUVW=0d0,tSmthUVW=0d0,tSolvUVW=0d0
+ REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
+ REAL  :: tCommV = 0d0
+ REAL  :: tCommP = 0d0
+ REAL  :: tCommS = 0d0
+ REAL  :: t0,t1
+END TYPE tStatistics
+TYPE (tStatistics),save :: myStat
+
+TYPE tProperties
+ CHARACTER cName*7
+ CHARACTER Material(2)*10
+ REAL*8 :: Gravity(3)
+ REAL*8, dimension(6) :: ForceScale = (/1d0, 1d0, 1d0, 1d0, 1d0, 1d0/)
+ REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
+ REAL*8 :: ViscoLambda
+ REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
+ REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
+ INTEGER :: ViscoModel
+ INTEGER :: nInterface
+END TYPE tProperties
+
+TYPE tParamV
+ REAL*8  defCrit,MinDef
+ Real*8 :: Alpha
+ INTEGER SolvType
+ INTEGER iMass,NLmin,NLmax
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut(3)
+END TYPE tParamV
+
+TYPE tParamP
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut
+END TYPE tParamP
+
+
+TYPE mg_dVector
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
+END TYPE mg_dVector
+
+TYPE mg_kVector
+ INTEGER  , DIMENSION(:) , ALLOCATABLE :: x
+END TYPE mg_kVector
+
+TYPE tGradient
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x,y,z
+END TYPE tGradient
+
+TYPE TViscoScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val11,val22,val33,val12,val13,val23,rhs0,ValOld,diag
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol
+ TYPE(tGradient) :: grad11,grad22,grad33,grad12,grad13,grad23
+ TYPE(tParamV) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+TYPE TLinScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprP
+! TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knpr
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old,P_old,P_new
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE ::  ST_P,Q2
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: valP,defP,auxP,rhsP,dvalP
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_GMV
+ TYPE(tParamP) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+TYPE TQuadScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprU
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprV
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprW
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprT
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+! In this part also valX_old1/2 and valX_help are added for the BDF time-stepping (locally allocated in q2p1_cc)
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxU,rhsU,defU,valU_old,valU,valU_old1,valU_help,valU_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxV,rhsV,defV,valV_old,valV,valV_old1,valV_help,valV_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxW,rhsW,defW,valW_old,valW,valW_old1,valW_help,valW_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valUx,valUy,valUz
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valVx,valVy,valVz
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valWx,valWy,valWz
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol,dsol
+ TYPE(tParamV) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+type fieldPtr
+  real*8, dimension(:), pointer ::p
+end type fieldPtr
+
+
+TYPE TParLinScalar
+ INTEGER :: ndof
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE::  Val
+END TYPE
+
+TYPE TMatrix
+ INTEGER :: nu,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
+END TYPE
+
+TYPE TcrsStructure
+! INTEGER, ALLOCATABLE :: A_Ld(:),A_Col(:)
+ REAL*8, ALLOCATABLE  :: A_Mat(:),A_Rhs(:),A_Sol(:)
+ TYPE(TMatrix) A
+! INTEGER nu,na
+END TYPE
+
+TYPE lScalar3
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ LOGICAL :: bProlRest=.FALSE. 
+
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX,valY,valZ
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
+ TYPE(tParam) :: prm
+ 
+END TYPE
+
 TYPE tVelo
  REAL*8, ALLOCATABLE :: x(:)
  REAL*8, ALLOCATABLE :: y(:)

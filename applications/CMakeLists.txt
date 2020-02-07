@@ -24,7 +24,6 @@ add_subdirectory(q2p1_euler_fibers)
 
 add_subdirectory(iniparser_demo)
 
-add_subdirectory(s3d_mesher)
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
@@ -32,6 +31,7 @@ if(USE_CGAL)
   add_subdirectory(q2p1_devel)
   add_subdirectory(q2p1_devel_temp)
   add_subdirectory(q2p1_sse)
+  add_subdirectory(s3d_mesher)
   add_subdirectory(q2p1_sse_temp)
   add_subdirectory(auto_param)
   add_subdirectory(mesh_proc)

@@ -1,5 +1,5 @@
       FUNCTION Breyer_Carreau(NormShearSquare)
-      USE Transport_Q2P1, ONLY : Properties
+      USE var_QuadScalar, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: Breyer_Carreau
@@ -17,7 +17,7 @@
       END
 
       FUNCTION PolyFLOW_Carreau(NormShearSquare)
-      USE Transport_Q2P1, ONLY : Properties
+      USE var_QuadScalar, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: PolyFLOW_Carreau
@@ -57,7 +57,7 @@
 !       END 
 
       FUNCTION HogenPowerlaw(NormShearSquare)
-      USE Transport_Q2P1, ONLY : Properties
+      USE var_QuadScalar, ONLY : Properties
       IMPLICIT NONE
 
       real*8 :: HogenPowerlaw
@@ -1312,6 +1312,327 @@ C
 ! 99999 END
 C
 C
+      SUBROUTINE SetUpMyCub(DMyOmgP,DMyCubP,MyNCubP,ICUB)
+      IMPLICIT NONE
+      INTEGER NNCUBP,NNAE,NNDIM
+      PARAMETER (NNCUBP=36,NNAE=6,NNDIM=3)
+      INTEGER ICUB,MyNCubP
+      REAL*8 DMyOmgP(NNCUBP),DMyCubP(NNCUBP,NNAE,NNDIM)
+C
+      IF (ICUB.EQ.1) THEN
+C
+       MyNCubP      =  1
+       DMyOmgP(1)   =  1d0
+
+       DMyCubP(1,1,1) =  0d0
+       DMyCubP(1,1,2) =  0d0
+       DMyCubP(1,1,3) = -1d0
+
+       DMyCubP(1,2,1) =  0d0
+       DMyCubP(1,2,2) = -1d0
+       DMyCubP(1,2,3) =  0d0
+
+       DMyCubP(1,3,1) =  1d0
+       DMyCubP(1,3,2) =  0d0
+       DMyCubP(1,3,3) =  0d0
+
+       DMyCubP(1,4,1) =  0d0
+       DMyCubP(1,4,2) =  1d0
+       DMyCubP(1,4,3) =  0d0
+
+       DMyCubP(1,5,1) = -1d0
+       DMyCubP(1,5,2) =  0d0
+       DMyCubP(1,5,3) =  0d0
+
+       DMyCubP(1,6,1) =  0d0
+       DMyCubP(1,6,2) =  0d0
+       DMyCubP(1,6,3) =  1d0
+
+       GOTO 9999
+      ENDIF
+C
+      IF (ICUB.EQ.2) THEN
+
+       MyNCubP      =  4
+       DMyOmgP(1)   =  0.25d0
+       DMyOmgP(2)   =  0.25d0
+       DMyOmgP(3)   =  0.25d0
+       DMyOmgP(4)   =  0.25d0
+
+       DMyCubP(1,1,1) =  0.577350269189626D0
+       DMyCubP(1,1,2) =  0.577350269189626D0
+       DMyCubP(1,1,3) = -1d0
+       DMyCubP(2,1,1) = -0.577350269189626D0
+       DMyCubP(2,1,2) =  0.577350269189626D0
+       DMyCubP(2,1,3) = -1d0
+       DMyCubP(3,1,1) = -0.577350269189626D0
+       DMyCubP(3,1,2) = -0.577350269189626D0
+       DMyCubP(3,1,3) = -1d0
+       DMyCubP(4,1,1) =  0.577350269189626D0
+       DMyCubP(4,1,2) = -0.577350269189626D0
+       DMyCubP(4,1,3) = -1d0
+
+       DMyCubP(1,2,1) =  0.577350269189626D0
+       DMyCubP(1,2,2) = -1d0
+       DMyCubP(1,2,3) =  0.577350269189626D0
+       DMyCubP(2,2,1) = -0.577350269189626D0
+       DMyCubP(2,2,2) = -1d0
+       DMyCubP(2,2,3) =  0.577350269189626D0
+       DMyCubP(3,2,1) = -0.577350269189626D0
+       DMyCubP(3,2,2) = -1d0
+       DMyCubP(3,2,3) = -0.577350269189626D0
+       DMyCubP(4,2,1) =  0.577350269189626D0
+       DMyCubP(4,2,2) = -1d0
+       DMyCubP(4,2,3) = -0.577350269189626D0
+
+       DMyCubP(1,3,1) =  1d0
+       DMyCubP(1,3,2) =  0.577350269189626D0
+       DMyCubP(1,3,3) =  0.577350269189626D0
+       DMyCubP(2,3,1) =  1d0
+       DMyCubP(2,3,2) = -0.577350269189626D0
+       DMyCubP(2,3,3) =  0.577350269189626D0
+       DMyCubP(3,3,1) =  1d0
+       DMyCubP(3,3,2) = -0.577350269189626D0
+       DMyCubP(3,3,3) = -0.577350269189626D0
+       DMyCubP(4,3,1) =  1d0
+       DMyCubP(4,3,2) =  0.577350269189626D0
+       DMyCubP(4,3,3) = -0.577350269189626D0
+
+       DMyCubP(1,4,1) =  0.577350269189626D0
+       DMyCubP(1,4,2) =  1d0
+       DMyCubP(1,4,3) =  0.577350269189626D0
+       DMyCubP(2,4,1) = -0.577350269189626D0
+       DMyCubP(2,4,2) =  1d0
+       DMyCubP(2,4,3) =  0.577350269189626D0
+       DMyCubP(3,4,1) = -0.577350269189626D0
+       DMyCubP(3,4,2) =  1d0
+       DMyCubP(3,4,3) = -0.577350269189626D0
+       DMyCubP(4,4,1) =  0.577350269189626D0
+       DMyCubP(4,4,2) =  1d0
+       DMyCubP(4,4,3) = -0.577350269189626D0
+
+       DMyCubP(1,5,1) = -1d0
+       DMyCubP(1,5,2) =  0.577350269189626D0
+       DMyCubP(1,5,3) =  0.577350269189626D0
+       DMyCubP(2,5,1) = -1d0
+       DMyCubP(2,5,2) = -0.577350269189626D0
+       DMyCubP(2,5,3) =  0.577350269189626D0
+       DMyCubP(3,5,1) = -1d0
+       DMyCubP(3,5,2) = -0.577350269189626D0
+       DMyCubP(3,5,3) = -0.577350269189626D0
+       DMyCubP(4,5,1) = -1d0
+       DMyCubP(4,5,2) =  0.577350269189626D0
+       DMyCubP(4,5,3) = -0.577350269189626D0
+
+       DMyCubP(1,6,1) =  0.577350269189626D0
+       DMyCubP(1,6,2) =  0.577350269189626D0
+       DMyCubP(1,6,3) =  1d0
+       DMyCubP(2,6,1) = -0.577350269189626D0
+       DMyCubP(2,6,2) =  0.577350269189626D0
+       DMyCubP(2,6,3) =  1d0
+       DMyCubP(3,6,1) = -0.577350269189626D0
+       DMyCubP(3,6,2) = -0.577350269189626D0
+       DMyCubP(3,6,3) =  1d0
+       DMyCubP(4,6,1) =  0.577350269189626D0
+       DMyCubP(4,6,2) = -0.577350269189626D0
+       DMyCubP(4,6,3) =  1d0
+
+       GOTO 9999
+      END IF
+C
+      IF (ICUB.EQ.3) THEN
+       MyNCubP      =  9
+       DMyOmgP(1)   =  0.077160493827161d0
+       DMyOmgP(2)   =  0.077160493827161d0
+       DMyOmgP(3)   =  0.077160493827161d0
+       DMyOmgP(4)   =  0.077160493827161d0
+       DMyOmgP(5)   =  0.123456790123457D0
+       DMyOmgP(6)   =  0.123456790123457D0
+       DMyOmgP(7)   =  0.123456790123457D0
+       DMyOmgP(8)   =  0.123456790123457D0
+       DMyOmgP(9)   =  0.197530864197531D0
+
+       ! IAT = 1 !
+       DMyCubP(1,1,1) =  0.774596669241483D0
+       DMyCubP(1,1,2) =  0.774596669241483D0
+       DMyCubP(1,1,3) = -1d0
+       DMyCubP(2,1,1) = -0.774596669241483D0
+       DMyCubP(2,1,2) =  0.774596669241483D0
+       DMyCubP(2,1,3) = -1d0
+       DMyCubP(3,1,1) =  0.774596669241483D0
+       DMyCubP(3,1,2) = -0.774596669241483D0
+       DMyCubP(3,1,3) = -1d0
+       DMyCubP(4,1,1) = -0.774596669241483D0
+       DMyCubP(4,1,2) = -0.774596669241483D0
+       DMyCubP(4,1,3) = -1d0
+       DMyCubP(5,1,1) =  0.774596669241483D0
+       DMyCubP(5,1,2) =  0D0
+       DMyCubP(5,1,3) = -1d0
+       DMyCubP(6,1,1) = -0.774596669241483D0
+       DMyCubP(6,1,2) =  0D0
+       DMyCubP(6,1,3) = -1d0
+       DMyCubP(7,1,1) =  0D0
+       DMyCubP(7,1,2) =  0.774596669241483D0
+       DMyCubP(7,1,3) = -1d0
+       DMyCubP(8,1,1) =  0D0
+       DMyCubP(8,1,2) = -0.774596669241483D0
+       DMyCubP(8,1,3) = -1d0
+       DMyCubP(9,1,1) =  0D0
+       DMyCubP(9,1,2) =  0D0
+       DMyCubP(9,1,3) = -1d0
+
+       ! IAT = 2 !
+       DMyCubP(1,2,1) =  0.774596669241483D0
+       DMyCubP(1,2,2) = -1d0
+       DMyCubP(1,2,3) =  0.774596669241483D0
+       DMyCubP(2,2,1) = -0.774596669241483D0
+       DMyCubP(2,2,2) = -1d0
+       DMyCubP(2,2,3) =  0.774596669241483D0
+       DMyCubP(3,2,1) =  0.774596669241483D0
+       DMyCubP(3,2,2) = -1d0
+       DMyCubP(3,2,3) = -0.774596669241483D0
+       DMyCubP(4,2,1) = -0.774596669241483D0
+       DMyCubP(4,2,2) = -1d0
+       DMyCubP(4,2,3) = -0.774596669241483D0
+       DMyCubP(5,2,1) =  0.774596669241483D0
+       DMyCubP(5,2,2) = -1d0
+       DMyCubP(5,2,3) =  0D0
+       DMyCubP(6,2,1) = -0.774596669241483D0
+       DMyCubP(6,2,2) = -1d0
+       DMyCubP(6,2,3) =  0D0
+       DMyCubP(7,2,1) =  0D0
+       DMyCubP(7,2,2) = -1d0
+       DMyCubP(7,2,3) =  0.774596669241483D0
+       DMyCubP(8,2,1) =  0D0
+       DMyCubP(8,2,2) = -1d0
+       DMyCubP(8,2,3) = -0.774596669241483D0
+       DMyCubP(9,2,1) =  0D0
+       DMyCubP(9,2,2) = -1d0
+       DMyCubP(9,2,3) =  0D0
+
+       ! IAT = 3 !
+       DMyCubP(1,3,1) =  1d0
+       DMyCubP(1,3,2) =  0.774596669241483D0
+       DMyCubP(1,3,3) =  0.774596669241483D0
+       DMyCubP(2,3,1) =  1d0
+       DMyCubP(2,3,2) =  0.774596669241483D0
+       DMyCubP(2,3,3) = -0.774596669241483D0
+       DMyCubP(3,3,1) =  1d0
+       DMyCubP(3,3,2) = -0.774596669241483D0
+       DMyCubP(3,3,3) =  0.774596669241483D0
+       DMyCubP(4,3,1) =  1d0
+       DMyCubP(4,3,2) = -0.774596669241483D0
+       DMyCubP(4,3,3) = -0.774596669241483D0
+       DMyCubP(5,3,1) =  1d0
+       DMyCubP(5,3,2) =  0D0
+       DMyCubP(5,3,3) =  0.774596669241483D0
+       DMyCubP(6,3,1) =  1d0
+       DMyCubP(6,3,2) =  0D0
+       DMyCubP(6,3,3) = -0.774596669241483D0
+       DMyCubP(7,3,1) =  1d0
+       DMyCubP(7,3,2) =  0.774596669241483D0
+       DMyCubP(7,3,3) =  0D0
+       DMyCubP(8,3,1) =  1d0
+       DMyCubP(8,3,2) = -0.774596669241483D0
+       DMyCubP(8,3,3) =  0D0
+       DMyCubP(9,3,1) =  1D0
+       DMyCubP(9,3,2) =  0D0
+       DMyCubP(9,3,3) =  0d0
+
+       ! IAT = 4 !
+       DMyCubP(1,4,1) =  0.774596669241483D0
+       DMyCubP(1,4,2) =  1d0
+       DMyCubP(1,4,3) =  0.774596669241483D0
+       DMyCubP(2,4,1) = -0.774596669241483D0
+       DMyCubP(2,4,2) =  1d0
+       DMyCubP(2,4,3) =  0.774596669241483D0
+       DMyCubP(3,4,1) =  0.774596669241483D0
+       DMyCubP(3,4,2) =  1d0
+       DMyCubP(3,4,3) = -0.774596669241483D0
+       DMyCubP(4,4,1) = -0.774596669241483D0
+       DMyCubP(4,4,2) =  1d0
+       DMyCubP(4,4,3) = -0.774596669241483D0
+       DMyCubP(5,4,1) =  0.774596669241483D0
+       DMyCubP(5,4,2) =  1d0
+       DMyCubP(5,4,3) =  0D0
+       DMyCubP(6,4,1) = -0.774596669241483D0
+       DMyCubP(6,4,2) =  1d0
+       DMyCubP(6,4,3) =  0D0
+       DMyCubP(7,4,1) =  0D0
+       DMyCubP(7,4,2) =  1d0
+       DMyCubP(7,4,3) =  0.774596669241483D0
+       DMyCubP(8,4,1) =  0D0
+       DMyCubP(8,4,2) =  1d0
+       DMyCubP(8,4,3) = -0.774596669241483D0
+       DMyCubP(9,4,1) =  0D0
+       DMyCubP(9,4,2) =  1d0
+       DMyCubP(9,4,3) =  0D0
+
+       ! IAT = 5 !
+       DMyCubP(1,5,1) = -1d0
+       DMyCubP(1,5,2) =  0.774596669241483D0
+       DMyCubP(1,5,3) =  0.774596669241483D0
+       DMyCubP(2,5,1) = -1d0
+       DMyCubP(2,5,2) =  0.774596669241483D0
+       DMyCubP(2,5,3) = -0.774596669241483D0
+       DMyCubP(3,5,1) = -1d0
+       DMyCubP(3,5,2) = -0.774596669241483D0
+       DMyCubP(3,5,3) =  0.774596669241483D0
+       DMyCubP(4,5,1) = -1d0
+       DMyCubP(4,5,2) = -0.774596669241483D0
+       DMyCubP(4,5,3) = -0.774596669241483D0
+       DMyCubP(5,5,1) = -1d0
+       DMyCubP(5,5,2) =  0D0
+       DMyCubP(5,5,3) =  0.774596669241483D0
+       DMyCubP(6,5,1) = -1d0
+       DMyCubP(6,5,2) =  0D0
+       DMyCubP(6,5,3) = -0.774596669241483D0
+       DMyCubP(7,5,1) = -1d0
+       DMyCubP(7,5,2) =  0.774596669241483D0
+       DMyCubP(7,5,3) =  0D0
+       DMyCubP(8,5,1) = -1d0
+       DMyCubP(8,5,2) = -0.774596669241483D0
+       DMyCubP(8,5,3) =  0D0
+       DMyCubP(9,5,1) = -1D0
+       DMyCubP(9,5,2) =  0D0
+       DMyCubP(9,5,3) =  0d0
+
+       ! IAT = 6 !
+       DMyCubP(1,6,1) =  0.774596669241483D0
+       DMyCubP(1,6,2) =  0.774596669241483D0
+       DMyCubP(1,6,3) =  1d0
+       DMyCubP(2,6,1) = -0.774596669241483D0
+       DMyCubP(2,6,2) =  0.774596669241483D0
+       DMyCubP(2,6,3) =  1d0
+       DMyCubP(3,6,1) =  0.774596669241483D0
+       DMyCubP(3,6,2) = -0.774596669241483D0
+       DMyCubP(3,6,3) =  1d0
+       DMyCubP(4,6,1) = -0.774596669241483D0
+       DMyCubP(4,6,2) = -0.774596669241483D0
+       DMyCubP(4,6,3) =  1d0
+       DMyCubP(5,6,1) =  0.774596669241483D0
+       DMyCubP(5,6,2) =  0D0
+       DMyCubP(5,6,3) =  1d0
+       DMyCubP(6,6,1) = -0.774596669241483D0
+       DMyCubP(6,6,2) =  0D0
+       DMyCubP(6,6,3) =  1d0
+       DMyCubP(7,6,1) =  0D0
+       DMyCubP(7,6,2) =  0.774596669241483D0
+       DMyCubP(7,6,3) =  1d0
+       DMyCubP(8,6,1) =  0D0
+       DMyCubP(8,6,2) = -0.774596669241483D0
+       DMyCubP(8,6,3) =  1d0
+       DMyCubP(9,6,1) =  0D0
+       DMyCubP(9,6,2) =  0D0
+       DMyCubP(9,6,3) =  1d0
+
+       GOTO 9999
+      END IF
+
+      WRITE(*,*) "Not defined cubature formula ..."
+      STOP
+9999  CONTINUE
+      END
 C
 ************************************************************************
       SUBROUTINE STRESS(U1,U2,U3,T,kMat,D1,D2,D3,DVISCOS,

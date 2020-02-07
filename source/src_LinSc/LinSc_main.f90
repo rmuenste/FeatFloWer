@@ -3,17 +3,15 @@ MODULE Transport_Q1
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
     Comm_Maximum,Comm_Summ,myid,master,CommSum,Comm_SummN,myMPI_barrier
-USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
+USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
-    MoveInterfacePoints,myALE,Properties,getmeshvelocity,Temperature
+    myALE,Properties,Temperature
 USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
+USE var_QuadScalar, ONLY: Tracer, Tracer3
 USE mg_LinScalar, ONLY : mgProlRestInit
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
 
 IMPLICIT NONE
-
-TYPE(lScalar) Tracer
-TYPE(lScalar3) Tracer3
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 

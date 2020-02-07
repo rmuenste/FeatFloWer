@@ -160,7 +160,7 @@ C
 *     Discrete convection operator: Q1~ elements (nonparametric)
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid,showID
-      USE Transport_Q2P1, ONLY : myBoundary
+      USE var_QuadScalar, ONLY : myBoundary
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
 C
@@ -296,41 +296,41 @@ C
 99999 CONTINUE
 
       END
-      SUBROUTINE AddSurfaceTension()
-
-      USE def_QuadScalar
-      USE Transport_Q2P1, ONLY : QuadSc,ST_force,Sigma
-      USE PLinScalar, ONLY : dNorm
-      IMPLICIT NONE
-      REAL*8 :: DEPS=0.015d0
-      EXTERNAL E013
-
-      ILEV=NLMAX
-      CALL SETLEV(2)
-!       PAUSE
-      CALL Q1toQ2SurfTens(QuadSc%defU,QuadSc%defV,QuadSc%defW,dNorm,
-     *     ST_force,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),
-     *     KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),TSTEP,Sigma,E013)
-       RETURN
-
-!       CALL SurfTens(QuadSc%defU,QuadSc%defV,QuadSc%defW,normal,
-!      *     LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
-!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
-!      *     VWORK(L(KLVOL(NLMAX))),Sigma,TSTEP,DEPS,E013)
-!       CALL SurfTens_old(QuadSc%defU,QuadSc%defV,QuadSc%defW,normal,
-!      *     LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
-!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
-!      *     Sigma,TSTEP,DEPS,E013)
-!       QuadSc%valU(NLMAX)%x = 0d0
-!       QuadSc%valV(NLMAX)%x = 0d0
-!       QuadSc%valW(NLMAX)%x = 0d0
-!       CALL SurfTens(QuadSc%valU(NLMAX)%x,QuadSc%valV(NLMAX)%x,
-!      *     QuadSc%valW(NLMAX)%x,
-!      *     normal,LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
-!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
-!      *     VWORK(L(KLVOL(NLMAX))),Sigma,TSTEP,DEPS,E013)
-
-      END
+!      SUBROUTINE AddSurfaceTension()
+!
+!      USE def_QuadScalar
+!      USE Transport_Q2P1, ONLY : QuadSc,ST_force,Sigma
+!      USE PLinScalar, ONLY : dNorm
+!      IMPLICIT NONE
+!      REAL*8 :: DEPS=0.015d0
+!      EXTERNAL E013
+!
+!      ILEV=NLMAX
+!      CALL SETLEV(2)
+!!       PAUSE
+!      CALL Q1toQ2SurfTens(QuadSc%defU,QuadSc%defV,QuadSc%defW,dNorm,
+!     *     ST_force,KWORK(L(LVERT)),KWORK(L(LAREA)),KWORK(L(LEDGE)),
+!     *     KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),TSTEP,Sigma,E013)
+!       RETURN
+!
+!!       CALL SurfTens(QuadSc%defU,QuadSc%defV,QuadSc%defW,normal,
+!!      *     LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
+!!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
+!!      *     VWORK(L(KLVOL(NLMAX))),Sigma,TSTEP,DEPS,E013)
+!!       CALL SurfTens_old(QuadSc%defU,QuadSc%defV,QuadSc%defW,normal,
+!!      *     LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
+!!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
+!!      *     Sigma,TSTEP,DEPS,E013)
+!!       QuadSc%valU(NLMAX)%x = 0d0
+!!       QuadSc%valV(NLMAX)%x = 0d0
+!!       QuadSc%valW(NLMAX)%x = 0d0
+!!       CALL SurfTens(QuadSc%valU(NLMAX)%x,QuadSc%valV(NLMAX)%x,
+!!      *     QuadSc%valW(NLMAX)%x,
+!!      *     normal,LevSet%val(NLMAX)%x,KWORK(L(LVERT)),KWORK(L(LAREA)),
+!!      *     KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),
+!!      *     VWORK(L(KLVOL(NLMAX))),Sigma,TSTEP,DEPS,E013)
+!
+!      END
 
 
 ************************************************************************

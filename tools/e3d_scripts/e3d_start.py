@@ -263,7 +263,8 @@ def simLoopTemperatureCombined(workingDir):
 #===============================================================================
 #                        Main Script Function
 #===============================================================================
-def main():
+def main(e3dLog):
+    return
     """
     The main function that controls the extrusion process
 
@@ -373,8 +374,15 @@ def main():
 #===============================================================================
 if __name__ == "__main__":
     with open("e3d.log", "w") as log:
-        log.write("E3D started at: " + str(datetime.datetime.now()) + "\n")
-        log.write("E3D running\n")
-    main()
-    with open("e3d.log", "a") as log:
-        log.write("E3D stopped at: " + str(datetime.datetime.now()) + "\n")
+        log.write("[Extrud3DFileInfo]\n")
+        log.write("FileType=Logging\n")
+        log.write("FileVersion=Extrud3D 2020\n")
+        today = datetime.date.today()
+        log.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
+        log.write("Extrud3DVersion=Extrud3D 2020.02")
+
+        log.write("[SimulationStatus]\n")
+        log.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
+        log.write("CurrentStatus=running\n")
+        main(log)
+        log.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")

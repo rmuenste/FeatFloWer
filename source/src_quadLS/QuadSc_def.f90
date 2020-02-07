@@ -3846,39 +3846,6 @@ END SUBROUTINE SetUp_myQ2Coor
 !
 ! ----------------------------------------------
 !
-SUBROUTINE ResetTimer()
-
- myStat%iNonLin=0
- myStat%iLinUVW=0
- myStat%iLinP=0
- myStat%tMGUVW=0d0
- myStat%tMGP=0d0
- myStat%tDefUVW=0d0
- myStat%tDefP=0d0
- myStat%tCorrUVWP=0d0
- myStat%tGMVOut=0d0
- myStat%tDumpOut=0d0
- myStat%tSmat=0d0
- myStat%tKmat=0d0
- myStat%tDmat=0d0
- myStat%tMmat=0d0
- myStat%tCmat=0d0
- myStat%tRestUVW=0d0
- myStat%tProlUVW=0d0
- myStat%tSmthUVW=0d0
- myStat%tSolvUVW=0d0
- myStat%tRestP=0d0
- myStat%tProlP=0d0
- myStat%tSmthP=0d0
- myStat%tSolvP=0d0
- myStat%tCommP=0d0
- myStat%tCommV=0d0
- myStat%tCommS=0d0
-
-END SUBROUTINE ResetTimer
-!
-! ----------------------------------------------
-!
 SUBROUTINE MonitorVeloMag(myScalar)
 TYPE(TQuadScalar) myScalar
 real*8 dmax,daux
