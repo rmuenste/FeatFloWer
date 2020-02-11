@@ -8,7 +8,7 @@ use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, 
 use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
 
 use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
-use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,&
+use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,COMM_Minimum,&
                    COMM_Minimumn,COMM_NLComplete,Comm_Summ,myMPI_Barrier
 !------------------------------------------------------------------------------------------------
 ! A module for output routines for vtk, gmv or other output formats.
@@ -69,6 +69,14 @@ integer :: ioutput_lvl
 if (sExport%Format .eq. "VTK") then
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
+ 
+  CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
+
   call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
 
   call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
@@ -961,6 +969,7 @@ type(t1dname) :: names1d(11)
  iVerlaufMax = 33
 
  my1DOut(1)%cName = 'VelocityZ_[m/s]'
+! CALL restrictField(sQuadSc%valW, 1, sQuadSc, myOutput, maxlevel)
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(2)%cName = 'Pressure_[bar]'
@@ -973,6 +982,7 @@ type(t1dname) :: names1d(11)
  CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(5)%cName = 'ShearRate_[1/s]'
+! CALL restrictField(ShearRate, 5,  sQuadSc, myOutput, maxlevel)
  CALL viz_OutPut_1D_sub(ShearRate,sLinSc%Q2,sLinSc%Q2,5, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(6)%cName = 'VelocityX_[m/s]'
@@ -1421,6 +1431,159 @@ end subroutine
 ! @param sLinSc The pressure solution structure of the mesh
 ! @param sTracer Scalar solution structure
 ! @param sTracer Scalar solution structure
+subroutine restrictField(dField1, i1D, sQuadSc, maxlevel)
+use Sigma_User, only: myOutput, mySigma
+use, intrinsic :: ieee_arithmetic
+
+real*8 :: dField1(*)
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
+integer :: i1D
+
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist) myHist
+
+! local variables
+integer :: i,j
+real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
+
+
+allocate(myHist%x(SIZE(sQuadSc%ValU)))
+allocate(myHist%m(SIZE(sQuadSc%ValU)))
+myHist%x = 0d0
+myHist%m = 0d0
+myHist%n = 0
+
+MlRhoMat => mg_MlRhoMat(maxlevel)%a
+dMin    = 1d30
+dMax    =-1d30
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if (i1D.eq.1 .OR.i1D.eq.5) then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+
+   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+
+   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+   
+ END IF
+END DO
+
+CALL COMM_Maximum(dMax)
+CALL COMM_Minimum(dMin)
+
+if (i1D.eq.9 .OR.i1D.eq.10 .OR.i1D.eq.5) THEN
+ CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.true.)
+END IF
+if (i1D.eq.11.OR.i1D.eq.12 .OR.i1D.eq.1) THEN
+ CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.false.)
+ENdif
+
+!if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if (i1D.eq.1 .OR.i1D.eq.5) then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+   
+   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+
+   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+   
+ END IF
+END DO
+
+deallocate(myHist%x)
+deallocate(myHist%m)
+
+! dMin    = 1d30
+! dMax    =-1d30
+! myHist%n = 0
+! 
+! DO i=1,SIZE(sQuadSc%ValU)
+! 
+!  IF (MixerKNPR(i).eq.0) THEN
+!  
+!     myHist%n = myHist%n + 1
+!     daux = dField1(i)
+!     dMin    = MIN(dMin,daux)
+!     dMax    = MAX(dMax,daux)
+!    
+!  END IF
+! END DO
+! 
+! CALL COMM_Maximum(dMax)
+! CALL COMM_Minimum(dMin)
+
+! if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
+
+end subroutine restrictField
+!
+!-------------------------------------------------------------------------------------------------
+! The particular routine for outputting 1D fields for an sse application
+!-------------------------------------------------------------------------------------------------
+! @param iO Output file idx
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer Scalar solution structure
+! @param sTracer Scalar solution structure
 subroutine viz_OutPut_1D_sub(dField1,dField2,dField3,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
 real*8 :: dField1(*),dField2(*),dField3(*)
 integer :: i1D
@@ -1441,7 +1604,7 @@ type (tHist), allocatable :: myHist(:)
 ! local variables
 real*8  :: dMinSample, dMaxSample
 integer :: i,j,jj
-real*8  :: dZ,dWidth,daux,dScale
+real*8  :: dZ,dWidth,daux,dScale,dLim
 
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
@@ -1735,10 +1898,10 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
  if (i1D.eq.9.or.i1D.eq.10) then
-  dLim = MIN(0.05d0,myOutput%CutDtata_1D*50d0)
+  dLim = myOutput%CutDtata_1D
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  dLim = MIN(0.01d0,myOutput%CutDtata_1D*10d0)
+  dLim = myOutput%CutDtata_1D
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
