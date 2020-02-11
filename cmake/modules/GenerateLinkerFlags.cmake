@@ -67,6 +67,7 @@ else(WIN32)
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
     ff_postprocessing
+    ff_ini_aux
     ff_ini_c
     ff_util
     ff_assemblies

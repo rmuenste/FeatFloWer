@@ -29,16 +29,21 @@ target_link_libraries(ff_postprocessing ff_cinterface ff_util ff_mesh)
 target_include_directories(ff_postprocessing PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
 
-set(src_ini_c
+set(src_ini_aux
   ${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
+)
+
+set(src_ini_c
   ${CMAKE_SOURCE_DIR}/source/src_ini/iniparser.f90
-  )
+)
 
 #=========================================================================
 #                         Ini Library Source
 #=========================================================================
+add_library(ff_ini_aux ${src_ini_aux})
 add_library(ff_ini_c ${src_ini_c})
+target_link_libraries(ff_ini_c ff_ini_aux)
 target_include_directories(ff_ini_c PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_ini_c PUBLIC ${Fortran_FLAGS})
 
