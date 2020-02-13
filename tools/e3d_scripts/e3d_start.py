@@ -123,10 +123,14 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
-    
-    exitCode=subprocess.call(["./s3d_mesher"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
 
-    if not Path("_data/meshDir").exists():    
+    exitCode = subprocess.call(["./s3d_mesher"], env={
+        "LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.',
+        "PATH":os.environ['PATH']
+        })
+    print("Exit code: ",exitCode)
+    sys.exit(2)
+    if not Path("_data/meshDir").exists():
       meshDirPath = projectPath / Path("meshDir")
       if meshDirPath.exists():
          print('Copying meshDir from Project Folder!')
@@ -201,16 +205,16 @@ def simLoopVelocity(workingDir):
             f.write("Angle=" + str(angle) + "\n")
 
         if sys.platform == "win32":
-            exitCode=subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode=subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
-    return exitCode    
+    return exitCode
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
@@ -252,14 +256,14 @@ def simLoopTemperatureCombined(workingDir):
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
         shutil.copyfile(str(backupVeloFile), str(veloDestFile))
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
-        exitCode=simLoopVelocity(workingDir)
+        exitCode = simLoopVelocity(workingDir)
         print("temperature simulation")
 
         if sys.platform == "win32":
-            exitCode=subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode=subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
@@ -277,7 +281,7 @@ def simLoopTemperatureCombined(workingDir):
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
-    exitCode=simLoopVelocity(workingDir)
+    exitCode = simLoopVelocity(workingDir)
 
 #===============================================================================
 #                        Main Script Function
