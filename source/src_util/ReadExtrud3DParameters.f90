@@ -904,7 +904,7 @@
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
     if (myProcess%iInd.eq.-1) write(*,*) "mySigma%RotationType",'=','CounterRotating'
     if (myProcess%iInd.eq.+1) write(*,*) "mySigma%RotationType",'=','CoRotating'
-    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
      
      write(*,*) "mySigma%RotationAxis",'=',mySigma%RotationAxis
      
