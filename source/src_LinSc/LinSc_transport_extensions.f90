@@ -216,6 +216,7 @@ end if
 CALL LL21(Temperature,Tracer%ndof,DefT)
 call COMM_SUMM(DefT)
 if (ieee_is_nan(DefT)) DivergedSolution = .true.
+if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
 
 NLMAX = NLMAX - 1
 

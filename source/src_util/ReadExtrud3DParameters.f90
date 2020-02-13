@@ -72,7 +72,11 @@
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
-    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."XSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
      WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
      STOP 7
     END IF
