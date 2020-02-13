@@ -133,7 +133,7 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
          shutil.copytree(str(meshDirPath), "_data/meshDir")
       else:
          print("Error: No mesh automatically generated and no <meshDir> " + 
-               "folder present the case folder " + str(projectPath))
+               "folder present the case folder " + str(projectPath) + " " + str(exitCode))
          sys.exit(2)    
     
     partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
@@ -210,7 +210,7 @@ def simLoopVelocity(workingDir):
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
-        return exitCode    
+    return exitCode    
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
