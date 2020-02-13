@@ -132,7 +132,7 @@ end subroutine sim_finalize
 subroutine sim_finalize_sse(dttt0, filehandle)
   use def_Feat
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
-  use var_QuadScalar, only: istep_ns,mg_mesh
+  use var_QuadScalar, only: istep_ns,mg_mesh,DivergedSolution
   use Mesh_Structures, only: release_mesh
   use solution_io, only: write_sol_to_file,write_sse_1d_sol
   use Sigma_User, only: myProcess
@@ -150,6 +150,8 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   CALL StatOut(time_passed,0)
 
   CALL StatOut(time_passed,terminal)
+  
+  if (.not.DivergedSolution) then
 
   ! Save the final solution vector in unformatted form
   istep_ns = istep_ns - 1
@@ -157,11 +159,18 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   CALL Release_ListFiles_SSE(int(myProcess%Angle))
 !  call write_sol_to_file(insavn, timens)
   call write_sse_1d_sol()
+  
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "Q2P1_SSE has successfully finished. "
+     WRITE(filehandle,*) "Q2P1_SSE has successfully finished. "
+   END IF
+  ELSE
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "Q2P1_SSE has been stopped due to divergence ..."
+     WRITE(filehandle,*) "Q2P1_SSE has been stopped due to divergence ..."
+   END IF
+  end if
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) "PP3D_LES has successfully finished. "
-    WRITE(filehandle,*) "PP3D_LES has successfully finished. "
-  END IF
 
   call release_mesh(mg_mesh)
   CALL Barrier_myMPI()

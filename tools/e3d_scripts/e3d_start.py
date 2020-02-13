@@ -197,14 +197,16 @@ def simLoopVelocity(workingDir):
             f.write("Angle=" + str(angle) + "\n")
 
         if sys.platform == "win32":
-            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
+            exitCode=subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
+            exitCode=subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
+
+        return exitCode    
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
@@ -264,7 +266,7 @@ def simLoopTemperatureCombined(workingDir):
 #                        Main Script Function
 #===============================================================================
 def main(e3dLog):
-    return
+    #return
     """
     The main function that controls the extrusion process
 

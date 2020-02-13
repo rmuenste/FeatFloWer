@@ -22,7 +22,7 @@ CHARACTER*200 :: ApplicationString=&
 "  |                                                                                                  |"
 
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:19.11  Date:2019.10.29          |"
+"  |                                                          Version:20.02  Date:2020.02.16          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
@@ -34,6 +34,7 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
+LOGICAL :: DivergedSolution=.false.
 
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0

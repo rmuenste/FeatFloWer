@@ -22,8 +22,8 @@ subroutine init_q2p1_ext(log_unit)
 
   !-------INIT PHASE-------
   ApplicationString = &
-"  |                                                          SSE-FluidDynmaics module                |"
-!  |                                                          SSE-FluidDynmaics module                |
+"  |                                                          SSE-FluidDynamics module                |"
+!  |                                                          SSE-FluidDynamics module                |
   
   
   ! Initialization for FEATFLOW
