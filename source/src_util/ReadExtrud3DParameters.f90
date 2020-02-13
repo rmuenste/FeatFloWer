@@ -74,6 +74,7 @@
     call inip_toupper_replace(mySigma%cType)
     IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
      WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
+     STOP 7
     END IF
     
 !     WRITE(*,*) "asdsadsa sad sa dsad as as :",ADJUSTL(TRIM(mySigma%cType))
@@ -82,7 +83,7 @@
     IF (SoftwareRelease.NE.ADJUSTL(TRIM(mySigma%cType))) THEN
      WRITE(*,*) "No Valid '"//SoftwareRelease//"' setup!"
      WRITE(*,*) "Program stops!"
-     STOP
+     STOP 7
     END IF
     END IF
 
@@ -1244,7 +1245,7 @@
 
     if (bReadError) then
       write(*,*) 'Error during reading the file ', trim(adjustl(ce3dfile)), '. Stopping. See output above.'
-      stop
+      stop 5
     end if
 
     CONTAINS
@@ -1495,7 +1496,7 @@
     
     WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
     WRITE(*,*) 'Program stops ... '
-    STOP
+    STOP 6
     
     
     END SUBROUTINE ExtractNomOfCharFromString
@@ -1588,7 +1589,7 @@
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
     call inip_toupper_replace(cUnit)
     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
-      WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+      WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
       cUnit = 'CM'
     END IF
     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0
