@@ -235,8 +235,17 @@ def simLoopTemperatureCombined(workingDir):
     mpiPath = paramDict['mpiCmd']
     maxIterations = 2
     for iter in range(maxIterations):
-        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
-        backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_%01d.dat" % iter)
+     
+        if paramDict['shortTest']:
+            backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d_test.dat" % iter)
+        else:
+            backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
+            
+        if paramDict['shortTest']:
+            backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_test.dat")
+        else:
+            backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_%01d.dat" % iter)
+            
         veloDestFile = Path("_data") / Path("q2p1_param.dat")
         temperatureDestFile = Path("_data") / Path("q2p1_paramT.dat")
         print("Copying: ", backupVeloFile, veloDestFile)
@@ -260,7 +269,11 @@ def simLoopTemperatureCombined(workingDir):
             shutil.copy(str(item), dirName)
             os.remove(item)
 
-    backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % maxIterations)
+    if paramDict['shortTest']:
+        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d_test.dat" % maxIterations)
+    else:
+        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % maxIterations)
+        
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
