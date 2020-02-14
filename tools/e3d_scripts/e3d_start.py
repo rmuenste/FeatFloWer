@@ -20,7 +20,7 @@ if sys.version_info[0] < 3:
     from pathlib2 import Path
 else:
     from pathlib import Path
-
+e3dLog = ""
 paramDict = {
     "deltaAngle": 10.0, # Angular step size
     "singleAngle": -10.0, # Single angle to compute 
@@ -124,24 +124,37 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
 
+    filePos = e3dLog.tell()
+
+    e3dLog.write("CurrentStatus=running Mesher")
     exitCode = subprocess.call(["./s3d_mesher"], env={
         "LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.',
         "PATH":os.environ['PATH']
         })
-    print("Exit code: ",exitCode)
-    sys.exit(2)
+
+    if exitCode != 0:
+        e3dLog.seek(filePos, os.SEEK_SET)
+        logErrorExit("CurrentStatus=abnormal Termination: Mesher", exitCode)
+
     if not Path("_data/meshDir").exists():
-      meshDirPath = projectPath / Path("meshDir")
-      if meshDirPath.exists():
-         print('Copying meshDir from Project Folder!')
-         shutil.copytree(str(meshDirPath), "_data/meshDir")
-      else:
-         print("Error: No mesh automatically generated and no <meshDir> " + 
-               "folder present the case folder " + str(projectPath) + " " + str(exitCode))
-         sys.exit(2)    
+        meshDirPath = projectPath / Path("meshDir")
+        if meshDirPath.exists():
+            print('Copying meshDir from Project Folder!')
+            shutil.copytree(str(meshDirPath), "_data/meshDir")
+        else:
+            print("Error: No mesh automatically generated and no <meshDir> " + 
+                  "folder present the case folder " + str(projectPath))
+            sys.exit(2)
     
-    partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    try:
+        e3dLog.seek(filePos, os.SEEK_SET)
+        e3dLog.write("CurrentStatus=running Partitioner")
+        partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    except:
+        e3dLog.seek(filePos, os.SEEK_SET)
+        logErrorExit("CurrentStatus=abnormal Termination: Partitioner", 2)
     
+    e3dLog.seek(filePos, os.SEEK_SET)
     return exitCode
     
 #===============================================================================
@@ -180,6 +193,7 @@ def setupMPICommand():
 #                The simulatio loop for velocity calculation
 #===============================================================================
 def simLoopVelocity(workingDir):
+    filePos = e3dLog.tell()
     nmax = calcMaxSimIterations()
 
     mpiPath = paramDict['mpiCmd']
@@ -204,17 +218,32 @@ def simLoopVelocity(workingDir):
         with open("_data/Extrud3D.dat", "a") as f:
             f.write("Angle=" + str(angle) + "\n")
 
+#    try:
+#        e3dLog.seek(filePos, os.SEEK_SET)
+#        e3dLog.write("CurrentStatus=running Partitioner")
+#        partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+#    except:
+#        e3dLog.seek(filePos, os.SEEK_SET)
+#        logErrorExit("CurrentStatus=abnormal Termination: Partitioner", 2)
+
+        input("Press key to continue to MomentumSolver")
+        e3dLog.write("CurrentStatus=running MomentumSolver")
+        e3dLog.flush()
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
             exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
 
+        if exitCode != 0:
+            e3dLog.seek(filePos, os.SEEK_SET)
+            logErrorExit("CurrentStatus=abnormal Termination: MomentumSolver", exitCode)
+
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
-    return exitCode
+    return exitCode    
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
@@ -286,7 +315,7 @@ def simLoopTemperatureCombined(workingDir):
 #===============================================================================
 #                        Main Script Function
 #===============================================================================
-def main(e3dLog):
+def main():
     #return
     """
     The main function that controls the extrusion process
@@ -377,7 +406,7 @@ def main(e3dLog):
     setupMPICommand()
 
     if not paramDict['skipSetup']:
-        simulationSetup(workingDir, projectFile, projectPath, projectFolder)
+        exitCode = simulationSetup(workingDir, projectFile, projectPath, projectFolder)
 
     if paramDict['skipSimulation']:
         sys.exit()
@@ -396,20 +425,26 @@ def main(e3dLog):
         simLoopTemperatureCombined(workingDir)
         cleanWorkingDir(workingDir)
 
+def logErrorExit(message, errorCode):
+    e3dLog.write(message + "\n")
+    e3dLog.write("ErrorCode=%i\n" % errorCode)
+    e3dLog.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+    sys.exit(2)
+
 #===============================================================================
 #                             Main Boiler Plate
 #===============================================================================
 if __name__ == "__main__":
     with open("e3d.log", "w") as log:
+        e3dLog = log
         log.write("[Extrud3DFileInfo]\n")
         log.write("FileType=Logging\n")
         log.write("FileVersion=Extrud3D 2020\n")
         today = datetime.date.today()
         log.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
-        log.write("Extrud3DVersion=Extrud3D 2020.02")
+        log.write("Extrud3DVersion=Extrud3D 2020.02\n")
 
         log.write("[SimulationStatus]\n")
         log.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
-        log.write("CurrentStatus=running\n")
-        main(log)
+        main()
         log.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
