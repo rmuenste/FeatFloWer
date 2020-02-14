@@ -356,10 +356,14 @@ def main(e3dLog):
         usage()
         sys.exit(2)
 
-    if paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']:
+    if (paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']):
         print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
         sys.exit(2)
-
+        
+    if (paramDict['singleAngle'] > 0.0 and  paramDict['temperature']) :
+        print("Error: Specifying both singleAngle and Temperature Simulation at the same time is prohibited.")
+        sys.exit(2)
+        
     # Get the case/working dir paths
     projectFolder = paramDict['projectFolder'] 
     workingDir = Path('.')
