@@ -85,7 +85,8 @@
     
     IF (SoftwareRelease.ne."XSE") THEN
     IF (SoftwareRelease.NE.ADJUSTL(TRIM(mySigma%cType))) THEN
-     WRITE(*,*) "No Valid '"//SoftwareRelease//"' setup!"
+     WRITE(*,*) "This is not a valid 'TSE' (Twinscrew Extrusion) Simulation setup."
+     WRITE(*,*) "The configured '"//ADJUSTL(TRIM(mySigma%cType))//"' is not supported."
      WRITE(*,*) "Program stops!"
      STOP 7
     END IF

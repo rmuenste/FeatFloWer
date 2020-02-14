@@ -10,7 +10,7 @@ SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 2
 SimPar@MatrixRenewal = M1D1K3S0C1
-SimPar@MaxNumStep = 2
+SimPar@MaxNumStep = 1
 SimPar@OutputFields = " "
 SimPar@CGALtoRealFactor = 1d0
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! To Delete Later  !!!!!!!!!!!!!!!!!!!!!!!!!!!
