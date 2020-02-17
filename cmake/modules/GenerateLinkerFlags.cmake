@@ -32,6 +32,19 @@ if(WIN32)
     Math
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
+    ff_cinterface
+    ff_postprocessing
+    ff_ini_aux
+    ff_ini_c
+    ff_util
+    ff_assemblies
+    ff_mesh
+    ff_elements
+    ff_le_solvers
+    ff_fbm
+    ff_LinSc
+    ff_q2p1
+    ff_quadLS_app
     )
 else(WIN32)
 #  set(FF_APPLICATION_LIBS

@@ -74,7 +74,7 @@ PROGRAM Q2P1_SSE
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
 
-  if (DivergedSolution) EXIT
+  if (DivergedSolution .eqv. .true.) EXIT
   
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar

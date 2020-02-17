@@ -91,9 +91,8 @@ IF (allocated(MaterialDistribution)) then
                    1, packed)                 
 END IF                  
 
-
 IF (myid.eq.1) THEN
-  if(outputRigidBodies())then
+  if(outputRigidBodies())then      
     call write_sol_rb(iOut)
   end if
 end if
