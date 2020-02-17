@@ -20,6 +20,93 @@ if sys.version_info[0] < 3:
     from pathlib2 import Path
 else:
     from pathlib import Path
+
+class E3dLog:
+    def __init__(self):
+        print("The E3dLog constructor")
+        self.fileName = "e3d2.log"
+        self.fileHandle = ""
+        self.currPos = 0
+        self.statusLineLength = 0
+        self.statusLinePos = 0
+        self.fileContents = []
+
+    def __def__(self):
+        print("The E3dLog deconstructor")
+        self.fileHandle.close()
+
+    def openFileHandle(self):
+        self.fileHandle = open(self.fileName, "w")
+
+    def closeFileHandle(self):
+        self.fileHandle.close()
+
+    def appendLine(self, msg):
+        with open(self.fileName, "a") as f:
+            f.write(msg + "\n")
+
+    def writeNumAnglePositions(self, numAngPos):
+        self.fileHandle.write("NumOfAnglePositions=%i\n" %numAngPos)
+        self.currPos = self.fileHandle.tell()
+        self.fileHandle.flush()
+
+    def writeGeneralInfo(self, parameterDict):
+
+        projectFolder = parameterDict['projectFolder'] 
+        workingDir = Path('.')
+        projectPath = Path(workingDir / projectFolder)
+        projectFile = Path(projectPath / 'setup.e3d')
+
+        self.fileHandle.write("[Extrud3DFileInfo]\n")
+        self.fileHandle.write("FileType=Logging\n")
+        self.fileHandle.write("FileVersion=Extrud3D 2020\n")
+        today = datetime.date.today()
+        self.fileHandle.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
+        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.02\n")
+        self.fileHandle.write("[SimulationStatus]\n")
+        self.fileHandle.write("PathToE3DFile=%s\n" %str(projectFile))
+        self.fileHandle.write("NumOfCpus=%i\n" %parameterDict['numProcessors'])
+        self.fileHandle.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
+        self.fileHandle.flush()
+
+        self.currPos = self.fileHandle.tell()
+
+    def updateStatusLine(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def writeExitMsg(self):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write("CurrentStatus=finished\n")
+            f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+
+    def writeStatusLine(self):
+        self.openFileHandle()
+        self.fileHandle.write("CurrentStatus=running")
+        self.closeFileHandle()
+
+    def writeStatusLine2(self):
+        self.fileHandle.write("CurrentStatus=running")
+        self.currPos = self.fileHandle.tell()
+
+myLog = E3dLog()
+
 e3dLog = ""
 paramDict = {
     "deltaAngle": 10.0, # Angular step size
@@ -127,6 +214,15 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     filePos = e3dLog.tell()
 
     e3dLog.write("CurrentStatus=running Mesher")
+    e3dLog.flush()
+
+    myLog.updateStatusLine("CurrentStatus=running Mesher")
+
+    def writeNumAnglePositions(self, numAngPos):
+        self.fileHandle.write("NumOfAnglePositions=%i\n" %numAngPos)
+        self.currPos = self.fileHandle.tell()
+        self.fileHandle.flush()
+
     exitCode = subprocess.call(["./s3d_mesher"], env={
         "LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.',
         "PATH":os.environ['PATH']
@@ -146,9 +242,11 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
                   "folder present the case folder " + str(projectPath))
             sys.exit(2)
     
+    input("Press key to continue to Partitioner")
     try:
         e3dLog.seek(filePos, os.SEEK_SET)
         e3dLog.write("CurrentStatus=running Partitioner")
+        myLog.updateStatusLine("CurrentStatus=running Partitioner")
         partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
     except:
         e3dLog.seek(filePos, os.SEEK_SET)
@@ -229,6 +327,7 @@ def simLoopVelocity(workingDir):
         input("Press key to continue to MomentumSolver")
         e3dLog.write("CurrentStatus=running MomentumSolver")
         e3dLog.flush()
+        myLog.updateStatusLine("CurrentStatus=running MomentumSolver")
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
         else:
@@ -243,6 +342,7 @@ def simLoopVelocity(workingDir):
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
 
+    e3dLog.seek(filePos, os.SEEK_SET)
     return exitCode    
 
 #===============================================================================
@@ -262,6 +362,7 @@ def cleanWorkingDir(workingDir):
 #===============================================================================
 def simLoopTemperatureCombined(workingDir):
  
+    filePos = e3dLog.tell()
     print("Temperature simulation is activated!")
     
     numProcessors = paramDict['numProcessors']
@@ -288,11 +389,20 @@ def simLoopTemperatureCombined(workingDir):
         exitCode = simLoopVelocity(workingDir)
         print("temperature simulation")
 
+        input("Press key to continue to HeatSolver")
+        e3dLog.write("CurrentStatus=running HeatSolver")
+        myLog.updateStatusLine("CurrentStatus=running MomentumSolver")
+        e3dLog.flush()
+
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"], env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
             exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
+
+        if exitCode != 0:
+            e3dLog.seek(filePos, os.SEEK_SET)
+            logErrorExit("CurrentStatus=abnormal Termination: HeatSolver", exitCode)
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
@@ -310,6 +420,8 @@ def simLoopTemperatureCombined(workingDir):
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
+
+    e3dLog.seek(filePos, os.SEEK_SET)
     exitCode = simLoopVelocity(workingDir)
 
 #===============================================================================
@@ -403,6 +515,12 @@ def main():
     projectPath = Path(workingDir / projectFolder)
     projectFile = Path(projectPath / 'setup.e3d')
 
+    myLog.openFileHandle()
+    myLog.writeGeneralInfo(paramDict)
+    myLog.writeNumAnglePositions(calcMaxSimIterations())
+    myLog.writeStatusLine2()
+    myLog.closeFileHandle()
+
     setupMPICommand()
 
     if not paramDict['skipSetup']:
@@ -447,4 +565,6 @@ if __name__ == "__main__":
         log.write("[SimulationStatus]\n")
         log.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
         main()
+        myLog.writeExitMsg()
+        log.write("CurrentStatus=finished")
         log.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
