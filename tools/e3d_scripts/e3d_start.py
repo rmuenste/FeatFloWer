@@ -322,7 +322,7 @@ def simLoopVelocity(workingDir):
             f.write("Angle=" + str(angle) + "\n")
 
 #        input("Press key to continue to MomentumSolver")
-        myLog.updateStatusLine("CurrentStatus=running MomentumSolver")
+        myLog.updateStatusLine("CurrentStatus=running Momentum Solver")
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
@@ -330,7 +330,7 @@ def simLoopVelocity(workingDir):
             exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
 
         if exitCode != 0:
-            myLog.logErrorExit("CurrentStatus=abnormal Termination MomentumSolver", exitCode)
+            myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
@@ -382,7 +382,7 @@ def simLoopTemperatureCombined(workingDir):
         print("temperature simulation")
 
 #        input("Press key to continue to HeatSolver")
-        myLog.updateStatusLine("CurrentStatus=running MomentumSolver")
+        myLog.updateStatusLine("CurrentStatus=running Heat Solver")
 
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
@@ -391,7 +391,7 @@ def simLoopTemperatureCombined(workingDir):
             exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
 
         if exitCode != 0:
-            myLog.logErrorExit("CurrentStatus=abnormal Termination HeatSolver", exitCode)
+            myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
