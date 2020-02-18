@@ -455,4 +455,125 @@ TYPE tMeshInfoParticle
 END TYPE tMeshInfoParticle
 type(tMeshInfoParticle) :: myMeshInfo
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+
+TYPE tSegment
+  INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
+  CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
+  INTEGER, ALLOCATABLE :: idxCgal(:)
+  CHARACTER*20 ObjectType,Unit
+  CHARACTER*10 name
+  CHARACTER*99 ::  cF
+  CHARACTER*8 ::  ART
+  INTEGER ::    KNETz,N
+  REAL*8  :: Ds,s,delta,Dss,excentre
+  REAL*8, ALLOCATABLE :: Zknet(:)
+  REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
+  REAL*8 :: Min, Max,L
+  REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
+  INTEGER :: ZME_N
+  REAL*8  :: SecProf_W, SecProf_D,SecProf_L
+  INTEGER :: SecProf_N, SecProf_I
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+  INTEGER :: MatInd
+  REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
+  REAL*8 :: InitTemp,Volume
+  CHARACTER*200 :: TemperatureBC
+  !!!!!!!!!!!!!!!!!!!
+  INTEGER GANGZAHL
+   
+END TYPE tSegment
+
+TYPE tSigma
+!   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
+  CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
+  REAL*8 :: RotAxisCenter,RotAxisAngle
+  REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
+  REAL*8 :: SecStr_W,SecStr_D
+  INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
+  TYPE (tSegment), ALLOCATABLE :: mySegment(:)
+  INTEGER :: InnerDiamNParam=0
+  REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
+  LOGICAL :: bOnlyBarrelAdaptation=.false.
+  
+END TYPE tSigma
+
+TYPE tRheology
+   INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
+   INTEGER :: AtFunc = 1 !-->> isotherm
+   REAL*8 :: A, B, C, D ! Carreau Parameter
+   REAL*8 :: n, K ! Power Law
+   REAL*8 :: eta_max, eta_min 
+   REAL*8 :: Ts, Tb, C1, C2, E! WLF Parameter
+   REAL*8 :: ViscoMin = 1e-4
+   REAL*8 :: ViscoMax = 1e10
+END TYPE tRheology
+
+TYPE tInflow
+ INTEGER iBCtype,Material
+ REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  center(3),normal(3)
+END TYPE tInflow
+
+TYPE tProcess
+   REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
+   REAL*8 :: MinInflowDiameter,MaxInflowDiameter
+   INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
+   REAL*8 :: dAlpha
+   CHARACTER*6 :: Rotation !RECHT, LINKS
+   CHARACTER*50 :: pTYPE !RECHT, LINKS
+   INTEGER :: ind,iInd
+   REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
+   integer   nOfInflows
+   TYPE (tInflow), dimension(:), allocatable :: myInflow
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
+   REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
+END TYPE tProcess
+
+TYPE tThermodyn
+   CHARACTER*60 :: DensityModel='NO'
+   REAL*8 :: density=0d0, densitySteig=0d0
+   REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
+   REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
+END TYPE tThermodyn
+
+TYPE tSingleMat
+   CHARACTER*256 :: cMatNAme='UnknownMaterial'
+   TYPE(tRheology)  :: Rheology
+   TYPE(tThermodyn) :: Thermodyn
+END TYPE tSingleMat
+
+TYPE tMultiMat
+   Integer :: nOfMaterials=1,initMaterial=1
+   TYPE(tSingleMat) , Allocatable  :: Mat(:)
+END TYPE tMultiMat
+
+TYPE tTransientSolution
+ INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
+ TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+END TYPE tTransientSolution
+
+TYPE tSetup
+ LOGICAL :: bPressureFBM = .FALSE.
+ LOGICAL :: bAutomaticTimeStepControl = .TRUE.
+ REAL*8 :: CharacteristicShearRate=1d1
+ CHARACTER*200 cMeshPath
+ CHARACTER*20 cMesher
+ INTEGER MeshResolution
+ INTEGER m_nT,m_nT1,m_nT2,m_nR,m_nZ,m_nP,m_nX,m_nY,nBoxElem
+ REAL*8 m_box(3,2)
+ LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
+END TYPE tSetup
+
+TYPE tOutput
+ INTEGER :: nOf1DLayers=16
+ INTEGER :: nOfHistogramBins=16
+ REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
+ REAL*8  :: CutDtata_1D=0.04d0
+END TYPE tOutput
+
 end module types

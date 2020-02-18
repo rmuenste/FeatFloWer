@@ -1,7 +1,11 @@
-    Subroutine ReadS3Dfile(cE3Dfile)
+ Subroutine ReadS3Dfile(cE3Dfile)
+        
     use iniparser
-    use Sigma_User
-    USE var_QuadScalar, ONLY : SSE_HAS_ANGLE, extruder_angle
+    USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity
+
+    use Sigma_User, only : mySigma,myThermodyn,mySetup,myOutput,myTransientSolution,&
+        myProcess,myMultiMat,SoftwareRelease,bKTPRelease,DistTolerance
+    USE var_QuadScalar
 
     use, intrinsic :: ieee_arithmetic
 
@@ -672,7 +676,7 @@
     call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfInflows"      ,myProcess%nOfInflows,0)
     ALLOCATE(myProcess%myInflow(myProcess%nOfInflows))
     cParserString = "E3DProcessParameters"
-    CALL FillUpInflows(myProcess%nOfInflows,myProcess%myInflow,cParserString)
+    CALL FillUpInflows(myProcess%nOfInflows,cParserString)
 
     call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
     IF (myMultiMat%nOfMaterials.ne.0) then
@@ -1255,9 +1259,9 @@
 
     CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE FillUpInflows(nT,t,cINI)
-    INTEGER :: nT
-    TYPE(tInflow) :: t(*)
+    SUBROUTINE FillUpInflows(nT,cINI)
+    implicit none
+    INTEGER :: nT   
     character(len=INIP_STRLEN) cINI
     
     DO iInflow=1,myProcess%nOfInflows

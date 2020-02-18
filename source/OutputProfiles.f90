@@ -2673,20 +2673,6 @@ END DO
 
 END SUBROUTINE Output_GMV_fields
 
-subroutine ztime(t)
-implicit none
-
-Real, intent(inout) :: t
-
-call CPU_TIME(t)
-
-end subroutine ztime
-
-subroutine zvalue1()
-implicit none
-
-end subroutine zvalue1
-
 SUBROUTINE OutputTriMesh(dcorvg,kvert,knpr,nvt,nel,iO)
 !USE QuadScalar,ONLY:myQ2Coor
 USE var_QuadScalar,ONLY:ilev
