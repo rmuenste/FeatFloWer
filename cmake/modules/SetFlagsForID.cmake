@@ -94,6 +94,13 @@ IF(Q2P1_BUILD_ID STREQUAL "phenomIIx4-linux-intel-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "generic-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(Fortran_FLAGS -axCORE-AVX512 -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 #===============================================================================================================
 #                                              GCC builds
 #===============================================================================================================
