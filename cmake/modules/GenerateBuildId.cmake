@@ -111,6 +111,11 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
     message(STATUS "Configuring for build id:<${Q2P1_BUILD_ID}>")
   ENDIF(NOT Q2P1_BUILD_ID)
 
+else(CMAKE_SYSTEM_NAME MATCHES "Linux")
+  IF(WIN32)
+    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} /heap-arrays0")
+    message(STATUS "Set windows flags to ${CMAKE_Fortran_FLAGS}")
+  ENDIF(WIN32)
 ENDIF(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
 
