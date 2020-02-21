@@ -10,7 +10,7 @@ PROGRAM Q2P1_SSE
 
   use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
   use Sigma_User, only : bKTPRelease
-  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle
+  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution
   use f90getopt
 
   integer            :: iOGMV,iTout
@@ -74,6 +74,8 @@ PROGRAM Q2P1_SSE
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
 
+  if (DivergedSolution .eqv. .true.) EXIT
+  
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
     CALL Transport_LinScalar(ufile,inonln_t)
@@ -90,7 +92,7 @@ PROGRAM Q2P1_SSE
   istep_ns = istep_ns + 1
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
-
+  
   END DO
 
 #if !defined WIN32
@@ -99,6 +101,8 @@ PROGRAM Q2P1_SSE
 
   call sim_finalize_sse(tt0,ufile)
 
+  if (DivergedSolution) STOP 1
+  
   contains
 
     subroutine print_help()

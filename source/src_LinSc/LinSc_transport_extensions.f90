@@ -112,7 +112,7 @@ END SUBROUTINE Transport_LinScalar_General
 SUBROUTINE Transport_LinScalar_XSE(sub_BC,sub_SRC,mfile,INL)
 INTEGER mfile,INL
 REAL*8  ResTemp,DefTemp,DefTempCrit,RhsTemp
-REAL*8 tstep_old,thstep_old
+REAL*8 tstep_old,thstep_old,DefT
 INTEGER INLComplete,I,J
 
 EXTERNAL sub_BC,sub_SRC
@@ -212,6 +212,11 @@ END DO
 if (myid.ne.master) then
  Temperature = Tracer%val(NLMAX)%x
 end if
+
+CALL LL21(Temperature,Tracer%ndof,DefT)
+call COMM_SUMM(DefT)
+if (ieee_is_nan(DefT)) DivergedSolution = .true.
+if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
 
 NLMAX = NLMAX - 1
 

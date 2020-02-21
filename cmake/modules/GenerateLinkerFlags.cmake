@@ -6,6 +6,18 @@
 #  add_subdirectory(extern/libraries/opticaltweezers)
 #endif(USE_OPTICALTWEEZERS)
 
+if(WIN32)
+set(FF_DEFAULT_LIBS
+  amd
+  umfpack4
+  feat2d
+  feat3d
+  ${BLAS_LIBRARIES}
+  ${LAPACK_LIBRARIES}
+  ${LIBRT_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  )
+else(WIN32)
 set(FF_DEFAULT_LIBS
   amd
   umfpack4
@@ -17,6 +29,7 @@ set(FF_DEFAULT_LIBS
   ${MPI_Fortran_LIBRARIES}
   stdc++fs
   )
+endif(WIN32)
 
 if(WIN32)
   set(FF_APPLICATION_LIBS
@@ -32,8 +45,37 @@ if(WIN32)
     Math
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
+    ff_cinterface
+    ff_postprocessing
+    ff_ini_aux
+    ff_ini_c
+    ff_util
+    ff_assemblies
+    ff_mesh
+    ff_elements
+    ff_le_solvers
+    ff_fbm
+    ff_LinSc
+    ff_q2p1
+    ff_quadLS_app
     )
 else(WIN32)
+#  set(FF_APPLICATION_LIBS
+#    amd
+#    umfpack4
+#    feat2d
+#    feat3d
+#    ${BLAS_LIBRARIES}
+#    ${LAPACK_LIBRARIES}
+#    cdirs
+#    stdc++
+#    stdc++fs
+#    inshape3dcore
+#    Utility
+#    Math
+#    ${LIBRT_LIBRARY}
+#    ${MPI_Fortran_LIBRARIES}
+#    )
   set(FF_APPLICATION_LIBS
     amd
     umfpack4
@@ -49,8 +91,35 @@ else(WIN32)
     Math
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
+    ff_cinterface
+    ff_postprocessing
+    ff_ini_aux
+    ff_ini_c
+    ff_util
+    ff_assemblies
+    ff_mesh
+    ff_elements
+    ff_le_solvers
+    ff_fbm
+    ff_LinSc
+    ff_q2p1
+    ff_quadLS_app
     )
 endif(WIN32)
+
+
+#${Elements} 
+#${src_q2p1} 
+#${src_pp3d} 
+#${src_mpi} 
+#${src_PLin} 
+#${src_LinSc} 
+#${src_quadLS_app} 
+#${src_visco} 
+#${src_mesh}
+#${src_cinterface}
+#${postprocessing}
+
 
 if(USE_MUMPS)
 

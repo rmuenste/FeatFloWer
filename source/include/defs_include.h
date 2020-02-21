@@ -1,13 +1,9 @@
 
   use def_FEAT
 
-  use PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
-
   use Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,Transport_q2p1_UxyzP,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,Transport_q2p1_UxyzP_fc_ext,&
+    bTracer,bViscoElastic,StaticMeshAdaptation,Transport_q2p1_UxyzP_fc_ext,&
     Transport_q2p1_UxyzP_fc_ext_static
 
   use ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &

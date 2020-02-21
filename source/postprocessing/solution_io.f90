@@ -19,9 +19,9 @@ contains
 ! @param simTime current simulation time
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
-USE Transport_Q2P1,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
-USE Transport_Q1, ONLY: Tracer
+USE var_QuadScalar, ONLY: Tracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
 
@@ -91,9 +91,8 @@ IF (allocated(MaterialDistribution)) then
                    1, packed)                 
 END IF                  
 
-
 IF (myid.eq.1) THEN
-  if(outputRigidBodies())then
+  if(outputRigidBodies())then      
     call write_sol_rb(iOut)
   end if
 end if
@@ -110,9 +109,9 @@ subroutine read_sol_from_file(startFrom, iLevel, time_ns)
 
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 
 implicit none
 
@@ -907,7 +906,7 @@ end subroutine read_q2_sol_single
 subroutine write_q2_sol(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
   use pp3d_mpi, only:myid,coarse
   use var_QuadScalar, only: fieldPtr
-  USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+  USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
   implicit none
 
   character(60) :: fieldName
@@ -967,7 +966,7 @@ contains
   subroutine wrap_pointer(idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, p)
     use pp3d_mpi, only:myid,coarse
     use var_QuadScalar, only: fieldPtr
-    USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+    USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
     implicit none
 
     integer, intent(in) :: idx
@@ -1024,7 +1023,7 @@ end subroutine write_q2_sol
 subroutine read_q2_sol(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
   use pp3d_mpi, only:myid,coarse
   use var_QuadScalar, only: fieldPtr
-  USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+  USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
   implicit none
 
   character(60) :: fieldName
@@ -1084,7 +1083,7 @@ contains
   subroutine wrap_pointer(p)
     use pp3d_mpi, only:myid,coarse
     use var_QuadScalar, only: fieldPtr
-    USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+    USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
     implicit none
 
     real*8, dimension(:) :: p
@@ -1307,10 +1306,9 @@ end subroutine read_time_sol_single
 ! @param filehandle Unit of the output file
 !
 subroutine postprocessing_app(dout, inlU,inlT,filehandle)
-
-  include 'defs_include.h'
   
-  use var_QuadScalar, only: istep_ns,dTimeStepEnlargmentFactor
+  use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use def_FEAT
 
   implicit none
 
@@ -1433,11 +1431,10 @@ END SUBROUTINE TimeStepCtrl
 !
 subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
-  include 'defs_include.h'
-  
-  use Transport_Q2P1, only: QuadSc,LinSc
-  use Transport_Q1, only: Tracer
-  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
+  use def_FEAT
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
+  use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
                             Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess
 
@@ -1519,10 +1516,8 @@ end subroutine postprocessing_sse
 ! @param simTime current simulation time
 subroutine write_sse_1d_sol()
 
-  include 'defs_include.h'
-  
-  use Transport_Q2P1, only: QuadSc,LinSc
-  use Transport_Q1, only: Tracer
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
   use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
                             Viscosity, Distance, Shearrate 
   use Sigma_User, only: myProcess

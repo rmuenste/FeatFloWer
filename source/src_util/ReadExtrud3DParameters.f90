@@ -1,7 +1,11 @@
-    Subroutine ReadS3Dfile(cE3Dfile)
+ Subroutine ReadS3Dfile(cE3Dfile)
+        
     use iniparser
-    use Sigma_User
-    USE var_QuadScalar, ONLY : SSE_HAS_ANGLE, extruder_angle
+    USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity
+
+    use Sigma_User, only : mySigma,myThermodyn,mySetup,myOutput,myTransientSolution,&
+        myProcess,myMultiMat,SoftwareRelease,bKTPRelease,DistTolerance
+    USE var_QuadScalar
 
     use, intrinsic :: ieee_arithmetic
 
@@ -72,17 +76,23 @@
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
-    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
+    IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."DIE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."XSE".OR.&
+              ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
      WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
+     STOP 7
     END IF
     
 !     WRITE(*,*) "asdsadsa sad sa dsad as as :",ADJUSTL(TRIM(mySigma%cType))
     
     IF (SoftwareRelease.ne."XSE") THEN
     IF (SoftwareRelease.NE.ADJUSTL(TRIM(mySigma%cType))) THEN
-     WRITE(*,*) "No Valid '"//SoftwareRelease//"' setup!"
+     WRITE(*,*) "This is not a valid 'TSE' (Twinscrew Extrusion) Simulation setup."
+     WRITE(*,*) "The configured '"//ADJUSTL(TRIM(mySigma%cType))//"' is not supported."
      WRITE(*,*) "Program stops!"
-     STOP
+     STOP 7
     END IF
     END IF
 
@@ -666,7 +676,7 @@
     call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfInflows"      ,myProcess%nOfInflows,0)
     ALLOCATE(myProcess%myInflow(myProcess%nOfInflows))
     cParserString = "E3DProcessParameters"
-    CALL FillUpInflows(myProcess%nOfInflows,myProcess%myInflow,cParserString)
+    CALL FillUpInflows(myProcess%nOfInflows,cParserString)
 
     call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
     IF (myMultiMat%nOfMaterials.ne.0) then
@@ -899,7 +909,7 @@
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
     if (myProcess%iInd.eq.-1) write(*,*) "mySigma%RotationType",'=','CounterRotating'
     if (myProcess%iInd.eq.+1) write(*,*) "mySigma%RotationType",'=','CoRotating'
-    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
      
      write(*,*) "mySigma%RotationAxis",'=',mySigma%RotationAxis
      
@@ -1244,14 +1254,14 @@
 
     if (bReadError) then
       write(*,*) 'Error during reading the file ', trim(adjustl(ce3dfile)), '. Stopping. See output above.'
-      stop
+      stop 5
     end if
 
     CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    SUBROUTINE FillUpInflows(nT,t,cINI)
-    INTEGER :: nT
-    TYPE(tInflow) :: t(*)
+    SUBROUTINE FillUpInflows(nT,cINI)
+    implicit none
+    INTEGER :: nT   
     character(len=INIP_STRLEN) cINI
     
     DO iInflow=1,myProcess%nOfInflows
@@ -1495,7 +1505,7 @@
     
     WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
     WRITE(*,*) 'Program stops ... '
-    STOP
+    STOP 6
     
     
     END SUBROUTINE ExtractNomOfCharFromString
@@ -1588,7 +1598,7 @@
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Unit",cUnit,'CM')
     call inip_toupper_replace(cUnit)
     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
-      WRITE(*,*) "STL unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+      WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
       cUnit = 'CM'
     END IF
     if (TRIM(cUnit).eq.'MM') dSizeScale = 0.100d0

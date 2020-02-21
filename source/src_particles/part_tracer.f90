@@ -1,9 +1,8 @@
 MODULE Particle
 
-use var_QuadScalar
-USE Transport_Q2P1, ONLY: QuadSc,UMF_CMat,UMF_lMat,MaterialDistribution
-
 USE types
+use var_QuadScalar
+
 USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ,Comm_SummN,subnodes,COMM_Maximum,COMM_Minimum
 ! USE Sigma_User, ONLY: myRTD
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve

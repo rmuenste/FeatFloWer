@@ -63,3 +63,4 @@ else(FC_CUDA_SUPPORT)
 endif(FC_CUDA_SUPPORT)
 
 target_compile_options(feat3d PRIVATE ${Fortran_FLAGS})
+target_link_libraries(feat3d feat2d)

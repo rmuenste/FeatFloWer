@@ -21,6 +21,112 @@ if sys.version_info[0] < 3:
 else:
     from pathlib import Path
 
+class E3dLog:
+    def __init__(self):
+#        print("The E3dLog constructor")
+        self.fileName = "e3d.log"
+        self.fileHandle = ""
+        self.currPos = 0
+        self.statusLineLength = 0
+        self.statusLinePos = 0
+        self.fileContents = []
+
+    def __def__(self):
+        #print("The E3dLog deconstructor")
+        self.fileHandle.close()
+
+    def openFileHandle(self):
+        self.fileHandle = open(self.fileName, "w")
+
+    def closeFileHandle(self):
+        self.fileHandle.close()
+
+    def appendLine(self, msg):
+        with open(self.fileName, "a") as f:
+            f.write(msg + "\n")
+
+    def writeNumAnglePositions(self, numAngPos):
+        self.fileHandle.write("NumOfAnglePositions=%i\n" %numAngPos)        
+        self.fileHandle.write("Periodicity=%i\n" %paramDict['periodicity'])        
+        self.currPos = self.fileHandle.tell()
+        self.fileHandle.flush()
+
+    def writeGeneralInfo(self, parameterDict):
+
+        projectFolder = parameterDict['projectFolder'] 
+        workingDir = Path('.')
+        projectPath = Path(workingDir / projectFolder)
+        projectFile = Path(projectPath / 'setup.e3d')
+
+        self.fileHandle.write("[Extrud3DFileInfo]\n")
+        self.fileHandle.write("FileType=Logging\n")
+        self.fileHandle.write("FileVersion=Extrud3D 2020\n")
+        today = datetime.date.today()
+        self.fileHandle.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
+        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.02\n")
+        self.fileHandle.write("[SimulationStatus]\n")
+        tempValue = ""
+        if paramDict["temperature"]:
+            tempValue = "true"
+        else:
+            tempValue = "false"            
+        self.fileHandle.write("PathToE3DFile=%s\n" %str(projectFile))
+        self.fileHandle.write("TemperatureCalculation=%s\n" %tempValue)        
+        self.fileHandle.write("NumOfCpus=%i\n" %parameterDict['numProcessors'])
+        self.fileHandle.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
+        self.fileHandle.flush()
+
+        self.currPos = self.fileHandle.tell()
+
+    def updateStatusLine(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def writeExitMsg(self):
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write("CurrentStatus=finished\n")
+            f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+
+    def writeStatusLine(self):
+        self.openFileHandle()
+        self.fileHandle.write("CurrentStatus=running")
+        self.closeFileHandle()
+
+    def writeStatusLine2(self):
+        self.fileHandle.write("CurrentStatus=running")
+        self.currPos = self.fileHandle.tell()
+
+    def logErrorExit(self, message, errorCode):
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(message + "\n")
+            f.write("ErrorCode=%i\n" % errorCode)
+            f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+            sys.exit(2)        
+
+myLog = E3dLog()
+
 paramDict = {
     "deltaAngle": 10.0, # Angular step size
     "singleAngle": -10.0, # Single angle to compute 
@@ -123,19 +229,38 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     folderSetup(workingDir, projectFile, projectPath, projectFolder)
-    subprocess.call(["./s3d_mesher"])
+
+    myLog.updateStatusLine("CurrentStatus=running Mesher")
+
+    if sys.platform == "win32":
+        exitCode = subprocess.call(["./s3d_mesher"])        
+    else:
+        #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
+        exitCode = subprocess.call(["./s3d_mesher"], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+
+
+    if exitCode != 0:
+        myLog.logErrorExit("CurrentStatus=abnormal Termination Mesher", exitCode)
+
+    if not Path("_data/meshDir").exists():
+        meshDirPath = projectPath / Path("meshDir")
+        if meshDirPath.exists():
+            print('Copying meshDir from Project Folder!')
+            shutil.copytree(str(meshDirPath), "_data/meshDir")
+        else:
+            print("Error: No mesh automatically generated and no <meshDir> " + 
+                  "folder present the case folder " + str(projectPath))
+            sys.exit(2)
     
-    if not Path("_data/meshDir").exists():    
-      meshDirPath = projectPath / Path("meshDir")
-      if meshDirPath.exists():
-         print('Copying meshDir from Project Folder!')
-         shutil.copytree(str(meshDirPath), "_data/meshDir")
-      else:
-         print("Error: No mesh automatically generated and no <meshDir> " + 
-               "folder present the case folder " + str(projectPath))
-         sys.exit(2)    
+#    input("Press key to continue to Partitioner")
+    try:
+        myLog.updateStatusLine("CurrentStatus=running Partitioner")
+        partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    except:
+        myLog.logErrorExit("CurrentStatus=abnormal Termination Partitioner", 2)
     
-    partitioner.partition(paramDict['numProcessors']-1, 1, 1, "NEWFAC", "_data/meshDir/file.prj")
+    return exitCode
+    
 #===============================================================================
 #                Compute maximum number of simulation iterations
 #===============================================================================
@@ -196,15 +321,22 @@ def simLoopVelocity(workingDir):
         with open("_data/Extrud3D.dat", "a") as f:
             f.write("Angle=" + str(angle) + "\n")
 
+#        input("Press key to continue to MomentumSolver")
+        myLog.updateStatusLine("CurrentStatus=running Momentum Solver")
         if sys.platform == "win32":
-            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)],shell=True)
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+
+        if exitCode != 0:
+            myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
+
+    return exitCode    
 
 #===============================================================================
 #                The simulatio loop for velocity calculation
@@ -229,22 +361,37 @@ def simLoopTemperatureCombined(workingDir):
     mpiPath = paramDict['mpiCmd']
     maxIterations = 2
     for iter in range(maxIterations):
-        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
-        backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_%01d.dat" % iter)
+     
+        if paramDict['shortTest']:
+            backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d_test.dat" % iter)
+        else:
+            backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % iter)
+            
+        if paramDict['shortTest']:
+            backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_test.dat")
+        else:
+            backupTemperatureFile = Path("_data_BU") / Path("q2p1_paramT_%01d.dat" % iter)
+            
         veloDestFile = Path("_data") / Path("q2p1_param.dat")
         temperatureDestFile = Path("_data") / Path("q2p1_paramT.dat")
         print("Copying: ", backupVeloFile, veloDestFile)
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
         shutil.copyfile(str(backupVeloFile), str(veloDestFile))
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
-        simLoopVelocity(workingDir)
+        exitCode = simLoopVelocity(workingDir)
         print("temperature simulation")
 
+#        input("Press key to continue to HeatSolver")
+        myLog.updateStatusLine("CurrentStatus=running Heat Solver")
+
         if sys.platform == "win32":
-            subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
+            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)],shell=True)
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+
+        if exitCode != 0:
+            myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
@@ -254,11 +401,16 @@ def simLoopTemperatureCombined(workingDir):
             shutil.copy(str(item), dirName)
             os.remove(item)
 
-    backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % maxIterations)
+    if paramDict['shortTest']:
+        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d_test.dat" % maxIterations)
+    else:
+        backupVeloFile = Path("_data_BU") / Path("q2p1_paramV_%01d.dat" % maxIterations)
+        
     veloDestFile = Path("_data") / Path("q2p1_param.dat")
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
-    simLoopVelocity(workingDir)
+
+    exitCode = simLoopVelocity(workingDir)
 
 #===============================================================================
 #                        Main Script Function
@@ -336,20 +488,30 @@ def main():
         usage()
         sys.exit(2)
 
-    if paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']:
+    if (paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']):
         print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
         sys.exit(2)
-
+        
+    if (paramDict['singleAngle'] > 0.0 and  paramDict['temperature']) :
+        print("Error: Specifying both singleAngle and Temperature Simulation at the same time is prohibited.")
+        sys.exit(2)
+        
     # Get the case/working dir paths
     projectFolder = paramDict['projectFolder'] 
     workingDir = Path('.')
     projectPath = Path(workingDir / projectFolder)
     projectFile = Path(projectPath / 'setup.e3d')
 
+    myLog.openFileHandle()
+    myLog.writeGeneralInfo(paramDict)
+    myLog.writeNumAnglePositions(calcMaxSimIterations())
+    myLog.writeStatusLine2()
+    myLog.closeFileHandle()
+
     setupMPICommand()
 
     if not paramDict['skipSetup']:
-        simulationSetup(workingDir, projectFile, projectPath, projectFolder)
+        exitCode = simulationSetup(workingDir, projectFile, projectPath, projectFolder)
 
     if paramDict['skipSimulation']:
         sys.exit()
@@ -372,9 +534,5 @@ def main():
 #                             Main Boiler Plate
 #===============================================================================
 if __name__ == "__main__":
-    with open("e3d.log", "w") as log:
-        log.write("E3D started at: " + str(datetime.datetime.now()) + "\n")
-        log.write("E3D running\n")
     main()
-    with open("e3d.log", "a") as log:
-        log.write("E3D stopped at: " + str(datetime.datetime.now()) + "\n")
+    myLog.writeExitMsg()

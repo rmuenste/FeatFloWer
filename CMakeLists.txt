@@ -134,11 +134,6 @@ option(Q1P1_SSE_LINK_STATIC_FORTRAN
 #ENDIF(FC_CUDA_SUPPORT)
 
 #=========================================================================
-#                         project directories
-#=========================================================================
-include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
-
-#=========================================================================
 #                       Configure BLAS/LAPACK 
 #=========================================================================
 if(USE_SYSTEM_BLASLAPACK)
@@ -352,15 +347,21 @@ endif(USE_MUMPS)
 #message(FATAL_ERROR "end")
 
 #=========================================================================
-#               Build the C directory handling library  
-#=========================================================================
-add_library(cdirs ${src_ini_c})
-
-#=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 
 #=========================================================================
 include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
 include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
+
+#=========================================================================
+#                         project directories
+#=========================================================================
+include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
+
+#=========================================================================
+#               Build the C directory handling library  
+#=========================================================================
+add_library(cdirs ${src_ini_c})
+
 
 #=========================================================================
 #                         Add applications
@@ -403,7 +404,6 @@ install(FILES ${E3D_SCRIPTS} DESTINATION bin
 #=========================================================================
 #                       CPACK CONFIGURATION
 #=========================================================================
-
 include(${CMAKE_MODULE_PATH}/GeneratePackageDeb.cmake)  
 
 include(CPack)

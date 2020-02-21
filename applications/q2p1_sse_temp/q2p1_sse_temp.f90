@@ -20,7 +20,7 @@ PROGRAM Q2P1_DEVEL
                            Assemble_LinScOperators_XSE
                            
   use var_QuadScalar, only : istep_ns,Viscosity, Screw, Shell, Shearrate,&
-                      mg_mesh,myExport
+                      mg_mesh,myExport,DivergedSolution
 
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   
@@ -78,6 +78,8 @@ PROGRAM Q2P1_DEVEL
      CALL TemporalFieldInterpolator(iStep,iSubStep)
      CALL Assemble_LinScOperators_XSE(ufile)
      CALL Transport_LinScalar_XSE(Boundary_LinSc_Val_XSE,AddSource_XSE,ufile,inonln_t)
+     if (DivergedSolution) EXIT
+
 
      call print_time(timens, timemx, tstep, itns, nitns*myProcess%nTimeLevels*myTransientSolution%nTimeSubStep, ufile, uterm)
 
@@ -86,6 +88,8 @@ PROGRAM Q2P1_DEVEL
      istep_ns = istep_ns + 1
     
     END DO
+    
+    if (DivergedSolution) EXIT
     
     myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360/myProcess%Periodicity)
     CALL ZTIME(myStat%t0)
@@ -102,14 +106,25 @@ PROGRAM Q2P1_DEVEL
     
    END DO
 
+   if (DivergedSolution) EXIT
+   
   END DO
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) "PP3D_LES has successfully finished. "
-    WRITE(ufile,*) "PP3D_LES has successfully finished. "
+  if (.not.DivergedSolution) THEN
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "PP3D_LES has successfully finished. "
+     WRITE(ufile,*) "PP3D_LES has successfully finished. "
+   END IF
+  ELSE
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "Q2P1_SSE_TEMP has been stopped due to divergence ..."
+     WRITE(ufile,*) "Q2P1_SSE_TEMP has been stopped due to divergence ..."
+   END IF
   END IF
 
   CALL Barrier_myMPI()
   CALL MPI_Finalize(ierr)
+  
+  if (DivergedSolution) STOP 1
 
 END PROGRAM Q2P1_DEVEL

@@ -897,6 +897,11 @@ IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
 END IF
 
+CALL LL21(LinSc%valP(NLMAX)%x,LinSc%ndof,defP)
+call COMM_SUMM(defp)
+if (ieee_is_nan(defP)) DivergedSolution = .true.
+if (.not.ieee_is_finite(defP)) DivergedSolution = .true.
+
 ILEV = NLMAX
 CALL SETLEV(2)
 CALL Comm_Solution(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,QuadSc%auxU,QuadSc%ndof)

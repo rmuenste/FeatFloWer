@@ -1,22 +1,7 @@
 # CMakeLists of heat application
-set(src_cinterface
-${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
-)
 
 # source files for standad q2p1 
 set(src_heat
-${Elements} 
-${src_q2p1} 
-${src_pp3d} 
-${src_mpi} 
-${src_util} 
-${src_PLin} 
-${src_LinSc} 
-${src_quadLS_app} 
-${src_visco} 
-${src_mesh}
-${src_cinterface}
-${postprocessing}
 app_init.f90
 heat.f90
 )
