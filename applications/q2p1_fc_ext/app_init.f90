@@ -301,64 +301,31 @@ DO ILEV=NLMIN+1,NLMAX
  !     ----------------------------------------------------------        
 
  ILEV=NLMIN
- CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)
-
- DO ILEV=NLMIN,NLMAX
-   CALL ProlongateParametrization_STRCT(mg_mesh,ilev)
- END DO
- if(myid.ne.0)then
-   CALL ProlongateParametrization_STRCT(mg_mesh,nlmax+1)
- endif
-
- CALL DeterminePointParametrization_STRCT(mg_mesh,nlmax)
+ CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  
  DO ILEV=NLMIN,NLMAX
- 
-   CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
-!    CALL ProjectPointToSTL(ilev)
-  
+
+   CALL ParametrizeBndr(mg_mesh,ilev)
+
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-   
-    CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-                               mg_mesh%level(ILEV+1)%dcorvg,&
-                               mg_mesh%level(ILEV)%karea,&
-                               mg_mesh%level(ILEV)%kvert,&
-                               mg_mesh%level(ILEV)%kedge,&
-                               mg_mesh%level(ILEV)%nel,&
-                               mg_mesh%level(ILEV)%nvt,&
-                               mg_mesh%level(ILEV)%net,&
-                               mg_mesh%level(ILEV)%nat)
+
+     CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+                                mg_mesh%level(ILEV+1)%dcorvg,&
+                                mg_mesh%level(ILEV)%karea,&
+                                mg_mesh%level(ILEV)%kvert,&
+                                mg_mesh%level(ILEV)%kedge,&
+                                mg_mesh%level(ILEV)%nel,&
+                                mg_mesh%level(ILEV)%nvt,&
+                                mg_mesh%level(ILEV)%net,&
+                                mg_mesh%level(ILEV)%nat)
    END IF
  END DO
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- DO iUmbrella=1,nInitUmbrellaSteps
-  CALL UmbrellaSmoother_STRCT(0d0,1)
-!   CALL ProjectPointToSTL(nlmax)
- END DO
- 
-IF (myid.ne.0) THEN
+ ! Parametrize the highest level
+ if(myid.ne.0)then
+   CALL ParametrizeBndr(mg_mesh,nlmax+1)
+ endif
 
-  CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
-                             mg_mesh%level(nlmax+1)%dcorvg,&
-                             mg_mesh%level(nlmax)%karea,&
-                             mg_mesh%level(nlmax)%kvert,&
-                             mg_mesh%level(nlmax)%kedge,&
-                             mg_mesh%level(nlmax)%nel,&
-                             mg_mesh%level(nlmax)%nvt,&
-                             mg_mesh%level(nlmax)%net,&
-                             mg_mesh%level(nlmax)%nat)
-END IF
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (myid.ne.0) THEN
-  CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
-END IF
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
