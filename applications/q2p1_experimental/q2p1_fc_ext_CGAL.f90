@@ -1,4 +1,4 @@
-PROGRAM Q2P1_EXPERIMENTAL
+PROGRAM Q2P1_FC_EXT
 
   include 'defs_include.h'
 
@@ -14,7 +14,7 @@ PROGRAM Q2P1_EXPERIMENTAL
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile=111,ilog
+  integer            :: ufile,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
@@ -46,7 +46,7 @@ PROGRAM Q2P1_EXPERIMENTAL
     inonln_t = 2
   END IF
 
-  call postprocessing_app(dout,  inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -60,4 +60,4 @@ PROGRAM Q2P1_EXPERIMENTAL
 
   call sim_finalize(tt0,ufile)
 
-END PROGRAM Q2P1_EXPERIMENTAL
+END PROGRAM Q2P1_FC_EXT

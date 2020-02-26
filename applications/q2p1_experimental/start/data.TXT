@@ -5,7 +5,7 @@ liquidSolid = 1
 # if startType = 1, then the simulation continues from this file
 solution = solution/particles.start0
 # Number of rigid bodies, only neccessary if startType = 0 
-nBodies = 0
+nBodies = 1
 # The positions and parameters of the rigid bodies 
 # can be written in the rigid body section (0), read from file (1),
 # or initialized by the functions createstackingtest (2), createlinetest (3), createrestingtest (4)

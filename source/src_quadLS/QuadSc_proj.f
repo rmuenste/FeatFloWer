@@ -35,9 +35,10 @@
           DBY  =  BY(JB)
           DBZ  =  BZ(JB)
           
-          IF (myBoundary%bSlip(IDOF).and.
-     *       (.not.(myBoundary%bWall(IDOF).or.
-     *              myBoundary%iInflow(IDOF).ge.0))) then
+          IF (myBoundary%bSlip(IDOF)) then
+!           IF (myBoundary%bSlip(IDOF).and.
+!      *       (.not.(myBoundary%bWall(IDOF).or.
+!      *              myBoundary%iInflow(IDOF).gt.0))) then
            DAUX = DBTX*BoundaryNormal(1,IDOF) + 
      *            DBTY*BoundaryNormal(2,IDOF) + 
      *            DBTZ*BoundaryNormal(3,IDOF)

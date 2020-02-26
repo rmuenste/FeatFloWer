@@ -1132,6 +1132,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
+!   CALL Output_VTK_piece(iOutput,&
+!     mg_mesh%level(ILEV)%dcorvg,&
+!     mg_mesh%level(ILEV)%kvert)
 
 !   ILEV = NLMAX
 !   CALL SETLEV(2)
