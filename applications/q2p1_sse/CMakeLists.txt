@@ -48,6 +48,8 @@ target_compile_options(q2p1_sse PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(q2p1_sse PROPERTIES LINKER_LANGUAGE Fortran)
 
+add_dependencies(q2p1_sse s3d_mesher)
+
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -86,6 +88,8 @@ IF(${OUT_OF_SOURCE_BUILD})
     file(COPY q2p1_sse_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
 
+  file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 ENDIF()
 
 #=========================================================================
@@ -104,3 +108,5 @@ FOREACH(dir ${DEF_DIRS})
 ENDFOREACH()
 
 install(DIRECTORY ${mydirs} DESTINATION bin)
+
+add_test(q2p1-sse python3 ./e3d_start.py -n 16 -f _ianus/TSE/Conv -x -a 0)

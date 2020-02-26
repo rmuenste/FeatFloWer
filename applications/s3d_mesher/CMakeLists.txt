@@ -27,6 +27,14 @@ target_compile_options(s3d_mesher PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(s3d_mesher PROPERTIES LINKER_LANGUAGE Fortran)
 
+add_custom_command(
+  TARGET s3d_mesher 
+  POST_BUILD 
+  COMMAND ${CMAKE_COMMAND} -E copy 
+ ${CMAKE_CURRENT_BINARY_DIR}/s3d_mesher
+ ${CMAKE_BINARY_DIR}/applications/q2p1_sse
+)
+
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================

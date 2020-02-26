@@ -13,7 +13,6 @@ function(createDefaultDirectories bdir sdir)
     ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
   endif(NOT WIN32)
 
-  set(FILELINKS partitioner)
   set(DIRECTORYCOPIES _data start)
   set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
 
