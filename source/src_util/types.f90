@@ -466,7 +466,7 @@ TYPE tSegment
   CHARACTER*99 ::  cF
   CHARACTER*8 ::  ART
   INTEGER ::    KNETz,N
-  REAL*8  :: Ds,s,delta,Dss,excentre
+  REAL*8  :: Ds,s,delta,Dss,excentre,DiscFrac=0.05d0
   REAL*8, ALLOCATABLE :: Zknet(:)
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L

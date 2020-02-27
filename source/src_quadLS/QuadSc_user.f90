@@ -1091,18 +1091,28 @@ END SUBROUTINE TransformPointToNonparallelRotAxis
 !
 SUBROUTINE SetInitialTemperature(T,Coor,ndof)
 USE Sigma_User, ONLY: myProcess
+implicit none
 integer ndof
 real*8 T(*),coor(3,*)
 integer i
-real*8 Z
+real*8 X,Y,Z,distance
 
 DO i=1,ndof
 
+ X = coor(1,i)
+ Y = coor(2,i)
  Z = coor(3,i)
+ 
+  !!!!!!!!!!!!!!!!!!!! VEKA !!!!!!!!!!!!!!!!!!!!!!!
+!  distance = ( 2d0*(X+0d0)**2d0 + 6d0*(Y+0d0)**2d0 + (Z-39.0d0)**2d0 )**0.5d0
+!  distance = max(13.5d0,distance)
+!  T(i) = 200d0 - 15d0 * (distance-13.5d0)/42.7d0
+ 
  T(i) = myProcess%T0 + Z*myProcess%T0_slope
+ 
  
 end do
 
-Temperature = myProcess%T0
+! Temperature = myProcess%T0
 
 END SUBROUTINE SetInitialTemperature

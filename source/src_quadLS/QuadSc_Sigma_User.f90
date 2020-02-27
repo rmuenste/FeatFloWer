@@ -207,7 +207,215 @@ END SUBROUTINE ZME_elem
 !
 !********************GEOMETRY****************************
 !
+SUBROUTINE TrueKNET_elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t
+REAL*8 :: dKnetMin,dKnetMax,dKnetMed
+INTEGER :: inpr,iBndr, l, k, iSeg,lKnet
+REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
+REAL*8 :: dBeta1,dBeta2,XTT,YTT,ZTT,dist
+REAL*8 :: dZ
+REAL*8 daux1,daux2
+REAL*8 dScale, daux,dist1, dist2,dEps,dCut
+REAL*8 myPI
 
+dEps = mySigma%a/1d5
+
+myPI = dATAN(1d0)*4d0
+
+IF (Z.ge.mySigma%mySegment(iSeg)%Min.and.Z.le.mySigma%mySegment(iSeg)%Max) then
+ DO l=1, mySigma%mySegment(iSeg)%N
+  dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+  dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+  IF (Z.GE.dKnetMin.AND.Z.LT.dKnetMax) THEN
+   lKnet = l
+   EXIT
+  END IF
+ END DO
+ELSE
+ IF (Z.lt.mySigma%mySegment(iSeg)%Min) lknet = 1
+ IF (Z.gt.mySigma%mySegment(iSeg)%Max) lknet = mySigma%mySegment(iSeg)%N
+END IF
+
+! First screw
+dist1 = DistTolerance
+XB = X
+YB = Y-mySigma%a/2d0
+ZB = Z
+
+! First the point needs to be transformed back to time = 0
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
+
+dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+dKnetMed = dKnetMin + mySigma%mySegment(iSeg)%DiscFrac*(dKnetMax-dKnetMin)
+!dKnetMed = 0.5d0*(dKnetMin+dKnetMax)
+dBeta1 = myPI*DBLE(l-1)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+dBeta2 = myPI*DBLE(l-2)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+
+! Next the point needs to be transformed back to Z = 0 level
+XTT = XT*cos(dBeta1) - YT*sin(dBeta1)
+YTT = XT*sin(dBeta1) + YT*cos(dBeta1)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux1)
+
+XTT = XT*cos(dBeta2) - YT*sin(dBeta2)
+YTT = XT*sin(dBeta2) + YT*cos(dBeta2)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux2)
+
+dZ = MIN(ABS(ZT-dKnetMed),ABS(ZT-dKnetMax))
+IF (ZT.GE.dKnetMed.and.ZT.LE.dKnetMax) THEN
+ IF (daux1.ge.0d0) THEN
+  daux=daux1
+ ELSE
+  daux=Max(daux1,-dZ)
+ END IF
+END IF
+
+IF (ZT.GE.dKnetMin.and.ZT.LE.dKnetMed) THEN
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+   dZ = MIN(ABS(ZT-dKnetMin),ABS(ZT-dKnetMed))
+   daux=max(daux,-dZ)
+ ELSE
+  dZ = ABS(ZT-dKnetMed)
+  IF (daux1.lt.0d0) THEN
+   daux=min(dZ,daux)
+  ELSE
+   daux=min(daux,SQRT(daux1**2d0+dZ**2d0))
+  END IF
+ END IF
+END IF
+
+IF (ZT.GT.dKnetMax) THEN
+ dZ = ABS(ZT-dKnetMax)
+ daux=daux1
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+IF (ZT.LT.dKnetMin) THEN
+ dZ = ABS(ZT-dKnetMin)
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+dist1 = max(-DistTolerance,min(daux,dist1))
+
+END DO
+
+IF (dist1.LT.0d0) THEN
+ inpr = 101
+END IF
+
+
+! Second screw
+dist2 = DistTolerance
+XB = X
+YB = Y+mySigma%a/2d0
+ZB = Z
+
+! First the point needs to be transformed back to time = 0
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+
+! First the point needs to be transformed back to time = 0
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
+
+dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+dKnetMed = dKnetMin + mySigma%mySegment(iSeg)%DiscFrac*(dKnetMax-dKnetMin)
+!dKnetMed = 0.5d0*(dKnetMin+dKnetMax)
+dBeta1 = myPI*DBLE(l-1)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+dBeta2 = myPI*DBLE(l-2)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+
+! Next the point needs to be transformed back to Z = 0 level
+XTT = XT*cos(dBeta1) - YT*sin(dBeta1)
+YTT = XT*sin(dBeta1) + YT*cos(dBeta1)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux1)
+
+XTT = XT*cos(dBeta2) - YT*sin(dBeta2)
+YTT = XT*sin(dBeta2) + YT*cos(dBeta2)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux2)
+
+dZ = MIN(ABS(ZT-dKnetMed),ABS(ZT-dKnetMax))
+IF (ZT.GE.dKnetMed.and.ZT.LE.dKnetMax) THEN
+ IF (daux1.ge.0d0) THEN
+  daux=daux1
+ ELSE
+  daux=Max(daux1,-dZ)
+ END IF
+END IF
+
+IF (ZT.GE.dKnetMin.and.ZT.LE.dKnetMed) THEN
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+   dZ = MIN(ABS(ZT-dKnetMin),ABS(ZT-dKnetMed))
+   daux=max(daux,-dZ)
+ ELSE
+  dZ = ABS(ZT-dKnetMed)
+  IF (daux1.lt.0d0) THEN
+   daux=min(dZ,daux)
+  ELSE
+   daux=min(daux,SQRT(daux1**2d0+dZ**2d0))
+  END IF
+ END IF
+END IF
+
+IF (ZT.GT.dKnetMax) THEN
+ dZ = ABS(ZT-dKnetMax)
+ daux=daux1
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+IF (ZT.LT.dKnetMin) THEN
+ dZ = ABS(ZT-dKnetMin)
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+dist2 = max(-DistTolerance,min(daux,dist2))
+! dist2 =MIN(daux,dist2)
+
+END DO
+
+IF (dist2.LT.0d0) THEN
+ inpr = 102
+END IF
+
+END SUBROUTINE TrueKNET_elem
+!
+!********************GEOMETRY****************************
+!
 SUBROUTINE SKNET_elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
 IMPLICIT NONE
 REAL*8 X,Y,Z,t
