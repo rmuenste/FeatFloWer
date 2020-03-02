@@ -102,7 +102,7 @@ REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDen
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
-REAL*8 :: U_bar, h, normalizedTime, val
+REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 real*8 dRPM
 
@@ -236,7 +236,10 @@ IF (iT.EQ.770) THEN
 END IF
 
 IF (iT.EQ.771) THEN
-  dRPM = 12d0 
+  dist = ((X-2.4)**2d0 + (Y+3.4)**2d0 + Z**2d0)**0.5d0 
+  if (dist.le.3.3) dFact = 1d0
+  if (dist.gt.3.3) dFact = 1d0
+  dRPM = 12d0*dFact 
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
