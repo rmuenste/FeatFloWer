@@ -295,8 +295,13 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
+#ifdef WITH_ODE 
+ call init_fc_rigid_body(myid)      
+ call FBM_GetParticles(1)
+#else
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
+#endif
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
