@@ -136,6 +136,8 @@ IF (myid.ne.master) THEN
 
 END IF
 
+temperature = QuadSc%defU
+
 ! Checking convergence rates against criterions
 RhsUVW=DefUVW
 CALL COMM_Maximum(RhsUVW)
