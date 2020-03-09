@@ -1698,10 +1698,15 @@ CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
+ if (i1D.eq.1.or.i1D.eq.5) THEN !!! These fields have already been restricted
+  dLim = myOutput%CutDtata_1D*1e-3
+ ELSE
+  dLim = myOutput%CutDtata_1D
+ END IF
  if (i1D.eq.5) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
 
@@ -1897,11 +1902,10 @@ CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
+ dLim = myOutput%CutDtata_1D*1d-3 ! These fields have already been restricted
  if (i1D.eq.9.or.i1D.eq.10) then
-  dLim = myOutput%CutDtata_1D
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  dLim = myOutput%CutDtata_1D
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
