@@ -21,6 +21,7 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
+
 target_link_libraries(heat 
   ${FF_APPLICATION_LIBS}
   )
@@ -31,9 +32,38 @@ target_compile_options(heat PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(heat PROPERTIES LINKER_LANGUAGE Fortran)
 
+get_target_property(MYTARGET heat NAME)
+
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
 file(COPY heat.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+install(TARGETS ${MYTARGET}
+    RUNTIME DESTINATION bin/${MYTARGET}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+#set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
+#
+#FOREACH(dir ${DEF_DIRS})
+#  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+#ENDFOREACH()
+#
+#install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+# install the partitioner directory so the python sources can be found by
+# the driver script
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${MYTARGET})
+
+install(FILES heat_start.py DESTINATION bin/${MYTARGET}
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)

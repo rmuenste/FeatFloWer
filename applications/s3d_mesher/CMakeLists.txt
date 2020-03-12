@@ -39,7 +39,7 @@ add_custom_command(
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(TARGETS s3d_mesher
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION bin/q2p1_sse
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )

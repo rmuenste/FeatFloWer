@@ -6,7 +6,13 @@ file(GLOB metis_SRC "*.h" "*.c")
 add_library(metis SHARED ${metis_SRC})
 
 install(TARGETS metis
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION bin
+    RUNTIME DESTINATION bin/q2p1_sse
+    LIBRARY DESTINATION bin/q2p1_sse
+    ARCHIVE DESTINATION lib
+    )
+
+install(TARGETS metis
+    RUNTIME DESTINATION bin/heat
+    LIBRARY DESTINATION bin/heat
     ARCHIVE DESTINATION lib
     )

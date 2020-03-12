@@ -3,35 +3,33 @@
 """
 A python launcher script for a FeatFloWer application
 """
+from tempfile import mkstemp
+from shutil import move
+from os import fdopen, remove
 import os
-
-import xml.etree.ElementTree as ET
 import sys
+sys.path.append(os.environ['FF_PY_HOME'])
+import partitioner
+import xml.etree.ElementTree as ET
 import getopt
 import platform
 import subprocess
 import re
 import json
-sys.path.append(os.environ['FF_PY_HOME'])
-import partitioner
 import pprint
 
-from tempfile import mkstemp
-from shutil import move
-from os import fdopen, remove
 
 #===============================================================================
 #                      Function: Usage
 #===============================================================================
 def usage():
-    print("Usage: q2p1_fc_ext_start.py [options]")
+    print("Usage: heat_start.py [options]")
     print("Where options can be:")
     print("[-h, --help]: prints this message")
-    print("[-n, --num-processor]: defines the number of parallel jobs to be used")
+    print("[-n, --num-processors]: defines the number of parallel jobs to be used")
     print("[-i, --in-file]: defines the input project file (will be replaced in the q2p1-data-file)")
 
 def replace(file_path, pattern, subst):
- 
     #Create temp file
     fh, abs_path = mkstemp()
     with fdopen(fh,'w') as new_file:
@@ -48,30 +46,33 @@ def replace(file_path, pattern, subst):
     move(abs_path, file_path)
 
 def main(argv):
-   inputfile = ''
-   outputfile = ''
-   try:
-      opts, args = getopt.getopt(argv,"hi:n:",["in-file=","num-processor="])
-   except getopt.GetoptError:
-      sys.exit(2)
-   for opt, arg in opts:
-      if opt == '-h':
- #        print 'test.py -i <inputfile> -o <outputfile>'
-         usage()
-         sys.exit()
-      elif opt in ("-n", "--num-processor"):
-         NumProcessor = int(arg)
-      elif opt in ("-i", "--in-file"):
-         inputfile = arg
+    inputFile = ''
+    outputFile = ''
 
-   print('Number Of Processors is: '+ str(NumProcessor))
-   print('Input file is '+ inputfile)
-   
-   replace("_data/q2p1_param.dat","SimPar@ProjectFile = ","SimPar@ProjectFile = '" + inputfile + "'")
-   
-   partitioner.partition(NumProcessor-1, 1, 1, "NEWFAC", str(inputfile))
-        
-   subprocess.call(['mpirun -np %i ./%s' %(NumProcessor, 'heat')], shell=True)
-   
+    numProcessors = -1
+
+    try:
+        opts, args = getopt.getopt(argv, "hi:n:", ["in-file=", "num-processors="])
+    except getopt.GetoptError:
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            usage()
+            sys.exit()
+        elif opt in ("-n", "--num-processors"):
+            numProcessors = int(arg)
+        elif opt in ("-i", "--in-file"):
+            inputFile = arg
+
+    print('Number Of Processors is: '+ str(numProcessors))
+    print('Input file is '+ inputFile)
+
+    replace("_data/q2p1_param.dat",
+            "SimPar@ProjectFile = ",
+            "SimPar@ProjectFile = '" + inputFile + "'")
+
+    partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
+    subprocess.call(['mpirun -np %i ./%s' %(numProcessors, 'heat')], shell=True)
+
 if __name__ == "__main__":
-   main(sys.argv[1:])
+    main(sys.argv[1:])

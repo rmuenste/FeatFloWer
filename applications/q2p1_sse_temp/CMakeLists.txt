@@ -48,7 +48,7 @@ file(COPY q2p1_sse_temp.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(TARGETS q2p1_sse_temp
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION bin/q2p1_sse
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )

@@ -13,8 +13,10 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "${ORIGIN}/../lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+set(SSE_TARGET_NAME "q2p1_sse")
+
 # Add the application executable
-add_executable(q2p1_sse ${src_q2p1_sse}) 
+add_executable(${SSE_TARGET_NAME} ${src_q2p1_sse}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -27,28 +29,27 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-
 if(MODULE_COMMAND)
-  addCompilerInfo("q2p1_sse")
+  addCompilerInfo("${SSE_TARGET_NAME}")
 endif(MODULE_COMMAND)
 
 if(Q1P1_SSE_LINK_STATIC_FORTRAN)
-  target_link_libraries(q2p1_sse 
+  target_link_libraries(${SSE_TARGET_NAME} 
     ${FF_APPLICATION_LIBS} -static-libgfortran
     )
 else(Q1P1_SSE_LINK_STATIC_FORTRAN)
-  target_link_libraries(q2p1_sse 
+  target_link_libraries(${SSE_TARGET_NAME} 
     ${FF_APPLICATION_LIBS}
     )
 endif(Q1P1_SSE_LINK_STATIC_FORTRAN)
 
-target_include_directories(q2p1_sse PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+target_include_directories(${SSE_TARGET_NAME} PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
-target_compile_options(q2p1_sse PRIVATE ${Fortran_FLAGS})
+target_compile_options(${SSE_TARGET_NAME} PRIVATE ${Fortran_FLAGS})
 
-set_target_properties(q2p1_sse PROPERTIES LINKER_LANGUAGE Fortran)
+set_target_properties(${SSE_TARGET_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
 
-add_dependencies(q2p1_sse s3d_mesher)
+add_dependencies(${SSE_TARGET_NAME} s3d_mesher)
 
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
@@ -95,8 +96,8 @@ ENDIF()
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
-install(TARGETS q2p1_sse
-    RUNTIME DESTINATION bin
+install(TARGETS ${SSE_TARGET_NAME}
+    RUNTIME DESTINATION bin/${SSE_TARGET_NAME}
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )
@@ -107,6 +108,19 @@ FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
 ENDFOREACH()
 
-install(DIRECTORY ${mydirs} DESTINATION bin)
+install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+# install the partitioner directory so the python sources can be found by
+# the driver script
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_TARGET_NAME})
+
+# install the driver script
+file(GLOB E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
+
+install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 add_test(q2p1-sse python3 ./e3d_start.py -n 16 -f _ianus/TSE/Conv -x -a 0)
