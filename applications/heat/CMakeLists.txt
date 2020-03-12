@@ -50,13 +50,13 @@ install(TARGETS ${MYTARGET}
     ARCHIVE DESTINATION lib
     )
 
-#set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
-#
-#FOREACH(dir ${DEF_DIRS})
-#  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
-#ENDFOREACH()
-#
-#install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
+set(DEF_DIRS _vtk start _dump)
+
+FOREACH(dir ${DEF_DIRS})
+  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+ENDFOREACH()
+
+install(DIRECTORY ${mydirs} DESTINATION bin/${MYTARGET})
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
