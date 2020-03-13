@@ -2,7 +2,7 @@ module visualization_out
 
 use cinterface
 
-use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
+use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, MaxShearRate,&
                          t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
 
 use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
@@ -70,16 +70,20 @@ if (sExport%Format .eq. "VTK") then
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  
-  CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
-  CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
-  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
+  CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
+  
+!   CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
+!   CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
+!  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
 
-  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
-
   call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+  
+  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+  
  end if
  
  if (myid.ne.0) then
@@ -182,7 +186,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate
 
 implicit none
 
@@ -328,6 +332,13 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ case('MaxShearRate')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MaxShearRate [1/s]",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(MaxShearRate(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
  case('Partitioning')
   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -477,6 +488,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature [C]","""/>"
  CASE('NormShearRate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","NormShearRate [1/s]","""/>"
+ CASE('MaxShearRate')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MaxShearRate [1/s]","""/>"
 !  CASE('Monitor')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
 !
@@ -1426,6 +1439,88 @@ end subroutine
 !-------------------------------------------------------------------------------------------------
 ! The particular routine for outputting 1D fields for an sse application
 !-------------------------------------------------------------------------------------------------
+subroutine restrictGlobalShear(dField1, i1D, sQuadSc, maxlevel)
+use Sigma_User, only: myOutput, mySigma
+use, intrinsic :: ieee_arithmetic
+
+real*8 :: dField1(*)
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
+integer :: i1D
+
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist) myHist
+
+! local variables
+integer :: i,j
+real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
+
+dMax    =-1d30
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if ((i1D.eq.9).and.dR.gt.dRadius) then
+    dMax    = MAX(dMax,MaxShearRate(i))
+   END IF
+
+   if ((i1D.eq.10).and.dR.le.dRadius)  then
+    dMax    = MAX(dMax,MaxShearRate(i))
+   END IF
+   
+ END IF
+END DO
+
+CALL COMM_Maximum(dMax)
+
+WRITE(*,*) "FoundMAx",iid,dMax
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if ((i1D.eq.9).and.dR.gt.dRadius) then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+   END IF
+
+   if ((i1D.eq.10).and.dR.le.dRadius)  then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+   END IF
+   
+ END IF
+END DO
+
+END subroutine restrictGlobalShear
+
+!
+!-------------------------------------------------------------------------------------------------
+! The particular routine for outputting 1D fields for an sse application
+!-------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
 ! @param sQuadSc The velocity solution structure of the mesh
 ! @param sLinSc The pressure solution structure of the mesh
@@ -1704,7 +1799,7 @@ DO j=1,my1DOut_nol
   dLim = myOutput%CutDtata_1D
  END IF
  if (i1D.eq.5) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
+!   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
@@ -1848,7 +1943,7 @@ IF (myid.ne.0) THEN
      IF (dY.le.0d0)  dR = SQRT(dX**2d0+(dY+mySigma%a/2d0)**2d0)
 !      write(*,*) mySigma%mySegment(iSeg)%delta,mySigma%mySegment(iSeg)%Ds,dDist,dR
 !      pause
-     IF (dR.gt.0.5d0*mySigma%mySegment(iSeg)%Ds.and.dDist.le.mySigma%mySegment(iSeg)%delta) THEN
+     IF (dR.gt.0.5d0*mySigma%mySegment(iSeg)%Ds.and.dDist.le.2d0*mySigma%mySegment(iSeg)%delta) THEN
       daux = dScale*dField1(i)
       bValid = .TRUE.
      END IF
@@ -1904,7 +1999,7 @@ CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 DO j=1,my1DOut_nol
  dLim = myOutput%CutDtata_1D*1d-3 ! These fields have already been restricted
  if (i1D.eq.9.or.i1D.eq.10) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
+!   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if

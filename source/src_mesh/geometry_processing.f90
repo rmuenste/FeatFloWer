@@ -1,8 +1,8 @@
 module geometry_processing
   use Sigma_User, only: mySigma, myProcess,KNET_elem,SKNET_elem,EKNET_elem,&
-  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, DistTolerance
+  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, DistTolerance
  
-  use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects
+  use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects,maxShearRate
   !------------------------------------------------------------------------------------------------
   ! A module for functions that perform operations on the 
   ! geometry immersed into the simulation domain or boundary geometry
@@ -35,6 +35,7 @@ DO i=1,nvt
  PY = dcorvg(2,I)
  PZ = dcorvg(3,I)
  CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS0,dS1,dS2,timeLevel)
+ CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(i))
  Dist1(i) = dS1
  Dist2(i) = dS2
  Dist3(i) = dS0
@@ -51,6 +52,7 @@ DO i=1,nel
    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
    CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS0,dS1,dS2,timeLevel)
+   CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+k))
    Dist1(nvt+k) = dS1
    Dist2(nvt+k) = dS2
    Dist3(nvt+k) = dS0
@@ -72,6 +74,7 @@ DO i=1,nel
    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
    CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS0,dS1,dS2,timeLevel)
+   CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+net+k))
    Dist1(nvt+net+k) = dS1
    Dist2(nvt+net+k) = dS2
    Dist3(nvt+net+k) = dS0
@@ -91,6 +94,7 @@ DO i=1,nel
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
  END DO
  CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS0,dS1,dS2,timeLevel)
+ CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+net+nat+i))
  Dist1(nvt+net+nat+i) = dS1
  Dist2(nvt+net+nat+i) = dS2
  Dist3(nvt+net+nat+i) = dS0
@@ -109,6 +113,173 @@ end do
 ! if (myid.eq.2) WRITE(*,*) dcorvg(:,17146),Distamce(17146),nvt+net+nat
 
 END SUBROUTINE QuadScalar_MixerKnpr
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE FindMaxShearrate(X,Y,Z,t,LocalShearrate)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t,d,LocalShearrate
+REAL*8 :: dKnetMin,dKnetMax
+INTEGER :: inpr, l, k, nmbr,lKnet
+REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
+REAL*8 :: dBeta,XTT,YTT,ZTT,dist
+REAL*8 dSeg0,dSeg1,dSeg2,tt,LocalR,dGapEstimate,LocalVelocity,dEps,dZwickel
+REAL*8 ddSeg0,ddSeg1,ddSeg2
+REAL*8 myPI
+LOGICAL :: bProjection=.true.
+REAL*8 :: ProjP(3),ProjP2(3),daux,dInnerBarrel,DistTolerance_BU
+
+dEps = mySigma%a/1d5
+
+myPI = dATAN(1d0)*4d0
+
+DistTolerance_BU = DistTolerance
+DistTolerance = 1d8
+
+D = 1d8
+inpr = 0
+
+tt = t 
+!----------------------------------------------------------
+DO k=1, mySigma%NumberOfSeg
+ dSeg0=1d7
+ dSeg1=1d7
+ dSeg2=1d7
+ 
+ dZwickel = dsqrt(x*x + y*y)
+ IF (ADJUSTL(TRIM(mySigma%cZwickel)).eq."ROUND") THEN
+  dInnerBarrel = 0.5d0*mySigma%Dzz
+ ELSE
+  dInnerBarrel = (SQRT((0.5*mySigma%DZ_Out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W)
+ END IF
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'STL_R')  then
+  CALL STLR_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
+  CALL Shell_dist(ProjP(1),ProjP(2),ProjP(3),dGapEstimate)
+  LocalR      = mySigma%dZ_Out*0.5d0 -  abs(dGapEstimate)
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'STL_L')  then
+  CALL STLL_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
+  CALL Shell_dist(ProjP(1),ProjP(2),ProjP(3),dGapEstimate)
+  LocalR      = mySigma%dZ_Out*0.5d0 -  abs(dGapEstimate)
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'STL'  )  then
+  CALL STL_elem(X,Y,Z,tt,k,dSeg0,dSeg1,dSeg2,inpr,bProjection,ProjP)
+  CALL Shell_dist(ProjP(1),ProjP(2),ProjP(3),dGapEstimate)
+  LocalR      = mySigma%dZ_Out*0.5d0 -  abs(dGapEstimate)
+  
+  if (dZwickel.le. dInnerBarrel) then
+   ddSeg1=1d7
+   ddSeg2=1d7
+   if (dSeg1.lt.dSeg2) then
+    CALL STL_elem(ProjP(1),ProjP(2),ProjP(3),tt,k,ddSeg0,ddSeg1,ddSeg2,inpr,bProjection,ProjP2)
+    CALL Shell_dist(ProjP2(1),ProjP2(2),ProjP2(3),daux)
+    dGapEstimate = ddSeg2
+    LocalR = LocalR + abs(daux)
+   else
+    CALL STL_elem(ProjP(1),ProjP(2),ProjP(3),tt,k,ddSeg0,ddSeg1,ddSeg2,inpr,bProjection,ProjP2)
+    CALL Shell_dist(ProjP2(1),ProjP2(2),ProjP2(3),daux)
+    dGapEstimate = ddSeg1
+    LocalR = LocalR + abs(daux)
+   end if
+  end if
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'KNET' ) then
+  CALL KNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+
+ IF (mySigma%mySegment(k)%ART.EQ.'TKNET') then
+  CALL TrueKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'EKNET') then
+  CALL EKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'SKNET') then
+  CALL SKNET_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'FOERD') then
+  CALL FOERD_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'SME'  ) then
+  CALL SME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ IF (mySigma%mySegment(k)%ART.EQ.'ZME'  ) then
+  CALL ZME_elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+  if (dZwickel.ge. dInnerBarrel) then
+   dGapEstimate = mySigma%mySegment(k)%delta
+  else
+   dGapEstimate = mySigma%mySegment(k)%s
+  end if
+  LocalR      = mySigma%mySegment(k)%Ds/2d0
+ end if
+ 
+ if (dSeg1.lt.dSeg2) then
+  if (dSeg1.lt.d) then
+   d = dSeg1
+   LocalVelocity = 2d0 * myPi * LocalR *(myProcess%Umdr/6d1)
+   LocalShearrate = 1.05d0 * LocalVelocity / dGapEstimate 
+  end if
+ else
+  if (dSeg2.lt.d) then
+   d = dSeg2
+   LocalVelocity = 2d0 * myPi * LocalR *(myProcess%Umdr/6d1)
+   LocalShearrate = 1.05d0 * LocalVelocity / dGapEstimate 
+  end if
+ end if
+ 
+!  write(*,'(100ES12.4)') LocalShearrate,LocalVelocity,dGapEstimate,dSeg1,dSeg2
+END DO
+!-------------------------------------------------------
+
+DistTolerance = DistTolerance_BU 
+
+return
+
+END SUBROUTINE FindMaxShearrate
 !
 !********************GEOMETRY****************************
 !
@@ -163,16 +334,16 @@ END SUBROUTINE GetMixerKnpr
 !
 !********************GEOMETRY****************************
 !
-SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d0,d1,d2,inpr,bProjection,ProjP)
+SUBROUTINE STL_elem(X,Y,Z,t,iSeg,d0,d1,d2,inpr,bProjection,ProjPReturn)
 IMPLICIT NONE
 INTEGER inpr
-REAL*8 X,Y,Z,d1,d2,d0,daux
+REAL*8 X,Y,Z,d1,d2,d0,daux,ProjPReturn(3)
 REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
 REAL*8 t,myPI,dUnitScale
 INTEGER iSTL,iSeg,iFile
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 LOGICAL :: bProjection
-REAL*8 :: ProjP(3),DDDD
+REAL*8 :: ProjP1(3),ProjP2(3),DDDD
 
 ! d1 = 5d0
 ! d2 = 5d0
@@ -208,17 +379,18 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
   iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
   CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
+!   if (bProjection) THEN
   if (bProjection.and.d1.lt.DistTolerance) THEN
-   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
-   ProjP(1) =  ProjP(1)/dUnitScale
-   ProjP(2) =  ProjP(2)/dUnitScale
-   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
-   XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
-   YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
-   ZT = ProjP(3)
-   ProjP(1) =  XT 
-   ProjP(2) =  YT+mySigma%a/2d0
-   ProjP(3) =  ZT
+   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP1(1),ProjP1(2),ProjP1(3),DDDD,iSTL-1)
+   ProjP1(1) =  ProjP1(1)/dUnitScale
+   ProjP1(2) =  ProjP1(2)/dUnitScale
+   ProjP1(3) = (ProjP1(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
+   XT = ProjP1(1)*cos(-dAlpha) - ProjP1(2)*sin(-dAlpha)
+   YT = ProjP1(1)*sin(-dAlpha) + ProjP1(2)*cos(-dAlpha)
+   ZT = ProjP1(3)
+   ProjP1(1) =  XT 
+   ProjP1(2) =  YT+mySigma%a/2d0
+   ProjP1(3) =  ZT
   end if
   d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
   END DO
@@ -251,22 +423,30 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
   iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
   CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
-  if (bProjection.and.d2.lt.DistTolerance) THEN
-   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
-   ProjP(1) =  ProjP(1)/dUnitScale
-   ProjP(2) =  ProjP(2)/dUnitScale
-   ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
-   XT = ProjP(1)*cos(-dAlpha) - ProjP(2)*sin(-dAlpha)
-   YT = ProjP(1)*sin(-dAlpha) + ProjP(2)*cos(-dAlpha)
-   ZT = ProjP(3)
-   ProjP(1) =  XT 
-   ProjP(2) =  YT-mySigma%a/2d0
-   ProjP(3) =  ZT
+!   if (bProjection) THEN
+ if (bProjection.and.d2.lt.DistTolerance) THEN
+   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP2(1),ProjP2(2),ProjP2(3),DDDD,iSTL-1)
+   ProjP2(1) =  ProjP2(1)/dUnitScale
+   ProjP2(2) =  ProjP2(2)/dUnitScale
+   ProjP2(3) = (ProjP2(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
+   XT = ProjP2(1)*cos(-dAlpha) - ProjP2(2)*sin(-dAlpha)
+   YT = ProjP2(1)*sin(-dAlpha) + ProjP2(2)*cos(-dAlpha)
+   ZT = ProjP2(3)
+   ProjP2(1) =  XT 
+   ProjP2(2) =  YT-mySigma%a/2d0
+   ProjP2(3) =  ZT
   end if
   d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
   END DO
 
   if (d2.lt.0d0) inpr = 102
+  
+  IF (d1.lt.d2) then
+   ProjPReturn = ProjP1
+  else
+   ProjPReturn = ProjP2
+  end if
+  
 END IF
 
 
@@ -279,11 +459,12 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
   DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
    iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
    CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,daux,.TRUE.)
-   if (bProjection.and.daux.lt.DistTolerance) THEN
-    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
-    ProjP(1) =  ProjP(1)/dUnitScale
-    ProjP(2) =  ProjP(2)/dUnitScale
-    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
+!    if (bProjection) THEN
+  if (bProjection.and.daux.lt.DistTolerance) THEN
+    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjPReturn(1),ProjPReturn(2),ProjPReturn(3),DDDD,iSTL-1)
+    ProjPReturn(1) =  ProjPReturn(1)/dUnitScale
+    ProjPReturn(2) =  ProjPReturn(2)/dUnitScale
+    ProjPReturn(3) = (ProjPReturn(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
    end if
    daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
    d0   = min(daux,d0)
@@ -303,12 +484,13 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
    iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
    CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,daux,.TRUE.)
    daux = -daux
+!    if (bProjection) THEN
    if (bProjection.and.daux.lt.DistTolerance) THEN
-    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),DDDD,iSTL-1)
-    ProjP(1) =  ProjP(1)/dUnitScale
-    ProjP(2) =  ProjP(2)/dUnitScale
-    ProjP(3) = (ProjP(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
-!    write(*,*) 'P',XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,DDDD
+    call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjPReturn(1),ProjPReturn(2),ProjPReturn(3),DDDD,iSTL-1)
+    ProjPReturn(1) =  ProjPReturn(1)/dUnitScale
+    ProjPReturn(2) =  ProjPReturn(2)/dUnitScale
+    ProjPReturn(3) = (ProjPReturn(3) + mySigma%mySegment(iSeg)%Min*dUnitScale)/dUnitScale
+!    write(*,*) 'P',XT_STL,YT_STL,ZT_STL,ProjPReturn(1),ProjPReturn(2),ProjPReturn(3),daux,DDDD
    end if
    daux = max(-DistTolerance,min(DistTolerance,daux/dUnitScale))
    d0   = min(daux,d0)
@@ -366,7 +548,8 @@ ZT_STL = dUnitScale*ZT - dUnitScale*mySigma%mySegment(iSeg)%Min
 DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
  CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d1,.TRUE.)
- if (bProjection.and.d1.lt.DistTolerance) THEN
+!  if (bProjection) THEN
+if (bProjection.and.d1.lt.DistTolerance) THEN
   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,iSTL-1)
   ProjP(1) =  ProjP(1)/dUnitScale
   ProjP(2) =  ProjP(2)/dUnitScale
@@ -440,6 +623,7 @@ ZT_STL = dUnitScale*ZT  - dUnitScale*mySigma%mySegment(iSeg)%Min
 DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
  iSTL = mySigma%mySegment(iSeg)%idxCgal(iFile)
  CALL GetDistToSTL(XT_STL,YT_STL,ZT_STL,iSTL,d2,.TRUE.)
+!  if (bProjection) THEN
  if (bProjection.and.d2.lt.DistTolerance) THEN
   call getclosestpointid(XT_STL,YT_STL,ZT_STL,ProjP(1),ProjP(2),ProjP(3),daux,iSTL-1)
   ProjP(1) =  ProjP(1)/dUnitScale

@@ -476,6 +476,13 @@ end if
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
+
+ ALLOCATE (MaxShearRate(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+ MaxShearRate = 0d0
+                     
  ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
