@@ -50,8 +50,8 @@ install(TARGETS ${MYTARGET}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _mesh start _data)
-set(DEF_DIRS_BINARY _vtk _dump)
+set(DEF_DIRS start _data)
+set(DEF_DIRS_BINARY _mesh _vtk _dump)
 
 set(DEFAULT_CASE_FOLDER "")
 
