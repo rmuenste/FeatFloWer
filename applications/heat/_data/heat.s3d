@@ -19,13 +19,8 @@ InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
 Unit=mm
-ScrewOFF(5)=
-_ianus/HEAT/EWIKON/block.off
-_ianus/HEAT/EWIKON/box.off
-_ianus/HEAT/EWIKON/box3.off
-_ianus/HEAT/EWIKON/insert.off
-_ianus/HEAT/EWIKON/WorkBench.off
-
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON_201912/Stahl_new.off
 
 [E3DGeometryData/Machine/Element_2]
 Type=STL
@@ -36,7 +31,7 @@ VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 2.2d0
 Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON/myWIRE.off
+_ianus/HEAT/EWIKON_201912/Kupfer.off
 
 [E3DGeometryData/Machine/Element_3]
 Type=STL
@@ -45,9 +40,9 @@ MaterialIndex=3
 InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
-Unit=cm
+Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON/myMELT.off
+_ianus/HEAT/EWIKON_201912/FD.off
 
 [E3DGeometryData/Machine/Element_4]
 Type=STL
@@ -57,10 +52,8 @@ InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
 Unit=mm
-ScrewOFF(3)=
-_ianus/HEAT/EWIKON/ring_1.off
-_ianus/HEAT/EWIKON/ring_2.off
-_ianus/HEAT/EWIKON/ring_3.off
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON_201912/Titan.off
 
 [E3DGeometryData/Machine/Element_5]
 Type=STL
@@ -70,9 +63,9 @@ TemperatureBC = constant
 InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
-Unit=cm
+Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON/ConstTemp.off
+_ianus/HEAT/EWIKON_201912/ConstTemp.off
 
 [E3DMaterialParameters]
 NoOfMaterials=4
@@ -110,8 +103,10 @@ HeatCapacitySlope=0.0
 DensitySlope=0.0
 
 [E3DGeometryData/Process]
-AirTemperature=280.0
-TemperatureSensorCoor = 3.75, 2.15,-1.73
+AmbientTemperature=280.0
+TemperatureSensorCoor = 0.0, 1.5, 13.0
 TemperatureSensorRadius =0.205
+ConductiveLambda = 21d0
+ConductiveGradient = -25d0
 
 KTPRelease=NO

@@ -39,7 +39,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
-file(COPY heat.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY heat_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
@@ -50,13 +50,30 @@ install(TARGETS ${MYTARGET}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _vtk start _dump)
+set(DEF_DIRS _mesh start _data)
+set(DEF_DIRS_BINARY _vtk _dump)
+
+set(DEFAULT_CASE_FOLDER "")
+
+IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_adc/EWIKON_201912")
+  list(APPEND DEFAULT_CASE_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/_adc/EWIKON_201912)
+ENDIF()
 
 FOREACH(dir ${DEF_DIRS})
-  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+  list(APPEND mydirs ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
+ENDFOREACH()
+
+FOREACH(dir ${DEF_DIRS_BINARY})
+  list(APPEND mybindirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
 ENDFOREACH()
 
 install(DIRECTORY ${mydirs} DESTINATION bin/${MYTARGET})
+install(DIRECTORY ${mybindirs} DESTINATION bin/${MYTARGET})
+
+IF(DEFAULT_CASE_FOLDER)
+  install(DIRECTORY ${DEFAULT_CASE_FOLDER} DESTINATION bin/${MYTARGET}/_ianus/HEAT)
+ENDIF()
+
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
