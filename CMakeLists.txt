@@ -106,6 +106,11 @@ option(Q1P1_SSE_LINK_STATIC_FORTRAN
   OFF 
   )
 
+option(BUILD_BOUNDARY_LAYER_TOOLS
+  "Build the boundary layer tools"
+  OFF
+  )
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -132,6 +137,10 @@ option(Q1P1_SSE_LINK_STATIC_FORTRAN
 #  # search for cuda libraries
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
+
+if(BUILD_BOUNDARY_LAYER_TOOLS)
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+endif(BUILD_BOUNDARY_LAYER_TOOLS)
 
 #=========================================================================
 #                       Configure BLAS/LAPACK 
