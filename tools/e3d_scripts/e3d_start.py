@@ -236,7 +236,7 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
         exitCode = subprocess.call(["./s3d_mesher"])        
     else:
         #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-        exitCode = subprocess.call(["./s3d_mesher"], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+        exitCode = subprocess.call(["./s3d_mesher"], shell=True)
 
 
     if exitCode != 0:
@@ -327,7 +327,7 @@ def simLoopVelocity(workingDir):
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
@@ -388,7 +388,7 @@ def simLoopTemperatureCombined(workingDir):
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)], shell=True, env={"LD_LIBRARY_PATH": os.environ['LD_LIBRARY_PATH'] + ':.', "PATH":os.environ['PATH']})
+            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)], shell=True)
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
