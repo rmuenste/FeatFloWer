@@ -1488,7 +1488,7 @@ END DO
 
 CALL COMM_Maximum(dMax)
 
-WRITE(*,*) "FoundMAx",iid,dMax
+! WRITE(*,*) "FoundMAx",iid,dMax
 
 DO i=1,SIZE(sQuadSc%ValU)
 
