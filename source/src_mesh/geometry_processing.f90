@@ -133,8 +133,8 @@ dEps = mySigma%a/1d5
 
 myPI = dATAN(1d0)*4d0
 
-DistTolerance_BU = DistTolerance
-DistTolerance = 1d8
+! DistTolerance_BU = DistTolerance
+! DistTolerance = 1d8
 
 D = 1d8
 inpr = 0
@@ -170,7 +170,7 @@ DO k=1, mySigma%NumberOfSeg
   CALL Shell_dist(ProjP(1),ProjP(2),ProjP(3),dGapEstimate)
   LocalR      = mySigma%dZ_Out*0.5d0 -  abs(dGapEstimate)
   
-  if (dZwickel.le. dInnerBarrel) then
+  if (dZwickel.le. dInnerBarrel*1.001d0) then
    ddSeg1=1d7
    ddSeg2=1d7
    if (dSeg1.lt.dSeg2) then
@@ -275,7 +275,7 @@ DO k=1, mySigma%NumberOfSeg
 END DO
 !-------------------------------------------------------
 
-DistTolerance = DistTolerance_BU 
+! DistTolerance = DistTolerance_BU 
 
 return
 

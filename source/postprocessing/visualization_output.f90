@@ -70,12 +70,15 @@ if (sExport%Format .eq. "VTK") then
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  
-  CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
-  CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
+  IF (mySigma%bAnalyticalShearRateRestriction) then
+   CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
+   CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
+  else
+   CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
+   CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
+   CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  end if
   
-!   CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
-!   CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
-!  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
@@ -1488,7 +1491,7 @@ END DO
 
 CALL COMM_Maximum(dMax)
 
-WRITE(*,*) "FoundMAx",iid,dMax
+!WRITE(*,*) "FoundMAx",iid,dMax
 
 DO i=1,SIZE(sQuadSc%ValU)
 
@@ -1951,7 +1954,15 @@ IF (myid.ne.0) THEN
     IF (i1D.EQ.10) THEN
      dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
      dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-     IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s)  THEN
+     dR = SQRT(dX**2d0+dY**2d0)
+   
+     IF (ieee_is_finite(mySigma%DZz)) THEN
+      dRadius = 0.5d0*mySigma%DZz
+     ELSE 
+      dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+     END IF 
+     
+     IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s.and.dR.le.dRadius)  THEN
 !      IF (dY.gt.-0.5d0*mySigma%a.and.dY.lt.+0.5d0*mySigma%a.and.&
 !          dX.gt.-0.5d0*mySigma%s.and.dX.lt.+0.5d0*mySigma%s)  THEN
       daux = dScale*dField1(i)

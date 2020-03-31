@@ -370,7 +370,7 @@ if (myid.ne.0) then
   DO i=1,Tracer%ndof
    iSeg = myHeatObjects%Segment(i)
    IF (iSeg.eq.jSeg) THEN
-    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT') THEN
+    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.and.myBoundary%bWall(i)) THEN
      Tracer%knpr(I) = 3
     END IF
    END IF

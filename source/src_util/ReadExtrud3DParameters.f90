@@ -20,7 +20,7 @@
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
     character(len=INIP_STRLEN) cParserString
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -143,7 +143,8 @@
      mySigma%bOnlyBarrelAdaptation = .true.
     END IF
 
-    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
+    IF (mySigma%NumberOfSeg.ge.1) THEN
+!     IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
     ELSE
      WRITE(*,*) "not a valid number of segments"
@@ -169,7 +170,7 @@
     END IF
     
     DO iSeg=1,mySigma%NumberOfSeg
-     WRITE(cElement_i,'(A,I1.1)') 'E3DGeometryData/Machine/Element_',iSeg
+     WRITE(cElement_i,'(A,I0)') 'E3DGeometryData/Machine/Element_',iSeg
 
      call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
      call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
@@ -913,6 +914,12 @@
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Periodicity",myProcess%Periodicity,1)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","dAlpha",myProcess%dAlpha,10d0)
     
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AnalyticalShearRateRestriction",cShearRateRest,'NO')
+    call inip_toupper_replace(cShearRateRest)
+    IF (adjustl(trim(cShearRateRest)).eq."YES") then
+     mySigma%bAnalyticalShearRateRestriction = .true.
+    end if
+
     myProcess%nTimeLevels = INT(360d0/myProcess%dAlpha)
     if (myProcess%nTimeLevels*INT(myProcess%dAlpha)-360.ne.0) THEN
      if (myid.eq.1) WRITE(*,*) 'Wrong [E3DSimulationSettings/dAlpha] value defined (results in non-integer time-level number!) '
@@ -947,6 +954,8 @@
      write(*,*) "mySigma%OnlyBarrelAdaptation",'= NO'
     end if
     
+    write(*,*) "mySigma%ShearRateRest",'=',mySigma%bAnalyticalShearRateRestriction
+    
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
@@ -969,120 +978,120 @@
     
     write(*,*) 
     DO iSeg=1,mySigma%NumberOfSeg
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
-     write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Min=',mySigma%mySegment(iSeg)%Min
-     write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
-     write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
-     write(*,'(A,I1.1,A,I5)') " mySIGMA%Segment(",iSeg,')%nFl=',mySigma%mySegment(iSeg)%GANGZAHL
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
+     write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Min=',mySigma%mySegment(iSeg)%Min
+     write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
+     write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
+     write(*,'(A,I0,A,I5)') " mySIGMA%Segment(",iSeg,')%nFl=',mySigma%mySegment(iSeg)%GANGZAHL
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."FOERD") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
       IF (mySigma%mySegment(iSeg)%t.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
       END IF
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."KNET") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
       IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
       END IF
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."TKNET") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
       IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
       END IF
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%DiscFrac=',mySigma%mySegment(iSeg)%DiscFrac
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%DiscFrac=',mySigma%mySegment(iSeg)%DiscFrac
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."EKNET") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
       IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
       END IF
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%E=',mySigma%mySegment(iSeg)%excentre
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%E=',mySigma%mySegment(iSeg)%excentre
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."SKNET") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%alpha=',abs(mySigma%mySegment(iSeg)%alpha)
       IF (mySigma%mySegment(iSeg)%alpha.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','REKNEADING'
       END IF
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
 
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%N=',mySigma%mySegment(iSeg)%N
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%D=',mySigma%mySegment(iSeg)%D
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."SME") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
       IF (mySigma%mySegment(iSeg)%t.lt.0d0) THEN
-       write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Kind=','RECONVEYING'
       END IF
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
 
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."ZME") THEN
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%ZME_N=',mySigma%mySegment(iSeg)%ZME_N
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_DiscThick=',mySigma%mySegment(iSeg)%ZME_DiscThick
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SG=',mySigma%mySegment(iSeg)%ZME_gap_SG
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SS=',mySigma%mySegment(iSeg)%ZME_gap_SS
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%ZME_N=',mySigma%mySegment(iSeg)%ZME_N
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_DiscThick=',mySigma%mySegment(iSeg)%ZME_DiscThick
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SG=',mySigma%mySegment(iSeg)%ZME_gap_SG
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%ZME_gap_SS=',mySigma%mySegment(iSeg)%ZME_gap_SS
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_N=',mySigma%mySegment(iSeg)%SecProf_N
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%SecProf_I=',mySigma%mySegment(iSeg)%SecProf_I
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_D=',mySigma%mySegment(iSeg)%SecProf_d
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_W=',mySigma%mySegment(iSeg)%SecProf_w
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SecProf_L=',mySigma%mySegment(iSeg)%SecProf_l
      END IF
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
       
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L") THEN
-      write(*,'(A,I1.1,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
-      write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
@@ -1699,9 +1708,33 @@
      call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSourceMin", mySigma%mySegment(iSeg)%HeatSourceMin ,0d0)
      mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
 
+     call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
+     read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
+     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMinRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,myInf)
+     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMaxRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue,myInf)
+     IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       if (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
+           mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) then
+           
+           WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
+           mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
+           mySigma%mySegment(iSeg)%HeatSourceMax,&
+           mySigma%mySegment(iSeg)%HeatSourceMin,&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+       END IF
+     END IF
+
+     
      call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureBC",mySigma%mySegment(iSeg)%TemperatureBC,'NO')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureBC)
-     if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.or.mySigma%mySegment(iSeg)%TemperatureBC.eq.'NO')) THEN
+     if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.or.&
+               mySigma%mySegment(iSeg)%TemperatureBC.eq.'FLUX'.or.&
+               mySigma%mySegment(iSeg)%TemperatureBC.eq.'NO')) THEN
        WRITE(*,*) "Undefined thermal condition: ",mySigma%mySegment(iSeg)%TemperatureBC
      END IF
      
@@ -1772,18 +1805,12 @@
     if (myProcess%AmbientTemperature.eq.myInf) then
      if (myid.eq.1) WRITE(*,*)  "Ambient temperature is undefined ==>", myProcess%AmbientTemperature
     end if
-    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Process","TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
-    read(sCoorString,*) myProcess%TemperatureSensorCoor
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","TemperatureSensorRadius", myProcess%TemperatureSensorRadius,myInf)
-    if (myProcess%TemperatureSensorRadius.eq.myInf) then
-     myProcess%TemperatureSensorRadius = 0d0
-     if (myid.eq.1) WRITE(*,*) "Temperature sensor is undefined, Radius=", myProcess%TemperatureSensorRadius
-    end if
     
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HeatTransferCoeff", myProcess%HeatTransferCoeff ,0d0)
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveLambda", myProcess%ConductiveLambda ,0d0)
-    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","ConductiveGradient", myProcess%ConductiveGradient ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","CoolingWaterTemperatureC", myProcess%CoolingWaterTemperature ,55d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","WorkBenchThicknessCM", myProcess%WorkBenchThickness ,5d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","MeltInflowTemperature", myProcess%MeltInflowTemperature ,290d0)
 
+    
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
@@ -1793,13 +1820,19 @@
     
     write(*,*) 
     DO iSeg=1,mySigma%NumberOfSeg
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
-     write(*,'(A,I1.1,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
-     write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
-     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%InitialTemperature=',mySigma%mySegment(iSeg)%InitTemp
-     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMax=',mySigma%mySegment(iSeg)%HeatSourceMax
-     write(*,'(A,I1.1,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
+     write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
+     write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%MaterialIndex=',mySigma%mySegment(iSeg)%MatInd
+     write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%InitialTemperature=',mySigma%mySegment(iSeg)%InitTemp
+     IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMax=',mySigma%mySegment(iSeg)%HeatSourceMax
+      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
+      write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorCoor=',mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorRadius=',mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+      write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMinRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMaxRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue
+     END IF
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
       write(*,'(A,I1.1,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
@@ -1824,11 +1857,14 @@
     END DO
     write(*,*) 
     write(*,'(A,ES12.4)') "myProcess%AmbientTemperature=",myProcess%AmbientTemperature 
-    write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
-    write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
-    write(*,'(A,ES12.4)') "myProcess%HeatTransferCoeff=", myProcess%HeatTransferCoeff    
-    write(*,'(A,ES12.4)') "myProcess%ConductiveLambda=",myProcess%ConductiveLambda 
-    write(*,'(A,ES12.4)') "myProcess%ConductiveGradient=", myProcess%ConductiveGradient
+!     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
+!     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
+    write(*,'(A,ES12.4)') "myProcess%WorkBenchThicknessCM=",myProcess%WorkBenchThickness
+    write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%CoolingWaterTemperature
+    write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%MeltInflowTemperature
+
+!     write(*,'(A,ES12.4)') "myProcess%ConductiveLambda=",myProcess%ConductiveLambda 
+!     write(*,'(A,ES12.4)') "myProcess%ConductiveGradient=", myProcess%ConductiveGradient
     write(*,*) "=========================================================================="
     END IF
 ! 

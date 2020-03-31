@@ -267,7 +267,7 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.3) THEN
 
-   Tracer%val(NLMAX)%x(i)= 290d0
+   Tracer%val(NLMAX)%x(i)= myProcess%MeltInflowTemperature
 
  END IF
 
