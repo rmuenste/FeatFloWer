@@ -143,12 +143,12 @@
      mySigma%bOnlyBarrelAdaptation = .true.
     END IF
 
-    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
+!    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.9) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
-    ELSE
-     WRITE(*,*) "not a valid number of segments"
-     WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
-    ENDIF
+!    ELSE
+!     WRITE(*,*) "not a valid number of segments"
+!     WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
+!    ENDIF
     
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
      
@@ -169,7 +169,7 @@
     END IF
     
     DO iSeg=1,mySigma%NumberOfSeg
-     WRITE(cElement_i,'(A,I1.1)') 'E3DGeometryData/Machine/Element_',iSeg
+     WRITE(cElement_i,'(A,I0)') 'E3DGeometryData/Machine/Element_',iSeg
 
      call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
      call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
@@ -1674,15 +1674,15 @@
 
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
 
-    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.29) THEN
+!    IF (mySigma%NumberOfSeg.ge.1.and.mySigma%NumberOfSeg.le.29) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
-    ELSE
-     WRITE(*,*) "not a valid number of segments"
-     WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
-    ENDIF
+!    ELSE
+!     WRITE(*,*) "not a valid number of segments"
+!     WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
+!    ENDIF
 
     DO iSeg=1,mySigma%NumberOfSeg
-     WRITE(cElement_i,'(A,I1.1)') 'E3DGeometryData/Machine/Element_',iSeg
+     WRITE(cElement_i,'(A,I0)') 'E3DGeometryData/Machine/Element_',iSeg
 
      call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
      call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
