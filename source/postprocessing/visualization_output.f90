@@ -70,12 +70,13 @@ if (sExport%Format .eq. "VTK") then
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  
-  CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
-  CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
+!   CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
+!   CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
   
-!   CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
-!   CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
-!  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  
   CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
