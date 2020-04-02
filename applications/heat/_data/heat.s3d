@@ -15,12 +15,13 @@ NoOfElements=5
 Type=STL
 ObjectType=block
 MaterialIndex=1
+TemperatureBC = constant
 InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
 Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON_201912/Stahl_new.off
+_ianus/HEAT/EWIKON_20200323/steel.off
 
 [E3DGeometryData/Machine/Element_2]
 Type=STL
@@ -28,12 +29,31 @@ ObjectType=wire
 MaterialIndex=1
 InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
-VolumetricHeatSourceMax = 2.2d0
+VolumetricHeatSourceMax = 1.1d0
+TemperatureSensorCoor = 13.5, 5.137, -2.58
+TemperatureSensorRadius =0.205
+TemperatureSensorMinRegValue =289.0
+TemperatureSensorMaxRegValue =291.0
 Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON_201912/Kupfer.off
+_ianus/HEAT/EWIKON_20200323/wire0.off
 
 [E3DGeometryData/Machine/Element_3]
+Type=STL
+ObjectType=wire
+MaterialIndex=1
+InitialTemperature = 280.0
+VolumetricHeatSourceMin = 0.0d0
+VolumetricHeatSourceMax = 1.1d0
+TemperatureSensorCoor = -10.8, 5.133, -2.58
+TemperatureSensorRadius =0.205
+TemperatureSensorMinRegValue =289.0
+TemperatureSensorMaxRegValue =291.0
+Unit=mm
+ScrewOFF(1)=
+_ianus/HEAT/EWIKON_20200323/wire1.off
+
+[E3DGeometryData/Machine/Element_4]
 Type=STL
 ObjectType=melt
 MaterialIndex=3
@@ -42,30 +62,19 @@ VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
 Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON_201912/FD.off
-
-[E3DGeometryData/Machine/Element_4]
-Type=STL
-ObjectType=block
-MaterialIndex=2
-InitialTemperature = 280.0
-VolumetricHeatSourceMin = 0.0d0
-VolumetricHeatSourceMax = 0.0d0
-Unit=mm
-ScrewOFF(1)=
-_ianus/HEAT/EWIKON_201912/Titan.off
+_ianus/HEAT/EWIKON_20200323/meld.off
 
 [E3DGeometryData/Machine/Element_5]
 Type=STL
 ObjectType=block
-MaterialIndex=1
-TemperatureBC = constant
+MaterialIndex=2
+TemperatureBC = flux
 InitialTemperature = 280.0
 VolumetricHeatSourceMin = 0.0d0
 VolumetricHeatSourceMax = 0.0d0
 Unit=mm
 ScrewOFF(1)=
-_ianus/HEAT/EWIKON_201912/ConstTemp.off
+_ianus/HEAT/EWIKON_20200323/titan.off
 
 [E3DMaterialParameters]
 NoOfMaterials=4
@@ -104,9 +113,10 @@ DensitySlope=0.0
 
 [E3DGeometryData/Process]
 AmbientTemperature=280.0
-TemperatureSensorCoor = 0.0, 1.5, 13.0
-TemperatureSensorRadius =0.205
 ConductiveLambda = 21d0
 ConductiveGradient = -25d0
+WorkBenchThicknessCM = 5d0
+CoolingWaterTemperature = 55d0
+MeltInflowTemperature = 290d0
 
 KTPRelease=NO

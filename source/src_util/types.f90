@@ -456,6 +456,11 @@ END TYPE tMeshInfoParticle
 type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+TYPE tSensor
+  REAL*8 :: Radius=0d0, Coor(3)=[0d0,0d0,0d0], Volume, CurrentTemperature
+  LOGICAL :: HeatingStatus = .true.
+  REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
+END TYPE tSensor
 
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
@@ -477,6 +482,7 @@ TYPE tSegment
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
   INTEGER :: MatInd
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
+  TYPE(tSensor) TemperatureSensor
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
   !!!!!!!!!!!!!!!!!!!
@@ -494,7 +500,7 @@ TYPE tSigma
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
   INTEGER :: InnerDiamNParam=0
   REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
-  LOGICAL :: bOnlyBarrelAdaptation=.false.
+  LOGICAL :: bOnlyBarrelAdaptation=.false., bAnalyticalShearRateRestriction=.false.
   
 END TYPE tSigma
 
@@ -527,8 +533,10 @@ TYPE tProcess
    integer   nOfInflows
    TYPE (tInflow), dimension(:), allocatable :: myInflow
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
-   REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
+   REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
+   REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
+
+!    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
 END TYPE tProcess
 
 TYPE tThermodyn

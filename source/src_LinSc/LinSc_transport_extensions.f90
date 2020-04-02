@@ -929,13 +929,6 @@ EXTERNAL E011
 if (myid.ne.master) then
  ilev = NLMAX
  call setlev(2)
-!  CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
-!                              Tracer%def,Tracer%oldSol,&
-!                              mg_mesh%level(ilev)%kvert,&
-!                              mg_mesh%level(ilev)%karea,&
-!                              mg_mesh%level(ilev)%kedge,&
-!                              mg_mesh%level(ilev)%dcorvg,&
-!                              E011,dArea1,dFlux1,iSwitch)
  CALL AddConductiveHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
                              Tracer%def,Tracer%oldSol,&
                              mg_mesh%level(ilev)%kvert,&
@@ -955,20 +948,61 @@ REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
 REAL*8 :: dTotalEnthalpy(2)=0d0
 integer mfile,iS,iSeg,i
 
-Q = myProcess%TemperatureSensorCoor
-
 if (myid.ne.master) then
+
  ilev = NLMAX
  call setlev(2)
- dSensorTemperature = 0d0
- do i=1,mg_mesh%level(ilev)%nvt
-  P = mg_mesh%level(ilev)%dcorvg(:,i)
-  dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
-  IF (dist.le.myProcess%TemperatureSensorRadius) then
-   dSensorTemperature(1) = dSensorTemperature(1) + MLmat(i)*Tracer%oldSol(i)
-   dSensorTemperature(2) = dSensorTemperature(2) + MLmat(i)
+ 
+ DO iSeg=1,mySigma%NumberOfSeg 
+  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+
+   mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = 0d0
+   Q = mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+   mySigma%mySegment(iSeg)%TemperatureSensor%Volume = 0d0
+   
+   do i=1,mg_mesh%level(ilev)%nvt
+    P = mg_mesh%level(ilev)%dcorvg(:,i)
+    dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+    IF (dist.le.mySigma%mySegment(iSeg)%TemperatureSensor%Radius) then
+     mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = &
+     mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature + MLmat(i)*Tracer%oldSol(i)
+     mySigma%mySegment(iSeg)%TemperatureSensor%Volume = &
+     mySigma%mySegment(iSeg)%TemperatureSensor%Volume + MLmat(i)
+    END IF
+   end do
+  
   END IF
- end do
+ END DO
+end if
+
+ DO iSeg=1,mySigma%NumberOfSeg 
+  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+
+   dSensorTemperature(1) = mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature
+   dSensorTemperature(2) = mySigma%mySegment(iSeg)%TemperatureSensor%Volume
+   CALL Comm_SummN(dSensorTemperature,2)
+   mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = dSensorTemperature(1)
+   mySigma%mySegment(iSeg)%TemperatureSensor%Volume = dSensorTemperature(2)
+   
+   mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = &
+   mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature / mySigma%mySegment(iSeg)%TemperatureSensor%Volume
+  END IF
+ END DO
+
+if (myid.ne.master) then
+!  Q = myProcess%TemperatureSensorCoor
+! 
+!  ilev = NLMAX
+!  call setlev(2)
+!  dSensorTemperature = 0d0
+!  do i=1,mg_mesh%level(ilev)%nvt
+!   P = mg_mesh%level(ilev)%dcorvg(:,i)
+!   dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+! !   IF (dist.le.myProcess%TemperatureSensorRadius) then
+!    dSensorTemperature(1) = dSensorTemperature(1) + MLmat(i)*Tracer%oldSol(i)
+!    dSensorTemperature(2) = dSensorTemperature(2) + MLmat(i)
+! !   END IF
+!  end do
 
  dTotalEnthalpy(1) = 0d0
  do i=1,mg_mesh%level(ilev)%nvt
@@ -987,7 +1021,7 @@ if (myid.ne.master) then
 end if
 
 CALL Comm_SummN(dTotalEnthalpy,1)
-CALL Comm_SummN(dSensorTemperature,2)
+! CALL Comm_SummN(dSensorTemperature,2)
 CALL Comm_SummN(dQuant,12)
 
 if (itns.eq.1) then
@@ -995,8 +1029,8 @@ if (itns.eq.1) then
 end if
 
 IF (myid.eq.1) then
- write(MTERM,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
- write(MFILE,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
+!  write(MTERM,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
+!  write(MFILE,'(A,20ES12.4)') 'SensorTemperature_t[s]_Tsens[C]_Vsens[cm3]_dH[kJ]: ',timens,dSensorTemperature(1)/dSensorTemperature(2),dSensorTemperature(2),dTotalEnthalpy(2)-dTotalEnthalpy(1)
  iS = 0
  write(MTERM,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
  write(MFILE,'(A,20ES12.4)') 'IntQuantBLOCK_t[s]_A[cm2]_V[cm2]_Ta[C]_Tv[C]: ',timens,dQuant(iS+1),dQuant(iS+3),dQuant(iS+2)/dQuant(iS+1),dQuant(iS+4)/dQuant(iS+3)
@@ -1015,20 +1049,31 @@ dHeatSource = 0d0
 do 
  iSeg = iSeg + 1
  
- mySigma%mySegment(iSeg)%UseHeatSource = 0d0
+! mySigma%mySegment(iSeg)%UseHeatSource = 0d0
  
  if (iSeg.gt.mySigma%NumberOfSeg) exit 
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-!   IF (dQuant(iS+4)/dQuant(iS+3).gt.291d0) then
-  IF (dSensorTemperature(1)/dSensorTemperature(2).gt.291d0) then
+  IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.gt.mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue.and.&
+      ((mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
+   mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .false.
+   if (myid.eq.1) write(*,*) 'switch 0 '
   END IF
-  IF (dSensorTemperature(1)/dSensorTemperature(2).lt.289d0) then
-!  IF (dQuant(iS+4)/dQuant(iS+3).lt.289d0) then
+  IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.lt.mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.and.&
+      ((.not.mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
    mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMax
+   mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
+   if (myid.eq.1) write(*,*) 'switch 1 '
   END IF
-  dHeatSource = mySigma%mySegment(iSeg)%UseHeatSource
-  GOTO 1
+  IF (myid.eq.1) then
+    write(MTERM,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
+    mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+    mySigma%mySegment(iSeg)%UseHeatSource
+    write(MFILE,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
+    mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+    mySigma%mySegment(iSeg)%UseHeatSource
+  END IF
+  dHeatSource = dHeatSource + mySigma%mySegment(iSeg)%UseHeatSource
  END IF
 end do
 1 continue
