@@ -327,7 +327,12 @@ def simLoopVelocity(workingDir):
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
+            #exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
+            if paramDict['singleAngle'] >= 0.0 :
+                exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)], shell=True)
+            else:
+                exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
+
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
@@ -492,7 +497,7 @@ def main():
         print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
         sys.exit(2)
         
-    if (paramDict['singleAngle'] > 0.0 and  paramDict['temperature']) :
+    if (paramDict['singleAngle'] >= 0.0 and  paramDict['temperature']) :
         print("Error: Specifying both singleAngle and Temperature Simulation at the same time is prohibited.")
         sys.exit(2)
         

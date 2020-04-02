@@ -41,15 +41,22 @@ PROGRAM Q2P1_SSE
               iangle = int(angle)
               extruder_angle = angle
               SSE_HAS_ANGLE=.true.
+              write(*,*)'got angle', extruder_angle
+          case ('-a')
+              read(optarg,*) angle
+              iangle = int(angle)
+              extruder_angle = angle
+              SSE_HAS_ANGLE=.true.
+              write(*,*)'got angle ifc', extruder_angle
           case ('v')
               print '(a, f3.1)', 'version ', version
               call exit(0)
           case ('h')
             call print_help()
             call exit(0)
+          case default
       end select
   end do
-
   !-------INIT PHASE-------
 
   call init_q2p1_ext(ufile)
