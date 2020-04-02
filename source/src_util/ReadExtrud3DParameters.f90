@@ -1229,6 +1229,7 @@
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
     write(*,*) "TimeStepEnlargmentFactor = ",dTimeStepEnlargmentFactor   
+    write(*,*) "AnalyticalShearRateRestriction = ",  mySigma%bAnalyticalShearRateRestriction
 
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."OFF") THEN
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
@@ -1809,6 +1810,22 @@
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","WorkBenchThicknessCM", myProcess%WorkBenchThickness ,5d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","MeltInflowTemperature", myProcess%MeltInflowTemperature ,290d0)
 
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
+    call inip_toupper_replace(mySetup%cMesher)
+
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'10,10,10')
+     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,-1)
+     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherX",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(1,:)
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherY",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(2,:)
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherZ",cMeshQuality,'-1.0,1.0')
+     read(cMeshQuality,*) mySetup%m_box(3,:)
+     
+    END IF
     
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="

@@ -3,7 +3,7 @@ include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)
 
 # source files for standad q2p1 
 set(src_q2p1_sse
-f90getopt.f90
+# f90getopt.f90
 app_init.f90
 q2p1_sse.f90
 )
