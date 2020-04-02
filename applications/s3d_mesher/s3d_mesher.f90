@@ -1,6 +1,8 @@
 Program e3d_mesher
 USE Sigma_User, ONLY : mySetup,mySigma,myProcess
-USE iniparser, ONLY : inip_makeDirectory
+USE iniparser, ONLY : inip_makeDirectory,inip_toupper_replace
+use f90getopt
+
 implicit none
 REAL*8 DZi,DZo,DL,Dzz,dx,DA
 INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2,nDEl,deltaNR
@@ -21,7 +23,9 @@ integer,dimension(8) :: values
 integer i,idir
 
 LOGICAL bExist
-CHARACTER cExtrud3DFile*120
+CHARACTER cExtrud3DFile*120,cApp*120
+character(len=*), parameter :: version = '1.0'
+type(option_s)              :: opts(3)
 
 call date_and_time(cdate,ctime,czone,values)
 
@@ -35,7 +39,38 @@ WRITE(*,*) 'Not Windows'
 #endif
 WRITE(*,*) CaseFile
 
-CALL ReadPar()
+opts(1) = option_s('version',  .false., 'v')
+opts(2) = option_s('app', .true.,  'a')
+opts(3) = option_s('help',  .false., 'h')
+
+cApp = 'SSE'
+
+do 
+    select case (getopt('va:h'))
+        case (char(0))
+            exit
+        case ('a')
+            read(optarg,*) cApp
+            call inip_toupper_replace(cApp)
+        case ('v')
+            print '(a, a)', 'version ', version
+!            call exit(0)
+        case ('h')
+          call print_help()
+!          call exit(0)
+    end select
+end do
+
+if (adjustl(trim(cApp)).eq.'HEAT') THEN
+ cExtrud3DFile = '_data/heat.s3d'
+ write(*,*) 'Heat application has been recognized!'
+ CALL ReadEWIKONfile(cExtrud3DFile)
+end if
+
+if (adjustl(trim(cApp)).eq.'SSE') THEN
+ cExtrud3DFile = '_data/Extrud3D_0.dat'
+ CALL ReadPar()
+end if
 
 
 IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
@@ -226,6 +261,8 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
 
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
 
+ call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
+ 
  dBOX = mySetup%m_BOX
  if (mySetup%nBoxElem.le.0) then
   nX = mySetup%m_nX
@@ -277,7 +314,6 @@ END IF
 !-----------------------------------------------
 SUBROUTINE ReadPar()
 
- cExtrud3DFile = '_data/Extrud3D_0.dat'
 INQUIRE(file=cExtrud3DFile,Exist=bExist)
 if (bExist) then
  CALL ReadS3Dfile(cExtrud3DFile)
@@ -1126,5 +1162,12 @@ END DO
 CLOSE(2)
 
 END SUBROUTINE WriteMesh_XYZ
+
+subroutine print_help()
+    print '(a, /)', 'command-line options:'
+    print '(a)',    '  -v, --version     print version information and exit'
+    print '(a)',    '  -h, --help        print usage information and exit'
+    print '(a)',    '  -a, --app         the application to be used'
+end subroutine print_help  
 
 END Program e3d_mesher
