@@ -52,12 +52,15 @@ do
         case ('a')
             read(optarg,*) cApp
             call inip_toupper_replace(cApp)
+        case ('-a')
+            read(optarg,*) cApp
+            call inip_toupper_replace(cApp)
         case ('v')
             print '(a, a)', 'version ', version
-!            call exit(0)
+           call exit(0)
         case ('h')
           call print_help()
-!          call exit(0)
+         call exit(0)
     end select
 end do
 

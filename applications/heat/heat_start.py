@@ -81,7 +81,7 @@ def main(argv):
     if os.path.exists("_data/meshDir"):
       shutil.rmtree("_data/meshDir")
 
-    subprocess.call(['./s3d_mesher -a %s -a %s' %('heat', 'heat')], shell=True)
+    subprocess.call(['./s3d_mesher -a %s' %('heat')], shell=True)
 
     partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
     subprocess.call(['mpirun -np %i ./%s' %(numProcessors, 'heat')], shell=True)
