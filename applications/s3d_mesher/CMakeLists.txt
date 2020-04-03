@@ -33,6 +33,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy 
  ${CMAKE_CURRENT_BINARY_DIR}/s3d_mesher
  ${CMAKE_BINARY_DIR}/applications/q2p1_sse
+ ${CMAKE_BINARY_DIR}/applications/heat
 )
 
 #=========================================================================

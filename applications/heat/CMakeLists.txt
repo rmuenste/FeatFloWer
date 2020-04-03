@@ -32,6 +32,8 @@ target_compile_options(heat PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(heat PROPERTIES LINKER_LANGUAGE Fortran)
 
+add_dependencies(heat s3d_mesher)
+
 get_target_property(MYTARGET heat NAME)
 
 IF(${OUT_OF_SOURCE_BUILD})
