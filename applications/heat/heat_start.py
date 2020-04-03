@@ -9,7 +9,10 @@ from os import fdopen, remove
 import os
 import shutil
 import sys
-sys.path.append(os.environ['FF_PY_HOME'])
+try:
+    sys.path.append(os.environ['FF_PY_HOME'])
+except:
+    pass
 import partitioner
 import xml.etree.ElementTree as ET
 import getopt
@@ -19,6 +22,35 @@ import re
 import json
 import pprint
 
+if sys.version_info[0] < 3:
+    from pathlib2 import Path
+else:
+    from pathlib import Path
+
+#===============================================================================
+#               Remove off files from working dir
+#===============================================================================
+def cleanWorkingDir(workingDir):
+    if not sys.platform == "win32":
+        offList = list(workingDir.glob('*.off')) + list(workingDir.glob('*.OFF'))
+    else: 
+        offList = list(workingDir.glob('*.off'))
+
+    for item in offList:
+        os.remove(str(item))
+
+#===============================================================================
+#                          setup the case folder 
+#===============================================================================
+def folderSetup(workingDir, projectFolder):
+    offList = []
+    if not sys.platform == "win32":
+        offList = list(Path(projectFolder).glob('*.off')) + list(Path(projectFolder).glob('*.OFF'))
+    else: 
+        offList = list(Path(projectFolder).glob('*.off'))
+
+    for item in offList:
+        shutil.copyfile(str(item), str(workingDir / item.name))
 
 #===============================================================================
 #                      Function: Usage
@@ -71,6 +103,9 @@ def main(argv):
     
     inputCaseFile = inputCaseFolder+'/heat.s3d'
     print('Input case file is '+ inputCaseFile)
+
+    workingDir = Path('.')
+    folderSetup(workingDir, inputCaseFolder)
     
     shutil.copyfile(inputCaseFile, "_data/heat.s3d")
 
@@ -85,6 +120,8 @@ def main(argv):
 
     partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
     subprocess.call(['mpirun -np %i ./%s' %(numProcessors, 'heat')], shell=True)
+
+    cleanWorkingDir(workingDir)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
