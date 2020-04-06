@@ -1435,7 +1435,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   use var_QuadScalar, only: QuadSc,LinSc
   use var_QuadScalar, only: Tracer
   use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
-                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor 
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
+                            iTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess
 
   use visualization_out, only: viz_output_fields
@@ -1448,6 +1449,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
   integer :: inlU,inlT
   
+  integer :: iCrit_itns
+
   ! local variables
   integer :: iXgmv
 
@@ -1455,6 +1458,10 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   iXgmv = istep_ns
 
   IF (itns.eq.1) THEN
+   
+    iTimeStepEnlargmentFactor = int(2.5d0*(dtgmv/tstep))
+!     write(*,*) dtgmv,tstep,2.5d0*(dtgmv/tstep), iTimeStepEnlargmentFactor
+  
     CALL ZTIME(myStat%t0)
 
     call viz_output_fields(myExport, int(myProcess%angle), QuadSc, LinSc, & !Tracer, &
@@ -1480,8 +1487,11 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
     
-    tstep = dTimeStepEnlargmentFactor*tstep
-    dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    if (itns.lt.iTimeStepEnlargmentFactor) then
+     tstep = dTimeStepEnlargmentFactor*tstep
+     dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    end if
+!     write(*,*) tstep,dtgmv,iTimeStepEnlargmentFactor
     dout=dout+dtgmv
 
     ! Save intermediate solution to a dump file
