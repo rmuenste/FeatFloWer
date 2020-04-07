@@ -382,6 +382,121 @@ end if
 
 END SUBROUTINE SolFromFile
 !
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFile_heat(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE def_FEAT
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:Tracer
+use solution_io
+use var_QuadScalar, only: myDump,istep_ns,fieldPtr
+
+IMPLICIT NONE
+INTEGER mfile,iLevel,nn
+character(60) :: cInFile
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+character(60) :: FileA
+character(60) :: FileB
+character(60) :: fieldName
+
+integer :: ndof
+
+type(fieldPtr), dimension(3) :: packed
+
+nn = knel(nlmax)
+
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ Temperature = QuadSc%auxU
+END IF                  
+
+call read_time_sol(cInFile, istep_ns, timens)
+
+fieldName = "coordinates"
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                 3, packed)
+                 
+call read_heatingStatus(cInFile)
+                 
+
+END SUBROUTINE SolFromFile_heat
+!
+!-------------------------------------------------------------------------------
+!
+SUBROUTINE read_heatingStatus(startFrom)
+USE Sigma_User,ONLY:mySigma
+USE PP3D_MPI, ONLY:myid
+character(60), intent(in) :: startFrom
+integer iSeg
+
+open(file='_dump/heatstatus_'//adjustl(trim(startFrom))//'.dmp',unit=472)
+
+do iSeg=1,mySigma%NumberOfSeg
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+  read(472,*) mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus 
+  if (mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus) then
+   mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
+  else
+   mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMin
+  end if
+  if (myid.eq.1) WRITE(*,'(A,I,L,ES12.4)') 'iSeg, HeatingStatus, HeatSource[kW] :',&
+   iSeg,mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus,mySigma%mySegment(iSeg)%UseHeatSource
+ END IF
+end do
+
+close(472)
+
+END SUBROUTINE read_heatingStatus
+!
+!-------------------------------------------------------------------------------
+!
+SUBROUTINE write_heatingStatus(iO)
+USE Sigma_User,ONLY:mySigma
+USE PP3D_MPI, ONLY:myid
+
+integer :: iO
+integer iSeg
+character*(200) cFile
+
+write(cFile,'(A,I0,A)') '_dump/heatstatus_',iO,'.dmp'
+open(file=ADJUSTL(TRIM(cFile)),unit=472)
+
+do iSeg=1,mySigma%NumberOfSeg
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+  WRITE(472,'(L)') mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus 
+ END IF
+end do
+
+close(472)
+
+END SUBROUTINE write_heatingStatus
+!
 !-------------------------------------------------------------------------------
 !
 SUBROUTINE WriteSol_Time(iOut)

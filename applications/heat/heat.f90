@@ -2,7 +2,7 @@ PROGRAM HEAT
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app,write_sol_to_file
+  use solution_io, only: postprocessing_app_heat,write_sol_to_file
 
   use app_initialization, only: init_q2p1_app
 
@@ -46,7 +46,7 @@ PROGRAM HEAT
   ! Solve transport equation for linear scalar
   CALL Transport_LinScalar_EWIKON(Boundary_LinSc_Val_EWIKON,AddSource_EWIKON,ufile,inonln_t)
 
-  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_app_heat(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

@@ -100,6 +100,74 @@ end if
 end subroutine write_sol_to_file
 !
 !================================================================================================
+! Wrapper routine for writing the solution to a file 
+!================================================================================================
+! @param iInd number of the output
+! @param istep number of the discrete time step
+! @param simTime current simulation time
+subroutine write_sol_to_file_heat(imax_out, time_ns, output_idx)
+USE def_FEAT
+USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
+USE var_QuadScalar, ONLY: Tracer
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+USE cinterface, ONLY: outputRigidBodies
+
+implicit none
+integer, intent(in) :: imax_out
+real*8, intent(in) :: time_ns
+
+integer, optional :: output_idx
+
+! locals
+integer :: iout
+integer :: ndof
+integer :: nelem
+character(60) :: fieldName
+
+type(fieldPtr), dimension(3) :: packed
+
+if(.not.present(output_idx))then
+  ifile = ifile+1
+  iout=mod(ifile+imax_out-1,imax_out)+1
+else
+  iout = output_idx
+end if
+
+nelem = knel(nlmax)
+
+ndof = knvt(NLMAX) + knat(NLMAX) + knet(NLMAX) + knel(NLMAX)
+
+call write_time_sol(iout,istep_ns, time_ns)
+
+fieldName = "coordinates"
+
+QuadSc%auxU = mg_mesh%level(nlmax+1)%dcorvg(1,:)
+QuadSc%auxV = mg_mesh%level(nlmax+1)%dcorvg(2,:)
+QuadSc%auxW = mg_mesh%level(nlmax+1)%dcorvg(3,:)
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)    
+                  
+                 
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ QuadSc%auxU = Temperature
+ packed(1)%p => QuadSc%auxU
+ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   1, packed)                 
+END IF 
+
+CALL write_heatingStatus(iOut)
+                  
+end subroutine write_sol_to_file_heat
+!
+!================================================================================================
 ! Wrapper routine for reading the solution from a file 
 !================================================================================================
 ! @param startFrom character string containing the start folder
@@ -1365,6 +1433,77 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
+!
+!================================================================================================
+! A general postprocessing for a Feat_FloWer application
+!================================================================================================
+! @param dout Output interval
+! @param iogmv Output index of the current file 
+! @param istep number of the discrete time step
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
+  
+  use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use def_FEAT
+
+  implicit none
+
+  integer, intent(in) :: filehandle
+
+  real, intent(inout) :: dout
+  integer iXgmv
+
+  INTEGER :: inlU,inlT,MFILE
+
+  ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
+!   write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
+  
+  IF (itns.eq.1) THEN
+    CALL ZTIME(myStat%t0)
+    CALL Output_Profiles(0)
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+!     CALL ZTIME(myStat%t0)
+!     call write_sol_to_file(0, timens,0)
+!     CALL ZTIME(myStat%t1)
+  END IF
+
+  IF(dout.LE.(timens+1e-10)) THEN
+
+    IF (itns.ne.1) THEN
+      iXgmv = iXgmv - 1
+      CALL ZTIME(myStat%t0)
+      CALL Output_Profiles(iXgmv)
+      CALL ZTIME(myStat%t1)
+      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    END IF
+    tstep = dTimeStepEnlargmentFactor*tstep
+    dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    dout=dout+dtgmv
+
+    ! Save intermediate solution to a dump file
+    IF (insav.NE.0.AND.itns.NE.1) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
+        CALL ZTIME(myStat%t0)
+        call write_sol_to_file_heat(insavn, timens)
+        CALL ZTIME(myStat%t1)
+        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+      END IF
+    END IF
+
+  END IF
+! 
+  ! Timestep control
+!   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
+
+  ! Interaction from user
+  CALL ProcessControl(filehandle,mterm)
+
+end subroutine postprocessing_app_heat
 !
 !================================================================================================
 ! A simple time stepping routine

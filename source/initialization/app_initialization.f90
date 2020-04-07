@@ -131,6 +131,44 @@ subroutine init_q2p1_particle_tracer(log_unit)
 
 end subroutine init_q2p1_particle_tracer
 !========================================================================================
+!                             Sub: init_sol_same_level_heat
+!========================================================================================
+subroutine init_sol_same_level_heat(start_file)
+implicit none
+character(len=*), intent(in) :: start_file
+
+
+! Locals
+integer :: i, ilev
+
+if (myid.ne.0) call CreateDumpStructures(1)
+
+call SolFromFile_heat(start_file,1)
+
+if (myid .ne. 0) then
+  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
+
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(1,i) = QuadSc%auxU(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(2,i) = QuadSc%auxV(i)
+    mg_mesh%level(mg_Mesh%maxlevel)%dcorvg(3,i) = QuadSc%auxW(i)
+
+  end do
+end if
+
+ilev = mg_Mesh%nlmin
+
+call ExchangeNodeValuesOnCoarseLevel(&
+  mg_mesh%level(ilev)%dcorvg,&
+  mg_mesh%level(ilev)%kvert,&
+  mg_mesh%level(ilev)%nvt,&
+  mg_mesh%level(ilev)%nel)
+
+! call OperatorRegenaration(1)
+! call OperatorRegenaration(2)
+! call OperatorRegenaration(3)
+
+end subroutine init_sol_same_level_heat
+!========================================================================================
 !                             Sub: init_sol_same_level
 !========================================================================================
 subroutine init_sol_same_level(start_file)

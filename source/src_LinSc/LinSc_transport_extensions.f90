@@ -359,12 +359,12 @@ CALL COMM_SUMM(dArea2)
 CALL COMM_SUMM(dFlux1)
 CALL COMM_SUMM(dFlux2)
 
+CALL IntegrateOutputQuantities(mfile)
+
 if (myid.eq.showid) then
  WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
  WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
 end if
-
-CALL IntegrateOutputQuantities(mfile)
 
 if (myid.ne.master) then
  Temperature = Tracer%val(NLMAX)%x
