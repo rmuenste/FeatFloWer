@@ -267,11 +267,12 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
  call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
  
  dBOX = mySetup%m_BOX
- if (mySetup%nBoxElem.le.0) then
+ if (mySetup%m_nX.gt.0.and.mySetup%m_nY.gt.0.and.mySetup%m_nZ.gt.0) then
   nX = mySetup%m_nX
   nY = mySetup%m_nY
   nZ = mySetup%m_nZ
- else
+ end if
+ if (mySetup%nBoxElem.gt.0) then
   iDir = -1
   daux = 1d30
   do i=1,3
@@ -285,8 +286,39 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
   dnX = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
   dnY = (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
   dnZ = (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
- write(*,*) 'nX,nY,nZ,nEl'
- write(*,*) dnX,dnY,dnz
+  write(*,*) 'nX,nY,nZ,nEl'
+  write(*,*) dnX,dnY,dnz
+  
+  iDir = nint((mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0)
+  nX = iDir*nint(dnx)
+  nY = iDir*nint(dny)
+  nZ = iDir*nint(dnz)
+ end if
+ if (mySetup%MeshResolution.gt.0) then
+ 
+  !Compute volume
+  daux = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))* &
+         (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))* &
+         (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))
+
+  !Compute the Number of Elements
+  mySetup%nBoxElem = 2d0*daux * (1.5d0**DBLE(mySetup%MeshResolution-2))
+  
+  write(*,*) 'Volume & NumberOfElements ', 6400d0/daux, mySetup%nBoxElem
+  
+  do i=1,3
+   if ((mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)).lt.daux) then
+    iDir = i
+    daux = mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+   end if
+   write(*,*) mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+  end do
+
+  dnX = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnY = (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnZ = (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  write(*,*) 'nX,nY,nZ,nEl'
+  write(*,*) dnX,dnY,dnz
   
   iDir = nint((mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0)
   nX = iDir*nint(dnx)

@@ -27,7 +27,7 @@
 
     type(t_parlist) :: parameterlist
 
-    real*8 :: myInf,dSizeScale
+    real*8 :: myInf,dSizeScale,daux
 
     real*8 dExtract_Val
     character(len=INIP_STRLEN) cText,sExtract_Dim
@@ -890,10 +890,29 @@
     END IF
     
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
-     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'10,10,10')
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'0,0,0')
      read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
-     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,-1)
-     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","MeshResolution",mySetup%MeshResolution,0)
+     
+     IF ((mySetup%nBoxElem.le.0).and.&
+         (mySetup%m_nX.le.0.and.mySetup%m_nY.le.0.and.mySetup%m_nZ.le.0).and.&
+          mySetup%MeshResolution.le.0) THEN
+          if (myid.eq.1) WRITE(*,*) 'No rules defined to create a mesh...'
+          STOP 55
+     END IF
+     
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherUnit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+    
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherX",cMeshQuality,'-1.0,1.0')
      read(cMeshQuality,*) mySetup%m_box(1,:)
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherY",cMeshQuality,'-1.0,1.0')
@@ -901,6 +920,9 @@
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherZ",cMeshQuality,'-1.0,1.0')
      read(cMeshQuality,*) mySetup%m_box(3,:)
      
+     !!!!!!!!!! Scaling the geo to its right dimension !!!!
+     mySetup%m_box = daux*mySetup%m_box
+    
     END IF
 !     cMeshQuality=' '
 !     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SendEmail",cMeshQuality,"YES")
@@ -1248,6 +1270,15 @@
      write(*,*) "mySetup%HexMesher",'=',ADJUSTL(TRIM(mySetup%cMesher))
      write(*,'(A,A,4I6)') " mySetup%Resolution",'=',mySetup%MeshResolution
      write(*,*) "mySetup%Resolution[nR,nT1,nT2,nZ]",'=',mySetup%m_nR,mySetup%m_nT1,mySetup%m_nT2,mySetup%m_nZ
+    END IF
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
+     IF (mySetup%nBoxElem.gt.0) write(*,'(A,I0)') "myMesh%nBoxElem=",mySetup%nBoxElem
+     IF (mySetup%m_nX.gt.0.and.mySetup%m_nY.gt.0.and.mySetup%m_nZ.gt.0) write(*,'(A,3I0)') &
+     "myMesh%nBoxElemXYZ=",mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     IF (mySetup%MeshResolution.gt.0) write(*,'(A,I0)') "myMesh%MeshResolution=",mySetup%MeshResolution
+     write(*,'(A,2ES12.4)') "myMesh%Extent_X=",mySetup%m_box(1,:)
+     write(*,'(A,2ES12.4)') "myMesh%Extent_Y=",mySetup%m_box(2,:)
+     write(*,'(A,2ES12.4)') "myMesh%Extent_Z=",mySetup%m_box(3,:)
     END IF
     write(*,*)
     write(*,*) "myProcess%dAlpha",'=',myProcess%dAlpha
@@ -1643,7 +1674,7 @@
 
     type(t_parlist) :: parameterlist
 
-    real*8 :: myInf,dSizeScale
+    real*8 :: myInf,dSizeScale,daux
     integer iMat
 
     if(ieee_support_inf(myInf))then
@@ -1814,16 +1845,38 @@
     call inip_toupper_replace(mySetup%cMesher)
 
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
-     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'10,10,10')
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'0,0,0')
      read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
-     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,-1)
-     read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","BoxMesherNumberOfELems",mySetup%nBoxElem,0)
+     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","MeshResolution",mySetup%MeshResolution,0)
+     
+     IF ((mySetup%nBoxElem.le.0).and.&
+         (mySetup%m_nX.le.0.and.mySetup%m_nY.le.0.and.mySetup%m_nZ.le.0).and.&
+          mySetup%MeshResolution.le.0) THEN
+          if (myid.eq.1) WRITE(*,*) 'No rules defined to create a mesh...'
+          STOP 55
+     END IF
+     
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherUnit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+    
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherX",cMeshQuality,'-1.0,1.0')
      read(cMeshQuality,*) mySetup%m_box(1,:)
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherY",cMeshQuality,'-1.0,1.0')
      read(cMeshQuality,*) mySetup%m_box(2,:)
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherZ",cMeshQuality,'-1.0,1.0')
      read(cMeshQuality,*) mySetup%m_box(3,:)
+     
+     !!!!!!!!!! Scaling the geo to its right dimension !!!!
+     mySetup%m_box = daux*mySetup%m_box
      
     END IF
     
@@ -1872,6 +1925,17 @@
      write(*,'(A)') 
     END DO
     write(*,*) 
+    
+    IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
+     IF (mySetup%nBoxElem.gt.0) write(*,'(A,I0)') "myMesh%nBoxElem=",mySetup%nBoxElem
+     IF (mySetup%m_nX.gt.0.and.mySetup%m_nY.gt.0.and.mySetup%m_nZ.gt.0) write(*,'(A,3I0)') &
+     "myMesh%nBoxElemXYZ=",mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
+     IF (mySetup%MeshResolution.gt.0) write(*,'(A,I0)') "myMesh%MeshResolution=",mySetup%MeshResolution
+     write(*,'(A,2ES12.4)') "myMesh%Extent_X=",mySetup%m_box(1,:)
+     write(*,'(A,2ES12.4)') "myMesh%Extent_Y=",mySetup%m_box(2,:)
+     write(*,'(A,2ES12.4)') "myMesh%Extent_Z=",mySetup%m_box(3,:)
+    END IF
+    
     write(*,'(A,ES12.4)') "myProcess%AmbientTemperature=",myProcess%AmbientTemperature 
 !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
 !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
