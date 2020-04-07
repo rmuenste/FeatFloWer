@@ -945,9 +945,15 @@ END SUBROUTINE AddBoundaryHeatFlux
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
 REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
-REAL*8 :: dTotalEnthalpy(2)=0d0
+REAL*8 :: dTotalEnthalpy(2)=0d0,defT
 integer mfile,iS,iSeg,i
 
+CALL LL21(Temperature,Tracer%ndof,DefT)
+call COMM_SUMM(DefT)
+if (ieee_is_nan(DefT)) DivergedSolution = .true.
+if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
+
+   
 if (myid.ne.master) then
 
  ilev = NLMAX
