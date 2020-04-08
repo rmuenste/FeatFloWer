@@ -732,8 +732,8 @@
      DO iMat = 1, myMultiMat%nOfMaterials
      
      WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
-     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
-     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
+!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
+!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
 
       WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
       CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
@@ -751,8 +751,8 @@
      CALL FillUpThermoData(myThermodyn,cParserString)
 
      cParserString = "E3DProcessParameters/Material"
-     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(1)%Rheology%ViscoMin,1d0)
-     call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(1)%Rheology%ViscoMax,1d5)
+!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(1)%Rheology%ViscoMin,1d0)
+!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(1)%Rheology%ViscoMax,1d5)
 
      cParserString = "E3DProcessParameters/Material/RheologicalData"
      CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
@@ -767,8 +767,8 @@
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOf1DLayers"      ,myOutput%nOf1DLayers,16)
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOfHistogramBins" ,myOutput%nOfHistogramBins,16)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMax",myOutput%HistogramShearMax,1d5)
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
-    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
+!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
+!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","CutDtata_1D",myOutput%CutDtata_1D,0.001d0)
     
@@ -1153,8 +1153,8 @@
     write(*,*)
     DO iMat=1,myMultiMat%nOfMaterials
 
-     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%ViscoMin",'=',myMultiMat%Mat(iMat)%Rheology%ViscoMin
-     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%ViscoMax",'=',myMultiMat%Mat(iMat)%Rheology%ViscoMax
+!      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%ViscoMin",'=',myMultiMat%Mat(iMat)%Rheology%ViscoMin
+!      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%ViscoMax",'=',myMultiMat%Mat(iMat)%Rheology%ViscoMax
      
      IF (myMultiMat%Mat(iMat)%Rheology%Equation.eq.2) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'

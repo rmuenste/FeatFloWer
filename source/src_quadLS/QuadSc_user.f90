@@ -958,9 +958,14 @@ IF (myRheology%Equation.EQ.6) THEN
  VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
-dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
-ViscosityModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+ViscosityModel = VNN
+
+! IF (myRheology%Equation.EQ.2) THEN
+!  ViscosityModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+! else
+!  ViscosityModel = MIN(1d1*1d9,MAX(1d1*myRheology%ViscoMin,VNN))
+! END IF
 
 myRheology => NULL()
 
@@ -1058,9 +1063,14 @@ IF (myRheology%Equation.EQ.6) THEN
  VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
-dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
-ViscosityMatModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+ViscosityMatModel = VNN
+
+! IF (myRheology%Equation.EQ.2) THEN
+!  ViscosityMatModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+! else
+!  ViscosityMatModel = MIN(1d1*1d9,MAX(1d1*myRheology%ViscoMin,VNN))
+! END IF
 
 myRheology => NULL()
 
