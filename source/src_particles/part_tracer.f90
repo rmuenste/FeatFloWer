@@ -740,6 +740,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mfile,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mfile,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mfile,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mfile,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mfile,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mfile,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -759,6 +760,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mterm,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mterm,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mterm,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mterm,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mterm,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mterm,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -803,6 +805,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mfile,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mfile,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mfile,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mfile,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mfile,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mfile,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -830,6 +833,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mterm,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mterm,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mterm,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mterm,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mterm,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mterm,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels

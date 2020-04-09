@@ -397,6 +397,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !  pause
  
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
   GOTO 1
@@ -651,7 +652,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !  pause
  
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
-
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
+ 
  IF (bFound) THEN
   GOTO 1
  END IF
@@ -1014,6 +1016,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  END DO
 
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
 
@@ -1223,6 +1226,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  END DO
 
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
 

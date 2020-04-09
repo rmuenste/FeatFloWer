@@ -260,6 +260,8 @@ contains
     call inip_getvalue_double(parameterlist, "GeneralSettings","Epsilon",ParticleParam%Epsilon,Epsilon)
     call inip_getvalue_double(parameterlist, "GeneralSettings","hSize",ParticleParam%hSize,hSize)
 
+    call inip_getvalue_double(parameterlist, "GeneralSettings","OutflowZPosition",ParticleParam%OutflowZPos,1d8)
+
     ! Particles at positions - new implementation
     ParticleParam%nZposCutplanes = INIP_querysubstrings(parameterlist,"GeneralSettings","zCutplanePositions")
     if (ParticleParam%nZposCutplanes .gt. 0 .and. ParticleParam%nZposCutplanes .lt. 100 ) then

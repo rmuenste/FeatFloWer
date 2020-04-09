@@ -390,7 +390,7 @@ TYPE tParticleInflow
 END TYPE tParticleInflow
 
 TYPE tParticleParam
- REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist
+ REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist,OutflowZPos
  REAL*8 :: minFrac
  INTEGER :: nTimeLevels,nParticles,nRotation,Raster,dump_in_file,nPeriodicity
  ! What kind of starting procedure?
