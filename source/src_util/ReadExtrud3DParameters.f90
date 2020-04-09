@@ -1739,28 +1739,6 @@
      call INIP_getvalue_double(parameterlist,cElement_i,"VolumetricHeatSourceMin", mySigma%mySegment(iSeg)%HeatSourceMin ,0d0)
      mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
 
-     call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
-     read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
-     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
-     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMinRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,myInf)
-     call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMaxRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue,myInf)
-     IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-       if (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
-           mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) then
-           
-           WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
-           mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
-           mySigma%mySegment(iSeg)%HeatSourceMax,&
-           mySigma%mySegment(iSeg)%HeatSourceMin,&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
-       END IF
-     END IF
-
-     
      call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureBC",mySigma%mySegment(iSeg)%TemperatureBC,'NO')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureBC)
      if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.or.&
@@ -1781,6 +1759,29 @@
      if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
      if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
       
+     IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
+       read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+       mySigma%mySegment(iSeg)%TemperatureSensor%Coor = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
+       mySigma%mySegment(iSeg)%TemperatureSensor%Radius = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMinRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,myInf)
+       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMaxRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue,myInf)
+       if (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
+           mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) then
+           
+           WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
+           mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
+           mySigma%mySegment(iSeg)%HeatSourceMax,&
+           mySigma%mySegment(iSeg)%HeatSourceMin,&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
+           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+       END IF
+     END IF
+     
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
