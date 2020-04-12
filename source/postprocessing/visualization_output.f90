@@ -1495,7 +1495,7 @@ CALL COMM_Maximum(dMax)
 
 DO i=1,SIZE(sQuadSc%ValU)
 
- IF (MixerKNPR(i).eq.0) THEN
+!  IF (MixerKNPR(i).eq.0) THEN
  
    IF (ieee_is_finite(mySigma%DZz)) THEN
     dRadius = 0.5d0*mySigma%DZz
@@ -1515,7 +1515,7 @@ DO i=1,SIZE(sQuadSc%ValU)
     if (dField1(i).gt.dMax) dField1(i) = dMax
    END IF
    
- END IF
+!  END IF
 END DO
 
 END subroutine restrictGlobalShear

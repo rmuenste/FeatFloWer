@@ -570,6 +570,109 @@
       
       mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
      
+!!!==============================================      STL     =================================================================
+!!!=============================================================================================================================
+     ELSE IF (ADJUSTL(TRIM(cElemType)).eq."STL_LR".OR.ADJUSTL(TRIM(cElemType)).eq."OFF_LR".or.&
+      ADJUSTL(TRIM(cElemType)).eq."STL_RL".OR.ADJUSTL(TRIM(cElemType)).eq."OFF_RL") THEN
+      mySigma%mySegment(iSeg)%ART   = "STL_LR"
+
+      call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
+!       write(*,*) 'dSizeScale: ',dSizeScale
+      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
+      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
+      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
+      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"OffsetAngle", mySigma%mySegment(iSeg)%OffsetAngle,myInf)
+      
+      mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
+      
+      mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
+!       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
+            
+      mySigma%mySegment(iSeg)%nOFFfilesL = INIP_querysubstrings(parameterlist,cElement_i,"screwOFFL")
+
+      IF (mySigma%mySegment(iSeg)%nOFFfilesL.ne.0) THEN
+       
+       ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesL(mySigma%mySegment(iSeg)%nOFFfilesL))
+       
+       do iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFFL",mySigma%mySegment(iSeg)%OFFfilesL(iFile),isubstring=iFile)
+       end do
+       
+      ELSE
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListL", cOFF_Files,' ')
+       
+       CALL ExtractNomOfCharFromString(cOFF_Files,mySigma%mySegment(iSeg)%nOFFfilesL)
+       
+       IF (mySigma%mySegment(iSeg)%nOFFfilesL.gt.0) THEN
+        ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesL(mySigma%mySegment(iSeg)%nOFFfilesL))
+       ELSE
+        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) 'screwOFFL'
+        bReadError=.TRUE.
+        !GOTO 10
+       END IF
+       
+       CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfilesL)
+       
+      END IF
+
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+        if (trim(adjustl(mySigma%mySegment(iSeg)%OFFfilesL(iFile))) .eq. '') then
+          write(*,'(A30,I3)') 'geometry description file ', iFile
+          write(*,'(A15,I3,A20)') 'for element ', iSeg, 'L is empty string!'
+          bReadError = .TRUE.
+        end if
+      end do
+      
+      mySigma%mySegment(iSeg)%nOFFfilesR = INIP_querysubstrings(parameterlist,cElement_i,"screwOFFR")
+
+      IF (mySigma%mySegment(iSeg)%nOFFfilesR.ne.0) THEN
+       
+       ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesR(mySigma%mySegment(iSeg)%nOFFfilesR))
+       
+       do iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+         call INIP_getvalue_string(parameterlist,cElement_i,"screwOFFR",mySigma%mySegment(iSeg)%OFFfilesR(iFile),isubstring=iFile)
+       end do
+       
+      ELSE
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListL", cOFF_Files,' ')
+       
+       CALL ExtractNomOfCharFromString(cOFF_Files,mySigma%mySegment(iSeg)%nOFFfilesR)
+       
+       IF (mySigma%mySegment(iSeg)%nOFFfilesR.gt.0) THEN
+        ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesR(mySigma%mySegment(iSeg)%nOFFfilesR))
+       ELSE
+        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) 'screwOFFR'
+        bReadError=.TRUE.
+        !GOTO 10
+       END IF
+       
+       CALL ExtractCharArrayFromString(cOFF_Files,mySigma%mySegment(iSeg)%OFFfilesR)
+       
+      END IF
+
+      do iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+        if (trim(adjustl(mySigma%mySegment(iSeg)%OFFfilesR(iFile))) .eq. '') then
+          write(*,'(A30,I3)') 'geometry description file ', iFile
+          write(*,'(A15,I3,A20)') 'for element ', iSeg, 'L is empty string!'
+          bReadError = .TRUE.
+        end if
+      end do
+      
+      mySigma%mySegment(iSeg)%Max = mySigma%mySegment(iSeg)%L + mySigma%mySegment(iSeg)%Min
+     
 !!!==============================================      STL_R     =================================================================
 !!!=============================================================================================================================
      ELSE IF (ADJUSTL(TRIM(cElemType)).eq."STL_R") THEN
@@ -1101,6 +1204,24 @@
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
+      END DO
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_LR") THEN
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%OffsetAngle=',mySigma%mySegment(iSeg)%OffsetAngle
+      END IF
+      
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfilesL=",mySigma%mySegment(iSeg)%nOFFfilesL
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+       write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesL(iFile))),'"'
+      END DO
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfilesR=",mySigma%mySegment(iSeg)%nOFFfilesR
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+       write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesR(iFile))),'"'
       END DO
      END IF
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN

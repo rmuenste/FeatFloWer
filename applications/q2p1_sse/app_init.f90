@@ -580,6 +580,18 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
        mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
       END DO
      END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_LR") THEN
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgalL(mySigma%mySegment(iSeg)%nOFFfilesL))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgalL(iFile) = NumberOfSTLDescription
+      END DO
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgalR(mySigma%mySegment(iSeg)%nOFFfilesR))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgalR(iFile) = NumberOfSTLDescription
+      END DO
+     END IF
     END DO
 
     IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
@@ -590,6 +602,14 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
          ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
+      END DO
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_LR") THEN
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesL(iFile)))
+      END DO
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesR(iFile)))
       END DO
      END IF
     END DO

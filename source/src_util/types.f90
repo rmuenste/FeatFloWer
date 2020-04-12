@@ -465,7 +465,8 @@ END TYPE tSensor
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
   CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
-  INTEGER, ALLOCATABLE :: idxCgal(:)
+  INTEGER, ALLOCATABLE :: idxCgal(:),idxCgalL(:),idxCgalR(:)
+  REAL*8 offsetAngle
   CHARACTER*20 ObjectType,Unit
   CHARACTER*10 name
   CHARACTER*99 ::  cF
