@@ -604,7 +604,7 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   END IF
 
   IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
-   dAlpha = myPI*mySigma%mySegment(iSeg)%OffsetAngle/180d0
+   dAlpha = myPI*mySigma%mySegment(iSeg)%OffsetAngle/180d0 -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
   ELSE
    IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
    IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
