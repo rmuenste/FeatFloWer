@@ -156,9 +156,9 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   ! Save the final solution vector in unformatted form
   istep_ns = istep_ns - 1
   !CALL SolToFile(-1)
-  CALL Release_ListFiles_SSE(int(myProcess%Angle))
+!  CALL Release_ListFiles_SSE(int(myProcess%Angle))
 !  call write_sol_to_file(insavn, timens)
-  call write_sse_1d_sol()
+!  call write_sse_1d_sol()
   
    IF (myid.eq.showid) THEN
      WRITE(*,*) "Q2P1_SSE has successfully finished. "
