@@ -43,6 +43,14 @@ use var_QuadScalar, only:Tracer
 
 implicit none
 
+interface
+  subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    integer(c_int) :: angle
+  end subroutine c_write_json_output
+end interface
+
 type(tExport), intent(in) :: sExport
 
 integer, intent(in) :: iOutput
@@ -104,6 +112,8 @@ if (sExport%Format .eq. "VTK") then
  end if
 
 end if
+
+call c_write_json_output(iOutput) 
 
 end subroutine viz_output_fields
 !-------------------------------------------------------------------------------------------------
