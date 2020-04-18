@@ -106,14 +106,17 @@ do
  if [[ $NumOfLines -ne 0 ]] 
  then
   let i=i+1
-  if [ $j -lt ${maxS} ]
-  then
+#  if [ $j -lt ${maxS} ]
+#  then
    echo '"Sensor/s'${j}'.txt" u 2:3 w l t "sensor_'${i}'",\'  >> plot_sensor.gp
-  else
-   echo '"Sensor/s'${j}'.txt" u 2:3 w l t "sensor_'${i}  >> plot_sensor.gp
-  fi
+#  else
+#   echo '"Sensor/s'${j}'.txt" u 2:3 w l t "sensor_'${i}  >> plot_sensor.gp
+#  fi
  fi
 done
+
+grep "IntQuantMELT" _data/prot.txt > Sensor/m.txt
+echo '"Sensor/m.txt" u 2:5 w l lc rgb "black" t "melt'  >> plot_sensor.gp
 
 gnuplot plot_sensor.gp
 eog ${File}
