@@ -29,7 +29,7 @@ res='1600,1000'
 File='sensor'
 minS=1
 
-mkdir Sensor
+mkdir _tmp
 
 while [ $# != 0 ]; do
  flag="$1"
@@ -98,9 +98,9 @@ echo 'plot \'  >> plot_sensor.gp
 i=0
 for ((j=${minS}; j<=${maxS};j++))
 do
- grep "Sensor\["$j"\]" _data/prot.txt > Sensor/s$j.txt
+ grep "_tmp\["$j"\]" _data/prot.txt > _tmp/s$j.txt
  
- NumOfLines=`wc -l Sensor/s$j.txt | awk '{ print $1 }'`
+ NumOfLines=`wc -l _tmp/s$j.txt | awk '{ print $1 }'`
  echo 'NumOfLines='$NumOfLines
  
  if [[ $NumOfLines -ne 0 ]] 
@@ -108,18 +108,18 @@ do
   let i=i+1
 #  if [ $j -lt ${maxS} ]
 #  then
-   echo '"Sensor/s'${j}'.txt" u 2:3 w l t "sensor_'${i}'",\'  >> plot_sensor.gp
+   echo '"_tmp/s'${j}'.txt" u 2:3 w l t "sensor_'${i}'",\'  >> plot_sensor.gp
 #  else
-#   echo '"Sensor/s'${j}'.txt" u 2:3 w l t "sensor_'${i}  >> plot_sensor.gp
+#   echo '"_tmp/s'${j}'.txt" u 2:3 w l t "sensor_'${i}  >> plot_sensor.gp
 #  fi
  fi
 done
 
-grep "IntQuantMELT" _data/prot.txt > Sensor/m.txt
-echo '"Sensor/m.txt" u 2:5 w l lc rgb "black" t "melt'  >> plot_sensor.gp
+grep "IntQuantMELT" _data/prot.txt > _tmp/m.txt
+echo '"_tmp/m.txt" u 2:5 w l lc rgb "black" t "melt'  >> plot_sensor.gp
 
 gnuplot plot_sensor.gp
-eog ${File}
-rm -rf ${File} plot_sensor.gp Sensor
+#eog ${File}
+rm -rf plot_sensor.gp _tmp
 
-exit 1
+exit 0
