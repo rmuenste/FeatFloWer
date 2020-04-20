@@ -43,6 +43,8 @@ ENDIF()
 
 file(COPY heat_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+file(COPY sensor_temperature_extraction.sh DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
@@ -84,5 +86,9 @@ ENDIF()
 # the driver script
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${MYTARGET})
 
-install(FILES heat_start.py DESTINATION bin/${MYTARGET}
+set(HEAT_SCRIPTS heat_start.py)
+
+list(APPEND HEAT_SCRIPTS sensor_temperature_extraction.sh)
+
+install(FILES ${HEAT_SCRIPTS} DESTINATION bin/${MYTARGET}
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
