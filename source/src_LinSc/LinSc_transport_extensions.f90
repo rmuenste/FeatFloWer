@@ -368,6 +368,16 @@ end if
 
 if (myid.ne.master) then
  Temperature = Tracer%val(NLMAX)%x
+ IF (.not.allocated(Temperature_AVG)) THEN
+  ALLOCATE(Temperature_AVG(SIZE(Temperature)))
+  Temperature_AVG = 0d0
+  Temperature_AVG = 0
+ END IF
+ ! Averaging of Temperature 
+ IF (itns.gt.int(DBLE(nitns)*0.1d0).or.(timens.gt.timemx*0.1d0)) THEN
+   Temperature_AVG = Temperature_AVG + Temperature
+   iTemperature_AVG = iTemperature_AVG + 1d0
+ END IF
 end if
 
 NLMAX = NLMAX - 1

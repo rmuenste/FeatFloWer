@@ -218,6 +218,8 @@ INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)
+REAL*8, ALLOCATABLE :: Temperature_AVG(:)
+INTEGER :: iTemperature_AVG = 0
 
 TYPE tCGALObjects
  REAL*8, ALLOCATABLE :: Block(:)
