@@ -465,7 +465,7 @@ do iSeg=1,mySigma%NumberOfSeg
   else
    mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMin
   end if
-  if (myid.eq.1) WRITE(*,'(A,I,L,ES12.4)') 'iSeg, HeatingStatus, HeatSource[kW] :',&
+  if (myid.eq.1) WRITE(*,'(A,I0,L,ES12.4)') 'iSeg, HeatingStatus, HeatSource[kW] :',&
    iSeg,mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus,mySigma%mySegment(iSeg)%UseHeatSource
  END IF
 end do
