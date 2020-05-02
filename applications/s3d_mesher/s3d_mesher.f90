@@ -306,7 +306,10 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
   
   write(*,*) 'Volume & NumberOfElements ', 6400d0/daux, mySetup%nBoxElem
   
-  do i=1,3
+  iDir = 1
+  daux = mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1)
+  
+  do i=2,3
    if ((mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)).lt.daux) then
     iDir = i
     daux = mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
@@ -320,10 +323,10 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
   write(*,*) 'nX,nY,nZ,nEl'
   write(*,*) dnX,dnY,dnz
   
-  iDir = nint((mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0)
-  nX = iDir*nint(dnx)
-  nY = iDir*nint(dny)
-  nZ = iDir*nint(dnz)
+  daux = (mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0
+  nX = nint(daux*dnx)
+  nY = nint(daux*dny)
+  nZ = nint(daux*dnz)
  end if
 
  write(*,*) 'nX,nY,nZ,nEl'
