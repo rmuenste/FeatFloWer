@@ -29,6 +29,10 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
+if(GIT_FOUND)
+  writeCommitHash(${SSE_TARGET_NAME})
+endif(GIT_FOUND)
+
 if(MODULE_COMMAND)
   addCompilerInfo("${SSE_TARGET_NAME}")
 endif(MODULE_COMMAND)
@@ -94,8 +98,6 @@ IF(${OUT_OF_SOURCE_BUILD})
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 ENDIF()
-
-
 
 #=========================================================================
 #                       INSTALL CONFIGURATION

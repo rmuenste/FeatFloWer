@@ -342,6 +342,8 @@ if(USE_MUMPS)
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
 endif(USE_MUMPS)
 
+find_package(Git)
+
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
