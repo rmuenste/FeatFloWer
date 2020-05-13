@@ -213,6 +213,7 @@ target_compile_options(ff_particles PUBLIC ${Fortran_FLAGS})
 # source files for standard q2p1 
 set(src_q2p1
   ${CMAKE_SOURCE_DIR}/source/OutputProfiles.f90
+  ${CMAKE_SOURCE_DIR}/source/PID.f90
   ${CMAKE_SOURCE_DIR}/source/tetra.f90
   ${CMAKE_SOURCE_DIR}/source/Statistics.f90
   ${CMAKE_SOURCE_DIR}/source/inverse.f90

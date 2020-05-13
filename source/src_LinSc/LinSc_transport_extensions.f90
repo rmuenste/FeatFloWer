@@ -1069,25 +1069,42 @@ do
  
  if (iSeg.gt.mySigma%NumberOfSeg) exit 
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-  IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.gt.mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue.and.&
-      ((mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
-   mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
-   mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .false.
-   if (myid.eq.1) write(*,*) 'switch 0 '
-  END IF
-  IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.lt.mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.and.&
-      ((.not.mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
-   mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMax
-   mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
-   if (myid.eq.1) write(*,*) 'switch 1 '
-  END IF
-  IF (myid.eq.1) then
-    write(MTERM,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
-    mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
-    mySigma%mySegment(iSeg)%UseHeatSource
-    write(MFILE,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
-    mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
-    mySigma%mySegment(iSeg)%UseHeatSource
+  IF     (mySigma%mySegment(iSeg)%Regulation.eq."PID") THEN
+    CALL PID_controller(mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature,tstep,mySigma%mySegment(iSeg)%PID_Ctrl)
+    mySigma%mySegment(iSeg)%UseHeatSource  = 1e-3*mySigma%mySegment(iSeg)%PID_Ctrl%PID
+    mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
+    IF (myid.eq.1) then
+      write(MTERM,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]_PID: ',timens,&
+      mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+      mySigma%mySegment(iSeg)%UseHeatSource,mySigma%mySegment(iSeg)%PID_Ctrl%P,&
+      mySigma%mySegment(iSeg)%PID_Ctrl%I,mySigma%mySegment(iSeg)%PID_Ctrl%D
+      write(MFILE,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]_PID: ',timens,&
+      mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+      mySigma%mySegment(iSeg)%UseHeatSource,mySigma%mySegment(iSeg)%PID_Ctrl%P,&
+      mySigma%mySegment(iSeg)%PID_Ctrl%I,mySigma%mySegment(iSeg)%PID_Ctrl%D
+    END IF    
+  ELSEIF (mySigma%mySegment(iSeg)%Regulation.eq."SIMPLE") THEN
+  
+    IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.gt.mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue.and.&
+        ((mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
+     mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMin
+     mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .false.
+     if (myid.eq.1) write(*,*) 'switch 0 '
+    END IF
+    IF (mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature.lt.mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.and.&
+        ((.not.mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus).or.(itns.eq.1))) then
+     mySigma%mySegment(iSeg)%UseHeatSource  =  mySigma%mySegment(iSeg)%HeatSourceMax
+     mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
+     if (myid.eq.1) write(*,*) 'switch 1 '
+    END IF
+    IF (myid.eq.1) then
+      write(MTERM,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
+      mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+      mySigma%mySegment(iSeg)%UseHeatSource
+      write(MFILE,'(A,I0,A,20ES12.4)') 'Sensor[',iSeg,']_t[s]_Tsens[C]_Vsens[cm3]_Heat[kW]: ',timens,&
+      mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature , mySigma%mySegment(iSeg)%TemperatureSensor%Volume,&
+      mySigma%mySegment(iSeg)%UseHeatSource
+    END IF
   END IF
   dHeatSource = dHeatSource + mySigma%mySegment(iSeg)%UseHeatSource
  END IF

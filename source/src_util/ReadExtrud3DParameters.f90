@@ -1886,20 +1886,53 @@
        mySigma%mySegment(iSeg)%TemperatureSensor%Coor = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Coor
        call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
        mySigma%mySegment(iSeg)%TemperatureSensor%Radius = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Radius
-       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMinRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,myInf)
-       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMaxRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue,myInf)
-       if (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
-           mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) then
-           
-           WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
-           mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
-           mySigma%mySegment(iSeg)%HeatSourceMax,&
-           mySigma%mySegment(iSeg)%HeatSourceMin,&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
-           mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+       
+       call INIP_getvalue_string(parameterlist,cElement_i,"Regulation", mySigma%mySegment(iSeg)%Regulation,"SIMPLE")
+       CALL inip_toupper_replace(mySigma%mySegment(iSeg)%Regulation)
+       
+       IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."SIMPLE") THEN
+        call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMinRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,myInf)
+        call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorMaxRegValue", mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue,myInf)
+        IF (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
+            mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) THEN
+            
+            WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
+            mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
+            mySigma%mySegment(iSeg)%HeatSourceMax,&
+            mySigma%mySegment(iSeg)%HeatSourceMin,&
+            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
+            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+        END IF
+       ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."PID") then
+        call INIP_getvalue_double(parameterlist,cElement_i,"PID_TemperatureSetValue", mySigma%mySegment(iSeg)%PID_Ctrl%T_set,myInf)
+        call INIP_getvalue_double(parameterlist,cElement_i,"PID_P_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_P,myInf)
+        call INIP_getvalue_double(parameterlist,cElement_i,"PID_I_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,myInf)
+        call INIP_getvalue_double(parameterlist,cElement_i,"PID_D_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_D,myInf)
+        mySigma%mySegment(iSeg)%PID_Ctrl%SumI = 0d0
+        
+        IF (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
+            mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%PID_Ctrl%T_Set.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%PID_Ctrl%Omega_I.eq.myinf.or.&
+            mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D.eq.myinf) THEN
+            
+            WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
+            mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
+            mySigma%mySegment(iSeg)%HeatSourceMax,&
+            mySigma%mySegment(iSeg)%HeatSourceMin,&
+            mySigma%mySegment(iSeg)%PID_Ctrl%T_Set,&
+            mySigma%mySegment(iSeg)%PID_Ctrl%omega_P,&
+            mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,&
+            mySigma%mySegment(iSeg)%PID_Ctrl%omega_D
+        END IF
+       ELSE
+            WRITE(*,*) "Unknown regulation mechanism ... "
+            STOP 11
        END IF
      END IF
      
@@ -2021,8 +2054,16 @@
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorCoor=',mySigma%mySegment(iSeg)%TemperatureSensor%Coor
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorRadius=',mySigma%mySegment(iSeg)%TemperatureSensor%Radius
-      write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMinRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
-      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMaxRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue
+      write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Regulation=',ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation))
+      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."SIMPLE") then
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMinRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMaxRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue
+      ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."PID") then
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_TemperatureSetValue=',mySigma%mySegment(iSeg)%PID_Ctrl%T_Set
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaP=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaI=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_I
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaD=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D
+      END IF
      END IF
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN

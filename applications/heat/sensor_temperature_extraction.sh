@@ -98,7 +98,7 @@ echo 'plot \'  >> plot_sensor.gp
 i=0
 for ((j=${minS}; j<=${maxS};j++))
 do
- grep "_tmp\["$j"\]" _data/prot.txt > _tmp/s$j.txt
+ grep "Sensor\["$j"\]" _data/prot.txt > _tmp/s$j.txt
  
  NumOfLines=`wc -l _tmp/s$j.txt | awk '{ print $1 }'`
  echo 'NumOfLines='$NumOfLines

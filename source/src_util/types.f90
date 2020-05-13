@@ -456,6 +456,11 @@ END TYPE tMeshInfoParticle
 type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+TYPE tPID
+ REAL*8 T_set,sumI,e_old
+ REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
+END TYPE tPID
+
 TYPE tSensor
   REAL*8 :: Radius=0d0, Coor(3)=[0d0,0d0,0d0], Volume, CurrentTemperature
   LOGICAL :: HeatingStatus = .true.
@@ -483,7 +488,9 @@ TYPE tSegment
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
   INTEGER :: MatInd
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
+  character*64 :: regulation="SIMPLE"
   TYPE(tSensor) TemperatureSensor
+  TYPE(tPID) PID_ctrl
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
   !!!!!!!!!!!!!!!!!!!
