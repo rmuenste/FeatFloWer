@@ -85,13 +85,15 @@ else()
     find_library(MKL_SCALAPACK_LIBRARY mkl_scalapack_lp64
         PATHS ${MKL_ROOT}/lib/intel64/)
 
-      if(${MPI_VENDOR} MATCHES "intel")
+      if(${MPI_Fortran_COMPILER} MATCHES "intel")
+        message(STATUS "Path matched intel")
+        message(STATUS "Searching for ${MKL_ROOT}/lib/intel64/mkl_blacs_intelmpi_lp64")
         find_library(MKL_BLACS_LIBRARY mkl_blacs_intelmpi_lp64
           PATHS ${MKL_ROOT}/lib/intel64/)
-      else(${MPI_VENDOR} MATCHES "intel")
+      else(${MPI_Fortran_COMPILER} MATCHES "intel")
         find_library(MKL_BLACS_LIBRARY mkl_blacs_openmpi_lp64
           PATHS ${MKL_ROOT}/lib/intel64/)
-      endif(${MPI_VENDOR} MATCHES "intel")
+      endif(${MPI_Fortran_COMPILER} MATCHES "intel")
 
     set(MKL_LIBRARY ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_FFT_LIBRARY} ${MKL_SCALAPACK_LIBRARY} ${MKL_BLACS_LIBRARY})
 
@@ -99,6 +101,7 @@ else()
 endif()
 
 message(STATUS "FOUND MKL Libraries: " ${MKL_LIBRARY})
+message(STATUS "MPI Fortran: " ${MPI_Fortran_COMPILER})
 
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ${_MKL_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
 
