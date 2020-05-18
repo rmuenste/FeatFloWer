@@ -223,7 +223,7 @@ if(USE_CGAL)
             SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
             PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
             #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false -DCMAKE_C_COMPILER=$ENV{CC} -DCMAKE_CXX_COMPILER=$ENV{CXX}
             )
 
       if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
