@@ -1390,7 +1390,6 @@ C
       SUBROUTINE DMUMPS_BUILD_SCOTCH_GRAPH(id, FIRST, LAST, IPE,
      &     PE, WORK)
       IMPLICIT NONE
-      INCLUDE 'mpif.h'
       TYPE(DMUMPS_STRUC)      :: id
       INTEGER, POINTER        :: FIRST(:), LAST(:), IPE(:), PE(:),
      &     WORK(:)
@@ -1587,7 +1586,6 @@ C
       SUBROUTINE DMUMPS_BUILD_LOC_GRAPH(id, ord, GSIZE, IPE, PE, LENG,
      &     I_HALO_MAP, top_graph, WORK)
       IMPLICIT NONE
-      INCLUDE 'mpif.h'
       TYPE(DMUMPS_STRUC)   :: id
       TYPE(ORD_TYPE)       :: ord
       TYPE(GRAPH_TYPE)     :: top_graph
@@ -1863,7 +1861,6 @@ C
       SUBROUTINE DMUMPS_SEND_BUF(APNT, PROC, NPROCS, BUFSIZE, IPE, PE,
      &     LENG, RCVBUF, MSGCNT, SNDCNT, COMM)
       IMPLICIT NONE
-      INCLUDE 'mpif.h'
       INTEGER                 :: NPROCS, PROC, COMM
       TYPE(ARRPNT)            :: APNT(:)
       INTEGER                 :: BUFSIZE
