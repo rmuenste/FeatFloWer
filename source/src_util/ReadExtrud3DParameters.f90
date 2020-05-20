@@ -27,7 +27,7 @@
 
     type(t_parlist) :: parameterlist
 
-    real*8 :: myInf,dSizeScale,daux
+    real*8 :: myInf,dSizeScale,daux,dElemSizeScale
 
     real*8 dExtract_Val
     character(len=INIP_STRLEN) cText,sExtract_Dim
@@ -185,12 +185,12 @@
        bReadError=.TRUE.
 !       mySigma%mySegment(iSeg)%Unit = 'MM'
      END IF
-     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'MM') dSizeScale = 0.100d0
-     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'CM') dSizeScale = 1.000d0
-     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'DM') dSizeScale = 10.00d0
-     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'M')  dSizeScale = 100.0d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'MM') dElemSizeScale = 0.100d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'CM') dElemSizeScale = 1.000d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'DM') dElemSizeScale = 10.00d0
+     if (TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)).eq.'M')  dElemSizeScale = 100.0d0
       
-!     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dSizeScale
+!     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dElemSizeScale
 
      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfFlights", mySigma%mySegment(iSeg)%GANGZAHL,-1)
 
@@ -203,20 +203,20 @@
      IF (ADJUSTL(TRIM(cElemType)).eq."FOERD".or.ADJUSTL(TRIM(cElemType)).eq."THREADED") THEN
       mySigma%mySegment(iSeg)%ART   = "FOERD"
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
-      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
+      mySigma%mySegment(iSeg)%t = dElemSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
 
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
 
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
@@ -242,19 +242,19 @@
       mySigma%mySegment(iSeg)%ART   = "KNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out-mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
 
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
-      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%D = dElemSizeScale*mySigma%mySegment(iSeg)%D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
       mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
@@ -284,13 +284,13 @@
       mySigma%mySegment(iSeg)%ART   = "TKNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out-mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
@@ -298,7 +298,7 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscFrac", mySigma%mySegment(iSeg)%DiscFrac,0.05d0)
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
-      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%D = dElemSizeScale*mySigma%mySegment(iSeg)%D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
       mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
@@ -328,22 +328,22 @@
       mySigma%mySegment(iSeg)%ART   = "EKNET"
      
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Eccentricity", mySigma%mySegment(iSeg)%excentre, myInf)
-      mySigma%mySegment(iSeg)%excentre = dSizeScale*mySigma%mySegment(iSeg)%excentre
+      mySigma%mySegment(iSeg)%excentre = dElemSizeScale*mySigma%mySegment(iSeg)%excentre
      
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out-2d0*mySigma%mySegment(iSeg)%excentre-mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s - mySigma%mySegment(iSeg)%excentre))
     
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
-      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%D = dElemSizeScale*mySigma%mySegment(iSeg)%D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
       mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
@@ -373,19 +373,19 @@
       mySigma%mySegment(iSeg)%ART   = "SKNET"
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
 
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
 
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%D,myInf)
-      mySigma%mySegment(iSeg)%D = dSizeScale*mySigma%mySegment(iSeg)%D
+      mySigma%mySegment(iSeg)%D = dElemSizeScale*mySigma%mySegment(iSeg)%D
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StaggeringAngle", mySigma%mySegment(iSeg)%alpha,myInf)
       mySigma%mySegment(iSeg)%alpha = mySigma%mySegment(iSeg)%alpha*(myProcess%ind)
@@ -416,19 +416,19 @@
      ELSE IF (ADJUSTL(TRIM(cElemType)).eq."SME".or.ADJUSTL(TRIM(cElemType)).eq."SCREWMIXING") THEN
       mySigma%mySegment(iSeg)%ART   = "SME"
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Lead", mySigma%mySegment(iSeg)%t,myInf)
-      mySigma%mySegment(iSeg)%t = dSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
+      mySigma%mySegment(iSeg)%t = dElemSizeScale*mySigma%mySegment(iSeg)%t*(myProcess%ind)
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
       mySigma%Dz_In = min(mySigma%Dz_In,2D0*(mySigma%a - 0.5d0*mySigma%mySegment(iSeg)%Ds - mySigma%mySegment(iSeg)%s))
@@ -453,13 +453,13 @@
       call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_D = dSizeScale*mySigma%mySegment(iSeg)%SecProf_D
+      mySigma%mySegment(iSeg)%SecProf_D = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
+      mySigma%mySegment(iSeg)%SecProf_W = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_W
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
+      mySigma%mySegment(iSeg)%SecProf_L = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
       
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + mySigma%mySegment(iSeg)%L
      
@@ -469,37 +469,37 @@
       mySigma%mySegment(iSeg)%ART   = "ZME"
       
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,myInf)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_int(parameterlist,cElement_i,"NoOfRows",mySigma%mySegment(iSeg)%ZME_N ,-1)
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscWidth", mySigma%mySegment(iSeg)%ZME_DiscThick,myInf)
-      mySigma%mySegment(iSeg)%ZME_DiscThick = dSizeScale*mySigma%mySegment(iSeg)%ZME_DiscThick
+      mySigma%mySegment(iSeg)%ZME_DiscThick = dElemSizeScale*mySigma%mySegment(iSeg)%ZME_DiscThick
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscDiscGap", mySigma%mySegment(iSeg)%ZME_gap_SS,myInf)
-      mySigma%mySegment(iSeg)%ZME_gap_SS = dSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SS
+      mySigma%mySegment(iSeg)%ZME_gap_SS = dElemSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SS
       
       call INIP_getvalue_double(parameterlist,cElement_i,"DiscShellGap", mySigma%mySegment(iSeg)%ZME_gap_SG,myInf)
-      mySigma%mySegment(iSeg)%ZME_gap_SG = dSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SG
+      mySigma%mySegment(iSeg)%ZME_gap_SG = dElemSizeScale*mySigma%mySegment(iSeg)%ZME_gap_SG
 !       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_Out - 2d0*mySigma%mySegment(iSeg)%ZME_gap_SG
 
 
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,myInf)
-      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 
       call INIP_getvalue_int(parameterlist,cElement_i,"NoOfTeeth",mySigma%mySegment(iSeg)%SecProf_N ,-1)
       call INIP_getvalue_int(parameterlist,cElement_i,"KindOfGrooves",mySigma%mySegment(iSeg)%SecProf_I  ,1)
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesDepth",mySigma%mySegment(iSeg)%SecProf_D  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_D = dSizeScale*mySigma%mySegment(iSeg)%SecProf_D
+      mySigma%mySegment(iSeg)%SecProf_D = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_D
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesWidth",mySigma%mySegment(iSeg)%SecProf_W  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_W = dSizeScale*mySigma%mySegment(iSeg)%SecProf_W
+      mySigma%mySegment(iSeg)%SecProf_W = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_W
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GroovesLead",mySigma%mySegment(iSeg)%SecProf_L  ,myInf)
-      mySigma%mySegment(iSeg)%SecProf_L = dSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
+      mySigma%mySegment(iSeg)%SecProf_L = dElemSizeScale*mySigma%mySegment(iSeg)%SecProf_L*(myProcess%ind)
 
       mySigma%mySegment(iSeg)%Max= mySigma%mySegment(iSeg)%Min + &
       2d0*mySigma%mySegment(iSeg)%ZME_N * (mySigma%mySegment(iSeg)%ZME_DiscThick + mySigma%mySegment(iSeg)%ZME_gap_SS)
@@ -511,20 +511,20 @@
       mySigma%mySegment(iSeg)%ART   = "STL"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
-!       write(*,*) 'dSizeScale: ',dSizeScale
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+!       write(*,*) 'dElemSizeScale: ',dElemSizeScale
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
-      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
 
@@ -577,20 +577,20 @@
       mySigma%mySegment(iSeg)%ART   = "STL_LR"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
-!       write(*,*) 'dSizeScale: ',dSizeScale
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+!       write(*,*) 'dElemSizeScale: ',dElemSizeScale
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
-      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
-      mySigma%mySegment(iSeg)%Ds = dSizeScale*mySigma%mySegment(iSeg)%Ds
+      mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
-      mySigma%mySegment(iSeg)%s = dSizeScale*mySigma%mySegment(iSeg)%s
+      mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
       call INIP_getvalue_double(parameterlist,cElement_i,"OffsetAngle", mySigma%mySegment(iSeg)%OffsetAngle,myInf)
       
@@ -679,13 +679,13 @@
       mySigma%mySegment(iSeg)%ART   = "STL_R"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
-      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
@@ -710,13 +710,13 @@
       mySigma%mySegment(iSeg)%ART   = "STL_L"
 
       call INIP_getvalue_double(parameterlist,cElement_i,"StartPosition",mySigma%mySegment(iSeg)%Min,0d0)
-      mySigma%mySegment(iSeg)%Min = dSizeScale*mySigma%mySegment(iSeg)%Min
+      mySigma%mySegment(iSeg)%Min = dElemSizeScale*mySigma%mySegment(iSeg)%Min
       
       call INIP_getvalue_double(parameterlist,cElement_i,"ElementLength", mySigma%mySegment(iSeg)%L ,myInf)
-      mySigma%mySegment(iSeg)%L = dSizeScale*mySigma%mySegment(iSeg)%L
+      mySigma%mySegment(iSeg)%L = dElemSizeScale*mySigma%mySegment(iSeg)%L
       
-      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dSizeScale)
-      mySigma%mySegment(iSeg)%Dss = dSizeScale*mySigma%mySegment(iSeg)%Dss
+      call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
+      mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
@@ -1246,6 +1246,8 @@
     write(*,*) "myProcess%ind",'=',myProcess%ind
     write(*,*) "myProcess%deltaP",'=',myProcess%dPress
     write(*,*) "myProcess%Massestrom",'=',myProcess%Massestrom
+    write(*,*) "myProcess%MinInflowDiameter",'=',myProcess%MinInflowDiameter
+    write(*,*) "myProcess%MaxInflowDiameter",'=',myProcess%MaxInflowDiameter
     write(*,*) "myProcess%f",'=',myProcess%umdr
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
