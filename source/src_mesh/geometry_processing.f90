@@ -822,7 +822,7 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
   real*8 ElemCoor(3,27),ElemDist(27),ElemRad,ElemSign,PointSign,dist
 
-  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle
+  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle,DiD
 
   real*8, dimension(3) :: point
 
@@ -1004,6 +1004,12 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
     MixerKNPR(i) = 100
    END IF
 
+   
+   PX = dcorvg(1,i)
+   PY = dcorvg(2,i)
+   DiD = SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_in*0.5d0
+   dst2(i) = min(dst2(i),DiD)
+   
    Screw(i) = dst2(i)
    IF (Screw(i).le.0d0) THEN
     MixerKNPR(i) = 103
