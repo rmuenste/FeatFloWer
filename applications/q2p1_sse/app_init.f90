@@ -245,7 +245,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
    dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
    dCharShear     = dCharVelo/dCharSize
-   dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
+   dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
+!    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
    TimeStep       = 1d-2 * (dCharSize/dCharVisco)
    WRITE(sTimeStep,'(ES9.1)') TimeStep
    READ(sTimeStep,*) TimeStep
