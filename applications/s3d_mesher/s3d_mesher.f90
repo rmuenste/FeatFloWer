@@ -85,7 +85,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  nT = mySetup%m_nT
  nZ = mySetup%m_nZ
  Dzo = mySigma%Dz_out
- Dzi = mySigma%Dz_in
+ Dzi = min(mySigma%Dz_in,0.8d0*mySigma%Dz_out)
  DL  = mySigma%L
 
  IF (mySetup%MeshResolution.eq.1) THEN
