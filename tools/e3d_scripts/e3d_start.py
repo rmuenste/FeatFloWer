@@ -141,6 +141,7 @@ paramDict = {
     "skipSimulation" : False,
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
+    "useSrun": False,
     "temperature" : False
 }
 #===============================================================================
@@ -176,6 +177,7 @@ def usage():
     print("[-h', '--help']: prints this message")
     print("[-v', '--version']: prints out version information")
     print("[-x', '--short-test']: configures the program for a short test")
+    print("[-u', '--use-srun']: Uses the srun launch mechanism")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 
 #===============================================================================
@@ -235,7 +237,6 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
     if sys.platform == "win32":
         exitCode = subprocess.call(["./s3d_mesher"])        
     else:
-        #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
         exitCode = subprocess.call(["./s3d_mesher"], shell=True)
 
 
@@ -326,13 +327,18 @@ def simLoopVelocity(workingDir):
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
-            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            #exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
-            if paramDict['singleAngle'] >= 0.0 :
-                exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse -a %d' % (numProcessors, angle)], shell=True)
-            else:
-                exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse' % (numProcessors)], shell=True)
+            launchCommand = ""
 
+            if paramDict['useSrun']:
+                launchCommand = "srun ./q2p1_sse"
+                if paramDict['singleAngle'] >= 0.0:
+                    launchCommand = launchCommand + " -a %d" %(angle)
+            else:
+                launchCommand = "mpirun -np %i ./q2p1_sse" %(numProcessors)
+                if paramDict['singleAngle'] >= 0.0 :
+                    launchCommand = launchCommand + " -a %d" %(angle)
+
+            exitCode = subprocess.call([launchCommand], shell=True)
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
@@ -392,8 +398,19 @@ def simLoopTemperatureCombined(workingDir):
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
         else:
-            #comm = subprocess.call(['mpirun', '-np', '%i' % numProcessors,  './q2p1_sse', '-a', '%d' % angle],shell=True)
-            exitCode = subprocess.call(['mpirun -np %i ./q2p1_sse_temp ' % (numProcessors)], shell=True)
+
+            launchCommand = ""
+
+            if paramDict['useSrun']:
+                launchCommand = "srun ./q2p1_sse_temp"
+                if paramDict['singleAngle'] >= 0.0:
+                    launchCommand = launchCommand + " -a %d" %(angle)
+            else:
+                launchCommand = "mpirun -np %i ./q2p1_sse_temp" %(numProcessors)
+                if paramDict['singleAngle'] >= 0.0 :
+                    launchCommand = launchCommand + " -a %d" %(angle)
+
+            exitCode = subprocess.call([launchCommand], shell=True)
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
@@ -435,11 +452,11 @@ def main():
     """
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhov',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovu',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup',
-                                    'skip-simulation','short-test', 'help','do-temperature','version'])
+                                    'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun'])
 
     except getopt.GetoptError:
         usage()
@@ -484,6 +501,8 @@ def main():
             sys.exit(2)
         elif opt in ('-x', '--short-test'):
             paramDict['shortTest'] = True
+        elif opt in ('-u', '--use-srun'):
+            paramDict['useSrun'] = True
         else:
             usage()
             sys.exit(2)
