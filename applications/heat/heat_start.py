@@ -83,11 +83,13 @@ def main(argv):
     inputCaseFolder = ''
     inputCaseFile = ''
     outputFile = ''
+    useSrun = False
 
     numProcessors = -1
 
     try:
-        opts, args = getopt.getopt(argv, "hf:n:", ["in-folder=", "num-processors="])
+        opts, args = getopt.getopt(argv, "huf:n:", 
+                                ["help", "use-srun", "in-folder=", "num-processors="])
     except getopt.GetoptError:
         sys.exit(2)
     for opt, arg in opts:
@@ -98,6 +100,11 @@ def main(argv):
             numProcessors = int(arg)
         elif opt in ("-f", "--in-folder"):
             inputCaseFolder = arg
+        elif opt in ('-u', '--use-srun'):
+            useSrun = True
+        else:
+            usage()
+            sys.exit(2)
 
     print('Number Of Processors is: '+ str(numProcessors))
     
@@ -114,12 +121,22 @@ def main(argv):
             #"SimPar@ProjectFile = '" + inputFile + "'")
 
     if os.path.exists("_data/meshDir"):
-      shutil.rmtree("_data/meshDir")
+        shutil.rmtree("_data/meshDir")
 
     subprocess.call(['./s3d_mesher -a %s' %('heat')], shell=True)
 
+    # Call the partitioner
     partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
-    subprocess.call(['mpirun -np %i ./%s' %(numProcessors, 'heat')], shell=True)
+
+    # Configure the launch command and start a simulation
+    launchCommand = ""
+    if useSrun:
+        launchCommand = "srun ./heat"
+    else:
+        launchCommand = 'mpirun -np %i ./%s' %(numProcessors, 'heat')
+
+    # Start the simulation as a subprocess
+    subprocess.call([launchCommand], shell=True)
 
     cleanWorkingDir(workingDir)
 

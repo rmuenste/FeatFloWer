@@ -6,9 +6,10 @@ app_init.f90
 heat.f90
 )
 
+set(SSE_TARGET_NAME "heat")
 
 # Add the application executable
-add_executable(heat ${src_heat}) 
+add_executable(${SSE_TARGET_NAME} ${src_heat}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -21,20 +22,23 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
+if(GIT_FOUND)
+  writeCommitHash(${SSE_TARGET_NAME})
+endif(GIT_FOUND)
 
-target_link_libraries(heat 
+target_link_libraries(${SSE_TARGET_NAME} 
   ${FF_APPLICATION_LIBS}
   )
 
-target_include_directories(heat PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+target_include_directories(${SSE_TARGET_NAME} PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
-target_compile_options(heat PRIVATE ${Fortran_FLAGS})
+target_compile_options(${SSE_TARGET_NAME} PRIVATE ${Fortran_FLAGS})
 
-set_target_properties(heat PROPERTIES LINKER_LANGUAGE Fortran)
+set_target_properties(${SSE_TARGET_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
 
-add_dependencies(heat s3d_mesher)
+add_dependencies(${SSE_TARGET_NAME} s3d_mesher)
 
-get_target_property(MYTARGET heat NAME)
+get_target_property(MYTARGET ${SSE_TARGET_NAME} NAME)
 
 IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
