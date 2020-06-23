@@ -1,6 +1,6 @@
 module geometry_processing
   use Sigma_User, only: mySigma, myProcess,KNET_elem,SKNET_elem,EKNET_elem,&
-  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, DistTolerance
+  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, InnerCylinder_Elem,DistTolerance
  
   use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects,maxShearRate
   !------------------------------------------------------------------------------------------------
@@ -332,8 +332,15 @@ D2 = DistTolerance
 inpr = 0
 
 tt = t 
+
+k = 0
+CALL InnerCylinder_Elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+D1 = min(dSeg1,D1)
+D2 = min(dSeg2,D2)
+
 !----------------------------------------------------------
 DO k=1, mySigma%NumberOfSeg
+ 
  dSeg0=DistTolerance
  dSeg1=DistTolerance
  dSeg2=DistTolerance

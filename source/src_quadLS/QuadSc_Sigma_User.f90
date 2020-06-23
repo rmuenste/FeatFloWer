@@ -96,6 +96,56 @@ END SUBROUTINE Shell_dist
 !
 !********************GEOMETRY****************************
 !
+SUBROUTINE InnerCylinder_Elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t
+INTEGER :: inpr, iSeg
+REAL*8 :: XT,YT,ZT,XB,YB,ZB,dAlpha
+REAL*8 :: dScale, dist1, dist2,dEps,dCut,InnerDist,dInnerRadius
+REAL*8 myPI
+ 
+ myPI = dATAN(1d0)*4d0
+ dInnerRadius = 0.5d0*mySigma%Dz_in
+ 
+ dist1 = DistTolerance
+ XB = X
+ YB = Y-mySigma%a/2d0
+ ZB = Z
+
+ ! First the point needs to be transformed back to time = 0
+ dAlpha = 0d0 - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+ YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ ZT = ZB
+
+ InnerDist = sqrt(xt*xt+yt*yt)-dInnerRadius
+ dist1 = MIN(dist1,InnerDist)
+ IF (dist1.LT.0d0) THEN
+  inpr = 101
+ END IF
+ 
+ dist2 = DistTolerance
+ XB = X
+ YB = Y+mySigma%a/2d0
+ ZB = Z
+
+ ! First the point needs to be transformed back to time = 0
+ dAlpha = 0d0 - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+ YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ ZT = ZB
+
+ InnerDist = sqrt(xt*xt+yt*yt)-dInnerRadius
+ dist2 = MIN(dist2,InnerDist)
+ IF (dist2.LT.0d0) THEN
+  inpr = 102
+ END IF
+ 
+ 
+END SUBROUTINE InnerCylinder_Elem
+!
+!********************GEOMETRY****************************
+!
 SUBROUTINE ZME_elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
 IMPLICIT NONE
 REAL*8 X,Y,Z,t
