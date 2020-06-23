@@ -1469,62 +1469,104 @@ end type tHist
 type (tHist) myHist
 
 ! local variables
-integer :: i,j
-real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
+integer :: i,j,jj
+real*8  :: daux,dX,dY,dZ,dR,dRadius
 
-dMax    =-1d30
+! local variables
+real*8  :: dMinSample,dMaxSample,dWidth
+real*8, dimension(:,:), allocatable :: my1DIntervals
+real*8, dimension(:), allocatable :: d1D_Max
+integer :: my1DOut_nol
+
+my1DOut_nol = myOutput%nOf1DLayers
+dMinSample = 0d0
+dMaxSample = mySigma%L
+if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
+if (.not.allocated(d1D_Max)) ALLOCATE(d1D_Max(my1DOut_nol))
+
+dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
+
+DO i=1,my1DOut_nol
+ my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
+ my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
+END DO
+
+d1D_Max    =-1d30
 
 DO i=1,SIZE(sQuadSc%ValU)
 
  IF (MixerKNPR(i).eq.0) THEN
  
-   IF (ieee_is_finite(mySigma%DZz)) THEN
-    dRadius = 0.5d0*mySigma%DZz
-   ELSE 
-    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
-   END IF 
-   
-   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
-   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-   dR = SQRT(dX**2d0+dY**2d0)
-   
-   if ((i1D.eq.9).and.dR.gt.dRadius) then
-    dMax    = MAX(dMax,MaxShearRate(i))
-   END IF
+   jj=0
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
 
-   if ((i1D.eq.10).and.dR.le.dRadius)  then
-    dMax    = MAX(dMax,MaxShearRate(i))
+   IF (jj.NE.0) THEN
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if ((i1D.eq.9).and.dR.gt.dRadius) then
+     d1D_Max(jj)    = MAX(d1D_Max(jj),MaxShearRate(i))
+    END IF
+
+    if ((i1D.eq.10).and.dR.le.dRadius)  then
+     d1D_Max(jj)    = MAX(d1D_Max(jj),MaxShearRate(i))
+    END IF
    END IF
    
  END IF
 END DO
 
-CALL COMM_Maximum(dMax)
+CALL COMM_Maximumn(d1D_Max,my1DOut_nol)
+! CALL COMM_Maximum(d1D_Max)
 
-!WRITE(*,*) "FoundMAx",iid,dMax
+!WRITE(*,*) "FoundMAx",iid,d1D_Max
 
 DO i=1,SIZE(sQuadSc%ValU)
 
 !  IF (MixerKNPR(i).eq.0) THEN
  
-   IF (ieee_is_finite(mySigma%DZz)) THEN
-    dRadius = 0.5d0*mySigma%DZz
-   ELSE 
-    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
-   END IF 
-   
-   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
-   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-   dR = SQRT(dX**2d0+dY**2d0)
-   
-   if ((i1D.eq.9).and.dR.gt.dRadius) then
-    if (dField1(i).gt.dMax) dField1(i) = dMax
-   END IF
+   jj=0
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
 
-   if ((i1D.eq.10).and.dR.le.dRadius)  then
-    if (dField1(i).gt.dMax) dField1(i) = dMax
+   IF (jj.NE.0) THEN
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if ((i1D.eq.9).and.dR.gt.dRadius) then
+     if (dField1(i).gt.d1D_Max(jj)) dField1(i) = d1D_Max(jj)
+    END IF
+
+    if ((i1D.eq.10).and.dR.le.dRadius)  then
+     if (dField1(i).gt.d1D_Max(jj)) dField1(i) = d1D_Max(jj)
+    END IF
    END IF
-   
+  
 !  END IF
 END DO
 
