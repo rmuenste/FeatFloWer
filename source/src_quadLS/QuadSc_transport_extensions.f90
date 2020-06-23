@@ -136,8 +136,6 @@ IF (myid.ne.master) THEN
 
 END IF
 
-temperature = QuadSc%defU
-
 ! Checking convergence rates against criterions
 RhsUVW=DefUVW
 CALL COMM_Maximum(RhsUVW)
@@ -166,7 +164,6 @@ inl_u = INL
 ! -------------------------------------------------
 ! Compute the pressure correction
 ! -------------------------------------------------
-
 CALL MonitorVeloMag(QuadSc)
 
 IF (myid.ne.0) THEN
