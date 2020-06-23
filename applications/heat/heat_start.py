@@ -125,6 +125,15 @@ def main(argv):
 
     subprocess.call(['./s3d_mesher -a %s' %('heat')], shell=True)
 
+    # Check if mesh was generated, if not check if there is one provided in the case folder. If not EXIT!
+    if not os.path.exists("_data/meshDir"):
+      if os.path.exists(inputCaseFolder + "/meshDir"):
+        shutil.copytree(inputCaseFolder + "/meshDir","_data/meshDir")
+      else:
+        print("Error: No mesh automatically generated and no <meshDir> " + 
+              "folder present the case folder " + inputCaseFolder)
+        sys.exit(2)
+      
     # Call the partitioner
     partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
 
