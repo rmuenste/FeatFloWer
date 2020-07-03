@@ -7,67 +7,22 @@ USE var_QuadScalar, ONLY: myMG,myDataFile,&
                           mg_mesh, mg_Matrix, TMatrix, mg_dVector,&
                           tMGParamIn, tMGParamOut
 USE mg_LinScalar, only:mg_solver
+use types
 
 
 IMPLICIT NONE
 
-TYPE tParam
- Character*20 :: cEquation
-
- REAL*8  defCrit,epsCrit,MinDef
-
- INTEGER NLmin,NLmax
-
- INTEGER SolvIter,SolvType
-
- LOGICAL AFC
- TYPE(tMGParamIn) :: MGprmIn
- TYPE(tMGParamOut):: MGprmOut(3)
-END TYPE tParam
-
-TYPE mg_vector
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
-END TYPE mg_vector
-
-TYPE lScalar3
- CHARACTER cName*7
- INTEGER :: ndof,na
- LOGICAL :: bProlRest=.FALSE. 
-
- INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX,valY,valZ
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
- TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
- TYPE(tParam) :: prm
- 
-END TYPE
-
-TYPE lScalar
- CHARACTER cName*7
- INTEGER :: ndof,na
- INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,oldSol
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: src,snk
- TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
- TYPE(tParam) :: prm
-END TYPE
-
-TYPE tAFC
- INTEGER :: iedge,nedge,nu
- INTEGER , DIMENSION(:)  , ALLOCATABLE :: inod,jnod,iaux,isep
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aedge
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: pp,pm,qm,qp
-END TYPE
-TYPE(tAFC) AFC
-
-TYPE TlMatrix
- INTEGER :: nu,na
- INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
-END TYPE
+!TYPE lScalar
+! CHARACTER cName*7
+! INTEGER :: ndof,na
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,oldSol
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: src,snk
+! TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
+! TYPE(tParam) :: prm
+!END TYPE
 
 TYPE(TlMatrix) :: lMat
-
 !---------------------------------------------------------------------
 
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: S11Mat,S22Mat,S33Mat
@@ -464,20 +419,20 @@ IF (myid.eq.showid) write(*,*) 'Regenerating K Matrix for Q1'
 
 Kmat = 0d0
 
-CALL RhoCpConvMat(U,V,W,Kmat,&
-lMat%nu,lMat%ColA,lMat%LdA,&
-mg_mesh%level(ilev)%kvert,&
-mg_mesh%level(ilev)%karea,&
-mg_mesh%level(ilev)%kedge,&
-mg_mesh%level(ilev)%dcorvg,&
-mg_mesh%level(ilev)%kadj,&
-mg_mesh%level(jlev)%kvert,&
-mg_mesh%level(jlev)%karea,&
-mg_mesh%level(jlev)%kedge,&
-mg_mesh%level(jlev)%nel,&
-mg_mesh%level(jlev)%nvt,&
-mg_mesh%level(jlev)%net,&
-mg_mesh%level(jlev)%nat,E011)
+! CALL RhoCpConvMat(U,V,W,Kmat,&
+! lMat%nu,lMat%ColA,lMat%LdA,&
+! mg_mesh%level(ilev)%kvert,&
+! mg_mesh%level(ilev)%karea,&
+! mg_mesh%level(ilev)%kedge,&
+! mg_mesh%level(ilev)%dcorvg,&
+! mg_mesh%level(ilev)%kadj,&
+! mg_mesh%level(jlev)%kvert,&
+! mg_mesh%level(jlev)%karea,&
+! mg_mesh%level(jlev)%kedge,&
+! mg_mesh%level(jlev)%nel,&
+! mg_mesh%level(jlev)%nvt,&
+! mg_mesh%level(jlev)%net,&
+! mg_mesh%level(jlev)%nat,E011)
 
 !ILEV=NLMAX
 !CALL SETLEV(2)

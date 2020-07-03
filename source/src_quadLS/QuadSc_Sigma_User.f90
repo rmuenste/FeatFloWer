@@ -1,128 +1,23 @@
 MODULE Sigma_User
 USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity
-USE var_QuadScalar ,ONLY : bNoOutflow,activeFBM_Z_Position,dTimeStepEnlargmentFactor,mg_dVector
+USE var_QuadScalar
 
 IMPLICIT NONE
 
-TYPE tSegment
-  INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
-  CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
-  INTEGER, ALLOCATABLE :: idxCgal(:)
-  CHARACTER*20 ObjectType,Unit
-  CHARACTER*10 name
-  CHARACTER*99 ::  cF
-  CHARACTER*8 ::  ART
-  INTEGER ::    KNETz,N
-  REAL*8  :: Ds,s,delta,Dss,excentre
-  REAL*8, ALLOCATABLE :: Zknet(:)
-  REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
-  REAL*8 :: Min, Max,L
-  REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
-  INTEGER :: ZME_N
-  REAL*8  :: SecProf_W, SecProf_D,SecProf_L
-  INTEGER :: SecProf_N, SecProf_I
-  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-  INTEGER :: MatInd
-  REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
-  REAL*8 :: InitTemp,Volume
-  CHARACTER*200 :: TemperatureBC
-  !!!!!!!!!!!!!!!!!!!
-  INTEGER GANGZAHL
-   
-END TYPE tSegment
-!------------------------------------------------------------
-TYPE tSigma
-!   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
-  CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
-  REAL*8 :: RotAxisCenter,RotAxisAngle
-  REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
-  REAL*8 :: SecStr_W,SecStr_D
-  INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
-  TYPE (tSegment), ALLOCATABLE :: mySegment(:)
-  INTEGER :: InnerDiamNParam=0
-  REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
-  LOGICAL :: bOnlyBarrelAdaptation=.false.
-  
-END TYPE tSigma
-
 TYPE(tSigma) :: mySigma
-!------------------------------------------------------------
-TYPE tInflow
- INTEGER iBCtype
- REAL*8  massflowrate, density,outerradius,innerradius
- REAL*8  center(3),normal(3)
-END TYPE tInflow
-
-TYPE tProcess
-   REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
-   REAL*8 :: MinInflowDiameter,MaxInflowDiameter
-   INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
-   REAL*8 :: dAlpha
-   CHARACTER*6 :: Rotation !RECHT, LINKS
-   CHARACTER*50 :: pTYPE !RECHT, LINKS
-   INTEGER :: ind,iInd
-   REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
-   integer   nOfInflows
-   TYPE (tInflow), allocatable :: myInflow(:)
-  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
-   REAL*8 :: AmbientTemperature,HeatTransferCoeff,ConductiveGradient,ConductiveLambda
-   REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
-END TYPE tProcess
 
 TYPE(tProcess) :: myProcess
-!------------------------------------------------------------
-TYPE tRheology
-   INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
-   INTEGER :: AtFunc = 1 !-->> isotherm
-   REAL*8 :: A, B, C ! Carreau Parameter
-   REAL*8 :: n, K ! Power Law
-   REAL*8 :: eta_max, eta_min 
-   REAL*8 :: Ts, Tb, C1, C2, E! WLF Parameter
-   REAL*8 :: ViscoMin = 1e-4
-   REAL*8 :: ViscoMax = 1e10
-END TYPE tRheology
-
-TYPE(tRheology) :: myRheology
-
-!------------------------------------------------------------
-TYPE tThermodyn
-   CHARACTER*60 :: DensityModel='NO'
-   REAL*8 :: density=0d0, densitySteig=0d0
-   REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
-   REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
-END TYPE tThermodyn
 
 TYPE(tThermodyn) :: myThermodyn
+
 TYPE(tThermodyn), Allocatable  :: myMaterials(:)
 !------------------------------------------------------------
 
-TYPE tTransientSolution
- INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
- TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
- TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
- TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
- TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
-END TYPE tTransientSolution
+TYPE(tMultiMat), target :: myMultiMat
+
 TYPE (tTransientSolution) myTransientSolution
 
-TYPE tSetup
- LOGICAL :: bPressureFBM = .FALSE.
- LOGICAL :: bAutomaticTimeStepControl = .TRUE.
- REAL*8 :: CharacteristicShearRate=1d1
- CHARACTER*200 cMeshPath
- CHARACTER*20 cMesher
- INTEGER MeshResolution
- INTEGER m_nT,m_nT1,m_nT2,m_nR,m_nZ,m_nP
- LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
-END TYPE tSetup
 TYPE(tSetup) :: mySetup
-
-TYPE tOutput
- INTEGER :: nOf1DLayers=16
- INTEGER :: nOfHistogramBins=16
- REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
- REAL*8  :: CutDtata_1D=0.04d0
-END TYPE tOutput
 
 TYPE(tOutput) :: myOutput
 
@@ -198,6 +93,56 @@ END IF
 d = max(-DistTolerance,min(DistTolerance,dd1,dd2,dd3))
 
 END SUBROUTINE Shell_dist
+!
+!********************GEOMETRY****************************
+!
+SUBROUTINE InnerCylinder_Elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t
+INTEGER :: inpr, iSeg
+REAL*8 :: XT,YT,ZT,XB,YB,ZB,dAlpha
+REAL*8 :: dScale, dist1, dist2,dEps,dCut,InnerDist,dInnerRadius
+REAL*8 myPI
+ 
+ myPI = dATAN(1d0)*4d0
+ dInnerRadius = 0.5d0*mySigma%Dz_in
+ 
+ dist1 = DistTolerance
+ XB = X
+ YB = Y-mySigma%a/2d0
+ ZB = Z
+
+ ! First the point needs to be transformed back to time = 0
+ dAlpha = 0d0 - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+ YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ ZT = ZB
+
+ InnerDist = sqrt(xt*xt+yt*yt)-dInnerRadius
+ dist1 = MIN(dist1,InnerDist)
+ IF (dist1.LT.0d0) THEN
+  inpr = 101
+ END IF
+ 
+ dist2 = DistTolerance
+ XB = X
+ YB = Y+mySigma%a/2d0
+ ZB = Z
+
+ ! First the point needs to be transformed back to time = 0
+ dAlpha = 0d0 - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+ XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+ YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ ZT = ZB
+
+ InnerDist = sqrt(xt*xt+yt*yt)-dInnerRadius
+ dist2 = MIN(dist2,InnerDist)
+ IF (dist2.LT.0d0) THEN
+  inpr = 102
+ END IF
+ 
+ 
+END SUBROUTINE InnerCylinder_Elem
 !
 !********************GEOMETRY****************************
 !
@@ -312,7 +257,215 @@ END SUBROUTINE ZME_elem
 !
 !********************GEOMETRY****************************
 !
+SUBROUTINE TrueKNET_elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
+IMPLICIT NONE
+REAL*8 X,Y,Z,t
+REAL*8 :: dKnetMin,dKnetMax,dKnetMed
+INTEGER :: inpr,iBndr, l, k, iSeg,lKnet
+REAL*8 :: dAlpha,XT,YT,ZT,XB,YB,ZB
+REAL*8 :: dBeta1,dBeta2,XTT,YTT,ZTT,dist
+REAL*8 :: dZ
+REAL*8 daux1,daux2
+REAL*8 dScale, daux,dist1, dist2,dEps,dCut
+REAL*8 myPI
 
+dEps = mySigma%a/1d5
+
+myPI = dATAN(1d0)*4d0
+
+IF (Z.ge.mySigma%mySegment(iSeg)%Min.and.Z.le.mySigma%mySegment(iSeg)%Max) then
+ DO l=1, mySigma%mySegment(iSeg)%N
+  dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+  dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+  IF (Z.GE.dKnetMin.AND.Z.LT.dKnetMax) THEN
+   lKnet = l
+   EXIT
+  END IF
+ END DO
+ELSE
+ IF (Z.lt.mySigma%mySegment(iSeg)%Min) lknet = 1
+ IF (Z.gt.mySigma%mySegment(iSeg)%Max) lknet = mySigma%mySegment(iSeg)%N
+END IF
+
+! First screw
+dist1 = DistTolerance
+XB = X
+YB = Y-mySigma%a/2d0
+ZB = Z
+
+! First the point needs to be transformed back to time = 0
+dAlpha = mySigma%mySegment(iSeg)%StartAlpha - t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
+
+dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+dKnetMed = dKnetMin + mySigma%mySegment(iSeg)%DiscFrac*(dKnetMax-dKnetMin)
+!dKnetMed = 0.5d0*(dKnetMin+dKnetMax)
+dBeta1 = myPI*DBLE(l-1)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+dBeta2 = myPI*DBLE(l-2)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+
+! Next the point needs to be transformed back to Z = 0 level
+XTT = XT*cos(dBeta1) - YT*sin(dBeta1)
+YTT = XT*sin(dBeta1) + YT*cos(dBeta1)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux1)
+
+XTT = XT*cos(dBeta2) - YT*sin(dBeta2)
+YTT = XT*sin(dBeta2) + YT*cos(dBeta2)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux2)
+
+dZ = MIN(ABS(ZT-dKnetMed),ABS(ZT-dKnetMax))
+IF (ZT.GE.dKnetMed.and.ZT.LE.dKnetMax) THEN
+ IF (daux1.ge.0d0) THEN
+  daux=daux1
+ ELSE
+  daux=Max(daux1,-dZ)
+ END IF
+END IF
+
+IF (ZT.GE.dKnetMin.and.ZT.LE.dKnetMed) THEN
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+   dZ = MIN(ABS(ZT-dKnetMin),ABS(ZT-dKnetMed))
+   daux=max(daux,-dZ)
+ ELSE
+  dZ = ABS(ZT-dKnetMed)
+  IF (daux1.lt.0d0) THEN
+   daux=min(dZ,daux)
+  ELSE
+   daux=min(daux,SQRT(daux1**2d0+dZ**2d0))
+  END IF
+ END IF
+END IF
+
+IF (ZT.GT.dKnetMax) THEN
+ dZ = ABS(ZT-dKnetMax)
+ daux=daux1
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+IF (ZT.LT.dKnetMin) THEN
+ dZ = ABS(ZT-dKnetMin)
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+dist1 = max(-DistTolerance,min(daux,dist1))
+
+END DO
+
+IF (dist1.LT.0d0) THEN
+ inpr = 101
+END IF
+
+
+! Second screw
+dist2 = DistTolerance
+XB = X
+YB = Y+mySigma%a/2d0
+ZB = Z
+
+! First the point needs to be transformed back to time = 0
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%mySegment(iSeg)%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+
+! First the point needs to be transformed back to time = 0
+XT = XB*cos(dAlpha) - YB*sin(dAlpha)
+YT = XB*sin(dAlpha) + YB*cos(dAlpha)
+ZT = ZB
+
+DO l=MAX(1,lKnet-1),MIN(mySigma%mySegment(iSeg)%N,lKnet+1)
+
+dKnetMin = mySigma%mySegment(iSeg)%Min + DBLE(l-1)*mySigma%mySegment(iSeg)%D-dEps
+dKnetMax = mySigma%mySegment(iSeg)%Min + DBLE(l  )*mySigma%mySegment(iSeg)%D+dEps
+dKnetMed = dKnetMin + mySigma%mySegment(iSeg)%DiscFrac*(dKnetMax-dKnetMin)
+!dKnetMed = 0.5d0*(dKnetMin+dKnetMax)
+dBeta1 = myPI*DBLE(l-1)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+dBeta2 = myPI*DBLE(l-2)*mySigma%mySegment(iSeg)%Alpha/1.8d2
+
+! Next the point needs to be transformed back to Z = 0 level
+XTT = XT*cos(dBeta1) - YT*sin(dBeta1)
+YTT = XT*sin(dBeta1) + YT*cos(dBeta1)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux1)
+
+XTT = XT*cos(dBeta2) - YT*sin(dBeta2)
+YTT = XT*sin(dBeta2) + YT*cos(dBeta2)
+
+CALL Schnecke_nGang(XTT,YTT,iSeg,daux2)
+
+dZ = MIN(ABS(ZT-dKnetMed),ABS(ZT-dKnetMax))
+IF (ZT.GE.dKnetMed.and.ZT.LE.dKnetMax) THEN
+ IF (daux1.ge.0d0) THEN
+  daux=daux1
+ ELSE
+  daux=Max(daux1,-dZ)
+ END IF
+END IF
+
+IF (ZT.GE.dKnetMin.and.ZT.LE.dKnetMed) THEN
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+   dZ = MIN(ABS(ZT-dKnetMin),ABS(ZT-dKnetMed))
+   daux=max(daux,-dZ)
+ ELSE
+  dZ = ABS(ZT-dKnetMed)
+  IF (daux1.lt.0d0) THEN
+   daux=min(dZ,daux)
+  ELSE
+   daux=min(daux,SQRT(daux1**2d0+dZ**2d0))
+  END IF
+ END IF
+END IF
+
+IF (ZT.GT.dKnetMax) THEN
+ dZ = ABS(ZT-dKnetMax)
+ daux=daux1
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+IF (ZT.LT.dKnetMin) THEN
+ dZ = ABS(ZT-dKnetMin)
+ daux=MAX(daux1,daux2)
+ IF (daux.le.0d0) THEN
+  daux=dZ
+ ELSE
+  daux=SQRT(daux**2d0+dZ**2d0)
+ END IF
+END IF
+
+dist2 = max(-DistTolerance,min(daux,dist2))
+! dist2 =MIN(daux,dist2)
+
+END DO
+
+IF (dist2.LT.0d0) THEN
+ inpr = 102
+END IF
+
+END SUBROUTINE TrueKNET_elem
+!
+!********************GEOMETRY****************************
+!
 SUBROUTINE SKNET_elem(X,Y,Z,t,iSeg,dist1,dist2,inpr)
 IMPLICIT NONE
 REAL*8 X,Y,Z,t

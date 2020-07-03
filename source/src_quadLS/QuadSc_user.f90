@@ -88,13 +88,13 @@ END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
 use var_QuadScalar, only : myFBM
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
 implicit none
 
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
 REAL*8 :: tt=4d0
-INTEGER iT,j,iInflow
+INTEGER iT,j,iInflow,iMat
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
@@ -102,8 +102,9 @@ REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDen
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
-REAL*8 :: U_bar, h, normalizedTime, val
+REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
+real*8 dRPM
 
 ValU = 0d0
 ValV = 0d0
@@ -120,7 +121,8 @@ IF (iT.lt.0) THEN
     dCenter       = myProcess%myInflow(iInflow)%center
     dNormal       = myProcess%myInflow(iInflow)%normal
     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
+    iMat          = myProcess%myInflow(iInflow)%Material
+    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
     douterradius  = myProcess%myInflow(iInflow)%outerradius
     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
     dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
@@ -133,7 +135,8 @@ IF (iT.lt.0) THEN
     dCenter       = myProcess%myInflow(iInflow)%center
     dNormal       = myProcess%myInflow(iInflow)%normal
     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
+    iMat          = myProcess%myInflow(iInflow)%Material
+    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
     douterradius  = myProcess%myInflow(iInflow)%outerradius
     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
     dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
@@ -146,7 +149,8 @@ IF (iT.lt.0) THEN
     dCenter       = myProcess%myInflow(iInflow)%center
     dNormal       = myProcess%myInflow(iInflow)%normal
     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
+    iMat          = myProcess%myInflow(iInflow)%Material
+    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
     douterradius  = myProcess%myInflow(iInflow)%outerradius
     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
     ValU = dProfil(1)
@@ -158,7 +162,8 @@ IF (iT.lt.0) THEN
     dCenter       = myProcess%myInflow(iInflow)%center
     dNormal       = myProcess%myInflow(iInflow)%normal
     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    ddensity      = myProcess%myInflow(iInflow)%density
+    iMat          = myProcess%myInflow(iInflow)%Material
+    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
     douterradius  = myProcess%myInflow(iInflow)%outerradius
     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
     dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
@@ -191,6 +196,13 @@ IF (iT.EQ.2) THEN
  ValW= 0d0
 END IF
 
+IF (iT.EQ.200) THEN
+ dScale=1.0d0*(3d0/2d0)/(0.205d0*0.205d0)
+ ValU=dScale*Y*(0.41d0-Y)*sin(t*PI/8d0)
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.EQ.3) THEN
  ValU= 1d0
  ValV= 0d0
@@ -208,7 +220,7 @@ END IF
 IF (iT.EQ.6) THEN
     dCenter       = [0.05d0, 0.055d0, 0.0d0]
     dNormal       = [1.0d0, 1.0d0, 0.0d0]
-    dMassFlow     = 1.0d0
+    dMassFlow     = 0.5d0
     ddensity      = 1.0d0
     douterradius  = 0.200d0
     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
@@ -224,10 +236,14 @@ IF (iT.EQ.770) THEN
 END IF
 
 IF (iT.EQ.771) THEN
-  ValU =  -myTwoPI*Y*(1d0/6d1)
-  ValV =   myTwoPI*X*(1d0/6d1)
+  dist = ((X-2.4)**2d0 + (Y+3.4)**2d0 + Z**2d0)**0.5d0 
+  if (dist.le.3.3) dFact = 1d0
+  if (dist.gt.3.3) dFact = 1d0
+  dRPM = 12d0*dFact 
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
-  ValW =   -0.77d0/60d0
+  ValW =   -0.77d0*(dRPM/60d0)
 END IF
 
 IF (iT.EQ.8.OR.IT.EQ.9) THEN
@@ -862,19 +878,25 @@ END SUBROUTINE GetVeloMixerVal
 !
 FUNCTION ViscosityModel(NormShearSquare,Temperature)
 USE Transport_Q2P1, ONLY : Properties
-USE Sigma_User, ONLY: myRheology
+USE Sigma_User, ONLY: myMultiMat,tRheology
 IMPLICIT NONE
 
 real*8 :: ViscosityModel
 real*8, intent (in) :: NormShearSquare
+! integer, intent (in) :: iMat
 real*8, intent (in), optional :: Temperature
 REAL*8 :: dStrs, aT, dLimStrs
 REAL*8 :: VNN,daux
 REAL*8 :: dN
+INTEGER iMat
+TYPE(tRheology), POINTER :: myRheology
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 aT = 1d0
+
+iMat = myMultiMat%initMaterial
+myRheology => myMultiMat%Mat(iMat)%Rheology
 
 ! C1C2
 if (present(Temperature)) then
@@ -936,14 +958,125 @@ IF (myRheology%Equation.EQ.6) THEN
  VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
-dLimStrs = MIN(myRheology%ViscoMax,MAX(myRheology%ViscoMin,ABS(dStrs)))
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
-ViscosityModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+ViscosityModel = VNN
 
+! IF (myRheology%Equation.EQ.2) THEN
+!  ViscosityModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+! else
+!  ViscosityModel = MIN(1d1*1d9,MAX(1d1*myRheology%ViscoMin,VNN))
+! END IF
+
+myRheology => NULL()
 
 RETURN
 
 end function ViscosityModel
+!
+!------------------------------------------------------------
+!
+FUNCTION ViscosityMatModel(NormShearSquare,iMat,Temperature)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+USE PP3D_MPI, ONLY:myid
+IMPLICIT NONE
+
+real*8 :: ViscosityMatModel
+real*8, intent (in) :: NormShearSquare
+integer, intent (in) :: iMat
+real*8, intent (in), optional :: Temperature
+REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: VNN,daux
+REAL*8 :: dN
+TYPE(tRheology), POINTER :: myRheology
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+aT = 1d0
+
+myRheology => myMultiMat%Mat(iMat)%Rheology
+
+!if (imat.eq.0) write(*,*)myid,myRheology%Equation,myRheology%n,myRheology%AtFunc
+
+! C1C2
+if (present(Temperature)) then
+ IF (myRheology%AtFunc.EQ.2) THEN
+  daux = - myRheology%C1*(Temperature-myRheology%Tb)/(myRheology%C2 + Temperature- myRheology%Tb)
+  aT = EXP(daux)
+ END IF
+
+ ! TBTS
+ IF (myRheology%AtFunc.EQ.3) THEN
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
+  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+!   aT = EXP(daux)
+  aT = 1d1**daux
+ END IF
+ 
+!ETB myRheology%E is in J/mol
+ IF (myRheology%AtFunc.EQ.4) THEN
+  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
+  aT = EXP(daux)
+ END IF
+ 
+end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+dStrs = (2d0*NormShearSquare)**0.5d0
+
+dLimStrs = MIN(1d5,MAX(1d-2,ABS(dStrs)))
+
+! Paderborn Carreau
+IF (myRheology%Equation.EQ.1) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
+
+!PowerLaw
+IF (myRheology%Equation.EQ.2) THEN
+ VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+END IF
+
+!POLYFLOW carreau
+IF (myRheology%Equation.EQ.3) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**2d0))**(0.5d0*(myRheology%C-1d0)) 
+END IF
+
+!Ellis
+IF (myRheology%Equation.EQ.4) THEN
+ VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**(myRheology%C-1d0)) 
+END IF
+
+!MAS
+IF (myRheology%Equation.EQ.7) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
+! HogenPowerLaw
+IF (myRheology%Equation.EQ.5) THEN
+ dN = Properties%PowerLawExp-1d0
+ VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
+END IF
+
+! Bingham
+IF (myRheology%Equation.EQ.6) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
+
+! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
+ViscosityMatModel = VNN
+
+! IF (myRheology%Equation.EQ.2) THEN
+!  ViscosityMatModel = MIN(1d1*myRheology%ViscoMax,MAX(1d1*myRheology%ViscoMin,VNN))
+! else
+!  ViscosityMatModel = MIN(1d1*1d9,MAX(1d1*myRheology%ViscoMin,VNN))
+! END IF
+
+myRheology => NULL()
+
+RETURN
+
+end function ViscosityMatModel
 !
 !
 !
@@ -971,18 +1104,28 @@ END SUBROUTINE TransformPointToNonparallelRotAxis
 !
 SUBROUTINE SetInitialTemperature(T,Coor,ndof)
 USE Sigma_User, ONLY: myProcess
+implicit none
 integer ndof
 real*8 T(*),coor(3,*)
 integer i
-real*8 Z
+real*8 X,Y,Z,distance
 
 DO i=1,ndof
 
+ X = coor(1,i)
+ Y = coor(2,i)
  Z = coor(3,i)
+ 
+  !!!!!!!!!!!!!!!!!!!! VEKA !!!!!!!!!!!!!!!!!!!!!!!
+!  distance = ( 2d0*(X+0d0)**2d0 + 6d0*(Y+0d0)**2d0 + (Z-39.0d0)**2d0 )**0.5d0
+!  distance = max(13.5d0,distance)
+!  T(i) = 200d0 - 15d0 * (distance-13.5d0)/42.7d0
+ 
  T(i) = myProcess%T0 + Z*myProcess%T0_slope
+ 
  
 end do
 
-Temperature = myProcess%T0
+! Temperature = myProcess%T0
 
 END SUBROUTINE SetInitialTemperature

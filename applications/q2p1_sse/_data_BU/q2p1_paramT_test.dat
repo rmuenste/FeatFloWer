@@ -1,0 +1,25 @@
+----------- Simulation Parameters --------------
+SimPar@MeshFolder = "NEWFAC"
+SimPar@SubMeshNumber = 1                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
+SimPar@ParticleFile = "_data/particles.dat"
+SimPar@ProjectFile = "_data/meshDir/file.prj"
+SimPar@ProtocolFile = "_data/prot.txt"
+SimPar@StartingProc = 0                                                 ! 0,1,2
+SimPar@StartFile = 0
+SimPar@SolFile = "_sol/1/mySol"
+SimPar@MinMeshLevel = 1
+SimPar@MaxMeshLevel = 2
+SimPar@MatrixRenewal = M1D1K3S0C1
+SimPar@MaxNumStep = 1
+SimPar@OutputFields = " "
+SimPar@CGALtoRealFactor = 1d0
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! To Delete Later  !!!!!!!!!!!!!!!!!!!!!!!!!!!
+SimPar@OutputFields = "Velocity,Temperature,Screw,Viscosity,NormShearRate"
+SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
+SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+----------------- Velocity --------------------
+Velo@MGMinLev = 1
+Velo@MGMedLev = 1
+----------------- Pressure ---------------------
+Pres@MGMinLev = 1
+Pres@MGMedLev = 1

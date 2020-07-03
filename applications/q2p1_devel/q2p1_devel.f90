@@ -19,6 +19,7 @@ PROGRAM Q2P1_DEVEL
   REAL*8 ViscosityModel
   REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
   CHARACTER sTimeStep*(9)
+  CHARACTER cStartFile*(60)
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -82,6 +83,11 @@ PROGRAM Q2P1_DEVEL
 
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
+!   cStartFile = "_dump/05"
+!   CALL SolFromFile_Compact(cStartFile,1)
+!  if (itns.eq.10)  CALL SolToFile_Compact(5)
+
+  
 !   CALL updateFBMGeometry()
   !-------MAIN LOOP-------
 
@@ -99,7 +105,7 @@ PROGRAM Q2P1_DEVEL
 
 !   write(*,*) myid, ' reached this stage'
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
-
+  
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
   call handle_statistics(tt0,itns)

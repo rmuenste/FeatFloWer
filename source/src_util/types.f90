@@ -123,6 +123,8 @@ TYPE tBndryNone
  LOGICAL :: ParamTypes(4)
  INTEGER :: nPoint=0,nLine=0,nSurf=0,nVolume=0
  INTEGER, ALLOCATABLE :: P(:),L(:),S(:),V(:)
+ real*8    :: x(3)
+ logical   :: bx=.false.
 END TYPE tBndryNone
 
 !================================================================================================
@@ -148,7 +150,225 @@ TYPE tParticle
  REAL*8 time
  REAL*8 coor(3)
  INTEGER indice
+ INTEGER :: ID=1
 END TYPE tParticle
+
+! Careful this is a type from PLinSc
+!TYPE tParam
+! REAL*8  thetaRI,AvgGradPhiTol
+! REAL*8  defCrit,epsCrit,MinDef,theta
+! INTEGER NLminRI,NLmaxRI,nRI
+! INTEGER NLmin,NLmax
+! INTEGER SolvIter,SolvType,iMass
+! INTEGER StabScheme,SrfCubF,VolCubF
+! LOGICAL SlopeLimit
+!END TYPE tParam
+
+TYPE tMGParamIn
+ INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
+ integer :: vanka
+ REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
+ REAL*8 :: CrsRelaxPrm=2d0/3d0,CrsRelaxParPrm=1d0/3d0
+ CHARACTER*1 CycleType
+ CHARACTER*10 MGProlongation
+END TYPE tMGParamIn
+
+TYPE tMGParamOut
+ REAL*8 DefInitial,DefFinal
+ REAL*8 RhoMG1,RhoMG2
+ INTEGER UsedIterCycle,nIterCoarse
+END TYPE tMGParamOut
+
+TYPE tParam
+ Character*20 :: cEquation
+
+ REAL*8  defCrit,epsCrit,MinDef
+
+ INTEGER NLmin,NLmax
+
+ INTEGER SolvIter,SolvType
+
+ LOGICAL AFC
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut(3)
+END TYPE tParam
+
+
+TYPE mg_vector
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
+END TYPE mg_vector
+
+TYPE tAFC
+ INTEGER :: iedge,nedge,nu
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: inod,jnod,iaux,isep
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aedge
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: pp,pm,qm,qp
+END TYPE
+TYPE(tAFC) AFC
+
+TYPE TlMatrix
+ INTEGER :: nu,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
+END TYPE
+
+
+! Careful this type is from PLinScalar and
+! has the same name as the one from LinScalar
+!TYPE lScalar
+! CHARACTER cName*7
+! INTEGER :: ndof,na,nel,iNumFace
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,val_ad
+! REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Q1
+! INTEGER , DIMENSION(:,:), ALLOCATABLE :: iParFace
+! REAL*8  , DIMENSION(:,:), ALLOCATABLE :: dParFace,dParMidC
+! TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
+! TYPE(tParam) :: prm
+!END TYPE
+
+TYPE lScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,oldSol
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: src,snk
+ TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
+ TYPE(tParam) :: prm
+END TYPE
+
+TYPE tStatistics
+ INTEGER :: iNonLin=0,iLinUVW=0,iLinP=0
+ REAL  :: tMGUVW=0d0,tMGP=0d0,tDefUVW=0d0,tDefP=0d0,tCorrUVWP=0d0
+ REAL  :: tGMVOut=0d0,tDumpOut=0d0
+ REAL  :: tSmat=0d0,tKmat=0d0,tDmat=0d0,tMmat=0d0,tCmat=0d0
+ REAL  :: tRestUVW=0d0,tProlUVW=0d0,tSmthUVW=0d0,tSolvUVW=0d0
+ REAL  :: tRestP=0d0,tProlP=0d0,tSmthP=0d0,tSolvP=0d0
+ REAL  :: tCommV = 0d0
+ REAL  :: tCommP = 0d0
+ REAL  :: tCommS = 0d0
+ REAL  :: t0,t1
+END TYPE tStatistics
+TYPE (tStatistics),save :: myStat
+
+TYPE tProperties
+ CHARACTER cName*7
+ CHARACTER Material(2)*10
+ REAL*8 :: Gravity(3)
+ REAL*8, dimension(6) :: ForceScale = (/1d0, 1d0, 1d0, 1d0, 1d0, 1d0/)
+ REAL*8 Density(2),Viscosity(2),DiffCoeff(2),Sigma,DiracEps,PowerLawExp
+ REAL*8 :: ViscoLambda
+ REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
+ REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
+ INTEGER :: ViscoModel
+ INTEGER :: nInterface
+END TYPE tProperties
+
+TYPE tParamV
+ REAL*8  defCrit,MinDef
+ Real*8 :: Alpha
+ INTEGER SolvType
+ INTEGER iMass,NLmin,NLmax
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut(3)
+END TYPE tParamV
+
+TYPE tParamP
+ TYPE(tMGParamIn) :: MGprmIn
+ TYPE(tMGParamOut):: MGprmOut
+END TYPE tParamP
+
+
+TYPE mg_dVector
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
+END TYPE mg_dVector
+
+TYPE mg_kVector
+ INTEGER  , DIMENSION(:) , ALLOCATABLE :: x
+END TYPE mg_kVector
+
+TYPE tGradient
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x,y,z
+END TYPE tGradient
+
+TYPE TViscoScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val11,val22,val33,val12,val13,val23,rhs0,ValOld,diag
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol
+ TYPE(tGradient) :: grad11,grad22,grad33,grad12,grad13,grad23
+ TYPE(tParamV) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+TYPE TLinScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprP
+! TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knpr
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_old,P_old,P_new
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE ::  ST_P,Q2
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: valP,defP,auxP,rhsP,dvalP
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valP_GMV
+ TYPE(tParamP) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+TYPE TQuadScalar
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprU
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprV
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprW
+ TYPE(mg_kVector), DIMENSION(:),ALLOCATABLE :: knprT
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+! In this part also valX_old1/2 and valX_help are added for the BDF time-stepping (locally allocated in q2p1_cc)
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxU,rhsU,defU,valU_old,valU,valU_old1,valU_help,valU_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxV,rhsV,defV,valV_old,valV,valV_old1,valV_help,valV_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: auxW,rhsW,defW,valW_old,valW,valW_old1,valW_help,valW_old2
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valUx,valUy,valUz
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valVx,valVy,valVz
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valWx,valWy,valWz
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,aux,rhs,sol,dsol
+ TYPE(tParamV) :: prm
+ LOGICAL :: bProlRest=.FALSE.
+END TYPE
+
+type fieldPtr
+  real*8, dimension(:), pointer ::p
+end type fieldPtr
+
+
+TYPE TParLinScalar
+ INTEGER :: ndof
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE::  Val
+END TYPE
+
+TYPE TMatrix
+ INTEGER :: nu,na
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: ColA,LdA
+END TYPE
+
+TYPE TcrsStructure
+! INTEGER, ALLOCATABLE :: A_Ld(:),A_Col(:)
+ REAL*8, ALLOCATABLE  :: A_Mat(:),A_Rhs(:),A_Sol(:)
+ TYPE(TMatrix) A
+! INTEGER nu,na
+END TYPE
+
+TYPE lScalar3
+ CHARACTER cName*7
+ INTEGER :: ndof,na
+ LOGICAL :: bProlRest=.FALSE. 
+
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knprX,knprY,knprZ
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX_old,valY_old,valZ_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: valX,valY,valZ
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: defX,defY,defZ
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
+ TYPE(tParam) :: prm
+ 
+END TYPE
 
 TYPE tVelo
  REAL*8, ALLOCATABLE :: x(:)
@@ -165,8 +385,12 @@ TYPE(tVelo), ALLOCATABLE :: myVelo(:)
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
 
+TYPE tParticleInflow
+ REAL*8 :: Center(3), Radius
+END TYPE tParticleInflow
+
 TYPE tParticleParam
- REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist
+ REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist,OutflowZPos
  REAL*8 :: minFrac
  INTEGER :: nTimeLevels,nParticles,nRotation,Raster,dump_in_file,nPeriodicity
  ! What kind of starting procedure?
@@ -196,6 +420,15 @@ TYPE tParticleParam
  
  LOGICAL :: bRotationalMovement=.true.
 
+ LOGICAL :: bBacktrace=.false.
+ 
+ INTEGER :: NumberOfInflowRegions=0
+ TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
+ 
+ !!!! Seeding 
+ INTEGER  :: Plane = 0, PlaneParticles = 0, VolumeParticles = 0
+ REAL*8   :: PlaneOffset=0d0
+ 
 END TYPE tParticleParam
 
 ! Define parameters to find out where the particle-seed comes from
@@ -208,9 +441,155 @@ integer, parameter, public :: ParticleSeed_CSVFILE = 1
 ! for benchmarks.
 integer, parameter, public :: ParticleSeed_OUTPUTFILE = 2
 
+! This setting makes possible to seed the particles in the element center of the hex mesh on the finest level
+integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
+
+! This defines a planar seeding
+integer, parameter, public :: ParticleSeed_PLANE = 8
+
+! This defines a planar seeding
+integer, parameter, public :: ParticleSeed_VOLUME = 9
+
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax
 END TYPE tMeshInfoParticle
 type(tMeshInfoParticle) :: myMeshInfo
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+TYPE tPID
+ REAL*8 T_set,sumI,e_old
+ REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
+END TYPE tPID
+
+TYPE tSensor
+  REAL*8 :: Radius=0d0, Coor(3)=[0d0,0d0,0d0], Volume, CurrentTemperature
+  LOGICAL :: HeatingStatus = .true.
+  REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
+END TYPE tSensor
+
+TYPE tSegment
+  INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
+  CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
+  INTEGER, ALLOCATABLE :: idxCgal(:),idxCgalL(:),idxCgalR(:)
+  REAL*8 offsetAngle
+  CHARACTER*20 ObjectType,Unit
+  CHARACTER*10 name
+  CHARACTER*99 ::  cF
+  CHARACTER*8 ::  ART
+  INTEGER ::    KNETz,N
+  REAL*8  :: Ds,s,delta,Dss,excentre,DiscFrac=0.05d0
+  REAL*8, ALLOCATABLE :: Zknet(:)
+  REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
+  REAL*8 :: Min, Max,L
+  REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
+  INTEGER :: ZME_N
+  REAL*8  :: SecProf_W, SecProf_D,SecProf_L
+  INTEGER :: SecProf_N, SecProf_I
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+  INTEGER :: MatInd
+  REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
+  character*64 :: regulation="SIMPLE"
+  TYPE(tSensor) TemperatureSensor
+  TYPE(tPID) PID_ctrl
+  REAL*8 :: InitTemp,Volume
+  CHARACTER*200 :: TemperatureBC
+  !!!!!!!!!!!!!!!!!!!
+  INTEGER GANGZAHL
+   
+END TYPE tSegment
+
+TYPE tSigma
+!   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
+  CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
+  REAL*8 :: RotAxisCenter,RotAxisAngle
+  REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
+  REAL*8 :: SecStr_W,SecStr_D
+  INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
+  TYPE (tSegment), ALLOCATABLE :: mySegment(:)
+  INTEGER :: InnerDiamNParam=0
+  REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
+  LOGICAL :: bOnlyBarrelAdaptation=.false., bAnalyticalShearRateRestriction=.false.
+  
+END TYPE tSigma
+
+TYPE tRheology
+   INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
+   INTEGER :: AtFunc = 1 !-->> isotherm
+   REAL*8 :: A, B, C, D ! Carreau Parameter
+   REAL*8 :: n, K ! Power Law
+   REAL*8 :: eta_max, eta_min 
+   REAL*8 :: Ts, Tb, C1, C2, E! WLF Parameter
+   REAL*8 :: ViscoMin = 1e-4
+   REAL*8 :: ViscoMax = 1e10
+END TYPE tRheology
+
+TYPE tInflow
+ INTEGER iBCtype,Material
+ REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  center(3),normal(3)
+END TYPE tInflow
+
+TYPE tProcess
+   REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
+   REAL*8 :: MinInflowDiameter,MaxInflowDiameter
+   INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
+   REAL*8 :: dAlpha
+   CHARACTER*6 :: Rotation !RECHT, LINKS
+   CHARACTER*50 :: pTYPE !RECHT, LINKS
+   INTEGER :: ind,iInd
+   REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
+   integer   nOfInflows
+   TYPE (tInflow), dimension(:), allocatable :: myInflow
+  !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
+   REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
+   REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
+
+!    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
+END TYPE tProcess
+
+TYPE tThermodyn
+   CHARACTER*60 :: DensityModel='NO'
+   REAL*8 :: density=0d0, densitySteig=0d0
+   REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
+   REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
+END TYPE tThermodyn
+
+TYPE tSingleMat
+   CHARACTER*256 :: cMatNAme='UnknownMaterial'
+   TYPE(tRheology)  :: Rheology
+   TYPE(tThermodyn) :: Thermodyn
+END TYPE tSingleMat
+
+TYPE tMultiMat
+   Integer :: nOfMaterials=1,initMaterial=1
+   TYPE(tSingleMat) , Allocatable  :: Mat(:)
+END TYPE tMultiMat
+
+TYPE tTransientSolution
+ INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
+ TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
+ TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+END TYPE tTransientSolution
+
+TYPE tSetup
+ LOGICAL :: bPressureFBM = .FALSE.
+ LOGICAL :: bAutomaticTimeStepControl = .TRUE.
+ REAL*8 :: CharacteristicShearRate=1d1
+ CHARACTER*200 cMeshPath
+ CHARACTER*20 cMesher
+ INTEGER MeshResolution
+ INTEGER m_nT,m_nT1,m_nT2,m_nR,m_nZ,m_nP,m_nX,m_nY,nBoxElem
+ REAL*8 m_box(3,2)
+ LOGICAL :: bGeoTest=.FALSE.,bSendEmail=.TRUE.
+END TYPE tSetup
+
+TYPE tOutput
+ INTEGER :: nOf1DLayers=16
+ INTEGER :: nOfHistogramBins=16
+ REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
+ REAL*8  :: CutDtata_1D=0.04d0
+END TYPE tOutput
 
 end module types

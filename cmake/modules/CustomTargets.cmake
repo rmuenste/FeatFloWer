@@ -13,6 +13,21 @@
 #=========================================================================
 #           A function that adds a custom command to a target 
 #=========================================================================
+function(writeCommitHash targetName)
+
+  #message("Commit hash: ${commitHash} from target ${targetName}")
+  add_custom_command(
+    TARGET ${targetName}
+    POST_BUILD
+    COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_SOURCE_DIR}" rev-parse --verify HEAD > git-info.txt
+    COMMENT "Generating git-info"
+  )
+
+endfunction(writeCommitHash targetName)
+
+#=========================================================================
+#           A function that adds a custom command to a target 
+#=========================================================================
 function(addCompilerInfo targetName)
 
   add_custom_command(

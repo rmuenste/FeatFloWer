@@ -1,12 +1,9 @@
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Structures_sse, &
     InitCond_QuadScalar,ProlongateSolution,updateFBMGeometry, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
+    bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
@@ -25,8 +22,8 @@ subroutine init_q2p1_ext(log_unit)
 
   !-------INIT PHASE-------
   ApplicationString = &
-"  |                                                          SSE-FluidDynmaics module                |"
-!  |                                                          SSE-FluidDynmaics module                |
+"  |                                                          SSE-FluidDynamics module                |"
+!  |                                                          SSE-FluidDynamics module                |
   
   
   ! Initialization for FEATFLOW
@@ -129,7 +126,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
- REAL*8 ViscosityModel
+ REAL*8 ViscosityMatModel
  REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
  CHARACTER sTimeStep*(9)
  
@@ -232,7 +229,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
     dShear = 10**dble(i)
     do j=-1,1
      dTemp(j+2)  = myProcess%T0 + dble(j)*10.0
-     dVisco(j+2)     = ViscosityModel((dShear**2d0)/2d0,dTemp(j+2))
+     dVisco(j+2)     = ViscosityMatModel((dShear**2d0)/2d0,1,dTemp(j+2))
     end do
     WRITE(mterm,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
     WRITE(mfile,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
@@ -248,7 +245,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
    dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
    dCharShear     = dCharVelo/dCharSize
-   dCharVisco     = ViscosityModel(mySetup%CharacteristicShearRate,myProcess%T0)
+   dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
+!    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
    TimeStep       = 1d-2 * (dCharSize/dCharVisco)
    WRITE(sTimeStep,'(ES9.1)') TimeStep
    READ(sTimeStep,*) TimeStep
@@ -583,6 +581,18 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
        mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
       END DO
      END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_LR") THEN
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgalL(mySigma%mySegment(iSeg)%nOFFfilesL))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgalL(iFile) = NumberOfSTLDescription
+      END DO
+      ALLOCATE(mySigma%mySegment(iSeg)%idxCgalR(mySigma%mySegment(iSeg)%nOFFfilesR))
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+       NumberOfSTLDescription = NumberOfSTLDescription + 1
+       mySigma%mySegment(iSeg)%idxCgalR(iFile) = NumberOfSTLDescription
+      END DO
+     END IF
     END DO
 
     IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
@@ -593,6 +603,14 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
          ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
+      END DO
+     END IF
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_LR") THEN
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesL
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesL(iFile)))
+      END DO
+      DO iFile=1,mySigma%mySegment(iSeg)%nOFFfilesR
+       IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfilesR(iFile)))
       END DO
      END IF
     END DO

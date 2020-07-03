@@ -1,26 +1,26 @@
-PROGRAM Q2P1_EXPERIMENTAL
+PROGRAM Q2P1_FC_EXT
 
   include 'defs_include.h'
 
   use solution_io, only: postprocessing_app
 
-  use app_initialization, only: init_q2p1_app
-
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
 
+  USE PP3D_MPI, ONLY:myid,master,myMPI_Barrier,Barrier_myMPI
+                     
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
   real               :: dout = 0.0
-  integer            :: ufile=111,ilog
+  integer            :: ufile,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
   !-------INIT PHASE-------
 
-  call init_q2p1_app(ufile)
+  call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
   call ztime(dtt0)
@@ -35,9 +35,9 @@ PROGRAM Q2P1_EXPERIMENTAL
   timnsh=timens
   dt=tstep
   timens=timens+dt
-
+  
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  CALL Transport_q2p1_UxyzP_fc_ext_static(ufile,inonln_u,itns)
 
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
@@ -46,7 +46,7 @@ PROGRAM Q2P1_EXPERIMENTAL
     inonln_t = 2
   END IF
 
-  call postprocessing_app(dout,  inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -60,4 +60,4 @@ PROGRAM Q2P1_EXPERIMENTAL
 
   call sim_finalize(tt0,ufile)
 
-END PROGRAM Q2P1_EXPERIMENTAL
+END PROGRAM Q2P1_FC_EXT

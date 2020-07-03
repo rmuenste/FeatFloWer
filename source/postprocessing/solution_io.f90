@@ -19,9 +19,9 @@ contains
 ! @param simTime current simulation time
 subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
-USE Transport_Q2P1,ONLY: QuadSc,LinSc,bViscoElastic,Temperature
+USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
-USE Transport_Q1, ONLY: Tracer
+USE var_QuadScalar, ONLY: Tracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
 
@@ -70,7 +70,9 @@ packed(2)%p => QuadSc%auxV
 packed(3)%p => QuadSc%auxW
 
 call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                  3, packed)                 
+                  3, packed)    
+                  
+                 
 
 IF (allocated(Temperature)) then
  fieldName = "temperature"
@@ -80,13 +82,90 @@ IF (allocated(Temperature)) then
                    1, packed)                 
 END IF                  
 
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) = MaterialDistribution(NLMAX)%x(1:knel(NLMAX))
+ packed(1)%p => QuadSc%auxU
+ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   1, packed)                 
+END IF                  
+
 IF (myid.eq.1) THEN
-  if(outputRigidBodies())then
+  if(outputRigidBodies())then      
     call write_sol_rb(iOut)
   end if
 end if
                   
 end subroutine write_sol_to_file
+!
+!================================================================================================
+! Wrapper routine for writing the solution to a file 
+!================================================================================================
+! @param iInd number of the output
+! @param istep number of the discrete time step
+! @param simTime current simulation time
+subroutine write_sol_to_file_heat(imax_out, time_ns, output_idx)
+USE def_FEAT
+USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
+USE var_QuadScalar, ONLY: Tracer
+USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
+USE cinterface, ONLY: outputRigidBodies
+
+implicit none
+integer, intent(in) :: imax_out
+real*8, intent(in) :: time_ns
+
+integer, optional :: output_idx
+
+! locals
+integer :: iout
+integer :: ndof
+integer :: nelem
+character(60) :: fieldName
+
+type(fieldPtr), dimension(3) :: packed
+
+if(.not.present(output_idx))then
+  ifile = ifile+1
+  iout=mod(ifile+imax_out-1,imax_out)+1
+else
+  iout = output_idx
+end if
+
+nelem = knel(nlmax)
+
+ndof = knvt(NLMAX) + knat(NLMAX) + knet(NLMAX) + knel(NLMAX)
+
+call write_time_sol(iout,istep_ns, time_ns)
+
+fieldName = "coordinates"
+
+QuadSc%auxU = mg_mesh%level(nlmax+1)%dcorvg(1,:)
+QuadSc%auxV = mg_mesh%level(nlmax+1)%dcorvg(2,:)
+QuadSc%auxW = mg_mesh%level(nlmax+1)%dcorvg(3,:)
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                  3, packed)    
+                  
+                 
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ QuadSc%auxU = Temperature
+ packed(1)%p => QuadSc%auxU
+ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                   1, packed)                 
+END IF 
+
+CALL write_heatingStatus(iOut)
+                  
+end subroutine write_sol_to_file_heat
 !
 !================================================================================================
 ! Wrapper routine for reading the solution from a file 
@@ -98,9 +177,9 @@ subroutine read_sol_from_file(startFrom, iLevel, time_ns)
 
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 
 implicit none
 
@@ -143,6 +222,14 @@ IF (allocated(Temperature)) then
  packed(1)%p => QuadSc%auxU
  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  Temperature = QuadSc%auxU
+END IF                  
+
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
 END IF                  
 
 ! This part here is responsible for creation of structures enabling the mesh coordinate 
@@ -244,6 +331,64 @@ if(myid.ne.0)then
 end if
 
 end subroutine write_pres_sol
+! @param iInd 
+! @param iiLev the solution is written out on lvl: NLMAX+iiLev 
+! @param nn the number of mesh elements on level NLMAX 
+! @param nmin NLMIN 
+! @param nmax NLMAX 
+! @param elemmap a map from local to global element index 
+! @param edofs an array of the fine level dofs in a coarse mesh element 
+! @param pres the array of pressure values on lvl NLMAX 
+subroutine write_Q0_sol(iInd,iiLev,nn, nmin, nmax,elemmap,edofs,q0)
+use pp3d_mpi, only:myid,coarse
+implicit none
+
+integer, intent(in) :: iInd
+integer, intent(in) :: iiLev
+integer, intent(in) :: nn
+integer, intent(in) :: nmin
+integer, intent(in) :: nmax
+
+integer, dimension(:) :: elemmap
+integer, dimension(:,:) :: edofs
+real*8, dimension(:) :: q0
+
+! locals
+integer :: iunit = 321
+integer :: istatus
+integer :: dofsInCoarseElement
+integer :: elemCoarse
+integer :: iel
+integer :: ivt
+integer :: jvt
+character(60) :: fileName
+
+elemCoarse = KNEL(nmin)
+
+! DO i=1,nn
+!  Field2(i) = Field1(4*(i-1)+1)
+!  Field3(i) = Field1(4*(i-1)+2)
+!  Field4(i) = Field1(4*(i-1)+3)
+!  Field5(i) = Field1(4*(i-1)+4)
+! END DO
+
+! the subdivision level of an element on the 
+! output level, NLMAX = 2, iiLev = 0
+! 8**(2-1) = 8
+! meaning on level 2 a coarse grid
+! element is divided into 8 elements
+dofsInCoarseElement = 8**((nmax+iiLev)-1)
+
+if(myid.ne.0)then
+
+ fileName = 'myarraypressure'
+ call write_sol_pres(fileName, iInd, iiLev, nn ,elemCoarse, dofsInCoarseElement, elemmap, edofs, q0) 
+
+end if
+
+
+end subroutine write_Q0_sol
+
 !================================================================================================
 ! Read the pressure solution from a file
 !================================================================================================
@@ -829,7 +974,7 @@ end subroutine read_q2_sol_single
 subroutine write_q2_sol(fieldName, idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
   use pp3d_mpi, only:myid,coarse
   use var_QuadScalar, only: fieldPtr
-  USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+  USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
   implicit none
 
   character(60) :: fieldName
@@ -889,7 +1034,7 @@ contains
   subroutine wrap_pointer(idx, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, p)
     use pp3d_mpi, only:myid,coarse
     use var_QuadScalar, only: fieldPtr
-    USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+    USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
     implicit none
 
     integer, intent(in) :: idx
@@ -946,7 +1091,7 @@ end subroutine write_q2_sol
 subroutine read_q2_sol(fieldName, startFrom, iiLev,nn, nmin, nmax,elemmap,edofs, icomp, field_pack)
   use pp3d_mpi, only:myid,coarse
   use var_QuadScalar, only: fieldPtr
-  USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+  USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
   implicit none
 
   character(60) :: fieldName
@@ -1006,7 +1151,7 @@ contains
   subroutine wrap_pointer(p)
     use pp3d_mpi, only:myid,coarse
     use var_QuadScalar, only: fieldPtr
-    USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+    USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
     implicit none
 
     real*8, dimension(:) :: p
@@ -1229,10 +1374,9 @@ end subroutine read_time_sol_single
 ! @param filehandle Unit of the output file
 !
 subroutine postprocessing_app(dout, inlU,inlT,filehandle)
-
-  include 'defs_include.h'
   
-  use var_QuadScalar, only: istep_ns,dTimeStepEnlargmentFactor
+  use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use def_FEAT
 
   implicit none
 
@@ -1289,6 +1433,77 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
+!
+!================================================================================================
+! A general postprocessing for a Feat_FloWer application
+!================================================================================================
+! @param dout Output interval
+! @param iogmv Output index of the current file 
+! @param istep number of the discrete time step
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
+  
+  use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use def_FEAT
+
+  implicit none
+
+  integer, intent(in) :: filehandle
+
+  real, intent(inout) :: dout
+  integer iXgmv
+
+  INTEGER :: inlU,inlT,MFILE
+
+  ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
+!   write(*,*) myid, 'a',dout, iXgmv, inlU,inlT,filehandle
+  
+  IF (itns.eq.1) THEN
+    CALL ZTIME(myStat%t0)
+    CALL Output_Profiles(0)
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+!     CALL ZTIME(myStat%t0)
+!     call write_sol_to_file(0, timens,0)
+!     CALL ZTIME(myStat%t1)
+  END IF
+
+  IF(dout.LE.(timens+1e-10)) THEN
+
+    IF (itns.ne.1) THEN
+      iXgmv = iXgmv - 1
+      CALL ZTIME(myStat%t0)
+      CALL Output_Profiles(iXgmv)
+      CALL ZTIME(myStat%t1)
+      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    END IF
+    tstep = dTimeStepEnlargmentFactor*tstep
+    dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    dout=dout+dtgmv
+
+    ! Save intermediate solution to a dump file
+    IF (insav.NE.0.AND.itns.NE.1) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
+        CALL ZTIME(myStat%t0)
+        call write_sol_to_file_heat(insavn, timens)
+        CALL ZTIME(myStat%t1)
+        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+      END IF
+    END IF
+
+  END IF
+! 
+  ! Timestep control
+!   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
+
+  ! Interaction from user
+  CALL ProcessControl(filehandle,mterm)
+
+end subroutine postprocessing_app_heat
 !
 !================================================================================================
 ! A simple time stepping routine
@@ -1355,12 +1570,12 @@ END SUBROUTINE TimeStepCtrl
 !
 subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
-  include 'defs_include.h'
-  
-  use Transport_Q2P1, only: QuadSc,LinSc
-  use Transport_Q1, only: Tracer
-  use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
-                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor 
+  use def_FEAT
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
+  use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
+                            iTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess
 
   use visualization_out, only: viz_output_fields
@@ -1373,6 +1588,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 
   integer :: inlU,inlT
   
+  integer :: iCrit_itns
+
   ! local variables
   integer :: iXgmv
 
@@ -1380,6 +1597,10 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   iXgmv = istep_ns
 
   IF (itns.eq.1) THEN
+   
+    iTimeStepEnlargmentFactor = int(2.5d0*(dtgmv/tstep))
+!     write(*,*) dtgmv,tstep,2.5d0*(dtgmv/tstep), iTimeStepEnlargmentFactor
+  
     CALL ZTIME(myStat%t0)
 
     call viz_output_fields(myExport, int(myProcess%angle), QuadSc, LinSc, & !Tracer, &
@@ -1405,8 +1626,11 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
     
-    tstep = dTimeStepEnlargmentFactor*tstep
-    dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    if (itns.lt.iTimeStepEnlargmentFactor) then
+     tstep = dTimeStepEnlargmentFactor*tstep
+     dtgmv = dTimeStepEnlargmentFactor*dtgmv
+    end if
+!     write(*,*) tstep,dtgmv,iTimeStepEnlargmentFactor
     dout=dout+dtgmv
 
     ! Save intermediate solution to a dump file
@@ -1441,10 +1665,8 @@ end subroutine postprocessing_sse
 ! @param simTime current simulation time
 subroutine write_sse_1d_sol()
 
-  include 'defs_include.h'
-  
-  use Transport_Q2P1, only: QuadSc,LinSc
-  use Transport_Q1, only: Tracer
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
   use var_QuadScalar, only: istep_ns, myExport, mg_mesh,&
                             Viscosity, Distance, Shearrate 
   use Sigma_User, only: myProcess

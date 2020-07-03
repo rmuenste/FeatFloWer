@@ -9,21 +9,19 @@ USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
 ParametrizeQ2Nodes
 
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,BKTPRELEASE
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEASE
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use fbm
 
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc
+
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
-TYPE(TQuadScalar), target :: QuadSc
-! TODO: Move these to var
-TYPE(TLinScalar)    LinSc
-TYPE(TViscoScalar)  ViscoSc
-TYPE(TParLinScalar) PLinSc
+
 REAL*8, ALLOCATABLE :: ST_force(:)
 REAL*8 :: Density_Secondary=1d0,Density_Primary=1d0
 REAL*8 :: myPowerLawFluid(3),ViscoElasticForce(3)
@@ -319,6 +317,18 @@ END SUBROUTINE Init_Die_Handlers
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_Wangen_Handlers()
+! In this function we set the function handlers
+! for Die FBM simulations --> as normal but return surface distances as well
+implicit none
+
+ fbm_geom_handler_ptr => GetFictKnpr_Wangen
+ fbm_vel_bc_handler_ptr => FictKnpr_velBC_Wangen
+
+END SUBROUTINE Init_Wangen_Handlers
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_Laser_Handlers()
 implicit none
 
@@ -409,6 +419,18 @@ Real*8 :: dabl
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
 
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+!   myMultiMat%Mat(1)%Rheology%Equation = 5
+!   myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
+ IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+ DO ilev=NLMIN,NLMAX
+  IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
+  MaterialDistribution(ilev)%x = myMultiMat%initMaterial
+ END DO
+ 
  myPowerLawFluid(2) = 0.001d0
  myPowerLawFluid(3) = 0.75d0
 
@@ -454,6 +476,13 @@ end if
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
                      mg_mesh%level(ilev)%nel))
+
+ ALLOCATE (MaxShearRate(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+ MaxShearRate = 0d0
+                     
  ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
                      mg_mesh%level(ilev)%net+&
                      mg_mesh%level(ilev)%nat+&
@@ -635,6 +664,18 @@ Real*8 :: dabl
 
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
+
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+!   myMultiMat%Mat(1)%Rheology%Equation = 5
+!   myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
+ IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+ DO ilev=NLMIN,NLMAX
+  IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
+  MaterialDistribution(ilev)%x = myMultiMat%initMaterial
+ END DO
 
  myPowerLawFluid(2) = 0.001d0
  myPowerLawFluid(3) = 0.75d0
@@ -918,10 +959,16 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   REAL*8  dcorvg(3,*),dcorag(3,*)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
   REAL*8 PX,PY,PZ,DIST
+  REAL tttx0,tttx1
   INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
   INTEGER NeighE(2,12),NeighA(4,6)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+  if (myid.eq.0) return
+  
+  CALL myMPI_Barrier()
+  call ztime(tttx0)
 
   DO i=1,nvt
   PX = dcorvg(1,I)
@@ -978,8 +1025,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
   END DO
-  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
+  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+nat+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
   END DO
+
+  CALL myMPI_Barrier()
+  call ztime(tttx1)
+  if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
 
   do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
@@ -987,6 +1038,165 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
 
 
 END SUBROUTINE QuadScalar_FictKnpr
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
+  use fbm, only: fbm_updateFBMGeom,myFBM
+  REAL*8  dcorvg(3,*),dcorag(3,*)
+  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  REAL*8 PX,PY,PZ,DIST,P(3),dR,distX,distY
+  REAL tttx0,tttx1
+  INTEGER i,j,k,ivt,ndof,IP,minpr,IPP
+  INTEGER NeighE(2,12),NeighA(4,6)
+  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  LOGICAL, allocatable :: bMark(:)
+  REAL*8 :: iCount(3)
+  
+  iCount = 0d0
+  ndof = nvt+nat+net+nel
+  
+  if (myid.eq.0) goto 1
+  
+  CALL myMPI_Barrier()
+  call ztime(tttx0)
+  
+  ALLOCATE(bMark(ndof))
+  bMark = .false.
+  Distance = 1d8
+  
+  DO IPP = 1,myFBM%nParticles
+  IP = IPP
+  
+  DO i=1,nel
+   PX = 0d0
+   PY = 0d0
+   PZ = 0d0
+   DO j=1,8
+    PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+    PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+    PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+   END DO
+   call fbm_updateFBMGeom(PX,PY,PZ,IP,minpr,distX,fbm_geom_handler_ptr)
+   
+   if (distX.lt.Distance(nvt+net+nat+i)) then
+    FictKNPR(nvt+net+nat+i) = minpr
+    Distance(nvt+net+nat+i) = distX
+    bMark(nvt+net+nat+i) = .true.
+   end if
+   iCount(1) = iCount(1) + 1d0
+   
+   dR = 0d0
+   do j = 1,8
+    ivt = kvert(j,i)
+    P = dcorvg(:,ivt)
+    dR = max(dR, SQRT((P(1)-PX)**2d0 + (P(2)-PY)**2d0 + (P(3)-PZ)**2d0))
+   end do
+   
+   IF (1.4d0*dR.gt.distX) then
+    ! nvt
+    do j = 1,8
+     ivt = kvert(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(2) = iCount(2) + 1d0
+     end if
+    end do
+   
+    ! net
+    do j = 1,12
+     ivt = nvt + kedge(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(2) = iCount(2) + 1d0
+     end if
+    end do
+    
+    ! nat
+    do j = 1,6
+     ivt = nvt + net + karea(j,i)
+     P = dcorvg(:,ivt)
+     if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      if (distY.lt.Distance(ivt)) then
+       FictKNPR(ivt) = minpr
+       Distance(ivt) = distY
+       bMark(ivt) = .True.
+      end if
+      iCount(3) = iCount(3) + 1d0
+     end if
+    end do
+    
+   ELSE
+   
+    ! nvt
+    do j = 1,8
+     ivt = kvert(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+   
+    ! net
+    do j = 1,12
+     ivt = nvt + kedge(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+    
+    ! nat
+    do j = 1,6
+     ivt = nvt + net + karea(j,i)
+     if ((.not.bMark(ivt)).and.(distX.lt.Distance(ivt))) then
+      Distance(ivt) = distX
+      FictKNPR(ivt) = minpr
+     end if
+    end do
+   
+   END IF
+   
+  END DO
+  
+  END DO ! IP
+  
+1 continue
+
+  iCount(3) = 4*ndof
+  call Comm_SummN(iCount,3)
+  call ztime(tttx1)
+  if (myid.eq.1) WRITE(*,'(A,ES12.4,A,I0,A,I0,A,2(ES12.4,A))') &
+  'FBM time : ', tttx1-tttt0, ' s | ',int(iCount(1))+int(iCount(2)),' / ',int(iCount(3)) ,'=> ',1d2*iCount(1)/iCount(3),'%, ',1d2*iCount(2)/iCount(3),'%'
+!  if (myid.eq.1) WRITE(*,'(3I10,2ES12.4)') int(iCount(1:3)),1d2*iCount(1)/iCount(3),1d2*iCount(2)/iCount(3)
+
+  do i=1,nvt+net+nat+nel
+   myALE%Monitor(i)=distance(i)
+  end do
+  if (myid.ne.0) then
+!    do i=1,nvt+net+nat+nel
+!     myALE%Monitor(i)=0d0
+!     if (bMark(i))  myALE%Monitor(i)=1d0
+!    end do
+
+   DEALLOCATE(bMark)
+  end if
+
+END SUBROUTINE QuadScalar_FictKnpr_Wangen
 !
 ! ----------------------------------------------
 !
@@ -1406,8 +1616,12 @@ END SUBROUTINE OperatorRegenaration
 !
 SUBROUTINE ProlongateSolution()
 
+ IF (allocated(Temperature)) then
+  CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val,Temperature)
+ else
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
-  CALL QuadScP1toQ2(LinSc,QuadSc)
+ end if
+ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 END SUBROUTINE ProlongateSolution
 !
@@ -1624,6 +1838,29 @@ END SUBROUTINE Analyzer
 !
 ! ----------------------------------------------
 !
+SUBROUTINE updateFBMGeometry_Wangen()
+use cinterface, only: calculateFBM
+
+ if (calculateFBM()) then
+  if (myid.eq.showid) write(*,*) '> FBM computation step'
+
+  ILEV=NLMAX
+  CALL SETLEV(2)
+
+  CALL QuadScalar_FictKnpr_Wangen(mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%dcorag,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%karea)
+    
+  CALL E013Max_SUPER(FictKNPR)
+  
+ end if
+
+END SUBROUTINE  updateFBMGeometry_Wangen
+!
+! ----------------------------------------------
+!
 SUBROUTINE updateFBMGeometry()
 use cinterface, only: calculateFBM
 
@@ -1638,8 +1875,9 @@ use cinterface, only: calculateFBM
     mg_mesh%level(ilev)%kvert,&
     mg_mesh%level(ilev)%kedge,&
     mg_mesh%level(ilev)%karea)
-
+    
   CALL E013Max_SUPER(FictKNPR)
+  
  end if
 
 END SUBROUTINE  updateFBMGeometry
@@ -1862,7 +2100,7 @@ ilevel = mg_mesh%nlmax
   QuadSc%defV = 0d0
   QuadSc%defW = 0d0
   CALL L2ProjVisco(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                   Temperature,&
+                   Temperature,MaterialDistribution(ilev)%x,&
                    QuadSc%defU,QuadSc%defV,QuadSc%defW,&
                    mg_mesh%level(ilevel)%kvert,&
                    mg_mesh%level(ilevel)%karea,&
@@ -1960,7 +2198,7 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux
   REAL*8 HogenPowerlaw
-  REAL*8 ViscosityModel
+  REAL*8 ViscosityMatModel
 
     ILEV = NLMAX
     CALL SETLEV(2)
@@ -1985,7 +2223,7 @@ SUBROUTINE  GetNonNewtViscosity_sse()
     taux = Temperature(i)
 
     Shearrate(i) = sqrt(2d0 * daux)
-    Viscosity(i) = ViscosityModel(daux,taux)
+    Viscosity(i) = ViscosityMatModel(daux,1,taux)
 
     END DO
 
@@ -2026,6 +2264,16 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
 END IF
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+ call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
+                     mg_mesh%level(ilevel)%kvert,&
+                     mg_mesh%level(ilevel)%karea,&
+                     mg_mesh%level(ilevel)%kedge,&
+                     mg_mesh%level(ilevel)%dcorvg,&
+                     Viscosity,Torque1, E013,103)
+END IF
+
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  call GetTorqueMixer(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                      LinSc%ValP(NLMAX)%x,MixerKNPR,& !How separate????
                      mg_mesh%level(ilevel)%kvert,&
@@ -2104,6 +2352,10 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
   write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
 END IF
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+  write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+  write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+END IF
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
   write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
   write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
 END IF
@@ -2307,29 +2559,6 @@ SUBROUTINE  StoreOrigCoor(dcoor)
   END DO
 
 END SUBROUTINE  StoreOrigCoor
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetMeshVelocity()
-  REAL*8 dMaxVelo,daux
-  INTEGER i
-
-  dMaxVelo = 0d0
-  IF (myid.ne.0) then
-    DO i=1,QuadSc%ndof
-    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
-    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
-    IF (dMaxVelo.lt.daux) dMaxVelo = daux
-    END DO
-  END IF
-
-  CALL COMM_Maximum(dMaxVelo)
-
-  IF (myid.eq.1) THEN
-    WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-  END IF
-
-END SUBROUTINE GetMeshVelocity
 !
 ! ----------------------------------------------
 !
@@ -2888,5 +3117,96 @@ DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
   END DO
    
 END SUBROUTINE RestrictWallBC
+!
+! ----------------------------------------------
+!
+SUBROUTINE UpdateMaterialProperties
+integer ii,iMat,jel(8),ndof_nel,iMaxFrac
+REAL*8 dMaxFrac
+REAL*8, allocatable :: dFrac(:)
+
+
+if (myid.eq.1) WRITE(*,*) 'updating Material Properties Distribution... '
+IF (myid.ne.0) then
+
+!     do iel = 1,mg_mesh%level(nlmax)%nel
+!      ii = mg_mesh%level(nlmax)%nvt + mg_mesh%level(nlmax)%net + mg_mesh%level(nlmax)%nat + iel
+!      if (mg_mesh%level(nlmax)%dcorvg(3,ii).gt.92d0) then
+!       MaterialDistribution(nlmax)%x(iel) = 2
+!      end if
+!     end do
+     
+!  write(*,*) MaterialDistribution(NLMAX+0-1)%x(1:knel(NLMAX+0-1))
+! pause
+
+ IF (allocated(MaterialDistribution)) then
+ 
+  if (istart.eq.2) then
+    do iel = 1,mg_mesh%level(nlmax-1)%nel
+      jel(1) = iel
+      jel(2) = mg_mesh%level(ilev+1)%kadj(3,jel(1))
+      jel(3) = mg_mesh%level(ilev+1)%kadj(3,jel(2))
+      jel(4) = mg_mesh%level(ilev+1)%kadj(3,jel(3))
+      jel(5) = mg_mesh%level(ilev+1)%kadj(6,jel(1))
+      jel(6) = mg_mesh%level(ilev+1)%kadj(6,jel(2))
+      jel(7) = mg_mesh%level(ilev+1)%kadj(6,jel(3))
+      jel(8) = mg_mesh%level(ilev+1)%kadj(6,jel(4))
+   
+      iMat = MaterialDistribution(nlmax-1)%x(jel(1))
+!       write(*,*) iMAt
+      do ii=1,8
+       MaterialDistribution(nlmax)%x(jel(1)) = iMat
+      end do
+     end do
+  end if
+  
+  ndof_nel = (knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))
+  allocate(dFrac(myMultiMat%nOfMaterials))
+
+  DO ilev=NLMAX-1,NLMIN,-1
+   ndof_nel = (knvt(ilev+1) + knat(ilev+1) + knet(ilev+1))
+   do iel = 1,mg_mesh%level(ilev)%nel
+     jel(1) = iel
+     jel(2) = mg_mesh%level(ilev+1)%kadj(3,jel(1))
+     jel(3) = mg_mesh%level(ilev+1)%kadj(3,jel(2))
+     jel(4) = mg_mesh%level(ilev+1)%kadj(3,jel(3))
+     jel(5) = mg_mesh%level(ilev+1)%kadj(6,jel(1))
+     jel(6) = mg_mesh%level(ilev+1)%kadj(6,jel(2))
+     jel(7) = mg_mesh%level(ilev+1)%kadj(6,jel(3))
+     jel(8) = mg_mesh%level(ilev+1)%kadj(6,jel(4))
+
+!      write(*,*) jel
+     dFrac = 0d0
+     do ii=1,8
+      iMat = MaterialDistribution(ilev+1)%x(jel(ii))
+      dFrac(iMat) = dFrac(iMat) + 1d0 !mg_mesh%level(ilev+1)%dvol(jel(ii))
+     end do
+     dMaxFrac = 0d0
+!      write(*,*) dFrac
+     do ii=1,myMultiMat%nOfMaterials
+      IF (dFrac(ii).gt.dMaxFrac) THEN
+       dMaxFrac = dFrac(ii)
+       iMaxFrac = ii
+      END IF
+     end do
+     
+     MaterialDistribution(ilev)%x(jel(1)) = iMaxFrac
+     
+    end do
+  END DO
+  
+  deallocate(dFrac)
+ end if
+
+else 
+ DO ilev=NLMAX,NLMIN,-1
+  MaterialDistribution(ilev)%x = myMultiMat%InitMaterial
+ end do
+! write(*,*) MaterialDistribution(nlmax)%x
+end if
+
+! write(*,*) MaterialDistribution(NLMAX)%x(1:knel(NLMAX))
+! pause
+END SUBROUTINE UpdateMaterialProperties
    
 END MODULE Transport_Q2P1

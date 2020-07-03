@@ -397,6 +397,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !  pause
  
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
   GOTO 1
@@ -533,15 +534,19 @@ tLevel = myExchangeSet(iParticel)%time
   cdy = 1d1*point(2)
   cdz = 1d1*point(3)
   
-  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  call get_dynamics_type(0, idynType)
-  if(idynType == FBM_STATIC) then
-   dist_CGAL = -dist_CGAL
-  end if
-  if(idynType == FBM_STATIC_COMPLEMENT) then
-   dist_CGAL = +dist_CGAL
-  end if
-  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+  
+!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!   call get_dynamics_type(0, idynType)
+!   if(idynType == FBM_STATIC) then
+!    dist_CGAL = -dist_CGAL
+!   end if
+!   if(idynType == FBM_STATIC_COMPLEMENT) then
+!    dist_CGAL = +dist_CGAL
+!   end if
+!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  
+  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
   
   if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    
@@ -647,7 +652,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
 !  pause
  
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
-
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
+ 
  IF (bFound) THEN
   GOTO 1
  END IF
@@ -743,7 +749,7 @@ REAL*8,  ALLOCATABLE :: dAux(:)
 INTEGER, ALLOCATABLE :: iAux(:)
 
 ALLOCATE(dAux(4*nSum))
-ALLOCATE(iAux(1*nSum))
+ALLOCATE(iAux(2*nSum))
 
 !  WRITE(*,*) "myid,nsum ",myid,nsum
 
@@ -753,14 +759,15 @@ IF (myid.eq.MASTER) THEN
   CALL RECVI_myMPI(iN,pID)
 
   IF (iN.ne.0) THEN
-   CALL RECVK_myMPI(iAux,  iN,pID)
+   CALL RECVK_myMPI(iAux,2*iN,pID)
    CALL RECVD_myMPI(dAux,4*iN,pID)
    DO i=1,iN
     myExchangeSet(nExchangeSet+i)%coor(1) = dAux(4*(i-1)+1)
     myExchangeSet(nExchangeSet+i)%coor(2) = dAux(4*(i-1)+2)
     myExchangeSet(nExchangeSet+i)%coor(3) = dAux(4*(i-1)+3)
     myExchangeSet(nExchangeSet+i)%time    = dAux(4*(i-1)+4)
-    myExchangeSet(nExchangeSet+i)%indice  = iAux(i)
+    myExchangeSet(nExchangeSet+i)%indice  = iAux(2*(i-1)+1)
+    myExchangeSet(nExchangeSet+i)%id      = iAux(2*(i-1)+2)
    END DO
    nExchangeSet = nExchangeSet + iN
 
@@ -771,9 +778,9 @@ ELSE
   IF (nExchangeSet.ne.0) THEN
    DO i=1,nExchangeSet
     dAux(4*(i-1)+1:4*(i-1)+4) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),myExchangeSet(i)%time]
-    iAux(i)                   =  myExchangeSet(i)%indice
+    iAux(2*(i-1)+1:2*(i-1)+2) = [myExchangeSet(i)%indice,myExchangeSet(i)%id]
    END DO
-  CALL SENDK_myMPI(iAux,  nExchangeSet,0)
+  CALL SENDK_myMPI(iAux,2*nExchangeSet,0)
   CALL SENDD_myMPI(dAux,4*nExchangeSet,0)
 
   END IF
@@ -788,25 +795,26 @@ IF (myid.eq.MASTER) THEN
 
  DO i=1,nSum
   dAux(4*(i-1)+1:4*(i-1)+4) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),myExchangeSet(i)%time]
-  iAux(i)                   =  myExchangeSet(i)%indice
+  iAux(2*(i-1)+1:2*(i-1)+2) = [myExchangeSet(i)%indice,myExchangeSet(i)%id]
  END DO
 
  DO pID=1,subnodes
   CALL SENDD_myMPI(dAux,4*nSum,pID)
-  CALL SENDK_myMPI(iAux,  nSum,pID)
+  CALL SENDK_myMPI(iAux,2*nSum,pID)
  END DO
 
 ELSE
 
   CALL RECVD_myMPI(dAux,4*nSum,0)
-  CALL RECVK_myMPI(iAux,  nSum,0)
+  CALL RECVK_myMPI(iAux,2*nSum,0)
 
   DO i=1,nSum
    myExchangeSet(i)%coor(1) = dAux(4*(i-1)+1)
    myExchangeSet(i)%coor(2) = dAux(4*(i-1)+2)
    myExchangeSet(i)%coor(3) = dAux(4*(i-1)+3)
    myExchangeSet(i)%time    = dAux(4*(i-1)+4)
-   myExchangeSet(i)%indice  = iAux(i)
+   myExchangeSet(i)%indice  = iAux(2*(i-1)+1)
+   myExchangeSet(i)%id      = iAux(2*(i-1)+2)
   END DO
   nExchangeSet = nSum
 
@@ -831,7 +839,7 @@ REAL*8,  ALLOCATABLE :: dAux(:)
 INTEGER, ALLOCATABLE :: iAux(:)
 
 ALLOCATE(dAux(4*nSum))
-ALLOCATE(iAux(1*nSum))
+ALLOCATE(iAux(2*nSum))
 
 !  WRITE(*,*) "myid,nsum ",myid,nsum
 
@@ -841,14 +849,15 @@ IF (myid.eq.MASTER) THEN
   CALL RECVI_myMPI(iN,pID)
 
   IF (iN.ne.0) THEN
-   CALL RECVK_myMPI(iAux,  iN,pID)
+   CALL RECVK_myMPI(iAux,2*iN,pID)
    CALL RECVD_myMPI(dAux,4*iN,pID)
    DO i=1,iN
     myCompleteSet(nCompleteSet+i)%coor(1) = dAux(4*(i-1)+1)
     myCompleteSet(nCompleteSet+i)%coor(2) = dAux(4*(i-1)+2)
     myCompleteSet(nCompleteSet+i)%coor(3) = dAux(4*(i-1)+3)
     myCompleteSet(nCompleteSet+i)%time    = dAux(4*(i-1)+4)
-    myCompleteSet(nCompleteSet+i)%indice  = iAux(i)
+    myCompleteSet(nCompleteSet+i)%indice  = iAux(2*(i-1)+1)
+    myCompleteSet(nCompleteSet+i)%id      = iAux(2*(i-1)+2)
    END DO
    nCompleteSet = nCompleteSet + iN
 
@@ -859,9 +868,9 @@ ELSE
   IF (nActiveSet.ne.0) THEN
    DO i=1,nActiveSet
     dAux(4*(i-1)+1:4*(i-1)+4) = [myActiveSet(i)%coor(1),myActiveSet(i)%coor(2),myActiveSet(i)%coor(3),myActiveSet(i)%time]
-    iAux(i)                   =  myActiveSet(i)%indice
+    iAux(2*(i-1)+1:2*(i-1)+2) = [myActiveSet(i)%indice,myActiveSet(i)%id]
    END DO
-  CALL SENDK_myMPI(iAux,  nActiveSet,0)
+  CALL SENDK_myMPI(iAux,2*nActiveSet,0)
   CALL SENDD_myMPI(dAux,4*nActiveSet,0)
   END IF
 END IF
@@ -875,25 +884,26 @@ IF (myid.eq.MASTER) THEN
 
  DO i=1,nSum
   dAux(4*(i-1)+1:4*(i-1)+4) = [myCompleteSet(i)%coor(1),myCompleteSet(i)%coor(2),myCompleteSet(i)%coor(3),myCompleteSet(i)%time]
-  iAux(i)                   =  myCompleteSet(i)%indice
+  iAux(2*(i-1)+1:2*(i-1)+2) = [myCompleteSet(i)%indice,myCompleteSet(i)%id]
  END DO
 
  DO pID=1,subnodes
   CALL SENDD_myMPI(dAux,4*nSum,pID)
-  CALL SENDK_myMPI(iAux,  nSum,pID)
+  CALL SENDK_myMPI(iAux,2*nSum,pID)
  END DO
 
 ELSE
 
   CALL RECVD_myMPI(dAux,4*nSum,0)
-  CALL RECVK_myMPI(iAux,  nSum,0)
+  CALL RECVK_myMPI(iAux,2*nSum,0)
 
   DO i=1,nSum
    myCompleteSet(i)%coor(1) = dAux(4*(i-1)+1)
    myCompleteSet(i)%coor(2) = dAux(4*(i-1)+2)
    myCompleteSet(i)%coor(3) = dAux(4*(i-1)+3)
    myCompleteSet(i)%time    = dAux(4*(i-1)+4)
-   myCompleteSet(i)%indice  = iAux(i)
+   myCompleteSet(i)%indice  = iAux(2*(i-1)+1)
+   myCompleteSet(i)%id      = iAux(2*(i-1)+2)
   END DO
   nCompleteSet = nSum
 
@@ -1006,6 +1016,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  END DO
 
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
 
@@ -1076,6 +1087,7 @@ IF (.not.bFound) THEN
  myExchangeSet(iLostParticel)%coor   = point
  myExchangeSet(iLostParticel)%time   = tLevel
  myExchangeSet(iLostParticel)%indice = myActiveSet(iParticel)%indice
+ myExchangeSet(iLostParticel)%id     = myActiveSet(iParticel)%id
  GOTO 2
 END IF
 
@@ -1091,6 +1103,7 @@ iActiveParticel = iActiveParticel + 1
 myActiveSet(nStartActiveSet+iActiveParticel)%coor   = point
 myActiveSet(nStartActiveSet+iActiveParticel)%time   = tLevel
 myActiveSet(nStartActiveSet+iActiveParticel)%indice = myActiveSet(iParticel)%indice
+myActiveSet(nStartActiveSet+iActiveParticel)%id     = myActiveSet(iParticel)%id
 
 2 CONTINUE
 
@@ -1213,6 +1226,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
  END DO
 
  CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+ IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
  IF (bFound) THEN
 
@@ -1239,15 +1253,17 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdy = 1d1*P(2)
   cdz = 1d1*P(3)
   
-  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-  call get_dynamics_type(0, idynType)
-  if(idynType == FBM_STATIC) then
-   dist_CGAL = -dist_CGAL
-  end if
-  if(idynType == FBM_STATIC_COMPLEMENT) then
-   dist_CGAL = +dist_CGAL
-  end if
-  call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+
+!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!   call get_dynamics_type(0, idynType)
+!   if(idynType == FBM_STATIC) then
+!    dist_CGAL = -dist_CGAL
+!   end if
+!   if(idynType == FBM_STATIC_COMPLEMENT) then
+!    dist_CGAL = +dist_CGAL
+!   end if
+!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
   
   if (dist_CGAL.lt. d_CorrDist*0.5d0) then
    
@@ -1321,6 +1337,7 @@ IF (.not.bFound) THEN
  myExchangeSet(iLostParticel)%coor   = point
  myExchangeSet(iLostParticel)%time   = tLevel
  myExchangeSet(iLostParticel)%indice = myActiveSet(iParticel)%indice
+ myExchangeSet(iLostParticel)%id     = myActiveSet(iParticel)%id
 !  IF (myExchangeSet(iLostParticel)%coor(2).GT.0d0) THEN
 !   WRITE(*,'(A,I,4E16.8)') 'problem',myActiveSet(iParticel)%indice,sqrt((myExchangeSet(iLostParticel)%coor(1))**2d0 + (myExchangeSet(iLostParticel)%coor(2)-16.7d0)**2d0),myExchangeSet(iLostParticel)%coor
 !  ELSE
@@ -1341,6 +1358,7 @@ iActiveParticel = iActiveParticel + 1
 myActiveSet(nStartActiveSet+iActiveParticel)%coor   = point
 myActiveSet(nStartActiveSet+iActiveParticel)%time   = tLevel
 myActiveSet(nStartActiveSet+iActiveParticel)%indice = myActiveSet(iParticel)%indice
+myActiveSet(nStartActiveSet+iActiveParticel)%id     = myActiveSet(iParticel)%id
 
 2 CONTINUE
 
@@ -1666,5 +1684,41 @@ END DO
 1 CONTINUE
 
 end subroutine FindPoint
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+Subroutine AssignInflowPropertyToParticles(m)
+USE types, ONLY : myLostSet,nLostSet
+USE PP3D_MPI, ONLY : myid,master
+
+implicit none
+integer iParticle,iInflowRegion
+real*8 point(3),dist
+integer iMat
+integer m(*)
+
+DO iParticle = 1,nLostSet
+
+ point = myLostSet(iParticle)%coor
+ iMat    = 0
+ 
+ DO iInflowRegion = 1,myParticleParam%NumberOfInflowRegions
+  dist = sqrt((myParticleParam%InflowRegion(iInflowRegion)%Center(1)-point(1))**2d0+&
+              (myParticleParam%InflowRegion(iInflowRegion)%Center(2)-point(2))**2d0+&
+              (myParticleParam%InflowRegion(iInflowRegion)%Center(3)-point(3))**2d0)
+  
+  if (dist.lt.myParticleParam%InflowRegion(iInflowRegion)%Radius) then
+   m(myLostSet(iParticle)%indice) = iInflowRegion
+!   WRITE(*,'(A,10I0)') "particle was assigned to inflow region... ",iParticle,myLostSet(iParticle)%indice,myid,iInflowRegion
+  ELSE
+!   WRITE(*,*) "particle was not possible to assign to inflow region... ",iParticle,distMin
+  end if
+  
+ END DO
+
+ 
+END DO
+
+end Subroutine AssignInflowPropertyToParticles
 
 end module particle_step

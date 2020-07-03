@@ -1,24 +1,31 @@
 Program e3d_mesher
 USE Sigma_User, ONLY : mySetup,mySigma,myProcess
-USE iniparser, ONLY : inip_makeDirectory
+USE iniparser, ONLY : inip_makeDirectory,inip_toupper_replace
+use f90getopt
+
 implicit none
 REAL*8 DZi,DZo,DL,Dzz,dx,DA
 INTEGER nR,nT,nZ,nN,nM,nP,nT1,nT2,nDEl,deltaNR
+INTEGER nX,nY
 REAL*8 dbW,dbH,dbL,dSize
 REAL*8 xCut, yCut, dalphaCut1,dalphaCut2 
 REAL*8,  ALLOCATABLE ::  dCoor(:,:)
 INTEGER, ALLOCATABLE ::  kVert(:,:),knpr(:)
 INTEGER, ALLOCATABLE :: knpr_inP(:),knpr_inM(:),knpr_outP(:),knpr_outM(:)
 INTEGER, ALLOCATABLE :: knpr_zMin(:),knpr_zMax(:)
+REAL*8 dBOX(3,2),daux,dnX,dnY,dnz
 CHARACTER*(50) CaseFile,command
 INTEGER NEL,NVT
 character(8)  :: cdate
 character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
+integer i,idir
 
 LOGICAL bExist
-CHARACTER cExtrud3DFile*120
+CHARACTER cExtrud3DFile*120,cApp*120
+character(len=*), parameter :: version = '1.0'
+type(option_s)              :: opts(3)
 
 call date_and_time(cdate,ctime,czone,values)
 
@@ -32,7 +39,41 @@ WRITE(*,*) 'Not Windows'
 #endif
 WRITE(*,*) CaseFile
 
-CALL ReadPar()
+opts(1) = option_s('version',  .false., 'v')
+opts(2) = option_s('app', .true.,  'a')
+opts(3) = option_s('help',  .false., 'h')
+
+cApp = 'SSE'
+
+do 
+    select case (getopt('va:h'))
+        case (char(0))
+            exit
+        case ('a')
+            read(optarg,*) cApp
+            call inip_toupper_replace(cApp)
+        case ('-a')
+            read(optarg,*) cApp
+            call inip_toupper_replace(cApp)
+        case ('v')
+            print '(a, a)', 'version ', version
+           call exit(0)
+        case ('h')
+          call print_help()
+         call exit(0)
+    end select
+end do
+
+if (adjustl(trim(cApp)).eq.'HEAT') THEN
+ cExtrud3DFile = '_data/heat.s3d'
+ write(*,*) 'Heat application has been recognized!'
+ CALL ReadEWIKONfile(cExtrud3DFile)
+end if
+
+if (adjustl(trim(cApp)).eq.'SSE') THEN
+ cExtrud3DFile = '_data/Extrud3D_0.dat'
+ CALL ReadPar()
+end if
 
 
 IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
@@ -44,7 +85,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  nT = mySetup%m_nT
  nZ = mySetup%m_nZ
  Dzo = mySigma%Dz_out
- Dzi = mySigma%Dz_in
+ Dzi = min(mySigma%Dz_in,0.8d0*mySigma%Dz_out)
  DL  = mySigma%L
 
  IF (mySetup%MeshResolution.eq.1) THEN
@@ -79,7 +120,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
 
  CALL Parametrization_HC()
 
- CALL WriteMesh()
+ CALL WriteMesh_YXZ()
  
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
 
@@ -99,7 +140,7 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."FULLCYLINDER") THEN
  
  CALL Parametrization_FC()
 
- CALL WriteMesh()
+ CALL WriteMesh_YXZ()
 
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
 
@@ -219,8 +260,84 @@ ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."TWINSCREW") THEN
 
  CALL Parametrization_TSE()
 
- CALL WriteMesh()
+ CALL WriteMesh_YXZ()
 
+ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."BOX") THEN
+
+ call inip_makeDirectory(TRIM(ADJUSTL(CaseFile)))
+ 
+ dBOX = mySetup%m_BOX
+ if (mySetup%m_nX.gt.0.and.mySetup%m_nY.gt.0.and.mySetup%m_nZ.gt.0) then
+  nX = mySetup%m_nX
+  nY = mySetup%m_nY
+  nZ = mySetup%m_nZ
+ end if
+ if (mySetup%nBoxElem.gt.0) then
+  iDir = -1
+  daux = 1d30
+  do i=1,3
+   if ((mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)).lt.daux) then
+    iDir = i
+    daux = mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+   end if
+   write(*,*) mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+  end do
+
+  dnX = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnY = (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnZ = (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  write(*,*) 'nX,nY,nZ,nEl'
+  write(*,*) dnX,dnY,dnz
+  
+  iDir = nint((mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0)
+  nX = iDir*nint(dnx)
+  nY = iDir*nint(dny)
+  nZ = iDir*nint(dnz)
+ end if
+ if (mySetup%MeshResolution.gt.0) then
+ 
+  !Compute volume
+  daux = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))* &
+         (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))* &
+         (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))
+
+  !Compute the Number of Elements
+  mySetup%nBoxElem = 2d0*daux * (1.5d0**DBLE(mySetup%MeshResolution-2))
+  
+  write(*,*) 'Volume & NumberOfElements ', 6400d0/daux, mySetup%nBoxElem
+  
+  iDir = 1
+  daux = mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1)
+  
+  do i=2,3
+   if ((mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)).lt.daux) then
+    iDir = i
+    daux = mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+   end if
+   write(*,*) mySetup%m_BOX(i,2)-mySetup%m_BOX(i,1)
+  end do
+
+  dnX = (mySetup%m_BOX(1,2)-mySetup%m_BOX(1,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnY = (mySetup%m_BOX(2,2)-mySetup%m_BOX(2,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  dnZ = (mySetup%m_BOX(3,2)-mySetup%m_BOX(3,1))/(mySetup%m_BOX(iDir,2)-mySetup%m_BOX(iDir,1))
+  write(*,*) 'nX,nY,nZ,nEl'
+  write(*,*) dnX,dnY,dnz
+  
+  daux = (mySetup%nBoxElem/(dnx*dny*dnz))**0.3333d0
+  nX = nint(daux*dnx)
+  nY = nint(daux*dny)
+  nZ = nint(daux*dnz)
+ end if
+
+ write(*,*) 'nX,nY,nZ,nEl'
+ write(*,*) nX,nY,nZ,nX*nY*nZ
+
+ CALL SetUpMesh_BOX()
+ 
+ CALL Parametrization_BOX()
+ 
+ CALL WriteMesh_XYZ()
+ 
 ELSEIF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."OFF") THEN
 
  WRITE(*,*) "No mesh is being created ... (Hexmesher is turned OFF) "
@@ -235,7 +352,6 @@ END IF
 !-----------------------------------------------
 SUBROUTINE ReadPar()
 
- cExtrud3DFile = '_data/Extrud3D_0.dat'
 INQUIRE(file=cExtrud3DFile,Exist=bExist)
 if (bExist) then
  CALL ReadS3Dfile(cExtrud3DFile)
@@ -383,6 +499,72 @@ END DO
 END DO
 
 END SUBROUTINE SetUpMesh_FC
+!-----------------------------------------------
+SUBROUTINE SetUpMesh_BOX()
+implicit none
+! REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
+! INTEGER i,j,k,kk,nhalf
+! REAL*8 dalphaCut1,dalphaCut2 
+! REAL*8 PX_max,PX_min,PX_mid,PY_max,PY_min,PY_mid,ratio,dZOO
+INTEGER i,j,k,kk
+INTEGER i1,i2,i3,i4,i5,i6,i7,i8
+REAL*8 PX,PY,PZ
+
+nel = 0
+
+NVT = (nX+1)*(nY+1)*(NZ+1)
+NEL =  nx*nY*NZ
+
+ALLOCATE(dcoor(3,NVT))
+ALLOCATE(kVert(8,NEL))
+ALLOCATE(knpr(NVT))
+knpr = 0
+
+kk = 1
+
+DO k=0,NZ
+ DO j=0,nY
+  DO i=0,nX
+
+   PX = dBOX(1,1) + (DBLE(i)/DBLE(NX))*(dBOX(1,2)-dBOX(1,1))
+   PY = dBOX(2,1) + (DBLE(j)/DBLE(NY))*(dBOX(2,2)-dBOX(2,1))
+   PZ = dBOX(3,1) + (DBLE(k)/DBLE(NZ))*(dBOX(3,2)-dBOX(3,1))
+
+   dCoor(:,kk) = [PX,PY,PZ]
+   kk = kk + 1
+
+  END DO
+
+ END DO
+END DO
+
+kk = 1
+DO k=1,nz
+ DO j=1,nY
+  DO i=1,nX
+
+   i1 = (k-1)*((nY+1)*(nX+1)) + (j-1)*(nX+1) + i
+   i2 = i1 + 1
+   IF (MOD(i1,nX+1).eq.0) i2=i1-(nX+1)+1
+   i3 = i1 + (nX+1) + 1
+   IF (MOD(i1,nX+1).eq.0) i3=i3-(nX+1)
+   i4 = i1 + (nX+1)
+   i5 = i1 + (nY+1)*(nX+1)
+   i6 = i5 + 1
+   IF (MOD(i1,nX+1).eq.0) i6=i6-(nX+1)
+   i7 = i5 + (nX+1) + 1
+   IF (MOD(i1,nX+1).eq.0) i7=i7-(nX+1)
+   i8 = i5 + (nX+1)
+
+   KVERT(:,kk) = [i1,i2,i3,i4,i5,i6,i7,i8]
+!    write(*,*) [i1,i2,i3,i4,i5,i6,i7,i8]
+
+   kk = kk + 1
+  END DO
+ END DO
+END DO
+
+END SUBROUTINE SetUpMesh_BOX
 !-----------------------------------------------
 SUBROUTINE SetUpMesh_HC()
 REAL*8 dAlpha,daux,PX1,PX2,PY,PZ,dR
@@ -756,6 +938,60 @@ CLOSE(1)
 
 END SUBROUTINE Parametrization_HC
 !-----------------------------------------------
+SUBROUTINE Parametrization_BOX()
+implicit none
+INTEGER j
+
+!! Inner cylinder
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/x-.par',UNIT=1)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/x+.par',UNIT=2)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/y-.par',UNIT=3)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/y+.par',UNIT=4)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z-.par',UNIT=5)
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=6)
+
+WRITE(1,*) (nY+1)*(NZ+1), ' Wall'
+WRITE(1,'(A2,4E14.6,A)') "'4", 1e0, 0e0,  0e0, -dBox(1,1),"'"
+WRITE(2,*) (nY+1)*(NZ+1), ' Wall'
+WRITE(2,'(A2,4E14.6,A)') "'4", 1e0, 0e0,  0e0, -dBox(1,2),"'"
+WRITE(3,*) (nX+1)*(NZ+1), ' Wall'
+WRITE(3,'(A2,4E14.6,A)') "'4", 0e0, 1e0,  0e0, -dBox(2,1),"'"
+WRITE(4,*) (nX+1)*(NZ+1), ' Wall'
+WRITE(4,'(A2,4E14.6,A)') "'4", 0e0, 1e0,  0e0, -dBox(2,2),"'"
+WRITE(5,*) (nX+1)*(NY+1), ' Wall'
+WRITE(5,'(A2,4E14.6,A)') "'4", 0e0, 0e0,  1e0, -dBox(3,1),"'"
+WRITE(6,*) (nX+1)*(NY+1), ' Wall'
+WRITE(6,'(A2,4E14.6,A)') "'4", 0e0, 0e0,  1e0, -dBox(3,2),"'"
+
+DO j=1,nvt
+!  write(*,*) ABS(dcoor(1,j)-dBox(1,1))
+ if (ABS(dcoor(1,j)-dBox(1,1)).lt.1d-8) write(1,'(i6)') j
+ if (ABS(dcoor(1,j)-dBox(1,2)).lt.1d-8) write(2,'(i6)') j
+ if (ABS(dcoor(2,j)-dBox(2,1)).lt.1d-8) write(3,'(i6)') j
+ if (ABS(dcoor(2,j)-dBox(2,2)).lt.1d-8) write(4,'(i6)') j
+ if (ABS(dcoor(3,j)-dBox(3,1)).lt.1d-8) write(5,'(i6)') j
+ if (ABS(dcoor(3,j)-dBox(3,2)).lt.1d-8) write(6,'(i6)') j
+END DO
+
+CLOSE(1)
+CLOSE(2)
+CLOSE(3)
+CLOSE(4)
+CLOSE(5)
+CLOSE(6)
+
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/file.prj',UNIT=1)
+write(1,'(A)') 'Mesh.tri'
+write(1,'(A)') 'x-.par'
+write(1,'(A)') 'x+.par'
+write(1,'(A)') 'y-.par'
+write(1,'(A)') 'y+.par'
+write(1,'(A)') 'z-.par'
+write(1,'(A)') 'z+.par'
+close(1)
+
+END SUBROUTINE Parametrization_BOX
+!-----------------------------------------------
 SUBROUTINE Parametrization_TSE()
 INTEGER i,j,k
 INTEGER nHalf,ivt
@@ -913,7 +1149,7 @@ CLOSE(2)
 
 END SUBROUTINE Parametrization_TSE
 !-----------------------------------------------
-SUBROUTINE WriteMesh()
+SUBROUTINE WriteMesh_YXZ()
 INTEGER k
 
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/Mesh.tri',UNIT=2)
@@ -937,6 +1173,39 @@ END DO
 
 CLOSE(2)
 
-END SUBROUTINE WriteMesh
+END SUBROUTINE WriteMesh_YXZ
+!-----------------------------------------------
+SUBROUTINE WriteMesh_XYZ()
+INTEGER k
+
+OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/Mesh.tri',UNIT=2)
+WRITE(2,*) "Coarse mesh exported by Partitioner"
+WRITE(2,*) "Parametrisierung PARXC, PARYC, TMAXC"
+WRITE(2,'(2(I6),A30)') nel,nvt," 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+WRITE(2,*) "DCORVG"
+DO k=1,nvt
+ WRITE(2,*)dCoor(1,k),dCoor(2,k),dCoor(3,k)
+END DO
+
+WRITE(2,*) 'KVERT'
+DO k=1,nel
+ WRITE(2,'(8I8)') KVERT(:,k)
+END DO
+
+WRITE(2,*) 'KNPR'
+DO k=1,nvt
+ WRITE(2,'(I3)') knpr(k)
+END DO
+
+CLOSE(2)
+
+END SUBROUTINE WriteMesh_XYZ
+
+subroutine print_help()
+    print '(a, /)', 'command-line options:'
+    print '(a)',    '  -v, --version     print version information and exit'
+    print '(a)',    '  -h, --help        print usage information and exit'
+    print '(a)',    '  -a, --app         the application to be used'
+end subroutine print_help  
 
 END Program e3d_mesher

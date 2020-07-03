@@ -52,6 +52,9 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
         IF(${_cpu_model} EQUAL 1)
           set(Q2P1_CPU_TYPE "epyc16core")
         ENDIF()
+        IF(${_cpu_model} EQUAL 49)
+          set(Q2P1_CPU_TYPE "epyc32core")
+        ENDIF()
       ELSE()
         message(FATAL_ERROR "Unknown CPU model, cannot set up default configuration")
       ENDIF()    
@@ -111,7 +114,10 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
     message(STATUS "Configuring for build id:<${Q2P1_BUILD_ID}>")
   ENDIF(NOT Q2P1_BUILD_ID)
 
+else(CMAKE_SYSTEM_NAME MATCHES "Linux")
+  IF(WIN32)
+    SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} /heap-arrays0")
+    message(STATUS "Set windows flags to ${CMAKE_Fortran_FLAGS}")
+  ENDIF(WIN32)
 ENDIF(CMAKE_SYSTEM_NAME MATCHES "Linux")
-
-
 

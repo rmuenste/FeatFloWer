@@ -1,6 +1,6 @@
 ************************************************************************
-      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,T,DA,NA,KCOLA,KLDA,KVERT,KAREA,
-     *                  KEDGE,DCORVG,ELE)
+      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,T,kMat,DA,NA,KCOLA,KLDA,KVERT,
+     *                  KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *     Discrete diffusion operator: Q2 elements ---PREPARED !!
 *-----------------------------------------------------------------------
@@ -15,6 +15,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       REAL*8 U1(*),U2(*),U3(*),T(*),DA(*)
+      INTEGER kMat(*)
       DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
@@ -24,7 +25,7 @@ C
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
       REAL*8    PolyFLOW_Carreau
-      REAL*8    ViscosityModel
+      REAL*8    ViscosityMatModel
 
 C     --------------------------- Transformation -------------------------------
       REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
@@ -222,7 +223,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityModel(dShearSquare,DTEMP)
+       dVisc = ViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
 C ----=============================================---- 
 
 C *** Summing up over all pairs of multiindices

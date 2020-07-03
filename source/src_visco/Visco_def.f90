@@ -18,6 +18,8 @@ REAL*8 daux
 
 EXTERNAL E013
 
+if (myid.eq.0) return
+
 ILEV = NLMAX
 CALL SETLEV(2)
 

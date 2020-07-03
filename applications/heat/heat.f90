@@ -2,7 +2,7 @@ PROGRAM HEAT
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app,write_sol_to_file
+  use solution_io, only: postprocessing_app_heat,write_sol_to_file
 
   use app_initialization, only: init_q2p1_app
 
@@ -12,6 +12,8 @@ PROGRAM HEAT
                          
   use Transport_Q2P1,  only:        updateFBMGeometry       
   use Transport_Q1, ONLY : AddSource_EWIKON,Boundary_LinSc_Val_EWIKON,Transport_LinScalar_EWIKON
+  use var_QuadScalar, only : DivergedSolution
+  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 
 
   integer            :: iOGMV,iTout
@@ -46,7 +48,7 @@ PROGRAM HEAT
   ! Solve transport equation for linear scalar
   CALL Transport_LinScalar_EWIKON(Boundary_LinSc_Val_EWIKON,AddSource_EWIKON,ufile,inonln_t)
 
-  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_app_heat(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -56,8 +58,25 @@ PROGRAM HEAT
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 
+   if (DivergedSolution) EXIT
+   
   END DO
 
-  call sim_finalize(tt0,ufile)
+  if (.not.DivergedSolution) THEN
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "HEAT_APP has successfully finished. "
+     WRITE(ufile,*) "HEAT_APP has successfully finished. "
+   END IF
+  ELSE
+   IF (myid.eq.showid) THEN
+     WRITE(*,*) "HEAT_APP has been stopped due to divergence ..."
+     WRITE(ufile,*) "HEAT_APP has been stopped due to divergence ..."
+   END IF
+  END IF
+
+  CALL Barrier_myMPI()
+  CALL MPI_Finalize(ierr)
+  
+  if (DivergedSolution) STOP 1
 
 END PROGRAM HEAT

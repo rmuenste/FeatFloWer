@@ -2,6 +2,7 @@ MODULE def_PLinScalar
 
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showID,E012_CommSetUp,E012_CommVal
+use types
 
 IMPLICIT NONE
 
@@ -18,30 +19,7 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
-TYPE tParam
- REAL*8  thetaRI,AvgGradPhiTol
- REAL*8  defCrit,epsCrit,MinDef,theta
- INTEGER NLminRI,NLmaxRI,nRI
- INTEGER NLmin,NLmax
- INTEGER SolvIter,SolvType,iMass
- INTEGER StabScheme,SrfCubF,VolCubF
- LOGICAL SlopeLimit
-END TYPE tParam
 
-TYPE mg_vector
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: x
-END TYPE mg_vector
-
-TYPE lScalar
- CHARACTER cName*7
- INTEGER :: ndof,na,nel,iNumFace
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux,rhs,def,val_old,val_ad
- REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Q1
- INTEGER , DIMENSION(:,:), ALLOCATABLE :: iParFace
- REAL*8  , DIMENSION(:,:), ALLOCATABLE :: dParFace,dParMidC
- TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: val
- TYPE(tParam) :: prm
-END TYPE
 
 TYPE TMatrix
  INTEGER :: nu,na

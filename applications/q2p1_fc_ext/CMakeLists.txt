@@ -1,25 +1,8 @@
 include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
 
-# CMakeLists of q2p1_fc_ext application
-set(src_cinterface
-${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
-)
-
-# source files for standad q2p1 
+# source files for standard q2p1 
 set(src_q2p1_fc_ext
-${Elements} 
-${src_q2p1} 
-${src_pp3d} 
-${src_mpi} 
-${src_PLin} 
-${src_LinSc} 
-${src_quadLS_app} 
-${src_visco} 
-${src_mesh}
-${src_cinterface}
-${postprocessing}
 app_init.f90
-#postprocessing.f90
 q2p1_fc_ext.f90
 )
 
@@ -39,6 +22,8 @@ source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
+
+#message(FATAL_ERROR "LIBS: ${FF_APPLICATION_LIBS}")
 
 # Target related settings
 target_link_libraries(q2p1_fc_ext 

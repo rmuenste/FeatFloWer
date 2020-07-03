@@ -952,6 +952,7 @@ EXTERNAL E013
    END IF
   END IF
 
+  if (myid.ne.0) then
   CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
        qMat%LdA,&
        mg_mesh%level(ILEV)%kvert,&
@@ -959,6 +960,7 @@ EXTERNAL E013
        mg_mesh%level(ILEV)%kedge,&
        mg_mesh%level(ILEV)%dcorvg,&
        E013,1d0)
+  end if
 
  END DO
 
@@ -1064,7 +1066,7 @@ EXTERNAL E013
 
   if(bNonNewtonian) THEN
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
-         Temperature,&
+         Temperature,MaterialDistribution(ILEV)%x,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
          mg_mesh%level(ILEV)%kvert,&
          mg_mesh%level(ILEV)%karea,&
@@ -1242,27 +1244,27 @@ END SUBROUTINE Create_KMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE AddStressToRHS(myScalar)
-TYPE(TQuadScalar) myScalar
-EXTERNAL E013
-
-IF (myid.ne.0) THEN
- ILEV=NLMAX
- CALL SETLEV(2)
-
- CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
- Temperature,&
- myScalar%defU, myScalar%defV, myScalar%defW,&
- Viscosity,&
- mg_mesh%level(ILEV)%kvert,&
- mg_mesh%level(ILEV)%karea,&
- mg_mesh%level(ILEV)%kedge,&
- mg_mesh%level(ILEV)%dcorvg,&
- E013 ) 
-
-END IF
-
-END SUBROUTINE AddStressToRHS
+! SUBROUTINE AddStressToRHS(myScalar)
+! TYPE(TQuadScalar) myScalar
+! EXTERNAL E013
+! 
+! IF (myid.ne.0) THEN
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+!  Temperature,MaterialDistribution%Mat(ilev),&
+!  myScalar%defU, myScalar%defV, myScalar%defW,&
+!  Viscosity,&
+!  mg_mesh%level(ILEV)%kvert,&
+!  mg_mesh%level(ILEV)%karea,&
+!  mg_mesh%level(ILEV)%kedge,&
+!  mg_mesh%level(ILEV)%dcorvg,&
+!  E013 ) 
+! 
+! END IF
+! 
+! END SUBROUTINE AddStressToRHS
 !
 ! ----------------------------------------------
 !
@@ -1420,6 +1422,7 @@ INTEGER NDOF,N
  ALLOCATE(myScalar%knprU(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprV(NLMIN:NLMAX))
  ALLOCATE(myScalar%knprW(NLMIN:NLMAX))
+ ALLOCATE(myScalar%knprT(NLMIN:NLMAX))
 
  DO ILEV=NLMIN,NLMAX
   !NDOF = KNVT(ILEV)+KNET(ILEV)+KNAT(ILEV)+KNEL(ILEV)
@@ -1432,6 +1435,8 @@ INTEGER NDOF,N
   ALLOCATE(myScalar%knprU(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprV(ILEV)%x(NDOF))
   ALLOCATE(myScalar%knprW(ILEV)%x(NDOF))
+  ALLOCATE(myScalar%knprT(ILEV)%x(NDOF))
+  myScalar%knprT(ILEV)%x = 0
  END DO
 
  ILEV=NLMAX
@@ -2115,7 +2120,7 @@ REAL tttx1,tttx0
     CALL ZTIME(tttx0)
     
     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-    Temperature,&
+    Temperature,MaterialDistribution(ilev)%x,&
     myScalar%defU, myScalar%defV, myScalar%defW,&
     Viscosity,&
     mg_mesh%level(ILEV)%kvert,&
@@ -2173,7 +2178,7 @@ REAL tttx1,tttx0
      CALL ZTIME(tttx0)
 
      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-     Temperature,&
+     Temperature,MaterialDistribution(ilev)%x,&
      myScalar%defU, myScalar%defV, myScalar%defW,&
      Viscosity,&
      mg_mesh%level(ILEV)%kvert,&
@@ -2393,9 +2398,10 @@ END SUBROUTINE Solve_General_QuadScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val)
+SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val,Temperature)
 TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
+REAL*8, optional :: Temperature(*)
 INTEGER J,K,ndof
 REAL*8 dnorm
 EXTERNAL Bndry_Val
@@ -2408,6 +2414,27 @@ IF (myid.ne.0) THEN
  J = NLMAX
  K = NLMAX-1
  mgLev = J
+
+IF (present(Temperature)) then
+ IF(myid.eq.showid) WRITE(*,*) "Prolongation of temperature solution to a higher level"
+
+ MyMG%cVariable = "Velocity"
+ MyMG%KNPRU => qScalar%knprT(J)%x
+ MyMG%KNPRV => qScalar%knprV(J)%x
+ MyMG%KNPRW => qScalar%knprW(J)%x
+
+ ndof = KNVT(K) + KNAT(K) + KNET(K) + KNEL(K)
+ qScalar%sol(K)%x(0*ndof+1:1*ndof) = Temperature(1:ndof)
+ qScalar%sol(K)%x(1*ndof+1:2*ndof) = Temperature(1:ndof)
+ qScalar%sol(K)%x(2*ndof+1:3*ndof) = Temperature(1:ndof)
+ MyMG%X    => qScalar%sol
+ MyMG%AUX  => qScalar%aux
+
+ CALL mgProlongation()
+
+ ndof = KNVT(J) + KNAT(J) + KNET(J) + KNEL(J)
+ Temperature(0*ndof+1:1*ndof) = qScalar%aux(J)%x(0*ndof+1:1*ndof)
+END IF
 
  IF(myid.eq.showid) WRITE(*,*) "Prolongation of velocity solution to a higher level"
 
@@ -3816,39 +3843,6 @@ DO i=1,nel
 END DO
 
 END SUBROUTINE SetUp_myQ2Coor
-!
-! ----------------------------------------------
-!
-SUBROUTINE ResetTimer()
-
- myStat%iNonLin=0
- myStat%iLinUVW=0
- myStat%iLinP=0
- myStat%tMGUVW=0d0
- myStat%tMGP=0d0
- myStat%tDefUVW=0d0
- myStat%tDefP=0d0
- myStat%tCorrUVWP=0d0
- myStat%tGMVOut=0d0
- myStat%tDumpOut=0d0
- myStat%tSmat=0d0
- myStat%tKmat=0d0
- myStat%tDmat=0d0
- myStat%tMmat=0d0
- myStat%tCmat=0d0
- myStat%tRestUVW=0d0
- myStat%tProlUVW=0d0
- myStat%tSmthUVW=0d0
- myStat%tSolvUVW=0d0
- myStat%tRestP=0d0
- myStat%tProlP=0d0
- myStat%tSmthP=0d0
- myStat%tSolvP=0d0
- myStat%tCommP=0d0
- myStat%tCommV=0d0
- myStat%tCommS=0d0
-
-END SUBROUTINE ResetTimer
 !
 ! ----------------------------------------------
 !

@@ -3,17 +3,16 @@ MODULE Transport_Q1
 USE def_LinScalar
 USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
     Comm_Maximum,Comm_Summ,myid,master,CommSum,Comm_SummN,myMPI_barrier
-USE Transport_Q2P1, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
+USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
-    MoveInterfacePoints,myALE,Properties,getmeshvelocity,Temperature
-USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
+    myALE,Properties,Temperature,Temperature_AVG,iTemperature_AVG
+USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat,DivergedSolution
+USE var_QuadScalar, ONLY: Tracer, Tracer3
 USE mg_LinScalar, ONLY : mgProlRestInit
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
+use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
-
-TYPE(lScalar) Tracer
-TYPE(lScalar3) Tracer3
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 
@@ -274,9 +273,9 @@ CALL Create_Knpr(LinSc_Knpr)
 ! Set The initial Conditions
 CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
 
-if (myid.ne.0) then
- Tracer%Val(NLMAX)%x = Temperature
-end if
+! if (myid.ne.0) then
+!  Tracer%Val(NLMAX)%x = Temperature
+! end if
 
 ! Set boundary conditions
 CALL sub_BC()
@@ -371,7 +370,7 @@ if (myid.ne.0) then
   DO i=1,Tracer%ndof
    iSeg = myHeatObjects%Segment(i)
    IF (iSeg.eq.jSeg) THEN
-    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT') THEN
+    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.and.myBoundary%bWall(i)) THEN
      Tracer%knpr(I) = 3
     END IF
    END IF

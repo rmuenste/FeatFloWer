@@ -349,6 +349,7 @@ the location of the necessary files in the FeatFloWer source tree, so they can b
   \item \textbf{FF\_PY\_HOME}: Source directory of the python files of your FeatFloWer installation
   \item \textbf{PATH}: Append the path to the python files to your PATH variable
   \item \textbf{LD\_LIBRARY\_PATH}: Append the path to the Metis library to your LD\_LIBRARY\_PATH variable
+  \item \textbf{PYTHONPATH}: Append the path /path/to/Feat\_FloWer/tools directory to this variable 
 \end{itemize}
 Instructions and examples of how to set these variables in your shell configuration can be found in Section \ref{section:appendix}.
 
@@ -365,8 +366,29 @@ of these checks are printed to the output window of the CMake GUI. If a problem 
 find and fix the configuration problem. Once there are no more configuration errors you can hit the generate button and an operating system specific build file is generated that you can use to build the code.
 Additionally, the CMake-gui can give you an overview of the optional components that can be used by FeatFloWer. These optional components give the user access to extended code functionalities, solver libraries or additional simulation libraries. In the \textit{Grouped} of CMake these optional components can be found and enabled in the \textit{USE} group (see figure \ref{fig:cmake-gui}).
 
+\subsection{Commonly Used CMake Options Overview}
+In this section we list some commonly used configure options for the FeatFloWer package. A CMake option MYCMAKE\_OPTION can be set from the command line using the syntax:\\
+\cmd{cmake -DMYCMAKE\_OPTION=VALUE [more options] /path/to/Feat\_FloWer} \\
 
+\begin{itemize}
+  \item USE\_CGAL:BOOL=True/False : Add the CGAL library, the library will be cloned from a git remote repo. 
+  \item USE\_CGAL:BOOL=True USE\_CGAL\_LOCAL:BOOL=True : The combination of these options adds the CGAL library, but uses a local install of the library, in this case set also: 
+    \begin{itemize}
+      \item CGAL\_INCLUDE\_DIR:PATH : The path to the CGAL include directory 
+      \item CGAL\_LIBRARIES:FILEPATH : The path to the needed CGAL libraries, on unix-like system these are usually called libCGAL.a and libCGAL\_Core.a 
+    \end{itemize}
+  \item Q2P1\_BUILD\_ID:STRING : Set a build-id (effectively sets compiler, compile flags, build type)
+\end{itemize}
 
+\subsection*{Examples}
+Setting CGAL libraries: 
+\begin{itemize}
+  \item -DCGAL\_LIBRARIES="/path/libCGAL.a;/path/libCGAL\_Core.a" 
+\end{itemize}
+Settings CGAL include directory:
+\begin{itemize}
+  \item -DCGAL\_INCLUDE\_DIR="/path/cgal/include" 
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Running a FeatFlower Application}

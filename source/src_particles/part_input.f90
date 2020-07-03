@@ -4,6 +4,8 @@ use iniparser
 use types
 USE PP3D_MPI, ONLY:myid,showid
 
+  implicit none
+  
   ! Top-level file that will be read. Path is relative
   ! to the binary
   character(len=256), parameter, private :: configfile_particles = "_data/config_particles.dat"
@@ -20,7 +22,7 @@ contains
     ! A parameterlist
     type(t_parlist) :: parameterlist
 
-    character(len=10) :: tmpstring
+    character(len=256) :: tmpstring,cSeg,cInitType,cInitTypeUpper
     integer :: i, numberOfElements
 
     ! Declare default parameters
@@ -93,6 +95,18 @@ contains
     ELSE
      ParticleParam%bRotationalMovement = .TRUE.
     END IF
+
+    IF (ParticleParam%bRotationalMovement) THEN
+     call inip_getvalue_double(parameterlist, "GeneralSettings","f",ParticleParam%f)
+    ELSE
+     call inip_getvalue_double(parameterlist, "GeneralSettings","dt",ParticleParam%f,0d0)
+     IF (ParticleParam%f.eq.0d0) THEN
+      write(*,*) "No TimeStep size defined: ", ParticleParam%f
+      stop
+     ELSE
+      ParticleParam%f = 1d0/ParticleParam%f
+     END IF
+    END IF
     
     call inip_getvalue_string(parameterlist,"GeneralSettings","DumpFormat",tmpstring,"DMP")
     call inip_toupper_replace(tmpstring)
@@ -100,13 +114,87 @@ contains
     IF (tmpstring.eq."LST") ParticleParam%DumpFormat = 2
     IF (tmpstring.eq."REPART") ParticleParam%DumpFormat = 3
 
+    ! Get the number of Inflow regions for Particle Backtracing
+    call inip_getvalue_int(parameterlist,"GeneralSettings","NumberOfInflowRegions",ParticleParam%NumberOfInflowRegions,0)
+    IF (ParticleParam%NumberOfInflowRegions.eq.0) THEN
+     ParticleParam%NumberOfInflowRegions = 1
+     GOTO 56
+    ELSE
+     allocate(ParticleParam%InflowRegion(ParticleParam%NumberOfInflowRegions))
+     DO i=1,ParticleParam%NumberOfInflowRegions
+       WRITE(cSeg,'(A,I1.1)') 'InflowRegion_',i
+       call inip_getvalue_string(parameterlist,"GeneralSettings",cSeg,tmpstring,'unknown')
+       if (myid.eq.1) write(*,*) "'",adjustl(trim(tmpstring)),"'"
+       read(tmpstring,*,err=55) ParticleParam%InflowRegion(i)%Center,ParticleParam%InflowRegion(i)%Radius
+     END DO
+     GOTO 56
+    END IF
+    
+55     write(*,*) 'WRONGLY DEFINED parameters for Inflow ',i,' !!'
+56  CONTINUE
+
     ! Get the starting procedure
-    call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)
+    call inip_getvalue_string(parameterlist,"GeneralSettings","startingprocedure",cInitType,bdequote=.TRUE.)
+    cInitTypeUpper = cInitType
+    call inip_toupper_replace(cInitTypeUpper)
+    IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'CSV').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_CSVFILE
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=').ne.0) THEN
+       ParticleParam%Plane = 1
+       READ(cInitType(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=')+5:),*) ParticleParam%sourcefile
+       if (myid.eq.1) WRITE(*,*) "Particle sourcefile: '",ADJUSTL(TRIM(ParticleParam%sourcefile)),"'"
+      END IF
+    ELSEIF (ADJUSTL(TRIM(cInitTypeUpper)).eq.'ELEM') THEN
+      ParticleParam%inittype  = ParticleSeed_ELEMCENTER
+    ELSEIF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'PLANE').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_PLANE
+      ParticleParam%Plane = 0
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'X=').ne.0) THEN
+       ParticleParam%Plane = 1
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'X=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Y=').ne.0) THEN
+       ParticleParam%Plane = 2
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Y=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Z=').ne.0) THEN
+       ParticleParam%Plane = 3
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'Z=')+2:),*) ParticleParam%PlaneOffset
+      END IF
+      IF (ParticleParam%Plane.eq.0) THEN
+       WRITE(*,*) 'no plane for planar seedoing is defined'
+       STOP
+      END IF
+      
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=').ne.0) THEN
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=')+2:),*) ParticleParam%PlaneParticles
+      ELSE
+       WRITE(*,*) 'no numbner of particle is defined ...'
+       STOP
+      END IF
+      
+      WRITE(*,*) ParticleSeed_PLANE,ParticleParam%PlaneParticles, ParticleParam%Plane ,ParticleParam%PlaneOffset
+    ELSEIF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'VOLUME').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_VOLUME
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=').ne.0) THEN
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=')+2:),*) ParticleParam%VolumeParticles
+      ELSE
+       WRITE(*,*) 'no numbner of particle is defined ...'
+       STOP
+      END IF
+      
+      WRITE(*,*) ParticleSeed_VOLUME,ParticleParam%VolumeParticles
+     
+     
+    END IF
+    
+    
+!    call inip_getvalue_int(parameterlist,"GeneralSettings","startingprocedure",ParticleParam%inittype)
 
     ! If we have to read something then lets do it
     if (ParticleParam%inittype .eq. ParticleSeed_CSVFILE .or. &
         ParticleParam%inittype .eq. ParticleSeed_OUTPUTFILE) then
-      call inip_getvalue_string(parameterlist,"GeneralSettings","sourcefile",ParticleParam%sourcefile,bdequote=.TRUE.)
+!       call inip_getvalue_string(parameterlist,"GeneralSettings","sourcefile",ParticleParam%sourcefile,bdequote=.TRUE.)
 
       ! Get the unit of the sourcefile
       ! Example: If we read that the particle has the position 2.5cm , we can leave it as it is.
@@ -123,6 +211,15 @@ contains
       end if
     end if
 
+    call inip_getvalue_string(parameterlist,"GeneralSettings","backtrace",tmpstring,"NO")
+    call inip_toupper_replace(tmpstring)
+    IF (tmpstring.eq."NO") THEN
+     ParticleParam%bBacktrace = .FALSE.
+    ELSE
+     ParticleParam%bBacktrace = .TRUE.
+    END IF
+
+    
     call inip_getvalue_int(parameterlist,"GeneralSettings","dump_in_file",ParticleParam%dump_in_file,-1)
     
     ! TimeLevels. Default is 72
@@ -160,9 +257,10 @@ contains
     ! Scale it with the unit factor
     ParticleParam%Z_seed=ParticleParam%Z_seed*ParticleParam%dFacUnitIn
 
-    call inip_getvalue_double(parameterlist, "GeneralSettings","f",ParticleParam%f)
     call inip_getvalue_double(parameterlist, "GeneralSettings","Epsilon",ParticleParam%Epsilon,Epsilon)
     call inip_getvalue_double(parameterlist, "GeneralSettings","hSize",ParticleParam%hSize,hSize)
+
+    call inip_getvalue_double(parameterlist, "GeneralSettings","OutflowZPosition",ParticleParam%OutflowZPos,1d8)
 
     ! Particles at positions - new implementation
     ParticleParam%nZposCutplanes = INIP_querysubstrings(parameterlist,"GeneralSettings","zCutplanePositions")

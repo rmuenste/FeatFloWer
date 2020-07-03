@@ -1,13 +1,10 @@
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation, QuadSc,&
-    OperatorRegenaration
+    bTracer,bViscoElastic,StaticMeshAdaptation, QuadSc,&
+    OperatorRegenaration,UpdateMaterialProperties
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar, &
@@ -64,6 +61,8 @@ subroutine init_q2p1_ext(log_unit)
 
   end if
 
+  CALL UpdateMaterialProperties()
+  
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------

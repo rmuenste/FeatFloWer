@@ -29,6 +29,8 @@ integer, parameter, public :: FBMD_ROTATIONAL         =-4
 integer, parameter, public :: FBM_ROTATIONAL_INVERSE  = 5 
 ! 
 integer, parameter, public :: FBMD_ROTATIONAL_INVERSE =-5 
+! 
+integer, parameter, public :: FBM_CONSTANT_ROTATION = 6 
 
 contains
 !

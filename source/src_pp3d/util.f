@@ -3511,3 +3511,22 @@ C
 100   CONTINUE
 C
 99999 END
+C
+C
+C
+      subroutine ztime(t)
+      implicit none
+
+      Real, intent(inout) :: t
+
+      call CPU_TIME(t)
+
+      end subroutine ztime
+C
+C
+C
+      subroutine zvalue1()
+      implicit none
+
+      end subroutine zvalue1
+      

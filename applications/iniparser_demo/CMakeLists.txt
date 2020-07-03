@@ -6,7 +6,7 @@ parserdemonstration.f90
 
 # Add the application executable
 add_executable(parserdemonstration ${src_iniparserdemonstration})
-target_link_libraries(parserdemonstration cdirs)
+target_link_libraries(parserdemonstration cdirs ff_ini_c ff_ini_aux)
 
 
 target_compile_options(parserdemonstration PRIVATE ${Fortran_FLAGS})

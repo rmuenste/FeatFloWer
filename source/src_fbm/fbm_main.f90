@@ -343,6 +343,233 @@ end subroutine FictKnpr_velBC
 !=========================================================================
 ! 
 !=========================================================================
+subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t)
+use Sigma_User, only : myProcess
+use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
+use PP3D_MPI, only: myid
+
+! Parameters
+integer, intent(in) :: ip
+real*8 , intent(in) :: x,y,z,t
+real*8 , intent(inout) :: valu,valv,valw
+
+! local variables
+integer :: ipc,isin, idynType
+real*8  :: dist_sign, cpx,cpy,cpz, d_temp
+real*8  :: dCGAL_X,dCGAL_Y,dCGAL_Z
+real*8  :: Umdr = 540d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
+real*8  :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevation
+
+real*8  :: P_in(3),P_out(3),myaxis(3),velo(3),new_velo(3)
+
+valu =  0d0
+valv =  0d0
+valw =  0d0
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+actual_time = t
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+omega  = myTwoPI * (Umdr/60d0)  ! 2 * pi * f
+dAngle = omega*actual_time
+
+dElevation = dEccentricity*dsin(dAngle)
+dElevationVelo  = omega*dEccentricity*dcos(-omega*actual_time)
+
+dAngle2 = -dATAN(dEccentricity*dsin(-omega*actual_time)/LengthOfStraightTube)
+AngularVelocity = -(omega) * (dEccentricity*dcos(omega*actual_time)/LengthOfStraightTube) * (1d0+(dATAN(dEccentricity*dsin(omega*actual_time)/LengthOfStraightTube))**2d0)
+
+IF (IP.eq.111) then
+
+ P_in = [X,Y,Z]
+ valu =  -omega*P_in(2)
+ valv =   omega*P_in(1)
+ valw =   0d0
+ 
+END IF
+
+IF (IP.eq.112) then
+ myaxis = [1.0,0.0,0.0]
+ P_in = [X,Y,Z]
+ CALL RotatePointY(P_in,P_out,dAngle2)
+ P_in = P_out
+ velo(1) =  -omega*P_in(2)
+ velo(2) =   omega*P_in(1)
+ velo(3) =   0d0
+ 
+ call ROTATION_AXIS_VECTOR(myaxis,-dAngle2, velo, new_velo)
+ 
+ P_in = [X,Y,Z]
+ velo(1) =   0d0
+ velo(2) =  -(P_in(3)-9.0)*AngularVelocity 
+ velo(3) =    P_in(2)     *AngularVelocity 
+  
+ valu = velo(1) +  new_velo(1)
+ valv = velo(2) +  new_velo(2)
+ valw = velo(3) +  new_velo(3)
+END IF
+
+IF (IP.eq.113) then
+
+ P_in = [X,Y,Z]
+ 
+ CALL ElevatePoint(P_in,P_out,-dElevation)
+ valu =  -omega*P_out(2)
+ valv =   omega*P_out(1)
+ valw =   0d0
+ 
+ valv = valv + dElevationVelo
+ 
+END IF
+
+IF (IP.eq.114) then
+ valu =  0d0
+ valv =  0d0
+ valw =  0d0
+END IF
+CONTAINS
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE RotatePointZ(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)*cos(dA) - Pin(2)*sin(dA)
+Pout(2) = Pin(1)*sin(dA) + Pin(2)*cos(dA)
+Pout(3) = Pin(3)
+
+END SUBROUTINE RotatePointZ
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE RotatePointY(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)
+Pout(2) = Pin(2)*cos(dA) - (Pin(3)-9d0)*sin(dA)
+Pout(3) = Pin(2)*sin(dA) + (Pin(3)-9d0)*cos(dA)+9d0
+
+END SUBROUTINE RotatePointY
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE ElevatePoint(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)
+Pout(2) = Pin(2) + dA
+Pout(3) = Pin(3)
+
+END SUBROUTINE ElevatePoint
+
+end subroutine FictKnpr_velBC_Wangen
+!---------------------------------------------------------------------------------------------------------
+subroutine rotation_axis_vector ( axis, angle, v, w )
+
+!*****************************************************************************80
+!
+!! ROTATION_AXIS_VECTOR rotates a vector around an axis vector in 3D.
+!
+!  Discussion:
+!
+!    Thanks to Cody Farnell for correcting some mistakes in an earlier
+!    version of this routine.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license. 
+!
+!  Modified:
+!
+!    18 May 2007
+!
+!  Author:
+!
+!    John Burkardt
+!
+!  Parameters:
+!
+!    Input, real ( kind = 8 ) AXIS(3), the axis vector for the rotation.
+!
+!    Input, real ( kind = 8 ) ANGLE, the angle, in radians, of the rotation.
+!
+!    Input, real ( kind = 8 ) V(3), the vector to be rotated.
+!
+!    Output, real ( kind = 8 ) W(3), the rotated vector.
+!
+  implicit none
+
+  integer ( kind = 4 ), parameter :: dim_num = 3
+
+  real ( kind = 8 ) angle
+  real ( kind = 8 ) axis(dim_num)
+  real ( kind = 8 ) axis_norm
+  real ( kind = 8 ) dot
+  real ( kind = 8 ) norm
+  real ( kind = 8 ) normal(dim_num)
+  real ( kind = 8 ) normal_component
+  real ( kind = 8 ) normal2(dim_num)
+  real ( kind = 8 ) parallel(dim_num)
+  real ( kind = 8 ) rot(dim_num)
+  real ( kind = 8 ) u(dim_num)
+  real ( kind = 8 ) v(dim_num)
+  real ( kind = 8 ) w(dim_num)
+!
+!  Compute the length of the rotation axis.
+!
+  u(1:dim_num) = axis(1:dim_num)
+
+  axis_norm = sqrt ( sum ( u(1:dim_num) ** 2 ) )
+
+  if ( axis_norm == 0.0D+00 ) then
+    w(1:dim_num) = 0.0D+00
+    return
+  end if
+
+  u(1:dim_num) = u(1:dim_num) / axis_norm
+!
+!  Compute the dot product of the vector and the unit rotation axis.
+!
+  dot = dot_product ( u(1:dim_num), v(1:dim_num) )
+!
+!  Compute the parallel component of the vector.
+!
+  parallel(1:dim_num) = dot * u(1:dim_num)
+!
+!  Compute the normal component of the vector.
+!
+  normal(1:dim_num) = v(1:dim_num) - parallel(1:dim_num)
+
+  normal_component = sqrt ( sum ( normal(1:dim_num) ** 2 ) )
+
+  if ( normal_component == 0.0D+00 ) then
+    w(1:dim_num) = parallel(1:dim_num)
+    return
+  end if
+
+  normal(1:dim_num) = normal(1:dim_num) / normal_component
+!
+!  Compute a second vector, lying in the plane, perpendicular
+!  to V, and forming a right-handed system, as the cross product
+!  of the first two vectors.
+!
+  normal2(1) = u(2) * normal(3) - u(3) * normal(2)
+  normal2(2) = u(3) * normal(1) - u(1) * normal(3)
+  normal2(3) = u(1) * normal(2) - u(2) * normal(1)
+
+  norm = sqrt ( sum ( normal2(1:dim_num) ** 2 ) )
+
+  normal2(1:dim_num) = normal2(1:dim_num) / norm
+!
+!  Rotate the normal component by the angle.
+!
+  rot(1:dim_num) = normal_component * ( &
+      cos ( angle ) * normal(1:dim_num) &
+    + sin ( angle ) * normal2(1:dim_num) )
+!
+!  The rotated vector is the parallel component plus the rotated component.
+!
+  w(1:dim_num) = parallel(1:dim_num) + rot(1:dim_num)
+
+  return
+end subroutine rotation_axis_vector
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_velBC(x,y,z,valu,valv,valw,ip,t)
 use var_QuadScalar, only : myFBM,bRefFrame
 implicit none
@@ -715,6 +942,165 @@ if (calculateDynamics().or.itns.eq.1) then
 end if
 
 END SUBROUTINE GetFictKnpr_DIE
+!=========================================================================
+! 
+!=========================================================================
+SUBROUTINE GetFictKnpr_Wangen(X,Y,Z,iBndr,inpr,Dist)
+! 
+!   This subroutine handles the FBM geometric computations
+!   for a single(!) elastic or soft body.
+!
+use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
+use def_FEAT, only: itns,timens
+use cinterface
+
+implicit none
+
+include 'fbm_up_include.h'
+ 
+! Coordinates of the query point 
+real*8, intent(in) :: x, y, z 
+
+! Id of the boundary component
+integer, intent(inout) :: iBndr
+
+! fictId
+integer, intent(inout) :: inpr
+
+! Distance solution in the query point 
+real*8, intent(inout) :: dist
+
+! local variables
+integer :: IP,ipc,isin, idynType
+real*8 :: dist_sign, cpx,cpy,cpz, d_temp
+real*8 :: dCGAL_X,dCGAL_Y,dCGAL_Z
+real*8 :: Umdr = 540d0,omega,myTwoPI = 2d0*(4d0*DATAN(1d0)),dAngle,actual_time
+real*8 :: dEccentricity= 2d0*2.8d0,dAngle2,LengthOfStraightTube = 60.0d0,dElevation
+
+real*8 :: P_in(3),P_out(3)
+
+IP = iBndr
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+actual_time = timens
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+omega  = myTwoPI * (Umdr/60d0)  ! 2 * pi * f
+dAngle = omega*actual_time
+
+dElevation = dEccentricity*dsin(dAngle)
+dAngle2 = -dATAN(dElevation/LengthOfStraightTube)
+  
+!if (calculateDynamics().or.itns.eq.1) then
+ inpr = 0
+ dist_sign = 1
+ Dist = 1d8
+ 
+! DO IP = 1,myFBM%nParticles
+  
+  ipc=ip-1
+  isin = 0
+  call get_dynamics_type(ipc, idynType) 
+  dist_sign = +1d0
+  if (idynType.eq.2) dist_sign = -1d0
+!   if (IP.eq.1) dist_sign = -1d0
+  
+  IF (IP.eq.1) then
+   P_in = [X,Y,Z]
+   CALL RotatePointZ(P_in,P_out,-dAngle)
+
+   dCGAL_X = dCGALtoRealFactor*P_Out(1)
+   dCGAL_Y = dCGALtoRealFactor*P_Out(2)
+   dCGAL_Z = dCGALtoRealFactor*P_Out(3)
+  END IF
+  
+  IF (IP.eq.2) then
+  
+   P_in = [X,Y,Z]
+   CALL RotatePointY(P_in,P_out,-dAngle2)
+   
+   P_in = P_Out
+   CALL RotatePointZ(P_in,P_out,-dAngle)
+
+   dCGAL_X = dCGALtoRealFactor*P_Out(1)
+   dCGAL_Y = dCGALtoRealFactor*P_Out(2)
+   dCGAL_Z = dCGALtoRealFactor*P_Out(3)
+  END IF
+  
+  IF (IP.eq.3) then
+   P_in = [X,Y,Z]
+   CALL ElevatePoint(P_in,P_out,-dElevation)
+   
+   P_in = P_Out
+   CALL RotatePointZ(P_in,P_out,-dAngle)
+
+   dCGAL_X = dCGALtoRealFactor*P_Out(1)
+   dCGAL_Y = dCGALtoRealFactor*P_Out(2)
+   dCGAL_Z = dCGALtoRealFactor*P_Out(3)
+  END IF
+  
+  IF (IP.eq.4) then
+   dist_sign = -1d0
+   P_in = [X,Y,Z]
+   dCGAL_X = dCGALtoRealFactor*P_In(1)
+   dCGAL_Y = dCGALtoRealFactor*P_In(2)
+   dCGAL_Z = dCGALtoRealFactor*P_In(3)
+  END IF
+
+  call isinelementid(dCGAL_X,dCGAL_Y,dCGAL_Z,ipc,isin)
+  if(isin .gt. 0)then
+   dist_sign = -1d0*dist_sign
+   call getdistanceid(dCGAL_X,dCGAL_Y,dCGAL_Z,d_temp,ipc)
+  else
+   dist_sign = +1d0*dist_sign
+   call getdistanceid(dCGAL_X,dCGAL_Y,dCGAL_Z,d_temp,ipc)
+  end if
+  
+  IF (dist.gt.dist_sign * d_temp) then 
+   dist = dist_sign * d_temp
+   IF (dist.lt.0d0) then
+    inpr = 110+ip
+   end if
+  END IF
+!  dist = min(dist,dist_sign * d_temp)
+  
+! end do
+ 
+! if (dist.lt.0d0) THEN
+!  inpr = 100
+! end if
+
+!end if
+
+CONTAINS
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE RotatePointZ(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)*cos(dA) - Pin(2)*sin(dA)
+Pout(2) = Pin(1)*sin(dA) + Pin(2)*cos(dA)
+Pout(3) = Pin(3)
+
+END SUBROUTINE RotatePointZ
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE RotatePointY(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)
+Pout(2) = Pin(2)*cos(dA) - (Pin(3)-9d0)*sin(dA)
+Pout(3) = Pin(2)*sin(dA) + (Pin(3)-9d0)*cos(dA)+9d0
+
+END SUBROUTINE RotatePointY
+!---------------------------------------------------------------------------------------------------------
+SUBROUTINE ElevatePoint(Pin,Pout,dA)
+REAL*8 Pin(3),Pout(3),dA
+
+Pout(1) = Pin(1)
+Pout(2) = Pin(2) + dA
+Pout(3) = Pin(3)
+
+END SUBROUTINE ElevatePoint
+
+END SUBROUTINE GetFictKnpr_Wangen
 !=========================================================================
 ! 
 !=========================================================================

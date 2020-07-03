@@ -2,13 +2,13 @@ module visualization_out
 
 use cinterface
 
-use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, &
+use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, MaxShearRate,&
                          t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
 
 use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
 
 use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
-use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,&
+use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,COMM_Minimum,&
                    COMM_Minimumn,COMM_NLComplete,Comm_Summ,myMPI_Barrier
 !------------------------------------------------------------------------------------------------
 ! A module for output routines for vtk, gmv or other output formats.
@@ -34,13 +34,22 @@ contains
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
+USE Sigma_User, ONLY: mySigma
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
+
+interface
+  subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    integer(c_int) :: angle
+  end subroutine c_write_json_output
+end interface
 
 type(tExport), intent(in) :: sExport
 
@@ -67,9 +76,26 @@ integer :: ioutput_lvl
 
 if (sExport%Format .eq. "VTK") then
 
- call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+ if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
+ 
+  IF (mySigma%bAnalyticalShearRateRestriction) then
+   CALL restrictGlobalShear(shear, 9,  sQuadSc, mgMesh%nlmax)
+   CALL restrictGlobalShear(shear, 10, sQuadSc, mgMesh%nlmax)
+  else
+   CALL restrictField(shear,  9,  sQuadSc, mgMesh%nlmax)
+   CALL restrictField(shear, 10,  sQuadSc, mgMesh%nlmax)
+   CALL restrictField(shear,  5,  sQuadSc, mgMesh%nlmax)
+  end if
+  
+  CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
+  CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
 
- call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+  call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+  
+  call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+  
+ end if
  
  if (myid.ne.0) then
 
@@ -86,6 +112,8 @@ if (sExport%Format .eq. "VTK") then
  end if
 
 end if
+
+call c_write_json_output(iOutput) 
 
 end subroutine viz_output_fields
 !-------------------------------------------------------------------------------------------------
@@ -108,7 +136,7 @@ use var_QuadScalar, only:tExport
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
 
@@ -171,7 +199,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate
 
 implicit none
 
@@ -317,6 +345,13 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ case('MaxShearRate')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MaxShearRate [1/s]",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(MaxShearRate(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  
  case('Partitioning')
   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -466,6 +501,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature [C]","""/>"
  CASE('NormShearRate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","NormShearRate [1/s]","""/>"
+ CASE('MaxShearRate')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MaxShearRate [1/s]","""/>"
 !  CASE('Monitor')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
 !
@@ -830,7 +867,7 @@ subroutine viz_OutPut_1D(iOut, sQuadSc, sLinSc, sTracer, maxlevel,btempSim)
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
-use def_LinScalar, only: lScalar
+use types, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
 use Sigma_User, only: myOutput, mySigma
 use iniparser
@@ -958,6 +995,7 @@ type(t1dname) :: names1d(11)
  iVerlaufMax = 33
 
  my1DOut(1)%cName = 'VelocityZ_[m/s]'
+! CALL restrictField(sQuadSc%valW, 1, sQuadSc, myOutput, maxlevel)
  CALL viz_OutPut_1D_sub(sQuadSc%valW,sQuadSc%valV,sQuadSc%valU,1, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(2)%cName = 'Pressure_[bar]'
@@ -970,6 +1008,7 @@ type(t1dname) :: names1d(11)
  CALL viz_OutPut_1D_sub(Viscosity,sLinSc%Q2,sLinSc%Q2,4, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(5)%cName = 'ShearRate_[1/s]'
+! CALL restrictField(ShearRate, 5,  sQuadSc, myOutput, maxlevel)
  CALL viz_OutPut_1D_sub(ShearRate,sLinSc%Q2,sLinSc%Q2,5, my1Dout_nol, my1DOut, myOutput, mySigma, sQuadSc, maxlevel)
 
  my1DOut(6)%cName = 'VelocityX_[m/s]'
@@ -1413,6 +1452,283 @@ end subroutine
 !-------------------------------------------------------------------------------------------------
 ! The particular routine for outputting 1D fields for an sse application
 !-------------------------------------------------------------------------------------------------
+subroutine restrictGlobalShear(dField1, i1D, sQuadSc, maxlevel)
+use Sigma_User, only: myOutput, mySigma
+use, intrinsic :: ieee_arithmetic
+
+real*8 :: dField1(*)
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
+integer :: i1D
+
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist) myHist
+
+! local variables
+integer :: i,j,jj
+real*8  :: daux,dX,dY,dZ,dR,dRadius
+
+! local variables
+real*8  :: dMinSample,dMaxSample,dWidth
+real*8, dimension(:,:), allocatable :: my1DIntervals
+real*8, dimension(:), allocatable :: d1D_Max
+integer :: my1DOut_nol
+
+my1DOut_nol = myOutput%nOf1DLayers
+dMinSample = 0d0
+dMaxSample = mySigma%L
+if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))
+if (.not.allocated(d1D_Max)) ALLOCATE(d1D_Max(my1DOut_nol))
+
+dWidth = (dMaxSample-dMinSample)/DBLE(my1DOut_nol)
+
+DO i=1,my1DOut_nol
+ my1DIntervals(i,1) = dMinSample + DBLE(i-1)*dWidth
+ my1DIntervals(i,2) = dMinSample + DBLE(i)*dWidth
+END DO
+
+d1D_Max    =-1d30
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   jj=0
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
+
+   IF (jj.NE.0) THEN
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if ((i1D.eq.9).and.dR.gt.dRadius) then
+     d1D_Max(jj)    = MAX(d1D_Max(jj),MaxShearRate(i))
+    END IF
+
+    if ((i1D.eq.10).and.dR.le.dRadius)  then
+     d1D_Max(jj)    = MAX(d1D_Max(jj),MaxShearRate(i))
+    END IF
+   END IF
+   
+ END IF
+END DO
+
+CALL COMM_Maximumn(d1D_Max,my1DOut_nol)
+! CALL COMM_Maximum(d1D_Max)
+
+!WRITE(*,*) "FoundMAx",iid,d1D_Max
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+!  IF (MixerKNPR(i).eq.0) THEN
+ 
+   jj=0
+   dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
+   DO j=1,my1DOut_nol
+    IF (dZ.GE.my1DIntervals(j,1).AND.dZ.LE.my1DIntervals(j,2)) THEN
+     jj = j
+     EXIT
+    END IF
+   END DO
+
+   IF (jj.NE.0) THEN
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if ((i1D.eq.9).and.dR.gt.dRadius) then
+     if (dField1(i).gt.d1D_Max(jj)) dField1(i) = d1D_Max(jj)
+    END IF
+
+    if ((i1D.eq.10).and.dR.le.dRadius)  then
+     if (dField1(i).gt.d1D_Max(jj)) dField1(i) = d1D_Max(jj)
+    END IF
+   END IF
+  
+!  END IF
+END DO
+
+END subroutine restrictGlobalShear
+
+!
+!-------------------------------------------------------------------------------------------------
+! The particular routine for outputting 1D fields for an sse application
+!-------------------------------------------------------------------------------------------------
+! @param iO Output file idx
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer Scalar solution structure
+! @param sTracer Scalar solution structure
+subroutine restrictField(dField1, i1D, sQuadSc, maxlevel)
+use Sigma_User, only: myOutput, mySigma
+use, intrinsic :: ieee_arithmetic
+
+real*8 :: dField1(*)
+type(tQuadScalar), intent(in) :: sQuadSc
+integer, intent(in) :: maxlevel
+integer :: i1D
+
+type tHist
+ real*8, allocatable :: x(:),m(:)
+ integer n
+end type tHist
+
+type (tHist) myHist
+
+! local variables
+integer :: i,j
+real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
+
+
+allocate(myHist%x(SIZE(sQuadSc%ValU)))
+allocate(myHist%m(SIZE(sQuadSc%ValU)))
+myHist%x = 0d0
+myHist%m = 0d0
+myHist%n = 0
+
+MlRhoMat => mg_MlRhoMat(maxlevel)%a
+dMin    = 1d30
+dMax    =-1d30
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if (i1D.eq.1 .OR.i1D.eq.5) then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+
+   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+
+   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+    myHist%n = myHist%n + 1
+    daux = dField1(i)
+    dMin    = MIN(dMin,daux)
+    dMax    = MAX(dMax,daux)
+    myHist%x(myHist%n) = daux
+    myHist%m(myHist%n) = MlRhoMat(i)
+   END IF
+   
+ END IF
+END DO
+
+CALL COMM_Maximum(dMax)
+CALL COMM_Minimum(dMin)
+
+if (i1D.eq.9 .OR.i1D.eq.10 .OR.i1D.eq.5) THEN
+ CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.true.)
+END IF
+if (i1D.eq.11.OR.i1D.eq.12 .OR.i1D.eq.1) THEN
+ CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.false.)
+ENdif
+
+!if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
+
+DO i=1,SIZE(sQuadSc%ValU)
+
+ IF (MixerKNPR(i).eq.0) THEN
+ 
+   IF (ieee_is_finite(mySigma%DZz)) THEN
+    dRadius = 0.5d0*mySigma%DZz
+   ELSE 
+    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+   END IF 
+   
+   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+   dR = SQRT(dX**2d0+dY**2d0)
+   
+   if (i1D.eq.1 .OR.i1D.eq.5) then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+   
+   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+
+   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+    if (dField1(i).gt.dMax) dField1(i) = dMax
+    if (dField1(i).lt.dMin) dField1(i) = dMin
+   END IF
+   
+ END IF
+END DO
+
+deallocate(myHist%x)
+deallocate(myHist%m)
+
+! dMin    = 1d30
+! dMax    =-1d30
+! myHist%n = 0
+! 
+! DO i=1,SIZE(sQuadSc%ValU)
+! 
+!  IF (MixerKNPR(i).eq.0) THEN
+!  
+!     myHist%n = myHist%n + 1
+!     daux = dField1(i)
+!     dMin    = MIN(dMin,daux)
+!     dMax    = MAX(dMax,daux)
+!    
+!  END IF
+! END DO
+! 
+! CALL COMM_Maximum(dMax)
+! CALL COMM_Minimum(dMin)
+
+! if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
+
+end subroutine restrictField
+!
+!-------------------------------------------------------------------------------------------------
+! The particular routine for outputting 1D fields for an sse application
+!-------------------------------------------------------------------------------------------------
 ! @param iO Output file idx
 ! @param sQuadSc The velocity solution structure of the mesh
 ! @param sLinSc The pressure solution structure of the mesh
@@ -1438,7 +1754,7 @@ type (tHist), allocatable :: myHist(:)
 ! local variables
 real*8  :: dMinSample, dMaxSample
 integer :: i,j,jj
-real*8  :: dZ,dWidth,daux,dScale
+real*8  :: dZ,dWidth,daux,dScale,dLim
 
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
@@ -1532,10 +1848,15 @@ CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
+ if (i1D.eq.1.or.i1D.eq.5) THEN !!! These fields have already been restricted
+  dLim = myOutput%CutDtata_1D*1e-3
+ ELSE
+  dLim = myOutput%CutDtata_1D
+ END IF
  if (i1D.eq.5) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+!   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
 
@@ -1555,9 +1876,9 @@ deallocate(myHist)
 IF (myid.ne.0) THEN
  if (i1D.eq.2) then
   dMinOutputPressure = my1DOutput(i1D)%dMean(1)
-  DO j=1,my1DOut_nol
-   dMinOutputPressure = MIN(dMinOutputPressure,my1DOutput(i1D)%dMean(j))
-  END DO
+!   DO j=1,my1DOut_nol
+!    dMinOutputPressure = MIN(dMinOutputPressure,my1DOutput(i1D)%dMean(j))
+!   END DO
   IF (myid.eq.1) THEN
    write(*,*) 'dMinOutputPressure: ',dMinOutputPressure,myid
 !   write(*,*) 'dMinOutputPressureValues: ',my1DOutput(i1D)%dMean(:)
@@ -1590,7 +1911,7 @@ end type tHist
 type (tHist), allocatable :: myHist(:)
 
 ! local variables
-real*8  :: dMinSample, dMaxSample
+real*8  :: dMinSample, dMaxSample, dLim
 integer :: i,j,jj
 real*8  :: dX,dY,dZ,dWidth,daux,dScale,dR,dDist,dRadius
 
@@ -1671,13 +1992,23 @@ IF (myid.ne.0) THEN
     IF (i1D.EQ.9) THEN
      dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
      dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-     dDist = ABS(min(ScrewDist(1,i),ScrewDist(2,i)))
-!     dDist = ABS(Distamce(i))
-     IF (dY.gt.0d0)  dR = SQRT(dX**2d0+(dY-mySigma%a/2d0)**2d0)
-     IF (dY.le.0d0)  dR = SQRT(dX**2d0+(dY+mySigma%a/2d0)**2d0)
-!      write(*,*) mySigma%mySegment(iSeg)%delta,mySigma%mySegment(iSeg)%Ds,dDist,dR
-!      pause
-     IF (dR.gt.0.5d0*mySigma%mySegment(iSeg)%Ds.and.dDist.le.mySigma%mySegment(iSeg)%delta) THEN
+
+     ! ----------------- KMB_update ------------------
+     dR = SQRT(dX**2d0+dY**2d0)
+   
+     IF (ieee_is_finite(mySigma%DZz)) THEN
+      dRadius = 0.5d0*mySigma%DZz
+     ELSE 
+      dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+     END IF 
+     
+     IF (dR.gt.dRadius)  THEN
+     ! ----------------- KMB_update ------------------
+!      dDist = ABS(min(ScrewDist(1,i),ScrewDist(2,i)))
+!      IF (dY.gt.0d0)  dR = SQRT(dX**2d0+(dY-mySigma%a/2d0)**2d0)
+!      IF (dY.le.0d0)  dR = SQRT(dX**2d0+(dY+mySigma%a/2d0)**2d0)
+!      IF (dR.gt.0.5d0*mySigma%mySegment(iSeg)%Ds.and.dDist.le.2d0*mySigma%mySegment(iSeg)%delta) THEN
+     ! ----------------- KMB_update ------------------
       daux = dScale*dField1(i)
       bValid = .TRUE.
      END IF
@@ -1685,7 +2016,19 @@ IF (myid.ne.0) THEN
     IF (i1D.EQ.10) THEN
      dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
      dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-     IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s)  THEN
+     dR = SQRT(dX**2d0+dY**2d0)
+   
+     IF (ieee_is_finite(mySigma%DZz)) THEN
+      dRadius = 0.5d0*mySigma%DZz
+     ELSE 
+      dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+     END IF 
+     
+     ! ----------------- KMB_update ------------------
+     IF (dR.le.dRadius)  THEN
+     ! ----------------- KMB_update ------------------
+!     IF (ABS(ScrewDist(1,i)).lt.mySigma%mySegment(iSeg)%s.and.ABS(ScrewDist(2,i)).lt.mySigma%mySegment(iSeg)%s.and.dR.le.dRadius)  THEN 
+     ! ----------------- KMB_update ------------------
 !      IF (dY.gt.-0.5d0*mySigma%a.and.dY.lt.+0.5d0*mySigma%a.and.&
 !          dX.gt.-0.5d0*mySigma%s.and.dX.lt.+0.5d0*mySigma%s)  THEN
       daux = dScale*dField1(i)
@@ -1731,10 +2074,11 @@ CALL COMM_Maximumn(my1DOutput(i1D)%dMax,my1DOut_nol)
 CALL COMM_Minimumn(my1DOutput(i1D)%dMin,my1DOut_nol)
 
 DO j=1,my1DOut_nol
+ dLim = myOutput%CutDtata_1D*1d-3 ! These fields have already been restricted
  if (i1D.eq.9.or.i1D.eq.10) then
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.true.)
+!   CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.true.)
  else
-  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),myOutput%CutDtata_1D,.false.)
+  CALL viz_CreateHistogram(myHist(j)%x, myHist(j)%m, myHist(j)%n,my1DOutput(i1D)%dMin(j),my1DOutput(i1D)%dMax(j),dLim,.false.)
  end if
 END DO
 
@@ -1773,7 +2117,7 @@ use var_QuadScalar, only:tExport, extruder_angle
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 
-USE Transport_Q1,ONLY:Tracer
+use var_QuadScalar, only:Tracer
 
 implicit none
 

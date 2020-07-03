@@ -1,12 +1,9 @@
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
+    bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
@@ -70,9 +67,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
- USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
+ USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
+     ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
+     DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
 
@@ -89,12 +88,13 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  COMMON       NWORK,IWORK,IWMAX,L,DWORK
  EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  ! -------------- workspace -------------------
+
  INTEGER MDATA,MFILE
  INTEGER ISE,ISA,ISVEL,ISEEL,ISAEL,ISVED,ISAED,ISVAR
  INTEGER ISEAR,ISEVE,ISAVE,ISVBD,ISEBD,ISABD,IDISP
  INTEGER NEL0,NEL1,NEL2
  REAL ttt0,ttt1
- INTEGER II,NDOF
+ INTEGER II,NDOF,iUmbrella
  LOGICAL BLIN
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
@@ -215,12 +215,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                  mg_mesh%level(II)%karea,&
                  mg_mesh%level(II)%kvert)
 
+
  IF (myid.EQ.0) NLMAX = NLMAX - 1
 
  DO II=NLMIN+1,NLMAX
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
  BLIN = .FALSE.
-
 
  CALL CREATECOMM(II,&
                  mg_mesh%level(II)%nat,&
@@ -295,36 +295,78 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
+#ifdef WITH_ODE 
+ call init_fc_rigid_body(myid)      
+ call FBM_GetParticles(1)
+#else
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
+#endif
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
 
  ILEV=NLMIN
- CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
+ CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)
+
+ DO ILEV=NLMIN,NLMAX
+   CALL ProlongateParametrization_STRCT(mg_mesh,ilev)
+ END DO
+ if(myid.ne.0)then
+   CALL ProlongateParametrization_STRCT(mg_mesh,nlmax+1)
+ endif
+
+ CALL DeterminePointParametrization_STRCT(mg_mesh,nlmax)
  
  DO ILEV=NLMIN,NLMAX
-
-   CALL ParametrizeBndr(mg_mesh,ilev)
-
+ 
+   CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
+!    CALL ProjectPointToSTL(ilev)
+  
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-
-     CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-                                mg_mesh%level(ILEV+1)%dcorvg,&
-                                mg_mesh%level(ILEV)%karea,&
-                                mg_mesh%level(ILEV)%kvert,&
-                                mg_mesh%level(ILEV)%kedge,&
-                                mg_mesh%level(ILEV)%nel,&
-                                mg_mesh%level(ILEV)%nvt,&
-                                mg_mesh%level(ILEV)%net,&
-                                mg_mesh%level(ILEV)%nat)
+   
+    CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+                               mg_mesh%level(ILEV+1)%dcorvg,&
+                               mg_mesh%level(ILEV)%karea,&
+                               mg_mesh%level(ILEV)%kvert,&
+                               mg_mesh%level(ILEV)%kedge,&
+                               mg_mesh%level(ILEV)%nel,&
+                               mg_mesh%level(ILEV)%nvt,&
+                               mg_mesh%level(ILEV)%net,&
+                               mg_mesh%level(ILEV)%nat)
    END IF
  END DO
 
- ! Parametrize the highest level
- if(myid.ne.0)then
-   CALL ParametrizeBndr(mg_mesh,nlmax+1)
- endif
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ DO iUmbrella=1,nInitUmbrellaSteps
+  CALL UmbrellaSmoother_STRCT(0d0,1)
+!   CALL ProjectPointToSTL(nlmax)
+ END DO
+ 
+IF (myid.ne.0) THEN
+
+  CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
+                             mg_mesh%level(nlmax+1)%dcorvg,&
+                             mg_mesh%level(nlmax)%karea,&
+                             mg_mesh%level(nlmax)%kvert,&
+                             mg_mesh%level(nlmax)%kedge,&
+                             mg_mesh%level(nlmax)%nel,&
+                             mg_mesh%level(nlmax)%nvt,&
+                             mg_mesh%level(nlmax)%net,&
+                             mg_mesh%level(nlmax)%nat)
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (myid.ne.0) THEN
+   CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
+!    CALL ProjectPointToSTL(ilev+1)
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
@@ -371,15 +413,8 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
  END IF
 
- !CALL SETLEV(2)
-
- IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
- END IF
-
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -393,14 +428,14 @@ DO ILEV=NLMIN+1,NLMAX
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
                 NEL,&
                 mg_mesh%level(ILEV)%kvert,&
                 mg_mesh%level(ILEV)%dcorvg)
-
+                
  END IF
 
  CALL ZTIME(TTT1)

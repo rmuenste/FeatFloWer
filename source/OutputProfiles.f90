@@ -1,8 +1,8 @@
 SUBROUTINE SolToFile(iOutput)
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bViscoElastic
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 use solution_io, only: write_pres_sol,write_vel_sol,write_time_sol,write_q2_sol
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
@@ -75,9 +75,9 @@ END SUBROUTINE SolToFile
 SUBROUTINE SolFromFileRepart(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
@@ -153,9 +153,9 @@ END SUBROUTINE SolFromFileRepart
 SUBROUTINE DumpAllValues(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
@@ -198,12 +198,114 @@ END SUBROUTINE DumpAllValues
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SolToFile_Compact(iOutput)
+USE def_FEAT
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:Tracer
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+use var_QuadScalar, only: myDump,mg_mesh
+
+IMPLICIT NONE
+INTEGER iOutput
+
+INTEGER ifilen,iOut,nn
+DATA ifilen/0/
+
+! filen is a global counter of the output file number
+IF (iOutput.LT.0) THEN
+ ifilen=ifilen+1
+ iOut=MOD(ifilen+insavn-1,insavn)+1
+ELSE
+ iOut = iOutput
+END IF
+
+call WriteSol_Velo(iOut,0,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+nn = knel(nlmax)
+call WriteSol_Pres(iOut,0,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+    LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+
+CALL WriteSol_Coor(iOut,0,mg_mesh%level(nlmax+1)%dcorvg,QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
+
+call WriteSol_Time(iOut)
+
+
+END SUBROUTINE SolToFile_Compact
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFile_Compact(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE def_FEAT
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:Tracer
+use var_QuadScalar, only: myDump,mg_mesh
+
+IMPLICIT NONE
+INTEGER mfile,iLevel,nn
+character(60) :: cInFile
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+nn = knel(nlmax)
+
+CALL ReadSol_Velo(cInFile,iLevel,QuadSc%ValU,QuadSc%ValV,QuadSc%ValW)
+
+CALL ReadSol_Pres(cInFile,iLevel,LinSc%ValP(NLMAX)%x,LinSc%AuxP(NLMAX)%x(1),&
+     LinSc%AuxP(NLMAX)%x(nn+1),LinSc%AuxP(NLMAX)%x(2*nn+1),LinSc%AuxP(NLMAX)%x(3*nn+1),nn)
+    
+CALL ReadSol_Coor(cInFile,iLevel,mg_mesh%level(nlmax+1)%dcorvg,QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof)
+
+! This part here is responsible for creation of structures enabling the mesh coordinate 
+! transfer to the master node so that it can create the corresponding matrices
+IF (myid.EQ.0) THEN
+  CALL CreateDumpStructures(0)
+ELSE
+  LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+  CALL CreateDumpStructures(LevDif)
+END IF
+
+ilev = LinSc%prm%MGprmIn%MedLev
+
+nLengthV = (2**(ilev-1)+1)**3
+nLengthE = mg_mesh%level(NLMIN)%nel
+
+ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                            mg_mesh%level(ilev)%kvert,&
+                            nLengthV,&
+                            nLengthE,&
+                            mg_mesh%level(ilev)%nel,&
+                            mg_mesh%level(ilev)%nvt)
+DEALLOCATE(SendVect)
+
+
+END SUBROUTINE SolFromFile_Compact
+!
+! ----------------------------------------------
+!
 SUBROUTINE SolFromFile(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,SetUp_myQ2Coor,bViscoElastic,Temperature
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
@@ -254,6 +356,14 @@ IF (allocated(Temperature)) then
  Temperature = QuadSc%auxU
 END IF                  
 
+IF (allocated(MaterialDistribution)) then
+ fieldName = "MaterialDistribution"
+ QuadSc%auxU = 0
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
+END IF                  
+
 call read_time_sol(cInFile, istep_ns, timens)
 
 fieldName = "coordinates"
@@ -272,6 +382,121 @@ end if
 
 END SUBROUTINE SolFromFile
 !
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFile_heat(cInFile,iLevel)
+USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
+USE def_FEAT
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
+USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:Tracer
+use solution_io
+use var_QuadScalar, only: myDump,istep_ns,fieldPtr
+
+IMPLICIT NONE
+INTEGER mfile,iLevel,nn
+character(60) :: cInFile
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+INTEGER nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+character(60) :: FileA
+character(60) :: FileB
+character(60) :: fieldName
+
+integer :: ndof
+
+type(fieldPtr), dimension(3) :: packed
+
+nn = knel(nlmax)
+
+ndof = KNVT(NLMAX) + KNAT(NLMAX) + KNET(NLMAX) + KNEL(NLMAX)
+
+IF (allocated(Temperature)) then
+ fieldName = "temperature"
+ packed(1)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ Temperature = QuadSc%auxU
+END IF                  
+
+call read_time_sol(cInFile, istep_ns, timens)
+
+fieldName = "coordinates"
+
+packed(1)%p => QuadSc%auxU
+packed(2)%p => QuadSc%auxV
+packed(3)%p => QuadSc%auxW
+
+call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                 3, packed)
+                 
+call read_heatingStatus(cInFile)
+                 
+
+END SUBROUTINE SolFromFile_heat
+!
+!-------------------------------------------------------------------------------
+!
+SUBROUTINE read_heatingStatus(startFrom)
+USE Sigma_User,ONLY:mySigma
+USE PP3D_MPI, ONLY:myid
+character(60), intent(in) :: startFrom
+integer iSeg
+
+open(file='_dump/heatstatus_'//adjustl(trim(startFrom))//'.dmp',unit=472)
+
+do iSeg=1,mySigma%NumberOfSeg
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+  read(472,*) mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus 
+  if (mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus) then
+   mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMax
+  else
+   mySigma%mySegment(iSeg)%UseHeatSource = mySigma%mySegment(iSeg)%HeatSourceMin
+  end if
+  if (myid.eq.1) WRITE(*,'(A,I0,L,ES12.4)') 'iSeg, HeatingStatus, HeatSource[kW] :',&
+   iSeg,mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus,mySigma%mySegment(iSeg)%UseHeatSource
+ END IF
+end do
+
+close(472)
+
+END SUBROUTINE read_heatingStatus
+!
+!-------------------------------------------------------------------------------
+!
+SUBROUTINE write_heatingStatus(iO)
+USE Sigma_User,ONLY:mySigma
+USE PP3D_MPI, ONLY:myid
+
+integer :: iO
+integer iSeg
+character*(200) cFile
+
+write(cFile,'(A,I0,A)') '_dump/heatstatus_',iO,'.dmp'
+open(file=ADJUSTL(TRIM(cFile)),unit=472)
+
+do iSeg=1,mySigma%NumberOfSeg
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+  WRITE(472,'(L)') mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus 
+ END IF
+end do
+
+close(472)
+
+END SUBROUTINE write_heatingStatus
+!
 !-------------------------------------------------------------------------------
 !
 SUBROUTINE WriteSol_Time(iOut)
@@ -282,7 +507,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iOut,iType,iiLev
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -315,7 +540,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iOut,iType,iiLev
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -339,7 +564,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iOut,iType,iiLev
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -363,7 +588,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iOut,iType,iiLev
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -399,7 +624,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iOut,iType,iiLev
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -427,7 +652,7 @@ SUBROUTINE WriteSol(iOut,iType,iiLev,cField,Field1,Field2,Field3,Field4)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-USE Transport_Q2P1,ONLY:myDump, ViscoSc
+USE var_QuadScalar,ONLY:myDump, ViscoSc
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 INTEGER iOut,iType,iiLev
@@ -635,7 +860,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iType,iLevel
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -670,7 +895,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iType,iLevel
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -696,7 +921,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iType,iLevel
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -721,7 +946,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iType,iLevel
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -758,7 +983,7 @@ interface
   USE def_FEAT
   USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
       RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-  USE Transport_Q2P1,ONLY:myDump
+  USE var_QuadScalar,ONLY:myDump
   IMPLICIT NONE
   INTEGER iType,iLevel
   REAL*8, OPTIONAL :: Field1(*),Field2(*),Field3(*),Field4(*)
@@ -794,7 +1019,7 @@ SUBROUTINE ReadSol(cInFile,iLevel,iType,cField,Field1,Field2,Field3,Field4)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
     RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
-USE Transport_Q2P1,ONLY:myDump,ViscoSc
+USE var_QuadScalar,ONLY:myDump,ViscoSc
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 INTEGER iInd,iType,iLevel
@@ -972,9 +1197,9 @@ END SUBROUTINE ReadSol
 !
 SUBROUTINE Output_Profiles(iOutput)
 USE def_FEAT
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,PressureToGMV,&
+USE var_QuadScalar,ONLY:QuadSc,LinSc,&
     Viscosity,Distance,Distamce,mgNormShearStress
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,myMPI_Barrier
 USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
@@ -1022,6 +1247,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
+!   CALL Output_VTK_piece(iOutput,&
+!     mg_mesh%level(ILEV)%dcorvg,&
+!     mg_mesh%level(ILEV)%kvert)
 
 !   ILEV = NLMAX
 !   CALL SETLEV(2)
@@ -1211,9 +1439,8 @@ END
 SUBROUTINE Output_DUMPProfiles()
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bTracer
-USE PLinScalar,ONLY:PLinLS
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bTracer
+USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER COFile*15
@@ -1272,9 +1499,8 @@ END
 SUBROUTINE Load_DUMPProfiles(cdump)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,ShareValueD_myMPI
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bTracer
-USE PLinScalar,ONLY:PLinLS
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bTracer
+USE var_QuadScalar,ONLY:Tracer
 IMPLICIT NONE
 CHARACTER CIFile*(30),cdump*(*)
 INTEGER IFl,I
@@ -1330,9 +1556,8 @@ END
 SUBROUTINE Load_LowDUMPProfiles(cdump)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,ShareValueD_myMPI
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,bTracer
-USE PLinScalar,ONLY:PLinLS
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:QuadSc,LinSc,bTracer
+USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER CIFile*(30),cdump*(*)
@@ -1464,7 +1689,7 @@ END SUBROUTINE FBM_FromFile
 SUBROUTINE CreateDumpStructures(iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY:myDump,mg_mesh
+USE var_QuadScalar,ONLY:myDump,mg_mesh
 
 IMPLICIT NONE
 
@@ -1568,8 +1793,7 @@ END SUBROUTINE CreateDumpStructures
 SUBROUTINE ReleaseSmartDumpFiles(iOutO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
-USE PLinScalar,ONLY:PLinLS
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER cOutFile*20,command*100
@@ -1700,9 +1924,8 @@ END SUBROUTINE ReleaseSmartDumpFiles
 SUBROUTINE LoadSmartDumpFiles(cFldrInFile,iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE PLinScalar,ONLY:PLinLS
 IMPLICIT NONE
 INTEGER iLevel
 CHARACTER cInFile*99,cFldrInFile*(*)
@@ -1790,7 +2013,7 @@ SUBROUTINE LoadSmartAdaptedMeshFile(dcorvg,cMeshInFile,iLevel)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE Transport_Q2P1,ONLY:myDump
+USE var_QuadScalar,ONLY:myDump
 IMPLICIT NONE
 REAL*8 dcorvg(3,*)
 INTEGER iLevel
@@ -1860,10 +2083,11 @@ END SUBROUTINE LoadSmartAdaptedMeshFile
 SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE Transport_Q2P1,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q2P1,ONLY: MixerKnpr,FictKNPR,ViscoSc,Temperature,myBoundary
-USE Transport_Q1,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
+USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
+USE var_QuadScalar,ONLY:Tracer
+USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 
 IMPLICIT NONE
@@ -2058,6 +2282,19 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Temperature_AVG')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Temperature_AVG",""" format=""ascii"">"
+  if (DBLE(iTemperature_AVG).gt.0) then
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",REAL(Temperature_AVG(ivt)/DBLE(iTemperature_AVG))
+   end do
+  else
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",0d0
+   end do
+  end if
+  write(iunit, *)"        </DataArray>"
+  
  CASE('Shearrate')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shearrate",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2209,6 +2446,16 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Material_E",""" format=""ascii"">"
+   do iel=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(MaterialDistribution(ILEV)%x(iel))
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+  END IF
  END SELECT
 
 END DO
@@ -2269,7 +2516,7 @@ END SUBROUTINE Output_VTK_piece
 
 SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport,bViscoElastic
+USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE def_FEAT
 
@@ -2333,6 +2580,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('Temperature_AVG')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature_AVG","""/>"
  CASE('Shearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shearrate","""/>"
  CASE('Wall')
@@ -2384,6 +2633,14 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
   END IF
 
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  WRITE(*,*) "myExport%Level.LE.myExport%LevelMax  ",myExport%Level,myExport%LevelMax
+  IF (myExport%Level.LE.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Material_E","""/>"
+  END IF
+  END IF
+
  END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"
@@ -2408,8 +2665,8 @@ END SUBROUTINE Output_VTK_main
 SUBROUTINE Output_GMV_fields(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE Transport_Q2P1,ONLY:QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
-USE Transport_Q1,ONLY:Tracer
+USE var_QuadScalar,ONLY:QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
+USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 
@@ -2550,23 +2807,9 @@ END DO
 
 END SUBROUTINE Output_GMV_fields
 
-subroutine ztime(t)
-implicit none
-
-Real, intent(inout) :: t
-
-call CPU_TIME(t)
-
-end subroutine ztime
-
-subroutine zvalue1()
-implicit none
-
-end subroutine zvalue1
-
 SUBROUTINE OutputTriMesh(dcorvg,kvert,knpr,nvt,nel,iO)
 !USE QuadScalar,ONLY:myQ2Coor
-USE Transport_Q2P1,ONLY:ilev
+USE var_QuadScalar,ONLY:ilev
 USE Parametrization, ONLY : myParBndr,nBnds
 IMPLICIT NONE
 REAL*8 dcorvg(3,*)
@@ -2640,7 +2883,7 @@ END SUBROUTINE OutputTriMesh
 SUBROUTINE Release_ListFiles_SSE(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
 integer iO
 ! -------------- workspace -------------------
@@ -2685,7 +2928,7 @@ END SUBROUTINE Release_ListFiles_SSE
 SUBROUTINE Release_ListFiles_SSE_temp(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
 integer iO
 ! -------------- workspace -------------------
@@ -2710,7 +2953,7 @@ END SUBROUTINE Release_ListFiles_SSE_temp
 SUBROUTINE Load_ListFiles_PRT_Tracer(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
-USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
 integer iO
 integer nLengthV,nLengthE,LevDif
@@ -2777,7 +3020,7 @@ END SUBROUTINE Load_ListFiles_PRT_Tracer
 SUBROUTINE Load_ListFiles_SSE(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
-USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
 integer iO
 integer nLengthV,nLengthE,LevDif
@@ -2848,7 +3091,7 @@ END SUBROUTINE Load_ListFiles_SSE
 SUBROUTINE Load_ListFiles_SSE_temp(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
-USE Transport_Q2P1,ONLY: LinSc,QuadSc,mg_mesh
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
 integer iO
 integer nLengthV,nLengthE,LevDif
@@ -2916,7 +3159,7 @@ END SUBROUTINE Load_ListFiles_SSE_temp
 SUBROUTINE Load_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
 USE iniparser, ONLY : inip_openFileForReading
 implicit none
 integer :: iO
@@ -3018,7 +3261,7 @@ END SUBROUTINE Load_ListFile
 SUBROUTINE Release_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE Transport_Q2P1,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
 USE iniparser, ONLY : INIP_REPLACE,inip_openFileForWriting
 implicit none
 integer :: iO
@@ -3118,4 +3361,64 @@ if (myid.eq.0) return
 END SUBROUTINE Release_ListFile
 !
 !---------------------------------------------------------------------------
+!
+
+SUBROUTINE GetMeshVelocity()
+  use var_QuadScalar, only:myALE, QuadSc, myQ2Coor 
+  USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier,subnodes,&
+      RECVI_myMPI,SENDI_myMPI,RECVD_myMPI,SENDD_myMPI,COMM_Maximum
+  REAL*8 dMaxVelo,daux
+  INTEGER i
+
+  dMaxVelo = 0d0
+  IF (myid.ne.0) then
+    DO i=1,QuadSc%ndof
+    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
+    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
+    IF (dMaxVelo.lt.daux) dMaxVelo = daux
+    END DO
+  END IF
+
+  CALL COMM_Maximum(dMaxVelo)
+
+  IF (myid.eq.1) THEN
+    WRITE(*,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
+  END IF
+
+END SUBROUTINE GetMeshVelocity
+!
+! ----------------------------------------------
+!
+SUBROUTINE ResetTimer()
+ use var_QuadScalar, only:myStat 
+ myStat%iNonLin=0
+ myStat%iLinUVW=0
+ myStat%iLinP=0
+ myStat%tMGUVW=0d0
+ myStat%tMGP=0d0
+ myStat%tDefUVW=0d0
+ myStat%tDefP=0d0
+ myStat%tCorrUVWP=0d0
+ myStat%tGMVOut=0d0
+ myStat%tDumpOut=0d0
+ myStat%tSmat=0d0
+ myStat%tKmat=0d0
+ myStat%tDmat=0d0
+ myStat%tMmat=0d0
+ myStat%tCmat=0d0
+ myStat%tRestUVW=0d0
+ myStat%tProlUVW=0d0
+ myStat%tSmthUVW=0d0
+ myStat%tSolvUVW=0d0
+ myStat%tRestP=0d0
+ myStat%tProlP=0d0
+ myStat%tSmthP=0d0
+ myStat%tSolvP=0d0
+ myStat%tCommP=0d0
+ myStat%tCommV=0d0
+ myStat%tCommS=0d0
+
+END SUBROUTINE ResetTimer
+!
+! ----------------------------------------------
 !

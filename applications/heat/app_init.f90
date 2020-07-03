@@ -6,12 +6,9 @@ subroutine init_q2p1_ext(log_unit)
 !-------------------------------------------------------------------------------------------------
 ! @param log_unit An integer unit for the log/protocol file
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, InitMeshDeform, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation,&
+    bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
@@ -20,7 +17,7 @@ subroutine init_q2p1_ext(log_unit)
     SetTracerToLoadedTemperatue
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
-  USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
+  USE app_initialization, only:init_sol_same_level_heat!,init_sol_repart,init_sol_lower_level
 
   integer, intent(in) :: log_unit
 
@@ -46,7 +43,7 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.1) then
 
     call InitHeatObjects()
-    call init_sol_same_level(CSTART)
+    call init_sol_same_level_heat(CSTART)
     call InitLinearOperators(log_unit, mg_mesh)
 !     call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
     call SetTracerToLoadedTemperatue(Boundary_LinSc_Val_EWIKON)
@@ -59,9 +56,11 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.2)then
     ! In order to read in from a lower level
     ! the lower level structures are needed
-    if (myid.ne.0) call CreateDumpStructures(0)
-    call SolFromFile(CSTART,0)
-    call ProlongateSolution()
+    WRITE(*,*) 'ISTART = 2 not supported for the moment ...'
+    STOP 55
+!     if (myid.ne.0) call CreateDumpStructures(0)
+!     call SolFromFile(CSTART,0)
+!     call ProlongateSolution()
 
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -71,10 +70,12 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.3) then
 !     IF (myid.ne.0) CALL CreateDumpStructures(1)
 !     call SolFromFileRepart(CSTART,1)
-    call InitHeatObjects()
-    call init_sol_repart(CSTART)
-    call InitLinearOperators(log_unit, mg_mesh)
-    call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
+    WRITE(*,*) 'ISTART = 3 not supported for the moment ...'
+    STOP 55
+!     call InitHeatObjects()
+!     call init_sol_repart(CSTART)
+!     call InitLinearOperators(log_unit, mg_mesh)
+!     call InitCond_LinScalar_EWIKON(LinSc_InitCond_EWIKON,Boundary_LinSc_Val_EWIKON)
     
   end if
 

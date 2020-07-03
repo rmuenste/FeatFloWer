@@ -896,12 +896,12 @@ DO IEL=1,N
  DO I=1,4
   DO J=1,8
    KEL = JEL(J)
-   IF (KNPRP(IEL).EQ.0) THEN
+!    IF (KNPRP(IEL).EQ.0) THEN
     D2(I,KEL) = 0d0
     DO K=1,4
      D2(I,KEL) =  D2(I,KEL) + D1(K,IEL)*A(J,I,K,IEL)
     END DO
-   END IF
+!    END IF
   END DO
  END DO
 END DO
@@ -929,14 +929,14 @@ DO IEL=1,N
 
  DO I=1,4
   D1(I,IEL) = 0d0
-  IF (KNPRP(IEL).EQ.0) THEN
+!   IF (KNPRP(IEL).EQ.0) THEN
    DO J=1,8
     KEL = JEL(J)
     DO K=1,4
      D1(I,IEL) =  D1(I,IEL) + D2(K,KEL)*A(J,I,K,IEL)
     END DO
    END DO
-  END IF
+!   END IF
  END DO
 END DO
 

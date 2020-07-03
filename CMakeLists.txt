@@ -106,6 +106,11 @@ option(Q1P1_SSE_LINK_STATIC_FORTRAN
   OFF 
   )
 
+option(BUILD_BOUNDARY_LAYER_TOOLS
+  "Build the boundary layer tools"
+  OFF
+  )
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -133,10 +138,9 @@ option(Q1P1_SSE_LINK_STATIC_FORTRAN
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
 
-#=========================================================================
-#                         project directories
-#=========================================================================
-include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
+if(BUILD_BOUNDARY_LAYER_TOOLS)
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+endif(BUILD_BOUNDARY_LAYER_TOOLS)
 
 #=========================================================================
 #                       Configure BLAS/LAPACK 
@@ -219,7 +223,7 @@ if(USE_CGAL)
             SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
             PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
             #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false -DCMAKE_C_COMPILER=$ENV{CC} -DCMAKE_CXX_COMPILER=$ENV{CXX}
             )
 
       if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
@@ -261,7 +265,15 @@ if(USE_CGAL)
     endif(NOT WIN32)
 
   else(NOT USE_CGAL_LOCAL)
+    message(STATUS "Trying to find system installation of CGAL")
     find_package(CGAL REQUIRED COMPONENTS Core)
+    if(NOT ${CGAL_FOUND})
+      message(STATUS "Could not find CGAL on the system... Looking for user supplied path.") 
+      if(NOT "${CGAL_LIBRARIES}" STREQUAL "")
+        message(STATUS "User supplied CGAL libraries: ${CGAL_LIBRARIES}") 
+        message(STATUS "User supplied CGAL include: ${CGAL_INCLUDE_DIR}") 
+      endif()	
+    endif()	
   endif(NOT USE_CGAL_LOCAL)
 
 endif(USE_CGAL)
@@ -338,6 +350,11 @@ if(USE_MUMPS)
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
 endif(USE_MUMPS)
 
+find_package(Git 2.17)
+
+if(USE_CGAL)
+add_subdirectory(tools/check_off)
+endif(USE_CGAL)
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
@@ -352,15 +369,21 @@ endif(USE_MUMPS)
 #message(FATAL_ERROR "end")
 
 #=========================================================================
-#               Build the C directory handling library  
-#=========================================================================
-add_library(cdirs ${src_ini_c})
-
-#=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 
 #=========================================================================
 include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
 include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
+
+#=========================================================================
+#                         project directories
+#=========================================================================
+include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
+
+#=========================================================================
+#               Build the C directory handling library  
+#=========================================================================
+add_library(cdirs ${src_ini_c})
+
 
 #=========================================================================
 #                         Add applications
@@ -395,15 +418,14 @@ ENDIF(BUILD_APPLICATIONS)
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
-install(DIRECTORY tools/partitioner DESTINATION bin)
-file(GLOB E3D_SCRIPTS "tools/e3d_scripts/e3d_start.py")
-install(FILES ${E3D_SCRIPTS} DESTINATION bin
-    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+#install(DIRECTORY tools/partitioner DESTINATION bin)
+#file(GLOB E3D_SCRIPTS "tools/e3d_scripts/e3d_start.py")
+#install(FILES ${E3D_SCRIPTS} DESTINATION bin
+#    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 #=========================================================================
 #                       CPACK CONFIGURATION
 #=========================================================================
-
 include(${CMAKE_MODULE_PATH}/GeneratePackageDeb.cmake)  
 
 include(CPack)

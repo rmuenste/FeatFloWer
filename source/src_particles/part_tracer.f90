@@ -1,17 +1,20 @@
 MODULE Particle
 
-use var_QuadScalar
-USE Transport_Q2P1, ONLY: QuadSc,UMF_CMat,UMF_lMat
-
 USE types
-USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ
+use var_QuadScalar
+
+USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ,Comm_SummN,subnodes,COMM_Maximum,COMM_Minimum
 ! USE Sigma_User, ONLY: myRTD
 USE UMFPackSolver, ONLY : myUmfPack_Factorize,myUmfPack_Solve
 
 USE app_initialization, ONLY : init_sol_same_level,init_sol_repart
 
 USE particles_input
+
 use particle_step
+
+use solution_io, only : write_sol_to_file, read_sol_from_file
+
 
 INTEGER nBuffer
 PARAMETER (nBuffer=40)
@@ -46,6 +49,12 @@ iAngle = 360/myParticleParam%nTimeLevels
 iPeriodicityShift = INT(myParticleParam%nTimeLevels/myParticleParam%nPeriodicity)
 
 ! GOTO 222
+
+myMatrixRenewal%D = 0
+myMatrixRenewal%K = 0
+myMatrixRenewal%S = 0
+myMatrixRenewal%M = 0
+myMatrixRenewal%C = 0
 
 !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
  ALLOCATE(myVelo(0:myParticleParam%nTimeLevels-1))
@@ -269,6 +278,12 @@ dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 ! END DO
 ! !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
 
+myMatrixRenewal%D = 0
+myMatrixRenewal%K = 0
+myMatrixRenewal%S = 0
+myMatrixRenewal%M = 0
+myMatrixRenewal%C = 0
+
 ALLOCATE(myVelo(1))
 
 WRITE(cFile,'(I0)') myParticleParam%dump_in_file
@@ -278,7 +293,6 @@ WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 if (myParticleParam%DumpFormat.eq.1) CALL init_sol_same_level(cFile)
 if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
 if (myParticleParam%DumpFormat.eq.3) CALL init_sol_repart(cFile)
-! 
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
@@ -450,6 +464,261 @@ END SUBROUTINE Transport_Particle
 !
 ! --------------------------------------------------------------------
 !
+SUBROUTINE BackTransport_Particle(mfile)
+INTEGER mfile
+INTEGER i,nExSum,nActSum,nActSum0,nActSumOld,iCycle,iFile,iLevel0,iLevel1
+REAL*8  dTime,daux,dPeriod,dTimeStep,dStart,dBuffer(nBuffer)
+CHARACTER*99 cFile
+CHARACTER*60 cInFile
+
+LOGICAL :: bOutput=.TRUE.
+real*8 xmin, xmax, ymin, ymax, zmin, zmax
+INTEGER, ALLOCATABLE :: MatDist(:)
+
+dTime=0d0
+dPeriod = 6d1/myParticleParam%f
+dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
+
+ALLOCATE(myVelo(1))
+
+!  IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+!  IF (.not.ALLOCATED(MaterialDistribution(NLMAX)%x)) ALLOCATE(MaterialDistribution(NLMAX)%x(mg_mesh%level(NLMAX)%nel))
+!  MaterialDistribution(NLMAX)%x = 0
+!  cInFile = "1"
+!  CALL read_sol_from_file(cInFile,1,timens)
+!  
+!  CALL Output_Profiles(0)
+  
+myMatrixRenewal%D = 0
+myMatrixRenewal%K = 0
+myMatrixRenewal%S = 0
+myMatrixRenewal%M = 0
+myMatrixRenewal%C = 0
+
+WRITE(cFile,'(I0)') myParticleParam%dump_in_file
+
+!!!!!!!!!!!!!!!!!!! choose one fof these !!!!!!!!!!!!!!!!!!!!!!
+if (myParticleParam%DumpFormat.eq.1) CALL init_sol_same_level(cFile)
+if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
+if (myParticleParam%DumpFormat.eq.3) CALL init_sol_repart(cFile)
+
+ALLOCATE(myVelo(1)%x(QuadSc%ndof))
+ALLOCATE(myVelo(1)%y(QuadSc%ndof))
+ALLOCATE(myVelo(1)%z(QuadSc%ndof))
+myVelo(1)%x = -QuadSc%ValU
+myVelo(1)%y = -QuadSc%ValV
+myVelo(1)%z = -QuadSc%ValW
+
+IF (myid.ne.0) THEN
+ ILEV=NLMAX
+ CALL SETLEV(2)
+END IF
+nStartActiveSet = 0
+CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                      mg_mesh%level(ILEV)%elementsAtVertex,&
+                      myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+
+! Get the bounds of the mesh. Note: We need to set it to nlmax because else
+! it won't work
+IF (myid.ne.0) THEN
+ ILEV=NLMAX
+ CALL SETLEV(2)
+END IF
+
+call GetMeshBounds(mg_mesh%level(NLMAX)%dcorvg,nvt,xmin,xmax,ymin,ymax,zmin,zmax)
+myMeshInfo%xmin = xmin
+myMeshInfo%xmax = xmax
+myMeshInfo%ymin = ymin
+myMeshInfo%ymax = ymax
+myMeshInfo%zmin = zmin
+myMeshInfo%zmax = zmax
+if (myid .eq. showid) then
+  write(mfile,'(A,E12.4,A7,E12.4)') "MESH-Bounds in X-Dimension xmin: ",myMeshInfo%xmin, " xmax: ", myMeshInfo%xmax
+  write(mfile,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Y-Dimension ymin: ",myMeshInfo%ymin, " ymax: ", myMeshInfo%ymax
+  write(mfile,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Z-Dimension zmin: ",myMeshInfo%zmin, " zmax: ", myMeshInfo%zmax
+  write(mterm,'(A,E12.4,A7,E12.4)') "MESH-Bounds in X-Dimension xmin: ",myMeshInfo%xmin, " xmax: ", myMeshInfo%xmax
+  write(mterm,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Y-Dimension ymin: ",myMeshInfo%ymin, " ymax: ", myMeshInfo%ymax
+  write(mterm,'(A,E12.4,A7,E12.4)') "MESH-Bounds in Z-Dimension zmin: ",myMeshInfo%zmin, " zmax: ", myMeshInfo%zmax
+end if ! Dump mesh-info
+
+dBuffer = 0d0
+nLostSet = 0
+
+! Output initial positions of particles to csv.
+IF (bOutput) THEN
+ CALL OutputParticlesCSV(0)
+END IF
+
+DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
+
+  nStartActiveSet = 0
+  iCycle = 0
+  iLevel0 = MOD(iTimeSteps-1,myParticleParam%nTimeLevels)+1
+  iLevel1 = MOD(iTimeSteps  ,myParticleParam%nTimeLevels)+1
+
+  dStart = dTime
+  dTime = dTime + dTimeStep
+
+  IF (myid.eq.1) WRITE(MFILE,'(A,I8,A,I8,A,I0,A,I0,ES14.6)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,'/',iLevel1,dTime
+  IF (myid.eq.1) WRITE(MTERM,'(A,I8,A,I8,A,I0,A,I0,ES14.6)') 'Timestep ',iTimeSteps, ' / ',myParticleParam%nRotation*myParticleParam%nTimeLevels,'  to be performed ...',iLevel0,'/',iLevel1,dTime
+
+  DO
+   IF (myid.ne.0) THEN
+    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
+                       mg_mesh%level(ILEV)%kvert,&
+                       mg_mesh%level(ILEV)%kedge,&
+                       mg_mesh%level(ILEV)%karea,&
+                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                       mg_mesh%level(ILEV)%elementsAtVertex,&
+                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
+   END IF
+
+   daux = DBLE(nActiveSet)
+   CALL Comm_Summ(daux)
+   nActSum =INT(daux)
+   IF (iTimeSteps.EQ.1) nActSumOld = nActSum
+   IF (iTimeSteps.EQ.1) nActSum0   = nActSum
+
+   daux = DBLE(nExchangeSet)
+   CALL Comm_Summ(daux)
+   nExSum =INT(daux)
+
+   iCycle = iCycle + 1
+   IF (myid.eq.1) WRITE(MFILE,'(A,I0,A,I0,A,I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,'/',nActSum
+   IF (myid.eq.1) WRITE(MTERM,'(A,I0,A,I0,A,I0)') 'Exchange_of_particles: Cycle: ',iCycle, ' Num_Of_Points: ',nExSum,'/',nActSum
+
+
+   IF (nExSum.EQ.0) THEN
+    IF (myid.eq.1) WRITE(MFILE,'(A)') '...........................................................................'
+    IF (myid.eq.1) WRITE(MTERM,'(A)') '...........................................................................'
+    EXIT
+   ELSE
+
+    CALL Exchange_Particle(nExSum)
+    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+                          mg_mesh%level(ILEV)%kvert,&
+                          mg_mesh%level(ILEV)%kedge,&
+                          mg_mesh%level(ILEV)%karea,&
+                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                          mg_mesh%level(ILEV)%elementsAtVertex,&
+                          myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+
+   END IF
+
+  END DO
+
+  IF (bOutput) THEN
+
+   CALL OutputParticlesCSV(iTimeSteps)
+
+  END IF
+
+END DO
+
+IF (bOutput) THEN
+
+ 
+ ALLOCATE(MatDist(myParticleParam%nParticles))
+ MatDist = 0
+ CALL AssignInflowPropertyToParticles(MatDist)
+ CALL ExtractMatrialProperties(MatDist)
+ 
+ CALL OutputLostParticlesCSV()
+ 
+ myExport%Level = NLMAX
+ myExport%LevelMax = myExport%Level
+ DEALLOCATE(myExport%Fields)
+ ALLOCATE(myExport%Fields(1))
+ myExport%Fields = "Material_E"
+! myExport%Fields(i) = ADJUSTL(TRIM(myExport%Fields(i)))
+
+ CALL Output_Profiles(0)
+  
+ CALL write_sol_to_file(10,0d0,0)
+
+END IF
+
+END SUBROUTINE BackTransport_Particle
+!
+!-------------------------------------------------------------------
+!
+SUBROUTINE ExtractMatrialProperties(m)
+
+implicit none
+real*8, allocatable :: separator(:),daux(:,:)
+integer m(*)
+integer i,j,iMat,iel,pID,ind,jnd
+real*8 distMin,dist,point(3)
+
+ILEV = NLMAX
+
+allocate(separator(0:subnodes))
+
+separator(:) = 0d0
+separator(myid) = DBLE(mg_mesh%level(ILEV)%nel)
+
+CALL Comm_SummN(separator,subnodes+1)
+
+separator(0) = 0d0
+
+do pID=1,subnodes
+ separator(pID) = separator(pID) + separator(pID-1)
+end do
+
+ALLOCATE(daux         (3,myParticleParam%nParticles))
+daux = 0d0
+
+if (myid.ne.0) then
+ DO i=1,mg_mesh%level(ILEV)%nel
+   j = INT(separator(myid-1)) + i
+   daux(:,j) = mg_mesh%level(ILEV)%dcorvg(:,nvt+net+nat+i)
+ END DO
+END IF
+
+CALL Comm_SummN(daux,3*myParticleParam%nParticles)
+
+IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+IF (.not.ALLOCATED(MaterialDistribution(NLMAX)%x)) ALLOCATE(MaterialDistribution(NLMAX)%x(mg_mesh%level(NLMAX)%nel))
+MaterialDistribution(NLMAX)%x = 0
+
+! write(*,*) 'separator = ',separator
+
+if (myid.ne.0) then
+ do iel=1,mg_mesh%level(NLMAX)%nel
+
+  ind = INT(separator(myid-1)) + iel
+  
+  if (m(ind).eq.0) then
+   distMin = 1d30
+   iMat = 0
+   do jnd=1,myParticleParam%nParticles
+    if (m(jnd).gt.0) then
+      dist = sqrt((daux(1,jnd)-daux(1,ind))**2d0 + (daux(2,jnd)-daux(2,ind))**2d0 + (daux(3,jnd)-daux(3,ind))**2d0)
+      if (distMin.gt.dist) then
+       distMin = dist
+       iMat = m(jnd)
+      end if
+    end if
+   end do
+  else
+   iMat = m(ind)
+  end if
+  MaterialDistribution(NLMAX)%x(iel) = iMat
+ end do
+end if
+
+END SUBROUTINE ExtractMatrialProperties
+!
+! --------------------------------------------------------------------
+!
 SUBROUTINE Init_Particle_xse(mfile)
 INTEGER i,j,iParticles
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
@@ -471,6 +740,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mfile,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mfile,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mfile,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mfile,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mfile,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mfile,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -490,6 +760,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mterm,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mterm,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mterm,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mterm,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mterm,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mterm,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -503,7 +774,7 @@ call Init_Particles_from_csv_xse(mfile)
 
 ! Now the part that is identical for all initialisations
 if (myParticleParam%nZposCutplanes .gt. 0 ) then
-  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,4,1:myParticleParam%nParticles))
+  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,5,1:myParticleParam%nParticles))
   ! Initialisation with zero - always good to have known values in there
   ZPosParticles = 0.0d0
   ALLOCATE(bPosParticles(myParticleParam%nZposCutplanes,1:myParticleParam%nParticles))
@@ -519,7 +790,6 @@ INTEGER i,j,iParticles
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
 REAL*8 dBuff(3)
 INTEGER iO
-INTEGER inittype
 
 call prt_read_config(myParticleParam, mfile, mterm)
 
@@ -535,6 +805,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mfile,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mfile,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mfile,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mfile,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mfile,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mfile,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -542,6 +813,14 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mfile,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mfile,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
+ WRITE(mfile,*) 'myParticleParam%nOfInflows  = ', myParticleParam%NumberOfInflowRegions
+ IF (myParticleParam%NumberOfInflowRegions.gt.1) then
+  do i=1,myParticleParam%NumberOfInflowRegions
+   WRITE(mfile,'(A,I0,A,3ES12.4)') 'myParticleParam%InflowCenter',i,' = ', myParticleParam%InflowRegion(i)%Center
+   WRITE(mfile,'(A,I0,A,1ES12.4)') 'myParticleParam%InflowRadius',i,' = ', myParticleParam%InflowRegion(i)%Radius
+  end do
+ END IF
+
  WRITE(mterm,*) 'myParticleParam%dump_in_file = ', myParticleParam%dump_in_file
  WRITE(mterm,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mterm,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
@@ -554,6 +833,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%D_Out       = ', myParticleParam%D_Out
  WRITE(mterm,*) 'myParticleParam%D_In        = ', myParticleParam%D_In
  WRITE(mterm,*) 'myParticleParam%Z_seed      = ', myParticleParam%Z_seed
+ WRITE(mterm,*) 'myParticleParam%OutflowZPos = ', myParticleParam%OutflowZPos
  WRITE(mterm,*) 'myParticleParam%RotMovement = ', myParticleParam%bRotationalMovement
  WRITE(mterm,*) 'myParticleParam%DumpFormat  = ', myParticleParam%DumpFormat
  WRITE(mterm,*) 'myParticleParam%Timelevels  = ', myParticleParam%nTimeLevels
@@ -561,6 +841,13 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mterm,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mterm,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
+ WRITE(mterm,*) 'myParticleParam%nOfInflows  = ', myParticleParam%NumberOfInflowRegions
+ IF (myParticleParam%NumberOfInflowRegions.gt.1) then
+  do i=1,myParticleParam%NumberOfInflowRegions
+   WRITE(mterm,'(A,I0,A,3ES12.4)') 'myParticleParam%InflowCenter',i,' = ', myParticleParam%InflowRegion(i)%Center
+   WRITE(mterm,'(A,I0,A,1ES12.4)') 'myParticleParam%InflowRadius',i,' = ', myParticleParam%InflowRegion(i)%Radius
+  end do
+ END IF
 END IF
 
 if (myParticleParam%inittype .eq. ParticleSeed_Parameterfile ) then
@@ -569,16 +856,22 @@ else if(myParticleParam%inittype .eq. ParticleSeed_CSVFILE) then
   call Init_Particles_from_csv(mfile)
 else if(myParticleParam%inittype .eq. ParticleSeed_OUTPUTFILE) then
   call Init_Particles_from_old_output(mfile)
+else if(myParticleParam%inittype .eq. ParticleSeed_ELEMCENTER) then
+  call Init_Particles_in_all_elemCenters(mfile)
+else if(myParticleParam%inittype .eq. ParticleSeed_PLANE) then
+  call Init_Particles_inPlane(mfile)
+else if(myParticleParam%inittype .eq. ParticleSeed_Volume) then
+  call Init_Particles_inVolume(mfile)
 else
-  write(mterm,*) "ERROR: Unknown Starting procedure ", inittype
-  write(mfile,*) "ERROR: Unknown starting procedure ", inittype
+  write(mterm,*) "ERROR: Unknown Starting procedure ", myParticleParam%inittype
+  write(mfile,*) "ERROR: Unknown starting procedure ", myParticleParam%inittype
   stop
 end if
 
 
 ! Now the part that is identical for all initialisations
 if (myParticleParam%nZposCutplanes .gt. 0 ) then
-  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,4,1:myParticleParam%nParticles))
+  ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,5,1:myParticleParam%nParticles))
   ! Initialisation with zero - always good to have known values in there
   ZPosParticles = 0.0d0
   ALLOCATE(bPosParticles(myParticleParam%nZposCutplanes,1:myParticleParam%nParticles))
@@ -586,6 +879,348 @@ if (myParticleParam%nZposCutplanes .gt. 0 ) then
 end if
 
 END SUBROUTINE Init_Particle
+!
+!-------------------------------------------------------------------
+!
+SUBROUTINE Init_Particles_inVolume(mfile)
+INTEGER nfile
+REAL*8 xmax,ymax,zmax,xmin,ymin,zmin
+REAL*8 myRandomNumber(3),xxmin,yymin,xxmax,yymax,myRandomX,myRandomY,myRandomZ
+
+xmax = -1d30
+ymax = -1d30
+zmax = -1d30
+
+xmin = +1d30
+ymin = +1d30
+zmin = +1d30
+
+ILEV = NLMAX
+
+DO i=1,mg_mesh%level(ILEV)%nvt
+ if (xmin > mg_mesh%level(ILEV)%dcorvg(1,i)) xmin = mg_mesh%level(ILEV)%dcorvg(1,i)
+ if (xmax < mg_mesh%level(ILEV)%dcorvg(1,i)) xmax = mg_mesh%level(ILEV)%dcorvg(1,i)
+ 
+ if (ymin > mg_mesh%level(ILEV)%dcorvg(2,i)) ymin = mg_mesh%level(ILEV)%dcorvg(2,i)
+ if (ymax < mg_mesh%level(ILEV)%dcorvg(2,i)) ymax = mg_mesh%level(ILEV)%dcorvg(2,i)
+ 
+ if (zmin > mg_mesh%level(ILEV)%dcorvg(3,i)) zmin = mg_mesh%level(ILEV)%dcorvg(3,i)
+ if (zmax < mg_mesh%level(ILEV)%dcorvg(3,i)) zmax = mg_mesh%level(ILEV)%dcorvg(3,i)
+end do
+
+call COMM_Maximum(xmax)
+call COMM_Maximum(ymax)
+call COMM_Maximum(zmax)
+call COMM_Minimum(xmin)
+call COMM_Minimum(ymin)
+call COMM_Minimum(zmin)
+
+iElement = 0
+
+numberOfFluidElements = myParticleParam%VolumeParticles
+myParticleParam%nParticles = myParticleParam%VolumeParticles*4
+
+ALLOCATE(myCompleteSet(1:myParticleParam%nParticles))
+ALLOCATE(myActiveSet  (1:myParticleParam%nParticles))
+ALLOCATE(myExchangeSet(1:myParticleParam%nParticles))
+ALLOCATE(myLostSet    (1:myParticleParam%nParticles))
+
+ALLOCATE(Lambda(numberOfFluidElements),Length(myParticleParam%nParticles,3))
+ALLOCATE(pPresent(myParticleParam%nParticles))
+
+ write(*,'(6A12)')   'xmax','ymax','zmax','xmin','ymin','zmin'
+ write(*,'(6ES12.4)') xmax,ymax,zmax,xmin,ymin,zmin
+ write(*,*) 'n= ',myParticleParam%VolumeParticles
+
+if (myid.eq.1) then
+ write(*,'(6A12)')   'xmax','ymax','zmax','xmin','ymin','zmin'
+ write(*,'(6ES12.4)') xmax,ymax,zmax,xmin,ymin,zmin
+END IF
+
+do 
+
+ myRandomX = xmin + (xmax-xmin)*rand(0)
+ myRandomY = ymin + (ymax-ymin)*rand(0)
+ myRandomZ = zmin + (zmax-zmin)*rand(0)
+
+ myRandomNumber = [myRandomX,myRandomY,myRandomZ]
+ 
+ cdx = 1d1*myRandomNumber(1)
+ cdy = 1d1*myRandomNumber(2)
+ cdz = 1d1*myRandomNumber(3)
+
+ CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+ 
+ if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+    
+   iElement = iElement+ 1
+   
+   ! Calculate the indices of the particles that we
+   ! are generating. We create them elementwise:
+   ! First those from element 1, then those from
+   ! element two, then those from element 3, ...
+   idx1 = 4*iElement - 3
+   idx2 = 4*iElement - 2
+   idx3 = 4*iElement - 1
+   idx4 = 4*iElement - 0
+
+   if (myid.eq.1) write(*,*) myRandomNumber(1),myRandomNumber(2),myRandomNumber(3),iElement
+   
+   myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx1)%time    = 0d0
+   myExchangeSet(idx1)%indice  = idx1
+
+   myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx2)%time    = 0d0
+   myExchangeSet(idx2)%indice  = idx2
+
+   myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+   myExchangeSet(idx3)%time    = 0d0
+   myExchangeSet(idx3)%indice  = idx3
+
+   myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+   myExchangeSet(idx4)%time    = 0d0
+   myExchangeSet(idx4)%indice  = idx4
+   
+ END IF
+ 
+ if (iElement.ge.myParticleParam%VolumeParticles) exit
+ 
+END DO
+
+write(*,*) 'iElement=',iElement
+CLOSE(745)
+
+nExchangeSet = myParticleParam%nParticles
+
+END SUBROUTINE Init_Particles_inVolume
+!
+!-------------------------------------------------------------------
+!
+SUBROUTINE Init_Particles_inPlane(mfile)
+INTEGER nfile
+REAL*8 xmax,ymax,zmax,xmin,ymin,zmin
+REAL*8 myRandomNumber(3),xxmin,yymin,xxmax,yymax,myRandomX,myRandomY
+integer i,idx1,idx2,idx3,idx4,iElement,numberOfFluidElements 
+REAL*8 cdX0,cdY0,cdZ0,dist_CGAL
+logical :: bProjection=.false.
+integer iProjection
+
+xmax = -1d30
+ymax = -1d30
+zmax = -1d30
+
+xmin = +1d30
+ymin = +1d30
+zmin = +1d30
+
+ILEV = NLMAX
+
+DO i=1,mg_mesh%level(ILEV)%nvt
+ if (xmin > mg_mesh%level(ILEV)%dcorvg(1,i)) xmin = mg_mesh%level(ILEV)%dcorvg(1,i)
+ if (xmax < mg_mesh%level(ILEV)%dcorvg(1,i)) xmax = mg_mesh%level(ILEV)%dcorvg(1,i)
+ 
+ if (ymin > mg_mesh%level(ILEV)%dcorvg(2,i)) ymin = mg_mesh%level(ILEV)%dcorvg(2,i)
+ if (ymax < mg_mesh%level(ILEV)%dcorvg(2,i)) ymax = mg_mesh%level(ILEV)%dcorvg(2,i)
+ 
+ if (zmin > mg_mesh%level(ILEV)%dcorvg(3,i)) zmin = mg_mesh%level(ILEV)%dcorvg(3,i)
+ if (zmax < mg_mesh%level(ILEV)%dcorvg(3,i)) zmax = mg_mesh%level(ILEV)%dcorvg(3,i)
+end do
+
+
+call COMM_Maximum(xmax)
+call COMM_Maximum(ymax)
+call COMM_Maximum(zmax)
+call COMM_Minimum(xmin)
+call COMM_Minimum(ymin)
+call COMM_Minimum(zmin)
+
+IF (myParticleParam%Plane.eq.1) then
+ xxmin = ymin
+ xxmax = ymax
+ yymin = zmin
+ yymax = zmax
+END IF
+
+IF (myParticleParam%Plane.eq.2) then
+ xxmin = xmin
+ xxmax = xmax
+ yymin = zmin
+ yymax = zmax
+END IF
+
+IF (myParticleParam%Plane.eq.3) then
+ xxmin = xmin
+ xxmax = xmax
+ yymin = ymin
+ yymax = ymax
+END IF
+
+iElement = 0
+
+numberOfFluidElements = myParticleParam%PlaneParticles
+myParticleParam%nParticles = myParticleParam%PlaneParticles*4
+
+ALLOCATE(myCompleteSet(1:myParticleParam%nParticles))
+ALLOCATE(myActiveSet  (1:myParticleParam%nParticles))
+ALLOCATE(myExchangeSet(1:myParticleParam%nParticles))
+ALLOCATE(myLostSet    (1:myParticleParam%nParticles))
+
+ALLOCATE(Lambda(numberOfFluidElements),Length(myParticleParam%nParticles,3))
+ALLOCATE(pPresent(myParticleParam%nParticles))
+
+if (myid.eq.1) then
+write(*,'(6A12)')   'xmax','ymax','zmax','xmin','ymin','zmin'
+write(*,'(6ES12.4)') xmax,ymax,zmax,xmin,ymin,zmin
+write(*,'(6ES12.4)') xxmax,yymax,xxmin,yymin
+END IF
+
+do 
+
+ myRandomX = xxmin + (xxmax-xxmin)*rand(0)
+ myRandomY = yymin + (yymax-yymin)*rand(0)
+
+ IF (myParticleParam%Plane.eq.1)  myRandomNumber = [myParticleParam%PlaneOffSet,myRandomX,myRandomY]
+ IF (myParticleParam%Plane.eq.2)  myRandomNumber = [myRandomX,myParticleParam%PlaneOffSet,myRandomY]
+ IF (myParticleParam%Plane.eq.3)  myRandomNumber = [myRandomX,myRandomY,myParticleParam%PlaneOffSet]
+ 
+ cdx = 1d1*myRandomNumber(1)
+ cdy = 1d1*myRandomNumber(2)
+ cdz = 1d1*myRandomNumber(3)
+ 
+ CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+ 
+ if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+ 
+!  CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!  if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!      (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+!     
+   iElement = iElement+ 1
+   
+   ! Calculate the indices of the particles that we
+   ! are generating. We create them elementwise:
+   ! First those from element 1, then those from
+   ! element two, then those from element 3, ...
+   idx1 = 4*iElement - 3
+   idx2 = 4*iElement - 2
+   idx3 = 4*iElement - 1
+   idx4 = 4*iElement - 0
+
+   if (myid.eq.1) write(*,*) myRandomNumber(1),myRandomNumber(2),myRandomNumber(3),iElement
+   
+   myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx1)%time    = 0d0
+   myExchangeSet(idx1)%indice  = idx1
+
+   myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+   myExchangeSet(idx2)%time    = 0d0
+   myExchangeSet(idx2)%indice  = idx2
+
+   myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+   myExchangeSet(idx3)%time    = 0d0
+   myExchangeSet(idx3)%indice  = idx3
+
+   myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+   myExchangeSet(idx4)%time    = 0d0
+   myExchangeSet(idx4)%indice  = idx4
+   
+  END IF
+ 
+ if (iElement.ge.myParticleParam%PlaneParticles) exit
+ 
+END DO
+
+write(*,*) iElement
+CLOSE(745)
+
+nExchangeSet = myParticleParam%nParticles
+
+END SUBROUTINE Init_Particles_inPlane
+!
+!-------------------------------------------------------------------
+!
+SUBROUTINE Init_Particles_in_all_elemCenters(mfile)
+
+real*8, allocatable :: separator(:),daux(:,:)
+integer i
+
+ILEV = NLMAX
+
+allocate(separator(0:subnodes))
+
+separator(:) = 0d0
+separator(myid) = DBLE(mg_mesh%level(ILEV)%nel)
+
+CALL Comm_SummN(separator,subnodes+1)
+
+separator(0) = 0d0
+
+do pID=1,subnodes
+ separator(pID) = separator(pID) + separator(pID-1)
+end do
+
+myParticleParam%nParticles = INT(separator(subnodes))
+
+ALLOCATE(myCompleteSet(1:myParticleParam%nParticles))
+ALLOCATE(myActiveSet  (1:myParticleParam%nParticles))
+ALLOCATE(myExchangeSet(1:myParticleParam%nParticles))
+ALLOCATE(myLostSet    (1:myParticleParam%nParticles))
+ALLOCATE(daux         (3,myParticleParam%nParticles))
+daux                     = 0d0
+
+DO i=1,myParticleParam%nParticles
+ myExchangeSet(i)%coor(:) = 0d0
+ myExchangeSet(i)%time    = 0d0
+ myExchangeSet(i)%indice  = i
+END DO
+
+if (myid.ne.0) then
+ DO i=1,mg_mesh%level(ILEV)%nel
+
+   j = INT(separator(myid-1)) + i
+   daux(:,j) = mg_mesh%level(ILEV)%dcorvg(:,nvt+net+nat+i)
+   myExchangeSet(j)%time    = 0d0
+   myExchangeSet(j)%indice  = j
+
+ END DO
+END IF
+
+CALL Comm_SummN(daux,3*myParticleParam%nParticles)
+
+ DO i=1,myParticleParam%nParticles
+
+   myExchangeSet(i)%coor(:) = daux(:,i)
+
+ END DO
+
+nExchangeSet =  myParticleParam%nParticles
+
+deallocate(separator,daux)
+
+! if (myid.eq.1) then
+!  open(file='start.csv',unit=1278)
+!  WRITE(1278,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
+!  DO i=1,myParticleParam%nParticles
+! 
+!   ! Now output the particles to the file
+!    WRITE(1278,'(3(E16.7,A),I0,A,E16.7)') REAL(myExchangeSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
+!                                 REAL(myExchangeSet(i)%coor(2)*myParticleParam%dFacUnitOut),',',&
+!                                 REAL(myExchangeSet(i)%coor(3)*myParticleParam%dFacUnitOut),',',&
+!                                 myExchangeSet(i)%indice,',',REAL(myExchangeSet(i)%time)
+! !  write(1278,*) myExchangeSet(i)%coor(1)i
+! 
+!  END DO
+!  close(1278)
+! end if
+
+if (myid.eq.1) WRITE(*,*) "myParticleParam%nParticles = ",myParticleParam%nParticles 
+!  pause
+
+END SUBROUTINE Init_Particles_in_all_elemCenters
 !
 !-------------------------------------------------------------------
 !
@@ -702,7 +1337,11 @@ implicit none
 INTEGER i,j,iParticles, iElements, iElement, mfile
 integer idx1,idx2,idx3,idx4
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min,dist
-REAL*8 dCrap(5),dBuff(3),cdX0,cdY0,cdZ0
+REAL*8 dBuff(3),cdX0,cdY0,cdZ0
+
+Character*256 cHeader
+INTEGER nColumns,Columns(4)
+REAL*8, allocatable :: dValues(:)
 INTEGER iO
 logical :: bProjection=.false.
 integer iProjection
@@ -716,10 +1355,15 @@ iParticles = 0
 myProcess%Angle = 0d0
 
 OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
-READ(745,*)
+READ(745,'(A)') cHeader
+
+!!! Estimate the number of columns in csv
+CALL getSubstring(cHeader,',',nColumns,Columns)
+ALLOCATE(dValues(nColumns))
+
 iElements = 0
 DO
-   READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
    
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -728,6 +1372,7 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElements
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
       cdx = myParticleParam%dFacUnitSourcefile*dBuff(1)
       cdy = myParticleParam%dFacUnitSourcefile*dBuff(2)
       cdz = myParticleParam%dFacUnitSourcefile*dBuff(3)
@@ -775,7 +1420,8 @@ iElement = 0
 DO
 !DO iElement=1,iElements
 
-  READ(745,*,IOSTAT=io)  dCrap,dBuff
+  READ(745,*,IOSTAT=io)  dValues
+  dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
@@ -837,17 +1483,26 @@ END SUBROUTINE Init_Particles_from_csv_xse
 SUBROUTINE Init_Particles_from_csv(mfile)
 INTEGER i,j,iParticles, iElements, iElement
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
-REAL*8 dCrap(5),dBuff(3)
+Character*256 cHeader
+REAL*8 dBuff(3)
+INTEGER nColumns,Columns(4)
+REAL*8, allocatable :: dValues(:)
 INTEGER iO
 
 ! Count how many particles are in the sourcefile!
 ! We allocate one element per particle that we find
 iParticles = 0
 OPEN(FILE=myParticleParam%sourcefile,UNIT=745)
-READ(745,*)
+READ(745,'(A)') cHeader
+
+!!! Estimate the number of columns in csv
+CALL getSubstring(cHeader,',',nColumns,Columns)
+ALLOCATE(dValues(nColumns))
+
 iElements = 0
 DO
-   READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
+!   READ(745,*,IOSTAT=io)  dCrap,dBuff
    
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -856,12 +1511,16 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElements
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
       cdx = 1d1*dBuff(1)
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
-      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+      CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+      
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+!       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!       if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!           (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
         iElements = iElements + 1
       end if
    END IF
@@ -901,7 +1560,10 @@ iElement = 0
 DO
 !DO iElement=1,iElements
 
-  READ(745,*,IOSTAT=io)  dCrap,dBuff
+   READ(745,*,IOSTAT=io)  dValues
+   dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
+   
+!  READ(745,*,IOSTAT=io)  dCrap,dBuff
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
@@ -916,9 +1578,14 @@ DO
       cdx = 1d1*dBuff(1)
       cdy = 1d1*dBuff(2)
       cdz = 1d1*dBuff(3)
-      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
-          (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
+      
+      CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+      
+      if (dist_CGAL.gt.myParticleParam%d_CorrDist) then
+      
+!       CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!       if ((     myParticleParam%bRotationalMovement.and.dist_CGAL.gt.myParticleParam%d_CorrDist).or.&
+!           (.not.myParticleParam%bRotationalMovement.and.dist_CGAL.lt.myParticleParam%d_CorrDist)) then
          
          iElement = iElement+ 1
          
@@ -934,18 +1601,22 @@ DO
          myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
          myExchangeSet(idx1)%time    = 0d0
          myExchangeSet(idx1)%indice  = idx1
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx1)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
          myExchangeSet(idx2)%time    = 0d0
          myExchangeSet(idx2)%indice  = idx2
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx2)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
          myExchangeSet(idx3)%time    = 0d0
          myExchangeSet(idx3)%indice  = idx3
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx3)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
          myExchangeSet(idx4)%time    = 0d0
          myExchangeSet(idx4)%indice  = idx4
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx4)%id = int(dValues(Columns(1))) 
      
       END IF
    END IF
@@ -970,7 +1641,7 @@ SUBROUTINE Init_Particles_from_old_output(mfile)
 INTEGER i,j,iParticles
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
 REAL*8 dBuff(3)
-INTEGER idx, idxmax
+INTEGER idx, idxmax,iID
 INTEGER iO
 
 ! Count how many particles are in the sourcefile!
@@ -981,7 +1652,7 @@ INTEGER iO
 ! to keep the old indicies, we still need to allocate
 ! arrays for 32000 particles.
 ! We also need to cope with the case that we found
-! 31999 particles in the file (and the maximum index is
+! 31999 particles in the file (and the  um index is
 ! 31999 - the calculation of the elongation will fail
 ! if we allocate arrays for only 31999 particles, we still
 ! need to allocate arrays for 32000 particles.)
@@ -1037,12 +1708,13 @@ READ(745,*)
 
 DO i=1,iParticles
 
-  READ(745,*,IOSTAT=io)  dBuff, idx
+  READ(745,*,IOSTAT=io)  dBuff, idx, iID
   myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
   myExchangeSet(idx)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
   myExchangeSet(idx)%time    = 0d0
   myExchangeSet(idx)%indice  = idx
+  myExchangeSet(idx)%id      = iID
 
 END DO
 
@@ -1071,13 +1743,13 @@ IF (myid.eq.1) THEN
   cFile= '_RTD/ParticlesAtOutflow.csv'
   OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-  WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
+  WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
   ! Now output the particles to the file
   DO i=1,nLostSet
-   WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
+   WRITE(412,'(3(E16.7,A),2(I0,A),E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(2)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(3)*myParticleParam%dFacUnitOut),',',&
-                                myLostSet(i)%indice,',',REAL(myLostSet(i)%time)
+                                myLostSet(i)%indice,',',myLostSet(i)%id,',',REAL(myLostSet(i)%time)
   END DO
 
   CLOSE(412)
@@ -1196,12 +1868,12 @@ IF (myid.eq.1) THEN
 WRITE(cFile,'(A,I8.8,A4)') '_RTD/Particles_',iT,'.csv'
 OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
+WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
 DO i=1,nCompleteSet
- WRITE(412,'(3(E16.7,A),I0,A,E16.7)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
+ WRITE(412,'(3(E16.7,A),2(I0,A),E16.7)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(2)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(3)*myParticleParam%dFacUnitOut),',', &
-                                myCompleteSet(i)%indice,',',REAL(myCompleteSet(i)%time)
+                               myCompleteSet(i)%indice,',',myCompleteSet(i)%id,',',REAL(myCompleteSet(i)%time)
 END DO
 
 CLOSE(412)
@@ -1291,7 +1963,7 @@ END SUBROUTINE GetLambda
 !
 SUBROUTINE GetCutplanes()
 INTEGEr nH,i,j, iZpos
-REAL*8 X,Y,Z,ddd,t
+REAL*8 X,Y,Z,ddd,t,dID
 
 IF (myid.eq.1) THEN
 !  DO i=1,nCompleteSet
@@ -1320,10 +1992,12 @@ IF (myid.eq.1) THEN
     Y = myCompleteSet(i)%coor(2)
     Z = myCompleteSet(i)%coor(3)
     t = myCompleteSet(i)%time
+    dID = DBLE(myCompleteSet(i)%ID)
     do iZpos = 1,myParticleParam%nZposCutplanes
-      IF (x.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
-       ZPosParticles(iZpos,1:3,j) = [myParticleParam%cutplanePositions(iZpos),Y,Z]
+      IF (z.gt.myParticleParam%cutplanePositions(iZpos).and.bPosParticles(iZpos,j)) then
+       ZPosParticles(iZpos,1:3,j) = [X,Y,myParticleParam%cutplanePositions(iZpos)]
        ZPosParticles(iZpos,4,j)   = t
+       ZPosParticles(iZpos,5,j)   = dID
        bPosParticles(iZpos,j)     = .FALSE.
       END IF
     end do ! loop over all z positions
@@ -1388,15 +2062,15 @@ IF (myid.eq.1) THEN
     write(cFile,'(A18,I2.2,A4)' ) '_RTD/ParticlesAtZ_' , izPos , '.csv'
     OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-    WRITE(412,'(5A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",','"time"'
+    WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
     DO j=1,myParticleParam%nParticles
 
       IF (.NOT.bPosParticles(iZpos,j)) THEN
-       WRITE(412,'(3(E16.7,A),I0,A,ES16.7)') &
+       WRITE(412,'(3(E16.7,A),2(I0,A),ES16.7)') &
                                      REAL(ZPosParticles(iZpos,1,j)*myParticleParam%dFacUnitOut),',', &
                                      REAL(ZPosParticles(iZpos,2,j)*myParticleParam%dFacUnitOut),',', &
                                      REAL(ZPosParticles(iZpos,3,j)*myParticleParam%dFacUnitOut),',',j,',',&
-                                     REAL(ZPosParticles(iZpos,4,j))
+                                     INT(REAL(ZPosParticles(iZpos,5,j))),',', REAL(ZPosParticles(iZpos,4,j))
       END IF
     END DO
     CLOSE(412)
@@ -1635,6 +2309,75 @@ END DO
 
 END SUBROUTINE subPostProcessRTD
 
+SUBROUTINE getSubstring(cH,cS,nC,iC)
+use iniparser, only : inip_toupper_replace
+Character*256 cH
+Character*60 cF
+Character*1 cS
+integer iC(4),nC
+
+integer i,jPos1,jPos2
+integer, allocatable :: iPos(:)
+Character*1 cA
+Integer nS
+
+nC = 0
+iC = 0
+
+if (myid.eq.1) write(*,*) ",",adjustl(trim(cH)),","
+
+nS = 0
+Do i=1,256
+ READ(cH(i:i),'(A1)') cA
+ if (cA.eq.cS) nS = nS + 1
+END DO
+
+allocate(iPos(nS+1))
+iPos = 0
+
+!write(*,*) 'nS=',nS
+
+nS = 0
+Do i=1,256
+ READ(cH(i:i),'(A1)') cA
+ if (cA.eq.cS) THEN
+  nS = nS + 1
+  iPos(nS) = i
+ end if
+END DO
+
+iPos(nS+1) = LEN(adjustl(trim(cH)))+1
+nC = nS + 1
+
+if (myid.eq.1) write(*,*) 'nS=',nS, 'iPos= ',iPos
+
+jPos1 = 0
+Do i=1,nS+1
+ jPos2 = iPos(i)
+ READ(cH(jPos1+1:jPos2-1),'(A)') cF
+ CALL inip_toupper_replace(cF)
+ if (INDEX(ADJUSTL(TRIM(cF)),"RESULT").ne.0) then
+  if (myid.eq.1) write(*,*) 'res-column is :', i,ADJUSTL(TRIM(cF))
+   iC(1) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:0").ne.0) then
+  if (myid.eq.1) write(*,*) 'x-column is :', i,ADJUSTL(TRIM(cF))
+  iC(2) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:1").ne.0) then
+  if (myid.eq.1) write(*,*) 'y-column is :', i,ADJUSTL(TRIM(cF))
+  iC(3) = i
+ end if
+ if (INDEX(ADJUSTL(TRIM(cF)),"POINTS:2").ne.0) then
+  iC(4) = i
+  if (myid.eq.1) write(*,*) 'z-column is :', i,ADJUSTL(TRIM(cF))
+ end if
+ jPos1=jPos2
+END DO
+
+! pause
+
+END SUBROUTINE getSubstring
 END
 !
 !-------------------------------------------------------
@@ -1737,6 +2480,44 @@ if (bProjection) then
  end if
 end if
 
-
-
 END SUBROUTINE SearchPointsWRT_STLs
+!
+!-------------------------------------------------------
+!
+SUBROUTINE GetDistAndProjPToAllSTLs(X,Y,Z,X0,Y0,Z0,dist)
+use fbm, only : myFBM
+
+implicit none
+REAL*8 X,Y,Z,X0,Y0,Z0,dist,X1,Y1,Z1
+real*8 dist_sign,d_temp,daux
+integer ip,ipc,isin,idynType
+
+ Dist = 1d8
+ 
+ DO IP = 1,myFBM%nParticles
+  
+  ipc=ip-1
+  isin = 0
+  call get_dynamics_type(ipc, idynType) 
+  
+  dist_sign = +1d0
+  if (idynType.eq.2) dist_sign = -1d0
+  
+  call isinelementid(X,Y,Z,ipc,isin)
+  if(isin .gt. 0)then
+   dist_sign = -1d0*dist_sign
+  else
+   dist_sign = +1d0*dist_sign
+  end if
+  call getclosestpointid(X,Y,Z,x1,y1,z1,d_temp,ipc);
+
+  if (dist_sign * d_temp.lt.dist) then
+   dist = dist_sign * d_temp
+   x0 = x1
+   y0 = y1
+   z0 = z1
+  end if
+  
+ end do
+
+END SUBROUTINE GetDistAndProjPToAllSTLs
