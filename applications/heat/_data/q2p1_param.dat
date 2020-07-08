@@ -31,8 +31,8 @@ SimPar@FlowType = non-Newtonian                                              ! N
 SimPar@Tracer = Yes                                                      ! Yes
 SimPar@bViscoElastic = No                                                      ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Temperature,HeatObjects,Temperature_AVG"
-PossibleOutputFields = Temperature,Velocity,Pressure_E
+SimPar@OutputFields = "Temperature,HeatObjects"
+PossibleOutputFields = Temperature,Velocity,Pressure_E,Temperature_AVG
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ----------------- Velocity 5--------------------
