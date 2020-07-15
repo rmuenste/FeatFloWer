@@ -5,6 +5,8 @@ project(CHECK_OFF C CXX)
 
 file(COPY "cube.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "fail.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "check_off.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "blender_check_off.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # add a binary
 add_executable(check_off cgal_test.cpp)
