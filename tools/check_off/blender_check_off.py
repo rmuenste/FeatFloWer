@@ -30,8 +30,10 @@ def main():
             usage()
             sys.exit(2)
 
-    command = "%s --background -P check_off.py " \
-            "-- %s" %(blenderPath, fileName)
+    workingDir = os.path.dirname(os.path.abspath(__file__))  
+    print(workingDir)
+    command = "%s --background -P %s/check_off.py " \
+            "-- %s" %(blenderPath, workingDir, fileName)
 
     subprocess.call([command], shell=True)
 
