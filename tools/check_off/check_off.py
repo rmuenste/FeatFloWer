@@ -14,7 +14,7 @@ def checkManifold(fileName):
   for o in myObjects:
 #    if o.type == 'MESH':
     if re.search(objectName, o.name):
-        print(o.name)                
+        print("Mesh name (should be the same as the filen name without extension): %s" %o.name)                
         myScene = bpy.data.scenes['Scene']
         bpy.context.scene.objects.active = o
         o.select = True
@@ -31,7 +31,16 @@ def checkManifold(fileName):
             print("This is a non-manifold mesh.")
 
 def main():
-  fileName = sys.argv[5]
+
+  argv = sys.argv
+
+  try:
+      index = argv.index("--") + 1
+  except ValueError:
+      index = len(argv)
+  argv = argv[index:]
+
+  fileName = argv[0]
   print("Name : %s" %fileName)
   bpy.ops.import_mesh.off(filepath=fileName)
   checkManifold(fileName)            
