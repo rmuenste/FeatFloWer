@@ -32,7 +32,7 @@ def main():
 
     workingDir = os.path.dirname(os.path.abspath(__file__))  
     print(workingDir)
-    command = "%s -noaudiO --background -P %s/check_off.py " \
+    command = "%s -noaudio --background -P %s/check_off.py " \
             "-- %s" %(blenderPath, workingDir, fileName)
 
     subprocess.call([command], shell=True)
