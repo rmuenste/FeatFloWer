@@ -33,6 +33,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy 
  ${CMAKE_CURRENT_BINARY_DIR}/s3d_mesher
  ${CMAKE_BINARY_DIR}/applications/q2p1_sse
+ ${CMAKE_BINARY_DIR}/applications/q2p1_die
  ${CMAKE_BINARY_DIR}/applications/heat
 )
 
@@ -41,6 +42,12 @@ add_custom_command(
 #=========================================================================
 install(TARGETS s3d_mesher
     RUNTIME DESTINATION bin/q2p1_sse
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+install(TARGETS s3d_mesher
+    RUNTIME DESTINATION bin/q2p1_die
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )

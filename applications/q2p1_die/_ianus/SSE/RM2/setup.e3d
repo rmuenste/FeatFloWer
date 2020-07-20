@@ -1,0 +1,91 @@
+[REX3DFileInfo]
+filetype = ToExtrud3D
+fileversion = REX3D 1.0
+date = 06/17/2019
+appversion = REX 15.1.0_beta (2646)
+configid = rm-06172019100548-2857422239
+comment = _EMPTYSTRING_
+
+[E3DGeometryData]
+processname = rm
+
+[E3DGeometryData/Machine]
+screwname = rm
+rotationdirection = LEFT
+barreldiameter = 45.00000000
+noofelements = 1
+barrellength = 99.0
+innerdiameter = 34.7552
+
+[E3DGeometryData/Machine/Element_1]
+screwtype = Rautenmischer
+name = rm
+noofsection = 4
+diameter = 45.00000000
+sectionlength = 90.00000000
+screwclearance = 0.10000000
+noofflightsconveyingchannel = 2
+pitchconveyingchannel = 45.00000000
+flightwidthconveyingchannel = 13.50000000
+channelwidthconveyingchannel = 7.94003656
+channeldepthconveyingchannel = 5.00000000
+noofflightsmixingchannel = 5
+pitchmixingchannel = 90.00000000
+flightwidthmixingchannel = 4.50000000
+channelwidthmixingchannel = 10.68414495
+ausgabe_pfad = /data/warehouse16a/omierka/E3D_NG/ScrewGenerator/screwgenerator_20190614/temp
+ausgabe_praefix = rm
+startposition = 3.6
+off_filelist = rm.off
+calculatedinflowdiammin = 34.8174
+calculatedinflowdiammax = 44.7776
+innerdiameter = 34.7552
+objecttype = Screw
+type = OFF
+
+[E3DProcessParameters]
+screwspeed = 50.00000000
+processtype = THROUGHPUT
+massthroughput = 18.54000000
+materialtemperature = 206.70000000
+barreltemperature = _INVALID_
+screwtemperature = _INVALID_
+barreltemperatureadiabatic = YES
+screwtemperatureadiabatic = YES
+mininflowdiameter = 34.8174
+maxinflowdiameter = 44.7776
+
+[E3DProcessParameters/Material]
+name = PP Borealis RD204CF (2018)
+type = PP (Polymer)
+limitviscomin = 1.00000000
+limitviscomax = 2000.00000000
+
+[E3DProcessParameters/Material/RheologicalData]
+calcvisco = Carreau
+calctemp = TBTS
+
+[E3DProcessParameters/Material/RheologicalData/Carreau]
+zeroviscosity = 1996.10441000
+recipvelocity = 0.06022000
+exponent = 0.70173000
+
+[E3DProcessParameters/Material/RheologicalData/TBTS]
+standardtemperature = 8.69119000
+referencetemperature = 200.00000000
+
+[E3DProcessParameters/Material/ThermoData]
+heatconductivity = 0.20000000
+heatconductivityslope = 0.00000000
+heatcapacity = 2.69600000
+heatcapacityslope = 0.00431700
+densitymodel = DENSITY
+
+[E3DProcessParameters/Material/ThermoData/Density]
+density = 0.88276800
+densityslope = 0.00058100
+
+[E3DSimulationsettings]
+meshquality = grob
+hexmesher = HollowCylinder
+
