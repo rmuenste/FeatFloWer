@@ -18,7 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
-    character(len=INIP_STRLEN) cParserString
+    character(len=INIP_STRLEN) cParserString,cSCR
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest
     
@@ -73,6 +73,14 @@
     if (TRIM(cUnit).eq.'DM') dSizeScale = 10.00d0
     if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","ScrewCylinderRendering",cSCR,'YES')
+    call inip_toupper_replace(cSCR)
+    IF (ADJUSTL(TRIM(cSCR)).EQ."YES".OR.ADJUSTL(TRIM(cSCR)).EQ."ON") THEN
+     mySigma%ScrewCylinderRendering=.true.
+    END IF
+    IF (ADJUSTL(TRIM(cSCR)).EQ."NO".OR.ADJUSTL(TRIM(cSCR)).EQ."OFF") THEN
+     mySigma%ScrewCylinderRendering=.false.
+    END IF
     
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
@@ -1065,6 +1073,7 @@
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
+    write(*,*) "mySigma%ScrewCylinderRendering",'=',mySigma%ScrewCylinderRendering
     write(*,*) "mySigma%Zwickel",'=',trim(mySigma%cZwickel)
     write(*,*) "mySigma%InnerDiamNParam",'=',mySigma%InnerDiamNParam
     write(*,'(A,A,100ES12.4)') "mySigma%InnerDiamDParam",'=',mySigma%InnerDiamDParam

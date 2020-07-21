@@ -334,9 +334,11 @@ inpr = 0
 tt = t 
 
 k = 0
-CALL InnerCylinder_Elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
-D1 = min(dSeg1,D1)
-D2 = min(dSeg2,D2)
+IF (mySigma%ScrewCylinderRendering) THEN
+ CALL InnerCylinder_Elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ D1 = min(dSeg1,D1)
+ D2 = min(dSeg2,D2)
+END IF
 
 !----------------------------------------------------------
 DO k=1, mySigma%NumberOfSeg
@@ -1011,11 +1013,12 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
     MixerKNPR(i) = 100
    END IF
 
-   
-   PX = dcorvg(1,i)
-   PY = dcorvg(2,i)
-   DiD = SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_in*0.5d0
-   dst2(i) = min(dst2(i),DiD)
+   IF (mySigma%ScrewCylinderRendering) THEN
+    PX = dcorvg(1,i)
+    PY = dcorvg(2,i)
+    DiD = SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_in*0.5d0
+    dst2(i) = min(dst2(i),DiD)
+   END IF
    
    Screw(i) = dst2(i)
    IF (Screw(i).le.0d0) THEN

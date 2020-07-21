@@ -501,6 +501,7 @@ END TYPE tSegment
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
+  LOGICAL :: ScrewCylinderRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
   REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
