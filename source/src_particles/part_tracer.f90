@@ -1454,18 +1454,22 @@ DO
          myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
          myExchangeSet(idx1)%time    = 0d0
          myExchangeSet(idx1)%indice  = idx1
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx1)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
          myExchangeSet(idx2)%time    = 0d0
          myExchangeSet(idx2)%indice  = idx2
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx2)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
          myExchangeSet(idx3)%time    = 0d0
          myExchangeSet(idx3)%indice  = idx3
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx3)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
          myExchangeSet(idx4)%time    = 0d0
          myExchangeSet(idx4)%indice  = idx4
+         if (dValues(Columns(1)).ne.0) myExchangeSet(idx4)%id = int(dValues(Columns(1))) 
      
       END IF
    END IF
