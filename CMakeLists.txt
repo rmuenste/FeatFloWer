@@ -215,6 +215,7 @@ if(USE_CGAL)
       )
 
     set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
+    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
 
     if(NOT WIN32)
           ExternalProject_Add(CGAL_PRJ
@@ -352,8 +353,9 @@ endif(USE_MUMPS)
 
 find_package(Git 2.17)
 
+
 if(USE_CGAL)
-add_subdirectory(tools/check_off)
+  add_subdirectory(tools/check_off)
 endif(USE_CGAL)
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
