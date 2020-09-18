@@ -900,6 +900,20 @@
      mySetup%bAutomaticTimeStepControl = .TRUE.
     END IF
     
+    IF (mySetup%bAutomaticTimeStepControl.and.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") then
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionSpeed_CMpS",myProcess%ExtrusionSpeed,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapSize_MM",myProcess%ExtrusionGapSize,myInf)
+      if (myProcess%ExtrusionSpeed.eq.myInf) then
+       if (myid.eq.1) WRITE(*,*) "Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
+       stop 55
+      end if
+      if (myProcess%ExtrusionSpeed.eq.myInf) then
+       if (myid.eq.1) WRITE(*,*) "Extrusion GapSize is not set 'E3DProcessParameters@ExtrusionGapSize_MM'"
+       stop 55
+      end if
+    End if
+    
+    
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d0)
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","activeFBM_Z_Position",activeFBM_Z_Position,myInf)
