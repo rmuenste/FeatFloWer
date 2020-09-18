@@ -69,6 +69,4 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-3
 Pres@MGCriterion2 = 1d-4
 Pres@MGCycType = F
-Pres@MGRelaxPrm = 0.9d0
-Pres@MGSmootherType = 1
 Pres@MGCrsSolverType = 4
