@@ -16,8 +16,8 @@ ScrewCylinderRendering=OFF
 rotationdirection = LEFT
 barreldiameter = 70.0
 noofelements = 1
-barrellength = 45.0
-innerdiameter = 35.0
+barrellength = 9.0
+innerdiameter = 69.0
 
 [E3DGeometryData/Machine/Element_1]
 name = VekaDIE_572A
@@ -25,15 +25,15 @@ Unit=mm
 diameter = 70.0
 startposition = 0.0
 off_filelist = flowchannel.off
-calculatedinflowdiammin = 60.0
+calculatedinflowdiammin = 69.0
 calculatedinflowdiammax = 70.0
-innerdiameter = 50.0
+innerdiameter = 69.0
 objecttype = die
 type = OFF
 
 [E3DProcessParameters]
 nOfInflows = 1
-screwspeed = 5.00000000
+screwspeed = 1.0
 processtype = THROUGHPUT
 massthroughput = 141.0
 materialtemperature = 190.0
@@ -42,7 +42,9 @@ screwtemperature = _INVALID_
 barreltemperatureadiabatic = NO
 screwtemperatureadiabatic = YES
 mininflowdiameter = 50.0
-maxinflowdiameter = 70.0
+maxinflowdiameter = 69.0
+ExtrusionSpeed_CMpS = 24.0
+ExtrusionGapSize_MM = 0.5
 
 [E3DProcessParameters/Inflow_1]
 type=CURVEDFLAT
@@ -66,7 +68,7 @@ CalcTemp=isotherm
 [E3DProcessParameters/Material/RheologicalData/Carreau]
 zeroviscosity = 1000.0
 recipvelocity = 1.0
-exponent = 0.0
+exponent = 0.85
 
 [E3DProcessParameters/Material/ThermoData]
 heatconductivity = 0.231
@@ -90,5 +92,5 @@ CutDtata_1D=0.003
 meshquality = medium
 HexMesher=OFF
 KTPRelease=NO
-AutomaticTimeStepControl=NO
-TimeStepEnlargmentFactor=6d0
+AutomaticTimeStepControl=YES
+TimeStepEnlargmentFactor=5d0

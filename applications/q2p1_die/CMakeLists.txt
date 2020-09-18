@@ -85,22 +85,20 @@ IF(${OUT_OF_SOURCE_BUILD})
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_data_BU" "${CMAKE_CURRENT_BINARY_DIR}/_data_BU" )
   ENDIF()
 
-  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_ianus")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_ianus" "${CMAKE_CURRENT_BINARY_DIR}/_ianus" )
-  ENDIF()
-
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/e3d_input")
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/e3d_input" "${CMAKE_CURRENT_BINARY_DIR}/e3d_input" )
   ENDIF()
-
+  
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_die_start.py")
     file(COPY q2p1_die_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
 
   file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_die.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
  
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check_DIE.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/plot_conv_DIE.gp" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  
 ENDIF()
 
 #=========================================================================
@@ -112,7 +110,7 @@ install(TARGETS ${SSE_DIE_TARGET_NAME}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU e3d_input _ianus)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU e3d_input)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
@@ -129,7 +127,8 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_DI
 
 # install the driver script
 set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_die.py")
-list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check_DIE.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/plot_conv_DIE.gp")
 
 install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_DIE_TARGET_NAME}
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
