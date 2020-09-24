@@ -1377,7 +1377,7 @@ DO
       cdy = myParticleParam%dFacUnitSourcefile*dBuff(2)
       cdz = myParticleParam%dFacUnitSourcefile*dBuff(3)
       CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cdX0,cdY0,cdZ0,iProjection)
-      if (dist_CGAL.gt.3d0*myParticleParam%d_CorrDist) then
+      if (dist_CGAL.gt.1d0*myParticleParam%d_CorrDist) then
         iElements = iElements + 1
       end if
    END IF
@@ -1438,7 +1438,7 @@ DO
       cdz = myParticleParam%dFacUnitSourcefile*dBuff(3)
       CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cdX0,cdY0,cdZ0,iProjection)
 !      CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-      if (dist_CGAL.gt.3d0*myParticleParam%d_CorrDist) then
+      if (dist_CGAL.gt.1d0*myParticleParam%d_CorrDist) then
          
          iElement = iElement+ 1
          
