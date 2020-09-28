@@ -1244,7 +1244,7 @@ SUBROUTINE Boundary_QuadScalar_Def()
     
      DAUX = QuadSc%defU(i) * BoundaryNormal(1,i) + &
             QuadSc%defV(i) * BoundaryNormal(2,i) + &
-            QuadSc%defV(i) * BoundaryNormal(3,i)
+            QuadSc%defW(i) * BoundaryNormal(3,i)
            
      QuadSc%defU(i) = QuadSc%defU(i) - DAUX*BoundaryNormal(1,i)
      QuadSc%defV(i) = QuadSc%defV(i) - DAUX*BoundaryNormal(2,i)
@@ -1300,7 +1300,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
     IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
      DAUX = QuadSc%ValU(i) * BoundaryNormal(1,i) + &
             QuadSc%ValV(i) * BoundaryNormal(2,i) + &
-            QuadSc%ValV(i) * BoundaryNormal(3,i)
+            QuadSc%ValW(i) * BoundaryNormal(3,i)
            
      QuadSc%ValU(i) = QuadSc%ValU(i) - DAUX*BoundaryNormal(1,i)
      QuadSc%ValV(i) = QuadSc%ValV(i) - DAUX*BoundaryNormal(2,i)
