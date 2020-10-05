@@ -108,7 +108,7 @@ PROGRAM Q2P1_SSE
 
   call sim_finalize_sse(tt0,ufile)
 
-  if (DivergedSolution) STOP 1
+  if (DivergedSolution) STOP 99
   
   contains
 
