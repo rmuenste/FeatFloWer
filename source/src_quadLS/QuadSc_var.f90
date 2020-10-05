@@ -357,7 +357,7 @@ INTEGER nUmbrellaSteps,nInitUmbrellaSteps
 
 integer :: nUmbrellaStepsLvl(9) = (/0, 0, 0, 0, 0, 0, 0, 0, 0/)
 integer :: nMainUmbrellaSteps = 0
-REAL*8 :: dIntegralHeat = 0d0
+REAL*8 :: dIntegralHeat = 0d0, dNozzlePosition
 
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
@@ -390,6 +390,12 @@ TYPE(tViscFunc) :: myViscFunc
 TYPE(tProperties),save :: Properties
 
 TYPE (tParticleParam) :: myParticleParam
+
+TYPE tErrorCodes
+ INTEGER :: iDivergenceDueToDeformation = 99
+END TYPE
+
+TYPE (tErrorCodes) ::  myErrorCode
 
 contains 
 integer function KNEL(ilevel)

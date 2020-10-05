@@ -10,7 +10,7 @@ PROGRAM Q2P1_SSE
 
   use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
   use Sigma_User, only : bKTPRelease
-  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution
+  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode
   use f90getopt
 
   integer            :: iOGMV,iTout
@@ -108,7 +108,7 @@ PROGRAM Q2P1_SSE
 
   call sim_finalize_sse(tt0,ufile)
 
-  if (DivergedSolution) STOP 99
+  if (DivergedSolution) call exit(myErrorCode%iDivergenceDueToDeformation)
   
   contains
 
