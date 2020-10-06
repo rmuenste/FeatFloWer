@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import math
 import partitioner
-
+import fileinput
 import datetime
 
 if sys.version_info[0] < 3:
@@ -192,6 +192,15 @@ def mkdir(dir):
     os.mkdir(dir)
 
 #===============================================================================
+#                          simple file in-situ replacement method
+#===============================================================================
+def replace_in_file(file_path, search_text, new_text):
+    with fileinput.input(file_path, inplace=True) as f:
+        for line in f:
+            new_line = line.replace(search_text, new_text)
+            print(new_line, end='')
+
+#===============================================================================
 #                          setup the case folder 
 #===============================================================================
 def folderSetup(workingDir, projectFile, projectPath, projectFolder):
@@ -340,6 +349,19 @@ def simLoopVelocity(workingDir):
 
             exitCode = subprocess.call([launchCommand], shell=True)
 
+            if paramDict['retryDeformation'] and exitCode == 99:
+                with open("_data/q2p1_param.dat", "r") as f:
+                  for l in f:
+                    if "SimPar@UmbrellaStepM" in l:
+                        orig_umbrella = int(l.split()[2])
+                UmbrellaStepM = orig_umbrella
+                while exitCode == 99 and UmbrellaStepM != 0:
+                    replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
+                    UmbrellaStepM = int(UmbrellaStepM / 2)
+                    myLog.updateStatusLine("got status 99, rerunning with UmbrellaStepM=" + str(UmbrellaStepM))
+                    exitCode = subprocess.call([launchCommand], shell=True)
+                replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
@@ -456,7 +478,7 @@ def main():
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup',
-                                    'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun'])
+                                    'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun', 'retry-deformation'])
 
     except getopt.GetoptError:
         usage()
@@ -503,6 +525,8 @@ def main():
             paramDict['shortTest'] = True
         elif opt in ('-u', '--use-srun'):
             paramDict['useSrun'] = True
+        elif opt in ('--retry-deformation'):
+            paramDict['retryDeformation'] = True
         else:
             usage()
             sys.exit(2)
