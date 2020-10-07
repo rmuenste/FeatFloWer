@@ -358,7 +358,6 @@ def simLoopVelocity(workingDir):
                 while exitCode == 99 and UmbrellaStepM != 0:
                     replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
                     UmbrellaStepM = int(UmbrellaStepM / 2)
-                    myLog.updateStatusLine("got status 99, rerunning with UmbrellaStepM=" + str(UmbrellaStepM))
                     exitCode = subprocess.call([launchCommand], shell=True)
                 replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
 
