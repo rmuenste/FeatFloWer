@@ -4,6 +4,8 @@ import sys
 import getopt
 import GeometryManipulator as gm
 
+# python3 GeometryManipulator_Driver.py -f Endstueck_6_5.off -t 12.5 
+
 def usage():
   print("Usage: heat_start.py [options]")
   print("Where options can be:")
@@ -17,21 +19,22 @@ def main():
     except getopt.GetoptError:
         sys.exit(2)
 
+    dZ=0.0
     for opt, arg in opts:
         if opt == '-h':
             usage()
             sys.exit()
         elif opt in ("-t", "--translation"):
             dZ = float(arg)
-            print(dZ)
+#            print(dZ)
         elif opt in ("-f", "--file"):
             myfile = arg
-            print(myfile)
+#            print(myfile)
 
-
+    print(myfile + " is translated by "  +str(dZ))
     myGeo = gm.GeometryObject()
     myGeo.ReadOff('Gitter/' + myfile)
-    myGeo.TranslateObject(0.0,0.0,12.5)
+    myGeo.TranslateObject(0.0,0.0,dZ)
     myGeo.ExportOff('GitterTranslated/' + myfile)
 
 
