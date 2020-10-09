@@ -1812,7 +1812,7 @@
     integer :: i,iSeg,iFile,iaux
 
     real*8 :: myPI = dATAN(1d0)*4d0
-    character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature
+    character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cConvergenceEstimator
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,CDensity,cMeshQuality,cKTP,cUnit,sCoorString
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
@@ -1906,6 +1906,10 @@
      if (TRIM(cUnit).eq.'M')  dSizeScale = 100.0d0
       
      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+     
+       call INIP_getvalue_double(parameterlist,cElement_i,"ConvergenceCondition", mySigma%mySegment(iSeg)%ConvergenceDetector%Condition ,0.01d0)
+       call INIP_getvalue_int(parameterlist,cElement_i,"ConvergenceLimit", mySigma%mySegment(iSeg)%ConvergenceDetector%Limit, 100)
+     
        call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
        read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
        mySigma%mySegment(iSeg)%TemperatureSensor%Coor = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Coor
@@ -2021,6 +2025,12 @@
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","WorkBenchThicknessCM", myProcess%WorkBenchThickness ,5d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","MeltInflowTemperature", myProcess%MeltInflowTemperature ,290d0)
 
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","ConvergenceEstimator",cConvergenceEstimator,'OFF')
+    call inip_toupper_replace(cConvergenceEstimator)
+    IF (TRIM(ADJUSTL(cConvergenceEstimator)).eq."ON".or.TRIM(ADJUSTL(cConvergenceEstimator)).eq."YES") THEN
+     mySetup%bConvergenceEstimator = .TRUE.
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
 
@@ -2079,6 +2089,10 @@
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorCoor=',mySigma%mySegment(iSeg)%TemperatureSensor%Coor
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorRadius=',mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+
+      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%ConvergenceCondition=',mySigma%mySegment(iSeg)%ConvergenceDetector%Condition
+      write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%ConvergenceLimit=',mySigma%mySegment(iSeg)%ConvergenceDetector%Limit
+
       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Regulation=',ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation))
       IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."SIMPLE") then
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorMinRegValue=',mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
@@ -2130,6 +2144,8 @@
     write(*,'(A,ES12.4)') "myProcess%WorkBenchThicknessCM=",myProcess%WorkBenchThickness
     write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%CoolingWaterTemperature
     write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%MeltInflowTemperature
+    write(*,*) 
+    write(*,'(A,L)') "mySetup%ConvergenceEstimator=",mySetup%bConvergenceEstimator
 
 !     write(*,'(A,ES12.4)') "myProcess%ConductiveLambda=",myProcess%ConductiveLambda 
 !     write(*,'(A,ES12.4)') "myProcess%ConductiveGradient=", myProcess%ConductiveGradient

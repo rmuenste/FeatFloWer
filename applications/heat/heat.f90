@@ -12,7 +12,7 @@ PROGRAM HEAT
                          
   use Transport_Q2P1,  only:        updateFBMGeometry       
   use Transport_Q1, ONLY : AddSource_EWIKON,Boundary_LinSc_Val_EWIKON,Transport_LinScalar_EWIKON
-  use var_QuadScalar, only : DivergedSolution
+  use var_QuadScalar, only : DivergedSolution,ConvergedSolution
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 
 
@@ -60,17 +60,29 @@ PROGRAM HEAT
 
    if (DivergedSolution) EXIT
    
+   IF (ConvergedSolution) EXIT
+   
   END DO
 
+  
   if (.not.DivergedSolution) THEN
-   IF (myid.eq.showid) THEN
-     WRITE(*,*) "HEAT_APP has successfully finished. "
-     WRITE(ufile,*) "HEAT_APP has successfully finished. "
-   END IF
+  
+   IF (ConvergedSolution) THEN
+    IF (myid.eq.showid) THEN
+      WRITE(*,*) "HEAT_APP has successfully finished before reaching timestep limit. "
+      WRITE(ufile,*) "HEAT_APP has successfully finished before reaching timestep limit. "
+    END IF
+   ELSE
+    IF (myid.eq.showid) THEN
+      WRITE(*,*) "HEAT_APP has successfully finished. "
+      WRITE(ufile,*) "HEAT_APP has successfully finished. "
+    END IF
+   END IF   
+   
   ELSE
    IF (myid.eq.showid) THEN
-     WRITE(*,*) "HEAT_APP has been stopped due to divergence ..."
-     WRITE(ufile,*) "HEAT_APP has been stopped due to divergence ..."
+     WRITE(*,*) "HEAT_APP has been stopped due to recognition of a diverged solution ..."
+     WRITE(ufile,*) "HEAT_APP has been stopped due to recognition of a diverged solution ..."
    END IF
   END IF
 

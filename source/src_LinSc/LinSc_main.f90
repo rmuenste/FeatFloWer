@@ -6,10 +6,11 @@ USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
 USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
     myALE,Properties,Temperature,Temperature_AVG,iTemperature_AVG
-USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat,DivergedSolution
+USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
+USE var_QuadScalar, ONLY: DivergedSolution,ConvergedSolution
 USE var_QuadScalar, ONLY: Tracer, Tracer3
 USE mg_LinScalar, ONLY : mgProlRestInit
-USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials
+USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials,mySetup
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE

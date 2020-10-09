@@ -955,7 +955,7 @@ END SUBROUTINE AddBoundaryHeatFlux
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
 REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
-REAL*8 :: dTotalEnthalpy(2)=0d0,defT
+REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff
 integer mfile,iS,iSeg,i
 
 CALL LL21(Temperature,Tracer%ndof,DefT)
@@ -1109,6 +1109,57 @@ do
   dHeatSource = dHeatSource + mySigma%mySegment(iSeg)%UseHeatSource
  END IF
 end do
+
+IF (mySetup%bConvergenceEstimator) THEN
+
+ IF (myid.eq.1) then
+   write(MTERM,'(A$)') 'Convergence: '
+   write(MFILE,'(A$)') 'Convergence: '
+ END IF
+     
+ ConvergedSolution = .TRUE.
+ iSeg = 0
+ 
+ do 
+  iSeg = iSeg + 1
+  if (iSeg.gt.mySigma%NumberOfSeg) exit 
+  
+  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+   diff = mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature - mySigma%mySegment(iSeg)%PID_Ctrl%T_set
+   if (abs(diff).lt.mySigma%mySegment(iSeg)%ConvergenceDetector%Condition) THEN
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = mySigma%mySegment(iSeg)%ConvergenceDetector%Counter + 1
+   ELSE
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = 0
+   END IF
+   
+   IF (mySigma%mySegment(iSeg)%ConvergenceDetector%Counter.gt.mySigma%mySegment(iSeg)%ConvergenceDetector%Limit) THEN
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .TRUE.
+   ELSE
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .FALSE.
+   END IF
+  
+   IF (.not.mySigma%mySegment(iSeg)%ConvergenceDetector%Converged) THEN
+    ConvergedSolution=.false.
+    IF (myid.eq.1) then
+     write(MTERM,'(A$)') "F"
+     write(MFILE,'(A$)') "F"
+    END IF
+   ELSE
+    IF (myid.eq.1) then
+     write(MTERM,'(A$)') "T"
+     write(MFILE,'(A$)') "T"
+    END IF
+   END IF
+  END IF
+  
+ end do
+
+ IF (myid.eq.1) then
+  write(MTERM,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+  write(MFILE,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+ END IF
+END IF
+
 1 continue
 
 return

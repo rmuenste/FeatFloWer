@@ -467,6 +467,13 @@ TYPE tSensor
   REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
 END TYPE tSensor
 
+TYPE tConvergenceDetector
+  REAL*8  :: Condition=0.01d0
+  INTEGER :: Counter  = 0
+  INTEGER :: Limit  = 250
+  LOGICAL :: Converged=.FALSE.
+END TYPE tConvergenceDetector
+
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
   CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
@@ -491,6 +498,7 @@ TYPE tSegment
   character*64 :: regulation="SIMPLE"
   TYPE(tSensor) TemperatureSensor
   TYPE(tPID) PID_ctrl
+  TYPE(tConvergenceDetector) ConvergenceDetector
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
   !!!!!!!!!!!!!!!!!!!
@@ -578,6 +586,7 @@ END TYPE tTransientSolution
 TYPE tSetup
  LOGICAL :: bPressureFBM = .FALSE.
  LOGICAL :: bAutomaticTimeStepControl = .TRUE.
+ LOGICAL :: bConvergenceEstimator=.FALSE.
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher
