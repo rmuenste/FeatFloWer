@@ -1447,6 +1447,7 @@ end subroutine postprocessing_app
 subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
   
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use var_QuadScalar, only : ConvergedSolution
   use def_FEAT
 
   implicit none
@@ -1472,6 +1473,12 @@ subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
 !     CALL ZTIME(myStat%t1)
   END IF
 
+  IF (ConvergedSolution) THEN
+    CALL ZTIME(myStat%t0)
+    CALL Output_Profiles(7199)
+    CALL ZTIME(myStat%t1)
+  END IF
+  
   IF(dout.LE.(timens+1e-10)) THEN
 
     IF (itns.ne.1) THEN
