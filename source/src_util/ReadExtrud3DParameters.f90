@@ -1907,8 +1907,8 @@
       
      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
      
-       call INIP_getvalue_double(parameterlist,cElement_i,"ConvergenceCondition", mySigma%mySegment(iSeg)%ConvergenceDetector%Condition ,0.01d0)
-       call INIP_getvalue_int(parameterlist,cElement_i,"ConvergenceLimit", mySigma%mySegment(iSeg)%ConvergenceDetector%Limit, 100)
+       call INIP_getvalue_double(parameterlist,cElement_i,"ConvergenceCondition", mySigma%mySegment(iSeg)%ConvergenceDetector%Condition ,0.001d0)
+       call INIP_getvalue_int(parameterlist,cElement_i,"ConvergenceLimit", mySigma%mySegment(iSeg)%ConvergenceDetector%Limit, 250)
      
        call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
        read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
