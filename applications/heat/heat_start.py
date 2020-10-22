@@ -145,9 +145,11 @@ def main(argv):
         launchCommand = 'mpirun -np %i ./%s' %(numProcessors, 'heat')
 
     # Start the simulation as a subprocess
-    subprocess.call([launchCommand], shell=True)
+    exitCode = subprocess.call([launchCommand], shell=True)
 
     cleanWorkingDir(workingDir)
+    if exitCode != 0:
+      raise Exception("FeatFlower exited abnormal")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
