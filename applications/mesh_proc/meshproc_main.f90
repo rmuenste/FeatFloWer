@@ -72,6 +72,10 @@ IF (bPDE_MD) then
  
 END IF
 
+CALL InitMarkerField()
+
+CALL PropagateMarkerField()
+
 CALL RecoverSurfaceNormals()
 
 ilev = lTriOutputLevel
