@@ -2869,21 +2869,23 @@ if (myid.ne.0) call updateMixerGeometry(mfile)
 IF (mySetup%bPressureFBM) THEN
  ilev=nlmin
  CALL SETLEV(2)
- CALL SetPressBC(mgMesh)
+ CALL SetPressBC_NewGen(mgMesh)
  ! send them to the master
+ ilev=nlmin
+ CALL SETLEV(2)
  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
- if (myid.ne.0) then
-  ilev=nlmin+1
-  CALL SETLEV(2)
- END IF
- CALL SetPressBC(mgMesh)
-
- do ilev=nlmin+2,nlmax
-  CALL SETLEV(2)
-  CALL GetMG_KNPRP(mgMesh)
- end do
-
+!  if (myid.ne.0) then
+!   ilev=nlmin+1
+!   CALL SETLEV(2)
+!  END IF
+!  CALL SetPressBC(mgMesh)
+! 
+!  do ilev=nlmin+2,nlmax
+!   CALL SETLEV(2)
+!   CALL GetMG_KNPRP(mgMesh)
+!  end do
+! 
  ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
@@ -2900,6 +2902,107 @@ call OperatorRegenaration(2)
 call OperatorRegenaration(3)
 
 end subroutine InitOperators
+!
+! ----------------------------------------------
+!
+SUBROUTINE SetPressBC_NewGen(mgMesh)
+type(tMultiMesh), intent(inout) :: mgMesh
+integer iel,jlev
+real*8 dnn
+logical bKick
+
+ilev=nlmin
+dnn=0d0
+
+if (myid.ne.0) then
+ DO iel=1,nel
+
+  jlev=nlmin
+  
+  bKick = .true.
+  CALL FindPressBC_NewGenREC(iel,jlev)
+  
+  if (bKick) then
+   dnn = dnn + 1d0 
+   LinSc%knprP(ilev)%x(iel) = 1
+   CALL SetPressBC_NewGenREC(iel,jlev)
+  end if
+  
+ END DO
+ 
+END IF
+
+call Comm_Summ(dnn)
+
+if (Myid.eq.showid) write(*,*) 'Number of Pressure BC Elements:',int(dnn)
+
+ CONTAINS
+ 
+RECURSIVE SUBROUTINE FindPressBC_NewGenREC(iiel,iilev)
+integer iiel,iilev
+
+integer JEL(8)
+integer jjlev,i,ivt
+
+ do i=1,8
+  ivt = mgMesh%level(iilev)%kvert(i,iiel)
+  if (screw(ivt).gt.0d0.and.shell(ivt).gt.0d0) THEN
+!   if (mgMesh%level(iilev)%dcorvg(3,ivt).gt.2d0) then
+   bKick = .false.
+   RETURN
+  end if
+ end do
+
+ if ((iilev + 1).gt.mgMesh%nlmax+1) RETURN
+! Possible canditate found
+ jjlev = iilev + 1
+
+ JEL(1)  = iiel
+ JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
+ JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
+ JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
+ JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
+ JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
+ JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
+ JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
+ 
+ DO i=1,8
+  CALL FindPressBC_NewGenREC(JEL(i),jjlev)
+  if (.not.bKick) RETURN
+ end do
+
+END SUBROUTINE FindPressBC_NewGenREC
+
+RECURSIVE SUBROUTINE SetPressBC_NewGenREC(iiel,iilev)
+integer iiel,iilev
+
+integer JEL(8)
+integer jjlev,i,ivt
+
+LinSc%knprP(iilev)%x(iiel) = 1
+! write(*,*) iilev,iiel
+
+if ((iilev + 1).gt.mgMesh%nlmax) RETURN
+! Possible canditate found
+ jjlev = iilev + 1
+
+ JEL(1)  = iiel
+ JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
+ JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
+ JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
+ JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
+ JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
+ JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
+ JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
+
+ DO i=1,8
+  LinSc%knprP(jjlev)%x(JEL(i)) = 1
+  CALL SetPressBC_NewGenREC(JEL(i),jjlev)
+ end do
+
+END SUBROUTINE SetPressBC_NewGenREC
+
+END SUBROUTINE SetPressBC_NewGen
 !
 ! ----------------------------------------------
 !
