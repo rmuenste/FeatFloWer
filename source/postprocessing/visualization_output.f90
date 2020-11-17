@@ -111,6 +111,10 @@ if (sExport%Format .eq. "VTK") then
   call viz_write_pvtu_main(iOutput)
  end if
 
+!  if (myid.eq.0) then
+!   CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
+!  end if
+    
 end if
 
 call c_write_json_output(iOutput) 
@@ -384,8 +388,19 @@ do iField=1,size(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   end if
 
- end select
+ case('KNPRP_E')
 
+  if (ioutput_lvl.EQ.inlmax-1)then
+   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","KNPRP_E",""" format=""ascii"">"
+!    write(*,*) myid,inlmax-1,ivt
+   do ivt=1,NoOfElem
+    write(iunit, '(A,I10)')"        ",sLinSc%knprP(inlmax-1)%x(ivt)
+   end do
+   write(iunit, *)"        </DataArray>"
+  end if
+
+ end select
+ 
 end do
 
 write(iunit, '(A)')"    </CellData>"
@@ -529,7 +544,12 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
   END IF
 
- END SELECT
+  CASE('KNPRP_E')
+!  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
+  IF (myExport%Level.EQ.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","KNPRP_E","""/>"
+  END IF
+END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"
 
