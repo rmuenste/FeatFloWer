@@ -40,7 +40,7 @@
       restitution = "0.0"                         
       affectedByGravity = "1"
       dynamicsType = "STATIC_COMPLEMENT"
-      meshFile = "start/VEKA.off"
+      meshFile = "start/SPHERE.off"
       >
     </RigidBody>        
   </RigidBodyList>

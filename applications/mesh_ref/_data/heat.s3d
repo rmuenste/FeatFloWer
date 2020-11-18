@@ -161,7 +161,7 @@ MeltInflowTemperature=180.0
 [E3DSimulationSettings]
 HexMesher=BOX
 BoxMesherUnit=cm
-BoxMesherNumberOfELems=4000
+BoxMesherNumberOfELems=2000
 BoxMesherX=-0.80,0.70
 BoxMesherY=-0.20,1.65
 BoxMesherZ= 0.0,3.3
