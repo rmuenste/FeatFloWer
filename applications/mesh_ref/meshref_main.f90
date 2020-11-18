@@ -1,5 +1,8 @@
 PROGRAM MeshRef
 USE MeshRefDef
+USE MeshRefRefine
+USE MeshRefOutput
+
 USE MESH_Structures
 
 IMPLICIT NONE
@@ -36,6 +39,8 @@ call CreateRefinedMesh()
 call CleanUpPatches()
 
 call CleanUpMesh()
+
+call CutMesh()
 
 ilev = lTriOutputLevel
 CALL Output_TriMesh()

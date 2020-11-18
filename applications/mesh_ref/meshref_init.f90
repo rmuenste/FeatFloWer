@@ -28,7 +28,7 @@ do iel=1,nel
  
  call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
  dist1 = dist1*dS
- if (abs(dist1).lt.0.03d0) then
+ if (abs(dist1).lt.0.05d0) then
   MarkerE(iel) = 1
  end if
 

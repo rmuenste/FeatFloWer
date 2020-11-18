@@ -4,6 +4,9 @@ ${CMAKE_SOURCE_DIR}/source/ProcCtrl.f90
 meshref_main.f90
 meshref_def.f90
 meshref_init.f90
+meshref_var.f90
+meshref_refine.f90
+meshref_output.f90
 )
 
 # Add the application executable
