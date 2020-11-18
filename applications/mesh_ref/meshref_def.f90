@@ -47,74 +47,63 @@ data RROT/1,2,3,4,5,6,7,8,&
 data R2ROT/1,5,6,2,4,8,7,3/
 data R3ROT/1,4,8,5,2,3,7,6/
 
-character cPatches(0:16)*256,cSPatches(0:8)*256
+! character cPatches(0:16)*256,cSPatches(0:8)*256
 integer :: nRefScheme = 6, nNonRefScheme = 2
-! data cPatches/'_adc/PATCHES/new8/schneiders_04.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_04.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_06.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_01.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_0X.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_03.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_0X.tri3d',&
-!               '_adc/PATCHES/new8/schneiders_0X.tri3d'/
 
-data cPatches/'_adc/PATCHES/MIXED/M-2.tri3d',&
-              '_adc/PATCHES/MIXED/M_Std.tri3d',&
-              '_adc/PATCHES/MIXED/M_Edge.tri3d',&
-              '_adc/PATCHES/MIXED/M0_P0.tri3d',&
-              '_adc/PATCHES/MIXED/M_Face.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d',&
-              '_adc/PATCHES/MIXED/M0_LL.tri3d',&
-              '_adc/PATCHES/MIXED/M0_P3.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d',& !higher level
-              '_adc/PATCHES/MIXED/M0_Std.tri3d',&
-              '_adc/PATCHES/MIXED/M0_Edge.tri3d',&
-              '_adc/PATCHES/MIXED/M0_Face.tri3d',&
-              '_adc/PATCHES/MIXED/M0_Face.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d',&
-              '_adc/PATCHES/MIXED/M0.tri3d'/
-              
-data cSPatches/'_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt',&
-               '_adc/PATCHES/MIXED/M0_LL.txt',&
-               '_adc/PATCHES/MIXED/M0_P3.txt',&
-               '_adc/PATCHES/MIXED/M0_PP.txt'/
-               
-              
-! data cPatches/'_adc/PATCHES/MIXED/M-2.tri3d',&
-!               '_adc/PATCHES/MIXED/P_1Corner.tri3d',&
-!               '_adc/PATCHES/MIXED/P_1Edge.tri3d',&
-!               '_adc/PATCHES/MIXED/M0.tri3d',&
-!               '_adc/PATCHES/MIXED/M_Face.tri3d',&
-!               '_adc/PATCHES/MIXED/M0.tri3d',&
-!               '_adc/PATCHES/MIXED/P_2Face.tri3d',&
-!               '_adc/PATCHES/MIXED/P_3Face.tri3d',&
-!               '_adc/PATCHES/MIXED/M0.tri3d'/
+integer myTemplate
+logical templates(8,22)
+data templates /1,0,0,0,0,0,0,0,&
+                1,1,0,0,0,0,0,0,&
+                1,0,1,0,0,0,0,0,&
+                1,0,0,0,0,0,1,0,&
+                1,1,1,0,0,0,0,0,&
+                1,0,1,0,1,0,0,0,&
+                1,0,1,0,0,1,0,0,&
+                1,1,1,1,0,0,0,0,&
+                1,1,1,0,1,0,0,0,&
+                1,1,0,1,1,0,0,0,&
+                1,0,1,1,1,0,0,0,&
+                1,0,1,1,0,1,0,0,&
+                1,0,1,0,1,0,1,0,&
+                1,0,1,0,0,1,0,1,&
+                1,1,1,1,1,0,0,0,&
+                1,0,1,1,1,1,0,0,&
+                1,1,0,1,1,0,1,0,&
+                1,1,1,1,1,1,0,0,&
+                1,1,1,1,1,0,1,0,&
+                1,0,1,1,1,1,1,0,&
+                1,1,1,1,1,1,1,0,&
+                1,1,1,1,1,1,1,1/
+                
+character cTemplates(0:26)*256
+data cTemplates /'_adc/PATCHES/MIXED/M-2.tri3d'    ,&  !Template:   1, #MarkedVerts:   1, Scheme:  F F F F F F F F  
+                 '_adc/PATCHES/MIXED/M_Std.tri3d'  ,&  !Template:   1, #MarkedVerts:   1, Scheme:  T F F F F F F F  
+                 '_adc/PATCHES/MIXED/M_Edge.tri3d' ,&  !Template:   2, #MarkedVerts:   2, Scheme:  T T F F F F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:   3, #MarkedVerts:   2, Scheme:  T F T F F F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:   4, #MarkedVerts:   2, Scheme:  T F F F F F T F  
+                 '_adc/PATCHES/MIXED/M0_P0.tri3d'  ,&  !Template:   5, #MarkedVerts:   3, Scheme:  T T T F F F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:   6, #MarkedVerts:   3, Scheme:  T F T F T F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:   7, #MarkedVerts:   3, Scheme:  T F T F F T F F  
+                 '_adc/PATCHES/MIXED/M_Face.tri3d' ,&  !Template:   8, #MarkedVerts:   4, Scheme:  T T T T F F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:   9, #MarkedVerts:   4, Scheme:  T T T F T F F F  
+                 '_adc/PATCHES/MIXED/M0_P3B.tri3d' ,&  !Template:  10, #MarkedVerts:   4, Scheme:  T T F T T F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  11, #MarkedVerts:   4, Scheme:  T F T T T F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  12, #MarkedVerts:   4, Scheme:  T F T T F T F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  13, #MarkedVerts:   4, Scheme:  T F T F T F T F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  14, #MarkedVerts:   4, Scheme:  T F T F F T F T  
+                 '_adc/PATCHES/MIXED/M0_P2.tri3d'  ,&  !Template:  15, #MarkedVerts:   5, Scheme:  T T T T T F F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  16, #MarkedVerts:   5, Scheme:  T F T T T T F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  17, #MarkedVerts:   5, Scheme:  T T F T T F T F  
+                 '_adc/PATCHES/MIXED/M0_LL.tri3d'  ,&  !Template:  18, #MarkedVerts:   6, Scheme:  T T T T T T F F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  19, #MarkedVerts:   6, Scheme:  T T T T T F T F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  20, #MarkedVerts:   6, Scheme:  T F T T T T T F  
+                 '_adc/PATCHES/MIXED/M0_P3.tri3d'  ,&  !Template:  21, #MarkedVerts:   7, Scheme:  T T T T T T T F  
+                 '_adc/PATCHES/MIXED/M0.tri3d'     ,&  !Template:  22, #MarkedVerts:   8, Scheme:  T T T T T T T T           
+                 '_adc/PATCHES/MIXED/M0_Std.tri3d',&      
+                 '_adc/PATCHES/MIXED/M0_Edge.tri3d',&      
+                 '_adc/PATCHES/MIXED/M0.tri3d',&
+                 '_adc/PATCHES/MIXED/M0_Face.tri3d'/
 
-! data cPatches/'_adc/PATCHES/27/P/3by3_0.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_2.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_3.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_10.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_4.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_1.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_9.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_1.tri3d',&
-!               '_adc/PATCHES/27/P/3by3_1.tri3d'/
-
-! data cPatches/'_adc/PATCHES/27/X/3by3_2.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_3.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_1.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_4.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_1.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_6.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_1.tri3d',&
-!               '_adc/PATCHES/27/X/3by3_1.tri3d'/
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE CreateRefinedMesh
@@ -126,7 +115,7 @@ logical bFound,bUnique
 logical, allocatable :: mytemp(:,:)
 integer, allocatable :: mytempCount(:)
 
-integer iCombination, nOfCombinations
+integer iCombination, nOfCombinations,nAdditionalElems
 
 ilev = mg_Mesh%nlmax
 
@@ -136,6 +125,63 @@ nvt = mg_mesh%level(ilev)%nvt
 nOfCombinations = 0
 allocate(mytemp(8,22),mytempCount(22))
 mytempCount = 0
+
+11 continue
+
+nAdditionalElems = 0
+do i=1,nel
+ if (markerE(i).eq.3) then
+ 
+   bFound = .false.
+   bVert = .FALSE.
+   DO j=1,8
+    ivt = mg_mesh%level(ilev)%kvert(j,i)
+    do k=1,mg_mesh%level(ilev)%nvel
+     l = mg_mesh%level(ilev)%kvel(k,ivt)
+     if (l.ne.0) then
+      if (MarkerE(l).eq.1.or.MarkerE(l).eq.2) then
+       bVert(j) = .TRUE.
+      end if
+     end if
+    end do
+   END DO
+  
+   CALL RotatePatch(bVert,iVert)
+   CALL DetermineTemplate(bVert,myTemplate)
+   
+   if (myTemplate.eq.1.or.&
+       myTemplate.eq.2.or.&
+       myTemplate.eq.5.or.&
+       myTemplate.eq.8.or.&
+       myTemplate.eq.10.or.&
+       myTemplate.eq.15.or.&
+       myTemplate.eq.18.or.&
+       myTemplate.eq.21.or.&
+       myTemplate.eq.22) then
+    else
+     markerE(i)= 1
+     
+     do j=1,8
+      ivt = mg_mesh%level(ilev)%kvert(j,i)
+      do k=1,mg_mesh%level(ilev)%nvel
+       l = mg_mesh%level(ilev)%kvel(k,ivt)
+       if (l.ne.0) then
+        if (MarkerE(l).ne.1) MarkerE(l) = 3
+       end if
+      end do
+     end do
+     
+     nAdditionalElems = nAdditionalElems + 1
+     
+    end if
+    
+   
+ end if 
+end do
+
+write(*,*) nAdditionalElems, " additional element has been set to full refinement"
+
+if (nAdditionalElems.gt.0) goto 11
 
 allocate(myRF(nel))
 
@@ -196,8 +242,11 @@ do i=1,nel
    end  do
    
    bVertCopy = bVert
+   CALL RotatePatch(bVert,iVert)
+   CALL DetermineTemplate(bVert,myTemplate)
+   bVert = bVertCopy
    
-   if (ii.eq.1.or.ii.eq.2.or.ii.eq.4) then
+   if (myTemplate.eq.1.or.myTemplate.eq.2.or.myTemplate.eq.8) then
    
     iVert = mg_mesh%level(ilev)%kvert(:,i)
 
@@ -210,10 +259,31 @@ do i=1,nel
     CALL FillUpRefinedElement(myRF(i),E,ii,bvert,.false.)
     myRF(i)%patchID = ii
     bFound=.true.
+!     write(*,*) myTemplate,ii
     
    end if
 
-   if (ii.eq.3.or.ii.eq.5.or.ii.eq.6.or.ii.eq.7) then
+   if (ii.eq.8) then
+   
+    myRF(i)%nOfElem = nRefScheme**3
+    myRF(i)%nOfVert = (nRefScheme+1)**3
+    allocate(myRF(i)%kvert(8,myRF(i)%nOfElem))
+    allocate(myRF(i)%dcoor(3,myRF(i)%nOfVert))
+    allocate(myRF(i)%knpr(myRF(i)%nOfVert))
+    myRF(i)%knpr=0
+    do j=1,8
+     E(:,j) = mg_mesh%level(ilev)%dcorvg(:,mg_mesh%level(ilev)%kvert(j,i))
+    end do
+    
+    Call FillUpRefined(myRF(i),E,nRefScheme+1)
+    myRF(i)%patchID = ii
+    bFound=.true.
+    
+   end if
+
+   
+   if (myTemplate.eq.5.or.myTemplate.eq.10.or.myTemplate.eq.15.or.myTemplate.eq.18.or.myTemplate.eq.21) then
+!    if ((ii.eq.3.or.ii.eq.5.or.ii.eq.6.or.ii.eq.7)) then
    
     iVert = mg_mesh%level(ilev)%kvert(:,i)
 
@@ -258,6 +328,7 @@ do i=1,nel
      end do
      
      if (jj.gt.0) then
+      myTemplate=22+jj
       CALL FillUpRefinedElement(myRF(i)%myRF(iel),E,jj+8,bvert,.false.)
       myRF(i)%myRF(iel)%selection = jj
       myRF(i)%myRF(iel)%patchID = ii
@@ -319,7 +390,13 @@ do i=1,nel
 end do
 
  DO iCombination = 1,nOfCombinations
-   write(*,*) mytemp(:,iCombination),mytempCount(iCombination)
+   j = 0
+   do i=1,8
+    if (mytemp(i,iCombination)) j = j + 1
+   end do
+   
+   write(*,*) j,' :: ', mytemp(:,iCombination),mytempCount(iCombination)
+   
  END DO
 
  END SUBROUTINE CreateRefinedMesh
@@ -349,7 +426,7 @@ markerV = 0
 !  end if
 ! end do
 
-CALL Initfield1(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel)
+CALL Initfield3(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel)
 
 END SUBROUTINE InitMarker
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1334,8 +1411,8 @@ real*8 :: dPhi = 0.0d0
 character*256 cF
 integer, allocatable :: kvert(:,:)
 
-!write(cF,'(A,I0,A)') '_adc/PATCHES/new8/schneiders_0',iP,'.tri3d'
- cF = cPatches(iP)
+ cF = cTemplates(myTemplate)
+
 open(file=TRIM(ADJUSTL(cF)),unit=1)
 
 read(1,*)
@@ -1362,47 +1439,80 @@ close(1)
 
 if (bRecursive) then
 
- if (iP.eq.6) then
-  allocate(kvert(9,6))
-  open(file=cSPatches(iP),unit=1)
-  do i=1,9
-   read(1,*) kVert(i,:)
-  end do
-  close(1)
+ if (myTemplate.eq.5) then
+   RF%knpr(20) = 1
+   RF%knpr(27) = 1
+   RF%knpr(33) = 1
+   RF%knpr(22) = 1
+   RF%knpr(28) = 1
+ end if
 
-  if ((bV(1).and.bV(2).and.bV(3).and.bV(4))) RF%knpr(kVert(:,4))=1
-  if ((bV(1).and.bV(2).and.bV(6).and.bV(5))) RF%knpr(kVert(:,6))=1
-  if ((bV(2).and.bV(3).and.bV(6).and.bV(7))) RF%knpr(kVert(:,3))=1
-  deallocate(kvert)
-  
- END IF
-! 
- if (ip.eq.3) then
-  if ((bV(1).and.bV(2).and.bV(3))) then
-   RF%knpr(20)=1
-   RF%knpr(27)=1
-   RF%knpr(33)=1
-   RF%knpr(22)=1
-   RF%knpr(28)=1
-  endif
+ if (myTemplate.eq.10) then
+   RF%knpr(31) = 1
+   RF%knpr(71) = 1
+   RF%knpr(47) = 1
+   RF%knpr(59) = 1
+   RF%knpr(72) = 1
+   RF%knpr(56) = 1
+   RF%knpr(87) = 1
  end if
  
- if (ip.eq.7) then
-  allocate(kvert(9,3))
-  open(file=cSPatches(iP),unit=1)
-  do i=1,9
-   read(1,*) kVert(i,:)
-  end do
-  close(1)
-  if ((bV(1).and.bV(2).and.bV(3).and.bV(4))) RF%knpr(kVert(:,1))=1
-  if ((bV(1).and.bV(2).and.bV(3).and.bV(4))) RF%knpr(kVert(:,2))=1
-  if ((bV(1).and.bV(2).and.bV(3).and.bV(4))) RF%knpr(kVert(:,3))=1
-!   if ((bV(1).and.bV(2).and.bV(6).and.bV(5))) RF%knpr(kVert(:,6))=1
-!   if ((bV(2).and.bV(3).and.bV(6).and.bV(7))) RF%knpr(kVert(:,3))=1
+ if (myTemplate.eq.15) then
+   RF%knpr(5)  = 1
+   RF%knpr(12) = 1
+   RF%knpr(17) = 1
+   RF%knpr(19) = 1
+   RF%knpr(29) = 1
+   RF%knpr(49) = 1
+   RF%knpr(54) = 1
+   RF%knpr(68) = 1
+   RF%knpr(70) = 1
+   RF%knpr(65) = 1
+   RF%knpr(72) = 1
+ end if
  
-  deallocate(kvert)
+ if (myTemplate.eq.18) then
+  RF%knpr(8 ) = 1
+  RF%knpr(10) = 1
+  RF%knpr(13) = 1
+  RF%knpr(21) = 1
+  RF%knpr(25) = 1
+  RF%knpr(32) = 1
+  RF%knpr(38) = 1
+  RF%knpr(42) = 1
+  RF%knpr(49) = 1
+  RF%knpr(4 ) = 1
+  RF%knpr(9 ) = 1
+  RF%knpr(19) = 1
+  RF%knpr(29) = 1
+  RF%knpr(36) = 1
+  RF%knpr(46) = 1
  END IF
-
+ 
+ if (myTemplate.eq.21) then
+  RF%knpr(87 ) = 1
+  RF%knpr(88 ) = 1
+  RF%knpr(89 ) = 1
+  RF%knpr(92 ) = 1
+  RF%knpr(93 ) = 1
+  RF%knpr(97 ) = 1
+  RF%knpr(100) = 1
+  RF%knpr(103) = 1
+  RF%knpr(104) = 1
+  RF%knpr(65 ) = 1
+  RF%knpr(67 ) = 1
+  RF%knpr(70 ) = 1
+  RF%knpr(71 ) = 1
+  RF%knpr(75 ) = 1
+  RF%knpr(77 ) = 1
+  RF%knpr(72 ) = 1
+  RF%knpr(73 ) = 1
+  RF%knpr(75 ) = 1
+  RF%knpr(77 ) = 1
+  RF%knpr(79 ) = 1
+  RF%knpr(85 ) = 1
+ END IF
+  
 end if
 
 DJ(1,1)=( E(1,1)+E(1,2)+E(1,3)+E(1,4)+E(1,5)+E(1,6)+E(1,7)+E(1,8))*Q8
@@ -1521,6 +1631,27 @@ END SUBROUTINE RotatePatch
 !
 !------------------------------------------------------------------
 !
+SUBROUTINE DetermineTemplate(C,iT)
+logical C(8),R(8)
+integer iT
+integer i
+logical bSame
+
+do i=1,22
+ R = templates(:,i)
+ bSame=.true.
+ call ComparePatch(C,R,bSame)
+!  write(*,*) C,":",R,":",bSame
+ if (.not.bSame) then
+  iT = i
+  RETURN
+ end if
+end do
+
+END SUBROUTINE DetermineTemplate
+!
+!------------------------------------------------------------------
+!
 SUBROUTINE ComparePatch(C,R,b)
 logical :: C(8),R(8)
 logical b
@@ -1528,10 +1659,11 @@ integer i,j
 
 j = 0
 DO i=1,8
- if (C(i).eq.R(i)) j = j + 1
+ if ((C(i).and.R(i)).or.((.not.C(i)).and.(.not.R(i)))) j = j + 1
 END DO
  
 if (j.eq.8) b=.false.
+!  write(*,*) C,":",R,":",j
  
 END SUBROUTINE ComparePatch
 !

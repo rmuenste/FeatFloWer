@@ -5,7 +5,8 @@ integer MarkerE(*),kvert(8,*)
 real*8 dcorvg(3,*)
 !
 integer iel,i
-real*8 dc(3),dist
+real*8 dc(3),dist1,dist2,dS
+integer :: isin, ipc = 0
 
 MarkerE(1:nel) = 0
 
@@ -16,11 +17,27 @@ do iel=1,nel
   dc = dc + 0.125d0*dcorvg(:,kvert(i,iel))
  end do
 
- dist = sqrt((dc(1)-1d0)**2d0 + (dc(2)-1d0)**2d0 + (dc(3)-1d0)**2d0 )
+ isin = 0
+ call isinelementid(dc(1),dc(2),dc(3),0,isin)
+
+ if(isin .gt. 0)then
+   dS = -1d0
+ else
+   dS = +1d0
+ end if
  
- if (dist.lt.1.82d0) then
+ call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
+ dist1 = dist1*dS
+ if (abs(dist1).lt.0.03d0) then
   MarkerE(iel) = 1
  end if
+
+!  dist1 = sqrt((dc(1)+1.68d0)**2d0 + (dc(2)+1.68d0)**2d0 + (dc(3)-0d0)**2d0 )
+!  dist2 = sqrt((dc(1)+1.68d0)**2d0 + (dc(2)+1.68d0)**2d0 + (dc(3)-0d0)**2d0 )
+!  
+!  if (abs(dist1).lt.3.00.and.abs(dist2).gt.2.7) then
+!   MarkerE(iel) = 1
+!  end if
 
 
 end do
