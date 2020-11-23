@@ -90,9 +90,75 @@ class E3dLog:
 
             f.write(msg)
 
+    def updateStatusLineIteration(self, msg, itCurr):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        if itCurr == 0:
+            self.fileContents = self.fileContents[:-1] 
+        else:
+            self.fileContents = self.fileContents[:-3] 
+
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def updateStatusLineHeatIteration(self, msg, numLines=3):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-3] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def writeStatusHeat(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def popLinesAndWrite(self, numLines, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-numLines] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+
+    def popLinesBack(self, numLines):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-numLines] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
     def writeExitMsg(self):
         with open(self.fileName, "r") as f:
             self.fileContents = f.readlines()
+
 
         self.fileContents = self.fileContents[:-1] 
         with open(self.fileName, "w") as f:
@@ -142,7 +208,8 @@ paramDict = {
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
     "useSrun": False,
-    "temperature" : False
+    "temperature" : False,
+    "retryDeformation" : False
 }
 #===============================================================================
 #                        version function
@@ -331,8 +398,9 @@ def simLoopVelocity(workingDir):
         with open("_data/Extrud3D.dat", "a") as f:
             f.write("Angle=" + str(angle) + "\n")
 
+        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 #        input("Press key to continue to MomentumSolver")
-        myLog.updateStatusLine("CurrentStatus=running Momentum Solver")
+        myLog.updateStatusLineIteration(statusMsg, i)
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
@@ -410,11 +478,15 @@ def simLoopTemperatureCombined(workingDir):
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
         shutil.copyfile(str(backupVeloFile), str(veloDestFile))
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
+
+        #myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+        myLog.writeStatusHeat("CurrentHeatIteration=%i\nMaxHeatIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+
         exitCode = simLoopVelocity(workingDir)
         print("temperature simulation")
 
 #        input("Press key to continue to HeatSolver")
-        myLog.updateStatusLine("CurrentStatus=running Heat Solver")
+#        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
@@ -435,6 +507,8 @@ def simLoopTemperatureCombined(workingDir):
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
+
+        myLog.popLinesAndWrite(5, "CurrentStatus=running Heat Solver")
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
@@ -453,6 +527,7 @@ def simLoopTemperatureCombined(workingDir):
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
 
+    #myLog.popLinesAndWrite(3, "CurrentStatus=running Heat Solver")
     exitCode = simLoopVelocity(workingDir)
 
 #===============================================================================
