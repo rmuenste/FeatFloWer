@@ -1381,6 +1381,24 @@
     write(*,*) "myThermodyn%Density",'=',myThermodyn%density
     write(*,*) "myThermodyn%DensitySlope",'=',myThermodyn%densitySteig
     write(*,*) 
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."DENSITY") THEN
+     myThermodyn%density = myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig
+    END IF
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
+     myThermodyn%density = 1d0/(myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig)
+    END IF
+    
+    myThermodyn%lambda = myThermodyn%lambda + myProcess%T0 * myThermodyn%lambdaSteig
+    myThermodyn%cp = myThermodyn%cp + myProcess%T0 * myThermodyn%cpSteig
+    write(*,'(A,F10.2,A)') "Material properties interpolated to Material temperature",myProcess%T0,"C"
+    write(*,'(A,A,F12.4)') "Density_[g/cm3]",'=',myThermodyn%density
+    write(*,'(A,A,F12.4)') "Lambda_[W//m/K]",'=',myThermodyn%lambda
+    write(*,'(A,A,F12.4)') "Cp_[kJ/kg/K]",'=',myThermodyn%cp
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    write(*,*) 
 !     write(*,*) "mySetup%MeshQuality",'=',mySetup%MeshResolution
     write(*,*) "myOutput%nOf1DLayers = "      ,myOutput%nOf1DLayers
     write(*,*) "myOutput%nOfHistogramBins = " ,myOutput%nOfHistogramBins
@@ -1563,21 +1581,22 @@
     character(len=INIP_STRLEN) cINI
     
     call INIP_getvalue_double(parameterlist,cINI,"HeatConductivity",t%lambda,myInf)
-    call INIP_getvalue_double(parameterlist,cINI,"HeatConductivitySlope",t%lambdaSteig,myInf)
+    call INIP_getvalue_double(parameterlist,cINI,"HeatConductivitySlope",t%lambdaSteig,0d0)
     call INIP_getvalue_double(parameterlist,cINI,"HeatCapacity",t%cp,myInf)
-    call INIP_getvalue_double(parameterlist,cINI,"HeatCapacitySlope",t%CpSteig,myInf)
+    call INIP_getvalue_double(parameterlist,cINI,"HeatCapacitySlope",t%CpSteig,0d0)
 
     call INIP_getvalue_string(parameterlist,cINI,"DensityModel", t%DensityModel,'no')
     call inip_toupper_replace(t%DensityModel)
     t%density=myInf
     IF (ADJUSTL(TRIM(t%DensityModel)).eq."DENSITY") THEN
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","Density",t%Density,myInf)
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","DensitySlope",t%DensitySteig,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","DensitySlope",t%DensitySteig,0d0)
     END IF
     IF (ADJUSTL(TRIM(t%DensityModel)).eq."SPECVOLUME") THEN
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolume",t%Density,myInf)
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolumeSlope",t%DensitySteig,myInf)
-      t%Density = 1d0/t%Density
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolumeSlope",t%DensitySteig,0d0)
+!       t%Density = 1d0/t%Density
+!       t%DensitySteig = 1d0/t%DensitySteig
     END IF
     IF (myThermodyn%density.eq.myinf) THEN
      WRITE(*,*) "density is not defined"
