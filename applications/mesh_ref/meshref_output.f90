@@ -38,6 +38,14 @@ write(iunit, '(A)')"    <PointData>"
  end do
  write(iunit, *)"        </DataArray>"
 
+ if (allocated(level)) then
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","level",""" format=""ascii"">"
+  do ivt=1,nvt
+   write(iunit, '(A,I10)')"        ",level(ivt)
+  end do
+  write(iunit, *)"        </DataArray>"
+ end if
+
  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ID",""" format=""ascii"">"
  do ivt=1,nvt
   write(iunit, '(A,E16.7)')"        ",REAL(ivt)
@@ -690,7 +698,6 @@ CLOSE(1)
 
 END SUBROUTINE Output_RefTriMesh
 ! ----------------------------------------------
-! ----------------------------------------------
 SUBROUTINE Output_TriMesh()
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:mg_mesh,myBoundary
@@ -761,5 +768,67 @@ END DO
 CLOSE(2)
 
 END SUBROUTINE Output_TriMesh
+! ----------------------------------------------
+SUBROUTINE Output_MergedRefTriMesh()
+
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+IMPLICIT NONE
+INTEGER i,j
+CHARACTER cf*(256)
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/Merged_'//adjustl(trim(cProjectGridFile))
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(1,'(2I8,A)') nUniqueElems,nUniquePoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(1,'(A)') 'DCORVG'
+DO i = 1,nUniquePoints
+ WRITE(1,'(3ES13.5)') MergedMeshCoor(:,i)
+END DO
+
+WRITE(1,'(A)') 'KVERT'
+DO i = 1,nUniqueElems
+ WRITE(1,'(8I8)') MergedMeshElem(:,i)
+END DO
+
+WRITE(1,'(A)') 'KNPR'
+DO i = 1,nUniquePoints
+  WRITE(1,'(I8)') 0
+END DO
+
+CLOSE(1)
+
+! OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cShortProjectFile)))
+! !WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
+! WRITE(2,'(A)') adjustl(trim(cProjectGridFile))
+!  
+! DO iBnds = 1, nBnds
+!  cf = ' '
+!  WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+!  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+!  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+!  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+!  j=0
+!  DO i=1,mg_mesh%level(ilev)%nvt
+!   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+!    j = j + 1
+!   END IF
+!  END DO
+!  WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+!  WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+!  DO i=1,mg_mesh%level(ilev)%nvt
+!   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+!    WRITE(1,'(I8,A)') i
+!   END IF
+!  END DO
+!  CLOSE(1)
+! END DO
+! CLOSE(2)
+
+END SUBROUTINE Output_MergedRefTriMesh
 
 END Module MeshRefOutput

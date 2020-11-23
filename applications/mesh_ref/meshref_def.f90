@@ -34,17 +34,18 @@ do iel=1,nUniqueElems
   if (dist1.lt.dRad) dRad = dist1
  end do
 
- isin = 0
- call isinelementid(dc(1),dc(2),dc(3),0,isin)
-
- if(isin .gt. 0)then
-   dS = -1d0
- else
-   dS = +1d0
- end if
- 
- call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
- dist1 = dist1*dS
+!  isin = 0
+!  call isinelementid(dc(1),dc(2),dc(3),0,isin)
+! 
+!  if(isin .gt. 0)then
+!    dS = -1d0
+!  else
+!    dS = +1d0
+!  end if
+!  
+!  call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
+!  dist1 = dist1*dS
+ dist1 = 1d0
  
  if (dist1.lt.dRad) THEN
   dist1=+1d0
@@ -84,7 +85,7 @@ markerV = 0
 !  end if
 ! end do
 
-CALL Initfield3(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel)
+CALL Initfield2(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
 
 END SUBROUTINE InitMarker
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -159,6 +160,8 @@ integer ilong
  WRITE(*,*) 'Outputlevel for the ".tri" file: ', lTriOutputLevel
  READ(1,*) lVTUOutputLevel
  WRITE(*,*) 'Outputlevel for the ".vtu" file: ', lVTUOutputLevel
+ READ(1,*) RefinementThickness
+ WRITE(*,*) 'Refinement thickness is set to be: ', RefinementThickness
 
  CLOSE(1)
 
@@ -273,6 +276,8 @@ logical C(8),R(8)
 integer iT
 integer i
 logical bSame
+
+iT = 0
 
 do i=1,22
  R = templates(:,i)
@@ -455,16 +460,6 @@ write(*,*) "nTotalElements,nTotalPoints",nTotalElements,nTotalPoints
  end if
  
  deallocate(iBuff)
- 
-!   WRITE(*,*) "<zsdsaddasdsa sadsa sa "
-!   do jj=1,nUniquePoints
-!     write(*,'(3ES12.3)') myRF(iel)%dUniquedCoor(:,jj)
-!   end do
-!   pause
-!   do jj=1,nAllElements
-!     write(*,'(8I8)') myRF(iel)%kUniqueElem(:,jj)
-!   end do
-
  
  END SUBROUTINE CleanUpSubPatch
  

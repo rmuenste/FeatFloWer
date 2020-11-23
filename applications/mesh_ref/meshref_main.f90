@@ -35,6 +35,7 @@ CALL InitMarker()
 call SetUpMarker()
 
 call CreateRefinedMesh()
+!call CreateRefinedMesh_Fine()
 
 call CleanUpPatches()
 
@@ -45,6 +46,7 @@ call CutMesh()
 ilev = lTriOutputLevel
 CALL Output_TriMesh()
 CALL Output_RefTriMesh()
+CALL Output_MergedRefTriMesh()
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()
