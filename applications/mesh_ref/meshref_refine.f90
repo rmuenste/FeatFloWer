@@ -343,6 +343,7 @@ allocate(myRF(nel))
 
 do i=1,nel
 
+ 
  if (markerE(i).eq.0) then
  
    myRF(i)%nOfElem = nNonRefScheme**3
@@ -402,6 +403,8 @@ do i=1,nel
    CALL DetermineTemplate(bVert,myTemplate)
    bVert = bVertCopy
    
+   write(*,*) i,markerE(i),mytemplate
+   
    if (myTemplate.eq.1.or.myTemplate.eq.2.or.myTemplate.eq.8) then
    
     iVert = mg_mesh%level(ilev)%kvert(:,i)
@@ -412,7 +415,9 @@ do i=1,nel
      E(:,j) = mg_mesh%level(ilev)%dcorvg(:,iVert(j))
     end do
     
+    write(*,*) 'before being done',ii
     CALL FillUpRefinedElementF(myRF(i),E,ii,bvert,.false.)
+    write(*,*) 'done'
     myRF(i)%patchID = myTemplate
     bFound=.true.
 !     write(*,*) myTemplate,ii
@@ -548,7 +553,7 @@ do i=1,nel
    end if
    
  end if
-
+ 
 end do
 
  DO iCombination = 1,nOfCombinations
@@ -835,7 +840,8 @@ logical bV(8)
 real*8 E(3,8)
 real*8 :: Q8=0.125d0
 real*8 DJ(8,3),XX,YY,ZZ
-real*8 :: CBP(3,64),xi1,xi2,xi3,DJAC(3,3),DETJ
+real*8 :: xi1,xi2,xi3,DJAC(3,3),DETJ
+real*8 , allocatable ::cBP(:,:)
 integer i,j,k,ii
 real*8 :: dPhi = 0.0d0
 character*256 cF
@@ -850,11 +856,13 @@ read(1,*)
 read(1,*) RF%nOfElem, RF%nOfVert
 read(1,*)
 
+allocate(cBP(3,RF%nOfVert))
 allocate(RF%kvert(8,RF%nOfElem))
 allocate(RF%dcoor(3,RF%nOfVert))
 allocate(RF%knpr(RF%nOfVert))
 RF%knpr = 0
 
+if (iP.eq.4) write(*,*) 'here -- CRIT',RF%nOfElem,RF%nOfVert,ADJUSTL(TRIM(cF))
 DO i=1,RF%nOfVert
  read(1,*) CBP(:,i)
 end do
@@ -1018,6 +1026,7 @@ DO ii=1,RF%nOfVert
    
 END DO
 
+deallocate(cBP)
 
 END SUBROUTINE FillUpRefinedElementF
 

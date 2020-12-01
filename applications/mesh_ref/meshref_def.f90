@@ -84,8 +84,13 @@ markerV = 0
 !   markerE(i) = 1
 !  end if
 ! end do
+IF (initfield.eq.1) then
+ CALL Initfield1(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+end if
 
-CALL Initfield2(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+IF (initfield.eq.2) then
+ CALL Initfield2(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+end if
 
 END SUBROUTINE InitMarker
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -162,6 +167,8 @@ integer ilong
  WRITE(*,*) 'Outputlevel for the ".vtu" file: ', lVTUOutputLevel
  READ(1,*) RefinementThickness
  WRITE(*,*) 'Refinement thickness is set to be: ', RefinementThickness
+ READ(1,*) initfield
+ WRITE(*,*) 'Refinement field is set to be: ', initfield
 
  CLOSE(1)
 
@@ -460,6 +467,16 @@ write(*,*) "nTotalElements,nTotalPoints",nTotalElements,nTotalPoints
  end if
  
  deallocate(iBuff)
+ 
+!   WRITE(*,*) "<zsdsaddasdsa sadsa sa "
+!   do jj=1,nUniquePoints
+!     write(*,'(3ES12.3)') myRF(iel)%dUniquedCoor(:,jj)
+!   end do
+!   pause
+!   do jj=1,nAllElements
+!     write(*,'(8I8)') myRF(iel)%kUniqueElem(:,jj)
+!   end do
+
  
  END SUBROUTINE CleanUpSubPatch
  

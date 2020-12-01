@@ -34,8 +34,8 @@ CALL InitMarker()
 
 call SetUpMarker()
 
-call CreateRefinedMesh()
-!call CreateRefinedMesh_Fine()
+! call CreateRefinedMesh()
+call CreateRefinedMesh_Fine()
 
 call CleanUpPatches()
 
