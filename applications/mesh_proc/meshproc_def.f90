@@ -170,7 +170,7 @@ DO i=1,mg_Mesh%level(ilev)%nel
    
     mm = 0
     do k=1,4
-     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i))) mm = mm + 1
+     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)).gt.0) mm = mm + 1
     end do
     if (mm.eq.4) bFace=.true.
    END DO
@@ -235,7 +235,7 @@ DO i=1,mg_Mesh%level(ilev)%nel
     
     mm = 0
     do k=1,4
-     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i))) mm = mm + 1
+     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)).gt.0) mm = mm + 1
     end do
     if (mm.eq.3) bFace=.true.
    END DO

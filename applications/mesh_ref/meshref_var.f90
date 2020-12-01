@@ -7,7 +7,7 @@ CHARACTER*(200) :: cOutputFolder,cShortProjectFile
 LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
 Logical :: bDefTensor = .true.
-integer :: nOfMarkers=1
+integer :: nOfMarkers=1,initfield
 integer, allocatable, dimension(:) :: markerE,markerV
 
 type RefinerMesh
@@ -47,28 +47,28 @@ integer :: nRefScheme , nNonRefScheme
 
 integer myTemplate
 logical templates(8,22)
-data templates /1,0,0,0,0,0,0,0,&
-                1,1,0,0,0,0,0,0,&
-                1,0,1,0,0,0,0,0,&
-                1,0,0,0,0,0,1,0,&
-                1,1,1,0,0,0,0,0,&
-                1,0,1,0,1,0,0,0,&
-                1,0,1,0,0,1,0,0,&
-                1,1,1,1,0,0,0,0,&
-                1,1,1,0,1,0,0,0,&
-                1,1,0,1,1,0,0,0,&
-                1,0,1,1,1,0,0,0,&
-                1,0,1,1,0,1,0,0,&
-                1,0,1,0,1,0,1,0,&
-                1,0,1,0,0,1,0,1,&
-                1,1,1,1,1,0,0,0,&
-                1,0,1,1,1,1,0,0,&
-                1,1,0,1,1,0,1,0,&
-                1,1,1,1,1,1,0,0,&
-                1,1,1,1,1,0,1,0,&
-                1,0,1,1,1,1,1,0,&
-                1,1,1,1,1,1,1,0,&
-                1,1,1,1,1,1,1,1/
+data templates /.TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.TRUE. ,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.FALSE.,.FALSE.,.TRUE. ,.FALSE.,.TRUE. ,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,.TRUE. ,.FALSE.,&
+                .TRUE. ,.FALSE.,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.FALSE.,&
+                .TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. ,.TRUE. /
                 
 character cTemplatesX(0:22)*256
 data cTemplatesX /'PATCHES_C/X0.tri3d',&       !Template:   0, #MarkedVerts:   0, Scheme:  F F F F F F F F  
