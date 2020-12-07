@@ -25,7 +25,7 @@ else:
 
 
 
-class E3dLog(FileSystemEventHandler):
+class E3dLog:
     def __init__(self):
 #        print("The E3dLog constructor")
         self.fileName = "e3d.log"
