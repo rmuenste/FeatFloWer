@@ -16,14 +16,13 @@ import partitioner
 import fileinput
 import datetime
 from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver  
 from watchdog.events import FileSystemEventHandler
 
 if sys.version_info[0] < 3:
     from pathlib2 import Path
 else:
     from pathlib import Path
-
-
 
 class E3dLog:
     def __init__(self):
@@ -257,7 +256,7 @@ def version():
     """
     Print out version information
     """
-    print("E3D + Reporter for SIGMA Version 19.10, Copyright 2019 IANUS Simulation")
+    print("E3D + Reporter for SIGMA Version 20.11, Copyright 2019 IANUS Simulation")
 
 #===============================================================================
 #                        usage function
@@ -462,10 +461,14 @@ def simLoopVelocity(workingDir):
 
         workingDir = os.getcwd()
         protocolFilePath = os.path.join(workingDir, "_data")
-        print("Protocol file path: ", protocolFilePath)
 
         eventHandler = ProtocolObserver()
-        observer = Observer()
+        observer = ""   
+        if sys.platform == "win32":
+            observer = PollingObserver()
+        else:
+            observer = Observer()
+
         observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
         observer.start()
 
