@@ -15,13 +15,17 @@ import math
 import partitioner
 import fileinput
 import datetime
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 if sys.version_info[0] < 3:
     from pathlib2 import Path
 else:
     from pathlib import Path
 
-class E3dLog:
+
+
+class E3dLog(FileSystemEventHandler):
     def __init__(self):
 #        print("The E3dLog constructor")
         self.fileName = "e3d.log"
@@ -90,6 +94,19 @@ class E3dLog:
 
             f.write(msg)
 
+    def updateStatusLineInnerIteration(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-3] 
+
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
     def updateStatusLineIteration(self, msg, itCurr):
 
         with open(self.fileName, "r") as f:
@@ -98,7 +115,7 @@ class E3dLog:
         if itCurr == 0:
             self.fileContents = self.fileContents[:-1] 
         else:
-            self.fileContents = self.fileContents[:-3] 
+            self.fileContents = self.fileContents[:-5] 
 
         with open(self.fileName, "w") as f:
             for line in self.fileContents:
@@ -211,6 +228,28 @@ paramDict = {
     "temperature" : False,
     "retryDeformation" : False
 }
+
+class ProtocolObserver(FileSystemEventHandler):
+    def on_created(self, event):
+        fileBaseName = os.path.basename(event.src_path)
+
+    def on_modified(self, event):
+        fileBaseName = os.path.basename(event.src_path)
+        patternFound = False
+        if fileBaseName == "prot.txt":
+          pattern = "itns:\s*([0-9]+)[/]\s*([0-9]+)"
+          with open(event.src_path, "r") as f:
+              fileContents = f.readlines()
+          for line in reversed(fileContents):
+              matchObj = re.search(pattern, line)
+              if matchObj: 
+                  patternFound = True
+                  statusMsg = "CurrentInnerIteration=%i\n"\
+                              "MaxInnerIteration=%i\n"\
+                              "CurrentStatus=running Momentum Solver" %(int(matchObj.group(1)), int(matchObj.group(2)))
+                  myLog.updateStatusLineInnerIteration(statusMsg)
+                  break
+
 #===============================================================================
 #                        version function
 #===============================================================================
@@ -266,6 +305,20 @@ def replace_in_file(file_path, search_text, new_text):
         for line in f:
             new_line = line.replace(search_text, new_text)
             print(new_line, end='')
+
+#===============================================================================
+#                     Parse MaxNumStep from q2p1_param.dat
+#===============================================================================
+def parseMaxNumSteps(file_path):
+    maxIters = 300
+    pattern = re.compile(r"SimPar@MaxNumStep\s+[=]\s+([0-9]+)")
+    for line in open(file_path):
+        for match in re.finditer(pattern, line):
+            maxIters = int(match.group(1))
+            return maxIters
+
+    return maxIters
+
 
 #===============================================================================
 #                          setup the case folder 
@@ -381,6 +434,7 @@ def simLoopVelocity(workingDir):
 
     nmin = 0
     start = 0.0
+    maxInnerIters = parseMaxNumSteps("_data/q2p1_param.dat")
     with open("_data/Extrud3D_0.dat", "a") as f:
         f.write("\n[E3DSimulationSettings]\n")
         f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
@@ -398,9 +452,23 @@ def simLoopVelocity(workingDir):
         with open("_data/Extrud3D.dat", "a") as f:
             f.write("Angle=" + str(angle) + "\n")
 
-        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
+        statusMsg = "CurrentAngleIteration=%i\n"\
+                    "MaxAngleIteration=%i\n"\
+                    "CurrentInnerIteration=%i\n"\
+                    "MaxInnerIteration=%i\n"\
+                    "CurrentStatus=running Momentum Solver" %(i+1, nmax, 1, maxInnerIters)
 #        input("Press key to continue to MomentumSolver")
         myLog.updateStatusLineIteration(statusMsg, i)
+
+        workingDir = os.getcwd()
+        protocolFilePath = os.path.join(workingDir, "_data")
+        print("Protocol file path: ", protocolFilePath)
+
+        eventHandler = ProtocolObserver()
+        observer = Observer()
+        observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
+        observer.start()
+
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
@@ -428,6 +496,9 @@ def simLoopVelocity(workingDir):
                     UmbrellaStepM = int(UmbrellaStepM / 2)
                     exitCode = subprocess.call([launchCommand], shell=True)
                 replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+
+        # Here the observer can be turned off
+        observer.stop()
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
