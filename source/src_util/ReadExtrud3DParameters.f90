@@ -1435,7 +1435,7 @@
      myThermodyn%density = myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig
     END IF
     IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
-     myThermodyn%density = 1d0/(myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig)
+     myThermodyn%density = 1d0/(myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig)
     END IF
     
     myThermodyn%lambda = myThermodyn%lambda + myProcess%T0 * myThermodyn%lambdaSteig
