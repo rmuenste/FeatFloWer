@@ -538,6 +538,12 @@ TYPE tInflow
  REAL*8  center(3),normal(3)
 END TYPE tInflow
 
+TYPE tSegThermoPhysProp
+ real*8 rho,cp,lambda,T_const
+ character*256 :: cConstTemp
+ logical :: bConstTemp=.false.
+ENDTYPE tSegThermoPhysProp
+
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
@@ -550,6 +556,8 @@ TYPE tProcess
    REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
    integer   nOfInflows
    TYPE (tInflow), dimension(:), allocatable :: myInflow
+   LOGICAL :: SegmentThermoPhysProps=.false.
+   TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
@@ -581,6 +589,7 @@ TYPE tTransientSolution
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
  TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+ TYPE(mg_dVector), ALLOCATABLE :: iSeg(:)
 END TYPE tTransientSolution
 
 TYPE tSetup

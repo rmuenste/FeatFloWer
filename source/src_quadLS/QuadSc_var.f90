@@ -265,6 +265,7 @@ END TYPE tDump
 TYPE(tDump) :: myDump
 
 REAL*8, ALLOCATABLE :: dPeriodicVector(:)
+REAL*8, allocatable :: mySegmentIndicator(:,:)
 
 TYPE tExport
  INTEGER :: Level,LevelMax

@@ -203,7 +203,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator
 
 implicit none
 
@@ -295,6 +295,13 @@ do iField=1,size(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure [bar]",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%Q2(ivt)-dMinOutputPressure)
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ case('SegmentIndicator')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","SegmentIndicator",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,I10)')"        ",INT(mySegmentIndicator(2,ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -504,6 +511,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
 ! CASE('Temperature')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('SegmentIndicator')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","SegmentIndicator","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('FBM')

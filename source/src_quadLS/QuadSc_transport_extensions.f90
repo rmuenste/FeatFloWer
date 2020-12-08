@@ -884,6 +884,8 @@ IF (myid.ne.0) THEN
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
 END IF
 
+CALL CorrectPressure_WRT_KNPRP()
+
 IF (ieee_is_finite(myProcess%dPress)) THEN
  CALL QuadScP1toQ2Periodic(LinSc,QuadSc)
 ELSE
@@ -938,6 +940,10 @@ IF (myid.ne.0) then
  
   Screw(i) = (1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)
   
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   mySegmentIndicator(2,i) = DBLE(NINT((1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)))
+  END IF
+  
  END DO
 END IF
 
@@ -986,3 +992,21 @@ END IF
 !!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
 
 END SUBROUTINE TemporalFieldInterpolator
+
+
+SUBROUTINE CorrectPressure_WRT_KNPRP()
+integer iel
+
+if (myid.ne.0) then
+ ilev = nlmax
+ do iel = 1,mg_mesh%level(ilev)%nel
+  if (LinSc%knprP(ilev)%x(iel).eq.1) then
+   LinSc%valP(NLMAX)%x(4*(iel-1)+1) = 0d0
+   LinSc%valP(NLMAX)%x(4*(iel-1)+2) = 0d0
+   LinSc%valP(NLMAX)%x(4*(iel-1)+3) = 0d0
+   LinSc%valP(NLMAX)%x(4*(iel-1)+4) = 0d0
+  end if
+ end do
+end if
+
+END SUBROUTINE CorrectPressure_WRT_KNPRP

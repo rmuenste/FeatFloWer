@@ -1251,9 +1251,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
 !     mg_mesh%level(ILEV)%dcorvg,&
 !     mg_mesh%level(ILEV)%kvert)
 
-!   ILEV = NLMAX
-!   CALL SETLEV(2)
-!   CALL Output_Mesh(iOutput,"_vtk",)
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL Output_Mesh(iOutput,"_vtk")
  END IF
 
 END IF
@@ -2903,6 +2903,7 @@ call Release_ListFile('v',iO)
 call Release_ListFile('p',iO)
 call Release_ListFile('d',iO)
 call Release_ListFile('t',iO)
+call Release_ListFile('s',iO)
 
  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 ! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -3045,6 +3046,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  call Load_ListFile('d',iO)
  call Load_ListFile('x',iO)
  call Load_ListFile('t',iO)
+! call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -3114,6 +3116,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  call Load_ListFile('d',iO)
  call Load_ListFile('x',iO)
  call Load_ListFile('t',iO)
+ call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
  
@@ -3159,7 +3162,7 @@ END SUBROUTINE Load_ListFiles_SSE_temp
 SUBROUTINE Load_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
 USE iniparser, ONLY : inip_openFileForReading
 implicit none
 integer :: iO
@@ -3251,7 +3254,22 @@ if (myid.eq.0) return
    END DO 
   END IF
   
-  write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
+  if (adjustl(trim(cf)).eq.'s'.or.adjustl(trim(cf)).eq.'S') THEN
+   IF (allocated(mySegmentIndicator)) then
+    write(cfile(ilen+1:),'(A)') "/segment.lst"
+    
+    call inip_openFileForReading(cfile, ifile, .true.)
+    
+    ndofs = QuadSc%ndof
+    read(ifile,*)
+
+    DO ivt=1,ndofs
+     read(ifile,*) mySegmentIndicator(2,ivt)
+    END DO 
+   END IF
+  END IF
+
+ write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
  close(ifile)
 
 END SUBROUTINE Load_ListFile
@@ -3261,7 +3279,7 @@ END SUBROUTINE Load_ListFile
 SUBROUTINE Release_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
 USE iniparser, ONLY : INIP_REPLACE,inip_openFileForWriting
 implicit none
 integer :: iO
@@ -3354,9 +3372,22 @@ if (myid.eq.0) return
     write(ifile,'(ES14.6)') Screw(ivt)
    END DO 
   END IF
+  if (adjustl(trim(cf)).eq.'s'.or.adjustl(trim(cf)).eq.'S') THEN
+   IF (allocated(mySegmentIndicator)) then
+    write(cfile(ilen+1:),'(A)') "/segment.lst"
+
+    call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
+    ndofs = QuadSc%ndof
+    write(ifile,'(A,I0)') "DofsTotal:",ndofs
+
+    DO ivt=1,ndofs
+     write(ifile,'(ES14.6)') mySegmentIndicator(2,ivt)
+    END DO 
+   END IF
+  END IF
 
   write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
- close(ifile)
+  close(ifile)
 
 END SUBROUTINE Release_ListFile
 !

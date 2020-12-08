@@ -1169,12 +1169,12 @@ END SUBROUTINE IntegrateOutputQuantities
 ! ----------------------------------------------
 !
 SUBROUTINE Assemble_LinScOperators_XSE(mfile)
-USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate
+USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate,mySegmentIndicator
 
 integer mfile
 REAL*8 myDiffCoeff_melt,myDiffCoeff_steel,daux,dHeat
-REAL*8, ALLOCATABLE ::  AlphaDiff(:)
-INTEGER iel,ivt,i
+REAL*8, ALLOCATABLE ::  AlphaDiff(:),mySegDiffCoeff(:)
+INTEGER iel,ivt,i,iSeg
 
 dHeat = 0d0
 
@@ -1194,23 +1194,44 @@ if (myid.ne.0) then
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!   -     ---   Diffusion Matrix Setup --- -    !!!
-  myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
-  myDiffCoeff_steel = 1E-1 ! cm2/s
-  if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
-  
   ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
   AlphaDiff = 0d0
   
-  DO iel = 1,mg_mesh%level(NLMAX)%nel
-   do ivt=1,8
-    i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
-    IF (Screw(i).ge.0d0) THEN
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
-    ELSE
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
-    END IF
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   allocate(mySegDiffCoeff(0:mySigma%NumberOfSeg))
+   do iSeg=0,mySigma%NumberOfSeg
+    mySegDiffCoeff(iSeg) = 0.01d0*myProcess%SegThermoPhysProp(iSeg)%lambda/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
+    if (myid.eq.1)  write(*,'(A,I0,A,F14.4)') ' ThermalDiffCoeff_of Segment',iSeg,'_[cm2/s]: ',mySegDiffCoeff(iSeg)
    END DO
-  END DO
+
+   DO iel = 1,mg_mesh%level(NLMAX)%nel
+    do ivt=1,8
+     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+     iSeg = mySegmentIndicator(2,i)
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*mySegDiffCoeff(iSeg)
+    END DO
+   END DO
+   
+   deallocate(mySegDiffCoeff)
+   
+  ELSE
+   myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
+   myDiffCoeff_steel = 1E-1 ! cm2/s
+   if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
+   
+   
+   DO iel = 1,mg_mesh%level(NLMAX)%nel
+    do ivt=1,8
+     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+     IF (Screw(i).ge.0d0) THEN
+      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
+     ELSE
+      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
+     END IF
+    END DO
+   END DO
+   
+  END IF
   
   CALL Create_XSE_DiffMat(AlphaDiff)
   

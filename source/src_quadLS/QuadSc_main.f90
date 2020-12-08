@@ -412,6 +412,13 @@ Real*8 :: dabl
  mg_mesh%level(ilev)%nat+&
  mg_mesh%level(ilev)%nel))
  myALE%MeshVelo = 0d0
+ 
+ IF (myProcess%SegmentThermoPhysProps) THEN
+  allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
+  mg_mesh%level(ilev)%net+&
+  mg_mesh%level(ilev)%nat+&
+  mg_mesh%level(ilev)%nel))
+ END IF
 
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
@@ -2881,10 +2888,10 @@ IF (mySetup%bPressureFBM) THEN
 !  END IF
 !  CALL SetPressBC(mgMesh)
 ! 
-!  do ilev=nlmin+2,nlmax
-!   CALL SETLEV(2)
-!   CALL GetMG_KNPRP(mgMesh)
-!  end do
+ do ilev=nlmin+1,nlmax
+  CALL SETLEV(2)
+  CALL GetMG_KNPRP(mgMesh)
+ end do
 ! 
  ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
@@ -3035,8 +3042,9 @@ END SUBROUTINE SetPressBC
 !
 SUBROUTINE GetMG_KNPRP(mgMesh)
 type(tMultiMesh), intent(inout) :: mgMesh
-integer iel,jel(8),i
+integer iel,jel(8),i,jjj
 
+jjj = 0
 do iel = 1,nel/8
  if (LinSc%knprP(ilev-1)%x(iel).eq.1) then
   JEL(1)  = iel
@@ -3049,9 +3057,12 @@ do iel = 1,nel/8
   JEL(8)  = mgMesh%level(ilev)%kadj(6,JEL(4))
   do i=1,8
     LinSc%knprP(ilev)%x(jel(i)) = 1
+    jjj = jjj + 1
   end do
  end if
 end do
+
+if (myid.eq.1) write(*,'(A,I0,A,I0)') 'KNPRP nodes on level ',ilev, ' are :', jjj
 
 END SUBROUTINE GetMG_KNPRP
 !

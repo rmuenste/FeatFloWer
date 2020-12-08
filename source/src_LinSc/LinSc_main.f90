@@ -298,14 +298,16 @@ NLMAX = NLMAX + 1
 ILEV=NLMAX
 CALL SETLEV(2)
 
-! Set the types of boundary conditions (set up knpr)
-CALL Create_Knpr(LinSc_Knpr_XSE)
+if (myid.ne.0) then
+ ! Set the types of boundary conditions (set up knpr)
+ CALL Create_Knpr(LinSc_Knpr_XSE)
 
-! Set The initial Conditions
-CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
+ ! Set The initial Conditions
+ CALL sub_IC(mg_mesh%level(ilev)%dcorvg)
 
-! Set boundary conditions
-CALL sub_BC()
+ ! Set boundary conditions
+ CALL sub_BC()
+end if
 
 NLMAX = NLMAX - 1
 
@@ -374,6 +376,9 @@ if (myid.ne.0) then
     IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.and.myBoundary%bWall(i)) THEN
      Tracer%knpr(I) = 3
     END IF
+    IF (mySigma%mySegment(iSeg)%TemperatureBC.eq.'FULLCONSTANT') THEN
+     Tracer%knpr(I) = 4
+    END IF
    END IF
   END DO
  END DO
@@ -385,6 +390,7 @@ END SUBROUTINE LinSc_Knpr
 !
 SUBROUTINE LinSc_Knpr_XSE(dcorvg)
 use, intrinsic :: ieee_arithmetic
+USE var_QuadScalar, ONLY : mySegmentIndicator
 
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
 REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
@@ -401,7 +407,15 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
  Tracer%knpr(I) = 0
 
+ IF (myBoundary%iInflow(i).lt.0) Tracer%knpr(I) = 1
  IF (myBoundary%iInflow(i).eq.10) Tracer%knpr(I) = 1
+ 
+ IF (myProcess%SegmentThermoPhysProps) THEN
+  iSeg = mySegmentIndicator(2,i)
+  IF (myProcess%SegThermoPhysProp(iSeg)%bConstTemp) THEN
+   Tracer%knpr(I) = 100 + iSeg
+  END IF
+ END IF
  
  IF (myBoundary%bWall(i).and.myProcess%Ta.ne.myInf) THEN
   Tracer%knpr(I) = 2

@@ -20,7 +20,7 @@
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
     character(len=INIP_STRLEN) cParserString,cSCR
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -201,7 +201,7 @@
 !     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dElemSizeScale
 
      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfFlights", mySigma%mySegment(iSeg)%GANGZAHL,-1)
-
+     
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
@@ -759,6 +759,38 @@
      ENDIF
     END DO
 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","SegmentThermoPhysProps",cTXT,'OFF')
+    call inip_toupper_replace(cTXT)
+    IF (ADJUSTL(TRIM(cTXT)).eq."ON".or.ADJUSTL(TRIM(cTXT)).eq."YES") THEN
+     myProcess%SegmentThermoPhysProps = .TRUE.
+     allocate(myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)) 
+     IF (myProcess%SegmentThermoPhysProps) THEN
+      call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","density",cTXT,' ')
+      READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%rho
+      call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","heatconductivity",cTXT,' ')
+      READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%lambda
+      call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","heatcapacity",cTXT,' ')
+      READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%cp
+      call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","isothermal",cTXT,' ')
+      call inip_toupper_replace(cTXT)
+      READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%cConstTemp
+      DO iSeg=1,mySigma%NumberOfSeg
+       IF (TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."Y".or.&
+           TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."YES".or.&
+           TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."ON") THEN
+         myProcess%SegThermoPhysProp(iSeg)%bConstTemp = .true.
+       ELSE
+         myProcess%SegThermoPhysProp(iSeg)%bConstTemp = .false.
+       END IF
+      END DO
+      call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","temperature",cTXT,' ')
+      READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%T_Const
+     END IF
+
+    ELSE
+     myProcess%SegmentThermoPhysProps = .FALSE.
+    END IF
+
     myProcess%pTYPE = " "
     myProcess%dPress=myInf
     myProcess%Massestrom=myInf
@@ -1121,8 +1153,24 @@
      END IF
     END IF
     
-    write(*,*) "mySigma%NumberOfSeg",'=',mySigma%NumberOfSeg
     
+    write(*,*) 
+    IF (myProcess%SegmentThermoPhysProps) THEN
+     write(*,*) "Thermal properties has been assigned to the segments!"
+     DO iSeg=0,mySigma%NumberOfSeg
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%density=',myProcess%SegThermoPhysProp(iSeg)%rho
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%lambda=' ,myProcess%SegThermoPhysProp(iSeg)%lambda
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%cp='     ,myProcess%SegThermoPhysProp(iSeg)%cp
+      write(*,'(A,I0,A,L1)') " mySIGMA%Segment(",iSeg,')%isothermal='     ,myProcess%SegThermoPhysProp(iSeg)%bConstTemp
+      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%temperature='     ,myProcess%SegThermoPhysProp(iSeg)%T_Const
+     END DO  
+    ELSE
+     write(*,*) "No thermal properties has been assigned to the segments!"
+    END IF
+    
+
+    write(*,*) 
+    write(*,*) "mySigma%NumberOfSeg",'=',mySigma%NumberOfSeg
     write(*,*) 
     DO iSeg=1,mySigma%NumberOfSeg
      write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
@@ -1907,6 +1955,7 @@
      call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureBC",mySigma%mySegment(iSeg)%TemperatureBC,'NO')
      call inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureBC)
      if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'CONSTANT'.or.&
+               mySigma%mySegment(iSeg)%TemperatureBC.eq.'FULLCONSTANT'.or.&
                mySigma%mySegment(iSeg)%TemperatureBC.eq.'FLUX'.or.&
                mySigma%mySegment(iSeg)%TemperatureBC.eq.'NO')) THEN
        WRITE(*,*) "Undefined thermal condition: ",mySigma%mySegment(iSeg)%TemperatureBC

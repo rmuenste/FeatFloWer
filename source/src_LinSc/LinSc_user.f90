@@ -117,6 +117,10 @@ DO i=1,Tracer%ndof
  Y = mg_mesh%level(nlmax)%dcorvg(2,i)
  Z = mg_mesh%level(nlmax)%dcorvg(3,i)
  
+ IF (Tracer%knpr(i).ge.100) THEN
+  Tracer%val(NLMAX)%x(i)= myProcess%SegThermoPhysProp(Tracer%knpr(i)-100)%T_Const
+ END IF
+
  IF (Tracer%knpr(i).eq.1) THEN
   Tracer%val(NLMAX)%x(i)= myProcess%T0
  END IF
@@ -246,7 +250,7 @@ END SUBROUTINE Boundary_LinSc_Val
 SUBROUTINE Boundary_LinSc_Val_EWIKON()
 REAL*8 X,Y,Z
 REAL*8 :: PI=4d0*DATAN(1d0)
-INTEGER i,l
+INTEGER i,l,iSeg
 
 DO i=1,Tracer%ndof
  X = mg_mesh%level(ilev)%dcorvg(1,i)
@@ -273,7 +277,8 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.4) THEN
   
-   Tracer%val(NLMAX)%x(i)= 300d0
+   iSeg = myHeatObjects%Segment(i)
+   Tracer%val(NLMAX)%x(i)= mySigma%mySegment(iSeg)%InitTemp
     
  END IF
  
@@ -298,9 +303,9 @@ end subroutine AddSource
 ! ----------------------------------------------
 !
 subroutine AddSource_XSE()
-USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate,dIntegralHeat
+USE var_QuadScalar, ONLY : Screw,Shell,Viscosity,Shearrate,dIntegralHeat,mySegmentIndicator
 
-integer i
+integer i,iSeg
 real*8 daux
 
 !    g      1   1   cm3   (k)g . K    0.1 . kg    1    1e-6 . m3     g . K          s2       0.1 . 1     1    1e-6 . 1     1 . K           1        1e-7 . K
@@ -310,13 +315,21 @@ real*8 daux
 dIntegralHeat = 0d0
 
 DO i = 1,Tracer%ndof
+
+ 
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   iSeg = mySegmentIndicator(2,i)
+   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
+  ELSE
+   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myThermodyn%density*myThermodyn%cp)
+  END IF
   
-  daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myThermodyn%density*myThermodyn%cp)
+  IF (Screw(i).ge.0d0) THEN
+!  IF (Screw(i).ge.0d0.and.Shell(i).ge.0d0) THEN
+    Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
+    dIntegralHeat = dIntegralHeat + daux * MlMat(i)
+  END IF
   
- IF (Screw(i).ge.0d0) THEN
-   Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
-   dIntegralHeat = dIntegralHeat + daux * MlMat(i)
- END IF
 END DO
 
 end subroutine AddSource_XSE

@@ -1,6 +1,6 @@
 module geometry_processing
   use Sigma_User, only: mySigma, myProcess,KNET_elem,SKNET_elem,EKNET_elem,&
-  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, InnerCylinder_Elem,DistTolerance
+  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, InnerCylinder_Elem,DistTolerance,mySegmentIndicator
  
   use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects,maxShearRate
   !------------------------------------------------------------------------------------------------
@@ -840,6 +840,11 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
   integer iSTL,iSeg,iFile
 
   ndof = nel+nvt+nat+net
+  
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   mySegmentIndicator(1,:) = 1d8
+   mySegmentIndicator(2,:) = 0d0
+  END IF
 
   ! Loop over all segments of the screw
   DO iSeg=1,mySigma%NumberOfSeg
@@ -970,25 +975,21 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
     end do
 
+    IF (myProcess%SegmentThermoPhysProps) THEN
+     DO i=1,ndof
+      if (dVaux(i).le.0d0.and.mySegmentIndicator(1,i).gt.dVaux(i)) then
+       mySegmentIndicator(1,i)=dVaux(i)
+       mySegmentIndicator(2,i)=dble(iSeg)
+      end if
+     end do
+    END IF
+    
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! iSTL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."DIE") THEN
       do i=1,ndof
       dst1(i) = min(dst1(i),-dVaux(i)/dUnitScale)
       end do
     end if  
-
-!  ipc = 0
-!  do i=1,ndof
-!
-!    Px = dcorvg(1,i)
-!    Py = dcorvg(2,i)
-!    Pz = dcorvg(3,i)
-!
-!    call TransformPoint(px,py,pz,point(1),point(2),point(3))
-!
-!    call getdistanceid(point(1), point(2), point(3), dist, ipc);        
-!    distance(i) = dist
-!  end do
 
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW") THEN
       do i=1,ndof
@@ -1005,7 +1006,7 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
     end do
 
   end if
-  end do
+  end do !iSeg
 
   DO i=1,ndof
    Shell(i) = dst1(i)
