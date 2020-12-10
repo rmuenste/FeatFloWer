@@ -941,7 +941,7 @@ IF (myid.ne.0) then
   Screw(i) = (1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)
   
   IF (myProcess%SegmentThermoPhysProps) THEN
-   mySegmentIndicator(2,i) = DBLE(NINT((1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)))
+   mySegmentIndicator(2,i) = DBLE(NINT((1d0-dS)*myTransientSolution%iSeg(iL1)%x(i) + (dS)*myTransientSolution%iSeg(iL2)%x(i)))
   END IF
   
  END DO
