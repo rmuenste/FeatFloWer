@@ -1112,6 +1112,18 @@
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
     
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."DENSITY") THEN
+     myThermodyn%density = myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig
+    END IF
+    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
+     myThermodyn%density = 1d0/(myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig)
+    END IF
+    
+    myThermodyn%lambda = myThermodyn%lambda + myProcess%T0 * myThermodyn%lambdaSteig
+    myThermodyn%cp = myThermodyn%cp + myProcess%T0 * myThermodyn%cpSteig
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
     DO iSeg=1,mySigma%NumberOfSeg
      IF (mySigma%mySegment(iSeg)%GANGZAHL.eq.-1) mySigma%mySegment(iSeg)%GANGZAHL=mySigma%GANGZAHL
     END DO
@@ -1431,15 +1443,6 @@
     write(*,*) 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."DENSITY") THEN
-     myThermodyn%density = myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig
-    END IF
-    IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
-     myThermodyn%density = 1d0/(myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig)
-    END IF
-    
-    myThermodyn%lambda = myThermodyn%lambda + myProcess%T0 * myThermodyn%lambdaSteig
-    myThermodyn%cp = myThermodyn%cp + myProcess%T0 * myThermodyn%cpSteig
     write(*,'(A,F10.2,A)') "Material properties interpolated to Material temperature",myProcess%T0,"C"
     write(*,'(A,A,F12.4)') "Density_[g/cm3]",'=',myThermodyn%density
     write(*,'(A,A,F12.4)') "Lambda_[W//m/K]",'=',myThermodyn%lambda
