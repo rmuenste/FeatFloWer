@@ -84,6 +84,10 @@ markerV = 0
 !   markerE(i) = 1
 !  end if
 ! end do
+IF (initfield.eq.0) then
+ CALL Initfield0(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+end if
+
 IF (initfield.eq.1) then
  CALL Initfield1(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
 end if
@@ -169,7 +173,8 @@ integer ilong
  WRITE(*,*) 'Refinement thickness is set to be: ', RefinementThickness
  READ(1,*) initfield
  WRITE(*,*) 'Refinement field is set to be: ', initfield
-
+ READ(1,*) MeshOutputScaleFactor
+ WRITE(*,*) 'MeshOutputScaleFactor is set to be: ', MeshOutputScaleFactor
  CLOSE(1)
 
 #ifdef __GFORTRAN__

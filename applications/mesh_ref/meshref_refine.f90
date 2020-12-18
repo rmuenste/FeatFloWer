@@ -403,7 +403,7 @@ do i=1,nel
    CALL DetermineTemplate(bVert,myTemplate)
    bVert = bVertCopy
    
-   write(*,*) i,markerE(i),mytemplate
+!    write(*,*) i,markerE(i),mytemplate
    
    if (myTemplate.eq.1.or.myTemplate.eq.2.or.myTemplate.eq.8) then
    
@@ -415,9 +415,9 @@ do i=1,nel
      E(:,j) = mg_mesh%level(ilev)%dcorvg(:,iVert(j))
     end do
     
-    write(*,*) 'before being done',ii
+!     write(*,*) 'before being done',ii
     CALL FillUpRefinedElementF(myRF(i),E,ii,bvert,.false.)
-    write(*,*) 'done'
+!     write(*,*) 'done'
     myRF(i)%patchID = myTemplate
     bFound=.true.
 !     write(*,*) myTemplate,ii
@@ -862,7 +862,7 @@ allocate(RF%dcoor(3,RF%nOfVert))
 allocate(RF%knpr(RF%nOfVert))
 RF%knpr = 0
 
-if (iP.eq.4) write(*,*) 'here -- CRIT',RF%nOfElem,RF%nOfVert,ADJUSTL(TRIM(cF))
+! if (iP.eq.4) write(*,*) 'here -- CRIT',RF%nOfElem,RF%nOfVert,ADJUSTL(TRIM(cF))
 DO i=1,RF%nOfVert
  read(1,*) CBP(:,i)
 end do

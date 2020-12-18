@@ -769,6 +769,131 @@ CLOSE(2)
 
 END SUBROUTINE Output_TriMesh
 ! ----------------------------------------------
+SUBROUTINE Output_MergedRefTriMeshPar()
+
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+IMPLICIT NONE
+INTEGER i,j,iloc,i1,i2,i3,i4,i5,i6
+CHARACTER cf*(256),ctxt*(256)
+real*8 P0(3),box(3),bound(3,2)
+real*8 :: dEps=1d-4
+
+OPEN(file='Out/param.txt',unit=5)
+read(5,'(a)') ctxt
+write(*,*) "'"//adjustl(trim(ctxt))//"'"
+iloc = INDEX(ctxt,"=")
+write(*,*) iloc
+read(ctxt(iloc+1:),*) P0
+
+read(5,'(a)') ctxt
+iloc = INDEX(ctxt,"=")
+write(*,*) iloc
+read(ctxt(iloc+1:),*) box
+
+close(5)
+
+bound(:,1) = P0
+bound(:,2) = P0 + box
+write(*,*) bound(:,1)
+write(*,*) bound(:,2)
+
+
+i1=0
+i2=0
+i3=0
+i4=0
+i5=0
+i6=0
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x-.par',unit=11)
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x+.par',unit=12)
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y-.par',unit=13)
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y+.par',unit=14)
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z-.par',unit=15)
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z+.par',unit=16)
+
+do i=1,nUniquePoints
+ P0 = MergedMeshCoor(:,i)
+ if (abs(P0(1)-bound(1,1)).lt.dEps) then
+  i1 = i1 + 1  
+ end if
+ if (abs(P0(1)-bound(1,2)).lt.dEps) then
+  i2 = i2 + 1  
+ end if
+ if (abs(P0(2)-bound(2,1)).lt.dEps) then
+  i3 = i3 + 1  
+ end if
+ if (abs(P0(2)-bound(2,2)).lt.dEps) then
+  i4 = i4 + 1  
+ end if
+ if (abs(P0(3)-bound(3,1)).lt.dEps) then
+  i5 = i5 + 1  
+ end if
+ if (abs(P0(3)-bound(3,2)).lt.dEps) then
+  i6 = i6 + 1  
+ end if
+end do
+
+write(11,'(I0,A)') i1,' Wall'
+write(11,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,1), "'"
+write(12,'(I0,A)') i2,' Wall'
+write(12,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,2), "'"
+write(13,'(I0,A)') i3,' Wall'
+write(13,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,1), "'"
+write(14,'(I0,A)') i4,' Inflow-2'
+write(14,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,2), "'"
+write(15,'(I0,A)') i5,' Inflow-1'
+write(15,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,1), "'"
+write(16,'(I0,A)') i6,' Outflow'
+write(16,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,2), "'"
+
+write(*,*) i1,i2,i3,i4,i5,i6
+
+do i=1,nUniquePoints
+ P0 = MergedMeshCoor(:,i)
+ if (abs(P0(1)-bound(1,1)).lt.dEps) then
+  write(11,*) i
+ end if
+ if (abs(P0(1)-bound(1,2)).lt.dEps) then
+  write(12,*) i
+ end if
+ if (abs(P0(2)-bound(2,1)).lt.dEps) then
+  write(13,*) i
+ end if
+ if (abs(P0(2)-bound(2,2)).lt.dEps) then
+  write(14,*) i
+ end if
+ if (abs(P0(3)-bound(3,1)).lt.dEps) then
+  write(15,*) i
+ end if
+ if (abs(P0(3)-bound(3,2)).lt.dEps) then
+  write(16,*) i
+ end if
+end do
+
+close(11)
+close(12)
+close(13)
+close(14)
+close(15)
+close(16)
+
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj',unit=5)
+write(5,'(a)') 'Merged_'//adjustl(trim(cProjectGridFile))
+
+write(5,'(a)') 'x+.par'
+write(5,'(a)') 'x-.par'
+write(5,'(a)') 'y+.par'
+write(5,'(a)') 'y-.par'
+write(5,'(a)') 'z+.par'
+write(5,'(a)') 'z-.par'
+
+close(5)
+
+
+END SUBROUTINE Output_MergedRefTriMeshPar
+! ----------------------------------------------
 SUBROUTINE Output_MergedRefTriMesh()
 
 USE PP3D_MPI, ONLY:myid,showid
@@ -778,7 +903,7 @@ IMPLICIT NONE
 INTEGER i,j
 CHARACTER cf*(256)
 
-WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/Merged_'//adjustl(trim(cProjectGridFile))
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Merged_'//adjustl(trim(cProjectGridFile))
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
 WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
@@ -787,7 +912,7 @@ WRITE(1,'(2I8,A)') nUniqueElems,nUniquePoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,N
 
 WRITE(1,'(A)') 'DCORVG'
 DO i = 1,nUniquePoints
- WRITE(1,'(3ES13.5)') MergedMeshCoor(:,i)
+ WRITE(1,'(3ES13.5)') MeshOutputScaleFactor*MergedMeshCoor(:,i)
 END DO
 
 WRITE(1,'(A)') 'KVERT'

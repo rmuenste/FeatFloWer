@@ -1,7 +1,7 @@
 Module MeshRefVar
 
 INTEGER lTriOutputLevel,lVTUOutputLevel
-REAL*8 RefinementThickness
+REAL*8 RefinementThickness,MeshOutputScaleFactor
 
 CHARACTER*(200) :: cOutputFolder,cShortProjectFile
 LOGICAL :: bA_MD=.false.

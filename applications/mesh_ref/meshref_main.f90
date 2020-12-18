@@ -47,6 +47,7 @@ ilev = lTriOutputLevel
 CALL Output_TriMesh()
 CALL Output_RefTriMesh()
 CALL Output_MergedRefTriMesh()
+CALL Output_MergedRefTriMeshPar()
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()
