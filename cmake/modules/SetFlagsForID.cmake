@@ -193,6 +193,13 @@ IF(Q2P1_BUILD_ID STREQUAL "i7-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "zen2-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -m64 -march=znver2)
+  SET(Fortran_FLAGS -g -march=znver2 -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 #===============================================================================================================
 #                                              Debug builds
 #===============================================================================================================
