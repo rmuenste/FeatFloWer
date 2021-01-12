@@ -506,6 +506,12 @@ def simLoopVelocity(workingDir):
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
+        # Write final inner iteration state
+        statusMsg = "CurrentInnerIteration=%i\n"\
+                    "MaxInnerIteration=%i\n"\
+                    "CurrentStatus=running Momentum Solver" %(maxInnerIters, maxInnerIters)
+        myLog.updateStatusLineInnerIteration(statusMsg)
+
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
             shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
