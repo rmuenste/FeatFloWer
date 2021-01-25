@@ -85,7 +85,7 @@ markerV = 0
 !  end if
 ! end do
 IF (initfield.eq.0) then
- CALL Initfield0(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+ CALL Initfield0(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel)
 end if
 
 IF (initfield.eq.1) then
@@ -145,7 +145,10 @@ integer ilong
 
  OPEN(1,file='param.cfg')
 
+ READ(1,*) cIntputFolder
+ 
  READ(1,*) cProjectFolder
+ cProjectFolder = ADJUSTL(TRIM(cIntputFolder))//'/'//ADJUSTL(TRIM(cProjectFolder))
  iLong = LEN(ADJUSTL(TRIM(cProjectFolder)))+1
  WRITE(cProjectFolder(iLong:),"(A)") "/"
  WRITE(*,*) adjustl(trim(cProjectFolder))
@@ -645,5 +648,44 @@ REAL*8 :: A1 = 1d0/6d0
    dVol = abs(dVol)
 
 END SUBROUTINE getVol
+! ----------------------------------------------
+SUBROUTINE GetValueFromFile(cFx,cVx,cKx)
+use iniparser
+
+CHARACTER*(256) cFx,cVx,cKx
+CHARACTER*(256) ctxt,string
+integer iEnd,iloc
+
+OPEN(file=ADJUSTL(TRIM(cFx)),unit=698,action='read')
+!write(*,*) ':'//ADJUSTL(TRIM(cFx))//':'
+
+call inip_toupper_replace(cKx)
+
+do 
+
+ read(698,FMT='(A256)',IOSTAT=iEnd) string
+ IF (iEnd.EQ.-1) EXIT
+ iloc = INDEX(string,"=")
+! write(*,*) iloc
+ read(string(:iloc-1),*) ctxt
+ call inip_toupper_replace(ctxt)
+ 
+!  write(*,*) 'keywords: |'//ADJUSTL(TRIM(ctxt))//'|,|'//ADJUSTL(TRIM(cKx))//"|"
+ 
+ if (ADJUSTL(TRIM(ctxt)).eq.ADJUSTL(TRIM(cKx))) THEN
+!  write(*,*) 'keyword found!: ',ADJUSTL(TRIM(ctxt))
+  read(string(iloc+1:),'(A256)') cVx
+  write(*,'(A)') 'keyword found!: '//ADJUSTL(TRIM(ctxt))//' : '//ADJUSTL(TRIM(cVx))
+  GOTO 1 
+ END IF
+
+end do
+
+WRITE(*,*) 'Keyword '//ADJUSTL(TRIM(cKx))//' was not found!'
+STOP
+
+1 close(698)
+
+END SUBROUTINE GetValueFromFile
 
 END MODULE MeshRefDef

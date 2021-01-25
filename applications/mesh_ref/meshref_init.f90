@@ -109,48 +109,80 @@ end subroutine Initfield1
 !
 !-----------------------------------------------------------
 !
-subroutine Initfield0(MarkerE,kvert,dcorvg,nel,dEps)
+subroutine Initfield0(MarkerE,kvert,dcorvg,nel)
+USE MeshRefVar, only : cIntputFolder,AreaIntensity
+USE MeshRefDef, only : GetValueFromFile
 implicit none
 integer nel
 integer MarkerE(*),kvert(8,*)
 real*8 dcorvg(3,*)
-real*8 dEps,dist1,d1,d2,d3,dAreaCrit
-real*8 , allocatable :: dArea(:,:)
+real*8 dEps,dist1,d1,d2,d3,dAreaCrit,dTotalArea,dCritArea
 !
 integer iel,jel,i
+CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 real*8 dc(3)
+integer ii,nnel
 
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
+
+ cKey='RefinementFraction'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) dEps
 
 MarkerE(1:nel) = 0
-allocate(dArea(2,nel))
+allocate(AreaIntensity(2,nel))
 
-open(file='Out/area.txt',unit=3)
+open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'area.txt',unit=3)
 do iel=1,nel
- dArea(1,iel) = iel
- read(3,*) dArea(2,iel)
+ AreaIntensity(1,iel) = iel
+ read(3,*) AreaIntensity(2,iel)
 end do
 
-call Sortmy2D(dArea(2,:),dArea(1,:),nel)
+call Sortmy2D(AreaIntensity(2,:),AreaIntensity(1,:),nel)
 
 ! do iel=1,nel
-!  write(*,*) int(dArea(1,iel)),dArea(2,iel)
+!  write(*,*) int(AreaIntensity(1,iel)),AreaIntensity(2,iel)
 ! end do
 close(3)
 
+dTotalArea = 0d0
 do iel=1,nel
- if (dArea(2,iel).lt.1d-8) exit
+ if (AreaIntensity(2,iel).lt.1d-8) exit
+ dTotalArea = dTotalArea + AreaIntensity(2,iel)
 end do
 
-dAreaCrit = dEps*dArea(2,1)
-write(*,*) iel,"/",nel, dAreaCrit
+dCritArea = dEps*dTotalArea
+write(*,*) dCritArea,"/",dTotalArea, ' || ', iel,' / ',nel
 
+dTotalArea = 0d0
 do iel=1,nel
- if (darea(2,iel).gt.dAreaCrit) then
-  jel = darea(1,iel)
+ if (dTotalArea.gt.dCritArea) exit
+ dTotalArea = dTotalArea + AreaIntensity(2,iel)
+end do
+
+write(*,*) iel,"/",nel
+nnel=iel
+! write(*,*) iel,"/",nel, dAreaCrit
+ii = 0
+
+do iel=1,nnel
+  ii = ii + 1
+  jel = AreaIntensity(1,iel)
   MarkerE(jel) = 1
- end if
+!  end if
 end do
 
+WRITE(*,*) 'Number of refined elements: ', ii
+
+!!!! Reload the file for output 
+open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'area.txt',unit=3)
+
+do iel=1,nel
+ AreaIntensity(1,iel) = iel
+ read(3,*) AreaIntensity(2,iel)
+end do
+
+close(3)
 
 ! do iel=1,nel
 ! 

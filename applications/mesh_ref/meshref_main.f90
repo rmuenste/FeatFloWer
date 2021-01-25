@@ -3,9 +3,14 @@ USE MeshRefDef
 USE MeshRefRefine
 USE MeshRefOutput
 
+use cinterface
+
 USE MESH_Structures
 
 IMPLICIT NONE
+
+character*(INIP_STRLEN) :: sfilename,sfilepath
+integer :: unitProtfile = -1, unitTerminal = 6
 
 MASTER = 0
 bParallel = .false.
@@ -42,6 +47,15 @@ call CleanUpPatches()
 call CleanUpMesh()
 
 call CutMesh()
+
+call inip_output_init(1,1,unitProtfile,unitTerminal)
+sfilepath=adjustl(trim(cOutputFolder))//'/meshDir'
+if (.not. inip_isDirectory(sfilepath)) then
+  write(*,*) 'Creating Directory: '//adjustl(trim(sfilepath))
+  call inip_makeDirectory(sfilepath)
+end if
+! sfilepath=adjustl(trim(cOutputFolder))//'/meshDir'
+! call inip_makeDirectory(sfilepath)
 
 ilev = lTriOutputLevel
 CALL Output_TriMesh()

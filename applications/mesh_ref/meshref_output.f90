@@ -71,6 +71,12 @@ do ivt=1,nel
 end do
 write(iunit, *)"        </DataArray>"
 
+write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","AreaIntensity",""" format=""ascii"">"
+do ivt=1,nel
+ write(iunit, '(A,3E16.7)')"        ",AreaIntensity(2,ivt)
+end do
+write(iunit, *)"        </DataArray>"
+
 write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","OrigID",""" format=""ascii"">"
 do ivt=1,nel
  write(iunit, '(A,I10)')"        ",ivt
@@ -546,7 +552,6 @@ write(iunit, '(A)')"    <PointData>"
 ! write(iunit, *)"        </DataArray>"
 
 write(iunit, '(A)')"    </PointData>"
-
 write(iunit, '(A)')"      <Points>"
 write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
 do i=1,nnvt
@@ -556,6 +561,7 @@ write(iunit, *)"        </DataArray>"
 write(iunit, *)"      </Points>"
 
 write(iunit, '(A)')"    <CellData>"
+
 
 ! write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","NREFEL",""" format=""ascii"">"
 ! do iel=1,nel
@@ -588,6 +594,7 @@ do iel=1,nUniqueElems
 end do
 write(iunit, *)"        </DataArray>"
 
+
 ! write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Selection",""" format=""ascii"">"
 ! do iel=1,nel
 !  n=myRF(iel)%nOfElem
@@ -609,7 +616,7 @@ write(iunit, '(A)')"    </CellData>"
 
 write(iunit, *)"      <Cells>"
 write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",nel-1,""">"
-do iel=1,nnvt
+do iel=1,nnel
    write(iunit, '(8I10)') MergedMeshElem(1,iel) - 1,MergedMeshElem(2,iel) - 1,MergedMeshElem(3,iel) - 1,MergedMeshElem(4,iel) - 1,&
                           MergedMeshElem(5,iel) - 1,MergedMeshElem(6,iel) - 1,MergedMeshElem(7,iel) - 1,MergedMeshElem(8,iel) - 1
 end do
@@ -664,7 +671,7 @@ DO i=1,nel
 end do
 
 WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/Ref'//adjustl(trim(cProjectGridFile))
-WRITE(*,*) "Outputting actual Coarse mesh into: Ref'"//ADJUSTL(TRIM(cf))//"'"
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
 WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
 WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
@@ -740,32 +747,32 @@ END IF
 
 CLOSE(1)
 
-OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cShortProjectFile)))
-!WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
-WRITE(2,'(A)') adjustl(trim(cProjectGridFile))
- 
-DO iBnds = 1, nBnds
- cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
- WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
- WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
- j=0
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   j = j + 1
-  END IF
- END DO
- WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
- WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   WRITE(1,'(I8,A)') i
-  END IF
- END DO
- CLOSE(1)
-END DO
-CLOSE(2)
+! OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cShortProjectFile)))
+! !WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
+! WRITE(2,'(A)') adjustl(trim(cProjectGridFile))
+!  
+! DO iBnds = 1, nBnds
+!  cf = ' '
+!  WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+!  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+!  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+!  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+!  j=0
+!  DO i=1,mg_mesh%level(ilev)%nvt
+!   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+!    j = j + 1
+!   END IF
+!  END DO
+!  WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+!  WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+!  DO i=1,mg_mesh%level(ilev)%nvt
+!   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+!    WRITE(1,'(I8,A)') i
+!   END IF
+!  END DO
+!  CLOSE(1)
+! END DO
+! CLOSE(2)
 
 END SUBROUTINE Output_TriMesh
 ! ----------------------------------------------
@@ -776,29 +783,49 @@ USE var_QuadScalar,ONLY:mg_mesh,myBoundary
 USE Parametrization, ONLY : myParBndr,nBnds
 IMPLICIT NONE
 INTEGER i,j,iloc,i1,i2,i3,i4,i5,i6
-CHARACTER cf*(256),ctxt*(256)
+CHARACTER cf*(256),ctxt*(256),cInputFile*(256),cVal*(256),cKey*(256)
+CHARACTER cBC(6)*(256)
 real*8 P0(3),box(3),bound(3,2)
 real*8 :: dEps=1d-4
 
-OPEN(file='Out/param.txt',unit=5)
-read(5,'(a)') ctxt
-write(*,*) "'"//adjustl(trim(ctxt))//"'"
-iloc = INDEX(ctxt,"=")
-write(*,*) iloc
-read(ctxt(iloc+1:),*) P0
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
 
-read(5,'(a)') ctxt
-iloc = INDEX(ctxt,"=")
-write(*,*) iloc
-read(ctxt(iloc+1:),*) box
+ cKey='geometryStart'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) P0
 
-close(5)
+ cKey='geometryLength'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) box
+
+ cKey='XMinBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(1)
+
+ cKey='XMaxBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(2)
+
+ cKey='YMinBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(3)
+
+ cKey='YMaxBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(4)
+
+ cKey='ZMinBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(5)
+
+ cKey='ZMaxBC'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) cBC(6)
 
 bound(:,1) = P0
 bound(:,2) = P0 + box
 write(*,*) bound(:,1)
 write(*,*) bound(:,2)
-
 
 i1=0
 i2=0
@@ -835,17 +862,17 @@ do i=1,nUniquePoints
  end if
 end do
 
-write(11,'(I0,A)') i1,' Wall'
+write(11,'(I0,A)') i1,' '//ADJUSTL(TRIM(cBC(1)))
 write(11,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,1), "'"
-write(12,'(I0,A)') i2,' Wall'
+write(12,'(I0,A)') i2,' '//ADJUSTL(TRIM(cBC(2)))
 write(12,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,2), "'"
-write(13,'(I0,A)') i3,' Wall'
+write(13,'(I0,A)') i3,' '//ADJUSTL(TRIM(cBC(3)))
 write(13,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,1), "'"
-write(14,'(I0,A)') i4,' Inflow-2'
+write(14,'(I0,A)') i4,' '//ADJUSTL(TRIM(cBC(4)))
 write(14,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,2), "'"
-write(15,'(I0,A)') i5,' Inflow-1'
+write(15,'(I0,A)') i5,' '//ADJUSTL(TRIM(cBC(5)))
 write(15,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,1), "'"
-write(16,'(I0,A)') i6,' Outflow'
+write(16,'(I0,A)') i6,' '//ADJUSTL(TRIM(cBC(6)))
 write(16,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,2), "'"
 
 write(*,*) i1,i2,i3,i4,i5,i6
