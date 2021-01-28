@@ -27,7 +27,7 @@
 
     type(t_parlist) :: parameterlist
 
-    real*8 :: myInf,dSizeScale,daux,dElemSizeScale
+    real*8 :: myInf,dSizeScale,daux,dElemSizeScale,dFlow,dArea
 
     real*8 dExtract_Val
     character(len=INIP_STRLEN) cText,sExtract_Dim
@@ -934,17 +934,28 @@
     
     IF (mySetup%bAutomaticTimeStepControl.and.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") then
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionSpeed_CMpS",myProcess%ExtrusionSpeed,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionOutflowArea_MM2",dArea,myInf)
+      
+      
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapSize_MM",myProcess%ExtrusionGapSize,myInf)
       if (myProcess%ExtrusionSpeed.eq.myInf) then
-       if (myid.eq.1) WRITE(*,*) "Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
-       stop 55
+       if (dArea.eq.myInf) then
+        if (myid.eq.1) WRITE(*,*) "   Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
+        if (myid.eq.1) WRITE(*,*) "or Extrusion Area is not set 'E3DProcessParameters@ExtrusionOutflowArea_MM2'"
+        stop 55
+       else
+        dFlow = 0d0
+        do iInflow=1,myProcess%nOfInflows
+         dFlow = dFlow + myProcess%myInflow(iInflow)%massflowrate  
+        enddo
+        myProcess%ExtrusionSpeed = 1d2*(dFlow/3600d0)/(dArea*1e-6)/(1d3*(myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig))
+       end if
       end if
-      if (myProcess%ExtrusionSpeed.eq.myInf) then
+      if (myProcess%ExtrusionGapSize.eq.myInf) then
        if (myid.eq.1) WRITE(*,*) "Extrusion GapSize is not set 'E3DProcessParameters@ExtrusionGapSize_MM'"
        stop 55
       end if
     End if
-    
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","CharacteristicShearRate",mySetup%CharacteristicShearRate,1d0)
     
@@ -1463,6 +1474,11 @@
 
     write(*,*) "mySetup%PressureFBM = ",mySetup%bPressureFBM
     write(*,*) "mySetup%AutomaticTimeStepControl = ",mySetup%bAutomaticTimeStepControl
+    IF (mySetup%bAutomaticTimeStepControl.and.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") then
+     write(*,*) "E3DProcessParameters@ExtrusionSpeed_CMpS = ", myProcess%ExtrusionSpeed 
+     write(*,*) "E3DProcessParameters@ExtrusionGapSize_MM = ", myProcess%ExtrusionGapSize
+    END IF
+
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
     write(*,*) "TimeStepEnlargmentFactor = ",dTimeStepEnlargmentFactor   
@@ -1573,7 +1589,8 @@
     SUBROUTINE FillUpInflows(nT,cINI)
     implicit none
     INTEGER :: nT   
-    character(len=INIP_STRLEN) cINI
+    character(len=INIP_STRLEN) cINI,cUnit
+    real*8 daux
     
     DO iInflow=1,myProcess%nOfInflows
 !      if (iInflow.gt.0.and.iInflow.le.9) WRITE(cInflow_i,'(A,I1.1)') 'E3DProcessParameters/Inflow_',iInflow
@@ -1584,6 +1601,17 @@
      
      if (myid.eq.1) write(*,*) "|",ADJUSTL(TRIM(cInflow_i)),"|"
      
+     call INIP_getvalue_string(parameterlist,cInflow_i,"Unit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+
      call INIP_getvalue_int(parameterlist,cInflow_i,"Material",myProcess%myInflow(iInflow)%Material,0)
      if (myProcess%myInflow(iInflow)%Material.eq.0) write(*,*) 'UNDEFINED material from Inflow ',iInflow,' !!'
 
@@ -1608,13 +1636,19 @@
      
      call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
      if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
+     
      call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
+     myProcess%myInflow(iInflow)%innerradius = daux*myProcess%myInflow(iInflow)%innerradius
      if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
+     
      call INIP_getvalue_double(parameterlist,cInflow_i,"outerradius",myProcess%myInflow(iInflow)%outerradius,myInf)
+     myProcess%myInflow(iInflow)%outerradius = daux*myProcess%myInflow(iInflow)%outerradius
      if (myProcess%myInflow(iInflow)%outerradius.eq.myInf) write(*,*) 'UNDEFINED outer radius for Inflow',iInflow,' !!'
+     
      call INIP_getvalue_string(parameterlist,cInflow_i,"center",cCenter,'unknown')
      call INIP_getvalue_string(parameterlist,cInflow_i,"normal",cNormal,'unknown')
      read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
+     myProcess%myInflow(iInflow)%Center = daux*myProcess%myInflow(iInflow)%Center
      read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
      GOTO 57     
 55   write(*,*) 'WRONGLY DEFINED center for Inflow',iInflow,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"

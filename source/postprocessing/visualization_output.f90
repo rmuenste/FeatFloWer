@@ -387,10 +387,10 @@ do iField=1,size(myExport%Fields)
  case('Pressure_E')
 
   if (ioutput_lvl.EQ.inlmax-1)then
-   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure_E",""" format=""ascii"">"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure [bar]",""" format=""ascii"">"
    do ivt=1,NoOfElem
     ive = 4*(ivt-1)+1
-    write(iunit, '(A,E16.7)')"        ",REAL(sLinSc%ValP(inlmax-1)%x(ive))
+    write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%ValP(inlmax-1)%x(ive)-dMinOutputPressure)
    end do
    write(iunit, *)"        </DataArray>"
   end if
@@ -550,7 +550,7 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Pressure_E')
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
-   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
   END IF
 
   CASE('KNPRP_E')

@@ -224,6 +224,7 @@ paramDict = {
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
     "useSrun": False,
+    "dieSimulation": False,
     "temperature" : False,
     "retryDeformation" : False
 }
@@ -283,6 +284,7 @@ def usage():
     print("[-v', '--version']: prints out version information")
     print("[-x', '--short-test']: configures the program for a short test")
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
+    print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 
 #===============================================================================
@@ -331,9 +333,15 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
             sys.exit(2)
 
     if paramDict['shortTest']:
-        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
+        if (paramDict['dieSimulation']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE_test.dat")
+        else:
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
     else:
-        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
+        if (paramDict['dieSimulation']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE.dat")
+        else:
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     
 #    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     destDataFile = Path("_data") / Path("q2p1_param.dat")
@@ -631,7 +639,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovu',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
-                                    'host-conf=', 'rank-file=', 'time=', 'skip-setup',
+                                    'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
                                     'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun', 'retry-deformation'])
 
     except getopt.GetoptError:
@@ -679,6 +687,8 @@ def main():
             paramDict['shortTest'] = True
         elif opt in ('-u', '--use-srun'):
             paramDict['useSrun'] = True
+        elif opt in ('--die-simulation'):
+            paramDict['dieSimulation'] = True
         elif opt in ('--retry-deformation'):
             paramDict['retryDeformation'] = True
         else:
@@ -698,6 +708,10 @@ def main():
         print("Error: Specifying both singleAngle and Temperature Simulation at the same time is prohibited.")
         sys.exit(2)
         
+    if (paramDict['dieSimulation']) :
+        print("Switching to 'DIE' simulation !")
+        paramDict['singleAngle'] = 0
+     
     # Get the case/working dir paths
     projectFolder = paramDict['projectFolder'] 
     workingDir = Path('.')

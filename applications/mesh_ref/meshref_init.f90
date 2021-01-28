@@ -121,6 +121,7 @@ real*8 dEps,dist1,d1,d2,d3,dAreaCrit,dTotalArea,dCritArea
 integer iel,jel,i
 CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 real*8 dc(3)
+real*8 xbox(3),nbox(3),dAreaThreshold
 integer ii,nnel
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
@@ -129,6 +130,18 @@ integer ii,nnel
  CALL GetValueFromFile(cInputFile,cVal,cKey)
  read(cVal,*) dEps
 
+ cKey='geometryLength'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) xbox
+
+ cKey='voxelAmount'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) nBox
+
+ dAreaThreshold = xbox(1)*xbox(2)*xbox(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
+ dAreaThreshold = dAreaThreshold**(2d0/3d0)
+ WRITE(*,*) dAreaThreshold
+ 
 MarkerE(1:nel) = 0
 allocate(AreaIntensity(2,nel))
 
@@ -138,12 +151,10 @@ do iel=1,nel
  read(3,*) AreaIntensity(2,iel)
 end do
 
+close(3)
 call Sortmy2D(AreaIntensity(2,:),AreaIntensity(1,:),nel)
 
-! do iel=1,nel
-!  write(*,*) int(AreaIntensity(1,iel)),AreaIntensity(2,iel)
-! end do
-close(3)
+call CreateHistogram(AreaIntensity(2,:),nel)
 
 dTotalArea = 0d0
 do iel=1,nel
@@ -151,25 +162,22 @@ do iel=1,nel
  dTotalArea = dTotalArea + AreaIntensity(2,iel)
 end do
 
-dCritArea = dEps*dTotalArea
-write(*,*) dCritArea,"/",dTotalArea, ' || ', iel,' / ',nel
+! dCritArea = dEps*dTotalArea
+! write(*,*) dCritArea,"/",dTotalArea, ' || ', iel,' / ',nel
 
-dTotalArea = 0d0
 do iel=1,nel
- if (dTotalArea.gt.dCritArea) exit
- dTotalArea = dTotalArea + AreaIntensity(2,iel)
+! if (dTotalArea.gt.dCritArea) exit
+ if (AreaIntensity(2,iel).lt.2d0*dAreaThreshold) exit
 end do
 
 write(*,*) iel,"/",nel
 nnel=iel
-! write(*,*) iel,"/",nel, dAreaCrit
-ii = 0
 
+ii = 0
 do iel=1,nnel
   ii = ii + 1
   jel = AreaIntensity(1,iel)
   MarkerE(jel) = 1
-!  end if
 end do
 
 WRITE(*,*) 'Number of refined elements: ', ii
@@ -199,8 +207,9 @@ close(3)
  CONTAINs
 
 SUBROUTINE SORTmy2D(LW,KW,N)
+  INTEGER N
   REAL*8 LW(N),KW(N),LWA,KWA
-  INTEGER I,J,N
+  INTEGER I,J
 
   DO I=2,N
   DO J=N,I,-1
@@ -216,5 +225,59 @@ SUBROUTINE SORTmy2D(LW,KW,N)
   END DO
 
 END SUBROUTINE SORTmy2D
+
+SUBROUTINE CreateHistogram(LW,N)
+ implicit none
+  INTEGER N
+  REAL*8 LW(N),KW(N),LWA,KWA
+  INTEGER I,J,ii
+  INTEGER :: nC=16
+  real*8, allocatable :: dHist(:),dPivot(:)
+  real*8 :: dW, dM, dV,dX,dS,yRef,nRef
+  
+  dM = LW(1)
+  dW = dM/DBLE(nC)
+  
+  allocate(dHist(nC)); dHist = 0d0
+  allocate(dPivot(nC+1)); dPivot = 0d0
+  
+  dPivot(1) = 0d0
+  do j=2,nC+1
+   dPivot(j) = dPivot(j-1) + dW
+  end do
+  dPivot(nC+1) = dPivot(nC+1) + dW
+
+  ii = 0
+  do i=1,n
+   dV = LW(i)
+   do j=1,nC
+    if (dV.ge.dPivot(j).and.dV.lt.dPivot(j+1).and.dV.gt.0d0) then
+     dHist(j) = dHist(j) + 1
+     ii = ii + 1
+    end if
+   end do
+  end do
+  
+  open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'hist.txt',unit=4)
+  write(4,*) "p h"
+  yRef= 0
+  nRef= 0
+  
+  do j=1,nC
+   dX = (dPivot(j)+0.5d0*dW)
+   if (dX.lt.2d0*dAreaThreshold) then
+    nRef = nRef + dHist(j)
+    dS = -1d0
+   else
+    yRef = yRef + dHist(j)
+    dS = +1d0
+   end if
+   write(4,*) dX,dS*(dHist(j)/dble(ii))
+  end do
+  close(4)
+  
+  write(*,*) 'nRef/yRef',nRef/dble(ii),yRef/dble(ii)
+  
+END 
 
 end subroutine Initfield0

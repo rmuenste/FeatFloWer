@@ -3,7 +3,7 @@ MODULE Transport_Q2P1
 
 USE def_QuadScalar
 ! USE PP3D_MPI
-USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
+USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
@@ -2243,7 +2243,7 @@ implicit none
 INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
 REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
-REAL*8 dIntPres1,dIntPres2,dPressureDifference
+REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax
 
 
 integer :: ilevel
@@ -2290,18 +2290,34 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
                      Viscosity,Torque1, E013,103)
 END IF
 
-IF (myid.ne.0) then
- call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ IF (myid.ne.0) then
+  call Integrate_DIE_Flowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow1,0)
+
+  call Integrate_DIE_Flowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow2,1)
+ END IF
+ELSE
+ IF (myid.ne.0) then
+  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
                         dVolFlow1,0.0d0)
 
- call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
                         dVolFlow2,mySigma%L)
+ END IF
 END IF
 
 IF (myid.ne.0) then
@@ -2372,6 +2388,63 @@ END IF
 5  FORMAT(100('-'))
 
 END SUBROUTINE Calculate_Torque
+!
+! ----------------------------------------------
+!
+SUBROUTINE Integrate_DIE_Flowrate(dcorvg,karea,kvert,nel,dVolFlow,iPar)
+REAL*8 dcorvg(3,*),dVolFlow
+INTEGER karea(6,*),kvert(8,*),nel,iPar
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dAN(3),dV
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+
+dVolFlow = 0d0
+
+if (iPar.eq.0) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    IF (myBoundary%iInflow(nvt+net+k).ne.0) THEN
+     ivt1 = kvert(NeighA(1,j),i)
+     ivt2 = kvert(NeighA(2,j),i)
+     ivt3 = kvert(NeighA(3,j),i)
+     ivt4 = kvert(NeighA(4,j),i)
+     CALL GET_NormalArea(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dcorvg(1:3,nvt+net+nat+i),dAN)
+     dV = dAN(1)*QuadSc%ValU(nvt+net+k) + dAN(2)*QuadSc%ValV(nvt+net+k) + dAN(3)*QuadSc%ValW(nvt+net+k)
+!      write(*,'(4ES12.4)') dAN
+     dVolFlow = dVolFlow + dV
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+if (iPar.eq.1) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    IF (myBoundary%bOutflow(nvt+net+k)) THEN
+     ivt1 = kvert(NeighA(1,j),i)
+     ivt2 = kvert(NeighA(2,j),i)
+     ivt3 = kvert(NeighA(3,j),i)
+     ivt4 = kvert(NeighA(4,j),i)
+     CALL GET_NormalArea(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dcorvg(1:3,nvt+net+nat+i),dAN)
+     dAN = - dAN
+     dV = dAN(1)*QuadSc%ValU(nvt+net+k) + dAN(2)*QuadSc%ValV(nvt+net+k) + dAN(3)*QuadSc%ValW(nvt+net+k)
+     dVolFlow = dVolFlow + dV
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+END SUBROUTINE Integrate_DIE_Flowrate
 !
 ! ----------------------------------------------
 !
