@@ -47,6 +47,12 @@ install(TARGETS s3d_mesher
     )
 
 install(TARGETS s3d_mesher
+    RUNTIME DESTINATION bin/q2p1_gendie
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+install(TARGETS s3d_mesher
     RUNTIME DESTINATION bin/q2p1_die
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
