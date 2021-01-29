@@ -163,16 +163,10 @@ set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
+list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param.cfg")
 
 install(FILES ${E3D_SCRIPTS} DESTINATION bin/q2p1_gendie
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
-#mesh_ref stuff
-set (MESH_REF_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/param.cfg")
-list(APPEND MESH_REF_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
-list(APPEND MESH_REF_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
-
-install(FILES ${MESH_REF_SCRIPTS} DESTINATION bin/q2p1_gendie/mesh_ref
-    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
-
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_gendie/mesh_ref)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_gendie)
