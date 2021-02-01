@@ -143,11 +143,12 @@ install(TARGETS ${SSE_TARGET_NAME}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _ianus)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
 ENDFOREACH()
+list(APPEND mydirs ${CMAKE_CURRENT_SOURCE_DIR}/_data_BU)
 
 install(DIRECTORY ${mydirs} DESTINATION bin/q2p1_gendie)
 
