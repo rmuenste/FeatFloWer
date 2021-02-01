@@ -28,3 +28,9 @@ install(TARGETS metis
     LIBRARY DESTINATION bin/heat
     ARCHIVE DESTINATION lib
     )
+
+install(TARGETS metis
+    RUNTIME DESTINATION bin/q2p1_gendie
+    LIBRARY DESTINATION bin/q2p1_gendie
+    ARCHIVE DESTINATION lib
+    )
