@@ -2,6 +2,7 @@ PROGRAM MeshRef
 USE MeshRefDef
 USE MeshRefRefine
 USE MeshRefOutput
+use f90getopt
 
 use cinterface
 
@@ -11,6 +12,37 @@ IMPLICIT NONE
 
 character*(INIP_STRLEN) :: sfilename,sfilepath
 integer :: unitProtfile = -1, unitTerminal = 6
+
+! character(len=*), parameter :: Folder = 'SimFolder'
+type(option_s)              :: opts(3)
+
+opts(1) = option_s('inputfolder', .true.,  'i')
+opts(2) = option_s('projectfolder', .true.,  'p')
+opts(3) = option_s('help',  .false., 'h')
+
+! check the command line arguments
+do
+    select case (getopt('i:p:h', opts))
+        case (char(0))
+            exit
+        case ('i')
+            read(optarg,*) cIntputFolder
+            write(*,*)'Input Folder: ', ADJUSTL(TRIM(cIntputFolder))
+        case ('-i')
+            read(optarg,*) cIntputFolder
+            write(*,*)'Input Folder: ', ADJUSTL(TRIM(cIntputFolder))
+        case ('p')
+            read(optarg,*) cProjectFolder
+            write(*,*)'Project Folder: ', ADJUSTL(TRIM(cProjectFolder))
+        case ('-p')
+            read(optarg,*) cProjectFolder
+            write(*,*)'Project Folder: ', ADJUSTL(TRIM(cProjectFolder))
+        case ('h')
+          call print_help()
+          call exit(0)
+        case default
+    end select
+end do
 
 MASTER = 0
 bParallel = .false.
@@ -68,5 +100,14 @@ CALL Output_VTK()
 CALL Output_RefVTK()
 CALL Output_UniqueRefVTK()
 CALL Output_MergedRefVTK()
+
+ CONTAINS
+
+ subroutine print_help()
+     print '(a, /)', 'command-line options:'
+     print '(a)',    '  -i      Input Folder'
+     print '(a)',    '  -p      Project Folder'
+     print '(a)',    '  -h      Print usage information and exit'
+ end subroutine print_help  
 
 END PROGRAM MeshRef

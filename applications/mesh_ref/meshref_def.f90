@@ -145,9 +145,9 @@ integer ilong
 
  OPEN(1,file='param.cfg')
 
- READ(1,*) cIntputFolder
+!  READ(1,*) cIntputFolder
  
- READ(1,*) cProjectFolder
+!  READ(1,*) cProjectFolder
  cProjectFolder = ADJUSTL(TRIM(cIntputFolder))//'/'//ADJUSTL(TRIM(cProjectFolder))
  iLong = LEN(ADJUSTL(TRIM(cProjectFolder)))+1
  WRITE(cProjectFolder(iLong:),"(A)") "/"
@@ -156,7 +156,7 @@ integer ilong
  READ(1,*) cShortProjectFile
  cProjectFile = adjustl(trim(cProjectFolder))//adjustl(trim(cShortProjectFile))
  WRITE(*,*) adjustl(trim(cProjectFile))
- 
+
  CALL ExtractMeshfile()
  
 ! READ(1,*) mg_Mesh%nlmax
@@ -166,7 +166,8 @@ integer ilong
  mg_Mesh%nlmin = 1
  READ(1,*) dCGALtoRealFactor
  WRITE(*,'(A,ES12.4)') ' CGAL Scaling factor: ', dCGALtoRealFactor
- READ(1,*) cOutputFolder
+!  READ(1,*) cOutputFolder
+ cOutputFolder = adjustl(trim(cIntputFolder))
  WRITE(*,*) 'Output Folder: "'//adjustl(trim(cOutputFolder))//'"'
  READ(1,*) lTriOutputLevel
  WRITE(*,*) 'Outputlevel for the ".tri" file: ', lTriOutputLevel
