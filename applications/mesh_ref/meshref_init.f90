@@ -126,10 +126,10 @@ integer ii,nnel
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
 
- cKey='RefinementFraction'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) dEps
-
+!  cKey='RefinementFraction'
+!  CALL GetValueFromFile(cInputFile,cVal,cKey)
+!  read(cVal,*) dEps
+! 
  cKey='geometryLength'
  CALL GetValueFromFile(cInputFile,cVal,cKey)
  read(cVal,*) xbox

@@ -147,7 +147,7 @@ integer ilong
 
 !  READ(1,*) cIntputFolder
  
-!  READ(1,*) cProjectFolder
+ READ(1,*) cProjectFolder
  cProjectFolder = ADJUSTL(TRIM(cIntputFolder))//'/'//ADJUSTL(TRIM(cProjectFolder))
  iLong = LEN(ADJUSTL(TRIM(cProjectFolder)))+1
  WRITE(cProjectFolder(iLong:),"(A)") "/"

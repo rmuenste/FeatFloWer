@@ -14,29 +14,22 @@ character*(INIP_STRLEN) :: sfilename,sfilepath
 integer :: unitProtfile = -1, unitTerminal = 6
 
 ! character(len=*), parameter :: Folder = 'SimFolder'
-type(option_s)              :: opts(3)
+type(option_s)              :: opts(2)
 
-opts(1) = option_s('inputfolder', .true.,  'i')
-opts(2) = option_s('projectfolder', .true.,  'p')
-opts(3) = option_s('help',  .false., 'h')
+opts(1) = option_s('inputfolder', .true.,  'f')
+opts(2) = option_s('help',  .false., 'h')
 
 ! check the command line arguments
 do
-    select case (getopt('i:p:h', opts))
+    select case (getopt('f:h', opts))
         case (char(0))
             exit
-        case ('i')
+        case ('f')
             read(optarg,*) cIntputFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cIntputFolder))
-        case ('-i')
+        case ('-f')
             read(optarg,*) cIntputFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cIntputFolder))
-        case ('p')
-            read(optarg,*) cProjectFolder
-            write(*,*)'Project Folder: ', ADJUSTL(TRIM(cProjectFolder))
-        case ('-p')
-            read(optarg,*) cProjectFolder
-            write(*,*)'Project Folder: ', ADJUSTL(TRIM(cProjectFolder))
         case ('h')
           call print_help()
           call exit(0)
@@ -105,8 +98,7 @@ CALL Output_MergedRefVTK()
 
  subroutine print_help()
      print '(a, /)', 'command-line options:'
-     print '(a)',    '  -i      Input Folder'
-     print '(a)',    '  -p      Project Folder'
+     print '(a)',    '  -f      Input Folder'
      print '(a)',    '  -h      Print usage information and exit'
  end subroutine print_help  
 

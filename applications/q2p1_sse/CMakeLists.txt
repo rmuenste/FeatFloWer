@@ -167,7 +167,9 @@ list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
 list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
-list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param_BU.cfg")
+list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param.cfg")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_pre.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_sim.sh")
 
 install(FILES ${E3D_SCRIPTS} DESTINATION bin/q2p1_gendie
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
