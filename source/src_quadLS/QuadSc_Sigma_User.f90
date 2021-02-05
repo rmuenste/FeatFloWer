@@ -1275,7 +1275,7 @@ IF (delta.lt.0) THEN
 !   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
 !   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
  END IF
- stop
+ stop 88
 END IF
 
 IF (dTheta.lt.0d0) THEN
@@ -1292,7 +1292,7 @@ IF (dTheta.lt.0d0) THEN
 !   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
 !   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
  END IF
- stop
+ stop 88
 ENDIF
 
 Dif = dSQRT(XB*XB+YB*YB)-R2
