@@ -544,7 +544,7 @@ def cleanWorkingDir(workingDir):
 def simLoopTemperatureCombined(workingDir):
  
     print("Temperature simulation is activated!")
-    
+
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
     maxIterations = 2
@@ -567,13 +567,16 @@ def simLoopTemperatureCombined(workingDir):
         shutil.copyfile(str(backupVeloFile), str(veloDestFile))
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
 
-        #myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
-        myLog.writeStatusHeat("CurrentHeatIteration=%i\nMaxHeatIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+        if iter > 0:
+            myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
 
+        else:
+            myLog.writeStatusHeat("CurrentHeatIteration=%i\nMaxHeatIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+            
         exitCode = simLoopVelocity(workingDir)
+
         print("temperature simulation")
 
-#        input("Press key to continue to HeatSolver")
 #        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 
         if sys.platform == "win32":
@@ -601,7 +604,7 @@ def simLoopTemperatureCombined(workingDir):
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
         protList = list(Path("_data").glob('prot*'))
-        print(protList)
+        
         for item in protList:
             shutil.copy(str(item), dirName)
             os.remove(item)
