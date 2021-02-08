@@ -1112,7 +1112,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"FileType=ResultsExtrud3d"
  call date_and_time(cdate,ctime,czone,values)
  WRITE(ifile,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
- WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 2.0"
+ WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 3.0 2020.11.5"
  WRITE(ifile,'(A,I4.4)')"counter_pos=",my1DOut_nol
  WRITE(ifile,'(A,I4.4)')"counter_verl=",iVerlaufMax
 !  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
