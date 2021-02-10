@@ -16,11 +16,11 @@ subroutine init_q2p1_ext(log_unit)
 !       ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
 !       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
-  USE Sigma_User, only : myProcess, myTransientSolution
+  USE Sigma_User, only : myProcess, myTransientSolution, mySetup
 
   integer, intent(in) :: log_unit
-  integer iPeriodicityShift,jFile,iAngle,dump_in_file
-  real*8 dTimeStep,dPeriod
+  integer iPeriodicityShift,jFile,iAngle,dump_in_file,i1,i2
+  real*8 dTimeStep,dPeriod,meshVelo(3)
 
   !-------INIT PHASE-------
   ApplicationString = &
@@ -117,6 +117,41 @@ subroutine init_q2p1_ext(log_unit)
     END DO
    end if
   END DO
+  
+! ========================================================================================================
+! ============================ NEEDS TO BE TESTED, ESPECIALLY THE SIGN ===================================
+! ========================================================================================================
+!   ! adjustment of velocities due to the transiently moving mesh
+!   DO i= 1,myProcess%nTimeLevels
+!    DO j=1,QuadSc%ndof
+!     i2 = i
+!     if (i2.eq.myProcess%nTimeLevels) i2=0
+!     i1 = i-1
+!     meshVelo(1) = (myTransientSolution%Coor(1,i2)%x(j) - myTransientSolution%Coor(1,i1)%x(j))/dTimeStep
+!     meshVelo(2) = (myTransientSolution%Coor(2,i2)%x(j) - myTransientSolution%Coor(2,i1)%x(j))/dTimeStep
+!     meshVelo(3) = (myTransientSolution%Coor(3,i2)%x(j) - myTransientSolution%Coor(3,i1)%x(j))/dTimeStep
+!     myTransientSolution%Velo(1,i1)%x(j) = myTransientSolution%Velo(1,i1)%x(j) - meshVelo(1)
+!     myTransientSolution%Velo(2,i1)%x(j) = myTransientSolution%Velo(2,i1)%x(j) - meshVelo(2)
+!     myTransientSolution%Velo(3,i1)%x(j) = myTransientSolution%Velo(3,i1)%x(j) - meshVelo(3)
+!    END DO
+!   END DO
+! ========================================================================================================
+! ============================ NEEDS TO BE TESTED, ESPECIALLY THE SIGN ===================================
+! ========================================================================================================
+  
+  ! adjustment of velocities due to the rotational frame of reference
+  IF (mySetup%bRotationalFramOfReference) then
+   DO i= 0,myProcess%nTimeLevels-1
+    DO j=1,QuadSc%ndof
+     meshVelo(1) = -DBLE(myProcess%ind) * (2d0*(4d0*dATAN(1d0))) * (myProcess%Umdr/60d0) * myTransientSolution%Coor(2,i)%x(j)
+     meshVelo(2) = +DBLE(myProcess%ind) * (2d0*(4d0*dATAN(1d0))) * (myProcess%Umdr/60d0) * myTransientSolution%Coor(1,i)%x(j)
+     meshVelo(3) = 0d0
+     myTransientSolution%Velo(1,i)%x(j) = myTransientSolution%Velo(1,i)%x(j) - meshVelo(1)
+     myTransientSolution%Velo(2,i)%x(j) = myTransientSolution%Velo(2,i)%x(j) - meshVelo(2)
+     myTransientSolution%Velo(3,i)%x(j) = myTransientSolution%Velo(3,i)%x(j) - meshVelo(3)
+    END DO
+   END DO
+  END IF
   
   call InitCond_LinScalar_XSE(LinSc_InitCond_XSE,Boundary_LinSc_Val_XSE)
   
