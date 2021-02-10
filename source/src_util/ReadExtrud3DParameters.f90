@@ -18,7 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
-    character(len=INIP_STRLEN) cParserString,cSCR
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -917,6 +917,16 @@
     
     cKTP=' '
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","RotationalFramOfReference",cALE,"NO")
+     call inip_toupper_replace(cALE)
+     IF (ADJUSTL(TRIM(cALE)).eq."YES".OR.ADJUSTL(TRIM(cALE)).eq."ON") THEN
+      mySetup%bRotationalFramOfReference = .TRUE.
+     ELSE
+      mySetup%bRotationalFramOfReference = .FALSE.
+     END IF
+    END IF
+    
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","AutomaticTimeStepControl",cKTP,"YES")
      call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","TimeStepEnlargmentFactor",dTimeStepEnlargmentFactor,5d0)
     ELSE
@@ -1479,6 +1489,9 @@
      write(*,*) "E3DProcessParameters@ExtrusionGapSize_MM = ", myProcess%ExtrusionGapSize
     END IF
 
+    IF (mySetup%bRotationalFramOfReference) then
+     write(*,*) "RotationalFramOfReference for (noPin-SSE) Temperature Simulation is on!"
+    END IF
     write(*,*) "mySetup%CharacteristicShearRate = ",mySetup%CharacteristicShearRate
     write(*,*) "activeFBM_Z_Position = ",activeFBM_Z_Position   
     write(*,*) "TimeStepEnlargmentFactor = ",dTimeStepEnlargmentFactor   

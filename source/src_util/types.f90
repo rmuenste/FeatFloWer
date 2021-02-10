@@ -594,7 +594,7 @@ END TYPE tTransientSolution
 
 TYPE tSetup
  LOGICAL :: bPressureFBM = .FALSE.
- LOGICAL :: bAutomaticTimeStepControl = .TRUE.
+ LOGICAL :: bAutomaticTimeStepControl = .TRUE.,bRotationalFramOfReference=.FALSE.
  LOGICAL :: bConvergenceEstimator=.FALSE.
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
