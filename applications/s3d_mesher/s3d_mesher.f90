@@ -114,7 +114,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
   nZ = nZ + 1
  END IF
  
- WRITE(*,'(A,3I0)') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
+ WRITE(*,'(A,3(I0,","))') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
  
  CALL SetUpMesh_HC()
 
@@ -801,7 +801,7 @@ CLOSE(1)
 
 !! Outflow
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=1)
-WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Outflow'
+WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Symmetry110'
 WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", -DL, "'"
 k = 0
 DO j=1,NP*(NN*NN + NN) + NM*2*NN*NP +1
