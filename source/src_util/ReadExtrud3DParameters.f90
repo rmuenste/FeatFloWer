@@ -13,7 +13,7 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat
+    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
@@ -90,7 +90,7 @@
               ADJUSTL(TRIM(mySigma%cType)).EQ."XSE".OR.&
               ADJUSTL(TRIM(mySigma%cType)).EQ."NETZSCH")) THEN
      WRITE(*,*) "not a valid Extruder type:", ADJUSTL(TRIM(mySigma%cType))
-     STOP 7
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
     END IF
     
 !     WRITE(*,*) "asdsadsa sad sa dsad as as :",ADJUSTL(TRIM(mySigma%cType))
@@ -100,7 +100,7 @@
      WRITE(*,*) "This is not a valid 'TSE' (Twinscrew Extrusion) Simulation setup."
      WRITE(*,*) "The configured '"//ADJUSTL(TRIM(mySigma%cType))//"' is not supported."
      WRITE(*,*) "Program stops!"
-     STOP 7
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
     END IF
     END IF
 
@@ -952,7 +952,8 @@
        if (dArea.eq.myInf) then
         if (myid.eq.1) WRITE(*,*) "   Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
         if (myid.eq.1) WRITE(*,*) "or Extrusion Area is not set 'E3DProcessParameters@ExtrusionOutflowArea_MM2'"
-        stop 55
+        CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
        else
         dFlow = 0d0
         do iInflow=1,myProcess%nOfInflows
@@ -963,7 +964,8 @@
       end if
       if (myProcess%ExtrusionGapSize.eq.myInf) then
        if (myid.eq.1) WRITE(*,*) "Extrusion GapSize is not set 'E3DProcessParameters@ExtrusionGapSize_MM'"
-       stop 55
+        CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
       end if
     End if
     
@@ -1077,7 +1079,8 @@
          (mySetup%m_nX.le.0.and.mySetup%m_nY.le.0.and.mySetup%m_nZ.le.0).and.&
           mySetup%MeshResolution.le.0) THEN
           if (myid.eq.1) WRITE(*,*) 'No rules defined to create a mesh...'
-          STOP 55
+         CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
      END IF
      
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherUnit",cUnit,'cm')
@@ -1594,7 +1597,8 @@
 
     if (bReadError) then
       write(*,*) 'Error during reading the file ', trim(adjustl(ce3dfile)), '. Stopping. See output above.'
-      stop 5
+      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
     end if
 
     CONTAINS
@@ -1864,7 +1868,8 @@
     
     WRITE(*,*) 'The file in the list is not a OFF file ... ',trim(saux)
     WRITE(*,*) 'Program stops ... '
-    STOP 6
+    CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
     
     
     END SUBROUTINE ExtractNomOfCharFromString
@@ -1918,7 +1923,9 @@
 !
     Subroutine ReadEWIKONfile(cE3Dfile)
     use iniparser
+    use var_QuadScalar
     use Sigma_User
+    USE PP3D_MPI, ONLY:MPI_COMM_WORLD
 
     use, intrinsic :: ieee_arithmetic
 
@@ -1926,7 +1933,7 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux
+    integer :: i,iSeg,iFile,iaux,ierr
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cConvergenceEstimator
@@ -2079,7 +2086,8 @@
         END IF
        ELSE
             WRITE(*,*) "Unknown regulation mechanism ... "
-            STOP 11
+            CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
        END IF
      END IF
      
@@ -2162,7 +2170,8 @@
          (mySetup%m_nX.le.0.and.mySetup%m_nY.le.0.and.mySetup%m_nZ.le.0).and.&
           mySetup%MeshResolution.le.0) THEN
           if (myid.eq.1) WRITE(*,*) 'No rules defined to create a mesh...'
-          STOP 55
+          CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+
      END IF
      
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherUnit",cUnit,'cm')
@@ -2294,3 +2303,19 @@
     call inip_done(parameterlist)
 
     end Subroutine ReadEWIKONfile
+    
+    SUBROUTINE StopTheProgramFromReader(n,ie)
+    
+     USE PP3D_MPI, ONLY:subnodes,MPI_COMM_WORLD
+     USE var_QuadScalar
+
+     implicit none
+     integer n,ie,ierr
+    
+     if (n.eq.1) then
+      error stop 40 !! cannot get an argument here ....
+     else
+      call MPI_Abort(MPI_COMM_WORLD, ie, ierr)
+     end if
+     
+    END SUBROUTINE StopTheProgramFromReader

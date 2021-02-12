@@ -12,7 +12,7 @@
   use Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar,Transport_Q1_displacement
 
-  use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier,MPI_COMM_WORLD
 
   use var_QuadScalar, ONLY : myStat,cFBM_File
 

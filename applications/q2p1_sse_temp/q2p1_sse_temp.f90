@@ -20,9 +20,10 @@ PROGRAM Q2P1_DEVEL
                            Assemble_LinScOperators_XSE
                            
   use var_QuadScalar, only : istep_ns,Viscosity, Screw, Shell, Shearrate,&
-                      mg_mesh,myExport,DivergedSolution
+                      mg_mesh,myExport,DivergedSolution,myErrorCode
 
-  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
+  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI,MPI_COMM_WORLD
+
   
   REAL*8 ViscosityModel
   REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
@@ -103,7 +104,6 @@ PROGRAM Q2P1_DEVEL
     CALL ZTIME(myStat%t1)
     myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
     
-    
    END DO
 
    if (DivergedSolution) EXIT
@@ -119,12 +119,12 @@ PROGRAM Q2P1_DEVEL
    IF (myid.eq.showid) THEN
      WRITE(*,*) "Q2P1_SSE_TEMP has been stopped due to divergence ..."
      WRITE(ufile,*) "Q2P1_SSE_TEMP has been stopped due to divergence ..."
+     call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_T, ierr)
    END IF
   END IF
 
   CALL Barrier_myMPI()
   CALL MPI_Finalize(ierr)
   
-  if (DivergedSolution) STOP 1
 
 END PROGRAM Q2P1_DEVEL

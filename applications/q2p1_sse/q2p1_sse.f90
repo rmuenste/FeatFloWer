@@ -18,7 +18,7 @@ PROGRAM Q2P1_SSE
   character(len=60)  :: CPP3D
   character(len=60)  :: arg
   real               :: dout = 0.0
-  integer            :: ufile,ilog,i
+  integer            :: ufile,ilog,i,ierr
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
 
@@ -108,7 +108,7 @@ PROGRAM Q2P1_SSE
 
   call sim_finalize_sse(tt0,ufile)
 
-  if (DivergedSolution) call exit(myErrorCode%iDivergenceDueToDeformation)
+  if (DivergedSolution) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
   
   contains
 

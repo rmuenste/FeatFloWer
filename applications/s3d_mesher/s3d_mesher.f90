@@ -1,5 +1,5 @@
 Program e3d_mesher
-USE Sigma_User, ONLY : mySetup,mySigma,myProcess
+USE Sigma_User, ONLY : mySetup,mySigma,myProcess,myid,subnodes
 USE iniparser, ONLY : inip_makeDirectory,inip_toupper_replace
 use f90getopt
 
@@ -44,6 +44,8 @@ opts(2) = option_s('app', .true.,  'a')
 opts(3) = option_s('help',  .false., 'h')
 
 cApp = 'SSE'
+myid = 1
+subnodes = 1
 
 do 
     select case (getopt('va:h'))
