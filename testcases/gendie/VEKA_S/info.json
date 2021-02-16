@@ -90,7 +90,7 @@
                 "tempModel": {
                     "model": "tbts",
                     "referenceTemperature": "190",
-                    "standardTemperature": "90,07"
+                    "standardTemperature": "90.07"
                 },
                 "density": "1,35",
                 "heatcapacity": "2,087",
