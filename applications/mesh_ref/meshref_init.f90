@@ -121,8 +121,8 @@ real*8 dEps,dist1,d1,d2,d3,dAreaCrit,dTotalArea,dCritArea
 integer iel,jel,i
 CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 real*8 dc(3)
-real*8 xbox(3),nbox(3),dAreaThreshold
-integer ii,nnel
+real*8 xbox(3),nbox(3),dAreaThreshold,dVolume,dSize,dzmax
+integer ii,nnel,ivt
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
 
@@ -138,12 +138,22 @@ integer ii,nnel
  CALL GetValueFromFile(cInputFile,cVal,cKey)
  read(cVal,*) nBox
 
- dAreaThreshold = xbox(1)*xbox(2)*xbox(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
- dAreaThreshold = dAreaThreshold**(2d0/3d0)
+ dVolume = xbox(1)*xbox(2)*xbox(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
+ dSize   = dVolume**(1d0/3d0)
+ dAreaThreshold = dVolume**(2d0/3d0)
  WRITE(*,*) dAreaThreshold
  
 MarkerE(1:nel) = 0
 allocate(AreaIntensity(2,nel))
+
+dzmax = -1d8
+do iel=1,nel
+ dc = 0d0
+ do ivt=1,8
+  dc = dc + 0.125d0*dcorvg(:,kvert(ivt,iel))
+ end do
+ if (dzmax.lt.dc(3)) dzmax = dc(3)
+end do
 
 open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'area.txt',unit=3)
 do iel=1,nel
@@ -180,7 +190,19 @@ do iel=1,nnel
   MarkerE(jel) = 1
 end do
 
-WRITE(*,*) 'Number of refined elements: ', ii
+do iel=1,nel
+ jel = AreaIntensity(1,iel)
+ dc = 0d0
+ do ivt=1,8
+  dc = dc + 0.125d0*dcorvg(:,kvert(ivt,jel))
+ end do
+ if (dc(3).gt.dzmax-dSize.and.AreaIntensity(2,iel).gt.0d0) then
+  MarkerE(jel) = 1
+  ii = ii + 1
+ end if
+end do
+
+WRITE(*,*) 'Number of refined elements: ', ii,dzmax,dSize
 
 !!!! Reload the file for output 
 open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'area.txt',unit=3)

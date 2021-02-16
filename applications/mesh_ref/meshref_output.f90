@@ -781,12 +781,281 @@ SUBROUTINE Output_MergedRefTriMeshPar()
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:mg_mesh,myBoundary
 USE Parametrization, ONLY : myParBndr,nBnds
+use Sigma_User, only : myProcess
+
+IMPLICIT NONE
+INTEGER i,j,iloc,i1,i2,i3,i4,i5,i6
+integer iat, iel, ivt(4), ilev,iX,jX
+CHARACTER cf*(256),ctxt*(256),cInputFile*(256),cVal*(256),cKey*(256)
+real*8 P0(3),box(3),bound(3,2)
+real*8 :: dEps=1d-4
+logical :: bExist
+type(tMultiMesh),save :: mg_NewMesh
+INTEGER NeighA(4,6),nbox(3),iInflow,jInflow
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+REAL*8 P(3),Q(3),dist,mindist,dVolume,dSize
+logical bToMarkFace
+logical, allocatable :: bInflowMarker(:,:)
+
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
+
+ cKey='geometryStart'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) P0
+
+ cKey='geometryLength'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) box
+
+ cKey='voxelAmount'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) nBox
+
+ dVolume = box(1)*box(2)*box(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
+ dSize   = dVolume**(1d0/3d0)
+ WRITE(*,*) "dSize  =",dSize
+
+ bound(:,1) = P0
+ bound(:,2) = P0 + box
+ write(*,*) bound(:,1)
+ write(*,*) bound(:,2)
+
+ i1=0
+ i2=0
+ i3=0
+ i4=0
+ i5=0
+ i6=0
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x-.par',unit=11)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x+.par',unit=12)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y-.par',unit=13)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y+.par',unit=14)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z-.par',unit=15)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z+.par',unit=16)
+
+ do i=1,nUniquePoints
+  P0 = MergedMeshCoor(:,i)
+  if (abs(P0(1)-bound(1,1)).lt.dEps) then
+   i1 = i1 + 1  
+  end if
+  if (abs(P0(1)-bound(1,2)).lt.dEps) then
+   i2 = i2 + 1  
+  end if
+  if (abs(P0(2)-bound(2,1)).lt.dEps) then
+   i3 = i3 + 1  
+  end if
+  if (abs(P0(2)-bound(2,2)).lt.dEps) then
+   i4 = i4 + 1  
+  end if
+  if (abs(P0(3)-bound(3,1)).lt.dEps) then
+   i5 = i5 + 1  
+  end if
+  if (abs(P0(3)-bound(3,2)).lt.dEps) then
+   i6 = i6 + 1  
+  end if
+ end do
+
+ write(11,'(I0,A)') i1,' '//'Wall'
+ write(11,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,1), "'"
+ write(12,'(I0,A)') i2,' '//'Wall'
+ write(12,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,2), "'"
+ write(13,'(I0,A)') i3,' '//'Wall'
+ write(13,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,1), "'"
+ write(14,'(I0,A)') i4,' '//'Wall'
+ write(14,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,2), "'"
+ write(15,'(I0,A)') i5,' '//'Wall'
+ write(15,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,1), "'"
+ write(16,'(I0,A)') i6,' '//'Outflow'
+ write(16,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,2), "'"
+
+ write(*,*) i1,i2,i3,i4,i5,i6
+
+ do i=1,nUniquePoints
+  P0 = MergedMeshCoor(:,i)
+  if (abs(P0(1)-bound(1,1)).lt.dEps) then
+   write(11,*) i
+  end if
+  if (abs(P0(1)-bound(1,2)).lt.dEps) then
+   write(12,*) i
+  end if
+  if (abs(P0(2)-bound(2,1)).lt.dEps) then
+   write(13,*) i
+  end if
+  if (abs(P0(2)-bound(2,2)).lt.dEps) then
+   write(14,*) i
+  end if
+  if (abs(P0(3)-bound(3,1)).lt.dEps) then
+   write(15,*) i
+  end if
+  if (abs(P0(3)-bound(3,2)).lt.dEps) then
+   write(16,*) i
+  end if
+ end do
+
+ close(11)
+ close(12)
+ close(13)
+ close(14)
+ close(15)
+ close(16)
+
+ !------------------------------------------------------------------
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'setup.e3d'
+ inquire(file=cInputFile,Exist=bExist)
+ if (bExist) then
+  call ReadS3Dfile(cInputFile)
+ else
+  write(*,*) 'file: "',adjustl(trim(cInputFile)),'" does not exist!'
+  STOP
+ end if
+ !------------------------------------------------------------------
+
+ allocate(bInflowMarker(myProcess%nOfInflows,nUniquePoints))
+ bInflowMarker = .false.
+ 
+ !  deallocate(mg_mesh%level)
+!  !!! building up the new mesh structures
+ mg_NewMesh%maxlevel = mg_Mesh%maxlevel
+ allocate(mg_NewMesh%level(mg_NewMesh%maxlevel))
+ allocate(mg_NewMesh%level(1)%dcorvg(3,nUniquePoints))
+ allocate(mg_NewMesh%level(1)%knpr(nUniquePoints))
+ allocate(mg_NewMesh%level(1)%kvert(3,nUniqueElems))
+ mg_NewMesh%level(1)%nvt = nUniquePoints
+ mg_NewMesh%level(1)%nel = nUniqueElems
+ mg_NewMesh%level(1)%knpr = 0
+ mg_NewMesh%level(1)%dcorvg = MergedMeshCoor
+ mg_NewMesh%level(1)%kvert  = MergedMeshElem
+ call refineMesh(mg_NewMesh, mg_NewMesh%maxlevel)  
+ 
+ DO ilev = 1,mg_NewMesh%maxlevel
+  write(*,*) mg_NewMesh%level(ilev)%nvt,mg_NewMesh%level(ilev)%nel,mg_NewMesh%level(ilev)%net,mg_NewMesh%level(ilev)%nat
+ END DO
+
+ DO iel = 1, mg_NewMesh%level(1)%nel
+ 
+  do iat = 1,6
+   
+   if (mg_NewMesh%level(1)%kadj(iat,iel).eq.0) then
+    ivt(1) = mg_NewMesh%level(1)%kvert(NeighA(1,iat),iel)
+    ivt(2) = mg_NewMesh%level(1)%kvert(NeighA(2,iat),iel)
+    ivt(3) = mg_NewMesh%level(1)%kvert(NeighA(3,iat),iel)
+    ivt(4) = mg_NewMesh%level(1)%kvert(NeighA(4,iat),iel)
+    
+    P = 0d0
+    DO i=1,4
+     P = P + 0.25d0*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+    end do
+    
+!     ! lets check if the face is really a boundary face (only for thew brick!)
+!     iX =0
+!     jX =0 
+!     DO i=1,3
+!      DO j=1,2
+!       if (abs(bound(i,j) - P(i)).lt.0.1d0*dSize) then
+!        iX = i
+!        jX = j
+!       end if
+!      end do
+!     END DO
+!     
+!     IF (iX.eq.0.or.jX.eq.0) THEN
+!      WRITE(*,*) 'not identified face has been detected... '
+!      stop
+!     END IF
+
+
+      mindist = 1d8
+      P = MeshOutputScaleFactor*P ! scaling to cm
+      DO iInflow=1,myProcess%nOfInflows
+       Q = myProcess%myInflow(iInflow)%Center
+       dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+       if (dist.lt.mindist) then
+        jInflow = iInflow 
+        mindist = dist
+       end if
+      END DO
+      
+      bToMarkFace = .false.
+      do i=1,4
+       P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+       Q = myProcess%myInflow(jInflow)%Center
+       dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+       if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
+        bToMarkFace = .true.
+       end if
+      end do
+      
+      if (bToMarkFace) then
+!        WRITE(*,*) iel,iat
+       bInflowMarker(jInflow,ivt(:)) = .TRUE.
+      end if
+
+!     WRITE(*,'(I0," ",I0,3ES12.4,":",6ES12.4)') iX,jX,P,bound
+   end if
+   
+  end do
+ 
+ END DO
+
+ DO iInflow=1,myProcess%nOfInflows
+  jInflow = 0
+  DO i=1,nUniquePoints
+   if (bInflowMarker(iInflow,i)) jInflow = jInflow + 1
+  END DO
+  WRITE(cInputFile,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/inflow_',iInflow,'.par'
+  open(file=ADJUSTL(TRIM(cInputFile)),unit=5)
+  write(5,'(I0,A,I0)') jInflow, ' Inflow-',iInflow
+  write(5,'(A)') "' '"
+  DO i=1,nUniquePoints
+   if (bInflowMarker(iInflow,i)) THEN
+    write(5,'(I0)') i
+   END IF
+  END DO
+  close(5)
+ END DO
+
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj',unit=5)
+ write(5,'(a)') 'Merged_'//adjustl(trim(cProjectGridFile))
+
+ write(5,'(a)') 'x+.par'
+ write(5,'(a)') 'x-.par'
+ write(5,'(a)') 'y+.par'
+ write(5,'(a)') 'y-.par'
+ write(5,'(a)') 'z+.par'
+ write(5,'(a)') 'z-.par'
+ DO iInflow=1,myProcess%nOfInflows
+  write(5,'(A,I0,A)') 'inflow_',iInflow,'.par'
+ END DO
+
+ close(5)
+ 
+END SUBROUTINE Output_MergedRefTriMeshPar
+! ----------------------------------------------
+SUBROUTINE Output_MergedRefTriMeshParOLD()
+
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+use Sigma_User, only : myProcess
+
 IMPLICIT NONE
 INTEGER i,j,iloc,i1,i2,i3,i4,i5,i6
 CHARACTER cf*(256),ctxt*(256),cInputFile*(256),cVal*(256),cKey*(256)
 CHARACTER cBC(6)*(256)
 real*8 P0(3),box(3),bound(3,2)
 real*8 :: dEps=1d-4
+logical :: bExist
+
+ !------------------------------------------------------------------
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'setup.e3d'
+ inquire(file=cInputFile,Exist=bExist)
+ if (bExist) then
+  call ReadS3Dfile(cInputFile)
+ else
+  write(*,*) 'file: "',adjustl(trim(cInputFile)),'" does not exist!'
+  STOP
+ end if
+ !------------------------------------------------------------------
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
 
@@ -919,7 +1188,7 @@ write(5,'(a)') 'z-.par'
 close(5)
 
 
-END SUBROUTINE Output_MergedRefTriMeshPar
+END SUBROUTINE Output_MergedRefTriMeshParOLD
 ! ----------------------------------------------
 SUBROUTINE Output_MergedRefTriMesh()
 
