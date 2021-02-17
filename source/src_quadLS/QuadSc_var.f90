@@ -392,13 +392,6 @@ TYPE(tProperties),save :: Properties
 
 TYPE (tParticleParam) :: myParticleParam
 
-TYPE tErrorCodes
- INTEGER :: WRONG_SCREW=88
- INTEGER :: DIVERGENCE_U=55
- INTEGER :: DIVERGENCE_T=56
- INTEGER :: SIGMA_READER=44
-END TYPE
-
 TYPE (tErrorCodes) ::  myErrorCode
 
 contains 

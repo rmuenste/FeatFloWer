@@ -174,8 +174,7 @@ subroutine sim_finalize_sse(dttt0, filehandle)
 
   call release_mesh(mg_mesh)
   CALL Barrier_myMPI()
-  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
-!   CALL MPI_Finalize(ierr)
+  CALL MPI_Finalize(ierr)
 
 end subroutine sim_finalize_sse
 

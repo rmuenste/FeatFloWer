@@ -353,10 +353,11 @@ endif(USE_MUMPS)
 
 find_package(Git 2.17)
 
-
+if(NOT WIN32)
 if(USE_CGAL)
   add_subdirectory(tools/check_off)
 endif(USE_CGAL)
+endif(NOT WIN32)
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")

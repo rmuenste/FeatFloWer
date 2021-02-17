@@ -21,6 +21,7 @@ PROGRAM Q2P1_SSE
   integer            :: ufile,ilog,i,ierr
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
+  integer, parameter :: errDivergence = 55
 
   character(len=*), parameter :: version = '1.0'
   real*8                      :: angle = 0.0
@@ -108,7 +109,8 @@ PROGRAM Q2P1_SSE
 
   call sim_finalize_sse(tt0,ufile)
 
-  if (DivergedSolution) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
+!  if (DivergedSolution)  stop 55 !call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
+  if (DivergedSolution)  stop errDivergence
   
   contains
 
