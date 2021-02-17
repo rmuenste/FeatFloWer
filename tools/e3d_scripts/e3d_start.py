@@ -63,10 +63,10 @@ class E3dLog:
 
         self.fileHandle.write("[Extrud3DFileInfo]\n")
         self.fileHandle.write("FileType=Logging\n")
-        self.fileHandle.write("FileVersion=Extrud3D 2020\n")
+        self.fileHandle.write("FileVersion=Extrud3D 2021\n")
         today = datetime.date.today()
         self.fileHandle.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
-        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.02\n")
+        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.11.5\n")
         self.fileHandle.write("[SimulationStatus]\n")
         tempValue = ""
         if paramDict["temperature"]:
@@ -257,7 +257,7 @@ def version():
     """
     Print out version information
     """
-    print("E3D + Reporter for SIGMA Version 20.11, Copyright 2019 IANUS Simulation")
+    print("E3D + Reporter for SIGMA Version 2020.11.5, Copyright 2019 IANUS Simulation")
 
 #===============================================================================
 #                        usage function
@@ -511,6 +511,9 @@ def simLoopVelocity(workingDir):
         # Here the observer can be turned off
         observer.stop()
 
+        if exitCode == 88:
+          myLog.logErrorExit("CurrentStatus=the screw could not be created: wrong angle", exitCode)
+
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
@@ -542,8 +545,6 @@ def cleanWorkingDir(workingDir):
 #                The simulatio loop for velocity calculation
 #===============================================================================
 def simLoopTemperatureCombined(workingDir):
- 
-    print("Temperature simulation is activated!")
 
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
@@ -574,8 +575,6 @@ def simLoopTemperatureCombined(workingDir):
             myLog.writeStatusHeat("CurrentHeatIteration=%i\nMaxHeatIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
             
         exitCode = simLoopVelocity(workingDir)
-
-        print("temperature simulation")
 
 #        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 
