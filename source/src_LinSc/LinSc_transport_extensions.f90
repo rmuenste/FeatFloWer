@@ -135,6 +135,17 @@ IF (myid.ne.0) THEN
  ! Add the source term to the RHS
  CALL sub_SRC()
 
+END IF
+
+ilev = nlmax
+call setlev(2)
+CALL AddBoundaryHeatFlux_XSE(mg_mesh%level(ilev)%dcorvg,&
+                             mg_mesh%level(ilev)%karea,&
+                             mg_mesh%level(ilev)%kvert,&
+                             mg_mesh%level(ilev)%nel,&
+                             mfile)
+
+IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
 
@@ -1375,6 +1386,73 @@ END SUBROUTINE IntegrateOutflowTemp
 !
 ! ----------------------------------------------
 !
+SUBROUTINE AddBoundaryHeatFlux_XSE(dcorvg,karea,kvert,nel,mfile)
+use, intrinsic :: ieee_arithmetic
+INTEGER mfile
+REAL*8 dcorvg(3,*),T_Avg
+INTEGER karea(6,*),kvert(8,*),nel
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA,dVolFlow,dVolFlowT,dHeat
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+LOGICAL BB(4)
+real*8 :: myInf,daux
+
+if(ieee_support_inf(myInf))then
+  myInf = ieee_value(myInf, ieee_negative_inf)
+endif
+
+dHeat = 0d0
+
+if (myid.ne.0.and.myProcess%Ta.eq.myInf) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    
+    BB(1) = myBoundary%bWall(ivt1)
+    BB(2) = myBoundary%bWall(ivt2)
+    BB(3) = myBoundary%bWall(ivt3)
+    BB(4) = myBoundary%bWall(ivt4)
+    
+    IF (BB(1).and.BB(2).and.BB(3).and.BB(4)) THEN
+        CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+        dA = dabs(dA) ! cm2
+        
+        !  kW               dm3      kg * K         kJ                 1e3.cm3   kg * K              K*cm3
+        !--------- * cm2 * -------* ---------  = --------- * 1e-4*m2 * -------* ---------  =  0.1 ------------
+        !   m2              kg          kJ         s.m2                  kg        kJ                  s
+        
+!         daux = dA * (-80d0)
+        daux = dA * myProcess%HeatFluxThroughBarrelWall_kWm2
+
+        Tracer%def(ivt1) = Tracer%def(ivt1) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt2) = Tracer%def(ivt2) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt3) = Tracer%def(ivt3) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt4) = Tracer%def(ivt4) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        
+        dHeat = dHeat + daux*1e-4 ! kW/m2 * 1e-4 m2 = 1e-4 * kW 
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+CALL COMM_SUMM(dHeat)
+IF (myid.eq.1) WRITE(MTERM,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dHeat
+IF (myid.eq.1) WRITE(MFILE,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dHeat
+
+END SUBROUTINE AddBoundaryHeatFlux_XSE
+!
+! ----------------------------------------------
+!
+
 
 !  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
 !                         mg_mesh%level(nlmax)%karea,&

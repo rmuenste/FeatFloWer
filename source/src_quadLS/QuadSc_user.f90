@@ -281,7 +281,7 @@ if(it.eq.10)then
      ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
     END IF
   ELSE
-   CALL TransformPointToNonparallelRotAxis(0d0,0d0,0d0,XX,YY,ZZ,+1d0)
+   CALL TransformPointToNonparallelRotAxis(0d0,0d0,z,XX,YY,ZZ,+1d0)
    dInnerInflowRadius = abs(YY)
    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
    daux = (PI/6d0)*(dInnerRadius+dInnerInflowRadius)*((dInnerInflowRadius-dInnerRadius)**3d0)

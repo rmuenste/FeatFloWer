@@ -1790,8 +1790,8 @@ real*8, dimension(:), allocatable :: my1DWeight
 
 my1DOut_nol = myOutput%nOf1DLayers
 
-dMinSample = 0d0
-dMaxSample = mySigma%L
+dMinSample = mySigma%L0
+dMaxSample = mySigma%L0 + mySigma%L
 
 if (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
 if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))

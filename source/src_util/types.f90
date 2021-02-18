@@ -511,7 +511,7 @@ TYPE tSigma
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   LOGICAL :: ScrewCylinderRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
-  REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
+  REAL*8 :: Dz_out,Dz_in, a, L, L0, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
   INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
@@ -546,6 +546,7 @@ ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
+   REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
    REAL*8 :: dAlpha

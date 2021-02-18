@@ -2310,13 +2310,13 @@ ELSE
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dVolFlow1,0.0d0)
+                        dVolFlow1,mySigma%L0)
 
   call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dVolFlow2,mySigma%L)
+                        dVolFlow2,mySigma%L0+mySigma%L)
  END IF
 END IF
 
@@ -2325,13 +2325,13 @@ IF (myid.ne.0) then
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dIntPres1,dArea1,0.0d0)
+                        dIntPres1,dArea1,mySigma%L0)
 
  call IntegratePressure(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dIntPres2,dArea2,mySigma%L)
+                        dIntPres2,dArea2,mySigma%L0+mySigma%L)
 END IF
 
 dHeat = 0d0

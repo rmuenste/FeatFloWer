@@ -141,6 +141,9 @@
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelLength", mySigma%L ,myInf)
     mySigma%L = dSizeScale*mySigma%L
 
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelAxialStartPos", mySigma%L0 ,0d0)
+    mySigma%L0 = dSizeScale*mySigma%L0
+    
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfElements", mySigma%NumberOfSeg ,0)
     call INIP_getvalue_int(parameterlist,"E3DGeometryData/Machine","NoOfFlights", mySigma%GANGZAHL ,0)
     
@@ -695,6 +698,8 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
       mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
       
+      call INIP_getvalue_double(parameterlist,cElement_i,"OffsetAngle", mySigma%mySegment(iSeg)%OffsetAngle,myInf)
+      
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
       
@@ -725,6 +730,8 @@
       
       call INIP_getvalue_double(parameterlist,cElement_i,"InnerDiameter", mySigma%mySegment(iSeg)%Dss,mySigma%Dz_In/dElemSizeScale)
       mySigma%mySegment(iSeg)%Dss = dElemSizeScale*mySigma%mySegment(iSeg)%Dss
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"OffsetAngle", mySigma%mySegment(iSeg)%OffsetAngle,myInf)
       
       mySigma%Dz_In = min(mySigma%Dz_In,mySigma%mySegment(iSeg)%Dss)
 !       mySigma%mySegment(iSeg)%Ds = mySigma%Dz_In
@@ -853,6 +860,9 @@
     IF (ADJUSTL(TRIM(cTemperature)).EQ."NO") THEN
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","BarrelTemperature",myProcess%Ta,myInf)
     ELSE
+     IF (ADJUSTL(TRIM(cTemperature)).EQ."FLUX".or.ADJUSTL(TRIM(cTemperature)).EQ."YES") THEN
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","HeatFluxThroughBarrelWall_kWm2",myProcess%HeatFluxThroughBarrelWall_kWm2,0d0)
+     END IF
      myProcess%Ta=myInf
     END IF
        
@@ -1174,6 +1184,7 @@
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
+    write(*,*) "mySigma%BarrelAxialStartPos",'=',mySigma%L0
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
     if (myProcess%iInd.eq.-1) write(*,*) "mySigma%RotationType",'=','CounterRotating'
     if (myProcess%iInd.eq.+1) write(*,*) "mySigma%RotationType",'=','CoRotating'
@@ -1334,6 +1345,9 @@
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_R") THEN
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%OffsetAngle=',mySigma%mySegment(iSeg)%OffsetAngle
+      END IF
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
@@ -1341,6 +1355,9 @@
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL_L") THEN
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
+      IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%OffsetAngle=',mySigma%mySegment(iSeg)%OffsetAngle
+      END IF
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile))),'"'
       END DO
@@ -1358,6 +1375,9 @@
     write(*,*) "myProcess%f",'=',myProcess%umdr
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
+    IF (myProcess%Ta.eq.myInf) THEN
+     write(*,*) "myProcess%FLUX",'=',myProcess%HeatFluxThroughBarrelWall_kWm2
+    END IF
     write(*,*) "myProcess%T0",'=',myProcess%T0
     write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
 
