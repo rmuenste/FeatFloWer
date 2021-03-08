@@ -989,31 +989,49 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
     end do
 
-    IF (myProcess%SegmentThermoPhysProps) THEN
-     DO i=1,ndof
-      if (dVaux(i).le.0d0.and.mySegmentIndicator(1,i).gt.dVaux(i)) then
-       mySegmentIndicator(1,i)=dVaux(i)
-       mySegmentIndicator(2,i)=dble(iSeg)
-      end if
-     end do
-    END IF
+!     IF (myProcess%SegmentThermoPhysProps) THEN
+!      DO i=1,ndof
+!       if (dVaux(i).le.0d0.and.mySegmentIndicator(1,i).gt.dVaux(i)) then
+!        mySegmentIndicator(1,i)=dVaux(i)
+!        mySegmentIndicator(2,i)=dble(iSeg)
+!       end if
+!      end do
+!     END IF
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! iSTL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."DIE") THEN
       do i=1,ndof
-      dst1(i) = min(dst1(i),-dVaux(i)/dUnitScale)
+       dst1(i) = min(dst1(i),-dVaux(i)/dUnitScale)
+       IF (myProcess%SegmentThermoPhysProps) THEN
+        if (-dVaux(i).gt.0d0.and.-dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=-dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+       END IF
       end do
     end if  
 
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW") THEN
       do i=1,ndof
-      dst2(i) = min(dst2(i),+dVaux(i)/dUnitScale)
+       dst2(i) = min(dst2(i),+dVaux(i)/dUnitScale)
+       IF (myProcess%SegmentThermoPhysProps) THEN
+        if (dVaux(i).lt.0d0.and.dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+       END IF
       end do
     end if  
 
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."OBSTACLE") THEN
       do i=1,ndof
-      dst1(i) = min(dst1(i),+dVaux(i)/dUnitScale)
+       dst1(i) = min(dst1(i),+dVaux(i)/dUnitScale)
+       IF (myProcess%SegmentThermoPhysProps) THEN
+        if (dVaux(i).lt.0d0.and.dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+       END IF
       end do
     end if  
 
