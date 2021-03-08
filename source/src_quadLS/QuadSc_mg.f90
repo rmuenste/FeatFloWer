@@ -1862,7 +1862,7 @@ END SUBROUTINE mgCoarseGridSolver_U
 !
 SUBROUTINE mgCoarseGridSolver_P()
 INTEGER Iter,i,j,k,ndof
-REAL*8 daux
+REAL*8 daux,dCrit
 INTEGER iEntry,jCol
 EXTERNAL E011
 
@@ -1882,10 +1882,11 @@ EXTERNAL E011
     IF (MyMG%CrsSolverType.EQ.1) THEN
      myMG%X(mgLev)%x = 0d0
      ndof  = SIZE(myMG%X(mgLev)%x)
-     CoarseIter = 999 
+     CoarseIter = myMG%nIterCoarse
+     dCrit = myMG%DefImprCoarse
      CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
           ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-          myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
+          myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,dCrit)
     END IF
 
     IF (MyMG%CrsSolverType.EQ.2) THEN
@@ -1902,10 +1903,11 @@ EXTERNAL E011
      END DO
 
      IF (MyMG%CrsSolverType.EQ.3) THEN
-      CoarseIter = 999 
+      CoarseIter = myMG%nIterCoarse
+      dCrit = myMG%DefImprCoarse
       CALL E012_BiCGStabSolverMaster(crsSTR%A_SOL,crsSTR%A_RHS,&
           crsSTR%A%nu,CoarseIter,E012_DAX_Master_A,E012_DCG_Master_A,.true.,&
-          myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
+          myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,dCrit)
      END IF
      IF (MyMG%CrsSolverType.EQ.4) THEN
       CALL myUmfPack_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A_MAT,crsSTR%A,1)
