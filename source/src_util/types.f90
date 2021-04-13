@@ -148,7 +148,7 @@ END TYPE
 
 TYPE tParticle
  REAL*8 time
- REAL*8 coor(3)
+ REAL*8 coor(3),velo(3)
  INTEGER indice
  INTEGER :: ID=1
 END TYPE tParticle
@@ -489,6 +489,7 @@ TYPE tSegment
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L
   REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
+  REAL*8 :: SegRotFreq
   INTEGER :: ZME_N
   REAL*8  :: SecProf_W, SecProf_D,SecProf_L
   INTEGER :: SecProf_N, SecProf_I

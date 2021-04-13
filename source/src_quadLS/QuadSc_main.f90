@@ -413,12 +413,12 @@ Real*8 :: dabl
  mg_mesh%level(ilev)%nel))
  myALE%MeshVelo = 0d0
  
- IF (myProcess%SegmentThermoPhysProps) THEN
+! IF (myProcess%SegmentThermoPhysProps) THEN
   allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
   mg_mesh%level(ilev)%net+&
   mg_mesh%level(ilev)%nat+&
   mg_mesh%level(ilev)%nel))
- END IF
+! END IF
 
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)

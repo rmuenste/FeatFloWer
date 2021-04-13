@@ -184,9 +184,9 @@
 
      call INIP_getvalue_string(parameterlist,cElement_i,"ObjectType",mySigma%mySegment(iSeg)%ObjectType)
      call inip_toupper_replace(mySigma%mySegment(iSeg)%ObjectType)
-     IF (.NOT.(mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW'.OR.&
+     IF (.NOT.(mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'MIXER'.OR.&
                mySigma%mySegment(iSeg)%ObjectType.eq.'DIE'.OR.mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE')) THEN
-       WRITE(*,*) "STL object type is invalid. Only screw, die, or obstacle types are allowed"
+       WRITE(*,*) "STL object type is invalid. Only screw, mixer, die, or obstacle types are allowed"
      END IF
 
      call INIP_getvalue_string(parameterlist,cElement_i,"Unit",mySigma%mySegment(iSeg)%Unit,'MM')
@@ -203,6 +203,10 @@
       
 !     WRITE(*,*) "'",TRIM(ADJUSTL(mySigma%mySegment(iSeg)%Unit)),"'", dElemSizeScale
 
+     IF (mySigma%mySegment(iSeg)%ObjectType.eq.'MIXER') THEN
+      call INIP_getvalue_double(parameterlist,cElement_i,"SegRotFreq", mySigma%mySegment(iSeg)%SegRotFreq ,myInf)
+     END IF
+     
      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfFlights", mySigma%mySegment(iSeg)%GANGZAHL,-1)
      
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
@@ -536,6 +540,8 @@
       
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
       mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
+      
+      call INIP_getvalue_double(parameterlist,cElement_i,"OffsetAngle", mySigma%mySegment(iSeg)%OffsetAngle,myInf)
       
       mySigma%mySegment(iSeg)%delta=(mySigma%Dz_Out - mySigma%mySegment(iSeg)%Ds)/2d0
 
@@ -1227,6 +1233,13 @@
      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%L=',mySigma%mySegment(iSeg)%L
      write(*,'(A,I0,A,I5)') " mySIGMA%Segment(",iSeg,')%nFl=',mySigma%mySegment(iSeg)%GANGZAHL
+     IF (mySigma%mySegment(iSeg)%ObjectType.eq.'MIXER') THEN
+      IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SegRotFreq=',mySigma%mySegment(iSeg)%SegRotFreq
+      else
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%SegRotFreq=',myProcess%Umdr
+      end if
+     END IF
      
      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."FOERD") THEN
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%t=',abs(mySigma%mySegment(iSeg)%t)
@@ -1317,6 +1330,9 @@
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Ds=',mySigma%mySegment(iSeg)%Ds
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%s=',mySigma%mySegment(iSeg)%s
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%delta=',mySigma%mySegment(iSeg)%delta
+      IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%OffsetAngle=',mySigma%mySegment(iSeg)%OffsetAngle
+      END IF
       
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles

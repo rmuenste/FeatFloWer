@@ -826,64 +826,83 @@ RETURN
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
+use, intrinsic :: ieee_arithmetic
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 IMPLICIT NONE
 REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
+integer iScrewType,iSeg
 
-SELECT CASE(iP)
- CASE (100) ! Y positiv
-  ValU = 0d0
-  ValV = 0d0
-  ValW = 0d0
- CASE (101) ! Y positiv
-  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+IF (iP.lt.200) then
+
+ SELECT CASE(iP)
+  CASE (100) ! Y positiv
+   ValU = 0d0
+   ValV = 0d0
    ValW = 0d0
-  ELSE
-   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  END IF
- CASE (102) ! Y negativ
-  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%ind)*myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
-   ValW = 0d0
-  ELSE
-   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+  CASE (101) ! Y positiv
+   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+    ValW = 0d0
+   ELSE
+    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+   END IF
+  CASE (102) ! Y negativ
+   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+    ValW = 0d0
+   ELSE
+    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+   END IF
+  CASE (103) ! Y negativ
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+   ValW =   0d0
+  CASE (104) ! Y negativ
+   dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
+   
+   timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+ !  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
+   dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
+   
+   
+
+   dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
+   dYShiftdt  = (myProcess%Umdr/60d0)*myTwoPI*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
+   
+   YB = Y + dYShift
+   XB = X 
    ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  END IF
- CASE (103) ! Y negativ
-  ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
-  ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
-  ValW =   0d0
- CASE (104) ! Y negativ
-  dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
-  
-  timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
-!  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
-  dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
-  
-  
+   ValW =   0d0
+   ValV =   ValV + dYShiftdt
+   
+ !  write(*,*) dYShiftdt
+   
+ END SELECT
 
-  dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
-  dYShiftdt  = (myProcess%Umdr/60d0)*myTwoPI*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
-  
-  YB = Y + dYShift
-  XB = X 
-  ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
-  ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  ValW =   0d0
-  ValV =   ValV + dYShiftdt
-  
-!  write(*,*) dYShiftdt
-  
-END SELECT
+ELSE
 
+   iSeg = iP - 200
+   
+   IF (ieee_is_finite(mySigma%mySegment(iSeg)%SegRotFreq)) then
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+    ValW =   0d0
+   else
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+    ValW =   0d0
+   end if
+   
+END IF
 
 END SUBROUTINE GetVeloMixerVal
 !

@@ -111,9 +111,9 @@ if (sExport%Format .eq. "VTK") then
   call viz_write_pvtu_main(iOutput)
  end if
 
-!  if (myid.eq.0) then
-!   CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
-!  end if
+ if (myid.eq.0) then
+  CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
+ end if
     
 end if
 
