@@ -13,6 +13,7 @@ REAL*8 :: dPI = 4d0*dATAN(1d0)
 integer iter
 logical :: ok_flag
 REAL*8  DV_Loc(3),dFreq
+REAL*8 :: dParticleVelo(3) = 0d0
 REAL*8  P8(3,8), P(3), PR(3),P_New(3)
 REAL*8 :: DeltaT
 
@@ -748,7 +749,7 @@ INTEGER iN,pID,i,ierr
 REAL*8,  ALLOCATABLE :: dAux(:)
 INTEGER, ALLOCATABLE :: iAux(:)
 
-ALLOCATE(dAux(4*nSum))
+ALLOCATE(dAux(7*nSum))
 ALLOCATE(iAux(2*nSum))
 
 !  WRITE(*,*) "myid,nsum ",myid,nsum
@@ -760,12 +761,15 @@ IF (myid.eq.MASTER) THEN
 
   IF (iN.ne.0) THEN
    CALL RECVK_myMPI(iAux,2*iN,pID)
-   CALL RECVD_myMPI(dAux,4*iN,pID)
+   CALL RECVD_myMPI(dAux,7*iN,pID)
    DO i=1,iN
-    myExchangeSet(nExchangeSet+i)%coor(1) = dAux(4*(i-1)+1)
-    myExchangeSet(nExchangeSet+i)%coor(2) = dAux(4*(i-1)+2)
-    myExchangeSet(nExchangeSet+i)%coor(3) = dAux(4*(i-1)+3)
-    myExchangeSet(nExchangeSet+i)%time    = dAux(4*(i-1)+4)
+    myExchangeSet(nExchangeSet+i)%coor(1) = dAux(7*(i-1)+1)
+    myExchangeSet(nExchangeSet+i)%coor(2) = dAux(7*(i-1)+2)
+    myExchangeSet(nExchangeSet+i)%coor(3) = dAux(7*(i-1)+3)
+    myExchangeSet(nExchangeSet+i)%time    = dAux(7*(i-1)+4)
+    myExchangeSet(nExchangeSet+i)%velo(1) = dAux(7*(i-1)+5)
+    myExchangeSet(nExchangeSet+i)%velo(2) = dAux(7*(i-1)+6)
+    myExchangeSet(nExchangeSet+i)%velo(3) = dAux(7*(i-1)+7)
     myExchangeSet(nExchangeSet+i)%indice  = iAux(2*(i-1)+1)
     myExchangeSet(nExchangeSet+i)%id      = iAux(2*(i-1)+2)
    END DO
@@ -777,11 +781,13 @@ ELSE
   CALL SENDI_myMPI(nExchangeSet,0)
   IF (nExchangeSet.ne.0) THEN
    DO i=1,nExchangeSet
-    dAux(4*(i-1)+1:4*(i-1)+4) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),myExchangeSet(i)%time]
+    dAux(7*(i-1)+1:7*(i-1)+7) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),&
+                                 myExchangeSet(i)%time,&
+                                 myExchangeSet(i)%velo(1),myExchangeSet(i)%velo(2),myExchangeSet(i)%velo(3)]
     iAux(2*(i-1)+1:2*(i-1)+2) = [myExchangeSet(i)%indice,myExchangeSet(i)%id]
    END DO
   CALL SENDK_myMPI(iAux,2*nExchangeSet,0)
-  CALL SENDD_myMPI(dAux,4*nExchangeSet,0)
+  CALL SENDD_myMPI(dAux,7*nExchangeSet,0)
 
   END IF
 END IF
@@ -794,25 +800,30 @@ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 IF (myid.eq.MASTER) THEN
 
  DO i=1,nSum
-  dAux(4*(i-1)+1:4*(i-1)+4) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),myExchangeSet(i)%time]
+  dAux(7*(i-1)+1:7*(i-1)+7) = [myExchangeSet(i)%coor(1),myExchangeSet(i)%coor(2),myExchangeSet(i)%coor(3),&
+                              myExchangeSet(i)%time,&
+                              myExchangeSet(i)%velo(1),myExchangeSet(i)%velo(2),myExchangeSet(i)%velo(3)]
   iAux(2*(i-1)+1:2*(i-1)+2) = [myExchangeSet(i)%indice,myExchangeSet(i)%id]
  END DO
 
  DO pID=1,subnodes
-  CALL SENDD_myMPI(dAux,4*nSum,pID)
+  CALL SENDD_myMPI(dAux,7*nSum,pID)
   CALL SENDK_myMPI(iAux,2*nSum,pID)
  END DO
 
 ELSE
 
-  CALL RECVD_myMPI(dAux,4*nSum,0)
+  CALL RECVD_myMPI(dAux,7*nSum,0)
   CALL RECVK_myMPI(iAux,2*nSum,0)
 
   DO i=1,nSum
-   myExchangeSet(i)%coor(1) = dAux(4*(i-1)+1)
-   myExchangeSet(i)%coor(2) = dAux(4*(i-1)+2)
-   myExchangeSet(i)%coor(3) = dAux(4*(i-1)+3)
-   myExchangeSet(i)%time    = dAux(4*(i-1)+4)
+   myExchangeSet(i)%coor(1) = dAux(7*(i-1)+1)
+   myExchangeSet(i)%coor(2) = dAux(7*(i-1)+2)
+   myExchangeSet(i)%coor(3) = dAux(7*(i-1)+3)
+   myExchangeSet(i)%time    = dAux(7*(i-1)+4)
+   myExchangeSet(i)%velo(1) = dAux(7*(i-1)+5)
+   myExchangeSet(i)%velo(2) = dAux(7*(i-1)+6)
+   myExchangeSet(i)%velo(3) = dAux(7*(i-1)+7)
    myExchangeSet(i)%indice  = iAux(2*(i-1)+1)
    myExchangeSet(i)%id      = iAux(2*(i-1)+2)
   END DO
@@ -838,7 +849,7 @@ INTEGER iN,pID,i,ierr
 REAL*8,  ALLOCATABLE :: dAux(:)
 INTEGER, ALLOCATABLE :: iAux(:)
 
-ALLOCATE(dAux(4*nSum))
+ALLOCATE(dAux(7*nSum))
 ALLOCATE(iAux(2*nSum))
 
 !  WRITE(*,*) "myid,nsum ",myid,nsum
@@ -850,12 +861,15 @@ IF (myid.eq.MASTER) THEN
 
   IF (iN.ne.0) THEN
    CALL RECVK_myMPI(iAux,2*iN,pID)
-   CALL RECVD_myMPI(dAux,4*iN,pID)
+   CALL RECVD_myMPI(dAux,7*iN,pID)
    DO i=1,iN
-    myCompleteSet(nCompleteSet+i)%coor(1) = dAux(4*(i-1)+1)
-    myCompleteSet(nCompleteSet+i)%coor(2) = dAux(4*(i-1)+2)
-    myCompleteSet(nCompleteSet+i)%coor(3) = dAux(4*(i-1)+3)
-    myCompleteSet(nCompleteSet+i)%time    = dAux(4*(i-1)+4)
+    myCompleteSet(nCompleteSet+i)%coor(1) = dAux(7*(i-1)+1)
+    myCompleteSet(nCompleteSet+i)%coor(2) = dAux(7*(i-1)+2)
+    myCompleteSet(nCompleteSet+i)%coor(3) = dAux(7*(i-1)+3)
+    myCompleteSet(nCompleteSet+i)%time    = dAux(7*(i-1)+4)
+    myCompleteSet(nCompleteSet+i)%velo(1) = dAux(7*(i-1)+5)
+    myCompleteSet(nCompleteSet+i)%velo(2) = dAux(7*(i-1)+6)
+    myCompleteSet(nCompleteSet+i)%velo(3) = dAux(7*(i-1)+7)
     myCompleteSet(nCompleteSet+i)%indice  = iAux(2*(i-1)+1)
     myCompleteSet(nCompleteSet+i)%id      = iAux(2*(i-1)+2)
    END DO
@@ -867,11 +881,13 @@ ELSE
   CALL SENDI_myMPI(nActiveSet,0)
   IF (nActiveSet.ne.0) THEN
    DO i=1,nActiveSet
-    dAux(4*(i-1)+1:4*(i-1)+4) = [myActiveSet(i)%coor(1),myActiveSet(i)%coor(2),myActiveSet(i)%coor(3),myActiveSet(i)%time]
+    dAux(7*(i-1)+1:7*(i-1)+7) = [myActiveSet(i)%coor(1),myActiveSet(i)%coor(2),myActiveSet(i)%coor(3),&
+                                 myActiveSet(i)%time,&
+                                 myActiveSet(i)%velo(1),myActiveSet(i)%velo(2),myActiveSet(i)%velo(3)]
     iAux(2*(i-1)+1:2*(i-1)+2) = [myActiveSet(i)%indice,myActiveSet(i)%id]
    END DO
   CALL SENDK_myMPI(iAux,2*nActiveSet,0)
-  CALL SENDD_myMPI(dAux,4*nActiveSet,0)
+  CALL SENDD_myMPI(dAux,7*nActiveSet,0)
   END IF
 END IF
 
@@ -883,25 +899,30 @@ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 IF (myid.eq.MASTER) THEN
 
  DO i=1,nSum
-  dAux(4*(i-1)+1:4*(i-1)+4) = [myCompleteSet(i)%coor(1),myCompleteSet(i)%coor(2),myCompleteSet(i)%coor(3),myCompleteSet(i)%time]
+  dAux(7*(i-1)+1:7*(i-1)+7) = [myCompleteSet(i)%coor(1),myCompleteSet(i)%coor(2),myCompleteSet(i)%coor(3),&
+                               myCompleteSet(i)%time,&
+                               myCompleteSet(i)%velo(1),myCompleteSet(i)%velo(2),myCompleteSet(i)%velo(3)]
   iAux(2*(i-1)+1:2*(i-1)+2) = [myCompleteSet(i)%indice,myCompleteSet(i)%id]
  END DO
 
  DO pID=1,subnodes
-  CALL SENDD_myMPI(dAux,4*nSum,pID)
+  CALL SENDD_myMPI(dAux,7*nSum,pID)
   CALL SENDK_myMPI(iAux,2*nSum,pID)
  END DO
 
 ELSE
 
-  CALL RECVD_myMPI(dAux,4*nSum,0)
+  CALL RECVD_myMPI(dAux,7*nSum,0)
   CALL RECVK_myMPI(iAux,2*nSum,0)
 
   DO i=1,nSum
-   myCompleteSet(i)%coor(1) = dAux(4*(i-1)+1)
-   myCompleteSet(i)%coor(2) = dAux(4*(i-1)+2)
-   myCompleteSet(i)%coor(3) = dAux(4*(i-1)+3)
-   myCompleteSet(i)%time    = dAux(4*(i-1)+4)
+   myCompleteSet(i)%coor(1) = dAux(7*(i-1)+1)
+   myCompleteSet(i)%coor(2) = dAux(7*(i-1)+2)
+   myCompleteSet(i)%coor(3) = dAux(7*(i-1)+3)
+   myCompleteSet(i)%time    = dAux(7*(i-1)+4)
+   myCompleteSet(i)%velo(1) = dAux(7*(i-1)+5)
+   myCompleteSet(i)%velo(2) = dAux(7*(i-1)+6)
+   myCompleteSet(i)%velo(3) = dAux(7*(i-1)+7)
    myCompleteSet(i)%indice  = iAux(2*(i-1)+1)
    myCompleteSet(i)%id      = iAux(2*(i-1)+2)
   END DO
@@ -949,8 +970,9 @@ DO iParticel = nStartActiveSet+1,nActiveSet
 
 iIter = 0
 
-point  = myActiveSet(iParticel)%coor
-tLevel = myActiveSet(iParticel)%time
+point         = myActiveSet(iParticel)%coor
+tLevel        = myActiveSet(iParticel)%time
+dParticleVelo = myActiveSet(iParticel)%velo
 
 55 CONTINUE
 
@@ -1035,7 +1057,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   P   = point 
   PR  = pointR
   
-  CALL MovePointInElement(tLevel,tDelta,tStart,iParticel,jel)
+  CALL MovePointInElement(tLevel,tDelta,tStart,iParticel,myActiveSet(iParticel)%indice)
   
   cdx = 1d0*P(1)
   cdy = 1d0*P(2)
@@ -1085,6 +1107,7 @@ END DO
 IF (.not.bFound) THEN
  iLostParticel = iLostParticel + 1
  myExchangeSet(iLostParticel)%coor   = point
+ myExchangeSet(iLostParticel)%velo   = dParticleVelo 
  myExchangeSet(iLostParticel)%time   = tLevel
  myExchangeSet(iLostParticel)%indice = myActiveSet(iParticel)%indice
  myExchangeSet(iLostParticel)%id     = myActiveSet(iParticel)%id
@@ -1101,6 +1124,7 @@ IF (bFound.AND.bOut) WRITE(*,'(A,I0,I0,3E14.4,A)') '-------  point ', myActiveSe
 
 iActiveParticel = iActiveParticel + 1
 myActiveSet(nStartActiveSet+iActiveParticel)%coor   = point
+myActiveSet(nStartActiveSet+iActiveParticel)%velo   = dParticleVelo
 myActiveSet(nStartActiveSet+iActiveParticel)%time   = tLevel
 myActiveSet(nStartActiveSet+iActiveParticel)%indice = myActiveSet(iParticel)%indice
 myActiveSet(nStartActiveSet+iActiveParticel)%id     = myActiveSet(iParticel)%id
@@ -1122,7 +1146,7 @@ IF (bOut) WRITE(*,*) 'nActiveSet,nExchangeSet: ',nActiveSet,nExchangeSet
 !  myActiveSet(iActiveParticel)%indice = 0
 ! END DO
 
-! pause
+!  pause
 
 END SUBROUTINE Move_Particle_xse
 
@@ -1161,6 +1185,7 @@ iIter = 0
 
 point  = myActiveSet(iParticel)%coor
 tLevel = myActiveSet(iParticel)%time
+dParticleVelo = myActiveSet(iParticel)%velo
 
 55 CONTINUE
 
@@ -1356,6 +1381,7 @@ IF (bFound.AND.bOut) WRITE(*,'(A,I0,I0,3E14.4,A)') '-------  point ', myActiveSe
 
 iActiveParticel = iActiveParticel + 1
 myActiveSet(nStartActiveSet+iActiveParticel)%coor   = point
+myActiveSet(nStartActiveSet+iActiveParticel)%velo   = dParticleVelo
 myActiveSet(nStartActiveSet+iActiveParticel)%time   = tLevel
 myActiveSet(nStartActiveSet+iActiveParticel)%indice = myActiveSet(iParticel)%indice
 myActiveSet(nStartActiveSet+iActiveParticel)%id     = myActiveSet(iParticel)%id
@@ -1394,6 +1420,7 @@ REAL*8 :: dAlpha,XB,YB,ZB
 REAL*8 :: RK_Velo(3,4),DETJ,dVelo,dElemSize,dFracTime,dist,dfrac
 integer imove,ip,ie
 logical :: ok_flag
+REAL*8 :: rho_p,rho_l,d_r,d_A,d_V,d_g(3),d_Up(3),d_U(3),dauxU(3),C_D,magU,d_Mu,dRE
 
 ! write(*,*) myid,'is trying ... ',tLevel,tEnd,tStart
 ! 
@@ -1451,13 +1478,39 @@ DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3)) &
 
 dElemSize = (ABS(DETJ)**0.3333d0)
 
-! write(*,*) myid,'Elemsize... ',dElemSize,DetJ
-! !write(*,*) myid,'P8... ',P8
-! pause
+IF (myParticleParam%bPhysParticles) THEN
+ rho_p = myParticleParam%PhysParticles%rho_p            ! g/cm3
+ rho_l = myParticleParam%PhysParticles%rho_l            ! g/cm3
+ d_r   = myParticleParam%PhysParticles%d_p/2d0       ! cm
+ d_Mu  = myParticleParam%PhysParticles%mu_l     !1d0*1d-3 Pa.s = 0.001 * s*kg*m/s2 / m2 = kg/m/s ==> 0.001 * 1000 g / 100 cm /s = 0.01 g/cm/s % water(@1mPas)
+ d_g   = myParticleParam%PhysParticles%gravity  ! cm/s2
 
-dVelo = SQRT(DV_Loc(1)*DV_Loc(1) + DV_Loc(2)*DV_Loc(2) + DV_Loc(3)*DV_Loc(3))
+ ! derived quantities
+ dPI   = 4d0*datan(1d0)    ! 1
+ d_V   = (4d0/3d0)*dPI*(d_r)**3d0  ! cm3
+ d_A   = (1d0/1d0)*dPI*(d_r)**2d0  ! cm2
+
+ d_U  = dParticleVelo
+ magU = DSQRT(d_U(1)**2d0 + d_U(2)**2d0 + d_U(3)**2d0)
+ if (magU.lt.1d-16) then
+  dParticleVelo = DV_Loc
+ end if
+
+ d_U  = DV_Loc - dParticleVelo
+ magU = DSQRT(d_U(1)**2d0 + d_U(2)**2d0 + d_U(3)**2d0)
+ dRE = rho_l*(2d0*d_r)*magU/d_Mu
+ dRE = Min(1d4,MAX(1d-2,dRE))
+ C_D = (24d0/dRE)*(1d0 + 0.15*dRE**(0.687d0))
+ dauxU =  (1d0/2d0)*rho_l*C_D*magU*d_U*d_A + (rho_p - rho_l)*d_g*d_V
+
+ dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+ELSE
+ dParticleVelo = DV_Loc
+END IF
+ 
+dVelo = SQRT(dParticleVelo(1)*dParticleVelo(1) + dParticleVelo(2)*dParticleVelo(2) + dParticleVelo(3)*dParticleVelo(3))
 DeltaT = myParticleParam%hSize*dElemSize/dVelo
-! DeltaT = 0.001d0
+
 IF ((tLevel + DeltaT).GT.tEnd) THEN
  DeltaT = tEnd - tLevel
 END IF
@@ -1465,87 +1518,51 @@ dFracTime = (tLevel + 0.5d0*DeltaT - tStart)/(tEnd - tStart)
 
 55 CONTINUE
 
-RK_Velo(:,1) = DV_Loc
+ CALL FindPoint(1d0,dParticleVelo)  ! --> XI1,XI2,XI3
 
-! WRITE(*,'(A,7E14.4,I)') 'position0: ', P,P_New
+ CALL RETURN_Velo()                     ! --> DV_loc
+ 
+IF (myParticleParam%bPhysParticles) THEN
+ d_U  = DV_Loc - dParticleVelo
+ magU = DSQRT(d_U(1)**2d0 + d_U(2)**2d0 + d_U(3)**2d0)
+ dRE = rho_l*(2d0*d_r)*magU/d_Mu
+ dRE = Min(1d4,MAX(1d-2,dRE))
+ C_D = (24d0/dRE)*(1d0 + 0.15*dRE**(0.687d0))
 
-CALL FindPoint(2d0/2d0,DV_loc)  ! --> XI1,XI2,XI3
-! WRITE(*,'(A,7E14.4,I)') 'position1: ', P,P_New
-CALL RETURN_Velo()              ! --> DV_loc
-! WRITE(*,'(A,7E14.4,I)') 'position2: ', P,P_New
-! RK_Velo(:,2) = DV_loc
-!
-! CALL FindPoint(1d0/2d0,DV_loc)  ! --> XI1,XI2,XI3
-! CALL RETURN_Velo()              ! --> DV_loc
-! RK_Velo(:,3) = DV_loc
-!
-! CALL FindPoint(2d0/2d0,DV_loc)  ! --> XI1,XI2,XI3
-! CALL RETURN_Velo()              ! --> DV_loc
-! RK_Velo(:,4) = DV_loc
-!
-! DV_Loc = (1d0/6d0)*(RK_Velo(:,1) + 2d0*RK_Velo(:,2) + 2d0*RK_Velo(:,3) + RK_Velo(:,4))
-! ! DV_Loc = (0.25d0*RK_Velo(:,1) + 0.75d0*RK_Velo(:,2))
-!
-! CALL FindPoint(1d0/1d0,DV_loc)  ! --> XI1,XI2,XI3
-P(1) = P_New(1)
-P(2) = P_New(2)
-P(3) = P_New(3)
-! CALL RETURN_Velo()              ! --> DV_loc
+ dauxU =  (1d0/2d0)*rho_l*C_D*magU*d_U*d_A + (rho_p - rho_l)*d_g*d_V
 
-tLevel = tLevel + DeltaT
-iMove  = iMove + 1
-
-! !WRITE(*,'(A,7E14.4,I)') 'position: ', P
-
-IF ((ABS(XI1).GT.1.01d0.OR.ABS(XI2).GT.1.01d0.OR.ABS(XI3).GT.1.01d0).OR.(tLevel.ge.tEnd)) THEN
-! Reached the end of the element -> leave the routine
-GOTO 5
+ dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+ 
 ELSE
-
-! IF ((tLevel + DeltaT).GT.tEnd) THEN
-!  DeltaT = tEnd - tLevel
-! END IF
-! We are still in the element - go back and continue marching in the element
-! write(*,*) myid,'Elemsize... ',dElemSize,DetJ
-! write(*,*) myid,'is trying to here ... ',iMove,tLevel,DeltaT,tEnd,myParticleParam%hSize,dElemSize,dVelo
-! pause
-GOTO 55
-
+ dParticleVelo = DV_Loc
 END IF
 
-5 CONTINUE
+ IF (isnan(magU)) pause
+ 
+  P(1) = P_New(1)
+  P(2) = P_New(2)
+  P(3) = P_New(3)
 
-! write(*,*) myid,'is trying to here ... ',tLevel,tEnd,tStart
-! pause
+  tLevel = tLevel + DeltaT
+  iMove  = iMove + 1
+
+  IF ((ABS(XI1).GT.1.01d0.OR.ABS(XI2).GT.1.01d0.OR.ABS(XI3).GT.1.01d0).OR.(tLevel.ge.tEnd)) THEN
+  ! Reached the end of the element -> leave the routine
+  GOTO 5
+ ELSE
+
+! We are still in the element - go back and continue marching in the element
+  GOTO 55
+
+ END IF
+
+5 CONTINUE
 
 XX = P(1)
 YY = P(2)
 ZZ = P(3)
 
 dist = SQRT(YY*YY + XX*XX)
-
-
-! WRITE(*,'(A,7E14.4,I)') 'my velocity: ', DV_loc,dVelo,DeltaT
-! WRITE(*,'(A,4E14.4,I)') 'my final position: ', P,tLevel,iMove
-! pause
-
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-! IF (dist.ge.myParticleParam%dEps1*myParticleParam%D_Out*0.5d0) THEN
-! dFrac = dist/(myParticleParam%dEps2*myParticleParam%D_Out*0.5d0)
-! XX = XX/dFrac
-! YY = YY/dFrac
-! 
-! P(1) = XX
-! P(2) = YY
-! ! WRITE(*,*) '... problem is being fixed .. '
-! END IF
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! CORRECTION !!!!!!!!!!!!!!!!!!!!!!!!
-
-
 
 end subroutine MovePointInElement
 
@@ -1602,7 +1619,6 @@ REAL*8 fFact,dLocalVelo(3)
 !!!!!!!!!!!!!!!!!!!!!!!
 REAL*8 :: DV_Rot(3),dVV(3)
 REAL*8 :: dAlpha,XB,YB,ZB,dtheta
-REAL*8 :: RK_Velo(3,4)
 REAL*8 :: dRR,dU_r,dU_theta,dU_z,dRho,dRho0,dRho1,dZ,daux,dFact
 !LOGICAL :: bRotationalMovement=.false.
 
@@ -1646,7 +1662,9 @@ if (myParticleParam%bRotationalMovement) then
  P_New(3) = ZB + dZ
 ELSE
 
- P_New = P + fFact*DeltaT * dLocalVelo
+ !REAL*8 rho_p,rho_l,d_p,d_A,d_V,d_g(3),d_Up(3),dauxU(3),C_D,magU
+
+ P_New = P + fFact*DeltaT * dParticleVelo ! dParticleVelo
 
 end if
 

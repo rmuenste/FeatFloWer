@@ -389,6 +389,11 @@ TYPE tParticleInflow
  REAL*8 :: Center(3), Radius
 END TYPE tParticleInflow
 
+TYPE tPhysParticles
+ REAL*8 :: rho_l, rho_p, d_p, mu_l
+ REAL*8 :: gravity(3) 
+END TYPE tPhysParticles
+
 TYPE tParticleParam
  REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist,OutflowZPos
  REAL*8 :: minFrac
@@ -420,10 +425,12 @@ TYPE tParticleParam
  
  LOGICAL :: bRotationalMovement=.true.
 
- LOGICAL :: bBacktrace=.false.
+ LOGICAL :: bBacktrace=.false.,bPhysParticles=.false.
  
  INTEGER :: NumberOfInflowRegions=0
  TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
+ 
+ TYPE (tPhysParticles) :: PhysParticles
  
  !!!! Seeding 
  INTEGER  :: Plane = 0, PlaneParticles = 0, VolumeParticles = 0

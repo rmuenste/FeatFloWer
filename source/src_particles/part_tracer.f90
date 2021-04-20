@@ -58,9 +58,13 @@ myMatrixRenewal%C = 0
 
 !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
  ALLOCATE(myVelo(0:myParticleParam%nTimeLevels-1))
-
 DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticleParam%nTimeLevels
  myParticleParam%dump_in_file = iFile*iAngle
+ if (myParticleParam%DumpFormat.eq.1) THEN
+  WRITE(cFile,'(I0)') myParticleParam%dump_in_file
+  CALL init_sol_same_level(cFile)
+ END IF
+
  if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
  ALLOCATE(myVelo(iFile)%x(QuadSc%ndof))
  ALLOCATE(myVelo(iFile)%y(QuadSc%ndof))
@@ -69,7 +73,7 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
  myVelo(iFile)%y = QuadSc%ValV
  myVelo(iFile)%z = QuadSc%ValW
  IF (myid.eq.1) WRITE(*,*) 'File ',iFile, ' is loaded... ==> angle :', iFile*iAngle
- 
+
  if (myParticleParam%nPeriodicity.gt.1) then
   DO iPerio = 1,myParticleParam%nPeriodicity-1
    jFile = iFile + iPeriodicityShift*(iPerio) 
@@ -286,13 +290,18 @@ myMatrixRenewal%C = 0
 
 ALLOCATE(myVelo(1))
 
-WRITE(cFile,'(I0)') myParticleParam%dump_in_file
 ! CALL SolFromFile(cFile,1)
 
 !!!!!!!!!!!!!!!!!!! choose one fof these !!!!!!!!!!!!!!!!!!!!!!
-if (myParticleParam%DumpFormat.eq.1) CALL init_sol_same_level(cFile)
+if (myParticleParam%DumpFormat.eq.1) THEN
+ WRITE(cFile,'(I0)') myParticleParam%dump_in_file
+ CALL init_sol_same_level(cFile)
+END IF
 if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
-if (myParticleParam%DumpFormat.eq.3) CALL init_sol_repart(cFile)
+if (myParticleParam%DumpFormat.eq.3) THEN
+ WRITE(cFile,'(I0)') myParticleParam%dump_in_file
+ CALL init_sol_repart(cFile)
+END IF
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
@@ -771,7 +780,6 @@ IF (myid.eq.1) THEN
 END IF
 
 call Init_Particles_from_csv_xse(mfile)
-
 ! Now the part that is identical for all initialisations
 if (myParticleParam%nZposCutplanes .gt. 0 ) then
   ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,5,1:myParticleParam%nParticles))
@@ -820,6 +828,14 @@ IF (myid.eq.1) THEN
    WRITE(mfile,'(A,I0,A,1ES12.4)') 'myParticleParam%InflowRadius',i,' = ', myParticleParam%InflowRegion(i)%Radius
   end do
  END IF
+ WRITE(mfile,*) 'myParticleParam%bPhysParticles  = ', myParticleParam%bPhysParticles
+ IF (myParticleParam%bPhysParticles) then
+  WRITE(mfile,*) 'myParticleParam%PhysParticles%rho_l    = ', myParticleParam%PhysParticles%rho_l
+  WRITE(mfile,*) 'myParticleParam%PhysParticles%rho_p    = ', myParticleParam%PhysParticles%rho_p
+  WRITE(mfile,*) 'myParticleParam%PhysParticles%mu_l     = ', myParticleParam%PhysParticles%mu_l
+  WRITE(mfile,*) 'myParticleParam%PhysParticles%d_p      = ', myParticleParam%PhysParticles%d_p
+  WRITE(mfile,*) 'myParticleParam%PhysParticles%gravity  = ', myParticleParam%PhysParticles%gravity
+ END IF
 
  WRITE(mterm,*) 'myParticleParam%dump_in_file = ', myParticleParam%dump_in_file
  WRITE(mterm,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
@@ -847,6 +863,14 @@ IF (myid.eq.1) THEN
    WRITE(mterm,'(A,I0,A,3ES12.4)') 'myParticleParam%InflowCenter',i,' = ', myParticleParam%InflowRegion(i)%Center
    WRITE(mterm,'(A,I0,A,1ES12.4)') 'myParticleParam%InflowRadius',i,' = ', myParticleParam%InflowRegion(i)%Radius
   end do
+ END IF
+ WRITE(mterm,*) 'myParticleParam%bPhysParticles  = ', myParticleParam%bPhysParticles
+ IF (myParticleParam%bPhysParticles) then
+  WRITE(mterm,*) 'myParticleParam%PhysParticles%rho_l    = ', myParticleParam%PhysParticles%rho_l
+  WRITE(mterm,*) 'myParticleParam%PhysParticles%rho_p    = ', myParticleParam%PhysParticles%rho_p
+  WRITE(mterm,*) 'myParticleParam%PhysParticles%mu_l     = ', myParticleParam%PhysParticles%mu_l
+  WRITE(mterm,*) 'myParticleParam%PhysParticles%d_p      = ', myParticleParam%PhysParticles%d_p
+  WRITE(mterm,*) 'myParticleParam%PhysParticles%gravity  = ', myParticleParam%PhysParticles%gravity
  END IF
 END IF
 
@@ -1377,6 +1401,8 @@ DO
       cdy = myParticleParam%dFacUnitSourcefile*dBuff(2)
       cdz = myParticleParam%dFacUnitSourcefile*dBuff(3)
       CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cdX0,cdY0,cdZ0,iProjection)
+!      CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,.true.,cdX0,cdY0,cdZ0,iProjection)
+!       write(*,'(8es12.4)') cdx,cdy,cdz,cdX0,cdY0,cdZ0, dist_CGAL,myParticleParam%d_CorrDist
       if (dist_CGAL.gt.1d0*myParticleParam%d_CorrDist) then
         iElements = iElements + 1
       end if
@@ -1452,21 +1478,25 @@ DO
          idx4 = 4*iElement - 0
 
          myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx1)%velo    = 0d0
          myExchangeSet(idx1)%time    = 0d0
          myExchangeSet(idx1)%indice  = idx1
          if (dValues(Columns(1)).ne.0) myExchangeSet(idx1)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx2)%velo    = 0d0
          myExchangeSet(idx2)%time    = 0d0
          myExchangeSet(idx2)%indice  = idx2
          if (dValues(Columns(1)).ne.0) myExchangeSet(idx2)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+         myExchangeSet(idx3)%velo    = 0d0
          myExchangeSet(idx3)%time    = 0d0
          myExchangeSet(idx3)%indice  = idx3
          if (dValues(Columns(1)).ne.0) myExchangeSet(idx3)%id = int(dValues(Columns(1))) 
 
          myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+         myExchangeSet(idx4)%velo    = 0d0
          myExchangeSet(idx4)%time    = 0d0
          myExchangeSet(idx4)%indice  = idx4
          if (dValues(Columns(1)).ne.0) myExchangeSet(idx4)%id = int(dValues(Columns(1))) 
@@ -1872,12 +1902,14 @@ IF (myid.eq.1) THEN
 WRITE(cFile,'(A,I8.8,A4)') '_RTD/Particles_',iT,'.csv'
 OPEN(FILE=TRIM(ADJUSTL(cFile)),UNIT = 412)
 
-WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
+WRITE(412,'(9A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time",','"velo_X",','"velo_Y",','"velo_Z"'
 DO i=1,nCompleteSet
- WRITE(412,'(3(E16.7,A),2(I0,A),E16.7)') REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
+ WRITE(412,'(3(E16.7,A),2(I0,A),E16.7,3(A,E16.7))') &
+                               REAL(myCompleteSet(i)%coor(1)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(2)*myParticleParam%dFacUnitOut),',', &
                                REAL(myCompleteSet(i)%coor(3)*myParticleParam%dFacUnitOut),',', &
-                               myCompleteSet(i)%indice,',',myCompleteSet(i)%id,',',REAL(myCompleteSet(i)%time)
+                               myCompleteSet(i)%indice,',',myCompleteSet(i)%id,',',REAL(myCompleteSet(i)%time),',',&
+                               REAL(myCompleteSet(i)%velo(1)),',',REAL(myCompleteSet(i)%velo(2)),',',REAL(myCompleteSet(i)%velo(3))
 END DO
 
 CLOSE(412)
