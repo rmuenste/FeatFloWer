@@ -1092,7 +1092,9 @@ END IF
 
 ! Bingham
 IF (myRheology%Equation.EQ.6) THEN
- VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+ VNN = 1d1*(myRheology%A + myRheology%C/(myRheology%B + dLimStrs) )
+
+! VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
