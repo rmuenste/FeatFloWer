@@ -394,6 +394,8 @@ TYPE (tParticleParam) :: myParticleParam
 
 TYPE (tErrorCodes) ::  myErrorCode
 
+TYPE (tMGSteps) MGSteps
+
 contains 
 integer function KNEL(ilevel)
   implicit none

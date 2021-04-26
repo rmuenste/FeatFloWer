@@ -628,4 +628,12 @@ TYPE tErrorCodes
  INTEGER :: SIGMA_READER=44
 END TYPE
 
+TYPE tMGSteps
+ INTEGER :: m=2
+ INTEGER :: i,j,iaux
+ real*8  :: daux
+ INTEGER, allocatable :: n(:)
+ REAL*8, allocatable :: r(:)
+END TYPE tMGSteps
+
 end module types

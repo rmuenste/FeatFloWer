@@ -706,6 +706,14 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 
+if (.not.allocated(MGSteps%n)) THEN 
+ allocate(MGSteps%n(MGSteps%m))
+ allocate(MGSteps%r(MGSteps%m))
+ MGSteps%i = 0
+ MGSteps%n = 0
+ MGSteps%r = 0d0
+END IF
+
 thstep = tstep*(1d0-theta)
 
 ILEV = NLMAX
@@ -788,6 +796,29 @@ DO INL=1,QuadSc%prm%NLmax
   ! ! Calling the solver
   CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
   Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+
+  MGSteps%j = MOD(MGSteps%i,MGSteps%m) + 1
+  MGSteps%n = 0
+  MGSteps%r(MGSteps%j) = QuadSc%prm%MGprmOut(1)%RhoMG1
+  MGSteps%n(MGSteps%j) = QuadSc%prm%MGprmIn%nSmootherSteps
+  MGSteps%i = MGSteps%i + 1
+  MGSteps%daux = 0d0
+!   if (myid.eq.1) WRITE(*,*) 'MG data:', MGSteps%i,MGSteps%m
+  if (MGSteps%i.ge.MGSteps%m) THEN
+   DO i = 1,MGSteps%m
+    MGSteps%daux = MGSteps%daux + MGSteps%r(i)
+   END DO
+   MGSteps%daux = MGSteps%daux/dble(MGSteps%m)
+!    if (myid.eq.1) WRITE(*,*) 'AVG MG rate:', MGSteps%daux,MGSteps%r
+   IF (MGSteps%daux.lt.3d-3) THEN
+    QuadSc%prm%MGprmIn%nSmootherSteps = MAX(MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.75d0),QuadSc%prm%MGprmIn%nSmootherSteps-1),4)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+   END IF
+   IF (MGSteps%daux.gt.3d-1) THEN
+    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),32)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
+   END IF
+  END IF
 
   !!!!!          Checking the quality of the result           !!!!
   !!!!! ----------------------------------------------------- !!!!
