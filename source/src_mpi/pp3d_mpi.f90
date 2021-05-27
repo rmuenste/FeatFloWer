@@ -1944,7 +1944,7 @@ SUBROUTINE COMMDEX(FX,FB,FD,NEQ,RHO) !ok
       END DO
 
       !       Solve the system on coarse grid
-      CALL YEXU(FX,FB,FD,NAT,RHO)
+!       CALL YEXU(FX,FB,FD,NAT,RHO)
       !  WRITE(*,*) "solve ...",RHO
 
       DO pID=1,subnodes
@@ -1989,7 +1989,7 @@ SUBROUTINE COMMDEX(FX,FB,FD,NEQ,RHO) !ok
       END DO
 
       !       Solve the system on coarse grid
-      CALL YEXP(FX,FB,FD,NEL,RHO)
+!       CALL YEXP(FX,FB,FD,NEL,RHO)
       !         WRITE(*,*) "solve ...",RHO
 
       DO pID=1,subnodes

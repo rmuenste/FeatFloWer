@@ -1082,6 +1082,7 @@ do
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
   IF     (mySigma%mySegment(iSeg)%Regulation.eq."PID") THEN
     CALL PID_controller(mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature,tstep,mySigma%mySegment(iSeg)%PID_Ctrl)
+!    mySigma%mySegment(iSeg)%UseHeatSource  = min(mySigma%mySegment(iSeg)%HeatSourceMax,max(mySigma%mySegment(iSeg)%HeatSourceMin,1e-3*mySigma%mySegment(iSeg)%PID_Ctrl%PID))
     mySigma%mySegment(iSeg)%UseHeatSource  = 1e-3*mySigma%mySegment(iSeg)%PID_Ctrl%PID
     mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
     IF (myid.eq.1) then
