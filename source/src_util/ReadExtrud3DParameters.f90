@@ -13,7 +13,7 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr
+    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr,iSubInflow
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
@@ -973,7 +973,13 @@
        else
         dFlow = 0d0
         do iInflow=1,myProcess%nOfInflows
-         dFlow = dFlow + myProcess%myInflow(iInflow)%massflowrate  
+         IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+          dFlow = dFlow + myProcess%myInflow(iInflow)%massflowrate  
+         ELSE
+          DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
+           dFlow = dFlow + myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate  
+          END DO
+         END IF
         enddo
         myProcess%ExtrusionSpeed = 1d2*(dFlow/3600d0)/(dArea*1e-6)/(1d3*(myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig))
        end if
@@ -1404,12 +1410,26 @@
      if (iInflow.gt.9.and.iInflow.le.99) WRITE(cInflow_i,'(A,I2.2)') 'Inflow_',iInflow
      if (iInflow.gt.99.and.iInflow.le.999) WRITE(cInflow_i,'(A,I3.3)') 'Inflow_',iInflow
      
-     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
-     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
-     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
-     write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius
-     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%center
-     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_normal'//'=',myProcess%myInflow(iInflow)%normal
+     IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius
+      write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%center
+      write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_normal'//'=',myProcess%myInflow(iInflow)%normal
+     ELSE
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'nSubInflows = ',myProcess%myInflow(iInflow)%nSubInflows
+      DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
+       write(*,'(A,I0,A)') "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Sub_',iSubinflow
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%InnerRadius
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%OuterRadius
+       write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
+       write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_normal'//'=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
+      END DO
+     END IF
+     
     END DO
 
     write(*,*)
@@ -1665,44 +1685,98 @@
      if (TRIM(cUnit).eq.'DM') daux = 10.00d0
      if (TRIM(cUnit).eq.'M')  daux = 100.0d0
 
-     call INIP_getvalue_int(parameterlist,cInflow_i,"Material",myProcess%myInflow(iInflow)%Material,0)
-     if (myProcess%myInflow(iInflow)%Material.eq.0) write(*,*) 'UNDEFINED material from Inflow ',iInflow,' !!'
+     call INIP_getvalue_int(parameterlist,cInflow_i,"nSubInflows",myProcess%myInflow(iInflow)%nSubInflows,0)
+     
+     IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+     
+      call INIP_getvalue_int(parameterlist,cInflow_i,"Material",myProcess%myInflow(iInflow)%Material,0)
+      if (myProcess%myInflow(iInflow)%Material.eq.0) write(*,*) 'UNDEFINED material from Inflow ',iInflow,' !!'
 
-     call INIP_getvalue_string(parameterlist,cInflow_i,"Type",cBCtype,'unknown')
-     call inip_toupper_replace(cBCtype)
-     myProcess%myInflow(iInflow)%iBCtype = 0
-     IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA1") THEN
-      myProcess%myInflow(iInflow)%iBCtype = 1
+      call INIP_getvalue_string(parameterlist,cInflow_i,"Type",cBCtype,'unknown')
+      call inip_toupper_replace(cBCtype)
+      myProcess%myInflow(iInflow)%iBCtype = 0
+      IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA1") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 1
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA2") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 2
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."FLAT") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 3
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 4
+      END IF
+      if (myProcess%myInflow(iInflow)%iBCtype.eq.0) then
+       write(*,*) 'UNDEFINED Inflow type!!'
+      end if
+      
+      call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
+      if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
+      
+      call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
+      myProcess%myInflow(iInflow)%innerradius = daux*myProcess%myInflow(iInflow)%innerradius
+      if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
+      
+      call INIP_getvalue_double(parameterlist,cInflow_i,"outerradius",myProcess%myInflow(iInflow)%outerradius,myInf)
+      myProcess%myInflow(iInflow)%outerradius = daux*myProcess%myInflow(iInflow)%outerradius
+      if (myProcess%myInflow(iInflow)%outerradius.eq.myInf) write(*,*) 'UNDEFINED outer radius for Inflow',iInflow,' !!'
+      
+      call INIP_getvalue_string(parameterlist,cInflow_i,"center",cCenter,'unknown')
+      call INIP_getvalue_string(parameterlist,cInflow_i,"normal",cNormal,'unknown')
+      read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
+      myProcess%myInflow(iInflow)%Center = daux*myProcess%myInflow(iInflow)%Center
+      read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
+     ELSE
+      
+      ALLOCATE(myProcess%myInflow(iInflow)%mySubInflow(myProcess%myInflow(iInflow)%nSubInflows))
+      
+      DO iSubInflow = 1,myProcess%myInflow(iInflow)%nSubInflows
+       WRITE(cInflow_i,'(A,A,I0,A,I0)') ADJUSTL(TRIM(cINI)),"/Inflow_",iInflow,"/Sub_",iSubInflow
+       WRITE(*,*)"'",ADJUSTL(TRIM(cInflow_i)),"'"
+      
+       call INIP_getvalue_int(parameterlist,cInflow_i,"Material",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material,0)
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material.eq.0) write(*,*) 'UNDEFINED material from Inflow ',iInflow,' !!'
+
+       call INIP_getvalue_string(parameterlist,cInflow_i,"Type",cBCtype,'unknown')
+       call inip_toupper_replace(cBCtype)
+       myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 0
+       IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA1") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 1
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA2") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 2
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."FLAT") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 3
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 4
+       END IF
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype.eq.0) then
+        write(*,*) 'UNDEFINED Inflow type!!'
+       end if
+       
+       call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate,myInf)
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
+       
+       call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius,myInf)
+       myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius = daux*myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
+       
+       call INIP_getvalue_double(parameterlist,cInflow_i,"outerradius",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius,myInf)
+       myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius = daux*myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius.eq.myInf) write(*,*) 'UNDEFINED outer radius for Inflow',iInflow,' !!'
+       
+       call INIP_getvalue_string(parameterlist,cInflow_i,"center",cCenter,'unknown')
+       call INIP_getvalue_string(parameterlist,cInflow_i,"normal",cNormal,'unknown')
+       read(cCenter,*,err=55) myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Center
+       myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Center = daux*myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Center
+       read(cNormal,*,err=56) myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Normal
+       
+      END DO
+      
      END IF
-     IF (ADJUSTL(TRIM(cBCtype)).eq."ROTATEDPARABOLA2") THEN
-      myProcess%myInflow(iInflow)%iBCtype = 2
-     END IF
-     IF (ADJUSTL(TRIM(cBCtype)).eq."FLAT") THEN
-      myProcess%myInflow(iInflow)%iBCtype = 3
-     END IF
-     IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
-      myProcess%myInflow(iInflow)%iBCtype = 4
-     END IF
-     if (myProcess%myInflow(iInflow)%iBCtype.eq.0) then
-      write(*,*) 'UNDEFINED Inflow type!!'
-     end if
-     
-     call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
-     if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
-     
-     call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
-     myProcess%myInflow(iInflow)%innerradius = daux*myProcess%myInflow(iInflow)%innerradius
-     if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
-     
-     call INIP_getvalue_double(parameterlist,cInflow_i,"outerradius",myProcess%myInflow(iInflow)%outerradius,myInf)
-     myProcess%myInflow(iInflow)%outerradius = daux*myProcess%myInflow(iInflow)%outerradius
-     if (myProcess%myInflow(iInflow)%outerradius.eq.myInf) write(*,*) 'UNDEFINED outer radius for Inflow',iInflow,' !!'
-     
-     call INIP_getvalue_string(parameterlist,cInflow_i,"center",cCenter,'unknown')
-     call INIP_getvalue_string(parameterlist,cInflow_i,"normal",cNormal,'unknown')
-     read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
-     myProcess%myInflow(iInflow)%Center = daux*myProcess%myInflow(iInflow)%Center
-     read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
      GOTO 57     
 55   write(*,*) 'WRONGLY DEFINED center for Inflow',iInflow,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
      GOTO 57

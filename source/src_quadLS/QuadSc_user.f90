@@ -104,6 +104,7 @@ REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
 REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
+integer iSubInflow
 real*8 dRPM
 
 ValU = 0d0
@@ -117,59 +118,86 @@ IF (iT.lt.0) THEN
  IF (ALLOCATED(myProcess%myInflow)) then
   IF (SIZE(myProcess%myInflow).ge.iInflow) then
  
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
+   IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+   
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
 
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+   ELSE
    
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
-   
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
+    DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
+    
+     IF (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCType.eq.1) then
+      dCenter       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
+      dNormal       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
+      dMassFlow     = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+      iMat          = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+      ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+      douterradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
+      dinnerradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
+      dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+      daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+      if (daux.ne.0d0) then
+       ValU = dProfil(1)
+       ValV = dProfil(2)
+       ValW = dProfil(3)
+      END IF
+     END IF
+     
+    END DO
+    
    END IF
   else
    write(*,*) 'Inflow array is not allocated!!', iInflow,SIZE(myProcess%myInflow)

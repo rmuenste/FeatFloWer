@@ -258,7 +258,7 @@ TYPE tProperties
  REAL*8 :: ViscoLambda
  REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
  REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
- INTEGER :: ViscoModel
+ INTEGER :: ViscoModel,nTPSubSteps,nTPIterations
  INTEGER :: nInterface
 END TYPE tProperties
 
@@ -540,7 +540,16 @@ TYPE tRheology
    REAL*8 :: ViscoMax = 1e10
 END TYPE tRheology
 
+TYPE tSubInflow
+ INTEGER iBCtype,Material
+ REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  center(3),normal(3)
+END TYPE tSubInflow
+
 TYPE tInflow
+ INTEGER :: nSubInflows=0
+ TYPE (tSubInflow), dimension(:), allocatable :: mySubInflow
+ 
  INTEGER iBCtype,Material
  REAL*8  massflowrate, outerradius,innerradius
  REAL*8  center(3),normal(3)
