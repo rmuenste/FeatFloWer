@@ -8,9 +8,11 @@ def loadFile(fileName):
   ext = splitName[1]
 
   if ext == ".stl":
-    print("stl")
+#    print("stl")
+    bpy.ops.import_mesh.stl(filepath=fileName)
   elif ext == ".off":
-    print("off")
+#    print("off")
+    bpy.ops.import_mesh.off(filepath=fileName)
   else:
     sys.exit(2)
 
@@ -21,10 +23,13 @@ def checkManifold(fileName):
   count = 0
   myObjects = bpy.data.objects
   myScene = bpy.data.scenes['Scene']
+  found = False
   for o in myObjects:
 #    if o.type == 'MESH':
-    if re.search(objectName, o.name):
+#    print(o.name, o.type)
+    if re.search(objectName, o.name, re.IGNORECASE):
         print("Mesh name (should be the same as the file name without extension): %s" %o.name)
+        found = True
         myScene = bpy.data.scenes['Scene']
         bpy.context.scene.objects.active = o
         o.select = True
@@ -40,6 +45,8 @@ def checkManifold(fileName):
         if len(verts) > 0 or len(edges) > 0:
             print("This is a non-manifold mesh.")
 
+  if not found:
+      print("A mesh that matches the file name could not be found in %s" %fileName)
 def main():
 
   argv = sys.argv
@@ -52,7 +59,7 @@ def main():
 
   fileName = argv[0]
   print("Name : %s" %fileName)
-  bpy.ops.import_mesh.off(filepath=fileName)
+  loadFile(fileName)
   checkManifold(fileName)
 
 if __name__ == "__main__":
