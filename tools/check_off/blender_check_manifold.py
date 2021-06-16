@@ -4,7 +4,7 @@ import getopt
 import sys
 
 def usage():
-  print("Usage: check_off.py [options]")
+  print("Usage: blender_check_manifold.py [options]")
   print("Where options can be:")
   print("[-h, --help]: prints this message")
   print("[-p, --blender-path]: path to blender executable")
@@ -32,7 +32,7 @@ def main():
 
     workingDir = os.path.dirname(os.path.abspath(__file__))  
     print(workingDir)
-    command = "%s -noaudio --background -P %s/check_off.py " \
+    command = "%s -noaudio --background -P %s/check_manifold.py " \
             "-- %s" %(blenderPath, workingDir, fileName)
 
     subprocess.call([command], shell=True)

@@ -8,12 +8,21 @@ def loadFile(fileName):
   ext = splitName[1]
 
   if ext == ".stl":
-#    print("stl")
-    bpy.ops.import_mesh.stl(filepath=fileName)
+#     print("stl")
+    if os.path.exists(fileName): 
+      bpy.ops.import_mesh.stl(filepath=fileName)
+    else:
+      print("File %s was not found on the system." %fileName)
+      sys.exit(2)
   elif ext == ".off":
 #    print("off")
-    bpy.ops.import_mesh.off(filepath=fileName)
+    if os.path.exists(fileName): 
+      bpy.ops.import_mesh.off(filepath=fileName)
+    else:
+      print("File %s was not found on the system." %fileName)
+      sys.exit(2)
   else:
+    print("File %s has extension %s which cannot be handled." %(fileName, ext))
     sys.exit(2)
 
 def checkManifold(fileName):
@@ -25,10 +34,13 @@ def checkManifold(fileName):
   myScene = bpy.data.scenes['Scene']
   found = False
   for o in myObjects:
-#    if o.type == 'MESH':
-#    print(o.name, o.type)
-    if re.search(objectName, o.name, re.IGNORECASE):
-        print("Mesh name (should be the same as the file name without extension): %s" %o.name)
+#    if o.type != 'MESH' and o.name != 'Cube':
+#        print(o.name, o.type)
+#        continue
+#    if re.search(objectName, o.name, re.IGNORECASE):
+    if o.type == 'MESH' and o.name != 'Cube':
+        print(o.name, o.type)
+        #print("Mesh name (should be the same as the file name without extension): %s" %o.name)
         found = True
         myScene = bpy.data.scenes['Scene']
         bpy.context.scene.objects.active = o
@@ -44,6 +56,8 @@ def checkManifold(fileName):
         print("There are %s non-manifold edges." % len(edges))
         if len(verts) > 0 or len(edges) > 0:
             print("This is a non-manifold mesh.")
+        else:
+            print("This is a manifold mesh.")
 
   if not found:
       print("A mesh that matches the file name could not be found in %s" %fileName)
