@@ -5,13 +5,15 @@ project(CHECK_OFF C CXX)
 
 file(COPY "cube.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "fail.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY "check_off.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY "blender_check_off.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "fail.stl" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "wurfel.stl" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "check_manifold.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "blender_check_manifold.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # add a binary
-add_executable(check_off cgal_test.cpp)
+add_executable(check_manifold cgal_test.cpp)
 
-get_target_property(MYTARGET check_off NAME)
+get_target_property(MYTARGET check_manifold NAME)
 
 target_link_libraries(${MYTARGET} ${CGAL_LIBRARIES}) 
 
