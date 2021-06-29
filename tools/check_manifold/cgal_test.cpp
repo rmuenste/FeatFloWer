@@ -7,7 +7,6 @@
 #include <CGAL/boost/graph/graph_traits_Polyhedron_3.h>
 #include <CGAL/AABB_halfedge_graph_segment_primitive.h>
 #include <CGAL/AABB_face_graph_triangle_primitive.h>
-#include <CGAL/IO/Polyhedron_builder_from_STL.h>
 #include <CGAL/IO/Polyhedron_scan_OFF.h>
 #include <CGAL/IO/Polyhedron_iostream.h>
 #include <fstream>
@@ -20,12 +19,63 @@
 #include <CGAL/basic.h>
 #include <CGAL/IO/File_header_OFF.h>
 #include <CGAL/IO/File_scanner_OFF.h>
+#include <CGAL/IO/STL_reader.h>
 #include <CGAL/Modifier_base.h>
 #include <CGAL/Polyhedron_incremental_builder_3.h>
 #include <iostream>
 #include <cstddef>
 
 namespace CGAL {
+
+template <class HDS>
+class Polyhedron_builder_from_STL : public CGAL::Modifier_base<HDS> {
+  typedef typename HDS::Vertex::Point Point_3;
+  typedef std::vector<cpp11::array<double, 3> > Points_3;
+  typedef cpp11::array<int,3> Facet;
+  typedef std::vector<Facet> Surface;
+
+  std::istream& is;
+  Points_3 meshPoints;
+  Surface mesh;
+
+public:
+
+  Polyhedron_builder_from_STL(std::istream& is_)
+    : is(is_)
+  {}
+
+  void operator()( HDS& hds) {
+    if(!read_STL(is, meshPoints, mesh)) return;
+
+    CGAL::Polyhedron_incremental_builder_3<HDS> B(hds);
+    B.begin_surface( meshPoints.size(), mesh.size());
+    typedef typename Points_3::size_type size_type;
+
+    for(size_type i=0; i < meshPoints.size(); i++){
+      B.add_vertex(
+        Point_3(meshPoints[i][0], meshPoints[i][1], meshPoints[i][2])
+      );
+    }
+
+    for(size_type i=0; i < mesh.size(); i++){
+      B.begin_facet();
+      B.add_vertex_to_facet( mesh[i][0]);
+      B.add_vertex_to_facet( mesh[i][1]);
+      B.add_vertex_to_facet( mesh[i][2]);
+      B.end_facet();
+    }
+    if(B.error())
+      {
+        std::cerr << "An error occured while creating a Polyhedron" << std::endl;
+        B.rollback();
+        is.clear( std::ios::badbit);
+        return;
+      }
+
+    B.end_surface();
+    is.clear( std::ios::goodbit);
+  }
+};
 
 template < class HDS>
 class Polyhedron_builder_from_OFF :  public Modifier_base<HDS> {
@@ -194,7 +244,12 @@ void checkOffFile(const std::string &fileName) {
   PolyhedronBuilderOff scanner(in, true);
   polyhedron.delegate(scanner);
   CGAL_assertion(polyhedron.is_valid(true, 0));
+  if (in.good())
+   std::cout << "CGAL mesh check: OK" << std::endl;
+  else
+   std::cout << "CGAL mesh check: FAIL" << std::endl;
   in.close();
+
 }
 
 void checkStlFile(const std::string &fileName) {
@@ -211,6 +266,10 @@ void checkStlFile(const std::string &fileName) {
   PolyhedronBuilder builder(in);
   polyhedron.delegate(builder);
   CGAL_assertion(polyhedron.is_valid(true, 0));
+  if (in.good())
+   std::cout << "CGAL mesh check: OK" << std::endl;
+  else
+   std::cout << "CGAL mesh check: FAIL" << std::endl;
   in.close();
 }
 
@@ -219,7 +278,7 @@ int main(int argc, char * argv[]) {
   if (argc < 2) {
     std::cout << "You need to supply the mesh file as a command line argument." << std::endl;
     std::cout << "Please call the program in the following way:" << std::endl;
-    std::cout << "check_manifold myfilename.off" << std::endl;
+    std::cout << "check_manifold myfilename.off or myfilename.stl" << std::endl;
     std::exit(EXIT_FAILURE);
   }
   std::cout << "Name of the file: " << argv[1] << std::endl;

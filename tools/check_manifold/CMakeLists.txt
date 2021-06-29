@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 # name of the project, specIFy the used languages
-project(CHECK_OFF C CXX)
+project(CHECK_MANIFOLD C CXX)
 
 file(COPY "cube.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "fail.off" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
