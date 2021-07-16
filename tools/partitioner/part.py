@@ -33,10 +33,10 @@ def _try_in_place_first(name):
   tmp=os.path.join(os.curdir,name)
 
   if not os.path.exists(tmp):
-    tmp=name
+    tmp=os.path.join(os.curdir, "../lib64", name)
 
   if not os.path.exists(tmp):
-    tmp=os.path.join(os.curdir, "../lib64", name)
+    tmp=name
 
   try:
     return CDLL(tmp)
