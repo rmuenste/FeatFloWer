@@ -2615,6 +2615,32 @@ END SUBROUTINE Protocol_LinScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE QuadScP1ExtPoltoQ2(lSc,qSc)
+TYPE(TLinScalar) lSc
+TYPE(TQuadScalar) qSc
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+lSc%Q2   = 0d0
+qSc%auxU = 0d0
+
+CALL IntP1toQ2(myQ2Coor,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%karea,&
+               mg_MlRhomat(ILEV)%a,&
+               lSc%P_new,&
+               lSc%Q2,qSc%auxU,&
+               mg_mesh%level(ilev)%nel,&
+               mg_mesh%level(ilev)%nvt,&
+               mg_mesh%level(ilev)%net,&
+               mg_mesh%level(ilev)%nat)
+
+END SUBROUTINE QuadScP1ExtPoltoQ2
+!
+! ----------------------------------------------
+!
 SUBROUTINE QuadScP1toQ2(lSc,qSc)
 TYPE(TLinScalar) lSc
 TYPE(TQuadScalar) qSc
@@ -3453,6 +3479,18 @@ DO
    READ(string(iAt+1:iEq-1),*) cPar
    SELECT CASE (TRIM(ADJUSTL(cPar)))
 
+    CASE ("nTPSubSteps")
+    READ(string(iEq+1:),*) Props%nTPSubSteps
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
+    CASE ("nTPFSubSteps")
+    READ(string(iEq+1:),*) Props%nTPFSubSteps
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
+    CASE ("nTPIterations")
+    READ(string(iEq+1:),*) Props%nTPIterations
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
     CASE ("Material")
     READ(string(iEq+1:),*) Props%Material
     IF (myid.eq.showid) write(mterm,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Material

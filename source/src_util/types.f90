@@ -258,7 +258,7 @@ TYPE tProperties
  REAL*8 :: ViscoLambda
  REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
  REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
- INTEGER :: ViscoModel,nTPSubSteps,nTPIterations
+ INTEGER :: ViscoModel,nTPSubSteps,nTPIterations,nTPFSubSteps
  INTEGER :: nInterface
 END TYPE tProperties
 

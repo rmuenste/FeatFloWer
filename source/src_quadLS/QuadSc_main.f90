@@ -1693,6 +1693,44 @@ END SUBROUTINE FBM_GetForces
 !
 ! ----------------------------------------------
 !
+SUBROUTINE FAC_GetForcesParT(mfile,iT)
+  INTEGER mfile,iT
+  REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0
+  REAL*8 :: Scale
+  REAL*8 :: U_mean=1.0d0,H=0.20d0,D=1d0
+  INTEGER i,nn
+  EXTERNAL E013
+
+  ILEV=NLMAX
+  CALL SETLEV(2)
+
+  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
+    CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%P_new,BndrForce,ForceV,ForceP)
+  ELSE
+    CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%P_new,BndrForce,ForceV,ForceP)
+  END IF
+
+  Factor = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
+  ForceP = Factor*ForceP
+  ForceV = Factor*ForceV
+
+  IF (myid.eq.showID) THEN
+   write(mfile,'(A16,3ES15.7E2,I3)') "BenchForceParT: ",timens,ForceV(1:2)+forceP(1:2),iT
+   write(MTERM,'(A16,3ES15.7E2,I3)') "BenchForceParT: ",timens,ForceV(1:2)+forceP(1:2),iT
+   WRITE(MTERM,5)
+   WRITE(MFILE,5)
+
+!    WRITE(666,'(10ES16.8,I3)') Timens,ForceV+forceP,ForceV,forceP,iT
+  END IF
+
+  5  FORMAT(104('-'))
+
+END SUBROUTINE FAC_GetForcesParT
+!
+! ----------------------------------------------
+!
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
   REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0

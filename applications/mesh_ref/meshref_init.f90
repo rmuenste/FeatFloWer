@@ -90,20 +90,22 @@ real*8 dEps,dist1
 integer iel,i
 real*8 dc(3)
 
-MarkerE(1:nel) = 0
+MarkerE(1:nel) = 1
 
-do iel=1,nel
+! do iel=1,nel
+! 
+!  dc = 0d0
+!  do i=1,8
+!   dc = dc + 0.125d0*dcorvg(:,kvert(i,iel))
+!  end do
+! 
+!  dist1 = sqrt((dc(1)-2d0)**2d0 + (dc(2)-2.0d0)**2d0 + (dc(3)-2.0d0)**2d0 )
+!  
+!  if (dist1.lt.3.6d0) MarkerE(iel) = 1
+!  
+! end do
 
- dc = 0d0
- do i=1,8
-  dc = dc + 0.125d0*dcorvg(:,kvert(i,iel))
- end do
-
- dist1 = sqrt((dc(1)-2d0)**2d0 + (dc(2)-2.0d0)**2d0 + (dc(3)-2.0d0)**2d0 )
- 
- if (dist1.lt.3.6d0) MarkerE(iel) = 1
- 
-end do
+!MarkerE(12) = 1
 
 end subroutine Initfield1
 !

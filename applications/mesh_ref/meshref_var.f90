@@ -16,6 +16,7 @@ type RefinerMesh
  integer :: selection=0
  type(RefinerMesh), allocatable :: myRF(:)
  real*8, allocatable :: dcoor(:,:),dUniquedCoor(:,:)
+ integer, allocatable :: kUniqueKnpr(:)
  integer, allocatable :: knpr(:),kUniqueElem(:,:),PointerToMerged(:)
  integer, allocatable :: kvert(:,:)
  real*8 :: dTol = 1d8
@@ -25,7 +26,7 @@ type(RefinerMesh), allocatable :: myRF(:)
 
 real*8 , allocatable :: AreaIntensity(:,:)
 real*8, allocatable :: MergedMeshCoor(:,:)
-integer, allocatable :: MergedMeshElem(:,:)
+integer, allocatable :: MergedMeshElem(:,:),MergedMeshknpr(:)
 real*8, allocatable :: MergedMeshDist(:)
 integer, allocatable :: level(:)
 

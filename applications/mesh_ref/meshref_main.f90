@@ -65,7 +65,8 @@ CALL InitMarker()
 call SetUpMarker()
 
 ! call CreateRefinedMesh()
-call CreateRefinedMesh_Fine()
+! call CreateRefinedMesh_Fine()
+call CreateRefinedParticleMesh()
 
 call CleanUpPatches()
 
@@ -86,7 +87,8 @@ ilev = lTriOutputLevel
 CALL Output_TriMesh()
 CALL Output_RefTriMesh()
 CALL Output_MergedRefTriMesh()
-CALL Output_MergedRefTriMeshPar()
+! CALL Output_MergedRefTriMeshPar()
+CALL Output_ParticleTriMeshPar()
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()

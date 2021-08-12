@@ -51,7 +51,7 @@ CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
 
-IF (.not. DefNorm.lt.1d-16) then
+IF (.not. DefNorm.lt.1d-30) then
 
   DefI1 = 0d0
   DefI2 = 0d0
@@ -100,7 +100,7 @@ END IF
 
 myMG%DefFinal = DefNorm
 
-if(myMG%DefInitial < 1d-16)then
+if(myMG%DefInitial.lt.1d-30)then
   myMG%RhoMG1 = 0d0
 else
   myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))

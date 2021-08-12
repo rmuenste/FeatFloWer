@@ -1149,7 +1149,128 @@ IF (bOut) WRITE(*,*) 'nActiveSet,nExchangeSet: ',nActiveSet,nExchangeSet
 !  pause
 
 END SUBROUTINE Move_Particle_xse
+!========================================================================================
+!                           Sub: Collide_Particle
+!========================================================================================
+subroutine CheckForCollision(nvt,net,nat,nel,d_CorrDist)
+USE PP3D_MPI, ONLY : myid
+USE types, ONLY : myActiveSet,myExchangeSet,nActiveSet,nExchangeSet,nStartActiveSet
+INTEGER nvt,net,nat,nel
+REAL*8 d_CorrDist
+integer iPoint,jPoint
+real*8 dPoint_i(3),dPoint_j(3),dVelo_i(3),dVelo_j(3)
+real*8 cpx,cpy,cpz,cnormal(3),daux
+logical b_Collision_i,b_Collision_j,bNoMoreCollisionsAppear
+integer numOfCollisions
 
+numOfCollisions = 0
+
+do
+ 
+ bNoMoreCollisionsAppear = .true.
+
+ DO iParticel = 1,nActiveSet
+
+  DO jParticel = 1,nActiveSet
+  
+   if (iParticel.ne.jParticel) then
+   
+    dPoint_i = myActiveSet(iParticel)%coor
+    dPoint_j = myActiveSet(jParticel)%coor
+    
+  1 CONTINUE
+
+    dist = sqrt((dPoint_i(1)-dPoint_j(1))**2d0 + (dPoint_i(2)-dPoint_j(2))**2d0 + (dPoint_i(3)-dPoint_j(3))**2d0)
+    
+    if (1d1*dist.lt.0.999d0*d_CorrDist) then
+    
+     bNoMoreCollisionsAppear = .false.
+     numOfCollisions = numOfCollisions + 1
+     
+     ! create a line connecting the 2 centers
+     ! first find the midpoint
+     P = 0.5d0*(dPoint_i + dPoint_j)
+     
+     dFact = d_CorrDist/(1d1*dist)
+     
+!      write(*,*) iPoint,jPoint,dFact
+!      write(*,*) dPoint_i
+!      write(*,*) dPoint_j
+     
+     dPoint_i = P + dFact*(dPoint_i-P)
+     dPoint_j = P + dFact*(dPoint_j-P)
+     
+     !check for the update of point I if collides with the wall
+     cdx = 1d1*dPoint_i(1)
+     cdy = 1d1*dPoint_i(2)
+     cdz = 1d1*dPoint_i(3)
+   
+     CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+     
+     if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+!       write(*,*) 'Point I collides with the wall .... '
+      b_Collision_i = .true.
+      cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+      daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+      if (dist_CGAL.gt.0d0) then
+       cnormal = -cnormal/daux
+      else
+       cnormal = cnormal/daux
+      end if
+
+      cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+      cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+      cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+
+      dPoint_i=0.1d0*[cdx,cdy,cdz]
+     end if
+     
+     !check for the update of point I if collides with the wall
+     cdx = 1d1*dPoint_j(1)
+     cdy = 1d1*dPoint_j(2)
+     cdz = 1d1*dPoint_j(3)
+   
+     CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+     
+     if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+!       write(*,*) 'Point J collides with the wall .... '
+      
+      b_Collision_j = .true.
+      cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+      daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+      if (dist_CGAL.gt.0d0) then
+       cnormal = -cnormal/daux
+      else
+       cnormal = cnormal/daux
+      end if
+
+      cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+      cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+      cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+
+      dPoint_j=0.1d0*[cdx,cdy,cdz]
+     end if
+     
+     if (b_Collision_i.or.b_Collision_j) GOTO 1
+     
+    end if
+   
+    myActiveSet(iParticel)%coor = dPoint_i 
+    myActiveSet(jParticel)%coor = dPoint_j 
+   
+   end if
+   
+  END DO
+
+ END DO
+
+ write(*,*) 'numOfCollisions = ',numOfCollisions
+ if (bNoMoreCollisionsAppear) exit
+ 
+end do
+
+
+END subroutine CheckForCollision
 !========================================================================================
 !                           Sub: Move_Particle
 !========================================================================================
@@ -1277,7 +1398,7 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   cdx = 1d1*P(1)
   cdy = 1d1*P(2)
   cdz = 1d1*P(3)
-  
+ 
   CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
 
 !   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
@@ -1558,11 +1679,6 @@ END IF
 
 5 CONTINUE
 
-XX = P(1)
-YY = P(2)
-ZZ = P(3)
-
-dist = SQRT(YY*YY + XX*XX)
 
 end subroutine MovePointInElement
 
@@ -1705,6 +1821,39 @@ end subroutine FindPoint
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
+SUBROUTINE PreventCollision(X,Y,Z,iP,bUpdate)
+USE types, ONLY : myActiveSet,nActiveSet
+USE var_QuadScalar, only : myParticleParam
+logical bUpdate
+integer iP
+real*8 X,Y,Z
+integer iParticel
+real*8 P1C(3),P2C(3),dist
+
+P1C=[X,Y,Z]
+
+bUpdate = .true.
+
+do i=1,nActiveSet
+
+ if (i.ne.iP) then
+  P2C   = myActiveSet(i)%coor
+  dist = sqrt((P1C(1)-P2C(1))**2d0 + (P1C(2)-P2C(2))**2d0 + (P1C(3)-P2C(3))**2d0)
+!   write(*,*) myid,i,dist
+  if (dist.lt.myParticleParam%d_CorrDist) then
+   write(*,*) 'possible collision dectcted ... '
+   bUpdate = .false.
+   return
+  end if
+ end if
+ 
+end do
+
+! pause
+
+END SUBROUTINE PreventCollision
+
+
 Subroutine AssignInflowPropertyToParticles(m)
 USE types, ONLY : myLostSet,nLostSet
 USE PP3D_MPI, ONLY : myid,master

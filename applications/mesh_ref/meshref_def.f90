@@ -360,6 +360,7 @@ do iel=1,nel
  
  allocate(myRF(iel)%dUniquedCoor(3,nAllPoints))
  allocate(myRF(iel)%kUniqueElem(8,nAllElements))
+ allocate(myRF(iel)%kUniqueKnpr(nAllPoints))
  
  nUniquePoints = 0
  nAllElements  = 0
@@ -371,7 +372,10 @@ do iel=1,nel
   nAllElements = myRF(iel)%nOfElem
   myRF(iel)%dUniquedCoor(1:3,1:nUniquePoints) = myRF(iel)%dcoor(1:3,1:nUniquePoints)
   myRF(iel)%kUniqueElem(1:8,1:nAllElements) = myRF(iel)%kvert(1:8,1:nAllElements)
-  
+!   write(*,*) nAllElements
+!   write(*,*) myRF(iel)%knpr(1:nAllPoints)
+  myRF(iel)%kUniqueKnpr(1:nUniquePoints) = myRF(iel)%knpr(1:nUniquePoints)
+    
   I8 = mg_mesh%level(ilev)%kvert(:,iel)
   do jj=1,8
    P8(:,jj) = mg_mesh%level(ilev)%dcorvg(:,I8(jj))
@@ -551,6 +555,7 @@ write(*,*) "nUniquePoints=",nUniquePoints,"nUniqueElems=",nUniqueElems
 
 allocate(MergedMeshCoor(3,nUniquePoints))
 allocate(MergedMeshElem(8,nUniqueElems))
+allocate(MergedMeshknpr(nUniquePoints))
 
 bDone = .false.
 nUniquePoints = 0
@@ -563,6 +568,7 @@ do iel=1,nel
  do i=1,myRF(iel)%nUniquePoints
  
   Pi = myRF(iel)%dUniquedCoor(:,i)
+  if (myRF(iel)%kUniqueKnpr(i).ne.0) write(*,*) myRF(iel)%kUniqueKnpr(i)
   
   iFound = 0
   
@@ -600,6 +606,7 @@ do iel=1,nel
   else
    nUniquePoints = nUniquePoints + 1 
    MergedMeshCoor(:,nUniquePoints) = Pi
+   MergedMeshKnpr(nUniquePoints) = myRF(iel)%kUniqueKnpr(i)
    myRF(iel)%PointerToMerged(i) = nUniquePoints
   end if
  end do

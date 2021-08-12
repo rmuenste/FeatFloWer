@@ -1632,6 +1632,7 @@
     
     IF (ieee_is_finite(myProcess%Massestrom)) THEN
       bNoOutflow = .FALSE.
+!      bNoOutflow = .FALSE.
       dZPeriodicLength = 1d5*mySigma%L
     END IF
 

@@ -893,6 +893,9 @@ IF (iP.lt.200) then
    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
    ValW =   0d0
+!    ValU =  0d0
+!    ValV =  0d0 
+!    ValW =  DBLE(myProcess%ind)*myProcess%Umdr/1d1 !mm/s
   CASE (104) ! Y negativ
    dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
    

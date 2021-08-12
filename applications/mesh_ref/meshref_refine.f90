@@ -4,6 +4,50 @@ use MeshRefDef
 
  contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE CreateRefinedParticleMesh
+integer i,j,k,l,ii,ivt,jj
+real*8 E(3,8)
+logical bVert(8),bVertCopy(8)
+integer iVert(8)
+logical bFound,bUnique
+logical, allocatable :: mytemp(:,:)
+integer, allocatable :: mytempCount(:)
+
+integer iCombination, nOfCombinations,nAdditionalElems
+
+nRefScheme = 4
+nNonRefScheme = 2
+
+ilev = mg_Mesh%nlmax
+
+nel = mg_mesh%level(ilev)%nel
+nvt = mg_mesh%level(ilev)%nvt
+
+nOfCombinations = 0
+allocate(mytemp(8,22),mytempCount(22))
+mytempCount = 0
+
+allocate(myRF(nel))
+
+do i=1,nel
+
+ if (markerE(i).eq.1) then
+ 
+   do j=1,8
+    E(:,j) = mg_mesh%level(ilev)%dcorvg(:,mg_mesh%level(ilev)%kvert(j,i))
+   end do
+   
+   CALL FillUpParticleElement(myRF(i),E,i)
+   myRF(i)%patchID = 0
+
+ end if
+
+END DO
+
+END SUBROUTINE CreateRefinedParticleMesh
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE CreateRefinedMesh
 integer i,j,k,l,ii,ivt,jj
 real*8 E(3,8)
@@ -1029,5 +1073,110 @@ END DO
 deallocate(cBP)
 
 END SUBROUTINE FillUpRefinedElementF
+
+! ----------------------------------------------
+SUBROUTINE FillUpParticleElement(RF,E,iIEL)
+integer iIEL
+type(RefinerMesh) RF
+real*8 E(3,8)
+real*8 :: Q8=0.125d0
+real*8 DJ(8,3),XX,YY,ZZ
+real*8 :: xi1,xi2,xi3,DJAC(3,3),DETJ
+real*8 , allocatable ::cBP(:,:)
+integer i,j,k,ii
+real*8 :: dPhi = 0.0d0
+character*256 cF
+integer, allocatable :: kvert(:,:)
+
+ cF = 'Particle/Particle1.tri'
+
+open(file=TRIM(ADJUSTL(cF)),unit=1)
+
+read(1,*)
+read(1,*) 
+read(1,*) RF%nOfElem, RF%nOfVert
+read(1,*)
+
+allocate(cBP(3,RF%nOfVert))
+allocate(RF%kvert(8,RF%nOfElem))
+allocate(RF%dcoor(3,RF%nOfVert))
+allocate(RF%knpr(RF%nOfVert))
+RF%knpr = 0
+
+DO i=1,RF%nOfVert
+ read(1,*) CBP(:,i)
+end do
+
+read(1,*)
+ 
+DO i=1,RF%nOfElem
+ read(1,*) RF%kvert(:,i)
+end do
+ 
+read(1,*)
+
+DO i=1,RF%nOfVert
+ read(1,*) RF%knpr(i)
+ if (RF%knpr(i).eq.1) RF%knpr(i) = iIEL
+end do
+
+close(1)
+
+DJ(1,1)=( E(1,1)+E(1,2)+E(1,3)+E(1,4)+E(1,5)+E(1,6)+E(1,7)+E(1,8))*Q8
+DJ(1,2)=( E(2,1)+E(2,2)+E(2,3)+E(2,4)+E(2,5)+E(2,6)+E(2,7)+E(2,8))*Q8
+DJ(1,3)=( E(3,1)+E(3,2)+E(3,3)+E(3,4)+E(3,5)+E(3,6)+E(3,7)+E(3,8))*Q8
+DJ(2,1)=(-E(1,1)+E(1,2)+E(1,3)-E(1,4)-E(1,5)+E(1,6)+E(1,7)-E(1,8))*Q8
+DJ(2,2)=(-E(2,1)+E(2,2)+E(2,3)-E(2,4)-E(2,5)+E(2,6)+E(2,7)-E(2,8))*Q8
+DJ(2,3)=(-E(3,1)+E(3,2)+E(3,3)-E(3,4)-E(3,5)+E(3,6)+E(3,7)-E(3,8))*Q8
+DJ(3,1)=(-E(1,1)-E(1,2)+E(1,3)+E(1,4)-E(1,5)-E(1,6)+E(1,7)+E(1,8))*Q8
+DJ(3,2)=(-E(2,1)-E(2,2)+E(2,3)+E(2,4)-E(2,5)-E(2,6)+E(2,7)+E(2,8))*Q8
+DJ(3,3)=(-E(3,1)-E(3,2)+E(3,3)+E(3,4)-E(3,5)-E(3,6)+E(3,7)+E(3,8))*Q8
+DJ(4,1)=(-E(1,1)-E(1,2)-E(1,3)-E(1,4)+E(1,5)+E(1,6)+E(1,7)+E(1,8))*Q8
+DJ(4,2)=(-E(2,1)-E(2,2)-E(2,3)-E(2,4)+E(2,5)+E(2,6)+E(2,7)+E(2,8))*Q8
+DJ(4,3)=(-E(3,1)-E(3,2)-E(3,3)-E(3,4)+E(3,5)+E(3,6)+E(3,7)+E(3,8))*Q8
+DJ(5,1)=( E(1,1)-E(1,2)+E(1,3)-E(1,4)+E(1,5)-E(1,6)+E(1,7)-E(1,8))*Q8
+DJ(5,2)=( E(2,1)-E(2,2)+E(2,3)-E(2,4)+E(2,5)-E(2,6)+E(2,7)-E(2,8))*Q8
+DJ(5,3)=( E(3,1)-E(3,2)+E(3,3)-E(3,4)+E(3,5)-E(3,6)+E(3,7)-E(3,8))*Q8
+DJ(6,1)=( E(1,1)-E(1,2)-E(1,3)+E(1,4)-E(1,5)+E(1,6)+E(1,7)-E(1,8))*Q8
+DJ(6,2)=( E(2,1)-E(2,2)-E(2,3)+E(2,4)-E(2,5)+E(2,6)+E(2,7)-E(2,8))*Q8
+DJ(6,3)=( E(3,1)-E(3,2)-E(3,3)+E(3,4)-E(3,5)+E(3,6)+E(3,7)-E(3,8))*Q8
+DJ(7,1)=( E(1,1)+E(1,2)-E(1,3)-E(1,4)-E(1,5)-E(1,6)+E(1,7)+E(1,8))*Q8
+DJ(7,2)=( E(2,1)+E(2,2)-E(2,3)-E(2,4)-E(2,5)-E(2,6)+E(2,7)+E(2,8))*Q8
+DJ(7,3)=( E(3,1)+E(3,2)-E(3,3)-E(3,4)-E(3,5)-E(3,6)+E(3,7)+E(3,8))*Q8
+DJ(8,1)=(-E(1,1)+E(1,2)-E(1,3)+E(1,4)+E(1,5)-E(1,6)+E(1,7)-E(1,8))*Q8
+DJ(8,2)=(-E(2,1)+E(2,2)-E(2,3)+E(2,4)+E(2,5)-E(2,6)+E(2,7)-E(2,8))*Q8
+DJ(8,3)=(-E(3,1)+E(3,2)-E(3,3)+E(3,4)+E(3,5)-E(3,6)+E(3,7)-E(3,8))*Q8
+
+DO ii=1,RF%nOfVert
+
+   xi1 = CBP(1,ii)
+   xi2 = CBP(2,ii)
+   xi3 = CBP(3,ii)
+
+   DJAC(1,1)=DJ(2,1) + DJ(5,1)*XI2 + DJ(6,1)*XI3 + DJ(8,1)*XI2*XI3
+   DJAC(1,2)=DJ(3,1) + DJ(5,1)*XI1 + DJ(7,1)*XI3 + DJ(8,1)*XI1*XI3
+   DJAC(1,3)=DJ(4,1) + DJ(6,1)*XI1 + DJ(7,1)*XI2 + DJ(8,1)*XI1*XI2
+   DJAC(2,1)=DJ(2,2) + DJ(5,2)*XI2 + DJ(6,2)*XI3 + DJ(8,2)*XI2*XI3
+   DJAC(2,2)=DJ(3,2) + DJ(5,2)*XI1 + DJ(7,2)*XI3 + DJ(8,2)*XI1*XI3
+   DJAC(2,3)=DJ(4,2) + DJ(6,2)*XI1 + DJ(7,2)*XI2 + DJ(8,2)*XI1*XI2
+   DJAC(3,1)=DJ(2,3) + DJ(5,3)*XI2 + DJ(6,3)*XI3 + DJ(8,3)*XI2*XI3
+   DJAC(3,2)=DJ(3,3) + DJ(5,3)*XI1 + DJ(7,3)*XI3 + DJ(8,3)*XI1*XI3
+   DJAC(3,3)=DJ(4,3) + DJ(6,3)*XI1 + DJ(7,3)*XI2 + DJ(8,3)*XI1*XI2
+   
+   DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3)) &
+        -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3)) &
+        +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+     
+   XX=DJ(1,1) + DJAC(1,1)*XI1 + DJ(3,1)*XI2 + DJ(4,1)*XI3 + DJ(7,1)*XI2*XI3
+   YY=DJ(1,2) + DJ(2,2)*XI1 + DJAC(2,2)*XI2 + DJ(4,2)*XI3 + DJ(6,2)*XI1*XI3
+   ZZ=DJ(1,3) + DJ(2,3)*XI1 + DJ(3,3)*XI2 + DJAC(3,3)*XI3 + DJ(5,3)*XI1*XI2
+   
+   RF%dcoor(:,ii) = [xx,yy,zz]
+   
+END DO
+
+deallocate(cBP)
+
+END SUBROUTINE FillUpParticleElement
 
 END Module MeshRefRefine

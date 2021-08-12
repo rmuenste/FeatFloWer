@@ -71,11 +71,13 @@ do ivt=1,nel
 end do
 write(iunit, *)"        </DataArray>"
 
-write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","AreaIntensity",""" format=""ascii"">"
-do ivt=1,nel
- write(iunit, '(A,3E16.7)')"        ",AreaIntensity(2,ivt)
-end do
-write(iunit, *)"        </DataArray>"
+if (allocated(AreaIntensity)) then
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","AreaIntensity",""" format=""ascii"">"
+ do ivt=1,nel
+  write(iunit, '(A,3E16.7)')"        ",AreaIntensity(2,ivt)
+ end do
+ write(iunit, *)"        </DataArray>"
+end if
 
 write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","OrigID",""" format=""ascii"">"
 do ivt=1,nel
@@ -1218,7 +1220,7 @@ END DO
 
 WRITE(1,'(A)') 'KNPR'
 DO i = 1,nUniquePoints
-  WRITE(1,'(I8)') 0
+  WRITE(1,'(I8)') MergedMeshKnpr(i)
 END DO
 
 CLOSE(1)
@@ -1251,5 +1253,53 @@ CLOSE(1)
 ! CLOSE(2)
 
 END SUBROUTINE Output_MergedRefTriMesh
+
+SUBROUTINE Output_ParticleTriMeshPar()
+integer i,j,nKNPR
+character cF*(256)
+real*8 dc(3)
+REAL*8 :: dr=0.025
+
+nKNPR = 0
+
+do i=1,nUniquePoints
+ nKNPR = max(nKNPR,MergedMeshKnpr(i))
+end do
+
+write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
+open(file=ADJUSTL(TRIM(cF)),unit=12)
+write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
+write(12,'(A)')  'Merged_'//adjustl(trim(cProjectGridFile))
+
+DO j=1,nKNPR
+ n = 0
+ dc = 0d0
+ do i=1,nUniquePoints
+  if (MergedMeshKnpr(i).eq.j) then
+   dc = dc + MergedMeshCoor(:,i)
+   n = n + 1
+  end if
+ end do
+ 
+ dc = dc/dble(n)
+ 
+ write(cF,'(A,I0,A)') 'SPHERE_',j,'.par'
+ write(12,'(A)')  ADJUSTL(TRIM(cF))
+
+ write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/SPHERE_',j,'.par'
+ open(file=ADJUSTL(TRIM(cF)),unit=11)
+ write(11,*) n, 'Wall'
+ write(11,'(A,I0,7ES12.4,A)') "'",7,MeshOutputScaleFactor*dc,MeshOutputScaleFactor*dr,1.0,1.0,1.0,"'"
+ do i=1,nUniquePoints
+  if (MergedMeshKnpr(i).eq.j) then
+   write(11,*) i
+  end if
+ end do
+ close(11)
+END DO
+
+close(12)
+
+END SUBROUTINE Output_ParticleTriMeshPar
 
 END Module MeshRefOutput
