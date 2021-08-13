@@ -20,7 +20,7 @@ character(8)  :: cdate
 character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
-integer i,idir
+integer i,idir,iPlusRes
 
 LOGICAL bExist
 CHARACTER cExtrud3DFile*120,cApp*120
@@ -89,21 +89,25 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  Dzo = mySigma%Dz_out
  Dzi = min(mySigma%Dz_in,0.8d0*mySigma%Dz_out)
  DL  = mySigma%L
+ 
+ iPlusRes = 0
+ IF (Dzo/Dzi.gt.1.5) iPlusRes = 1
+ IF (Dzo/Dzi.gt.3) iPlusRes = 2
 
  IF (mySetup%MeshResolution.eq.1) THEN
-  if (mySetup%m_nR.eq.0)  nR  = 2
+  if (mySetup%m_nR.eq.0)  nR  = 2+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.2) THEN
-  if (mySetup%m_nR.eq.0)  nR  =  3
+  if (mySetup%m_nR.eq.0)  nR  =  3+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.3)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  4
+  if (mySetup%m_nR.eq.0)  nR  =  4+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.4)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  5
+  if (mySetup%m_nR.eq.0)  nR  =  5+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.5)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  6
+  if (mySetup%m_nR.eq.0)  nR  =  6+iPlusRes
  END IF
  
  IF (mySetup%MeshResolution.ne.0)  THEN

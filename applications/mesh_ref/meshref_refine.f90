@@ -750,6 +750,12 @@ DO i=1,RF%nOfElem
  read(1,*) RF%kvert(:,i)
 end do
  
+read(1,*)
+
+DO i=1,RF%nOfVert
+ read(1,*) RF%knpr(i)
+end do
+
 close(1)
 
 if (bRecursive) then
@@ -837,9 +843,9 @@ DO ii=1,RF%nOfVert
    if (bRecursive) then
     CALL INT_E011(dVal)
     IF (dVAl.gt.0.99d0) THEN
-     RF%knpr(ii)  = 1d0
+     RF%knpr(ii)  = 1!d0
     ELSE
-     RF%knpr(ii)  = 0d0
+     RF%knpr(ii)  = 0!d0
     END IF
 !     write(*,'(8E12.4,A,E12.4,I8)') dknpr(:),' : ',dVal,RF%knpr(ii)
 !     pause

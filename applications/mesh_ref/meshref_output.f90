@@ -1220,6 +1220,41 @@ END DO
 
 WRITE(1,'(A)') 'KNPR'
 DO i = 1,nUniquePoints
+  WRITE(1,'(I8)') 0
+END DO
+
+CLOSE(1)
+
+END SUBROUTINE Output_MergedRefTriMesh
+! ----------------------------------------------
+SUBROUTINE Output_ParticleMergedRefTriMesh()
+
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY:mg_mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+IMPLICIT NONE
+INTEGER i,j
+CHARACTER cf*(256)
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Merged_'//adjustl(trim(cProjectGridFile))
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(1,'(2I8,A)') nUniqueElems,nUniquePoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(1,'(A)') 'DCORVG'
+DO i = 1,nUniquePoints
+ WRITE(1,'(3ES13.5)') MeshOutputScaleFactor*MergedMeshCoor(:,i)
+END DO
+
+WRITE(1,'(A)') 'KVERT'
+DO i = 1,nUniqueElems
+ WRITE(1,'(8I8)') MergedMeshElem(:,i)
+END DO
+
+WRITE(1,'(A)') 'KNPR'
+DO i = 1,nUniquePoints
   WRITE(1,'(I8)') MergedMeshKnpr(i)
 END DO
 
@@ -1252,9 +1287,9 @@ CLOSE(1)
 ! END DO
 ! CLOSE(2)
 
-END SUBROUTINE Output_MergedRefTriMesh
+END SUBROUTINE Output_ParticleMergedRefTriMesh
 
-SUBROUTINE Output_ParticleTriMeshPar()
+SUBROUTINE Output_ParticleMergedRefTriMeshPar()
 integer i,j,nKNPR
 character cF*(256)
 real*8 dc(3)
@@ -1300,6 +1335,6 @@ END DO
 
 close(12)
 
-END SUBROUTINE Output_ParticleTriMeshPar
+END SUBROUTINE Output_ParticleMergedRefTriMeshPar
 
 END Module MeshRefOutput

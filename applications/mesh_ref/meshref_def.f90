@@ -568,7 +568,9 @@ do iel=1,nel
  do i=1,myRF(iel)%nUniquePoints
  
   Pi = myRF(iel)%dUniquedCoor(:,i)
-  if (myRF(iel)%kUniqueKnpr(i).ne.0) write(*,*) myRF(iel)%kUniqueKnpr(i)
+  !!!!!! CHECKPOINT !!!!!
+!   if (myRF(iel)%kUniqueKnpr(i).ne.0) write(*,*) myRF(iel)%kUniqueKnpr(i)
+  !!!!!! CHECKPOINT !!!!!
   
   iFound = 0
   
