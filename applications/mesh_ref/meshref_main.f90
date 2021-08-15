@@ -72,7 +72,6 @@ call CreateRefinedMesh_Fine()
 
 call CleanUpPatches()
 
-pause
 call CleanUpMesh()
 
 call CutMesh()
