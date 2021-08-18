@@ -1542,6 +1542,8 @@ REAL*8 :: RK_Velo(3,4),DETJ,dVelo,dElemSize,dFracTime,dist,dfrac
 integer imove,ip,ie
 logical :: ok_flag
 REAL*8 :: rho_p,rho_l,d_r,d_A,d_V,d_g(3),d_Up(3),d_U(3),dauxU(3),C_D,magU,d_Mu,dRE
+REAL*8 :: tau_p, f_p(3)
+
 
 ! write(*,*) myid,'is trying ... ',tLevel,tEnd,tStart
 ! 
@@ -1624,7 +1626,18 @@ IF (myParticleParam%bPhysParticles) THEN
  C_D = (24d0/dRE)*(1d0 + 0.15*dRE**(0.687d0))
  dauxU =  (1d0/2d0)*rho_l*C_D*magU*d_U*d_A + (rho_p - rho_l)*d_g*d_V
 
- dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+ ! Full Explicit 
+!  dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+
+ ! Semi  Implicit 
+ tau_p = (2d0*rho_p*d_V)/(rho_l*C_D*magU*d_A)
+ f_p(1)   = (rho_p - rho_l)*d_g(1)*d_V/(rho_p*d_V)
+ f_p(2)   = (rho_p - rho_l)*d_g(2)*d_V/(rho_p*d_V)
+ f_p(3)   = (rho_p - rho_l)*d_g(3)*d_V/(rho_p*d_V)
+ dParticleVelo(1) = (dParticleVelo(1) + DeltaT*(DV_Loc(1)/tau_p  + f_p(1)))/(1d0 + DeltaT/tau_p)
+ dParticleVelo(2) = (dParticleVelo(2) + DeltaT*(DV_Loc(2)/tau_p  + f_p(2)))/(1d0 + DeltaT/tau_p)
+ dParticleVelo(3) = (dParticleVelo(3) + DeltaT*(DV_Loc(3)/tau_p  + f_p(3)))/(1d0 + DeltaT/tau_p)
+ 
 ELSE
  dParticleVelo = DV_Loc
 END IF
@@ -1652,7 +1665,17 @@ IF (myParticleParam%bPhysParticles) THEN
 
  dauxU =  (1d0/2d0)*rho_l*C_D*magU*d_U*d_A + (rho_p - rho_l)*d_g*d_V
 
- dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+ ! Full Explicit 
+!  dParticleVelo = dParticleVelo + (DeltaT/(rho_p*d_V))*dauxU 
+
+ ! Semi  Implicit 
+ tau_p = (2d0*rho_p*d_V)/(rho_l*C_D*magU*d_A)
+ f_p(1)   = (rho_p - rho_l)*d_g(1)*d_V/(rho_p*d_V)
+ f_p(2)   = (rho_p - rho_l)*d_g(2)*d_V/(rho_p*d_V)
+ f_p(3)   = (rho_p - rho_l)*d_g(3)*d_V/(rho_p*d_V)
+ dParticleVelo(1) = (dParticleVelo(1) + DeltaT*(DV_Loc(1)/tau_p  + f_p(1)))/(1d0 + DeltaT/tau_p)
+ dParticleVelo(2) = (dParticleVelo(2) + DeltaT*(DV_Loc(2)/tau_p  + f_p(2)))/(1d0 + DeltaT/tau_p)
+ dParticleVelo(3) = (dParticleVelo(3) + DeltaT*(DV_Loc(3)/tau_p  + f_p(3)))/(1d0 + DeltaT/tau_p)
  
 ELSE
  dParticleVelo = DV_Loc
