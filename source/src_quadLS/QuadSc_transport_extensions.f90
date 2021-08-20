@@ -13,8 +13,17 @@ character*(2) :: cEnding(0:9) = ['th','st','nd','rd','th','th','th','th','th','t
 integer       :: iEnding
 logical :: bExit
 
+TYPE tIntPolSchem
+ Integer  :: Actual
+ Integer  :: IntPol1,IntPol2
+ Integer  :: Src1,Src2,iX1Src,iX2Src
+ REAL*8   :: X1Src,X2Src,X1Dest,X2Dest
+ REAL*8   :: Frac1,Frac2
+END TYPE tIntPolSchem
+TYPE (tIntPolSchem) IPS
+
 TYPE tSingleSol
- REAL*8, allocatable :: U(:),V(:),W(:),P(:)
+ REAL*8, allocatable :: U(:),V(:),W(:),P(:),P_aux(:)
 END TYPE tSingleSol
 
 TYPE tSolSeq
@@ -24,6 +33,8 @@ TYPE tSolSeq
 END TYPE tSolSeq
 
 TYPE(tSolSeq) :: mySolSeq
+
+INTEGER :: LinIntPol=1,ConstIntPol=0
 
 
 mySolSeq%nOuter = Properties%nTPSubSteps
@@ -42,6 +53,7 @@ DO iStep = 0,mySolSeq%nSteps
  if (.not.allocated(mySolSeq%S(iStep)%V)) ALLOCATE(mySolSeq%S(iStep)%V(QuadSc%ndof))
  if (.not.allocated(mySolSeq%S(iStep)%W)) ALLOCATE(mySolSeq%S(iStep)%W(QuadSc%ndof))
  if (.not.allocated(mySolSeq%S(iStep)%P)) ALLOCATE(mySolSeq%S(iStep)%P(LinSc%ndof))
+ if (.not.allocated(mySolSeq%S(iStep)%P_aux)) ALLOCATE(mySolSeq%S(iStep)%P_aux(LinSc%ndof))
   mySolSeq%S(iStep)%U = QuadSc%ValU
   mySolSeq%S(iStep)%V = QuadSc%ValV
   mySolSeq%S(iStep)%W = QuadSc%ValW
@@ -56,6 +68,101 @@ if (itns.gt.1) then
   mySolSeq%S(0)%V = QuadSc%ValV
   mySolSeq%S(0)%W = QuadSc%ValW
 end if
+
+! mySolSeq%S(0)%P = -1d0/16d0
+! mySolSeq%S(mySolSeq%nSteps)%P = 1d0/2d0 !0.5d0
+! 
+! do iLoop =1 , 1 
+! 
+!  DO iOuter=1,mySolSeq%nOuter
+! 
+!   if (myid.eq.showid) write(*,*) 'Outer itaration', iOuter
+!   nSteps = 2**(iOuter-1)
+!   lStep  = mySolSeq%nSteps/nSteps
+!   tstep  = tstep_BU/DBLE(nSteps)
+! 
+!  IF (myid.ne.master) THEN
+!  
+!   IF (iOuter.ne.mySolSeq%nOuter) then
+!   
+!    DO iStep = 0,nSteps
+!     mySolSeq%S((iStep-0)*lStep)%P_aux = mySolSeq%S((iStep-0)*lStep)%P
+!    END DO
+!  
+!    DO iStep = 1,nSteps
+!     IPS%Actual = (iStep-0)*lStep
+!     IPS%IntPol1 = (iStep-0)*lStep
+!     IPS%IntPol2 = (iStep-0)*lStep-int(lStep/2)
+!     IPS%Src1 = (iStep-1)*lStep
+!     IPS%Src2 = (iStep-0)*lStep
+!     IPS%iX1Src = (iStep-0)*lStep-int(lStep/2) - lStep
+!     IPS%iX2Src = (iStep-0)*lStep-int(lStep/2) 
+!     IPS%X1Src = max(-1d0/(2d0*dble(mySolSeq%nSteps)),dble(IPS%iX1Src)/dble(mySolSeq%nSteps))
+!     IPS%X2Src = dble(IPS%iX2Src)/dble(mySolSeq%nSteps)
+!     IPS%X1Dest = IPS%X2Src + dble(lStep/4d0)/dble(mySolSeq%nSteps)
+!     IPS%X2Dest = IPS%X2Src - dble(lStep/4d0)/dble(mySolSeq%nSteps)
+!    
+!     IPS%Frac1 = (IPS%X1Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
+!     IPS%Frac2 = (IPS%X1Src  - IPS%X1Dest)/(IPS%X1Src - IPS%X2Src)
+!     mySolSeq%S(IPS%IntPol1)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux  
+!      
+!     IPS%Frac1 = (IPS%X2Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
+!     IPS%Frac2 = (IPS%X1Src  - IPS%X2Dest)/(IPS%X1Src - IPS%X2Src)
+!     mySolSeq%S(IPS%IntPol2)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux  
+! 
+!     if (myid.eq.showid) write(*,*) 'Pressure', iStep, IPS%IntPol1, mySolSeq%S(IPS%IntPol1)%P(1)
+!     if (myid.eq.showid) write(*,*) 'Pressure', iStep, IPS%IntPol2, mySolSeq%S(IPS%IntPol2)%P(1)
+!     
+!     if (myid.eq.showid) WRITE(*,'(A,I0,4(A,I0))') &
+!     "ActualStep: ",IPS%Actual, ' IntPolSourceSteps: ',IPS%Src1,',',IPS%Src2,' UpdatedSteps: ',IPS%IntPol1,',',IPS%IntPol2
+!     if (myid.eq.showid) WRITE(*,'(2(A,I0),2(A,F6.3))') 'IntFractions:', IPS%iX1Src, ', ', IPS%iX2Src,' SrcFractions:', IPS%X1Src, ', ', IPS%X2Src
+!     if (myid.eq.showid) WRITE(*,'(2(A,I0),2(A,F6.3))') 'IntFractions:', IPS%IntPol1, ', ', IPS%IntPol2,' SrcFractions:', IPS%X1Dest, ', ', IPS%X2Dest
+! 
+!    END DO
+!   END IF
+!  END IF
+! 
+! END DO !iOuter
+! 
+! end do !iLoop
+! 
+! pause
+
+MaxInitialPressureDefect = 1e-30
+iLoop =1
+
+DO iOuter=1,mySolSeq%nOuter
+
+ nSteps = 2**(iOuter-1)
+ lStep  = mySolSeq%nSteps/nSteps
+ tstep  = tstep_BU/DBLE(nSteps)
+ 
+ IF (iOuter.le.mySolSeq%nOuter) THEN
+  DO iStep = 1,nSteps
+   CALL BurgerStep_ParT()
+  END DO
+
+  DO iStep = 1,nSteps
+   CALL PressureStep_ParT()
+  END DO
+  
+  ! Velocity update for last pressure
+  DO iStep = 1,nSteps
+   CALL BurgerStep_ParT()
+  END DO
+ END IF
+
+ IF (iOuter.ne.mySolSeq%nOuter) then
+  CALL InterpolatePressure_ParT(LinIntPol)
+  CALL InterpolateVelocity_ParT()
+ END IF
+
+END DO !iOuter
+tstep  = tstep_BU
+
+MaxInitialPressureDefect0 = MaxInitialPressureDefect
+IF (myid.eq.1) WRITE(*,*) 'rock and roll! ',MaxInitialPressureDefect0
+
 
 bEXIT = .false.
 do iLoop =1 , Properties%nTPIterations
@@ -100,6 +207,7 @@ do iLoop =1 , Properties%nTPIterations
 
  END DO !iOuter
 
+ 
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! QuadSc%ValU = mySolSeq%S(mySolSeq%nSteps)%U
@@ -114,15 +222,16 @@ do iLoop =1 , Properties%nTPIterations
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
- if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
+!  if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
 
  tstep  = tstep_BU
 
  iEnding = mod(iLoop,10)
  if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'PressureDefectReductionIn ', iLoop,cEnding(iEnding)//' step:',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
  if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'PressureDefectReductionIn ', iLoop,cEnding(iEnding)//' step:',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
- if (MaxInitialPressureDefect.lt.1e-7) THEN 
-! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-7) THEN 
+!  if (MaxInitialPressureDefect.lt.1e-7) THEN 
+! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps) THEN 
+  if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-7) THEN 
   if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   bEXIT = .true.
@@ -177,6 +286,85 @@ CALL FAC_GetForces(mfile)
 RETURN
 
  CONTAINS
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+SUBROUTINE InterpolateVelocity_ParT()
+
+  IF (myid.ne.master) THEN
+  
+    DO iStep = 1,nSteps
+      
+      IPS%Actual = (iStep-0)*lStep
+      IPS%IntPol1 = (iStep-0)*lStep
+      IPS%IntPol2 = (iStep-0)*lStep-int(lStep/2)
+      
+      IPS%Src1 = (iStep-1)*lStep
+      IPS%Src2 = (iStep-0)*lStep
+      
+!      mySolSeq%S(IPS%IntPol1)%U = mySolSeq%S(IPS%Actual)%U
+!      mySolSeq%S(IPS%IntPol1)%V = mySolSeq%S(IPS%Actual)%V
+!      mySolSeq%S(IPS%IntPol1)%w = mySolSeq%S(IPS%Actual)%w
+      mySolSeq%S(IPS%IntPol2)%U = 0.5d0*mySolSeq%S(IPS%Src1)%U + 0.5d0*mySolSeq%S(IPS%Src2)%U
+      mySolSeq%S(IPS%IntPol2)%V = 0.5d0*mySolSeq%S(IPS%Src1)%V + 0.5d0*mySolSeq%S(IPS%Src2)%V
+      mySolSeq%S(IPS%IntPol2)%W = 0.5d0*mySolSeq%S(IPS%Src1)%W + 0.5d0*mySolSeq%S(IPS%Src2)%w
+
+      if (myid.eq.showid) WRITE(*,'(A,I0,4(A,I0))') &
+      "ActualStep: ",IPS%Actual, ' IntPolSourceSteps: ',IPS%Src1,',',IPS%Src2,' UpdatedSteps: ',IPS%IntPol1,',',IPS%IntPol2
+     
+    END DO
+  END IF
+    
+END SUBROUTINE InterpolateVelocity_ParT
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+SUBROUTINE InterpolatePressure_ParT(IntPol)
+INTEGER IntPol
+
+  IF (myid.ne.master) THEN
+  
+    DO iStep = 0,nSteps
+     mySolSeq%S((iStep-0)*lStep)%P_aux = mySolSeq%S((iStep-0)*lStep)%P
+    END DO
+  
+    DO iStep = 1,nSteps
+     IF (IntPol.eq.1) then
+      IPS%Actual = (iStep-0)*lStep
+      IPS%IntPol1 = (iStep-0)*lStep
+      IPS%IntPol2 = (iStep-0)*lStep-int(lStep/2)
+      IPS%Src1 = (iStep-1)*lStep
+      IPS%Src2 = (iStep-0)*lStep
+      IPS%iX1Src = (iStep-0)*lStep-int(lStep/2) - lStep
+      IPS%iX2Src = (iStep-0)*lStep-int(lStep/2) 
+      IPS%X1Src = max(-1d0/(2d0*dble(mySolSeq%nSteps)),dble(IPS%iX1Src)/dble(mySolSeq%nSteps))
+      IPS%X2Src = dble(IPS%iX2Src)/dble(mySolSeq%nSteps)
+      IPS%X1Dest = IPS%X2Src + dble(lStep/4d0)/dble(mySolSeq%nSteps)
+      IPS%X2Dest = IPS%X2Src - dble(lStep/4d0)/dble(mySolSeq%nSteps)
+     
+      IPS%Frac1 = (IPS%X1Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
+      IPS%Frac2 = (IPS%X1Src  - IPS%X1Dest)/(IPS%X1Src - IPS%X2Src)
+      mySolSeq%S(IPS%IntPol1)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux  
+       
+      IPS%Frac1 = (IPS%X2Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
+      IPS%Frac2 = (IPS%X1Src  - IPS%X2Dest)/(IPS%X1Src - IPS%X2Src)
+      mySolSeq%S(IPS%IntPol2)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux  
+
+      if (myid.eq.showid) WRITE(*,'(A,I0,4(A,I0))') &
+      "ActualStep: ",IPS%Actual, ' IntPolSourceSteps: ',IPS%Src1,',',IPS%Src2,' UpdatedSteps: ',IPS%IntPol1,',',IPS%IntPol2
+      if (myid.eq.showid) WRITE(*,'(2(A,I0),2(A,F6.3))') 'IntFractions:', IPS%iX1Src, ', ', IPS%iX2Src,' SrcFractions:', IPS%X1Src, ', ', IPS%X2Src
+      if (myid.eq.showid) WRITE(*,'(2(A,I0),2(A,F6.3))') 'IntFractions:', IPS%IntPol1, ', ', IPS%IntPol2,' DestFractions:', IPS%X1Dest, ', ', IPS%X2Dest
+     END IF
+
+     IF (IntPol.eq.0) then
+      if (myid.eq.showid) WRITE(*,*) "steps: ",(iStep-0)*lStep,(iStep-1)*lStep,(iStep-0)*lStep-int(lStep/2)
+      mySolSeq%S((iStep-0)*lStep-int(lStep/2))%P = mySolSeq%S((iStep-0)*lStep)%P 
+     END IF
+     
+    END DO
+  END IF
+    
+END SUBROUTINE InterpolatePressure_ParT
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -385,7 +573,7 @@ END IF
 ! Calling the solver
 CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
 
-MaxInitialPressureDefect = max(MaxInitialPressureDefect,LinSc%prm%MGprmOut%DefInitial)
+MaxInitialPressureDefect = max(MaxInitialPressureDefect,LinSc%prm%MGprmOut%DefInitial*DBLE(lStep))
 
 CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 
@@ -400,11 +588,6 @@ END IF
 
 IF (myid.ne.master) THEN
  mySolSeq%S((iStep-0)*lStep)%P = LinSc%ValP(NLMAX)%x
- IF (iOuter.ne.mySolSeq%nOuter) then
-  if (myid.eq.showid) WRITE(*,*) "steps: ",(iStep-0)*lStep,(iStep-1)*lStep,(iStep-0)*lStep-int(lStep/2)
-  mySolSeq%S((iStep-0)*lStep-int(lStep/2))%P = mySolSeq%S((iStep-0)*lStep)%P 
-!  mySolSeq%S((iStep-0)*lStep-int(lStep/2))%P = 0.5d0*(mySolSeq%S((iStep-0)*lStep)%P + mySolSeq%S((iStep-1)*lStep)%P)
- END IF
 END IF
 
 END SUBROUTINE PressureStep_ParT
