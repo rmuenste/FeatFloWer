@@ -21,6 +21,7 @@ subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
 USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
+use var_QuadScalar, only: GenLinScalar
 USE var_QuadScalar, ONLY: Tracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
@@ -32,7 +33,7 @@ real*8, intent(in) :: time_ns
 integer, optional :: output_idx
 
 ! locals
-integer :: iout
+integer :: iout,ifld
 integer :: ndof
 integer :: nelem
 character(60) :: fieldName
@@ -90,6 +91,16 @@ IF (allocated(MaterialDistribution)) then
  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                    1, packed)                 
 END IF                  
+
+if (allocated(GenLinScalar%Fld)) then
+ DO iFld=1,GenLinScalar%nOfFields
+  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+  QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
+  packed(1)%p => QuadSc%auxU
+  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                    1, packed)
+ END DO
+end if
 
 IF (myid.eq.1) THEN
   if(outputRigidBodies())then      
@@ -179,6 +190,7 @@ USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
+use var_QuadScalar, only: GenLinScalar
 USE var_QuadScalar,ONLY:Tracer
 
 implicit none
@@ -190,7 +202,7 @@ INTEGER ndof,nelem
 real*8, intent(inout) :: time_ns
 type(fieldPtr), dimension(3) :: packed
 
-INTEGER nLengthV,nLengthE,LevDif
+INTEGER nLengthV,nLengthE,LevDif,iFld
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
 
@@ -231,6 +243,16 @@ IF (allocated(MaterialDistribution)) then
  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
 END IF                  
+
+pause
+if (allocated(GenLinScalar%Fld)) then
+ DO iFld=1,GenLinScalar%nOfFields
+  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+  QuadSc%auxU = 0
+  packed(1)%p => QuadSc%auxU
+  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ END DO
+end if
 
 ! This part here is responsible for creation of structures enabling the mesh coordinate 
 ! transfer to the master node so that it can create the corresponding matrices

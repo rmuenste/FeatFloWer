@@ -308,6 +308,7 @@ USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:Tracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
+use var_QuadScalar, only: GenLinScalar
 
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
@@ -332,7 +333,7 @@ character(60) :: FileA
 character(60) :: FileB
 character(60) :: fieldName
 
-integer :: ndof
+integer :: ndof,iFld
 
 type(fieldPtr), dimension(3) :: packed
 
@@ -363,6 +364,16 @@ IF (allocated(MaterialDistribution)) then
  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
 END IF                  
+
+if (allocated(GenLinScalar%Fld)) then
+ DO iFld=1,GenLinScalar%nOfFields
+  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+  QuadSc%auxU = 0
+  packed(1)%p => QuadSc%auxU
+  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+  GenLinScalar%fld(iFld)%Val = QuadSc%auxU
+ END DO
+end if
 
 call read_time_sol(cInFile, istep_ns, timens)
 
@@ -2089,16 +2100,17 @@ USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY:GenLinScalar
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
 INTEGER kvert(8,*),iO,ioffset,ive,ivt,iField,i,istat
-CHARACTER fileid*(5),filename*(27),procid*(3)
+CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
 integer :: iunit = 908070
-integer iX, ifbm
+integer iX, ifbm,iFld
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -2254,6 +2266,17 @@ DO iField=1,SIZE(myExport%Fields)
     write(iunit, *)"        </DataArray>"
   end if
   
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),""" format=""ascii"">"
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",REAL(GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+   write(iunit, *)"        </DataArray>"
+ 
+  END DO
+
  CASE('MeshVelo')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2518,13 +2541,15 @@ SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:GenLinScalar
 USE def_FEAT
 
 IMPLICIT NONE
-INTEGER iO,iproc,iField
+INTEGER iO,iproc,iField,iFld
 INTEGER :: iMainUnit=555
 CHARACTER mainname*(20) 
 CHARACTER filename*(26)
+CHARACTER cGenScalar*(50)
 
 integer :: istat
 
@@ -2572,6 +2597,11 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_13",""" NumberOfComponents=""3""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_23",""" NumberOfComponents=""3""/>"
   end if
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),"""/>"
+ END DO
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
  CASE('BoundaryNormal')

@@ -644,6 +644,16 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
+IF (iT.EQ.171) THEN
+   dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
+   ValU= +dScale*900d0
+END IF
+
+IF (iT.EQ.172) THEN
+   dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
+   ValU= -dScale*1300d0
+END IF
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!! INNOSPIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF (iT.EQ.222) THEN

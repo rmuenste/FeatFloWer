@@ -8,8 +8,8 @@ USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myALE,Properties,Temperature,Temperature_AVG,iTemperature_AVG
 USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
 USE var_QuadScalar, ONLY: DivergedSolution,ConvergedSolution
-USE var_QuadScalar, ONLY: Tracer, Tracer3
-USE mg_LinScalar, ONLY : mgProlRestInit
+USE var_QuadScalar, ONLY: Tracer, Tracer3,GenLinScalar
+USE mg_LinScalar, ONLY : mgProlRestInit,mgProlongation
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials,mySetup
 use, intrinsic :: ieee_arithmetic
 
@@ -717,7 +717,9 @@ END SUBROUTINE  updateHeatGeometry
 ! ----------------------------------------------
 !
 include 'LinSc_transport_extensions.f90'
+include 'GenLinSc_transport_extensions.f90'
 include 'LinSc_user.f90'
+include 'GenLinSc_user.f90'
 !
 ! ----------------------------------------------
 !

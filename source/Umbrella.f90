@@ -1,4 +1,4 @@
-SUBROUTINE CoommunicateCoarseGrid()
+SUBROUTINE CommunicateCoarseGrid()
   USE var_QuadScalar
   USE Parametrization,ONLY : ParametrizeQ2Nodes
   USE Transport_Q2P1, ONLY : QuadSc,LinSc,SetUp_myQ2Coor
@@ -32,7 +32,7 @@ SUBROUTINE CoommunicateCoarseGrid()
 
   IF (myid.ne.0) CALL CreateDumpStructures(1)
 
-END SUBROUTINE CoommunicateCoarseGrid
+END SUBROUTINE CommunicateCoarseGrid
 !
 ! --------------------------------------------------------------
 !

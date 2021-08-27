@@ -165,7 +165,7 @@ END TYPE tParticle
 !END TYPE tParam
 
 TYPE tMGParamIn
- INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
+ INTEGER MinLev,MedLev,MaxLev,MaxDifLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
  REAL*8 :: CrsRelaxPrm=2d0/3d0,CrsRelaxParPrm=1d0/3d0
@@ -181,6 +181,8 @@ END TYPE tMGParamOut
 
 TYPE tParam
  Character*20 :: cEquation
+ Character*20, allocatable :: cField(:)
+ integer :: nOfFields
 
  REAL*8  defCrit,epsCrit,MinDef
 
@@ -368,6 +370,26 @@ TYPE lScalar3
  TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
  TYPE(tParam) :: prm
  
+END TYPE
+
+TYPE lScalarField
+ CHARACTER cName*7
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: rhs
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: def
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux
+END TYPE
+
+TYPE lScalarGen
+ CHARACTER cName*7
+ INTEGER :: ndof,na,nOfFields
+ LOGICAL :: bProlRest=.FALSE. 
+ TYPE(lScalarField), DIMENSION(:)  , ALLOCATABLE :: Fld
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
+ INTEGER, DIMENSION(:),ALLOCATABLE :: knpr
+ TYPE(tParam) :: prm
 END TYPE
 
 TYPE tVelo

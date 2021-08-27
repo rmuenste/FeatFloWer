@@ -1,12 +1,15 @@
 MODULE def_LinScalar
 
+use iniparser
 USE def_FEAT
 USE PP3D_MPI, ONLY:E011Sum,E011Mat,myid,showID,MGE011,comm_maximum,&
               myMPI_barrier
-USE var_QuadScalar, ONLY: myMG,myDataFile,&
+USE var_QuadScalar, ONLY: myMG,myDataFile,tMGFldMatrix,&
                           mg_mesh, mg_Matrix, TMatrix, mg_dVector,&
                           tMGParamIn, tMGParamOut
-USE mg_LinScalar, only:mg_solver
+USE var_QuadScalar, only : KNAT,KNET,KNVT,KNEL
+
+USE mg_LinScalar, only:mg_solver,mgProlongation,mgLev
 use types
 
 
@@ -42,12 +45,15 @@ TYPE(TMatrix), POINTER :: plMat
 !---------------------------------------------------------------------
 
 ! Pointer to the entries of the multi-level matrices 
-REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, A11mat, A22mat, A33mat
+REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, ConvectionMat, MassMat, LMassMat, A11mat, A22mat, A33mat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 
+TYPE (tMGFldMatrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_Amat
+
+
 ! A multi-level Matrix entries struct 
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat, mg_ConvMat, mg_LMassMat, mg_MassMat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest
 TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011RestM
@@ -1020,6 +1026,7 @@ END SUBROUTINE GetDispParameters
 !
 
 include 'LinSc_def_extension.f90'
+include 'GenLinSc_def_extension.f90'
 
 END MODULE def_LinScalar
 

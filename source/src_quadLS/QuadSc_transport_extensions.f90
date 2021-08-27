@@ -59,20 +59,20 @@ DO iStep = 0,mySolSeq%nSteps
  if (.not.allocated(mySolSeq%S(iStep)%V_aux)) ALLOCATE(mySolSeq%S(iStep)%V_aux(QuadSc%ndof))
  if (.not.allocated(mySolSeq%S(iStep)%W_aux)) ALLOCATE(mySolSeq%S(iStep)%W_aux(QuadSc%ndof))
  if (.not.allocated(mySolSeq%S(iStep)%P_aux)) ALLOCATE(mySolSeq%S(iStep)%P_aux(LinSc%ndof))
-  mySolSeq%S(iStep)%U = QuadSc%ValU
-  mySolSeq%S(iStep)%V = QuadSc%ValV
-  mySolSeq%S(iStep)%W = QuadSc%ValW
- mySolSeq%S(iStep)%U = 0d0
- mySolSeq%S(iStep)%V = 0d0
- mySolSeq%S(iStep)%W = 0d0
+ mySolSeq%S(iStep)%U = QuadSc%ValU
+ mySolSeq%S(iStep)%V = QuadSc%ValV
+ mySolSeq%S(iStep)%W = QuadSc%ValW
+!  mySolSeq%S(iStep)%U = 0d0
+!  mySolSeq%S(iStep)%V = 0d0
+!  mySolSeq%S(iStep)%W = 0d0
  mySolSeq%S(iStep)%P = LinSc%ValP(NLMAX)%x
 END DO
 
-if (.not.(istart.eq.0.and.itns.eq.1)) then
- mySolSeq%S(0)%U = QuadSc%ValU
- mySolSeq%S(0)%V = QuadSc%ValV
- mySolSeq%S(0)%W = QuadSc%ValW
-end if
+! if (.not.(istart.eq.0.and.itns.eq.1)) then
+!  mySolSeq%S(0)%U = QuadSc%ValU
+!  mySolSeq%S(0)%V = QuadSc%ValV
+!  mySolSeq%S(0)%W = QuadSc%ValW
+! end if
 
 !------------------------------------------------------ PREDICTION --------------------------------------------------------
 MaxInitialPressureDefect = 1e-30 
@@ -84,7 +84,9 @@ DO iOuter=1,mySolSeq%nOuter
  lStep  = mySolSeq%nSteps/nSteps
  tstep  = tstep_BU/DBLE(nSteps)
  
- IF (iOuter.le.mySolSeq%nOuter) THEN
+IF (iOuter.le.1) THEN
+!  IF (iOuter.le.mySolSeq%nOuter) THEN
+!  IF (iOuter.le.mySolSeq%nOuter-2) THEN
  
   CALL NonLin_BurgerStep_ParT()
 
@@ -119,8 +121,8 @@ do iLoop =1 , Properties%nTPIterations
   lStep  = mySolSeq%nSteps/nSteps
   tstep  = tstep_BU/DBLE(nSteps)
 
-  CALL Lin_BurgerStep_ParT()
-!    CALL NonLin_BurgerStep_ParT()
+!   CALL Lin_BurgerStep_ParT()
+   CALL NonLin_BurgerStep_ParT()
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -168,7 +170,7 @@ do iLoop =1 , Properties%nTPIterations
  if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'PressureDefectReductionIn ', iLoop,cEnding(iEnding)//' step:',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
 !  if (MaxInitialPressureDefect.lt.1e-7) THEN 
 ! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps) THEN 
-  if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-10) THEN 
+  if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-11) THEN 
   if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   bEXIT = .true.
@@ -1422,6 +1424,33 @@ IF (myid.ne.0) THEN
 END IF
 
 end subroutine InitCond_Disp_QuadScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE InitCond_GenLinSc_Q1_QuadScalar()
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+IF (myid.ne.0) THEN
+
+ ! Set initial conditions
+ CALL QuadScalar_InitCond()
+
+ IF (myFBM%nParticles.GT.0) THEN
+  CALL updateFBMGeometry()
+ END IF
+
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_QuadScalar_Val()
+
+ ! Set initial conditions
+ CALL LinScalar_InitCond(mg_mesh%level(ilev)%dcorvg,&
+                         mg_mesh%level(ilev)%kvert)
+
+END IF
+
+end subroutine InitCond_GenLinSc_Q1_QuadScalar
 !
 ! ----------------------------------------------
 !

@@ -76,6 +76,7 @@ TYPE(TParLinScalar) PLinSc
 
 TYPE(lScalar) Tracer
 TYPE(lScalar3) Tracer3
+TYPE(lScalarGen) GenLinScalar
 
 TYPE(TcrsStructure) crsSTR
 
@@ -125,6 +126,10 @@ TYPE mg_Matrix
  REAL*8  , DIMENSION(:)  , ALLOCATABLE  :: a
 END TYPE mg_Matrix
 
+TYPE tMGFldMatrix
+ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE  :: fld
+END TYPE
+
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat,mg_BYMat,mg_BZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BTXMat,mg_BTYMat,mg_BTZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXPMat,mg_BYPMat,mg_BZPMat
@@ -154,7 +159,7 @@ TYPE tMultiGrid
 
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
-
+ INTEGER, DIMENSION(:), POINTER::  KNPR
  TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
 
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
@@ -166,9 +171,11 @@ TYPE tMultiGrid
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X,D,AUX,B
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A,AP
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
+ TYPE (tMGFldMatrix), DIMENSION(:), POINTER :: AXX
  TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
  REAL*8  , DIMENSION(:)  , POINTER :: XP
- INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
+ INTEGER MinLev,MaxLev,MedLev,MaxDifLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
+ INTEGER :: nOfFields,nOfSubsystemEqs
  integer :: vanka
  REAL*8  DefImprCoarse
  REAL*8  Criterion1,Criterion2,RLX,CrsRelaxPrm,CrsRelaxParPrm

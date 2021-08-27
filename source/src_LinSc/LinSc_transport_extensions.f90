@@ -514,15 +514,21 @@ END DO
 
 1 CONTINUE
 
-myQ2coor(1,:) = Tracer3%valX
-myQ2coor(2,:) = Tracer3%valY
-myQ2coor(3,:) = Tracer3%valZ
+if (myid.ne.master) then
+ myQ2coor(1,:) = Tracer3%valX
+ myQ2coor(2,:) = Tracer3%valY
+ myQ2coor(3,:) = Tracer3%valZ
+end if
 
 2 CONTINUE
 
 NLMAX = NLMAX - 1
 
-CALL CoommunicateCoarseGrid()
+if (myid.ne.master) then
+ mg_mesh%level(NLMAX)%dcorvg = myQ2coor
+end if
+
+CALL CommunicateCoarseGrid()
 
 CALL GetMeshVelocity()
 
@@ -590,16 +596,12 @@ END SUBROUTINE Protocol_linScalarQ1
 !
 ! ----------------------------------------------
 !
-!
-! ----------------------------------------------
-!
 SUBROUTINE Init_Disp_Q1(log_unit)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 USE var_QuadScalar
 implicit none
 integer, intent(in) :: log_unit
 integer :: n, ndof
-
 
 NLMAX = NLMAX + 1
 
@@ -639,10 +641,9 @@ NLMAX = NLMAX + 1
   ALLOCATE(mg_E011RestM(ILEV)%LdA(NDOF+1))
  END DO
 
-CALL InitializeProlRest(Tracer3)
+Tracer3%cName = "Displac"
 
-
-Tracer3%cName = "Disp"
+CALL InitializeProlRest(Tracer3,Tracer3%cName)
 
 CALL GetDispParameters(Tracer3%prm,Tracer3%cName,log_unit)
 
@@ -765,7 +766,7 @@ DO i=1,Tracer3%ndof
  END IF
 
  IF (myBoundary%LS_zero(i).ne.0) THEN
-  Tracer3%valY(i) = myQ2Coor(2,i)+0.5
+  Tracer3%valY(i) = myQ2Coor(2,i)-0.5
  END IF
  
  IF (Tracer3%knprZ(i).eq.1) THEN
@@ -833,17 +834,18 @@ END SUBROUTINE Build_LinSc_Convection_Q1
 !
 ! ----------------------------------------------
 !
-SUBROUTINE InitializeProlRest(lSc)
+SUBROUTINE InitializeProlRest(lSc,cF)
 implicit none
 TYPE(lScalar3), INTENT(INOUT), TARGET :: lSc
+CHARACTER cF*(*)
 
  MyMG%MinLev  = NLMIN
  myMG%MedLev  = NLMIN
  myMG%MaxLev  = NLMAX
 
- IF(myid.eq.showid) WRITE(*,*) "Initialization of displacement prolongation matrix"
+ IF(myid.eq.showid) WRITE(*,*) "Initialization of "//ADJUSTL(TRIM(cF))//" prolongation matrix"
  myMG%bProlRest => lSc%bProlRest
- MyMG%cVariable = "Displacement"
+ MyMG%cVariable = ADJUSTL(TRIM(cF))
  CALL mgProlRestInit()
 
 END SUBROUTINE InitializeProlRest  
