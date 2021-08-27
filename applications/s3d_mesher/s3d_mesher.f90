@@ -113,6 +113,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  IF (mySetup%MeshResolution.ne.0)  THEN
   nT = INT(1.0d0*DBLE(nR)*(3.14*(Dzo+Dzi)*0.5)/(Dzo-Dzi))
   nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
+  nR = nR + 1
  END IF
 
  IF (MOD(nZ,2).EQ.1) THEN
