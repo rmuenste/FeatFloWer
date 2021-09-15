@@ -496,13 +496,13 @@ def simLoopVelocity(workingDir):
 
             exitCode = subprocess.call([launchCommand], shell=True)
 
-            if paramDict['retryDeformation'] and exitCode == 99:
+            if paramDict['retryDeformation'] and exitCode == 55:
                 with open("_data/q2p1_param.dat", "r") as f:
                   for l in f:
                     if "SimPar@UmbrellaStepM" in l:
                         orig_umbrella = int(l.split()[2])
                 UmbrellaStepM = orig_umbrella
-                while exitCode == 99 and UmbrellaStepM != 0:
+                while exitCode == 55 and UmbrellaStepM != 0:
                     replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
                     UmbrellaStepM = int(UmbrellaStepM / 2)
                     exitCode = subprocess.call([launchCommand], shell=True)
