@@ -1734,7 +1734,7 @@
       
       DO iSubInflow = 1,myProcess%myInflow(iInflow)%nSubInflows
        WRITE(cInflow_i,'(A,A,I0,A,I0)') ADJUSTL(TRIM(cINI)),"/Inflow_",iInflow,"/Sub_",iSubInflow
-       WRITE(*,*)"'",ADJUSTL(TRIM(cInflow_i)),"'"
+!       WRITE(*,*)"'",ADJUSTL(TRIM(cInflow_i)),"'"
       
        call INIP_getvalue_int(parameterlist,cInflow_i,"Material",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material,0)
        if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material.eq.0) write(*,*) 'UNDEFINED material from Inflow ',iInflow,' !!'
