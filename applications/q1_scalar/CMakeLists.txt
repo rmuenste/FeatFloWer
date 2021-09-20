@@ -37,3 +37,5 @@ IF(${OUT_OF_SOURCE_BUILD})
   include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/q1_scalar_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
