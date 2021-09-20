@@ -2262,34 +2262,72 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   REAL*8 HogenPowerlaw
   REAL*8 ViscosityMatModel
 
-    ILEV = NLMAX
-    CALL SETLEV(2)
+  ILEV = NLMAX
+  CALL SETLEV(2)
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
 
-    DO i=1,SIZE(QuadSc%ValU)
-    daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
-      0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
-      0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
-      0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
-    taux = Temperature(i)
+  DO i=1,SIZE(QuadSc%ValU)
+   daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
+     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+   taux = Temperature(i)
 
-    Shearrate(i) = sqrt(2d0 * daux)
-    Viscosity(i) = ViscosityMatModel(daux,1,taux)
+   Shearrate(i) = sqrt(2d0 * daux)
+   Viscosity(i) = ViscosityMatModel(daux,1,taux)
 
-    END DO
+  END DO
 
 END SUBROUTINE  GetNonNewtViscosity_sse
+!
+! ----------------------------------------------
+!
+SUBROUTINE  GetAlphaNonNewtViscosity_sse()
+  INTEGER i
+  REAL*8 daux,taux,dAlpha
+  REAL*8 AlphaViscosityMatModel
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+
+  DO i=1,SIZE(QuadSc%ValU)
+   daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
+     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+
+   taux   = GenLinScalar%Fld(1)%val(i)
+   dalpha = GenLinScalar%Fld(2)%val(i)
+     
+   Shearrate(i) = sqrt(2d0 * daux)
+   Viscosity(i) = AlphaViscosityMatModel(daux,dAlpha,taux)
+
+  END DO
+
+END SUBROUTINE  GetAlphaNonNewtViscosity_sse
 !
 ! ----------------------------------------------
 !

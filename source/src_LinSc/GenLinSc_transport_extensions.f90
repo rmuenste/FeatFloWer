@@ -1,6 +1,171 @@
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Transport_GenLinSc_Q1_MultiMat(mfile,INL)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+INTEGER mfile,INL
+REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),RhsTemp(:)
+REAL*8 tstep_old,thstep_old,defXXX
+INTEGER INLComplete,I,J,iFld,iEnd,iStart
+
+if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTempCrit)) allocate(DefTempCrit(GenLinScalar%nOfFields))
+if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
+
+IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+! Generate the necessary operators
+IF (myid.ne.0) THEN
+
+ CALL Create_GenLinSc_Q1_Convection()
+ CALL InitAFC_GenLinSc_Q1()
+
+ CALL Create_GenLinSc_Q1_Mass(1d0)
+
+ CALL Create_GenLinSc_Q1_Diffusion(Properties%DiffCoeff(1))
+
+END IF
+
+thstep = tstep*(1d0-theta)
+
+IF (myid.ne.0) THEN
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_GenLinSc_Q1_Val(mg_mesh%level(ilev)%dcorvg)
+
+ DO iFld = 1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%def = 0d0
+ END DO
+
+ IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") then
+  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,1,0)
+ END IF
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%rhs = GenLinScalar%Fld(iFld)%def
+ END DO
+END IF
+
+thstep = tstep*(theta)
+IF (myid.ne.0) THEN
+
+ IF (TRIM(GenLinScalar%prm%cEquation).eq."STATIONARY") then
+  CALL Matdef_STATIONARY_GenLinSc_Q1(GenLinScalar,0,1)
+ END IF
+ IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") then
+  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,0,1)
+ END IF
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+ ! Save the old solution
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+ END DO
+
+ !! Compute the defect
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+end if
+
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+END DO
+
+DO iFld=1,GenLinScalar%nOfFields
+ DefTempCrit(iFld)=MAX((RhsTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
+END DO
+
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,0,&
+       ResTemp,DefTemp,DefTempCrit," Laplace equation ")
+
+do INL=1,GenLinScalar%prm%NLmax
+INLComplete = 0
+
+! Calling the solver
+CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
+                                   Boundary_GenLinSc_Q1_Mat,&
+                                   mfile)
+
+IF (myid.ne.0) THEN
+
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_GenLinSc_Q1_Val(mg_mesh%level(ilev)%dcorvg)
+ 
+ ! Restore the constant right hand side
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%fld(iFld)%def = GenLinScalar%fld(iFld)%rhs
+ END DO
+
+! Assemble the defect vector and fine level matrix
+ IF (TRIM(GenLinScalar%prm%cEquation).eq."STATIONARY") THEN
+  CALL Matdef_STATIONARY_GenLinSc_Q1(GenLinScalar,-1,0)
+ END IF
+ IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") THEN
+  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,-1,0)
+ END IF
+ 
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+! Save the old solution
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+ END DO
+
+! Compute the defect
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsTemp=DefTemp
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+END DO
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,INL,&
+       ResTemp,DefTemp,DefTempCrit," GenLinScalar equation ")
+
+IF ((DefTemp(1).LE.DefTempCrit(1)).AND.&
+    (DefTemp(2).LE.DefTempCrit(2)).AND.&
+    (DefTemp(3).LE.DefTempCrit(3)).AND.&
+    (INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+IF (INLComplete.eq.1) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+2 CONTINUE
+
+IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
+
+IF (myid.ne.0) THEN
+ iStart = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+ iEnd   = NLMAX
+ do NLMAX = iStart,iEnd
+  CALL ProlongateSolution_GenLinSc_Q1()
+ END DO
+ NLMAX = iEnd
+END IF
+
+END SUBROUTINE Transport_GenLinSc_Q1_MultiMat
+!
+! ----------------------------------------------
+!
 SUBROUTINE Transport_GenLinSc_Q1(mfile,INL)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 INTEGER mfile,INL
@@ -193,10 +358,11 @@ integer :: n, ndof, iFld
  ! Set the types of boundary conditions (set up knpr)
  call Knpr_GenLinSc_Q1(mg_mesh%level(ilev)%dcorvg)
 
-! DO iFld = 1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(1)%val = 250d0
-  GenLinScalar%Fld(2)%val = 1d0
-! END DO
+ DO iFld = 1,GenLinScalar%nOfFields
+  IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'temp')  GenLinScalar%Fld(iFld)%val = 250d0
+  IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'alpha') GenLinScalar%Fld(iFld)%val = 1d0
+  IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'FAC') GenLinScalar%Fld(iFld)%val = 0d0
+ END DO
 
  !  ! Building up the matrix strucrures
  CALL Create_GenLinSc_Q1_AFCStruct()

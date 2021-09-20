@@ -1152,6 +1152,16 @@ EXTERNAL E013
   END IF
 
   if(bNonNewtonian) THEN
+   if (bMultiMat) then
+    CALL DIFFQ2_AlphaNNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+         MaterialDistribution(ILEV)%x,&
+         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
+   else
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
          Temperature,MaterialDistribution(ILEV)%x,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
@@ -1160,6 +1170,7 @@ EXTERNAL E013
          mg_mesh%level(ILEV)%kedge,&
          mg_mesh%level(ILEV)%dcorvg,&
          E013)
+   end if
   else 
     CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
          qMat%LdA,&
@@ -2267,15 +2278,27 @@ REAL tttx1,tttx0
    IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) THEN
     CALL ZTIME(tttx0)
     
-    CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-    Temperature,MaterialDistribution(ilev)%x,&
-    myScalar%defU, myScalar%defV, myScalar%defW,&
-    Viscosity,&
-    mg_mesh%level(ILEV)%kvert,&
-    mg_mesh%level(ILEV)%karea,&
-    mg_mesh%level(ILEV)%kedge,&
-    mg_mesh%level(ILEV)%dcorvg,&
-    E013 ) ! S*u
+    if (bMultiMat) THEN
+     CALL AlphaSTRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    else
+     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     Temperature,MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    end if
 
     CALL ZTIME(tttx1)
     myStat%tSMat = myStat%tSMat + (tttx1-tttx0)

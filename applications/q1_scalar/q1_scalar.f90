@@ -3,7 +3,6 @@ PROGRAM Q1_GenScalar
   include 'defs_include.h'
 
   use solution_io, only: postprocessing_app
-  use solution_io, only: postprocessing_sse_q1_scalar
 
   use Transport_Q1, only : Reinit_GenLinSc_Q1
   use post_utils,  only: handle_statistics,&
@@ -46,16 +45,11 @@ PROGRAM Q1_GenScalar
   timens=timens+dt
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-!   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
  
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_GenLinSc_Q1(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
+  CALL Transport_GenLinSc_Q1(ufile,inonln_t)
 
-  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 

@@ -56,6 +56,14 @@ do iFld=1,GenLinScalar%nOfFields
    IF (GenLinScalar%Fld(iFld)%knpr(i).eq.3) GenLinScalar%Fld(iFld)%val(i) = 0.5d0
   END IF
 
+  IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'FAC') then
+   IF (GenLinScalar%Fld(iFld)%knpr(i).eq.1) GenLinScalar%Fld(iFld)%val(i) = -1d0
+  END IF
+  
+  IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'FAC') then
+   IF (GenLinScalar%Fld(iFld)%knpr(i).eq.2) GenLinScalar%Fld(iFld)%val(i) = 1d0
+  END IF
+
   END DO
 END DO
 
@@ -112,16 +120,17 @@ do iFld=1,GenLinScalar%nOfFields
   IF (myBoundary%iInflow(i).eq.172) THEN
     GenLinScalar%fld(iFld)%knpr(i) = 2
   END IF
-!   IF (myBoundary%iInflow(i).ne.0) THEN
-!     GenLinScalar%fld(iFld)%knpr(i) = 1
-!   END IF
-!   
-!   IF (myBoundary%bWall(i)) THEN
-!     GenLinScalar%fld(iFld)%knpr(i) = 2
-!   END IF
+  
+  IF (myBoundary%iInflow(i).eq.2.and.(TRIM(GenLinScalar%Fld(iFld)%cName).eq.'FAC')) THEN
+    GenLinScalar%fld(iFld)%knpr(i) = 1
+  END IF
+  
+  IF (myBoundary%bWall(i).and.(TRIM(GenLinScalar%Fld(iFld)%cName).eq.'FAC')) THEN
+    GenLinScalar%fld(iFld)%knpr(i) = 2
+  END IF
 
   IF (myBoundary%LS_zero(i).ne.0) THEN
-    GenLinScalar%fld(iFld)%knpr(i) = 3
+!     GenLinScalar%fld(iFld)%knpr(i) = 3
   END IF
 
   END DO

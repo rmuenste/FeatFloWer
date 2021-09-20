@@ -2056,7 +2056,11 @@ ELSE
  CALL QuadScP1toQ2(LinSc,QuadSc)
 END IF
 
-CALL GetNonNewtViscosity_sse()
+if (bMultiMat) then
+ CALL GetAlphaNonNewtViscosity_sse()
+else
+ CALL GetNonNewtViscosity_sse()
+end if
 
 IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)

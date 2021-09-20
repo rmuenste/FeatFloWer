@@ -3,9 +3,7 @@ subroutine init_q1_scalar(log_unit)
   USE def_FEAT
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_GenLinSc_Q1_QuadScalar,ProlongateSolution, &
-    bTracer,bViscoElastic,StaticMeshAdaptation,InitCond_QuadScalar
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
+    bTracer,InitCond_QuadScalar
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
     Transport_LinScalar, Init_GenLinSc_Q1,ProlongateSolution_GenLinSc_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -27,15 +25,14 @@ subroutine init_q1_scalar(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call InitCond_QuadScalar()
     CALL InitCond_GenLinSc_Q1_QuadScalar()
-ELSE
+  ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-!       call init_sol_same_level(CSTART)
-      call Load_ListFiles_Q1_Scalar(0)
+      call init_sol_same_level(CSTART)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
-!       call init_sol_lower_level(CSTART)
-!        CALL ProlongateSolution_GenLinSc_Q1()
+      call init_sol_lower_level(CSTART)
+      CALL ProlongateSolution_GenLinSc_Q1()
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF
   END IF
@@ -143,17 +140,6 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END IF                                               ! PARALLEL
 
  CALL Init_QuadScalar(mfile)
-
- !------------------------------------------------------------------
- cExtrud3DFile = '_data/Extrud3D.dat'
- inquire(file=cExtrud3DFile,Exist=bExist)
- if (bExist) then
-  call ReadS3Dfile(cExtrud3DFile)
-!  call Setup_STL_Segments()
- else
-  write(*,*) 'file: "',adjustl(trim(cExtrud3DFile)),'" does not exist!'
- end if
- !------------------------------------------------------------------
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 

@@ -1153,6 +1153,72 @@ RETURN
 
 end function ViscosityMatModel
 !
+!------------------------------------------------------------
+!
+FUNCTION AlphaViscosityMatModel(NormShearSquare,dAlpha,Temperature)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+USE PP3D_MPI, ONLY:myid
+IMPLICIT NONE
+
+real*8 :: AlphaViscosityMatModel
+real*8, intent (in) :: NormShearSquare
+real*8, intent (in) :: dAlpha
+real*8, intent (in), optional :: Temperature
+integer iMAt
+REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: VNN,daux
+REAL*8 :: dN
+TYPE(tRheology) :: Rheo(2)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+aT = 1d0
+
+Rheo(1)%C1 = 8.86d0
+Rheo(1)%C2 = 101.6d0
+Rheo(1)%Tb = 200d0
+Rheo(1)%Ts = 29d0
+Rheo(1)%A  = (1d0)*2975d0
+Rheo(1)%B  = 1.33d0
+Rheo(1)%C  = 0.52d0
+
+Rheo(2)%C1 = 8.86d0
+Rheo(2)%C2 = 101.6d0
+Rheo(2)%Tb = 200d0
+Rheo(2)%Ts = -5.5d0
+Rheo(2)%A  = (1d0)*2524d0
+Rheo(2)%B  = 1.1d0
+Rheo(2)%C  = 0.52d0
+
+if (dAlpha.lt.0.5d0) then
+ iMat=1
+else
+ iMat=2
+end if
+ 
+! TBTS
+daux = Rheo(iMat)%C1*(Rheo(iMat)%TB-Rheo(iMat)%TS)/(Rheo(iMat)%C2 + Rheo(iMat)%TB - Rheo(iMat)%TS)
+daux = daux - Rheo(iMat)%C1*(Temperature-Rheo(iMat)%TS)/(Rheo(iMat)%C2 + Temperature- Rheo(iMat)%TS)
+aT = 1d1**daux
+ 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+dStrs = (2d0*NormShearSquare)**0.5d0
+
+dLimStrs = MIN(1d5,MAX(1d-2,ABS(dStrs)))
+
+! Paderborn Carreau
+VNN = (1d1*Rheo(iMat)%A)*aT*(1d0+Rheo(iMat)%B*aT*dLimStrs)**(-Rheo(iMat)%C)
+
+AlphaViscosityMatModel = VNN
+!if (iMat.eq.1) write(*,*) iMat, aT, AlphaViscosityMatModel
+
+RETURN
+
+end function AlphaViscosityMatModel
+!
 !
 !
 SUBROUTINE TransformPointToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)

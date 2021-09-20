@@ -93,13 +93,15 @@ IF (allocated(MaterialDistribution)) then
 END IF                  
 
 if (allocated(GenLinScalar%Fld)) then
- DO iFld=1,GenLinScalar%nOfFields
-  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
-  QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
-  packed(1)%p => QuadSc%auxU
-  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                    1, packed)
- END DO
+ IF (myid.ne.0) THEN
+  DO iFld=1,GenLinScalar%nOfFields
+   fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+   QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
+   packed(1)%p => QuadSc%auxU
+   call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                     1, packed)
+  END DO
+ end if
 end if
 
 IF (myid.eq.1) THEN
