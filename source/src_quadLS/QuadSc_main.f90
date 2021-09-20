@@ -1482,6 +1482,13 @@ SUBROUTINE Velocity_Correction()
 
   ! *** Update of U = U~ - k M^-1 B P 
 
+  ILEV = NLMAX
+  qlMat     => mg_qlMat(ILEV)
+  BXMat     => mg_BXMat(ILEV)%a
+  BYMat     => mg_BYMat(ILEV)%a
+  BZMat     => mg_BZMat(ILEV)%a
+  MlRhoPmat => mg_MlRhoPmat(ILEV)%a
+  
   CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%ValP(NLMAX)%x,&
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,-TSTEP,0d0)
 
@@ -1519,6 +1526,11 @@ SUBROUTINE AddPressureGradient()
   INTEGER I,J,IEL
   REAL*8 ddx,ddy,ddz,ddp
 
+  ILEV = NLMAX
+  qlMat    => mg_qlMat(ILEV)
+  BXMat    => mg_BXMat(ILEV)%a
+  BYMat    => mg_BYMat(ILEV)%a
+  BZMat    => mg_BZMat(ILEV)%a
   CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
 
@@ -1612,6 +1624,11 @@ SUBROUTINE OperatorRegenaration(iType)
 
   IF (iType.EQ.1.and.bNS_Stabilization) then
    CALL Create_hDiffMat()
+   bHit = .TRUE.
+  END IF
+
+  IF (iType.EQ.3.and.(NewtonForBurgers.ne.0d0)) then
+   CALL Create_barMMat_iso(QuadSc)
    bHit = .TRUE.
   END IF
 

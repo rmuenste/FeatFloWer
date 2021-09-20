@@ -2,7 +2,7 @@ PROGRAM Q2P1_FC_EXT
 
   include 'defs_include.h'
 
-  use Transport_Q2P1, ONLY : Transport_q2p1_UxyzP_ParT
+  use Transport_Q2P1, ONLY : Transport_q2p1_UxyzP_ParT,NewtonForBurgers
 
   use solution_io, only: postprocessing_app
 
@@ -31,6 +31,8 @@ PROGRAM Q2P1_FC_EXT
 
   !-------MAIN LOOP-------
 
+  NewtonForBurgers = -0.0d0
+  
   DO itns=1,nitns
 
   itnsr=0
