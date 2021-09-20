@@ -31,7 +31,7 @@ thstep = tstep*(1d0-theta)
 
 IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_Q1_Val()
+ CALL Boundary_GenLinSc_Q1_Val(mg_mesh%level(ilev)%dcorvg)
 
  DO iFld = 1,GenLinScalar%nOfFields
   GenLinScalar%Fld(iFld)%def = 0d0
@@ -96,7 +96,7 @@ CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
 IF (myid.ne.0) THEN
 
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_Q1_Val()
+ CALL Boundary_GenLinSc_Q1_Val(mg_mesh%level(ilev)%dcorvg)
  
  ! Restore the constant right hand side
  DO iFld=1,GenLinScalar%nOfFields
@@ -193,9 +193,10 @@ integer :: n, ndof, iFld
  ! Set the types of boundary conditions (set up knpr)
  call Knpr_GenLinSc_Q1(mg_mesh%level(ilev)%dcorvg)
 
- DO iFld = 1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%val = 0.1d0
- END DO
+! DO iFld = 1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(1)%val = 250d0
+  GenLinScalar%Fld(2)%val = 1d0
+! END DO
 
  !  ! Building up the matrix strucrures
  CALL Create_GenLinSc_Q1_AFCStruct()
