@@ -537,7 +537,13 @@ write(iunit, '(A)')"    <PointData>"
 !  end do
 !  write(iunit, *)"        </DataArray>"
 
-! write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","knpr",""" format=""ascii"">"
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","KNPR",""" format=""ascii"">"
+ do ivt=1,nnvt
+  write(iunit, '(A,E16.7)')"        ",REAL(MergedMeshKnpr(ivt))
+ end do
+ write(iunit, *)"        </DataArray>"
+
+ ! write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","knpr",""" format=""ascii"">"
 ! do iel=1,nel
 !  if (.not.allocated(myRF(iel)%myRF)) then
 !   do i=1,myRF(iel)%nOfVert
@@ -1245,7 +1251,7 @@ WRITE(1,'(2I8,A)') nUniqueElems,nUniquePoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,N
 
 WRITE(1,'(A)') 'DCORVG'
 DO i = 1,nUniquePoints
- WRITE(1,'(3ES13.5)') MeshOutputScaleFactor*MergedMeshCoor(:,i)
+ WRITE(1,'(3ES13.5)') MergedMeshCoor(:,i)
 END DO
 
 WRITE(1,'(A)') 'KVERT'
@@ -1290,6 +1296,250 @@ CLOSE(1)
 END SUBROUTINE Output_ParticleMergedRefTriMesh
 
 SUBROUTINE Output_ParticleMergedRefTriMeshPar()
+USE MESH_Structures
+integer i,j,nKNPR,nParam,ParIndex
+character cF*(256)
+real*8 dc(3),P(3),minCoor(3),maxCoor(3),myRand(3)
+integer iminCoor(3),imaxCoor(3)
+REAL*8 :: dr=0.025
+type(tMultiMesh) :: mg_NewMesh
+CHARACTER cG*(256)
+logical bFound
+
+
+NLMAX = 2
+NLMIN = 1
+mg_NewMesh%maxlevel = 2
+allocate(mg_NewMesh%level(mg_NewMesh%maxlevel))
+
+WRITE(cG,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Merged_'//adjustl(trim(cProjectGridFile))
+call readTriCoarse(adjustl(trim(cG)), mg_NewMesh)
+write(*,*) 'LoadedFile: ', adjustl(trim(cG))
+
+!!! building up the mesh structures
+call refineMesh(mg_NewMesh, mg_NewMesh%maxlevel)  
+
+! do iel=1,mg_NewMesh%level(1)%nel
+!  write(*,*) iel,':',mg_NewMesh%level(1)%kadj(:,iel)
+!  pause
+! end do
+! pause
+
+ParIndex = 0
+do iel=1,mg_NewMesh%level(1)%nel
+ bFound=.false.
+ do j=1,8
+  ivt = mg_NewMesh%level(1)%kvert(j,iel)
+  if (mg_NewMesh%level(1)%knpr(ivt).gt.0) then
+   bFound=.true.
+  end IF
+ end do
+ 
+ if (bFound) THEN
+  ParIndex = ParIndex + 1
+  nParam = 0
+  do j=1,8
+   ivt = mg_NewMesh%level(1)%kvert(j,iel)
+   if (mg_NewMesh%level(1)%knpr(ivt).gt.0) then
+    nParam = nParam + 1
+!    write(*,*) 'ivt ',ivt
+    mg_NewMesh%level(1)%knpr(ivt) = -ParIndex
+   end if
+  end do
+  CALL SetRecKNPR(iel)
+  write(*,*) ParIndex,nParam
+ end if
+! 
+end do
+
+write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
+open(file=ADJUSTL(TRIM(cF)),unit=12)
+write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
+write(12,'(A)')  'Merged_'//adjustl(trim(cProjectGridFile))
+
+minCoor=+1d30
+maxCoor=-1d30
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (minCoor(1).gt.P(1)) minCoor(1) = P(1)
+ if (minCoor(2).gt.P(2)) minCoor(2) = P(2)
+ if (minCoor(3).gt.P(3)) minCoor(3) = P(3)
+ if (maxCoor(1).lt.P(1)) maxCoor(1) = P(1)
+ if (maxCoor(2).lt.P(2)) maxCoor(2) = P(2)
+ if (maxCoor(3).lt.P(3)) maxCoor(3) = P(3)
+end do
+
+iminCoor =0
+imaxCoor =0
+DO i1=1,3
+ do ivt=1,mg_NewMesh%level(1)%nvt
+  P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+  if (abs(minCoor(i1)-P(i1)).lt.1e-3) iminCoor(i1) = iminCoor(i1) + 1
+  if (abs(maxCoor(i1)-P(i1)).lt.1e-3) imaxCoor(i1) = imaxCoor(i1) + 1
+ end do
+END DO
+write(*,*) minCoor,iminCoor
+write(*,*) maxCoor,imaxCoor
+
+write(cF,'(A,I0,A)') 'X-.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/X-.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) iminCoor(1), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,1.0,0.0,0.0,-minCoor(1),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(minCoor(1)-P(1)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+write(cF,'(A,I0,A)') 'X+.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/X+.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) imaxCoor(1), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,1.0,0.0,0.0,-maxCoor(1),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(maxCoor(1)-P(1)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+write(cF,'(A,I0,A)') 'Y-.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Y-.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) iminCoor(2), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,1.0,0.0,-minCoor(2),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(minCoor(2)-P(2)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+write(cF,'(A,I0,A)') 'Y+.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Y+.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) imaxCoor(2), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,1.0,0.0,-maxCoor(2),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(maxCoor(2)-P(2)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+write(cF,'(A,I0,A)') 'Z-.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Z-.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) iminCoor(3), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,0.0,1.0,-minCoor(3),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(minCoor(3)-P(3)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+write(cF,'(A,I0,A)') 'Z+.par'
+write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Z+.par'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) imaxCoor(3), 'Wall'
+write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,0.0,1.0,-maxCoor(3),"'"
+do ivt=1,mg_NewMesh%level(1)%nvt
+ P = mg_NewMesh%level(1)%dcorvg(:,ivt)
+ if (abs(maxCoor(3)-P(3)).lt.1e-3) then
+  write(11,*) ivt
+ end if
+end do
+close(11)
+
+do iParam=1,ParIndex
+ n = 0
+ dc = 0d0
+ do ivt=1,mg_NewMesh%level(1)%nvt
+  if (mg_NewMesh%level(1)%knpr(ivt).eq.-iParam) then
+   n = n + 1
+   dc = dc + mg_NewMesh%level(1)%dcorvg(:,ivt)
+!   if (iParam.eq.80) write(*,'(3ES12.4)') mg_NewMesh%level(1)%dcorvg(:,ivt)
+  end if
+ end do
+ 
+ CALL RANDOM_NUMBER(myRand)
+ myRand = 2d0*myRand-1d0
+ myRand = dr*(-0.05d0)*myRand
+ 
+ if (n.eq.26) then
+  dc = dc/dble(n)
+  write(cF,'(A,I0,A)') 'SPHERE_',iParam,'.par'
+  write(12,'(A)')  ADJUSTL(TRIM(cF))
+  write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/SPHERE_',iParam,'.par'
+  open(file=ADJUSTL(TRIM(cF)),unit=11)
+  write(11,*) n, 'Wall'
+  write(11,'(A,I0,7ES12.4,A)') "'",7,dc+myRand,dr,1.0,1.0,1.0,"'"
+  do ivt=1,mg_NewMesh%level(1)%nvt
+   if (mg_NewMesh%level(1)%knpr(ivt).eq.-iParam) then
+    write(11,*) ivt
+   end if
+  end do
+  close(11)
+ end if
+end do
+
+close(12)
+
+ CONTAINS
+
+RECURSIVE SUBROUTINE SetRecKNPR(IEL8)
+implicit none
+INTEGER IEL8
+integer i8,ivt8,iat8,jel8
+logical bContinue1,bContinue2
+
+DO iat8=1,6
+ jel8 = mg_NewMesh%level(1)%kadj(iat8,iel8)
+ bContinue1 = .false.
+ bContinue2 = .false.
+ if (JEL8.gt.0) THEN
+  do i8=1,8
+   ivt8 = mg_NewMesh%level(1)%kvert(i8,jel8)
+   if (mg_NewMesh%level(1)%knpr(ivt8).eq.-ParIndex) THEN
+    bContinue1 = .true.
+   end if
+   if (mg_NewMesh%level(1)%knpr(ivt8).gt.0) THEN
+    bContinue2 = .true.
+   end if
+  end do
+!  write(*,*) iat8,bContinue1, bContinue1, JEL8
+  if (bContinue1.and.bContinue2) then
+   do i8=1,8
+    ivt8 = mg_NewMesh%level(1)%kvert(i8,jel8)
+    if (mg_NewMesh%level(1)%knpr(ivt8).gt.0) THEN
+     nParam = nParam + 1
+     mg_NewMesh%level(1)%knpr(ivt8) = -ParIndex
+    end if
+   end do
+   CALL SetRecKNPR(jel8)
+  end if
+ end if
+end do
+
+END SUBROUTINE SetRecKNPR
+ 
+END SUBROUTINE Output_ParticleMergedRefTriMeshPar
+
+SUBROUTINE Output_ParticleMergedRefTriMeshParold()
 integer i,j,nKNPR
 character cF*(256)
 real*8 dc(3)
@@ -1335,6 +1585,6 @@ END DO
 
 close(12)
 
-END SUBROUTINE Output_ParticleMergedRefTriMeshPar
+END SUBROUTINE Output_ParticleMergedRefTriMeshParold
 
 END Module MeshRefOutput
