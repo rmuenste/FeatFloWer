@@ -18,11 +18,14 @@ IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
 ! Generate the necessary operators
 IF (myid.ne.0) THEN
 
+ ! Convection + stabilization
  CALL Create_GenLinSc_Q1_Convection()
  CALL InitAFC_GenLinSc_Q1()
 
+ ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
  CALL Create_GenLinSc_Q1_Mass(1d0)
 
+ ! Diffusion Matrix scales with Lambda/Rho*Cp ==> which is material specific
  CALL Create_GenLinSc_Q1_Diffusion(Properties%DiffCoeff(1))
 
 END IF
@@ -37,9 +40,7 @@ IF (myid.ne.0) THEN
   GenLinScalar%Fld(iFld)%def = 0d0
  END DO
 
- IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") then
-  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,1,0)
- END IF
+ CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,1,0)
 
  DO iFld=1,GenLinScalar%nOfFields
   GenLinScalar%Fld(iFld)%rhs = GenLinScalar%Fld(iFld)%def
@@ -49,12 +50,7 @@ END IF
 thstep = tstep*(theta)
 IF (myid.ne.0) THEN
 
- IF (TRIM(GenLinScalar%prm%cEquation).eq."STATIONARY") then
-  CALL Matdef_STATIONARY_GenLinSc_Q1(GenLinScalar,0,1)
- END IF
- IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") then
-  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,0,1)
- END IF
+ CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,0,1)
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_GenLinSc_Q1_Def()
@@ -104,12 +100,7 @@ IF (myid.ne.0) THEN
  END DO
 
 ! Assemble the defect vector and fine level matrix
- IF (TRIM(GenLinScalar%prm%cEquation).eq."STATIONARY") THEN
-  CALL Matdef_STATIONARY_GenLinSc_Q1(GenLinScalar,-1,0)
- END IF
- IF (TRIM(GenLinScalar%prm%cEquation).eq."INSTATIONARY") THEN
-  CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,-1,0)
- END IF
+ CALL Matdef_INSTATIONARY_GenLinSc_Q1(GenLinScalar,-1,0)
  
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_GenLinSc_Q1_Def()

@@ -1,7 +1,7 @@
 subroutine init_q1_scalar(log_unit)
     
   USE def_FEAT
-  USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
+  USE Transport_Q2P1, ONLY : Init_QuadScalar_Structures_sse, &
     InitCond_GenLinSc_Q1_QuadScalar,ProlongateSolution, &
     bTracer,bViscoElastic,StaticMeshAdaptation,InitCond_QuadScalar
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
@@ -19,7 +19,7 @@ subroutine init_q1_scalar(log_unit)
   ! Initialization for FEATFLOW
   CALL General_init_ext(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(log_unit)
+  CALL Init_QuadScalar_Structures_sse(log_unit)
 
   CALL Init_GenLinSc_Q1(log_unit)
 
@@ -30,11 +30,10 @@ subroutine init_q1_scalar(log_unit)
 ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-!       call init_sol_same_level(CSTART)
       call Load_ListFiles_Q1_Scalar(0)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
-!       call init_sol_lower_level(CSTART)
+!        Missing mechanism
 !        CALL ProlongateSolution_GenLinSc_Q1()
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF

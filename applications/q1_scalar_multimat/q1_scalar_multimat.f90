@@ -32,12 +32,9 @@ PROGRAM Q1_GenScalar
   END IF
   
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
-!   pause
   
   !-------MAIN LOOP-------
 
-!   CALL Reinit_GenLinSc_Q1()
-  
   DO itns=1,nitns
 
   itnsr=0
@@ -45,15 +42,8 @@ PROGRAM Q1_GenScalar
   dt=tstep
   timens=timens+dt
 
-  ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-!   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
- 
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
+  ! Solve transport equation for linear scalar
+  CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
 
   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
@@ -62,6 +52,7 @@ PROGRAM Q1_GenScalar
   call handle_statistics(tt0,itns)
 
   istep_ns = istep_ns + 1
+  
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
 

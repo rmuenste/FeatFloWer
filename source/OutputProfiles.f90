@@ -3116,14 +3116,13 @@ COMMON       NWORK,IWORK,IWMAX,L,DWORK
 EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 ! -------------- workspace -------------------
 
-! call Load_ListFile('t',iO)
+ call Load_ListFile('s',iO)
  call Load_ListFile('p',iO)
  call Load_ListFile('v',iO)
  call Load_ListFile('x',iO)
  call Load_ListFile('q',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
-!  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
  
  IF (myid.EQ.0) THEN
    CALL CreateDumpStructures(0)
