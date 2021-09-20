@@ -1985,6 +1985,7 @@ REAL tttx1,tttx0
      ELSE
       IF (myMatrixRenewal%K.GE.1) THEN
        IF (NewtonForBurgers.eq.0d0) then
+        DO I=1,qMat%nu
          J = qMat%LdA(I)
          A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + KMat(J))
          A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + KMat(J))
