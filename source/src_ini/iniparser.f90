@@ -388,7 +388,8 @@ contains
     else
 
       call inip_output_line('File <'//trim(adjustl(sfilename))//'> does not exist.')
-      call inip_sys_halt()
+      iunit = -2
+!       call inip_sys_halt()
     endif
 
   end subroutine inip_openFileForReading
