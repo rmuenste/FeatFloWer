@@ -176,6 +176,7 @@ END TYPE tMGParamIn
 TYPE tMGParamOut
  REAL*8 DefInitial,DefFinal
  REAL*8 RhoMG1,RhoMG2
+ REAL*8 u_rel(6),p_rel(2)
  INTEGER UsedIterCycle,nIterCoarse
 END TYPE tMGParamOut
 
@@ -374,6 +375,7 @@ END TYPE
 
 TYPE lScalarField
  CHARACTER cName*7
+ integer ID
  INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val_old
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val
@@ -564,7 +566,7 @@ END TYPE tRheology
 
 TYPE tSubInflow
  INTEGER iBCtype,Material
- REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  massflowrate, outerradius,innerradius,temperature
  REAL*8  center(3),normal(3)
 END TYPE tSubInflow
 
@@ -573,7 +575,7 @@ TYPE tInflow
  TYPE (tSubInflow), dimension(:), allocatable :: mySubInflow
  
  INTEGER iBCtype,Material
- REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  massflowrate, outerradius,innerradius,temperature
  REAL*8  center(3),normal(3)
 END TYPE tInflow
 
@@ -607,7 +609,7 @@ END TYPE tProcess
 
 TYPE tThermodyn
    CHARACTER*60 :: DensityModel='NO'
-   REAL*8 :: density=0d0, densitySteig=0d0
+   REAL*8 :: densityT0=0d0, density=0d0, densitySteig=0d0
    REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
    REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
 END TYPE tThermodyn

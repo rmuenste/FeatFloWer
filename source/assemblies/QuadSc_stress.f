@@ -1645,6 +1645,7 @@ C
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : transform
       USE var_QuadScalar, ONLY : GenLinScalar
+      use Sigma_User, only: myMultiMat
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -1661,11 +1662,12 @@ C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
       DIMENSION DU(NNDIM,NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM,NNDIM)
 
-      DIMENSION DTT(NNBAS), DAL(NNBAS)
+      DIMENSION DTT(NNBAS)!, DAL(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
       REAL*8    AlphaViscosityMatModel
+      REAL*8,allocatable ::   DALPHA(:)
 C
 C     --------------------------- Transformation -------------------------------
       REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
@@ -1698,6 +1700,8 @@ C *** user COMMON blocks
 C
       SAVE
 C
+      ALLOCATE(DALPHA(GenLinScalar%nOfFields))
+      
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.
 C
@@ -1763,7 +1767,7 @@ C
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
-      DAL(JDFL) = GenLinScalar%Fld(2)%val(JDFG)
+!       DAL(JDFL) = GenLinScalar%Fld(2)%val(JDFG)
  150  CONTINUE      
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
@@ -1833,9 +1837,13 @@ C ---=========================---
 C
       DO 205 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
+       JDFG=KDFG(JDOFE)! local number of basic function
        
        DTEMP   =DTEMP      + DTT(JDFL)*DBAS(1,JDFL,1)!temperature
-       DALPHA  =DALPHA     + DAL(JDFL)*DBAS(1,JDFL,1)!alpha
+       do iFld=2,GenLinScalar%nOfFields
+        DALPHA(iFld-1)  =DALPHA(iFld-1) + 
+     *  GenLinScalar%Fld(iFld)%val(JDFG)*DBAS(1,JDFL,1)!alpha
+       end do
        
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY
@@ -1851,6 +1859,14 @@ C
 
  205  CONTINUE
 
+       iMat = myMultiMat%InitMaterial
+       dMaxMat = 1d-5
+       do iFld=2,GenLinScalar%nOfFields
+        if (DALPHA(iFld-1).gt.dMAxMat) then
+         iMat = iFld-1
+         dMaxMat = DALPHA(iFld-1)
+        end if
+       end do
 C ----=============================================---- 
        dShearSquare = GRADU1(1)**2d0 + GRADU2(2)**2d0 
      *        + GRADU3(3)**2d0 + 0.5d0*(GRADU1(2)+GRADU2(1))**2d0
@@ -1858,7 +1874,7 @@ C ----=============================================----
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
 !        dVisc = AlphaViscosityMatModel(dShearSquare,dalpha,kMat(IEL),DTEMP)
-       dVisc = AlphaViscosityMatModel(dShearSquare,dalpha,DTEMP)
+       dVisc = AlphaViscosityMatModel(dShearSquare,iMat,DTEMP)
 C ----=============================================---- 
       DO 210 JDER=1,NNDIM
       DO 210 IDER=1,NNDIM
@@ -1900,6 +1916,8 @@ C
 C
 100   CONTINUE
 C
+      DEALLOCATE(DALPHA)
+C      
 99999 END
 C
 C

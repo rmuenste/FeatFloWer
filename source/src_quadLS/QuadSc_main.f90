@@ -2296,7 +2296,8 @@ END SUBROUTINE  GetNonNewtViscosity_sse
 SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux,dAlpha
-  REAL*8 AlphaViscosityMatModel
+  REAL*8 AlphaViscosityMatModel,dMaxMat
+  integer ifld,iMat
 
   ILEV = NLMAX
   CALL SETLEV(2)
@@ -2320,10 +2321,19 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
      0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
    taux   = GenLinScalar%Fld(1)%val(i)
-   dalpha = GenLinScalar%Fld(2)%val(i)
+   
+   iMat = myMultiMat%InitMaterial
+   dMaxMat = 1d-5
+   do iFld=2,GenLinScalar%nOfFields
+    if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
+     iMat = iFld-1
+     dMaxMat = GenLinScalar%Fld(iFld)%val(i)
+    end if
+   end do
+!   dalpha = GenLinScalar%Fld(2)%val(i)
      
    Shearrate(i) = sqrt(2d0 * daux)
-   Viscosity(i) = AlphaViscosityMatModel(daux,dAlpha,taux)
+   Viscosity(i) = AlphaViscosityMatModel(daux,iMat,taux)
 
   END DO
 

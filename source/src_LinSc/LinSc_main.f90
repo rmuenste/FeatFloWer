@@ -5,7 +5,7 @@ USE PP3D_MPI, ONLY:E011Sum,E011Knpr,Comm_NLComplete,&
     Comm_Maximum,Comm_Summ,myid,master,CommSum,Comm_SummN,myMPI_barrier
 USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
     myBoundary,myQ2Coor,&
-    myALE,Properties,Temperature,Temperature_AVG,iTemperature_AVG
+    myALE,Properties,Temperature,Temperature_AVG,iTemperature_AVG,Shell, Screw
 USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
 USE var_QuadScalar, ONLY: DivergedSolution,ConvergedSolution
 USE var_QuadScalar, ONLY: Tracer, Tracer3,GenLinScalar

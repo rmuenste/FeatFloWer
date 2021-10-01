@@ -46,14 +46,17 @@ TYPE(TMatrix), POINTER :: plMat
 
 ! Pointer to the entries of the multi-level matrices 
 REAL*8  , DIMENSION(:)  , POINTER :: LaplaceMat, ConvectionMat, MassMat, LMassMat, A11mat, A22mat, A33mat
+REAL*8  , DIMENSION(:)  , POINTER :: HeatDiffMat, AlphaDiffMat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
 
 TYPE (tMGFldMatrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_Amat
 
+TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: mg_DiffCoeff
 
 ! A multi-level Matrix entries struct 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat, mg_ConvMat, mg_LMassMat, mg_MassMat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_HeatDiffMat, mg_AlphaDiffMat
 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest
 TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011RestM

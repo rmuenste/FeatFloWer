@@ -7,7 +7,7 @@ subroutine init_q1_scalar(log_unit)
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
-    Transport_LinScalar, Init_GenLinSc_Q1,ProlongateSolution_GenLinSc_Q1
+    Transport_LinScalar, Init_GenLinSc_HEATALPHA_Q1,ProlongateSolution_GenLinSc_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
@@ -21,7 +21,7 @@ subroutine init_q1_scalar(log_unit)
 
   CALL Init_QuadScalar_Structures_sse(log_unit)
 
-  CALL Init_GenLinSc_Q1(log_unit)
+  CALL Init_GenLinSc_HEATALPHA_Q1(log_unit)
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)

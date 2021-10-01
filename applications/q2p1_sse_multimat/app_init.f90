@@ -6,7 +6,7 @@ subroutine init_q2p1_ext(log_unit)
     bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
-  USE Transport_Q1, ONLY : Init_GenLinSc_Q1
+  USE Transport_Q1, ONLY : Init_GenLinSc_HEATALPHA_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
       ApplicationString
@@ -26,7 +26,7 @@ subroutine init_q2p1_ext(log_unit)
 
   call Init_QuadScalar_Structures_sse(log_unit)
 
-  call Init_GenLinSc_Q1(log_unit)
+  call Init_GenLinSc_HEATALPHA_Q1(log_unit)
 
   CALL inip_output_init(myid,showid,log_unit,mterm)
   
@@ -84,7 +84,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 ! USE Parametrization, ONLY: ParametrizeQ2Nodes
- USE Sigma_User, ONLY: mySigma,myProcess,mySetup
+ USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
  USE cinterface 
  use iniparser
 
@@ -237,7 +237,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
      dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
      dCharShear     = dCharVelo/dCharSize
-     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
+     dCharVisco     = ViscosityMatModel(dCharShear,myMultiMat%InitMaterial,myProcess%T0)
   !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 1d-2 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep

@@ -156,6 +156,103 @@ END SUBROUTINE Matdef_INSTATIONARY_GenLinSc_Q1
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Matdef_HEATALPHA_GenLinSc_Q1(lSc,idef,imat)
+INTEGER :: idef,imat
+TYPE(lScalarGen) lSc
+INTEGER i,j,iFld
+REAL*8 daux
+EXTERNAL E011
+
+ if (imat.eq.1) then
+  DO ILEV=NLMIN,NLMAX
+
+   CALL SETLEV(2)
+
+   HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
+   AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+   LMassMat      => mg_LMassMat(ILEV)%a
+   ConvectionMat =>  mg_ConvMat(ILEV)%a
+   plMat  => mg_lMat(ILEV)
+
+  ! Build up the matrix
+   DO iFld=1,lSc%nOfFields
+    IF (TRIM(lSc%Fld(iFld)%cName).eq.'temp') then
+     DO I=1,plMat%nu
+      J = plMat%LdA(I)
+      daux = LMassMat(I) - thstep*(HeatDiffMat(J) + ConvectionMat(J))
+      mg_AMat(iFld)%fld(ILEV)%a(J) = daux
+      DO J=plMat%LdA(I)+1,plMat%LdA(I+1)-1
+       daux = -thstep*(HeatDiffMat(J) + ConvectionMat(J))
+       mg_AMat(iFld)%fld(ILEV)%a(J) =  daux
+      END DO
+     END DO
+    ELSE
+     DO I=1,plMat%nu
+      J = plMat%LdA(I)
+      daux = LMassMat(I) - thstep*(AlphaDiffMat(J) + ConvectionMat(J))
+      mg_AMat(iFld)%fld(ILEV)%a(J) = daux
+      DO J=plMat%LdA(I)+1,plMat%LdA(I+1)-1
+       daux = -thstep*(AlphaDiffMat(J) + ConvectionMat(J))
+       mg_AMat(iFld)%fld(ILEV)%a(J) =  daux
+      END DO
+     END DO
+    END IF
+   END DO
+  END DO
+ end if
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
+ AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+ LMassMat      => mg_LMassMat(ILEV)%a
+ ConvectionMat => mg_ConvMat(ILEV)%a
+ plMat  => mg_lMat(ILEV)
+
+ ! Build up the defect
+ IF (idef.eq. 1) THEN
+  DO iFld=1,lSc%nOfFields
+  
+   lSc%fld(iFld)%def = 0d0
+   DO j=1,plMat%nu
+    lSc%fld(iFld)%def(j) = lSc%fld(iFld)%def(j) + LMassMat(j)*lSc%fld(iFld)%val(j)
+   END DO
+   
+   CALL LAX17(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
+   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+   
+   IF (TRIM(lSc%Fld(iFld)%cName).eq.'temp') then
+    CALL LAX17(HeatDiffMat,plMat%ColA,plMat%LdA,plMat%nu,&
+    lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+   END IF
+   IF (TRIM(lSc%Fld(iFld)%cName).eq.'alpha1') then
+    CALL LAX17(AlphaDiffMat,plMat%ColA,plMat%LdA,plMat%nu,&
+    lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+   END IF
+
+  END DO
+  
+ ELSE
+
+  DO iFld=1,lSc%nOfFields
+   CALL LAX17(mg_AMat(iFld)%fld(ILEV)%a,plMat%ColA,plMat%LdA,plMat%nu,&
+   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,-1d0,1d0)
+  END DO
+  
+ END IF
+ 
+ IF (idef.le.0) then
+  DO iFld=1,lSc%nOfFields
+   CALL DefTVD_LinScalar(lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep)
+  END DO
+ end if
+
+
+END SUBROUTINE Matdef_HEATALPHA_GenLinSc_Q1
+!
+! ----------------------------------------------
+!
 SUBROUTINE Matdef_STATIONARY_GenLinSc_Q1(lSc,idef,imat)
 INTEGER :: idef,imat
 TYPE(lScalarGen) lSc
@@ -720,3 +817,297 @@ IF (myid.ne.0) THEN
 END IF
 
 END SUBROUTINE ProlongateSolution_GenLinSc_Q1_sub
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_DiffCoeff(lSc)
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  use Sigma_User, only: mySegmentIndicator,myMultiMat
+  EXTERNAL E011
+  TYPE(lScalarGen) :: lSc
+  integer :: i,iel,ivt,iSeg,ndof,iMat,iFld,iMinMat
+  REAL*8 :: daux,Cp,Rho,Lambda,Temp,dMinField
+
+  if (.not.allocated(mg_DiffCoeff)) allocate(mg_DiffCoeff(NLMIN:NLMAX))
+
+  do ilev=NLMAX,NLMIN,-1
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_DiffCoeff(ILEV)%x))then
+      ALLOCATE(mg_DiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+    end if
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMAX) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [Dc]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net + mg_mesh%level(ilev)%nat
+    mg_DiffCoeff(ILEV)%x = 0d0
+    
+    if (ilev.eq.nlmax) then
+     DO iel=1,mg_mesh%level(ilev)%nel
+      do i=1,8
+       ivt = mg_mesh%level(ilev)%kvert(i,iel)
+       iSeg = INT(mySegmentIndicator(2,ivt))
+       IF (iSeg.eq.0) THEN
+        daux = 0.188d0 ! cm2/s !Steel
+       ELSE
+!        iMat = lSc%nOfFields
+        dMinField = -1d0
+        iMat = 0
+        do iFld=2,lSc%nOfFields
+         if (lSc%Fld(iFld)%Val(ivt).gt.0.5d0) then
+          iMat = iFld - 1
+         else
+          if (dMinField.lt.lSc%Fld(iFld)%Val(ivt)) then
+           dMinField = lSc%Fld(iFld)%Val(ivt)
+           iMinMat = iFld - 1
+          end if
+         end if
+        end do
+        if (iMat.eq.0) iMat = iMinMat
+        Temp   = lSc%Fld(1)%Val(ivt)
+        Lambda = 1e0*(myMultiMat%Mat(iMat)%Thermodyn%lambda  + Temp*myMultiMat%Mat(iMat)%Thermodyn%LambdaSteig  ) ! W/m/K
+        Cp     = 1e3*(myMultiMat%Mat(iMat)%Thermodyn%Cp      + Temp*myMultiMat%Mat(iMat)%Thermodyn%CpSteig      ) ! J/kg/K
+        Rho    = 1e3*(myMultiMat%Mat(iMat)%Thermodyn%density - Temp*myMultiMat%Mat(iMat)%Thermodyn%densitySteig ) ! kg/m3
+        daux   = 1e4*Lambda/(Rho*Cp) ! cm2/s
+       END IF
+       mg_DiffCoeff(ILEV)%x(iel) = mg_DiffCoeff(ILEV)%x(iel) + 0.125d0*daux
+      end do
+     end do
+     
+    else
+    
+     DO iel=1,mg_mesh%level(ilev)%nel
+      mg_DiffCoeff(ILEV)%x(iel) = 0.125d0*mg_DiffCoeff(ILEV+1)%x(iel)
+      do i=1,7
+       ivt = mg_mesh%level(ilev)%nel + (iel-1)*7 + 1
+       daux = mg_DiffCoeff(ILEV+1)%x(ivt)
+       mg_DiffCoeff(ILEV)%x(iel) = mg_DiffCoeff(ILEV)%x(iel) + 0.125d0*daux
+      end do
+     end do
+    end if
+    
+  end do ! ilev
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+END SUBROUTINE Create_GenLinSc_Q1_DiffCoeff
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_Heat_Diffusion()
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  EXTERNAL E011
+  integer :: i
+
+  IF (.not.allocated(mg_HeatDiffMat)) ALLOCATE(mg_HeatDiffMat(NLMIN:NLMAX))
+
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_HeatDiffMat(ILEV)%a))then
+      ALLOCATE(mg_HeatDiffMat(ILEV)%a(mg_lMat(ILEV)%na))
+    end if
+
+    HeatDiffMat=>mg_HeatDiffMat(ILEV)%a
+    plMat=>mg_lMat(ILEV)
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    HeatDiffMat=0d0
+
+    CALL DIE_DiffMatQ1(HeatDiffMat,mg_DiffCoeff(ILEV)%x,&
+    plMat%nu,plMat%ColA,plMat%LdA,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%karea,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%dcorvg,&
+    E011)
+    
+  end do
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+END SUBROUTINE Create_GenLinSc_Q1_Heat_Diffusion
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_Alpha_Diffusion(dAlpha)
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  EXTERNAL E011
+  REAL*8 dAlpha
+  integer :: i
+
+  IF (.not.allocated(mg_AlphaDiffMat)) ALLOCATE(mg_AlphaDiffMat(NLMIN:NLMAX))
+
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_AlphaDiffMat(ILEV)%a))then
+      ALLOCATE(mg_AlphaDiffMat(ILEV)%a(mg_lMat(ILEV)%na))
+    end if
+
+    AlphaDiffMat=>mg_AlphaDiffMat(ILEV)%a
+    plMat=>mg_lMat(ILEV)
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    AlphaDiffMat=0d0
+
+    CALL CnstDiffMatQ1(AlphaDiffMat,&
+      plMat%nu,plMat%ColA,plMat%LdA,& 
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kedge,&
+      mg_mesh%level(ilev)%dcorvg,&
+      dAlpha,E011)
+
+  end do
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+END SUBROUTINE Create_GenLinSc_Q1_Alpha_Diffusion
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_Diffusion(dAlpha)
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  EXTERNAL E011
+  REAL*8 dAlpha
+  integer :: i
+
+  IF (.not.allocated(mg_LaplaceMat)) ALLOCATE(mg_LaplaceMat(NLMIN:NLMAX))
+
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_LaplaceMat(ILEV)%a))then
+      ALLOCATE(mg_LaplaceMat(ILEV)%a(mg_lMat(ILEV)%na))
+    end if
+
+    LaplaceMat=>mg_LaplaceMat(ILEV)%a
+    plMat=>mg_lMat(ILEV)
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    LaplaceMat=0d0
+
+    CALL CnstDiffMatQ1(LaplaceMat,&
+      plMat%nu,plMat%ColA,plMat%LdA,& 
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kedge,&
+      mg_mesh%level(ilev)%dcorvg,&
+      dAlpha,E011)
+
+  end do
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+END SUBROUTINE Create_GenLinSc_Q1_Diffusion
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_Mass(dAlpha)
+  USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  EXTERNAL E011
+  REAL*8 dAlpha, DML
+  integer :: i,J
+
+  IF (.not.allocated(mg_MassMat)) ALLOCATE(mg_MassMat(NLMIN:NLMAX))
+
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_MassMat(ILEV)%a))then
+      ALLOCATE(mg_MassMat(ILEV)%a(mg_lMat(ILEV)%na))
+    end if
+
+    MassMat=>mg_MassMat(ILEV)%a
+    plMat=>mg_lMat(ILEV)
+
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [M]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+
+    MassMat=0d0
+
+    CALL CnstMassMatQ1(MassMat,&
+      plMat%nu,plMat%ColA,plMat%LdA,& 
+      mg_mesh%level(ilev)%kvert,&
+      mg_mesh%level(ilev)%karea,&
+      mg_mesh%level(ilev)%kedge,&
+      mg_mesh%level(ilev)%dcorvg,&
+      dAlpha,E011)
+
+  end do
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+  IF (.not.allocated(mg_LMassMat)) ALLOCATE(mg_LMassMat(NLMIN:NLMAX))
+
+  do ilev=NLMIN,NLMAX
+  
+    CALL SETLEV(2)
+
+    IF (.NOT.ALLOCATED(mg_LMassMat(ILEV)%a))then
+      ALLOCATE(mg_LMassMat(ILEV)%a(mg_lMat(ILEV)%nu))
+    end if
+
+    MassMat    => mg_MassMat(ILEV)%a
+    LMassMat   => mg_LMassMat(ILEV)%a
+    plMat      => mg_lMat(ILEV)
+    
+    IF (myid.eq.showID) THEN
+     IF (ILEV.EQ.NLMIN) THEN
+      WRITE(MTERM,'(A,I1,A)', advance='no') " [ML]: [", ILEV,"]"
+     ELSE
+      WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+     END IF
+    END IF
+    
+    DO I=1,plMat%nu
+     DML = 0d0
+     DO J=plMat%LdA(I),plMat%LdA(I+1)-1
+      DML = DML + MassMat(J)
+     END DO
+     LMassMat(I) = DML
+    END DO
+    
+  END DO
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+
+END SUBROUTINE Create_GenLinSc_Q1_Mass

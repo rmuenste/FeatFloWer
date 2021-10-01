@@ -42,7 +42,7 @@ IF (myid.ne.0) CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
 !  IF (myid.eq.1) WRITE(*,*) "Initial ",DefNorm
-IF (DefNorm.LT.1d-16*MyMG%Criterion2) GOTO 88
+IF (DefNorm.LT.1d-32*MyMG%Criterion2) GOTO 88
 
 DefI1 = 0d0
 DefI2 = 0d0
@@ -891,7 +891,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-16) THEN
       RLDA(JJ+1) = RLDA(JJ+1) + 1
       KK = KK + 1
      END IF
@@ -973,7 +973,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-16) THEN
       JJ_POS = RLDA(JJ) + RLDB(JJ+1)
       II_POS = PLDA(II) + KK
       RCOLA(JJ_POS) = II

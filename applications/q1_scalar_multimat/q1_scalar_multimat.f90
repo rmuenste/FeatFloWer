@@ -4,11 +4,12 @@ PROGRAM Q1_GenScalar
 
   use solution_io, only: postprocessing_app
   use solution_io, only: postprocessing_sse_q1_scalar
+  use var_QuadScalar, only: bAlphaConverged
 
-  use Transport_Q1, only : Reinit_GenLinSc_Q1
+  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
   use post_utils,  only: handle_statistics,&
                          print_time,&
-                         sim_finalize
+                         sim_finalize_sse
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -31,10 +32,14 @@ PROGRAM Q1_GenScalar
    timens = 0d0
   END IF
   
+  CALL EstimateAlphaTimeStepSize(ufile)
+  
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
   !-------MAIN LOOP-------
 
+  bAlphaConverged = .false.
+  
   DO itns=1,nitns
 
   itnsr=0
@@ -44,6 +49,8 @@ PROGRAM Q1_GenScalar
 
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
+  if (inonln_t.lt.4) tstep = 1.6d0*tstep
+  if (inonln_t.gt.5) tstep = 0.666667d0*tstep
 
   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
@@ -55,9 +62,16 @@ PROGRAM Q1_GenScalar
   
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
+  IF (bAlphaConverged) EXIT
 
   END DO
 
-  call sim_finalize(tt0,ufile)
+!   write(*,*) '0',bAlphaConverged
+  CALL Correct_GenLinSc_Q1_ALPHA(ufile)
+  timens = timens + dtgmv
+  itns = max(itns,2)
+  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+
+  call sim_finalize_sse(tt0,ufile)
 
 END PROGRAM Q1_GenScalar

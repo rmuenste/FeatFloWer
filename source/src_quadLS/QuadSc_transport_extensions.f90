@@ -37,7 +37,7 @@ END TYPE tSolSeq
 TYPE(tSolSeq),TARGET :: Sol2,Sol3
 TYPE(tSolSeq), POINTER :: mySolSeq
 
-INTEGER :: LinIntPol=1,ConstIntPol=0,iOX,ndofP,ndofU
+INTEGER :: LinIntPol=1,ConstIntPol=0,iOX,ndofP,ndofU,nLinBurgers
 CHARACTER :: PredictionScheme*(2)='PP'
 REAL*8, allocatable :: PressureDefect(:)
 
@@ -71,12 +71,12 @@ DO iOuter=mySolSeq%nOuter,mySolSeq%nOuter
 !  IF (iOuter.le.mySolSeq%nOuter-2) THEN
  
   IF (PredictionScheme.eq.'CP') THEN
-   CALL NonLin_BurgerStep_ParT()
+   CALL NonLin_SequentialBurgerStep_ParT()
 
    CALL PressureStepCP_ParT()
   
    ! Velocity update for last pressure
-   CALL NonLin_BurgerStep_ParT()
+   CALL NonLin_SequentialBurgerStep_ParT()
   END IF
   
   IF (PredictionScheme.eq.'PP') THEN
@@ -110,24 +110,24 @@ tstep  = tstep_BU
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (myid.ne.master) THEN
- QuadSc%ValU(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%U(1:QuadSc%ndof)
- QuadSc%ValV(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%V(1:QuadSc%ndof)
- QuadSc%ValW(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%W(1:QuadSc%ndof)
-end if
-
-if (bExit) THEN
- tstep  = tstep_BU
- GOTO 100
-END IF
-
-IF (myid.ne.master) THEN
- LinSc%P_new = 1.5d0*mySolSeq%S(mySolSeq%nSteps-0)%P(1:LinSc%ndof)  - 0.5d0*mySolSeq%S(mySolSeq%nSteps-1)%P(1:LinSc%ndof)
-end if
-CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
-CALL FAC_GetForcesParT(mfile,iLoop)
-
-return
+! IF (myid.ne.master) THEN
+!  QuadSc%ValU(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%U(1:QuadSc%ndof)
+!  QuadSc%ValV(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%V(1:QuadSc%ndof)
+!  QuadSc%ValW(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%W(1:QuadSc%ndof)
+! end if
+! 
+! if (bExit) THEN
+!  tstep  = tstep_BU
+!  GOTO 100
+! END IF
+! 
+! IF (myid.ne.master) THEN
+!  LinSc%P_new = 1.5d0*mySolSeq%S(mySolSeq%nSteps-0)%P(1:LinSc%ndof)  - 0.5d0*mySolSeq%S(mySolSeq%nSteps-1)%P(1:LinSc%ndof)
+! end if
+! CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
+! CALL FAC_GetForcesParT(mfile,iLoop)
+! 
+! return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -196,11 +196,15 @@ do iLoop =1 , Properties%nTPIterations
   lStep  = mySolSeq%nSteps/nSteps
   tstep  = tstep_BU/DBLE(nSteps)
 
-  do iOX=1,8
-   CALL Lin_BurgerStep_ParT()
-  end do
-!   CALL NonLin_BurgerStep_ParT()
+!   nLinBurgers = 1
+!   do iOX=1,nLinBurgers
+!    IF (myid.eq.1) WRITE(*,'(A,I0,A,i0)') "NumberOfLinBurgers: ",iOX," / ",nLinBurgers 
+!    CALL Lin_BurgerStep_ParT()
+!   end do
+  CALL NonLin_SimultanBurgerStep_ParT()
 
+!  CALL NonLin_SequentialBurgerStep_ParT()
+  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   IF (myid.ne.master) THEN
@@ -242,7 +246,7 @@ do iLoop =1 , Properties%nTPIterations
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-!  if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
+ if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
 
  tstep  = tstep_BU
 
@@ -289,7 +293,7 @@ do iLoop =1 , 1
   lStep  = mySolSeq%nSteps/nSteps
   tstep  = tstep_BU/DBLE(nSteps)
 
-  CALL NonLin_BurgerStep_ParT()
+  CALL NonLin_SequentialBurgerStep_ParT()
 
   CALL PressureStepCP_ParT()
 
@@ -616,7 +620,225 @@ END SUBROUTINE NonLin_BurgerStep_SingleT
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
-SUBROUTINE NonLin_BurgerStep_ParT()
+SUBROUTINE NonLin_SimultanBurgerStep_ParT()
+REAL*8 u_rel_max(6)
+integer :: nLinBurgers=64, iLinBurgers
+
+do iLinBurgers=1,nLinBurgers
+
+u_rel_max = -1d0
+
+IF (myid.ne.master) THEN
+ DO iStep = 0,nSteps
+  mySolSeq%S(iStep)%U_aux = mySolSeq%S(iStep)%U(1:QuadSc%ndof)
+  mySolSeq%S(iStep)%V_aux = mySolSeq%S(iStep)%V(1:QuadSc%ndof)
+  mySolSeq%S(iStep)%W_aux = mySolSeq%S(iStep)%W(1:QuadSc%ndof)
+ end do
+end if
+
+DO iStep = 1,nSteps
+
+thstep = tstep*(1d0-theta)
+
+IF (myid.ne.master) THEN
+ QuadSc%ValU = mySolSeq%S((iStep-1)*lStep)%U_aux(1:QuadSc%ndof)
+ QuadSc%ValV = mySolSeq%S((iStep-1)*lStep)%V_aux(1:QuadSc%ndof)
+ QuadSc%ValW = mySolSeq%S((iStep-1)*lStep)%W_aux(1:QuadSc%ndof)
+ LinSc%ValP(NLMAX)%x = mySolSeq%S((iStep-0)*lStep)%P(1:LinSc%ndof)
+end if
+
+! Set dirichlet boundary conditions on the solution
+CALL Boundary_QuadScalar_Val()
+
+! write(*,*) size(LinSc%ValP(NLMAX)%x),size(mySolSeq%S(0)%P),size(QuadSc%ValU),size(mySolSeq%S(0)%U)
+! pause
+CALL OperatorRegenaration(2)
+
+CALL OperatorRegenaration(3)
+
+! -------------------------------------------------
+! Compute the momentum equations
+! -------------------------------------------------
+! GOTO 1
+
+IF (myid.ne.master) THEN
+
+ CALL ZTIME(tttt0)
+
+ ! Assemble the right hand side
+ CALL Matdef_General_QuadScalar(QuadSc,1)
+
+ ! Add the pressure gradient to the rhs
+ CALL AddPressureGradient()
+END IF
+
+ ! Add the viscoelastic stress to the rhs
+ IF(bViscoElastic)THEN
+!    CALL AddViscoStress()
+ END IF
+
+IF (myid.ne.master) THEN
+ ! Add the gravity force to the rhs
+!  CALL AddGravForce()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ ! Store the constant right hand side
+ QuadSc%rhsU = QuadSc%defU
+ QuadSc%rhsV = QuadSc%defV
+ QuadSc%rhsW = QuadSc%defW
+
+! Set dirichlet boundary conditions on the solution
+ CALL Boundary_QuadScalar_Val()
+
+END IF
+
+thstep = tstep*theta
+
+IF (myid.ne.master) THEN
+ QuadSc%ValU = mySolSeq%S((iStep-0)*lStep)%U_aux(1:QuadSc%ndof)
+ QuadSc%ValV = mySolSeq%S((iStep-0)*lStep)%V_aux(1:QuadSc%ndof)
+ QuadSc%ValW = mySolSeq%S((iStep-0)*lStep)%W_aux(1:QuadSc%ndof)
+END IF
+
+! Set dirichlet boundary conditions on the solution
+CALL Boundary_QuadScalar_Val()
+
+CALL OperatorRegenaration(3)
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the defect vector and fine level matrix
+ CALL Matdef_General_QuadScalar(QuadSc,-1)
+ 
+ ! Assemble the defect vector and fine level matrix
+ IF (iStep.gt.1) then
+  CALL AddTimeNewtonAccelerator(QuadSc,&
+  mySolSeq%S((iStep-1)*lStep)%U,&
+  mySolSeq%S((iStep-1)*lStep)%V,&
+  mySolSeq%S((iStep-1)*lStep)%W)
+ end if
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+
+ ! Save the old solution
+!  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+!  CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+!  CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the norm of the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+CALL COMM_Maximum(RhsUVW)
+DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
+
+CALL Protocol_QuadScalar(mfile,QuadSc,0,&
+     ResU,ResV,ResW,DefUVW,DefUVWCrit," Momentum equation ")
+
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+INL=1
+
+QuadSc%valU_old = 0d0
+QuadSc%valV_old = 0d0
+QuadSc%valW_old = 0d0
+
+! ! Calling the solver
+CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
+Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+
+!!!!          Checking the quality of the result           !!!!
+!!!! ----------------------------------------------------- !!!!
+
+u_rel_max = max(u_rel_max,QuadSc%prm%MGprmOut(1)%u_rel)
+
+! ! CALL OperatorRegenaration(3)
+! ! 
+! IF (myid.ne.master) THEN
+! ! Restore the constant right hand side
+!  CALL ZTIME(tttt0)
+!  QuadSc%defU = QuadSc%rhsU
+!  QuadSc%defV = QuadSc%rhsV
+!  QuadSc%defW = QuadSc%rhsW
+! END IF
+! ! 
+! IF (myid.ne.master) THEN
+! 
+!  ! Assemble the defect vector and fine level matrix
+!  CALL Matdef_General_QuadScalar(QuadSc,-1)
+! 
+!  ! Set dirichlet boundary conditions on the defect
+!  CALL Boundary_QuadScalar_Def()
+! 
+!  QuadSc%auxU = QuadSc%defU
+!  QuadSc%auxV = QuadSc%defV
+!  QuadSc%auxW = QuadSc%defW
+!  CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+! 
+!  ! Save the old solution
+!  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+!  CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+!  CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+! 
+!  ! Compute the defect
+!  CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+! 
+! END IF
+! 
+! ! Checking convergence rates against criterions
+! RhsUVW=DefUVW
+! CALL COMM_Maximum(RhsUVW)
+! CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
+!      ResU,ResV,ResW,DefUVW,RhsUVW)
+
+IF (myid.ne.master) THEN
+ mySolSeq%S((iStep-0)*lStep)%U = QuadSc%ValU(1:QuadSc%ndof)
+ mySolSeq%S((iStep-0)*lStep)%V = QuadSc%ValV(1:QuadSc%ndof)
+ mySolSeq%S((iStep-0)*lStep)%W = QuadSc%ValW(1:QuadSc%ndof)
+END IF
+
+END DO ! iStep
+
+if (myid.eq.1) write(MTERM,"(104('X'))") 
+if (myid.eq.1) write(mFILE,"(104('X'))") 
+if (myid.eq.1) write(MTERM,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
+if (myid.eq.1) write(MFILE,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
+if (myid.eq.1) write(MTERM,"(104('X'))") 
+if (myid.eq.1) write(mFILE,"(104('X'))") 
+
+! Update the solution
+DO iStep = 1,nSteps
+ IF (myid.ne.0) THEN
+  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%U_aux,mySolSeq%S((iStep-0)*lStep)%U,&
+       QuadSc%ndof,1D0,1D0)
+  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%V_aux,mySolSeq%S((iStep-0)*lStep)%V,&
+       QuadSc%ndof,1D0,1D0)
+  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%W_aux,mySolSeq%S((iStep-0)*lStep)%W,&
+       QuadSc%ndof,1D0,1D0)
+ END IF
+END DO
+
+END DO ! iLinBurgers
+
+
+END SUBROUTINE NonLin_SimultanBurgerStep_ParT
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+SUBROUTINE NonLin_SequentialBurgerStep_ParT()
+REAL*8 u_rel_max(6)
+
+u_rel_max = -1d0
 
 DO iStep = 1,nSteps
 
@@ -729,6 +951,9 @@ INLComplete = 0
 ! ! Calling the solver
 CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
 Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+
+u_rel_max = max(u_rel_max,QuadSc%prm%MGprmOut(1)%u_rel)
+
 ! if (myid.eq.1) write(*,*) 'Z1', size(LinSc%ValP(NLMAX)%x),size(mySolSeq%S(iStep)%P),size(QuadSc%ValU),size(mySolSeq%S(iStep)%U)
 
 !!!!          Checking the quality of the result           !!!!
@@ -801,7 +1026,10 @@ END IF
 
 END DO ! iStep
 
-END SUBROUTINE NonLin_BurgerStep_ParT
+if (myid.eq.1) write(MTERM,'(A,I4,3ES12.4)') 'RelativeChangesOfU:', iLoop,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
+if (myid.eq.1) write(MFILE,'(A,I4,3ES12.4)') 'RelativeChangesOfU:', iLoop,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
+
+END SUBROUTINE NonLin_SequentialBurgerStep_ParT
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -923,7 +1151,7 @@ myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
 INL=1
 ! 
-! DO INL=1,QuadSc%prm%NLmax
+! DO INL=1,2!QuadSc%prm%NLmax
 ! INLComplete = 0
 
 ! ! Calling the solver
@@ -2066,6 +2294,10 @@ IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
 END IF
 
+if ((.not.bKTPRelease).and.bMultiMat) then
+ CALL GetPressureAtInflows(mfile)
+end if
+
 CALL LL21(LinSc%valP(NLMAX)%x,LinSc%ndof,defP)
 call COMM_SUMM(defp)
 if (ieee_is_nan(defP)) DivergedSolution = .true.
@@ -2178,3 +2410,54 @@ if (myid.ne.0) then
 end if
 
 END SUBROUTINE CorrectPressure_WRT_KNPRP
+
+SUBROUTINE GetPressureAtInflows(mfile)
+integer mfile
+!---------------------------------
+INTEGER NeighA(4,6),iInflow
+REAL*8 dIntPress,dIntArea,dPress,dArea,dAN(3)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5
+
+
+DO iInflow=1,myProcess%nOfInflows
+ dIntPress = 0d0
+ dIntArea = 0d0
+
+ k=1
+ DO i=1,mg_mesh%level(nlmax)%nel
+  DO j=1,6
+   IF (k.eq.mg_mesh%level(nlmax)%karea(j,i)) THEN
+    IF (ABS(myBoundary%iInflow(mg_mesh%level(nlmax)%nvt+mg_mesh%level(nlmax)%net+k)).eq.iInflow) THEN
+     ivt1 = mg_mesh%level(nlmax)%kvert(NeighA(1,j),i)
+     ivt2 = mg_mesh%level(nlmax)%kvert(NeighA(2,j),i)
+     ivt3 = mg_mesh%level(nlmax)%kvert(NeighA(3,j),i)
+     ivt4 = mg_mesh%level(nlmax)%kvert(NeighA(4,j),i)
+     ivt5 = mg_mesh%level(nlmax)%nvt + mg_mesh%level(nlmax)%net + mg_mesh%level(nlmax)%nat + i
+     
+     if (shell(ivt5).gt.0d0) THEN  ! Only faces which belong to inner (no-fbm) elements 
+      CALL GET_NormalArea(mg_mesh%level(nlmax)%dcorvg(1:3,ivt1),&
+                          mg_mesh%level(nlmax)%dcorvg(1:3,ivt2),&
+                          mg_mesh%level(nlmax)%dcorvg(1:3,ivt3),&
+                          mg_mesh%level(nlmax)%dcorvg(1:3,ivt4),&
+                          mg_mesh%level(nlmax)%dcorvg(1:3,ivt5),dAN)
+      dPress = 0.25d0*(LinSc%Q2(ivt1) + LinSc%Q2(ivt2) + LinSc%Q2(ivt3) + LinSc%Q2(ivt4))
+      dArea = sqrt(dAN(1)**2d0 + dAN(2)**2d0 + dAN(3)**2d0)
+!       write(*,*) dPress, dArea
+      dIntArea  = dIntArea  + dArea
+      dIntPress = dIntPress + dArea*dPress
+     end if
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+ 
+ CALL COMM_SUMM(dIntArea)
+ CALL COMM_SUMM(dIntPress)
+
+ if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'Pressure[bar]AtInflowArea[cm2]',iInflow,':',1e-6*dIntPress/dIntArea,dIntArea
+ if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'Pressure[bar]AtInflowArea[cm2]',iInflow,':',1e-6*dIntPress/dIntArea,dIntArea
+End DO
+
+END SUBROUTINE GetPressureAtInflows

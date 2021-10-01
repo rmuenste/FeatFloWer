@@ -899,6 +899,9 @@
 
       WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/ThermoData"
       CALL FillUpThermoData(myMultiMat%Mat(iMat)%Thermodyn,cParserString)
+      
+      myThermodyn = myMultiMat%Mat(myMultiMat%InitMaterial)%Thermodyn
+
      END DO
     
     ELSE
@@ -981,7 +984,7 @@
           END DO
          END IF
         enddo
-        myProcess%ExtrusionSpeed = 1d2*(dFlow/3600d0)/(dArea*1e-6)/(1d3*(myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig))
+        myProcess%ExtrusionSpeed = 1d2*(dFlow/3600d0)/(dArea*1e-6)/(1d3*(myThermodyn%densityT0 - myProcess%T0 * myThermodyn%densitySteig))
        end if
       end if
       if (myProcess%ExtrusionGapSize.eq.myInf) then
@@ -1158,12 +1161,23 @@
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
     
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2021.09.30 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    DO iMat = 1, myMultiMat%nOfMaterials
+     IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."DENSITY") THEN
+      myMultiMat%Mat(iMat)%Thermodyn%density = myMultiMat%Mat(iMat)%Thermodyn%densityT0 - myProcess%T0 * myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+     END IF
+     IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."SPECVOLUME") THEN
+      myMultiMat%Mat(iMat)%Thermodyn%density = 1d0/(myMultiMat%Mat(iMat)%Thermodyn%densityT0 + myProcess%T0 * myMultiMat%Mat(iMat)%Thermodyn%densitySteig)
+     END IF
+    END DO
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2021.09.30 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."DENSITY") THEN
-     myThermodyn%density = myThermodyn%density - myProcess%T0 * myThermodyn%densitySteig
+     myThermodyn%density = myThermodyn%densityT0 - myProcess%T0 * myThermodyn%densitySteig
     END IF
     IF (ADJUSTL(TRIM(myThermodyn%DensityModel)).eq."SPECVOLUME") THEN
-     myThermodyn%density = 1d0/(myThermodyn%density + myProcess%T0 * myThermodyn%densitySteig)
+     myThermodyn%density = 1d0/(myThermodyn%densityT0 + myProcess%T0 * myThermodyn%densitySteig)
     END IF
     
     myThermodyn%lambda = myThermodyn%lambda + myProcess%T0 * myThermodyn%lambdaSteig
@@ -1412,7 +1426,9 @@
      
      IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%Material
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%temperature
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius
       write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%center
@@ -1422,7 +1438,9 @@
       DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
        write(*,'(A,I0,A)') "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Sub_',iSubinflow
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%temperature
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%InnerRadius
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%OuterRadius
        write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_center'//'=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
@@ -1434,6 +1452,7 @@
 
     write(*,*)
     
+    if (myMultiMat%nOfMaterials.gt.1) then
     write(*,*) "myMultiMat%nOfMaterials",'=',myMultiMat%nOfMaterials
     write(*,*) "myMultiMat%InitMaterial",'=',myMultiMat%InitMaterial
     write(*,*)
@@ -1507,10 +1526,13 @@
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%HeatConductivitySlope",'=',myMultiMat%Mat(iMat)%Thermodyn%lambdaSteig
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%HeatCapacity",'=',myMultiMat%Mat(iMat)%Thermodyn%cp
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%HeatCapacitySlope",'=',myMultiMat%Mat(iMat)%Thermodyn%cpSteig
-     write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%Density",'=',myMultiMat%Mat(iMat)%Thermodyn%density
+     write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%DensityT0",'=',myMultiMat%Mat(iMat)%Thermodyn%densityT0
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%DensitySlope",'=',myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+     write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%Density",'=',myMultiMat%Mat(iMat)%Thermodyn%density
      write(*,*)
     END DO
+  
+    else
     
     write(*,*)
     write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
@@ -1518,9 +1540,12 @@
     write(*,*) "myThermodyn%HeatConductivitySlope",'=',myThermodyn%lambdaSteig
     write(*,*) "myThermodyn%HeatCapacity",'=',myThermodyn%cp
     write(*,*) "myThermodyn%HeatCapacitySlope",'=',myThermodyn%cpSteig
-    write(*,*) "myThermodyn%Density",'=',myThermodyn%density
+    write(*,*) "myThermodyn%DensityT0",'=',myThermodyn%densityT0
     write(*,*) "myThermodyn%DensitySlope",'=',myThermodyn%densitySteig
+    write(*,*) "myThermodyn%Density",'=',myThermodyn%density
     write(*,*) 
+    
+    end if
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2020.11.20 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     write(*,'(A,F10.2,A)') "Material properties interpolated to Material temperature",myProcess%T0,"C"
@@ -1715,6 +1740,9 @@
       call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%massflowrate,myInf)
       if (myProcess%myInflow(iInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
       
+      call INIP_getvalue_double(parameterlist,cInflow_i,"temperature",myProcess%myInflow(iInflow)%temperature,myInf)
+      if (myProcess%myInflow(iInflow)%temperature.eq.myInf) write(*,*) 'UNDEFINED temperature for Inflow',iInflow,' !!'
+
       call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
       myProcess%myInflow(iInflow)%innerradius = daux*myProcess%myInflow(iInflow)%innerradius
       if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
@@ -1761,6 +1789,9 @@
        call INIP_getvalue_double(parameterlist,cInflow_i,"massflowrate",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate,myInf)
        if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate.eq.myInf) write(*,*) 'UNDEFINED massflowrate through Inflow',iInflow,' !!'
        
+       call INIP_getvalue_double(parameterlist,cInflow_i,"temperature",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%temperature,myInf)
+       if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%temperature.eq.myInf) write(*,*) 'UNDEFINED temperature for Inflow',iInflow,' !!'
+
        call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius,myInf)
        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius = daux*myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
        if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
@@ -1802,16 +1833,16 @@
     call inip_toupper_replace(t%DensityModel)
     t%density=myInf
     IF (ADJUSTL(TRIM(t%DensityModel)).eq."DENSITY") THEN
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","Density",t%Density,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","Density",t%DensityT0,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Density","DensitySlope",t%DensitySteig,0d0)
     END IF
     IF (ADJUSTL(TRIM(t%DensityModel)).eq."SPECVOLUME") THEN
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolume",t%Density,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolume",t%DensityT0,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/SpecVolume","SpecVolumeSlope",t%DensitySteig,0d0)
 !       t%Density = 1d0/t%Density
 !       t%DensitySteig = 1d0/t%DensitySteig
     END IF
-    IF (myThermodyn%density.eq.myinf) THEN
+    IF (myThermodyn%densityT0.eq.myinf) THEN
      WRITE(*,*) "density is not defined"
      WRITE(*,*) '"',TRIM(myThermodyn%DensityModel),'"'
      bReadError=.TRUE.
@@ -2245,12 +2276,13 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"HeatConductivitySlope",myMaterials(iMat)%lambdaSteig,myInf)
       call INIP_getvalue_double(parameterlist,cElement_i,"HeatCapacity",myMaterials(iMat)%cp,myInf)
       call INIP_getvalue_double(parameterlist,cElement_i,"HeatCapacitySlope",myMaterials(iMat)%CpSteig,myInf)
-      call INIP_getvalue_double(parameterlist,cElement_i,"Density",myMaterials(iMat)%Density,myInf)
+      call INIP_getvalue_double(parameterlist,cElement_i,"Density",myMaterials(iMat)%DensityT0,myInf)
+      myMaterials(iMat)%Density = myMaterials(iMat)%DensityT0
       call INIP_getvalue_double(parameterlist,cElement_i,"DensitySlope",myMaterials(iMat)%DensitySteig,myInf)
 !     myThermodyn%Alpha     = (1e6*myThermodyn%lambda)/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
 !     myThermodyn%Beta      = 1d1 ! !myProcess%Cnst_Lam/(myProcess%Cnst_Dens*myProcess%Cnst_Cp)
 !     myThermodyn%Gamma     = 1d0/((1e-3*myThermodyn%Density)*(myThermodyn%Cp*1e9))
-      myMaterials(iMat)%Alpha = (1e5*myMaterials(iMat)%lambda)/((1e0*myMaterials(iMat)%Density)*(myMaterials(iMat)%Cp*1e7))
+      myMaterials(iMat)%Alpha = (1e5*myMaterials(iMat)%lambda)/((1e0*myMaterials(iMat)%DensityT0)*(myMaterials(iMat)%Cp*1e7))
     END DO
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","AmbientTemperature", myProcess%AmbientTemperature ,myInf)
@@ -2359,6 +2391,7 @@
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatConductivitySlope(",iMat,')=',myMaterials(iMat)%lambdaSteig
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatCapacity(",iMat,')=',myMaterials(iMat)%cp
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%HeatCapacitySlope(",iMat,')=',myMaterials(iMat)%cpSteig
+     write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%DensityT0(",iMat,')=',myMaterials(iMat)%densityT0
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%Density(",iMat,')=',myMaterials(iMat)%density
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%DensitySlope(",iMat,')=',myMaterials(iMat)%densitySteig
      write(*,'(A,I2.2,A,ES12.4)') "myThermodyn%ALPHA(",iMat,')=',myMaterials(iMat)%Alpha

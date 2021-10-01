@@ -3310,6 +3310,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:GenLinScalar
+USE Sigma_User, ONLY: myProcess
 USE iniparser, ONLY : inip_openFileForReading
 implicit none
 integer :: iO
@@ -3345,8 +3346,11 @@ if (myid.eq.0) return
      write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
      close(ifile)
     else
-     if (iFld.eq.1) GenLinScalar%fld(iFld)%Val = 260d0
-     if (iFld.eq.2) GenLinScalar%fld(iFld)%Val = 0.0d0
+     if (adjustl(trim(GenLinScalar%prm%cField(iFld))).eq.'temp') THEN
+      GenLinScalar%fld(iFld)%Val = myProcess%T0
+     else
+      GenLinScalar%fld(iFld)%Val = 0.0d0
+     end if
      write(*,*) 'the LST file '//adjustl(trim(cfile))//' is NOT available! skipping the read sequence ... '
     end if
    END DO ! iFld

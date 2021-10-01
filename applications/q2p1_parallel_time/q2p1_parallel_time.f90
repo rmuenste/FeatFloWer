@@ -31,7 +31,7 @@ PROGRAM Q2P1_FC_EXT
 
   !-------MAIN LOOP-------
 
-  NewtonForBurgers = -0.0d0
+  NewtonForBurgers = 1.0d0
   
   DO itns=1,nitns
 

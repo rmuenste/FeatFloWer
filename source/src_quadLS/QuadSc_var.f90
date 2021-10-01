@@ -35,7 +35,7 @@ INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
 LOGICAL :: bMultiMat=.false.
-LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false.
+LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0
