@@ -107,6 +107,8 @@ def main():
 
     loadintelmpi18='module purge && module load intel/studio-xe/18.0.3.222 openmpi/2.1.5 serial/gcc/6.4.0 cmake/3.13.2 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90) && module load slurm'
 
+    loadgccmpi9py='module purge && module load python/3.7.5 cmake/3.13.2 gcc/current-v9 boost/1.63 openmpi/current-v4 && export CC=$(which mpicc) && export CXX=$(which mpicxx) && export FC=$(which mpif90) && module load slurm'
+
     moduleConfiguration={}
 
     compilerString = ""
@@ -115,8 +117,9 @@ def main():
     moduleConfiguration['gcc64'] = loadgccmpi64
     moduleConfiguration['gcc81'] = loadgccmpi81
     moduleConfiguration['gcc82'] = loadgccmpi82
+    moduleConfiguration['gcc9'] = loadgccmpi9py
 
-    configurationString = moduleConfiguration['gcc82']
+    configurationString = moduleConfiguration['gcc9']
     
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -145,10 +148,13 @@ def main():
     print("Platform system: " + platform.system())
     print("System path: " + str(sys.path))
 
+    if os.environ['SLURM_NTASKS'] is not None:
+        numProcessors = int(os.environ['SLURM_NTASKS'])
+
     dirPath = os.path.dirname(os.path.abspath(__file__)) + "/Feat_FloWer"
     dirPathBin = os.path.dirname(os.path.abspath(__file__)) + "/" + binDir 
     
-    subprocess.call(['%s && ctest -S ctest_driver.cmake -DCLEAN_BIN=True -DBUILD_STRING=%s -DCONSTRAINT=%s -DPROCS=%i -DSRC_DIR=%s -DBIN_DIR=%s -VV' %(configurationString, compilerString, constraint, numProcessors, dirPath, dirPathBin)], shell=True)
+    subprocess.call(['%s && ctest -S ctest_driver.cmake -DCLEAN_BIN=false -DBUILD_STRING=%s -DCONSTRAINT=%s -DPROCS=%i -DSRC_DIR=%s -DBIN_DIR=%s -VV' %(configurationString, compilerString, constraint, numProcessors, dirPath, dirPathBin)], shell=True)
 
     # Remove the note json files from the binary dir
     potentialFiles = os.listdir(dirPathBin)
