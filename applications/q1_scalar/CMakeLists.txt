@@ -1,4 +1,5 @@
 # CMakeLists of q1_scalar application
+set(SSE_TARGET_NAME "q1_scalar")
 
 # source files for standad q2p1 
 set(src_q1_scalar
@@ -39,3 +40,32 @@ IF(${OUT_OF_SOURCE_BUILD})
 ENDIF()
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/q1_scalar_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+install(TARGETS ${SSE_TARGET_NAME}
+    RUNTIME DESTINATION bin/${SSE_TARGET_NAME}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+set(DEF_DIRS _data _dump _gmv _mesh _ns solution start testresults _vtk)
+
+FOREACH(dir ${DEF_DIRS})
+  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+ENDFOREACH()
+
+install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION PYTHON
+#=========================================================================
+# install the partitioner directory so the python sources can be found by
+# the driver script
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_TARGET_NAME})
+
+# install the driver script
+set(E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/q1_scalar_start.py")
+install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)

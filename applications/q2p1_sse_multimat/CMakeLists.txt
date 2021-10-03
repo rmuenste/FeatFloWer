@@ -102,3 +102,38 @@ ENDIF()
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
+install(TARGETS ${SSE_TARGET_NAME}
+    RUNTIME DESTINATION bin/${SSE_TARGET_NAME}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _ianus)
+
+FOREACH(dir ${DEF_DIRS})
+  list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+ENDFOREACH()
+list(APPEND mydirs ${CMAKE_CURRENT_SOURCE_DIR}/_data_BU)
+
+install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
+
+#=========================================================================
+#                       INSTALL CONFIGURATION PYTHON
+#=========================================================================
+# install the partitioner directory so the python sources can be found by
+# the driver script
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_TARGET_NAME})
+
+# install the driver script
+set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
+list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/runner.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
+list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
+list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param.cfg")
+
+install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_sse_multimat)
