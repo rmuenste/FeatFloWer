@@ -43,6 +43,8 @@ use var_QuadScalar, only:Tracer
 
 implicit none
 
+character cVTKFolder*(256)
+
 interface
   subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
     use cinterface, only: c1dOutput
@@ -75,6 +77,10 @@ integer :: ioutput_lvl
 !type(fieldPtr), dimension(3) :: packed
 
 if (sExport%Format .eq. "VTK") then
+
+ cVTKFolder = '_vtk'
+ 
+ CALL CheckIfFolderIsThereCreateIfNot(cVTKFolder,0)
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  

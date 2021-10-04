@@ -7,6 +7,7 @@ INTEGER mfile,INL
 REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),RhsTemp(:)
 REAL*8 tstep_old,thstep_old,defXXX
 INTEGER INLComplete,I,J,iFld,iEnd,iStart
+logical bDefTemp
 
 if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
 if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
@@ -132,10 +133,12 @@ END DO
 CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,INL,&
        ResTemp,DefTemp,DefTempCrit," GenLinScalar equation ")
 
-IF ((DefTemp(1).LE.DefTempCrit(1)).AND.&
-    (DefTemp(2).LE.DefTempCrit(2)).AND.&
-    (DefTemp(3).LE.DefTempCrit(3)).AND.&
-    (INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
+bDefTemp = .True.
+DO iFld=1,GenLinScalar%nOfFields
+ bDefTemp = (bDefTemp.and.DefTemp(iFld).LE.DefTempCrit(iFld))
+END DO
+
+IF (bDefTemp.and.(INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
 
 CALL COMM_NLComplete(INLComplete)
 IF (INLComplete.eq.1) GOTO 1
