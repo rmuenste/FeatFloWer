@@ -1,6 +1,5 @@
 SUBROUTINE CheckIfFolderIsThereCreateIfNot(cFolder,iBARR)
 use iniparser
-use cinterface
 USE PP3D_MPI, ONLY:myid,MPI_COMM_SUBS,MPI_COMM_WORLD
 
 IMPLICIT NONE

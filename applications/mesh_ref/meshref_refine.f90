@@ -45,7 +45,7 @@ do i=1,nel
    bVert = .FALSE.
    DO j=1,8
     ivt = mg_mesh%level(ilev)%kvert(j,i)
-    if (mg_mesh%level(ilev)%knpr(ivt)) bVert(j) = .TRUE.
+    if (mg_mesh%level(ilev)%knpr(ivt).eq.1) bVert(j) = .TRUE.
    END DO
    
    iVert = mg_mesh%level(ilev)%kvert(:,i)
