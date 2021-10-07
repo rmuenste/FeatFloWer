@@ -246,7 +246,7 @@ do iLoop =1 , Properties%nTPIterations
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
- if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
+!  if (iLoop.eq.1) MaxInitialPressureDefect0 = MaxInitialPressureDefect
 
  tstep  = tstep_BU
 
@@ -257,7 +257,7 @@ do iLoop =1 , Properties%nTPIterations
  if (myid.eq.1) write(mfile,'(A,I0,A,256ES12.4)') 'PressureDefects ', iLoop,cEnding(iEnding)//' : ',PressureDefect(:)
 !  if (MaxInitialPressureDefect.lt.1e-7) THEN 
 ! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps) THEN 
- if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-11) THEN 
+ if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-10) THEN 
   if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   bEXIT = .true.
@@ -622,7 +622,7 @@ END SUBROUTINE NonLin_BurgerStep_SingleT
 !
 SUBROUTINE NonLin_SimultanBurgerStep_ParT()
 REAL*8 u_rel_max(6)
-integer :: nLinBurgers=64, iLinBurgers
+integer :: nLinBurgers=4, iLinBurgers
 
 do iLinBurgers=1,nLinBurgers
 
@@ -630,9 +630,14 @@ u_rel_max = -1d0
 
 IF (myid.ne.master) THEN
  DO iStep = 0,nSteps
-  mySolSeq%S(iStep)%U_aux = mySolSeq%S(iStep)%U(1:QuadSc%ndof)
-  mySolSeq%S(iStep)%V_aux = mySolSeq%S(iStep)%V(1:QuadSc%ndof)
-  mySolSeq%S(iStep)%W_aux = mySolSeq%S(iStep)%W(1:QuadSc%ndof)
+  mySolSeq%S((iStep-0)*lStep)%U_aux = mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof)
+  mySolSeq%S((iStep-0)*lStep)%V_aux = mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof)
+  mySolSeq%S((iStep-0)*lStep)%W_aux = mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof)
+ end do
+ DO iStep = 0,nSteps
+  mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof) = 0d0
+  mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof) = 0d0
+  mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof) = 0d0
  end do
 end if
 
@@ -762,45 +767,6 @@ Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
 
 u_rel_max = max(u_rel_max,QuadSc%prm%MGprmOut(1)%u_rel)
 
-! ! CALL OperatorRegenaration(3)
-! ! 
-! IF (myid.ne.master) THEN
-! ! Restore the constant right hand side
-!  CALL ZTIME(tttt0)
-!  QuadSc%defU = QuadSc%rhsU
-!  QuadSc%defV = QuadSc%rhsV
-!  QuadSc%defW = QuadSc%rhsW
-! END IF
-! ! 
-! IF (myid.ne.master) THEN
-! 
-!  ! Assemble the defect vector and fine level matrix
-!  CALL Matdef_General_QuadScalar(QuadSc,-1)
-! 
-!  ! Set dirichlet boundary conditions on the defect
-!  CALL Boundary_QuadScalar_Def()
-! 
-!  QuadSc%auxU = QuadSc%defU
-!  QuadSc%auxV = QuadSc%defV
-!  QuadSc%auxW = QuadSc%defW
-!  CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
-! 
-!  ! Save the old solution
-!  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
-!  CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
-!  CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
-! 
-!  ! Compute the defect
-!  CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
-! 
-! END IF
-! 
-! ! Checking convergence rates against criterions
-! RhsUVW=DefUVW
-! CALL COMM_Maximum(RhsUVW)
-! CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
-!      ResU,ResV,ResW,DefUVW,RhsUVW)
-
 IF (myid.ne.master) THEN
  mySolSeq%S((iStep-0)*lStep)%U = QuadSc%ValU(1:QuadSc%ndof)
  mySolSeq%S((iStep-0)*lStep)%V = QuadSc%ValV(1:QuadSc%ndof)
@@ -817,19 +783,22 @@ if (myid.eq.1) write(MTERM,"(104('X'))")
 if (myid.eq.1) write(mFILE,"(104('X'))") 
 
 ! Update the solution
-DO iStep = 1,nSteps
+DO iStep = 0,nSteps
  IF (myid.ne.0) THEN
-  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%U_aux,mySolSeq%S((iStep-0)*lStep)%U,&
-       QuadSc%ndof,1D0,1D0)
-  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%V_aux,mySolSeq%S((iStep-0)*lStep)%V,&
-       QuadSc%ndof,1D0,1D0)
-  CALL LLC1(mySolSeq%S((iStep-0)*lStep)%W_aux,mySolSeq%S((iStep-0)*lStep)%W,&
-       QuadSc%ndof,1D0,1D0)
+  QuadSc%ValU(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%U_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof)
+  QuadSc%ValV(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%V_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof)
+  QuadSc%ValW(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%W_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof)
+  
+  ! Set dirichlet boundary conditions on the solution
+  CALL Boundary_QuadScalar_Val()
+  
+  mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof) = QuadSc%ValU(1:QuadSc%ndof)
+  mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof) = QuadSc%ValV(1:QuadSc%ndof)
+  mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof) = QuadSc%ValW(1:QuadSc%ndof)
  END IF
 END DO
 
 END DO ! iLinBurgers
-
 
 END SUBROUTINE NonLin_SimultanBurgerStep_ParT
 !
