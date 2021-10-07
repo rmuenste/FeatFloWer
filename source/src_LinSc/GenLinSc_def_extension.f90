@@ -371,8 +371,8 @@ IF (myid.ne.0) THEN
 
 !  IF (.not.allocated(MyMG%AXX)) ALLOCATE(MyMG%AXX(lSc%nOfFields))
  
+ MyMG%AXX => mg_AMat
  DO iFld=1,lSc%nOfFields
-  MyMG%AXX => mg_AMat
   ndof = lSc%ndof
   lSc%knpr((iFld-1)*ndof+1:iFld*ndof) = lSc%fld(iFld)%knpr
  END DO
@@ -408,8 +408,8 @@ MyMG%MaxLev             = NINT(daux)
 IF (myid.ne.0) THEN
  DO iFld=1,lSc%nOfFields
   ndof = lSc%ndof
-  lSc%sol(NLMAX)%x((iFld-1)*ndof+1:(iFld)*ndof) = lSc%fld(iFld)%val
-  lSc%rhs(NLMAX)%x((iFld-1)*ndof+1:(iFld)*ndof) = lSc%fld(iFld)%aux
+  lSc%sol(NLMAX)%x((iFld-1)*ndof+1:(iFld)*ndof) = lSc%fld(iFld)%val(1:ndof)
+  lSc%rhs(NLMAX)%x((iFld-1)*ndof+1:(iFld)*ndof) = lSc%fld(iFld)%aux(1:ndof)
   lSc%def(NLMAX)%x((iFld-1)*ndof+1:(iFld)*ndof) = 0d0
  END DO
  MyMG%X    => lSc%sol
