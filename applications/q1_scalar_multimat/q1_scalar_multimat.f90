@@ -19,6 +19,8 @@ PROGRAM Q1_GenScalar
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
   logical            :: bRestartTime =.true.
+  real*8             :: Orig_tsep
+  integer            :: iChange,nChange=8
 
   !-------INIT PHASE-------
 
@@ -33,12 +35,14 @@ PROGRAM Q1_GenScalar
   END IF
   
   CALL EstimateAlphaTimeStepSize(ufile)
+  Orig_tsep = tstep
   
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
   !-------MAIN LOOP-------
 
   bAlphaConverged = .false.
+  iChange = 0
   
   DO itns=1,nitns
 
@@ -49,9 +53,19 @@ PROGRAM Q1_GenScalar
 
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
-  if (inonln_t.lt.4) tstep = 1.6d0*tstep
-  if (inonln_t.gt.5) tstep = 0.666667d0*tstep
 
+  !!!!!!!!!!!!!!!! TimestepControl   !!!!!!!!!!!!!!!
+  if (inonln_t.lt.3.and.iChange.gt.nChange) then
+   tstep = min((3d0/2d0)*tstep,Orig_tsep*(3d0/1d0))
+   iChange = -1
+  end if
+  if (inonln_t.gt.5.and.iChange.gt.nChange) then
+   tstep = max((2d0/3d0)*tstep,Orig_tsep*(1d0/3d0))
+   iChange = -1
+  end if
+  iChange = iChange + 1
+  !!!!!!!!!!!!!!!! TimestepControl   !!!!!!!!!!!!!!!
+  
   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)

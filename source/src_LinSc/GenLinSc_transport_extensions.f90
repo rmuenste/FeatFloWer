@@ -8,6 +8,7 @@ REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),RhsTemp(:)
 REAL*8 tstep_old,thstep_old,defXXX
 INTEGER INLComplete,I,J,iFld,iEnd,iStart
 logical bDefTemp
+logical :: bInit=.true.
 
 if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
 if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
@@ -19,17 +20,22 @@ IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
 ! Generate the necessary operators
 IF (myid.ne.0) THEN
 
- ! Convection + stabilization
- CALL Create_GenLinSc_Q1_Convection()
- CALL InitAFC_GenLinSc_Q1()
+ if (bInit) then
+  ! Convection + stabilization
+  CALL Create_GenLinSc_Q1_Convection()
+  CALL InitAFC_GenLinSc_Q1()
 
- ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
- CALL Create_GenLinSc_Q1_Mass(1d0)
+  ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
+  CALL Create_GenLinSc_Q1_Mass(1d0)
 
+  ! Diffusion Matrix for the alpha fields
+  CALL Create_GenLinSc_Q1_Alpha_Diffusion(3d-4)
+  bInit = .false.
+ end if
+ 
  ! Diffusion Matrix scales with Lambda/Rho*Cp ==> which is material specific
  CALL Create_GenLinSc_Q1_DiffCoeff(GenLinScalar)
  CALL Create_GenLinSc_Q1_Heat_Diffusion()
- CALL Create_GenLinSc_Q1_Alpha_Diffusion(1d-4)
 
 END IF
 
@@ -79,7 +85,7 @@ DO iFld=1,GenLinScalar%nOfFields
 END DO
 
 DO iFld=1,GenLinScalar%nOfFields
- DefTempCrit(iFld)=MAX((RhsTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
+ DefTempCrit(iFld)=MAX((DefTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
 END DO
 
 CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,0,&
@@ -687,6 +693,7 @@ integer mfile
 integer i,iPhase,ifld,iSeg
 real*8 dMaxValue
 real*8, allocatable :: dVolPhase(:)
+real*8 :: dAlphaThreshold = 0.3333d0
 
 allocate(dVolPhase(GenLinScalar%nOfFields))
 dVolPhase = 0d0
@@ -706,7 +713,7 @@ IF (myid.ne.0) THEN
    dMaxValue = 0d0
    
    do iFld=2,GenLinScalar%nOfFields
-    if (GenLinScalar%Fld(iFld)%val(i).gt.0.5d0.and.GenLinScalar%Fld(iFld)%val(i).gt.dMaxValue) then
+    if (GenLinScalar%Fld(iFld)%val(i).gt.dAlphaThreshold.and.GenLinScalar%Fld(iFld)%val(i).gt.dMaxValue) then
      dMaxValue = GenLinScalar%Fld(iFld)%val(i)
      iPhase = iFld
     end if

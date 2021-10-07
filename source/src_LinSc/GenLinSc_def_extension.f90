@@ -494,8 +494,8 @@ IF (nINL.EQ.0) THEN
  WRITE(MTERM,'(A8$)') "Criteria"
  WRITE(MFILE,'(A8$)') "Criteria"
  DO iFld=1,lSc%nOfFields
-  WRITE(MTERM,'(6X,ES10.3$)') DefScalar(iFld)*lSc%prm%defCrit
-  WRITE(MFILE,'(6X,ES10.3$)') DefScalar(iFld)*lSc%prm%defCrit
+  WRITE(MTERM,'(6X,ES10.3$)') RhsScalar(iFld)
+  WRITE(MFILE,'(6X,ES10.3$)') RhsScalar(iFld)
  END DO
  WRITE(MTERM,*)
  WRITE(MFILE,*)
