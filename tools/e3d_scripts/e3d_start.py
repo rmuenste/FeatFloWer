@@ -486,11 +486,11 @@ def simLoopVelocity(workingDir):
             launchCommand = ""
 
             if paramDict['useSrun']:
-                launchCommand = "srun ./q2p1_sse"
+                launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np %i ./q2p1_sse" %(numProcessors)
+                launchCommand = "mpirun -np %i " + os.getcwd() + "/q2p1_sse" %(numProcessors)
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
@@ -585,11 +585,11 @@ def simLoopTemperatureCombined(workingDir):
             launchCommand = ""
 
             if paramDict['useSrun']:
-                launchCommand = "srun ./q2p1_sse_temp"
+                launchCommand = "srun " + os.getcwd() + "/q2p1_sse_temp"
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np %i ./q2p1_sse_temp" %(numProcessors)
+                launchCommand = "mpirun -np %i " + os.getcwd() + "/q2p1_sse_temp" %(numProcessors)
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
