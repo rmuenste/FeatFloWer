@@ -1010,6 +1010,8 @@
     IF (ADJUSTL(TRIM(cPressureFBM)).eq."ON".OR.ADJUSTL(TRIM(cPressureFBM)).eq."YES") THEN
      mySetup%bPressureFBM = .true.
     ENDIF
+    
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","PressureConvergenceTolerance", mySetup%PressureConvergenceTolerance,5d-3)
 
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
@@ -1565,6 +1567,8 @@
     write(*,*) "myOutput%CutDtata_1D = ",myOutput%CutDtata_1D
     
     write(*,*) 
+    
+    write(*,'(A,F12.4)') "mySetup%PressureConvergenceTolerance = ",mySetup%PressureConvergenceTolerance
 
     write(*,*) "mySetup%PressureFBM = ",mySetup%bPressureFBM
     write(*,*) "mySetup%AutomaticTimeStepControl = ",mySetup%bAutomaticTimeStepControl

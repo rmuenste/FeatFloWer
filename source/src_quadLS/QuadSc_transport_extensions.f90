@@ -2276,6 +2276,14 @@ ILEV = NLMAX
 CALL SETLEV(2)
 CALL Comm_Solution(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,QuadSc%auxU,QuadSc%ndof)
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (bMultiMat) then
+
+
+end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 end subroutine Transport_q2p1_UxyzP_sse
 !
 ! ----------------------------------------------
@@ -2384,15 +2392,19 @@ SUBROUTINE GetPressureAtInflows(mfile)
 integer mfile
 !---------------------------------
 INTEGER NeighA(4,6),iInflow
-REAL*8 dIntPress,dIntArea,dPress,dArea,dAN(3)
+REAL*8 dPress,dArea,dAN(3),stdNorm
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,ivt5,iMem
+INTEGER :: nMem = 20
+REAL*8, allocatable :: dIntPress(:),dIntArea(:)
 
+if (.not.allocated(dIntPress)) allocate(dIntPress(myProcess%nOfInflows))
+if (.not.allocated(dIntArea))  allocate(dIntArea(myProcess%nOfInflows))
+
+dIntPress = 0d0
+dIntArea = 0d0
 
 DO iInflow=1,myProcess%nOfInflows
- dIntPress = 0d0
- dIntArea = 0d0
-
  k=1
  DO i=1,mg_mesh%level(nlmax)%nel
   DO j=1,6
@@ -2413,20 +2425,61 @@ DO iInflow=1,myProcess%nOfInflows
       dPress = 0.25d0*(LinSc%Q2(ivt1) + LinSc%Q2(ivt2) + LinSc%Q2(ivt3) + LinSc%Q2(ivt4))
       dArea = sqrt(dAN(1)**2d0 + dAN(2)**2d0 + dAN(3)**2d0)
 !       write(*,*) dPress, dArea
-      dIntArea  = dIntArea  + dArea
-      dIntPress = dIntPress + dArea*dPress
+      dIntArea(iInflow)  = dIntArea(iInflow)  + dArea
+      dIntPress(iInflow) = dIntPress(iInflow) + dArea*dPress
      end if
     END IF
     k = k + 1
    END IF
   END DO
  END DO
+END DO 
  
- CALL COMM_SUMM(dIntArea)
- CALL COMM_SUMM(dIntPress)
+CALL COMM_SUMMn(dIntArea,myProcess%nOfInflows)
+CALL COMM_SUMMn(dIntPress,myProcess%nOfInflows)
 
- if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'Pressure[bar]AtInflowArea[cm2]',iInflow,':',1e-6*dIntPress/dIntArea,dIntArea
- if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'Pressure[bar]AtInflowArea[cm2]',iInflow,':',1e-6*dIntPress/dIntArea,dIntArea
-End DO
+mySetup%bPressureConvergence = .true.
+DO iInflow=1,myProcess%nOfInflows
+
+ if (.not.allocated(myProcess%myInflow(iInflow)%PressureEvolution)) then 
+  allocate(myProcess%myInflow(iInflow)%PressureEvolution(0:nMem))
+  myProcess%myInflow(iInflow)%PressureEvolution = 0d0
+ end if
+ DO iMem = nMem-1,1,-1
+  myProcess%myInflow(iInflow)%PressureEvolution(iMem+1) = myProcess%myInflow(iInflow)%PressureEvolution(iMem)
+ end do
+ myProcess%myInflow(iInflow)%PressureEvolution(1) = 1e-6*dIntPress(iInflow)/dIntArea(iInflow)
+
+ ! TimeAveragedPressureComputation
+ myProcess%myInflow(iInflow)%PressureEvolution(0) = 0d0
+ DO iMem = 1,nMem
+  myProcess%myInflow(iInflow)%PressureEvolution(0) = myProcess%myInflow(iInflow)%PressureEvolution(0) + myProcess%myInflow(iInflow)%PressureEvolution(iMem)
+ END DO
+ myProcess%myInflow(iInflow)%PressureEvolution(0) = myProcess%myInflow(iInflow)%PressureEvolution(0) / DBLE(nMem)
+
+ ! Standard deviation for the last nMem steps
+ stdNorm = 0d0
+ DO iMem = 1,nMem
+  stdNorm = stdNorm + (myProcess%myInflow(iInflow)%PressureEvolution(iMem)-myProcess%myInflow(iInflow)%PressureEvolution(0))**2d0
+ END DO
+ stdNorm = stdNorm / DBLE(nMem)
+ stdNorm = stdNorm**0.5d0
+ stdNorm = 1d2*stdNorm/myProcess%myInflow(iInflow)%PressureEvolution(0)
+ 
+ myProcess%myInflow(iInflow)%PressureEvolution(0) = stdNorm !! percentage error for the last nMem steps
+ 
+!  if (myid.eq.1) write(mfile,'(A,100ES12.4)') 'test :',myProcess%myInflow(iInflow)%PressureEvolution(0:nMem)
+!  if (myid.eq.1) write(mterm,'(A,100ES12.4)') 'test :',myProcess%myInflow(iInflow)%PressureEvolution(0:nMem)
+ 
+ if (itns.gt.nMem.and.istart.eq.1) then
+  if (myProcess%myInflow(iInflow)%PressureEvolution(0).gt.mySetup%PressureConvergenceTolerance) mySetup%bPressureConvergence = .false.
+  if (myid.eq.1) write(mfile,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),myProcess%myInflow(iInflow)%PressureEvolution(0)
+  if (myid.eq.1) write(mterm,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),myProcess%myInflow(iInflow)%PressureEvolution(0)
+ else
+  mySetup%bPressureConvergence = .false.
+  if (myid.eq.1) write(mfile,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),1d0
+  if (myid.eq.1) write(mterm,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),1d0
+ end if
+END DO
 
 END SUBROUTINE GetPressureAtInflows

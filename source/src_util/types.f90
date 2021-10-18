@@ -577,6 +577,7 @@ TYPE tInflow
  INTEGER iBCtype,Material
  REAL*8  massflowrate, outerradius,innerradius,temperature
  REAL*8  center(3),normal(3)
+ real*8, allocatable :: PressureEvolution(:)
 END TYPE tInflow
 
 TYPE tSegThermoPhysProp
@@ -636,6 +637,8 @@ END TYPE tTransientSolution
 
 TYPE tSetup
  LOGICAL :: bPressureFBM = .FALSE.
+ REAL*8  :: PressureConvergenceTolerance 
+ Logical :: bPressureConvergence= .FALSE.
  LOGICAL :: bAutomaticTimeStepControl = .TRUE.,bRotationalFramOfReference=.FALSE.
  LOGICAL :: bConvergenceEstimator=.FALSE.
  REAL*8 :: CharacteristicShearRate=1d1
