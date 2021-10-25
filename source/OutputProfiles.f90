@@ -3460,10 +3460,11 @@ USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:GenLinScalar
 USE iniparser, ONLY : INIP_REPLACE,inip_openFileForWriting
 implicit none
+
 integer :: iO
 character :: cf*(*)
 CHARACTER*(512) :: cFile,cFileBU
-integer ilen,ndofs,ivt,ifile,iFld
+integer ilen,ndofs,ivt,ifile,iFld,iRet,iNum
 logical :: bExists
 
 if (myid.eq.0) return
@@ -3498,7 +3499,7 @@ if (myid.eq.0) return
       write(ifile,'(ES14.6)') GenLinScalar%fld(iFld)%Val(ivt)
      END DO 
      write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
-     close(ifile)
+     call closeFile(ifile)
     END DO
    end if
 
@@ -3588,7 +3589,7 @@ if (myid.eq.0) return
   if (adjustl(trim(cf)).eq.'q'.or.adjustl(trim(cf)).eq.'Q') THEN
   else
    write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
-   close(ifile)
+   call closeFile(ifile)
   end if
 
 END SUBROUTINE Release_ListFile

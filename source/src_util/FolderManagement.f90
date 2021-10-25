@@ -21,3 +21,37 @@ else            ! with master
 end if
 
 END SUBROUTINE CheckIfFolderIsThereCreateIfNot
+
+
+subroutine closeFile(iFile)
+#ifdef __INTEL_COMPILER 
+  USE IFCORE
+#endif  
+
+#ifdef __GFORTRAN__
+  interface
+    function fsync (fd) bind(c,name="fsync")
+    use iso_c_binding, only: c_int
+      integer(c_int), value :: fd
+      integer(c_int) :: fsync
+    end function fsync
+  end interface
+  integer :: iRet,iNum
+#endif  
+  integer, intent(in) :: ifile
+  
+#ifdef __GFORTRAN__
+  flush(iFile)
+  iNum = fnum(iFile)
+  iRet = fsync(iNum)
+  ! Handle possible error
+  if (iRet.ne.0) WRITE (*,*) 'Closing(GFORTRAN) of data file has failed ... '
+  close(iFile)
+#elif __INTEL_COMPILER 
+  IF (.NOT. COMMITQQ(iFile)) WRITE (*,*) 'Closing(INTEL) of data file has failed ... '
+  close(iFile)
+#elif
+  close(iFile)
+#endif  
+
+end subroutine closeFile

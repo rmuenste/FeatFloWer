@@ -4,7 +4,7 @@ PROGRAM Q1_GenScalar
 
   use solution_io, only: postprocessing_app
   use solution_io, only: postprocessing_sse_q1_scalar
-  use var_QuadScalar, only: bAlphaConverged
+  use var_QuadScalar, only: bAlphaConverged,DivergedSolution
 
   use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
   use post_utils,  only: handle_statistics,&
@@ -42,9 +42,13 @@ PROGRAM Q1_GenScalar
   !-------MAIN LOOP-------
 
   bAlphaConverged = .false.
+  DivergedSolution = .false.
+  
   iChange = 0
   
   DO itns=1,nitns
+
+1 CONTINUE  
 
   itnsr=0
   timnsh=timens
@@ -54,6 +58,21 @@ PROGRAM Q1_GenScalar
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
 
+  if (DivergedSolution .eqv. .true.) THEN
+   timens=timens-dt
+   tstep = tstep*0.5d0
+   if (tstep.lt.Orig_tsep*(2d0/9d0)) then
+    if (myid.eq.1) write(MTERM,*) 'Q1_scalar simulation has diverged after multiple timestep reductions!'
+    if (myid.eq.1) write(ufile,*) 'Q1_scalar simulation has diverged after multiple timestep reductions!'
+    GOTO 2
+   ELSE
+    DivergedSolution = .false.
+    if (myid.eq.1) write(MTERM,*) 'Timestep reduction due to divergence in Q1_scalar solver '
+    if (myid.eq.1) write(ufile,*) 'Timestep reduction due to divergence in Q1_scalar solver '
+    GOTO 1
+   END IF
+  END IF
+  
   !!!!!!!!!!!!!!!! TimestepControl   !!!!!!!!!!!!!!!
   if (inonln_t.lt.3.and.iChange.gt.nChange) then
    tstep = min((3d0/2d0)*tstep,Orig_tsep*(3d0/1d0))
@@ -86,6 +105,8 @@ PROGRAM Q1_GenScalar
   itns = max(itns,2)
   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
+2 CONTINUE
+  
   call sim_finalize_sse(tt0,ufile)
 
 END PROGRAM Q1_GenScalar
