@@ -383,12 +383,6 @@ include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)
 include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
 
 #=========================================================================
-#               Build the C directory handling library  
-#=========================================================================
-add_library(cdirs ${src_ini_c})
-
-
-#=========================================================================
 #                         Add applications
 #=========================================================================
 SET(OUT_OF_SOURCE_BUILD True)

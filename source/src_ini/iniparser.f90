@@ -301,6 +301,12 @@ contains
     ! > 0: number of subdirectories created
     ! < 0: -errno
     integer :: istatus
+!#ifdef __GFORTRAN__
+!    fnum(10)
+!    print *,"GFORTRAN"
+!#elif __INTEL_COMPILER
+!    print *,"INTEL"
+!#endif
 
 
     if (len_trim(spath) .eq. 0) then
