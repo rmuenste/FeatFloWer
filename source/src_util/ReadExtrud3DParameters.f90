@@ -1455,6 +1455,7 @@
     write(*,*)
     
     if (myMultiMat%nOfMaterials.gt.1) then
+    
     write(*,*) "myMultiMat%nOfMaterials",'=',myMultiMat%nOfMaterials
     write(*,*) "myMultiMat%InitMaterial",'=',myMultiMat%InitMaterial
     write(*,*)
@@ -1535,8 +1536,70 @@
     END DO
   
     else
-    
-    write(*,*)
+     
+     iMat = 1
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.2) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%K",'=',myMultiMat%Mat(1)%Rheology%K
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%n
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.1) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Carreau'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.3) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Polyflow'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Ellis'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.6) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Bingham'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.7) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','MAS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%mu_0",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%k",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%C
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
+     END IF
+     write(*,*) 
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.1) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%aT",'=',1.0
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.2) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','C1C2'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(1)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(1)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.3) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','TBTS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(1)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(1)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(1)%Rheology%Ts
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ETB'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(1)%Rheology%E
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
+     END IF
+     write(*,*)
+
+     write(*,*)
     write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
     write(*,*) "myThermodyn%HeatConductivity",'=',myThermodyn%lambda
     write(*,*) "myThermodyn%HeatConductivitySlope",'=',myThermodyn%lambdaSteig
