@@ -22,6 +22,8 @@ PROGRAM Q2P1_FC_EXT
 
   !-------INIT PHASE-------
 
+  NewtonForBurgers = 0.0d0
+  
   call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)
@@ -30,9 +32,7 @@ PROGRAM Q2P1_FC_EXT
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
 
   !-------MAIN LOOP-------
-
-  NewtonForBurgers = 1.0d0
-  
+ 
   DO itns=1,nitns
 
   itnsr=0

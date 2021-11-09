@@ -2428,6 +2428,22 @@ END SUBROUTINE Matdef_general_QuadScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE MeasureDefectNorms(myScalar,RESF)
+TYPE(TQuadScalar), INTENT(INOUT) :: myScalar
+REAL*8  RESF(3)
+
+CALL LL21 (myScalar%auxU,myScalar%ndof,RESF(1))
+CALL LL21 (myScalar%auxV,myScalar%ndof,RESF(2))
+CALL LL21 (myScalar%auxW,myScalar%ndof,RESF(3))
+
+RESF(1)=MAX(1D-32,RESF(1))
+RESF(2)=MAX(1D-32,RESF(2))
+RESF(3)=MAX(1D-32,RESF(3))
+
+END SUBROUTINE MeasureDefectNorms
+!
+! ----------------------------------------------
+!
 SUBROUTINE Resdfk_General_QuadScalar(myScalar,&
            resScalarU,resScalarV,resScalarW,defScalar,rhsScalar)
 TYPE(TQuadScalar), INTENT(INOUT) :: myScalar
@@ -2550,14 +2566,14 @@ nrm_W = 0d0
 !-------------------  U - Component -------------------!
  ndof = myScalar%ndof !SIZE(myScalar%ValU)
 
- myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU
- myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV
- myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW
+ myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU(1:ndof)
+ myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV(1:ndof)
+ myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW(1:ndof)
  MyMG%X    => myScalar%sol
 
- myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU
- myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV
- myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW
+ myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU(1:ndof)
+ myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV(1:ndof)
+ myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW(1:ndof)
  MyMG%B    => myScalar%rhs
 
  CALL MG_Solver(mfile,mterm)
@@ -2571,9 +2587,9 @@ nrm_W = 0d0
 ! !  if (myid.eq.1) write(MTERM,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
 ! !  if (myid.eq.1) write(MFILE,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
  
- myScalar%ValU = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
- myScalar%ValV = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
- myScalar%ValW = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+ myScalar%ValU(1:ndof) = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+ myScalar%ValV(1:ndof) = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+ myScalar%ValW(1:ndof) = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
 
  myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
  myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse

@@ -46,14 +46,14 @@ tstep_BU = tstep
 CALL InitSolutions(Sol3,0)
 mySolSeq => Sol3
 
-! CALL InitSolutions(Sol2,1)
-! mySolSeq => Sol2
-! if (myid.ne.master) then
-!  nlmax = nlmax - 1
-!  QuadSc%ndof = knvt(nlmax)+knel(nlmax)+knet(nlmax)+knat(nlmax)
-!  PLinSc%ndof = 4*knel(nlmax)
-!  LinSc%ndof = 4*knel(nlmax)
-! end if
+CALL InitSolutions(Sol2,1)
+mySolSeq => Sol2
+if (myid.ne.master) then
+ nlmax = nlmax - 1
+ QuadSc%ndof = knvt(nlmax)+knel(nlmax)+knet(nlmax)+knat(nlmax)
+ PLinSc%ndof = 4*knel(nlmax)
+ LinSc%ndof = 4*knel(nlmax)
+end if
 
 !------------------------------------------------------ PREDICTION --------------------------------------------------------
 MaxInitialPressureDefect = 1e-30 
@@ -149,38 +149,38 @@ IF (myid.eq.1) WRITE(*,*) 'rock and roll! ',MaxInitialPressureDefect0
 ! end do
 ! pause
 
-! if (myid.ne.master) then
-!  nlmax = nlmax + 1
-!  QuadSc%ndof = knvt(nlmax)+knel(nlmax)+knet(nlmax)+knat(nlmax)
-!  PLinSc%ndof = 4*knel(nlmax)
-!  LinSc%ndof = 4*knel(nlmax)
-! end if
-! 
-! DO iStep = 1,mySolSeq%nSteps
-! 
-!  if (myid.ne.master) then
-!   QuadSc%ValU = Sol2%S(iStep)%U(1:Sol2%ndofU)
-!   QuadSc%ValV = Sol2%S(iStep)%V(1:Sol2%ndofU)
-!   QuadSc%ValW = Sol2%S(iStep)%W(1:Sol2%ndofU)
-!   LinSc%ValP(NLMAX-1)%x = mySolSeq%S(iStep)%P(1:mySolSeq%ndofP)
-!   
-!   ndofP = 4*KNEL(NLMAX-1)
-!   LinSc%valP(NLMAX)%x(1:ndofP) = LinSc%valP(NLMAX-1)%x(1:ndofP)
-!   
-!   CALL ProlongateSolution()
-!   
-!   Sol3%S(iStep)%U = QuadSc%ValU(1:Sol3%ndofU)
-!   Sol3%S(iStep)%V = QuadSc%ValV(1:Sol3%ndofU)
-!   Sol3%S(iStep)%W = QuadSc%ValW(1:Sol3%ndofU)
-!   Sol3%S(iStep)%P = LinSc%ValP(NLMAX)%x(1:Sol3%ndofP)
-!   
-! !   LinSc%P_new = LinSc%ValP(NLMAX)%x
-! !   CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
-!  end if
-!   
-! !  CALL Output_Profiles(iStep)
-!   
-! END DO
+if (myid.ne.master) then
+ nlmax = nlmax + 1
+ QuadSc%ndof = knvt(nlmax)+knel(nlmax)+knet(nlmax)+knat(nlmax)
+ PLinSc%ndof = 4*knel(nlmax)
+ LinSc%ndof = 4*knel(nlmax)
+end if
+
+DO iStep = 1,mySolSeq%nSteps
+
+ if (myid.ne.master) then
+  QuadSc%ValU = Sol2%S(iStep)%U(1:Sol2%ndofU)
+  QuadSc%ValV = Sol2%S(iStep)%V(1:Sol2%ndofU)
+  QuadSc%ValW = Sol2%S(iStep)%W(1:Sol2%ndofU)
+  LinSc%ValP(NLMAX-1)%x = mySolSeq%S(iStep)%P(1:mySolSeq%ndofP)
+  
+  ndofP = 4*KNEL(NLMAX-1)
+  LinSc%valP(NLMAX)%x(1:ndofP) = LinSc%valP(NLMAX-1)%x(1:ndofP)
+  
+  CALL ProlongateSolution()
+  
+  Sol3%S(iStep)%U = QuadSc%ValU(1:Sol3%ndofU)
+  Sol3%S(iStep)%V = QuadSc%ValV(1:Sol3%ndofU)
+  Sol3%S(iStep)%W = QuadSc%ValW(1:Sol3%ndofU)
+  Sol3%S(iStep)%P = LinSc%ValP(NLMAX)%x(1:Sol3%ndofP)
+  
+!   LinSc%P_new = LinSc%ValP(NLMAX)%x
+!   CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
+ end if
+  
+!  CALL Output_Profiles(iStep)
+  
+END DO
 !------------------------------------------------------ PREDICTION --------------------------------------------------------
 ! pause
 mySolSeq => Sol3
@@ -621,12 +621,13 @@ END SUBROUTINE NonLin_BurgerStep_SingleT
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 SUBROUTINE NonLin_SimultanBurgerStep_ParT()
-REAL*8 u_rel_max(6)
-integer :: nLinBurgers=4, iLinBurgers
+REAL*8 u_rel_max(6),u_def0(3),u_def0_max(3),u_def0_max_Val
+integer :: nLinBurgers=128, iLinBurgers
 
 do iLinBurgers=1,nLinBurgers
 
 u_rel_max = -1d0
+u_def0_max = -1d0
 
 IF (myid.ne.master) THEN
  DO iStep = 0,nSteps
@@ -740,8 +741,13 @@ IF (myid.ne.master) THEN
 
  ! Compute the norm of the defect
  CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+ 
+ CALL MeasureDefectNorms(QuadSc,u_def0)
 
 END IF
+
+CALL COMM_MaximumN(u_def0,3)
+u_def0_max = max(u_def0_max,u_def0)
 
 CALL COMM_Maximum(RhsUVW)
 DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
@@ -779,6 +785,8 @@ if (myid.eq.1) write(MTERM,"(104('X'))")
 if (myid.eq.1) write(mFILE,"(104('X'))") 
 if (myid.eq.1) write(MTERM,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
 if (myid.eq.1) write(MFILE,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
+if (myid.eq.1) write(MTERM,'(2(A,I4),3ES12.4)') 'MaxInitDefectsOfU: ', iLoop,'|',iLinBurgers,u_def0_max(1),u_def0_max(2),u_def0_max(3)
+if (myid.eq.1) write(MFILE,'(2(A,I4),3ES12.4)') 'MaxInitDefectsOfU: ', iLoop,'|',iLinBurgers,u_def0_max(1),u_def0_max(2),u_def0_max(3)
 if (myid.eq.1) write(MTERM,"(104('X'))") 
 if (myid.eq.1) write(mFILE,"(104('X'))") 
 
@@ -797,6 +805,10 @@ DO iStep = 0,nSteps
   mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof) = QuadSc%ValW(1:QuadSc%ndof)
  END IF
 END DO
+
+u_def0_max_Val=max(u_def0_max(1),u_def0_max(2),u_def0_max(3))
+
+IF (u_def0_max_Val.lt.1e-15) exit
 
 END DO ! iLinBurgers
 
