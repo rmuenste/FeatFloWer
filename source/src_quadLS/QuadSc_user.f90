@@ -751,7 +751,7 @@ IF (iP.lt.200) then
    ValW =   0d0
 !    ValU =  0d0
 !    ValV =  0d0 
-!    ValW =  DBLE(myProcess%ind)*myProcess%Umdr/1d1 !mm/s
+!    ValW =  // Forward 8d0 // Backward -1d0 !cm/s      ///!-DBLE(myProcess%ind)*myProcess%Umdr/1d1 !mm/s
   CASE (104) ! Y negativ
    dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
    
@@ -969,6 +969,11 @@ END IF
 !MAS
 IF (myRheology%Equation.EQ.7) THEN
  VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
+!Yasuda
+IF (myRheology%Equation.EQ.8) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
 END IF
 
 ! HogenPowerLaw

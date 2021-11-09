@@ -1500,6 +1500,13 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(iMat)%Rheology%C
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(iMat)%Rheology%D
      END IF
+     IF (myMultiMat%Mat(iMat)%Rheology%Equation.eq.8) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','YASUDA'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%mu_0",'=',myMultiMat%Mat(iMat)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Lambda",'=',myMultiMat%Mat(iMat)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(iMat)%Rheology%C
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(iMat)%Rheology%D
+     END IF
      write(*,*) 
      IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
@@ -1966,6 +1973,13 @@
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_k",t%B,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_n",t%C,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/MAS","MAS_a",t%D,myInf)
+    END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."YASUDA") THEN
+      t%Equation = 8
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/YASUDA","ZeroViscosity",t%A,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/YASUDA","RecipVelocity",t%B,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/YASUDA","Exponent",t%C,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/YASUDA","Plateau",t%D,myInf)
     END IF
     IF (t%Equation.eq.0) THEN
      WRITE(*,*) "no valid rheology is defined"
