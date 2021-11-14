@@ -973,7 +973,7 @@ END IF
 
 !Yasuda
 IF (myRheology%Equation.EQ.8) THEN
- VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+ VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*aT*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
 END IF
 
 ! HogenPowerLaw
@@ -1090,6 +1090,11 @@ END IF
 !MAS
 IF (myRheology%Equation.EQ.7) THEN
  VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
+!Yasuda
+IF (myRheology%Equation.EQ.8) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*aT*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
 END IF
 
 ! HogenPowerLaw
