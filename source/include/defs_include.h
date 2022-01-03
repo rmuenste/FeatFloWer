@@ -10,7 +10,8 @@
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
 
   use Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
-    Transport_LinScalar,Transport_Q1_displacement,Transport_GenLinSc_Q1
+    Transport_LinScalar,Transport_Q1_displacement,Transport_GenLinSc_Q1,&
+    Transport_GenLinSc_Q1_Multimat
 
   use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier,MPI_COMM_WORLD
 

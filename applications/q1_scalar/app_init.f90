@@ -3,9 +3,7 @@ subroutine init_q1_scalar(log_unit)
   USE def_FEAT
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_GenLinSc_Q1_QuadScalar,ProlongateSolution, &
-    bTracer,bViscoElastic,StaticMeshAdaptation,InitCond_QuadScalar
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
+    bTracer,InitCond_QuadScalar
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
     Transport_LinScalar, Init_GenLinSc_Q1,ProlongateSolution_GenLinSc_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -27,14 +25,14 @@ subroutine init_q1_scalar(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call InitCond_QuadScalar()
     CALL InitCond_GenLinSc_Q1_QuadScalar()
-ELSE
+  ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
       call init_sol_same_level(CSTART)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
       call init_sol_lower_level(CSTART)
-       CALL ProlongateSolution_GenLinSc_Q1()
+      CALL ProlongateSolution_GenLinSc_Q1()
       IF (myid.ne.0) CALL CreateDumpStructures(1)
     END IF
   END IF
@@ -82,10 +80,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER command*100,CSimPar*7
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
+ CHARACTER (len = 120) :: cExtrud3DFile
 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ logical :: bexist = .false.
 
 
  CALL ZTIME(TTT0)

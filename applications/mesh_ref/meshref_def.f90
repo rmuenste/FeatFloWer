@@ -327,6 +327,85 @@ END SUBROUTINE ComparePatch
 !
 !------------------------------------------------------------------
 !
+SUBROUTINE CleanUpSmallPatch(RFin,RFOut,E)
+implicit none
+type(RefinerMesh) RFin,RFOut
+integer i,j,iP
+real*8 P(3),Q(3),dVol,dTol,Diff
+real*8 E(3,8)
+integer, allocatable :: ihelp(:)
+
+CALL getVol(E,dVol)
+dTol = 0.01d0*dVol**(0.333333d0)
+
+allocate(iHelp(RFin%nOfVert))
+iHelp = 0
+
+iP = 0
+
+do i=1,RFin%nOfVert
+ P = RFin%dcoor(:,i)
+ if (iHelp(i).eq.0) then
+  iP = iP + 1
+  iHelp(i) = iP
+  
+  DO j=i+1,RFin%nOfVert
+   Q = RFin%dcoor(:,j)
+   DIFF = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+   if (DIFF.lt.dTol) THEN
+    iHelp(j) = iP
+   end if
+  END DO
+  
+ end if
+end do
+
+!write(*,*) iHelp
+RFOut%nOfVert = iP
+RFOut%nOfElem = RFin%nOfElem
+allocate(RFOut%dcoor(3,RFOut%nOfVert))
+allocate(RFOut%kvert(8,RFOut%nOfElem))
+allocate(RFOut%knpr(RFOut%nOfVert))
+
+do i=1,RFin%nOfVert
+ RFOut%dcoor(:,iHelp(i)) = RFIn%dcoor(:,i)
+end do
+
+do i=1,RFin%nOfElem
+ DO j=1,8
+  RFOut%kvert(j,i) = iHelp(RFIn%kvert(j,i))
+ END DO
+end do
+
+do i=1,RFin%nOfVert
+ RFOut%knpr(iHelp(i)) = RFIn%knpr(i)
+end do
+
+! do i=1,RFIn%nOfVert
+!  write(*,*) RFIn%dcoor(:,i) 
+! end do
+
+!write(*,*)  'RFOut%nOfVert, RFOut%nOfElem'
+!write(*,*)  RFOut%nOfVert, RFOut%nOfElem
+
+!do i=1,RFOut%nOfVert
+! write(*,'(I8,3ES12.4)') i,RFOut%dcoor(:,i) 
+!end do
+
+!do i=1,RFOut%nOfElem
+!  write(*,'(9I8)') i,RFOut%kvert(:,i) 
+!end do
+
+!do i=1,RFOut%nOfVert
+! write(*,*) i,RFOut%knpr(i)
+!end do
+
+!pause
+
+END SUBROUTINE CleanUpSmallPatch
+!
+!------------------------------------------------------------------
+!
 SUBROUTINE CleanUpPatches()
 
 integer iel,jel,i,j,jj,iat,nUniquePoints,nAllPoints,nAllElements,il

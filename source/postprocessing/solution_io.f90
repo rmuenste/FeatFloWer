@@ -93,13 +93,15 @@ IF (allocated(MaterialDistribution)) then
 END IF                  
 
 if (allocated(GenLinScalar%Fld)) then
- DO iFld=1,GenLinScalar%nOfFields
-  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
-  QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
-  packed(1)%p => QuadSc%auxU
-  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                    1, packed)
- END DO
+ IF (myid.ne.0) THEN
+  DO iFld=1,GenLinScalar%nOfFields
+   fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+   QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
+   packed(1)%p => QuadSc%auxU
+   call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                     1, packed)
+  END DO
+ end if
 end if
 
 IF (myid.eq.1) THEN
@@ -1586,6 +1588,86 @@ subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
   1  FORMAT('Time step change from ',D9.2,' to ',D9.2)
 
 END SUBROUTINE TimeStepCtrl
+!
+!================================================================================================
+! Postprocessing for a sse application
+!================================================================================================
+! @param dout Output interval
+! @param iogmv Output index of the current file 
+! @param istep number of the discrete time step
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine postprocessing_sse_q1_scalar(dout, inlU,inlT,filehandle)
+
+  use def_FEAT
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
+  use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
+                            iTimeStepEnlargmentFactor 
+  use Sigma_User, only: myProcess
+
+  use visualization_out, only: viz_output_fields
+
+  implicit none
+
+  real, intent(inout) :: dout
+
+  integer, intent(in) :: filehandle
+
+  integer :: inlU,inlT
+  
+  integer :: iCrit_itns
+
+  ! local variables
+  integer :: iXgmv
+
+  ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
+
+  IF (itns.eq.1) THEN
+    CALL ZTIME(myStat%t0)
+
+     call Output_Profiles(0)
+!     call viz_output_fields(myExport, 1, QuadSc, LinSc, & !Tracer, &
+!                            Viscosity, Screw, Shell, Shearrate,&
+!                            mg_mesh)
+
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+  END IF
+
+  IF(dout.LE.(timens+1e-10)) THEN
+
+    IF (itns.ne.1) THEN
+      CALL ZTIME(myStat%t0)
+      call Output_Profiles(0)
+!       call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+!                              Viscosity, Screw, Shell, Shearrate, mg_mesh)
+
+      CALL ZTIME(myStat%t1)
+      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    END IF
+    
+    dout=dout+dtgmv
+
+    ! Save intermediate solution to a dump file
+    IF (insav.NE.0.AND.itns.NE.1) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
+        CALL ZTIME(myStat%t0)
+        
+        CALL Release_ListFiles_SSE_Q1_Scalar(0)
+        
+        CALL ZTIME(myStat%t1)
+        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+      END IF
+    END IF
+
+  END IF
+
+end subroutine postprocessing_sse_q1_scalar
 !
 !================================================================================================
 ! Postprocessing for a sse application

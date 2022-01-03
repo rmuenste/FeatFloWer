@@ -51,7 +51,20 @@ CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
 
-IF (.not. DefNorm.lt.1d-30) then
+IF (MyMG%cVariable.EQ."Velocity".AND.myid.eq.showid) THEN
+  write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  0,DefNorm, 1d0
+  write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  0,DefNorm,1d0
+END IF
+IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
+  write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  0,DefNorm, 1d0
+  write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
+  0,DefNorm,1d0
+END IF
+
+IF (.not. DefNorm.lt.1d-32) then
 
   DefI1 = 0d0
   DefI2 = 0d0
@@ -77,6 +90,14 @@ IF (.not. DefNorm.lt.1d-30) then
 
     CALL COMM_NLComplete(INLComplete)
     !  IF (myid.eq.showid) THEN
+    IF (MyMG%cVariable.EQ."Velocity".AND.myid.eq.showid) THEN
+      write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
+      IterCycle,DefNorm, DefImpr,&
+      " | ",CoarseIter," | ",MyMG%nSmootherSteps
+      write(mterm,'(I4,2G12.4,A3,I5,A3,9I4)') &
+      IterCycle,DefNorm,DefImpr,&
+      " | ",CoarseIter," | ",MyMG%nSmootherSteps
+    END IF
     IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.showid) THEN
       write(mfile,'(I4,2G12.4,A3,I5,A3,9I4)') &
       IterCycle,DefNorm, DefImpr,&
@@ -100,7 +121,7 @@ END IF
 
 myMG%DefFinal = DefNorm
 
-if(myMG%DefInitial.lt.1d-30)then
+if(myMG%DefInitial.lt.1d-32)then
   myMG%RhoMG1 = 0d0
 else
   myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
@@ -233,6 +254,8 @@ INTEGER imgLev,nimgLev
 !     write(*,*) "asdasdasd - 3 -- 33",myMG%MaxLev,mgLev
 !     CALL outputsol(myMG%AUX(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev),2)
 !   END IF
+
+!  CALL mgPostSmoother()                                          ! takes D as RHS And smoothes the solution AUX further 
 
   CALL mgUpdateSolution()                                    ! updates solution X = X_old + AUX(update)
 
@@ -440,6 +463,54 @@ SUBROUTINE mgCoarseGridSolver()
  END IF
 
 END SUBROUTINE mgCoarseGridSolver
+!
+! ----------------------------------------------
+!
+SUBROUTINE mgPostSmoother()
+INTEGER Iter,i,j,ndof,neq
+REAL*8 daux
+
+ Iter  = myMG%nSmootherSteps
+ if(myid.ne.0)ndof  = SIZE(myMG%X(mgLev)%x)
+
+ IF (MyMG%cVariable.EQ."Pressure") THEN
+  if (myid.ne.0) then
+   CALL ZTIME(time0)
+   CALL E012_SOR(myMG%AUX(mgLev)%x,myMG%XP,myMG%D(mgLev)%x,ndof,iter)
+   CALL ZTIME(time1)
+  end if
+
+  myStat%tSmthP = myStat%tSmthP + (time1-time0)
+ END IF
+ IF (MyMG%cVariable.EQ."Velocity") THEN
+  ILEV = mgLev
+  if (myid.ne.0) then
+!    CALL E013_JacobiSmoother(myMG%A(mgLev)%a,myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+!    myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ndof,Iter,myMG%RLX)
+
+!    CALL E013_SORSmoother(myMG%A(mgLev)%a,myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+!    myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,ndof,Iter,myMG%RLX)
+
+   CALL ZTIME(time0)
+   neq = KNVT(mgLev) + KNAT(mgLev) + KNET(mgLev) + KNEL(mgLev)
+   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    CALL E013_SSORSmoother9(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+             myMG%A12(mgLev)%a,myMG%A13(mgLev)%a,myMG%A23(mgLev)%a,&
+             myMG%A21(mgLev)%a,myMG%A31(mgLev)%a,myMG%A32(mgLev)%a,&
+             myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+             myMG%auX(mgLev)%x,myMG%D(mgLev)%x,myJCB%d1,ParKNPR,neq,Iter,myMG%RLX)
+   ELSE
+    CALL E013_SSORSmoother(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+             myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+             myMG%auX(mgLev)%x,myMG%D(mgLev)%x,myJCB%d1,ParKNPR,neq,Iter,myMG%RLX)
+   END IF
+   CALL ZTIME(time1)
+   myStat%tSmthUVW = myStat%tSmthUVW + (time1-time0)
+  end if
+ 
+ END IF
+ 
+END SUBROUTINE mgPostSmoother
 !
 ! ----------------------------------------------
 !
@@ -1319,7 +1390,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,27
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-32) THEN
       RLDA(JJ+1) = RLDA(JJ+1) + 1
       KK = KK + 1
      END IF
@@ -1519,7 +1590,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,27
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-32) THEN
       JJ_POS = RLDA(JJ) + RLDB(JJ+1)
       II_POS = PLDA(II) + KK
       RCOLA(JJ_POS) = II
@@ -1760,7 +1831,7 @@ IF (MyMG%CrsSolverType.EQ.1) THEN !! SSOR with JACOBI at SUBBoundaries
          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,0,0.7d0,def0)
    END IF
   end if
-  def0 = MAX(1d-30,def0)
+  def0 = MAX(1d-32,def0)
   CALL COMM_maximum(def0)
 
   nnSteps = myMG%nIterCoarse
@@ -1780,7 +1851,7 @@ IF (MyMG%CrsSolverType.EQ.1) THEN !! SSOR with JACOBI at SUBBoundaries
           myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,neq,nnSteps,myMG%RLX,def)
     END IF
    END IF
-   def = MAX(1d-33,def)
+   def = MAX(1d-32,def)
    CALL COMM_maximum(def)
    
 !    if (myid.eq.showid) write(*,*) "def/def0",def/def0

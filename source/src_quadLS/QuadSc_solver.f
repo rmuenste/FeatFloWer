@@ -596,7 +596,7 @@ C
 
       CALL LL21 (DD,NEQ,def)
       ddd = def
-      IF (def0.lt.1d-12) THEN
+      IF (def0.lt.1d-32) THEN
        def = 0d0
       ELSE
        def = def/def0
@@ -791,7 +791,7 @@ C
 C
       CALL LL21(DR,NEQ,DEF)
 C
-      IF (DEF0.GT.1d-12) THEN
+      IF (DEF0.GT.1d-32) THEN
        DefDrop = DEF/DEF0
       ELSE
        DefDrop = 0d0
@@ -892,7 +892,7 @@ C
 C
       CALL LL21(DR,NEQ,DEF)
 C
-      IF (DEF0.GT.1d-12) THEN
+      IF (DEF0.GT.1d-32) THEN
        DefDrop = DEF/DEF0
       ELSE
        DefDrop = 0d0
@@ -1120,7 +1120,7 @@ C
 C
       CALL LL21(DR,NEQ,DEF)
 C
-      IF (DEF0.GT.1d-18) THEN
+      IF (DEF0.GT.1d-32) THEN
        DefDrop = DEF/DEF0
       ELSE
        DefDrop = 0d0

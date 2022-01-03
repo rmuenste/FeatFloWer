@@ -6,8 +6,6 @@ subroutine init_q2p1_ext(log_unit)
     bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -23,20 +21,16 @@ subroutine init_q2p1_ext(log_unit)
   !-------INIT PHASE-------
   ApplicationString = &
 "  |                                                          SSE-FluidDynamics module                |"
-!  |                                                          SSE-FluidDynamics module                |
-  
   
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
   call Init_QuadScalar_Structures_sse(log_unit)
 
-  IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
-
   call Init_LinScalar(log_unit)
 
   call InitCond_LinScalar()
-
+  
   CALL inip_output_init(myid,showid,log_unit,mterm)
   
   ! Normal start from inital configuration

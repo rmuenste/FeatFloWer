@@ -12,9 +12,14 @@ IMPLICIT NONE
 
 character*(INIP_STRLEN) :: sfilename,sfilepath
 integer :: unitProtfile = -1, unitTerminal = 6
+integer :: MeshingScheme
+integer :: sGENDIE=1,sPARTICLE=2
 
 ! character(len=*), parameter :: Folder = 'SimFolder'
 type(option_s)              :: opts(2)
+
+! MeshingScheme = sPARTICLE
+MeshingScheme = sGENDIE
 
 opts(1) = option_s('inputfolder', .true.,  'f')
 opts(2) = option_s('help',  .false., 'h')
@@ -65,10 +70,12 @@ CALL InitMarker()
 call SetUpMarker()
 
 ! call CreateRefinedMesh()
-!    GENDIE     !
-call CreateRefinedMesh_Fine()
-!   PARTICLE    !
-!call CreateRefinedParticleMesh()
+if (MeshingScheme.eq.sGENDIE) then
+ call CreateRefinedMesh_Fine()
+end if
+if (MeshingScheme.eq.sPARTICLE) then
+ call CreateRefinedParticleMesh()
+end if
 
 call CleanUpPatches()
 
@@ -89,12 +96,14 @@ ilev = lTriOutputLevel
 CALL Output_TriMesh()
 CALL Output_RefTriMesh()
 
-!    GENDIE     !
-CALL Output_MergedRefTriMesh()
-CALL Output_MergedRefTriMeshPar()
-!   PARTICLE    !
-!CALL Output_ParticleMergedRefTriMesh()
-!CALL Output_ParticleMergedRefTriMeshPar()
+if (MeshingScheme.eq.sGENDIE) then
+ CALL Output_MergedRefTriMesh()
+ CALL Output_MergedRefTriMeshPar()
+end if
+if (MeshingScheme.eq.sPARTICLE) then
+ CALL Output_ParticleMergedRefTriMesh()
+ CALL Output_ParticleMergedRefTriMeshPar()
+end if
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()

@@ -43,6 +43,8 @@ use var_QuadScalar, only:Tracer
 
 implicit none
 
+character cVTKFolder*(256)
+
 interface
   subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
     use cinterface, only: c1dOutput
@@ -75,6 +77,10 @@ integer :: ioutput_lvl
 !type(fieldPtr), dimension(3) :: packed
 
 if (sExport%Format .eq. "VTK") then
+
+ cVTKFolder = '_vtk'
+ 
+ CALL CheckIfFolderIsThereCreateIfNot(cVTKFolder,0)
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  
@@ -203,7 +209,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar
 
 implicit none
 
@@ -241,9 +247,9 @@ integer :: istat, ioffset,ive,ivt,iField
 ! local
 integer :: iunit = 908070
 
-integer :: inlmax
+integer :: inlmax,iFld
 
-character fileid*(5),filename*(27),procid*(3)
+character fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 
 NoOfElem = KNEL(ioutput_lvl)
 NoOfVert = KNVT(ioutput_lvl)
@@ -370,6 +376,17 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),""" format=""ascii"">"
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",REAL(GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+   write(iunit, *)"        </DataArray>"
+ 
+  END DO
+  
  end select
 
 end do
@@ -475,14 +492,14 @@ end subroutine viz_write_vtu_process
 !
 subroutine viz_write_pvtu_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myExport,GenLinScalar
 USE def_FEAT
 
 IMPLICIT NONE
-INTEGER iO,iproc,iField, istat
+INTEGER iO,iproc,iField, istat,iFld
 INTEGER :: iMainUnit=555
 CHARACTER mainname*(20)
-CHARACTER filename*(26)
+CHARACTER filename*(26),cGenScalar*(50)
 
 ! generate the file name
 mainname=' '
@@ -532,9 +549,13 @@ DO iField=1,SIZE(myExport%Fields)
 !
 !  CASE('FBM')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBM","""/>"
-
  case('Partitioning')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition","""/>"
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),"""/>"
+ END DO
 
  END SELECT
 END DO
