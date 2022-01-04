@@ -44,7 +44,7 @@ ENDIF()
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(TARGETS ${Q1SSE_TARGET_NAME}
-    RUNTIME DESTINATION bin/q2p1_sse
+    RUNTIME DESTINATION bin/q2p1_gendie
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )
