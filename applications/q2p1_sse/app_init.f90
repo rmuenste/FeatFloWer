@@ -6,11 +6,12 @@ subroutine init_q2p1_ext(log_unit)
     bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
+  USE Transport_Q1, ONLY : Init_GenLinSc_HEATALPHA_Q1
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
-      ApplicationString
+      ApplicationString,bMultiMat
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess
   USE iniparser, ONLY : inip_output_init
@@ -27,9 +28,13 @@ subroutine init_q2p1_ext(log_unit)
 
   call Init_QuadScalar_Structures_sse(log_unit)
 
-  call Init_LinScalar(log_unit)
+  if (bMultiMat) then
+   call Init_GenLinSc_HEATALPHA_Q1(log_unit)
+  else
+   call Init_LinScalar(log_unit)
 
-  call InitCond_LinScalar()
+   call InitCond_LinScalar()
+  end if
   
   CALL inip_output_init(myid,showid,log_unit,mterm)
   

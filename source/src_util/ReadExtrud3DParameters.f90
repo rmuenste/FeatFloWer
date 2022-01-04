@@ -885,6 +885,7 @@
     IF (myMultiMat%nOfMaterials.ne.0) then
 
      call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
+     if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
 
      ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
      
