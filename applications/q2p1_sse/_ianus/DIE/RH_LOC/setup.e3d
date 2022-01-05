@@ -115,10 +115,10 @@ type = Polymer
 [E3DMaterialParameters/Mat_2/RheologicalData]
 calcvisco = Carreau
 CalcTemp = tbts
-[E3DMaterialParameters/Mat_1/RheologicalData/TbTs]
+[E3DMaterialParameters/Mat_2/RheologicalData/TbTs]
 StandardTemperature =  29.0
 ReferenceTemperature = 200.0
-[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
+[E3DMaterialParameters/Mat_2/RheologicalData/Carreau]
 zeroviscosity = 975.0
 recipvelocity = 1.33
 exponent = 0.52
@@ -138,10 +138,10 @@ type = Polymer
 [E3DMaterialParameters/Mat_1/RheologicalData]
 calcvisco = Carreau
 CalcTemp = tbts
-[E3DMaterialParameters/Mat_2/RheologicalData/TbTs]
+[E3DMaterialParameters/Mat_1/RheologicalData/TbTs]
 StandardTemperature = -5.5
 ReferenceTemperature = 200.0
-[E3DMaterialParameters/Mat_2/RheologicalData/Carreau]
+[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
 zeroviscosity = 8524.0
 recipvelocity = 1.1
 exponent = 0.52
