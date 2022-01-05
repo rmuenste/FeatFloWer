@@ -220,6 +220,8 @@ if(USE_CGAL)
     if(NOT WIN32)
           ExternalProject_Add(CGAL_PRJ
             GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+            GIT_PROGRESS ON 
+            GIT_SHALLOW ON 
             GIT_TAG rafa-devel
             SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
             PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
