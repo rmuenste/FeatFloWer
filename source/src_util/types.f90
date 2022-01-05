@@ -571,6 +571,11 @@ TYPE tSubInflow
  REAL*8  center(3),normal(3)
 END TYPE tSubInflow
 
+TYPE tTempBC
+ REAL*8  temperature
+ REAL*8  center(3),gradient(3)
+END TYPE tTempBC
+
 TYPE tInflow
  INTEGER :: nSubInflows=0
  TYPE (tSubInflow), dimension(:), allocatable :: mySubInflow
@@ -598,8 +603,9 @@ TYPE tProcess
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
    REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
-   integer   nOfInflows
+   integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
+   TYPE (tTempBC), dimension(:), allocatable :: myTempBC
    LOGICAL :: SegmentThermoPhysProps=.false.
    TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!

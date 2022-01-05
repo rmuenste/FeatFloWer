@@ -1,6 +1,174 @@
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Transport_GenLinSc_Q1_Melt(mfile,INL)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+INTEGER mfile,INL
+REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),RhsTemp(:)
+REAL*8 tstep_old,thstep_old,defXXX
+INTEGER INLComplete,I,J,iFld,iEnd,iStart
+logical bDefTemp
+logical :: bInit=.true.
+
+if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTempCrit)) allocate(DefTempCrit(GenLinScalar%nOfFields))
+if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
+
+IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+! Generate the necessary operators
+IF (myid.ne.0) THEN
+
+ if (bInit) then
+  ! Convection + stabilization
+  CALL Create_GenLinSc_Q1_Convection()
+  CALL InitAFC_GenLinSc_Q1()
+
+  ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
+  CALL Create_GenLinSc_Q1_Mass(1d0)
+
+  bInit = .false.
+ end if
+ 
+ ! Diffusion Matrix scales with Lambda/Rho*Cp ==> which is material specific
+ CALL Create_GenLinSc_Q1_DiffCoeff(GenLinScalar)
+ CALL Create_GenLinSc_Q1_Heat_Diffusion()
+
+END IF
+
+thstep = tstep*(1d0-theta)
+
+IF (myid.ne.0) THEN
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+
+ DO iFld = 1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%def = 0d0
+ END DO
+
+ CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%rhs = GenLinScalar%Fld(iFld)%def
+ END DO
+END IF
+
+thstep = tstep*(theta)
+IF (myid.ne.0) THEN
+
+ CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,0,1)
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+ ! Save the old solution
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+ END DO
+
+ !! Compute the defect
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+end if
+
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+ CALL COMM_Maximum(DefTemp(iFld))
+END DO
+
+DO iFld=1,GenLinScalar%nOfFields
+ DefTempCrit(iFld)=MAX((DefTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
+END DO
+
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,0,&
+       ResTemp,DefTemp,DefTempCrit," Heat&Alpha equation ")
+
+do INL=1,GenLinScalar%prm%NLmax
+INLComplete = 0
+
+! Calling the solver
+CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
+                                   Boundary_GenLinSc_Q1_Mat,&
+                                   mfile)
+
+IF (myid.ne.0) THEN
+
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ 
+ ! Restore the constant right hand side
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%fld(iFld)%def = GenLinScalar%fld(iFld)%rhs
+ END DO
+
+! Assemble the defect vector and fine level matrix
+ CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,-1,0)
+ 
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+! Save the old solution
+ DO iFld=1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+ END DO
+
+! Compute the defect
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsTemp=DefTemp
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+ CALL COMM_Maximum(DefTemp(iFld))
+END DO
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,INL,&
+       ResTemp,DefTemp,DefTempCrit," GenLinScalar equation ")
+
+bDefTemp = .True.
+DO iFld=1,GenLinScalar%nOfFields
+ bDefTemp = (bDefTemp.and.DefTemp(iFld).LE.DefTempCrit(iFld))
+END DO
+
+IF (bDefTemp.and.(INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+IF (INLComplete.eq.1) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+2 CONTINUE
+
+IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
+
+IF (myid.ne.0) THEN
+ iStart = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+ iEnd   = NLMAX
+ do NLMAX = iStart,iEnd
+  CALL ProlongateSolution_GenLinSc_Q1()
+ END DO
+ NLMAX = iEnd
+END IF
+
+
+END SUBROUTINE Transport_GenLinSc_Q1_Melt
+!
+! ----------------------------------------------
+!
 SUBROUTINE Transport_GenLinSc_Q1_MultiMat(mfile,INL)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 INTEGER mfile,INL

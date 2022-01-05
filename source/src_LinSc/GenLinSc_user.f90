@@ -85,7 +85,7 @@ IMPLICIT NONE
 REAL*8 dcorvg(3,*)
 real*8 X,Y,Z,DIST
 INTEGER i,j,ifld
-integer iInflow,iSubInflow,iMat,mySubinflow
+integer iInflow,iSubInflow,iMat,mySubinflow,iTemperatureBC
 REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity
 REAL*8 dCenter(3),dNormal(3),dProfil(3),dScale
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
@@ -102,6 +102,7 @@ DO i=1,GenLinScalar%ndof
   Z = dcorvg(3,i)
   
   iInflow = ABS(myBoundary%iInflow(i))
+  iTemperatureBC = ABS(myBoundary%iTemperature(i))
   
   if (iInflow.gt.0) then
    IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
@@ -188,14 +189,20 @@ DO i=1,GenLinScalar%ndof
    END IF
    
    do iFld=1,GenLinScalar%nOfFields
+    GenLinScalar%fld(iFld)%knpr(i) = 0
+   end do
+   
+   do iFld=1,GenLinScalar%nOfFields
     IF (bBC) THEN
-!      write(*,*) 'mySubInflow',mySubInflow,'iInflow',iInflow
      GenLinScalar%fld(iFld)%knpr(i) = mySubInflow
-    ELSE
-     GenLinScalar%fld(iFld)%knpr(i) = 0
     END IF
    END DO
  END IF
+ 
+ if (iTemperatureBC.gt.0) then
+  GenLinScalar%fld(1)%knpr(i) = iTemperatureBC
+ end if
+ 
 END DO !i
 
 return
@@ -213,7 +220,7 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 REAL*8 dcorvg(3,*)
 REAL*8 X,Y,Z,dFrac,dTemp
 REAL*8 DIST,TempBC
-INTEGER i,ifld,mySubinflow,iInflow,iMat
+INTEGER i,ifld,mySubinflow,iInflow,iMat,iTemperatureBC
 
 if (myid.eq.0) return
 
@@ -226,9 +233,20 @@ DO i=1,GenLinScalar%ndof
  do iFld=1,GenLinScalar%nOfFields
  
   iInflow=abs(myBoundary%iInflow(i))
-  mySubinflow = GenLinScalar%Fld(iFld)%knpr(i)
+  iTemperatureBC = ABS(myBoundary%iTemperature(i))
+  IF (iInflow.gt.0) THEN
+   mySubInflow = GenLinScalar%Fld(iFld)%knpr(i)
+  ELSE
+   mySubInflow = 0
+  END IF
   iMat = 0
   TempBC = 0d0
+  
+  IF (iTemperatureBC.gt.0) then
+   IF (iFld.eq.1) then
+    GenLinScalar%Fld(1)%val(i) =  myProcess%myTempBC(iTemperatureBC)%Temperature
+   END IF
+  END IF
   
   IF (mySubinflow.ne.0) then
 !    write(*,*) iInflow,mySubinflow
@@ -236,8 +254,8 @@ DO i=1,GenLinScalar%ndof
     iMat   = myProcess%myInflow(iInflow)%Material
     TempBC = myProcess%myInflow(iInflow)%Temperature
    ELSE
-    iMat   = myProcess%myInflow(iInflow)%mySubInflow(mySubinflow)%Material
-    TempBC = myProcess%myInflow(iInflow)%mySubInflow(mySubinflow)%Temperature
+    iMat   = myProcess%myInflow(iInflow)%mySubInflow(mySubInflow)%Material
+    TempBC = myProcess%myInflow(iInflow)%mySubInflow(mySubInflow)%Temperature
    END IF
    
    IF (iFld.eq.1) then
@@ -310,3 +328,6 @@ DO iFld=1,GenLinScalar%nOfFields
 END DO
 
 END SUBROUTINE Boundary_GenLinSc_Q1_Def
+!
+! ----------------------------------------------
+!

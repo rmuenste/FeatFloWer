@@ -169,7 +169,7 @@ EXTERNAL E011
    CALL SETLEV(2)
 
    HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
-   AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+   IF (ASSOCIATED(AlphaDiffMat)) AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
    LMassMat      => mg_LMassMat(ILEV)%a
    ConvectionMat =>  mg_ConvMat(ILEV)%a
    plMat  => mg_lMat(ILEV)
@@ -205,7 +205,7 @@ EXTERNAL E011
  CALL SETLEV(2)
 
  HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
- AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+ IF (ASSOCIATED(AlphaDiffMat)) AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
  LMassMat      => mg_LMassMat(ILEV)%a
  ConvectionMat => mg_ConvMat(ILEV)%a
  plMat  => mg_lMat(ILEV)

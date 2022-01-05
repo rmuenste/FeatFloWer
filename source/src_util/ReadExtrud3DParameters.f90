@@ -13,11 +13,11 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr,iSubInflow
+    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr,iSubInflow,iTempBC
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
-    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
     character(len=INIP_STRLEN) cParserString,cSCR,cALE
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
@@ -872,6 +872,11 @@
      myProcess%Ta=myInf
     END IF
        
+    call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfTempBCs"      ,myProcess%nOfTempBCs,0)
+    ALLOCATE(myProcess%myTempBC(myProcess%nOfTempBCs))
+    
+    cParserString = "E3DProcessParameters"
+    CALL FillUpTempBCs(myProcess%nOfTempBCs,cParserString)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Material and Material-specific read section !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1422,6 +1427,18 @@
     write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
 
     write(*,*) 
+    write(*,*) "myProcess%nOfTempBCs",'=',myProcess%nOfTempBCs
+    DO iTempBC=1,myProcess%nOfTempBCs
+     if (iTempBC.gt.0.and.iTempBC.le.9) WRITE(cTempBC_i,'(A,I1.1)') 'TempBC_',iTempBC
+     if (iTempBC.gt.9.and.iTempBC.le.99) WRITE(cTempBC_i,'(A,I2.2)') 'TempBC_',iTempBC
+     if (iTempBC.gt.99.and.iTempBC.le.999) WRITE(cTempBC_i,'(A,I3.3)') 'TempBC_',iTempBC
+    
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_Temperature','=',myProcess%myTempBC(iTempBC)%temperature
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_center'//'=',myProcess%myTempBC(iTempBC)%center
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_gradient'//'=',myProcess%myTempBC(iTempBC)%gradient
+    END DO
+    
+    write(*,*) 
     write(*,*) "myProcess%nOfInflows",'=',myProcess%nOfInflows
     DO iInflow=1,myProcess%nOfInflows
      if (iInflow.gt.0.and.iInflow.le.9) WRITE(cInflow_i,'(A,I1.1)') 'Inflow_',iInflow
@@ -1761,6 +1778,47 @@
 
     CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE FillUpTempBCs(nT,cINI)
+    implicit none
+    INTEGER :: nT   
+    character(len=INIP_STRLEN) cINI,cUnit
+    real*8 daux
+    
+    DO iTempBC=1,myProcess%nOfTempBCs
+    
+     WRITE(cTempBC_i,'(A,A,I0)') ADJUSTL(TRIM(cINI)),"/TempBC_",iTempBC
+     if (myid.eq.1) write(*,*) "|",ADJUSTL(TRIM(cTempBC_i)),"|"
+    
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"Unit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+     
+     call INIP_getvalue_double(parameterlist,cTempBC_i,"ReferenceTemperature",myProcess%myTempBC(iTempBC)%temperature,myInf)
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"center",cCenter,'0d0, 0d0, 0d0')
+     read(cCenter,*,err=55) myProcess%myTempBC(iTempBC)%Center
+     myProcess%myTempBC(iTempBC)%Center = daux*myProcess%myTempBC(iTempBC)%Center
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"gradient",cNormal,'0d0, 0d0, 0d0')
+     read(cNormal,*,err=55) myProcess%myTempBC(iTempBC)%Gradient
+     myProcess%myTempBC(iTempBC)%Gradient = myProcess%myTempBC(iTempBC)%Gradient/daux
+     
+     GOTO 57     
+55   write(*,*) 'WRONGLY DEFINED center for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
+     GOTO 57
+56   write(*,*) 'WRONGLY DEFINED gradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
+     GOTO 57
+57   CONTINUE
+
+    END DO
+
+    END SUBROUTINE FillUpTempBCs
+
     SUBROUTINE FillUpInflows(nT,cINI)
     implicit none
     INTEGER :: nT   
