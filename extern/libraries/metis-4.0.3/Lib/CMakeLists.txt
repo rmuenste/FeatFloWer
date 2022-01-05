@@ -24,6 +24,12 @@ install(TARGETS metis
     )
 
 install(TARGETS metis
+    RUNTIME DESTINATION bin/q2p1_die
+    LIBRARY DESTINATION bin/q2p1_die
+    ARCHIVE DESTINATION lib
+    )
+    
+install(TARGETS metis
     RUNTIME DESTINATION lib64 
     LIBRARY DESTINATION lib64 
     ARCHIVE DESTINATION lib
