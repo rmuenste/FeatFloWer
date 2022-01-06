@@ -886,6 +886,7 @@
 
      call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
      if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
+     if (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") bMultiMat = .true.
 
      ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
      
