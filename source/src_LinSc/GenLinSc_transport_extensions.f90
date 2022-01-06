@@ -21,22 +21,26 @@ IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
 IF (myid.ne.0) THEN
 
  if (bInit) then
+ 
+  ! Recover the physical parameters
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_RhoCoeff,'Rho')
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_CpCoeff,'Cp')
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_LambdaCoeff,'Lambda')
+  
   ! Convection + stabilization
-  CALL Create_GenLinSc_Q1_Convection()
+  CALL Create_GenLinSc_Q1_RhoCpConvection()
   CALL InitAFC_GenLinSc_Q1()
 
-  ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
-  CALL Create_GenLinSc_Q1_Mass(1d0)
+  CALL Create_GenLinSc_Q1_RhoCpMass()
 
+  CALL Create_GenLinSc_Q1_Heat_LambdaDiffusion()
+  
   bInit = .false.
  end if
- 
- ! Diffusion Matrix scales with Lambda/Rho*Cp ==> which is material specific
- CALL Create_GenLinSc_Q1_DiffCoeff(GenLinScalar)
- CALL Create_GenLinSc_Q1_Heat_Diffusion()
 
 END IF
 
+! pause
 thstep = tstep*(1d0-theta)
 
 IF (myid.ne.0) THEN
@@ -163,7 +167,6 @@ IF (myid.ne.0) THEN
  END DO
  NLMAX = iEnd
 END IF
-
 
 END SUBROUTINE Transport_GenLinSc_Q1_Melt
 !
@@ -677,6 +680,80 @@ CHARACTER cF*(*)
  CALL mgProlRestInit()
 
 END SUBROUTINE InitializeProlRest_GenLinSc_Q1  
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_RhoCpConvection()
+INTEGER I,J,jLEV
+EXTERNAL E011
+integer invt, inet, inat, inel
+
+ IF (.not.allocated(mg_ConvMat)) allocate(mg_ConvMat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX-1
+   JLEV = ILEV-1
+
+   CALL SETLEV(2)
+   IF (.not.allocated(mg_ConvMat(ILEV)%a)) allocate(mg_ConvMat(ILEV)%a(mg_lMat(ILEV)%na))
+
+   IF (myid.eq.showID) THEN
+    IF (ILEV.EQ.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') " [K]: [", ILEV,"]"
+    ELSE
+     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+    END IF
+   END IF
+   
+   ConvectionMat=>mg_ConvMat(ILEV)%a
+   plMat=>mg_lMat(ILEV)
+
+   ConvectionMat = 0d0
+
+   CALL RhoCpConv_LinSc1(QuadSc%valU,QuadSc%valV,QuadSc%valW,ConvectionMat,&
+   mg_RhoCoeff(ILEV)%x,mg_CpCoeff(ILEV)%x,&
+   plMat%nu,plMat%ColA,plMat%LdA,&
+   mg_mesh%level(ilev)%kvert,&
+   mg_mesh%level(ilev)%karea,&
+   mg_mesh%level(ilev)%kedge,&
+   mg_mesh%level(ilev)%kedge,&
+   mg_mesh%level(ilev)%dcorvg,&
+   E011)
+   
+ END DO
+
+ ILEV=NLMAX
+ JLEV = ILEV-1
+ CALL SETLEV(2)
+ IF (.not.allocated(mg_ConvMat(ILEV)%a)) allocate(mg_ConvMat(ILEV)%a(mg_lMat(ILEV)%na))
+ ConvectionMat=>mg_ConvMat(ILEV)%a
+ plMat=>mg_lMat(ILEV)
+ ConvectionMat = 0d0
+ IF (myid.eq.showID) THEN
+  IF (ILEV.EQ.NLMIN) THEN
+   WRITE(MTERM,'(A,I1,A)', advance='no') " [K]: [", ILEV,"]"
+  ELSE
+   WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+  END IF
+ END IF
+ CALL RhoCpConv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,ConvectionMat,&
+ mg_RhoCoeff(ILEV)%x,mg_CpCoeff(ILEV)%x,&
+ plMat%nu,plMat%ColA,plMat%LdA,&
+ mg_mesh%level(ilev)%kvert,&
+ mg_mesh%level(ilev)%karea,&
+ mg_mesh%level(ilev)%kedge,&
+ mg_mesh%level(ilev)%dcorvg,&
+ mg_mesh%level(ilev)%kadj,&
+ mg_mesh%level(jlev)%kvert,&
+ mg_mesh%level(jlev)%karea,&
+ mg_mesh%level(jlev)%kedge,&
+ mg_mesh%level(jlev)%nel,&
+ mg_mesh%level(jlev)%nvt,&
+ mg_mesh%level(jlev)%net,&
+ mg_mesh%level(jlev)%nat,E011)
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+ 
+END SUBROUTINE Create_GenLinSc_Q1_RhoCpConvection
 !
 ! ----------------------------------------------
 !

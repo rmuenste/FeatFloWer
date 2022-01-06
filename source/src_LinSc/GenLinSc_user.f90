@@ -24,8 +24,6 @@ do iFld=1,GenLinScalar%nOfFields
 !   dFrac = (5d0+X)/10d0
 !   dTemp = 220d0 + 30d0*dFrac
   
-  
-  
   IF (TRIM(GenLinScalar%Fld(iFld)%cName).eq.'k') then
    IF (GenLinScalar%Fld(iFld)%knpr(i).eq.1) GenLinScalar%Fld(iFld)%val(i) = 0d0
    IF (GenLinScalar%Fld(iFld)%knpr(i).eq.2) GenLinScalar%Fld(iFld)%val(i) = 1d0
@@ -328,6 +326,3 @@ DO iFld=1,GenLinScalar%nOfFields
 END DO
 
 END SUBROUTINE Boundary_GenLinSc_Q1_Def
-!
-! ----------------------------------------------
-!
