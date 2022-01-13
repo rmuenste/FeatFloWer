@@ -9,8 +9,8 @@ PROGRAM Q2P1_SSE
                          sim_finalize_sse
 
   use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
-  use Sigma_User, only : bKTPRelease,mysetup
-  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode,bMultiMat
+  use Sigma_User, only : bKTPRelease,mySetup
+  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode
   use f90getopt
 
   integer            :: iOGMV,iTout
@@ -60,7 +60,6 @@ PROGRAM Q2P1_SSE
   end do
   !-------INIT PHASE-------
 
-  bMultiMat = .true.
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)

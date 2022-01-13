@@ -1545,6 +1545,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(iMat)%Rheology%Ts
      END IF
      IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','Melt-TBTS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(iMat)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(iMat)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(iMat)%Rheology%Ts
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%log_aT_Tilde_Max",'=',myMultiMat%Mat(iMat)%Rheology%log_aT_Tilde_Max
+     END IF
+     IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.5) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ETB'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(iMat)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
@@ -1619,6 +1627,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(1)%Rheology%Ts
      END IF
      IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','Melt-TBTS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(1)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(1)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(1)%Rheology%Ts
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%log_aT_Tilde_Max",'=',myMultiMat%Mat(1)%Rheology%log_aT_Tilde_Max
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.5) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ETB'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(1)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
@@ -2057,20 +2073,33 @@
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."C1C2") THEN
       t%AtFunc = 2
-      t%Tb = 165d0
+!       t%Tb = 165d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","TB",t%TB,165d0)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C1",t%C1,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C2",t%C2,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."TBTS") THEN
       t%AtFunc = 3
-      t%C1 = 8.86d0
-      t%C2 = 101.6d0
+!       t%C1 = 8.86d0
+!       t%C2 = 101.6d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","C1",t%C1,8.86d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","C2",t%C2,101.6d0)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","ReferenceTemperature",t%Tb,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","StandardTemperature",t%Ts,myInf)
     END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."MELTTBTS".or.ADJUSTL(TRIM(cRheology)).eq."MELT-TBTS") THEN
+      t%AtFunc = 4
+!       t%C1 = 8.86d0
+!       t%C2 = 101.6d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"C1",t%C1,8.86d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"C2",t%C2,101.6d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"ReferenceTemperature",t%Tb,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"StandardTemperature",t%Ts,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"log_aT_Tilde_Max",t%log_aT_Tilde_Max,myInf)
+    END IF
     !ETB myRheology%E is in J/mol
     IF (ADJUSTL(TRIM(cRheology)).eq."ETB") THEN
-      t%AtFunc = 4
+      t%AtFunc = 5
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/ETB","ActivatingEnergy",t%E,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/ETB","ReferenceTemperature",t%TB,myInf)
     END IF

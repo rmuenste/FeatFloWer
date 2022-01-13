@@ -2097,10 +2097,11 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
-USE var_QuadScalar,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
-USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
-USE var_QuadScalar,ONLY:GenLinScalar
+USE var_QuadScalar,ONLY: Tracer
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY: GenLinScalar
+USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2109,6 +2110,7 @@ CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
+REAL*8 Temp,dMF
 integer :: iunit = 908070
 integer iX, ifbm,iFld
 
@@ -2460,6 +2462,32 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MF_E_[kg/m3]",""" format=""ascii"">"
+   do ivt=KNVT(ILEV+1)-NoOfElem+1,KNVT(ILEV+1)
+    Temp = GenLinScalar%Fld(1)%Val(ivt)
+    CALL MeltFunction_MF(dMF,Temp)
+    write(iunit, '(A,E16.7)')"        ",REAL(dMF)
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Rho_E_[kg/m3]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_RhoCoeff(NLMAX-1)%x(ivt))/1d-9
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Cp_E_[J/kg/K]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_CpCoeff(NLMAX-1)%x(ivt))/1d+4
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Lambda_E_[W/m/K]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_LambdaCoeff(NLMAX-1)%x(ivt))/1d-1
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+
  CASE('Viscosity_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Viscosity_E",""" format=""ascii"">"
@@ -2657,7 +2685,15 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
   END IF
 
- CASE('Viscosity_E')
+CASE('MatProps_E')
+  IF (myExport%Level.EQ.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MF_E_[-]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Rho_E_[kg/m3]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Cp_E_[J/kg/K]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Lambda_E_[W/m/K]","""/>"
+  END IF
+
+CASE('Viscosity_E')
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
@@ -2979,7 +3015,7 @@ call Release_ListFile('v',iO)
 call Release_ListFile('p',iO)
 call Release_ListFile('q',iO)
 ! call Release_ListFile('d',iO)
-! call Release_ListFile('t',iO)
+call Release_ListFile('t',iO)
 ! call Release_ListFile('s',iO)
 
  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)

@@ -904,7 +904,7 @@ real*8 :: ViscosityMatModel
 real*8, intent (in) :: NormShearSquare
 integer, intent (in) :: iMat
 real*8, intent (in), optional :: Temperature
-REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: dStrs, aT,log_aT,dLimStrs,MF
 REAL*8 :: VNN,daux
 REAL*8 :: dN
 TYPE(tRheology), POINTER :: myRheology
@@ -926,14 +926,25 @@ if (present(Temperature)) then
 
  ! TBTS
  IF (myRheology%AtFunc.EQ.3) THEN
-  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
-  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
-!   aT = EXP(daux)
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
+         myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
   aT = 1d1**daux
  END IF
  
-!ETB myRheology%E is in J/mol
+ ! MeltTBTS
  IF (myRheology%AtFunc.EQ.4) THEN
+
+  CALL MeltFunction_MF(MF,Temperature)
+  
+  log_aT = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
+           myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+
+  aT = 1d1**((1d0-MF)*myRheology%log_aT_Tilde_Max + MF*log_aT)
+  
+ END IF
+
+ !ETB myRheology%E is in J/mol
+ IF (myRheology%AtFunc.EQ.5) THEN
   daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
  END IF
@@ -1017,7 +1028,7 @@ real*8, intent (in) :: NormShearSquare
 ! real*8, intent (in) :: dAlpha
 integer, intent (in)  :: iMAt
 real*8, intent (in), optional :: Temperature
-REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: dStrs, aT,log_aT,dLimStrs,MF
 REAL*8 :: VNN,daux
 REAL*8 :: dN
 TYPE(tRheology), POINTER :: myRheology
@@ -1047,14 +1058,25 @@ if (present(Temperature)) then
 
  ! TBTS
  IF (myRheology%AtFunc.EQ.3) THEN
-  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
-  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
-!   aT = EXP(daux)
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
+         myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
   aT = 1d1**daux
  END IF
  
-!ETB myRheology%E is in J/mol
+ ! MeltTBTS
  IF (myRheology%AtFunc.EQ.4) THEN
+
+  CALL MeltFunction_MF(MF,Temperature)
+  
+  log_aT = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
+           myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+
+  aT = 1d1**((1d0-MF)*myRheology%log_aT_Tilde_Max + MF*log_aT)
+  
+ END IF
+
+ !ETB myRheology%E is in J/mol
+ IF (myRheology%AtFunc.EQ.5) THEN
   daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
  END IF
@@ -1167,3 +1189,85 @@ end do
 ! Temperature = myProcess%T0
 
 END SUBROUTINE SetInitialTemperature
+!
+! ----------------------------------------------
+!
+SUBROUTINE MeltFunction_MF(MF,T)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+real*8, intent(out) :: MF
+real*8, intent (in) :: T
+!---------------------------------------------------
+REAL*8 :: TM=403.15d0-273.15d0,TS=0.44d0,MS=0.15d0
+
+ MF = (0.5d0*((tanh((T-TM)*TS)) + 1d0))**MS
+
+END SUBROUTINE MeltFunction_MF
+!
+! ----------------------------------------------
+!
+SUBROUTINE MeltFunction_Rho(Rho,T,MF)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+real*8, intent(out) :: Rho
+real*8, intent (in) :: T,MF
+!---------------------------------------------------
+REAL*8 :: mV_s=7.97d-7, nV_s=7.83d-4
+REAL*8 :: mV_l=1.06d-6, nV_l=8.03d-4
+REAL*8 :: ES=0.5d0
+REAL*8 :: V_s,V_l,V
+
+ V_s = mV_s*(T - 273.15d0) + nV_s
+ V_l = mV_l*(T - 273.15d0) + nV_l
+ 
+ V = V_s*(1d0 - MF**(ES)) + V_s*(MF)**(ES)
+ 
+ Rho = 1d0/V ! kg/m3 
+
+END SUBROUTINE MeltFunction_Rho
+!
+! ----------------------------------------------
+!
+SUBROUTINE MeltFunction_Cp(Cp,T,MF)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+real*8, intent(out) :: Cp
+real*8, intent (in) :: T,MF
+!---------------------------------------------------
+REAL*8 :: Cp_s=1.92d3, nH_s=-515.3d3
+REAL*8 :: Cp_l=2.89d3, nH_l=-690.0d3
+
+ ! (Cp_s*T + n_s)*(1-MF) + (Cp_l*T + n_l)*MF =
+ ! (1-MF)*Cp_s*T + (1-MF)*n_s + MF*Cp_l*T + MF*n_l = 
+ ! [(1-MF)*Cp_s + MF*Cp_l]*T + [(1-MF)*n_s + MF*n_l] =
+ ! Cp*T + H_ref
+ 
+ Cp = (1d0-MF)*Cp_s + MF*Cp_l ! J/g/K
+
+END SUBROUTINE MeltFunction_Cp
+!
+! ----------------------------------------------
+!
+SUBROUTINE MeltFunction_Lambda(Lambda,T,MF)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+real*8, intent(out) :: Lambda
+real*8, intent (in) :: T,MF
+!---------------------------------------------------
+REAL*8 :: HS=0.40 !W/(m*K)
+REAL*8 :: m=0.0 !W/(m*K*K)
+REAL*8 :: n=0.260 !W/(m*K)
+REAL*8 :: T_0=273.15 !K
+REAL*8 :: WS=1.39D-5 !1/(K*K)
+REAL*8 :: e=2.7182818284d0
+REAL*8 :: Lambda_l,Lambda_s
+
+ Lambda_s = HS*(e**(-WS*((T-273.15)-T_0)**2d0))
+ Lambda_l = m*(T-273.15) + n
+ 
+ Lambda = (1d0-MF)*Lambda_s + MF*Lambda_l ! W/(m*K)
+
+END SUBROUTINE MeltFunction_Lambda
+!
+! ----------------------------------------------
+!

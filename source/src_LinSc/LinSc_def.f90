@@ -1030,7 +1030,7 @@ END SUBROUTINE GetDispParameters
 
 include 'LinSc_def_extension.f90'
 include 'GenLinSc_def_extension.f90'
-include 'GenLinSc_MF_user.f90'
+!include 'GenLinSc_MF_user.f90'
 
 END MODULE def_LinScalar
 

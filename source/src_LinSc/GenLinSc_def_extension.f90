@@ -965,15 +965,15 @@ SUBROUTINE Create_GenLinSc_Q1_PhysParamCoeffs(lSc,mg_PhysPropCoeff,cX)
         CALL MeltFunction_MF(dMF,Temp)
         if (ADJUSTL(TRIM(cX)).eq.'Rho') then
          CALL MeltFunction_Rho(daux,Temp,dMF)
-         daux = 1d-6*1d-3*daux ! kg/m3 = 1d3g/1d6cm3 = 1d-3 g/cm3
+         daux = 1d-6*1d-3*daux ! kg/m3 = 1d3g/1d6cm3 = 1d-3 g/cm3 ==> 1d-6*1d-3 t/cm3
         end if
         if (ADJUSTL(TRIM(cX)).eq.'Cp') then
          CALL MeltFunction_Cp(daux,Temp,dMF)
-         daux = 1d+4*daux ! J/kg/K = m2/(s2*K) = 1d4cm2/(s2*K)
+         daux = 1d+4*daux ! J/kg/K = m2/(s2*K) = 1d+4cm2/(s2*K)
         end if
         if (ADJUSTL(TRIM(cX)).eq.'Lambda') then
          CALL MeltFunction_Lambda(daux,Temp,dMF)
-         daux = 1d-6*1d+5*daux ! W/(m*K) = kg*m/(K*s3) = 1d5g*cm/(K*s3)
+         daux = 1d-6*1d+5*daux ! W/(m*K) = kg*m/(K*s3) = 1d+5g*cm/(K*s3) ==> 1d-6*1d+5*t*cm/(K*s3)
         end if
         
        END IF

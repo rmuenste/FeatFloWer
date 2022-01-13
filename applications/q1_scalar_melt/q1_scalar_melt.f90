@@ -5,7 +5,9 @@ PROGRAM Q1_GenScalar
   use solution_io, only: postprocessing_app
   use solution_io, only: postprocessing_sse_q1_scalar
 
-  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
+  use Transport_Q1, only : SetupTransportOperators_Q1_Melt
+  USE Transport_Q2P1, only :  GetNonNewtViscosity_sse
+  
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize_sse
@@ -47,6 +49,9 @@ PROGRAM Q1_GenScalar
   dt=tstep
   timens=timens+dt
 
+  CALL SetupTransportOperators_Q1_Melt() !(Temperature field is filled up here for the viscosity evaluation!)
+  CALL GetNonNewtViscosity_sse()
+  
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Melt(ufile,inonln_t)
 
@@ -64,7 +69,6 @@ PROGRAM Q1_GenScalar
   END DO
 
 !   write(*,*) '0',bAlphaConverged
-!  CALL Correct_GenLinSc_Q1_ALPHA(ufile)
   timens = timens + dtgmv
   itns = max(itns,2)
   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)

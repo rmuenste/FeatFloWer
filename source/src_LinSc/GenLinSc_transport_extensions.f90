@@ -1,3 +1,31 @@
+SUBROUTINE SetupTransportOperators_Q1_Melt()
+USE PP3D_MPI, ONLY : myid,master,showid
+
+IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+! Generate the necessary operators
+IF (myid.ne.0) THEN
+
+  ! Recover the physical parameters
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_RhoCoeff,'Rho')
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_CpCoeff,'Cp')
+  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_LambdaCoeff,'Lambda')
+  
+  ! Convection + stabilization
+  CALL Create_GenLinSc_Q1_RhoCpConvection()
+  CALL InitAFC_GenLinSc_Q1()
+
+  CALL Create_GenLinSc_Q1_RhoCpMass()
+
+  CALL Create_GenLinSc_Q1_Heat_LambdaDiffusion()
+
+END IF
+
+IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
+
+Temperature = GenLinScalar%Fld(1)%val
+
+END SUBROUTINE SetupTransportOperators_Q1_Melt
 !
 ! ----------------------------------------------
 !
@@ -17,29 +45,6 @@ if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
 
 IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
 
-! Generate the necessary operators
-IF (myid.ne.0) THEN
-
- if (bInit) then
- 
-  ! Recover the physical parameters
-  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_RhoCoeff,'Rho')
-  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_CpCoeff,'Cp')
-  CALL Create_GenLinSc_Q1_PhysParamCoeffs(GenLinScalar,mg_LambdaCoeff,'Lambda')
-  
-  ! Convection + stabilization
-  CALL Create_GenLinSc_Q1_RhoCpConvection()
-  CALL InitAFC_GenLinSc_Q1()
-
-  CALL Create_GenLinSc_Q1_RhoCpMass()
-
-  CALL Create_GenLinSc_Q1_Heat_LambdaDiffusion()
-  
-  bInit = .false.
- end if
-
-END IF
-
 ! pause
 thstep = tstep*(1d0-theta)
 
@@ -52,7 +57,11 @@ IF (myid.ne.0) THEN
  END DO
 
  CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
+END IF
 
+CALL Add_DissipativeEnergy(mfile)
+
+IF (myid.ne.0) THEN
  DO iFld=1,GenLinScalar%nOfFields
   GenLinScalar%Fld(iFld)%rhs = GenLinScalar%Fld(iFld)%def
  END DO
@@ -167,6 +176,8 @@ IF (myid.ne.0) THEN
  END DO
  NLMAX = iEnd
 END IF
+
+Temperature = GenLinScalar%Fld(1)%val
 
 END SUBROUTINE Transport_GenLinSc_Q1_Melt
 !
@@ -1045,3 +1056,57 @@ if (myid.eq.1) then
 end if
 
 END SUBROUTINE EstimateAlphaTimeStepSize
+!
+! ----------------------------------------------
+!
+SUBROUTINE Add_DissipativeEnergy(mfile)
+USE var_QuadScalar, ONLY : Viscosity,Shearrate
+integer mfile
+integer j
+real*8 daux,dauxKW,dDissipEnergy,Rho,Cp,Temp,MF,dMasMat,dFactor,dShearSquare
+real*8 :: T_Fin = 407.00d0-273.15d0
+real*8 :: AlphaViscosityMatModel
+
+dDissipEnergy = 0d0
+
+if (myid.ne.0) then 
+ ILEV = NLMAX
+ LMassMat      => mg_LMassMat(ILEV)%a
+
+ DO j=1,plMat%nu
+   Temp = GenLinScalar%Fld(1)%val(j)
+   CALL MeltFunction_MF(MF,Temp)
+   CALL MeltFunction_Rho(Rho,Temp,MF)
+   CALL MeltFunction_Cp(Cp,Temp,MF)
+   Rho = 1d-6*1d-3*Rho ! kg/m3 = 1d-3T/1d6cm3 = 1d-9 T/cm3
+   Cp  = 1d4*Cp        !J/kg/K = m2/(s2*K) = 1d+4cm2/(s2*K)
+   
+   IF (Temp.lt.T_Fin) then
+    Temp = T_Fin
+    dShearSquare = (0.5d0*Shearrate(j))**2d0
+    viscosity(j) = AlphaViscosityMatModel(dShearSquare,1,Temp)
+    dFactor = MF*Viscosity(j)*Shearrate(j)**2d0
+   else
+    dFactor = 1d0*Viscosity(j)*Shearrate(j)**2d0
+   end if
+   
+   dMasMat = LMassMat(j)/(Rho*Cp) ! cm3
+   
+   dauxKW = 1d-7*dFactor*dMasMat ! g/(cm*s)*1/(s2)*cm3 ==> 1d-3*kg*1e-4m2/(s3) = 1d-7 kg/(m2*s3) = 1d-7*W 
+   daux   = 1d-6*dFactor*dMasMat ! g/(cm*s)*1/(s2)*cm3 ==> 1d-6*T*cm2/(s3) = 1d-6 T/(cm2*s3) = 
+   
+   
+   GenLinScalar%Fld(1)%def(j) = GenLinScalar%fld(1)%def(j) + 1d0*daux*tstep
+   dDissipEnergy = dDissipEnergy + 1d-3*dauxKW ! W = 1d-3 kW
+ END DO
+END IF
+
+CALL COMM_SUMM(dDissipEnergy)
+
+IF (myid.eq.1) THEN
+ write(mterm,'(A,100ES12.4)') 'DissipationEnergy[kW]: ',dDissipEnergy
+ write(mfile,'(A,100ES12.4)') 'DissipationEnergy[kW]: ',dDissipEnergy
+END IF
+
+END SUBROUTINE Add_DissipativeEnergy
+
