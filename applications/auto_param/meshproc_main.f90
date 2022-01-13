@@ -51,6 +51,8 @@ OPEN(1,file='param.cfg')
 
 READ(1,*) cProjectFolder
 write(*,*)cProjectFolder
+READ(1,*) cMeshFile
+write(*,*)cMeshFile
 READ(1,*) nLoops
 write(*,*)nLoops
 allocate(nTol(nLoops),aTol(nLoops))
