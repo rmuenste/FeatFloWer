@@ -2,10 +2,10 @@ include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)
 
 
 # source files for standad q2p1 
-set(src_q2p1_sse_multimat
+set(src_q2p1_sse_melt
 # f90getopt.f90
 app_init.f90
-q2p1_sse_multimat.f90
+q2p1_sse_melt.f90
 )
 
 set(CMAKE_SKIP_RPATH FALSE)
@@ -13,10 +13,10 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "${ORIGIN}/../lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(SSE_TARGET_NAME "q2p1_sse_multimat")
+set(SSE_TARGET_NAME "q2p1_sse_melt")
 
 # Add the application executable
-add_executable(${SSE_TARGET_NAME} ${src_q2p1_sse_multimat}) 
+add_executable(${SSE_TARGET_NAME} ${src_q2p1_sse_melt}) 
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -89,8 +89,8 @@ IF(${OUT_OF_SOURCE_BUILD})
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_ianus" "${CMAKE_CURRENT_BINARY_DIR}/_ianus" )
   ENDIF()
 
-  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_multimat_start.py")
-    file(COPY q2p1_sse_multimat_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_melt_start.py")
+    file(COPY q2p1_sse_melt_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
 
   file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -136,4 +136,4 @@ ENDIF()
 # install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
 #     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 # 
-# install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_sse_multimat)
+# install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_sse_melt)
