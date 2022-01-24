@@ -2135,7 +2135,8 @@
      read(cText(1:i1-1),*)     dExtract_Val
      read(cText(i1+1:i2-1),*) sExtract_Dim
     ELSE
-     dExtract_Val = myInf
+     read(cText(1:),*)     dExtract_Val
+     sExtract_Dim = 'BAR'
     END IF
 !     write(*,*) 'hoho',i1,i2,adjustl(trim(cText))
 !     write(*,*) dExtract_Val,'"'//adjustl(trim(sExtract_Dim))//'"'

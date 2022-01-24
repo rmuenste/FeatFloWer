@@ -1429,8 +1429,8 @@ CALL myMPI_Barrier()
 CALL ZTIME (ttk1)
 
 IF (myid.eq.1.AND.iPrint.Eq.0) THEN
- WRITE(MTERM,'(A,2(I,A),ES14.6,A)') "Interface_Stats: ", gInterface%nG-1," G, ",gInterface%nT," T generated_in ",ttk1-ttk0,'s'
- WRITE(MFILE,'(A,2(I,A),ES14.6,A)') "Interface_Stats: ", gInterface%nG-1," G, ",gInterface%nT," T generated_in ",ttk1-ttk0,'s'
+ WRITE(MTERM,'(A,2(I0,A),ES14.6,A)') "Interface_Stats: ", gInterface%nG-1," G, ",gInterface%nT," T generated_in ",ttk1-ttk0,'s'
+ WRITE(MFILE,'(A,2(I0,A),ES14.6,A)') "Interface_Stats: ", gInterface%nG-1," G, ",gInterface%nT," T generated_in ",ttk1-ttk0,'s'
  WRITE(MTERM,'(A,3ES12.4,2(1X,F6.2))') "TimeVolumeAndFrac[%]: ", timens, dVol(1),dVol(2),dVol(1)/(dVol(1)+dVol(2))*1d2,dVol(2)/(dVol(1)+dVol(2))*1d2
  WRITE(MFILE,'(A,3ES12.4,2(1X,F6.2))') "TimeVolumeAndFrac[%]: ", timens, dVol(1),dVol(2),dVol(1)/(dVol(1)+dVol(2))*1d2,dVol(2)/(dVol(1)+dVol(2))*1d2
 END IF

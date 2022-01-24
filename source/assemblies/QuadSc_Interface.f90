@@ -94,6 +94,7 @@ END
 SUBROUTINE GetDistanceToInterfaceInGivenGroups(P,iSet,d)
 USE PP3D_MPI, ONLY :myid
 USE var_QuadScalar, ONLY: gInterface
+use, intrinsic :: ieee_arithmetic
 IMPLICIT NONE
 REAL*8 P(3),Q(3),d,dist,dMindist,dMinDAux
 INTEGER i,j,k,kk,iMinDist,iP,iG,iAux,iTT
@@ -106,6 +107,11 @@ PARAMETER (nXX = 10, dEps=1d-10)
 REAL*8  :: dMonitor(nXX+1),ddSign(nXX+1)
 INTEGER :: iMonitor(nXX+1),iSet(nXX),jSet(nXX)
 LOGICAL bProblem
+REAL*8 myInf
+
+if(ieee_support_inf(myInf))then
+ myInf = ieee_value(myInf, ieee_positive_inf)
+endif
 
 dMonitor = 1d30
 iMonitor = 0
@@ -216,7 +222,7 @@ IF (SameSide(ProjP,dTriang(:,1), dTriang(:,2),dTriang(:,3)).and.&
     GOTO 1
 ELSE
  ProjP = ProjPointToLine(P,dTriang(:,1),dTriang(:,2))
- IF (.NOT.ISNAN(ProjP(1))) THEN
+ IF (ProjP(1).ne.myInf) THEN
   dist= SQRT((ProjP(1)-P(1))**2d0 + (ProjP(2)-P(2))**2d0+(ProjP(3)-P(3))**2d0)
   IF (dist.LT.dMonitor(nXX)) THEN
    dMinDist = dist
@@ -246,7 +252,7 @@ ELSE
   GOTO 1
  END IF
  ProjP = ProjPointToLine(P,dTriang(:,2),dTriang(:,3))
- IF (.NOT.ISNAN(ProjP(1))) THEN
+ IF (ProjP(1).ne.myInf) THEN
   dist= SQRT((ProjP(1)-P(1))**2d0 + (ProjP(2)-P(2))**2d0+(ProjP(3)-P(3))**2d0)
   IF (dist.LT.dMonitor(nXX)) THEN
    dMinDist = dist
@@ -276,7 +282,7 @@ ELSE
   GOTO 1
  END IF
  ProjP = ProjPointToLine(P,dTriang(:,3),dTriang(:,1))
- IF (.NOT.ISNAN(ProjP(1))) THEN
+ IF (ProjP(1).ne.myInf) THEN
   dist= SQRT((ProjP(1)-P(1))**2d0 + (ProjP(2)-P(2))**2d0+(ProjP(3)-P(3))**2d0)
   IF (dist.LT.dMonitor(nXX)) THEN
    dMinDist = dist
@@ -452,7 +458,7 @@ END IF
   ap = p-a
   dot = ab(1)*ap(1) + ab(2)*ap(2) + ab(3)*ap(3)
   t = dot/ddd;
-  ProjPointToLine = 0d0/0d0
+  ProjPointToLine = myInf
   IF     (t.ge.0d0.AND.t.le.1d0) THEN
     ProjPointToLine = A + t * AB
   END IF
