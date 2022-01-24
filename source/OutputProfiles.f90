@@ -2946,49 +2946,49 @@ END SUBROUTINE OutputTriMesh
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Release_ListFiles_SSE(iO)
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
-implicit none
-integer iO
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
-call Release_ListFile('v',iO)
-call Release_ListFile('p',iO)
-call Release_ListFile('d',iO)
-call Release_ListFile('t',iO)
-call Release_ListFile('s',iO)
-
- CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
-! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
- call Release_ListFile('x',iO)
-
- CONTAINS
- SUBROUTINE SetCoor(dc)
- real*8 dc(3,*)
- integer i
- 
- do i=1,QuadSc%ndof
-  QuadSc%AuxU(i) = dc(1,i)
-  QuadSc%AuxV(i) = dc(2,i)
-  QuadSc%AuxW(i) = dc(3,i)
- end do
- 
- END SUBROUTINE SetCoor
- 
-END SUBROUTINE Release_ListFiles_SSE
+! SUBROUTINE Release_ListFiles_SSE(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+! call Release_ListFile('v',iO)
+! call Release_ListFile('p',iO)
+! call Release_ListFile('d',iO)
+! call Release_ListFile('t',iO)
+! call Release_ListFile('s',iO)
+! 
+!  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+! ! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
+!  call Release_ListFile('x',iO)
+! 
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   QuadSc%AuxU(i) = dc(1,i)
+!   QuadSc%AuxV(i) = dc(2,i)
+!   QuadSc%AuxW(i) = dc(3,i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Release_ListFiles_SSE
 !
 !---------------------------------------------------------------------------
 !
@@ -3127,6 +3127,127 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  END SUBROUTINE SetCoor
  
 END SUBROUTINE Load_ListFiles_PRT_Tracer
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Load_ListFiles_General(iO,cLIST)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,master
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer,intent(in) :: iO
+character(len=*),intent(in) :: cLIST
+! local variables
+character*(1),allocatable :: cFLD(:)
+integer nLengthV,nLengthE,LevDif,iFld,iERR,nFld
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+IF (myid.eq.1) write(*,*) 'General List Reader call for:['//ADJUSTL(TRIM(cLIST))//']'
+
+nFLD = (LEN(cLIST)+1)/2
+
+allocate(cFLD(nFLD))
+read(cLIST,*,IOSTAT=iERR) cFLD
+
+if (ierr.ne.0) then
+ write(*,*) 'Wrong field identifier defined for dump reading!'
+ STOP 65
+end if
+
+DO iFld = 1,nFLD
+ call Load_ListFile(cFLD(iFLD),iO)
+END DO
+
+DO iFld = 1,nFLD
+ if (cFLD(iFLD).eq.'X'.or.cFLD(iFLD).eq.'x') then
+  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+  
+  IF (myid.EQ.0) THEN
+    CALL CreateDumpStructures(0)
+  ELSE
+    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+    CALL CreateDumpStructures(LevDif)
+  END IF
+  
+  ILEV = LinSc%prm%MGprmIn%MedLev
+
+  nLengthV = (2**(ILEV-1)+1)**3
+  nLengthE = mg_mesh%level(NLMIN)%nel
+
+  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              nLengthV,&
+                              nLengthE,&
+                              mg_mesh%level(ILEV)%nel,&
+                              mg_mesh%level(ILEV)%nvt)
+  DEALLOCATE(SendVect)
+ end if
+END DO
+
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  dc(1,i) = QuadSc%AuxU(i)
+  dc(2,i) = QuadSc%AuxV(i)
+  dc(3,i) = QuadSc%AuxW(i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Load_ListFiles_General
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Release_ListFiles_General(iO,cLIST)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,master
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer,intent(in) :: iO
+character(len=*),intent(in) :: cLIST
+! local variables
+character*(1),allocatable :: cFLD(:)
+integer nLengthV,nLengthE,LevDif,iFld,iERR,nFld
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+IF (myid.eq.1) write(*,*) 'General List Writer call for:['//ADJUSTL(TRIM(cLIST))//']'
+
+nFLD = (LEN(cLIST)+1)/2
+
+allocate(cFLD(nFLD))
+read(cLIST,*,IOSTAT=iERR) cFLD
+
+if (ierr.ne.0) then
+ write(*,*) 'Wrong field identifier defined for dump reading!'
+ STOP 65
+end if
+
+DO iFld = 1,nFLD
+ if (cFLD(iFLD).eq.'X'.or.cFLD(iFLD).eq.'x') then
+  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+ END IF
+ call Release_ListFile(cFLD(iFLD),iO)
+END DO
+
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  QuadSc%AuxU(i) = dc(1,i)
+  QuadSc%AuxV(i) = dc(2,i)
+  QuadSc%AuxW(i) = dc(3,i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Release_ListFiles_General
 !
 !---------------------------------------------------------------------------
 !

@@ -850,6 +850,7 @@
 67  CONTINUE
 
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","FillingDegree", myProcess%FillingDegree,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
 
@@ -1418,6 +1419,9 @@
     write(*,*) "myProcess%MinInflowDiameter",'=',myProcess%MinInflowDiameter
     write(*,*) "myProcess%MaxInflowDiameter",'=',myProcess%MaxInflowDiameter
     write(*,*) "myProcess%f",'=',myProcess%umdr
+    IF (ieee_is_finite(myProcess%FillingDegree)) then
+     write(*,*) "myProcess%FillingDegree",'=',myProcess%FillingDegree
+    END IF
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
     IF (myProcess%Ta.eq.myInf) THEN

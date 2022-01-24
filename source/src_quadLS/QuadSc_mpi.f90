@@ -1,6 +1,115 @@
 !
 ! ----------------------------------------------
 !
+SUBROUTINE CommunicateInterface(lIfc,gIfc)
+USE PP3D_MPI
+USE var_QuadScalar, ONLY : tTetInterface
+
+IMPLICIT NONE
+TYPE(tTetInterface) lIfc,gIfc
+INTEGER nG,nT,nnG,nnT,pID
+
+IF (myid.ne.0) THEN
+ nG = lIfc%nG
+ nT = lIfc%nT
+ CALL SENDI_myMPI(nG,0)
+ CALL SENDI_myMPI(nT,0)
+ CALL RECVI_myMPI(nnG,0)
+ CALL RECVI_myMPI(nnT,0)
+ELSE
+ nnG = 1
+ nnT = 0
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(nG,pID)
+  CALL RECVI_myMPI(nT,pID)
+  nnG = nnG + nG
+  nnT = nnT + nT
+ END DO
+
+ DO pID=1,subnodes
+  CALL SENDI_myMPI(nnG,pID)
+  CALL SENDI_myMPI(nnT,pID)
+ END DO
+
+END IF
+
+IF (ALLOCATED(gIfc%X)) DEALLOCATE(gIfc%X)
+IF (ALLOCATED(gIfc%L)) DEALLOCATE(gIfc%L)
+gIFC%nG = nnG
+gIFC%nT = nnT
+ALLOCATE(gIFC%X(3,3*nnT))
+ALLOCATE(gIFC%L(nnG))
+
+IF (myid.ne.0) THEN
+ nG = lIfc%nG
+ nT = lIfc%nT
+ CALL SENDI_myMPI(nG,0)
+ CALL SENDK_myMPI(lIfc%L,nG,0)
+
+ CALL SENDI_myMPI(nT,0)
+ CALL SENDD_myMPI(lIfc%X,9*nT,0)
+
+ CALL RECVK_myMPI(gIfc%L,nnG,0)
+ CALL RECVD_myMPI(gIfc%X,9*gIFC%nT,0)
+
+ELSE
+ nnG = 1
+ nnT = 0
+ DO pID=1,subnodes
+  CALL RECVI_myMPI(nG,pID)
+  CALL RECVK_myMPI(gIfc%L(nnG+1:nnG+nG),nG,pID)
+  nnG = nnG + nG
+
+  CALL RECVI_myMPI(nT,pID)
+  CALL RECVD_myMPI(gIfc%X(:,nnT+1:nnT+3*nT),9*nT,pID)
+  nnT = nnT + 3*nT
+ END DO
+
+ DO pID=1,subnodes
+  CALL SENDK_myMPI(gIfc%L,nnG,pID)
+  CALL SENDD_myMPI(gIfc%X,9*gIFC%nT,pID)
+ END DO
+
+END IF
+
+END
+!
+! ----------------------------------------------
+!
+subroutine E010_CollectCoarseVector(X,nP)
+USE PP3D_MPI
+implicit none
+REAL*8 X(*)
+integer nP
+integer nnP,i,j,pID
+real*8, allocatable :: buffer(:)
+
+if (myid.ne.0) then
+
+  nnP = nP  
+  call SENDI_myMPI(nnP,0)
+  CALL SENDD_myMPI(X,nnP,0)
+  
+else
+
+ allocate(buffer(np))
+ do pID=1,subnodes 
+  call RECVI_myMPI(nnP,pID)
+  call RECVD_myMPI(buffer,nnP,pID)
+  DO i=1,nnP
+   j = coarse%pELEMLINK(pID,I)
+   X(j) = buffer(i)
+  end do
+ end do
+ deallocate(buffer)
+ 
+end if
+
+
+END subroutine E010_CollectCoarseVector
+!
+! ----------------------------------------------
+!
 subroutine SendPressBCElemsToCoarse(iVect,nP)
 USE PP3D_MPI
 implicit none
