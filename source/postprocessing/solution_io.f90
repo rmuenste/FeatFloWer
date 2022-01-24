@@ -1830,7 +1830,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-        CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x')
+        CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
