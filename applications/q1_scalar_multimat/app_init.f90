@@ -30,7 +30,8 @@ subroutine init_q1_scalar(log_unit)
 ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-      call Load_ListFiles_Q1_Scalar(0)
+      call Load_ListFiles_General(0,'s,p,v,x,q')
+!       call Load_ListFiles_Q1_Scalar(0)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
 !        Missing mechanism

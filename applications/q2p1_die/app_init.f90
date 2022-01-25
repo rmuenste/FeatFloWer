@@ -50,7 +50,8 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call Load_ListFiles_SSE(int(myProcess%Angle))
+    call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+!     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitOperators(log_unit, mg_mesh)

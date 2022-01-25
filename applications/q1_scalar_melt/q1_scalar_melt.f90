@@ -2,8 +2,7 @@ PROGRAM Q1_GenScalar
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app
-  use solution_io, only: postprocessing_sse_q1_scalar
+  use solution_io, only: postprocessing_general
 
   use Transport_Q1, only : SetupTransportOperators_Q1_Melt
   USE Transport_Q2P1, only :  GetNonNewtViscosity_sse
@@ -55,7 +54,8 @@ PROGRAM Q1_GenScalar
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Melt(ufile,inonln_t)
 
-  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+!   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -71,7 +71,8 @@ PROGRAM Q1_GenScalar
 !   write(*,*) '0',bAlphaConverged
   timens = timens + dtgmv
   itns = max(itns,2)
-  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+!   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
 2 CONTINUE
   

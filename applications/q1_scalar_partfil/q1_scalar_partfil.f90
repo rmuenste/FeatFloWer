@@ -2,9 +2,9 @@ PROGRAM Q1_GenScalar
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app
   use solution_io, only: postprocessing_general
   use var_QuadScalar, only: bAlphaConverged
+  USE Sigma_User, ONLY: myProcess
 
   use Transport_Q1, only : GetInterfacePoints_ALPHA_PF_Q1,Reinitialize_ALPHA_PF_Q1,&
                            ShiftLevelSet_ALPHA_PF_Q1
@@ -19,7 +19,6 @@ PROGRAM Q1_GenScalar
   integer            :: ufile,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
-  logical            :: bRestartTime =.true.
   real*8             :: Orig_tsep
 
   !-------INIT PHASE-------
@@ -29,14 +28,16 @@ PROGRAM Q1_GenScalar
   CALL ZTIME(tt0)
   call ztime(dtt0)
 
-  IF (bRestartTime) THEN
-   istep_ns = 0
-   timens = 0d0
-  END IF
+  istep_ns = 0
+  timens = 0d0
+  
+  tstep = (6d1/myProcess%umdr)/6d0/dble(nitns-1)
+  dtgmv = dble(nitns-1)*tstep
   
   dout = Real(INT(timens/dtgmv)+1)*dtgmv
   
   !-------MAIN LOOP-------
+  
 
   DO itns=1,nitns
 

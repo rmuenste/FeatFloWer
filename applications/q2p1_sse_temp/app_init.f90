@@ -65,7 +65,8 @@ subroutine init_q2p1_ext(log_unit)
 
   DO iFile=0,myProcess%nTimeLevels/myProcess%Periodicity-1 !myProcess%nTimeLevels
    dump_in_file = iFile*iAngle
-   if (myTransientSolution%DumpFormat.eq.2) CALL Load_ListFiles_SSE_temp(dump_in_file)
+   if (myTransientSolution%DumpFormat.eq.2) CALL Load_ListFiles_General(dump_in_file,'v,d,x,t,s')
+!    if (myTransientSolution%DumpFormat.eq.2) CALL Load_ListFiles_SSE_temp(dump_in_file)
    ALLOCATE(myTransientSolution%Velo(1,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Velo(2,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Velo(3,iFile)%x(QuadSc%ndof))
