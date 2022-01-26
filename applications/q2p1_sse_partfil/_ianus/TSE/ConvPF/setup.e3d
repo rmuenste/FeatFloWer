@@ -40,55 +40,30 @@ ScrewTemperature=_INVALID_
 BarrelTemperatureAdiabatic=NO
 ScrewTemperatureAdiabatic=YES
 
-[E3DMaterialParameters]
-NoOfMaterials=2
-InitMaterial=1
-
-[E3DMaterialParameters/Mat_1]
-name = LDPE
-type = Polymer
-[E3DMaterialParameters/Mat_1/RheologicalData]
-calcvisco = Carreau
-CalcTemp = tbts
-[E3DMaterialParameters/Mat_1/RheologicalData/TbTs]
-StandardTemperature=1.01987000
-ReferenceTemperature=230.00000000
-[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
-ZeroViscosity=7.6291800000
-RecipVelocity=0.02663000
+[E3DProcessParameters/Material]
+Name=Moplen HP501N
+Type=Polymer
+LimitViscoMin=1.00000000
+LimitViscoMax=1000.00000000
+[E3DProcessParameters/Material/RheologicalData]
+CalcVisco=Carreau
+CalcTemp=TbTs
+[E3DProcessParameters/Material/RheologicalData/Carreau]
+ZeroViscosity=7.62918
+RecipVelocity=0.02663
 Exponent=0.64634000
-[E3DMaterialParameters/Mat_1/ThermoData]
-HeatConductivitySlope=0.00008800
-HeatConductivity=0.12080000
-HeatCapacity=2.24900000
-HeatCapacitySlope=0.00441800
-DensityModel=Density
-[E3DMaterialParameters/Mat_1/ThermoData/Density]
-Density=1.0d0
-DensitySlope=0.0000001
-
-[E3DMaterialParameters/Mat_2]
-name = LDPE
-type = Polymer
-[E3DMaterialParameters/Mat_2/RheologicalData]
-calcvisco = Carreau
-CalcTemp = tbts
-[E3DMaterialParameters/Mat_2/RheologicalData/TbTs]
+[E3DProcessParameters/Material/RheologicalData/TbTs]
 StandardTemperature=1.01987000
 ReferenceTemperature=230.00000000
-[E3DMaterialParameters/Mat_2/RheologicalData/Carreau]
-ZeroViscosity=0.1
-RecipVelocity=1.0
-Exponent=0.0
-[E3DMaterialParameters/Mat_2/ThermoData]
-HeatConductivitySlope=0.00008800
-HeatConductivity=0.12080000
-HeatCapacity=2.24900000
-HeatCapacitySlope=0.00441800
+[E3DProcessParameters/Material/ThermoData]
+HeatConductivitySlope=0.0
+HeatConductivity=0.12
+HeatCapacity=2.249
+HeatCapacitySlope=0.0
 DensityModel=Density
-[E3DMaterialParameters/Mat_2/ThermoData/Density]
-Density=0.01
-DensitySlope=0.00000001
+[E3DProcessParameters/Material/ThermoData/Density]
+Density=0.87951
+DensitySlope=0.0
 
 [E3DSimulationsettings]
 HexMesher=TwinScrew

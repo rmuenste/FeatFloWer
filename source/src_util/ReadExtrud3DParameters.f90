@@ -887,48 +887,66 @@
     cParserString = "E3DProcessParameters"
     CALL FillUpInflows(myProcess%nOfInflows,cParserString)
 
-    call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
-    IF (myMultiMat%nOfMaterials.ne.0) then
+    if (myProcess%FillingDegree.eq.myInf) then
+      ! this applies for the use of the Q2P1 sse code !IF! there IS NO partial filling defined
+      call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
+      IF (myMultiMat%nOfMaterials.ne.0) then
 
-     call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
-     if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
-     if (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") bMultiMat = .true.
+       call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
+       if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
+       if (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") bMultiMat = .true.
 
-     ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
-     
-     DO iMat = 1, myMultiMat%nOfMaterials
-     
-     WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
+       ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+       
+       DO iMat = 1, myMultiMat%nOfMaterials
+       
+       WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
+  !      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
+  !      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
 
-      WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
-      CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
+        WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
+        CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
 
-      WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/ThermoData"
-      CALL FillUpThermoData(myMultiMat%Mat(iMat)%Thermodyn,cParserString)
+        WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/ThermoData"
+        CALL FillUpThermoData(myMultiMat%Mat(iMat)%Thermodyn,cParserString)
+        
+        myThermodyn = myMultiMat%Mat(myMultiMat%InitMaterial)%Thermodyn
+
+       END DO
       
-      myThermodyn = myMultiMat%Mat(myMultiMat%InitMaterial)%Thermodyn
+      ELSE
+       myMultiMat%nOfMaterials = 1
+       ALLOCATE(myMultiMat%Mat(1))
+       myMultiMat%InitMaterial = 1
+       
+       cParserString = "E3DProcessParameters/Material/ThermoData"
+       CALL FillUpThermoData(myThermodyn,cParserString)
 
-     END DO
+       cParserString = "E3DProcessParameters/Material/RheologicalData"
+       CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
+       
+       myMultiMat%Mat(1)%Thermodyn = myThermodyn
+      END IF
+      
+    else
+      ! this applies for the use of the Q2P1 sse code !IF! there IS partial filling defined
+      myMultiMat%nOfMaterials = 2
+      myMultiMat%InitMaterial = 1
+      bMultiMat = .true.
+      ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+      
+      cParserString = "E3DProcessParameters/Material/ThermoData"
+      CALL FillUpThermoData(myThermodyn,cParserString)
+
+      cParserString = "E3DProcessParameters/Material/RheologicalData"
+      CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
+      
+      myMultiMat%Mat(1)%Thermodyn = myThermodyn
+      
+      CALL FillUpRheoAndThermoDataForPseudoAir(myMultiMat%Mat(2)%Rheology,myMultiMat%Mat(2)%Thermodyn)
     
-    ELSE
-     myMultiMat%nOfMaterials = 1
-     ALLOCATE(myMultiMat%Mat(1))
-     myMultiMat%InitMaterial = 1
-     
-     cParserString = "E3DProcessParameters/Material/ThermoData"
-     CALL FillUpThermoData(myThermodyn,cParserString)
-
-     cParserString = "E3DProcessParameters/Material"
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(1)%Rheology%ViscoMin,1d0)
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(1)%Rheology%ViscoMax,1d5)
-
-     cParserString = "E3DProcessParameters/Material/RheologicalData"
-     CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
-     
-     myMultiMat%Mat(1)%Thermodyn = myThermodyn
-    END IF
+    end if
+    
 !     pause
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Material and Material-specific read section !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1797,6 +1815,28 @@
     end if
 
     CONTAINS
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE FillUpRheoAndThermoDataForPseudoAir(r,t)
+    TYPE(tRheology) :: r
+    TYPE(tThermodyn) :: t
+    
+     t%Lambda = 0.10D0
+     t%LambdaSteig = 0.0D0
+     t%Cp = 2.25D0
+     t%CpSteig = 0.0D0
+
+     t%DensityModel = "DENSITY"
+     t%DensityT0    = 1D-3
+     t%DensitySteig = 0D0
+     
+     r%Equation = 1
+     r%A = 0.1d0
+     r%B = 1.0d0
+     r%C = 0.0d0
+     
+     r%AtFunc = 1
+    
+    END SUBROUTINE FillUpRheoAndThermoDataForPseudoAir
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     SUBROUTINE FillUpTempBCs(nT,cINI)
     implicit none
