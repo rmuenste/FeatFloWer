@@ -1026,8 +1026,12 @@ IF (myid.ne.MASTER) THEN
     IF (pID.EQ.pJD.AND.E011ST(pJD)%Num.GT.0) THEN
      nSIZE = E011ST(pJD)%Num
 
+     NU = KNVT(ILEV)
+     
      DO I=1,nSIZE
-      E011ST(pJD)%SDVect(I) = FX(E011ST(pJD)%VertLink(1,I))
+      IF (E011ST(pJD)%VertLink(1,I).le.NU) THEN
+       E011ST(pJD)%SDVect(I) = FX(E011ST(pJD)%VertLink(1,I))
+      end if
      END DO
 
      CALL SENDD_myMPI(E011ST(pJD)%SDVect,nSIZE,pID)

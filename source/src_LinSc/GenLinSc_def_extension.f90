@@ -735,9 +735,13 @@ AFC%nu = plMat%nu
 
 ALLOCATE(AFC%iaux(AFC%nu))
 ALLOCATE(AFC%isep(AFC%nu))
+AFC%iaux = 0
+AFC%isep = 0
 
 ALLOCATE(AFC%inod (AFC%nedge))
 ALLOCATE(AFC%jnod (AFC%nedge))
+AFC%inod = 0
+AFC%jnod = 0
 ALLOCATE(AFC%aedge(AFC%nedge))
 
 ALLOCATE(AFC%pp(AFC%nu))
