@@ -3,13 +3,15 @@ module visualization_out
 use cinterface
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, MaxShearRate,&
-                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh,GenLinScalar
 
 use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
+use Sigma_User, only: myOutput, mySigma, myProcess
 
 use  PP3D_MPI, only:myid,showid,subnodes, comm_summn
 use  PP3D_MPI, only:master,COMM_Maximum,COMM_Maximumn,COMM_Minimum,&
                    COMM_Minimumn,COMM_NLComplete,Comm_Summ,myMPI_Barrier
+use, intrinsic :: ieee_arithmetic
 !------------------------------------------------------------------------------------------------
 ! A module for output routines for vtk, gmv or other output formats.
 ! For an application that needs strongly different visualization output
@@ -34,7 +36,6 @@ contains
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
-USE Sigma_User, ONLY: mySigma
 
 USE PP3D_MPI, ONLY:myid
 USE def_FEAT
@@ -609,7 +610,6 @@ end subroutine viz_write_pvtu_main
 SUBROUTINE viz_OutputHistogram(iOut, sQuadSc, maxlevel)
 use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
-use Sigma_User, only : myOutput
 implicit none
 
 interface
@@ -659,6 +659,7 @@ real*8,allocatable, dimension(:), target :: JsonBin
 real*8 Ml_i,dauxVis,dauxEta
 real*8 minBinEta,mAXBinEta,minBinVis,mAXBinVis,dBinEta,dBinVis,meanEta,meanVis
 character*100 cHistoFile
+logical :: bCondition
 
 nBin = myOutput%nOfHistogramBins
 if (.not.allocated(HistoEta)) allocate(HistoEta(nBin))
@@ -707,7 +708,13 @@ END DO
 
 DO i=1,sQuadSc%ndof
 
- IF (MixerKNPR(i).eq.0) THEN
+ IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+ else
+  bCondition = (MixerKNPR(i).eq.0)
+ end if
+
+ IF (bCondition) THEN
   logShear = LOG10(Shearrate(i))
   logVisco = LOG10(0.1d0*Viscosity(i))
   Ml_i = mg_MlRhoMat(maxlevel)%a(i)
@@ -792,7 +799,6 @@ end subroutine viz_OutputHistogram
 ! @param maxlevel The maximum grid level used in computation (former NLMAX)
 SUBROUTINE viz_CreateHistogram(field, mass,nData,minV,maxV,dCrit,bLog)
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summn
-use Sigma_User, only : myOutput
 
 implicit none
 
@@ -919,7 +925,6 @@ USE PP3D_MPI, ONLY:myid
 USE def_FEAT
 use types, only: lScalar
 USE var_QuadScalar, ONLY:ShearRate,Viscosity, my1DOut, my1Dout_nol,ScrewDist
-use Sigma_User, only: myOutput, mySigma
 use iniparser
 use iso_c_binding, only: C_CHAR, C_NULL_CHAR
 
@@ -1503,8 +1508,6 @@ end subroutine
 ! The particular routine for outputting 1D fields for an sse application
 !-------------------------------------------------------------------------------------------------
 subroutine restrictGlobalShear(dField1, i1D, sQuadSc, maxlevel)
-use Sigma_User, only: myOutput, mySigma
-use, intrinsic :: ieee_arithmetic
 
 real*8 :: dField1(*)
 type(tQuadScalar), intent(in) :: sQuadSc
@@ -1527,6 +1530,7 @@ real*8  :: dMinSample,dMaxSample,dWidth
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: d1D_Max
 integer :: my1DOut_nol
+logical bCondition
 
 my1DOut_nol = myOutput%nOf1DLayers
 dMinSample = 0d0
@@ -1545,7 +1549,12 @@ d1D_Max    =-1d30
 
 DO i=1,SIZE(sQuadSc%ValU)
 
- IF (MixerKNPR(i).eq.0) THEN
+ IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+ else
+  bCondition = (MixerKNPR(i).eq.0)
+ end if
+ IF (bCondition) THEN
  
    jj=0
    dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
@@ -1632,8 +1641,6 @@ END subroutine restrictGlobalShear
 ! @param sTracer Scalar solution structure
 ! @param sTracer Scalar solution structure
 subroutine restrictField(dField1, i1D, sQuadSc, maxlevel)
-use Sigma_User, only: myOutput, mySigma
-use, intrinsic :: ieee_arithmetic
 
 real*8 :: dField1(*)
 type(tQuadScalar), intent(in) :: sQuadSc
@@ -1650,7 +1657,7 @@ type (tHist) myHist
 ! local variables
 integer :: i,j
 real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
-
+logical :: bCondition
 
 allocate(myHist%x(SIZE(sQuadSc%ValU)))
 allocate(myHist%m(SIZE(sQuadSc%ValU)))
@@ -1664,7 +1671,13 @@ dMax    =-1d30
 
 DO i=1,SIZE(sQuadSc%ValU)
 
- IF (MixerKNPR(i).eq.0) THEN
+ IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+ else
+  bCondition = (MixerKNPR(i).eq.0)
+ end if
+
+ IF (bCondition) THEN
  
    IF (ieee_is_finite(mySigma%DZz)) THEN
     dRadius = 0.5d0*mySigma%DZz
@@ -1720,7 +1733,13 @@ ENdif
 
 DO i=1,SIZE(sQuadSc%ValU)
 
- IF (MixerKNPR(i).eq.0) THEN
+ IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+ else
+  bCondition = (MixerKNPR(i).eq.0)
+ end if
+
+ IF (bCondition) THEN
  
    IF (ieee_is_finite(mySigma%DZz)) THEN
     dRadius = 0.5d0*mySigma%DZz
@@ -1809,6 +1828,8 @@ real*8  :: dZ,dWidth,daux,dScale,dLim
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
 
+logical bCondition
+
 my1DOut_nol = myOutput%nOf1DLayers
 
 dMinSample = mySigma%L0
@@ -1865,7 +1886,12 @@ if (myid.ne.0) THEN
 
  DO i=1,SIZE(sQuadSc%ValU)
 
-  IF (MixerKNPR(i).eq.0) THEN
+  IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+   bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+  else
+   bCondition = (MixerKNPR(i).eq.0)
+  end if
+  IF (bCondition) THEN
    jj=0
    dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
    DO j=1,my1DOut_nol
@@ -1942,7 +1968,6 @@ end subroutine viz_OutPut_1D_sub
 ! ----------------------------------------------
 !
 SUBROUTINE  OutPut_1D_subEXTRA(dField1,ScrewDist,i1D, my1DOut_nol, my1DOutput, myOutput, mySigma, sQuadSc, maxlevel)
-use, intrinsic :: ieee_arithmetic
 implicit none
 real*8 :: dField1(*),ScrewDist(2,*)
 integer :: i1D
@@ -1967,6 +1992,8 @@ real*8  :: dX,dY,dZ,dWidth,daux,dScale,dR,dDist,dRadius
 
 real*8, dimension(:,:), allocatable :: my1DIntervals
 real*8, dimension(:), allocatable :: my1DWeight
+
+logical :: bCondition
 
 LOGICAL bValid
 INTEGER iSeg,jSeg
@@ -2013,7 +2040,12 @@ IF (myid.ne.0) THEN
 
  DO i=1,SIZE(sQuadSc%ValU)
 
-  IF (MixerKNPR(i).eq.0) THEN
+  IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+   bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+  else
+   bCondition = (MixerKNPR(i).eq.0)
+  end if
+  IF (bCondition) THEN
    jj=0
    dZ = mg_mesh%level(maxlevel)%dcorvg(3,i)
    DO j=1,my1DOut_nol
