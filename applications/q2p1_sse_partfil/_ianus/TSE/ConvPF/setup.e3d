@@ -68,7 +68,7 @@ DensitySlope=0.0
 [E3DSimulationsettings]
 HexMesher=TwinScrew
 MeshQuality=coarse
-AutomaticTimeStepControl = No
+AutomaticTimeStepControl = Yes
 TimeStepEnlargmentFactor = 6.0
 
 [E3DSimulationsettings/Output]
