@@ -1826,8 +1826,8 @@
      t%CpSteig = 0.0D0
 
      t%DensityModel = "DENSITY"
-     t%DensityT0    = 1D-2
-     t%DensitySteig = 0D0
+     t%DensityT0    = 1d-2
+     t%DensitySteig = 0d0
      
      r%Equation = 1
      r%A = 0.1d0
