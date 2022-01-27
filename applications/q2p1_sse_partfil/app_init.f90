@@ -95,6 +95,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Sigma_User, ONLY: mySigma,myProcess,mySetup
  USE cinterface 
  use iniparser
+ use, intrinsic :: ieee_arithmetic
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -136,9 +137,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  REAL*8 :: dTemp(3),dVisco(3),dShear
  INTEGER i,j
+ 
+ REAL*8 :: myInf
 
  CALL ZTIME(TTT0)
 
+ if(ieee_support_inf(myInf))then
+   myInf = ieee_value(myInf, ieee_negative_inf)
+ endif
 
  !=======================================================================
  !     Data input
@@ -248,6 +254,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
   !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 1d-2 * (dCharSize/dCharVisco)
+     if (myProcess%FillingDegree.ne.myInf) then
+      TimeStep = TimeStep/6d0
+     end if
      WRITE(sTimeStep,'(ES9.1)') TimeStep
      READ(sTimeStep,*) TimeStep
 
@@ -333,6 +342,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    mg_Mesh%nlmin = 1
  end if
 
+!  write(*,*) myid,"["//trim(CMESH1)//"]"
+!  pause
  call readTriCoarse(CMESH1, mg_mesh)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  

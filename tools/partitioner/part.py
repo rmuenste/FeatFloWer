@@ -311,7 +311,7 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
       Mid=median([p[Dir] for p in coord])
       # Teile die Elemente dahingehend auf, ob alle Knoten <=Mid sind oder nicht
       for (ElemIdx,Elem) in enumerate(kvert):
-        if all([(coord[Vert-1][Dir]>Mid) for Vert in Elem]):
+        if all([(coord[Vert-1][Dir]>=Mid) for Vert in Elem]):
           Part[ElemIdx]+=PosFak
       # Bestimme nächste 2er Potenz im Stellenwertsystem
       PosFak*=2
