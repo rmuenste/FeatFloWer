@@ -770,7 +770,7 @@ def simLoopPartialFilling(workingDir):
     # Start the initial loop
     simLoopMainPartialFilling(workingDir)
 
-    nLoops = 1 
+    nLoops = 4 
     for i in range(nLoops):
         sourceParamFile = Path("_data_BU") / Path("q2p1_paramAlpha.dat")
         destBackupFile = Path("_data") / Path("q2p1_param.dat")
