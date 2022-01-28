@@ -39,7 +39,6 @@ if(WIN32)
     feat3d
     ${BLAS_LIBRARIES}
     ${LAPACK_LIBRARIES}
-    cdirs
     inshape3dcore
     Utility
     Math
@@ -67,7 +66,6 @@ else(WIN32)
 #    feat3d
 #    ${BLAS_LIBRARIES}
 #    ${LAPACK_LIBRARIES}
-#    cdirs
 #    stdc++
 #    stdc++fs
 #    inshape3dcore
@@ -83,7 +81,6 @@ else(WIN32)
     feat3d
     ${BLAS_LIBRARIES}
     ${LAPACK_LIBRARIES}
-    cdirs
     stdc++
     stdc++fs
     inshape3dcore

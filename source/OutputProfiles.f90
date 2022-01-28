@@ -308,6 +308,7 @@ USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:Tracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
+use var_QuadScalar, only: GenLinScalar
 
 IMPLICIT NONE
 INTEGER mfile,iLevel,nn
@@ -332,7 +333,7 @@ character(60) :: FileA
 character(60) :: FileB
 character(60) :: fieldName
 
-integer :: ndof
+integer :: ndof,iFld
 
 type(fieldPtr), dimension(3) :: packed
 
@@ -363,6 +364,16 @@ IF (allocated(MaterialDistribution)) then
  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
 END IF                  
+
+if (allocated(GenLinScalar%Fld)) then
+ DO iFld=1,GenLinScalar%nOfFields
+  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+  QuadSc%auxU = 0
+  packed(1)%p => QuadSc%auxU
+  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+  GenLinScalar%fld(iFld)%Val = QuadSc%auxU
+ END DO
+end if
 
 call read_time_sol(cInFile, istep_ns, timens)
 
@@ -1251,9 +1262,9 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
 !     mg_mesh%level(ILEV)%dcorvg,&
 !     mg_mesh%level(ILEV)%kvert)
 
-!   ILEV = NLMAX
-!   CALL SETLEV(2)
-!   CALL Output_Mesh(iOutput,"_vtk",)
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL Output_Mesh(iOutput,"_vtk")
  END IF
 
 END IF
@@ -2089,16 +2100,17 @@ USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY:GenLinScalar
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
 INTEGER kvert(8,*),iO,ioffset,ive,ivt,iField,i,istat
-CHARACTER fileid*(5),filename*(27),procid*(3)
+CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
 integer :: iunit = 908070
-integer iX, ifbm
+integer iX, ifbm,iFld
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -2254,6 +2266,17 @@ DO iField=1,SIZE(myExport%Fields)
     write(iunit, *)"        </DataArray>"
   end if
   
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),""" format=""ascii"">"
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",REAL(GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+   write(iunit, *)"        </DataArray>"
+ 
+  END DO
+
  CASE('MeshVelo')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2518,13 +2541,15 @@ SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+USE var_QuadScalar,ONLY:GenLinScalar
 USE def_FEAT
 
 IMPLICIT NONE
-INTEGER iO,iproc,iField
+INTEGER iO,iproc,iField,iFld
 INTEGER :: iMainUnit=555
 CHARACTER mainname*(20) 
 CHARACTER filename*(26)
+CHARACTER cGenScalar*(50)
 
 integer :: istat
 
@@ -2572,6 +2597,11 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_13",""" NumberOfComponents=""3""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","GradStress_23",""" NumberOfComponents=""3""/>"
   end if
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),"""/>"
+ END DO
  CASE('MeshVelo')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
  CASE('BoundaryNormal')
@@ -2903,6 +2933,7 @@ call Release_ListFile('v',iO)
 call Release_ListFile('p',iO)
 call Release_ListFile('d',iO)
 call Release_ListFile('t',iO)
+call Release_ListFile('s',iO)
 
  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 ! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -2922,6 +2953,52 @@ call Release_ListFile('t',iO)
  END SUBROUTINE SetCoor
  
 END SUBROUTINE Release_ListFiles_SSE
+!
+!---------------------------------------------------------------------------
+!
+SUBROUTINE Release_ListFiles_SSE_Q1_Scalar(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+call Release_ListFile('v',iO)
+call Release_ListFile('p',iO)
+call Release_ListFile('q',iO)
+! call Release_ListFile('d',iO)
+! call Release_ListFile('t',iO)
+! call Release_ListFile('s',iO)
+
+ CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+ call Release_ListFile('x',iO)
+
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  QuadSc%AuxU(i) = dc(1,i)
+  QuadSc%AuxV(i) = dc(2,i)
+  QuadSc%AuxW(i) = dc(3,i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Release_ListFiles_SSE_Q1_Scalar
 !
 !---------------------------------------------------------------------------
 !
@@ -3017,6 +3094,75 @@ END SUBROUTINE Load_ListFiles_PRT_Tracer
 !
 !---------------------------------------------------------------------------
 !
+SUBROUTINE Load_ListFiles_Q1_Scalar(iO)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,master
+USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+implicit none
+integer iO
+integer nLengthV,nLengthE,LevDif
+REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+
+! -------------- workspace -------------------
+INTEGER  NNWORK
+PARAMETER (NNWORK=1)
+INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+
+INTEGER            :: KWORK(1)
+REAL               :: VWORK(1)
+DOUBLE PRECISION   :: DWORK(NNWORK)
+
+COMMON       NWORK,IWORK,IWMAX,L,DWORK
+EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! -------------- workspace -------------------
+
+ call Load_ListFile('s',iO)
+ call Load_ListFile('p',iO)
+ call Load_ListFile('v',iO)
+ call Load_ListFile('x',iO)
+ call Load_ListFile('q',iO)
+ 
+ if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+ 
+ IF (myid.EQ.0) THEN
+   CALL CreateDumpStructures(0)
+ ELSE
+   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+   CALL CreateDumpStructures(LevDif)
+ END IF
+ 
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ nLengthV = (2**(ILEV-1)+1)**3
+ nLengthE = mg_mesh%level(NLMIN)%nel
+
+ ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+ CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             nLengthV,&
+                             nLengthE,&
+                             mg_mesh%level(ILEV)%nel,&
+                             mg_mesh%level(ILEV)%nvt)
+ DEALLOCATE(SendVect)
+ 
+ CONTAINS
+ SUBROUTINE SetCoor(dc)
+ real*8 dc(3,*)
+ integer i
+ 
+ do i=1,QuadSc%ndof
+  dc(1,i) = QuadSc%AuxU(i)
+  dc(2,i) = QuadSc%AuxV(i)
+  dc(3,i) = QuadSc%AuxW(i)
+ end do
+ 
+ END SUBROUTINE SetCoor
+ 
+END SUBROUTINE Load_ListFiles_Q1_Scalar
+!
+!---------------------------------------------------------------------------
+!
 SUBROUTINE Load_ListFiles_SSE(iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
@@ -3045,6 +3191,8 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  call Load_ListFile('d',iO)
  call Load_ListFile('x',iO)
  call Load_ListFile('t',iO)
+ call Load_ListFile('q',iO)
+! call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -3114,6 +3262,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  call Load_ListFile('d',iO)
  call Load_ListFile('x',iO)
  call Load_ListFile('t',iO)
+ call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
  
@@ -3159,13 +3308,15 @@ END SUBROUTINE Load_ListFiles_SSE_temp
 SUBROUTINE Load_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:GenLinScalar
+USE Sigma_User, ONLY: myProcess
 USE iniparser, ONLY : inip_openFileForReading
 implicit none
 integer :: iO
 character :: cf*(*)
-CHARACTER*(512) :: cFile
-integer ilen,ndofs,ivt,ifile
+CHARACTER*(512) :: cFile,cFileBU
+integer ilen,ndofs,ivt,ifile,iFld,ierr
 logical :: bExists
 
 if (myid.eq.0) return
@@ -3179,6 +3330,32 @@ if (myid.eq.0) return
 
  ilen = len(trim(adjustl(cfile)))
  
+ if (adjustl(trim(cf)).eq.'q'.or.adjustl(trim(cf)).eq.'Q') THEN
+  if (allocated(GenLinScalar%Fld)) then
+   cFileBU = cFile
+   DO iFld=1,GenLinScalar%nOfFields
+    cFile = cFileBU
+    write(cfile(ilen+1:),'(A)') "/"//adjustl(trim(GenLinScalar%prm%cField(iFld)))//".lst"
+    call inip_openFileForReading(cfile, ifile, .true.)
+    IF (ifile.gt.0) then
+     ndofs = QuadSc%ndof
+     read(ifile,*) 
+     DO ivt=1,ndofs
+      read(ifile,*,iostat=ierr) GenLinScalar%fld(iFld)%Val(ivt)
+     END DO 
+     write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
+     close(ifile)
+    else
+     if (adjustl(trim(GenLinScalar%prm%cField(iFld))).eq.'temp') THEN
+      GenLinScalar%fld(iFld)%Val = myProcess%T0
+     else
+      GenLinScalar%fld(iFld)%Val = 0.0d0
+     end if
+     write(*,*) 'the LST file '//adjustl(trim(cfile))//' is NOT available! skipping the read sequence ... '
+    end if
+   END DO ! iFld
+  end if
+ END IF ! q,Q
  if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
    write(cfile(ilen+1:),'(A)') "/temperature.lst"
 
@@ -3251,8 +3428,26 @@ if (myid.eq.0) return
    END DO 
   END IF
   
+  if (adjustl(trim(cf)).eq.'s'.or.adjustl(trim(cf)).eq.'S') THEN
+   IF (allocated(mySegmentIndicator)) then
+    write(cfile(ilen+1:),'(A)') "/segment.lst"
+    
+    call inip_openFileForReading(cfile, ifile, .true.)
+    
+    ndofs = QuadSc%ndof
+    read(ifile,*)
+
+    DO ivt=1,ndofs
+     read(ifile,*) mySegmentIndicator(2,ivt)
+    END DO 
+   END IF
+  END IF
+
+ if (adjustl(trim(cf)).eq.'q'.or.adjustl(trim(cf)).eq.'Q') THEN
+ else
   write(*,*) 'list file loaded: "'//trim(adjustl(cfile))//'"'
- close(ifile)
+  close(ifile)
+ end if
 
 END SUBROUTINE Load_ListFile
 !
@@ -3261,13 +3456,15 @@ END SUBROUTINE Load_ListFile
 SUBROUTINE Release_ListFile(cF,iO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature
+USE var_QuadScalar,ONLY:myDump,LinSc,QuadSc,Screw,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:GenLinScalar
 USE iniparser, ONLY : INIP_REPLACE,inip_openFileForWriting
 implicit none
+
 integer :: iO
 character :: cf*(*)
-CHARACTER*(512) :: cFile
-integer ilen,ndofs,ivt,ifile
+CHARACTER*(512) :: cFile,cFileBU
+integer ilen,ndofs,ivt,ifile,iFld,iRet,iNum
 logical :: bExists
 
 if (myid.eq.0) return
@@ -3286,6 +3483,27 @@ if (myid.eq.0) return
  
 !  if (.not.bExists) call system('mkdir '//trim(adjustl(cfile)))
  ilen = len(trim(adjustl(cfile)))
+ if (adjustl(trim(cf)).eq.'q'.or.adjustl(trim(cf)).eq.'Q') THEN
+  
+   if (allocated(GenLinScalar%Fld)) then
+    cFileBU = cFile
+    DO iFld=1,GenLinScalar%nOfFields
+    
+     cFile = cFileBU
+     write(cfile(ilen+1:),'(A)') "/"//adjustl(trim(GenLinScalar%prm%cField(iFld)))//".lst"
+     call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
+     
+     ndofs = QuadSc%ndof
+     write(ifile,'(A,I0)') "DofsTotal:",ndofs
+     DO ivt=1,ndofs
+      write(ifile,'(ES14.6)') GenLinScalar%fld(iFld)%Val(ivt)
+     END DO 
+     write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
+     call closeFile(ifile)
+    END DO
+   end if
+
+ END IF
  if (adjustl(trim(cf)).eq.'t'.or.adjustl(trim(cf)).eq.'T') THEN
    write(cfile(ilen+1:),'(A)') "/temperature.lst"
 
@@ -3297,7 +3515,7 @@ if (myid.eq.0) return
    DO ivt=1,ndofs
     write(ifile,'(ES14.6)') temperature(ivt)
    END DO 
-  END IF
+ END IF
  if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
    write(cfile(ilen+1:),'(A)') "/pressure.lst"
 
@@ -3354,9 +3572,25 @@ if (myid.eq.0) return
     write(ifile,'(ES14.6)') Screw(ivt)
    END DO 
   END IF
+  if (adjustl(trim(cf)).eq.'s'.or.adjustl(trim(cf)).eq.'S') THEN
+   IF (allocated(mySegmentIndicator)) then
+    write(cfile(ilen+1:),'(A)') "/segment.lst"
 
-  write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
- close(ifile)
+    call inip_openFileForWriting(cfile, ifile, INIP_REPLACE, bExists, .true.)
+    ndofs = QuadSc%ndof
+    write(ifile,'(A,I0)') "DofsTotal:",ndofs
+
+    DO ivt=1,ndofs
+     write(ifile,'(ES14.6)') mySegmentIndicator(2,ivt)
+    END DO 
+   END IF
+  END IF
+
+  if (adjustl(trim(cf)).eq.'q'.or.adjustl(trim(cf)).eq.'Q') THEN
+  else
+   write(*,*) 'list file released: "'//trim(adjustl(cfile))//'"'
+   call closeFile(ifile)
+  end if
 
 END SUBROUTINE Release_ListFile
 !

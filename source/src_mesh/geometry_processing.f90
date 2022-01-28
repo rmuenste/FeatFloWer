@@ -1,6 +1,6 @@
 module geometry_processing
   use Sigma_User, only: mySigma, myProcess,KNET_elem,SKNET_elem,EKNET_elem,&
-  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, InnerCylinder_Elem,DistTolerance
+  FOERD_elem, SME_elem, ZME_elem , TrueKNET_elem, Shell_dist, InnerCylinder_Elem,DistTolerance,mySegmentIndicator
  
   use var_QuadScalar, only: Shell,Screw,MixerKNPR,ScrewDist,myHeatObjects,maxShearRate
   !------------------------------------------------------------------------------------------------
@@ -334,9 +334,11 @@ inpr = 0
 tt = t 
 
 k = 0
-CALL InnerCylinder_Elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
-D1 = min(dSeg1,D1)
-D2 = min(dSeg2,D2)
+IF (mySigma%ScrewCylinderRendering) THEN
+ CALL InnerCylinder_Elem(X,Y,Z,tt,k,dSeg1,dSeg2,inpr)
+ D1 = min(dSeg1,D1)
+ D2 = min(dSeg2,D2)
+END IF
 
 !----------------------------------------------------------
 DO k=1, mySigma%NumberOfSeg
@@ -661,11 +663,12 @@ END SUBROUTINE STL_LR_elem
 !********************GEOMETRY****************************
 !
 SUBROUTINE STLL_elem(X,Y,Z,t,iSeg,d1,d2,inpr,bProjection,ProjP)
+use, intrinsic :: ieee_arithmetic
 IMPLICIT NONE
 INTEGER inpr
 REAL*8 X,Y,Z,d1,d2
 REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
-REAL*8 t,myPI,dUnitScale
+REAL*8 t,myPI,dUnitScale,dAlpha_0
 INTEGER iSTL,iSeg,iFile
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 LOGICAL :: bProjection
@@ -690,8 +693,14 @@ ELSE
 END IF
 
 
+IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+ dAlpha_0 = myPI*mySigma%mySegment(iSeg)%OffsetAngle/180d0
+ELSE
+ dAlpha_0 = 0d0
+END iF
+
 ! First the point needs to be transformed back to time = 0
-dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(DBLE(myProcess%iInd*myProcess%ind))
+dAlpha = dAlpha_0  + mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*(DBLE(myProcess%iInd*myProcess%ind))
 ! write(*,*) 'L',dAlpha
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
 YT = XB*sin(dAlpha) + YB*cos(dAlpha)
@@ -731,11 +740,12 @@ END SUBROUTINE STLL_elem
 !********************GEOMETRY****************************
 !
 SUBROUTINE STLR_elem(X,Y,Z,t,iSeg,d1,d2,inpr,bProjection,ProjP)
+use, intrinsic :: ieee_arithmetic
 IMPLICIT NONE
 INTEGER inpr
 REAL*8 X,Y,Z,d1,d2
 REAL*8 dAlpha, XT,YT,ZT, XP,YP,ZP, XB,YB,ZB,XT_STL,YT_STL,ZT_STL
-REAL*8 t,myPI,dUnitScale
+REAL*8 t,myPI,dUnitScale,dAlpha_0
 INTEGER iSTL,iSeg,iFile
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 LOGICAL :: bProjection
@@ -762,10 +772,16 @@ END IF
 ! dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
 ! write(*,*) 'R',dAlpha
 ! ! First the point needs to be transformed back to time = 0
-IF (mySigma%GANGZAHL .EQ. 1) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 2) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 3) dAlpha = mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
-IF (mySigma%GANGZAHL .EQ. 4) dAlpha = mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
+IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+ dAlpha_0 = myPI*mySigma%mySegment(iSeg)%OffsetAngle/180d0
+ELSE
+ dAlpha_0 = 0d0
+END iF
+
+IF (mySigma%GANGZAHL .EQ. 1) dAlpha = dAlpha_0 + mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 2) dAlpha = dAlpha_0 + mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/2d0)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 3) dAlpha = dAlpha_0 + mySigma%mySegment(iSeg)%StartAlpha -t*myPI*(myProcess%Umdr/3d1)*myProcess%ind
+IF (mySigma%GANGZAHL .EQ. 4) dAlpha = dAlpha_0 + mySigma%mySegment(iSeg)%StartAlpha + (-t*myPI*(myProcess%Umdr/3d1)+myPI/4d0)*myProcess%ind
 !dAlpha = 0.d0 + (-t*myPI*(myProcess%Umdr/3d1) + 0d0*myPI/2d0)*myProcess%ind
 
 XT = XB*cos(dAlpha) - YB*sin(dAlpha)
@@ -809,6 +825,7 @@ END SUBROUTINE STLR_elem
 ! is intented for screw setups only.
 !------------------------------------------------------------------------------------------------
 subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,dst2,dVaux)
+  use, intrinsic :: ieee_arithmetic
 
   real*8, dimension(:,:), intent(inout) :: dcorvg
 
@@ -829,15 +846,20 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
   real*8 ElemCoor(3,27),ElemDist(27),ElemRad,ElemSign,PointSign,dist
 
-  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle,DiD
+  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle,dRotAngle_0,DiD
 
   real*8, dimension(3) :: point
 
   integer :: i,j,ndof,iel,ipc
 
-  integer iSTL,iSeg,iFile
+  integer iSTL,iSeg,iFile,iScrewType
 
   ndof = nel+nvt+nat+net
+  
+!   IF (myProcess%SegmentThermoPhysProps) THEN
+   mySegmentIndicator(1,:) = 1d8
+   mySegmentIndicator(2,:) = 0d0
+!   END IF
 
   ! Loop over all segments of the screw
   DO iSeg=1,mySigma%NumberOfSeg
@@ -845,11 +867,17 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
   ! If we find a discrete geometry segment
   IF (adjustl(trim(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
 
-    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
-     dRotAngle = myProcess%Angle
+    IF (ieee_is_finite(mySigma%mySegment(iSeg)%OffsetAngle)) then
+     dRotAngle_0 = mySigma%mySegment(iSeg)%OffsetAngle
+    ELSE
+     dRotAngle_0 = 0d0
+    END iF
+    
+    IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW'.or.mySigma%mySegment(iSeg)%ObjectType.eq.'MIXER') THEN
+     dRotAngle = dRotAngle_0 + myProcess%Angle
     END IF
     IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE'.or.mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
-     dRotAngle  = 0d0
+     dRotAngle  = dRotAngle_0 + 0d0
     END IF
 
     IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
@@ -968,42 +996,56 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
 
     end do
 
+!     IF (myProcess%SegmentThermoPhysProps) THEN
+!      DO i=1,ndof
+!       if (dVaux(i).le.0d0.and.mySegmentIndicator(1,i).gt.dVaux(i)) then
+!        mySegmentIndicator(1,i)=dVaux(i)
+!        mySegmentIndicator(2,i)=dble(iSeg)
+!       end if
+!      end do
+!     END IF
+    
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! iSTL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."DIE") THEN
       do i=1,ndof
-      dst1(i) = min(dst1(i),-dVaux(i)/dUnitScale)
+       dst1(i) = min(dst1(i),-dVaux(i)/dUnitScale)
+!        IF (myProcess%SegmentThermoPhysProps) THEN
+        if (-dVaux(i).gt.0d0.and.-dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=-dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+!        END IF
       end do
     end if  
 
-!  ipc = 0
-!  do i=1,ndof
-!
-!    Px = dcorvg(1,i)
-!    Py = dcorvg(2,i)
-!    Pz = dcorvg(3,i)
-!
-!    call TransformPoint(px,py,pz,point(1),point(2),point(3))
-!
-!    call getdistanceid(point(1), point(2), point(3), dist, ipc);        
-!    distance(i) = dist
-!  end do
-
-    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW") THEN
+    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."SCREW".or.adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."MIXER") THEN
       do i=1,ndof
-      dst2(i) = min(dst2(i),+dVaux(i)/dUnitScale)
+       dst2(i) = min(dst2(i),+dVaux(i)/dUnitScale)
+!        IF (myProcess%SegmentThermoPhysProps) THEN
+        if (dVaux(i).lt.0d0.and.dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+!        END IF
       end do
     end if  
 
     if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."OBSTACLE") THEN
       do i=1,ndof
-      dst1(i) = min(dst1(i),+dVaux(i)/dUnitScale)
+       dst1(i) = min(dst1(i),+dVaux(i)/dUnitScale)
+!        IF (myProcess%SegmentThermoPhysProps) THEN
+        if (dVaux(i).lt.0d0.and.dVaux(i).lt.mySegmentIndicator(1,i)) then
+         mySegmentIndicator(1,i)=dVaux(i)
+         mySegmentIndicator(2,i)=dble(iSeg)
+        end if
+!        END IF
       end do
     end if  
 
     end do
 
   end if
-  end do
+  end do !iSeg
 
   DO i=1,ndof
    Shell(i) = dst1(i)
@@ -1011,15 +1053,23 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
     MixerKNPR(i) = 100
    END IF
 
-   
-   PX = dcorvg(1,i)
-   PY = dcorvg(2,i)
-   DiD = SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_in*0.5d0
-   dst2(i) = min(dst2(i),DiD)
+   IF (mySigma%ScrewCylinderRendering) THEN
+    PX = dcorvg(1,i)
+    PY = dcorvg(2,i)
+    DiD = SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_in*0.5d0
+    dst2(i) = min(dst2(i),DiD)
+   END IF
    
    Screw(i) = dst2(i)
    IF (Screw(i).le.0d0) THEN
-    MixerKNPR(i) = 103
+    iSeg = INT(mySegmentIndicator(2,i))
+    iScrewType = 103
+    IF (iSeg.gt.0) then
+     IF (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."MIXER") THEN
+      iScrewType = 200 + iSeg
+     END IF
+    END IF
+    MixerKNPR(i) = iScrewType
    END IF
   END DO
 

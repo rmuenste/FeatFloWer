@@ -419,7 +419,7 @@ SUBROUTINE myReleaseSmartDumpFiles(iOutO)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,myMPI_Barrier
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
-USE PLinScalar,ONLY:PLinLS
+! USE PLinScalar,ONLY:PLinLS
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 IMPLICIT NONE
 CHARACTER cOutFile*20,command*100
@@ -552,7 +552,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse
 USE Transport_Q2P1,ONLY:QuadSc,LinSc,myDump
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE PLinScalar,ONLY:PLinLS
+! USE PLinScalar,ONLY:PLinLS
 IMPLICIT NONE
 INTEGER iLevel
 CHARACTER cInFile*99,cFldrInFile*(*)

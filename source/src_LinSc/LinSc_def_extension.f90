@@ -706,7 +706,7 @@ IF (myid.ne.0) THEN
 ! Variable specific settings 
 END IF
 
-MyMG%cVariable          = "Displacement"
+MyMG%cVariable          = ADJUSTL(TRIM(myScalar%cName))
 MyMG%MinIterCycle       = myScalar%prm%MGprmIn%MinIterCycle
 MyMG%MaxIterCycle       = myScalar%prm%MGprmIn%MaxIterCycle
 MyMG%nIterCoarse        = myScalar%prm%MGprmIn%nIterCoarse
@@ -877,7 +877,9 @@ SUBROUTINE Protocol_linScalar_Q1(mfile,myScalar,nINL,&
 
 
 END SUBROUTINE Protocol_linScalar_Q1
-
+!
+! ----------------------------------------------
+!
 SUBROUTINE Protocol_linScalar_Disp_Q1(mfile,myScalar,nINL,&
            ResScalar,DefScalar,RhsScalar,cTitle)
 TYPE(lscalar3), INTENT(INOUT) :: myScalar

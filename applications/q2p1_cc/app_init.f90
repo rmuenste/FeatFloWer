@@ -1,14 +1,14 @@
 subroutine init_q2p1_cc(log_unit)
     
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
+!   USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
+!     UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
+!     Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
+    bTracer,StaticMeshAdaptation
+!   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
+!     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
@@ -32,7 +32,7 @@ subroutine init_q2p1_cc(log_unit)
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL myCreateDumpStructures(1)
     CALL InitCond_QuadScalar_cc()
-    IF(bViscoElastic)CALL IniProf_ViscoScalar()
+!    IF(bViscoElastic)CALL IniProf_ViscoScalar()
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL myCreateDumpStructures(1)
@@ -426,7 +426,7 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
     nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
     myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-    bViscoElastic,bViscoElasticFAC,bRefFrame,bSteadyState,transform,postparams
+    bRefFrame,bSteadyState,transform,postparams
 
   IMPLICIT DOUBLE PRECISION(A-H,O-Z)
   PARAMETER (NNLEV=9)
@@ -564,16 +564,16 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) cParam
         bTracer = .FALSE.
         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bTracer = .TRUE.
-      CASE ("ViscoElastic")
-        cParam = " "
-        READ(string(iEq+1:),*) cParam
-        bViscoElastic = .FALSE.
-        IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
-      CASE ("ViscoElasticFAC")
-        cParam = " "
-        READ(string(iEq+1:),*) cParam
-        bViscoElasticFAC = .FALSE.
-        IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
+!       CASE ("ViscoElastic")
+!         cParam = " "
+!         READ(string(iEq+1:),*) cParam
+!         bViscoElastic = .FALSE.
+!         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
+!       CASE ("ViscoElasticFAC")
+!         cParam = " "
+!         READ(string(iEq+1:),*) cParam
+!         bViscoElasticFAC = .FALSE.
+!         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
       CASE ("SteadyState")
         cParam = " "
         READ(string(iEq+1:),*) cParam
@@ -802,15 +802,15 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
       WRITE(mterm,'(A)') "Tracer equation is included"
     END IF
 
-    IF (bViscoElastic) THEN 
-      WRITE(mfile,'(A)') "Visco-elastic equation is included"
-      WRITE(mterm,'(A)') "Visco-elastic equation is included"
-    END IF
-
-    IF (bViscoElasticFAC) THEN 
-      WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
-      WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
-    END IF
+!     IF (bViscoElastic) THEN 
+!       WRITE(mfile,'(A)') "Visco-elastic equation is included"
+!       WRITE(mterm,'(A)') "Visco-elastic equation is included"
+!     END IF
+! 
+!     IF (bViscoElasticFAC) THEN 
+!       WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
+!       WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
+!     END IF
 
     IF (bNonNewtonian) THEN 
       WRITE(mfile,'(A)') "FlowType = non-Newtonian"

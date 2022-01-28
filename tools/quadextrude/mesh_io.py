@@ -102,10 +102,11 @@ def readMeshFromVTK(fileName):
 
                 idx = 0
                 while line and not re.match(r"^CELL_TYPES", line):
-
+                    
                     words = line.strip().split(" ")
                     if len(words[0]) > 0:
                         nodeIds = []
+
                         nodeIds.append(int(words[1]))
                         nodeIds.append(int(words[2]))
                         nodeIds.append(int(words[3]))
@@ -416,3 +417,90 @@ def readInpFile(fileName):
             quads.append(quadElem)
 
     return QuadMesh(nodesList, quads)
+
+#===============================================================================
+#                      Function: readTetMeshFromVTK 
+#===============================================================================
+def readTetMeshFromVTK(fileName):
+    """
+    Reads a tetMesh in VTK format
+
+    Args:
+        fileName: The file name of the VTK file
+
+    """
+
+    nodes = []
+    cells = []
+    with open(fileName, "r") as f:
+        while True:
+            line = f.readline()
+
+            if not line:
+                break
+
+            if re.match(r"^POINTS", line):
+                line = f.readline()
+
+                while line and not re.match(r"^CELLS", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodes.append((float(words[0]), float(words[1]), float(words[2])))
+
+                    line = f.readline()
+
+            if re.match(r"^CELLS", line):
+                line = f.readline()
+
+                idx = 0
+                while line and not re.match(r"^CELL_TYPES", line):
+
+                    words = line.strip().split(" ")
+                    if len(words[0]) > 0:
+                        nodeIds = []
+
+                        if int(words[0]) == 4:
+                            nodeIds.append(int(words[1]))
+                            nodeIds.append(int(words[2]))
+                            nodeIds.append(int(words[3]))
+                            nodeIds.append(int(words[4]))
+                            cells.append(nodeIds)
+
+#                        h = Hexa(nodeIds, idx)
+#                        h.layerIdx = 1
+#                        h.type = 1 
+#                        idx = idx + 1
+
+                    line = f.readline()
+
+#            if re.match(r"^\$Elements", line):
+#                quadList = readElements(f)
+
+    return (cells, nodes)
+
+#===============================================================================
+#                A very simple VTK Point writer
+#===============================================================================
+def writePointsVTK(nodes, fileName):
+    """
+    Writes out a point list in a very simple VTK format
+
+    Args:
+        nodes: The list of points
+        fileName: The file name of the VTK file
+
+    """
+
+    with open(fileName, "w") as f:
+        f.write("# vtk DataFile Version 4.2 \n")
+        f.write("vtk output \n")
+        f.write("ASCII \n")
+
+        nVertices = len(nodes)
+        f.write("DATASET UNSTRUCTURED_GRID\n")
+        f.write("POINTS " + str(nVertices) + " float\n")
+        for n in nodes:
+            f.write('%s %s %s\n' % (n[0], n[1], n[2]))
+
+

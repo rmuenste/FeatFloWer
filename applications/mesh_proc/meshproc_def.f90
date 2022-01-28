@@ -16,6 +16,7 @@ LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
 Logical :: bDefTensor = .true.
 real*8, allocatable, dimension(:) :: norm_u,norm_v,norm_w,norm_d
+integer, allocatable, dimension(:) :: marker
 
 CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -97,6 +98,164 @@ integer ilong
 
 END SUBROUTINE GetParameters
 !----------------------------------------------------------
+SUBROUTINE InitMarkerField()
+integer i,ndof
+real*8 P(3),C(3),R,dist
+
+ILEV = mg_Mesh%nlmax
+ndof = mg_Mesh%level(ilev)%nvt + mg_Mesh%level(ilev)%net + mg_Mesh%level(ilev)%nat + mg_Mesh%level(ilev)%nel
+
+ALLOCATE(marker(ndof))
+marker=0
+
+do i=1,ndof 
+ P = mg_Mesh%level(ilev)%dcorvg(:,i)
+ C = [0.75d0,0.5d0,0.5d0]
+ R = 0.15d0
+ dist = sqrt((P(1)-C(1))**2d0+(P(2)-C(2))**2d0+(P(3)-C(3))**2d0)
+ IF (dist.lt.R) THEN
+  marker(i) = 1
+ END IF
+end do
+
+do i=1,ndof 
+ P = mg_Mesh%level(ilev)%dcorvg(:,i)
+ C = [0.25d0,0.5d0,0.5d0]
+ R = 0.35d0
+ dist = sqrt((P(1)-C(1))**2d0+(P(2)-C(2))**2d0+(P(3)-C(3))**2d0)
+ IF (dist.lt.R) THEN
+  marker(i) = 1
+ END IF
+end do
+
+END SUBROUTINE InitMarkerField
+!----------------------------------------------------------
+SUBROUTINE PropagateMarkerField()
+integer i,j,k,ndof
+integer ivt1,ivt2,ivt3,ivt4,k_start,k_end,nn,mm
+real*8 P(3),C(3),R,dist
+logical bFAce
+INTEGER NeighA(4,6)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+ILEV = mg_Mesh%nlmax
+ndof = mg_Mesh%level(ilev)%nvt + mg_Mesh%level(ilev)%net + mg_Mesh%level(ilev)%nat + mg_Mesh%level(ilev)%nel
+
+DO 
+
+k_start=1
+DO i=1,mg_Mesh%level(ilev)%nvt
+ if (marker(i).gt.0) k_start = k_start + 1
+END DO
+
+DO i=1,mg_Mesh%level(ilev)%nel
+
+ nn = 0
+ do j=1,8
+  if (marker(mg_Mesh%level(ilev)%kvert(j,i)).gt.0) nn = nn + 1
+ end do
+
+ !!! more than 4 nodes are marked ==> mark the whole element
+ IF (nn.gt.4) THEN
+  do j=1,8
+   marker(mg_Mesh%level(ilev)%kvert(j,i)) = 1
+  end do
+
+ ELSE
+ 
+!!! 4 nodes are marked ==> check if they are on one face, if not => mark the whole element
+  IF (nn.eq.4) THEN
+   bFace=.false.
+   DO j=1,6
+   
+    mm = 0
+    do k=1,4
+     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)).gt.0) mm = mm + 1
+    end do
+    if (mm.eq.4) bFace=.true.
+   END DO
+   
+   if (.not.bFace) then
+    do j=1,8
+     marker(mg_Mesh%level(ilev)%kvert(j,i)) = 1
+    end do
+   end if
+  END IF
+  
+!! 3 nodes are marked ==> check if they are on one face (then mark the 4th node), if not => mark the whole element
+!   IF (nn.eq.3) THEN
+!    bFace=.false.
+!    DO j=1,6
+!     
+!     mm = 0
+!     do k=1,4
+!      if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i))) mm = mm + 1
+!     end do
+!     if (mm.eq.3) bFace=.true.
+!    END DO
+!    
+!    if (bFace) then
+!     do k=1,4
+!      marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)) = 1
+!     end do
+!    else
+!     do j=1,8
+!      marker(mg_Mesh%level(ilev)%kvert(j,i)) = 1
+!     end do
+!    end if
+!   END IF
+
+ END IF
+
+END DO
+
+k_end=1
+DO i=1,mg_Mesh%level(ilev)%nvt
+ if (marker(i).gt.0) k_end = k_end + 1
+END DO
+  
+WRITE(*,*) 'start: ',k_start,', end: ',k_end
+
+IF (k_start.eq.k_end) exit
+
+END DO
+
+
+DO i=1,mg_Mesh%level(ilev)%nel
+
+ nn = 0
+ do j=1,8
+  if (marker(mg_Mesh%level(ilev)%kvert(j,i)).gt.0) nn = nn + 1
+ end do
+
+! 3 nodes are marked ==> check if they are on one face (then mark the 4th node), if not => mark the whole element
+  IF (nn.eq.3) THEN
+   bFace=.false.
+   DO j=1,6
+    
+    mm = 0
+    do k=1,4
+     if (marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)).gt.0) mm = mm + 1
+    end do
+    if (mm.eq.3) bFace=.true.
+   END DO
+   
+   write(*,*) i,bFace
+   if (bFace) then
+    do k=1,4
+     marker(mg_Mesh%level(ilev)%kvert(NeighA(k,j),i)) = 1
+    end do
+   else
+    do j=1,8
+     marker(mg_Mesh%level(ilev)%kvert(j,i)) = 1
+    end do
+   end if
+  END IF
+
+end do
+
+END SUBROUTINE PropagateMarkerField
+!----------------------------------------------------------
 SUBROUTINE Output_VTK
 
 IMPLICIT NONE
@@ -122,6 +281,12 @@ write(iunit, *)"    <Piece NumberOfPoints=""",nvt,""" NumberOfCells=""",nel,""">
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the node field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 write(iunit, '(A)')"    <PointData>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Marker",""" format=""ascii"">"
+ do ivt=1,nvt
+  write(iunit, '(A,I10)')"        ",marker(ivt)
+ end do
+ write(iunit, *)"        </DataArray>"
 
  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ID",""" format=""ascii"">"
  do ivt=1,nvt

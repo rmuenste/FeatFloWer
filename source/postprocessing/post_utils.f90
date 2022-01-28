@@ -131,8 +131,8 @@ end subroutine sim_finalize
 ! ----------------------------------------------
 subroutine sim_finalize_sse(dttt0, filehandle)
   use def_Feat
-  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
-  use var_QuadScalar, only: istep_ns,mg_mesh,DivergedSolution
+  USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI,MPI_COMM_WORLD
+  use var_QuadScalar, only: istep_ns,mg_mesh,DivergedSolution,myErrorCode
   use Mesh_Structures, only: release_mesh
   use solution_io, only: write_sol_to_file,write_sse_1d_sol
   use Sigma_User, only: myProcess

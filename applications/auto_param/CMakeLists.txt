@@ -2,17 +2,6 @@
 
 # source files for standard q2p1 
 set(src_autoparam
-#${Elements} 
-#${src_q2p1} 
-#${src_pp3d} 
-#${src_mpi} 
-#${src_PLin} 
-#${src_LinSc} 
-#${src_quadLS_mesher} 
-#${src_visco} 
-#${src_mesh}
-#${src_cinterface}
-#${postprocessing}
 meshproc_def.f90
 meshproc_main.f90
 )
@@ -40,4 +29,17 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Mesh/PAR)
 file(COPY Mesh/mesh.tri DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Mesh)
 file(COPY param.cfg DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+#=========================================================================
+#                       INSTALL CONFIGURATION Q2P1_GENDIE PYTHON
+#=========================================================================
+install(TARGETS autoparam
+    RUNTIME DESTINATION bin/heat
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+    
+set(AUTOPARAM "${CMAKE_CURRENT_SOURCE_DIR}/param.cfg")
+# list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 
+install(FILES ${AUTOPARAM} DESTINATION bin/heat
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)

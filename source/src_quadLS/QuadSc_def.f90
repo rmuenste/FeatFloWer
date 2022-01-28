@@ -1,7 +1,7 @@
 MODULE def_QuadScalar
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
-                   COMM_Maximum,COMM_SUMM,COMM_NLComplete,&
+                   COMM_Maximum,COMM_MaximumN,COMM_SUMM,COMM_NLComplete,&
                    myMPI_Barrier
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
@@ -565,7 +565,7 @@ INTEGER i,j,iEntry,jCol
 
      DO i=1,crsSTR%A%nu
       j = 4*(i-1) + 1
-      if (KNPRP(ilev)%x(i).gt.0) crsSTR%A_Mat(crsSTR%A%LDA(i)) = 1d-8
+      if (KNPRP(ilev)%x(i).gt.0) crsSTR%A_Mat(crsSTR%A%LDA(i)) = 1d-16
      END DO
   
      IF (coarse_solver.EQ.4) THEN
@@ -778,6 +778,93 @@ DO ILEV=NLMIN,NLMAX
  BTZMat => mg_BTZMat(NLMAX)%a
 
 END SUBROUTINE Create_BMat
+!
+! ----------------------------------------------
+! barMMat
+! ----------------------------------------------
+!
+SUBROUTINE Create_barMMat_iso(myScalar)
+TYPE(TQuadScalar) myScalar
+EXTERNAL E013
+
+ CALL ZTIME(myStat%t0)
+
+ IF (.not.ALLOCATED(mg_barM11mat)) ALLOCATE(mg_barM11mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM22mat)) ALLOCATE(mg_barM22mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM33mat)) ALLOCATE(mg_barM33mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM12mat)) ALLOCATE(mg_barM12mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM13mat)) ALLOCATE(mg_barM13mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM23mat)) ALLOCATE(mg_barM23mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM21mat)) ALLOCATE(mg_barM21mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM31mat)) ALLOCATE(mg_barM31mat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_barM32mat)) ALLOCATE(mg_barM32mat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  qMat => mg_qMat(ILEV)
+
+  IF (.not.ALLOCATED(mg_barM11mat(ILEV)%a)) ALLOCATE(mg_barM11mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM22mat(ILEV)%a)) ALLOCATE(mg_barM22mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM33mat(ILEV)%a)) ALLOCATE(mg_barM33mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM12mat(ILEV)%a)) ALLOCATE(mg_barM12mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM13mat(ILEV)%a)) ALLOCATE(mg_barM13mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM23mat(ILEV)%a)) ALLOCATE(mg_barM23mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM21mat(ILEV)%a)) ALLOCATE(mg_barM21mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM31mat(ILEV)%a)) ALLOCATE(mg_barM31mat(ILEV)%a(qMat%na))
+  IF (.not.ALLOCATED(mg_barM32mat(ILEV)%a)) ALLOCATE(mg_barM32mat(ILEV)%a(qMat%na))
+
+  mg_barM11mat(ILEV)%a=0d0
+  mg_barM22mat(ILEV)%a=0d0
+  mg_barM33mat(ILEV)%a=0d0
+  mg_barM12mat(ILEV)%a=0d0
+  mg_barM13mat(ILEV)%a=0d0
+  mg_barM23mat(ILEV)%a=0d0
+  mg_barM21mat(ILEV)%a=0d0
+  mg_barM31mat(ILEV)%a=0d0
+  mg_barM32mat(ILEV)%a=0d0
+
+
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [Mbar]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  
+  CALL Build_barMMat(mgDensity(ILEV)%x,qMat%na,qMat%ColA,qMat%LdA,&
+   mg_mesh%level(ILEV)%kvert,mg_mesh%level(ILEV)%karea,&
+   mg_mesh%level(ILEV)%kedge,mg_mesh%level(ILEV)%dcorvg,E013,&
+   mg_barM11mat(ILEV)%a,mg_barM12mat(ILEV)%a,mg_barM13mat(ILEV)%a,&
+   mg_barM21mat(ILEV)%a,mg_barM22mat(ILEV)%a,mg_barM23mat(ILEV)%a,&
+   mg_barM31mat(ILEV)%a,mg_barM32mat(ILEV)%a,mg_barM33mat(ILEV)%a,&
+   myScalar%valU,myScalar%valV,myScalar%valW)
+
+
+ END DO
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+ 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat  => mg_qMat(NLMAX)
+ barM11Mat => mg_barM11Mat(NLMAX)%a
+ barM22Mat => mg_barM22Mat(NLMAX)%a
+ barM33Mat => mg_barM33Mat(NLMAX)%a
+ barM12Mat => mg_barM12Mat(NLMAX)%a
+ barM13Mat => mg_barM13Mat(NLMAX)%a
+ barM23Mat => mg_barM23Mat(NLMAX)%a
+ barM21Mat => mg_barM21Mat(NLMAX)%a
+ barM31Mat => mg_barM31Mat(NLMAX)%a
+ barM32Mat => mg_barM32Mat(NLMAX)%a
+
+ CALL ZTIME(myStat%t1)
+ myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
+
+
+END SUBROUTINE Create_barMMat_iso
 !
 ! ----------------------------------------------
 !
@@ -1065,6 +1152,16 @@ EXTERNAL E013
   END IF
 
   if(bNonNewtonian) THEN
+   if (bMultiMat) then
+    CALL DIFFQ2_AlphaNNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+         MaterialDistribution(ILEV)%x,&
+         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013)
+   else
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
          Temperature,MaterialDistribution(ILEV)%x,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
@@ -1073,6 +1170,7 @@ EXTERNAL E013
          mg_mesh%level(ILEV)%kedge,&
          mg_mesh%level(ILEV)%dcorvg,&
          E013)
+   end if
   else 
     CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
          qMat%LdA,&
@@ -1662,6 +1760,11 @@ IF (idef.eq.1) THEN
 !  qScalar%valU(NLMAX)%x = 1d0
 !  qScalar%valV(NLMAX)%x = 1d0
 !  qScalar%valW(NLMAX)%x = 1d0
+ ILEV = NLMAX
+ lqMat     => mg_lqMat(ILEV)
+ BTXMat    => mg_BTXMat(ILEV)%a
+ BTYMat    => mg_BTYMat(ILEV)%a
+ BTZMat    => mg_BTZMat(ILEV)%a
  CALL BT_Mul_U_mod(lqMat%ColA,lqMat%LdA,BTXMat,BTYMat,BTZMat,&
       qScalar%valU,qScalar%valV,qScalar%valW,&
       lScalar%defP(NLMAX)%x,qScalar%ndof,lScalar%ndof,TSTEP)
@@ -1688,10 +1791,10 @@ REAL*8  resScalarP,defScalar,rhsScalar,RESF,RESU
 REAL*8  RESF_P,RESU_P
 
 CALL LL21 (myScalar%rhsP(NLMAX)%x,myScalar%ndof,RESF_P)
-RESF=MAX(1D-16,RESF_P)
+RESF=MAX(1D-32,RESF_P)
 
 CALL LL21 (myScalar%defP(NLMAX)%x,myScalar%ndof,RESU_P)
-RESU=MAX(1D-16,RESU_P)
+RESU=MAX(1D-32,RESU_P)
 
 resScalarP = RESU_P/RESF
 defScalar = RESU
@@ -1719,7 +1822,7 @@ EXTERNAL Bndry_Mat,Bndry_Def
  CALL LL21 (qScalar%ValV,qScalar%ndof,dnormu2)
  CALL LL21 (qScalar%ValW,qScalar%ndof,dnormu3)
  dnormu=sqrt(dnormu1*dnormu1+dnormu2*dnormu2+dnormu3*dnormu3)
- IF (ABS(dnormu).LT.1D-8) dnormu=1D-8
+ IF (ABS(dnormu).LT.1D-32) dnormu=1D-32
  CALL COMM_Maximum(dnormu)
 
   DO ILEV = NLMIN,NLMAX
@@ -1784,6 +1887,29 @@ END SUBROUTINE Solve_General_LinScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE AddTimeNewtonAccelerator(myScalar,dU,dV,dW)
+TYPE(TQuadScalar) myScalar
+REAL*8 dU(*),dV(*),dW(*)
+integer i
+
+ILEV=NLMAX
+
+IF (myMatrixRenewal%M.GE.1) THEN
+ MlRhoMat => mg_MlRhoMat(ILEV)%a
+END IF
+
+IF (myMatrixRenewal%M.GE.1) THEN
+ DO i=1,myScalar%ndof
+  myScalar%defU(i) = myScalar%defU(i) + MlRhoMat(i)*dU(i)
+  myScalar%defV(i) = myScalar%defV(i) + MlRhoMat(i)*dV(i)
+  myScalar%defW(i) = myScalar%defW(i) + MlRhoMat(i)*dW(i)
+ END DO
+END IF
+
+END SUBROUTINE AddTimeNewtonAccelerator
+!
+! ----------------------------------------------
+!
 SUBROUTINE Matdef_general_QuadScalar(myScalar,idef)
 EXTERNAL E013
 INTEGER :: idef
@@ -1812,6 +1938,18 @@ REAL tttx1,tttx0
      A11Mat     => mg_A11Mat(ILEV)%a
      A22Mat     => mg_A22Mat(ILEV)%a
      A33Mat     => mg_A33Mat(ILEV)%a
+    END IF
+
+    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0.and.(NewtonForBurgers.ne.0d0)) THEN
+     barM11Mat     => mg_barM11Mat(ILEV)%a
+     barM22Mat     => mg_barM22Mat(ILEV)%a
+     barM33Mat     => mg_barM33Mat(ILEV)%a
+     barM12Mat     => mg_barM12Mat(ILEV)%a
+     barM13Mat     => mg_barM13Mat(ILEV)%a
+     barM23Mat     => mg_barM23Mat(ILEV)%a
+     barM21Mat     => mg_barM21Mat(ILEV)%a
+     barM31Mat     => mg_barM31Mat(ILEV)%a
+     barM32Mat     => mg_barM32Mat(ILEV)%a
     END IF
 
     IF (myMatrixRenewal%S.GE.1) THEN
@@ -1880,32 +2018,55 @@ REAL tttx1,tttx0
       END IF     
      ELSE
       IF (myMatrixRenewal%K.GE.1) THEN
-       DO I=1,qMat%nu
-        J = qMat%LdA(I)
-        daux = KMat(J)
-        A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + daux)
-        A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + daux)
-        A33Mat(J) = MlRhoMat(I) + thstep*(S33Mat(J) + daux)
-        A12Mat(J) = thstep*S12Mat(J)
-        A13Mat(J) = thstep*S13Mat(J)
-        A23Mat(J) = thstep*S23Mat(J)
-        A21Mat(J) = thstep*S21Mat(J)
-        A31Mat(J) = thstep*S31Mat(J)
-        A32Mat(J) = thstep*S32Mat(J)
-        DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
-         daux = KMat(J)
-         A11mat(J) = thstep*(S11Mat(J) + daux)
-         A22mat(J) = thstep*(S22Mat(J) + daux)
-         A33mat(J) = thstep*(S33Mat(J) + daux)
-         A12Mat(J) = thstep*S12Mat(J)
-         A13Mat(J) = thstep*S13Mat(J)
-         A23Mat(J) = thstep*S23Mat(J)
-         A21Mat(J) = thstep*S21Mat(J)
-         A31Mat(J) = thstep*S31Mat(J)
-         A32Mat(J) = thstep*S32Mat(J)
+       IF (NewtonForBurgers.eq.0d0) then
+        DO I=1,qMat%nu
+         J = qMat%LdA(I)
+         A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + KMat(J))
+         A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + KMat(J))
+         A33Mat(J) = MlRhoMat(I) + thstep*(S33Mat(J) + KMat(J))
+         A12Mat(J) = thstep*(S12Mat(J))
+         A13Mat(J) = thstep*(S13Mat(J))
+         A23Mat(J) = thstep*(S23Mat(J))
+         A21Mat(J) = thstep*(S21Mat(J))
+         A31Mat(J) = thstep*(S31Mat(J))
+         A32Mat(J) = thstep*(S32Mat(J))
+         DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+          A11mat(J) = thstep*(S11Mat(J) + KMat(J))
+          A22mat(J) = thstep*(S22Mat(J) + KMat(J))
+          A33mat(J) = thstep*(S33Mat(J) + KMat(J))
+          A12Mat(J) = thstep*(S12Mat(J))
+          A13Mat(J) = thstep*(S13Mat(J))
+          A23Mat(J) = thstep*(S23Mat(J))
+          A21Mat(J) = thstep*(S21Mat(J))
+          A31Mat(J) = thstep*(S31Mat(J))
+          A32Mat(J) = thstep*(S32Mat(J))
+         END DO
         END DO
-       END DO
-
+       ELSE
+        DO I=1,qMat%nu
+         J = qMat%LdA(I)
+         A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + KMat(J) + NewtonForBurgers * barM11Mat(J))
+         A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + KMat(J) + NewtonForBurgers * barM22Mat(J))
+         A33Mat(J) = MlRhoMat(I) + thstep*(S33Mat(J) + KMat(J) + NewtonForBurgers * barM33Mat(J))
+         A12Mat(J) = thstep*(S12Mat(J) + NewtonForBurgers * barM12Mat(J))
+         A13Mat(J) = thstep*(S13Mat(J) + NewtonForBurgers * barM13Mat(J))
+         A23Mat(J) = thstep*(S23Mat(J) + NewtonForBurgers * barM23Mat(J))
+         A21Mat(J) = thstep*(S21Mat(J) + NewtonForBurgers * barM21Mat(J))
+         A31Mat(J) = thstep*(S31Mat(J) + NewtonForBurgers * barM31Mat(J))
+         A32Mat(J) = thstep*(S32Mat(J) + NewtonForBurgers * barM32Mat(J))
+         DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+          A11mat(J) = thstep*(S11Mat(J) + KMat(J) + NewtonForBurgers * barM11Mat(J))
+          A22mat(J) = thstep*(S22Mat(J) + KMat(J) + NewtonForBurgers * barM22Mat(J))
+          A33mat(J) = thstep*(S33Mat(J) + KMat(J) + NewtonForBurgers * barM33Mat(J))
+          A12Mat(J) = thstep*(S12Mat(J) + NewtonForBurgers * barM12Mat(J))
+          A13Mat(J) = thstep*(S13Mat(J) + NewtonForBurgers * barM13Mat(J))
+          A23Mat(J) = thstep*(S23Mat(J) + NewtonForBurgers * barM23Mat(J))
+          A21Mat(J) = thstep*(S21Mat(J) + NewtonForBurgers * barM21Mat(J))
+          A31Mat(J) = thstep*(S31Mat(J) + NewtonForBurgers * barM31Mat(J))
+          A32Mat(J) = thstep*(S32Mat(J) + NewtonForBurgers * barM32Mat(J))
+         END DO
+        END DO
+       END IF
       ELSE
 
        DO I=1,qMat%nu
@@ -2018,6 +2179,18 @@ REAL tttx1,tttx0
   S32Mat   => mg_S32Mat(ILEV)%a
  END IF
 
+ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0.and.NewtonForBurgers.ne.0d0) THEN
+  barM11Mat     => mg_barM11Mat(ILEV)%a
+  barM22Mat     => mg_barM22Mat(ILEV)%a
+  barM33Mat     => mg_barM33Mat(ILEV)%a
+  barM12Mat     => mg_barM12Mat(ILEV)%a
+  barM13Mat     => mg_barM13Mat(ILEV)%a
+  barM23Mat     => mg_barM23Mat(ILEV)%a
+  barM21Mat     => mg_barM21Mat(ILEV)%a
+  barM31Mat     => mg_barM31Mat(ILEV)%a
+  barM32Mat     => mg_barM32Mat(ILEV)%a
+ END IF
+
  IF (myMatrixRenewal%D.GE.1) THEN
   DMat     => mg_DMat(ILEV)%a
  END IF
@@ -2119,15 +2292,27 @@ REAL tttx1,tttx0
    IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) THEN
     CALL ZTIME(tttx0)
     
-    CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-    Temperature,MaterialDistribution(ilev)%x,&
-    myScalar%defU, myScalar%defV, myScalar%defW,&
-    Viscosity,&
-    mg_mesh%level(ILEV)%kvert,&
-    mg_mesh%level(ILEV)%karea,&
-    mg_mesh%level(ILEV)%kedge,&
-    mg_mesh%level(ILEV)%dcorvg,&
-    E013 ) ! S*u
+    if (bMultiMat) THEN
+     CALL AlphaSTRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    else
+     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     Temperature,MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    end if
 
     CALL ZTIME(tttx1)
     myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
@@ -2158,6 +2343,29 @@ REAL tttx1,tttx0
      myScalar%valV,myScalar%defW,-1d0,1d0)
      CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
      myScalar%valW,myScalar%defW,-1d0,1d0)
+     
+    IF (NewtonForBurgers.ne.0d0) THEN
+     CALL LAX17(barM11mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,+thstep,1d0)
+     CALL LAX17(barM12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defU,+thstep,1d0)
+     CALL LAX17(barM13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defU,+thstep,1d0)
+
+     CALL LAX17(barM21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defV,+thstep,1d0)
+     CALL LAX17(barM22mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,+thstep,1d0)
+     CALL LAX17(barM23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defV,+thstep,1d0)
+
+     CALL LAX17(barM31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defW,+thstep,1d0)
+     CALL LAX17(barM32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defW,+thstep,1d0)
+     CALL LAX17(barM33mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,+thstep,1d0)
+    END IF
 
     ELSE
      IF (myMatrixRenewal%M.GE.1) THEN
@@ -2177,15 +2385,27 @@ REAL tttx1,tttx0
 
      CALL ZTIME(tttx0)
 
-     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-     Temperature,MaterialDistribution(ilev)%x,&
-     myScalar%defU, myScalar%defV, myScalar%defW,&
-     Viscosity,&
-     mg_mesh%level(ILEV)%kvert,&
-     mg_mesh%level(ILEV)%karea,&
-     mg_mesh%level(ILEV)%kedge,&
-     mg_mesh%level(ILEV)%dcorvg,&
-     E013 ) ! S*u
+     if (bMultiMat) THEN
+      CALL AlphaSTRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+      MaterialDistribution(ilev)%x,&
+      myScalar%defU, myScalar%defV, myScalar%defW,&
+      Viscosity,&
+      mg_mesh%level(ILEV)%kvert,&
+      mg_mesh%level(ILEV)%karea,&
+      mg_mesh%level(ILEV)%kedge,&
+      mg_mesh%level(ILEV)%dcorvg,&
+      E013 ) ! S*u
+     else
+      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+      Temperature,MaterialDistribution(ilev)%x,&
+      myScalar%defU, myScalar%defV, myScalar%defW,&
+      Viscosity,&
+      mg_mesh%level(ILEV)%kvert,&
+      mg_mesh%level(ILEV)%karea,&
+      mg_mesh%level(ILEV)%kedge,&
+      mg_mesh%level(ILEV)%dcorvg,&
+      E013 ) ! S*u
+     end if
 
      CALL ZTIME(tttx1)
      myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
@@ -2208,6 +2428,22 @@ END SUBROUTINE Matdef_general_QuadScalar
 !
 ! ----------------------------------------------
 !
+SUBROUTINE MeasureDefectNorms(myScalar,RESF)
+TYPE(TQuadScalar), INTENT(INOUT) :: myScalar
+REAL*8  RESF(3)
+
+CALL LL21 (myScalar%auxU,myScalar%ndof,RESF(1))
+CALL LL21 (myScalar%auxV,myScalar%ndof,RESF(2))
+CALL LL21 (myScalar%auxW,myScalar%ndof,RESF(3))
+
+RESF(1)=MAX(1D-32,RESF(1))
+RESF(2)=MAX(1D-32,RESF(2))
+RESF(3)=MAX(1D-32,RESF(3))
+
+END SUBROUTINE MeasureDefectNorms
+!
+! ----------------------------------------------
+!
 SUBROUTINE Resdfk_General_QuadScalar(myScalar,&
            resScalarU,resScalarV,resScalarW,defScalar,rhsScalar)
 TYPE(TQuadScalar), INTENT(INOUT) :: myScalar
@@ -2217,12 +2453,12 @@ REAL*8  RESF_U, RESF_V, RESF_W, RESU_U, RESU_V, RESU_W
 CALL LL21 (myScalar%rhsU,myScalar%ndof,RESF_U)
 CALL LL21 (myScalar%rhsV,myScalar%ndof,RESF_V)
 CALL LL21 (myScalar%rhsW,myScalar%ndof,RESF_W)
-RESF=MAX(1D-16,RESF_U,RESF_V,RESF_W)
+RESF=MAX(1D-32,RESF_U,RESF_V,RESF_W)
 
 CALL LL21 (myScalar%auxU,myScalar%ndof,RESU_U)
 CALL LL21 (myScalar%auxV,myScalar%ndof,RESU_V)
 CALL LL21 (myScalar%auxW,myScalar%ndof,RESU_W)
-RESU=MAX(1D-16,RESU_U,RESU_V,RESU_W)
+RESU=MAX(1D-32,RESU_U,RESU_V,RESU_W)
 
 !WRITE(*,'(I1,6D12.4)') myid,RESU_U,RESU_V,RESU_W,RESF
 resScalarU = RESU_U/RESF
@@ -2240,6 +2476,7 @@ SUBROUTINE Solve_General_QuadScalar(myScalar,Bndry_Val,Bndry_Mat,Bndry_Mat_9,mfi
 INTEGER mfile
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: myScalar
 REAL*8 daux,nrm_U,nrm_V,nrm_W
+REAL*8 u_rel(6)
 INTEGER ndof
 EXTERNAL Bndry_Val,Bndry_Mat,Bndry_Mat_9
 
@@ -2249,6 +2486,10 @@ nrm_W = 0d0
 
  CALL ZTIME(myStat%t0)
 
+ call ll21(myScalar%valU,myScalar%ndof,u_rel(1))
+ call ll21(myScalar%valV,myScalar%ndof,u_rel(2))
+ call ll21(myScalar%valW,myScalar%ndof,u_rel(3))
+ 
  IF (myid.ne.0) THEN
   DO ILEV = NLMIN,NLMAX
    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
@@ -2323,23 +2564,32 @@ nrm_W = 0d0
  MyMG%MaxLev             = NINT(daux)
 
 !-------------------  U - Component -------------------!
- ndof = SIZE(myScalar%ValU)
+ ndof = myScalar%ndof !SIZE(myScalar%ValU)
 
- myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU
- myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV
- myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW
+ myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU(1:ndof)
+ myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV(1:ndof)
+ myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW(1:ndof)
  MyMG%X    => myScalar%sol
 
- myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU
- myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV
- myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW
+ myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU(1:ndof)
+ myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV(1:ndof)
+ myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW(1:ndof)
  MyMG%B    => myScalar%rhs
 
  CALL MG_Solver(mfile,mterm)
 
- myScalar%ValU = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
- myScalar%ValV = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
- myScalar%ValW = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+ call ll21(myScalar%sol(NLMAX)%x(0*ndof+1:),ndof,u_rel(4))
+ call ll21(myScalar%sol(NLMAX)%x(1*ndof+1:),ndof,u_rel(5))
+ call ll21(myScalar%sol(NLMAX)%x(2*ndof+1:),ndof,u_rel(6))
+  
+ CALL COMM_MaximumN(u_rel,6)
+ 
+! !  if (myid.eq.1) write(MTERM,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
+! !  if (myid.eq.1) write(MFILE,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
+ 
+ myScalar%ValU(1:ndof) = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+ myScalar%ValV(1:ndof) = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+ myScalar%ValW(1:ndof) = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
 
  myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
  myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
@@ -2347,6 +2597,8 @@ nrm_W = 0d0
  myScalar%prm%MGprmOut(1)%DefFinal      = myMG%DefFinal
  myScalar%prm%MGprmOut(1)%RhoMG1        = myMG%RhoMG1
  myScalar%prm%MGprmOut(1)%RhoMG2        = myMG%RhoMG2
+ myScalar%prm%MGprmOut(1)%u_rel         = u_rel
+ 
 ! !-------------------  V - Component -------------------!
 !  myScalar%sol(NLMAX)%x = myScalar%ValV
 !  MyMG%X    => myScalar%sol
@@ -2612,6 +2864,32 @@ END IF
 
 
 END SUBROUTINE Protocol_LinScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE QuadScP1ExtPoltoQ2(lSc,qSc)
+TYPE(TLinScalar) lSc
+TYPE(TQuadScalar) qSc
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+lSc%Q2   = 0d0
+qSc%auxU = 0d0
+
+CALL IntP1toQ2(myQ2Coor,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%karea,&
+               mg_MlRhomat(ILEV)%a,&
+               lSc%P_new,&
+               lSc%Q2,qSc%auxU,&
+               mg_mesh%level(ilev)%nel,&
+               mg_mesh%level(ilev)%nvt,&
+               mg_mesh%level(ilev)%net,&
+               mg_mesh%level(ilev)%nat)
+
+END SUBROUTINE QuadScP1ExtPoltoQ2
 !
 ! ----------------------------------------------
 !
@@ -3453,6 +3731,18 @@ DO
    READ(string(iAt+1:iEq-1),*) cPar
    SELECT CASE (TRIM(ADJUSTL(cPar)))
 
+    CASE ("nTPSubSteps")
+    READ(string(iEq+1:),*) Props%nTPSubSteps
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
+    CASE ("nTPFSubSteps")
+    READ(string(iEq+1:),*) Props%nTPFSubSteps
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
+    CASE ("nTPIterations")
+    READ(string(iEq+1:),*) Props%nTPIterations
+    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
+    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
     CASE ("Material")
     READ(string(iEq+1:),*) Props%Material
     IF (myid.eq.showid) write(mterm,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Material

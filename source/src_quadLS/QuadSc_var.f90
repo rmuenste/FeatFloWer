@@ -22,7 +22,7 @@ CHARACTER*200 :: ApplicationString=&
 "  |                                                                                                  |"
 
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:20.02  Date:2020.02.16          |"
+"  |                                                          Version:20.11  Date:2020.11.05          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
@@ -34,7 +34,8 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
-LOGICAL :: DivergedSolution=.false.
+LOGICAL :: bMultiMat=.false.
+LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0
@@ -76,6 +77,7 @@ TYPE(TParLinScalar) PLinSc
 
 TYPE(lScalar) Tracer
 TYPE(lScalar3) Tracer3
+TYPE(lScalarGen) GenLinScalar
 
 TYPE(TcrsStructure) crsSTR
 
@@ -125,6 +127,16 @@ TYPE mg_Matrix
  REAL*8  , DIMENSION(:)  , ALLOCATABLE  :: a
 END TYPE mg_Matrix
 
+TYPE tMGFldMatrix
+ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE  :: fld
+END TYPE
+
+REAL*8 :: NewtonForBurgers=0d0
+REAL*8  , DIMENSION(:)  , POINTER :: barM11mat,barM22mat,barM33mat,barM12mat,barM13mat,barM23mat,barM21mat,barM31mat,barM32mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM11mat,mg_barM22mat,mg_barM33mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM12mat,mg_barM13mat,mg_barM23mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM21mat,mg_barM31mat,mg_barM32mat
+
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat,mg_BYMat,mg_BZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BTXMat,mg_BTYMat,mg_BTZMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXPMat,mg_BYPMat,mg_BZPMat
@@ -154,7 +166,7 @@ TYPE tMultiGrid
 
  LOGICAL, POINTER :: bProlRest
  INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
-
+ INTEGER, DIMENSION(:), POINTER::  KNPR
  TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
 
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
@@ -166,9 +178,11 @@ TYPE tMultiGrid
  TYPE(mg_dVector), DIMENSION(:), POINTER::  X,D,AUX,B
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A,AP
  TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
+ TYPE (tMGFldMatrix), DIMENSION(:), POINTER :: AXX
  TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
  REAL*8  , DIMENSION(:)  , POINTER :: XP
- INTEGER MinLev,MaxLev,MedLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
+ INTEGER MinLev,MaxLev,MedLev,MaxDifLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
+ INTEGER :: nOfFields,nOfSubsystemEqs
  integer :: vanka
  REAL*8  DefImprCoarse
  REAL*8  Criterion1,Criterion2,RLX,CrsRelaxPrm,CrsRelaxParPrm
@@ -265,6 +279,7 @@ END TYPE tDump
 TYPE(tDump) :: myDump
 
 REAL*8, ALLOCATABLE :: dPeriodicVector(:)
+REAL*8, allocatable :: mySegmentIndicator(:,:)
 
 TYPE tExport
  INTEGER :: Level,LevelMax
@@ -357,7 +372,7 @@ INTEGER nUmbrellaSteps,nInitUmbrellaSteps
 
 integer :: nUmbrellaStepsLvl(9) = (/0, 0, 0, 0, 0, 0, 0, 0, 0/)
 integer :: nMainUmbrellaSteps = 0
-REAL*8 :: dIntegralHeat = 0d0
+REAL*8 :: dIntegralHeat = 0d0, dNozzlePosition
 
 TYPE tALE
  REAL*8, ALLOCATABLE :: Monitor(:)
@@ -390,6 +405,10 @@ TYPE(tViscFunc) :: myViscFunc
 TYPE(tProperties),save :: Properties
 
 TYPE (tParticleParam) :: myParticleParam
+
+TYPE (tErrorCodes) ::  myErrorCode
+
+TYPE (tMGSteps) MGSteps
 
 contains 
 integer function KNEL(ilevel)

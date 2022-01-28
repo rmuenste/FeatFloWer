@@ -135,6 +135,17 @@ IF (myid.ne.0) THEN
  ! Add the source term to the RHS
  CALL sub_SRC()
 
+END IF
+
+ilev = nlmax
+call setlev(2)
+CALL AddBoundaryHeatFlux_XSE(mg_mesh%level(ilev)%dcorvg,&
+                             mg_mesh%level(ilev)%karea,&
+                             mg_mesh%level(ilev)%kvert,&
+                             mg_mesh%level(ilev)%nel,&
+                             mfile)
+
+IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
 
@@ -503,15 +514,21 @@ END DO
 
 1 CONTINUE
 
-myQ2coor(1,:) = Tracer3%valX
-myQ2coor(2,:) = Tracer3%valY
-myQ2coor(3,:) = Tracer3%valZ
+if (myid.ne.master) then
+ myQ2coor(1,:) = Tracer3%valX
+ myQ2coor(2,:) = Tracer3%valY
+ myQ2coor(3,:) = Tracer3%valZ
+end if
 
 2 CONTINUE
 
 NLMAX = NLMAX - 1
 
-CALL CoommunicateCoarseGrid()
+if (myid.ne.master) then
+ mg_mesh%level(NLMAX)%dcorvg = myQ2coor
+end if
+
+CALL CommunicateCoarseGrid()
 
 CALL GetMeshVelocity()
 
@@ -579,16 +596,12 @@ END SUBROUTINE Protocol_linScalarQ1
 !
 ! ----------------------------------------------
 !
-!
-! ----------------------------------------------
-!
 SUBROUTINE Init_Disp_Q1(log_unit)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 USE var_QuadScalar
 implicit none
 integer, intent(in) :: log_unit
 integer :: n, ndof
-
 
 NLMAX = NLMAX + 1
 
@@ -628,10 +641,9 @@ NLMAX = NLMAX + 1
   ALLOCATE(mg_E011RestM(ILEV)%LdA(NDOF+1))
  END DO
 
-CALL InitializeProlRest(Tracer3)
+Tracer3%cName = "Displac"
 
-
-Tracer3%cName = "Disp"
+CALL InitializeProlRest(Tracer3,Tracer3%cName)
 
 CALL GetDispParameters(Tracer3%prm,Tracer3%cName,log_unit)
 
@@ -754,7 +766,7 @@ DO i=1,Tracer3%ndof
  END IF
 
  IF (myBoundary%LS_zero(i).ne.0) THEN
-  Tracer3%valY(i) = myQ2Coor(2,i)+0.5
+  Tracer3%valY(i) = myQ2Coor(2,i)-0.5
  END IF
  
  IF (Tracer3%knprZ(i).eq.1) THEN
@@ -822,17 +834,18 @@ END SUBROUTINE Build_LinSc_Convection_Q1
 !
 ! ----------------------------------------------
 !
-SUBROUTINE InitializeProlRest(lSc)
+SUBROUTINE InitializeProlRest(lSc,cF)
 implicit none
 TYPE(lScalar3), INTENT(INOUT), TARGET :: lSc
+CHARACTER cF*(*)
 
  MyMG%MinLev  = NLMIN
  myMG%MedLev  = NLMIN
  myMG%MaxLev  = NLMAX
 
- IF(myid.eq.showid) WRITE(*,*) "Initialization of displacement prolongation matrix"
+ IF(myid.eq.showid) WRITE(*,*) "Initialization of "//ADJUSTL(TRIM(cF))//" prolongation matrix"
  myMG%bProlRest => lSc%bProlRest
- MyMG%cVariable = "Displacement"
+ MyMG%cVariable = ADJUSTL(TRIM(cF))
  CALL mgProlRestInit()
 
 END SUBROUTINE InitializeProlRest  
@@ -955,7 +968,7 @@ END SUBROUTINE AddBoundaryHeatFlux
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
 REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
-REAL*8 :: dTotalEnthalpy(2)=0d0,defT
+REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff
 integer mfile,iS,iSeg,i
 
 CALL LL21(Temperature,Tracer%ndof,DefT)
@@ -1071,6 +1084,7 @@ do
  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
   IF     (mySigma%mySegment(iSeg)%Regulation.eq."PID") THEN
     CALL PID_controller(mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature,tstep,mySigma%mySegment(iSeg)%PID_Ctrl)
+!    mySigma%mySegment(iSeg)%UseHeatSource  = min(mySigma%mySegment(iSeg)%HeatSourceMax,max(mySigma%mySegment(iSeg)%HeatSourceMin,1e-3*mySigma%mySegment(iSeg)%PID_Ctrl%PID))
     mySigma%mySegment(iSeg)%UseHeatSource  = 1e-3*mySigma%mySegment(iSeg)%PID_Ctrl%PID
     mySigma%mySegment(iSeg)%TemperatureSensor%HeatingStatus  =  .true.
     IF (myid.eq.1) then
@@ -1109,6 +1123,57 @@ do
   dHeatSource = dHeatSource + mySigma%mySegment(iSeg)%UseHeatSource
  END IF
 end do
+
+IF (mySetup%bConvergenceEstimator) THEN
+
+ IF (myid.eq.1) then
+   write(MTERM,'(A$)') 'Convergence: '
+   write(MFILE,'(A$)') 'Convergence: '
+ END IF
+     
+ ConvergedSolution = .TRUE.
+ iSeg = 0
+ 
+ do 
+  iSeg = iSeg + 1
+  if (iSeg.gt.mySigma%NumberOfSeg) exit 
+  
+  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+   diff = mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature - mySigma%mySegment(iSeg)%PID_Ctrl%T_set
+   if (abs(diff).lt.mySigma%mySegment(iSeg)%ConvergenceDetector%Condition) THEN
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = mySigma%mySegment(iSeg)%ConvergenceDetector%Counter + 1
+   ELSE
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = 0
+   END IF
+   
+   IF (mySigma%mySegment(iSeg)%ConvergenceDetector%Counter.gt.mySigma%mySegment(iSeg)%ConvergenceDetector%Limit) THEN
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .TRUE.
+   ELSE
+    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .FALSE.
+   END IF
+  
+   IF (.not.mySigma%mySegment(iSeg)%ConvergenceDetector%Converged) THEN
+    ConvergedSolution=.false.
+    IF (myid.eq.1) then
+     write(MTERM,'(A$)') "F"
+     write(MFILE,'(A$)') "F"
+    END IF
+   ELSE
+    IF (myid.eq.1) then
+     write(MTERM,'(A$)') "T"
+     write(MFILE,'(A$)') "T"
+    END IF
+   END IF
+  END IF
+  
+ end do
+
+ IF (myid.eq.1) then
+  write(MTERM,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+  write(MFILE,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+ END IF
+END IF
+
 1 continue
 
 return
@@ -1118,12 +1183,12 @@ END SUBROUTINE IntegrateOutputQuantities
 ! ----------------------------------------------
 !
 SUBROUTINE Assemble_LinScOperators_XSE(mfile)
-USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate
+USE var_QuadScalar, ONLY : Screw,Viscosity,Shearrate,mySegmentIndicator
 
 integer mfile
 REAL*8 myDiffCoeff_melt,myDiffCoeff_steel,daux,dHeat
-REAL*8, ALLOCATABLE ::  AlphaDiff(:)
-INTEGER iel,ivt,i
+REAL*8, ALLOCATABLE ::  AlphaDiff(:),mySegDiffCoeff(:)
+INTEGER iel,ivt,i,iSeg
 
 dHeat = 0d0
 
@@ -1143,23 +1208,44 @@ if (myid.ne.0) then
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!   -     ---   Diffusion Matrix Setup --- -    !!!
-  myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
-  myDiffCoeff_steel = 1E-1 ! cm2/s
-  if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
-  
   ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
   AlphaDiff = 0d0
   
-  DO iel = 1,mg_mesh%level(NLMAX)%nel
-   do ivt=1,8
-    i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
-    IF (Screw(i).ge.0d0) THEN
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
-    ELSE
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
-    END IF
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   allocate(mySegDiffCoeff(0:mySigma%NumberOfSeg))
+   do iSeg=0,mySigma%NumberOfSeg
+    mySegDiffCoeff(iSeg) = 0.01d0*myProcess%SegThermoPhysProp(iSeg)%lambda/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
+    if (myid.eq.1)  write(*,'(A,I0,A,F14.4)') ' ThermalDiffCoeff_of Segment',iSeg,'_[cm2/s]: ',mySegDiffCoeff(iSeg)
    END DO
-  END DO
+
+   DO iel = 1,mg_mesh%level(NLMAX)%nel
+    do ivt=1,8
+     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+     iSeg = mySegmentIndicator(2,i)
+     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*mySegDiffCoeff(iSeg)
+    END DO
+   END DO
+   
+   deallocate(mySegDiffCoeff)
+   
+  ELSE
+   myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
+   myDiffCoeff_steel = 1E-1 ! cm2/s
+   if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
+   
+   
+   DO iel = 1,mg_mesh%level(NLMAX)%nel
+    do ivt=1,8
+     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
+     IF (Screw(i).ge.0d0) THEN
+      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
+     ELSE
+      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
+     END IF
+    END DO
+   END DO
+   
+  END IF
   
   CALL Create_XSE_DiffMat(AlphaDiff)
   
@@ -1303,6 +1389,73 @@ END SUBROUTINE IntegrateOutflowTemp
 !
 ! ----------------------------------------------
 !
+SUBROUTINE AddBoundaryHeatFlux_XSE(dcorvg,karea,kvert,nel,mfile)
+use, intrinsic :: ieee_arithmetic
+INTEGER mfile
+REAL*8 dcorvg(3,*),T_Avg
+INTEGER karea(6,*),kvert(8,*),nel
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA,dVolFlow,dVolFlowT,dHeat
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+LOGICAL BB(4)
+real*8 :: myInf,daux
+
+if(ieee_support_inf(myInf))then
+  myInf = ieee_value(myInf, ieee_negative_inf)
+endif
+
+dHeat = 0d0
+
+if (myid.ne.0.and.myProcess%Ta.eq.myInf) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    ivt1 = kvert(NeighA(1,j),i)
+    ivt2 = kvert(NeighA(2,j),i)
+    ivt3 = kvert(NeighA(3,j),i)
+    ivt4 = kvert(NeighA(4,j),i)
+    
+    BB(1) = myBoundary%bWall(ivt1)
+    BB(2) = myBoundary%bWall(ivt2)
+    BB(3) = myBoundary%bWall(ivt3)
+    BB(4) = myBoundary%bWall(ivt4)
+    
+    IF (BB(1).and.BB(2).and.BB(3).and.BB(4)) THEN
+        CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+        dA = dabs(dA) ! cm2
+        
+        !  kW               dm3      kg * K         kJ                 1e3.cm3   kg * K              K*cm3
+        !--------- * cm2 * -------* ---------  = --------- * 1e-4*m2 * -------* ---------  =  0.1 ------------
+        !   m2              kg          kJ         s.m2                  kg        kJ                  s
+        
+!         daux = dA * (-80d0)
+        daux = dA * myProcess%HeatFluxThroughBarrelWall_kWm2
+
+        Tracer%def(ivt1) = Tracer%def(ivt1) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt2) = Tracer%def(ivt2) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt3) = Tracer%def(ivt3) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt4) = Tracer%def(ivt4) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        
+        dHeat = dHeat + daux*1e-4 ! kW/m2 * 1e-4 m2 = 1e-4 * kW 
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+CALL COMM_SUMM(dHeat)
+IF (myid.eq.1) WRITE(MTERM,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dHeat
+IF (myid.eq.1) WRITE(MFILE,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dHeat
+
+END SUBROUTINE AddBoundaryHeatFlux_XSE
+!
+! ----------------------------------------------
+!
+
 
 !  CALL AddLumpedHeatFlux(mg_mesh%level(nlmax)%dcorvg,&
 !                         mg_mesh%level(nlmax)%karea,&

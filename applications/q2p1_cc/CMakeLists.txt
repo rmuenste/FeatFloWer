@@ -11,7 +11,7 @@ ${src_util}
 ${src_q2p1} 
 ${src_pp3d} 
 ${src_mpi}  
-${src_PLin} 
+# ${src_PLin} 
 ${src_LinSc} 
 ${src_quadLS_app} 
 ${src_visco} 

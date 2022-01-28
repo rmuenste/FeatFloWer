@@ -13,8 +13,11 @@ import shutil
 import subprocess
 import math
 import partitioner
-
+import fileinput
 import datetime
+from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver  
+from watchdog.events import FileSystemEventHandler
 
 if sys.version_info[0] < 3:
     from pathlib2 import Path
@@ -60,10 +63,10 @@ class E3dLog:
 
         self.fileHandle.write("[Extrud3DFileInfo]\n")
         self.fileHandle.write("FileType=Logging\n")
-        self.fileHandle.write("FileVersion=Extrud3D 2020\n")
+        self.fileHandle.write("FileVersion=Extrud3D 2021\n")
         today = datetime.date.today()
         self.fileHandle.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
-        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.02\n")
+        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.11.5\n")
         self.fileHandle.write("[SimulationStatus]\n")
         tempValue = ""
         if paramDict["temperature"]:
@@ -90,9 +93,88 @@ class E3dLog:
 
             f.write(msg)
 
+    def updateStatusLineInnerIteration(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-3] 
+
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def updateStatusLineIteration(self, msg, itCurr):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        if itCurr == 0:
+            self.fileContents = self.fileContents[:-1] 
+        else:
+            self.fileContents = self.fileContents[:-5] 
+
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def updateStatusLineHeatIteration(self, msg, numLines=3):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-3] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def writeStatusHeat(self, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-1] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+    def popLinesAndWrite(self, numLines, msg):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-numLines] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
+
+    def popLinesBack(self, numLines):
+
+        with open(self.fileName, "r") as f:
+            self.fileContents = f.readlines()
+
+        self.fileContents = self.fileContents[:-numLines] 
+        with open(self.fileName, "w") as f:
+            for line in self.fileContents:
+                f.write(line)
+
+            f.write(msg)
+
     def writeExitMsg(self):
         with open(self.fileName, "r") as f:
             self.fileContents = f.readlines()
+
 
         self.fileContents = self.fileContents[:-1] 
         with open(self.fileName, "w") as f:
@@ -142,8 +224,32 @@ paramDict = {
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
     "useSrun": False,
-    "temperature" : False
+    "dieSimulation": False,
+    "temperature" : False,
+    "retryDeformation" : False
 }
+
+class ProtocolObserver(FileSystemEventHandler):
+    def on_created(self, event):
+        fileBaseName = os.path.basename(event.src_path)
+
+    def on_modified(self, event):
+        fileBaseName = os.path.basename(event.src_path)
+        patternFound = False
+        if fileBaseName == "prot.txt":
+          pattern = "itns:\s*([0-9]+)[/]\s*([0-9]+)"
+          with open(event.src_path, "r") as f:
+              fileContents = f.readlines()
+          for line in reversed(fileContents):
+              matchObj = re.search(pattern, line)
+              if matchObj: 
+                  patternFound = True
+                  statusMsg = "CurrentInnerIteration=%i\n"\
+                              "MaxInnerIteration=%i\n"\
+                              "CurrentStatus=running Momentum Solver" %(int(matchObj.group(1)), int(matchObj.group(2)))
+                  myLog.updateStatusLineInnerIteration(statusMsg)
+                  break
+
 #===============================================================================
 #                        version function
 #===============================================================================
@@ -151,7 +257,7 @@ def version():
     """
     Print out version information
     """
-    print("E3D + Reporter for SIGMA Version 19.10, Copyright 2019 IANUS Simulation")
+    print("E3D + Reporter for SIGMA Version 2020.11.5, Copyright 2019 IANUS Simulation")
 
 #===============================================================================
 #                        usage function
@@ -178,6 +284,7 @@ def usage():
     print("[-v', '--version']: prints out version information")
     print("[-x', '--short-test']: configures the program for a short test")
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
+    print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 
 #===============================================================================
@@ -192,6 +299,29 @@ def mkdir(dir):
     os.mkdir(dir)
 
 #===============================================================================
+#                          simple file in-situ replacement method
+#===============================================================================
+def replace_in_file(file_path, search_text, new_text):
+    with fileinput.input(file_path, inplace=True) as f:
+        for line in f:
+            new_line = line.replace(search_text, new_text)
+            print(new_line, end='')
+
+#===============================================================================
+#                     Parse MaxNumStep from q2p1_param.dat
+#===============================================================================
+def parseMaxNumSteps(file_path):
+    maxIters = 300
+    pattern = re.compile(r"SimPar@MaxNumStep\s+[=]\s+([0-9]+)")
+    for line in open(file_path):
+        for match in re.finditer(pattern, line):
+            maxIters = int(match.group(1))
+            return maxIters
+
+    return maxIters
+
+
+#===============================================================================
 #                          setup the case folder 
 #===============================================================================
 def folderSetup(workingDir, projectFile, projectPath, projectFolder):
@@ -203,9 +333,15 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
             sys.exit(2)
 
     if paramDict['shortTest']:
-        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
+        if (paramDict['dieSimulation']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE_test.dat")
+        else:
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
     else:
-        backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
+        if (paramDict['dieSimulation']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE.dat")
+        else:
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     
 #    backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     destDataFile = Path("_data") / Path("q2p1_param.dat")
@@ -305,6 +441,7 @@ def simLoopVelocity(workingDir):
 
     nmin = 0
     start = 0.0
+    maxInnerIters = parseMaxNumSteps("_data/q2p1_param.dat")
     with open("_data/Extrud3D_0.dat", "a") as f:
         f.write("\n[E3DSimulationSettings]\n")
         f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
@@ -322,26 +459,69 @@ def simLoopVelocity(workingDir):
         with open("_data/Extrud3D.dat", "a") as f:
             f.write("Angle=" + str(angle) + "\n")
 
+        statusMsg = "CurrentAngleIteration=%i\n"\
+                    "MaxAngleIteration=%i\n"\
+                    "CurrentInnerIteration=%i\n"\
+                    "MaxInnerIteration=%i\n"\
+                    "CurrentStatus=running Momentum Solver" %(i+1, nmax, 1, maxInnerIters)
 #        input("Press key to continue to MomentumSolver")
-        myLog.updateStatusLine("CurrentStatus=running Momentum Solver")
+        myLog.updateStatusLineIteration(statusMsg, i)
+
+        workingDir = os.getcwd()
+        protocolFilePath = os.path.join(workingDir, "_data")
+
+        eventHandler = ProtocolObserver()
+        observer = ""   
+        if sys.platform == "win32":
+            observer = PollingObserver()
+        else:
+            observer = Observer()
+
+        observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
+        observer.start()
+
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             launchCommand = ""
 
             if paramDict['useSrun']:
-                launchCommand = "srun ./q2p1_sse"
+                launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np %i ./q2p1_sse" %(numProcessors)
+                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse"
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
             exitCode = subprocess.call([launchCommand], shell=True)
 
+            if paramDict['retryDeformation'] and exitCode == 55:
+                with open("_data/q2p1_param.dat", "r") as f:
+                  for l in f:
+                    if "SimPar@UmbrellaStepM" in l:
+                        orig_umbrella = int(l.split()[2])
+                UmbrellaStepM = orig_umbrella
+                while exitCode == 55 and UmbrellaStepM != 0:
+                    replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
+                    UmbrellaStepM = int(UmbrellaStepM / 2)
+                    exitCode = subprocess.call([launchCommand], shell=True)
+                replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+
+        # Here the observer can be turned off
+        observer.stop()
+
+        if exitCode == 88:
+          myLog.logErrorExit("CurrentStatus=the screw could not be created: wrong angle", exitCode)
+
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
+
+        # Write final inner iteration state
+        statusMsg = "CurrentInnerIteration=%i\n"\
+                    "MaxInnerIteration=%i\n"\
+                    "CurrentStatus=running Momentum Solver" %(maxInnerIters, maxInnerIters)
+        myLog.updateStatusLineInnerIteration(statusMsg)
 
         iangle = int(angle)
         if os.path.exists(Path("_data/prot.txt")):
@@ -365,9 +545,7 @@ def cleanWorkingDir(workingDir):
 #                The simulatio loop for velocity calculation
 #===============================================================================
 def simLoopTemperatureCombined(workingDir):
- 
-    print("Temperature simulation is activated!")
-    
+
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
     maxIterations = 2
@@ -389,11 +567,16 @@ def simLoopTemperatureCombined(workingDir):
         print("Copying: ", backupTemperatureFile, temperatureDestFile)
         shutil.copyfile(str(backupVeloFile), str(veloDestFile))
         shutil.copyfile(str(backupTemperatureFile), str(temperatureDestFile))
-        exitCode = simLoopVelocity(workingDir)
-        print("temperature simulation")
 
-#        input("Press key to continue to HeatSolver")
-        myLog.updateStatusLine("CurrentStatus=running Heat Solver")
+        if iter > 0:
+            myLog.updateStatusLineHeatIteration("CurrentHeatIteration=%i\nHeatMaxIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+
+        else:
+            myLog.writeStatusHeat("CurrentHeatIteration=%i\nMaxHeatIteration=%i\nCurrentStatus=running Heat Solver" %(iter+1, maxIterations))
+            
+        exitCode = simLoopVelocity(workingDir)
+
+#        statusMsg = "CurrentIteration=%i\nMaxIteration=%i\nCurrentStatus=running Momentum Solver" %(i+1, nmax)
 
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
@@ -402,11 +585,11 @@ def simLoopTemperatureCombined(workingDir):
             launchCommand = ""
 
             if paramDict['useSrun']:
-                launchCommand = "srun ./q2p1_sse_temp"
+                launchCommand = "srun " + os.getcwd() + "/q2p1_sse_temp"
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np %i ./q2p1_sse_temp" %(numProcessors)
+                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_temp"
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 
@@ -414,11 +597,13 @@ def simLoopTemperatureCombined(workingDir):
 
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
+
+        myLog.popLinesAndWrite(5, "CurrentStatus=running Heat Solver")
         
         dirName = Path("_prot%01d" % iter)
         mkdir(dirName)
         protList = list(Path("_data").glob('prot*'))
-        print(protList)
+        
         for item in protList:
             shutil.copy(str(item), dirName)
             os.remove(item)
@@ -432,6 +617,7 @@ def simLoopTemperatureCombined(workingDir):
     print("Copying: ", backupVeloFile, veloDestFile)
     shutil.copyfile(str(backupVeloFile), str(veloDestFile))
 
+    #myLog.popLinesAndWrite(3, "CurrentStatus=running Heat Solver")
     exitCode = simLoopVelocity(workingDir)
 
 #===============================================================================
@@ -455,8 +641,8 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovu',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
-                                    'host-conf=', 'rank-file=', 'time=', 'skip-setup',
-                                    'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun'])
+                                    'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
+                                    'skip-simulation','short-test', 'help','do-temperature','version', 'use-srun', 'retry-deformation'])
 
     except getopt.GetoptError:
         usage()
@@ -503,6 +689,10 @@ def main():
             paramDict['shortTest'] = True
         elif opt in ('-u', '--use-srun'):
             paramDict['useSrun'] = True
+        elif opt in ('--die-simulation'):
+            paramDict['dieSimulation'] = True
+        elif opt in ('--retry-deformation'):
+            paramDict['retryDeformation'] = True
         else:
             usage()
             sys.exit(2)
@@ -520,6 +710,10 @@ def main():
         print("Error: Specifying both singleAngle and Temperature Simulation at the same time is prohibited.")
         sys.exit(2)
         
+    if (paramDict['dieSimulation']) :
+        print("Switching to 'DIE' simulation !")
+        paramDict['singleAngle'] = 0
+     
     # Get the case/working dir paths
     projectFolder = paramDict['projectFolder'] 
     workingDir = Path('.')

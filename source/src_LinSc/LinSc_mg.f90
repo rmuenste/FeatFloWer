@@ -41,8 +41,8 @@ CALL mgInit()
 IF (myid.ne.0) CALL mgProlRestInit()
 
 myMG%DefInitial = DefNorm
-!  IF (myid.eq.1) WRITE(*,*) "hhhuhh ",DefNorm
-IF (DefNorm.LT.1d-16*MyMG%Criterion2) GOTO 88
+!  IF (myid.eq.1) WRITE(*,*) "Initial ",DefNorm
+IF (DefNorm.LT.1d-32*MyMG%Criterion2) GOTO 88
 
 DefI1 = 0d0
 DefI2 = 0d0
@@ -84,6 +84,8 @@ END DO
 ! IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.0.AND.myMatrixRenewal%C.GE.2) THEN
 !   CALL myUmfPack_Free()
 ! END IF
+
+!  IF (myid.eq.1) WRITE(*,*) "Final ",DefNorm
 
 myMG%DefFinal = DefNorm
 myMG%RhoMG1 = (myMG%DefFinal/myMG%DefInitial)**(1d0/DBLE(MAX(IterCycle,1)))
@@ -183,7 +185,6 @@ INTEGER imgLev,nimgLev
 
 !  CALL mgSmoother ! Corse Grid Solver
  CALL mgCoarseGridSolver()                                   ! computes linear system with X=(A^-1)B
-!  pause
 
 !   pause
 END SUBROUTINE mg_down
@@ -260,9 +261,7 @@ SUBROUTINE mgInit()
 
 mgLev = myMG%MaxLev
 
-IF (MyMG%cVariable.EQ."Displacement") THEN
- CALL JCB_Activation()
-END IF
+CALL JCB_Activation()
 
 CALL mgUpdateDefect(mgLev,.TRUE.)
 
@@ -278,12 +277,29 @@ END SUBROUTINE mgInit
 ! ----------------------------------------------
 !
 SUBROUTINE mgDefectNorm(II)
-INTEGER II,ndof
+INTEGER II,ndof,iFLD,i,j,NN
 
 IF (myid.ne.0) THEN
  mgLev = NLMAX
  ndof  = SIZE(myMG%X(mgLev)%x)
- CALL LL21(myMG%AUX(II)%x,ndof,DefNorm)
+ 
+ IF (MyMG%cVariable.EQ."Displac") THEN
+  CALL LL21(myMG%AUX(II)%x,ndof,DefNorm)
+ END IF
+ 
+ IF (MyMG%cVariable.EQ."Temper") THEN !done
+  DO iFld=1,myMG%nOfFields
+   NN = KNVT(mgLev)
+   DO I=1,NN
+    J=(iFld-1)*NN + I
+    if (myMG%knpr(J).ne.0) myMG%AUX(II)%x(J) = 0d0
+   END DO
+  END DO
+
+  CALL LL21(myMG%AUX(II)%x,ndof,DefNorm)
+!   write(*,*) DefNorm,myid
+ END IF
+ 
 END IF
 
 CALL COMM_Maximum(DefNorm)
@@ -294,7 +310,7 @@ END SUBROUTINE mgDefectNorm
 !
 SUBROUTINE mgUpdateDefect(imgLev,bDef)
 USE PP3D_MPI, only: E011SUM
-INTEGER i,j,ndof,imgLev,neq
+INTEGER i,j,ndof,imgLev,neq,iFld
 REAL*8  daux
 LOGICAL bDef
 
@@ -302,22 +318,36 @@ IF (myid.ne.0) THEN
  mgLev = imgLev
  ndof  = SIZE(myMG%X(mgLev)%x)
  CALL LCP1(myMG%B(mgLev)%x,myMG%D(mgLev)%x,ndof)
- IF (MyMG%cVariable.EQ."Displacement") THEN
+ IF (MyMG%cVariable.EQ."Displac") THEN
   neq = KNVT(mgLev)
   CALL E011_DAX(myMG%X(mgLev)%x,myMG%D(mgLev)%x,-1D0,1D0)
+ END IF
+ IF (MyMG%cVariable.EQ."Temper") THEN !done
+  neq = KNVT(mgLev)
+  CALL E011_GenLinSc_Q1_DAX(myMG%X(mgLev)%x,myMG%D(mgLev)%x,-1D0,1D0,MyMG%nOfFields)
  END IF
 END IF
 
 IF (bDef) THEN 
  IF (myid.ne.0) THEN
   CALL LCP1(myMG%D(mgLev)%x,myMG%AUX(mgLev)%x,ndof)
-  IF (MyMG%cVariable.EQ."Displacement") THEN
+  
+  IF (MyMG%cVariable.EQ."Displac") THEN
    ILEV = mgLev
    NDOF = KNVT(mgLev)
    CALL E011Sum(myMG%AUX(mgLev)%x(0*NDOF+1))
    CALL E011Sum(myMG%AUX(mgLev)%x(1*NDOF+1))
    CALL E011Sum(myMG%AUX(mgLev)%x(2*NDOF+1))
   END IF
+  
+  IF (MyMG%cVariable.EQ."Temper") THEN !done
+   ILEV = mgLev
+   NDOF = KNVT(mgLev)
+   do iFld=1,MyMG%nOfFields
+    CALL E011Sum(myMG%AUX(mgLev)%x((iFld-1)*NDOF+1))
+   END DO
+  END IF
+  
  END IF
  CALL mgDefectNorm(mgLev)
  IF (myid.ne.0) THEN
@@ -333,10 +363,18 @@ SUBROUTINE mgRestriction()
 INTEGER I,NDOF
 
 IF (myid.ne.0) THEN
- IF (MyMG%cVariable.EQ."Displacement") THEN
+ IF (MyMG%cVariable.EQ."Displac") THEN
   CALL ZTIME(time0)
   CALL E011_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E011Rest(mgLev)%a,&
        mg_E011RestM(mgLev)%LdA,mg_E011RestM(mgLev)%ColA,myMG%KNPRU,myMG%KNPRV,myMG%KNPRW)
+  CALL ZTIME(time1)
+  myStat%tRestUVW = myStat%tRestUVW + (time1-time0)
+ END IF
+ 
+ IF (MyMG%cVariable.EQ."Temper") THEN !done
+  CALL ZTIME(time0)
+  CALL E011_GenLinSc_Q1_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E011Rest(mgLev)%a,&
+       mg_E011RestM(mgLev)%LdA,mg_E011RestM(mgLev)%ColA,myMG%KNPR,myMG%nOfFields)
   CALL ZTIME(time1)
   myStat%tRestUVW = myStat%tRestUVW + (time1-time0)
  END IF
@@ -350,10 +388,18 @@ SUBROUTINE mgProlongation()
 INTEGER I,NDOF
 
 IF (myid.ne.0) THEN
- IF (MyMG%cVariable.EQ."Displacement") THEN
+ IF (MyMG%cVariable.EQ."Displac") THEN
   CALL ZTIME(time0)
   CALL E011_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E011Prol(mgLev-1)%a,&
        mg_E011ProlM(mgLev-1)%LdA,mg_E011ProlM(mgLev-1)%ColA,myMG%KNPRU,myMG%KNPRV,myMG%KNPRW)
+  CALL ZTIME(time1)
+  myStat%tProlUVW = myStat%tProlUVW + (time1-time0)
+ END IF
+ 
+ IF (MyMG%cVariable.EQ."Temper") THEN !done
+  CALL ZTIME(time0)
+  CALL E011_GenLinSc_Q1_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E011Prol(mgLev-1)%a,&
+       mg_E011ProlM(mgLev-1)%LdA,mg_E011ProlM(mgLev-1)%ColA,myMG%KNPR,myMG%nOfFields)
   CALL ZTIME(time1)
   myStat%tProlUVW = myStat%tProlUVW + (time1-time0)
  END IF
@@ -372,7 +418,7 @@ REAL*8 def,def0
  ILEV = myMG%MedLev
 !   write(*,*) myMG%nIterCoarse,MyMG%cVariable
 
- IF (MyMG%cVariable.EQ."Displacement") THEN
+ IF (MyMG%cVariable.EQ."Displac") THEN
   CALL ZTIME(time0)
   IF (myid.ne.0) THEN
    CoarseIter  = myMG%nIterCoarse
@@ -381,7 +427,7 @@ REAL*8 def,def0
    myMG%X(mgLev)%x = 0d0
    CALL SSORSolverYYY(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
         myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-        myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,0,myMG%RLX,def)
+        myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,0,myMG%RLX,def0)
   END IF
   def0 = MAX(1d-30,def0)
   CALL COMM_maximum(def0)
@@ -391,12 +437,9 @@ REAL*8 def,def0
   DO I=1,10
    ITE = ITE + 1
    IF (myid.ne.0) THEN
-    CALL SSORSolverYYY(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-             myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-             myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,nnSteps,myMG%RLX,def)
-!      CALL E011_SSORSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
-!           myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
-!           myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,nnSteps,myMG%RLX,def)
+     CALL E011_SSORSolver(myMG%A11(mgLev)%a,myMG%A22(mgLev)%a,myMG%A33(mgLev)%a,&
+          myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+          myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,nnSteps,myMG%RLX,def)
    END IF
    def = MAX(1d-33,def)
    CALL COMM_maximum(def)
@@ -409,8 +452,41 @@ REAL*8 def,def0
   CALL ZTIME(time1)
   myStat%tSolvUVW = myStat%tSolvUVW + (time1-time0)
  END IF
+ 
+ IF (MyMG%cVariable.EQ."Temper") THEN
+  CALL ZTIME(time0)
+  IF (myid.ne.0) THEN
+   CoarseIter  = myMG%nIterCoarse
+   ILEV = mgLev
+   neq = KNVT(mgLev) !+ KNAT(mgLev) + KNET(mgLev) + KNEL(mgLev)
+   myMG%X(mgLev)%x = 0d0
+   CALL SSORSolver_GenLinSc_Q1(myMG%AXX,myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+        myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,0,myMG%nOfFields,myMG%RLX,def0)
+  END IF
+  def0 = MAX(1d-30,def0)
+  CALL COMM_maximum(def0)
 
-!  IF (myid.eq.0) write(*,*) myMG%X(mgLev)%x
+  nnSteps = myMG%nIterCoarse
+  ITE = 0
+  DO I=1,10
+   ITE = ITE + 1
+   IF (myid.ne.0) THEN
+    CALL SSORSolver_GenLinSc_Q1(myMG%AXX,myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+             myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,nnSteps,myMG%nOfFields,myMG%RLX,def)
+   END IF
+   def = MAX(1d-33,def)
+   CALL COMM_maximum(def)
+   
+!    if (myid.eq.showid) write(*,*) "def/def0",def/def0
+   IF (def/def0.LT.MyMG%DefImprCoarse) GOTO 2
+  END DO
+2 CONTINUE
+  CoarseIter = ITE*nnSteps
+  CALL ZTIME(time1)
+  myStat%tSolvUVW = myStat%tSolvUVW + (time1-time0)
+ END IF
+
+ !  IF (myid.eq.0) write(*,*) myMG%X(mgLev)%x
 END SUBROUTINE mgCoarseGridSolver
 !
 ! ----------------------------------------------
@@ -419,7 +495,7 @@ SUBROUTINE mgSmoother()
 INTEGER Iter,i,j,ndof,neq
 REAL*8 daux
 
- IF (MyMG%cVariable.EQ."Displacement") THEN
+ IF (MyMG%cVariable.EQ."Displac") THEN
   ILEV = mgLev
   if (myid.ne.0) then
    Iter  = myMG%nSmootherSteps
@@ -435,7 +511,59 @@ REAL*8 daux
   end if
  END IF
 
+ IF (MyMG%cVariable.EQ."Temper") THEN !done
+  ILEV = mgLev
+  if (myid.ne.0) then
+   Iter  = myMG%nSmootherSteps
+   ndof  = SIZE(myMG%X(mgLev)%x)
+
+   CALL ZTIME(time0)
+   neq = KNVT(mgLev) !+ KNAT(mgLev) + KNET(mgLev) + KNEL(mgLev)
+!       SUBROUTINE SSORSmoother_GenLinSc_Q1(AXX,KCOL,KLD,
+!      *           DX,DB,DD,KNPR,NEQ,NIT,NFLD,OMEGA)
+   CALL SSORSmoother_GenLinSc_Q1(myMG%AXX,myMG%L(mgLEV)%ColA,myMG%L(mgLEV)%LdA,&
+             myMG%X(mgLev)%x,myMG%B(mgLev)%x,myJCB%d1,ParKNPR,neq,Iter,myMG%nOfFields,myMG%RLX)
+   CALL ZTIME(time1)
+   myStat%tSmthUVW = myStat%tSmthUVW + (time1-time0)
+  end if
+ END IF
+ 
 END SUBROUTINE mgSmoother
+!
+! ----------------------------------------------
+!
+SUBROUTINE E011_GenLinSc_Q1_Prolongation(D2,D1,A,KLD,KCOL,KNPR,NFLD)
+IMPLICIT NONE
+REAL*8 A(*)
+INTEGER KLD(*),KCOL(*),KNPR(*)
+REAL*8 D1(*),D2(*)
+INTEGER I,J,ICOL,IFLD,NFLD
+INTEGER MEQ,iMEQ,iNEQ
+INTEGER LEQ,iLEQ
+
+IF (myid.eq.0) RETURN
+MEQ = KNVT(mgLev  )!+KNAT(mgLev  )+KNET(mgLev  )+KNEL(mgLev  )
+LEQ = KNVT(mgLev-1)!+KNAT(mgLev-1)+KNET(mgLev-1)+KNEL(mgLev-1)
+
+DO iFld=1,nFLD
+
+ iMEQ = (iFld-1)*MEQ
+ iNEQ = (iFld-1)*myMG%nOfSubsystemEqs
+ iLEQ = (iFld-1)*LEQ
+
+ DO I=1,MEQ
+  D2(iMEQ+I) = 0d0
+!   IF (KNPR(iNEQ+I).EQ.0) THEN
+   DO J=KLD(I),KLD(I+1)-1
+    ICOL = KCOL(J)
+    D2(iMEQ+I) = D2(iMEQ+I) + A(J)*D1(iLEQ+ICOL)
+   END DO
+!   END IF
+ END DO
+
+END DO
+ 
+END SUBROUTINE
 !
 ! ----------------------------------------------
 !
@@ -482,6 +610,47 @@ DO I=1,MEQ
   END DO
  END IF
 END DO
+
+END SUBROUTINE
+!
+! ----------------------------------------------
+!
+SUBROUTINE E011_GenLinSc_Q1_Restriction(D2,D1,A,KLD,KCOL,KNPR,nFLD)
+IMPLICIT NONE
+REAL*8 A(*)
+INTEGER N,KLD(*),KCOL(*),KNPR(*)
+INTEGER nFLD,iFLD
+REAL*8 D1(*),D2(*)
+INTEGER I,J,ICOL
+INTEGER MEQ,iMEQ,iNEQ
+INTEGER LEQ,iLEQ
+
+IF (myid.eq.0) RETURN
+MEQ = KNVT(mgLev  )!+KNAT(mgLev  )+KNET(mgLev  )+KNEL(mgLev  )
+LEQ = KNVT(mgLev+1)!+KNAT(mgLev+1)+KNET(mgLev+1)+KNEL(mgLev+1)
+
+
+DO iFld=1,nFLD
+
+ iMEQ = (iFld-1)*MEQ
+ iNEQ = (iFld-1)*myMG%nOfSubsystemEqs
+ iLEQ = (iFld-1)*LEQ
+
+ DO I=1,MEQ
+  D1(iMEQ+I) = 0d0
+!   IF (KNPR(iNEQ+I).eq.0) THEN
+   DO J=KLD(I),KLD(I+1)-1
+    ICOL = KCOL(J)
+    D1(iMEQ+I) = D1(iMEQ+I) + A(J)*D2(iLEQ+ICOL)
+   END DO
+!   END IF
+ END DO
+
+END DO
+
+ILEV = mgLev
+! if (myid.eq.1) WRITE(*,*) ilev
+! CALL E013Sum(D1)
 
 END SUBROUTINE
 !
@@ -568,10 +737,54 @@ END SUBROUTINE E011_DAX
 !
 ! ----------------------------------------------
 !
+SUBROUTINE E011_GenLinSc_Q1_DAX(DX,DD,A1,A2,NFLD)
+IMPLICIT NONE
+REAL*8  DX(*),DD(*),A1,A2
+INTEGER MEQ,iMEQ,NFLD
+INTEGER IEQ,IA,ICOL,IFLD
+
+ILEV = mgLev
+
+MEQ = KNVT(mgLev  ) !+KNAT(mgLev  )+KNET(mgLev  )+KNEL(mgLev  )
+
+DO IFLD=1,NFLD
+ iMEQ= (IFLD-1)*MEQ
+ DO IEQ=1,MEQ
+  DD(iMEQ+IEQ) = A2*DD(iMEQ+IEQ)
+  DO IA=myMG%L(mgLEV)%LdA(IEQ),myMG%L(mgLEV)%LdA(IEQ+1)-1
+   ICOL = myMG%L(mgLEV)%ColA(IA)
+   DD(iMEQ+IEQ) = DD(iMEQ+IEQ) + A1*myMG%AXX(IFLD)%fld(mgLEV)%a(IA)*DX(iMEQ+ICOL)
+  END DO
+ END DO
+END DO
+
+END SUBROUTINE E011_GenLinSc_Q1_DAX
+!
+! ----------------------------------------------
+!
 SUBROUTINE mgProlRestInit
 
 !  IF (myMG%bProlRest) RETURN
-  IF (MyMG%cVariable.EQ."Displacement") THEN
+  IF (MyMG%cVariable.EQ."Displac") THEN
+   DO mgLev = myMG%MedLev+1, myMG%MaxLev
+    ILEV = mgLev
+    CALL InitE011ProlMat(mg_E011ProlM(mgLev-1)%na,&
+         mg_E011Prol(mgLev-1)%a,mg_E011ProlM(mgLev-1)%LdA,mg_E011ProlM(mgLev-1)%ColA,&
+         mg_E011Rest(mgLev-1)%a,mg_E011RestM(mgLev-1)%LdA,mg_E011RestM(mgLev-1)%ColA,&
+         mg_mesh%level(mgLev-1)%kadj,mg_mesh%level(mgLev-1)%kvert,&
+         mg_mesh%level(mgLev-1)%kedge,&
+         mg_mesh%level(mgLev-1)%karea,mg_mesh%level(mgLev-1)%nvt,&
+         mg_mesh%level(mgLev-1)%net,mg_mesh%level(mgLev-1)%nat,&
+         mg_mesh%level(mgLev-1)%nel,&
+         mg_mesh%level(mgLev)%kadj,mg_mesh%level(mgLev)%kvert,&
+         mg_mesh%level(mgLev)%kedge,&
+         mg_mesh%level(mgLev)%karea,mg_mesh%level(mgLev)%nvt,&
+         mg_mesh%level(mgLev)%net,mg_mesh%level(mgLev)%nat,&
+         mg_mesh%level(mgLev)%nel)
+   END DO
+  END IF
+
+  IF (MyMG%cVariable.EQ."Temper") THEN !done
    DO mgLev = myMG%MedLev+1, myMG%MaxLev
     ILEV = mgLev
     CALL InitE011ProlMat(mg_E011ProlM(mgLev-1)%na,&
@@ -678,7 +891,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-16) THEN
       RLDA(JJ+1) = RLDA(JJ+1) + 1
       KK = KK + 1
      END IF
@@ -760,7 +973,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-5) THEN
+     IF (ABS(A(I,J)).GT.1d-16) THEN
       JJ_POS = RLDA(JJ) + RLDB(JJ+1)
       II_POS = PLDA(II) + KK
       RCOLA(JJ_POS) = II
@@ -832,527 +1045,45 @@ END SUBROUTINE E011_Lin
 ! ----------------------------------------------
 !
 SUBROUTINE JCB_Activation()
-INTEGER ndof,ndof_orig
+INTEGER ndof,ndof_orig,NN
+
 IF (myid.ne.0) THEN 
 
  ndof  = SIZE(myMG%X(MyMG%MaxLev)%x)
 
- IF (.NOT.myJCB%bActivated) THEN
+ IF (MyMG%cVariable.EQ."Disp") THEN ! done
+  IF (.NOT.myJCB%bActivated) THEN
 
-   ALLOCATE(myJCB%d1(3*ndof))
+    ALLOCATE(myJCB%d1(3*ndof))
 
-  myJCB%bActivated = .TRUE.
- ELSE
-  ndof_orig  = SIZE(myJCB%d1)
-  IF (ndof_orig.LT.ndof.AND.myid.ne.0) THEN
-   DEALLOCATE(myJCB%d1)
-   ALLOCATE(myJCB%d1(3*ndof))
+   myJCB%bActivated = .TRUE.
+  ELSE
+   ndof_orig  = SIZE(myJCB%d1)
+   IF (ndof_orig.LT.ndof.AND.myid.ne.0) THEN
+    DEALLOCATE(myJCB%d1)
+    ALLOCATE(myJCB%d1(3*ndof))
+   END IF
+  END IF
+ END IF
+
+ IF (MyMG%cVariable.EQ."Temper") THEN ! done
+  NN = KNVT(mgLev)
+  IF (.NOT.myJCB%bActivated) THEN
+
+    ALLOCATE(myJCB%d1((8**(1-MyMG%MaxDifLev))*MyMG%nOfFields*NN))
+
+   myJCB%bActivated = .TRUE.
+  ELSE
+   ndof_orig  = SIZE(myJCB%d1)
+   IF (ndof_orig.LT.ndof.AND.myid.ne.0) THEN
+    DEALLOCATE(myJCB%d1)
+    ALLOCATE(myJCB%d1((8**(1-MyMG%MaxDifLev))*MyMG%nOfFields*NN))
+   END IF
   END IF
  END IF
 
 END IF
+
 END SUBROUTINE JCB_Activation
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE outputsol2(x,dcoor,kvert,NoOfElem,NoOfVert,iInd)
-! REAL*8 X(*),dcoor(3,*)
-! INTEGER kvert(8,*),NoOfElem,NoOfVert
-! INTEGER I,J,iOutUnit,iInd
-! CHARACTER*12 cf
-! 
-! ! RETURN
-! iOutUnit = 442
-! 
-! WRITE(cf,'(A,I1.1,A,I2.2,A)') "gmv_",iInd,'_',myid,".gmv"
-! OPEN (UNIT=iOutUnit,FILE=cf,buffered="yes")
-! 
-! WRITE(iOutUnit,'(A)')'gmvinput ascii'
-! WRITE(iOutUnit,*)'nodes ',NoOfVert
-! 
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(1,i))
-! END DO
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(2,i))
-! END DO
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(3,i))
-! END DO
-! 
-! WRITE(iOutUnit,*)'cells ',NoOfElem
-! DO i=1,NoOfElem
-!  WRITE(iOutUnit,*)'hex 8'
-!  WRITE(iOutUnit,1300) (kvert(j,i),j=1,8)
-! END DO
-! 
-! WRITE(iOutUnit,*)  'variable'
-! WRITE(iOutUnit,*)  'pressure 1'
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1000) REAL(x(i))
-! END DO
-! 
-! WRITE(iOutUnit,*)  'endvars'
-! WRITE(iOutUnit,*)  'probtime',timens
-! 
-! WRITE(iOutUnit,*)  'endgmv'
-! 
-! CLOSE  (iOutUnit)
-! 
-! ! pause
-! 
-! 1000  FORMAT(E12.5)
-! 1200  FORMAT(E12.5)
-! 1300  FORMAT(8I8)
-! 
-! END SUBROUTINE outputsol2
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE outputsol1(x,dcoor,kvert,NoOfElem,NoOfVert,iInd)
-! REAL*8 X(*),dcoor(3,*)
-! INTEGER kvert(8,*),NoOfElem,NoOfVert
-! INTEGER I,J,iOutUnit,iInd
-! CHARACTER*12 cf
-! 
-! ! RETURN
-! iOutUnit = 442
-! 
-! WRITE(cf,'(A,I1.1,A,I2.2,A)') "gmv_",iInd,'_',myid,".gmv"
-! OPEN (UNIT=iOutUnit,FILE=cf,buffered="yes")
-! 
-! WRITE(iOutUnit,'(A)')'gmvinput ascii'
-! WRITE(iOutUnit,*)'nodes ',NoOfVert
-! 
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(1,i))
-! END DO
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(2,i))
-! END DO
-! DO i=1,NoOfVert
-!  WRITE(iOutUnit,1200) REAL(dcoor(3,i))
-! END DO
-! 
-! WRITE(iOutUnit,*)'cells ',NoOfElem
-! DO i=1,NoOfElem
-!  WRITE(iOutUnit,*)'hex 8'
-!  WRITE(iOutUnit,1300) (kvert(j,i),j=1,8)
-! END DO
-! 
-! WRITE(iOutUnit,*)  'variable'
-! WRITE(iOutUnit,*)  'pressure'
-! DO i=1,NoOfElem
-!  j = 4*(i-1) + 1
-!  WRITE(iOutUnit,1000) REAL(x(j))
-! END DO
-! 
-! WRITE(iOutUnit,*)  'endvars'
-! WRITE(iOutUnit,*)  'probtime',timens
-! 
-! WRITE(iOutUnit,*)  'endgmv'
-! 
-! CLOSE  (iOutUnit)
-! 
-! ! pause
-! 
-! 1000  FORMAT(E12.5)
-! 1200  FORMAT(E12.5)
-! 1300  FORMAT(8I8)
-! 
-! END SUBROUTINE outputsol1
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE mgCoarseGridSolver_P()
-! INTEGER Iter,i,j,ndof
-! REAL*8 daux
-! INTEGER iEntry,jCol
-! EXTERNAL E011
-! 
-!   IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,KNEL(mgLev))
-!   IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,KNEL(mgLev))
-!   IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,KNEL(mgLev))
-! 
-!   ILEV = mgLev
-!   CALL SETLEV(2)
-! 
-!   IF (myid.eq.0) THEN
-! 
-!    myMG%X(mgLev)%x = 0d0
-! 
-!    IF (myMG%MinLev.EQ.myMG%MedLev) THEN
-!  
-!     IF (MyMG%CrsSolverType.EQ.1) THEN
-!      myMG%X(mgLev)%x = 0d0
-!      ndof  = SIZE(myMG%X(mgLev)%x)
-!      CoarseIter = 999 
-!      CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
-!           ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-!           myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
-!     END IF
-! 
-!     IF (MyMG%CrsSolverType.EQ.2) THEN
-!      CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-!      CoarseIter = 1
-!     END IF
-! 
-!     IF (MyMG%CrsSolverType.EQ.3.OR.MyMG%CrsSolverType.EQ.4) THEN
-! 
-!      DO i=1,crsSTR%A%nu
-!       j = 4*(i-1) + 1
-!       crsSTR%A_SOL(i) = 0d0
-!       crsSTR%A_RHS(i) = myMG%B(mgLev)%x(j)
-!      END DO
-! 
-!      IF (MyMG%CrsSolverType.EQ.3) THEN
-!       CoarseIter = 999 
-!       CALL E012_BiCGStabSolverMaster(crsSTR%A_SOL,crsSTR%A_RHS,&
-!           crsSTR%A%nu,CoarseIter,E012_DAX_Master_A,E012_DCG_Master_A,.true.,&
-!           myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
-!      END IF
-!      IF (MyMG%CrsSolverType.EQ.4) THEN
-!       CALL myUmfPack_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A_MAT,crsSTR%A,1)
-!       CoarseIter = 1
-!      END IF
-! 
-!      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-!      CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,VWORK(L(KLVOL(mgLev))),KWORK(L(KLVERT(mgLev))))
-! 
-!      CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,KWORK(L(KLVERT(mgLev))),KWORK(L(KLAREA(mgLev))),&
-!                    KWORK(L(KLEDGE(mgLev))),DWORK(L(KLCVG(mgLev))),E011)
-! 
-!      CALL crsSmoother()
-! 
-!     END IF
-! 
-!    ELSE
-! 
-!     CALL crs_cycle()
-! !    CALL crs_oneStep()
-!  
-!   END IF
-!  END IF
-! 
-!  IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
-!  IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
-!  IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
-! 
-! !  CALL outputsol(myMG%X(mgLev)%x,myQ2coor,KWORK(L(KLVERT(mgLev))),KNEL(mgLev),KNVT(mgLev))
-! 
-!  CALL E013SendK(0,showid,CoarseIter)
-! 
-! END SUBROUTINE mgCoarseGridSolver_P
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_cycle()
-! 
-! IF (MyMG%CycleType.EQ."W")  CALL crs_W_cycle()
-! IF (MyMG%CycleType.EQ."V")  CALL crs_V_cycle()
-! IF (MyMG%CycleType.EQ."F")  CALL crs_F_cycle()
-! 
-! END SUBROUTINE crs_cycle
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_W_cycle()
-! INTEGER imgLev
-! 
-!  CALL crs_down(myMG%MedLev)
-! 
-!  CALL crs_W_subcycle(myMG%MedLev-1)
-! 
-!  CALL crs_up(myMG%MedLev)
-! 
-! END SUBROUTINE crs_W_cycle
-! !
-! ! ----------------------------------------------
-! !
-! RECURSIVE SUBROUTINE crs_W_subcycle(imgLev)
-! INTEGER imgLev
-! 
-!  IF (imgLev.NE.2) CALL crs_W_subcycle(imgLev-1)
-! 
-!  CALL crs_up(imgLev)
-!  CALL crs_down(imgLev)
-! 
-!  IF (imgLev.NE.2) CALL crs_W_subcycle(imgLev-1)
-! 
-! END SUBROUTINE crs_W_subcycle
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_F_cycle()
-! INTEGER imgLev
-! 
-!  CALL crs_down(myMG%MedLev)
-! 
-!  DO imgLev = myMG%MedLev+1,myMG%MedLev-1
-!   CALL crs_up(imgLev)
-!   CALL crs_down(imgLev)
-!  END DO
-! 
-!  CALL crs_up(myMG%MedLev)
-! 
-! END SUBROUTINE crs_F_cycle
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_V_cycle()
-! 
-!  CALL crs_down(myMG%MedLev)
-! 
-!  CALL crs_up(myMG%MedLev)
-! 
-! END SUBROUTINE crs_V_cycle
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_down(nimgLev)
-! INTEGER imgLev,nimgLev
-! 
-! ! Presmoothing + restriction
-!  DO imgLev = nimgLev,myMG%MinLev+1,-1
-! 
-! !  IF (myid.eq.1) write(*,*) "D",imgLev
-!   mgLev = imgLev
-!   CALL crsSmoother()                                          ! takes B as RHS and smoothes X
-!   CALL crsUpdateDefect(imgLev,.FALSE.)                        ! puts B into D and gets the new defect
-! 
-!   mgLev = imgLev - 1
-!   CALL crsRestriction()                                       ! brings D down by 1 level and stores it as B
-! 
-!   CALL crsGuessSolution()                                     ! choose zero initial vector
-!  END DO
-! 
-!  ! Corse Grid Solver
-!  CALL crsCoarseGridSolver()                                   ! computes linear system with X=(A^-1)B
-! 
-! END SUBROUTINE crs_down
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crs_up(nimgLev)
-! INTEGER imgLev,nimgLev
-! 
-!  ! Postsmoothing + prolongation
-!  DO imgLev = myMG%MinLev+1, nimgLev
-! 
-! !  IF (myid.eq.1) write(*,*) "U",imgLev
-!   mgLev = imgLev
-!   CALL crsProlongation()                                      ! brings X up by one level and stores it as AUX
-! 
-!   CALL crsUpdateSolution()                                    ! updates solution X = X_old + AUX(update)
-! 
-!   CALL crsSmoother()                                          ! takes B as RHS And smoothes the solution X further
-! 
-!  END DO
-! 
-! END SUBROUTINE crs_up
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsSmoother()
-! INTEGER Iter,i,j,ndof,neq
-! REAL*8 daux
-! 
-!  Iter  = myMG%nSmootherSteps
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-! 
-!  CALL ZTIME(time0)
-!  CALL crs_E012_SOR(myMG%X(mgLev)%x,myMG%B(mgLev)%x,ndof,Iter,myMG%RLX)
-! !  CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,Iter)
-!  CALL ZTIME(time1)
-!  myStat%tSmthP = myStat%tSmthP + (time1-time0)
-! 
-! END SUBROUTINE crsSmoother
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsUpdateDefect(imgLev,bDef)
-! INTEGER i,j,ndof,imgLev,neq
-! REAL*8  daux
-! LOGICAL bDef
-! 
-!  mgLev = imgLev
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-!  CALL LCP1(myMG%B(mgLev)%x,myMG%D(mgLev)%x,ndof) !myMG%D(mgLev)%x = myMG%B(mgLev)%x
-! ! CALL E012_DAX(myMG%X(mgLev)%x,myMG%XP,myMG%D(mgLev)%x,ndof,-1D0,1D0)
-!  CALL E012_DAX_Master(myMG%X(mgLev)%x,myMG%D(mgLev)%x,ndof,-1D0,1D0)
-! 
-!  IF (bDef) THEN 
-!   CALL LCP1(myMG%D(mgLev)%x,myMG%AUX(mgLev)%x,ndof) !myMG%AUX(mgLev)%x = myMG%D(mgLev)%x
-!   CALL mgDefectNorm(mgLev)
-!   IF (myid.ne.0) THEN
-!    myMG%AUX(mgLev)%x = 0d0
-!   END IF
-!  END IF
-! 
-! END SUBROUTINE crsUpdateDefect
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsRestriction()
-! INTEGER I,NDOF
-! 
-!  CALL ZTIME(time0)
-!  CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,KNEL(mgLev))
-!  CALL ZTIME(time1)
-!  myStat%tRestP = myStat%tRestP + (time1-time0)
-! 
-! END SUBROUTINE crsRestriction
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsProlongation()
-! INTEGER I,NDOF
-! 
-!  CALL ZTIME(time0)
-!  CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,KNEL(mgLev-1))
-!  CALL ZTIME(time1)
-!  myStat%tProlP = myStat%tProlP + (time1-time0)
-! 
-! END SUBROUTINE crsProlongation
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsGuessSolution()
-! 
-!  IF (mgLev.EQ.myMG%MinLev) RETURN
-!  myMG%X(mgLev)%x = 0d0
-! 
-! END SUBROUTINE crsGuessSolution
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsUpdateSolution()
-! INTEGER ndof
-! 
-!  ndof = SIZE(myMG%X(mgLev)%x) 
-!  CALL LLC1(myMG%AUX(mgLev)%x,myMG%X(mgLev)%x,ndof,1D0,1D0)      ! myMG%X(mgLev)%x = myMG%X(mgLev)%x + myMG%AUX(mgLev)%x
-! 
-! END SUBROUTINE crsUpdateSolution
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE crsCoarseGridSolver()
-! INTEGER ndof,neq
-! INTEGER ITE,I,j
-! REAL*8 def,def0
-! EXTERNAL E011
-! 
-!  mgLev = myMG%MinLev
-!  ILEV = myMG%MinLev
-!  CALL SETLEV(2)
-!  CoarseIter  = myMG%nIterCoarse
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-! 
-!  CALL ZTIME(time0)
-! 
-! !  CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-! !  CoarseIter = 1
-! 
-! !  CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
-! !       ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-! !       myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,myMG%DefImprCoarse)
-! 
-!     IF (MyMG%CrsSolverType.EQ.1) THEN
-!      myMG%X(mgLev)%x = 0d0
-!      ndof  = SIZE(myMG%X(mgLev)%x)
-!      CoarseIter = 999 
-!      CALL E012_BiCGStabSolverMaster(myMG%X(mgLev)%x,myMG%B(mgLev)%x,&
-!           ndof,CoarseIter,E012_DAX_Master,E012_DCG_Master,.true.,&
-!           myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
-!     END IF
-! 
-!     IF (MyMG%CrsSolverType.EQ.2) THEN
-!      CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-!      CoarseIter = 1
-!     END IF
-! 
-!     IF (MyMG%CrsSolverType.EQ.3.OR.MyMG%CrsSolverType.EQ.4) THEN
-! 
-!      DO i=1,crsSTR%A%nu
-!       j = 4*(i-1) + 1
-!       crsSTR%A_SOL(i) = 0d0
-!       crsSTR%A_RHS(i) = myMG%B(mgLev)%x(j)
-!      END DO
-! 
-!      IF (MyMG%CrsSolverType.EQ.3) THEN
-!       CoarseIter = 999 
-!       CALL E012_BiCGStabSolverMaster(crsSTR%A_SOL,crsSTR%A_RHS,&
-!           crsSTR%A%nu,CoarseIter,E012_DAX_Master_A,E012_DCG_Master_A,.true.,&
-!           myCG%d1,myCG%d2,myCG%d3,myCG%d4,myCG%d5,1d-4)
-!      END IF
-!      IF (MyMG%CrsSolverType.EQ.4) THEN
-!       CALL myUmfPack_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A_MAT,crsSTR%A,1)
-!       CoarseIter = 1
-!      END IF
-! 
-!      crsSTR%A_SOL = 3d0*crsSTR%A_SOL
-!      CALL INTPVB(crsSTR%A_SOL,myCG%d1,myCG%d2,VWORK(L(KLVOL(mgLev))),KWORK(L(KLVERT(mgLev))))
-!      
-!      CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,KWORK(L(KLVERT(mgLev))),KWORK(L(KLAREA(mgLev))),&
-!                    KWORK(L(KLEDGE(mgLev))),DWORK(L(KLCVG(mgLev))),E011)
-! 
-!      CALL crsSmoother()
-! 
-!     END IF
-! 
-!  CALL ZTIME(time1)
-!  myStat%tSolvP = myStat%tSolvP + (time1-time0)
-! 
-! END SUBROUTINE crsCoarseGridSolver
-! !
-! ! ----------------------------------------------
-! !
-! 
-! SUBROUTINE crs_oneStep()
-! INTEGER Iter,i,j,ndof
-! REAL*8 daux
-! 
-!  Iter  = myMG%nSmootherSteps
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-! 
-!  CALL ZTIME(time0)
-!  CALL crs_E012_SOR(myMG%X(mgLev)%x,myMG%B(mgLev)%x,ndof,Iter,myMG%RLX)
-!  CALL ZTIME(time1)
-!  myStat%tSmthP = myStat%tSmthP + (time1-time0)
-! 
-!  CALL LCP1(myMG%B(mgLev)%x,myMG%D(mgLev)%x,ndof)
-!  CALL E012_DAX_Master(myMG%X(mgLev)%x,myMG%D(mgLev)%x,ndof,-1D0,1D0)
-! 
-!  mgLev = mgLev - 1
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-!  
-!  CALL ZTIME(time0)
-!  CALL E012_Restriction(myMG%D(mgLev+1)%x,myMG%B(mgLev)%x,mg_E012Prol(mgLev)%a,KNEL(mgLev))
-!  CALL ZTIME(time1)
-!  myStat%tRestP = myStat%tRestP + (time1-time0)
-! 
-!  myMG%X(mgLev)%x = 0d0
-! 
-!  CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
-! 
-!  mgLev = mgLev + 1
-!  ndof  = SIZE(myMG%X(mgLev)%x)
-! 
-!  CALL ZTIME(time0)
-!  CALL E012_Prolongation(myMG%AUX(mgLev)%x,myMG%X(mgLev-1)%x,mg_E012Prol(mgLev-1)%a,KNEL(mgLev-1))
-!  CALL ZTIME(time1)
-!  myStat%tProlP = myStat%tProlP + (time1-time0)
-! 
-!  CALL LLC1(myMG%AUX(mgLev)%x,myMG%X(mgLev)%x,ndof,1D0,1D0)
-! 
-!  CALL ZTIME(time0)
-!  CALL crs_E012_SOR(myMG%X(mgLev)%x,myMG%B(mgLev)%x,ndof,Iter,myMG%RLX)
-!  CALL ZTIME(time1)
-!  myStat%tSmthP = myStat%tSmthP + (time1-time0)
-! 
-! END SUBROUTINE crs_oneStep
-! !
-! ! ----------------------------------------------
-! !
 
 END MODULE mg_LinScalar

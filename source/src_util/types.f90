@@ -148,7 +148,7 @@ END TYPE
 
 TYPE tParticle
  REAL*8 time
- REAL*8 coor(3)
+ REAL*8 coor(3),velo(3)
  INTEGER indice
  INTEGER :: ID=1
 END TYPE tParticle
@@ -165,7 +165,7 @@ END TYPE tParticle
 !END TYPE tParam
 
 TYPE tMGParamIn
- INTEGER MinLev,MedLev,MaxLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
+ INTEGER MinLev,MedLev,MaxLev,MaxDifLev,MinIterCycle,MaxIterCycle,nSmootherSteps,nIterCoarse,CrsSolverType,SmootherType
  integer :: vanka
  REAL*8  DefImprCoarse,Criterion1,Criterion2,RLX
  REAL*8 :: CrsRelaxPrm=2d0/3d0,CrsRelaxParPrm=1d0/3d0
@@ -176,11 +176,14 @@ END TYPE tMGParamIn
 TYPE tMGParamOut
  REAL*8 DefInitial,DefFinal
  REAL*8 RhoMG1,RhoMG2
+ REAL*8 u_rel(6),p_rel(2)
  INTEGER UsedIterCycle,nIterCoarse
 END TYPE tMGParamOut
 
 TYPE tParam
  Character*20 :: cEquation
+ Character*20, allocatable :: cField(:)
+ integer :: nOfFields
 
  REAL*8  defCrit,epsCrit,MinDef
 
@@ -258,7 +261,7 @@ TYPE tProperties
  REAL*8 :: ViscoLambda
  REAL*8 :: ViscoAlphaExp   =-0.1d0, ViscoAlphaImp   =+0.1d0
  REAL*8 :: NS_StabAlpha_Exp=-0.1d0, NS_StabAlpha_Imp=+0.1d0
- INTEGER :: ViscoModel
+ INTEGER :: ViscoModel,nTPSubSteps,nTPIterations,nTPFSubSteps
  INTEGER :: nInterface
 END TYPE tProperties
 
@@ -370,6 +373,28 @@ TYPE lScalar3
  
 END TYPE
 
+TYPE lScalarField
+ CHARACTER cName*7
+ integer ID
+ INTEGER , DIMENSION(:)  , ALLOCATABLE :: knpr
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val_old
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val_old_timestep
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: rhs
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: def
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux
+END TYPE
+
+TYPE lScalarGen
+ CHARACTER cName*7
+ INTEGER :: ndof,na,nOfFields
+ LOGICAL :: bProlRest=.FALSE. 
+ TYPE(lScalarField), DIMENSION(:)  , ALLOCATABLE :: Fld
+ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: def,sol,aux,rhs
+ INTEGER, DIMENSION(:),ALLOCATABLE :: knpr
+ TYPE(tParam) :: prm
+END TYPE
+
 TYPE tVelo
  REAL*8, ALLOCATABLE :: x(:)
  REAL*8, ALLOCATABLE :: y(:)
@@ -388,6 +413,11 @@ INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 TYPE tParticleInflow
  REAL*8 :: Center(3), Radius
 END TYPE tParticleInflow
+
+TYPE tPhysParticles
+ REAL*8 :: rho_l, rho_p, d_p, mu_l
+ REAL*8 :: gravity(3) 
+END TYPE tPhysParticles
 
 TYPE tParticleParam
  REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist,OutflowZPos
@@ -420,10 +450,12 @@ TYPE tParticleParam
  
  LOGICAL :: bRotationalMovement=.true.
 
- LOGICAL :: bBacktrace=.false.
+ LOGICAL :: bBacktrace=.false.,bPhysParticles=.false.
  
  INTEGER :: NumberOfInflowRegions=0
  TYPE(tParticleInflow), ALLOCATABLE :: InflowRegion(:)
+ 
+ TYPE (tPhysParticles) :: PhysParticles
  
  !!!! Seeding 
  INTEGER  :: Plane = 0, PlaneParticles = 0, VolumeParticles = 0
@@ -467,6 +499,13 @@ TYPE tSensor
   REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
 END TYPE tSensor
 
+TYPE tConvergenceDetector
+  REAL*8  :: Condition=0.01d0
+  INTEGER :: Counter  = 0
+  INTEGER :: Limit  = 250
+  LOGICAL :: Converged=.FALSE.
+END TYPE tConvergenceDetector
+
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
   CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
@@ -482,6 +521,7 @@ TYPE tSegment
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L
   REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
+  REAL*8 :: SegRotFreq
   INTEGER :: ZME_N
   REAL*8  :: SecProf_W, SecProf_D,SecProf_L
   INTEGER :: SecProf_N, SecProf_I
@@ -491,6 +531,7 @@ TYPE tSegment
   character*64 :: regulation="SIMPLE"
   TYPE(tSensor) TemperatureSensor
   TYPE(tPID) PID_ctrl
+  TYPE(tConvergenceDetector) ConvergenceDetector
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
   !!!!!!!!!!!!!!!!!!!
@@ -501,8 +542,9 @@ END TYPE tSegment
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
+  LOGICAL :: ScrewCylinderRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
-  REAL*8 :: Dz_out,Dz_in, a, L, SegmentLength, DZz,W
+  REAL*8 :: Dz_out,Dz_in, a, L, L0, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
   INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
@@ -523,23 +565,43 @@ TYPE tRheology
    REAL*8 :: ViscoMax = 1e10
 END TYPE tRheology
 
-TYPE tInflow
+TYPE tSubInflow
  INTEGER iBCtype,Material
- REAL*8  massflowrate, outerradius,innerradius
+ REAL*8  massflowrate, outerradius,innerradius,temperature
  REAL*8  center(3),normal(3)
+END TYPE tSubInflow
+
+TYPE tInflow
+ INTEGER :: nSubInflows=0
+ TYPE (tSubInflow), dimension(:), allocatable :: mySubInflow
+ 
+ INTEGER iBCtype,Material
+ REAL*8  massflowrate, outerradius,innerradius,temperature
+ REAL*8  center(3),normal(3)
+ real*8, allocatable :: PressureEvolution(:)
 END TYPE tInflow
+
+TYPE tSegThermoPhysProp
+ real*8 rho,cp,lambda,T_const
+ character*256 :: cConstTemp
+ logical :: bConstTemp=.false.
+ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
+   REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
    REAL*8 :: dAlpha
+   REAL*8 :: ExtrusionGapSize,ExtrusionSpeed
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
    REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
    integer   nOfInflows
    TYPE (tInflow), dimension(:), allocatable :: myInflow
+   LOGICAL :: SegmentThermoPhysProps=.false.
+   TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
@@ -549,7 +611,7 @@ END TYPE tProcess
 
 TYPE tThermodyn
    CHARACTER*60 :: DensityModel='NO'
-   REAL*8 :: density=0d0, densitySteig=0d0
+   REAL*8 :: densityT0=0d0, density=0d0, densitySteig=0d0
    REAL*8 :: lambda=0d0, Cp=0d0, lambdaSteig=0d0,CpSteig=0d0
    REAL*8 :: Alpha=0d0, Beta=0d0, Gamma=0d0
 END TYPE tThermodyn
@@ -571,11 +633,15 @@ TYPE tTransientSolution
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
  TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+ TYPE(mg_dVector), ALLOCATABLE :: iSeg(:)
 END TYPE tTransientSolution
 
 TYPE tSetup
  LOGICAL :: bPressureFBM = .FALSE.
- LOGICAL :: bAutomaticTimeStepControl = .TRUE.
+ REAL*8  :: PressureConvergenceTolerance 
+ Logical :: bPressureConvergence= .FALSE.
+ LOGICAL :: bAutomaticTimeStepControl = .TRUE.,bRotationalFramOfReference=.FALSE.
+ LOGICAL :: bConvergenceEstimator=.FALSE.
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher
@@ -591,5 +657,20 @@ TYPE tOutput
  REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
  REAL*8  :: CutDtata_1D=0.04d0
 END TYPE tOutput
+
+TYPE tErrorCodes
+ INTEGER :: WRONG_SCREW=88
+ INTEGER :: DIVERGENCE_U=55
+ INTEGER :: DIVERGENCE_T=56
+ INTEGER :: SIGMA_READER=44
+END TYPE
+
+TYPE tMGSteps
+ INTEGER :: m=2
+ INTEGER :: i,j,iaux
+ real*8  :: daux
+ INTEGER, allocatable :: n(:)
+ REAL*8, allocatable :: r(:)
+END TYPE tMGSteps
 
 end module types

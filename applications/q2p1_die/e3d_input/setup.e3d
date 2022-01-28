@@ -1,0 +1,96 @@
+[REX3DFileInfo]
+filetype = ToExtrud3D
+fileversion = REX3D 1.0
+date = 06/13/2019
+appversion = REX 15.1.0_beta (2642)
+configid = Wendel-06132019104953-1058267801
+comment = NCC-1701
+
+[E3DGeometryData]
+processname = Wendel
+
+[E3DGeometryData/Machine]
+type=die
+Unit=mm
+ScrewCylinderRendering=OFF
+rotationdirection = LEFT
+barreldiameter = 70.0
+noofelements = 1
+barrellength = 9.0
+innerdiameter = 69.0
+
+[E3DGeometryData/Machine/Element_1]
+name = VekaDIE_572A
+Unit=mm
+diameter = 70.0
+startposition = 0.0
+off_filelist = flowchannel.off
+calculatedinflowdiammin = 69.0
+calculatedinflowdiammax = 70.0
+innerdiameter = 69.0
+objecttype = die
+type = OFF
+
+[E3DProcessParameters]
+nOfInflows = 1
+screwspeed = 1.0
+processtype = THROUGHPUT
+massthroughput = 141.0
+materialtemperature = 190.0
+barreltemperature = 190.0
+screwtemperature = _INVALID_
+barreltemperatureadiabatic = NO
+screwtemperatureadiabatic = YES
+mininflowdiameter = 50.0
+maxinflowdiameter = 69.0
+ExtrusionSpeed_CMpS = 24.0
+ExtrusionGapSize_MM = 0.5
+
+[E3DProcessParameters/Inflow_1]
+type=CURVEDFLAT
+material=1
+InnerRadius = 3.0
+OuterRadius = 3.5
+Massflowrate=25.0
+center=0.0, 0.0, -3.5
+normal=0.0, 0.0, 1.0
+
+[E3DProcessParameters/Material]
+name = LDPE
+type = Polymer
+limitviscomin = 1.00000000
+limitviscomax = 100000.00000000
+
+[E3DProcessParameters/Material/RheologicalData]
+calcvisco = Carreau
+CalcTemp=isotherm
+
+[E3DProcessParameters/Material/RheologicalData/Carreau]
+zeroviscosity = 1000.0
+recipvelocity = 1.0
+exponent = 0.85
+
+[E3DProcessParameters/Material/ThermoData]
+heatconductivity = 0.231
+heatconductivityslope = 0.00001700
+heatcapacity = 2.0870000
+heatcapacityslope = 0.00431000
+densitymodel = DENSITY
+
+[E3DProcessParameters/Material/ThermoData/Density]
+density = 1.35
+densityslope = 0.0001
+
+[E3DSimulationsettings/Output]
+nOf1DLayers=128
+nOfHistogramBins=16
+HistogramShearMax=1e4
+HistogramShearMin=1e-1
+CutDtata_1D=0.003
+
+[E3DSimulationsettings]
+meshquality = medium
+HexMesher=OFF
+KTPRelease=NO
+AutomaticTimeStepControl=YES
+TimeStepEnlargmentFactor=5d0

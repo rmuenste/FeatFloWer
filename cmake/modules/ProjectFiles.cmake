@@ -92,6 +92,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
   ${src_mpi}
   ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90

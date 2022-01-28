@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+
+usage()
+{
+cat << EOF
+usage: 
+
+$0 {-f Filename} {-n NumOfProcs}
+
+OPTIONS:
+   -f      Configuration folder provided by the SSE GUI
+   -n      Total number of processors required for the simulations - constrained within <3,99>
+   -h      Hostfile including list of nodes available for the simulation (for deatils see the manual of OpenMPI)
+   -r      Rankfile coding the assignement of subdomains to nodes (for deatils see the manual of OpenMPI)
+EOF
+}
+
+crankfile=""
+chostfile=""
+
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
+
+while [ $# != 0 ]; do
+ flag="$1"
+ case "$flag" in
+  -f) if [ $# -gt 1 ]; then
+       parameterfolder="$2"
+       parameterMeshDir="$2/meshDir"
+       parameterfile="$2/Extrud3D.dat"
+       shift
+      else
+       echo "You did not provide an argument for the -f flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -n)  if [ $# -gt 1 ]; then
+        numofproc="$2"
+        shift
+       else
+        echo "You did not provide an argument for the -n flag"
+        usage
+        exit 1
+       fi
+   ;;
+  -h) if [ $# -gt 1 ]; then
+       hostfile="$2"
+       checkfilename=$(ls $hostfile | grep -w $hostfile )
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing hostfile '$hostfile' ...                         "
+        exit 1
+       fi
+       chostfile="-hostfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -h flag"
+        usage
+        exit 1
+      fi
+   ;;
+  -r) if [ $# -gt 1 ]; then
+       rankfile="$2"
+       checkfilename=$(ls $rankfile | grep -w $rankfile)
+       if [ "$checkfilename" == "" ]
+       then
+        echo "             Missing rankfile '$rankfile' ...                         "
+        exit 1
+       fi
+       crankfile="-rankfile $2"
+       shift
+      else
+       echo "You did not provide an argument for the -r flag"
+        usage
+        exit 1
+      fi
+   ;;
+   *) echo "Unrecognized flag or argument: $flag"
+      usage
+      exit 1
+   ;;
+ esac
+ shift
+done
+
+if [[ -z $parameterfile ]] || [[ -z $numofproc ]]
+then
+  echo " ------------------------------------------------------------------------------ "
+  echo "                       Missing arguments ...                                    "
+  echo " ------------------------------------------------------------------------------ "
+  usage
+  exit 1
+fi
+
+checkfilename=$(ls $parameterfile | grep -w $parameterfile)
+if [ "$checkfilename" == "" ]
+then
+echo " ------------------------------------------------------------------------------ "
+echo "             Missing parameterfile '$parameterfile' ...                         "
+echo " ------------------------------------------------------------------------------ "
+exit 1
+fi
+cp ${parameterfile} _data/Extrud3D_0.dat
+cp -rf ${parameterMeshDir} _data/.
+
+
+echo "  "
+echo "  ----------------------------------------------------------------------------------------------------- "
+echo "                                        Launching sse3D...                                           "
+echo "  ----------------------------------------------------------------------------------------------------- "
+echo "  "
+echo "  "
+
+# let NumberOfPins=`grep NSt $parameterfile | cut -d A -f1 | xargs`
+# 
+# 
+# nmin=1
+# delta=3
+# nmax=0
+# 
+# if [ ${NumberOfPins} -eq 2 ] ; then
+#  nmax=60
+# fi
+# 
+# if [ ${NumberOfPins} -eq 3 ] ; then
+#  nmax=40
+# fi
+# 
+# if [ ${NumberOfPins} -eq 4 ] ; then
+#  nmax=30
+# fi
+# 
+# if [ ${NumberOfPins} -eq 5 ] ; then
+#  nmax=24
+# fi
+# 
+# if [ ${NumberOfPins} -eq 6 ] ; then
+#  nmax=20
+# fi
+# 
+# if [ ${NumberOfPins} -eq 8 ] ; then
+#  nmax=15
+# fi
+# 
+# if [ ${NumberOfPins} -eq 12 ] ; then
+#  nmax=10
+# fi
+# 
+# if [ ${nmax} -eq 0 ] ; then
+#  echo " ------------------------------------------------------------------------------ "
+#  echo "             Wrong number (${NumberOfPins}) of pins in '$parameterfile' ...                       "
+#  echo "             this number should be 3,4,6,8 or 12                                   "
+#  echo " ------------------------------------------------------------------------------ "
+#  exit 1
+# fi
+
+delta=40
+nmin=0
+nmax=0
+start=0
+
+#echo ${NumberOfPins}
+
+echo " " | cat >> _data/Extrud3D_0.dat
+echo "[E3DSimulationSettings]" | cat >> _data/Extrud3D_0.dat
+echo "dAlpha="${delta} | cat >> _data/Extrud3D_0.dat
+
+./s3d_mesher
+
+for ((i=${nmin}; i<=${nmax};i++))
+do
+
+ cat _data/Extrud3D_0.dat > _data/Extrud3D.dat
+ let angle=start+i*delta
+ echo "Angle=${angle}" | cat >> _data/Extrud3D.dat
+ 
+#  echo "Periodicity="$Periodicity | cat >> _data/Extrud3D_0.dat
+#  echo "nSolutions="${NumberOfTimeLevels} | cat >> _data/Extrud3D_0.dat
+#  echo "${angle} " | cat > angle.txt
+#  cat angle.txt _data/Extrud3D_0.dat > _data/Extrud3D.dat
+
+ mpirun -np $numofproc $chostfile $crankfile ./sse_bin
+ if [ ${angle} -lt 10 ]
+ then
+   zeros=000
+ else
+  if [ ${angle} -lt 100 ]
+  then
+   zeros=00
+  else
+   if [ ${angle} -lt 1000 ]
+   then
+    zeros=0
+   else
+    zeros=
+   fi
+  fi
+ fi
+ 
+ mv _data/prot.txt _data/prot_${zeros}${angle}.txt
+
+done
+
+exit 1

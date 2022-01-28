@@ -3,7 +3,7 @@ MODULE Transport_Q2P1
 
 USE def_QuadScalar
 ! USE PP3D_MPI
-USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
+USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
@@ -412,6 +412,13 @@ Real*8 :: dabl
  mg_mesh%level(ilev)%nat+&
  mg_mesh%level(ilev)%nel))
  myALE%MeshVelo = 0d0
+ 
+! IF (myProcess%SegmentThermoPhysProps) THEN
+  allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
+  mg_mesh%level(ilev)%net+&
+  mg_mesh%level(ilev)%nat+&
+  mg_mesh%level(ilev)%nel))
+! END IF
 
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
@@ -1244,7 +1251,7 @@ SUBROUTINE Boundary_QuadScalar_Def()
     
      DAUX = QuadSc%defU(i) * BoundaryNormal(1,i) + &
             QuadSc%defV(i) * BoundaryNormal(2,i) + &
-            QuadSc%defV(i) * BoundaryNormal(3,i)
+            QuadSc%defW(i) * BoundaryNormal(3,i)
            
      QuadSc%defU(i) = QuadSc%defU(i) - DAUX*BoundaryNormal(1,i)
      QuadSc%defV(i) = QuadSc%defV(i) - DAUX*BoundaryNormal(2,i)
@@ -1300,7 +1307,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
     IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
      DAUX = QuadSc%ValU(i) * BoundaryNormal(1,i) + &
             QuadSc%ValV(i) * BoundaryNormal(2,i) + &
-            QuadSc%ValV(i) * BoundaryNormal(3,i)
+            QuadSc%ValW(i) * BoundaryNormal(3,i)
            
      QuadSc%ValU(i) = QuadSc%ValU(i) - DAUX*BoundaryNormal(1,i)
      QuadSc%ValV(i) = QuadSc%ValV(i) - DAUX*BoundaryNormal(2,i)
@@ -1475,6 +1482,13 @@ SUBROUTINE Velocity_Correction()
 
   ! *** Update of U = U~ - k M^-1 B P 
 
+  ILEV = NLMAX
+  qlMat     => mg_qlMat(ILEV)
+  BXMat     => mg_BXMat(ILEV)%a
+  BYMat     => mg_BYMat(ILEV)%a
+  BZMat     => mg_BZMat(ILEV)%a
+  MlRhoPmat => mg_MlRhoPmat(ILEV)%a
+  
   CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%ValP(NLMAX)%x,&
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,-TSTEP,0d0)
 
@@ -1512,6 +1526,11 @@ SUBROUTINE AddPressureGradient()
   INTEGER I,J,IEL
   REAL*8 ddx,ddy,ddz,ddp
 
+  ILEV = NLMAX
+  qlMat    => mg_qlMat(ILEV)
+  BXMat    => mg_BXMat(ILEV)%a
+  BYMat    => mg_BYMat(ILEV)%a
+  BZMat    => mg_BZMat(ILEV)%a
   CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
     QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
 
@@ -1608,6 +1627,11 @@ SUBROUTINE OperatorRegenaration(iType)
    bHit = .TRUE.
   END IF
 
+  IF (iType.EQ.3.and.(NewtonForBurgers.ne.0d0)) then
+   CALL Create_barMMat_iso(QuadSc)
+   bHit = .TRUE.
+  END IF
+
   IF (myid.EQ.ShowID.AND.bHit) WRITE(MTERM,'(A)', advance='yes') " "
 
 END SUBROUTINE OperatorRegenaration
@@ -1683,6 +1707,44 @@ SUBROUTINE FBM_GetForces()
     LinSc%valP(NLMAX)%x,Viscosity,FictKNPR)
 
 END SUBROUTINE FBM_GetForces
+!
+! ----------------------------------------------
+!
+SUBROUTINE FAC_GetForcesParT(mfile,iT)
+  INTEGER mfile,iT
+  REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0
+  REAL*8 :: Scale
+  REAL*8 :: U_mean=1.0d0,H=0.20d0,D=1d0
+  INTEGER i,nn
+  EXTERNAL E013
+
+  ILEV=NLMAX
+  CALL SETLEV(2)
+
+  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN 
+    CALL EvaluateDragLift9_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%P_new,BndrForce,ForceV,ForceP)
+  ELSE
+    CALL EvaluateDragLift_old(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+      LinSc%P_new,BndrForce,ForceV,ForceP)
+  END IF
+
+  Factor = 2d0/(postParams%U_mean*postParams%U_mean*postParams%D*postParams%H)
+  ForceP = Factor*ForceP
+  ForceV = Factor*ForceV
+
+  IF (myid.eq.showID) THEN
+   write(mfile,'(A16,3ES15.7E2,I3)') "BenchForceParT: ",timens,ForceV(1:2)+forceP(1:2),iT
+   write(MTERM,'(A16,3ES15.7E2,I3)') "BenchForceParT: ",timens,ForceV(1:2)+forceP(1:2),iT
+   WRITE(MTERM,5)
+   WRITE(MFILE,5)
+
+!    WRITE(666,'(10ES16.8,I3)') Timens,ForceV+forceP,ForceV,forceP,iT
+  END IF
+
+  5  FORMAT(104('-'))
+
+END SUBROUTINE FAC_GetForcesParT
 !
 ! ----------------------------------------------
 !
@@ -2200,34 +2262,82 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   REAL*8 HogenPowerlaw
   REAL*8 ViscosityMatModel
 
-    ILEV = NLMAX
-    CALL SETLEV(2)
+  ILEV = NLMAX
+  CALL SETLEV(2)
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
 
-    CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
-    CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-    CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
 
-    DO i=1,SIZE(QuadSc%ValU)
-    daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
-      0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
-      0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
-      0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
-    taux = Temperature(i)
+  DO i=1,SIZE(QuadSc%ValU)
+   daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
+     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+   taux = Temperature(i)
 
-    Shearrate(i) = sqrt(2d0 * daux)
-    Viscosity(i) = ViscosityMatModel(daux,1,taux)
+   Shearrate(i) = sqrt(2d0 * daux)
+   Viscosity(i) = ViscosityMatModel(daux,1,taux)
 
-    END DO
+  END DO
 
 END SUBROUTINE  GetNonNewtViscosity_sse
+!
+! ----------------------------------------------
+!
+SUBROUTINE  GetAlphaNonNewtViscosity_sse()
+  INTEGER i
+  REAL*8 daux,taux,dAlpha
+  REAL*8 AlphaViscosityMatModel,dMaxMat
+  integer ifld,iMat
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,1,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,2,Properties%Density(1))
+
+  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+  CALL GetGradVelo_val(QuadSc,3,Properties%Density(1))
+
+  DO i=1,SIZE(QuadSc%ValU)
+   daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
+     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+
+   taux   = GenLinScalar%Fld(1)%val(i)
+   
+   iMat = myMultiMat%InitMaterial
+   dMaxMat = 1d-5
+   do iFld=2,GenLinScalar%nOfFields
+    if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
+     iMat = iFld-1
+     dMaxMat = GenLinScalar%Fld(iFld)%val(i)
+    end if
+   end do
+!   dalpha = GenLinScalar%Fld(2)%val(i)
+     
+   Shearrate(i) = sqrt(2d0 * daux)
+   Viscosity(i) = AlphaViscosityMatModel(daux,iMat,taux)
+
+  END DO
+
+END SUBROUTINE  GetAlphaNonNewtViscosity_sse
 !
 ! ----------------------------------------------
 !
@@ -2236,7 +2346,7 @@ implicit none
 INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
 REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
-REAL*8 dIntPres1,dIntPres2,dPressureDifference
+REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax
 
 
 integer :: ilevel
@@ -2283,18 +2393,34 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
                      Viscosity,Torque1, E013,103)
 END IF
 
-IF (myid.ne.0) then
- call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ IF (myid.ne.0) then
+  call Integrate_DIE_Flowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dVolFlow1,0.0d0)
+                        dVolFlow1,0)
 
- call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+  call Integrate_DIE_Flowrate(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dVolFlow2,mySigma%L)
+                        dVolFlow2,1)
+ END IF
+ELSE
+ IF (myid.ne.0) then
+  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow1,mySigma%L0)
+
+  call IntegrateFlowrate(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dVolFlow2,mySigma%L0+mySigma%L)
+ END IF
 END IF
 
 IF (myid.ne.0) then
@@ -2302,13 +2428,13 @@ IF (myid.ne.0) then
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dIntPres1,dArea1,0.0d0)
+                        dIntPres1,dArea1,mySigma%L0)
 
  call IntegratePressure(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
                         mg_mesh%level(ilevel)%nel,&
-                        dIntPres2,dArea2,mySigma%L)
+                        dIntPres2,dArea2,mySigma%L0+mySigma%L)
 END IF
 
 dHeat = 0d0
@@ -2365,6 +2491,63 @@ END IF
 5  FORMAT(100('-'))
 
 END SUBROUTINE Calculate_Torque
+!
+! ----------------------------------------------
+!
+SUBROUTINE Integrate_DIE_Flowrate(dcorvg,karea,kvert,nel,dVolFlow,iPar)
+REAL*8 dcorvg(3,*),dVolFlow
+INTEGER karea(6,*),kvert(8,*),nel,iPar
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dAN(3),dV
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+
+dVolFlow = 0d0
+
+if (iPar.eq.0) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    IF (myBoundary%iInflow(nvt+net+k).ne.0) THEN
+     ivt1 = kvert(NeighA(1,j),i)
+     ivt2 = kvert(NeighA(2,j),i)
+     ivt3 = kvert(NeighA(3,j),i)
+     ivt4 = kvert(NeighA(4,j),i)
+     CALL GET_NormalArea(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dcorvg(1:3,nvt+net+nat+i),dAN)
+     dV = dAN(1)*QuadSc%ValU(nvt+net+k) + dAN(2)*QuadSc%ValV(nvt+net+k) + dAN(3)*QuadSc%ValW(nvt+net+k)
+!      write(*,'(4ES12.4)') dAN
+     dVolFlow = dVolFlow + dV
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+if (iPar.eq.1) then
+ k=1
+ DO i=1,nel
+  DO j=1,6
+   IF (k.eq.karea(j,i)) THEN
+    IF (myBoundary%bOutflow(nvt+net+k)) THEN
+     ivt1 = kvert(NeighA(1,j),i)
+     ivt2 = kvert(NeighA(2,j),i)
+     ivt3 = kvert(NeighA(3,j),i)
+     ivt4 = kvert(NeighA(4,j),i)
+     CALL GET_NormalArea(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dcorvg(1:3,nvt+net+nat+i),dAN)
+     dAN = - dAN
+     dV = dAN(1)*QuadSc%ValU(nvt+net+k) + dAN(2)*QuadSc%ValV(nvt+net+k) + dAN(3)*QuadSc%ValW(nvt+net+k)
+     dVolFlow = dVolFlow + dV
+    END IF
+    k = k + 1
+   END IF
+  END DO
+ END DO
+end if
+
+END SUBROUTINE Integrate_DIE_Flowrate
 !
 ! ----------------------------------------------
 !
@@ -2869,21 +3052,23 @@ if (myid.ne.0) call updateMixerGeometry(mfile)
 IF (mySetup%bPressureFBM) THEN
  ilev=nlmin
  CALL SETLEV(2)
- CALL SetPressBC(mgMesh)
+ CALL SetPressBC_NewGen(mgMesh)
  ! send them to the master
+ ilev=nlmin
+ CALL SETLEV(2)
  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
- if (myid.ne.0) then
-  ilev=nlmin+1
-  CALL SETLEV(2)
- END IF
- CALL SetPressBC(mgMesh)
-
- do ilev=nlmin+2,nlmax
+!  if (myid.ne.0) then
+!   ilev=nlmin+1
+!   CALL SETLEV(2)
+!  END IF
+!  CALL SetPressBC(mgMesh)
+! 
+ do ilev=nlmin+1,nlmax
   CALL SETLEV(2)
   CALL GetMG_KNPRP(mgMesh)
  end do
-
+! 
  ! Set up the boundary condition types (knpr)
  DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
@@ -2900,6 +3085,107 @@ call OperatorRegenaration(2)
 call OperatorRegenaration(3)
 
 end subroutine InitOperators
+!
+! ----------------------------------------------
+!
+SUBROUTINE SetPressBC_NewGen(mgMesh)
+type(tMultiMesh), intent(inout) :: mgMesh
+integer iel,jlev
+real*8 dnn
+logical bKick
+
+ilev=nlmin
+dnn=0d0
+
+if (myid.ne.0) then
+ DO iel=1,nel
+
+  jlev=nlmin
+  
+  bKick = .true.
+  CALL FindPressBC_NewGenREC(iel,jlev)
+  
+  if (bKick) then
+   dnn = dnn + 1d0 
+   LinSc%knprP(ilev)%x(iel) = 1
+   CALL SetPressBC_NewGenREC(iel,jlev)
+  end if
+  
+ END DO
+ 
+END IF
+
+call Comm_Summ(dnn)
+
+if (Myid.eq.showid) write(*,*) 'Number of Pressure BC Elements:',int(dnn)
+
+ CONTAINS
+ 
+RECURSIVE SUBROUTINE FindPressBC_NewGenREC(iiel,iilev)
+integer iiel,iilev
+
+integer JEL(8)
+integer jjlev,i,ivt
+
+ do i=1,8
+  ivt = mgMesh%level(iilev)%kvert(i,iiel)
+  if (screw(ivt).gt.0d0.and.shell(ivt).gt.0d0) THEN
+!   if (mgMesh%level(iilev)%dcorvg(3,ivt).gt.2d0) then
+   bKick = .false.
+   RETURN
+  end if
+ end do
+
+ if ((iilev + 1).gt.mgMesh%nlmax+1) RETURN
+! Possible canditate found
+ jjlev = iilev + 1
+
+ JEL(1)  = iiel
+ JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
+ JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
+ JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
+ JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
+ JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
+ JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
+ JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
+ 
+ DO i=1,8
+  CALL FindPressBC_NewGenREC(JEL(i),jjlev)
+  if (.not.bKick) RETURN
+ end do
+
+END SUBROUTINE FindPressBC_NewGenREC
+
+RECURSIVE SUBROUTINE SetPressBC_NewGenREC(iiel,iilev)
+integer iiel,iilev
+
+integer JEL(8)
+integer jjlev,i,ivt
+
+LinSc%knprP(iilev)%x(iiel) = 1
+! write(*,*) iilev,iiel
+
+if ((iilev + 1).gt.mgMesh%nlmax) RETURN
+! Possible canditate found
+ jjlev = iilev + 1
+
+ JEL(1)  = iiel
+ JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
+ JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
+ JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
+ JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
+ JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
+ JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
+ JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
+
+ DO i=1,8
+  LinSc%knprP(jjlev)%x(JEL(i)) = 1
+  CALL SetPressBC_NewGenREC(JEL(i),jjlev)
+ end do
+
+END SUBROUTINE SetPressBC_NewGenREC
+
+END SUBROUTINE SetPressBC_NewGen
 !
 ! ----------------------------------------------
 !
@@ -2932,8 +3218,9 @@ END SUBROUTINE SetPressBC
 !
 SUBROUTINE GetMG_KNPRP(mgMesh)
 type(tMultiMesh), intent(inout) :: mgMesh
-integer iel,jel(8),i
+integer iel,jel(8),i,jjj
 
+jjj = 0
 do iel = 1,nel/8
  if (LinSc%knprP(ilev-1)%x(iel).eq.1) then
   JEL(1)  = iel
@@ -2946,9 +3233,12 @@ do iel = 1,nel/8
   JEL(8)  = mgMesh%level(ilev)%kadj(6,JEL(4))
   do i=1,8
     LinSc%knprP(ilev)%x(jel(i)) = 1
+    jjj = jjj + 1
   end do
  end if
 end do
+
+if (myid.eq.1) write(*,'(A,I0,A,I0)') 'KNPRP nodes on level ',ilev, ' are :', jjj
 
 END SUBROUTINE GetMG_KNPRP
 !

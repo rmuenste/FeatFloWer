@@ -45,6 +45,13 @@ Real*8 :: dabl
  ! Initialize the scalar quantity
  CALL InitializeLinScalar(LinSc)
 
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+  myMultiMat%Mat(1)%Rheology%Equation = 5
+  myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
+
  ! Initialize the boundary list (QuadScBoundary)
  ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
                           mg_mesh%level(ilev)%net+&
@@ -85,6 +92,13 @@ Real*8 :: dabl
  mg_mesh%level(ilev)%nat+&
  mg_mesh%level(ilev)%nel))
  myALE%MeshVelo = 0d0
+
+                     
+ ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+ Temperature = 1d0                    
 
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
@@ -900,7 +914,7 @@ IF (iType.EQ.myMatrixRenewal%C) THEN
   CALL Fill_QuadLinParMat()
  END IF
 
- CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
+ CALL Create_CMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP,LinSc%prm%MGprmIn%MinLev,LinSc%prm%MGprmIn%CrsSolverType)
  IF (myid.ne.master) THEN
   CALL Create_ParCMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
  END IF

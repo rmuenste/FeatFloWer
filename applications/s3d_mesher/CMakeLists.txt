@@ -27,6 +27,7 @@ target_compile_options(s3d_mesher PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(s3d_mesher PROPERTIES LINKER_LANGUAGE Fortran)
 
+if (NOT WIN32)
 add_custom_command(
   TARGET s3d_mesher 
   POST_BUILD 
@@ -35,6 +36,17 @@ add_custom_command(
  ${CMAKE_BINARY_DIR}/applications/q2p1_sse
  ${CMAKE_BINARY_DIR}/applications/heat
 )
+else (WIN32)
+add_custom_command(
+  TARGET s3d_mesher 
+  POST_BUILD 
+  COMMAND ${CMAKE_COMMAND} -E copy 
+ ${CMAKE_CURRENT_BINARY_DIR}/s3d_mesher
+ ${CMAKE_BINARY_DIR}/applications/q2p1_sse
+# ${CMAKE_BINARY_DIR}/applications/heat
+)
+endif (NOT WIN32)
+
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
@@ -46,8 +58,19 @@ install(TARGETS s3d_mesher
     )
 
 install(TARGETS s3d_mesher
+    RUNTIME DESTINATION bin/q2p1_gendie
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+install(TARGETS s3d_mesher
     RUNTIME DESTINATION bin/heat
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )
 
+install(TARGETS s3d_mesher
+    RUNTIME DESTINATION bin/q2p1_die
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )

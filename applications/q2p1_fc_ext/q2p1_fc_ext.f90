@@ -17,6 +17,7 @@ PROGRAM Q2P1_FC_EXT
   integer            :: ufile,ilog
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
+  real               :: dtt10 = 0.0
 
   !-------INIT PHASE-------
 

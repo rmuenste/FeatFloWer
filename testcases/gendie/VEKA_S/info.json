@@ -1,0 +1,159 @@
+{
+    "simod": {
+        "simulation_id": 672,
+        "name": "Warp-drive",
+        "company": "IANUS Simulation GmbH",
+        "company_id": 1,
+        "simulation_form": "Profilwerkzeuge_VEKA",
+        "submit_date": "2021-01-06 11:23:02",
+        "status": "pending",
+        "input_parameter": {
+            "temperature": {
+                "type": "number",
+                "name": "Eingangstemperatur [\u00b0C]",
+                "placeholder": "-",
+                "var": "temperature",
+                "value": "190"
+            },
+            "massthroughput_global": {
+                "type": "number",
+                "name": "Durchsatz [kg/h]",
+                "placeholder": "-",
+                "var": "massthroughput_global",
+                "value": "1400"
+            },
+            "ctext_2": {
+                "type": "ctext",
+                "var": "ctext_2",
+                "name": "Bitte geben Sie die Prozess-/Materialdaten f\u00fcr jeden Inflow an:"
+            },
+            "inflow": {
+                "type": "multiblock",
+                "template": [
+                    {
+                        "type": "materials",
+                        "placeholder": "-",
+                        "var": "material",
+                        "name": "Material"
+                    },
+                    {
+                        "type": "number",
+                        "placeholder": "-",
+                        "var": "massthroughput",
+                        "name": "Durchsatz [kg/h]"
+                    }
+                ],
+                "name": "Inflow_{0}",
+                "buttontext": "weiterer Inflow",
+                "var": "inflow",
+                "multi": null,
+                "value": [
+                    {
+                        "material": {
+                            "type": "text",
+                            "placeholder": "-",
+                            "var": "material",
+                            "name": "Material",
+                            "value": "LDPE_VEKA"
+                        },
+                        "massthroughput": {
+                            "type": "number",
+                            "placeholder": "-",
+                            "var": "massthroughput",
+                            "name": "Durchsatz [kg/h]",
+                            "value": "1400"
+                        }
+                    }
+                ]
+            }
+        },
+        "output_parameter": {
+            "hasreport": {
+                "type": "checkbox",
+                "name": "Bericht?",
+                "var": "hasreport",
+                "value": "true"
+            }
+        },
+        "materials": [
+            {
+                "id": 199,
+                "name": "LDPE_VEKA",
+                "type": "Polymer",
+                "temperature": "190",
+                "viscoModel": {
+                    "model": "Carreau",
+                    "zeroViscosity": "68000",
+                    "recipVelocity": "0.8995",
+                    "exponent": "0.669"
+                },
+                "tempModel": {
+                    "model": "tbts",
+                    "referenceTemperature": "190",
+                    "standardTemperature": "90.07"
+                },
+                "density": "1,35",
+                "heatcapacity": "2,087",
+                "heatconductivity": "0,231"
+            }
+        ],
+        "digital_twin": {
+            "id": 484,
+            "name": "Warp-drive",
+            "type": "file"
+        }
+    },
+    "cad": {
+        "position": [
+            -56.25515000000523,
+            -43.29568801169576,
+            5.0
+        ],
+        "box": [
+            112.51030000001145,
+            86.59137602339152,
+            240.0000012125941
+        ],
+        "inflows": [
+            {
+                "type": "circle",
+                "position": [
+                    -4.721778523730792e-15,
+                    -4.457179517665148e-16,
+                    6.0
+                ],
+                "face_normal": [
+                    0.0,
+                    0.0,
+                    -1.0
+                ],
+                "flow_normal": [
+                    -0.0,
+                    -0.0,
+                    1.0
+                ],
+                "radius": 40.0,
+                "length": 3
+            }
+        ],
+        "extrusion": {
+            "area": 211.1235750280162,
+            "minGap": 1.7,
+            "z_position": 245.0000012125941
+        }
+    },
+    "voxel": {
+        "resolution": 2.0,
+        "position": [
+            -58.25515000000523,
+            -45.29568801169576,
+            3.0
+        ],
+        "box": [
+            112.51030000001145,
+            86.59137602339152,
+            240.0000012125941
+        ],
+        "broken": 0
+    }
+}

@@ -52,3 +52,9 @@ install(TARGETS q2p1_sse_temp
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     )
+
+install(TARGETS q2p1_sse_temp
+    RUNTIME DESTINATION bin/q2p1_gendie
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )

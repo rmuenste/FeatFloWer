@@ -1,5 +1,5 @@
 Program e3d_mesher
-USE Sigma_User, ONLY : mySetup,mySigma,myProcess
+USE Sigma_User, ONLY : mySetup,mySigma,myProcess,myid,subnodes
 USE iniparser, ONLY : inip_makeDirectory,inip_toupper_replace
 use f90getopt
 
@@ -20,7 +20,7 @@ character(8)  :: cdate
 character(10) :: ctime
 character(5)  :: czone
 integer,dimension(8) :: values
-integer i,idir
+integer i,idir,iPlusRes
 
 LOGICAL bExist
 CHARACTER cExtrud3DFile*120,cApp*120
@@ -44,6 +44,8 @@ opts(2) = option_s('app', .true.,  'a')
 opts(3) = option_s('help',  .false., 'h')
 
 cApp = 'SSE'
+myid = 1
+subnodes = 1
 
 do 
     select case (getopt('va:h'))
@@ -87,26 +89,31 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
  Dzo = mySigma%Dz_out
  Dzi = min(mySigma%Dz_in,0.8d0*mySigma%Dz_out)
  DL  = mySigma%L
+ 
+ iPlusRes = 0
+ IF (Dzo/Dzi.gt.1.5) iPlusRes = 1
+ IF (Dzo/Dzi.gt.3) iPlusRes = 2
 
  IF (mySetup%MeshResolution.eq.1) THEN
-  if (mySetup%m_nR.eq.0)  nR  = 2
+  if (mySetup%m_nR.eq.0)  nR  = 2+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.2) THEN
-  if (mySetup%m_nR.eq.0)  nR  =  3
+  if (mySetup%m_nR.eq.0)  nR  =  3+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.3)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  4
+  if (mySetup%m_nR.eq.0)  nR  =  4+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.4)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  5
+  if (mySetup%m_nR.eq.0)  nR  =  5+iPlusRes
  END IF
  IF (mySetup%MeshResolution.eq.5)  THEN
-  if (mySetup%m_nR.eq.0)  nR  =  6
+  if (mySetup%m_nR.eq.0)  nR  =  6+iPlusRes
  END IF
  
  IF (mySetup%MeshResolution.ne.0)  THEN
   nT = INT(1.0d0*DBLE(nR)*(3.14*(Dzo+Dzi)*0.5)/(Dzo-Dzi))
   nZ = INT(1.0d0*DBLE(nR)*mySigma%L/(DZo-DZi))
+  nR = nR + 1
  END IF
 
  IF (MOD(nZ,2).EQ.1) THEN
@@ -114,7 +121,7 @@ IF (ADJUSTL(TRIM(mySetup%cMesher)).EQ."HOLLOWCYLINDER") THEN
   nZ = nZ + 1
  END IF
  
- WRITE(*,'(A,3I0)') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
+ WRITE(*,'(A,3(I0,","))') "Resolution of the hollow cylinder nR,nT,nZ: ", nR,nT,nZ
  
  CALL SetUpMesh_HC()
 
@@ -801,7 +808,7 @@ CLOSE(1)
 
 !! Outflow
 OPEN(FILE=ADJUSTL(TRIM(CaseFile))//'/z+.par',UNIT=1)
-WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Outflow'
+WRITE(1,*) NP*(NN*NN + NN) + NM*2*NN*NP +1, ' Symmetry110'
 WRITE(1,'(A,E14.6,A)') "'4 0.0 0.0 1.0", -DL, "'"
 k = 0
 DO j=1,NP*(NN*NN + NN) + NM*2*NN*NP +1

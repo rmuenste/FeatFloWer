@@ -23,7 +23,7 @@ contains
     type(t_parlist) :: parameterlist
 
     character(len=256) :: tmpstring,cSeg,cInitType,cInitTypeUpper
-    integer :: i, numberOfElements
+    integer :: i, numberOfElements,ierr
 
     ! Declare default parameters
     real*8 :: minFrac, dEps1, dEps2,Z_seed,Epsilon,Z1,Z2,hSize
@@ -219,6 +219,34 @@ contains
      ParticleParam%bBacktrace = .TRUE.
     END IF
 
+    call inip_getvalue_string(parameterlist,"GeneralSettings","PhysicalParticles",tmpstring,"NO")
+    call inip_toupper_replace(tmpstring)
+    IF (tmpstring.eq."NO") THEN
+     ParticleParam%bPhysParticles = .FALSE.
+    ELSE
+     ParticleParam%bPhysParticles = .TRUE.
+    END IF
+    
+    IF (ParticleParam%bPhysParticles) THEN
+     call inip_getvalue_double(parameterlist,"GeneralSettings/PhysicalParticles","rho_l_gcm3",ParticleParam%PhysParticles%rho_l,-1d0)
+     if (ParticleParam%PhysParticles%rho_l.eq.-1d0) GOTO 65
+     call inip_getvalue_double(parameterlist,"GeneralSettings/PhysicalParticles","mu_l_Pas",ParticleParam%PhysParticles%mu_l,-1d0)
+     if (ParticleParam%PhysParticles%mu_l.eq.-1d0) GOTO 65
+     ParticleParam%PhysParticles%mu_l = 1d1*ParticleParam%PhysParticles%mu_l
+     call inip_getvalue_double(parameterlist,"GeneralSettings/PhysicalParticles","rho_p_gcm3",ParticleParam%PhysParticles%rho_p,-1d0)
+     if (ParticleParam%PhysParticles%rho_p.eq.-1d0) GOTO 65
+     call inip_getvalue_double(parameterlist,"GeneralSettings/PhysicalParticles","d_p_mm",ParticleParam%PhysParticles%d_p,-1d0)
+     if (ParticleParam%PhysParticles%d_p.eq.-1d0) GOTO 65
+     ParticleParam%PhysParticles%d_p = 0.1d0*ParticleParam%PhysParticles%d_p
+     call inip_getvalue_string(parameterlist,"GeneralSettings/PhysicalParticles","gravity_ms2",tmpstring,"0d0,0d0,0d0")
+     READ(tmpstring,*,err=65) ParticleParam%PhysParticles%gravity
+     ParticleParam%PhysParticles%gravity = 100d0*ParticleParam%PhysParticles%gravity
+     GOTO 66
+65   write(*,*) 'WRONGLY DEFINED parameter for physical particles model !!' 
+     STOP
+66   CONTINUE
+    END IF
+    
     
     call inip_getvalue_int(parameterlist,"GeneralSettings","dump_in_file",ParticleParam%dump_in_file,-1)
     

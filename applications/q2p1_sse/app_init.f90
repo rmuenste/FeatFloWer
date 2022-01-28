@@ -6,13 +6,12 @@ subroutine init_q2p1_ext(log_unit)
     bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
-  USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
-    Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
+  USE Transport_Q1, ONLY : Init_GenLinSc_HEATALPHA_Q1
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
-      ApplicationString
+      ApplicationString,bMultiMat
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess
   USE iniparser, ONLY : inip_output_init
@@ -23,20 +22,20 @@ subroutine init_q2p1_ext(log_unit)
   !-------INIT PHASE-------
   ApplicationString = &
 "  |                                                          SSE-FluidDynamics module                |"
-!  |                                                          SSE-FluidDynamics module                |
-  
   
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
   call Init_QuadScalar_Structures_sse(log_unit)
 
-  IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
+  if (bMultiMat) then
+   call Init_GenLinSc_HEATALPHA_Q1(log_unit)
+  else
+   call Init_LinScalar(log_unit)
 
-  call Init_LinScalar(log_unit)
-
-  call InitCond_LinScalar()
-
+   call InitCond_LinScalar()
+  end if
+  
   CALL inip_output_init(myid,showid,log_unit,mterm)
   
   ! Normal start from inital configuration
@@ -241,25 +240,47 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
    
   IF (mySetup%bAutomaticTimeStepControl) THEN
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
     ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
-   dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
-   dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
-   dCharShear     = dCharVelo/dCharSize
-   dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
-!    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
-   TimeStep       = 1d-2 * (dCharSize/dCharVisco)
-   WRITE(sTimeStep,'(ES9.1)') TimeStep
-   READ(sTimeStep,*) TimeStep
+     dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
+     dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
+     dCharShear     = dCharVelo/dCharSize
+     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
+  !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
+     TimeStep       = 1d-2 * (dCharSize/dCharVisco)
+     WRITE(sTimeStep,'(ES9.1)') TimeStep
+     READ(sTimeStep,*) TimeStep
 
-   IF (myid.eq.1) THEN
-    WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
-    WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
-    WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
-    WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+     IF (myid.eq.1) THEN
+      WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
+      WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
+      WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+      WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+     END IF
+   END IF
+   
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+      ! get the characteristic viscosity for characteristic shear rate (10.0[1/s])
+     dCharSize      = 1d-1*myProcess%ExtrusionGapSize
+     dCharVelo      = myProcess%ExtrusionSpeed
+     dCharShear     = dCharVelo/dCharSize
+     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
+  !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
+     TimeStep       = 5d-3 * (dCharSize/dCharVisco)
+     WRITE(sTimeStep,'(ES9.1)') TimeStep
+     READ(sTimeStep,*) TimeStep
+
+     IF (myid.eq.1) THEN
+      WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]: ",dCharSize,dCharVelo,dCharShear
+      WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]: ",dCharSize,dCharVelo,dCharShear
+      WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+      WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+     END IF
    END IF
    
    CALL AdjustTimeStepping(TimeStep)
-  END IF
+   
+ END IF
      
   IF (myid.eq.1) THEN
     WRITE(MTERM,'(A,3ES12.4,I10)') " TSTEP,DTGMV,TIMEMX,NITNS ",TSTEP,DTGMV, TIMEMX, NITNS

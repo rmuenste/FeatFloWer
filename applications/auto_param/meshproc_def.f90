@@ -9,7 +9,7 @@ INTEGER,ALLOCATABLE  :: knpr(:),kE1(:,:),kE2(:),kE3(:,:)
 REAL*8 ,ALLOCATABLE  :: dcorvg(:,:)
 INTEGER nArea,ninArea
 integer iix,iiy,iiz,iii
-CHARACTER*(100) :: cProjectFolder,cProjectFile
+CHARACTER*(100) :: cProjectFolder,cMeshFile
 character cfile*(200)
 
 INTEGER,ALLOCATABLE  :: khelp(:,:)
@@ -56,7 +56,7 @@ CALL system(ADJUSTL(TRIM(sCommand)))
 sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.prj'
 CALL system(ADJUSTL(TRIM(sCommand)))
 
-OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/mesh.tri")
+OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/"//ADJUSTL(TRIM(cMeshFile)))
 READ(1,*)
 READ(1,*)
 READ(1,*) NEL,NVT

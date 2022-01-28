@@ -1,0 +1,176 @@
+[E3DGeometryData/Machine]
+Unit = mm
+type = die
+ScrewCylinderRendering = OFF
+barreldiameter = 100.0
+noofelements = 1
+barrellength = 220.0
+innerdiameter = 100.0
+rotationdirection = LEFT
+
+[E3DGeometryData/Machine/Element_1]
+Unit = mm
+startposition = 0.0
+type = OFF
+objecttype = die
+name = Warp-drive
+diameter = 750.0
+off_filelist = FDL.off
+calculatedinflowdiammin = 100.0
+calculatedinflowdiammax = 122.5
+innerdiameter = 280.0
+
+[E3DProcessParameters]
+Unit = mm
+processtype = THROUGHPUT
+nOfInflows = 2
+massthroughput = 500.0
+materialtemperature = 235
+barreltemperature = 235
+barreltemperatureadiabatic = NO
+ExtrusionGapSize_MM = 1.0
+ExtrusionOutflowArea_MM2 = 3800.0
+screwspeed = 430.0
+screwtemperature = _INVALID_
+screwtemperatureadiabatic = YES
+mininflowdiameter = 100.0
+maxinflowdiameter = 122.5
+
+[E3DProcessParameters/Inflow_1]
+Unit = mm
+nSubInflows = 1
+
+[E3DProcessParameters/Inflow_1/Sub_1]
+material = 2
+type = ROTATEDPARABOLA1
+InnerRadius = 13.0
+OuterRadius = 15.0
+massflowrate = 250.0
+temperature = 230.0
+center = 55.0,-65.0, -5.0
+normal = -1.0,0.0,0.0
+
+[E3DProcessParameters/Inflow_2]
+Unit = mm
+nSubInflows = 5
+
+[E3DProcessParameters/Inflow_2/Sub_1]
+material = 1
+type = ROTATEDPARABOLA1
+InnerRadius = 7.0
+OuterRadius = 8.0
+massflowrate = 100.0
+temperature = 260.0
+center = -40.0, 18.0, -30.0
+normal = 0.0, 0.0,1.0
+
+[E3DProcessParameters/Inflow_2/Sub_2]
+material = 1
+type = ROTATEDPARABOLA1
+InnerRadius = 7.0
+OuterRadius = 8.0
+massflowrate = 100.0
+temperature = 260.0
+center = -20.0, 18.0, -30.0
+normal = 0.0, 0.0,1.0
+
+[E3DProcessParameters/Inflow_2/Sub_3]
+material = 1
+type = ROTATEDPARABOLA1
+InnerRadius = 7.0
+OuterRadius = 8.0
+massflowrate = 100.0
+temperature = 260.0
+center = 0.0, 18.0, -30.0
+normal = 0.0, 0.0,1.0
+
+[E3DProcessParameters/Inflow_2/Sub_4]
+material = 1
+type = ROTATEDPARABOLA1
+InnerRadius = 7.0
+OuterRadius = 8.0
+massflowrate = 100.0
+temperature = 260.0
+center = 20.0, 18.0, -30.0
+normal = 0.0, 0.0,1.0
+
+
+[E3DProcessParameters/Inflow_2/Sub_5]
+material = 1
+type = ROTATEDPARABOLA1
+InnerRadius = 7.0
+OuterRadius = 8.0
+massflowrate = 100.0
+temperature = 260.0
+center = 40.0, 18.0, -30.0
+normal = 0.0, 0.0,1.0
+
+[E3DMaterialParameters]
+NoOfMaterials=2
+InitMaterial=2
+
+[E3DMaterialParameters/Mat_2]
+name = LDPE
+type = Polymer
+[E3DMaterialParameters/Mat_2/RheologicalData]
+calcvisco = Carreau
+CalcTemp = tbts
+[E3DMaterialParameters/Mat_2/RheologicalData/TbTs]
+StandardTemperature =  29.0
+ReferenceTemperature = 200.0
+[E3DMaterialParameters/Mat_2/RheologicalData/Carreau]
+zeroviscosity = 975.0
+recipvelocity = 1.33
+exponent = 0.52
+[E3DMaterialParameters/Mat_2/ThermoData]
+HeatConductivity = 0.231
+HeatConductivitySlope = 0.000017
+HeatCapacity = 2.087
+HeatCapacitySlope = 0.00431
+DensityModel = DENSITY
+[E3DMaterialParameters/Mat_2/ThermoData/Density]
+density = 0.900
+densityslope = 0.0000001
+
+[E3DMaterialParameters/Mat_1]
+name = LDPE
+type = Polymer
+[E3DMaterialParameters/Mat_1/RheologicalData]
+calcvisco = Carreau
+CalcTemp = tbts
+[E3DMaterialParameters/Mat_1/RheologicalData/TbTs]
+StandardTemperature = -5.5
+ReferenceTemperature = 200.0
+[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
+zeroviscosity = 8524.0
+recipvelocity = 1.1
+exponent = 0.52
+[E3DMaterialParameters/Mat_1/ThermoData]
+HeatConductivity = 0.255
+HeatConductivitySlope = 0.000017
+HeatCapacity = 2.087
+HeatCapacitySlope = 0.00431
+DensityModel = DENSITY
+[E3DMaterialParameters/Mat_1/ThermoData/Density]
+density = 0.900
+densityslope = 0.0000001
+
+
+[E3DSimulationsettings/Output]
+nOf1DLayers = 128
+nOfHistogramBins = 16
+HistogramShearMax = 1e4
+HistogramShearMin = 1e-1
+CutData_1D = 0.001
+
+[E3DSimulationsettings]
+KTPRelease = NO
+AutomaticTimeStepControl = yes
+TimeStepEnlargementFactor = 6e0
+PressureFBM = on
+
+
+[E3DSimulationSettings]
+dAlpha=10.0
+Periodicity=1
+nSolutions=36

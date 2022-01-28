@@ -702,6 +702,47 @@ C
 C
 C
 C
+      SUBROUTINE GET_NormalArea(P1,P2,P3,P4,P5,dn)
+      REAL*8 P1(3),P2(3),P3(3),P4(3),P5(3),dn(3)
+      REAL*8 AX2,AY2,AZ2,AX3,AY3,AZ3,AX4,AY4,AZ4,AX,AY,AZ
+      REAL*8 PA(3),NA(3)
+      REAL*8 DNX,DNY,DNZ,DNAR1,DNAR2,DFAC,DHN
+      
+      AX2=P2(1)-P1(1)
+      AY2=P2(2)-P1(2)
+      AZ2=P2(3)-P1(3)
+      AX3=P3(1)-P1(1)
+      AY3=P3(2)-P1(2)
+      AZ3=P3(3)-P1(3)
+      AX4=P4(1)-P1(1)
+      AY4=P4(2)-P1(2)
+      AZ4=P4(3)-P1(3)
+      
+      PA(:)=(P1(:)+P2(:)+P3(:)+P4(:))*0.25D0
+      NA(:) =P5(:) - PA(:)
+
+      DN(1)=(AY3*AZ2)-(AZ3*AY2)
+      DN(2)=(AZ3*AX2)-(AX3*AZ2)
+      DN(3)=(AX3*AY2)-(AY3*AX2)
+      DNAR1=SQRT(DN(1)*DN(1)+DN(2)*DN(2)+DN(3)*DN(3))
+      
+      DN(1)=(AY4*AZ3)-(AZ4*AY3)
+      DN(2)=(AZ4*AX3)-(AX4*AZ3)
+      DN(3)=(AX4*AY3)-(AY4*AX3)
+      DNAR2=SQRT(DN(1)*DN(1)+DN(2)*DN(2)+DN(3)*DN(3))
+      
+      DFAC=0.5D0*(DNAR1+DNAR2)/DNAR2
+      DN(:) =DFAC*DN(:)
+C
+      DHN = DN(1)*NA(1) + DN(2)*NA(2) + DN(3)*NA(3)
+      IF (DHN.LT.0D0) THEN
+       DN(:) = -DN(:)
+      ENDIF
+      
+      END SUBROUTINE GET_NormalArea
+C
+C
+C
       SUBROUTINE RecoverNormals(NU,NV,NW,DD,KVERT,
      *           KAREA,KEDGE,DCORVG,ELE)
       USE PP3D_MPI, ONLY:myid

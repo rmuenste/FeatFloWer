@@ -43,6 +43,8 @@ use var_QuadScalar, only:Tracer
 
 implicit none
 
+character cVTKFolder*(256)
+
 interface
   subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
     use cinterface, only: c1dOutput
@@ -75,6 +77,10 @@ integer :: ioutput_lvl
 !type(fieldPtr), dimension(3) :: packed
 
 if (sExport%Format .eq. "VTK") then
+
+ cVTKFolder = '_vtk'
+ 
+ CALL CheckIfFolderIsThereCreateIfNot(cVTKFolder,0)
 
  if (ADJUSTL(TRIM(mySigma%cType)).ne.'DIE') then
  
@@ -111,6 +117,10 @@ if (sExport%Format .eq. "VTK") then
   call viz_write_pvtu_main(iOutput)
  end if
 
+ if (myid.eq.0) then
+  CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
+ end if
+    
 end if
 
 call c_write_json_output(iOutput) 
@@ -199,7 +209,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar
 
 implicit none
 
@@ -237,9 +247,9 @@ integer :: istat, ioffset,ive,ivt,iField
 ! local
 integer :: iunit = 908070
 
-integer :: inlmax
+integer :: inlmax,iFld
 
-character fileid*(5),filename*(27),procid*(3)
+character fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 
 NoOfElem = KNEL(ioutput_lvl)
 NoOfVert = KNVT(ioutput_lvl)
@@ -291,6 +301,13 @@ do iField=1,size(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure [bar]",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%Q2(ivt)-dMinOutputPressure)
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ case('SegmentIndicator')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","SegmentIndicator",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,I10)')"        ",INT(mySegmentIndicator(2,ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -359,6 +376,17 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),""" format=""ascii"">"
+   do ivt=1,NoOfVert
+    write(iunit, '(A,E16.7)')"        ",REAL(GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+   write(iunit, *)"        </DataArray>"
+ 
+  END DO
+  
  end select
 
 end do
@@ -376,16 +404,27 @@ do iField=1,size(myExport%Fields)
  case('Pressure_E')
 
   if (ioutput_lvl.EQ.inlmax-1)then
-   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure_E",""" format=""ascii"">"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure [bar]",""" format=""ascii"">"
    do ivt=1,NoOfElem
     ive = 4*(ivt-1)+1
-    write(iunit, '(A,E16.7)')"        ",REAL(sLinSc%ValP(inlmax-1)%x(ive))
+    write(iunit, '(A,E16.7)')"        ",REAL(1e-5*0.1d0*sLinSc%ValP(inlmax-1)%x(ive)-dMinOutputPressure)
+   end do
+   write(iunit, *)"        </DataArray>"
+  end if
+
+ case('KNPRP_E')
+
+  if (ioutput_lvl.EQ.inlmax-1)then
+   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","KNPRP_E",""" format=""ascii"">"
+!    write(*,*) myid,inlmax-1,ivt
+   do ivt=1,NoOfElem
+    write(iunit, '(A,I10)')"        ",sLinSc%knprP(inlmax-1)%x(ivt)
    end do
    write(iunit, *)"        </DataArray>"
   end if
 
  end select
-
+ 
 end do
 
 write(iunit, '(A)')"    </CellData>"
@@ -453,14 +492,14 @@ end subroutine viz_write_vtu_process
 !
 subroutine viz_write_pvtu_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport
+USE var_QuadScalar,ONLY:myExport,GenLinScalar
 USE def_FEAT
 
 IMPLICIT NONE
-INTEGER iO,iproc,iField, istat
+INTEGER iO,iproc,iField, istat,iFld
 INTEGER :: iMainUnit=555
 CHARACTER mainname*(20)
-CHARACTER filename*(26)
+CHARACTER filename*(26),cGenScalar*(50)
 
 ! generate the file name
 mainname=' '
@@ -489,6 +528,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
 ! CASE('Temperature')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('SegmentIndicator')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","SegmentIndicator","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('FBM')
@@ -508,9 +549,13 @@ DO iField=1,SIZE(myExport%Fields)
 !
 !  CASE('FBM')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBM","""/>"
-
  case('Partitioning')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition","""/>"
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+  WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""",ADJUSTL(TRIM(cGenScalar)),"""/>"
+ END DO
 
  END SELECT
 END DO
@@ -526,10 +571,15 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Pressure_E')
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
-   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
   END IF
 
- END SELECT
+  CASE('KNPRP_E')
+!  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
+  IF (myExport%Level.EQ.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","KNPRP_E","""/>"
+  END IF
+END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"
 
@@ -1083,7 +1133,7 @@ IF (myid.eq.1) THEN
  WRITE(ifile,'(A)')"FileType=ResultsExtrud3d"
  call date_and_time(cdate,ctime,czone,values)
  WRITE(ifile,'(8A)')"Date=",cdate(7:8),"/",cdate(5:6),"/",cdate(3:4)
- WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 2.0"
+ WRITE(ifile,'(A)')"Extrud3dVersion=Extrud3d 3.0 2020.11.5"
  WRITE(ifile,'(A,I4.4)')"counter_pos=",my1DOut_nol
  WRITE(ifile,'(A,I4.4)')"counter_verl=",iVerlaufMax
 !  WRITE(120,'(A,E12.4)')"TimeLevel=",timens
@@ -1761,8 +1811,8 @@ real*8, dimension(:), allocatable :: my1DWeight
 
 my1DOut_nol = myOutput%nOf1DLayers
 
-dMinSample = 0d0
-dMaxSample = mySigma%L
+dMinSample = mySigma%L0
+dMaxSample = mySigma%L0 + mySigma%L
 
 if (.not.allocated(my1DWeight)) ALLOCATE(my1DWeight(my1DOut_nol))
 if (.not.allocated(my1DIntervals)) ALLOCATE(my1DIntervals(my1DOut_nol,2))

@@ -1,0 +1,24 @@
+Coarse mesh exported by DeViSoR TRI3D exporter
+Parametrisierung PARXC, PARYC, TMAXC
+    1 8 0 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE
+DCORVG
+-1.000  -1.000  1.000
+-1.000  -1.000  -1.000
+1.000   -1.000  1.000
+1.000   -1.000  -1.000
+1.000   1.000   -1.000
+-1.000  1.000   -1.000
+1.000   1.000   1.000
+-1.000  1.000   1.000
+KVERT
+4 3 7 5 2 1 8 6 
+KNPR
+0
+0
+0
+0
+0
+0
+0
+0
+

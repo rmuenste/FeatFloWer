@@ -32,8 +32,13 @@ MODULE PP3D_MPI
 
   TYPE(TMGE013), DIMENSION(:), ALLOCATABLE :: MGE013
 
+  TYPE TDBLVect
+   REAL*8 , DIMENSION(:)  , ALLOCATABLE     :: x
+  END TYPE
+
   TYPE TMGE011
    REAL*8 , DIMENSION(:)  , ALLOCATABLE     :: UE11,UE22,UE33
+   TYPE(TDBLVect), DIMENSION(:), ALLOCATABLE :: UE
   END TYPE
   TYPE(TMGE011), DIMENSION(:), ALLOCATABLE :: MGE011
 
@@ -1944,7 +1949,7 @@ SUBROUTINE COMMDEX(FX,FB,FD,NEQ,RHO) !ok
       END DO
 
       !       Solve the system on coarse grid
-      CALL YEXU(FX,FB,FD,NAT,RHO)
+!       CALL YEXU(FX,FB,FD,NAT,RHO)
       !  WRITE(*,*) "solve ...",RHO
 
       DO pID=1,subnodes
@@ -1989,7 +1994,7 @@ SUBROUTINE COMMDEX(FX,FB,FD,NEQ,RHO) !ok
       END DO
 
       !       Solve the system on coarse grid
-      CALL YEXP(FX,FB,FD,NEL,RHO)
+!       CALL YEXP(FX,FB,FD,NEL,RHO)
       !         WRITE(*,*) "solve ...",RHO
 
       DO pID=1,subnodes

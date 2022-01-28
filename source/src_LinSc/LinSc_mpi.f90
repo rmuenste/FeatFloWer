@@ -129,6 +129,75 @@
 !
 !END SUBROUTINE E011MAT
 ! ----------------------------------------------
+SUBROUTINE E011_GenLinSc_Q1_UMAT(A,KLDA,NU,iC) !ok
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+USE PP3D_MPI
+IMPLICIT NONE
+
+REAL*8 A(*)
+INTEGER KLDA(*),NU
+INTEGER I,J,iC
+INTEGER pID,pJD,nSIZE
+
+IF (myid.ne.MASTER) THEN
+
+ DO I=1,NU
+  MGE011(ILEV)%UE(iC)%x(I)=A(KLDA(I))
+ ENDDO
+
+ DO pID=1,subnodes
+  IF (myid.NE.pID) THEN
+   DO pJD=1,subnodes
+    IF (pID.EQ.pJD.AND.E011ST(pJD)%Num.GT.0) THEN
+     nSIZE = E011ST(pJD)%Num
+
+!      WRITE(*,*) myid, nSIZE, SIZE(E011ST(pJD)%SDVect)
+     DO I=1,nSIZE
+        IF (E011ST(pJD)%VertLink(1,I).le.nu) then
+         E011ST(pJD)%SDVect(I) = MGE011(ILEV)%UE(iC)%x(E011ST(pJD)%VertLink(1,I))
+        END IF
+     END DO
+
+     CALL SENDD_myMPI(E011ST(pJD)%SDVect,nSIZE,pID)
+
+    END IF
+   END DO
+  ELSE
+   DO pJD=1,subnodes
+    IF (E011ST(pJD)%Num.GT.0) THEN
+
+     nSIZE = E011ST(pJD)%Num
+     CALL RECVD_myMPI(E011ST(pJD)%RDVect,nSIZE,pJD)
+
+    END IF
+
+   END DO
+  END IF
+ END DO
+
+ DO pJD=1,subnodes
+
+   IF (E011ST(pJD)%Num.GT.0) THEN
+
+     nSIZE = E011ST(pJD)%Num
+
+     DO I=1,nSIZE
+       IF (E011ST(pJD)%VertLink(2,I).le.NU) THEN
+        MGE011(ILEV)%UE(iC)%x(E011ST(pJD)%VertLink(2,I)) = &
+        MGE011(ILEV)%UE(iC)%x(E011ST(pJD)%VertLink(2,I)) + E011ST(pJD)%RDVect(I)
+       END IF
+     END DO
+
+   END IF
+
+ END DO
+
+END IF
+
+if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+END SUBROUTINE E011_GenLinSc_Q1_UMAT
+! ----------------------------------------------
 SUBROUTINE E011_UMAT(A,KLDA,NU,iC) !ok
 USE def_feat, ONLY: ILEV,NLMIN,NLMAX
 USE PP3D_MPI

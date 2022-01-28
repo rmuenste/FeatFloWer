@@ -237,6 +237,7 @@ module iniparser
   public :: inip_openFileForReading
   public :: inip_openFileForWriting
   public :: inip_makeDirectory  
+  public :: inip_isDirectory
 
   interface inip_toupper
     module procedure inip_toupper_replace
@@ -300,6 +301,12 @@ contains
     ! > 0: number of subdirectories created
     ! < 0: -errno
     integer :: istatus
+!#ifdef __GFORTRAN__
+!    fnum(10)
+!    print *,"GFORTRAN"
+!#elif __INTEL_COMPILER
+!    print *,"INTEL"
+!#endif
 
 
     if (len_trim(spath) .eq. 0) then
@@ -381,7 +388,8 @@ contains
     else
 
       call inip_output_line('File <'//trim(adjustl(sfilename))//'> does not exist.')
-      call inip_sys_halt()
+      iunit = -2
+!       call inip_sys_halt()
     endif
 
   end subroutine inip_openFileForReading

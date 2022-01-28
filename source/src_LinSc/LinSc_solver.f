@@ -607,7 +607,7 @@ C
 C
 C
       SUBROUTINE SSORSolverYYY(DA11,DA22,DA33,KCOL,KLD,
-     *           DX,DB,DD,KNPR,NEQ,NIT,OMEGA)
+     *           DX,DB,DD,KNPR,NEQ,NIT,OMEGA,DEF)
 C
       USE def_feat, ONLY: ILEV
       USE PP3D_MPI, ONLY : MGE011,E011_UE,myid,E011SUM
@@ -773,3 +773,5 @@ C
        CALL LL21(DD,NEQ,DEF)
 
       END
+      
+      include "GenLinSc_solver.f"

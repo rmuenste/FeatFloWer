@@ -215,10 +215,13 @@ if(USE_CGAL)
       )
 
     set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
+    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
 
     if(NOT WIN32)
           ExternalProject_Add(CGAL_PRJ
             GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
+            GIT_PROGRESS ON 
+            GIT_SHALLOW ON 
             GIT_TAG rafa-devel
             SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
             PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
@@ -352,9 +355,11 @@ endif(USE_MUMPS)
 
 find_package(Git 2.17)
 
+if(NOT WIN32)
 if(USE_CGAL)
-add_subdirectory(tools/check_off)
+  add_subdirectory(tools/check_manifold)
 endif(USE_CGAL)
+endif(NOT WIN32)
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
@@ -378,12 +383,6 @@ include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)
 #                         project directories
 #=========================================================================
 include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
-
-#=========================================================================
-#               Build the C directory handling library  
-#=========================================================================
-add_library(cdirs ${src_ini_c})
-
 
 #=========================================================================
 #                         Add applications
@@ -418,8 +417,10 @@ ENDIF(BUILD_APPLICATIONS)
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
-#install(DIRECTORY tools/partitioner DESTINATION bin)
-#file(GLOB E3D_SCRIPTS "tools/e3d_scripts/e3d_start.py")
+install(DIRECTORY tools/partitioner DESTINATION bin)
+file(GLOB PYPARTITIONER "tools/PyPartitioner.py")
+install(FILES ${PYPARTITIONER} DESTINATION bin
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 #install(FILES ${E3D_SCRIPTS} DESTINATION bin
 #    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 

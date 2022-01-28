@@ -11,16 +11,16 @@ subroutine init_q2p1_ext(log_unit)
     LinSc_InitCond_XSE,Boundary_LinSc_Val_XSE,Tracer
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh, myVelo,Screw,Shell,Shearrate,&
-      Viscosity,Temperature,myExport,ApplicationString
+      Viscosity,Temperature,myExport,ApplicationString,mySegmentIndicator
 !   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
 !       ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
 !       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
-  USE Sigma_User, only : myProcess, myTransientSolution
+  USE Sigma_User, only : myProcess, myTransientSolution, mySetup
 
   integer, intent(in) :: log_unit
-  integer iPeriodicityShift,jFile,iAngle,dump_in_file
-  real*8 dTimeStep,dPeriod
+  integer iPeriodicityShift,jFile,iAngle,dump_in_file,i1,i2
+  real*8 dTimeStep,dPeriod,meshVelo(3)
 
   !-------INIT PHASE-------
   ApplicationString = &
@@ -51,10 +51,17 @@ subroutine init_q2p1_ext(log_unit)
   IF (.NOT.ALLOCATED(Shell)) ALLOCATE(Shell(QuadSc%ndof))
   IF (.NOT.ALLOCATED(Shearrate)) ALLOCATE(Shearrate(QuadSc%ndof))
   IF (.NOT.ALLOCATED(Viscosity)) ALLOCATE(Viscosity(QuadSc%ndof))
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   IF (.NOT.ALLOCATED(mySegmentIndicator)) ALLOCATE(mySegmentIndicator(2,QuadSc%ndof))
+  END IF
+  
   ALLOCATE(myTransientSolution%Velo(3,0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Coor(3,0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Dist(0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Temp(0:myProcess%nTimeLevels-1))
+  IF (myProcess%SegmentThermoPhysProps) THEN
+   ALLOCATE(myTransientSolution%iSeg(0:myProcess%nTimeLevels-1))
+  END IF
 
   DO iFile=0,myProcess%nTimeLevels/myProcess%Periodicity-1 !myProcess%nTimeLevels
    dump_in_file = iFile*iAngle
@@ -66,6 +73,9 @@ subroutine init_q2p1_ext(log_unit)
    ALLOCATE(myTransientSolution%Coor(2,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Coor(3,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Dist(iFile)%x(QuadSc%ndof))
+   IF (myProcess%SegmentThermoPhysProps) THEN
+    ALLOCATE(myTransientSolution%iSeg(iFile)%x(QuadSc%ndof))
+   END IF
    ALLOCATE(myTransientSolution%Temp(iFile)%x(QuadSc%ndof))
    myTransientSolution%Velo(1,iFile)%x = QuadSc%ValU
    myTransientSolution%Velo(2,iFile)%x = QuadSc%ValV
@@ -75,6 +85,9 @@ subroutine init_q2p1_ext(log_unit)
    myTransientSolution%Coor(3,iFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(3,:)
    myTransientSolution%Dist(  iFile)%x = Screw
    myTransientSolution%Temp(  iFile)%x = Temperature
+   IF (myProcess%SegmentThermoPhysProps) THEN
+    myTransientSolution%iSeg(  iFile)%x = mySegmentIndicator(2,:)
+   END IF
    
    IF (myid.eq.1) WRITE(*,*) 'File ',iFile, ' is loaded... ==> angle :', iFile*iAngle
    
@@ -97,19 +110,62 @@ subroutine init_q2p1_ext(log_unit)
      myTransientSolution%Coor(3,jFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(3,:)
      myTransientSolution%Dist(  jFile)%x = Screw
      myTransientSolution%Temp(  jFile)%x = Temperature
+     IF (myProcess%SegmentThermoPhysProps) THEN
+      myTransientSolution%iSeg(  jFile)%x = mySegmentIndicator(2,:)
+     END IF
      IF (myid.eq.1) WRITE(*,*) 'File ',jFile, ' is loaded... ==> angle :', jFile*iAngle
     END DO
    end if
   END DO
   
+! ========================================================================================================
+! ============================ NEEDS TO BE TESTED, ESPECIALLY THE SIGN ===================================
+! ========================================================================================================
+!   ! adjustment of velocities due to the transiently moving mesh
+!   DO i= 1,myProcess%nTimeLevels
+!    DO j=1,QuadSc%ndof
+!     i2 = i
+!     if (i2.eq.myProcess%nTimeLevels) i2=0
+!     i1 = i-1
+!     meshVelo(1) = (myTransientSolution%Coor(1,i2)%x(j) - myTransientSolution%Coor(1,i1)%x(j))/dTimeStep
+!     meshVelo(2) = (myTransientSolution%Coor(2,i2)%x(j) - myTransientSolution%Coor(2,i1)%x(j))/dTimeStep
+!     meshVelo(3) = (myTransientSolution%Coor(3,i2)%x(j) - myTransientSolution%Coor(3,i1)%x(j))/dTimeStep
+!     myTransientSolution%Velo(1,i1)%x(j) = myTransientSolution%Velo(1,i1)%x(j) - meshVelo(1)
+!     myTransientSolution%Velo(2,i1)%x(j) = myTransientSolution%Velo(2,i1)%x(j) - meshVelo(2)
+!     myTransientSolution%Velo(3,i1)%x(j) = myTransientSolution%Velo(3,i1)%x(j) - meshVelo(3)
+!    END DO
+!   END DO
+! ========================================================================================================
+! ============================ NEEDS TO BE TESTED, ESPECIALLY THE SIGN ===================================
+! ========================================================================================================
+  
+  ! adjustment of velocities due to the rotational frame of reference
+  IF (mySetup%bRotationalFramOfReference) then
+   DO i= 0,myProcess%nTimeLevels-1
+    DO j=1,QuadSc%ndof
+     meshVelo(1) = -DBLE(myProcess%ind) * (2d0*(4d0*dATAN(1d0))) * (myProcess%Umdr/60d0) * myTransientSolution%Coor(2,i)%x(j)
+     meshVelo(2) = +DBLE(myProcess%ind) * (2d0*(4d0*dATAN(1d0))) * (myProcess%Umdr/60d0) * myTransientSolution%Coor(1,i)%x(j)
+     meshVelo(3) = 0d0
+     myTransientSolution%Velo(1,i)%x(j) = myTransientSolution%Velo(1,i)%x(j) - meshVelo(1)
+     myTransientSolution%Velo(2,i)%x(j) = myTransientSolution%Velo(2,i)%x(j) - meshVelo(2)
+     myTransientSolution%Velo(3,i)%x(j) = myTransientSolution%Velo(3,i)%x(j) - meshVelo(3)
+    END DO
+   END DO
+  END IF
+  
   call InitCond_LinScalar_XSE(LinSc_InitCond_XSE,Boundary_LinSc_Val_XSE)
   
   !!!! SetThe True Initial Condition for angle 0 !!!!!
-  if (myid.ne.0) then
-   Tracer%Val(NLMAX+1)%x = myTransientSolution%Temp(0)%x
+  if (myid.ne.0) THEN
+   if (istart.ne.0) then
+    Tracer%Val(NLMAX+1)%x = myTransientSolution%Temp(0)%x
+   else
+    if (myid.eq.1) write(*,*) "Setting initial tempeature to :",myProcess%T0
+    Tracer%Val(NLMAX+1)%x = myProcess%T0
+   end if
   end if
   !!! SetThe True Initial Condition for angle 0 !!!!!
-
+  
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------

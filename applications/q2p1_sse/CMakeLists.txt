@@ -108,16 +108,17 @@ install(TARGETS ${SSE_TARGET_NAME}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _data_BU _ianus)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _ianus)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
 ENDFOREACH()
+list(APPEND mydirs ${CMAKE_CURRENT_SOURCE_DIR}/_data_BU)
 
 install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
 
 #=========================================================================
-#                       INSTALL CONFIGURATION
+#                       INSTALL CONFIGURATION PYTHON
 #=========================================================================
 # install the partitioner directory so the python sources can be found by
 # the driver script
@@ -131,3 +132,49 @@ install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 add_test(q2p1-sse python3 ./e3d_start.py -n 16 -f _ianus/TSE/Conv -x -a 0)
+
+
+if(NOT WIN32)
+#=========================================================================
+#                       INSTALL CONFIGURATION Q2P1_GENDIE
+#=========================================================================
+
+    install(TARGETS ${SSE_TARGET_NAME}
+        RUNTIME DESTINATION bin/q2p1_gendie
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        )
+
+    set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _prot0 _prot1 _RTD _ianus)
+
+    FOREACH(dir ${DEF_DIRS})
+      list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
+    ENDFOREACH()
+    list(APPEND mydirs ${CMAKE_CURRENT_SOURCE_DIR}/_data_BU)
+
+    install(DIRECTORY ${mydirs} DESTINATION bin/q2p1_gendie)
+
+#=========================================================================
+#                       INSTALL CONFIGURATION Q2P1_GENDIE PYTHON
+#=========================================================================
+# install the partitioner directory so the python sources can be found by
+# the driver script
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/q2p1_gendie)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/testcases/gendie/VEKA_S DESTINATION bin/q2p1_gendie)
+
+    # install the driver script
+    set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
+    list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")
+    list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/RunnerGenDIE.sh")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
+    list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
+    list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param.cfg")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_pre.sh")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_sim.sh")
+
+    install(FILES ${E3D_SCRIPTS} DESTINATION bin/q2p1_gendie
+        PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_gendie)
+endif(NOT WIN32)

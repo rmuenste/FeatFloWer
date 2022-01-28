@@ -98,12 +98,14 @@ INTEGER iT,j,iInflow,iMat
 REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD1 = 0.25d0
 REAL*8 :: RY1 = -0.123310811d0,RY2 = 0.123310811d0,Dist1,Dist2,R_In = 0.1d0
 REAL*8  dScale,XX,YY,ZZ
-REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity
+REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDensity,dDensitySlope,&
+       dTemperature
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
 REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
+integer iSubInflow
 real*8 dRPM
 
 ValU = 0d0
@@ -117,59 +119,101 @@ IF (iT.lt.0) THEN
  IF (ALLOCATED(myProcess%myInflow)) then
   IF (SIZE(myProcess%myInflow).ge.iInflow) then
  
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
+   IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+   
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
 
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     douterradius  = myProcess%myInflow(iInflow)%outerradius
+     dinnerradius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+    
+   ELSE
    
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
-   END IF
-   
-   IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
-    dCenter       = myProcess%myInflow(iInflow)%center
-    dNormal       = myProcess%myInflow(iInflow)%normal
-    dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
-    iMat          = myProcess%myInflow(iInflow)%Material
-    ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-    douterradius  = myProcess%myInflow(iInflow)%outerradius
-    dinnerradius  = myProcess%myInflow(iInflow)%innerradius
-    dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
-    ValU = dProfil(1)
-    ValV = dProfil(2)
-    ValW = dProfil(3)
+    DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
+    
+     IF (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCType.eq.1) then
+      dCenter       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
+      dNormal       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
+      dMassFlow     = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+      iMat          = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+      dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!       dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!       dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!       dDensity      = dDensity - dTemperature*dDensitySlope
+      douterradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
+      dinnerradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
+      dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+      daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+      if (daux.ne.0d0) then
+       ValU = dProfil(1)
+       ValV = dProfil(2)
+       ValW = dProfil(3)
+      END IF
+     END IF
+     
+    END DO
+    
    END IF
   else
    write(*,*) 'Inflow array is not allocated!!', iInflow,SIZE(myProcess%myInflow)
@@ -236,10 +280,23 @@ IF (iT.EQ.770) THEN
 END IF
 
 IF (iT.EQ.771) THEN
-  dist = ((X-2.4)**2d0 + (Y+3.4)**2d0 + Z**2d0)**0.5d0 
-  if (dist.le.3.3) dFact = 1d0
-  if (dist.gt.3.3) dFact = 1d0
-  dRPM = 12d0*dFact 
+  dRPM = 4d0
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
+  ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
+  ValW =   -0.77d0*(dRPM/60d0)
+END IF
+
+IF (iT.EQ.772) THEN
+  dRPM = 8d0
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
+  ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
+  ValW =   -0.77d0*(dRPM/60d0)
+END IF
+
+IF (iT.EQ.773) THEN
+  dRPM = 12d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
@@ -268,7 +325,7 @@ if(it.eq.10)then
      ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
     END IF
   ELSE
-   CALL TransformPointToNonparallelRotAxis(0d0,0d0,0d0,XX,YY,ZZ,+1d0)
+   CALL TransformPointToNonparallelRotAxis(0d0,0d0,z,XX,YY,ZZ,+1d0)
    dInnerInflowRadius = abs(YY)
    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
    daux = (PI/6d0)*(dInnerRadius+dInnerInflowRadius)*((dInnerInflowRadius-dInnerRadius)**3d0)
@@ -603,6 +660,16 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
+IF (iT.EQ.171) THEN
+   dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
+   ValU= +dScale*900d0
+END IF
+
+IF (iT.EQ.172) THEN
+   dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
+   ValU= -dScale*1300d0
+END IF
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!! INNOSPIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF (iT.EQ.222) THEN
@@ -638,239 +705,91 @@ END IF
 RETURN
 
  CONTAINS
- REAL*8 function RotParabolicVelo2Dx(YR,ZR,DM,DRHO,dR)
- REAL*8  dVolFlow,DM,DRHO,dR,daux,YR,ZR
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
-  daux = (PI/2d0)*(DR**4d0)
-  dScale = (dVolFlow/1d0)/daux
-  DIST = SQRT((Y-YR)**2d0+(Z-ZR)**2d0)
- IF (DIST.LT.dR) THEN
-  RotParabolicVelo2Dx = dScale*(DR - DIST)*(DR + DIST)
- ELSE
-  RotParabolicVelo2Dx = 0d0
- END IF
- END 
-!------------------------------------------------------------------------------
- REAL*8 function RotParabolicVelo2Dy(XR,ZR,DM,DRHO,dR)
- REAL*8  dVolFlow,DM,DRHO,dR,daux,ZR,XR
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
-  daux = (PI/2d0)*(DR**4d0)
-  dScale = (dVolFlow/1d0)/daux
-  DIST = SQRT((X-XR)**2d0+(Z-ZR)**2d0)
- IF (DIST.LT.dR) THEN
-  RotParabolicVelo2Dy = dScale*(DR - DIST)*(DR + DIST)
- ELSE
-  RotParabolicVelo2Dy = 0d0
- END IF
- END 
-!------------------------------------------------------------------------------
- REAL*8 function RotParabolicVelo2Dz(XR,YR,DM,DRHO,dR)
- REAL*8  dVolFlow,DM,DRHO,dR,daux,YR,XR
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO)
-  daux = (PI/2d0)*(DR**4d0)
-  dScale = (dVolFlow/1d0)/daux
-  DIST = SQRT((X-XR)**2d0+(Y-YR)**2d0)
- IF (DIST.LT.dR) THEN
-  RotParabolicVelo2Dz = dScale*(DR - DIST)*(DR + DIST)
- ELSE
-  RotParabolicVelo2Dz = 0d0
- END IF
- END 
-!------------------------------------------------------------------------------
- function FlatVelo3D(DM,DRHO,dR)
- REAL*8  dVolFlow,DM,DRHO,dR
- REAL*8  dNRM,dArea,dAvgVelo
- REAL*8, dimension(3) :: FlatVelo3D
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
-  dArea = PI*DR**2d0
-  dAvgVelo = dVolFlow/dArea
-
-  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
-  dNormal(1) = dNormal(1)/dNRM
-  dNormal(2) = dNormal(2)/dNRM
-  dNormal(3) = dNormal(3)/dNRM
-  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
-
-  IF (DIST.LT.dR) THEN
-   FlatVelo3D(:) = dNormal(:)*dAvgVelo
-  ELSE
-   FlatVelo3D(:) = 0d0
-  END IF
-  
-  END 
-!------------------------------------------------------------------------------
- function CurvedFlatVelo3D(DM,DRHO,dR2,dR3)
- REAL*8  dVolFlow,DM,DRHO,dR2,dR3
- REAL*8  dNRM,dAux1,dAux2,dAux3,dP1,dP2,dScale
- REAL*8, dimension(3) :: CurvedFlatVelo3D
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
-
-  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
-  dNormal(1) = dNormal(1)/dNRM
-  dNormal(2) = dNormal(2)/dNRM
-  dNormal(3) = dNormal(3)/dNRM
-  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
-  
-  dP1 = dR3
-  dP2 = (dR2 + dR3)/2d0
-  
-  dAux1 = -2d0*PI*( (dP1**4d0)/4d0 - ((dR2+dR3)*dP1**3d0)/3d0 + (dR2*dR3*dP1**2d0)/2d0 )
-  dAux2 = -2d0*PI*( (dP2**4d0)/4d0 - ((dR2+dR3)*dP2**3d0)/3d0 + (dR2*dR3*dP2**2d0)/2d0 )
-  dAux3 = 1d0*PI*( ((dR3-dR2)*(dR2+dR3)/4d0)**2d0)
-  
-  dScale = dVolFlow/(dAux1 - dAux2 + dAux3)
-
-  IF (DIST.LT.(dR2+dR3)*0.5d0) THEN
-   CurvedFlatVelo3D(:) =  dNormal(:)*dScale*0.25d0*(dR3-dR2)**2d0
-  ELSE
-   IF (DIST.LT.dR3) THEN
-    CurvedFlatVelo3D(:) =  dNormal(:)*dScale*(DR3 - DIST)*(DIST - DR2)
-   ELSE
-    CurvedFlatVelo3D(:) = 0d0
-   END IF
-  END IF
-  
-  END 
-!------------------------------------------------------------------------------
- function RotParabolicVelo3D(DM,DRHO,dR)
- REAL*8  dVolFlow,DM,DRHO,dR,daux
- REAL*8  dNRM
- REAL*8, dimension(3) :: RotParabolicVelo3D
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
-  daux = (PI/2d0)*(DR**4d0)
-  dScale = (dVolFlow/1d0)/daux
-
-  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
-  dNormal(1) = dNormal(1)/dNRM
-  dNormal(2) = dNormal(2)/dNRM
-  dNormal(3) = dNormal(3)/dNRM
-  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
-
-  IF (DIST.LT.dR) THEN
-   RotParabolicVelo3D(:) = dNormal(:)*dScale*(DR - DIST)*(DR + DIST)
-  ELSE
-   RotParabolicVelo3D(:) = 0d0
-  END IF
-  
-  END 
-!------------------------------------------------------------------------------
- function RotDoubleParabolicVelo3D(DM,DRHO,dR1,dR2)
- REAL*8  dVolFlow,DM,DRHO,dR1,dR2,daux
- REAL*8  dNRM
- REAL*8, dimension(3) :: RotDoubleParabolicVelo3D
- 
-  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
-  daux = (PI/6d0)*(dR1+dR2)*((dR2-dR1)**3d0)
-  dScale = (dVolFlow/1d0)/daux
-
-  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
-  dNormal(1) = dNormal(1)/dNRM
-  dNormal(2) = dNormal(2)/dNRM
-  dNormal(3) = dNormal(3)/dNRM
-  dist = SQRT((X-(dCenter(1)))**2d0 + (Y-(dCenter(2)))**2d0 + (Z-(dCenter(3)))**2d0)
-
-  IF (DIST.LT.dR2.and.DIST.GT.dR1) THEN
-   RotDoubleParabolicVelo3D(:) = dNormal(:)*dScale*(DR2 - DIST)*(DIST - DR1)
-  ELSE
-   RotDoubleParabolicVelo3D(:) = 0d0
-  END IF
-  
-  END 
-!------------------------------------------------------------
- real function pulsativeProfile(simTime)
- implicit none
- real*8 :: simTime
- 
-  x_arr = (/0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0/)
-  y_arr = (/0.8,3.0,3.6,3.3,2.2,2.0,1.5,1.3,1.1,0.9,0.8/)
-
-  CC = (/0.6438, 1.0840, 1.1125, 0.8352, 0.6234, 0.5479, 0.4157, 0.3740, 0.3036, 0.2578, 0.0/)
-  DD = (/7.9528, 0.8514, -0.2817, -5.2633, 1.0272, -2.5377, -0.1073, -0.7253, -0.6836, -0.2325, 0.0/)
-  MM = (/0.0, -71.0134, -11.3310, -49.8165, 62.9046, -35.6481, 24.3032, -6.1801, 0.4173, 4.5111, 0.0/)
-
-  normalizedTime = simTime - real(floor(simTime)) 
-
-  j = 1
-  do while (normalizedTime .gt. x_arr(j+1))
-    j = j + 1
-  end do
-
-  h = x_arr(j+1) - x_arr(j)
-
-  pulsativeProfile = CC(j) + DD(j) * (normalizedTime - 0.5 * (x_arr(j) + x_arr(j+1))) + &
-                     1.0/(6.0 * h) * &
-                     (MM(j+1) * (normalizedTime - x_arr(j))**3.0 - &
-                     MM(j) * (normalizedTime - x_arr(j+1))**3.0) 
-  
-  end function pulsativeProfile
+include '../include/ProfileFunctions.f90'
 
 END SUBROUTINE GetVeloBCVal
 !------------------------------------------------------------
 SUBROUTINE GetVeloMixerVal(X,Y,Z,ValU,ValV,ValW,iP,t)
+use, intrinsic :: ieee_arithmetic
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess
 IMPLICIT NONE
 REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
+integer iScrewType,iSeg
 
-SELECT CASE(iP)
- CASE (100) ! Y positiv
-  ValU = 0d0
-  ValV = 0d0
-  ValW = 0d0
- CASE (101) ! Y positiv
-  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+IF (iP.lt.200) then
+
+ SELECT CASE(iP)
+  CASE (100) ! Y positiv
+   ValU = 0d0
+   ValV = 0d0
    ValW = 0d0
-  ELSE
-   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
-   ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  END IF
- CASE (102) ! Y negativ
-  IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
-   ValU =  -DBLE(myProcess%ind)*myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)
-   ValV =   DBLE(myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
-   ValW = 0d0
-  ELSE
-   CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+  CASE (101) ! Y positiv
+   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+    ValW = 0d0
+   ELSE
+    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
+    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+   END IF
+  CASE (102) ! Y negativ
+   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*(X)*(myProcess%Umdr/6d1)
+    ValW = 0d0
+   ELSE
+    CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+   END IF
+  CASE (103) ! Y negativ
+   ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+   ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+   ValW =   0d0
+!    ValU =  0d0
+!    ValV =  0d0 
+!    ValW =  // Forward 8d0 // Backward -1d0 !cm/s      ///!-DBLE(myProcess%ind)*myProcess%Umdr/1d1 !mm/s
+  CASE (104) ! Y negativ
+   dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
+   
+   timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
+ !  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
+   dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
+   
+   
+
+   dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
+   dYShiftdt  = (myProcess%Umdr/60d0)*myTwoPI*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
+   
+   YB = Y + dYShift
+   XB = X 
    ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  END IF
- CASE (103) ! Y negativ
-  ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
-  ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
-  ValW =   0d0
- CASE (104) ! Y negativ
-  dYShift   = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
-  
-  timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
-!  (myProcess%Angle/360d0) = timeLevel*(myProcess%Umdr/60d0)
-  dYShiftdt  = 2d0*0.88d0*dcos(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
-  
-  
+   ValW =   0d0
+   ValV =   ValV + dYShiftdt
+   
+ !  write(*,*) dYShiftdt
+   
+ END SELECT
 
-  dYShift    = 2d0*0.88d0*dcos(myProcess%Angle*myTwoPI/360d0)
-  dYShiftdt  = (myProcess%Umdr/60d0)*myTwoPI*2d0*0.88d0*dsin(timeLevel*(myProcess%Umdr/60d0)*myTwoPI)
-  
-  YB = Y + dYShift
-  XB = X 
-  ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
-  ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
-  ValW =   0d0
-  ValV =   ValV + dYShiftdt
-  
-!  write(*,*) dYShiftdt
-  
-END SELECT
+ELSE
 
+   iSeg = iP - 200
+   
+   IF (ieee_is_finite(mySigma%mySegment(iSeg)%SegRotFreq)) then
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+    ValW =   0d0
+   else
+    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+    ValW =   0d0
+   end if
+   
+END IF
 
 END SUBROUTINE GetVeloMixerVal
 !
@@ -1052,6 +971,11 @@ IF (myRheology%Equation.EQ.7) THEN
  VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
 END IF
 
+!Yasuda
+IF (myRheology%Equation.EQ.8) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*aT*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
 ! HogenPowerLaw
 IF (myRheology%Equation.EQ.5) THEN
  dN = Properties%PowerLawExp-1d0
@@ -1060,7 +984,9 @@ END IF
 
 ! Bingham
 IF (myRheology%Equation.EQ.6) THEN
- VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+ VNN = 1d1*(myRheology%A + myRheology%C/(myRheology%B + dLimStrs) )
+
+! VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 ! WRITE(*,*) dLimStrs,myRheology%eta_max,myRheology%eta_min
@@ -1077,6 +1003,118 @@ myRheology => NULL()
 RETURN
 
 end function ViscosityMatModel
+!
+!------------------------------------------------------------
+!
+FUNCTION AlphaViscosityMatModel(NormShearSquare,iMat,Temperature)
+USE Transport_Q2P1, ONLY : Properties
+USE Sigma_User, ONLY: myMultiMat,tRheology
+USE PP3D_MPI, ONLY:myid
+IMPLICIT NONE
+
+real*8 :: AlphaViscosityMatModel
+real*8, intent (in) :: NormShearSquare
+! real*8, intent (in) :: dAlpha
+integer, intent (in)  :: iMAt
+real*8, intent (in), optional :: Temperature
+REAL*8 :: dStrs, aT, dLimStrs
+REAL*8 :: VNN,daux
+REAL*8 :: dN
+TYPE(tRheology), POINTER :: myRheology
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+aT = 1d0
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! if (dAlpha.gt.0.5d0) then
+!  iMat=1
+! else
+!  iMat=2
+! end if
+ 
+myRheology => myMultiMat%Mat(iMat)%Rheology
+
+! C1C2
+if (present(Temperature)) then
+ IF (myRheology%AtFunc.EQ.2) THEN
+  daux = - myRheology%C1*(Temperature-myRheology%Tb)/(myRheology%C2 + Temperature- myRheology%Tb)
+  aT = EXP(daux)
+ END IF
+
+ ! TBTS
+ IF (myRheology%AtFunc.EQ.3) THEN
+  daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS)
+  daux = daux - myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+!   aT = EXP(daux)
+  aT = 1d1**daux
+ END IF
+ 
+!ETB myRheology%E is in J/mol
+ IF (myRheology%AtFunc.EQ.4) THEN
+  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
+  aT = EXP(daux)
+ END IF
+ 
+end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+dStrs = (2d0*NormShearSquare)**0.5d0
+
+dLimStrs = MIN(1d5,MAX(1d-2,ABS(dStrs)))
+
+! Paderborn Carreau
+IF (myRheology%Equation.EQ.1) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
+
+!PowerLaw
+IF (myRheology%Equation.EQ.2) THEN
+ VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+END IF
+
+!POLYFLOW carreau
+IF (myRheology%Equation.EQ.3) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**2d0))**(0.5d0*(myRheology%C-1d0)) 
+END IF
+
+!Ellis
+IF (myRheology%Equation.EQ.4) THEN
+ VNN = (1d1*myRheology%A)/(1d0+(dLimStrs/myRheology%B)**(myRheology%C-1d0)) 
+END IF
+
+!MAS
+IF (myRheology%Equation.EQ.7) THEN
+ VNN = (1d1*myRheology%A)*(1d0+((myRheology%B*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
+!Yasuda
+IF (myRheology%Equation.EQ.8) THEN
+ VNN = (1d1*myRheology%A)*aT*(1d0+((myRheology%B*aT*dLimStrs)**myRheology%D))**((myRheology%C-1d0)/myRheology%D) 
+END IF
+
+! HogenPowerLaw
+IF (myRheology%Equation.EQ.5) THEN
+ dN = Properties%PowerLawExp-1d0
+ VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
+END IF
+
+! Bingham
+IF (myRheology%Equation.EQ.6) THEN
+ VNN = 1d1*(myRheology%A + myRheology%C/(myRheology%B + dLimStrs) )
+
+! VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
+END IF
+
+AlphaViscosityMatModel = VNN
+
+RETURN
+
+end function AlphaViscosityMatModel
 !
 !
 !

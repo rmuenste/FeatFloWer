@@ -45,7 +45,7 @@ class GeometryObject(object):
         vtx_z = float(line_splitted[3])
         self.vertices.append([vtx_x,vtx_y,vtx_z])
       if ctrlvtxnr != noOfVtx:
-        print "Warning! File might be corrupt. NoOfVtx not correct"
+        print("Warning! File might be corrupt. NoOfVtx not correct")
       for i in range(noOfElements):
         line = f.readline()
         line_splitted = line.split()
@@ -60,7 +60,7 @@ class GeometryObject(object):
             el.append(int(s)-1)
           self.elements.append(deepcopy(el))
       if ctrlidxnr != noOfElements:
-        print "Warning! File might be corrupt! NoOfElements not correct!"
+        print("Warning! File might be corrupt! NoOfElements not correct!")
     self.NoOfElements = len(self.elements)
     self.filePresent = True
 

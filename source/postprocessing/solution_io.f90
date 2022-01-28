@@ -21,6 +21,7 @@ subroutine write_sol_to_file(imax_out, time_ns, output_idx)
 USE def_FEAT
 USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
+use var_QuadScalar, only: GenLinScalar
 USE var_QuadScalar, ONLY: Tracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
@@ -32,7 +33,7 @@ real*8, intent(in) :: time_ns
 integer, optional :: output_idx
 
 ! locals
-integer :: iout
+integer :: iout,ifld
 integer :: ndof
 integer :: nelem
 character(60) :: fieldName
@@ -90,6 +91,18 @@ IF (allocated(MaterialDistribution)) then
  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
                    1, packed)                 
 END IF                  
+
+if (allocated(GenLinScalar%Fld)) then
+ IF (myid.ne.0) THEN
+  DO iFld=1,GenLinScalar%nOfFields
+   fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+   QuadSc%auxU = GenLinScalar%Fld(iFld)%Val
+   packed(1)%p => QuadSc%auxU
+   call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
+                     1, packed)
+  END DO
+ end if
+end if
 
 IF (myid.eq.1) THEN
   if(outputRigidBodies())then      
@@ -179,6 +192,7 @@ USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,myDump,istep_ns,fieldPtr,mg_mesh
+use var_QuadScalar, only: GenLinScalar
 USE var_QuadScalar,ONLY:Tracer
 
 implicit none
@@ -190,7 +204,7 @@ INTEGER ndof,nelem
 real*8, intent(inout) :: time_ns
 type(fieldPtr), dimension(3) :: packed
 
-INTEGER nLengthV,nLengthE,LevDif
+INTEGER nLengthV,nLengthE,LevDif,iFld
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
 
@@ -231,6 +245,16 @@ IF (allocated(MaterialDistribution)) then
  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
  MaterialDistribution(NLMAX)%x(1:knel(NLMAX)) = QuadSc%auxU((knvt(NLMAX) + knat(NLMAX) + knet(NLMAX))+1:) 
 END IF                  
+
+pause
+if (allocated(GenLinScalar%Fld)) then
+ DO iFld=1,GenLinScalar%nOfFields
+  fieldName = adjustl(trim(GenLinScalar%prm%cField(iFld)))
+  QuadSc%auxU = 0
+  packed(1)%p => QuadSc%auxU
+  call read_q2_sol(fieldName,startFrom,iLevel-1,nelem,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ END DO
+end if
 
 ! This part here is responsible for creation of structures enabling the mesh coordinate 
 ! transfer to the master node so that it can create the corresponding matrices
@@ -1447,6 +1471,7 @@ end subroutine postprocessing_app
 subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
   
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
+  use var_QuadScalar, only : ConvergedSolution
   use def_FEAT
 
   implicit none
@@ -1472,6 +1497,12 @@ subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
 !     CALL ZTIME(myStat%t1)
   END IF
 
+  IF (ConvergedSolution) THEN
+    CALL ZTIME(myStat%t0)
+    CALL Output_Profiles(7199)
+    CALL ZTIME(myStat%t1)
+  END IF
+  
   IF(dout.LE.(timens+1e-10)) THEN
 
     IF (itns.ne.1) THEN
@@ -1557,6 +1588,86 @@ subroutine TimeStepCtrl(dt,inlU,inlT, filehandle)
   1  FORMAT('Time step change from ',D9.2,' to ',D9.2)
 
 END SUBROUTINE TimeStepCtrl
+!
+!================================================================================================
+! Postprocessing for a sse application
+!================================================================================================
+! @param dout Output interval
+! @param iogmv Output index of the current file 
+! @param istep number of the discrete time step
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine postprocessing_sse_q1_scalar(dout, inlU,inlT,filehandle)
+
+  use def_FEAT
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
+  use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
+                            iTimeStepEnlargmentFactor 
+  use Sigma_User, only: myProcess
+
+  use visualization_out, only: viz_output_fields
+
+  implicit none
+
+  real, intent(inout) :: dout
+
+  integer, intent(in) :: filehandle
+
+  integer :: inlU,inlT
+  
+  integer :: iCrit_itns
+
+  ! local variables
+  integer :: iXgmv
+
+  ! Output the solution in GMV or GiD format
+  iXgmv = istep_ns
+
+  IF (itns.eq.1) THEN
+    CALL ZTIME(myStat%t0)
+
+     call Output_Profiles(0)
+!     call viz_output_fields(myExport, 1, QuadSc, LinSc, & !Tracer, &
+!                            Viscosity, Screw, Shell, Shearrate,&
+!                            mg_mesh)
+
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+  END IF
+
+  IF(dout.LE.(timens+1e-10)) THEN
+
+    IF (itns.ne.1) THEN
+      CALL ZTIME(myStat%t0)
+      call Output_Profiles(0)
+!       call viz_output_fields(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+!                              Viscosity, Screw, Shell, Shearrate, mg_mesh)
+
+      CALL ZTIME(myStat%t1)
+      myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+    END IF
+    
+    dout=dout+dtgmv
+
+    ! Save intermediate solution to a dump file
+    IF (insav.NE.0.AND.itns.NE.1) THEN
+      IF (MOD(iXgmv,insav).EQ.0) THEN
+        CALL ZTIME(myStat%t0)
+        
+        CALL Release_ListFiles_SSE_Q1_Scalar(0)
+        
+        CALL ZTIME(myStat%t1)
+        myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+      END IF
+    END IF
+
+  END IF
+
+end subroutine postprocessing_sse_q1_scalar
 !
 !================================================================================================
 ! Postprocessing for a sse application

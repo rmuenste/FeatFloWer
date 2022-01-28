@@ -1,5 +1,5 @@
 MODULE Sigma_User
-USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity
+USE PP3D_MPI, ONLY:myid,showid,subnodes,dZPeriodicLength,dPeriodicity,MPI_COMM_WORLD
 USE var_QuadScalar
 
 IMPLICIT NONE
@@ -1217,7 +1217,7 @@ REAL*8  Dz, a, delta, s, Ds, exc
 REAL*8 dTheta, XP, YP, Dif, XB, YB
 REAL*8 R1, R2, R3, dAlpha,dGamma,dCutAngle,dRadius,dN,dCrit1,dCrit2
 REAL*8  :: myPI = dATAN(1d0)*4d0
-INTEGER iAux
+INTEGER iAux,ierr
 
 if (mySigma%mySegment(iSeg)%GANGZAHL.eq.-1) then
  dN=DBLE(mySigma%mySegment(iSeg)%GANGZAHL)
@@ -1275,7 +1275,7 @@ IF (delta.lt.0) THEN
 !   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
 !   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
  END IF
- stop
+ call MPI_Abort(MPI_COMM_WORLD, myErrorCode%WRONG_SCREW, ierr)
 END IF
 
 IF (dTheta.lt.0d0) THEN
@@ -1292,7 +1292,7 @@ IF (dTheta.lt.0d0) THEN
 !   WRITE(*,*) "crit1", (mySigma%Dz_out-2d0*exc-2d0*delta)/(a-s)
 !   WRITE(*,*) "crit2", 1d0/cos(mypi/(2d0*dn))
  END IF
- stop
+ call MPI_Abort(MPI_COMM_WORLD, myErrorCode%WRONG_SCREW, ierr)
 ENDIF
 
 Dif = dSQRT(XB*XB+YB*YB)-R2

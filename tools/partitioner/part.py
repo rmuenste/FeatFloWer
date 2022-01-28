@@ -31,9 +31,14 @@ def _readAfterKeyword(fh,keyword):
 
 def _try_in_place_first(name):
   tmp=os.path.join(os.curdir,name)
+
+  if not os.path.exists(tmp):
+    tmp=os.path.join(os.curdir, "../lib64", name)
+
+  if not os.path.exists(tmp):
+    tmp=name
+
   try:
-    if not os.path.exists(tmp):
-      tmp=name
     return CDLL(tmp)
   except OSError:
     print("An error of type OSError occurred while trying to find the metis library:")
