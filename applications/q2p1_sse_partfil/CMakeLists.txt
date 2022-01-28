@@ -66,8 +66,8 @@ IF(${OUT_OF_SOURCE_BUILD})
   ENDIF()
 
   # copy the data directories
-  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_data_BU")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_data_BU" "${CMAKE_CURRENT_BINARY_DIR}/_data_BU" )
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_data_PF")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/_data_PF" "${CMAKE_CURRENT_BINARY_DIR}/_data_BU" )
   ENDIF()
 
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_ianus")

@@ -344,14 +344,6 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
                   str(projectPath))
             sys.exit(2)
 
-
-    # Partialfilling gets a different paramV_Bu file
-
-    if paramDict['partialFilling']:
-        sourceParamFile = Path("_data_BU") / Path("q2p1_paramV_0.dat")
-        destBackupFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
-        shutil.copyfile(str(sourceParamFile), str(destBackupFile))
-
     if paramDict['shortTest']:
         if (paramDict['dieSimulation']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE_test.dat")
@@ -360,6 +352,8 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     else:
         if (paramDict['dieSimulation']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE.dat")
+        elif (paramDict['partialFilling']) :
+            backupDataFile = Path("_data_PF") / Path("q2p1_paramV_0.dat")
         else:
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     
@@ -772,13 +766,13 @@ def simLoopPartialFilling(workingDir):
 
     nLoops = 4 
     for i in range(nLoops):
-        sourceParamFile = Path("_data_BU") / Path("q2p1_paramAlpha.dat")
+        sourceParamFile = Path("_data_PF") / Path("q2p1_paramAlpha.dat")
         destBackupFile = Path("_data") / Path("q2p1_param.dat")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
         print(msg)
 
-        sourceParamFile = Path("_data_BU") / Path("mesh_names.offs")
+        sourceParamFile = Path("_data_PF") / Path("mesh_names.offs")
         destBackupFile = Path("./mesh_names.offs")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
@@ -796,7 +790,7 @@ def simLoopPartialFilling(workingDir):
 
             exitCode = subprocess.call([launchCommand], shell=True)
 
-        sourceParamFile = Path("_data_BU") / Path("q2p1_paramV_1.dat")
+        sourceParamFile = Path("_data_PF") / Path("q2p1_paramV_1.dat")
         destBackupFile = Path("_data") / Path("q2p1_param.dat")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
