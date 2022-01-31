@@ -1830,7 +1830,7 @@
      t%DensitySteig = 0d0
      
      r%Equation = 1
-     r%A = 0.1d0
+     r%A = 1.0d0
      r%B = 1.0d0
      r%C = 0.0d0
      
