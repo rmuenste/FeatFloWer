@@ -119,7 +119,8 @@ if (sExport%Format .eq. "VTK") then
  end if
 
  if (myid.eq.0) then
-  CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
+  !trouble with this on Windows for 1+1 partitions (??? TSE/conv)
+  !CALL OutputTriMesh(mgMesh%level(nlmin+1)%dcorvg,mgMesh%level(nlmin+1)%kvert,mgMesh%level(nlmin+1)%knpr,mgMesh%level(nlmin+1)%nvt,mgMesh%level(nlmin+1)%nel,0)
  end if
     
 end if
