@@ -167,21 +167,23 @@ DO i=1,GenLinScalar%ndof
    ELSE
    
     DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
-     IF (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCType.eq.1) then
-      dCenter       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
-      dNormal       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
-      dMassFlow     = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
-      iMat          = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
-      ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
-      douterradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
-      dinnerradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
-      dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
-      daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
-      if (daux.ne.0d0) then
-       mySubinflow = iSubInflow
-       bBC=.true.
-      END IF
-     END IF
+      if (allocated(myProcess%myInflow))then
+         IF (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCType.eq.1) then
+          dCenter       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
+          dNormal       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
+          dMassFlow     = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+          iMat          = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+          ddensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+          douterradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
+          dinnerradius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
+          dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+          daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+          if (daux.ne.0d0) then
+           mySubinflow = iSubInflow
+           bBC=.true.
+          END IF
+         END IF
+      end if
     END DO
     
    END IF
