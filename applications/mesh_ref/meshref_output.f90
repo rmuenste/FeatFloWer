@@ -804,6 +804,10 @@ DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 REAL*8 P(3),Q(3),dist,mindist,dVolume,dSize
 logical bToMarkFace
 logical, allocatable :: bInflowMarker(:,:)
+logical, allocatable, dimension(:,:) :: HexSide
+integer, allocatable :: InflowToSideMapper(:)
+real*8 OneSideCloseD,SideClose
+integer OneSideCloseI,iSide
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
 
@@ -840,26 +844,34 @@ logical, allocatable :: bInflowMarker(:,:)
  open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y+.par',unit=14)
  open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z-.par',unit=15)
  open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z+.par',unit=16)
+ allocate(HexSide(6,nUniquePoints))
+ HexSide = .false.
 
  do i=1,nUniquePoints
   P0 = MergedMeshCoor(:,i)
   if (abs(P0(1)-bound(1,1)).lt.dEps) then
    i1 = i1 + 1  
+   HexSide(1,i) = .true.
   end if
   if (abs(P0(1)-bound(1,2)).lt.dEps) then
    i2 = i2 + 1  
+   HexSide(2,i) = .true.
   end if
   if (abs(P0(2)-bound(2,1)).lt.dEps) then
    i3 = i3 + 1  
+   HexSide(3,i) = .true.
   end if
   if (abs(P0(2)-bound(2,2)).lt.dEps) then
    i4 = i4 + 1  
+   HexSide(4,i) = .true.
   end if
   if (abs(P0(3)-bound(3,1)).lt.dEps) then
    i5 = i5 + 1  
+   HexSide(5,i) = .true.
   end if
   if (abs(P0(3)-bound(3,2)).lt.dEps) then
    i6 = i6 + 1  
+   HexSide(6,i) = .true.
   end if
  end do
 
@@ -919,6 +931,7 @@ logical, allocatable :: bInflowMarker(:,:)
  !------------------------------------------------------------------
 
  allocate(bInflowMarker(myProcess%nOfInflows,nUniquePoints))
+ 
  bInflowMarker = .false.
  
  !  deallocate(mg_mesh%level)
@@ -939,6 +952,31 @@ logical, allocatable :: bInflowMarker(:,:)
   write(*,*) mg_NewMesh%level(ilev)%nvt,mg_NewMesh%level(ilev)%nel,mg_NewMesh%level(ilev)%net,mg_NewMesh%level(ilev)%nat
  END DO
 
+ allocate(InflowToSideMapper(myProcess%nOfInflows))
+ do iInflow=1,myProcess%nOfInflows
+  Q = myProcess%myInflow(iInflow)%Center
+  OneSideCloseD = 1d8
+  OneSideCloseI = 0
+  
+  do iSide=1,6
+   SideClose =1d8
+   do i=1,nUniquePoints
+    if (HexSide(iSide,i)) then
+     P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,i)
+     dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+     if (dist.lt.SideClose) SideClose = dist
+    end if
+   end do
+   if (OneSideCloseD.gt.SideClose) then
+    OneSideCloseD = SideClose
+    OneSideCloseI = iSide
+   end if
+  end do
+  InflowToSideMapper(iInflow) = OneSideCloseI
+ end do
+
+ write(*,*) 'InflowToSideMapper = ',InflowToSideMapper
+
  DO iel = 1, mg_NewMesh%level(1)%nel
  
   do iat = 1,6
@@ -952,6 +990,13 @@ logical, allocatable :: bInflowMarker(:,:)
     P = 0d0
     DO i=1,4
      P = P + 0.25d0*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+    end do
+    
+    iSide = 0
+    do i=1,6
+     if (HexSide(i,ivt(1)).and.HexSide(i,ivt(2)).and.HexSide(i,ivt(3)).and.HexSide(i,ivt(4))) then
+      iSide = i
+     end if
     end do
     
 !     ! lets check if the face is really a boundary face (only for thew brick!)
@@ -971,27 +1016,32 @@ logical, allocatable :: bInflowMarker(:,:)
 !      stop
 !     END IF
 
-
+!       WRITE(*,*) iSide
+      
       mindist = 1d8
       P = MeshOutputScaleFactor*P ! scaling to cm
       DO iInflow=1,myProcess%nOfInflows
-       Q = myProcess%myInflow(iInflow)%Center
-       dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-       if (dist.lt.mindist) then
-        jInflow = iInflow 
-        mindist = dist
+       if (iSide.eq.InflowToSideMapper(iInflow)) then
+        Q = myProcess%myInflow(iInflow)%Center
+        dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+        if (dist.lt.mindist) then
+         jInflow = iInflow 
+         mindist = dist
+        end if
        end if
       END DO
       
       bToMarkFace = .false.
-      do i=1,4
-       P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
-       Q = myProcess%myInflow(jInflow)%Center
-       dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-       if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
-        bToMarkFace = .true.
-       end if
-      end do
+      if (iSide.eq.InflowToSideMapper(jInflow)) then
+       do i=1,4
+        P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+        Q = myProcess%myInflow(jInflow)%Center
+        dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+        if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
+         bToMarkFace = .true.
+        end if
+       end do
+      end if
       
       if (bToMarkFace) then
 !        WRITE(*,*) iel,iat
