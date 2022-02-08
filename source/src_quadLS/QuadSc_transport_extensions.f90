@@ -2168,7 +2168,7 @@ DO INL=1,QuadSc%prm%NLmax
    !!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
    IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
     IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
-     xTimeStepMultiplier = 0.2d0*xTimeStepMultiplier
+     xTimeStepMultiplier = MAX(0.066667d0,0.2d0*xTimeStepMultiplier)
      TimeStepIncrease = 0
      if (myid.eq.1) WRITE(MTERM,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
      if (myid.eq.1) WRITE(MFILE,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
