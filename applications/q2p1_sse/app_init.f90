@@ -192,12 +192,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL Init_QuadScalar(mfile)
  
-!  IF (MaxLevelKnownToMaster.gt.2) THEN
-!   QuadSc%prm%MGprmIn%MinLev = max(2,QuadSc%prm%MGprmIn%MinLev)
-!   QuadSc%prm%MGprmIn%MedLev = max(2,QuadSc%prm%MGprmIn%MedLev)
-!   if (myid.eq.1) WRITE(MTERM,*) 'Min/Med MG level increasement for velocity solver!'
-!   if (myid.eq.1) WRITE(MFILE,*) 'Min/Med MG level increasement for velocity solver!'
-!  END IF
+ IF (MaxLevelKnownToMaster.gt.2) THEN
+  QuadSc%prm%MGprmIn%MinLev = max(2,QuadSc%prm%MGprmIn%MinLev)
+  QuadSc%prm%MGprmIn%MedLev = max(2,QuadSc%prm%MGprmIn%MedLev)
+  if (myid.eq.1) WRITE(MTERM,*) 'Min/Med MG level increasement for velocity solver!'
+  if (myid.eq.1) WRITE(MFILE,*) 'Min/Med MG level increasement for velocity solver!'
+ END IF
 
  !------------------------------------------------------------------
  cExtrud3DFile = '_data/Extrud3D.dat'
