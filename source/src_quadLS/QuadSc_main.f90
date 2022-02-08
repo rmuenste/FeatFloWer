@@ -30,6 +30,11 @@ INTEGER, ALLOCATABLE :: QuadScBoundary(:)
 INTEGER PressureSample(2)
 REAL tttt0,tttt1
 
+!!!!!!!!!!   Artificial - TimeStepControl !!!!!!!!!!!
+REAL*8  :: xTimeStepMultiplier=1d0,old_TSTEP
+INTEGER :: TimeStepIncrease = 0,TimeStepIncreaseCrit = 3, MaxSmootheningSteps = 32
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 ! interfaces for the fbm_update and fbm_geom function
 ! handlers that process the dynamics update and
 ! the geometric computations for fbm objects

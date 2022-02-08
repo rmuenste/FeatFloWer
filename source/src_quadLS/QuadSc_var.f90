@@ -40,6 +40,8 @@ LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverge
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0
 
+integer :: MaxLevelKnownToMaster
+
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal

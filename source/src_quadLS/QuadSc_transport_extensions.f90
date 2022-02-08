@@ -2049,6 +2049,9 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
 
+old_TSTEP = tstep
+tstep = xTimeStepMultiplier*tstep
+
 if (.not.allocated(MGSteps%n)) THEN 
  allocate(MGSteps%n(MGSteps%m))
  allocate(MGSteps%r(MGSteps%m))
@@ -2158,9 +2161,26 @@ DO INL=1,QuadSc%prm%NLmax
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
    IF (MGSteps%daux.gt.3d-1) THEN
-    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),32)
+    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),MaxSmootheningSteps)
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
+   
+   !!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
+   IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
+    IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
+     xTimeStepMultiplier = 0.2d0*xTimeStepMultiplier
+     TimeStepIncrease = 0
+     if (myid.eq.1) WRITE(MTERM,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+     if (myid.eq.1) WRITE(MFILE,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+     QuadSc%prm%MGprmIn%nSmootherSteps = INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.8d0)
+     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    else
+     TimeStepIncrease = TimeStepIncrease + 1
+    END IF
+   END IF
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
   END IF
 
   !!!!!          Checking the quality of the result           !!!!
@@ -2296,6 +2316,7 @@ IF (bMultiMat) then
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+tstep = old_TSTEP 
 
 end subroutine Transport_q2p1_UxyzP_sse
 !
@@ -2309,6 +2330,9 @@ INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
+
+old_TSTEP = tstep
+tstep = xTimeStepMultiplier*tstep
 
 if (.not.allocated(MGSteps%n)) THEN 
  allocate(MGSteps%n(MGSteps%m))
@@ -2421,11 +2445,29 @@ DO INL=1,QuadSc%prm%NLmax
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
    IF (MGSteps%daux.gt.3d-1) THEN
-    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),32)
+    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),MaxSmootheningSteps)
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
   END IF
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
+  IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
+   IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
+    xTimeStepMultiplier = MAX(0.066667d0,0.2d0*xTimeStepMultiplier)
+    TimeStepIncrease = 0
+    QuadSc%prm%MGprmIn%nSmootherSteps = INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.8d0)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    if (myid.eq.1) WRITE(MTERM,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+    if (myid.eq.1) WRITE(MFILE,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+   else
+    TimeStepIncrease = TimeStepIncrease + 1
+   END IF
+  ELSE
+   TimeStepIncrease = 0
+  END IF
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
   !!!!!          Checking the quality of the result           !!!!
   !!!!! ----------------------------------------------------- !!!!
 
@@ -2559,6 +2601,7 @@ IF (bMultiMat) then
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+tstep = old_TSTEP 
 
 end subroutine Transport_q2p1_UxyzP_sse_PF
 !
