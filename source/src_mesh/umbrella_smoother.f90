@@ -178,7 +178,7 @@ module umbrella_smoother
   
   CALL E013SUM(v)
   
-  ALLOCATE(myVol(nel))
+  ALLOCATE(myVol(nel+1))
   ALLOCATE(DXXX(nvt))
   
   if (myid.eq.1) write(*,'(A$)') 'MeshSmoothening:{'

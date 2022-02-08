@@ -887,7 +887,8 @@
     cParserString = "E3DProcessParameters"
     CALL FillUpInflows(myProcess%nOfInflows,cParserString)
 
-    if (myProcess%FillingDegree.eq.myInf) then
+    if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
+      myProcess%FillingDegree=myInf
       ! this applies for the use of the Q2P1 sse code !IF! there IS NO partial filling defined
       call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
       IF (myMultiMat%nOfMaterials.ne.0) then
