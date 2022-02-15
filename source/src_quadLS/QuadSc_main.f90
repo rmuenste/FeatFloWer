@@ -603,11 +603,8 @@ END IF
 
  CALL InitializeProlRest(QuadSc,LinSc)
 
- CALL Create_MMat()
- IF (ALLOCATED(mg_Mmat)) DEALLOCATE(mg_Mmat)
- 
  CALL OperatorRegenaration(1)
-
+ 
 END SUBROUTINE Init_QuadScalar_Structures_sse
 !
 ! ----------------------------------------------
@@ -889,9 +886,6 @@ end if
 
 CALL E010_CollectCoarseVector(mgDensity(NLMIN)%x,mg_mesh%level(NLMIN)%nel)
 
-CALL Create_MMat()
-IF (ALLOCATED(mg_Mmat)) DEALLOCATE(mg_Mmat)
- 
 CALL OperatorRegenaration(1)
 
 END SUBROUTINE Init_operators_sse_PF
@@ -3387,6 +3381,8 @@ END IF
 call OperatorRegenaration(1)
 call OperatorRegenaration(2)
 call OperatorRegenaration(3)
+
+CALL Create_MMat()
 
 end subroutine InitOperators
 !
