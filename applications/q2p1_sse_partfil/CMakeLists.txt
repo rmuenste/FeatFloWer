@@ -81,7 +81,7 @@ install(TARGETS ${SSE_TARGET_NAME}
     ARCHIVE DESTINATION lib
     )
 
-set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist _ianus)
+set(DEF_DIRS _mesh _vtk _data _dump start _1D _hist)
 
 FOREACH(dir ${DEF_DIRS})
   list(APPEND mydirs ${CMAKE_CURRENT_BINARY_DIR}/${dir})
