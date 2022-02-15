@@ -2028,10 +2028,11 @@ IF (myid.eq.1) THEN
   WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
   ! Now output the particles to the file
   DO i=1,nLostSet
-   WRITE(412,'(3(E16.7,A),2(I0,A),E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
+   WRITE(412,'(3(E16.7,A),2(I0,A),E16.7,3(A,E16.7))') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(2)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(3)*myParticleParam%dFacUnitOut),',',&
-                                myLostSet(i)%indice,',',myLostSet(i)%id,',',REAL(myLostSet(i)%time)
+                                myLostSet(i)%indice,',',myLostSet(i)%id,',',REAL(myLostSet(i)%time),',',&
+                                REAL(myCompleteSet(i)%velo(1)),',',REAL(myCompleteSet(i)%velo(2)),',',REAL(myCompleteSet(i)%velo(3))
   END DO
 
   CLOSE(412)
