@@ -1,0 +1,33 @@
+[GeneralSettings]
+particle_datafile=aa.txt
+machine_datafile=bb.e3d
+unitIN = CM
+unitOUT = CM
+unitSourcefile = CM
+startingprocedure = CSV, file='_data/seed.csv'
+dump_in_file = 2
+minFrac=0.99
+TimeLevels = 36
+Periodicity = 36
+sourcefile=_data/seed.csv
+RotationalMovement = YES
+DumpFormat = LST
+nElements = 1
+nSegmentsColoring = 1 
+Epsilon=0.05
+nRotation = 100
+d_CorrDist=0.1
+D_Out = 10
+D_in = 6
+f=3.5
+zCutplanePositions(10)=
+30
+45
+60
+75
+90
+95
+100
+105
+110
+115

@@ -96,6 +96,10 @@ IF (initfield.eq.2) then
  CALL Initfield2(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
 end if
 
+IF (initfield.eq.3) then
+ CALL Initfield3(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
+end if
+
 END SUBROUTINE InitMarker
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE SetUpMarker()
