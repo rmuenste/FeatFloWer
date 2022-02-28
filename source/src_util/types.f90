@@ -479,8 +479,11 @@ integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
 ! This defines a planar seeding
 integer, parameter, public :: ParticleSeed_PLANE = 8
 
-! This defines a planar seeding
+! This defines a volumetric seeding
 integer, parameter, public :: ParticleSeed_VOLUME = 9
+
+! This defines a volumetric seeding
+integer, parameter, public :: ParticleSeed_E3D  = 5
 
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax

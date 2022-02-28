@@ -4,7 +4,8 @@ machine_datafile=bb.e3d
 unitIN = CM
 unitOUT = CM
 unitSourcefile = CM
-startingprocedure = CSV, file='_data/seed.csv'
+xstartingprocedure = CSV, file='_data/seed.csv'
+startingprocedure = E3D, N=2500
 dump_in_file = 2
 minFrac=0.99
 TimeLevels = 36
@@ -14,12 +15,12 @@ RotationalMovement = YES
 DumpFormat = LST
 nElements = 1
 nSegmentsColoring = 1 
-Epsilon=0.05
+Epsilon=0.01
 nRotation = 100
 d_CorrDist=0.1
 D_Out = 10
 D_in = 6
-f=3.5
+f=35.0
 zCutplanePositions(10)=
 30
 45
