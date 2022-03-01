@@ -567,8 +567,9 @@ def cleanWorkingDir(workingDir):
     else: 
         offList = list(workingDir.glob('*.off'))
 
-    for item in offList:
-        os.remove(str(item))
+    # temporarily blocked ==> should be released later
+    #for item in offList:
+        #os.remove(str(item))
 #===============================================================================
 
 
