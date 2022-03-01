@@ -147,7 +147,7 @@ integer ilong
 !  CHARACTER*(200) :: cmd
  LOGICAL bExist
 
- OPEN(1,file='param.cfg')
+ OPEN(1,file='param_meshref.cfg')
 
 !  READ(1,*) cIntputFolder
  

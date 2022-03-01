@@ -169,7 +169,7 @@ if(NOT WIN32)
     list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/RunnerGenDIE.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref")
-    list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param.cfg")
+    list(APPEND E3D_SCRIPTS "${CMAKE_BINARY_DIR}/applications/mesh_ref/param_meshref.cfg")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_pre.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/testcases/gendie/slurm_Veka_sim.sh")
 
