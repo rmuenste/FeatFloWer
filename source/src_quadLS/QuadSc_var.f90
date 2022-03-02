@@ -22,7 +22,7 @@ CHARACTER*200 :: ApplicationString=&
 "  |                                                                                                  |"
 
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:22.01  Date:2022.01.17          |"
+"  |                                                          Version:22.01  Date:2022.02.02          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
