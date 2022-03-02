@@ -9,7 +9,7 @@ INTEGER,ALLOCATABLE  :: knpr(:),kE1(:,:),kE2(:),kE3(:,:)
 REAL*8 ,ALLOCATABLE  :: dcorvg(:,:)
 INTEGER nArea,ninArea
 integer iix,iiy,iiz,iii
-CHARACTER*(100) :: cProjectFolder,cMeshFile
+CHARACTER*(100) :: cProjectFolder,cMeshFile,cProjectFile,cShortProjectFile
 character cfile*(200)
 
 INTEGER,ALLOCATABLE  :: khelp(:,:)
@@ -49,12 +49,18 @@ CONTAINS
 SUBROUTINE ReadMEsh()
 CHARACTER sCommand*(200)
 
-sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.par'
-CALL system(ADJUSTL(TRIM(sCommand)))
-sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.vtp'
-CALL system(ADJUSTL(TRIM(sCommand)))
-sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.prj'
-CALL system(ADJUSTL(TRIM(sCommand)))
+! sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.par'
+! CALL system(ADJUSTL(TRIM(sCommand)))
+! sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.vtp'
+! CALL system(ADJUSTL(TRIM(sCommand)))
+! sCommand = 'rm -fr '//ADJUSTL(TRIM(cProjectFolder))//'/*.prj'
+! CALL system(ADJUSTL(TRIM(sCommand)))
+
+ cProjectFile = adjustl(trim(cProjectFolder))//"/"//adjustl(trim(cShortProjectFile))
+ WRITE(*,*) adjustl(trim(cProjectFile))
+
+ CALL ExtractMeshfile()
+
 
 OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/"//ADJUSTL(TRIM(cMeshFile)))
 READ(1,*)
@@ -77,6 +83,36 @@ END DO
 CLOSE(1)
 END SUBROUTINE ReadMEsh
 !----------------------------------------------------------
+SUBROUTINE ExtractMeshfile()
+IMPLICIT NONE
+INTEGER LenStr,iEnd
+CHARACTER(LEN=200) :: string,cFile
+logical :: bFound=.false.
+
+OPEN(unit=2,file=adjustl(trim(cProjectFile)))
+
+DO
+ READ(2,FMT='(200A)',IOSTAT=iEnd) string
+ IF (iEnd.EQ.-1) EXIT
+ LenStr = LEN(ADJUSTL(TRIM(string)))
+ IF (LenStr.gt.4) THEN
+  cFile = ADJUSTL(TRIM(string))
+  IF (cFile(LenStr-3:LenStr).EQ.".tri") THEN
+   cMeshFile = adjustl(trim(cFile))
+   Write(*,*) 'Mesh file: "'//ADJUSTL(TRIM(cMeshFile))//'"'
+   bFound=.true.
+   exit
+  END IF
+ END IF
+END DO
+
+CLOSE(2)
+if (.not.bFound) then
+ Write(*,*) 'Mesh file was NOT found in Project file! '
+end if
+
+END SUBROUTINE ExtractMeshfile
+! ----------------------------------------------
 SUBROUTINE BuildKedge()
 INTEGER ind(2),jnd(2)
 INTEGER NeighE(2,12)
