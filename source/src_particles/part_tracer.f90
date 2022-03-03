@@ -120,6 +120,7 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  IF (myid.eq.showID) WRITE(MFILE,'(A,3ES12.4)') "MeltVolume[l],MeltFlowrate[l/h],RT[s]:",1e-3*dMeltVolume,dMeltFlowRate,dCharacteristicTime
 
  dTimeStep = dCharacteristicTime/1d2
+ 
 END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!! Volume estimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
@@ -1019,11 +1020,22 @@ INTEGER inittype
 
 call prt_read_config(myParticleParam, mfile, mterm)
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ myParticleParam%d_CorrDist = myProcess%ExtrusionGapSize*0.20d0*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
+ myParticleParam%Epsilon = myParticleParam%d_CorrDist*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
+ IF (myid.eq.1) THEN
+ ! write(*,*) ADJUSTL(TRIM(mySigma%cType)), myParticleParam%d_CorrDist,myParticleParam%Epsilon
+  write(*,*) "d_Corrdist and Epsilon is adaptively adjsuted due to DIE simulation", myParticleParam%d_CorrDist,myParticleParam%Epsilon
+ end if
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!!!! CorrDistEstimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+
 IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%dump_in_file = ',myParticleParam%dump_in_file
  WRITE(mfile,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mfile,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
  WRITE(mfile,*) 'myParticleParam%nRotation   = ', myParticleParam%nRotation
+ WRITE(mfile,*) 'myParticleParam%d_CorrDist  = ', myParticleParam%d_CorrDist
  WRITE(mfile,*) 'myParticleParam%minFrac     = ', myParticleParam%minFrac
  WRITE(mfile,*) 'myParticleParam%Raster      = ', myParticleParam%Raster
  WRITE(mfile,*) 'myParticleParam%dEps1       = ', myParticleParam%dEps1
