@@ -22,7 +22,7 @@ CHARACTER*200 :: ApplicationString=&
 "  |                                                                                                  |"
 
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:20.11  Date:2020.11.05          |"
+"  |                                                          Version:22.01  Date:2022.02.02          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
@@ -39,6 +39,8 @@ LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverge
 
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0
+
+integer :: MaxLevelKnownToMaster
 
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
@@ -91,7 +93,7 @@ TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_lMat,mg_lPMat,mg_qMat
 REAL*8, DIMENSION(:), POINTER :: BXMat,BYMat,BZMat
 REAL*8, DIMENSION(:), POINTER :: BTXMat,BTYMat,BTZMat
 REAL*8, DIMENSION(:), POINTER :: BXPMat,BYPMat,BZPMat
-REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlRhomat,MlRhoPmat
+REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlPmat,MlRhomat,MlRhoPmat
 REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ConstDMat,hDMat
 REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
@@ -147,7 +149,7 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg_S33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
-TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlRhomat,mg_MlRhoPmat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlPMat,mg_MlRhomat,mg_MlRhoPmat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat,mg_P1MMat,mg_P1iMMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_12,mg_VisMat_13,mg_VisMat_23
@@ -381,6 +383,17 @@ TYPE tALE
  LOGICAL :: bUseFrameVelocity = .false.
  REAL*8 dFrameVelocity(3),dFrameVelocityChange(3)
 END TYPE tALE
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! interface structure !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+TYPE tTetInterface
+ INTEGER nG,nT
+ REAL*8  , ALLOCATABLE :: X(:,:),Y(:,:)
+ INTEGER , ALLOCATABLE :: L(:)
+END TYPE tTetInterface
+
+TYPE(tTetInterface) lInterface,gInterface
+REAL*8, allocatable :: myFracField(:),myDistance(:)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! interface structure !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 TYPE(tALE),save :: myALE
 

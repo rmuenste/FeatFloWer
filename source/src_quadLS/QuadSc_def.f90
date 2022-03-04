@@ -315,6 +315,7 @@ INTEGER I,J
 
  IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
  IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
+ IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
 
  DO ILEV=NLMIN,NLMAX
 
@@ -323,10 +324,9 @@ INTEGER I,J
 
   IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
    ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  ELSE
-   mg_Mmat(ILEV)%a=0d0
   END IF
 
+  mg_Mmat(ILEV)%a=0d0
 
   IF (myid.eq.showID) THEN
    IF (ILEV.EQ.NLMIN) THEN
@@ -353,6 +353,10 @@ INTEGER I,J
    mg_MlMat(ILEV)%a(I) = DML
   END DO
 
+  IF (.not.ALLOCATED(mg_MlPmat(ILEV)%a)) ALLOCATE(mg_MlPmat(ILEV)%a(qMat%nu))
+  mg_MlPmat(ILEV)%a = mg_MlMat(ILEV)%a
+  CALL E013SUM(mg_MlPmat(ILEV)%a)
+  
  END DO
 
  ILEV=NLMAX
@@ -361,6 +365,7 @@ INTEGER I,J
  qMat      => mg_qMat(NLMAX)
  Mmat      => mg_Mmat(NLMAX)%a
  MlMat     => mg_MlMat(NLMAX)%a
+ MlPMat    => mg_MlPMat(NLMAX)%a
 
  CALL ZTIME(myStat%t1)
  myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
@@ -1392,38 +1397,37 @@ END SUBROUTINE GetGradVelo_rhs
 !
 ! ----------------------------------------------
 !
-SUBROUTINE GetGradVelo_val(myScalar,iComp,dRho)
+SUBROUTINE GetGradVelo_val(myScalar,iComp)
 TYPE(TQuadScalar) myScalar
-REAL*8 dRho
 INTEGER iComp,i
 
 IF (myid.ne.0) THEN
 
  ILEV=NLMAX
  CALL SETLEV(2)
- MlRhoPMat => mg_MlRhoPmat(ILEV)%a
+ MlPMat => mg_MlPmat(ILEV)%a
 
  IF (iComp.EQ.1) THEN
   DO i=1,myScalar%ndof
-   myScalar%valUx(i) = dRho*myScalar%defU(i)/MlRhoPMat(i)
-   myScalar%valUy(i) = dRho*myScalar%defV(i)/MlRhoPMat(i)
-   myScalar%valUz(i) = dRho*myScalar%defW(i)/MlRhoPMat(i)
+   myScalar%valUx(i) = myScalar%defU(i)/MlPMat(i)
+   myScalar%valUy(i) = myScalar%defV(i)/MlPMat(i)
+   myScalar%valUz(i) = myScalar%defW(i)/MlPMat(i)
   END DO
  END IF
 
  IF (iComp.EQ.2) THEN
   DO i=1,myScalar%ndof
-   myScalar%valVx(i) = dRho*myScalar%defU(i)/MlRhoPMat(i)
-   myScalar%valVy(i) = dRho*myScalar%defV(i)/MlRhoPMat(i)
-   myScalar%valVz(i) = dRho*myScalar%defW(i)/MlRhoPMat(i)
+   myScalar%valVx(i) = myScalar%defU(i)/MlPMat(i)
+   myScalar%valVy(i) = myScalar%defV(i)/MlPMat(i)
+   myScalar%valVz(i) = myScalar%defW(i)/MlPMat(i)
   END DO
  END IF
 
  IF (iComp.EQ.3) THEN
   DO i=1,myScalar%ndof
-   myScalar%valWx(i) = dRho*myScalar%defU(i)/MlRhoPMat(i)
-   myScalar%valWy(i) = dRho*myScalar%defV(i)/MlRhoPMat(i)
-   myScalar%valWz(i) = dRho*myScalar%defW(i)/MlRhoPMat(i)
+   myScalar%valWx(i) = myScalar%defU(i)/MlPMat(i)
+   myScalar%valWy(i) = myScalar%defV(i)/MlPMat(i)
+   myScalar%valWz(i) = myScalar%defW(i)/MlPMat(i)
   END DO
  END IF
 

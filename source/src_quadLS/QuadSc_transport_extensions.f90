@@ -1351,6 +1351,7 @@ END IF
  END IF
 
 IF (myid.ne.master) THEN
+
  ! Add the gravity force to the rhs
  CALL AddGravForce()
 
@@ -2048,6 +2049,9 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
 
+old_TSTEP = tstep
+tstep = xTimeStepMultiplier*tstep
+
 if (.not.allocated(MGSteps%n)) THEN 
  allocate(MGSteps%n(MGSteps%m))
  allocate(MGSteps%r(MGSteps%m))
@@ -2157,9 +2161,26 @@ DO INL=1,QuadSc%prm%NLmax
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
    IF (MGSteps%daux.gt.3d-1) THEN
-    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),32)
+    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),MaxSmootheningSteps)
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
+   
+   !!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
+   IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
+    IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
+     xTimeStepMultiplier = MAX(0.066667d0,0.2d0*xTimeStepMultiplier)
+     TimeStepIncrease = 0
+     if (myid.eq.1) WRITE(MTERM,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+     if (myid.eq.1) WRITE(MFILE,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+     QuadSc%prm%MGprmIn%nSmootherSteps = INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.8d0)
+     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+     if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    else
+     TimeStepIncrease = TimeStepIncrease + 1
+    END IF
+   END IF
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
   END IF
 
   !!!!!          Checking the quality of the result           !!!!
@@ -2295,8 +2316,294 @@ IF (bMultiMat) then
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+tstep = old_TSTEP 
 
 end subroutine Transport_q2p1_UxyzP_sse
+!
+! ----------------------------------------------
+!
+subroutine Transport_q2p1_UxyzP_sse_PF(mfile, inl_u, itns)
+
+use, intrinsic :: ieee_arithmetic
+
+INTEGER mfile,INL,inl_u,itns
+REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
+INTEGER INLComplete,I,J,IERR,iITER
+
+old_TSTEP = tstep
+tstep = xTimeStepMultiplier*tstep
+
+if (.not.allocated(MGSteps%n)) THEN 
+ allocate(MGSteps%n(MGSteps%m))
+ allocate(MGSteps%r(MGSteps%m))
+ MGSteps%i = 0
+ MGSteps%n = 0
+ MGSteps%r = 0d0
+END IF
+
+thstep = tstep*(1d0-theta)
+
+ILEV = NLMAX
+CALL SETLEV(2)
+CALL OperatorRegenaration(2)
+
+!CALL Setup_PeriodicPressureRHS(LinSc,PLinSc,QuadSc%knprU,QuadSc%knprV,QuadSc%knprW)
+ILEV = NLMAX
+CALL SETLEV(2)
+CALL Setup_PeriodicVelocityRHS()
+
+CALL OperatorRegenaration(3)
+
+! -------------------------------------------------
+! Compute the momentum equations
+! -------------------------------------------------
+IF (myid.ne.master) THEN
+
+ CALL ZTIME(tttt0)
+
+ ! Assemble the right hand side
+ CALL Matdef_General_QuadScalar(QuadSc,1)
+
+ ! Add the gravity force to the rhs
+ CALL AddGravForce()
+ 
+ ! Add the pressure gradient
+ CALL AddPeriodicPressureGradient()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ ! Store the constant right hand side
+ QuadSc%rhsU = QuadSc%defU
+ QuadSc%rhsV = QuadSc%defV
+ QuadSc%rhsW = QuadSc%defW
+
+! Set dirichlet boundary conditions on the solution
+ CALL Boundary_QuadScalar_Val()
+
+END IF
+  
+thstep = tstep*theta
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the defect vector and fine level matrix
+ CALL Matdef_General_QuadScalar(QuadSc,-1)
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum(QuadSc%auxU)
+ CALL E013Sum(QuadSc%auxV)
+ CALL E013Sum(QuadSc%auxW)
+
+ ! Save the old solution
+ CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the norm of the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+CALL COMM_Maximum(RhsUVW)
+DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
+
+CALL Protocol_QuadScalar(mfile,QuadSc,0,&
+     ResU,ResV,ResW,DefUVW,DefUVWCrit," Momentum equation ")
+
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+DO INL=1,QuadSc%prm%NLmax
+  INLComplete = 0
+
+  ! ! Calling the solver
+  CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
+  Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+
+  MGSteps%j = MOD(MGSteps%i,MGSteps%m) + 1
+  MGSteps%n = 0
+  MGSteps%r(MGSteps%j) = QuadSc%prm%MGprmOut(1)%RhoMG1
+  MGSteps%n(MGSteps%j) = QuadSc%prm%MGprmIn%nSmootherSteps
+  MGSteps%i = MGSteps%i + 1
+  MGSteps%daux = 0d0
+!   if (myid.eq.1) WRITE(*,*) 'MG data:', MGSteps%i,MGSteps%m
+  if (MGSteps%i.ge.MGSteps%m) THEN
+   DO i = 1,MGSteps%m
+    MGSteps%daux = MGSteps%daux + MGSteps%r(i)
+   END DO
+   MGSteps%daux = MGSteps%daux/dble(MGSteps%m)
+!    if (myid.eq.1) WRITE(*,*) 'AVG MG rate:', MGSteps%daux,MGSteps%r
+   IF (MGSteps%daux.lt.3d-3) THEN
+    QuadSc%prm%MGprmIn%nSmootherSteps = MAX(MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.75d0),QuadSc%prm%MGprmIn%nSmootherSteps-1),4)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+   END IF
+   IF (MGSteps%daux.gt.3d-1) THEN
+    QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),MaxSmootheningSteps)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
+   END IF
+  END IF
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
+  IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
+   IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
+    xTimeStepMultiplier = MAX(0.066667d0,0.2d0*xTimeStepMultiplier)
+    TimeStepIncrease = 0
+    QuadSc%prm%MGprmIn%nSmootherSteps = INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*0.8d0)
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    if (myid.eq.1) WRITE(*,*) 'MG smoothening step reduction to:', QuadSc%prm%MGprmIn%nSmootherSteps
+    if (myid.eq.1) WRITE(MTERM,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+    if (myid.eq.1) WRITE(MFILE,*) 'Artificial TimeStep Reduction:', xTimeStepMultiplier
+   else
+    TimeStepIncrease = TimeStepIncrease + 1
+   END IF
+  ELSE
+   TimeStepIncrease = 0
+  END IF
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
+  !!!!!          Checking the quality of the result           !!!!
+  !!!!! ----------------------------------------------------- !!!!
+
+  CALL OperatorRegenaration(3)
+
+  IF (myid.ne.master) THEN
+  ! Restore the constant right hand side
+   CALL ZTIME(tttt0)
+   QuadSc%defU = QuadSc%rhsU
+   QuadSc%defV = QuadSc%rhsV
+   QuadSc%defW = QuadSc%rhsW
+  END IF
+
+  IF (myid.ne.master) THEN
+
+   ! Assemble the defect vector and fine level matrix
+   CALL Matdef_General_QuadScalar(QuadSc,-1)
+
+   ! Set dirichlet boundary conditions on the defect
+   CALL Boundary_QuadScalar_Def()
+
+   QuadSc%auxU = QuadSc%defU
+   QuadSc%auxV = QuadSc%defV
+   QuadSc%auxW = QuadSc%defW
+   CALL E013Sum(QuadSc%auxU)
+   CALL E013Sum(QuadSc%auxV)
+   CALL E013Sum(QuadSc%auxW)
+
+   ! Save the old solution
+   CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+   CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+   CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+   ! Compute the defect
+   CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+  END IF
+
+  ! Checking convergence rates against criterions
+  RhsUVW=DefUVW
+  CALL COMM_Maximum(RhsUVW)
+  CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
+       ResU,ResV,ResW,DefUVW,RhsUVW)
+  IF (ISNAN(RhsUVW)) stop
+
+  IF ((DefUVW.LE.DefUVWCrit).AND.&
+     (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
+
+  CALL COMM_NLComplete(INLComplete)
+  CALL ZTIME(tttt1)
+  myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+  IF (INLComplete.eq.1) exit 
+
+END DO
+
+myStat%iNonLin = myStat%iNonLin + INL
+inl_u = INL
+
+! -------------------------------------------------
+! Compute the pressure correction
+! -------------------------------------------------
+IF (myid.ne.0) THEN
+
+ CALL ZTIME(tttt0)
+ ! Save the old solution
+ LinSc%valP_old = LinSc%valP(NLMAX)%x
+ LinSc%valP(NLMAX)%x = 0d0
+
+ ! Assemble the right hand side (RHS=1/k B^T U~)
+ CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
+
+ ! Save the right hand side
+ LinSc%rhsP(NLMAX)%x = LinSc%defP(NLMAX)%x
+
+ CALL ZTIME(tttt1)
+ myStat%tDefP = myStat%tDefP + (tttt1-tttt0)
+
+END IF
+
+! Calling the solver
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
+
+CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
+
+2 CONTINUE
+
+IF (myid.ne.0) THEN
+ CALL ZTIME(tttt0)
+ CALL Velocity_Correction()
+ CALL Pressure_Correction()
+ CALL ZTIME(tttt1)
+ myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
+END IF
+
+CALL CorrectPressure_WRT_KNPRP()
+
+IF (ieee_is_finite(myProcess%dPress)) THEN
+ CALL QuadScP1toQ2Periodic(LinSc,QuadSc)
+ELSE
+ CALL QuadScP1toQ2(LinSc,QuadSc)
+END IF
+
+if (bMultiMat) then
+ CALL GetAlphaNonNewtViscosity_sse()
+else
+ CALL GetNonNewtViscosity_sse()
+end if
+
+IF (.not.bKTPRelease) then
+ CALL Calculate_Torque(mfile)
+END IF
+
+if ((.not.bKTPRelease).and.bMultiMat) then
+ CALL GetPressureAtInflows(mfile)
+end if
+
+CALL LL21(LinSc%valP(NLMAX)%x,LinSc%ndof,defP)
+call COMM_SUMM(defp)
+if (ieee_is_nan(defP)) DivergedSolution = .true.
+if (.not.ieee_is_finite(defP)) DivergedSolution = .true.
+
+ILEV = NLMAX
+CALL SETLEV(2)
+CALL Comm_Solution(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,QuadSc%auxU,QuadSc%ndof)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (bMultiMat) then
+
+
+end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+tstep = old_TSTEP 
+
+end subroutine Transport_q2p1_UxyzP_sse_PF
 !
 ! ----------------------------------------------
 !

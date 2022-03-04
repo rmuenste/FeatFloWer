@@ -99,7 +99,8 @@ PROGRAM Q2P1_DEVEL
           Viscosity, Screw, Shell, Shearrate, mg_mesh)
     END IF
 
-    CALL Release_ListFiles_SSE_temp(int(myProcess%Angle))
+    CALL Release_ListFiles_General(int(myProcess%Angle),'t')
+!     CALL Release_ListFiles_SSE_temp(int(myProcess%Angle))
 !    call write_sol_to_file(insavn, timens)
     CALL ZTIME(myStat%t1)
     myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)

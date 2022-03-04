@@ -42,3 +42,18 @@ ENDIF()
 #file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 #add_test(q2p1-fac-newt python ./q2p1_ctest_start.py)
+
+#=========================================================================
+#                       INSTALL CONFIGURATION Q2P1_GENDIE PYTHON
+#=========================================================================
+install(TARGETS q2p1_particle_tracer_xse
+    RUNTIME DESTINATION bin/q2p1_gendie
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+    
+set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/config_particles.dat")
+
+install(FILES ${E3D_SCRIPTS} DESTINATION bin/q2p1_gendie/_data
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+

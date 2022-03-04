@@ -52,7 +52,7 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg
 
 TYPE (tMGFldMatrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_Amat
 
-TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: mg_DiffCoeff
+TYPE(mg_vector), DIMENSION(:),ALLOCATABLE :: mg_DiffCoeff,mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 
 ! A multi-level Matrix entries struct 
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_LaplaceMat, mg_ConvMat, mg_LMassMat, mg_MassMat
@@ -1030,6 +1030,7 @@ END SUBROUTINE GetDispParameters
 
 include 'LinSc_def_extension.f90'
 include 'GenLinSc_def_extension.f90'
+!include 'GenLinSc_MF_user.f90'
 
 END MODULE def_LinScalar
 

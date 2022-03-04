@@ -2,6 +2,7 @@ MODULE Particle
 
 USE types
 use var_QuadScalar
+USE Sigma_User, ONLY: mySigma,myProcess,myMultiMat
 
 USE PP3D_MPI, ONLY : myid,master,showid,Comm_Summ,Comm_SummN,subnodes,COMM_Maximum,COMM_Minimum
 ! USE Sigma_User, ONLY: myRTD
@@ -32,21 +33,26 @@ INTEGER iOutputLambda
 CONTAINS
 
 SUBROUTINE Transport_Particle_xse(mfile)
-use Sigma_User, only: mySigma, myProcess
-
+USE Transport_Q2P1, only : Create_MMat,mg_mlmat
 INTEGER mfile
 INTEGER i,nExSum,nActSum,nActSum0,nActSumOld,iCycle,iFile,iLevel0,iLevel1
-REAL*8  dTime,daux,dPeriod,dTimeStep,dStart,dBuffer(nBuffer)
+REAL*8  dTime,daux,dPeriod,dTimeStep,dMeltVolume,dStart,dBuffer(nBuffer)
+REAL*8  dMeltFlowRate,dCharacteristicTime
 CHARACTER*99 cFile
 LOGICAL :: bOutput=.TRUE.
 real*8 xmin, xmax, ymin, ymax, zmin, zmax
-integer iPeriodicityShift,jFile,iAngle
+integer iPeriodicityShift,jFile,iAngle,iMat
 
 dTime=0d0
 dPeriod = 6d1/myParticleParam%f
 dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 iAngle = 360/myParticleParam%nTimeLevels
 iPeriodicityShift = INT(myParticleParam%nTimeLevels/myParticleParam%nPeriodicity)
+IF (.not.allocated(mySegmentIndicator))   allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
+                                          mg_mesh%level(ilev)%net+&
+                                          mg_mesh%level(ilev)%nat+&
+                                          mg_mesh%level(ilev)%nel))
+
 
 ! GOTO 222
 
@@ -88,6 +94,35 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
  end if
 END DO
 ! !!!!!!!!!!!!!!!!!!!  ---- Velocity Fields are to be loaded -----   !!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!! Volume estimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ CALL Create_MMat()
+ IF (myid.eq.showID) WRITE(MTERM,*) 
+ IF (myid.eq.showID) WRITE(MFILE,*) 
+ dMeltVolume = 0d0
+ DO i=1,QuadSc%ndof
+  IF (mySegmentIndicator(2,i).gt.0.5d0) then
+   dMeltVolume = dMeltVolume + mg_mlmat(nlmax)%a(i)
+  END IF
+ END DO
+ CALL Comm_Summ(dMeltVolume)
+
+ dMeltFlowRate = 0d0
+ DO iInflow=1,myProcess%nOfInflows
+  iMat          = myProcess%myInflow(iInflow)%Material
+  dMeltFlowRate = dMeltFlowRate + myProcess%myInflow(iInflow)%massflowrate * myMultiMat%Mat(iMat)%Thermodyn%density ! [kg/h]/[kg/l]=[l/h]
+ END DO
+
+ dCharacteristicTime = dMeltVolume*3.6d0/dMeltFlowRate ! [cm3]/[l/h] = 0.001*[l]/[l/3600s] = 3.6*[s]  
+
+ IF (myid.eq.showID) WRITE(MTERM,'(A,3ES12.4)') "MeltVolume[l],MeltFlowrate[l/h],RT[s]:",1e-3*dMeltVolume,dMeltFlowRate,dCharacteristicTime
+ IF (myid.eq.showID) WRITE(MFILE,'(A,3ES12.4)') "MeltVolume[l],MeltFlowrate[l/h],RT[s]:",1e-3*dMeltVolume,dMeltFlowRate,dCharacteristicTime
+
+ dTimeStep = dCharacteristicTime/1d2
+ 
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!!!! Volume estimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
 IF (myid.ne.0) THEN
  ILEV=NLMAX-1
@@ -985,11 +1020,22 @@ INTEGER inittype
 
 call prt_read_config(myParticleParam, mfile, mterm)
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ myParticleParam%d_CorrDist = myProcess%ExtrusionGapSize*0.20d0*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
+ myParticleParam%Epsilon = myParticleParam%d_CorrDist*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
+ IF (myid.eq.1) THEN
+ ! write(*,*) ADJUSTL(TRIM(mySigma%cType)), myParticleParam%d_CorrDist,myParticleParam%Epsilon
+  write(*,*) "d_Corrdist and Epsilon is adaptively adjsuted due to DIE simulation", myParticleParam%d_CorrDist,myParticleParam%Epsilon
+ end if
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!!!! CorrDistEstimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+
 IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%dump_in_file = ',myParticleParam%dump_in_file
  WRITE(mfile,*) 'myParticleParam%nTimeLevels = ', myParticleParam%nTimeLevels
  WRITE(mfile,*) 'myParticleParam%nParticles  = ', myParticleParam%nParticles
  WRITE(mfile,*) 'myParticleParam%nRotation   = ', myParticleParam%nRotation
+ WRITE(mfile,*) 'myParticleParam%d_CorrDist  = ', myParticleParam%d_CorrDist
  WRITE(mfile,*) 'myParticleParam%minFrac     = ', myParticleParam%minFrac
  WRITE(mfile,*) 'myParticleParam%Raster      = ', myParticleParam%Raster
  WRITE(mfile,*) 'myParticleParam%dEps1       = ', myParticleParam%dEps1
@@ -1027,7 +1073,14 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
 END IF
 
-call Init_Particles_from_csv_xse(mfile)
+if (myParticleParam%inittype .eq. ParticleSeed_CSVFILE) then
+ call Init_Particles_from_csv_xse(mfile)
+else if(myParticleParam%inittype .eq. ParticleSeed_E3D) then
+ CALL Init_Particles_viaE3D(mfile)
+ELSE
+ write(*,*) 'no valid initialization is chosen'
+ STOP
+END IF
 ! Now the part that is identical for all initialisations
 if (myParticleParam%nZposCutplanes .gt. 0 ) then
   ALLOCATE(ZPosParticles(myParticleParam%nZposCutplanes,5,1:myParticleParam%nParticles))
@@ -1601,6 +1654,148 @@ END SUBROUTINE Init_Particles_from_parameterfile
 !
 !-------------------------------------------------------------------
 !
+SUBROUTINE Init_Particles_viaE3D(mfile)
+INTEGER nfile
+REAL*8 xmax,ymax,zmax,xmin,ymin,zmin
+REAL*8 myRandomNumber(3),myRandomX,myRandomY
+integer i,idx1,idx2,idx3,idx4,iElement,numberOfFluidElements,iPElement
+REAL*8 cdX0,cdY0,cdZ0,dist_CGAL
+logical :: bProjection=.false.
+integer iProjection, iInflow, iTryDir, iFoundDir
+REAL*8 dCenter(3), dNormal(3),dTry(3),dRefNormal1(3),dRefNormal2(3),dLine(3),dPlaneConstant,dOuterRadius,dDist,dTryDist,ProjPdist
+REAL*8 tX,tY
+real*8 :: myPi = 4.D0*DATAN(1.D0)
+
+
+ILEV = NLMAX
+
+numberOfFluidElements = myProcess%nOfInflows*myParticleParam%PlaneParticles
+myParticleParam%nParticles = myProcess%nOfInflows*myParticleParam%PlaneParticles*4
+
+ALLOCATE(myCompleteSet(1:myParticleParam%nParticles))
+ALLOCATE(myActiveSet  (1:myParticleParam%nParticles))
+ALLOCATE(myExchangeSet(1:myParticleParam%nParticles))
+ALLOCATE(myLostSet    (1:myParticleParam%nParticles))
+
+ALLOCATE(Lambda(numberOfFluidElements),Length(myParticleParam%nParticles,3))
+ALLOCATE(pPresent(myParticleParam%nParticles))
+
+iElement = 0
+ 
+!  pause
+DO iInflow = 1,myProcess%nOfInflows
+
+  dCenter       = myProcess%myInflow(iInflow)%center
+  dNormal       = myProcess%myInflow(iInflow)%normal
+  dDist = ((dNormal(1))**2d0 + (dNormal(2))**2d0 + (dNormal(3))**2d0 )**0.5d0
+  dNormal = dNormal/dDist
+  dOuterRadius  = myProcess%myInflow(iInflow)%outerradius
+  dCenter = dCenter + 0.0125d0*dOuterRadius*dNormal
+
+  ! plane equation
+  dPlaneConstant = dNormal(1)*dCenter(1) + dNormal(2)*dCenter(2) + dNormal(3)*dCenter(3)
+  dTryDist = 1d-8
+  iFoundDir = 0
+  do iTryDir=1,3
+   dTry = dCenter
+   dTry(iTryDir) = dTry(iTryDir) + dOuterRadius
+   
+   ProjPdist = dNormal(1)*dTry(1) + dNormal(2)*dTry(2) + dNormal(3)*dTry(3) - dPlaneConstant
+   dTry(1) = dTry(1) - ProjPdist*dNormal(1)
+   dTry(2) = dTry(2) - ProjPdist*dNormal(2)
+   dTry(3) = dTry(3) - ProjPdist*dNormal(3)
+   ProjPdist = dNormal(1)*dTry(1) + dNormal(2)*dTry(2) + dNormal(3)*dTry(3) - dPlaneConstant
+   
+   dLine = (dTry - dCenter)
+   dDist = ((dLine(1))**2d0 + (dLine(2))**2d0 + (dLine(3))**2d0)**0.5d0
+   
+   if (dTryDist.lt.dDist) then
+    dTryDist = dDist
+    dRefNormal1 = dLine/dDist
+   end if
+  end do
+  
+  dTry = dCenter
+  dTry(iFoundDir) = dTry(iFoundDir) + dOuterRadius
+  
+  dRefNormal2 = [ dRefNormal1(2)*dNormal(3) - dRefNormal1(3)*dNormal(2),&
+                 -dRefNormal1(1)*dNormal(3) + dRefNormal1(3)*dNormal(1),&
+                  dRefNormal1(1)*dNormal(2) - dRefNormal1(2)*dNormal(1)]
+  dDist = ((dRefNormal2(1))**2d0 + (dRefNormal2(2))**2d0 + (dRefNormal2(3))**2d0 )**0.5d0
+  dRefNormal2 = dRefNormal2 / dDist
+  
+  iPElement = 0
+  do 
+   
+   tX     =  (-1d0 + 2d0*rand(0))*dOuterRadius
+   tAngle =  (-myPI + 2d0*myPI*rand(0))
+   tY     =  dOuterRadius*sin(tAngle)
+   dDist = sqrt(tX**2d0 + tY**2d0)
+   IF (dDist.lt.dOuterRadius) then
+   
+      myRandomNumber = dCenter + tX*dRefNormal1 + tY*dRefNormal2
+   
+      cdx = myParticleParam%dFacUnitSourcefile*myRandomNumber(1)
+      cdy = myParticleParam%dFacUnitSourcefile*myRandomNumber(2)
+      cdz = myParticleParam%dFacUnitSourcefile*myRandomNumber(3)
+
+      CALL SearchPointsWRT_STLs(cdx,cdy,cdz,0d0,dist_CGAL,bProjection,cdX0,cdY0,cdZ0,iProjection)
+      if (dist_CGAL.gt.1d0*myParticleParam%d_CorrDist) then
+         
+         iElement = iElement+ 1
+         iPElement = iPElement+ 1
+         if (myid.eq.1) write(*,'(3ES12.4,(" "),I0)') cdx,cdy,cdz,iElement
+         
+         ! Calculate the indices of the particles that we
+         ! are generating. We create them elementwise:
+         ! First those from element 1, then those from
+         ! element two, then those from element 3, ...
+         idx1 = 4*iElement - 3
+         idx2 = 4*iElement - 2
+         idx3 = 4*iElement - 1
+         idx4 = 4*iElement - 0
+
+         myExchangeSet(idx1)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx1)%velo    = 0d0
+         myExchangeSet(idx1)%time    = 0d0
+         myExchangeSet(idx1)%indice  = idx1
+         myExchangeSet(idx1)%id = iInflow
+
+         myExchangeSet(idx2)%coor(:) = [myRandomNumber(1)+myParticleParam%Epsilon,myRandomNumber(2),myRandomNumber(3)]
+         myExchangeSet(idx2)%velo    = 0d0
+         myExchangeSet(idx2)%time    = 0d0
+         myExchangeSet(idx2)%indice  = idx2
+         myExchangeSet(idx2)%id = iInflow
+
+         myExchangeSet(idx3)%coor(:) = [myRandomNumber(1),myRandomNumber(2)+myParticleParam%Epsilon,myRandomNumber(3)]
+         myExchangeSet(idx3)%velo    = 0d0
+         myExchangeSet(idx3)%time    = 0d0
+         myExchangeSet(idx3)%indice  = idx3
+         myExchangeSet(idx3)%id = iInflow
+
+         myExchangeSet(idx4)%coor(:) = [myRandomNumber(1),myRandomNumber(2),myRandomNumber(3)+myParticleParam%Epsilon]
+         myExchangeSet(idx4)%velo    = 0d0
+         myExchangeSet(idx4)%time    = 0d0
+         myExchangeSet(idx4)%indice  = idx4
+         myExchangeSet(idx4)%id = iInflow
+     
+      END IF
+   
+    END IF
+    
+   if (ipElement.ge.myParticleParam%PlaneParticles) exit
+   
+  END DO
+  
+ 
+END DO !iInflow
+
+nExchangeSet = myParticleParam%nParticles
+
+END SUBROUTINE Init_Particles_viaE3D
+!
+!-------------------------------------------------------------------
+!
 SUBROUTINE Init_Particles_from_csv_xse(mfile)
 USE PP3D_MPI, ONLY : myid,master
 use Sigma_User, only: mySigma, myProcess
@@ -2028,10 +2223,11 @@ IF (myid.eq.1) THEN
   WRITE(412,'(6A)') '"coor_X",','"coor_Y",','"coor_Z",', '"indice",', '"ID",','"time"'
   ! Now output the particles to the file
   DO i=1,nLostSet
-   WRITE(412,'(3(E16.7,A),2(I0,A),E16.7)') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
+   WRITE(412,'(3(E16.7,A),2(I0,A),E16.7,3(A,E16.7))') REAL(myLostSet(i)%coor(1)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(2)*myParticleParam%dFacUnitOut),',',&
                                 REAL(myLostSet(i)%coor(3)*myParticleParam%dFacUnitOut),',',&
-                                myLostSet(i)%indice,',',myLostSet(i)%id,',',REAL(myLostSet(i)%time)
+                                myLostSet(i)%indice,',',myLostSet(i)%id,',',REAL(myLostSet(i)%time),',',&
+                                REAL(myCompleteSet(i)%velo(1)),',',REAL(myCompleteSet(i)%velo(2)),',',REAL(myCompleteSet(i)%velo(3))
   END DO
 
   CLOSE(412)

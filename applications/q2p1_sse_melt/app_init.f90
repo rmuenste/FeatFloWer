@@ -7,9 +7,11 @@ subroutine init_q2p1_ext(log_unit)
     LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
     
   USE Transport_Q1, ONLY : Init_GenLinSc_HEATALPHA_Q1
+  USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
+    Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
-      ApplicationString
+      ApplicationString,bMultiMat
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess
   USE iniparser, ONLY : inip_output_init
@@ -19,15 +21,22 @@ subroutine init_q2p1_ext(log_unit)
 
   !-------INIT PHASE-------
   ApplicationString = &
-"  |                                                 Multimat-DIE-FluidDynamics module                |"
+"  |                                                          SSE-FluidDynamics module                |"
   
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
   call Init_QuadScalar_Structures_sse(log_unit)
 
-  call Init_GenLinSc_HEATALPHA_Q1(log_unit)
+  bMultiMat = .true.
+  if (bMultiMat) then
+   call Init_GenLinSc_HEATALPHA_Q1(log_unit)
+  else
+   call Init_LinScalar(log_unit)
 
+   call InitCond_LinScalar()
+  end if
+  
   CALL inip_output_init(myid,showid,log_unit,mterm)
   
   ! Normal start from inital configuration
@@ -41,7 +50,8 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call Load_ListFiles_SSE(int(myProcess%Angle))
+    call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+!     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitOperators(log_unit, mg_mesh)
@@ -84,7 +94,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 ! USE Parametrization, ONLY: ParametrizeQ2Nodes
- USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
+ USE Sigma_User, ONLY: mySigma,myProcess,mySetup
  USE cinterface 
  use iniparser
 
@@ -237,7 +247,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
      dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
      dCharShear     = dCharVelo/dCharSize
-     dCharVisco     = ViscosityMatModel(dCharShear,myMultiMat%InitMaterial,myProcess%T0)
+     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
   !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 1d-2 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep

@@ -2097,10 +2097,11 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
-USE var_QuadScalar,ONLY:Tracer
-USE var_QuadScalar,ONLY:myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
-USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
-USE var_QuadScalar,ONLY:GenLinScalar
+USE var_QuadScalar,ONLY: Tracer
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY: GenLinScalar
+USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2109,6 +2110,7 @@ CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
+REAL*8 Temp,dMF
 integer :: iunit = 908070
 integer iX, ifbm,iFld
 
@@ -2460,6 +2462,32 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MF_E_[kg/m3]",""" format=""ascii"">"
+   do ivt=KNVT(ILEV+1)-NoOfElem+1,KNVT(ILEV+1)
+    Temp = GenLinScalar%Fld(1)%Val(ivt)
+    CALL MeltFunction_MF(dMF,Temp)
+    write(iunit, '(A,E16.7)')"        ",REAL(dMF)
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Rho_E_[kg/m3]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_RhoCoeff(NLMAX-1)%x(ivt))/1d-9
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Cp_E_[J/kg/K]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_CpCoeff(NLMAX-1)%x(ivt))/1d+4
+   end do
+   write(iunit, *)"        </DataArray>"
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Lambda_E_[W/m/K]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(mg_LambdaCoeff(NLMAX-1)%x(ivt))/1d-1
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+
  CASE('Viscosity_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Viscosity_E",""" format=""ascii"">"
@@ -2657,7 +2685,15 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
   END IF
 
- CASE('Viscosity_E')
+CASE('MatProps_E')
+  IF (myExport%Level.EQ.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MF_E_[-]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Rho_E_[kg/m3]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Cp_E_[J/kg/K]","""/>"
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Lambda_E_[W/m/K]","""/>"
+  END IF
+
+CASE('Viscosity_E')
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
@@ -2910,120 +2946,120 @@ END SUBROUTINE OutputTriMesh
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Release_ListFiles_SSE(iO)
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
-implicit none
-integer iO
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
-call Release_ListFile('v',iO)
-call Release_ListFile('p',iO)
-call Release_ListFile('d',iO)
-call Release_ListFile('t',iO)
-call Release_ListFile('s',iO)
-
- CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
-! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
- call Release_ListFile('x',iO)
-
- CONTAINS
- SUBROUTINE SetCoor(dc)
- real*8 dc(3,*)
- integer i
- 
- do i=1,QuadSc%ndof
-  QuadSc%AuxU(i) = dc(1,i)
-  QuadSc%AuxV(i) = dc(2,i)
-  QuadSc%AuxW(i) = dc(3,i)
- end do
- 
- END SUBROUTINE SetCoor
- 
-END SUBROUTINE Release_ListFiles_SSE
-!
-!---------------------------------------------------------------------------
-!
-SUBROUTINE Release_ListFiles_SSE_Q1_Scalar(iO)
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
-implicit none
-integer iO
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
-call Release_ListFile('v',iO)
-call Release_ListFile('p',iO)
-call Release_ListFile('q',iO)
+! SUBROUTINE Release_ListFiles_SSE(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+! call Release_ListFile('v',iO)
+! call Release_ListFile('p',iO)
 ! call Release_ListFile('d',iO)
 ! call Release_ListFile('t',iO)
 ! call Release_ListFile('s',iO)
-
- CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
- call Release_ListFile('x',iO)
-
- CONTAINS
- SUBROUTINE SetCoor(dc)
- real*8 dc(3,*)
- integer i
- 
- do i=1,QuadSc%ndof
-  QuadSc%AuxU(i) = dc(1,i)
-  QuadSc%AuxV(i) = dc(2,i)
-  QuadSc%AuxW(i) = dc(3,i)
- end do
- 
- END SUBROUTINE SetCoor
- 
-END SUBROUTINE Release_ListFiles_SSE_Q1_Scalar
+! 
+!  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+! ! CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
+!  call Release_ListFile('x',iO)
+! 
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   QuadSc%AuxU(i) = dc(1,i)
+!   QuadSc%AuxV(i) = dc(2,i)
+!   QuadSc%AuxW(i) = dc(3,i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Release_ListFiles_SSE
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Release_ListFiles_SSE_temp(iO)
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
-implicit none
-integer iO
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
-call Release_ListFile('t',iO)
-
-END SUBROUTINE Release_ListFiles_SSE_temp
+! SUBROUTINE Release_ListFiles_SSE_Q1_Scalar(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+! call Release_ListFile('v',iO)
+! call Release_ListFile('p',iO)
+! call Release_ListFile('q',iO)
+! ! call Release_ListFile('d',iO)
+! call Release_ListFile('t',iO)
+! ! call Release_ListFile('s',iO)
+! 
+!  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+!  call Release_ListFile('x',iO)
+! 
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   QuadSc%AuxU(i) = dc(1,i)
+!   QuadSc%AuxV(i) = dc(2,i)
+!   QuadSc%AuxW(i) = dc(3,i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Release_ListFiles_SSE_Q1_Scalar
+!
+!---------------------------------------------------------------------------
+!
+! SUBROUTINE Release_ListFiles_SSE_temp(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+! call Release_ListFile('t',iO)
+! 
+! END SUBROUTINE Release_ListFiles_SSE_temp
 !
 !---------------------------------------------------------------------------
 !
@@ -3051,6 +3087,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
  call Load_ListFile('v',iO)
  call Load_ListFile('x',iO)
+ call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
@@ -3094,58 +3131,62 @@ END SUBROUTINE Load_ListFiles_PRT_Tracer
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Load_ListFiles_Q1_Scalar(iO)
+SUBROUTINE Load_ListFiles_General(iO,cLIST)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
 USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
-integer iO
-integer nLengthV,nLengthE,LevDif
+integer,intent(in) :: iO
+character(len=*),intent(in) :: cLIST
+! local variables
+character*(1),allocatable :: cFLD(:)
+integer nLengthV,nLengthE,LevDif,iFld,iERR,nFld
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+IF (myid.eq.1) write(*,*) 'General List Reader call for:['//ADJUSTL(TRIM(cLIST))//']'
 
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
+nFLD = (LEN(cLIST)+1)/2
 
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
+allocate(cFLD(nFLD))
+read(cLIST,*,IOSTAT=iERR) cFLD
 
- call Load_ListFile('s',iO)
- call Load_ListFile('p',iO)
- call Load_ListFile('v',iO)
- call Load_ListFile('x',iO)
- call Load_ListFile('q',iO)
- 
- if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
- 
- IF (myid.EQ.0) THEN
-   CALL CreateDumpStructures(0)
- ELSE
-   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
-   CALL CreateDumpStructures(LevDif)
- END IF
- 
- ILEV = LinSc%prm%MGprmIn%MedLev
+if (ierr.ne.0) then
+ write(*,*) 'Wrong field identifier defined for dump reading!'
+ STOP 65
+end if
 
- nLengthV = (2**(ILEV-1)+1)**3
- nLengthE = mg_mesh%level(NLMIN)%nel
+DO iFld = 1,nFLD
+ call Load_ListFile(cFLD(iFLD),iO)
+END DO
 
- ALLOCATE(SendVect(3,nLengthV,nLengthE))
+DO iFld = 1,nFLD
+ if (cFLD(iFLD).eq.'X'.or.cFLD(iFLD).eq.'x') then
+  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+  
+  IF (myid.EQ.0) THEN
+    CALL CreateDumpStructures(0)
+  ELSE
+    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+    CALL CreateDumpStructures(LevDif)
+  END IF
+  
+  ILEV = LinSc%prm%MGprmIn%MedLev
 
- CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
-                             mg_mesh%level(ILEV)%kvert,&
-                             nLengthV,&
-                             nLengthE,&
-                             mg_mesh%level(ILEV)%nel,&
-                             mg_mesh%level(ILEV)%nvt)
- DEALLOCATE(SendVect)
- 
+  nLengthV = (2**(ILEV-1)+1)**3
+  nLengthE = mg_mesh%level(NLMIN)%nel
+
+  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+
+  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+                              mg_mesh%level(ILEV)%kvert,&
+                              nLengthV,&
+                              nLengthE,&
+                              mg_mesh%level(ILEV)%nel,&
+                              mg_mesh%level(ILEV)%nvt)
+  DEALLOCATE(SendVect)
+ end if
+END DO
+
  CONTAINS
  SUBROUTINE SetCoor(dc)
  real*8 dc(3,*)
@@ -3159,149 +3200,266 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
  
  END SUBROUTINE SetCoor
  
-END SUBROUTINE Load_ListFiles_Q1_Scalar
+END SUBROUTINE Load_ListFiles_General
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Load_ListFiles_SSE(iO)
+SUBROUTINE Release_ListFiles_General(iO,cLIST)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master
 USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
 implicit none
-integer iO
-integer nLengthV,nLengthE,LevDif
+integer,intent(in) :: iO
+character(len=*),intent(in) :: cLIST
+! local variables
+character*(1),allocatable :: cFLD(:)
+integer nLengthV,nLengthE,LevDif,iFld,iERR,nFld
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+IF (myid.eq.1) write(*,*) 'General List Writer call for:['//ADJUSTL(TRIM(cLIST))//']'
 
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
+nFLD = (LEN(cLIST)+1)/2
 
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
+allocate(cFLD(nFLD))
+read(cLIST,*,IOSTAT=iERR) cFLD
 
-! call Load_ListFile('t',iO)
- call Load_ListFile('p',iO)
- call Load_ListFile('v',iO)
- call Load_ListFile('d',iO)
- call Load_ListFile('x',iO)
- call Load_ListFile('t',iO)
- call Load_ListFile('q',iO)
-! call Load_ListFile('s',iO)
- 
- if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
-!  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
- 
- IF (myid.EQ.0) THEN
-   CALL CreateDumpStructures(0)
- ELSE
-   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
-   CALL CreateDumpStructures(LevDif)
+if (ierr.ne.0) then
+ write(*,*) 'Wrong field identifier defined for dump reading!'
+ STOP 65
+end if
+
+DO iFld = 1,nFLD
+ if (cFLD(iFLD).eq.'X'.or.cFLD(iFLD).eq.'x') then
+  CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
  END IF
- 
- ILEV = LinSc%prm%MGprmIn%MedLev
+ call Release_ListFile(cFLD(iFLD),iO)
+END DO
 
- nLengthV = (2**(ILEV-1)+1)**3
- nLengthE = mg_mesh%level(NLMIN)%nel
-
- ALLOCATE(SendVect(3,nLengthV,nLengthE))
-
- CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
-                             mg_mesh%level(ILEV)%kvert,&
-                             nLengthV,&
-                             nLengthE,&
-                             mg_mesh%level(ILEV)%nel,&
-                             mg_mesh%level(ILEV)%nvt)
- DEALLOCATE(SendVect)
- 
  CONTAINS
  SUBROUTINE SetCoor(dc)
  real*8 dc(3,*)
  integer i
  
  do i=1,QuadSc%ndof
-  dc(1,i) = QuadSc%AuxU(i)
-  dc(2,i) = QuadSc%AuxV(i)
-  dc(3,i) = QuadSc%AuxW(i)
+  QuadSc%AuxU(i) = dc(1,i)
+  QuadSc%AuxV(i) = dc(2,i)
+  QuadSc%AuxW(i) = dc(3,i)
  end do
  
  END SUBROUTINE SetCoor
  
-END SUBROUTINE Load_ListFiles_SSE
+END SUBROUTINE Release_ListFiles_General
 !
 !---------------------------------------------------------------------------
 !
-SUBROUTINE Load_ListFiles_SSE_temp(iO)
-USE def_FEAT
-USE PP3D_MPI, ONLY:myid,showid,master
-USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
-implicit none
-integer iO
-integer nLengthV,nLengthE,LevDif
-REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
-
-! -------------- workspace -------------------
-INTEGER  NNWORK
-PARAMETER (NNWORK=1)
-INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
-
-INTEGER            :: KWORK(1)
-REAL               :: VWORK(1)
-DOUBLE PRECISION   :: DWORK(NNWORK)
-
-COMMON       NWORK,IWORK,IWMAX,L,DWORK
-EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
-! -------------- workspace -------------------
-
- call Load_ListFile('v',iO)
- call Load_ListFile('d',iO)
- call Load_ListFile('x',iO)
- call Load_ListFile('t',iO)
- call Load_ListFile('s',iO)
- 
- if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
- 
- IF (myid.EQ.0) THEN
-   CALL CreateDumpStructures(0)
- ELSE
-   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
-   CALL CreateDumpStructures(LevDif)
- END IF
- 
- ILEV = LinSc%prm%MGprmIn%MedLev
-
- nLengthV = (2**(ILEV-1)+1)**3
- nLengthE = mg_mesh%level(NLMIN)%nel
-
- ALLOCATE(SendVect(3,nLengthV,nLengthE))
-
- CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
-                             mg_mesh%level(ILEV)%kvert,&
-                             nLengthV,&
-                             nLengthE,&
-                             mg_mesh%level(ILEV)%nel,&
-                             mg_mesh%level(ILEV)%nvt)
- DEALLOCATE(SendVect)
- 
- CONTAINS
- SUBROUTINE SetCoor(dc)
- real*8 dc(3,*)
- integer i
- 
- do i=1,QuadSc%ndof
-  dc(1,i) = QuadSc%AuxU(i)
-  dc(2,i) = QuadSc%AuxV(i)
-  dc(3,i) = QuadSc%AuxW(i)
- end do
- 
- END SUBROUTINE SetCoor
- 
-END SUBROUTINE Load_ListFiles_SSE_temp
+! SUBROUTINE Load_ListFiles_Q1_Scalar(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid,master
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! integer nLengthV,nLengthE,LevDif
+! REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+! 
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+!  call Load_ListFile('s',iO)
+!  call Load_ListFile('p',iO)
+!  call Load_ListFile('v',iO)
+!  call Load_ListFile('x',iO)
+!  call Load_ListFile('q',iO)
+!  
+!  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+!  
+!  IF (myid.EQ.0) THEN
+!    CALL CreateDumpStructures(0)
+!  ELSE
+!    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+!    CALL CreateDumpStructures(LevDif)
+!  END IF
+!  
+!  ILEV = LinSc%prm%MGprmIn%MedLev
+! 
+!  nLengthV = (2**(ILEV-1)+1)**3
+!  nLengthE = mg_mesh%level(NLMIN)%nel
+! 
+!  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+! 
+!  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+!                              mg_mesh%level(ILEV)%kvert,&
+!                              nLengthV,&
+!                              nLengthE,&
+!                              mg_mesh%level(ILEV)%nel,&
+!                              mg_mesh%level(ILEV)%nvt)
+!  DEALLOCATE(SendVect)
+!  
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   dc(1,i) = QuadSc%AuxU(i)
+!   dc(2,i) = QuadSc%AuxV(i)
+!   dc(3,i) = QuadSc%AuxW(i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Load_ListFiles_Q1_Scalar
+!
+!---------------------------------------------------------------------------
+!
+! SUBROUTINE Load_ListFiles_SSE(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid,master
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! integer nLengthV,nLengthE,LevDif
+! REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+! 
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+! ! call Load_ListFile('t',iO)
+!  call Load_ListFile('p',iO)
+!  call Load_ListFile('v',iO)
+!  call Load_ListFile('d',iO)
+!  call Load_ListFile('x',iO)
+!  call Load_ListFile('t',iO)
+!  call Load_ListFile('q',iO)
+! ! call Load_ListFile('s',iO)
+!  
+!  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+! !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))
+!  
+!  IF (myid.EQ.0) THEN
+!    CALL CreateDumpStructures(0)
+!  ELSE
+!    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+!    CALL CreateDumpStructures(LevDif)
+!  END IF
+!  
+!  ILEV = LinSc%prm%MGprmIn%MedLev
+! 
+!  nLengthV = (2**(ILEV-1)+1)**3
+!  nLengthE = mg_mesh%level(NLMIN)%nel
+! 
+!  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+! 
+!  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+!                              mg_mesh%level(ILEV)%kvert,&
+!                              nLengthV,&
+!                              nLengthE,&
+!                              mg_mesh%level(ILEV)%nel,&
+!                              mg_mesh%level(ILEV)%nvt)
+!  DEALLOCATE(SendVect)
+!  
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   dc(1,i) = QuadSc%AuxU(i)
+!   dc(2,i) = QuadSc%AuxV(i)
+!   dc(3,i) = QuadSc%AuxW(i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Load_ListFiles_SSE
+!
+!---------------------------------------------------------------------------
+!
+! SUBROUTINE Load_ListFiles_SSE_temp(iO)
+! USE def_FEAT
+! USE PP3D_MPI, ONLY:myid,showid,master
+! USE var_QuadScalar,ONLY: LinSc,QuadSc,mg_mesh
+! implicit none
+! integer iO
+! integer nLengthV,nLengthE,LevDif
+! REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+! 
+! ! -------------- workspace -------------------
+! INTEGER  NNWORK
+! PARAMETER (NNWORK=1)
+! INTEGER            :: NWORK,IWORK,IWMAX,L(NNARR)
+! 
+! INTEGER            :: KWORK(1)
+! REAL               :: VWORK(1)
+! DOUBLE PRECISION   :: DWORK(NNWORK)
+! 
+! COMMON       NWORK,IWORK,IWMAX,L,DWORK
+! EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
+! ! -------------- workspace -------------------
+! 
+!  call Load_ListFile('v',iO)
+!  call Load_ListFile('d',iO)
+!  call Load_ListFile('x',iO)
+!  call Load_ListFile('t',iO)
+!  call Load_ListFile('s',iO)
+!  
+!  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
+!  
+!  IF (myid.EQ.0) THEN
+!    CALL CreateDumpStructures(0)
+!  ELSE
+!    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+!    CALL CreateDumpStructures(LevDif)
+!  END IF
+!  
+!  ILEV = LinSc%prm%MGprmIn%MedLev
+! 
+!  nLengthV = (2**(ILEV-1)+1)**3
+!  nLengthE = mg_mesh%level(NLMIN)%nel
+! 
+!  ALLOCATE(SendVect(3,nLengthV,nLengthE))
+! 
+!  CALL SendNodeValuesToCoarse(SendVect,mg_mesh%level(NLMAX)%dcorvg,&
+!                              mg_mesh%level(ILEV)%kvert,&
+!                              nLengthV,&
+!                              nLengthE,&
+!                              mg_mesh%level(ILEV)%nel,&
+!                              mg_mesh%level(ILEV)%nvt)
+!  DEALLOCATE(SendVect)
+!  
+!  CONTAINS
+!  SUBROUTINE SetCoor(dc)
+!  real*8 dc(3,*)
+!  integer i
+!  
+!  do i=1,QuadSc%ndof
+!   dc(1,i) = QuadSc%AuxU(i)
+!   dc(2,i) = QuadSc%AuxV(i)
+!   dc(3,i) = QuadSc%AuxW(i)
+!  end do
+!  
+!  END SUBROUTINE SetCoor
+!  
+! END SUBROUTINE Load_ListFiles_SSE_temp
 !
 !---------------------------------------------------------------------------
 !

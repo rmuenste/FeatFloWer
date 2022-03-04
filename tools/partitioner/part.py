@@ -160,6 +160,9 @@ def GetAtomicSplitting(Num):
   return tuple(range(1,Num+1))
 
 def GetParts(Neigh,nPart,Method):
+  # Falls nPart==1 ist, erzeuge direkt eine Dummy-Partitionierung
+  if nPart==1:
+    return (1,)*len(Neigh)
   # Falls die Anzahl der gesuchten Unterteilungen größer oder gleich der Anzahl der Zellen ist,
   # führen eine atomare Aufteilung des Gitters in einzelne Zellen durch.
   # Dies behebt ein merkwürdiges Verhalten von Metis, dass in diesem Fall Unterteilungen
@@ -311,7 +314,7 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
       Mid=median([p[Dir] for p in coord])
       # Teile die Elemente dahingehend auf, ob alle Knoten <=Mid sind oder nicht
       for (ElemIdx,Elem) in enumerate(kvert):
-        if all([(coord[Vert-1][Dir]>Mid) for Vert in Elem]):
+        if all([(coord[Vert-1][Dir]>=Mid) for Vert in Elem]):
           Part[ElemIdx]+=PosFak
       # Bestimme nächste 2er Potenz im Stellenwertsystem
       PosFak*=2

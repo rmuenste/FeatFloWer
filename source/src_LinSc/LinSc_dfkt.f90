@@ -1,5 +1,6 @@
 SUBROUTINE AFC_LinScalar(DK,KCOLA,KLDA,&
            NU,ISEP,IAUX,INOD,JNOD,AEDGE)
+USE def_LinScalar, ONLY : AFC
 IMPLICIT NONE
 ! Matrix assembly
 REAL*8  DK(*)
@@ -49,6 +50,8 @@ DO I=1,NU
     ENDIF
   ENDDO
 ENDDO
+
+AFC%nedge = iedge
 
 END
 !

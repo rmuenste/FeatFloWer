@@ -1860,7 +1860,7 @@ C
  205  CONTINUE
 
        iMat = myMultiMat%InitMaterial
-       dMaxMat = 1d-5
+       dMaxMat = -1d5
        do iFld=2,GenLinScalar%nOfFields
         if (DALPHA(iFld-1).gt.dMAxMat) then
          iMat = iFld-1

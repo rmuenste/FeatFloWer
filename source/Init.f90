@@ -386,7 +386,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
       ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
-      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString
+      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -509,6 +509,9 @@ SUBROUTINE General_init(MDATA,MFILE)
           IF (myid.ne.master) THEN
             READ(string(iEq+1:),*) NLMAX
             myExport%LevelMax = NLMAX
+            MaxLevelKnownToMaster = NLMAX
+          else
+            READ(string(iEq+1:),*) MaxLevelKnownToMaster
           END IF
           !     IF (myid.eq.MASTER) NLMAX=2
         CASE ("TimeScheme")

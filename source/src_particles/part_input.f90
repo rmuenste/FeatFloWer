@@ -182,9 +182,23 @@ contains
        WRITE(*,*) 'no numbner of particle is defined ...'
        STOP
       END IF
-      
       WRITE(*,*) ParticleSeed_VOLUME,ParticleParam%VolumeParticles
-     
+      
+    ELSEIF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'E3D').ne.0) THEN
+      ParticleParam%inittype  = ParticleSeed_E3D
+      
+      IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=').ne.0) THEN
+       READ(cInitTypeUpper(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'N=')+2:),*) ParticleParam%PlaneParticles
+      ELSE
+       WRITE(*,*) 'no numbner of particle is defined ...'
+       STOP
+      END IF
+      WRITE(*,*) ParticleSeed_E3D,ParticleParam%PlaneParticles
+
+    ELSE
+    
+       WRITE(*,*) 'no valid particle seed is defined ...'
+       STOP
      
     END IF
     

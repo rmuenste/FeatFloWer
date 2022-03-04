@@ -8,9 +8,9 @@ PROGRAM Q2P1_SSE
                          print_time,&
                          sim_finalize_sse
 
-  use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
-  use Sigma_User, only : bKTPRelease,mysetup
-  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode,bMultiMat
+  use Transport_q2p1, only : Transport_q2p1_UxyzP_sse_PF
+  use Sigma_User, only : bKTPRelease,mySetup
+  use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode
   use f90getopt
 
   integer            :: iOGMV,iTout
@@ -60,7 +60,6 @@ PROGRAM Q2P1_SSE
   end do
   !-------INIT PHASE-------
 
-  bMultiMat = .true.
   call init_q2p1_ext(ufile)
 
   CALL ZTIME(tt0)
@@ -81,21 +80,9 @@ PROGRAM Q2P1_SSE
   timens=timens+dt
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
-  call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
+  call Transport_q2p1_UxyzP_sse_PF(ufile,inl_u, itns)
 
-  if (DivergedSolution .eqv. .true.) EXIT
-  if (istart.eq.1.and.mySetup%bPressureConvergence) THEN
-   timens=timens+dtgmv
-   call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
-   exit
-  end if
-  
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_LinScalar(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
+  inonln_t = 2
 
   call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
 

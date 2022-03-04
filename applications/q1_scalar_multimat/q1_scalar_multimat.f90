@@ -2,8 +2,7 @@ PROGRAM Q1_GenScalar
 
   include 'defs_include.h'
 
-  use solution_io, only: postprocessing_app
-  use solution_io, only: postprocessing_sse_q1_scalar
+  use solution_io, only: postprocessing_general
   use var_QuadScalar, only: bAlphaConverged,DivergedSolution
 
   use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
@@ -85,7 +84,8 @@ PROGRAM Q1_GenScalar
   iChange = iChange + 1
   !!!!!!!!!!!!!!!! TimestepControl   !!!!!!!!!!!!!!!
   
-  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+!   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
 
@@ -103,7 +103,8 @@ PROGRAM Q1_GenScalar
   CALL Correct_GenLinSc_Q1_ALPHA(ufile)
   timens = timens + dtgmv
   itns = max(itns,2)
-  call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+!   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
 2 CONTINUE
   

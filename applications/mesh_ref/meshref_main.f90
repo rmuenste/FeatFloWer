@@ -13,12 +13,13 @@ IMPLICIT NONE
 character*(INIP_STRLEN) :: sfilename,sfilepath
 integer :: unitProtfile = -1, unitTerminal = 6
 integer :: MeshingScheme
-integer :: sGENDIE=1,sPARTICLE=2
+integer :: sGENDIE=1,sPARTICLE=2,sDEFAULT=0
 
 ! character(len=*), parameter :: Folder = 'SimFolder'
 type(option_s)              :: opts(2)
 
 ! MeshingScheme = sPARTICLE
+! MeshingScheme = sDEFAULT
 MeshingScheme = sGENDIE
 
 opts(1) = option_s('inputfolder', .true.,  'f')
@@ -70,6 +71,9 @@ CALL InitMarker()
 call SetUpMarker()
 
 ! call CreateRefinedMesh()
+if (MeshingScheme.eq.sDEFAULT) then
+ call CreateRefinedMesh_Fine()
+end if
 if (MeshingScheme.eq.sGENDIE) then
  call CreateRefinedMesh_Fine()
 end if
@@ -104,6 +108,10 @@ if (MeshingScheme.eq.sPARTICLE) then
  CALL Output_ParticleMergedRefTriMesh()
  CALL Output_ParticleMergedRefTriMeshPar()
 end if
+if (MeshingScheme.eq.sDEFAULT) then
+ CALL Output_MergedRefTriMesh()
+END IF
+
 
 ilev = lVTUOutputLevel
 CALL Output_VTK()

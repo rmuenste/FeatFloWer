@@ -18,27 +18,27 @@ do iel=1,nel
   dc = dc + 0.125d0*dcorvg(:,kvert(i,iel))
  end do
 
-!  isin = 0
-!  call isinelementid(dc(1),dc(2),dc(3),0,isin)
-! 
-!  if(isin .gt. 0)then
-!    dS = -1d0
-!  else
-!    dS = +1d0
-!  end if
-!  
-!  call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
-!  dist1 = dist1*dS
-!  if (abs(dist1).lt.dEps) then
-!   MarkerE(iel) = 1
-!  end if
+ isin = 0
+ call isinelementid(dc(1),dc(2),dc(3),0,isin)
 
- dist1 = sqrt((dc(1)+0d0)**2d0 + (dc(2)-0.5d0)**2d0 + (dc(3)-1.5d0)**2d0 )
- dist2 = sqrt((dc(1)+0d0)**2d0 + (dc(2)-0.5d0)**2d0 + (dc(3)-1.5d0)**2d0 )
+ if(isin .gt. 0)then
+   dS = -1d0
+ else
+   dS = +1d0
+ end if
  
- if (abs(dist1).lt.3.00.and.abs(dist2).gt.2.7) then
+ call getdistanceid(dc(1),dc(2),dc(3),dist1,ipc)
+ dist1 = dist1*dS
+ if (abs(dist1).lt.dEps) then
   MarkerE(iel) = 1
  end if
+
+!  dist1 = sqrt((dc(1)+0d0)**2d0 + (dc(2)-0.5d0)**2d0 + (dc(3)-1.5d0)**2d0 )
+!  dist2 = sqrt((dc(1)+0d0)**2d0 + (dc(2)-0.5d0)**2d0 + (dc(3)-1.5d0)**2d0 )
+!  
+!  if (abs(dist1).lt.3.00.and.abs(dist2).gt.2.7) then
+!   MarkerE(iel) = 1
+!  end if
 
 
 end do

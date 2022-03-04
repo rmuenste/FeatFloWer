@@ -479,8 +479,11 @@ integer, parameter, public :: ParticleSeed_ELEMCENTER = 3
 ! This defines a planar seeding
 integer, parameter, public :: ParticleSeed_PLANE = 8
 
-! This defines a planar seeding
+! This defines a volumetric seeding
 integer, parameter, public :: ParticleSeed_VOLUME = 9
+
+! This defines a volumetric seeding
+integer, parameter, public :: ParticleSeed_E3D  = 5
 
 TYPE tMeshInfoParticle
   real*8 xmin, xmax, ymin, ymax, zmin, zmax
@@ -560,7 +563,7 @@ TYPE tRheology
    REAL*8 :: A, B, C, D ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
-   REAL*8 :: Ts, Tb, C1, C2, E! WLF Parameter
+   REAL*8 :: Ts, Tb, C1, C2, E,log_aT_Tilde_Max! WLF Parameter
    REAL*8 :: ViscoMin = 1e-4
    REAL*8 :: ViscoMax = 1e10
 END TYPE tRheology
@@ -570,6 +573,11 @@ TYPE tSubInflow
  REAL*8  massflowrate, outerradius,innerradius,temperature
  REAL*8  center(3),normal(3)
 END TYPE tSubInflow
+
+TYPE tTempBC
+ REAL*8  temperature
+ REAL*8  center(3),gradient(3)
+END TYPE tTempBC
 
 TYPE tInflow
  INTEGER :: nSubInflows=0
@@ -588,7 +596,7 @@ TYPE tSegThermoPhysProp
 ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
-   REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress
+   REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress, FillingDegree
    REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
@@ -598,8 +606,9 @@ TYPE tProcess
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd
    REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
-   integer   nOfInflows
+   integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
+   TYPE (tTempBC), dimension(:), allocatable :: myTempBC
    LOGICAL :: SegmentThermoPhysProps=.false.
    TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!

@@ -13,11 +13,11 @@
 
     character(len=*), intent(in) :: cE3Dfile
     logical :: bReadError=.FALSE.
-    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr,iSubInflow
+    integer :: i,iSeg,iFile,iaux,iInflow,iInflowErr,iMat,ierr,iSubInflow,iTempBC
 
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
-    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo
+    character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
     character(len=INIP_STRLEN) cParserString,cSCR,cALE
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
@@ -850,6 +850,7 @@
 67  CONTINUE
 
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","FillingDegree", myProcess%FillingDegree,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
 
@@ -872,6 +873,11 @@
      myProcess%Ta=myInf
     END IF
        
+    call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfTempBCs"      ,myProcess%nOfTempBCs,0)
+    ALLOCATE(myProcess%myTempBC(myProcess%nOfTempBCs))
+    
+    cParserString = "E3DProcessParameters"
+    CALL FillUpTempBCs(myProcess%nOfTempBCs,cParserString)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Material and Material-specific read section !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -881,48 +887,67 @@
     cParserString = "E3DProcessParameters"
     CALL FillUpInflows(myProcess%nOfInflows,cParserString)
 
-    call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
-    IF (myMultiMat%nOfMaterials.ne.0) then
+    if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
+      myProcess%FillingDegree=myInf
+      ! this applies for the use of the Q2P1 sse code !IF! there IS NO partial filling defined
+      call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","NoOfMaterials", myMultiMat%nOfMaterials,0)
+      IF (myMultiMat%nOfMaterials.ne.0) then
 
-     call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
-     if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
-     if (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") bMultiMat = .true.
+       call INIP_getvalue_Int(parameterlist,"E3DMaterialParameters","InitMaterial", myMultiMat%InitMaterial,1)
+       if (myMultiMat%nOfMaterials.ge.2) bMultiMat = .true.
+       if (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") bMultiMat = .true.
 
-     ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
-     
-     DO iMat = 1, myMultiMat%nOfMaterials
-     
-     WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
+       ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+       
+       DO iMat = 1, myMultiMat%nOfMaterials
+       
+       WRITE(cParserString,'(A,I0)') "E3DMaterialParameters/Mat_",iMat
+  !      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(iMat)%Rheology%ViscoMin,1d0)
+  !      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(iMat)%Rheology%ViscoMax,1d5)
 
-      WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
-      CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
+        WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/RheologicalData"
+        CALL FillUpRheoData(myMultiMat%Mat(iMat)%Rheology,cParserString)
 
-      WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/ThermoData"
-      CALL FillUpThermoData(myMultiMat%Mat(iMat)%Thermodyn,cParserString)
+        WRITE(cParserString,'(A,I0,A)') "E3DMaterialParameters/Mat_",iMat,"/ThermoData"
+        CALL FillUpThermoData(myMultiMat%Mat(iMat)%Thermodyn,cParserString)
+        
+        myThermodyn = myMultiMat%Mat(myMultiMat%InitMaterial)%Thermodyn
+
+       END DO
       
-      myThermodyn = myMultiMat%Mat(myMultiMat%InitMaterial)%Thermodyn
+      ELSE
+       myMultiMat%nOfMaterials = 1
+       ALLOCATE(myMultiMat%Mat(1))
+       myMultiMat%InitMaterial = 1
+       
+       cParserString = "E3DProcessParameters/Material/ThermoData"
+       CALL FillUpThermoData(myThermodyn,cParserString)
 
-     END DO
+       cParserString = "E3DProcessParameters/Material/RheologicalData"
+       CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
+       
+       myMultiMat%Mat(1)%Thermodyn = myThermodyn
+      END IF
+      
+    else
+      ! this applies for the use of the Q2P1 sse code !IF! there IS partial filling defined
+      myMultiMat%nOfMaterials = 2
+      myMultiMat%InitMaterial = 1
+      bMultiMat = .true.
+      ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+      
+      cParserString = "E3DProcessParameters/Material/ThermoData"
+      CALL FillUpThermoData(myThermodyn,cParserString)
+
+      cParserString = "E3DProcessParameters/Material/RheologicalData"
+      CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
+      
+      myMultiMat%Mat(1)%Thermodyn = myThermodyn
+      
+      CALL FillUpRheoAndThermoDataForPseudoAir(myMultiMat%Mat(2)%Rheology,myMultiMat%Mat(2)%Thermodyn)
     
-    ELSE
-     myMultiMat%nOfMaterials = 1
-     ALLOCATE(myMultiMat%Mat(1))
-     myMultiMat%InitMaterial = 1
-     
-     cParserString = "E3DProcessParameters/Material/ThermoData"
-     CALL FillUpThermoData(myThermodyn,cParserString)
-
-     cParserString = "E3DProcessParameters/Material"
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMin",myMultiMat%Mat(1)%Rheology%ViscoMin,1d0)
-!      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cParserString)),"LimitViscoMax",myMultiMat%Mat(1)%Rheology%ViscoMax,1d5)
-
-     cParserString = "E3DProcessParameters/Material/RheologicalData"
-     CALL FillUpRheoData(myMultiMat%Mat(1)%Rheology,cParserString)
-     
-     myMultiMat%Mat(1)%Thermodyn = myThermodyn
-    END IF
+    end if
+    
 !     pause
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Material and Material-specific read section !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1413,6 +1438,9 @@
     write(*,*) "myProcess%MinInflowDiameter",'=',myProcess%MinInflowDiameter
     write(*,*) "myProcess%MaxInflowDiameter",'=',myProcess%MaxInflowDiameter
     write(*,*) "myProcess%f",'=',myProcess%umdr
+    IF (ieee_is_finite(myProcess%FillingDegree)) then
+     write(*,*) "myProcess%FillingDegree",'=',myProcess%FillingDegree
+    END IF
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
     IF (myProcess%Ta.eq.myInf) THEN
@@ -1421,6 +1449,18 @@
     write(*,*) "myProcess%T0",'=',myProcess%T0
     write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
 
+    write(*,*) 
+    write(*,*) "myProcess%nOfTempBCs",'=',myProcess%nOfTempBCs
+    DO iTempBC=1,myProcess%nOfTempBCs
+     if (iTempBC.gt.0.and.iTempBC.le.9) WRITE(cTempBC_i,'(A,I1.1)') 'TempBC_',iTempBC
+     if (iTempBC.gt.9.and.iTempBC.le.99) WRITE(cTempBC_i,'(A,I2.2)') 'TempBC_',iTempBC
+     if (iTempBC.gt.99.and.iTempBC.le.999) WRITE(cTempBC_i,'(A,I3.3)') 'TempBC_',iTempBC
+    
+     write(*,*) "myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_Temperature','=',myProcess%myTempBC(iTempBC)%temperature
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_center'//'=',myProcess%myTempBC(iTempBC)%center
+     write(*,'(A,3ES12.4)') " myProcess%"//ADJUSTL(TRIM(cTempBC_i))//'_gradient'//'=',myProcess%myTempBC(iTempBC)%gradient
+    END DO
+    
     write(*,*) 
     write(*,*) "myProcess%nOfInflows",'=',myProcess%nOfInflows
     DO iInflow=1,myProcess%nOfInflows
@@ -1528,6 +1568,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(iMat)%Rheology%Ts
      END IF
      IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','Melt-TBTS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(iMat)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(iMat)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(iMat)%Rheology%Ts
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%log_aT_Tilde_Max",'=',myMultiMat%Mat(iMat)%Rheology%log_aT_Tilde_Max
+     END IF
+     IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.5) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ETB'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(iMat)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
@@ -1602,6 +1650,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(1)%Rheology%Ts
      END IF
      IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.4) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','Melt-TBTS'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C1",'=',myMultiMat%Mat(1)%Rheology%C1
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C2",'=',myMultiMat%Mat(1)%Rheology%C2
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Ts",'=',myMultiMat%Mat(1)%Rheology%Ts
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%log_aT_Tilde_Max",'=',myMultiMat%Mat(1)%Rheology%log_aT_Tilde_Max
+     END IF
+     IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.5) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ETB'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(1)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(1)%Rheology%Tb
@@ -1761,6 +1817,69 @@
 
     CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE FillUpRheoAndThermoDataForPseudoAir(r,t)
+    TYPE(tRheology) :: r
+    TYPE(tThermodyn) :: t
+    
+     t%Lambda = 0.10D0
+     t%LambdaSteig = 0.0D0
+     t%Cp = 2.25D0
+     t%CpSteig = 0.0D0
+
+     t%DensityModel = "DENSITY"
+     t%DensityT0    = 1d-2
+     t%DensitySteig = 0d0
+     
+     r%Equation = 1
+     r%A = 1.0d0
+     r%B = 1.0d0
+     r%C = 0.0d0
+     
+     r%AtFunc = 1
+    
+    END SUBROUTINE FillUpRheoAndThermoDataForPseudoAir
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    SUBROUTINE FillUpTempBCs(nT,cINI)
+    implicit none
+    INTEGER :: nT   
+    character(len=INIP_STRLEN) cINI,cUnit
+    real*8 daux
+    
+    DO iTempBC=1,myProcess%nOfTempBCs
+    
+     WRITE(cTempBC_i,'(A,A,I0)') ADJUSTL(TRIM(cINI)),"/TempBC_",iTempBC
+     if (myid.eq.1) write(*,*) "|",ADJUSTL(TRIM(cTempBC_i)),"|"
+    
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"Unit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+     
+     call INIP_getvalue_double(parameterlist,cTempBC_i,"ReferenceTemperature",myProcess%myTempBC(iTempBC)%temperature,myInf)
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"center",cCenter,'0d0, 0d0, 0d0')
+     read(cCenter,*,err=55) myProcess%myTempBC(iTempBC)%Center
+     myProcess%myTempBC(iTempBC)%Center = daux*myProcess%myTempBC(iTempBC)%Center
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"gradient",cNormal,'0d0, 0d0, 0d0')
+     read(cNormal,*,err=55) myProcess%myTempBC(iTempBC)%Gradient
+     myProcess%myTempBC(iTempBC)%Gradient = myProcess%myTempBC(iTempBC)%Gradient/daux
+     
+     GOTO 57     
+55   write(*,*) 'WRONGLY DEFINED center for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
+     GOTO 57
+56   write(*,*) 'WRONGLY DEFINED gradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
+     GOTO 57
+57   CONTINUE
+
+    END DO
+
+    END SUBROUTINE FillUpTempBCs
+
     SUBROUTINE FillUpInflows(nT,cINI)
     implicit none
     INTEGER :: nT   
@@ -1999,20 +2118,33 @@
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."C1C2") THEN
       t%AtFunc = 2
-      t%Tb = 165d0
+!       t%Tb = 165d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","TB",t%TB,165d0)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C1",t%C1,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C2",t%C2,myInf)
     END IF
     IF (ADJUSTL(TRIM(cRheology)).eq."TBTS") THEN
       t%AtFunc = 3
-      t%C1 = 8.86d0
-      t%C2 = 101.6d0
+!       t%C1 = 8.86d0
+!       t%C2 = 101.6d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","C1",t%C1,8.86d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","C2",t%C2,101.6d0)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","ReferenceTemperature",t%Tb,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/TBTS","StandardTemperature",t%Ts,myInf)
     END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."MELTTBTS".or.ADJUSTL(TRIM(cRheology)).eq."MELT-TBTS") THEN
+      t%AtFunc = 4
+!       t%C1 = 8.86d0
+!       t%C2 = 101.6d0
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"C1",t%C1,8.86d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"C2",t%C2,101.6d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"ReferenceTemperature",t%Tb,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"StandardTemperature",t%Ts,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"log_aT_Tilde_Max",t%log_aT_Tilde_Max,myInf)
+    END IF
     !ETB myRheology%E is in J/mol
     IF (ADJUSTL(TRIM(cRheology)).eq."ETB") THEN
-      t%AtFunc = 4
+      t%AtFunc = 5
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/ETB","ActivatingEnergy",t%E,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/ETB","ReferenceTemperature",t%TB,myInf)
     END IF
@@ -2044,7 +2176,8 @@
      read(cText(1:i1-1),*)     dExtract_Val
      read(cText(i1+1:i2-1),*) sExtract_Dim
     ELSE
-     dExtract_Val = myInf
+     read(cText(1:),*)     dExtract_Val
+     sExtract_Dim = 'BAR'
     END IF
 !     write(*,*) 'hoho',i1,i2,adjustl(trim(cText))
 !     write(*,*) dExtract_Val,'"'//adjustl(trim(sExtract_Dim))//'"'
