@@ -24,6 +24,9 @@ if sys.version_info[0] < 3:
 else:
     from pathlib import Path
 
+debugNoSim = False
+debugOutput = True
+
 class E3dLog:
     def __init__(self):
 #        print("The E3dLog constructor")
@@ -63,10 +66,10 @@ class E3dLog:
 
         self.fileHandle.write("[Extrud3DFileInfo]\n")
         self.fileHandle.write("FileType=Logging\n")
-        self.fileHandle.write("FileVersion=Extrud3D 2021\n")
+        self.fileHandle.write("FileVersion=Extrud3D 2022\n")
         today = datetime.date.today()
         self.fileHandle.write("Date=%s \n" % today.strftime("%d/%m/%Y"))
-        self.fileHandle.write("Extrud3DVersion=Extrud3D 2020.11.5\n")
+        self.fileHandle.write("Extrud3DVersion=Extrud3D 2022.01\n")
         self.fileHandle.write("[SimulationStatus]\n")
         tempValue = ""
         if paramDict["temperature"]:
@@ -105,6 +108,7 @@ class E3dLog:
                 f.write(line)
 
             f.write(msg)
+            
 
     def updateStatusLineIteration(self, msg, itCurr):
 
@@ -115,12 +119,13 @@ class E3dLog:
             self.fileContents = self.fileContents[:-1] 
         else:
             self.fileContents = self.fileContents[:-5] 
-
+        
         with open(self.fileName, "w") as f:
             for line in self.fileContents:
                 f.write(line)
 
             f.write(msg)
+            
 
     def updateStatusLineHeatIteration(self, msg, numLines=3):
 
@@ -440,7 +445,7 @@ def calcMaxSimIterations():
     if paramDict['singleAngle'] >= 0.0:
         nmax = 1
     
-    print("nmax: ",nmax)
+    #print("nmax: ",nmax)
 
     return nmax
 #===============================================================================
@@ -657,7 +662,8 @@ def simLoopTemperatureCombined(workingDir):
 #===============================================================================
 #                The cfd simulation loop for partial filling
 #===============================================================================
-def simLoopMainPartialFilling(workingDir):
+def simLoopMainPartialFilling(workingDir, it, loops):
+
     nmax = calcMaxSimIterations()
 
     mpiPath = paramDict['mpiCmd']
@@ -666,11 +672,14 @@ def simLoopMainPartialFilling(workingDir):
     nmin = 0
     start = 0.0
     maxInnerIters = parseMaxNumSteps("_data/q2p1_param.dat")
+    if debugNoSim:
+        print("Line 676, Updating maxInnerIters: ", maxInnerIters)
     with open("_data/Extrud3D_0.dat", "a") as f:
         f.write("\n[E3DSimulationSettings]\n")
         f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
         f.write("Periodicity=" + str(paramDict['periodicity']) + "\n")
         f.write("nSolutions=" + str(paramDict['timeLevels']) + "\n")
+
 
     for i in range(nmin, nmax):  # nmax means the loop goes to nmax-1
 
@@ -688,9 +697,9 @@ def simLoopMainPartialFilling(workingDir):
                     "MaxAngleIteration=%i\n"\
                     "CurrentInnerIteration=%i\n"\
                     "MaxInnerIteration=%i\n"\
-                    "CurrentStatus=running Momentum Solver" %(i+1, nmax, 1, maxInnerIters)
+                    "CurrentStatus=running Momentum Solver" %(it+1, loops+1, 1, maxInnerIters)
 
-        myLog.updateStatusLineIteration(statusMsg, i)
+        myLog.updateStatusLineIteration(statusMsg, it)
 
         workingDir = os.getcwd()
         protocolFilePath = os.path.join(workingDir, "_data")
@@ -705,37 +714,40 @@ def simLoopMainPartialFilling(workingDir):
         observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
         observer.start()
 
-        if sys.platform == "win32":
-            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_partfil.exe"])
-        else:
-            launchCommand = ""
-
-            if paramDict['useSrun']:
-                launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
-                if paramDict['singleAngle'] >= 0.0:
-                    launchCommand = launchCommand + " -a %d" %(angle)
+        if not debugNoSim:
+            if sys.platform == "win32":
+                exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_partfil.exe"])
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_partfil"
-                if paramDict['singleAngle'] >= 0.0 :
-                    launchCommand = launchCommand + " -a %d" %(angle)
+                launchCommand = ""
 
-            exitCode = subprocess.call([launchCommand], shell=True)
+                if paramDict['useSrun']:
+                    launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
+                    if paramDict['singleAngle'] >= 0.0:
+                        launchCommand = launchCommand + " -a %d" %(angle)
+                else:
+                    launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_partfil"
+                    if paramDict['singleAngle'] >= 0.0 :
+                        launchCommand = launchCommand + " -a %d" %(angle)
 
-            if paramDict['retryDeformation'] and exitCode == 55:
-                with open("_data/q2p1_param.dat", "r") as f:
-                  for l in f:
-                    if "SimPar@UmbrellaStepM" in l:
-                        orig_umbrella = int(l.split()[2])
-                UmbrellaStepM = orig_umbrella
-                while exitCode == 55 and UmbrellaStepM != 0:
-                    replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
-                    UmbrellaStepM = int(UmbrellaStepM / 2)
-                    exitCode = subprocess.call([launchCommand], shell=True)
-                replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+                exitCode = subprocess.call([launchCommand], shell=True)
 
+                if paramDict['retryDeformation'] and exitCode == 55:
+                    with open("_data/q2p1_param.dat", "r") as f:
+                        for l in f:
+                            if "SimPar@UmbrellaStepM" in l:
+                                orig_umbrella = int(l.split()[2])
+                        UmbrellaStepM = orig_umbrella
+                        while exitCode == 55 and UmbrellaStepM != 0:
+                            replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
+                            UmbrellaStepM = int(UmbrellaStepM / 2)
+                            exitCode = subprocess.call([launchCommand], shell=True)
+                        replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+        else:
+            input("Line 743, DebugMode, SimLoopMainPartialFilling: q2p1_sse_partfil")
+            exitCode = 0   
         # Here the observer can be turned off
         observer.stop()
-
+        
         if exitCode == 88:
           myLog.logErrorExit("CurrentStatus=the screw could not be created: wrong angle", exitCode)
 
@@ -745,7 +757,7 @@ def simLoopMainPartialFilling(workingDir):
         # Write final inner iteration state
         statusMsg = "CurrentInnerIteration=%i\n"\
                     "MaxInnerIteration=%i\n"\
-                    "CurrentStatus=running Momentum Solver" %(maxInnerIters, maxInnerIters)
+                    "CurrentStatus=running Multiphase Momentum Solver" %(maxInnerIters, maxInnerIters)
         myLog.updateStatusLineInnerIteration(statusMsg)
 
         iangle = int(angle)
@@ -764,13 +776,18 @@ def simLoopPartialFilling(workingDir):
     mpiPath = paramDict['mpiCmd']
     numProcessors = paramDict['numProcessors']
 
-    # Start the initial loop
-    simLoopMainPartialFilling(workingDir)
-
     if paramDict['shortTest']:
         nLoops = 2 
     else:
         nLoops = 4 
+
+    # Start the initial loop
+    it = 0
+    if debugNoSim:
+        input("Line 784, DebugMode, SimLoopPartialFilling: Initial q2p1_sse_partfil iteration")
+    simLoopMainPartialFilling(workingDir, it, nLoops)
+    it = it + 1
+
     
     for i in range(nLoops):
         if paramDict['shortTest']:
@@ -781,37 +798,44 @@ def simLoopPartialFilling(workingDir):
         destBackupFile = Path("_data") / Path("q2p1_param.dat")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        print(msg)
+        if debugNoSim:
+            print(msg)
 
         sourceParamFile = Path("_data_PF") / Path("mesh_names.offs")
         destBackupFile = Path("./mesh_names.offs")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        print(msg)
+        #print(msg)
 
-        if sys.platform == "win32":
-            exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q1_scalar_partfil.exe"])
-        else:
-            launchCommand = ""
-
-            if paramDict['useSrun']:
-                launchCommand = "srun " + os.getcwd() + "/q1_scalar_partfil"
+        if not debugNoSim:
+            if sys.platform == "win32":
+                exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q1_scalar_partfil.exe"])
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q1_scalar_partfil"
+                launchCommand = ""
 
-            exitCode = subprocess.call([launchCommand], shell=True)
+                if paramDict['useSrun']:
+                    launchCommand = "srun " + os.getcwd() + "/q1_scalar_partfil"
+                else:
+                    launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q1_scalar_partfil"
+
+                exitCode = subprocess.call([launchCommand], shell=True)        
+        else:
+            input("Line 824, DebugMode, SimLoopPartialFilling: q1_scalar_partfil")
+            exitCode = 0   
 
         if paramDict['shortTest']:
             sourceParamFile = Path("_data_PF") / Path("q2p1_paramV_1_test.dat")
         else:
             sourceParamFile = Path("_data_PF") / Path("q2p1_paramV_1.dat")
-        
+
         destBackupFile = Path("_data") / Path("q2p1_param.dat")
         shutil.copyfile(str(sourceParamFile), str(destBackupFile))
         msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        print(msg)
+        if debugNoSim:
+            print(msg)
 
-        simLoopMainPartialFilling(workingDir)
+        simLoopMainPartialFilling(workingDir, it, nLoops)
+        it = it + 1
 #===============================================================================
     
 
@@ -892,6 +916,7 @@ def main():
             paramDict['retryDeformation'] = True
         elif opt in ('--partial-filling'):
             paramDict['partialFilling'] = True
+            paramDict['singleAngle'] = 0.0 
         else:
             usage()
             sys.exit(2)
@@ -945,7 +970,6 @@ def main():
     print("  ")
 
     if paramDict['partialFilling']:
-        paramDict['singleAngle'] = 0.0 
         simLoopPartialFilling(workingDir)
         cleanWorkingDir(workingDir)
     elif paramDict['temperature']:
