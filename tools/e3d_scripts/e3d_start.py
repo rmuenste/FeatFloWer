@@ -221,7 +221,7 @@ paramDict = {
     "rankFile" : "" , # Rankfile 
     "timeLevels" : 36, # timeLevels
     "periodicity" : 1, # Periodicity 
-    "numProcessors" : 5, # Number of processors 
+    "numProcessors" : 0, # Number of processors 
     "projectFolder" : "", # The project folder
     "skipSetup" :  False,
     "shortTest" :  False, 
@@ -232,6 +232,7 @@ paramDict = {
     "dieSimulation": False,
     "temperature" : False,
     "partialFilling" : False,
+    "onlyMeshCreation" : False,
     "retryDeformation" : False
 }
 
@@ -384,12 +385,10 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
         shutil.rmtree("_data/meshDir")
 #===============================================================================
 
-
 #===============================================================================
-#                             Simulation Setup 
+#                           Mesher Step 
 #===============================================================================
-def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
-    folderSetup(workingDir, projectFile, projectPath, projectFolder)
+def mesherStep(workingDir, projectFile, projectPath, projectFolder):
 
     myLog.updateStatusLine("CurrentStatus=running Mesher")
 
@@ -412,6 +411,14 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
                   "folder present the case folder " + str(projectPath))
             sys.exit(2)
     
+    return exitCode
+#===============================================================================
+
+
+#===============================================================================
+#                           Partitioner Step 
+#===============================================================================
+def partitionerStep(workingDir, projectFile, projectPath, projectFolder):
     partitionerParameters = [1, 1]
     if paramDict['partialFilling']:
         partitionerParameters = [-3, 2]
@@ -422,6 +429,33 @@ def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
         partitioner.partition(paramDict['numProcessors']-1, partitionerParameters[0], partitionerParameters[1], "NEWFAC", "_data/meshDir/file.prj")
     except:
         myLog.logErrorExit("CurrentStatus=abnormal Termination Partitioner", 2)
+    
+#===============================================================================
+
+
+#===============================================================================
+#                             Simulation Setup 
+#===============================================================================
+def simulationSetup(workingDir, projectFile, projectPath, projectFolder):
+
+    folderSetup(workingDir, projectFile, projectPath, projectFolder)
+
+    exitCode = mesherStep(workingDir, projectFile, projectPath, projectFolder)
+    
+    partitionerStep(workingDir, projectFile, projectPath, projectFolder)
+    
+    return exitCode
+#===============================================================================
+
+
+#===============================================================================
+#                         Only Mesh Creation
+#===============================================================================
+def onlyMeshCreation(workingDir, projectFile, projectPath, projectFolder):
+
+    folderSetup(workingDir, projectFile, projectPath, projectFolder)
+
+    exitCode = mesherStep(workingDir, projectFile, projectPath, projectFolder)
     
     return exitCode
 #===============================================================================
@@ -863,7 +897,7 @@ def main():
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
                                     'skip-simulation','short-test', 'help',
                                     'do-temperature','version', 'use-srun',
-                                    'retry-deformation', 'partial-filling'])
+                                    'retry-deformation', 'partial-filling','only-mesh-creation'])
 
     except getopt.GetoptError:
         usage()
@@ -917,6 +951,8 @@ def main():
         elif opt in ('--partial-filling'):
             paramDict['partialFilling'] = True
             paramDict['singleAngle'] = 0.0 
+        elif opt in ('--only-mesh-creation'):
+            paramDict['onlyMeshCreation'] = True
         else:
             usage()
             sys.exit(2)
@@ -938,8 +974,12 @@ def main():
         print("Switching to 'DIE' simulation !")
         paramDict['singleAngle'] = 0
 
-#    if (paramDict['partialFilling']) :
-#        print("Doing a partial filling simulation.")
+    if (paramDict['numProcessors'] < 3 and not paramDict['onlyMeshCreation']) :
+        print("Number of processors should be > 3")
+        sys.exit(2)
+
+#    if (paramDict['onlyMeshCreation']) :
+#        print("Only doing mesh creation")
 #        sys.exit(2)
      
     # Get the case/working dir paths
@@ -957,7 +997,11 @@ def main():
     setupMPICommand()
 
     if not paramDict['skipSetup']:
-        exitCode = simulationSetup(workingDir, projectFile, projectPath, projectFolder)
+        if paramDict['onlyMeshCreation']:
+            exitCode = onlyMeshCreation(workingDir, projectFile, projectPath, projectFolder)
+            return
+        else:
+            exitCode = simulationSetup(workingDir, projectFile, projectPath, projectFolder)
 
     if paramDict['skipSimulation']:
         sys.exit()
