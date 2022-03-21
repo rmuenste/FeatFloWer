@@ -2119,7 +2119,7 @@
     IF (ADJUSTL(TRIM(cRheology)).eq."C1C2") THEN
       t%AtFunc = 2
 !       t%Tb = 165d0
-      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","TB",t%TB,165d0)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","ReferenceTemperature",t%TB,165d0)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C1",t%C1,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/C1C2","C2",t%C2,myInf)
     END IF
