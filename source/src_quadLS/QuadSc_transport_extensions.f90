@@ -2801,4 +2801,6 @@ DO iInflow=1,myProcess%nOfInflows
  end if
 END DO
 
+mySetup%bPressureConvergence = mySetup%bPressureConvergence.and.(istart.eq.1)
+
 END SUBROUTINE GetPressureAtInflows

@@ -37,6 +37,13 @@ LOGICAL :: bParallel=.true.
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 
+TYPE tSSE_covergence
+ REAL*8, allocatable :: Monitor(:)
+ REAL*8              :: average,std_dev,dCharVisco
+ integer             :: iC,nC,start
+END TYPE
+TYPE (tSSE_covergence) :: mySSE_covergence
+
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0
 

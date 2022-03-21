@@ -83,12 +83,13 @@ PROGRAM Q2P1_SSE
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
 
   if (DivergedSolution .eqv. .true.) EXIT
-  if (istart.eq.1.and.mySetup%bPressureConvergence) THEN
+  
+  if (mySetup%bPressureConvergence) THEN
    timens=timens+dtgmv
    call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
    exit
   end if
-  
+
   IF (bTracer) THEN
     ! Solve transport equation for linear scalar
     CALL Transport_LinScalar(ufile,inonln_t)

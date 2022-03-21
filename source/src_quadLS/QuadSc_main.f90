@@ -357,12 +357,14 @@ END SUBROUTINE Init_Default_Handlers
 ! ----------------------------------------------
 !
 SUBROUTINE Init_QuadScalar_Structures_sse(mfile)
+use, intrinsic :: ieee_arithmetic
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
 integer :: mydof
 integer :: maxlevel
 Real*8 :: dabl
+real*8 :: myInf
 
  ILEV=NLMAX
  CALL SETLEV(2)
@@ -591,6 +593,24 @@ END IF
   END DO
  END IF
 
+ if(ieee_support_inf(myInf))then
+   myInf = ieee_value(myInf, ieee_negative_inf)
+ endif
+ 
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
+  mySSE_covergence%iC = 1
+  mySSE_covergence%nC = NINT(DTGMV/TSTEP)
+  mySSE_covergence%start = min(NINT(DBLE(NITNS)/2d0),3*mySSE_covergence%nC)
+  mySSE_covergence%average = myInf
+  mySSE_covergence%std_dev = myInf
+  IF (myid.eq.1) WRITE(MTERM,*) "SSE convergence buffer size & start of control:",mySSE_covergence%nC,mySSE_covergence%start
+  IF (myid.eq.1) WRITE(MFILE,*) "SSE convergence buffer size & start of control:",mySSE_covergence%nC,mySSE_covergence%start
+  allocate(mySSE_covergence%Monitor(mySSE_covergence%nC))
+  mySSE_covergence%Monitor = myInf
+ ELSE
+  mySSE_covergence%start = 10*NITNS
+ END IF
+ 
  IF (myid.eq.showID) THEN
   INQUIRE (FILE="_data/BenchValues.txt", EXIST=bExist)
   IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
@@ -2764,13 +2784,44 @@ daux = 1D0*1e-7*myPI*(myProcess%umdr/3d1)
 dHeat = dHeat / myThermodyn%density
 dVol = dVol / myThermodyn%density
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
+
+ mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
+ mySSE_covergence%iC = MOD(mySSE_covergence%iC,mySSE_covergence%nC) + 1
+
+ IF (itns.gt.mySSE_covergence%start) THEN
+  mySSE_covergence%average = 0d0
+  DO i=1,mySSE_covergence%nC
+   mySSE_covergence%average = mySSE_covergence%average +  mySSE_covergence%Monitor(i)
+  END DO
+  mySSE_covergence%average = mySSE_covergence%average/DBLE(mySSE_covergence%nC)
+  mySSE_covergence%average = MAX(mySSE_covergence%average,(1d1*mySSE_covergence%dCharVisco*1d-5))
+
+  mySSE_covergence%std_dev = 0d0
+  DO i=1,mySSE_covergence%nC
+   mySSE_covergence%std_dev = mySSE_covergence%std_dev +  (mySSE_covergence%Monitor(i)-mySSE_covergence%average)**2d0
+  END DO
+  mySSE_covergence%std_dev = (mySSE_covergence%std_dev/DBLE(mySSE_covergence%nC))**0.5d0
+  mySSE_covergence%std_dev = 1d2*mySSE_covergence%std_dev/mySSE_covergence%average
+ END IF
+
+ mySetup%bPressureConvergence = .false.
+
+ if (itns.gt.mySSE_covergence%start) then
+  if (mySSE_covergence%std_dev.lt.2d-1) then
+   mySetup%bPressureConvergence = .true.
+  end if
+ end if
+
+END IF
+ 
 IF (myid.eq.showID) THEN
   WRITE(MTERM,5)
   WRITE(MFILE,5)
   write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
   write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
-  write(mfile,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]:  ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference
-  write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]:  ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference
+  write(mfile,'(A,7ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]_stdERR[%]: ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference,mySSE_covergence%std_dev
+  write(mterm,'(A,7ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]_stdERR[%]: ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference,mySSE_covergence%std_dev
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
   write(mfile,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
   write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
