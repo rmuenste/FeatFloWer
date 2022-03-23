@@ -48,12 +48,11 @@ dPeriod = 6d1/myParticleParam%f
 dTimeStep = dPeriod/DBLE(myParticleParam%nTimeLevels)
 iAngle = 360/myParticleParam%nTimeLevels
 iPeriodicityShift = INT(myParticleParam%nTimeLevels/myParticleParam%nPeriodicity)
+ilev=nlmax
 IF (.not.allocated(mySegmentIndicator))   allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
                                           mg_mesh%level(ilev)%net+&
                                           mg_mesh%level(ilev)%nat+&
                                           mg_mesh%level(ilev)%nel))
-
-
 ! GOTO 222
 
 myMatrixRenewal%D = 0
@@ -70,14 +69,26 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
   WRITE(cFile,'(I0)') myParticleParam%dump_in_file
   CALL init_sol_same_level(cFile)
  END IF
-
+ 
  if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
  ALLOCATE(myVelo(iFile)%x(QuadSc%ndof))
  ALLOCATE(myVelo(iFile)%y(QuadSc%ndof))
  ALLOCATE(myVelo(iFile)%z(QuadSc%ndof))
- myVelo(iFile)%x = QuadSc%ValU
- myVelo(iFile)%y = QuadSc%ValV
- myVelo(iFile)%z = QuadSc%ValW
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+  if (myParticleParam%bBacktrace) THEN
+   myVelo(iFile)%x = -QuadSc%ValU
+   myVelo(iFile)%y = -QuadSc%ValV
+   myVelo(iFile)%z = -QuadSc%ValW
+  else
+   myVelo(iFile)%x = QuadSc%ValU
+   myVelo(iFile)%y = QuadSc%ValV
+   myVelo(iFile)%z = QuadSc%ValW
+  end if
+ ELSE
+  myVelo(iFile)%x = QuadSc%ValU
+  myVelo(iFile)%y = QuadSc%ValV
+  myVelo(iFile)%z = QuadSc%ValW
+ END IF
  IF (myid.eq.1) WRITE(*,*) 'File ',iFile, ' is loaded... ==> angle :', iFile*iAngle
 
  if (myParticleParam%nPeriodicity.gt.1) then
@@ -86,9 +97,21 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
    ALLOCATE(myVelo(jFile)%x(QuadSc%ndof))
    ALLOCATE(myVelo(jFile)%y(QuadSc%ndof))
    ALLOCATE(myVelo(jFile)%z(QuadSc%ndof))
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+  if (myParticleParam%bBacktrace) THEN
+   myVelo(jFile)%x = -QuadSc%ValU
+   myVelo(jFile)%y = -QuadSc%ValV
+   myVelo(jFile)%z = -QuadSc%ValW
+  else
    myVelo(jFile)%x = QuadSc%ValU
    myVelo(jFile)%y = QuadSc%ValV
    myVelo(jFile)%z = QuadSc%ValW
+  end if
+ ELSE
+  myVelo(jFile)%x = QuadSc%ValU
+  myVelo(jFile)%y = QuadSc%ValV
+  myVelo(jFile)%z = QuadSc%ValW
+ END IF
    IF (myid.eq.1) WRITE(*,*) 'File ',jFile, ' is loaded... ==> angle :', jFile*iAngle
   END DO
  end if
@@ -97,6 +120,7 @@ END DO
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!! Volume estimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+
  CALL Create_MMat()
  IF (myid.eq.showID) WRITE(MTERM,*) 
  IF (myid.eq.showID) WRITE(MFILE,*) 
@@ -1020,9 +1044,10 @@ INTEGER inittype
 
 call prt_read_config(myParticleParam, mfile, mterm)
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!! CorrDistEstimation !!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  myParticleParam%d_CorrDist = myProcess%ExtrusionGapSize*0.20d0*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
- myParticleParam%Epsilon = myParticleParam%d_CorrDist*0.10d0 !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
+ myParticleParam%Epsilon = myParticleParam%d_CorrDist*myParticleParam%Epsilon !(0.10d0 :: mm ==> cm), (0.10d0 :: safe min distance estimation for the outflow
  IF (myid.eq.1) THEN
  ! write(*,*) ADJUSTL(TRIM(mySigma%cType)), myParticleParam%d_CorrDist,myParticleParam%Epsilon
   write(*,*) "d_Corrdist and Epsilon is adaptively adjsuted due to DIE simulation", myParticleParam%d_CorrDist,myParticleParam%Epsilon
@@ -1852,6 +1877,7 @@ DO
    END IF
 END DO
 CLOSE(745)
+
 ! CLOSE(785)
 
 ! write(*,*) myid,iElements
