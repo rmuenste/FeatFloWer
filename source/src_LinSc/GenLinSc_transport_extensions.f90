@@ -1247,7 +1247,8 @@ DO iFld=2,GenLinScalar%nOfFields
  dMaxValue = dMaxValue + dVolPhase(iFld)
 end do
 
-if (dMaxValue/dVolPhase(1).gt.0.9d0) bAlphaConverged=.true.
+AlphaControl = dMaxValue/dVolPhase(1)
+if (AlphaControl.gt.0.9d0) bAlphaConverged=.true.
 
 if (myid.eq.1) then
  write(mterm,'(A,100ES12.4)') 'VolumeFractions[%]: ',1d2*dMaxValue/dVolPhase(1),1d2*dVolPhase(2:GenLinScalar%nOfFields)/dVolPhase(1)

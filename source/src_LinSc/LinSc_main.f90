@@ -9,6 +9,7 @@ USE var_QuadScalar, ONLY: QuadSc,ParKNPR,mgDiffCoeff,&
 USE var_QuadScalar, ONLY: myMG,myHeatObjects,Properties,dIntegralHeat
 USE var_QuadScalar, ONLY: DivergedSolution,ConvergedSolution
 USE var_QuadScalar, ONLY: Tracer, Tracer3,GenLinScalar
+USE var_QuadScalar, only : AlphaControl
 USE mg_LinScalar, ONLY : mgProlRestInit,mgProlongation
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials,mySetup
 use, intrinsic :: ieee_arithmetic

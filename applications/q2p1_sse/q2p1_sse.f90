@@ -8,11 +8,14 @@ PROGRAM Q2P1_SSE
                          print_time,&
                          sim_finalize_sse
 
-  use Transport_q2p1, only : Transport_q2p1_UxyzP_sse
+  use Transport_q2p1, only : Transport_q2p1_UxyzP_sse,DetermineIfGoalsWereReached
   use Sigma_User, only : bKTPRelease,mySetup
   use var_QuadScalar, only : SSE_HAS_ANGLE, extruder_angle,DivergedSolution,myErrorCode
+  use var_QuadScalar, only : myErrorCode
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
   use f90getopt
-
+ 
+  
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
@@ -21,7 +24,7 @@ PROGRAM Q2P1_SSE
   integer            :: ufile,ilog,i,ierr
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
-  integer, parameter :: errDivergence = 55
+  LOGICAL bGoalsReached
 
   character(len=*), parameter :: version = '1.0'
   real*8                      :: angle = 0.0
@@ -113,11 +116,12 @@ PROGRAM Q2P1_SSE
   IF (bKTPRelease) CALL xSEND_FINISH()
 #endif
 
-  call sim_finalize_sse(tt0,ufile)
-
-!  if (DivergedSolution)  stop 55 !call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
-  if (DivergedSolution)  stop errDivergence
+  if (DivergedSolution) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
+  CALL DetermineIfGoalsWereReached(bGoalsReached)
+  if (.not.bGoalsReached)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
   
+  call sim_finalize_sse(tt0,ufile)
+ 
   contains
 
     subroutine print_help()

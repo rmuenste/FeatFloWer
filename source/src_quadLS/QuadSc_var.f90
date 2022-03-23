@@ -36,6 +36,7 @@ LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
+REAL*8  :: AlphaControl=0d0
 
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)

@@ -3849,5 +3849,37 @@ end if
 ! write(*,*) MaterialDistribution(NLMAX)%x(1:knel(NLMAX))
 ! pause
 END SUBROUTINE UpdateMaterialProperties
+!
+! ----------------------------------------------
+!
+SUBROUTINE DetermineIfGoalsWereReached(bGoalsReached)
+use, intrinsic :: ieee_arithmetic
+REAL*8 myinf
+LOGICAL bGoalsReached
+
+if(ieee_support_inf(myInf))then
+  myInf = ieee_value(myInf, ieee_negative_inf)
+endif
+
+bGoalsReached = .true.
+
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
+ if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
+    if (itns.ge.nitns) bGoalsReached=.false.
+ end if
+END IF
    
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+ if (istart.eq.1) then
+   if (itns.ge.nitns) bGoalsReached=.false.
+ end if
+END IF
+
+
+if (.not.bGoalsReached) THEN
+ if (myid.eq.1) write(*,*) 'max time steps have been reached // the simulation has - most probably - not converged! '
+end if
+
+END SUBROUTINE DetermineIfGoalsWereReached
+
 END MODULE Transport_Q2P1
