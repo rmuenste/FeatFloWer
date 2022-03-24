@@ -44,7 +44,7 @@ PROGRAM Q1_GenScalar
   bAlphaConverged = .false.
   DivergedSolution = .false.
   
-  iChange = 0
+  iChange = 8
   
   DO itns=1,nitns
 
