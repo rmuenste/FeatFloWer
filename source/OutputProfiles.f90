@@ -3087,6 +3087,7 @@ EQUIVALENCE (DWORK(1),VWORK(1),KWORK(1))
 
  call Load_ListFile('v',iO)
  call Load_ListFile('x',iO)
+ call Load_ListFile('s',iO)
  
  if (myid.ne.master) CALL SetCoor(mg_mesh%level(NLMAX+1)%dcorvg)
 !  CALL SetCoor(DWORK(L(KLCVG(NLMAX))))

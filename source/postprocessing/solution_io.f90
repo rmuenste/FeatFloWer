@@ -1489,7 +1489,9 @@ subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
   
   IF (itns.eq.1) THEN
     CALL ZTIME(myStat%t0)
-    CALL Output_Profiles(0)
+    !!!!!!!!!!!!!!!!! output cancelled here because we are in production modus !!!!!!!!!!!!!!111
+!    CALL Output_Profiles(0)
+    !!!!!!!!!!!!!!!!! output cancelled here because we are in production modus !!!!!!!!!!!!!!111
     CALL ZTIME(myStat%t1)
     myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
 !     CALL ZTIME(myStat%t0)
@@ -1520,7 +1522,9 @@ subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
     IF (insav.NE.0.AND.itns.NE.1) THEN
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
-        call write_sol_to_file_heat(insavn, timens)
+    !!!!!!!!!!!!!!!!! output cancelled here because we are in production modus !!!!!!!!!!!!!!111
+!        call write_sol_to_file_heat(insavn, timens)
+    !!!!!!!!!!!!!!!!! output cancelled here because we are in production modus !!!!!!!!!!!!!!111
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF

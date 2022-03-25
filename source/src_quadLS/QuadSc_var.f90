@@ -22,7 +22,7 @@ CHARACTER*200 :: ApplicationString=&
 "  |                                                                                                  |"
 
 CHARACTER*200 :: VersionString=&
-"  |                                                          Version:20.11  Date:2020.11.05          |"
+"  |                                                          Version:22.01  Date:2022.02.02          |"
 
 CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 
@@ -36,6 +36,14 @@ LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
+REAL*8  :: AlphaControl=0d0
+
+TYPE tSSE_covergence
+ REAL*8, allocatable :: Monitor(:)
+ REAL*8              :: average,std_dev,dCharVisco
+ integer             :: iC,nC,start
+END TYPE
+TYPE (tSSE_covergence) :: mySSE_covergence
 
 LOGICAL :: SSE_HAS_ANGLE=.false.
 real*8  :: extruder_angle = 0.0

@@ -324,10 +324,9 @@ INTEGER I,J
 
   IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
    ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  ELSE
-   mg_Mmat(ILEV)%a=0d0
   END IF
 
+  mg_Mmat(ILEV)%a=0d0
 
   IF (myid.eq.showID) THEN
    IF (ILEV.EQ.NLMIN) THEN

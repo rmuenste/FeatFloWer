@@ -3,7 +3,8 @@ PROGRAM Q1_GenScalar
   include 'defs_include.h'
 
   use solution_io, only: postprocessing_general
-  use var_QuadScalar, only: bAlphaConverged,DivergedSolution
+  use var_QuadScalar, only: bAlphaConverged,DivergedSolution,myErrorCode,AlphaControl
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 
   use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
   use post_utils,  only: handle_statistics,&
@@ -43,7 +44,7 @@ PROGRAM Q1_GenScalar
   bAlphaConverged = .false.
   DivergedSolution = .false.
   
-  iChange = 0
+  iChange = 8
   
   DO itns=1,nitns
 
@@ -84,6 +85,13 @@ PROGRAM Q1_GenScalar
   iChange = iChange + 1
   !!!!!!!!!!!!!!!! TimestepControl   !!!!!!!!!!!!!!!
   
+  !!!!!!!!!!!!!!!! ConvergenceControl   !!!!!!!!!!!!!!!
+  IF (itns.gt.INT(0.5d0*DBLE(nitns)).and.AlphaControl.lt.0.5d0) THEN
+   DivergedSolution = .TRUE.
+   GOTO 2
+  END IF
+  !!!!!!!!!!!!!!!! ConvergenceControl   !!!!!!!!!!!!!!!
+
   call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
 !   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
@@ -94,11 +102,13 @@ PROGRAM Q1_GenScalar
   istep_ns = istep_ns + 1
   
   ! Exit if done
-  IF (timemx.LE.(timens+1D-10)) EXIT
   IF (bAlphaConverged) EXIT
+  IF (timemx.LE.(timens+1D-10)) EXIT
 
   END DO
 
+  if (.not.bAlphaConverged)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
+  
 !   write(*,*) '0',bAlphaConverged
   CALL Correct_GenLinSc_Q1_ALPHA(ufile)
   timens = timens + dtgmv
@@ -107,6 +117,8 @@ PROGRAM Q1_GenScalar
 !   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
 2 CONTINUE
+
+  if (DivergedSolution)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_ALPHA, ierr)
   
   call sim_finalize_sse(tt0,ufile)
 

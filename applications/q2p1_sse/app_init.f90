@@ -86,7 +86,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
  USE MESH_Structures
- USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
+ USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,mySSE_covergence,&
    cProjectFolder,cProjectNumber,nInitUmbrellaSteps,mg_mesh,MaxLevelKnownToMaster
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
@@ -258,6 +258,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      TimeStep       = 1d-2 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep
      READ(sTimeStep,*) TimeStep
+     mySSE_covergence%dCharVisco = 0.1d0*dCharVisco
 
      IF (myid.eq.1) THEN
       WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]_E/U: ",dCharSize,dCharVelo,dCharShear,mySetup%CharacteristicShearRate
