@@ -9,8 +9,9 @@ import sys
 import re
 import getopt
 
+#from mesh import *
+#from mesh_io import *
 from mesh import *
-from mesh_io import *
 
 from shutil import copyfile
 

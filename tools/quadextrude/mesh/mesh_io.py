@@ -6,7 +6,7 @@ A module for input/output of different mesh formats
 
 import re
 
-from mesh import *
+from .mesh import *
 
 
 #===============================================================================
