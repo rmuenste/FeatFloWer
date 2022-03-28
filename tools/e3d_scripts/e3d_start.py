@@ -15,6 +15,7 @@ import math
 import partitioner
 import fileinput
 import datetime
+import configparser
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver  
 from watchdog.events import FileSystemEventHandler
@@ -25,7 +26,7 @@ else:
     from pathlib import Path
 
 debugNoSim = False
-debugOutput = True
+debugOutput = False
 
 class E3dLog:
     def __init__(self):
@@ -336,6 +337,20 @@ def parseMaxNumSteps(file_path):
             return maxIters
 
     return maxIters
+#===============================================================================
+
+
+#===============================================================================
+#                           e3dToDict 
+#===============================================================================
+def e3dToDict(pathName):
+    config = configparser.ConfigParser()
+    config.read(pathName)
+
+    if not pathName.exists():
+        raise FileNotFoundError("File {0} was not found.".format(pathName))
+
+    return config
 #===============================================================================
 
 
@@ -995,6 +1010,17 @@ def main():
     myLog.closeFileHandle()
 
     setupMPICommand()
+
+    e3dSetupDict = e3dToDict(projectFile)
+
+    if not paramDict['hasTimeLevels']:
+        if "timeLevels" in e3dSetupDict['SimodSettings']:
+          if e3dSetupDict['SimodSettings']['timeLevels'].isnumeric():
+              paramDict['timeLevels'] = int(e3dSetupDict['SimodSettings']['timeLevels'])
+              paramDict['hasTimeLevels'] = True
+          else:
+              raise TypeError("e3d.setup ['SimodSettings']['timeLevels'] is not a numeric entry. Pls enter a number > 0.")
+
 
     if not paramDict['skipSetup']:
         if paramDict['onlyMeshCreation']:
