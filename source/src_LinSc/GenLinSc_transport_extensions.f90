@@ -183,10 +183,21 @@ END SUBROUTINE Transport_GenLinSc_Q1_Melt
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Recover_GenLinSc_OldSolution()
+INTEGER iFld
+
+DO iFld = 1,GenLinScalar%nOfFields
+ GenLinScalar%Fld(iFld)%val = GenLinScalar%Fld(iFld)%val_old_timestep
+END DO
+
+END SUBROUTINE Recover_GenLinSc_OldSolution
+!
+! ----------------------------------------------
+!
 SUBROUTINE Transport_GenLinSc_Q1_MultiMat(mfile,INL)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 INTEGER mfile,INL
-REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),RhsTemp(:)
+REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),DefTemp0(:),RhsTemp(:)
 REAL*8 tstep_old,thstep_old,defXXX
 INTEGER INLComplete,I,J,iFld,iEnd,iStart
 logical bDefTemp
@@ -194,10 +205,14 @@ logical :: bInit=.true.
 
 if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
 if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTemp0)) allocate(DefTemp0(GenLinScalar%nOfFields))
 if (.not.allocated(DefTempCrit)) allocate(DefTempCrit(GenLinScalar%nOfFields))
 if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
 
 IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+DO iFld = 1,GenLinScalar%nOfFields
+ GenLinScalar%Fld(iFld)%val_old_timestep = GenLinScalar%Fld(iFld)%val
+END DO
 
 ! Generate the necessary operators
 IF (myid.ne.0) THEN
@@ -267,6 +282,7 @@ DO iFld=1,GenLinScalar%nOfFields
 END DO
 
 DO iFld=1,GenLinScalar%nOfFields
+ DefTemp0(iFld) = DefTemp(iFld)
  DefTempCrit(iFld)=MAX((DefTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
 END DO
 
@@ -318,6 +334,7 @@ DO iFld=1,GenLinScalar%nOfFields
  CALL COMM_Maximum(RhsTemp(iFld))
  CALL COMM_Maximum(DefTemp(iFld))
 END DO
+
 CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,INL,&
        ResTemp,DefTemp,DefTempCrit," GenLinScalar equation ")
 
@@ -325,6 +342,14 @@ bDefTemp = .True.
 DO iFld=1,GenLinScalar%nOfFields
  bDefTemp = (bDefTemp.and.DefTemp(iFld).LE.DefTempCrit(iFld))
 END DO
+
+DO iFld=1,GenLinScalar%nOfFields
+ IF (isnan(DefTemp(iFld)).or.DefTemp(iFld).eq.0d0.or.DefTemp(iFld).gt.1d1*DefTemp0(iFld)) THEN
+  DivergedSolution = .TRUE.
+  RETURN
+ END IF
+END DO
+
 
 IF (bDefTemp.and.(INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
 

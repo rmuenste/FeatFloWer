@@ -6,7 +6,8 @@ PROGRAM Q1_GenScalar
   use var_QuadScalar, only: bAlphaConverged,DivergedSolution,myErrorCode,AlphaControl
   USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 
-  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,EstimateAlphaTimeStepSize
+  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,&
+                           EstimateAlphaTimeStepSize,Recover_GenLinSc_OldSolution
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize_sse
@@ -44,7 +45,7 @@ PROGRAM Q1_GenScalar
   bAlphaConverged = .false.
   DivergedSolution = .false.
   
-  iChange = 8
+  iChange = 10
   
   DO itns=1,nitns
 
@@ -62,13 +63,14 @@ PROGRAM Q1_GenScalar
    timens=timens-dt
    tstep = tstep*0.5d0
    if (tstep.lt.Orig_tsep*(2d0/9d0)) then
-    if (myid.eq.1) write(MTERM,*) 'Q1_scalar simulation has diverged after multiple timestep reductions!'
-    if (myid.eq.1) write(ufile,*) 'Q1_scalar simulation has diverged after multiple timestep reductions!'
+    if (myid.eq.1) write(MTERM,'(A,ES12.4)') 'Q1_scalar simulation has diverged after multiple timestep reductions!', dt
+    if (myid.eq.1) write(ufile,'(A,ES12.4)') 'Q1_scalar simulation has diverged after multiple timestep reductions!', dt
     GOTO 2
    ELSE
     DivergedSolution = .false.
-    if (myid.eq.1) write(MTERM,*) 'Timestep reduction due to divergence in Q1_scalar solver '
-    if (myid.eq.1) write(ufile,*) 'Timestep reduction due to divergence in Q1_scalar solver '
+    if (myid.eq.1) write(MTERM,'(A,ES12.4)') 'Timestep reduction due to divergence in Q1_scalar solver ', dt
+    if (myid.eq.1) write(ufile,'(A,ES12.4)') 'Timestep reduction due to divergence in Q1_scalar solver ', dt
+    CALL Recover_GenLinSc_OldSolution()
     GOTO 1
    END IF
   END IF
