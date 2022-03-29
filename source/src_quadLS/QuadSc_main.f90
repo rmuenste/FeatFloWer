@@ -2789,20 +2789,24 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SS
  mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
  mySSE_covergence%iC = MOD(mySSE_covergence%iC,mySSE_covergence%nC) + 1
 
- IF (itns.gt.mySSE_covergence%start) THEN
+ IF (itns.gt.mySSE_covergence%nC) THEN
   mySSE_covergence%average = 0d0
   DO i=1,mySSE_covergence%nC
    mySSE_covergence%average = mySSE_covergence%average +  mySSE_covergence%Monitor(i)
   END DO
   mySSE_covergence%average = mySSE_covergence%average/DBLE(mySSE_covergence%nC)
-  mySSE_covergence%average = MAX(mySSE_covergence%average,(1d1*mySSE_covergence%dCharVisco*1d-5))
+  if (mySSE_covergence%average.lt.0d0) then
+   mySSE_covergence%average = MIN(mySSE_covergence%average,(1d1*mySSE_covergence%dCharVisco*1d-5))
+  else
+   mySSE_covergence%average = MAX(mySSE_covergence%average,(1d1*mySSE_covergence%dCharVisco*1d-5))
+  end if
 
   mySSE_covergence%std_dev = 0d0
   DO i=1,mySSE_covergence%nC
    mySSE_covergence%std_dev = mySSE_covergence%std_dev +  (mySSE_covergence%Monitor(i)-mySSE_covergence%average)**2d0
   END DO
   mySSE_covergence%std_dev = (mySSE_covergence%std_dev/DBLE(mySSE_covergence%nC))**0.5d0
-  mySSE_covergence%std_dev = 1d2*mySSE_covergence%std_dev/mySSE_covergence%average
+  mySSE_covergence%std_dev = ABS(1d2*mySSE_covergence%std_dev/mySSE_covergence%average)
  END IF
 
  mySetup%bPressureConvergence = .false.

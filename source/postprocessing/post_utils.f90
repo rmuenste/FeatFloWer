@@ -52,6 +52,46 @@ end subroutine handle_statistics
 ! @param ufile Handle to the log file  
 ! @param term_out Handle to the terminal  
 !
+subroutine print_time_q1(dtimens, dtimemx, dt,dttMIN,dttMAX, istepns, istepmaxns, ufile, term_out)
+
+  use def_Feat
+  USE PP3D_MPI,only :myid,ShowID
+
+  implicit none
+
+  real*8, intent(in)  :: dtimens, dtimemx, dt,dttMIN,dttMAX
+  integer, intent(in) :: istepns , istepmaxns
+  integer, intent(in) :: ufile, term_out
+
+  IF (myid.eq.showid) THEN
+    write(term_out,5)
+    write(uFILE,5)
+    write(term_out,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,3D12.4)')&
+      "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
+      " | dt:",dt,dttMIN,dttMAX
+    write(uFILE,'(A5,D12.4,A1,D12.4,A8,I8,A1,I8,A7,3D12.4)')&
+      "time:", dtimens,"/",dtimemx," | itns:",istepns,"/",istepmaxns,&
+      " | dt:",dt,dttMIN,dttMAX
+    write(term_out,5)
+    write(uFILE,5)
+  END IF
+
+  5 FORMAT(104('='))
+
+end subroutine print_time_q1
+
+!
+!-------------------------------------------------------------------------------------------------
+! An output routine for printing time to the screen 
+!-------------------------------------------------------------------------------------------------
+! @param dtimens Simulation time 
+! @param dtimemx Maximum simulation time 
+! @param dt Time step of the simulation
+! @param istepns Discrete time step of the simulation   
+! @param istepmaxns Maximum discrete time step   
+! @param ufile Handle to the log file  
+! @param term_out Handle to the terminal  
+!
 subroutine print_time(dtimens, dtimemx, dt, istepns, istepmaxns, ufile, term_out)
 
   use def_Feat

@@ -53,6 +53,7 @@ DO iFld = 1,nFld
  ALLOCATE(myScalar%Fld(iFld)%rhs(ndof))
  ALLOCATE(myScalar%Fld(iFld)%val(ndof))
  ALLOCATE(myScalar%Fld(iFld)%val_old(ndof))
+ ALLOCATE(myScalar%Fld(iFld)%val_old_timestep(ndof))
 END DO
 
 ALLOCATE(myScalar%knpr(nFld*ndof))
