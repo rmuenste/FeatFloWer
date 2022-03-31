@@ -422,7 +422,8 @@ END TYPE tPhysParticles
 TYPE tParticleParam
  REAL*8 dEps1,dEps2, D_Out,D_in, f, Z_seed,Epsilon,hSize,d_CorrDist,OutflowZPos
  REAL*8 :: minFrac
- INTEGER :: nTimeLevels,nParticles,nRotation,Raster,dump_in_file,nPeriodicity
+ INTEGER :: nTimeLevels,nParticles,nRotation,Raster,dump_in_file,nPeriodicity,OutputFreq
+ 
  ! What kind of starting procedure?
  INTEGER :: inittype
  ! If we start from a sourcefile this char stores the name of it
