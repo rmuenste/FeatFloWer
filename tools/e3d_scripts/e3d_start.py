@@ -1014,12 +1014,13 @@ def main():
     e3dSetupDict = e3dToDict(projectFile)
 
     if not paramDict['hasTimeLevels']:
-        if "time_levels" in e3dSetupDict['SimodSetting']:
-          if e3dSetupDict['SimodSetting']['time_levels'].isnumeric():
-              paramDict['timeLevels'] = int(e3dSetupDict['SimodSetting']['time_levels'])
-              paramDict['hasTimeLevels'] = True
-          else:
-              raise TypeError("e3d.setup ['SimodSettings']['time_levels'] is not a numeric entry. Pls enter a number > 0.")
+        if "SimodSetting" in e3dSetupDict:
+            if "time_levels" in e3dSetupDict['SimodSetting']:
+                if e3dSetupDict['SimodSetting']['time_levels'].isnumeric():
+                    paramDict['timeLevels'] = int(e3dSetupDict['SimodSetting']['time_levels'])
+                    paramDict['hasTimeLevels'] = True
+                else:
+                    raise TypeError("e3d.setup ['SimodSettings']['time_levels'] is not a numeric entry. Pls enter a number > 0.")
 
 
     if not paramDict['skipSetup']:
