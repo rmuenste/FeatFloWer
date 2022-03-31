@@ -2196,7 +2196,7 @@
     
     j=0
     i2 = 1
-    DO i=i1,n
+    DO i=1,n
      IF (sL(i:i).EQ. ',') THEN
       j = j + 1
       
@@ -2243,7 +2243,7 @@
     
     j=0
     i2 = 1
-    DO i=i1,n
+    DO i=1,n
      IF (sL(i:i).EQ. ',') THEN
       j = j + 1
       
