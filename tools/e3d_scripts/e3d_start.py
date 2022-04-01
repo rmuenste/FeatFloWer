@@ -211,7 +211,7 @@ class E3dLog:
             f.write(message + "\n")
             f.write("ErrorCode=%i\n" % errorCode)
             f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
-            sys.exit(2)        
+            sys.exit(errorCode)        
 
 myLog = E3dLog()
 
