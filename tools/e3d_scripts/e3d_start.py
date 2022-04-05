@@ -211,7 +211,7 @@ class E3dLog:
             f.write(message + "\n")
             f.write("ErrorCode=%i\n" % errorCode)
             f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
-            sys.exit(2)        
+            sys.exit(errorCode)        
 
 myLog = E3dLog()
 
@@ -586,8 +586,11 @@ def simLoopVelocity(workingDir):
                 while exitCode == 55 and UmbrellaStepM != 0:
                     replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
                     UmbrellaStepM = int(UmbrellaStepM / 2)
+                    print("Retrying deformation with UmbrellaStepsM = %d" % UmbrellaStepM)
                     exitCode = subprocess.call([launchCommand], shell=True)
                 replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
+                if UmbrellaStepM == 0:
+                    print("UmbrellaStepsM reduced to 0 during retry")
 
         # Here the observer can be turned off
         observer.stop()
