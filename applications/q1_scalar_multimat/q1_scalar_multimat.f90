@@ -106,7 +106,7 @@ PROGRAM Q1_GenScalar
   
   ! Exit if done
   IF (bAlphaConverged) EXIT
-  IF (timemx.LE.(timens+1D-10)) EXIT
+!  IF (timemx.LE.(timens+1D-10)) EXIT
 
   END DO
 
