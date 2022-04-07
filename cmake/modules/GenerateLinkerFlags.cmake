@@ -86,6 +86,8 @@ else(WIN32)
     inshape3dcore
     Utility
     Math
+    ${Boost_LIBRARIES}
+    fc_core
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface

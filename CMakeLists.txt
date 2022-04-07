@@ -326,10 +326,16 @@ endif()
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
+# Guide selection of boost libraries by FindBoost.cmake
+SET( Boost_USE_STATIC_LIBS ON CACHE BOOL "Force static linking of Boost libraries." )
+
+# Boost threads is only available as a multithreaded version so force FindBoost.cmake to use the multithreaded versions.
+SET( Boost_USE_MULTITHREADED ON )
+
 if(USE_BOOST)
   # UNCOMMENT THE LINE BELOW IF YOU HAVE ISSUES FINDING BOOST
   # set(Boost_DEBUG True)
-  find_package(Boost 1.53 REQUIRED COMPONENTS thread)
+  find_package(Boost 1.63 COMPONENTS thread system filesystem program_options random REQUIRED)
 endif(USE_BOOST)
 
 #=========================================================================
@@ -431,6 +437,12 @@ IF(BUILD_APPLICATIONS)
 
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
+
+#=========================================================================
+#                     FullC0ntact2 Library
+#=========================================================================
+add_subdirectory(libs/FullContactV2)
+
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
