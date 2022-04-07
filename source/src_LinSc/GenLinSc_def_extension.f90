@@ -750,14 +750,7 @@ ALLOCATE(AFC%pm(AFC%nu))
 ALLOCATE(AFC%qp(AFC%nu))
 ALLOCATE(AFC%qm(AFC%nu))
 
-DO I=1,AFC%nu
-  ILOC=plMat%LdA(I)
-1 ILOC=ILOC+1 
-  if(iloc .le. plMat%na)then
-    IF (plMat%ColA(ILOC).LT.I.AND.ILOC.LT.plMat%LdA(I+1)) GOTO 1
-    AFC%isep(I)=ILOC-1
-  end if
-END DO
+CALL Configure_AFCStruct(plMat%ColA,plMat%LdA,plMat%nu,AFC%isep)
 
 END SUBROUTINE Create_GenLinSc_Q1_AFCStruct
 !
