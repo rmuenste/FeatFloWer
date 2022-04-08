@@ -226,7 +226,7 @@ IF (myid.ne.0) THEN
   CALL Create_GenLinSc_Q1_Mass(1d0)
 
   ! Diffusion Matrix for the alpha fields
-  CALL Create_GenLinSc_Q1_Alpha_Diffusion(3d-4)
+  CALL Create_GenLinSc_Q1_Alpha_Diffusion(3d-3)
   bInit = .false.
  end if
  
