@@ -259,6 +259,8 @@ NLMAX = NLMAX + 1
 
 thstep = 0.5d0*tstep
 
+Tracer%prm%AFC = .false.
+
 ! advect the scalar field
 IF (myid.ne.0) THEN
 
