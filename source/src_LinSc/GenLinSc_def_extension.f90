@@ -1099,6 +1099,8 @@ END SUBROUTINE Create_GenLinSc_Q1_Heat_Diffusion
 !
 SUBROUTINE Create_GenLinSc_Q1_Alpha_Diffusion(dAlpha)
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+  use Sigma_User, only: mySegmentIndicator,myMultiMat
+
   EXTERNAL E011
   REAL*8 dAlpha
   integer :: i
@@ -1126,12 +1128,13 @@ SUBROUTINE Create_GenLinSc_Q1_Alpha_Diffusion(dAlpha)
 
     AlphaDiffMat=0d0
 
-    CALL CnstDiffMatQ1(AlphaDiffMat,&
+    CALL SegInfoDiffMatQ1(AlphaDiffMat,& 
       plMat%nu,plMat%ColA,plMat%LdA,& 
       mg_mesh%level(ilev)%kvert,&
       mg_mesh%level(ilev)%karea,&
       mg_mesh%level(ilev)%kedge,&
       mg_mesh%level(ilev)%dcorvg,&
+      mySegmentIndicator(2,:),&
       dAlpha,E011)
 
   end do
