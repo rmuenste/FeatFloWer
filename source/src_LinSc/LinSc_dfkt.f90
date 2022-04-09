@@ -1,3 +1,42 @@
+SUBROUTINE Configure_AFCStruct(KCOLA,KLDA,NU,ISEP)
+USE def_LinScalar, ONLY : AFC
+IMPLICIT NONE
+INTEGER KCOLA(*),KLDA(*),NU
+INTEGER ISEP(*)
+!---------------------------------------------------------------
+INTEGER II_LOC,IJ_LOC,JI_LOC,JJ_LOC,ILOC
+INTEGER IEDGE,JEDGE
+INTEGER I,J,iSEP_OLD
+
+IEDGE = 0
+JEDGE = 0
+
+DO I=1,NU
+ ISEP_OLD = ISEP(I)
+ II_LOC=KLDA(I)
+ J=KCOLA(II_LOC)
+ ISEP(I) = II_LOC
+ 
+ DO IJ_LOC=KLDA(I)+1,KLDA(I+1)-1
+  J=KCOLA(IJ_LOC)
+  IF (J.gt.I) IEDGE = IEDGE + 1
+  IF (J.lt.I) JEDGE = JEDGE + 1
+  
+  IF (J.lt.I) ISEP(I)=IJ_LOC
+  
+ END DO
+ 
+END DO
+
+IF ((iedge.ne.AFC%nedge).or.(jedge .ne. AFC%nedge)) THEN
+  write(*,*) "Ultimate problem in the AFC stab constructor "
+  STOP
+END IF
+
+END SUBROUTINE Configure_AFCStruct
+!
+! ----------------------------------------------
+!
 SUBROUTINE AFC_LinScalar(DK,KCOLA,KLDA,&
            NU,ISEP,IAUX,INOD,JNOD,AEDGE)
 USE def_LinScalar, ONLY : AFC
@@ -51,7 +90,10 @@ DO I=1,NU
   ENDDO
 ENDDO
 
-AFC%nedge = iedge
+IF (iedge .ne. AFC%nedge) THEN
+  write(*,*) "Ultimate problem in the AFC stab constructor "
+  STOP
+END IF
 
 END
 !

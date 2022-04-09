@@ -1154,6 +1154,8 @@ END IF
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
+ 
+ CALL Create_MMat()
 
 END SUBROUTINE Init_QuadScalar_Stuctures
 !

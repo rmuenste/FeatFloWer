@@ -317,7 +317,7 @@ REAL*8  dTime,daux,dPeriod,dTimeStep,dStart,dBuffer(nBuffer)
 CHARACTER*99 cFile
 LOGICAL :: bOutput=.TRUE.
 real*8 xmin, xmax, ymin, ymax, zmin, zmax
-integer :: iOutputIndex=0,iOutputFreq=10
+integer :: iOutputIndex=0
 real*8, allocatable :: FlowField_U(:),FlowField_V(:),FlowField_W(:)
 real*8 :: dPeriodicTime = 0.245d0,dPeriodicTimeUnit,dVeloTime_0,dVeloTime_1,dVeloTime,dVeloTime_F
 
@@ -497,7 +497,7 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
   !!! here we need to collide the particles against each other
   CALL CheckForCollision(nvt,net,nat,nel,myParticleParam%d_CorrDist)
   
-  IF (bOutput.and.mod(iTimeSteps,iOutputFreq).eq.0) THEN
+  IF (bOutput.and.mod(iTimeSteps,myParticleParam%OutputFreq).eq.0) THEN
   
    iOutputIndex = iOutputIndex + 1
 
@@ -559,7 +559,7 @@ REAL*8  dTime,daux,dPeriod,dTimeStep,dStart,dBuffer(nBuffer)
 CHARACTER*99 cFile
 LOGICAL :: bOutput=.TRUE.
 real*8 xmin, xmax, ymin, ymax, zmin, zmax
-integer :: iOutputIndex=0,iOutputFreq=10
+integer :: iOutputIndex=0,iOutputFreq=1
 
 dTime=0d0
 dPeriod = 6d1/myParticleParam%f

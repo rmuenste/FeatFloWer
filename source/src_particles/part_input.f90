@@ -266,6 +266,8 @@ contains
     
     ! TimeLevels. Default is 72
     call inip_getvalue_int(parameterlist,"GeneralSettings","TimeLevels",ParticleParam%nTimeLevels,72)
+
+    call inip_getvalue_int(parameterlist,"GeneralSettings","OutputFreq",ParticleParam%OutputFreq,1)
     
     call inip_getvalue_int(parameterlist,"GeneralSettings","Periodicity",ParticleParam%nPeriodicity,1)
     

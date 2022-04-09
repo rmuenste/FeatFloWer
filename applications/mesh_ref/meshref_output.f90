@@ -940,7 +940,7 @@ integer OneSideCloseI,iSide
  allocate(mg_NewMesh%level(mg_NewMesh%maxlevel))
  allocate(mg_NewMesh%level(1)%dcorvg(3,nUniquePoints))
  allocate(mg_NewMesh%level(1)%knpr(nUniquePoints))
- allocate(mg_NewMesh%level(1)%kvert(3,nUniqueElems))
+ allocate(mg_NewMesh%level(1)%kvert(8,nUniqueElems))
  mg_NewMesh%level(1)%nvt = nUniquePoints
  mg_NewMesh%level(1)%nel = nUniqueElems
  mg_NewMesh%level(1)%knpr = 0
@@ -1016,9 +1016,9 @@ integer OneSideCloseI,iSide
 !      stop
 !     END IF
 
-!       WRITE(*,*) iSide
-      
       mindist = 1d8
+      jInflow = 0
+      
       P = MeshOutputScaleFactor*P ! scaling to cm
       DO iInflow=1,myProcess%nOfInflows
        if (iSide.eq.InflowToSideMapper(iInflow)) then
@@ -1032,20 +1032,22 @@ integer OneSideCloseI,iSide
       END DO
       
       bToMarkFace = .false.
-      if (iSide.eq.InflowToSideMapper(jInflow)) then
-       do i=1,4
-        P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
-        Q = myProcess%myInflow(jInflow)%Center
-        dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-        if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
-         bToMarkFace = .true.
-        end if
-       end do
-      end if
-      
-      if (bToMarkFace) then
-!        WRITE(*,*) iel,iat
-       bInflowMarker(jInflow,ivt(:)) = .TRUE.
+      if (jInflow.ge.1.and.jInflow.le.myProcess%nOfInflows) then
+       if (iSide.eq.InflowToSideMapper(jInflow)) then
+        do i=1,4
+         P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+         Q = myProcess%myInflow(jInflow)%Center
+         dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+         if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
+          bToMarkFace = .true.
+         end if
+        end do
+       end if
+       
+       if (bToMarkFace) then
+ !       WRITE(*,*) iel,iat
+        bInflowMarker(jInflow,ivt(:)) = .TRUE.
+       end if
       end if
 
 !     WRITE(*,'(I0," ",I0,3ES12.4,":",6ES12.4)') iX,jX,P,bound
