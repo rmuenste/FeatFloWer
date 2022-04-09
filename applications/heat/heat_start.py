@@ -149,7 +149,7 @@ def main(argv):
 
     cleanWorkingDir(workingDir)
     if exitCode != 0:
-      raise Exception("FeatFlower exited abnormal")
+      sys.exit(exitCode)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
