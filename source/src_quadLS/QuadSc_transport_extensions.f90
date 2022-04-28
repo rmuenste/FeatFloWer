@@ -2300,10 +2300,16 @@ if ((.not.bKTPRelease).and.bMultiMat) then
  CALL GetPressureAtInflows(mfile)
 end if
 
+! checking convergence of the pressure (worst case scenario)
 CALL LL21(LinSc%valP(NLMAX)%x,LinSc%ndof,defP)
 call COMM_SUMM(defp)
 if (ieee_is_nan(defP)) DivergedSolution = .true.
 if (.not.ieee_is_finite(defP)) DivergedSolution = .true.
+
+! checking convergence of the pressure (no improvement of the defect)
+if (LinSc%prm%MGprmOut%DefInitial.lt.LinSc%prm%MGprmOut%DefFinal) then
+ DivergedSolution = .true.
+end if
 
 ILEV = NLMAX
 CALL SETLEV(2)
