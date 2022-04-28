@@ -538,6 +538,19 @@
       call INIP_getvalue_double(parameterlist,cElement_i,"Diameter", mySigma%mySegment(iSeg)%Ds,myInf)
       mySigma%mySegment(iSeg)%Ds = dElemSizeScale*mySigma%mySegment(iSeg)%Ds
       
+      call INIP_getvalue_string(parameterlist,cElement_i,"TranslationVelocity_cmps",cVelo,'unknown')
+      call inip_toupper_replace(cVelo)
+      if (adjustl(trim(cVelo)).ne.'UNKNOWN') then
+       read(cVelo,*,err=166) mySigma%mySegment(iSeg)%FBMVeloBC
+      else
+       mySigma%mySegment(iSeg)%FBMVeloBC = [0d0,0d0,0d0]
+      end if
+      cVelo='unknown'
+      GOTO 167     
+166   write(*,*) 'WRONGLY DEFINED FBM velocity for the related segment!!'
+      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+167   CONTINUE
+
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
       mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
       
@@ -1383,6 +1396,7 @@
        write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%OffsetAngle=',mySigma%mySegment(iSeg)%OffsetAngle
       END IF
       
+      write(*,'(A,I0,A,3f13.3)') " mySIGMA%Segment(",iSeg,')%FBMVeloBC=', mySigma%mySegment(iSeg)%FBMVeloBC
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles

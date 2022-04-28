@@ -776,19 +776,27 @@ IF (iP.lt.200) then
  END SELECT
 
 ELSE
-
-   iSeg = iP - 200
-   
-   IF (ieee_is_finite(mySigma%mySegment(iSeg)%SegRotFreq)) then
-    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
-    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
-    ValW =   0d0
-   else
-    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
-    ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
-    ValW =   0d0
-   end if
-   
+ IF (iP.gt.300) THEN
+    iSeg = iP - 300
+ 
+    valU = mySigma%mySegment(iSeg)%FBMVeloBC(1)
+    valV = mySigma%mySegment(iSeg)%FBMVeloBC(2)
+    valW = mySigma%mySegment(iSeg)%FBMVeloBC(3)
+    
+ ELSE
+    iSeg = iP - 200
+    
+    IF (ieee_is_finite(mySigma%mySegment(iSeg)%SegRotFreq)) then
+     ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+     ValV =   DBLE(myProcess%ind)*myTwoPI*X*(mySigma%mySegment(iSeg)%SegRotFreq/6d1)
+     ValW =   0d0
+    else
+     ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+     ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+     ValW =   0d0
+    end if
+  END IF
+  
 END IF
 
 END SUBROUTINE GetVeloMixerVal

@@ -524,6 +524,7 @@ TYPE tSegment
   REAL*8, ALLOCATABLE :: Zknet(:)
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L
+  REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
   REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
   REAL*8 :: SegRotFreq
   INTEGER :: ZME_N

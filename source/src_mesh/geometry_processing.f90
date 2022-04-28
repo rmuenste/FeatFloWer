@@ -1050,7 +1050,14 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
   DO i=1,ndof
    Shell(i) = dst1(i)
    IF (Shell(i).le.0d0) THEN
-    MixerKNPR(i) = 100
+    iSeg = INT(mySegmentIndicator(2,i))
+    iScrewType = 100
+    IF (iSeg.gt.0) then
+     IF (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."OBSTACLE") THEN
+      iScrewType = 300 + iSeg
+     END IF
+    END IF
+    MixerKNPR(i) = iScrewType
    END IF
 
    IF (mySigma%ScrewCylinderRendering) THEN
