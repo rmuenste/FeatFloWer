@@ -1,45 +1,49 @@
 Program STLvsTRI
 USE mSTLvsTRI
+CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!! INPUT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- cProjectFolder="IN"
- cProjectGridFile="mesh.tri"
- cOFFMeshFile="surface.off"
- mg_Mesh%nlmax = 1
- mg_Mesh%nlmin = 1
+
+  cProjectFolder="e3d_input"
+  cShortProjectFile = "file.prj"
+  cProjectGridFile="Mesh.tri"
+  cOFFMeshFile="surface.off"
+  cAreaIntensityFile="area.txt"
+  cInputFile = ADJUSTL(TRIM(cProjectFolder))//'/'//'param.txt'
+!  geometryStart  = -50.6059641065686 -79.20000010999999 -74.55000011
+!  geometryLength  = 101.2119282131452 158.40000022 74.55000021000002
+!  voxelSize = 20.24238564262904 19.8000000275 14.910000042000004
+!  voxelStart = -50.6059641065686 -79.20000010999999 -74.55000011
+!  voxelAmount = 5 8 5
 !!!!!!!!!!!!!!!!!!!!!!!!!!! INPUT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-NLMAX = mg_Mesh%nlmax 
-NLMIN = mg_Mesh%nlmin 
-mg_Mesh%maxlevel = mg_Mesh%nlmax+1
-allocate(mg_mesh%level(mg_Mesh%maxlevel))
-myid = 1
-master = 0
+!   BoxMesh%Extent(:,1) =[-5.06,-7.92,-7.46]
+!   BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + [10.12,15.84,+7.46]
+!   BoxMesh%Division(:) =[+10,+16,+10]
 
-call readTriCoarse(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cProjectGridFile)), mg_mesh)
+ cKey='geometryStart'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) BoxMesh%Extent(:,1)
 
-call refineMesh(mg_mesh, mg_mesh%maxlevel)
+ cKey='geometryLength'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) BoxMesh%Extent(:,2)
+ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%Extent(:,2)
 
-DO ILEV=NLMIN,NLMAX
-if(myid.eq.1)then
-
-write(*,'(8A10)')"MESH:","NVT","NAT","NET","NEL"
-write(*,'(A10,8I10)')"L1:",mg_mesh%level(ILEV)%nvt,&
-                           mg_mesh%level(ILEV)%nat,&
-                           mg_mesh%level(ILEV)%net,&
-                           mg_mesh%level(ILEV)%nel
-
-end if
-end do
+ cKey='voxelAmount'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) BoxMesh%Division(:)
 
 call readOFFMesh(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cOFFMeshFile)))
 
-ILEV=1
-bWrite=.true.
-CALL InitOctTree(mg_mesh%level(ILEV)%dcorvg,mg_mesh%level(ILEV)%nvt)
-
 CALL CheckForIntersection()
+
+CALL Output_VTK()
+
+CALL Output_TriMesh()
+
+CALL Output_AreaIntenisty()
 
 END Program STLvsTRI
 
