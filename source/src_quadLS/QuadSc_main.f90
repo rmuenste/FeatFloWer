@@ -43,13 +43,31 @@ include 'fbm_up_include.h'
 include 'fbm_vel_bc_include.h'
 
 ! The handler function for the dynamics update
+!==============================================================================
+! The function pointer fbm_up_handler_ptr is passed as a callback 
+! to <fbm_updateFBM> which is defined in fbm_main.f90.
+! The fbm_updateFBM function then calls the callback function to handle the  
+! force computation and particle dynamics 
+!==============================================================================
 procedure(update_fbm_handler), pointer :: fbm_up_handler_ptr => null()
 
 ! The handler function for the geometry update
+!==============================================================================
+! The function pointer fbm_geom_handler_ptr is passed as a callback 
+! to <fbm_updateFBMGeom> which is defined in fbm_main.f90.
+! The fbm_updateFBMGeom function then calls the callback function to handle the  
+! point containment. 
+!==============================================================================
 procedure(fbm_geom_handler), pointer :: fbm_geom_handler_ptr => null()
 
 ! The handler function for the velocity boundary condition update
 ! for the fictitious boundary object
+!==============================================================================
+! The function pointer fbm_vel_bc_handler_ptr is passed as a callback 
+! to <fbm_velBCUpdate> which is defined in fbm_main.f90.
+! The fbm_velBCUpdate function then calls the callback function to set the  
+! velocity BC for the point 
+!==============================================================================
 procedure(fbm_velBC_handler), pointer :: fbm_vel_bc_handler_ptr => null()
 
 CONTAINS
@@ -348,8 +366,8 @@ SUBROUTINE Init_Default_Handlers()
 ! for FBM, etc. to their default values
 implicit none
 
- fbm_up_handler_ptr => fbm_updateDefault
- fbm_geom_handler_ptr => fbm_getFictKnpr
+ fbm_up_handler_ptr => fbm_updateDefaultFC2
+ fbm_geom_handler_ptr => fbm_getFictKnprFC2
  fbm_vel_bc_handler_ptr => fbm_velBC
 
 END SUBROUTINE Init_Default_Handlers

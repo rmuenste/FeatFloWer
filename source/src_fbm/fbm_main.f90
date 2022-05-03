@@ -10,6 +10,7 @@
 MODULE fbm 
 
 use var_QuadScalar
+use dem_query
 
 integer, dimension(:), allocatable :: mykvel
 
@@ -71,14 +72,18 @@ if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
  CALL SETLEV(2)
- CALL GetForces(Properties%ForceScale,u,&
-                v,w,p,&
-                FictKNPR,Viscosity,&
-                mg_mesh%level(ilevel)%kvert,&
-                mg_mesh%level(ilevel)%karea,&
-                mg_mesh%level(ilevel)%kedge,&
-                mg_mesh%level(ilevel)%dcorvg,&
-                E013)
+! CALL GetForces(Properties%ForceScale,u,&
+!                v,w,p,&
+!                FictKNPR,Viscosity,&
+!                mg_mesh%level(ilevel)%kvert,&
+!                mg_mesh%level(ilevel)%karea,&
+!                mg_mesh%level(ilevel)%kedge,&
+!                mg_mesh%level(ilevel)%dcorvg,&
+!                E013)
+
+ if (myid.eq.0)then
+   return
+ endif
 
  if(myid.eq.1) write(*,*)'> Dynamics Module Step'
  call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
@@ -113,6 +118,61 @@ procedure(fbm_geom_handler) :: usr_geomFBM
  call usr_geomFBM(px, py, pz, bndryId, fictId, dist)
 
 end subroutine fbm_updateFBMGeom
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist)
+! 
+!   This subroutine handles the FBM geometric computations
+!
+use var_QuadScalar, only : myFBM
+implicit none
+
+! Coordinates of the query point 
+real*8, intent(in) :: x, y, z 
+
+! Id of the boundary component
+integer, intent(inout) :: bndryId
+
+! fictId
+integer, intent(inout) :: inpr
+
+! Distance solution in the query point 
+real*8, intent(inout) :: dist 
+
+! local variables
+integer :: IP,ipc, nparticles, remParticles
+double precision, dimension(3) :: point
+
+ inpr = 0
+ dist = 1000.0d0
+
+ nparticles = 0
+ remParticles = 0
+
+ nparticles = numLocalParticles()
+ DO IP = 1,nparticles
+  ipc=ip-1
+  point(1) = x
+  point(2) = y
+  point(3) = z
+  if( objectContainsPoint(ipc, point) )then
+   inpr = 1 
+  end if
+ end do
+
+ remParticles =  numRemParticles() 
+ DO IP = 1,remParticles
+  ipc=ip-1
+  point(1) = x
+  point(2) = y
+  point(3) = z
+  if( remObjectContainsPoint(ipc, point) )then
+   inpr = 1
+  end if
+ end do
+
+end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
 !=========================================================================
@@ -321,6 +381,9 @@ real*8 , intent(in) :: x,y,z,t
 ! The velocitiy values of the boundary vertex
 real*8 , intent(inout) :: valu,valv,valw
 
+!valu = 0d0
+!valv = 0d0
+!valw = 0d0
 call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t)
 
 end subroutine fbm_velBCUpdate
@@ -751,6 +814,32 @@ integer :: iSubSteps
   end do ! all particles
 
 end subroutine fbm_updateDefault
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateDefaultFC2(DensityL,dTime,simTime,Gravity,mfile,myid)
+use var_QuadScalar, only : myFBM
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+real*8, intent(in) :: DensityL ! fluid density
+real*8, intent(in) :: dTime    ! time step
+real*8, intent(in) :: simTime  ! simulation time
+real*8, dimension(3), intent(in) :: Gravity  ! simulation time
+
+integer, intent(in) :: mfile   ! prot file unit
+integer, intent(in) :: myid    ! process id
+
+integer :: IP,ipc
+
+real*8 :: volume,mass,massR,radius,dimomir,dSubStep
+real*8,parameter :: PI = 3.1415926535897931D0
+real*8 :: RForce(3),dVelocity(3),timecoll
+integer :: iSubSteps
+
+  call step_simulation()
+
+end subroutine fbm_updateDefaultFC2
 !=========================================================================
 ! 
 !=========================================================================

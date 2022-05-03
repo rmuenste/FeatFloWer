@@ -418,7 +418,11 @@
         DY0 = DY0 + 0.125d0*DY(IVE)
         DZ0 = DZ0 + 0.125d0*DZ(IVE)
       end do
-!
+
+!==============================================================    
+!                  Calculation of the jacobian
+!==============================================================    
+!     Precompute averaged values for later use 
       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
       DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
@@ -443,13 +447,15 @@
       DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
       DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
       DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
-!
+
+!     Initialize the ELE
       CALL ELE(0D0,0D0,0D0,-2)
       IF (IER.LT.0) GOTO 99999
 !
 ! *** Loop over all cubature points
       DO ICUBP=1,NCUBP
-!
+
+!     Get the coordinate of the cubature point
       XI1=DXI(ICUBP,1)
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
@@ -468,11 +474,14 @@
            -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))&
            +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
       OM=DOMEGA(ICUBP)*ABS(DETJ)
-!
+
+!     Now calculate the real coordinates of the cubature point
       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
-!
+
+!     Call ELE with the cubature point to SET the 
+!     derivatives in the DBAS-Array
       CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
 !

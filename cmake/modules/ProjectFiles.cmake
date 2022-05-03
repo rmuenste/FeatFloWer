@@ -5,6 +5,7 @@
 #*************************************************************************
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
+${CMAKE_SOURCE_DIR}/source/src_particles/dem_query.f90
 )
 
 #=========================================================================
@@ -216,7 +217,7 @@ set(src_particles
 #                      Particles Library Source
 #=========================================================================
 add_library(ff_particles ${src_particles})
-target_link_libraries(ff_particles ff_util ff_mesh ff_fbm ff_le_solvers ff_postprocessing ff_quadLS_app ${FF_DEFAULT_LIBS})
+target_link_libraries(ff_particles ff_util ff_mesh ff_le_solvers ff_postprocessing ff_quadLS_app ${FF_DEFAULT_LIBS})
 target_include_directories(ff_particles PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_particles PUBLIC ${Fortran_FLAGS})
 

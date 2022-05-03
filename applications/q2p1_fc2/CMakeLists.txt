@@ -28,6 +28,7 @@ source_group(Elements FILES ${Elements})
 # Target related settings
 target_link_libraries(q2p1_fc2 
   ${FF_APPLICATION_LIBS}
+  ff_particles
   )
 
 target_include_directories(q2p1_fc2 PUBLIC ${FF_APPLICATION_INCLUDE_PATH})

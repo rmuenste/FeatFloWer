@@ -32,6 +32,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
   !-------MAIN LOOP-------
 
   DO itns=1,nitns
+!  DO itns=1,1
 
   itnsr=0
   timnsh=timens
