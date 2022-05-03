@@ -195,6 +195,30 @@ END SUBROUTINE InitBoundaryStructure
 !
 !----------------------------------------------------------------------------------------
 !
+SUBROUTINE ReviseWallBC(mgMesh,ilevel)
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+integer ivt,ndof
+
+ ndof = mgMesh%level(ilevel)%nvt + &
+        mgMesh%level(ilevel)%net + &
+        mgMesh%level(ilevel)%nat + &
+        mgMesh%level(ilevel)%nel
+        
+ DO iBnds=1,nBnds
+  IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') THEN
+   DO ivt=1,ndof
+     IF (.not.mgMesh%BndryNodes(ivt)%bOuterPoint) THEN
+      myBoundary%bWall(ivt) = .FALSE.
+     END IF
+   END DO
+  END IF
+ END DO
+
+END SUBROUTINE ReviseWallBC
+!
+!----------------------------------------------------------------------------------------
+!
 SUBROUTINE ParametrizeQ2Nodes(dCoor)
 REAL*8 dCoor(3,*)
 INTEGER I1,I2
