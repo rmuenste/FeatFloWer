@@ -430,9 +430,11 @@ real*8 :: myInf
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
 
- DO ILEV=NLMIN,NLMAX
-  CALL ReviseWallBC(mg_mesh,ilev)
- END DO
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ CALL ReviseWallBC(mg_mesh,ilev)
+!  DO ILEV=NLMIN,NLMAX
+!  END DO
  ILEV=NLMAX
  CALL SETLEV(2)
                             
