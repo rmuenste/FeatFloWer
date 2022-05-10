@@ -439,6 +439,10 @@ DO ILEV=NLMIN+1,NLMAX
  end if
  call init_fc_rigid_body(myid)      
 
+ if (myid .ne. 0) then
+ call testMapParticles()
+ end if
+
  RETURN
 
 END SUBROUTINE General_init_ext

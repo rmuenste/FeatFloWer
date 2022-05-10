@@ -11,6 +11,7 @@ MODULE fbm
 
 use var_QuadScalar
 use dem_query
+use iso_c_binding
 
 integer, dimension(:), allocatable :: mykvel
 
@@ -31,7 +32,16 @@ integer, parameter, public :: SRCH_MAXITER = 6
 ! 
 integer, parameter, public :: SRCH_RES7 = 7
 
+interface
+logical(c_bool) function checkAllParticles(inpr, pos) bind(C, name="checkAllParticles")
+  use iso_c_binding, only: c_int, c_bool, c_double
+  integer(c_int) :: idx
+  real(c_double) :: pos(*)
+  end function
+end interface
+
 contains
+
 !=========================================================================
 ! 
 !=========================================================================
@@ -72,14 +82,14 @@ if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
  CALL SETLEV(2)
-! CALL GetForces(Properties%ForceScale,u,&
-!                v,w,p,&
-!                FictKNPR,Viscosity,&
-!                mg_mesh%level(ilevel)%kvert,&
-!                mg_mesh%level(ilevel)%karea,&
-!                mg_mesh%level(ilevel)%kedge,&
-!                mg_mesh%level(ilevel)%dcorvg,&
-!                E013)
+ CALL GetForcesFC2(Properties%ForceScale,u,&
+                v,w,p,&
+                FictKNPR,Viscosity,&
+                mg_mesh%level(ilevel)%kvert,&
+                mg_mesh%level(ilevel)%karea,&
+                mg_mesh%level(ilevel)%kedge,&
+                mg_mesh%level(ilevel)%dcorvg,&
+                E013)
 
  if (myid.eq.0)then
    return
@@ -141,36 +151,48 @@ integer, intent(inout) :: inpr
 real*8, intent(inout) :: dist 
 
 ! local variables
-integer :: IP,ipc, nparticles, remParticles
+integer :: IP,ipc, nparticles, remParticles, key
 double precision, dimension(3) :: point
 
  inpr = 0
+ key = 0
  dist = 1000.0d0
 
  nparticles = 0
  remParticles = 0
 
- nparticles = numLocalParticles()
- DO IP = 1,nparticles
-  ipc=ip-1
-  point(1) = x
-  point(2) = y
-  point(3) = z
-  if( objectContainsPoint(ipc, point) )then
-   inpr = 1 
-  end if
- end do
+ point(1) = x
+ point(2) = y
+ point(3) = z
+ if( checkAllParticles(key, point) )then
+   write(*,*)'Inside', key
+   inpr = key 
+ end if
 
- remParticles =  numRemParticles() 
- DO IP = 1,remParticles
-  ipc=ip-1
-  point(1) = x
-  point(2) = y
-  point(3) = z
-  if( remObjectContainsPoint(ipc, point) )then
-   inpr = 1
-  end if
- end do
+! key = 0
+! nparticles = numLocalParticles()
+! DO IP = 1,nparticles
+!  ipc=ip-1
+!  point(1) = x
+!  point(2) = y
+!  point(3) = z
+!  if( objectContainsPoint(ipc, point) )then
+!   inpr = 1 
+!  end if
+!  key = key + 1
+! end do
+!
+! remParticles =  numRemParticles() 
+! DO IP = 1,remParticles
+!  ipc=ip-1
+!  point(1) = x
+!  point(2) = y
+!  point(3) = z
+!  if( remObjectContainsPoint(ipc, point) )then
+!   inpr = 1
+!  end if
+!  key = key + 1
+! end do
 
 end subroutine fbm_getFictKnprFC2
 !=========================================================================

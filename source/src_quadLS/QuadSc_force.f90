@@ -360,6 +360,9 @@
         call ExitError('Error in GetForces',605)
       end if
 
+      !=====================================================================
+      ! We loop over all particles first
+      !=====================================================================
       if(myid.eq.1) write(*,*)'> FBM Force Calculation'
       DO IP = 1,myFBM%nParticles
  
@@ -372,14 +375,15 @@
       DTrqForceY = 0d0
       DTrqForceZ = 0d0
  
-! *** Loop over all elements
       nnel = 0
+      !=====================================================================
+      ! loop over all elements 
+      !=====================================================================
       DO IEL=1,NEL
 !
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
       IF (IER.LT.0) GOTO 99999
 !
-!-----------------------------------------------------------------
        NJALFA=0
        NIALFA=0
        DO I=1,IDFL
@@ -1615,6 +1619,5 @@ end subroutine GetForcesPerfCyl
 100   CONTINUE
 99999 END
 
-
-
-      
+! Include custom implementations of the Q2 transport equation
+include 'QuadSc_force_extension.f90'
