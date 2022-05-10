@@ -91,6 +91,8 @@ if (calculateDynamics()) then
                 mg_mesh%level(ilevel)%dcorvg,&
                 E013)
 
+ ! call synchronizeForce()
+
  if (myid.eq.0)then
    return
  endif
@@ -165,7 +167,6 @@ double precision, dimension(3) :: point
  point(2) = y
  point(3) = z
  if( checkAllParticles(key, point) )then
-   write(*,*)'Inside', key
    inpr = key 
  end if
 

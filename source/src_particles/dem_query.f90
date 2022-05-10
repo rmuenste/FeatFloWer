@@ -1,0 +1,341 @@
+module dem_query
+!================================================================================================
+! Module USE
+!================================================================================================
+use iso_c_binding, only: c_int
+
+implicit none
+
+!================================================================================================
+! Interfaces
+!================================================================================================
+interface
+integer(c_int) function getNumParticles() bind(C, name="getNumParticles")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+interface
+subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticle")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  integer(c_int) :: lidx
+  integer(c_int) :: uidx
+  real(c_double) :: time
+  real(c_double) :: pos(*)
+  real(c_double) :: vel(*)
+  end subroutine
+end interface
+
+interface
+subroutine setParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="setParticle")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  integer(c_int) :: lidx
+  integer(c_int) :: uidx
+  real(c_double) :: time
+  real(c_double) :: pos(*)
+  real(c_double) :: vel(*)
+  end subroutine
+end interface
+
+interface
+subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  integer(c_int) :: lidx
+  integer(c_int) :: uidx
+  real(c_double) :: force(*)
+  real(c_double) :: torque(*)
+  end subroutine
+end interface
+
+interface
+logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
+  use iso_c_binding, only: c_int, c_bool
+  integer(c_int) :: idx
+  end function
+end interface
+
+interface
+real(c_double) function getParticleRadius(idx) bind(C, name="getParticleRadius")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  end function
+end interface
+
+interface
+logical(c_bool) function pointInsideObject(idx, pos) bind(C, name="pointInsideObject")
+  use iso_c_binding, only: c_int, c_bool, c_double
+  integer(c_int), value :: idx
+  real(c_double) :: pos(*)
+  end function
+end interface
+
+interface
+logical(c_bool) function pointInsideRemObject(idx, pos) bind(C, name="pointInsideRemObject")
+  use iso_c_binding, only: c_int, c_bool, c_double
+  integer(c_int), value :: idx
+  real(c_double) :: pos(*)
+  end function
+end interface
+
+interface
+subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idxMap(*)
+  end subroutine
+end interface
+
+!================================================================================================
+! Variables and Types
+!================================================================================================
+type tParticleData
+  double precision, dimension(3)  :: position
+  double precision, dimension(3)  :: velocity
+  double precision, dimension(3)  :: force = (/0d0, 0d0, 0d0/)
+  double precision, dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
+  double precision :: time
+  integer :: localIdx
+  integer :: uniqueIdx
+end type tParticleData
+
+!integer :: numLocalParticles
+
+contains
+
+!================================================================================================
+!                              Function numLocalParticles
+!================================================================================================
+
+integer function numLocalParticles()
+  implicit none
+
+  numLocalParticles = getNumParticles()
+
+end function numLocalParticles
+
+!================================================================================================
+!                              Function numLocalParticles
+!================================================================================================
+
+integer function numRemParticles()
+  implicit none
+
+  numRemParticles = getNumRemParticles()
+
+end function numRemParticles
+!================================================================================================
+!                              Function numLocalParticles
+!================================================================================================
+
+integer function numTotalParticles()
+  implicit none
+
+  numTotalParticles = numRemParticles() + numLocalParticles()
+
+end function numTotalParticles
+!================================================================================================
+!                              Function getParticlesIndexMap
+!================================================================================================
+
+subroutine getParticlesIndexMap(indexMap)
+  implicit none
+  integer, dimension(:), intent(inout) :: indexMap
+  
+  call particles_index_map(indexMap)
+
+end subroutine getParticlesIndexMap
+!================================================================================================
+!                              Function getAllParticles
+!================================================================================================
+
+subroutine getAllParticles(theParticles)
+  implicit none
+  type(tParticleData), dimension(:), intent(inout) :: theParticles
+
+  type(tParticleData) :: temp
+  integer, allocatable, dimension(:) :: indexMap
+  integer :: a,i,idx
+  
+  a = size(theParticles) 
+
+  allocate(indexMap(a))
+
+  call getParticlesIndexMap(indexMap)
+  
+  do i=1,a
+    idx = indexMap(i)
+    call getParticle(idx,&
+                     temp%localIdx,& 
+                     temp%uniqueIdx,& 
+                     temp%time,& 
+                     temp%position,& 
+                     temp%velocity)
+
+    theParticles(i) = temp
+  end do
+
+end subroutine getAllParticles
+!================================================================================================
+!                              Function setForcesMapped
+!================================================================================================
+
+subroutine setForcesMapped(particle)
+  implicit none
+
+  type(tParticleData), intent(inout) :: particle
+  
+  call setForces(particle%uniqueIdx,&
+                 particle%localIdx,& 
+                 particle%uniqueIdx,& 
+                 particle%force,& 
+                 particle%torque)
+
+end subroutine setForcesMapped
+!================================================================================================
+!                              Function getLocalParticle
+!================================================================================================
+
+type(tParticleData) function getLocalParticle(idx)
+  implicit none
+  integer, intent(in) :: idx
+
+  type(tParticleData) :: temp
+  integer :: a
+  
+  a = numLocalParticles()
+  
+  call getParticle(idx,&
+                   temp%localIdx,& 
+                   temp%uniqueIdx,& 
+                   temp%time,& 
+                   temp%position,& 
+                   temp%velocity)
+
+  getLocalParticle = temp
+
+end function getLocalParticle
+
+!================================================================================================
+!                              Function getRadius
+!================================================================================================
+
+double precision function getRadius(idx)
+  implicit none
+  integer, intent(in) :: idx
+
+  getRadius = getParticleRadius(idx)
+
+end function getRadius
+
+!================================================================================================
+!                              Function objectContainsPoint
+!================================================================================================
+
+logical function objectContainsPoint(idx, point)
+  implicit none
+  integer, intent(in) :: idx
+  double precision, dimension(3), intent(inout) :: point
+
+  objectContainsPoint = pointInsideObject(idx, point) 
+
+end function objectContainsPoint
+
+!================================================================================================
+!                              Function remObjectContainsPoint
+!================================================================================================
+
+logical function remObjectContainsPoint(idx, point)
+  implicit none
+  integer, intent(in) :: idx
+  double precision, dimension(3), intent(inout) :: point
+
+  remObjectContainsPoint = pointInsideRemObject(idx, point) 
+
+end function remObjectContainsPoint
+
+!================================================================================================
+!                              Function isSphereType
+!================================================================================================
+
+logical function isSphereType(idx)
+  implicit none
+  integer, intent(in) :: idx
+
+  isSphereType = isSphere(idx)
+
+end function isSphereType
+
+!================================================================================================
+!                              Subroutine testParticleGet 
+!================================================================================================
+
+subroutine testParticleGet(idx)
+  implicit none
+
+  type(tParticleData) :: temp
+
+  integer,intent(in), optional :: idx
+
+  integer :: psize, idx2
+  
+  if(.not. present(idx))then
+    idx2 = 0
+  else
+    idx2 = idx
+  end if
+
+  psize = numLocalParticles()
+
+  if (idx2 < psize) then
+
+    if (isSphereType(idx2))then
+      temp = getLocalParticle(idx2)
+      write(*,*)"Particle(",idx2,") pos:",temp%position, " vel:", temp%velocity
+    else
+      write(*,*)"Particle(",idx2,") is not a sphere. "
+    end if
+
+  end if
+
+end subroutine testParticleGet
+
+!================================================================================================
+!                              Subroutine testParticleRadius 
+!================================================================================================
+
+subroutine testParticleRadius()
+  implicit none
+
+  double precision :: temp
+
+  integer :: idx, psize
+  
+  idx = 5
+
+  temp = getRadius(idx)
+
+end subroutine testParticleRadius
+  
+!================================================================================================
+!                              Subroutine testMapParticles 
+!================================================================================================
+
+subroutine testMapParticles()
+  implicit none
+
+  
+  call map_particles()
+
+end subroutine testMapParticles
+
+
+end module dem_query
+

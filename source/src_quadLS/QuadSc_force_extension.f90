@@ -7,8 +7,9 @@ SUBROUTINE GetForcesFC2(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
-USE var_QuadScalar, ONLY : myFBM,myExport,Properties
+USE var_QuadScalar, ONLY : myExport,Properties
 use cinterface
+use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
 CHARACTER SUB*6,FMT*15,CPARAM*120
 
@@ -37,6 +38,9 @@ REAL*8 :: DResForceX,DResForceY,DResForceZ
 REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
 REAL*8 :: Center(3),dForce(6)
 
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
 COMMON /CHAR/   SUB,FMT(3),CPARAM
@@ -61,7 +65,7 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
  
-  IF (myid.eq.0) GOTO 999
+  IF (myid.eq.0) return! GOTO 999
   
   DO I= 1,NNDER
     BDER(I)=.FALSE.
@@ -80,14 +84,28 @@ SAVE
   IF (IER.ne.0)then
     call ExitError('Error in GetForces',1702)
   end if
-  
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
-  if(myid.eq.1) write(*,*)'> FBM Force Calculation'
-  DO IP = 1,myFBM%nParticles
+  if(myid.eq.1) write(*,*)'> FBM Force Calculation for:', numParticles, ' particles'
+
+  call getAllParticles(theParticles)
+
+  DO IP = 1,numParticles
+!  write(*,*)'Particle: ',theParticles(IP)%uniqueIdx
+  particleId = theParticles(IP)%uniqueIdx
   
-  Center = myFBM%particleNew(IP)%Position
+  Center = theParticles(IP)%position 
   
   DResForceX = 0D0
   DResForceY = 0D0
@@ -111,10 +129,10 @@ SAVE
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
-     IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.IP))THEN
+     IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.particleId))THEN
       NJALFA=NJALFA+1
      ENDIF
-     IF (ALPHA(IG).EQ.IP) THEN
+     IF (ALPHA(IG).EQ.particleId) THEN
       NIALFA=NIALFA+1
      ENDIF
    ENDDO
@@ -263,7 +281,7 @@ SAVE
       DU3Z=DU3Z+U3(IG)*DBI4
   
       !------FOR ALFA------
-      IF (ALPHA(IG).EQ.IP) THEN
+      IF (ALPHA(IG).EQ.particleId) THEN
        DALPHA = 1d0
       ELSE
        DALPHA = 0d0
@@ -321,55 +339,17 @@ SAVE
 
   end do ! end loop elements
 
-  iPointer = 6*(IP-1)
+  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
+  theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 
-  myFBM%Force(iPointer+1) = DResForceX
-  myFBM%Force(iPointer+2) = DResForceY
-  myFBM%Force(iPointer+3) = DResForceZ
+  write(*,*)'TheForce: ', theParticles(ip)%force
+  write(*,*)'TheTorque: ', theParticles(ip)%torque
 
-  myFBM%Force(iPointer+4) = DTrqForceX
-  myFBM%Force(iPointer+5) = DTrqForceY
-  myFBM%Force(iPointer+6) = DTrqForceZ
-
-!      myFBM%Force(iPointer+1) = 0.0d0
-!      myFBM%Force(iPointer+2) = 0.0d0
-!      myFBM%Force(iPointer+3) = DResForceZ
-!      myFBM%Force(iPointer+4) = 0.0d0
-!      myFBM%Force(iPointer+5) = 0.0d0
-!      myFBM%Force(iPointer+6) = 0.0d0
+  call setForcesMapped(theParticles(ip))
 
   END DO ! nParticles
 
-999   CALL COMM_SUMMN(myFBM%Force,6*myFBM%nParticles)
-
-      DO IP = 1,myFBM%nParticles
-       iPointer = 6*(IP-1)+1
-
-       ! Gather translational force
-       myFBM%ParticleNew(IP)%ResistanceForce(1)= &
-       factors(1) * &
-       myFBM%Force(iPointer)
-
-       myFBM%ParticleNew(IP)%ResistanceForce(2) = &
-       factors(2) * &
-       myFBM%Force(iPointer+1)
-
-       myFBM%ParticleNew(IP)%ResistanceForce(3) = &
-       factors(3) * &
-       myFBM%Force(iPointer+2)
-
-       ! Gather rotational force
-       myFBM%ParticleNew(IP)%TorqueForce(1) = &
-       factors(4) * myFBM%Force(iPointer+3)
-
-       myFBM%ParticleNew(IP)%TorqueForce(2) = &
-       factors(5) * myFBM%Force(iPointer+4)
-
-       myFBM%ParticleNew(IP)%TorqueForce(3) = &
-       factors(6) * myFBM%Force(iPointer+5)
-      END DO
-
-      END
+END
 !************************************************************************
 !
 !************************************************************************
