@@ -4,7 +4,8 @@
 !************************************************************************
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE var_QuadScalar, ONLY : myFBM
-      USE Sigma_User, ONLY: mySigma
+      USE var_QuadScalar, ONLY: my1DTorque
+      USE Sigma_User, ONLY: myOutput,mySigma
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -47,17 +48,24 @@
 
       SAVE
 
+      if (.not.allocated(my1DTorque)) THEN
+       IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN 
+        allocate(my1DTorque(2,myOutput%nOf1DLayers))
+       ELSE
+        allocate(my1DTorque(1,myOutput%nOf1DLayers))
+       END IF
+      END IF
+            
+      IF (iref.eq.101) my1DTorque(1,:) = 0d0
+      IF (iref.eq.102) my1DTorque(2,:) = 0d0
+      IF (iref.eq.103) my1DTorque(1,:) = 0d0
+      
       IF (myid.eq.0) GOTO 999
 
       IF (iref.eq.101) dSignedAxisDist = +mySigma%a/2d0
       IF (iref.eq.102) dSignedAxisDist = -mySigma%a/2d0
       IF (iref.eq.103) dSignedAxisDist = 0d0
 
-!      dSignedAxisDist = 0d0
-
-!       PI = 3.141592654d0
-!       dConst = (250d0/60d0)*2d0*PI
-!
       DO 1 I= 1,NNDER
 
 1     BDER(I)=.FALSE.
@@ -291,15 +299,59 @@
        DTrqForce(1) = DTrqForce(1) + ATQX*OM
        DTrqForce(2) = DTrqForce(2) + ATQY*OM
        DTrqForce(3) = DTrqForce(3) + ATQZ*OM
-!
-!
+       
+       CALL FindSegmentForTorque(ZZ,mySigma%L,myZPosition,myOutput%nOf1DLayers)
+       IF (iref.eq.102) THEN
+        my1DTorque(2,myZPosition) = my1DTorque(2,myZPosition) + ATQZ*OM
+       ELSE
+        my1DTorque(1,myZPosition) = my1DTorque(1,myZPosition) + ATQZ*OM
+       END IF
+      
 200   CONTINUE
 100   CONTINUE
 
 !      END DO ! 1 and 2 screw
 
 999   CALL COMM_SUMMN(DTrqForce,3)
+      
+      IF (iref.eq.102) THEN
+       CALL COMM_SUMMN(my1DTorque(2,:),myOutput%nOf1DLayers)
+      ELSE
+       CALL COMM_SUMMN(my1DTorque(1,:),myOutput%nOf1DLayers)
+      END IF
 
 99999 CONTINUE
-
+!
+!       write(*,*)  myOutput%nOf1DLayers,myid,mySigma%L, ADJUSTL(TRIM(mySigma%cType))
+!       if (myid.eq.1) then
+!        write(*,*)  my1DTorque(1,:)
+!        write(*,*)  
+!        write(*,*)  my1DTorque(2,:)
+!       end if
+!       pause
+      
       END
+!      
+      SUBROUTINE FindSegmentForTorque(zPos,zLen,iPos,nPos)
+      implicit none
+      INTEGER iPos,nPos
+      REAL*8  zPos,zLen
+      INTEGER i
+      REAL*8  zMin,zMax
+      
+      iPos = -1
+      DO i=1,nPos
+       zMin = DBLE(i-1)*(1.0001d0*zLen)/DBLE(nPos)
+       zMax = DBLE(i  )*(1.0001d0*zLen)/DBLE(nPos)
+       IF (zPos.ge.zMin.and.zPos.lt.zMax) THEN
+        iPos = i
+        EXIT
+       END IF
+      END DO
+       
+      IF (iPos.lt.0) THEN
+       WRITE(*,*) "Torque Value cannot be stored ... ",zPos,zLen,iPos,nPos
+       STOP
+      END IF
+      
+      END 

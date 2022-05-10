@@ -414,7 +414,7 @@ TYPE t1DOutput
  CHARACTER cName*20
 END TYPE t1DOutput
 TYPE(t1DOutput), TARGET :: my1DOut(11)
-REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:)
+REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:),my1DTorque(:,:)
 INTEGER my1DOut_nol
 
 TYPE tViscFunc
