@@ -666,6 +666,17 @@ class HexMesh:
             if idx in verticesAtBoundarySet:
                 self.verticesAtBoundary[idx] = 1
 
+#===============================================================================
+#                       Function removeDoubles
+#===============================================================================
+    def removeDoubles(self, tol):
+        """
+        Removes double vertices by applying a tolerance
+        Args:
+            self: The input/output hex mesh
+            tol: The tolerance below which values are considered equal
+        """
+        return 1
 
 #===============================================================================
 #                       Function generateNeighborsAtElement
