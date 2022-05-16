@@ -31,7 +31,7 @@ def readTriFile(fileName):
 
                     words = line.strip().split(" ")
                     if len(words[0]) > 0:
-                        nodesList.append((float(words[0]), float(words[1]), float(words[2])))
+                        nodesList.append(np.array([float(words[0]), float(words[1]), float(words[2])]))
 
                     line = f.readline()
 
@@ -93,7 +93,10 @@ def readMeshFromVTK(fileName):
 
                     words = line.strip().split(" ")
                     if len(words[0]) > 0:
-                        nodes.append((float(words[0]), float(words[1]), float(words[2])))
+                        if len(words) % 3 != 0:
+                            sys.exit(2)
+                        for i in range(0, len(words), 3):
+                            nodes.append(np.array([float(words[i]), float(words[i+1]), float(words[i+2])]))
 
                     line = f.readline()
 

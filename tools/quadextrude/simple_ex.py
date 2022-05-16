@@ -80,20 +80,25 @@ def main():
 
 #    writeHexMeshVTK(hm2, "caseB.01.vtk")
 #    writeTriFile(hm2, outputFileName)
-    hm = readTriFile("D:/code/FeatFloWer/Feat_FloWer/tools/quadextrude/meshDir/cube.tri")
+    print(os.getcwd())
+    hm = readTriFile("./test_meshes/building_block.tri")
 
-    for hexa in hm.hexas:
-        print(hexa.nodeIds)
+#    for hexa in hm.hexas:
+#        print(hexa.nodeIds)
+#
+#    for i in range(len(hm.nodes)):
+#        ex = (hm.nodes[i][0],hm.nodes[i][1],hm.nodes[i][2] + 2.0) 
+#        hm.nodes.append(ex)
+#
+#    for node in hm.nodes:
+#        print(node)
 
-    for i in range(len(hm.nodes)):
-        ex = (hm.nodes[i][0],hm.nodes[i][1],hm.nodes[i][2] + 2.0) 
-        hm.nodes.append(ex)
+    writeHexMeshVTK(hm, "block1.vtk")
 
-    for node in hm.nodes:
-        print(node)
-
-    writeHexMeshVTK(hm, "cube.vtk")
-
+    dz = 0.001333
+    for i in range(2,13):
+        hm.translateMeshZ(dz)
+        writeHexMeshVTK(hm, "block%02d.vtk" %i)
 
 #===============================================================================
 #                             Main Boiler Plate

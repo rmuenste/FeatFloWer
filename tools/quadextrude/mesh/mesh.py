@@ -179,8 +179,10 @@ class QuadMesh:
         nodes: A list of the coordinates of the nodes
     """
     def __init__(self, nodes, elems):
+        # slice array so that a deep copy is created
         self.nodes = nodes[:]
-        self.elements = elems[:] 
+        # slice array so that a deep copy is created
+        self.elements = elems[:]
         self.elementsAtVertex = []
         self.verticesAtBoundary = []
         self.edgesAtBoundary = []
@@ -221,7 +223,7 @@ class QuadMesh:
             p2 = np.array(list(self.nodes[quadIdx[2]]))  
             p3 = np.array(list(self.nodes[quadIdx[3]]))  
 
-            quadVertices = [p0, p1, p2, p3] 
+            quadVertices = [p0, p1, p2, p3]
 
             quad.computeEdgeLength(quadVertices)
             quad.computeEdgeLength(quadVertices)
@@ -296,10 +298,10 @@ class QuadMesh:
         for quad in self.elements:
             quadIdx = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2], quad.nodeIds[3])
 
-            p0 = np.array(list(self.nodes[quadIdx[0]]))  
-            p1 = np.array(list(self.nodes[quadIdx[1]]))  
-            p2 = np.array(list(self.nodes[quadIdx[2]]))  
-            p3 = np.array(list(self.nodes[quadIdx[3]]))  
+            p0 = np.array(list(self.nodes[quadIdx[0]]))
+            p1 = np.array(list(self.nodes[quadIdx[1]]))
+            p2 = np.array(list(self.nodes[quadIdx[2]]))
+            p3 = np.array(list(self.nodes[quadIdx[3]]))
 
             triangleA = (quad.nodeIds[0], quad.nodeIds[1], quad.nodeIds[2])
             triangleB = (quad.nodeIds[0], quad.nodeIds[3], quad.nodeIds[2])
@@ -818,6 +820,20 @@ class HexMesh:
         self.generateNeighborsAtElement()
         self.generateFacesAtBoundary()
         self.generateVerticesAtBoundary()
+
+#===============================================================================
+#                       Function generateElementsAtVertex
+#===============================================================================
+    def translateMeshZ(self, dz):
+        """
+        Translates the mesh in z-direction
+
+        Args:
+            hexMesh: The input/output hex mesh
+        """
+
+        for i in range(len(self.nodes)):
+            self.nodes[i] = self.nodes[i] + np.array([0, 0, dz])
 
 
 #===============================================================================
