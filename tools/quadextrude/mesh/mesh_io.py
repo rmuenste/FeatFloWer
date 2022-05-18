@@ -346,7 +346,7 @@ def readNodes(f):
         if not line: break
 
         words = line.strip().split(" ")
-        meshNodes.append((float(words[1]), float(words[2]), float(words[3])))
+        meshNodes.append(np.array([float(words[1]), float(words[2]), float(words[3])]))
 
         line = f.readline()
 

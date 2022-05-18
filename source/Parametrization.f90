@@ -315,23 +315,24 @@ type(tMultiMesh) :: mgMesh
  END DO
 
 END SUBROUTINE ParametrizeBndryPoints
-!
-!----------------------------------------------------------------------------------------
-!
+!===============================================================================================
+!                             Subroutine Parametrize
+!===============================================================================================
 SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
  implicit none
- REAL*8 DCORVG(3,*)
- INTEGER NVT1,NVT2
- integer :: ilevel
+ real*8 DCORVG(3,*)
+ integer, intent(inout) :: NVT1,NVT2
+ integer, intent(inout) :: ilevel
 
- INTEGER i,j
- REAL*8 dx,dy,dz,dist,dFact
- REAL*8 px,py,pz,dScale
- REAL*8 RX,RY,RZ,RAD,DFX,DFY,DFZ
- REAL*8 DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,Z1,Z2
+ integer :: i,j
+ real*8 :: dx,dy,dz,dist,dFact
+ real*8 :: px,py,pz,dScale
+ real*8 :: RX,RY,RZ,RAD,DFX,DFY,DFZ
+ real*8 :: DA,DB,DC,DD,DSQUARE,DSUM,RAD1,RAD2,Z1,Z2
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !===============================================================
+ !         Handle the Bubble parametrization type (1-6)
+ !===============================================================
  IF (myParBndr(iBnds)%Types(1:6).EQ.'Bubble') THEN
   IF (itns.ge.1) THEN
    DO i=NVT1,NVT2
@@ -349,11 +350,15 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
    RETURN
   END IF
  END IF
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+ !===============================================================
+ !         Handle parametrization type (0)
+ !===============================================================
  IF (myParBndr(iBnds)%nBndrPar.EQ.0) RETURN
 
+ !===============================================================
+ !         Handle parametrization type (1)
+ !===============================================================
  IF (myParBndr(iBnds)%nBndrPar.EQ.1) THEN
   IF (.NOT.ALLOCATED(myParBndr(iBnds)%Bndr(ILEV)%CoorList)) THEN
    j = 0
@@ -389,11 +394,20 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
   END IF
  END IF
 
+ !===============================================================
+ !         Handle Plane parametrization type (4)
+ !===============================================================
+ ! dA, dB, dC, dD are the parameters of the general plane equation:
+ ! dA * x + dB * y + dC * z + dD = 0
  IF (myParBndr(iBnds)%nBndrPar.EQ.4) THEN
   dA = myParBndr(iBnds)%dBndrPar(1)
   dB = myParBndr(iBnds)%dBndrPar(2)
   dC = myParBndr(iBnds)%dBndrPar(3)
   dD = myParBndr(iBnds)%dBndrPar(4)
+  ! Compute the squared length of the plane normal
+  ! Note: if the length of the normal is 1 then
+  ! the is no difference between the DSquare and the actual length
+  ! of the vector
   DSquare = dA*dA + dB*dB + dC*dC
 
   j = 0
@@ -403,14 +417,20 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
     dx = DCORVG(1,i)
     dy = DCORVG(2,i)
     dz = DCORVG(3,i)
-!     dist = dA*dx + dB*dY + dC*dZ + dD
+
+    ! First project the point (dx, dy, dz) onto
+    ! the plane normal  
     dSum = (dx*dA + dy*dB + dz*dC + dD)
+
+    ! Project the point onto the plane
+    ! by moving the point 'distance' amount
+    ! opposite to the normal direction which 
+    ! takes the point directly onto the plane
     px = dx - dA*dSum/dSquare
     py = dy - dB*dSum/dSquare
     pz = dz - dC*dSum/dSquare
-!     WRITE(*,'(6e12.4)') dx,dy,dz,px,py,pz
-!     WRITE(*,'(6e12.4)') dA,dB,dC,dD,dist
-!     pause
+
+    ! Write back the projected coordinates
     DCORVG(1,i) = px
     DCORVG(2,i) = py
     DCORVG(3,i) = pz
@@ -418,6 +438,9 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
   END DO
  END IF
 
+ !===============================================================
+ !         Handle parametrization type (7)
+ !===============================================================
  IF (myParBndr(iBnds)%nBndrPar.EQ.7) THEN
 
   RX  = myParBndr(iBnds)%dBndrPar(1)
@@ -450,6 +473,9 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
   END DO
  END IF
  
+ !===============================================================
+ !  Handle varying radius cylinder parametrization type (10)
+ !===============================================================
  ! Parametrization with respect to a varying radius cylinder
  IF (myParBndr(iBnds)%nBndrPar.EQ.10) THEN
 
