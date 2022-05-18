@@ -93,12 +93,16 @@ def main():
 #    for node in hm.nodes:
 #        print(node)
 
-    writeHexMeshVTK(hm, "block1.vtk")
+    mkdir("NEWFAC")
+#    mkdir("NEWFAC/sub001")
+#    writeTriFile(hm, "NEWFAC/sub001/GRID001.tri")
 
-    dz = 0.001333
-    for i in range(2,13):
+    dz = 0.01333
+    for i in range(1,13):
+        mkdir("NEWFAC/sub%03d" %i)
+        writeTriFile(hm, "NEWFAC/sub%03d/GRID%03d.tri" %(i, i))
+        writeHexMeshVTK(hm, "GRID%03d.vtk" %(i))
         hm.translateMeshZ(dz)
-        writeHexMeshVTK(hm, "block%02d.vtk" %i)
 
 #===============================================================================
 #                             Main Boiler Plate

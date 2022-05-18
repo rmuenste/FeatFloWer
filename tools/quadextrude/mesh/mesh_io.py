@@ -79,7 +79,7 @@ def readMeshFromVTK(fileName):
 
     nodes = []
     cells = []
-    with open(fileName, "r") as f:
+    with np.printoptions(precision=15), open(fileName, "r") as f:
         while True:
             line = f.readline()
 
@@ -138,7 +138,7 @@ def readMeshFromVTK(fileName):
 #===============================================================================
 #                      Function:  Write Tri File
 #===============================================================================
-def writeTriFile(hexMesh, fileName):
+def writeTriFile(hexMesh, fileName, scale=1.0):
     """
     Writes out a hexMesh in TRI format
 
@@ -154,7 +154,9 @@ def writeTriFile(hexMesh, fileName):
         f.write("DCORVG\n")
 
         for n in hexMesh.nodes:
-            f.write("%f %f %f\n" % (0.1 * n[0], 0.1 * n[1], 0.1 * n[2]))
+            var = "{:.9f} {:.9f} {:.9f}\n".format(scale * n[0], scale * n[1], scale * n[2]) 
+            #f.write("%f %f %f\n" % (scale * n[0], scale * n[1], scale * n[2]))
+            f.write(var)
 
         f.write("KVERT\n")
         for h in hexMesh.hexas:
@@ -249,7 +251,8 @@ def writeHexMeshVTK(hexMesh, fileName):
         f.write("DATASET UNSTRUCTURED_GRID\n")
         f.write("POINTS " + str(nVertices) + " float\n")
         for n in hexMesh.nodes:
-            f.write('%s %s %s\n' % (n[0], n[1], n[2]))
+            var = "{:.9f} {:.9f} {:.9f}\n".format(n[0], n[1], n[2]) 
+            f.write(var)
 
         nElem = len(hexMesh.hexas)
         f.write("CELLS " + str(nElem) + " " + str(nElem * 9) + " \n")
