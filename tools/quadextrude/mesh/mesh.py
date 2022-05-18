@@ -143,6 +143,7 @@ class Hexa:
         self.type = 0
         self.neighIdx = [-1] * 6
         self.hasBoundaryFace = False
+        self.bdrFaces = []
 
 
 #===============================================================================
@@ -158,11 +159,21 @@ class Face:
         layerIdx: The level that the hexahedron belongs to
         type: The type id of the hexahedral element
     """
-    def __init__(self, nodeIds, idx, faceType='UNINITIALIZED'):
+    def __init__(self, nodeIds=[], idx=0, faceType='UNINITIALIZED'):
         self.nodeIds = nodeIds
         self.idx = idx
         self.layerIdx = 0
         self.faceType = faceType
+        self.normal = np.zeros(3)
+        self.hidx = -1
+
+    def __hash__(self):
+        return hash((self.idx, self.layerIdx, self.faceType))
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)): return NotImplemented
+        return self.idx == other.idx and self.layerIdx == other.layerIdx and \
+        self.faceType == other.faceType and self.normal == other.normal and self.nodeIds == other.nodeIdx
 
 
 #===============================================================================
@@ -578,6 +589,7 @@ class HexMesh:
         self.hexasLayer = 0
         self.elementsAtVertexIdx = []
         self.elementsAtVertex = []
+        self.elementsAtBoundary = []
         self.verticesAtBoundary = []
         self.facesAtBoundary = []
         self.nodesAtSlice = sliceIds
@@ -626,7 +638,7 @@ class HexMesh:
                        [0, 3, 7, 4], [4, 5, 6, 7]]
 
         nfaces = 0
-        for h in self.hexas:
+        for hidx, h in enumerate(self.hexas):
             for idx, item in enumerate(h.neighIdx):
                 if item == -1:
                     h.hasBoundaryFace = True
@@ -637,11 +649,53 @@ class HexMesh:
                                      h.nodeIds[faceIndices[idx][3]]]
 
                     bndryFace = Face(bndryVertices, nfaces, 'boundaryFace')
+                    h.bdrFaces.append(nfaces)
+                    bndryFace.hidx = hidx
                     bndryFace.layerIdx = h.layerIdx
+
+                    hexVerts = [self.nodes[i] for i in h.nodeIds]
+                    faceVerts = [self.nodes[bndryVertices[i]] for i in bndryVertices]
+
+                    center = np.zeros(3)
+                    for vec in hexVerts:
+                        center = center + vec
+                    center = center * 0.125
+
+                    faceCenter = np.zeros(3)
+                    for vec in faceVerts:
+                        faceCenter = faceCenter + vec
+                    faceCenter = faceCenter * 0.25
+
+                    p1 = faceVerts[1] - faceVerts[0]
+                    p2 = faceVerts[3] - faceVerts[0]
+                    n0 = np.cross(p1, p2)
+                    n0 = n0 / np.linalg.norm(n0)
+
+                    v1 = n0 - faceCenter
+                    v2 = center - faceCenter
+                    if np.dot(v1, v2) > 0.0:
+                        n0 = -1.0 * n0
+
+                    bndryFace.normal = n0
                     facesAtBoundary.append(bndryFace)
                     nfaces = nfaces + 1
 
         self.facesAtBoundary = facesAtBoundary
+
+#===============================================================================
+#                       Function generateElementsAtBoundary
+#===============================================================================
+    def generateElementsAtBoundary(self):
+        """
+        Compute the Elements at the boundary
+
+        Args:
+            self: The input/output hex mesh
+        """
+
+        for idx, hexa in enumerate(self.hexas):
+            if hexa.hasBoundaryFace:
+                self.elementsAtBoundary.append(hexa.idx)
 
 
 #===============================================================================
@@ -820,6 +874,7 @@ class HexMesh:
         self.generateNeighborsAtElement()
         self.generateFacesAtBoundary()
         self.generateVerticesAtBoundary()
+        self.generateElementsAtBoundary()
 
 #===============================================================================
 #                       Function generateElementsAtVertex

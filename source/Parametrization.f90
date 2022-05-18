@@ -422,7 +422,7 @@ SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
     ! the plane normal  
     dSum = (dx*dA + dy*dB + dz*dC + dD)
 
-    ! Project the point onto the plane
+    ! Project the point onto the plane 
     ! by moving the point 'distance' amount
     ! opposite to the normal direction which 
     ! takes the point directly onto the plane

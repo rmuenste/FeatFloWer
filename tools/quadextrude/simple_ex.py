@@ -8,6 +8,8 @@ import os
 import sys
 import re
 import getopt
+from tracemalloc import start
+import numpy as np
 
 #from mesh import *
 #from mesh_io import *
@@ -53,6 +55,100 @@ def usage():
     #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7,8,9,10;2:3,4,5,6,7,8,9,10;3:2-12;4:11'
 
 #===============================================================================
+#                        parametrize function
+#===============================================================================
+def parametrize(hexMesh):
+
+    faceIndices = [[0, 1, 2, 3], [0, 1, 4, 5],
+                   [1, 2, 5, 6], [3, 2, 6, 7],
+                   [0, 3, 7, 4], [4, 5, 6, 7]]
+
+    faceIdx = 0
+    hidx = 0
+    boundaryComponents = []
+    candidates = []
+    hex = hexMesh.hexas[hidx]
+
+    startFace = Face()
+
+    for fidx, item in enumerate(hex.neighIdx):
+        if item == -1:
+
+            bndryVertices = [hex.nodeIds[faceIndices[fidx][0]],
+                             hex.nodeIds[faceIndices[fidx][1]],
+                             hex.nodeIds[faceIndices[fidx][2]],
+                             hex.nodeIds[faceIndices[fidx][3]]]
+
+            startFace = Face(bndryVertices, faceIdx, 'boundaryFace')
+
+            faceVerts = [hexMesh.nodes[startFace.nodeIds[i]] for i in startFace.nodeIds]
+            hexVerts = [hexMesh.nodes[i] for i in hex.nodeIds]
+
+            center = np.zeros(3)
+            for vec in hexVerts:
+                center = center + vec
+            center = center * 0.125
+
+            faceCenter = np.zeros(3)
+            for vec in faceVerts:
+                faceCenter = faceCenter + vec
+            faceCenter = faceCenter * 0.25
+
+            p1 = faceVerts[1] - faceVerts[0]
+            p2 = faceVerts[3] - faceVerts[0]
+            n0 = np.cross(p1, p2)
+            n0 = n0 / np.linalg.norm(n0)
+
+            v1 = n0 - faceCenter
+            v2 = center - faceCenter
+            if np.dot(v1, v2) > 0.0:
+                n0 = -1.0 * n0
+
+            startFace.normal = n0
+    
+#    compIdx = 0
+#    candidates.append(startFace)
+#    boundaryComponents.append(set())
+#    for hidx in hexMesh.elementsAtBoundary:
+#        hex = hexMesh.hexas[hidx]
+#        for fidx, item in enumerate(hex.neighIdx):
+#            if item == -1:
+#                bndryVertices = [hex.nodeIds[faceIndices[fidx][0]],
+#                                 hex.nodeIds[faceIndices[fidx][1]],
+#                                 hex.nodeIds[faceIndices[fidx][2]],
+#                                 hex.nodeIds[faceIndices[fidx][3]]]
+#
+#                currFace = Face(bndryVertices, faceIdx, 'boundaryFace')
+#
+#                faceVerts = [hexMesh.nodes[currFace.nodeIds[i]] for i in currFace.nodeIds]
+#                hexVerts = [hexMesh.nodes[i] for i in hex.nodeIds]
+#
+#                center = np.zeros(3)
+#                for vec in hexVerts:
+#                    center = center + vec
+#                center = center * 0.125
+#
+#                faceCenter = np.zeros(3)
+#                for vec in faceVerts:
+#                    faceCenter = faceCenter + vec
+#                faceCenter = faceCenter * 0.25
+#
+#                p1 = faceVerts[1] - faceVerts[0]
+#                p2 = faceVerts[3] - faceVerts[0]
+#                n0 = np.cross(p1, p2)
+#                n0 = n0 / np.linalg.norm(n0)
+#
+#                v1 = n0 - faceCenter
+#                v2 = center - faceCenter
+#                if np.dot(v1, v2) > 0.0:
+#                    n0 = -1.0 * n0
+#
+#                currFace.normal = n0
+#                angle = np.arccos(np.dot(currFace.normal, startFace.normal))
+#                if angle < 0.2 * np.pi:
+#                    boundaryComponents[compIdx].add(currFace)
+
+#===============================================================================
 #                        Main Script Function
 #===============================================================================
 def main():
@@ -78,10 +174,12 @@ def main():
 
     meshQualityOK = True
 
-#    writeHexMeshVTK(hm2, "caseB.01.vtk")
-#    writeTriFile(hm2, outputFileName)
-    print(os.getcwd())
+    # read the mesh from file
     hm = readTriFile("./test_meshes/building_block.tri")
+
+    # generate basic mesh structures
+    hm.generateMeshStructures()
+    parametrize(hm)
 
 #    for hexa in hm.hexas:
 #        print(hexa.nodeIds)
@@ -94,8 +192,6 @@ def main():
 #        print(node)
 
     mkdir("NEWFAC")
-#    mkdir("NEWFAC/sub001")
-#    writeTriFile(hm, "NEWFAC/sub001/GRID001.tri")
 
     dz = 0.01333
     for i in range(1,13):
