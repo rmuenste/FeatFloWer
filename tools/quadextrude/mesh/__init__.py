@@ -9,7 +9,7 @@ from .mesh_io import writeQuadMeshVTK
 from .mesh_io import writeTriFile
 from .mesh_io import writePointsVTK
 from .mesh_io import writeParFiles
-
+from .mesh_io import writeBoundaryComponents
 
 # Imports from mesh
 from .mesh import Edge

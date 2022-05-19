@@ -147,15 +147,16 @@ def main():
     hm.generateMeshStructures()
     boundaryComponents = parametrizeFaces(hm, 20.0)
     hm.parametrizeVertices(boundaryComponents)
-    writeBoundaryComponentsFaces(hm, boundaryComponents)
-    hm.writeBoundaryComponents()
+    #writeBoundaryComponentsFaces(hm, boundaryComponents)
 
     mkdir("NEWFAC")
 
     dz = 0.01333
     for i in range(1,13):
         mkdir("NEWFAC/sub%03d" %i)
-        writeTriFile(hm, "NEWFAC/sub%03d/GRID%03d.tri" %(i, i))
+        meshName = "NEWFAC/sub%03d/GRID%03d.tri" %(i, i)
+        writeTriFile(hm, meshName)
+        writeBoundaryComponents(hm, "NEWFAC/sub%03d" %(i), meshName)
         writeHexMeshVTK(hm, "GRID%03d.vtk" %(i))
         hm.translateMeshZ(dz)
 

@@ -944,22 +944,6 @@ class HexMesh:
 
 
 #===============================================================================
-#                     writeBoundaryComponents
-#===============================================================================
-    def writeBoundaryComponents(self):
-        for idx, item in enumerate( self.boundaryComponentsVertices):
-            with open("bc%d.par" %idx, "w") as parFile:
-                parFile.write("%d Wall\n" % len(item.vertices))
-                normal = item.normal
-                firstVertex = self.nodes[item.vertices[0]]
-                displacement = -np.dot(normal, firstVertex)
-                parFile.write("'4 %f %f %f %f'\n" % (normal[0], normal[1], normal[2], displacement))
-                for val in item.vertices:
-                    parFile.write("%d\n" % val)
-
-
-
-#===============================================================================
 #                     Function extrudeQuadToHexMesh
 #===============================================================================
 def extrudeQuadMeshToHexMesh(quadMesh, dz):

@@ -5,6 +5,7 @@ A module for input/output of different mesh formats
 """
 
 import re
+import os
 
 from .mesh import *
 
@@ -509,4 +510,24 @@ def writePointsVTK(nodes, fileName):
         for n in nodes:
             f.write('%s %s %s\n' % (n[0], n[1], n[2]))
 
-
+#===============================================================================
+#                     writeBoundaryComponents
+#===============================================================================
+def writeBoundaryComponents(hexMesh, outputFolder, meshName):
+    prjName = outputFolder + "/file.prj"
+    with open(prjName, "w") as prjFile:
+        prjFile.write("%s\n" %os.path.basename(meshName))
+    for idx, item in enumerate( hexMesh.boundaryComponentsVertices):
+        parName = "bc%d.par" %idx
+        fileName = outputFolder + "/" + parName 
+        with open(fileName, "w") as parFile:
+            parFile.write("%d Wall\n" % len(item.vertices))
+            normal = item.normal
+            firstVertex = hexMesh.nodes[item.vertices[0]]
+            displacement = -np.dot(normal, firstVertex)
+            parFile.write("'4 %f %f %f %f'\n" % (normal[0], normal[1], normal[2], displacement))
+            for val in item.vertices:
+                parFile.write("%d\n" % val)
+        with open(prjName, "a") as prjFile:
+            if idx in (0, 1, 4, 5):
+              prjFile.write("%s\n" %parName)
