@@ -145,6 +145,23 @@ class Hexa:
         self.hasBoundaryFace = False
         self.bdrFaces = []
 
+#===============================================================================
+#                          A class for a BoundaryComponent
+#===============================================================================
+class BoundaryComponent:
+    """
+    A class for a boundary  component
+
+    Attributes:
+        nodeIds: A list of the node Ids (indices) of each vertex of the
+                 hexahedron
+        layerIdx: The level that the hexahedron belongs to
+        type: The type id of the hexahedral element
+    """
+    def __init__(self, normal, vertices):
+        self.normal = normal
+        self.vertices = vertices
+
 
 #===============================================================================
 #                          A class for a face
@@ -594,6 +611,7 @@ class HexMesh:
         self.facesAtBoundary = []
         self.nodesAtSlice = sliceIds
         self.slice = 0
+        self.boundaryComponentsVertices = []
         # GenElAtVert()
         # GenElAtVert()
 
@@ -649,12 +667,11 @@ class HexMesh:
                                      h.nodeIds[faceIndices[idx][3]]]
 
                     bndryFace = Face(bndryVertices, nfaces, 'boundaryFace')
-                    h.bdrFaces.append(nfaces)
                     bndryFace.hidx = hidx
                     bndryFace.layerIdx = h.layerIdx
 
                     hexVerts = [self.nodes[i] for i in h.nodeIds]
-                    faceVerts = [self.nodes[bndryVertices[i]] for i in bndryVertices]
+                    faceVerts = [self.nodes[i] for i in bndryVertices]
 
                     center = np.zeros(3)
                     for vec in hexVerts:
@@ -678,6 +695,7 @@ class HexMesh:
 
                     bndryFace.normal = n0
                     facesAtBoundary.append(bndryFace)
+                    h.bdrFaces.append(nfaces)
                     nfaces = nfaces + 1
 
         self.facesAtBoundary = facesAtBoundary
@@ -889,6 +907,56 @@ class HexMesh:
 
         for i in range(len(self.nodes)):
             self.nodes[i] = self.nodes[i] + np.array([0, 0, dz])
+
+#===============================================================================
+#                     Function parametrizeVertices
+#===============================================================================
+    def parametrizeVertices(self, boundaryComponents):
+        """
+        Generates vertex-based boundary components from 
+        a list of face-based boundary components
+
+        Args:
+            hexMesh: The input/output hex mesh
+            boundaryComponents: The face-based list of  boundary components
+        """
+
+        boundaryCompVertices = []
+        normals = []
+        for idx, item in enumerate(boundaryComponents):
+            subSet = set()
+            normals.append(self.facesAtBoundary[item[0]].normal)
+            for val in item:
+                face = self.facesAtBoundary[val]
+                for vidx in face.nodeIds:
+                    subSet.add(vidx)
+            boundaryCompVertices.append(subSet)
+        
+        boundaryCompLists = []
+        for subSet in boundaryCompVertices:
+            boundaryCompLists.append(list(subSet))
+
+        for lidx, subList in enumerate(boundaryCompLists):
+            subList.sort()
+            boundaryComponent = BoundaryComponent(normals[lidx], subList)
+            self.boundaryComponentsVertices.append(boundaryComponent)
+
+
+
+#===============================================================================
+#                     writeBoundaryComponents
+#===============================================================================
+    def writeBoundaryComponents(self):
+        for idx, item in enumerate( self.boundaryComponentsVertices):
+            with open("bc%d.par" %idx, "w") as parFile:
+                parFile.write("%d Wall\n" % len(item.vertices))
+                normal = item.normal
+                firstVertex = self.nodes[item.vertices[0]]
+                displacement = -np.dot(normal, firstVertex)
+                parFile.write("'4 %f %f %f %f'\n" % (normal[0], normal[1], normal[2], displacement))
+                for val in item.vertices:
+                    parFile.write("%d\n" % val)
+
 
 
 #===============================================================================

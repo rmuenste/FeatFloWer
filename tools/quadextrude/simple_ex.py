@@ -55,98 +55,63 @@ def usage():
     #python hex_ex.py  -f .\case3\mesh126.msh --extrusion-layers=2,4,2,4 --levels=4 --distance-levels=5.0,5.0,5.0,5.0 --ids-level='1:1,3,4,5,6,7,8,9,10;2:3,4,5,6,7,8,9,10;3:2-12;4:11'
 
 #===============================================================================
-#                        parametrize function
+#                        rad2deg function
 #===============================================================================
-def parametrize(hexMesh):
+def rad2deg(val):
+    return 180.0/np.pi
 
-    faceIndices = [[0, 1, 2, 3], [0, 1, 4, 5],
-                   [1, 2, 5, 6], [3, 2, 6, 7],
-                   [0, 3, 7, 4], [4, 5, 6, 7]]
+#===============================================================================
+#                        deg2rad function
+#===============================================================================
+def deg2rad(val):
+    return np.pi/180.0
 
-    faceIdx = 0
-    hidx = 0
+#===============================================================================
+#                        deg2rad function
+#===============================================================================
+def filterFace(face, normal, tol, bndryCompList):
+    angle = np.arccos(np.dot(face.normal, normal))
+    if angle < tol:
+        bndryCompList.append(face.idx)
+        return False 
+    else:
+        return True
+
+#===============================================================================
+#                      parametrizeFaces function
+#===============================================================================
+def parametrizeFaces(hexMesh, degrees):
+
+    workList = hexMesh.facesAtBoundary[:]
     boundaryComponents = []
-    candidates = []
-    hex = hexMesh.hexas[hidx]
+    compIdx = 0
+    tol = deg2rad(degrees)
 
-    startFace = Face()
+    while not len(workList) == 0:
+        firstFace = workList[0]
+        boundaryComponents.append([])
+        workList = list(filter( lambda face: filterFace(face, firstFace.normal, tol, boundaryComponents[compIdx]), workList))
+        compIdx = compIdx + 1
 
-    for fidx, item in enumerate(hex.neighIdx):
-        if item == -1:
+    for item in boundaryComponents:
+        item.sort()
 
-            bndryVertices = [hex.nodeIds[faceIndices[fidx][0]],
-                             hex.nodeIds[faceIndices[fidx][1]],
-                             hex.nodeIds[faceIndices[fidx][2]],
-                             hex.nodeIds[faceIndices[fidx][3]]]
 
-            startFace = Face(bndryVertices, faceIdx, 'boundaryFace')
+    print("==============================================")
+    print("Number of boundary components: ", len(boundaryComponents))
+    return boundaryComponents
 
-            faceVerts = [hexMesh.nodes[startFace.nodeIds[i]] for i in startFace.nodeIds]
-            hexVerts = [hexMesh.nodes[i] for i in hex.nodeIds]
-
-            center = np.zeros(3)
-            for vec in hexVerts:
-                center = center + vec
-            center = center * 0.125
-
-            faceCenter = np.zeros(3)
-            for vec in faceVerts:
-                faceCenter = faceCenter + vec
-            faceCenter = faceCenter * 0.25
-
-            p1 = faceVerts[1] - faceVerts[0]
-            p2 = faceVerts[3] - faceVerts[0]
-            n0 = np.cross(p1, p2)
-            n0 = n0 / np.linalg.norm(n0)
-
-            v1 = n0 - faceCenter
-            v2 = center - faceCenter
-            if np.dot(v1, v2) > 0.0:
-                n0 = -1.0 * n0
-
-            startFace.normal = n0
-    
-#    compIdx = 0
-#    candidates.append(startFace)
-#    boundaryComponents.append(set())
-#    for hidx in hexMesh.elementsAtBoundary:
-#        hex = hexMesh.hexas[hidx]
-#        for fidx, item in enumerate(hex.neighIdx):
-#            if item == -1:
-#                bndryVertices = [hex.nodeIds[faceIndices[fidx][0]],
-#                                 hex.nodeIds[faceIndices[fidx][1]],
-#                                 hex.nodeIds[faceIndices[fidx][2]],
-#                                 hex.nodeIds[faceIndices[fidx][3]]]
-#
-#                currFace = Face(bndryVertices, faceIdx, 'boundaryFace')
-#
-#                faceVerts = [hexMesh.nodes[currFace.nodeIds[i]] for i in currFace.nodeIds]
-#                hexVerts = [hexMesh.nodes[i] for i in hex.nodeIds]
-#
-#                center = np.zeros(3)
-#                for vec in hexVerts:
-#                    center = center + vec
-#                center = center * 0.125
-#
-#                faceCenter = np.zeros(3)
-#                for vec in faceVerts:
-#                    faceCenter = faceCenter + vec
-#                faceCenter = faceCenter * 0.25
-#
-#                p1 = faceVerts[1] - faceVerts[0]
-#                p2 = faceVerts[3] - faceVerts[0]
-#                n0 = np.cross(p1, p2)
-#                n0 = n0 / np.linalg.norm(n0)
-#
-#                v1 = n0 - faceCenter
-#                v2 = center - faceCenter
-#                if np.dot(v1, v2) > 0.0:
-#                    n0 = -1.0 * n0
-#
-#                currFace.normal = n0
-#                angle = np.arccos(np.dot(currFace.normal, startFace.normal))
-#                if angle < 0.2 * np.pi:
-#                    boundaryComponents[compIdx].add(currFace)
+#===============================================================================
+#                     writeBoundaryComponents
+#===============================================================================
+def writeBoundaryComponentsFaces(hexMesh, boundaryComponents):
+    for idx, item in enumerate(boundaryComponents):
+        with open("bcf%d.par" %idx, "w") as parFile:
+            parFile.write("%d Wall\n" % len(item))
+            normal = hexMesh.facesAtBoundary[item[0]].normal
+            parFile.write("'4 %f %f %f'\n" % (normal[0], normal[1], normal[2]))
+            for val in item:
+                parFile.write("%d\n" % val)
 
 #===============================================================================
 #                        Main Script Function
@@ -174,22 +139,16 @@ def main():
 
     meshQualityOK = True
 
+    print(os.getcwd())
     # read the mesh from file
     hm = readTriFile("./test_meshes/building_block.tri")
 
     # generate basic mesh structures
     hm.generateMeshStructures()
-    parametrize(hm)
-
-#    for hexa in hm.hexas:
-#        print(hexa.nodeIds)
-#
-#    for i in range(len(hm.nodes)):
-#        ex = (hm.nodes[i][0],hm.nodes[i][1],hm.nodes[i][2] + 2.0) 
-#        hm.nodes.append(ex)
-#
-#    for node in hm.nodes:
-#        print(node)
+    boundaryComponents = parametrizeFaces(hm, 20.0)
+    hm.parametrizeVertices(boundaryComponents)
+    writeBoundaryComponentsFaces(hm, boundaryComponents)
+    hm.writeBoundaryComponents()
 
     mkdir("NEWFAC")
 
