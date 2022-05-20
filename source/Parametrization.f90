@@ -321,7 +321,7 @@ END SUBROUTINE ParametrizeBndryPoints
 SUBROUTINE Parametrize(DCORVG,NVT1,NVT2,ilevel)
  implicit none
  real*8 DCORVG(3,*)
- integer, intent(inout) :: NVT1,NVT2
+ integer, intent(in) :: NVT1,NVT2
  integer, intent(inout) :: ilevel
 
  integer :: i,j
