@@ -141,7 +141,7 @@ def main():
 
     print(os.getcwd())
     # read the mesh from file
-    hm = readTriFile("./test_meshes/building_block.tri")
+    hm = readMeshFromVTK("./test_meshes/building_block.vtk")
 
     # generate basic mesh structures
     hm.generateMeshStructures()
@@ -151,10 +151,10 @@ def main():
 
     mkdir("NEWFAC")
 
-    dz = 0.01333
+    dz = 0.013333333
     for i in range(1,13):
         mkdir("NEWFAC/sub%03d" %i)
-        meshName = "NEWFAC/sub%03d/GRID%03d.tri" %(i, i)
+        meshName = "NEWFAC/sub%03d/GRID001.tri" %(i)
         writeTriFile(hm, meshName)
         writeBoundaryComponents(hm, "NEWFAC/sub%03d" %(i), meshName)
         writeHexMeshVTK(hm, "GRID%03d.vtk" %(i))

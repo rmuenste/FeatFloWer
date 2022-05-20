@@ -519,7 +519,7 @@ def writeBoundaryComponents(hexMesh, outputFolder, meshName):
         prjFile.write("%s\n" %os.path.basename(meshName))
     for idx, item in enumerate( hexMesh.boundaryComponentsVertices):
         parName = "bc%d.par" %idx
-        fileName = outputFolder + "/" + parName 
+        fileName = outputFolder + "/" + parName
         with open(fileName, "w") as parFile:
             parFile.write("%d Wall\n" % len(item.vertices))
             normal = item.normal
