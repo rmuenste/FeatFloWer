@@ -139,6 +139,10 @@ def main():
 
     meshQualityOK = True
 
+    meshHeight = 0.16
+    ddz = meshHeight / 12.0
+    print(ddz)
+    print(12.0 * ddz)
     print(os.getcwd())
     # read the mesh from file
     hm = readMeshFromVTK("./test_meshes/building_block.vtk")
@@ -151,14 +155,17 @@ def main():
 
     mkdir("NEWFAC")
 
-    dz = 0.013333333
+    boundaryComponentsName = ["Symmetry100", "Symmetry010", "Outflow", "Wall", "Wall", "Wall"]
+    dz = ddz
     for i in range(1,13):
+#        print(hm.extents)
         mkdir("NEWFAC/sub%03d" %i)
         meshName = "NEWFAC/sub%03d/GRID001.tri" %(i)
         writeTriFile(hm, meshName)
-        writeBoundaryComponents(hm, "NEWFAC/sub%03d" %(i), meshName)
+        writeBoundaryComponents(hm, "NEWFAC/sub%03d" %(i), meshName, boundaryComponentsName)
         writeHexMeshVTK(hm, "GRID%03d.vtk" %(i))
         hm.translateMeshZ(dz)
+        hm.calculateExtents()
 
 #===============================================================================
 #                             Main Boiler Plate

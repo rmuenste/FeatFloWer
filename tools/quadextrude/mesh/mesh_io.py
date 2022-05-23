@@ -148,6 +148,7 @@ def writeTriFile(hexMesh, fileName, scale=1.0):
         fileName: The file name of the TRI file
 
     """
+    #with np.printoptions(precision=15), open(fileName, "r") as f:
     with open(fileName, "w") as f:
         f.write("Coarse mesh exported by hex_ex.py \n")
         f.write("Parametrisierung PARXC, PARYC, TMAXC \n")
@@ -155,7 +156,7 @@ def writeTriFile(hexMesh, fileName, scale=1.0):
         f.write("DCORVG\n")
 
         for n in hexMesh.nodes:
-            var = "{:.9f} {:.9f} {:.9f}\n".format(scale * n[0], scale * n[1], scale * n[2]) 
+            var = "{:.15} {:.15} {:.15}\n".format(scale * n[0], scale * n[1], scale * n[2]) 
             #f.write("%f %f %f\n" % (scale * n[0], scale * n[1], scale * n[2]))
             f.write(var)
 
@@ -513,21 +514,29 @@ def writePointsVTK(nodes, fileName):
 #===============================================================================
 #                     writeBoundaryComponents
 #===============================================================================
-def writeBoundaryComponents(hexMesh, outputFolder, meshName):
+def writeBoundaryComponents(hexMesh, outputFolder, meshName, bndryNames):
+    # bc0=xmax, bc1=ymax, bc2=zmax, bc3=zmin, bc4=xmin, bc5=ymin
     prjName = outputFolder + "/file.prj"
     with open(prjName, "w") as prjFile:
         prjFile.write("%s\n" %os.path.basename(meshName))
     for idx, item in enumerate( hexMesh.boundaryComponentsVertices):
-        parName = "bc%d.par" %idx
+        parName = "bc%d_001.par" %idx
         fileName = outputFolder + "/" + parName
+        normal = item.normal
+        numVertices = len(item.vertices)
+        if idx == 2: 
+          if (np.abs(hexMesh.extents[5] - 0.16)) > 1e-05: 
+               numVertices = 0
+        if idx == 3: 
+          if (np.abs(hexMesh.extents[2] - 0.0)) > 1e-05: 
+               numVertices = 0
         with open(fileName, "w") as parFile:
-            parFile.write("%d Wall\n" % len(item.vertices))
-            normal = item.normal
+            parFile.write("%d %s\n" % (numVertices, bndryNames[idx]))
             firstVertex = hexMesh.nodes[item.vertices[0]]
             displacement = -np.dot(normal, firstVertex)
             parFile.write("'4 %f %f %f %f'\n" % (normal[0], normal[1], normal[2], displacement))
             for val in item.vertices:
                 parFile.write("%d\n" % val)
         with open(prjName, "a") as prjFile:
-            if idx in (0, 1, 4, 5):
-              prjFile.write("%s\n" %parName)
+#            if idx in (0, 1, 4, 5):
+            prjFile.write("%s\n" %parName)

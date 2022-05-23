@@ -612,6 +612,7 @@ class HexMesh:
         self.nodesAtSlice = sliceIds
         self.slice = 0
         self.boundaryComponentsVertices = []
+        self.extents = np.zeros(6)
         # GenElAtVert()
         # GenElAtVert()
 
@@ -893,6 +894,7 @@ class HexMesh:
         self.generateFacesAtBoundary()
         self.generateVerticesAtBoundary()
         self.generateElementsAtBoundary()
+        self.calculateExtents()
 
 #===============================================================================
 #                       Function generateElementsAtVertex
@@ -905,8 +907,47 @@ class HexMesh:
             hexMesh: The input/output hex mesh
         """
 
+        if len(self.nodes) == 0:
+            print("Number of nodes is 0, translate operation not feasible")
+            sys.exit(2)
+
         for i in range(len(self.nodes)):
             self.nodes[i] = self.nodes[i] + np.array([0, 0, dz])
+
+#===============================================================================
+#                     Function calculateExtents
+#===============================================================================
+    def calculateExtents(self):
+        """
+        Calculates the min/max extents in x,y,z
+
+        Args:
+            hexMesh: The input/output hex mesh
+        """
+        if len(self.nodes) > 0:
+            self.extents[0] = self.nodes[0][0] 
+            self.extents[1] = self.nodes[0][1] 
+            self.extents[2] = self.nodes[0][2] 
+            self.extents[3] = self.nodes[0][0] 
+            self.extents[4] = self.nodes[0][1] 
+            self.extents[5] = self.nodes[0][2] 
+        else:
+            print("Number of nodes is 0, translate operation not feasible")
+            sys.exit(2)
+
+        for i in range(1, len(self.nodes)):
+            if self.nodes[i][0] < self.extents[0]:
+                self.extents[0] = self.nodes[i][0]
+            if self.nodes[i][1] < self.extents[1]:
+                self.extents[1] = self.nodes[i][1]
+            if self.nodes[i][2] < self.extents[2]:
+                self.extents[2] = self.nodes[i][2]
+            if self.nodes[i][0] > self.extents[3]:
+                self.extents[3] = self.nodes[i][0]
+            if self.nodes[i][1] > self.extents[4]:
+                self.extents[4] = self.nodes[i][1]
+            if self.nodes[i][2] > self.extents[5]:
+                self.extents[5] = self.nodes[i][2]
 
 #===============================================================================
 #                     Function parametrizeVertices
