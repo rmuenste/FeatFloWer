@@ -536,7 +536,7 @@ def writeBoundaryComponents(hexMesh, outputFolder, meshName, bndryNames):
             displacement = -np.dot(normal, firstVertex)
             parFile.write("'4 %f %f %f %f'\n" % (normal[0], normal[1], normal[2], displacement))
             for val in item.vertices:
-                parFile.write("%d\n" % val)
+                parFile.write("%d\n" % (val + 1))
         with open(prjName, "a") as prjFile:
 #            if idx in (0, 1, 4, 5):
             prjFile.write("%s\n" %parName)
