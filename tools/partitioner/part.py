@@ -222,6 +222,7 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   for iPart in range(1,nPart+1):
     # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
     iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
+    print(len(iElem))
     iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
     # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
     iCoor=list(iCoor)
@@ -250,6 +251,8 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
         localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
       else:
         localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.par"%ParNames[iPar])
+      # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
+      # dann gehoert er dort auch zur Randparametrisierung
       localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
       localBoundary.sort()
       OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
@@ -285,6 +288,30 @@ def OutputGrid(Name,Grid):
     # Jeder Eintrag auf einer eigenen Zeile
     f.write(_build_line_by_format_list("%d",knpr,"\n"))
 
+def MultPartitionAlongAxis(Grid,nSubMesh,Method):
+  (nel,nvt,coord,kvert,knpr)=Grid
+  Part=[0,]*nel
+  Dir = 2
+  zCoords = [p[2] for p in coord]
+  numCoords = len(zCoords)  
+  zCoords.sort()
+  zMin = zCoords[0]
+  zMax = zCoords[numCoords-1]
+  dZ = (zMax - zMin) / nSubMesh
+  theList = [i * dZ for i in range(1, nSubMesh + 1)]
+  print(zMin)
+  print(zMax)
+  print(dZ)
+  print(theList)
+  PosFak=1
+  for (ElemIdx,Elem) in enumerate(kvert):
+    for idx, val in enumerate(theList):
+      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+        Part[ElemIdx]=idx + 1
+        break
+
+  return tuple(Part)
+
 def PartitionAlongAxis(Grid,nSubMesh,Method):
   # Berechne 1D Median einer Liste (die Liste wird dabei sortiert)
   def median(L):
@@ -301,6 +328,10 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
   Axis=list(map(lambda char: char in tmp,"123"))
   NumAxis=sum(Axis)
   nSub=2**NumAxis
+
+  if nSub !=nSubMesh:
+    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
+
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid
   (nel,nvt,coord,kvert,knpr)=Grid
