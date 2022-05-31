@@ -14,10 +14,12 @@ if (myid.eq.1) then
  end if
 end if
 
-if (iBarr.eq.1) then! without master
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-else            ! with master
- CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+if (iBarr.ge.0) THEN
+ if (iBarr.eq.1) then! without master
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ else            ! with master
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+ end if
 end if
 
 END SUBROUTINE CheckIfFolderIsThereCreateIfNot

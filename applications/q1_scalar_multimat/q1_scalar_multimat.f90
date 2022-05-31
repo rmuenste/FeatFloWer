@@ -95,7 +95,7 @@ PROGRAM Q1_GenScalar
   END IF
   !!!!!!!!!!!!!!!! ConvergenceControl   !!!!!!!!!!!!!!!
 
-  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'q')
 !   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
   call print_time_Q1(timens, timemx, tstep,Orig_tsep*(8d0/27d0),Orig_tsep*(27d0/8d0), itns, nitns, ufile, uterm)
@@ -116,7 +116,7 @@ PROGRAM Q1_GenScalar
   CALL Correct_GenLinSc_Q1_ALPHA(ufile)
   timens = timens + dtgmv
   itns = max(itns,2)
-  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'v,p,q,t')
+  call postprocessing_general(dout, inonln_u, inonln_t,ufile,'q')
 !   call postprocessing_sse_q1_scalar(dout, inonln_u, inonln_t,ufile)
 
 2 CONTINUE

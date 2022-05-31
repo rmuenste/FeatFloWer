@@ -99,27 +99,23 @@ END
 !
 ! ----------------------------------------------
 !
-SUBROUTINE DefTVD_linScalar(U,D,THSTEP)
+SUBROUTINE DefTVD_linScalar(U,D,dt)
 
-USE PP3D_MPI, ONLY:E011Sum
+USE PP3D_MPI, ONLY:E011Sum,myid
 USE def_LinScalar, ONLY : AFC
 IMPLICIT NONE
 
-REAL*8 THSTEP
+REAL*8 dt
 REAL*8 U(*),D(*)
 
 REAL*8 DEPS,DAUX,F_IJ
 PARAMETER (DEPS=1D-15)
 INTEGER IEDGE,ILOC,I,J
 
-!RETURN
-
-DO I=1,AFC%nu
-  AFC%PP(I)=0D0
-  AFC%PM(I)=0D0
-  AFC%QP(I)=0D0
-  AFC%QM(I)=0D0
-END DO
+CALL LCL1 (AFC%PP,AFC%nu)
+CALL LCL1 (AFC%PM,AFC%nu)
+CALL LCL1 (AFC%QP,AFC%nu)
+CALL LCL1 (AFC%QM,AFC%nu)
 
 DO IEDGE=1,AFC%nedge
 
@@ -162,14 +158,14 @@ DO IEDGE=1,AFC%nedge
   I=AFC%inod(IEDGE)
   J=AFC%jnod(IEDGE)
 
-  F_IJ=THSTEP*AFC%aedge(IEDGE)*(U(I)-U(J))
+  F_IJ=dt*AFC%aedge(IEDGE)*(U(I)-U(J))
 
-  IF (F_IJ.GT.0) THEN
+  IF (F_IJ.GT.0d0) THEN
     DAUX=AFC%PP(I)*F_IJ
   ELSE
     DAUX=AFC%PM(I)*F_IJ
   ENDIF
-
+  
   D(I)=D(I)+DAUX
   D(J)=D(J)-DAUX
 
@@ -179,4 +175,3 @@ DO IEDGE=1,AFC%nedge
 ENDDO
 
 END
-

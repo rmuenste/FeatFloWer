@@ -381,6 +381,7 @@ TYPE lScalarField
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val_old_timestep
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: val
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: rhs
+ REAL*8  , DIMENSION(:)  , ALLOCATABLE :: rhs0
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: def
  REAL*8  , DIMENSION(:)  , ALLOCATABLE :: aux
 END TYPE
