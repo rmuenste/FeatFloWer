@@ -51,7 +51,7 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-intel-release-checks")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div -traceback -check -fpe0)
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div -traceback -check=uninit,stack -fpe0)
   SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp -traceback -check all,noarg_temp_created -fpe0)
   SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
   SET(Q2P1_BUILD_ID_FOUND true)

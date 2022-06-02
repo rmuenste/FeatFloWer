@@ -368,7 +368,7 @@ implicit none
 
  fbm_up_handler_ptr => fbm_updateDefaultFC2
  fbm_geom_handler_ptr => fbm_getFictKnprFC2
- fbm_vel_bc_handler_ptr => fbm_velBC
+ fbm_vel_bc_handler_ptr => fbm_velBCFC2
 
 END SUBROUTINE Init_Default_Handlers
 !
@@ -1429,10 +1429,11 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
   REAL*8 PX,PY,PZ,DIST
   REAL tttx0,tttx1
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside
   INTEGER NeighE(2,12),NeighA(4,6)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+  totalInside = 0
 
   if (myid.eq.0) return
   
@@ -1503,7 +1504,11 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
 
   do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
+  if(FictKnpr(i) .ne. 0)then
+    totalInside = totalInside + 1
+  end if
   end do
+  if (totalInside .ne. 0) WRITE(*,*) myid,')Total dofs inside: ',totalInside
 
 
 END SUBROUTINE QuadScalar_FictKnpr
@@ -1731,15 +1736,21 @@ END SUBROUTINE Boundary_QuadScalar_Def
 SUBROUTINE Boundary_QuadScalar_Val()
   use fbm, only: fbm_velBCUpdate
   implicit none
-  REAL*8 PX,PY,PZ,DAUX
-  INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
+  REAL*8 PX,PY,PZ,DAUX, sum
+  INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType, itotal
+  double precision, dimension(:), allocatable :: velBCTest
+
 
   ilev = NLMAX
   ndof = mg_mesh%level(ilev)%nvt + mg_mesh%level(ilev)%net +&
     mg_mesh%level(ilev)%nat + mg_mesh%level(ilev)%nel
 
+  allocate(velBCTest(ndof))
+
+  
 
   DO i=1,ndof
+    velBCTest(i) = 0.0
     PX = myQ2Coor(1,i);  PY = myQ2Coor(2,i);  PZ = myQ2Coor(3,i)
     inpr = 0
 
@@ -1759,6 +1770,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
                            QuadSc%valU(i),QuadSc%valV(i),&
                            QuadSc%valW(i),finpr,timens,&
                            fbm_vel_bc_handler_ptr)
+                           velBCTest(i) = QuadSc%valW(i)
     END IF
     IF (minpr.ne.0.and.inpr.eq.0) THEN
       CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
@@ -1776,6 +1788,22 @@ SUBROUTINE Boundary_QuadScalar_Val()
      QuadSc%ValW(i) = QuadSc%ValW(i) - DAUX*BoundaryNormal(3,i)
     END IF
   END DO
+
+
+  sum = 0
+  itotal = 0
+  DO i=1,ndof
+    if(FictKNPR(i) > 0)then
+      sum = sum + velBCTest(i)
+      itotal = itotal + 1
+    end if
+  END DO
+
+  if(itotal > 0)then
+    write(*,*)myid, '>mean particle velbc = ',sum/real(itotal)
+!  else
+!    write(*,*)myid, '>mean particle velbc = ',sum
+  end if
   
 END SUBROUTINE Boundary_QuadScalar_Val
 !

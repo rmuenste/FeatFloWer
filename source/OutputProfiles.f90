@@ -2113,6 +2113,7 @@ REAL*8 psi(6)
 REAL*8 Temp,dMF
 integer :: iunit = 908070
 integer iX, ifbm,iFld
+real*8 symmetry(3)
 
 NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
@@ -2335,6 +2336,19 @@ DO iField=1,SIZE(myExport%Fields)
    ELSE
     write(iunit, '(A,E16.7)')"        ",0d0
    END IF
+  end do
+  write(iunit, *)"        </DataArray>"
+
+ CASE('Symmetry')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Symmetry",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   symmetry(1) = 0.0
+   symmetry(2) = 0.0
+   symmetry(3) = 0.0
+   if(myBoundary%bSymmetry(1,ivt))symmetry(1) = 1.0
+   if(myBoundary%bSymmetry(2,ivt))symmetry(2) = 1.0
+   if(myBoundary%bSymmetry(3,ivt))symmetry(3) = 1.0
+   write(iunit, '(A,3E16.7)')"        ",symmetry(1), symmetry(2), symmetry(3)
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2644,6 +2658,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shearrate","""/>"
  CASE('Wall')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wall","""/>"
+ CASE('Symmetry')
+  write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Symmetry",""" NumberOfComponents=""3""/>"
  CASE('LogShearrate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","LogShearrate","""/>"
  CASE('HeatObjects')

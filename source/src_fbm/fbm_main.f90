@@ -697,6 +697,81 @@ end subroutine fbm_velBC
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_velBCFC2(x,y,z,valu,valv,valw,ip,t)
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+integer, intent(in) :: ip
+real*8 , intent(in) :: x,y,z,t
+real*8 , intent(inout) :: valu,valv,valw
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  DO ipc = 1,numParticles
+    particleId = theParticles(ipc)%uniqueIdx
+    if (ip.EQ.particleId) THEN
+!      Velo  = theParticles(ipc)%velocity
+!      Pos   = theParticles(ipc)%position
+
+!      valu = velo(1)
+!      valv = velo(2)
+      valw = theParticles(ipc)%velocity(3)
+
+      return
+    end if
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+    particleId = theParticles(ipc)%uniqueIdx
+    IF (check_rem_id(ip, particleId)) THEN
+!      Velo  = theParticles(ipc)%Velocity
+!      Pos   = theParticles(ipc)%Position
+!      valw = theParticles(ipc)%velocity(3)
+      valw = theParticles(ipc)%velocity(3)
+
+!      valu = velo(1)
+!      valv = velo(2)
+!      valw = velo(3)
+      return
+    end if
+  end do
+
+end subroutine fbm_velBCFC2
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_updateDefault(DensityL,dTime,simTime,Gravity,mfile,myid)
 use var_QuadScalar, only : myFBM
 use PP3D_MPI, only: myMPI_Barrier

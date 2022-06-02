@@ -2,9 +2,22 @@ module dem_query
 !================================================================================================
 ! Module USE
 !================================================================================================
-use iso_c_binding, only: c_int
+use iso_c_binding
 
 implicit none
+!================================================================================================
+! Variables and Types
+!================================================================================================
+type, bind(C) :: tParticleData
+  real(c_double), dimension(3)  :: position
+  real(c_double), dimension(3)  :: velocity
+  real(c_double), dimension(3)  :: force = (/0d0, 0d0, 0d0/)
+  real(c_double), dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
+  real(c_double) :: time
+  integer(c_int) :: localIdx
+  integer(c_int) :: uniqueIdx
+  integer(c_int) :: systemIdx
+end type tParticleData
 
 !================================================================================================
 ! Interfaces
@@ -23,6 +36,27 @@ end interface
 
 interface
 subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticle")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int), value :: idx
+  integer(c_int)        :: lidx
+  integer(c_int)        :: uidx
+  real(c_double)        :: time
+  real(c_double)        :: pos(*)
+  real(c_double)        :: vel(*)
+  end subroutine
+end interface
+
+interface
+subroutine getParticle2(idx, particle) bind(C, name="getParticle2")
+  use iso_c_binding, only: c_int, c_double
+  import tParticleData
+  integer(c_int), value :: idx
+  type(tParticleData) :: particle
+  end subroutine
+end interface
+
+interface
+subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getRemoteParticle")
   use iso_c_binding, only: c_int, c_double
   integer(c_int) :: idx
   integer(c_int) :: lidx
@@ -47,6 +81,17 @@ end interface
 
 interface
 subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idx
+  integer(c_int) :: lidx
+  integer(c_int) :: uidx
+  real(c_double) :: force(*)
+  real(c_double) :: torque(*)
+  end subroutine
+end interface
+
+interface
+subroutine setRemoteForces(idx, lidx, uidx, force, torque) bind(C, name="setRemoteForces")
   use iso_c_binding, only: c_int, c_double
   integer(c_int) :: idx
   integer(c_int) :: lidx
@@ -87,24 +132,26 @@ logical(c_bool) function pointInsideRemObject(idx, pos) bind(C, name="pointInsid
 end interface
 
 interface
-subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
+logical(c_bool) function check_rem_id(fbmid, id) bind(C, name="check_rem_id")
+  use iso_c_binding, only: c_int, c_bool, c_double
+  integer(c_int), value :: fbmid
+  integer(c_int), value :: id
+  end function
+end interface
+
+interface
+subroutine rem_particles_index_map(idxMap) bind(C, name="rem_particles_index_map")
   use iso_c_binding, only: c_int, c_double
   integer(c_int) :: idxMap(*)
   end subroutine
 end interface
 
-!================================================================================================
-! Variables and Types
-!================================================================================================
-type tParticleData
-  double precision, dimension(3)  :: position
-  double precision, dimension(3)  :: velocity
-  double precision, dimension(3)  :: force = (/0d0, 0d0, 0d0/)
-  double precision, dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
-  double precision :: time
-  integer :: localIdx
-  integer :: uniqueIdx
-end type tParticleData
+interface
+subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int) :: idxMap(*)
+  end subroutine
+end interface
 
 !integer :: numLocalParticles
 
@@ -153,6 +200,17 @@ subroutine getParticlesIndexMap(indexMap)
 
 end subroutine getParticlesIndexMap
 !================================================================================================
+!                              Function getRemoteParticlesIndexMap
+!================================================================================================
+
+subroutine getRemoteParticlesIndexMap(indexMap)
+  implicit none
+  integer, dimension(:), intent(inout) :: indexMap
+  
+  call rem_particles_index_map(indexMap)
+
+end subroutine getRemoteParticlesIndexMap
+!================================================================================================
 !                              Function getAllParticles
 !================================================================================================
 
@@ -184,6 +242,37 @@ subroutine getAllParticles(theParticles)
 
 end subroutine getAllParticles
 !================================================================================================
+!                              Function getAllRemoteParticles
+!================================================================================================
+
+subroutine getAllRemoteParticles(theParticles)
+  implicit none
+  type(tParticleData), dimension(:), intent(inout) :: theParticles
+
+  type(tParticleData) :: temp
+  integer, allocatable, dimension(:) :: indexMap
+  integer :: a,i,idx
+  
+  a = size(theParticles) 
+
+  allocate(indexMap(a))
+
+  call getRemoteParticlesIndexMap(indexMap)
+  
+  do i=1,a
+    idx = indexMap(i)
+    call getRemoteParticle(idx,&
+                           temp%localIdx,& 
+                           temp%uniqueIdx,& 
+                           temp%time,& 
+                           temp%position,& 
+                           temp%velocity)
+
+    theParticles(i) = temp
+  end do
+
+end subroutine getAllRemoteParticles
+!================================================================================================
 !                              Function setForcesMapped
 !================================================================================================
 
@@ -199,6 +288,22 @@ subroutine setForcesMapped(particle)
                  particle%torque)
 
 end subroutine setForcesMapped
+!================================================================================================
+!                              Function setRemoteForcesMapped
+!================================================================================================
+
+subroutine setRemoteForcesMapped(particle)
+  implicit none
+
+  type(tParticleData), intent(inout) :: particle
+  
+  call setRemoteForces(particle%uniqueIdx,&
+                       particle%localIdx,& 
+                       particle%uniqueIdx,& 
+                       particle%force,& 
+                       particle%torque)
+
+end subroutine setRemoteForcesMapped
 !================================================================================================
 !                              Function getLocalParticle
 !================================================================================================
@@ -222,6 +327,24 @@ type(tParticleData) function getLocalParticle(idx)
   getLocalParticle = temp
 
 end function getLocalParticle
+!================================================================================================
+!                              Function getLocalParticle2
+!================================================================================================
+
+type(tParticleData) function getLocalParticle2(idx)
+  implicit none
+  integer, intent(in) :: idx
+
+  type(tParticleData) :: temp
+  integer :: a
+  
+  a = numLocalParticles()
+  
+  call getParticle2(idx, temp)
+
+  getLocalParticle2 = temp
+
+end function getLocalParticle2
 
 !================================================================================================
 !                              Function getRadius
@@ -294,16 +417,14 @@ subroutine testParticleGet(idx)
 
   psize = numLocalParticles()
 
-  if (idx2 < psize) then
 
-    if (isSphereType(idx2))then
-      temp = getLocalParticle(idx2)
-      write(*,*)"Particle(",idx2,") pos:",temp%position, " vel:", temp%velocity
-    else
-      write(*,*)"Particle(",idx2,") is not a sphere. "
-    end if
-
+  if (isSphereType(idx2))then
+    temp = getLocalParticle2(idx2)
+    write(*,*)"Particle(",idx2,") pos:",temp%position, " vel:", temp%velocity
+  else
+    write(*,*)"Particle(",idx2,") is not a sphere. "
   end if
+
 
 end subroutine testParticleGet
 

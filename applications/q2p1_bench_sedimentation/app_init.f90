@@ -144,7 +144,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    ELSE
      WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A3,I3,A1)') "sub",iSubpart,"/"  ! PARALLEL
    END IF
-
+   
    cProjectFolder = CMESH1
 
    IF      (iPart.lt.10) THEN
@@ -162,6 +162,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
 
+ write(*,*)'mesh: ',CMESH1
  CALL Init_QuadScalar(mfile)
 
  IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
@@ -394,7 +395,7 @@ DO ILEV=NLMIN+1,NLMAX
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
@@ -428,13 +429,13 @@ DO ILEV=NLMIN+1,NLMAX
  call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
 
- call  myMPI_Barrier()
- if (myid .eq. 1) then
-   write(*,*) myid, ") #particles: ", numLocalParticles()
-   call testParticleGet()
-   call testParticleGet(1)
-   call testParticleRadius()
- end if
+ call  MPI_Barrier(MPI_COMM_WORLD)
+! if (myid .eq. 1) then
+!   write(*,*) myid, ") #particles: ", numLocalParticles()
+!   call testParticleGet()
+!   call testParticleGet(1)
+!   call testParticleRadius()
+! end if
 
 
  RETURN

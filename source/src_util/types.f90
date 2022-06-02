@@ -1,4 +1,5 @@
 module types
+  use iso_c_binding, only: c_double, c_int
 !-------------------------------------------------------------------------------------------------
 ! A module that contains several variants of the Laplacian 
 ! smoother 'Umbrella'. Besides the standard version of this 
@@ -706,5 +707,6 @@ TYPE tMGSteps
  INTEGER, allocatable :: n(:)
  REAL*8, allocatable :: r(:)
 END TYPE tMGSteps
+
 
 end module types
