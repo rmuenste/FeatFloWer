@@ -117,7 +117,7 @@ real*8, intent(in) :: px, py, pz
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer, intent(inout) :: fictId
+integer(kind=16), intent(inout) :: fictId
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
@@ -147,7 +147,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer, intent(inout) :: inpr
+integer(kind=16), intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
@@ -214,7 +214,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer, intent(inout) :: inpr
+integer(kind=16), intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
@@ -1078,7 +1078,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: iBndr
 
 ! fictId
-integer, intent(inout) :: inpr
+integer(kind=16), intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
@@ -1152,7 +1152,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: iBndr
 
 ! fictId
-integer, intent(inout) :: inpr
+integer(kind=16), intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist
@@ -1305,7 +1305,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer, intent(inout) :: inpr
+integer(kind=16), intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 

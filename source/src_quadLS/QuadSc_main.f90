@@ -1521,12 +1521,13 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
   REAL*8 PX,PY,PZ,DIST,P(3),dR,distX,distY
   REAL tttx0,tttx1
-  INTEGER i,j,k,ivt,ndof,IP,minpr,IPP
   INTEGER NeighE(2,12),NeighA(4,6)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
   LOGICAL, allocatable :: bMark(:)
   REAL*8 :: iCount(3)
+  INTEGER i,j,k,ivt,ndof,IP,IPP
+  integer(kind=16) :: minpr
   
   iCount = 0d0
   ndof = nvt+nat+net+nel
@@ -1737,8 +1738,9 @@ SUBROUTINE Boundary_QuadScalar_Val()
   use fbm, only: fbm_velBCUpdate
   implicit none
   REAL*8 PX,PY,PZ,DAUX, sum
-  INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType, itotal
+  INTEGER i,inpr,minpr,inprU,inprV,inprW,ndof,iType, itotal
   double precision, dimension(:), allocatable :: velBCTest
+  integer(kind=16) :: finpr
 
 
   ilev = NLMAX

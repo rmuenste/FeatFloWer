@@ -12,7 +12,7 @@ interface
     integer, intent(inout) :: bndryId
 
     ! fictId
-    integer, intent(inout) :: fictId
+    integer(kind=16), intent(inout) :: fictId
 
     ! Distance solution in the query point 
     real*8, intent(inout) :: dist 
