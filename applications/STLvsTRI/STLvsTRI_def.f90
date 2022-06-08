@@ -1,4 +1,5 @@
 MODULE mSTLvsTRI
+USE PP3D_MPI, ONLY:myid
 
 implicit none
 
@@ -12,6 +13,7 @@ CHARACTER*(200) :: cProjectFolder,cShortProjectFile,cOFFMeshFile,cProjectGridFil
 integer iOK,iTriang,iRecLevel
 TYPE tBoxMesh
  REAL*8 extent(3,2)
+ REAL*8 dsize(3)
  INTEGER division(3)
 END TYPE tBoxMesh
 TYPE(tBoxMesh) BoxMesh
@@ -19,12 +21,19 @@ TYPE(tBoxMesh) BoxMesh
 TYPE tTriMesh
  REAL*8, allocatable :: x(:),y(:),z(:)
  REAL*8, allocatable :: d(:,:,:) 
+ REAL*8, allocatable :: I(:,:,:) 
 END TYPE tTriMesh
 TYPE(tTriMesh) TriMesh
 
 Type triplet
  REAl*8 Q(3)
 end type triplet
+
+REAL*8 DomainVolume,VoxelVolume,UnityArea
+INTEGER NumberOfElements
+INTEGER :: NumberOfElementsInit=250
+REAL*8 :: dSurfIntCrit = 2.5d0
+!REAL*8 :: dSurfIntCrit = 6.0d0
 
  CONTAINS
  
@@ -51,6 +60,16 @@ OFFmesh%kvert =  OFFmesh%kvert + 1
 close(1)
 
 END SUBROUTINE readOFFMesh
+! -------------------------------------------------------------------------------
+SUBROUTINE DeallocateStructures
+
+deallocate(TriMesh%x)
+deallocate(TriMesh%y)
+deallocate(TriMesh%z)
+deallocate(TriMesh%d)
+deallocate(TriMesh%I)
+
+END SUBROUTINE DeallocateStructures
 !
 ! -------------------------------------------------------------------------------
 !
@@ -62,10 +81,12 @@ allocate(TriMesh%x(BoxMesh%Division(1)))
 allocate(TriMesh%y(BoxMesh%Division(2)))
 allocate(TriMesh%z(BoxMesh%Division(3)))
 allocate(TriMesh%d(BoxMesh%Division(1),BoxMesh%Division(2),BoxMesh%Division(3)))
+allocate(TriMesh%I(BoxMesh%Division(1),BoxMesh%Division(2),BoxMesh%Division(3)))
 TriMesh%x = 0d0
 TriMesh%y = 0d0
 TriMesh%z = 0d0
 TriMesh%d = 0d0
+TriMesh%I = 0d0
 DO i=1,BoxMesh%division(1)
  TriMesh%x(i) = BoxMesh%Extent(1,1) + dble(i-1)*(BoxMesh%Extent(1,2)-BoxMesh%Extent(1,1))/(BoxMesh%division(1)-1)
 END DO
@@ -350,14 +371,14 @@ END DO
 n1=P3-P1
 n2=P2-P1
 
-DNX = +n2(2)*n1(1) - n2(3)*n1(2)
+DNX = +n2(2)*n1(1) - n2(1)*n1(2)
 DNY = -n2(1)*n1(3) + n2(3)*n1(1)
-DNZ = +n2(1)*n1(2) - n2(2)*n1(1)
+DNZ = +n2(3)*n1(2) - n2(2)*n1(3)
 
 dArea = 0.5d0*SQRT(DNX*DNX + DNY*DNY + DNZ*DNZ)
 
 
-TriMesh%d(Dir(1),Dir(2),Dir(3)) = TriMesh%d(Dir(1),Dir(2),Dir(3)) + dArea
+TriMesh%d(Dir(1),Dir(2),Dir(3)) = TriMesh%d(Dir(1),Dir(2),Dir(3)) + ABS(dArea)
 
 ! WRITE(*,*) 'saving triangle'
 
@@ -398,6 +419,12 @@ INTEGER :: iunit=123
 
 nvt = BoxMesh%division(1)*BoxMesh%division(2)*BoxMesh%division(3)
 nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/Coarse_meshDir'
+myid = 1
+CALL CheckIfFolderIsThereCreateIfNot(cf,-1)
+myid = 0
+
 
 WRITE(cf,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/Coarse_meshDir/'//adjustl(trim(cProjectGridFile))
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -465,7 +492,7 @@ OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
 do i=1,BoxMesh%division(1)-1
  do j=1,BoxMesh%division(2)-1
   do k=1,BoxMesh%division(3)-1
-   write(iunit, '(A,E16.7)')"        ",REAL(TriMesh%d(i,j,k))
+   write(iunit, '(A,E16.7)')"        ",REAL(TriMesh%I(i,j,k))
   end do
  end do
 end do
@@ -484,7 +511,6 @@ INTEGER i,j,k
 INTEGER :: iunit=123
 CHARACTER*(100) filename
 integer nvt,nel
-
 
 nvt = BoxMesh%division(1)*BoxMesh%division(2)*BoxMesh%division(3)
 nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
@@ -521,7 +547,7 @@ write(iunit, '(A)')"    <PointData>"
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the cell field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 write(iunit, '(A)')"    <CellData>"
 
- write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","SurfIntensity",""" format=""ascii"">"
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Area",""" format=""ascii"">"
  do i=1,BoxMesh%division(1)-1
   do j=1,BoxMesh%division(2)-1
    do k=1,BoxMesh%division(3)-1
@@ -531,6 +557,17 @@ write(iunit, '(A)')"    <CellData>"
  end do
  write(iunit, *)"        </DataArray>"
 
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","SurfIntensity",""" format=""ascii"">"
+ 
+ do i=1,BoxMesh%division(1)-1
+  do j=1,BoxMesh%division(2)-1
+   do k=1,BoxMesh%division(3)-1
+    write(iunit, '(A,E16.7)')"        ",REAL(TriMesh%d(i,j,k)/UnityArea)
+   end do
+  end do
+ end do
+ write(iunit, *)"        </DataArray>"
+ 
 write(iunit, '(A)')"    </CellData>"
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the mesh data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -598,6 +635,25 @@ close(iunit)
 
 END SUBROUTINE Output_VTK
 !------------------------------------------------------------
+SUBROUTINE QualityCheck(dMaxAreaIntensity,nCrit)
+integer nCrit
+real*8 dMaxAreaIntensity
+integer i,j,k
+
+nCrit = 0
+dMaxAreaIntensity = 0d0
+
+do i=1,BoxMesh%division(1)-1
+ do j=1,BoxMesh%division(2)-1
+  do k=1,BoxMesh%division(3)-1
+   dMaxAreaIntensity = MAX(dMaxAreaIntensity,TriMesh%d(i,j,k)/UnityArea)
+   TriMesh%I(i,j,k) = TriMesh%d(i,j,k)/UnityArea
+   IF (TriMesh%d(i,j,k)/UnityArea.gt.dSurfIntCrit) nCrit = nCrit + 1
+  end do
+ end do
+end do
+ 
+END SUBROUTINE QualityCheck
 ! ----------------------------------------------
 SUBROUTINE GetValueFromFile(cFx,cVx,cKx)
 use iniparser
