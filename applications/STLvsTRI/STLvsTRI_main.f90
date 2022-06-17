@@ -5,15 +5,17 @@ use f90getopt
 CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 REAL*8 dSurfInt
 integer nOfCritical
-type(option_s)              :: opts(2)
+type(option_s)              :: opts(4)
 
 opts(1) = option_s('inputfolder', .true.,  'f')
-opts(2) = option_s('help',  .false., 'h')
+opts(2) = option_s('NumberOfElementsInit', .true.,  'n')
+opts(3) = option_s('dSurfIntCrit', .true.,  'c')
+opts(4) = option_s('help',  .false., 'h')
 
  cProjectFolder=" "
 ! check the command line arguments
 do
-    select case (getopt('f:h', opts))
+    select case (getopt('f:n:c:h', opts))
         case (char(0))
             exit
         case ('f')
@@ -22,12 +24,27 @@ do
         case ('-f')
             read(optarg,*) cProjectFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cProjectFolder))
+        case ('n')
+            read(optarg,*) NumberOfElementsInit
+            write(*,*)'NumberOfElementsInit: ', NumberOfElementsInit
+        case ('-n')
+            read(optarg,*) NumberOfElementsInit
+            write(*,*)'NumberOfElementsInit: ', NumberOfElementsInit
+        case ('c')
+            read(optarg,*) dSurfIntCrit
+            write(*,*)'dSurfIntCrit: ', dSurfIntCrit
+        case ('-c')
+            read(optarg,*) dSurfIntCrit
+            write(*,*)'dSurfIntCrit: ', dSurfIntCrit
         case ('h')
           call print_help()
           call exit(0)
         case default
     end select
 end do
+
+! INTEGER :: NumberOfElementsInit=1500
+! REAL*8 :: dSurfIntCrit = 2.5d0
 
 IF (cProjectFolder.eq." ") THEN
  WRITE(*,*) 'Input folder is an empty string!'

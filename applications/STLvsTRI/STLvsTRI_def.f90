@@ -31,7 +31,7 @@ end type triplet
 
 REAL*8 DomainVolume,VoxelVolume,UnityArea
 INTEGER NumberOfElements
-INTEGER :: NumberOfElementsInit=250
+INTEGER :: NumberOfElementsInit=1500
 REAL*8 :: dSurfIntCrit = 2.5d0
 !REAL*8 :: dSurfIntCrit = 6.0d0
 
