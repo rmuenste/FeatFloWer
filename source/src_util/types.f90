@@ -573,13 +573,15 @@ END TYPE tRheology
 
 TYPE tSubInflow
  INTEGER iBCtype,Material
- REAL*8  massflowrate, outerradius,innerradius,temperature
+ REAL*8  massflowrate, outerradius,innerradius,temperature,temperatureRange
  REAL*8  center(3),normal(3)
+ INTEGER temperatureType
 END TYPE tSubInflow
 
 TYPE tTempBC
  REAL*8  temperature
- REAL*8  center(3),gradient(3)
+ REAL*8  center(3),gradient(3),LinSphereGradient,QuadSphereGradient(2)
+ logical  :: bGradient=.false., bLinSphereGradient=.false.,bQuadSphereGradient=.false.
 END TYPE tTempBC
 
 TYPE tInflow
@@ -587,9 +589,10 @@ TYPE tInflow
  TYPE (tSubInflow), dimension(:), allocatable :: mySubInflow
  
  INTEGER iBCtype,Material
- REAL*8  massflowrate, outerradius,innerradius,temperature
+ REAL*8  massflowrate, outerradius,innerradius,temperature,temperatureRange
  REAL*8  center(3),normal(3)
  real*8, allocatable :: PressureEvolution(:)
+ INTEGER temperatureType
 END TYPE tInflow
 
 TYPE tSegThermoPhysProp

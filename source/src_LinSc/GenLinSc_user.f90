@@ -218,7 +218,7 @@ SUBROUTINE Boundary_GenLinSc_HEATALPHA_Q1_Val(dcorvg)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 REAL*8 dcorvg(3,*)
-REAL*8 X,Y,Z,dFrac,dTemp
+REAL*8 X,Y,Z,dFrac,dTemp,dc(3),dRR,dR,dT
 REAL*8 DIST,TempBC
 INTEGER i,ifld,mySubinflow,iInflow,iMat,iTemperatureBC
 
@@ -251,8 +251,31 @@ DO i=1,GenLinScalar%ndof
   IF (mySubinflow.ne.0) then
 !    write(*,*) iInflow,mySubinflow
    IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+   
+    dC = myProcess%myInflow(iInflow)%center
     iMat   = myProcess%myInflow(iInflow)%Material
-    TempBC = myProcess%myInflow(iInflow)%Temperature
+    
+    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
+     TempBC = myProcess%myInflow(iInflow)%Temperature
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
+     dRR = myProcess%myInflow(iInflow)%outerradius
+     dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+     dR = Min(dR,dRR)
+     dT = myProcess%myInflow(iInflow)%TemperatureRange
+     
+     TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)/dRR
+   END IF
+    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
+     dRR = myProcess%myInflow(iInflow)%outerradius
+     dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+     dR = Min(dR,dRR)
+     dT = myProcess%myInflow(iInflow)%TemperatureRange
+     
+     TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)*(dRR+dR)/(dRR*dRR)
+    END IF
+    
    ELSE
     iMat   = myProcess%myInflow(iInflow)%mySubInflow(mySubInflow)%Material
     TempBC = myProcess%myInflow(iInflow)%mySubInflow(mySubInflow)%Temperature

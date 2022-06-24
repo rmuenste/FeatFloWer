@@ -1879,16 +1879,46 @@
      call INIP_getvalue_string(parameterlist,cTempBC_i,"center",cCenter,'0d0, 0d0, 0d0')
      read(cCenter,*,err=55) myProcess%myTempBC(iTempBC)%Center
      myProcess%myTempBC(iTempBC)%Center = daux*myProcess%myTempBC(iTempBC)%Center
-     call INIP_getvalue_string(parameterlist,cTempBC_i,"gradient",cNormal,'0d0, 0d0, 0d0')
-     read(cNormal,*,err=55) myProcess%myTempBC(iTempBC)%Gradient
-     myProcess%myTempBC(iTempBC)%Gradient = myProcess%myTempBC(iTempBC)%Gradient/daux
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"gradient",cNormal,'OFF')
+     call inip_toupper_replace(cNormal) 
+     IF (ADJUSTL(TRIM(cNormal)).eq."OFF") THEN
+      myProcess%myTempBC(iTempBC)%bGradient = .false.
+     ELSE
+      read(cNormal,*,err=56) myProcess%myTempBC(iTempBC)%Gradient
+      myProcess%myTempBC(iTempBC)%Gradient = myProcess%myTempBC(iTempBC)%Gradient/daux
+      myProcess%myTempBC(iTempBC)%bGradient = .true.
+     END IF
+
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"LinSphereGradient",cNormal,'OFF')
+     call inip_toupper_replace(cNormal) 
+     IF (ADJUSTL(TRIM(cNormal)).eq."OFF") THEN
+      myProcess%myTempBC(iTempBC)%bLinSphereGradient = .false.
+     ELSE
+      read(cNormal,*,err=57) myProcess%myTempBC(iTempBC)%LinSphereGradient
+      myProcess%myTempBC(iTempBC)%LinSphereGradient = myProcess%myTempBC(iTempBC)%LinSphereGradient/daux
+      myProcess%myTempBC(iTempBC)%bLinSphereGradient = .true.
+     END IF
      
-     GOTO 57     
-55   write(*,*) 'WRONGLY DEFINED center for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
-     GOTO 57
-56   write(*,*) 'WRONGLY DEFINED gradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
-     GOTO 57
-57   CONTINUE
+     call INIP_getvalue_string(parameterlist,cTempBC_i,"QuadSphereGradient",cNormal,'OFF')
+     call inip_toupper_replace(cNormal) 
+     IF (ADJUSTL(TRIM(cNormal)).eq."OFF") THEN
+      myProcess%myTempBC(iTempBC)%bQuadSphereGradient = .false.
+     ELSE
+      read(cNormal,*,err=58) myProcess%myTempBC(iTempBC)%QuadSphereGradient
+      myProcess%myTempBC(iTempBC)%QuadSphereGradient = myProcess%myTempBC(iTempBC)%QuadSphereGradient/daux
+      myProcess%myTempBC(iTempBC)%bQuadSphereGradient = .true.
+     END IF
+
+     GOTO 80     
+55   write(*,*) 'WRONGLY DEFINED Center for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
+     GOTO 80
+56   write(*,*) 'WRONGLY DEFINED Gradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
+     GOTO 80
+57   write(*,*) 'WRONGLY DEFINED LinSphereGradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
+     GOTO 80
+58   write(*,*) 'WRONGLY DEFINED QuadSphereGradient for TempBC',iTempBC,' !!'//"|",ADJUSTL(TRIM(cNormal)),"|"  
+     GOTO 80
+80   CONTINUE
 
     END DO
 
@@ -1951,7 +1981,19 @@
       
       call INIP_getvalue_double(parameterlist,cInflow_i,"temperature",myProcess%myInflow(iInflow)%temperature,myInf)
       if (myProcess%myInflow(iInflow)%temperature.eq.myInf) write(*,*) 'UNDEFINED temperature for Inflow',iInflow,' !!'
+      
+      call INIP_getvalue_double(parameterlist,cInflow_i,"TemperatureRange",myProcess%myInflow(iInflow)%TemperatureRange,0d0)
 
+      call INIP_getvalue_string(parameterlist,cInflow_i,"TemperatureType",cBCtype,'CNST') ! Default is cnst temperature (0)
+      call inip_toupper_replace(cBCtype)
+      myProcess%myInflow(iInflow)%temperatureType = 0
+      IF (ADJUSTL(TRIM(cBCtype)).eq."LINEAR") THEN
+       myProcess%myInflow(iInflow)%temperatureType = 1
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."QUADRATIC") THEN
+       myProcess%myInflow(iInflow)%temperatureType = 2
+      END IF
+      
       call INIP_getvalue_double(parameterlist,cInflow_i,"innerradius",myProcess%myInflow(iInflow)%innerradius,myInf)
       myProcess%myInflow(iInflow)%innerradius = daux*myProcess%myInflow(iInflow)%innerradius
       if (myProcess%myInflow(iInflow)%innerradius.eq.myInf) write(*,*) 'UNDEFINED inner radius for Inflow',iInflow,' !!'
