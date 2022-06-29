@@ -99,6 +99,7 @@ if (sExport%Format .eq. "VTK") then
   CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
 
   call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+  call viz_OutPut_Torque1D(iOutput)
   
   call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
   
@@ -212,6 +213,7 @@ subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, s
                                  ioutput_lvl, mgMesh)
 
 use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar
+USE var_QuadScalar,ONLY: myBoundary
 
 implicit none
 
@@ -327,6 +329,17 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Wall')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wall",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   IF (myBoundary%bWall(ivt)) THEN
+    write(iunit, '(A,E16.7)')"        ",1d0
+   ELSE
+    write(iunit, '(A,E16.7)')"        ",0d0
+   END IF
+  end do
+  write(iunit, *)"        </DataArray>"
+  
   case('FBM')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBM",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -534,6 +547,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","SegmentIndicator","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
+ CASE('Wall')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wall","""/>"
  CASE('FBM')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBM","""/>"
  CASE('Screw')
@@ -910,6 +925,45 @@ DO i=nBin,1,-1
 END DO
 
 end subroutine viz_CreateHistogram
+!
+!-------------------------------------------------------------------------------------------------
+! A wrapper routine for outputting 1D torque fields for the sse application
+!-------------------------------------------------------------------------------------------------
+subroutine viz_OutPut_Torque1D(iOut)
+USE PP3D_MPI, ONLY:myid
+USE var_QuadScalar, ONLY: my1DOut,my1DTorque
+use iniparser
+USE Sigma_User, ONLY: mySigma,myOutput
+
+implicit none
+integer :: iOut
+character cf2*128
+integer :: i,ifile
+logical :: bfileExists
+
+
+IF (myid.eq.1.and.allocated(my1DTorque)) THEN
+
+ WRITE(cf2,'(A,I4.4,A)') '_1D/torque_',iOut,'.res'
+
+ call inip_openFileForWriting(cf2, ifile, INIP_REPLACE, bfileExists, .TRUE.)
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN 
+  WRITE(ifile,'(3A20)') "AxialPos_[mm/s],","TorqueL_[N/m],","TorqueR_[N/m]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(3ES20.4)') 1d1*my1DOut(1)%dLoc(i),1d-7*my1DTorque(1,i),1d-7*my1DTorque(2,i)
+  END DO
+ ELSE
+  WRITE(ifile,'(2A20)') "AxialPos_[mm/s],","Torque_[N/m]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(3ES20.4)') 1d1*my1DOut(1)%dLoc(i),1d-7*my1DTorque(1,i)
+  END DO
+ END IF
+
+ CLOSE(ifile)
+ 
+END IF
+
+end subroutine viz_OutPut_Torque1D
 !
 !-------------------------------------------------------------------------------------------------
 ! A wrapper routine for outputting 1D fields for an sse application

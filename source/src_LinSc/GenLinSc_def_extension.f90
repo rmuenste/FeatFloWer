@@ -51,6 +51,7 @@ DO iFld = 1,nFld
  ALLOCATE(myScalar%Fld(iFld)%def(ndof))
  ALLOCATE(myScalar%Fld(iFld)%aux(ndof))
  ALLOCATE(myScalar%Fld(iFld)%rhs(ndof))
+ ALLOCATE(myScalar%Fld(iFld)%rhs0(ndof))
  ALLOCATE(myScalar%Fld(iFld)%val(ndof))
  ALLOCATE(myScalar%Fld(iFld)%val_old(ndof))
  ALLOCATE(myScalar%Fld(iFld)%val_old_timestep(ndof))
@@ -146,11 +147,12 @@ EXTERNAL E011
   
  END IF
  
- IF (idef.le.0) then
-  DO iFld=1,lSc%nOfFields
-   CALL DefTVD_LinScalar(lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep)
-  END DO
- end if
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ DO iFld=1,lSc%nOfFields
+  CALL DefTVD_LinScalar(lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep)
+ END DO
 
 
 END SUBROUTINE Matdef_INSTATIONARY_GenLinSc_Q1
@@ -170,7 +172,7 @@ EXTERNAL E011
    CALL SETLEV(2)
 
    HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
-   IF (ASSOCIATED(AlphaDiffMat)) AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+   AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
    LMassMat      => mg_LMassMat(ILEV)%a
    ConvectionMat =>  mg_ConvMat(ILEV)%a
    plMat  => mg_lMat(ILEV)
@@ -206,7 +208,7 @@ EXTERNAL E011
  CALL SETLEV(2)
 
  HeatDiffMat   => mg_HeatDiffMat(ILEV)%a
- IF (ASSOCIATED(AlphaDiffMat)) AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+ AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
  LMassMat      => mg_LMassMat(ILEV)%a
  ConvectionMat => mg_ConvMat(ILEV)%a
  plMat  => mg_lMat(ILEV)
@@ -214,20 +216,28 @@ EXTERNAL E011
  ! Build up the defect
  IF (idef.eq. 1) THEN
   DO iFld=1,lSc%nOfFields
-  
-   lSc%fld(iFld)%def = 0d0
-   DO j=1,plMat%nu
-    lSc%fld(iFld)%def(j) = lSc%fld(iFld)%def(j) + LMassMat(j)*lSc%fld(iFld)%val(j)
-   END DO
-   
-   CALL LAX17(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
-   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
-   
+       
    IF (TRIM(lSc%Fld(iFld)%cName).eq.'temp') then
+    
+    DO j=1,plMat%nu
+     lSc%fld(iFld)%def(j) = LMassMat(j)*lSc%fld(iFld)%val(j)
+    END DO
+    
+    CALL LAX17(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
+    lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+    
     CALL LAX17(HeatDiffMat,plMat%ColA,plMat%LdA,plMat%nu,&
     lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
-   END IF
-   IF (TRIM(lSc%Fld(iFld)%cName).eq.'alpha1') then
+    
+   ELSE
+   
+    DO j=1,plMat%nu
+     lSc%fld(iFld)%def(j) = LMassMat(j)*lSc%fld(iFld)%val(j)
+    END DO
+    
+    CALL LAX17(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
+    lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+
     CALL LAX17(AlphaDiffMat,plMat%ColA,plMat%LdA,plMat%nu,&
     lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
    END IF
@@ -243,11 +253,12 @@ EXTERNAL E011
   
  END IF
  
- IF (idef.le.0) then
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  
   DO iFld=1,lSc%nOfFields
    CALL DefTVD_LinScalar(lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep)
   END DO
- end if
 
 
 END SUBROUTINE Matdef_HEATALPHA_GenLinSc_Q1
@@ -322,7 +333,7 @@ integer iFld
 ! rhsScalar = RESF
 
 do iFld = 1,lSc%nOfFields
- resScalar(iFld) = 0d0 
+ CALL LL21 (lSc%fld(iFld)%val,lSc%ndof,resScalar(iFld))
  CALL LL21 (lSc%fld(iFld)%def,lSc%ndof,defScalar(iFld))
 !  write(*,*) myid,defScalar(iFld)
  rhsScalar(iFld) = 0d0 
@@ -359,7 +370,7 @@ EXTERNAL Bndry_Mat
   daux = 0d0
   DO iFld=1,lSc%nOfFields
    CALL LL21 (lSc%fld(iFld)%def,lSc%ndof,dnrm(iFld))
-!    CALL LCL1 (lSc%fld(iFld)%val,lSc%ndof)
+   CALL LCL1 (lSc%fld(iFld)%val,lSc%ndof)
    daux = MAX(daux,dnrm(iFld))
   END DO
  END IF
@@ -445,9 +456,6 @@ myStat%tMGUVW = myStat%tMGUVW + (myStat%t1-myStat%t0)
 myStat%iLinUVW = myStat%iLinUVW + lSc%prm%MGprmOut(1)%UsedIterCycle &
                                 + lSc%prm%MGprmOut(2)%UsedIterCycle &
                                 + lSc%prm%MGprmOut(3)%UsedIterCycle
-
- ! write(*,*) 'reaching MG ...', daux
- ! pause
 
 END SUBROUTINE Solve_GenLinSc_Q1_MGLinScalar
 !
@@ -727,24 +735,34 @@ END SUBROUTINE Get_GenLinSc_Q1_Parameters
 SUBROUTINE Create_GenLinSc_Q1_AFCStruct()
 INTEGER I,ILOC
 
-ILEV = NLMAX
+! ILEV = NLMAX
 
 plMat  => mg_lMat(ILEV)
 
 AFC%nedge = (plMat%na-plMat%nu)/2
 AFC%nu = plMat%nu
 
+IF (allocated(AFC%iaux)) deallocate(AFC%iaux)
+IF (allocated(AFC%isep)) deallocate(AFC%isep)
 ALLOCATE(AFC%iaux(AFC%nu))
 ALLOCATE(AFC%isep(AFC%nu))
 AFC%iaux = 0
 AFC%isep = 0
 
+IF (allocated(AFC%inod)) deallocate(AFC%inod)
+IF (allocated(AFC%jnod)) deallocate(AFC%jnod)
 ALLOCATE(AFC%inod (AFC%nedge))
 ALLOCATE(AFC%jnod (AFC%nedge))
 AFC%inod = 0
 AFC%jnod = 0
+
+IF (allocated(AFC%aedge)) deallocate(AFC%aedge)
 ALLOCATE(AFC%aedge(AFC%nedge))
 
+IF (allocated(AFC%pp)) deallocate(AFC%pp)
+IF (allocated(AFC%pm)) deallocate(AFC%pm)
+IF (allocated(AFC%qp)) deallocate(AFC%qp)
+IF (allocated(AFC%qm)) deallocate(AFC%qm)
 ALLOCATE(AFC%pp(AFC%nu))
 ALLOCATE(AFC%pm(AFC%nu))
 ALLOCATE(AFC%qp(AFC%nu))
@@ -758,14 +776,13 @@ END SUBROUTINE Create_GenLinSc_Q1_AFCStruct
 !
 SUBROUTINE InitAFC_GenLinSc_Q1()
 
- ILEV = NLMAX
+!  ILEV = NLMAX
  
  ConvectionMat =>  mg_ConvMat(ILEV)%a
  plMat  => mg_lMat(ILEV)
-
  CALL AFC_LinScalar(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
       AFC%isep,AFC%iaux,AFC%inod,AFC%jnod,AFC%aedge)
-      
+
 END SUBROUTINE InitAFC_GenLinSc_Q1
 !
 ! ----------------------------------------------

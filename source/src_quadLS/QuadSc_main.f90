@@ -6,7 +6,7 @@ USE def_QuadScalar
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier,coarse
-USE Parametrization,ONLY : InitBoundaryStructure,myParBndr,&
+USE Parametrization,ONLY : InitBoundaryStructure,ReviseWallBC,myParBndr,&
 ParametrizeQ2Nodes
 
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEASE
@@ -430,6 +430,14 @@ real*8 :: myInf
  CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
                             mg_mesh%level(ILEV)%kedge)
 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ CALL ReviseWallBC(mg_mesh,ilev)
+!  DO ILEV=NLMIN,NLMAX
+!  END DO
+ ILEV=NLMAX
+ CALL SETLEV(2)
+                            
  Properties%cName = "Prop"
  CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
 

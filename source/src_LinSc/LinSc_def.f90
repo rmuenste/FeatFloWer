@@ -84,14 +84,16 @@ ALLOCATE(AFC%pm(AFC%nu))
 ALLOCATE(AFC%qp(AFC%nu))
 ALLOCATE(AFC%qm(AFC%nu))
 
-DO I=1,AFC%nu
-  ILOC=lMat%LdA(I)
-1 ILOC=ILOC+1 
-  if(iloc .le. lMat%na)then
-    IF (lMat%ColA(ILOC).LT.I.AND.ILOC.LT.lMat%LdA(I+1)) GOTO 1
-    AFC%isep(I)=ILOC-1
-  end if
-END DO
+! DO I=1,AFC%nu
+!   ILOC=lMat%LdA(I)
+! 1 ILOC=ILOC+1 
+!   if(iloc .le. lMat%na)then
+!     IF (lMat%ColA(ILOC).LT.I.AND.ILOC.LT.lMat%LdA(I+1)) GOTO 1
+!     AFC%isep(I)=ILOC-1
+!   end if
+! END DO
+
+CALL Configure_AFCStruct(lMat%ColA,lMat%LdA,lMat%nu,AFC%isep)
 
 END SUBROUTINE Create_AFCStruct
 !

@@ -3518,12 +3518,18 @@ if (myid.eq.0) return
    write(cfile(ilen+1:),'(A)') "/temperature.lst"
 
    call inip_openFileForReading(cfile, ifile, .true.)
-   ndofs = QuadSc%ndof
-   read(ifile,*)
-
-   DO ivt=1,ndofs
-    read(ifile,*) temperature(ivt)
-   END DO 
+   IF (ifile.gt.0) then
+    ndofs = QuadSc%ndof
+    read(ifile,*)
+    DO ivt=1,ndofs
+     read(ifile,*) temperature(ivt)
+    END DO 
+   else
+    write(*,*) 'the LST file '//adjustl(trim(cfile))//' is NOT available! skipping the read sequence ... '
+    
+    temperature = myProcess%T0
+   end if
+   
   END IF
  if (adjustl(trim(cf)).eq.'p'.or.adjustl(trim(cf)).eq.'P') THEN
    write(cfile(ilen+1:),'(A)') "/pressure.lst"

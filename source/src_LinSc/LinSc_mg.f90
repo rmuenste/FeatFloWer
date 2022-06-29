@@ -288,8 +288,8 @@ IF (myid.ne.0) THEN
  END IF
  
  IF (MyMG%cVariable.EQ."Temper") THEN !done
+  NN = KNVT(mgLev)
   DO iFld=1,myMG%nOfFields
-   NN = KNVT(mgLev)
    DO I=1,NN
     J=(iFld-1)*NN + I
     if (myMG%knpr(J).ne.0) myMG%AUX(II)%x(J) = 0d0
@@ -297,7 +297,6 @@ IF (myid.ne.0) THEN
   END DO
 
   CALL LL21(myMG%AUX(II)%x,ndof,DefNorm)
-!   write(*,*) DefNorm,myid
  END IF
  
 END IF
@@ -891,7 +890,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-16) THEN
+     IF (ABS(A(I,J)).GT.1d-32) THEN
       RLDA(JJ+1) = RLDA(JJ+1) + 1
       KK = KK + 1
      END IF
@@ -973,7 +972,7 @@ DO IEL=1,NEL1
     KK = 0
     DO J=1,8
      JJ = IND_J(J)
-     IF (ABS(A(I,J)).GT.1d-16) THEN
+     IF (ABS(A(I,J)).GT.1d-32) THEN
       JJ_POS = RLDA(JJ) + RLDB(JJ+1)
       II_POS = PLDA(II) + KK
       RCOLA(JJ_POS) = II

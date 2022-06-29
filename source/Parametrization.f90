@@ -195,6 +195,108 @@ END SUBROUTINE InitBoundaryStructure
 !
 !----------------------------------------------------------------------------------------
 !
+SUBROUTINE ReviseWallBC(mgMesh,ilevel)
+integer :: ilevel
+type(tMultiMesh) :: mgMesh
+!integer ivt,ndof
+integer inode,i,j,k,iel,iat,ivt1,ivt2,ivt3,ivt4,nn
+integer nn_000,nn_nvt,nn_net,nn_nat,nn_nel
+REAL*8, ALLOCATABLE :: daux(:)
+INTEGER NeighA(4,6),NeighU(4,6)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+DATA NeighU/1,2,3,4,1,6,9,5,2,7,10,6,3,8,11,7,4,5,12,8,9,10,11,12/
+
+! 
+!  ndof = mgMesh%level(ilevel)%nvt + &
+!         mgMesh%level(ilevel)%net + &
+!         mgMesh%level(ilevel)%nat + &
+!         mgMesh%level(ilevel)%nel
+!         
+!  DO iBnds=1,nBnds
+!   IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') THEN
+!    DO ivt=1,ndof
+!      IF (.not.mgMesh%BndryNodes(ivt)%bOuterPoint) THEN
+!       myBoundary%bWall(ivt) = .FALSE.
+!      END IF
+!    END DO
+!   END IF
+!  END DO
+nn_000 = 0 
+nn_NVT = mgMesh%level(ilevel)%nvt 
+nn_NET = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net
+nn_NAT = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net + mgMesh%level(ilevel)%nat
+nn_NEL = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net + mgMesh%level(ilevel)%nat + mgMesh%level(ilevel)%nel
+
+ALLOCATE(daux(nn_NEL))
+daux = 0d0
+
+DO iBnds=1,nBnds
+ IF (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).EQ.'Wall') THEN
+  
+  myBoundary%bWall(nn_000+1:nn_NET) = .FALSE.
+  myBoundary%bWall(nn_nat+1:nn_NEL) = .FALSE.
+  
+  k = 1
+  DO iel=1,mgMesh%level(ilevel)%nel
+    DO j=1,6
+      IF (k.eq.mgMesh%level(ilevel)%karea(j,iel)) THEN
+        iat = nn_NET + k
+        IF (myBoundary%bWall(iat).and.mgMesh%BndryNodes(iat)%bOuterPoint) THEN
+!         IF (myBoundary%bWall(iat).and.mgMesh%BndryNodes(iat)%bOuterPoint.and.(.not.myBoundary%bOutFlow(iat))) THEN
+          
+          ! CornerPoints
+          ivt1 = mgMesh%level(ilevel)%kvert(NeighA(1,j),iel)
+          ivt2 = mgMesh%level(ilevel)%kvert(NeighA(2,j),iel)
+          ivt3 = mgMesh%level(ilevel)%kvert(NeighA(3,j),iel)
+          ivt4 = mgMesh%level(ilevel)%kvert(NeighA(4,j),iel)
+          myBoundary%bWall(ivt1) = .TRUE.
+          myBoundary%bWall(ivt2) = .TRUE.
+          myBoundary%bWall(ivt3) = .TRUE.
+          myBoundary%bWall(ivt4) = .TRUE.
+          
+          ! EdgePoints
+          ivt1 = mgMesh%level(ilevel)%kedge(NeighU(1,j),iel)
+          ivt2 = mgMesh%level(ilevel)%kedge(NeighU(2,j),iel)
+          ivt3 = mgMesh%level(ilevel)%kedge(NeighU(3,j),iel)
+          ivt4 = mgMesh%level(ilevel)%kedge(NeighU(4,j),iel)
+          myBoundary%bWall(nn_nvt+ivt1) = .TRUE.
+          myBoundary%bWall(nn_nvt+ivt2) = .TRUE.
+          myBoundary%bWall(nn_nvt+ivt3) = .TRUE.
+          myBoundary%bWall(nn_nvt+ivt4) = .TRUE.
+          
+          ! FacePoint
+          myBoundary%bWall(iat) = .TRUE.
+        ELSE
+          myBoundary%bWall(iat) = .FALSE.
+        END IF
+        k = k + 1
+      END IF
+    END DO
+  END DO
+ END IF
+END DO
+
+if (bParallel) then
+ daux = 0d0
+ do i=1,nn_NEL
+  if (myBoundary%bWall(i)) then
+   daux(i) = 1d0
+  end if
+ end do
+ CALL E013SUM(daux)
+ do i=1,NN_NEL
+  if (daux(i).ge.1d0) then
+   myBoundary%bWall(i) = .true.
+  end if
+ end do
+end if
+
+DEALLOCATE(daux)
+
+END SUBROUTINE ReviseWallBC
+!
+!----------------------------------------------------------------------------------------
+!
 SUBROUTINE ParametrizeQ2Nodes(dCoor)
 REAL*8 dCoor(3,*)
 INTEGER I1,I2

@@ -1405,11 +1405,22 @@ C
 C *** Loop over all elements
       DO 100 IEL=1,NEL
 C
-      IF (INT(SEGINFO(NVT+NET+NAT+IEL)).eq.0) THEN
-       DDD = 1d-3*dDiffCoeff
-      ELSE
-       DDD = dDiffCoeff
-      END IF
+!       IF (INT(SEGINFO(NVT+NET+NAT+IEL)).eq.0) THEN
+!        DDD = 1d-3*dDiffCoeff
+!       ELSE
+!        DDD = 1d0*dDiffCoeff
+!       END IF
+C
+      DDD = 0d0
+      DO J=1,8
+       ivt = KVERT(J,iel)     
+       iSeg = INT(SEGINFO(ivt))
+       if (iseg.eq.0) then
+        DDD = DDD + 0.125d-3*dDiffCoeff
+       else
+        DDD = DDD + 0.125d0*dDiffCoeff
+       end if
+      END DO
 C     
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
       IF (IER.LT.0) GOTO 99999

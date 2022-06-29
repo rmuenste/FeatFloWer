@@ -13,6 +13,7 @@ IF (myid.ne.0) THEN
   
   ! Convection + stabilization
   CALL Create_GenLinSc_Q1_RhoCpConvection()
+  ILEV=NLMAX
   CALL InitAFC_GenLinSc_Q1()
 
   CALL Create_GenLinSc_Q1_RhoCpMass()
@@ -210,26 +211,35 @@ if (.not.allocated(DefTempCrit)) allocate(DefTempCrit(GenLinScalar%nOfFields))
 if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
 
 IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+! DO iFld = 1,GenLinScalar%nOfFields
+!  DO i=1,GenLinScalar%ndof
+!   GenLinScalar%Fld(iFld)%val(i) = min(1d0,max(0d0,GenLinScalar%Fld(iFld)%val(i)))
+!  END DO
+! END DO
+
 DO iFld = 1,GenLinScalar%nOfFields
- GenLinScalar%Fld(iFld)%val_old_timestep = GenLinScalar%Fld(iFld)%val
+ CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old_timestep,GenLinScalar%ndof)
 END DO
 
 ! Generate the necessary operators
+
 IF (myid.ne.0) THEN
 
  if (bInit) then
-  ! Convection + stabilization
-  CALL Create_GenLinSc_Q1_Convection()
-  CALL InitAFC_GenLinSc_Q1()
 
   ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
   CALL Create_GenLinSc_Q1_Mass(1d0)
 
   ! Diffusion Matrix for the alpha fields
   CALL Create_GenLinSc_Q1_Alpha_Diffusion(1d-1)
+
+  ! Convection + stabilization
+  CALL Create_GenLinSc_Q1_AFCConvection()
+
   bInit = .false.
  end if
- 
+
  ! Diffusion Matrix scales with Lambda/Rho*Cp ==> which is material specific
  CALL Create_GenLinSc_Q1_DiffCoeff(GenLinScalar)
  CALL Create_GenLinSc_Q1_Heat_Diffusion()
@@ -242,14 +252,10 @@ IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the solution
  CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
 
- DO iFld = 1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%def = 0d0
- END DO
-
  CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
 
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%rhs = GenLinScalar%Fld(iFld)%def
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%rhs0,GenLinScalar%ndof)
  END DO
 END IF
 
@@ -262,13 +268,13 @@ IF (myid.ne.0) THEN
  CALL Boundary_GenLinSc_Q1_Def()
 
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%aux,GenLinScalar%ndof)
   CALL E011Sum(GenLinScalar%fld(iFld)%def)
  END DO
 
  ! Save the old solution
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+  CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old,GenLinScalar%ndof)
  END DO
 
  !! Compute the defect
@@ -292,7 +298,6 @@ CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,0,&
 do INL=1,GenLinScalar%prm%NLmax
 INLComplete = 0
 
-! Calling the solver
 CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
                                    Boundary_GenLinSc_Q1_Mat,&
                                    mfile)
@@ -304,7 +309,7 @@ IF (myid.ne.0) THEN
  
  ! Restore the constant right hand side
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%fld(iFld)%def = GenLinScalar%fld(iFld)%rhs
+  CALL LCP1(GenLinScalar%Fld(iFld)%rhs0,GenLinScalar%Fld(iFld)%def,GenLinScalar%ndof)
  END DO
 
 ! Assemble the defect vector and fine level matrix
@@ -314,13 +319,13 @@ IF (myid.ne.0) THEN
  CALL Boundary_GenLinSc_Q1_Def()
 
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%aux = GenLinScalar%Fld(iFld)%def
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%aux,GenLinScalar%ndof)
   CALL E011Sum(GenLinScalar%fld(iFld)%def)
  END DO
 
 ! Save the old solution
  DO iFld=1,GenLinScalar%nOfFields
-  GenLinScalar%Fld(iFld)%val_old = GenLinScalar%Fld(iFld)%val
+  CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old,GenLinScalar%ndof)
  END DO
 
 ! Compute the defect
@@ -398,6 +403,7 @@ IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
 IF (myid.ne.0) THEN
 
  CALL Create_GenLinSc_Q1_Convection()
+ ILEV=NLMAX
  CALL InitAFC_GenLinSc_Q1()
 
  CALL Create_GenLinSc_Q1_Mass(1d0)
@@ -577,6 +583,7 @@ integer :: n, ndof, iFld
  END DO
 
  !  ! Building up the matrix strucrures
+ ILEV = NLMAX
  CALL Create_GenLinSc_Q1_AFCStruct()
 
  IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
@@ -664,9 +671,6 @@ integer :: n, ndof, iFld,nMaterials
   END IF
  END DO
 
- !  ! Building up the matrix strucrures
- CALL Create_GenLinSc_Q1_AFCStruct()
-
  IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
  
 !!=========================================================================
@@ -745,6 +749,7 @@ integer :: n, ndof, iFld,nMaterials,i
 !  call Knpr_GenLinSc_HEATALPHA_Q1(mg_mesh%level(ilev)%dcorvg)
 
  !  ! Building up the matrix strucrures
+ ILEV = NLMAX
  CALL Create_GenLinSc_Q1_AFCStruct()
 
  IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
@@ -1047,15 +1052,14 @@ END SUBROUTINE Create_GenLinSc_Q1_RhoCpConvection
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_GenLinSc_Q1_Convection()
+SUBROUTINE Create_GenLinSc_Q1_AFCConvection
 INTEGER I,J,jLEV
 EXTERNAL E011
 integer invt, inet, inat, inel
 
  IF (.not.allocated(mg_ConvMat)) allocate(mg_ConvMat(NLMIN:NLMAX))
 
- DO ILEV=NLMIN,NLMAX-1
-   JLEV = ILEV-1
+ DO ILEV=NLMIN,NLMAX
 
    CALL SETLEV(2)
    IF (.not.allocated(mg_ConvMat(ILEV)%a)) allocate(mg_ConvMat(ILEV)%a(mg_lMat(ILEV)%na))
@@ -1078,7 +1082,86 @@ integer invt, inet, inat, inel
    mg_mesh%level(ilev)%kvert,&
    mg_mesh%level(ilev)%karea,&
    mg_mesh%level(ilev)%kedge,&
+   mg_mesh%level(ilev)%knpr,& ! fake "kint"
+   mg_mesh%level(ilev)%dcorvg,&
+   E011)
+
+  CALL Create_GenLinSc_Q1_AFCStruct()
+  
+  CALL InitAFC_GenLinSc_Q1()
+   
+ END DO
+
+!  ILEV=NLMAX
+!  JLEV = ILEV-1
+!  CALL SETLEV(2)
+!  IF (.not.allocated(mg_ConvMat(ILEV)%a)) allocate(mg_ConvMat(ILEV)%a(mg_lMat(ILEV)%na))
+!  ConvectionMat=>mg_ConvMat(ILEV)%a
+!  plMat=>mg_lMat(ILEV)
+!  ConvectionMat = 0d0
+!  IF (myid.eq.showID) THEN
+!   IF (ILEV.EQ.NLMIN) THEN
+!    WRITE(MTERM,'(A,I1,A)', advance='no') " [K]: [", ILEV,"]"
+!   ELSE
+!    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!   END IF
+!  END IF
+!  CALL Conv_LinSc2(QuadSc%valU,QuadSc%valV,QuadSc%valW,ConvectionMat,&
+!  plMat%nu,plMat%ColA,plMat%LdA,&
+!  mg_mesh%level(ilev)%kvert,&
+!  mg_mesh%level(ilev)%karea,&
+!  mg_mesh%level(ilev)%kedge,&
+!  mg_mesh%level(ilev)%dcorvg,&
+!  mg_mesh%level(ilev)%kadj,&
+!  mg_mesh%level(jlev)%kvert,&
+!  mg_mesh%level(jlev)%karea,&
+!  mg_mesh%level(jlev)%kedge,&
+!  mg_mesh%level(jlev)%nel,&
+!  mg_mesh%level(jlev)%nvt,&
+!  mg_mesh%level(jlev)%net,&
+!  mg_mesh%level(jlev)%nat,E011)
+! 
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='yes') " |"
+! 
+!  CALL Create_GenLinSc_Q1_AFCStruct()
+!  
+!  CALL InitAFC_GenLinSc_Q1()
+
+END SUBROUTINE Create_GenLinSc_Q1_AFCConvection
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GenLinSc_Q1_Convection()
+INTEGER I,J,jLEV
+EXTERNAL E011
+integer invt, inet, inat, inel
+
+ IF (.not.allocated(mg_ConvMat)) allocate(mg_ConvMat(NLMIN:NLMAX))
+
+ DO ILEV=NLMIN,NLMAX-1
+
+   CALL SETLEV(2)
+   IF (.not.allocated(mg_ConvMat(ILEV)%a)) allocate(mg_ConvMat(ILEV)%a(mg_lMat(ILEV)%na))
+
+   IF (myid.eq.showID) THEN
+    IF (ILEV.EQ.NLMIN) THEN
+     WRITE(MTERM,'(A,I1,A)', advance='no') " [K]: [", ILEV,"]"
+    ELSE
+     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+    END IF
+   END IF
+   
+   ConvectionMat=>mg_ConvMat(ILEV)%a
+   plMat=>mg_lMat(ILEV)
+
+   ConvectionMat = 0d0
+
+   CALL Conv_LinSc1(QuadSc%valU,QuadSc%valV,QuadSc%valW,ConvectionMat,&
+   plMat%nu,plMat%ColA,plMat%LdA,&
+   mg_mesh%level(ilev)%kvert,&
+   mg_mesh%level(ilev)%karea,&
    mg_mesh%level(ilev)%kedge,&
+   mg_mesh%level(ilev)%knpr,& ! fake "kint"
    mg_mesh%level(ilev)%dcorvg,&
    E011)
    
@@ -1295,6 +1378,8 @@ real*8 dVolume,dFlow,ResidenceTime
 
 dVolume = 0d0
 
+IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
 IF (myid.ne.0) THEN
 
  ! Mass Matrix scales with factor 1.0 because the equation is divided by Rho*Cp
@@ -1324,6 +1409,8 @@ do iInflow=1,myProcess%nOfInflows
 enddo
 dFlow = (dFlow/3600d0)/(1e3*myThermodyn%density) ! (kg/s)/(kg/m3) = m3/s
 dFlow = 1e6*dFlow ! cm3/s
+
+IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
 
 ResidenceTime = dVolume/dFlow
 tstep = ResidenceTime/600d0
