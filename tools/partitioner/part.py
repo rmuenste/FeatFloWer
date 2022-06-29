@@ -290,6 +290,9 @@ def OutputGrid(Name,Grid):
 
 def MultPartitionAlongAxis(Grid,nSubMesh,Method):
   (nel,nvt,coord,kvert,knpr)=Grid
+  # An array that tells you in which partition the i-th is
+  # Let Part be a list of tuples (x, y, z) where x, y, z are the
+  # cartesian indices of the partition
   Part=[0,]*nel
   Dir = 2
   zCoords = [p[2] for p in coord]
@@ -297,6 +300,8 @@ def MultPartitionAlongAxis(Grid,nSubMesh,Method):
   zCoords.sort()
   zMin = zCoords[0]
   zMax = zCoords[numCoords-1]
+
+  # The delta for the current subdivion
   dZ = (zMax - zMin) / nSubMesh
   theList = [i * dZ for i in range(1, nSubMesh + 1)]
   print(zMin)
@@ -308,6 +313,79 @@ def MultPartitionAlongAxis(Grid,nSubMesh,Method):
     for idx, val in enumerate(theList):
       if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
         Part[ElemIdx]=idx + 1
+        break
+
+  return tuple(Part)
+
+def PartitionAlongAllAxes(Grid,nSubMesh,Method):
+  (nel,nvt,coord,kvert,knpr)=Grid
+  # An array that tells you in which partition the i-th is
+  # Let Part be a list of tuples (x, y, z) where x, y, z are the
+  # cartesian indices of the partition
+  Part=[[0, 0, 0],]*nel
+  Dir = 2
+  zCoords = [p[2] for p in coord]
+  numCoords = len(zCoords)  
+  zCoords.sort()
+  zMin = zCoords[0]
+  zMax = zCoords[numCoords-1]
+
+  # The delta for the z-subdivision
+  dZ = (zMax - zMin) / nSubMesh
+  theList = [i * dZ for i in range(1, nSubMesh + 1)]
+  print(zMin)
+  print(zMax)
+  print(dZ)
+  print(theList)
+  PosFak=1
+  for (ElemIdx,Elem) in enumerate(kvert):
+    for idx, val in enumerate(theList):
+      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+        Part[ElemIdx][0]=idx + 1
+        break
+
+  # y-subdivision
+  Dir = 1
+  yCoords = [p[1] for p in coord]
+  numCoords = len(yCoords)  
+  yCoords.sort()
+  yMin = yCoords[0]
+  yMax = yCoords[numCoords-1]
+
+  # The delta for the y-subdivision
+  dY = (yMax - yMin) / nSubMesh
+  theList = [i * dY for i in range(1, nSubMesh + 1)]
+  print(yMin)
+  print(yMax)
+  print(dY)
+  print(theList)
+  PosFak=1
+  for (ElemIdx,Elem) in enumerate(kvert):
+    for idx, val in enumerate(theList):
+      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+        Part[ElemIdx][1]=idx + 1
+        break
+
+  # x-subdivision
+  Dir = 0
+  xCoords = [p[Dir] for p in coord]
+  numCoords = len(xCoords)  
+  xCoords.sort()
+  xMin = xCoords[0]
+  xMax = xCoords[numCoords-1]
+
+  # The delta for the y-subdivision
+  dX = (xMax - xMin) / nSubMesh
+  theList = [i * dX for i in range(1, nSubMesh + 1)]
+  print(xMin)
+  print(xMax)
+  print(dX)
+  print(theList)
+  PosFak=1
+  for (ElemIdx,Elem) in enumerate(kvert):
+    for idx, val in enumerate(theList):
+      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+        Part[ElemIdx][0]=idx + 1
         break
 
   return tuple(Part)
@@ -331,6 +409,7 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
 
   if nSub !=nSubMesh:
     return MultPartitionAlongAxis(Grid,nSubMesh,Method)
+#    return PartitionAlongAllAxes(Grid,nSubMesh,Method)
 
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid
@@ -364,17 +443,17 @@ elif os.name=="nt":
 else:
   sys.exit("Loading of Metis not yet implemented for platform '%s'!"%os.name)
 
-if metis==None:
-  sys.exit("Could not load the Metis library!")
-
-# Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
-_pidx=POINTER(c_int)
-_pint=POINTER(c_int)
-_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
-metis.METIS_PartGraphRecursive.argtypes=_PartArgs
-metis.METIS_PartGraphVKway.argtypes=_PartArgs
-metis.METIS_PartGraphKway.argtypes=_PartArgs
-metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
+#if metis==None:
+#  sys.exit("Could not load the Metis library!")
+#
+## Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
+#_pidx=POINTER(c_int)
+#_pint=POINTER(c_int)
+#_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
+#metis.METIS_PartGraphRecursive.argtypes=_PartArgs
+#metis.METIS_PartGraphVKway.argtypes=_PartArgs
+#metis.METIS_PartGraphKway.argtypes=_PartArgs
+#metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
 
 if __name__=="__main__":
   if metis!=None:
