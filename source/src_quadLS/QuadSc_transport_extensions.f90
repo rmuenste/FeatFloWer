@@ -1322,7 +1322,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
 
-CALL updateFBMGeometry()
+CALL updateFBMGeometry(.false.)
 
 thstep = tstep*(1d0-theta)
 

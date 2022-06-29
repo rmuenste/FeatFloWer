@@ -248,7 +248,7 @@ IF (iT.EQ.200) THEN
 END IF
 
 IF (iT.EQ.3) THEN
- ValU= 1d0
+ ValU= 3d0
  ValV= 0d0
  ValW= 0d0
 END IF

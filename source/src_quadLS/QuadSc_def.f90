@@ -156,7 +156,7 @@ SUBROUTINE Create_LinMatStruct()
 
   CALL SETLEV(2)
   qlMat => mg_qlMat(ILEV)
-  qlPMat => mg_qlPMat(ILEV)
+!  qlPMat => mg_qlPMat(ILEV)
 
   CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
                    mg_mesh%level(ILEV)%kvert,&
@@ -183,7 +183,7 @@ SUBROUTINE Create_LinMatStruct()
  ILEV=NLMAX
  CALL SETLEV(2)
 
- qlMat => mg_qlMat(NLMAX)
+! qlMat => mg_qlMat(NLMAX)
  lMat  => mg_lMat(NLMAX)
 
 END SUBROUTINE Create_LinMatStruct

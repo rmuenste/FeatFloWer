@@ -33,10 +33,12 @@ integer, parameter, public :: SRCH_MAXITER = 6
 integer, parameter, public :: SRCH_RES7 = 7
 
 interface
-logical(c_bool) function checkAllParticles(inpr, pos) bind(C, name="checkAllParticles")
-  use iso_c_binding, only: c_int, c_bool, c_double
-  integer(c_int) :: idx
+logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
+  use iso_c_binding, only: c_int, c_bool, c_double, c_short
+  integer(c_int), value :: vidx
+  integer(c_int) :: inpr
   real(c_double) :: pos(*)
+  integer(c_short), dimension(8) :: bytes
   end function
 end interface
 
@@ -106,9 +108,10 @@ end subroutine fbm_updateFBM
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_updateFBMGeom(px, py, pz, bndryId, fictId, dist, usr_geomFBM)
+subroutine fbm_updateFBMGeom(px, py, pz, bndryId, fictId, dist, vidx, longFictId, usr_geomFBM)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
+use iso_c_binding, only: c_short
 
 ! Coordinates of the query point 
 real*8, intent(in) :: px, py, pz 
@@ -117,27 +120,34 @@ real*8, intent(in) :: px, py, pz
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer(kind=16), intent(inout) :: fictId
+integer, intent(inout) :: fictId
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
+
+! vidx
+integer, intent(in) :: vidx
+
+! long FictId
+type(tUint64) :: longFictId
 
 include 'fbm_geom_include.h'
 procedure(fbm_geom_handler) :: usr_geomFBM 
 
 ! Begin function
 
- call usr_geomFBM(px, py, pz, bndryId, fictId, dist)
+ call usr_geomFBM(px, py, pz, bndryId, fictId, dist, vidx, longFictId)
 
 end subroutine fbm_updateFBMGeom
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist)
+subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !
 use var_QuadScalar, only : myFBM
+use iso_c_binding, only: c_short
 implicit none
 
 ! Coordinates of the query point 
@@ -147,53 +157,45 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer(kind=16), intent(inout) :: inpr
+integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
 
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
+
 ! local variables
-integer :: IP,ipc, nparticles, remParticles, key
+integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
 double precision, dimension(3) :: point
 
  inpr = 0
+ longFictId%bytes(:) = -1
  key = 0
  dist = 1000.0d0
 
  nparticles = 0
  remParticles = 0
 
+ cvidx = vidx
+
  point(1) = x
  point(2) = y
  point(3) = z
- if( checkAllParticles(key, point) )then
-   inpr = key 
- end if
 
-! key = 0
-! nparticles = numLocalParticles()
-! DO IP = 1,nparticles
-!  ipc=ip-1
-!  point(1) = x
-!  point(2) = y
-!  point(3) = z
-!  if( objectContainsPoint(ipc, point) )then
-!   inpr = 1 
-!  end if
-!  key = key + 1
-! end do
-!
-! remParticles =  numRemParticles() 
-! DO IP = 1,remParticles
-!  ipc=ip-1
-!  point(1) = x
-!  point(2) = y
-!  point(3) = z
-!  if( remObjectContainsPoint(ipc, point) )then
-!   inpr = 1
-!  end if
-!  key = key + 1
-! end do
+ before =longFictId%bytes(1) + 1 
+ if(longFictId%bytes(1) + 1 .ne. key)then
+   write(*,*)'SUPER CRITICAL ERROR: ', vidx
+ end if
+ if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
+   inpr = 1 
+   if(longFictId%bytes(1) + 1 .ne. key)then
+     write(*,*)'CRITICAL ERROR: ', vidx, 'key: ', key, ' uint:',longFictId%bytes(1) + 1, 'before: ',before
+   end if
+ end if
 
 end subroutine fbm_getFictKnprFC2
 !=========================================================================
@@ -214,7 +216,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer(kind=16), intent(inout) :: inpr
+integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
@@ -718,55 +720,55 @@ integer :: numParticles, particleId
   valv = 0d0
   valw = 0d0
 
-  numParticles = numLocalParticles()
-
-  if(.not. allocated(theParticles)) then
-    allocate(theParticles(numLocalParticles())) 
-  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
-    deallocate(theParticles)
-    allocate(theParticles(numLocalParticles())) 
-  end if
-
-  call getAllParticles(theParticles)
-
-  DO ipc = 1,numParticles
-    particleId = theParticles(ipc)%uniqueIdx
-    if (ip.EQ.particleId) THEN
-!      Velo  = theParticles(ipc)%velocity
-!      Pos   = theParticles(ipc)%position
-
-!      valu = velo(1)
-!      valv = velo(2)
-      valw = theParticles(ipc)%velocity(3)
-
-      return
-    end if
-  end do
-
-  numParticles = numRemParticles()
-  deallocate(theParticles)
-  if (numParticles .eq. 0)return
-
-  if(.not. allocated(theParticles)) then
-    allocate(theParticles(numParticles)) 
-  end if
-
-  call getAllRemoteParticles(theParticles)
-
-  DO ipc = 1,numParticles
-    particleId = theParticles(ipc)%uniqueIdx
-    IF (check_rem_id(ip, particleId)) THEN
-!      Velo  = theParticles(ipc)%Velocity
-!      Pos   = theParticles(ipc)%Position
+!  numParticles = numLocalParticles()
+!
+!  if(.not. allocated(theParticles)) then
+!    allocate(theParticles(numLocalParticles())) 
+!  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+!    deallocate(theParticles)
+!    allocate(theParticles(numLocalParticles())) 
+!  end if
+!
+!  call getAllParticles(theParticles)
+!
+!  DO ipc = 1,numParticles
+!    particleId = theParticles(ipc)%uniqueIdx
+!    if (ip.EQ.particleId) THEN
+!!      Velo  = theParticles(ipc)%velocity
+!!      Pos   = theParticles(ipc)%position
+!
+!!      valu = velo(1)
+!!      valv = velo(2)
 !      valw = theParticles(ipc)%velocity(3)
-      valw = theParticles(ipc)%velocity(3)
-
-!      valu = velo(1)
-!      valv = velo(2)
-!      valw = velo(3)
-      return
-    end if
-  end do
+!
+!      return
+!    end if
+!  end do
+!
+!  numParticles = numRemParticles()
+!  deallocate(theParticles)
+!  if (numParticles .eq. 0)return
+!
+!  if(.not. allocated(theParticles)) then
+!    allocate(theParticles(numParticles)) 
+!  end if
+!
+!  call getAllRemoteParticles(theParticles)
+!
+!  DO ipc = 1,numParticles
+!    particleId = theParticles(ipc)%uniqueIdx
+!    IF (check_rem_id(ip, particleId)) THEN
+!!      Velo  = theParticles(ipc)%Velocity
+!!      Pos   = theParticles(ipc)%Position
+!!      valw = theParticles(ipc)%velocity(3)
+!      valw = theParticles(ipc)%velocity(3)
+!
+!!      valu = velo(1)
+!!      valv = velo(2)
+!!      valw = velo(3)
+!      return
+!    end if
+!  end do
 
 end subroutine fbm_velBCFC2
 !=========================================================================
@@ -1058,7 +1060,7 @@ end subroutine fbm_updateLaser
 !=========================================================================
 ! 
 !=========================================================================
-SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist)
+SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !   for a single(!) elastic or soft body.
@@ -1078,10 +1080,16 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: iBndr
 
 ! fictId
-integer(kind=16), intent(inout) :: inpr
+integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
 
 ! local variables
 integer :: IP,ipc,isin, idynType
@@ -1132,7 +1140,7 @@ END SUBROUTINE GetFictKnpr_DIE
 !=========================================================================
 ! 
 !=========================================================================
-SUBROUTINE GetFictKnpr_Wangen(X,Y,Z,iBndr,inpr,Dist)
+SUBROUTINE GetFictKnpr_Wangen(X,Y,Z,iBndr,inpr,Dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !   for a single(!) elastic or soft body.
@@ -1152,10 +1160,16 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: iBndr
 
 ! fictId
-integer(kind=16), intent(inout) :: inpr
+integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
 
 ! local variables
 integer :: IP,ipc,isin, idynType
@@ -1305,7 +1319,7 @@ real*8, intent(in) :: x, y, z
 integer, intent(inout) :: bndryId
 
 ! fictId
-integer(kind=16), intent(inout) :: inpr
+integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 

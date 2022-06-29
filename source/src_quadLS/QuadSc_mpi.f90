@@ -1963,20 +1963,26 @@ DO pID=1,subnodes
      jAux = jAux + 1
      MGE013(ILEV)%ST(pID)%VertLink(1,jAux) = CoorSP(pID)%iCoor(J)
      MGE013(ILEV)%ST(pID)%VertLink(2,jAux) = CoorSP(pID)%iCoor(J)
+
      EXIT
     END IF
-   END DO
-  END DO
+   END DO ! end j
+  END DO ! end i
 !  IF (jAux.EQ.MGE013(ILEV)%ST(pID)%Num) write(*,*) "problem ",jAux,MGE013(ILEV)%ST(pID)%Num
   CALL SORT1D(MGE013(ILEV)%ST(pID)%VertLink(1,:),MGE013(ILEV)%ST(pID)%Num)
 
 !   WRITE(994,*) pID,MGE013(ILEV)%ST(pID)%Num,"---"
   DO I=1,MGE013(ILEV)%ST(pID)%Num
-!    WRITE(994,*) MGE013(ILEV)%ST(pID)%VertLink(:,I)
-  END DO
+   if(MGE013(ILEV)%ST(pID)%VertLink(1,I) == 0 .or. &
+      MGE013(ILEV)%ST(pID)%VertLink(2,I) == 0 )then
+      WRITE(*,*)'Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I)
+      stop
+   end if
+  END DO ! end i
 
  END IF
-END DO
+END DO ! end pid
+
 
 ! CLOSE(994)
 
@@ -2013,6 +2019,34 @@ IF (ILEV.eq.iMedLev) THEN
 END IF
 
 END
+
+subroutine checkVertexLinks()
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY : CommOrder,myStat,BaSynch
+
+INTEGER I,pID,pJD,nSIZE,nEIGH,iRound
+REAL*4 tt0,tt1
+
+IF (myid.ne.MASTER) THEN
+
+  DO pID=1,subnodes
+   IF (MGE013(ILEV)%ST(pID)%Num.GT.0.AND.pID.NE.myid) THEN
+    DO I=1,MGE013(ILEV)%ST(pID)%Num
+     if(MGE013(ILEV)%ST(pID)%VertLink(1,I) == 0)then 
+        WRITE(*,*)'CVL: Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I), ilev, myid, pid
+        stop
+     end if
+     if(MGE013(ILEV)%ST(pID)%VertLink(2,I) == 0)then 
+        WRITE(*,*)'CVL: Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I), ilev, myid, pid
+        stop
+     end if
+    END DO ! end i
+   END IF
+  end do
+
+end if
+end subroutine
 
 
 ! ----------------------------------------------
@@ -2164,6 +2198,9 @@ ndof = NVT+NET+NAT+NEL
 IF (myid.EQ.0) GOTO 88
 
 ALLOCATE (iAux(1:ndof))
+do i=1,ndof
+iAux(i) = -1
+end do
 ALLOCATE (dCoor(3,1:ndof))
 ALLOCATE (iCoor(1:ndof))
 
@@ -2398,6 +2435,11 @@ DO pID=1,subnodes
 
 !   WRITE(994,*) pID,MGE013(ILEV)%ST(pID)%Num,"---"
   DO I=1,MGE013(ILEV)%ST(pID)%Num
+   if(MGE013(ILEV)%ST(pID)%VertLink(1,I) == 0 .or. &
+      MGE013(ILEV)%ST(pID)%VertLink(2,I) == 0 )then
+      WRITE(*,*)'Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I)
+      stop
+   end if
 !    WRITE(994,*) MGE013(ILEV)%ST(pID)%VertLink(:,I)
   END DO
 
@@ -3499,6 +3541,7 @@ ILEV = NLMAX
 ALLOCATE(iTableS(subnodes,subnodes))
 ALLOCATE(iTableR(subnodes,subnodes))
 iTableS = 0
+iTableR = 0
 
 IF (myid.ne.MASTER) THEN
  
@@ -3532,7 +3575,7 @@ USE def_feat, ONLY: ILEV
 USE var_QuadScalar, ONLY : CommOrder,myStat,BaSynch
 
 REAL*8  FX(*)
-INTEGER I,pJD,nSIZE,nEIGH,iRound
+INTEGER I,pID,pJD,nSIZE,nEIGH,iRound
 REAL*4 tt0,tt1
 INTEGER req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
@@ -3540,6 +3583,23 @@ INTEGER STATUS(MPI_STATUS_SIZE)
 req = MPI_REQUEST_NULL
 
 IF (myid.ne.MASTER) THEN
+
+call checkVertexLinks()
+!DO pID=1,subnodes
+! IF (MGE013(ILEV)%ST(pID)%Num.GT.0.AND.pID.NE.myid) THEN
+!  DO I=1,MGE013(ILEV)%ST(pID)%Num
+!   if(MGE013(ILEV)%ST(pID)%VertLink(1,I) == 0)then 
+!      WRITE(*,*)'Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I)
+!      stop
+!   end if
+!   if(MGE013(ILEV)%ST(pID)%VertLink(2,I) == 0)then 
+!      WRITE(*,*)'Found a zero VertLink: ', MGE013(ILEV)%ST(pID)%VertLink(:,I)
+!      stop
+!   end if
+!  END DO ! end i
+! END IF
+!end do
+
 
  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt0)
@@ -3556,6 +3616,10 @@ IF (myid.ne.MASTER) THEN
        !!!!     sends pID ----> pJD
        IF (myid.lt.pJD) THEN
         DO I=1,nSIZE
+         if(MGE013(ILEV)%ST(pJD)%VertLink(1,I) == 0)then
+           write(*,*)'Found a 0 vertlink at i = ',i, myid, pJD, ilev
+!           stop
+         end if
          MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
         END DO
         
@@ -3581,6 +3645,10 @@ IF (myid.ne.MASTER) THEN
         END IF
        ELSE
         DO I=1,nSIZE
+         if(MGE013(ILEV)%ST(pJD)%VertLink(1,I) == 0)then
+           write(*,*)'Found a 0 vertlink at i = ',i, myid, pJD, ilev
+           stop
+         end if
          MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
         END DO      
         IF (BaSynch) then

@@ -240,7 +240,8 @@ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
 type(tMultiMesh),save :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
-INTEGER(kind = 16), ALLOCATABLE :: FictKNPR(:)
+INTEGER, ALLOCATABLE :: FictKNPR(:)
+type(tUint64), allocatable :: FictKNPR_uint64(:)
 INTEGER, ALLOCATABLE :: MixerKnpr(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)

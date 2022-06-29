@@ -17,6 +17,7 @@ type, bind(C) :: tParticleData
   integer(c_int) :: localIdx
   integer(c_int) :: uniqueIdx
   integer(c_int) :: systemIdx
+  integer(c_short), dimension(8) :: bytes
 end type tParticleData
 
 !================================================================================================
@@ -64,6 +65,15 @@ subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getR
   real(c_double) :: time
   real(c_double) :: pos(*)
   real(c_double) :: vel(*)
+  end subroutine
+end interface
+
+interface
+subroutine getRemoteParticle2(idx, particle) bind(C, name="getRemoteParticle2")
+  use iso_c_binding, only: c_int, c_double
+  import tParticleData
+  integer(c_int), value :: idx
+  type(tParticleData) :: particle
   end subroutine
 end interface
 
@@ -153,6 +163,29 @@ subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
   end subroutine
 end interface
 
+interface
+subroutine get_bytes(bytes) bind(C, name="get_bytes")
+  use iso_c_binding, only: c_short
+  integer(c_short), dimension(8) :: bytes 
+end subroutine
+end interface
+
+interface
+logical(c_bool) function map_local_to_system(lidx, vidx) bind(C, name="map_local_to_system")
+  use iso_c_binding, only: c_int, c_bool 
+  integer(c_int), value :: lidx
+  integer(c_int), value :: vidx
+  end function
+end interface
+
+interface
+logical(c_bool) function map_local_to_system2(lidx, vidx) bind(C, name="map_local_to_system2")
+  use iso_c_binding, only: c_int, c_bool 
+  integer(c_int), value :: lidx
+  integer(c_int), value :: vidx
+  end function
+end interface
+
 !integer :: numLocalParticles
 
 contains
@@ -230,12 +263,8 @@ subroutine getAllParticles(theParticles)
   
   do i=1,a
     idx = indexMap(i)
-    call getParticle(idx,&
-                     temp%localIdx,& 
-                     temp%uniqueIdx,& 
-                     temp%time,& 
-                     temp%position,& 
-                     temp%velocity)
+    call getParticle2(idx,&
+                      temp)
 
     theParticles(i) = temp
   end do
@@ -258,15 +287,17 @@ subroutine getAllRemoteParticles(theParticles)
   allocate(indexMap(a))
 
   call getRemoteParticlesIndexMap(indexMap)
+!  write(*,*)'IndexMap>', indexMap(:)
   
   do i=1,a
     idx = indexMap(i)
-    call getRemoteParticle(idx,&
-                           temp%localIdx,& 
-                           temp%uniqueIdx,& 
-                           temp%time,& 
-                           temp%position,& 
-                           temp%velocity)
+    call getRemoteParticle2(idx, temp)  
+!    call getRemoteParticle(idx,&
+!                           temp%localIdx,& 
+!                           temp%uniqueIdx,& 
+!                           temp%time,& 
+!                           temp%position,& 
+!                           temp%velocity)
 
     theParticles(i) = temp
   end do
@@ -457,6 +488,56 @@ subroutine testMapParticles()
 
 end subroutine testMapParticles
 
+!================================================================================================
+!                              checkLongId
+!================================================================================================
+
+logical function longIdMatch(idx, longFictId)
+  use iso_c_binding, only: c_short
+  use var_QuadScalar, ONLY : FictKNPR_uint64
+  implicit none
+  integer, intent(in) :: idx
+  integer(c_short), dimension(8) :: longFictId
+
+  longIdMatch = .false.
+
+  if( (FictKNPR_uint64(idx)%bytes(1) .eq. longFictId(1)) .and. &
+      (FictKNPR_uint64(idx)%bytes(2) .eq. longFictId(2)) .and. &
+      (FictKNPR_uint64(idx)%bytes(3) .eq. longFictId(3)) .and. &
+      (FictKNPR_uint64(idx)%bytes(4) .eq. longFictId(4)) .and. &
+      (FictKNPR_uint64(idx)%bytes(5) .eq. longFictId(5)) .and. &
+      (FictKNPR_uint64(idx)%bytes(6) .eq. longFictId(6)) .and. &
+      (FictKNPR_uint64(idx)%bytes(7) .eq. longFictId(7)) .and. &
+      (FictKNPR_uint64(idx)%bytes(8) .eq. longFictId(8)) )then
+      longIdMatch = .true.
+  end if
+
+end function longIdMatch
+
+!================================================================================================
+!                              Function convertSystemId
+!================================================================================================
+
+!integer(kind=16) function convertSystemId(bytes)
+!  use iso_c_binding, only: c_short
+!  implicit none
+!  integer(c_short), dimension(8), intent(inout) :: bytes 
+!  ! locals
+!  integer(kind = 16) :: result, temp 
+!  integer :: i
+!
+!
+!  result = huge(temp)
+!!!  call get_bytes(bytes)
+!!  do i = 1, 8
+!!    result = ishft(result, 8)
+!!    temp = int(bytes(i), 16)
+!!    result = ior(result, temp)
+!!  end do
+!!
+!  convertSystemId = result
+!
+!end function convertSystemId
 
 end module dem_query
 

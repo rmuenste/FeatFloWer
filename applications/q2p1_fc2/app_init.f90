@@ -76,6 +76,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
  use dem_query
+ use post_utils,  only: sim_finalize
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -110,10 +111,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  integer, dimension(1) :: processRanks
  integer :: MPI_W0, MPI_EX0
- integer :: MPI_Comm_EX0
+ integer :: MPI_Comm_EX0, new_comm
  integer :: error_indicator
- integer :: numParticles
+ integer :: numParticles, ierror, ndims, reorder
+ integer, dimension(3) :: dim_size
+ logical periods(0:2)
 
+ ndims = 3
+ dim_size = (/2, 2, 2/)
+ periods = (/.false., .false., .false./)
+ reorder = 0
 
  CALL ZTIME(TTT0)
 
@@ -419,30 +426,51 @@ DO ILEV=NLMIN+1,NLMAX
  END IF
 
 
+DO ILEV=NLMIN+1,NLMAX
+
+ IF (myid.eq.1) write(*,*) 'Before checking parallel structures for Q2  on level : ',ILEV
+
+  call checkVertexLinks()
+
+END DO
+call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+IF (myid.eq.1) write(*,*) 'done!'
+
  !=======================================================================
  !     Set up the rigid body C++ library
  !=======================================================================
  processRanks(1) = 0
  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
- CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
+ CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+! CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
 
- if (myid .ne. 0) then
- call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
- end if
+ call commf2c_dcav(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
 
- call MPI_Barrier(MPI_COMM_WORLD)
 ! if (myid .eq. 1) then
 !   write(*,*) myid, ") #particles: ", numLocalParticles()
 !   call testParticleGet(5)
 !   call testParticleRadius()
 ! end if
  call init_fc_rigid_body(myid)      
+! call MPI_Finalize(ierror)
+! stop
 
 ! if (myid .ne. 0) then
 ! call testMapParticles()
 ! end if
 
+
+ call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+DO ILEV=NLMIN+1,NLMAX
+
+ IF (myid.eq.1) write(*,*) 'checking parallel structures for Q2  on level : ',ILEV
+
+  call checkVertexLinks()
+
+END DO
+ call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+IF (myid.eq.1) write(*,*) 'done!'
  RETURN
 
 END SUBROUTINE General_init_ext

@@ -42,6 +42,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 !  call debug_output_particles()
+!  call debug_output_particles()
 
   inonln_t = 2
 

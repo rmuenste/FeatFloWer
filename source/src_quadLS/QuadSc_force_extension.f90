@@ -7,7 +7,7 @@ SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
-USE var_QuadScalar, ONLY : myExport,Properties
+USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -40,6 +40,8 @@ REAL*8 :: Center(3),dForce(6)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
+
+logical :: crit1, crit2
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -98,7 +100,6 @@ SAVE
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
-  if(myid.eq.1) write(*,*)'> FBM Force Calculation for:', numParticles, ' particles'
   if (numParticles > 0) then
     write(*,*)myid,'> FBM Force Calculation for:', numParticles, 'local particles'
   end if
@@ -106,8 +107,13 @@ SAVE
   call getAllParticles(theParticles)
 
   DO IP = 1,numParticles
-!  write(*,*)'Particle: ',theParticles(IP)%uniqueIdx
-  particleId = theParticles(IP)%uniqueIdx
+#ifdef OUTPUT_LEVEL2 
+  write(*,*)myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
+
+#endif
+
+  particleId = theParticles(IP)%localIdx
+  particleId = theParticles(IP)%bytes(1) + 1
   
   Center = theParticles(IP)%position 
   
@@ -133,17 +139,54 @@ SAVE
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
+     ! map particle Id to systemId, then
+     ! map IG to see if IG is in systemId
+
+     
+     crit1 = .false.
+     crit2 = .false.
      IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.particleId))THEN
+       crit1 = .true.
+     end if
+     IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+     !IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
+     !IF((ALPHA(IG).EQ.0))THEN
+      crit2 = .true.
       NJALFA=NJALFA+1
      ENDIF
-     IF (ALPHA(IG).EQ.particleId) THEN
+
+!     if(.not. (crit1 .eqv. crit2))then
+!       write(*,*) 'myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
+!         FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
+!!       call ExitError('Error in GetForces',157)
+!     end if
+
+     crit1 = .false.
+     crit2 = .false.
+     IF (ALPHA(IG).eq.particleId) THEN
+       crit1 = .true.
+     end if
+     IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
+      crit2 = .true.
+     !IF ((ALPHA(IG).EQ.1)) THEN
       NIALFA=NIALFA+1
      ENDIF
+
+ !    if(.not. (crit1 .eqv. crit2))then
+ !      write(*,*) 'myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
+ !        FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
+ !!      call ExitError('Error in GetForces',174)
+ !    end if
+
    ENDDO
 
   ! Skip elements where all dofs are inside or
   ! all dofs are outside
-  IF(NJALFA.EQ.27.OR.NIALFA.EQ.27) cycle
+  IF(NJALFA.EQ.27.OR.NIALFA.EQ.27)then
+!    write(*,*)myid,'>Particle: ',IP, '| njalfa: ', njalfa, ' nialfa :', nialfa
+    cycle
+  end if
+!  write(*,*)myid,'>Particle: ',IP, ' iel=', iel, '| njalfa: ', njalfa, ' nialfa :', nialfa
 
   nnel = nnel + 1
   DNY = DVISC(IEL)
@@ -285,7 +328,8 @@ SAVE
       DU3Z=DU3Z+U3(IG)*DBI4
   
       !------FOR ALFA------
-      IF (ALPHA(IG).EQ.particleId) THEN
+      !IF (ALPHA(IG).EQ.particleId) THEN
+      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
        DALPHA = 1d0
       ELSE
        DALPHA = 0d0
@@ -342,14 +386,18 @@ SAVE
     end do ! end loop cubature points
 
   end do ! end loop elements
-  DResForceX = 0.0
-  DResForceY = 0.0
-  theParticles(ip)%force(:) =  (/DResForceX, DResForceY, 4.0d0 * DResForceZ/)
+!  DResForceX = 0.0
+!  DResForceY = 0.0
+  theParticles(ip)%force(:) =  (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 
-  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
-  write(*,*)myid,' nnel: ',nnel 
+#ifdef OUTPUT_LEVEL2 
+  write(*,*)myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
+  write(*,*)myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+!  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
+!  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
+#endif
 
   call setForcesMapped(theParticles(ip))
 
@@ -365,7 +413,7 @@ SUBROUTINE ForcesRemoteParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDG
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
-USE var_QuadScalar, ONLY : myExport,Properties
+USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -399,6 +447,7 @@ REAL*8 :: Center(3),dForce(6)
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
 real*8 :: pressSum, momSum
+logical :: crit1, crit2
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -448,12 +497,17 @@ SAVE
   numParticles = numRemParticles()
   if (numParticles .eq. 0)return
 
-  if(.not. allocated(theParticles)) then
-    allocate(theParticles(numParticles)) 
-  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numParticles))then
+  if(allocated(theParticles))then
     deallocate(theParticles)
-    allocate(theParticles(numParticles)) 
   end if
+  allocate(theParticles(numParticles)) 
+
+!  if(.not. allocated(theParticles)) then
+!    allocate(theParticles(numParticles)) 
+!  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numParticles))then
+!    deallocate(theParticles)
+!    allocate(theParticles(numParticles)) 
+!  end if
 
   !=====================================================================
   ! We loop over all particles first
@@ -463,9 +517,15 @@ SAVE
   call getAllRemoteParticles(theParticles)
 
   DO IP = 1,numParticles
-!  write(*,*)'Particle: ',theParticles(IP)%uniqueIdx
-  particleId = theParticles(IP)%uniqueIdx
+#ifdef OUTPUT_LEVEL2 
+  write(*,*)myid,'>Rem Particle: ',theParticles(IP)%localIdx, ', size: ', size(theParticles), ' ', theParticles(IP)%bytes(1) + 1
+#endif
+
+  particleId = theParticles(IP)%localIdx
+  particleId = theParticles(IP)%bytes(1) + 1
   
+  theParticles(IP)%uniqueIdx = 0
+
   Center = theParticles(IP)%position 
   
   DResForceX = 0D0
@@ -490,14 +550,47 @@ SAVE
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
-!     IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.particleId))THEN
-     IF((ALPHA(IG).EQ.0).or.(.not.check_rem_id(alpha(ig),particleId)))THEN
+
+     crit1 = .false.
+     crit2 = .false.
+     IF((ALPHA(IG).EQ.0).or.(.not. Alpha(ig) .eq. particleId))THEN
+       crit1 = .true.
+     end if
+     IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+!     IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
+      crit2 = .true.
       NJALFA=NJALFA+1
      ENDIF
-     IF (check_rem_id(alpha(ig),particleId)) THEN
+
+ !    ! This condition represents a serious error
+ !    if(.not. (crit1 .eqv. crit2))then
+ !      write(*,*) 'Rem: myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
+ !        FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
+ !!      call ExitError('Error in GetForces',157)
+ !    end if
+
+
+     crit1 = .false.
+     crit2 = .false.
+
+     IF (Alpha(ig) .eq. particleId) THEN
+       crit1 = .true.
+     end if
+
+     IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
+      crit2 = .true.
       NIALFA=NIALFA+1
      ENDIF
+
+!     ! This condition represents a serious error
+!     if(.not. (crit1 .eqv. crit2))then
+!       write(*,*) 'Rem: myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
+!         FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
+!!       call ExitError('Error in GetForces',174)
+!     end if
+
    ENDDO
+
 
   ! Skip elements where all dofs are inside or
   ! all dofs are outside
@@ -645,7 +738,9 @@ SAVE
       DU3Z=DU3Z+U3(IG)*DBI4
   
       !------FOR ALFA------
-      IF (check_rem_id(alpha(ig),particleId)) THEN
+      !IF((map_local_to_system(particleId,IG)))THEN
+      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
+      !IF (Alpha(ig) .eq. particleId) THEN
        DALPHA = 1d0
       ELSE
        DALPHA = 0d0
@@ -705,13 +800,13 @@ SAVE
 
   end do ! end loop elements
 
-  DResForceX = 0.0
-  DResForceY = 0.0
-  theParticles(ip)%force(:) = (/DResForceX, DResForceY, 4.0d0 * DResForceZ/)
+  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 
-  write(*,*)myid,' theRemoteForce: ', DResForceZ
-  write(*,*)myid,' nnel: ',nnel 
+#ifdef OUTPUT_LEVEL2 
+  write(*,*)myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+#endif
+!  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
 
   call setRemoteForcesMapped(theParticles(ip))

@@ -1619,5 +1619,3 @@ end subroutine GetForcesPerfCyl
 100   CONTINUE
 99999 END
 
-! Include custom implementations of the Q2 transport equation
-include 'QuadSc_force_extension.f90'
