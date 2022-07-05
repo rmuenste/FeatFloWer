@@ -212,58 +212,50 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   (ParNames,ParTypes,Parameters,Boundaries)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
-  print(Part)
+
   for (iPart,iNeigh,iElem) in zip(Part,Neigh,kvert):
     for (Idx,f) in zip(iNeigh,face):
       if Idx>0 and Part[Idx-1]!=iPart:
         for k in range(4):
           new_knpr[iElem[f[k]]-1]=1
   # Für alle Rechengebiete
-  # loop from [0, 0, 0] to [n, n, n]
-  for iPartX in range(1,3):
-    for iPartY in range(1,3):
-      for iPartZ in range(1,3):
-        iPart = [iPartX, iPartY, iPartZ]
-        # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
-        iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
-        print(len(iElem))
-        iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
-        # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
-        iCoor=list(iCoor)
-        iCoor.sort()
-        iCoor=tuple(iCoor)
-        # Mappe Knotenkoordinaten und Knoteneigenschaften
-        dCoor=tuple(coord[Idx] for Idx in iCoor)
-        dKnpr=tuple(new_knpr[Idx] for Idx in iCoor)
-        # Erzeuge Lookup-Liste: Alte Knotennummern->Neue Knotennummern
-        LookUp=dict((k+1,v) for (v,k) in enumerate(iCoor,1))
-        # Mappe die Knoten der Elemente
-        dKvert=tuple(tuple(map(lambda x:LookUp[x],kvert[Idx])) for Idx in iElem)
-        # Gitterausgabe
-        localGrid=(len(dKvert),len(dCoor),dCoor,dKvert,dKnpr)
-        if bSub:
-          localGridName=os.path.join(BaseName,"GRID%03d.tri"%iPart)
-        else:
-          # 3D->1D map
-          # [iz * (yMax * xMax)] + (iy * xMax)  + ix
-          idx1D = (iPart[2] - 1) * 4 + (iPart[1] - 1) * 2 + iPart[0] - 1 
-          idx1D = idx1D + 1
-          localGridName=os.path.join(BaseName,"sub%03d"%idx1D,"GRID.tri")
-        OutputGrid(localGridName,localGrid)
+  for iPart in range(1,nPart+1):
+    # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
+    iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
+    print(len(iElem))
+    iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
+    # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
+    iCoor=list(iCoor)
+    iCoor.sort()
+    iCoor=tuple(iCoor)
+    # Mappe Knotenkoordinaten und Knoteneigenschaften
+    dCoor=tuple(coord[Idx] for Idx in iCoor)
+    dKnpr=tuple(new_knpr[Idx] for Idx in iCoor)
+    # Erzeuge Lookup-Liste: Alte Knotennummern->Neue Knotennummern
+    LookUp=dict((k+1,v) for (v,k) in enumerate(iCoor,1))
+    # Mappe die Knoten der Elemente
+    dKvert=tuple(tuple(map(lambda x:LookUp[x],kvert[Idx])) for Idx in iElem)
+    # Gitterausgabe
+    localGrid=(len(dKvert),len(dCoor),dCoor,dKvert,dKnpr)
+    if bSub:
+      localGridName=os.path.join(BaseName,"GRID%03d.tri"%iPart)
+    else:
+      localGridName=os.path.join(BaseName,"sub%03d"%iPart,"GRID.tri")
+    OutputGrid(localGridName,localGrid)
 
-        ###
+    ###
 
-        localRestriktion=set(LookUp.keys())
-        for iPar in range(nParFiles):
-          if bSub:
-            localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
-          else:
-            localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.par"%ParNames[iPar])
-          # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
-          # dann gehoert er dort auch zur Randparametrisierung
-          localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
-          localBoundary.sort()
-          OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+    localRestriktion=set(LookUp.keys())
+    for iPar in range(nParFiles):
+      if bSub:
+        localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
+      else:
+        localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.par"%ParNames[iPar])
+      # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
+      # dann gehoert er dort auch zur Randparametrisierung
+      localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
+      localBoundary.sort()
+      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
 def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
@@ -298,9 +290,6 @@ def OutputGrid(Name,Grid):
 
 def MultPartitionAlongAxis(Grid,nSubMesh,Method):
   (nel,nvt,coord,kvert,knpr)=Grid
-  # An array that tells you in which partition the i-th is
-  # Let Part be a list of tuples (x, y, z) where x, y, z are the
-  # cartesian indices of the partition
   Part=[0,]*nel
   Dir = 2
   zCoords = [p[2] for p in coord]
@@ -308,8 +297,6 @@ def MultPartitionAlongAxis(Grid,nSubMesh,Method):
   zCoords.sort()
   zMin = zCoords[0]
   zMax = zCoords[numCoords-1]
-
-  # The delta for the current subdivion
   dZ = (zMax - zMin) / nSubMesh
   theList = [i * dZ for i in range(1, nSubMesh + 1)]
   print(zMin)
@@ -321,90 +308,6 @@ def MultPartitionAlongAxis(Grid,nSubMesh,Method):
     for idx, val in enumerate(theList):
       if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
         Part[ElemIdx]=idx + 1
-        break
-
-  return tuple(Part)
-
-def PartitionAlongAllAxes(Grid,nSubMesh,Method):
-  (nel,nvt,coord,kvert,knpr)=Grid
-  # An array that tells you in which partition the i-th is
-  # Let Part be a list of tuples (x, y, z) where x, y, z are the
-  # cartesian indices of the partition
-  #Part=[[0, 0, 0],]*nel
-  Part = []
-  for i in range(nel):
-    Part.append([0,0,0])
-
-#  Part = [ [0,0,0] for i in nel ]
-  Dir = 2
-  zCoords = [p[Dir] for p in coord]
-  numCoords = len(zCoords)  
-  zCoords.sort()
-  zMin = zCoords[0]
-  zMax = zCoords[numCoords-1]
-
-  # The delta for the z-subdivision
-  dZ = (zMax - zMin) / nSubMesh
-  theList = [zMin + i * dZ for i in range(1, nSubMesh + 1)]
-  print(zMin)
-  print(zMax)
-  print(dZ)
-  print(theList)
-  PosFak=1
-  for (ElemIdx,Elem) in enumerate(kvert):
-    for idx, val in enumerate(theList):
-#      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
-        count = 0
-        for Vert in Elem:
-          dist = coord[Vert-1][Dir] - val
-          if dist <= 1e-5:
-            count = count + 1
-        if count == 8:
-          Part[ElemIdx][Dir]=idx + 1
-          break
-
-  # y-subdivision
-  Dir = 1
-  yCoords = [p[Dir] for p in coord]
-  numCoords = len(yCoords)  
-  yCoords.sort()
-  yMin = yCoords[0]
-  yMax = yCoords[numCoords-1]
-
-  # The delta for the y-subdivision
-  dY = (yMax - yMin) / nSubMesh
-  theList = [i * dY for i in range(1, nSubMesh + 1)]
-  print(yMin)
-  print(yMax)
-  print(dY)
-  print(theList)
-  PosFak=1
-  for (ElemIdx,Elem) in enumerate(kvert):
-    for idx, val in enumerate(theList):
-      if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
-        Part[ElemIdx][Dir]=idx + 1
-        break
-
-  # x-subdivision
-  Dir = 0
-  xCoords = [p[Dir] for p in coord]
-  numCoords = len(xCoords)  
-  xCoords.sort()
-  xMin = xCoords[0]
-  xMax = xCoords[numCoords-1]
-
-  # The delta for the y-subdivision
-  dX = (xMax - xMin) / nSubMesh
-  theList = [i * dX for i in range(1, nSubMesh + 1)]
-  print(xMin)
-  print(xMax)
-  print(dX)
-  print(theList)
-  PosFak=1
-  for (ElemIdx,Elem) in enumerate(kvert):
-    for idx, val in enumerate(theList):
-      if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
-        Part[ElemIdx][Dir]=idx + 1
         break
 
   return tuple(Part)
@@ -426,9 +329,8 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
   NumAxis=sum(Axis)
   nSub=2**NumAxis
 
-#  if nSub !=nSubMesh:
-#    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
-  return PartitionAlongAllAxes(Grid,nSubMesh,Method)
+  if nSub !=nSubMesh:
+    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
 
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid
@@ -462,17 +364,17 @@ elif os.name=="nt":
 else:
   sys.exit("Loading of Metis not yet implemented for platform '%s'!"%os.name)
 
-#if metis==None:
-#  sys.exit("Could not load the Metis library!")
-#
-## Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
-#_pidx=POINTER(c_int)
-#_pint=POINTER(c_int)
-#_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
-#metis.METIS_PartGraphRecursive.argtypes=_PartArgs
-#metis.METIS_PartGraphVKway.argtypes=_PartArgs
-#metis.METIS_PartGraphKway.argtypes=_PartArgs
-#metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
+if metis==None:
+  sys.exit("Could not load the Metis library!")
+
+# Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
+_pidx=POINTER(c_int)
+_pint=POINTER(c_int)
+_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
+metis.METIS_PartGraphRecursive.argtypes=_PartArgs
+metis.METIS_PartGraphVKway.argtypes=_PartArgs
+metis.METIS_PartGraphKway.argtypes=_PartArgs
+metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
 
 if __name__=="__main__":
   if metis!=None:

@@ -298,6 +298,168 @@ def writeHexMeshVTK(hexMesh, fileName):
 
 
 #===============================================================================
+#                A VTK XML Unstructured Grid writer
+#===============================================================================
+def writeHexMeshVTKXml(hexMesh, fileName):
+    """
+    Writes out a hexMesh in XML vtu ParaView format 
+
+    Args:
+        hexMesh: A reference to a HexMesh class
+        fileName: The file name of the vtu file
+
+    """
+
+    indentation = ""
+    space = "  "
+    indentation = indentation + space
+    with open(fileName, "w") as f:
+        f.write("<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n")
+        f.write("%s<UnstructuredGrid>\n" % indentation)
+        indentation = indentation + space
+
+        nVertices = len(hexMesh.nodes)
+        nCells = len(hexMesh.hexas)
+
+        f.write("%s<Piece NumberOfPoints=\"%i\" NumberOfCells=\"%i\">\n" %(indentation, nVertices, nCells))
+        indentation = indentation + space
+#      //write the pointdata distance scalar
+#      fprintf(myfile,"%s<PointData Scalars=\"FFID\">\n",indentation.c_str());
+        f.write("%s<PointData Scalars=\"FFID\">\n" %(indentation))
+
+#    indentation.append(space);
+#
+        indentation = indentation + space
+#    fprintf(myfile,"%s<DataArray type=\"Int32\" Name=\"FFID\" format=\"ascii\">\n",indentation.c_str());
+        f.write("%s<DataArray type=\"Int32\" Name=\"FFID\" format=\"ascii\">\n" %(indentation))
+#
+#    indentation.append(space);
+        indentation = indentation + space
+#    for(int i=0;i<Grid.nvt_;i++)
+#    {
+#      fprintf(myfile,"%s%d\n",indentation.c_str(),i+1);
+#    }//end for
+        for n, v in enumerate(hexMesh.nodes):
+            var = "{} {}\n".format(indentation, n)
+            f.write(var)
+#        for n in hexMesh.nodes:
+#            var = "{} {:.9f} {:.9f} {:.9f}\n".format(indentation, n[0], n[1], n[2]) 
+#            f.write(var)
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</DataArray>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</PointData>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s<Points>\n" %(indentation))
+
+        indentation = indentation + space
+
+        f.write("%s<DataArray type=\"Float32\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\" RangeMin=\"0\" RangeMax=\"1.0\">\n" %(indentation))
+
+        indentation = indentation + space
+
+        for n in hexMesh.nodes:
+            var = "{} {:.9f} {:.9f} {:.9f}\n".format(indentation, n[0], n[1], n[2]) 
+            f.write(var)
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</DataArray>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</Points>\n" %(indentation))
+
+        indentation = indentation + space
+
+#       Next item is the cell data array
+        f.write("%s<Cells>\n" %(indentation))
+
+        indentation = indentation + space
+
+        f.write("%s<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\" RangeMin=\"0\" RangeMax=\"%i\">\n" %(indentation, nCells - 1))
+
+        indentation = indentation + space
+
+        for h in hexMesh.hexas:
+            indices = (int(h.nodeIds[0]), int(h.nodeIds[1]),
+                       int(h.nodeIds[2]), int(h.nodeIds[3]),
+                       int(h.nodeIds[4]), int(h.nodeIds[5]),
+                       int(h.nodeIds[6]), int(h.nodeIds[7]))
+
+            f.write('%s %i %i %i %i %i %i %i %i\n' % (indentation, indices[0], indices[1],
+                                                     indices[2], indices[3],
+                                                     indices[4], indices[5],
+                                                     indices[6], indices[7]))
+
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</DataArray>\n" %(indentation))
+
+#       the offset seems to be mandatory
+        f.write("%s<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\" RangeMin=\"8\" RangeMax=\"%i\">\n" %(indentation, nCells * 8))
+
+        indentation = indentation + space
+
+        f.write("%s" %(indentation))
+
+        for i in range(1, nCells + 1):
+            f.write("%i " %(i*8))
+            if i % 6 == 0:
+                f.write("\n")
+                f.write("%s" %(indentation))
+
+        if nCells % 6 != 0:
+            f.write("\n")
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</DataArray>\n" %(indentation))
+
+        f.write("%s<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\" RangeMin=\"12\" RangeMax=\"12\">\n" %(indentation))
+
+        indentation = indentation + space
+
+        f.write("%s" %(indentation))
+
+        for i in range(1, nCells + 1):
+            f.write("12 ")
+            if i % 6 == 0:
+                f.write("\n")
+                f.write("%s" %(indentation))
+
+        if nCells % 6 != 0:
+            f.write("\n")
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</DataArray>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</Cells>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</Piece>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("%s</UnstructuredGrid>\n" %(indentation))
+
+        indentation = indentation[:len(indentation)-2]
+
+        f.write("</VTKFile>\n")
+
+
+#===============================================================================
 #                        Function readMeshFile
 #===============================================================================
 def readMeshFile(fileName):
