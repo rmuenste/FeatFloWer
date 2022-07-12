@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Tested with:
+# "args": ["8", "-3", "3", "NEWFAC", "./dev_fine/dev_fine.prj"]
 
 import sys
 import partitioner

@@ -49,14 +49,15 @@ def checkParameters(params):
         sys.exit("Number of Partitions has to be >=1 !")
     if NSubPart<1:
         sys.exit("There has to be at least one subgrid!")
-    if not (PartMethod in (1,2,3,11,12,13) or str(-PartMethod).strip("123") == ""):
+    if not (PartMethod in (1,2,3,11,12,13) or str(-PartMethod).strip("1234") == ""):
         sys.exit("Only integer numbers 1,2,3 (+10) or negative numbers containing " +
-                 "the digits 1,2,3 are valid partitioning methods!")
+                 "the digits 1,2,3,4 are valid partitioning methods!")
     if PartMethod<0 and NSubPart==1:
         sys.exit("Partitionig Method %d requires more than 1 subgrid!"%PartMethod)
     MeshName=params[4]
     ProjektFile=params[5]
 
+    print("Number of partitions: {} \nPartitioning method: {} \nNumber of submeshes: {}".format(NPart, PartMethod, NSubPart))
     # Rueckgabe der Parameter
     return NPart, PartMethod, NSubPart, MeshName, ProjektFile
 
@@ -67,6 +68,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     # Lese Projektdatei und extrahiere Gitter und Parameterdateinamen
     (nParFiles,myGridFile,myParFiles,myParNames)=GetFileList(ProjektFile)
 
+    origMethod = pMethod
     # Erzeuge übergeordnetes Verzeichnis, in dem gearbeitet werden soll
     workPath=os.path.join("_mesh",MeshName)
     mkdir(workPath)
@@ -159,13 +161,18 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
             if bAtomicSplitting:
                 myPart=GetAtomicSplitting(len(myNeigh))
                 nPart=max(myPart)
-            else:
-                myPart=GetParts(myNeigh,nPart,pMethod)
+#            else:
+#                myPart=GetParts(myNeigh,nPart,pMethod)
         else:
             sys.exit("Partitioning method %d is not available for subgrids!"%pMethod)
         # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete
         myParam=(myParNames,myParTypes,myParameters,myBoundaries)
-        GetSubs(subPath,myGrid,nPart,myPart,myNeigh,nParFiles,myParam,True, 1)
+
+        if origMethod == -4:
+          GetSubs(subPath,myGrid,nPart,myPart,myNeigh,nParFiles,myParam,True, 0)
+        else:
+          GetSubs(subPath,myGrid,nPart,myPart,myNeigh,nParFiles,myParam,True, nSubMesh)
+
         iPart+=nPart
         if iPart==nnPart:
             break

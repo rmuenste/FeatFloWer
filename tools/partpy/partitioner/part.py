@@ -217,7 +217,7 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
   (ParNames,ParTypes,Parameters,Boundaries)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
-  print(Part)
+#  print(Part)
 
   # idxList = [ Flatten3dArray(nSubMesh, nSubMesh, iPart[2], iPart[1], iPart[0]) for iPart in Part ]
 
@@ -228,6 +228,8 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
       if Idx>0 and Part[Idx-1]!=iPart:
         for k in range(4):
           new_knpr[iElem[f[k]]-1]=1
+
+  print("Partitioning scheme: {}x, {}y, {}z\n".format(nSubMesh, nSubMesh, nSubMesh))
   # Für alle Rechengebiete
   # loop from [0, 0, 0] to [n, n, n]
   for iPartX in range(1,nSubMesh+1):
@@ -236,7 +238,6 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         iPart = [iPartX, iPartY, iPartZ]
         # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
         iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
-        print(len(iElem))
         iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
         # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
         iCoor=list(iCoor)
@@ -262,6 +263,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
           idx1D2 = idx1D2 + 1
           localGridName=os.path.join(BaseName,"sub%03d"%idx1D2,"GRID.tri")
         OutputGrid(localGridName,localGrid)
+        id = 1
+        localGridName=os.path.join(BaseName,"sub%03d" %idx1D2, "GRID%03d.tri"%id)
+        OutputGrid(localGridName,localGrid)
 
         ###
 
@@ -279,6 +283,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
           # dann gehoert er dort auch zur Randparametrisierung
           localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
           localBoundary.sort()
+          OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+          id = 1
+          localParName=os.path.join(BaseName,"sub%03d" %idx1D2,"%s_%03d.par"%(ParNames[iPar],id))
           OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
 def _build_line_by_format_list(format,L,sep=" "):
@@ -341,7 +348,7 @@ def MultPartitionAlongAxis(Grid,nSubMesh,Method):
 
   return tuple(Part)
 
-def PartitionAlongAllAxes(Grid,nSubMesh,Method):
+def AxisBasedPartitioning(Grid,nSubMesh,Method):
   (nel,nvt,coord,kvert,knpr)=Grid
   # An array that tells you in which partition the i-th is
   # Let Part be a list of tuples (x, y, z) where x, y, z are the
@@ -437,14 +444,16 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
   # Bestimme zuerst, ob die Parameter gültig sind
   assert Method<0, "Only Methods <0 are valid!"
   tmp=str(-Method)
-  assert tmp.strip("123")=="", "Only 1, 2, or 3 are valid axis!"
-  Axis=list(map(lambda char: char in tmp,"123"))
+  assert tmp.strip("1234")=="", "Only 1, 2, 3 or 4 are valid axis!"
+  Axis=list(map(lambda char: char in tmp,"1234"))
+
+  if -Method == 4:
+    return AxisBasedPartitioning(Grid,nSubMesh,Method)
+
   NumAxis=sum(Axis)
   nSub=2**NumAxis
-
-#  if nSub !=nSubMesh:
-#    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
-  return PartitionAlongAllAxes(Grid,nSubMesh,Method)
+  if nSub !=nSubMesh:
+    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
 
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid
