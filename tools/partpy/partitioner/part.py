@@ -210,7 +210,18 @@ def Flatten3dArray(maxX, maxY, i, j, k):
 
 def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
-  subMeshes = nSubMesh**3
+  
+  if isinstance(nSubMesh, int):
+    subMeshes = nSubMesh**3
+    partX = nSubMesh
+    partY = nSubMesh
+    partZ = nSubMesh
+  else:
+    subMeshes = nSubMesh[0] * nSubMesh[1] * nSubMesh[2]
+    partX = nSubMesh[0]
+    partY = nSubMesh[1]
+    partZ = nSubMesh[2]
+
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
   # Auspacken der Parametrisierungen
@@ -232,9 +243,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
   print("Partitioning scheme: {}x, {}y, {}z\n".format(nSubMesh, nSubMesh, nSubMesh))
   # Für alle Rechengebiete
   # loop from [0, 0, 0] to [n, n, n]
-  for iPartX in range(1,nSubMesh+1):
-    for iPartY in range(1,nSubMesh+1):
-      for iPartZ in range(1,nSubMesh+1):
+  for iPartX in range(1,partX+1):
+    for iPartY in range(1,partY+1):
+      for iPartZ in range(1,partZ+1):
         iPart = [iPartX, iPartY, iPartZ]
         # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
         iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
@@ -253,13 +264,13 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         # Gitterausgabe
         localGrid=(len(dKvert),len(dCoor),dCoor,dKvert,dKnpr)
         if bSub:
-          idx1D2 = Flatten3dArray(nSubMesh, nSubMesh, iPart[2], iPart[1], iPart[0])  
+          idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
           idx1D2 = idx1D2 + 1
           localGridName=os.path.join(BaseName,"GRID%03d.tri"%idx1D2)
         else:
           # 3D->1D map
           # [iz * (yMax * xMax)] + (iy * xMax)  + ix
-          idx1D2 = Flatten3dArray(nSubMesh, nSubMesh, iPart[2], iPart[1], iPart[0])  
+          idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
           idx1D2 = idx1D2 + 1
           localGridName=os.path.join(BaseName,"sub%03d"%idx1D2,"GRID.tri")
         OutputGrid(localGridName,localGrid)
@@ -272,11 +283,11 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         localRestriktion=set(LookUp.keys())
         for iPar in range(nParFiles):
           if bSub:
-            idx1D2 = Flatten3dArray(nSubMesh, nSubMesh, iPart[2], iPart[1], iPart[0])  
+            idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
             localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],idx1D2))
           else:
-            idx1D2 = Flatten3dArray(nSubMesh, nSubMesh, iPart[2], iPart[1], iPart[0])  
+            idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
             localParName=os.path.join(BaseName,"sub%03d"%idx1D2,"%s.par"%ParNames[iPar])
           # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
@@ -367,8 +378,8 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   zMax = zCoords[numCoords-1]
 
   # The delta for the z-subdivision
-  dZ = (zMax - zMin) / nSubMesh
-  theList = [zMin + i * dZ for i in range(1, nSubMesh + 1)]
+  dZ = (zMax - zMin) / nSubMesh[Dir]
+  theList = [zMin + i * dZ for i in range(1, nSubMesh[Dir] + 1)]
   print(zMin)
   print(zMax)
   print(dZ)
@@ -395,8 +406,8 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   yMax = yCoords[numCoords-1]
 
   # The delta for the y-subdivision
-  dY = (yMax - yMin) / nSubMesh
-  theList = [i * dY for i in range(1, nSubMesh + 1)]
+  dY = (yMax - yMin) / nSubMesh[Dir]
+  theList = [i * dY for i in range(1, nSubMesh[Dir] + 1)]
   print(yMin)
   print(yMax)
   print(dY)
@@ -417,8 +428,8 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   xMax = xCoords[numCoords-1]
 
   # The delta for the y-subdivision
-  dX = (xMax - xMin) / nSubMesh
-  theList = [i * dX for i in range(1, nSubMesh + 1)]
+  dX = (xMax - xMin) / nSubMesh[Dir]
+  theList = [i * dX for i in range(1, nSubMesh[Dir] + 1)]
   print(xMin)
   print(xMax)
   print(dX)

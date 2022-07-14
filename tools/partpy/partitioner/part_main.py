@@ -37,23 +37,45 @@ def checkParameters(params):
     """
     # Format-Check der Parameter
     if not(len(params)==6 and params[1].isdigit() and params[3].isdigit()):
-        sys.exit(__doc__)
+        axisParams = params[3].split("-")
+        print(axisParams[0][1:])
+        if not(axisParams[0][0] in ("x", "y", "z")):
+          sys.exit(__doc__)
     if not os.path.exists(params[5]):
         sys.exit("Projekt file '%s' does not exist!" % params[5])
 
     # Sanity-Check der Parameter
     NPart=int(params[1])
     PartMethod=int(params[2])
-    NSubPart=int(params[3])
+
+    if params[3].isdigit():
+      NSubPart=int(params[3])
+    else:
+      axisParams = params[3].split("-")
+      NSubPart=[int(axisParams[0][1:]),int(axisParams[1][1:]),int(axisParams[2][1:])]
+
     if NPart <1:
         sys.exit("Number of Partitions has to be >=1 !")
-    if NSubPart<1:
-        sys.exit("There has to be at least one subgrid!")
+
+    if PartMethod != -4:
+      if NSubPart<1:
+          sys.exit("There has to be at least one subgrid!")
+    elif PartMethod == -4:
+        totalParts = 1
+        for x in NSubPart:
+                totalParts =totalParts * x        
+
+        if totalParts != NPart:
+          sys.exit("The given number of partitions is not equal to the product of the desired subdivisions {} != {} * {} * {}".format(NPart, NSubPart[0], NSubPart[1], NSubPart[2]))
+
     if not (PartMethod in (1,2,3,11,12,13) or str(-PartMethod).strip("1234") == ""):
         sys.exit("Only integer numbers 1,2,3 (+10) or negative numbers containing " +
                  "the digits 1,2,3,4 are valid partitioning methods!")
-    if PartMethod<0 and NSubPart==1:
-        sys.exit("Partitionig Method %d requires more than 1 subgrid!"%PartMethod)
+
+    if PartMethod != -4:
+      if PartMethod<0 and NSubPart==1:
+          sys.exit("Partitionig Method %d requires more than 1 subgrid!"%PartMethod)
+
     MeshName=params[4]
     ProjektFile=params[5]
 
@@ -81,7 +103,11 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
 
     # Erzeuge zusätzliche Unterverzeichnisse falls Untergitter erzeugt werden sollen
     # TODO: more general 
-    subMeshes = nSubMesh**3
+    if origMethod == -4:
+      subMeshes = nSubMesh[0] * nSubMesh[1] * nSubMesh[2]
+    else:
+      subMeshes = nSubMesh**3
+
     for i in range(1,subMeshes+1):
         mkdir(os.path.join(workPath,"sub%03d" % i))
 
@@ -97,7 +123,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     bAtomicSplitting=False
     # Falls mit Untergittern gearbeitet werden soll, so spalte das Hauptgitter auf,
     # ansonsten nehme das Hauptgitter als Untergitter Nr.1
-    if nSubMesh > 1:
+    if origMethod == -4 or nSubMesh > 1:
         # Lese Gitter ein
         myGrid=GetGrid(os.path.join(workPath,"GRID.tri"))
         # (Anzahl der Gitterzellen == nnPart) => aktiviere atomares Splitting
@@ -137,9 +163,17 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
             copy(myParFiles[iPar],os.path.join(workPath,"sub001",myParNames[iPar]+".par"))
 
     # Im Grunde "kSubPart=int(math.ceil(nnPart/float(nSubMesh)))"
-    kSubPart= nnPart//nSubMesh if nnPart%nSubMesh==0 else nnPart//nSubMesh+1
+    if isinstance(nSubMesh, int):
+      kSubPart= nnPart//nSubMesh if nnPart%nSubMesh==0 else nnPart//nSubMesh+1
+    else:
+      kSubPart = 1
+
     iPart=0
-    rIter = range(nSubMesh,0,-1) if bReversed else range(1,nSubMesh+1)
+    if isinstance(nSubMesh, int):
+      rIter = range(nSubMesh,0,-1) if bReversed else range(1,nSubMesh+1)
+    else:
+      rIter = range(0)
+
     for i in rIter:
         subPath=os.path.join(workPath,"sub%03d"%i)
         myGrid=GetGrid(os.path.join(subPath,"GRID.tri"))
@@ -161,8 +195,8 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
             if bAtomicSplitting:
                 myPart=GetAtomicSplitting(len(myNeigh))
                 nPart=max(myPart)
-#            else:
-#                myPart=GetParts(myNeigh,nPart,pMethod)
+            else:
+                myPart=GetParts(myNeigh,nPart,pMethod)
         else:
             sys.exit("Partitioning method %d is not available for subgrids!"%pMethod)
         # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete
