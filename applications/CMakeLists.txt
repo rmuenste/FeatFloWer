@@ -38,6 +38,10 @@ if(USE_CGAL)
   add_subdirectory(q2p1_particle_tracer_xse)
 endif(USE_CGAL)
 
+if (USE_HYPRE)
+  add_subdirectory(hypre_test)
+endif (USE_HYPRE)
+
 if(NOT WIN32)
 add_subdirectory(q2p1_particles)
 endif(NOT WIN32)
