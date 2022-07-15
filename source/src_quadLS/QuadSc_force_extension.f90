@@ -141,13 +141,16 @@ SAVE
      IG=KDFG(I)
      ! map particle Id to systemId, then
      ! map IG to see if IG is in systemId
-
      
      crit1 = .false.
      crit2 = .false.
      IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.particleId))THEN
        crit1 = .true.
      end if
+
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
      IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
      !IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
      !IF((ALPHA(IG).EQ.0))THEN
@@ -399,6 +402,7 @@ SAVE
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
 #endif
 
+  ! This function is in the dem_query module
   call setForcesMapped(theParticles(ip))
 
   END DO ! nParticles
@@ -556,6 +560,10 @@ SAVE
      IF((ALPHA(IG).EQ.0).or.(.not. Alpha(ig) .eq. particleId))THEN
        crit1 = .true.
      end if
+
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
      IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
 !     IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
       crit2 = .true.
@@ -809,6 +817,7 @@ SAVE
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
 
+  ! This function is in the dem_query module
   call setRemoteForcesMapped(theParticles(ip))
 
   END DO ! nParticles

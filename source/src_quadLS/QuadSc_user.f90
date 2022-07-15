@@ -253,6 +253,12 @@ IF (iT.EQ.3) THEN
  ValW= 0d0
 END IF
 
+IF (iT.EQ.9) THEN
+ ValU= 3d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.EQ.4.OR.iT.EQ.5) THEN
  dScale=3d0/2d0
  ValU=dScale*(1d0-0.25d0*Y*Y)
@@ -303,9 +309,9 @@ IF (iT.EQ.773) THEN
   ValW =   -0.77d0*(dRPM/60d0)
 END IF
 
-IF (iT.EQ.8.OR.IT.EQ.9) THEN
- ValW = 1d0
-END IF
+!IF (iT.EQ.8.OR.IT.EQ.9) THEN
+! ValW = 1d0
+!END IF
 
 if(it.eq.10)then
 

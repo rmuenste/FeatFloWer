@@ -23,18 +23,29 @@ end type tParticleData
 !================================================================================================
 ! Interfaces
 !================================================================================================
+
+
+!================================================================================================
+!                              Function getNumParticles
+!================================================================================================
 interface
 integer(c_int) function getNumParticles() bind(C, name="getNumParticles")
   use iso_c_binding, only: c_int
   end function
 end interface
 
+!================================================================================================
+!                              Function getNumRemParticles
+!================================================================================================
 interface
 integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
   use iso_c_binding, only: c_int
   end function
 end interface
 
+!================================================================================================
+!                              Subroutine getParticle
+!================================================================================================
 interface
 subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticle")
   use iso_c_binding, only: c_int, c_double
@@ -47,6 +58,9 @@ subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticl
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine getParticle2
+!================================================================================================
 interface
 subroutine getParticle2(idx, particle) bind(C, name="getParticle2")
   use iso_c_binding, only: c_int, c_double
@@ -56,6 +70,20 @@ subroutine getParticle2(idx, particle) bind(C, name="getParticle2")
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine setParticle2
+!================================================================================================
+interface
+subroutine setParticle2(particle) bind(C, name="setParticle2")
+  use iso_c_binding, only: c_int, c_double
+  import tParticleData
+  type(tParticleData) :: particle
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine getRemoteParticle
+!================================================================================================
 interface
 subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getRemoteParticle")
   use iso_c_binding, only: c_int, c_double
@@ -68,6 +96,9 @@ subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getR
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine getRemoteParticle2
+!================================================================================================
 interface
 subroutine getRemoteParticle2(idx, particle) bind(C, name="getRemoteParticle2")
   use iso_c_binding, only: c_int, c_double
@@ -77,6 +108,20 @@ subroutine getRemoteParticle2(idx, particle) bind(C, name="getRemoteParticle2")
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine setRemoteParticle2
+!================================================================================================
+interface
+subroutine setRemoteParticle2(particle) bind(C, name="setRemoteParticle2")
+  use iso_c_binding, only: c_int, c_double
+  import tParticleData
+  type(tParticleData) :: particle
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine setParticle
+!================================================================================================
 interface
 subroutine setParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="setParticle")
   use iso_c_binding, only: c_int, c_double
@@ -89,6 +134,9 @@ subroutine setParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="setParticl
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine setForces
+!================================================================================================
 interface
 subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
   use iso_c_binding, only: c_int, c_double
@@ -100,6 +148,9 @@ subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
   end subroutine
 end interface
 
+!================================================================================================
+!                              Subroutine setRemoteForces
+!================================================================================================
 interface
 subroutine setRemoteForces(idx, lidx, uidx, force, torque) bind(C, name="setRemoteForces")
   use iso_c_binding, only: c_int, c_double
@@ -111,6 +162,9 @@ subroutine setRemoteForces(idx, lidx, uidx, force, torque) bind(C, name="setRemo
   end subroutine
 end interface
 
+!================================================================================================
+!                              Function isSphere
+!================================================================================================
 interface
 logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
   use iso_c_binding, only: c_int, c_bool
@@ -118,6 +172,9 @@ logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
   end function
 end interface
 
+!================================================================================================
+!                              Subroutine getParticleRadius
+!================================================================================================
 interface
 real(c_double) function getParticleRadius(idx) bind(C, name="getParticleRadius")
   use iso_c_binding, only: c_int, c_double
@@ -125,6 +182,9 @@ real(c_double) function getParticleRadius(idx) bind(C, name="getParticleRadius")
   end function
 end interface
 
+!================================================================================================
+!                              Function pointInsideObject
+!================================================================================================
 interface
 logical(c_bool) function pointInsideObject(idx, pos) bind(C, name="pointInsideObject")
   use iso_c_binding, only: c_int, c_bool, c_double
@@ -133,6 +193,9 @@ logical(c_bool) function pointInsideObject(idx, pos) bind(C, name="pointInsideOb
   end function
 end interface
 
+!================================================================================================
+!                              Function pointInsideRemObject
+!================================================================================================
 interface
 logical(c_bool) function pointInsideRemObject(idx, pos) bind(C, name="pointInsideRemObject")
   use iso_c_binding, only: c_int, c_bool, c_double
@@ -141,6 +204,9 @@ logical(c_bool) function pointInsideRemObject(idx, pos) bind(C, name="pointInsid
   end function
 end interface
 
+!================================================================================================
+!                              Function check_rem_id
+!================================================================================================
 interface
 logical(c_bool) function check_rem_id(fbmid, id) bind(C, name="check_rem_id")
   use iso_c_binding, only: c_int, c_bool, c_double
@@ -292,13 +358,6 @@ subroutine getAllRemoteParticles(theParticles)
   do i=1,a
     idx = indexMap(i)
     call getRemoteParticle2(idx, temp)  
-!    call getRemoteParticle(idx,&
-!                           temp%localIdx,& 
-!                           temp%uniqueIdx,& 
-!                           temp%time,& 
-!                           temp%position,& 
-!                           temp%velocity)
-
     theParticles(i) = temp
   end do
 
@@ -312,11 +371,7 @@ subroutine setForcesMapped(particle)
 
   type(tParticleData), intent(inout) :: particle
   
-  call setForces(particle%uniqueIdx,&
-                 particle%localIdx,& 
-                 particle%uniqueIdx,& 
-                 particle%force,& 
-                 particle%torque)
+  call setLocalParticle2(particle)
 
 end subroutine setForcesMapped
 !================================================================================================
@@ -328,11 +383,7 @@ subroutine setRemoteForcesMapped(particle)
 
   type(tParticleData), intent(inout) :: particle
   
-  call setRemoteForces(particle%uniqueIdx,&
-                       particle%localIdx,& 
-                       particle%uniqueIdx,& 
-                       particle%force,& 
-                       particle%torque)
+  call setRemoteParticle2(particle)
 
 end subroutine setRemoteForcesMapped
 !================================================================================================
@@ -376,6 +427,20 @@ type(tParticleData) function getLocalParticle2(idx)
   getLocalParticle2 = temp
 
 end function getLocalParticle2
+
+!================================================================================================
+!                              Subroutine setLocalParticle2
+!================================================================================================
+
+subroutine setLocalParticle2(particle)
+  implicit none
+
+  type(tParticleData), intent(inout) :: particle
+  
+  call setParticle2(particle)
+
+end subroutine setLocalParticle2
+  
 
 !================================================================================================
 !                              Function getRadius
