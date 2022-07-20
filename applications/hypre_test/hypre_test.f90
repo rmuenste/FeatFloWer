@@ -52,7 +52,7 @@ PROGRAM HYPRE_TEST
 
 
 !   Default problem parameters
-  n = 33
+  n = 500
   solver_id = 0
   print_solution  = 0
   tol = 1.0d-7
@@ -86,12 +86,11 @@ PROGRAM HYPRE_TEST
 !     How many rows do I have?
   local_size = iupper - ilower + 1
 ! 
+  
 ! !     Create the matrix.
 ! !     Note that this is a square matrix, so we indicate the row partition
 ! !     size twice (since number of rows = number of cols)
   call HYPRE_IJMatrixCreate(mpi_comm, ilower, iupper, ilower, iupper, A, ierr)
-write(*,*) myid, numnodes
-
 
 !     Choose a parallel csr format storage (see the User's Manual)
   call HYPRE_IJMatrixSetObjectType(A, HYPRE_PARCSR, ierr)
@@ -155,7 +154,6 @@ write(*,*) myid, numnodes
      call HYPRE_IJMatrixSetValues(A, 1, tmp(1), tmp(2), cols, values, ierr)
      !$omp end target data
   enddo
-
 
 !     Assemble after setting the coefficients
   call HYPRE_IJMatrixAssemble(A, ierr)

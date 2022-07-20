@@ -8,6 +8,9 @@ USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
 USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUpQ2_1_SLAVE,MUMPS_SetUpQ2_3_SLAVE,&
     MUMPS_SetUpQ2_1_MASTER,MUMPS_SetUpQ2_3_MASTER,MUMPS_Solve,MUMPS_SetUpP1_SLAVE,MUMPS_SetUpP1_MASTER,MUMPS_CleanUp
 #endif
+#ifdef HYPRE_AVAIL
+USE HypreSolver, ONLY: myHypre_Solve
+#endif
 IMPLICIT NONE
 
 TYPE tCG
@@ -2011,6 +2014,7 @@ EXTERNAL E011
      CALL crsSmoother()
 
     END IF
+   
 
    ELSE
 
@@ -2047,7 +2051,15 @@ EXTERNAL E011
     STOP
     
    END IF
+#endif   
+  IF (MyMG%CrsSolverType.EQ.6) THEN    
+#ifdef HYPRE_AVAIL
+    CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
+#else
+    IF (myid.eq.0) WRITE(*,*) 'Hypre is not available!'
+    STOP
 #endif
+  END IF
 
  IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
  IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
