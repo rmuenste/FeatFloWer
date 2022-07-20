@@ -21,7 +21,6 @@ source_group(Elements FILES ${Elements})
 
 target_link_libraries(hypre_test 
   ${FF_APPLICATION_LIBS}
-  ${HYPRE_LIBRARIES}
   )
 
 target_include_directories(hypre_test PUBLIC ${FF_APPLICATION_INCLUDE_PATH})

@@ -385,7 +385,9 @@ endif(NOT WIN32)
 if(USE_HYPRE)
   # Use the sources from the repository  
   message(STATUS "Using repository versions of hypre")
+  add_definitions(-DHYPRE_AVAIL)		
   add_subdirectory(extern/libraries/hypre/src)
+  set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
   set(HYPRE_LIBRARIES HYPRE)
 endif(USE_HYPRE)
 
