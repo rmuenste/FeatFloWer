@@ -19,11 +19,12 @@ END TYPE tBoxMesh
 TYPE(tBoxMesh) BoxMesh
 
 TYPE tTriMesh
+ integer nx,ny,nz
  REAL*8, allocatable :: x(:),y(:),z(:)
  REAL*8, allocatable :: d(:,:,:) 
  REAL*8, allocatable :: I(:,:,:) 
 END TYPE tTriMesh
-TYPE(tTriMesh) TriMesh
+TYPE(tTriMesh) TriMesh,CoarseTriMesh
 
 Type triplet
  REAl*8 Q(3)
@@ -69,6 +70,12 @@ deallocate(TriMesh%z)
 deallocate(TriMesh%d)
 deallocate(TriMesh%I)
 
+if (allocated(CoarseTriMesh%x)) deallocate(CoarseTriMesh%x)
+if (allocated(CoarseTriMesh%y)) deallocate(CoarseTriMesh%y)
+if (allocated(CoarseTriMesh%z)) deallocate(CoarseTriMesh%z)
+if (allocated(CoarseTriMesh%d)) deallocate(CoarseTriMesh%d)
+if (allocated(CoarseTriMesh%I)) deallocate(CoarseTriMesh%I)
+
 END SUBROUTINE DeallocateStructures
 !
 ! -------------------------------------------------------------------------------
@@ -80,8 +87,8 @@ integer i,iDir
 allocate(TriMesh%x(BoxMesh%Division(1)))
 allocate(TriMesh%y(BoxMesh%Division(2)))
 allocate(TriMesh%z(BoxMesh%Division(3)))
-allocate(TriMesh%d(BoxMesh%Division(1),BoxMesh%Division(2),BoxMesh%Division(3)))
-allocate(TriMesh%I(BoxMesh%Division(1),BoxMesh%Division(2),BoxMesh%Division(3)))
+allocate(TriMesh%d(BoxMesh%Division(1)-1,BoxMesh%Division(2)-1,BoxMesh%Division(3)-1))
+allocate(TriMesh%I(BoxMesh%Division(1)-1,BoxMesh%Division(2)-1,BoxMesh%Division(3)-1))
 TriMesh%x = 0d0
 TriMesh%y = 0d0
 TriMesh%z = 0d0
@@ -417,8 +424,10 @@ CHARACTER cf*(256)
 integer nvt,nel
 INTEGER :: iunit=123
 
-nvt = BoxMesh%division(1)*BoxMesh%division(2)*BoxMesh%division(3)
-nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
+nvt = CoarseTriMesh%nx*CoarseTriMesh%ny*CoarseTriMesh%nz
+nel = (CoarseTriMesh%nx-1)*(CoarseTriMesh%ny-1)*(CoarseTriMesh%nz-1)
+! nvt = BoxMesh%division(1)*BoxMesh%division(2)*BoxMesh%division(3)
+! nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
 
 WRITE(cf,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/Coarse_meshDir'
 myid = 1
@@ -434,28 +443,28 @@ WRITE(iunit,*) 'Parametrisierung PARXC, PARYC, TMAXC'
 WRITE(iunit,'(2I8,A)') NEL,NVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
 
 WRITE(iunit,'(A)') 'DCORVG'
- do i=1,BoxMesh%division(1)
-  do j=1,BoxMesh%division(2)
-   do k=1,BoxMesh%division(3)
-    WRITE(iunit,'(3ES13.5)') TriMesh%x(i),TriMesh%y(j),TriMesh%z(k)
+ do i=1,CoarseTriMesh%nx
+  do j=1,CoarseTriMesh%ny
+   do k=1,CoarseTriMesh%nz
+    WRITE(iunit,'(3ES13.5)') CoarseTriMesh%x(i),CoarseTriMesh%y(j),CoarseTriMesh%z(k)
    end do
   end do
  end do
 
 WRITE(iunit,'(A)') 'KVERT'
- do i=1,BoxMesh%division(1)-1
-  do j=1,BoxMesh%division(2)-1
-   do k=1,BoxMesh%division(3)-1
+ do i=1,CoarseTriMesh%nx-1
+  do j=1,CoarseTriMesh%ny-1
+   do k=1,CoarseTriMesh%nz-1
     write(iunit, '(8I8)') &
-     k + (j-1)*BoxMesh%division(3)     + (i-1)*BoxMesh%division(2)*BoxMesh%division(3),&
-     k + (j-1)*BoxMesh%division(3) + 1 + (i-1)*BoxMesh%division(2)*BoxMesh%division(3),&
-     k + (j)*BoxMesh%division(3)+1     + (i-1)*BoxMesh%division(2)*BoxMesh%division(3),&
-     k + (j)*BoxMesh%division(3)       + (i-1)*BoxMesh%division(2)*BoxMesh%division(3),&
+     k + (j-1)*CoarseTriMesh%nz    + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j-1)*CoarseTriMesh%nz+ 1 + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j)*CoarseTriMesh%nz+1     + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j)*CoarseTriMesh%nz      + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
      
-     k + (j-1)*BoxMesh%division(3)     + (i)*BoxMesh%division(2)*BoxMesh%division(3) ,&
-     k + (j-1)*BoxMesh%division(3) + 1 + (i)*BoxMesh%division(2)*BoxMesh%division(3) ,&
-     k + (j)*BoxMesh%division(3)+1     + (i)*BoxMesh%division(2)*BoxMesh%division(3) ,&
-     k + (j)*BoxMesh%division(3)       + (i)*BoxMesh%division(2)*BoxMesh%division(3) 
+     k + (j-1)*CoarseTriMesh%nz    + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j-1)*CoarseTriMesh%nz+ 1 + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j)*CoarseTriMesh%nz+1     + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     k + (j)*CoarseTriMesh%nz      + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz
    end do
   end do
  end do
@@ -489,10 +498,15 @@ WRITE(cf,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/'//adjustl(trim(cAreaIntensityF
 WRITE(*,*) "Outputting Area Intensity into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
 
-do i=1,BoxMesh%division(1)-1
- do j=1,BoxMesh%division(2)-1
-  do k=1,BoxMesh%division(3)-1
-   write(iunit, '(A,E16.7)')"        ",REAL(TriMesh%I(i,j,k))
+do i=1,CoarseTriMesh%nx-1
+ do j=1,CoarseTriMesh%ny-1
+  do k=1,CoarseTriMesh%nz-1
+   
+! do i=1,BoxMesh%division(1)-1
+!  do j=1,BoxMesh%division(2)-1
+!   do k=1,BoxMesh%division(3)-1
+   write(iunit, '(A,E16.7)')"        ",REAL(CoarseTriMesh%I(i,j,k))
+!    write(iunit, '(A,E16.7)')"        ",REAL(TriMesh%I(i,j,k))
   end do
  end do
 end do
@@ -500,6 +514,130 @@ end do
 close(iunit)
 
 END SUBROUTINE Output_AreaIntenisty
+!
+! -------------------------------------------------------------------------------
+!
+SUBROUTINE Output_CoarseMeshVTK()
+
+IMPLICIT NONE
+INTEGER ive,ivt,ioffset
+INTEGER i,j,k
+INTEGER :: iunit=123
+CHARACTER*(100) filename
+integer nvt,nel
+
+nvt = CoarseTriMesh%nx*CoarseTriMesh%ny*CoarseTriMesh%nz
+nel = (CoarseTriMesh%nx-1)*(CoarseTriMesh%ny-1)*(CoarseTriMesh%nz-1)
+
+filename=" "
+WRITE(filename(1:),'(A)') "CoarseTriMesh.vtu"
+
+WRITE(*,'(104("="))') 
+WRITE(*,*) "Outputting vtk file into ",filename
+
+OPEN (UNIT=iunit,FILE=filename)
+
+write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
+write(iunit, *)"  <UnstructuredGrid>"
+write(iunit, *)"    <Piece NumberOfPoints=""",nvt,""" NumberOfCells=""",nel,""">"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the node field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+write(iunit, '(A)')"    <PointData>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ID",""" format=""ascii"">"
+ ivt = 0
+ do i=1,CoarseTriMesh%nx
+  do j=1,CoarseTriMesh%ny
+   do k=1,CoarseTriMesh%nz
+    ivt = ivt + 1
+    write(iunit, '(A,E16.7)')"        ",REAL(ivt)
+   end do
+  end do
+ end do
+ write(iunit, *)"        </DataArray>"
+
+ write(iunit, '(A)')"    </PointData>"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the cell field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+write(iunit, '(A)')"    <CellData>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","SurfIntensity",""" format=""ascii"">"
+ 
+ do i=1,CoarseTriMesh%nx-1
+  do j=1,CoarseTriMesh%ny-1
+   do k=1,CoarseTriMesh%nz-1
+    write(iunit, '(A,E16.7)')"        ",REAL(CoarseTriMesh%I(i,j,k))
+   end do
+  end do
+ end do
+ write(iunit, *)"        </DataArray>"
+ 
+write(iunit, '(A)')"    </CellData>"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the mesh data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+write(iunit, '(A)')"      <Points>"
+write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
+ do i=1,CoarseTriMesh%nx
+  do j=1,CoarseTriMesh%ny
+   do k=1,CoarseTriMesh%nz
+    write(iunit, '(A,3E16.7)')"        ",CoarseTriMesh%x(i),CoarseTriMesh%y(j),CoarseTriMesh%z(k)
+   end do
+  end do
+ end do
+write(iunit, *)"        </DataArray>"
+write(iunit, *)"      </Points>"
+
+write(iunit, *)"      <Cells>"
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",nel-1,""">"
+ do i=1,CoarseTriMesh%nx-1
+  do j=1,CoarseTriMesh%ny-1
+   do k=1,CoarseTriMesh%nz-1
+    write(iunit, '(A,8I10)')"        ",&
+     -1 + k + (j-1)*CoarseTriMesh%nz     + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     -1 + k + (j-1)*CoarseTriMesh%nz + 1 + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     -1 + k + (j)*CoarseTriMesh%nz+1     + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+     -1 + k + (j)*CoarseTriMesh%nz       + (i-1)*CoarseTriMesh%ny*CoarseTriMesh%nz,&
+      
+     -1 + k + (j-1)*CoarseTriMesh%nz     + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz ,&
+     -1 + k + (j-1)*CoarseTriMesh%nz + 1 + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz ,&
+     -1 + k + (j)*CoarseTriMesh%nz+1     + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz ,&
+     -1 + k + (j)*CoarseTriMesh%nz       + (i)*CoarseTriMesh%ny*CoarseTriMesh%nz 
+   end do
+  end do
+ end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""offsets"" format=""ascii"" RangeMin=""8"" RangeMax=""",8*nel,""">"
+ioffset=nel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')ive*8,(ive+1)*8,(ive+2)*8,(ive+3)*8,(ive+4)*8,(ive+5)*8,(ive+6)*8,(ive+7)*8
+end do
+
+do ive=ioffset+1,nel
+ write(iunit, '(I10)')ive*8
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A)')"        <DataArray type=""UInt8"" Name=""types"" format=""ascii"" RangeMin=""12"" RangeMax=""12"">"
+ioffset=nel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')12,12,12,12,12,12,12,12
+end do
+do ive=ioffset+1,nel
+ write(iunit, '(I10)')12
+end do
+write(iunit, '(A)')"        </DataArray>"
+ 
+write(iunit, *)"      </Cells>"
+write(iunit, *)"    </Piece>"
+   
+write(iunit, *)"  </UnstructuredGrid>"
+write(iunit, *)"</VTKFile>"
+close(iunit)
+
+END SUBROUTINE Output_CoarseMeshVTK
 !
 ! -------------------------------------------------------------------------------
 !
@@ -635,6 +773,143 @@ close(iunit)
 
 END SUBROUTINE Output_VTK
 !------------------------------------------------------------
+SUBROUTINE CoarseSurfIntensity()
+integer i,j,k
+integer i0,j0,k0,i1,j1,k1,i2,j2,k2
+integer ii,jj,kk
+REAL*8 daux
+REAL*8 dCrit(3)
+
+ CoarseTriMesh%nx = INT(0.5d0*(BoxMesh%Division(1)-1)+1)
+ CoarseTriMesh%ny = INT(0.5d0*(BoxMesh%Division(2)-1)+1)
+ CoarseTriMesh%nz = INT(0.5d0*(BoxMesh%Division(3)-1)+1)
+ 
+WRITE(*,*) BoxMesh%Division(1:3)
+WRITE(*,*) CoarseTriMesh%nx,CoarseTriMesh%nY,CoarseTriMesh%nZ
+
+allocate(CoarseTriMesh%x(CoarseTriMesh%nx))
+allocate(CoarseTriMesh%y(CoarseTriMesh%ny))
+allocate(CoarseTriMesh%z(CoarseTriMesh%nz))
+allocate(CoarseTriMesh%I(CoarseTriMesh%nx,CoarseTriMesh%ny-1,CoarseTriMesh%nz-1))
+
+ CoarseTriMesh%x = 0d0
+ CoarseTriMesh%y = 0d0
+ CoarseTriMesh%z = 0d0
+ CoarseTriMesh%I = 0d0
+DO i=1,CoarseTriMesh%nx 
+ CoarseTriMesh%x(i) = BoxMesh%Extent(1,1) + dble(i-1)*(BoxMesh%Extent(1,2)-BoxMesh%Extent(1,1))/(CoarseTriMesh%nx -1)
+END DO
+DO i=1,CoarseTriMesh%ny
+ CoarseTriMesh%y(i) = BoxMesh%Extent(2,1) + dble(i-1)*(BoxMesh%Extent(2,2)-BoxMesh%Extent(2,1))/(CoarseTriMesh%ny -1)
+END DO
+DO i=1,CoarseTriMesh%nz
+ CoarseTriMesh%z(i) = BoxMesh%Extent(3,1) + dble(i-1)*(BoxMesh%Extent(3,2)-BoxMesh%Extent(3,1))/(CoarseTriMesh%nz -1)
+END DO
+
+
+do i=1,BoxMesh%division(1)-2,2
+ do j=1,BoxMesh%division(2)-2,2
+  do k=1,BoxMesh%division(3)-2,2
+  
+  i0 = (i+1)/2
+  j0 = (j+1)/2
+  k0 = (k+1)/2
+  
+!    daux  = max(TriMesh%I(i,j,k  ),TriMesh%I(i+1,j,k  ),TriMesh%I(i,j+1,k  ),TriMesh%I(i+1,j+1,k  ),&
+!                TriMesh%I(i,j,k+1),TriMesh%I(i+1,j,k+1),TriMesh%I(i,j+1,k+1),TriMesh%I(i+1,j+1,k+1))
+!    daux = 0.125d0*daux
+
+   daux = 0d0
+   
+   DO i2=-1,1
+    DO j2=-1,1
+     DO k2=-1,1
+     
+       dCrit = 0d0
+       
+       DO i1=0,1
+        DO j1=0,1
+         DO k1=0,1
+          II =  i + i1 + i2
+          JJ =  j + j1 + j2
+          KK =  k + k1 + k2
+          IF ((II.ge.1.and.II.le.BoxMesh%division(1)-1).and.&
+              (JJ.ge.1.and.JJ.le.BoxMesh%division(2)-1).and.&
+              (KK.ge.1.and.KK.le.BoxMesh%division(3)-1)) THEN
+               
+              dCrit(1) = dCrit(1) + TriMesh%I(II,JJ,KK)
+              dCrit(2) = dCrit(2) + 1d0
+              dCrit(3) = max(dCrit(3),TriMesh%I(II,JJ,KK))
+          END IF
+         END DO
+        END DO
+       END DO
+       
+!        if (i0.eq.9.and.j0.eq.5.and.k0.eq.18) then
+!         write(*,*) daux,dCrit(1)/dCrit(2),dCrit(3)
+!        end if
+       if (dCrit(2).eq.8d0) then
+        daux = max(daux,2d0*dCrit(1)/dCrit(2))
+       end if
+   
+     END DO
+    END DO
+   END DO
+    
+   CoarseTriMesh%I(i0,j0,k0)  = daux
+  end do
+ end do
+end do
+
+
+! do i=1,BoxMesh%division(1)-2,2
+!  do j=1,BoxMesh%division(2)-2,2
+!   do k=1,BoxMesh%division(3)-2,2
+! 
+!    i1 = (i+1)/2
+!    j1 = (j+1)/2
+!    k1 = (k+1)/2
+!    
+!    DO ii=i-1,i+1,2
+!     IF (ii.ge.1.and.ii.le.BoxMesh%division(1).and.CoarseTriMesh%I(i1,j1,k1).gt.0d0) then
+!      daux  = (TriMesh%I(i,j,k) + TriMesh%I(ii,j,k))/2d0
+!      CoarseTriMesh%I(i1,j1,k1)  = MAX(CoarseTriMesh%I(i1,j1,k1),daux)
+!     END IF
+!    END DO
+!    
+!    DO jj=j-1,j+1,2
+!     IF (jj.ge.1.and.j.le.BoxMesh%division(2).and.CoarseTriMesh%I(i1,j1,k1).gt.0d0) then
+!      daux  = (TriMesh%I(i,j,k) + TriMesh%I(i,jj,k))/2d0
+!      CoarseTriMesh%I(i1,j1,k1)  = MAX(CoarseTriMesh%I(i1,j1,k1),daux)
+!     END IF
+!    END DO
+! ! 
+!    DO kk=k-1,k+1,2
+!     IF (kk.ge.1.and.k.le.BoxMesh%division(3).and.CoarseTriMesh%I(i1,j1,k1).gt.0d0) then
+!      daux  = (TriMesh%I(i,j,k) + TriMesh%I(i,j,kk))/2d0
+!      CoarseTriMesh%I(i1,j1,k1)  = MAX(CoarseTriMesh%I(i1,j1,k1),daux)
+!     END IF
+!    END DO
+! 
+!   end do
+!  end do
+! end do
+ 
+END SUBROUTINE CoarseSurfIntensity
+!------------------------------------------------------------
+SUBROUTINE ConstructSurfIntensity()
+integer i,j,k
+
+do i=1,BoxMesh%division(1)-1
+ do j=1,BoxMesh%division(2)-1
+  do k=1,BoxMesh%division(3)-1
+   TriMesh%I(i,j,k) = TriMesh%d(i,j,k)/UnityArea
+  end do
+ end do
+end do
+ 
+END SUBROUTINE ConstructSurfIntensity
+!------------------------------------------------------------
 SUBROUTINE QualityCheck(dMaxAreaIntensity,nCrit)
 integer nCrit
 real*8 dMaxAreaIntensity
@@ -646,8 +921,7 @@ dMaxAreaIntensity = 0d0
 do i=1,BoxMesh%division(1)-1
  do j=1,BoxMesh%division(2)-1
   do k=1,BoxMesh%division(3)-1
-   dMaxAreaIntensity = MAX(dMaxAreaIntensity,TriMesh%d(i,j,k)/UnityArea)
-   TriMesh%I(i,j,k) = TriMesh%d(i,j,k)/UnityArea
+   dMaxAreaIntensity = MAX(dMaxAreaIntensity,TriMesh%I(i,j,k))
    IF (TriMesh%d(i,j,k)/UnityArea.gt.dSurfIntCrit) nCrit = nCrit + 1
   end do
  end do

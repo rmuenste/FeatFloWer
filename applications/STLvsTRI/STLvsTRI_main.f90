@@ -81,11 +81,11 @@ END IF
   VoxelVolume = DomainVolume/DBLE(NumberOfElements)
   VoxelSize = VoxelVolume**(1d0/3d0)
   
-  BoxMesh%Division(1) = NINT(BoxMesh%dsize(1)/VoxelSize)
-  BoxMesh%Division(2) = NINT(BoxMesh%dsize(2)/VoxelSize)
-  BoxMesh%Division(3) = NINT(BoxMesh%dsize(3)/VoxelSize)
+  BoxMesh%Division(1) = 2*NINT(BoxMesh%dsize(1)/VoxelSize)+1
+  BoxMesh%Division(2) = 2*NINT(BoxMesh%dsize(2)/VoxelSize)+1
+  BoxMesh%Division(3) = 2*NINT(BoxMesh%dsize(3)/VoxelSize)+1
 
-  NumberOfElements = BoxMesh%Division(1)*BoxMesh%Division(2)*BoxMesh%Division(3)
+  NumberOfElements = (BoxMesh%Division(1)-1)*(BoxMesh%Division(2)-1)*(BoxMesh%Division(3)-1)
   VoxelVolume = DomainVolume/DBLE(NumberOfElements)
   VoxelSize = VoxelVolume**(1d0/3d0)
   UnityArea   = VoxelVolume**(2d0/3d0)
@@ -97,6 +97,11 @@ END IF
  
   CALL CheckForIntersection()
  
+  ! Construct Surface Intensity
+  TriMesh%I = TriMesh%d/UnityArea
+  
+  CALL CoarseSurfIntensity()
+  
   CALL QualityCheck(dSurfInt,nOfCritical)
   WRITE(*,'(A,ES12.4,I)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
  
@@ -110,6 +115,7 @@ END IF
  END DO
 
  CALL Output_VTK()
+ CALL Output_CoarseMeshVTK()
 
  CALL Output_TriMesh()
 
@@ -120,6 +126,8 @@ END IF
  subroutine print_help()
      print '(a, /)', 'command-line options:'
      print '(a)',    '  -f      Input Folder'
+     print '(a)',    '  -n      Number of Initial Hex Elements'
+     print '(a)',    '  -c      Value of Surface Intensity Criterion '
      print '(a)',    '  -h      Print usage information and exit'
  end subroutine print_help  
  
