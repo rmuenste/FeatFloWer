@@ -6,6 +6,9 @@ PROGRAM Q1_GenScalar
   use var_QuadScalar, only: bAlphaConverged,DivergedSolution,myErrorCode,AlphaControl
   USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 
+                           
+  USE Transport_Q2P1, ONLY : GetAlphaNonNewtViscosity_sse
+  
   use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,&
                            EstimateAlphaTimeStepSize,Recover_GenLinSc_OldSolution
   use post_utils,  only: handle_statistics,&
@@ -56,6 +59,9 @@ PROGRAM Q1_GenScalar
   timnsh=timens
   dt=tstep
   timens=timens+dt
+
+  ! recover the viscosity and shearrates for the dissipation term
+  CALL GetAlphaNonNewtViscosity_sse()
 
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)

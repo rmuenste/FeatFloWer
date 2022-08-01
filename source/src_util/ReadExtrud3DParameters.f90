@@ -2686,7 +2686,7 @@
 !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
     write(*,'(A,ES12.4)') "myProcess%WorkBenchThicknessCM=",myProcess%WorkBenchThickness
     write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%CoolingWaterTemperature
-    write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%MeltInflowTemperature
+    write(*,'(A,ES12.4)') "myProcess%MeltInflowTemperature=",myProcess%MeltInflowTemperature
     write(*,*) 
     write(*,'(A,L)') "mySetup%ConvergenceEstimator=",mySetup%bConvergenceEstimator
 

@@ -961,6 +961,14 @@ if (myid.ne.master) then
                              mg_mesh%level(ilev)%kedge,&
                              mg_mesh%level(ilev)%dcorvg,&
                              E011,dArea2,dFlux2,iSwitch)
+                             
+!  CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+!                              Tracer%def,Tracer%oldSol,&
+!                              mg_mesh%level(ilev)%kvert,&
+!                              mg_mesh%level(ilev)%karea,&
+!                              mg_mesh%level(ilev)%kedge,&
+!                              mg_mesh%level(ilev)%dcorvg,&
+!                              E011,dArea1,dFlux1,iSwitch)
 end if
 
 END SUBROUTINE AddBoundaryHeatFlux

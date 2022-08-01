@@ -2,7 +2,7 @@ subroutine init_q1_scalar(log_unit)
     
   USE def_FEAT
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Structures_sse, &
-    InitCond_GenLinSc_Q1_QuadScalar,ProlongateSolution, &
+    InitCond_GenLinSc_Q1_QuadScalar,ProlongateSolution, Create_MMat, &
     bTracer,bViscoElastic,StaticMeshAdaptation,InitCond_QuadScalar
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
@@ -20,6 +20,8 @@ subroutine init_q1_scalar(log_unit)
   CALL General_init_ext(79,log_unit)
 
   CALL Init_QuadScalar_Structures_sse(log_unit)
+  
+  CALL Create_MMat() ! for the viscosity and shearrate evaluation
 
   CALL Init_GenLinSc_HEATALPHA_Q1(log_unit)
 
