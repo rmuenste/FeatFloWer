@@ -19,7 +19,7 @@ integer*8 hypre_solver
 integer ilower, iupper, local_size
 integer hypreCommunicator, color
 integer num_iterations
-real*8 final_res_norm
+real*8  final_res_norm
 integer ierr
 
 ! DELETE LATER; PLACEHOLDER
