@@ -2052,7 +2052,7 @@ EXTERNAL E011
     
    END IF
 #endif   
-  IF (MyMG%CrsSolverType.EQ.6) THEN    
+  IF (MyMG%CrsSolverType.EQ.7) THEN    
 #ifdef HYPRE_AVAIL
     CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
 #else
