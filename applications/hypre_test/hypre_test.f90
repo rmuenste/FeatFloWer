@@ -96,7 +96,7 @@
       !$omp target enter data map(alloc:tmp)
 
 !   Default problem parameters
-      n = 5
+      n = 25
       solver_id = 0
       print_solution  = 0
       tol = 1.0d-7
@@ -150,22 +150,22 @@
 !     Note that here we are setting one row at a time, though
 !     one could set all the rows together (see the User's Manual).
 
-      ilower= ilower+1
-      iupper= iupper+1
+      ilower= ilower
+      iupper= iupper
 
       do i = ilower, iupper
          nnz = 1
 
 
 !        The left identity block:position i-n
-         if ( (i-n) .ge. 1 ) then
+         if ( (i-n) .ge. 0 ) then
             cols(nnz) = i-n
             values(nnz) = -1.0d0
             nnz = nnz + 1
          endif
 
 !         The left -1: position i-1
-         if ( mod(i-1,n).ne.0 ) then
+         if ( mod(i,n).ne.0 ) then
             cols(nnz) = i-1
             values(nnz) = -1.0d0
             nnz = nnz + 1
@@ -177,14 +177,14 @@
          nnz = nnz + 1
 
 !        The right -1: position i+1
-         if ( mod((i),n) .ne. 0 ) then
+         if ( mod((i+1),n) .ne. 0 ) then
             cols(nnz) = i+1
             values(nnz) = -1.0d0
             nnz = nnz + 1
          endif
 
 !        The right identity block:position i+n
-         if ( (i+n) .le. ng ) then
+         if ( (i+n) .lt. ng ) then
             cols(nnz) = i+n
             values(nnz) = -1.0d0
             nnz = nnz + 1
@@ -195,13 +195,12 @@
          tmp(2) = i
          !$omp target update to(cols, values, tmp)
          !$omp target data use_device_ptr(cols, values, tmp)
-         call HYPRE_IJMatrixSetValues(        A, 1, tmp(1), tmp(2), cols, values, ierr)
+         call HYPRE_IJMatrixSetValues(A, 1, tmp(1), tmp(2), cols, values, ierr)
          !$omp end target data
-      
+      enddo
       if (myid.eq.0) then
          write(*,*) "myid:",myid,"; ilower:",ilower,"; iupper:",iupper,"; nrows:",1,"; ncols:",tmp(1),"; rows:",tmp(2),"; cols:", cols
       end if
-      enddo
       
 
 !     Assemble after setting the coefficients
