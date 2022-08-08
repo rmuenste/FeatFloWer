@@ -2054,7 +2054,8 @@ EXTERNAL E011
 #endif   
   IF (MyMG%CrsSolverType.EQ.7) THEN    
 #ifdef HYPRE_AVAIL
-    CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
+    CALL myHypre_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x)
+!    CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
 #else
     IF (myid.eq.0) WRITE(*,*) 'Hypre is not available!'
     STOP

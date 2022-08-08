@@ -633,6 +633,8 @@ END IF
 
  CALL OperatorRegenaration(1)
  
+ CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+ 
 END SUBROUTINE Init_QuadScalar_Structures_sse
 !
 ! ----------------------------------------------

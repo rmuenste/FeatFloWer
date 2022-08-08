@@ -6,12 +6,11 @@ include 'HYPREf.h'
 
 CONTAINS
 
-SUBROUTINE myHypre_Solve(x,b,Mat)
+SUBROUTINE myHypre_Solve(x,b)
 USE var_QuadScalar
 IMPLICIT NONE
 
 REAL*8, intent(in) :: x(*), b(*)
-TYPE(TMatrix), intent(in) :: Mat
 
 integer*8 hypre_A, parcsr_A, hypre_b, par_b, hypre_x, par_x
 integer*8 hypre_solver
@@ -26,7 +25,6 @@ integer ierr
 integer :: nrows
 integer, dimension(:), allocatable :: ncols, rows, cols
 real*8,  dimension(:), allocatable :: values, rhs_values, x_values
-
 
 ! initialize hypre structure
 call HYPRE_Init(ierr)
@@ -46,42 +44,46 @@ else
   color = 1
 end if
 
-call MPI_COMM_split(MPI_COMM_WORLD, color, myid-1, hypreCommunicator)
+call MPI_COMM_split(MPI_COMM_WORLD, color, myid-1, hypreCommunicator, ierr)
 
 ! get numbering of partitions
-call hypre_factorize(ilower, iupper)
+! call hypre_factorize(myHypre%ilower, myHypre%iupper)
 
-call HYPRE_IJMatrixCreate(hypreCommunicator, ilower, iupper,&
-                         ilower, iupper, hypre_A, ierr)
+if (myid.ne.0) then
+
+call HYPRE_IJMatrixCreate(hypreCommunicator, myHypre%ilower, myHypre%iupper,&
+                         myHypre%ilower, myHypre%iupper, hypre_A, ierr)
 call HYPRE_IJMatrixSetObjectType(hypre_A, HYPRE_PARCSR, ierr)
 call HYPRE_IJMatrixInitialize(hypre_A, ierr)
-
 
 ! set up hypre matrix structure
 ! ---------------------------------------------
 
 ! get matrix structure for hypre partitions
-call hypre_getMatrixStruct(nrows, ncols, rows, cols, values)
-call HYPRE_IJMatrixSetValues(hypre_A, nrows, ncols, rows, cols, values, ierr)
+!call hypre_getMatrixStruct(nrows, ncols, rows, cols, values)
+call HYPRE_IJMatrixSetValues(hypre_A, myHypre%nrows, myHypre%ncols, myHypre%rows, myHypre%cols, myHypre%values, ierr)
 
 call HYPRE_IJMatrixAssemble(hypre_A, ierr)
 call HYPRE_IJMatrixGetObject(hypre_A, parcsr_A, ierr)
 
 ! set up parallel structure for RHS and solution vector
 ! ---------------------------------------------
-call HYPRE_IJVectorCreate(hypreCommunicator,ilower, iupper, hypre_b, ierr)
+call HYPRE_IJVectorCreate(hypreCommunicator,myHypre%ilower, myHypre%iupper, hypre_b, ierr)
 call HYPRE_IJVectorSetObjectType(hypre_b, HYPRE_PARCSR, ierr)
 call HYPRE_IJVectorInitialize(hypre_b, ierr)
 
-call HYPRE_IJVectorCreate(hypreCommunicator,ilower, iupper, hypre_x, ierr)
+call HYPRE_IJVectorCreate(hypreCommunicator,myHypre%ilower, myHypre%iupper, hypre_x, ierr)
 call HYPRE_IJVectorSetObjectType(hypre_x, HYPRE_PARCSR, ierr)
 call HYPRE_IJVectorInitialize(hypre_x, ierr)
 
 ! set vector values
-call hypre_getVectorValues(rhs_values, x_values)
-local_size = iupper - ilower + 1
-call HYPRE_IJVectorSetValues(hypre_b, local_size, rows, rhs_values, ierr)
-call HYPRE_IJVectorSetValues(hypre_x, local_size, rows, x_values, ierr)
+! call hypre_getVectorValues(rhs_values, x_values)
+local_size = myHypre%iupper - myHypre%ilower + 1
+! call HYPRE_IJVectorSetValues(hypre_b, local_size, myHypre%rows, b, ierr)
+! call HYPRE_IJVectorSetValues(hypre_x, local_size, myHypre%rows, x, ierr)
+call HYPRE_IJVectorSetValues(hypre_b, local_size, myHypre%rows, myHypre%rhs, ierr)
+call HYPRE_IJVectorSetValues(hypre_x, local_size, myHypre%rows, myHypre%sol, ierr)
+
 
 call HYPRE_IJVectorAssemble(hypre_b, ierr)
 call HYPRE_IJVectorAssemble(hypre_x, ierr)
@@ -94,7 +96,6 @@ call HYPRE_IJVectorGetObject(hypre_x, par_x, ierr)
 ! ---------------------------------------------
 !        Create solver
 call HYPRE_BoomerAMGCreate(hypre_solver, ierr)
-
 
 !        Set some parameters (See Reference Manual for more parameters)
 
@@ -118,6 +119,13 @@ call HYPRE_BoomerAMGSetKeepTransp(hypre_solver, 1, ierr)
 !        Now setup and solve!
 call HYPRE_BoomerAMGSetup(hypre_solver, parcsr_A, par_b, par_x, ierr)
 call HYPRE_BoomerAMGSolve(hypre_solver, parcsr_A, par_b, par_x, ierr)
+end if
+
+! if (myid.ne.0) then
+!  write(*,'(<myHypre%nrows>I12)') myHypre%rows
+!  write(*,'(<myHypre%nrows>ES12.4)') myHypre%rhs
+!  write(*,'(<myHypre%nrows>ES12.4)') myHypre%sol
+! end if
 
 
 !        Run info - needed logging turned on
@@ -125,12 +133,14 @@ call HYPRE_BoomerAMGGetNumIterations(hypre_solver, num_iterations,ierr)
 call HYPRE_BoomerAMGGetFinalReltvRes(hypre_solver, final_res_norm,ierr)
 
 
-if ( myid .eq. 0 ) then
+if ( myid .eq. 1 ) then
   print *
   print '(A,I2)', " Iterations = ", num_iterations
   print '(A,ES16.8)'," Final Relative Residual Norm = ", final_res_norm
   print *
 endif
+
+pause
 
 !        Destroy solver
 call HYPRE_BoomerAMGDestroy(hypre_solver, ierr)
