@@ -366,6 +366,12 @@ integer :: maxlevel
 Real*8 :: dabl
 real*8 :: myInf
 
+ IF (myid.eq.0) then
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+   NLMAX = NLMIN
+  END IF
+ end if
+ 
  ILEV=NLMAX
  CALL SETLEV(2)
 
@@ -940,6 +946,12 @@ integer :: mydof
 integer :: maxlevel
 Real*8 :: dabl
 
+ IF (myid.eq.0) then
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+   NLMAX = NLMIN
+  END IF
+ end if
+ 
  ILEV=NLMAX
  CALL SETLEV(2)
 
@@ -978,7 +990,6 @@ Real*8 :: dabl
  !
  !IF (myid.ne.0) CALL ParametrizeQ2Nodes(myQ2Coor)
  !
-
  ALLOCATE(myALE%Q2coor_old(3,&
  mg_mesh%level(ilev)%nvt+&
  mg_mesh%level(ilev)%net+&
@@ -1161,11 +1172,14 @@ END IF
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
+ 
  CALL InitializeProlRest(QuadSc,LinSc)
 
  CALL OperatorRegenaration(1)
  
  CALL Create_MMat()
+ 
+ CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
 
 END SUBROUTINE Init_QuadScalar_Stuctures
 !

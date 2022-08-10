@@ -160,7 +160,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL Init_QuadScalar(mfile)
 
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) THEN
+  NLMAX = LinSc%prm%MGprmIn%MedLev
+ END IF
 
  if(NLMAX.eq.0)then
    write(*,*)'NLMAX=0 is invalid, exiting...'
@@ -236,7 +238,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END DO
 
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) THEN
+  NLMAX = LinSc%prm%MGprmIn%MedLev
+ END IF
  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
  !     ----------------------------------------------------------
 
@@ -256,16 +260,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
- ILEV = LinSc%prm%MGprmIn%MedLev
-
- CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-                             mg_mesh%level(ILEV)%kvert,&
-                             mg_mesh%level(ILEV)%kedge,&
-                             mg_mesh%level(ILEV)%karea,&
-                             mg_mesh%level(ILEV)%nvt,&
-                             mg_mesh%level(ILEV)%net,&
-                             mg_mesh%level(ILEV)%nat,&
-                             mg_mesh%level(ILEV)%nel)
+!  ILEV = LinSc%prm%MGprmIn%MedLev
+! 
+!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+!                              mg_mesh%level(ILEV)%kvert,&
+!                              mg_mesh%level(ILEV)%kedge,&
+!                              mg_mesh%level(ILEV)%karea,&
+!                              mg_mesh%level(ILEV)%nvt,&
+!                              mg_mesh%level(ILEV)%net,&
+!                              mg_mesh%level(ILEV)%nat,&
+!                              mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  

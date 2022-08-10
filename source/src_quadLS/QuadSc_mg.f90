@@ -288,7 +288,7 @@ SUBROUTINE mgGuessSolution()
 ! END IF
 
 IF (myid.ne.0) THEN
-  myMG%X(mgLev)%x = 0d0
+!   myMG%X(mgLev)%x = 0d0
 END IF
 
 END SUBROUTINE mgGuessSolution
@@ -1937,24 +1937,23 @@ END SUBROUTINE mgCoarseGridSolver_U
 SUBROUTINE mgCoarseGridSolver_P()
 INTEGER Iter,i,j,k,ndof
 REAL*8 daux,dCrit
-INTEGER iEntry,jCol
+INTEGER iEntry,jCol,mgLevBU
 EXTERNAL E011
 
-  IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
-  IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
-  IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+   IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+   IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+   IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
+   
+   ILEV = mgLev
+   CALL SETLEV(2)
+  END IF
 
-  ILEV = mgLev
-  CALL SETLEV(2)
-
-  IF (myid.eq.0) THEN
-
-   myMG%X(mgLev)%x = 0d0
-
+  IF (myid.eq.0.and.MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+  
    IF (myMG%MinLev.EQ.myMG%MedLev) THEN
  
     IF (MyMG%CrsSolverType.EQ.1) THEN
-     myMG%X(mgLev)%x = 0d0
      ndof  = SIZE(myMG%X(mgLev)%x)
      CoarseIter = myMG%nIterCoarse
      dCrit = myMG%DefImprCoarse
@@ -1972,7 +1971,7 @@ EXTERNAL E011
 
      DO i=1,crsSTR%A%nu
       j = 4*(i-1) + 1
-      crsSTR%A_SOL(i) = 0d0
+      crsSTR%A_SOL(i) = myMG%X(mgLev)%x(j)
       crsSTR%A_RHS(i) = myMG%B(mgLev)%x(j)
      END DO
 
@@ -2052,9 +2051,92 @@ EXTERNAL E011
     
    END IF
 #endif   
-  IF (MyMG%CrsSolverType.EQ.7) THEN    
+  IF (MyMG%CrsSolverType.EQ.7.or.MyMG%CrsSolverType.EQ.8) THEN    
 #ifdef HYPRE_AVAIL
-    CALL myHypre_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x)
+    if (myid.eq.0) THEN 
+     mgLevBU = mglev
+     mglev = 1
+    END IF
+    
+    IF (MyMG%CrsSolverType.EQ.7) THEN    
+     IF (myid.ne.0) THEN    
+      myHypre%rhs=myMG%B(mgLev)%x
+      myHypre%sol=myMG%X(mgLev)%x
+     END IF
+     CALL myHypre_Solve()
+     IF (myid.ne.0) THEN    
+      myMG%X(mgLev)%x = myHypre%sol
+     END IF
+    END IF
+    
+    IF (MyMG%CrsSolverType.EQ.8) THEN    
+    
+     IF (myid.ne.0) THEN    
+      ILEV = mgLev
+      CALL SETLEV(2)
+      ndof = mg_mesh%level(mgLev)%nvt
+      if (.not.allocated(myCG%d2)) THEN
+       allocate(myCG%d2(ndof))
+      else
+       if (size(myCG%d2).lt.ndof) THEN
+        deallocate(myCG%d2)
+        allocate(myCG%d2(ndof))
+       END IF
+      END IF
+      if (.not.allocated(myCG%d1)) THEN
+       allocate(myCG%d1(ndof))
+      else
+       if (size(myCG%d1).lt.ndof) THEN
+        deallocate(myCG%d1)
+        allocate(myCG%d1(ndof))
+       END IF
+      END IF
+      
+      CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,iter)
+      
+      DO i=1,myHypre%nrows
+       j = 4*(i-1) + 1
+       myHypre%sol(i) = myMG%X(mgLev)%x(j)
+       myHypre%rhs(i) = myMG%B(mgLev)%x(j)
+      END DO
+     END IF
+     
+!      if (myid.eq.1) write(*,*) myHypre%sol
+     
+     CALL myHypre_Solve()
+     
+!      if (myid.eq.1) write(*,*) myHypre%sol
+     
+     IF (myid.ne.0) THEN    
+     
+      myHypre%sol = 3d0*myHypre%sol
+      
+      ! this should be done with a parallelized version ....
+      CALL INTPVB(myHypre%sol,myCG%d1,myCG%d2,&
+                     mg_mesh%level(mgLev)%dvol,&
+                     mg_mesh%level(mgLev)%kvert,&
+                     mg_mesh%level(mgLev)%nel,&
+                     mg_mesh%level(mgLev)%nvt)
+      
+      CALL IntQ1toP1(myMG%X(mgLev)%x,myCG%d1,&
+                     mg_mesh%level(mgLev)%kvert,&
+                     mg_mesh%level(mgLev)%karea,&
+                     mg_mesh%level(mgLev)%kedge,&
+                     mg_mesh%level(mgLev)%dcorvg,&
+                     E011)
+                     
+      
+      Iter  = myMG%nSmootherSteps
+      ndof  = SIZE(myMG%X(mgLev)%x)
+      CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,iter)
+!      deallocate(myCG%d2,myCG%d1)
+     END IF
+     
+    END IF
+    
+    if (myid.eq.0) THEN 
+     mglev = mgLevBU
+    END IF
 !    CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
 #else
     IF (myid.eq.0) WRITE(*,*) 'Hypre is not available!'
@@ -2062,10 +2144,12 @@ EXTERNAL E011
 #endif
   END IF
 
- IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
- IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
-
+  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+   IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
+   IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
+   IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
+  END IF
+  
 ! SUBROUTINE outputsol1(x,dcoor,kvert,NoOfElem,NoOfVert,iInd)
 
 !  CALL outputsol1(myMG%X(mgLev)%x,&
