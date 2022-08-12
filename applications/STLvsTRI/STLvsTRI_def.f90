@@ -371,7 +371,7 @@ DO J=1,3
  Dir(J) =  INT(DBLE(BoxMesh%division(J)-1)*(P(J)-BoxMesh%extent(J,1))/(BoxMesh%extent(J,2)-BoxMesh%extent(J,1)))+1
  IF (Dir(J).lt.1.or.Dir(J).gt.BoxMesh%division(J)-1) THEN
   WRITE(*,*) 'au',J,dir(j)
-  stop
+  RETURN
  END IF
 END DO
 
