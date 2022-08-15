@@ -111,6 +111,11 @@ option(BUILD_BOUNDARY_LAYER_TOOLS
   OFF
   )
 
+option(USE_HYPRE
+  "Use hypre library"
+  OFF
+  )
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -372,6 +377,19 @@ endif(NOT WIN32)
 #endif()
 #
 #message(FATAL_ERROR "end")
+
+
+#=========================================================================
+# Add the cgal library
+#=========================================================================
+if(USE_HYPRE)
+  # Use the sources from the repository  
+  message(STATUS "Using repository versions of hypre")
+  add_definitions(-DHYPRE_AVAIL)		
+  add_subdirectory(extern/libraries/hypre/src)
+  set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
+  set(HYPRE_LIBRARIES HYPRE)
+endif(USE_HYPRE)
 
 #=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 

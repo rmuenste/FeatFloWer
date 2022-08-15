@@ -253,7 +253,11 @@ IF (myid.ne.0) THEN
  CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
 
  CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
+END IF
 
+CALL Add_DissipativeEnergy_HEATALPHA_Q1(mfile)
+
+IF (myid.ne.0) THEN
  DO iFld=1,GenLinScalar%nOfFields
   CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%rhs0,GenLinScalar%ndof)
  END DO
@@ -1423,6 +1427,67 @@ if (myid.eq.1) then
 end if
 
 END SUBROUTINE EstimateAlphaTimeStepSize
+!
+! ----------------------------------------------
+!
+SUBROUTINE Add_DissipativeEnergy_HEATALPHA_Q1(mfile)
+USE var_QuadScalar, ONLY : Viscosity,Shearrate
+use Sigma_User, only: mySegmentIndicator,myMultiMat
+integer mfile
+integer j,iFld,iMat,iSeg,iMinMat
+real*8 daux,dauxKW,dDissipEnergy,Rho,Cp,Temp,dFactor,dMinField
+real*8 :: AlphaViscosityMatModel
+
+dDissipEnergy = 0d0
+
+if (myid.ne.0) then 
+ ILEV = NLMAX
+ LMassMat      => mg_LMassMat(ILEV)%a
+
+ DO j=1,plMat%nu
+ 
+   iSeg = INT(mySegmentIndicator(2,j))
+   IF (iSeg.eq.0) THEN
+    daux = 0.0d0 ! ==> no heat dissipation! 
+   ELSE
+   
+    dMinField = -1d0
+    iMat = 0
+    do iFld=2,GenLinScalar%nOfFields
+     if (GenLinScalar%Fld(iFld)%Val(j).gt.0.5d0) then
+      iMat = iFld - 1
+     else
+      if (dMinField.lt.GenLinScalar%Fld(iFld)%Val(j)) then
+       dMinField = GenLinScalar%Fld(iFld)%Val(j)
+       iMinMat = iFld - 1
+      end if
+     end if
+    end do
+    if (iMat.eq.0) iMat = iMinMat
+    Temp   = GenLinScalar%Fld(1)%Val(j)
+    Cp     = 1e+3*(myMultiMat%Mat(iMat)%Thermodyn%Cp      + Temp*myMultiMat%Mat(iMat)%Thermodyn%CpSteig      ) ! kJ/kg/K = 1e3*J/kg/K=1e3*kg*m2/(s2*kg*K) = 1e3*m2/(s2*K)
+    Rho    = 1e+3*(myMultiMat%Mat(iMat)%Thermodyn%density - Temp*myMultiMat%Mat(iMat)%Thermodyn%densitySteig ) ! g/cm3 = 1e3*kg/m3
+    daux   = 1e5/(Rho*Cp) ! (m3/kg)*[K*s2/m2] = m*K*s2/kg=1e2*cm*K*s2/(1e-3T)=1e5*cm*K*s2/T
+   END IF
+ 
+   dFactor = Viscosity(j)*Shearrate(j)**2d0 ! g/(cm*s)*1/s2
+   
+   dauxKW =   1d0*1d-7*dFactor*LMassMat(j) ! g/(cm*s)*1/(s2)*cm3 ==> 1d-3*kg*1e-4*m2/(s3) = 1d-7 kg/(m2*s3) = 1d-7*W 
+   daux   =  daux*1d-6*dFactor*LMassMat(j) ! g/(cm*s)*1/(s2)*cm3 * [cm*K*s2/T] ==> 1d-6*T*cm2/(s3) * [cm*K*s2/T] = 1d-6 T*cm2/s3 * [cm*K*s2/T] = 1e-6*K*/(cm3*s)
+   
+   GenLinScalar%Fld(1)%def(j) = GenLinScalar%fld(1)%def(j) + daux*tstep
+   dDissipEnergy = dDissipEnergy + 1d-3*dauxKW    ! W = 1d-3 kW
+ END DO
+END IF
+
+CALL COMM_SUMM(dDissipEnergy)
+
+IF (myid.eq.1) THEN
+ write(mterm,'(A,100ES12.4)') 'DissipationEnergy[kW]: ',dDissipEnergy
+ write(mfile,'(A,100ES12.4)') 'DissipationEnergy[kW]: ',dDissipEnergy
+END IF
+
+END SUBROUTINE Add_DissipativeEnergy_HEATALPHA_Q1
 !
 ! ----------------------------------------------
 !

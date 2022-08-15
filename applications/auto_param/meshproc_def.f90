@@ -871,16 +871,16 @@ logical bExist
  write(1,'(A)')'  <PolyData>'
  write(1,'(A,I0,A,I0,A)')'    <Piece NumberOfPoints="',myPar(iS)%nvt,'" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="',myPar(iS)%nel,'">'
  write(1,'(A)')'      <PointData>'
- write(1,'(A)')'        <DataArray type="Float32" Name="ID" format="ascii" RangeMin="17" RangeMax="2074.25">'
+ write(1,'(A)')'        <DataArray type="Int64" Name="ID" format="ascii" RangeMin="0" RangeMax="1000000">'
  do ivt=1,myPar(iS)%nvt
-  write(1,'(A10,E16.7)')"          ",REAL(myPar(iS)%ID(ivt))
+  write(1,'(A10,I0)')"          ",myPar(iS)%ID(ivt)
  end do
  write(1,'(A)')'        </DataArray>'
  write(1,'(A)')'      </PointData>'
  write(1,'(A)')'      <CellData>'
- write(1,'(A)')'        <DataArray type="Float32" Name="JD" format="ascii" RangeMin="17" RangeMax="2074.25">'
+ write(1,'(A)')'        <DataArray type="Int64" Name="JD" format="ascii" RangeMin="0" RangeMax="1000000">'
  do ivt=1,myPar(iS)%nel
-  write(1,'(A10,E16.7)')"          ",REAL(myPar(iS)%JD(ivt))
+  write(1,'(A10,I0)')"          ",myPar(iS)%JD(ivt)
  end do
  write(1,'(A)')'        </DataArray>'
  write(1,'(A)')'      </CellData>'

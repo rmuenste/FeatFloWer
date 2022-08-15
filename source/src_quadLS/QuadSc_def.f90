@@ -430,6 +430,333 @@ END SUBROUTINE SetSlipOnBandBT
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SetUp_HYPRE_Solver(lScalar,lPScalar,mfile)
+TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
+TYPE(TParLinScalar), INTENT(INOUT), TARGET ::  lPScalar
+integer mfile
+INTEGER NDOF_n,NDOF_p
+INTEGER IEQ,JEQ,IA,ICOL,II,III,MaxDofs
+INTEGER, allocatable :: iDofs(:)
+REAL*8 , allocatable :: dDofs(:)
+
+IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
+
+ if (myid.eq.showid) THEN
+  write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
+  write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
+ end if
+
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ IF (myid.ne.0) THEN
+  
+  ILEV = lScalar%prm%MGprmIn%MinLev
+  CALL SETLEV(2)
+  
+  lMat      => mg_lMat(ILEV)
+  CMat      => mg_CMat(ILEV)%a
+  lPMat     => mg_lPMat(ILEV)
+  CPMat     => mg_CPMat(ILEV)%a
+ 
+  myHYPRE%nrows    = lPMat%nu
+  allocate(myHYPRE%Numbering(myHYPRE%nrows))
+ end if
+ 
+ CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
+ 
+ IF (myid.ne.0) THEN
+  
+  DO IEQ = 1,myHYPRE%nrows
+    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
+  END DO
+ end if
+ 
+ !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+!  CALL myMPI_Barrier()
+!  write(*,*) 'myidX:',myid
+!  pause
+
+ !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   IF (myid.ne.0) THEN
+!    CALL READ_TestHYPREMatrix('hypr')
+!    
+!    CALL OutputHYPREMatrix('HYPR')
+!   end if
+ 
+ IF (myid.ne.0) THEN
+  
+  NDOF_p = 0
+  
+  DO IEQ=1,lPMat%nu
+   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
+    ICOL = lPMat%ColA(IA)
+    NDOF_p = max(ICOL,NDOF_p)
+   END DO
+  END DO
+  
+  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
+  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
+  
+  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
+  
+!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
+  
+  MaxDofs = 0
+ 
+  myHYPRE%nonzeros = lPMat%na + lMat%na
+  allocate(myHYPRE%ncols(myHYPRE%nrows))
+  allocate(myHYPRE%sol(myHYPRE%nrows))
+  allocate(myHYPRE%rhs(myHYPRE%nrows))
+  allocate(myHYPRE%rows(myHYPRE%nrows))
+  allocate(myHYPRE%cols(myHYPRE%nonzeros))
+  allocate(myHYPRE%values(myHYPRE%nonzeros))
+  
+  do IEQ=1,myHYPRE%nrows
+   nu = (lMat%LdA(IEQ+1) - lMat%LdA(IEQ)) + (lPMat%LdA(IEQ+1) - lPMat%LdA(IEQ))
+   myHYPRE%ncols(IEQ) = NU
+   MaxDofs = max(MaxDofs,NU)
+  end do
+  
+  do IEQ=1,myHYPRE%nrows
+   myHYPRE%rows(IEQ) = myHYPRE%Numbering(IEQ)
+  end do
+
+  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
+  
+  III = 0
+  do IEQ=1,myHYPRE%nrows
+   II = 0
+   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
+    ICOL = lMat%ColA(IA)
+    II = II + 1
+    iDofs(II) = myHYPRE%Numbering(ICOL)
+    dDofs(II) = CMat(IA)
+   end do
+   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
+    ICOL = lPMat%ColA(IA)
+    II = II + 1
+    iDofs(II) = myHYPRE%OffPartitionNumbering(ICOL)
+    dDofs(II) = CPMat(IA)
+   end do
+   
+   CALL SORT_DOFs(iDofs,dDofs,II)
+   
+   DO IA=1,II
+    III = III + 1
+    myHYPRE%cols(III)   = iDofs(IA)
+    myHYPRE%values(III) = dDofs(IA)
+   END DO
+  end do
+    
+  if (myHYPRE%ZeroBased) then
+   myHYPRE%ilower = myHYPRE%ilower - 1
+   myHYPRE%iupper = myHYPRE%iupper - 1 
+   myHYPRE%rows = myHYPRE%rows - 1
+   myHYPRE%cols = myHYPRE%cols - 1
+  end if
+end if
+
+! CALL OutputHYPREMatrix('HYPR')
+ 
+IF (myid.ne.0) THEN
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  lMat      => mg_lMat(ILEV)
+  CMat      => mg_CMat(ILEV)%a
+  lPMat     => mg_lPMat(ILEV)
+  CPMat     => mg_CPMat(ILEV)%a
+ 
+ END IF
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ if (myid.eq.showid) THEN
+  write(MTERM,'(A)',advance='yes') " Done!"
+  write(MFILE,'(A)',advance='yes') " Done!"
+ end if
+ 
+END IF
+ 
+IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
+
+ if (myid.eq.showid) THEN
+  write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
+  write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
+ end if
+
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ IF (myid.ne.0) THEN
+  
+  ILEV = lScalar%prm%MGprmIn%MinLev
+  CALL SETLEV(2)
+  
+  lMat      => mg_lMat(ILEV)
+  CMat      => mg_CMat(ILEV)%a
+  lPMat     => mg_lPMat(ILEV)
+  CPMat     => mg_CPMat(ILEV)%a
+ 
+  myHYPRE%nrows    = lPMat%nu
+  allocate(myHYPRE%Numbering(myHYPRE%nrows))
+ end if
+ 
+ CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
+ 
+ IF (myid.ne.0) THEN
+  
+  DO IEQ = 1,myHYPRE%nrows
+    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
+  END DO
+ end if
+ 
+ !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+!  CALL myMPI_Barrier()
+!  write(*,*) 'myidX:',myid
+!  pause
+
+ !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   IF (myid.ne.0) THEN
+!    CALL READ_TestHYPREMatrix('hypr')
+!    
+!    CALL OutputHYPREMatrix('HYPR')
+!   end if
+ 
+ IF (myid.ne.0) THEN
+  
+  NDOF_p = 0
+  
+  DO IEQ=1,lPMat%nu
+   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
+    ICOL = lPMat%ColA(IA)
+    NDOF_p = max(ICOL,NDOF_p)
+   END DO
+  END DO
+  
+  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
+  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
+  
+  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
+  
+!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
+  
+  MaxDofs = 0
+ 
+  myHYPRE%nrows    = lPMat%nu/4
+  myHYPRE%ilower=(myHYPRE%ilower+3)/4
+  myHYPRE%iupper=myHYPRE%iupper/4
+
+  myHYPRE%nonzeros = lPMat%na/16 + lMat%na/16
+  allocate(myHYPRE%ncols(myHYPRE%nrows))
+  allocate(myHYPRE%sol(myHYPRE%nrows))
+  allocate(myHYPRE%rhs(myHYPRE%nrows))
+  allocate(myHYPRE%rows(myHYPRE%nrows))
+  allocate(myHYPRE%cols(myHYPRE%nonzeros))
+  allocate(myHYPRE%values(myHYPRE%nonzeros))
+  
+  do IEQ=1,myHYPRE%nrows
+   JEQ = 4*(IEQ-1)+1
+   nu = ((lMat%LdA(JEQ+1) - lMat%LdA(JEQ)) + (lPMat%LdA(JEQ+1) - lPMat%LdA(JEQ)))/4
+   myHYPRE%ncols(IEQ) = NU
+   MaxDofs = max(MaxDofs,NU)
+  end do
+  
+  do IEQ=1,myHYPRE%nrows
+   JEQ = 4*(IEQ-1)+1
+   myHYPRE%rows(IEQ) = (myHYPRE%Numbering(JEQ)+3)/4
+  end do
+
+  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
+  
+  III = 0
+  do IEQ=1,myHYPRE%nrows
+   II = 0
+   JEQ = 4*(IEQ-1)+1
+   DO IA=lMat%LdA(JEQ),lMat%LdA(JEQ+1)-1,4
+    ICOL = lMat%ColA(IA)
+    II = II + 1
+    iDofs(II) = (myHYPRE%Numbering(ICOL)+3)/4
+    dDofs(II) = CMat(IA)
+   end do
+   DO IA=lPMat%LdA(JEQ),lPMat%LdA(JEQ+1)-1,4
+    ICOL = lPMat%ColA(IA)
+    II = II + 1
+    iDofs(II) = (myHYPRE%OffPartitionNumbering(ICOL)+3)/4
+    dDofs(II) = CPMat(IA)
+   end do
+   
+   CALL SORT_DOFs(iDofs,dDofs,II)
+   
+   DO IA=1,II
+    III = III + 1
+    myHYPRE%cols(III)   = iDofs(IA)
+    myHYPRE%values(III) = dDofs(IA)
+   END DO
+  end do
+    
+  if (myHYPRE%ZeroBased) then
+   myHYPRE%ilower = myHYPRE%ilower - 1
+   myHYPRE%iupper = myHYPRE%iupper - 1 
+   myHYPRE%rows = myHYPRE%rows - 1
+   myHYPRE%cols = myHYPRE%cols - 1
+  end if
+end if
+
+! CALL OutputHYPREMatrix('HYPR')
+ 
+IF (myid.ne.0) THEN
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  lMat      => mg_lMat(ILEV)
+  CMat      => mg_CMat(ILEV)%a
+  lPMat     => mg_lPMat(ILEV)
+  CPMat     => mg_CPMat(ILEV)%a
+ 
+ END IF
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ if (myid.eq.showid) THEN
+  write(MTERM,'(A)',advance='yes') " Done!"
+  write(MFILE,'(A)',advance='yes') " Done!"
+ end if
+ 
+END IF
+
+CONTAINS
+ 
+ SUBROUTINE SORT_DOFs(LW,RW,N)
+   INTEGER , intent(IN) :: N
+   INTEGER LW(N),LWA
+   REAL*8  RW(N),RWA
+   INTEGER I,J
+
+   DO I=2,N
+   DO J=N,I,-1
+   IF (LW(J).LT.LW(J-1)) THEN
+     LWA     = LW(J)
+     RWA     = RW(J)
+     LW(J)   = LW(J-1)
+     RW(J)   = RW(J-1)
+     LW(J-1) = LWA
+     RW(J-1) = RWA
+   END IF
+   END DO
+   END DO
+
+ END SUBROUTINE SORT_DOFs
+ 
+END SUBROUTINE SetUp_HYPRE_Solver
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
@@ -515,7 +842,7 @@ INTEGER i,j,iEntry,jCol
  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
 
  ! LU factorization of C-matrix needed for UMFPACK
- IF (myid.eq.0) THEN
+ IF (myid.eq.0.AND.coarse_solver.ge.1.and.coarse_solver.le.4) THEN
 
   ILEV = coarse_lev
   CALL SETLEV(2)
@@ -529,6 +856,8 @@ INTEGER i,j,iEntry,jCol
   END IF
 
   IF (coarse_solver.EQ.2) THEN
+  
+
    IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(lMat%na))
    UMF_CMat = CMat
    IF (.not.ALLOCATED(UMF_lMat%ColA)) ALLOCATE (UMF_lMat%ColA(lMat%na))
@@ -3168,6 +3497,179 @@ nn = nn + 1
 LdAn(nn) = LdAn(nn-1) + 27
 
 END SUBROUTINE MatStructP1Q2
+!
+! ----------------------------------------------
+!
+SUBROUTINE READ_TestHYPREMatrix(cFile)
+
+CHARACTER*4 cFile
+CHARACTER*12 myFile
+INTEGER I,J
+
+IF (myid.NE.0) THEN
+
+ WRITE(myFile(1:12),'(A4,A4,A4)') cFile,"0000",".txt"
+ WRITE(myFile(5:8),'(I0.4)') myid
+ 
+ OPEN(987,FILE=myFile)
+
+ READ(987,*) ! 'myHYPRE%nrows'
+ READ(987,*) myHYPRE%nrows
+ WRiTE(*,*) myHYPRE%nrows
+
+ READ(987,*) !'myHYPRE%ilower'
+ READ(987,*) myHYPRE%ilower
+ 
+ READ(987,*) !'myHYPRE%iupper'
+ READ(987,*) myHYPRE%iupper
+
+ READ(987,*) !'myHYPRE%nonzeros'
+ READ(987,*) myHYPRE%nonzeros
+ 
+ allocate(myHYPRE%rows(myHYPRE%nrows))
+ allocate(myHYPRE%ncols(myHYPRE%nrows))
+ allocate(myHYPRE%cols(myHYPRE%nonzeros))
+ allocate(myHYPRE%values(myHYPRE%nonzeros))
+
+ allocate(myHYPRE%rhs(myHYPRE%nrows))
+ allocate(myHYPRE%sol(myHYPRE%nrows))
+
+ READ(987,*) !'myHYPRE%rows'
+ READ(987,*) myHYPRE%rows
+
+ READ(987,*) !'myHYPRE%ncols'
+ READ(987,*) myHYPRE%ncols
+ 
+ READ(987,*) !'myHYPRE%cols'
+ READ(987,*) myHYPRE%cols
+ 
+ READ(987,*) !'myHYPRE%values'
+ READ(987,*) myHYPRE%values
+ 
+ READ(987,*) !'myHYPRE%rhs'
+ READ(987,*) myHYPRE%rhs
+
+ CLOSE(987)
+
+END IF
+
+! pause
+END SUBROUTINE READ_TestHYPREMatrix
+!
+! ----------------------------------------------
+!
+SUBROUTINE OutputHYPREMatrix(cFile)
+CHARACTER*4 cFile
+CHARACTER*12 myFile
+INTEGER I,J,IA,IEQ,ICOL
+
+IF (myid.NE.0) THEN
+
+ WRITE(myFile(1:12),'(A4,A4,A4)') cFile,"0000",".txt"
+ WRITE(myFile(5:8),'(I0.4)') myid
+ 
+ OPEN(987,FILE=myFile)
+
+ WRITE(987,'(A)') 'myHYPRE%nrows'
+ WRITE(987,'(I0)') myHYPRE%nrows
+
+ WRITE(987,'(A)') 'myHYPRE%ilower'
+ WRITE(987,'(I0)') myHYPRE%ilower
+ 
+ WRITE(987,'(A)') 'myHYPRE%iupper'
+ WRITE(987,'(I0)') myHYPRE%iupper
+
+ WRITE(987,'(A)') 'myHYPRE%nonzeros'
+ WRITE(987,'(I0)') myHYPRE%nonzeros
+
+ WRITE(987,'(A)') 'myHYPRE%rows'
+ do i=1,SIZE(myHYPRE%rows)-1
+  WRITE(987,'(I0,A)', advance='no') myHYPRE%rows(i),','
+ end do
+ WRITE(987,'(I0)') myHYPRE%rows(SIZE(myHYPRE%rows))
+
+ WRITE(987,'(A)') 'myHYPRE%ncols'
+ do i=1,SIZE(myHYPRE%rows)-1
+  WRITE(987,'(I0,A)', advance='no') myHYPRE%ncols(i),','
+ end do
+ WRITE(987,'(I0)') myHYPRE%ncols(SIZE(myHYPRE%rows))
+ 
+ WRITE(987,'(A)') 'myHYPRE%cols'
+ do i=1,SIZE(myHYPRE%cols)-1
+  WRITE(987,'(I0,A)', advance='no') myHYPRE%cols(i),','
+ end do
+ WRITE(987,'(I0)') myHYPRE%cols(SIZE(myHYPRE%cols))
+ 
+ WRITE(987,'(A)') 'myHYPRE%values'
+ do i=1,SIZE(myHYPRE%values)-1
+  WRITE(987,'(ES12.4,A)', advance='no') myHYPRE%values(i),','
+ end do
+ WRITE(987,'(ES12.4)') myHYPRE%values(SIZE(myHYPRE%values))
+ 
+ WRITE(987,'(A)') 'myHYPRE%rhs'
+ do i=1,SIZE(myHYPRE%rows)-1
+  WRITE(987,'(ES12.4,A)', advance='no') myHYPRE%rhs(i),','
+ end do
+ WRITE(987,'(ES12.4)') myHYPRE%rhs(SIZE(myHYPRE%rows))
+
+  WRITE(987,'(A)') 'ORIGENTRIES_JCOL'
+  do IEQ=1,myHYPRE%nrows
+   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
+    ICOL = lMat%ColA(IA)
+    WRITE(987,'(I12)',advance='no') myHYPRE%Numbering(ICOL)
+   end do
+   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
+    ICOL = lPMat%ColA(IA)
+    WRITE(987,'(I12)',advance='no') myHYPRE%OffPartitionNumbering(ICOL)
+   end do
+   WRITE(987,'(I12)',advance='yes')
+  end do
+
+  WRITE(987,'(A)') 'ORIGENTRIES_VALUE'
+  do IEQ=1,myHYPRE%nrows
+   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
+    ICOL = lMat%ColA(IA)
+    WRITE(987,'(ES12.4)',advance='no') CMat(IA)
+   end do
+   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
+    ICOL = lPMat%ColA(IA)
+    WRITE(987,'(ES12.4)',advance='no') CPMat(IA)
+   end do
+   WRITE(987,'(ES12.4)',advance='yes')
+  end do
+
+   CLOSE(987)
+
+END IF
+
+IF (myid.eq.0) THEN
+ WRITE(myFile(1:12),'(A4,A4,A4)') cFile,"0000",".txt"
+ WRITE(myFile(5:8),'(I0.4)') myid
+ 
+ OPEN(987,FILE=myFile)
+
+  WRITE(987,'(A)') 'ORIGENTRIES_JCOL'
+  do IEQ=1,lMat%nu
+   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
+    ICOL = lMat%ColA(IA)
+    WRITE(987,'(I12)',advance='no') ICOL
+   end do
+   WRITE(987,'(I12)',advance='yes')
+  end do
+
+  WRITE(987,'(A)') 'ORIGENTRIES_VALUE'
+  do IEQ=1,lMat%nu
+   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
+    ICOL = lMat%ColA(IA)
+    WRITE(987,'(ES12.4)',advance='no') CMat(IA)
+   end do
+   WRITE(987,'(ES12.4)',advance='yes')
+  end do
+
+  CLOSE(987)
+END IF
+
+END SUBROUTINE OutputHYPREMatrix
 !
 ! ----------------------------------------------
 !

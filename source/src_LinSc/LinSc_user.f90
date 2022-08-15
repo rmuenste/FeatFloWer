@@ -109,8 +109,9 @@ END SUBROUTINE LinSc_InitCond_EWIKON
 SUBROUTINE Boundary_LinSc_Val_XSE()
 
 REAL*8 X,Y,Z
-INTEGER i
+INTEGER i,iInflow
 REAL*8 :: D=4d1,T1=217d0,T2=256d0,T3=270d0
+real*8 dc(3),dR,dRR,dT,TempBC
 
 DO i=1,Tracer%ndof
 
@@ -124,6 +125,33 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.1) THEN
   Tracer%val(NLMAX)%x(i)= myProcess%T0
+    
+!     iInflow = 1
+!     
+!     dC = myProcess%myInflow(iInflow)%center
+!     
+!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
+!      TempBC = myProcess%myInflow(iInflow)%Temperature
+!     END IF
+!     
+!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
+!      dRR = myProcess%myInflow(iInflow)%outerradius
+!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+!      dR = Min(dR,dRR)
+!      dT = myProcess%myInflow(iInflow)%TemperatureRange
+!      
+!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)/dRR
+!    END IF
+!    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
+!      dRR = myProcess%myInflow(iInflow)%outerradius
+!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+!      dR = Min(dR,dRR)
+!      dT = myProcess%myInflow(iInflow)%TemperatureRange
+!      
+!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)*(dRR+dR)/(dRR*dRR)
+!     END IF
+!   
+!   Tracer%val(NLMAX)%x(i)= TempBC
  END IF
  
  IF (Tracer%knpr(i).eq.2) THEN
@@ -297,6 +325,18 @@ DO i=1,Tracer%ndof
    Tracer%val(NLMAX)%x(i)= 310d0
 
  END IF
+
+!  IF (Tracer%knpr(i).eq.6) THEN
+!   
+!    Tracer%val(NLMAX)%x(i)= 25d0
+!     
+!  END IF
+! 
+!  IF (Tracer%knpr(i).eq.7) THEN
+!   
+!    Tracer%val(NLMAX)%x(i)= 200d0
+!     
+!  END IF
 
 END DO
 

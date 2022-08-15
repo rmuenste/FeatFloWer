@@ -410,6 +410,15 @@ TYPE(tVelo), ALLOCATABLE :: myVelo(:)
 
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
+TYPE tHYPRE
+ logical :: ZeroBased=.false.
+ INTEGER iupper,ilower,nrows,nonzeros
+ INTEGER, allocatable, dimension(:) :: Numbering,OffPartitionNumbering
+ INTEGER, allocatable, dimension(:) :: ncols
+ INTEGER, allocatable, dimension(:) :: rows,cols
+ REAL*8 , allocatable, dimension(:) :: values,rhs,sol
+END TYPE tHYPRE
+TYPE(tHYPRE) :: myHYPRE
 
 TYPE tParticleInflow
  REAL*8 :: Center(3), Radius

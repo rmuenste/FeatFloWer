@@ -2798,6 +2798,26 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE GetHYPREParPressureIndices(Ind_PP)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+INTEGER Ind_PP(*)
+
+if (iCommSwitch.eq.1) THEN
+ WRITE(*,*) 'Subroutine not yet implemented ... '
+ STOP
+END IF
+if (iCommSwitch.eq.2) THEN
+ WRITE(*,*) 'Subroutine not yet implemented ... '
+ STOP
+END IF
+
+if (iCommSwitch.eq.3) CALL GetHYPREParPressureIndicesSUPER(Ind_PP)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE GetParPressure(P,PP)
 USE var_QuadScalar, ONLY :  iCommSwitch
 IMPLICIT NONE
@@ -3245,6 +3265,157 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 END IF
 
 END 
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE GetHYPREParPressureIndicesSUPER(Ind_PP)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar, ONLY :CommOrder,myStat,BaSynch,myHYPRE
+
+IMPLICIT NONE
+! INTEGER ierr
+INTEGER I,iRound,pJD,nLenght,iP,jP,nSize,II,JJ
+INTEGER Ind_PP(*)
+CHARACTER*80 cFile
+REAL*4 tt0,tt1
+INTEGER req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
+
+req = MPI_REQUEST_NULL
+
+IF (myid.ne.MASTER) THEN
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0) THEN
+   IF (MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       if(jj.gt.0)then
+         MGE013(ILEV)%SP(pJD)%SDVect(II+0) = dble(myHYPRE%Numbering(JJ+0))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+1) = dble(myHYPRE%Numbering(JJ+1))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+2) = dble(myHYPRE%Numbering(JJ+2))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+3) = dble(myHYPRE%Numbering(JJ+3))
+       end if
+      END DO
+     END IF
+     
+     IF (myid.gt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       ! Here is something going on
+       ! JJ is 0 sometimes
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(1,I)-1)+1
+       if(jj .gt. 0)then
+         MGE013(ILEV)%SP(pJD)%SDVect(II+0) = dble(myHYPRE%Numbering(JJ+0))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+1) = dble(myHYPRE%Numbering(JJ+1))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+2) = dble(myHYPRE%Numbering(JJ+2))
+         MGE013(ILEV)%SP(pJD)%SDVect(II+3) = dble(myHYPRE%Numbering(JJ+3))
+       end if
+      END DO
+     END IF
+   END IF
+  END IF
+ END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0) THEN
+   IF (MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     !!!!     sends pID ----> pJD
+     IF (myid.lt.pJD) THEN
+      IF (BaSynch) then
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+      ELSE
+       CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
+      END IF
+     ELSE
+      IF (BaSynch) then
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+      ELSE
+       CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+      END IF
+     END IF
+     
+     !!!!     sends pJD ----> pID
+     IF (myid.lt.pJD) THEN
+      IF (BaSynch) then
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+      ELSE
+       CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
+      END IF
+     ELSE
+      IF (BaSynch) then
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+      ELSE
+       CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
+      END IF
+     END IF
+
+   END IF
+  END IF
+ END DO
+
+ IF (BaSynch) then
+  DO pJD=1,subnodes
+   IF ((MGE013(ILEV)%SP(pJD)%Num.GT.0)) THEN
+    CALL MPI_Wait( req(pJD),STATUS, IERR )
+   END IF
+  END DO
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+ CALL ztime(tt1)
+ myStat%tCommP = myStat%tCommP + (tt1-tt0)
+
+ DO iRound=1,SIZE(CommOrder(myid)%x)
+  pJD = CommOrder(myid)%x(iRound)
+  IF (pJD.ne.0) THEN
+   IF (MGE013(ILEV)%SP(pJD)%Num.GT.0) THEN
+     nSIZE = MGE013(ILEV)%SP(pJD)%Num
+
+     IF (myid.gt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
+       if(jj.gt.0)then
+        Ind_PP(JJ+0) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+0))
+        Ind_PP(JJ+1) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+1))
+        Ind_PP(JJ+2) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+2))
+        Ind_PP(JJ+3) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+3))
+       end if
+      END DO
+     END IF
+     
+     IF (myid.lt.pJD) THEN
+      DO I=1,nSize
+       II = 4*(I-1)+1
+       JJ = 4*(MGE013(ILEV)%SP(pJD)%VertLink(2,I)-1)+1
+       if(jj.gt.0)then
+        Ind_PP(JJ+0) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+0))
+        Ind_PP(JJ+1) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+1))
+        Ind_PP(JJ+2) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+2))
+        Ind_PP(JJ+3) = INT(MGE013(ILEV)%SP(pJD)%RDVect(II+3))
+       end if
+      END DO
+     END IF
+    END IF
+   END IF
+ END DO
+
+END IF
+
+END SUBROUTINE GetHYPREParPressureIndicesSUPER
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -5164,3 +5335,27 @@ END
 
 END 
 
+subroutine GetMyHYPRENumberingLimits(iLow,iUp,N)
+USE PP3D_MPI
+implicit none
+integer iLow,iUp,N
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+integer piVAL,iVAL
+INTEGER pID
+
+IF (myid.eq.MASTER) THEN
+  iVAL = 0
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(piVAL,pID)
+   iVAL = iVAL + piVAL
+   CALL SENDI_myMPI(iVAL,pID)
+  END DO
+ELSE
+  piVAL=N
+  CALL SENDI_myMPI(piVAL,0)
+  CALL RECVI_myMPI(iVAL,0)
+  iUp  = 4*iVAL
+  iLow = iUp - 4*N + 1
+END IF
+
+end subroutine GetMyHYPRENumberingLimits

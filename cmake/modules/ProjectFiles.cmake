@@ -165,6 +165,10 @@ if(USE_MUMPS)
   list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
 endif(USE_MUMPS)
 
+if(USE_HYPRE)
+  list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
+endif(USE_HYPRE)
+
 add_library(ff_le_solvers ${le_solvers})
 target_link_libraries(ff_le_solvers ff_util ff_mesh ${FF_DEFAULT_LIBS})
 target_include_directories(ff_le_solvers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
