@@ -316,7 +316,7 @@ def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   for iPart in range(1,nPart+1):
     # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
     iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
-    print(len(iElem))
+#    print(len(iElem))
     iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
     # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
     iCoor=list(iCoor)
