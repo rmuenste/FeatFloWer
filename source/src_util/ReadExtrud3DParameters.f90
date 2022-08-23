@@ -104,6 +104,41 @@
     END IF
     END IF
 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryStart", mySigma%GeometryStart ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometryStart)
+    IF (adjustl(trim(mySigma%GeometryStart)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometryStart,*,err=550) mySigma%DIE_Start
+     mySigma%DIE_Start = dSizeScale*mySigma%DIE_Start
+     GOTO 551
+550  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE start has been set: ",adjustl(trim(mySigma%GeometryStart))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+551  CONTINUE
+    END IF
+    
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryLength", mySigma%GeometryLength ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometryLength)
+    IF (adjustl(trim(mySigma%GeometryLength)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometryLength,*,err=552) mySigma%DIE_Length
+     mySigma%DIE_Length = dSizeScale*mySigma%DIE_Length
+     GOTO 553
+552  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Length has been set: ",adjustl(trim(mySigma%GeometryLength))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+553  CONTINUE
+    END IF
+   
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","voxelAmount", mySigma%voxelAmount ,'_INVALID_')
+    call inip_toupper_replace(mySigma%voxelAmount)
+    IF (adjustl(trim(mySigma%voxelAmount)).ne.'_INVALID_') THEN
+     Read(mySigma%voxelAmount,*,err=554) mySigma%DIE_Voxels
+     GOTO 555
+554  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Voxel has been set: ",adjustl(trim(mySigma%voxelAmount))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+555  CONTINUE
+    END IF
+
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
     mySigma%Dz_out = dSizeScale*mySigma%Dz_out
     DistTolerance = 1d0*mySigma%Dz_Out
@@ -1248,6 +1283,16 @@
     end if
     
     write(*,*) "mySigma%ShearRateRest",'=',mySigma%bAnalyticalShearRateRestriction
+    
+    IF (adjustl(trim(mySigma%GeometryStart)).ne.'_INVALID_') THEN
+     write(*,'(A,A,3f13.3)') "mySigma%GeometryStart",'=',mySigma%DIE_Start
+    END IF
+    IF (adjustl(trim(mySigma%GeometryLength)).ne.'_INVALID_') THEN
+     write(*,'(A,A,3f13.3)') "mySigma%GeometryLength",'=',mySigma%DIE_Length
+    END IF
+    IF (adjustl(trim(mySigma%voxelAmount)).ne.'_INVALID_') THEN
+     write(*,'(A,A,3I13)') "mySigma%voxelAmount",'=',mySigma%DIE_Voxels
+    END IF
     
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In

@@ -39,7 +39,7 @@ subroutine init_q2p1_ext(log_unit)
     CALL GetInterfacePoints_ALPHA_PF_Q1(log_unit,0)
     CALL Init_operators_sse_PF()
     
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
     call InitCond_QuadScalar()
 
   ! Start from a solution on the same lvl
@@ -52,7 +52,7 @@ subroutine init_q2p1_ext(log_unit)
     if (myid.ne.0) call CreateDumpStructures(1)
     CALL GetInterfacePoints_ALPHA_PF_Q1(log_unit,0)
     CALL Init_operators_sse_PF()
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
@@ -64,7 +64,7 @@ subroutine init_q2p1_ext(log_unit)
     call ProlongateSolution()
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
     
   ! Start from a solution on the same lvl
   ! with a different number of partitions
@@ -72,7 +72,7 @@ subroutine init_q2p1_ext(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
   end if
 
  

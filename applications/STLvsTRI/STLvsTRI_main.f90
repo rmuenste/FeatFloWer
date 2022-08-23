@@ -1,8 +1,9 @@
 Program STLvsTRI
 USE mSTLvsTRI
 use f90getopt
+use Sigma_User, only : mySigma,myProcess
 
-CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
+CHARACTER cInputFile*(256),cVal*(256),cKey*(256),cE3Dfile*(256)
 REAL*8 dSurfInt
 integer nOfCritical
 type(option_s)              :: opts(4)
@@ -52,23 +53,20 @@ IF (cProjectFolder.eq." ") THEN
  call exit(0)
 END IF
 
+write(cE3Dfile,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/'//'setup.e3d'
+CALL ReadS3Dfile(cE3Dfile)
+
+!!Scale back to mm!!!
+BoxMesh%Extent(:,1) = 10d0*mySigma%DIE_Start  
+BoxMesh%dsize(:)    = 10d0*mySigma%DIE_Length
+BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!! INPUT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  cShortProjectFile = "file.prj"
-  cProjectGridFile="Mesh.tri"
-  cOFFMeshFile="surface.off"
-  cAreaIntensityFile="area.txt"
-  cInputFile = ADJUSTL(TRIM(cProjectFolder))//'/'//'param.txt'
-!!!!!!!!!!!!!!!!!!!!!!!!!!! INPUT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
- cKey='geometryStart'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) BoxMesh%Extent(:,1)
-
- cKey='geometryLength'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) BoxMesh%dsize(:)
- BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
+ cShortProjectFile = "file.prj"
+ cProjectGridFile="Mesh.tri"
+ cOFFMeshFile="surface.off"
+ cAreaIntensityFile="area.txt"
  
  DomainVolume = BoxMesh%dsize(1)*BoxMesh%dsize(2)*BoxMesh%dsize(3)
 
@@ -76,44 +74,31 @@ END IF
  
  NumberOfElements = NumberOfElementsInit
 
- iIter = 0
- DO 
-  VoxelVolume = DomainVolume/DBLE(NumberOfElements)
-  VoxelSize = VoxelVolume**(1d0/3d0)
-  
-  BoxMesh%Division(1) = 2*NINT(BoxMesh%dsize(1)/VoxelSize)+1
-  BoxMesh%Division(2) = 2*NINT(BoxMesh%dsize(2)/VoxelSize)+1
-  BoxMesh%Division(3) = 2*NINT(BoxMesh%dsize(3)/VoxelSize)+1
-
-  NumberOfElements = (BoxMesh%Division(1)-1)*(BoxMesh%Division(2)-1)*(BoxMesh%Division(3)-1)
-  VoxelVolume = DomainVolume/DBLE(NumberOfElements)
-  VoxelSize = VoxelVolume**(1d0/3d0)
-  UnityArea   = VoxelVolume**(2d0/3d0)
-  
-  WRITE(*,*) "Resolution, x,y,z: ",BoxMesh%Division
-  WRITE(*,*) "Number of Elements: ",NumberOfElements
-
-  iIter = iIter + 1
+ VoxelVolume = DomainVolume/DBLE(NumberOfElements)
+ VoxelSize = 8*myProcess%ExtrusionGapSize !VoxelVolume**(1d0/3d0)
  
-  CALL CheckForIntersection()
- 
-  ! Construct Surface Intensity
-  TriMesh%I = TriMesh%d/UnityArea
-  
-  CALL CoarseSurfIntensity()
-  
-  CALL QualityCheck(dSurfInt,nOfCritical)
-  WRITE(*,'(A,ES12.4,I)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
- 
-  ! check for success!
-  IF (dSurfInt.lt.dSurfIntCrit) EXIT
-  
-  NumberOfElements = INT(2.0d0*DBLE(NumberOfElements))
-  IF (NumberOfElements.gt.5000) EXIT
-  CALL DeallocateStructures()
+ BoxMesh%Division(1) = 2*NINT(BoxMesh%dsize(1)/VoxelSize)+1
+ BoxMesh%Division(2) = 2*NINT(BoxMesh%dsize(2)/VoxelSize)+1
+ BoxMesh%Division(3) = 2*NINT(BoxMesh%dsize(3)/VoxelSize)+1
 
- END DO
+ NumberOfElements = (BoxMesh%Division(1)-1)*(BoxMesh%Division(2)-1)*(BoxMesh%Division(3)-1)
+ VoxelVolume = DomainVolume/DBLE(NumberOfElements)
+ VoxelSize = VoxelVolume**(1d0/3d0)
+ UnityArea   = VoxelVolume**(2d0/3d0)
+ 
+ WRITE(*,*) "Resolution, x,y,z: ",BoxMesh%Division
+ WRITE(*,*) "Number of Elements: ",NumberOfElements
 
+ CALL CheckForIntersection()
+
+ ! Construct Surface Intensity
+ TriMesh%I = TriMesh%d/UnityArea
+ 
+ CALL CoarseSurfIntensity()
+ 
+ CALL QualityCheck(dSurfInt,nOfCritical)
+ WRITE(*,'(A,ES12.4,I0)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
+ 
  CALL Output_VTK()
  CALL Output_CoarseMeshVTK()
 

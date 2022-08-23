@@ -217,5 +217,35 @@ subroutine sim_finalize_sse(dttt0, filehandle)
   CALL MPI_Finalize(ierr)
 
 end subroutine sim_finalize_sse
+!
+!-------------------------------------------------------------------------------------------------
+! A wrapper for mpi finalize 
+!-------------------------------------------------------------------------------------------------
+! @param dttt0 Simulation start time 
+! @param filehandle protocol file handle 
+! ----------------------------------------------
+subroutine sim_finalize_sse_mesh(dttt0, filehandle)
+  use def_Feat
+  USE PP3D_MPI, ONLY : myid,master,showid,MPI_COMM_WORLD
+  use var_QuadScalar, only: istep_ns,mg_mesh,DivergedSolution,myErrorCode
+  use Mesh_Structures, only: release_mesh
+  use solution_io, only: write_sol_to_file,write_sse_1d_sol
+  use Sigma_User, only: myProcess
+
+  real, intent(inout) :: dttt0
+  integer, intent(in) :: filehandle
+
+  integer :: ierr
+  
+  IF (myid.eq.showid) THEN
+    WRITE(*,*) "Q2P1_SSE_MESH has successfully finished. "
+    WRITE(filehandle,*) "Q2P1_SSE_MESH has successfully finished. "
+  END IF
+
+  call release_mesh(mg_mesh)
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+  CALL MPI_Finalize(ierr)
+
+end subroutine sim_finalize_sse_mesh
 
 end module post_utils

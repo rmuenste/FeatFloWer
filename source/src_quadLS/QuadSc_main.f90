@@ -645,6 +645,101 @@ END SUBROUTINE Init_QuadScalar_Structures_sse
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_QuadScalar_Structures_sse_mesh(mfile)
+use, intrinsic :: ieee_arithmetic
+implicit none
+LOGICAL bExist
+INTEGER I,J,ndof,mfile,LevDif
+integer :: mydof
+integer :: maxlevel
+Real*8 :: dabl
+real*8 :: myInf
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Initialize the scalar quantity
+ CALL InitializeQuadScalar(QuadSc)
+
+ ! Initialize the scalar quantity
+ CALL InitializeLinScalar(LinSc)
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Set up the Coordinate Vector
+ ALLOCATE (myQ2Coor(3,mg_mesh%level(ilev)%nvt+&
+                      mg_mesh%level(ilev)%net+&
+                      mg_mesh%level(ilev)%nat+&
+                      mg_mesh%level(ilev)%nel))
+
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
+ 
+ allocate(mySegmentIndicator(2,mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+
+ CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
+                            mg_mesh%level(ILEV)%kedge)
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ CALL ReviseWallBC(mg_mesh,ilev)
+ ILEV=NLMAX
+ CALL SETLEV(2)
+                     
+ ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+
+ ALLOCATE (Shearrate(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+                     
+ ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+         
+ CALL SetInitialTemperature(Temperature,myQ2Coor,mydof)
+
+ ALLOCATE (myALE%Monitor(mydof))
+ ALLOCATE (myALE%NewCoor(3,mydof))
+ ALLOCATE (myALE%OldCoor(3,mydof))
+ ALLOCATE (myALE%OrigCoor(3,mydof))
+
+ myALE%Monitor   = 1d0
+
+ ALLOCATE (FictKNPR(mydof))
+ FictKNPR=0
+ ALLOCATE (Distance(mydof))
+ Distance = 0d0
+
+ ALLOCATE (MixerKNPR(mydof))
+ MixerKNPR=0
+ ALLOCATE (Distamce(mydof))
+ Distamce = 0d0
+
+ IF (.NOT.ALLOCATED(Screw)) ALLOCATE(Screw(QuadSc%ndof))
+ IF (.NOT.ALLOCATED(ScrewDist)) ALLOCATE(ScrewDist(2,QuadSc%ndof))
+ IF (.NOT.ALLOCATED(Shell)) ALLOCATE(Shell(QuadSc%ndof))
+  
+END SUBROUTINE Init_QuadScalar_Structures_sse_mesh
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_QuadScalar_Structures_sse_PF(mfile)
 implicit none
 LOGICAL bExist
@@ -946,9 +1041,11 @@ integer :: mydof
 integer :: maxlevel
 Real*8 :: dabl
 
+ bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
   IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
    NLMAX = NLMIN
+   bMasterTurnedON = .FALSE.
   END IF
  end if
  
@@ -3395,14 +3492,13 @@ end subroutine InitMeshDeform
 !
 ! ----------------------------------------------
 !
-subroutine InitOperators(mfile, mgMesh)
+subroutine InitOperators(mfile, mgMesh,bCreate)
 use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 use var_QuadScalar, only : tMultiMesh
-
 implicit none
 
 integer, intent(in) :: mfile
-
+logical :: bCreate
 type(tMultiMesh), intent(inout) :: mgMesh
 
 ! local variables
@@ -3459,11 +3555,13 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-call OperatorRegenaration(1)
-call OperatorRegenaration(2)
-call OperatorRegenaration(3)
+IF (bCreate) THEN
+ call OperatorRegenaration(1)
+ call OperatorRegenaration(2)
+ call OperatorRegenaration(3)
 
-CALL Create_MMat()
+ CALL Create_MMat()
+END IF
 
 end subroutine InitOperators
 !
@@ -3507,17 +3605,24 @@ integer iiel,iilev
 
 integer JEL(8)
 integer jjlev,i,ivt
+real*8 dSize
 
+ if (iilev.eq.mgMesh%nlmax+1) then
+  dSize = 0.1d0*0.1d0*(mgMesh%level(iilev)%dvol(iiel)**(1d0/3d0)) ! 0.1 because of the cm --> mm scaling
+ else
+  dSize = 0d0
+ end if
+ 
  do i=1,8
   ivt = mgMesh%level(iilev)%kvert(i,iiel)
-  if (screw(ivt).gt.0d0.and.shell(ivt).gt.0d0) THEN
+  if (screw(ivt).gt.-dSize.and.shell(ivt).gt.-dSize) THEN
 !   if (mgMesh%level(iilev)%dcorvg(3,ivt).gt.2d0) then
    bKick = .false.
    RETURN
   end if
  end do
 
- if ((iilev + 1).gt.mgMesh%nlmax+1) RETURN
+ if (iilev.gt.mgMesh%nlmax) RETURN
 ! Possible canditate found
  jjlev = iilev + 1
 

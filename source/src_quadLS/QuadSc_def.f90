@@ -1769,6 +1769,8 @@ END SUBROUTINE GetGradVelo_val
 SUBROUTINE Create_AMat()
 INTEGER NA,complete
 
+if (.not.bMasterTurnedOn) return
+
 IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
   ALLOCATE(mg_A11mat(NLMIN:NLMAX))
   ALLOCATE(mg_A22mat(NLMIN:NLMAX))

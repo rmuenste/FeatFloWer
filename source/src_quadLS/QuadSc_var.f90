@@ -34,6 +34,7 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
+LOGICAL :: bMasterTurnedOn=.true. ! because of hypre
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 REAL*8  :: AlphaControl=0d0

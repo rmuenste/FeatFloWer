@@ -512,6 +512,7 @@ SUBROUTINE General_init(MDATA,MFILE)
             MaxLevelKnownToMaster = NLMAX
           else
             READ(string(iEq+1:),*) MaxLevelKnownToMaster
+            myExport%LevelMax = MaxLevelKnownToMaster
           END IF
           !     IF (myid.eq.MASTER) NLMAX=2
         CASE ("TimeScheme")

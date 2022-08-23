@@ -3820,3 +3820,218 @@ END SUBROUTINE ResetTimer
 !
 ! ----------------------------------------------
 !
+subroutine ReduceMesh_sse_mesh()
+USE def_FEAT
+USE var_QuadScalar,ONLY:LinSc,mg_Mesh,myBoundary
+USE Parametrization, ONLY : myParBndr,nBnds
+USE PP3D_MPI, ONLY:myid
+
+implicit none
+integer, allocatable :: ElementIndices(:),VertexIndices(:),FaceIndices(:)
+integer, allocatable :: knpr(:)
+integer i,j,k,ivt,iat,iadj,ibnds,nnel,nnvt,nnat
+integer ivt1,ivt2,ivt3,ivt4
+character cTRIFolder*(256),cf*(256)
+INTEGER NeighA(4,6)
+logical bBndry
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+if (myid.eq.0) then
+ ilev=nlmin
+ CALL SETLEV(2)
+ 
+ nel = mg_Mesh%level(ILEV)%nel
+ nvt = mg_Mesh%level(ILEV)%nvt
+ nat = mg_Mesh%level(ILEV)%nat
+ 
+ allocate(ElementIndices(nel),VertexIndices(nvt),FaceIndices(nat))
+ allocate(knpr(nvt))
+ 
+ knpr = 0
+ ElementIndices = -1
+ VertexIndices = -1
+ FaceIndices = -1
+ 
+ nnel = 0
+ nnat = 0
+ nnvt = 0
+ do i=1,nel
+  if (LinSc%knprP(ilev)%x(i).eq.0) THEN
+   nnel = nnel + 1
+   ElementIndices(i) = nnel
+   do j=1,8
+    ivt = mg_Mesh%level(ILEV)%kvert(j,i)
+    if (VertexIndices(ivt).lt.0) then
+     nnvt = nnvt + 1
+     VertexIndices(ivt) = nnvt
+    end if
+   end do
+  end if
+ end do 
+ 
+ DO i=1,nel
+  do j=1,6
+   if (ElementIndices(i).gt.0) then
+    iadj = mg_Mesh%level(ILEV)%kadj(j,i)
+    if (iadj.eq.0) then
+     bBndry = .True.
+    elseif (ElementIndices(iadj).lt.0) then
+     bBndry = .True.
+    else
+     bBndry = .False.
+    end if
+    
+    IF (bBndry) THEN
+      FaceIndices(mg_Mesh%level(ILEV)%karea(j,i)) = 1
+      knpr(mg_Mesh%level(ILEV)%kvert(neighA(:,j),i)) = 1
+    end if
+    
+   end if
+  end do
+ end do
+ 
+ cTRIFolder = 'ReducedMeshDir'
+ CALL CheckIfFolderIsThereCreateIfNot(cTRIFolder,-1)
+ 
+ write(*,'(2(A,I0,A,I0))') 'Reduction of NEL : ',nel,',',nnel, ' NVT : ',nvt,',',nnvt
+ OPEN(FILE=ADJUSTL(TRIM(cTRIFolder))//'/ReducedMesh.tri',unit=1)
+ 
+ WRITE(1,*) 'Coarse mesh exported by sse_mesh'
+ WRITE(1,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+ WRITE(1,'(2I8,A)') nNEL,nNVT, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+ nnvt = 0
+ VertexIndices = -1
+ 
+ WRITE(1,*) 'DCORVG'
+ do i=1,nel
+  if (LinSc%knprP(ilev)%x(i).eq.0) THEN
+   do j=1,8
+    ivt = mg_Mesh%level(ILEV)%kvert(j,i)
+    if (VertexIndices(ivt).lt.0) then
+     nnvt = nnvt + 1
+     VertexIndices(ivt) = nnvt
+     write(1,'(3ES13.5)') mg_Mesh%level(ILEV)%dcorvg(:,ivt)
+    end if
+   end do
+  end if
+ end do 
+
+ WRITE(1,*) 'KVERT'
+ DO i=1,nel
+  if (ElementIndices(i).gt.0) write(1,'(8I8)') VertexIndices(mg_Mesh%level(ILEV)%kvert(:,i))
+ end do
+ 
+ nnvt = 0
+ VertexIndices = -1
+ WRITE(1,*) 'KNPR'
+ do i=1,nel
+  if (LinSc%knprP(ilev)%x(i).eq.0) THEN
+   do j=1,8
+    ivt = mg_Mesh%level(ILEV)%kvert(j,i)
+    if (VertexIndices(ivt).lt.0) then
+     nnvt = nnvt + 1
+     VertexIndices(ivt) = nnvt
+     write(1,'(I0)') knpr(ivt)
+    end if
+   end do
+  end if
+ end do 
+
+ CLOSE(1)
+
+ OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cTRIFolder))//'/file.prj')
+ WRITE(cf,'(A)') 'ReducedMesh.tri' 
+ WRITE(2,'(A)') ADJUSTL(TRIM(cf))
+  
+ DO iBnds = 1, nBnds
+  cf = ' '
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+  
+  k=1
+  DO i=1,nel
+   do j=1,6
+    iat = mg_Mesh%level(ILEV)%karea(j,i)
+    IF (k.eq.iat) THEN
+     if (FaceIndices(iat).eq.1) then
+      ivt1 = mg_Mesh%level(ILEV)%kvert(NeighA(1,j),i)
+      ivt2 = mg_Mesh%level(ILEV)%kvert(NeighA(2,j),i)
+      ivt3 = mg_Mesh%level(ILEV)%kvert(NeighA(3,j),i)
+      ivt4 = mg_Mesh%level(ILEV)%kvert(NeighA(4,j),i)
+      if (myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt1).and.myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt2).and.&
+          myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt3).and.myParBndr(iBnds)%Bndr(ILEV)%Vert(ivt4)) then
+          FaceIndices(iat) = FaceIndices(iat) + 1
+      end if
+     end if
+     k = k + 1
+    end if 
+   End do
+  End do
+  
+  j=0
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (VertexIndices(i).gt.0.and.myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    j = j + 1
+   END IF
+  END DO
+  WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+  WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (VertexIndices(i).gt.0.and.myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+   WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
+   END IF
+  END DO
+  CLOSE(1)
+ END DO
+ 
+ knpr=0
+ k=1
+ DO i=1,nel
+  do j=1,6
+   iat = mg_Mesh%level(ILEV)%karea(j,i)
+   IF (k.eq.iat) THEN
+    if (FaceIndices(iat).eq.1) then
+     knpr(mg_Mesh%level(ILEV)%kvert(NeighA(1,j),i)) = 1
+     knpr(mg_Mesh%level(ILEV)%kvert(NeighA(2,j),i)) = 1
+     knpr(mg_Mesh%level(ILEV)%kvert(NeighA(3,j),i)) = 1
+     knpr(mg_Mesh%level(ILEV)%kvert(NeighA(4,j),i)) = 1
+!     write(*,*) ivt1,ivt2,ivt3,ivt4
+    end if
+    k = k + 1
+   end if 
+  End do
+ End do
+ 
+ cf = ' '
+ WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//"NewWall.par"
+ WRITE(2,'(A)') "NewWall.par"
+ WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+ 
+ j=0
+ DO i=1,mg_mesh%level(ilev)%nvt
+  IF (knpr(i).eq.1) THEN
+   j = j + 1
+  END IF
+ END DO
+ WRITE(1,'(I8,A)') j," Wall"
+ WRITE(1,'(A)')    "' '"
+ DO i=1,mg_mesh%level(ilev)%nvt
+  IF (knpr(i).eq.1) THEN
+   WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
+  END IF
+ END DO
+ CLOSE(1)
+
+ CLOSE(2)
+
+end if
+
+end subroutine ReduceMesh_sse_mesh
+!
+! ----------------------------------------------
+!
+
