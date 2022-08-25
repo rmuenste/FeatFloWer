@@ -106,6 +106,8 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     subMeshes = 0
     if origMethod == -4:
       subMeshes = nSubMesh[0] * nSubMesh[1] * nSubMesh[2]
+    else:
+      subMeshes = nSubMesh
 
     for i in range(1,subMeshes+1):
         mkdir(os.path.join(workPath,"sub%03d" % i))

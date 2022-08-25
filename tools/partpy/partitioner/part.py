@@ -516,8 +516,6 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
 
   NumAxis=sum(Axis)
   nSub=2**NumAxis
-  if nSub !=nSubMesh:
-    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
 
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid
