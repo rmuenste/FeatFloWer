@@ -2050,7 +2050,7 @@ EXTERNAL E011
     STOP
     
    END IF
-#endif   
+#endif
   IF (MyMG%CrsSolverType.EQ.7.or.MyMG%CrsSolverType.EQ.8) THEN    
 #ifdef HYPRE_AVAIL
     if (myid.eq.0) THEN 

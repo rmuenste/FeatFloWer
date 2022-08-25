@@ -96,7 +96,11 @@
       !$omp target enter data map(alloc:tmp)
 
 !   Default problem parameters
+<<<<<<< HEAD
       n = 25
+=======
+      n = 5
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
       solver_id = 0
       print_solution  = 0
       tol = 1.0d-7
@@ -150,22 +154,35 @@
 !     Note that here we are setting one row at a time, though
 !     one could set all the rows together (see the User's Manual).
 
+<<<<<<< HEAD
       ilower= ilower
       iupper= iupper
+=======
+      ilower= ilower+1
+      iupper= iupper+1
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
 
       do i = ilower, iupper
          nnz = 1
 
 
 !        The left identity block:position i-n
+<<<<<<< HEAD
          if ( (i-n) .ge. 0 ) then
+=======
+         if ( (i-n) .ge. 1 ) then
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
             cols(nnz) = i-n
             values(nnz) = -1.0d0
             nnz = nnz + 1
          endif
 
 !         The left -1: position i-1
+<<<<<<< HEAD
          if ( mod(i,n).ne.0 ) then
+=======
+         if ( mod(i-1,n).ne.0 ) then
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
             cols(nnz) = i-1
             values(nnz) = -1.0d0
             nnz = nnz + 1
@@ -177,14 +194,22 @@
          nnz = nnz + 1
 
 !        The right -1: position i+1
+<<<<<<< HEAD
          if ( mod((i+1),n) .ne. 0 ) then
+=======
+         if ( mod((i),n) .ne. 0 ) then
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
             cols(nnz) = i+1
             values(nnz) = -1.0d0
             nnz = nnz + 1
          endif
 
 !        The right identity block:position i+n
+<<<<<<< HEAD
          if ( (i+n) .lt. ng ) then
+=======
+         if ( (i+n) .le. ng ) then
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
             cols(nnz) = i+n
             values(nnz) = -1.0d0
             nnz = nnz + 1
@@ -195,12 +220,22 @@
          tmp(2) = i
          !$omp target update to(cols, values, tmp)
          !$omp target data use_device_ptr(cols, values, tmp)
+<<<<<<< HEAD
          call HYPRE_IJMatrixSetValues(A, 1, tmp(1), tmp(2), cols, values, ierr)
          !$omp end target data
       enddo
       if (myid.eq.0) then
          write(*,*) "myid:",myid,"; ilower:",ilower,"; iupper:",iupper,"; nrows:",1,"; ncols:",tmp(1),"; rows:",tmp(2),"; cols:", cols
       end if
+=======
+         call HYPRE_IJMatrixSetValues(        A, 1, tmp(1), tmp(2), cols, values, ierr)
+         !$omp end target data
+      
+      if (myid.eq.0) then
+         write(*,*) "myid:",myid,"; ilower:",ilower,"; iupper:",iupper,"; nrows:",1,"; ncols:",tmp(1),"; rows:",tmp(2),"; cols:", cols
+      end if
+      enddo
+>>>>>>> 5a248ac7720a253c640717434655767ef691835b
       
 
 !     Assemble after setting the coefficients
