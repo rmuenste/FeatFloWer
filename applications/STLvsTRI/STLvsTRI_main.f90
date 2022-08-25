@@ -103,7 +103,7 @@ END IF
   CALL CoarseSurfIntensity()
   
   CALL QualityCheck(dSurfInt,nOfCritical)
-  WRITE(*,'(A,ES12.4,I)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
+  WRITE(*,'(A,ES12.4,I0)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
  
   ! check for success!
   IF (dSurfInt.lt.dSurfIntCrit) EXIT

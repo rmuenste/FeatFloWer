@@ -79,7 +79,7 @@ def checkParameters(params):
     MeshName=params[4]
     ProjektFile=params[5]
 
-    print("Number of partitions: {} \nPartitioning method: {} \nNumber of submeshes: {}".format(NPart, PartMethod, NSubPart))
+    print("Partitioner Version: 0.5\nNumber of partitions: {} \nPartitioning method: {} \nNumber of submeshes: {}".format(NPart, PartMethod, NSubPart))
     # Rueckgabe der Parameter
     return NPart, PartMethod, NSubPart, MeshName, ProjektFile
 
