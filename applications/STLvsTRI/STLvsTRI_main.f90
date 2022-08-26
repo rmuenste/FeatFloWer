@@ -77,7 +77,6 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
  VoxelVolume = DomainVolume/DBLE(NumberOfElements)
  VoxelSize = 8*myProcess%ExtrusionGapSize !VoxelVolume**(1d0/3d0)
  
-<<<<<<< HEAD
  BoxMesh%Division(1) = 2*NINT(BoxMesh%dsize(1)/VoxelSize)+1
  BoxMesh%Division(2) = 2*NINT(BoxMesh%dsize(2)/VoxelSize)+1
  BoxMesh%Division(3) = 2*NINT(BoxMesh%dsize(3)/VoxelSize)+1
@@ -86,15 +85,6 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
  VoxelVolume = DomainVolume/DBLE(NumberOfElements)
  VoxelSize = VoxelVolume**(1d0/3d0)
  UnityArea   = VoxelVolume**(2d0/3d0)
-=======
-  ! Construct Surface Intensity
-  TriMesh%I = TriMesh%d/UnityArea
-  
-  CALL CoarseSurfIntensity()
-  
-  CALL QualityCheck(dSurfInt,nOfCritical)
-  WRITE(*,'(A,ES12.4,I0)') "MaxSurfaceIntensity & nOf Critical elements: ",dSurfInt,nOfCritical
->>>>>>> a175b9fcfd06d68bd1cd144e5d18faa6c5291d12
  
  WRITE(*,*) "Resolution, x,y,z: ",BoxMesh%Division
  WRITE(*,*) "Number of Elements: ",NumberOfElements
