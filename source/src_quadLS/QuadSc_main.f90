@@ -3555,6 +3555,8 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+CALL Release_cgal_structures()
+
 IF (bCreate) THEN
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
