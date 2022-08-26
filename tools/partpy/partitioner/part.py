@@ -316,7 +316,7 @@ def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   for iPart in range(1,nPart+1):
     # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
     iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
-    print(len(iElem))
+#    print(len(iElem))
     iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
     # Erzeuge Lookup-Listen: Neue-Idx->Alte Idx
     iCoor=list(iCoor)
@@ -516,8 +516,6 @@ def PartitionAlongAxis(Grid,nSubMesh,Method):
 
   NumAxis=sum(Axis)
   nSub=2**NumAxis
-  if nSub !=nSubMesh:
-    return MultPartitionAlongAxis(Grid,nSubMesh,Method)
 
   assert nSub==nSubMesh, "Your subgrid splitting choice requires exactly %d subgrids!"%nSub  
   # Entpacke die Informationen in Parameter Grid

@@ -72,8 +72,9 @@ def handleDevisorDir(dirName):
 #            subDir = os.path.join(fileName, item)
             subList = os.listdir(fileName)
             for subItem in subList:
+                if re.search(r'GRID\d\d\d\.tri', subItem):
                 #if os.path.splitext(subItem)[1] == '.tri' and len(os.path.splitext(subItem)[0]) > 4:
-                if os.path.splitext(subItem)[1] == '.tri':
+                #if os.path.splitext(subItem)[1] == '.tri':
                     #print(os.path.join(fileName, subItem))
 
                     baseName = os.path.splitext(subItem)[0] 
