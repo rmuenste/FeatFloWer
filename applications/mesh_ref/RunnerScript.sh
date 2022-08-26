@@ -1,26 +1,79 @@
 #!/usr/bin/env bash
 
-# NLMAX=3
-SimFolder="VEKA_S"
+usage()
+{
+cat << EOF
+usage: $0 options
+ [./RunnerScript.sh -f e3d_setup]
 
-# loop for the resolution
+OPTIONS:
+   -f      simulation folder name
+EOF
+}
 
-# create the area distribution into the same folder
-python3 computeAreas.py ${SimFolder}
+#SimFolder="GEALAN_6506"
 
-# we need to create an empty mesh_names.offs file that the meshrefiner can use it
-echo "0" > mesh_names.offs
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
 
-# run the mesh refinement binary
-./meshref -f ${SimFolder}
+while [ $# != 0 ]; do
+ flag="$1"
+ case "$flag" in
+  -f)  if [ $# -gt 1 ]; then
+        SimFolder="$2"
+        shift
+       else
+        echo "You did not provide an argument for the -f flag"
+        usage
+        exit 1
+       fi
+#       echo "You supplied an argument for the -nm flag: $basename"
+   ;;
+   *) echo "Unrecognized flag or argument: $flag"
+      usage
+      exit 1
+   ;;
+ esac
+ shift
+done
 
-# extract the number of generated elements
-# NEL=`grep NEL ${SimFolder}/meshDir/Merged_Mesh.tri | awk -F " " '{print  $1}'`
+GendieProcs=64
+MeshRefProcs=64
 
-# if NEL > 80,000 we have to go back to beginning and reset in the ${SimFolder}/info.json the "extrusion"@"minGap" to half value! ==> at the same time NLMAX = NLAMX + 1
-# end loop for the resolution
+rm -fr ${SimFolder}/Coarse_meshDir
+rm -fr ${SimFolder}/meshDir_BU
+rm -fr ${SimFolder}/meshDir
+rm -fr ${SimFolder}/_vtk
 
-# unfortunately we can practically afford only resolution 3 and 4, not higher! so NLMAX = MIN(4,NLMAX) ! but we have to save a warning signal that the resolution might be too low and pass it back to SR ...
-# update SimPar@MaxMeshLevel = NLMAX in _data_BU/q2p1_paramV_DIE.dat and _data_BU/q2p1_paramV_DIE_test.dat
+# for G-Elit we will have to activate these lines as well 
+
+#cp ${SimFolder}"/surfaceX.off" ${SimFolder}"/surface.off"
+./STLvsTRI -f ${SimFolder}
+#cp ${SimFolder}"/surfaceS.off" ${SimFolder}"/surface.off"
+
+echo "1" > mesh_names.offs
+echo  ${SimFolder}"/surface.off" >> mesh_names.offs
+
+./meshref -f  ${SimFolder}
+
+python3 ./e3d_start.py -n ${MeshRefProcs} -f ${SimFolder} --mesh-reduction
+rm -fr ReducedMeshDir
+mv _vtk ${SimFolder}
+
+
+# Running gendie as before:
+cp _data_BU/q2p1_paramV_DIE_0.dat _data_BU/q2p1_paramV_DIE.dat
+python3 ./e3d_start.py -n ${GendieProcs} -f ${SimFolder} --die-simulation
+
+cp _data_BU/q2p1_paramAlpha.dat _data/q2p1_param.dat
+cp _data_BU/mesh_names.offs .
+mpirun -np ${GendieProcs} q1_scalar_multimat
+
+cp _data_BU/q2p1_paramV_DIE_1.dat _data_BU/q2p1_paramV_DIE.dat
+python3 ./e3d_start.py -n ${GendieProcs} -f ${SimFolder} --die-simulation
+
 
 exit 0
