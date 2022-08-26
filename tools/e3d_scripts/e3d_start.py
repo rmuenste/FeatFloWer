@@ -526,6 +526,11 @@ def simLoopMeshReduction(workingDir):
     numProcessors = paramDict['numProcessors']
     angle = 0
 
+    shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
+
+    with open("_data/Extrud3D.dat", "a") as f:
+        f.write("Angle=" + str(angle) + "\n")
+            
     if sys.platform == "win32":
         exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_mesh.exe"])
     else:
