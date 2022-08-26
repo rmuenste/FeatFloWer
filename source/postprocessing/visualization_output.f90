@@ -411,6 +411,17 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Outflow')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Outflow",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   IF (myBoundary%bOutflow(ivt)) THEN
+    write(iunit, '(A,E16.7)')"        ",1d0
+   ELSE
+    write(iunit, '(A,E16.7)')"        ",0d0
+   END IF
+  end do
+  write(iunit, *)"        </DataArray>"
+  
  CASE('Wall')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wall",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -636,6 +647,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","SegmentIndicator","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
+ CASE('Outflow')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Outflow","""/>"
  CASE('Wall')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wall","""/>"
  CASE('FBM')

@@ -255,7 +255,9 @@ IF (myid.ne.0) THEN
  CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
 END IF
 
-CALL Add_DissipativeEnergy_HEATALPHA_Q1(mfile)
+if (myProcess%UseHeatDissipationForQ1Scalar) then 
+ CALL Add_DissipativeEnergy_HEATALPHA_Q1(mfile)
+end if
 
 IF (myid.ne.0) THEN
  DO iFld=1,GenLinScalar%nOfFields

@@ -201,10 +201,12 @@ type(tMultiMesh) :: mgMesh
 !integer ivt,ndof
 integer inode,i,j,k,iel,iat,ivt1,ivt2,ivt3,ivt4,nn
 integer nn_000,nn_nvt,nn_net,nn_nat,nn_nel
-REAL*8, ALLOCATABLE :: daux(:)
+REAL*8, ALLOCATABLE :: daux(:),out(:,:)
+real*8 iPlus
 INTEGER NeighA(4,6),NeighU(4,6)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 DATA NeighU/1,2,3,4,1,6,9,5,2,7,10,6,3,8,11,7,4,5,12,8,9,10,11,12/
+
 
 ! 
 !  ndof = mgMesh%level(ilevel)%nvt + &
@@ -226,6 +228,9 @@ nn_NVT = mgMesh%level(ilevel)%nvt
 nn_NET = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net
 nn_NAT = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net + mgMesh%level(ilevel)%nat
 nn_NEL = mgMesh%level(ilevel)%nvt + mgMesh%level(ilevel)%net + mgMesh%level(ilevel)%nat + mgMesh%level(ilevel)%nel
+
+allocate(out(2,nn_NEL))
+out = 0d0
 
 ALLOCATE(daux(nn_NEL))
 daux = 0d0
@@ -276,7 +281,44 @@ DO iBnds=1,nBnds
  END IF
 END DO
 
+DO iel=1,mgMesh%level(ilevel)%nel
+  DO j=1,6
+     k = mgMesh%level(ilevel)%karea(j,iel)
+     iat = nn_NET + k
+     
+     iPlus = 0d0
+     IF (mgMesh%BndryNodes(iat)%bOuterPoint) THEN
+      IF (myBoundary%bOutflow(iat)) iPlus = 1d0
+      
+      ! CornerPoints
+      ivt1 = mgMesh%level(ilevel)%kvert(NeighA(1,j),iel)
+      ivt2 = mgMesh%level(ilevel)%kvert(NeighA(2,j),iel)
+      ivt3 = mgMesh%level(ilevel)%kvert(NeighA(3,j),iel)
+      ivt4 = mgMesh%level(ilevel)%kvert(NeighA(4,j),iel)
+      out(:,ivt1) = out(:,ivt1) + [1d0,iPlus]
+      out(:,ivt2) = out(:,ivt2) + [1d0,iPlus]
+      out(:,ivt3) = out(:,ivt3) + [1d0,iPlus]
+      out(:,ivt4) = out(:,ivt4) + [1d0,iPlus]
+      
+      ! EdgePoints
+      ivt1 = mgMesh%level(ilevel)%kedge(NeighU(1,j),iel)
+      ivt2 = mgMesh%level(ilevel)%kedge(NeighU(2,j),iel)
+      ivt3 = mgMesh%level(ilevel)%kedge(NeighU(3,j),iel)
+      ivt4 = mgMesh%level(ilevel)%kedge(NeighU(4,j),iel)
+      out(:,nn_nvt+ivt1) = out(:,nn_nvt+ivt1) + [1d0,iPlus]
+      out(:,nn_nvt+ivt2) = out(:,nn_nvt+ivt2) + [1d0,iPlus]
+      out(:,nn_nvt+ivt3) = out(:,nn_nvt+ivt3) + [1d0,iPlus]
+      out(:,nn_nvt+ivt4) = out(:,nn_nvt+ivt4) + [1d0,iPlus]
+      
+      out(:,iat) = out(:,iat) + [1d0,iPlus]
+     END IF
+  END DO
+END DO
+
 if (bParallel) then
+ CALL E013SUM(out(1,:))
+ CALL E013SUM(out(2,:))
+ 
  daux = 0d0
  do i=1,nn_NEL
   if (myBoundary%bWall(i)) then
@@ -291,7 +333,16 @@ if (bParallel) then
  end do
 end if
 
-DEALLOCATE(daux)
+do i=1,nn_NEL
+ if (myBoundary%bWall(i).and.myBoundary%bOutflow(i).and.mgMesh%BndryNodes(i)%bOuterPoint) then
+   if (out(1,i).eq.out(2,i).and.(out(1,i).gt.0)) THEN
+!     write(*,*) myid, i,' / ', nn_NEL
+    myBoundary%bWall(i) = .false.
+   end if
+ end if
+end do
+
+DEALLOCATE(daux,out)
 
 END SUBROUTINE ReviseWallBC
 !

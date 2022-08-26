@@ -3,7 +3,7 @@ Module MeshRefVar
 INTEGER lTriOutputLevel,lVTUOutputLevel
 REAL*8 RefinementThickness,MeshOutputScaleFactor
 
-CHARACTER*(200) :: cIntputFolder=" ",cOutputFolder=" ",cShortProjectFile=" "
+CHARACTER*(200) :: cIntputFolder=" ",cOutputFolder=" ",cShortProjectFile=" ",cReducedGridFile="ReducedMesh.tri"
 LOGICAL :: bA_MD=.false.
 LOGICAL :: bPDE_MD=.false.
 Logical :: bDefTensor = .true.
@@ -24,13 +24,19 @@ end type RefinerMesh
 
 type(RefinerMesh), allocatable :: myRF(:)
 
+type tParList
+ Logical, allocatable :: Wall(:),SideWall(:,:),Inflow(:,:),Outflow(:)
+end type tParList
+type (tParList) :: ParList,ParCleanList
+
+real*8 OverallBoundingBox(3,2)
 real*8 , allocatable :: AreaIntensity(:,:)
-real*8, allocatable :: MergedMeshCoor(:,:)
-integer, allocatable :: MergedMeshElem(:,:),MergedMeshknpr(:)
+real*8, allocatable :: MergedMeshCoor(:,:),ReducedMeshCoor(:,:),ReducedCleanMeshCoor(:,:)
+integer, allocatable :: MergedMeshElem(:,:),MergedMeshknpr(:),ReducedMeshElem(:,:),ReducedCleanMeshElem(:,:),ReducedMeshBC(:)
 real*8, allocatable :: MergedMeshDist(:)
 integer, allocatable :: level(:)
 
-integer nUniquePoints,nUniqueElems
+integer nUniquePoints,nUniqueElems,nReducedElems,nReducedPoints,nReducedCleanPoints,nReducedCleanElems
 
 integer RROT(8,8),R2ROT(8),R3ROT(8)
 data RROT/1,2,3,4,5,6,7,8,&

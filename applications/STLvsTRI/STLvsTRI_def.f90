@@ -105,7 +105,7 @@ DO i=1,BoxMesh%division(3)
 END DO
 
 
-OPEN(FILE='EXP.stl',unit=2)
+OPEN(FILE=ADJUSTL(TRIM(cProjectFolder))//'/EXP.stl',unit=2)
 WRITE(2,'(A)') "solid Created by STLtoTRI"
 
 DO iTriang=1,OFFmesh%nel
@@ -430,7 +430,7 @@ nel = (CoarseTriMesh%nx-1)*(CoarseTriMesh%ny-1)*(CoarseTriMesh%nz-1)
 ! nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
 
 WRITE(cf,'(A)') ADJUSTL(TRIM(cProjectFolder))//'/Coarse_meshDir'
-myid = 1
+myid = 0
 CALL CheckIfFolderIsThereCreateIfNot(cf,-1)
 myid = 0
 
@@ -530,7 +530,7 @@ nvt = CoarseTriMesh%nx*CoarseTriMesh%ny*CoarseTriMesh%nz
 nel = (CoarseTriMesh%nx-1)*(CoarseTriMesh%ny-1)*(CoarseTriMesh%nz-1)
 
 filename=" "
-WRITE(filename(1:),'(A)') "CoarseTriMesh.vtu"
+WRITE(filename(1:),'(A)') ADJUSTL(TRIM(cProjectFolder))//"/CoarseTriMesh.vtu"
 
 WRITE(*,'(104("="))') 
 WRITE(*,*) "Outputting vtk file into ",filename
@@ -654,7 +654,7 @@ nvt = BoxMesh%division(1)*BoxMesh%division(2)*BoxMesh%division(3)
 nel = (BoxMesh%division(1)-1)*(BoxMesh%division(2)-1)*(BoxMesh%division(3)-1)
 
 filename=" "
-WRITE(filename(1:),'(A)') "mesh.vtu"
+WRITE(filename(1:),'(A)') ADJUSTL(TRIM(cProjectFolder))//"/mesh.vtu"
 
 WRITE(*,'(104("="))') 
 WRITE(*,*) "Outputting vtk file into ",filename

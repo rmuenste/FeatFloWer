@@ -557,13 +557,13 @@ END TYPE tSegment
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
-  CHARACTER :: GeometryLength*(256),GeometryStart*(256),voxelAmount*(256)
+  CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
   LOGICAL :: ScrewCylinderRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
   REAL*8 :: Dz_out,Dz_in, a, L, L0, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
+  LOGICAL :: DIE_SymmetryBC(6) = .FALSE.
   REAL*8 :: DIE_Start(3)=0d0,DIE_Length(3)=-1d0
-  INTEGER :: DIE_Voxels(3)=-1
   INTEGER :: NumberOfMat,NumberOfSeg, GANGZAHL,STLSeg=0
   TYPE (tSegment), ALLOCATABLE :: mySegment(:)
   INTEGER :: InnerDiamNParam=0
@@ -627,6 +627,7 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
+   LOGICAL :: UseHeatDissipationForQ1Scalar=.false.
    LOGICAL :: SegmentThermoPhysProps=.false.
    TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!

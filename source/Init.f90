@@ -682,9 +682,9 @@ SUBROUTINE General_init(MDATA,MFILE)
 
     M     = 1
     MT    = 1
-    IGMV   = NLMAX
+    IGMV   = MaxLevelKnownToMaster
     THSTEP=TSTEP*THETA
-    IF (bOutNMAX) myExport%Level = NLMAX + iOutShift
+    IF (bOutNMAX) myExport%Level = MaxLevelKnownToMaster + iOutShift
 
 
 

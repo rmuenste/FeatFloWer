@@ -18,7 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
-    character(len=INIP_STRLEN) cParserString,cSCR,cALE
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -128,13 +128,13 @@
 553  CONTINUE
     END IF
    
-    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","voxelAmount", mySigma%voxelAmount ,'_INVALID_')
-    call inip_toupper_replace(mySigma%voxelAmount)
-    IF (adjustl(trim(mySigma%voxelAmount)).ne.'_INVALID_') THEN
-     Read(mySigma%voxelAmount,*,err=554) mySigma%DIE_Voxels
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometrySymmetryBC", mySigma%GeometrySymmetryBC ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometrySymmetryBC)
+    IF (adjustl(trim(mySigma%GeometrySymmetryBC)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometrySymmetryBC,*,err=554) mySigma%DIE_SymmetryBC
      GOTO 555
 554  CONTINUE
-     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Voxel has been set: ",adjustl(trim(mySigma%voxelAmount))
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Symmetry BC has been set: ",adjustl(trim(mySigma%GeometrySymmetryBC))
      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
 555  CONTINUE
     END IF
@@ -886,6 +886,14 @@
      !GOTO 10
     END IF
     
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","UseHeatDissipationForQ1Scalar",cDissip,'OFF')
+    call inip_toupper_replace(cDissip)
+    if (adjustl(trim(cVelo)).EQ.'ON'.or.adjustl(trim(cVelo)).EQ.'YES') then
+     myProcess%UseHeatDissipationForQ1Scalar = .TRUE.
+    else
+     myProcess%UseHeatDissipationForQ1Scalar = .FALSE.
+    end if
+    
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","FBMVeloBC",cVelo,'unknown')
     call inip_toupper_replace(cVelo)
     if (adjustl(trim(cVelo)).ne.'UNKNOWN') then
@@ -1290,8 +1298,8 @@
     IF (adjustl(trim(mySigma%GeometryLength)).ne.'_INVALID_') THEN
      write(*,'(A,A,3f13.3)') "mySigma%GeometryLength",'=',mySigma%DIE_Length
     END IF
-    IF (adjustl(trim(mySigma%voxelAmount)).ne.'_INVALID_') THEN
-     write(*,'(A,A,3I13)') "mySigma%voxelAmount",'=',mySigma%DIE_Voxels
+    IF (adjustl(trim(mySigma%GeometrySymmetryBC)).ne.'_INVALID_') THEN
+     write(*,'(A,A,6L2)') "mySigma%GeometrySymmetryBC",'=',mySigma%DIE_SymmetryBC
     END IF
     
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
@@ -1489,6 +1497,7 @@
      write(*,*) 
     END DO    
 
+    write(*,'(A,A,L2)') "myProcess%UseHeatDissipationForQ1Scalar",'=',myProcess%UseHeatDissipationForQ1Scalar
     write(*,'(A,A,3ES12.4)') "myProcess%FBMVeloBC",'=',myProcess%FBMVeloBC
     write(*,*) "myProcess%Rotation",'=',myProcess%Rotation
     write(*,*) "myProcess%ind",'=',myProcess%ind

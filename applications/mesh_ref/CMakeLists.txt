@@ -7,6 +7,7 @@ meshref_init.f90
 meshref_var.f90
 meshref_refine.f90
 meshref_output.f90
+diff.f90
 )
 
 # Add the application executable
