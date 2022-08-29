@@ -68,8 +68,8 @@ PROGRAM Q2P1_SSE
   CALL ZTIME(tt0)
   call ztime(dtt0)
   
-  call postprocessing_sse_mesh(dout, 1, 1,ufile)
   CALL ReduceMesh_sse_mesh()
+  call postprocessing_sse_mesh(dout, 1, 1,ufile)
   
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 

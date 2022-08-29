@@ -3532,6 +3532,7 @@ IF (mySetup%bPressureFBM) THEN
  ilev=nlmin
  CALL SETLEV(2)
  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
+ 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
 !  if (myid.ne.0) then
 !   ilev=nlmin+1
@@ -3555,9 +3556,8 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-CALL Release_cgal_structures()
-
 IF (bCreate) THEN
+ CALL Release_cgal_structures()
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
  call OperatorRegenaration(3)
@@ -3588,7 +3588,7 @@ if (myid.ne.0) then
   
   if (bKick) then
    dnn = dnn + 1d0 
-   LinSc%knprP(ilev)%x(iel) = 1
+   LinSc%knprP(jlev)%x(iel) = 1
    CALL SetPressBC_NewGenREC(iel,jlev)
   end if
   
@@ -3618,13 +3618,12 @@ real*8 dSize
  do i=1,8
   ivt = mgMesh%level(iilev)%kvert(i,iiel)
   if (screw(ivt).gt.-dSize.and.shell(ivt).gt.-dSize) THEN
-!   if (mgMesh%level(iilev)%dcorvg(3,ivt).gt.2d0) then
    bKick = .false.
    RETURN
   end if
  end do
 
- if (iilev.gt.mgMesh%nlmax) RETURN
+ if (iilev+1.gt.mgMesh%nlmax) RETURN
 ! Possible canditate found
  jjlev = iilev + 1
 
