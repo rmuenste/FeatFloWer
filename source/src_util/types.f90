@@ -619,7 +619,7 @@ TYPE tProcess
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
    REAL*8 :: dAlpha
-   REAL*8 :: ExtrusionGapSize,ExtrusionSpeed
+   REAL*8 :: ExtrusionGapSize,ExtrusionSpeed,ExtrusionGapFactor=1d0
    CHARACTER*6 :: Rotation !RECHT, LINKS
    CHARACTER*50 :: pTYPE !RECHT, LINKS
    INTEGER :: ind,iInd

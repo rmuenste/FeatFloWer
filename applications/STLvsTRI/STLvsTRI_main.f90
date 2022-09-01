@@ -75,7 +75,7 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
  NumberOfElements = NumberOfElementsInit
 
  VoxelVolume = DomainVolume/DBLE(NumberOfElements)
- VoxelSize = 8*myProcess%ExtrusionGapSize !VoxelVolume**(1d0/3d0)
+ VoxelSize = 8d0*myProcess%ExtrusionGapSize*myProcess%ExtrusionGapFactor !VoxelVolume**(1d0/3d0)
  
  BoxMesh%Division(1) = 2*NINT(BoxMesh%dsize(1)/VoxelSize)+1
  BoxMesh%Division(2) = 2*NINT(BoxMesh%dsize(2)/VoxelSize)+1

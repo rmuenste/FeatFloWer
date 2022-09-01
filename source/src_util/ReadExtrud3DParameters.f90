@@ -1050,6 +1050,7 @@
       
       
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapSize_MM",myProcess%ExtrusionGapSize,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapFactor",myProcess%ExtrusionGapFactor,1d0)
       if (myProcess%ExtrusionSpeed.eq.myInf) then
        if (dArea.eq.myInf) then
         if (myid.eq.1) WRITE(*,*) "   Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
@@ -1771,6 +1772,7 @@
     IF (mySetup%bAutomaticTimeStepControl.and.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") then
      write(*,*) "E3DProcessParameters@ExtrusionSpeed_CMpS = ", myProcess%ExtrusionSpeed 
      write(*,*) "E3DProcessParameters@ExtrusionGapSize_MM = ", myProcess%ExtrusionGapSize
+     write(*,*) "E3DProcessParameters@ExtrusionGapFactor = ", myProcess%ExtrusionGapFactor
     END IF
 
     IF (mySetup%bRotationalFramOfReference) then
