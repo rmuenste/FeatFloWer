@@ -271,13 +271,6 @@ if (myid.ne.0) then
 end if
 
 
-! call HYPRE_IJMatrixDestroy(myHypre%A, ierr)
-! call HYPRE_IJVectorDestroy(myHypre%b, ierr)
-! call HYPRE_IJVectorDestroy(myHypre%x, ierr)
-
-! call HYPRE_Finalize(ierr)
-
-! pause
 end subroutine myHypreGMRES_Solve
 
 
@@ -415,40 +408,13 @@ if (myid.ne.0) then
   call HYPRE_ParCSRPCGSolve(myHypre%solver, myHypre%parcsr_A, myHypre%par_b,myHypre%par_x, ierr)
 end if
 
-! if ( myid .eq. 1 ) then
-!   print *
-!   print '(A,I2)', " Iterations = ", num_iterations
-!   print '(A,ES16.8)'," Final Relative Residual Norm = ", final_res_norm
-!   print *
-! endif
 
 if (myid.ne.0) then
  ! Recover the values from HYPRE back to "x"
  call HYPRE_IJVectorGetValues(myHypre%x, local_size, myHypre%rows, myHypre%sol, ierr)
- 
-!  write(*,'(<myHypre%nrows>I12)') myHypre%rows
-! !  write(*,'(<myHypre%nrows>ES12.4)') myHypre%rhs
-!  write(*,'(<myHypre%nrows>ES12.4)') x(1:myHypre%nrows)
 
-!  call HYPRE_IJVectorPrint(myHypre%x, "SOL", ierr)
-
-
-! TODO - move this to finalize routine
-! ===========================================================
-
- !        Destroy solver
-!  call HYPRE_BoomerAMGDestroy(myHypre%precond, ierr)
-!  call HYPRE_ParCSRPCGDestroy(myHypre%solver, ierr)
 end if
 
-
-! call HYPRE_IJMatrixDestroy(myHypre%A, ierr)
-! call HYPRE_IJVectorDestroy(myHypre%b, ierr)
-! call HYPRE_IJVectorDestroy(myHypre%x, ierr)
-
-call HYPRE_Finalize(ierr)
-
-! pause
 end subroutine myHyprePCG_Solve
 
 
