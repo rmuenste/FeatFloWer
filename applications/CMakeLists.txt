@@ -1,14 +1,14 @@
 
 # Add the subdirectories of the applications
 add_subdirectory(q2p1_fc2)
-add_subdirectory(q2p1_fc_ext)
+#add_subdirectory(q2p1_fc_ext)
 #add_subdirectory(q2p1_parallel_time)
 #add_subdirectory(q2p1_fsi_spring)
 #add_subdirectory(q2p1_fac_nnewt)
 #add_subdirectory(q2p1_fac_visco)
 #add_subdirectory(q2p1_fbm_spring)
 #add_subdirectory(q1_scalar)
-add_subdirectory(q2p1_bench_sedimentation)
+#add_subdirectory(q2p1_bench_sedimentation)
 #add_subdirectory(laplace)
 #add_subdirectory(stream)
 #
@@ -45,7 +45,7 @@ if (USE_HYPRE)
 endif (USE_HYPRE)
 
 if(NOT WIN32)
-add_subdirectory(q2p1_particles)
+#add_subdirectory(q2p1_particles)
 endif(NOT WIN32)
 
 if(USE_OPTICALTWEEZERS)
