@@ -9,7 +9,7 @@ USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUpQ2_1_SLAVE,MUMPS_SetUpQ2_3_SLAVE,&
     MUMPS_SetUpQ2_1_MASTER,MUMPS_SetUpQ2_3_MASTER,MUMPS_Solve,MUMPS_SetUpP1_SLAVE,MUMPS_SetUpP1_MASTER,MUMPS_CleanUp
 #endif
 #ifdef HYPRE_AVAIL
-USE HypreSolver, ONLY: myHypre_Solve
+USE HypreSolver, ONLY: myHypre_Solve, myHypreGMRES_Solve, myHyprePCG_Solve
 #endif
 IMPLICIT NONE
 
@@ -2063,11 +2063,14 @@ EXTERNAL E011
       myHypre%rhs=myMG%B(mgLev)%x
       myHypre%sol=myMG%X(mgLev)%x
      END IF
-     CALL myHypre_Solve()
+!      CALL myHypre_Solve()
+       CALL myHypreGMRES_Solve()
+!      CALL myHyprePCG_Solve()
      IF (myid.ne.0) THEN    
       myMG%X(mgLev)%x = myHypre%sol
      END IF
     END IF
+
     
     IF (MyMG%CrsSolverType.EQ.8) THEN    
     
