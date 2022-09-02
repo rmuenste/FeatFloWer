@@ -53,7 +53,7 @@ OctTree%dx = OctTree%xmax - OctTree%xmin
 OctTree%dy = OctTree%ymax - OctTree%ymin
 OctTree%dz = OctTree%zmax - OctTree%zmin
 
-dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.025d0
+dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.005d0
 
 OctTree%xmin = OctTree%xmin - 1e-3*OctTree%dx      
 OctTree%xmax = OctTree%xmax + 1e-3*OctTree%dx

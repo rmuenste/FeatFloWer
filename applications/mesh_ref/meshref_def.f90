@@ -9,6 +9,8 @@ use iniparser
 use meshrefvar
 
 implicit none
+type(tMultiMesh),save :: mg_ReducedMesh
+type(tMultiMesh),save :: mg_ParticleMesh
 
 
 CONTAINS
@@ -85,7 +87,7 @@ markerV = 0
 !  end if
 ! end do
 IF (initfield.eq.0) then
- CALL Initfield0(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel)
+ CALL Initfield0(markerE,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%dcorvg,nel,RefinementThickness)
 end if
 
 IF (initfield.eq.1) then
@@ -780,5 +782,576 @@ STOP
 1 close(698)
 
 END SUBROUTINE GetValueFromFile
+! ----------------------------------------------
+SUBROUTINE CreateReducedMesh
+use geometry_processing, only : GetDistToSTL
+integer, allocatable :: iVertKeep(:),iElemKeep(:)
+real*8, allocatable :: Distance(:)
+integer i,j,k,jElem,jVert,ivt
+real*8 :: pC(3),dist,distC,P(3),dMaxDist,dMinDist
+real*8 :: p8(3,8),D8(8)
+logical :: bKeep,bPrint
+
+allocate(iVertKeep(nUniquePoints))
+allocate(iElemKeep(nUniqueElems))
+allocate(Distance(nUniquePoints))
+Distance = 1d8
+
+iVertKeep=0
+iElemKeep=0
+
+jElem = 0
+jVert = 0
+
+DO i=1,nUniqueElems
+ 
+ pC = 0d0
+ do j=1,8
+  ivt = MergedMeshElem(j,i)
+  P = MergedMeshCoor(:,ivt)
+  pC = pC + 0.125d0*P
+ end do
+ 
+ dMaxDist = -1d8
+ dMinDist = +1d8
+ do j=1,8
+  ivt = MergedMeshElem(j,i)
+  P = MergedMeshCoor(:,ivt)
+  distC = SQRT((PC(1)-P(1))**2d0 + (PC(2)-P(2))**2d0 + (PC(3)-P(3))**2d0)
+  if (distC.gt.dMaxDist) dMaxDist = distC
+  if (distC.lt.dMaxDist) dMinDist = distC
+ end do
+
+ CALL GetDistToSTL(pC(1),pC(2),pC(3),1,distC,.TRUE.)
+ 
+ if (distC.lt.dMaxDist) then
+  ! Clear removal --> element is too far
+  IF (distC.lt.-dMaxDist) THEN
+   jElem = jElem + 1
+   iElemKeep(i) = jElem
+   iVertKeep(MergedMeshElem(:,i)) = 1
+  else
+  
+   bKeep = .FALSE.
+   
+   IF (distC.lt.1d0*dMinDist) then
+   
+    bKeep = .TRUE.
+    jElem = jElem + 1
+    iElemKeep(i) = jElem
+    iVertKeep(MergedMeshElem(:,i)) = 1
+
+   ELSE
+   
+    do j=1,8
+     ivt = MergedMeshElem(j,i)
+     P = MergedMeshCoor(:,ivt)
+     IF (abs(Distance(ivt)).gt.1d7) THEN
+      CALL GetDistToSTL(p(1),p(2),p(3),1,dist,.TRUE.)
+      Distance(ivt) = dist
+     else
+      dist = Distance(ivt)
+     END IF
+     
+     IF (dist.lt.0d0) then
+      bKeep = .TRUE.
+      jElem = jElem + 1
+      iElemKeep(i) = jElem
+      iVertKeep(MergedMeshElem(:,i)) = 1
+      exit
+     END IF
+     
+    end do
+    
+   END IF
+   
+   IF (.not.bKeep) THEN
+    P8(1,:) = MergedMeshCoor(1,MergedMeshElem(:,i)) 
+    P8(2,:) = MergedMeshCoor(2,MergedMeshElem(:,i)) 
+    P8(3,:) = MergedMeshCoor(3,MergedMeshElem(:,i)) 
+    D8(:)   = Distance(MergedMeshElem(:,i))
+    bPrint = .false.
+!     IF (i.eq.93265) THEN
+!      bPrint = .true.
+!      WRITE(*,*) "bKeep",bKeep
+!      DO k=1,8
+!       WRITE(*,'(3ES12.4,A,ES12.4)') P8(:,k)," : ",D8(k)
+!      END DO
+!     END IF
+    ! we should figure out if the hex intersects the triangulation
+    CALL TriangulationIntersectsnElement(P8,D8,PC,distC,bKeep,bPrint)
+!     IF (i.eq.62402) THEN
+!      pause
+!     end if
+    IF (bKeep) THEN
+     write(*,*) "Element ",i," has been determined to be added to list"
+     bKeep = .TRUE.
+     jElem = jElem + 1
+     iElemKeep(i) = jElem
+     iVertKeep(MergedMeshElem(:,i)) = 1
+    END IF
+   END IF
+   
+  END IF
+ end if
+ 
+end do
+
+DO i=1,nUniquePoints
+ if (iVertKeep(i).gt.0) then
+  jVert = jVert + 1
+  iVertKeep(i) = jVert
+ end if
+END DO
+
+allocate(ReducedMeshElem(8,jElem))
+allocate(ReducedMeshCoor(3,jVert))
+
+DO i=1,nUniqueElems
+ IF (iElemKeep(i).gt.0) then
+  do j=1,8
+   ReducedMeshElem(j,iElemKeep(i)) = iVertKeep(MergedMeshElem(j,i))
+  end do
+ END IF 
+end do
+
+DO i=1,nUniquePoints
+ IF (iVertKeep(i).gt.0) then
+  do j=1,3
+   ReducedMeshCoor(j,iVertKeep(i)) = MergedMeshCoor(j,i)
+  end do
+ END IF 
+end do
+
+nReducedElems = jElem
+nReducedPoints = jVert
+deallocate(iVertKeep)
+deallocate(iElemKeep)
+deallocate(Distance)
+
+END SUBROUTINE CreateReducedMesh
+! ----------------------------------------------
+SUBROUTINE CreateCleanReducedMesh
+use geometry_processing, only : GetDistToSTL
+use Sigma_User, only : myProcess
+implicit none
+integer, allocatable :: iVertKeep(:),iElemKeep(:)
+integer i,j,k,ia,jat,jElem,iarea,jVert,ivt,iStartElem,nBCFace,iInflow,nInFlow,nOutFlow
+real*8 :: dN(3),pC(3),dist,P(3),Q(3),dMinDist,minDistP,maxDistP
+logical bInflowArea
+INTEGER NeighA(4,6)
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+nel = mg_ReducedMesh%level(1)%nel
+nvt = mg_ReducedMesh%level(1)%nvt
+nat = mg_ReducedMesh%level(1)%nat
+
+allocate(ReducedMeshBC(nat))
+ReducedMeshBC = -2
+
+nBCFace = 0
+DO i=1,nel
+ DO ia= 1,6
+  j = mg_ReducedMesh%level(1)%kadj(ia,i)
+  IF (j.eq.0) then
+   ReducedMeshBC(mg_ReducedMesh%level(1)%karea(ia,i)) = -1
+   nBCFace = nBCFace + 1
+  end if
+ end do
+end do
+
+nOutFlow = 0
+nInFlow = 0
+
+DO i=1,nel
+ DO ia= 1,6
+  iarea = mg_ReducedMesh%level(1)%karea(ia,i)
+  j = mg_ReducedMesh%level(1)%kadj(ia,i)
+  IF (j.eq.0) then
+  
+   P = 0d0
+   DO ivt = 1,4
+    k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+    P  = P + 0.25d0*mg_ReducedMesh%level(1)%dcorvg(:,k)
+   END DO
+   
+   minDistP = +1d8
+   maxDistP = -1d8
+   DO ivt = 1,4
+    k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+    Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+    dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+    IF (dist.lt.minDistP) minDistP = dist
+    IF (dist.gt.maxDistP) maxDistP = dist 
+   END DO
+
+   IF (abs(P(3)-OverallBoundingBox(3,2)).lt.0.5d0*minDistP) THEN
+     nOutFlow = nOutFlow + 1
+     ReducedMeshBC(iarea) = 0
+   end if
+   DO iInflow=1,myProcess%nOfInflows
+    pC = myProcess%myInflow(iInflow)%center/MeshOutputScaleFactor
+    
+    bInflowArea = .false.
+    IF ((abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP).or.&
+        (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP).or.&
+        (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP).or.&
+        (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP).or.&
+        (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP)) THEN
+     DO ivt = 1,4
+      k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+      Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+      
+      dist = sqrt((Q(1)-pC(1))**2d0 + (Q(2)-pC(2))**2d0 + (Q(3)-pC(3))**2d0) 
+      IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor) THEN
+       dN = myProcess%myInflow(iInflow)%normal
+       jat =0
+       IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+       IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+       IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+       IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+       IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+       
+       IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
+       IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
+       IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+      END IF
+     END DO
+    END IF
+
+    if (bInflowArea) THEN
+     nInFlow = nInFlow + 1
+     ReducedMeshBC(iarea) = iInflow
+    END If 
+   END DO
+   
+  end if
+ end do
+end do
+
+DO i=1,nel
+ DO ia= 1,6
+  iarea = mg_ReducedMesh%level(1)%karea(ia,i)
+  j = mg_ReducedMesh%level(1)%kadj(ia,i)
+  IF (j.eq.0) then
+  
+   if (ReducedMeshBC(iarea).eq.-1) THEN
+    P = 0d0
+    DO ivt = 1,4
+     k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+     P  = P + 0.25d0*mg_ReducedMesh%level(1)%dcorvg(:,k)
+    END DO
+    
+    jat =0
+    IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+    IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+    IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+    IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+    IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+    
+    if (jat.gt.0) ReducedMeshBC(iarea) = 1000 + jat 
+        
+   end if
+   
+  end if
+ end do
+end do
+
+WRITE(*,'(A,8I8)') "number of Boundary faces // nvt:",nBCFace,nat,nInFlow,nOutFlow
+
+ALLOCATE(ParList%Wall(nvt))
+ALLOCATE(ParList%SideWall(5,nvt))
+ALLOCATE(ParList%Outflow(nvt))
+ALLOCATE(ParList%Inflow(myProcess%nOfInflows,nvt))
+ParList%SideWall = .false.
+ParList%Wall = .false.
+ParList%Outflow = .false.
+ParList%Inflow = .false.
+
+DO i=1,nel
+ DO ia= 1,6
+  iarea = mg_ReducedMesh%level(1)%karea(ia,i)
+  IF (ReducedMeshBC(iarea).eq.-1) THEN
+   ParList%Wall(mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+  END IF
+  IF (ReducedMeshBC(iarea).gt.1000) THEN
+   jat = ReducedMeshBC(iarea) - 1000
+   ParList%SideWall(jat,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+  END IF
+  IF (ReducedMeshBC(iarea).eq.0) THEN
+   ParList%Outflow(mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+  END IF
+  DO iInflow=1,myProcess%nOfInflows
+   IF (ReducedMeshBC(iarea).eq.iInflow) THEN
+!     WRITE(*,*) iInflow,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)
+    ParList%Inflow(iInflow,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+   END IF
+  END DO
+ END DO
+END DO
+
+allocate(iVertKeep(nvt))
+allocate(iElemKeep(nel))
+iVertKeep=0
+iElemKeep=0
+
+jElem = 0
+jVert = 0
+
+dMinDist = +1d8
+DO i=1,nel
+ 
+ pC = 0d0
+ do j=1,8
+  ivt = mg_ReducedMesh%level(1)%kvert(j,i)
+  P = mg_ReducedMesh%level(1)%dcorvg(:,ivt)
+  pC = pC + 0.125d0*P
+ end do
+ 
+ CALL GetDistToSTL(pC(1),pC(2),pC(3),1,dist,.TRUE.)
+ 
+ if (dist.lt.dMinDist) then
+  iStartElem = i
+  dMinDist=dist
+ end if
+ 
+end do
+
+CALL MarkElems(iStartElem)
+
+jElem = 0
+DO i=1,nel
+ IF (iElemKeep(i).gt.0) then
+  jElem = jElem + 1
+  iElemKeep(i) = jElem
+  iVertKeep(mg_ReducedMesh%level(1)%kvert(:,i)) = 1
+ END IF
+END DO
+
+DO i=1,nvt
+ if (iVertKeep(i).gt.0) then
+  jVert = jVert + 1
+  iVertKeep(i) = jVert
+ end if
+END DO
+
+WRITE(*,*)"Number of Marked Elems/Verts:",jElem,jVert
+WRITE(*,*)"Number of un-Marked Elems/Verts:",nel-jElem,nvt-jVert
+
+nReducedCleanPoints = jVert
+nReducedCleanElems = jElem
+
+allocate(ReducedCleanMeshElem(8,jElem))
+allocate(ReducedCleanMeshCoor(3,jVert))
+
+DO i=1,nel
+ IF (iElemKeep(i).gt.0) then
+  do j=1,8
+   ReducedCleanMeshElem(j,iElemKeep(i)) = iVertKeep(mg_ReducedMesh%level(1)%kvert(j,i))
+  end do
+ END IF 
+end do
+
+DO i=1,nvt
+ IF (iVertKeep(i).gt.0) then
+  do j=1,3
+   ReducedCleanMeshCoor(j,iVertKeep(i)) = mg_ReducedMesh%level(1)%dcorvg(j,i)
+  end do
+ END IF 
+end do
+
+ALLOCATE(ParCleanList%Wall(nReducedCleanPoints))
+ALLOCATE(ParCleanList%SideWall(5,nReducedCleanPoints))
+ALLOCATE(ParCleanList%Outflow(nReducedCleanPoints))
+ALLOCATE(ParCleanList%Inflow(myProcess%nOfInflows,nReducedCleanPoints))
+ParCleanList%Wall = .false.
+ParCleanList%SideWall = .false.
+ParCleanList%Outflow = .false.
+ParCleanList%Inflow = .false.
+
+DO i=1,nvt
+ IF (iVertKeep(i).gt.0) then
+  if (ParList%Wall(i))    THEN
+   ParCleanList%Wall(iVertKeep(i)) = .TRUE.
+  end if
+  do jat=1,5
+   if (ParList%SideWall(jat,i))    THEN
+    ParCleanList%SideWall(jat,iVertKeep(i)) = .TRUE.
+   end if
+  end do
+  if (ParList%Outflow(i)) THEN
+   ParCleanList%Outflow(iVertKeep(i)) = .TRUE.
+  end if
+  DO iInflow=1,myProcess%nOfInflows
+   IF (ParList%Inflow(iInflow,i)) THEN
+!     write(*,*) iInflow,i
+    ParCleanList%Inflow(iInflow,iVertKeep(i)) = .TRUE.
+   END IF
+  END DO
+ END IF
+END DO
+
+deallocate(iVertKeep)
+deallocate(iElemKeep)
+
+ CONTAINS
+ 
+RECURSIVE SUBROUTINE MarkElems(IE)
+implicit none
+INTEGER IE
+INTEGER IAT,JEL
+
+jElem = jElem + 1
+iElemKeep(IE)=1
+! write(*,*) 'marking', IE
+! pause
+
+DO iat= 1,6
+ jel = mg_ReducedMesh%level(1)%kadj(iat,IE)
+ IF (jel.ne.0) THEN
+  IF (iElemKeep(jel).eq.0) then 
+   CALL MarkElems(jel)
+  END IF
+ END IF
+END DO
+
+END SUBROUTINE MarkElems
+
+END SUBROUTINE CreateCleanReducedMesh
+! ----------------------------------------------
+SUBROUTINE TriangulationIntersectsnElement(P8,D8,PC,DistC,bKeep,bP)
+REAL*8 P8(3,8),D8(8),PC(3),DistC
+LOGICAL bKeep,bP
+LOGICAL bEdgeF,bEdge,bEdge1,bEdge2,bEdge3,bEdge4
+REAL*8 dMinDist
+INTEGER i,iMinDist
+INTEGER neighV(3,8),Neigh1,Neigh2,Neigh3,NeighR1,NeighR2
+REAL*8  PMIN1(3),PMIN2(3),DMIN1,DMIN2
+DATA neighV /2,4,5, 1,3,6, 2,4,7, 1,3,8, 1,6,8, 5,7,2, 6,8,3, 5,7,4/
+
+dMinDist = 1d8
+do i=1,8
+ if (D8(i).lt.dMinDist) THEN
+  dMinDist = D8(i)
+  iMinDist = i
+ end if
+end DO 
+
+Neigh1 = neighV(1,iMinDist)
+Neigh2 = neighV(2,iMinDist)
+Neigh3 = neighV(3,iMinDist)
+
+NeighR1 = Neigh1
+NeighR2 = Neigh2
+
+!kick out the 1st edge
+IF (D8(Neigh1).gt.D8(Neigh2).and.D8(Neigh1).gt.D8(Neigh3)) THEN
+ NeighR1 = Neigh2
+ NeighR2 = Neigh3
+END IF
+
+!kick out the 2nd edge
+IF (D8(Neigh2).gt.D8(Neigh1).and.D8(Neigh2).gt.D8(Neigh3)) THEN
+ NeighR1 = Neigh1
+ NeighR2 = Neigh3
+END IF
+
+!kick out the 3rd edge
+IF (D8(Neigh3).gt.D8(Neigh1).and.D8(Neigh3).gt.D8(Neigh2)) THEN
+ NeighR1 = Neigh1
+ NeighR2 = Neigh2
+END IF
+
+PMIN1 = P8(:,iMinDist)
+DMIN1 = D8(iMinDist)
+IF (D8(NeighR1).lt.D8(NeighR2)) THEN
+ PMIN2 = P8(:,NeighR1)
+ DMIN2 = D8(NeighR1)
+ELSE
+ PMIN2 = P8(:,NeighR2)
+ DMIN2 = D8(NeighR2)
+END IF
+
+CALL updatePoint(PC,DistC)
+
+if (bP) then
+ write(*,*) P8(:,iMinDist)
+ write(*,*) P8(:,NeighR1)
+ write(*,*) P8(:,NeighR2)
+end if
+
+CALL GetEdgeLengthAndMid(P8(:,iMinDist),P8(:,NeighR1),bEdge1,.true.)
+
+CALL GetEdgeLengthAndMid(P8(:,iMinDist),P8(:,NeighR2),bEdge2,.true.)
+
+CALL GetEdgeLengthAndMid(P8(:,NeighR2),P8(:,NeighR1),bEdge3,.true.)
+
+CALL GetEdgeLengthAndMid(P8(:,iMinDist),PC,bEdge4,.true.)
+
+if (bEdge1.or.bEdge2.or.bEdge3.or.bEdge4) THEN
+!  bKeep = .TRUE.
+ CALL GetEdgeLengthAndMid(PMIN1,PMIN2,bEdge,.true.)
+!  if (bEdge) bKeep = .TRUE.
+ if (bEdge) THEN
+  CALL GetEdgeLengthAndMid(PMIN1,PMIN2,bEdgeF,.false.)
+  if (bEdgeF) bKeep = .TRUE.
+ END IF
+ 
+END IF
+
+if (bP) then
+ WRITE(*,*) "XX1",PMIN1,DMIN1
+ WRITE(*,*) "XX2",PMIN2,DMIN2
+ pause
+end if
+CONTAINS
+ 
+SUBROUTINE GetEdgeLengthAndMid(P1,P2,bX,bUpdate)
+use geometry_processing, only : GetDistToSTL
+REAL*8 P1(3),P2(3)
+LOGICAL bX,bUpdate
+REAL*8 daux,P12(3),dL
+
+dL = DSQRT((P1(1)-P2(1))**2d0 + (P1(2)-P2(2))**2d0 + (P1(3)-P2(3))**2d0 )
+P12 = 0.5d0*(P1 + P2)
+
+CALL GetDistToSTL(p12(1),p12(2),p12(3),1,daux,.TRUE.)
+
+IF (daux.lt.0.25d0*dL) THEN
+ bX = .TRUE.
+ELSE
+ bX = .FALSE.
+END IF
+
+IF (bP) THEN
+ write(*,*) 0.25d0*dL, daux, bX
+end if
+
+if (bUpdate) CALL updatePoint(P12,daux)
+
+END SUBROUTINE GetEdgeLengthAndMid
+
+SUBROUTINE  updatePoint(myP,myD)
+REAL*8 myP(3),myD
+real*8 dFactor
+
+dFactor = 1d0
+if (myD.gt.0d0) dFactor = 0.95d0
+if (myD.lt.0d0) dFactor = 1.05d0
+
+IF      (dFactor*myD.le.DMIN1) THEN
+ PMIN2 = PMIN1
+ DMIN2 = DMIN1
+ PMIN1 = myP
+ DMIN1 = myD
+ELSE IF (dFactor*myD.le.DMIN2) THEN 
+ PMIN2 = myP
+ DMIN2 = myD
+END IF
+
+END SUBROUTINE  updatePoint
+
+END SUBROUTINE TriangulationIntersectsnElement
 
 END MODULE MeshRefDef
+! ----------------------------------------------

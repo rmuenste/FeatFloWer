@@ -230,6 +230,7 @@ paramDict = {
     "hasDeltaAngle": False,
     "hasTimeLevels": False,
     "useSrun": False,
+    "meshReduction": False,
     "dieSimulation": False,
     "temperature" : False,
     "partialFilling" : False,
@@ -297,6 +298,7 @@ def usage():
     print("[-x', '--short-test']: configures the program for a short test")
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
     print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
+    print("['--mesh-reduction']: Deforms and reduces the mesh file")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 #===============================================================================
 
@@ -370,6 +372,8 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE_test.dat")
         elif (paramDict['partialFilling']) :
             backupDataFile = Path("_data_PF") / Path("q2p1_paramV_0_test.dat")
+        elif (paramDict['meshReduction']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_MESH.dat")
         else:
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU_test.dat")
     else:
@@ -377,6 +381,8 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE.dat")
         elif (paramDict['partialFilling']) :
             backupDataFile = Path("_data_PF") / Path("q2p1_paramV_0.dat")
+        elif (paramDict['meshReduction']) :
+            backupDataFile = Path("_data_BU") / Path("q2p1_paramV_MESH.dat")
         else:
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_BU.dat")
     
@@ -511,7 +517,43 @@ def setupMPICommand():
     paramDict['mpiCmd'] = mpiPath
 #===============================================================================
 
+#===============================================================================
+#                The simulation loop for mesh reductuion
+#===============================================================================
+def simLoopMeshReduction(workingDir):
 
+    mpiPath = paramDict['mpiCmd']
+    numProcessors = paramDict['numProcessors']
+    angle = 0
+
+    shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
+
+    with open("_data/Extrud3D.dat", "a") as f:
+        f.write("Angle=" + str(angle) + "\n")
+            
+    if sys.platform == "win32":
+        exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_mesh.exe"])
+    else:
+        launchCommand = ""
+
+        if paramDict['useSrun']:
+            launchCommand = "srun " + os.getcwd() + "/q2p1_sse_mesh"
+            if paramDict['singleAngle'] >= 0.0:
+                launchCommand = launchCommand + " -a %d" %(angle)
+        else:
+            launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_mesh"
+            if paramDict['singleAngle'] >= 0.0 :
+                launchCommand = launchCommand + " -a %d" %(angle)
+                
+        myLog.updateStatusLine("CurrentStatus=running Mesh reduction module")
+        
+        exitCode = subprocess.call([launchCommand], shell=True)
+
+        if exitCode != 0:
+            myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
+        else:
+            myLog.updateStatusLine("CurrentStatus=finished Mesh reduction module")
+                
 #===============================================================================
 #                The simulation loop for velocity calculation
 #===============================================================================
@@ -909,13 +951,14 @@ def main():
     """
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovu',
+        opts, args = getopt.getopt(sys.argv[1:], 'n:f:p:d:a:c:r:t:smxhovur',
                                    ['num-processors=', 'project-folder=',
                                     'periodicity=', 'delta-angle=', 'angle=',
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
                                     'skip-simulation','short-test', 'help',
                                     'do-temperature','version', 'use-srun',
-                                    'retry-deformation', 'partial-filling','only-mesh-creation'])
+                                    'retry-deformation', 'partial-filling','only-mesh-creation',
+                                    'mesh-reduction'])
 
     except getopt.GetoptError:
         usage()
@@ -964,6 +1007,8 @@ def main():
             paramDict['useSrun'] = True
         elif opt in ('--die-simulation'):
             paramDict['dieSimulation'] = True
+        elif opt in ('--mesh-reduction'):
+            paramDict['meshReduction'] = True
         elif opt in ('--retry-deformation'):
             paramDict['retryDeformation'] = True
         elif opt in ('--partial-filling'):
@@ -990,6 +1035,10 @@ def main():
         
     if (paramDict['dieSimulation']) :
         print("Switching to 'DIE' simulation !")
+        paramDict['singleAngle'] = 0
+
+    if (paramDict['meshReduction']) :
+        print("Switching to 'MESHreduction' mode !")
         paramDict['singleAngle'] = 0
 
     if (paramDict['numProcessors'] < 3 and not paramDict['onlyMeshCreation']) :
@@ -1049,6 +1098,16 @@ def main():
     elif paramDict['temperature']:
         simLoopTemperatureCombined(workingDir)
         cleanWorkingDir(workingDir)
+    elif paramDict['meshReduction']:
+        simLoopMeshReduction(workingDir)
+        cleanWorkingDir(workingDir)
+        projectFolder = paramDict['projectFolder'] 
+        projectPath = Path(workingDir / projectFolder)
+        meshDirPath = projectPath / Path("meshDir")
+        print("Backup and copy the newly gained reduced mesh from " + 
+              "'ReducedMeshDir' to " + str(meshDirPath))
+        shutil.move(str(meshDirPath),str(meshDirPath) + "_BU")
+        shutil.copytree("ReducedMeshDir", str(meshDirPath))
     else:
         simLoopVelocity(workingDir)
         cleanWorkingDir(workingDir)

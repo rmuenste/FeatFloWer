@@ -57,7 +57,7 @@ do i=1,nel
    end do
    
    CALL FillUpSubParticleElement(myRF(i),E,KNPR,bVert,i)
-   myRF(i)%patchID = 0
+   myRF(i)%patchID = i
 
  end if
 
@@ -1218,6 +1218,7 @@ END SUBROUTINE FillUpParticleElement
 
 ! ----------------------------------------------
 SUBROUTINE FillUpSubParticleElement(RF,E,KNPR,bV,iIEL)
+implicit none
 integer iIEL
 type(RefinerMesh) RF
 logical bV(8)
@@ -1233,6 +1234,20 @@ character*256 cF
 integer, allocatable :: kvert(:,:)
 logical :: bRefine
 type(RefinerMesh) :: xRF
+real*8 dCenters(3,8),XCenter,YCenter,ZCenter,daux1,daux2,dx1,dx2,dx3
+integer invt,inel
+data dCenters/&
+-1.0,-1.0,-1.0,&
++1.0,-1.0,-1.0,&
++1.0,+1.0,-1.0,&
+-1.0,+1.0,-1.0,&
+-1.0,-1.0,+1.0,&
++1.0,-1.0,+1.0,&
++1.0,+1.0,+1.0,&
+-1.0,+1.0,+1.0/
+
+REAL*8 :: dR=0.1350
+
 
 ii = 0
 do i=1,8
@@ -1241,8 +1256,6 @@ end do
 
 xRF%nOfElem=1*ii +  3*(8-ii)
 xRF%nOfVert=8*ii + 14*(8-ii)
-! xRF%nOfElem=1*ii +  4*(8-ii)
-! xRF%nOfVert=8*ii + 15*(8-ii)
 
 allocate(cBP(3,xRF%nOfVert))
 allocate(xRF%kvert(8,xRF%nOfElem))
@@ -1316,6 +1329,31 @@ DJ(8,1)=(-E(1,1)+E(1,2)-E(1,3)+E(1,4)+E(1,5)-E(1,6)+E(1,7)-E(1,8))*Q8
 DJ(8,2)=(-E(2,1)+E(2,2)-E(2,3)+E(2,4)+E(2,5)-E(2,6)+E(2,7)-E(2,8))*Q8
 DJ(8,3)=(-E(3,1)+E(3,2)-E(3,3)+E(3,4)+E(3,5)-E(3,6)+E(3,7)-E(3,8))*Q8
 
+if (nnel.eq.3) then
+ xi1 = dCenters(1,MyEl)
+ xi2 = dCenters(2,MyEl)
+ xi3 = dCenters(3,MyEl)
+
+ DJAC(1,1)=DJ(2,1) + DJ(5,1)*XI2 + DJ(6,1)*XI3 + DJ(8,1)*XI2*XI3
+ DJAC(1,2)=DJ(3,1) + DJ(5,1)*XI1 + DJ(7,1)*XI3 + DJ(8,1)*XI1*XI3
+ DJAC(1,3)=DJ(4,1) + DJ(6,1)*XI1 + DJ(7,1)*XI2 + DJ(8,1)*XI1*XI2
+ DJAC(2,1)=DJ(2,2) + DJ(5,2)*XI2 + DJ(6,2)*XI3 + DJ(8,2)*XI2*XI3
+ DJAC(2,2)=DJ(3,2) + DJ(5,2)*XI1 + DJ(7,2)*XI3 + DJ(8,2)*XI1*XI3
+ DJAC(2,3)=DJ(4,2) + DJ(6,2)*XI1 + DJ(7,2)*XI2 + DJ(8,2)*XI1*XI2
+ DJAC(3,1)=DJ(2,3) + DJ(5,3)*XI2 + DJ(6,3)*XI3 + DJ(8,3)*XI2*XI3
+ DJAC(3,2)=DJ(3,3) + DJ(5,3)*XI1 + DJ(7,3)*XI3 + DJ(8,3)*XI1*XI3
+ DJAC(3,3)=DJ(4,3) + DJ(6,3)*XI1 + DJ(7,3)*XI2 + DJ(8,3)*XI1*XI2
+
+ DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3)) &
+      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3)) &
+      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+   
+ XCenter=DJ(1,1) + DJAC(1,1)*XI1 + DJ(3,1)*XI2 + DJ(4,1)*XI3 + DJ(7,1)*XI2*XI3
+ YCenter=DJ(1,2) + DJ(2,2)*XI1 + DJAC(2,2)*XI2 + DJ(4,2)*XI3 + DJ(6,2)*XI1*XI3
+ ZCenter=DJ(1,3) + DJ(2,3)*XI1 + DJ(3,3)*XI2 + DJAC(3,3)*XI3 + DJ(5,3)*XI1*XI2
+end if
+
+
 DO ii=1,nnvt
 
    xi1 = CBP(1,invt+ii)
@@ -1343,6 +1381,54 @@ DO ii=1,nnvt
    xRF%dcoor(:,invt+ii) = [xx,yy,zz]
    
 END DO
+ 
+if (nnel.eq.3) then
+ DO ii=8,14
+  daux1 = sqrt((xRF%dcoor(1,invt+ii)-XCenter)**2d0 + &
+              (xRF%dcoor(2,invt+ii)-YCenter)**2d0 + &
+              (xRF%dcoor(3,invt+ii)-ZCenter)**2d0)
+
+  dx1 = abs(CBP(1,invt+ii))
+  dx2 = abs(CBP(2,invt+ii))
+  dx3 = abs(CBP(3,invt+ii))
+  
+  xi1 = CBP(1,invt+ii)
+  xi2 = CBP(2,invt+ii)
+  xi3 = CBP(3,invt+ii)
+  
+  if (dx1.eq.0.6d0) xi1 = (1d0-dR*dx1/daux1)*CBP(1,invt+ii)/abs(CBP(1,invt+ii))
+  if (dx2.eq.0.6d0) xi2 = (1d0-dR*dx2/daux1)*CBP(2,invt+ii)/abs(CBP(2,invt+ii))
+  if (dx3.eq.0.6d0) xi3 = (1d0-dR*dx3/daux1)*CBP(3,invt+ii)/abs(CBP(3,invt+ii))
+  
+   DJAC(1,1)=DJ(2,1) + DJ(5,1)*XI2 + DJ(6,1)*XI3 + DJ(8,1)*XI2*XI3
+   DJAC(1,2)=DJ(3,1) + DJ(5,1)*XI1 + DJ(7,1)*XI3 + DJ(8,1)*XI1*XI3
+   DJAC(1,3)=DJ(4,1) + DJ(6,1)*XI1 + DJ(7,1)*XI2 + DJ(8,1)*XI1*XI2
+   DJAC(2,1)=DJ(2,2) + DJ(5,2)*XI2 + DJ(6,2)*XI3 + DJ(8,2)*XI2*XI3
+   DJAC(2,2)=DJ(3,2) + DJ(5,2)*XI1 + DJ(7,2)*XI3 + DJ(8,2)*XI1*XI3
+   DJAC(2,3)=DJ(4,2) + DJ(6,2)*XI1 + DJ(7,2)*XI2 + DJ(8,2)*XI1*XI2
+   DJAC(3,1)=DJ(2,3) + DJ(5,3)*XI2 + DJ(6,3)*XI3 + DJ(8,3)*XI2*XI3
+   DJAC(3,2)=DJ(3,3) + DJ(5,3)*XI1 + DJ(7,3)*XI3 + DJ(8,3)*XI1*XI3
+   DJAC(3,3)=DJ(4,3) + DJ(6,3)*XI1 + DJ(7,3)*XI2 + DJ(8,3)*XI1*XI2
+   
+   DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3)) &
+        -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3)) &
+        +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+     
+   XX=DJ(1,1) + DJAC(1,1)*XI1 + DJ(3,1)*XI2 + DJ(4,1)*XI3 + DJ(7,1)*XI2*XI3
+   YY=DJ(1,2) + DJ(2,2)*XI1 + DJAC(2,2)*XI2 + DJ(4,2)*XI3 + DJ(6,2)*XI1*XI3
+   ZZ=DJ(1,3) + DJ(2,3)*XI1 + DJ(3,3)*XI2 + DJAC(3,3)*XI3 + DJ(5,3)*XI1*XI2
+   
+   daux2 = sqrt((XX-XCenter)**2d0 + &
+               (YY-YCenter)**2d0 + &
+               (ZZ-ZCenter)**2d0)
+               
+!    WRITE(*,*) DAUX1, DAUX2
+   
+   xRF%dcoor(:,invt+ii) = [xx,yy,zz]
+   
+ END DO
+ 
+END IF
  
 invt = invt + nnvt
 inel = inel + nnel

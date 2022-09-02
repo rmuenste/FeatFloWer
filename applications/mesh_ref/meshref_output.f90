@@ -495,6 +495,355 @@ close(iunit)
 
 END SUBROUTINE Output_UniqueRefVTK
 !----------------------------------------------------------
+SUBROUTINE Output_ReducedRefVTK
+
+IMPLICIT NONE
+INTEGER nel,nvt
+INTEGER i,j, iel,jel,ive,ivt,ioffset,n
+integer nnel,nnvt
+INTEGER :: iunit=123
+CHARACTER*(100) filename
+
+nnel = nReducedElems
+nnvt = nReducedPoints
+
+filename=" "
+WRITE(filename(1:),'(A)') adjustl(trim(cOutputFolder))//"/ReducedRefMesh.vtu"
+
+WRITE(*,'(104("="))') 
+WRITE(*,*) "Outputting vtk file into ",filename
+
+OPEN (UNIT=iunit,FILE=filename)
+
+write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
+write(iunit, *)"  <UnstructuredGrid>"
+write(iunit, *)"    <Piece NumberOfPoints=""",nnvt,""" NumberOfCells=""",nnel,""">"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the node field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+write(iunit, '(A)')"    <PointData>"
+
+!  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","KNPR",""" format=""ascii"">"
+!  do ivt=1,nnvt
+!   write(iunit, '(A,E16.7)')"        ",REAL(MergedMeshKnpr(ivt))
+!  end do
+!  write(iunit, *)"        </DataArray>"
+
+write(iunit, '(A)')"    </PointData>"
+write(iunit, '(A)')"      <Points>"
+write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
+do i=1,nnvt
+   write(iunit,'(A10,3E16.7)')"          ",REAL(ReducedMeshCoor(1,i)),REAL(ReducedMeshCoor(2,i)),REAL(ReducedMeshCoor(3,i))
+end do
+write(iunit, *)"        </DataArray>"
+write(iunit, *)"      </Points>"
+
+write(iunit, '(A)')"    <CellData>"
+
+write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","K",""" format=""ascii"">"
+do iel=1,nnel
+ write(iunit, '(A,E16.7)')"        ",REAL(iel)
+end do
+write(iunit, *)"        </DataArray>"
+
+write(iunit, '(A)')"    </CellData>"
+
+write(iunit, *)"      <Cells>"
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",nel-1,""">"
+do iel=1,nnel
+   write(iunit, '(8I10)') ReducedMeshElem(1,iel) - 1,ReducedMeshElem(2,iel) - 1,ReducedMeshElem(3,iel) - 1,ReducedMeshElem(4,iel) - 1,&
+                          ReducedMeshElem(5,iel) - 1,ReducedMeshElem(6,iel) - 1,ReducedMeshElem(7,iel) - 1,ReducedMeshElem(8,iel) - 1
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""offsets"" format=""ascii"" RangeMin=""8"" RangeMax=""",8*nel,""">"
+ioffset=nnel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')ive*8,(ive+1)*8,(ive+2)*8,(ive+3)*8,(ive+4)*8,(ive+5)*8,(ive+6)*8,(ive+7)*8
+end do
+
+do ive=ioffset+1,nnel
+ write(iunit, '(I10)')ive*8
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A)')"        <DataArray type=""UInt8"" Name=""types"" format=""ascii"" RangeMin=""12"" RangeMax=""12"">"
+ioffset=nnel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')12,12,12,12,12,12,12,12
+end do
+do ive=ioffset+1,nnel
+ write(iunit, '(I10)')12
+end do
+write(iunit, '(A)')"        </DataArray>"
+ 
+write(iunit, *)"      </Cells>"
+write(iunit, *)"    </Piece>"
+   
+write(iunit, *)"  </UnstructuredGrid>"
+write(iunit, *)"</VTKFile>"
+close(iunit)
+
+END SUBROUTINE Output_ReducedRefVTK
+! ----------------------------------------------
+SUBROUTINE Output_ReducedCleanRefVTK
+use Sigma_User, only : myProcess
+
+IMPLICIT NONE
+INTEGER nel,nvt
+INTEGER i,j, iel,jel,ive,ivt,ioffset,n,iInflow
+integer nnel,nnvt
+INTEGER :: iunit=123
+CHARACTER*(100) filename
+
+nnel = nReducedCleanElems
+nnvt = nReducedCleanPoints
+
+filename=" "
+WRITE(filename(1:),'(A)') adjustl(trim(cOutputFolder))//"/ReducedCleanRefMesh.vtu"
+
+WRITE(*,'(104("="))') 
+WRITE(*,*) "Outputting vtk file into ",filename
+
+OPEN (UNIT=iunit,FILE=filename)
+
+write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
+write(iunit, *)"  <UnstructuredGrid>"
+write(iunit, *)"    <Piece NumberOfPoints=""",nnvt,""" NumberOfCells=""",nnel,""">"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the node field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+write(iunit, '(A)')"    <PointData>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Outflow",""" format=""ascii"">"
+ do ivt=1,nnvt
+  IF (ParCleanList%Outflow(ivt)) THEN
+   write(iunit, '(A,E16.7)')"        ",REAL(1.0)
+  else
+   write(iunit, '(A,E16.7)')"        ",REAL(0.0)
+  end if
+ end do
+ write(iunit, *)"        </DataArray>"
+
+do iInflow=1,myProcess%nOfInflows
+ write(iunit, '(A,A,I0,A)')"        <DataArray type=""Float32"" Name=""","Inflow",iInflow,""" format=""ascii"">"
+ do ivt=1,nnvt
+  IF (ParCleanList%Inflow(iInflow,ivt)) THEN
+   write(iunit, '(A,E16.7)')"        ",REAL(1.0)
+  else
+   write(iunit, '(A,E16.7)')"        ",REAL(0.0)
+  end if
+ end do
+ write(iunit, *)"        </DataArray>"
+end do
+
+write(iunit, '(A)')"    </PointData>"
+write(iunit, '(A)')"      <Points>"
+write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
+do i=1,nnvt
+   write(iunit,'(A10,3E16.7)')"          ",REAL(ReducedCleanMeshCoor(1,i)),REAL(ReducedCleanMeshCoor(2,i)),REAL(ReducedCleanMeshCoor(3,i))
+end do
+write(iunit, *)"        </DataArray>"
+write(iunit, *)"      </Points>"
+
+write(iunit, '(A)')"    <CellData>"
+
+write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","K",""" format=""ascii"">"
+do iel=1,nnel
+ write(iunit, '(A,E16.7)')"        ",REAL(iel)
+end do
+write(iunit, *)"        </DataArray>"
+
+write(iunit, '(A)')"    </CellData>"
+
+write(iunit, *)"      <Cells>"
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",nel-1,""">"
+do iel=1,nnel
+   write(iunit, '(8I10)') ReducedCleanMeshElem(1,iel) - 1,ReducedCleanMeshElem(2,iel) - 1,ReducedCleanMeshElem(3,iel) - 1,ReducedCleanMeshElem(4,iel) - 1,&
+                          ReducedCleanMeshElem(5,iel) - 1,ReducedCleanMeshElem(6,iel) - 1,ReducedCleanMeshElem(7,iel) - 1,ReducedCleanMeshElem(8,iel) - 1
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""offsets"" format=""ascii"" RangeMin=""8"" RangeMax=""",8*nel,""">"
+ioffset=nnel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')ive*8,(ive+1)*8,(ive+2)*8,(ive+3)*8,(ive+4)*8,(ive+5)*8,(ive+6)*8,(ive+7)*8
+end do
+
+do ive=ioffset+1,nnel
+ write(iunit, '(I10)')ive*8
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A)')"        <DataArray type=""UInt8"" Name=""types"" format=""ascii"" RangeMin=""12"" RangeMax=""12"">"
+ioffset=nnel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')12,12,12,12,12,12,12,12
+end do
+do ive=ioffset+1,nnel
+ write(iunit, '(I10)')12
+end do
+write(iunit, '(A)')"        </DataArray>"
+ 
+write(iunit, *)"      </Cells>"
+write(iunit, *)"    </Piece>"
+   
+write(iunit, *)"  </UnstructuredGrid>"
+write(iunit, *)"</VTKFile>"
+close(iunit)
+
+END SUBROUTINE Output_ReducedCleanRefVTK
+! ----------------------------------------------
+SUBROUTINE Output_ReducedRefTRIandPAR
+use Sigma_User, only : myProcess
+IMPLICIT NONE
+INTEGER nel,nvt
+INTEGER i,j, iel,jel,ive,ivt,ioffset,n,iInflow,nBC,jat
+integer nnel,nnvt
+INTEGER :: iunit=123
+CHARACTER*(256) cf
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/'//adjustl(trim(cReducedGridFile))
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+WRITE(iunit,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(iunit,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(iunit,'(2I8,A)') nReducedCleanElems,nReducedCleanPoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(iunit,'(A)') 'DCORVG'
+DO i = 1,nReducedCleanPoints
+ WRITE(iunit,'(3ES13.5)') MeshOutputScaleFactor*ReducedCleanMeshCoor(:,i)
+END DO
+
+WRITE(iunit,'(A)') 'KVERT'
+DO i = 1,nReducedCleanElems
+ WRITE(iunit,'(8I8)') ReducedCleanMeshElem(:,i)
+END DO
+
+WRITE(iunit,'(A)') 'KNPR'
+DO i = 1,nReducedCleanPoints
+  WRITE(iunit,'(I8)') 0
+END DO
+
+CLOSE(iunit)
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Wall.par'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+nBC = 0
+DO i=1,nReducedCleanPoints
+ if (ParCleanList%Wall(i)) nBC = nBC + 1
+END DO
+write(iunit,'(I0,A)') nBC,' '//'Wall'
+write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+DO i=1,nReducedCleanPoints
+ if (ParCleanList%Wall(i)) write(iunit,'(I0)') i
+END DO
+CLOSE(iunit)
+
+DO jat=1,5
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/SideWall',jat,'.par'
+ WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+ nBC = 0
+ DO i=1,nReducedCleanPoints
+  if (ParCleanList%SideWall(jat,i)) nBC = nBC + 1
+ END DO
+ write(iunit,'(I0,A)') nBC,' '//'Wall'
+ write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+ DO i=1,nReducedCleanPoints
+  if (ParCleanList%SideWall(jat,i)) write(iunit,'(I0)') i
+ END DO
+ CLOSE(iunit)
+end do
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Outflow.par'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+nBC = 0
+DO i=1,nReducedCleanPoints
+ if (ParCleanList%Outflow(i)) nBC = nBC + 1
+END DO
+write(iunit,'(I0,A)') nBC,' '//'Outflow'
+write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+DO i=1,nReducedCleanPoints
+ if (ParCleanList%Outflow(i))  write(iunit,'(I0)') i
+END DO
+CLOSE(iunit)
+
+do iInflow=1,myProcess%nOfInflows
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Inflow',iInflow,'.par'
+ WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+ nBC = 0
+ DO i=1,nReducedCleanPoints
+  if (ParCleanList%Inflow(iInflow,i)) nBC = nBC + 1
+ END DO
+ IF (nBC.eq.0) THEN
+  write(*,*) 'Either the inflow radius too small or the meshresolution too coarse, or the inflow position is not matching with the bounding box!'
+  write(*,*) 'Setup is not suitable for simulation //  program forced to exit!'
+  STOP
+ END IF
+ write(iunit,'(I0,A,I0)') nBC,' '//'Inflow',-iInflow
+ write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+ DO i=1,nReducedCleanPoints
+  if (ParCleanList%Inflow(iInflow,i))  write(iunit,'(I0)') i
+ END DO
+ CLOSE(iunit)
+END DO
+
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/file.prj'//"'"
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/file.prj',unit=iunit)
+write(iunit,'(a)') adjustl(trim(cReducedGridFile))
+write(iunit,'(a)') 'Wall.par'
+write(iunit,'(a)') 'Outflow.par'
+do iInflow=1,myProcess%nOfInflows
+ write(iunit,'(A,I0,A)') 'Inflow',iInflow,'.par'
+END DO
+do jat=1,5
+ write(iunit,'(A,I0,A)') 'SideWall',jat,'.par'
+END DO
+close(iunit)
+
+END SUBROUTINE Output_ReducedRefTRIandPAR
+! ----------------------------------------------
+
+SUBROUTINE Output_ReducedRefTRI()
+IMPLICIT NONE
+INTEGER nel,nvt
+INTEGER i,j, iel,jel,ive,ivt,ioffset,n
+integer nnel,nnvt
+INTEGER :: iunit=123
+CHARACTER*(256) cf
+
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//adjustl(trim(cReducedGridFile))
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+WRITE(iunit,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
+WRITE(iunit,*) 'Parametrisierung PARXC, PARYC, TMAXC'
+WRITE(iunit,'(2I8,A)') nReducedElems,nReducedPoints, " 1 8 12 6     NEL,NVT,NBCT,NVE,NEE,NAE"
+
+WRITE(iunit,'(A)') 'DCORVG'
+DO i = 1,nReducedPoints
+ WRITE(iunit,'(3ES13.5)') ReducedMeshCoor(:,i)
+END DO
+
+WRITE(iunit,'(A)') 'KVERT'
+DO i = 1,nReducedElems
+ WRITE(iunit,'(8I8)') ReducedMeshElem(:,i)
+END DO
+
+WRITE(iunit,'(A)') 'KNPR'
+DO i = 1,nReducedPoints
+  WRITE(iunit,'(I8)') 0
+END DO
+
+CLOSE(iunit)
+
+END SUBROUTINE Output_ReducedRefTRI
+! ----------------------------------------------
 SUBROUTINE Output_MergedRefVTK
 
 IMPLICIT NONE
@@ -602,6 +951,11 @@ do iel=1,nUniqueElems
 end do
 write(iunit, *)"        </DataArray>"
 
+write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","EL_ID",""" format=""ascii"">"
+do iel=1,nUniqueElems
+ write(iunit, '(A,E16.7)')"        ",REAL(iel)
+end do
+write(iunit, *)"        </DataArray>"
 
 ! write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Selection",""" format=""ascii"">"
 ! do iel=1,nel
@@ -789,7 +1143,7 @@ SUBROUTINE Output_MergedRefTriMeshPar()
 USE PP3D_MPI, ONLY:myid,showid
 USE var_QuadScalar,ONLY:mg_mesh,myBoundary
 USE Parametrization, ONLY : myParBndr,nBnds
-use Sigma_User, only : myProcess
+use Sigma_User, only : myProcess,mySigma
 
 IMPLICIT NONE
 INTEGER i,j,iloc,i1,i2,i3,i4,i5,i6
@@ -801,34 +1155,56 @@ logical :: bExist
 type(tMultiMesh),save :: mg_NewMesh
 INTEGER NeighA(4,6),nbox(3),iInflow,jInflow
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-REAL*8 P(3),Q(3),dist,mindist,dVolume,dSize
+REAL*8 P(3),Q(3),dist,mindist,dSize!,dVolume
 logical bToMarkFace
 logical, allocatable :: bInflowMarker(:,:)
 logical, allocatable, dimension(:,:) :: HexSide
 integer, allocatable :: InflowToSideMapper(:)
 real*8 OneSideCloseD,SideClose
 integer OneSideCloseI,iSide
+real*8 dn(3)
+integer iInflowSide(2)
 
- cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
+ !------------------------------------------------------------------
+ cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'setup.e3d'
+ inquire(file=cInputFile,Exist=bExist)
+ if (bExist) then
+  call ReadS3Dfile(cInputFile)
+ else
+  write(*,*) 'file: "',adjustl(trim(cInputFile)),'" does not exist!'
+  STOP
+ end if
+ !------------------------------------------------------------------
 
- cKey='geometryStart'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) P0
+P0  = 10d0*mySigma%DIE_Start  
+box = 10d0*mySigma%DIE_Length
 
- cKey='geometryLength'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) box
+! nbox = mySigma%DIE_Voxels
+!  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
+! 
+!  cKey='geometryStart'
+!  CALL GetValueFromFile(cInputFile,cVal,cKey)
+!  read(cVal,*) P0
+! 
+!  cKey='geometryLength'
+!  CALL GetValueFromFile(cInputFile,cVal,cKey)
+!  read(cVal,*) box
+! 
+!  cKey='voxelAmount'
+!  CALL GetValueFromFile(cInputFile,cVal,cKey)
+!  read(cVal,*) nBox
+ 
 
- cKey='voxelAmount'
- CALL GetValueFromFile(cInputFile,cVal,cKey)
- read(cVal,*) nBox
-
- dVolume = box(1)*box(2)*box(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
- dSize   = dVolume**(1d0/3d0)
- WRITE(*,*) "dSize  =",dSize
+!  dVolume = box(1)*box(2)*box(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
+!  dSize   = dVolume**(1d0/3d0)
+!  WRITE(*,*) "dSize  =",dSize
+!  
+ dSize = (box(1)*box(2)*box(3))**(1d0/3d0)
+ dEps  = dSize/1e5
 
  bound(:,1) = P0
  bound(:,2) = P0 + box
+ OverallBoundingBox = bound
  write(*,*) bound(:,1)
  write(*,*) bound(:,2)
 
@@ -875,18 +1251,25 @@ integer OneSideCloseI,iSide
   end if
  end do
 
- write(11,'(I0,A)') i1,' '//'Wall'
- write(11,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,1), "'"
- write(12,'(I0,A)') i2,' '//'Wall'
- write(12,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,2), "'"
- write(13,'(I0,A)') i3,' '//'Wall'
- write(13,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,1), "'"
- write(14,'(I0,A)') i4,' '//'Wall'
- write(14,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,2), "'"
- write(15,'(I0,A)') i5,' '//'Wall'
- write(15,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,1), "'"
- write(16,'(I0,A)') i6,' '//'Outflow'
- write(16,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,2), "'"
+ CALL writeBC(11,i1,1d0,0d0,0d0,-MeshOutputScaleFactor*bound(1,1),mySigma%DIE_SymmetryBC(1),'Wall','100')
+ CALL writeBC(12,i2,1d0,0d0,0d0,-MeshOutputScaleFactor*bound(1,2),mySigma%DIE_SymmetryBC(4),'Wall','100')
+ CALL writeBC(13,i3,0d0,1d0,0d0,-MeshOutputScaleFactor*bound(2,1),mySigma%DIE_SymmetryBC(2),'Wall','010')
+ CALL writeBC(14,i4,0d0,1d0,0d0,-MeshOutputScaleFactor*bound(2,2),mySigma%DIE_SymmetryBC(5),'Wall','010')
+ CALL writeBC(15,i5,0d0,0d0,1d0,-MeshOutputScaleFactor*bound(3,1),.FALSE.,'Wall','001')
+ CALL writeBC(16,i6,0d0,0d0,1d0,-MeshOutputScaleFactor*bound(3,2),.FALSE.,'Outflow','001')
+ 
+!  write(11,'(I0,A)') i1,' '//'Wall'
+!  write(11,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,1), "'"
+!  write(12,'(I0,A)') i2,' '//'Wall'
+!  write(12,'(A,I0," ",4F10.4,A)') "'",4,1.0, 0.0, 0.0, -MeshOutputScaleFactor*bound(1,2), "'"
+!  write(13,'(I0,A)') i3,' '//'Wall'
+!  write(13,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,1), "'"
+!  write(14,'(I0,A)') i4,' '//'Wall'
+!  write(14,'(A,I0," ",4F10.4,A)') "'",4,0.0, 1.0, 0.0, -MeshOutputScaleFactor*bound(2,2), "'"
+!  write(15,'(I0,A)') i5,' '//'Wall'
+!  write(15,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,1), "'"
+!  write(16,'(I0,A)') i6,' '//'Outflow'
+!  write(16,'(A,I0," ",4F10.4,A)') "'",4,0.0, 0.0, 1.0, -MeshOutputScaleFactor*bound(3,2), "'"
 
  write(*,*) i1,i2,i3,i4,i5,i6
 
@@ -919,17 +1302,6 @@ integer OneSideCloseI,iSide
  close(15)
  close(16)
 
- !------------------------------------------------------------------
- cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'setup.e3d'
- inquire(file=cInputFile,Exist=bExist)
- if (bExist) then
-  call ReadS3Dfile(cInputFile)
- else
-  write(*,*) 'file: "',adjustl(trim(cInputFile)),'" does not exist!'
-  STOP
- end if
- !------------------------------------------------------------------
-
  allocate(bInflowMarker(myProcess%nOfInflows,nUniquePoints))
  
  bInflowMarker = .false.
@@ -955,13 +1327,24 @@ integer OneSideCloseI,iSide
  allocate(InflowToSideMapper(myProcess%nOfInflows))
  do iInflow=1,myProcess%nOfInflows
   Q = myProcess%myInflow(iInflow)%Center
+  dn = myProcess%myInflow(iInflow)%normal
+  
+  iInflowSide(:) = 0
+  if (abs(dn(1)).gt.0.9d0) iInflowSide(:)= [1,2]
+  if (abs(dn(2)).gt.0.9d0) iInflowSide(:)= [3,4]
+  if (abs(dn(3)).gt.0.9d0) iInflowSide(:)= [5,6]
+  if (iInflowSide(1).eq.0.or.iInflowSide(1).eq.0) THEN
+   WRITE(*,*) 'Inflow sides were not identified. program stops'
+   STOP 60
+  END IF
+  
   OneSideCloseD = 1d8
   OneSideCloseI = 0
   
   do iSide=1,6
    SideClose =1d8
    do i=1,nUniquePoints
-    if (HexSide(iSide,i)) then
+    if (HexSide(iSide,i).and.(iSide.eq.iInflowSide(1).or.iSide.eq.iInflowSide(2))) then
      P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,i)
      dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
      if (dist.lt.SideClose) SideClose = dist
@@ -1088,6 +1471,23 @@ integer OneSideCloseI,iSide
  END DO
 
  close(5)
+ 
+ contains
+ 
+ subroutine writeBC(iunit,iN,p1,p2,p3,p4,bBC,cBC1,cBC2)
+ integer iunit,iN
+ real*8 p1,p2,p3,p4
+ logical bBC
+ character cBC1*(*),cBC2*(*)
+ 
+ if (bBC) then
+  write(iunit,'(I0,A)') iN,' '//'Symmetry'//ADJUsTL(TRIM(cBC2))
+ else
+  write(iunit,'(I0,A)') iN,' '//ADJUsTL(TRIM(cBC1))
+ end if
+ write(iunit,'(A,I0," ",4F10.4,A)') "'",4,p1, p2, p3, p4, "'"
+
+ end subroutine writeBC
  
 END SUBROUTINE Output_MergedRefTriMeshPar
 ! ----------------------------------------------
@@ -1349,11 +1749,12 @@ END SUBROUTINE Output_ParticleMergedRefTriMesh
 
 SUBROUTINE Output_ParticleMergedRefTriMeshPar()
 USE MESH_Structures
+use Sigma_User, only : mySigma
 integer i,j,nKNPR,nParam,ParIndex
 character cF*(256)
 real*8 dc(3),P(3),minCoor(3),maxCoor(3),myRand(3)
 integer iminCoor(3),imaxCoor(3)
-REAL*8 :: dr=0.025
+REAL*8 :: dr=0.22d0
 type(tMultiMesh) :: mg_NewMesh
 CHARACTER cG*(256)
 logical bFound
@@ -1399,7 +1800,7 @@ do iel=1,mg_NewMesh%level(1)%nel
    end if
   end do
   CALL SetRecKNPR(iel)
-  write(*,*) ParIndex,nParam
+!   write(*,*) ParIndex,nParam
  end if
 ! 
 end do
@@ -1430,14 +1831,19 @@ DO i1=1,3
   if (abs(maxCoor(i1)-P(i1)).lt.1e-3) imaxCoor(i1) = imaxCoor(i1) + 1
  end do
 END DO
-write(*,*) minCoor,iminCoor
-write(*,*) maxCoor,imaxCoor
+! write(*,*) minCoor,iminCoor
+! write(*,*) maxCoor,imaxCoor
 
 write(cF,'(A,I0,A)') 'X-.par'
 write(12,'(A)')  ADJUSTL(TRIM(cF))
 write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/X-.par'
 open(file=ADJUSTL(TRIM(cF)),unit=11)
-write(11,*) iminCoor(1), 'Wall'
+if (mySigma%DIE_SymmetryBC(1)) then
+ write(iunit,'(I0,A)') iminCoor(1),' '//'Symmetry100'
+else
+ write(iunit,'(I0,A)') iminCoor(1),' '//'Wall'
+end if
+! write(11,*) iminCoor(1), 'Wall'
 write(11,'(A,I0,4ES12.4,A)') "'",4,1.0,0.0,0.0,-minCoor(1),"'"
 do ivt=1,mg_NewMesh%level(1)%nvt
  P = mg_NewMesh%level(1)%dcorvg(:,ivt)
@@ -1451,7 +1857,12 @@ write(cF,'(A,I0,A)') 'X+.par'
 write(12,'(A)')  ADJUSTL(TRIM(cF))
 write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/X+.par'
 open(file=ADJUSTL(TRIM(cF)),unit=11)
-write(11,*) imaxCoor(1), 'Wall'
+if (mySigma%DIE_SymmetryBC(4)) then
+ write(iunit,'(I0,A)') imaxCoor(1),' '//'Symmetry100'
+else
+ write(iunit,'(I0,A)') imaxCoor(1),' '//'Wall'
+end if
+! write(11,*) imaxCoor(1), 'Wall'
 write(11,'(A,I0,4ES12.4,A)') "'",4,1.0,0.0,0.0,-maxCoor(1),"'"
 do ivt=1,mg_NewMesh%level(1)%nvt
  P = mg_NewMesh%level(1)%dcorvg(:,ivt)
@@ -1465,7 +1876,12 @@ write(cF,'(A,I0,A)') 'Y-.par'
 write(12,'(A)')  ADJUSTL(TRIM(cF))
 write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Y-.par'
 open(file=ADJUSTL(TRIM(cF)),unit=11)
-write(11,*) iminCoor(2), 'Wall'
+if (mySigma%DIE_SymmetryBC(2)) then
+ write(iunit,'(I0,A)') iminCoor(2),' '//'Symmetry010'
+else
+ write(iunit,'(I0,A)') iminCoor(2),' '//'Wall'
+end if
+! write(11,*) iminCoor(2), 'Wall'
 write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,1.0,0.0,-minCoor(2),"'"
 do ivt=1,mg_NewMesh%level(1)%nvt
  P = mg_NewMesh%level(1)%dcorvg(:,ivt)
@@ -1479,7 +1895,12 @@ write(cF,'(A,I0,A)') 'Y+.par'
 write(12,'(A)')  ADJUSTL(TRIM(cF))
 write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Y+.par'
 open(file=ADJUSTL(TRIM(cF)),unit=11)
-write(11,*) imaxCoor(2), 'Wall'
+if (mySigma%DIE_SymmetryBC(2)) then
+ write(iunit,'(I0,A)') imaxCoor(2),' '//'Symmetry010'
+else
+ write(iunit,'(I0,A)') imaxCoor(2),' '//'Wall'
+end if
+! write(11,*) imaxCoor(2), 'Wall'
 write(11,'(A,I0,4ES12.4,A)') "'",4,0.0,1.0,0.0,-maxCoor(2),"'"
 do ivt=1,mg_NewMesh%level(1)%nvt
  P = mg_NewMesh%level(1)%dcorvg(:,ivt)
@@ -1538,8 +1959,9 @@ do iParam=1,ParIndex
   write(12,'(A)')  ADJUSTL(TRIM(cF))
   write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/SPHERE_',iParam,'.par'
   open(file=ADJUSTL(TRIM(cF)),unit=11)
-  write(11,*) n, 'Wall'
-  write(11,'(A,I0,7ES12.4,A)') "'",7,dc+myRand,dr,1.0,1.0,1.0,"'"
+  write(11,*) n, 'BALL'
+  write(11,'(A,I0,7ES12.4,A)') "'",7,dc,dr,1.0,1.0,1.0,"'"
+!  write(11,'(A,I0,7ES12.4,A)') "'",7,dc+myRand,dr,1.0,1.0,1.0,"'"
   do ivt=1,mg_NewMesh%level(1)%nvt
    if (mg_NewMesh%level(1)%knpr(ivt).eq.-iParam) then
     write(11,*) ivt
@@ -1550,6 +1972,17 @@ do iParam=1,ParIndex
 end do
 
 close(12)
+
+write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/PATCHID.ele'
+open(file=ADJUSTL(TRIM(cF)),unit=11)
+write(11,*) mg_NewMesh%level(1)%nel, 'PATCHID'
+write(11,'(A)') "' '"
+do iel=1,mg_mesh%level(ilev)%nel
+  do i=1,myRF(iel)%nUniqueElems
+   write(11, *)  myRF(iel)%patchID 
+  end do
+end do
+close(11)
 
  CONTAINS
 
@@ -1590,53 +2023,114 @@ end do
 END SUBROUTINE SetRecKNPR
  
 END SUBROUTINE Output_ParticleMergedRefTriMeshPar
+! ----------------------------------------------
+SUBROUTINE Output_ParticleFineVTK
 
-SUBROUTINE Output_ParticleMergedRefTriMeshParold()
-integer i,j,nKNPR
-character cF*(256)
-real*8 dc(3)
-REAL*8 :: dr=0.025
+IMPLICIT NONE
+INTEGER nel,nvt
+INTEGER ive,ivt,ioffset,ibnds
+INTEGER :: iunit=123
+CHARACTER*(100) filename
+real*8 dBCValue 
 
-nKNPR = 0
+nel = mg_ParticleMesh%level(ilev)%nel
+nvt = mg_ParticleMesh%level(ilev)%nvt
 
-do i=1,nUniquePoints
- nKNPR = max(nKNPR,MergedMeshKnpr(i))
+write(*,*) 'nel=',nel
+
+filename=" "
+WRITE(filename(1:),'(A)') adjustl(trim(cOutputFolder))//"/FineParticleMesh.vtu"
+
+WRITE(*,'(104("="))') 
+WRITE(*,*) "Outputting vtk file into ",filename
+
+OPEN (UNIT=iunit,FILE=filename)
+
+write(iunit, *)"<VTKFile type=""UnstructuredGrid"" version=""0.1"" byte_order=""LittleEndian"">"
+write(iunit, *)"  <UnstructuredGrid>"
+write(iunit, *)"    <Piece NumberOfPoints=""",nvt,""" NumberOfCells=""",nel,""">"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Here comes the node field data !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+write(iunit, '(A)')"    <PointData>"
+
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","ID",""" format=""ascii"">"
+ do ivt=1,nvt
+  write(iunit, '(A,E16.7)')"        ",REAL(ivt)
+ end do
+ write(iunit, *)"        </DataArray>"
+ 
+ write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BC",""" format=""ascii"">"
+ do ivt=1,nvt
+  dBCValue = 0d0
+  DO iBnds=1,nBnds
+   if (ADJUSTL(TRIM(myParBndr(iBnds)%Types)).eq.'BALL') THEN
+    if (myParBndr(ibnds)%Bndr(ilev)%Vert(ivt)) then
+     dBCValue = 1d0
+    end if
+   end if
+  end do
+  write(iunit, '(A,E16.7)')"        ",REAL(dBCValue)
+
+ end do
+ write(iunit, *)"        </DataArray>"
+
+ write(iunit, '(A)')"    </PointData>"
+
+write(iunit, '(A)')"      <Points>"
+write(iunit, '(A)')"        <DataArray type=""Float32"" Name=""Points"" NumberOfComponents=""3"" format=""ascii"" RangeMin=""0"" RangeMax=""1.0"">"
+do ivt=1,nvt
+ write(iunit,'(A10,3E16.7)')"          ",REAL(mg_ParticleMesh%level(ilev)%dcorvg(1,ivt)),REAL(mg_ParticleMesh%level(ilev)%dcorvg(2,ivt)),REAL(mg_ParticleMesh%level(ilev)%dcorvg(3,ivt))
+end do
+write(iunit, *)"        </DataArray>"
+write(iunit, *)"      </Points>"
+
+write(iunit, '(A)')"    <CellData>"
+write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","OrigID",""" format=""ascii"">"
+do ivt=1,nel
+ write(iunit, '(A,I10)')"        ",ivt
+end do
+write(iunit, *)"        </DataArray>"
+
+write(iunit, '(A)')"    </CellData>"
+
+write(iunit, *)"      <Cells>"
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""connectivity"" format=""ascii"" RangeMin=""0"" RangeMax=""",nel-1,""">"
+do ive=1,nel   
+ write(iunit, '(8I10)')mg_ParticleMesh%level(ilev)%kvert(1,ive)-1,mg_ParticleMesh%level(ilev)%kvert(2,ive)-1,mg_ParticleMesh%level(ilev)%kvert(3,ive)-1,mg_ParticleMesh%level(ilev)%kvert(4,ive)-1,&
+                       mg_ParticleMesh%level(ilev)%kvert(5,ive)-1,mg_ParticleMesh%level(ilev)%kvert(6,ive)-1,mg_ParticleMesh%level(ilev)%kvert(7,ive)-1,mg_ParticleMesh%level(ilev)%kvert(8,ive)-1
+end do
+write(iunit, '(A)')"        </DataArray>"
+
+write(iunit, '(A,I10,A)')"        <DataArray type=""Int32"" Name=""offsets"" format=""ascii"" RangeMin=""8"" RangeMax=""",8*nel,""">"
+ioffset=nel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')ive*8,(ive+1)*8,(ive+2)*8,(ive+3)*8,(ive+4)*8,(ive+5)*8,(ive+6)*8,(ive+7)*8
 end do
 
-write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
-open(file=ADJUSTL(TRIM(cF)),unit=12)
-write(cF,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj'
-write(12,'(A)')  'Merged_'//adjustl(trim(cProjectGridFile))
+do ive=ioffset+1,nel
+ write(iunit, '(I10)')ive*8
+end do
+write(iunit, '(A)')"        </DataArray>"
 
-DO j=1,nKNPR
- n = 0
- dc = 0d0
- do i=1,nUniquePoints
-  if (MergedMeshKnpr(i).eq.j) then
-   dc = dc + MergedMeshCoor(:,i)
-   n = n + 1
-  end if
- end do
+write(iunit, '(A)')"        <DataArray type=""UInt8"" Name=""types"" format=""ascii"" RangeMin=""12"" RangeMax=""12"">"
+ioffset=nel/8
+ioffset=ioffset*8
+do ive=1,ioffset,8
+ write(iunit, '(8I10)')12,12,12,12,12,12,12,12
+end do
+do ive=ioffset+1,nel
+ write(iunit, '(I10)')12
+end do
+write(iunit, '(A)')"        </DataArray>"
  
- dc = dc/dble(n)
- 
- write(cF,'(A,I0,A)') 'SPHERE_',j,'.par'
- write(12,'(A)')  ADJUSTL(TRIM(cF))
+write(iunit, *)"      </Cells>"
+write(iunit, *)"    </Piece>"
+   
+write(iunit, *)"  </UnstructuredGrid>"
+write(iunit, *)"</VTKFile>"
+close(iunit)
 
- write(cF,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/SPHERE_',j,'.par'
- open(file=ADJUSTL(TRIM(cF)),unit=11)
- write(11,*) n, 'Wall'
- write(11,'(A,I0,7ES12.4,A)') "'",7,MeshOutputScaleFactor*dc,MeshOutputScaleFactor*dr,1.0,1.0,1.0,"'"
- do i=1,nUniquePoints
-  if (MergedMeshKnpr(i).eq.j) then
-   write(11,*) i
-  end if
- end do
- close(11)
-END DO
-
-close(12)
-
-END SUBROUTINE Output_ParticleMergedRefTriMeshParold
+END SUBROUTINE Output_ParticleFineVTK
 
 END Module MeshRefOutput

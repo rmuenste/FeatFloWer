@@ -43,7 +43,7 @@ subroutine init_q2p1_ext(log_unit)
   if (istart.eq.0) then
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitMeshDeform(log_unit, mg_mesh)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
     call InitCond_QuadScalar()
 
   ! Start from a solution on the same lvl
@@ -54,7 +54,7 @@ subroutine init_q2p1_ext(log_unit)
 !     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
@@ -66,7 +66,7 @@ subroutine init_q2p1_ext(log_unit)
     call ProlongateSolution()
     ! Now generate the structures for the actual level 
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
     
   ! Start from a solution on the same lvl
   ! with a different number of partitions
@@ -74,7 +74,7 @@ subroutine init_q2p1_ext(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
     if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh)
+    call InitOperators(log_unit, mg_mesh,.true.)
   end if
 
  

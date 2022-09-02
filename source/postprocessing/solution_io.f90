@@ -1852,6 +1852,65 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 end subroutine postprocessing_sse
 !
 !================================================================================================
+! Postprocessing for a sse application
+!================================================================================================
+! @param dout Output interval
+! @param iogmv Output index of the current file 
+! @param istep number of the discrete time step
+! @param inlU   
+! @param inlT 
+! @param filehandle Unit of the output file
+!
+subroutine postprocessing_sse_mesh(dout, inlU,inlT,filehandle)
+
+  use def_FEAT
+  use var_QuadScalar, only: QuadSc,LinSc
+  use var_QuadScalar, only: Tracer
+  use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
+                            Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
+                            iTimeStepEnlargmentFactor 
+  use Sigma_User, only: myProcess
+
+  use visualization_out, only: viz_output_fields_sse_mesh
+
+  implicit none
+
+  real, intent(inout) :: dout
+
+  integer, intent(in) :: filehandle
+
+  integer :: inlU,inlT
+  
+  integer :: iCrit_itns
+
+  ! local variables
+  integer :: iXgmv
+
+  IF (itns.ne.1) THEN
+    CALL ZTIME(myStat%t0)
+    iXgmv = int(myProcess%angle)
+    call viz_output_fields_sse_mesh(myExport, iXgmv, QuadSc, LinSc, & !Tracer, &
+                           Viscosity, Screw, Shell, Shearrate, mg_mesh)
+
+    CALL ZTIME(myStat%t1)
+    myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
+  END IF
+
+  ! Save intermediate solution to a dump file
+!   IF (insav.NE.0.AND.itns.NE.1) THEN
+!     IF (MOD(iXgmv,insav).EQ.0) THEN
+!       CALL ZTIME(myStat%t0)
+!       
+!       CALL Release_ListFiles_General(int(myProcess%Angle),'x,d')
+! 
+!       CALL ZTIME(myStat%t1)
+!       myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
+!     END IF
+!   END IF
+
+end subroutine postprocessing_sse_mesh
+!
+!================================================================================================
 ! Wrapper routine for writing the solution to a file 
 !================================================================================================
 ! @param iInd number of the output

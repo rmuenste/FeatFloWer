@@ -25,25 +25,27 @@ def readTriFile(fileName):
             if not line:
                 break
 
-            if re.match(r"^DCORVG", line):
+            if re.match(r"^\s*DCORVG", line):
                 print("found label DCORVG")
                 line = f.readline()
-                while line and not re.match(r"^KVERT", line):
+                while line and not re.match(r"^\s*KVERT", line):
 
-                    words = line.strip().split(" ")
+                    cleanLine = ' '.join(line.split())
+                    words = cleanLine.strip().split(" ")
                     if len(words[0]) > 0:
                         nodesList.append(np.array([float(words[0]), float(words[1]), float(words[2])]))
 
                     line = f.readline()
 
-            if re.match(r"^KVERT", line):
+            if re.match(r"^\s*KVERT", line):
                 print("found label KVERT")
 
                 idx = 0
                 line = f.readline()
-                while line and not re.match(r"^KNPR", line):
+                while line and not re.match(r"^\s*KNPR", line):
 
-                    words = line.strip().split(" ")
+                    cleanLine = ' '.join(line.split())
+                    words = cleanLine.strip().split(" ")
                     if len(words[0]) > 0:
                         nodeIds = []
                         nodeIds.append(int(words[0])-1)

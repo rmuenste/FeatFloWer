@@ -33,6 +33,88 @@ contains
 ! @param shear The shear rate solution
 ! @param mgMesh The mesh that will be written out
 !subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
+subroutine viz_output_fields_sse_mesh(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
+
+use var_QuadScalar, only:tExport
+
+USE PP3D_MPI, ONLY:myid
+USE def_FEAT
+
+use var_QuadScalar, only:Tracer
+
+implicit none
+
+character cVTKFolder*(256)
+
+interface
+  subroutine c_write_json_output(angle) bind(C, name="c_write_json_output")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+    integer(c_int) :: angle
+  end subroutine c_write_json_output
+end interface
+
+type(tExport), intent(in) :: sExport
+
+integer, intent(in) :: iOutput
+
+type(tQuadScalar), intent(in) :: sQuadSc
+
+type(tLinScalar), intent(in) :: sLinSc
+
+real*8, dimension(:), intent(in) :: visc
+
+real*8, dimension(:), intent(in) :: screw
+
+real*8, dimension(:), intent(in) :: shell
+
+real*8, dimension(:), intent(in) :: shear
+
+type(tMultiMesh), intent(in) :: mgMesh
+
+! locals
+integer :: ioutput_lvl
+
+if (sExport%Format .eq. "VTK") then
+
+ cVTKFolder = '_vtk'
+ 
+ CALL CheckIfFolderIsThereCreateIfNot(cVTKFolder,0)
+ 
+ if (myid.ne.0) then
+
+  ioutput_lvl = sExport%Level
+
+  call viz_write_vtu_process(iOutput,&
+    mgMesh%level(ioutput_lvl)%dcorvg,&
+    mgMesh%level(ioutput_lvl)%kvert, &
+    sQuadSc, sLinSc, visc, screw, shell, shear, ioutput_lvl,&
+    mgMesh)
+ else
+
+  call viz_write_pvtu_main(iOutput)
+ end if
+! 
+!  if (myid.eq.0) then
+!   call OutputTriMesh(mgMesh%level(nlmin)%dcorvg,mgMesh%level(nlmin)%kvert,mgMesh%level(nlmin)%knpr,mgMesh%level(nlmin)%nvt,mgMesh%level(nlmin)%nel,0)  
+!  end if
+    
+end if
+
+end subroutine viz_output_fields_sse_mesh
+!-------------------------------------------------------------------------------------------------
+! A routine for outputting fields for an sse application
+!-------------------------------------------------------------------------------------------------
+! @param sExport An export structure
+! @param iOutput The output idx of the visulation file
+! @param sQuadSc The velocity solution structure of the mesh
+! @param sLinSc The pressure solution structure of the mesh
+! @param sTracer The solution of the scalar tracer equation
+! @param visc The viscosity solution
+! @param dist The distance solution
+! @param shear The shear rate solution
+! @param mgMesh The mesh that will be written out
+!subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, sTracer, visc, dist, shear, mgMesh)
 subroutine viz_output_fields(sExport, iOutput, sQuadSc, sLinSc, visc, screw, shell, shear, mgMesh)
 
 use var_QuadScalar, only:tExport
@@ -212,7 +294,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar,myALE
 USE var_QuadScalar,ONLY: myBoundary
 
 implicit none
@@ -329,6 +411,17 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Outflow')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Outflow",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   IF (myBoundary%bOutflow(ivt)) THEN
+    write(iunit, '(A,E16.7)')"        ",1d0
+   ELSE
+    write(iunit, '(A,E16.7)')"        ",0d0
+   END IF
+  end do
+  write(iunit, *)"        </DataArray>"
+  
  CASE('Wall')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Wall",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -384,6 +477,13 @@ do iField=1,size(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
   
+ case('Monitor')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Monitor",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(myAle%Monitor(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
  case('Partitioning')
   write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -429,7 +529,7 @@ do iField=1,size(myExport%Fields)
 
  case('KNPRP_E')
 
-  if (ioutput_lvl.EQ.inlmax-1)then
+  if (ioutput_lvl.LE.inlmax-1)then
    write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","KNPRP_E",""" format=""ascii"">"
 !    write(*,*) myid,inlmax-1,ivt
    do ivt=1,NoOfElem
@@ -547,6 +647,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","SegmentIndicator","""/>"
  CASE('Shell')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
+ CASE('Outflow')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Outflow","""/>"
  CASE('Wall')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wall","""/>"
  CASE('FBM')
@@ -561,8 +663,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","NormShearRate [1/s]","""/>"
  CASE('MaxShearRate')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MaxShearRate [1/s]","""/>"
-!  CASE('Monitor')
-!  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
+ CASE('Monitor')
+ write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Monitor","""/>"
 !
 !  CASE('FBM')
 !  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBM","""/>"
@@ -592,8 +694,8 @@ DO iField=1,SIZE(myExport%Fields)
   END IF
 
   CASE('KNPRP_E')
-!  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
-  IF (myExport%Level.EQ.myExport%LevelMax) THEN
+!   WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
+  IF (myExport%Level.LE.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","KNPRP_E","""/>"
   END IF
 END SELECT

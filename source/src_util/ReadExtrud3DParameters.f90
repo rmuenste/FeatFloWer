@@ -18,7 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
-    character(len=INIP_STRLEN) cParserString,cSCR,cALE
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -102,6 +102,41 @@
      WRITE(*,*) "Program stops!"
      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
     END IF
+    END IF
+
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryStart", mySigma%GeometryStart ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometryStart)
+    IF (adjustl(trim(mySigma%GeometryStart)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometryStart,*,err=550) mySigma%DIE_Start
+     mySigma%DIE_Start = dSizeScale*mySigma%DIE_Start
+     GOTO 551
+550  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE start has been set: ",adjustl(trim(mySigma%GeometryStart))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+551  CONTINUE
+    END IF
+    
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryLength", mySigma%GeometryLength ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometryLength)
+    IF (adjustl(trim(mySigma%GeometryLength)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometryLength,*,err=552) mySigma%DIE_Length
+     mySigma%DIE_Length = dSizeScale*mySigma%DIE_Length
+     GOTO 553
+552  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Length has been set: ",adjustl(trim(mySigma%GeometryLength))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+553  CONTINUE
+    END IF
+   
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometrySymmetryBC", mySigma%GeometrySymmetryBC ,'_INVALID_')
+    call inip_toupper_replace(mySigma%GeometrySymmetryBC)
+    IF (adjustl(trim(mySigma%GeometrySymmetryBC)).ne.'_INVALID_') THEN
+     Read(mySigma%GeometrySymmetryBC,*,err=554) mySigma%DIE_SymmetryBC
+     GOTO 555
+554  CONTINUE
+     if (myid.eq.1) WRITE(*,*) "   Wrong DIE Symmetry BC has been set: ",adjustl(trim(mySigma%GeometrySymmetryBC))
+     CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+555  CONTINUE
     END IF
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Machine","BarrelDiameter", mySigma%Dz_out ,myInf)
@@ -851,6 +886,14 @@
      !GOTO 10
     END IF
     
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","UseHeatDissipationForQ1Scalar",cDissip,'OFF')
+    call inip_toupper_replace(cDissip)
+    if (adjustl(trim(cVelo)).EQ.'ON'.or.adjustl(trim(cVelo)).EQ.'YES') then
+     myProcess%UseHeatDissipationForQ1Scalar = .TRUE.
+    else
+     myProcess%UseHeatDissipationForQ1Scalar = .FALSE.
+    end if
+    
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","FBMVeloBC",cVelo,'unknown')
     call inip_toupper_replace(cVelo)
     if (adjustl(trim(cVelo)).ne.'UNKNOWN') then
@@ -1007,6 +1050,7 @@
       
       
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapSize_MM",myProcess%ExtrusionGapSize,myInf)
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ExtrusionGapFactor",myProcess%ExtrusionGapFactor,1d0)
       if (myProcess%ExtrusionSpeed.eq.myInf) then
        if (dArea.eq.myInf) then
         if (myid.eq.1) WRITE(*,*) "   Extrusion Speed is not set 'E3DProcessParameters@ExtrusionSpeed_CMpS'"
@@ -1249,6 +1293,16 @@
     
     write(*,*) "mySigma%ShearRateRest",'=',mySigma%bAnalyticalShearRateRestriction
     
+    IF (adjustl(trim(mySigma%GeometryStart)).ne.'_INVALID_') THEN
+     write(*,'(A,A,3f13.3)') "mySigma%GeometryStart",'=',mySigma%DIE_Start
+    END IF
+    IF (adjustl(trim(mySigma%GeometryLength)).ne.'_INVALID_') THEN
+     write(*,'(A,A,3f13.3)') "mySigma%GeometryLength",'=',mySigma%DIE_Length
+    END IF
+    IF (adjustl(trim(mySigma%GeometrySymmetryBC)).ne.'_INVALID_') THEN
+     write(*,'(A,A,6L2)') "mySigma%GeometrySymmetryBC",'=',mySigma%DIE_SymmetryBC
+    END IF
+    
     write(*,*) "mySigma%Dz_Out",'=',mySigma%Dz_out
     write(*,*) "mySigma%Dz_In",'=',mySigma%Dz_In
     write(*,*) "mySigma%L",'=',mySigma%L
@@ -1444,6 +1498,7 @@
      write(*,*) 
     END DO    
 
+    write(*,'(A,A,L2)') "myProcess%UseHeatDissipationForQ1Scalar",'=',myProcess%UseHeatDissipationForQ1Scalar
     write(*,'(A,A,3ES12.4)') "myProcess%FBMVeloBC",'=',myProcess%FBMVeloBC
     write(*,*) "myProcess%Rotation",'=',myProcess%Rotation
     write(*,*) "myProcess%ind",'=',myProcess%ind
@@ -1717,6 +1772,7 @@
     IF (mySetup%bAutomaticTimeStepControl.and.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") then
      write(*,*) "E3DProcessParameters@ExtrusionSpeed_CMpS = ", myProcess%ExtrusionSpeed 
      write(*,*) "E3DProcessParameters@ExtrusionGapSize_MM = ", myProcess%ExtrusionGapSize
+     write(*,*) "E3DProcessParameters@ExtrusionGapFactor = ", myProcess%ExtrusionGapFactor
     END IF
 
     IF (mySetup%bRotationalFramOfReference) then

@@ -111,7 +111,40 @@ end subroutine Initfield1
 !
 !-----------------------------------------------------------
 !
-subroutine Initfield0(MarkerE,kvert,dcorvg,nel)
+subroutine Initfield0(MarkerE,kvert,dcorvg,nel,dEps)
+USE MeshRefVar, only : cIntputFolder,AreaIntensity
+USE MeshRefDef, only : GetValueFromFile
+implicit none
+integer nel
+integer MarkerE(*),kvert(8,*)
+real*8 dEps,dcorvg(3,*)
+!
+integer iel,ii
+CHARACTER cInputFile*(256)
+
+MarkerE(1:nel) = 0
+allocate(AreaIntensity(2,nel))
+
+ii = 0
+open(file=ADJUSTL(TRIM(cIntputFolder))//'/'//'area.txt',unit=3)
+do iel=1,nel
+ read(3,*) AreaIntensity(2,iel)
+ if (AreaIntensity(2,iel).gt.dEps) THEN
+  MarkerE(iel) = 1
+  ii = ii + 1
+ end if
+end do
+
+close(3)
+
+WRITE(*,*) 'Number of refined elements: ', ii
+
+end subroutine Initfield0
+
+!
+!-----------------------------------------------------------
+!
+subroutine Initfield0OLD(MarkerE,kvert,dcorvg,nel)
 USE MeshRefVar, only : cIntputFolder,AreaIntensity
 USE MeshRefDef, only : GetValueFromFile
 implicit none
@@ -123,7 +156,7 @@ real*8 dEps,dist1,d1,d2,d3,dAreaCrit,dTotalArea,dCritArea
 integer iel,jel,i
 CHARACTER cInputFile*(256),cVal*(256),cKey*(256)
 real*8 dc(3)
-real*8 xbox(3),nbox(3),dAreaThreshold,dVolume,dSize,dzmax
+real*8 xbox(3),nbox(3),dAreaThreshold,dVolume,dSize,dzmax,RefinementFraction
 integer ii,nnel,ivt
 
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'param.txt'
@@ -140,10 +173,14 @@ integer ii,nnel,ivt
  CALL GetValueFromFile(cInputFile,cVal,cKey)
  read(cVal,*) nBox
 
+ cKey='RefinementFraction'
+ CALL GetValueFromFile(cInputFile,cVal,cKey)
+ read(cVal,*) RefinementFraction
+ 
  dVolume = xbox(1)*xbox(2)*xbox(3)/(nbox(1)*nbox(2)*nbox(3)) ! volume of one voxel
  dSize   = dVolume**(1d0/3d0)
- dAreaThreshold = dVolume**(2d0/3d0)
- WRITE(*,*) dAreaThreshold
+ dAreaThreshold = (dVolume**(2d0/3d0))
+!  dAreaThreshold = (dVolume**(2d0/3d0))/RefinementFraction
  
 MarkerE(1:nel) = 0
 allocate(AreaIntensity(2,nel))
@@ -304,4 +341,4 @@ SUBROUTINE CreateHistogram(LW,N)
   
 END 
 
-end subroutine Initfield0
+end subroutine Initfield0OLD
