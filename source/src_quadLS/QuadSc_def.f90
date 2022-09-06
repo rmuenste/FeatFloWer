@@ -463,6 +463,15 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
   allocate(myHYPRE%Numbering(myHYPRE%nrows))
  end if
  
+ if (myid.ne.0.and.bNoOutFlow) THEN
+  IF (myid.eq.1) THEN
+   WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
+   DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
+    CMat(IEQ) = 0d0
+   END DO
+  END IF
+ END IF
+
  CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
  
  IF (myid.ne.0) THEN
@@ -584,8 +593,8 @@ END IF
 IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
 
  if (myid.eq.showid) THEN
-  write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
   write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
+  write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
  end if
 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -604,6 +613,15 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
   myHYPRE%nrows    = lPMat%nu
   allocate(myHYPRE%Numbering(myHYPRE%nrows))
  end if
+ 
+ if (myid.ne.0.and.bNoOutFlow) THEN
+  IF (myid.eq.1) THEN
+   WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
+   DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
+    CMat(IEQ) = 0d0
+   END DO
+  END IF
+ END IF
  
  CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
  

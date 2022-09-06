@@ -1940,11 +1940,10 @@ REAL*8 daux,dCrit
 INTEGER iEntry,jCol,mgLevBU
 EXTERNAL E011
 
-  IF (myid.eq.0) THEN
-   myMG%X(mgLev)%x = 0d0
-  END IF
-  
   IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+   IF (myid.eq.0) THEN
+    myMG%X(mgLev)%x = 0d0
+   END IF
    IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
    IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
    IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
