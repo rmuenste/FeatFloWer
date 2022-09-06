@@ -424,6 +424,7 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
 
 #  Part = [ [0,0,0] for i in nel ]
   Dir = 2
+  order = 0
   zCoords = [p[Dir] for p in coord]
   numCoords = len(zCoords)  
   zCoords.sort()
@@ -447,11 +448,12 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
           if dist <= 1e-5:
             count = count + 1
         if count == 8:
-          Part[ElemIdx][Dir]=idx + 1
+          Part[ElemIdx][order]=idx + 1
           break
 
   # y-subdivision
   Dir = 1
+  order = 1
   yCoords = [p[Dir] for p in coord]
   numCoords = len(yCoords)  
   yCoords.sort()
@@ -469,18 +471,19 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   for (ElemIdx,Elem) in enumerate(kvert):
     for idx, val in enumerate(theList):
       if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
-        Part[ElemIdx][Dir]=idx + 1
+        Part[ElemIdx][order]=idx + 1
         break
 
   # x-subdivision
   Dir = 0
+  order = 2
   xCoords = [p[Dir] for p in coord]
   numCoords = len(xCoords)  
   xCoords.sort()
   xMin = xCoords[0]
   xMax = xCoords[numCoords-1]
 
-  # The delta for the y-subdivision
+  # The delta for the x-subdivision
   dX = (xMax - xMin) / nSubMesh[Dir]
   theList = [i * dX for i in range(1, nSubMesh[Dir] + 1)]
   print(xMin)
@@ -491,7 +494,7 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   for (ElemIdx,Elem) in enumerate(kvert):
     for idx, val in enumerate(theList):
       if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
-        Part[ElemIdx][Dir]=idx + 1
+        Part[ElemIdx][order]=idx + 1
         break
 
   return tuple(Part)
