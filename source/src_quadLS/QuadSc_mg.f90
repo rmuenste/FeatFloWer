@@ -288,7 +288,7 @@ SUBROUTINE mgGuessSolution()
 ! END IF
 
 IF (myid.ne.0) THEN
-!   myMG%X(mgLev)%x = 0d0
+  myMG%X(mgLev)%x = 0d0
 END IF
 
 END SUBROUTINE mgGuessSolution
@@ -1940,6 +1940,10 @@ REAL*8 daux,dCrit
 INTEGER iEntry,jCol,mgLevBU
 EXTERNAL E011
 
+  IF (myid.eq.0) THEN
+   myMG%X(mgLev)%x = 0d0
+  END IF
+  
   IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
    IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
    IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
@@ -1971,7 +1975,7 @@ EXTERNAL E011
 
      DO i=1,crsSTR%A%nu
       j = 4*(i-1) + 1
-      crsSTR%A_SOL(i) = myMG%X(mgLev)%x(j)
+      crsSTR%A_SOL(i) = 0d0 !myMG%X(mgLev)%x(j)
       crsSTR%A_RHS(i) = myMG%B(mgLev)%x(j)
      END DO
 
