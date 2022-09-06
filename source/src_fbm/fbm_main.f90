@@ -388,7 +388,7 @@ end subroutine fbm_updateSoftBodyDynamics
 !=========================================================================
 ! 
 !=========================================================================
-Subroutine fbm_velBCUpdate(x,y,z,valu,valv,valw,ip,t,usr_velBCUpdate)
+Subroutine fbm_velBCUpdate(x,y,z,valu,valv,valw,ip,t, vidx, usr_velBCUpdate)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
 
@@ -406,22 +406,26 @@ real*8 , intent(in) :: x,y,z,t
 ! The velocitiy values of the boundary vertex
 real*8 , intent(inout) :: valu,valv,valw
 
+! vidx
+integer, intent(in) :: vidx
+
 !valu = 0d0
 !valv = 0d0
 !valw = 0d0
-call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t)
+call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t, vidx)
 
 end subroutine fbm_velBCUpdate
 !=========================================================================
 ! 
 !=========================================================================
-subroutine FictKnpr_velBC(x,y,z,valu,valv,valw,ip,t)
+subroutine FictKnpr_velBC(x,y,z,valu,valv,valw,ip,t, vidx)
 use Sigma_User, only : myProcess
 
 ! Parameters
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+integer, intent(in) :: vidx
 
 valu = myProcess%FBMVeloBC(1)
 valv = myProcess%FBMVeloBC(2)
@@ -431,7 +435,7 @@ end subroutine FictKnpr_velBC
 !=========================================================================
 ! 
 !=========================================================================
-subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t)
+subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t, vidx)
 use Sigma_User, only : myProcess
 use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
 use PP3D_MPI, only: myid
@@ -440,6 +444,7 @@ use PP3D_MPI, only: myid
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+integer, intent(in) :: vidx
 
 ! local variables
 integer :: ipc,isin, idynType
@@ -699,7 +704,7 @@ end subroutine fbm_velBC
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_velBCFC2(x,y,z,valu,valv,valw,ip,t)
+subroutine fbm_velBCFC2(x,y,z,valu,valv,valw,ip,t, vidx)
 use var_QuadScalar, only : myFBM,bRefFrame
 implicit none
 
@@ -707,6 +712,8 @@ implicit none
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+! vidx
+integer, intent(in) :: vidx
 
 ! local variables
 REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
@@ -720,55 +727,56 @@ integer :: numParticles, particleId
   valv = 0d0
   valw = 0d0
 
-!  numParticles = numLocalParticles()
-!
-!  if(.not. allocated(theParticles)) then
-!    allocate(theParticles(numLocalParticles())) 
-!  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
-!    deallocate(theParticles)
-!    allocate(theParticles(numLocalParticles())) 
-!  end if
-!
-!  call getAllParticles(theParticles)
-!
-!  DO ipc = 1,numParticles
-!    particleId = theParticles(ipc)%uniqueIdx
-!    if (ip.EQ.particleId) THEN
-!!      Velo  = theParticles(ipc)%velocity
-!!      Pos   = theParticles(ipc)%position
-!
-!!      valu = velo(1)
-!!      valv = velo(2)
-!      valw = theParticles(ipc)%velocity(3)
-!
-!      return
-!    end if
-!  end do
-!
-!  numParticles = numRemParticles()
-!  deallocate(theParticles)
-!  if (numParticles .eq. 0)return
-!
-!  if(.not. allocated(theParticles)) then
-!    allocate(theParticles(numParticles)) 
-!  end if
-!
-!  call getAllRemoteParticles(theParticles)
-!
-!  DO ipc = 1,numParticles
-!    particleId = theParticles(ipc)%uniqueIdx
-!    IF (check_rem_id(ip, particleId)) THEN
-!!      Velo  = theParticles(ipc)%Velocity
-!!      Pos   = theParticles(ipc)%Position
-!!      valw = theParticles(ipc)%velocity(3)
-!      valw = theParticles(ipc)%velocity(3)
-!
-!!      valu = velo(1)
-!!      valv = velo(2)
-!!      valw = velo(3)
-!      return
-!    end if
-!  end do
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+      return
+     end if
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+      return
+     end if
+  end do
 
 end subroutine fbm_velBCFC2
 !=========================================================================

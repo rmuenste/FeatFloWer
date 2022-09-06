@@ -1834,7 +1834,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
       CALL fbm_velBCUpdate(PX,PY,PZ,&
                            QuadSc%valU(i),QuadSc%valV(i),&
                            QuadSc%valW(i),finpr,timens,&
-                           fbm_vel_bc_handler_ptr)
+                           i, fbm_vel_bc_handler_ptr)
                            velBCTest(i) = QuadSc%valW(i)
     END IF
     IF (minpr.ne.0.and.inpr.eq.0) THEN
