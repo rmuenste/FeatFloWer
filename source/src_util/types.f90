@@ -417,6 +417,10 @@ TYPE tHYPRE
  INTEGER, allocatable, dimension(:) :: ncols
  INTEGER, allocatable, dimension(:) :: rows,cols
  REAL*8 , allocatable, dimension(:) :: values,rhs,sol
+ INTEGER*8 solver, precond
+ INTEGER*8 A, parcsr_A, b, par_b, x, par_x
+ logical :: solverIsSet = .false.
+ integer communicator
 END TYPE tHYPRE
 TYPE(tHYPRE) :: myHYPRE
 
