@@ -2066,9 +2066,12 @@ EXTERNAL E011
       myHypre%rhs=myMG%B(mgLev)%x
       myHypre%sol=myMG%X(mgLev)%x
      END IF
-!      CALL myHypre_Solve()
-       CALL myHypreGMRES_Solve()
-!      CALL myHyprePCG_Solve()
+!     CALL myHypre_Solve()
+      CALL myHypreGMRES_Solve(CoarseIter)
+!     CALL myHyprePCG_Solve()
+
+
+
      IF (myid.ne.0) THEN    
       myMG%X(mgLev)%x = myHypre%sol
      END IF
@@ -2109,7 +2112,7 @@ EXTERNAL E011
      
 !      if (myid.eq.1) write(*,*) myHypre%sol
      
-     CALL myHypre_Solve()
+     CALL myHypre_Solve(CoarseIter)
      
 !      if (myid.eq.1) write(*,*) myHypre%sol
      

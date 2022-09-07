@@ -6,15 +6,17 @@ include 'HYPREf.h'
 
 CONTAINS
 
-SUBROUTINE myHypre_Solve
+SUBROUTINE myHypre_Solve(num_iterations)
 USE var_QuadScalar
 IMPLICIT NONE
 
 integer local_size
 integer color
-integer num_iterations
 real*8  final_res_norm
 integer ierr
+integer status(MPI_status_size)
+
+integer, intent(inout) :: num_iterations
 
 
 if (.not.myHypre%solverIsSet) then
@@ -133,22 +135,30 @@ if (myid.ne.0) then
 end if
 
 
+  if (myid.eq.1) then
+   call MPI_send(num_iterations, 1, MPI_int, 0, 1, MPI_COMM_WORLD, ierr)
+  else if (myid.eq.0) then
+   call MPI_recv(num_iterations, 1, MPI_int, 1, 1, MPI_COMM_WORLD, status, ierr)
+  end if
+
 ! pause
 end subroutine myHypre_Solve
 
 
 
 
-SUBROUTINE myHypreGMRES_Solve
+SUBROUTINE myHypreGMRES_Solve(num_iterations)
 USE var_QuadScalar
 IMPLICIT NONE
 
 
 integer local_size
 integer color
-integer num_iterations
 real*8  final_res_norm
 integer ierr
+integer status(MPI_status_size)
+
+integer, intent(inout) :: num_iterations
 
 
 if (.not.myHypre%solverIsSet) then
@@ -171,7 +181,7 @@ if (.not.myHypre%solverIsSet) then
   end if
 
   call MPI_COMM_split(MPI_COMM_WORLD, color, myid-1, myHypre%communicator, ierr)
-
+  
   if (myid.ne.0) then
 
   call HYPRE_IJMatrixCreate(myHypre%communicator, myHypre%ilower, myHypre%iupper,&
@@ -261,6 +271,9 @@ if (myid.ne.0) then
   ! setup the solver and solve the system
   call HYPRE_ParCSRGMRESSetup(myHypre%solver, myHypre%parcsr_A, myHypre%par_b,myHypre%par_x, ierr)
   call HYPRE_ParCSRGMRESSolve(myHypre%solver, myHypre%parcsr_A, myHypre%par_b,myHypre%par_x, ierr)
+
+  call HYPRE_ParCSRGMRESGetNumIteratio(myHypre%solver, num_iterations, ierr)
+  
 end if
 
 
@@ -271,6 +284,11 @@ if (myid.ne.0) then
 end if
 
 
+  if (myid.eq.1) then
+   call MPI_send(num_iterations, 1, MPI_int, 0, 1, MPI_COMM_WORLD, ierr)
+  else if (myid.eq.0) then
+   call MPI_recv(num_iterations, 1, MPI_int, 1, 1, MPI_COMM_WORLD, status, ierr)
+  end if
 end subroutine myHypreGMRES_Solve
 
 
@@ -288,6 +306,7 @@ integer color
 integer num_iterations
 real*8  final_res_norm
 integer ierr
+integer status(MPI_status_size)
 
 
 if (.not.myHypre%solverIsSet) then
@@ -414,6 +433,14 @@ if (myid.ne.0) then
  call HYPRE_IJVectorGetValues(myHypre%x, local_size, myHypre%rows, myHypre%sol, ierr)
 
 end if
+
+
+
+  if (myid.eq.1) then
+   call MPI_send(num_iterations, 1, MPI_int, 0, 1, MPI_COMM_WORLD, ierr)
+  else if (myid.eq.0) then
+   call MPI_recv(num_iterations, 1, MPI_int, 1, 1, MPI_COMM_WORLD, status, ierr)
+  end if
 
 end subroutine myHyprePCG_Solve
 
