@@ -3609,8 +3609,9 @@ integer JEL(8)
 integer jjlev,i,ivt
 real*8 dSize
 
- if (iilev.eq.mgMesh%nlmax+1) then
-  dSize = 0.1d0*0.1d0*(mgMesh%level(iilev)%dvol(iiel)**(1d0/3d0)) ! 0.1 because of the cm --> mm scaling
+ if (iilev.ge.mgMesh%nlmax) then
+!   write(*,*) 'doing this'
+  dSize = 0.1d0*0.5d0*(mgMesh%level(iilev)%dvol(iiel)**(1d0/3d0)) ! 0.1 because of the cm --> mm scaling
  else
   dSize = 0d0
  end if
