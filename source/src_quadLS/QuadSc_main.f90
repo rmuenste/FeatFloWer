@@ -366,9 +366,12 @@ integer :: maxlevel
 Real*8 :: dabl
 real*8 :: myInf
 
+
+ bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
   IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
    NLMAX = NLMIN
+   bMasterTurnedON = .FALSE.
   END IF
  end if
  
@@ -635,11 +638,11 @@ END IF
   END IF
  END IF
 
- CALL InitializeProlRest(QuadSc,LinSc)
-
- CALL OperatorRegenaration(1)
- 
- CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+!  CALL InitializeProlRest(QuadSc,LinSc)
+! 
+!  CALL OperatorRegenaration(1)
+!  
+!  CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
  
 END SUBROUTINE Init_QuadScalar_Structures_sse
 !
@@ -2703,6 +2706,8 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   REAL*8 HogenPowerlaw
   REAL*8 ViscosityMatModel
 
+  if (.not.bMasterTurnedOn) return 
+  
   ILEV = NLMAX
   CALL SETLEV(2)
 
@@ -2740,6 +2745,8 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   REAL*8 AlphaViscosityMatModel,dMaxMat
   integer ifld,iMat
 
+  if (.not.bMasterTurnedOn) return 
+  
   ILEV = NLMAX
   CALL SETLEV(2)
 
@@ -2788,7 +2795,6 @@ INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
 REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
 REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax
-
 
 integer :: ilevel
 
@@ -2881,15 +2887,17 @@ END IF
 dHeat = 0d0
 dVol  = 0d0
 
-DO i=1,QuadSc%ndof
- IF (MixerKNPR(i).eq.0) THEN
-  Shear = Shearrate(i)
-  Visco = 0.1d0*Viscosity(i)
-  Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
-  dHeat = dHeat + Ml_i*Shear*Shear*Visco
-  dVol = dVol + mg_MlRhoMat(NLMAX)%a(i)*1e-3
- END IF
-END DO
+if (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+  IF (MixerKNPR(i).eq.0) THEN
+   Shear = Shearrate(i)
+   Visco = 0.1d0*Viscosity(i)
+   Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
+   dHeat = dHeat + Ml_i*Shear*Shear*Visco
+   dVol = dVol + mg_MlRhoMat(NLMAX)%a(i)*1e-3
+  END IF
+ END DO
+END IF
 
 CALL COMM_SUMM(dVolFlow1)
 CALL COMM_SUMM(dVolFlow2)
@@ -3557,11 +3565,15 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 IF (bCreate) THEN
+ CALL InitializeProlRest(QuadSc,LinSc)
+ 
  CALL Release_cgal_structures()
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
  call OperatorRegenaration(3)
 
+ CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+ 
  CALL Create_MMat()
 END IF
 
