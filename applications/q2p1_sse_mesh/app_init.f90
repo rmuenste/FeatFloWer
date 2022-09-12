@@ -326,7 +326,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                  mg_mesh%level(II)%karea,&
                  mg_mesh%level(II)%kvert)
 
-!  IF (myid.EQ.0) NLMAX = NLMAX - 1
+ IF (myid.EQ.0) NLMAX = NLMAX - 1
 
  DO II=NLMIN+1,NLMAX
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II

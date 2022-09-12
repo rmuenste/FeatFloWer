@@ -4034,4 +4034,143 @@ end subroutine ReduceMesh_sse_mesh
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SetPressBC_NewGen(mgMesh)
+USE var_QuadScalar,ONLY: shell,screw,LinSc,tMultiMesh,ilev
+USE PP3D_MPI, ONLY:myid,master,showid,Comm_Summ,Comm_SummN
 
+implicit none 
+type(tMultiMesh), intent(inout) :: mgMesh
+integer iel,CRS_jel,nn
+logical bKick
+real*8 dnn
+integer, allocatable :: iSum(:)
+integer minlev_nel,StartLev
+
+dnn = 0d0
+
+if (myid.ne.0) then
+ minlev_nel = mgMesh%level(1)%nel
+ StartLev  = mgMesh%nlmax+1
+
+ allocate(iSum(minlev_nel))
+ iSum = 8**(StartLev-1)
+ 
+ ilev=StartLev
+
+ DO iel=1,mgMesh%level(ilev)%nel
+   
+  CALL CheckElemKNPRP(iel,bKick)
+  
+  if (bKick) then
+  
+   CRS_jel = 0
+   CALL FindElemKNPR(CRS_jel)
+   
+   if (CRS_jel.ne.0) then
+     iSum(CRS_jel) = iSum(CRS_jel) - 1 
+   end if
+  end if
+  
+ END DO
+ 
+ DO iel=1,minlev_nel 
+!   if (myid.eq.11) write(*,*) "V:" , iel,iSum(iel)
+  if (iSum(iel).eq.0) THEN
+   dnn = dnn + 1
+   LinSc%knprP(1)%x(iel) = 1
+  else
+   LinSc%knprP(1)%x(iel) = 0
+  end if
+ end do
+ 
+END IF
+
+call Comm_Summ(dnn)
+
+! if (myid.eq.11) then
+!  CRS_jel = 1
+!  write(*,*) "HHH:" , LinSc%knprP(1)%x(CRS_jel)
+!  nn = mgMesh%level(1)%nel + (CRS_jel-1)*7
+!  write(*,*) "XXX:" , 141, nn,nn+7
+!  write(*,*) "HHH:" , LinSc%knprP(2)%x(CRS_jel),LinSc%knprP(2)%x(nn+1:nn+7)
+!  write(*,*) "SUM:" , iSum(CRS_jel)
+! end if
+
+! if (Myid.eq.showid) write(*,*) 'max level: ',mgMesh%nlmax
+if (Myid.eq.showid) write(*,*) 'Number of Coarse Pressure BC Elements:',int(dnn)
+
+if (myid.ne.0) then
+ deallocate(iSum)
+END IF
+ CONTAINS
+ 
+SUBROUTINE CheckElemKNPRP(myEL,bK)
+integer myEL
+logical bK
+integer i8(8),ie,i1,i2,ii1,ii2,i,ivt,ndof
+real*8 P8(3,8),DS8(8),DD8(8),dEps,P1(3),P2(3)
+INTEGER NeighE(2,12)
+DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+
+bK = .true.
+
+do i=1,8
+ ivt = mgMesh%level(ilev)%kvert(i,myEL)
+ I8(i) = ivt
+ P8(:,i) = mgMesh%level(ilev)%dcorvg(:,ivt)
+ DS8(i) =   SCREW(ivt)
+ DD8(i) =   SHELL(ivt)
+end do
+
+
+do ie=1,12
+ I1  = neighE(1,ie)
+ I2  = neighE(2,ie)
+ P1 = P8(:,I1)
+ P2 = P8(:,I2)
+ dEps = 0.5d0*1.25d0 * SQRT((P1(1)-P2(1))**2d0 + (P1(2)-P2(2))**2d0 + (P1(3)-P2(3))**2d0 )
+ 
+ if (DD8(I1).gt.-dEps) bK = .false.
+ if (DD8(I2).gt.-dEps) bK = .false.
+  
+end do
+
+END SUBROUTINE CheckElemKNPRP
+
+SUBROUTINE FindElemKNPR(FoundElem)
+integer FoundElem
+integer jlev,nnel,iaux,jel
+
+jlev = ilev
+jel = iel
+
+do 
+ if (jel.le.minlev_nel.and.jel.gt.0) then
+  FoundElem  = jel
+  GOTO 1
+ end if
+ jlev = jlev -1
+ nnel = mgMesh%level(jlev)%nel
+ if (jel.gt.mgMesh%level(jlev)%nel) THEN
+  jel = jel - nnel - 1
+  iaux = mod(jel,7)
+  jel = (jel - iaux)/7 + 1
+ end if
+!  if (iel.eq.430.and.myid.eq.11) then
+!   write(*,*) ilev,jel
+!  end if
+ if (jel.le.minlev_nel.and.jel.gt.0) then
+  FoundElem  = jel
+  GOTO 1  
+ end if
+end do
+
+1 continue
+
+! if (myid.eq.11.and.FoundElem.eq.1) then
+!  write(*,*) iel, minlev_nel
+! end if
+
+END SUBROUTINE FindElemKNPR
+
+END SUBROUTINE SetPressBC_NewGen
