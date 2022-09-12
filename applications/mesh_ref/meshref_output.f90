@@ -1155,7 +1155,7 @@ logical :: bExist
 type(tMultiMesh),save :: mg_NewMesh
 INTEGER NeighA(4,6),nbox(3),iInflow,jInflow
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
-REAL*8 P(3),Q(3),dist,mindist,dSize!,dVolume
+REAL*8 P(3),Q(3),dist,mindist,dSize,minDistP!,dVolume
 logical bToMarkFace
 logical, allocatable :: bInflowMarker(:,:)
 logical, allocatable, dimension(:,:) :: HexSide
@@ -1375,6 +1375,13 @@ box = 10d0*mySigma%DIE_Length
      P = P + 0.25d0*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
     end do
     
+    minDistP = 1d8
+    DO i=1,4
+     Q = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+     dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+     IF (dist.lt.minDistP) minDistP = dist
+    end do
+    
     iSide = 0
     do i=1,6
      if (HexSide(i,ivt(1)).and.HexSide(i,ivt(2)).and.HexSide(i,ivt(3)).and.HexSide(i,ivt(4))) then
@@ -1418,10 +1425,10 @@ box = 10d0*mySigma%DIE_Length
       if (jInflow.ge.1.and.jInflow.le.myProcess%nOfInflows) then
        if (iSide.eq.InflowToSideMapper(jInflow)) then
         do i=1,4
-         P = MeshOutputScaleFactor*mg_NewMesh%level(1)%dcorvg(:,ivt(i))
-         Q = myProcess%myInflow(jInflow)%Center
+         P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+         Q = myProcess%myInflow(jInflow)%Center/MeshOutputScaleFactor
          dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-         if (dist.lt.myProcess%myInflow(jInflow)%outerradius) then
+         if (dist.lt.myProcess%myInflow(jInflow)%outerradius+minDistP) then
           bToMarkFace = .true.
          end if
         end do
