@@ -2322,6 +2322,8 @@ IF (bMultiMat) then
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+CALL MonitorVeloMag(QuadSc)
+
 tstep = old_TSTEP 
 
 end subroutine Transport_q2p1_UxyzP_sse
