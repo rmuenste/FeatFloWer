@@ -1428,7 +1428,8 @@ box = 10d0*mySigma%DIE_Length
          P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
          Q = myProcess%myInflow(jInflow)%Center/MeshOutputScaleFactor
          dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-         if (dist.lt.myProcess%myInflow(jInflow)%outerradius+minDistP) then
+         if (dist.lt.myProcess%myInflow(jInflow)%outerradius/MeshOutputScaleFactor+minDistP) then
+!          if (dist.lt.myProcess%myInflow(jInflow)%outerradius+minDistP) then
           bToMarkFace = .true.
          end if
         end do
