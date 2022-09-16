@@ -5,3 +5,6 @@
 [submodule "extern/libraries/cgal"]
 	path = extern/libraries/cgal
 	url = https://github.com/rmuenste/cgal
+[submodule "extern/libraries/hypre"]
+	path = extern/libraries/hypre
+	url = git@github.com:hypre-space/hypre.git
