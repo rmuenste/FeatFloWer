@@ -4,10 +4,11 @@ usage()
 {
 cat << EOF
 usage: $0 options
- [./RunnerScript.sh -f e3d_setup]
+ [./RunnerScript.sh -f e3d_setup -n N]
 
 OPTIONS:
    -f      simulation folder name
+   -n      number of parallel processes
 EOF
 }
 
@@ -32,6 +33,16 @@ while [ $# != 0 ]; do
        fi
 #       echo "You supplied an argument for the -nm flag: $basename"
    ;;
+  -n)  if [ $# -gt 1 ]; then
+        NProcs="$2"
+        shift
+       else
+        echo "You did not provide an argument for the -n flag"
+        usage
+        exit 1
+       fi
+#       echo "You supplied an argument for the -nm flag: $basename"
+   ;;
    *) echo "Unrecognized flag or argument: $flag"
       usage
       exit 1
@@ -40,8 +51,8 @@ while [ $# != 0 ]; do
  shift
 done
 
-GendieProcs=64
-MeshRefProcs=64
+GendieProcs=$NProcs
+MeshRefProcs=$NProcs
 
 rm -fr ${SimFolder}/Coarse_meshDir
 rm -fr ${SimFolder}/meshDir_BU

@@ -366,9 +366,12 @@ integer :: maxlevel
 Real*8 :: dabl
 real*8 :: myInf
 
+
+ bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
   IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
    NLMAX = NLMIN
+   bMasterTurnedON = .FALSE.
   END IF
  end if
  
@@ -635,11 +638,11 @@ END IF
   END IF
  END IF
 
- CALL InitializeProlRest(QuadSc,LinSc)
-
- CALL OperatorRegenaration(1)
- 
- CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+!  CALL InitializeProlRest(QuadSc,LinSc)
+! 
+!  CALL OperatorRegenaration(1)
+!  
+!  CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
  
 END SUBROUTINE Init_QuadScalar_Structures_sse
 !
@@ -2703,6 +2706,8 @@ SUBROUTINE  GetNonNewtViscosity_sse()
   REAL*8 HogenPowerlaw
   REAL*8 ViscosityMatModel
 
+  if (.not.bMasterTurnedOn) return 
+  
   ILEV = NLMAX
   CALL SETLEV(2)
 
@@ -2740,6 +2745,8 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   REAL*8 AlphaViscosityMatModel,dMaxMat
   integer ifld,iMat
 
+  if (.not.bMasterTurnedOn) return 
+  
   ILEV = NLMAX
   CALL SETLEV(2)
 
@@ -2788,7 +2795,6 @@ INTEGER mfile,i
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
 REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
 REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax
-
 
 integer :: ilevel
 
@@ -2881,15 +2887,17 @@ END IF
 dHeat = 0d0
 dVol  = 0d0
 
-DO i=1,QuadSc%ndof
- IF (MixerKNPR(i).eq.0) THEN
-  Shear = Shearrate(i)
-  Visco = 0.1d0*Viscosity(i)
-  Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
-  dHeat = dHeat + Ml_i*Shear*Shear*Visco
-  dVol = dVol + mg_MlRhoMat(NLMAX)%a(i)*1e-3
- END IF
-END DO
+if (myid.ne.0) then
+ DO i=1,QuadSc%ndof
+  IF (MixerKNPR(i).eq.0) THEN
+   Shear = Shearrate(i)
+   Visco = 0.1d0*Viscosity(i)
+   Ml_i = mg_MlRhoMat(NLMAX)%a(i)*1e-6
+   dHeat = dHeat + Ml_i*Shear*Shear*Visco
+   dVol = dVol + mg_MlRhoMat(NLMAX)%a(i)*1e-3
+  END IF
+ END DO
+END IF
 
 CALL COMM_SUMM(dVolFlow1)
 CALL COMM_SUMM(dVolFlow2)
@@ -3533,13 +3541,7 @@ IF (mySetup%bPressureFBM) THEN
  CALL SETLEV(2)
  CALL SendPressBCElemsToCoarse(LinSc%knprP(ilev)%x,nel)
  
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SET BC !!!!!!!!!!!!!!!!!!!!!!!!!!!
-!  if (myid.ne.0) then
-!   ilev=nlmin+1
-!   CALL SETLEV(2)
-!  END IF
-!  CALL SetPressBC(mgMesh)
-! 
+ ! propagate the structure consistently to the upper level
  do ilev=nlmin+1,nlmax
   CALL SETLEV(2)
   CALL GetMG_KNPRP(mgMesh)
@@ -3557,150 +3559,19 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 IF (bCreate) THEN
+ CALL InitializeProlRest(QuadSc,LinSc)
+ 
  CALL Release_cgal_structures()
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
  call OperatorRegenaration(3)
 
+ CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+ 
  CALL Create_MMat()
 END IF
 
 end subroutine InitOperators
-!
-! ----------------------------------------------
-!
-SUBROUTINE SetPressBC_NewGen(mgMesh)
-type(tMultiMesh), intent(inout) :: mgMesh
-integer iel,jlev
-real*8 dnn
-logical bKick
-
-ilev=nlmin
-dnn=0d0
-
-if (myid.ne.0) then
- DO iel=1,nel
-
-  jlev=nlmin
-  
-  bKick = .true.
-  CALL FindPressBC_NewGenREC(iel,jlev)
-  
-  if (bKick) then
-   dnn = dnn + 1d0 
-   LinSc%knprP(jlev)%x(iel) = 1
-   CALL SetPressBC_NewGenREC(iel,jlev)
-  end if
-  
- END DO
- 
-END IF
-
-call Comm_Summ(dnn)
-
-if (Myid.eq.showid) write(*,*) 'Number of Pressure BC Elements:',int(dnn)
-
- CONTAINS
- 
-RECURSIVE SUBROUTINE FindPressBC_NewGenREC(iiel,iilev)
-integer iiel,iilev
-
-integer JEL(8)
-integer jjlev,i,ivt
-real*8 dSize
-
- if (iilev.ge.mgMesh%nlmax) then
-!   write(*,*) 'doing this'
-  dSize = 0.1d0*0.5d0*(mgMesh%level(iilev)%dvol(iiel)**(1d0/3d0)) ! 0.1 because of the cm --> mm scaling
- else
-  dSize = 0d0
- end if
- 
- do i=1,8
-  ivt = mgMesh%level(iilev)%kvert(i,iiel)
-  if (screw(ivt).gt.-dSize.and.shell(ivt).gt.-dSize) THEN
-   bKick = .false.
-   RETURN
-  end if
- end do
-
- if (iilev+1.gt.mgMesh%nlmax) RETURN
-! Possible canditate found
- jjlev = iilev + 1
-
- JEL(1)  = iiel
- JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
- JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
- JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
- JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
- JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
- JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
- JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
- 
- DO i=1,8
-  CALL FindPressBC_NewGenREC(JEL(i),jjlev)
-  if (.not.bKick) RETURN
- end do
-
-END SUBROUTINE FindPressBC_NewGenREC
-
-RECURSIVE SUBROUTINE SetPressBC_NewGenREC(iiel,iilev)
-integer iiel,iilev
-
-integer JEL(8)
-integer jjlev,i,ivt
-
-LinSc%knprP(iilev)%x(iiel) = 1
-! write(*,*) iilev,iiel
-
-if ((iilev + 1).gt.mgMesh%nlmax) RETURN
-! Possible canditate found
- jjlev = iilev + 1
-
- JEL(1)  = iiel
- JEL(2)  = mgMesh%level(jjlev)%kadj(3,JEL(1))
- JEL(3)  = mgMesh%level(jjlev)%kadj(3,JEL(2))
- JEL(4)  = mgMesh%level(jjlev)%kadj(3,JEL(3))
- JEL(5)  = mgMesh%level(jjlev)%kadj(6,JEL(1))
- JEL(6)  = mgMesh%level(jjlev)%kadj(6,JEL(2))
- JEL(7)  = mgMesh%level(jjlev)%kadj(6,JEL(3))
- JEL(8)  = mgMesh%level(jjlev)%kadj(6,JEL(4))
-
- DO i=1,8
-  LinSc%knprP(jjlev)%x(JEL(i)) = 1
-  CALL SetPressBC_NewGenREC(JEL(i),jjlev)
- end do
-
-END SUBROUTINE SetPressBC_NewGenREC
-
-END SUBROUTINE SetPressBC_NewGen
-!
-! ----------------------------------------------
-!
-SUBROUTINE SetPressBC(mgMesh)
-type(tMultiMesh), intent(inout) :: mgMesh
-integer i,iel,ivt
-real*8 dnn
-
-dnn=0d0
-if (myid.ne.0) then
- DO iel=1,nel
-  do i=1,8
-   ivt = mgMesh%level(ilev)%kvert(i,iel)
-   if (screw(ivt).gt.0d0.and.shell(ivt).gt.0d0) goto 1
-  end do
-  dnn = dnn + 1d0 
-!   write(*,*) 'Pressure BC !!!',myid,iel
-  LinSc%knprP(ilev)%x(iel) = 1
- 1 continue
- END DO
-END IF
-
-call Comm_Summ(dnn)
-
-if (Myid.eq.showid) write(*,*) 'Number of Pressure BC Elements:',int(dnn)
-
-END SUBROUTINE SetPressBC
 !
 ! ----------------------------------------------
 !

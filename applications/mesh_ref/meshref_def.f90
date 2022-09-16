@@ -1003,7 +1003,7 @@ DO i=1,nel
       Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
       
       dist = sqrt((Q(1)-pC(1))**2d0 + (Q(2)-pC(2))**2d0 + (Q(3)-pC(3))**2d0) 
-      IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor) THEN
+      IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP) THEN
        dN = myProcess%myInflow(iInflow)%normal
        jat =0
        IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1

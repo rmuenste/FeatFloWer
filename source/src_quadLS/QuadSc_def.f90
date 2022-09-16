@@ -237,6 +237,8 @@ EXTERNAL E013
 REAL*8  DML
 INTEGER I,J
 
+ if (.not.bMasterTurnedOn) return
+ 
  CALL ZTIME(myStat%t0)
 
  IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
@@ -377,6 +379,8 @@ END SUBROUTINE Create_MMat
 !
 SUBROUTINE SetSlipOnBandBT()
 
+ if (.not.bMasterTurnedOn) return 
+ 
  CALL ZTIME(myStat%t0)
 
  DO ILEV=NLMIN,NLMAX
@@ -780,6 +784,8 @@ INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
 INTEGER i,j,iEntry,jCol
 
+ if (.not.bMasterTurnedOn) return
+
  CALL ZTIME(myStat%t0)
 
  IF (.NOT.ALLOCATED(mg_CMat)) ALLOCATE(mg_CMat(NLMIN:NLMAX))
@@ -1035,6 +1041,8 @@ real*8 ddx,ddy,ddz
 CHARACTER*10 myFile
 EXTERNAL E011,E013
 
+ if (.not.bMasterTurnedOn) return
+ 
  IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
  IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
  IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
@@ -1480,6 +1488,8 @@ SUBROUTINE Create_DiffMat(myScalar)
 TYPE(TQuadScalar) myScalar
 EXTERNAL E013
 
+ if (.not.bMasterTurnedOn) return 
+ 
  CALL ZTIME(myStat%t0)
 
  IF (.not.ALLOCATED(mg_Dmat)) ALLOCATE(mg_Dmat(NLMIN:NLMAX))
@@ -1642,6 +1652,8 @@ INTEGER LINT
 EXTERNAL E013
 ! Assembly for Convection Kmat
 
+ if (.not.bMasterTurnedOn) return 
+ 
  CALL ZTIME(myStat%t0)
 
  IF (.not.ALLOCATED(mg_Kmat)) ALLOCATE(mg_Kmat(NLMIN:NLMAX))
@@ -2178,6 +2190,8 @@ EXTERNAL Bndry_Mat,Bndry_Def
  IF (ABS(dnormu).LT.1D-32) dnormu=1D-32
  CALL COMM_Maximum(dnormu)
 
+ if ((.not.bMasterTurnedOn).and.myid.eq.0) THEN
+ else
   DO ILEV = NLMIN,NLMAX
    CALL SETLEV(2)
    CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
@@ -2188,6 +2202,7 @@ EXTERNAL Bndry_Mat,Bndry_Def
    CALL SETLEV(2)
    CALL Bndry_Def(lScalar%rhsP(ILEV)%x,lScalar%knprP(ILEV)%x,nel)
   end if
+ end if
  
  ! Set up the pointers for the Pressure MG driver 
  MyMG%A   => mg_CMat
@@ -3249,6 +3264,8 @@ END SUBROUTINE QuadScP1ExtPoltoQ2
 SUBROUTINE QuadScP1toQ2(lSc,qSc)
 TYPE(TLinScalar) lSc
 TYPE(TQuadScalar) qSc
+
+if (.not.bMasterTurnedOn) return 
 
 ILEV=NLMAX
 CALL SETLEV(2)
