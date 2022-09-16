@@ -444,7 +444,7 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
 #      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
         count = 0
         for Vert in Elem:
-          dist = coord[Vert-1][Dir] - val
+          dist = coord[Vert-1][Dir] - (val + zMin)  
           if dist <= 1e-5:
             count = count + 1
         if count == 8:
@@ -470,10 +470,14 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   PosFak=1
   for (ElemIdx,Elem) in enumerate(kvert):
     for idx, val in enumerate(theList):
-      if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+      count = 0
+      for Vert in Elem:
+        dist = coord[Vert-1][Dir] - (yMin + val)
+        if dist <= 1e-5:
+          count = count + 1
+      if count == 8:
         Part[ElemIdx][order]=idx + 1
         break
-
   # x-subdivision
   Dir = 0
   order = 2
@@ -493,7 +497,12 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   PosFak=1
   for (ElemIdx,Elem) in enumerate(kvert):
     for idx, val in enumerate(theList):
-      if all([( coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
+      count = 0
+      for Vert in Elem:
+        dist = coord[Vert-1][Dir] - (xMin + val)
+        if dist <= 1e-5:
+          count = count + 1
+      if count == 8:
         Part[ElemIdx][order]=idx + 1
         break
 
