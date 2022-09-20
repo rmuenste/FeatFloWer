@@ -293,10 +293,10 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
           localBoundary.sort()
           OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
-        if not isinstance(nSubMesh, int):
-          id = 1
-          localParName=os.path.join(BaseName,"sub%03d" %idx1D2,"%s_%03d.par"%(ParNames[iPar],id))
-          OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+          if not isinstance(nSubMesh, int):
+            id = 1
+            localParName=os.path.join(BaseName,"sub%03d" %idx1D2,"%s_%03d.par"%(ParNames[iPar],id))
+            OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
 def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
