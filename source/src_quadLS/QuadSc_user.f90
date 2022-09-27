@@ -113,6 +113,10 @@ ValV = 0d0
 ValW = 0d0
 
 IF (iT.lt.0) THEN
+  return
+end if
+
+IF (iT.lt.0) THEN
   
  iInflow = ABS(iT)
  

@@ -1,6 +1,7 @@
 
 # Add the subdirectories of the applications
 add_subdirectory(q2p1_fc2)
+add_subdirectory(q2p1_sedimentation)
 #add_subdirectory(q2p1_fc_ext)
 #add_subdirectory(q2p1_parallel_time)
 #add_subdirectory(q2p1_fsi_spring)
