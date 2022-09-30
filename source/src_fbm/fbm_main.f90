@@ -744,6 +744,7 @@ integer :: numParticles, particleId
      ! the fortran long representation of the FictKNPR array
      if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
       Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
       Pos   = theParticles(ipc)%position
 
       valu = velo(1)

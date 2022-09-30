@@ -1,3 +1,5 @@
+#define OUTPUT_LEVEL2 
+#define SED_BENCH
 !************************************************************************
 !
 !************************************************************************
@@ -389,14 +391,22 @@ SAVE
     end do ! end loop cubature points
 
   end do ! end loop elements
-!  DResForceX = 0.0
-!  DResForceY = 0.0
-  theParticles(ip)%force(:) =  (/DResForceX, DResForceY, DResForceZ/)
+
+#ifdef SED_BENCH
+  DResForceX = 0.0
+  DResForceY = 0.0
+  DResForceZ = 4.0 * DResForceZ
+  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
+  theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
+#else
+  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+#endif
+
 
 #ifdef OUTPUT_LEVEL2 
   write(*,*)myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
-  write(*,*)myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+  write(*,'(I3,A,I3,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
 !  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
@@ -407,7 +417,7 @@ SAVE
 
   END DO ! nParticles
 
-END
+END SUBROUTINE ForcesLocalParticles
 !************************************************************************
 !
 !************************************************************************
@@ -522,7 +532,7 @@ SAVE
 
   DO IP = 1,numParticles
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid,'>Rem Particle: ',theParticles(IP)%localIdx, ', size: ', size(theParticles), ' ', theParticles(IP)%bytes(1) + 1
+  write(*,*)myid,'>Rem Particle: #',theParticles(IP)%localIdx, ', of: ', size(theParticles), ' shortId', theParticles(IP)%bytes(1) + 1
 #endif
 
   particleId = theParticles(IP)%localIdx
@@ -808,11 +818,19 @@ SAVE
 
   end do ! end loop elements
 
+#ifdef SED_BENCH
+  DResForceX = 0.0
+  DResForceY = 0.0
+  DResForceZ = 4.0 * DResForceZ
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+#else
+  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
+  theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+#endif
 
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+  write(*,'(I3,A,I3,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce(x,y,z): ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
 #endif
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
@@ -822,7 +840,7 @@ SAVE
 
   END DO ! nParticles
 
-END
+END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
 !
 !************************************************************************

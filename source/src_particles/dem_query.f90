@@ -11,6 +11,7 @@ implicit none
 type, bind(C) :: tParticleData
   real(c_double), dimension(3)  :: position
   real(c_double), dimension(3)  :: velocity
+  real(c_double), dimension(3)  :: angvel
   real(c_double), dimension(3)  :: force = (/0d0, 0d0, 0d0/)
   real(c_double), dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
   real(c_double) :: time
