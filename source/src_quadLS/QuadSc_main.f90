@@ -3871,11 +3871,11 @@ endif
 
 bGoalsReached = .true.
 
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
- if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
-    if (itns.ge.nitns) bGoalsReached=.false.
- end if
-END IF
+! IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
+!  if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
+!     if (itns.ge.nitns) bGoalsReached=.false.
+!  end if
+! END IF
    
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  if (istart.eq.1) then
