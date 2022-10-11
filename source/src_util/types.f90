@@ -452,6 +452,7 @@ TYPE tParticleParam
  REAL*8 :: dFacUnitIn = 1.0d0
  REAL*8 :: dFacUnitOut = 1.0d0
  REAL*8 :: dFacUnitSourcefile = 1.0d0
+ REAL*8 :: MeltTemperature=0d0
 
  ! We can make z-cutplanes at as many positions as we want.
  ! However, we will limit it to 99

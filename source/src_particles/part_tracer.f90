@@ -781,6 +781,7 @@ END SUBROUTINE Transport_Particle
 ! --------------------------------------------------------------------
 !
 SUBROUTINE BackTransport_Particle(mfile)
+USE Sigma_User, ONLY: myMultiMat
 INTEGER mfile
 INTEGER i,nExSum,nActSum,nActSum0,nActSumOld,iCycle,iFile,iLevel0,iLevel1
 REAL*8  dTime,daux,dPeriod,dTimeStep,dStart,dBuffer(nBuffer)
@@ -941,24 +942,73 @@ END DO
 
 IF (bOutput) THEN
 
+ myMultiMat%nOfMaterials = myParticleParam%NumberOfInflowRegions
+ GenLinScalar%cName = "Temper"
+ nMaterials = myMultiMat%nOfMaterials+1
+ GenLinScalar%prm%nOfFields = nMaterials
+ GenLinScalar%nOfFields = nMaterials
+ ALLOCATE(GenLinScalar%prm%cField(GenLinScalar%prm%nOfFields))
+ ALLOCATE(GenLinScalar%Fld(nMaterials))
  
+ DO iFld=1,nMaterials
+  if (iFld.eq.1) GenLinScalar%prm%cField(iFld) = 'temp'
+  if (iFld.gt.1) then
+   write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld-1
+  end if
+ end do
+
+ DO iFld = 1,nMaterials
+  GenLinScalar%Fld(iFld)%cName = GenLinScalar%prm%cField(iFld)
+ END DO
+  
  ALLOCATE(MatDist(myParticleParam%nParticles))
  MatDist = 0
  CALL AssignInflowPropertyToParticles(MatDist)
  CALL ExtractMatrialProperties(MatDist)
+ 
+ if (myid.ne.0) THEN
+ 
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  
+  ALLOCATE(GenLinScalar%Fld(1)%aux(QuadSc%ndof))
+  ALLOCATE(GenLinScalar%Fld(1)%val(QuadSc%ndof))
+  GenLinScalar%Fld(1)%val = myParticleParam%MeltTemperature
+  
+  DO iFld = 2,nMaterials
+  
+   ALLOCATE(GenLinScalar%Fld(iFld)%aux(QuadSc%ndof))
+   ALLOCATE(GenLinScalar%Fld(iFld)%val(QuadSc%ndof))
+   
+   call INT_ParP0toQ2(MaterialDistribution(ILEV)%x,&
+                      GenLinScalar%Fld(iFld)%val,&
+                      GenLinScalar%Fld(iFld)%aux,&
+                      mg_mesh%level(ILEV)%dvol,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%kedge,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%nvt,&
+                      mg_mesh%level(ILEV)%net,&
+                      mg_mesh%level(ILEV)%nat,&
+                      mg_mesh%level(ILEV)%nel,iFld)
+  END DO
+ END IF
  
  CALL OutputLostParticlesCSV()
  
  myExport%Level = NLMAX
  myExport%LevelMax = myExport%Level
  DEALLOCATE(myExport%Fields)
- ALLOCATE(myExport%Fields(1))
- myExport%Fields = "Material_E"
-! myExport%Fields(i) = ADJUSTL(TRIM(myExport%Fields(i)))
-
+ ALLOCATE(myExport%Fields(2))
+ myExport%Fields(2) = "Material_E"
+ myExport%Fields(1) = "GenScalar"
  CALL Output_Profiles(0)
   
- CALL write_sol_to_file(10,0d0,0)
+ CALL Release_ListFiles_General(0,'q')
+ 
+!  CALL Release_ListFiles_General(0,'s')
+ 
+!  CALL write_sol_to_file(10,0d0,0)
 
 END IF
 
@@ -1147,6 +1197,7 @@ IF (myid.eq.1) THEN
  WRITE(mfile,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mfile,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mfile,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
+ WRITE(mfile,*) 'myParticleParam%MeltTemperature   = ', myParticleParam%MeltTemperature
  WRITE(mfile,*) 'myParticleParam%nOfInflows  = ', myParticleParam%NumberOfInflowRegions
  IF (myParticleParam%NumberOfInflowRegions.gt.1) then
   do i=1,myParticleParam%NumberOfInflowRegions
@@ -1183,6 +1234,7 @@ IF (myid.eq.1) THEN
  WRITE(mterm,*) 'myParticleParam%f           = ', myParticleParam%f
  WRITE(mterm,*) 'myParticleParam%Epsilon     = ', myParticleParam%Epsilon
  WRITE(mterm,*) 'myParticleParam%hSize       = ', myParticleParam%hSize
+ WRITE(mterm,*) 'myParticleParam%MeltTemperature   = ', myParticleParam%MeltTemperature
  WRITE(mterm,*) 'myParticleParam%nOfInflows  = ', myParticleParam%NumberOfInflowRegions
  IF (myParticleParam%NumberOfInflowRegions.gt.1) then
   do i=1,myParticleParam%NumberOfInflowRegions

@@ -114,6 +114,8 @@ contains
     IF (tmpstring.eq."LST") ParticleParam%DumpFormat = 2
     IF (tmpstring.eq."REPART") ParticleParam%DumpFormat = 3
 
+    call inip_getvalue_double(parameterlist, "GeneralSettings","MeltTemperature",ParticleParam%MeltTemperature,0d0)
+    
     ! Get the number of Inflow regions for Particle Backtracing
     call inip_getvalue_int(parameterlist,"GeneralSettings","NumberOfInflowRegions",ParticleParam%NumberOfInflowRegions,0)
     IF (ParticleParam%NumberOfInflowRegions.eq.0) THEN
