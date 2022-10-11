@@ -711,7 +711,7 @@
        end do
        
       ELSE
-       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListL", cOFF_Files,' ')
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListR", cOFF_Files,' ')
        
        CALL ExtractNomOfCharFromString(cOFF_Files,mySigma%mySegment(iSeg)%nOFFfilesR)
        
