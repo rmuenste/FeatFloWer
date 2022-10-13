@@ -490,248 +490,248 @@ USE PP3D_MPI, ONLY : myid,master,showid,subnodes,&
 
 USE types, ONLY : myCompleteSet,myActiveSet,nActiveSet,myExchangeSet,myLostSet,&
                          nExchangeSet,nStartActiveSet,nLostSet
-USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
-
-IMPLICIT NONE
-REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta,d_CorrDist
-INTEGER nkel,nvt,net,nat,nel
-INTEGER kel_LdA(*),kel_ColA(*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-INTEGER KDFG(27),KDFL(27)
-INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem,pID,IERR
-REAL*8 dist,pointR(3),LocVel(3,27)
-LOGICAL :: bFound,bOut=.FALSE.
-INTEGER :: nIter = 100, iIter, iLoc,iParticel,iActiveParticel,idynType
-INTEGER iMonitor(40),iAux
-REAL*8  dMonitor(40),dAux
-INTEGER nXX,kk,iMon
-PARAMETER (nXX = 40)
-REAL*8 , ALLOCATABLE :: dSendVector(:),dRecvVector(:)
-INTEGER, ALLOCATABLE :: iRecvVector(:)
-REAL*8 cpx,cpy,cpz,cnormal(3)
-
-ALLOCATE(dSendVector(nExchangeSet),iRecvVector(nExchangeSet),dRecvVector(nExchangeSet))
-dSendVector = 1d30
-iRecvVector = 0
-
-! if (myid.eq.1) then
-! DO iParticel = 1,nExchangeSet
-!  write(*,*) myExchangeSet(iParticel)%coor(1:3)
-! end do
-! end if
-! pause
-! 
-
-IF (myid.ne.0) THEN
-
-DO iParticel = 1,nExchangeSet
-
-iIter = 0
-
-point  = myExchangeSet(iParticel)%coor
-tLevel = myExchangeSet(iParticel)%time
-
-  cdx = 1d1*point(1)
-  cdy = 1d1*point(2)
-  cdz = 1d1*point(3)
-  
+!USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
+!
+!IMPLICIT NONE
+!REAL*8 dcorvg(3,*),VelU(*),VelV(*),VelW(*),point(3),tLevel,tDelta,d_CorrDist
+!INTEGER nkel,nvt,net,nat,nel
+!INTEGER kel_LdA(*),kel_ColA(*)
+!INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+!INTEGER KDFG(27),KDFL(27)
+!INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem,pID,IERR
+!REAL*8 dist,pointR(3),LocVel(3,27)
+!LOGICAL :: bFound,bOut=.FALSE.
+!INTEGER :: nIter = 100, iIter, iLoc,iParticel,iActiveParticel,idynType
+!INTEGER iMonitor(40),iAux
+!REAL*8  dMonitor(40),dAux
+!INTEGER nXX,kk,iMon
+!PARAMETER (nXX = 40)
+!REAL*8 , ALLOCATABLE :: dSendVector(:),dRecvVector(:)
+!INTEGER, ALLOCATABLE :: iRecvVector(:)
+!REAL*8 cpx,cpy,cpz,cnormal(3)
+!
+!ALLOCATE(dSendVector(nExchangeSet),iRecvVector(nExchangeSet),dRecvVector(nExchangeSet))
+!dSendVector = 1d30
+!iRecvVector = 0
+!
+!! if (myid.eq.1) then
+!! DO iParticel = 1,nExchangeSet
+!!  write(*,*) myExchangeSet(iParticel)%coor(1:3)
+!! end do
+!! end if
+!! pause
+!! 
+!
+!IF (myid.ne.0) THEN
+!
+!DO iParticel = 1,nExchangeSet
+!
+!iIter = 0
+!
+!point  = myExchangeSet(iParticel)%coor
+!tLevel = myExchangeSet(iParticel)%time
+!
+!  cdx = 1d1*point(1)
+!  cdy = 1d1*point(2)
+!  cdz = 1d1*point(3)
+!  
+!!  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+!  
+!!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
+!!   call get_dynamics_type(0, idynType)
+!!   if(idynType == FBM_STATIC) then
+!!    dist_CGAL = -dist_CGAL
+!!   end if
+!!   if(idynType == FBM_STATIC_COMPLEMENT) then
+!!    dist_CGAL = +dist_CGAL
+!!   end if
+!!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
+!  
 !  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
-  
-!   CALL GetDistToSTL(cdx,cdy,cdz,1,dist_CGAL,.true.)
-!   call get_dynamics_type(0, idynType)
-!   if(idynType == FBM_STATIC) then
-!    dist_CGAL = -dist_CGAL
+!  
+!  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+!   
+!   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+!   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+!   if (dist_CGAL.gt.0d0) then
+!    cnormal = -cnormal/daux
+!   else
+!    cnormal = cnormal/daux
 !   end if
-!   if(idynType == FBM_STATIC_COMPLEMENT) then
-!    dist_CGAL = +dist_CGAL
-!   end if
-!   call getclosestpointid(cdx,cdy,cdz,cpx,cpy,cpz,daux,0)
-  
-  CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
-  
-  if (dist_CGAL.lt. d_CorrDist*0.5d0) then
-   
-   cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
-   daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
-   if (dist_CGAL.gt.0d0) then
-    cnormal = -cnormal/daux
-   else
-    cnormal = cnormal/daux
-   end if
-
-   cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
-   cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
-   cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
-
-   P=0.1d0*[cdx,cdy,cdz]
-   point = [P(1),P(2),P(3)]
-  end if
-  
-!  point = [4.6d0, 0d0, 0d0]
-  
-  dist = (point(1)**2d0 + point(2)**2d0)**0.5d0
-  dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
-  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+0.1d0*d_CorrDist*1d0) then
-   daux = myParticleParam%D_Out*0.5d0 - 0.1d0*d_CorrDist*1.0d0
-   cdx = point(1)*daux/dist
-   cdy = point(2)*daux/dist
-   cdz = point(3)
-   if (myid.eq.0) write(*,'(A,3Es12.4,I0)') 'corrected:', myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
-   point = [cdx,cdy,cdz]
-  end if
-  
-!  pause
-  
-  myExchangeSet(iParticel)%coor = point
-
-55 CONTINUE
-
-bFound = .FALSE.
-
-dMonitor = 1d30
-iMonitor = 0
-
-DO i=1,nvt
-
- dist = sqrt((dcorvg(1,i)-point(1))**2d0 + (dcorvg(2,i)-point(2))**2d0 + (dcorvg(3,i)-point(3))**2d0)
- IF (dist.lt.dMonitor(nXX)) THEN
-  dMonitor(nXX) = dist
-  iMonitor(nXX) = i
-  DO kk=nXX-1,1,-1
-   IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
-    iAux = iMonitor(kk)
-    dAux = dMonitor(kk)
-    iMonitor(kk) = iMonitor(kk+1)
-    dMonitor(kk) = dMonitor(kk+1)
-    iMonitor(kk+1) = iAux
-    dMonitor(kk+1) = dAux
-   END IF
-  END DO
- END IF
-
-END DO
-
-
-! write(*,*) myid,point
-! write(*,*) myid,dMonitor
-! pause
-
-DO iMon = 1,nXX
-
-iPoint = iMonitor(iMon)
-
-if (iPoint.ge.1.and.iPoint.le.nvt) then
-
-DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
- 
- jel = kel_ColA(iel)
-!DO iel = 1,nkel
-
-! jel = kel(iel,iPoint)
-
- if (jel.ne.0) then
-  DO i=1,8
-   ivt = kvert(i,jel)
-   P8(:,i) = dcorvg(:,ivt)
-  END DO
- ELSE
-  EXIT
- END IF
-
- dist = 1d30
- jPoint = 0
-
- DO i=1,8
-  daux = sqrt((P8(1,i)-point(1))**2d0 + (P8(2,i)-point(2))**2d0 + (P8(3,i)-point(3))**2d0)
-  IF (daux.lt.dist) THEN
-   dist = daux
-   jPoint = i
-  END IF
- END DO
-
-!  write(*,*) '-->',myid,iMon,dist,nkel
-!  pause
- 
- CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
- IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
- 
- IF (bFound) THEN
-  GOTO 1
- END IF
-
-END DO
-
-end if
-! write(*,*) '-->',myid,iMon,iMon,dist,bFound
-END DO
-
-IF (.not.bFound) GOTO 2
-
-1 CONTINUE
-
-dSendVector(iParticel) = MAX(pointR(1),pointR(2),pointR(3))
-
-2 CONTINUE
-
-! write(*,*) '-->',myid,iMon,dist,bFound
-! pause
-
-END DO
-
-END IF
-
-IF (myid.eq.0) THEN
- DO pID=1,subnodes
-   CALL RECVD_myMPI(dRecvVector,nExchangeSet,pID)
-   DO i=1,nExchangeSet
-    IF (dRecvVector(i).lt.dSendVector(i)) THEN
-     dSendVector(i) = dRecvVector(i)
-     iRecvVector(i) = pID
-    END IF
-   END DO
- END DO
-
-ELSE
-  CALL SENDD_myMPI(dSendVector,nExchangeSet,0)
-END IF
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-IF (myid.eq.0) THEN
- DO pID=1,subnodes
-   CALL SENDK_myMPI(iRecvVector,nExchangeSet,pID)
- END DO
-ELSE
-  CALL RECVK_myMPI(iRecvVector,nExchangeSet,0)
-END IF
-
-nStartActiveSet = nActiveSet
-iActiveParticel = 0
-
-DO iParticel = 1,nExchangeSet
- IF (iRecvVector(iParticel).eq.myid) THEN
-  iActiveParticel = iActiveParticel + 1
-  myActiveSet(nStartActiveSet+iActiveParticel) = myExchangeSet(iParticel)
- END IF
- IF (iRecvVector(iParticel).eq.0) THEN
-  nLostSet = nLostSet + 1
-  myLostSet(nLostSet) = myExchangeSet(iParticel)
-  if (myid.eq.0) write(*,'(A,3Es12.4,1X,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
- END IF
-END DO
-
-DEALLOCATE(dSendVector,iRecvVector,dRecvVector)
-
-nActiveSet = nStartActiveSet+iActiveParticel
-IF (bOut) WRITE(*,*) "My Active Set of Particles after exchange: ", nActiveSet
-
-! write(*,*) myid,"My Active Set of Particles after exchange: ", nActiveSet,nkel
-! pause
-
-! pause
+!
+!   cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+!   cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+!   cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+!
+!   P=0.1d0*[cdx,cdy,cdz]
+!   point = [P(1),P(2),P(3)]
+!  end if
+!  
+!!  point = [4.6d0, 0d0, 0d0]
+!  
+!  dist = (point(1)**2d0 + point(2)**2d0)**0.5d0
+!  dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
+!  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+0.1d0*d_CorrDist*1d0) then
+!   daux = myParticleParam%D_Out*0.5d0 - 0.1d0*d_CorrDist*1.0d0
+!   cdx = point(1)*daux/dist
+!   cdy = point(2)*daux/dist
+!   cdz = point(3)
+!   if (myid.eq.0) write(*,'(A,3Es12.4,I0)') 'corrected:', myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+!   point = [cdx,cdy,cdz]
+!  end if
+!  
+!!  pause
+!  
+!  myExchangeSet(iParticel)%coor = point
+!
+!55 CONTINUE
+!
+!bFound = .FALSE.
+!
+!dMonitor = 1d30
+!iMonitor = 0
+!
+!DO i=1,nvt
+!
+! dist = sqrt((dcorvg(1,i)-point(1))**2d0 + (dcorvg(2,i)-point(2))**2d0 + (dcorvg(3,i)-point(3))**2d0)
+! IF (dist.lt.dMonitor(nXX)) THEN
+!  dMonitor(nXX) = dist
+!  iMonitor(nXX) = i
+!  DO kk=nXX-1,1,-1
+!   IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
+!    iAux = iMonitor(kk)
+!    dAux = dMonitor(kk)
+!    iMonitor(kk) = iMonitor(kk+1)
+!    dMonitor(kk) = dMonitor(kk+1)
+!    iMonitor(kk+1) = iAux
+!    dMonitor(kk+1) = dAux
+!   END IF
+!  END DO
+! END IF
+!
+!END DO
+!
+!
+!! write(*,*) myid,point
+!! write(*,*) myid,dMonitor
+!! pause
+!
+!DO iMon = 1,nXX
+!
+!iPoint = iMonitor(iMon)
+!
+!if (iPoint.ge.1.and.iPoint.le.nvt) then
+!
+!DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
+! 
+! jel = kel_ColA(iel)
+!!DO iel = 1,nkel
+!
+!! jel = kel(iel,iPoint)
+!
+! if (jel.ne.0) then
+!  DO i=1,8
+!   ivt = kvert(i,jel)
+!   P8(:,i) = dcorvg(:,ivt)
+!  END DO
+! ELSE
+!  EXIT
+! END IF
+!
+! dist = 1d30
+! jPoint = 0
+!
+! DO i=1,8
+!  daux = sqrt((P8(1,i)-point(1))**2d0 + (P8(2,i)-point(2))**2d0 + (P8(3,i)-point(3))**2d0)
+!  IF (daux.lt.dist) THEN
+!   dist = daux
+!   jPoint = i
+!  END IF
+! END DO
+!
+!!  write(*,*) '-->',myid,iMon,dist,nkel
+!!  pause
+! 
+! CALL GetPointFromElement(P8,point,jPoint,bFound,pointR,iParticel)
+! IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
+! 
+! IF (bFound) THEN
+!  GOTO 1
+! END IF
+!
+!END DO
+!
+!end if
+!! write(*,*) '-->',myid,iMon,iMon,dist,bFound
+!END DO
+!
+!IF (.not.bFound) GOTO 2
+!
+!1 CONTINUE
+!
+!dSendVector(iParticel) = MAX(pointR(1),pointR(2),pointR(3))
+!
+!2 CONTINUE
+!
+!! write(*,*) '-->',myid,iMon,dist,bFound
+!! pause
+!
+!END DO
+!
+!END IF
+!
+!IF (myid.eq.0) THEN
+! DO pID=1,subnodes
+!   CALL RECVD_myMPI(dRecvVector,nExchangeSet,pID)
+!   DO i=1,nExchangeSet
+!    IF (dRecvVector(i).lt.dSendVector(i)) THEN
+!     dSendVector(i) = dRecvVector(i)
+!     iRecvVector(i) = pID
+!    END IF
+!   END DO
+! END DO
+!
+!ELSE
+!  CALL SENDD_myMPI(dSendVector,nExchangeSet,0)
+!END IF
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+!
+!IF (myid.eq.0) THEN
+! DO pID=1,subnodes
+!   CALL SENDK_myMPI(iRecvVector,nExchangeSet,pID)
+! END DO
+!ELSE
+!  CALL RECVK_myMPI(iRecvVector,nExchangeSet,0)
+!END IF
+!
+!nStartActiveSet = nActiveSet
+!iActiveParticel = 0
+!
+!DO iParticel = 1,nExchangeSet
+! IF (iRecvVector(iParticel).eq.myid) THEN
+!  iActiveParticel = iActiveParticel + 1
+!  myActiveSet(nStartActiveSet+iActiveParticel) = myExchangeSet(iParticel)
+! END IF
+! IF (iRecvVector(iParticel).eq.0) THEN
+!  nLostSet = nLostSet + 1
+!  myLostSet(nLostSet) = myExchangeSet(iParticel)
+!  if (myid.eq.0) write(*,'(A,3Es12.4,1X,I0)') 'lost:',myExchangeSet(iParticel)%coor, myExchangeSet(iParticel)%indice
+! END IF
+!END DO
+!
+!DEALLOCATE(dSendVector,iRecvVector,dRecvVector)
+!
+!nActiveSet = nStartActiveSet+iActiveParticel
+!IF (bOut) WRITE(*,*) "My Active Set of Particles after exchange: ", nActiveSet
+!
+!! write(*,*) myid,"My Active Set of Particles after exchange: ", nActiveSet,nkel
+!! pause
+!
+!! pause
 
 END SUBROUTINE Extract_Particle
 
