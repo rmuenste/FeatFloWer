@@ -235,7 +235,8 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         for k in range(4):
           new_knpr[iElem[f[k]]-1]=1
 
-  print("Partitioning scheme: {}x, {}y, {}z\n".format(nSubMesh, nSubMesh, nSubMesh))
+  if not isinstance(nSubMesh, int):
+    print("Partitioning scheme: {}x, {}y, {}z\n".format(nSubMesh[0], nSubMesh[1], nSubMesh[2]))
   # Für alle Rechengebiete
   # loop from [0, 0, 0] to [n, n, n]
   for iPartX in range(1,partX+1):
