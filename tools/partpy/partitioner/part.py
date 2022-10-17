@@ -241,7 +241,7 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
   for iPartX in range(1,partX+1):
     for iPartY in range(1,partY+1):
       for iPartZ in range(1,partZ+1):
-        iPart = [iPartX, iPartY, iPartZ]
+        iPart = [iPartZ, iPartY, iPartX]
         # Bestimme, welche Zellen und Knoten in diesem Gebiet liegen 
         iElem=tuple(eNum for (eNum,p) in enumerate(Part) if p==iPart)
         iCoor=set(vert-1 for eNum in iElem for vert in kvert[eNum])
@@ -439,18 +439,20 @@ def AxisBasedPartitioning(Grid,nSubMesh,Method):
   print(dZ)
   print(theList)
   PosFak=1
+  valCount = [0] * len(theList)
   for (ElemIdx,Elem) in enumerate(kvert):
     for idx, val in enumerate(theList):
-#      if all([(coord[Vert-1][Dir] -val <= 1e-5) for Vert in Elem]):
         count = 0
         for Vert in Elem:
           dist = coord[Vert-1][Dir] - (val + zMin)  
           if dist <= 1e-5:
             count = count + 1
+            valCount[idx] = valCount[idx] + 1
         if count == 8:
           Part[ElemIdx][order]=idx + 1
           break
-
+  print(valCount)
+  
   # y-subdivision
   Dir = 1
   order = 1

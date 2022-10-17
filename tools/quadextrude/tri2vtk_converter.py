@@ -48,7 +48,7 @@ def convertVtk2Tri(vtkFile, triFile):
     hexMesh.generateMeshStructures()
     writeTriFile(hexMesh, triFile)
 
-def handleDevisorDir(dirName):
+def handleDevisorDir(dirName, outDir="./"):
     """
     Converts files from a devisor directory to vtk
     Parameters:
@@ -59,7 +59,7 @@ def handleDevisorDir(dirName):
     pvdList = []
     print(nameList)
     for item in nameList:
-        print(os.path.splitext(item)[1])
+#        print(os.path.splitext(item)[1])
         fileName = os.path.join(fullName, item)
         if os.path.isfile(fileName) and os.path.splitext(item)[1] == '.tri':
             baseName = os.path.splitext(fileName)[0] 
@@ -83,7 +83,7 @@ def handleDevisorDir(dirName):
                     print("Writing %s \n" %vtkName)
                     convertTri2VtkXml(os.path.join(fileName, subItem), vtkName)
     print(pvdList)
-    with open("pvdfile.pvd", "w") as f:
+    with open(os.path.join(outDir, "pvdfile.pvd"), "w") as f:
         f.write("<?xml version=\"1.0\"?>\n")
         f.write("<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n")
         f.write("<Collection>\n")
@@ -101,14 +101,23 @@ def main():
 
     firstFile = sys.argv[1]
     if len(sys.argv) > 2:
-        secondFile = sys.argv[2]
+        secondArg = sys.argv[2]
 
+#    print(sys.argv)
+#    if os.path.isdir(sys.argv[1]):
+#        print("We found a dir")
+#    if os.path.isabs(sys.argv[1]):
+#        print("We found a absolute path")
+#    sys.exit(0)
     if os.path.isdir(sys.argv[1]):
-        handleDevisorDir(sys.argv[1])
-    elif os.path.splitext(firstFile)[1] == '.tri' and os.path.splitext(secondFile)[1] == '.vtk':
-        convertTri2Vtk(firstFile, secondFile)
-    elif os.path.splitext(firstFile)[1] == '.vtk' and os.path.splitext(secondFile)[1] == '.tri':
-        convertVtk2Tri(firstFile, secondFile)
+        if len(sys.argv) > 2 and os.path.isdir(sys.argv[2]):
+          handleDevisorDir(sys.argv[1], sys.argv[2])
+        else:
+          handleDevisorDir(sys.argv[1])
+    elif os.path.splitext(firstFile)[1] == '.tri' and os.path.splitext(secondArg)[1] == '.vtk':
+        convertTri2Vtk(firstFile, secondArg)
+    elif os.path.splitext(firstFile)[1] == '.vtk' and os.path.splitext(secondArg)[1] == '.tri':
+        convertVtk2Tri(firstFile, secondArg)
     else:
         raise RuntimeError("File extensions not suitable for conversion")
 
