@@ -201,6 +201,89 @@ end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_Recover_Weigths(x,y,z,vidx,x0,y0,z0,vx,vy,vz)
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+real*8 , intent(in) :: x,y,z
+real*8 , intent(inout) :: x0,y0,z0,vx,vy,vz
+! vidx
+integer, intent(in) :: vidx
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+!   valu = 0d0
+!   valv = 0d0
+!   valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+
+      vx = velo(1)
+      vy = velo(2)
+      vz = velo(3)
+      x0 = Pos(1)
+      y0 = Pos(2)
+      z0 = Pos(3)
+      return
+     end if
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+
+      vx = velo(1)
+      vy = velo(2)
+      vz = velo(3)
+      x0 = Pos(1)
+      y0 = Pos(2)
+      z0 = Pos(3)
+      return
+     end if
+  end do
+
+end subroutine fbm_Recover_Weigths
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_getSoftKnpr(x,y,z, bndryId, inpr, dist)
 ! 
 !   This subroutine handles the FBM geometric computations

@@ -2,7 +2,7 @@ MODULE def_QuadScalar
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
                    COMM_Maximum,COMM_MaximumN,COMM_SUMM,COMM_NLComplete,&
-                   myMPI_Barrier
+                   myMPI_Barrier, coarse
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
@@ -2188,21 +2188,63 @@ EXTERNAL Bndry_Mat,Bndry_Def
  CALL LL21 (qScalar%ValW,qScalar%ndof,dnormu3)
  dnormu=sqrt(dnormu1*dnormu1+dnormu2*dnormu2+dnormu3*dnormu3)
  IF (ABS(dnormu).LT.1D-32) dnormu=1D-32
+
+!================================================================================================
  CALL COMM_Maximum(dnormu)
 
- if ((.not.bMasterTurnedOn).and.myid.eq.0) THEN
- else
   DO ILEV = NLMIN,NLMAX
    CALL SETLEV(2)
    CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
-   if (myid.ne.0) CALL Bndry_Mat(mg_CPMat(ILEV)%a,mg_lPMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,0)
+   
+   if (myid.ne.0) then
+    IF (bNoOutFlow) then
+     do iel=1,mg_mesh%level(nlmin)%nel
+      if (coarse%myELEMLINK(iel).eq.1) then
+       write(*,*) "An element is being treated because of bNoOutflow // matrix",myid,iel
+       j=4*(iel-1) + 1
+       DO I=lMat%LdA(j)+1,lMat%LdA(j+1)-1
+        mg_CMat(ILEV)%a(I) = 0d0
+       END DO
+      end if
+     end do
+    end if
+    
+    CALL Bndry_Mat(mg_CPMat(ILEV)%a,mg_lPMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,0)
+   end if
   END DO
+  
   if (myid.ne.0) then 
    ILEV = NLMAX
    CALL SETLEV(2)
+   
+   IF (bNoOutFlow) then
+    do iel=1,mg_mesh%level(nlmin)%nel
+     if (coarse%myELEMLINK(iel).eq.1) then
+      j=4*(iel-1) + 1 
+      write(*,*) "An element is being treated because of bNoOutflow // defect",myid,iel
+      lScalar%rhsP(ILEV)%x(j) = 0d0
+     end if
+    end do
+   end if
+   
    CALL Bndry_Def(lScalar%rhsP(ILEV)%x,lScalar%knprP(ILEV)%x,nel)
   end if
- end if
+!================================================================================================
+! CALL COMM_Maximum(dnormu)
+!
+! if ((.not.bMasterTurnedOn).and.myid.eq.0) THEN
+! else
+!  DO ILEV = NLMIN,NLMAX
+!   CALL SETLEV(2)
+!   CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
+!   if (myid.ne.0) CALL Bndry_Mat(mg_CPMat(ILEV)%a,mg_lPMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,0)
+!  END DO
+!  if (myid.ne.0) then 
+!   ILEV = NLMAX
+!   CALL SETLEV(2)
+!   CALL Bndry_Def(lScalar%rhsP(ILEV)%x,lScalar%knprP(ILEV)%x,nel)
+!  end if
+! end if
  
  ! Set up the pointers for the Pressure MG driver 
  MyMG%A   => mg_CMat
@@ -4699,6 +4741,720 @@ if (myid.eq.1) then
 end if
 
 END SUBROUTINE MonitorVeloMag
+!=========================================================================
+! 
+!=========================================================================
+!
+! ----------------------------------------------
+!
+SUBROUTINE Matdef_FICTBC_QuadScalar(myScalar,idef)
+EXTERNAL E013
+INTEGER :: idef
+INTEGER I,J
+TYPE(TQuadScalar) myScalar
+REAL*8 daux
+REAL tttx1,tttx0
+! the formula for crank-nicholson may be wrong
+
+! Build up the matrix
+ IF (idef.eq.-1) THEN
+  DO ILEV=NLMIN,NLMAX
+
+    !!-------------------    POINTER Setup  -------------------!!
+    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+     A11Mat     => mg_A11Mat(ILEV)%a
+     A22Mat     => mg_A22Mat(ILEV)%a
+     A33Mat     => mg_A33Mat(ILEV)%a
+     A12Mat     => mg_A12Mat(ILEV)%a
+     A13Mat     => mg_A13Mat(ILEV)%a
+     A23Mat     => mg_A23Mat(ILEV)%a
+     A21Mat     => mg_A21Mat(ILEV)%a
+     A31Mat     => mg_A31Mat(ILEV)%a
+     A32Mat     => mg_A32Mat(ILEV)%a
+    ELSE
+     A11Mat     => mg_A11Mat(ILEV)%a
+     A22Mat     => mg_A22Mat(ILEV)%a
+     A33Mat     => mg_A33Mat(ILEV)%a
+    END IF
+
+    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0.and.(NewtonForBurgers.ne.0d0)) THEN
+     barM11Mat     => mg_barM11Mat(ILEV)%a
+     barM22Mat     => mg_barM22Mat(ILEV)%a
+     barM33Mat     => mg_barM33Mat(ILEV)%a
+     barM12Mat     => mg_barM12Mat(ILEV)%a
+     barM13Mat     => mg_barM13Mat(ILEV)%a
+     barM23Mat     => mg_barM23Mat(ILEV)%a
+     barM21Mat     => mg_barM21Mat(ILEV)%a
+     barM31Mat     => mg_barM31Mat(ILEV)%a
+     barM32Mat     => mg_barM32Mat(ILEV)%a
+    END IF
+
+    IF (myMatrixRenewal%S.GE.1) THEN
+     S11Mat   => mg_S11Mat(ILEV)%a
+     S22Mat   => mg_S22Mat(ILEV)%a
+     S33Mat   => mg_S33Mat(ILEV)%a
+     S12Mat   => mg_S12Mat(ILEV)%a
+     S13Mat   => mg_S13Mat(ILEV)%a
+     S23Mat   => mg_S23Mat(ILEV)%a
+     S21Mat   => mg_S21Mat(ILEV)%a
+     S31Mat   => mg_S31Mat(ILEV)%a
+     S32Mat   => mg_S32Mat(ILEV)%a
+    END IF
+
+    IF (bNS_Stabilization) THEN
+     hDmat  => mg_hDmat(ILEV)%a
+    END IF
+    
+    IF (myMatrixRenewal%D.GE.1) THEN
+     DMat     => mg_DMat(ILEV)%a
+    END IF
+
+    IF (myMatrixRenewal%K.GE.1) THEN
+     KMat     => mg_KMat(ILEV)%a
+    END IF
+
+    IF (myMatrixRenewal%M.GE.1) THEN
+     MMat     => mg_MMat(ILEV)%a
+     MlRhoMat => mg_MlRhoMat(ILEV)%a
+    END IF
+
+    qMat     => mg_qMat(ILEV)
+    !!-------------------    POINTER Setup  -------------------!!
+
+    !!-------------------  MATRIX Assembly -------------------!!
+    IF (bNonNewtonian) THEN
+     IF (myMatrixRenewal%S.EQ.0) THEN!K-Alternative fehlt
+      IF (myMatrixRenewal%K.GE.1) THEN
+       DO I=1,qMat%nu
+        J = qMat%LdA(I)
+        daux = MlRhoMat(I) + thstep*(2d0*DMat(J)+KMat(J))
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+         daux = thstep*(2d0*DMat(J)+KMat(J))! 
+         A11mat(J) =  daux
+         A22mat(J) =  daux
+         A33mat(J) =  daux
+        END DO
+       END DO
+      ELSE
+       DO I=1,qMat%nu
+        J = qMat%LdA(I)
+        daux = MlRhoMat(I) + thstep*(2d0*DMat(J))!  
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+         daux =  thstep*(2d0*DMat(J))!
+         A11mat(J) =  daux
+         A22mat(J) =  daux
+         A33mat(J) =  daux
+        END DO
+       END DO 
+      END IF     
+     ELSE
+      IF (myMatrixRenewal%K.GE.1) THEN
+       IF (NewtonForBurgers.eq.0d0) then
+        DO I=1,qMat%nu
+         J = qMat%LdA(I)
+         A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + KMat(J))
+         A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + KMat(J))
+         A33Mat(J) = MlRhoMat(I) + thstep*(S33Mat(J) + KMat(J))
+         A12Mat(J) = thstep*(S12Mat(J))
+         A13Mat(J) = thstep*(S13Mat(J))
+         A23Mat(J) = thstep*(S23Mat(J))
+         A21Mat(J) = thstep*(S21Mat(J))
+         A31Mat(J) = thstep*(S31Mat(J))
+         A32Mat(J) = thstep*(S32Mat(J))
+         DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+          A11mat(J) = thstep*(S11Mat(J) + KMat(J))
+          A22mat(J) = thstep*(S22Mat(J) + KMat(J))
+          A33mat(J) = thstep*(S33Mat(J) + KMat(J))
+          A12Mat(J) = thstep*(S12Mat(J))
+          A13Mat(J) = thstep*(S13Mat(J))
+          A23Mat(J) = thstep*(S23Mat(J))
+          A21Mat(J) = thstep*(S21Mat(J))
+          A31Mat(J) = thstep*(S31Mat(J))
+          A32Mat(J) = thstep*(S32Mat(J))
+         END DO
+        END DO
+       ELSE
+        DO I=1,qMat%nu
+         J = qMat%LdA(I)
+         A11Mat(J) = MlRhoMat(I) + thstep*(S11Mat(J) + KMat(J) + NewtonForBurgers * barM11Mat(J))
+         A22Mat(J) = MlRhoMat(I) + thstep*(S22Mat(J) + KMat(J) + NewtonForBurgers * barM22Mat(J))
+         A33Mat(J) = MlRhoMat(I) + thstep*(S33Mat(J) + KMat(J) + NewtonForBurgers * barM33Mat(J))
+         A12Mat(J) = thstep*(S12Mat(J) + NewtonForBurgers * barM12Mat(J))
+         A13Mat(J) = thstep*(S13Mat(J) + NewtonForBurgers * barM13Mat(J))
+         A23Mat(J) = thstep*(S23Mat(J) + NewtonForBurgers * barM23Mat(J))
+         A21Mat(J) = thstep*(S21Mat(J) + NewtonForBurgers * barM21Mat(J))
+         A31Mat(J) = thstep*(S31Mat(J) + NewtonForBurgers * barM31Mat(J))
+         A32Mat(J) = thstep*(S32Mat(J) + NewtonForBurgers * barM32Mat(J))
+         DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+          A11mat(J) = thstep*(S11Mat(J) + KMat(J) + NewtonForBurgers * barM11Mat(J))
+          A22mat(J) = thstep*(S22Mat(J) + KMat(J) + NewtonForBurgers * barM22Mat(J))
+          A33mat(J) = thstep*(S33Mat(J) + KMat(J) + NewtonForBurgers * barM33Mat(J))
+          A12Mat(J) = thstep*(S12Mat(J) + NewtonForBurgers * barM12Mat(J))
+          A13Mat(J) = thstep*(S13Mat(J) + NewtonForBurgers * barM13Mat(J))
+          A23Mat(J) = thstep*(S23Mat(J) + NewtonForBurgers * barM23Mat(J))
+          A21Mat(J) = thstep*(S21Mat(J) + NewtonForBurgers * barM21Mat(J))
+          A31Mat(J) = thstep*(S31Mat(J) + NewtonForBurgers * barM31Mat(J))
+          A32Mat(J) = thstep*(S32Mat(J) + NewtonForBurgers * barM32Mat(J))
+         END DO
+        END DO
+       END IF
+      ELSE
+
+       DO I=1,qMat%nu
+        J = qMat%LdA(I)
+        A11Mat(J) = MlRhoMat(I) + thstep*S11Mat(J)
+        A22Mat(J) = MlRhoMat(I) + thstep*S22Mat(J)
+        A33Mat(J) = MlRhoMat(I) + thstep*S33Mat(J)
+        A12Mat(J) = thstep*S12Mat(J)
+        A13Mat(J) = thstep*S13Mat(J)
+        A23Mat(J) = thstep*S23Mat(J)
+        A21Mat(J) = thstep*S21Mat(J)
+        A31Mat(J) = thstep*S31Mat(J)
+        A32Mat(J) = thstep*S32Mat(J)
+        DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+         A11mat(J) = thstep*S11Mat(J)
+         A22mat(J) = thstep*S22Mat(J)
+         A33mat(J) = thstep*S33Mat(J)
+         A12Mat(J) = thstep*S12Mat(J)
+         A13Mat(J) = thstep*S13Mat(J)
+         A23Mat(J) = thstep*S23Mat(J)
+         A21Mat(J) = thstep*S21Mat(J)
+         A31Mat(J) = thstep*S31Mat(J)
+         A32Mat(J) = thstep*S32Mat(J)
+        END DO
+       END DO
+      END IF
+     END IF
+    ELSE
+
+     IF (myMatrixRenewal%K.GE.1) THEN
+
+      DO I=1,qMat%nu
+       J = qMat%LdA(I)
+       daux = MlRhoMat(I) + thstep*(DMat(J)+KMat(J))
+       A11mat(J) = daux
+       A22mat(J) = daux
+       A33mat(J) = daux
+       DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+        daux =  +thstep*(DMat(J)+KMat(J))
+        A11mat(J) =  daux
+        A22mat(J) =  daux
+        A33mat(J) =  daux
+       END DO
+      END DO
+
+     ELSE
+
+      DO I=1,qMat%nu
+       J = qMat%LdA(I)
+       daux = MlRhoMat(I) + thstep*(DMat(J))
+       A11mat(J) = daux
+       A22mat(J) = daux
+       A33mat(J) = daux
+       DO J=qMat%LdA(I)+1,qMat%LdA(I+1)-1
+        daux =  +thstep*(DMat(J))
+        A11mat(J) =  daux
+        A22mat(J) =  daux
+        A33mat(J) =  daux
+       END DO
+      END DO
+
+     END IF
+
+    END IF
+
+  END DO
+ END IF
+ 
+!  IF (bNS_Stabilization) THEN
+!   DO I=1,qMat%nu
+!    DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!     daux =  +tstep*Properties%NS_StabAlpha_Imp*hDmat(J)
+!     A11mat(J) = A11mat(J) + daux
+!     A22mat(J) = A22mat(J) + daux
+!     A33mat(J) = A33mat(J) + daux
+!    END DO
+!   END DO
+!  END IF
+    !!-------------------  MATRIX Assembly -------------------!!
+
+    !!-------------------    POINTER Setup  -------------------!!
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+  A11Mat     => mg_A11Mat(ILEV)%a
+  A22Mat     => mg_A22Mat(ILEV)%a
+  A33Mat     => mg_A33Mat(ILEV)%a
+  A12Mat     => mg_A12Mat(ILEV)%a
+  A13Mat     => mg_A13Mat(ILEV)%a
+  A23Mat     => mg_A23Mat(ILEV)%a
+  A21Mat     => mg_A21Mat(ILEV)%a
+  A31Mat     => mg_A31Mat(ILEV)%a
+  A32Mat     => mg_A32Mat(ILEV)%a
+ ELSE
+  A11Mat     => mg_A11Mat(ILEV)%a
+  A22Mat     => mg_A22Mat(ILEV)%a
+  A33Mat     => mg_A33Mat(ILEV)%a
+ END IF
+
+ IF (myMatrixRenewal%S.GE.1) THEN
+  S11Mat   => mg_S11Mat(ILEV)%a
+  S22Mat   => mg_S22Mat(ILEV)%a
+  S33Mat   => mg_S33Mat(ILEV)%a
+  S12Mat   => mg_S12Mat(ILEV)%a
+  S13Mat   => mg_S13Mat(ILEV)%a
+  S23Mat   => mg_S23Mat(ILEV)%a
+  S21Mat   => mg_S21Mat(ILEV)%a
+  S31Mat   => mg_S31Mat(ILEV)%a
+  S32Mat   => mg_S32Mat(ILEV)%a
+ END IF
+
+ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0.and.NewtonForBurgers.ne.0d0) THEN
+  barM11Mat     => mg_barM11Mat(ILEV)%a
+  barM22Mat     => mg_barM22Mat(ILEV)%a
+  barM33Mat     => mg_barM33Mat(ILEV)%a
+  barM12Mat     => mg_barM12Mat(ILEV)%a
+  barM13Mat     => mg_barM13Mat(ILEV)%a
+  barM23Mat     => mg_barM23Mat(ILEV)%a
+  barM21Mat     => mg_barM21Mat(ILEV)%a
+  barM31Mat     => mg_barM31Mat(ILEV)%a
+  barM32Mat     => mg_barM32Mat(ILEV)%a
+ END IF
+
+ IF (myMatrixRenewal%D.GE.1) THEN
+  DMat     => mg_DMat(ILEV)%a
+ END IF
+
+ IF (myMatrixRenewal%K.GE.1) THEN
+  KMat     => mg_KMat(ILEV)%a
+ END IF
+
+ IF (myMatrixRenewal%M.GE.1) THEN
+  MMat     => mg_MMat(ILEV)%a
+  MlRhoMat => mg_MlRhoMat(ILEV)%a
+ END IF
+
+ qMat     => mg_qMat(ILEV)
+    !!-------------------    POINTER Setup  -------------------!!
+
+ ! Build up the defect
+ IF (idef.eq. 1) THEN
+   myScalar%defU = 0d0
+   myScalar%defV = 0d0
+   myScalar%defW = 0d0
+
+   IF (myMatrixRenewal%M.GE.1) THEN
+    myScalar%defU = myScalar%defU + MlRhoMat*myScalar%valU
+    myScalar%defV = myScalar%defV + MlRhoMat*myScalar%valV
+    myScalar%defW = myScalar%defW + MlRhoMat*myScalar%valW
+   END IF
+
+   IF (myMatrixRenewal%D.GE.1.AND.(.NOT.bNonNewtonian)) THEN
+    CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defU,-thstep,1d0)
+    CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defV,-thstep,1d0)
+    CALL LAX17(DMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defW,-thstep,1d0)
+   END IF
+
+   IF (bNS_Stabilization) THEN
+    CALL DivGradStress(myScalar%valU,&
+         myScalar%ValUx,myScalar%ValUy,myScalar%ValUz,&
+         myScalar%defU,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+         
+    CALL DivGradStress(myScalar%valV,&
+         myScalar%ValVx,myScalar%ValVy,myScalar%ValVz,&
+         myScalar%defV,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+         
+    CALL DivGradStress(myScalar%valW,&
+         myScalar%ValWx,myScalar%ValWy,myScalar%ValWz,&
+         myScalar%defW,&
+         mg_mesh%level(ILEV)%kvert,&
+         mg_mesh%level(ILEV)%karea,&
+         mg_mesh%level(ILEV)%kedge,&
+         mg_mesh%level(ILEV)%dcorvg,&
+         E013,Properties%NS_StabAlpha_Exp,1d0)
+   END IF
+ 
+   IF (myMatrixRenewal%K.GE.1) THEN
+    CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defU,-thstep,1d0)
+    CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defV,-thstep,1d0)
+    CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defW,-thstep,1d0)
+   END IF
+
+   IF (myMatrixRenewal%S.GE.1) THEN
+    CALL LAX17(S11Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defU,-thstep,1d0)
+    CALL LAX17(S12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defU,-thstep,1d0)
+    CALL LAX17(S13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defU,-thstep,1d0)
+
+    CALL LAX17(S21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defV,-thstep,1d0)
+    CALL LAX17(S22Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defV,-thstep,1d0)
+    CALL LAX17(S23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defV,-thstep,1d0)
+
+    CALL LAX17(S31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defW,-thstep,1d0)
+    CALL LAX17(S32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defW,-thstep,1d0)
+    CALL LAX17(S33Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defW,-thstep,1d0)
+   END IF
+
+   IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) THEN
+    CALL ZTIME(tttx0)
+    
+    if (bMultiMat) THEN
+     CALL AlphaSTRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    else
+     CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+     Temperature,MaterialDistribution(ilev)%x,&
+     myScalar%defU, myScalar%defV, myScalar%defW,&
+     Viscosity,&
+     mg_mesh%level(ILEV)%kvert,&
+     mg_mesh%level(ILEV)%karea,&
+     mg_mesh%level(ILEV)%kedge,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     E013 ) ! S*u
+    end if
+
+    CALL ZTIME(tttx1)
+    myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
+   END IF
+ 
+ END IF
+ 
+ IF (idef.eq. 0) THEN
+
+   IF (bNonNewtonian) THEN
+
+    IF(myMatrixRenewal%S.GE.1) THEN
+     CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,-1d0,1d0)
+     CALL LAX17(A12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defU,-1d0,1d0)
+     CALL LAX17(A13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defU,-1d0,1d0)
+
+     CALL LAX17(A21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defV,-1d0,1d0)
+     CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,-1d0,1d0)
+     CALL LAX17(A23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defV,-1d0,1d0)
+
+     CALL LAX17(A31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defW,-1d0,1d0)
+     CALL LAX17(A32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defW,-1d0,1d0)
+     CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,-1d0,1d0)
+     
+    IF (NewtonForBurgers.ne.0d0) THEN
+     CALL LAX17(barM11mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defU,+thstep,1d0)
+     CALL LAX17(barM12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defU,+thstep,1d0)
+     CALL LAX17(barM13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defU,+thstep,1d0)
+
+     CALL LAX17(barM21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defV,+thstep,1d0)
+     CALL LAX17(barM22mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defV,+thstep,1d0)
+     CALL LAX17(barM23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defV,+thstep,1d0)
+
+     CALL LAX17(barM31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valU,myScalar%defW,+thstep,1d0)
+     CALL LAX17(barM32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valV,myScalar%defW,+thstep,1d0)
+     CALL LAX17(barM33mat,qMat%ColA,qMat%LdA,qMat%nu,&
+     myScalar%valW,myScalar%defW,+thstep,1d0)
+    END IF
+
+    ELSE
+     IF (myMatrixRenewal%M.GE.1) THEN
+      myScalar%defU = myScalar%defU - MlRhoMat*myScalar%valU
+      myScalar%defV = myScalar%defV - MlRhoMat*myScalar%valV
+      myScalar%defW = myScalar%defW - MlRhoMat*myScalar%valW
+     END IF
+
+     IF (myMatrixRenewal%K.GE.1) THEN
+      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+      myScalar%valU,myScalar%defU,-thstep,1d0)
+      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+      myScalar%valV,myScalar%defV,-thstep,1d0)
+      CALL LAX17(KMat,qMat%ColA,qMat%LdA,qMat%nu,&
+      myScalar%valW,myScalar%defW,-thstep,1d0)
+     END IF
+
+     CALL ZTIME(tttx0)
+
+     if (bMultiMat) THEN
+      CALL AlphaSTRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+      MaterialDistribution(ilev)%x,&
+      myScalar%defU, myScalar%defV, myScalar%defW,&
+      Viscosity,&
+      mg_mesh%level(ILEV)%kvert,&
+      mg_mesh%level(ILEV)%karea,&
+      mg_mesh%level(ILEV)%kedge,&
+      mg_mesh%level(ILEV)%dcorvg,&
+      E013 ) ! S*u
+     else
+      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
+      Temperature,MaterialDistribution(ilev)%x,&
+      myScalar%defU, myScalar%defV, myScalar%defW,&
+      Viscosity,&
+      mg_mesh%level(ILEV)%kvert,&
+      mg_mesh%level(ILEV)%karea,&
+      mg_mesh%level(ILEV)%kedge,&
+      mg_mesh%level(ILEV)%dcorvg,&
+      E013 ) ! S*u
+     end if
+
+     CALL ZTIME(tttx1)
+     myStat%tSMat = myStat%tSMat + (tttx1-tttx0)
+    END IF   
+
+   ELSE
+
+    CALL LAX17(A11mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valU,myScalar%defU,-1d0,1d0)
+    CALL LAX17(A22mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valV,myScalar%defV,-1d0,1d0)
+    CALL LAX17(A33mat,qMat%ColA,qMat%LdA,qMat%nu,&
+    myScalar%valW,myScalar%defW,-1d0,1d0)
+
+   END IF
+
+ END IF
+
+END SUBROUTINE Matdef_FICTBC_QuadScalar
+!
+! ----------------------------------------------
+!
+
+SUBROUTINE Set_MatBC_QuadScalar(myScalar,Bndry_Mat,Bndry_Mat_9)
+EXTERNAL Bndry_Val,Bndry_Mat,Bndry_Mat_9
+TYPE(TQuadScalar), INTENT(INOUT), TARGET :: myScalar
+
+IF (myid.ne.0) THEN
+ DO ILEV = NLMIN,NLMAX
+  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+   CALL Bndry_Mat_9(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,&
+        mg_A12mat(ILEV)%a,mg_A13mat(ILEV)%a,mg_A23mat(ILEV)%a,&
+        mg_A21mat(ILEV)%a,mg_A31mat(ILEV)%a,mg_A32mat(ILEV)%a,&
+        mg_qMat(ILEV)%LdA,myScalar%knprU(NLMAX)%x,myScalar%knprV(NLMAX)%x,&
+        myScalar%knprW(NLMAX)%x,mg_qMat(ILEV)%nu)
+  ELSE
+   CALL Bndry_Mat(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,&
+        mg_qMat(ILEV)%LdA,myScalar%knprU(NLMAX)%x,myScalar%knprV(NLMAX)%x,&
+        myScalar%knprW(NLMAX)%x,mg_qMat(ILEV)%nu)
+  END IF
+ END DO
+END IF
+
+END SUBROUTINE Set_MatBC_QuadScalar 
+!
+! ----------------------------------------------
+!
+SUBROUTINE Solve_FictKNPR_QuadScalar(myScalar,mfile)
+INTEGER mfile
+TYPE(TQuadScalar), INTENT(INOUT), TARGET :: myScalar
+REAL*8 daux,nrm_U,nrm_V,nrm_W
+REAL*8 u_rel(6)
+INTEGER ndof
+! EXTERNAL Bndry_Val
+
+nrm_U = 0d0
+nrm_V = 0d0
+nrm_W = 0d0
+
+ CALL ZTIME(myStat%t0)
+
+ call ll21(myScalar%valU,myScalar%ndof,u_rel(1))
+ call ll21(myScalar%valV,myScalar%ndof,u_rel(2))
+ call ll21(myScalar%valW,myScalar%ndof,u_rel(3))
+ 
+ IF (myid.ne.0) THEN
+  DO ILEV = NLMIN,NLMAX
+   IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    CALL E013UVWMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
+   ELSE
+    CALL E013UVWMAT(mg_A11mat(ILEV)%a,mg_A22mat(ILEV)%a,mg_A33mat(ILEV)%a,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%nu)
+   END IF
+  END DO
+  CALL LL21 (myScalar%defU,myScalar%ndof,nrm_U)
+  CALL LL21 (myScalar%defV,myScalar%ndof,nrm_V)
+  CALL LL21 (myScalar%defW,myScalar%ndof,nrm_W)
+  CALL LCL1 (myScalar%valU,myScalar%ndof)
+  CALL LCL1 (myScalar%valV,myScalar%ndof)
+  CALL LCL1 (myScalar%valW,myScalar%ndof)
+ END IF
+
+ daux = MAX(nrm_U,nrm_V,nrm_W)
+ CALL COMM_Maximum(daux)
+
+!--------------- Set up the MG driver -----------------!
+ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+  MyMG%A11  => mg_A11Mat
+  MyMG%A22  => mg_A22Mat
+  MyMG%A33  => mg_A33Mat
+  MyMG%A12  => mg_A12Mat
+  MyMG%A13  => mg_A13Mat
+  MyMG%A23  => mg_A23Mat
+  MyMG%A21  => mg_A21Mat
+  MyMG%A31  => mg_A31Mat
+  MyMG%A32  => mg_A32Mat
+ ELSE
+  MyMG%A11    => mg_A11Mat
+  MyMG%A22    => mg_A22Mat
+  MyMG%A33    => mg_A33Mat
+ END IF
+ MyMG%L    => mg_qMat
+ MyMG%D    => myScalar%def
+ MyMG%AUX  => myScalar%aux
+ MyMG%KNPRU => myScalar%knprU(NLMAX)%x
+ MyMG%KNPRV => myScalar%knprV(NLMAX)%x
+ MyMG%KNPRW => myScalar%knprW(NLMAX)%x
+ MyMG%cVariable = "Velocity"
+ MyMG%bProlRest => myScalar%bProlRest
+! Variable specific settings 
+ MyMG%MinIterCycle       = myScalar%prm%MGprmIn%MinIterCycle
+ MyMG%MaxIterCycle       = myScalar%prm%MGprmIn%MaxIterCycle
+ MyMG%nIterCoarse        = myScalar%prm%MGprmIn%nIterCoarse
+ MyMG%DefImprCoarse      = myScalar%prm%MGprmIn%DefImprCoarse
+ MyMG%nSmootherSteps     = myScalar%prm%MGprmIn%nSmootherSteps
+ MyMG%CycleType          = myScalar%prm%MGprmIn%CycleType
+ MyMG%Criterion1         = myScalar%prm%MGprmIn%Criterion1
+ MyMG%Criterion2         = myScalar%prm%MGprmIn%Criterion2*daux
+ MyMG%RLX                = myScalar%prm%MGprmIn%RLX
+ MyMG%MinLev             = myScalar%prm%MGprmIn%MinLev
+ MyMG%MedLev             = myScalar%prm%MGprmIn%MedLev
+ MyMG%CrsSolverType      = myScalar%prm%MGprmIn%CrsSolverType
+ MyMG%CrsRelaxPrm        = myScalar%prm%MGprmIn%CrsRelaxPrm
+ MyMG%CrsRelaxParPrm     = myScalar%prm%MGprmIn%CrsRelaxParPrm
+
+ daux = DBLE(NLMAX)
+ CALL COMM_Maximum(daux)
+ MyMG%MaxLev             = NINT(daux)
+
+!-------------------  U - Component -------------------!
+ ndof = myScalar%ndof !SIZE(myScalar%ValU)
+
+ myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU(1:ndof)
+ myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV(1:ndof)
+ myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW(1:ndof)
+ MyMG%X    => myScalar%sol
+
+ myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU(1:ndof)
+ myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV(1:ndof)
+ myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW(1:ndof)
+ MyMG%B    => myScalar%rhs
+
+ CALL MG_Solver(mfile,mterm)
+
+ call ll21(myScalar%sol(NLMAX)%x(0*ndof+1:),ndof,u_rel(4))
+ call ll21(myScalar%sol(NLMAX)%x(1*ndof+1:),ndof,u_rel(5))
+ call ll21(myScalar%sol(NLMAX)%x(2*ndof+1:),ndof,u_rel(6))
+  
+ CALL COMM_MaximumN(u_rel,6)
+ 
+! !  if (myid.eq.1) write(MTERM,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
+! !  if (myid.eq.1) write(MFILE,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
+ 
+ myScalar%ValU(1:ndof) = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+ myScalar%ValV(1:ndof) = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+ myScalar%ValW(1:ndof) = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+
+ myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
+ myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
+ myScalar%prm%MGprmOut(1)%DefInitial    = myMG%DefInitial
+ myScalar%prm%MGprmOut(1)%DefFinal      = myMG%DefFinal
+ myScalar%prm%MGprmOut(1)%RhoMG1        = myMG%RhoMG1
+ myScalar%prm%MGprmOut(1)%RhoMG2        = myMG%RhoMG2
+ myScalar%prm%MGprmOut(1)%u_rel         = u_rel
+ 
+! !-------------------  V - Component -------------------!
+!  myScalar%sol(NLMAX)%x = myScalar%ValV
+!  MyMG%X    => myScalar%sol
+!  myScalar%rhs(NLMAX)%x = myScalar%defV
+!  MyMG%B    => myScalar%rhs
+!  CALL MG_Solver(mfile,mterm)
+!  myScalar%ValV = myScalar%sol(NLMAX)%x
+!  myScalar%prm%MGprmOut(2)%UsedIterCycle = myMG%UsedIterCycle
+!  myScalar%prm%MGprmOut(2)%nIterCoarse   = myMG%nIterCoarse
+!  myScalar%prm%MGprmOut(2)%DefInitial    = myMG%DefInitial
+!  myScalar%prm%MGprmOut(2)%DefFinal      = myMG%DefFinal
+!  myScalar%prm%MGprmOut(2)%RhoMG1        = myMG%RhoMG1
+!  myScalar%prm%MGprmOut(2)%RhoMG2        = myMG%RhoMG2
+!  !-------------------  W - Component -------------------!
+!  myScalar%sol(NLMAX)%x = myScalar%ValW
+!  MyMG%X    => myScalar%sol
+!  myScalar%rhs(NLMAX)%x = myScalar%defW
+!  MyMG%B    => myScalar%rhs
+!  CALL MG_Solver(mfile,mterm)
+!  myScalar%ValW = myScalar%sol(NLMAX)%x
+!  myScalar%prm%MGprmOut(3)%UsedIterCycle = myMG%UsedIterCycle
+!  myScalar%prm%MGprmOut(3)%nIterCoarse   = myMG%nIterCoarse
+!  myScalar%prm%MGprmOut(3)%DefInitial    = myMG%DefInitial
+!  myScalar%prm%MGprmOut(3)%DefFinal      = myMG%DefFinal
+!  myScalar%prm%MGprmOut(3)%RhoMG1        = myMG%RhoMG1
+!  myScalar%prm%MGprmOut(3)%RhoMG2        = myMG%RhoMG2
+!------------------------------------------------------!
+
+ ! Update the solution
+ IF (myid.ne.0) THEN
+  CALL LLC1(myScalar%valU_old,myScalar%valU,&
+       myScalar%ndof,1D0,1D0)
+  CALL LLC1(myScalar%valV_old,myScalar%valV,&
+       myScalar%ndof,1D0,1D0)
+  CALL LLC1(myScalar%valW_old,myScalar%valW,&
+       myScalar%ndof,1D0,1D0)
+
+ END IF
+
+ CALL ZTIME(myStat%t1)
+ myStat%tMGUVW = myStat%tMGUVW + (myStat%t1-myStat%t0)
+ myStat%iLinUVW = myStat%iLinUVW + myScalar%prm%MGprmOut(1)%UsedIterCycle &
+                                 + myScalar%prm%MGprmOut(2)%UsedIterCycle &
+                                 + myScalar%prm%MGprmOut(3)%UsedIterCycle
+
+END SUBROUTINE Solve_FictKNPR_QuadScalar
 
 END MODULE def_QuadScalar
 

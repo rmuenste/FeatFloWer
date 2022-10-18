@@ -6,6 +6,7 @@
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
 ${CMAKE_SOURCE_DIR}/source/src_particles/dem_query.f90
+${CMAKE_SOURCE_DIR}/source/src_particles/part_step.f90
 )
 
 #=========================================================================
@@ -210,7 +211,6 @@ target_compile_options(ff_LinSc PUBLIC ${Fortran_FLAGS})
 
 set(src_particles
   ${CMAKE_SOURCE_DIR}/source/src_particles/part_input.f90
-  ${CMAKE_SOURCE_DIR}/source/src_particles/part_step.f90
   ${CMAKE_SOURCE_DIR}/source/src_particles/part_tracer.f90
   )
 

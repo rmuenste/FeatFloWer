@@ -2812,3 +2812,257 @@ END DO
 mySetup%bPressureConvergence = mySetup%bPressureConvergence.and.(istart.eq.1)
 
 END SUBROUTINE GetPressureAtInflows
+
+!
+! ----------------------------------------------
+!
+SUBROUTINE Transport_q2p1_UxyzP_fcweight_ext(mfile,inl_u,itns)
+use cinterface, only: calculateDynamics,calculateFBM
+use fbm, only: fbm_updateFBM
+
+INTEGER mfile,INL,inl_u,itns
+REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
+INTEGER INLComplete,I,J,IERR,iITER
+
+CALL updateFBMGeometry(.false.)
+
+thstep = tstep*(1d0-theta)
+
+CALL OperatorRegenaration(2)
+
+CALL OperatorRegenaration(3)
+
+IF (myid.ne.master) THEN
+ CALL SET_FBMVAL_QuadScalar()
+END IF
+
+! -------------------------------------------------
+! Compute the momentum equations
+! -------------------------------------------------
+! GOTO 1
+IF (myid.ne.master) THEN
+
+ CALL ZTIME(tttt0)
+
+ ! Assemble the right hand side
+ CALL Matdef_FICTBC_QuadScalar(QuadSc,1)
+
+ ! Add the pressure gradient to the rhs
+ CALL AddPressureGradient()
+END IF
+
+ ! Add the viscoelastic stress to the rhs
+ IF(bViscoElastic)THEN
+   CALL AddViscoStress()
+ END IF
+
+IF (myid.ne.master) THEN
+
+ ! Add the gravity force to the rhs
+ CALL AddGravForce()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Set_RHSBC_QuadScalar()
+
+ ! Store the constant right hand side
+ QuadSc%rhsU = QuadSc%defU
+ QuadSc%rhsV = QuadSc%defV
+ QuadSc%rhsW = QuadSc%defW
+
+END IF
+
+thstep = tstep*theta
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the matrix on all levels
+ CALL Matdef_FICTBC_QuadScalar(QuadSc,-1)
+
+ ! Set boundary conditions on the matrix
+ call Set_MatBC_QuadScalar(QuadSc,Set_MATBC_QuadScalar_sub,Set_MATBC_QuadScalar_9_sub)
+
+ ! Assemble the defect by d:= f - A.x
+ CALL Matdef_FICTBC_QuadScalar(QuadSc, 0)
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+
+ ! Save the old solution
+ CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the norm of the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+CALL COMM_Maximum(RhsUVW)
+DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
+
+CALL Protocol_QuadScalar(mfile,QuadSc,0,&
+     ResU,ResV,ResW,DefUVW,DefUVWCrit," Momentum equation ")
+
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+DO INL=1,QuadSc%prm%NLmax
+INLComplete = 0
+
+! ! Calling the solver
+CALL Solve_FictKNPR_QuadScalar(QuadSc,mfile)
+
+!!!!          Checking the quality of the result           !!!!
+!!!! ----------------------------------------------------- !!!!
+IF (myid.ne.master) THEN
+! ! Set dirichlet boundary conditions on the solution
+!  CALL Set_VALBC_QuadScalar()
+end if
+
+CALL OperatorRegenaration(3)
+
+IF (myid.ne.master) THEN
+! Restore the constant right hand side
+ CALL ZTIME(tttt0)
+ QuadSc%defU = QuadSc%rhsU
+ QuadSc%defV = QuadSc%rhsV
+ QuadSc%defW = QuadSc%rhsW
+END IF
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the matrix on all levels
+ CALL Matdef_FICTBC_QuadScalar(QuadSc,-1)
+
+ ! Set boundary conditions on the matrix
+ call Set_MatBC_QuadScalar(QuadSc,Set_MATBC_QuadScalar_sub,Set_MATBC_QuadScalar_9_sub)
+
+ ! Assemble the defect by d:= f - A.x
+ CALL Matdef_FICTBC_QuadScalar(QuadSc, 0)
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+
+ ! Save the old solution
+ CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsUVW=DefUVW
+CALL COMM_Maximum(RhsUVW)
+CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
+     ResU,ResV,ResW,DefUVW,RhsUVW)
+IF (ISNAN(RhsUVW)) stop
+
+IF ((DefUVW.LE.DefUVWCrit).AND.&
+    (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+IF (INLComplete.eq.1) GOTO 1
+!IF (timens.lt.tstep+1d-8) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+! return
+myStat%iNonLin = myStat%iNonLin + INL
+inl_u = INL
+
+! -------------------------------------------------
+! Compute the pressure correction
+! -------------------------------------------------
+CALL MonitorVeloMag(QuadSc)
+
+IF (myid.ne.0) THEN
+
+ CALL ZTIME(tttt0)
+ ! Save the old solution
+ LinSc%valP_old = LinSc%valP(NLMAX)%x
+ LinSc%valP(NLMAX)%x = 0d0
+
+ ! Assemble the right hand side (RHS=1/k B^T U~)
+ CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
+
+ ! Save the right hand side
+ LinSc%rhsP(NLMAX)%x = LinSc%defP(NLMAX)%x
+
+ CALL ZTIME(tttt1)
+ myStat%tDefP = myStat%tDefP + (tttt1-tttt0)
+END IF
+
+! Calling the solver
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
+
+CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
+
+2 CONTINUE
+
+IF (myid.ne.0) THEN
+ CALL ZTIME(tttt0)
+ 
+ !if (myid.eq.1) write(*,*) 'no correction ... '
+ CALL Velocity_Correction()
+ CALL Pressure_Correction()
+ CALL ZTIME(tttt1)
+ myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
+END IF
+
+CALL QuadScP1toQ2(LinSc,QuadSc)
+
+CALL FAC_GetForces(mfile)
+
+CALL GetNonNewtViscosity()
+
+IF (bNS_Stabilization) THEN
+ CALL ExtractVeloGradients()
+END IF
+
+call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+                   Properties%Gravity,mfile,myid,&
+                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
+
+!if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
+
+IF (myid.ne.0) THEN
+ CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+END IF
+ 
+CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
+ 
+IF (myid.ne.0) THEN
+ CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+END IF
+ 
+ CALL GET_MESH_VELO()
+ 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
+
+CALL updateFBMGeometry()
+
+CALL MonitorVeloMag(QuadSc)
+
+RETURN
+
+END SUBROUTINE Transport_q2p1_UxyzP_fcweight_ext 

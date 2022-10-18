@@ -5,6 +5,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
   use solution_io, only: postprocessing_app
 
   use app_initialization, only: init_q2p1_app
+  use Transport_Q2P1, only: Transport_q2p1_UxyzP_fcweight_ext
 
 
   use post_utils,  only: handle_statistics,&
@@ -41,6 +42,7 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+!  call Transport_q2p1_UxyzP_fcweight_ext(ufile,inonln_u,itns) 
 !  call debug_output_particles()
 !  call debug_output_particles()
 

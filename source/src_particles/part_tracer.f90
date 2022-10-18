@@ -153,14 +153,14 @@ IF (myid.ne.0) THEN
  CALL SETLEV(2)
 END IF
 nStartActiveSet = 0
-CALL Extract_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                      mg_mesh%level(ILEV)%elementsAtVertex,&
-                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!CALL Extract_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%kedge,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                      mg_mesh%level(ILEV)%elementsAtVertex,&
+!                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
 
 ! Get the bounds of the mesh. Note: We need to set it to nlmax because else
 ! it won't work
@@ -243,16 +243,16 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
     EXIT
    ELSE
 
-    CALL Exchange_Particle(nExSum)
-    CALL Extract_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
-                          mg_mesh%level(ILEV)%kvert,&
-                          mg_mesh%level(ILEV)%kedge,&
-                          mg_mesh%level(ILEV)%karea,&
-                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                          mg_mesh%level(ILEV)%elementsAtVertex,&
-                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!    CALL Exchange_Particle(nExSum)
+!    CALL Extract_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
+!                          mg_mesh%level(ILEV)%kvert,&
+!                          mg_mesh%level(ILEV)%kedge,&
+!                          mg_mesh%level(ILEV)%karea,&
+!                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                          mg_mesh%level(ILEV)%elementsAtVertex,&
+!                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
    END IF
 
   END DO
@@ -379,15 +379,15 @@ IF (myid.ne.0) THEN
  CALL SETLEV(2)
 END IF
 nStartActiveSet = 0
-CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                      mg_mesh%level(ILEV)%elementsAtVertex,&
-                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%kedge,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                      mg_mesh%level(ILEV)%elementsAtVertex,&
+!                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
 ! Get the bounds of the mesh. Note: We need to set it to nlmax because else
 ! it won't work
 IF (myid.ne.0) THEN
@@ -480,16 +480,16 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
     EXIT
    ELSE
 
-    CALL Exchange_Particle(nExSum)
-    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                          mg_mesh%level(ILEV)%kvert,&
-                          mg_mesh%level(ILEV)%kedge,&
-                          mg_mesh%level(ILEV)%karea,&
-                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                          mg_mesh%level(ILEV)%elementsAtVertex,&
-                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!    CALL Exchange_Particle(nExSum)
+!    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                          mg_mesh%level(ILEV)%kvert,&
+!                          mg_mesh%level(ILEV)%kedge,&
+!                          mg_mesh%level(ILEV)%karea,&
+!                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                          mg_mesh%level(ILEV)%elementsAtVertex,&
+!                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
    END IF
 
   END DO
@@ -618,14 +618,14 @@ IF (myid.ne.0) THEN
  CALL SETLEV(2)
 END IF
 nStartActiveSet = 0
-CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                      mg_mesh%level(ILEV)%elementsAtVertex,&
-                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%kedge,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                      mg_mesh%level(ILEV)%elementsAtVertex,&
+!                      QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
 
 ! Get the bounds of the mesh. Note: We need to set it to nlmax because else
 ! it won't work
@@ -708,16 +708,16 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
     EXIT
    ELSE
 
-    CALL Exchange_Particle(nExSum)
-    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                          mg_mesh%level(ILEV)%kvert,&
-                          mg_mesh%level(ILEV)%kedge,&
-                          mg_mesh%level(ILEV)%karea,&
-                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                          mg_mesh%level(ILEV)%elementsAtVertex,&
-                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
-                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!    CALL Exchange_Particle(nExSum)
+!    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                          mg_mesh%level(ILEV)%kvert,&
+!                          mg_mesh%level(ILEV)%kedge,&
+!                          mg_mesh%level(ILEV)%karea,&
+!                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                          mg_mesh%level(ILEV)%elementsAtVertex,&
+!                          QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,&
+!                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
    END IF
 
   END DO
@@ -830,15 +830,15 @@ IF (myid.ne.0) THEN
  CALL SETLEV(2)
 END IF
 nStartActiveSet = 0
-CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                      mg_mesh%level(ILEV)%elementsAtVertex,&
-                      myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%kedge,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                      mg_mesh%level(ILEV)%elementsAtVertex,&
+!                      myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                      nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
 ! Get the bounds of the mesh. Note: We need to set it to nlmax because else
 ! it won't work
 IF (myid.ne.0) THEN
@@ -917,16 +917,16 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
     EXIT
    ELSE
 
-    CALL Exchange_Particle(nExSum)
-    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                          mg_mesh%level(ILEV)%kvert,&
-                          mg_mesh%level(ILEV)%kedge,&
-                          mg_mesh%level(ILEV)%karea,&
-                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                          mg_mesh%level(ILEV)%elementsAtVertex,&
-                          myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
-
+!    CALL Exchange_Particle(nExSum)
+!    CALL Extract_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                          mg_mesh%level(ILEV)%kvert,&
+!                          mg_mesh%level(ILEV)%kedge,&
+!                          mg_mesh%level(ILEV)%karea,&
+!                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                          mg_mesh%level(ILEV)%elementsAtVertex,&
+!                          myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                          nvt,net,nat,nel,dTime,myParticleParam%d_CorrDist)
+!
    END IF
 
   END DO
