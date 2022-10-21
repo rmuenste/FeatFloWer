@@ -2194,9 +2194,9 @@ EXTERNAL Bndry_Mat,Bndry_Def
 
   DO ILEV = NLMIN,NLMAX
    CALL SETLEV(2)
-   CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
    
    if (myid.ne.0) then
+    CALL Bndry_Mat(mg_CMat(ILEV)%a,mg_lMat(ILEV)%LdA,lScalar%knprP(ILEV)%x,nel,1)
     IF (bNoOutFlow) then
      do iel=1,mg_mesh%level(nlmin)%nel
       if (coarse%myELEMLINK(iel).eq.1) then

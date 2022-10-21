@@ -4031,6 +4031,7 @@ integer nUniqueCenters,iUniqueCenter
 real*8 mindist
 
  nC = 0
+ iC = 0
  do i=1,8
   if (F8(i).ne.0) nC = nC + 1
  end do
@@ -4419,7 +4420,7 @@ SUBROUTINE SET_FBMVAL_QuadScalar()
   real*8 q(3),w(3),dist
   integer :: finpr,ivt
   integer iKDFG(27),iKDFL(27),idfg,idfl
-  real*8, allocatable :: dControl(:)
+  real*8, allocatable :: dControl(:),dV1(:),dV2(:),dV3(:)
 
   ilev = NLMAX
   call setlev(2)
@@ -4486,10 +4487,10 @@ SUBROUTINE SET_FBMVAL_QuadScalar()
    
   end do
 
-  allocate (dControl(nvt))
+  allocate (dControl(ndof))
   dControl = 0d0
   
-  DO i=1,nvt
+  DO i=1,ndof
    if (FBMWeight(i).gt.0d0) dControl(i) = 1d0
   END DO
   
@@ -4497,18 +4498,32 @@ SUBROUTINE SET_FBMVAL_QuadScalar()
   ilev = NLMAX
   call setlev(2)
   
-  CALL E013Sum(dControl)
-  CALL E013Sum(FBMWeight)
-  CALL E013Sum3(FBMVelocity(1,:),FBMVelocity(2,:),FBMVelocity(3,:))
-  
-  DO i=1,QuadSc%ndof
-   if (FBMWeight(i).gt.0d0) then 
-    FBMWeight(i) = FBMWeight(i)/dControl(i)
-    FBMVelocity(:,i) = FBMVelocity(:,i)/dControl(i)
-   END IF
+
+  allocate (dV1(ndof))
+  allocate (dV2(ndof))
+  allocate (dV3(ndof))
+
+  DO i=1,ndof
+    dV1(i) = FBMVelocity(1,i)
+    dV2(i) = FBMVelocity(2,i)
+    dV3(i) = FBMVelocity(3,i)
   END DO
-  
-  deallocate(dControl)
+
+  CALL E013Sum(FBMWeight)
+  CALL E013Sum(dControl)
+  CALL E013Sum3(dV1,dV2,dV3)
+
+  DO i=1,QuadSc%ndof
+  if (FBMWeight(i).gt.0d0) then
+!    FBMWeight(i) = FBMWeight(i)/dControl(i)
+    FBMWeight(i) = min(FBMWeight(i),1d0)
+    !FBMVelocity(:,i) = [dV1(i), dV2(i), dV3(i)]
+    FBMVelocity(:,i) = [0.0, 0.0, -0.01]
+  END IF
+  END DO
+
+  deallocate(dControl,dV1,dV2,dV3)
+
   
 !   do iel=1,nel
 !    CALL NDFGL(iel,1,13,mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%kedge,mg_mesh%level(ilev)%karea,iKDFG,iKDFL)
