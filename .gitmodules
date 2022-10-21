@@ -8,3 +8,6 @@
 [submodule "extern/libraries/hypre"]
 	path = extern/libraries/hypre
 	url = https://github.com/rmuenste/hypre.git
+[submodule "libs/FullContactV2"]
+	path = libs/FullContactV2
+	url = git@github.com:rmuenste/FullContactV2.git
