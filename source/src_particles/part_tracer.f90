@@ -211,15 +211,15 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
 
   DO
    IF (myid.ne.0) THEN
-    CALL Move_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
-                       mg_mesh%level(ILEV)%kvert,&
-                       mg_mesh%level(ILEV)%kedge,&
-                       mg_mesh%level(ILEV)%karea,&
-                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                       mg_mesh%level(ILEV)%elementsAtVertex,&
-                       myVelo(iLevel0)%x,myVelo(iLevel0)%y,myVelo(iLevel0)%z,&
-                       myVelo(iLevel1)%x,myVelo(iLevel1)%y,myVelo(iLevel1)%z,&
-                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
+!    CALL Move_Particle_xse(mg_mesh%level(ILEV)%dcorvg,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%kedge,&
+!                       mg_mesh%level(ILEV)%karea,&
+!                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                       mg_mesh%level(ILEV)%elementsAtVertex,&
+!                       myVelo(iLevel0)%x,myVelo(iLevel0)%y,myVelo(iLevel0)%z,&
+!                       myVelo(iLevel1)%x,myVelo(iLevel1)%y,myVelo(iLevel1)%z,&
+!                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
    END IF
 
    daux = DBLE(nActiveSet)
@@ -448,15 +448,15 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
 
   DO
    IF (myid.ne.0) THEN
-    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                       mg_mesh%level(ILEV)%kvert,&
-                       mg_mesh%level(ILEV)%kedge,&
-                       mg_mesh%level(ILEV)%karea,&
-                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                       mg_mesh%level(ILEV)%elementsAtVertex,&
-                       FlowField_U,FlowField_V,FlowField_W,&
-                       FlowField_U,FlowField_V,FlowField_W,&
-                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
+!    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%kedge,&
+!                       mg_mesh%level(ILEV)%karea,&
+!                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                       mg_mesh%level(ILEV)%elementsAtVertex,&
+!                       FlowField_U,FlowField_V,FlowField_W,&
+!                       FlowField_U,FlowField_V,FlowField_W,&
+!                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
    END IF
 
    daux = DBLE(nActiveSet)
@@ -676,15 +676,15 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
 
   DO
    IF (myid.ne.0) THEN
-    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                       mg_mesh%level(ILEV)%kvert,&
-                       mg_mesh%level(ILEV)%kedge,&
-                       mg_mesh%level(ILEV)%karea,&
-                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                       mg_mesh%level(ILEV)%elementsAtVertex,&
-                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
+!    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%kedge,&
+!                       mg_mesh%level(ILEV)%karea,&
+!                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                       mg_mesh%level(ILEV)%elementsAtVertex,&
+!                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
    END IF
 
    daux = DBLE(nActiveSet)
@@ -885,15 +885,15 @@ DO iTimeSteps=1,myParticleParam%nRotation*myParticleParam%nTimeLevels
 
   DO
    IF (myid.ne.0) THEN
-    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
-                       mg_mesh%level(ILEV)%kvert,&
-                       mg_mesh%level(ILEV)%kedge,&
-                       mg_mesh%level(ILEV)%karea,&
-                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
-                       mg_mesh%level(ILEV)%elementsAtVertex,&
-                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
-                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
+!    CALL Move_Particle(mg_mesh%level(ILEV)%dcorvg,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%kedge,&
+!                       mg_mesh%level(ILEV)%karea,&
+!                       mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+!                       mg_mesh%level(ILEV)%elementsAtVertex,&
+!                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                       myVelo(1)%x,myVelo(1)%y,myVelo(1)%z,&
+!                       nvt,net,nat,nel,dTime,dStart,myParticleParam%d_CorrDist)
    END IF
 
    daux = DBLE(nActiveSet)

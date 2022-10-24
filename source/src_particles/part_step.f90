@@ -1260,25 +1260,25 @@ subroutine Move_Particle(dcorvg,kvert,kedge,karea,kel_LdA,kel_ColA,&
                          Vel0U,Vel0V,Vel0W,Vel1U,Vel1V,Vel1W,nvt,net,nat,nel,tDelta,tStart,d_CorrDist)
 USE PP3D_MPI, ONLY : myid
 USE types, ONLY : myActiveSet,myExchangeSet,nActiveSet,nExchangeSet,nStartActiveSet
-USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
-
-IMPLICIT NONE
-REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart,d_CorrDist
-REAL*8 Vel0U(*),Vel0V(*),Vel0W(*),Vel1U(*),Vel1V(*),Vel1W(*)
-INTEGER nvt,net,nat,nel
-INTEGER kel_LdA(*),kel_ColA(*)
-INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-INTEGER KDFG(27),KDFL(27)
-INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem
-REAL*8 dist,pointR(3),LocVel0(3,27),LocVel1(3,27)
-LOGICAL :: bFound,bOut=.FALSE.
-INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel,idynType
-INTEGER iMonitor(40),iAux
-REAL*8  dMonitor(40),dAux
-INTEGER nXX,kk,iMon
-PARAMETER (nXX = 40)
-REAL*8 cpx,cpy,cpz,cnormal(3)
-
+!USE fbmaux, ONLY : FBM_STATIC_COMPLEMENT,FBM_STATIC
+!
+!IMPLICIT NONE
+!REAL*8 dcorvg(3,*),point(3),tLevel,tDelta,tStart,d_CorrDist
+!REAL*8 Vel0U(*),Vel0V(*),Vel0W(*),Vel1U(*),Vel1V(*),Vel1W(*)
+!INTEGER nvt,net,nat,nel
+!INTEGER kel_LdA(*),kel_ColA(*)
+!INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+!INTEGER KDFG(27),KDFL(27)
+!INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem
+!REAL*8 dist,pointR(3),LocVel0(3,27),LocVel1(3,27)
+!LOGICAL :: bFound,bOut=.FALSE.
+!INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel,idynType
+!INTEGER iMonitor(40),iAux
+!REAL*8  dMonitor(40),dAux
+!INTEGER nXX,kk,iMon
+!PARAMETER (nXX = 40)
+!REAL*8 cpx,cpy,cpz,cnormal(3)
+!
 !iLostParticel = 0
 !iActiveParticel = 0
 !
