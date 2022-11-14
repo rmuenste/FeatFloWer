@@ -204,8 +204,8 @@ def GetParts(Neigh,nPart,Method):
   # Fertig
   return tuple(Part)
 
-def Flatten3dArray(maxX, maxY, i, j, k):  
-  idx1D = (i - 1) * maxX * maxY + (j - 1) * maxY + k - 1 
+def Flatten3dArray(maxZ, maxY, i, j, k):  
+  idx1D = (i - 1) * maxZ * maxY + (j - 1) * maxZ + k - 1 
   return idx1D
 
 def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
@@ -260,13 +260,13 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         # Gitterausgabe
         localGrid=(len(dKvert),len(dCoor),dCoor,dKvert,dKnpr)
         if bSub:
-          idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
+          idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
           idx1D2 = idx1D2 + 1
           localGridName=os.path.join(BaseName,"GRID%03d.tri"%idx1D2)
         else:
           # 3D->1D map
-          # [iz * (yMax * xMax)] + (iy * xMax)  + ix
-          idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
+          # [ix * (yMax * zMax)] + (iy * zMax)  + iz
+          idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
           idx1D2 = idx1D2 + 1
           localGridName=os.path.join(BaseName,"sub%03d"%idx1D2,"GRID.tri")
         OutputGrid(localGridName,localGrid)
@@ -281,11 +281,11 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
         localRestriktion=set(LookUp.keys())
         for iPar in range(nParFiles):
           if bSub:
-            idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
+            idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
             localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],idx1D2))
           else:
-            idx1D2 = Flatten3dArray(partX, partY, iPart[2], iPart[1], iPart[0])  
+            idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
             localParName=os.path.join(BaseName,"sub%03d"%idx1D2,"%s.par"%ParNames[iPar])
           # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
