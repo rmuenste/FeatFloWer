@@ -110,7 +110,7 @@ SUBROUTINE Boundary_LinSc_Val_XSE()
 
 REAL*8 X,Y,Z
 INTEGER i,iInflow
-REAL*8 :: D=4d1,T1=217d0,T2=256d0,T3=270d0
+REAL*8 :: T1=35d0,T2=45d0
 real*8 dc(3),dR,dRR,dT,TempBC
 
 DO i=1,Tracer%ndof
@@ -155,14 +155,10 @@ DO i=1,Tracer%ndof
  END IF
  
  IF (Tracer%knpr(i).eq.2) THEN
-!   if (z.lt.2d0*4d1) THEN
+!   if (z.lt.11.25d0) THEN
 !    Tracer%val(NLMAX)%x(i)= T1
 !   else
-!    if (z.gt.8d0*4d1) then
-!     Tracer%val(NLMAX)%x(i)= T3
-!    else
-!     Tracer%val(NLMAX)%x(i)= T2
-!    end if
+!    Tracer%val(NLMAX)%x(i)= T2
 !   END IF
   Tracer%val(NLMAX)%x(i)= myProcess%Ta
  END IF
