@@ -1708,12 +1708,31 @@ INTEGER iLevel
 INTEGER JEL,KEL,ivt,jvt,nLengthE,nLengthV
 INTEGER iaux,jaux,jj,kv(8),II
 LOGICAL ,ALLOCATABLE :: bGot(:)
+
+TYPE tMG
+ INTEGER, allocatable :: ke(:),jv(:)
+END TYPE tMG
+TYPE (tMG), ALLOCATABLE :: mgMG(:)
+
 ! -------------- workspace -------------------
+
 
 ! IF (myid.NE.0) THEN
 
  NLMAX = NLMAX+iLevel
 
+ open(unit=887,file='_data/MG.dat')
+ ALLOCATE(mgMG(NLMAX))
+ DO II=1,NLMAX
+  nlengthV = (2**(II-1)+1)**3
+  ALLOCATE(mgMG(II)%ke(nlengthV))
+  ALLOCATE(mgMG(II)%jv(nlengthV))
+  DO ivt=1,nlengthV
+   READ(887,*) iaux,mgMG(II)%ke(ivt),mgMG(II)%jv(ivt)
+  END DO
+ END DO
+ close(887)
+ 
  ILEV = NLMIN
  NEL  = mg_mesh%level(ilev)%nel
  nLengthE = 8**(NLMAX-1)
@@ -1724,15 +1743,13 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
  ALLOCATE(myDump%Vertices(NEL,nLengthV))
 
  DO IEL = 1,mg_mesh%level(NLMIN)%nel
-
   myDump%Elements(IEL,1) = IEL
   iaux = 1
   DO II=1+1,NLMAX
    jaux = iaux
    DO jel=1,jaux
     kel = myDump%Elements(iel,jel)
-    CALL Get8Elem(mg_mesh%level(II)%kadj,&
-      kv,kel)
+    CALL Get8Elem(mg_mesh%level(II)%kadj,kv,kel)
     DO jj = 2,8
      iaux = iaux + 1
      myDump%Elements(iel,iaux) = kv(jj)
@@ -1741,35 +1758,37 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
   END DO
  END DO 
 
- ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
  DO IEL = 1,mg_mesh%level(NLMIN)%nel
-  bGot = .FALSE.
-  iaux = 0
-  DO JEL = 1,nLengthE
-   KEL = myDump%Elements(IEL,JEL)
-   
-   CALL getVert(mg_mesh%level(NLMAX)%kvert,&
-                kv,KEL)
-
-   DO IVT = 1,8
-    JVT = kv(IVT)
-    IF (.NOT.bGot(JVT)) THEN
-     iaux = iaux + 1
-     myDump%Vertices(IEL,iaux) = JVT
-     bGot(JVT) = .TRUE.
-    END IF
-   END DO
-
+  DO IVT = 1,nLengthV
+   JEL = mgMG(NLMAX)%ke(ivt)
+   kel = myDump%Elements(iel,jel)
+   JVT = mgMG(NLMAX)%jv(ivt)
+   myDump%Vertices(IEL,IVT) = mg_mesh%level(NLMAX)%kvert(jvt,kel)
   END DO
-
-!  IF (iaux.ne.729) WRITE(*,*) myid,iel,iaux
-  
  END DO
- DEALLOCATE(bGot)
-
+ 
+!  ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
+!  
+!  DO IEL = 1,mg_mesh%level(NLMIN)%nel
+!   bGot = .FALSE.
+!   iaux = 0
+!   DO JEL = 1,nLengthE
+!    KEL = myDump%Elements(IEL,JEL)
+!    CALL getVert(mg_mesh%level(NLMAX)%kvert,kv,KEL)
+!    DO IVT = 1,8
+!     JVT = kv(IVT)
+!     IF (.NOT.bGot(JVT)) THEN
+!      iaux = iaux + 1
+!      myDump%Vertices(IEL,iaux) = JVT
+!      bGot(JVT) = .TRUE.
+!     END IF
+!    END DO
+!   END DO
+!  END DO
+!  DEALLOCATE(bGot)
+! 
+ DEALLOCATE(mgMG)
  NLMAX = NLMAX - iLevel
-!   write(*,*) size(myDump%Vertices),"asdas dasd sad sa",myid
-!   pause
 
 ! END IF
 
@@ -1790,12 +1809,12 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
 
  END SUBROUTINE Get8Elem
 
- SUBROUTINE getVert(BigKv,SmallKv,elem)
- INTEGER BigKv(8,*),SmallKv(8),elem
-
- SmallKv(:) = BigKv(:,elem)
-
- END SUBROUTINE getVert
+!  SUBROUTINE getVert(BigKv,SmallKv,elem)
+!  INTEGER BigKv(8,*),SmallKv(8),elem
+! 
+!  SmallKv(:) = BigKv(:,elem)
+! 
+!  END SUBROUTINE getVert
 
 END SUBROUTINE CreateDumpStructures
 !
@@ -4174,3 +4193,67 @@ end do
 END SUBROUTINE FindElemKNPR
 
 END SUBROUTINE SetPressBC_NewGen
+!
+! ----------------------------------------------
+!
+SUBROUTINE INT_ParP0toQ2(P0,Q2,DAUX,DVOL,KVERT,KEDGE,KAREA,nvt,net,nat,nel,iFLD,bParallel)
+!***********************************************************************
+!    Purpose:  - Interpolates the solution pressure DP to
+!                the vector VPL of dimension NVT with
+!                values in the vertices
+!-----------------------------------------------------------------------
+IMPLICIT NONE
+
+REAL*8 Q2(*),DAUX(*)
+INTEGER P0(*)
+INTEGER nvt,net,nat,nel,iFLD
+INTEGER NNVE,NNEE,NNAE
+PARAMETER (NNVE=8,NNEE=12,NNAE=6)
+INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+
+REAL*8 DDAVOL,DPIEL,DVOL(*)
+integer iv(12),ivt,iel
+logical bParallel
+!-----------------------------------------------------------------------
+
+CALL  LCL1 (DAUX,NVT+NET+NAT+NEL)
+CALL  LCL1 (Q2,NVT+NET+NAT+NEL)
+
+DO IEL=1,NEL
+
+ DDAVOL=DVOL(IEL)
+ 
+ IF (P0(IEL).eq.iFld-1) then
+  DPIEL=1d0
+ Else
+  DPIEL=0d0
+ end if
+
+ IV(1:8)=KVERT(1:8,IEL)
+ Q2(IV(1:8))=Q2(IV(1:8))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:8))=DAUX(IV(1:8))+0.125d0*DDAVOL
+ 
+ IV(1:12)=nvt + KEDGE(1:12,IEL)
+ Q2(IV(1:12))=Q2(IV(1:12))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:12))=DAUX(IV(1:12))+0.125d0*DDAVOL
+
+ IV(1:6)=nvt + net + KAREA(1:6,IEL)
+ Q2(IV(1:6))=Q2(IV(1:6))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:6))=DAUX(IV(1:6))+0.125d0*DDAVOL
+ 
+ IV(1)=nvt + net + nat + iel
+ Q2(IV(1))=Q2(IV(1))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1))=DAUX(IV(1))+0.125d0*DDAVOL
+ 
+END DO
+
+if (bParallel) then
+ CALL E013sum(q2)
+ CALL E013sum(daux)
+end if
+
+DO IVT=1,NVT+NET+NAT+NEL
+ Q2(IVT)=Q2(IVT)/DAUX(IVT)
+END DO
+
+END SUBROUTINE INT_ParP0toQ2
