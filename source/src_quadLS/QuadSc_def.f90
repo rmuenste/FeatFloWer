@@ -2,7 +2,7 @@ MODULE def_QuadScalar
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
                    COMM_Maximum,COMM_MaximumN,COMM_SUMM,COMM_NLComplete,&
-                   myMPI_Barrier
+                   myMPI_Barrier,coarse
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
@@ -439,7 +439,7 @@ TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TParLinScalar), INTENT(INOUT), TARGET ::  lPScalar
 integer mfile
 INTEGER NDOF_n,NDOF_p
-INTEGER IEQ,JEQ,IA,ICOL,II,III,MaxDofs
+INTEGER IEQ,I,J,JEQ,IA,ICOL,II,III,MaxDofs
 INTEGER, allocatable :: iDofs(:)
 REAL*8 , allocatable :: dDofs(:)
 
@@ -468,12 +468,20 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
  end if
  
  if (myid.ne.0.and.bNoOutFlow) THEN
-  IF (myid.eq.1) THEN
-   WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
-   DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
-    CMat(IEQ) = 0d0
-   END DO
-  END IF
+    do iel=1,mg_mesh%level(nlmin)%nel
+     if (coarse%myELEMLINK(iel).eq.1) then
+       WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
+       j=4*(iel-1) + 1
+       DO I=lMat%LdA(j)+1,lMat%LdA(j+1)-1
+        mg_CMat(ILEV)%a(I) = 0d0
+       END DO
+     end if
+    end do
+!   IF (myid.eq.1) THEN
+!    DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
+!     CMat(IEQ) = 0d0
+!    END DO
+!   END IF
  END IF
 
  CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
