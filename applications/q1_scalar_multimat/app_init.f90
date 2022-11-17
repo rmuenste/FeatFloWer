@@ -29,10 +29,11 @@ subroutine init_q1_scalar(log_unit)
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call InitCond_QuadScalar()
     CALL InitCond_GenLinSc_Q1_QuadScalar()
-ELSE
+  ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-      call Load_ListFiles_General(0,'s,p,v,x,q')
+      call LoadMPIDumpFiles(0,'s,p,v,x,q')
+!       call Load_ListFiles_General(0,'s,p,v,x,q')
 !       call Load_ListFiles_Q1_Scalar(0)
     ELSE
       IF (myid.ne.0) CALL CreateDumpStructures(0)
