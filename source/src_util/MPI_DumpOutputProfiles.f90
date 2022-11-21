@@ -836,6 +836,9 @@ IF (myid.NE.0) THEN
 
 END IF
 
+deallocate(cFLD)
+deallocate(ElementOffsets)
+
  CONTAINS
  
  SUBROUTINE ReleaseMPIFieldP0_INT(cF,Field)
