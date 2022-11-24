@@ -3,7 +3,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 ! USE PP3D_MPI
-USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,shell,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar,bParallel
 
@@ -94,6 +94,10 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','segment')
 
+  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL LoadMPIFieldQ2_NX('shell',1,shell)
+  CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
+  if (jGlobalError.ne.0) CALL ProcessError('R','shell')
+
   if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL LoadMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
@@ -152,7 +156,7 @@ deallocate(ElementOffsets)
  integer :: nF=4
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -208,7 +212,7 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -308,7 +312,7 @@ deallocate(ElementOffsets)
  integer :: nF=3
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//TRIM(ADJUSTL(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -397,7 +401,7 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
@@ -512,7 +516,7 @@ deallocate(ElementOffsets)
  integer :: nF=3
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
@@ -580,7 +584,7 @@ deallocate(ElementOffsets)
  integer :: nF=4
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
@@ -647,7 +651,7 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
@@ -731,7 +735,7 @@ SUBROUTINE ReleaseMPIDumpFiles(iOutO,cList)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
-USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,shell,MaterialDistribution,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar,bParallel
 
@@ -817,6 +821,10 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','segment')
   
+  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL ReleaseMPIFieldQ2_NX('shell',1,shell)
+  CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
+  if (jGlobalError.ne.0) CALL ProcessError('R','shell')
+
   if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReleaseMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
@@ -851,7 +859,7 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -900,7 +908,7 @@ deallocate(ElementOffsets)
  integer :: nF=4
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -950,7 +958,7 @@ deallocate(ElementOffsets)
  integer :: nF=3
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//TRIM(ADJUSTL(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
@@ -1010,7 +1018,7 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I2.2,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
