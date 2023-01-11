@@ -9,7 +9,8 @@ type tOFFmesh
  integer nel,nvt
 end type tOFFmesh
 type (tOFFmesh) :: OFFmesh 
-CHARACTER*(200) :: cProjectFolder,cShortProjectFile,cOFFMeshFile,cProjectGridFile,cAreaIntensityFile
+CHARACTER*(200) :: cProjectFolder,cShortProjectFile,cProjectGridFile,cAreaIntensityFile
+CHARACTER*(256) :: cOFFMeshFile
 integer iOK,iTriang,iRecLevel
 TYPE tBoxMesh
  REAL*8 extent(3,2)
