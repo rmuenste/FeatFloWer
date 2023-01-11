@@ -1528,6 +1528,8 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
+CALL IntegrateShearrate()
+                        
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
@@ -3066,3 +3068,21 @@ CALL MonitorVeloMag(QuadSc)
 RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP_fcweight_ext 
+
+!! Called by all (myid=0 too) processes because of the immersed communicated sum !!
+SUBROUTINE IntegrateShearrate()
+REAL*8   dAvgShearRate
+EXTERNAL E013
+
+ILEV = NLMAX
+CALL SETLEV(2)
+
+CALL SubIntegrateShearrate(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                        mg_mesh%level(ILEV)%kvert,&
+                        mg_mesh%level(ILEV)%karea,&
+                        mg_mesh%level(ILEV)%kedge,&
+                        mg_mesh%level(ILEV)%dcorvg,&
+                        dAvgShearRate,&
+                        E013)
+
+END SUBROUTINE IntegrateShearrate
