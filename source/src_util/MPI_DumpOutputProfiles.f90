@@ -780,7 +780,7 @@ END IF
 if (myid.eq.0) then 
  cDumpFolder = '_dump'
  CALL CheckIfFolderIsThereCreateIfNot(cDumpFolder,-1)
- WRITE(cDumpFolder(6:),'(A,I2.2)') '/',iOut
+ WRITE(cDumpFolder(6:),'(A,I0)') '/',iOut
  CALL CheckIfFolderIsThereCreateIfNot(cDumpFolder,-1)
 END IF
 
@@ -799,42 +799,42 @@ IF (myid.NE.0) THEN
  DO jFld = 1,nFLD
   if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL ReleaseMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','pressure')
+  if (jGlobalError.ne.0) CALL ProcessError('W','pressure')
   
   if (cFLD(jFld).eq.'m'.or.cFLD(jFld).eq.'M') CALL ReleaseMPIFieldP0_INT('material',MaterialDistribution(NLMAX-1)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','material')
+  if (jGlobalError.ne.0) CALL ProcessError('W','material')
 
   if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL ReleaseMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','coordinates')
+  if (jGlobalError.ne.0) CALL ProcessError('W','coordinates')
   
   if (cFLD(jFld).eq.'v'.or.cFLD(jFld).eq.'V') CALL ReleaseMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','velocity')
+  if (jGlobalError.ne.0) CALL ProcessError('W','velocity')
   
   if (cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') CALL ReleaseMPIFieldQ2_NX('distance',1,Screw)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','distance')
+  if (jGlobalError.ne.0) CALL ProcessError('W','distance')
   
   if (cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') CALL ReleaseMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','segment')
+  if (jGlobalError.ne.0) CALL ProcessError('W','segment')
   
   if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL ReleaseMPIFieldQ2_NX('shell',1,shell)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','shell')
+  if (jGlobalError.ne.0) CALL ProcessError('W','shell')
 
   if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReleaseMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-  if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
+  if (jGlobalError.ne.0) CALL ProcessError('W','temperature')
   
   if (cFLD(jFld).eq.'q'.or.cFLD(jFld).eq.'Q') THEN
    if (allocated(GenLinScalar%Fld)) then
     DO iFld=1,GenLinScalar%nOfFields
      CALL ReleaseMPIFieldQ2_NX(adjustl(trim(GenLinScalar%prm%cField(iFld))),1,GenLinScalar%fld(iFld)%Val)
      CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
-     if (jGlobalError.ne.0) CALL ProcessError('R',adjustl(trim(GenLinScalar%prm%cField(iFld))))
+     if (jGlobalError.ne.0) CALL ProcessError('W',adjustl(trim(GenLinScalar%prm%cField(iFld))))
      
     END DO     
    END IF
