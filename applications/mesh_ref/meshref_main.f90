@@ -22,18 +22,19 @@ real*8 P8(3,8)
 external e013
 
 ! character(len=*), parameter :: Folder = 'SimFolder'
-type(option_s)              :: opts(2)
+type(option_s)              :: opts(3)
 
 ! MeshingScheme = sPARTICLE
 ! MeshingScheme = sDEFAULT
  MeshingScheme = sGENDIE
 
 opts(1) = option_s('inputfolder', .true.,  'f')
-opts(2) = option_s('help',  .false., 'h')
+opts(2) = option_s('outputfolder',  .false., 'o')
+opts(3) = option_s('help',  .false., 'h')
 
 ! check the command line arguments
 do
-    select case (getopt('f:h', opts))
+    select case (getopt('f:o:h', opts))
         case (char(0))
             exit
         case ('f')
@@ -42,6 +43,12 @@ do
         case ('-f')
             read(optarg,*) cIntputFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cIntputFolder))
+        case ('o')
+            read(optarg,*) cReducedMeshdFolder
+            write(*,*)'Reduced Output Folder: ', ADJUSTL(TRIM(cReducedMeshdFolder))
+        case ('-o')
+            read(optarg,*) cReducedMeshdFolder
+            write(*,*)'Reduced Output Folder: ', ADJUSTL(TRIM(cReducedMeshdFolder))
         case ('h')
           call print_help()
           call exit(0)
@@ -93,12 +100,12 @@ call CleanUpMesh()
 call CutMesh()
 
 call inip_output_init(1,1,unitProtfile,unitTerminal)
-sfilepath=adjustl(trim(cOutputFolder))//'/meshDir'
+sfilepath=adjustl(trim(cOutputFolder))//'/meshDir_BU'
 if (.not. inip_isDirectory(sfilepath)) then
   write(*,*) 'Creating Directory: '//adjustl(trim(sfilepath))
   call inip_makeDirectory(sfilepath)
 end if
-sfilepath=adjustl(trim(cOutputFolder))//'/NEW_meshDir'
+sfilepath=adjustl(trim(cOutputFolder))//'/'//adjustl(trim(cReducedMeshdFolder))
 if (.not. inip_isDirectory(sfilepath)) then
   write(*,*) 'Creating Directory: '//adjustl(trim(sfilepath))
   call inip_makeDirectory(sfilepath)

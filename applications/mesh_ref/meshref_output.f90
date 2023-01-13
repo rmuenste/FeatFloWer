@@ -705,7 +705,7 @@ integer nnel,nnvt
 INTEGER :: iunit=123
 CHARACTER*(256) cf
 
-WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/'//adjustl(trim(cReducedGridFile))
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/'//adjustl(trim(cReducedGridFile))
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
 WRITE(iunit,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
@@ -729,7 +729,7 @@ END DO
 
 CLOSE(iunit)
 
-WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Wall.par'
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Wall.par'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
 nBC = 0
@@ -744,7 +744,7 @@ END DO
 CLOSE(iunit)
 
 DO jat=1,5
- WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/SideWall',jat,'.par'
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/SideWall',jat,'.par'
  WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
  OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
  nBC = 0
@@ -759,7 +759,7 @@ DO jat=1,5
  CLOSE(iunit)
 end do
 
-WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Outflow.par'
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Outflow.par'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
 nBC = 0
@@ -774,7 +774,7 @@ END DO
 CLOSE(iunit)
 
 do iInflow=1,myProcess%nOfInflows
- WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/Inflow',iInflow,'.par'
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Inflow',iInflow,'.par'
  WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
  OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
  nBC = 0
@@ -794,8 +794,8 @@ do iInflow=1,myProcess%nOfInflows
  CLOSE(iunit)
 END DO
 
-WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/file.prj'//"'"
-open(file=ADJUSTL(TRIM(cOutputFolder))//'/NEW_meshDir/file.prj',unit=iunit)
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file.prj'//"'"
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file.prj',unit=iunit)
 write(iunit,'(a)') adjustl(trim(cReducedGridFile))
 write(iunit,'(a)') 'Wall.par'
 write(iunit,'(a)') 'Outflow.par'
@@ -1214,12 +1214,12 @@ box = 10d0*mySigma%DIE_Length
  i4=0
  i5=0
  i6=0
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x-.par',unit=11)
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/x+.par',unit=12)
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y-.par',unit=13)
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/y+.par',unit=14)
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z-.par',unit=15)
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/z+.par',unit=16)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/x-.par',unit=11)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/x+.par',unit=12)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/y-.par',unit=13)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/y+.par',unit=14)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/z-.par',unit=15)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/z+.par',unit=16)
  allocate(HexSide(6,nUniquePoints))
  HexSide = .false.
 
@@ -1453,7 +1453,7 @@ box = 10d0*mySigma%DIE_Length
   DO i=1,nUniquePoints
    if (bInflowMarker(iInflow,i)) jInflow = jInflow + 1
   END DO
-  WRITE(cInputFile,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/inflow_',iInflow,'.par'
+  WRITE(cInputFile,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/inflow_',iInflow,'.par'
   open(file=ADJUSTL(TRIM(cInputFile)),unit=5)
   write(5,'(I0,A,I0)') jInflow, ' Inflow-',iInflow
   write(5,'(A)') "' '"
@@ -1465,7 +1465,7 @@ box = 10d0*mySigma%DIE_Length
   close(5)
  END DO
 
- open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir/file.prj',unit=5)
+ open(file=ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/file.prj',unit=5)
  write(5,'(a)') 'Merged_'//adjustl(trim(cProjectGridFile))
 
  write(5,'(a)') 'x+.par'
@@ -1667,7 +1667,7 @@ IMPLICIT NONE
 INTEGER i,j
 CHARACTER cf*(256)
 
-WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir/Merged_'//adjustl(trim(cProjectGridFile))
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/meshDir_BU/Merged_'//adjustl(trim(cProjectGridFile))
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
 WRITE(1,*) 'Coarse mesh exported by DeViSoR TRI3D exporter'
