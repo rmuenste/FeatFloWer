@@ -205,6 +205,7 @@ end if
  subroutine print_help()
      print '(a, /)', 'command-line options:'
      print '(a)',    '  -f      Input Folder'
+     print '(a)',    '  -o      Output Folder'
      print '(a)',    '  -h      Print usage information and exit'
  end subroutine print_help  
 

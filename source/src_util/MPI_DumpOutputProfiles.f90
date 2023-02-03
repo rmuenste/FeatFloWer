@@ -5,7 +5,7 @@ USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,
 ! USE PP3D_MPI
 USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,shell,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE var_QuadScalar,ONLY:GenLinScalar,bParallel
+USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
 
 IMPLICIT NONE
 character(len=*),intent(in) :: cLIST
@@ -21,7 +21,7 @@ real*8, allocatable :: ElementOffsets(:)
 integer iFld,jFld,nFLD
 character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
-INTEGER :: dblesize=8,intsize=4
+INTEGER :: dblesize=8,intsize=4,datasize
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
@@ -32,16 +32,12 @@ read(cLIST,*,IOSTAT=iERR) cFLD
 allocate(ElementOffsets(subnodes+1))
 ElementOffsets = 0d0
 
-IF (bParallel) THEN
- if (myid.ne.0) ElementOffsets(myid+1) = DBLE(KNEL(NLMIN))
- CALL Comm_SummN(ElementOffsets,subnodes+1)
- do i=2,subnodes+1
-  ElementOffsets(i) = ElementOffsets(i) + ElementOffsets(i-1)
- end do
-ELSE
-
-END IF
-
+if (myid.ne.0) ElementOffsets(myid+1) = DBLE(KNEL(NLMIN))
+CALL Comm_SummN(ElementOffsets,subnodes+1)
+do i=2,subnodes+1
+ ElementOffsets(i) = ElementOffsets(i) + ElementOffsets(i-1)
+end do
+ 
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 iOut = iOutO
@@ -65,24 +61,11 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','material')
   
-  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') THEN
-   if (bParallel) then
-    CALL LoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
-   else
-    CALL ReLoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
-   end if
-  end if
+  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL LoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','coordinates')
   
-  if (cFLD(jFld).eq.'v'.or.cFLD(jFld).eq.'V') THEN
-   if (bParallel) then
-    CALL LoadMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
-   else
-    CALL ReLoadMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
-   end if
-  end if
-  
+  if (cFLD(jFld).eq.'v'.or.cFLD(jFld).eq.'V') CALL LoadMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','velocity')
 
@@ -135,9 +118,7 @@ IF (myid.NE.0) THEN
 END IF
  
 !!! Exchange trhe coordinates with the master !!!!
-IF (bParallel) THEN
- CALL CommCoordinatesWithMaster()
-end if
+CALL CommCoordinatesWithMaster()
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -397,23 +378,28 @@ deallocate(ElementOffsets)
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:),jaux(:)
  INTEGER ivt,jvt,jel,kel,lel,NNEL
- integer iEntry,ndof
+ integer iEntry,ndof,iComp
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
+  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
   end if
   
-  IF (bParallel) THEN
-   NNEL = INT(ElementOffsets(subnodes+1))
-  ELSE
-   NNEL = knel(nlmin)
-  END IF
-  ndof = nF*nLengthV!*NNEL
-  allocate(daux(ndof),iaux(NNEL),jaux(NNEL))
+  NNEL = INT(ElementOffsets(subnodes+1))
+  allocate(iaux(NNEL),jaux(NNEL))
   
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -423,85 +409,105 @@ deallocate(ElementOffsets)
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
   if (ierr.ne.0) iGlobalError = 1
+  CALL mpi_file_close(mpiFile,ierr)
+  
+  IF (myid.eq.1) then
+   WRITE(*,'(A)') ' ==> Done!'
+  end if
   
   do iel=1,NNEL
    jaux(iel) = iel
   end do
   
   CALL sort2D(iaux,jaux,NNEL)
-  
-  DO iel=1,knel(nlmin)
-   jel = coarse%myELEMLINK(iel)
-   kel = jaux(jel) 
+
+  DO iComp= 1,nF
+   DO iChunk= 1,nChunks
    
-   myFieldOffset = offset + intsize*NNEL + dblesize*(kel-1)*nLengthV*nF
-   CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-   if (ierr.ne.0) iGlobalError = 1
-  
-   DO jel=1,nLengthV
-    jvt = myDump%Vertices(IEL,jel)
+    ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
+    ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
+    if (iChunk.eq.nChunks) ivt_max = nLengthV
+    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
+    allocate(daux(ndof))
     
-    iP = nF*(jvt-1)
-    iEntry = (jel-1)*nF
+    cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
+    offset = 0
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    end if
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+    
+    DO iel=1,knel(nlmin)
+     jel = coarse%myELEMLINK(iel)
+     kel = jaux(jel) 
+     
+     myFieldOffset = offset + dblesize*(kel-1)*(ivt_max-ivt_min+1)
+     CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+     if (ierr.ne.0) iGlobalError = 1
+    
+     iEntry = 0
+     
+     DO ivt=ivt_min,ivt_max
+     
+      jvt = myDump%Vertices(iel,ivt)
+      
+      iEntry = iEntry + 1
+      if (iComp.eq.1) then
+       Field1(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.2.and.present(Field2)) then
+       Field2(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.3.and.present(Field3)) then
+       Field3(jvt) = daux(iEntry)
+      end if
 
-    iEntry = iEntry + 1
-    Field1(jvt) = daux(iEntry)
-    
-    if (present(Field2)) then
-     iEntry = iEntry + 1
-     Field2(jvt) = daux(iEntry)
-    end if
-    
-    if (present(Field3)) then
-     iEntry = iEntry + 1
-     Field3(jvt) = daux(iEntry)
-    end if
+      if (iComp.eq.4.and.present(Field4)) then
+       Field4(jvt) = daux(iEntry)
+      end if
 
-    if (present(Field4)) then
-     iEntry = iEntry + 1
-     Field4(jvt) = daux(iEntry)
-    end if
-
-    if (present(Field5)) then
-     iEntry = iEntry + 1
-     Field5(jvt) = daux(iEntry)
+      if (iComp.eq.5.and.present(Field5)) then
+       Field5(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.6.and.present(Field6)) then
+       Field6(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.7.and.present(Field7)) then
+       Field7(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.8.and.present(Field8)) then
+       Field8(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.9.and.present(Field9)) then
+       Field9(jvt) = daux(iEntry)
+      end if
+      
+      if (iComp.eq.10.and.present(Field10)) then
+       Field10(jvt) = daux(iEntry)
+      end if
+      
+     end do
+    end do
+    
+    CALL mpi_file_close(mpiFile,ierr)
+    
+    IF (myid.eq.1) then
+     WRITE(*,'(A)') ' ==> Done!'
     end if
     
-    if (present(Field6)) then
-     iEntry = iEntry + 1
-     Field6(jvt) = daux(iEntry)
-    end if
+    deallocate (daux)
     
-    if (present(Field7)) then
-     iEntry = iEntry + 1
-     Field7(jvt) = daux(iEntry)
-    end if
-    
-    if (present(Field8)) then
-     iEntry = iEntry + 1
-     Field8(jvt) = daux(iEntry)
-    end if
-    
-    if (present(Field9)) then
-     iEntry = iEntry + 1
-     Field9(jvt) = daux(iEntry)
-    end if
-    
-    if (present(Field10)) then
-     iEntry = iEntry + 1
-     Field10(jvt) = daux(iEntry)
-    end if
-    
-   end do
+   end do  
   end do
-  
-  CALL mpi_file_close(mpiFile,ierr)
-  
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
 
-  deallocate (daux,iaux,jaux)
+  deallocate (iaux,jaux)
 
  END SUBROUTINE LoadMPIFieldQ2_NX
 
@@ -513,22 +519,28 @@ deallocate(ElementOffsets)
  INTEGER ivt,jvt,jel,kel,lel,NNEL
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
- integer :: nF=3
+ integer :: nF=3,iComp
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
+  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
   end if
   
-  IF (bParallel) THEN
-   NNEL = INT(ElementOffsets(subnodes+1))
-  ELSE
-   NNEL = knel(nlmin)
-  END IF
-  ndof = nF*nLengthV!*NNEL
-  allocate(daux(ndof),iaux(NNEL),jaux(NNEL))
+  NNEL = INT(ElementOffsets(subnodes+1))
+  ndof = nLengthV!*NNEL
+  allocate(iaux(NNEL),jaux(NNEL))
   
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -537,39 +549,67 @@ deallocate(ElementOffsets)
   
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-   if (ierr.ne.0) iGlobalError = 1
+  if (ierr.ne.0) iGlobalError = 1
+  CALL mpi_file_close(mpiFile,ierr)
+  IF (myid.eq.1) then
+   WRITE(*,'(A)') ' ==> Done!'
+  end if
   
   do iel=1,NNEL
    jaux(iel) = iel
   end do
   
   CALL sort2D(iaux,jaux,NNEL)
+  
+  do iComp = 1,nF
+   do iChunk = 1,nChunks
 
-  DO iel=1,knel(nlmin)
-   jel = coarse%myELEMLINK(iel)
-   kel = jaux(jel) 
-   
-   myFieldOffset = offset + intsize*NNEL + dblesize*(kel-1)*nLengthV*nF
-   CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-   if (ierr.ne.0) iGlobalError = 1
-   
-   DO jel=1,nLengthV
-    jvt = myDump%Vertices(IEL,jel)
+    ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
+    ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
+    if (iChunk.eq.nChunks) ivt_max = nLengthV
+    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
+    allocate(daux(ndof))
     
-    iP = nF*(jvt-1)
-    iEntry = (jel-1)*nF
+    cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    end if
+
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+
+    DO iel=1,knel(nlmin)
+     jel = coarse%myELEMLINK(iel)
+     kel = jaux(jel) 
+     
+     myFieldOffset = offset +  dblesize*(kel-1)*(ivt_max-ivt_min+1)
+     CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+     if (ierr.ne.0) iGlobalError = 1
+     
+     iEntry = 0
+     DO ivt= ivt_min,ivt_max
+     
+      jvt = myDump%Vertices(IEL,ivt)
+      
+      iP = nF*(jvt-1)
+      iEntry = iEntry + 1
+      
+      Field(iP+iComp) = daux(iEntry) 
+      
+     end do
+    end do
     
-    Field(iP+1:iP+nF) = daux(iEntry+1:iEntry+nF) 
+    CALL mpi_file_close(mpiFile,ierr)
+    IF (myid.eq.1) then
+     WRITE(*,'(A)') ' ==> Done!'
+    end if
+    
+    deallocate (daux)
     
    end do
   end do
-  
-  CALL mpi_file_close(mpiFile,ierr)
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
 
-  deallocate (daux,iaux,jaux)
+  deallocate (iaux,jaux)
 
  END SUBROUTINE LoadMPIFieldQ2_X3
   
@@ -582,21 +622,27 @@ deallocate(ElementOffsets)
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: nF=4
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
+  datasize = nF*dblesize*INT(ElementOffsets(subnodes+1))*nLengthE
+  
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
   end if
   
-  IF (bParallel) THEN
-   NNEL = INT(ElementOffsets(subnodes+1))
-  ELSE
-   NNEL = knel(nlmin)
-  END IF
-  ndof = nF*nLengthE!*NNEL
-  allocate(daux(ndof),iaux(NNEL),jaux(NNEL))
+  NNEL = INT(ElementOffsets(subnodes+1))
+  allocate(iaux(NNEL),jaux(NNEL))
   
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
@@ -606,38 +652,63 @@ deallocate(ElementOffsets)
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
   if (ierr.ne.0) iGlobalError = 1
+  CALL mpi_file_close(mpiFile,ierr)
+  IF (myid.eq.1) then
+   WRITE(*,'(A)') ' ==> Done!'
+  end if
   
   do iel=1,NNEL
    jaux(iel) = iel
   end do
   
-  CALL sort2D(iaux,jaux,NNEL)
-
-  DO iel=1,knel(nlmin)
-   jel = coarse%myELEMLINK(iel)
-   kel = jaux(jel) 
+  DO iChunk =1,nChunks
+  
+   ivt_min = (iChunk-1)*(nLengthE/nChunks) + 1
+   ivt_max = (iChunk+0)*(nLengthE/nChunks) + 0
+   if (iChunk.eq.nChunks) ivt_max = nLengthE
+   ndof = nF*(ivt_max-ivt_min+1)*knel(nlmin)
+   allocate(daux(ndof))
    
-   myFieldOffset = offset + intsize*NNEL + dblesize*(kel-1)*nLengthE*nF
-   CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-   if (ierr.ne.0) iGlobalError = 1
-      
-   DO jel=1,nLengthE
-    kel = myDump%Elements(IEL,jel)
+   cPOutFile = '_dump/'
+   WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',1,'_chunk_',iChunk,'.prf'
+   offset = 0
+   IF (myid.eq.1) then
+    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+   end if
+   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+   
+   CALL sort2D(iaux,jaux,NNEL)
+
+   DO iel=1,knel(nlmin)
+    jel = coarse%myELEMLINK(iel)
+    kel = jaux(jel) 
     
-    iP = nF*(kel-1)
-    iEntry = (jel-1)*nF
+    myFieldOffset = offset + dblesize*(kel-1)*(ivt_max-ivt_min+1)*nF
+    CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+       
+    DO jel=ivt_min,ivt_max
     
-    Field(iP+1:iP+nF) = daux(iEntry+1:iEntry+nF) 
-    
+     kel = myDump%Elements(IEL,jel)
+     
+     iP = nF*(kel-1)
+     iEntry = (jel-1)*nF
+     
+     Field(iP+1:iP+nF) = daux(iEntry+1:iEntry+nF) 
+     
+    end do
    end do
+   
+   CALL mpi_file_close(mpiFile,ierr)
+   IF (myid.eq.1) then
+    WRITE(*,'(A)') ' ==> Done!'
+   end if
+   
+   deallocate (daux)
+   
   end do
   
-  CALL mpi_file_close(mpiFile,ierr)
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
-
-  deallocate (daux,iaux,jaux)
+  deallocate (iaux,jaux)
 
  END SUBROUTINE LoadMPIFieldP1
 
@@ -657,11 +728,7 @@ deallocate(ElementOffsets)
    WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
   end if
   
-  IF (bParallel) THEN
-   NNEL = INT(ElementOffsets(subnodes+1))
-  ELSE
-   NNEL = knel(nlmin)
-  END IF
+  NNEL = INT(ElementOffsets(subnodes+1))
   ndof = nLengthE!*NNEL
   allocate(daux(ndof),iaux(NNEL),jaux(NNEL))
   
@@ -737,7 +804,7 @@ USE PP3D_MPI, ONLY:myid,showid,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,shell,MaterialDistribution,temperature,mySegmentIndicator
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE var_QuadScalar,ONLY:GenLinScalar,bParallel
+USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
 
 IMPLICIT NONE
 character(len=*),intent(in) :: cLIST
@@ -754,7 +821,7 @@ real*8, allocatable :: ElementOffsets(:)
 integer iFld,jFld,nFLD
 character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
-INTEGER :: dblesize=8,intsize=4
+INTEGER :: dblesize=8,intsize=4,datasize
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
@@ -906,44 +973,75 @@ deallocate(ElementOffsets)
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: nF=4
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
+  datasize = nF*dblesize*INT(ElementOffsets(subnodes+1))*nLengthE
+  
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
-  ndof = nF*nLengthE*knel(nlmin)
-  allocate(daux(ndof))
-  
-  iEntry = 0
-  DO iel=1,knel(nlmin)
-   DO jel=1,nLengthE
-    kel = myDump%Elements(IEL,jel)
-    iP = nF*(kel-1)
-    daux(iEntry+1:iEntry+nF) = Field(iP+1:iP+nF)
-    iEntry = iEntry + nF
-   END DO
-  end do
-  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
-
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-  IF (IERR.ne.0) iGlobalError = 1
-  
-  myFieldOffset = offset + intsize*INT(ElementOffsets(subnodes+1)) + dblesize*INT(ElementOffsets(myid))*nLengthE*nF
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
   IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
   IF (myid.eq.1) then
    WRITE(*,'(A)') ' ==> Done!'
   end if
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  
+  DO iChunk=1,nChunks
+  
+   ivt_min = (iChunk-1)*(nLengthE/nChunks) + 1
+   ivt_max = (iChunk+0)*(nLengthE/nChunks) + 0
+   if (iChunk.eq.nChunks) ivt_max = nLengthE
+   ndof = nF*(ivt_max-ivt_min+1)*knel(nlmin)
+   allocate(daux(ndof))
+   
+   iEntry = 0
+   DO iel=1,knel(nlmin)
+    DO jel=ivt_min,ivt_max
+     kel = myDump%Elements(IEL,jel)
+     iP = nF*(kel-1)
+     daux(iEntry+1:iEntry+nF) = Field(iP+1:iP+nF)
+     iEntry = iEntry + nF
+    END DO
+   end do
+     
+   cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",1,'_chunk_',iChunk,'.prf'
+   offset = 0
+   IF (myid.eq.1) then
+    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+   end if
 
-  deallocate (daux)
+   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+   myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)*nF
+   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+   CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+   IF (IERR.ne.0) iGlobalError = 1
+   CALL mpi_file_close(mpiFile,ierr)
+   IF (myid.eq.1) then
+    WRITE(*,'(A)') ' ==> Done!'
+   end if
+   
+   deallocate (daux)
+
+  end do
 
   END SUBROUTINE ReleaseMPIFieldP1
  
@@ -955,45 +1053,80 @@ deallocate(ElementOffsets)
  INTEGER ivt,jvt,jel,kel
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
- integer :: nF=3
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
+ integer :: nF=3,iComp
  
+  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+  
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF))//'_key','.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
-  
-  ndof = nF*nLengthV*knel(nlmin)
-  allocate(daux(ndof))
-  
-  iEntry = 0
-  DO iel=1,knel(nlmin)
-   DO ivt=1,nLengthV
-    jvt = myDump%Vertices(IEL,ivt)
-    iP = nF*(jvt-1)
-    daux(iEntry+1:iEntry+nF) = Field(iP+1:iP+nF)
-    iEntry = iEntry + nF
-   END DO
-  end do
-  
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
   IF (IERR.ne.0) iGlobalError = 1
-
-  myFieldOffset = offset + intsize*INT(ElementOffsets(subnodes+1)) + dblesize*INT(ElementOffsets(myid))*nLengthV*nF
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-  IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
+   IF (myid.eq.1) then
+    WRITE(*,'(A,I0)') ' ==> Done!',IERR
+   end if
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+  DO iComp = 1,nF
+   DO iChunk = 1,nChunks
+     
+    ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
+    ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
+    if (iChunk.eq.nChunks) ivt_max = nLengthV
+    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
+    allocate(daux(ndof))
+       
+    iEntry = 0
+    DO iel=1,knel(nlmin)
+     DO ivt=ivt_min,ivt_max
+      jvt = myDump%Vertices(IEL,ivt)
+      iP = nF*(jvt-1)
+      daux(iEntry+1) = Field(iP+iComp)
+      iEntry = iEntry + 1
+     END DO
+    end do
+    
+    cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
+    offset = 0
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+    end if
+    
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
 
-  deallocate (daux)
+    myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
+    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+    IF (IERR.ne.0) iGlobalError = 1
+    CALL mpi_file_close(mpiFile,ierr)
+    IF (myid.eq.1) then
+     WRITE(*,'(A,I0)') ' ==> Done!',IERR
+    end if
+    
+    deallocate (daux)
+    
+   end do
+  end do
+
 
  END SUBROUTINE ReleaseMPIFieldQ2_X3
  
@@ -1014,110 +1147,136 @@ deallocate(ElementOffsets)
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:)
  INTEGER ivt,jvt,jel,kel
- integer iEntry,ndof
+ integer iEntry,ndof,iComp
+ integer :: iChunk,nChunks=1,ivt_min,ivt_max
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
+  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  if (datasize.gt.DataSizeThresholdMPI) then
+   nChunks =   datasize/DataSizeThresholdMPI
+   if (nChunks.eq.0) nChunks = 1
+   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+  else
+   nChunks = 1
+  end if
+   
+  if(myid.eq.1) write(*,*) "datasize = ",datasize, DataSizeThresholdMPI,nChunks
+ 
   cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF)),'.prf'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_key",'.prf'
   offset = 0
   IF (myid.eq.1) then
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
   
-  ndof = nF*nLengthV*knel(nlmin)
-  allocate(daux(ndof))
-  
-  iEntry = 0
-
-  DO iel=1,knel(nlmin)
-   DO ivt=1,nLengthV
-    jvt = myDump%Vertices(IEL,ivt)
-    
-    iEntry = iEntry + 1
-    daux(iEntry) = Field1(jvt)
-    
-    if (present(Field2)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field2(jvt)
-    end if
-    
-    if (present(Field3)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field3(jvt)
-    end if
-
-    if (present(Field4)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field4(jvt)
-    end if
-
-    if (present(Field5)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field5(jvt)
-    end if
-    
-    if (present(Field6)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field6(jvt)
-    end if
-    
-    if (present(Field7)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field7(jvt)
-    end if
-    
-    if (present(Field8)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field8(jvt)
-    end if
-    
-    if (present(Field9)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field9(jvt)
-    end if
-    
-    if (present(Field10)) then
-     iEntry = iEntry + 1
-     daux(iEntry) = Field10(jvt)
-    end if
-    
-   END DO
-  end do
-  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
 
-  if (bParallel) then
-   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
-   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-   CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-   IF (IERR.ne.0) iGlobalError = 1
-
-   myFieldOffset = offset + intsize*INT(ElementOffsets(subnodes+1)) + dblesize*INT(ElementOffsets(myid))*nLengthV*nF
-   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-   CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-   IF (IERR.ne.0) iGlobalError = 1
-   CALL mpi_file_close(mpiFile,ierr)
-   IF (myid.eq.1) then
-    WRITE(*,'(A)') ' ==> Done!'
-   end if
-  else
-   if (myid.eq.1) then
-    myFieldOffset = offset
-    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-    CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-    IF (IERR.ne.0) iGlobalError = 1
-
-    myFieldOffset = offset + intsize*knel(nlmin) 
-    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
-    IF (IERR.ne.0) iGlobalError = 1
-    WRITE(*,'(A)') ' ==> Done!'
-   end if
+  myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
+  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+  CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
+  IF (myid.eq.1) then
+   WRITE(*,'(A)') ' ==> Done!'
   end if
 
   CALL mpi_file_close(mpiFile,ierr)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+  DO iComp = 1,nF
   
-  deallocate (daux)
+   DO iChunk=1,nChunks
+
+    ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
+    ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
+    if (iChunk.eq.nChunks) ivt_max = nLengthV
+    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
+    allocate(daux(ndof))
+
+    iEntry = 0
+
+    DO iel = 1,knel(nlmin)
+     DO ivt = ivt_min,ivt_max
+     
+      jvt = myDump%Vertices(iel,ivt)
+      
+      if (iComp.eq.1) THEN
+       iEntry = iEntry + 1
+       daux(iEntry) = Field1(jvt)
+      end if
+      
+      if (iComp.eq.2.and.present(Field2)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field2(jvt)
+      end if
+      
+      if (iComp.eq.3.and.present(Field3)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field3(jvt)
+      end if
+
+      if (iComp.eq.4.and.present(Field4)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field4(jvt)
+      end if
+
+      if (iComp.eq.5.and.present(Field5)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field5(jvt)
+      end if
+      
+      if (iComp.eq.6.and.present(Field6)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field6(jvt)
+      end if
+      
+      if (iComp.eq.7.and.present(Field7)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field7(jvt)
+      end if
+      
+      if (iComp.eq.8.and.present(Field8)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field8(jvt)
+      end if
+      
+      if (iComp.eq.9.and.present(Field9)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field9(jvt)
+      end if
+      
+      if (iComp.eq.10.and.present(Field10)) then
+       iEntry = iEntry + 1
+       daux(iEntry) = Field10(jvt)
+      end if
+      
+     END DO
+    end do
+
+    cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//"_comp",iComp,'_chunk_',iChunk,'.prf'
+    offset = 0
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+    end if
+    
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+    myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
+    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+    IF (IERR.ne.0) iGlobalError = 1
+    CALL mpi_file_close(mpiFile,ierr)
+    IF (myid.eq.1) then
+     WRITE(*,'(A)') ' ==> Done!'
+    end if
+
+    CALL mpi_file_close(mpiFile,ierr)
+    deallocate (daux)
+    
+   END DO
+  END DO
+  
   
  end SUBROUTINE ReleaseMPIFieldQ2_NX
  

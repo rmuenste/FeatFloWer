@@ -512,7 +512,23 @@ TYPE tPID
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID
 
+TYPE tEwikonOutput
+ INTEGER ::  HistogramSize=40
+ REAL*8 dMinTemp,dMaxTemp
+ INTEGER nSensorPositions
+ REAL*8, allocatable ::   SensorPositions(:,:)
+ INTEGER , allocatable ::   PointToSensor(:)
+ REAL*8, allocatable ::   Temp(:),Mass(:)
+ REAL*8, allocatable ::   MeltTempDistribution_x(:),MeltTempDistribution_v(:)
+ TYPE(mg_dVector), ALLOCATABLE :: DATA(:)
+END TYPE
+TYPE (tEwikonOutput) myEwikonOutput
+
 TYPE tSensor
+  CHARACTER*256, ALLOCATABLE :: oFFfiles(:)
+  CHARACTER*256 :: SensorType
+  INTEGER, ALLOCATABLE :: idxCgal(:)
+  INTEGER nOFFfiles
   REAL*8 :: Radius=0d0, Coor(3)=[0d0,0d0,0d0], Volume, CurrentTemperature
   LOGICAL :: HeatingStatus = .true.
   REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
@@ -561,6 +577,7 @@ END TYPE tSegment
 
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
+  CHARACTER cSensorPositions*(256)
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
   LOGICAL :: ScrewCylinderRendering=.TRUE.
@@ -709,5 +726,7 @@ TYPE tMGSteps
  INTEGER, allocatable :: n(:)
  REAL*8, allocatable :: r(:)
 END TYPE tMGSteps
+
+INTEGER :: DataSizeThresholdMPI = 2*1000*1000*1000
 
 end module types

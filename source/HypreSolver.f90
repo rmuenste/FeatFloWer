@@ -146,6 +146,22 @@ end subroutine myHypre_Solve
 
 
 
+SUBROUTINE myHypre_GMRESDestroy()
+USE var_QuadScalar
+IMPLICIT NONE
+integer ierr
+
+if (myid.ne.0) then
+  call HYPRE_IJVectorDestroy(myHypre%b, ierr)
+  call HYPRE_IJVectorDestroy(myHypre%x, ierr)
+  call HYPRE_IJMatrixDestroy(myHypre%A, ierr)
+  call HYPRE_ParCSRGMRESDestroy(myHypre%solver, ierr)
+  call HYPRE_BoomerAMGDestroy(myHypre%precond, ierr)
+end if
+
+END SUBROUTINE myHypre_GMRESDestroy
+
+
 
 SUBROUTINE myHypreGMRES_Solve(num_iterations)
 USE var_QuadScalar
