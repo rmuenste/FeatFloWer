@@ -2151,12 +2151,6 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
   
- CASE('FBMVelocity')
-  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBMVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
-  do ivt=1,NoOfVert
-   write(iunit, '(A,3E16.7)')"        ",REAL(FBMVelocity(1,ivt)),REAL(FBMVelocity(2,ivt)),REAL(FBMVelocity(3,ivt))
-  end do
-  write(iunit, *)"        </DataArray>"
  CASE('BigU')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BigU",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2311,12 +2305,6 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Pressure_V",""" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,E16.7)')"        ",REAL(LinSc%Q2(ivt))
-  end do
-  write(iunit, *)"        </DataArray>"
- CASE('FBMWeight')
-  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBMWeight",""" format=""ascii"">"
-  do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",REAL(FBMWeight(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 

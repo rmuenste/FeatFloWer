@@ -441,11 +441,6 @@ TYPE (tParticleParam) :: myParticleParam
 TYPE (tErrorCodes) ::  myErrorCode
 
 TYPE (tMGSteps) MGSteps
-!=========================================================================
-! 
-!=========================================================================
-double precision, dimension(:), allocatable :: FBMWeight
-double precision, dimension(:,:), allocatable :: FBMVelocity
 
 contains 
 integer function KNEL(ilevel)
