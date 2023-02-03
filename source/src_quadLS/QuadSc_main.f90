@@ -1561,9 +1561,9 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   end do
 
-  if (.not. isSilent)then
-    if (totalInside .ne. 0) WRITE(*,*) myid,')Total dofs inside: ',totalInside
-  end if
+!  if (.not. isSilent)then
+!    if (totalInside .ne. 0) WRITE(*,*) myid,')Total dofs inside: ',totalInside
+!  end if
 
 !  do i=1,20
 !    if(particleIdsOnDomain(i) .eqv. .true.)then

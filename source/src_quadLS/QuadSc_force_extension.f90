@@ -102,9 +102,11 @@ SAVE
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
+#ifdef OUTPUT_LEVEL2 
   if (numParticles > 0) then
     write(*,*)myid,'> FBM Force Calculation for:', numParticles, 'local particles'
   end if
+#endif
 
   call getAllParticles(theParticles)
 
@@ -526,7 +528,9 @@ SAVE
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
+#ifdef OUTPUT_LEVEL2 
   write(*,*)myid, '> FBM Force Calculation for:', numParticles, 'remote particle(s)'
+#endif
 
   call getAllRemoteParticles(theParticles)
 
