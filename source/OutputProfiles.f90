@@ -2377,7 +2377,12 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, *)"        </DataArray>"
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Melt",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",myHeatObjects%Channel(ivt)
+   write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Channel(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Sensor",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,I10)')"        ",myHeatObjects%Sensor(ivt)
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2669,6 +2674,7 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Block","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wire","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Melt","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Sensor","""/>"
  CASE('ElemSizeDist')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","ElemSizeDist","""/>"
  CASE('Distamce')

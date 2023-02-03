@@ -502,22 +502,40 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
 
     NumberOfSTLDescription = 0
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".or.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."OFF") THEN
       ALLOCATE(mySigma%mySegment(iSeg)%idxCgal(mySigma%mySegment(iSeg)%nOFFfiles))
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        NumberOfSTLDescription = NumberOfSTLDescription + 1
        mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
       END DO
+      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       IF (adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."STL".or.&
+           adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."OFF") then
+        ALLOCATE(mySigma%mySegment(iSeg)%TemperatureSensor%idxCgal(mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles))
+        DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+         NumberOfSTLDescription = NumberOfSTLDescription + 1
+         mySigma%mySegment(iSeg)%TemperatureSensor%idxCgal(iFile) = NumberOfSTLDescription
+        END DO
+       END IF
+      END IF
      END IF
     END DO
 
     IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
     IF (myid.eq.1) write(633,'(I0)') NumberOfSTLDescription
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".or.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."OFF") THEN
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
       END DO
+      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       IF (adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."STL".or.&
+           adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."OFF") then
+        DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+         IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%OFFfiles(iFile)))
+        END DO
+       END IF
+      END IF
      END IF
     END DO
     IF (myid.eq.1) CLOSE(633)

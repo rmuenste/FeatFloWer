@@ -206,11 +206,13 @@ SUBROUTINE InitHeatObjects()
 ALLOCATE(myHeatObjects%Block(Tracer%ndof))
 ALLOCATE(myHeatObjects%Wire(Tracer%ndof))
 ALLOCATE(myHeatObjects%Channel(Tracer%ndof))
+ALLOCATE(myHeatObjects%Sensor(Tracer%ndof))
 ALLOCATE(myHeatObjects%Segment(Tracer%ndof))
 myHeatObjects%Block = 0d0
 myHeatObjects%Wire  = 0d0
 myHeatObjects%Channel  = 0d0
 myHeatObjects%Segment  = 0 ! Air
+myHeatObjects%Sensor  = 0d0
 
 END SUBROUTINE InitHeatObjects
 !
@@ -601,7 +603,7 @@ end subroutine InitLinearOperators
 ! ----------------------------------------------
 !
 SUBROUTINE updateHeatGeometry(mfile)
-use geometry_processing, only : calcDistanceFunction_heat, dEpsDist
+use geometry_processing, only : calcDistanceFunction_heat, calcDistanceFunction_sensor,dEpsDist
 
 integer, intent(in) :: mfile
 
@@ -621,11 +623,25 @@ if (myid.ne.0) then
  QuadSc%AuxU = dEpsDist
  QuadSc%AuxV = dEpsDist
  QuadSc%AuxW = dEpsDist
+ QuadSc%defU = dEpsDist
 
  !MixerKNPR(:) = 0
 
  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
   CALL calcDistanceFunction_heat(mg_mesh%level(ilev)%dcorvg,&
+                            mg_mesh%level(ilev)%kvert,&
+                            mg_mesh%level(ilev)%kedge,&
+                            mg_mesh%level(ilev)%karea,&
+                            mg_mesh%level(ilev)%nel,&
+                            mg_mesh%level(ilev)%nvt,&
+                            mg_mesh%level(ilev)%nat,&
+                            mg_mesh%level(ilev)%net,&
+                            QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%defU)
+  QuadSc%AuxU = dEpsDist
+  QuadSc%AuxV = dEpsDist
+  QuadSc%AuxW = dEpsDist
+  QuadSc%defU = dEpsDist
+  CALL calcDistanceFunction_sensor(mg_mesh%level(ilev)%dcorvg,&
                             mg_mesh%level(ilev)%kvert,&
                             mg_mesh%level(ilev)%kedge,&
                             mg_mesh%level(ilev)%karea,&
