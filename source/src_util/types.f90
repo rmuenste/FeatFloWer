@@ -727,6 +727,6 @@ TYPE tMGSteps
  REAL*8, allocatable :: r(:)
 END TYPE tMGSteps
 
-INTEGER :: DataSizeThresholdMPI = 2*1000*1000*1000
+REAL*8 :: DataSizeThresholdMPI = 2d9
 
 end module types

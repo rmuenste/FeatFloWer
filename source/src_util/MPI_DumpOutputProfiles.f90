@@ -21,7 +21,8 @@ real*8, allocatable :: ElementOffsets(:)
 integer iFld,jFld,nFLD
 character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
-INTEGER :: dblesize=8,intsize=4,datasize
+INTEGER :: dblesize=8,intsize=4
+REAL*8 datasize
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
@@ -382,11 +383,12 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
-  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  datasize = DBLE(dblesize)*DBLE(INT(ElementOffsets(subnodes+1)))*DBLE(nLengthV)
+  
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
@@ -522,11 +524,12 @@ deallocate(ElementOffsets)
  integer :: nF=3,iComp
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
-  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  datasize = DBLE(dblesize)*DBLE(INT(ElementOffsets(subnodes+1)))*DBLE(nLengthV)
+  
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
@@ -624,12 +627,12 @@ deallocate(ElementOffsets)
  integer :: nF=4
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  
-  datasize = nF*dblesize*INT(ElementOffsets(subnodes+1))*nLengthE
+  datasize = DBLE(nF)*DBLE(dblesize)*DBLE(INT(ElementOffsets(subnodes+1)))*DBLE(nLengthE)
   
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
@@ -821,7 +824,8 @@ real*8, allocatable :: ElementOffsets(:)
 integer iFld,jFld,nFLD
 character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
-INTEGER :: dblesize=8,intsize=4,datasize
+INTEGER :: dblesize=8,intsize=4
+REAL*8 datasize
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
@@ -974,13 +978,13 @@ deallocate(ElementOffsets)
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: nF=4
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
- 
-  datasize = nF*dblesize*INT(ElementOffsets(subnodes+1))*nLengthE
+  
+  datasize = dble(nF)*dble(dblesize)*dble(INT(ElementOffsets(subnodes+1)))*dble(nLengthE)
   
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
@@ -1017,7 +1021,7 @@ deallocate(ElementOffsets)
     DO jel=ivt_min,ivt_max
      kel = myDump%Elements(IEL,jel)
      iP = nF*(kel-1)
-     daux(iEntry+1:iEntry+nF) = Field(iP+1:iP+nF)
+     daux(iEntry+1:iEntry+nF) = 1d0 !Field(iP+1:iP+nF)
      iEntry = iEntry + nF
     END DO
    end do
@@ -1056,11 +1060,12 @@ deallocate(ElementOffsets)
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  integer :: nF=3,iComp
  
-  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  datasize = DBLE(dblesize)*DBLE(INT(ElementOffsets(subnodes+1)))*DBLE(nLengthV)
+  
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
@@ -1151,11 +1156,12 @@ deallocate(ElementOffsets)
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  
-  datasize = dblesize*INT(ElementOffsets(subnodes+1))*nLengthV
+  datasize = DBLE(dblesize)*DBLE(INT(ElementOffsets(subnodes+1)))*DBLE(nLengthV)
+  
   if (datasize.gt.DataSizeThresholdMPI) then
-   nChunks =   datasize/DataSizeThresholdMPI
+   nChunks =   int(datasize/DataSizeThresholdMPI)
    if (nChunks.eq.0) nChunks = 1
-   if (datasize/nChunks.gt.DataSizeThresholdMPI) nChunks = nChunks + 1
+   if (datasize/dble(nChunks).gt.DataSizeThresholdMPI) nChunks = nChunks + 1
   else
    nChunks = 1
   end if
