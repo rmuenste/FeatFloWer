@@ -1252,11 +1252,11 @@ CHARACTER*(1) cRW
 CHARACTER*(*) cF
 
 IF (cRW.eq.'R') THEN
- if (myid.eq.1) WRITE(*,'(A,I)') ' Error occured by reading the '//TRIM(cF)//' sequence!'
+ if (myid.eq.1) WRITE(*,'(A,I0)') ' Error occured by reading the '//TRIM(cF)//' sequence!'
  CALL StopTheProgramFromReader(subnodes,myErrorCode%DUMPFILE_READER)
 END IF
 IF (cRW.eq.'W') THEN
- if (myid.eq.1) WRITE(*,'(A,I)') ' Error occured by writing the '//TRIM(cF)//' sequence!'
+ if (myid.eq.1) WRITE(*,'(A,I0)') ' Error occured by writing the '//TRIM(cF)//' sequence!'
  CALL StopTheProgramFromReader(subnodes,myErrorCode%DUMPFILE_WRITER)
 END IF
 
