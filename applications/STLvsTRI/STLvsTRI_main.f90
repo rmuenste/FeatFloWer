@@ -29,10 +29,10 @@ do
             read(optarg,*) cProjectFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cProjectFolder))
         case ('s')
-            read(optarg,*) cOFFMeshFile
+            read(optarg,'(A)') cOFFMeshFile
             write(*,*)'Input Surface triangulation: ', ADJUSTL(TRIM(cOFFMeshFile))
         case ('-s')
-            read(optarg,*) cOFFMeshFile
+            read(optarg,'(A)') cOFFMeshFile
             write(*,*)'Input Surface triangulation: ', ADJUSTL(TRIM(cOFFMeshFile))
         case ('n')
             read(optarg,*) NumberOfElementsInit
@@ -78,7 +78,7 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
  
  DomainVolume = BoxMesh%dsize(1)*BoxMesh%dsize(2)*BoxMesh%dsize(3)
 
- call readOFFMesh(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cOFFMeshFile)))
+ call readOFFMesh(adjustl(trim(cProjectFolder)),adjustl(trim(cOFFMeshFile)))
  
  NumberOfElements = NumberOfElementsInit
 
