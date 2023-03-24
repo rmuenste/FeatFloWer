@@ -10,11 +10,15 @@ import sys
 import getopt
 import platform
 import subprocess
+import requests
 import re
 import json
-sys.path.append(os.environ['FF_PY_HOME'])
 import partitioner
 import pprint
+import time
+from datetime import datetime
+
+url = 'http://127.0.0.1:3000/api/user/1'
 
 #===============================================================================
 #                      Function: Usage
@@ -275,12 +279,24 @@ def executeTest(fileName):
 
     print(jsonData)
 
-    with open('note_single_%s.json' %noteName, 'w') as theFile:
+    timeStamp = round(time.time())
+
+    now = datetime.now()
+    jsonData["DashBoardVisualization"]["timeStamp"] = timeStamp 
+    jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%y %H:%M:%S") 
+
+
+    finalName = f"{noteName}-{timeStamp}"
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.post(url, data=json.dumps(jsonData), headers=headers)
+
+    with open('%s.json' %finalName, 'w') as theFile:
         theFile.write(json.dumps(jsonData) + '\n')
     
-    with open('../../note_single_%s.json' %noteName, 'w') as theFile:
-        theFile.write(json.dumps(jsonData) + '\n')
-
 #===============================================================================
 #                              Main function
 #===============================================================================
@@ -334,11 +350,13 @@ def main():
             usage()
             sys.exit(2)
 
-#    with open("test-config.json") as f:
-#        paramDict = json.loads(f.read())
-#
-#    print(paramDict)
-#
+    script_path = os.path.abspath(__file__)
+    
+    # get the directory that the script is located in
+    script_dir = os.path.dirname(script_path)
+    
+    os.chdir(script_dir)
+
     potentialTests = os.listdir("tests")
     
     for item in potentialTests:
