@@ -4263,3 +4263,58 @@ DO IVT=1,NVT+NET+NAT+NEL
 END DO
 
 END SUBROUTINE INT_ParP0toQ2
+!
+! ----------------------------------------------
+!
+SUBROUTINE EXPORT_TRIA(NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT,&
+           DCVG,KVERT,KADJ,KEDGE,DCAG,KVEL,KAREA,KNPR,CFILE)
+implicit none
+
+integer NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
+integer KVERT(8,*),KADJ(6,*),KEDGE(12,*),KAREA(6,*),KNPR(*)
+integer :: KVEL(NVEL,*)
+real*8  DCVG(3,*),DCAG(3,*)
+CHARACTER CFILE*60 
+
+integer i
+           
+open(file='tria_'//ADJUSTL(TRIM(CFILE)),unit=1442)
+
+WRITE(1442,'(9I8)') NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
+
+do i=1,nvt
+ WRITE(1442,'(3ES16.8)') DCVG(:,i)
+end do
+
+do i=1,nat
+ WRITE(1442,'(3ES16.8)') DCAG(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(8I8)') KVERT(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(6I8)') KADJ(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(12I8)') KEDGE(:,i)
+end do
+
+! do i=1,nvt
+!  WRITE(1442,'(100I8)') KVEL(:,i)
+! end do
+
+do i=1,nel
+ WRITE(1442,'(6I8)') KAREA(:,i)
+end do
+
+! do i=1,nvt
+!  WRITE(1442,'(I8)') KNPR(i)
+! end do
+
+close(1442)
+
+END SUBROUTINE EXPORT_TRIA
+
