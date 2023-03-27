@@ -7,6 +7,7 @@
 #SBATCH --mail-user=omierka@gmail.com
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=veka
+#SBATCH --no-requeue
 
 cd $SLURM_SUBMIT_DIR
 
