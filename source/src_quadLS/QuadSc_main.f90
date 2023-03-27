@@ -2907,6 +2907,8 @@ CALL COMM_SUMM(dIntPres1)
 CALL COMM_SUMM(dIntPres2)
 CALL COMM_SUMM(dHeat)
 CALL COMM_SUMM(dVol)
+
+
 dPressureDifference = ((dIntPres2/dArea2) - (dIntPres1/dArea1))*1e-6 !!! [Bar]
 
 myPI = dATAN(1d0)*4d0
@@ -2917,7 +2919,13 @@ dVol = dVol / myThermodyn%density
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
 
- mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
+ IF     (ADJUSTL(TRIM(myProcess%pTYPE)).eq."THROUGHPUT") THEN
+  mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
+ ELSEIF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+  mySSE_covergence%Monitor(mySSE_covergence%iC) = dVolFlow2
+ ELSE
+  STOP
+ END IF
  mySSE_covergence%iC = MOD(mySSE_covergence%iC,mySSE_covergence%nC) + 1
 
  IF (itns.gt.mySSE_covergence%nC) THEN
