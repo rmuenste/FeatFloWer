@@ -441,7 +441,8 @@ ENDIF(BUILD_APPLICATIONS)
 #=========================================================================
 #                     FullC0ntact2 Library
 #=========================================================================
-add_subdirectory(libs/FullContactV2)
+#add_subdirectory(libs/FullContactV2)
+add_subdirectory(libs/pe-0.3rc1)
 
 
 #=========================================================================

@@ -275,3 +275,13 @@ IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-deployment")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+
+#===============================================================================================================
+#                           Temporary fix for argument mismatch errors with GFORTRAN >= 10
+#===============================================================================================================
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "10.0.0" OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "10.0.0")
+    message(STATUS "For GCC greater or equal 10.0.0 we set the flag -fallow-argument-mismatch as a workaround for type mismatches")
+    SET(Fortran_FLAGS -g -march=native -Wfatal-errors -finit-local-zero -fallow-argument-mismatch -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  endif()
+endif()

@@ -87,7 +87,7 @@ else(WIN32)
     Utility
     Math
     ${Boost_LIBRARIES}
-    fc_core
+    pe_static
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
