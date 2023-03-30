@@ -952,12 +952,12 @@ INTEGER KDFG(27),KDFL(27)
 INTEGER i,iPoint,jPoint,ivt,jel,iel,iFoundElem
 REAL*8 dist,pointR(3),LocVel0(3,27),LocVel1(3,27)
 LOGICAL :: bFound,bOut=.FALSE.
-INTEGER :: nIter = 100, iIter, iLoc,iParticel,iLostParticel,iActiveParticel
+INTEGER :: nIter = 1000, iIter, iLoc,iParticel,iLostParticel,iActiveParticel
 INTEGER iMonitor(40),iAux
 REAL*8  dMonitor(40),dAux
 INTEGER nXX,kk,iMon
 PARAMETER (nXX = 40)
-REAL*8 cpx,cpy,cpz,cnormal(3)
+REAL*8 cpx,cpy,cpz,cnormal(3),dTFrac
 LOGICAL :: bProjection=.true.
 integer iProjection
 
@@ -1051,9 +1051,12 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   END DO
 
   IF (bOut) WRITE(*,'(A,I0,3E14.4,A)') '------------   point ', myActiveSet(iParticel)%indice, point, '  ------------'
-
-  DV0 = LocVel0
-  DV1 = LocVel1
+  
+  dTFrac = (tLevel-tStart)/(tDelta-tStart)
+  
+  DV0 = (1d0-dTFrac)*LocVel0 + dTFrac*LocVel1
+!  DV1 = LocVel1
+  
   P   = point 
   PR  = pointR
   

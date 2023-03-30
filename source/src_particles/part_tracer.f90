@@ -71,6 +71,9 @@ DO iFile=0,myParticleParam%nTimeLevels/myParticleParam%nPeriodicity-1 !myParticl
  END IF
  
  if (myParticleParam%DumpFormat.eq.2) CALL Load_ListFiles_PRT_Tracer(myParticleParam%dump_in_file)
+ 
+ if (myParticleParam%DumpFormat.eq.4) CALL LoadMPIDumpFiles(iFile*iAngle,'v,x,s')
+ 
  ALLOCATE(myVelo(iFile)%x(QuadSc%ndof))
  ALLOCATE(myVelo(iFile)%y(QuadSc%ndof))
  ALLOCATE(myVelo(iFile)%z(QuadSc%ndof))

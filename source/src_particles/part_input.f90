@@ -113,6 +113,7 @@ contains
     IF (tmpstring.eq."DMP") ParticleParam%DumpFormat = 1
     IF (tmpstring.eq."LST") ParticleParam%DumpFormat = 2
     IF (tmpstring.eq."REPART") ParticleParam%DumpFormat = 3
+    IF (tmpstring.eq."MPI") ParticleParam%DumpFormat = 4
 
     call inip_getvalue_double(parameterlist, "GeneralSettings","MeltTemperature",ParticleParam%MeltTemperature,0d0)
     
