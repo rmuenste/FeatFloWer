@@ -4,7 +4,7 @@ MODULE Transport_Q2P1
 USE def_QuadScalar
 ! USE PP3D_MPI
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
-                   COMM_NLComplete,Comm_Summ,Comm_SummN,&
+                   COMM_NLComplete,Comm_Summ,Comm_SummN,MPI_COMM_SUBS, &
                    myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,ReviseWallBC,myParBndr,&
 ParametrizeQ2Nodes
@@ -1472,7 +1472,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   totalInside = 0
 
-  if (myid.eq.0) return
+  if (myid .ne. 0) then
 
   call clear_fbm_maps()
   
@@ -1560,6 +1560,19 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   end if
 
   end do
+
+!int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
+!               MPI_Datatype datatype, MPI_Op op, int root,
+!               MPI_Comm comm)
+
+  end if
+
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  
+  if (myid.eq.0) then
+!    WRITE(*,*) myid,')Total dofs inside: ',totalInside
+    WRITE(*,*) myid,')Total dofs inside: ', reducedVal
+  end if
 
 !  if (.not. isSilent)then
 !    if (totalInside .ne. 0) WRITE(*,*) myid,')Total dofs inside: ',totalInside

@@ -430,12 +430,6 @@ DO ILEV=NLMIN+1,NLMAX
  end if
 
  call  MPI_Barrier(MPI_COMM_WORLD)
-! if (myid .eq. 1) then
-!   write(*,*) myid, ") #particles: ", numLocalParticles()
-!   call testParticleGet()
-!   call testParticleGet(1)
-!   call testParticleRadius()
-! end if
 
 
  RETURN
