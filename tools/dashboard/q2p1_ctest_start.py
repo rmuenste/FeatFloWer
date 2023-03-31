@@ -283,7 +283,7 @@ def executeTest(fileName):
 
     now = datetime.now()
     jsonData["DashBoardVisualization"]["timeStamp"] = timeStamp 
-    jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%y %H:%M:%S") 
+    jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%Y %H:%M:%S") 
 
     jsonData["DashBoardVisualization"]["git"] = True 
     jsonData["DashBoardVisualization"]["cmake"] = True 
