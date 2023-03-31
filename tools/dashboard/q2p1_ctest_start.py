@@ -285,6 +285,11 @@ def executeTest(fileName):
     jsonData["DashBoardVisualization"]["timeStamp"] = timeStamp 
     jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%y %H:%M:%S") 
 
+    jsonData["DashBoardVisualization"]["git"] = True 
+    jsonData["DashBoardVisualization"]["cmake"] = True 
+    jsonData["DashBoardVisualization"]["build"] = True 
+    jsonData["DashBoardVisualization"]["runtime"] = True 
+
 
     finalName = f"{noteName}-{timeStamp}"
 
