@@ -625,6 +625,7 @@ TYPE tInflow
  INTEGER iBCtype,Material
  REAL*8  massflowrate, outerradius,innerradius,temperature,temperatureRange
  REAL*8  center(3),normal(3)
+ REAL*8  midpointA(3), midpointB(3)
  real*8, allocatable :: PressureEvolution(:)
  INTEGER temperatureType
 END TYPE tInflow

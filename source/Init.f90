@@ -887,6 +887,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       2X,"|",10X,"under the supervision of:                       Stefan Turek and Dmitri Kuzmin          |"/&
       2X,"|",10X,"additional contributions from:                  Robert Jendrny, Christoph Lohmann       |"/&
       2X,"|",10X,"                                                Tatiana Theis, Malte Schuh              |"/&
+      2X,"|",10X,"                                                Michael Fast                            |"/&
       2X,"|",10X,"                                                                                        |"/&
       2X,"|",10X,"Developed at:                                                                           |"/&
       2X,"|",10X,"                                                                                        |"/&

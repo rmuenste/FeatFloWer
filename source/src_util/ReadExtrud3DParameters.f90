@@ -18,6 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
+    character(len=INIP_STRLEN) cMidpointA, cMidpointB 
     character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
@@ -1551,7 +1552,7 @@
       DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
        write(*,'(A,I0,A)') "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Sub_',iSubinflow
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype
-      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%temperature
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%InnerRadius
@@ -2028,6 +2029,12 @@
       IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
        myProcess%myInflow(iInflow)%iBCtype = 4
       END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."RECTANGLE") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 5
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDRECTANGLE") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 6
+      END IF
       if (myProcess%myInflow(iInflow)%iBCtype.eq.0) then
        write(*,*) 'UNDEFINED Inflow type!!'
       end if
@@ -2063,6 +2070,13 @@
       read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
       myProcess%myInflow(iInflow)%Center = daux*myProcess%myInflow(iInflow)%Center
       read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
+
+      call INIP_getvalue_string(parameterlist,cInflow_i,"midpointA",cMidpointA,'unknown')
+      call INIP_getvalue_string(parameterlist,cInflow_i,"midpointB",cMidpointB,'unknown')
+      read(cMidpointA,*,err=57) myProcess%myInflow(iInflow)%MidpointA
+      myProcess%myInflow(iInflow)%MidpointA = daux*myProcess%myInflow(iInflow)%MidpointA
+      read(cMidpointB,*,err=57) myProcess%myInflow(iInflow)%MidpointB
+      myProcess%myInflow(iInflow)%MidpointB = daux*myProcess%myInflow(iInflow)%MidpointB
      ELSE
       
       ALLOCATE(myProcess%myInflow(iInflow)%mySubInflow(myProcess%myInflow(iInflow)%nSubInflows))

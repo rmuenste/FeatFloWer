@@ -169,3 +169,85 @@
                      MM(j) * (normalizedTime - x_arr(j+1))**3.0) 
   
   end function pulsativeProfile
+!------------------------------------------------------------
+ function RectangleVelo3D(DM,DRHO,DA,DB)
+ REAL*8  dVolFlow,DM,DRHO,dR2,dR3
+ REAL*8  dNRM,dAux,dAux2,dAux3,dScale
+ REAL*8  DA(3), DB(3), DP(3)
+ REAL*8, dimension(3) :: RectangleVelo3D
+  
+  dP = (/X, Y, Z/)
+
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  
+  dAux2 = DOT_PRODUCT(DA-dCenter, DA-dCenter)**2-DOT_PRODUCT(dP-dCenter, DA-dCenter)**2
+  dAux3 = DOT_PRODUCT(DB-dCenter, DB-dCenter)**2-DOT_PRODUCT(dP-dCenter, DB-dCenter)**2
+
+  IF ( (dAux2.GE.0D0).and.(dAux3.GE.0D0) ) THEN
+    dAux = dAux2*dAux3
+    dScale = 9D0/16D0/ &
+            DOT_PRODUCT(DA-dCenter, DA-dCenter)**2/ &
+            DOT_PRODUCT(DB-dCenter, DB-dCenter)**2/ &
+            NORM2(DA-dCenter)/NORM2(DB-dCenter)
+    
+    RectangleVelo3D(:) = dVolFlow*dScale*dAux*dNormal(:)
+  ELSE
+    RectangleVelo3D(:) = 0D0
+  END IF
+
+
+  end function RectangleVelo3D
+!------------------------------------------------------------
+ function CurvedRectangleVelo3D(DM,DRHO,DA,DB)
+ REAL*8  dVolFlow,DM,DRHO
+ REAL*8  dNRM,dScale
+ REAL*8  DA(3), DB(3), DP(3)
+ REAL*8  dVol, dAux, dR
+ REAL*8, dimension(3) :: CurvedRectangleVelo3D
+ REAL*8 dAdC, dBdC, dPdA, dPdB
+
+  dP = (/X, Y, Z/)
+
+  dScale = 8/3*NORM2(DB-dCenter)*NORM2(DA-dCenter)+ &
+         PI/2*NORM2(DB-dCenter)**2
+  
+  dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
+
+  dNRM = SQRT(dNormal(1)*dNormal(1) +dNormal(2)*dNormal(2) + dNormal(3)*dNormal(3))
+  dNormal(1) = dNormal(1)/dNRM
+  dNormal(2) = dNormal(2)/dNRM
+  dNormal(3) = dNormal(3)/dNRM
+  
+  dR = NORM2(DB-dCenter)
+
+  ! some auxillary values
+  dAdC = DOT_PRODUCT(dA-dCenter, DA-dCenter)
+  dBdC = DOT_PRODUCT(dB-dCenter, DB-dCenter)
+
+  dPdA = DOT_PRODUCT(dP-dCenter, DA-dCenter)
+  dPdB = DOT_PRODUCT(dP-dCenter, DB-dCenter)
+
+  IF ( (dPdA**2.LE.dAdC**2).and.(dPdB**2.LE.dBdC**2) ) THEN
+      dAux = (dBdC**2-dPdB**2) / (dBdC**2)
+  ELSEIF ( (dPdA.GE.dAdC).and.(NORM2(dP-DA).LE.dR) ) THEN
+      dAux = (dR**2-NORM2(dP-DA)**2) / dR**2 
+  ELSEIF ( (dPdA**2.GE.dAdC**2).and.(NORM2(dP-2*dCenter+DA).LE.dR) ) THEN
+      dAux = (dR**2-NORM2(dP-2*dCenter+DA)**2) / dR**2
+  ELSE
+      dAux = 0D0
+  END IF
+  
+  dScale = 1/dScale
+  CurvedRectangleVelo3D(:) = dVolFlow*dScale*dAux*dNormal(:)
+
+
+  end function CurvedRectangleVelo3D
+
+
+
+

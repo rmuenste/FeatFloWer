@@ -103,6 +103,7 @@ REAL*8 dInnerRadius,dOuterRadius,dMassFlow,dVolFlow,daux,dInnerInflowRadius,dDen
 REAL*8 DIST
 REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: R_inflow=4d0,dNx,dNy,dNz,dNorm,dCenter(3),dNormal(3),dProfil(3)
+REAL*8 :: dMidpointA(3), dMidpointB(3)
 REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 integer iSubInflow
@@ -183,6 +184,42 @@ IF (iT.lt.0) THEN
      douterradius  = myProcess%myInflow(iInflow)%outerradius
      dinnerradius  = myProcess%myInflow(iInflow)%innerradius
      dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.5) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+
+     dProfil = RectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
+     ValU = dProfil(1)
+     ValV = dProfil(2)
+     ValW = dProfil(3)
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.6) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+!      dTemperature  = myProcess%myInflow(iInflow)%Temperature
+!      dDensitySlope = myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+!      dDensity      = dDensity - dTemperature*dDensitySlope
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+
+     dProfil = CurvedRectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
      ValU = dProfil(1)
      ValV = dProfil(2)
      ValW = dProfil(3)
