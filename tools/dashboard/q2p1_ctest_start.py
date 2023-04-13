@@ -27,8 +27,65 @@ def usage():
     print("Usage: configure [options]")
     print("Where options can be:")
     print("[-h, --help]: prints this message")
-    print("[-h, --help]: prints this message")
 
+#===============================================================================
+#                      Function: generateSlurmScript
+#===============================================================================
+def generateSlurmScript():
+    partition = "med"
+    constraint = "[bttf]"
+    nodes = "1"
+    ntasksPerNode = "16"
+    time = "08:00:00"
+    mem = "5G"
+    name = "FF-Bench"
+    executable = "q2p1_fc_ext"
+    slurmString = f"""#!/bin/bash
+#SBATCH --partition={partition}
+#SBATCH --constraint={constraint}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks-per-node={ntasksPerNode}
+#SBATCH --time={time}
+#SBATCH --mem-per-cpu={mem}
+#SBATCH --job-name={name}
+shopt -s expand_aliases
+source ~/.bashrc
+mpirun -np {ntasksPerNode} ./{executable} 
+"""
+    return slurmString
+#===============================================================================
+#                      Function:  submitAndObserve
+#===============================================================================
+def submitAndObserve():
+    # Submit job using sbatch
+    slurmString = generateSlurmScript()
+
+    sbatch_command = 'sbatch myjob.sh'
+    process = subprocess.Popen(sbatch_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        print(f'Error submitting job: {stderr.decode("utf-8")}')
+        exit(1)
+    job_id = stdout.decode("utf-8").strip()  # get job ID from sbatch output
+
+    # Query job status using sacct
+    sacct_command = f'sacct --format=State --jobs={job_id}'
+    interval_seconds = 5
+    while True:
+        process = subprocess.Popen(sacct_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode != 0:
+            print(f'Error querying job status: {stderr.decode("utf-8")}')
+            exit(1)
+        job_status = stdout.decode("utf-8").strip().split('\n')[1].split()[0]  # get job status from sacct output
+        print(f'Job {job_id} status: {job_status}')
+        if job_status == 'COMPLETED':
+            print('Job completed successfully')
+            break
+        elif job_status in ['FAILED', 'CANCELLED']:
+            print('Job failed or was cancelled')
+            break
+        time.sleep(interval_seconds)  # wait for interval_seconds before checking job status again
 
 #===============================================================================
 #                      Function:  moveAndSetLevel
