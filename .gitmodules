@@ -8,8 +8,8 @@
 [submodule "extern/libraries/hypre"]
 	path = extern/libraries/hypre
 	url = https://github.com/rmuenste/hypre.git
-[submodule "FullC0ntact"]
-	path = libs
+[submodule "libs/FullcontactV2"]
+	path = libs/FullContactV2
 	url = /home/warehouse13/rmuenste/nobackup/code/FF-DNA/FullContactV2
 	branch = eff-visc
 
