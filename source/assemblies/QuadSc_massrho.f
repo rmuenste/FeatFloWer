@@ -406,3 +406,144 @@ C
       DPHI(8)=Q8*(1D0-X1)*(1D0+X2)*(1D0+X3)
 
       END
+C
+C
+C
+      SUBROUTINE SampleCubaturePoints(dcorvg,kvert,karea,kedge,
+     *           CB,icub,ncub,iProc)
+
+      USE PP3D_MPI, ONLY:myid
+      
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+      
+      
+      REAL*8  DCORVG(3,*),CB(3,*)
+      INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+      INTEGER  KDFG(NNBAS),KDFL(NNBAS)
+     
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
+
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+     
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL E011(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+      
+      CALL CB3H(icub)
+      
+      if (iProc.eq.1) THEN
+       ncub = NCUBP*nel
+       RETURN
+      END IF
+      
+      iCB = 0
+      
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+!        if (myid.eq.1)write(*,*) xi1,xi2,xi3
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+!        if (myid.eq.1)write(*,*) DHELP_Q1(1:8,1,ICUBP)
+      END DO
+      
+!       if (myid.eq.1) write(*,*) DHELP_Q1(1:8,2,1:NCUBP)
+!       if (myid.eq.1) write(*,*) DHELP_Q1(1:8,3,1:NCUBP)
+!       if (myid.eq.1) write(*,*) DHELP_Q1(1:8,4,1:NCUBP)
+!       pause
+      
+      ICUBP=ICUB
+      CALL E011(0D0,0D0,0D0,-2)
+
+      DO iel=1,nel
+      
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+      
+!       if (myid.eq.1) WRITE(*,*) KDFG,KDFL
+      
+      DO ICUBP=1,NCUBP
+C
+      XI1=DXI(ICUBP,1)
+      XI2=DXI(ICUBP,2)
+      XI3=DXI(ICUBP,3)
+C
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+      DJAC=0d0
+      DO JDOFE=1,8
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+!        if (myid.eq.1) write(*,*) DPP
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+C      
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
+C
+      CALL E011(XI1,XI2,XI3,-3)
+      
+      DX1=0D0
+      DX2=0D0
+      DX3=0D0
+      DO JDOFE=1,IDFL
+        JDOFEH=KDFL(JDOFE)
+        HBAS=DBAS(1,JDOFEH,1)
+        JDFG=KDFG(JDOFE)
+        DX1 = DX1 + (DCORVG(1,JDFG))*HBAS
+        DX2 = DX2 + (DCORVG(2,JDFG))*HBAS
+        DX3 = DX3 + (DCORVG(3,JDFG))*HBAS
+      END DO
+      
+      iCB = iCB + 1
+      CB(:,iCB) = [DX1,DX2,DX3]
+       
+      end do
+      end do
+      
+      END SUBROUTINE SampleCubaturePoints
+      

@@ -1538,6 +1538,10 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
 !if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
 
 IF (myid.ne.0) THEN
+ CALL ResampleToHEX(1)
+END IF
+
+IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 END IF
  
@@ -2814,7 +2818,6 @@ END DO
 mySetup%bPressureConvergence = mySetup%bPressureConvergence.and.(istart.eq.1)
 
 END SUBROUTINE GetPressureAtInflows
-
 !
 ! ----------------------------------------------
 !
@@ -3086,3 +3089,276 @@ CALL SubIntegrateShearrate(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                         E013)
 
 END SUBROUTINE IntegrateShearrate
+!
+! ----------------------------------------------
+!
+SUBROUTINE ResampleToHEX(iProc)
+USE PP3D_MPI
+integer iProc
+REAL*8 P(3),Q(3),BOX(2,3)
+REAL*8 ElemPoints(3,8),ElemVelocity(3,27),V(3)
+REAL*8 :: dEps=1d-5
+integer i,j,k,m,ivt,ndof
+logical bInside
+REAL*8, allocatable :: dbuff(:,:),defect(:,:),dml(:)
+integer, allocatable :: ibuff(:)
+external E013
+
+! set up myHEX%cbList
+if (iProc.eq.0) then
+ 
+ IF (allocated(myHEX%cbList)) deallocate(myHEX%cbList)
+ IF (allocated(myHEX%cbSum)) deallocate(myHEX%cbSum)
+ allocate(myHEX%cbList(myHEX%nCB))
+ allocate(myHEX%cbSum(myHEX%nCB))
+ myHEX%cbList = 0
+ myHEX%cbSum = 0
+ 
+ DO i=1,myHEX%nCB
+  P(:) = myHEX%cbP(:,i)
+
+  DO iel=1,mg_mesh%level(NLMAX)%nel
+   BOX(1,:) = +1d8
+   BOX(2,:) = -1d8
+   DO k=1,8
+    ivt = mg_mesh%level(nlmax)%kvert(k,iel)
+    Q = mg_mesh%level(NLMAX)%dcorvg(:,ivt)
+    DO m=1,3
+     IF (BOX(1,m).gt.Q(m)) BOX(1,m) = Q(m)
+     IF (BOX(2,m).lt.Q(m)) BOX(2,m) = Q(m)
+    END DO
+   END DO
+    
+   bInside = .true.
+   DO m=1,3
+    IF (P(m).lt.BOX(1,m)-dEps.or.P(m).gt.BOX(2,m)+dEps) bInside = .false.
+   END DO
+    
+   if (bInside) THEN
+    myHEX%cbList(i) = iel
+!     write(*,*) "myid ",myid," has found point: ",i
+   END IF
+   
+  END DO
+ END DO
+ 
+ RETURN
+ 
+END IF
+
+
+! use myHEX%cbList and interpolate
+if (iProc.eq.1) then
+ 
+ IF (allocated(dBuff)) deallocate(dBuff)
+ IF (allocated(iBuff)) deallocate(iBuff)
+ allocate(dBuff(3,myHEX%nCB))
+ allocate(iBuff(myHEX%nCB))
+ dBuff = 0d0
+ iBuff = 0
+
+ myHEX%cbSum = 0
+ myHEX%cbV = 0d0
+ 
+ DO i=1,myHEX%nCB
+ 
+  IF (myHEX%cbList(i).ne.0) THEN
+  
+   V = 0d0
+   
+   iel = myHEX%cbList(i)
+   P(:) = myHEX%cbP(:,i)
+   
+   DO k=1,8
+    ivt = mg_mesh%level(NLMAX)%kvert(k,iel)
+    ElemVelocity(:, 0 + k) = [QuadSc%ValU(ivt),&
+                              QuadSc%ValV(ivt),&
+                              QuadSc%ValW(ivt)]
+    ElemPoints(:,k) = mg_mesh%level(NLMAX)%dcorvg(:,ivt)
+   END DO
+   
+   DO k=1,12
+    ivt = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%kedge(k,iel)
+    ElemVelocity(:,8 +k) = [QuadSc%ValU(ivt),&
+                            QuadSc%ValV(ivt),&
+                            QuadSc%ValW(ivt)]
+   END DO
+   
+   DO k=1,6
+    ivt = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%net + mg_mesh%level(NLMAX)%karea(k,iel)
+    ElemVelocity(:,20 +k) = [QuadSc%ValU(ivt),&
+                            QuadSc%ValV(ivt),&
+                            QuadSc%ValW(ivt)]
+   END DO
+   
+   ivt = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%net + mg_mesh%level(NLMAX)%nat + iel
+   ElemVelocity(:,27) = [QuadSc%ValU(ivt),&
+                         QuadSc%ValV(ivt),&
+                         QuadSc%ValW(ivt)]
+
+   CALL InterPolate(ElemVelocity,V,ElemPoints,P)
+   
+   myHEX%cbV(:,i) = V
+   myHEX%cbSum(i) = 1
+   
+   write(*,*) "myid ",myid," has found velocity: ",V, ' at ', iel
+   
+!    if (myid.eq.1) THEN
+!      OPEN(unit=9663,file='elem.csv')
+!      WRITE(9663,*) 'x,y,z,u,v,w'
+!      DO m=1,8
+!       WRITE(9663,'(6(ES14.4,A))') ElemPoints(1,m),",",ElemPoints(2,m),",",ElemPoints(3,m),",",&
+!                                   ElemVelocity(1,m),",",ElemVelocity(2,m),",",ElemVelocity(3,m)
+!      END DO
+!      CLOSE(9663)
+!    END IF
+  END IF
+ 
+ END DO
+ 
+ call MPI_Allreduce(myHEX%cbV,  dBuff, myHEX%nCB*3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_subs, ierr)
+ call MPI_Allreduce(myHEX%cbSum,iBuff, myHEX%nCB, MPI_INTEGER, MPI_SUM, MPI_COMM_subs, ierr)
+ 
+ DO i=1,myHEX%nCB
+  if (iBuff(i).eq.0) THEN
+   write(*,*) 'Problem with sampling of the velocities ... '
+   stop
+  END IF
+  myHEX%cbV(:,i) = dBuff(:,i)/iBuff(i)
+ END DO
+   
+ IF (myid.eq.1) THEN
+   OPEN(unit=9663,file='cb.csv')
+   WRITE(9663,*) 'x,y,z,u,v,w'
+   DO i=1,myHEX%nCB
+    WRITE(9663,'(6(ES14.4,A))') myHEX%cbP(1,i),",",myHEX%cbP(2,i),",",myHEX%cbP(3,i),",",&
+                                myHEX%cbV(1,i),",",myHEX%cbV(2,i),",",myHEX%cbV(3,i)
+   END DO
+   CLOSE(9663)
+ END IF
+
+END IF
+
+ilev = 3
+CALL setlev_HEX()
+
+ndof = myHEX%mg_HEX%level(ILEV)%nvt + myHEX%mg_HEX%level(ILEV)%net + myHEX%mg_HEX%level(ILEV)%nat + myHEX%mg_HEX%level(ILEV)%nel
+
+allocate(myHEX%Velocity(3,ndof))
+allocate(defect(3,ndof))
+allocate(dml(ndof))
+defect = 0d0
+dml = 0d0
+
+CALL HEXProjection(7,myHEX%cbV,defect,dml,&
+                   myHEX%mg_HEX%level(ILEV)%kvert,&
+                   myHEX%mg_HEX%level(ILEV)%karea,&
+                   myHEX%mg_HEX%level(ILEV)%kedge,&
+                   myHEX%mg_HEX%level(ILEV)%dcorvg,&
+                   E013)
+
+DO i=1,ndof
+ myHEX%Velocity(:,i) = defect(:,i) / dml(i)
+END DO
+                   
+IF (myid.eq.1) THEN
+ OPEN(unit=9663,file='velo.csv')
+ WRITE(9663,*) 'x,y,z,u,v,w'
+ DO i=1,ndof
+  WRITE(9663,'(6(ES14.4,A))') myHEX%mg_HEX%level(ILEV)%dcorvg(1,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(2,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(3,i),",",&
+                              myHEX%Velocity(1,i),",",myHEX%Velocity(2,i),",",myHEX%Velocity(3,i)
+ END DO
+ CLOSE(9663)
+END IF 
+                   
+pause
+
+
+END SUBROUTINE ResampleToHEX
+!
+! ----------------------------------------------
+!
+SUBROUTINE InterPolate(dV,dVPoint,DE,XX)
+REAL*8 X(3),dVPoint(3),dV(3,27),DE(3,8),DC(3),XX(3)
+REAL*8 DHELP(27),DJAC(3,3),DIJAC(3,3),DETJ,XI(3)
+REAL*8 :: Q8=0.125D0
+INTEGER i,j
+LOGICAL bflag
+
+ DC = 0d0
+ DO i=1,8
+  DC(:) = DC(:) + 0.125d0*DE(:,i)
+ END DO
+ X(:) = XX(:) - DC(:)
+ 
+ DJAC(1,1)=(-DE(1,1)+DE(1,2)+DE(1,3)-DE(1,4)-DE(1,5)+DE(1,6)+DE(1,7)-DE(1,8))*Q8
+ DJAC(2,1)=(-DE(2,1)+DE(2,2)+DE(2,3)-DE(2,4)-DE(2,5)+DE(2,6)+DE(2,7)-DE(2,8))*Q8
+ DJAC(3,1)=(-DE(3,1)+DE(3,2)+DE(3,3)-DE(3,4)-DE(3,5)+DE(3,6)+DE(3,7)-DE(3,8))*Q8
+ DJAC(1,2)=(-DE(1,1)-DE(1,2)+DE(1,3)+DE(1,4)-DE(1,5)-DE(1,6)+DE(1,7)+DE(1,8))*Q8
+ DJAC(2,2)=(-DE(2,1)-DE(2,2)+DE(2,3)+DE(2,4)-DE(2,5)-DE(2,6)+DE(2,7)+DE(2,8))*Q8
+ DJAC(3,2)=(-DE(3,1)-DE(3,2)+DE(3,3)+DE(3,4)-DE(3,5)-DE(3,6)+DE(3,7)+DE(3,8))*Q8
+ DJAC(1,3)=(-DE(1,1)-DE(1,2)-DE(1,3)-DE(1,4)+DE(1,5)+DE(1,6)+DE(1,7)+DE(1,8))*Q8
+ DJAC(2,3)=(-DE(2,1)-DE(2,2)-DE(2,3)-DE(2,4)+DE(2,5)+DE(2,6)+DE(2,7)+DE(2,8))*Q8
+ DJAC(3,3)=(-DE(3,1)-DE(3,2)-DE(3,3)-DE(3,4)+DE(3,5)+DE(3,6)+DE(3,7)+DE(3,8))*Q8
+ DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3)) - &
+       DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3)) + &
+       DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+ 
+ DIJAC(1,1)  =  (DJAC(2,2)* DJAC(3,3) - DJAC(2,3)* DJAC(3,2))
+ DIJAC(2,1)  =  (DJAC(2,3)* DJAC(3,1) - DJAC(2,1)* DJAC(3,3))
+ DIJAC(3,1)  =  (DJAC(2,1)* DJAC(3,2) - DJAC(2,2)* DJAC(3,1))
+ DIJAC(1,2)  =  (DJAC(1,3)* DJAC(3,2) - DJAC(1,2)* DJAC(3,3))
+ DIJAC(2,2)  =  (DJAC(1,1)* DJAC(3,3) - DJAC(1,3)* DJAC(3,1))
+ DIJAC(3,2)  =  (DJAC(1,2)* DJAC(3,1) - DJAC(1,1)* DJAC(3,2))
+ DIJAC(1,3)  =  (DJAC(1,2)* DJAC(2,3) - DJAC(1,3)* DJAC(2,2))
+ DIJAC(2,3)  =  (DJAC(1,3)* DJAC(2,1) - DJAC(1,1)* DJAC(2,3))
+ DIJAC(3,3)  =  (DJAC(1,1)* DJAC(2,2) - DJAC(1,2)* DJAC(2,1))
+
+ DIJAC = DIJAC/DETJ
+
+!  XI(1) = X(1)*DIJAC(1,1) + X(2)*DIJAC(2,1) + X(3)*DIJAC(3,1)
+!  XI(2) = X(1)*DIJAC(1,2) + X(2)*DIJAC(2,2) + X(3)*DIJAC(3,2)
+!  XI(3) = X(1)*DIJAC(1,3) + X(2)*DIJAC(2,3) + X(3)*DIJAC(3,3)
+
+ XI(1) = X(1)*DIJAC(1,1) + X(2)*DIJAC(1,2) + X(3)*DIJAC(1,3)
+ XI(2) = X(1)*DIJAC(2,1) + X(2)*DIJAC(2,2) + X(3)*DIJAC(2,3)
+ XI(3) = X(1)*DIJAC(3,1) + X(2)*DIJAC(3,2) + X(3)*DIJAC(3,3)
+ 
+ DHELP(1 )=-Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0-XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(2 )= Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0-XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(3 )=-Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0+XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(4 )= Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0+XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(5 )= Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0-XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(6 )=-Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0-XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(7 )= Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0+XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(8 )=-Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0+XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(9 )= Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0-XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(10)=-Q8*XI(1)*(1D0+XI(1))*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0-XI(3))
+ DHELP(11)=-Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0+XI(2))*XI(3)*(1D0-XI(3))
+ DHELP(12)= Q8*XI(1)*(1D0-XI(1))*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0-XI(3))
+ DHELP(13)= Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0-XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(14)=-Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0-XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(15)= Q8*XI(1)*(1D0+XI(1))*XI(2)*(1D0+XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(16)=-Q8*XI(1)*(1D0-XI(1))*XI(2)*(1D0+XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(17)=-Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0-XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(18)= Q8*XI(1)*(1D0+XI(1))*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0+XI(3))
+ DHELP(19)= Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0+XI(2))*XI(3)*(1D0+XI(3))
+ DHELP(20)=-Q8*XI(1)*(1D0-XI(1))*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0+XI(3))
+ DHELP(21)=-Q8*(2D0-2D0*XI(1)**2D0)*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0-XI(3))
+ DHELP(22)=-Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0-XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(23)= Q8*XI(1)*(1D0+XI(1))*(2D0-2D0*XI(2)**2D0)*(2D0-2D0*XI(3)**2D0)
+ DHELP(24)= Q8*(2D0-2D0*XI(1)**2D0)*XI(2)*(1D0+XI(2))*(2D0-2D0*XI(3)**2D0)
+ DHELP(25)=-Q8*XI(1)*(1D0-XI(1))*(2D0-2D0*XI(2)**2D0)*(2D0-2D0*XI(3)**2D0)
+ DHELP(26)= Q8*(2D0-2D0*XI(1)**2D0)*(2D0-2D0*XI(2)**2D0)*XI(3)*(1D0+XI(3))
+ DHELP(27)= Q8*(2D0-2D0*XI(1)**2D0)*(2D0-2D0*XI(2)**2D0)*(2D0-2D0*XI(3)**2D0)
+
+ dVPoint = 0d0
+ DO i=1,27
+   dVPoint(:) = dVPoint(:) + DHELP(i)*dV(:,i)
+ END DO
+
+!   write(*,*) XI
+!   pause
+
+END SUBROUTINE InterPolate
+      

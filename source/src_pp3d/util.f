@@ -812,6 +812,23 @@ c
 c
 c
 c
+      SUBROUTINE   setlev_HEX()
+      use var_QuadScalar, only: myHEX,ilev
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+
+      NVT = myHEX%mg_HEX%level(ILEV)%nvt    
+      NET = myHEX%mg_HEX%level(ILEV)%net
+      NAT = myHEX%mg_HEX%level(ILEV)%nat
+      NEL = myHEX%mg_HEX%level(ILEV)%nel
+      NVE = myHEX%mg_HEX%level(ILEV)%nve
+      NEE = myHEX%mg_HEX%level(ILEV)%nee
+      NAE = myHEX%mg_HEX%level(ILEV)%nae
+      
+!       write(*,*) 'nvt,nel',nvt,nel
+      
+      END 
+
 ************************************************************************
       SUBROUTINE   S E T L E V   (ISETLV)
 ************************************************************************

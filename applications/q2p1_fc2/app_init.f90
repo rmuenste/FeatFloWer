@@ -69,7 +69,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
- USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+ USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc,myHEX,ResampleToHEX
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
@@ -471,7 +471,40 @@ DO ILEV=NLMIN+1,NLMAX
 END DO
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 IF (myid.eq.1) write(*,*) 'done!'
- RETURN
+
+myHEX%mg_HEX%maxlevel = 4
+myHEX%mg_HEX%nlmax = 3
+myHEX%mg_HEX%nlmin = 1
+
+if (myid.ne.0) then
+ allocate(myHEX%mg_HEX%level(myHEX%mg_HEX%maxlevel))
+ call readTriCoarse('M/m.tri', myHEX%mg_HEX)
+ call refineMesh(myHEX%mg_HEX, myHEX%mg_HEX%maxlevel)  
+
+ ilev = 3
+ CALL setlev_HEX()
+
+ CALL SampleCubaturePoints(myHEX%mg_HEX%level(ilev)%dcorvg,&
+                           myHEX%mg_HEX%level(ilev)%kvert,&
+                           myHEX%mg_HEX%level(ilev)%karea,&
+                           myHEX%mg_HEX%level(ilev)%kedge,&
+                           myHEX%cbP,&
+                           7,myHEX%nCB,1)
+
+ allocate(myHEX%cbP(3,myHEX%nCB))
+ allocate(myHEX%cbV(3,myHEX%nCB))
+
+ CALL SampleCubaturePoints(myHEX%mg_HEX%level(ilev)%dcorvg,&
+                           myHEX%mg_HEX%level(ilev)%kvert,&
+                           myHEX%mg_HEX%level(ilev)%karea,&
+                           myHEX%mg_HEX%level(ilev)%kedge,&
+                           myHEX%cbP,&
+                           7,myHEX%nCB,2)
+  
+ CALL ResampleToHEX(0)
+END IF
+
+RETURN
 
 END SUBROUTINE General_init_ext
  !

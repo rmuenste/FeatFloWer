@@ -239,6 +239,14 @@ TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
 
 type(tMultiMesh),save :: mg_mesh
 
+TYPE tHEX
+ type(tMultiMesh):: mg_HEX
+ REAL*8, allocatable :: cbP(:,:), cbV(:,:),Velocity(:,:)
+ INTEGER nCB
+ integer, allocatable :: cbList(:),cbSum(:)
+END TYPE tHEX
+type(tHEX),save :: myHEX
+
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:)
 type(tUint64), allocatable :: FictKNPR_uint64(:)
