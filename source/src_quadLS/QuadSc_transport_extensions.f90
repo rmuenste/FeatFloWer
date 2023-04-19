@@ -1539,6 +1539,7 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
 
 IF (myid.ne.0) THEN
  CALL ResampleToHEX(1)
+ CALL ResampleToHEX(2)
 END IF
 
 IF (myid.ne.0) THEN
@@ -3201,7 +3202,7 @@ if (iProc.eq.1) then
    myHEX%cbV(:,i) = V
    myHEX%cbSum(i) = 1
    
-   write(*,*) "myid ",myid," has found velocity: ",V, ' at ', iel
+!    write(*,*) "myid ",myid," has found velocity: ",V, ' at ', iel
    
 !    if (myid.eq.1) THEN
 !      OPEN(unit=9663,file='elem.csv')
@@ -3237,41 +3238,120 @@ if (iProc.eq.1) then
    CLOSE(9663)
  END IF
 
-END IF
+ ilev = myHEX%ilev
+ CALL setlev_HEX()
 
-ilev = 3
-CALL setlev_HEX()
+ ndof = myHEX%mg_HEX%level(ILEV)%nvt + myHEX%mg_HEX%level(ILEV)%net + myHEX%mg_HEX%level(ILEV)%nat + myHEX%mg_HEX%level(ILEV)%nel
 
-ndof = myHEX%mg_HEX%level(ILEV)%nvt + myHEX%mg_HEX%level(ILEV)%net + myHEX%mg_HEX%level(ILEV)%nat + myHEX%mg_HEX%level(ILEV)%nel
+ IF (allocated(myHEX%Velocity)) deallocate(myHEX%Velocity)
+ allocate(myHEX%Velocity(3,ndof))
+ myHEX%Velocity = 0d0
+ 
+ allocate(defect(3,ndof))
+ allocate(dml(ndof))
+ defect = 0d0
+ dml = 0d0
 
-allocate(myHEX%Velocity(3,ndof))
-allocate(defect(3,ndof))
-allocate(dml(ndof))
-defect = 0d0
-dml = 0d0
+ CALL HEXProjection(myHEX%iCubP,myHEX%cbV,defect,dml,&
+                    myHEX%mg_HEX%level(ILEV)%kvert,&
+                    myHEX%mg_HEX%level(ILEV)%karea,&
+                    myHEX%mg_HEX%level(ILEV)%kedge,&
+                    myHEX%mg_HEX%level(ILEV)%dcorvg,&
+                    E013)
 
-CALL HEXProjection(7,myHEX%cbV,defect,dml,&
-                   myHEX%mg_HEX%level(ILEV)%kvert,&
-                   myHEX%mg_HEX%level(ILEV)%karea,&
-                   myHEX%mg_HEX%level(ILEV)%kedge,&
-                   myHEX%mg_HEX%level(ILEV)%dcorvg,&
-                   E013)
-
-DO i=1,ndof
- myHEX%Velocity(:,i) = defect(:,i) / dml(i)
-END DO
-                   
-IF (myid.eq.1) THEN
- OPEN(unit=9663,file='velo.csv')
- WRITE(9663,*) 'x,y,z,u,v,w'
  DO i=1,ndof
-  WRITE(9663,'(6(ES14.4,A))') myHEX%mg_HEX%level(ILEV)%dcorvg(1,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(2,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(3,i),",",&
-                              myHEX%Velocity(1,i),",",myHEX%Velocity(2,i),",",myHEX%Velocity(3,i)
+  myHEX%Velocity(:,i) = defect(:,i) / dml(i)
  END DO
- CLOSE(9663)
-END IF 
-                   
-pause
+ 
+ deallocate(defect,dml)
+                    
+ IF (myid.eq.1) THEN
+  OPEN(unit=9663,file='velo.csv')
+  WRITE(9663,*) 'x,y,z,u,v,w'
+  DO i=1,ndof
+   WRITE(9663,'(6(ES14.4,A))') myHEX%mg_HEX%level(ILEV)%dcorvg(1,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(2,i),",",myHEX%mg_HEX%level(ILEV)%dcorvg(3,i),",",&
+                               myHEX%Velocity(1,i),",",myHEX%Velocity(2,i),",",myHEX%Velocity(3,i)
+  END DO
+  CLOSE(9663)
+ END IF 
+ 
+ RETURN
+END IF
+ 
+! interpolate BigU onto the myHEX%Velocity field
+if (iProc.eq.2) then
+
+ ilev = myHEX%ilev
+ CALL setlev_HEX()
+ ndof = mg_mesh%level(nlmax)%nvt + mg_mesh%level(nlmax)%net + mg_mesh%level(nlmax)%nat + mg_mesh%level(nlmax)%nel
+ 
+ IF (allocated(myHEX%dBigU)) deallocate(myHEX%dBigU)
+ allocate(myHEX%dBigU(3,ndof))
+ myHEX%dBigU = 0d0
+
+ DO i=1,ndof
+ 
+  P(:) = myQ2Coor(:,i)
+
+  DO iel=1,myHEX%mg_HEX%level(ilev)%nel
+   BOX(1,:) = +1d8
+   BOX(2,:) = -1d8
+   DO k=1,8
+    ivt = myHEX%mg_HEX%level(ilev)%kvert(k,iel)
+    Q = myHEX%mg_HEX%level(ilev)%dcorvg(:,ivt)
+    DO m=1,3
+     IF (BOX(1,m).gt.Q(m)) BOX(1,m) = Q(m)
+     IF (BOX(2,m).lt.Q(m)) BOX(2,m) = Q(m)
+    END DO
+   END DO
+    
+   bInside = .true.
+   DO m=1,3
+    IF (P(m).lt.BOX(1,m)-dEps.or.P(m).gt.BOX(2,m)+dEps) bInside = .false.
+   END DO
+    
+   if (bInside) THEN
+    DO k=1,8
+     ivt = myHEX%mg_HEX%level(ilev)%kvert(k,iel)
+     ElemVelocity(:, 0 + k) = myHEX%Velocity(:,ivt)
+     ElemPoints(:,k) = myHEX%mg_HEX%level(ilev)%dcorvg(:,ivt)
+    END DO
+    
+    DO k=1,12
+     ivt = myHEX%mg_HEX%level(ilev)%nvt + myHEX%mg_HEX%level(ilev)%kedge(k,iel)
+     ElemVelocity(:,8 +k) = myHEX%Velocity(:,ivt)
+    END DO
+    
+    DO k=1,6
+     ivt = myHEX%mg_HEX%level(ilev)%nvt + myHEX%mg_HEX%level(ilev)%net + myHEX%mg_HEX%level(ilev)%karea(k,iel)
+     ElemVelocity(:,20 +k) = myHEX%Velocity(:,ivt)
+    END DO
+    
+    ivt = myHEX%mg_HEX%level(ilev)%nvt + myHEX%mg_HEX%level(ilev)%net + myHEX%mg_HEX%level(ilev)%nat + iel
+    ElemVelocity(:,27) = myHEX%Velocity(:,ivt)
+
+    CALL InterPolate(ElemVelocity,V,ElemPoints,P)
+    
+    myHEX%dBigU(:,i) = V
+!    if (myid.eq.1) write(*,*) V
+    
+   END IF
+   
+  END DO
+ END DO
+
+ IF (myid.eq.1) THEN
+  OPEN(unit=9663,file='bigU.csv')
+  WRITE(9663,*) 'x,y,z,u,v,w'
+  DO i=1,ndof
+   WRITE(9663,'(6(ES14.4,A))') myQ2Coor(1,i),",",myQ2Coor(2,i),",",myQ2Coor(3,i),",",&
+                               myHEX%dBigU(1,i),",",myHEX%dBigU(2,i),",",myHEX%dBigU(3,i)
+  END DO
+  CLOSE(9663)
+ END IF 
+
+end if
+
 
 
 END SUBROUTINE ResampleToHEX

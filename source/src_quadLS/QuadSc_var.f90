@@ -241,8 +241,8 @@ type(tMultiMesh),save :: mg_mesh
 
 TYPE tHEX
  type(tMultiMesh):: mg_HEX
- REAL*8, allocatable :: cbP(:,:), cbV(:,:),Velocity(:,:)
- INTEGER nCB
+ REAL*8, allocatable :: cbP(:,:), cbV(:,:),Velocity(:,:),dBigU(:,:)
+ INTEGER nCB,iCubP,iLev
  integer, allocatable :: cbList(:),cbSum(:)
 END TYPE tHEX
 type(tHEX),save :: myHEX

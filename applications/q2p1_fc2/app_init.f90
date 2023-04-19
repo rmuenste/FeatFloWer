@@ -472,8 +472,11 @@ END DO
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 IF (myid.eq.1) write(*,*) 'done!'
 
-myHEX%mg_HEX%maxlevel = 4
-myHEX%mg_HEX%nlmax = 3
+myHEX%iCubP = 9
+myHEX%iLev  = 1
+
+myHEX%mg_HEX%maxlevel = myHEX%iLev+1
+myHEX%mg_HEX%nlmax = myHEX%iLev
 myHEX%mg_HEX%nlmin = 1
 
 if (myid.ne.0) then
@@ -481,7 +484,7 @@ if (myid.ne.0) then
  call readTriCoarse('M/m.tri', myHEX%mg_HEX)
  call refineMesh(myHEX%mg_HEX, myHEX%mg_HEX%maxlevel)  
 
- ilev = 3
+ ilev = myHEX%iLev
  CALL setlev_HEX()
 
  CALL SampleCubaturePoints(myHEX%mg_HEX%level(ilev)%dcorvg,&
@@ -489,7 +492,7 @@ if (myid.ne.0) then
                            myHEX%mg_HEX%level(ilev)%karea,&
                            myHEX%mg_HEX%level(ilev)%kedge,&
                            myHEX%cbP,&
-                           7,myHEX%nCB,1)
+                           myHEX%iCubP,myHEX%nCB,1)
 
  allocate(myHEX%cbP(3,myHEX%nCB))
  allocate(myHEX%cbV(3,myHEX%nCB))
@@ -499,7 +502,7 @@ if (myid.ne.0) then
                            myHEX%mg_HEX%level(ilev)%karea,&
                            myHEX%mg_HEX%level(ilev)%kedge,&
                            myHEX%cbP,&
-                           7,myHEX%nCB,2)
+                           myHEX%iCubP,myHEX%nCB,2)
   
  CALL ResampleToHEX(0)
 END IF

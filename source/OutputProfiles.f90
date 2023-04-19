@@ -2101,6 +2101,7 @@ USE var_QuadScalar,ONLY: Tracer
 USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 USE var_QuadScalar,ONLY: GenLinScalar, FBMVelocity,FBMWeight
+USE var_QuadScalar,ONLY: myHex
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 
 IMPLICIT NONE
@@ -2154,6 +2155,12 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","FBMVelocity",""" NumberOfComponents=""3"" format=""ascii"">"
   do ivt=1,NoOfVert
    write(iunit, '(A,3E16.7)')"        ",REAL(FBMVelocity(1,ivt)),REAL(FBMVelocity(2,ivt)),REAL(FBMVelocity(3,ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+ CASE('BigU')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BigU",""" NumberOfComponents=""3"" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,3E16.7)')"        ",REAL(myHEX%dBigU(1,ivt)),REAL(myHEX%dBigU(2,ivt)),REAL(myHEX%dBigU(3,ivt))
   end do
   write(iunit, *)"        </DataArray>"
  CASE('GradVelocity')
@@ -2630,6 +2637,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
  CASE('FBMVelocity')
  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBMVelocity",""" NumberOfComponents=""3""/>"
+ CASE('BigU')
+ write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","BigU",""" NumberOfComponents=""3""/>"
  CASE('GradVelocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_y",""" NumberOfComponents=""3""/>"

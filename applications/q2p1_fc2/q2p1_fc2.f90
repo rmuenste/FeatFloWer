@@ -60,7 +60,7 @@ PROGRAM Q2P1_FC2
   istep_ns = istep_ns + 1
   ! Exit if done
   IF (timemx.LE.(timens+1D-10)) EXIT
-
+  
   END DO
 
   call MPI_Barrier(MPI_COMM_WORLD)
