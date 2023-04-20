@@ -1528,7 +1528,7 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-CALL IntegrateShearrate()
+!CALL IntegrateShearrate()
                         
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
@@ -1561,6 +1561,9 @@ END IF
                       mg_mesh%level(ILEV)%kvert,&
                       mg_mesh%level(ILEV)%karea,&
                       mg_mesh%level(ILEV)%kedge)
+
+call CalculateDenominator()
+call IntegrateShearrate()
 
 CALL updateFBMGeometry()
 
@@ -3073,6 +3076,23 @@ RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP_fcweight_ext 
 
+SUBROUTINE CalculateDenominator()
+REAL*8   dDenominator
+EXTERNAL E013
+
+ILEV = NLMAX
+CALL SETLEV(2)
+
+CALL SubIntBigU(myHEX%dBigU(1,:),myHEX%dBigU(2,:),myHEX%dBigU(3,:),&
+                        mg_mesh%level(ILEV)%kvert,&
+                        mg_mesh%level(ILEV)%karea,&
+                        mg_mesh%level(ILEV)%kedge,&
+                        mg_mesh%level(ILEV)%dcorvg,&
+                        dDenominator,&
+                        E013)
+
+END SUBROUTINE CalculateDenominator
+
 !! Called by all (myid=0 too) processes because of the immersed communicated sum !!
 SUBROUTINE IntegrateShearrate()
 REAL*8   dAvgShearRate
@@ -3094,6 +3114,17 @@ END SUBROUTINE IntegrateShearrate
 ! ----------------------------------------------
 !
 SUBROUTINE ResampleToHEX(iProc)
+! iProc = 0:  Find the sampling points in the domain of the fine mesh, 
+!             then this list will have a non-zero entry
+!
+! iProc = 1:  Sample the velocity for all non-zero entries in the list 
+!             in its containing element. Then we account for multiple occurences of t
+!             sampling points (cubature point). Then we L2-project the sampled Points
+!             to the big Hex element.
+!
+! iProc = 2:  Contruct BigU for every point of the fine mesh by interpolating the velocities
+!             that we projected for iProc=1
+!             
 USE PP3D_MPI
 integer iProc
 REAL*8 P(3),Q(3),BOX(2,3)
@@ -3278,7 +3309,7 @@ if (iProc.eq.1) then
  RETURN
 END IF
  
-! interpolate BigU onto the myHEX%Velocity field
+! interpolate from myHEX%Velocity to BigU 
 if (iProc.eq.2) then
 
  ilev = myHEX%ilev
