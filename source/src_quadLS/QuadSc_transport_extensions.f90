@@ -3130,7 +3130,7 @@ integer iProc
 REAL*8 P(3),Q(3),BOX(2,3)
 REAL*8 ElemPoints(3,8),ElemVelocity(3,27),V(3)
 REAL*8 :: dEps=1d-5
-integer i,j,k,m,ivt,ndof
+integer i,j,k,m,ivt,ndof,indices(9)
 logical bInside
 REAL*8, allocatable :: dbuff(:,:),defect(:,:),dml(:)
 integer, allocatable :: ibuff(:)
@@ -3319,6 +3319,14 @@ if (iProc.eq.2) then
  IF (allocated(myHEX%dBigU)) deallocate(myHEX%dBigU)
  allocate(myHEX%dBigU(3,ndof))
  myHEX%dBigU = 0d0
+
+ !analytical check
+ indices = (1,2,3,4,9,10,11,12,21)
+ ElemVelocity(:,indices) = [0.0,9.0,0.0]
+ indices = (13,14,15,16,22,23,24,25,27)
+ ElemVelocity(:,indices) = [0.0,4.5,0.0]
+ indices = (5,6,7,8,17,18,19,20,26)
+ ElemVelocity(:,indices) = [0.0,0.0,0.0]
 
  DO i=1,ndof
  
