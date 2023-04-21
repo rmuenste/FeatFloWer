@@ -959,3 +959,266 @@ C
 C
 C
 C
+************************************************************************
+      SUBROUTINE SubIntSigmaP(DU1,DU2,DU3, smallU1, smallU2, smallU3,
+     *           KVERT,KAREA,KEDGE,
+     *           DCORVG,dAverageShearRate,ELE,iComm)
+************************************************************************
+*     Discrete convection operator: Q1 elements
+*-----------------------------------------------------------------------
+      USE PP3D_MPI, ONLY:myid,COMM_SUMM
+      USE var_QuadScalar, ONLY : transform
+C     
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
+      DIMENSION DCORVG(NNDIM,*)
+      DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+C
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+C
+C     --------------------------- Transformation -------------------------------
+      REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
+      REAL*8    DPP(3)
+C     --------------------------------------------------------------------------
+C
+      ! The velocity BigU on the coarsened 
+      DIMENSION DU1(NNBAS), GRADU1(NNDIM)
+      DIMENSION DU2(NNBAS), GRADU2(NNDIM)
+      DIMENSION DU3(NNBAS), GRADU3(NNDIM)
+
+      ! The velocity on the fine mesh
+      DIMENSION smallU1(NNBAS), GRADsmallU1(NNDIM)
+      DIMENSION smallU2(NNBAS), GRADsmallU2(NNDIM)
+      DIMENSION smallU3(NNBAS), GRADsmallU3(NNDIM)
+      
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+C
+      dVolumeInt = 0d0
+      dSQSHRInt  = 0d0
+      
+      if (myid.ne.0) then
+C
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB=9
+      CALL CB3H(ICUB)
+      IF (IER.NE.0) GOTO 99999
+C
+************************************************************************
+C *** Calculation of the matrix - storage technique 7 or 8
+************************************************************************
+      ICUBP=ICUB
+      CALL ELE(0D0,0D0,0D0,-2)
+C
+      DO ICUBP=1,NCUBP
+       XI1=DXI(ICUBP,1)
+       XI2=DXI(ICUBP,2)
+       XI3=DXI(ICUBP,3)
+       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
+      END DO
+C
+C *** Loop over all elements
+
+      DO 100 IEL=1,NEL
+C      
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Evaluation of coordinates of the vertices
+      DO 120 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+120   CONTINUE
+C
+C *** Loop over all cubature points
+      DO 200 ICUBP=1,NCUBP
+C
+      XI1=DXI(ICUBP,1)
+      XI2=DXI(ICUBP,2)
+      XI3=DXI(ICUBP,3)
+C
+C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
+      DJAC=0d0
+      DO JDOFE=1,8
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q1(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q1(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
+      END DO
+C     
+      
+      DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+      OM=DOMEGA(ICUBP)*ABS(DETJ)
+C
+      CALL ELE(XI1,XI2,XI3,-3)
+      IF (IER.LT.0) GOTO 99999
+C     
+C ---=========================---
+      GRADU1(1)=0D0!U
+      GRADU1(2)=0D0
+      GRADU1(3)=0D0
+C
+      GRADU2(1)=0D0!V
+      GRADU2(2)=0D0
+      GRADU2(3)=0D0
+C
+      GRADU3(1)=0D0!W
+      GRADU3(2)=0D0
+      GRADU3(3)=0D0 
+C
+      GRADsmallU1(1)=0D0!U
+      GRADsmallU1(2)=0D0
+      GRADsmallU1(3)=0D0
+C
+      GRADsmallU2(1)=0D0!V
+      GRADsmallU2(2)=0D0
+      GRADsmallU2(3)=0D0
+C
+      GRADsmallU3(1)=0D0!W
+      GRADsmallU3(2)=0D0
+      GRADsmallU3(3)=0D0 
+C
+      DO 220 JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)! local number of basic function
+       JDFG=KDFG(JDOFE)! local number of basic function
+
+       GRADU1(1)=GRADU1(1) + DU1(JDFG)*DBAS(1,JDFL,2)!DUX
+       GRADU1(2)=GRADU1(2) + DU1(JDFG)*DBAS(1,JDFL,3)!DUY
+       GRADU1(3)=GRADU1(3) + DU1(JDFG)*DBAS(1,JDFL,4)!DUZ
+
+       GRADU2(1)=GRADU2(1) + DU2(JDFG)*DBAS(1,JDFL,2)!DVX
+       GRADU2(2)=GRADU2(2) + DU2(JDFG)*DBAS(1,JDFL,3)!DVY
+       GRADU2(3)=GRADU2(3) + DU2(JDFG)*DBAS(1,JDFL,4)!DVZ
+
+       GRADU3(1)=GRADU3(1) + DU3(JDFG)*DBAS(1,JDFL,2)!DWX
+       GRADU3(2)=GRADU3(2) + DU3(JDFG)*DBAS(1,JDFL,3)!DWY
+       GRADU3(3)=GRADU3(3) + DU3(JDFG)*DBAS(1,JDFL,4)!DWZ
+
+       GRADsmallU1(1)=GRADsmallU1(1) + smallU1(JDFG)*DBAS(1,JDFL,2)!DUX
+       GRADsmallU1(2)=GRADsmallU1(2) + smallU1(JDFG)*DBAS(1,JDFL,3)!DUY
+       GRADsmallU1(3)=GRADsmallU1(3) + smallU1(JDFG)*DBAS(1,JDFL,4)!DUZ
+
+       GRADsmallU2(1)=GRADsmallU2(1) + smallU2(JDFG)*DBAS(1,JDFL,2)!DVX
+       GRADsmallU2(2)=GRADsmallU2(2) + smallU2(JDFG)*DBAS(1,JDFL,3)!DVY
+       GRADsmallU2(3)=GRADsmallU2(3) + smallU2(JDFG)*DBAS(1,JDFL,4)!DVZ
+
+       GRADsmallU3(1)=GRADsmallU3(1) + smallU3(JDFG)*DBAS(1,JDFL,2)!DWX
+       GRADsmallU3(2)=GRADsmallU3(2) + smallU3(JDFG)*DBAS(1,JDFL,3)!DWY
+       GRADsmallU3(3)=GRADsmallU3(3) + smallU3(JDFG)*DBAS(1,JDFL,4)!DWZ
+
+       GRADsmallU1(1)=GRADsmallU1(1) - GRADU1(1)
+       GRADsmallU1(2)=GRADsmallU1(2) - GRADU1(2)
+       GRADsmallU1(3)=GRADsmallU1(3) - GRADU1(3)
+                                                
+       GRADsmallU2(1)=GRADsmallU2(1) - GRADU2(1)
+       GRADsmallU2(2)=GRADsmallU2(2) - GRADU2(2)
+       GRADsmallU2(3)=GRADsmallU2(3) - GRADU2(3)
+                                                
+       GRADsmallU3(1)=GRADsmallU3(1) - GRADU3(1)
+       GRADsmallU3(2)=GRADsmallU3(2) - GRADU3(2)
+       GRADsmallU3(3)=GRADsmallU3(3) - GRADU3(3)
+
+ 220  CONTINUE
+
+C ----=============================================---- 
+       DDuU = 4d0 * GRADsmallU1(1) + 4d0 * GRADsmallU2(2) + 4d0 * GRADsmallU3(3)
+     *       + 2d0 * (GRADsmallU1(2) + GRADsmallU2(1))
+     *             * (GRADU1(2) + GRADU2(1)) 
+     *       + 2d0 * (GRADsmallU1(3) + GRADsmallU3(1)) 
+     *             * (GRADU1(3) + GRADU3(1))
+     *       + 2d0 * (GRADsmallU2(3) + GRADsmallU3(2)) 
+     *             * (GRADU2(3) + GRADU3(2)) 
+C ----=============================================---- 
+
+ 
+C ----=============================================---- 
+       dSQSHR = GRADU1(1)**2d0 + GRADU2(2)**2d0 + GRADU3(3)**2d0
+     *        + 0.5d0*(GRADU1(2)+GRADU2(1))**2d0
+     *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
+     *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
+C ----=============================================---- 
+C
+      !! if sqrt(0.5*(D:D)) then this:
+!         dSQSHR = (2d0*dSQSHR)**2d0
+      !! otherwise
+      dSQSHR = dSQSHR
+C      
+C *** Summing up over all pairs of multiindices
+      DO 230 JDFL=1,IDFL
+        IG=KDFG(JDFL)
+        IL=KDFL(JDFL)
+        HBAS=DBAS(1,IL,1)
+        dVolumeInt = dVolumeInt + OM*1d0*HBAS
+        dSQSHRInt  = dSQSHRInt  + OM*dSQSHR*HBAS
+        DDuUInt = DDuUInt + OM * DDuU * HBAS
+230   CONTINUE 
+C
+200   CONTINUE
+C
+100   CONTINUE
+C
+      END IF
+C      
+      if (iComm.eq.1) THEN
+       CALL COMM_SUMM(dVolumeInt)
+       CALL COMM_SUMM(dSQSHRInt)
+       CALL COMM_SUMM(DDuUInt)
+      END IF
+! C      
+!       dAverageShearRate = dSQSHRInt
+      
+      if (myid.eq.1) then
+       write(*,'(A,2ES14.4)') 'Integral D(BigU):D(BigU) =',
+     *                         dSQSHRInt,dVolumeInt
+       write(*,'(A,1ES14.4)') 'Integral D(u-BigU):D(BigU) =', DDuUInt
+      end if
+C
+99999 END
