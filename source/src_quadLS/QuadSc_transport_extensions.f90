@@ -3075,10 +3075,25 @@ CALL MonitorVeloMag(QuadSc)
 RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP_fcweight_ext 
-
+!
+! ----------------------------------------------
+!
 SUBROUTINE CalculateDenominator()
 REAL*8   dDenominator
 EXTERNAL E013
+
+! if (myid.ne.0) then
+!  ilev = myHEX%ilev
+!  call setlev_HEX()
+! 
+!  CALL SubIntBigU(myHEX%Velocity(1,:),myHEX%Velocity(2,:),myHEX%Velocity(3,:),&
+!                          myHEX%mg_HEX%level(ILEV)%kvert,&
+!                          myHEX%mg_HEX%level(ILEV)%karea,&
+!                          myHEX%mg_HEX%level(ILEV)%kedge,&
+!                          myHEX%mg_HEX%level(ILEV)%dcorvg,&
+!                          dDenominator,&
+!                          E013,0)
+! end if
 
 ILEV = NLMAX
 CALL SETLEV(2)
@@ -3089,10 +3104,15 @@ CALL SubIntBigU(myHEX%dBigU(1,:),myHEX%dBigU(2,:),myHEX%dBigU(3,:),&
                         mg_mesh%level(ILEV)%kedge,&
                         mg_mesh%level(ILEV)%dcorvg,&
                         dDenominator,&
-                        E013)
+                        E013,1)
+                        
+!pause
+
 
 END SUBROUTINE CalculateDenominator
-
+!
+! ----------------------------------------------
+!
 !! Called by all (myid=0 too) processes because of the immersed communicated sum !!
 SUBROUTINE IntegrateShearrate()
 REAL*8   dAvgShearRate
@@ -3130,7 +3150,7 @@ integer iProc
 REAL*8 P(3),Q(3),BOX(2,3)
 REAL*8 ElemPoints(3,8),ElemVelocity(3,27),V(3)
 REAL*8 :: dEps=1d-5
-integer i,j,k,m,ivt,ndof,indices(9)
+integer i,j,k,m,ivt,ndof,myIndices(9)
 logical bInside
 REAL*8, allocatable :: dbuff(:,:),defect(:,:),dml(:)
 integer, allocatable :: ibuff(:)
@@ -3320,13 +3340,19 @@ if (iProc.eq.2) then
  allocate(myHEX%dBigU(3,ndof))
  myHEX%dBigU = 0d0
 
- !analytical check
- indices = (1,2,3,4,9,10,11,12,21)
- ElemVelocity(:,indices) = [0.0,9.0,0.0]
- indices = (13,14,15,16,22,23,24,25,27)
- ElemVelocity(:,indices) = [0.0,4.5,0.0]
- indices = (5,6,7,8,17,18,19,20,26)
- ElemVelocity(:,indices) = [0.0,0.0,0.0]
+!  !analytical check
+!  myIndices = [1,2,3,4,9,10,11,12,21]
+!  DO i=1,9
+!   myHEX%Velocity(:,myIndices(i)) = [0.0,9.0,0.0]
+!  end do
+!  myIndices = [13,14,15,16,22,23,24,25,27]
+!  DO i=1,9
+!   myHEX%Velocity(:,myIndices(i)) = [0.0,4.5,0.0]
+!  end do
+!  myIndices = [5,6,7,8,17,18,19,20,26]
+!  DO i=1,9
+!   myHEX%Velocity(:,myIndices(i)) = [0.0,0.0,0.0]
+!  end do
 
  DO i=1,ndof
  

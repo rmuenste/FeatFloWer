@@ -751,7 +751,7 @@ C
 C
 ************************************************************************
       SUBROUTINE SubIntBigU(DU1,DU2,DU3,KVERT,KAREA,KEDGE,
-     *           DCORVG,dAverageShearRate,ELE)
+     *           DCORVG,dAverageShearRate,ELE,iComm)
 ************************************************************************
 *     Discrete convection operator: Q1 elements
 *-----------------------------------------------------------------------
@@ -822,33 +822,21 @@ C
       CALL CB3H(ICUB)
       IF (IER.NE.0) GOTO 99999
 C
-      DO ICUBP=1,NCUBP
-       XI1=DXI(ICUBP,1)
-       XI2=DXI(ICUBP,2)
-       XI3=DXI(ICUBP,3)
-       CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
-       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
-      END DO
-C
-      BDER(2:4)=.FALSE.
-C     
 ************************************************************************
 C *** Calculation of the matrix - storage technique 7 or 8
 ************************************************************************
       ICUBP=ICUB
       CALL ELE(0D0,0D0,0D0,-2)
 C
-      ILINT = 1
-C
       DO ICUBP=1,NCUBP
        XI1=DXI(ICUBP,1)
        XI2=DXI(ICUBP,2)
        XI3=DXI(ICUBP,3)
        CALL E011A(XI1,XI2,XI3,DHELP_Q1,ICUBP)
-       CALL E013A(XI1,XI2,XI3,DHELP_Q2,ICUBP)
       END DO
 C
 C *** Loop over all elements
+
       DO 100 IEL=1,NEL
 C      
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
@@ -872,23 +860,6 @@ C
 C
 C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the reference element
       DJAC=0d0
-      IF (Transform%ILINT.eq.2) THEN ! Q2
-      DO JDOFE=1,27
-       JDFL=KDFL(JDOFE)
-       JDFG=KDFG(JDOFE)
-       DPP(:) = DCORVG(:,JDFG)
-       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP_Q2(JDFL,2,ICUBP)
-       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP_Q2(JDFL,2,ICUBP)
-       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP_Q2(JDFL,2,ICUBP)
-       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP_Q2(JDFL,3,ICUBP)
-       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP_Q2(JDFL,3,ICUBP)
-       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP_Q2(JDFL,3,ICUBP)
-       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP_Q2(JDFL,4,ICUBP)
-       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q2(JDFL,4,ICUBP)
-       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q2(JDFL,4,ICUBP)
-      END DO
-      END IF
-      IF (Transform%ILINT.eq.1) THEN ! Q1
       DO JDOFE=1,8
        JDFL=KDFL(JDOFE)
        JDFG=KDFG(JDOFE)
@@ -903,8 +874,8 @@ C *** Jacobian of the (trilinear,triquadratic,or simple) mapping onto the refere
        DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP_Q1(JDFL,4,ICUBP)
        DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP_Q1(JDFL,4,ICUBP)
       END DO
-      END IF
 C     
+      
       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
      *     -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
      *     +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
@@ -944,6 +915,7 @@ C
 
  220  CONTINUE
 
+ 
 C ----=============================================---- 
        dSQSHR = GRADU1(1)**2d0 + GRADU2(2)**2d0 + GRADU3(3)**2d0
      *        + 0.5d0*(GRADU1(2)+GRADU2(1))**2d0
@@ -951,6 +923,11 @@ C ----=============================================----
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 C ----=============================================---- 
 C
+      !! if sqrt(0.5*(D:D)) then this:
+!         dSQSHR = (2d0*dSQSHR)**2d0
+      !! otherwise
+      dSQSHR = dSQSHR
+C      
 C *** Summing up over all pairs of multiindices
       DO 230 JDFL=1,IDFL
         IG=KDFG(JDFL)
@@ -966,13 +943,16 @@ C
 C
       END IF
 C      
-      CALL COMM_SUMM(dVolumeInt)
-      CALL COMM_SUMM(dSQSHRInt)
-C      
-      dAverageShearRate = dSQSHRInt
+      if (iComm.eq.1) THEN
+       CALL COMM_SUMM(dVolumeInt)
+       CALL COMM_SUMM(dSQSHRInt)
+      END IF
+! C      
+!       dAverageShearRate = dSQSHRInt
       
       if (myid.eq.1) then
-       write(*,*) 'Integral D(BigU):D(BigU) =',dAverageShearRate
+       write(*,'(A,2ES14.4)') 'Integral D(BigU):D(BigU) =',
+     *                         dSQSHRInt,dVolumeInt
       end if
 C
 99999 END
