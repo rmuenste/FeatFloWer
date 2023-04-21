@@ -1143,34 +1143,39 @@ C
        GRADU3(2)=GRADU3(2) + DU3(JDFG)*DBAS(1,JDFL,3)!DWY
        GRADU3(3)=GRADU3(3) + DU3(JDFG)*DBAS(1,JDFL,4)!DWZ
 
-       GRADsmallU1(1)=GRADsmallU1(1) + smallU1(JDFG)*DBAS(1,JDFL,2)!DUX
-       GRADsmallU1(2)=GRADsmallU1(2) + smallU1(JDFG)*DBAS(1,JDFL,3)!DUY
-       GRADsmallU1(3)=GRADsmallU1(3) + smallU1(JDFG)*DBAS(1,JDFL,4)!DUZ
+       GRADsmallU1(1)=GRADsmallU1(1) + 
+     *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,2)
+      
+       GRADsmallU1(2)=GRADsmallU1(2) +
+     *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,3)
+      
+       GRADsmallU1(3)=GRADsmallU1(3) +
+     *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,4)
 
-       GRADsmallU2(1)=GRADsmallU2(1) + smallU2(JDFG)*DBAS(1,JDFL,2)!DVX
-       GRADsmallU2(2)=GRADsmallU2(2) + smallU2(JDFG)*DBAS(1,JDFL,3)!DVY
-       GRADsmallU2(3)=GRADsmallU2(3) + smallU2(JDFG)*DBAS(1,JDFL,4)!DVZ
 
-       GRADsmallU3(1)=GRADsmallU3(1) + smallU3(JDFG)*DBAS(1,JDFL,2)!DWX
-       GRADsmallU3(2)=GRADsmallU3(2) + smallU3(JDFG)*DBAS(1,JDFL,3)!DWY
-       GRADsmallU3(3)=GRADsmallU3(3) + smallU3(JDFG)*DBAS(1,JDFL,4)!DWZ
-
-       GRADsmallU1(1)=GRADsmallU1(1) - GRADU1(1)
-       GRADsmallU1(2)=GRADsmallU1(2) - GRADU1(2)
-       GRADsmallU1(3)=GRADsmallU1(3) - GRADU1(3)
-                                                
-       GRADsmallU2(1)=GRADsmallU2(1) - GRADU2(1)
-       GRADsmallU2(2)=GRADsmallU2(2) - GRADU2(2)
-       GRADsmallU2(3)=GRADsmallU2(3) - GRADU2(3)
-                                                
-       GRADsmallU3(1)=GRADsmallU3(1) - GRADU3(1)
-       GRADsmallU3(2)=GRADsmallU3(2) - GRADU3(2)
-       GRADsmallU3(3)=GRADsmallU3(3) - GRADU3(3)
+       GRADsmallU2(1)=GRADsmallU2(1) + 
+     *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,2)
+      
+       GRADsmallU2(2)=GRADsmallU2(2) +
+     *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,3)
+      
+       GRADsmallU2(3)=GRADsmallU2(3) +
+     *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,4)
+      
+      
+       GRADsmallU3(1)=GRADsmallU3(1) + 
+     *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,2)
+      
+       GRADsmallU3(2)=GRADsmallU3(2) +
+     *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,3)
+      
+       GRADsmallU3(3)=GRADsmallU3(3) +
+     *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,4)
 
  220  CONTINUE
 
 C ----=============================================---- 
-       DDuU = 1d0 * GRADsmallU1(1) * GradU1(1)
+       DDuU  = 1d0 * GRADsmallU1(1) * GradU1(1)
      *       + 1d0 * GRADsmallU2(2) * GradU2(2) 
      *       + 1d0 * GRADsmallU3(3) * GradU3(3)
      *       + 0.5d0 * (GRADsmallU1(2) + GRADsmallU2(1))
