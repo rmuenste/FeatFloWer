@@ -1022,6 +1022,7 @@ C
 C
       dVolumeInt = 0d0
       dSQSHRInt  = 0d0
+      DDuUInt  = 0d0
       
       if (myid.ne.0) then
 C
@@ -1169,12 +1170,14 @@ C
  220  CONTINUE
 
 C ----=============================================---- 
-       DDuU = 4d0 * GRADsmallU1(1) + 4d0 * GRADsmallU2(2) + 4d0 * GRADsmallU3(3)
-     *       + 2d0 * (GRADsmallU1(2) + GRADsmallU2(1))
+       DDuU = 1d0 * GRADsmallU1(1) * GradU1(1)
+     *       + 1d0 * GRADsmallU2(2) * GradU2(2) 
+     *       + 1d0 * GRADsmallU3(3) * GradU3(3)
+     *       + 0.5d0 * (GRADsmallU1(2) + GRADsmallU2(1))
      *             * (GRADU1(2) + GRADU2(1)) 
-     *       + 2d0 * (GRADsmallU1(3) + GRADsmallU3(1)) 
+     *       + 0.5d0 * (GRADsmallU1(3) + GRADsmallU3(1)) 
      *             * (GRADU1(3) + GRADU3(1))
-     *       + 2d0 * (GRADsmallU2(3) + GRADsmallU3(2)) 
+     *       + 0.5d0 * (GRADsmallU2(3) + GRADsmallU3(2)) 
      *             * (GRADU2(3) + GRADU3(2)) 
 C ----=============================================---- 
 
