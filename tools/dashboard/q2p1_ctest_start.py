@@ -31,11 +31,11 @@ def usage():
 #===============================================================================
 #                      Function: generateSlurmScript
 #===============================================================================
-def generateSlurmScript():
+def generateSlurmScript(nProcsPerNode):
     partition = "med"
     constraint = "[bttf]"
     nodes = "1"
-    ntasksPerNode = "16"
+    ntasksPerNode = f"{nProcsPerNode}"
     time = "08:00:00"
     mem = "5G"
     name = "FF-Bench"
@@ -90,9 +90,9 @@ def submitAndObserve():
 #===============================================================================
 #                      Function:  submitAndObserveSync
 #===============================================================================
-def submitAndObserveSync():
+def submitAndObserveSync(nProcs):
 
-    slurmString = generateSlurmScript()
+    slurmString = generateSlurmScript(nProcs)
     with open("myjob.sh", "w") as f:
         f.write(slurmString)
 
@@ -322,7 +322,7 @@ def executeTest(fileName):
 
         # call the specified binary using numProcessors processes 
         #subprocess.call(['mpirun -np %i ./%s' %(numProcessors, binaryName)], shell=True)
-        result = submitAndObserveSync()
+        result = submitAndObserveSync(numProcessors)
         if result != "COMPLETED":
           break
 
