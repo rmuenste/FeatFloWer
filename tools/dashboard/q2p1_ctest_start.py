@@ -130,8 +130,6 @@ def submitAndObserveSync(nProcs):
         elif job_status in ['FAILED', 'CANCELLED']:
             print('Job failed or was cancelled')
             break
-        else:
-            print('Job not FAILED, CANCELLED or COMPLETED')
         time.sleep(interval_seconds)  # wait for interval_seconds before checking job status again        
     return job_status
 
