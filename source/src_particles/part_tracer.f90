@@ -607,6 +607,7 @@ if (myParticleParam%DumpFormat.eq.3) THEN
  WRITE(cFile,'(I0)') myParticleParam%dump_in_file
  CALL init_sol_repart(cFile)
 END IF
+if (myParticleParam%DumpFormat.eq.4) CALL LoadMPIDumpFiles(iFile*iAngle,'v,x,s')
 
 ALLOCATE(myVelo(1)%x(QuadSc%ndof))
 ALLOCATE(myVelo(1)%y(QuadSc%ndof))
