@@ -1001,21 +1001,43 @@ DO i=1,nel
      DO ivt = 1,4
       k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
       Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
-      
       dist = sqrt((Q(1)-pC(1))**2d0 + (Q(2)-pC(2))**2d0 + (Q(3)-pC(3))**2d0) 
-      IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP) THEN
-       dN = myProcess%myInflow(iInflow)%normal
-       jat =0
-       IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
-       IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
-       IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
-       IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
-       IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
-       
-       IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
-       IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
-       IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+      
+      IF (myProcess%myInflow(iInflow)%iBCtype.eq.2) then
+       IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP.and.&
+           dist.gt.myProcess%myInflow(iInflow)%innerradius/MeshOutputScaleFactor-0.5d0*minDistP) THEN
+        dN = myProcess%myInflow(iInflow)%normal
+        jat =0
+        IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+        IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+        IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+        IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+        IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+        
+        IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
+        IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
+        IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+       END IF
       END IF
+      
+      IF (myProcess%myInflow(iInflow)%iBCtype.eq.1.or.&
+          myProcess%myInflow(iInflow)%iBCtype.eq.3.or.&
+          myProcess%myInflow(iInflow)%iBCtype.eq.4) then
+       IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP) THEN
+        dN = myProcess%myInflow(iInflow)%normal
+        jat =0
+        IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+        IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+        IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+        IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+        IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+        
+        IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
+        IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
+        IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+       END IF
+      END IF
+      
      END DO
     END IF
 
