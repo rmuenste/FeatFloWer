@@ -942,9 +942,15 @@ logical bInflowArea
 INTEGER NeighA(4,6)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
+real*8 :: DA(3), DB(3), dCenter(3), dAux1, dAux2 
+real*8 :: dAdC, dBdC, dPdA, dPdB, dR
+
 nel = mg_ReducedMesh%level(1)%nel
 nvt = mg_ReducedMesh%level(1)%nvt
 nat = mg_ReducedMesh%level(1)%nat
+
+
+write(*,*) "HERE"
 
 allocate(ReducedMeshBC(nat))
 ReducedMeshBC = -2
@@ -998,6 +1004,7 @@ DO i=1,nel
         (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP).or.&
         (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP).or.&
         (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP)) THEN
+
      DO ivt = 1,4
       k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
       Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
@@ -1037,9 +1044,52 @@ DO i=1,nel
         IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
        END IF
       END IF
+
+      IF (myProcess%myInflow(iInflow)%iBCType.EQ.6) THEN
+         write(*,*) "HERE"
+         k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+         Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+         
+         dCenter = myProcess%myInflow(iInflow)%center
+         DA = myProcess%myInflow(iInflow)%midpointA
+         DB = myProcess%myInflow(iInflow)%midpointB
+
+         dAux1 = DOT_PRODUCT(DA-dCenter, DA-dCenter)**2&
+                -DOT_PRODUCT(Q-dCenter, DA-dCenter)**2
+         dAux2 = DOT_PRODUCT(DB-dCenter, DB-dCenter)**2&
+                -DOT_PRODUCT(Q-dCenter, DB-dCenter)**2
+         IF ( (dAux1.GE.0D0).and.(dAux2.GE.0D0) ) THEN
+           bInflowArea = .true.
+         END IF
+       END IF
+       IF (myProcess%myInflow(iInflow)%iBCType.EQ.7) THEN
+           k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+           Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+           
+           dCenter = myProcess%myInflow(iInflow)%center
+           DA = myProcess%myInflow(iInflow)%midpointA
+           DB = myProcess%myInflow(iInflow)%midpointB
+
+           dAdC = DOT_PRODUCT(dA-dCenter, DA-dCenter)
+           dBdC = DOT_PRODUCT(dB-dCenter, DB-dCenter)
+
+           dPdA = DOT_PRODUCT(Q-dCenter, DA-dCenter)
+           dPdB = DOT_PRODUCT(Q-dCenter, DB-dCenter)
+
+           dR = NORM2(DB-dCenter)
+
+           if ( (dPdA**2.LE.dAdC**2).and.(dPdB**2.LE.dBdC**2) ) THEN
+               bInflowArea = .true.
+           elseif ( (dPdA.GE.dAdC).and.(NORM2(Q-DA).LE.dR) ) THEN
+               bInflowArea = .true. 
+           elseif ( (dPdA**2.GE.dAdC**2).and.(NORM2(Q-2*dCenter+DA).LE.dR) ) THEN
+               bInflowArea = .true.
+           end if
+        END IF ! Check for boundary Type
       
      END DO
     END IF
+     
 
     if (bInflowArea) THEN
      nInFlow = nInFlow + 1
