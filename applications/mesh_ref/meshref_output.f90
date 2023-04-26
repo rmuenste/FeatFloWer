@@ -1165,6 +1165,9 @@ integer OneSideCloseI,iSide
 real*8 dn(3)
 integer iInflowSide(2)
 
+real*8 :: DA(3), DB(3), dCenter(3), dAux1, dAux2 
+real*8 :: dAdC, dBdC, dPdA, dPdB, dR
+
  !------------------------------------------------------------------
  cInputFile = ADJUSTL(TRIM(cIntputFolder))//'/'//'setup.e3d'
  inquire(file=cInputFile,Exist=bExist)
@@ -1425,25 +1428,51 @@ box = 10d0*mySigma%DIE_Length
       if (jInflow.ge.1.and.jInflow.le.myProcess%nOfInflows) then
        if (iSide.eq.InflowToSideMapper(jInflow)) then
         do i=1,4
-         P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
-         Q = myProcess%myInflow(jInflow)%Center/MeshOutputScaleFactor
-         dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-         IF (myProcess%myInflow(jInflow)%iBCtype.eq.2) then
-          if (dist.lt.myProcess%myInflow(jInflow)%outerradius/MeshOutputScaleFactor+minDistP.and.&
-              dist.gt.myProcess%myInflow(jInflow)%innerradius/MeshOutputScaleFactor-minDistP) then
- !          if (dist.lt.myProcess%myInflow(jInflow)%outerradius+minDistP) then
-           write(*,*) 'found', jInflow
-           bToMarkFace = .true.
-          end if
-         END IF
-         IF (myProcess%myInflow(jInflow)%iBCtype.eq.1.or.&
-             myProcess%myInflow(jInflow)%iBCtype.eq.3.or.&
-             myProcess%myInflow(jInflow)%iBCtype.eq.4) then
-          if (dist.lt.myProcess%myInflow(jInflow)%outerradius/MeshOutputScaleFactor+minDistP) then
-           bToMarkFace = .true.
-          end if
-         END IF
-         
+         if (myProcess%myInflow(jInflow)%iBCtype.LT.5) then
+           P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+           Q = myProcess%myInflow(jInflow)%Center/MeshOutputScaleFactor
+           dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
+           if (dist.lt.myProcess%myInflow(jInflow)%outerradius/MeshOutputScaleFactor+minDistP) then
+  !          if (dist.lt.myProcess%myInflow(jInflow)%outerradius+minDistP) then
+            bToMarkFace = .true.
+           end if
+         elseif (myProcess%myInflow(jInflow)%iBCType.EQ.5) then
+           P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+           
+           dCenter = myProcess%myInflow(jInflow)%center/MeshOutputScaleFactor
+           DA = myProcess%myInflow(jInflow)%midpointA/MeshOutputScaleFactor
+           DB = myProcess%myInflow(jInflow)%midpointB/MeshOutputScaleFactor
+
+           dAux1 = DOT_PRODUCT(DA-dCenter, DA-dCenter)**2&
+                  -DOT_PRODUCT(P-dCenter, DA-dCenter)**2+0.5*minDistP
+           dAux2 = DOT_PRODUCT(DB-dCenter, DB-dCenter)**2&
+                  -DOT_PRODUCT(P-dCenter, DB-dCenter)**2+0.5*minDistP
+           IF ( (dAux1.GE.0D0).and.(dAux2.GE.0D0) ) THEN
+             bToMarkFace = .true.
+           END IF
+         elseif (myProcess%myInflow(jInflow)%iBCType.EQ.6) then
+           P = mg_NewMesh%level(1)%dcorvg(:,ivt(i))
+           
+           dCenter = myProcess%myInflow(jInflow)%center/MeshOutputScaleFactor
+           DA = myProcess%myInflow(jInflow)%midpointA/MeshOutputScaleFactor
+           DB = myProcess%myInflow(jInflow)%midpointB/MeshOutputScaleFactor
+
+           dAdC = DOT_PRODUCT(dA-dCenter, DA-dCenter)
+           dBdC = DOT_PRODUCT(dB-dCenter, DB-dCenter)
+
+           dPdA = DOT_PRODUCT(P-dCenter, DA-dCenter)
+           dPdB = DOT_PRODUCT(P-dCenter, DB-dCenter)
+
+           dR = NORM2(DB-dCenter)
+
+           if ( (dPdA**2.LE.dAdC**2+0.5*minDistP).and.(dPdB**2.LE.dBdC**2+0.5*minDistP) ) THEN
+               bToMarkFace = .true.
+           elseif ( (dPdA.GE.dAdC).and.(NORM2(P-DA).LE.dR+0.5*minDistP) ) THEN
+               bToMarkFace = .true.
+           elseif ( (dPdA**2.GE.dAdC**2).and.(NORM2(P-2*dCenter+DA).LE.dR+0.5*minDistP) ) THEN
+               bToMarkFace = .true.
+           end if
+         end if
         end do
        end if
        

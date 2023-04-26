@@ -2103,6 +2103,12 @@
        IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
         myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 4
        END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."RECTANGLE") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 5
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDRECTANGLE") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 6
+       END IF
        if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype.eq.0) then
         write(*,*) 'UNDEFINED Inflow type!!'
        end if
