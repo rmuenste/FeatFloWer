@@ -1528,8 +1528,6 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-CALL IntegrateShearrate()
-                        
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
