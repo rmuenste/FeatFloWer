@@ -1306,6 +1306,8 @@ C
        write(*,'(A,1ES14.4)') 'Integral D(u-BigU):D(BigU) =', DDuUInt
        write(*,'(A,1ES14.4)') 'Integral (u.grad(u)-U.grad(U)).BigU =',
      *                         DDOTInt
+      write(*,'(A,1ES14.4)') 'ueff =', 0.1d0 +
+     *                       (DDOTInt + 0.1d0 * DDuUInt)/DDuUInt
       end if
 C
 99999 END
