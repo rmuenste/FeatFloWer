@@ -992,9 +992,11 @@ C
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
 
       ! The velocity on the fine mesh
-      DIMENSION smallU1(NNBAS), GRADsmallU1(NNDIM)
-      DIMENSION smallU2(NNBAS), GRADsmallU2(NNDIM)
-      DIMENSION smallU3(NNBAS), GRADsmallU3(NNDIM)
+      DIMENSION smallU1(NNBAS), GRADdiffU1(NNDIM), GRADsmallU1(NNDIM)
+      DIMENSION smallU2(NNBAS), GRADdiffU2(NNDIM), GRADsmallU2(NNDIM)
+      DIMENSION smallU3(NNBAS), GRADdiffU3(NNDIM), GRADsmallU3(NNDIM)
+      
+      DIMENSION dVelo(NNDIM),dVeloSmall(NNDIM)
       
       COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
       COMMON /ERRCTL/ IER,ICHECK
@@ -1023,6 +1025,7 @@ C
       dVolumeInt = 0d0
       dSQSHRInt  = 0d0
       DDuUInt  = 0d0
+      DDOTInt  = 0d0
       
       if (myid.ne.0) then
 C
@@ -1103,6 +1106,14 @@ C
       IF (IER.LT.0) GOTO 99999
 C     
 C ---=========================---
+      dVelo(1)=0d0
+      dVelo(2)=0d0
+      dVelo(3)=0d0
+
+      dVeloSmall(1)=0d0
+      dVeloSmall(2)=0d0
+      dVeloSmall(3)=0d0
+
       GRADU1(1)=0D0!U
       GRADU1(2)=0D0
       GRADU1(3)=0D0
@@ -1114,6 +1125,18 @@ C
       GRADU3(1)=0D0!W
       GRADU3(2)=0D0
       GRADU3(3)=0D0 
+C
+      GRADdiffU1(1)=0D0!U
+      GRADdiffU1(2)=0D0
+      GRADdiffU1(3)=0D0
+C
+      GRADdiffU2(1)=0D0!V
+      GRADdiffU2(2)=0D0
+      GRADdiffU2(3)=0D0
+C
+      GRADdiffU3(1)=0D0!W
+      GRADdiffU3(2)=0D0
+      GRADdiffU3(3)=0D0 
 C
       GRADsmallU1(1)=0D0!U
       GRADsmallU1(2)=0D0
@@ -1131,6 +1154,14 @@ C
        JDFL=KDFL(JDOFE)! local number of basic function
        JDFG=KDFG(JDOFE)! local number of basic function
 
+       dVelo(1)=dVelo(1) + DU1(JDFG)*DBAS(1,JDFL,1)!DUX
+       dVelo(2)=dVelo(2) + DU2(JDFG)*DBAS(1,JDFL,1)!DUY
+       dVelo(3)=dVelo(3) + DU3(JDFG)*DBAS(1,JDFL,1)!DUZ
+
+       dVeloSmall(1)=dVeloSmall(1) + smallU1(JDFG)*DBAS(1,JDFL,1)!DUX
+       dVeloSmall(2)=dVeloSmall(2) + smallU2(JDFG)*DBAS(1,JDFL,1)!DUY
+       dVeloSmall(3)=dVeloSmall(3) + smallU3(JDFG)*DBAS(1,JDFL,1)!DUZ
+
        GRADU1(1)=GRADU1(1) + DU1(JDFG)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFG)*DBAS(1,JDFL,3)!DUY
        GRADU1(3)=GRADU1(3) + DU1(JDFG)*DBAS(1,JDFL,4)!DUZ
@@ -1143,46 +1174,90 @@ C
        GRADU3(2)=GRADU3(2) + DU3(JDFG)*DBAS(1,JDFL,3)!DWY
        GRADU3(3)=GRADU3(3) + DU3(JDFG)*DBAS(1,JDFL,4)!DWZ
 
-       GRADsmallU1(1)=GRADsmallU1(1) + 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+       GRADdiffU1(1)=GRADdiffU1(1) + 
      *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,2)
       
-       GRADsmallU1(2)=GRADsmallU1(2) +
+       GRADdiffU1(2)=GRADdiffU1(2) +
      *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,3)
       
-       GRADsmallU1(3)=GRADsmallU1(3) +
+       GRADdiffU1(3)=GRADdiffU1(3) +
      *  (smallU1(JDFG)-DU1(JDFG) )* DBAS(1,JDFL,4)
 
 
-       GRADsmallU2(1)=GRADsmallU2(1) + 
+       GRADdiffU2(1)=GRADdiffU2(1) + 
      *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,2)
       
-       GRADsmallU2(2)=GRADsmallU2(2) +
+       GRADdiffU2(2)=GRADdiffU2(2) +
      *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,3)
       
-       GRADsmallU2(3)=GRADsmallU2(3) +
+       GRADdiffU2(3)=GRADdiffU2(3) +
      *  (smallU2(JDFG)-DU2(JDFG) )* DBAS(1,JDFL,4)
       
       
-       GRADsmallU3(1)=GRADsmallU3(1) + 
+       GRADdiffU3(1)=GRADdiffU3(1) + 
      *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,2)
       
-       GRADsmallU3(2)=GRADsmallU3(2) +
+       GRADdiffU3(2)=GRADdiffU3(2) +
      *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,3)
       
-       GRADsmallU3(3)=GRADsmallU3(3) +
+       GRADdiffU3(3)=GRADdiffU3(3) +
      *  (smallU3(JDFG)-DU3(JDFG) )* DBAS(1,JDFL,4)
+     
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+       GRADsmallU1(1)=GRADsmallU1(1) + smallU1(JDFG)*DBAS(1,JDFL,2)!DUX
+       GRADsmallU1(2)=GRADsmallU1(2) + smallU1(JDFG)*DBAS(1,JDFL,3)!DUY
+       GRADsmallU1(3)=GRADsmallU1(3) + smallU1(JDFG)*DBAS(1,JDFL,4)!DUZ
+
+       GRADsmallU2(1)=GRADsmallU2(1) + smallU2(JDFG)*DBAS(1,JDFL,2)!DVX
+       GRADsmallU2(2)=GRADsmallU2(2) + smallU2(JDFG)*DBAS(1,JDFL,3)!DVY
+       GRADsmallU2(3)=GRADsmallU2(3) + smallU2(JDFG)*DBAS(1,JDFL,4)!DVZ
+
+       GRADsmallU3(1)=GRADsmallU3(1) + smallU3(JDFG)*DBAS(1,JDFL,2)!DWX
+       GRADsmallU3(2)=GRADsmallU3(2) + smallU3(JDFG)*DBAS(1,JDFL,3)!DWY
+       GRADsmallU3(3)=GRADsmallU3(3) + smallU3(JDFG)*DBAS(1,JDFL,4)!DWZ
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+     
+     
  220  CONTINUE
 
 C ----=============================================---- 
-       DDuU  = 1d0 * GRADsmallU1(1) * GradU1(1)
-     *       + 1d0 * GRADsmallU2(2) * GradU2(2) 
-     *       + 1d0 * GRADsmallU3(3) * GradU3(3)
-     *       + 0.5d0 * (GRADsmallU1(2) + GRADsmallU2(1))
+      dINERT1 =  GRADsmallU1(1)*dVeloSmall(1) + 
+     *           GRADsmallU1(2)*dVeloSmall(2) + 
+     *           GRADsmallU1(3)*dVeloSmall(3) -
+     *          (GRADU1(1)*dVelo(1) + GRADU1(2)*dVelo(2) + 
+     *           GRADU1(3)*dVelo(3))
+     
+      dINERT2 =  GRADsmallU2(1)*dVeloSmall(1) + 
+     *           GRADsmallU2(2)*dVeloSmall(2) +
+     *           GRADsmallU2(3)*dVeloSmall(3) -
+     *          (GRADU2(1)*dVelo(1) + GRADU2(2)*dVelo(2) + 
+     *           GRADU2(3)*dVelo(3))
+     
+      dINERT3 =  GRADsmallU3(1)*dVeloSmall(1) + 
+     *           GRADsmallU3(2)*dVeloSmall(2) +
+     *           GRADsmallU3(3)*dVeloSmall(3) -
+     *           (GRADU3(1)*dVelo(1) + GRADU3(2)*dVelo(2) + 
+     *            GRADU3(3)*dVelo(3))
+      
+      DDOT = dINERT1*dVelo(1) + dINERT2*dVelo(2) + dINERT3*dVelo(3)
+!       write(*,*) DDOT
+      
+C ----=============================================---- 
+
+C ----=============================================---- 
+       DDuU  = 1d0 * GRADdiffU1(1) * GradU1(1)
+     *       + 1d0 * GRADdiffU2(2) * GradU2(2) 
+     *       + 1d0 * GRADdiffU3(3) * GradU3(3)
+     *       + 0.5d0 * (GRADdiffU1(2) + GRADdiffU2(1))
      *             * (GRADU1(2) + GRADU2(1)) 
-     *       + 0.5d0 * (GRADsmallU1(3) + GRADsmallU3(1)) 
+     *       + 0.5d0 * (GRADdiffU1(3) + GRADdiffU3(1)) 
      *             * (GRADU1(3) + GRADU3(1))
-     *       + 0.5d0 * (GRADsmallU2(3) + GRADsmallU3(2)) 
+     *       + 0.5d0 * (GRADdiffU2(3) + GRADdiffU3(2)) 
      *             * (GRADU2(3) + GRADU3(2)) 
 C ----=============================================---- 
 
@@ -1207,6 +1282,7 @@ C *** Summing up over all pairs of multiindices
         dVolumeInt = dVolumeInt + OM*1d0*HBAS
         dSQSHRInt  = dSQSHRInt  + OM*dSQSHR*HBAS
         DDuUInt = DDuUInt + OM * DDuU * HBAS
+        DDOTInt = DDOTInt + OM * DDOT * HBAS
 230   CONTINUE 
 C
 200   CONTINUE
@@ -1219,6 +1295,7 @@ C
        CALL COMM_SUMM(dVolumeInt)
        CALL COMM_SUMM(dSQSHRInt)
        CALL COMM_SUMM(DDuUInt)
+       CALL COMM_SUMM(DDOTInt)
       END IF
 ! C      
 !       dAverageShearRate = dSQSHRInt
@@ -1227,6 +1304,8 @@ C
        write(*,'(A,2ES14.4)') 'Integral D(BigU):D(BigU) =',
      *                         dSQSHRInt,dVolumeInt
        write(*,'(A,1ES14.4)') 'Integral D(u-BigU):D(BigU) =', DDuUInt
+       write(*,'(A,1ES14.4)') 'Integral (u.grad(u)-U.grad(U)).BigU =',
+     *                         DDOTInt
       end if
 C
 99999 END

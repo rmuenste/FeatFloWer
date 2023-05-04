@@ -473,7 +473,7 @@ END DO
 IF (myid.eq.1) write(*,*) 'done!'
 
 myHEX%iCubP = 9
-myHEX%iLev  = 1
+myHEX%iLev  = 2
 
 myHEX%mg_HEX%maxlevel = myHEX%iLev+1
 myHEX%mg_HEX%nlmax = myHEX%iLev
