@@ -14,7 +14,7 @@ character cfile*(200)
 
 INTEGER,ALLOCATABLE  :: khelp(:,:)
 
-INTEGER nel,nvt,iArea,inArea,net
+INTEGER nel,nvt,iArea,jArea,inArea,net
 
 INTEGER i,j,k,l,m
 
@@ -489,6 +489,8 @@ SUBROUTINE ReadParametrization()
 integer, allocatable :: iVerts(:)
 integer in,nn,iFile,iiArea
 integer nnn,iiiArea,LenStr,iReason
+integer iFace(4),jFace(4)
+integer, allocatable :: bu_list(:,:)
 
 allocate(iVerts(nvt))
 
@@ -582,6 +584,39 @@ DO iFile=1,nParFiles
          kNeighE(2,iArea) = -(NumberOfSurfaces + 1)
       END IF
    end do
+   NumberOfSurfaces = NumberOfSurfaces + 1
+   WRITE(*,*) 'Read parametrization file:',NumberOfSurfaces, 'with nFaces, nVerts:', iiArea,nn
+  ELSEIF (cFile(LenStr-3:LenStr).EQ.".pls") THEN
+   iVerts = 0
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cProjectFolder))//"/PAR/"//ADJUSTL(TRIM(cParFile(iFile))))
+   READ(1,*) nn
+   READ(1,*) 
+   
+   allocate(bu_list(4,nn))
+   
+   DO i=1,nn
+    READ(1,*) jFace(:)
+    CALL SORT(jFace,4)
+    bu_list(:,i) = jFace
+   END DO
+   CLOSE(1) 
+
+   iiArea = 0
+   do iArea=1,nArea
+      iFace(:) = kfaces(:,iArea)
+      CALL SORT(iFace,4)
+      do jArea=1,nn
+       jFace = bu_list(:,jArea)
+       if (iFace(1).eq.jFace(1).and.iFace(2).eq.jFace(2).and.&
+           iFace(3).eq.jFace(3).and.iFace(4).eq.jFace(4)) then
+          iiArea = iiArea + 1
+          kNeighE(2,iArea) = -(NumberOfSurfaces + 1)
+          !iVerts(jFace) = 1
+       end if
+      end do
+   end do
+   deallocate(bu_list)
+   
    NumberOfSurfaces = NumberOfSurfaces + 1
    WRITE(*,*) 'Read parametrization file:',NumberOfSurfaces, 'with nFaces, nVerts:', iiArea,nn
   ELSE
@@ -731,6 +766,21 @@ end do
 if (nw.ne.0) write(*,*) 'WARNING: There are ',nw,' element(s) having all nodes at the boundary!'
 
 DO iS = 1,NumberOfSurfaces
+
+ write(cFile,'(A,I3.3,A)') trim(cProjectFolder)//'/',iS,'.pls'
+ open(1,file=trim(cFile))
+
+ nn = 0
+ do iArea=1,nArea
+  if (kNeighE(2,iArea).eq.-iS) then
+   nn = nn + 1
+  end if
+ end do
+ 
+ open(1,file=trim(cFile))
+ write(1,*) nn, 'Wall'
+ write(1,*) '" "'
+
  iVerts = 0
  nn = 0
  allocate(myPar(iS)%locInd(nvt))
@@ -739,8 +789,10 @@ DO iS = 1,NumberOfSurfaces
   if (kNeighE(2,iArea).eq.-iS) then
    nn = nn + 1
    iVerts(kfaces(:,iArea)) = 1
+    write(1,'(4(I0,A))') kfaces(1,iArea),',',kfaces(2,iArea),',',kfaces(3,iArea),',',kfaces(4,iArea)
   end if
  end do
+ 
  nm = 0
  do ivt=1,nvt
   if (iVerts(ivt).eq.1) nm = nm + 1
@@ -756,6 +808,8 @@ DO iS = 1,NumberOfSurfaces
  myPar(iS)%nel = nn
  myPar(iS)%nvt = nm
  write(*,*) iS,' : ', myPar(iS)%nel,myPar(iS)%nvt
+ 
+ close(1)
  
  write(cFile,'(A,I3.3,A)') trim(cProjectFolder)//'/',iS,'.par'
  open(1,file=trim(cFile))

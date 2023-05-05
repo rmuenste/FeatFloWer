@@ -1328,8 +1328,8 @@ WRITE(2,'(A)') ADJUSTL(TRIM(cf))
  
 DO iBnds = 1, nBnds
  cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
- WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+ WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
+ WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
  j=0
@@ -2933,7 +2933,7 @@ CLOSE(1)
 
  DO iBnds = 1, nBnds
   cf = ' '
-  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
    j=0
@@ -3971,8 +3971,8 @@ if (myid.eq.0) then
   
  DO iBnds = 1, nBnds
   cf = ' '
-  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
-  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
+  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
   
