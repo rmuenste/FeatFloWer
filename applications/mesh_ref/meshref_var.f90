@@ -10,6 +10,10 @@ Logical :: bDefTensor = .true.
 integer :: nOfMarkers=1,initfield
 integer, allocatable, dimension(:) :: markerE,markerV
 
+type tiVector
+ integer, allocatable :: i(:,:)
+end type tiVector
+
 type RefinerMesh
  integer :: nOfElem=0,nOfVert=0,nUniquePoints,nUniqueElems
  integer :: patchID=-2
@@ -26,6 +30,11 @@ type(RefinerMesh), allocatable :: myRF(:)
 
 type tParList
  Logical, allocatable :: Wall(:),SideWall(:,:),Inflow(:,:),Outflow(:)
+ Logical, allocatable :: WallA(:),SideWallA(:,:),InflowA(:,:),OutflowA(:)
+ integer              :: nWa,nSa(5),nOA
+ integer, allocatable :: nIA(:)
+ type (tiVector)      :: tWa,tSa(5),tOA
+ type (tiVector), allocatable :: tIA(:)
 end type tParList
 type (tParList) :: ParList,ParCleanList
 

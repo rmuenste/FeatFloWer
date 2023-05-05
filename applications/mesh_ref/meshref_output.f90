@@ -729,6 +729,7 @@ END DO
 
 CLOSE(iunit)
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Wall.par'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
@@ -743,6 +744,21 @@ DO i=1,nReducedCleanPoints
 END DO
 CLOSE(iunit)
 
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Wall.pls'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+write(iunit,'(I0,A)') ParCleanList%nWA,' '//'Wall'
+write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+DO i=1,ParCleanList%nWA
+ write(iunit,'(4(I0,A))') ParCleanList%tWA%i(1,i),',',ParCleanList%tWA%i(2,i),',',ParCleanList%tWA%i(3,i),',',ParCleanList%tWA%i(4,i)
+END DO
+CLOSE(iunit)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 DO jat=1,5
  WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/SideWall',jat,'.par'
  WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -757,8 +773,22 @@ DO jat=1,5
   if (ParCleanList%SideWall(jat,i)) write(iunit,'(I0)') i
  END DO
  CLOSE(iunit)
-end do
 
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/SideWall',jat,'.pls'
+ WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+ write(iunit,'(I0,A)') ParCleanList%nSA(jat),' '//'Wall'
+ write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+ DO i=1,ParCleanList%nSA(jat)
+  write(iunit,'(4(I0,A))') ParCleanList%tSA(jat)%i(1,i),',',ParCleanList%tSA(jat)%i(2,i),',',ParCleanList%tSA(jat)%i(3,i),',',ParCleanList%tSA(jat)%i(4,i)
+ END DO
+ CLOSE(iunit)
+end do
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Outflow.par'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
 OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
@@ -773,6 +803,20 @@ DO i=1,nReducedCleanPoints
 END DO
 CLOSE(iunit)
 
+WRITE(cf,'(A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Outflow.pls'
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+write(iunit,'(I0,A)') ParCleanList%nOA,' '//'Outflow'
+write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+DO i=1,ParCleanList%nOA
+ write(iunit,'(4(I0,A))') ParCleanList%tOA%i(1,i),',',ParCleanList%tOA%i(2,i),',',ParCleanList%tOA%i(3,i),',',ParCleanList%tOA%i(4,i)
+END DO
+CLOSE(iunit)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 do iInflow=1,myProcess%nOfInflows
  WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Inflow',iInflow,'.par'
  WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -794,6 +838,26 @@ do iInflow=1,myProcess%nOfInflows
  CLOSE(iunit)
 END DO
 
+do iInflow=1,myProcess%nOfInflows
+ WRITE(cf,'(A,I0,A)') ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/Inflow',iInflow,'.pls'
+ WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
+ OPEN(UNIT=iunit,FILE=ADJUSTL(TRIM(cf)))
+ IF (ParCleanList%nIA(iInflow).eq.0) THEN
+  write(*,*) 'Either the inflow radius too small or the meshresolution too coarse, or the inflow position is not matching with the bounding box!'
+  write(*,*) 'Setup is not suitable for simulation //  program forced to exit!'
+  STOP
+ END IF
+ write(iunit,'(I0,A,I0)') ParCleanList%nIA(iInflow),' '//'Inflow',-iInflow
+ write(iunit,'(A,I0," ",4F10.4,A)') "' '"
+ DO i=1,ParCleanList%nIA(iInflow)
+  write(iunit,'(4(I0,A))') ParCleanList%tIA(iInflow)%i(1,i),',',ParCleanList%tIA(iInflow)%i(2,i),',',ParCleanList%tIA(iInflow)%i(3,i),',',ParCleanList%tIA(iInflow)%i(4,i)
+ END DO
+ CLOSE(iunit)
+END DO
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+
+
+
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file.prj'//"'"
 open(file=ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file.prj',unit=iunit)
 write(iunit,'(a)') adjustl(trim(cReducedGridFile))
@@ -804,6 +868,19 @@ do iInflow=1,myProcess%nOfInflows
 END DO
 do jat=1,5
  write(iunit,'(A,I0,A)') 'SideWall',jat,'.par'
+END DO
+close(iunit)
+
+WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file_pls.prj'//"'"
+open(file=ADJUSTL(TRIM(cOutputFolder))//'/'//ADJUSTL(TRIM(cReducedMeshdFolder))//'/file_pls.prj',unit=iunit)
+write(iunit,'(a)') adjustl(trim(cReducedGridFile))
+write(iunit,'(a)') 'Wall.pls'
+write(iunit,'(a)') 'Outflow.pls'
+do iInflow=1,myProcess%nOfInflows
+ write(iunit,'(A,I0,A)') 'Inflow',iInflow,'.pls'
+END DO
+do jat=1,5
+ write(iunit,'(A,I0,A)') 'SideWall',jat,'.pls'
 END DO
 close(iunit)
 
