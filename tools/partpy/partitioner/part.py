@@ -57,24 +57,28 @@ def GetFileList(cProjName):
   myGridFile=""
   myParFiles=[]
   myParNames=[]
+  myParExts=[]
   ProjektDir=os.path.dirname(cProjName)
   fProjekt=open(cProjName,'r')
   for s in fProjekt:
     s=s.strip()
     if '.' in s:
       (prefix,sep,ext)=s.rpartition('.')
+      ext=ext.lower()
+      print(ext)
       if ext=="tri":
         myGridFile=os.path.join(ProjektDir,s)
-      elif ext=="par":
+      elif ext in ["pls","par"]:
         nPar+=1
         myParFiles.append(os.path.join(ProjektDir,s))
         myParNames.append(prefix)
+        myParExts.append(ext)
   fProjekt.close()
   print("The projekt folder consists of the following files:")
   print("- Grid File:", myGridFile)
   print("- Boundary Files:")
   print("\n".join(map(lambda x: "  * %s" % x,myParFiles)))
-  return (nPar,myGridFile,myParFiles,myParNames)
+  return (nPar,myGridFile,myParFiles,myParNames,myParExts)
 
 def GetGrid(GridFileName):
     """
@@ -109,7 +113,7 @@ def GetGrid(GridFileName):
     #f.close()
     return (NEL,NVT,tuple(Coord),tuple(Kvert),Knpr)
 
-def GetPar(ParFileName,NVT):
+def GetPar(ParFileName):
     """
     Lese Randbeschreibungen aus einer Parameterdatei. Maximale Knotenzahl NVT
     bestimmt zudem die Länge der Randliste.
@@ -126,6 +130,29 @@ def GetPar(ParFileName,NVT):
         if not Parameter:
             Parameter="0"
         Boundary=set(map(int,f.read().split()))
+    return (Type,Parameter,Boundary)
+
+def GetPls(ParFileName):
+    """
+    Lese Randbeschreibungen aus einer Parameterdatei. Maximale Knotenzahl NVT
+    bestimmt zudem die Länge der Randliste.
+    Rückgabe: (Name des Randes, Daten des Randes, Boolsche Liste für alle Knoten)
+    """
+    print("Parameter input file: '%s'" % ParFileName)
+    with open(ParFileName,'r') as f:
+        g=f.readline().split()
+        pPar=int(g[0])
+        Type=g[1]
+        Parameter=f.readline().strip()
+        #if len(Parameter)>=2:
+        #  Parameter=Parameter[1:-1]
+        if not Parameter:
+            Parameter="0"
+        Boundary=set()
+        for i in range(pPar):
+            s=f.readline()
+            Face=tuple(map(int,s.replace(","," ").split()))
+            Boundary.add(Face)
     return (Type,Parameter,Boundary)
 
 def GetNeigh(Grid):
@@ -208,7 +235,7 @@ def Flatten3dArray(maxZ, maxY, i, j, k):
   idx1D = (i - 1) * maxZ * maxY + (j - 1) * maxZ + k - 1 
   return idx1D
 
-def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
+def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh): # to be changed!
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
   
   if isinstance(nSubMesh, int):
@@ -224,11 +251,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
   # Auspacken der Parametrisierungen
-  (ParNames,ParTypes,Parameters,Boundaries)=Param
+  (ParNames,ParExts,ParTypes,Parameters,Boundaries,NodeFlags)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
-#  print(Part)
-
   for (iPart,iNeigh,iElem) in zip(Part,Neigh,kvert):
     for (Idx,f) in zip(iNeigh,face):
       if Idx>0 and Part[Idx-1]!=iPart:
@@ -283,28 +308,37 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub, nSubMesh):
           if bSub:
             idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
-            localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],idx1D2))
+            localParName=os.path.join(BaseName,"%s_%03d.%s"%(ParNames[iPar],idx1D2,ParExts[iPar]))
           else:
             idx1D2 = Flatten3dArray(partZ, partY, iPart[2], iPart[1], iPart[0])  
             idx1D2 = idx1D2 + 1
-            localParName=os.path.join(BaseName,"sub%03d"%idx1D2,"%s.par"%ParNames[iPar])
-          # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
-          # dann gehoert er dort auch zur Randparametrisierung
-          localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
+            localParName=os.path.join(BaseName,"sub%03d"%idx1D2,"%s.%s"%(ParNames[iPar],ParExts[iPar]))
+          # Wenn alle Knoten einer Seite Teil der alten Randparametrisierung ist und ganz neuen Teilgebiet
+          # liegt dann gehoert diese dort auch zur Randparametrisierung
+          if NodeFlags[iPar]:
+            localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
+          else:
+            localBoundary=[tuple(LookUp[i] for i in Face) for Face in Boundaries[iPar] if localRestriktion.issuperset(Face)]
           localBoundary.sort()
-          OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+          if ParExts[iPar]=="par":    
+            OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+          elif ParExts[iPar]=="pls":    
+            OutputPlsFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
           if not isinstance(nSubMesh, int):
             id = 1
-            localParName=os.path.join(BaseName,"sub%03d" %idx1D2,"%s_%03d.par"%(ParNames[iPar],id))
-            OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+            localParName=os.path.join(BaseName,"sub%03d" %idx1D2,"%s_%03d.%s"%(ParNames[iPar],id,ParExts[iPar]))
+            if ParExts[iPar]=="par":
+              OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+            elif ParExts[iPar]=="pls":
+              OutputPlsFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
-def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
+def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub): # to be changed!
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
   # Auspacken der Parametrisierungen
-  (ParNames,ParTypes,Parameters,Boundaries)=Param
+  (ParNames,ParExts,ParTypes,Parameters,Boundaries,NodeFlags)=Param
   # Add new boundary nodes at partition borders
   new_knpr=list(knpr)
 
@@ -343,15 +377,20 @@ def GetSubsClassic(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
     localRestriktion=set(LookUp.keys())
     for iPar in range(nParFiles):
       if bSub:
-        localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
+        localParName=os.path.join(BaseName,"%s_%03d.%s"%(ParNames[iPar],iPart,ParExts[iPar]))
       else:
-        localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.par"%ParNames[iPar])
-      # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
-      # dann gehoert er dort auch zur Randparametrisierung
-      localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
+        localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.%s"%(ParNames[iPar],ParExts[iPar]))
+      # Wenn alle Knoten einer Seite Teil der alten Randparametrisierung ist und ganz neuen Teilgebiet
+      # liegt dann gehoert diese dort auch zur Randparametrisierung
+      if NodeFlags[iPar]:
+        localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
+      else:
+        localBoundary=[tuple(LookUp[i] for i in Face) for Face in Boundaries[iPar] if localRestriktion.issuperset(Face)]
       localBoundary.sort()
-      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
-
+      if ParExts[iPar]=="par":    
+        OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+      elif ParExts[iPar]=="pls":    
+        OutputPlsFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
 
 def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
@@ -362,7 +401,14 @@ def OutputParFile(Name,Type,Parameters,Boundary):
     f.write("%d %s\n"%(len(Boundary),Type))
     f.write(Parameters+"\n")
     f.write(_build_line_by_format_list("%d",Boundary,"\n"))
-  pass
+
+def OutputPlsFile(Name,Type,Parameters,Boundary):
+  print("Output parameter file: " + Name)
+  with open(Name,"w") as f:
+    f.write("%d %s\n"%(len(Boundary),Type))
+    f.write(Parameters+"\n")
+    for Face in Boundary:
+      f.write(_build_line_by_format_list("%d",Face,","))
 
 def OutputGrid(Name,Grid):
   # Auspacken der Gitterstruktur in einzelne Variablen
