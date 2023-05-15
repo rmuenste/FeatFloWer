@@ -82,6 +82,7 @@ def readMeshFromVTK(fileName):
 
     nodes = []
     cells = []
+    cellLines = []
     with np.printoptions(precision=15), open(fileName, "r") as f:
         while True:
             line = f.readline()
@@ -109,26 +110,54 @@ def readMeshFromVTK(fileName):
                 idx = 0
                 while line and not re.match(r"^CELL_TYPES", line):
                     
-                    words = line.strip().split(" ")
-                    if len(words[0]) > 0:
-                        nodeIds = []
-
-                        nodeIds.append(int(words[1]))
-                        nodeIds.append(int(words[2]))
-                        nodeIds.append(int(words[3]))
-                        nodeIds.append(int(words[4]))
-                        nodeIds.append(int(words[5]))
-                        nodeIds.append(int(words[6]))
-                        nodeIds.append(int(words[7]))
-                        nodeIds.append(int(words[8]))
-
-                        h = Hexa(nodeIds, idx)
-                        h.layerIdx = 1
-                        h.type = 1 
-                        cells.append(h)
-                        idx = idx + 1
-
+                    cellLines.append(line)
+                    if re.match(r"^CELL_TYPES", line):
+                        print(line)
                     line = f.readline()
+#                    words = line.strip().split(" ")
+#
+#                    if len(words[0]) > 0:
+#                        nodeIds = []
+#
+#                        nodeIds.append(int(words[1]))
+#                        nodeIds.append(int(words[2]))
+#                        nodeIds.append(int(words[3]))
+#                        nodeIds.append(int(words[4]))
+#                        nodeIds.append(int(words[5]))
+#                        nodeIds.append(int(words[6]))
+#                        nodeIds.append(int(words[7]))
+#                        nodeIds.append(int(words[8]))
+#
+#                        h = Hexa(nodeIds, idx)
+#                        h.layerIdx = 1
+#                        h.type = 1 
+#                        cells.append(h)
+#                        idx = idx + 1
+                idxCells = " ".join(cellLines)
+                idxCells = idxCells.replace("\n", "")
+                idxCells = idxCells.replace("  ", " ")
+                idxCells = idxCells.split(" ")
+                idxCells = [int(x) for x in idxCells]
+                print(idxCells)
+                print(len(idxCells))
+                idx = 0
+                for i in range(0, len(idxCells), 8):
+                    print("i=",i)
+                    nodeIds = []
+                    for j in range(8):
+                        jdx = i + j
+                        print("jdx=",jdx)
+                        nodeIds.append(idxCells[i + j])
+
+                    print("values: ", idx, nodeIds)
+                    h = Hexa(nodeIds, idx)
+                    h.layerIdx = 1
+                    h.type = 1 
+                    cells.append(h)
+                    idx = idx + 1
+
+
+#                    line = f.readline()
 
 #            if re.match(r"^\$Elements", line):
 #                quadList = readElements(f)

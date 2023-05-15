@@ -7,7 +7,7 @@ This module is the driver script to perform a hex
 import os
 import sys
 import re
-import getopt
+import argparse
 
 from mesh import *
 
@@ -95,33 +95,37 @@ def handleDevisorDir(dirName, outDir="./"):
         f.write("</VTKFile>\n")
 
 def main():
-    print(sys.argv)
-    if len(sys.argv) < 1:
-        raise RuntimeError("The script needs at least one command line parameters to run.")
 
-    firstFile = sys.argv[1]
-    if len(sys.argv) > 2:
-        secondArg = sys.argv[2]
 
-#    print(sys.argv)
-#    if os.path.isdir(sys.argv[1]):
-#        print("We found a dir")
-#    if os.path.isabs(sys.argv[1]):
-#        print("We found a absolute path")
-#    sys.exit(0)
-    if os.path.isdir(sys.argv[1]):
-        if len(sys.argv) > 2 and os.path.isdir(sys.argv[2]):
-          handleDevisorDir(sys.argv[1], sys.argv[2])
-        else:
-          handleDevisorDir(sys.argv[1])
-    elif os.path.splitext(firstFile)[1] == '.tri' and os.path.splitext(secondArg)[1] == '.vtk':
-        convertTri2Vtk(firstFile, secondArg)
-    elif os.path.splitext(firstFile)[1] == '.vtk' and os.path.splitext(secondArg)[1] == '.tri':
-        convertVtk2Tri(firstFile, secondArg)
+    parser = argparse.ArgumentParser(description='Argument Parser Example')
+    parser.add_argument('--input-file', help='Path to input file')
+    parser.add_argument('--output-file', help='Path to output file')
+    parser.add_argument('--input-dir', help='Path to input directory')
+    parser.add_argument('--output-dir', help='Path to output directory')
+    args = parser.parse_args()
+
+    input_file = args.input_file
+    output_file = args.output_file
+    input_dir = args.input_dir
+    output_dir = args.output_dir
+
+    # Use the arguments as needed in your code
+    if input_file and output_file:
+        print(f'Input file provided: {input_file}')
+        print(f'Output file provided: {output_file}')
+        if os.path.splitext(input_file)[1] == '.tri' and os.path.splitext(output_file)[1] == '.vtk':
+            convertTri2Vtk(input_file, output_file)
+        elif os.path.splitext(input_file)[1] == '.vtk' and os.path.splitext(output_file)[1] == '.tri':
+            convertVtk2Tri(input_file, output_file)
+    elif input_dir and output_dir:
+        print(f'Input directory provided: {input_dir}')
+        print(f'Output directory provided: {output_dir}')        
+        handleDevisorDir(input_dir, output_dir)
+    elif input_dir:
+        handleDevisorDir(input_dir)
     else:
-        raise RuntimeError("File extensions not suitable for conversion")
-
-
+        print(f'Please provide input/output files or input/output directories')        
+        sys.exit(2)
 
 if __name__ == "__main__":
     main()
