@@ -453,6 +453,7 @@ IF (myid.eq.1) write(*,*) 'done!'
 !   call testParticleRadius()
 ! end if
  call init_fc_rigid_body(myid)      
+
 ! call MPI_Finalize(ierror)
 ! stop
 

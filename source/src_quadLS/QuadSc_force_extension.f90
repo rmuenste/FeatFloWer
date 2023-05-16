@@ -104,7 +104,7 @@ SAVE
   !=====================================================================
 #ifdef OUTPUT_LEVEL2 
   if (numParticles > 0) then
-    write(*,*)myid,'> FBM Force Calculation for:', numParticles, 'local particles'
+    write(*,'(I3,A,I5,A)')myid,'> FBM Force Calculation for:', numParticles, 'local particles'
   end if
 #endif
 
@@ -112,7 +112,7 @@ SAVE
 
   DO IP = 1,numParticles
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
+  write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
 
 #endif
 
@@ -407,8 +407,8 @@ SAVE
 
 
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
-  write(*,'(I3,A,I3,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+  write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
+  write(*,'(I3,A,I5,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
 !  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
@@ -529,14 +529,14 @@ SAVE
   ! We loop over all particles first
   !=====================================================================
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid, '> FBM Force Calculation for:', numParticles, 'remote particle(s)'
+  write(*,'(I3,A,I5,A)')myid, '> FBM Force Calculation for:', numParticles, 'remote particle(s)'
 #endif
 
   call getAllRemoteParticles(theParticles)
 
   DO IP = 1,numParticles
 #ifdef OUTPUT_LEVEL2 
-  write(*,*)myid,'>Rem Particle: #',theParticles(IP)%localIdx, ', of: ', size(theParticles), ' shortId', theParticles(IP)%bytes(1) + 1
+  write(*,'(I3,A,I5,A,I5,A,I5)')myid,'>Rem Particle: #',theParticles(IP)%localIdx, ', of: ', size(theParticles), ' shortId', theParticles(IP)%bytes(1) + 1
 #endif
 
   particleId = theParticles(IP)%localIdx

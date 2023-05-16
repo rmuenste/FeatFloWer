@@ -354,7 +354,6 @@ subroutine getAllRemoteParticles(theParticles)
   allocate(indexMap(a))
 
   call getRemoteParticlesIndexMap(indexMap)
-!  write(*,*)'IndexMap>', indexMap(:)
   
   do i=1,a
     idx = indexMap(i)
