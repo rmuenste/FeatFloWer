@@ -2125,7 +2125,7 @@ USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
 INTEGER kvert(8,*),iO,ioffset,ive,ivt,iField,i,istat
-CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
+CHARACTER fileid*(5),filename*(28),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
@@ -2137,11 +2137,11 @@ NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
 
 filename=" "
-WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_***.',iO,".vtu"
+WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_****.',iO,".vtu"
 
 IF(myid.eq.showid) WRITE(*,'(104("="))') 
 IF(myid.eq.showid) WRITE(*,*) "Outputting vtk file into ",filename
-WRITE(filename(15:17),'(I3.3)') myid
+WRITE(filename(15:18),'(I4.4)') myid
 
 OPEN (UNIT=iunit,FILE=filename,action='write',iostat=istat)
 if(istat .ne. 0)then
@@ -2743,7 +2743,7 @@ write(imainunit, *)"    </PPoints>"
 
 do iproc=1,subnodes
  filename=" "
- WRITE(filename(1:),'(A9,I3.3,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
+ WRITE(filename(1:),'(A9,I4.4,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
  write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"  
 end do
 write(imainunit, *)"  </PUnstructuredGrid>"

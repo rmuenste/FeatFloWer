@@ -335,7 +335,7 @@ integer :: iunit = 908070
 
 integer :: inlmax,iFld
 
-character fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
+character fileid*(5),filename*(128),procid*(3),cGenScalar*(50)
 
 NoOfElem = KNEL(ioutput_lvl)
 NoOfVert = KNVT(ioutput_lvl)
@@ -344,13 +344,13 @@ inlmax = mgMesh%maxlevel
 
 filename=" "
 
-write(filename(1:),'(A,A,A,I5.5,A4)') '_vtk/',ADJUSTL(TRIM(myExport%cFileName(1))),'_node_***.',iO,".vtu"
+write(filename(1:),'(A,A,A,I5.5,A4)') '_vtk/',ADJUSTL(TRIM(myExport%cFileName(1))),'_node_****.',iO,".vtu"
 
 if(myid.eq.showid) write(*,'(104("="))')
 if(myid.eq.showid) write(*,*) "Outputting vtk file into ",filename
-write(filename(15:17),'(I3.3)') myid
+write(filename(15:18),'(I4.4)') myid
 
-open (unit=iunit,file=filename,action='write',iostat=istat)
+open (unit=iunit,file=ADJUSTL(TRIM(filename)),action='write',iostat=istat)
 if(istat .ne. 0)then
   write(*,*)"Could not open file for writing. "
   stop
@@ -614,7 +614,7 @@ IMPLICIT NONE
 INTEGER iO,iproc,iField, istat,iFld
 INTEGER :: iMainUnit=555
 CHARACTER mainname*(20)
-CHARACTER filename*(26),cGenScalar*(50)
+CHARACTER filename*(128),cGenScalar*(50)
 
 ! generate the file name
 mainname=' '
@@ -709,7 +709,7 @@ write(imainunit, *)"    </PPoints>"
 
 do iproc=1,subnodes
  filename=" "
- WRITE(filename(1:),'(A,A,I3.3,A1,I5.5,A4)') ADJUSTL(TRIM(myExport%cFileName(1))),'_node_',iproc,'.',iO,".vtu"
+ WRITE(filename(1:),'(A,A,I4.4,A1,I5.5,A4)') ADJUSTL(TRIM(myExport%cFileName(1))),'_node_',iproc,'.',iO,".vtu"
  write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"
 end do
 write(imainunit, *)"  </PUnstructuredGrid>"

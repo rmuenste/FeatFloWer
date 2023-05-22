@@ -113,26 +113,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
    iSubPart = FLOOR(DBLE(myid)/DBLE(kSubPart)-1d-10)+1
    iPart    = myid - (iSubPart-1)*kSubPart
-   IF     (iSubpart.lt.10 ) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A5,I1,A1)') "sub00",iSubpart,"/"  ! PARALLEL
-   ELSEIF (iSubpart.lt.100) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A4,I2,A1)') "sub0",iSubpart,"/"  ! PARALLEL
-   ELSE
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A3,I3,A1)') "sub",iSubpart,"/"  ! PARALLEL
-   END IF
+   WRITE(CMESH1(7+LenFile+1:7+LenFile+7+1),'(A3,I4.4,A1)') "sub",iSubpart,"/"  ! PARALLEL
 
    cProjectFolder = CMESH1
-
-   IF      (iPart.lt.10) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A6,I1,A4)') "GRID00",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A2,I1)') "00",iPart
-   ELSE IF (iPart.lt.100) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A5,I2,A4)') "GRID0",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A1,I2)') "0",iPart
-   ELSE
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A4,I3,A4)') "GRID",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(I3)') iPart
-   END IF
+   WRITE(CMESH1(15+LenFile+1:15+11+LenFile+1),'(A4,I4.4,A4)') "GRID",iPart,".tri"  ! PARALLEL
+   WRITE(cProjectNumber(1:4),'(I4.4)') iPart
  ELSE                                                 ! PARALLEL
    cProjectFolder = CMESH1
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL

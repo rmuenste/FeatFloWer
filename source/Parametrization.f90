@@ -975,7 +975,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
    IF (myid.lt.1)     THEN 
     WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
    ELSE
-    WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
    END IF
   END IF
   
@@ -984,7 +984,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
    IF (myid.lt.1)     THEN 
     WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".pls"
    ELSE
-    WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
    END IF
   END IF
 
@@ -1423,7 +1423,7 @@ END SUBROUTINE projectonanalyticplane
    IF (myid.lt.1)     THEN 
     WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
    ELSE
-    WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
    END IF
   END IF
   
@@ -1432,7 +1432,7 @@ END SUBROUTINE projectonanalyticplane
    IF (myid.lt.1)     THEN 
     WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".pls"
    ELSE
-    WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
    END IF
   END IF
 

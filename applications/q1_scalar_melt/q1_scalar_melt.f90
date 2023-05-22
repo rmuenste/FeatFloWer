@@ -5,7 +5,7 @@ PROGRAM Q1_GenScalar
   use solution_io, only: postprocessing_general
 
   use Transport_Q1, only : SetupTransportOperators_Q1_Melt
-  USE Transport_Q2P1, only :  GetNonNewtViscosity_sse
+  USE Transport_Q2P1, only :  GetAlphaNonNewtViscosity_sse
   
   use post_utils,  only: handle_statistics,&
                          print_time,&
@@ -49,7 +49,7 @@ PROGRAM Q1_GenScalar
   timens=timens+dt
 
   CALL SetupTransportOperators_Q1_Melt() !(Temperature field is filled up here for the viscosity evaluation!)
-  CALL GetNonNewtViscosity_sse()
+  CALL GetAlphaNonNewtViscosity_sse()
   
   ! Solve transport equation for linear scalar
   CALL Transport_GenLinSc_Q1_Melt(ufile,inonln_t)

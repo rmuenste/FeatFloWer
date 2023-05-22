@@ -127,7 +127,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
- REAL*8 ViscosityMatModel
+ REAL*8 AlphaViscosityMatModel
  REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
  CHARACTER sTimeStep*(9)
  
@@ -166,26 +166,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
    kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
    iSubPart = FLOOR(DBLE(myid)/DBLE(kSubPart)-1d-10)+1
    iPart    = myid - (iSubPart-1)*kSubPart
-   IF     (iSubpart.lt.10 ) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A5,I1,A1)') "sub00",iSubpart,"/"  ! PARALLEL
-   ELSEIF (iSubpart.lt.100) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A4,I2,A1)') "sub0",iSubpart,"/"  ! PARALLEL
-   ELSE
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A3,I3,A1)') "sub",iSubpart,"/"  ! PARALLEL
-   END IF
+   WRITE(CMESH1(7+LenFile+1:7+LenFile+7+1),'(A3,I4.4,A1)') "sub",iSubpart,"/"  ! PARALLEL
 
    cProjectFolder = CMESH1
-
-   IF      (iPart.lt.10) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A6,I1,A4)') "GRID00",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A2,I1)') "00",iPart
-   ELSE IF (iPart.lt.100) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A5,I2,A4)') "GRID0",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A1,I2)') "0",iPart
-   ELSE
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A4,I3,A4)') "GRID",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(I3)') iPart
-   END IF
+   WRITE(CMESH1(15+LenFile+1:15+11+LenFile+1),'(A4,I4.4,A4)') "GRID",iPart,".tri"  ! PARALLEL
+   WRITE(cProjectNumber(1:4),'(I4.4)') iPart
  ELSE                                                 ! PARALLEL
    cProjectFolder = CMESH1
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
@@ -230,7 +215,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
     dShear = 10**dble(i)
     do j=-1,1
      dTemp(j+2)  = myProcess%T0 + dble(j)*10.0
-     dVisco(j+2)     = ViscosityMatModel((dShear**2d0)/2d0,1,dTemp(j+2))
+     dVisco(j+2)     = AlphaViscosityMatModel((dShear**2d0)/2d0,1,dTemp(j+2))
     end do
     WRITE(mterm,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
     WRITE(mfile,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
@@ -247,8 +232,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharSize      = 0.5d0*(mySigma%Dz_out-mySigma%Dz_in)
      dCharVelo      = 3.14d0*mySigma%Dz_out*(myProcess%Umdr/60d0)
      dCharShear     = dCharVelo/dCharSize
-     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
-  !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
+     dCharVisco     = AlphaViscosityMatModel(dCharShear,1,myProcess%T0)
+  !    dCharVisco     = AlphaViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 1d-2 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep
      READ(sTimeStep,*) TimeStep
@@ -266,8 +251,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharSize      = 1d-1*myProcess%ExtrusionGapSize
      dCharVelo      = myProcess%ExtrusionSpeed
      dCharShear     = dCharVelo/dCharSize
-     dCharVisco     = ViscosityMatModel(dCharShear,1,myProcess%T0)
-  !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
+     dCharVisco     = AlphaViscosityMatModel(dCharShear,1,myProcess%T0)
+  !    dCharVisco     = AlphaViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 5d-3 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep
      READ(sTimeStep,*) TimeStep

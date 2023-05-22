@@ -79,7 +79,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
 
     # Erzeuge zusätzliche Unterverzeichnisse falls Untergitter erzeugt werden sollen
     for i in range(1,nSubMesh+1):
-        mkdir(os.path.join(workPath,"sub%03d" % i))
+        mkdir(os.path.join(workPath,"sub%04d" % i))
 
     # Bestimme, ob die Untergitter in umgekehrter Reihenfolge abgespeichert werden sollen.
     if pMethod in (11,12,13):
@@ -127,17 +127,17 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
         myParam=(myParNames,myParTypes,myParameters,myBoundaries)
         GetSubs(workPath,myGrid,nSubMesh,myPart,myNeigh,nParFiles,myParam,False)
     elif nSubMesh==1:
-        copy(myGridFile,os.path.join(workPath,"sub001","GRID.tri"))
-        copy(ProjektFile,os.path.join(workPath,"sub001","GRID.prj"))
+        copy(myGridFile,os.path.join(workPath,"sub0001","GRID.tri"))
+        copy(ProjektFile,os.path.join(workPath,"sub0001","GRID.prj"))
         for iPar in range(nParFiles):
-            copy(myParFiles[iPar],os.path.join(workPath,"sub001",myParNames[iPar]+".par"))
+            copy(myParFiles[iPar],os.path.join(workPath,"sub0001",myParNames[iPar]+".par"))
 
     # Im Grunde "kSubPart=int(math.ceil(nnPart/float(nSubMesh)))"
     kSubPart= nnPart//nSubMesh if nnPart%nSubMesh==0 else nnPart//nSubMesh+1
     iPart=0
     rIter = range(nSubMesh,0,-1) if bReversed else range(1,nSubMesh+1)
     for i in rIter:
-        subPath=os.path.join(workPath,"sub%03d"%i)
+        subPath=os.path.join(workPath,"sub%04d"%i)
         myGrid=GetGrid(os.path.join(subPath,"GRID.tri"))
         myNeigh=GetNeigh(myGrid)
         myParTypes=[]
