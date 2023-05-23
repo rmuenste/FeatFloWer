@@ -597,6 +597,8 @@ END TYPE tSigma
 TYPE tRheology
    INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
    INTEGER :: AtFunc = 1 !-->> isotherm
+   Logical :: bWallSlip = .false.
+   REAL*8  :: WS_d,WS_Tau0,WS_TauD,WS_TauMin,WS_TauMax,WS_SlipFactor
    REAL*8 :: A, B, C, D ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 

@@ -1650,6 +1650,17 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(iMat)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
      END IF
+     
+     IF (myMultiMat%Mat(iMat)%Rheology%bWallSlip) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','ACTIVATED'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_d",'=',myMultiMat%Mat(iMat)%Rheology%WS_d
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMin",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMin
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMax",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMax
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_SlipFactor",'=',myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
+     ELSE
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','OFF'
+     END IF
+     
      write(*,*)
      write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myMultiMat%Mat(iMat)%Thermodyn%DensityModel))
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%HeatConductivity",'=',myMultiMat%Mat(iMat)%Thermodyn%lambda
@@ -1734,6 +1745,16 @@
      END IF
      write(*,*)
 
+     IF (myMultiMat%Mat(iMat)%Rheology%bWallSlip) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','ACTIVATED'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_d",'=',myMultiMat%Mat(iMat)%Rheology%WS_d
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMin",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMin
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMax",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMax
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_SlipFactor",'=',myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
+     ELSE
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','OFF'
+     END IF
+     
      write(*,*)
     write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
     write(*,*) "myThermodyn%HeatConductivity",'=',myThermodyn%lambda
@@ -2284,6 +2305,34 @@
      WRITE(*,*) "no temperature correction is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
+    END IF
+    
+    cRheology = ' '
+    call INIP_getvalue_string(parameterlist,ADJUSTL(TRIM(cINI)),"WallSlip", cRheology,'NO')
+    call inip_toupper_replace(cRheology)
+    IF (ADJUSTL(TRIM(cRheology)).eq."NO") THEN
+      t%bWallSlip = .FALSE.
+    END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."YES".OR.ADJUSTL(TRIM(cRheology)).eq."ON".or.ADJUSTL(TRIM(cRheology)).eq."ACTIVATED") THEN
+      t%bWallSlip = .TRUE.
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_d",t%WS_d,1d0)
+      t%WS_d = dSizeScale*t%WS_d
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_Tau0",t%WS_Tau0,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_TauD",t%WS_TauD,10.0d3)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_SlipFactor",t%WS_SlipFactor,myInf)
+      
+      IF (t%WS_Tau0.eq.myinf) THEN
+       WRITE(*,*) "WallShearStress for WallSlip is not defined"
+       bReadError=.TRUE.
+      ELSE
+       t%WS_TauMin = t%WS_Tau0 - 0.5d0*t%WS_TauD
+       t%WS_TauMax = t%WS_Tau0 + 0.5d0*t%WS_TauD
+      END IF
+      
+      IF (t%WS_SlipFactor.eq.myinf) THEN
+       WRITE(*,*) "SlipFactor for WallSlip is not defined"
+       bReadError=.TRUE.
+      END IF
     END IF
     
     END SUBROUTINE FillUpRheoData

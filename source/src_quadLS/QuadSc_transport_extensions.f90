@@ -1522,6 +1522,8 @@ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL FAC_GetForces(mfile)
 
+CALL DNA_GetTorques(mfile)
+
 CALL GetNonNewtViscosity()
 
 IF (bNS_Stabilization) THEN
@@ -2286,11 +2288,7 @@ ELSE
  CALL QuadScP1toQ2(LinSc,QuadSc)
 END IF
 
-if (bMultiMat) then
- CALL GetAlphaNonNewtViscosity_sse()
-else
- CALL GetNonNewtViscosity_sse()
-end if
+CALL GetAlphaNonNewtViscosity_sse()
 
 IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
@@ -2579,11 +2577,7 @@ ELSE
  CALL QuadScP1toQ2(LinSc,QuadSc)
 END IF
 
-if (bMultiMat) then
- CALL GetAlphaNonNewtViscosity_sse()
-else
- CALL GetNonNewtViscosity_sse()
-end if
+CALL GetAlphaNonNewtViscosity_sse()
 
 IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
@@ -2676,7 +2670,7 @@ DEALLOCATE(SendVect)
 CALL Create_MRhoMat()
 IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
-CALL GetNonNewtViscosity_sse()
+CALL GetAlphaNonNewtViscosity_sse()
 
 !!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
 
