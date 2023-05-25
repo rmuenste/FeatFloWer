@@ -2609,14 +2609,14 @@
             mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
             mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
-            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) THEN
+            mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue.eq.myinf) THEN
             
             WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
             mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
             mySigma%mySegment(iSeg)%HeatSourceMax,&
             mySigma%mySegment(iSeg)%HeatSourceMin,&
             mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
-            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+            mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue
         END IF
        ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."PID") then
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_TemperatureSetValue", mySigma%mySegment(iSeg)%PID_Ctrl%T_set,myInf)
@@ -2625,8 +2625,7 @@
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_D_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_D,myInf)
         mySigma%mySegment(iSeg)%PID_Ctrl%SumI = 0d0
         
-        IF (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
-            mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+        IF (mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
             mySigma%mySegment(iSeg)%PID_Ctrl%T_Set.eq.myinf.or.&
             mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P.eq.myinf.or.&
@@ -2634,7 +2633,6 @@
             mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D.eq.myinf) THEN
             
             WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
-            mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
             mySigma%mySegment(iSeg)%HeatSourceMax,&
             mySigma%mySegment(iSeg)%HeatSourceMin,&
             mySigma%mySegment(iSeg)%PID_Ctrl%T_Set,&
@@ -2717,7 +2715,15 @@
     END IF
 
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SensorPositions", mySigma%cSensorPositions,"_INVALID_")
-
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","SensorRadius", mySigma%SensorRadius ,myInf)
+    if (ADJUSTL(TRIM(mySigma%cSensorPositions)).NE."_INVALID_") THEN
+     IF (mySigma%SensorRadius.eq.myInf) THEN
+      if (myid.eq.1) WRITE(*,*) "SENSORRADIUS in  not defined for the sensorcandidates !!! "
+     ELSE
+      mySigma%SensorRadius = mySigma%SensorRadius*0.1d0 !! convert MM to cm
+     END IF
+    END IF
+    
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
     
@@ -2829,6 +2835,9 @@
     write(*,*) 
     
     write(*,'(A,A)') "mySIGMA%SensorPositionsFile= ",adjustl(trim(mySigma%cSensorPositions))
+    if (ADJUSTL(TRIM(mySigma%cSensorPositions)).NE."_INVALID_") THEN
+      write(*,'(A,E12.2)') "mySIGMA%SensorRadius= ",mySigma%SensorRadius
+    END IF
     
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
      IF (mySetup%nBoxElem.gt.0) write(*,'(A,I0)') "myMesh%nBoxElem=",mySetup%nBoxElem

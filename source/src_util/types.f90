@@ -578,6 +578,7 @@ END TYPE tSegment
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
   CHARACTER cSensorPositions*(256)
+  REAL*8 :: SensorRadius
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
   LOGICAL :: ScrewCylinderRendering=.TRUE.

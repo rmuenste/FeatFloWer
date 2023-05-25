@@ -1000,7 +1000,7 @@ if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
   myEwikonOutput%nSensorPositions = 0
   do while (ierr.eq.0)
    read(7475,*,iostat=ierr) daux
-   myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
+   if (ierr.eq.0) myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
   end do
   
   rewind(7475)
@@ -1016,7 +1016,7 @@ if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
   if (ierr.ne.0) STOP
   do while (ierr.eq.0)
    read(7475,*,iostat=ierr) myEwikonOutput%SensorPositions(:,myEwikonOutput%nSensorPositions + 1)
-   myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
+   if (ierr.eq.0) myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
   end do
   
   CLOSE(7475)
@@ -1029,6 +1029,8 @@ if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
    
    CALL InitOctTree(myEwikonOutput%SensorPositions,myEwikonOutput%nSensorPositions)
    
+   myEwikonOutput%Mass = 0d0
+   
    do i=1,nvt
     P = mg_mesh%level(ilev)%dcorvg(:,i)
     iSensor = -1
@@ -1036,7 +1038,10 @@ if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
                        myEwikonOutput%nSensorPositions,&
                        P,iSensor,DIST)
     if (iSensor.ge.1.and.iSensor.le.myEwikonOutput%nSensorPositions) then
-     myEwikonOutput%PointToSensor(i) = iSensor
+     IF (DIST.lt.mySigma%SensorRadius) then 
+      myEwikonOutput%PointToSensor(i) = iSensor
+      myEwikonOutput%Mass(iSensor) = myEwikonOutput%Mass(iSensor) + 1
+     end if
     END IF
     
    end do
@@ -1044,6 +1049,17 @@ if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
    CALL FreeOctTree()
    
   end if
+  
+  CALL COMM_SUMMN(myEwikonOutput%Mass,myEwikonOutput%nSensorPositions)
+  
+  if (myid.eq.1) THEN
+    open(file='SensorCandidatesMass.txt',unit=7475)
+    cfmt=' '
+    write(cfmt,'(A,I0,A)') "(A,",myEwikonOutput%nSensorPositions,"ES12.4,A)"
+    write(7475,adjustl(trim(cfmt))) 'Sensorcandidates={ ',myEwikonOutput%Mass,' }'
+    close(7475)
+  end if
+  
  end if
 end if
 
