@@ -4267,20 +4267,22 @@ END SUBROUTINE INT_ParP0toQ2
 ! ----------------------------------------------
 !
 SUBROUTINE EXPORT_TRIA(NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT,&
-           DCVG,KVERT,KADJ,KEDGE,DCAG,KVEL,KAREA,KNPR,CFILE)
+           DCVG,KVERT,KADJ,KEDGE,DCAG,KVEL,KAREA,KNPR,CFILE,II)
 implicit none
 
-integer NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
+integer NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT,II
 integer KVERT(8,*),KADJ(6,*),KEDGE(12,*),KAREA(6,*),KNPR(*)
 integer :: KVEL(NVEL,*)
 real*8  DCVG(3,*),DCAG(3,*)
-CHARACTER CFILE*60 
+CHARACTER CFILE*60,cF*128
 
 integer i
            
-open(file='tria_'//ADJUSTL(TRIM(CFILE)),unit=1442)
+           
+write(cF,'(A,I0)') 'tria_'//ADJUSTL(TRIM(CFILE))//'_L',II
+open(file=adjustl(TRIM(cF)),unit=1442)
 
-WRITE(1442,'(9I8)') NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
+WRITE(1442,'(9(I0,(" ")))') NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
 
 do i=1,nvt
  WRITE(1442,'(3ES16.8)') DCVG(:,i)

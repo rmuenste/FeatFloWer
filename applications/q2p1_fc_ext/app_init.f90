@@ -99,7 +99,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
  CHARACTER command*100,CSimPar*7
- CHARACTER (len = 60) :: afile 
+ CHARACTER (len = 60) :: afile,cXX
+ integer iXX
  CHARACTER (len = 60) :: bfile 
 
  INTEGER nLengthV,nLengthE,LevDif
@@ -178,6 +179,40 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+ 
+ !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated
+!  if (myid.eq.0) then 
+! 
+!   DO II=mg_Mesh%nlmin,mg_Mesh%nlmax
+!   
+!    READ(cProjectFile(6:),'(A)') cXX
+!    iXX = INDEX(CXX,'/')
+!    READ(cXX(:iXX-1),'(A)') cXX
+!    
+!    CALL EXPORT_TRIA(mg_mesh%level(II)%nel,&
+!                     mg_mesh%level(II)%nvt,&
+!                     mg_mesh%level(II)%net,&
+!                     mg_mesh%level(II)%nat,&
+!                     mg_mesh%level(II)%nve,&
+!                     mg_mesh%level(II)%nee,&
+!                     mg_mesh%level(II)%nae,&
+!                     mg_mesh%level(II)%nvel,&
+!                     mg_mesh%level(II)%nbct,&
+!                     mg_mesh%level(II)%dcorvg,&
+!                     mg_mesh%level(II)%kvert,&
+!                     mg_mesh%level(II)%kadj,&
+!                     mg_mesh%level(II)%kedge,&
+!                     mg_mesh%level(II)%dcorag,&
+!                     mg_mesh%level(II)%kvel,&
+!                     mg_mesh%level(II)%karea,&
+!                     mg_mesh%level(II)%knpr,&
+!                     cXX,II)
+!                     
+!     WRITE(*,*) 'TRIA has been released for level', II
+!   END DO                
+! 
+!  END IF
+ 
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
