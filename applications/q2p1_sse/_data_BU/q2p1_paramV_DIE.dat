@@ -68,4 +68,4 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-2
 Pres@MGCriterion2 = 1d-3
 Pres@MGCycType = F
-Pres@MGCrsSolverType = 4
+Pres@MGCrsSolverType = 7
