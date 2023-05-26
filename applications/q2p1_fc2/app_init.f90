@@ -445,7 +445,7 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 ! CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
 
- call commf2c_dcav(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+ call commf2c_bench(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
 
 ! if (myid .eq. 1) then
 !   write(*,*) myid, ") #particles: ", numLocalParticles()

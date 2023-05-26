@@ -2100,7 +2100,7 @@ USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
 USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
-USE var_QuadScalar,ONLY: GenLinScalar, FBMVelocity,FBMWeight
+USE var_QuadScalar,ONLY: GenLinScalar
 USE var_QuadScalar,ONLY: myHex
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 
@@ -2659,8 +2659,6 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MeshVelocity",""" NumberOfComponents=""3""/>"
  CASE('BoundaryNormal')
   write(imainunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","BoundaryNormal",""" NumberOfComponents=""3""/>"
- CASE('FBMWeight')
-  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","FBMWeight","""/>"
  CASE('Pressure_V')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')

@@ -1450,6 +1450,7 @@ END SUBROUTINE QuadScalar_Knpr
 !
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   use fbm, only: fbm_updateFBMGeom
+  include 'mpif.h'
 
   ! Function parameters
   REAL*8  dcorvg(3,*),dcorag(3,*)
@@ -1457,7 +1458,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   logical, intent(in), optional :: silent
 
   ! Local variables
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr
   REAL*8 PX,PY,PZ,DIST
   REAL tttx0,tttx1
   logical :: isSilent
@@ -1561,17 +1562,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   end do
 
-!int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
-!               MPI_Datatype datatype, MPI_Op op, int root,
-!               MPI_Comm comm)
-
   end if
 
   call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   
   if (myid.eq.0) then
-!    WRITE(*,*) myid,')Total dofs inside: ',totalInside
-    WRITE(*,*) myid,')Total dofs inside: ', reducedVal
+    WRITE(*,'(A,I0)') '> Total dofs inside: ', reducedVal
   end if
 
 !  if (.not. isSilent)then
@@ -4022,6 +4018,35 @@ if (.not.bGoalsReached) THEN
 end if
 
 END SUBROUTINE DetermineIfGoalsWereReached
+!=========================================================================
+! 
+!=========================================================================
+SUBROUTINE DNA_GetTorques(mfile)
+integer mfile
+REAL*8 Torque1(3),daux
+
+external E013
+
+ilev = nlmax
+call setlev(2)
+
+call GetDNATorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                  LinSc%ValP(NLMAX)%x,BndrForce,& !How separate????
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  Viscosity,Torque1, E013,1)
+
+!daux = 1/(mu*rho*OMEGA*R_i^2*H)
+daux = 1d0/(Properties%Viscosity(1)*Properties%Density(1)*(2*3.14d0*(1d0/60d0))*(0.2d0**2d0)*0.4d0)
+                  
+IF (myid.eq.1) then
+ write(mfile,'(A,4ES14.4)') "Torque acting on surface:",timens,daux*Torque1(1:3)
+ write(mterm,'(A,4ES14.4)') "Torque acting on surface:",timens,daux*Torque1(1:3)
+end if
+
+END SUBROUTINE DNA_GetTorques
 !=========================================================================
 ! 
 !=========================================================================
