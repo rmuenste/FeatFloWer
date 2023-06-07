@@ -179,8 +179,9 @@ if (sExport%Format .eq. "VTK") then
   CALL restrictField(sQuadSc%valW, 11 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW, 12 ,  sQuadSc, mgMesh%nlmax)
   CALL restrictField(sQuadSc%valW,  1 ,  sQuadSc, mgMesh%nlmax)
-
+  
   call viz_OutPut_1D(iOutput, sQuadSc, sLinSc, Tracer, mgMesh%nlmax)
+
   call viz_OutPut_Torque1D(iOutput)
   
   call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
@@ -1816,118 +1817,124 @@ integer :: i,j
 real*8  :: daux,dMin,dMax,dX,dY,dR,dRadius
 logical :: bCondition
 
-allocate(myHist%x(SIZE(sQuadSc%ValU)))
-allocate(myHist%m(SIZE(sQuadSc%ValU)))
-myHist%x = 0d0
-myHist%m = 0d0
-myHist%n = 0
+if (myid.ne.0) THEN
+ allocate(myHist%x(SIZE(sQuadSc%ValU)))
+ allocate(myHist%m(SIZE(sQuadSc%ValU)))
+ myHist%x = 0d0
+ myHist%m = 0d0
+ myHist%n = 0
 
-MlRhoMat => mg_MlRhoMat(maxlevel)%a
-dMin    = 1d30
-dMax    =-1d30
+ MlRhoMat => mg_MlRhoMat(maxlevel)%a
+ dMin    = 1d30
+ dMax    =-1d30
 
-DO i=1,SIZE(sQuadSc%ValU)
+ DO i=1,SIZE(sQuadSc%ValU)
 
- IF (ieee_is_finite(myProcess%FillingDegree)) THEN
-  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
- else
-  bCondition = (MixerKNPR(i).eq.0)
- end if
+  IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+   bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+  else
+   bCondition = (MixerKNPR(i).eq.0)
+  end if
 
- IF (bCondition) THEN
- 
-   IF (ieee_is_finite(mySigma%DZz)) THEN
-    dRadius = 0.5d0*mySigma%DZz
-   ELSE 
-    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
-   END IF 
-   
-   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
-   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-   dR = SQRT(dX**2d0+dY**2d0)
-   
-   if (i1D.eq.1 .OR.i1D.eq.5) then
-    myHist%n = myHist%n + 1
-    daux = dField1(i)
-    dMin    = MIN(dMin,daux)
-    dMax    = MAX(dMax,daux)
-    myHist%x(myHist%n) = daux
-    myHist%m(myHist%n) = MlRhoMat(i)
-   END IF
+  IF (bCondition) THEN
+  
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if (i1D.eq.1 .OR.i1D.eq.5) then
+     myHist%n = myHist%n + 1
+     daux = dField1(i)
+     dMin    = MIN(dMin,daux)
+     dMax    = MAX(dMax,daux)
+     myHist%x(myHist%n) = daux
+     myHist%m(myHist%n) = MlRhoMat(i)
+    END IF
 
-   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
-    myHist%n = myHist%n + 1
-    daux = dField1(i)
-    dMin    = MIN(dMin,daux)
-    dMax    = MAX(dMax,daux)
-    myHist%x(myHist%n) = daux
-    myHist%m(myHist%n) = MlRhoMat(i)
-   END IF
+    if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+     myHist%n = myHist%n + 1
+     daux = dField1(i)
+     dMin    = MIN(dMin,daux)
+     dMax    = MAX(dMax,daux)
+     myHist%x(myHist%n) = daux
+     myHist%m(myHist%n) = MlRhoMat(i)
+    END IF
 
-   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
-    myHist%n = myHist%n + 1
-    daux = dField1(i)
-    dMin    = MIN(dMin,daux)
-    dMax    = MAX(dMax,daux)
-    myHist%x(myHist%n) = daux
-    myHist%m(myHist%n) = MlRhoMat(i)
-   END IF
-   
- END IF
-END DO
+    if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+     myHist%n = myHist%n + 1
+     daux = dField1(i)
+     dMin    = MIN(dMin,daux)
+     dMax    = MAX(dMax,daux)
+     myHist%x(myHist%n) = daux
+     myHist%m(myHist%n) = MlRhoMat(i)
+    END IF
+    
+  END IF
+ END DO
+END IF
 
 CALL COMM_Maximum(dMax)
 CALL COMM_Minimum(dMin)
 
-if (i1D.eq.9 .OR.i1D.eq.10 .OR.i1D.eq.5) THEN
- CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.true.)
-END IF
-if (i1D.eq.11.OR.i1D.eq.12 .OR.i1D.eq.1) THEN
- CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.false.)
-ENdif
-
-!if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
-
-DO i=1,SIZE(sQuadSc%ValU)
-
- IF (ieee_is_finite(myProcess%FillingDegree)) THEN
-  bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
- else
-  bCondition = (MixerKNPR(i).eq.0)
- end if
-
- IF (bCondition) THEN
- 
-   IF (ieee_is_finite(mySigma%DZz)) THEN
-    dRadius = 0.5d0*mySigma%DZz
-   ELSE 
-    dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
-   END IF 
-   
-   dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
-   dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
-   dR = SQRT(dX**2d0+dY**2d0)
-   
-   if (i1D.eq.1 .OR.i1D.eq.5) then
-    if (dField1(i).gt.dMax) dField1(i) = dMax
-    if (dField1(i).lt.dMin) dField1(i) = dMin
-   END IF
-   
-   if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
-    if (dField1(i).gt.dMax) dField1(i) = dMax
-    if (dField1(i).lt.dMin) dField1(i) = dMin
-   END IF
-
-   if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
-    if (dField1(i).gt.dMax) dField1(i) = dMax
-    if (dField1(i).lt.dMin) dField1(i) = dMin
-   END IF
-   
+ if (i1D.eq.9 .OR.i1D.eq.10 .OR.i1D.eq.5) THEN
+  CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.true.)
  END IF
-END DO
+ if (i1D.eq.11.OR.i1D.eq.12 .OR.i1D.eq.1) THEN
+  CALL viz_CreateHistogram(myHist%x, myHist%m, myHist%n,dMin,dMax,myOutput%CutDtata_1D,.false.)
+ ENdif
 
-deallocate(myHist%x)
-deallocate(myHist%m)
+if (myid.ne.0) THEN
+
+ !if (myid.eq.1) write(*,*) dMin,dMax,myOutput%CutDtata_1D,myHist%n
+
+ DO i=1,SIZE(sQuadSc%ValU)
+
+  IF (ieee_is_finite(myProcess%FillingDegree)) THEN
+   bCondition = (MixerKNPR(i).eq.0).and.(GenLinScalar%Fld(1)%val(i).gt.0)
+  else
+   bCondition = (MixerKNPR(i).eq.0)
+  end if
+
+  IF (bCondition) THEN
+  
+    IF (ieee_is_finite(mySigma%DZz)) THEN
+     dRadius = 0.5d0*mySigma%DZz
+    ELSE 
+     dRadius = SQRT((0.5*mySigma%Dz_out)**2d0 - (0.5*mySigma%a)**2d0) + mySigma%W
+    END IF 
+    
+    dX = mg_mesh%level(maxlevel)%dcorvg(1,i)
+    dY = mg_mesh%level(maxlevel)%dcorvg(2,i)
+    dR = SQRT(dX**2d0+dY**2d0)
+    
+    if (i1D.eq.1 .OR.i1D.eq.5) then
+     if (dField1(i).gt.dMax) dField1(i) = dMax
+     if (dField1(i).lt.dMin) dField1(i) = dMin
+    END IF
+    
+    if ((i1D.eq.9 .OR.i1D.eq.12).and.dR.gt.dRadius) then
+     if (dField1(i).gt.dMax) dField1(i) = dMax
+     if (dField1(i).lt.dMin) dField1(i) = dMin
+    END IF
+
+    if ((i1D.eq.10.OR.i1D.eq.11).and.dR.le.dRadius)  then
+     if (dField1(i).gt.dMax) dField1(i) = dMax
+     if (dField1(i).lt.dMin) dField1(i) = dMin
+    END IF
+    
+  END IF
+ END DO
+
+ deallocate(myHist%x)
+ deallocate(myHist%m)
+
+end if
 
 ! dMin    = 1d30
 ! dMax    =-1d30
