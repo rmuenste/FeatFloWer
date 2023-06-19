@@ -1644,7 +1644,7 @@ C
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : transform
-      USE var_QuadScalar, ONLY : GenLinScalar
+      USE var_QuadScalar, ONLY : GenLinScalar,screw,shell
       use Sigma_User, only: myMultiMat
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -1662,7 +1662,7 @@ C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
       DIMENSION DU(NNDIM,NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM,NNDIM)
 
-      DIMENSION DTT(NNBAS)!, DAL(NNBAS)
+      DIMENSION DTT(NNBAS),DSH(NNBAS),DSC(NNBAS)!, DAL(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
@@ -1767,7 +1767,8 @@ C
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
-!       DAL(JDFL) = GenLinScalar%Fld(2)%val(JDFG)
+      DSC(JDFL) = Screw(JDFG)
+      DSH(JDFL) = Shell(JDFG)
  150  CONTINUE      
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
@@ -1834,12 +1835,18 @@ C ---=========================---
       
       DALPHA   =0D0 
       DTEMP    =0D0 
+      DSHELL   =0D0 
+      DSCREW   =0D0 
+      
 C
       DO 205 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
        JDFG=KDFG(JDOFE)! local number of basic function
        
-       DTEMP   =DTEMP      + DTT(JDFL)*DBAS(1,JDFL,1)!temperature
+       DTEMP   = DTEMP  + DTT(JDFL)*DBAS(1,JDFL,1) !temperature
+       DSHELL  = DSHELL + DSH(JDFL)*DBAS(1,JDFL,1) !shell
+       DSCREW  = DSCREW + DSC(JDFL)*DBAS(1,JDFL,1) !screw
+       
        do iFld=2,GenLinScalar%nOfFields
         DALPHA(iFld-1)  =DALPHA(iFld-1) + 
      *  GenLinScalar%Fld(iFld)%val(JDFG)*DBAS(1,JDFL,1)!alpha
@@ -1873,8 +1880,12 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-!        dVisc = AlphaViscosityMatModel(dShearSquare,dalpha,kMat(IEL),DTEMP)
        dVisc = AlphaViscosityMatModel(dShearSquare,iMat,DTEMP)
+C
+       if (myMultiMat%Mat(iMat)%Rheology%bWallSlip) then
+        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dVisc*dShearSquare)
+        dVisc = dWSFactor*dVisc
+       END IF
 C ----=============================================---- 
       DO 210 JDER=1,NNDIM
       DO 210 IDER=1,NNDIM
@@ -1929,7 +1940,8 @@ C
 *
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
-      USE var_QuadScalar, ONLY : transform
+      USE var_QuadScalar, ONLY : transform,screw,shell
+      use Sigma_User, only: myMultiMat
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -1946,11 +1958,11 @@ C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
       DIMENSION DU(NNDIM,NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM,NNDIM)
 
-      DIMENSION DTT(NNBAS)
+      DIMENSION DTT(NNBAS),DSH(NNBAS),DSC(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
       DIMENSION DU2(NNBAS), GRADU2(NNDIM)
       DIMENSION DU3(NNBAS), GRADU3(NNDIM)
-      REAL*8    ViscosityMatModel
+      REAL*8    AlphaViscosityMatModel
 C
 C     --------------------------- Transformation -------------------------------
       REAL*8    DHELP_Q2(27,4,NNCUBP),DHELP_Q1(8,4,NNCUBP)
@@ -2048,6 +2060,8 @@ C
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) =  T(JDFG)
+      DSC(JDFL) = Screw(JDFG)
+      DSH(JDFL) = Shell(JDFG)
  150  CONTINUE      
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
@@ -2113,11 +2127,15 @@ C ---=========================---
       GRADU3(3)=0D0 
       
       DTEMP    =0D0 
+      DSHELL   =0D0 
+      DSCREW   =0D0 
 C
       DO 205 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)! local number of basic function
        
-       DTEMP    =DTEMP     + DTT(JDFL)*DBAS(1,JDFL,1)!DUX
+       DTEMP    =DTEMP  + DTT(JDFL)*DBAS(1,JDFL,1)!DUX
+       DSHELL  = DSHELL + DSH(JDFL)*DBAS(1,JDFL,1) !shell
+       DSCREW  = DSCREW + DSC(JDFL)*DBAS(1,JDFL,1) !screw
        
        GRADU1(1)=GRADU1(1) + DU1(JDFL)*DBAS(1,JDFL,2)!DUX
        GRADU1(2)=GRADU1(2) + DU1(JDFL)*DBAS(1,JDFL,3)!DUY
@@ -2139,7 +2157,12 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = ViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
+       dVisc = AlphaViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
+C
+       if (myMultiMat%Mat(kMat(IEL))%Rheology%bWallSlip) then
+        dWSFactor = WallSlip(DSHELL,DSCREW,kMat(IEL),dVisc*dShearSquare)
+        dVisc = dWSFactor*dVisc
+       END IF
 C ----=============================================---- 
       DO 210 JDER=1,NNDIM
       DO 210 IDER=1,NNDIM
@@ -2634,7 +2657,7 @@ C
       DIMENSION DU(NNBAS),DEF(NNDIM,NNBAS),GRADU(NNDIM)
 C
       REAL*8    DISCOSITY,dmyXi
-      REAL*8    ViscosityMatModel
+      REAL*8    AlphaViscosityMatModel
 C
       DIMENSION DTT(NNBAS)
       DIMENSION DU1(NNBAS), GRADU1(NNDIM)
@@ -2812,7 +2835,7 @@ C
 C ----=============================================---- 
 C
       DShear = dlog10(max(dmyXi,1d-16))
-      DISCOSITY = ViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
+      DISCOSITY = AlphaViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
 C
       DO 230 JDOFE=1,IDFL
        JDFL=KDFL(JDOFE)

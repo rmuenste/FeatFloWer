@@ -99,7 +99,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
  CHARACTER command*100,CSimPar*7
- CHARACTER (len = 60) :: afile 
+ CHARACTER (len = 60) :: afile,cXX
+ integer iXX
  CHARACTER (len = 60) :: bfile 
 
  INTEGER nLengthV,nLengthE,LevDif
@@ -115,6 +116,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ 
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
 
@@ -126,37 +128,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
 
  CALL CommBarrier()
- CMESH1="_mesh/                 "                     ! PARALLEL
- LenFile = LEN((TRIM(ADJUSTL(cGridFileName))))
- WRITE(CMESH1(7:7+LenFile),'(A,A1)') TRIM(ADJUSTL(cGridFileName)),"/"
- IF (myid.ne.0) THEN                                  ! PARALLEL
-   kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
-   iSubPart = FLOOR(DBLE(myid)/DBLE(kSubPart)-1d-10)+1
-   iPart    = myid - (iSubPart-1)*kSubPart
-   IF     (iSubpart.lt.10 ) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A5,I1,A1)') "sub00",iSubpart,"/"  ! PARALLEL
-   ELSEIF (iSubpart.lt.100) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A4,I2,A1)') "sub0",iSubpart,"/"  ! PARALLEL
-   ELSE
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A3,I3,A1)') "sub",iSubpart,"/"  ! PARALLEL
-   END IF
-
-   cProjectFolder = CMESH1
-
-   IF      (iPart.lt.10) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A6,I1,A4)') "GRID00",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A2,I1)') "00",iPart
-   ELSE IF (iPart.lt.100) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A5,I2,A4)') "GRID0",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A1,I2)') "0",iPart
-   ELSE
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A4,I3,A4)') "GRID",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(I3)') iPart
-   END IF
- ELSE                                                 ! PARALLEL
-   cProjectFolder = CMESH1
-   WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
- END IF                                               ! PARALLEL
+ 
+ include 'PartitionReader.f90'
 
  CALL Init_QuadScalar(mfile)
 
@@ -206,6 +179,40 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+ 
+ !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated
+!  if (myid.eq.0) then 
+! 
+!   DO II=mg_Mesh%nlmin,mg_Mesh%nlmax
+!   
+!    READ(cProjectFile(6:),'(A)') cXX
+!    iXX = INDEX(CXX,'/')
+!    READ(cXX(:iXX-1),'(A)') cXX
+!    
+!    CALL EXPORT_TRIA(mg_mesh%level(II)%nel,&
+!                     mg_mesh%level(II)%nvt,&
+!                     mg_mesh%level(II)%net,&
+!                     mg_mesh%level(II)%nat,&
+!                     mg_mesh%level(II)%nve,&
+!                     mg_mesh%level(II)%nee,&
+!                     mg_mesh%level(II)%nae,&
+!                     mg_mesh%level(II)%nvel,&
+!                     mg_mesh%level(II)%nbct,&
+!                     mg_mesh%level(II)%dcorvg,&
+!                     mg_mesh%level(II)%kvert,&
+!                     mg_mesh%level(II)%kadj,&
+!                     mg_mesh%level(II)%kedge,&
+!                     mg_mesh%level(II)%dcorag,&
+!                     mg_mesh%level(II)%kvel,&
+!                     mg_mesh%level(II)%karea,&
+!                     mg_mesh%level(II)%knpr,&
+!                     cXX,II)
+!                     
+!     WRITE(*,*) 'TRIA has been released for level', II
+!   END DO                
+! 
+!  END IF
+ 
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 

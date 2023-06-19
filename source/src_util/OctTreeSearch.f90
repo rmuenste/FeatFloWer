@@ -53,7 +53,8 @@ OctTree%dx = OctTree%xmax - OctTree%xmin
 OctTree%dy = OctTree%ymax - OctTree%ymin
 OctTree%dz = OctTree%zmax - OctTree%zmin
 
-dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.005d0
+dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)/((dble(nvt)/8d0)**0.33333d0)
+! dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.05d0
 
 OctTree%xmin = OctTree%xmin - 1e-3*OctTree%dx      
 OctTree%xmax = OctTree%xmax + 1e-3*OctTree%dx
@@ -214,7 +215,8 @@ OctTree%dx = OctTree%xmax - OctTree%xmin
 OctTree%dy = OctTree%ymax - OctTree%ymin
 OctTree%dz = OctTree%zmax - OctTree%zmin
 
-dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.025d0
+dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)/((dble(nvt)/8d0)**0.33333d0)
+!dSize = SQRT(OctTree%dx**2d0 + OctTree%dy**2d0 + OctTree%dz**2d0)*0.025d0
 
 OctTree%xmin = OctTree%xmin - 1e-3*OctTree%dx      
 OctTree%xmax = OctTree%xmax + 1e-3*OctTree%dx
@@ -500,6 +502,7 @@ real*8 dmax,dmin
 REAL*8 :: q(3),dist,daux
 integer k
  
+ iP = -2
  iiX = 0
  
  do i1=1,OctTree%nx
@@ -539,7 +542,8 @@ integer k
  end if
 
  dist = 1d30
- iP = -1
+ 
+ if (iP.eq.-1) RETURN
  
  do iiix=iix-1,iix+1
   do iiiy=iiy-1,iiy+1
@@ -560,6 +564,105 @@ integer k
  end do
 
 END SUBROUTINE FindInOctTree
+!
+!-------------------------------------------------------------------------------------
+!
+SUBROUTINE FindRankingInOctTree(dcorvg,nvt,p,iMonitor,dMonitor,nxx)
+integer NXX
+integer nvt,iMonitor(nxx)
+real*8  dcorvg(3,nvt),p(3)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+integer i,i1,iii,iix,iiy,iiz,iiix,iiiy,iiiz
+real*8 dmax,dmin
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+REAL*8 :: q(3),dMonitor(nxx),daux
+integer k,iP,kk,iAux
+
+
+ iMonitor = -1
+ dMonitor = 1d30
+ iP = -2
+ 
+ iiX = 0
+ do i1=1,OctTree%nx
+  dmin = OctTree%xmin + dble(i1-1)*OctTree%dx/dble(OctTree%nx)
+  dmax = OctTree%xmin + dble(i1-0)*OctTree%dx/dble(OctTree%nx)
+  if (p(1).ge.dmin.and.p(1).le.dmax) then
+   iiX = i1
+  end if  
+ end do
+
+ iiY = 0
+ do i1=1,OctTree%ny
+  dmin = OctTree%ymin + dble(i1-1)*OctTree%dy/dble(OctTree%ny)
+  dmax = OctTree%ymin + dble(i1-0)*OctTree%dy/dble(OctTree%ny)
+  if (p(2).ge.dmin.and.p(2).le.dmax) then
+   iiY = i1
+  end if  
+ end do
+
+ iiZ = 0
+ do i1=1,OctTree%nz
+  dmin = OctTree%zmin + dble(i1-1)*OctTree%dz/dble(OctTree%nz)
+  dmax = OctTree%zmin + dble(i1-0)*OctTree%dz/dble(OctTree%nz)
+  if (p(3).ge.dmin.and.p(3).le.dmax) then
+   iiZ = i1
+  end if  
+ end do
+
+ if ((iiX.lt.1).or.(iiX.gt.OctTree%nx).or.&
+     (iiY.lt.1).or.(iiY.gt.OctTree%ny).or.&
+     (iiZ.lt.1).or.(iiZ.gt.OctTree%nz)) then
+      dMonitor = 1d30
+      iMonitor = -1
+      iP = -1
+!       return
+!      write(*,*) 'fatal problem in OctTreeSearch'
+!      pause
+ end if
+
+ dMonitor = 1d30
+ iMonitor = -1
+ 
+ if (iP.eq.-1) THEN
+  RETURN
+ end if 
+ 
+ do iiix=iix-1,iix+1
+  do iiiy=iiy-1,iiy+1
+   do iiiz=iiz-1,iiz+1
+    do iii = 1,OctTree%E(iiix,iiiy,iiiz)%N
+     k = OctTree%E(iiix,iiiy,iiiz)%L(iii)
+     q = dcorvg(:,k)
+     daux = sqrt((p(1)-q(1))**2d0 + (p(2)-q(2))**2d0 + (p(3)-q(3))**2d0)
+     
+     IF (daux.lt.dMonitor(nXX)) THEN
+      dMonitor(nXX) = daux
+      iMonitor(nXX) = k
+      DO kk=nXX-1,1,-1
+       IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
+        iAux = iMonitor(kk)
+        dAux = dMonitor(kk)
+        iMonitor(kk) = iMonitor(kk+1)
+        dMonitor(kk) = dMonitor(kk+1)
+        iMonitor(kk+1) = iAux
+        dMonitor(kk+1) = dAux
+       END IF
+      END DO
+     END IF
+
+!      IF (daux.lt.dist) then
+!       dist = daux
+!       iP = k
+!      END IF
+!      bFound = .true.
+!      GOTO 1
+    end do
+   end do
+  end do
+ end do
+
+END SUBROUTINE FindRankingInOctTree
 !
 !-------------------------------------------------------------------------------------
 !

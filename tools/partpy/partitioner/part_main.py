@@ -88,7 +88,7 @@ def checkParameters(params):
 # Hauptroutine
 def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     # Lese Projektdatei und extrahiere Gitter und Parameterdateinamen
-    (nParFiles,myGridFile,myParFiles,myParNames)=GetFileList(ProjektFile)
+    (nParFiles,myGridFile,myParFiles,myParNames,myParExts)=GetFileList(ProjektFile)
 
     origMethod = pMethod
     # Erzeuge übergeordnetes Verzeichnis, in dem gearbeitet werden soll
@@ -99,7 +99,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
     copy(myGridFile,os.path.join(workPath,"GRID.tri"))
     copy(ProjektFile,os.path.join(workPath,"GRID.prj"))
     for iPar in range(nParFiles):
-        copy(myParFiles[iPar],os.path.join(workPath,myParNames[iPar]+".par"))
+        copy(myParFiles[iPar],os.path.join(workPath,myParNames[iPar]+"."+myParExts[iPar]))
 
     # Erzeuge zusätzliche Unterverzeichnisse falls Untergitter erzeugt werden sollen
     # TODO: more general 
@@ -110,7 +110,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
       subMeshes = nSubMesh
 
     for i in range(1,subMeshes+1):
-        mkdir(os.path.join(workPath,"sub%03d" % i))
+        mkdir(os.path.join(workPath,"sub%04d" % i))
 
     # Bestimme, ob die Untergitter in umgekehrter Reihenfolge abgespeichert werden sollen.
     if pMethod in (11,12,13):
@@ -138,8 +138,8 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
         myBoundaries=[]
 
         for iPar in range(nParFiles):
-            ParName=os.path.join(workPath,myParNames[iPar]+".par")
-            (ParType,Parameter,Boundary)=GetPar(ParName,myGrid[1])
+            ParName=os.path.join(workPath,myParNames[iPar]+"."+myParExts[iPar])
+            (ParType,Parameter,Boundary)=GetParametrisation(ParName,myParExts[iPar])
             myParTypes.append(ParType)
             myParameters.append(Parameter)
             myBoundaries.append(Boundary)
@@ -155,13 +155,13 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
             pMethod=1
 
         # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete
-        myParam=(myParNames,myParTypes,myParameters,myBoundaries)
+        myParam=(myParNames,myParExts,myParTypes,myParameters,myBoundaries)
         GetSubs(workPath,myGrid,nSubMesh,myPart,myNeigh,nParFiles,myParam,False, nSubMesh)
     elif nSubMesh==1:
-        copy(myGridFile,os.path.join(workPath,"sub001","GRID.tri"))
-        copy(ProjektFile,os.path.join(workPath,"sub001","GRID.prj"))
+        copy(myGridFile,os.path.join(workPath,"sub0001","GRID.tri"))
+        copy(ProjektFile,os.path.join(workPath,"sub0001","GRID.prj"))
         for iPar in range(nParFiles):
-            copy(myParFiles[iPar],os.path.join(workPath,"sub001",myParNames[iPar]+".par"))
+            copy(myParFiles[iPar],os.path.join(workPath,"sub0001",myParNames[iPar]+"."+myParExts[iPar]))
 
     # Im Grunde "kSubPart=int(math.ceil(nnPart/float(nSubMesh)))"
     if isinstance(nSubMesh, int):
@@ -176,7 +176,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
       rIter = range(0)
 
     for i in rIter:
-        subPath=os.path.join(workPath,"sub%03d"%i)
+        subPath=os.path.join(workPath,"sub%04d"%i)
         myGrid=GetGrid(os.path.join(subPath,"GRID.tri"))
         myNeigh=GetNeigh(myGrid)
         myParTypes=[]
@@ -184,8 +184,8 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
         myBoundaries=[]
 
         for iPar in range(nParFiles):
-            ParName = os.path.join(subPath,myParNames[iPar] + ".par")
-            (ParType, Parameter, Boundary)=GetPar(ParName, myGrid[1])
+            ParName = os.path.join(subPath,myParNames[iPar] + "."+myParExts[iPar])
+            (ParType,Parameter,Boundary)=GetParametrisation(ParName,myParExts[iPar])
             myParTypes.append(ParType)
             myParameters.append(Parameter)
             myBoundaries.append(Boundary)
@@ -201,7 +201,7 @@ def MainProcess(nnPart,pMethod,nSubMesh,MeshName,ProjektFile):
         else:
             sys.exit("Partitioning method %d is not available for subgrids!"%pMethod)
         # Schreibe die Gitter und Parametrisierungen der einzelnen Rechengebiete
-        myParam=(myParNames,myParTypes,myParameters,myBoundaries)
+        myParam=(myParNames,myParExts,myParTypes,myParameters,myBoundaries)
 
         if origMethod == -4:
           GetSubs(subPath,myGrid,nPart,myPart,myNeigh,nParFiles,myParam,True, 0)

@@ -6,17 +6,20 @@ use Sigma_User, only : mySigma,myProcess
 CHARACTER cInputFile*(256),cVal*(256),cKey*(256),cE3Dfile*(256)
 REAL*8 dSurfInt
 integer nOfCritical
-type(option_s)              :: opts(4)
+type(option_s)              :: opts(5)
 
 opts(1) = option_s('inputfolder', .true.,  'f')
 opts(2) = option_s('NumberOfElementsInit', .true.,  'n')
 opts(3) = option_s('dSurfIntCrit', .true.,  'c')
-opts(4) = option_s('help',  .false., 'h')
+opts(4) = option_s('cProjectFolder', .true.,  's')
+opts(5) = option_s('help',  .false., 'h')
 
  cProjectFolder=" "
+ cOFFMeshFile="surface.off"
+
 ! check the command line arguments
 do
-    select case (getopt('f:n:c:h', opts))
+    select case (getopt('f:s:n:c:h', opts))
         case (char(0))
             exit
         case ('f')
@@ -25,6 +28,12 @@ do
         case ('-f')
             read(optarg,*) cProjectFolder
             write(*,*)'Input Folder: ', ADJUSTL(TRIM(cProjectFolder))
+        case ('s')
+            read(optarg,'(A)') cOFFMeshFile
+            write(*,*)'Input Surface triangulation: ', ADJUSTL(TRIM(cOFFMeshFile))
+        case ('-s')
+            read(optarg,'(A)') cOFFMeshFile
+            write(*,*)'Input Surface triangulation: ', ADJUSTL(TRIM(cOFFMeshFile))
         case ('n')
             read(optarg,*) NumberOfElementsInit
             write(*,*)'NumberOfElementsInit: ', NumberOfElementsInit
@@ -65,12 +74,11 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
 
  cShortProjectFile = "file.prj"
  cProjectGridFile="Mesh.tri"
- cOFFMeshFile="surface.off"
  cAreaIntensityFile="area.txt"
  
  DomainVolume = BoxMesh%dsize(1)*BoxMesh%dsize(2)*BoxMesh%dsize(3)
 
- call readOFFMesh(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cOFFMeshFile)))
+ call readOFFMesh(adjustl(trim(cProjectFolder)),adjustl(trim(cOFFMeshFile)))
  
  NumberOfElements = NumberOfElementsInit
 
@@ -111,6 +119,7 @@ BoxMesh%Extent(:,2) = BoxMesh%Extent(:,1) + BoxMesh%dsize(:)
  subroutine print_help()
      print '(a, /)', 'command-line options:'
      print '(a)',    '  -f      Input Folder'
+     print '(a)',    '  -s      Input Surface Triangulation (.off) // deafult is "surface.off"'
      print '(a)',    '  -n      Number of Initial Hex Elements'
      print '(a)',    '  -c      Value of Surface Intensity Criterion '
      print '(a)',    '  -h      Print usage information and exit'

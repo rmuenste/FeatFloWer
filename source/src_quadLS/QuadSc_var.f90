@@ -250,6 +250,7 @@ TYPE tCGALObjects
  REAL*8, ALLOCATABLE :: Block(:)
  REAL*8, ALLOCATABLE :: Wire(:)
  REAL*8, ALLOCATABLE :: Channel(:)
+ INTEGER, ALLOCATABLE :: Sensor(:)
  INTEGER, ALLOCATABLE :: Segment(:)
 END TYPE tCGALObjects
 TYPE (tCGALObjects) myHeatObjects
@@ -301,7 +302,7 @@ END TYPE tExport
 TYPE(tExport) :: myExport
 
 INTEGER :: iOutput=0
-CHARACTER cProjectGridFile*220,cGridFileName*200,cProjectFile*200,cProjectFolder*200,cProjectNumber*3
+CHARACTER cProjectGridFile*220,cGridFileName*200,cProjectFile*200,cProjectFolder*200,cProjectNumber*4
 INTEGER nSubCoarseMesh
 
 CHARACTER*13 :: outfile="OutFile  .txt"

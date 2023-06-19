@@ -5101,7 +5101,7 @@ END SUBROUTINE COMM_cc_sol
 !
 !
 SUBROUTINE OrganizeComm(T,nT)
-USE PP3D_MPI, ONLY : myid
+USE PP3D_MPI, ONLY : myid,subnodes
 USE var_QuadScalar, ONLY : CommOrder,nSubCoarseMesh
 IMPLICIT NONE
 INTEGER nT
@@ -5251,8 +5251,8 @@ INTEGER i1,i2,kSubPart
  Pairs(:)%p = .FALSE.
  DO i=1,SIZE(Pairs)
     kSubPart = FLOOR(DBLE(nT)/DBLE(nSubCoarseMesh)-1d-10)+1
-    i1 = FLOOR(DBLE(Pairs(i)%d(1))/DBLE(kSubPart)-1d-10)+1
-    i2 = FLOOR(DBLE(Pairs(i)%d(2))/DBLE(kSubPart)-1d-10)+1
+    i1 = FLOOR(DBLE(subnodes-Pairs(i)%d(1)+1)/DBLE(kSubPart)-1d-10)+1
+    i2 = FLOOR(DBLE(subnodes-Pairs(i)%d(2)+1)/DBLE(kSubPart)-1d-10)+1
 !     i1 = nSubCoarseMesh - i1 + 1
 !     i2 = nSubCoarseMesh - i2 + 1
 !   i1 = INT(nSubCoarseMesh*Pairs(i)%d(1)/nT)

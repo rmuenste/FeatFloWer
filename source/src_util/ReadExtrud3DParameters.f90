@@ -18,6 +18,7 @@
     real*8 :: myPI = dATAN(1d0)*4d0
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
+    character(len=INIP_STRLEN) cMidpointA, cMidpointB 
     character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
@@ -615,7 +616,7 @@
        IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
         ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
        ELSE
-        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) "STL geometry description files are missing"
         WRITE(*,*) 'screwOFF'
         bReadError=.TRUE.
         !GOTO 10
@@ -682,7 +683,7 @@
        IF (mySigma%mySegment(iSeg)%nOFFfilesL.gt.0) THEN
         ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesL(mySigma%mySegment(iSeg)%nOFFfilesL))
        ELSE
-        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) "STL geometry description files are missing"
         WRITE(*,*) 'screwOFFL'
         bReadError=.TRUE.
         !GOTO 10
@@ -711,14 +712,14 @@
        end do
        
       ELSE
-       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListL", cOFF_Files,' ')
+       call INIP_getvalue_string(parameterlist,cElement_i,"OFF_FileListR", cOFF_Files,' ')
        
        CALL ExtractNomOfCharFromString(cOFF_Files,mySigma%mySegment(iSeg)%nOFFfilesR)
        
        IF (mySigma%mySegment(iSeg)%nOFFfilesR.gt.0) THEN
         ALLOCATE(mySigma%mySegment(iSeg)%OFFfilesR(mySigma%mySegment(iSeg)%nOFFfilesR))
        ELSE
-        WRITE(*,*) "STL geometry dscription files are missing"
+        WRITE(*,*) "STL geometry description files are missing"
         WRITE(*,*) 'screwOFFR'
         bReadError=.TRUE.
         !GOTO 10
@@ -761,7 +762,7 @@
       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
       ELSE
-       WRITE(*,*) "STL_R geometry dscription files are missing"
+       WRITE(*,*) "STL_R geometry description files are missing"
        WRITE(*,*) 'screwOFF'
        bReadError=.TRUE.
        !GOTO 10
@@ -794,7 +795,7 @@
       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
       ELSE
-       WRITE(*,*) "STL_L geometry dscription files are missing"
+       WRITE(*,*) "STL_L geometry description files are missing"
        WRITE(*,*) 'screwOFF'
        bReadError=.TRUE.
        !GOTO 10
@@ -1551,7 +1552,7 @@
       DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
        write(*,'(A,I0,A)') "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Sub_',iSubinflow
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype
-      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%temperature
        write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%InnerRadius
@@ -1649,6 +1650,17 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%E",'=',myMultiMat%Mat(iMat)%Rheology%E
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Tb",'=',myMultiMat%Mat(iMat)%Rheology%Tb
      END IF
+     
+     IF (myMultiMat%Mat(iMat)%Rheology%bWallSlip) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','ACTIVATED'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_d",'=',myMultiMat%Mat(iMat)%Rheology%WS_d
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMin",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMin
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMax",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMax
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_SlipFactor",'=',myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
+     ELSE
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','OFF'
+     END IF
+     
      write(*,*)
      write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myMultiMat%Mat(iMat)%Thermodyn%DensityModel))
      write(*,'(A,I0,A,A,ES12.4)') " myThermodyn(",iMat,")%HeatConductivity",'=',myMultiMat%Mat(iMat)%Thermodyn%lambda
@@ -1733,6 +1745,16 @@
      END IF
      write(*,*)
 
+     IF (myMultiMat%Mat(iMat)%Rheology%bWallSlip) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','ACTIVATED'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_d",'=',myMultiMat%Mat(iMat)%Rheology%WS_d
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMin",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMin
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_TauMax",'=',myMultiMat%Mat(iMat)%Rheology%WS_TauMax
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%WS_SlipFactor",'=',myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
+     ELSE
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%WallSlip",'=','OFF'
+     END IF
+     
      write(*,*)
     write(*,*) "myThermodyn%DensityModel",'=',TRIM(ADJUSTL(myThermodyn%DensityModel))
     write(*,*) "myThermodyn%HeatConductivity",'=',myThermodyn%lambda
@@ -2028,6 +2050,12 @@
       IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
        myProcess%myInflow(iInflow)%iBCtype = 4
       END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."RECTANGLE") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 5
+      END IF
+      IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDRECTANGLE") THEN
+       myProcess%myInflow(iInflow)%iBCtype = 6
+      END IF
       if (myProcess%myInflow(iInflow)%iBCtype.eq.0) then
        write(*,*) 'UNDEFINED Inflow type!!'
       end if
@@ -2063,6 +2091,13 @@
       read(cCenter,*,err=55) myProcess%myInflow(iInflow)%Center
       myProcess%myInflow(iInflow)%Center = daux*myProcess%myInflow(iInflow)%Center
       read(cNormal,*,err=56) myProcess%myInflow(iInflow)%Normal
+
+      call INIP_getvalue_string(parameterlist,cInflow_i,"midpointA",cMidpointA,'unknown')
+      call INIP_getvalue_string(parameterlist,cInflow_i,"midpointB",cMidpointB,'unknown')
+      read(cMidpointA,*,err=57) myProcess%myInflow(iInflow)%MidpointA
+      myProcess%myInflow(iInflow)%MidpointA = daux*myProcess%myInflow(iInflow)%MidpointA
+      read(cMidpointB,*,err=57) myProcess%myInflow(iInflow)%MidpointB
+      myProcess%myInflow(iInflow)%MidpointB = daux*myProcess%myInflow(iInflow)%MidpointB
      ELSE
       
       ALLOCATE(myProcess%myInflow(iInflow)%mySubInflow(myProcess%myInflow(iInflow)%nSubInflows))
@@ -2088,6 +2123,12 @@
        END IF
        IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDFLAT") THEN
         myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 4
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."RECTANGLE") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 5
+       END IF
+       IF (ADJUSTL(TRIM(cBCtype)).eq."CURVEDRECTANGLE") THEN
+        myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype = 6
        END IF
        if (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCtype.eq.0) then
         write(*,*) 'UNDEFINED Inflow type!!'
@@ -2264,6 +2305,34 @@
      WRITE(*,*) "no temperature correction is defined"
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
+    END IF
+    
+    cRheology = ' '
+    call INIP_getvalue_string(parameterlist,ADJUSTL(TRIM(cINI)),"WallSlip", cRheology,'NO')
+    call inip_toupper_replace(cRheology)
+    IF (ADJUSTL(TRIM(cRheology)).eq."NO") THEN
+      t%bWallSlip = .FALSE.
+    END IF
+    IF (ADJUSTL(TRIM(cRheology)).eq."YES".OR.ADJUSTL(TRIM(cRheology)).eq."ON".or.ADJUSTL(TRIM(cRheology)).eq."ACTIVATED") THEN
+      t%bWallSlip = .TRUE.
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_d",t%WS_d,1d0)
+      t%WS_d = dSizeScale*t%WS_d
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_Tau0",t%WS_Tau0,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_TauD",t%WS_TauD,10.0d3)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/WallSlip","WS_SlipFactor",t%WS_SlipFactor,myInf)
+      
+      IF (t%WS_Tau0.eq.myinf) THEN
+       WRITE(*,*) "WallShearStress for WallSlip is not defined"
+       bReadError=.TRUE.
+      ELSE
+       t%WS_TauMin = t%WS_Tau0 - 0.5d0*t%WS_TauD
+       t%WS_TauMax = t%WS_Tau0 + 0.5d0*t%WS_TauD
+      END IF
+      
+      IF (t%WS_SlipFactor.eq.myinf) THEN
+       WRITE(*,*) "SlipFactor for WallSlip is not defined"
+       bReadError=.TRUE.
+      END IF
     END IF
     
     END SUBROUTINE FillUpRheoData
@@ -2505,12 +2574,31 @@
        call INIP_getvalue_double(parameterlist,cElement_i,"ConvergenceCondition", mySigma%mySegment(iSeg)%ConvergenceDetector%Condition ,0.001d0)
        call INIP_getvalue_int(parameterlist,cElement_i,"ConvergenceLimit", mySigma%mySegment(iSeg)%ConvergenceDetector%Limit, 250)
      
-       call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
-       read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
-       mySigma%mySegment(iSeg)%TemperatureSensor%Coor = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Coor
-       call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
-       mySigma%mySegment(iSeg)%TemperatureSensor%Radius = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Radius
-       
+       call INIP_getvalue_string(parameterlist,cElement_i,"SensorType", mySigma%mySegment(iSeg)%TemperatureSensor%SensorType,"COOR")
+       CALL inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)
+!        IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'COOR') then
+         call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureSensorCoor", sCoorString ," 0d0, 0d0, 0d0")
+         read(sCoorString,*) mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+         mySigma%mySegment(iSeg)%TemperatureSensor%Coor = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+         call INIP_getvalue_double(parameterlist,cElement_i,"TemperatureSensorRadius", mySigma%mySegment(iSeg)%TemperatureSensor%Radius,myInf)
+         mySigma%mySegment(iSeg)%TemperatureSensor%Radius = dSizeScale*mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+!        end if
+       IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'OFF'.OR.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'STL') then
+        mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles = INIP_querysubstrings(parameterlist,cElement_i,"sensorOFF")
+        IF (mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles.gt.0) THEN
+         ALLOCATE(mySigma%mySegment(iSeg)%TemperatureSensor%OFFfiles(mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles))
+        ELSE
+         WRITE(*,*) "STL geometry description files are missing"
+         WRITE(*,*) 'sensorOFF'
+         bReadError=.TRUE.
+         !GOTO 10
+        END IF
+        do iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+          call INIP_getvalue_string(parameterlist,cElement_i,"sensorOFF",mySigma%mySegment(iSeg)%TemperatureSensor%OFFfiles(iFile),isubstring=iFile)
+        end do
+       end if
+     
+
        call INIP_getvalue_string(parameterlist,cElement_i,"Regulation", mySigma%mySegment(iSeg)%Regulation,"SIMPLE")
        CALL inip_toupper_replace(mySigma%mySegment(iSeg)%Regulation)
        
@@ -2521,14 +2609,14 @@
             mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
             mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf.or.&
-            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue.eq.myinf) THEN
+            mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue.eq.myinf) THEN
             
             WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
             mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
             mySigma%mySegment(iSeg)%HeatSourceMax,&
             mySigma%mySegment(iSeg)%HeatSourceMin,&
             mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue,&
-            mySigma%mySegment(iSeg)%TemperatureSensor%MinRegValue
+            mySigma%mySegment(iSeg)%TemperatureSensor%MaxRegValue
         END IF
        ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."PID") then
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_TemperatureSetValue", mySigma%mySegment(iSeg)%PID_Ctrl%T_set,myInf)
@@ -2537,8 +2625,7 @@
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_D_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_D,myInf)
         mySigma%mySegment(iSeg)%PID_Ctrl%SumI = 0d0
         
-        IF (mySigma%mySegment(iSeg)%TemperatureSensor%Radius.eq.myinf.or. &
-            mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
+        IF (mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
             mySigma%mySegment(iSeg)%PID_Ctrl%T_Set.eq.myinf.or.&
             mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P.eq.myinf.or.&
@@ -2546,7 +2633,6 @@
             mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D.eq.myinf) THEN
             
             WRITE(*,*) "Wrongly defined heating wire parameterlist: ",&
-            mySigma%mySegment(iSeg)%TemperatureSensor%Radius,&
             mySigma%mySegment(iSeg)%HeatSourceMax,&
             mySigma%mySegment(iSeg)%HeatSourceMin,&
             mySigma%mySegment(iSeg)%PID_Ctrl%T_Set,&
@@ -2573,7 +2659,7 @@
       IF (mySigma%mySegment(iSeg)%nOFFfiles.gt.0) THEN
        ALLOCATE(mySigma%mySegment(iSeg)%OFFfiles(mySigma%mySegment(iSeg)%nOFFfiles))
       ELSE
-       WRITE(*,*) "STL geometry dscription files are missing"
+       WRITE(*,*) "STL geometry description files are missing"
        WRITE(*,*) 'screwOFF'
        bReadError=.TRUE.
        !GOTO 10
@@ -2628,9 +2714,19 @@
      mySetup%bConvergenceEstimator = .TRUE.
     END IF
 
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","SensorPositions", mySigma%cSensorPositions,"_INVALID_")
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","SensorRadius", mySigma%SensorRadius ,myInf)
+    if (ADJUSTL(TRIM(mySigma%cSensorPositions)).NE."_INVALID_") THEN
+     IF (mySigma%SensorRadius.eq.myInf) THEN
+      if (myid.eq.1) WRITE(*,*) "SENSORRADIUS in  not defined for the sensorcandidates !!! "
+     ELSE
+      mySigma%SensorRadius = mySigma%SensorRadius*0.1d0 !! convert MM to cm
+     END IF
+    END IF
+    
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
-
+    
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","BoxMesherELems",cMeshQuality,'0,0,0')
      read(cMeshQuality,*) mySetup%m_nX,mySetup%m_nY,mySetup%m_nZ
@@ -2668,6 +2764,7 @@
      
     END IF
     
+    
     IF (myid.eq.1.or.subnodes.eq.0) then
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
@@ -2685,8 +2782,18 @@
      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMax=',mySigma%mySegment(iSeg)%HeatSourceMax
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%VolumetricHeatSourceMin=',mySigma%mySegment(iSeg)%HeatSourceMin
-      write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorCoor=',mySigma%mySegment(iSeg)%TemperatureSensor%Coor
-      write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorRadius=',mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+!       IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'COOR') then
+!        write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%SensorType=','COOR'
+       write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorCoor=',mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%TemperatureSensorRadius=',mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+!       end if
+      IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'STL'.or.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'OFF') then
+       write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%SensorType=','OFF file'
+       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")%TemperatureSensor%nOFFfiles=",mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+       DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+        write(*,*) '"',adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%OFFfiles(iFile))),'"'
+       END DO
+      end if
 
       write(*,'(A,I0,A,ES12.4)') " mySIGMA%Segment(",iSeg,')%ConvergenceCondition=',mySigma%mySegment(iSeg)%ConvergenceDetector%Condition
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,')%ConvergenceLimit=',mySigma%mySegment(iSeg)%ConvergenceDetector%Limit
@@ -2726,6 +2833,11 @@
      write(*,'(A)') 
     END DO
     write(*,*) 
+    
+    write(*,'(A,A)') "mySIGMA%SensorPositionsFile= ",adjustl(trim(mySigma%cSensorPositions))
+    if (ADJUSTL(TRIM(mySigma%cSensorPositions)).NE."_INVALID_") THEN
+      write(*,'(A,E12.2)') "mySIGMA%SensorRadius= ",mySigma%SensorRadius
+    END IF
     
     IF (ADJUSTL(TRIM(mySetup%cMesher)).eq."BOX") THEN
      IF (mySetup%nBoxElem.gt.0) write(*,'(A,I0)') "myMesh%nBoxElem=",mySetup%nBoxElem
@@ -2772,6 +2884,7 @@
 !      call inip_dumpToFile(parameterlist,"test_dump_parlst.dat",INIP_REPLACE)
 
     ! Clean up the parameterlist
+    
     call inip_done(parameterlist)
 
     end Subroutine ReadEWIKONfile

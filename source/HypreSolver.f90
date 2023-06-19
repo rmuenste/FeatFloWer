@@ -146,6 +146,22 @@ end subroutine myHypre_Solve
 
 
 
+SUBROUTINE myHypre_GMRESDestroy()
+USE var_QuadScalar
+IMPLICIT NONE
+integer ierr
+
+if (myid.ne.0) then
+  call HYPRE_IJVectorDestroy(myHypre%b, ierr)
+  call HYPRE_IJVectorDestroy(myHypre%x, ierr)
+  call HYPRE_IJMatrixDestroy(myHypre%A, ierr)
+  call HYPRE_ParCSRGMRESDestroy(myHypre%solver, ierr)
+  call HYPRE_BoomerAMGDestroy(myHypre%precond, ierr)
+end if
+
+END SUBROUTINE myHypre_GMRESDestroy
+
+
 
 SUBROUTINE myHypreGMRES_Solve(num_iterations)
 USE var_QuadScalar
@@ -210,7 +226,7 @@ if (.not.myHypre%solverIsSet) then
   ! Setup the GMRES Solver
   ! ---------------------------------------------
   call HYPRE_ParCSRGMRESCreate(myHypre%communicator, myHypre%solver, ierr)
-  call HYPRE_ParCSRGMRESSetMaxIter(myHypre%solver, 20, ierr)
+  call HYPRE_ParCSRGMRESSetMaxIter(myHypre%solver, 80, ierr)
   call HYPRE_ParCSRGMRESSetTol(myHypre%solver, 1.0d-5, ierr)
   call HYPRE_ParCSRGMRESSetPrintLevel(myHypre%solver, 0, ierr)
   call HYPRE_ParCSRGMRESSetLogging(myHypre%solver, 0, ierr)
@@ -221,7 +237,7 @@ if (.not.myHypre%solverIsSet) then
   !Create solver
   call HYPRE_BoomerAMGCreate(myHypre%precond, ierr)
 
-  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.25, ierr)
+  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.6, ierr)
   !set coarsening type (8 or 10 recommended)
   call HYPRE_BoomerAMGSetCoarsenType(myHypre%precond, 0, ierr)
   !G-S/Jacobi hybrid relaxation
@@ -236,8 +252,15 @@ if (.not.myHypre%solverIsSet) then
   call Hypre_BoomerAMGSetInterpType(myHypre%precond, 0, ierr)
   !Max numbers per rows
   call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 7, ierr)
+  
+  CALL HYPRE_BoomerAMGSetMinCoarseSize(myHypre%precond, 100, ierr)
+
+  CALL HYPRE_BoomerAMGSetMaxCoarseSize(myHypre%precond, 1000, ierr)
+  
+  CALL HYPRE_BoomerAMGSetCoarsenType(myHypre%precond,8,ierr)
 
   call HYPRE_BoomerAMGSetNumFunctions(myHypre%precond, 4, ierr)
+
   call HYPRE_BoomerAMGSetNodal(myHypre%precond, 3, ierr)
 
   call HYPRE_BoomerAMGSetCycleType(myHypre%precond, 2, ierr)

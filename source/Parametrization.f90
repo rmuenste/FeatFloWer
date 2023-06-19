@@ -1,6 +1,6 @@
 MODULE Parametrization
 
-USE PP3D_MPI, ONLY:myid,showid,myMPI_Barrier,master
+USE PP3D_MPI, ONLY:myid,showid,myMPI_Barrier,master,sort1d
 USE var_QuadScalar
 
 IMPLICIT NONE
@@ -953,7 +953,9 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
  INTEGER i,iVert,iLong,iAux,iError
  CHARACTER cFile*200,string*200
  integer :: iunit = 333
- integer :: istat
+ integer :: istat,LenStr
+ CHARACTER cExt*3
+ integer, allocatable :: my_ParList(:,:)
 
  CALL GetFileList()
  
@@ -965,11 +967,25 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
   cFile = ADJUSTL(TRIM(cProjectFolder))
   iLong = LEN(ADJUSTL(TRIM(cFile)))+1
 
-  string = myParBndr(iBnds)%Names
-  IF (myid.lt.1)     THEN 
-   WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
-  ELSE
-   WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+  LenStr = LEN(ADJUSTL(TRIM(myParBndr(iBnds)%Names)))
+  READ(myParBndr(iBnds)%Names(1:LenStr-4),"(A)") string
+  
+  IF (INDEX(myParBndr(iBnds)%Names,'.par').ne.0) THEN
+   cExt = 'par'
+   IF (myid.lt.1)     THEN 
+    WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
+   ELSE
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+   END IF
+  END IF
+  
+  IF (INDEX(myParBndr(iBnds)%Names,'.pls').ne.0) THEN
+   cExt = 'pls'
+   IF (myid.lt.1)     THEN 
+    WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".pls"
+   ELSE
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
+   END IF
   END IF
 
   OPEN(UNIT = iunit, FILE = TRIM(ADJUSTL(cFile)), action='read',iostat=istat)
@@ -984,10 +1000,17 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
   myParBndr(iBnds)%Bndr(1)%Vert = .FALSE.
   myParBndr(iBnds)%Bndr(1)%Face = 0
 
-  DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
-   READ(iunit,*) iVert
-   myParBndr(iBnds)%Bndr(1)%Vert(iVert) = .TRUE.
-  END DO
+  if (cExt.eq.'par') then
+   DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
+    READ(iunit,*) iVert
+    myParBndr(iBnds)%Bndr(1)%Vert(iVert) = .TRUE.
+   END DO
+  ELSE ! 'pls'
+   allocate(my_ParList(4,myParBndr(iBnds)%Bndr(1)%nVerts))
+   DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
+    READ(iunit,*) my_ParList(1,i),my_ParList(2,i),my_ParList(3,i),my_ParList(4,i)
+   END DO
+  END IF
 
   CLOSE(iunit)
 
@@ -1009,7 +1032,13 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
   END IF
 !  WRITE(*,'(2I8,<myParBndr(iBnds)%nBndrPar>D12.4)') myid,myParBndr(iBnds)%nBndrPar,myParBndr(iBnds)%dBndrPar
 
-  CALL GetFaces(mesh%kvert,mesh%karea,mesh%NEL)
+  if (cExt.eq.'par') then
+   CALL GetParFaces(mesh%kvert,mesh%karea,mesh%NEL)
+  else
+   CALL GetPlsFaces(mesh%kvert,mesh%karea,mesh%NEL,my_ParList,myParBndr(iBnds)%Bndr(1)%nVerts)
+   deallocate(my_ParList)
+  end if
+  
   CALL GetEdges()
 
  END DO
@@ -1372,7 +1401,9 @@ END SUBROUTINE projectonanalyticplane
  INTEGER i,iVert,iLong,iAux,iError
  CHARACTER cFile*200,string*200
  integer :: iunit = 333
- integer :: istat
+ integer :: istat,LenStr
+ CHARACTER cExt*3
+ integer, allocatable :: my_ParList(:,:)
 
  CALL GetFileList()
 
@@ -1384,13 +1415,30 @@ END SUBROUTINE projectonanalyticplane
   cFile = ADJUSTL(TRIM(cProjectFolder))
   iLong = LEN(ADJUSTL(TRIM(cFile)))+1
 
-  string = myParBndr(iBnds)%Names
-  IF (myid.lt.1)     THEN 
-   WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
-  ELSE
-   WRITE(cFile(iLong:),"(A,A1,A3,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+  LenStr = LEN(ADJUSTL(TRIM(myParBndr(iBnds)%Names)))
+  READ(myParBndr(iBnds)%Names(1:LenStr-4),"(A)") string
+ 
+  IF (INDEX(myParBndr(iBnds)%Names,'.par').ne.0) THEN
+   cExt = 'par'
+   IF (myid.lt.1)     THEN 
+    WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".par"
+   ELSE
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".par"
+   END IF
+  END IF
+  
+  IF (INDEX(myParBndr(iBnds)%Names,'.pls').ne.0) THEN
+   cExt = 'pls'
+   IF (myid.lt.1)     THEN 
+    WRITE(cFile(iLong:),"(2A)") ADJUSTL(TRIM(string)),".pls"
+   ELSE
+    WRITE(cFile(iLong:),"(A,A1,A4,A)") ADJUSTL(TRIM(string)),"_",cProjectNumber,".pls"
+   END IF
   END IF
 
+!   write(*,*) ADJUSTL(TRIM(cFile))
+!   pause
+  
   OPEN(UNIT = iunit, FILE = TRIM(ADJUSTL(cFile)), action='read',iostat=istat)
   if(istat .ne. 0)then
     write(*,*)"Could not open file for reading. ",TRIM(ADJUSTL(cFile))
@@ -1403,10 +1451,17 @@ END SUBROUTINE projectonanalyticplane
   myParBndr(iBnds)%Bndr(1)%Vert = .FALSE.
   myParBndr(iBnds)%Bndr(1)%Face = 0
 
-  DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
-   READ(iunit,*) iVert
-   myParBndr(iBnds)%Bndr(1)%Vert(iVert) = .TRUE.
-  END DO
+  if (cExt.eq.'par') then
+   DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
+    READ(iunit,*) iVert
+    myParBndr(iBnds)%Bndr(1)%Vert(iVert) = .TRUE.
+   END DO
+  ELSE ! 'pls'
+   allocate(my_ParList(4,myParBndr(iBnds)%Bndr(1)%nVerts))
+   DO i=1, myParBndr(iBnds)%Bndr(1)%nVerts
+    READ(iunit,*) my_ParList(1,i),my_ParList(2,i),my_ParList(3,i),my_ParList(4,i)
+   END DO
+  END IF
 
   CLOSE(iunit)
 
@@ -1427,7 +1482,13 @@ END SUBROUTINE projectonanalyticplane
 !  WRITE(*,'(2I8,<myParBndr(iBnds)%nBndrPar>D12.4)') myid,myParBndr(iBnds)%nBndrPar,myParBndr(iBnds)%dBndrPar
 !  PAUSE
 
-  CALL GetFaces(mesh%kvert,mesh%karea,mesh%NEL)
+  if (cExt.eq.'par') then
+   CALL GetParFaces(mesh%kvert,mesh%karea,mesh%NEL)
+  else
+   CALL GetPlsFaces(mesh%kvert,mesh%karea,mesh%NEL,my_ParList,myParBndr(iBnds)%Bndr(1)%nVerts)
+   deallocate(my_ParList)
+  end if
+  
   CALL GetEdges()
 
   CALL Parametrize(mesh%dcorvg,1,mesh%NVT,ilevel)
@@ -1454,11 +1515,17 @@ SUBROUTINE GetFileList()
   LenStr = LEN(ADJUSTL(TRIM(string)))
   IF (LenStr.gt.4) THEN
    cFile = ADJUSTL(TRIM(string))
-   IF (cFile(LenStr-3:LenStr).EQ.".par") nBnds = nBnds + 1
+   IF (cFile(LenStr-3:LenStr).EQ.".par") THEN
+    nBnds = nBnds + 1
+   END IF
+   IF (cFile(LenStr-3:LenStr).EQ.".pls") THEN
+    nBnds = nBnds + 1
+   END IF
   END IF
  END DO
 
  if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Number of boundary parametrizations: ',nBnds
+ 
  ALLOCATE (myParBndr(nBnds))
 
  if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Warning: Allocated an additional boundary level'
@@ -1478,7 +1545,12 @@ SUBROUTINE GetFileList()
    IF (cFile(LenStr-3:LenStr).EQ.".par") THEN
     if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Boundary parametrization: "'//ADJUSTL(TRIM(cFile))//'"'
     nBnds = nBnds + 1
-    READ(cFile(1:LenStr-4),"(A)") myParBndr(nBnds)%Names
+    READ(cFile(1:LenStr),"(A)") myParBndr(nBnds)%Names
+   END IF
+   IF (cFile(LenStr-3:LenStr).EQ.".pls") THEN
+    if (myid.eq.1.or.(.not.bParallel)) Write(*,*)'Boundary parametrization: "'//ADJUSTL(TRIM(cFile))//'"'
+    nBnds = nBnds + 1
+    READ(cFile(1:LenStr),"(A)") myParBndr(nBnds)%Names
    END IF
   END IF
  END DO
@@ -1490,7 +1562,7 @@ SUBROUTINE GetEdges()
 
 END SUBROUTINE GetEdges
 !----------------------------------------------------------------------------------------
-SUBROUTINE GetFaces(KVERT,KAREA,NEL)
+SUBROUTINE GetParFaces(KVERT,KAREA,NEL)
  INTEGER KVERT(8,*),KAREA(6,*),NEL
  INTEGER i,iel,iat,iarea
  INTEGER IVT1,IVT2,IVT3,IVT4
@@ -1517,8 +1589,51 @@ SUBROUTINE GetFaces(KVERT,KAREA,NEL)
 
   END DO
  END DO
+ 
+END SUBROUTINE GetParFaces
+!----------------------------------------------------------------------------------------
+SUBROUTINE GetPlsFaces(KVERT,KAREA,NEL,l,ln)
+ INTEGER KVERT(8,*),KAREA(6,*),NEL,l(4,*),ln
+ INTEGER i,iel,iat,iarea
+ INTEGER iFace(4),jFace(4)
+ INTEGER map(4,6),lnn,j,k
+ DATA map/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-END SUBROUTINE GetFaces
+ myParBndr(iBnds)%Bndr(ILEV)%nFaces = 0
+ lnn = 0
+ 
+ DO j=1,ln
+ 
+  jFace = l(:,j)
+  call sort1d(jFace,4)
+  
+  DO iel=1,NEL
+   DO iat=1,6
+    
+    iFace = KVERT(map(:,iat),iel)
+    call sort1d(iFace,4)
+
+    if (iFace(1).eq.jFace(1).and.iFace(2).eq.jFace(2).and.&
+        iFace(3).eq.jFace(3).and.iFace(4).eq.jFace(4)) then
+        myParBndr(iBnds)%Bndr(1)%nFaces = myParBndr(iBnds)%Bndr(1)%nFaces+ 1
+        iarea = KAREA(iat,iel)
+        myParBndr(iBnds)%Bndr(1)%Face(1,iarea) = iel
+        myParBndr(iBnds)%Bndr(1)%Face(2,iarea) = iat
+        do k=1,4
+         if (.not.myParBndr(iBnds)%Bndr(1)%Vert(iFace(k))) then
+          myParBndr(iBnds)%Bndr(1)%Vert(iFace(k)) = .True.
+          lnn = lnn + 1
+         end if
+        end do
+    END IF
+
+   END DO
+  END DO
+ END DO
+ 
+ ln = lnn
+
+END SUBROUTINE GetPlsFaces
 !
 !----------------------------------------------------------------------------------------
 !

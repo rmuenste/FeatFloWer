@@ -1522,6 +1522,8 @@ CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL FAC_GetForces(mfile)
 
+CALL DNA_GetTorques(mfile)
+
 CALL GetNonNewtViscosity()
 
 IF (bNS_Stabilization) THEN
@@ -2286,11 +2288,7 @@ ELSE
  CALL QuadScP1toQ2(LinSc,QuadSc)
 END IF
 
-if (bMultiMat) then
- CALL GetAlphaNonNewtViscosity_sse()
-else
- CALL GetNonNewtViscosity_sse()
-end if
+CALL GetAlphaNonNewtViscosity_sse()
 
 IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
@@ -2579,11 +2577,7 @@ ELSE
  CALL QuadScP1toQ2(LinSc,QuadSc)
 END IF
 
-if (bMultiMat) then
- CALL GetAlphaNonNewtViscosity_sse()
-else
- CALL GetNonNewtViscosity_sse()
-end if
+CALL GetAlphaNonNewtViscosity_sse()
 
 IF (.not.bKTPRelease) then
  CALL Calculate_Torque(mfile)
@@ -2676,7 +2670,7 @@ DEALLOCATE(SendVect)
 CALL Create_MRhoMat()
 IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
 
-CALL GetNonNewtViscosity_sse()
+CALL GetAlphaNonNewtViscosity_sse()
 
 !!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
 
@@ -2812,3 +2806,22 @@ END DO
 mySetup%bPressureConvergence = mySetup%bPressureConvergence.and.(istart.eq.1)
 
 END SUBROUTINE GetPressureAtInflows
+
+
+!! Called by all (myid=0 too) processes because of the immersed communicated sum !!
+SUBROUTINE IntegrateShearrate()
+REAL*8   dAvgShearRate
+EXTERNAL E013
+
+ILEV = NLMAX
+CALL SETLEV(2)
+
+CALL SubIntegrateShearrate(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                        mg_mesh%level(ILEV)%kvert,&
+                        mg_mesh%level(ILEV)%karea,&
+                        mg_mesh%level(ILEV)%kedge,&
+                        mg_mesh%level(ILEV)%dcorvg,&
+                        dAvgShearRate,&
+                        E013)
+
+END SUBROUTINE IntegrateShearrate

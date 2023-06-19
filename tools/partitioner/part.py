@@ -238,9 +238,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
     # Gitterausgabe
     localGrid=(len(dKvert),len(dCoor),dCoor,dKvert,dKnpr)
     if bSub:
-      localGridName=os.path.join(BaseName,"GRID%03d.tri"%iPart)
+      localGridName=os.path.join(BaseName,"GRID%04d.tri"%iPart)
     else:
-      localGridName=os.path.join(BaseName,"sub%03d"%iPart,"GRID.tri")
+      localGridName=os.path.join(BaseName,"sub%04d"%iPart,"GRID.tri")
     OutputGrid(localGridName,localGrid)
 
     ###
@@ -248,9 +248,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
     localRestriktion=set(LookUp.keys())
     for iPar in range(nParFiles):
       if bSub:
-        localParName=os.path.join(BaseName,"%s_%03d.par"%(ParNames[iPar],iPart))
+        localParName=os.path.join(BaseName,"%s_%04d.par"%(ParNames[iPar],iPart))
       else:
-        localParName=os.path.join(BaseName,"sub%03d"%iPart,"%s.par"%ParNames[iPar])
+        localParName=os.path.join(BaseName,"sub%04d"%iPart,"%s.par"%ParNames[iPar])
       # Wenn ein Knoten in der alten Randparametrisierung ist und im neuen Teilgebiet
       # dann gehoert er dort auch zur Randparametrisierung
       localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]

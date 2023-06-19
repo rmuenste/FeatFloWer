@@ -1645,6 +1645,216 @@ SUBROUTINE TransformPoints()
 
 end subroutine calcDistanceFunction_heat
 !------------------------------------------------------------------------------------------------
+subroutine calcDistanceFunction_sensor(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst1,dst2,dst3,dVaux)
+
+  real*8, dimension(:,:), intent(inout) :: dcorvg
+
+  ! output array for the distance to a die or obstacles
+  real*8, dimension(:), intent(inout) :: dst1
+
+  ! output array for the distance to the screw
+  real*8, dimension(:), intent(inout) :: dst2
+
+  ! output array for the distance to flowchannel
+  real*8, dimension(:), intent(inout) :: dst3
+
+  real*8, dimension(:), intent(inout) :: dVaux
+
+  integer :: nel,nvt,nat,net
+
+  integer, dimension(:,:), intent(inout) :: karea, kedge, kvert
+
+  ! local variables
+  integer ElemInd(27)
+
+  real*8 ElemCoor(3,27),ElemDist(27),ElemRad,ElemSign,PointSign,dist
+
+  real*8 d,PX,PY,PZ,dS,dUnitScale,dLocEpsDist,dRotAngle,dAuxDist
+
+  real*8, dimension(3) :: point
+
+  integer :: i,j,ndof,iel,ipc
+
+  integer iSTL,iSeg,iFile
+
+  ndof = nel+nvt+nat+net
+
+  ! Loop over all segments of the screw
+  DO iSeg=1,mySigma%NumberOfSeg
+
+  ! If we find a discrete geometry segment
+  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+
+    IF (mySigma%mySegment(iSeg)%Unit.eq.'MM') dUnitScale = 1d+1
+    IF (mySigma%mySegment(iSeg)%Unit.eq.'CM') dUnitScale = 1d0
+    IF (mySigma%mySegment(iSeg)%Unit.eq.'DM') dUnitScale = 1d-1
+
+    dLocEpsDist = dUnitScale*dEpsDist
+    
+    IF (adjustl(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'OFF'.OR. &
+        adjustl(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'STL') THEN
+
+    DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+
+    dVaux(1:ndof) = 0d0  
+    iSTL = mySigma%mySegment(iSeg)%TemperatureSensor%idxCgal(iFile)
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! iSTL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    DO iel=1,nel
+
+    ! Indices of the vertices
+    ElemInd( 1:8 )  = kvert(1:8,iel)
+
+    ! Indices of the edge mid points
+    ElemInd( 9:20)  = nvt+kedge(1:12,iel)
+
+    ! Indices of the face mid points
+    ElemInd(21:26)  = nvt+net+karea(1:6,iel)
+
+    ! Index of the element mid point
+    ElemInd(   27)  = nvt+net+nat+iel
+
+    ! Coordinates of the element dofs
+    ElemCoor(1,:) = dcorvg(1,ElemInd(:))
+    ElemCoor(2,:) = dcorvg(2,ElemInd(:))
+    ElemCoor(3,:) = dcorvg(3,ElemInd(:))
+
+    CALL TransformPoints()
+
+    ! Coordinates of the element mid point
+    PX = ElemCoor(1,27)
+    PY = ElemCoor(2,27)
+    PZ = ElemCoor(3,27)
+
+    ! Compute the element radius
+    CALL GetElemRad()
+
+    CALL GetDistToSTL(PX,PY,PZ,iSTL,d,.true.)
+
+    ! Set the distance in the element mid point
+    dVaux(ElemInd(27))= d
+
+    ! Do not divide by zero
+    IF (d .ne. 0d0)THEN
+      ElemSign = d/abs(d)
+    ELSE
+      ElemSign = -1d0
+    END IF
+
+    IF (abs(d).lt.dLocEpsDist) THEN 
+
+      ! If the distance to the surface is greater than
+      ! the element radius, we do not need to compute
+      ! the FBM-function for the other dofs
+      IF (abs(d).gt.ElemRad) THEN
+
+        DO i=1,26
+        PX = ElemCoor(1,i)
+        PY = ElemCoor(2,i)
+        PZ = ElemCoor(3,i)
+
+        ! check if dist is already computed
+        IF (dVaux(ElemInd(i)).eq.0d0) THEN
+          CALL GetDistToSTL(PX,PY,PZ,iSTL,d,.false.)
+          ! Set distance to minium of eps and d
+          dVaux(ElemInd(i))= ElemSign*MIN(ABS(d),dLocEpsDist)
+        END IF
+        END DO
+
+      ELSE ! abs(d).gt.ElemRad
+
+        DO i=1,26
+        PX = ElemCoor(1,i)
+        PY = ElemCoor(2,i)
+        PZ = ElemCoor(3,i)
+
+        IF (dVaux(ElemInd(i)).eq.0d0) THEN
+
+          CALL GetDistToSTL(PX,PY,PZ,iSTL,d,.true.)
+
+          IF (d.ne.0d0)THEN
+            PointSign = d/abs(d)
+          ELSE
+            PointSign  = -1d0
+          END IF
+
+          ! Set distance to minium of eps and d
+          dVaux(ElemInd(i))= PointSign*MIN(ABS(d),dLocEpsDist)
+
+        END IF
+        END DO
+      END IF
+
+    ELSE ! abs(d).lt.dLocEpsDist
+
+      ! The distance to element the mid point
+      ! is greater than eps: we can set
+      ! all other dofs to eps too
+
+      DO i=1,27
+
+      IF (dVaux(ElemInd(i)).eq.0d0) THEN
+        dVaux(ElemInd(i))= ElemSign*dLocEpsDist
+      end if
+
+      end do
+
+    end if ! abs(d).lt.dLocEpsDist
+
+    end do ! iel
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (adjustl(trim(mySigma%mySegment(iSeg)%ObjectType)).eq."WIRE") THEN
+      do i=1,ndof
+       IF (dVaux(i)/dUnitScale.lt.dst2(i)) THEN
+        dst2(i) = dVaux(i)/dUnitScale
+        IF (dst2(i).lt.0d0) dst1(i) = DBLE(iSeg)
+       END IF
+      end do
+    end if  
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    end do ! iFile
+
+  end if  ! SensorType.eq.'OFF'
+  end if  ! ObjectType.eq.'WIRE'
+  end do  ! iSeg
+
+  DO i=1,ndof
+    myHeatObjects%Sensor(i) = dst1(i)
+  END DO
+
+contains
+subroutine GetElemRad
+  REAL*8 daux
+
+  ElemRad = 0d0
+
+  do i=1,8
+  dist = (ElemCoor(1,i)-PX)**2d0 + (ElemCoor(2,i)-PY)**2d0 + (ElemCoor(3,i)-PZ)**2d0
+  ElemRad = max(dist,ElemRad)
+  end do
+  ElemRad = 2.1d0*SQRT(ElemRad)
+
+End SUBROUTINE GetElemRad
+
+SUBROUTINE TransformPoints()
+  REAL*8 :: myPI = dATAN(1d0)*4d0
+  INTEGER iP
+
+  DO iP=1,27
+
+   ElemCoor(1,iP) = dUnitScale*ElemCoor(1,iP)
+   ElemCoor(2,iP) = dUnitScale*ElemCoor(2,iP)
+   ElemCoor(3,iP) = dUnitScale*ElemCoor(3,iP)
+
+  END DO
+
+  END 
+
+end subroutine calcDistanceFunction_sensor
+!------------------------------------------------------------------------------------------------
 ! Subroutine that calculates the distance of point px,py,pz to a single geometry
 ! If neccessary also the FBM function is computed
 !------------------------------------------------------------------------------------------------

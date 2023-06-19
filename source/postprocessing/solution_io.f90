@@ -1454,7 +1454,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 !   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
-  CALL ProcessControl(filehandle,mterm)
+!   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
 !
@@ -1536,7 +1536,7 @@ subroutine postprocessing_app_heat(dout, inlU,inlT,filehandle)
 !   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
-  CALL ProcessControl(filehandle,mterm)
+!   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app_heat
 !
@@ -1743,7 +1743,8 @@ subroutine postprocessing_general(dout, inlU,inlT,filehandle,cLIST)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-        CALL Release_ListFiles_General(0,cLIST)
+!         CALL Release_ListFiles_General(0,cLIST)
+        call ReleaseMPIDumpFiles(0,cLIST)
         
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
@@ -1834,7 +1835,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-        CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
+!         CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
+        call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y')
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
@@ -1847,7 +1849,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
 !   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
-  CALL ProcessControl(filehandle,mterm)
+!   CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_sse
 !

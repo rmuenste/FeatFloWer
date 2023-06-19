@@ -452,6 +452,7 @@ TYPE tParticleParam
  REAL*8 :: dFacUnitIn = 1.0d0
  REAL*8 :: dFacUnitOut = 1.0d0
  REAL*8 :: dFacUnitSourcefile = 1.0d0
+ REAL*8 :: MeltTemperature=0d0
 
  ! We can make z-cutplanes at as many positions as we want.
  ! However, we will limit it to 99
@@ -511,7 +512,23 @@ TYPE tPID
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID
 
+TYPE tEwikonOutput
+ INTEGER ::  HistogramSize=40
+ REAL*8 dMinTemp,dMaxTemp
+ INTEGER nSensorPositions
+ REAL*8, allocatable ::   SensorPositions(:,:)
+ INTEGER , allocatable ::   PointToSensor(:)
+ REAL*8, allocatable ::   Temp(:),Mass(:)
+ REAL*8, allocatable ::   MeltTempDistribution_x(:),MeltTempDistribution_v(:)
+ TYPE(mg_dVector), ALLOCATABLE :: DATA(:)
+END TYPE
+TYPE (tEwikonOutput) myEwikonOutput
+
 TYPE tSensor
+  CHARACTER*256, ALLOCATABLE :: oFFfiles(:)
+  CHARACTER*256 :: SensorType
+  INTEGER, ALLOCATABLE :: idxCgal(:)
+  INTEGER nOFFfiles
   REAL*8 :: Radius=0d0, Coor(3)=[0d0,0d0,0d0], Volume, CurrentTemperature
   LOGICAL :: HeatingStatus = .true.
   REAL*8 :: MinRegValue= 0d0, MaxRegValue= 0d0
@@ -560,6 +577,8 @@ END TYPE tSegment
 
 TYPE tSigma
 !   REAL*8 :: Dz_out,Dz_in, a, L, Ds, s, delta,SegmentLength, DZz,W
+  CHARACTER cSensorPositions*(256)
+  REAL*8 :: SensorRadius
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
   LOGICAL :: ScrewCylinderRendering=.TRUE.
@@ -579,6 +598,8 @@ END TYPE tSigma
 TYPE tRheology
    INTEGER :: Equation = 5 !-->> Hogen-Powerlaw
    INTEGER :: AtFunc = 1 !-->> isotherm
+   Logical :: bWallSlip = .false.
+   REAL*8  :: WS_d,WS_Tau0,WS_TauD,WS_TauMin,WS_TauMax,WS_SlipFactor
    REAL*8 :: A, B, C, D ! Carreau Parameter
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
@@ -607,6 +628,7 @@ TYPE tInflow
  INTEGER iBCtype,Material
  REAL*8  massflowrate, outerradius,innerradius,temperature,temperatureRange
  REAL*8  center(3),normal(3)
+ REAL*8  midpointA(3), midpointB(3)
  real*8, allocatable :: PressureEvolution(:)
  INTEGER temperatureType
 END TYPE tInflow
@@ -696,6 +718,8 @@ TYPE tErrorCodes
  INTEGER :: DIVERGENCE_U=55
  INTEGER :: DIVERGENCE_T=56
  INTEGER :: SIGMA_READER=44
+ INTEGER :: DUMPFILE_READER=45
+ INTEGER :: DUMPFILE_WRITER=46
  INTEGER :: RUNOUTOFTIMESTEPS=57
 END TYPE
 
@@ -706,5 +730,7 @@ TYPE tMGSteps
  INTEGER, allocatable :: n(:)
  REAL*8, allocatable :: r(:)
 END TYPE tMGSteps
+
+REAL*8 :: DataSizeThresholdMPI = 2d9
 
 end module types

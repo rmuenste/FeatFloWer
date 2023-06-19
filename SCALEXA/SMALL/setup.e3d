@@ -1,0 +1,96 @@
+[E3DGeometryData/Machine]
+Unit = mm
+type = die
+ScrewCylinderRendering = OFF
+barreldiameter = 13.052216613049195
+noofelements = 1
+barrellength = 30.000000200000027
+innerdiameter = 100.0
+rotationdirection = LEFT
+geometryStart = -5.56,-4.53,-2.8
+geometryLength = 9.752173036864042,8.674991618037412,29.8
+GeometrySymmetryBC = F,F,F,F,F,F
+
+[E3DGeometryData/Machine/Element_1]
+Unit = mm
+startposition = 0.0
+type = OFF
+objecttype = die
+name = Fließkanal_Werbematerial
+off_filelist = surface.off
+calculatedinflowdiammin = 100.0
+calculatedinflowdiammax = 122.5
+innerdiameter = 100.0
+
+[E3DProcessParameters]
+Unit = mm
+processtype = THROUGHPUT
+nOfInflows = 1
+materialtemperature = 180.0
+barreltemperature = 180.0
+barreltemperatureadiabatic = NO
+ExtrusionGapSize_MM_Real = 0.925
+ExtrusionGapSize_MM = 0.5546125799655444
+ExtrusionOutflowArea_MM2 = 20.853859188828352
+ExtrusionGapFactor = 1.0
+screwspeed = 430.0
+screwtemperature = _INVALID_
+screwtemperatureadiabatic = YES
+mininflowdiameter = 100.0
+maxinflowdiameter = 122.5
+massthroughput = 160.0
+
+[E3DMaterialParameters]
+NoOfMaterials = 1
+InitMaterial = 1
+
+[E3DMaterialParameters/Mat_1]
+name = LDPE
+type = Polymer
+
+[E3DMaterialParameters/Mat_1/RheologicalData]
+calcvisco = Carreau
+CalcTemp = isotherm
+
+[E3DMaterialParameters/Mat_1/RheologicalData/Isotherm]
+
+[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
+zeroviscosity = 6830.0
+recipvelocity = 0.0343
+exponent = 0.805
+
+[E3DMaterialParameters/Mat_1/ThermoData]
+DensityModel = DENSITY
+HeatConductivity = 0.231
+HeatConductivitySlope = 0.000017
+HeatCapacity = 2.087
+HeatCapacitySlope = 0.00431
+
+[E3DMaterialParameters/Mat_1/ThermoData/Density]
+density = 1.35
+densityslope = 0.0001
+
+[E3DProcessParameters/Inflow_1]
+Unit = mm
+material = 1
+temperature = 180.0
+type = CURVEDFLAT
+InnerRadius = 3.0000000000000004
+OuterRadius = 3.7500000000000004
+massflowrate = 1.6
+center = -2.10552592164226e-16,2.220446049250313e-14,-2.8
+normal = 1.211350928885e-30,-6.982962677686e-15,1.0
+
+[E3DSimulationsettings/Output]
+nOf1DLayers = 128
+nOfHistogramBins = 16
+HistogramShearMax = 1e4
+HistogramShearMin = 1e-1
+CutData_1D = 0.001
+
+[E3DSimulationsettings]
+KTPRelease = NO
+AutomaticTimeStepControl = yes
+TimeStepEnlargementFactor = 6e0
+PressureFBM = on
+

@@ -938,9 +938,12 @@ implicit none
 integer, allocatable :: iVertKeep(:),iElemKeep(:)
 integer i,j,k,ia,jat,jElem,iarea,jVert,ivt,iStartElem,nBCFace,iInflow,nInFlow,nOutFlow
 real*8 :: dN(3),pC(3),dist,P(3),Q(3),dMinDist,minDistP,maxDistP
-logical bInflowArea
-INTEGER NeighA(4,6)
+logical bInflowArea,bQuad
+INTEGER NeighA(4,6),iQuad(4)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+real*8 :: DA(3), DB(3), dCenter(3), dAux1, dAux2 
+real*8 :: dAdC, dBdC, dPdA, dPdB, dR
 
 nel = mg_ReducedMesh%level(1)%nel
 nvt = mg_ReducedMesh%level(1)%nvt
@@ -998,26 +1001,91 @@ DO i=1,nel
         (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP).or.&
         (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP).or.&
         (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP)) THEN
+
      DO ivt = 1,4
       k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
       Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
-      
       dist = sqrt((Q(1)-pC(1))**2d0 + (Q(2)-pC(2))**2d0 + (Q(3)-pC(3))**2d0) 
-      IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP) THEN
-       dN = myProcess%myInflow(iInflow)%normal
-       jat =0
-       IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
-       IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
-       IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
-       IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
-       IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
-       
-       IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
-       IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
-       IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+      
+      IF (myProcess%myInflow(iInflow)%iBCtype.eq.2) then
+       IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP.and.&
+           dist.gt.myProcess%myInflow(iInflow)%innerradius/MeshOutputScaleFactor-0.5d0*minDistP) THEN
+        dN = myProcess%myInflow(iInflow)%normal
+        jat =0
+        IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+        IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+        IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+        IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+        IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+        
+        IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
+        IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
+        IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+       END IF
       END IF
+      
+      IF (myProcess%myInflow(iInflow)%iBCtype.eq.1.or.&
+          myProcess%myInflow(iInflow)%iBCtype.eq.3.or.&
+          myProcess%myInflow(iInflow)%iBCtype.eq.4) then
+       IF (dist.le.myProcess%myInflow(iInflow)%outerradius/MeshOutputScaleFactor+0.5d0*minDistP) THEN
+        dN = myProcess%myInflow(iInflow)%normal
+        jat =0
+        IF (abs(P(1)-OverallBoundingBox(1,1)).lt.0.5d0*minDistP) jat = 1
+        IF (abs(P(1)-OverallBoundingBox(1,2)).lt.0.5d0*minDistP) jat = 2
+        IF (abs(P(2)-OverallBoundingBox(2,1)).lt.0.5d0*minDistP) jat = 3
+        IF (abs(P(2)-OverallBoundingBox(2,2)).lt.0.5d0*minDistP) jat = 4
+        IF (abs(P(3)-OverallBoundingBox(3,1)).lt.0.5d0*minDistP) jat = 5
+        
+        IF (abs(dN(1)).gt.0.99d0.and.(jat.eq.1.or.jat.eq.2)) bInflowArea = .true.
+        IF (abs(dN(2)).gt.0.99d0.and.(jat.eq.3.or.jat.eq.4)) bInflowArea = .true.
+        IF (abs(dN(3)).gt.0.99d0.and.(jat.eq.5)) bInflowArea = .true.
+       END IF
+      END IF
+
+      IF (myProcess%myInflow(iInflow)%iBCType.EQ.5) THEN
+         k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+         Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+         
+         dCenter = myProcess%myInflow(iInflow)%center/MeshOutputScaleFactor
+         DA = myProcess%myInflow(iInflow)%midpointA/MeshOutputScaleFactor
+         DB = myProcess%myInflow(iInflow)%midpointB/MeshOutputScaleFactor
+
+         dAux1 = DOT_PRODUCT(DA-dCenter, DA-dCenter)**2&
+                -DOT_PRODUCT(Q-dCenter, DA-dCenter)**2+0.5*minDistP
+         dAux2 = DOT_PRODUCT(DB-dCenter, DB-dCenter)**2&
+                -DOT_PRODUCT(Q-dCenter, DB-dCenter)**2+0.5*minDistP
+         IF ( (dAux1.GE.0D0).and.(dAux2.GE.0D0) ) THEN
+           bInflowArea = .true.
+         END IF
+       END IF
+       IF (myProcess%myInflow(iInflow)%iBCType.EQ.6) THEN
+           k = mg_ReducedMesh%level(1)%kvert(neighA(ivt,ia),i)
+           Q = mg_ReducedMesh%level(1)%dcorvg(:,k)
+           
+           dCenter = myProcess%myInflow(iInflow)%center/MeshOutputScaleFactor
+           DA = myProcess%myInflow(iInflow)%midpointA/MeshOutputScaleFactor
+           DB = myProcess%myInflow(iInflow)%midpointB/MeshOutputScaleFactor
+
+           dAdC = DOT_PRODUCT(dA-dCenter, DA-dCenter)
+           dBdC = DOT_PRODUCT(dB-dCenter, DB-dCenter)
+
+           dPdA = DOT_PRODUCT(Q-dCenter, DA-dCenter)
+           dPdB = DOT_PRODUCT(Q-dCenter, DB-dCenter)
+
+           dR = NORM2(DB-dCenter)
+
+           if ( (dPdA**2.LE.dAdC**2+0.5*minDistP).and.(dPdB**2.LE.dBdC**2+0.5*minDistP) ) THEN
+               bInflowArea = .true.
+           elseif ( (dPdA.GE.dAdC).and.(NORM2(Q-DA).LE.dR+0.5*minDistP) ) THEN
+               bInflowArea = .true. 
+           elseif ( (dPdA**2.GE.dAdC**2).and.(NORM2(Q-2*dCenter+DA).LE.dR+0.5*minDistP) ) THEN
+               bInflowArea = .true.
+           end if
+        END IF ! Check for boundary Type
+      
      END DO
     END IF
+     
 
     if (bInflowArea) THEN
      nInFlow = nInFlow + 1
@@ -1068,23 +1136,36 @@ ParList%Wall = .false.
 ParList%Outflow = .false.
 ParList%Inflow = .false.
 
+ALLOCATE(ParList%WallA(nat))
+ALLOCATE(ParList%SideWallA(5,nat))
+ALLOCATE(ParList%OutflowA(nat))
+ALLOCATE(ParList%InflowA(myProcess%nOfInflows,nat))
+ParList%SideWallA = .false.
+ParList%WallA = .false.
+ParList%OutflowA = .false.
+ParList%InflowA = .false.
+
 DO i=1,nel
  DO ia= 1,6
   iarea = mg_ReducedMesh%level(1)%karea(ia,i)
   IF (ReducedMeshBC(iarea).eq.-1) THEN
    ParList%Wall(mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+   ParList%WallA(iarea) = .true.
   END IF
   IF (ReducedMeshBC(iarea).gt.1000) THEN
    jat = ReducedMeshBC(iarea) - 1000
    ParList%SideWall(jat,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+   ParList%SideWallA(jat,iarea) = .true.
   END IF
   IF (ReducedMeshBC(iarea).eq.0) THEN
    ParList%Outflow(mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+   ParList%OutflowA(iarea) = .true.
   END IF
   DO iInflow=1,myProcess%nOfInflows
    IF (ReducedMeshBC(iarea).eq.iInflow) THEN
 !     WRITE(*,*) iInflow,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)
     ParList%Inflow(iInflow,mg_ReducedMesh%level(1)%kvert(neighA(:,ia),i)) = .true.
+    ParList%InflowA(iInflow,iarea) = .true.
    END IF
   END DO
  END DO
@@ -1168,6 +1249,115 @@ ParCleanList%Wall = .false.
 ParCleanList%SideWall = .false.
 ParCleanList%Outflow = .false.
 ParCleanList%Inflow = .false.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+
+ALLOCATE(ParCleanList%nIA(myProcess%nOfInflows))
+ALLOCATE(ParCleanList%tIA(myProcess%nOfInflows))
+ParCleanList%nIA = 0
+ParCleanList%nSA = 0
+ParCleanList%nOA = 0
+ParCleanList%nWA = 0
+
+DO i=1,nel
+ DO ia= 1,6
+  iarea = mg_ReducedMesh%level(1)%karea(ia,i)
+  
+  iQuad = [iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(1,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(2,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(3,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(4,ia),i))]
+  bQuad = .false.
+  if (iQuad(1).gt.0.and.iQuad(2).gt.0.and.iQuad(3).gt.0.and.iQuad(4).gt.0) bQuad = .true.
+
+  if (bQuad) then
+   if (ParList%WallA(iarea)) then 
+    ParCleanList%nWA = ParCleanList%nWA + 1 
+   end if
+   
+   if (ParList%OutflowA(iarea)) then 
+    ParCleanList%nOA = ParCleanList%nOA + 1 
+   end if
+   
+   DO jat=1,5
+    if (ParList%SideWallA(jat,iarea)) then 
+     ParCleanList%nSA(jat) = ParCleanList%nSA(jat)+ 1 
+    end if
+   END DO
+   
+   DO iInflow=1,myProcess%nOfInflows
+    if (ParList%InflowA(iInflow,iarea)) then 
+     ParCleanList%nIA(iInflow) = ParCleanList%nIA(iInflow)+ 1 
+    end if
+   END DO
+   
+  end if  
+ end do  
+end do
+
+write(*,*) ParCleanList%nWA,ParCleanList%nOA,ParCleanList%nIA,ParCleanList%nSA
+
+allocate(ParCleanList%tOA%i(4,ParCleanList%nOA))
+allocate(ParCleanList%tWA%i(4,ParCleanList%nWA))
+DO iInflow=1,myProcess%nOfInflows
+ allocate(ParCleanList%tIA(iInflow)%i(4,ParCleanList%nIA(iInflow)))
+END DO
+DO jat=1,5
+ allocate(ParCleanList%tSA(jat)%i(4,ParCleanList%nSA(jat)))
+END DO
+ParCleanList%nIA = 0
+ParCleanList%nSA = 0
+ParCleanList%nOA = 0
+ParCleanList%nWA = 0
+
+DO i=1,nel
+ DO ia= 1,6
+  iarea = mg_ReducedMesh%level(1)%karea(ia,i)
+  
+  iQuad = [iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(1,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(2,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(3,ia),i)),&
+           iVertKeep(mg_ReducedMesh%level(1)%kvert(neighA(4,ia),i))]
+  bQuad = .false.
+  if (iQuad(1).gt.0.and.iQuad(2).gt.0.and.iQuad(3).gt.0.and.iQuad(4).gt.0) bQuad = .true.
+
+  if (bQuad) then
+   if (ParList%WallA(iarea)) then 
+    ParCleanList%nWA = ParCleanList%nWA + 1 
+    ParCleanList%tWA%i(:,ParCleanList%nWA) = iQuad
+   end if
+   
+   if (ParList%OutflowA(iarea)) then 
+    ParCleanList%nOA = ParCleanList%nOA + 1 
+    ParCleanList%tOA%i(:,ParCleanList%nOA) = iQuad
+   end if
+   
+   DO jat=1,5
+    if (ParList%SideWallA(jat,iarea)) then 
+     ParCleanList%nSA(jat) = ParCleanList%nSA(jat)+ 1 
+     ParCleanList%tSA(jat)%i(:,ParCleanList%nSA(jat)) = iQuad
+    end if
+   END DO
+   
+   DO iInflow=1,myProcess%nOfInflows
+    if (ParList%InflowA(iInflow,iarea)) then 
+     ParCleanList%nIA(iInflow) = ParCleanList%nIA(iInflow)+ 1 
+     ParCleanList%tIA(iInflow)%i(:,ParCleanList%nIA(iInflow)) = iQuad
+    end if
+   END DO
+   
+  end if  
+ end do  
+end do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+
+
+
 
 DO i=1,nvt
  IF (iVertKeep(i).gt.0) then

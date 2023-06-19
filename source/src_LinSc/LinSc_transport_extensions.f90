@@ -374,6 +374,8 @@ CALL COMM_SUMM(dFlux2)
 
 CALL IntegrateOutputQuantities(mfile)
 
+CALL CreateSensorOutputs(mfile)
+
 if (myid.eq.showid) then
  WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
  WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
@@ -975,18 +977,245 @@ END SUBROUTINE AddBoundaryHeatFlux
 !
 ! ----------------------------------------------
 !
+SUBROUTINE CreateSensorOutputs(mfile)
+USE OctTreeSearch
+USE var_QuadScalar, only : myEwikonOutput
+USE PP3D_MPI, ONLY:COMM_Maximum,COMM_Minimum
+
+REAL*8 :: P(3),R,dist,dh
+REAL*8 :: daux(3),temp
+integer mfile,i,j,iBin
+logical bExist
+integer ierr,iSensor
+character caux*256,cfmt*20
+integer iSeg
+
+if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
+ inquire(file=adjustl(TRIM(mySigma%cSensorPositions)),exist=bExist)
+ if (bExist) then
+ 
+  OPEN(file=adjustl(TRIM(mySigma%cSensorPositions)),unit=7475)
+  read(7475,'(A)',iostat=ierr) caux
+  if (ierr.ne.0) STOP
+  myEwikonOutput%nSensorPositions = 0
+  do while (ierr.eq.0)
+   read(7475,*,iostat=ierr) daux
+   if (ierr.eq.0) myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
+  end do
+  
+  rewind(7475)
+  allocate(myEwikonOutput%SensorPositions(3,myEwikonOutput%nSensorPositions ))
+  if (myid.ne.0) allocate(myEwikonOutput%PointToSensor(knvt(nlmax)))
+  allocate(myEwikonOutput%Temp(myEwikonOutput%nSensorPositions ))
+  allocate(myEwikonOutput%Mass(myEwikonOutput%nSensorPositions ))
+  allocate(myEwikonOutput%DATA(myEwikonOutput%nSensorPositions))
+
+  ierr = 0
+  myEwikonOutput%nSensorPositions = 0
+  read(7475,*,iostat=ierr)
+  if (ierr.ne.0) STOP
+  do while (ierr.eq.0)
+   read(7475,*,iostat=ierr) myEwikonOutput%SensorPositions(:,myEwikonOutput%nSensorPositions + 1)
+   if (ierr.eq.0) myEwikonOutput%nSensorPositions = myEwikonOutput%nSensorPositions + 1 
+  end do
+  
+  CLOSE(7475)
+
+  if (myid.ne.0) then
+   ilev = NLMAX
+   call setlev(2)
+   
+   myEwikonOutput%PointToSensor = 0
+   
+   CALL InitOctTree(myEwikonOutput%SensorPositions,myEwikonOutput%nSensorPositions)
+   
+   myEwikonOutput%Mass = 0d0
+   
+   do i=1,nvt
+    P = mg_mesh%level(ilev)%dcorvg(:,i)
+    iSensor = -1
+    CALL FindInOctTree(myEwikonOutput%SensorPositions,&
+                       myEwikonOutput%nSensorPositions,&
+                       P,iSensor,DIST)
+    if (iSensor.ge.1.and.iSensor.le.myEwikonOutput%nSensorPositions) then
+     IF (DIST.lt.mySigma%SensorRadius) then 
+      myEwikonOutput%PointToSensor(i) = iSensor
+      myEwikonOutput%Mass(iSensor) = myEwikonOutput%Mass(iSensor) + 1
+     end if
+    END IF
+    
+   end do
+     
+   CALL FreeOctTree()
+   
+  end if
+  
+  CALL COMM_SUMMN(myEwikonOutput%Mass,myEwikonOutput%nSensorPositions)
+  
+  if (myid.eq.1) THEN
+    open(file='SensorCandidatesMass.txt',unit=7475)
+    cfmt=' '
+    write(cfmt,'(A,I0,A)') "(A,",myEwikonOutput%nSensorPositions,"ES12.4,A)"
+    write(7475,adjustl(trim(cfmt))) 'Sensorcandidates={ ',myEwikonOutput%Mass,' }'
+    close(7475)
+  end if
+  
+ end if
+end if
+
+if (adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
+
+ if (myid.ne.0) then
+  myEwikonOutput%Mass = 0d0
+  myEwikonOutput%Temp = 0d0
+
+  do i=1,nvt
+   iSensor = myEwikonOutput%PointToSensor(i)
+   if (iSensor.ge.1.and.iSensor.le.myEwikonOutput%nSensorPositions) then
+    myEwikonOutput%Temp(iSensor) = myEwikonOutput%Temp(iSensor) + Tracer%OldSol(i)*MLMat(i)
+    myEwikonOutput%Mass(iSensor) = myEwikonOutput%Mass(iSensor) + MLMat(i)
+   end if
+  end do
+ end if
+ 
+ CALL COMM_SUMMN(myEwikonOutput%Temp,myEwikonOutput%nSensorPositions)
+ CALL COMM_SUMMN(myEwikonOutput%Mass,myEwikonOutput%nSensorPositions)
+ 
+ if (myid.eq.1) THEN
+   IF (itns.eq.1) open(file='SensorCandidatesData.txt',unit=7475)
+   IF (itns.gt.1) open(file='SensorCandidatesData.txt',unit=7475, access='append')
+   myEwikonOutput%Temp = myEwikonOutput%Temp/myEwikonOutput%Mass
+   write(7475,'(A,ES12.3)') 't=',timens
+   cfmt=' '
+   write(cfmt,'(A,I0,A)') "(A,",myEwikonOutput%nSensorPositions,"ES12.4,A)"
+   write(7475,adjustl(trim(cfmt))) 'Sensorcandidates={ ',myEwikonOutput%Temp,' }'
+   close(7475)
+ end if
+ 
+END IF
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+if (itns.eq.1.and.adjustl(TRIM(mySigma%cSensorPositions)).ne."_INVALID_") then
+ if (myid.ne.master) then
+
+  ilev = NLMAX
+  call setlev(2)
+  myEwikonOutput%dMaxTemp  = -1d8
+  myEwikonOutput%dMinTemp  = +1d8
+
+  do i=1,mg_mesh%level(ilev)%nvt
+    if (myEwikonOutput%dMinTemp.gt.Tracer%oldSol(i)) myEwikonOutput%dMinTemp = Tracer%oldSol(i)
+    if (myEwikonOutput%dMaxTemp.lt.Tracer%oldSol(i)) myEwikonOutput%dMaxTemp = Tracer%oldSol(i)
+  end do
+
+ end if
+
+ CALL COMM_Maximum(myEwikonOutput%dMaxTemp)
+ CALL COMM_Minimum(myEwikonOutput%dMinTemp)
+
+ dh = 0.5d0*(myEwikonOutput%dMaxTemp+myEwikonOutput%dMinTemp)
+ myEwikonOutput%dMaxTemp = dh + 20d0
+ myEwikonOutput%dMinTemp = dh - 20d0
+
+ if (.not. allocated(myEwikonOutput%MeltTempDistribution_x)) allocate(myEwikonOutput%MeltTempDistribution_x(myEwikonOutput%HistogramSize))
+ if (.not. allocated(myEwikonOutput%MeltTempDistribution_v)) allocate(myEwikonOutput%MeltTempDistribution_v(myEwikonOutput%HistogramSize))
+
+ do i=1, myEwikonOutput%HistogramSize
+  myEwikonOutput%MeltTempDistribution_x(i) = myEwikonOutput%dMinTemp + (DBLE(i-1)+0.5d0)*(myEwikonOutput%dMaxTemp-myEwikonOutput%dMinTemp)/(DBLE(myEwikonOutput%HistogramSize))
+ end do
+
+ if (myid.eq.1) then
+  open(file='SensorTemperatureDistribution.txt',unit=7476)
+  cfmt=' ' 
+  write(cfmt,'(A,I0,A)') "(A,",myEwikonOutput%HistogramSize,"ES12.4,A)"
+  write(7476,adjustl(trim(cfmt))) "TemperatureBins={ ",myEwikonOutput%MeltTempDistribution_x," }"
+  close(7476)
+ end if
+
+end if
+
+if (myid.eq.1) then
+ open(file='SensorTemperatureDistribution.txt',unit=7476, access='append')
+ write(7476,'(A,ES12.3)') 't=',timens
+end if
+    
+DO iSeg=1,mySigma%NumberOfSeg 
+
+ IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+ 
+  IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'OFF'.OR.&
+      ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'STL') then
+     
+   if (myid.ne.master) then
+   
+   ilev = NLMAX
+   call setlev(2)
+   
+    myEwikonOutput%MeltTempDistribution_v = 0d0
+    
+    do i=1,mg_mesh%level(ilev)%nvt
+     
+      if (myHeatObjects%Sensor(i).eq.iSeg) THEN
+       temp = Tracer%oldSol(i)
+       
+       iBin = -1
+       
+       if     (temp.lt.myEwikonOutput%dMinTemp) then
+        iBin = 1
+       elseif (temp.gt.myEwikonOutput%dMaxTemp) then
+        iBin = myEwikonOutput%HistogramSize
+       else
+        dh = 0.5d0*(myEwikonOutput%dMaxTemp-myEwikonOutput%dMinTemp)/(DBLE(myEwikonOutput%HistogramSize))
+        do j=1,myEwikonOutput%HistogramSize
+         if ((temp.ge.myEwikonOutput%MeltTempDistribution_x(j)-dh).and.(temp.lt.myEwikonOutput%MeltTempDistribution_x(j)+dh)) then
+          iBin = j
+          exit
+         end if
+        end do
+       end if
+       
+       myEwikonOutput%MeltTempDistribution_v(iBin) = myEwikonOutput%MeltTempDistribution_v(iBin) + MLMat(i)
+       
+      end if
+     end do
+   end if
+
+   CALL Comm_SummN(myEwikonOutput%MeltTempDistribution_v,myEwikonOutput%HistogramSize)
+   
+   if (myid.eq.1) then
+   
+    write(cfmt,'(A,I0,A)') "(A,I0,A,",myEwikonOutput%HistogramSize,"ES12.4,A)"
+    write(7476,adjustl(trim(cfmt))) "Distribution_",iSeg,'= { ',myEwikonOutput%MeltTempDistribution_v," }"
+   
+   end if
+   
+  END IF
+  
+ end if
+
+END DO
+
+if (myid.eq.1) then
+ close(7476)
+end if
+
+END SUBROUTINE CreateSensorOutputs
+!
+! ----------------------------------------------
+!
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
-REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),dist
-REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff
+REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),R,dist
+REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff,daux(3)
 integer mfile,iS,iSeg,i
+
 
 CALL LL21(Temperature,Tracer%ndof,DefT)
 call COMM_SUMM(DefT)
 if (ieee_is_nan(DefT)) DivergedSolution = .true.
 if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
 
-   
 if (myid.ne.master) then
 
  ilev = NLMAX
@@ -996,20 +1225,38 @@ if (myid.ne.master) then
   IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
 
    mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = 0d0
-   Q = mySigma%mySegment(iSeg)%TemperatureSensor%Coor
    mySigma%mySegment(iSeg)%TemperatureSensor%Volume = 0d0
    
-   do i=1,mg_mesh%level(ilev)%nvt
-    P = mg_mesh%level(ilev)%dcorvg(:,i)
-    dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
-    IF (dist.le.mySigma%mySegment(iSeg)%TemperatureSensor%Radius) then
-     mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = &
-     mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature + MLmat(i)*Tracer%oldSol(i)
-     mySigma%mySegment(iSeg)%TemperatureSensor%Volume = &
-     mySigma%mySegment(iSeg)%TemperatureSensor%Volume + MLmat(i)
-    END IF
-   end do
-  
+   
+   IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'COOR') then
+     Q = mySigma%mySegment(iSeg)%TemperatureSensor%Coor
+     R = mySigma%mySegment(iSeg)%TemperatureSensor%Radius
+     
+     do i=1,mg_mesh%level(ilev)%nvt
+      P = mg_mesh%level(ilev)%dcorvg(:,i)
+      dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+      IF (dist.le.R) then
+       mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = &
+       mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature + MLmat(i)*Tracer%oldSol(i)
+       mySigma%mySegment(iSeg)%TemperatureSensor%Volume = &
+       mySigma%mySegment(iSeg)%TemperatureSensor%Volume + MLmat(i)
+      END IF
+     end do
+   end if
+    
+   IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'OFF'.OR.&
+       ADJUSTL(TRIM(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq.'STL') then
+     
+     do i=1,mg_mesh%level(ilev)%nvt
+      if (myHeatObjects%Sensor(i).eq.iSeg) THEN
+       mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature = &
+       mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature + MLmat(i)*Tracer%oldSol(i)
+       mySigma%mySegment(iSeg)%TemperatureSensor%Volume = &
+       mySigma%mySegment(iSeg)%TemperatureSensor%Volume + MLmat(i)
+      END IF
+     end do
+   end if
+    
   END IF
  END DO
 end if

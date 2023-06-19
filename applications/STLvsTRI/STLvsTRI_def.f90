@@ -9,7 +9,8 @@ type tOFFmesh
  integer nel,nvt
 end type tOFFmesh
 type (tOFFmesh) :: OFFmesh 
-CHARACTER*(200) :: cProjectFolder,cShortProjectFile,cOFFMeshFile,cProjectGridFile,cAreaIntensityFile
+CHARACTER*(200) :: cProjectFolder,cShortProjectFile,cProjectGridFile,cAreaIntensityFile
+CHARACTER*(256) :: cOFFMeshFile
 integer iOK,iTriang,iRecLevel
 TYPE tBoxMesh
  REAL*8 extent(3,2)
@@ -38,27 +39,86 @@ REAL*8 :: dSurfIntCrit = 2.5d0
 
  CONTAINS
  
-SUBROUTINE readOFFMesh(cF)
-CHARACTER*(*) cF
+SUBROUTINE readOFFMesh(cFF,cF)
+CHARACTER*(*) cF,cFF
 integer i,iaux
+integer num,k,lt,i0,i1,invt,inel,iNum
+character*256 t
+character*256, allocatable ::  cOFFfiles(:)
 
-OPEN(File=trim(cF),unit=1)
-read(1,*)
-read(1,*) OFFmesh%nvt,OFFmesh%nel
+t = '.off'
+
+lt = len(adjustl(trim(t))) - 1
+k = 1
+num = 0
+do
+!   print *,cF(k:)
+   i = index(cF(k:),adjustl(trim(t)))
+   if (i==0) exit
+   num = num + 1
+   k = k + i + lt + 1
+end do
+ 
+write(*,*) "'"//trim(adjustl(cF))//"'", num
+
+allocate(cOFFfiles(num))
+
+k = 1
+num = 0
+do
+   i = index(cF(k:),adjustl(trim(t)))
+   if (i==0) exit
+   i0 = k
+   i1 = (k-1) + i + lt
+   num = num + 1
+   write(*,*) i0,i1
+   read(cF(i0:i1),'(A)') cOFFfiles(num)
+   write(*,*) "'"//trim(adjustl(cOFFfiles(num)))//"'"
+   k = k + i + lt + 1
+end do
+
+OFFmesh%nvt = 0
+OFFmesh%nel = 0
+
+DO iNum = 1 , Num
+ OPEN(File=trim(adjustl(cFF))//'/'//trim(adjustl(cOFFfiles(num))),unit=1)
+ read(1,*)
+ read(1,*) invt,inel
+ 
+ OFFmesh%nvt = OFFmesh%nvt + invt
+ OFFmesh%nel = OFFmesh%nel + inel
+ 
+ close(1)
+
+END DO
 
 allocate(OFFmesh%coor(OFFmesh%nvt,3))
 allocate(OFFmesh%kvert(OFFmesh%nel,3))
 
-DO i=1,OFFmesh%nvt
- read(1,*) OFFmesh%coor(i,:)
-END DO
+OFFmesh%nvt = 0
+OFFmesh%nel = 0
 
-DO i=1,OFFmesh%nel
- read(1,*) iaux,OFFmesh%kvert(i,:)
-END DO
+DO iNum = 1 , Num
+
+ OPEN(File=trim(adjustl(cFF))//'/'//trim(adjustl(cOFFfiles(num))),unit=1)
+ read(1,*)
+ read(1,*) invt,inel
+
+ DO i=1,invt
+  read(1,*) OFFmesh%coor(OFFmesh%nvt+i,:)
+ END DO
+
+ DO i=1,inel
+  read(1,*) iaux,OFFmesh%kvert(OFFmesh%nel+i,:)
+ END DO
+
+ OFFmesh%nvt = OFFmesh%nvt + invt
+ OFFmesh%nel = OFFmesh%nel + inel
+ 
+ close(1)
+end do
+
 OFFmesh%kvert =  OFFmesh%kvert + 1
-
-close(1)
 
 END SUBROUTINE readOFFMesh
 ! -------------------------------------------------------------------------------

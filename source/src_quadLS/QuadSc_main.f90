@@ -2700,49 +2700,11 @@ END SUBROUTINE ExtractVeloGradients
 !
 ! ----------------------------------------------
 !
-SUBROUTINE  GetNonNewtViscosity_sse()
-  INTEGER i
-  REAL*8 daux,taux
-  REAL*8 HogenPowerlaw
-  REAL*8 ViscosityMatModel
-
-  if (.not.bMasterTurnedOn) return 
-  
-  ILEV = NLMAX
-  CALL SETLEV(2)
-
-  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValU)
-  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-  CALL GetGradVelo_val(QuadSc,1)
-
-  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValV)
-  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-  CALL GetGradVelo_val(QuadSc,2)
-
-  CALL GetGradVelo_rhs(QuadSc,QuadSc%ValW)
-  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
-  CALL GetGradVelo_val(QuadSc,3)
-
-  DO i=1,SIZE(QuadSc%ValU)
-   daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
-     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
-     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
-     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
-   taux = Temperature(i)
-
-   Shearrate(i) = sqrt(2d0 * daux)
-   Viscosity(i) = ViscosityMatModel(daux,1,taux)
-
-  END DO
-
-END SUBROUTINE  GetNonNewtViscosity_sse
-!
-! ----------------------------------------------
-!
 SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux,dAlpha
-  REAL*8 AlphaViscosityMatModel,dMaxMat
+  REAL*8 AlphaViscosityMatModel,WallSlip
+  REAL*8 dMaxMat,dWSFactor
   integer ifld,iMat
 
   if (.not.bMasterTurnedOn) return 
@@ -2763,26 +2725,39 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   CALL GetGradVelo_val(QuadSc,3)
 
   DO i=1,SIZE(QuadSc%ValU)
+  
    daux = QuadSc%ValUx(i)**2d0 + QuadSc%ValVy(i)**2d0 + QuadSc%ValWz(i)**2d0 + &
-     0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
-     0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
-     0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
+          0.5d0*(QuadSc%ValUy(i)+QuadSc%ValVx(i))**2d0 + &
+          0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
+          0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
-   taux   = GenLinScalar%Fld(1)%val(i)
    
-   iMat = myMultiMat%InitMaterial
-   dMaxMat = 1d-5
-   do iFld=2,GenLinScalar%nOfFields
-    if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
-     iMat = iFld-1
-     dMaxMat = GenLinScalar%Fld(iFld)%val(i)
-    end if
-   end do
-!   dalpha = GenLinScalar%Fld(2)%val(i)
-     
-   Shearrate(i) = sqrt(2d0 * daux)
-   Viscosity(i) = AlphaViscosityMatModel(daux,iMat,taux)
-
+   IF (myMultiMat%nOfMaterials.gt.1) THEN 
+    taux   = GenLinScalar%Fld(1)%val(i)
+    iMat = myMultiMat%InitMaterial
+    dMaxMat = 1d-5
+    do iFld=2,GenLinScalar%nOfFields
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
+      iMat = iFld-1
+      dMaxMat = GenLinScalar%Fld(iFld)%val(i)
+     end if
+    end do
+    Shearrate(i) = sqrt(2d0 * daux)
+    Viscosity(i) = AlphaViscosityMatModel(daux,iMat,taux)
+    if (myMultiMat%Mat(iMat)%Rheology%bWallSlip) then
+     dWSFactor = WallSlip(shell(i),screw(i),iMat,Viscosity(i)*Shearrate(i))
+     Viscosity(i) = dWSFactor*Viscosity(i)
+    END IF
+   else
+    taux = Temperature(i)
+    Shearrate(i) = sqrt(2d0 * daux)
+    Viscosity(i) = AlphaViscosityMatModel(daux,1,taux)
+    if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
+     dWSFactor = WallSlip(shell(i),screw(i),1,Viscosity(i)*Shearrate(i))
+     Viscosity(i) = dWSFactor*Viscosity(i)
+    END IF
+   end if
+   
   END DO
 
 END SUBROUTINE  GetAlphaNonNewtViscosity_sse
@@ -2791,10 +2766,11 @@ END SUBROUTINE  GetAlphaNonNewtViscosity_sse
 !
 SUBROUTINE Calculate_Torque(mfile)
 implicit none
-INTEGER mfile,i
+INTEGER mfile,i,iSeg
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
 REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
-REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax
+REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax,dS
+REAL*8, allocatable :: SegmentForce(:,:)
 
 integer :: ilevel
 
@@ -2838,6 +2814,19 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
                      mg_mesh%level(ilevel)%kedge,&
                      mg_mesh%level(ilevel)%dcorvg,&
                      Viscosity,Torque1, E013,103)
+
+ if (.not.allocated(SegmentForce) )allocate(SegmentForce(3,mySigma%NumberOfSeg))
+ DO iSeg=1,mySigma%NumberOfSeg
+  call GetSegmentForce(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                      LinSc%ValP(NLMAX)%x,mySegmentIndicator,& 
+                      mg_mesh%level(ilevel)%kvert,&
+                      mg_mesh%level(ilevel)%karea,&
+                      mg_mesh%level(ilevel)%kedge,&
+                      mg_mesh%level(ilevel)%dcorvg,&
+                      Viscosity,SegmentForce(:,iSeg), E013,iSeg)
+ 
+ END DO
+ 
 END IF
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
@@ -2907,6 +2896,8 @@ CALL COMM_SUMM(dIntPres1)
 CALL COMM_SUMM(dIntPres2)
 CALL COMM_SUMM(dHeat)
 CALL COMM_SUMM(dVol)
+
+
 dPressureDifference = ((dIntPres2/dArea2) - (dIntPres1/dArea1))*1e-6 !!! [Bar]
 
 myPI = dATAN(1d0)*4d0
@@ -2917,7 +2908,13 @@ dVol = dVol / myThermodyn%density
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
 
- mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
+ IF     (ADJUSTL(TRIM(myProcess%pTYPE)).eq."THROUGHPUT") THEN
+  mySSE_covergence%Monitor(mySSE_covergence%iC) = dPressureDifference
+ ELSEIF (ADJUSTL(TRIM(myProcess%pTYPE)).eq."PRESSUREDROP") THEN
+  mySSE_covergence%Monitor(mySSE_covergence%iC) = dVolFlow2
+ ELSE
+  STOP
+ END IF
  mySSE_covergence%iC = MOD(mySSE_covergence%iC,mySSE_covergence%nC) + 1
 
  IF (itns.gt.mySSE_covergence%nC) THEN
@@ -2957,19 +2954,30 @@ IF (myid.eq.showID) THEN
   write(mterm,'(A,6ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_Volume_[l]_&_RT_[s]:",timens,dVolFlow1*3.6d0,dVolFlow1*3.6d0*myThermodyn%density,dVol,dVol/dVolFlow1*1000d0
   write(mfile,'(A,7ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]_stdERR[%]: ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference,mySSE_covergence%std_dev
   write(mterm,'(A,7ES14.4)') "Throughput_[l/h]_&_[kg/h]_&_PressureDiff[bar]_stdERR[%]: ",timens,dVolFlow2*3.6d0,dVolFlow2*3.6d0*myThermodyn%density,dPressureDifference,mySSE_covergence%std_dev
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
-  write(mfile,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
-  write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
-END IF
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
-  write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
-  write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
-END IF
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
-  write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
-  write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
-END IF
-!  WRITE(666,'(7G16.8)') Timens,Torque1,Torque2 
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+    write(mfile,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
+    write(mterm,'(A,3ES14.4,A,ES14.4)') "Power_acting_on_the_screws_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),1e-3*daux*Torque2(3),' & ',1e-3*dHeat
+  END IF
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+    write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+    write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+  END IF
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+    write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+    write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
+  END IF
+
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+  DO iSeg=1,mySigma%NumberOfSeg
+    dS = 0d0
+    if (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') dS = -1d0
+    if (mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') dS = +1d0
+    
+    write(mfile,'(A,I0,A,4ES14.4)') "Force_acting_on_Segment",iSeg,"_[kN]:",timens,dS*1e-3*1e-1*1e-4*SegmentForce(:,iSeg)
+    write(mterm,'(A,I0,A,4ES14.4)') "Force_acting_on_Segment",iSeg,"_[kN]:",timens,dS*1e-3*1e-1*1e-4*SegmentForce(:,iSeg)
+  END DO
+ END IF
+
 END IF
 
 5  FORMAT(100('-'))
@@ -3871,11 +3879,11 @@ endif
 
 bGoalsReached = .true.
 
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
- if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
-    if (itns.ge.nitns) bGoalsReached=.false.
- end if
-END IF
+! IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
+!  if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
+!     if (itns.ge.nitns) bGoalsReached=.false.
+!  end if
+! END IF
    
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  if (istart.eq.1) then
@@ -3889,5 +3897,34 @@ if (.not.bGoalsReached) THEN
 end if
 
 END SUBROUTINE DetermineIfGoalsWereReached
+!
+! ----------------------------------------------
+!
+SUBROUTINE DNA_GetTorques(mfile)
+integer mfile
+REAL*8 Torque1(3),daux
+
+external E013
+
+ilev = nlmax
+call setlev(2)
+
+call GetDNATorque(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                  LinSc%ValP(NLMAX)%x,BndrForce,& !How separate????
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  Viscosity,Torque1, E013,1)
+
+!daux = 1/(mu*rho*OMEGA*R_i^2*H)
+daux = 1d0/(Properties%Viscosity(1)*Properties%Density(1)*(2*3.14d0*(1d0/60d0))*(0.2d0**2d0)*0.8d0)
+                  
+IF (myid.eq.1) then
+ write(mfile,'(A,4ES14.4)') "Torque acting on surface:",timens,daux*Torque1(1:3)
+ write(mterm,'(A,4ES14.4)') "Torque acting on surface:",timens,daux*Torque1(1:3)
+end if
+
+END SUBROUTINE DNA_GetTorques
 
 END MODULE Transport_Q2P1

@@ -148,37 +148,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
 
  CALL CommBarrier()
- CMESH1="_mesh/                 "                     ! PARALLEL
- LenFile = LEN((TRIM(ADJUSTL(cGridFileName))))
- WRITE(CMESH1(7:7+LenFile),'(A,A1)') TRIM(ADJUSTL(cGridFileName)),"/"
- IF (myid.ne.0) THEN                                  ! PARALLEL
-   kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
-   iSubPart = FLOOR(DBLE(myid)/DBLE(kSubPart)-1d-10)+1
-   iPart    = myid - (iSubPart-1)*kSubPart
-   IF     (iSubpart.lt.10 ) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A5,I1,A1)') "sub00",iSubpart,"/"  ! PARALLEL
-   ELSEIF (iSubpart.lt.100) THEN
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A4,I2,A1)') "sub0",iSubpart,"/"  ! PARALLEL
-   ELSE
-     WRITE(CMESH1(7+LenFile+1:13+LenFile+1),'(A3,I3,A1)') "sub",iSubpart,"/"  ! PARALLEL
-   END IF
-
-   cProjectFolder = CMESH1
-
-   IF      (iPart.lt.10) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A6,I1,A4)') "GRID00",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A2,I1)') "00",iPart
-   ELSE IF (iPart.lt.100) THEN
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A5,I2,A4)') "GRID0",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(A1,I2)') "0",iPart
-   ELSE
-     WRITE(CMESH1(14+LenFile+1:24+LenFile+1),'(A4,I3,A4)') "GRID",iPart,".tri"  ! PARALLEL
-     WRITE(cProjectNumber(1:3),'(I3)') iPart
-   END IF
- ELSE                                                 ! PARALLEL
-   cProjectFolder = CMESH1
-   WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
- END IF                                               ! PARALLEL
+ 
+ include 'PartitionReader.f90'
 
  CALL Init_QuadScalar(mfile)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -502,22 +473,40 @@ INTEGER iSeg,iFile,NumberOfSTLDescription
 
     NumberOfSTLDescription = 0
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".or.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."OFF") THEN
       ALLOCATE(mySigma%mySegment(iSeg)%idxCgal(mySigma%mySegment(iSeg)%nOFFfiles))
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        NumberOfSTLDescription = NumberOfSTLDescription + 1
        mySigma%mySegment(iSeg)%idxCgal(iFile) = NumberOfSTLDescription
       END DO
+      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       IF (adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."STL".or.&
+           adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."OFF") then
+        ALLOCATE(mySigma%mySegment(iSeg)%TemperatureSensor%idxCgal(mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles))
+        DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+         NumberOfSTLDescription = NumberOfSTLDescription + 1
+         mySigma%mySegment(iSeg)%TemperatureSensor%idxCgal(iFile) = NumberOfSTLDescription
+        END DO
+       END IF
+      END IF
      END IF
     END DO
 
     IF (myid.eq.1) OPEN(UNIT=633,FILE='mesh_names.offs')
     IF (myid.eq.1) write(633,'(I0)') NumberOfSTLDescription
     DO iSeg=1,mySigma%NumberOfSeg
-     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL") THEN
+     IF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."STL".or.ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ART)).eq."OFF") THEN
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
        IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%OFFfiles(iFile)))
       END DO
+      IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
+       IF (adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."STL".or.&
+           adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%SensorType)).eq."OFF") then
+        DO iFile=1,mySigma%mySegment(iSeg)%TemperatureSensor%nOFFfiles
+         IF (myid.eq.1) write(633,'(A)') adjustl(trim(mySigma%mySegment(iSeg)%TemperatureSensor%OFFfiles(iFile)))
+        END DO
+       END IF
+      END IF
      END IF
     END DO
     IF (myid.eq.1) CLOSE(633)

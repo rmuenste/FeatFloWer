@@ -1328,8 +1328,8 @@ WRITE(2,'(A)') ADJUSTL(TRIM(cf))
  
 DO iBnds = 1, nBnds
  cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
- WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+ WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
+ WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
  j=0
@@ -1708,12 +1708,31 @@ INTEGER iLevel
 INTEGER JEL,KEL,ivt,jvt,nLengthE,nLengthV
 INTEGER iaux,jaux,jj,kv(8),II
 LOGICAL ,ALLOCATABLE :: bGot(:)
+
+TYPE tMG
+ INTEGER, allocatable :: ke(:),jv(:)
+END TYPE tMG
+TYPE (tMG), ALLOCATABLE :: mgMG(:)
+
 ! -------------- workspace -------------------
+
 
 ! IF (myid.NE.0) THEN
 
  NLMAX = NLMAX+iLevel
 
+ open(unit=887,file='_data/MG.dat')
+ ALLOCATE(mgMG(NLMAX))
+ DO II=1,NLMAX
+  nlengthV = (2**(II-1)+1)**3
+  ALLOCATE(mgMG(II)%ke(nlengthV))
+  ALLOCATE(mgMG(II)%jv(nlengthV))
+  DO ivt=1,nlengthV
+   READ(887,*) iaux,mgMG(II)%ke(ivt),mgMG(II)%jv(ivt)
+  END DO
+ END DO
+ close(887)
+ 
  ILEV = NLMIN
  NEL  = mg_mesh%level(ilev)%nel
  nLengthE = 8**(NLMAX-1)
@@ -1724,15 +1743,13 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
  ALLOCATE(myDump%Vertices(NEL,nLengthV))
 
  DO IEL = 1,mg_mesh%level(NLMIN)%nel
-
   myDump%Elements(IEL,1) = IEL
   iaux = 1
   DO II=1+1,NLMAX
    jaux = iaux
    DO jel=1,jaux
     kel = myDump%Elements(iel,jel)
-    CALL Get8Elem(mg_mesh%level(II)%kadj,&
-      kv,kel)
+    CALL Get8Elem(mg_mesh%level(II)%kadj,kv,kel)
     DO jj = 2,8
      iaux = iaux + 1
      myDump%Elements(iel,iaux) = kv(jj)
@@ -1741,35 +1758,37 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
   END DO
  END DO 
 
- ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
  DO IEL = 1,mg_mesh%level(NLMIN)%nel
-  bGot = .FALSE.
-  iaux = 0
-  DO JEL = 1,nLengthE
-   KEL = myDump%Elements(IEL,JEL)
-   
-   CALL getVert(mg_mesh%level(NLMAX)%kvert,&
-                kv,KEL)
-
-   DO IVT = 1,8
-    JVT = kv(IVT)
-    IF (.NOT.bGot(JVT)) THEN
-     iaux = iaux + 1
-     myDump%Vertices(IEL,iaux) = JVT
-     bGot(JVT) = .TRUE.
-    END IF
-   END DO
-
+  DO IVT = 1,nLengthV
+   JEL = mgMG(NLMAX)%ke(ivt)
+   kel = myDump%Elements(iel,jel)
+   JVT = mgMG(NLMAX)%jv(ivt)
+   myDump%Vertices(IEL,IVT) = mg_mesh%level(NLMAX)%kvert(jvt,kel)
   END DO
-
-!  IF (iaux.ne.729) WRITE(*,*) myid,iel,iaux
-  
  END DO
- DEALLOCATE(bGot)
-
+ 
+!  ALLOCATE(bGot(mg_mesh%level(NLMAX)%nvt))
+!  
+!  DO IEL = 1,mg_mesh%level(NLMIN)%nel
+!   bGot = .FALSE.
+!   iaux = 0
+!   DO JEL = 1,nLengthE
+!    KEL = myDump%Elements(IEL,JEL)
+!    CALL getVert(mg_mesh%level(NLMAX)%kvert,kv,KEL)
+!    DO IVT = 1,8
+!     JVT = kv(IVT)
+!     IF (.NOT.bGot(JVT)) THEN
+!      iaux = iaux + 1
+!      myDump%Vertices(IEL,iaux) = JVT
+!      bGot(JVT) = .TRUE.
+!     END IF
+!    END DO
+!   END DO
+!  END DO
+!  DEALLOCATE(bGot)
+! 
+ DEALLOCATE(mgMG)
  NLMAX = NLMAX - iLevel
-!   write(*,*) size(myDump%Vertices),"asdas dasd sad sa",myid
-!   pause
 
 ! END IF
 
@@ -1790,12 +1809,12 @@ LOGICAL ,ALLOCATABLE :: bGot(:)
 
  END SUBROUTINE Get8Elem
 
- SUBROUTINE getVert(BigKv,SmallKv,elem)
- INTEGER BigKv(8,*),SmallKv(8),elem
-
- SmallKv(:) = BigKv(:,elem)
-
- END SUBROUTINE getVert
+!  SUBROUTINE getVert(BigKv,SmallKv,elem)
+!  INTEGER BigKv(8,*),SmallKv(8),elem
+! 
+!  SmallKv(:) = BigKv(:,elem)
+! 
+!  END SUBROUTINE getVert
 
 END SUBROUTINE CreateDumpStructures
 !
@@ -2106,7 +2125,7 @@ USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
 INTEGER kvert(8,*),iO,ioffset,ive,ivt,iField,i,istat
-CHARACTER fileid*(5),filename*(27),procid*(3),cGenScalar*(50)
+CHARACTER fileid*(5),filename*(28),procid*(3),cGenScalar*(50)
 INTEGER NoOfElem,NoOfVert
 REAL*8,ALLOCATABLE ::  tau(:,:)
 REAL*8 psi(6)
@@ -2118,11 +2137,11 @@ NoOfElem = KNEL(ILEV)
 NoOfVert = KNVT(ILEV)
 
 filename=" "
-WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_***.',iO,".vtu"
+WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_****.',iO,".vtu"
 
 IF(myid.eq.showid) WRITE(*,'(104("="))') 
 IF(myid.eq.showid) WRITE(*,*) "Outputting vtk file into ",filename
-WRITE(filename(15:17),'(I3.3)') myid
+WRITE(filename(15:18),'(I4.4)') myid
 
 OPEN (UNIT=iunit,FILE=filename,action='write',iostat=istat)
 if(istat .ne. 0)then
@@ -2358,7 +2377,12 @@ DO iField=1,SIZE(myExport%Fields)
   write(iunit, *)"        </DataArray>"
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Melt",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",myHeatObjects%Channel(ivt)
+   write(iunit, '(A,E16.7)')"        ",REAL(myHeatObjects%Channel(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Sensor",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,I10)')"        ",myHeatObjects%Sensor(ivt)
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2650,6 +2674,7 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Block","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Wire","""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Melt","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Sensor","""/>"
  CASE('ElemSizeDist')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","ElemSizeDist","""/>"
  CASE('Distamce')
@@ -2718,7 +2743,7 @@ write(imainunit, *)"    </PPoints>"
 
 do iproc=1,subnodes
  filename=" "
- WRITE(filename(1:),'(A9,I3.3,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
+ WRITE(filename(1:),'(A9,I4.4,A1,I5.5,A4)') 'res_node_',iproc,'.',iO,".vtu"
  write(imainunit, '(A,A,A)')"      <Piece Source=""",trim(adjustl(filename)),"""/>"  
 end do
 write(imainunit, *)"  </PUnstructuredGrid>"
@@ -2908,7 +2933,7 @@ CLOSE(1)
 
  DO iBnds = 1, nBnds
   cf = ' '
-  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
    j=0
@@ -3946,8 +3971,8 @@ if (myid.eq.0) then
   
  DO iBnds = 1, nBnds
   cf = ' '
-  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
-  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))//".par"
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
+  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
   
@@ -4174,3 +4199,124 @@ end do
 END SUBROUTINE FindElemKNPR
 
 END SUBROUTINE SetPressBC_NewGen
+!
+! ----------------------------------------------
+!
+SUBROUTINE INT_ParP0toQ2(P0,Q2,DAUX,DVOL,KVERT,KEDGE,KAREA,nvt,net,nat,nel,iFLD,bParallel)
+!***********************************************************************
+!    Purpose:  - Interpolates the solution pressure DP to
+!                the vector VPL of dimension NVT with
+!                values in the vertices
+!-----------------------------------------------------------------------
+IMPLICIT NONE
+
+REAL*8 Q2(*),DAUX(*)
+INTEGER P0(*)
+INTEGER nvt,net,nat,nel,iFLD
+INTEGER NNVE,NNEE,NNAE
+PARAMETER (NNVE=8,NNEE=12,NNAE=6)
+INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+
+REAL*8 DDAVOL,DPIEL,DVOL(*)
+integer iv(12),ivt,iel
+logical bParallel
+!-----------------------------------------------------------------------
+
+CALL  LCL1 (DAUX,NVT+NET+NAT+NEL)
+CALL  LCL1 (Q2,NVT+NET+NAT+NEL)
+
+DO IEL=1,NEL
+
+ DDAVOL=DVOL(IEL)
+ 
+ IF (P0(IEL).eq.iFld-1) then
+  DPIEL=1d0
+ Else
+  DPIEL=0d0
+ end if
+
+ IV(1:8)=KVERT(1:8,IEL)
+ Q2(IV(1:8))=Q2(IV(1:8))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:8))=DAUX(IV(1:8))+0.125d0*DDAVOL
+ 
+ IV(1:12)=nvt + KEDGE(1:12,IEL)
+ Q2(IV(1:12))=Q2(IV(1:12))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:12))=DAUX(IV(1:12))+0.125d0*DDAVOL
+
+ IV(1:6)=nvt + net + KAREA(1:6,IEL)
+ Q2(IV(1:6))=Q2(IV(1:6))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:6))=DAUX(IV(1:6))+0.125d0*DDAVOL
+ 
+ IV(1)=nvt + net + nat + iel
+ Q2(IV(1))=Q2(IV(1))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1))=DAUX(IV(1))+0.125d0*DDAVOL
+ 
+END DO
+
+if (bParallel) then
+ CALL E013sum(q2)
+ CALL E013sum(daux)
+end if
+
+DO IVT=1,NVT+NET+NAT+NEL
+ Q2(IVT)=Q2(IVT)/DAUX(IVT)
+END DO
+
+END SUBROUTINE INT_ParP0toQ2
+!
+! ----------------------------------------------
+!
+SUBROUTINE EXPORT_TRIA(NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT,&
+           DCVG,KVERT,KADJ,KEDGE,DCAG,KVEL,KAREA,KNPR,CFILE,II)
+implicit none
+
+integer NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT,II
+integer KVERT(8,*),KADJ(6,*),KEDGE(12,*),KAREA(6,*),KNPR(*)
+integer :: KVEL(NVEL,*)
+real*8  DCVG(3,*),DCAG(3,*)
+CHARACTER CFILE*60,cF*128
+
+integer i
+           
+           
+write(cF,'(A,I0)') 'tria_'//ADJUSTL(TRIM(CFILE))//'_L',II
+open(file=adjustl(TRIM(cF)),unit=1442)
+
+WRITE(1442,'(9(I0,(" ")))') NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NBCT
+
+do i=1,nvt
+ WRITE(1442,'(3ES16.8)') DCVG(:,i)
+end do
+
+do i=1,nat
+ WRITE(1442,'(3ES16.8)') DCAG(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(8I8)') KVERT(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(6I8)') KADJ(:,i)
+end do
+
+do i=1,nel
+ WRITE(1442,'(12I8)') KEDGE(:,i)
+end do
+
+! do i=1,nvt
+!  WRITE(1442,'(100I8)') KVEL(:,i)
+! end do
+
+do i=1,nel
+ WRITE(1442,'(6I8)') KAREA(:,i)
+end do
+
+! do i=1,nvt
+!  WRITE(1442,'(I8)') KNPR(i)
+! end do
+
+close(1442)
+
+END SUBROUTINE EXPORT_TRIA
+
