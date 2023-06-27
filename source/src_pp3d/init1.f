@@ -1111,15 +1111,15 @@ C=======================================================================
 C
       IF (ISORTU.GT.0) THEN                                            ! PARALLEL
       DO ILEV=NLMIN,NLMAX                                              ! PARALLEL
-       CALL CommSortPre(KWORK(L(KLTRA1(ILEV))),KWORK(L(KLTRA2(ILEV))), ! PARALLEL
-     *      KNU(ILEV),ILEV,1)                                          ! PARALLEL
+!        CALL CommSortPre(KWORK(L(KLTRA1(ILEV))),KWORK(L(KLTRA2(ILEV))), ! PARALLEL
+!      *      KNU(ILEV),ILEV,1)                                          ! PARALLEL
       END DO                                                           ! PARALLEL
       END IF                                                           ! PARALLEL
 C                                                                      ! PARALLEL
       IF (ISORTP.GT.0) THEN                                            ! PARALLEL
       DO ILEV=NLMIN,NLMAX                                              ! PARALLEL
-       CALL CommSortPre(KWORK(L(KLTRC1(ILEV))),KWORK(L(KLTRC2(ILEV))), ! PARALLEL
-     *      KNEL(ILEV),ILEV,2)                                         ! PARALLEL
+!        CALL CommSortPre(KWORK(L(KLTRC1(ILEV))),KWORK(L(KLTRC2(ILEV))), ! PARALLEL
+!      *      KNEL(ILEV),ILEV,2)                                         ! PARALLEL
       END DO                                                           ! PARALLEL
       END IF                                                           ! PARALLEL
 C
