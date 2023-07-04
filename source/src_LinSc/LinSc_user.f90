@@ -119,7 +119,7 @@ DO i=1,Tracer%ndof
  Y = mg_mesh%level(nlmax)%dcorvg(2,i)
  Z = mg_mesh%level(nlmax)%dcorvg(3,i)
  
- IF (Tracer%knpr(i).ge.100) THEN
+ IF (Tracer%knpr(i).ge.100.and.Tracer%knpr(i).lt.1000) THEN
   Tracer%val(NLMAX)%x(i)= myProcess%SegThermoPhysProp(Tracer%knpr(i)-100)%T_Const
  END IF
 
@@ -167,7 +167,17 @@ DO i=1,Tracer%ndof
   Tracer%val(NLMAX)%x(i)= myProcess%Ti
  END IF
 
+ IF (Tracer%knpr(i).ge.1000.and.Tracer%knpr(i).lt.2000) THEN
+  iInflow = Tracer%knpr(i) - 1000
+  TempBC = myProcess%myInflow(iInflow)%Temperature 
+  Tracer%val(NLMAX)%x(i)= TempBC
+ END IF
  
+ IF (Tracer%knpr(i).ge.2000) THEN
+  TempBC = DBLE(Tracer%knpr(i) - 2000)
+  Tracer%val(NLMAX)%x(i)= TempBC
+ END IF
+
 END DO
 
 END SUBROUTINE Boundary_LinSc_Val_XSE

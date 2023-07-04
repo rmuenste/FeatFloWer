@@ -410,7 +410,10 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
  Tracer%knpr(I) = 0
 
- IF (myBoundary%iInflow(i).lt.0) Tracer%knpr(I) = 1
+ IF (myBoundary%iInflow(i).lt.0) Tracer%knpr(I) = 1000+abs(myBoundary%iInflow(i))
+ 
+ IF (myBoundary%iTemperature(i).gt.0) Tracer%knpr(I) = 2000 + myBoundary%iTemperature(i)
+ 
  IF (myBoundary%iInflow(i).eq.10) Tracer%knpr(I) = 1
  
  IF (myProcess%SegmentThermoPhysProps) THEN
