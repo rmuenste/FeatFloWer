@@ -326,7 +326,7 @@
       
       DO I=1,pNAT
        IF (myFACELINK(1,I).ne.0) THEN
-        IF (myFACELINK(1,I).ne.myFACEPINK(1,I).ne.0) THEN
+        IF (myFACELINK(1,I) /= myFACEPINK(1,I)) THEN
          pID = myid
          PJD = myFACEPINK(2,I) - myid
          iFace = myFACELINK(1,I)
@@ -369,7 +369,7 @@
        pJD = mg_mpi(1)%parST(pID)%Neigh
        DO I=1,pNAT
         IF (myFACELINK(1,I).ne.0) THEN
-         IF (myFACELINK(1,I).ne.myFACEPINK(1,I).ne.0) THEN
+         IF (myFACELINK(1,I) /= myFACEPINK(1,I)) THEN
           IF (pJD.eq.myFACEPINK(2,I) - myid) THEN
            iFace = myFACELINK(1,I)
            jFace = myFACEPINK(1,I) - myFACELINK(1,I)
