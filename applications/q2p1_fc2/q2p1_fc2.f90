@@ -43,6 +43,7 @@ PROGRAM Q2P1_FC2
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
+  !call step_simulation()
 !
 !  IF (bTracer) THEN
 !    ! Solve transport equation for linear scalar

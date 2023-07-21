@@ -1527,15 +1527,11 @@ CALL GetNonNewtViscosity()
 IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
-
-!CALL IntegrateShearrate()
                         
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
-
-!if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
 
 !IF (myid.ne.0) THEN
 ! CALL ResampleToHEX(1)
