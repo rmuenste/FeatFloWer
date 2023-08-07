@@ -1,3 +1,411 @@
+  SUBROUTINE PARENTCOMM_OLD(NAT,NEL,NVT,DCORVG,DCORAG,KAREA,KVERT) !ok
+    USE PP3D_MPI
+    
+    implicit none
+    REAL*8  DCORAG(3,*),DCORVG(3,*)
+    INTEGER KAREA(6,*),KVERT(8,*)
+    INTEGER NAT,NEL,NVT
+    INTEGER I,J,JI,K,iaux
+    REAL*8,ALLOCATABLE ::  PXYZ(:,:),VXYZ(:,:)
+    REAL*8,ALLOCATABLE ::  pPXYZ(:,:),pVXYZ(:,:)
+    REAL*8 DIST
+
+    INTEGER pNEL,pNAT,pNVT,pID,pJD
+    INTEGER ,DIMENSION(:,:), ALLOCATABLE :: ParFind
+    INTEGER :: NodeTab(subnodes,subnodes),iCount
+    CHARACTER*9 ccgcc
+
+    TYPE TVector
+      INTEGER :: i,Num
+      INTEGER, DIMENSION(:,:), ALLOCATABLE :: Mids,Aux
+    END TYPE TVector
+
+    TYPE TStructure
+      INTEGER :: NeighNum
+      TYPE(TVector), DIMENSION(:), ALLOCATABLE :: Face
+    END TYPE TStructure
+    TYPE(TStructure), DIMENSION(:), ALLOCATABLE :: NeighSt
+
+    ALLOCATE (PXYZ(3,NAT),VXYZ(3,NVT))
+    ALLOCATE (pPXYZ(3,NAT),pVXYZ(3,NVT))
+
+    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+    !
+    !--------------------------------------------------------------
+    !CREATING MAPPING STRUCTURE FOR MASTER --> ASSISTANT //ELEMENTS
+    !--------------------------------------------------------------
+    IF (myid.eq.MASTER) THEN
+      coarse%pElem = NEL
+      coarse%pFace = NAT
+      coarse%pVert = NVT
+      ALLOCATE (coarse%pElemLink(subnodes,coarse%pElem))
+      ALLOCATE (coarse%pNEL(subnodes))
+      ALLOCATE (coarse%pNVT(subnodes))
+      ALLOCATE (coarse%pFaceLink(subnodes,coarse%pFace))
+      ALLOCATE (coarse%pVERTLink(subnodes,coarse%pVert))
+      ALLOCATE (coarse%pDX(coarse%pFace))
+      ALLOCATE(coarse%myELEMLINK(NEL))
+      ALLOCATE(coarse%myVERTLINK(NVT))
+    ELSE
+      coarse%pFace = NAT
+      ALLOCATE (coarse%DX(coarse%pFace))
+      ALLOCATE(coarse%myELEMLINK(NEL))
+      ALLOCATE(coarse%myVERTLINK(NVT))
+    END IF
+
+    !
+    ! --------------------------------------------------------------------------------------------------------
+    !
+    DO I=1,NVT
+    VXYZ(1,I)=DCORVG(1,I)
+    VXYZ(2,I)=DCORVG(2,I)
+    VXYZ(3,I)=DCORVG(3,I)
+    END DO
+
+
+    pNVT=0
+    IF (myid.eq.0) THEN
+
+      coarse%pVERTLINK = 0
+      
+      CALL InitOctTree(DCORVG,nvt)
+
+      DO pID=1,subnodes
+      CALL RECVI_myMPI(pNVT ,pID)
+      CALL RECVD_myMPI(pVXYZ,3*pNVT,pID)
+      coarse%pNVT(pID)=pNVT
+
+      DO I=1,pNVT
+      
+      CALL FindInOctTree(dcorvg,nvt,pVXYZ(:,I),J,DIST)
+      IF (J.lt.0) then
+       WRITE(*,*) I,"PROBLEM of vert assignement ..."
+      end if
+      IF (DIST.LT.DEpsPrec) THEN 
+       coarse%pVERTLINK(pID,I)=J
+      END IF
+      
+      END DO
+      END DO
+
+      CALL FreeOctTree()
+
+      DO pID=1,subnodes
+      iaux = 0
+      DO I=1,NVT
+      IF (coarse%pVERTLINK(pID,I).NE.0) THEN
+        iaux = iaux + 1
+        coarse%myVERTLINK(iaux)=coarse%pVERTLINK(pID,I)
+      END IF
+      END DO
+      !  WRITE(*,'(2I8,A,<iaux>I8)') pID,iaux,' | ',coarse%myELEMLINK(1:iaux)
+      CALL SENDI_myMPI(iaux ,pID)
+      CALL SENDK_myMPI(coarse%myVERTLINK,iaux,pID)
+
+      END DO
+
+    ELSE
+      CALL SENDI_myMPI(NVT ,0)
+      CALL SENDD_myMPI(VXYZ,3*NVT,0)
+      CALL RECVI_myMPI(iaux ,0)
+      CALL RECVK_myMPI(coarse%myVERTLINK,iaux,0)
+      !  ccgcc = 'aaa_X.txt'
+      !  WRITE(ccgcc(5:5),'(I1)') myid
+      !  OPEN(FILE = ccgcc, UNIT = 555)
+      !  WRITE(555,'(2I8,A,<NEL>I8)') myid,NEL,' | ',coarse%myELEMLINK(1:NEL)
+      !  CLOSE (555)
+
+    END IF
+
+    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+    !
+    ! --------------------------------------------------------------------------------------------------------
+    !
+    DO I=1,NEL
+    PXYZ(1,I)=0d0
+    PXYZ(2,I)=0d0
+    PXYZ(3,I)=0d0
+
+    DO J=1,8
+    PXYZ(1,I) = PXYZ(1,I) + DCORVG(1,KVERT(J,I))
+    PXYZ(2,I) = PXYZ(2,I) + DCORVG(2,KVERT(J,I))
+    PXYZ(3,I) = PXYZ(3,I) + DCORVG(3,KVERT(J,I))
+    END DO
+
+    PXYZ(1,I)=0.125d0*PXYZ(1,I)
+    PXYZ(2,I)=0.125d0*PXYZ(2,I)
+    PXYZ(3,I)=0.125d0*PXYZ(3,I)
+
+    END DO
+
+    IF (myid.eq.0) THEN
+
+      coarse%pELEMLINK = 0
+
+      CALL InitOctTree(PXYZ,nel)
+
+      DO pID=1,subnodes
+      CALL RECVI_myMPI(pNEL ,pID)
+      CALL RECVD_myMPI(pPXYZ,3*pNEL,pID)
+      coarse%pNEL(pID)=pNEL
+
+      DO I=1,pNEL
+       CALL FindInOctTree(PXYZ,nel,pPXYZ(:,I),J,DIST)
+       IF (J.lt.0) then
+        WRITE(*,*) I,"PROBLEM of elem assignement ..."
+       end if
+       IF (DIST.LT.DEpsPrec) THEN
+        coarse%pELEMLINK(pID,I)=J
+       END IF
+      
+      END DO
+      END DO
+
+      CALL FreeOctTree()
+       
+      DO pID=1,subnodes
+      iaux = 0
+      DO I=1,NEL
+      IF (coarse%pELEMLINK(pID,I).NE.0) THEN
+        iaux = iaux + 1
+        coarse%myELEMLINK(iaux)=coarse%pELEMLINK(pID,I)
+      END IF
+      END DO
+      !  WRITE(*,'(2I8,A,<iaux>I8)') pID,iaux,' | ',coarse%myELEMLINK(1:iaux)
+      CALL SENDK_myMPI(coarse%myELEMLINK,iaux,pID)
+
+      END DO
+
+    ELSE
+      CALL SENDI_myMPI(NEL ,0)
+      CALL SENDD_myMPI(PXYZ,3*NEL,0)
+      CALL RECVK_myMPI(coarse%myELEMLINK,NEL,0)
+      !  ccgcc = 'aaa_X.txt'
+      !  WRITE(ccgcc(5:5),'(I1)') myid
+      !  OPEN(FILE = ccgcc, UNIT = 555)
+      !  WRITE(555,'(2I8,A,<NEL>I8)') myid,NEL,' | ',coarse%myELEMLINK(1:NEL)
+      !  CLOSE (555)
+
+    END IF
+
+    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+    !--------------------------------------------------------------
+    !CREATING MAPPING STRUCTURE FOR MASTER --> ASSISTANT //FACES
+    !--------------------------------------------------------------
+
+    DO I=1,NAT
+    PXYZ(1,I)=DCORAG(1,I)
+    PXYZ(2,I)=DCORAG(2,I)
+    PXYZ(3,I)=DCORAG(3,I)
+    END DO
+
+    IF (myid.eq.0) THEN
+
+      ALLOCATE (NeighSt(subnodes))
+      ALLOCATE (ParFind(4,NAT))
+      ParFind=0; NodeTab=0
+
+      CALL InitOctTree(PXYZ,nat)
+
+      DO pID=1,subnodes
+      CALL RECVI_myMPI(pNAT ,pID)
+      CALL RECVD_myMPI(pPXYZ,3*pNAT,pID)
+
+      DO I=1,pNAT
+      CALL FindInOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST)
+      IF (J.lt.0) then
+       WRITE(*,*) I,"PROBLEM of face assignement ..."
+      end if
+      IF (DIST.LT.DEpsPrec) THEN
+       coarse%pFACELINK(pID,I)=J
+       IF (ParFind(1,J).EQ.0) THEN
+         ParFind(1,J) = pID
+         ParFind(2,J) = I
+       ELSE
+         ParFind(3,J) = pID
+         ParFind(4,J) = I
+       END IF
+      END IF
+
+      CALL FindInPeriodicOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST,dPeriodicity)
+      IF (DIST.LT.DEpsPrec) THEN
+       coarse%pFACELINK(pID,I)=J
+       IF (ParFind(1,J).EQ.0) THEN
+         ParFind(1,J) = pID
+         ParFind(2,J) = I
+       ELSE
+         ParFind(3,J) = pID
+         ParFind(4,J) = I
+       END IF
+      END IF
+      
+    END DO
+    END DO
+
+    CALL FreeOctTree()
+      
+    ! Here I try to build up the structures for communication
+    DO I=1,NAT
+    IF (ParFind(3,I).NE.0) THEN
+      NodeTab(ParFind(1,I),ParFind(3,I)) = NodeTab(ParFind(1,I),ParFind(3,I)) + 1
+      NodeTab(ParFind(3,I),ParFind(1,I)) = NodeTab(ParFind(3,I),ParFind(1,I)) + 1
+    END IF
+    END DO
+
+     DO pID=1,subnodes
+!       write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
+     END DO
+!      write(*,*) 'dPeriodicity: ',dPeriodicity
+!      pause
+
+!     pause
+    DO pID=1,subnodes
+    ALLOCATE (NeighSt(pID)%Face(subnodes))
+    END DO
+
+    DO pID=1,subnodes
+    iCount = 0
+    DO pJD=1,subnodes
+    IF (NodeTab(pID,pJD).NE.0) THEN
+      NeighSt(pID)%Face(pJD)%i=1
+      NeighSt(pID)%Face(pJD)%Num=NodeTab(pID,pJD)
+      ALLOCATE (NeighSt(pID)%Face(pJD)%Mids(2,NodeTab(pID,pJD)))
+      ALLOCATE (NeighSt(pID)%Face(pJD)%Aux(2,NodeTab(pID,pJD)))
+      iCount = iCount + 1
+    END IF
+    END DO
+    NeighSt(pID)%NeighNum = iCount
+    END DO
+
+    DO I=1,NAT
+    IF (ParFind(3,I).NE.0) THEN
+      pID = ParFind(1,I)
+      pJD = ParFind(3,I)
+
+      NeighSt(pID)%Face(pJD)%Mids(1,NeighSt(pID)%Face(pJD)%i) = ParFind(4,I)
+      NeighSt(pID)%Face(pJD)%Mids(2,NeighSt(pID)%Face(pJD)%i) = ParFind(2,I)
+      NeighSt(pID)%Face(pJD)%i = NeighSt(pID)%Face(pJD)%i + 1
+
+      NeighSt(pJD)%Face(pID)%Mids(1,NeighSt(pJD)%Face(pID)%i) = ParFind(2,I)
+      NeighSt(pJD)%Face(pID)%Mids(2,NeighSt(pJD)%Face(pID)%i) = ParFind(4,I)
+      NeighSt(pJD)%Face(pID)%i = NeighSt(pJD)%Face(pID)%i + 1
+      !   write(*,*) ParFind(2,I), ParFind(4,I)
+
+    END IF
+    END DO
+
+    DO pID=1,subnodes
+    DO pJD=1,subnodes
+    IF (NodeTab(pID,pJD).NE.0) THEN
+      NeighSt(pID)%Face(pJD)%Aux = NeighSt(pID)%Face(pJD)%Mids
+      CALL SORT2D(NeighSt(pID)%Face(pJD)%Mids(1,:),&
+        NeighSt(pID)%Face(pJD)%Mids(2,:),&
+        NeighSt(pID)%Face(pJD)%Num)
+      CALL SORT2D(NeighSt(pID)%Face(pJD)%Aux(2,:),&
+        NeighSt(pID)%Face(pJD)%Aux(1,:),&
+        NeighSt(pID)%Face(pJD)%Num)
+      NeighSt(pID)%Face(pJD)%Mids(2,:) = NeighSt(pID)%Face(pJD)%aux(1,:)
+      !     do i=1,NeighSt(pID)%Face(pJD)%Num
+      !     write(*,*) pID,pJD,NeighSt(pID)%Face(pJD)%Mids(1,i),NeighSt(pID)%Face(pJD)%Mids(2,i)
+      !     end do
+    END IF
+    END DO
+    END DO
+
+    DO pID=1,subnodes
+    CALL SENDI_myMPI(NeighSt(pID)%NeighNum,pID)
+    DO pJD=1,subnodes
+    IF (NodeTab(pID,pJD).NE.0) THEN
+      CALL SENDI_myMPI(pJD,pID)
+      CALL SENDI_myMPI(NeighSt(pID)%Face(pJD)%Num,pID)
+      CALL SENDK_myMPI(NeighSt(pJD)%Face(pID)%Mids(1,:),NeighSt(pID)%Face(pJD)%Num,pID)
+      CALL SENDK_myMPI(NeighSt(pJD)%Face(pID)%Mids(2,:),NeighSt(pID)%Face(pJD)%Num,pID)
+    END IF
+    END DO
+    END DO
+
+    DEALLOCATE (NeighSt)
+    DEALLOCATE (ParFind)
+
+  ELSE
+    CALL SENDI_myMPI(NAT ,0)
+    CALL SENDD_myMPI(PXYZ,3*NAT,0)
+    ALLOCATE(mg_mpi(1:9))
+    CALL RECVI_myMPI(mg_mpi(1)%NeighNum,0)
+    ALLOCATE(mg_mpi(1)%parST(mg_mpi(1)%NeighNum))
+    ALLOCATE(mg_mpi(1)%UE(1:NAT))
+    DO pID=1,mg_mpi(1)%NeighNum
+    CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Neigh,0)
+    CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Num,0)
+    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLink(2,1:mg_mpi(1)%parST(pID)%Num))
+
+    ! REMINDER: If we pass the array mg_mpi(1)%parST(pID)%FaceLink(1,:) then
+    ! a temporary copy of the array is created because in the column-major 
+    ! ordering in FORTRAN FaceLink(1,:) is not a continuous portion of memory 
+    CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(1,:),mg_mpi(1)%parST(pID)%Num,0)
+    CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(2,:),mg_mpi(1)%parST(pID)%Num,0)
+    ALLOCATE(mg_mpi(1)%parST(pID)%SideLink(1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLink(2,1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%SDVect(1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%RDVect(1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%SVVect(1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%RVVect(1:mg_mpi(1)%parST(pID)%Num))
+    ALLOCATE(mg_mpi(1)%parST(pID)%PE(1:mg_mpi(1)%parST(pID)%Num))
+
+    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLin1(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted elems
+    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLin1(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted faces
+    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLin2(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted elems
+    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLin2(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted faces
+    END DO
+
+    DO pID=1,mg_mpi(1)%NeighNum
+    !  WRITE(*,*)myid," processing:",mg_mpi(1)%parST(pID)%Neigh
+    !  WRITE(*,*) (mg_mpi(1)%parST(pID)%ElemLink(1,I),I=1,mg_mpi(1)%parST(pID)%Num)
+    !   if (myid.eq.3) WRITE(*,*) mg_mpi(1)%parST(pID)%Neigh
+    DO K=1,mg_mpi(1)%parST(pID)%Num
+    !   WRITE(*,*) myid,mg_mpi(1)%parST(pID)%FaceLink(1,K)
+    DO I=1,NEL
+    DO J=1,6
+    JI = KAREA(J,I)
+    IF (JI.EQ.mg_mpi(1)%parST(pID)%FaceLink(1,K)) THEN
+      mg_mpi(1)%parST(pID)%ElemLink(1,K)=I
+      mg_mpi(1)%parST(pID)%SideLink(K)=J
+      !       if (myid.eq.3) then
+      !       write(*,*) DCORAG(1,mg_mpi(1)%parST(pID)%FaceLink(1,K)),&
+      !                  DCORAG(2,mg_mpi(1)%parST(pID)%FaceLink(1,K)),&
+      !                  DCORAG(3,mg_mpi(1)%parST(pID)%FaceLink(1,K))
+      !       end if
+      !       if (myid.eq.2) then
+      !       write(*,*) mg_mpi(1)%parST(pID)%ElemLink(1,K),&
+      !                  mg_mpi(1)%parST(pID)%FaceLink(1,K),&
+      !                  mg_mpi(1)%parST(pID)%SideLink(K),mg_mpi(1)%parST(pID)%Neigh
+      !       end if
+    END IF
+    END DO
+    END DO
+    END DO
+    DO K=1,mg_mpi(1)%parST(pID)%Num
+    DO I=1,NEL
+    DO J=1,6
+    JI = KAREA(J,I)
+    IF (JI.EQ.mg_mpi(1)%parST(pID)%FaceLink(2,K)) THEN
+      mg_mpi(1)%parST(pID)%ElemLink(2,K)=I
+    END IF
+    END DO
+    END DO
+    END DO
+    END DO
+
+  END IF
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+  DEALLOCATE (PXYZ,VXYZ)
+  DEALLOCATE (pPXYZ,pVXYZ)
+
+  END 
   ! ----------------------------------------------
   ! ----------------------------------------------
   ! ----------------------------------------------
@@ -220,6 +628,11 @@
     END IF
 
     call MPI_allgather(NEL, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+    IF (myid.eq.master) then
+     DO pID=1,subnodes
+      coarse%pNEL(pID) = sendcounts(pID)
+     END DO
+    end if
     sendcounts(0) = 0
 
     displs = 0
@@ -428,4 +841,4 @@
     IF (ALLOCATED(pCOORDINATES)) DEALLOCATE(pCOORDINATES)
     IF (ALLOCATED(dCOORDINATES)) DEALLOCATE(dCOORDINATES)
 
-END 
+  END

@@ -520,15 +520,25 @@ END SUBROUTINE mgPostSmoother
 SUBROUTINE mgSmoother()
 INTEGER Iter,i,j,ndof,neq
 REAL*8 daux
+INTEGER :: iSmoother=2
 
  Iter  = myMG%nSmootherSteps
- if(myid.ne.0)ndof  = SIZE(myMG%X(mgLev)%x)
+ if (myid.ne.0) ndof  = SIZE(myMG%X(mgLev)%x)
 
  IF (MyMG%cVariable.EQ."Pressure") THEN
-  if (myid.ne.0) then
+  IF (iSmoother.eq.1) then
    CALL ZTIME(time0)
-   CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,iter)
+   ILEV = mgLev
+   CALL E012_CGSmoother(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,Iter,E012_DAX,.TRUE.,E012_DCG)   
    CALL ZTIME(time1)
+  END IF
+  IF (iSmoother.eq.2) then
+   if (myid.ne.0) then
+    CALL ZTIME(time0)
+    ILEV = mgLev
+    CALL E012_SOR(myMG%X(mgLev)%x,myMG%XP,myMG%B(mgLev)%x,ndof,Iter)
+    CALL ZTIME(time1)
+   end if
   end if
 
   myStat%tSmthP = myStat%tSmthP + (time1-time0)
@@ -786,17 +796,29 @@ END SUBROUTINE E013_DCG
 !
 ! ----------------------------------------------
 !
-SUBROUTINE E012_DCG(DX,DXP,NEQ)
+SUBROUTINE E012_DCGX(DX,DXP,NEQ)
 INTEGER NEQ
 REAL*8 DX(*),DXP(*)
 REAL*8 drlx
 
-drlx=MyMG%CrsRelaxParPrm !myMG%RLX
+drlx=0.66d0
 ILEV = mgLev
 CALL GetParPressure(DX,DXP)
-CALL PARID117(myMG%A(mgLev)%a,myMG%AP(mgLev)%a,myMG%L(mgLEV)%ColA,&
+CALL CG_PRECOND_SSOR(myMG%A(mgLev)%a,myMG%AP(mgLev)%a,myMG%L(mgLEV)%ColA,&
      myMG%LP(mgLEV)%ColA,myMG%L(mgLEV)%LdA,myMG%LP(mgLEV)%LdA,&
      dx,dxp,neq,drlx)
+
+END SUBROUTINE E012_DCGX
+!
+! ----------------------------------------------
+!
+SUBROUTINE E012_DCG(DX,DXP,NEQ)
+INTEGER NEQ
+REAL*8 DX(*),DXP(*)
+
+ILEV = mgLev
+CALL CG_PRECOND_SCALING(myMG%A(mgLev)%a,myMG%L(mgLEV)%ColA,&
+     myMG%L(mgLEV)%LdA,dx,neq)
 
 END SUBROUTINE E012_DCG
 !
