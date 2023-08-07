@@ -30,6 +30,7 @@ target_include_directories(ff_postprocessing PUBLIC ${FF_APPLICATION_INCLUDE_PAT
 target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
 
 set(src_ini_aux
+  ${CMAKE_SOURCE_DIR}/source/src_util/getpid_wrapper.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
 )
@@ -99,6 +100,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/get_pid.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/f90getopt.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90

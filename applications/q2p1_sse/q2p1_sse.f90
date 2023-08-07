@@ -31,6 +31,8 @@ PROGRAM Q2P1_SSE
   integer                     :: iangle = 0
   type(option_s)              :: opts(3)
 
+  integer id,mem
+ 
   opts(1) = option_s('angle', .true.,  'a')
   opts(2) = option_s('version',  .false., 'v')
   opts(3) = option_s('help',  .false., 'h')
@@ -82,6 +84,9 @@ PROGRAM Q2P1_SSE
   dt=tstep
   timens=timens+dt
 
+  if (itns.eq.1) CALL MemoryPrint(0)
+  if (itns.ne.1) CALL MemoryPrint(1)
+  
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
 
@@ -100,6 +105,8 @@ PROGRAM Q2P1_SSE
     inonln_t = 2
   END IF
 
+  CALL MemoryPrint(1)
+  
   call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
