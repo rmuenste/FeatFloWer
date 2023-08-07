@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.0)
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
 
+# Here we can set a project version
+set(PROJECT_VERSION "1.0.0")
+
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
@@ -358,7 +361,21 @@ if(USE_MUMPS)
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
 endif(USE_MUMPS)
 
-find_package(Git 2.17)
+find_package(Git)
+if(NOT GIT_FOUND)
+    message(FATAL_ERROR "Git is required to build this software. Please install Git.")
+endif()
+
+## Custom command to extract git commit hash and store it in a variable
+#execute_process(
+#    COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+#    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+#    OUTPUT_VARIABLE GIT_COMMIT_HASH
+#    OUTPUT_STRIP_TRAILING_WHITESPACE
+#)
+#
+## Configure version.h using a template
+#configure_file(version.h.in ${CMAKE_SOURCE_DIR}/source/include/version.h @ONLY)
 
 if(NOT WIN32)
 if(USE_CGAL)

@@ -19,7 +19,6 @@ PROGRAM Q2P1_SSE
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
-  character(len=60)  :: arg
   real               :: dout = 0.0
   integer            :: ufile,ilog,i,ierr
   real               :: tt0 = 0.0
@@ -30,6 +29,11 @@ PROGRAM Q2P1_SSE
   real*8                      :: angle = 0.0
   integer                     :: iangle = 0
   type(option_s)              :: opts(3)
+  character(len=100) :: arg
+  character(len=100) :: version_string
+  character(len=100) :: git_commit_hash_trim
+  logical :: show_version
+#include "./version.h"
 
   opts(1) = option_s('angle', .true.,  'a')
   opts(2) = option_s('version',  .false., 'v')
@@ -53,7 +57,16 @@ PROGRAM Q2P1_SSE
               SSE_HAS_ANGLE=.true.
 !               write(*,*)'got angle ifc', extruder_angle
           case ('v')
-              print '(a, f3.1)', 'version ', version
+              version_string = "Version: " // trim(PROJECT_VERSION)
+              git_commit_hash_trim = "Git Commit Hash: " // trim(GIT_COMMIT_HASH)
+              print *, version_string
+              print *, git_commit_hash_trim
+              call exit(0)
+          case ('-v')
+              version_string = "Version: " // trim(PROJECT_VERSION)
+              git_commit_hash_trim = "Git Commit Hash: " // trim(GIT_COMMIT_HASH)
+              print *, version_string
+              print *, git_commit_hash_trim
               call exit(0)
           case ('h')
             call print_help()
