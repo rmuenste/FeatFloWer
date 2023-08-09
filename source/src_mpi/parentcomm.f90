@@ -515,7 +515,8 @@
     
     call MPI_allgather(NVT, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
     sendcounts(0) = 0
-
+    sendcounts(numnodes) = 0
+    
     displs = 0
     do i = 2, numnodes+1
       displs(i) = displs(i-1) + sendcounts(i-1)
@@ -634,6 +635,7 @@
      END DO
     end if
     sendcounts(0) = 0
+    sendcounts(numnodes) = 0
 
     displs = 0
     do i = 2, numnodes+1
