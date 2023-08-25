@@ -512,9 +512,9 @@
     END IF
     
     allocate(sendcounts(0:numnodes),displs(0:numnodes+1))
+    sendcounts = 0; displs = 0
     
     call MPI_allgather(NVT, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    sendcounts(0) = 0
 
     displs = 0
     do i = 2, numnodes+1
@@ -556,7 +556,6 @@
     call ztime(time1)
     If (myid.eq.1) write(*,*) "ParentComm stage 0 :: ",time1-time0 
     time0 = time1
-    
     
     !
     ! --------------------------------------------------------------------------------------------------------
@@ -627,13 +626,13 @@
       CALL FreeOctTree()
     END IF
 
+    sendcounts = 0; displs = 0
     call MPI_allgather(NEL, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
     IF (myid.eq.master) then
      DO pID=1,subnodes
       coarse%pNEL(pID) = sendcounts(pID)
      END DO
     end if
-    sendcounts(0) = 0
 
     displs = 0
     do i = 2, numnodes+1
