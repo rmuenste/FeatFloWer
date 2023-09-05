@@ -787,6 +787,237 @@ END SUBROUTINE SetUp_HYPRE_Solver
 !
 ! ----------------------------------------------
 !
+SUBROUTINE GradDivMatxU(myScalar,cS)
+TYPE(TQuadScalar) myScalar
+real*8 nrm_U,nrm_V,nrm_W
+Character(LEN=*) cS
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+  
+ qMat  => mg_qMat(NLMAX)
+ W11Mat => mg_W11Mat(NLMAX)%a
+ W22Mat => mg_W22Mat(NLMAX)%a
+ W33Mat => mg_W33Mat(NLMAX)%a
+ W12Mat => mg_W12Mat(NLMAX)%a
+ W13Mat => mg_W13Mat(NLMAX)%a
+ W23Mat => mg_W23Mat(NLMAX)%a
+ W21Mat => mg_W21Mat(NLMAX)%a
+ W31Mat => mg_W31Mat(NLMAX)%a
+ W32Mat => mg_W32Mat(NLMAX)%a
+ 
+ myScalar%defU = 0d0
+ myScalar%defV = 0d0
+ myScalar%defW = 0d0
+
+ CALL LAX17(W11Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valU,myScalar%defU,-thstep,1d0)
+ CALL LAX17(W12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valV,myScalar%defU,-thstep,1d0)
+ CALL LAX17(W13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valW,myScalar%defU,-thstep,1d0)
+
+ CALL LAX17(W21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valU,myScalar%defV,-thstep,1d0)
+ CALL LAX17(W22Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valV,myScalar%defV,-thstep,1d0)
+ CALL LAX17(W23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valW,myScalar%defV,-thstep,1d0)
+
+ CALL LAX17(W31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valU,myScalar%defW,-thstep,1d0)
+ CALL LAX17(W32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valV,myScalar%defW,-thstep,1d0)
+ CALL LAX17(W33Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+ myScalar%valW,myScalar%defW,-thstep,1d0)
+ 
+ CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+ 
+ CALL LL21 (myScalar%defU,myScalar%ndof,nrm_U)
+ CALL LL21 (myScalar%defV,myScalar%ndof,nrm_V)
+ CALL LL21 (myScalar%defW,myScalar%ndof,nrm_W)
+
+ CALL COMM_MaximumN([nrm_U,nrm_V,nrm_W],3)
+ 
+ if (myid.eq.1) write(*,'(A,3ES12.4)') "nrm_U,nrm_V,nrm_W "//TRIM(CS)//" :",nrm_U,nrm_V,nrm_W
+ 
+ 
+END SUBROUTINE GradDivMatxU
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_GradDivMat(knprU,knprV,knprW,knprP) !(C)
+TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
+INTEGER i,j,iEntry,jCol
+real*8, allocatable :: WMat(:)
+real*8 :: time
+integer :: errorflag = 0,i1,i2
+REAL*8, allocatable :: BX(:),BY(:),BZ(:)
+EXTERNAL E012
+
+ if (.not.bMasterTurnedOn) return
+ 
+ IF (GAMMA.le.0d0) RETURN
+ 
+ CALL ZTIME(myStat%t0)
+ 
+ IF (.NOT.ALLOCATED(mg_P1MMat)) ALLOCATE(mg_P1MMat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_P1iMMat)) ALLOCATE(mg_P1iMMat(NLMIN:NLMAX))
+ 
+ IF (.NOT.ALLOCATED(mg_W11Mat)) ALLOCATE(mg_W11Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W22Mat)) ALLOCATE(mg_W22Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W33Mat)) ALLOCATE(mg_W33Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W12Mat)) ALLOCATE(mg_W12Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W13Mat)) ALLOCATE(mg_W13Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W21Mat)) ALLOCATE(mg_W21Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W23Mat)) ALLOCATE(mg_W23Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W31Mat)) ALLOCATE(mg_W31Mat(NLMIN:NLMAX))
+ IF (.NOT.ALLOCATED(mg_W32Mat)) ALLOCATE(mg_W32Mat(NLMIN:NLMAX))
+ 
+ DO ILEV=NLMIN,NLMAX
+
+  CALL SETLEV(2)
+  lMat      => mg_lMat(ILEV)
+  qMat      => mg_qMat(ILEV)
+  lMat      => mg_lMat(ILEV)
+  qlMat     => mg_qlMat(ILEV)
+  lqMat     => mg_lqMat(ILEV)
+  BXMat     => mg_BXMat(ILEV)%a
+  BYMat     => mg_BYMat(ILEV)%a
+  BZMat     => mg_BZMat(ILEV)%a
+  BTXMat    => mg_BTXMat(ILEV)%a
+  BTYMat    => mg_BTYMat(ILEV)%a
+  BTZMat    => mg_BTZMat(ILEV)%a
+
+  allocate(mg_P1MMat(ilev)%a(16*nel))
+  mg_P1MMat(ilev)%a = 0d0
+  
+  CALL Build_MMatP1(mg_P1MMat(ilev)%a,&
+                    mg_mesh%level(ILEV)%kvert,&
+                    mg_mesh%level(ILEV)%karea,&
+                    mg_mesh%level(ILEV)%kedge,&
+                    mg_mesh%level(ILEV)%dcorvg,&
+                    7,E012)
+  
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [P_mass]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  
+  allocate(mg_P1iMMat(ilev)%a(16*nel))
+  mg_P1iMMat(ilev)%a = 0d0
+  
+  CALL InvertP1Mat(mg_P1MMat(ilev)%a,mg_P1iMMat(ilev)%a,nel)
+  
+  allocate(BX(qlMat%na),BY(qlMat%na),BZ(qlMat%na))
+  BX = 0d0
+  BY = 0d0
+  BZ = 0d0
+  
+  CALL Get_BxiMP(mg_P1iMMat(ilev)%a,&
+                  BXMat,BYMat,BZMat,&
+                  BX,BY,BZ,&
+                  qlMat%LdA,qlMat%ColA,&
+                  nel,qMat%nu,Gamma)
+  
+  allocate(mg_W11Mat(ilev)%a(qMat%na))
+  allocate(mg_W22Mat(ilev)%a(qMat%na))
+  allocate(mg_W33Mat(ilev)%a(qMat%na))
+  allocate(mg_W12Mat(ilev)%a(qMat%na))
+  allocate(mg_W13Mat(ilev)%a(qMat%na))
+  allocate(mg_W21Mat(ilev)%a(qMat%na))
+  allocate(mg_W23Mat(ilev)%a(qMat%na))
+  allocate(mg_W31Mat(ilev)%a(qMat%na))
+  allocate(mg_W32Mat(ilev)%a(qMat%na))
+  
+  mg_W11Mat(ilev)%a=0d0
+  mg_W22Mat(ilev)%a=0d0
+  mg_W33Mat(ilev)%a=0d0
+  mg_W12Mat(ilev)%a=0d0  
+  mg_W13Mat(ilev)%a=0d0  
+  mg_W21Mat(ilev)%a=0d0  
+  mg_W23Mat(ilev)%a=0d0  
+  mg_W31Mat(ilev)%a=0d0  
+  mg_W32Mat(ilev)%a=0d0    
+  
+  CALL Get_GradDivMat(mg_W11Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BX,qlMat%LdA,qlMat%ColA,&
+       BTXMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W12Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BX,qlMat%LdA,qlMat%ColA,&
+       BTYMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W13Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BX,qlMat%LdA,qlMat%ColA,&
+       BTZMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+
+  CALL Get_GradDivMat(mg_W21Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BY,qlMat%LdA,qlMat%ColA,&
+       BTXMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W22Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BY,qlMat%LdA,qlMat%ColA,&
+       BTYMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W23Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BY,qlMat%LdA,qlMat%ColA,&
+       BTZMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+       
+  CALL Get_GradDivMat(mg_W31Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BZ,qlMat%LdA,qlMat%ColA,&
+       BTXMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W32Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BZ,qlMat%LdA,qlMat%ColA,&
+       BTYMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+  CALL Get_GradDivMat(mg_W33Mat(ilev)%a,qMat%LdA,qMat%ColA,&
+       BZ,qlMat%LdA,qlMat%ColA,&
+       BTZMat,lqMat%LdA,lqMat%ColA,&
+       lMat%nu,qMat%nu)
+       
+  IF (myid.eq.showID) THEN
+   IF (ILEV.EQ.NLMIN) THEN
+    WRITE(MTERM,'(A,I1,A)', advance='no') " [B x B{T}]: [", ILEV,"]"
+   ELSE
+    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+   END IF
+  END IF
+  
+  deallocate(BX,BY,BZ)
+  
+!   CALL OutputMatrix('WMat',qMat,mg_W23Mat(ilev)%a,ILEV)
+  
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ qMat      => mg_qMat(NLMAX)
+ qlMat     => mg_qlMat(NLMAX)
+ lqMat     => mg_lqMat(NLMAX)
+ BXMat     => mg_BXMat(NLMAX)%a
+ BYMat     => mg_BYMat(NLMAX)%a
+ BZMat     => mg_BZMat(NLMAX)%a
+ BTXMat    => mg_BTXMat(NLMAX)%a
+ BTYMat    => mg_BTYMat(NLMAX)%a
+ BTZMat    => mg_BTZMat(NLMAX)%a
+ 
+ CALL ZTIME(myStat%t1)
+ time =  (myStat%t1-myStat%t0)
+ if (myid.eq.1) write(*,*) "time for [B x BT] :: ",time
+ 
+  
+END SUBROUTINE Create_GradDivMat
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
 INTEGER coarse_lev,coarse_solver
 TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
@@ -2339,6 +2570,18 @@ REAL tttx1,tttx0
      S31Mat   => mg_S31Mat(ILEV)%a
      S32Mat   => mg_S32Mat(ILEV)%a
     END IF
+     
+    IF (GAMMA.GT.0d0) THEN
+     W11Mat     => mg_W11Mat(ILEV)%a
+     W22Mat     => mg_W22Mat(ILEV)%a
+     W33Mat     => mg_W33Mat(ILEV)%a
+     W12Mat     => mg_W12Mat(ILEV)%a
+     W13Mat     => mg_W13Mat(ILEV)%a
+     W23Mat     => mg_W23Mat(ILEV)%a
+     W21Mat     => mg_W21Mat(ILEV)%a
+     W31Mat     => mg_W31Mat(ILEV)%a
+     W32Mat     => mg_W32Mat(ILEV)%a
+    END IF
 
     IF (bNS_Stabilization) THEN
      hDmat  => mg_hDmat(ILEV)%a
@@ -2470,6 +2713,23 @@ REAL tttx1,tttx0
        END DO
       END IF
      END IF
+     
+     IF (GAMMA.gt.0d0) THEN
+      DO I=1,qMat%nu
+       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        A11mat(J) = A11mat(J) + thstep*W11Mat(J)
+        A22mat(J) = A22mat(J) + thstep*W22Mat(J)
+        A33mat(J) = A33mat(J) + thstep*W33Mat(J)
+        A12Mat(J) = A12Mat(J) + thstep*W12Mat(J)
+        A13Mat(J) = A13Mat(J) + thstep*W13Mat(J)
+        A23Mat(J) = A23Mat(J) + thstep*W23Mat(J)
+        A21Mat(J) = A21Mat(J) + thstep*W21Mat(J)
+        A31Mat(J) = A31Mat(J) + thstep*W31Mat(J)
+        A32Mat(J) = A32Mat(J) + thstep*W32Mat(J)
+       END DO
+      END DO
+     END IF
+     
     ELSE
 
      IF (myMatrixRenewal%K.GE.1) THEN
@@ -2553,6 +2813,18 @@ REAL tttx1,tttx0
   S21Mat   => mg_S21Mat(ILEV)%a
   S31Mat   => mg_S31Mat(ILEV)%a
   S32Mat   => mg_S32Mat(ILEV)%a
+ END IF
+ 
+ IF (GAMMA.GT.0d0) THEN
+  W11Mat     => mg_W11Mat(ILEV)%a
+  W22Mat     => mg_W22Mat(ILEV)%a
+  W33Mat     => mg_W33Mat(ILEV)%a
+  W12Mat     => mg_W12Mat(ILEV)%a
+  W13Mat     => mg_W13Mat(ILEV)%a
+  W23Mat     => mg_W23Mat(ILEV)%a
+  W21Mat     => mg_W21Mat(ILEV)%a
+  W31Mat     => mg_W31Mat(ILEV)%a
+  W32Mat     => mg_W32Mat(ILEV)%a
  END IF
 
  IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0.and.NewtonForBurgers.ne.0d0) THEN
@@ -2663,6 +2935,31 @@ REAL tttx1,tttx0
     myScalar%valV,myScalar%defW,-thstep,1d0)
     CALL LAX17(S33Mat,qMat%ColA,qMat%LdA,qMat%nu,&
     myScalar%valW,myScalar%defW,-thstep,1d0)
+   END IF
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
+   IF (GAMMA.GT.0d0) THEN
+!     CALL LAX17(W11Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valU,myScalar%defU,-thstep,1d0)
+!     CALL LAX17(W12Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valV,myScalar%defU,-thstep,1d0)
+!     CALL LAX17(W13Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valW,myScalar%defU,-thstep,1d0)
+! 
+!     CALL LAX17(W21Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valU,myScalar%defV,-thstep,1d0)
+!     CALL LAX17(W22Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valV,myScalar%defV,-thstep,1d0)
+!     CALL LAX17(W23Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valW,myScalar%defV,-thstep,1d0)
+! 
+!     CALL LAX17(W31Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valU,myScalar%defW,-thstep,1d0)
+!     CALL LAX17(W32Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valV,myScalar%defW,-thstep,1d0)
+!     CALL LAX17(W33Mat,qMat%ColA,qMat%LdA,qMat%nu,&
+!     myScalar%valW,myScalar%defW,-thstep,1d0)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
    END IF
 
    IF(bNonNewtonian.AND.myMatrixRenewal%S.EQ.0) THEN
@@ -4326,6 +4623,10 @@ DO
     READ(string(iEq+1:),*) Props%PowerLawExp
     IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
     IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
+    CASE ("GAMMA")
+    READ(string(iEq+1:),*) GAMMA
+    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",GAMMA
+    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",GAMMA
     CASE ("ViscoLambda")
     READ(string(iEq+1:),*) Props%ViscoLambda
     IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda

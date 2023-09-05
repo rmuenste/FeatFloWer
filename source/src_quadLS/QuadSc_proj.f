@@ -1,3 +1,56 @@
+      SUBROUTINE Get_GradDivMat(W,WLD,WCOL,B,BLD,BCOL,
+     *           BT,BTLD,BTCOL,NEL,NDOF)
+      USE PP3D_MPI, ONLY:myid
+      IMPLICIT NONE
+      REAL*8  W(*),B(*),BT(*)
+      INTEGER WLD(*),WCOL(*),BLD(*),BCOL(*),BTLD(*),BTCOL(*)
+      INTEGER NDOF,NEL
+      INTEGER IEL,JEL,KEL,IDOF,IC,IB,JB,II,JJ
+      REAL*8  DBT,DB
+      INTEGER I,J,K,KB,LB
+      
+!       RETURN
+      
+      DO i=1,ndof
+      
+       Do k=WLD(i),WLD(i+1)-1
+        j = WCOL(k)
+        
+        DO kB=BLD(i),BLD(i+1)-1
+          iel =  BCOL(kB)
+          
+          DO lB=BTLD(iel),BTLD(iel+1)-1
+           if (j.eq.BTCOL(lb)) THEN
+            GOTO 1
+           END IF
+          END DO ! lb
+          
+          GOTO 2
+          
+1         Continue
+
+          DBT = BT(lB)
+          DB  = B(kB)
+          
+          W(k) = W(k) + DBT*DB 
+          
+2         Continue       
+          
+        END DO ! kb
+        
+        
+       END DO !k
+      
+      END DO !i
+      
+      RETURN
+      
+! 2     CONTINUE
+! 
+!       write(*,*) 'problem with ', i,j
+      
+      END 
+
       !Slip BC from Dmitri:
       !/data/warehouse14b/omierka/Fortran/K_Eps_3D/KEps_Neumann_Step/bndry.f
       SUBROUTINE SetSlipOnBandBT_sub(CLD,CCOL,BX,BY,BZ,BLD,BCOL,

@@ -267,16 +267,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
-!  ILEV = LinSc%prm%MGprmIn%MedLev
-! 
-!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-!                              mg_mesh%level(ILEV)%kvert,&
-!                              mg_mesh%level(ILEV)%kedge,&
-!                              mg_mesh%level(ILEV)%karea,&
-!                              mg_mesh%level(ILEV)%nvt,&
-!                              mg_mesh%level(ILEV)%net,&
-!                              mg_mesh%level(ILEV)%nat,&
-!                              mg_mesh%level(ILEV)%nel)
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             mg_mesh%level(ILEV)%kedge,&
+                             mg_mesh%level(ILEV)%karea,&
+                             mg_mesh%level(ILEV)%nvt,&
+                             mg_mesh%level(ILEV)%net,&
+                             mg_mesh%level(ILEV)%nat,&
+                             mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  
