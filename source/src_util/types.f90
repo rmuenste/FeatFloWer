@@ -406,7 +406,7 @@ TYPE(tParticle), ALLOCATABLE :: myCompleteSet(:)
 TYPE(tParticle), ALLOCATABLE :: myActiveSet(:)
 TYPE(tParticle), ALLOCATABLE :: myExchangeSet(:)
 TYPE(tParticle), ALLOCATABLE :: myLostSet(:)
-TYPE(tVelo), ALLOCATABLE :: myVelo(:)
+TYPE(tVelo), ALLOCATABLE :: myVelo(:),myVorticity(:)
 
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
@@ -425,7 +425,8 @@ END TYPE tHYPRE
 TYPE(tHYPRE) :: myHYPRE
 
 TYPE tParticleInflow
- REAL*8 :: Center(3), Radius
+ REAL*8 :: Center(3), MaxRadius, MinRadius, Radius
+ INTEGER :: iMat
 END TYPE tParticleInflow
 
 TYPE tPhysParticles
