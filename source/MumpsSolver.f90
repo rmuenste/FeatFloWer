@@ -9,6 +9,7 @@ TYPE (DMUMPS_STRUC) mumps_par
 integer*4, allocatable, dimension(:), target :: myJCN_P
 integer*4, allocatable, dimension(:), target :: myIRN_p
 real*8 , allocatable, dimension(:), target :: A_loc_P
+real*8 , allocatable, dimension(:), target :: myRHS
 
  CONTAINS
 !
@@ -66,10 +67,15 @@ INTEGER I,J,K
    mumps_par%JCN(k) = L%ColA(J) 
   END DO
  END DO
- ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
+ 
+ if (.not.allocated(myRHS)) ALLOCATE( myRHS( mumps_par%N  ) )
+ mumps_par%RHS => myRHS
+ 
  DO I = 1, mumps_par%N
   mumps_par%RHS(I) = B(I)
  END DO
+ 
+!  write(*,*)mumps_par%RHS
 
 END SUBROUTINE MUMPS_SetUpP1_MASTER
 !
@@ -112,10 +118,13 @@ INTEGER I,J,K
   END DO
  END DO
  
- ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
+ if (.not.allocated(myRHS)) ALLOCATE( myRHS( mumps_par%N  ) )
+ mumps_par%RHS => myRHS
+ 
  DO I = 1, mumps_par%N
   mumps_par%RHS(I) = B(I)
  END DO
+ 
 END SUBROUTINE MUMPS_SetUpQ2_1_MASTER
 !
 ! ------------------------------------------------------------------------
@@ -133,8 +142,8 @@ INTEGER NJ
 !  ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
 !  ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
 
- allocate( myIRN_P ( mumps_par%NZ  ) )
- allocate( myJCN_P ( mumps_par%NZ  ) )
+ if (.not.allocated(myIRN_P)) allocate( myIRN_P ( mumps_par%NZ  ) )
+ if (.not.allocated(myJCN_P)) allocate( myJCN_P ( mumps_par%NZ  ) )
 
  mumps_par%IRN => myIRN_P
  mumps_par%JCN => myJCN_P 
@@ -180,7 +189,9 @@ INTEGER NJ
   END DO
  END DO
  
- ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
+ if (.not.allocated(myRHS)) ALLOCATE( myRHS( mumps_par%N  ) )
+ mumps_par%RHS => myRHS
+ 
  DO I = 1, mumps_par%N
   mumps_par%RHS(I) = B(I)
  END DO
@@ -320,9 +331,9 @@ INTEGER NJ,NI
 !  ALLOCATE( mumps_par%JCN_loc ( mumps_par%NZ_loc) )
 !  ALLOCATE( mumps_par%A_loc   ( mumps_par%NZ_loc) )
 
- allocate( A_loc_P( mumps_par%NZ_loc) )
- allocate( myIRN_P ( mumps_par%NZ_loc  ) )
- allocate( myJCN_P ( mumps_par%NZ_loc  ) )
+ if (.not.allocated(A_loc_P)) allocate( A_loc_P( mumps_par%NZ_loc) )
+ if (.not.allocated(myIRN_P)) allocate( myIRN_P ( mumps_par%NZ_loc  ) )
+ if (.not.allocated(myJCN_P)) allocate( myJCN_P ( mumps_par%NZ_loc  ) )
 
  ! Set the pointer to the local allocatable array
  ! as this memory will not be freed by MUMPS
@@ -392,6 +403,10 @@ SUBROUTINE MUMPS_Solve(X)
 IMPLICIT NONE
 REAL*8 X(*)
 INTEGER I
+INTEGER :: iCounter = 0
+character :: cf*(128)
+
+iCounter = iCounter + 1
 
 MUMPS_PAR%icntl(1)  = 0 
 MUMPS_PAR%icntl(2)  = 0
@@ -459,7 +474,7 @@ IF (ALLOCATED(myJCN_P)) DEALLOCATE( myJCN_P )
 IF (ALLOCATED(A_loc_P)) DEALLOCATE( A_loc_P )
 
 IF ( mumps_par%MYID .eq. 0 )THEN
-  DEALLOCATE( mumps_par%RHS )
+  IF (ALLOCATED(myRHS)) DEALLOCATE(myRHS)
 END IF
 
 mumps_par%JOB = -2
@@ -535,7 +550,9 @@ real*8 , allocatable, dimension(:), target :: A_loc
     mumps_par%IRN => myIRN 
     mumps_par%JCN => myJCN 
 
-    allocate( mumps_par%RHS ( mumps_par%N  ) )
+    if (.not.allocated(myRHS)) ALLOCATE( myRHS( mumps_par%N  ) )
+    mumps_par%RHS => myRHS
+    
     do I = 1, mumps_par%N
       mumps_par%RHS(I) = myCrsMat%D(I)
     end do
@@ -602,7 +619,7 @@ real*8 , allocatable, dimension(:), target :: A_loc
   ! ToDo: Does RHS_loc exist
   if ( mumps_par%MYID .eq. 0 ) THEN
     DO I=1,mumps_par%N
-    myCrsMat%D(I) = mumps_par%RHS(I)
+     myCrsMat%D(I) = mumps_par%RHS(I)
     end do
   end if
 
