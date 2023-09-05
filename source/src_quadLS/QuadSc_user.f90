@@ -316,6 +316,15 @@ IF (iT.EQ.770) THEN
   ValW =   0.0d0
 END IF
 
+IF (iT.EQ.778) THEN
+  dScale=1.0d3*(9d0/4d0)/(0.15d0*0.0425d0)**2d0
+  XX = X-9.6d0
+  ZZ = Z
+  ValU =   0.0d0
+  ValV =   dScale*ZZ*(0.085d0-ZZ)*XX*(0.300d0-XX)
+  ValW =   0.0d0
+END IF
+
 IF (iT.EQ.771) THEN
   dRPM = 4d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
