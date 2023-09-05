@@ -1906,10 +1906,12 @@ END IF
 
 #ifdef MUMPS_AVAIL
 IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
+
  ndof = mg_mesh%level(mgLev)%nel + mg_mesh%level(mgLev)%net + &
         mg_mesh%level(mgLev)%nvt + mg_mesh%level(mgLev)%nat
 
-
+ if (myid.eq.0) myMG%B(mgLev)%x = 0d0
+ 
  CALL E013DISTR_L1(myMG%B(mgLev)%x,ndof)
 
  CALL MUMPS_Init()
@@ -1939,6 +1941,7 @@ IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
  CALL MUMPS_CleanUp()
 
  CALL E013GATHR_L1(myMG%X(mgLev)%x,ndof)
+ 
 END IF
 #else
    IF (MyMG%CrsSolverType.EQ.5) THEN
@@ -1962,7 +1965,7 @@ REAL*8 daux,dCrit
 INTEGER iEntry,jCol,mgLevBU
 EXTERNAL E011
 
-  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5) THEN
    IF (myid.eq.0) THEN
     myMG%X(mgLev)%x = 0d0
    END IF
@@ -2175,7 +2178,7 @@ EXTERNAL E011
 #endif
   END IF
 
-  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5) THEN
    IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
    IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
    IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
