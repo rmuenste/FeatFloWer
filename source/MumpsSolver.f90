@@ -195,6 +195,8 @@ INTEGER NJ
  DO I = 1, mumps_par%N
   mumps_par%RHS(I) = B(I)
  END DO
+ 
+ CALL OUTPUT_BurgersMatrix_master(mumps_par%N,mumps_par%NZ,mumps_par%IRN,mumps_par%JCN,mumps_par%RHS)
 
 END SUBROUTINE MUMPS_SetUpQ2_3_MASTER
 !
@@ -394,6 +396,8 @@ INTEGER NJ,NI
    mumps_par%A_loc(k)   = A33(J)
   END DO
  END DO
+ 
+ CALL OUTPUT_BurgersMatrix_slave(mumps_par%NZ_loc,mumps_par%IRN_loc,mumps_par%JCN_loc,mumps_par%A_loc)
     
 END SUBROUTINE MUMPS_SetUpQ2_3_SLAVE
 !
@@ -426,9 +430,9 @@ MUMPS_PAR%icntl(11) = 0
 !     controls parallelism
 MUMPS_PAR%icntl(12) = 0
 !     use ScaLAPACK for root node
-MUMPS_PAR%icntl(13) = 0
+MUMPS_PAR%icntl(13) = 2
 !     percentage increase in estimated workspace
-MUMPS_PAR%icntl(14) = 100
+MUMPS_PAR%icntl(14) = 2
 
 ! MUMPS_PAR%icntl(4)  = 0
 ! mumps_par%ICNTL(5)  = 0

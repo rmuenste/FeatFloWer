@@ -94,6 +94,7 @@ set(src_util
   ${src_mpi}
   ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/min_sphere.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/OutputMumpsMatrices.f90
   ${CMAKE_SOURCE_DIR}/source/src_mpi/parentcomm.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
