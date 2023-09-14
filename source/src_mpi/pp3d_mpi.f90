@@ -7,6 +7,7 @@ MODULE PP3D_MPI
   INTEGER Variable,iunit
   INTEGER:: ShowID = 1
   INTEGER myid,numnodes,subnodes,MPI_COMM_SUBS,MASTER
+  integer MPI_COMM_ALL
   INTEGER NParNodes(9)
   CHARACTER nodefile*60
 
@@ -128,6 +129,7 @@ CONTAINS
     CALL MPI_COMM_GROUP(MPI_COMM_WORLD,MPI_COMM_SUBS0,IERR)
     CALL MPI_GROUP_EXCL(MPI_COMM_SUBS0,1,NULLNODE,MPI_COMM_SUBS1,IERR)
     CALL MPI_COMM_CREATE(MPI_COMM_WORLD,MPI_COMM_SUBS1,MPI_COMM_SUBS,IERR)
+    MPI_COMM_ALL = MPI_COMM_SUBS0
 
     if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
@@ -2506,7 +2508,29 @@ SUBROUTINE ShareValueK_myMPI(KDATA,nData,iProc)
   CALL MPI_BCAST(KDATA,nData,MPI_INTEGER,iProc,MPI_COMM_WORLD,IERR)
 
 END SUBROUTINE ShareValueK_myMPI
-! -------------------------------------------------------------
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE Reduce_myMPI(localMax, totalMax)
+
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+  integer :: error_indicator
+
+  totalMax = 0.0
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, error_indicator)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    write(*,*)'maximum fluid force: ', totalMax
+  end if
+
+END SUBROUTINE Reduce_myMPI
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
 ! ---------------------- BCAST of DOUBLEs ---------------------
 SUBROUTINE ShareValueD_myMPI(DDATA,nData,iProc)
 

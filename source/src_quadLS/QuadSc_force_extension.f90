@@ -1,10 +1,20 @@
 !#define OUTPUT_LEVEL2 
 !#define SED_BENCH
 !************************************************************************
+
+function calculate_l2_norm(fx, fy, fz)
+  real(kind=8), intent(in) :: fx, fy, fz
+  real(kind=8) :: calculate_l2_norm
+
+  calculate_l2_norm = sqrt(fx**2 + fy**2 + fz**2)
+
+end function calculate_l2_norm
+
+!************************************************************************
 !
 !************************************************************************
 SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
-                                DCORVG,ELE)
+                                DCORVG,ELE, maxLocal)
 !************************************************************************
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
@@ -33,6 +43,10 @@ Real*8 :: DCORVG(NNDIM,*)
 
 ! Alpha function
 integer :: ALPHA(*)
+
+! The maximum force magnitude
+REAL*8, intent(inout) :: maxLocal
+
 INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 INTEGER KDFG(NNBAS),KDFL(NNBAS)
 
@@ -44,6 +58,12 @@ type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
 
 logical :: crit1, crit2
+
+real*8 :: theNorm, totalMax
+!integer, dimension(1) :: processRanks
+!integer :: MPI_W0, MPI_EX0
+!integer :: MPI_Comm_EX0, new_comm
+!integer :: error_indicator
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -68,7 +88,14 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
 
 SAVE
+
+!  processRanks(1) = 0
+!  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
+!  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
+!  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
  
+  maxLocal = 0.0
+
   IF (myid.eq.0) return! GOTO 999
   
   DO I= 1,NNDER
@@ -405,6 +432,10 @@ SAVE
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
 
+  theNorm = calculate_l2_norm(DResForceX, DResForceY, DResForceZ)
+  if( theNorm >= maxLocal ) then
+    maxLocal = theNorm
+  end if
 
 #ifdef OUTPUT_LEVEL2 
   write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
@@ -419,12 +450,17 @@ SAVE
 
   END DO ! nParticles
 
+!  call MPI_Reduce(totalMax, maxForce, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_EX0, ierr)
+!  if (myid .eq. 1)then
+!    write(*,*)'maxFluidForce1: ', maxLocal 
+!  end if
+
 END SUBROUTINE ForcesLocalParticles
 !************************************************************************
 !
 !************************************************************************
 SUBROUTINE ForcesRemoteParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
-                        DCORVG,ELE)
+                        DCORVG,ELE, maxLocal)
 !************************************************************************
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
@@ -453,6 +489,10 @@ Real*8 :: DCORVG(NNDIM,*)
 
 ! Alpha function
 integer :: ALPHA(*)
+
+! The maximum force magnitude
+REAL*8, intent(inout) :: maxLocal
+
 INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 INTEGER KDFG(NNBAS),KDFL(NNBAS)
 
@@ -464,6 +504,12 @@ type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
 real*8 :: pressSum, momSum
 logical :: crit1, crit2
+
+real*8 :: theNorm, totalMax
+!integer, dimension(1) :: processRanks
+!integer :: MPI_W0, MPI_EX0, ierr
+!integer :: MPI_Comm_EX0, new_comm
+!integer :: error_indicator
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -489,6 +535,12 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
  
+  localMax = 0.0
+!  processRanks(1) = 0
+!  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
+!  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
+!  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+
   IF (myid.eq.0) return! GOTO 999
   
   pressSum = 0.0
@@ -833,6 +885,11 @@ SAVE
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
 
+  theNorm = calculate_l2_norm(DResForceX, DResForceY, DResForceZ)
+  if( theNorm >= localMax ) then
+    localMax = theNorm
+  end if
+
 #ifdef OUTPUT_LEVEL2 
   write(*,'(I3,A,I3,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce(x,y,z): ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
 #endif
@@ -844,6 +901,12 @@ SAVE
 
   END DO ! nParticles
 
+!  call MPI_Reduce(totalMax, maxForce, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_EX0, ierr)
+!  if (myid .eq. 1)then
+!    write(*,*)'maxRemoteFluidForce: ', maxForce 
+!    write(*,*)'maxFluidForce2: ', maxLocal 
+!  end if
+
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
 !
@@ -853,10 +916,12 @@ SUBROUTINE GetForcesFC2(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE,&
 !************************************************************************
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
-USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
+USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN,Reduce_myMPI 
 USE var_QuadScalar, ONLY : myExport,Properties
 use cinterface
 use dem_query
+
+
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
 CHARACTER SUB*6,FMT*15,CPARAM*120
 
@@ -881,12 +946,12 @@ integer :: ALPHA(*)
 INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 INTEGER KDFG(NNBAS),KDFL(NNBAS)
 
-REAL*8 :: DResForceX,DResForceY,DResForceZ
+REAL*8 :: DResForceX,DResForceY,DResForceZ, localMax, localMaxRemote, totalMax
 REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
 REAL*8 :: Center(3),dForce(6)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
-integer :: numParticles, particleId
+integer :: numParticles, particleId, ierr
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -912,22 +977,34 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
 
-  IF (myid.eq.0) return
+  localMax       = 0.0
+  localMaxRemote = 0.0
+  totalMax       = 0.0
+
+  IF (myid /= 0) then
 
   ! Local particles first
   call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
                             DVISC,KVERT,KAREA,KEDGE,&
-                            DCORVG,ELE)
+                            DCORVG,ELE, localMax)
 
   ! Remote particles second
   call ForcesRemoteParticles(factors,U1,U2,U3,P,ALPHA,&
                              DVISC,KVERT,KAREA,KEDGE,&
-                             DCORVG,ELE)
+                             DCORVG,ELE, localMaxRemote)
 
   ! Now we synchronize the forces
   call sync_forces()
   call debug_output_force() 
-
-  IF (myid.eq.1)then
   end if
+
+  localMax = MAX(localMax, localMaxRemote)
+
+!  call MPI_Reduce(totalMax, localMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_ALL, ierr)
+!  call MPI_Barrier(MPI_COMM_ALL, ierr)
+  call Reduce_myMPI(localMax, totalMax)
+
+!  IF (myid.eq.0)then
+!    write(*,*)'totalMaxFluidForce: ', totalMax 
+!  end if
 END
