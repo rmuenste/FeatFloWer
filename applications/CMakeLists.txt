@@ -37,6 +37,7 @@ if(USE_CGAL)
   add_subdirectory(mesh_ref)
   add_subdirectory(q2p1_particle_tracer)
   add_subdirectory(q2p1_particle_tracer_xse)
+  add_subdirectory(q2p1_xParticles)
 endif(USE_CGAL)
 
 if (USE_HYPRE)
