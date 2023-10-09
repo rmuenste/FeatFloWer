@@ -16,15 +16,18 @@ contains
 !================================================================================================
 !                                   Sub: writeTriFile 
 !================================================================================================
-subroutine writeTriFile(mesh)
+subroutine writeTriFile(mesh, filename)
   USE var_QuadScalar
   type(tMesh) :: mesh
+  character(len=*), intent(in) :: filename
+
+  ! locals
   integer :: cunit = 123
   integer :: ivert,ielem,istat 
 
-  open (unit=cunit,file='mesh2.tri',action="write",iostat=istat)
+  open (unit=cunit,file=filename, status="new", iostat=istat)
   if(istat .ne. 0)then
-    write(*,*)"Could not open file for writing. "
+    write(*,*)"Could not open file for writing: ", filename
     stop          
   end if    
 

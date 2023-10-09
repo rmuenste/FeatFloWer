@@ -428,6 +428,9 @@ SAVE
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
+  !theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
+  DResForceX = 0.0
+  DResForceY = 0.0
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
@@ -881,6 +884,8 @@ SAVE
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #else
+  DResForceX = 0.0
+  DResForceY = 0.0
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif

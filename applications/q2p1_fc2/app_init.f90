@@ -105,9 +105,13 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
 
+ character(50) :: filename
+ character(10) :: int_as_string
+
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ real*8 :: localMax, totalMax
 
  integer, dimension(1) :: processRanks
  integer :: MPI_W0, MPI_EX0
@@ -135,6 +139,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CFILE=CFILE1
  MFILE=MFILE1
+
+ dPeriodicity(1)= 0.1d0
+ dPeriodicity(2)= 0.1d0
 
  !=======================================================================
  !     Grid generation
@@ -219,7 +226,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+ filename = "meshL4"
+
+ ! Convert the integer int_as_string to a string
+ write(int_as_string, '(I0)') myid
+
+ filename = trim(filename) // "_" // trim(int_as_string) // ".tri"
+
  II=NLMIN
+ !call writeTriFile(mg_mesh%level(NLMAX), filename)
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
  CALL PARENTCOMM(mg_mesh%level(II)%nat,&
@@ -337,10 +352,16 @@ DO ILEV=NLMIN+1,NLMAX
    END IF
  END DO
 
+ filename = "meshLP"
+
+ filename = trim(filename) // "_" // trim(int_as_string) // ".tri"
+
  ! Parametrize the highest level
  if(myid.ne.0)then
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
+
+ !!call writeTriFile(mg_mesh%level(NLMAX+1), filename)
 
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
@@ -445,7 +466,12 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 ! CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
 
- call commf2c_bench(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+ call commf2c_kroupa(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+
+! call Reduce_myMPI(localMax, totalMax)
+! call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+! pause
+ 
 
 ! if (myid .eq. 1) then
 !   write(*,*) myid, ") #particles: ", numLocalParticles()

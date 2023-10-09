@@ -100,6 +100,7 @@ def main():
         raise RuntimeError("The script needs at least one command line parameters to run.")
 
     firstFile = sys.argv[1]
+    secondFile = "" 
     if len(sys.argv) > 2:
         secondFile = sys.argv[2]
 
@@ -109,6 +110,10 @@ def main():
         convertTri2Vtk(firstFile, secondFile)
     elif os.path.splitext(firstFile)[1] == '.vtk' and os.path.splitext(secondFile)[1] == '.tri':
         convertVtk2Tri(firstFile, secondFile)
+    elif os.path.splitext(firstFile)[1] == '.tri':
+        baseName = os.path.splitext(firstFile)[0]
+        baseName += '.vtk'
+        convertTri2Vtk(firstFile, baseName)
     else:
         raise RuntimeError("File extensions not suitable for conversion")
 

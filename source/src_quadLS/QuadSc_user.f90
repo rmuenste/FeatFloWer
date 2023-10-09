@@ -426,6 +426,13 @@ IF (iT.EQ.21) THEN
  ValV= 0d0
  ValW= 0d0
 END IF
+
+IF (iT.EQ.23) THEN
+ ValU= 1d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 ! used for pipe/pipesphere.prj
 IF (iT.EQ.25) THEN
  ValU= 1d0
