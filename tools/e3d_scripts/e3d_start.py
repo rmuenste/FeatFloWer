@@ -235,7 +235,8 @@ paramDict = {
     "temperature" : False,
     "partialFilling" : False,
     "onlyMeshCreation" : False,
-    "retryDeformation" : False
+    "retryDeformation" : False,
+    "maxMeshLevel" : -1
 }
 
 class ProtocolObserver(FileSystemEventHandler):
@@ -299,6 +300,7 @@ def usage():
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
     print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
     print("['--mesh-reduction']: Deforms and reduces the mesh file")
+    print("['--max-meshlevel']: Sets the maximum multigrid level, overriding the value in the final q2p1_param.dat. Must be >= 2")
     print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
 #===============================================================================
 
@@ -621,9 +623,9 @@ def simLoopVelocity(workingDir):
 
             if paramDict['retryDeformation'] and exitCode == 55:
                 with open("_data/q2p1_param.dat", "r") as f:
-                  for l in f:
-                    if "SimPar@UmbrellaStepM" in l:
-                        orig_umbrella = int(l.split()[2])
+                  for line in f:
+                    if "SimPar@UmbrellaStepM" in line:
+                        orig_umbrella = int(line.split()[2])
                 UmbrellaStepM = orig_umbrella
                 while exitCode == 55 and UmbrellaStepM != 0:
                     replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
@@ -958,7 +960,7 @@ def main():
                                     'skip-simulation','short-test', 'help',
                                     'do-temperature','version', 'use-srun',
                                     'retry-deformation', 'partial-filling','only-mesh-creation',
-                                    'mesh-reduction'])
+                                    'mesh-reduction','max-meshlevel='])
 
     except getopt.GetoptError:
         usage()
@@ -1016,6 +1018,8 @@ def main():
             paramDict['singleAngle'] = 0.0 
         elif opt in ('--only-mesh-creation'):
             paramDict['onlyMeshCreation'] = True
+        elif opt in ('--max-meshlevel'):
+            paramDict['maxMeshLevel'] = int(arg)
         else:
             usage()
             sys.exit(2)
@@ -1081,6 +1085,35 @@ def main():
             return
         else:
             exitCode = simulationSetup(workingDir, projectFile, projectPath, projectFolder)
+        
+        # The setup above supposedly copies some file to _data/q2p1_param.dat
+        # Replace the maximum multigrid level there:
+        maxMeshLevel = paramDict["maxMeshLevel"]
+        # If the default was overwritten ...
+        if maxMeshLevel != -1:
+            # ... it must have a sensible value
+            if maxMeshLevel < 2:
+                msg = f"--max-mesh-level = {maxMeshLevel}, but must be >= 2!"
+                raise ValueError(msg)
+
+            pattern = re.compile(r"SimPar@MaxMeshLevel\s+[=]\s+([0-9]+)")
+            replacement = f"SimPar@MaxMeshLevel = {maxMeshLevel}"
+
+
+            # Open the file and read its contents
+            filepath = Path("_data") / Path("q2p1_param.dat")
+
+            print(f"Setting {replacement} in {str(filepath)}")
+            with open(filepath, 'r') as file:
+                filedata = file.read()
+            
+            # Perform the search-and-replace
+            filedata = re.sub(pattern, replacement, filedata)
+            
+            # Write the modified data back to the file
+            with open(filepath, 'w') as file:
+                file.write(filedata)
+
 
     if paramDict['skipSimulation']:
         sys.exit()
