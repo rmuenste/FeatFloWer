@@ -80,7 +80,9 @@ integer :: ilevel
 
 if (calculateDynamics()) then
 
- if(myid.eq.1) write(*,*)'> Dynamics update'
+! if(myid.eq.1) then
+!   write(*,'(A)') '==Dynamics update========================================================================='
+! end if
 
  ilevel=mg_mesh%nlmax
  CALL SETLEV(2)
@@ -99,7 +101,9 @@ if (calculateDynamics()) then
    return
  endif
 
- if(myid.eq.1) write(*,*)'> Dynamics Module Step'
+ if(myid.eq.1) then
+   write(*,'(A)') '==Dynamics Module Step===================================================================='
+ end if
  call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
 
 end if

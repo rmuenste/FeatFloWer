@@ -1540,7 +1540,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   CALL myMPI_Barrier()
   call ztime(tttx1)
-  if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
+  if (myid.eq.1) WRITE(*,'(A,F12.6,A)') 'FBM time : ', tttx1-tttt0, ' s'
 
   do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
@@ -2468,7 +2468,7 @@ SUBROUTINE updateFBMGeometry_Wangen()
 use cinterface, only: calculateFBM
 
  if (calculateFBM()) then
-  if (myid.eq.showid) write(*,*) '> FBM computation step'
+  if (myid.eq.showid) write(*,'(A)') '> FBM computation step'
 
   ILEV=NLMAX
   CALL SETLEV(2)
@@ -2500,7 +2500,7 @@ isSilent = .true.
 if(present(silent)) isSilent = silent
 
  if (calculateFBM()) then
-  if (myid.eq.showid) write(*,*) '> FBM computation step'
+  if (myid.eq.showid) write(*,'(A)') '> FBM computation step'
 
   ILEV=NLMAX
   CALL SETLEV(2)
@@ -3293,7 +3293,7 @@ SUBROUTINE  GET_MESH_VELO()
   END DO
 
   CALL COMM_Maximum(dmax)
-  IF (myid.eq.showid) WRITE(*,*) 'max mesh velocity: ', dmax
+  IF (myid.eq.showid) WRITE(*,'(A,E12.6)') 'max mesh velocity: ', dmax
 
 END SUBROUTINE  GET_MESH_VELO
 !

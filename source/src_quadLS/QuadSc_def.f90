@@ -4737,7 +4737,7 @@ end if
 CALL COMM_Maximum(dmax)
 
 if (myid.eq.1) then
- write(*,*) 'maximum norm of velocity: ', dmax
+ write(*,'(A,E12.6)') 'maximum norm of velocity: ', dmax
 end if
 
 END SUBROUTINE MonitorVeloMag
