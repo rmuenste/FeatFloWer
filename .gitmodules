@@ -7,10 +7,6 @@
 	url = https://github.com/rmuenste/cgal
 [submodule "extern/libraries/hypre"]
 	path = extern/libraries/hypre
-	url = https://github.com/rmuenste/hypre.git
-[submodule "libs/FullcontactV2"]
-	path = libs/FullContactV2
-	url = /home/user/rmuenste/nobackup/code/FF-DNA/FullContactV2
-	branch = eff-visc
+	url = git@github.com:rmuenste/hypre.git
 
 

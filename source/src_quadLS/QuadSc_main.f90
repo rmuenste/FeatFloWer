@@ -1540,7 +1540,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   CALL myMPI_Barrier()
   call ztime(tttx1)
-  if (myid.eq.1) WRITE(*,'(A,F12.6,A)') 'FBM time : ', tttx1-tttt0, ' s'
+  if (myid.eq.1) WRITE(*,'(A,F12.6,A)') 'FBM time : ', tttx1-tttt0, ' [s]'
 
   do i=1,nvt+net+nat+nel
   myALE%Monitor(i)=distance(i)
