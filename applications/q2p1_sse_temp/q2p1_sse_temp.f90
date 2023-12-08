@@ -14,7 +14,7 @@ PROGRAM Q2P1_DEVEL
                          
   use Transport_Q2P1,  only: TemporalFieldInterpolator,QuadSc,LinSc
   
-  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease,myTransientSolution
+  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease,myTransientSolution,myMultiMat
   
   use Transport_Q1,  only: Transport_LinScalar_XSE,Boundary_LinSc_Val_XSE,AddSource_XSE,&
                            Assemble_LinScOperators_XSE

@@ -262,6 +262,14 @@ IF (iT.lt.0) THEN
  END IF
 END IF
 
+IF (iT.EQ.111) THEN
+   dist = SQRT((x-27)**2d0 + y*y)
+   dScale = 5.0d0/0.245**2d0
+   IF (dist.lt.R_inflow) THEN
+    ValW= -dScale*(dist+0.245)*(0.245-dist)
+   END IF
+END IF
+
 IF (iT.EQ.1) THEN
    dist = SQRT(z*z + y*y)
    dScale = 5.0d0/R_inflow*R_inflow
@@ -314,6 +322,16 @@ IF (iT.EQ.770) THEN
   ValU =  -myTwoPI*Y*(1d0/6d1)
   ValV =   myTwoPI*X*(1d0/6d1)
   ValW =   0.0d0
+END IF
+
+IF (iT.EQ.666) THEN
+  dCenter=[-0.85d0,0d0,0d0]
+  DIST = SQRT((X-dCenter(1))**2d0+(Y-dCenter(2))**2d0)
+  DIST = MIN(DIST,0.18d0)
+  DAUX= 2d0*(DIST+0.18d0)*(0.18d0-DIST)/(0.18d0*0.18d0)
+  ValU =   0.3d0*DAUX
+  ValV =   0.0d0*DAUX
+  ValW =   0.3d0*DAUX
 END IF
 
 IF (iT.EQ.778) THEN

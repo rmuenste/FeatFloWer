@@ -127,6 +127,7 @@ ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_barMmatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_Interface.f90
+${CMAKE_SOURCE_DIR}/source/assemblies/AL.f90
 )
 
 #=========================================================================

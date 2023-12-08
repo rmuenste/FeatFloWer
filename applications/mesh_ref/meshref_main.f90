@@ -76,6 +76,7 @@ call readTriCoarse(adjustl(trim(cProjectFolder))//'/'//adjustl(trim(cProjectGrid
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! READING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+bMemoryPrint = .false.
 !!! building up the mesh structures
 call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 

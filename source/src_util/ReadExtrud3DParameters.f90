@@ -1542,6 +1542,8 @@
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%Material
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_TemperatureType','=',myProcess%myInflow(iInflow)%temperatureType
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_TemperatureRange','=',myProcess%myInflow(iInflow)%temperatureRange
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%temperature
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius

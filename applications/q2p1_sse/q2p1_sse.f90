@@ -84,8 +84,8 @@ PROGRAM Q2P1_SSE
   dt=tstep
   timens=timens+dt
 
-  if (itns.eq.1) CALL MemoryPrint(0)
-  if (itns.ne.1) CALL MemoryPrint(1)
+  if (itns.eq.1) CALL MemoryPrint(1,'w','t0')
+  if (itns.ne.1) CALL MemoryPrint(1,'s','tn')
   
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
@@ -105,7 +105,7 @@ PROGRAM Q2P1_SSE
     inonln_t = 2
   END IF
 
-  CALL MemoryPrint(1)
+  CALL MemoryPrint(1,'s','tnn')
   
   call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
 

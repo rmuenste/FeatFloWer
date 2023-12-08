@@ -177,7 +177,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call readTriCoarse(CMESH1, mg_mesh)
 
- call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
+ call refineMesh(mg_mesh, mg_Mesh%maxlevel,.true.)  
 
  
  !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated

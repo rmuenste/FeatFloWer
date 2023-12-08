@@ -1322,7 +1322,8 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
 
-CALL updateFBMGeometry()
+
+if (itns.eq.1) CALL updateFBMGeometry()
 
 thstep = tstep*(1d0-theta)
 
@@ -1405,6 +1406,7 @@ CALL Protocol_QuadScalar(mfile,QuadSc,0,&
 CALL ZTIME(tttt1)
 myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
+! CALL ALStructExtractor()
 
 DO INL=1,QuadSc%prm%NLmax
 INLComplete = 0
@@ -1530,34 +1532,34 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-call fbm_updateFBM(Properties%Density(1),tstep,timens,&
-                   Properties%Gravity,mfile,myid,&
-                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
-
-!if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
-
-IF (myid.ne.0) THEN
- CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
-END IF
- 
-CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
- 
-IF (myid.ne.0) THEN
- CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
-END IF
- 
- CALL GET_MESH_VELO()
- 
- ILEV=NLMAX
- CALL SETLEV(2)
- CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%dcorag,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%kedge)
-
-CALL updateFBMGeometry()
+! call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+!                    Properties%Gravity,mfile,myid,&
+!                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+!                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
+! 
+! !if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
+! 
+! IF (myid.ne.0) THEN
+!  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+! END IF
+!  
+! CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
+!  
+! IF (myid.ne.0) THEN
+!  CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+! END IF
+!  
+!  CALL GET_MESH_VELO()
+!  
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+!  CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+!                       mg_mesh%level(ILEV)%dcorag,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%karea,&
+!                       mg_mesh%level(ILEV)%kedge)
+! 
+! CALL updateFBMGeometry()
 
 CALL MonitorVeloMag(QuadSc)
 
@@ -2690,8 +2692,9 @@ END IF
 !!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
 
 END SUBROUTINE TemporalFieldInterpolator
-
-
+!
+! ----------------------------------------------
+!
 SUBROUTINE CorrectPressure_WRT_KNPRP()
 integer iel
 
@@ -2708,7 +2711,9 @@ if (myid.ne.0) then
 end if
 
 END SUBROUTINE CorrectPressure_WRT_KNPRP
-
+!
+! ----------------------------------------------
+!
 SUBROUTINE GetPressureAtInflows(mfile)
 integer mfile
 !---------------------------------
@@ -2806,8 +2811,9 @@ END DO
 mySetup%bPressureConvergence = mySetup%bPressureConvergence.and.(istart.eq.1)
 
 END SUBROUTINE GetPressureAtInflows
-
-
+!
+! ----------------------------------------------
+!
 !! Called by all (myid=0 too) processes because of the immersed communicated sum !!
 SUBROUTINE IntegrateShearrate()
 REAL*8   dAvgShearRate
@@ -2825,3 +2831,34 @@ CALL SubIntegrateShearrate(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                         E013)
 
 END SUBROUTINE IntegrateShearrate
+!
+! ----------------------------------------------
+!
+SUBROUTINE ALStructExtractor()
+
+ilev=nlmax
+call setlev(2)
+
+! A11Mat     => mg_A11Mat(ILEV)%a
+! A22Mat     => mg_A22Mat(ILEV)%a
+! A33Mat     => mg_A33Mat(ILEV)%a
+! A12Mat     => mg_A12Mat(ILEV)%a
+! A13Mat     => mg_A13Mat(ILEV)%a
+! A23Mat     => mg_A23Mat(ILEV)%a
+! A21Mat     => mg_A21Mat(ILEV)%a
+! A31Mat     => mg_A31Mat(ILEV)%a
+! A32Mat     => mg_A32Mat(ILEV)%a
+
+CALL ALStructExtractorSub(mg_mesh%level(ILEV)%kvert,&
+                          mg_mesh%level(ILEV)%karea,&
+                          mg_mesh%level(ILEV)%kedge,&
+                          mg_mesh%level(ILEV)%dcorvg,&
+                          mg_mesh%level(ILEV)%elementsAtVertexIdx,&
+                          mg_mesh%level(ILEV)%elementsAtVertex,&
+                          mg_mesh%level(ILEV)%nvt,&
+                          mg_mesh%level(ILEV)%net,&
+                          mg_mesh%level(ILEV)%nat,&
+                          mg_mesh%level(ILEV)%nel)
+                          
+
+END SUBROUTINE ALStructExtractor

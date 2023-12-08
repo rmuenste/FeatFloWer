@@ -83,6 +83,7 @@ else(WIN32)
     ${LAPACK_LIBRARIES}
     stdc++
     stdc++fs
+    OpenMP::OpenMP_Fortran
     inshape3dcore
     Utility
     Math

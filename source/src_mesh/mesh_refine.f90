@@ -127,86 +127,6 @@ subroutine writeTriArrays(mydcorvg, mykvert, mykedge, mykadj,&
 end subroutine
 
 !================================================================================================
-!                                 Sub: writeArrays  
-!================================================================================================
-subroutine writeArrays(mydcorvg, mykvert, mykedge, mykadj,&
-    mykarea, mnvt, mnel, mnet,cfile)
-  USE var_QuadScalar
-
-  REAL*8  mydcorvg(3,*)
-
-  integer mykvert(8,*)
-
-  integer mykedge(12,*)
-
-  integer mykadj(6,*)
-
-  integer mykarea(6,*)
-
-  CHARACTER (len = 60) :: cfile 
-
-  integer :: mnvt
-  integer :: mnel 
-  integer :: mnet 
-
-  integer :: cunit = 123
-  integer :: ivert,ielem,iedge 
-
-  open (unit=cunit,file=cfile)
-
-  write(cunit,'(3I6,A)')mnel,mnvt,mnet,' NEL,NVT,NET'
-
-  do ivert=1,mnvt
-  write(cunit, '(A,3E16.7)')"  ",REAL(mydcorvg(1,ivert)),&
-    REAL(mydcorvg(2,ivert)),&
-    REAL(mydcorvg(3,ivert))
-  end do
-
-  write(cunit,'(A)')'KVERT'
-  do ielem=1,mnel
-  write(cunit, '(A,8I6)')" ",(mykvert(1,ielem)),&
-    (mykvert(2,ielem)),&
-    (mykvert(3,ielem)),&
-    (mykvert(4,ielem)),&
-    (mykvert(5,ielem)),&
-    (mykvert(6,ielem)),&
-    (mykvert(7,ielem)),&
-    (mykvert(8,ielem))
-  end do
-
-
-  write(cunit,'(A)')'KADJ'
-  do ielem=1,mnel
-  write(cunit, '(A,6I6)')" ",(mykadj(1,ielem)),&
-    (mykadj(2,ielem)),&
-    (mykadj(3,ielem)),&
-    (mykadj(4,ielem)),&
-    (mykadj(5,ielem)),&
-    (mykadj(6,ielem))
-  end do
-
-
-  write(cunit,'(A)')'KEDGE'
-  do ielem=1,mnel
-  write(cunit, '(A,12I6)')" ",(mykedge(1,ielem)),&
-    (mykedge(2,ielem)),&
-    (mykedge(3,ielem)),&
-    (mykedge(4,ielem)),&
-    (mykedge(5,ielem)),&
-    (mykedge(6,ielem)),&
-    (mykedge(7,ielem)),&
-    (mykedge(8,ielem)),&
-    (mykedge(9,ielem)),&
-    (mykedge(10,ielem)),&
-    (mykedge(11,ielem)),&
-    (mykedge(12,ielem))
-  end do
-
-  close(cunit)
-
-end subroutine
-
-!================================================================================================
 !                                 Sub: readTriCoarse  
 !================================================================================================
 subroutine readTriCoarse(CFILE, mgMesh)
@@ -304,6 +224,8 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
   icurr = 1
 
+  if (bMemoryPrint) CALL MemoryPrint(0,'w','msg')
+  
   call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
 
   if(myid.eq.1)then
@@ -311,6 +233,8 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
     write(*,*)'Number of refinement steps needed: ',nfine
   end if
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'w','msg')
+  
   do ilevel=1,nfine
 
     icurr = icurr + 1 
@@ -323,6 +247,8 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
   end do
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'w','msg')
+  
   do ilevel=1,maxlevel-1 
     deallocate(mgMesh%level(ilevel)%dcorvg)
     mgMesh%level(ilevel)%dcorvg => mgMesh%level(maxlevel)%dcorvg
@@ -584,6 +510,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','KVEL')
   call genKVEL(mesh) 
 
   CALL ZTIME(TTT1)
@@ -595,6 +522,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','KEDGE')
   call genKEDGE2(mesh)
 
   CALL ZTIME(TTT1)
@@ -608,6 +536,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','KADJ')
   call genKADJ2(mesh)
 
   CALL ZTIME(TTT1)
@@ -619,6 +548,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','KAREA')
   call genKAREA(mesh)
 
   CALL ZTIME(TTT1)
@@ -630,6 +560,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','VAR')
   call genKVAR(mesh)
 
   CALL ZTIME(TTT1)
@@ -641,6 +572,7 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT0)
 
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','DCORAG')
   call genDCORAG(mesh)
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -651,6 +583,7 @@ subroutine genMeshStructures(mesh, extended)
 
   if(calculateExtendedConnectivity)then
     CALL ZTIME(TTT0)
+    if (bMemoryPrint) CALL MemoryPrint(1,'s','ElAtVert')
     call tria_genElementsAtVertex3D(mesh)
     CALL ZTIME(TTT1)
     TTGRID=TTT1-TTT0
@@ -659,6 +592,8 @@ subroutine genMeshStructures(mesh, extended)
       WRITE(*,*) 'time for elementsAtVertex : ',TTGRID
     END IF
   end if
+  
+  if (bMemoryPrint) CALL MemoryPrint(1,'s','L')
 
 end subroutine
 
@@ -1550,6 +1485,7 @@ end subroutine buildConnectorList
 !                                    Sub: tria_sortElements3D  
 !================================================================================================
 subroutine tria_genElementsAtVertex3D(mesh)
+  USE PP3D_MPI, ONLY:myid
   use types
   implicit none
   ! The triangulation structure to be updated.
@@ -1576,11 +1512,11 @@ subroutine tria_genElementsAtVertex3D(mesh)
       iivt = mesh%kvert(iive,iiel)
 
       ! increase the number of elements by one
-      mesh%elementsAtVertexIdx(iivt+1) = mesh%elementsAtVertexIdx(iivt+1) + 1
+      mesh%elementsAtVertexIdx(iivt+1) = mesh%elementsAtVertexIdx(iivt+1) + 1 
 
     end do ! end ive
   end do ! end iel
-
+ 
   mesh%NNelAtVertex = 0
 
   ! In the next step we sum up the number of elements at two
@@ -1594,9 +1530,10 @@ subroutine tria_genElementsAtVertex3D(mesh)
                                     mesh%elementsAtVertexIdx(iivt-1)
   end do
 
+  mesh%elementsAtVertexIdx = mesh%elementsAtVertexIdx + 1
+  
   ! set the size
-  isize = mesh%elementsAtVertexIdx(mesh%NVT+1)
-  mesh%elementsAtVertexIdx(1) = 1
+  isize = mesh%elementsAtVertexIdx(mesh%NVT+1)-1
 
   ! Isize contains now the length of the array where we store the
   ! adjacency information (IelementsAtVertex).  Do we have (enough)
@@ -1626,7 +1563,7 @@ subroutine tria_genElementsAtVertex3D(mesh)
 
     end do ! end iive
   end do ! end iiel 
-
+  
 end subroutine tria_genElementsAtVertex3D
 
 !================================================================================================

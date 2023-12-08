@@ -23,7 +23,10 @@ PROGRAM Q2P1_xParticles
   
   
   CALL Barrier_myMPI()
+  CALL OUTPUT_xParticleDUMP(0)
+  
   CALL OUTPUT_xParticleVTK(0)  
+  
 
   CALL MPI_Finalize(ierr)
 

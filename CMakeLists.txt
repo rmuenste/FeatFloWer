@@ -147,6 +147,7 @@ if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
 endif(BUILD_BOUNDARY_LAYER_TOOLS)
 
+find_package(OpenMP REQUIRED)
 #=========================================================================
 #                       Configure BLAS/LAPACK 
 #=========================================================================

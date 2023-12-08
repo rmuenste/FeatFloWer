@@ -1,6 +1,8 @@
 MODULE xPart_def
 
 USE var_QuadScalar, only : myParticleParam
+use omp_lib
+implicit none
 
 REAL*8 dist_CGAL,cdx,cdy,cdz
 REAL*8 distance, dNormal(3),shellE(27)
@@ -14,7 +16,7 @@ REAL*8  DV_Loc(3)
 REAL*8 :: dParticleVelo(3) = 0d0
 REAL*8  P8(3,8), P(3),PR(3),P_new(3)
 LOGICAL OK_FLAG
-REAL*8 diff1,diff2,diff3
+REAL*8 diff1,diff2,diff3,dFact,dFaux
 INTEGER iter
 
 REAL*8 :: DeltaT
@@ -24,19 +26,27 @@ CHARACTER :: cParamFile*(128) = '_data/ParticleTracerInput.dat'
 INTEGER :: nIter = 1000
 real*8  :: xFactor = 1.0
 integer :: xChunks = 5
+CHARACTER :: xPROCESS*(64)
 
 REAL*8 :: d_CorrDist = 0.25d0,dTimeStep=1.00d1, minDist = -0.01d0
 INTEGER :: nTime = 10
+
+!$OMP   THREADPRIVATE(dist_CGAL,cdx,cdy,cdz,distance,dNormal,shellE)
+!$OMP   THREADPRIVATE(DJ,DJACI,DJAC,DBAS,DerBAS,DV0,DV1,DETJ,XI1,XI2,XI3,XX,YY,ZZ)
+!$OMP   THREADPRIVATE(DV_Loc,dParticleVelo,P8,P,PR,P_new,OK_FLAG)
+!$OMP   THREADPRIVATE(dFact,dFaux,diff1,diff2,diff3,iter,DeltaT)
+
 
  CONTAINS
  
 !========================================================================================
 !                            Sub: GetPointFromElement
 !========================================================================================
-SUBROUTINE GetPointFromElement(P,iStart,BF,PR,iP)
+SUBROUTINE GetPointFromElement(PP,iStart,BF,PPR,iP)
+implicit none
+REAL*8  PP(3),PPR(3)
 LOGICAL BF
-
-REAL*8  P(3),PR(3)
+integer iP,iStart
 
 DJ(1,1)=( P8(1,1)+P8(1,2)+P8(1,3)+P8(1,4)+P8(1,5)+P8(1,6)+P8(1,7)+P8(1,8))*Q8
 DJ(1,2)=( P8(2,1)+P8(2,2)+P8(2,3)+P8(2,4)+P8(2,5)+P8(2,6)+P8(2,7)+P8(2,8))*Q8
@@ -110,17 +120,17 @@ DO iter = 1,80
   CALL M33INV (DJAC, DJACI, OK_FLAG)
 
   dFact = -0.33d0
-  diff1 = -dFact*(DJACI(1,1)*(P(1)-XX) + DJACI(1,2)*(P(2)-YY) + DJACI(1,3)*(P(3)-ZZ))
-  diff2 = -dFact*(DJACI(2,1)*(P(1)-XX) + DJACI(2,2)*(P(2)-YY) + DJACI(2,3)*(P(3)-ZZ))
-  diff3 = -dFact*(DJACI(3,1)*(P(1)-XX) + DJACI(3,2)*(P(2)-YY) + DJACI(3,3)*(P(3)-ZZ))
+  diff1 = -dFact*(DJACI(1,1)*(PP(1)-XX) + DJACI(1,2)*(PP(2)-YY) + DJACI(1,3)*(PP(3)-ZZ))
+  diff2 = -dFact*(DJACI(2,1)*(PP(1)-XX) + DJACI(2,2)*(PP(2)-YY) + DJACI(2,3)*(PP(3)-ZZ))
+  diff3 = -dFact*(DJACI(3,1)*(PP(1)-XX) + DJACI(3,2)*(PP(2)-YY) + DJACI(3,3)*(PP(3)-ZZ))
   XI1 = XI1 + diff1
   XI2 = XI2 + diff2
   XI3 = XI3 + diff3
-  daux = diff1*diff1 + diff2*diff2 + diff3*diff3
+  dFaux = diff1*diff1 + diff2*diff2 + diff3*diff3
 
 !   WRITE(*,'(I3,9ES12.2)') iter,XI1,XI2,XI3, XX,YY,ZZ, diff1,diff2,diff3
   IF (iter.gt.4.and.(ABS(XI1).GT.1.5d0.OR.ABS(XI2).GT.1.5d0.OR.ABS(XI3).GT.1.5d0)) GOTO 2
-  IF (iter.gt.4.and.daux.lt.0.00001d0) GOTO 1
+  IF (iter.gt.4.and.dFaux.lt.0.00001d0) GOTO 1
 
 END DO
 
@@ -128,7 +138,7 @@ END DO
 IF (ABS(XI1).GT.1.01d0.OR.ABS(XI2).GT.1.01d0.OR.ABS(XI3).GT.1.01d0) GOTO 2
 
 BF = .TRUE.
-PR = [XI1,XI2,XI3]
+PPR = [XI1,XI2,XI3]
 RETURN
 
 2 CONTINUE
@@ -143,12 +153,15 @@ USE PP3D_MPI, ONLY : myid
 implicit none
 LOGICAL :: BOUT=.FALSE.
 REAL*8  tLevel,tEnd,tStart
+integer :: iP,iE
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 REAL*8 :: dAlpha,XB,YB,ZB
-REAL*8 :: RK_Velo(3,4),dVelo,dElemSize,dFracTime,dist,dfrac
-integer imove,ip,ie
+REAL*8 :: dVelo,dElemSize,dFracTime,dist,dfrac
+integer iMove
 logical :: ok_flag
-REAL*8 :: rho_p,rho_l,d_r,d_A,d_V,d_g(3),d_Up(3),d_U(3),dauxU(3),C_D,magU,d_Mu,dRE
-REAL*8 :: tau_p, f_p(3)
+
+SAVE dAlpha,XB,YB,ZB,dVelo,dElemSize,dFracTime,dist,dfrac,iMove,ok_flag
+!$OMP   THREADPRIVATE(dAlpha,XB,YB,ZB,dVelo,dElemSize,dFracTime,dist,dfrac,iMove,ok_flag)
 
 iMove = 0
 dVelo = 0d0
@@ -219,9 +232,6 @@ dFracTime = (tLevel + 0.5d0*DeltaT - tStart)/(tEnd - tStart)
  CALL RETURN_Velo()                     ! --> DV_loc
  
  dParticleVelo = DV_Loc
-
- 
- IF (isnan(magU)) pause
  
 !   write(*,'(a,80es12.4)') 'aasaa : ',P_new-P
   
@@ -253,6 +263,8 @@ SUBROUTINE RETURN_Velo()
 implicit none
 !!!!!!!!!!!!!!!!!!!!!!
 integer i
+save i
+!$OMP   THREADPRIVATE(i)
 
 ! Loop not neccesary because nothing depends on i?
 ! DO i=1,27
@@ -302,6 +314,9 @@ implicit none
 integer i
 REAL*8 DerBas1,DerBas2,DerBas3,DETI
 
+save i,DerBas1,DerBas2,DerBas3,DETI
+!$OMP   THREADPRIVATE(i,DerBas1,DerBas2,DerBas3,DETI)
+
 DBAS( 1)=-Q8*XI1*(1D0-XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DBAS( 2)= Q8*XI1*(1D0+XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DBAS( 3)=-Q8*XI1*(1D0+XI1)*XI2*(1D0+XI2)*XI3*(1D0-XI3)
@@ -344,6 +359,9 @@ implicit none
 !!!!!!!!!!!!!!!!!!!!!!
 integer i
 REAL*8 DerBas1,DerBas2,DerBas3,DETI
+
+save i,DerBas1,DerBas2,DerBas3,DETI
+!$OMP   THREADPRIVATE(i,DerBas1,DerBas2,DerBas3,DETI)
 
 DerBas(1,1)= Q8*(-1D0+2D0*XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DerBas(2,1)= Q8*(1D0+2D0*XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
@@ -468,10 +486,6 @@ SUBROUTINE FindPoint(fFact,dLocalVelo)
 implicit none
 REAL*8 fFact,dLocalVelo(3)
 !!!!!!!!!!!!!!!!!!!!!!!
-REAL*8 :: DV_Rot(3),dVV(3)
-REAL*8 :: dAlpha,XB,YB,ZB,dtheta
-REAL*8 :: dRR,dU_r,dU_theta,dU_z,dRho,dRho0,dRho1,dZ,daux,dFact
-!LOGICAL :: bRotationalMovement=.false.
 
 P_New = P + fFact*DeltaT * dParticleVelo ! dParticleVelo
 
@@ -500,9 +514,9 @@ DO iter = 1,80
   XI1 = XI1 + diff1
   XI2 = XI2 + diff2
   XI3 = XI3 + diff3
-  daux = diff1*diff1 + diff2*diff2 + diff3*diff3
+  dFaux = diff1*diff1 + diff2*diff2 + diff3*diff3
 
-  IF (iter.gt.3.and.daux.lt.0.00001d0) GOTO 1
+  IF (iter.gt.3.and.dFaux.lt.0.00001d0) GOTO 1
 
 END DO
 
@@ -523,6 +537,9 @@ LOGICAL, INTENT(OUT) :: OK_FLAG
 DOUBLE PRECISION, PARAMETER :: EPS = 1.0D-10
 DOUBLE PRECISION :: DET
 DOUBLE PRECISION, DIMENSION(3,3) :: COFACTOR
+
+save DET,COFACTOR
+!$OMP   THREADPRIVATE(DET,COFACTOR)
 
 
 DET =   A(1,1)*A(2,2)*A(3,3)  &

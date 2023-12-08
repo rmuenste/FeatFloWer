@@ -1,4 +1,4 @@
-subroutine MemoryPrint(iDo)
+subroutine MemoryPrint(iDo,cGroup,cMSG)
  USE PP3D_MPI
  
  integer, intent(in) :: ido
@@ -6,13 +6,25 @@ subroutine MemoryPrint(iDo)
  integer, allocatable :: ddd(:),sendcounts(:)
  character*256 cFormat,filename
  integer :: status
-
-
+ character, intent(in):: cGroup*(*)
+ character, intent(in):: cMSG*(*)
+ 
  CALL Get_PID(id,myid,mem)
  
  allocate(sendcounts(0:subnodes))
- call MPI_allgather(mem, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
- if (myid.eq.0) then
+ 
+ if (cGroup.eq.'w') THEN ! with master
+  call MPI_allgather(mem, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+ END IF
+ 
+ if (cGroup.eq.'s') THEN ! without master
+  if (myid.ne.0) then
+   call MPI_allgather(mem, 1, MPI_INTEGER, sendcounts(1:), 1, MPI_INTEGER, MPI_COMM_SUBS, ierr)
+   sendcounts(0) = 0
+  end if
+ END IF
+ 
+ if (myid.eq.showid) then
  
   filename = '_data/memory_consumption.txt'
   
@@ -31,7 +43,7 @@ subroutine MemoryPrint(iDo)
  
 !  OPEN (file=filename,unit=4712)
   write(cFormat,'(A,I0,A)') '(A,',subnodes,'(I0,(",")),I0)'
-  write(4712,TRIM(cFormat)) "Memory consumption in MB: ",sendcounts/1024
+  write(4712,TRIM(cFormat)) "MemConsumptionIn_MB_["//trim(TRIM(cMSG))//"]:",sendcounts/1024
   close(4712)
  END IF
  deallocate(sendcounts)

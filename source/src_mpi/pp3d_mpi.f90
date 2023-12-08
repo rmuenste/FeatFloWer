@@ -100,6 +100,8 @@ MODULE PP3D_MPI
   TYPE(TparST), DIMENSION(:), ALLOCATABLE :: mg_mpi
   INTEGER NLMINp
 
+  integer, allocatable :: VerticeCommunicationScheme(:)
+  
   TYPE tmQ2
    INTEGER, ALLOCATABLE :: x(:)
   END TYPE tmQ2

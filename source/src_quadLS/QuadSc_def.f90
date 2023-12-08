@@ -313,6 +313,8 @@ EXTERNAL E013
 REAL*8  DML
 INTEGER I,J
 
+ if (.not.bMasterTurnedOn) return
+ 
  CALL ZTIME(myStat%t0)
 
  IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))

@@ -1278,17 +1278,18 @@ END DO
 DO pID=1,subnodes
  IF (myid.eq.pID) THEN
   DO pJD=1,subnodes
-   IF (myid.NE.pJD) THEN
+   IF (myid.NE.pJD.and.VerticeCommunicationScheme(pJD).ne.0) THEN
     CALL RECVI_myMPI(NNEL,pJD)
     !write(*,*) "r:",myid,PJD,NNEL    
     MGE013(ILEV)%SP(pJD)%nElems(2) = NNEL
    END IF
   END DO
  ELSE
-  NNEL = MGE013(ILEV)%SP(pID)%nElems(1)
-  !write(*,*) "s:",myid,PID,NNEL  
-  CALL SENDI_myMPI(NNEL ,pID)
-
+  IF (VerticeCommunicationScheme(pID).ne.0) THEN
+   NNEL = MGE013(ILEV)%SP(pID)%nElems(1)
+   !write(*,*) "s:",myid,PID,NNEL  
+   CALL SENDI_myMPI(NNEL ,pID)
+  END IF
  END IF
 END DO
 
@@ -1715,6 +1716,8 @@ ALLOCATE (iCoor(1:ndof))
 ALLOCATE(CoorSP(subnodes))
  CoorSP(:)%Num = 0
 
+CALL MemoryPrint(1,'s','COMM0')
+
 DO pJD=1,subnodes
 
  nSize = MGE013(ILEV-1)%ST(pJD)%Num
@@ -1866,6 +1869,8 @@ DO pJD=1,subnodes
 
 END DO
 
+CALL MemoryPrint(1,'s','COMM1')
+
 ! IF (ALLOCATED(CoorST)) DEALLOCATE (CoorST)
 ALLOCATE(CoorST(subnodes))
 
@@ -1880,7 +1885,7 @@ ALLOCATE(CoorST(subnodes))
 DO pID=1,subnodes
  IF (myid.eq.pID) THEN
   DO pJD=1,subnodes
-   IF (myid.NE.pJD) THEN
+   IF (myid.NE.pJD.and.VerticeCommunicationScheme(pJD).gt.0) THEN
     CALL RECVI_myMPI(pNDOF,pJD)
     CoorST(pJD)%Num = pNDOF
     IF (pNDOF.GT.0) THEN
@@ -1898,15 +1903,19 @@ DO pID=1,subnodes
    END IF
   END DO
  ELSE
-  jAux = CoorSP(pID)%Num
-  CALL SENDI_myMPI(jAux ,pID)
-  IF (jAux.GT.0) THEN
-   CALL SENDD_myMPI(CoorSP(pID)%dCoor,3*jAux,pID)
-   CALL SENDK_myMPI(CoorSP(pID)%iCoor,  jAux,pID)
+  IF (VerticeCommunicationScheme(pID).gt.0) THEN
+   jAux = CoorSP(pID)%Num
+   CALL SENDI_myMPI(jAux ,pID)
+   IF (jAux.GT.0) THEN
+    CALL SENDD_myMPI(CoorSP(pID)%dCoor,3*jAux,pID)
+    CALL SENDK_myMPI(CoorSP(pID)%iCoor,  jAux,pID)
+   END IF
   END IF
  END IF
 
 END DO
+
+CALL MemoryPrint(1,'s','COMM2')
 
 ! WRITE(ccf,'(A,I1.1,A,I3.3,A)') "comm_",ILEV,"_",myid,".txt"
 ! OPEN (FILE=ccf,UNIT=994)
@@ -1938,6 +1947,7 @@ END DO
 
 ! if (myid.eq.1) OPEN(987,ACCESS="APPEND",FILE='VERT1.txt')
 
+CALL MemoryPrint(1,'s','COMM3')
 
 DO pID=1,subnodes
  jAux = 0
@@ -1978,6 +1988,7 @@ DO pID=1,subnodes
  END IF
 END DO
 
+CALL MemoryPrint(1,'s','COMM4')
 ! CLOSE(994)
 
 ! if (myid.eq.1) OPEN(987,ACCESS="APPEND",FILE='VERT1.txt')
@@ -2000,6 +2011,8 @@ if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 88 CONTINUE
 
+! CALL MemoryPrint(1,'s','COMM5')
+
 IF (ILEV.eq.iMedLev) THEN
  IF (myid.eq.MASTER) THEN
   jAUX = 0
@@ -2011,6 +2024,8 @@ IF (ILEV.eq.iMedLev) THEN
   ALLOCATE (MGE013(ILEV)%CRSVect(NEL*4))
  END IF
 END IF
+
+CALL MemoryPrint(1,'s','COMM-done')
 
 END
 
@@ -2167,6 +2182,12 @@ ALLOCATE (iAux(1:ndof))
 ALLOCATE (dCoor(3,1:ndof))
 ALLOCATE (iCoor(1:ndof))
 
+iAux = 0
+dCoor = 0d0
+iCoor = 0
+
+CALL MemoryPrint(1,'s','comm0')
+
 DO pID=1,mg_mpi(ILEV)%NeighNum
  nSIZE = mg_mpi(ILEV)%parST(pID)%Num
  DO I=1,nSIZE
@@ -2265,16 +2286,20 @@ END DO
 IF (ALLOCATED(CoorST)) DEALLOCATE (CoorST)
 ALLOCATE(CoorST(subnodes))
 
+CALL MemoryPrint(1,'s','comm1')
+
 DO pID=1,subnodes
  IF (myid.eq.pID) THEN
   DO pJD=1,subnodes
    IF (myid.NE.pJD) THEN
-    CALL RECVI_myMPI(pNDOF,pJD)
-    CoorST(pJD)%Num = pNDOF
-    ALLOCATE(CoorST(pJD)%dCoor(3,pNDOF))
-    ALLOCATE(CoorST(pJD)%iCoor(  pNDOF))
-    CALL RECVD_myMPI(CoorST(pJD)%dCoor,3*pNDOF,pJD)
-    CALL RECVK_myMPI(CoorST(pJD)%iCoor,  pNDOF,pJD)
+    IF (VerticeCommunicationScheme(pJD).gt.0) THEN
+     CALL RECVI_myMPI(pNDOF,pJD)
+     CoorST(pJD)%Num = pNDOF
+     ALLOCATE(CoorST(pJD)%dCoor(3,pNDOF))
+     ALLOCATE(CoorST(pJD)%iCoor(  pNDOF))
+     CALL RECVD_myMPI(CoorST(pJD)%dCoor,3*pNDOF,pJD)
+     CALL RECVK_myMPI(CoorST(pJD)%iCoor,  pNDOF,pJD)
+    END IF
    ELSE
     CoorST(pJD)%Num = jAux
     ALLOCATE(CoorST(pJD)%dCoor(3,jAux))
@@ -2284,12 +2309,16 @@ DO pID=1,subnodes
    END IF
   END DO
  ELSE
-  CALL SENDI_myMPI(jAux ,pID)
-  CALL SENDD_myMPI(dCoor,3*jAux,pID)
-  CALL SENDK_myMPI(iCoor,  jAux,pID)
+  IF (VerticeCommunicationScheme(pID).gt.0) THEN
+   CALL SENDI_myMPI(jAux ,pID)
+   CALL SENDD_myMPI(dCoor,3*jAux,pID)
+   CALL SENDK_myMPI(iCoor,  jAux,pID)
+  END IF
  END IF
 
 END DO
+
+CALL MemoryPrint(1,'s','comm2')
 
 ! if (myid.eq.1) OPEN(987,FILE='VERT1.txt')
 ! if (myid.eq.2) OPEN(987,FILE='VERT2.txt')
@@ -2309,11 +2338,13 @@ ALLOCATE(MGE013(ILEV)%UE11(NDOF))
 ALLOCATE(MGE013(ILEV)%UE22(NDOF))
 ALLOCATE(MGE013(ILEV)%UE33(NDOF))
 
+CALL MemoryPrint(1,'s','comm3')
+
 CALL InitOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num)
 
 DO pID=1,subnodes
  jAux = 0
- IF (pID.NE.myid) THEN
+ IF (pID.NE.myid.and.VerticeCommunicationScheme(pID).gt.0) THEN
   DO I=1,CoorST(pID)%Num
 !    CALL FindInOctTree(CoorST(myid)%dCoor,CoorST(myid)%Num,CoorST(pID)%dCoor(:,I),J,dist)
 !    IF (J.gt.0.and.J.le.CoorST(myid)%Num) then
@@ -2346,6 +2377,12 @@ DO pID=1,subnodes
 !  WRITE(*,*) myid,pID,jAux
  MGE013(ILEV)%ST(pID)%Num = jAux
 END DO
+
+! WRITE(*,'(A,I0,A,1000(I0," "))')  "pID=",myid," :: ", MGE013(ILEV)%ST(:)%Num
+! WRITE(*,'(A,I0,A,1000(I0," "))')  "pID=",myid," :: ", VerticeCommunicationScheme
+! pause
+
+CALL MemoryPrint(1,'s','comm4')
 
 ! WRITE(ccf,'(A,I1.1,A,I3.3,A)') "comn_",ILEV,"_",myid,".txt"
 ! OPEN (FILE=ccf,UNIT=994)
@@ -2404,6 +2441,8 @@ DO pID=1,subnodes
  END IF
 END DO
 
+CALL MemoryPrint(1,'s','comm5')
+
 CALL FreeOctTree()
 
 ! CLOSE(994)
@@ -2429,6 +2468,8 @@ if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 88 CONTINUE
 
+CALL MemoryPrint(1,'w','comm6')
+
 IF (ILEV.eq.iMedLev) THEN
  IF (myid.eq.MASTER) THEN
   jAUX = 0
@@ -2440,6 +2481,9 @@ IF (ILEV.eq.iMedLev) THEN
   ALLOCATE (MGE013(ILEV)%CRSVect(NEL*4))
  END IF
 END IF
+
+CALL MemoryPrint(1,'w','comm-done')
+
 
 END
 

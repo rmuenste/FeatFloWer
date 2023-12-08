@@ -416,7 +416,7 @@
     REAL*8  DCORAG(3,*),DCORVG(3,*)
     INTEGER KAREA(6,*),KVERT(8,*)
     INTEGER NAT,NEL,NVT
-    INTEGER I,J,JI,K,iaux
+    INTEGER I,J,JI,K,iaux,ivt,jvt
     REAL*8,ALLOCATABLE ::  pCOORDINATES(:,:),dCOORDINATES(:,:)
     REAL*8 DIST
     real*4 time0,time1
@@ -429,6 +429,7 @@
     INTEGER :: NodeTab(subnodes,subnodes),iCount
     CHARACTER*9 ccgcc
     integer, allocatable :: sendcounts(:),displs(:),gathered_data(:)
+    logical, allocatable :: xComm(:,:)
 
     TYPE TVector
       INTEGER :: i,Num
@@ -542,6 +543,45 @@
        END DO
       end do
     END IF
+    
+    ! Prepare the vertice-based Communication Structure 
+    if (myid.eq.0) then
+    
+     allocate(xComm(coarse%pVert,subnodes))
+     xComm = .FALSE.
+     DO pID=1,subnodes
+      DO ivt=1,coarse%pVert
+       jvt = coarse%pVERTLINK(pID,ivt)
+       if (jvt.ne.0) then
+        xComm(jvt,pID) = .TRUE.
+       end if
+      END DO
+     END DO
+     
+     allocate(VerticeCommunicationScheme(subnodes))
+     
+     DO pID=1,subnodes
+      VerticeCommunicationScheme = 0
+      DO ivt=1,coarse%pVert
+       jvt = coarse%pVERTLINK(pID,ivt)
+       if (jvt.ne.0) then
+        DO pJD=1,subnodes
+         if (pID.ne.pJD.and.xComm(jvt,pJD)) then
+          VerticeCommunicationScheme(PJD) = VerticeCommunicationScheme(PJD) + 1
+         end if
+        END DO
+       END IF
+      END DO
+!       WRITE(*,'(A,I0,A,1000(I0," "))') "pID=",pID," :: ", VerticeCommunicationScheme
+      CALL SENDK_myMPI(VerticeCommunicationScheme,subnodes,pID)
+     END DO
+     deallocate(xComm)
+    else
+     allocate(VerticeCommunicationScheme(subnodes))
+     CALL RECVK_myMPI(VerticeCommunicationScheme,subnodes,0)
+    end if
+    
+!     pause
 
 !     IF (myid.eq.0) THEN
 !      DO pID=1,subnodes
