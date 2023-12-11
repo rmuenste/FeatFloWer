@@ -306,23 +306,22 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
   nfine = maxlevel-1
 
   icurr = 1
-
-  call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
-
+  
   if(myid.eq.1)then
-    write(*,*)'Refining to level: ',maxlevel
-    write(*,*)'Number of refinement steps needed: ',nfine
+    write(*,'(A,I0)')'Max LVL: ',maxlevel
+    write(*,'(A,I0)')'Refinement steps: ',nfine
+!WRITE(*, '(I0, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2)') &
+  ! Print table header
+  write(*,'(A)') 'L  KVEL[s]     KEDGE[s]    KADJ2[s]    KAREA[s]    KVAR[s]   DCORAG[s]'
   end if
+  
+  call genMeshStructures(mgMesh%level(icurr), icurr, calculateExtendedConnectivity)
 
   do ilevel=1,nfine
 
     icurr = icurr + 1 
     call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
-    call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
-
-    if(myid.eq.1)then
-      write(*,*)'-----RefinementLevelFinished-----'
-    end if
+    call genMeshStructures(mgMesh%level(icurr), icurr, calculateExtendedConnectivity)
 
   end do
 
@@ -568,15 +567,17 @@ end subroutine
 !================================================================================================
 !                                 Sub: genMeshStructures  
 !================================================================================================
-subroutine genMeshStructures(mesh, extended)
+subroutine genMeshStructures(mesh, icurr, extended)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
   IMPLICIT NONE
   type(tMesh), intent(inout) :: mesh
+  integer, intent(in) :: icurr
   logical, optional, intent(in) :: extended 
 
   ! local variables
   real :: ttt0=0.0,ttt1=0.0
+  REAL*8 :: time_KVEL, time_KEDGE, time_KADJ2, time_KAREA, time_KVAR, time_DCORAG
   logical :: calculateExtendedConnectivity 
 
   if(present(extended))then
@@ -591,10 +592,11 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
-
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KVEL : ',TTGRID
-  END IF
+  time_KVEL = TTGRID
+  
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for KVEL : ',TTGRID
+!   END IF
 
   CALL ZTIME(TTT0)
 
@@ -602,10 +604,11 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
+  time_KEDGE = TTGRID
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KEDGE : ',TTGRID
-  END IF
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for KEDGE : ',TTGRID
+!   END IF
 
   !call genKADJ(mesh)
 
@@ -615,10 +618,11 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
-
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KADJ2 : ',TTGRID
-  END IF
+  time_KADJ2 = TTGRID
+    
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for KADJ2 : ',TTGRID
+!   END IF
 
   CALL ZTIME(TTT0)
 
@@ -626,10 +630,11 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
+  time_KAREA = TTGRID
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KAREA : ',TTGRID
-  END IF
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for KAREA : ',TTGRID
+!   END IF
 
   CALL ZTIME(TTT0)
 
@@ -637,20 +642,22 @@ subroutine genMeshStructures(mesh, extended)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
+  time_KVAR = TTGRID
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KVAR : ',TTGRID
-  END IF
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for KVAR : ',TTGRID
+!   END IF
 
   CALL ZTIME(TTT0)
 
   call genDCORAG(mesh)
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
+  time_DCORAG = TTGRID
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for DCORAG : ',TTGRID
-  END IF
+!   IF (myid.eq.showid) THEN
+!     WRITE(*,*) 'time for DCORAG : ',TTGRID
+!   END IF
 
   if(calculateExtendedConnectivity)then
     CALL ZTIME(TTT0)
@@ -658,9 +665,15 @@ subroutine genMeshStructures(mesh, extended)
     CALL ZTIME(TTT1)
     TTGRID=TTT1-TTT0
 
-    IF (myid.eq.showid) THEN
-      WRITE(*,*) 'time for elementsAtVertex : ',TTGRID
-    END IF
+!     IF (myid.eq.showid) THEN
+!       WRITE(*,*) 'time for elementsAtVertex : ',TTGRID
+!     END IF
+  end if
+  
+  IF (myid.eq.showid) THEN  
+! Print time values with 2 digits after the decimal point
+  WRITE(*, '(I0, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2, 2X, E10.2)') &
+      icurr, time_KVEL, time_KEDGE, time_KADJ2, time_KAREA, time_KVAR, time_DCORAG    
   end if
 
 end subroutine

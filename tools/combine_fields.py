@@ -26,6 +26,14 @@ def cmp_entries(a, b):
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+def custom_compare(item):
+  # sort the tuples in the list element_entries
+  # according to the global element index
+  return item[0]
+
+
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 def readPartitionedField(elem_entries, fileName):
   """ This routine reads a single field from the file <fileName>
       and stores it in elem_entries
@@ -114,7 +122,13 @@ def combineField(nprocs,fieldName, path, out_idx):
 
     header_line, header_info = readPartitionedField(element_entries, fileToRead)
 
-    element_entries.sort(cmp_entries)
+#    elem = element_entries[0]
+#    #print(element_entries[0])
+#    print(type(elem))
+#    print(elem)
+#    print(elem[0])
+#    print(element_entries[1][0])
+    element_entries.sort(key=custom_compare)
 
     #print("Number of elements entries: " + str(len(element_entries)))
 
@@ -124,7 +138,7 @@ def combineField(nprocs,fieldName, path, out_idx):
   header_string = str(header_info)
 
   header_l=[]
-  for k, v in header_info.iteritems():
+  for k, v in header_info.items():
     entry=[]
     entry.append(str(k))
     entry.append(str(v))

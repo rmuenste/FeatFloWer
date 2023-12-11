@@ -423,7 +423,7 @@ DO ILEV=NLMIN+1,NLMAX
  processRanks(1) = 0
  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
- CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
+ CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
  if (myid .ne. 0) then
  call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)

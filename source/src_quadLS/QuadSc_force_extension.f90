@@ -1,5 +1,5 @@
 !#define OUTPUT_LEVEL2 
-#define SED_BENCH
+!#define SED_BENCH
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)
@@ -97,6 +97,12 @@ SAVE
   maxLocal = 0.0
 
   IF (myid.eq.0) return! GOTO 999
+
+#ifdef SED_BENCH
+  if(myid.eq.1)then
+    write(*,*) 'Force with SED BENCH settings!'
+  end if
+#endif
   
   DO I= 1,NNDER
     BDER(I)=.FALSE.
