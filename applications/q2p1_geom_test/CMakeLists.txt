@@ -1,3 +1,5 @@
+include(${FF_MODULE_PATH}/CustomTargets.cmake)  
+
 # source files for standad q2p1 
 set(src_q2p1_fc_ext
 app_init.f90
@@ -20,19 +22,18 @@ source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_geom_test 
   ${FF_APPLICATION_LIBS}
+  ff_particle
   )
 
 target_include_directories(q2p1_geom_test PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
 target_compile_options(q2p1_geom_test PRIVATE ${Fortran_FLAGS})
 
-target_compile_options(q2p1_geom_test PRIVATE -DSKIP_DYNAMICS=1)
-
 set_target_properties(q2p1_geom_test PROPERTIES LINKER_LANGUAGE Fortran)
 
 #add_dependencies(q2p1_geom_test CGAL_PRJ)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+  include(${FF_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()

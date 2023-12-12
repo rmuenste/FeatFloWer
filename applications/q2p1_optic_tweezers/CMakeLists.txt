@@ -49,6 +49,6 @@ target_compile_options(q2p1_optic_tweezers PRIVATE ${Fortran_FLAGS})
 target_compile_definitions(q2p1_optic_tweezers PUBLIC OPTIC_FORCES=1)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+  include(${FF_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()

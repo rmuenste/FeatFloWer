@@ -57,6 +57,7 @@ if(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_particles
     )
 else(WIN32)
 #  set(FF_APPLICATION_LIBS
@@ -103,6 +104,7 @@ else(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_particles
     )
 endif(WIN32)
 

@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(${CMAKE_SOURCE_DIR}/cmake/modules/CustomTargets.cmake)  
 
 # source files for standard q2p1 
 set(src_q2p1_fc2
@@ -23,14 +23,10 @@ source_group(src_mesh FILES ${src_mesh})
 source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
-#message(FATAL_ERROR "LIBS: ${FF_APPLICATION_LIBS}")
-
 # Target related settings
 target_link_libraries(q2p1_fc2 
   ${FF_APPLICATION_LIBS}
-  ff_particles
   )
-
 target_include_directories(q2p1_fc2 PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 
 target_compile_options(q2p1_fc2 PRIVATE ${Fortran_FLAGS})
@@ -38,7 +34,7 @@ target_compile_options(q2p1_fc2 PRIVATE ${Fortran_FLAGS})
 set_target_properties(q2p1_fc2 PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
+  include(${CMAKE_SOURCE_DIR}/cmake/modules/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 

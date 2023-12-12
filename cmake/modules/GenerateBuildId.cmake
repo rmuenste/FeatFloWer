@@ -97,7 +97,7 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
     set(Q2P1_BUILD_ID "${Q2P1_CPU_TYPE}-${Q2P1_OS}-${Q2P1_DEFAULT_COMPILER}-${Q2P1_DEFAULT_BUILD}")
 
-    include(${CMAKE_MODULE_PATH}/SetFlagsForID.cmake)  
+    include(${FF_MODULE_PATH}/SetFlagsForID.cmake)  
 
     IF(NOT Q2P1_BUILD_ID_FOUND)
       message(FATAL_ERROR "Build id:<${Q2P1_BUILD_ID}> was not found.")
@@ -109,7 +109,7 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
   ELSE(NOT Q2P1_BUILD_ID)
     # set the build id and search for it
     set(Q2P1_BUILD_ID_USER ${Q2P1_BUILD_ID})
-    include(${CMAKE_MODULE_PATH}/SetFlagsForID.cmake)  
+    include(${FF_MODULE_PATH}/SetFlagsForID.cmake)  
     IF(NOT Q2P1_BUILD_ID_FOUND)
       message(FATAL_ERROR "User requested build id:<${Q2P1_BUILD_ID_USER}> was not found.")
     ENDIF(NOT Q2P1_BUILD_ID_FOUND)

@@ -5,6 +5,7 @@ project(Q2P1 C CXX Fortran)
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+set(FF_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 # allow less strict IF-else syntax
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
@@ -189,10 +190,22 @@ endif(BUILD_METIS)
 #=========================================================================
 # Add the cgal library
 #=========================================================================
+message(STATUS "Running find_package CGAL.")
 # Add CGAL submodule path
 if(USE_CGAL)
-  find_package(CGAL REQUIRED)
-  add_subdirectory(extern/libraries/cgal)
+  set(CGAL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL)
+  message(STATUS "CGAL dir: ${CGAL_DIR}")
+  find_package(CGAL REQUIRED PATHS "${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL")
+endif()
+
+if(CGAL_FOUND)
+    message(STATUS "CGAL found.")
+    message(STATUS "CGAL version: ${CGAL_VERSION}")
+    message(STATUS "CGAL include directory: ${CGAL_INCLUDE_DIRS}")
+    set(CGAL_INCLUDE_DIR "${CGAL_INCLUDE_DIRS}")
+    # Additional messages or actions if needed
+else()
+    message(FATAL_ERROR "CGAL not found. Please check your CGAL_DIR setting.")
 endif()
 
 #=========================================================================
@@ -400,13 +413,14 @@ endif(USE_HYPRE)
 #=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
-include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
+message(STATUS "Module path was set to ${CMAKE_MODULE_PATH}")
+include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateIncludeFlags.cmake)  
+include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateLinkerFlags.cmake)  
 
 #=========================================================================
 #                         project directories
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
+include(${CMAKE_SOURCE_DIR}/cmake/modules/ProjectFiles.cmake)  
 
 #=========================================================================
 #                         Add applications
@@ -457,7 +471,7 @@ install(FILES ${PYPARTITIONER} DESTINATION bin
 #=========================================================================
 #                       CPACK CONFIGURATION
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/GeneratePackageDeb.cmake)  
+include(${FF_MODULE_PATH}/GeneratePackageDeb.cmake)  
 
 include(CPack)
 

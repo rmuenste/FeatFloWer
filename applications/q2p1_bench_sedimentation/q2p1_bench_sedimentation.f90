@@ -60,7 +60,6 @@ PROGRAM Q2P1_BENCH_SEDIMENTATION
   END DO
 
   call MPI_Barrier(MPI_COMM_WORLD)
-  call clean_world()
   call sim_finalize(tt0,ufile)
 
 END PROGRAM Q2P1_BENCH_SEDIMENTATION

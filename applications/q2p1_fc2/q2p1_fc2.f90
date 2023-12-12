@@ -1,4 +1,5 @@
 PROGRAM Q2P1_FC2
+! hello
 
   include 'defs_include.h'
 
