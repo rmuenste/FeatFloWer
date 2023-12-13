@@ -92,6 +92,13 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  logical :: bwait = .true.
  logical :: bexist = .false.
 
+ integer, dimension(1) :: processRanks
+ integer :: MPI_W0, MPI_EX0
+ integer :: MPI_Comm_EX0, new_comm
+ integer :: error_indicator
+ integer :: numParticles, ierror, ndims, reorder
+ integer, dimension(3) :: dim_size
+
 
  CALL ZTIME(TTT0)
 
@@ -405,6 +412,20 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MTERM,*)
    WRITE(MFILE,*)
  END IF
+
+ !=======================================================================
+ !     Set up the rigid body C++ library
+ !=======================================================================
+ processRanks(1) = 0
+ CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
+ CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
+ CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+
+ call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+
+ call init_fc_rigid_body(myid)      
+
+ call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 
  RETURN
 

@@ -22,7 +22,6 @@ source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_geom_test 
   ${FF_APPLICATION_LIBS}
-  ff_particle
   )
 
 target_include_directories(q2p1_geom_test PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
