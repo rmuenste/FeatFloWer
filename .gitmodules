@@ -1,6 +1,6 @@
 [submodule "FullC0ntact"]
 	path = FullC0ntact
-	url = https://github.com/rmuenste/FullC0ntact.git
+	url = git@github.com:rmuenste/FullC0ntact.git
 	branch = devel
 [submodule "extern/libraries/cgal"]
 	path = extern/libraries/cgal
