@@ -60,21 +60,6 @@ if(WIN32)
     ff_particles
     )
 else(WIN32)
-#  set(FF_APPLICATION_LIBS
-#    amd
-#    umfpack4
-#    feat2d
-#    feat3d
-#    ${BLAS_LIBRARIES}
-#    ${LAPACK_LIBRARIES}
-#    stdc++
-#    stdc++fs
-#    inshape3dcore
-#    Utility
-#    Math
-#    ${LIBRT_LIBRARY}
-#    ${MPI_Fortran_LIBRARIES}
-#    )
   set(FF_APPLICATION_LIBS
     amd
     umfpack4

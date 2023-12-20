@@ -104,6 +104,11 @@ option(BUILD_APPLICATIONS
   ON
   )
 
+option(BUILD_TESTS
+  "Enables build of tests"
+  OFF
+  )
+
 option(Q1P1_SSE_LINK_STATIC_FORTRAN
   "Enables static linking of the Fortran runtime library"
   OFF 
@@ -272,82 +277,6 @@ if(USE_BOOST)
 
 endif(USE_BOOST)
 
-#if(USE_CGAL)
-#
-#  if(NOT USE_CGAL_LOCAL)
-#    set(USE_BOOST True)
-#    set(CGAL_LIBRARIES 
-#      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-#      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-#      )
-#
-#    set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
-#    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-#
-#    if(NOT WIN32)
-#          ExternalProject_Add(CGAL_PRJ
-#            GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-#            GIT_PROGRESS ON 
-#            GIT_SHALLOW ON 
-#            GIT_TAG rafa-devel
-#            SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-#            PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-#            #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-#            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false -DCMAKE_C_COMPILER=$ENV{CC} -DCMAKE_CXX_COMPILER=$ENV{CXX}
-#            )
-#
-#      if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
-#        set(CGAL_LIBRARIES 
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
-#          )
-#      elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
-#        set(CGAL_LIBRARIES 
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-#          )
-#        message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
-#      else()
-#        set(CGAL_LIBRARIES 
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-#          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-#          )
-#      endif()
-#
-#    else(NOT WIN32)
-#      find_package(CGAL REQUIRED COMPONENTS Core)
-#      if(${CGAL_FOUND})
-#        find_package(GMP)
-#        find_package(MPFR)
-#
-#        if(NOT ${GMP_FOUND})
-#          message(WARNING "GMP library not found. Cannot build cgal applications.")
-#        endif()
-#
-#        if(NOT ${MPFR_FOUND})
-#          message(WARNING "MPFR library not found. Cannot build cgal applications.")
-#        endif()
-#
-#      endif()	
-#      message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
-#      message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
-#      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-#    endif(NOT WIN32)
-#
-#  else(NOT USE_CGAL_LOCAL)
-#    message(STATUS "Trying to find system installation of CGAL")
-#    find_package(CGAL REQUIRED COMPONENTS Core)
-#    if(NOT ${CGAL_FOUND})
-#      message(STATUS "Could not find CGAL on the system... Looking for user supplied path.") 
-#      if(NOT "${CGAL_LIBRARIES}" STREQUAL "")
-#        message(STATUS "User supplied CGAL libraries: ${CGAL_LIBRARIES}") 
-#        message(STATUS "User supplied CGAL include: ${CGAL_INCLUDE_DIR}") 
-#      endif()	
-#    endif()	
-#  endif(NOT USE_CGAL_LOCAL)
-#
-#endif(USE_CGAL)
-
 #=========================================================================
 #                     Check for the 'librt' library
 #=========================================================================
@@ -456,6 +385,13 @@ ENDIF(BUILD_APPLICATIONS)
 #                     PE Library
 #=========================================================================
 add_subdirectory(libs/pe)
+
+#=========================================================================
+#                    TESTS 
+#=========================================================================
+if(BUILD_TESTS)
+  add_subdirectory(tests/cgal_interface)
+endif()
 
 
 #=========================================================================

@@ -21,12 +21,10 @@ macro(CHECK_TIME_FUNCTION FUNCTION VARIABLE)
       message(STATUS "Looking for Fortran ${FUNCTION} - found - function name: ${VARIABLE} ${FUNCTION}")
       file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
         "Fortran ${FUNCTION} exists. ${OUTPUT} \n\n")
-      message(STATUS "Fortran ${FUNCTION} exists. ${OUTPUT}")
     else(RES)
       message(STATUS "Looking for Fortran ${FUNCTION} - not found")
       file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
         "Fortran ${FUNCTION} does not exist. \n ${OUTPUT} \n")
-      message(STATUS "Fortran ${FUNCTION} does not exist. ${OUTPUT}")
     endif(RES)
 endmacro(CHECK_TIME_FUNCTION)
 
