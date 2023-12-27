@@ -124,6 +124,10 @@ option(USE_HYPRE
   OFF
   )
 
+if(BUILD_BOUNDARY_LAYER_TOOLS)
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+endif(BUILD_BOUNDARY_LAYER_TOOLS)
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -151,9 +155,12 @@ option(USE_HYPRE
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
 
-if(BUILD_BOUNDARY_LAYER_TOOLS)
-  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
-endif(BUILD_BOUNDARY_LAYER_TOOLS)
+#=========================================================================
+#                       CMake BUILD Type
+#=========================================================================
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+endif()
 
 #=========================================================================
 #                       Configure BLAS/LAPACK 
