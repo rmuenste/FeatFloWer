@@ -62,7 +62,7 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-3
 Pres@MGCriterion2 = 1d-10
 Pres@MGCycType = F
-Pres@MGCrsSolverType = 4
+Pres@MGCrsSolverType = 7
 Pres@MGRelaxPrm = 0.5d0
 ----------------- LinSc ---------------------
 Temper@NLmin             = 2
