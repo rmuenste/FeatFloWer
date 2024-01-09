@@ -41,7 +41,7 @@ if(USE_CGAL)
 endif(USE_CGAL)
 
 if (USE_HYPRE)
-  add_subdirectory(hypre_test)
+  #add_subdirectory(hypre_test)
 endif (USE_HYPRE)
 
 if(NOT WIN32)
