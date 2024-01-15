@@ -227,6 +227,7 @@ SUBROUTINE General_init_ext(MFILE)
  IMPLICIT NONE
  INTEGER MFILE
  character*(256) :: cTRIA
+ character*(256) :: cArray(7)
 
  CALL INIT_MPI()
  
@@ -241,8 +242,14 @@ SUBROUTINE General_init_ext(MFILE)
  
 if (ADJUSTL(TRIM(xProcess)).eq.'TRACE_TRIA') THEN
  cTRIA='_data/tria'
- call read_tria(mg_mesh, mg_Mesh%maxlevel,cTRIA,&
- ["DCORVG","KVERT","KEDGE","KAREA","KADJ","elementsAtVertexIdx","elementsAtVertex"],7)  
+ cArray = ["DCORVG             ",&
+           "KVERT              ",&
+           "KEDGE              ",&
+           "KAREA              ",&
+           "KADJ               ",&
+           "elementsAtVertexIdx",&
+           "elementsAtVertex   "]
+ call read_tria(mg_mesh, mg_Mesh%maxlevel,cTRIA,cArray,7)  
 END IF
   
 if (ADJUSTL(TRIM(xProcess)).eq.'TRACE'.or.&
@@ -253,8 +260,14 @@ end if
 if (ADJUSTL(TRIM(xProcess)).eq.'WRITE_TRIA') THEN
  if (myid.eq.1) then
   cTRIA='_data/tria'
-  call write_tria(mg_mesh, mg_Mesh%maxlevel,cTRIA,&
-  ["DCORVG","KVERT","KEDGE","KAREA","KADJ","elementsAtVertexIdx","elementsAtVertex"],7)
+  cArray = ["DCORVG             ",&
+            "KVERT              ",&
+            "KEDGE              ",&
+            "KAREA              ",&
+            "KADJ               ",&
+            "elementsAtVertexIdx",&
+            "elementsAtVertex   "]
+  call write_tria(mg_mesh, mg_Mesh%maxlevel,cTRIA,cArray,7)
  end if
  CALL Barrier_myMPI()
  CALL MPI_Finalize(ierr)
