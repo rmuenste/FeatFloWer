@@ -514,8 +514,14 @@
     
     allocate(sendcounts(0:numnodes),displs(0:numnodes+1))
     sendcounts = 0; displs = 0
-    
-    call MPI_allgather(NVT, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+
+    if (myid.eq.master) then
+     n=0
+    else
+     n = nvt 
+    end if
+  
+    call MPI_allgather(N, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
 
     displs = 0
     do i = 2, numnodes+1
@@ -528,7 +534,6 @@
     else 
      n = nvt
     endif
-    
     call MPI_Gatherv(coarse%myVERTLINK, n, MPI_INTEGER, &
                    gathered_data, sendcounts, displs, &
                    MPI_INTEGER, master, MPI_COMM_WORLD, ierr)
@@ -543,10 +548,8 @@
        END DO
       end do
     END IF
-    
     ! Prepare the vertice-based Communication Structure 
     if (myid.eq.0) then
-    
      allocate(xComm(coarse%pVert,subnodes))
      xComm = .FALSE.
      DO pID=1,subnodes
@@ -557,7 +560,7 @@
        end if
       END DO
      END DO
-     
+   
      allocate(VerticeCommunicationScheme(subnodes))
      
      DO pID=1,subnodes
@@ -578,10 +581,9 @@
      deallocate(xComm)
     else
      allocate(VerticeCommunicationScheme(subnodes))
+     VerticeCommunicationScheme = 0
      CALL RECVK_myMPI(VerticeCommunicationScheme,subnodes,0)
     end if
-    
-!     pause
 
 !     IF (myid.eq.0) THEN
 !      DO pID=1,subnodes
@@ -667,7 +669,13 @@
     END IF
 
     sendcounts = 0; displs = 0
-    call MPI_allgather(NEL, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+    if (myid.eq.master) then
+     n=0
+    else
+     n = nel
+    end if
+     
+    call MPI_allgather(N, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
     IF (myid.eq.master) then
      DO pID=1,subnodes
       coarse%pNEL(pID) = sendcounts(pID)
