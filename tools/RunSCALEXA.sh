@@ -37,6 +37,8 @@ sed -i s/XMSHLVEL/${XMSHLVEL}/g _data_BU/q2p1_paramV_DIE.dat
 sed -i s/XSUBMESHNUMBER/${XSUBMESHNUMBER}/g _data_BU/q2p1_paramV_DIE.dat
 sed -i '0,/partitionerParameters = \[[^]]*\]/{s/partitionerParameters = \[[^]]*\]/partitionerParameters = [1,'${XSUBMESHNUMBER}']/}' e3d_start.py
 
+./RankFileGenerator.sh -n ${n} -s ${XCOREPERNODES}
+
 # run the simulation
 python3 ./e3d_start.py -n $n -f SCALEXA/$f --die-simulation
 
