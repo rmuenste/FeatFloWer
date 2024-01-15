@@ -2,11 +2,11 @@
 
 #configure the simulation 
 ##############################################################
-#set the configuration folder to the 'SMALL' or 'LARGE' case
-f='SMALL'
+#set the configuration folder to the 'SMALL', 'MEDIUM' or 'LARGE' case
+f='MEDIUM'
 
 #set the number of MPI processes 
-n=16
+n=72
 
 # set the required MG mesh resolution 
 # for the SMALL case :: testing at 2,3; sharp sim at 4,5
@@ -18,12 +18,14 @@ XMSHLVEL=3
 # the partitioning will first decompose the mesh to this number of submeshes and then decompose further 
 # given number of sub-submeshes.
 
-# for example there are 72 cores per node then in case of running the code on 5 nodes 
+# Recursive partitioning
+# for example there are 72 cores per node (XCOREPERNODES=72) then in case of running the code on 5 nodes 
 # the XSUBMESHNUMBER = 5 and n=5x72=360
 # by default it is set to 1 and then it operates almost as before (almost, because the order of the 
 # partitions is reversed)
 
 XSUBMESHNUMBER=1
+XCOREPERNODES=72
 
 ###############################################################
 
@@ -40,6 +42,6 @@ sed -i '0,/partitionerParameters = \[[^]]*\]/{s/partitionerParameters = \[[^]]*\
 ./RankFileGenerator.sh -n ${n} -s ${XCOREPERNODES}
 
 # run the simulation
-python3 ./e3d_start.py -n $n -f SCALEXA/$f --die-simulation
+python3 ./e3d_start.py -n $n -f SCALEXA/$f -r myRankFile --die-simulation
 
 
