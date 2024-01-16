@@ -126,16 +126,18 @@ IF (myid.ne.0) THEN
 
  Tracer%oldSol = Tracer%val(NLMAX)%x
  
- IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar()
+ IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar_XSE()
 
 ! Assemble the right hand side
  CALL LCL1(Tracer%def,Tracer%ndof)
- CALL Matdef_LinScalar(Tracer,1,0)
+ CALL Matdef_LinScalar_XSE(Tracer,1,0,AddAirCoolingHeatFlux)
 
- ! Add the source term to the RHS
+!  Add the source term to the RHS
  CALL sub_SRC()
 
 END IF
+
+CALL AddAirCoolingHeatFlux(1)
 
 ilev = nlmax
 call setlev(2)
@@ -153,7 +155,7 @@ IF (myid.ne.0) THEN
  Tracer%rhs = Tracer%def
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_LinScalar(Tracer,-1,1)
+ CALL Matdef_LinScalar_XSE(Tracer,-1,1,AddAirCoolingHeatFlux)
 
  CALL E011Sum(Tracer%def)
 
@@ -189,7 +191,7 @@ IF (myid.ne.0) THEN
  Tracer%def = Tracer%rhs
 
 ! Assemble the defect vector and fine level matrix
- CALL Matdef_LinScalar(Tracer,-1,0)
+ CALL Matdef_LinScalar_XSE(Tracer,-1,0,AddAirCoolingHeatFlux)
 
  CALL E011Sum(Tracer%def)
 
@@ -232,8 +234,8 @@ if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
 NLMAX = NLMAX - 1
 
 CALL COMM_SUMM(dIntegralHeat)
-IF (myid.eq.1) WRITE(*,*) 'IntegralHeatRate_[W]: ',dIntegralHeat*(myThermodyn%density*myThermodyn%cp)
-IF (myid.eq.1) WRITE(mfile,*) 'IntegralHeatRate_[W]: ',dIntegralHeat*(myThermodyn%density*myThermodyn%cp)
+IF (myid.eq.1) WRITE(*,'(A,ES12.2)') 'IntegralHeatRate[kW]: ',1e-10*dIntegralHeat
+IF (myid.eq.1) WRITE(mfile,'(A,ES12.2)') 'IntegralHeatRate[kW]: ',1e-10*dIntegralHeat
 
 ilev=nlmax
 call setlev(2)
@@ -267,7 +269,8 @@ IF (myid.ne.0) THEN
  Tracer%oldSol = Tracer%val(NLMAX)%x
  
  ! Convection matrix
- CALL Create_RhoCpConvMat(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+ CALL Create_RhoCpConvMat_Ewikon(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+ 
 ! CALL Build_LinSc_Convection()
  IF (Tracer%prm%AFC) CALL InitAFC_General_LinScalar()
 
@@ -977,6 +980,34 @@ END SUBROUTINE AddBoundaryHeatFlux
 !
 ! ----------------------------------------------
 !
+SUBROUTINE AddAirCoolingHeatFlux(iSwitch)
+integer iSwitch
+real*8 dAreaDueToCooling,dFluxDueToCooling
+EXTERNAL E011
+
+if (myid.ne.master) then
+ ilev = NLMAX
+ call setlev(2)
+ CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                             Tracer%def,Tracer%oldSol,&
+                             mg_mesh%level(ilev)%kvert,&
+                             mg_mesh%level(ilev)%karea,&
+                             mg_mesh%level(ilev)%kedge,&
+                             mg_mesh%level(ilev)%dcorvg,&
+                             E011,dAreaDueToCooling,dFluxDueToCooling,iSwitch)
+END IF
+
+if (iSwitch.eq.1) THEN
+!  call COMM_SUMMN([dAreaDueToCooling,dFluxDueToCooling],2)
+ call COMM_SUMM(dAreaDueToCooling)
+ call COMM_SUMM(dFluxDueToCooling)
+ if (myid.eq.1) write(*,'(A,2(ES12.4,A))') 'Area and Flux due to air-cooling:',1e-4*dAreaDueToCooling,'m2',1e-3*dFluxDueToCooling, 'kW'
+end if
+
+END SUBROUTINE AddAirCoolingHeatFlux
+!
+! ----------------------------------------------
+!
 SUBROUTINE CreateSensorOutputs(mfile)
 USE OctTreeSearch
 USE var_QuadScalar, only : myEwikonOutput
@@ -1292,7 +1323,7 @@ if (myid.ne.master) then
 
  dTotalEnthalpy(1) = 0d0
  do i=1,mg_mesh%level(ilev)%nvt
-   dTotalEnthalpy(1) = dTotalEnthalpy(1) + MLRhoCpMat(i)*Tracer%oldSol(i)*1e-10
+   dTotalEnthalpy(1) = dTotalEnthalpy(1) + RhoCpMlMat(i)*Tracer%oldSol(i)*1e-10
  end do
 
  ilev = NLMAX
@@ -1453,63 +1484,15 @@ if (myid.ne.0) then
 
   NLMAX = NLMAX + 1
   
-  ! Convection matrix
-  CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
-
-  ! Diffusion matrix 
-!  myDiffCoeff = Properties%DiffCoeff(1)
-  !      W         cm3        (k)g . K           J         cm3   1       1        cm3     1     cm2 . cm      1    cm2
-  ! ------------* ----- * ------------ =  ------------* ----- * ---- = --------* ----- * --- =  ---------- = ----* ----
-  !    m . K        g          (k)J           s . m         1    J      s . m      1      1       100cm .s    100    s
- 
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!   -     ---   Diffusion Matrix Setup --- -    !!!
-  ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
-  AlphaDiff = 0d0
+  CALL Create_RhoCpConvMat_XSE(QuadSc%valU,QuadSc%valV,QuadSc%valW,Tracer%val(NLMAX)%x)
   
-  IF (myProcess%SegmentThermoPhysProps) THEN
-   allocate(mySegDiffCoeff(0:mySigma%NumberOfSeg))
-   do iSeg=0,mySigma%NumberOfSeg
-    mySegDiffCoeff(iSeg) = 0.01d0*myProcess%SegThermoPhysProp(iSeg)%lambda/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
-    if (myid.eq.1)  write(*,'(A,I0,A,F14.4)') ' ThermalDiffCoeff_of Segment',iSeg,'_[cm2/s]: ',mySegDiffCoeff(iSeg)
-   END DO
-
-   DO iel = 1,mg_mesh%level(NLMAX)%nel
-    do ivt=1,8
-     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
-     iSeg = mySegmentIndicator(2,i)
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*mySegDiffCoeff(iSeg)
-    END DO
-   END DO
-   
-   deallocate(mySegDiffCoeff)
-   
-  ELSE
-   myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
-   myDiffCoeff_steel = 1E-1 ! cm2/s
-   if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
-   
-   
-   DO iel = 1,mg_mesh%level(NLMAX)%nel
-    do ivt=1,8
-     i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
-     IF (Screw(i).ge.0d0) THEN
-      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
-     ELSE
-      AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
-     END IF
-    END DO
-   END DO
-   
-  END IF
+  ! Mass matrix
+  CALL Create_RhoCpMassMat_XSE(Tracer%val(NLMAX)%x)
+  CALL Create_RhoCpLMassMat()
   
-  CALL Create_XSE_DiffMat(AlphaDiff)
+  ! Diffusion matrix
+  CALL Create_LambdaDiffMat_XSE(Tracer%val(NLMAX)%x)
   
-  DEALLOCATE(AlphaDiff)
-  !!!   -     ---   Diffusion Matrix Setup --- -    !!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
   ! Mass matrix
   CALL Create_MassMat()
 
@@ -1522,64 +1505,6 @@ end if
 
 !   pause
 END SUBROUTINE Assemble_LinScOperators_XSE
-!
-! ----------------------------------------------
-!
-SUBROUTINE Assemble_LinScOperators_General()
-USE var_QuadScalar, ONLY : distance
-
-REAL*8 myDiffCoeff_melt,myDiffCoeff_steel
-REAL*8, ALLOCATABLE ::  AlphaDiff(:)
-INTEGER iel,ivt,i
-
-if (myid.ne.0) then 
-
-  NLMAX = NLMAX + 1
-  
-  ! Convection matrix
-  CALL Build_LinSc_Convection_Q1(QuadSc%valU,QuadSc%valV,QuadSc%valW)
-
-  ! Diffusion matrix 
-!  myDiffCoeff = Properties%DiffCoeff(1)
-  !      W         cm3        (k)g . K           J         cm3   1       1        cm3     1     cm2 . cm      1    cm2
-  ! ------------* ----- * ------------ =  ------------* ----- * ---- = --------* ----- * --- =  ---------- = ----* ----
-  !    m . K        g          (k)J           s . m         1    J      s . m      1      1       100cm .s    100    s
- 
-  myDiffCoeff_melt = 0.01d0*myThermodyn%lambda/(myThermodyn%density*myThermodyn%cp)
-  myDiffCoeff_steel = 5E-2 ! cm2/s
-  if (myid.eq.1)  write(*,'(A,2ES12.4)') ' ThermalDiffCoeff_steel_/_melt_[cm2/s]: ',myDiffCoeff_steel,myDiffCoeff_melt
-  
-  ALLOCATE(AlphaDiff(mg_mesh%level(NLMAX)%nel))
-  AlphaDiff = 0d0
-  
-  DO iel = 1,mg_mesh%level(NLMAX)%nel
-   do ivt=1,8
-    i = mg_mesh%level(NLMAX)%kvert(ivt,iel)
-    IF (distance(i).ge.0d0) THEN
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_melt
-    ELSE
-     AlphaDiff(iel) = AlphaDiff(iel) + 0.125d0*myDiffCoeff_steel
-    END IF
-   END DO
-  END DO
-  
-!   write(*,*) 'size(AlphaDiff)=',size(AlphaDiff)
-!  CALL Create_ConstDiffMat(myDiffCoeff_melt)  
-  CALL Create_DIE_DiffMat(AlphaDiff)
-
-  DEALLOCATE(AlphaDiff)
-  
-  ! Mass matrix
-  CALL Create_MassMat()
-
- ! Lumped Mass matrix
-  CALL Create_LMassMat()
-  
-  NLMAX = NLMAX - 1
-
-end if
-
-END SUBROUTINE Assemble_LinScOperators_General
 !
 ! ----------------------------------------------
 !
@@ -1684,17 +1609,17 @@ if (myid.ne.0.and.myProcess%Ta.eq.myInf) then
         CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
         dA = dabs(dA) ! cm2
         
-        !  kW               dm3      kg * K         kJ                 1e3.cm3   kg * K              K*cm3
-        !--------- * cm2 * -------* ---------  = --------- * 1e-4*m2 * -------* ---------  =  0.1 ------------
-        !   m2              kg          kJ         s.m2                  kg        kJ                  s
+        !  kW               1e3.kg.m2                1e3 g              g.cm2
+        !--------- * cm2  = --------- * cm2  = 1e3 . ------  cm2 = 1e6 -------   (. tstep [s])
+        !   m2               s3.m2                     s3                s3
         
 !         daux = dA * (-80d0)
         daux = dA * myProcess%HeatFluxThroughBarrelWall_kWm2
 
-        Tracer%def(ivt1) = Tracer%def(ivt1) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
-        Tracer%def(ivt2) = Tracer%def(ivt2) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
-        Tracer%def(ivt3) = Tracer%def(ivt3) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
-        Tracer%def(ivt4) = Tracer%def(ivt4) + 0.25d0 * 0.1d0 * tstep * daux / (myThermodyn%density*myThermodyn%cp)
+        Tracer%def(ivt1) = Tracer%def(ivt1) + 0.25d0 * 1d6 * tstep * daux
+        Tracer%def(ivt2) = Tracer%def(ivt2) + 0.25d0 * 1d6 * tstep * daux
+        Tracer%def(ivt3) = Tracer%def(ivt3) + 0.25d0 * 1d6 * tstep * daux
+        Tracer%def(ivt4) = Tracer%def(ivt4) + 0.25d0 * 1d6 * tstep * daux
         
         dHeat = dHeat + daux*1e-4 ! kW/m2 * 1e-4 m2 = 1e-4 * kW 
     END IF

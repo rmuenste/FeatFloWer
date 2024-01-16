@@ -688,6 +688,7 @@ TYPE tTransientSolution
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
  TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Shell(:)
  TYPE(mg_dVector), ALLOCATABLE :: iSeg(:)
 END TYPE tTransientSolution
 

@@ -2957,6 +2957,78 @@ END SUBROUTINE ExtractVeloGradients
 !
 ! ----------------------------------------------
 !
+SUBROUTINE  UpdateDensityDistribution_XSE(mfile)
+ INTEGER i,iel,mfile
+ REAL*8 daux,taux,dAlpha
+ REAL*8 AlphaViscosityMatModel,WallSlip
+ REAL*8 dMaxMat,dWSFactor
+ integer ifld,iMat
+
+ if (.not.bMasterTurnedOn) return 
+ 
+ if (myid.eq.1) WRITE(MTERM,*) "Update of the density distribution!"
+ if (myid.eq.1) WRITE(MFILE,*) "Update of the density distribution!"
+ 
+ DO ILEV=NLMIN,NLMAX
+
+  DO iel=1,mg_mesh%level(ilev)%nel
+   
+   i = mg_mesh%level(ilev)%nvt + &
+       mg_mesh%level(ilev)%net + &
+       mg_mesh%level(ilev)%nat + &
+       iel
+       
+   taux   = Temperature(i)
+   
+   IF (myMultiMat%nOfMaterials.gt.1) THEN 
+   
+    iMat = myMultiMat%InitMaterial
+    dMaxMat = 1d-5
+    do iFld=2,GenLinScalar%nOfFields
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dMaxMat) then
+      iMat = iFld-1
+      dMaxMat = GenLinScalar%Fld(iFld)%val(i)
+     end if
+    end do
+   
+   ELSE
+   
+    iMat = 1
+    
+   END IF
+
+   IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."DENSITY") THEN
+    mgDensity(ILEV)%x(iel) = myMultiMat%Mat(iMat)%Thermodyn%densityT0 - taux * myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+   END IF
+   IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."SPECVOLUME") THEN
+    mgDensity(ILEV)%x(iel) = 1d0/(myMultiMat%Mat(iMat)%Thermodyn%densityT0 + taux * myMultiMat%Mat(iMat)%Thermodyn%densitySteig)
+   END IF
+   
+  END DO
+  
+ END DO   
+ 
+ ! send data to the master
+
+ILEV = LinSc%prm%MGprmIn%MedLev
+IF (LinSc%prm%MGprmIn%MedLev.ge.1.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L1(mgDensity(1)%x,mg_mesh%level(1)%nel)
+END IF
+
+IF (LinSc%prm%MGprmIn%MedLev.ge.2.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L2(mgDensity(2)%x,mg_mesh%level(2)%nel)
+END IF
+
+IF (LinSc%prm%MGprmIn%MedLev.ge.3.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L3(mgDensity(3)%x,mg_mesh%level(3)%nel)
+END IF
+
+ILEV = NLMAX
+  
+END SUBROUTINE  UpdateDensityDistribution_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux,dAlpha
@@ -2988,13 +3060,16 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
           0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
           0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
-   
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
+ !!!! tempertaure is sampled from the Temperature@q2p1_see_temp output    !!!!!!!     
+   taux   = Temperature(i)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
+ 
    IF (myMultiMat%nOfMaterials.gt.1) THEN 
-    taux   = GenLinScalar%Fld(1)%val(i)
     iMat = myMultiMat%InitMaterial
     dMaxMat = 1d-5
     do iFld=2,GenLinScalar%nOfFields
-     if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dMaxMat) then
       iMat = iFld-1
       dMaxMat = GenLinScalar%Fld(iFld)%val(i)
      end if
@@ -3006,7 +3081,6 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
      Viscosity(i) = dWSFactor*Viscosity(i)
     END IF
    else
-    taux = Temperature(i)
     Shearrate(i) = sqrt(2d0 * daux)
     Viscosity(i) = AlphaViscosityMatModel(daux,1,taux)
     if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
@@ -3827,6 +3901,12 @@ IF (bCreate) THEN
  CALL InitializeProlRest(QuadSc,LinSc)
  
  CALL Release_cgal_structures()
+ 
+ !!! for the SSE app it is assumed to have a constant density distribution, which depends !!!!
+ !!! only on the local tempertaure and material distribution                              !!!!
+ CALL UpdateDensityDistribution_XSE(mfile)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
  call OperatorRegenaration(3)

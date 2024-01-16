@@ -5403,3 +5403,153 @@ ELSE
 END IF
 
 end subroutine GetMyHYPRENumberingLimits
+
+
+SUBROUTINE E010GATHR_L1(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J
+
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,N,0)
+ ELSE
+!  WRITE(*,*) 'a',allocated(MGE013)
+!  IF (allocated(MGE013)) WRITE(*,*) 'a',allocated(MGE013(ILEV)%CRSVect)
+!  pause
+
+ DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,pN,pID)
+
+   DO I=1,pN
+    J = coarse%pELEMLINK(pID,I)
+    D(J) = MGE013(ILEV)%CRSVect(I)
+   END DO
+
+  END DO
+
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E010GATHR_L1
+
+SUBROUTINE E010GATHR_L2(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,JJ,II,iu,ppN
+
+
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,N,0)
+ ELSE
+
+  ppn = N
+
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,pN,pID)
+
+   DO II=1,pN/8
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+    D(J) = MGE013(ILEV)%CRSVect(I)
+
+    DO iu = 1,7
+
+     J = ppN/8 + (JJ-1)*7 + iu
+     I =  pN/8 + (II-1)*7 + iu
+
+     D(J) = MGE013(ILEV)%CRSVect(I)
+    END DO
+
+   END DO
+
+  END DO
+
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E010GATHR_L2
+
+SUBROUTINE E010GATHR_L3(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,JJ,II,III,JJJ,iu,ppN,iw
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,N,0)
+ ELSE
+
+  ppn = N
+
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,pN,pID)
+
+   DO II=1,pN/64
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+    D(J) = MGE013(ILEV)%CRSVect(I)
+
+    DO iw = 1,7
+     J = ppN/8 + (JJ-1)*7 + iw
+     I =  pN/8 + (II-1)*7 + iw
+
+     D(J) = MGE013(ILEV)%CRSVect(I)
+    END DO
+
+    DO iu = 1,7
+
+     JJJ = ppN/64 + (JJ-1)*7 + iu
+     III =  pN/64 + (II-1)*7 + iu
+     I = III
+     J = JJJ
+
+     D(J) = MGE013(ILEV)%CRSVect(I)
+
+     DO iw = 1,7
+
+      J = ppN/8 + (JJJ-1)*7 + iw
+      I =  pN/8 + (III-1)*7 + iw
+ 
+      D(J) = MGE013(ILEV)%CRSVect(I)
+     END DO
+
+    END DO
+
+   END DO
+
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E010GATHR_L3

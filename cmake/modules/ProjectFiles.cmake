@@ -196,6 +196,7 @@ target_compile_options(ff_fbm PUBLIC ${Fortran_FLAGS})
 
 set(src_LinSc
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mass.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90

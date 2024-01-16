@@ -1766,7 +1766,7 @@ EXTERNAL E013
          E013)
    else
     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
-         Temperature,MaterialDistribution(ILEV)%x,&
+         Temperature,& !MaterialDistribution(ILEV)%x,&
          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
          mg_mesh%level(ILEV)%kvert,&
          mg_mesh%level(ILEV)%karea,&
@@ -2979,7 +2979,7 @@ REAL tttx1,tttx0
      E013 ) ! S*u
     else
      CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-     Temperature,MaterialDistribution(ilev)%x,&
+     Temperature,& !MaterialDistribution(ilev)%x,&
      myScalar%defU, myScalar%defV, myScalar%defW,&
      Viscosity,&
      mg_mesh%level(ILEV)%kvert,&
@@ -3072,7 +3072,7 @@ REAL tttx1,tttx0
       E013 ) ! S*u
      else
       CALL STRESS(myScalar%valU,myScalar%valV,myScalar%valW,&
-      Temperature,MaterialDistribution(ilev)%x,&
+      Temperature,& !MaterialDistribution(ilev)%x,&
       myScalar%defU, myScalar%defV, myScalar%defW,&
       Viscosity,&
       mg_mesh%level(ILEV)%kvert,&
