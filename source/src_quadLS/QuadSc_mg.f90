@@ -230,6 +230,11 @@ INTEGER imgLev,nimgLev
   CALL mgGuessSolution()                                     ! choose zero initial vector
  END DO
 
+ if (myMG%MedLev.eq.myMG%MaxLev) THEN
+  mgLev = myMG%MedLev
+  if (myid.ne.0) myMG%B(mgLev)%x = myMG%D(mgLev)%x
+ END IF
+ 
  ! Corse Grid Solver
  CALL mgCoarseGridSolver()                                   ! computes linear system with X=(A^-1)B
 
