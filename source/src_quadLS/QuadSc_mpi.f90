@@ -5248,9 +5248,9 @@ if (myid.eq.1) then
   DO j=1,UsedMaxPairs
    IF (Comm(j,i)%d(1).ne.0) THEN
     if (Comm(j,i)%o) then
-     WRITE(*,'(A1,I3,A1,I3,A1$)') '{',Comm(j,i)%d(1),',',Comm(j,i)%d(2),'}'
+     WRITE(*,'(A1,I4,A1,I4,A1$)') '{',Comm(j,i)%d(1),',',Comm(j,i)%d(2),'}'
     else
-     WRITE(*,'(A1,I3,A1,I3,A1$)') '[',Comm(j,i)%d(1),',',Comm(j,i)%d(2),']'
+     WRITE(*,'(A1,I4,A1,I4,A1$)') '[',Comm(j,i)%d(1),',',Comm(j,i)%d(2),']'
     end if
    ELSE
     WRITE(*,'(A$)') '         '
