@@ -106,6 +106,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ 
+ character(MPI_MAX_PROCESSOR_NAME) :: processor_name
+ integer :: name_len
 
 
  CALL ZTIME(TTT0)
@@ -116,6 +119,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ 
+ call MPI_Get_processor_name(processor_name, name_len, ierr)
+ write(*,*) 'Hello from MPI process', myid, 'on processor "'//trim(processor_name)//'"'
  
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)

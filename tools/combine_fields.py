@@ -26,6 +26,14 @@ def cmp_entries(a, b):
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+def custom_compare(item):
+  # sort the tuples in the list element_entries
+  # according to the global element index
+  return item[0]
+
+
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 def readPartitionedField(elem_entries, fileName):
   """ This routine reads a single field from the file <fileName>
       and stores it in elem_entries
@@ -114,7 +122,13 @@ def combineField(nprocs,fieldName, path, out_idx):
 
     header_line, header_info = readPartitionedField(element_entries, fileToRead)
 
-    element_entries.sort(cmp_entries)
+#    elem = element_entries[0]
+#    #print(element_entries[0])
+#    print(type(elem))
+#    print(elem)
+#    print(elem[0])
+#    print(element_entries[1][0])
+    element_entries.sort(key=custom_compare)
 
     #print("Number of elements entries: " + str(len(element_entries)))
 
@@ -123,21 +137,22 @@ def combineField(nprocs,fieldName, path, out_idx):
   header_info['NEL'] = len(element_entries)
   header_string = str(header_info)
 
-  header_l=[]
-  for k, v in header_info.iteritems():
-    entry=[]
-    entry.append(str(k))
-    entry.append(str(v))
-    str_entry = ":".join(entry)
-    header_l.append(str_entry)
+  desired_order = ["DofsInElement", "NEL", "Name", "Format", "OutputLevel", "FeSpace", "Version", "Components"]
 
-  header_mod = ",".join(header_l) 
+  header_l = []
+  for key in desired_order:
+      if key in header_info:
+          entry = [str(key), str(header_info[key])]
+          str_entry = ":".join(entry)
+          header_l.append(str_entry)
+
+  header_mod = ",".join(header_l)
   header_mod = header_mod + "\n"
 
-  myPath = "./_dump/" + str(out_idx)
+  myPath = os.path.join(path, str(out_idx))
 
   if not os.path.exists(myPath):
-    os.mkdir("./_dump/" + str(out_idx))
+    os.mkdir(myPath)
 
   outName = myPath + "/" + fieldName
   writeCombinedField(element_entries, header_mod, int(header_info['Components']), outName)

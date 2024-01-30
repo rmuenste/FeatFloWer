@@ -418,7 +418,7 @@ MUMPS_PAR%icntl(3)  = 0
 !  Call package for solution
 MUMPS_PAR%icntl(6)  = 7
 !     pivot order (automatic)
-MUMPS_PAR%icntl(7)  = 7
+MUMPS_PAR%icntl(7)  = 4
 !     scaling (automatic)
 MUMPS_PAR%icntl(8)  = 77
 !     no transpose
@@ -432,13 +432,14 @@ MUMPS_PAR%icntl(12) = 0
 !     use ScaLAPACK for root node
 MUMPS_PAR%icntl(13) = 2
 !     percentage increase in estimated workspace
-MUMPS_PAR%icntl(14) = 2
+MUMPS_PAR%icntl(14) = 50
 
 ! MUMPS_PAR%icntl(4)  = 0
 ! mumps_par%ICNTL(5)  = 0
 mumps_par%ICNTL(18) = 3
 
 mumps_par%JOB = 6
+ 
 CALL DMUMPS(mumps_par)
 
 !       mumps_par%JOB = 2
@@ -457,6 +458,7 @@ END IF
 
 !  Solution has been assembled on the host
 IF ( MYID .eq. 0 ) THEN
+ CALL OUTPUT_BurgersSol_master(mumps_par%N,mumps_par%NZ,mumps_par%IRN,mumps_par%JCN,mumps_par%RHS)
 !   WRITE( 6, * ) ' Solution is '
  DO I=1,mumps_par%N
 !   WRITE( 6, * ) mumps_par%RHS(I)

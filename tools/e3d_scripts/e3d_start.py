@@ -607,13 +607,18 @@ def simLoopVelocity(workingDir):
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
         else:
             launchCommand = ""
+            
+            if paramDict['rankFile'] == "":
+             rankfileCommand = " "
+            else:
+             rankfileCommand = " -r " + paramDict['rankFile'] + " "
 
             if paramDict['useSrun']:
                 launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
                 if paramDict['singleAngle'] >= 0.0:
                     launchCommand = launchCommand + " -a %d" %(angle)
             else:
-                launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse"
+                launchCommand = "mpirun -np " + str(numProcessors) + rankfileCommand + os.getcwd() + "/q2p1_sse"
                 if paramDict['singleAngle'] >= 0.0 :
                     launchCommand = launchCommand + " -a %d" %(angle)
 

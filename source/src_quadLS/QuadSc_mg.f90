@@ -48,6 +48,16 @@ REAL*8 :: DefI1,DefI2,DefImpr,DDD,AccCoarseIter
 
 AccCoarseIter = 0
 
+if (myMG%MedLev.eq.myMG%MaxLev) THEN
+ if (MyMG%MaxIterCycle.gt.1) THEN
+  IF (myid.eq.showid) THEN
+   write(mfile,*) "MyMG%MaxIterCycle has been reduced from ",MyMG%MaxIterCycle, " to ", 1
+   write(mterm,*) "MyMG%MaxIterCycle has been reduced from ",MyMG%MaxIterCycle, " to ", 1
+  END IF
+  MyMG%MaxIterCycle = 1
+ end if
+end if
+
 CALL mgInit()
 
 CALL mgProlRestInit()
