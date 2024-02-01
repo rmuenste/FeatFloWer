@@ -90,6 +90,7 @@ real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
 REAL*8 :: U_bar, h, normalizedTime, val,dFact
 logical bBC,iBC
+REAL*8 :: dMidpointA(3), dMidpointB(3)
 
 DO i=1,GenLinScalar%ndof
 
@@ -158,6 +159,36 @@ DO i=1,GenLinScalar%ndof
      douterradius  = myProcess%myInflow(iInflow)%outerradius
      dinnerradius  = myProcess%myInflow(iInflow)%innerradius
      dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) then
+      bBC=.true.
+     END IF
+    END IF
+    
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.5) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+     dProfil = RectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) then
+      bBC=.true.
+     END IF
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.6) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+     dProfil = CurvedRectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
      daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
      if (daux.ne.0d0) then
       bBC=.true.
