@@ -47,6 +47,9 @@ def replace(file_path, pattern, subst):
     #Move new file
     move(abs_path, file_path)
 
+rankfile = ""
+machinefile= ""
+
 def main(argv):
    inputfile = ''
    outputfile = ''
@@ -61,6 +64,10 @@ def main(argv):
          sys.exit()
       elif opt in ("-n", "--num-processor"):
          NumProcessor = int(arg)
+      elif opt in ("-r", "--rankfile"):
+         rankfile = "--rankfile " + arg
+      elif opt in ("-m", "--machinefile"):
+         machinefile= '-machine ' + arg
       elif opt in ("-i", "--in-file"):
          inputfile = arg
 
@@ -71,7 +78,7 @@ def main(argv):
    
    partitioner.partition(NumProcessor-1, 1, 1, "NEWFAC", str(inputfile))
         
-   subprocess.call(['mpirun -np %i ./%s' %(NumProcessor, 'q2p1_fc_ext')], shell=True)
+   subprocess.call(['mpirun -np %i %s %s ./%s' %(NumProcessor, rankfile, machinefile, 'q2p1_fc_ext')], shell=True)
    
 if __name__ == "__main__":
    main(sys.argv[1:])

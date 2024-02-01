@@ -1,5 +1,17 @@
 #!/bin/bash
 
+usage()
+{
+cat << EOF
+usage: $0 options
+$0 [-n ] [-s] 
+
+OPTIONS:
+   -n     Number of parallel tasks
+   -s     number of tasks assigned to a node
+EOF
+}
+
 while [ $# != 0 ]; do
  flag="$1"
  case "$flag" in
@@ -31,12 +43,14 @@ done
 if [[ -z $n_slots ]]
 then
  echo "no number of slots per nodes defined // exit"
+ usage
  exit 0
 fi
 
 if [[ -z $end_process ]]
 then
  echo "no number of processors defined // exit"
+ usage
  exit 0
 fi
 
@@ -62,7 +76,10 @@ rankfile='myRankFile'
 
 irank=0
 islot=$((n_slots - 1))
+
 echo 
+echo "Here comes the rankfile:"
+
 # echo $irank $islot 
 ihostname="${node_list_array[${node_list_size}-1]}"
 line="rank ${irank}=${ihostname} slot=${islot}" 
@@ -79,5 +96,32 @@ for ((iP = 0; iP <= end_process-1; iP++)); do
      echo "$line"
     echo "$line" >> ${rankfile}
 done
+
+rankfile='myMachineFile'
+echo 
+echo "Here comes the machinefile:"
+
+ihostname="${node_list_array[${node_list_size}-1]}"
+line="${ihostname}:1"
+
+echo "$line"
+echo "$line" > ${rankfile}
+
+# Loop over the process numbers
+for ((iP = 0; iP <= node_list_size-2; iP++)); do
+    ihostname="${node_list_array[${iP}]}"
+    line="${ihostname}:${n_slots}" 
+    echo "$line"
+    echo "$line" >> ${rankfile}
+done
+
+ihostname="${node_list_array[${node_list_size}-1]}"
+remainingnodes=$((end_process -(node_list_size-1) * n_slots))
+if [[ ${remainingnodes} -gt 0 ]]
+then
+ line="${ihostname}:${remainingnodes}"
+ echo "$line"
+ echo "$line" >> ${rankfile}
+fi
 
 exit 0
