@@ -1521,6 +1521,7 @@ END IF
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL DNA_GetTorques(mfile)
+call DNA_GetSoosForce(mfile)
 
 CALL GetNonNewtViscosity()
 
@@ -1532,6 +1533,11 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
+
+IF (myid.ne.0) THEN
+  ! Call the delaunay output 
+  call output_delaunay(itns)
+end if
 
 !IF (myid.ne.0) THEN
 ! CALL ResampleToHEX(1)

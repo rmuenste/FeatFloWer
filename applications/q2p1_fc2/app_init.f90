@@ -486,8 +486,8 @@ IF (myid.eq.1) write(*,*) 'done!'
 ! call testMapParticles()
 ! end if
 
-
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+
 DO ILEV=NLMIN+1,NLMAX
 
  IF (myid.eq.1) write(*,*) 'checking parallel structures for Q2  on level : ',ILEV
@@ -495,7 +495,9 @@ DO ILEV=NLMIN+1,NLMAX
   call checkVertexLinks()
 
 END DO
+
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+
 IF (myid.eq.1) write(*,*) 'done!'
 
 myHEX%iCubP = 9

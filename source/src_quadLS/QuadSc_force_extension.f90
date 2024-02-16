@@ -885,7 +885,7 @@ SAVE
   DResForceY = 0.0
   DResForceZ = 4.0 * DResForceZ
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
-  theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+  theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
@@ -1010,7 +1010,7 @@ SAVE
 !  call MPI_Barrier(MPI_COMM_ALL, ierr)
   call Reduce_myMPI(localMax, totalMax)
 
-!  IF (myid.eq.0)then
+!  IF (myid == 0)then
 !    write(*,*)'totalMaxFluidForce: ', totalMax 
 !  end if
 END

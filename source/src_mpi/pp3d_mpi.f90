@@ -2523,7 +2523,7 @@ SUBROUTINE Reduce_myMPI(localMax, totalMax)
   CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
 
   if (myid == 0) then
-    write(*,'(A,E12.6)')'maximum fluid force: ', totalMax
+    write(*,'(A,E12.6)')'Max Fluid force: ', totalMax
   end if
 
 END SUBROUTINE Reduce_myMPI

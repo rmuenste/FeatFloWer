@@ -75,7 +75,7 @@ else()
 endif()
 
 if( "${CMAKE_Fortran_FLAGS_RELEASE}" MATCHES "O[3-9]" )
-  message( STATUS "Reducing RELEASE optimization level to O2" )
+  message( STATUS "Reducing RELEASE optimization level to O2 IN lapack-3.6.1/CMAKE/CheckLAPACKCompilerFlags.cmake" )
   string( REGEX REPLACE "O[3-9]" "O2" CMAKE_Fortran_FLAGS_RELEASE 
           "${CMAKE_Fortran_FLAGS_RELEASE}" )
   set( CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"

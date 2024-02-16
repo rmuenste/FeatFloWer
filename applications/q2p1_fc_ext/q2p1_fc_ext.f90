@@ -40,12 +40,12 @@ PROGRAM Q2P1_FC_EXT
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
 
-  IF (bTracer) THEN
-    ! Solve transport equation for linear scalar
-    CALL Transport_LinScalar(ufile,inonln_t)
-  ELSE
-    inonln_t = 2
-  END IF
+!  IF (bTracer) THEN
+!    ! Solve transport equation for linear scalar
+!    CALL Transport_LinScalar(ufile,inonln_t)
+!  ELSE
+!    inonln_t = 2
+!  END IF
 
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 

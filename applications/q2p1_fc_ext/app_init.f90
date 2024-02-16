@@ -14,6 +14,7 @@ subroutine init_q2p1_ext(log_unit)
 
   integer, intent(in) :: log_unit
 
+
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
@@ -68,12 +69,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
- USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+ USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc,myHEX,ResampleToHEX
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
+ use dem_query
+ use post_utils,  only: sim_finalize
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -102,9 +105,13 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
 
+ character(50) :: filename
+ character(10) :: int_as_string
+
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ real*8 :: localMax, totalMax
 
  integer, dimension(1) :: processRanks
  integer :: MPI_W0, MPI_EX0
@@ -112,7 +119,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  integer :: error_indicator
  integer :: numParticles, ierror, ndims, reorder
  integer, dimension(3) :: dim_size
+ logical periods(0:2)
 
+ ndims = 3
+ dim_size = (/2, 2, 2/)
+ periods = (/.false., .false., .false./)
+ reorder = 0
 
  CALL ZTIME(TTT0)
 
@@ -127,6 +139,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CFILE=CFILE1
  MFILE=MFILE1
+
+ dPeriodicity(1)= 0.1d0
+ dPeriodicity(2)= 0.1d0
 
  !=======================================================================
  !     Grid generation
@@ -167,9 +182,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL Init_QuadScalar(mfile)
 
- IF (myid.EQ.0) THEN
-  NLMAX = LinSc%prm%MGprmIn%MedLev
- END IF
+ IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
 
  if(NLMAX.eq.0)then
    write(*,*)'NLMAX=0 is invalid, exiting...'
@@ -213,7 +226,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+ filename = "meshL4"
+
+ ! Convert the integer int_as_string to a string
+ write(int_as_string, '(I0)') myid
+
+ filename = trim(filename) // "_" // trim(int_as_string) // ".tri"
+
  II=NLMIN
+ !call writeTriFile(mg_mesh%level(NLMAX), filename)
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
  CALL PARENTCOMM(mg_mesh%level(II)%nat,&
@@ -245,9 +266,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END DO
 
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
- IF (myid.EQ.0) THEN
-  NLMAX = LinSc%prm%MGprmIn%MedLev
- END IF
+ IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
  !     ----------------------------------------------------------
 
@@ -267,16 +286,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
-!  ILEV = LinSc%prm%MGprmIn%MedLev
-! 
-!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-!                              mg_mesh%level(ILEV)%kvert,&
-!                              mg_mesh%level(ILEV)%kedge,&
-!                              mg_mesh%level(ILEV)%karea,&
-!                              mg_mesh%level(ILEV)%nvt,&
-!                              mg_mesh%level(ILEV)%net,&
-!                              mg_mesh%level(ILEV)%nat,&
-!                              mg_mesh%level(ILEV)%nel)
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             mg_mesh%level(ILEV)%kedge,&
+                             mg_mesh%level(ILEV)%karea,&
+                             mg_mesh%level(ILEV)%nvt,&
+                             mg_mesh%level(ILEV)%net,&
+                             mg_mesh%level(ILEV)%nat,&
+                             mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  
@@ -305,12 +324,13 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL E011_CreateComm(NDOF)
 
- !     ----------------------------------------------------------            
- call init_fc_rigid_body(myid)      
- call FBM_GetParticles()
- CALL FBM_ScatterParticles()
- !     ----------------------------------------------------------        
 
+ subnodes=numnodes-1
+
+
+ !=======================================================================
+ !     Boundary parametrization
+ !=======================================================================
  ILEV=NLMIN
  CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  
@@ -332,10 +352,16 @@ DO ILEV=NLMIN+1,NLMAX
    END IF
  END DO
 
+ filename = "meshLP"
+
+ filename = trim(filename) // "_" // trim(int_as_string) // ".tri"
+
  ! Parametrize the highest level
  if(myid.ne.0)then
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
+
+ !!call writeTriFile(mg_mesh%level(NLMAX+1), filename)
 
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
@@ -419,6 +445,18 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MTERM,*)
    WRITE(MFILE,*)
  END IF
+
+
+DO ILEV=NLMIN+1,NLMAX
+
+ IF (myid.eq.1) write(*,*) 'Before checking parallel structures for Q2  on level : ',ILEV
+
+  call checkVertexLinks()
+
+END DO
+call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+IF (myid.eq.1) write(*,*) 'done!'
+
  !=======================================================================
  !     Set up the rigid body C++ library
  !=======================================================================
@@ -426,14 +464,78 @@ DO ILEV=NLMIN+1,NLMAX
  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+! CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0)
 
- call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+ call commf2c_kroupa(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
 
+! call Reduce_myMPI(localMax, totalMax)
+! call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+! pause
+ 
+
+! if (myid .eq. 1) then
+!   write(*,*) myid, ") #particles: ", numLocalParticles()
+!   call testParticleGet(5)
+!   call testParticleRadius()
+! end if
  call init_fc_rigid_body(myid)      
+! call MPI_Finalize(ierror)
+! stop
+
+! if (myid .ne. 0) then
+! call testMapParticles()
+! end if
 
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 
- RETURN
+DO ILEV=NLMIN+1,NLMAX
+
+ IF (myid.eq.1) write(*,*) 'checking parallel structures for Q2  on level : ',ILEV
+
+  call checkVertexLinks()
+
+END DO
+
+ call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+
+IF (myid.eq.1) write(*,*) 'done!'
+
+myHEX%iCubP = 9
+myHEX%iLev  = 2
+
+myHEX%mg_HEX%maxlevel = myHEX%iLev+1
+myHEX%mg_HEX%nlmax = myHEX%iLev
+myHEX%mg_HEX%nlmin = 1
+
+if (myid.ne.0) then
+ allocate(myHEX%mg_HEX%level(myHEX%mg_HEX%maxlevel))
+ call readTriCoarse('M/m.tri', myHEX%mg_HEX)
+ call refineMesh(myHEX%mg_HEX, myHEX%mg_HEX%maxlevel)  
+
+ ilev = myHEX%iLev
+ CALL setlev_HEX()
+
+ CALL SampleCubaturePoints(myHEX%mg_HEX%level(ilev)%dcorvg,&
+                           myHEX%mg_HEX%level(ilev)%kvert,&
+                           myHEX%mg_HEX%level(ilev)%karea,&
+                           myHEX%mg_HEX%level(ilev)%kedge,&
+                           myHEX%cbP,&
+                           myHEX%iCubP,myHEX%nCB,1)
+
+ allocate(myHEX%cbP(3,myHEX%nCB))
+ allocate(myHEX%cbV(3,myHEX%nCB))
+
+ CALL SampleCubaturePoints(myHEX%mg_HEX%level(ilev)%dcorvg,&
+                           myHEX%mg_HEX%level(ilev)%kvert,&
+                           myHEX%mg_HEX%level(ilev)%karea,&
+                           myHEX%mg_HEX%level(ilev)%kedge,&
+                           myHEX%cbP,&
+                           myHEX%iCubP,myHEX%nCB,2)
+  
+ CALL ResampleToHEX(0)
+END IF
+
+RETURN
 
 END SUBROUTINE General_init_ext
  !

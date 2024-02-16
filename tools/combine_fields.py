@@ -137,21 +137,22 @@ def combineField(nprocs,fieldName, path, out_idx):
   header_info['NEL'] = len(element_entries)
   header_string = str(header_info)
 
-  header_l=[]
-  for k, v in header_info.items():
-    entry=[]
-    entry.append(str(k))
-    entry.append(str(v))
-    str_entry = ":".join(entry)
-    header_l.append(str_entry)
+  desired_order = ["DofsInElement", "NEL", "Name", "Format", "OutputLevel", "FeSpace", "Version", "Components"]
 
-  header_mod = ",".join(header_l) 
+  header_l = []
+  for key in desired_order:
+      if key in header_info:
+          entry = [str(key), str(header_info[key])]
+          str_entry = ":".join(entry)
+          header_l.append(str_entry)
+
+  header_mod = ",".join(header_l)
   header_mod = header_mod + "\n"
 
-  myPath = "./_dump/" + str(out_idx)
+  myPath = os.path.join(path, str(out_idx))
 
   if not os.path.exists(myPath):
-    os.mkdir("./_dump/" + str(out_idx))
+    os.mkdir(myPath)
 
   outName = myPath + "/" + fieldName
   writeCombinedField(element_entries, header_mod, int(header_info['Components']), outName)

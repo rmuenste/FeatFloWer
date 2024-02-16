@@ -177,7 +177,6 @@ if(USE_SYSTEM_BLASLAPACK)
     message(STATUS "Found BLAS/LAPACK on the system.")
     message(STATUS "Blas library: ${BLAS_LIBRARIES}")
     message(STATUS "Lapack library: ${LAPACK_LIBRARIES}")
-
     # Use the sources from the repository if 
     # no libraries are found on the system
   else(BLAS_FOUND AND LAPACK_FOUND)
@@ -208,6 +207,14 @@ if(USE_CGAL)
   set(CGAL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL)
   message(STATUS "CGAL dir: ${CGAL_DIR}")
   find_package(CGAL REQUIRED PATHS "${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL")
+  message(STATUS "GMP dir: ${GMP_LIBRARIES}")
+  #=========================================================================
+  # The find_package command above does also store the locations of the
+  # GMP and MPFR libraries in the variables:
+  #  -GMP include directory: ${GMP_INCLUDE_DIR}
+  #  -MPFR include directory: ${MPFR_INCLUDE_DIR}
+  #  -GMP libraries: ${GMP_LIBRARIES}
+  #  -MPFR libraries: ${MPFR_LIBRARIES}
 endif()
 
 if(CGAL_FOUND)
