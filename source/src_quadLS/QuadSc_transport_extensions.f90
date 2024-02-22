@@ -1523,6 +1523,7 @@ END IF
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
 CALL FAC_GetForces(mfile)
+CALL FAC_GetSurfForces(mfile)
 
 CALL DNA_GetTorques(mfile)
 

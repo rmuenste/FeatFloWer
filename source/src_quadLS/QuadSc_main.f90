@@ -2449,6 +2449,28 @@ END SUBROUTINE FAC_GetForcesParT
 !
 ! ----------------------------------------------
 !
+SUBROUTINE FAC_GetSurfForces(mfile)
+
+ INTEGER mfile
+ EXTERNAL E013
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ CALL GetForcesOnSubmeshX(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                          LinSc%P_new,&
+                          mg_Mesh%level(ILEV)%kvert,&
+                          mg_Mesh%level(ILEV)%karea,&
+                          mg_Mesh%level(ILEV)%kedge,&
+                          BndrForce,&
+                          mg_Mesh%level(ILEV)%dcorvg,&
+                          Properties%Viscosity(1),mfile,&
+                          E013)
+
+END SUBROUTINE FAC_GetSurfForces
+!
+! ----------------------------------------------
+!
 SUBROUTINE FAC_GetForces(mfile)
   INTEGER mfile
   REAL*8 :: Force2(3),ForceV(3),ForceP(3),Force(3),Factor,PI = 3.141592654d0
