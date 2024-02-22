@@ -357,13 +357,16 @@ IF (allocated(Temperature)) then
  Temperature = QuadSc%auxU
 END IF                  
 
-IF (allocated(MaterialDistribution)) then
- fieldName = "MaterialDistribution"
- QuadSc%auxU = 0
- packed(1)%p => QuadSc%auxU
- call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
- MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
-END IF                  
+! IF (allocated(MaterialDistribution)) then
+!  fieldName = "MaterialDistribution"
+!  QuadSc%auxU = 0
+!  packed(1)%p => QuadSc%auxU
+!  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+!  MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
+! END IF                  
+
+! write(*,*) "asasasdssd" 
+! pause
 
 if (allocated(GenLinScalar%Fld)) then
  DO iFld=1,GenLinScalar%nOfFields
