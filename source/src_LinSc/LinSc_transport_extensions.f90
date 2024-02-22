@@ -981,9 +981,12 @@ END SUBROUTINE AddBoundaryHeatFlux
 ! ----------------------------------------------
 !
 SUBROUTINE AddAirCoolingHeatFlux(iSwitch)
+USE var_QuadScalar, ONLY : mySegmentIndicator
+EXTERNAL E011
 integer iSwitch
 real*8 dAreaDueToCooling,dFluxDueToCooling
-EXTERNAL E011
+
+IF (.NOT.ALLOCATED(mySegmentIndicator)) return
 
 if (myid.ne.master) then
  ilev = NLMAX
