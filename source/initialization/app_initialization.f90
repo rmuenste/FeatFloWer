@@ -212,6 +212,8 @@ end subroutine init_sol_same_level
 !                             Sub: init_sol_lower_level
 !========================================================================================
 subroutine init_sol_lower_level(start_file)
+USE Parametrization, ONLY: ParametrizeBndr
+use var_QuadScalar,only:ilev,nlmax
 implicit none
 
 character(len=*), intent(in) :: start_file
@@ -262,6 +264,14 @@ call ExchangeNodeValuesOnCoarseLevel(&
 
 call ProlongateSolution()
 
+if(myid.ne.0)then
+  NLMAX = NLMAX + 1
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  CALL ParametrizeBndr(mg_mesh,ILEV)
+  NLMAX = NLMAX - 1
+endif
+    
 call OperatorRegenaration(1)
 call OperatorRegenaration(2)
 call OperatorRegenaration(3)
