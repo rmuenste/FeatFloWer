@@ -178,16 +178,16 @@ DO i=1,Tracer%ndof
   
   IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
    dRR = myProcess%myInflow(iInflow)%outerradius
-   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
    dT = myProcess%myInflow(iInflow)%TemperatureRange
    dR = Min(dR,dRR)
    
    TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(1d0-(dRR-dR)/dRR)
-!   write(*,'(A,8ES12.4)') 'L',dRR,dR,dT,dC,TempBC
+!    write(*,'(A,18ES12.4)') 'L',X,Y,Z,dR,dRR,dT,dC,TempBC
  END IF
  IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
    dRR = myProcess%myInflow(iInflow)%outerradius
-   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
    dT = myProcess%myInflow(iInflow)%TemperatureRange
    dR = Min(dR,dRR)
    
