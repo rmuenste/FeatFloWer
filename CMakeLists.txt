@@ -215,16 +215,16 @@ if(USE_CGAL)
   #  -MPFR include directory: ${MPFR_INCLUDE_DIR}
   #  -GMP libraries: ${GMP_LIBRARIES}
   #  -MPFR libraries: ${MPFR_LIBRARIES}
-endif()
 
-if(CGAL_FOUND)
-    message(STATUS "CGAL found.")
-    message(STATUS "CGAL version: ${CGAL_VERSION}")
-    message(STATUS "CGAL include directory: ${CGAL_INCLUDE_DIRS}")
-    set(CGAL_INCLUDE_DIR "${CGAL_INCLUDE_DIRS}")
-    # Additional messages or actions if needed
-else()
-    message(FATAL_ERROR "CGAL not found. Please check your CGAL_DIR setting.")
+  if(CGAL_FOUND)
+      message(STATUS "CGAL found.")
+      message(STATUS "CGAL version: ${CGAL_VERSION}")
+      message(STATUS "CGAL include directory: ${CGAL_INCLUDE_DIRS}")
+      set(CGAL_INCLUDE_DIR "${CGAL_INCLUDE_DIRS}")
+      # Additional messages or actions if needed
+  else()
+      message(FATAL_ERROR "CGAL not found. Please check your CGAL_DIR setting.")
+  endif()
 endif()
 
 #=========================================================================
