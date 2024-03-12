@@ -428,7 +428,13 @@ IF (iT.EQ.21) THEN
 END IF
 
 IF (iT.EQ.23) THEN
- ValU= 1d0
+ ValU= 1.0d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
+IF (iT.EQ.24) THEN
+ ValU=-0.1d0
  ValV= 0d0
  ValW= 0d0
 END IF

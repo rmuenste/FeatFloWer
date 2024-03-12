@@ -1536,7 +1536,7 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
 
 IF (myid.ne.0) THEN
   ! Call the delaunay output 
-  call output_delaunay(itns)
+  !call output_delaunay(itns)
 end if
 
 !IF (myid.ne.0) THEN

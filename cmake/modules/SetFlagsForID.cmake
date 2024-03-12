@@ -231,6 +231,20 @@ IF(Q2P1_BUILD_ID STREQUAL "zen2-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "zen3-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -m64 -march=znver3)
+  SET(Fortran_FLAGS -g -march=znver3 -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "epyc32core-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver2)
+  SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 #===============================================================================================================
 #                                              Debug builds
 #===============================================================================================================
@@ -282,6 +296,6 @@ ENDIF()
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "10.0.0" OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "10.0.0")
     message(STATUS "For GCC greater or equal 10.0.0 we set the flag -fallow-argument-mismatch as a workaround for type mismatches")
-    SET(Fortran_FLAGS -g -march=native -Wfatal-errors -finit-local-zero -fallow-argument-mismatch -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+    SET(Fortran_FLAGS ${Fortran_FLAGS} -fallow-argument-mismatch)
   endif()
 endif()
