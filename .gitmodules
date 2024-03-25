@@ -8,3 +8,7 @@
 [submodule "extern/libraries/hypre"]
 	path = extern/libraries/hypre
 	url = https://github.com/rmuenste/hypre.git
+[submodule "physics-engine"]
+	path = libs/pe
+	url = git@github.com:rmuenste/pe-0.3rc1.git
+	branch = ff-lub-tune
