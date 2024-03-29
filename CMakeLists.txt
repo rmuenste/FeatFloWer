@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1...3.23)
 
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
@@ -7,7 +7,8 @@ project(Q2P1 C CXX Fortran)
 set(PROJECT_VERSION "1.0.0")
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+set(FF_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 # allow less strict IF-else syntax
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
@@ -36,6 +37,17 @@ include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 #                         custom targets  
 #=========================================================================
 include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(${CMAKE_MODULE_PATH}/GenerateBuildIdOutput.cmake)  
+option(SHOW_BUILD_IDS
+  "Display all available build ids and exit"
+  OFF
+  )
+
+if(SHOW_BUILD_IDS)
+  generate_string_list()
+  message(FATAL_ERROR "Ending script, this is as intended.")
+endif(SHOW_BUILD_IDS)
+
 
 #=========================================================================
 #                         compiler settings
@@ -119,6 +131,12 @@ option(USE_HYPRE
   OFF
   )
 
+
+
+if(BUILD_BOUNDARY_LAYER_TOOLS)
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+endif(BUILD_BOUNDARY_LAYER_TOOLS)
+
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
 #    OFF
@@ -149,6 +167,13 @@ option(USE_HYPRE
 if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
 endif(BUILD_BOUNDARY_LAYER_TOOLS)
+
+#=========================================================================
+#                       CMake BUILD Type
+#=========================================================================
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+endif()
 
 #=========================================================================
 #                       Configure BLAS/LAPACK 
@@ -188,114 +213,31 @@ if(BUILD_METIS)
 endif(BUILD_METIS)
 
 #=========================================================================
-# Add the optical tweezers library
-#=========================================================================
-if(USE_OPTICALTWEEZERS)
-  set(OPTICALTWEEZERS_LIBRARY True)
-
-  ExternalProject_Add(OPTICALTWEEZERS_PRJ
-    GIT_REPOSITORY ssh://rmuenste@arryn.mathematik.tu-dortmund.de/data/warehouse14/rmuenste/code/GitHub/raytracing-ot/raytracing 
-    GIT_TAG mit_octree
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers
-    PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/opticaltweezers-dir
-    #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install -DBUILD_SHARED_LIBS=False -DOPTICALTWEEZERS_LIBRARY=True
-    )
-
-  set(OPTICALTWEEZERS_LIBRARIES 
-      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libvector.a
-      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libstrahl.a
-      ${CMAKE_BINARY_DIR}/extern/libraries/opticaltweezers-install/lib/libot.a
-     )
-
-endif(USE_OPTICALTWEEZERS)
-
-#=========================================================================
 # Add the cgal library
 #=========================================================================
+# Add CGAL submodule path
 if(USE_CGAL)
+  message(STATUS "Running find_package CGAL.")
+  set(CGAL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL)
+  message(STATUS "CGAL dir: ${CGAL_DIR}")
+  find_package(CGAL REQUIRED PATHS "${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir/lib/cmake/CGAL")
+  message(STATUS "GMP dir: ${GMP_LIBRARIES}")
+  #=========================================================================
+  # The find_package command above does also store the locations of the
+  # GMP and MPFR libraries in the variables:
+  #  -GMP include directory: ${GMP_INCLUDE_DIR}
+  #  -MPFR include directory: ${MPFR_INCLUDE_DIR}
+  #  -GMP libraries: ${GMP_LIBRARIES}
+  #  -MPFR libraries: ${MPFR_LIBRARIES}
 
-  if(NOT USE_CGAL_LOCAL)
-    set(USE_BOOST True)
-    set(CGAL_LIBRARIES 
-      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-      )
-
-    set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
-    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-
-    if(NOT WIN32)
-          ExternalProject_Add(CGAL_PRJ
-            GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-            GIT_PROGRESS ON 
-            GIT_SHALLOW ON 
-            GIT_TAG rafa-devel
-            SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-            PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-            #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false -DCMAKE_C_COMPILER=$ENV{CC} -DCMAKE_CXX_COMPILER=$ENV{CXX}
-            )
-
-      if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
-          )
-      elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-          )
-        message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
-      else()
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-          )
-      endif()
-
-    else(NOT WIN32)
-      find_package(CGAL REQUIRED COMPONENTS Core)
-      if(${CGAL_FOUND})
-        find_package(GMP)
-        find_package(MPFR)
-
-        if(NOT ${GMP_FOUND})
-          message(WARNING "GMP library not found. Cannot build cgal applications.")
-        endif()
-
-        if(NOT ${MPFR_FOUND})
-          message(WARNING "MPFR library not found. Cannot build cgal applications.")
-        endif()
-
-      endif()	
-      message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
-      message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
-      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-    endif(NOT WIN32)
-
-  else(NOT USE_CGAL_LOCAL)
-    message(STATUS "Trying to find system installation of CGAL")
-    find_package(CGAL REQUIRED COMPONENTS Core)
-    if(NOT ${CGAL_FOUND})
-      message(STATUS "Could not find CGAL on the system... Looking for user supplied path.") 
-      if(NOT "${CGAL_LIBRARIES}" STREQUAL "")
-        message(STATUS "User supplied CGAL libraries: ${CGAL_LIBRARIES}") 
-        message(STATUS "User supplied CGAL include: ${CGAL_INCLUDE_DIR}") 
-      endif()	
-    endif()	
-  endif(NOT USE_CGAL_LOCAL)
-
-endif(USE_CGAL)
-
-if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
-  FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
-  if(NOT LIBRT_LIBRARY)
-    find_file(LIBRT_LIBRARY librt.so  PATHS /usr/lib /usr/lib64/)
-    if(NOT LIBRT_LIBRARY)
-      message(FATAL_ERROR "You need to install the system library librt.")
-    endif()
+  if(CGAL_FOUND)
+      message(STATUS "CGAL found.")
+      message(STATUS "CGAL version: ${CGAL_VERSION}")
+      message(STATUS "CGAL include directory: ${CGAL_INCLUDE_DIRS}")
+      set(CGAL_INCLUDE_DIR "${CGAL_INCLUDE_DIRS}")
+      # Additional messages or actions if needed
+  else()
+      message(FATAL_ERROR "CGAL not found. Please check your CGAL_DIR setting.")
   endif()
 endif()
 
@@ -329,11 +271,54 @@ endif()
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
+# Check if USE_CGAL is ON, and set USE_BOOST accordingly
+if(USE_CGAL)
+    set(USE_BOOST ON)
+endif()
+
 if(USE_BOOST)
-  # UNCOMMENT THE LINE BELOW IF YOU HAVE ISSUES FINDING BOOST
-  # set(Boost_DEBUG True)
-  find_package(Boost 1.53 REQUIRED COMPONENTS thread)
+
+  set(Boost_MIN_VERSION "1.68.0")
+
+  # Find Boost with the specified components
+  find_package(Boost ${Boost_MIN_VERSION} REQUIRED COMPONENTS
+      thread
+      system
+      filesystem
+      program_options
+      random
+  )
+
+  # Check if Boost was found
+  if (Boost_FOUND)
+      message(STATUS "Boost found: ${Boost_VERSION}")
+      message(STATUS "Boost include directories: ${Boost_INCLUDE_DIRS}")
+      message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+
+      # Set Boost_USE_STATIC_LIBS to ON
+      set(Boost_USE_STATIC_LIBS ON)
+      set(Boost_USE_MULTITHREADED ON )
+  else()
+      message(FATAL_ERROR "Boost ${Boost_MIN_VERSION} not found.")
+  endif()
+
 endif(USE_BOOST)
+
+#=========================================================================
+#                     Check for the 'librt' library
+#=========================================================================
+if (UNIX AND NOT APPLE)
+    find_library(LIBRT_LIBRARY NAMES rt)
+    if(NOT LIBRT_LIBRARY)
+        find_file(LIBRT_LIBRARY librt.so  PATHS /usr/lib /usr/lib64/)
+        if(NOT LIBRT_LIBRARY)
+            message(FATAL_ERROR "Please install the system library librt to compile this code.")
+        endif()
+    endif()
+elseif (APPLE)
+    # Handle macOS case if needed
+endif()
+
 
 #=========================================================================
 #                      Configure MPI/MKL/MUMPS 
@@ -361,43 +346,16 @@ if(USE_MUMPS)
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
 endif(USE_MUMPS)
 
-find_package(Git)
-if(NOT GIT_FOUND)
-    message(FATAL_ERROR "Git is required to build this software. Please install Git.")
-endif()
-
-## Custom command to extract git commit hash and store it in a variable
-#execute_process(
-#    COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
-#    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#    OUTPUT_VARIABLE GIT_COMMIT_HASH
-#    OUTPUT_STRIP_TRAILING_WHITESPACE
-#)
-#
-## Configure version.h using a template
-#configure_file(version.h.in ${CMAKE_SOURCE_DIR}/source/include/version.h @ONLY)
+find_package(Git 2.17)
 
 if(NOT WIN32)
-if(USE_CGAL)
-  add_subdirectory(tools/check_manifold)
-endif(USE_CGAL)
+  if(USE_CGAL)
+    add_subdirectory(tools/check_manifold)
+  endif(USE_CGAL)
 endif(NOT WIN32)
-#if(Boost_FOUND)
-#  message("Boost library version: ${Boost_VERSION}")
-#  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
-#  message("Boost include directory: ${Boost_INCLUDE_DIRS}")
-#  message("Boost library directory: ${Boost_LIBRARY_DIRS}")
-#  message("Boost library directory: ${Boost_LIBRARIES}")
-#  message(FATAL_ERROR "Found Boost library")
-#else()
-#  message(FATAL_ERROR "Did not find Boost library")
-#endif()
-#
-#message(FATAL_ERROR "end")
-
 
 #=========================================================================
-# Add the cgal library
+# Add the hypre library
 #=========================================================================
 if(USE_HYPRE)
   # Use the sources from the repository  
@@ -411,8 +369,9 @@ endif(USE_HYPRE)
 #=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/GenerateIncludeFlags.cmake)  
-include(${CMAKE_MODULE_PATH}/GenerateLinkerFlags.cmake)  
+message(STATUS "Module path was set to ${CMAKE_MODULE_PATH}")
+include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateIncludeFlags.cmake)  
+include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateLinkerFlags.cmake)  
 
 #=========================================================================
 #                         project directories
@@ -448,6 +407,12 @@ IF(BUILD_APPLICATIONS)
 
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
+
+#=========================================================================
+#                     PE Library
+#=========================================================================
+message(STATUS "Addid pe library to build")  
+add_subdirectory(libs/pe)
 
 #=========================================================================
 #                       INSTALL CONFIGURATION

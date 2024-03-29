@@ -59,21 +59,6 @@ if(WIN32)
     ff_quadLS_app
     )
 else(WIN32)
-#  set(FF_APPLICATION_LIBS
-#    amd
-#    umfpack4
-#    feat2d
-#    feat3d
-#    ${BLAS_LIBRARIES}
-#    ${LAPACK_LIBRARIES}
-#    stdc++
-#    stdc++fs
-#    inshape3dcore
-#    Utility
-#    Math
-#    ${LIBRT_LIBRARY}
-#    ${MPI_Fortran_LIBRARIES}
-#    )
   set(FF_APPLICATION_LIBS
     amd
     umfpack4
@@ -86,6 +71,8 @@ else(WIN32)
     inshape3dcore
     Utility
     Math
+    ${Boost_LIBRARIES}
+    pe_static
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
@@ -101,6 +88,7 @@ else(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_particles
     )
 endif(WIN32)
 

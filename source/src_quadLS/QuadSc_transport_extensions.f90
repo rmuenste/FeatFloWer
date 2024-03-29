@@ -1310,9 +1310,9 @@ END DO ! iStep
 END SUBROUTINE PressureStepCP_ParT
 
 END SUBROUTINE Transport_q2p1_UxyzP_ParT
+!========================================================================================
 !
-! ----------------------------------------------
-!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM
@@ -1520,8 +1520,6 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-CALL FAC_GetForces(mfile)
-
 CALL DNA_GetTorques(mfile)
 
 CALL GetNonNewtViscosity()
@@ -1535,7 +1533,6 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
 
-!if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
@@ -1564,9 +1561,9 @@ CALL MonitorVeloMag(QuadSc)
 RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
+!========================================================================================
 !
-! ----------------------------------------------
-!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM

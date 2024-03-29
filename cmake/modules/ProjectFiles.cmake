@@ -5,6 +5,7 @@
 #*************************************************************************
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
+${CMAKE_SOURCE_DIR}/source/src_particles/dem_query.f90
 )
 
 #=========================================================================
@@ -182,6 +183,7 @@ target_compile_options(ff_le_solvers PUBLIC ${Fortran_FLAGS})
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force_extension.f90
 )
 
 #=========================================================================

@@ -2388,5 +2388,24 @@ SUBROUTINE SORTALL(LW,KW,MW,x,y,z,N)
   END DO
 
 END SUBROUTINE SORTALL
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE Reduce_myMPI(localMax, totalMax)
+
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+  integer :: error_indicator
+
+  totalMax = 0.0
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, error_indicator)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    write(*,'(A,E12.6)')'Max Fluid force: ', totalMax
+  end if
+
+END SUBROUTINE Reduce_myMPI
 
 END MODULE

@@ -8,6 +8,7 @@ add_subdirectory(q2p1_fac_visco)
 add_subdirectory(q2p1_fbm_spring)
 add_subdirectory(q1_scalar)
 add_subdirectory(q2p1_bench_sedimentation)
+add_subdirectory(q2p1_fsi_bench)
 add_subdirectory(laplace)
 add_subdirectory(stream)
 

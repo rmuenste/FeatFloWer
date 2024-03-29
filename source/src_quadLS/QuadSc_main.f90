@@ -317,6 +317,7 @@ implicit none
 
  fbm_geom_handler_ptr => GetFictKnpr_Die
  fbm_vel_bc_handler_ptr => FictKnpr_velBC
+ fbm_vel_bc_handler_ptr => fbm_velBC
 
 END SUBROUTINE Init_Die_Handlers
 !
@@ -348,9 +349,13 @@ SUBROUTINE Init_Default_Handlers()
 ! for FBM, etc. to their default values
 implicit none
 
- fbm_up_handler_ptr => fbm_updateDefault
- fbm_geom_handler_ptr => fbm_getFictKnpr
- fbm_vel_bc_handler_ptr => fbm_velBC
+! fbm_up_handler_ptr => fbm_updateDefault
+! fbm_geom_handler_ptr => fbm_getFictKnpr
+! fbm_vel_bc_handler_ptr => fbm_velBC
+
+ fbm_up_handler_ptr => fbm_updateDefaultFC2
+ fbm_geom_handler_ptr => fbm_getFictKnprFC2
+ fbm_vel_bc_handler_ptr => fbm_velBCFC2
 
 END SUBROUTINE Init_Default_Handlers
 !
@@ -365,6 +370,7 @@ integer :: mydof
 integer :: maxlevel
 Real*8 :: dabl
 real*8 :: myInf
+integer :: idx
 
 
  bMasterTurnedON = .TRUE.
@@ -586,6 +592,12 @@ END IF
  FictKNPR=0
  ALLOCATE (Distance(mydof))
  Distance = 0d0
+
+ ALLOCATE (FictKNPR_uint64(mydof))
+ ! loop and initialize
+ do idx = 1,mydof
+   FictKNPR_uint64(idx)%bytes(:) = -1
+ end do
 
  ALLOCATE (MixerKNPR(mydof))
  MixerKNPR=0
@@ -1041,7 +1053,7 @@ implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
 integer :: mydof
-integer :: maxlevel
+integer :: maxlevel, idx
 Real*8 :: dabl
 
  bMasterTurnedON = .TRUE.
@@ -1241,6 +1253,14 @@ END IF
 
  ALLOCATE (FictKNPR(mydof))
  FictKNPR=0
+
+
+ ALLOCATE (FictKNPR_uint64(mydof))
+ ! loop and initialize
+ do idx = 1,mydof
+   FictKNPR_uint64(idx)%bytes(:) = -1
+ end do
+
  ALLOCATE (Distance(mydof))
  Distance = 0d0
 
@@ -1405,88 +1425,116 @@ END SUBROUTINE QuadScalar_Knpr
 !
 ! ----------------------------------------------
 !
-SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea)
+SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   use fbm, only: fbm_updateFBMGeom
+  include 'mpif.h'
+
+  ! Function parameters
   REAL*8  dcorvg(3,*),dcorag(3,*)
   INTEGER kvert(8,*),kedge(12,*),karea(6,*)
+  logical, intent(in), optional :: silent
+
+  ! Local variables
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr
   REAL*8 PX,PY,PZ,DIST
   REAL tttx0,tttx1
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+  logical :: isSilent
+
+  ! Constants
   INTEGER NeighE(2,12),NeighA(4,6)
   DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
   DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
-  if (myid.eq.0) return
+  isSilent = .true.
+  if(present(silent)) isSilent = silent
+
+  totalInside = 0
+
+  if (myid /= 0) then
   
-  CALL myMPI_Barrier()
-  call ztime(tttx0)
+    call clear_fbm_maps()
+  
+    CALL myMPI_Barrier()
+    call ztime(tttx0)
+  
+    DO i=1,nvt
+    PX = dcorvg(1,I)
+    PY = dcorvg(2,I)
+    PZ = dcorvg(3,I)
+    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i), i, FictKNPR_uint64(i), fbm_geom_handler_ptr)
+    END DO
+  
+    k=1
+    DO i=1,nel
+    DO j=1,12
+    IF (k.eq.kedge(j,i)) THEN
+      ivt1 = kvert(NeighE(1,j),i)
+      ivt2 = kvert(NeighE(2,j),i)
+      PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+      PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+      PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+      call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k), nvt+k, FictKNPR_uint64(nvt+k),fbm_geom_handler_ptr)
+      k = k + 1
+    END IF
+    END DO
+    END DO
+  
+    k=1
+    DO i=1,nel
+    DO j=1,6
+    IF (k.eq.karea(j,i)) THEN
+      ivt1 = kvert(NeighA(1,j),i)
+      ivt2 = kvert(NeighA(2,j),i)
+      ivt3 = kvert(NeighA(3,j),i)
+      ivt4 = kvert(NeighA(4,j),i)
+      PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+      PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+      PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+      call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k), nvt+net+k, FictKNPR_uint64(nvt+net+k),fbm_geom_handler_ptr)
+      k = k + 1
+    END IF
+    END DO
+    END DO
+  
+    ! DO i=1,nat
+    !  PX = dcorag(1,I)
+    !  PY = dcorag(2,I)
+    !  PZ = dcorag(3,I)
+    !  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+i),Distance(nvt+net+i))
+    ! END DO
+  
+    DO i=1,nel
+    PX = 0d0
+    PY = 0d0
+    PZ = 0d0
+    DO j=1,8
+    PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+    PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+    PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+    END DO
+    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+nat+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i), nvt+net+nat+i, FictKNPR_uint64(nvt+net+nat+i),fbm_geom_handler_ptr)
+    END DO
+  
+    CALL myMPI_Barrier()
+    call ztime(tttx1)
+    if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
+  
+    do i=1,nvt+net+nat+nel
+      myALE%Monitor(i)=distance(i)
+  
+      if(FictKnpr(i) .ne. 0)then
+        totalInside = totalInside + 1
+      end if
+  
+    end do
 
-  DO i=1,nvt
-  PX = dcorvg(1,I)
-  PY = dcorvg(2,I)
-  PZ = dcorvg(3,I)
-  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(i),FictKNPR(i),Distance(i),fbm_geom_handler_ptr)
-  END DO
+  end if ! myid /= 0
 
-  k=1
-  DO i=1,nel
-  DO j=1,12
-  IF (k.eq.kedge(j,i)) THEN
-    ivt1 = kvert(NeighE(1,j),i)
-    ivt2 = kvert(NeighE(2,j),i)
-    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+k),FictKNPR(nvt+k),Distance(nvt+k),fbm_geom_handler_ptr)
-    k = k + 1
-  END IF
-  END DO
-  END DO
-
-  k=1
-  DO i=1,nel
-  DO j=1,6
-  IF (k.eq.karea(j,i)) THEN
-    ivt1 = kvert(NeighA(1,j),i)
-    ivt2 = kvert(NeighA(2,j),i)
-    ivt3 = kvert(NeighA(3,j),i)
-    ivt4 = kvert(NeighA(4,j),i)
-    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-    call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+k),FictKNPR(nvt+net+k),Distance(nvt+net+k),fbm_geom_handler_ptr)
-    k = k + 1
-  END IF
-  END DO
-  END DO
-
-  ! DO i=1,nat
-  !  PX = dcorag(1,I)
-  !  PY = dcorag(2,I)
-  !  PZ = dcorag(3,I)
-  !  CALL GetFictKnpr(PX,PY,PZ,QuadScBoundary(nvt+net+i),FictKNPR(nvt+net+i),Distance(nvt+net+i))
-  ! END DO
-
-  DO i=1,nel
-  PX = 0d0
-  PY = 0d0
-  PZ = 0d0
-  DO j=1,8
-  PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-  PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-  PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-  END DO
-  call fbm_updateFBMGeom(PX,PY,PZ,QuadScBoundary(nvt+net+nat+i),FictKNPR(nvt+net+nat+i),Distance(nvt+net+nat+i),fbm_geom_handler_ptr)
-  END DO
-
-  CALL myMPI_Barrier()
-  call ztime(tttx1)
-  if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
-
-  do i=1,nvt+net+nat+nel
-  myALE%Monitor(i)=distance(i)
-  end do
-
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  
+  if (myid.eq.0) then
+    WRITE(*,'(A,I0)') '> Total dofs inside: ', reducedVal
+  end if
 
 END SUBROUTINE QuadScalar_FictKnpr
 !
@@ -1529,7 +1577,7 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
     PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
     PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
    END DO
-   call fbm_updateFBMGeom(PX,PY,PZ,IP,minpr,distX,fbm_geom_handler_ptr)
+   call fbm_updateFBMGeom(PX,PY,PZ,IP,minpr,distX,i, FictKNPR_uint64(i),fbm_geom_handler_ptr)
    
    if (distX.lt.Distance(nvt+net+nat+i)) then
     FictKNPR(nvt+net+nat+i) = minpr
@@ -1551,7 +1599,7 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
      ivt = kvert(j,i)
      P = dcorvg(:,ivt)
      if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
-      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,i, FictKNPR_uint64(i),fbm_geom_handler_ptr)
       if (distY.lt.Distance(ivt)) then
        FictKNPR(ivt) = minpr
        Distance(ivt) = distY
@@ -1566,7 +1614,7 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
      ivt = nvt + kedge(j,i)
      P = dcorvg(:,ivt)
      if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
-      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,ivt, FictKNPR_uint64(ivt),fbm_geom_handler_ptr)
       if (distY.lt.Distance(ivt)) then
        FictKNPR(ivt) = minpr
        Distance(ivt) = distY
@@ -1581,7 +1629,7 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
      ivt = nvt + net + karea(j,i)
      P = dcorvg(:,ivt)
      if (.not.bMark(ivt).or.DistX.lt.Distance(ivt)) then
-      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,fbm_geom_handler_ptr)
+      call fbm_updateFBMGeom(P(1),P(2),P(3),IP,minpr,distY,ivt, FictKNPR_uint64(ivt),fbm_geom_handler_ptr)
       if (distY.lt.Distance(ivt)) then
        FictKNPR(ivt) = minpr
        Distance(ivt) = distY
@@ -1739,7 +1787,7 @@ SUBROUTINE Boundary_QuadScalar_Val()
     IF (finpr.ne.0.and.inpr.eq.0) THEN
       CALL fbm_velBCUpdate(PX,PY,PZ,&
                            QuadSc%valU(i),QuadSc%valV(i),&
-                           QuadSc%valW(i),finpr,timens,&
+                           QuadSc%valW(i),finpr,timens,i,&
                            fbm_vel_bc_handler_ptr)
     END IF
     IF (minpr.ne.0.and.inpr.eq.0) THEN
