@@ -1,0 +1,46 @@
+function(generate_string_list)
+set(result
+"nehalem-linux-intel-release\n"
+"core2duo-linux-intel-release\n"
+"i7-linux-intel-release\n"
+"xeon-linux-intel-release\n"
+"xeon-linux-intel-release-checks\n"
+"haswell-linux-intel-release\n"
+"skylake-linux-intel-release\n"
+"icelake-linux-intel-release\n"
+"broadwell-linux-intel-release\n"
+"xeongold-linux-intel-release\n"
+"opteron-linux-intel-release\n"
+"epyc16core-linux-intel-release\n"
+"epyc32core-linux-intel-release\n"
+"opteronx2-linux-intel-release\n"
+"phenomIIx4-linux-intel-release\n"
+"generic-linux-intel-release\n"
+"phenomIIx4-linux-gcc-release\n"
+"epyc16core-linux-gcc-release\n"
+"epyc32core-linux-gcc-release\n"
+"opteronx2-linux-gcc-release\n"
+"skylake-linux-gcc-release\n"
+"icelake-linux-gcc-release\n"
+"broadwell-linux-gcc-release\n"
+"haswell-linux-gcc-release\n"
+"nehalem-linux-gcc-release\n"
+"xeon-linux-gcc-release\n"
+"xeongold-linux-gcc-release\n"
+"core2duo-linux-gcc-release\n"
+"i7-linux-gcc-release\n"
+"zen2-linux-gcc-release\n"
+"zen3-linux-gcc-release\n"
+"sandy-linux-gcc-release\n"
+"opteron-linux-intel-debug\n"
+"xeon-linux-intel-debug\n"
+"xeon-linux-gcc-debug\n"
+"opteronx2-linux-intel-debug\n"
+"generic-linux-gcc-debug\n"
+"generic-linux-gcc-release\n"
+)
+message(STATUS "The available build-ids are:")
+foreach(str ${result})
+  message(${str})
+endforeach()
+endfunction()
