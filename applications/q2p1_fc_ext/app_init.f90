@@ -102,12 +102,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: afile,cXX
  integer iXX
  CHARACTER (len = 60) :: bfile 
- CHARACTER (len = 60) :: ctemp 
 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
 
+ CHARACTER (len = 60) :: ctemp 
  integer, dimension(1) :: processRanks
  integer :: MPI_W0, MPI_EX0
  integer :: MPI_Comm_EX0
