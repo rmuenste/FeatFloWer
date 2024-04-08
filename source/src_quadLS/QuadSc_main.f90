@@ -21,7 +21,6 @@ use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
-
 REAL*8, ALLOCATABLE :: ST_force(:)
 REAL*8 :: Density_Secondary=1d0,Density_Primary=1d0
 REAL*8 :: myPowerLawFluid(3),ViscoElasticForce(3)
@@ -44,6 +43,7 @@ include 'fbm_vel_bc_include.h'
 
 ! The handler function for the dynamics update
 procedure(update_fbm_handler), pointer :: fbm_up_handler_ptr => null()
+procedure(fbm_force_wrapper), pointer :: fbm_force_handler_ptr => null()
 
 ! The handler function for the geometry update
 procedure(fbm_geom_handler), pointer :: fbm_geom_handler_ptr => null()
@@ -257,10 +257,17 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
+! Calculate the forces
+call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                      LinSc%valP(NLMAX)%x,&
+                      fbm_force_handler_ptr)
+
+! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
+                   LinSc%valP(NLMAX)%x,&
+                   fbm_up_handler_ptr) 
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
@@ -356,6 +363,8 @@ implicit none
  fbm_up_handler_ptr => fbm_updateDefaultFC2
  fbm_geom_handler_ptr => fbm_getFictKnprFC2
  fbm_vel_bc_handler_ptr => fbm_velBCFC2
+
+ fbm_force_handler_ptr => fbm_updateForcesFC2
 
 END SUBROUTINE Init_Default_Handlers
 !

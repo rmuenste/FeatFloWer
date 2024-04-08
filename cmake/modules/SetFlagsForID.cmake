@@ -155,6 +155,13 @@ IF(Q2P1_BUILD_ID STREQUAL "phenomIIx4-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "epycmilan-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize)
+  SET(Fortran_FLAGS -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "epyc16core-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize)

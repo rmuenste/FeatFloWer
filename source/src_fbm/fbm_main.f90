@@ -46,12 +46,17 @@ contains
 !=========================================================================
 ! 
 !=========================================================================
-Subroutine fbm_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid,u,v,w,p,usr_updateFBM)
+subroutine fbm_updateFBM(DensityL,dTime,simTime, &
+                         Gravity,mfile,myid,u,v,w,&
+                         p,&
+                         usr_updateFBM)
+!                         usr_updateFBM, usr_forceWrapper)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
 
 include 'fbm_up_include.h'
 
+!procedure(fbm_force_wrapper)  :: usr_forceWrapper 
 procedure(update_fbm_handler) :: usr_updateFBM 
 
 ! Liquid density, time step and simulation time
@@ -79,18 +84,78 @@ integer :: ilevel
 
 if (calculateDynamics()) then
 
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+
+ if (myid.eq.0)then
+   return
+ endif
+
+ call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+
+end if
+
+end subroutine fbm_updateFBM
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForces(u,v,w,p,usr_forceWrapper)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+include 'fbm_up_include.h'
+
+procedure(fbm_force_wrapper) :: usr_forceWrapper 
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+if (calculateDynamics()) then
+
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+              
+ call usr_forceWrapper(u,v,w,p)
+
+ if (myid.eq.0)then
+   return
+ endif
+
+end if
+
+end subroutine fbm_updateForces
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForcesFC2(u,v,w,p)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+if (calculateDynamics()) then
+
  if(myid.eq.1) write(*,*)'> Dynamics update'
 
  ilevel=mg_mesh%nlmax
  CALL SETLEV(2)
-! CALL GetForces(Properties%ForceScale,u,&
-!                v,w,p,&
-!                FictKNPR,Viscosity,&
-!                mg_mesh%level(ilevel)%kvert,&
-!                mg_mesh%level(ilevel)%karea,&
-!                mg_mesh%level(ilevel)%kedge,&
-!                mg_mesh%level(ilevel)%dcorvg,&
-!                E013)
               
  CALL GetForcesFC2(Properties%ForceScale,u,&
                 v,w,p,&
@@ -105,15 +170,51 @@ if (calculateDynamics()) then
    return
  endif
 
- if(myid.eq.1) then
-   write(*,'(A)') '==Dynamics Module Step===================================================================='
- end if
+end if
 
- call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+end subroutine fbm_updateForcesFC2
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForcesFC(u,v,w,p)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+if (calculateDynamics()) then
+
+ if(myid.eq.1) write(*,*)'> Dynamics update'
+
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+              
+ CALL GetForces(Properties%ForceScale,u,&
+                v,w,p,&
+                FictKNPR,Viscosity,&
+                mg_mesh%level(ilevel)%kvert,&
+                mg_mesh%level(ilevel)%karea,&
+                mg_mesh%level(ilevel)%kedge,&
+                mg_mesh%level(ilevel)%dcorvg,&
+                E013)
+
+ if (myid.eq.0)then
+   return
+ endif
 
 end if
 
-end subroutine fbm_updateFBM
+end subroutine fbm_updateForcesFC
 !=========================================================================
 ! 
 !=========================================================================
@@ -770,14 +871,14 @@ integer :: numParticles, particleId
       dvelx_z = +(y-Pos(2))*Omega(1)
 
       ! No rotation
-!      valu = velo(1)
-!      valv = velo(2)
-!      valw = velo(3)
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
 
       ! full rotation
-      valu = velo(1) + dvelz_x + dvely_x
-      valv = velo(2) + dvelz_y + dvelx_y
-      valw = velo(3) + dvelx_z + dvely_z
+      !valu = velo(1) + dvelz_x + dvely_x
+      !valv = velo(2) + dvelz_y + dvelx_y
+      !valw = velo(3) + dvelx_z + dvely_z
 
       return
      end if
@@ -809,6 +910,125 @@ integer :: numParticles, particleId
   end do
 
 end subroutine fbm_velBCFC2
+!=========================================================================
+! We can use this function to output the BC in a single point 
+!=========================================================================
+subroutine fbm_velBCTest()
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+real*8 :: x,y,z
+real*8 :: valu,valv,valw
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+real*8 :: radBench = 0.0075
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+      x = pos(1) + 0.5 * radBench
+      y = pos(2) + 0.5 * radBench
+      z = pos(3) + 0.5 * radBench
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+      ! No rotation
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+                ' full rotation(l) = ', &
+                 velo(1) + dvelz_x + dvely_x, &
+                 velo(2) + dvelz_y + dvelx_y, &
+                 velo(3) + dvelx_z + dvely_z
+
+      ! full rotation
+      !valu = velo(1) + dvelz_x + dvely_x
+      !valv = velo(2) + dvelz_y + dvelx_y
+      !valw = velo(3) + dvelx_z + dvely_z
+
+      return
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+      Omega = theParticles(ipc)%angvel
+
+      x = pos(1) + 0.5 * radBench
+      y = pos(2) + 0.5 * radBench
+      z = pos(3) + 0.5 * radBench
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+      write(*,*)'Linear_only(r) = ',valu, valv, valw, &
+                ' full rotation(r) = ', &
+                 velo(1) + dvelz_x + dvely_x, &
+                 velo(2) + dvelz_y + dvelx_y, &
+                 velo(3) + dvelx_z + dvely_z
+
+
+      return
+  end do
+
+end subroutine fbm_velBCTest
 !=========================================================================
 ! 
 !=========================================================================

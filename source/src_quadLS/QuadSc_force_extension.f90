@@ -887,7 +887,7 @@ SAVE
   DResForceY = 0.0
   DResForceZ = 4.0 * DResForceZ
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
-  theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+  theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
@@ -930,7 +930,7 @@ use cinterface
 use dem_query
 
 
-IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+IMPLICIT DOUBLE PRECISION (A,C,D,F-H,O-U,W-Z),LOGICAL(B)
 CHARACTER SUB*6,FMT*15,CPARAM*120
 
 PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,&
