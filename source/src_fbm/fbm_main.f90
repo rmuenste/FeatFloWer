@@ -118,6 +118,7 @@ external E013
 ! local variables
 integer :: ilevel 
 
+
 if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
@@ -149,6 +150,7 @@ external E013
 
 ! local variables
 integer :: ilevel 
+
 
 if (calculateDynamics()) then
 

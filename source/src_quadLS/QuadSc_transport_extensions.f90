@@ -1528,10 +1528,6 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-IF (myid.eq.1) then
- write(mfile,'(A)') "==Force computation================================"
-end if
-
 ! Calculate the forces
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&

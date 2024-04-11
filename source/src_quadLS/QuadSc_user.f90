@@ -429,6 +429,23 @@ if(it.eq.13)then
   ValW =   0d0
 end if
 
+if(it.eq.23)then
+  
+  if ( Z .gt. 0.075d0)then
+    ValU = 0.1d0 
+    ValV = 0d0
+    ValW = 0d0
+  else if( Z .lt. 0.025d0) then
+    ValU = -0.1d0 
+    ValV = 0d0
+    ValW = 0d0
+  else
+    ValU = 0d0 
+    ValV = 0d0
+    ValW = 0d0
+  end if
+end if
+
 
 IF (iT.EQ.20) THEN
 

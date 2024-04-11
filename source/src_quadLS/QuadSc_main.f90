@@ -1460,6 +1460,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   totalInside = 0
 
   if (myid /= 0) then
+
   
     call clear_fbm_maps()
   
@@ -2441,6 +2442,8 @@ use cinterface, only: calculateFBM
     
   CALL E013Max_SUPER(FictKNPR)
   
+ else
+  if (myid.eq.showid) write(*,*) '> FBM disabled'
  end if
 
 END SUBROUTINE  updateFBMGeometry

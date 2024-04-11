@@ -1,5 +1,5 @@
 #define OUTPUT_LEVEL2 
-#define SED_BENCH
+!#define SED_BENCH
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)
@@ -447,7 +447,8 @@ SAVE
 
 #ifdef OUTPUT_LEVEL2 
 !  write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
-  write(*,'(I3,A,I5,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+  write(*,'(I3,A,I5,A,3D12.4,A,3D12.4)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/),&
+  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 !  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
@@ -899,7 +900,8 @@ SAVE
   end if
 
 #ifdef OUTPUT_LEVEL2 
-  write(*,'(I3,A,I3,A,3D12.4,A,I10)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce(x,y,z): ', (/DResForceX, DResForceY, DResForceZ/), ' elems: ', nnel
+  write(*,'(I3,A,I3,A,3D12.4,A,3D12.4)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce(x,y,z): ', (/DResForceX,DResForceY, DResForceZ/),&
+  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
