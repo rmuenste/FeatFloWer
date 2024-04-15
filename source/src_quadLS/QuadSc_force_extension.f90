@@ -139,14 +139,14 @@ SAVE
   !=====================================================================
 #ifdef OUTPUT_LEVEL2 
   if (numParticles > 0) then
-    write(*,'(I3,A,I5,A)')myid,'> FBM Force Calculation for:', numParticles, 'local particle(s)'
+    write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' local particle(s) in dom ', myid
   end if
 #endif
 
   call getAllParticles(theParticles)
 
   DO IP = 1,numParticles
-#ifdef OUTPUT_LEVEL2 
+#ifdef OUTPUT_LEVEL3 
   write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
 
 #endif
@@ -447,8 +447,8 @@ SAVE
 
 #ifdef OUTPUT_LEVEL2 
 !  write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
-  write(*,'(I3,A,I5,A,3D12.4,A,3D12.4)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/),&
-  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+  write(*,'(A,I5,A,3D12.4,A,3D12.4,I3)')'pidx=', theParticles(ip)%bytes(1) + 1, ' theForce: ', (/DResForceX, DResForceY, DResForceZ/),&
+  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/), myid
 !  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
 !  write(*,*)myid,' nnel: ',nnel 
   !write(*,*)'TheTorque: ', theParticles(ip)%torque
@@ -590,13 +590,13 @@ SAVE
   ! We loop over all particles first
   !=====================================================================
 #ifdef OUTPUT_LEVEL2 
-  write(*,'(I3,A,I5,A)')myid, '> FBM Force Calculation for:', numParticles, 'remote particle(s)'
+    write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' remote particle(s) in dom ', myid
 #endif
 
   call getAllRemoteParticles(theParticles)
 
   DO IP = 1,numParticles
-#ifdef OUTPUT_LEVEL2 
+#ifdef OUTPUT_LEVEL3 
   write(*,'(I3,A,I5,A,I5,A,I5)')myid,'>Rem Particle: #',theParticles(IP)%localIdx, ', of: ', size(theParticles), ' shortId', theParticles(IP)%bytes(1) + 1
 #endif
 
@@ -900,11 +900,9 @@ SAVE
   end if
 
 #ifdef OUTPUT_LEVEL2 
-  write(*,'(I3,A,I3,A,3D12.4,A,3D12.4)')myid,' pidx=', theParticles(ip)%bytes(1) + 1, ' theRemoteForce(x,y,z): ', (/DResForceX,DResForceY, DResForceZ/),&
-  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/)
+  write(*,'(A,I5,A,3D12.4,A,3D12.4,I3)')'pidx=', theParticles(ip)%bytes(1) + 1, ' remote force: ', (/DResForceX, DResForceY, DResForceZ/),&
+  ' omega: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/), myid
 #endif
-!  write(*,*)myid,' nnel: ',nnel 
-  !write(*,*)'TheTorque: ', theParticles(ip)%torque
 
   ! This function is in the dem_query module
   call setRemoteForcesMapped(theParticles(ip))

@@ -7,6 +7,7 @@
 !#
 !# 
 !##############################################################################
+#define FULL_ROTATION 
 MODULE fbm 
 
 use var_QuadScalar
@@ -872,15 +873,17 @@ integer :: numParticles, particleId
       dvelx_y = -(z-Pos(3))*Omega(1)
       dvelx_z = +(y-Pos(2))*Omega(1)
 
+#ifdef FULL_ROTATION 
+      ! full rotation
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#else
       ! No rotation
       valu = velo(1)
       valv = velo(2)
       valw = velo(3)
-
-      ! full rotation
-      !valu = velo(1) + dvelz_x + dvely_x
-      !valv = velo(2) + dvelz_y + dvelx_y
-      !valw = velo(3) + dvelx_z + dvely_z
+#endif
 
       return
      end if
@@ -902,11 +905,30 @@ integer :: numParticles, particleId
      ! the fortran long representation of the FictKNPR array
      if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
       Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
       Pos   = theParticles(ipc)%position
 
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+#ifdef FULL_ROTATION 
+      ! full rotation
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#else
+      ! No rotation
       valu = velo(1)
       valv = velo(2)
       valw = velo(3)
+#endif
       return
      end if
   end do
@@ -971,11 +993,17 @@ integer :: numParticles, particleId
       valv = velo(2)
       valw = velo(3)
 
+!      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+!                ' only rotation(l) = ', &
+!                 velo(1) + dvelz_x + dvely_x, &
+!                 velo(2) + dvelz_y + dvelx_y, &
+!                 velo(3) + dvelx_z + dvely_z
+
       write(*,*)'Linear_only(l) = ',valu, valv, valw, &
-                ' full rotation(l) = ', &
-                 velo(1) + dvelz_x + dvely_x, &
-                 velo(2) + dvelz_y + dvelx_y, &
-                 velo(3) + dvelx_z + dvely_z
+                ' only rotation(l) = ', &
+                 dvelz_x + dvely_x, &
+                 dvelz_y + dvelx_y, &
+                 dvelx_z + dvely_z
 
       ! full rotation
       !valu = velo(1) + dvelz_x + dvely_x
