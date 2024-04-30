@@ -251,7 +251,8 @@ C ----=============================================----
        dVisc = AlphaViscosityMatModel(dShearSquare,iMat,DTEMP)
 C
        if (myMultiMat%Mat(iMat)%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dVisc*dShearSquare)
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 
@@ -525,8 +526,10 @@ C ----=============================================----
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
        dVisc = AlphaViscosityMatModel(dShearSquare,1,DTEMP)
+       
        if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,1,dVisc*dShearSquare)
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,1,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 
