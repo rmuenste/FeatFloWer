@@ -1270,8 +1270,8 @@ tau_min = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMin   ! scaling from Pa to 10P
 tau_max = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMax   ! scaling from Pa to 10Pa
 slip = myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
 
-d = 1d1*max(dShell,dScrew)                                  ! mm
-!d = 1d1*dShell
+! d = 1d1*max(dShell,dScrew)                                  ! mm
+d = 1d1*dShell
 
 d_factor   = 1d0-((max(min(d,d_max),d_min)-d_min)/(d_max-d_min))
 tau_factor = ((max(min(tau,tau_max),tau_min)-tau_min)/(tau_max-tau_min))
