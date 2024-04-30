@@ -147,6 +147,10 @@ CALL AddBoundaryHeatFlux_XSE(mg_mesh%level(ilev)%dcorvg,&
                              mg_mesh%level(ilev)%nel,&
                              mfile)
 
+ilev = nlmax
+call setlev(2)
+CALL AddVolumetricHeatFlux_XSE(mfile)
+
 IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_LinSc_Def()
@@ -231,6 +235,10 @@ call COMM_SUMM(DefT)
 if (ieee_is_nan(DefT)) DivergedSolution = .true.
 if (.not.ieee_is_finite(DefT)) DivergedSolution = .true.
 
+ilev=nlmax
+call setlev(2)
+CALL OutputSensorTemperatures(mg_mesh%level(ilev)%dcorvg,mfile)
+
 NLMAX = NLMAX - 1
 
 CALL COMM_SUMM(dIntegralHeat)
@@ -244,6 +252,7 @@ CALL IntegrateOutflowTemp(mg_mesh%level(ilev)%dcorvg,&
                           mg_mesh%level(ilev)%kvert,&
                           mg_mesh%level(ilev)%nel,&
                           mfile)
+                          
 
 END SUBROUTINE Transport_LinScalar_XSE
 !
@@ -988,6 +997,8 @@ real*8 dAreaDueToCooling,dFluxDueToCooling
 
 IF (.NOT.ALLOCATED(mySegmentIndicator)) return
 
+IF (.NOT.myProcess%UseAirCooling) return
+
 if (myid.ne.master) then
  ilev = NLMAX
  call setlev(2)
@@ -1511,6 +1522,43 @@ END SUBROUTINE Assemble_LinScOperators_XSE
 !
 ! ----------------------------------------------
 !
+SUBROUTINE OutputSensorTemperatures(dcorvg,mf)
+REAL*8 dcorvg(3,*)
+integer mf
+REAL*8 P(3),Q(3),dist
+REAL*8, allocatable :: daux(:,:)
+integer :: nSensors,i,j
+
+nSensors = myProcess%nOfDIESensors
+allocate(daux(2,nSensors))
+daux = 0d0
+
+DO i=1,Tracer%ndof
+ P = dcorvg(:,i)
+ do j=1,nSensors
+  Q = myProcess%mySensor(j)%Center
+  dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
+  if (dist.lt.myProcess%mySensor(j)%Radius) THEN
+   daux(1,j) = daux(1,j) + MLmat(i)*Tracer%val(ilev)%x(i)
+   daux(2,j) = daux(2,j) + MLmat(i)
+  end if
+ end do
+END DO
+
+CALL COMM_SUMMN(daux,nSensors*2)
+
+do j=1,nSensors
+ if (myid.eq.1) write(*,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
+ if (myid.eq.1) write(mf,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
+end do
+
+
+deallocate (daux)
+
+END SUBROUTINE OutputSensorTemperatures
+!
+! ----------------------------------------------
+!
 SUBROUTINE IntegrateOutflowTemp(dcorvg,karea,kvert,nel,mfile)
 INTEGER mfile
 REAL*8 dcorvg(3,*),T_Avg
@@ -1637,6 +1685,71 @@ IF (myid.eq.1) WRITE(MTERM,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dH
 IF (myid.eq.1) WRITE(MFILE,'(A,ES14.6)') ' IntegralHeatFluxThoughWall[kW] : ',dHeat
 
 END SUBROUTINE AddBoundaryHeatFlux_XSE
+!
+! ----------------------------------------------
+!
+SUBROUTINE AddVolumetricHeatFlux_XSE(mfile)
+USE var_QuadScalar, ONLY : mySegmentIndicator
+INTEGER mfile
+!---------------------------------
+REAL*8, allocatable :: dHeat(:),dVolume(:)
+INTEGER i,j,k,iSeg
+REAL*8 dHeatIntensity
+
+
+if (.not.allocated(dHeat)) allocate(dHeat(mySigma%NumberOfSeg))
+if (.not.allocated(dVolume)) allocate(dVolume(mySigma%NumberOfSeg))
+
+dVolume = 0d0
+
+DO i=1,Tracer%ndof
+ iSeg = mySegmentIndicator(2,i)
+ IF (myProcess%SegThermoPhysProp(iSeg)%bHeatSource) THEN
+ 
+  dVolume(iSeg) = dVolume(iSeg) + MLmat(i)
+  
+ END IF
+END DO
+
+CALL COMM_SUMMN(dVolume,mySigma%NumberOfSeg)
+
+dHeat = 0d0
+
+DO i=1,Tracer%ndof
+ iSeg = mySegmentIndicator(2,i)
+ IF (myProcess%SegThermoPhysProp(iSeg)%bHeatSource) THEN
+ 
+  if (dVolume(iSeg).eq.0d0) THEN
+   IF (myid.eq.1) WRITE(MTERM,'(A,I0,A)') ' Segment[',iSeg,']_Volume is Zero!!!'
+   IF (myid.eq.1) WRITE(MFILE,'(A,I0,A)') ' Segment[',iSeg,']_Volume is Zero!!!'
+   STOP
+  end if
+ 
+ !!! if the BC is defined as HeatSource use the T_Const value as IntegralVolumetricSource
+  dHeatIntensity = myProcess%SegThermoPhysProp(iSeg)%T_Const/(dVolume(iSeg))
+ 
+  !  kW               1e3.kg.m2                1e3 g . 1e4 cm2                g * cm2
+  !--------- * cm3  = --------- * cm3  = 1e3 . ---------------- * cm3 = 1e10 -------
+  !  cm3               s3.cm3                   cm3.s3                         s3
+  
+  Tracer%def(i) = Tracer%def(i) + 1d10*MLmat(i)*dHeatIntensity*tstep
+  dHeat(iSeg)   = dHeat(iSeg)   + MLmat(i)*dHeatIntensity
+  
+ END IF
+END DO
+
+CALL COMM_SUMMN(dHeat,mySigma%NumberOfSeg)
+
+DO iSeg=1,mySigma%NumberOfSeg
+ if (dHeat(iSeg).gt.0d0) THEN
+  IF (myid.eq.1) WRITE(MTERM,'(A,I0,A,2ES14.6)') ' Segment[',iSeg,']_VolumetricHeatFlux[kW]_Volume[cm3] : ',dHeat(iSeg),dVolume(iSeg)
+  IF (myid.eq.1) WRITE(MFILE,'(A,I0,A,2ES14.6)') ' Segment[',iSeg,']_VolumetricHeatFlux[kW]_Volume[cm3] : ',dHeat(iSeg),dVolume(iSeg)
+ END IF
+END DO
+
+deallocate(dHeat,dVolume)
+
+END SUBROUTINE AddVolumetricHeatFlux_XSE
 !
 ! ----------------------------------------------
 !

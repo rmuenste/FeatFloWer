@@ -725,8 +725,8 @@ C
 C
       dArea = 0d0
       dFlux = 0d0
-      dAlphaCoeff = 10d0*1d3 ! W/m2/K == kg/s3/K = 1d3* g/s3/K
-      tAmbient = 25d0 ! C
+      dAlphaCoeff = myProcess%AirCoolingHeatTransCoeff*1d3 ! W/m2/K == kg/s3/K = 1d3* g/s3/K
+      tAmbient = myProcess%AirCoolingRoomTemperature ! C
 C
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.
