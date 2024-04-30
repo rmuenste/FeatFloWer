@@ -787,9 +787,10 @@ SUBROUTINE CreateReducedMesh
 use geometry_processing, only : GetDistToSTL
 integer, allocatable :: iVertKeep(:),iElemKeep(:)
 real*8, allocatable :: Distance(:)
-integer i,j,k,jElem,jVert,ivt
-real*8 :: pC(3),dist,distC,P(3),dMaxDist,dMinDist
-real*8 :: p8(3,8),D8(8)
+integer i,j,k,jElem,jElem1,jElem2,jElem3,jVert,ivt
+real*8 :: pC(3),dist,distC,P(3),Q(3),dMaxDist,dMinDist
+real*8 :: p8(3,8),D8(8),MyCenter(3), MyRadius
+real*8 :: DD8(8),DI8(8)
 logical :: bKeep,bPrint
 
 allocate(iVertKeep(nUniquePoints))
@@ -801,6 +802,9 @@ iVertKeep=0
 iElemKeep=0
 
 jElem = 0
+jElem1 = 0
+jElem2 = 0
+jElem3 = 0
 jVert = 0
 
 DO i=1,nUniqueElems
@@ -809,93 +813,93 @@ DO i=1,nUniqueElems
  do j=1,8
   ivt = MergedMeshElem(j,i)
   P = MergedMeshCoor(:,ivt)
+  P8(:,j) = P
   pC = pC + 0.125d0*P
  end do
  
- dMaxDist = -1d8
- dMinDist = +1d8
- do j=1,8
-  ivt = MergedMeshElem(j,i)
-  P = MergedMeshCoor(:,ivt)
-  distC = SQRT((PC(1)-P(1))**2d0 + (PC(2)-P(2))**2d0 + (PC(3)-P(3))**2d0)
-  if (distC.gt.dMaxDist) dMaxDist = distC
-  if (distC.lt.dMaxDist) dMinDist = distC
- end do
+!  dMaxDist = -1d8
+!  dMinDist = +1d8
+!  do j=1,8
+!   ivt = MergedMeshElem(j,i)
+!   P = MergedMeshCoor(:,ivt)
+!   distC = SQRT((PC(1)-P(1))**2d0 + (PC(2)-P(2))**2d0 + (PC(3)-P(3))**2d0)
+!   if (distC.gt.dMaxDist) dMaxDist = distC
+!   if (distC.lt.dMaxDist) dMinDist = distC
+!  end do
 
- CALL GetDistToSTL(pC(1),pC(2),pC(3),1,distC,.TRUE.)
+! CALL GetDistToSTL(pC(1),pC(2),pC(3),1,distC,.TRUE.)
  
- if (distC.lt.dMaxDist) then
-  ! Clear removal --> element is too far
-  IF (distC.lt.-dMaxDist) THEN
+ CALL min_sphere(P8, 8, MyCenter, MyRadius)
+ CALL GetDistToSTL(MyCenter(1),MyCenter(2),MyCenter(3),1,distC,.TRUE.)
+ 
+  if (distC.le.-MyRadius) then
+   jElem1 = jElem1 + 1
    jElem = jElem + 1
    iElemKeep(i) = jElem
    iVertKeep(MergedMeshElem(:,i)) = 1
-  else
+  end if  
+ 
+  bKeep = .false.
   
-   bKeep = .FALSE.
-   
-   IF (distC.lt.1d0*dMinDist) then
-   
-    bKeep = .TRUE.
-    jElem = jElem + 1
-    iElemKeep(i) = jElem
-    iVertKeep(MergedMeshElem(:,i)) = 1
-
-   ELSE
-   
-    do j=1,8
-     ivt = MergedMeshElem(j,i)
-     P = MergedMeshCoor(:,ivt)
-     IF (abs(Distance(ivt)).gt.1d7) THEN
-      CALL GetDistToSTL(p(1),p(2),p(3),1,dist,.TRUE.)
-      Distance(ivt) = dist
-     else
-      dist = Distance(ivt)
-     END IF
-     
-     IF (dist.lt.0d0) then
-      bKeep = .TRUE.
-      jElem = jElem + 1
-      iElemKeep(i) = jElem
-      iVertKeep(MergedMeshElem(:,i)) = 1
-      exit
-     END IF
-     
-    end do
-    
-   END IF
-   
-   IF (.not.bKeep) THEN
-    P8(1,:) = MergedMeshCoor(1,MergedMeshElem(:,i)) 
-    P8(2,:) = MergedMeshCoor(2,MergedMeshElem(:,i)) 
-    P8(3,:) = MergedMeshCoor(3,MergedMeshElem(:,i)) 
-    D8(:)   = Distance(MergedMeshElem(:,i))
-    bPrint = .false.
-!     IF (i.eq.93265) THEN
-!      bPrint = .true.
-!      WRITE(*,*) "bKeep",bKeep
-!      DO k=1,8
-!       WRITE(*,'(3ES12.4,A,ES12.4)') P8(:,k)," : ",D8(k)
-!      END DO
-!     END IF
-    ! we should figure out if the hex intersects the triangulation
-    CALL TriangulationIntersectsnElement(P8,D8,PC,distC,bKeep,bPrint)
-!     IF (i.eq.62402) THEN
-!      pause
-!     end if
-    IF (bKeep) THEN
-     write(*,*) "Element ",i," has been determined to be added to list"
-     bKeep = .TRUE.
+  if (distC.lt.MyRadius.and.distC.gt.-MyRadius) then
+   do j=1,8
+    ivt = MergedMeshElem(j,i)
+    P = MergedMeshCoor(:,ivt)
+    IF (abs(Distance(ivt)).gt.1d7) THEN
+     CALL GetDistToSTL(p(1),p(2),p(3),1,dist,.TRUE.)
+     Distance(ivt) = dist
+    else
+     dist = Distance(ivt)
+    END IF
+    if (dist.lt.0d0) then
+     bKeep = .true.
      jElem = jElem + 1
+     jElem2 = jElem2 + 1
      iElemKeep(i) = jElem
      iVertKeep(MergedMeshElem(:,i)) = 1
-    END IF
-   END IF
+     GOTO 1
+    end if
+   end do
    
-  END IF
- end if
+   if (.not.bKeep) THEN
+   
+    do j=1,8
+     DI8(j) = DBLE(MergedMeshElem(j,i))
+     DD8(j) = Distance(ivt)
+    end do
+      
+    CALL SORT2D(DD8,DI8,8)
+    
+    P = 0d0
+    DO j=1,3
+     P = P + MergedMeshCoor(:,INT(DI8(j)))/3d0
+    END DO
+    
+    dMinDist = 1d8
+    DO j=1,3
+     Q = MergedMeshCoor(:,INT(DI8(j)))
+     dMinDist = min(dMinDist,sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0))
+    END DO
+    
+    CALL GetDistToSTL(p(1),p(2),p(3),1,dist,.TRUE.)
+    
+    IF (dist.lt.0.67d0*dMinDist) THEN
+     bKeep = .true.
+     jElem = jElem + 1
+     jElem3 = jElem3 + 1
+     iElemKeep(i) = jElem
+     iVertKeep(MergedMeshElem(:,i)) = 1
+     GOTO 1
+    end if
+   end if
+
+  end if  
  
+1  continue 
+
 end do
+
+write(*,*) "Scheme :: ",jElem1,jElem2,jElem3
 
 DO i=1,nUniquePoints
  if (iVertKeep(i).gt.0) then
@@ -928,6 +932,27 @@ nReducedPoints = jVert
 deallocate(iVertKeep)
 deallocate(iElemKeep)
 deallocate(Distance)
+
+ CONTAINS
+
+SUBROUTINE SORT2D(LW,KW,N)
+REAL*8 LW(N),KW(N),LWA,KWA
+INTEGER I,J,N
+
+DO I=2,N
+DO J=N,I,-1
+IF (LW(J).GT.LW(J-1)) THEN
+  LWA     = LW(J)
+  KWA     = KW(J)
+  LW(J)   = LW(J-1)
+  KW(J)   = KW(J-1)
+  LW(J-1) = LWA
+  KW(J-1) = KWA
+END IF
+END DO
+END DO
+
+END SUBROUTINE SORT2D
 
 END SUBROUTINE CreateReducedMesh
 ! ----------------------------------------------
@@ -1542,6 +1567,71 @@ END IF
 END SUBROUTINE  updatePoint
 
 END SUBROUTINE TriangulationIntersectsnElement
+!
+! ----------------------------------------------
+!
+subroutine min_sphere(dx, n, center, radius)
+  implicit none
+  integer, intent(in) :: n
+  real(kind=8), dimension(3,n), intent(in) :: dx
+  real(kind=8), dimension(3), intent(out) :: center
+  real(kind=8), intent(out) :: radius
+  real(kind=8), dimension(3) :: q
+  real(kind=8), dimension(3,3) :: b, z
+  real(kind=8), dimension(n) :: d, u
+  real(kind=8) :: alpha, beta, gamma, t, delta
+  integer :: i, j, k, l, m
+  logical :: modified
+
+  ! Initialization
+  center = 0.0
+  do i = 1, n
+    center = center + dx(:,i)
+  end do
+  center = center / n
+  
+  d = 0.0
+  do i = 1, n
+    d(i) = sqrt(sum((dx(:,i) - center)**2))
+  end do
+  
+  radius = maxval(d)
+  q = dx(:,1)
+
+  do i = 1, 1000  ! maximum number of iterations
+    modified = .false.
+
+    do j = 1, n
+      if (d(j) > radius * (1.0 + 1.0e-12)) then  ! if point j is outside the sphere
+        t = sqrt(sum((dx(:,j) - q)**2))
+        if (t > 1.0e-12) then  ! if the point is not coincident with q
+          u = (dx(:,j) - q) / t
+          alpha = dot_product(u, (dx(:,j) - center))**2
+          beta = radius**2 - t**2
+          gamma = dot_product((dx(:,j) - center), q)**2
+          delta = beta * gamma - alpha * (gamma - beta)
+          if (delta >= 0.0) then  ! if the discriminant is non-negative
+            t = beta * dot_product(u, (center - dx(:,j))) / delta
+            q = q + t * ((center - dx(:,j)) + (q - dx(:,j)) * gamma / beta)
+            radius = sqrt(sum((q - center)**2))
+            modified = .true.
+          end if
+        end if
+      end if
+    end do
+
+    if (.not. modified) exit  ! exit if no point has been moved
+
+  end do
+  
+  DO j = 1,n
+   q = dx(:,j)
+   if (radius < sqrt(sum((q - center)**2))) then
+    radius = sqrt(sum((q - center)**2))
+   end if
+  END DO
+
+end subroutine min_sphere
 
 END MODULE MeshRefDef
 ! ----------------------------------------------
