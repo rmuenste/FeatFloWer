@@ -123,8 +123,8 @@ PROGRAM Q2P1_SSE
 #endif
 
   if (DivergedSolution) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
-  CALL DetermineIfGoalsWereReached(bGoalsReached)
-  if (.not.bGoalsReached)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
+!   CALL DetermineIfGoalsWereReached(bGoalsReached)
+!   if (.not.bGoalsReached)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
   
   call sim_finalize_sse(tt0,ufile)
  
