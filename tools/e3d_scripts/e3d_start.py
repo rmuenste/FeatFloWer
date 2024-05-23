@@ -645,6 +645,9 @@ def simLoopVelocity(workingDir):
         if exitCode == 88:
           myLog.logErrorExit("CurrentStatus=the screw could not be created: wrong angle", exitCode)
 
+        if exitCode == 57:
+          myLog.logErrorExit("CurrentStatus=run out of iterations", exitCode)
+          
         if exitCode != 0:
             myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
 
