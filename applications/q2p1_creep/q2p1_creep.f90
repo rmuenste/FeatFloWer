@@ -32,9 +32,9 @@ PROGRAM Q2P1_CREEP
 
   !-------INIT PHASE-------
 
-  call uint64_test(val)
-  print *, "Imported uint64_value = ", val
-  stop
+!  call uint64_test(val)
+!  print *, "Imported uint64_value = ", val
+!  stop
   call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)

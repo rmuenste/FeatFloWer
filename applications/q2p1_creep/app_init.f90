@@ -141,8 +141,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CFILE=CFILE1
  MFILE=MFILE1
 
- dPeriodicity(1)= 0.1d0
- dPeriodicity(2)= 0.1d0
+! dPeriodicity(1)= 0.1d0
+! dPeriodicity(2)= 0.1d0
 
  !=======================================================================
  !     Grid generation
@@ -431,12 +431,16 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
  if (myid .ne. 0) then
-   call commf2c_kroupa(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+   call commf2c_creep(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
 
  call init_fc_rigid_body(myid)      
 
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
+
+ write(*,*)'Number of local particles: ', numLocalParticles(), myid
+
+ write(*,*)'Number of remote particles: ', numRemParticles(), myid
 
 RETURN
 

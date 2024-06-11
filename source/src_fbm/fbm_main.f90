@@ -875,9 +875,14 @@ integer :: numParticles, particleId
 
 #ifdef FULL_ROTATION 
       ! full rotation
-      valu = velo(1) + dvelz_x + dvely_x
-      valv = velo(2) + dvelz_y + dvelx_y
-      valw = velo(3) + dvelx_z + dvely_z
+!      valu = velo(1) + dvelz_x + dvely_x
+!      valv = velo(2) + dvelz_y + dvelx_y
+!      valw = velo(3) + dvelx_z + dvely_z
+
+      ! full rotation
+      valu = dvelz_x + dvely_x
+      valv = dvelz_y + dvelx_y
+      valw = dvelx_z + dvely_z
 #else
       ! No rotation
       valu = velo(1)
@@ -920,9 +925,13 @@ integer :: numParticles, particleId
 
 #ifdef FULL_ROTATION 
       ! full rotation
-      valu = velo(1) + dvelz_x + dvely_x
-      valv = velo(2) + dvelz_y + dvelx_y
-      valw = velo(3) + dvelx_z + dvely_z
+!      valu = velo(1) + dvelz_x + dvely_x
+!      valv = velo(2) + dvelz_y + dvelx_y
+!      valw = velo(3) + dvelx_z + dvely_z
+
+      valu = dvelz_x + dvely_x
+      valv = dvelz_y + dvelx_y
+      valw = dvelx_z + dvely_z
 #else
       ! No rotation
       valu = velo(1)

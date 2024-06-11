@@ -47,7 +47,8 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-ValU = 0d0
+!ValU = 0d0
+ValU = 2.0d0 * Y
 ValV = 0d0
 ValW = 0d0
 
@@ -278,6 +279,18 @@ IF (iT.EQ.2) THEN
 END IF
 
 IF (iT.EQ.200) THEN
+ ValU = 1.0d0
+ ValV = 0d0
+ ValW = 0d0
+END IF
+
+IF (iT.EQ.201) THEN
+ ValU =-1.0d0
+ ValV = 0d0
+ ValW = 0d0
+END IF
+
+IF (iT.EQ.2478) THEN
  dScale=1.0d0*(3d0/2d0)/(0.205d0*0.205d0)
  ValU=dScale*Y*(0.41d0-Y)*sin(t*PI/8d0)
  ValV= 0d0
