@@ -757,17 +757,26 @@ C *** Loop over all elements
 C
       IALPHA = 0
       JALPHA = 0
+      ! do not allow to interact convection with cooling
+      bDoNotSkip = .true.
+      
       do j=1,8
        ivt = KVERT(j,iel)
-       if (INT(mySegmentIndicator(2,ivt)).eq.0) then
-!       if (myBoundary%bOutflow(ivt)) then
+       iSeg = INT(mySegmentIndicator(2,ivt))
+       if (iSeg.eq.0) then
         IALPHA = IALPHA + 1
        else
+        ! do not allow to interact convection with cooling
+        if (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%ObjectType)).eq."DIE") 
+     *  THEN
+         bDoNotSkip = .false.
+        END IF
         JALPHA = JALPHA + 1
        end if
       end do
 C
-      IF (IALPHA.ne.8.and.JALPHA.NE.8) THEN ! IALPHA,JALPHA
+      ! do not allow to interact convection with cooling
+      IF ((IALPHA.ne.8.and.JALPHA.NE.8).and.(bDoNotSkip)) THEN ! IALPHA,JALPHA
 C      
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
       IF (IER.LT.0) GOTO 99999
