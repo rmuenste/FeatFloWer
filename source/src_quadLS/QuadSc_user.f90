@@ -47,8 +47,8 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-!ValU = 0d0
-ValU = 2.0d0 * Y
+ValU = 0d0
+!ValU = 2.0d0 * Y
 ValV = 0d0
 ValW = 0d0
 

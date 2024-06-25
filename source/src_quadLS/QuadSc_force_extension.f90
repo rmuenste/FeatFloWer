@@ -1,5 +1,5 @@
 #define OUTPUT_LEVEL2 
-!#define SED_BENCH
+#define SED_BENCH
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)

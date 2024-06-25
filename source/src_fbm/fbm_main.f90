@@ -7,7 +7,7 @@
 !#
 !# 
 !##############################################################################
-#define FULL_ROTATION 
+!#define FULL_ROTATION 
 MODULE fbm 
 
 use var_QuadScalar
