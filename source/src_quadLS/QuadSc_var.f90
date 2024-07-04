@@ -51,6 +51,7 @@ real*8  :: extruder_angle = 0.0
 
 integer :: MaxLevelKnownToMaster
 
+real*8 :: referenceVelocity = 0.0
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal

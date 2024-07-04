@@ -8,6 +8,8 @@
 !# 
 !##############################################################################
 !#define FULL_ROTATION 
+!#define ONLY_ROTATION 
+#define MOVING_REFERENCE
 MODULE fbm 
 
 use var_QuadScalar
@@ -875,14 +877,19 @@ integer :: numParticles, particleId
 
 #ifdef FULL_ROTATION 
       ! full rotation
-!      valu = velo(1) + dvelz_x + dvely_x
-!      valv = velo(2) + dvelz_y + dvelx_y
-!      valw = velo(3) + dvelx_z + dvely_z
-
-      ! full rotation
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#elif defined(ONLY_ROTATION) 
+      ! only rotation
       valu = dvelz_x + dvely_x
       valv = dvelz_y + dvelx_y
       valw = dvelx_z + dvely_z
+#elif defined(MOVING_REFERENCE) 
+      ! Moving reference
+      valu = dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
 #else
       ! No rotation
       valu = velo(1)
@@ -925,13 +932,19 @@ integer :: numParticles, particleId
 
 #ifdef FULL_ROTATION 
       ! full rotation
-!      valu = velo(1) + dvelz_x + dvely_x
-!      valv = velo(2) + dvelz_y + dvelx_y
-!      valw = velo(3) + dvelx_z + dvely_z
-
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#elif defined(ONLY_ROTATION) 
+      ! only rotation
       valu = dvelz_x + dvely_x
       valv = dvelz_y + dvelx_y
       valw = dvelx_z + dvely_z
+#elif defined(MOVING_REFERENCE) 
+      ! Moving reference
+      valu = dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
 #else
       ! No rotation
       valu = velo(1)
@@ -1068,6 +1081,62 @@ integer :: numParticles, particleId
   end do
 
 end subroutine fbm_velBCTest
+!=========================================================================
+! We can use this to compute the inifinite channel velocity
+!=========================================================================
+subroutine fbm_velValue(totalMax)
+use var_QuadScalar, only : myFBM,bRefFrame
+use var_QuadScalar, only : myFBM,bRefFrame
+use PP3D_MPI, only: SynchronizeValue_myMPI
+implicit none
+
+! Parameters
+REAL*8, intent(inout) :: totalMax 
+
+! local variables
+real*8 :: valu,valv,valw
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+REAL*8 :: localMax 
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  ! get local particles
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+      exit
+  end do
+
+  localMax = valu
+  totalMax = 0.0
+
+  ! After this call totalMax will hold the true value
+  call SynchronizeValue_myMPI(localMax, totalMax)
+
+end subroutine fbm_velValue
 !=========================================================================
 ! 
 !=========================================================================

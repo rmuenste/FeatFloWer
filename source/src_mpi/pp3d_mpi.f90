@@ -2403,9 +2403,39 @@ SUBROUTINE Reduce_myMPI(localMax, totalMax)
   CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
 
   if (myid == 0) then
-    write(*,'(A,E12.6)')'Max Fluid force: ', totalMax
+    write(*,'(A,E12.6)')'Total Max value: ', totalMax
   end if
 
 END SUBROUTINE Reduce_myMPI
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE SynchronizeValue_myMPI(localMax, totalMax)
+  implicit none
+
+  ! Parameters
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+
+  ! Local variables
+  integer :: error_indicator
+  integer :: root = 0
+
+  totalMax = 0.0
+
+  ! Reduce to find the maximum
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, root, MPI_COMM_WORLD, error_indicator)
+
+  ! Now bcast the maximum to synchronize the value among the processes
+  call MPI_Bcast(totalMax, 1, MPI_DOUBLE_PRECISION, root, MPI_COMM_WORLD, error_indicator) 
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    write(*,'(A,E12.6)')'Total Max value: ', totalMax
+  end if
+
+END SUBROUTINE SynchronizeValue_myMPI
 
 END MODULE
