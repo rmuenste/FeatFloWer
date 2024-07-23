@@ -2312,6 +2312,11 @@ if (LinSc%prm%MGprmOut%DefInitial.lt.LinSc%prm%MGprmOut%DefFinal) then
  DivergedSolution = .true.
 end if
 
+! checking convergence of the pressure for the case when the initial values were not properly read in and the RHS is directly from the 1st timestep NaN 
+if (LinSc%prm%MGprmOut%UsedIterCycle.eq.0.or.ieee_is_nan(LinSc%prm%MGprmOut%DefInitial)) then
+ DivergedSolution = .true.
+end if
+
 ILEV = NLMAX
 CALL SETLEV(2)
 CALL Comm_Solution(QuadSc%ValU,QuadSc%ValV,QuadSc%ValW,QuadSc%auxU,QuadSc%ndof)
