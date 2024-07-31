@@ -103,6 +103,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/get_pid.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/f90getopt.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/MPI_SharedMemory.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
   )
