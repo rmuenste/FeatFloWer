@@ -441,6 +441,18 @@ TYPE (tErrorCodes) ::  myErrorCode
 
 TYPE (tMGSteps) MGSteps
 
+TYPE tRecursiveCommunication
+ character(len=256), allocatable :: all_hostnames(:)
+ character(len=256), allocatable :: unique_hostnames(:)
+ integer, allocatable :: hostleaders(:),groupIDs(:)
+ integer, allocatable :: hostgroup(:)
+ integer myid,numnodes,NumHosts,myNodeGroup
+ character(len=256) :: HostName
+END TYPE tRecursiveCommunication
+
+TYPE(tRecursiveCommunication) :: myRecComm
+
+
 contains 
 integer function KNEL(ilevel)
   implicit none

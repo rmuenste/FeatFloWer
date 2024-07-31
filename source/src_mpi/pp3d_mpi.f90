@@ -6,7 +6,7 @@ MODULE PP3D_MPI
   INTEGER IERR
   INTEGER Variable,iunit
   INTEGER:: ShowID = 1
-  INTEGER myid,numnodes,subnodes,MPI_COMM_SUBS,MASTER
+  INTEGER myid,numnodes,subnodes,MPI_COMM_SUBS,MASTER,MPI_COMM_SUBGROUP
   INTEGER NParNodes(9)
   CHARACTER nodefile*60
 
