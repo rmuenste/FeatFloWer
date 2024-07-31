@@ -66,6 +66,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
  USE MESH_Structures
+ USE var_QuadScalar, ONLY : iCommSwitch
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
@@ -113,15 +114,17 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL ZTIME(TTT0)
 
-
+ iCommSwitch=4
+ 
  !=======================================================================
  !     Data input
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
  
- call MPI_Get_processor_name(processor_name, name_len, ierr)
- write(*,*) 'Hello from MPI process', myid, 'on processor "'//trim(processor_name)//'"'
+ CALL FindNodes()
+ 
+ CALL RecComm()
  
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
@@ -137,6 +140,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  
  include 'PartitionReader.f90'
 
+ call MPI_Get_processor_name(processor_name, name_len, ierr)
+ write(*,'(A,I0,A)') 'Hello from MPI process ', myid, ' on processor "'//trim(processor_name)//'" with mesh '//TRIM(ADJUSTL(CMESH1))
+ 
  CALL Init_QuadScalar(mfile)
 
  IF (myid.EQ.0) THEN
@@ -860,3 +866,153 @@ END SUBROUTINE General_init_ext
  END SUBROUTINE StrStuct
 
  END SUBROUTINE myGDATNEW
+
+ 
+ Subroutine FindNodes()
+ 
+  use mpi
+  USE PP3D_MPI, ONLY : myid,numnodes,subnodes,MPI_COMM_SUBS,MPI_COMM_SUBGROUP
+  use var_QuadScalar, ONLY : myRecComm
+  implicit none
+
+  integer :: ierr, hostname_len, max_hostname_len
+  integer :: i, myNodeGroup,world_group,new_group
+  INTEGER pID,pJD
+  character(len=256) :: cFMT
+
+  call MPI_COMM_GROUP(MPI_COMM_WORLD, world_group, ierr)
+  
+  if (myid.eq.0) return
+  
+  ! Get the hostname of the current process
+  call MPI_Get_processor_name(myRecComm%hostname, hostname_len, ierr)
+
+  ! Determine the maximum hostname length across all processes
+  max_hostname_len = 256
+
+  ! Adjust hostname length to max_hostname_len
+  myRecComm%hostname = adjustl(myRecComm%hostname)
+
+  ! Allocate myRecComm%all_hostnames array
+  allocate(myRecComm%all_hostnames(subnodes))
+  allocate(myRecComm%groupIDs(subnodes))
+
+  ! Collect all hostnames at all processes
+  call MPI_Allgather(myRecComm%hostname, max_hostname_len, MPI_CHARACTER, myRecComm%all_hostnames, max_hostname_len, MPI_CHARACTER, MPI_COMM_SUBS, ierr)
+
+  ! Determine the unique hostnames
+  call unique(myRecComm%all_hostnames, myRecComm%unique_hostnames, myRecComm%hostleaders,myRecComm%hostgroup)
+  myRecComm%NumHosts = size(myRecComm%unique_hostnames)
+  
+  do i=1,myRecComm%NumHosts
+   if (adjustl(trim(myRecComm%hostname)).eq.adjustl(trim(myRecComm%unique_hostnames(i)))) then
+    myRecComm%myNodeGroup = i
+    write(cFMT,*) '(A,I0,A,A,A,I0,A,',size(myRecComm%hostgroup)-1,'(I0,(",")),I0)'
+    write(*,cFMT) "myid: ",myid," My Node is :",adjustl(trim(myRecComm%hostname))," My GroupLeader is :",myRecComm%hostleaders(myNodeGroup), " My group is: ",myRecComm%hostgroup
+   end if
+  end do
+
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+  
+  call MPI_GROUP_INCL(world_group, size(myRecComm%hostgroup), myRecComm%hostgroup, new_group, ierr)
+  
+  ! Create a new communicator for the subgroup
+  call MPI_COMM_CREATE(MPI_COMM_SUBS, new_group, MPI_COMM_SUBGROUP, ierr)
+
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+  
+  call MPI_Comm_rank(MPI_COMM_SUBGROUP, myRecComm%myid, ierr)
+  call MPI_Comm_size(MPI_COMM_SUBGROUP, myRecComm%numnodes, ierr)  
+  
+  DO pID=1,subnodes
+   DO pJD=1,myRecComm%NumHosts
+    IF (adjustl(trim(myRecComm%all_hostnames(pID))).eq.adjustl(trim(myRecComm%unique_hostnames(pJD)))) then
+     myRecComm%groupIDs(pID) = pJD
+    END IF
+   END DO
+  END DO
+  
+  if (myid == 1) then
+    ! Output the total number of unique host-nodes
+    print *, "Total number of host-nodes: ", myRecComm%NumHosts
+    print *, "Hostnames: "
+    do i = 1, myRecComm%NumHosts
+      print *, i,trim(myRecComm%unique_hostnames(i)),myRecComm%hostleaders(i)
+    end do
+    cFMT=' '
+    write(cFMT,*) '(A,',subnodes-1,'(I0,(",")),I0)'
+    write(*,cFMT) "GroupIDs: ",myRecComm%groupIDs
+  end if
+
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+!   pause
+  
+ contains
+
+  subroutine unique(input, output, leaders, group)
+    character(len=256), allocatable, intent(in) :: input(:)
+    character(len=256), allocatable, intent(out) :: output(:)
+    integer, allocatable, intent(out) :: leaders(:),group(:)
+    integer :: i, j, unique_count,nGroup
+    logical :: is_unique
+    character(len=256), allocatable :: temp(:)
+
+    unique_count = 0
+
+    do i = 1, size(input)
+      is_unique = .true.
+      do j = 1, unique_count
+        if (trim(input(i)) == trim(output(j))) then
+          is_unique = .false.
+          exit
+        end if
+      end do
+      if (is_unique) then
+        ! Append to the temporary array
+        if (unique_count == 0) then
+          allocate(output(1))
+          output(1) = input(i)
+        else
+          allocate(temp(unique_count))
+          temp = output
+          deallocate(output)
+          allocate(output(unique_count + 1))
+          output(1:unique_count) = temp
+          output(unique_count + 1) = input(i)
+          deallocate(temp)
+        end if
+        unique_count = unique_count + 1
+      end if
+    end do
+    
+    allocate(leaders(unique_count))
+    
+    leaders = size(input)
+    
+    do i = 1, size(input)
+      do j = 1, unique_count
+        if (trim(input(i)) == trim(output(j))) then
+          if (leaders(j).gt.i) leaders(j) = i
+        end if
+      end do
+    end do
+    
+    nGroup = 0
+    do i = 1, size(input)
+     if (trim(input(i)) == trim(input(myid))) then
+      nGroup = nGroup + 1
+     end if
+    end do
+    
+    allocate(group(nGroup))
+    nGroup = 0
+    do i = 1, size(input)
+     if (trim(input(i)) == trim(input(myid))) then
+      nGroup = nGroup + 1
+      group(nGroup) = i
+     end if
+    end do
+    
+  end subroutine unique
+
+end subroutine FindNodes
