@@ -3180,12 +3180,13 @@ INTEGER I,iRound,pJD,nLenght,iP,jP,nSize,II,JJ
 REAL*8 P(*),PP(*)
 CHARACTER*80 cFile
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
 
-req = MPI_REQUEST_NULL
-
 IF (myid.ne.MASTER) THEN
+
+ send_req = MPI_REQUEST_NULL
+ recv_req = MPI_REQUEST_NULL
 
  DO iRound=1,SIZE(CommOrder(myid)%x)
   pJD = CommOrder(myid)%x(iRound)
@@ -3236,13 +3237,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
      !!!!     sends pID ----> pJD
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
       END IF
@@ -3251,13 +3252,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
      !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
       END IF
@@ -3270,12 +3271,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%SP(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
-
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommP = myStat%tCommP + (tt1-tt0)
 
@@ -3331,12 +3333,13 @@ INTEGER I,iRound,pJD,nLenght,iP,jP,nSize,II,JJ
 INTEGER Ind_PP(*)
 CHARACTER*80 cFile
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
 
-req = MPI_REQUEST_NULL
-
 IF (myid.ne.MASTER) THEN
+
+ send_req = MPI_REQUEST_NULL
+ recv_req = MPI_REQUEST_NULL
 
  DO iRound=1,SIZE(CommOrder(myid)%x)
   pJD = CommOrder(myid)%x(iRound)
@@ -3387,13 +3390,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
      !!!!     sends pID ----> pJD
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
       END IF
@@ -3402,13 +3405,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
      !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%SP(pJD)%RDVect,4*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%SP(pJD)%SDVect,4*nSIZE,pJD)
       END IF
@@ -3421,12 +3424,13 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%SP(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
-
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommP = myStat%tCommP + (tt1-tt0)
 
@@ -3586,15 +3590,17 @@ USE var_QuadScalar, ONLY : CommOrder,myStat,BaSynch
 REAL*8  FX(*)
 INTEGER I,pJD,nSIZE,nEIGH,iRound
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
 
 
 !if (myid.eq.1) write(*,*) 'here it goes...'
-req = MPI_REQUEST_NULL
 
 IF (myid.ne.MASTER) THEN
 
+ send_req = MPI_REQUEST_NULL
+ recv_req = MPI_REQUEST_NULL
+ 
  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt0)
 
@@ -3614,13 +3620,13 @@ IF (myid.ne.MASTER) THEN
         END DO
         
         IF (BaSynch) then
-         CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+         CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
         ELSE
          CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
         END IF
        ELSE
         IF (BaSynch) then
-         CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+         CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
         ELSE
          CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
         END IF
@@ -3629,7 +3635,7 @@ IF (myid.ne.MASTER) THEN
        !!!!     sends pJD ----> pID
        IF (myid.lt.pJD) THEN
         IF (BaSynch) then
-         CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+         CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
         ELSE
          CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,nSIZE,pJD)
         END IF
@@ -3638,7 +3644,7 @@ IF (myid.ne.MASTER) THEN
          MGE013(ILEV)%ST(pJD)%SDVect(I) = FX(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
         END DO      
         IF (BaSynch) then
-         CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+         CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
         ELSE
          CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,nSIZE,pJD)
         END IF
@@ -3652,12 +3658,13 @@ IF (myid.ne.MASTER) THEN
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%ST(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
- 
-CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommV = myStat%tCommV + (tt1-tt0)
  
@@ -3819,7 +3826,7 @@ INTEGER I,pJD,nSIZE,nEIGH
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER recv_req(numnodes),send_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
 
 LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
@@ -3854,13 +3861,13 @@ IF (myid.ne.MASTER) THEN
       END DO
 
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -3869,7 +3876,7 @@ IF (myid.ne.MASTER) THEN
      !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -3880,7 +3887,7 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX(LEQ3+MGE013(ILEV)%ST(pJD)%VertLink(1,I))
       END DO
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
@@ -3895,12 +3902,13 @@ IF (myid.ne.MASTER) THEN
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%ST(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
- 
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommV = myStat%tCommV + (tt1-tt0)
 
@@ -3942,13 +3950,14 @@ REAL*8  FX1(*),FX2(*),FX3(*)
 INTEGER I,pJD,nSIZE,nEIGH
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
-
-req = MPI_REQUEST_NULL
 
 IF (myid.ne.MASTER) THEN
 
+ send_req = MPI_REQUEST_NULL
+ recv_req = MPI_REQUEST_NULL
+ 
  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt0)
 
@@ -3971,13 +3980,13 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX3(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
       END DO
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -3986,7 +3995,7 @@ IF (myid.ne.MASTER) THEN
      !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -3997,7 +4006,7 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = FX3(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
       END DO
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
@@ -4010,12 +4019,13 @@ IF (myid.ne.MASTER) THEN
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%ST(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
-
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommV = myStat%tCommV + (tt1-tt0)
 
@@ -4238,6 +4248,9 @@ REAL*4 tt0,tt1
 
 
 IF (myid.eq.MASTER) return
+
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
 
 ! IF (myid.eq.1) write(*,*) ilev, "communication..."
 
@@ -4589,6 +4602,9 @@ REAL*4 tt0,tt1
 
 IF (myid.eq.MASTER) return
 
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
+
 ! IF (myid.eq.1) write(*,*) ilev, "communication..."
 
 if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
@@ -4916,6 +4932,9 @@ REAL*4 tt0,tt1
 
 
 IF (myid.eq.MASTER) return
+
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
 
 if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
 
@@ -5323,12 +5342,13 @@ INTEGER I,J
 INTEGER pID,pJD,nSIZE
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 REAL*4 tt0,tt1
-INTEGER req(numnodes)
+INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
 
-req = MPI_REQUEST_NULL
-
 IF (myid.ne.MASTER) THEN
+
+ send_req = MPI_REQUEST_NULL
+ recv_req = MPI_REQUEST_NULL
 
  DO I=1,NU
   MGE013(ILEV)%UE11(I)=A11(KLDA(I))
@@ -5358,13 +5378,13 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
       END DO
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
      ELSE
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -5373,7 +5393,7 @@ IF (myid.ne.MASTER) THEN
      !!!!     sends pJD ----> pID
      IF (myid.lt.pJD) THEN
       IF (BaSynch) then
-       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_IRECV(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,recv_req(pJD),IERR)
       ELSE
        CALL RECVD_myMPI(MGE013(ILEV)%ST(pJD)%RDVect,3*nSIZE,pJD)
       END IF
@@ -5384,7 +5404,7 @@ IF (myid.ne.MASTER) THEN
        MGE013(ILEV)%ST(pJD)%SDVect(MEQ3+I) = MGE013(ILEV)%UE33(MGE013(ILEV)%ST(pJD)%VertLink(1,I))
       END DO
       IF (BaSynch) then
-       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,req(pJD),IERR)
+       CALL MPI_ISEND(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,MPI_DOUBLE_PRECISION,pJD,101,MPI_COMM_WORLD,send_req(pJD),IERR)
       ELSE
        CALL SENDD_myMPI(MGE013(ILEV)%ST(pJD)%SDVect,3*nSIZE,pJD)
       END IF
@@ -5398,12 +5418,13 @@ IF (myid.ne.MASTER) THEN
  IF (BaSynch) then
   DO pJD=1,subnodes
    IF ((MGE013(ILEV)%ST(pJD)%Num.GT.0)) THEN
-    CALL MPI_Wait( req(pJD),STATUS, IERR )
+    CALL MPI_Wait(send_req(pJD),STATUS, IERR )
+    CALL MPI_Wait(recv_req(pJD),STATUS, IERR )
    END IF
   END DO
+ ELSE
+  CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  END IF
-
- CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt1)
  myStat%tCommV = myStat%tCommV + (tt1-tt0)
 
