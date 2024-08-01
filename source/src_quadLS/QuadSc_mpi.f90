@@ -4223,6 +4223,9 @@ use var_QuadScalar, ONLY : myRecComm
 implicit none
 REAL*8  FX(*)
 
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
+
 INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
@@ -4429,7 +4432,8 @@ IF (myRecComm%myID.eq.0) THEN
      nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
      
 !       WRITE(*,*) myid, "sends to ",myRecComm%hostleaders(pID)
-     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+!      CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL SENDK_myMPI(myRC(ILEV)%CODECs(pID)%x,3*iaux,myRecComm%hostleaders(pID))
     END IF
    
@@ -4441,12 +4445,22 @@ IF (myRecComm%myID.eq.0) THEN
 !     IF (iaux.gt.0.and.pJD.ne.myRecComm%myNodeGroup) then
      nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
 !       WRITE(*,*) myid, "receives from ",myRecComm%hostleaders(pJD)
-     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+!      CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL RECVK_myMPI(myRC(ILEV)%CODECr(pJD)%x,3*iaux,myRecComm%hostleaders(pJD))
     END IF
    END DO
   END IF
   
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
  END DO
 END IF
 
@@ -4560,6 +4574,8 @@ use var_QuadScalar, ONLY : myRecComm
 implicit none
 REAL*8  FX(*)
 
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
 INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
@@ -4764,7 +4780,8 @@ IF (myRecComm%myID.eq.0) THEN
      nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
      
 !       WRITE(*,*) myid, "sends to ",myRecComm%hostleaders(pID)
-     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,nSIZE,myRecComm%hostleaders(pID))
+!     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL SENDK_myMPI(myRC(ILEV)%CODECs(pID)%x,3*iaux,myRecComm%hostleaders(pID))
     END IF
    
@@ -4776,12 +4793,22 @@ IF (myRecComm%myID.eq.0) THEN
 !     IF (iaux.gt.0.and.pJD.ne.myRecComm%myNodeGroup) then
      nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
 !       WRITE(*,*) myid, "receives from ",myRecComm%hostleaders(pJD)
-     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,nSIZE,myRecComm%hostleaders(pJD))
+!     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL RECVK_myMPI(myRC(ILEV)%CODECr(pJD)%x,3*iaux,myRecComm%hostleaders(pJD))
     END IF
    END DO
   END IF
   
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
  END DO
 END IF
 
@@ -4875,6 +4902,8 @@ implicit none
 REAL*8 A11(*),A22(*),A33(*)
 INTEGER KLDA(*),NU
 
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
 INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
@@ -5091,7 +5120,8 @@ IF (myRecComm%myID.eq.0) THEN
      nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
      
 !       WRITE(*,*) myid, "sends to ",myRecComm%hostleaders(pID)
-     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+!     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL SENDK_myMPI(myRC(ILEV)%CODECs(pID)%x,3*iaux,myRecComm%hostleaders(pID))
     END IF
    
@@ -5103,12 +5133,22 @@ IF (myRecComm%myID.eq.0) THEN
 !     IF (iaux.gt.0.and.pJD.ne.myRecComm%myNodeGroup) then
      nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
 !       WRITE(*,*) myid, "receives from ",myRecComm%hostleaders(pJD)
-     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+!     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
      IF (.not.myRC(ILEV)%bPrepared) CALL RECVK_myMPI(myRC(ILEV)%CODECr(pJD)%x,3*iaux,myRecComm%hostleaders(pJD))
     END IF
    END DO
   END IF
   
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
  END DO
 END IF
 
