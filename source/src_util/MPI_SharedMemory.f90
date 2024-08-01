@@ -16,13 +16,16 @@ module shared_memory_module
      TYPE(mg_dV), DIMENSION(:), pointer :: s,r
      TYPE(mg_kV), DIMENSION(:), pointer :: CODECs,CODECr
      integer, allocatable :: CODECs_win(:),CODECr_win(:)
+     integer :: SIZEs_win,SIZEr_win
      type(c_ptr), allocatable :: CODECsptr(:),CODECrptr(:)
+     type(c_ptr) :: SIZEsptr,SIZErptr
      integer, allocatable :: StartOfAllRecords(:,:)
+     integer , pointer  :: sendSIZE(:),recvSIZE(:)
      
      integer, allocatable :: winS(:),winR(:)
      type(c_ptr), allocatable :: ptrS(:),ptrR(:)
     END TYPE tRecComm
-    TYPE (tRecComm), allocatable :: myRC(:)
+    TYPE (tRecComm), allocatable :: myRC(:),myPC(:)
     
     contains
 
