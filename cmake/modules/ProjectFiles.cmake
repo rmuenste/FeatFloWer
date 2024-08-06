@@ -93,6 +93,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
   ${src_mpi}
   ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/comm_sum.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/min_sphere.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OutputMumpsMatrices.f90
   ${CMAKE_SOURCE_DIR}/source/src_mpi/parentcomm.f90
@@ -282,6 +283,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90

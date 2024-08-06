@@ -1665,32 +1665,48 @@ END SUBROUTINE COMM_MGComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE COMM_Maximumn(DVAL,NN)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+INTEGER NN
+REAL*8 DVAL(NN)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+
+END SUBROUTINE COMM_Maximumn
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE COMM_Maximum(value) !ok
-USE var_QuadScalar, only :myStat
+USE var_QuadScalar, only :myStat,iCommSwitch
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
 
-  REAL*8  value
-  REAL*8  Val(1),pVal(1)
-  INTEGER pID,iEnt,IERR
-  REAL*4  tt1,tt0
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-  CALL ztime(tt0)
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
 
-  IF (myid.eq.MASTER) THEN
-   Val(1) = 0d0
-  ELSE
-   Val(1) = value
-  END IF
-  
-  CALL MPI_ALLREDUCE(Val,pVal,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,IERR)
+value = DVAL(1)
 
-  value = pVal(1)
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-  CALL ztime(tt1)
-  myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-
-  END SUBROUTINE COMM_Maximum
+END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -1728,41 +1744,6 @@ SUBROUTINE COMM_Maximum_old(value) !ok
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 END SUBROUTINE COMM_Maximum_old
-! ----------------------------------------------
-! ----------------------------------------------
-! ----------------------------------------------
-SUBROUTINE COMM_Maximumn(DVAL,NN)
-  INTEGER NN
-  REAL*8 DVAL(NN)
-  REAL*8, ALLOCATABLE :: pVal(:)
-  INTEGER pID,i
-
-  ALLOCATE (pVal(NN))
-
-  IF (myid.eq.MASTER) THEN
-    DVAL = -1d30
-    DO pID=1,subnodes
-    CALL RECVD_myMPI(pVAL,NN,pID)
-    DO i=1,NN
-    DVal(i) = MAX(DVAL(i),pVal(i))
-    END DO
-    END DO
-
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDD_myMPI(pVAL,NN,pID)
-    END DO
-
-  ELSE
-    pVAL=DVAL
-    CALL SENDD_myMPI(pVAL,NN,0)
-    CALL RECVD_myMPI(pVAL,NN,0)
-    DVAL = pVal
-  END IF
-
-  DEALLOCATE (pVal)
-
-END SUBROUTINE COMM_Maximumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -1838,95 +1819,101 @@ END SUBROUTINE COMM_Minimumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+! SUBROUTINE COMM_NLComplete(INLComplete)
+! 
+!   INTEGER INLComplete
+!   INTEGER iNL,piNL,pID
+! 
+!   ! write(*,*) "complete?",myid,INLComplete
+!   IF (myid.eq.MASTER) THEN
+! 
+!     iNL=1
+!     DO pID=1,subnodes
+!     CALL RECVI_myMPI(piNL,pID)
+!     iNL=iNL*pINL
+!     END DO
+! 
+!     pINL=iNL
+!     DO pID=1,subnodes
+!     CALL SENDI_myMPI(piNL,pID)
+!     END DO
+!     INLComplete=iNL
+! 
+!   ELSE
+!     piNL=INLComplete
+!     CALL SENDI_myMPI(piNL,0)
+!     CALL RECVI_myMPI(piNL,0)
+!     INLComplete=piNL
+!   END IF
+! 
+!   ! write(*,*) "complete!",myid,INLComplete
+!   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+! 
+! END SUBROUTINE COMM_NLComplete
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE COMM_NLComplete(INLComplete)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+INTEGER INLComplete
+REAL*4  tt1,tt0
 
-  INTEGER INLComplete
-  INTEGER iNL,piNL,pID
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  ! write(*,*) "complete?",myid,INLComplete
-  IF (myid.eq.MASTER) THEN
+if (iCommSwitch.le.2) CALL COMM_INLN_OLD(INLComplete)
+if (iCommSwitch.ge.3) CALL COMM_INLN_NEW(INLComplete)
 
-    iNL=1
-    DO pID=1,subnodes
-    CALL RECVI_myMPI(piNL,pID)
-    iNL=iNL*pINL
-    END DO
-
-    pINL=iNL
-    DO pID=1,subnodes
-    CALL SENDI_myMPI(piNL,pID)
-    END DO
-    INLComplete=iNL
-
-  ELSE
-    piNL=INLComplete
-    CALL SENDI_myMPI(piNL,0)
-    CALL RECVI_myMPI(piNL,0)
-    INLComplete=piNL
-  END IF
-
-  ! write(*,*) "complete!",myid,INLComplete
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
 
 END SUBROUTINE COMM_NLComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE COMM_SUMM(DVAL)
-  REAL*8 DVAL,pVAL
-  INTEGER pID
-
-  IF (myid.eq.MASTER) THEN
-    DVAL = 0d0
-    DO pID=1,subnodes
-    CALL RECVDD_myMPI(pVAL,pID)
-    DVal = DVal + pVal
-    END DO
-
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDDD_myMPI(pVAL,pID)
-    END DO
-  ELSE
-    pVAL=DVAL
-    CALL SENDDD_myMPI(pVAL,0)
-    CALL RECVDD_myMPI(pVAL,0)
-    DVAL = pVal
-  END IF
-END SUBROUTINE COMM_SUMM
-! ----------------------------------------------
-! ----------------------------------------------
-! ----------------------------------------------
 SUBROUTINE COMM_SUMMN(DVAL,NN)
-  INTEGER NN
-  REAL*8 DVAL(NN)
-  REAL*8, ALLOCATABLE :: pVal(:)
-  INTEGER pID
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+INTEGER NN
+REAL*8 DVAL(NN)
+REAL*4  tt1,tt0
 
-  ALLOCATE (pVal(NN))
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  IF (myid.eq.MASTER) THEN
-    DVAL = 0d0
-    DO pID=1,subnodes
-    CALL RECVD_myMPI(pVAL,NN,pID)
-    DVal = DVal + pVal
-    END DO
+if (iCommSwitch.le.2) CALL COMM_SUMMN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
 
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDD_myMPI(pVAL,NN,pID)
-    END DO
-
-  ELSE
-    pVAL=DVAL
-    CALL SENDD_myMPI(pVAL,NN,0)
-    CALL RECVD_myMPI(pVAL,NN,0)
-    DVAL = pVal
-  END IF
-
-  DEALLOCATE (pVal)
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
 
 END SUBROUTINE COMM_SUMMN
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_SUMM(value)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_SUMMN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
+
+value = DVAL(1)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+
+END SUBROUTINE COMM_SUMM
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
