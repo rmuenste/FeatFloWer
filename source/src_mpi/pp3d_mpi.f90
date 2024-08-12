@@ -1666,7 +1666,7 @@ END SUBROUTINE COMM_MGComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_Maximumn(DVAL,NN)
-USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
 INTEGER NN
 REAL*8 DVAL(NN)
 REAL*4  tt1,tt0
@@ -1680,13 +1680,15 @@ if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(2) = myTimer%n(2) + 1
+myTimer%t(2) = myTimer%t(2) + dble(tt1-tt0)
 
 END SUBROUTINE COMM_Maximumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE COMM_Maximum(value) !ok
-USE var_QuadScalar, only :myStat,iCommSwitch
+SUBROUTINE COMM_MaximumX(value) !ok
+USE var_QuadScalar, only :myStat,iCommSwitch,myTimer
 REAL*8 value
 INTEGER NN
 REAL*8 DVAL(1)
@@ -1705,6 +1707,35 @@ value = DVAL(1)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(6) = myTimer%n(6) + 1
+myTimer%t(6) = myTimer%t(6) + dble(tt1-tt0)
+
+END SUBROUTINE COMM_MaximumX
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_Maximum(value) !ok
+USE var_QuadScalar, only :myStat,iCommSwitch,myTimer
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
+
+value = DVAL(1)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(1) = myTimer%n(1) + 1
+myTimer%t(1) = myTimer%t(1) + dble(tt1-tt0)
 
 END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------
@@ -1854,7 +1885,7 @@ END SUBROUTINE COMM_Minimumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_NLComplete(INLComplete)
-USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
 INTEGER INLComplete
 REAL*4  tt1,tt0
 
@@ -1867,13 +1898,15 @@ if (iCommSwitch.ge.3) CALL COMM_INLN_NEW(INLComplete)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(5) = myTimer%n(5) + 1
+myTimer%t(5) = myTimer%t(5) + dble(tt1-tt0)
 
 END SUBROUTINE COMM_NLComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_SUMMN(DVAL,NN)
-USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
 INTEGER NN
 REAL*8 DVAL(NN)
 REAL*4  tt1,tt0
@@ -1887,13 +1920,16 @@ if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(4) = myTimer%n(4) + 1
+myTimer%t(4) = myTimer%t(4) + dble(tt1-tt0)
+
 
 END SUBROUTINE COMM_SUMMN
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_SUMM(value)
-USE var_QuadScalar, ONLY :  myStat,iCommSwitch
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
 REAL*8 value
 INTEGER NN
 REAL*8 DVAL(1)
@@ -1912,6 +1948,8 @@ value = DVAL(1)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer%n(3) = myTimer%n(3) + 1
+myTimer%t(3) = myTimer%t(3) + dble(tt1-tt0)
 
 END SUBROUTINE COMM_SUMM
 ! ----------------------------------------------

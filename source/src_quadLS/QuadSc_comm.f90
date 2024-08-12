@@ -617,6 +617,190 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE E013Sum3Rec(FX1,FX2,FX3) !ok
+use, INTRINSIC :: ISO_C_BINDING
+use mpi
+use shared_memory_module, only : get_shared_memory_INT,get_shared_memory_DBL,myRC
+USE PP3D_MPI, ONLY : ierr,myid,master,numnodes,subnodes,MPI_COMM_SUBS,MPI_COMM_SUBGROUP
+USE PP3D_MPI, ONLY : SENDD_myMPI,RECVD_myMPI,SENDK_myMPI,RECVK_myMPI,MGE013
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat,nlmax
+use var_QuadScalar, ONLY : myRecComm
+
+implicit none
+REAL*8  FX1(*),FX2(*),FX3(*)
+
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
+
+INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+INTEGER LEQ,LEQ1,LEQ2,LEQ3
+INTEGER :: dblesize=8,intsize=4
+
+character(len=256) :: cFMT
+REAL*4 tt0,tt1
+
+IF (myid.eq.MASTER) return
+
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
+
+if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
+
+LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
+LEQ1 =0
+LEQ2 =LEQ
+LEQ3 =2*LEQ
+ 
+! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL ztime(tt0)
+
+IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
+
+! extract the data to be sent
+! All processes from the given host upload the data packages to be sent
+DO pJD=1,myRecComm%NumHosts
+
+ if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+  iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!  IF (iaux.gt.0) THEN
+  
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+1).eq.myid) THEN
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+2) ! receiver
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+ !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+       iShift = MGE013(ILEV)%ST(pID)%VertLink(1,I)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 1) = FX1(iShift)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 2) = FX2(iShift)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 3) = FX3(iShift)
+     END DO
+    END IF
+   END DO
+ END IF
+ 
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! Communication of the group-leaders
+IF (myRecComm%myID.eq.0) THEN
+
+ DO pID=1,myRecComm%NumHosts
+ 
+  IF (myRecComm%myNodeGroup.NE.pID) THEN
+  
+   if (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0) then 
+     iaux = size(myRC(ILEV)%CODECs(pID)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
+     
+!      CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
+    END IF
+   
+  ELSE
+   DO pJD=1,myRecComm%NumHosts
+   
+    if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0.and.pJD.ne.myRecComm%myNodeGroup) then 
+     iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
+!      CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
+    END IF
+   END DO
+  END IF
+  
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
+ END DO
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! if (myRecComm%myid.eq.0) then 
+!  DO pJD=1,myRecComm%NumHosts
+!   DO i=0,size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!    write(*,*) pJD,"X",myRC(ILEV)%CODECr(pJD)%x(3*i+1:3*i+3)
+!   END DO
+!  END DO
+! end if
+! 
+! write(*,*) myid,'done'
+! pause
+
+! All processes from the given host extract their own data packages
+DO pJD=1,myRecComm%NumHosts
+
+ IF (pJD.ne.myRecComm%myNodeGroup) then
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+    iaux = size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   
+    DO j=1,iaux
+     jaux = 3*(j-1)
+     IF (myRC(ILEV)%CODECr(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+      pID  = myRC(ILEV)%CODECr(pJD)%x(jaux+1) ! sender
+      iLoc = myRC(ILEV)%CODECr(pJD)%x(jaux+3) ! Start location for reading the data
+      nSIZE = myRC(ILEV)%CODECr(pJD)%x(jaux+6) - myRC(ILEV)%CODECr(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+  !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+      DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 2)
+        FX3(iShift) = FX3(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 3)
+      END DO
+     END IF
+    END DO
+  END IF
+  
+ ELSE !pJD.eq.myRecComm%myNodeGroup)
+ 
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+   iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+1) ! sender
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+!     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 2)
+        FX3(iShift) = FX3(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 3)
+     END DO
+    END IF
+   END DO
+  END IF
+   
+ END IF
+END DO
+
+! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+CALL ztime(tt1)
+myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+! write(*,*) myid,'done', (tt1-tt0)
+! pause
+ 
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE E013SumRec(FX) !ok
 use, INTRINSIC :: ISO_C_BINDING
 use mpi

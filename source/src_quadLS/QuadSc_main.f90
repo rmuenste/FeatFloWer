@@ -3,7 +3,7 @@ MODULE Transport_Q2P1
 
 USE def_QuadScalar
 ! USE PP3D_MPI
-USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
+USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_MaximumX,COMM_Minimum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,ReviseWallBC,myParBndr,&
@@ -2892,9 +2892,10 @@ ilevel = mg_mesh%nlmax
                    mg_mesh%level(ilevel)%kedge,&
                    mg_mesh%level(ilevel)%dcorvg,E013)
 
-  CALL E013Sum(QuadSc%defU)
-  CALL E013Sum(QuadSc%defV)
-  CALL E013Sum(QuadSc%defW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+!   CALL E013Sum(QuadSc%defU)
+!   CALL E013Sum(QuadSc%defV)
+!   CALL E013Sum(QuadSc%defW)
 
   if(.not.allocated(Shearrate)) allocate(Shearrate(QuadSc%ndof))
   

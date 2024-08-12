@@ -114,8 +114,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL ZTIME(TTT0)
 
-iCommSwitch=4
-!BaSynch = .true.
+ iCommSwitch=4
+ BaSynch = .true.
  
  !=======================================================================
  !     Data input
@@ -913,10 +913,12 @@ END SUBROUTINE General_init_ext
 
   CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
   
+  !----------------------------------------------------------------------------------------------
   call MPI_GROUP_INCL(world_group, size(myRecComm%hostgroup), myRecComm%hostgroup, new_group, ierr)
   
   ! Create a new communicator for the subgroup
   call MPI_COMM_CREATE(MPI_COMM_SUBS, new_group, MPI_COMM_SUBGROUP, ierr)
+  !----------------------------------------------------------------------------------------------
 
   CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
   

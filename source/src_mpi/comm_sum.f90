@@ -2,25 +2,26 @@
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE COMM_INLN_OLD(INLComplete)
+use mpi
 USE PP3D_MPI, ONLY : ierr,myid,master,numnodes,subnodes
 USE PP3D_MPI, ONLY : SENDI_myMPI,RECVI_myMPI
+USE var_QuadScalar, ONLY : BaSynch
 
 implicit none
 INTEGER INLComplete
 INTEGER iNL,piNL,pID
 
-! write(*,*) "complete?",myid,INLComplete
 IF (myid.eq.MASTER) THEN
 
   iNL=1
   DO pID=1,subnodes
-  CALL RECVI_myMPI(piNL,pID)
+   CALL RECVI_myMPI(piNL,pID)
   iNL=iNL*pINL
   END DO
 
   pINL=iNL
   DO pID=1,subnodes
-  CALL SENDI_myMPI(piNL,pID)
+   CALL SENDI_myMPI(piNL,pID)
   END DO
   INLComplete=iNL
 
@@ -30,6 +31,9 @@ ELSE
   CALL RECVI_myMPI(piNL,0)
   INLComplete=piNL
 END IF
+
+! write(*,*) "complete!",myid,INLComplete
+! CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 END SUBROUTINE COMM_INLN_OLD
 ! ----------------------------------------------
@@ -62,6 +66,36 @@ END IF
 INLComplete = INL
 
 END SUBROUTINE COMM_INLN_NEW
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_INLN_REC(INLComplete)
+use mpi
+USE PP3D_MPI, ONLY : ierr,myid,master
+USE var_QuadScalar, ONLY : BaSynch
+
+implicit none
+INTEGER INLComplete
+INTEGER INL,NN
+INTEGER req
+INTEGER STATUS(MPI_STATUS_SIZE)
+
+req = MPI_REQUEST_NULL
+
+if (myid.eq.master) INLComplete = 1
+NN = 1
+
+! Perform the asynchronous all-reduce operation to find the maximum value
+IF (BaSynch) then
+ call MPI_Iallreduce(INLComplete, INL, NN, MPI_INTEGER, MPI_PROD, MPI_COMM_WORLD, req, ierr)
+ CALL MPI_Wait(req,STATUS, ierr )
+ELSE
+ call MPI_allreduce(INLComplete, INL, NN, MPI_INTEGER, MPI_PROD, MPI_COMM_WORLD, ierr)
+END IF
+
+INLComplete = INL
+
+END SUBROUTINE COMM_INLN_REC
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------

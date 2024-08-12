@@ -40,6 +40,12 @@ LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 REAL*8  :: AlphaControl=0d0
 
+TYPE tTimer
+ integer :: n(6) = 0
+ real*8  :: t(6) = 0d0
+END TYPE tTimer
+TYPE (tTimer) myTimer
+
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)
  REAL*8              :: average,std_dev,dCharVisco
@@ -118,6 +124,8 @@ REAL*8, DIMENSION(:), POINTER :: VisMat_12,VisMat_13,VisMat_23
 
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
+
+INTEGER, allocatable   :: UNF_P_CrsGrid(:)
 
 TYPE tGlobalNumberingMap
  INTEGER  :: ndof,ndof_Q2,ndof_P1

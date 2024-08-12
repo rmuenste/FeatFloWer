@@ -1397,7 +1397,7 @@ IF (myid.ne.master) THEN
 
 END IF
 
-CALL COMM_Maximum(RhsUVW)
+CALL COMM_MaximumX(RhsUVW)
 DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
 
 CALL Protocol_QuadScalar(mfile,QuadSc,0,&
@@ -1456,7 +1456,7 @@ END IF
 
 ! Checking convergence rates against criterions
 RhsUVW=DefUVW
-CALL COMM_Maximum(RhsUVW)
+CALL COMM_MaximumX(RhsUVW)
 CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
      ResU,ResV,ResW,DefUVW,RhsUVW)
 IF (ISNAN(RhsUVW)) stop

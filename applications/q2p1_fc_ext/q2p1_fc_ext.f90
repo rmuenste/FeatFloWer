@@ -9,6 +9,7 @@ PROGRAM Q2P1_FC_EXT
   use post_utils,  only: handle_statistics,&
                          print_time,&
                          sim_finalize
+  USE var_QuadScalar, ONLY :  myTimer
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -59,6 +60,8 @@ PROGRAM Q2P1_FC_EXT
 
   END DO
 
+!   write(*,'(I0,A,6I5,6ES12.4)') myid," : ",myTimer%n,myTimer%t
   call sim_finalize(tt0,ufile)
+
 
 END PROGRAM Q2P1_FC_EXT
