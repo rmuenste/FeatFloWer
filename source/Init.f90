@@ -385,6 +385,8 @@ SUBROUTINE General_init(MDATA,MFILE)
   !
   SUBROUTINE GDATNEW (cName,iCurrentStatus)
     USE PP3D_MPI
+    use iniparser
+    USE var_QuadScalar, ONLY : iCommSwitch,BaSynch
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
@@ -648,6 +650,14 @@ SUBROUTINE General_init(MDATA,MFILE)
         CASE ("CGALtoRealFactor")
          READ(string(iEq+1:),*)dCGALtoRealFactor
          
+        CASE ("SynchComm")
+          cParam = " "
+          READ(string(iEq+1:),*) cParam
+          call inip_toupper_replace(cParam)
+          baSynch = .FALSE.
+          IF (TRIM(ADJUSTL(cParam)).EQ."YES") baSynch = .TRUE.
+        CASE ("CommSwitch")
+          READ(string(iEq+1:),*) iCommSwitch
         CASE ("OutputFormat")
           READ(string(iEq+1:),*) myExport%Format
         CASE ("OutputFields")
@@ -712,9 +722,17 @@ SUBROUTINE General_init(MDATA,MFILE)
     ! Printout of all loaded parameters
 
     IF (myid.eq.showid) THEN
-      WRITE(mfile,'(A,A)') "Meshfolder = ",cGridFileName
-      WRITE(mterm,'(A,A)') "Meshfolder = ",cGridFileName
-
+      WRITE(mfile,'(A,I3)') "CommSwitch = ",iCommSwitch
+      WRITE(mterm,'(A,I3)') "CommSwitch = ",iCommSwitch
+      
+      IF (baSynch) THEN
+       WRITE(mfile,'(A)') "SynchComm = YES"
+       WRITE(mterm,'(A)') "SynchComm = YES"
+      ELSE
+       WRITE(mfile,'(A)') "SynchComm = NO"
+       WRITE(mterm,'(A)') "SynchComm = NO"
+      END IF
+      
       WRITE(mfile,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
       WRITE(mterm,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
 

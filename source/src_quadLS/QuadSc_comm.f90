@@ -184,11 +184,18 @@ DO pJD=1,myRecComm%NumHosts
   nSIZE = myPC(ILEV)%recvSIZE(pJD)
   if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myPC(ILEV)%CODECr(pJD)%x,nSIZE*3, myPC(ILEV)%CODECr_win(pJD),myPC(ILEV)%CODECrptr(pJD),ierr)
-   myPC(ILEV)%CODECr(pJD)%x = 0
   end if
 END DO
 
 IF (myRecComm%myID.eq.0) THEN
+
+ DO pJD=1,myRecComm%NumHosts
+  nSIZE = myPC(ILEV)%recvSIZE(pJD)
+  if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
+   myPC(ILEV)%CODECr(pJD)%x = 0
+  end if
+ END DO
+ 
  ! Communication of the group-leaders
  DO pID=1,myRecComm%NumHosts
   IF (myRecComm%myNodeGroup.NE.pID) THEN
@@ -207,9 +214,11 @@ IF (myRecComm%myID.eq.0) THEN
    END DO
   END IF
  END DO
+
 END IF
 
 CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
 ! if (myRecComm%myid.eq.0) then
 !  DO pJD=1,myRecComm%NumHosts
 ! !   write(*,*) "R ",myid,pjd, " : ",myPC(ILEV)%CODECr(pJD)%x

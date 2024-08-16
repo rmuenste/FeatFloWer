@@ -4491,6 +4491,364 @@ if (myid.ne.MASTER) CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 END SUBROUTINE E013MAT_SUPER
 
+SUBROUTINE E012DISTR_L1(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,4*N,0)
+ ELSE
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+
+   DO I=1,pN
+    J = coarse%pELEMLINK(pID,I)
+    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+   END DO
+
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012DISTR_L1
+
+SUBROUTINE E012GATHR_L1(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J 
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL RECVD_myMPI(D,4*N,0)
+ ELSE
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+
+   DO I=1,pN
+    J = coarse%pELEMLINK(pID,I)
+    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
+    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
+    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
+    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
+   END DO
+   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012GATHR_L1
+
+SUBROUTINE E012DISTR_L2(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,JJ,II,iu,ppN
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,4*N,0)
+ ELSE
+
+  ppn = N
+
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+
+   DO II=1,pN/8
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+
+    DO iu = 1,7
+
+     J = ppN/8 + (JJ-1)*7 + iu
+     I =  pN/8 + (II-1)*7 + iu
+
+     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+    END DO
+
+   END DO
+
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012DISTR_L2
+
+
+SUBROUTINE E012GATHR_L2(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,II,JJ,iu,ppN
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL RECVD_myMPI(D,4*N,0)
+ ELSE
+  DO pID=1,subnodes
+
+   ppN = N
+
+   CALL RECVI_myMPI(pN ,pID)
+
+   DO II=1,pN/8
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+
+    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
+    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
+    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
+    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
+
+    DO iu = 1,7
+
+     J = ppN/8 + (JJ-1)*7 + iu
+     I = pN/8 + (II-1)*7 + iu
+
+    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
+    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
+    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
+    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
+    END DO
+
+   END DO
+   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+!   pause
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012GATHR_L2
+
+SUBROUTINE E012DISTR_L3(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,JJ,II,III,JJJ,iu,ppN,iw
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL SENDD_myMPI(D,4*N,0)
+ ELSE
+
+  ppn = N
+
+  DO pID=1,subnodes
+   CALL RECVI_myMPI(pN ,pID)
+   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+
+   DO II=1,pN/64
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+
+    DO iw = 1,7
+     J = ppN/8 + (JJ-1)*7 + iw
+     I =  pN/8 + (II-1)*7 + iw
+
+     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+    END DO
+
+    DO iu = 1,7
+
+     JJJ = ppN/64 + (JJ-1)*7 + iu
+     III =  pN/64 + (II-1)*7 + iu
+     I = III
+     J = JJJ
+
+     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+
+     DO iw = 1,7
+
+      J = ppN/8 + (JJJ-1)*7 + iw
+      I =  pN/8 + (III-1)*7 + iw
+ 
+      D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
+      D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
+      D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
+      D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
+     END DO
+
+    END DO
+
+   END DO
+
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012DISTR_L3
+
+
+SUBROUTINE E012GATHR_L3(D,N)
+USE PP3D_MPI
+USE def_feat, ONLY: ILEV,NLMIN,NLMAX
+IMPLICIT NONE
+REAL*8 D(*)
+INTEGER N
+INTEGER pID,pN,I,J,II,JJ,III,JJJ,iu,ppN,iw
+
+!  WRITE(*,*) myid, "is here", ILEV
+ IF (myid.NE.0) THEN
+  pN = N
+  CALL SENDI_myMPI(pN,0)
+  CALL RECVD_myMPI(D,4*N,0)
+ ELSE
+  DO pID=1,subnodes
+
+   ppN = N
+
+   CALL RECVI_myMPI(pN ,pID)
+
+   DO II=1,pN/64
+    JJ = coarse%pELEMLINK(pID,II)
+
+    I = II
+    J = JJ
+
+    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
+    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
+    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
+    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
+
+    DO iw = 1,7
+
+     J = ppN/8 + (JJ-1)*7 + iw
+     I = pN/8 + (II-1)*7 + iw
+
+     MGE013(ILEV)%CRSVect(4*(I-1)+1) =D(4*(J-1)+1)
+     MGE013(ILEV)%CRSVect(4*(I-1)+2) =D(4*(J-1)+2)
+     MGE013(ILEV)%CRSVect(4*(I-1)+3) =D(4*(J-1)+3)
+     MGE013(ILEV)%CRSVect(4*(I-1)+4) =D(4*(J-1)+4)
+    END DO
+
+    DO iu = 1,7
+
+     JJJ = ppN/64 + (JJ-1)*7 + iu
+     III = pN/64 + (II-1)*7 + iu
+     I = III
+     J = JJJ
+
+    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
+    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
+    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
+    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
+
+    DO iw = 1,7
+
+     J = ppN/8 + (JJJ-1)*7 + iw
+     I = pN/8 + (III-1)*7 + iw
+
+     MGE013(ILEV)%CRSVect(4*(I-1)+1) =D(4*(J-1)+1)
+     MGE013(ILEV)%CRSVect(4*(I-1)+2) =D(4*(J-1)+2)
+     MGE013(ILEV)%CRSVect(4*(I-1)+3) =D(4*(J-1)+3)
+     MGE013(ILEV)%CRSVect(4*(I-1)+4) =D(4*(J-1)+4)
+    END DO
+
+    END DO
+
+   END DO
+   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
+  END DO
+
+!   OPEN (885,FILE ='gfgfgf.txt')
+!   DO I=1,N
+!   WRITE(885,*) I,D(I)
+!   END DO
+!   CLOSE(885)
+!   pause
+ END IF
+
+ CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+
+END SUBROUTINE E012GATHR_L3
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE E013GATHR_L1(D,N)
 USE PP3D_MPI
@@ -5218,430 +5576,3 @@ END DO
 END IF
 
 END 
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! So far only the DISTR/GATHER L1 routines are asynchronous communication !
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-SUBROUTINE E012DISTR_L1(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-USE var_QuadScalar, ONLY : UNF_P_CrsGrid
-
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J
-INTEGER send_req(numnodes),recv_req(numnodes),my_recv_req,my_send_req
-INTEGER STATUS(MPI_STATUS_SIZE)
-
-send_req = MPI_REQUEST_NULL
-recv_req = MPI_REQUEST_NULL
-my_send_req = MPI_REQUEST_NULL
-my_recv_req = MPI_REQUEST_NULL
-
-! not yet initialized
- IF (.not.allocated(UNF_P_CrsGrid)) THEN
-  IF (myid.NE.0) THEN
-   allocate(UNF_P_CrsGrid(1))
-   UNF_P_CrsGrid(1) = N
-   CALL SENDI_myMPI(pN,0)
-  ELSE
-   allocate(UNF_P_CrsGrid(subnodes))
-   DO pID=1,subnodes
-    CALL RECVI_myMPI(UNF_P_CrsGrid(pID) ,pID)
-   END DO
-  END IF
- END IF
-
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-  CALL MPI_ISEND(D,4*N,MPI_DOUBLE_PRECISION,0,1101,MPI_COMM_WORLD,my_send_req,IERR)
-!  CALL SENDD_myMPI(D,4*N,0)
- ELSE
-  DO pID=1,subnodes
-   pN = UNF_P_CrsGrid(pID)
-   CALL MPI_IRECV(MGE013(ILEV)%CRSVect,4*pN,MPI_DOUBLE_PRECISION,pID,1101,MPI_COMM_WORLD,recv_req(pID),IERR)
-!   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-
-   DO I=1,pN
-    J = coarse%pELEMLINK(pID,I)
-    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-   END DO
-
-  END DO
-  
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
- END IF
-
- IF (myid.NE.0) THEN
-      CALL MPI_Wait(my_send_req,STATUS, IERR )
- ELSE
-  DO pID=1,subnodes
-      CALL MPI_Wait(recv_req(pID),STATUS, IERR )
-  END DO
- END IF
- 
-! CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012DISTR_L1
-
-SUBROUTINE E012GATHR_L1(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-USE var_QuadScalar, ONLY : UNF_P_CrsGrid
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J 
-
-INTEGER send_req(numnodes),recv_req(numnodes),my_recv_req,my_send_req
-INTEGER STATUS(MPI_STATUS_SIZE)
-
-send_req = MPI_REQUEST_NULL
-recv_req = MPI_REQUEST_NULL
-my_send_req = MPI_REQUEST_NULL
-my_recv_req = MPI_REQUEST_NULL
-
-! not yet initialized
- IF (.not.allocated(UNF_P_CrsGrid)) THEN
-  IF (myid.NE.0) THEN
-   allocate(UNF_P_CrsGrid(1))
-   UNF_P_CrsGrid(1) = N
-   CALL SENDI_myMPI(pN,0)
-  ELSE
-   allocate(UNF_P_CrsGrid(subnodes))
-   DO pID=1,subnodes
-    CALL RECVI_myMPI(UNF_P_CrsGrid(pID) ,pID)
-   END DO
-  END IF
- END IF
- 
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-!  CALL RECVD_myMPI(D,4*N,0)
-  CALL MPI_IRECV(D,4*N,MPI_DOUBLE_PRECISION,0,1102,MPI_COMM_WORLD,my_recv_req,IERR)
- ELSE
-  DO pID=1,subnodes
-
-   pN = UNF_P_CrsGrid(pID)
-   DO I=1,pN
-    J = coarse%pELEMLINK(pID,I)
-    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
-    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
-    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
-    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
-   END DO
-   
-   CALL MPI_ISEND(MGE013(ILEV)%CRSVect,4*pN,MPI_DOUBLE_PRECISION,pID,1102,MPI_COMM_WORLD,send_req(pID),IERR)
-!   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-  END DO
-
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
- END IF
-
- IF (myid.NE.0) THEN
-      CALL MPI_Wait(my_recv_req,STATUS, IERR )
- ELSE
-  DO pID=1,subnodes
-      CALL MPI_Wait(send_req(pID),STATUS, IERR )
-  END DO
- END IF
-! CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012GATHR_L1
-
-SUBROUTINE E012DISTR_L2(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J,JJ,II,iu,ppN
-
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-  pN = N
-  CALL SENDI_myMPI(pN,0)
-  CALL SENDD_myMPI(D,4*N,0)
- ELSE
-
-  ppn = N
-
-  DO pID=1,subnodes
-   CALL RECVI_myMPI(pN ,pID)
-   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-
-   DO II=1,pN/8
-    JJ = coarse%pELEMLINK(pID,II)
-
-    I = II
-    J = JJ
-    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-
-    DO iu = 1,7
-
-     J = ppN/8 + (JJ-1)*7 + iu
-     I =  pN/8 + (II-1)*7 + iu
-
-     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-    END DO
-
-   END DO
-
-  END DO
-
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
- END IF
-
- CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012DISTR_L2
-
-
-SUBROUTINE E012GATHR_L2(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J,II,JJ,iu,ppN
-
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-  pN = N
-  CALL SENDI_myMPI(pN,0)
-  CALL RECVD_myMPI(D,4*N,0)
- ELSE
-  DO pID=1,subnodes
-
-   ppN = N
-
-   CALL RECVI_myMPI(pN ,pID)
-
-   DO II=1,pN/8
-    JJ = coarse%pELEMLINK(pID,II)
-
-    I = II
-    J = JJ
-
-    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
-    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
-    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
-    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
-
-    DO iu = 1,7
-
-     J = ppN/8 + (JJ-1)*7 + iu
-     I = pN/8 + (II-1)*7 + iu
-
-    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
-    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
-    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
-    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
-    END DO
-
-   END DO
-   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-  END DO
-
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
-!   pause
- END IF
-
- CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012GATHR_L2
-
-SUBROUTINE E012DISTR_L3(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J,JJ,II,III,JJJ,iu,ppN,iw
-
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-  pN = N
-  CALL SENDI_myMPI(pN,0)
-  CALL SENDD_myMPI(D,4*N,0)
- ELSE
-
-  ppn = N
-
-  DO pID=1,subnodes
-   CALL RECVI_myMPI(pN ,pID)
-   CALL RECVD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-
-   DO II=1,pN/64
-    JJ = coarse%pELEMLINK(pID,II)
-
-    I = II
-    J = JJ
-    D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-    D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-    D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-    D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-
-    DO iw = 1,7
-     J = ppN/8 + (JJ-1)*7 + iw
-     I =  pN/8 + (II-1)*7 + iw
-
-     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-    END DO
-
-    DO iu = 1,7
-
-     JJJ = ppN/64 + (JJ-1)*7 + iu
-     III =  pN/64 + (II-1)*7 + iu
-     I = III
-     J = JJJ
-
-     D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-     D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-     D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-     D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-
-     DO iw = 1,7
-
-      J = ppN/8 + (JJJ-1)*7 + iw
-      I =  pN/8 + (III-1)*7 + iw
- 
-      D(4*(J-1)+1) = MGE013(ILEV)%CRSVect(4*(I-1)+1)
-      D(4*(J-1)+2) = MGE013(ILEV)%CRSVect(4*(I-1)+2)
-      D(4*(J-1)+3) = MGE013(ILEV)%CRSVect(4*(I-1)+3)
-      D(4*(J-1)+4) = MGE013(ILEV)%CRSVect(4*(I-1)+4)
-     END DO
-
-    END DO
-
-   END DO
-
-  END DO
-
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
- END IF
-
- CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012DISTR_L3
-
-
-SUBROUTINE E012GATHR_L3(D,N)
-USE PP3D_MPI
-USE def_feat, ONLY: ILEV,NLMIN,NLMAX
-IMPLICIT NONE
-REAL*8 D(*)
-INTEGER N
-INTEGER pID,pN,I,J,II,JJ,III,JJJ,iu,ppN,iw
-
-!  WRITE(*,*) myid, "is here", ILEV
- IF (myid.NE.0) THEN
-  pN = N
-  CALL SENDI_myMPI(pN,0)
-  CALL RECVD_myMPI(D,4*N,0)
- ELSE
-  DO pID=1,subnodes
-
-   ppN = N
-
-   CALL RECVI_myMPI(pN ,pID)
-
-   DO II=1,pN/64
-    JJ = coarse%pELEMLINK(pID,II)
-
-    I = II
-    J = JJ
-
-    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
-    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
-    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
-    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
-
-    DO iw = 1,7
-
-     J = ppN/8 + (JJ-1)*7 + iw
-     I = pN/8 + (II-1)*7 + iw
-
-     MGE013(ILEV)%CRSVect(4*(I-1)+1) =D(4*(J-1)+1)
-     MGE013(ILEV)%CRSVect(4*(I-1)+2) =D(4*(J-1)+2)
-     MGE013(ILEV)%CRSVect(4*(I-1)+3) =D(4*(J-1)+3)
-     MGE013(ILEV)%CRSVect(4*(I-1)+4) =D(4*(J-1)+4)
-    END DO
-
-    DO iu = 1,7
-
-     JJJ = ppN/64 + (JJ-1)*7 + iu
-     III = pN/64 + (II-1)*7 + iu
-     I = III
-     J = JJJ
-
-    MGE013(ILEV)%CRSVect(4*(I-1)+1) = D(4*(J-1)+1)
-    MGE013(ILEV)%CRSVect(4*(I-1)+2) = D(4*(J-1)+2)
-    MGE013(ILEV)%CRSVect(4*(I-1)+3) = D(4*(J-1)+3)
-    MGE013(ILEV)%CRSVect(4*(I-1)+4) = D(4*(J-1)+4)
-
-    DO iw = 1,7
-
-     J = ppN/8 + (JJJ-1)*7 + iw
-     I = pN/8 + (III-1)*7 + iw
-
-     MGE013(ILEV)%CRSVect(4*(I-1)+1) =D(4*(J-1)+1)
-     MGE013(ILEV)%CRSVect(4*(I-1)+2) =D(4*(J-1)+2)
-     MGE013(ILEV)%CRSVect(4*(I-1)+3) =D(4*(J-1)+3)
-     MGE013(ILEV)%CRSVect(4*(I-1)+4) =D(4*(J-1)+4)
-    END DO
-
-    END DO
-
-   END DO
-   CALL SENDD_myMPI(MGE013(ILEV)%CRSVect,4*pN,pID)
-  END DO
-
-!   OPEN (885,FILE ='gfgfgf.txt')
-!   DO I=1,N
-!   WRITE(885,*) I,D(I)
-!   END DO
-!   CLOSE(885)
-!   pause
- END IF
-
- CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-END SUBROUTINE E012GATHR_L3
