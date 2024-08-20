@@ -650,7 +650,7 @@ SUBROUTINE General_init(MDATA,MFILE)
         CASE ("CGALtoRealFactor")
          READ(string(iEq+1:),*)dCGALtoRealFactor
          
-        CASE ("SynchComm")
+        CASE ("aSynchComm")
           cParam = " "
           READ(string(iEq+1:),*) cParam
           call inip_toupper_replace(cParam)
@@ -726,8 +726,8 @@ SUBROUTINE General_init(MDATA,MFILE)
       WRITE(mterm,'(A,I3)') "CommSwitch = ",iCommSwitch
       
       IF (baSynch) THEN
-       WRITE(mfile,'(A)') "SynchComm = YES"
-       WRITE(mterm,'(A)') "SynchComm = YES"
+       WRITE(mfile,'(A)') "aSynchComm = YES"
+       WRITE(mterm,'(A)') "aSynchComm = YES"
       ELSE
        WRITE(mfile,'(A)') "SynchComm = NO"
        WRITE(mterm,'(A)') "SynchComm = NO"

@@ -147,6 +147,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ CALL FindNodes()
  CSimPar = "SimPar"
 
  CALL  GDATNEW (CSimPar,0)
@@ -420,11 +421,13 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL E011_CreateComm(NDOF)
 
+ CALL MemoryPrint(1,'w','CGAL0')
  !     ----------------------------------------------------------            
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
+ CALL MemoryPrint(1,'w','CGAL1')
 
  ILEV=NLMIN
  CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)

@@ -3923,7 +3923,9 @@ END IF
 IF (bCreate) THEN
  CALL InitializeProlRest(QuadSc,LinSc)
  
+ CALL MemoryPrint(1,'w','CGALOUT0')
  CALL Release_cgal_structures()
+ CALL MemoryPrint(1,'w','CGALOUT1')
  
  !!! for the SSE app it is assumed to have a constant density distribution, which depends !!!!
  !!! only on the local tempertaure and material distribution                              !!!!
