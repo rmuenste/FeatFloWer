@@ -226,7 +226,7 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
   if (bMemoryPrint) CALL MemoryPrint(0,'w','msg')
   
-  call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
+  call genMeshStructures(mgMesh, calculateExtendedConnectivity,icurr)
 
   if(myid.eq.1)then
     write(*,*)'Refining to level: ',maxlevel
@@ -239,7 +239,7 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
     icurr = icurr + 1 
     call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
-    call genMeshStructures(mgMesh%level(icurr), calculateExtendedConnectivity)
+    call genMeshStructures(mgMesh, calculateExtendedConnectivity,icurr)
 
     if(myid.eq.1)then
       write(*,*)'-----RefinementLevelFinished-----'
@@ -491,12 +491,13 @@ end subroutine
 !================================================================================================
 !                                 Sub: genMeshStructures  
 !================================================================================================
-subroutine genMeshStructures(mesh, extended)
+subroutine genMeshStructures(mesh, extended,icurr)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
   IMPLICIT NONE
-  type(tMesh), intent(inout) :: mesh
+  type(tMultiMesh), intent(inout) :: mesh
   logical, optional, intent(in) :: extended 
+  integer :: icurr
 
   ! local variables
   real :: ttt0=0.0,ttt1=0.0
@@ -511,7 +512,7 @@ subroutine genMeshStructures(mesh, extended)
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','KVEL')
-  call genKVEL(mesh) 
+  call genKVEL(mesh%level(icurr)) 
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -523,7 +524,7 @@ subroutine genMeshStructures(mesh, extended)
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','KEDGE')
-  call genKEDGE2(mesh)
+  call genKEDGE2(mesh%level(icurr))
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -532,24 +533,43 @@ subroutine genMeshStructures(mesh, extended)
     WRITE(*,*) 'time for KEDGE : ',TTGRID
   END IF
 
-  !call genKADJ(mesh)
+  !call genKADJ(mesh%level(icurr))
 
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','KADJ')
-  call genKADJ2(mesh)
+  
+  ! CALL global divide and conquere only on initial level
+  IF (icurr.GT.1) THEN
+    CALL ZTIME(TTT0)
+
+    call genKADJ3(mesh%level(icurr-1), mesh%level(icurr))
+    CALL ZTIME(TTT1)
+    TTGRID=TTT1-TTT0
+
+    IF (myid.eq.showid) THEN
+      WRITE(*,*) 'time for KADJ3 : ',TTGRID
+    END IF
+  ELSE
+    CALL ZTIME(TTT0)
+
+    call genKADJ2(mesh%level(icurr))
+    CALL ZTIME(TTT1)
+    TTGRID=TTT1-TTT0
+  
+    IF (myid.eq.showid) THEN
+      WRITE(*,*) 'time for KADJ2 : ',TTGRID
+    END IF
+  
+  END IF
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
 
-  IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KADJ2 : ',TTGRID
-  END IF
-
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','KAREA')
-  call genKAREA(mesh)
+  call genKAREA(mesh%level(icurr))
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -561,7 +581,7 @@ subroutine genMeshStructures(mesh, extended)
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','VAR')
-  call genKVAR(mesh)
+  call genKVAR(mesh%level(icurr))
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -573,7 +593,7 @@ subroutine genMeshStructures(mesh, extended)
   CALL ZTIME(TTT0)
 
   if (bMemoryPrint) CALL MemoryPrint(1,'s','DCORAG')
-  call genDCORAG(mesh)
+  call genDCORAG(mesh%level(icurr))
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
 
@@ -584,7 +604,7 @@ subroutine genMeshStructures(mesh, extended)
   if(calculateExtendedConnectivity)then
     CALL ZTIME(TTT0)
     if (bMemoryPrint) CALL MemoryPrint(1,'s','ElAtVert')
-    call tria_genElementsAtVertex3D(mesh)
+    call tria_genElementsAtVertex3D(mesh%level(icurr))
     CALL ZTIME(TTT1)
     TTGRID=TTT1-TTT0
 
@@ -838,6 +858,163 @@ subroutine genKADJ2(mesh)
   !end if
 
 end subroutine genKADJ2
+
+!================================================================================================
+!                                    Sub: genKADJ3  
+!================================================================================================
+subroutine genKADJ3(mesh0, mesh1)
+  use PP3D_MPI, only:myid,showid
+  use var_QuadScalar
+  implicit none
+
+  ! build adj oon mesh(n+1) based on mesh(n), mesh(0) is done by genKADJ2
+  type(tMesh), intent(inout) :: mesh0, mesh1
+
+  integer :: ielem, ielOffset
+  integer :: iel0, iel1, iel2, iel3, iel4, iel5, iel6, iel7
+
+  integer, dimension(6) :: localAdj
+
+  integer, dimension(4) :: bottom, west, north, east, south, top
+  logical :: bbottom, bwest, bnorth, beast, bsouth, btop
+
+  if(.not.allocated(mesh1%kadj))then
+    allocate(mesh1%kadj(mesh0%nae,8*mesh0%nel))
+  end if
+
+  mesh1%kadj = 0
+
+  ! loop over all macro elements
+  ielOffset = mesh0%nel
+  do ielem=1,mesh0%nel
+
+    iel0 = ielem
+    iel1 = ielOffset + 1
+    iel2 = ielOffset + 2
+    iel3 = ielOffset + 3
+    iel4 = ielOffset + 4
+    iel5 = ielOffset + 5
+    iel6 = ielOffset + 6
+    iel7 = ielOffset + 7
+
+    ielOffset = ielOffset + 7 
+    
+    localAdj = mesh0%KADJ(:,ielem)
+    ! look in which direction the current macro element couples
+    bbottom = (localAdj(1).GT.0); bottom = 0
+    bwest   = (localAdj(2).GT.0); west = 0
+    bnorth  = (localAdj(3).GT.0); north = 0
+    beast   = (localAdj(4).GT.0); east = 0
+    bsouth  = (localAdj(5).GT.0); south = 0
+    btop    = (localAdj(6).GT.0); top = 0
+    
+    ! get element number of micro elements from macro neighbour  
+    if (bbottom) then
+      bottom = neighbourOrientation(mesh0%kadj(:,localAdj(1)), mesh0%nel, ielem, localAdj(1), mesh0%kvert, 1)
+    end if
+    if (bwest) then
+      west = neighbourOrientation(mesh0%kadj(:,localAdj(2)), mesh0%nel, ielem, localAdj(2), mesh0%kvert, 2)
+    end if
+    if (bnorth) then
+      north = neighbourOrientation(mesh0%kadj(:,localAdj(3)), mesh0%nel, ielem, localAdj(3), mesh0%kvert, 3)
+    end if
+    if (beast) then
+      east = neighbourOrientation(mesh0%kadj(:,localAdj(4)), mesh0%nel, ielem, localAdj(4), mesh0%kvert, 4)
+    end if
+    if (bsouth) then
+      south = neighbourOrientation(mesh0%kadj(:,localAdj(5)), mesh0%nel, ielem, localAdj(5), mesh0%kvert, 5)
+    end if
+    if (btop) then
+      top = neighbourOrientation(mesh0%kadj(:,localAdj(6)), mesh0%nel, ielem, localAdj(6), mesh0%kvert, 6)
+    end if
+
+    ! fill in the adj structure on micro level
+    mesh1%kadj(:,iel0)  = (/bottom(1), west(2),  iel1, iel3, south(1), iel4/)  
+    mesh1%kadj(:,iel1)  = (/bottom(4), north(2), iel2, iel0, west(1), iel5/) 
+    mesh1%kadj(:,iel2)  = (/bottom(3), east(2),  iel3, iel1, north(1), iel6/) 
+    mesh1%kadj(:,iel3)  = (/bottom(2), south(2), iel0, iel2, east(1), iel7/) 
+
+    mesh1%kadj(:,iel4)  = (/top(1), west(3),  iel5, iel7, south(4), iel0/)
+    mesh1%kadj(:,iel5)  = (/top(4), north(3), iel6, iel4, west(4), iel1/)
+    mesh1%kadj(:,iel6)  = (/top(3), east(3),  iel7, iel5, north(4), iel2/)
+    mesh1%kadj(:,iel7)  = (/top(2), south(3), iel4, iel6, east(4), iel3/)
+
+  
+  end do
+
+end subroutine genKADJ3
+
+function neighbourOrientation(adj1, nel, ielem, localAdj, kvert, dir)
+  ! helper function for genKADJ3
+  integer, intent(in) :: nel, ielem, localAdj, dir
+  integer, dimension(6), intent(in) :: adj1
+  integer, dimension(:,:), intent(in) :: kvert
+  integer :: ori, shift
+  integer, dimension(4) :: neighbourOrientation, face1, face0, aux
+  integer :: ive1, ive2, ive3, ive4, jve1, jve2, jve3, jve4
+
+  ! find which macro element couples to the current element 
+  ori = findloc(adj1, value=ielem, DIM=1)
+
+  ! get neigboughring macro area numbers
+  ive1=kiad(1,ori)
+  ive2=kiad(2,ori)
+  ive3=kiad(3,ori)
+  ive4=kiad(4,ori)
+
+  face1=(/kvert(ive1,localAdj),&
+        kvert(ive2,localAdj),&
+        kvert(ive3,localAdj),&
+        kvert(ive4,localAdj)/)
+
+  jve1=kiad(1,dir)
+  jve2=kiad(2,dir)
+  jve3=kiad(3,dir)
+  jve4=kiad(4,dir)
+
+  face0=(/kvert(jve1,ielem),&
+        kvert(jve2,ielem),&
+        kvert(jve3,ielem),&
+        kvert(jve4,ielem)/)
+
+  ! get the local numbers of the micro elements
+  SELECT CAsE (ori)
+    CASE (1) ! bottom
+      aux =(/0,3,2,1/)
+    CASE (2) ! west
+      aux =(/1,0,4,5/)
+    CASE (3) ! north
+      aux =(/2,1,5,6/)
+    CASE (4) ! east
+      aux =(/3,2,6,7/)
+    CASE (5) ! south
+      aux =(/0,3,7,4/)
+    CASE (6) ! top
+      aux =(/4,7,6,5/)
+    CASE (0) ! default
+      neighbourOrientation = (/0,0,0,0/)
+  END SELECT
+
+  ! find numbering order
+  shift = findloc(face1,value=face0(1), DIM=1)
+  neighbourOrientation(1) = aux(shift)
+  shift = findloc(face1,value=face0(2), DIM=1)
+  neighbourOrientation(2) = aux(shift)
+  shift = findloc(face1,value=face0(3), DIM=1)
+  neighbourOrientation(3) = aux(shift)
+  shift = findloc(face1,value=face0(4), DIM=1)
+  neighbourOrientation(4) = aux(shift)
+
+  ! calculate the global micro numbering
+  DO shift = 1,4
+    if (neighbourOrientation(shift).eq.0) then
+      neighbourOrientation(shift) = localAdj
+    else
+      neighbourOrientation(shift) = nel+7*(localAdj-1)+neighbourOrientation(shift)
+    end if
+  END DO
+
+end function neighbourOrientation
 
 !================================================================================================
 !                                    Sub: genKEDGE  
