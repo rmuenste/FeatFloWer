@@ -261,7 +261,7 @@ def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
 
 def OutputParFile(Name,Type,Parameters,Boundary):
-  print("Output parameter file: " + Name)
+  #print("Output parameter file: " + Name)
   with open(Name,"w") as f:
     f.write("%d %s\n"%(len(Boundary),Type))
     f.write(Parameters+"\n")
@@ -271,7 +271,7 @@ def OutputParFile(Name,Type,Parameters,Boundary):
 def OutputGrid(Name,Grid):
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
-  print("Output grid file: " + Name)
+  #print("Output grid file: " + Name)
   with open(Name,'w') as f:
     f.write("Coarse mesh exported by Partitioner\n")
     f.write("Parametrisierung PARXC, PARYC, TMAXC\n")
