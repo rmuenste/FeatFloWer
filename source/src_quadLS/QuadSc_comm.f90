@@ -27,7 +27,7 @@ IF (myid.eq.MASTER) return
 
 if (.not.allocated(myPC)) allocate(myPC(1:nlmax))
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 CALL ztime(tt0)
 
 allocate (NumberOfMyRecords(myRecComm%NumHosts),NumberOfAllRecords(myRecComm%NumHosts,myRecComm%NumNodes))
@@ -63,6 +63,8 @@ DO pJD=1,myRecComm%NumHosts
   end do
 END DO
 
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
 ! if (myRecComm%myid.eq.0) then 
 !  DO pID = 1,myRecComm%NumHosts
 !   write(*,'(I5,A,100I5)') myRecComm%MyNodeGroup, 'AllRecords: ',myPC(ILEV)%StartOfAllRecords(pID,:)
@@ -75,7 +77,6 @@ DO pJD=1,myRecComm%NumHosts
   nSIZE = myPC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
   if (nSIZE.gt.0) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myPC(ILEV)%CODECs(pJD)%x,(nSIZE+1)*3, myPC(ILEV)%CODECs_win(pJD),myPC(ILEV)%CODECsptr(pJD),ierr)
-   myPC(ILEV)%CODECs(pJD)%x = 0
   end if
 !   if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
 !    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myPC(ILEV)%CODECr(pJD)%x,(nSIZE+1)*3, myPC(ILEV)%CODECr_win(pJD),myPC(ILEV)%CODECrptr(pJD),ierr)
@@ -85,6 +86,17 @@ DO pJD=1,myRecComm%NumHosts
 !    write(*,*) myRecComm%MyNodeGroup,' to ', pJD,' size: ',nSIZE,size(myPC(ILEV)%CODECs(pJD)%x)
 !   end if
 END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pJD=1,myRecComm%NumHosts
+   nSIZE = myPC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
+   if (nSIZE.gt.0) then
+    myPC(ILEV)%CODECs(pJD)%x = 0
+   end if
+ END DO
+END IF
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
@@ -152,10 +164,14 @@ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myPC(ILEV)%sendSIZE,myRecComm%NumHosts, myPC(ILEV)%SIZEs_win,myPC(ILEV)%SIZEsptr,ierr)
 CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myPC(ILEV)%recvSIZE,myRecComm%NumHosts, myPC(ILEV)%SIZEr_win,myPC(ILEV)%SIZErptr,ierr)
 
-myPC(ILEV)%sendSIZE(1:myRecComm%NumHosts) = 0
-myPC(ILEV)%recvSIZE(1:myRecComm%NumHosts) = 0
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
-CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+IF (myRecComm%myID.eq.0) THEN
+ myPC(ILEV)%sendSIZE(1:myRecComm%NumHosts) = 0
+ myPC(ILEV)%recvSIZE(1:myRecComm%NumHosts) = 0
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 IF (myRecComm%myID.eq.0) THEN
  DO pID=1,myRecComm%NumHosts
@@ -178,7 +194,7 @@ IF (myRecComm%myID.eq.0) THEN
  END DO
 END IF
 
-CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 DO pJD=1,myRecComm%NumHosts
   nSIZE = myPC(ILEV)%recvSIZE(pJD)
@@ -187,15 +203,20 @@ DO pJD=1,myRecComm%NumHosts
   end if
 END DO
 
-IF (myRecComm%myID.eq.0) THEN
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
+IF (myRecComm%myID.eq.0) THEN
  DO pJD=1,myRecComm%NumHosts
   nSIZE = myPC(ILEV)%recvSIZE(pJD)
   if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
    myPC(ILEV)%CODECr(pJD)%x = 0
   end if
  END DO
+END IF
  
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+IF (myRecComm%myID.eq.0) THEN
  ! Communication of the group-leaders
  DO pID=1,myRecComm%NumHosts
   IF (myRecComm%myNodeGroup.NE.pID) THEN
@@ -217,7 +238,7 @@ IF (myRecComm%myID.eq.0) THEN
 
 END IF
 
-CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 ! if (myRecComm%myid.eq.0) then
 !  DO pJD=1,myRecComm%NumHosts
@@ -246,11 +267,11 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
 if (allocated(NumberOfMyRecords)) deallocate (NumberOfMyRecords)
 if (allocated(NumberOfAllRecords)) deallocate (NumberOfAllRecords)
 myPC(ILEV)%bPrepared = .true.
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 END SUBROUTINE E012RecCOMM_Init
 ! ----------------------------------------------
@@ -315,6 +336,8 @@ DO pJD=1,myRecComm%NumHosts
   end do
 END DO
 
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
 ! if (myRecComm%myid.eq.0) then 
 !  DO pID = 1,myRecComm%NumHosts
 !   write(*,'(I5,A,100I5)') myRecComm%MyNodeGroup, 'AllRecords: ',myRC(ILEV)%StartOfAllRecords(pID,:)
@@ -327,11 +350,9 @@ DO pJD=1,myRecComm%NumHosts
   nSIZE = myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
   if (nSIZE.gt.0) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myRC(ILEV)%CODECs(pJD)%x,(nSIZE+1)*3, myRC(ILEV)%CODECs_win(pJD),myRC(ILEV)%CODECsptr(pJD),ierr)
-   myRC(ILEV)%CODECs(pJD)%x = 0
   end if
   if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myRC(ILEV)%CODECr(pJD)%x,(nSIZE+1)*3, myRC(ILEV)%CODECr_win(pJD),myRC(ILEV)%CODECrptr(pJD),ierr)
-   myRC(ILEV)%CODECr(pJD)%x = 0
   end if
 !   if (myRecComm%myid.eq.0) then 
 !    write(*,*) myRecComm%MyNodeGroup,' to ', pJD,' size: ',nSIZE,size(myRC(ILEV)%CODECs(pJD)%x)
@@ -340,6 +361,17 @@ END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
+if (myRecComm%myid.eq.0) then
+ DO pJD=1,myRecComm%NumHosts
+  nSIZE = myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
+  if (nSIZE.gt.0) then
+   myRC(ILEV)%CODECs(pJD)%x = 0
+   myRC(ILEV)%CODECr(pJD)%x = 0
+  end if
+ END DO
+END IF
+   
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 ! We need to to create a displacement info which will help us later to define the start-position this particular process to fill up 
 ! the node-collected exchange buffers.
 ! Fill up the CODECs with the [sender,receiver,datasize] information
@@ -402,12 +434,12 @@ DO pJD=1,myRecComm%NumHosts
   iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3
   IF (iaux.gt.0) then
    nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
-   CALL get_shared_memory_DBL(MPI_COMM_SUBGROUP,myRC(ILEV)%s(pJD)%x,3*nSIZE, myRC(ILEV)%winS(pJD),myRC(ILEV)%ptrS(pJD),ierr)
+   CALL get_shared_memory_DBL(MPI_COMM_SUBGROUP,myRC(ILEV)%s(pJD)%x,4*nSIZE, myRC(ILEV)%winS(pJD),myRC(ILEV)%ptrS(pJD),ierr)
   END IF
   
   IF (iaux.gt.0.and.pJD.ne.myRecComm%myNodeGroup) then
    nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
-   CALL get_shared_memory_DBL(MPI_COMM_SUBGROUP,myRC(ILEV)%r(pJD)%x,3*nSIZE, myRC(ILEV)%winR(pJD),myRC(ILEV)%ptrR(pJD),ierr)
+   CALL get_shared_memory_DBL(MPI_COMM_SUBGROUP,myRC(ILEV)%r(pJD)%x,4*nSIZE, myRC(ILEV)%winR(pJD),myRC(ILEV)%ptrR(pJD),ierr)
   END IF
  END IF
 END DO
@@ -437,6 +469,8 @@ if (allocated(NumberOfMyRecords)) deallocate (NumberOfMyRecords)
 if (allocated(NumberOfAllRecords)) deallocate (NumberOfAllRecords)
 
 myRC(ILEV)%bPrepared = .TRUE.
+
+CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
 END SUBROUTINE E013RecCOMM_Init
 ! ----------------------------------------------
@@ -478,7 +512,7 @@ LEQ1 =0
 LEQ2 =LEQ
 LEQ3 =2*LEQ
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
@@ -614,8 +648,7 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt1)
 myStat%tCommV = myStat%tCommV + (tt1-tt0)
  
@@ -662,7 +695,7 @@ LEQ1 =0
 LEQ2 =LEQ
 LEQ3 =2*LEQ
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
@@ -798,8 +831,7 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt1)
 myStat%tCommV = myStat%tCommV + (tt1-tt0)
  
@@ -810,7 +842,7 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE E013SumRec(FX) !ok
+SUBROUTINE E013Sum2Rec(FX1,FX2) !ok
 use, INTRINSIC :: ISO_C_BINDING
 use mpi
 use shared_memory_module, only : get_shared_memory_INT,get_shared_memory_DBL,myRC
@@ -821,10 +853,11 @@ USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat,nlmax
 use var_QuadScalar, ONLY : myRecComm
 
 implicit none
-REAL*8  FX(*)
+REAL*8  FX1(*),FX2(*)
 
 INTEGER send_req(numnodes),recv_req(numnodes)
 INTEGER STATUS(MPI_STATUS_SIZE)
+
 INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
 INTEGER MEQ,MEQ1,MEQ2,MEQ3
 INTEGER LEQ,LEQ1,LEQ2,LEQ3
@@ -842,10 +875,8 @@ if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
 
 LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
 LEQ1 =0
-LEQ2 =LEQ
-LEQ3 =2*LEQ
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
@@ -867,9 +898,8 @@ DO pJD=1,myRecComm%NumHosts
  !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
      DO I=1,nSIZE
        iShift = MGE013(ILEV)%ST(pID)%VertLink(1,I)
-       myRC(ILEV)%s(pJD)%x(iLoc + I ) = FX(iShift)
-!        myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 2) = FX(LEQ2 + iShift)
-!        myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 3) = FX(LEQ3 + iShift)
+       myRC(ILEV)%s(pJD)%x(2*(iLoc + I - 1) + 1) = FX1(iShift)
+       myRC(ILEV)%s(pJD)%x(2*(iLoc + I - 1) + 2) = FX2(iShift)
      END DO
     END IF
    END DO
@@ -890,8 +920,8 @@ IF (myRecComm%myID.eq.0) THEN
      iaux = size(myRC(ILEV)%CODECs(pID)%x)/3
      nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
      
-!     CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,nSIZE,myRecComm%hostleaders(pID))
-     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
+!      CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,2*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
     END IF
    
   ELSE
@@ -900,8 +930,8 @@ IF (myRecComm%myID.eq.0) THEN
     if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0.and.pJD.ne.myRecComm%myNodeGroup) then 
      iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3
      nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
-!     CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,nSIZE,myRecComm%hostleaders(pJD))
-     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
+!      CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,2*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
     END IF
    END DO
   END IF
@@ -948,7 +978,8 @@ DO pJD=1,myRecComm%NumHosts
   !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
       DO I=1,nSIZE
         iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
-        FX(iShift) = FX(iShift) + myRC(ILEV)%r(pJD)%x(iLoc + I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(2*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%r(pJD)%x(2*(iLoc + I - 1) + 2)
       END DO
      END IF
     END DO
@@ -968,7 +999,8 @@ DO pJD=1,myRecComm%NumHosts
 !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
      DO I=1,nSIZE
         iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
-        FX(iShift) = FX(iShift) + myRC(ILEV)%s(pJD)%x(iLoc + I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(2*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%s(pJD)%x(2*(iLoc + I - 1) + 2)
      END DO
     END IF
    END DO
@@ -977,13 +1009,384 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt1)
 myStat%tCommV = myStat%tCommV + (tt1-tt0)
  
 ! write(*,*) myid,'done', (tt1-tt0)
+! pause
  
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013Sum4Rec(FX1,FX2,FX3,FX4) !ok
+use, INTRINSIC :: ISO_C_BINDING
+use mpi
+use shared_memory_module, only : get_shared_memory_INT,get_shared_memory_DBL,myRC
+USE PP3D_MPI, ONLY : ierr,myid,master,numnodes,subnodes,MPI_COMM_SUBS,MPI_COMM_SUBGROUP
+USE PP3D_MPI, ONLY : SENDD_myMPI,RECVD_myMPI,SENDK_myMPI,RECVK_myMPI,MGE013
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat,nlmax
+use var_QuadScalar, ONLY : myRecComm
+
+implicit none
+REAL*8  FX1(*),FX2(*),FX3(*),FX4(*)
+
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
+
+INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
+INTEGER MEQ,MEQ1,MEQ2,MEQ3,MEQ4
+INTEGER LEQ,LEQ1,LEQ2,LEQ3,LEQ4
+INTEGER :: dblesize=8,intsize=4
+
+character(len=256) :: cFMT
+REAL*4 tt0,tt1
+
+IF (myid.eq.MASTER) return
+
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
+
+if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
+
+LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
+LEQ1 =0
+LEQ2 =LEQ
+LEQ3 =2*LEQ
+LEQ4 =3*LEQ
+ 
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL ztime(tt0)
+
+IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
+
+! extract the data to be sent
+! All processes from the given host upload the data packages to be sent
+DO pJD=1,myRecComm%NumHosts
+
+ if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+  iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!  IF (iaux.gt.0) THEN
+  
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+1).eq.myid) THEN
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+2) ! receiver
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+ !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+       iShift = MGE013(ILEV)%ST(pID)%VertLink(1,I)
+       myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 1) = FX1(iShift)
+       myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 2) = FX2(iShift)
+       myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 3) = FX3(iShift)
+       myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 4) = FX4(iShift)
+     END DO
+    END IF
+   END DO
+ END IF
+ 
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! Communication of the group-leaders
+IF (myRecComm%myID.eq.0) THEN
+
+ DO pID=1,myRecComm%NumHosts
+ 
+  IF (myRecComm%myNodeGroup.NE.pID) THEN
+  
+   if (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0) then 
+     iaux = size(myRC(ILEV)%CODECs(pID)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
+     
+!      CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,4*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
+    END IF
+   
+  ELSE
+   DO pJD=1,myRecComm%NumHosts
+   
+    if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0.and.pJD.ne.myRecComm%myNodeGroup) then 
+     iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
+!      CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,4*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
+    END IF
+   END DO
+  END IF
+  
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
+ END DO
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! if (myRecComm%myid.eq.0) then 
+!  DO pJD=1,myRecComm%NumHosts
+!   DO i=0,size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!    write(*,*) pJD,"X",myRC(ILEV)%CODECr(pJD)%x(3*i+1:3*i+3)
+!   END DO
+!  END DO
+! end if
+! 
+! write(*,*) myid,'done'
+! pause
+
+! All processes from the given host extract their own data packages
+DO pJD=1,myRecComm%NumHosts
+
+ IF (pJD.ne.myRecComm%myNodeGroup) then
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+    iaux = size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   
+    DO j=1,iaux
+     jaux = 3*(j-1)
+     IF (myRC(ILEV)%CODECr(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+      pID  = myRC(ILEV)%CODECr(pJD)%x(jaux+1) ! sender
+      iLoc = myRC(ILEV)%CODECr(pJD)%x(jaux+3) ! Start location for reading the data
+      nSIZE = myRC(ILEV)%CODECr(pJD)%x(jaux+6) - myRC(ILEV)%CODECr(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+  !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+      DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(4*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%r(pJD)%x(4*(iLoc + I - 1) + 2)
+        FX3(iShift) = FX3(iShift) + myRC(ILEV)%r(pJD)%x(4*(iLoc + I - 1) + 3)
+        FX4(iShift) = FX4(iShift) + myRC(ILEV)%r(pJD)%x(4*(iLoc + I - 1) + 4)
+      END DO
+     END IF
+    END DO
+  END IF
+  
+ ELSE !pJD.eq.myRecComm%myNodeGroup)
+ 
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+   iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+1) ! sender
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+!     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 1)
+        FX2(iShift) = FX2(iShift) + myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 2)
+        FX3(iShift) = FX3(iShift) + myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 3)
+        FX4(iShift) = FX4(iShift) + myRC(ILEV)%s(pJD)%x(4*(iLoc + I - 1) + 4)
+     END DO
+    END IF
+   END DO
+  END IF
+   
+ END IF
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL ztime(tt1)
+myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+! write(*,*) myid,'done', (tt1-tt0)
+! pause
+ 
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013SumRec(FX1) !ok
+use, INTRINSIC :: ISO_C_BINDING
+use mpi
+use shared_memory_module, only : get_shared_memory_INT,get_shared_memory_DBL,myRC
+USE PP3D_MPI, ONLY : ierr,myid,master,numnodes,subnodes,MPI_COMM_SUBS,MPI_COMM_SUBGROUP
+USE PP3D_MPI, ONLY : SENDD_myMPI,RECVD_myMPI,SENDK_myMPI,RECVK_myMPI,MGE013
+USE def_feat, ONLY: ILEV
+USE var_QuadScalar,ONLY:knvt,knet,knat,knel,myStat,nlmax
+use var_QuadScalar, ONLY : myRecComm
+
+implicit none
+REAL*8  FX1(*)
+
+INTEGER send_req(numnodes),recv_req(numnodes)
+INTEGER STATUS(MPI_STATUS_SIZE)
+
+INTEGER I,J,pID,pJD,nSIZE,nEIGH,iLOC,iSHIFT,iAUX,jAUX,nXX
+INTEGER MEQ,MEQ1,MEQ2,MEQ3
+INTEGER LEQ,LEQ1,LEQ2,LEQ3
+INTEGER :: dblesize=8,intsize=4
+
+character(len=256) :: cFMT
+REAL*4 tt0,tt1
+
+IF (myid.eq.MASTER) return
+! IF (myid.eq.1) write(*,*) ' ********************************* E013CommRec ****************************'
+
+send_req = MPI_REQUEST_NULL
+recv_req = MPI_REQUEST_NULL
+
+if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
+
+LEQ = KNVT(ILEV) + KNAT(ILEV) + KNET(ILEV) + KNEL(ILEV)
+LEQ1 =0
+LEQ2 =LEQ
+LEQ3 =2*LEQ
+ 
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL ztime(tt0)
+
+IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
+
+! extract the data to be sent
+! All processes from the given host upload the data packages to be sent
+DO pJD=1,myRecComm%NumHosts
+
+ if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+  iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!  IF (iaux.gt.0) THEN
+  
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+1).eq.myid) THEN
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+2) ! receiver
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+ !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+       iShift = MGE013(ILEV)%ST(pID)%VertLink(1,I)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 1) = FX1(iShift)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 2) = FX1(iShift)
+       myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 3) = FX1(iShift)
+     END DO
+    END IF
+   END DO
+ END IF
+ 
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! Communication of the group-leaders
+IF (myRecComm%myID.eq.0) THEN
+
+ DO pID=1,myRecComm%NumHosts
+ 
+  IF (myRecComm%myNodeGroup.NE.pID) THEN
+  
+   if (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0) then 
+     iaux = size(myRC(ILEV)%CODECs(pID)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pID)%x(3*iaux)
+     
+!      CALL SENDD_myMPI(myRC(ILEV)%s(pID)%x,3*nSIZE,myRecComm%hostleaders(pID))
+     CALL MPI_ISEND(myRC(ILEV)%s(pID)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pID),1001,MPI_COMM_WORLD,send_req(pID),IERR)
+    END IF
+   
+  ELSE
+   DO pJD=1,myRecComm%NumHosts
+   
+    if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0.and.pJD.ne.myRecComm%myNodeGroup) then 
+     iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(3*iaux)
+!      CALL RECVD_myMPI(myRC(ILEV)%r(pJD)%x,3*nSIZE,myRecComm%hostleaders(pJD))
+     CALL MPI_IRECV(myRC(ILEV)%r(pJD)%x,3*nSIZE,MPI_DOUBLE_PRECISION,myRecComm%hostleaders(pJD),1001,MPI_COMM_WORLD,recv_req(pJD),IERR)
+    END IF
+   END DO
+  END IF
+  
+ END DO
+END IF
+
+IF (myRecComm%myID.eq.0) THEN
+ DO pID=1,myRecComm%NumHosts
+  IF (myRC(ILEV)%StartOfAllRecords(pID,myRecComm%NumNodes+1).gt.0.and.myRecComm%myNodeGroup.NE.pID) then 
+     CALL MPI_Wait(send_req(pID),STATUS, IERR )
+     CALL MPI_Wait(recv_req(pID),STATUS, IERR )
+  END IF
+ END DO
+END IF
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+
+! if (myRecComm%myid.eq.0) then 
+!  DO pJD=1,myRecComm%NumHosts
+!   DO i=0,size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!    write(*,*) pJD,"X",myRC(ILEV)%CODECr(pJD)%x(3*i+1:3*i+3)
+!   END DO
+!  END DO
+! end if
+! 
+! write(*,*) myid,'done'
+! pause
+
+! All processes from the given host extract their own data packages
+DO pJD=1,myRecComm%NumHosts
+
+ IF (pJD.ne.myRecComm%myNodeGroup) then
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+    iaux = size(myRC(ILEV)%CODECr(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   
+    DO j=1,iaux
+     jaux = 3*(j-1)
+     IF (myRC(ILEV)%CODECr(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+      pID  = myRC(ILEV)%CODECr(pJD)%x(jaux+1) ! sender
+      iLoc = myRC(ILEV)%CODECr(pJD)%x(jaux+3) ! Start location for reading the data
+      nSIZE = myRC(ILEV)%CODECr(pJD)%x(jaux+6) - myRC(ILEV)%CODECr(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+  !     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+      DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 1)
+!         FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 2)
+!         FX1(iShift) = FX1(iShift) + myRC(ILEV)%r(pJD)%x(3*(iLoc + I - 1) + 3)
+      END DO
+     END IF
+    END DO
+  END IF
+  
+ ELSE !pJD.eq.myRecComm%myNodeGroup)
+ 
+  if (myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1).gt.0) then 
+   iaux = size(myRC(ILEV)%CODECs(pJD)%x)/3-1
+!   IF (iaux.gt.0) THEN
+   DO j=1,iaux
+    jaux = 3*(j-1)
+    IF (myRC(ILEV)%CODECs(pJD)%x(jaux+2).eq.myid) THEN ! receiver is me
+     pID  = myRC(ILEV)%CODECs(pJD)%x(jaux+1) ! sender
+     iLoc = myRC(ILEV)%CODECs(pJD)%x(jaux+3) ! Start location for reading the data
+     nSIZE = myRC(ILEV)%CODECs(pJD)%x(jaux+6) - myRC(ILEV)%CODECs(pJD)%x(jaux+3) !MGE013(ILEV)%ST(pID)%Num
+!     write(*,*) myid,pID,nSIZE,MGE013(ILEV)%ST(pID)%Num
+     DO I=1,nSIZE
+        iShift = MGE013(ILEV)%ST(pID)%VertLink(2,I)
+        FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 1)
+!         FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 2)
+!         FX1(iShift) = FX1(iShift) + myRC(ILEV)%s(pJD)%x(3*(iLoc + I - 1) + 3)
+     END DO
+    END IF
+   END DO
+  END IF
+   
+ END IF
+END DO
+
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+CALL ztime(tt1)
+myStat%tCommV = myStat%tCommV + (tt1-tt0)
+ 
+! write(*,*) myid,'done', (tt1-tt0)
+! pause
+
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -1024,7 +1427,7 @@ LEQ1 =0
 LEQ2 =LEQ
 LEQ3 =2*LEQ
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
@@ -1170,8 +1573,7 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt1)
 myStat%tCommV = myStat%tCommV + (tt1-tt0)
 
@@ -1219,7 +1621,7 @@ if (.not.allocated(myRC)) allocate(myRC(1:nlmax))
 
 IF (.not.myRC(ILEV)%bPrepared) CALL E013RecCOMM_Init()
 
-CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 DO I=1,NU
@@ -1390,7 +1792,7 @@ recv_req = MPI_REQUEST_NULL
 
 if (.not.allocated(myPC)) allocate(myPC(1:nlmax))
  
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt0)
 
 IF (.not.myPC(ILEV)%bPrepared) CALL E012RecCOMM_Init()
@@ -1422,6 +1824,7 @@ DO pJD=1,myRecComm%NumHosts
 END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+!CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 
 ! Communication of the group-leaders
 IF (myRecComm%myID.eq.0) THEN
@@ -1463,6 +1866,7 @@ IF (myRecComm%myID.eq.0) THEN
 END IF
 
 CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
+!CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 ! 
 ! ! if (myRecComm%myid.eq.0) then 
 ! !  DO pJD=1,myRecComm%NumHosts
@@ -1528,8 +1932,7 @@ DO pJD=1,myRecComm%NumHosts
  END IF
 END DO
 
-! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
+CALL MPI_BARRIER(MPI_COMM_SUBGROUP,IERR)
 CALL ztime(tt1)
 myStat%tCommP = myStat%tCommP + (tt1-tt0)
  

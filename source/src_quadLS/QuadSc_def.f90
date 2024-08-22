@@ -4891,9 +4891,7 @@ EXTERNAL E013
 !   CALL COMM_Maximum(RESF0)
 ! !  IF (myid.eq.1) WRITE(*,*)  "RESF : ",0, RESF0
 
- CALL E013Sum(qSc%defU)
- CALL E013Sum(qSc%defV)
- CALL E013Sum(qSc%defW)
+ CALL E013Sum3(qSc%defU,qSc%defV,qSc%defW)
 
  DO i=1,SIZE(qSc%ValU)
   if (qSc%auxU(i).ne.0d0) then

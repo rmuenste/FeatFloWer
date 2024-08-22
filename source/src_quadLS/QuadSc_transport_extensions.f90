@@ -2118,9 +2118,10 @@ IF (myid.ne.master) THEN
  QuadSc%auxU = QuadSc%defU
  QuadSc%auxV = QuadSc%defV
  QuadSc%auxW = QuadSc%defW
- CALL E013Sum(QuadSc%auxU)
- CALL E013Sum(QuadSc%auxV)
- CALL E013Sum(QuadSc%auxW)
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+! CALL E013Sum(QuadSc%auxU)
+! CALL E013Sum(QuadSc%auxV)
+! CALL E013Sum(QuadSc%auxW)
 
  ! Save the old solution
  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
@@ -2212,9 +2213,10 @@ DO INL=1,QuadSc%prm%NLmax
    QuadSc%auxU = QuadSc%defU
    QuadSc%auxV = QuadSc%defV
    QuadSc%auxW = QuadSc%defW
-   CALL E013Sum(QuadSc%auxU)
-   CALL E013Sum(QuadSc%auxV)
-   CALL E013Sum(QuadSc%auxW)
+   CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+!   CALL E013Sum(QuadSc%auxU)
+!   CALL E013Sum(QuadSc%auxV)
+!   CALL E013Sum(QuadSc%auxW)
 
    ! Save the old solution
    CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
@@ -2411,9 +2413,10 @@ IF (myid.ne.master) THEN
  QuadSc%auxU = QuadSc%defU
  QuadSc%auxV = QuadSc%defV
  QuadSc%auxW = QuadSc%defW
- CALL E013Sum(QuadSc%auxU)
- CALL E013Sum(QuadSc%auxV)
- CALL E013Sum(QuadSc%auxW)
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+! CALL E013Sum(QuadSc%auxU)
+! CALL E013Sum(QuadSc%auxV)
+! CALL E013Sum(QuadSc%auxW)
 
  ! Save the old solution
  CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
@@ -2506,9 +2509,10 @@ DO INL=1,QuadSc%prm%NLmax
    QuadSc%auxU = QuadSc%defU
    QuadSc%auxV = QuadSc%defV
    QuadSc%auxW = QuadSc%defW
-   CALL E013Sum(QuadSc%auxU)
-   CALL E013Sum(QuadSc%auxV)
-   CALL E013Sum(QuadSc%auxW)
+   CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+!   CALL E013Sum(QuadSc%auxU)
+!   CALL E013Sum(QuadSc%auxV)
+!   CALL E013Sum(QuadSc%auxW)
 
    ! Save the old solution
    CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)

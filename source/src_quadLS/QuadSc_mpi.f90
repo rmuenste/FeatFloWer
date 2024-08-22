@@ -162,10 +162,7 @@ DO i=1,n
  d4(i) = 1d0
 END DO
 
-CALL E013Sum(d1)
-CALL E013Sum(d2)
-CALL E013Sum(d3)
-CALL E013Sum(d4)
+CALL E013Sum4(d1,d2,d3,d4)
 
 DO i=1,n
  d1(i) = d1(i)/d4(i)
@@ -2892,6 +2889,19 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE E013Sum2(FX1,FX2)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 FX1(*),FX2(*)
+
+if (iCommSwitch.eq.3) CALL E013SumSUPER(FX1)
+if (iCommSwitch.eq.3) CALL E013SumSUPER(FX2)
+if (iCommSwitch.eq.4) CALL E013Sum2Rec(FX1,FX2)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE E013Sum3(FX1,FX2,FX3)
 USE var_QuadScalar, ONLY :  iCommSwitch
 IMPLICIT NONE
@@ -2900,6 +2910,19 @@ REAL*8 FX1(*),FX2(*),FX3(*)
 if (iCommSwitch.eq.2) CALL E013Sum3OLD(FX1,FX2,FX3)
 if (iCommSwitch.eq.3) CALL E013Sum3SUPER(FX1,FX2,FX3)
 if (iCommSwitch.eq.4) CALL E013Sum3Rec(FX1,FX2,FX3)
+
+END
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE E013Sum4(FX1,FX2,FX3,FX4)
+USE var_QuadScalar, ONLY :  iCommSwitch
+IMPLICIT NONE
+REAL*8 FX1(*),FX2(*),FX3(*),FX4(*)
+
+if (iCommSwitch.eq.3) CALL E013Sum3SUPER(FX1,FX2,FX3)
+if (iCommSwitch.eq.3) CALL E013SumSUPER(FX4)
+if (iCommSwitch.eq.4) CALL E013Sum4Rec(FX1,FX2,FX3,FX4)
 
 END
 ! ----------------------------------------------
@@ -2941,7 +2964,8 @@ INTEGER KLDA(*),NU
 
 if (iCommSwitch.eq.2) CALL E013MAT_OLD(A,KLDA,NU)
 if (iCommSwitch.eq.3) CALL E013MAT_SUPER(A,KLDA,NU)
-if (iCommSwitch.eq.4) CALL E013MAT_Rec(A,KLDA,NU)
+if (iCommSwitch.eq.4) CALL E013MAT_SUPER(A,KLDA,NU)
+! if (iCommSwitch.eq.4) CALL E013MAT_Rec(A,KLDA,NU)
 
 END 
 ! ----------------------------------------------
@@ -3532,6 +3556,8 @@ INTEGER STATUS(MPI_STATUS_SIZE)
 !if (myid.eq.1) write(*,*) 'here it goes...'
 
 IF (myid.ne.MASTER) THEN
+IF (myid.eq.1) write(*,*) "-------------------------- COMM E013 ----------------------------"
+
 
  send_req = MPI_REQUEST_NULL
  recv_req = MPI_REQUEST_NULL
