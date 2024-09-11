@@ -7,9 +7,9 @@
 !#
 !# 
 !##############################################################################
-!#define FULL_ROTATION 
+#define FULL_ROTATION 
 !#define ONLY_ROTATION 
-#define MOVING_REFERENCE
+!#define MOVING_REFERENCE
 MODULE fbm 
 
 use var_QuadScalar
@@ -972,7 +972,7 @@ REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
 real*8 :: Velo(3),Pos(3),Omega(3)
 integer :: ipc
 
-real*8 :: radBench = 0.0075
+real*8 :: radBench = 1.00
 
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
@@ -1021,11 +1021,17 @@ integer :: numParticles, particleId
 !                 velo(2) + dvelz_y + dvelx_y, &
 !                 velo(3) + dvelx_z + dvely_z
 
+!      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+!                ' only rotation(l) = ', &
+!                 dvelz_x + dvely_x, &
+!                 dvelz_y + dvelx_y, &
+!                 dvelx_z + dvely_z
+
       write(*,*)'Linear_only(l) = ',valu, valv, valw, &
-                ' only rotation(l) = ', &
-                 dvelz_x + dvely_x, &
-                 dvelz_y + dvelx_y, &
-                 dvelx_z + dvely_z
+                ' full rotation(l) = ', &
+                 velo(1) + dvelz_x + dvely_x, &
+                 velo(2) + dvelz_y + dvelx_y, &
+                 velo(3) + dvelx_z + dvely_z
 
       ! full rotation
       !valu = velo(1) + dvelz_x + dvely_x
