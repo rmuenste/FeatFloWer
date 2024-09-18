@@ -364,6 +364,10 @@ DO k=1, mySigma%NumberOfSeg
 END DO
 !-------------------------------------------------------
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+ CALL Shell_dist(X,Y,Z,d0)
+END IF
+
 return
 
 END SUBROUTINE GetMixerKnpr
