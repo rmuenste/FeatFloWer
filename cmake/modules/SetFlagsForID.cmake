@@ -81,6 +81,18 @@ IF(Q2P1_BUILD_ID STREQUAL "icelake-linux-intel-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "alderlake-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  #  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  #  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
+  #  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise)
+  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -fpp)
+  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise)
+
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "broadwell-linux-intel-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
