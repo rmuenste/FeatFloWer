@@ -1680,8 +1680,8 @@ if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(2) = myTimer%n(2) + 1
-myTimer%t(2) = myTimer%t(2) + dble(tt1-tt0)
+myTimer(2)%n = myTimer(2)%n + 1
+myTimer(2)%t = myTimer(2)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_Maximumn
 ! ----------------------------------------------
@@ -1707,8 +1707,8 @@ value = DVAL(1)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(6) = myTimer%n(6) + 1
-myTimer%t(6) = myTimer%t(6) + dble(tt1-tt0)
+myTimer(6)%n = myTimer(6)%n + 1
+myTimer(6)%t = myTimer(6)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_MaximumX
 ! ----------------------------------------------
@@ -1734,8 +1734,8 @@ value = DVAL(1)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(1) = myTimer%n(1) + 1
-myTimer%t(1) = myTimer%t(1) + dble(tt1-tt0)
+myTimer(1)%n = myTimer(1)%n + 1
+myTimer(1)%t = myTimer(1)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------
@@ -1898,8 +1898,8 @@ if (iCommSwitch.ge.3) CALL COMM_INLN_NEW(INLComplete)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(5) = myTimer%n(5) + 1
-myTimer%t(5) = myTimer%t(5) + dble(tt1-tt0)
+myTimer(5)%n = myTimer(5)%n + 1
+myTimer(5)%t = myTimer(5)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_NLComplete
 ! ----------------------------------------------
@@ -1920,8 +1920,8 @@ if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(4) = myTimer%n(4) + 1
-myTimer%t(4) = myTimer%t(4) + dble(tt1-tt0)
+myTimer(4)%n = myTimer(4)%n + 1
+myTimer(4)%t = myTimer(4)%t + dble(tt1-tt0)
 
 
 END SUBROUTINE COMM_SUMMN
@@ -1948,8 +1948,8 @@ value = DVAL(1)
 !CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 CALL ztime(tt1)
 myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-myTimer%n(3) = myTimer%n(3) + 1
-myTimer%t(3) = myTimer%t(3) + dble(tt1-tt0)
+myTimer(3)%n = myTimer(3)%n + 1
+myTimer(3)%t = myTimer(3)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_SUMM
 ! ----------------------------------------------

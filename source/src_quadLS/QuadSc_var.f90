@@ -41,10 +41,10 @@ LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverge
 REAL*8  :: AlphaControl=0d0
 
 TYPE tTimer
- integer :: n(6) = 0
- real*8  :: t(6) = 0d0
+ integer :: n = 0
+ real*8  :: t = 0d0
 END TYPE tTimer
-TYPE (tTimer) myTimer
+TYPE (tTimer) myTimer(6),MYCOMMTIMER(8)
 
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)

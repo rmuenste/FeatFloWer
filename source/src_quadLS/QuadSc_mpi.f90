@@ -2862,110 +2862,166 @@ END
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE GetParPressure(P,PP)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 P(*),PP(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.1) CALL GetParPressureNEW(P,PP)
 if (iCommSwitch.eq.2) CALL GetParPressureOLD(P,PP)
 if (iCommSwitch.eq.3) CALL GetParPressureSUPER(P,PP)
 if (iCommSwitch.eq.4) CALL GetParPressureRec(P,PP) 
 
+CALL ztime(tt1)
+myCommTimer(1)%n = myCommTimer(1)%n + 1
+myCommTimer(1)%t = myCommTimer(1)%t + dble(tt1-tt0)
+
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013SUM(FX)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 FX(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.1) CALL E013SumNEW(FX)
 if (iCommSwitch.eq.2) CALL E013SumOLD(FX)
 if (iCommSwitch.eq.3) CALL E013SumSUPER(FX)
 if (iCommSwitch.eq.4) CALL E013SumRec(FX)
 
+CALL ztime(tt1)
+myCommTimer(2)%n = myCommTimer(2)%n + 1
+myCommTimer(2)%t = myCommTimer(2)%t + dble(tt1-tt0)
+
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013Sum2(FX1,FX2)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 FX1(*),FX2(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.3) CALL E013SumSUPER(FX1)
 if (iCommSwitch.eq.3) CALL E013SumSUPER(FX2)
 if (iCommSwitch.eq.4) CALL E013Sum2Rec(FX1,FX2)
+
+CALL ztime(tt1)
+myCommTimer(3)%n = myCommTimer(3)%n + 1
+myCommTimer(3)%t = myCommTimer(3)%t + dble(tt1-tt0)
 
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013Sum3(FX1,FX2,FX3)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 FX1(*),FX2(*),FX3(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.2) CALL E013Sum3OLD(FX1,FX2,FX3)
 if (iCommSwitch.eq.3) CALL E013Sum3SUPER(FX1,FX2,FX3)
 if (iCommSwitch.eq.4) CALL E013Sum3Rec(FX1,FX2,FX3)
+
+CALL ztime(tt1)
+myCommTimer(4)%n = myCommTimer(4)%n + 1
+myCommTimer(4)%t = myCommTimer(4)%t + dble(tt1-tt0)
 
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013Sum4(FX1,FX2,FX3,FX4)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 FX1(*),FX2(*),FX3(*),FX4(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.3) CALL E013Sum3SUPER(FX1,FX2,FX3)
 if (iCommSwitch.eq.3) CALL E013SumSUPER(FX4)
 if (iCommSwitch.eq.4) CALL E013Sum4Rec(FX1,FX2,FX3,FX4)
+
+CALL ztime(tt1)
+myCommTimer(5)%n = myCommTimer(5)%n + 1
+myCommTimer(5)%t = myCommTimer(5)%t + dble(tt1-tt0)
 
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013UVWSum(FX)
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 FX(*)
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.1) CALL E013UVWSumNEW(FX)
 if (iCommSwitch.eq.2) CALL E013UVWSumOLD(FX)
 if (iCommSwitch.eq.3) CALL E013UVWSumSUPER(FX)
 if (iCommSwitch.eq.4) CALL E013UVWSumRec(FX)
 
+CALL ztime(tt1)
+myCommTimer(6)%n = myCommTimer(6)%n + 1
+myCommTimer(6)%t = myCommTimer(6)%t + dble(tt1-tt0)
+
 END
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013UVWMAT(A11,A22,A33,KLDA,NU) !ok
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 A11(*),A22(*),A33(*)
 INTEGER KLDA(*),NU
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.2) CALL E013UVWMAT_OLD(A11,A22,A33,KLDA,NU)
 if (iCommSwitch.eq.3) CALL E013UVWMAT_SUPER(A11,A22,A33,KLDA,NU)
 if (iCommSwitch.eq.4) CALL E013UVWMAT_Rec(A11,A22,A33,KLDA,NU)
+
+CALL ztime(tt1)
+myCommTimer(7)%n = myCommTimer(7)%n + 1
+myCommTimer(7)%t = myCommTimer(7)%t + dble(tt1-tt0)
 
 END 
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
 SUBROUTINE E013MAT(A,KLDA,NU) !ok
-USE var_QuadScalar, ONLY :  iCommSwitch
+USE var_QuadScalar, ONLY :  iCommSwitch,myCommTimer
 IMPLICIT NONE
 REAL*8 A(*)
 INTEGER KLDA(*),NU
+REAL*4  tt1,tt0
+
+CALL ztime(tt0)
 
 if (iCommSwitch.eq.2) CALL E013MAT_OLD(A,KLDA,NU)
 if (iCommSwitch.eq.3) CALL E013MAT_SUPER(A,KLDA,NU)
 if (iCommSwitch.eq.4) CALL E013MAT_SUPER(A,KLDA,NU)
 ! if (iCommSwitch.eq.4) CALL E013MAT_Rec(A,KLDA,NU)
+
+CALL ztime(tt1)
+myCommTimer(8)%n = myCommTimer(8)%n + 1
+myCommTimer(8)%t = myCommTimer(8)%t + dble(tt1-tt0)
 
 END 
 ! ----------------------------------------------
@@ -3556,8 +3612,6 @@ INTEGER STATUS(MPI_STATUS_SIZE)
 !if (myid.eq.1) write(*,*) 'here it goes...'
 
 IF (myid.ne.MASTER) THEN
-IF (myid.eq.1) write(*,*) "-------------------------- COMM E013 ----------------------------"
-
 
  send_req = MPI_REQUEST_NULL
  recv_req = MPI_REQUEST_NULL

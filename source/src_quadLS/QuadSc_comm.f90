@@ -337,7 +337,6 @@ DO pJD=1,myRecComm%NumHosts
 END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
-
 ! if (myRecComm%myid.eq.0) then 
 !  DO pID = 1,myRecComm%NumHosts
 !   write(*,'(I5,A,100I5)') myRecComm%MyNodeGroup, 'AllRecords: ',myRC(ILEV)%StartOfAllRecords(pID,:)
@@ -350,9 +349,11 @@ DO pJD=1,myRecComm%NumHosts
   nSIZE = myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
   if (nSIZE.gt.0) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myRC(ILEV)%CODECs(pJD)%x,(nSIZE+1)*3, myRC(ILEV)%CODECs_win(pJD),myRC(ILEV)%CODECsptr(pJD),ierr)
+   myRC(ILEV)%CODECs(pJD)%x = 0
   end if
   if (nSIZE.gt.0.and.pJD.ne.myRecComm%MyNodeGroup) then
    CALL get_shared_memory_INT(MPI_COMM_SUBGROUP,myRC(ILEV)%CODECr(pJD)%x,(nSIZE+1)*3, myRC(ILEV)%CODECr_win(pJD),myRC(ILEV)%CODECrptr(pJD),ierr)
+   myRC(ILEV)%CODECr(pJD)%x = 0
   end if
 !   if (myRecComm%myid.eq.0) then 
 !    write(*,*) myRecComm%MyNodeGroup,' to ', pJD,' size: ',nSIZE,size(myRC(ILEV)%CODECs(pJD)%x)
@@ -361,17 +362,6 @@ END DO
 
 CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 
-if (myRecComm%myid.eq.0) then
- DO pJD=1,myRecComm%NumHosts
-  nSIZE = myRC(ILEV)%StartOfAllRecords(pJD,myRecComm%NumNodes+1)
-  if (nSIZE.gt.0) then
-   myRC(ILEV)%CODECs(pJD)%x = 0
-   myRC(ILEV)%CODECr(pJD)%x = 0
-  end if
- END DO
-END IF
-   
-CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
 ! We need to to create a displacement info which will help us later to define the start-position this particular process to fill up 
 ! the node-collected exchange buffers.
 ! Fill up the CODECs with the [sender,receiver,datasize] information
