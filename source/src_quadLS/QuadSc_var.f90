@@ -44,7 +44,7 @@ TYPE tTimer
  integer :: n = 0
  real*8  :: t = 0d0
 END TYPE tTimer
-TYPE (tTimer) myTimer(6),MYCOMMTIMER(8)
+TYPE (tTimer) :: myTimer(6),MYCOMMTIMER(8)
 
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)

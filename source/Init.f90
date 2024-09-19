@@ -729,8 +729,8 @@ SUBROUTINE General_init(MDATA,MFILE)
        WRITE(mfile,'(A)') "aSynchComm = YES"
        WRITE(mterm,'(A)') "aSynchComm = YES"
       ELSE
-       WRITE(mfile,'(A)') "SynchComm = NO"
-       WRITE(mterm,'(A)') "SynchComm = NO"
+       WRITE(mfile,'(A)') "aSynchComm = NO"
+       WRITE(mterm,'(A)') "aSynchComm = NO"
       END IF
       
       WRITE(mfile,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
