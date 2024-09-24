@@ -127,6 +127,86 @@ subroutine writeTriArrays(mydcorvg, mykvert, mykedge, mykadj,&
 end subroutine
 
 !================================================================================================
+!                                 Sub: writeArrays  
+!================================================================================================
+subroutine writeArrays(mydcorvg, mykvert, mykedge, mykadj,&
+    mykarea, mnvt, mnel, mnet,cfile)
+  USE var_QuadScalar
+
+  REAL*8  mydcorvg(3,*)
+
+  integer mykvert(8,*)
+
+  integer mykedge(12,*)
+
+  integer mykadj(6,*)
+
+  integer mykarea(6,*)
+
+  CHARACTER (len = 60) :: cfile 
+
+  integer :: mnvt
+  integer :: mnel 
+  integer :: mnet 
+
+  integer :: cunit = 123
+  integer :: ivert,ielem,iedge 
+
+  open (unit=cunit,file=cfile)
+
+  write(cunit,'(3I6,A)')mnel,mnvt,mnet,' NEL,NVT,NET'
+
+  do ivert=1,mnvt
+  write(cunit, '(A,3E16.7)')"  ",REAL(mydcorvg(1,ivert)),&
+    REAL(mydcorvg(2,ivert)),&
+    REAL(mydcorvg(3,ivert))
+  end do
+
+  write(cunit,'(A)')'KVERT'
+  do ielem=1,mnel
+  write(cunit, '(A,8I6)')" ",(mykvert(1,ielem)),&
+    (mykvert(2,ielem)),&
+    (mykvert(3,ielem)),&
+    (mykvert(4,ielem)),&
+    (mykvert(5,ielem)),&
+    (mykvert(6,ielem)),&
+    (mykvert(7,ielem)),&
+    (mykvert(8,ielem))
+  end do
+
+
+  write(cunit,'(A)')'KADJ'
+  do ielem=1,mnel
+  write(cunit, '(A,6I6)')" ",(mykadj(1,ielem)),&
+    (mykadj(2,ielem)),&
+    (mykadj(3,ielem)),&
+    (mykadj(4,ielem)),&
+    (mykadj(5,ielem)),&
+    (mykadj(6,ielem))
+  end do
+
+
+  write(cunit,'(A)')'KEDGE'
+  do ielem=1,mnel
+  write(cunit, '(A,12I6)')" ",(mykedge(1,ielem)),&
+    (mykedge(2,ielem)),&
+    (mykedge(3,ielem)),&
+    (mykedge(4,ielem)),&
+    (mykedge(5,ielem)),&
+    (mykedge(6,ielem)),&
+    (mykedge(7,ielem)),&
+    (mykedge(8,ielem)),&
+    (mykedge(9,ielem)),&
+    (mykedge(10,ielem)),&
+    (mykedge(11,ielem)),&
+    (mykedge(12,ielem))
+  end do
+
+  close(cunit)
+
+end subroutine
+
+!================================================================================================
 !                                 Sub: readTriCoarse  
 !================================================================================================
 subroutine readTriCoarse(CFILE, mgMesh)
@@ -211,6 +291,7 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
   integer :: nfine
   integer :: ilevel
   integer :: icurr
+  integer :: noe ! for KEDGE
 
   logical :: calculateExtendedConnectivity 
 
@@ -224,22 +305,19 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
   icurr = 1
 
-  if (bMemoryPrint) CALL MemoryPrint(0,'w','msg')
-  
-  call genMeshStructures(mgMesh, calculateExtendedConnectivity,icurr)
+  CALL getNumberOfEdgesOnVerts(mgMesh%level(icurr), noe)
+  call genMeshStructures(mgMesh, calculateExtendedConnectivity, icurr, noe)
 
   if(myid.eq.1)then
     write(*,*)'Refining to level: ',maxlevel
     write(*,*)'Number of refinement steps needed: ',nfine
   end if
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'w','msg')
-  
   do ilevel=1,nfine
 
-    icurr = icurr + 1 
+    icurr = icurr + 1
     call refineMeshLevel(mgMesh%level(icurr-1), mgMesh%level(icurr))
-    call genMeshStructures(mgMesh, calculateExtendedConnectivity,icurr)
+    call genMeshStructures(mgMesh, calculateExtendedConnectivity, icurr, noe)
 
     if(myid.eq.1)then
       write(*,*)'-----RefinementLevelFinished-----'
@@ -247,8 +325,6 @@ subroutine refineMesh(mgMesh,maxlevel, extended)
 
   end do
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'w','msg')
-  
   do ilevel=1,maxlevel-1 
     deallocate(mgMesh%level(ilevel)%dcorvg)
     mgMesh%level(ilevel)%dcorvg => mgMesh%level(maxlevel)%dcorvg
@@ -272,6 +348,7 @@ subroutine refineMeshLevel(mesh0, mesh1)
   integer :: iivt,ivt1,ivt2
   integer :: iedge,ielem,j,iface
   integer :: iistart,iend
+  integer :: iel0
   integer :: iel1
   integer :: iel2
   integer :: iel3
@@ -365,7 +442,8 @@ subroutine refineMeshLevel(mesh0, mesh1)
   ielem = 1
   ielOffset = mesh0%nel
   do ielem=1,mesh0%nel
-
+  
+  iel0 = ielem
   iel1 = ielOffset + 1
   iel2 = ielOffset + 2
   iel3 = ielOffset + 3
@@ -478,8 +556,8 @@ subroutine refineMeshLevel(mesh0, mesh1)
   mesh1%kvert(7,iel7) = ielmid
   mesh1%kvert(6,iel7) = midpointE
 
-  end do
 
+  end do
   !---------------------------------
   if(.not.allocated(mesh1%knpr))then
     allocate(mesh1%knpr(mesh1%nvt))
@@ -491,17 +569,19 @@ end subroutine
 !================================================================================================
 !                                 Sub: genMeshStructures  
 !================================================================================================
-subroutine genMeshStructures(mesh, extended,icurr)
+subroutine genMeshStructures(mesh, extended, icurr, noe)
   use PP3D_MPI, only:myid,showid
   use var_QuadScalar
   IMPLICIT NONE
   type(tMultiMesh), intent(inout) :: mesh
+  
   logical, optional, intent(in) :: extended 
-  integer :: icurr
 
   ! local variables
   real :: ttt0=0.0,ttt1=0.0
   logical :: calculateExtendedConnectivity 
+  integer, intent(in) :: icurr, noe
+
 
   if(present(extended))then
     calculateExtendedConnectivity = extended
@@ -511,7 +591,6 @@ subroutine genMeshStructures(mesh, extended,icurr)
 
   CALL ZTIME(TTT0)
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','KVEL')
   call genKVEL(mesh%level(icurr)) 
 
   CALL ZTIME(TTT1)
@@ -521,29 +600,40 @@ subroutine genMeshStructures(mesh, extended,icurr)
     WRITE(*,*) 'time for KVEL : ',TTGRID
   END IF
 
-  CALL ZTIME(TTT0)
+  ! CALL ZTIME(TTT0)
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','KEDGE')
-  call genKEDGE2(mesh%level(icurr))
+  ! call genKEDGE2(mesh%level(icurr))
+
+  ! CALL ZTIME(TTT1)
+  ! TTGRID=TTT1-TTT0
+
+  ! IF (myid.eq.showid) THEN
+  !   WRITE(*,*) 'time for KEDGE : ',TTGRID
+  ! END IF
+
+  CALL ZTIME(TTT0)
+  if (icurr.gt.1) then
+    mesh%level(icurr)%net = 2*mesh%level(icurr-1)%net+&
+                            4*mesh%level(icurr-1)%nat+&
+                            6*mesh%level(icurr-1)%nel
+  end if
+
+  call genKEDGE3(mesh%level(icurr), icurr, noe)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
 
   IF (myid.eq.showid) THEN
-    WRITE(*,*) 'time for KEDGE : ',TTGRID
+    WRITE(*,*) 'time for KEDGE3 : ',TTGRID
   END IF
 
-  !call genKADJ(mesh%level(icurr))
+  !call genKADJ(mesh)
 
-  CALL ZTIME(TTT0)
-
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','KADJ')
-  
   ! CALL global divide and conquere only on initial level
   IF (icurr.GT.1) THEN
-    CALL ZTIME(TTT0)
 
     call genKADJ3(mesh%level(icurr-1), mesh%level(icurr))
+
     CALL ZTIME(TTT1)
     TTGRID=TTT1-TTT0
 
@@ -563,12 +653,13 @@ subroutine genMeshStructures(mesh, extended,icurr)
   
   END IF
 
-  CALL ZTIME(TTT1)
-  TTGRID=TTT1-TTT0
+
+
+
+  
 
   CALL ZTIME(TTT0)
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','KAREA')
   call genKAREA(mesh%level(icurr))
 
   CALL ZTIME(TTT1)
@@ -580,7 +671,6 @@ subroutine genMeshStructures(mesh, extended,icurr)
 
   CALL ZTIME(TTT0)
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','VAR')
   call genKVAR(mesh%level(icurr))
 
   CALL ZTIME(TTT1)
@@ -592,7 +682,6 @@ subroutine genMeshStructures(mesh, extended,icurr)
 
   CALL ZTIME(TTT0)
 
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','DCORAG')
   call genDCORAG(mesh%level(icurr))
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -603,7 +692,6 @@ subroutine genMeshStructures(mesh, extended,icurr)
 
   if(calculateExtendedConnectivity)then
     CALL ZTIME(TTT0)
-    if (bMemoryPrint) CALL MemoryPrint(1,'s','ElAtVert')
     call tria_genElementsAtVertex3D(mesh%level(icurr))
     CALL ZTIME(TTT1)
     TTGRID=TTT1-TTT0
@@ -612,8 +700,6 @@ subroutine genMeshStructures(mesh, extended,icurr)
       WRITE(*,*) 'time for elementsAtVertex : ',TTGRID
     END IF
   end if
-  
-  if (bMemoryPrint) CALL MemoryPrint(1,'s','L')
 
 end subroutine
 
@@ -791,6 +877,7 @@ subroutine genKADJ2(mesh)
   integer :: j,k
   integer :: iElements
 
+
   ! the list of connectors
   type(t_connector3D), dimension(:), pointer :: p_IConnectList
 
@@ -802,7 +889,6 @@ subroutine genKADJ2(mesh)
 
   iElements = mesh%nel * 6
   allocate(p_IConnectList(iElements))
-
   call buildConnectorList(p_IConnectList, mesh)
 
   ! ConnectorList is build, now sort it
@@ -811,6 +897,7 @@ subroutine genKADJ2(mesh)
 
   ! assign the neighbours at elements
   ! traverse the connector list
+  
   do iiel = 2, iElements
 
   ! check for equivalent connectors... that means:
@@ -878,11 +965,14 @@ subroutine genKADJ3(mesh0, mesh1)
   integer, dimension(4) :: bottom, west, north, east, south, top
   logical :: bbottom, bwest, bnorth, beast, bsouth, btop
 
+
   if(.not.allocated(mesh1%kadj))then
     allocate(mesh1%kadj(mesh0%nae,8*mesh0%nel))
   end if
 
+  ! ZZZTesting
   mesh1%kadj = 0
+
 
   ! loop over all macro elements
   ielOffset = mesh0%nel
@@ -928,32 +1018,35 @@ subroutine genKADJ3(mesh0, mesh1)
       top = neighbourOrientation(mesh0%kadj(:,localAdj(6)), mesh0%nel, ielem, localAdj(6), mesh0%kvert, 6)
     end if
 
-    ! fill in the adj structure on micro level
-    mesh1%kadj(:,iel0)  = (/bottom(1), west(2),  iel1, iel3, south(1), iel4/)  
-    mesh1%kadj(:,iel1)  = (/bottom(4), north(2), iel2, iel0, west(1), iel5/) 
-    mesh1%kadj(:,iel2)  = (/bottom(3), east(2),  iel3, iel1, north(1), iel6/) 
-    mesh1%kadj(:,iel3)  = (/bottom(2), south(2), iel0, iel2, east(1), iel7/) 
+    mesh1%kadj(:,iel0)  = (/bottom(1), west(1),  iel1, iel3, south(2), iel4/)  
+    mesh1%kadj(:,iel1)  = (/bottom(2), north(1), iel2, iel0, west(2), iel5/) 
+    mesh1%kadj(:,iel2)  = (/bottom(3), east(1),  iel3, iel1, north(2), iel6/) 
+    mesh1%kadj(:,iel3)  = (/bottom(4), south(1), iel0, iel2, east(2), iel7/) 
 
-    mesh1%kadj(:,iel4)  = (/top(1), west(3),  iel5, iel7, south(4), iel0/)
-    mesh1%kadj(:,iel5)  = (/top(4), north(3), iel6, iel4, west(4), iel1/)
-    mesh1%kadj(:,iel6)  = (/top(3), east(3),  iel7, iel5, north(4), iel2/)
-    mesh1%kadj(:,iel7)  = (/top(2), south(3), iel4, iel6, east(4), iel3/)
+    mesh1%kadj(:,iel4)  = (/top(1), west(4),  iel5, iel7, south(3), iel0/)
+    mesh1%kadj(:,iel5)  = (/top(2), north(4), iel6, iel4, west(3), iel1/)
+    mesh1%kadj(:,iel6)  = (/top(3), east(4),  iel7, iel5, north(3), iel2/)
+    mesh1%kadj(:,iel7)  = (/top(4), south(4), iel4, iel6, east(3), iel3/)
 
-  
   end do
+
 
 end subroutine genKADJ3
 
+
 function neighbourOrientation(adj1, nel, ielem, localAdj, kvert, dir)
+  use PP3D_MPI, only:myid,showid
   ! helper function for genKADJ3
   integer, intent(in) :: nel, ielem, localAdj, dir
   integer, dimension(6), intent(in) :: adj1
   integer, dimension(:,:), intent(in) :: kvert
-  integer :: ori, shift
-  integer, dimension(4) :: neighbourOrientation, face1, face0, aux
+  integer :: ori, shift,i
+  integer, dimension(4) :: neighbourOrientation, face1, face0
+  ! integer, dimension(8) :: aux
+  integer, dimension(4) :: aux
   integer :: ive1, ive2, ive3, ive4, jve1, jve2, jve3, jve4
 
-  ! find which macro element couples to the current element 
+  ! ! find which macro element couples to the current element 
   ori = findloc(adj1, value=ielem, DIM=1)
 
   ! get neigboughring macro area numbers
@@ -977,40 +1070,15 @@ function neighbourOrientation(adj1, nel, ielem, localAdj, kvert, dir)
         kvert(jve3,ielem),&
         kvert(jve4,ielem)/)
 
-  ! get the local numbers of the micro elements
-  SELECT CAsE (ori)
-    CASE (1) ! bottom
-      aux =(/0,3,2,1/)
-    CASE (2) ! west
-      aux =(/1,0,4,5/)
-    CASE (3) ! north
-      aux =(/2,1,5,6/)
-    CASE (4) ! east
-      aux =(/3,2,6,7/)
-    CASE (5) ! south
-      aux =(/0,3,7,4/)
-    CASE (6) ! top
-      aux =(/4,7,6,5/)
-    CASE (0) ! default
-      neighbourOrientation = (/0,0,0,0/)
-  END SELECT
-
-  ! find numbering order
-  shift = findloc(face1,value=face0(1), DIM=1)
-  neighbourOrientation(1) = aux(shift)
-  shift = findloc(face1,value=face0(2), DIM=1)
-  neighbourOrientation(2) = aux(shift)
-  shift = findloc(face1,value=face0(3), DIM=1)
-  neighbourOrientation(3) = aux(shift)
-  shift = findloc(face1,value=face0(4), DIM=1)
-  neighbourOrientation(4) = aux(shift)
-
+  aux = KIAD(:, ori)-1
   ! calculate the global micro numbering
-  DO shift = 1,4
-    if (neighbourOrientation(shift).eq.0) then
-      neighbourOrientation(shift) = localAdj
+  DO I = 1,4
+    shift = findloc(face1,value=face0(I), DIM=1)
+    neighbourOrientation(I) = aux(shift)
+    if (neighbourOrientation(I).eq.0) then
+      neighbourOrientation(I) = localAdj
     else
-      neighbourOrientation(shift) = nel+7*(localAdj-1)+neighbourOrientation(shift)
+      neighbourOrientation(I) = nel+7*(localAdj-1)+neighbourOrientation(I)
     end if
   END DO
 
@@ -1241,6 +1309,16 @@ subroutine genKEDGE2(mesh)
   end do
   end do
 
+
+
+  ! IF (myid.eq.1) then
+  !   write(*,*) "KEDGE2--------------------------"
+  !   DO i = 1, mesh%nel
+  !     !CALL SORT(mesh%kedge(:,i))
+  !     write(*,*) mesh%kedge(:,i)
+  !   end do
+  ! END IF
+
 !      do i=1,mesh%nel
 !        do j=1,mesh%nee
 !        if((mesh%kedge(j,i) .lt. 0).or.(mesh%kedge(j,i) .gt. mesh%net))then
@@ -1250,7 +1328,7 @@ subroutine genKEDGE2(mesh)
 !
 !        end do
 !      end do
-
+  
 contains
 
 subroutine findSmallestIEL(i1,i2,mesh,ciel,siel)
@@ -1287,6 +1365,127 @@ subroutine findSmallestIEL(i1,i2,mesh,ciel,siel)
 end subroutine
 
 end subroutine genKEDGE2
+
+
+
+!================================================================================================
+!                                    Sub: genKEDGE3  
+!================================================================================================
+subroutine genKEDGE3(mesh, icurr, noe)
+  use PP3D_MPI, only:myid,showid
+  use var_QuadScalar
+  implicit none
+  type(tMesh), intent(inout) :: mesh
+  integer, intent(in) :: noe, icurr
+  integer :: i,j,k,smiel_edge
+  integer :: iv1,iv2,ivt1,ivt2
+  integer :: min_vert, max_vert, len, aux
+  integer, allocatable, dimension(:,:,:) :: edgesOnVert
+
+  if(.not.allocated(mesh%kedge))then
+    allocate(mesh%kedge(mesh%nee,mesh%nel))
+  end if
+
+  mesh%kedge = 0
+
+  len  = noe+1
+
+  if(.not.allocated(edgesOnVert))then
+    allocate(edgesOnVert(mesh%nvt, 2, len))
+  end if
+
+  if (icurr.ne.1) then
+    if(.not.allocated(mesh%kved))then 
+      allocate(mesh%kved(2,mesh%net))
+      mesh%kved = 0
+    end if
+  end if
+
+  k = 0
+  edgesOnVert = 0
+
+  do i =1,mesh%nel
+    do j = 1,12
+      aux = 0
+      iv1 = mesh%kvert(KIV(1,j), i)
+      iv2 = mesh%kvert(KIV(2,j), i)
+
+      min_vert = MIN(iv1,iv2)
+      max_vert = MAX(iv1,iv2)
+
+      aux = edgesOnVert( min_vert, 1, len)
+      aux = findloc(edgesOnVert( min_vert, 1, 1:aux), max_vert, DIM=1)
+      IF (aux.GT.0) THEN
+        mesh%kedge(j, i) = edgesOnVert( min_vert, 2, aux)
+      ELSE
+        k = k+1
+        edgesOnVert(min_vert, 1, len) = edgesOnVert(min_vert, 1, len)+1
+        aux = edgesOnVert( min_vert, 1, len)
+        edgesOnVert( min_vert, 1, aux) = max_vert
+        edgesOnVert( min_vert, 2, aux) = k
+
+        mesh%kedge(j, i) = k
+        IF (icurr.ne.1) THEN
+          mesh%kved(1, k) = iv1
+          mesh%kved(2, k) = iv2
+        END IF
+
+      END IF
+    end do
+  end do
+
+  IF (icurr.eq.1) then 
+    mesh%net = k
+    
+    if(.not.allocated(mesh%kved))then
+      allocate(mesh%kved(2,mesh%net))
+    end if
+    mesh%kved = 0
+
+    DO i = 1,mesh%nvt
+      DO j = 1,edgesOnVert(i, 1, len)
+        mesh%kved(1, edgesOnVert(i,2,j)) = i
+        mesh%kved(2, edgesOnVert(i,2,j)) = edgesOnVert(i,1,j)
+      END DO
+    END DO
+  end if
+
+  deallocate(edgesOnVert)
+
+
+end subroutine genKEDGE3
+
+subroutine getNumberOfEdgesOnVerts(mesh, noe)
+  use PP3D_MPI, only:myid,showid
+  use var_QuadScalar
+  implicit none
+  type(tMesh) :: mesh
+  integer, intent(inout) :: noe
+  integer, allocatable, dimension(:) :: edgeList
+  integer :: i, j, iv1, iv2
+
+  if(.not.allocated(edgeList))then
+    allocate(edgeList(mesh%nvt))
+  end if
+  edgeList = 0
+
+  DO i = 1,mesh%nel
+    DO j = 1,12
+      iv1 = mesh%kvert(KIV(1,j), i)
+      iv2 = mesh%kvert(KIV(2,j), i)
+
+      edgeList(iv1) = edgeList(iv1) +1
+      edgeList(iv2) = edgeList(iv2) +1
+    END DO
+  END DO
+
+  noe = maxval(edgeList)
+  noe = max(noe, 6)
+
+  deallocate(edgeList)
+
+end subroutine getNumberOfEdgesOnVerts
+
 
 !================================================================================================
 !                                    Sub: genKVAR  
@@ -1674,7 +1873,7 @@ subroutine tria_genElementsAtVertex3D(mesh)
   integer :: iivt, isize
   integer, allocatable, dimension(:) :: auxArray
 
-  allocate(mesh%elementsAtVertexIdx(mesh%NVT+1)) 
+  allocate(mesh%elementsAtVertexIdx(mesh%NVT+1))
 
   mesh%elementsAtVertexIdx = 0
 
@@ -1689,15 +1888,15 @@ subroutine tria_genElementsAtVertex3D(mesh)
       iivt = mesh%kvert(iive,iiel)
 
       ! increase the number of elements by one
-      mesh%elementsAtVertexIdx(iivt+1) = mesh%elementsAtVertexIdx(iivt+1) + 1 
+      mesh%elementsAtVertexIdx(iivt+1) = mesh%elementsAtVertexIdx(iivt+1) + 1
 
     end do ! end ive
   end do ! end iel
- 
+
   mesh%NNelAtVertex = 0
 
   ! In the next step we sum up the number of elements at two
-  ! successive vertices to create the index array and find the 
+  ! successive vertices to create the index array and find the
   ! length of elementsAtVertex. Calculate NNelAtVertex.
   do iivt = 2, mesh%NVT+1
     mesh%NNelAtVertex = max(mesh%NNelAtVertex, &
@@ -1708,7 +1907,7 @@ subroutine tria_genElementsAtVertex3D(mesh)
   end do
 
   mesh%elementsAtVertexIdx = mesh%elementsAtVertexIdx + 1
-  
+
   ! set the size
   isize = mesh%elementsAtVertexIdx(mesh%NVT+1)-1
 
@@ -1720,8 +1919,8 @@ subroutine tria_genElementsAtVertex3D(mesh)
 
   ! Duplicate the elementsAtVertexIdx array. We use that as
   ! pointer and index if new elements at a vertex are found.
-  allocate(auxArray(mesh%NVT+1)) 
-  auxArray = mesh%elementsAtVertexIdx 
+  allocate(auxArray(mesh%NVT+1))
+  auxArray = mesh%elementsAtVertexIdx
 
   ! loop over all elements
   do iiel = 1, mesh%NEL
@@ -1739,8 +1938,8 @@ subroutine tria_genElementsAtVertex3D(mesh)
       auxArray(iivt) = auxArray(iivt) + 1
 
     end do ! end iive
-  end do ! end iiel 
-  
+  end do ! end iiel
+
 end subroutine tria_genElementsAtVertex3D
 
 !================================================================================================
