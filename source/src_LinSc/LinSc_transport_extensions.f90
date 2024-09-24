@@ -1696,6 +1696,7 @@ REAL*8, allocatable :: dHeat(:),dVolume(:)
 INTEGER i,j,k,iSeg
 REAL*8 dHeatIntensity
 
+if (.not.myProcess%SegmentThermoPhysProps) return
 
 if (.not.allocated(dHeat)) allocate(dHeat(mySigma%NumberOfSeg))
 if (.not.allocated(dVolume)) allocate(dVolume(mySigma%NumberOfSeg))
