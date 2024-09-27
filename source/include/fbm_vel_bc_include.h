@@ -2,7 +2,7 @@
 ! the user to customize the handling of fictitious boundary velocity 
 ! boundary condition update.
 interface 
-  subroutine fbm_velBC_handler(x,y,z,valu,valv,valw,ip,t)
+  subroutine fbm_velBC_handler(x,y,z,valu,valv,valw,ip,t, vidx)
 
   implicit none
 
@@ -15,6 +15,9 @@ interface
 
   ! The velocitiy values of the boundary vertex
   real*8 , intent(inout) :: valu,valv,valw
+
+  ! vidx
+  integer, intent(in) :: vidx
 
   end subroutine
 end interface

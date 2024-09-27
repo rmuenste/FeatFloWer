@@ -16,3 +16,17 @@ interface
   end subroutine update_fbm_handler
 end interface 
 
+interface 
+subroutine fbm_force_wrapper(u,v,w,p)
+  use PP3D_MPI, only: myMPI_Barrier
+  use cinterface
+  
+  ! U/V/W velocity components
+  REAL*8, dimension(:), intent(inout) :: u,v,w
+  
+  ! Pressure, viscosity
+  Real*8, dimension(:), intent(inout) :: p
+
+
+  end subroutine fbm_force_wrapper
+end interface 

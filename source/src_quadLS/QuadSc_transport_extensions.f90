@@ -1310,12 +1310,12 @@ END DO ! iStep
 END SUBROUTINE PressureStepCP_ParT
 
 END SUBROUTINE Transport_q2p1_UxyzP_ParT
+!========================================================================================
 !
-! ----------------------------------------------
-!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
-use fbm, only: fbm_updateFBM
+use fbm, only: fbm_updateFBM, fbm_velBCTest
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -1409,7 +1409,7 @@ myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 DO INL=1,QuadSc%prm%NLmax
 INLComplete = 0
 
-! ! Calling the solver
+! Calling the solver
 CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
 Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
 
@@ -1520,8 +1520,6 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-CALL FAC_GetForces(mfile)
-
 CALL DNA_GetTorques(mfile)
 
 CALL GetNonNewtViscosity()
@@ -1530,12 +1528,21 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
+! Calculate the forces
+call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                      LinSc%valP(NLMAX)%x,&
+                      fbm_force_handler_ptr)
+
+! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                   LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
+                   LinSc%valP(NLMAX)%x,&
+                   fbm_up_handler_ptr) 
+!                   fbm_up_handler_ptr&
+!                   fbm_force_wrapper) 
 
-!if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
+call fbm_velBCTest()
 
 IF (myid.ne.0) THEN
  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
@@ -1564,9 +1571,9 @@ CALL MonitorVeloMag(QuadSc)
 RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
+!========================================================================================
 !
-! ----------------------------------------------
-!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM
