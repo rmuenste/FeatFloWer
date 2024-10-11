@@ -127,6 +127,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LAPACK_BINARY_DIR}/lib)
 # Check for any necessary platform specific compiler flags
 include( CheckLAPACKCompilerFlags )
 CheckLAPACKCompilerFlags()
+set( CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fallow-argument-mismatch"
+       CACHE STRING "Flags used by the compiler during release builds" FORCE )
 
 # --------------------------------------------------
 # Check second function
