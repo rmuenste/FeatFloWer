@@ -509,7 +509,8 @@ type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
 TYPE tPID
- REAL*8 T_set,sumI,e_old
+ REAL*8 T_set,Base
+ REAL*8 :: sumI=0d0,e_old=0d0
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID
 
@@ -543,7 +544,10 @@ TYPE tConvergenceDetector
 END TYPE tConvergenceDetector
 
 TYPE tDIESensor
-real*8 :: Center(3),Radius
+ real*8 :: Center(3),Radius
+ integer :: iSeg
+ TYPE(tPID) PID_ctrl
+ CHARACTER*8 ::  type
 END TYPE tDIESensor
 
 TYPE tSegment

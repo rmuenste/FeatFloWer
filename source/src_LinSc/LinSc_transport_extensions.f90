@@ -1523,14 +1523,16 @@ END SUBROUTINE Assemble_LinScOperators_XSE
 ! ----------------------------------------------
 !
 SUBROUTINE OutputSensorTemperatures(dcorvg,mf)
+USE types, only : tPID
 REAL*8 dcorvg(3,*)
 integer mf
 REAL*8 P(3),Q(3),dist
-REAL*8, allocatable :: daux(:,:)
+REAL*8, allocatable :: daux(:,:),T(:)
 integer :: nSensors,i,j
+TYPE(tPID) :: myPID
 
 nSensors = myProcess%nOfDIESensors
-allocate(daux(2,nSensors))
+allocate(daux(2,nSensors),T(nSensors))
 daux = 0d0
 
 DO i=1,Tracer%ndof
@@ -1550,10 +1552,24 @@ CALL COMM_SUMMN(daux,nSensors*2)
 do j=1,nSensors
  if (myid.eq.1) write(*,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
  if (myid.eq.1) write(mf,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
+ T(j) = daux(1,j)/daux(2,j)
 end do
 
+do j=1,nSensors
+  if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
+   CALL PID_controller(T(j),tstep,myProcess%mySensor(j)%PID_Ctrl)
+   IF (myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bHeatSource) THEN
+    if (itns.lt.2) THEN
+      myProcess%mySensor(j)%PID_Ctrl%base = myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const
+    ELSE
+     myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const = myProcess%mySensor(j)%PID_Ctrl%PID
+     if (myid.eq.1) write(*,'(A,I0,A,3ES12.4,A,3ES12.4)') "Sensor_",j,"_AdjustedSourceTo:",myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const,T(j),myProcess%mySensor(j)%PID_Ctrl%T_Set, " : ", myProcess%mySensor(j)%PID_Ctrl%P,myProcess%mySensor(j)%PID_Ctrl%I,myProcess%mySensor(j)%PID_Ctrl%D
+    end if
+   END IF
+  end if
+end do
 
-deallocate (daux)
+deallocate (daux,T)
 
 END SUBROUTINE OutputSensorTemperatures
 !
@@ -1742,10 +1758,10 @@ END DO
 CALL COMM_SUMMN(dHeat,mySigma%NumberOfSeg)
 
 DO iSeg=1,mySigma%NumberOfSeg
- if (dHeat(iSeg).gt.0d0) THEN
+!  if (dHeat(iSeg).gt.0d0) THEN
   IF (myid.eq.1) WRITE(MTERM,'(A,I0,A,2ES14.6)') ' Segment[',iSeg,']_VolumetricHeatFlux[kW]_Volume[cm3] : ',dHeat(iSeg),dVolume(iSeg)
   IF (myid.eq.1) WRITE(MFILE,'(A,I0,A,2ES14.6)') ' Segment[',iSeg,']_VolumetricHeatFlux[kW]_Volume[cm3] : ',dHeat(iSeg),dVolume(iSeg)
- END IF
+!  END IF
 END DO
 
 deallocate(dHeat,dVolume)

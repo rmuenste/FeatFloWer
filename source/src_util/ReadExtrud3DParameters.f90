@@ -1289,7 +1289,28 @@
       if (i.gt.9.and.i.le.99) WRITE(cSensor,'(A,I2.2)') 'Sensor_',i
       if (i.gt.99.and.i.le.999) WRITE(cSensor,'(A,I3.3)') 'Sensor_',i
       
-      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings/Sensors",cSensor,cCenter,'0,0,0,0')
+      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings/Sensors",cSensor,cCenter,'0,0,0,0,OFF,0.0,0')
+      read(cCenter,*,err=153,end=153) myProcess%mySensor(i)%Center,myProcess%mySensor(i)%Radius,myProcess%mySensor(i)%Type,myProcess%mySensor(i)%PID_Ctrl%T_set, myProcess%mySensor(i)%iSeg
+      CALL inip_toupper_replace(myProcess%mySensor(i)%Type)
+      myProcess%mySensor(i)%PID_Ctrl%Omega_P = 0.010d0
+      myProcess%mySensor(i)%PID_Ctrl%Omega_I = 1d2
+      myProcess%mySensor(i)%PID_Ctrl%Omega_D = 0.1d0
+      mySigma%mySegment(i)%PID_Ctrl%SumI = 0d0
+      mySigma%mySegment(i)%PID_Ctrl%e_old = 0d0
+
+      IF (.not.(myProcess%mySensor(i)%Type.eq."PID".OR.myProcess%mySensor(i)%Type.eq."OFF")) THEN
+       write(*,*) 'WRONGLY DEFINED Regulation type for Sensor',i,' !!',adjustl(trim(myProcess%mySensor(i)%Type))
+       goto 153
+      END IF
+      IF (myProcess%mySensor(i)%iSeg.lt.1.OR.myProcess%mySensor(i)%iSeg.gt.mySigma%NumberOfSeg) THEN
+       write(*,*) 'WRONGLY DEFINED Regulation pointer, no valid segment ID',i,' !!',myProcess%mySensor(i)%iSeg
+       goto 153
+      end if
+      goto 156
+
+153   CONTINUE
+      myProcess%mySensor(i)%Type = "OFF"
+      myProcess%mySensor(i)%PID_Ctrl%T_set = myInf
       read(cCenter,*,err=155) myProcess%mySensor(i)%Center,myProcess%mySensor(i)%Radius
       goto 156
 155   write(*,*) 'WRONGLY DEFINED Center and/or Radius for Sensor',i,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
@@ -1780,7 +1801,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%C
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
      END IF
-     write(*,*) 
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.8) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','YASUDA'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%mu_0",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Lambda",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%C
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
+     END IF
+     write(*,*)
      IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%aT",'=',1.0
@@ -1860,6 +1888,10 @@
      do i=1,myProcess%nOfDIESensors
       write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]Center = ", myProcess%mySensor(i)%Center
       write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]Radius = ", myProcess%mySensor(i)%Radius
+      write(*,'(A,i0,A,A)') "E3DProcessParameters@DIESensor[",i,"]RegType = ", adjustl(trim(myProcess%mySensor(i)%Type))
+      write(*,'(A,i0,A,ES12.4)') "E3DProcessParameters@DIESensor[",i,"]SetValue = ", myProcess%mySensor(i)%PID_Ctrl%T_set
+      write(*,'(A,i0,A,I8)') "E3DProcessParameters@DIESensor[",i,"]SetSegment = ",myProcess%mySensor(i)%iSeg
+      write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]PID = ", myProcess%mySensor(i)%PID_Ctrl%omega_P, myProcess%mySensor(i)%PID_Ctrl%omega_I, myProcess%mySensor(i)%PID_Ctrl%omega_D
      end do
     else
      write(*,*) "no sensor data to report"
