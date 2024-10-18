@@ -1559,12 +1559,8 @@ do j=1,nSensors
   if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
    CALL PID_controller(T(j),tstep,myProcess%mySensor(j)%PID_Ctrl)
    IF (myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bHeatSource) THEN
-    if (itns.lt.2) THEN
-      myProcess%mySensor(j)%PID_Ctrl%base = myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const
-    ELSE
      myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const = myProcess%mySensor(j)%PID_Ctrl%PID
      if (myid.eq.1) write(*,'(A,I0,A,3ES12.4,A,3ES12.4)') "Sensor_",j,"_AdjustedSourceTo:",myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const,T(j),myProcess%mySensor(j)%PID_Ctrl%T_Set, " : ", myProcess%mySensor(j)%PID_Ctrl%P,myProcess%mySensor(j)%PID_Ctrl%I,myProcess%mySensor(j)%PID_Ctrl%D
-    end if
    END IF
   end if
 end do

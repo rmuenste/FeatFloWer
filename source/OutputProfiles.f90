@@ -4394,3 +4394,74 @@ close(1442)
 
 END SUBROUTINE EXPORT_TRIA
 
+SUBROUTINE OUTPUT_PID_DATA()
+USE Sigma_User,ONLY:mySigma,myProcess
+USE PP3D_MPI, ONLY:myid
+
+integer nSensors
+character filename*256
+
+if (myid.ne.1) return
+
+write(filename,'(A)') '_dump/PID.dmp'
+open(file=adjustl(trim(filename)),unit=3652)
+
+nSensors = myProcess%nOfDIESensors
+
+do j=1,nSensors
+ if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
+   write(3652,'(8ES12.4)') myProcess%mySensor(j)%PID_Ctrl%Omega_P,&
+                 myProcess%mySensor(j)%PID_Ctrl%Omega_I,&
+                 myProcess%mySensor(j)%PID_Ctrl%Omega_D,&
+                 myProcess%mySensor(j)%PID_Ctrl%e_old,&
+                 myProcess%mySensor(j)%PID_Ctrl%sumI,&
+                 myProcess%mySensor(j)%PID_Ctrl%PID
+ END IF
+
+END DO
+
+close(3652)
+
+END SUBROUTINE OUTPUT_PID_DATA
+!
+!
+!
+SUBROUTINE READ_PID_DATA()
+USE Sigma_User,ONLY:mySigma,myProcess
+USE PP3D_MPI, ONLY:myid
+
+character :: filename*256
+integer nSensors
+LOGICAL :: file_exists
+
+write(filename,'(A)') '_dump/PID.dmp'
+
+! Check if the file exists using the INQUIRE statement
+INQUIRE(FILE=filename, EXIST=file_exists)
+
+IF (file_exists) THEN
+
+  open(file=adjustl(trim(filename)),unit=3652)
+
+  nSensors = myProcess%nOfDIESensors
+
+  do j=1,nSensors
+   if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
+     read(3652,*) myProcess%mySensor(j)%PID_Ctrl%Omega_P,&
+                  myProcess%mySensor(j)%PID_Ctrl%Omega_I,&
+                  myProcess%mySensor(j)%PID_Ctrl%Omega_D,&
+                  myProcess%mySensor(j)%PID_Ctrl%e_old,&
+                  myProcess%mySensor(j)%PID_Ctrl%sumI,&
+                  myProcess%mySensor(j)%PID_Ctrl%PID
+
+    myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const = myProcess%mySensor(j)%PID_Ctrl%PID
+   END IF
+  END DO
+
+  close(3652)
+
+Else
+ WRITE(*,*) 'File '//adjustl(trim(filename))//' is not available yet ...'
+END IF
+
+END SUBROUTINE READ_PID_DATA

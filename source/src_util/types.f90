@@ -509,7 +509,7 @@ type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
 TYPE tPID
- REAL*8 T_set,Base
+ REAL*8 T_set
  REAL*8 :: sumI=0d0,e_old=0d0
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID

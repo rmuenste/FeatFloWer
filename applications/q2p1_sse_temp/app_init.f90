@@ -199,6 +199,11 @@ subroutine init_q2p1_ext(log_unit)
    end if
   end if
   !!! SetThe True Initial Condition for angle 0 !!!!!
+
+  if (istart.ne.0) then
+   if (myid.eq.1) write(*,*) "Reading the PID controller data  ..."
+   CALL READ_PID_DATA()
+  END IF
   
 end subroutine init_q2p1_ext
 !

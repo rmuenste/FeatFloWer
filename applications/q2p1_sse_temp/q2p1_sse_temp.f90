@@ -100,6 +100,8 @@ PROGRAM Q2P1_DEVEL
     END IF
 
     CALL ReleaseMPIDumpFiles(int(myProcess%Angle),'t')
+    CALL OUTPUT_PID_DATA(int(myProcess%angle))
+
 !     CALL Release_ListFiles_General(int(myProcess%Angle),'t')
 !     CALL Release_ListFiles_SSE_temp(int(myProcess%Angle))
 !    call write_sol_to_file(insavn, timens)
