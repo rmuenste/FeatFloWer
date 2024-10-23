@@ -1,6 +1,5 @@
 
 # Add the subdirectories of the applications
-add_subdirectory(q2p1_fc_ext)
 add_subdirectory(q2p1_parallel_time)
 add_subdirectory(q2p1_fac_nnewt)
 add_subdirectory(q2p1_fac_visco)
@@ -11,7 +10,7 @@ add_subdirectory(q2p1_creep)
 add_subdirectory(q2p1_fsi_bench)
 add_subdirectory(laplace)
 add_subdirectory(stream)
-
+add_subdirectory(q2p1_fc_ext)
 add_subdirectory(q2p1_experimental)
 add_subdirectory(q2p1_euler_fibers)
 add_subdirectory(iniparser_demo)

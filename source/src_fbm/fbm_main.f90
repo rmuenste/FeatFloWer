@@ -256,6 +256,39 @@ end subroutine fbm_updateFBMGeom
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_testFBMGeom(px, py, pz, bndryId, fictId, dist, vidx, longFictId, usr_geomFBM)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+! Coordinates of the query point 
+real*8, intent(in) :: px, py, pz 
+
+! Id of the boundary component
+integer, intent(inout) :: bndryId
+
+! fictId
+integer, intent(inout) :: fictId
+
+! Distance solution in the query point 
+real*8, intent(inout) :: dist 
+
+! vidx
+integer, intent(in) :: vidx
+
+! long FictId
+type(tUint64) :: longFictId
+
+include 'fbm_geom_include.h'
+procedure(fbm_geom_handler) :: usr_geomFBM 
+
+! Begin function
+ call usr_geomFBM(px, py, pz, bndryId, fictId, dist, vidx, longFictId)
+ write(*,*)'Inpr: ', fictId 
+
+end subroutine fbm_testFBMGeom
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations

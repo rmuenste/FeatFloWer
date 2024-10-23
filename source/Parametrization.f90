@@ -1263,6 +1263,7 @@ integer :: iRepeat,nRepeat=8
            y = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(2,iNode)
            z = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(3,iNode)
            call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+           !write(*,*)x,y,z,cpx,cpy,cpz
            mg_mesh%level(ii)%dcorvg(1,iNode) = cpx/dCGALtoRealFactor
            mg_mesh%level(ii)%dcorvg(2,iNode) = cpy/dCGALtoRealFactor
            mg_mesh%level(ii)%dcorvg(3,iNode) = cpz/dCGALtoRealFactor

@@ -1315,15 +1315,23 @@ END SUBROUTINE Transport_q2p1_UxyzP_ParT
 !========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
-use fbm, only: fbm_updateFBM, fbm_velBCTest
+use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
 INTEGER INLComplete,I,J,IERR,iITER
+real*8 px, py, pz
+integer k
+k=1
 
 CALL updateFBMGeometry()
 
+! px=-1.5
+! py=-2.4
+! pz=0.17
+! call fbm_testFBMGeom(PX,PY,PZ,QuadScBoundary(k),FictKNPR(k),Distance(k), k, FictKNPR_uint64(k), fbm_geom_handler_ptr)
+!
 thstep = tstep*(1d0-theta)
 
 CALL OperatorRegenaration(2)
@@ -1520,7 +1528,7 @@ END IF
 
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
-CALL DNA_GetTorques(mfile)
+!CALL DNA_GetTorques(mfile)
 
 CALL GetNonNewtViscosity()
 
@@ -1528,41 +1536,42 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
+if (myid.eq. 1) write(*,*)'fbm force'
 ! Calculate the forces
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
                       fbm_force_handler_ptr)
 
+if (myid.eq. 1) write(*,*)'fbm update'
 ! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                    Properties%Gravity,mfile,myid,&
                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                    LinSc%valP(NLMAX)%x,&
                    fbm_up_handler_ptr) 
-!                   fbm_up_handler_ptr&
-!                   fbm_force_wrapper) 
 
-call fbm_velBCTest()
+!call fbm_velBCTest()
 
-IF (myid.ne.0) THEN
- CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
-END IF
- 
-CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
- 
-IF (myid.ne.0) THEN
- CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
-END IF
- 
- CALL GET_MESH_VELO()
- 
- ILEV=NLMAX
- CALL SETLEV(2)
- CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%dcorag,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%kedge)
+!IF (myid.ne.0) THEN
+! CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+!END IF
+! 
+!!if (myid.eq. 1) write(*,*)'umbrella smoother'
+!!CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
+! 
+!IF (myid.ne.0) THEN
+! CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+!END IF
+! 
+! CALL GET_MESH_VELO()
+! 
+! ILEV=NLMAX
+! CALL SETLEV(2)
+! CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%dcorag,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%kedge)
 
 CALL updateFBMGeometry()
 

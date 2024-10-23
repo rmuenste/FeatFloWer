@@ -1446,6 +1446,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   ! Local variables
   INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr
   REAL*8 PX,PY,PZ,DIST
+  real*8 :: dofsPerParticle
   REAL tttx0,tttx1
   logical :: isSilent
 
@@ -1544,6 +1545,8 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   
   if (myid.eq.0) then
     WRITE(*,'(A,I0)') '> Total dofs inside: ', reducedVal
+    dofsPerParticle = real(reducedVal) / 4585. 
+    WRITE(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
   end if
 
 END SUBROUTINE QuadScalar_FictKnpr
