@@ -3226,12 +3226,12 @@ END IF
  TRIM(C0),TRIM(C1),TRIM(C5),TRIM(C2),TRIM(C3),TRIM(C4)
  WRITE(MTERM,5)
  WRITE(MFILE,5)
- WRITE(MTERM,'(4XI10,2(2X,D11.4),4XI10,2(2X,D11.4))') myScalar%prm%MGprmOut%UsedIterCycle,&
+ WRITE(MTERM,'(A3,4XI10,2(2X,D11.4),4XI10,2(2X,D11.4),A1,I0)') "XxX", myScalar%prm%MGprmOut%UsedIterCycle,&
        myScalar%prm%MGprmOut%DefInitial,myScalar%prm%MGprmOut%DefFinal,&
-       myScalar%prm%MGprmOut%nIterCoarse,myScalar%prm%MGprmOut%RhoMG1,myScalar%prm%MGprmOut%RhoMG2
- WRITE(MFILE,'(4XI10,2(2X,D11.4),3XI10,2(2X,D11.4))') myScalar%prm%MGprmOut%UsedIterCycle,&
+       myScalar%prm%MGprmOut%nIterCoarse,myScalar%prm%MGprmOut%RhoMG1,myScalar%prm%MGprmOut%RhoMG2," ", itns
+ WRITE(MFILE,'(A3,4XI10,2(2X,D11.4),3XI10,2(2X,D11.4),A1,I0)') "XxX", myScalar%prm%MGprmOut%UsedIterCycle,&
        myScalar%prm%MGprmOut%DefInitial,myScalar%prm%MGprmOut%DefFinal,&
-       myScalar%prm%MGprmOut%nIterCoarse,myScalar%prm%MGprmOut%RhoMG1,myScalar%prm%MGprmOut%RhoMG2
+       myScalar%prm%MGprmOut%nIterCoarse,myScalar%prm%MGprmOut%RhoMG1,myScalar%prm%MGprmOut%RhoMG2," ",itns
 
 END IF
 

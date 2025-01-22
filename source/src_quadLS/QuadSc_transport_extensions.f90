@@ -1316,6 +1316,7 @@ END SUBROUTINE Transport_q2p1_UxyzP_ParT
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
+use PP3D_MPI, only: Barrier_myMPI
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -1371,7 +1372,7 @@ IF (myid.ne.master) THEN
  QuadSc%rhsV = QuadSc%defV
  QuadSc%rhsW = QuadSc%defW
 
-! Set dirichlet boundary conditions on the solution
+ ! Set dirichlet boundary conditions on the solution
  CALL Boundary_QuadScalar_Val()
 
 END IF

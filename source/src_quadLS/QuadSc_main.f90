@@ -1545,7 +1545,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   
   if (myid.eq.0) then
     WRITE(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / 4585. 
+    dofsPerParticle = real(reducedVal) / 750. 
     WRITE(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
   end if
 

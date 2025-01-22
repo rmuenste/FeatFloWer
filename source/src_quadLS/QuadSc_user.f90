@@ -138,8 +138,31 @@ IF (iT.EQ.203) THEN
  ValW = 0d0
 END IF
 
-IF (iT.EQ.771) THEN
+! This is actually 771
+! But we hack it to be 773
+!IF (iT.EQ.771) THEN
+IF (iT.EQ.773) THEN
   dRPM = 4d0
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
+  ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
+  ValW =   -0.77d0*(dRPM/60d0)
+END IF
+ 
+IF (iT.EQ.772) THEN
+  dRPM = 8d0
+  ValU =  -myTwoPI*Y*(dRPM/6d1)
+  ValV =   myTwoPI*X*(dRPM/6d1)
+  ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
+  ValW =   -0.77d0*(dRPM/60d0)
+END IF
+ 
+! This is actually 773
+! But we hack it to be faster
+!IF (iT.EQ.773) THEN
+IF (iT.EQ.771) THEN
+  !dRPM = 12d0
+  dRPM = 40d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
