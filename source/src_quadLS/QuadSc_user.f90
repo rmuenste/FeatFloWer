@@ -49,10 +49,11 @@ REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
 ValU = 0d0
-!ValU = 2.0d0 * Y
 ValV = 0d0
 ValW = 0d0
+return
 
+!ValU = 2.0d0 * Y
 ! dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
 ! ValU = dScale * (y**2 - 0.25d0)
  dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
