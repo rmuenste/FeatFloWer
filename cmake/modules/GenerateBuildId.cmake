@@ -82,11 +82,8 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
           set(Q2P1_CPU_TYPE "haswell")
         ELSEIF("94" MATCHES ${_cpu_model})
           set(Q2P1_CPU_TYPE "skylake")
-<<<<<<< HEAD
-=======
         ELSEIF("106" MATCHES ${_cpu_model})
           set(Q2P1_CPU_TYPE "platinum")
->>>>>>> origin/master-upgrade
         ELSEIF("85" MATCHES ${_cpu_model})
           set(Q2P1_CPU_TYPE "xeongold")
         ELSEIF("79" MATCHES ${_cpu_model})
