@@ -357,13 +357,16 @@ IF (allocated(Temperature)) then
  Temperature = QuadSc%auxU
 END IF                  
 
-IF (allocated(MaterialDistribution)) then
- fieldName = "MaterialDistribution"
- QuadSc%auxU = 0
- packed(1)%p => QuadSc%auxU
- call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
- MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
-END IF                  
+! IF (allocated(MaterialDistribution)) then
+!  fieldName = "MaterialDistribution"
+!  QuadSc%auxU = 0
+!  packed(1)%p => QuadSc%auxU
+!  call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+!  MaterialDistribution(NLMAX+iLevel-1)%x(1:knel(NLMAX+iLevel-1)) = QuadSc%auxU((knvt(NLMAX+iLevel-1) + knat(NLMAX+iLevel-1) + knet(NLMAX+iLevel-1))+1:) 
+! END IF                  
+
+! write(*,*) "asasasdssd" 
+! pause
 
 if (allocated(GenLinScalar%Fld)) then
  DO iFld=1,GenLinScalar%nOfFields
@@ -2113,7 +2116,7 @@ END SUBROUTINE LoadSmartAdaptedMeshFile
 SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
@@ -2121,6 +2124,8 @@ USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shear
 USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 USE var_QuadScalar,ONLY: GenLinScalar
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
+USE var_QuadScalar,ONLY: myLostSet
+
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2430,7 +2435,7 @@ CASE('ElemSizeDist')
  CASE('Shell')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Shell",""" format=""ascii"">"
   do ivt=1,NoOfVert
-   write(iunit, '(A,E16.7)')"        ",REAL(QuadSc%AuxV(ivt))
+   write(iunit, '(A,E16.7)')"        ",REAL(Shell(ivt))
   end do
   write(iunit, *)"        </DataArray>"
 
@@ -2521,6 +2526,15 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('ParticleTime')
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(myLostSet)) THEN
+   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","AGE_E [s]",""" format=""ascii"">"
+   do ivt=1,NoOfElem
+    write(iunit, '(A,E16.7)')"        ",REAL(myLostSet(ivt)%time)
+   end do
+   write(iunit, *)"        </DataArray>"
+  END IF
+  
  CASE('Material_E')
   IF (ALLOCATED(MaterialDistribution)) THEN
   IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
@@ -2724,6 +2738,11 @@ CASE('Viscosity_E')
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity_E","""/>"
   END IF
 
+ CASE('ParticleTime')
+  IF (myExport%Level.LE.myExport%LevelMax) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","AGE_E [s]","""/>"
+  END IF
+  
  CASE('Material_E')
   IF (ALLOCATED(MaterialDistribution)) THEN
   WRITE(*,*) "myExport%Level.LE.myExport%LevelMax  ",myExport%Level,myExport%LevelMax
@@ -4202,7 +4221,7 @@ END SUBROUTINE SetPressBC_NewGen
 !
 ! ----------------------------------------------
 !
-SUBROUTINE INT_ParP0toQ2(P0,Q2,DAUX,DVOL,KVERT,KEDGE,KAREA,nvt,net,nat,nel,iFLD,bParallel)
+SUBROUTINE INT_ParP0toQ2(P0,Q2,DAUX,DVOL,KVERT,KEDGE,KAREA,nvt,net,nat,nel,iFLD)
 !***********************************************************************
 !    Purpose:  - Interpolates the solution pressure DP to
 !                the vector VPL of dimension NVT with
@@ -4219,7 +4238,6 @@ INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 
 REAL*8 DDAVOL,DPIEL,DVOL(*)
 integer iv(12),ivt,iel
-logical bParallel
 !-----------------------------------------------------------------------
 
 CALL  LCL1 (DAUX,NVT+NET+NAT+NEL)
@@ -4229,7 +4247,7 @@ DO IEL=1,NEL
 
  DDAVOL=DVOL(IEL)
  
- IF (P0(IEL).eq.iFld-1) then
+ IF (P0(IEL).eq.iFLD-1) then
   DPIEL=1d0
  Else
   DPIEL=0d0
@@ -4253,16 +4271,72 @@ DO IEL=1,NEL
  
 END DO
 
-if (bParallel) then
- CALL E013sum(q2)
- CALL E013sum(daux)
-end if
+CALL E013sum(q2)
+CALL E013sum(daux)
 
 DO IVT=1,NVT+NET+NAT+NEL
  Q2(IVT)=Q2(IVT)/DAUX(IVT)
 END DO
 
 END SUBROUTINE INT_ParP0toQ2
+!
+! ----------------------------------------------
+!
+SUBROUTINE INT_P0toQ2(P0,Q2,DAUX,DVOL,KVERT,KEDGE,KAREA,nvt,net,nat,nel,iFLD)
+!***********************************************************************
+!    Purpose:  - Interpolates the solution pressure DP to
+!                the vector VPL of dimension NVT with
+!                values in the vertices
+!-----------------------------------------------------------------------
+IMPLICIT NONE
+
+REAL*8 Q2(*),DAUX(*)
+INTEGER P0(*)
+INTEGER nvt,net,nat,nel,iFLD
+INTEGER NNVE,NNEE,NNAE
+PARAMETER (NNVE=8,NNEE=12,NNAE=6)
+INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+
+REAL*8 DDAVOL,DPIEL,DVOL(*)
+integer iv(12),ivt,iel
+!-----------------------------------------------------------------------
+
+CALL  LCL1 (DAUX,NVT+NET+NAT+NEL)
+CALL  LCL1 (Q2,NVT+NET+NAT+NEL)
+
+DO IEL=1,NEL
+
+ DDAVOL=DVOL(IEL)
+ 
+ IF (P0(IEL).eq.iFLD) then
+  DPIEL=1d0
+ Else
+  DPIEL=0d0
+ end if
+
+ IV(1:8)=KVERT(1:8,IEL)
+ Q2(IV(1:8))=Q2(IV(1:8))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:8))=DAUX(IV(1:8))+0.125d0*DDAVOL
+ 
+ IV(1:12)=nvt + KEDGE(1:12,IEL)
+ Q2(IV(1:12))=Q2(IV(1:12))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:12))=DAUX(IV(1:12))+0.125d0*DDAVOL
+
+ IV(1:6)=nvt + net + KAREA(1:6,IEL)
+ Q2(IV(1:6))=Q2(IV(1:6))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1:6))=DAUX(IV(1:6))+0.125d0*DDAVOL
+ 
+ IV(1)=nvt + net + nat + iel
+ Q2(IV(1))=Q2(IV(1))+0.125d0*DDAVOL*DPIEL
+ DAUX(IV(1))=DAUX(IV(1))+0.125d0*DDAVOL
+ 
+END DO
+
+DO IVT=1,NVT+NET+NAT+NEL
+ Q2(IVT)=Q2(IVT)/DAUX(IVT)
+END DO
+
+END SUBROUTINE INT_P0toQ2
 !
 ! ----------------------------------------------
 !
@@ -4320,3 +4394,74 @@ close(1442)
 
 END SUBROUTINE EXPORT_TRIA
 
+SUBROUTINE OUTPUT_PID_DATA()
+USE Sigma_User,ONLY:mySigma,myProcess
+USE PP3D_MPI, ONLY:myid
+
+integer nSensors
+character filename*256
+
+if (myid.ne.1) return
+
+write(filename,'(A)') '_dump/PID.dmp'
+open(file=adjustl(trim(filename)),unit=3652)
+
+nSensors = myProcess%nOfDIESensors
+
+do j=1,nSensors
+ if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
+   write(3652,'(8ES12.4)') myProcess%mySensor(j)%PID_Ctrl%Omega_P,&
+                 myProcess%mySensor(j)%PID_Ctrl%Omega_I,&
+                 myProcess%mySensor(j)%PID_Ctrl%Omega_D,&
+                 myProcess%mySensor(j)%PID_Ctrl%e_old,&
+                 myProcess%mySensor(j)%PID_Ctrl%sumI,&
+                 myProcess%mySensor(j)%PID_Ctrl%PID
+ END IF
+
+END DO
+
+close(3652)
+
+END SUBROUTINE OUTPUT_PID_DATA
+!
+!
+!
+SUBROUTINE READ_PID_DATA()
+USE Sigma_User,ONLY:mySigma,myProcess
+USE PP3D_MPI, ONLY:myid
+
+character :: filename*256
+integer nSensors
+LOGICAL :: file_exists
+
+write(filename,'(A)') '_dump/PID.dmp'
+
+! Check if the file exists using the INQUIRE statement
+INQUIRE(FILE=filename, EXIST=file_exists)
+
+IF (file_exists) THEN
+
+  open(file=adjustl(trim(filename)),unit=3652)
+
+  nSensors = myProcess%nOfDIESensors
+
+  do j=1,nSensors
+   if (adjustl(trim(myProcess%mySensor(j)%type)).eq."PID") THEN
+     read(3652,*) myProcess%mySensor(j)%PID_Ctrl%Omega_P,&
+                  myProcess%mySensor(j)%PID_Ctrl%Omega_I,&
+                  myProcess%mySensor(j)%PID_Ctrl%Omega_D,&
+                  myProcess%mySensor(j)%PID_Ctrl%e_old,&
+                  myProcess%mySensor(j)%PID_Ctrl%sumI,&
+                  myProcess%mySensor(j)%PID_Ctrl%PID
+
+    myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const = myProcess%mySensor(j)%PID_Ctrl%PID
+   END IF
+  END DO
+
+  close(3652)
+
+Else
+ WRITE(*,*) 'File '//adjustl(trim(filename))//' is not available yet ...'
+END IF
+
+END SUBROUTINE READ_PID_DATA

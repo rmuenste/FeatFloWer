@@ -106,16 +106,20 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ 
+ character(MPI_MAX_PROCESSOR_NAME) :: processor_name
+ integer :: name_len
 
 
  CALL ZTIME(TTT0)
-
 
  !=======================================================================
  !     Data input
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ 
+ CALL FindNodes()
  
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
@@ -131,6 +135,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  
  include 'PartitionReader.f90'
 
+ call MPI_Get_processor_name(processor_name, name_len, ierr)
+ write(*,'(A,I0,A)') 'Hello from MPI process ', myid, ' on processor "'//trim(processor_name)//'" with mesh '//TRIM(ADJUSTL(CMESH1))
+ 
  CALL Init_QuadScalar(mfile)
 
  IF (myid.EQ.0) THEN
@@ -177,7 +184,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call readTriCoarse(CMESH1, mg_mesh)
 
- call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
+ call refineMesh(mg_mesh, mg_Mesh%maxlevel,.true.)  
 
  
  !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated
@@ -267,16 +274,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
-!  ILEV = LinSc%prm%MGprmIn%MedLev
-! 
-!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-!                              mg_mesh%level(ILEV)%kvert,&
-!                              mg_mesh%level(ILEV)%kedge,&
-!                              mg_mesh%level(ILEV)%karea,&
-!                              mg_mesh%level(ILEV)%nvt,&
-!                              mg_mesh%level(ILEV)%net,&
-!                              mg_mesh%level(ILEV)%nat,&
-!                              mg_mesh%level(ILEV)%nel)
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             mg_mesh%level(ILEV)%kedge,&
+                             mg_mesh%level(ILEV)%karea,&
+                             mg_mesh%level(ILEV)%nvt,&
+                             mg_mesh%level(ILEV)%net,&
+                             mg_mesh%level(ILEV)%nat,&
+                             mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  

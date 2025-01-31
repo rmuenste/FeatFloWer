@@ -3,7 +3,7 @@ MODULE Transport_Q2P1
 
 USE def_QuadScalar
 ! USE PP3D_MPI
-USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_Minimum,&
+USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,COMM_MaximumX,COMM_Minimum,&
                    COMM_NLComplete,Comm_Summ,Comm_SummN,&
                    myMPI_Barrier,coarse
 USE Parametrization,ONLY : InitBoundaryStructure,ReviseWallBC,myParBndr,&
@@ -1036,6 +1036,255 @@ END SUBROUTINE InitCond_Velocity_PF
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Init_QuadScalar_ReducedStuctures(mfile)
+implicit none
+LOGICAL bExist
+INTEGER I,J,ndof,mfile,LevDif
+integer :: mydof
+integer :: maxlevel
+Real*8 :: dabl
+
+ bMasterTurnedON = .TRUE.
+ IF (myid.eq.0) then
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+   NLMAX = NLMIN
+   bMasterTurnedON = .FALSE.
+  END IF
+ end if
+ 
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Initialize the scalar quantity
+ CALL InitializeQuadScalar(QuadSc)
+
+ ! Initialize the scalar quantity
+ CALL InitializeLinScalar(LinSc)
+
+ ! Initialize the boundary list (QuadScBoundary)
+ ALLOCATE (QuadScBoundary(mg_mesh%level(ilev)%nvt+&
+                          mg_mesh%level(ilev)%net+&
+                          mg_mesh%level(ilev)%nat+&
+                          mg_mesh%level(ilev)%nel))
+
+ CALL InitBoundaryList(mg_mesh%level(ILEV)%knpr,&
+                       mg_mesh%level(ILEV)%kvert,&
+                       mg_mesh%level(ILEV)%kedge,&
+                       mg_mesh%level(ILEV)%karea)
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ ! Set up the Coordinate Vector
+ ALLOCATE (myQ2Coor(3,mg_mesh%level(ilev)%nvt+&
+                      mg_mesh%level(ilev)%net+&
+                      mg_mesh%level(ilev)%nat+&
+                      mg_mesh%level(ilev)%nel))
+
+ CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+                      mg_mesh%level(ILEV)%dcorag,&
+                      mg_mesh%level(ILEV)%kvert,&
+                      mg_mesh%level(ILEV)%karea,&
+                      mg_mesh%level(ILEV)%kedge)
+
+ !
+ !IF (myid.ne.0) CALL ParametrizeQ2Nodes(myQ2Coor)
+ !
+ ALLOCATE(myALE%Q2coor_old(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+
+ myALE%Q2coor_old = myQ2Coor
+
+ ALLOCATE(myALE%MeshVelo(3,&
+ mg_mesh%level(ilev)%nvt+&
+ mg_mesh%level(ilev)%net+&
+ mg_mesh%level(ilev)%nat+&
+ mg_mesh%level(ilev)%nel))
+ myALE%MeshVelo = 0d0
+
+ CALL InitBoundaryStructure(mg_mesh%level(ILEV)%kvert,&
+                            mg_mesh%level(ILEV)%kedge)
+
+ Properties%cName = "Prop"
+ CALL GetPhysiclaParameters(Properties,Properties%cName,mfile)
+
+ if (.not.ALLOCATED(myMultiMat%Mat)) then
+  myMultiMat%nOfMaterials = 1
+  ALLOCATE(myMultiMat%Mat(myMultiMat%nOfMaterials))
+!   myMultiMat%Mat(1)%Rheology%Equation = 5
+!   myMultiMat%Mat(1)%Rheology%AtFunc = 1
+ end if
+ IF (.not.ALLOCATED(MaterialDistribution)) ALLOCATE(MaterialDistribution(1:NLMAX))
+ DO ilev=NLMIN,NLMAX
+  IF (.not.ALLOCATED(MaterialDistribution(ilev)%x)) ALLOCATE(MaterialDistribution(ilev)%x(mg_mesh%level(ilev)%nel))
+  MaterialDistribution(ilev)%x = myMultiMat%initMaterial
+ END DO
+
+ myPowerLawFluid(2) = 0.001d0
+ myPowerLawFluid(3) = 0.75d0
+
+ !!!!!!!!!!!!!!!!!!!!! otherwise the code takes the density from the q2p1_param.dat file  !!!!!!!!!!!!!!
+ IF (TRIM(ADJUSTL(myThermodyn%DensityModel)).ne.'NO') THEN
+  IF (myThermodyn%density.gt.0d0) Properties%Density(1) = myThermodyn%density
+ END IF
+ !!!!!!!!!!!!!!!!!!!!! otherwise the code takes the density from the q2p1_param.dat file  !!!!!!!!!!!!!!
+
+ ! Initialize the arrays and the distribution of physical properties
+ ALLOCATE (mgDensity(NLMIN:NLMAX))
+ ALLOCATE (mgNormShearStress(NLMIN:NLMAX))
+ DO ILEV=NLMIN,NLMAX
+
+  ALLOCATE (mgDensity(ILEV)%x(mg_mesh%level(ilev)%nel))
+  ALLOCATE (mgNormShearStress(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDensity(ILEV)%x          = Properties%Density(1)
+  mgNormShearStress(ILEV)%x  = 0d0
+
+ END DO
+
+ if(myid.ne.0) then
+!---------------------                          
+ ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
+ DO ILEV=NLMIN,NLMAX+1
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
+ END DO
+!---------------------                          
+else
+ maxlevel = mg_Mesh%nlmax
+ ALLOCATE (mgDiffCoeff(NLMIN:maxlevel))
+ DO ILEV=NLMIN,maxlevel
+  ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
+  mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
+ END DO
+end if
+
+ ILEV = NLMAX
+ ALLOCATE (Viscosity(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+
+ ALLOCATE (Temperature(mg_mesh%level(ilev)%nvt+&
+                     mg_mesh%level(ilev)%net+&
+                     mg_mesh%level(ilev)%nat+&
+                     mg_mesh%level(ilev)%nel))
+                     
+ CALL ExtractElemSizeDistribution()
+ 
+ CALL ExtractBoundaryNormals(QuadSc)
+
+ Viscosity = Properties%Viscosity(1)
+ 
+ Temperature = myProcess%T0
+
+ mydof = mg_mesh%level(ilev)%nvt+&
+         mg_mesh%level(ilev)%net+&
+         mg_mesh%level(ilev)%nat+&
+         mg_mesh%level(ilev)%nel
+
+ ALLOCATE (myALE%Monitor(mydof))
+ ALLOCATE (myALE%NewCoor(3,mydof))
+ ALLOCATE (myALE%OldCoor(3,mydof))
+! ALLOCATE (myALE%MeshVelo(3,mydof))
+ ALLOCATE (myALE%OrigCoor(3,mydof))
+
+ myALE%Monitor   = 1d0
+ myALE%MeshVelo  = 0d0
+
+ ! Building up the E013/E013 matrix strucrures
+ CALL Create_QuadMatStruct()
+! 
+!  ! Iteration matrix (only allocation)
+!  CALL Create_AMat() !(A)
+! 
+!  ! Building up the E012/E013 E013/E012 and matrix structures
+!  CALL Create_QuadLinMatStruct() 
+! 
+!  ! Building up the E012/E012 matrix strucrures
+!  CALL Create_LinMatStruct ()
+! 
+!  ! Pressure gradient matrix
+!  CALL Create_BMat() !(B,BT)
+! 
+!  IF (myid.EQ.ShowID) WRITE(MTERM,'(A)', advance='yes') " "
+! 
+!  IF (myid.ne.master) THEN
+!   ! Parallel E012/E013 matrix structure
+!   CALL Create_QuadLinParMatStruct(PLinSc) !(pB)
+!   
+!   ! Building up the Parallel E012/E012 matrix strucrures
+!   CALL Create_ParLinMatStruct ()
+! 
+!   CALL BuildUpPressureCommunicator(LinSc,PLinSc)
+! END IF
+
+!  ! Correct the wall BCs
+!  IF (allocated(mg_mesh%BndryNodes))  then
+!   ilev = nlmax
+!   CALL RestrictWallBC()
+!  END IF
+!  
+! ! Set up the boundary condition types (knpr)
+!  DO ILEV=NLMIN,NLMAX
+!   CALL SETLEV(2)
+!   CALL QuadScalar_Knpr()
+!  END DO
+! 
+!  ILEV=NLMAX
+!  mydof = mg_mesh%level(ilev)%nvt+&
+!          mg_mesh%level(ilev)%net+&
+!          mg_mesh%level(ilev)%nat+&
+!          mg_mesh%level(ilev)%nel
+! 
+!  ALLOCATE (FictKNPR(mydof))
+!  FictKNPR=0
+!  ALLOCATE (Distance(mydof))
+!  Distance = 0d0
+! 
+!  ALLOCATE (MixerKNPR(mydof))
+!  MixerKNPR=0
+!  ALLOCATE (Distamce(mydof))
+!  Distamce = 0d0
+! 
+!  ! SEt up the knpr vector showing dofs with parallel property ...
+!  IF (myid.ne.0) THEN
+!   ALLOCATE (ParKNPR(mydof))
+!   QuadSc%auxU = 1d0
+!   CALL E013Sum(QuadSc%auxU)
+!   DO I=1,mydof
+!    IF (QuadSc%auxU(I).EQ.1d0) THEN
+!     ParKNPR(I) = 0
+!    ELSE
+!     ParKNPR(I) = 1
+!    END IF
+!   END DO
+!  END IF
+! 
+!  IF (myid.eq.showID) THEN
+!   INQUIRE (FILE="_data/BenchValues.txt", EXIST=bExist)
+!   IF (ISTART.EQ.0.OR.(.NOT.bExist)) THEN
+!    OPEN(666,FILE="_data/BenchValues.txt")
+!    WRITE(666,'(10A16)') "Time","Drag","Lift","ZForce","ForceVx","ForceVy","ForceVz","ForcePx","ForcePy","ForcePz"
+!   ELSE
+!    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
+!   END IF
+!  END IF
+!  
+!  CALL InitializeProlRest(QuadSc,LinSc)
+! 
+!  CALL OperatorRegenaration(1)
+!  
+ CALL Create_MMat()
+!  
+!  CALL SetUp_HYPRE_Solver(LinSc,PLinSc,mfile)
+
+END SUBROUTINE Init_QuadScalar_ReducedStuctures
+!
+! ----------------------------------------------
+!
 SUBROUTINE Init_QuadScalar_Stuctures(mfile)
 implicit none
 LOGICAL bExist
@@ -1272,9 +1521,11 @@ END IF
    OPEN(666,FILE="_data/BenchValues.txt",ACCESS='APPEND')
   END IF
  END IF
- 
+  
  CALL InitializeProlRest(QuadSc,LinSc)
 
+ CALL Create_GradDivMat(QuadSc%knprU,QuadSc%knprV,QuadSc%knprW,LinSc%knprP)
+ 
  CALL OperatorRegenaration(1)
  
  CALL Create_MMat()
@@ -1953,15 +2204,21 @@ END SUBROUTINE Velocity_Correction
 SUBROUTINE Pressure_Correction()
   INTEGER I
   real*8 dR
+  REAL*8 daux 
+
+  if (GAMMA.gt.0d0) THEN
+   CALL SETLEV(2)
+   P1iMMat   => mg_P1iMMat(NLMAX)%a  
+   
+   daux = THSTEP*(GAMMA + Properties%Viscosity(1))
+   CALL AddDiffPrec(P1iMMat,LinSc%rhsP(NLMAX)%x,LinSc%ValP(NLMAX)%x,knel(nlmax),daux)
+  END IF
 
   DO I=1,lMat%nu
    LinSc%valP(NLMAX)%x(i) = LinSc%valP(NLMAX)%x(i) + LinSc%valP_old(i)
    LinSc%P_new(i) = 1.5d0*LinSc%valP(NLMAX)%x(i) - 0.5d0*LinSc%valP_old(i)
   END DO
-
-  ! ! Set dirichlet boundary conditions on the solution
-  ! CALL Boundary_LinScalar_Val(DWORK(L(LCORVG)))
-
+  
 END SUBROUTINE Pressure_Correction
 !
 ! ----------------------------------------------
@@ -2189,6 +2446,28 @@ SUBROUTINE FAC_GetForcesParT(mfile,iT)
   5  FORMAT(104('-'))
 
 END SUBROUTINE FAC_GetForcesParT
+!
+! ----------------------------------------------
+!
+SUBROUTINE FAC_GetSurfForces(mfile)
+
+ INTEGER mfile
+ EXTERNAL E013
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ CALL GetForcesOnSubmeshX(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                          LinSc%P_new,&
+                          mg_Mesh%level(ILEV)%kvert,&
+                          mg_Mesh%level(ILEV)%karea,&
+                          mg_Mesh%level(ILEV)%kedge,&
+                          BndrForce,&
+                          mg_Mesh%level(ILEV)%dcorvg,&
+                          Properties%Viscosity(1),mfile,&
+                          E013)
+
+END SUBROUTINE FAC_GetSurfForces
 !
 ! ----------------------------------------------
 !
@@ -2613,9 +2892,10 @@ ilevel = mg_mesh%nlmax
                    mg_mesh%level(ilevel)%kedge,&
                    mg_mesh%level(ilevel)%dcorvg,E013)
 
-  CALL E013Sum(QuadSc%defU)
-  CALL E013Sum(QuadSc%defV)
-  CALL E013Sum(QuadSc%defW)
+  CALL E013Sum3(QuadSc%defU,QuadSc%defV,QuadSc%defW)
+!   CALL E013Sum(QuadSc%defU)
+!   CALL E013Sum(QuadSc%defV)
+!   CALL E013Sum(QuadSc%defW)
 
   if(.not.allocated(Shearrate)) allocate(Shearrate(QuadSc%ndof))
   
@@ -2700,6 +2980,78 @@ END SUBROUTINE ExtractVeloGradients
 !
 ! ----------------------------------------------
 !
+SUBROUTINE  UpdateDensityDistribution_XSE(mfile)
+ INTEGER i,iel,mfile
+ REAL*8 daux,taux,dAlpha
+ REAL*8 AlphaViscosityMatModel,WallSlip
+ REAL*8 dMaxMat,dWSFactor
+ integer ifld,iMat
+
+ if (.not.bMasterTurnedOn) return 
+ 
+ if (myid.eq.1) WRITE(MTERM,*) "Update of the density distribution!"
+ if (myid.eq.1) WRITE(MFILE,*) "Update of the density distribution!"
+ 
+ DO ILEV=NLMIN,NLMAX
+
+  DO iel=1,mg_mesh%level(ilev)%nel
+   
+   i = mg_mesh%level(ilev)%nvt + &
+       mg_mesh%level(ilev)%net + &
+       mg_mesh%level(ilev)%nat + &
+       iel
+       
+   taux   = Temperature(i)
+   
+   IF (myMultiMat%nOfMaterials.gt.1) THEN 
+   
+    iMat = myMultiMat%InitMaterial
+    dMaxMat = 1d-5
+    do iFld=2,GenLinScalar%nOfFields
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dMaxMat) then
+      iMat = iFld-1
+      dMaxMat = GenLinScalar%Fld(iFld)%val(i)
+     end if
+    end do
+   
+   ELSE
+   
+    iMat = 1
+    
+   END IF
+
+   IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."DENSITY") THEN
+    mgDensity(ILEV)%x(iel) = myMultiMat%Mat(iMat)%Thermodyn%densityT0 - taux * myMultiMat%Mat(iMat)%Thermodyn%densitySteig
+   END IF
+   IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."SPECVOLUME") THEN
+    mgDensity(ILEV)%x(iel) = 1d0/(myMultiMat%Mat(iMat)%Thermodyn%densityT0 + taux * myMultiMat%Mat(iMat)%Thermodyn%densitySteig)
+   END IF
+   
+  END DO
+  
+ END DO   
+ 
+ ! send data to the master
+
+ILEV = LinSc%prm%MGprmIn%MedLev
+IF (LinSc%prm%MGprmIn%MedLev.ge.1.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L1(mgDensity(1)%x,mg_mesh%level(1)%nel)
+END IF
+
+IF (LinSc%prm%MGprmIn%MedLev.ge.2.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L2(mgDensity(2)%x,mg_mesh%level(2)%nel)
+END IF
+
+IF (LinSc%prm%MGprmIn%MedLev.ge.3.and.LinSc%prm%MGprmIn%CrsSolverType.le.4) THEN
+ CALL E010GATHR_L3(mgDensity(3)%x,mg_mesh%level(3)%nel)
+END IF
+
+ILEV = NLMAX
+  
+END SUBROUTINE  UpdateDensityDistribution_XSE
+!
+! ----------------------------------------------
+!
 SUBROUTINE  GetAlphaNonNewtViscosity_sse()
   INTEGER i
   REAL*8 daux,taux,dAlpha
@@ -2731,13 +3083,16 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
           0.5d0*(QuadSc%ValUz(i)+QuadSc%ValWx(i))**2d0 + &
           0.5d0*(QuadSc%ValVz(i)+QuadSc%ValWy(i))**2d0
 
-   
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
+ !!!! tempertaure is sampled from the Temperature@q2p1_see_temp output    !!!!!!!     
+   taux   = Temperature(i)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   
+ 
    IF (myMultiMat%nOfMaterials.gt.1) THEN 
-    taux   = GenLinScalar%Fld(1)%val(i)
     iMat = myMultiMat%InitMaterial
     dMaxMat = 1d-5
     do iFld=2,GenLinScalar%nOfFields
-     if (GenLinScalar%Fld(iFld)%val(i).gt.dMAxMat) then
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dMaxMat) then
       iMat = iFld-1
       dMaxMat = GenLinScalar%Fld(iFld)%val(i)
      end if
@@ -2749,7 +3104,6 @@ SUBROUTINE  GetAlphaNonNewtViscosity_sse()
      Viscosity(i) = dWSFactor*Viscosity(i)
     END IF
    else
-    taux = Temperature(i)
     Shearrate(i) = sqrt(2d0 * daux)
     Viscosity(i) = AlphaViscosityMatModel(daux,1,taux)
     if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
@@ -3569,7 +3923,15 @@ END IF
 IF (bCreate) THEN
  CALL InitializeProlRest(QuadSc,LinSc)
  
+ CALL MemoryPrint(1,'w','CGALOUT0')
  CALL Release_cgal_structures()
+ CALL MemoryPrint(1,'w','CGALOUT1')
+ 
+ !!! for the SSE app it is assumed to have a constant density distribution, which depends !!!!
+ !!! only on the local tempertaure and material distribution                              !!!!
+ CALL UpdateDensityDistribution_XSE(mfile)
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
  call OperatorRegenaration(1)
  call OperatorRegenaration(2)
  call OperatorRegenaration(3)

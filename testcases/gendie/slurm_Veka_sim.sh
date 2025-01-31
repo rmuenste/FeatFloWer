@@ -18,8 +18,6 @@ echo $SLURM_SUBMIT_DIR
 echo `module list`
 
 
-SimFolder=VEKA_S
-
-python3 ./e3d_start.py -n 64 -f ${SimFolder} --die-simulation
+./RunnerGenDIE.sh
 
 

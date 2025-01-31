@@ -50,3 +50,19 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_fc_ext_start.py DESTINATION ${CMAKE_C
 file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test(q2p1-fac-newt python ./q2p1_ctest_start.py)
+
+IF(${OUT_OF_SOURCE_BUILD})
+
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/partitioner")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/tools/partitioner" "${CMAKE_CURRENT_BINARY_DIR}/partitioner" )
+  ENDIF()
+  
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat")
+    file(COPY "${CMAKE_SOURCE_DIR}/_data/MG.dat" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/_data")
+  ENDIF()
+
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/RankFileGenerator.sh")
+    file(COPY "${CMAKE_SOURCE_DIR}/tools/RankFileGenerator.sh" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+  ENDIF()
+  
+ENDIF()

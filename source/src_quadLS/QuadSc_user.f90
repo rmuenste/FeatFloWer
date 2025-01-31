@@ -108,6 +108,7 @@ REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 integer iSubInflow
 real*8 dRPM
+REAL*8 ValUT,ValVT,ValWT
 
 ValU = 0d0
 ValV = 0d0
@@ -262,6 +263,14 @@ IF (iT.lt.0) THEN
  END IF
 END IF
 
+IF (iT.EQ.111) THEN
+   dist = SQRT((x-27)**2d0 + y*y)
+   dScale = 5.0d0/0.245**2d0
+   IF (dist.lt.R_inflow) THEN
+    ValW= -dScale*(dist+0.245)*(0.245-dist)
+   END IF
+END IF
+
 IF (iT.EQ.1) THEN
    dist = SQRT(z*z + y*y)
    dScale = 5.0d0/R_inflow*R_inflow
@@ -313,6 +322,25 @@ END IF
 IF (iT.EQ.770) THEN
   ValU =  -myTwoPI*Y*(1d0/6d1)
   ValV =   myTwoPI*X*(1d0/6d1)
+  ValW =   0.0d0
+END IF
+
+IF (iT.EQ.666) THEN
+  dCenter=[-0.85d0,0d0,0d0]
+  DIST = SQRT((X-dCenter(1))**2d0+(Y-dCenter(2))**2d0)
+  DIST = MIN(DIST,0.18d0)
+  DAUX= 2d0*(DIST+0.18d0)*(0.18d0-DIST)/(0.18d0*0.18d0)
+  ValU =   0.3d0*DAUX
+  ValV =   0.0d0*DAUX
+  ValW =   0.3d0*DAUX
+END IF
+
+IF (iT.EQ.778) THEN
+  dScale=1.0d3*(9d0/4d0)/(0.15d0*0.0425d0)**2d0
+  XX = X-9.6d0
+  ZZ = Z
+  ValU =   0.0d0
+  ValV =   dScale*ZZ*(0.085d0-ZZ)*XX*(0.300d0-XX)
   ValW =   0.0d0
 END IF
 
@@ -407,6 +435,10 @@ if(it.eq.11)then
    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
+   CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,-1d0)
+   ValU = ValUT
+   ValV = ValVT
+   ValW = ValWT
   END IF
 end if
 
@@ -420,6 +452,10 @@ if(it.eq.12)then
    ValU =  -DBLE(myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
+   CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,+1d0)
+   ValU = ValUT
+   ValV = ValVT
+   ValW = ValWT
   END IF
 end if
 
@@ -754,6 +790,7 @@ REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
 integer iScrewType,iSeg
+REAL*8 ValUT,ValVT,ValWT
 
 IF (iP.lt.200) then
 
@@ -771,6 +808,10 @@ IF (iP.lt.200) then
     CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
     ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
     ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+    CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,-1d0)
+    ValU = ValUT
+    ValV = ValVT
+    ValW = ValWT
    END IF
   CASE (102) ! Y negativ
    IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
@@ -781,6 +822,10 @@ IF (iP.lt.200) then
     CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
     ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
     ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+    CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,+1d0)
+    ValU = ValUT
+    ValV = ValVT
+    ValW = ValWT
    END IF
   CASE (103) ! Y negativ
    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
@@ -1086,6 +1131,18 @@ END SUBROUTINE TransformPointToNonparallelRotAxis
 !
 !
 !
+SUBROUTINE TransformVelocityToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
+USE Sigma_User, ONLY: mySigma
+REAL*8 x1,y1,z1,x2,y2,z2,dS
+
+X2 = X1
+Y2 = Y1*cos(dS*mySigma%RotAxisAngle) - Z1*sin(dS*mySigma%RotAxisAngle)
+Z2 = Y1*sin(dS*mySigma%RotAxisAngle) + Z1*cos(dS*mySigma%RotAxisAngle)
+
+END SUBROUTINE TransformVelocityToNonparallelRotAxis
+!
+!
+!
 SUBROUTINE SetInitialTemperature(T,Coor,ndof)
 USE Sigma_User, ONLY: myProcess
 implicit none
@@ -1213,8 +1270,9 @@ tau_min = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMin   ! scaling from Pa to 10P
 tau_max = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMax   ! scaling from Pa to 10Pa
 slip = myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
 
-! d = max(dShell,dScrew)                                  ! mm
-d = dShell
+!d = 1d1*dScrew                                  ! mm
+d = 1d1*min(dShell,dScrew)                                  ! mm
+!d = 1d1*dShell
 
 d_factor   = 1d0-((max(min(d,d_max),d_min)-d_min)/(d_max-d_min))
 tau_factor = ((max(min(tau,tau_max),tau_min)-tau_min)/(tau_max-tau_min))

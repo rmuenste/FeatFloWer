@@ -93,7 +93,9 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
   ${src_mpi}
   ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/comm_sum.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/min_sphere.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/OutputMumpsMatrices.f90
   ${CMAKE_SOURCE_DIR}/source/src_mpi/parentcomm.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
@@ -102,6 +104,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/get_pid.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/f90getopt.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/MPI_SharedMemory.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
   )
@@ -126,6 +129,7 @@ ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_barMmatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_Interface.f90
+${CMAKE_SOURCE_DIR}/source/assemblies/AL.f90
 )
 
 #=========================================================================
@@ -194,6 +198,7 @@ target_compile_options(ff_fbm PUBLIC ${Fortran_FLAGS})
 
 set(src_LinSc
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mass.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
@@ -278,6 +283,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90

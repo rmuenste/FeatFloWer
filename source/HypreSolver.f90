@@ -253,9 +253,9 @@ if (.not.myHypre%solverIsSet) then
   !Max numbers per rows
   call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 7, ierr)
   
-  CALL HYPRE_BoomerAMGSetMinCoarseSize(myHypre%precond, 100, ierr)
+  CALL HYPRE_BoomerAMGSetMinCoarseSize(myHypre%precond, 60, ierr)
 
-  CALL HYPRE_BoomerAMGSetMaxCoarseSize(myHypre%precond, 1000, ierr)
+  CALL HYPRE_BoomerAMGSetMaxCoarseSize(myHypre%precond, 240, ierr)
   
   CALL HYPRE_BoomerAMGSetCoarsenType(myHypre%precond,8,ierr)
 

@@ -8,7 +8,7 @@ subroutine init_q2p1_ext(log_unit)
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_General, &
-    LinSc_InitCond_General,Boundary_LinSc_Val_General,Assemble_LinScOperators_General
+    LinSc_InitCond_General,Boundary_LinSc_Val_General!,Assemble_LinScOperators_General
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh
   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
@@ -63,7 +63,7 @@ subroutine init_q2p1_ext(log_unit)
   
   call InitCond_LinScalar_General(LinSc_InitCond_General,Boundary_LinSc_Val_General)
   
-  CALL Assemble_LinScOperators_General()
+!   CALL Assemble_LinScOperators_General()
 
 end subroutine init_q2p1_ext
 !

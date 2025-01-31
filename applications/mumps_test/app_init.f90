@@ -1,50 +1,62 @@
 subroutine init_q2p1_ext(log_unit)
     
   USE def_FEAT
-  USE PLinScalar, ONLY : Init_PLinScalar,InitCond_PLinLS, &
-    UpdateAuxVariables,Transport_PLinLS,Reinitialize_PLinLS, &
-    Reinit_Interphase,dMaxSTF
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
-    ResetTimer,bTracer,bViscoElastic,StaticMeshAdaptation
+    bTracer,bViscoElastic,StaticMeshAdaptation,&
+    LinScalar_InitCond
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-  USE var_QuadScalar, ONLY : myStat,cFBM_File
+  USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
 
   integer, intent(in) :: log_unit
 
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  CALL General_init_ext(79,log_unit)
+  call General_init_ext(79,log_unit)
 
-  CALL Init_QuadScalar_Stuctures(log_unit)
+  call Init_QuadScalar_Stuctures(log_unit)
 
-  IF(bViscoElastic)CALL Init_ViscoScalar_Stuctures(log_unit)
+  IF(bViscoElastic)call Init_ViscoScalar_Stuctures(log_unit)
 
-  CALL Init_LinScalar(log_unit)
+  call Init_LinScalar(log_unit)
 
-  CALL InitCond_LinScalar()
+  call InitCond_LinScalar()
 
-  IF (ISTART.EQ.0) THEN
+  ! Normal start from inital configuration
+  if (istart.eq.0) then
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call InitCond_QuadScalar()
+    IF(bViscoElastic)call IniProf_ViscoScalar()
+
+  ! Start from a solution on the same lvl
+  ! with the same number of partitions
+  elseif (istart.eq.1) then
+    if (myid.ne.0) call CreateDumpStructures(1)
+    call SolFromFile(CSTART,1)
+
+  ! Start from a solution on a lower lvl
+  ! with the same number of partitions
+  elseif (istart.eq.2)then
+    ! In order to read in from a lower level
+    ! the lower level structures are needed
+    if (myid.ne.0) call CreateDumpStructures(0)
+    call SolFromFile(CSTART,0)
+    call ProlongateSolution()
+
+    ! Now generate the structures for the actual level 
+    if (myid.ne.0) call CreateDumpStructures(1)
+
+  ! Start from a solution on the same lvl
+  ! with a different number of partitions
+  elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    CALL InitCond_QuadScalar()
-    IF(bViscoElastic)CALL IniProf_ViscoScalar()
-  ELSE
-    IF (ISTART.EQ.1) THEN
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-      CALL SolFromFile(CSTART,1)
-    ELSE
-      IF (myid.ne.0) CALL CreateDumpStructures(0)
-      CALL SolFromFile(CSTART,0)
-      CALL ProlongateSolution()
-      IF (myid.ne.0) CALL CreateDumpStructures(1)
-    END IF
-  END IF
-
+    call SolFromFileRepart(CSTART,1)
+  end if
 
 end subroutine init_q2p1_ext
 !
@@ -55,9 +67,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
- USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
+ USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
+     ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
+     DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
 
@@ -80,25 +94,29 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER ISEAR,ISEVE,ISAVE,ISVBD,ISEBD,ISABD,IDISP
  INTEGER NEL0,NEL1,NEL2
  REAL ttt0,ttt1
- INTEGER II,NDOF
+ INTEGER II,NDOF,iUmbrella
  LOGICAL BLIN
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
  CHARACTER command*100,CSimPar*7
- CHARACTER (len = 60) :: afile 
+ CHARACTER (len = 60) :: afile,cXX
+ integer iXX
  CHARACTER (len = 60) :: bfile 
 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
 
+
  CALL ZTIME(TTT0)
+
 
  !=======================================================================
  !     Data input
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ 
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
 
@@ -115,7 +133,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL Init_QuadScalar(mfile)
 
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) THEN
+  NLMAX = LinSc%prm%MGprmIn%MedLev
+ END IF
 
  if(NLMAX.eq.0)then
    write(*,*)'NLMAX=0 is invalid, exiting...'
@@ -159,6 +179,40 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
 
+ 
+ !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated
+!  if (myid.eq.0) then 
+! 
+!   DO II=mg_Mesh%nlmin,mg_Mesh%nlmax
+!   
+!    READ(cProjectFile(6:),'(A)') cXX
+!    iXX = INDEX(CXX,'/')
+!    READ(cXX(:iXX-1),'(A)') cXX
+!    
+!    CALL EXPORT_TRIA(mg_mesh%level(II)%nel,&
+!                     mg_mesh%level(II)%nvt,&
+!                     mg_mesh%level(II)%net,&
+!                     mg_mesh%level(II)%nat,&
+!                     mg_mesh%level(II)%nve,&
+!                     mg_mesh%level(II)%nee,&
+!                     mg_mesh%level(II)%nae,&
+!                     mg_mesh%level(II)%nvel,&
+!                     mg_mesh%level(II)%nbct,&
+!                     mg_mesh%level(II)%dcorvg,&
+!                     mg_mesh%level(II)%kvert,&
+!                     mg_mesh%level(II)%kadj,&
+!                     mg_mesh%level(II)%kedge,&
+!                     mg_mesh%level(II)%dcorag,&
+!                     mg_mesh%level(II)%kvel,&
+!                     mg_mesh%level(II)%karea,&
+!                     mg_mesh%level(II)%knpr,&
+!                     cXX,II)
+!                     
+!     WRITE(*,*) 'TRIA has been released for level', II
+!   END DO                
+! 
+!  END IF
+ 
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
 
@@ -169,6 +223,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                  mg_mesh%level(II)%dcorag,&
                  mg_mesh%level(II)%karea,&
                  mg_mesh%level(II)%kvert)
+
 
  IF (myid.EQ.0) NLMAX = NLMAX - 1
 
@@ -190,7 +245,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  END DO
 
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures : done!'
- IF (myid.EQ.0) NLMAX = LinSc%prm%MGprmIn%MedLev
+ IF (myid.EQ.0) THEN
+  NLMAX = LinSc%prm%MGprmIn%MedLev
+ END IF
  !     THIS PART WILL BUILD THE REQUIRED COMMUNICATION STRUCTURES
  !     ----------------------------------------------------------
 
@@ -240,23 +297,9 @@ DO ILEV=NLMIN+1,NLMAX
 
  END DO
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2 :  done!'
- 
+
  CALL ExtraxtParallelPattern()
 
- DO ILEV=NLMIN,NLMAX
-  IF (myid.ne.0) THEN
-   CALL Create_GlobalQ2CommNumbering(mg_mesh%level(ILEV)%dcorvg,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea,&
-                      mg_mesh%level(ILEV)%nvt,&
-                      mg_mesh%level(ILEV)%net,&
-                      mg_mesh%level(ILEV)%nat,&
-                      mg_mesh%level(ILEV)%nel)   
-  end if
-  end do
-
- 
  NDOF = mg_mesh%level(NLMAX)%nvt + mg_mesh%level(NLMAX)%nat + &
         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
 
@@ -276,7 +319,7 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,ilev)
 
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-   
+
      CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
                                 mg_mesh%level(ILEV+1)%dcorvg,&
                                 mg_mesh%level(ILEV)%karea,&
@@ -293,6 +336,7 @@ DO ILEV=NLMIN+1,NLMAX
  if(myid.ne.0)then
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
+
 
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
@@ -339,15 +383,8 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
  END IF
 
- !CALL SETLEV(2)
-
- IF (myid.eq.showid) THEN
-   WRITE(MTERM,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
-   WRITE(MFILE,'(10(2XI8))')ILEV,NVT,NAT,NEL,NET,NVT+NAT+NEL+NET
- END IF
-
  if(.not.allocated(mg_mesh%level(II)%dvol))then
-   allocate(mg_mesh%level(II)%dvol(NEL))
+   allocate(mg_mesh%level(II)%dvol(NEL+1))
  end if
 
  CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -361,14 +398,14 @@ DO ILEV=NLMIN+1,NLMAX
    ILEV=NLMAX +1 
 
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-     allocate(mg_mesh%level(ILEV)%dvol(NEL))
+     allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
 
    CALL  SETARE(mg_mesh%level(ILEV)%dvol,&
                 NEL,&
                 mg_mesh%level(ILEV)%kvert,&
                 mg_mesh%level(ILEV)%dcorvg)
-
+                
  END IF
 
  CALL ZTIME(TTT1)
@@ -384,16 +421,17 @@ DO ILEV=NLMIN+1,NLMAX
  END IF
 
  RETURN
+
 END SUBROUTINE General_init_ext
-!
-!-----------------------------------------------------------------------
-!
+ !
+ !-----------------------------------------------------------------------
+ !
  SUBROUTINE myGDATNEW (cName,iCurrentStatus)
    USE PP3D_MPI
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bViscoElasticFAC,bRefFrame
+     bViscoElastic,bRefFrame
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -527,11 +565,6 @@ END SUBROUTINE General_init_ext
          READ(string(iEq+1:),*) cParam
          bViscoElastic = .FALSE.
          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
-       CASE ("ViscoElasticFAC")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bViscoElasticFAC = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElasticFAC = .TRUE.
        CASE ("ReferenceFrame")
          cParam = " "
          READ(string(iEq+1:),*) cParam
@@ -743,11 +776,6 @@ END SUBROUTINE General_init_ext
      IF (bViscoElastic) THEN 
        WRITE(mfile,'(A)') "Visco-elastic equation is included"
        WRITE(mterm,'(A)') "Visco-elastic equation is included"
-     END IF
-
-     IF (bViscoElasticFAC) THEN 
-       WRITE(mfile,'(A)') "Visco-elastic flow around cylinder"
-       WRITE(mterm,'(A)') "Visco-elastic flow around cylinder"
      END IF
 
      IF (bNonNewtonian) THEN 

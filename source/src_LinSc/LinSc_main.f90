@@ -718,16 +718,16 @@ if (myid.ne.0) then
  CALL SETLEV(2)
 
  ! Diffusion matrix 
- CALL Create_LambdaDiffMat()
+ CALL Create_LambdaDiffMat_Ewikon()
 
  ! Mass matrix
- CALL Create_CpRhoMassMat()
+ CALL Create_RhoCpMassMat_Ewikon()
 
  ! Convection matrix
- CALL Create_RhoCpConvMat(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+ CALL Create_RhoCpConvMat_Ewikon(QuadSc%valU,QuadSc%valV,QuadSc%valW)
 
  ! Mass Lumped matrix
- CALL Create_LRhoCpMassMat()
+ CALL Create_RhoCpLMassMat()
 
  NLMAX = NLMAX - 1
 end if

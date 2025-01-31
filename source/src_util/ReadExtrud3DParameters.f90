@@ -19,7 +19,7 @@
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
     character(len=INIP_STRLEN) cMidpointA, cMidpointB 
-    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -845,6 +845,15 @@
          myProcess%SegThermoPhysProp(iSeg)%bConstTemp = .false.
        END IF
       END DO
+      DO iSeg=1,mySigma%NumberOfSeg
+       IF (TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."S".or.&
+           TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."SRC".or.&
+           TRIM(ADJUSTL(myProcess%SegThermoPhysProp(iSeg)%cConstTemp)).eq."SOURCE") THEN
+         myProcess%SegThermoPhysProp(iSeg)%bHeatSource = .true.
+       ELSE
+         myProcess%SegThermoPhysProp(iSeg)%bHeatSource = .false.
+       END IF
+      END DO
       call INIP_getvalue_string(parameterlist,"E3DProcessParameters/SegmentThermoPhysProps","temperature",cTXT,' ')
       READ(cTXT,*) myProcess%SegThermoPhysProp(0:mySigma%NumberOfSeg)%T_Const
      END IF
@@ -865,7 +874,7 @@
     call inip_toupper_replace(cText)
     call ReadDoubleFromDimensionalString()
     IF (TRIM(adjustl(sExtract_Dim)).eq.'BAR') myProcess%dPress = 1d6*dExtract_Val
-    IF (TRIM(adjustl(sExtract_Dim)).eq.'PA') myProcess%dPress  = 1d1*dExtract_Val
+    IF (TRIM(adjustl(sExtract_Dim)).eq.'PA')  myProcess%dPress  = 1d1*dExtract_Val
     IF (TRIM(adjustl(sExtract_Dim)).eq.'KPA') myProcess%dPress = 1d4*dExtract_Val
     IF (TRIM(adjustl(sExtract_Dim)).eq.'MPA') myProcess%dPress = 1d7*dExtract_Val
 !     
@@ -887,6 +896,19 @@
      !GOTO 10
     END IF
     
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","UseAirCooling", cText,"OFF")
+    call inip_toupper_replace(cText)
+    if (adjustl(trim(cText)).EQ.'ON'.or.adjustl(trim(cText)).EQ.'YES') then
+     myProcess%UseAirCooling = .TRUE.
+    else
+     myProcess%UseAirCooling = .FALSE.
+    end if
+    
+    IF (myProcess%UseAirCooling) THEN
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","AirCoolingHeatTransCoeff", myProcess%AirCoolingHeatTransCoeff,20d0)
+     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","AirCoolingRoomTemperature", myProcess%AirCoolingRoomTemperature,25d0)
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","UseHeatDissipationForQ1Scalar",cDissip,'OFF')
     call inip_toupper_replace(cDissip)
     if (adjustl(trim(cVelo)).EQ.'ON'.or.adjustl(trim(cVelo)).EQ.'YES') then
@@ -1247,7 +1269,58 @@
     end if
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","Phase",myProcess%Phase,-1)
     
-    
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Sensors",   "nOfDIESensors"      ,myProcess%nOfDIESensors,0)
+    IF (myProcess%nOfDIESensors.gt.0) then
+     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings/Sensors","SensorUnit",cUnit,'cm')
+     call inip_toupper_replace(cUnit)
+     IF (.NOT.(TRIM(cUnit).eq.'MM'.OR.TRIM(cUnit).eq.'CM'.OR.TRIM(cUnit).eq.'DM'.OR.TRIM(cUnit).eq.'M')) THEN
+       WRITE(*,*) "Unit type is invalid. Only MM, CM, DM or 'M' units are allowed ",TRIM(cUnit)
+       cUnit = 'cm'
+     END IF
+     if (TRIM(cUnit).eq.'MM') daux = 0.100d0
+     if (TRIM(cUnit).eq.'CM') daux = 1.000d0
+     if (TRIM(cUnit).eq.'DM') daux = 10.00d0
+     if (TRIM(cUnit).eq.'M')  daux = 100.0d0
+
+     ALLOCATE(myProcess%mySensor(myProcess%nOfDIESensors)) 
+     DO i=1,myProcess%nOfDIESensors
+      cSensor = ' '
+      if (i.gt.0.and.i.le.9) WRITE(cSensor,'(A,I1.1)') 'Sensor_',i
+      if (i.gt.9.and.i.le.99) WRITE(cSensor,'(A,I2.2)') 'Sensor_',i
+      if (i.gt.99.and.i.le.999) WRITE(cSensor,'(A,I3.3)') 'Sensor_',i
+      
+      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings/Sensors",cSensor,cCenter,'0,0,0,0,OFF,0.0,0')
+      read(cCenter,*,err=153,end=153) myProcess%mySensor(i)%Center,myProcess%mySensor(i)%Radius,myProcess%mySensor(i)%Type,myProcess%mySensor(i)%PID_Ctrl%T_set, myProcess%mySensor(i)%iSeg
+      CALL inip_toupper_replace(myProcess%mySensor(i)%Type)
+      myProcess%mySensor(i)%PID_Ctrl%Omega_P = 0.010d0
+      myProcess%mySensor(i)%PID_Ctrl%Omega_I = 1d2
+      myProcess%mySensor(i)%PID_Ctrl%Omega_D = 0.1d0
+      mySigma%mySegment(i)%PID_Ctrl%SumI = 0d0
+      mySigma%mySegment(i)%PID_Ctrl%e_old = 0d0
+
+      IF (.not.(myProcess%mySensor(i)%Type.eq."PID".OR.myProcess%mySensor(i)%Type.eq."OFF")) THEN
+       write(*,*) 'WRONGLY DEFINED Regulation type for Sensor',i,' !!',adjustl(trim(myProcess%mySensor(i)%Type))
+       goto 153
+      END IF
+      IF (myProcess%mySensor(i)%iSeg.lt.1.OR.myProcess%mySensor(i)%iSeg.gt.mySigma%NumberOfSeg) THEN
+       write(*,*) 'WRONGLY DEFINED Regulation pointer, no valid segment ID',i,' !!',myProcess%mySensor(i)%iSeg
+       goto 153
+      end if
+      goto 156
+
+153   CONTINUE
+      myProcess%mySensor(i)%Type = "OFF"
+      myProcess%mySensor(i)%PID_Ctrl%T_set = myInf
+      read(cCenter,*,err=155) myProcess%mySensor(i)%Center,myProcess%mySensor(i)%Radius
+      goto 156
+155   write(*,*) 'WRONGLY DEFINED Center and/or Radius for Sensor',i,' !!'//"|",ADJUSTL(TRIM(cCenter)),"|"
+156   continue 
+      myProcess%mySensor(i)%Center = daux*myProcess%mySensor(i)%Center
+      myProcess%mySensor(i)%Radius = daux*myProcess%mySensor(i)%Radius
+     END DO
+     
+    END IF
+   
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! PATCH 2021.09.30 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     DO iMat = 1, myMultiMat%nOfMaterials
      IF (ADJUSTL(TRIM(myMultiMat%Mat(iMat)%Thermodyn%DensityModel)).eq."DENSITY") THEN
@@ -1332,7 +1405,13 @@
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%lambda=' ,myProcess%SegThermoPhysProp(iSeg)%lambda
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%cp='     ,myProcess%SegThermoPhysProp(iSeg)%cp
       write(*,'(A,I0,A,L1)') " mySIGMA%Segment(",iSeg,')%isothermal='     ,myProcess%SegThermoPhysProp(iSeg)%bConstTemp
-      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%temperature='     ,myProcess%SegThermoPhysProp(iSeg)%T_Const
+      write(*,'(A,I0,A,L1)') " mySIGMA%Segment(",iSeg,')%heatsource='     ,myProcess%SegThermoPhysProp(iSeg)%bHeatSource
+      if (myProcess%SegThermoPhysProp(iSeg)%bConstTemp) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%temperature='     ,myProcess%SegThermoPhysProp(iSeg)%T_Const
+      end if
+      if (myProcess%SegThermoPhysProp(iSeg)%bHeatSource) then
+       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%HeatSource='     ,myProcess%SegThermoPhysProp(iSeg)%T_Const
+      end if
      END DO  
     ELSE
      write(*,*) "No thermal properties has been assigned to the segments!"
@@ -1500,6 +1579,14 @@
     END DO    
 
     write(*,'(A,A,L2)') "myProcess%UseHeatDissipationForQ1Scalar",'=',myProcess%UseHeatDissipationForQ1Scalar
+    
+    IF (myProcess%UseAirCooling) THEN
+     write(*,'(A)') "AirCooling of the outer surface is 'ON'!"
+     write(*,'(A,A,3ES12.4)') "myProcess%AirCoolingHeatTransCoeff"," = ", myProcess%AirCoolingHeatTransCoeff
+     write(*,'(A,A,3ES12.4)') "myProcess%AirCoolingRoomTemperature"," = ", myProcess%AirCoolingRoomTemperature
+     write(*,'(A)') " "
+    END IF
+    
     write(*,'(A,A,3ES12.4)') "myProcess%FBMVeloBC",'=',myProcess%FBMVeloBC
     write(*,*) "myProcess%Rotation",'=',myProcess%Rotation
     write(*,*) "myProcess%ind",'=',myProcess%ind
@@ -1542,6 +1629,8 @@
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Type','=',myProcess%myInflow(iInflow)%iBCtype
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Material','=',myProcess%myInflow(iInflow)%Material
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Massflowrate','=',myProcess%myInflow(iInflow)%massflowrate
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_TemperatureType','=',myProcess%myInflow(iInflow)%temperatureType
+      write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_TemperatureRange','=',myProcess%myInflow(iInflow)%temperatureRange
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_Temperature','=',myProcess%myInflow(iInflow)%temperature
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_InnerRadius','=',myProcess%myInflow(iInflow)%InnerRadius
       write(*,*) "myProcess%"//ADJUSTL(TRIM(cInflow_i))//'_OuterRadius','=',myProcess%myInflow(iInflow)%OuterRadius
@@ -1712,7 +1801,14 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%C
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
      END IF
-     write(*,*) 
+     IF (myMultiMat%Mat(1)%Rheology%Equation.eq.8) THEN
+      write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','YASUDA'
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%mu_0",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%Lambda",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%C
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
+     END IF
+     write(*,*)
      IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%aT",'=',1.0
@@ -1786,6 +1882,20 @@
     write(*,*) "myOutput%CutDtata_1D = ",myOutput%CutDtata_1D
     
     write(*,*) 
+    
+    write(*,*) "E3DProcessParameters@nOfDIESensors = ", myProcess%nOfDIESensors
+    if (myProcess%nOfDIESensors.gt.0) then
+     do i=1,myProcess%nOfDIESensors
+      write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]Center = ", myProcess%mySensor(i)%Center
+      write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]Radius = ", myProcess%mySensor(i)%Radius
+      write(*,'(A,i0,A,A)') "E3DProcessParameters@DIESensor[",i,"]RegType = ", adjustl(trim(myProcess%mySensor(i)%Type))
+      write(*,'(A,i0,A,ES12.4)') "E3DProcessParameters@DIESensor[",i,"]SetValue = ", myProcess%mySensor(i)%PID_Ctrl%T_set
+      write(*,'(A,i0,A,I8)') "E3DProcessParameters@DIESensor[",i,"]SetSegment = ",myProcess%mySensor(i)%iSeg
+      write(*,'(A,i0,A,3ES12.4)') "E3DProcessParameters@DIESensor[",i,"]PID = ", myProcess%mySensor(i)%PID_Ctrl%omega_P, myProcess%mySensor(i)%PID_Ctrl%omega_I, myProcess%mySensor(i)%PID_Ctrl%omega_D
+     end do
+    else
+     write(*,*) "no sensor data to report"
+    end if
     
     write(*,'(A,F12.4)') "mySetup%PressureConvergenceTolerance = ",mySetup%PressureConvergenceTolerance
 

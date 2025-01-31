@@ -504,8 +504,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
           w(j) = w(j) + 1d0
         END DO
       END DO
-      CALL E013SUM(f)
-      CALL E013SUM(w)
+      CALL E013SUM2(f,w)
 
       DO i=1,nvt
         f(i) = f(i)/w(i)
@@ -559,10 +558,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
         END DO
       END DO
 
-      CALL E013SUM(x)
-      CALL E013SUM(y)
-      CALL E013SUM(z)
-      CALL E013SUM(w)
+      CALL E013SUM4(x,y,z,w)
 
       DO i=1,nvt
       PX = x(i)/w(i)
@@ -710,8 +706,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
           w(j) = w(j) + 1d0
         END DO
       END DO
-      CALL E013SUM(f)
-      CALL E013SUM(w)
+      CALL E013SUM2(f,w)
 
       DO i=1,nvt
         f(i) = f(i)/w(i)
@@ -760,10 +755,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
         END DO
       END DO
 
-      CALL E013SUM(x)
-      CALL E013SUM(y)
-      CALL E013SUM(z)
-      CALL E013SUM(w)
+      CALL E013SUM4(x,y,z,w)
 
       DO i=1,nvt
        PX = x(i)/w(i)
@@ -835,8 +827,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
           w(j) = w(j) + 1d0
         END DO
       END DO
-      CALL E013SUM(f)
-      CALL E013SUM(w)
+      CALL E013SUM2(f,w)
 
       DO i=1,nvt
         f(i) = f(i)/w(i)
@@ -885,10 +876,7 @@ SUBROUTINE UmbrellaSmoother(myTime,nSteps)
         END DO
       END DO
 
-      CALL E013SUM(x)
-      CALL E013SUM(y)
-      CALL E013SUM(z)
-      CALL E013SUM(w)
+      CALL E013SUM4(x,y,z,w)
 
       DO i=1,nvt
        PX = x(i)/w(i)
@@ -1279,8 +1267,7 @@ END SUBROUTINE ProlongateCoordinates
       w(j) = w(j) + 1d0
       END DO
       END DO
-      CALL E013SUM(f)
-      CALL E013SUM(w)
+      CALL E013SUM2(f,w)
 
       DO i=1,nvt
       f(i) = f(i)/w(i)
@@ -1325,10 +1312,7 @@ END SUBROUTINE ProlongateCoordinates
       END DO
       END DO
 
-      CALL E013SUM(x)
-      CALL E013SUM(y)
-      CALL E013SUM(z)
-      CALL E013SUM(w)
+      CALL E013SUM4(x,y,z,w)
 
       IF (bInit) then
         DO i=1,nvt

@@ -169,8 +169,33 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).ge.1000.and.Tracer%knpr(i).lt.2000) THEN
   iInflow = Tracer%knpr(i) - 1000
-  TempBC = myProcess%myInflow(iInflow)%Temperature 
+
+  dC = myProcess%myInflow(iInflow)%center
+  
+  IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
+   TempBC = myProcess%myInflow(iInflow)%Temperature
+  END IF
+  
+  IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
+   dRR = myProcess%myInflow(iInflow)%outerradius
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
+   dT = myProcess%myInflow(iInflow)%TemperatureRange
+   dR = Min(dR,dRR)
+   
+   TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(1d0-(dRR-dR)/dRR)
+!    write(*,'(A,18ES12.4)') 'L',X,Y,Z,dR,dRR,dT,dC,TempBC
+ END IF
+ IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
+   dRR = myProcess%myInflow(iInflow)%outerradius
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
+   dT = myProcess%myInflow(iInflow)%TemperatureRange
+   dR = Min(dR,dRR)
+   
+   TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(1d0-(dRR-dR)*(dRR+dR)/(dRR*dRR))
+!   write(*,'(A,8ES12.4)') 'Q',dRR,dR,dT,dC,TempBC
+  END IF
   Tracer%val(NLMAX)%x(i)= TempBC
+  
  END IF
  
  IF (Tracer%knpr(i).ge.2000) THEN
@@ -364,27 +389,22 @@ USE var_QuadScalar, ONLY : Screw,Shell,Viscosity,Shearrate,dIntegralHeat,mySegme
 integer i,iSeg
 real*8 daux
 
-!    g      1   1   cm3   (k)g . K    0.1 . kg    1    1e-6 . m3     g . K          s2       0.1 . 1     1    1e-6 . 1     1 . K           1        1e-7 . K
-! --------*---*---*----* ---------- = --------- *----* ----------- * --------- * --------- = --------- *----* ----------- * --------- * --------- = ---------
-!  cm . s   s   s    g      (k)J       m . s      s2        g           1         kg . m2     1 . s       1        1           1         1 . 1          s
+!    g      1   1         g     
+! --------*---*--- = ----------  
+!  cm . s   s   s     cm .s.s.s 
 
 dIntegralHeat = 0d0
 
 DO i = 1,Tracer%ndof
 
  
-  IF (myProcess%SegmentThermoPhysProps) THEN
-   iSeg = mySegmentIndicator(2,i)
-   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
-  ELSE
-   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myThermodyn%density*myThermodyn%cp)
-  END IF
+  daux = Viscosity(i)*(Shearrate(i)**2d0)
   
-  IF (Screw(i).ge.0d0) THEN
+!  IF (Screw(i).ge.0d0) THEN
 !  IF (Screw(i).ge.0d0.and.Shell(i).ge.0d0) THEN
     Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
     dIntegralHeat = dIntegralHeat + daux * MlMat(i)
-  END IF
+!  END IF
   
 END DO
 

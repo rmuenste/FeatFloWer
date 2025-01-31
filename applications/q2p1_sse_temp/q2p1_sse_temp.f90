@@ -14,7 +14,7 @@ PROGRAM Q2P1_DEVEL
                          
   use Transport_Q2P1,  only: TemporalFieldInterpolator,QuadSc,LinSc
   
-  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease,myTransientSolution
+  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,bKTPRelease,myTransientSolution,myMultiMat
   
   use Transport_Q1,  only: Transport_LinScalar_XSE,Boundary_LinSc_Val_XSE,AddSource_XSE,&
                            Assemble_LinScOperators_XSE
@@ -100,6 +100,8 @@ PROGRAM Q2P1_DEVEL
     END IF
 
     CALL ReleaseMPIDumpFiles(int(myProcess%Angle),'t')
+    CALL OUTPUT_PID_DATA(int(myProcess%angle))
+
 !     CALL Release_ListFiles_General(int(myProcess%Angle),'t')
 !     CALL Release_ListFiles_SSE_temp(int(myProcess%Angle))
 !    call write_sol_to_file(insavn, timens)

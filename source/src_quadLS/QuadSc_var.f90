@@ -34,10 +34,17 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
+LOGICAL :: bMemoryPrint=.true.
 LOGICAL :: bMasterTurnedOn=.true. ! because of hypre
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 REAL*8  :: AlphaControl=0d0
+
+TYPE tTimer
+ integer :: n = 0
+ real*8  :: t = 0d0
+END TYPE tTimer
+TYPE (tTimer) :: myTimer(6),MYCOMMTIMER(8)
 
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)
@@ -62,6 +69,8 @@ LOGICAL :: b2DViscoBench=.FALSE.,b3DViscoBench=.FALSE.
 LOGICAL :: bSteadyState =.FALSE.
 LOGICAL :: bBoundaryCheck=.FALSE.
 LOGICAL :: bNS_Stabilization=.FALSE.
+
+REAL*8 :: Gamma = 0d0
 
 ! Integer parameter for terminal output
 integer, parameter :: uterm = 6
@@ -107,12 +116,16 @@ REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ConstDMat,hDMat
 REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
 REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
-REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat
+REAL*8, DIMENSION(:), POINTER :: W11mat,W22mat,W33mat
+REAL*8, DIMENSION(:), POINTER :: W12mat,W13mat,W23mat,W21mat,W31mat,W32mat
+REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat,P1MMat,P1iMMat
 REAL*8, DIMENSION(:), POINTER :: VisMat_11,VisMat_22,VisMat_33
 REAL*8, DIMENSION(:), POINTER :: VisMat_12,VisMat_13,VisMat_23
 
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
+
+INTEGER, allocatable   :: UNF_P_CrsGrid(:)
 
 TYPE tGlobalNumberingMap
  INTEGER  :: ndof,ndof_Q2,ndof_P1
@@ -158,6 +171,9 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg_S33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W11mat,mg_W22mat,mg_W33mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W12mat,mg_W13mat,mg_W23mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W21mat,mg_W31mat,mg_W32mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlPMat,mg_MlRhomat,mg_MlRhoPmat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat,mg_P1MMat,mg_P1iMMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
@@ -432,6 +448,18 @@ TYPE (tParticleParam) :: myParticleParam
 TYPE (tErrorCodes) ::  myErrorCode
 
 TYPE (tMGSteps) MGSteps
+
+TYPE tRecursiveCommunication
+ character(len=256), allocatable :: all_hostnames(:)
+ character(len=256), allocatable :: unique_hostnames(:)
+ integer, allocatable :: hostleaders(:),groupIDs(:)
+ integer, allocatable :: hostgroup(:)
+ integer myid,numnodes,NumHosts,myNodeGroup
+ character(len=256) :: HostName
+END TYPE tRecursiveCommunication
+
+TYPE(tRecursiveCommunication) :: myRecComm
+
 
 contains 
 integer function KNEL(ilevel)

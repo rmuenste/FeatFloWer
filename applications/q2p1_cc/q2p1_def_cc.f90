@@ -2202,7 +2202,7 @@ END SUBROUTINE QuadScP1toQ2_cc
 ! barMMat
 ! ----------------------------------------------
 !
-SUBROUTINE Create_barMMat_iso(myScalar)
+SUBROUTINE Create_CCbarMMat_iso(myScalar)
 TYPE(TQuadScalar) myScalar
 EXTERNAL E013
 
@@ -2273,7 +2273,7 @@ EXTERNAL E013
  myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
 
 
-END SUBROUTINE Create_barMMat_iso
+END SUBROUTINE Create_CCbarMMat_iso
 !
 ! ----------------------------------------------
 !

@@ -1644,7 +1644,7 @@ C
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : transform
-      USE var_QuadScalar, ONLY : GenLinScalar,screw,shell
+      USE var_QuadScalar, ONLY : GenLinScalar,screw,shell,Temperature
       use Sigma_User, only: myMultiMat
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -1766,7 +1766,8 @@ C
       DU1(JDFL) = U1(JDFG) 
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
-      DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
+      DTT(JDFL) = Temperature(JDFG)
+!      DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
       DSC(JDFL) = Screw(JDFG)
       DSH(JDFL) = Shell(JDFG)
  150  CONTINUE      
@@ -1883,7 +1884,8 @@ C ----=============================================----
        dVisc = AlphaViscosityMatModel(dShearSquare,iMat,DTEMP)
 C
        if (myMultiMat%Mat(iMat)%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dVisc*dShearSquare)
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 
@@ -1934,7 +1936,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE STRESS(U1,U2,U3,T,kMat,D1,D2,D3,DVISCOS,
+      SUBROUTINE STRESS(U1,U2,U3,T,D1,D2,D3,DVISCOS,
      *           KVERT,KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *
@@ -1952,7 +1954,7 @@ C
 C
       REAL*8 U1(*),U2(*),U3(*),T(*),D1(*),D2(*),D3(*)
       REAL*8 DVISCOS(*),DCORVG(NNDIM,*)
-      INTEGER kMat(*)
+!       INTEGER kMat(*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 C
       DIMENSION KDFG(NNBAS),KDFL(NNBAS)
@@ -2157,10 +2159,11 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = AlphaViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
+       dVisc = AlphaViscosityMatModel(dShearSquare,1,DTEMP)
 C
-       if (myMultiMat%Mat(kMat(IEL))%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,kMat(IEL),dVisc*dShearSquare)
+       if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,1,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 

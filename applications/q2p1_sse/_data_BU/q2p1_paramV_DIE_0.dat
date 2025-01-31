@@ -1,4 +1,6 @@
 ----------- Simulation Parameters --------------
+SimPar@aSynchComm = yes
+SimPar@CommSwitch = 3
 SimPar@MeshFolder = "NEWFAC"
 SimPar@SubMeshNumber = 1                                               ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
 SimPar@ParticleFile = "_data/particles.dat"
@@ -50,7 +52,7 @@ Velo@MGMaxIterCyc = 1
 Velo@MGSmoothSteps = 24
 Velo@MGIterCoarse = 50
 Velo@MGDefImprCoarse = 0.003d0
-Velo@MGCrsSolverType = 2                                                   ! 1 SSOR + blockJacobi, 5 Mumps
+Velo@MGCrsSolverType = 1                                                   ! 1 SSOR + blockJacobi, 5 Mumps
 Velo@MGCriterion1 = 0.9d-1
 Velo@MGCriterion2 = 0.9d-1
 Velo@MGCycType = F

@@ -416,7 +416,7 @@
     REAL*8  DCORAG(3,*),DCORVG(3,*)
     INTEGER KAREA(6,*),KVERT(8,*)
     INTEGER NAT,NEL,NVT
-    INTEGER I,J,JI,K,iaux
+    INTEGER I,J,JI,K,iaux,ivt,jvt
     REAL*8,ALLOCATABLE ::  pCOORDINATES(:,:),dCOORDINATES(:,:)
     REAL*8 DIST
     real*4 time0,time1
@@ -429,6 +429,7 @@
     INTEGER :: NodeTab(subnodes,subnodes),iCount
     CHARACTER*9 ccgcc
     integer, allocatable :: sendcounts(:),displs(:),gathered_data(:)
+    logical, allocatable :: xComm(:,:)
 
     TYPE TVector
       INTEGER :: i,Num
@@ -512,11 +513,16 @@
     END IF
     
     allocate(sendcounts(0:numnodes),displs(0:numnodes+1))
-    
-    call MPI_allgather(NVT, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
-    sendcounts(0) = 0
-    sendcounts(numnodes) = 0
-    
+    sendcounts = 0; displs = 0
+
+    if (myid.eq.master) then
+     n=0
+    else
+     n = nvt 
+    end if
+  
+    call MPI_allgather(N, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+
     displs = 0
     do i = 2, numnodes+1
       displs(i) = displs(i-1) + sendcounts(i-1)
@@ -528,7 +534,6 @@
     else 
      n = nvt
     endif
-    
     call MPI_Gatherv(coarse%myVERTLINK, n, MPI_INTEGER, &
                    gathered_data, sendcounts, displs, &
                    MPI_INTEGER, master, MPI_COMM_WORLD, ierr)
@@ -543,6 +548,42 @@
        END DO
       end do
     END IF
+    ! Prepare the vertice-based Communication Structure 
+    if (myid.eq.0) then
+     allocate(xComm(coarse%pVert,subnodes))
+     xComm = .FALSE.
+     DO pID=1,subnodes
+      DO ivt=1,coarse%pVert
+       jvt = coarse%pVERTLINK(pID,ivt)
+       if (jvt.ne.0) then
+        xComm(jvt,pID) = .TRUE.
+       end if
+      END DO
+     END DO
+   
+     allocate(VerticeCommunicationScheme(subnodes))
+     
+     DO pID=1,subnodes
+      VerticeCommunicationScheme = 0
+      DO ivt=1,coarse%pVert
+       jvt = coarse%pVERTLINK(pID,ivt)
+       if (jvt.ne.0) then
+        DO pJD=1,subnodes
+         if (pID.ne.pJD.and.xComm(jvt,pJD)) then
+          VerticeCommunicationScheme(PJD) = VerticeCommunicationScheme(PJD) + 1
+         end if
+        END DO
+       END IF
+      END DO
+!       WRITE(*,'(A,I0,A,1000(I0," "))') "pID=",pID," :: ", VerticeCommunicationScheme
+      CALL SENDK_myMPI(VerticeCommunicationScheme,subnodes,pID)
+     END DO
+     deallocate(xComm)
+    else
+     allocate(VerticeCommunicationScheme(subnodes))
+     VerticeCommunicationScheme = 0
+     CALL RECVK_myMPI(VerticeCommunicationScheme,subnodes,0)
+    end if
 
 !     IF (myid.eq.0) THEN
 !      DO pID=1,subnodes
@@ -557,7 +598,6 @@
     call ztime(time1)
     If (myid.eq.1) write(*,*) "ParentComm stage 0 :: ",time1-time0 
     time0 = time1
-    
     
     !
     ! --------------------------------------------------------------------------------------------------------
@@ -628,14 +668,19 @@
       CALL FreeOctTree()
     END IF
 
-    call MPI_allgather(NEL, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+    sendcounts = 0; displs = 0
+    if (myid.eq.master) then
+     n=0
+    else
+     n = nel
+    end if
+     
+    call MPI_allgather(N, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
     IF (myid.eq.master) then
      DO pID=1,subnodes
       coarse%pNEL(pID) = sendcounts(pID)
      END DO
     end if
-    sendcounts(0) = 0
-    sendcounts(numnodes) = 0
 
     displs = 0
     do i = 2, numnodes+1

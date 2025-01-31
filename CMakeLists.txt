@@ -150,6 +150,7 @@ if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
 endif(BUILD_BOUNDARY_LAYER_TOOLS)
 
+find_package(OpenMP REQUIRED)
 #=========================================================================
 #                       Configure BLAS/LAPACK 
 #=========================================================================
@@ -377,11 +378,12 @@ endif()
 ## Configure version.h using a template
 #configure_file(version.h.in ${CMAKE_SOURCE_DIR}/source/include/version.h @ONLY)
 
-if(NOT WIN32)
-if(USE_CGAL)
-  add_subdirectory(tools/check_manifold)
-endif(USE_CGAL)
-endif(NOT WIN32)
+#if(NOT WIN32)
+#if(USE_CGAL)
+#  add_subdirectory(tools/check_manifold)
+#endif(USE_CGAL)
+#endif(NOT WIN32)
+
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
 #  message("Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")

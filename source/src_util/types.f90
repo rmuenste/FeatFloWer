@@ -406,7 +406,7 @@ TYPE(tParticle), ALLOCATABLE :: myCompleteSet(:)
 TYPE(tParticle), ALLOCATABLE :: myActiveSet(:)
 TYPE(tParticle), ALLOCATABLE :: myExchangeSet(:)
 TYPE(tParticle), ALLOCATABLE :: myLostSet(:)
-TYPE(tVelo), ALLOCATABLE :: myVelo(:)
+TYPE(tVelo), ALLOCATABLE :: myVelo(:),myVorticity(:)
 
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
@@ -425,7 +425,8 @@ END TYPE tHYPRE
 TYPE(tHYPRE) :: myHYPRE
 
 TYPE tParticleInflow
- REAL*8 :: Center(3), Radius
+ REAL*8 :: Center(3), MaxRadius, MinRadius, Radius
+ INTEGER :: iMat
 END TYPE tParticleInflow
 
 TYPE tPhysParticles
@@ -508,7 +509,8 @@ type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
 TYPE tPID
- REAL*8 T_set,sumI,e_old
+ REAL*8 T_set
+ REAL*8 :: sumI=0d0,e_old=0d0
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID
 
@@ -541,6 +543,13 @@ TYPE tConvergenceDetector
   LOGICAL :: Converged=.FALSE.
 END TYPE tConvergenceDetector
 
+TYPE tDIESensor
+ real*8 :: Center(3),Radius
+ integer :: iSeg
+ TYPE(tPID) PID_ctrl
+ CHARACTER*8 ::  type
+END TYPE tDIESensor
+
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
   CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
@@ -566,6 +575,7 @@ TYPE tSegment
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
   character*64 :: regulation="SIMPLE"
   TYPE(tSensor) TemperatureSensor
+  
   TYPE(tPID) PID_ctrl
   TYPE(tConvergenceDetector) ConvergenceDetector
   REAL*8 :: InitTemp,Volume
@@ -637,6 +647,7 @@ TYPE tSegThermoPhysProp
  real*8 rho,cp,lambda,T_const
  character*256 :: cConstTemp
  logical :: bConstTemp=.false.
+ logical :: bHeatSource=.false.
 ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
@@ -653,9 +664,14 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
-   LOGICAL :: UseHeatDissipationForQ1Scalar=.false.
+   LOGICAL :: UseHeatDissipationForQ1Scalar=.false.,UseAirCooling=.false.
+   REAL*8  :: AirCoolingHeatTransCoeff,AirCoolingRoomTemperature
    LOGICAL :: SegmentThermoPhysProps=.false.
    TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
+   
+  INTEGER nOfDIESensors
+  TYPE(tDIESensor), allocatable :: mySensor(:)
+  
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
@@ -687,6 +703,7 @@ TYPE tTransientSolution
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
  TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Shell(:)
  TYPE(mg_dVector), ALLOCATABLE :: iSeg(:)
 END TYPE tTransientSolution
 

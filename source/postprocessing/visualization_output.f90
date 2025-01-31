@@ -295,7 +295,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar,myALE
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar,myALE,MaterialDistribution
 USE var_QuadScalar,ONLY: myBoundary
 
 implicit none
@@ -539,6 +539,17 @@ do iField=1,size(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   end if
 
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+   IF (ioutput_lvl.LE.inlmax-1.and.ALLOCATED(MaterialDistribution(inlmax-1)%x)) THEN
+    write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Material_E",""" format=""ascii"">"
+    do ivt=1,NoOfElem
+     write(iunit, '(A,I8)')"        ",MaterialDistribution(inlmax-1)%x(ivt)
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+  
  end select
  
 end do
@@ -608,7 +619,7 @@ end subroutine viz_write_vtu_process
 !
 subroutine viz_write_pvtu_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport,GenLinScalar
+USE var_QuadScalar,ONLY:myExport,GenLinScalar,MaterialDistribution
 USE def_FEAT
 
 IMPLICIT NONE
@@ -694,11 +705,17 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
   END IF
 
-  CASE('KNPRP_E')
+ CASE('KNPRP_E')
 !   WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.LE.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","KNPRP_E","""/>"
   END IF
+  
+ CASE('Material_E')
+  IF (myExport%Level.LE.myExport%LevelMax.and.ALLOCATED(MaterialDistribution)) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Material_E","""/>"
+  END IF
+  
 END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"

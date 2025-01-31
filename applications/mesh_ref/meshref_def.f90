@@ -819,7 +819,7 @@ DO i=1,nUniqueElems
   P = MergedMeshCoor(:,ivt)
   distC = SQRT((PC(1)-P(1))**2d0 + (PC(2)-P(2))**2d0 + (PC(3)-P(3))**2d0)
   if (distC.gt.dMaxDist) dMaxDist = distC
-  if (distC.lt.dMaxDist) dMinDist = distC
+  if (distC.lt.dMinDist) dMinDist = distC
  end do
 
  CALL GetDistToSTL(pC(1),pC(2),pC(3),1,distC,.TRUE.)
@@ -834,7 +834,7 @@ DO i=1,nUniqueElems
   
    bKeep = .FALSE.
    
-   IF (distC.lt.1d0*dMinDist) then
+   IF (distC.lt.0.75d0*dMinDist) then
    
     bKeep = .TRUE.
     jElem = jElem + 1
@@ -897,6 +897,8 @@ DO i=1,nUniqueElems
  
 end do
 
+WRITE(*,*) "Elementlist extension has finished!  "
+
 DO i=1,nUniquePoints
  if (iVertKeep(i).gt.0) then
   jVert = jVert + 1
@@ -938,7 +940,7 @@ implicit none
 integer, allocatable :: iVertKeep(:),iElemKeep(:)
 integer i,j,k,ia,jat,jElem,iarea,jVert,ivt,iStartElem,nBCFace,iInflow,nInFlow,nOutFlow
 real*8 :: dN(3),pC(3),dist,P(3),Q(3),dMinDist,minDistP,maxDistP
-logical bInflowArea,bQuad
+logical bInflowArea,bQuad,bStopLayers
 INTEGER NeighA(4,6),iQuad(4)
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
@@ -1181,24 +1183,32 @@ jVert = 0
 
 dMinDist = +1d8
 DO i=1,nel
- 
+
  pC = 0d0
  do j=1,8
   ivt = mg_ReducedMesh%level(1)%kvert(j,i)
   P = mg_ReducedMesh%level(1)%dcorvg(:,ivt)
   pC = pC + 0.125d0*P
  end do
- 
+
  CALL GetDistToSTL(pC(1),pC(2),pC(3),1,dist,.TRUE.)
- 
+
  if (dist.lt.dMinDist) then
   iStartElem = i
   dMinDist=dist
  end if
- 
+
 end do
 
-CALL MarkElems(iStartElem)
+! large recursivity results in potential crashes therefore it is to be replaced
+!CALL MarkElems(iStartElem)
+
+iElemKeep(iStartElem) = 2
+bStopLayers = .false.
+DO
+ CALL MarkElemLayers()
+ if (bStopLayers) exit
+end do
 
 jElem = 0
 DO i=1,nel
@@ -1406,6 +1416,35 @@ DO iat= 1,6
 END DO
 
 END SUBROUTINE MarkElems
+
+SUBROUTINE MarkElemLayers()
+implicit none
+INTEGER IE
+INTEGER IAT,JEL
+
+ie = 0
+
+DO iel=1,nel
+ if (iElemKeep(iel).eq.2) then
+  DO iat= 1,6
+   jel = mg_ReducedMesh%level(1)%kadj(iat,iel)
+   if (iElemKeep(jel).eq.0.and.jel.gt.0.and.jel.le.nel) then
+    iElemKeep(jel) = 2
+    jElem = jElem + 1
+    ie = ie + 1
+   end if
+  end do
+  iElemKeep(iel) = 1
+ end if
+end do
+
+if (ie.eq.0) then
+ bStopLayers = .true.
+else
+ write(*,*) "layer",ie
+end if
+
+END SUBROUTINE MarkElemLayers
 
 END SUBROUTINE CreateCleanReducedMesh
 ! ----------------------------------------------

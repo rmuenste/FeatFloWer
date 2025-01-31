@@ -15,3 +15,6 @@
    cProjectFolder = CMESH1
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
+
+ write(*,*) "Rank:",myid,"is assigned to the mesh:",ADJUSTL(TRIM(CMESH1))
+ CALL CommBarrier()

@@ -9,14 +9,14 @@ SimPar@StartFile = 0
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 3
-SimPar@MatrixRenewal = M1D1K3S0C1
+SimPar@MatrixRenewal = M0D0K0S0C0
 SimPar@MaxNumStep = 20
 SimPar@OutputFields = " "
 SimPar@CGALtoRealFactor = 1d0
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! To Delete Later  !!!!!!!!!!!!!!!!!!!!!!!!!!!
-SimPar@OutputFields = "Velocity,Temperature,Screw,Viscosity,NormShearRate"
+SimPar@OutputFields = "Velocity,Temperature,Screw,Shell,Viscosity,NormShearRate,SegmentInformation"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
-SimPar@OutputLevel = MAX+1                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ----------------- Velocity --------------------
 Velo@MGMinLev = 1
 Velo@MGMedLev = 1
