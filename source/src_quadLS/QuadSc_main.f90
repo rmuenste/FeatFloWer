@@ -1436,6 +1436,7 @@ END SUBROUTINE QuadScalar_Knpr
 !
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   use fbm, only: fbm_updateFBMGeom
+  use dem_query, only: getTotalParticles
   include 'mpif.h'
 
   ! Function parameters
@@ -1444,7 +1445,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   logical, intent(in), optional :: silent
 
   ! Local variables
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr
+  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr, totalP, reducedP
   REAL*8 PX,PY,PZ,DIST
   real*8 :: dofsPerParticle
   REAL tttx0,tttx1
@@ -1542,11 +1543,17 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   end if ! myid /= 0
 
   call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid /= 0) then
+    totalP = getTotalParticles()
+  end if
+
+  call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   
-  if (myid.eq.0) then
-    WRITE(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / 750. 
-    WRITE(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
+  IF (myid.eq.0) THEN
+    write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
+    dofsPerParticle = real(reducedVal) / reducedP 
+    write(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
   end if
 
 END SUBROUTINE QuadScalar_FictKnpr

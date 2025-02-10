@@ -27,8 +27,20 @@ end type tParticleData
 
 
 !================================================================================================
+!                              Function getTotalParticles
+!================================================================================================
+! The  endpoint function is 'getTotalParts' in object_queries
+interface
+integer(c_int) function getTotalParticles() bind(C, name="getTotalParticles")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+
+!================================================================================================
 !                              Function getNumParticles
 !================================================================================================
+! The  endpoint function is 'getNumParts' in object_queries
 interface
 integer(c_int) function getNumParticles() bind(C, name="getNumParticles")
   use iso_c_binding, only: c_int
@@ -38,6 +50,7 @@ end interface
 !================================================================================================
 !                              Function getNumRemParticles
 !================================================================================================
+! The  endpoint function is 'getNumRemParts' in object_queries
 interface
 integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
   use iso_c_binding, only: c_int

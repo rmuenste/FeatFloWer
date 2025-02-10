@@ -125,6 +125,12 @@ ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 
+IF (iT.EQ.23) THEN
+ ValU= 1.0d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.EQ.202) THEN
  dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
  !ValU = dScale * (y**2 - 0.25d0)
