@@ -378,11 +378,11 @@ endif()
 ## Configure version.h using a template
 #configure_file(version.h.in ${CMAKE_SOURCE_DIR}/source/include/version.h @ONLY)
 
-#if(NOT WIN32)
-#if(USE_CGAL)
-#  add_subdirectory(tools/check_manifold)
-#endif(USE_CGAL)
-#endif(NOT WIN32)
+if(NOT WIN32)
+if(USE_CGAL)
+  add_subdirectory(tools/check_manifold)
+endif(USE_CGAL)
+endif(NOT WIN32)
 
 #if(Boost_FOUND)
 #  message("Boost library version: ${Boost_VERSION}")
