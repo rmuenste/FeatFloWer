@@ -119,6 +119,11 @@ EXTERNAL sub_BC,sub_SRC
 
 NLMAX = NLMAX + 1
 
+if (myid.ne.0) then
+ ! Set the types of boundary conditions (set up knpr)
+ CALL Create_Knpr(LinSc_Knpr_XSE)
+end if
+
 thstep = 0.5d0*tstep
 
 ! advect the scalar field
@@ -975,14 +980,18 @@ if (myid.ne.master) then
                              mg_mesh%level(ilev)%kedge,&
                              mg_mesh%level(ilev)%dcorvg,&
                              E011,dArea2,dFlux2,iSwitch)
-                             
-!  CALL AddBoundaryHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+
+!!! for the moemnt this part is cancelled out
+!!! ----------------------------------------------------------------
+!  CALL AddConvectiveHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
 !                              Tracer%def,Tracer%oldSol,&
 !                              mg_mesh%level(ilev)%kvert,&
 !                              mg_mesh%level(ilev)%karea,&
 !                              mg_mesh%level(ilev)%kedge,&
 !                              mg_mesh%level(ilev)%dcorvg,&
 !                              E011,dArea1,dFlux1,iSwitch)
+!!! ----------------------------------------------------------------
+
 end if
 
 END SUBROUTINE AddBoundaryHeatFlux
@@ -1528,7 +1537,7 @@ REAL*8 dcorvg(3,*)
 integer mf
 REAL*8 P(3),Q(3),dist
 REAL*8, allocatable :: daux(:,:),T(:)
-integer :: nSensors,i,j
+integer :: nSensors,i,j,k
 TYPE(tPID) :: myPID
 
 nSensors = myProcess%nOfDIESensors
@@ -1541,7 +1550,7 @@ DO i=1,Tracer%ndof
   Q = myProcess%mySensor(j)%Center
   dist = SQRT((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0) 
   if (dist.lt.myProcess%mySensor(j)%Radius) THEN
-   daux(1,j) = daux(1,j) + MLmat(i)*Tracer%val(ilev)%x(i)
+   daux(1,j) = daux(1,j) + MLmat(i)*Tracer%val(nlmax)%x(i)
    daux(2,j) = daux(2,j) + MLmat(i)
   end if
  end do
@@ -1550,8 +1559,11 @@ END DO
 CALL COMM_SUMMN(daux,nSensors*2)
 
 do j=1,nSensors
- if (myid.eq.1) write(*,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
- if (myid.eq.1) write(mf,'(A,I0,A,ES12.4,A)') "SensorTemperature[",j,"]: ",daux(1,j)/daux(2,j)," C"
+ if (myid.eq.1) write(*,'(A,I0,A,2(ES12.4,A))') "SensorTemperatureVolume[",j,"]: ",daux(1,j)/daux(2,j)," C",daux(2,j)," cm3"
+ if (myid.eq.1) write(mf,'(A,I0,A,2(ES12.4,A))') "SensorTemperatureVolume[",j,"]: ",daux(1,j)/daux(2,j)," C",daux(2,j)," cm3"
+ if (myid.eq.1) write(*,*) j,myProcess%mySensor(j)%iSeg,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bConstTemp,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bHeatSource
  T(j) = daux(1,j)/daux(2,j)
 end do
 
@@ -1563,6 +1575,34 @@ do j=1,nSensors
      if (myid.eq.1) write(*,'(A,I0,A,3ES12.4,A,3ES12.4)') "Sensor_",j,"_AdjustedSourceTo:",myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%T_Const,T(j),myProcess%mySensor(j)%PID_Ctrl%T_Set, " : ", myProcess%mySensor(j)%PID_Ctrl%P,myProcess%mySensor(j)%PID_Ctrl%I,myProcess%mySensor(j)%PID_Ctrl%D
    END IF
   end if
+
+  if (adjustl(trim(myProcess%mySensor(j)%type)).eq."+STOP") THEN
+   IF (myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bHeatSource) THEN
+    if (T(j).gt.myProcess%mySensor(j)%PID_Ctrl%T_Set) THEN
+     myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bHeatSource = .false.
+     do k=1,nSensors
+      if (adjustl(trim(myProcess%mySensor(k)%type)).eq."-STOP") THEN
+       myProcess%SegThermoPhysProp(myProcess%mySensor(k)%iSeg)%bConstTemp = .true.
+      end if
+     end do
+    END IF
+   END IF
+  end if
+
+  if (adjustl(trim(myProcess%mySensor(j)%type)).eq."-STOP") THEN
+   IF (myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bConstTemp) THEN
+    if (T(j).lt.myProcess%mySensor(j)%PID_Ctrl%T_Set) THEN
+     myProcess%SegThermoPhysProp(myProcess%mySensor(j)%iSeg)%bConstTemp = .false.
+     do k=1,nSensors
+      if (adjustl(trim(myProcess%mySensor(k)%type)).eq."+STOP") THEN
+       myProcess%SegThermoPhysProp(myProcess%mySensor(k)%iSeg)%bHeatSource = .true.
+      end if
+     end do
+    END IF
+   END IF
+  end if
+
+
 end do
 
 deallocate (daux,T)
