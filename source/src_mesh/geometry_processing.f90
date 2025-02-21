@@ -365,7 +365,9 @@ END DO
 !-------------------------------------------------------
 
 IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
- CALL Shell_dist(X,Y,Z,d0)
+ IF (mySigma%BarrelRendering) THEN
+  CALL Shell_dist(X,Y,Z,d0)
+ END IF
 END IF
 
 return
@@ -1052,6 +1054,17 @@ subroutine calcDistanceFunction_sse(dcorvg,kvert,kedge,karea,nel,nvt,nat,net,dst
   end do !iSeg
 
   DO i=1,ndof
+
+   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+    IF (mySigma%BarrelRendering) THEN
+     PX = dcorvg(1,i)
+     PY = dcorvg(2,i)
+     DiD = -(SQRT(PX**2d0 + PY**2d0) - mySigma%Dz_Out*0.5d0)
+     dst1(i) = DiD
+     Shell(i) = dst1(i)
+    END IF
+   END IF
+
    Shell(i) = dst1(i)
    IF (Shell(i).le.0d0) THEN
     iSeg = INT(mySegmentIndicator(2,i))
