@@ -295,6 +295,10 @@ C
         iMat = mySigma%mySegment(iSeg)%MatInd
        end if
        dAvgCoeff = dAvgCoeff + 0.125d0*
+       !BASIC units L:[cm], M[g], T[s]
+       ![g/cm3] =  1e0 [g/cm3]
+       ![kJ/kg/K] = 1e3*[J/kg/K] = 1e3*[kg*m2/s2/kg/K]= 1e3*[m2/s2/K] = 1e3*[1e4cm2/s2/K] = 1e7*[cm2/s2/K]
+
      * (1d0*myMaterials(iMat)%density)*(1d7*myMaterials(iMat)%cp)
       end do
       

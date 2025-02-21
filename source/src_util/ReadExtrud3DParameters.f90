@@ -19,7 +19,7 @@
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
     character(len=INIP_STRLEN) cMidpointA, cMidpointB 
-    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor,cTVals
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -83,6 +83,16 @@
      mySigma%ScrewCylinderRendering=.false.
     END IF
     
+    cSCR=" "
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","BarrelRendering",cSCR,'OFF')
+    call inip_toupper_replace(cSCR)
+    IF (ADJUSTL(TRIM(cSCR)).EQ."YES".OR.ADJUSTL(TRIM(cSCR)).EQ."ON") THEN
+     mySigma%BarrelRendering=.true.
+    END IF
+    IF (ADJUSTL(TRIM(cSCR)).EQ."NO".OR.ADJUSTL(TRIM(cSCR)).EQ."OFF") THEN
+     mySigma%BarrelRendering=.false.
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","Type",mySigma%cType,'SSE')
     call inip_toupper_replace(mySigma%cType)
     IF (.NOT.(ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.&
@@ -932,6 +942,12 @@
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","FillingDegree", myProcess%FillingDegree,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
+    call INIP_getvalue_int(parameterlist,"E3DProcessParameters","MaterialTemperatureValuesN",myProcess%T0_N,0)
+    IF (myProcess%T0_N.gt.0) THEN
+     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","MaterialTemperatureValuesT",cTVals,'')
+     ALLOCATE(myProcess%T0_T(1:myProcess%T0_N))
+     READ(cTVals,*) myProcess%T0_T(1:myProcess%T0_N)
+    END IF
 
     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","ScrewTemperatureAdiabatic", cTemperature,"YES")
     call inip_toupper_replace(cTemperature)
@@ -1298,7 +1314,8 @@
       mySigma%mySegment(i)%PID_Ctrl%SumI = 0d0
       mySigma%mySegment(i)%PID_Ctrl%e_old = 0d0
 
-      IF (.not.(myProcess%mySensor(i)%Type.eq."PID".OR.myProcess%mySensor(i)%Type.eq."OFF")) THEN
+      IF (.not.(myProcess%mySensor(i)%Type.eq."PID".OR.myProcess%mySensor(i)%Type.eq."OFF".or.&
+                myProcess%mySensor(i)%Type.eq."-STOP".OR.myProcess%mySensor(i)%Type.eq."+STOP")) THEN
        write(*,*) 'WRONGLY DEFINED Regulation type for Sensor',i,' !!',adjustl(trim(myProcess%mySensor(i)%Type))
        goto 153
       END IF
@@ -1352,6 +1369,7 @@
     write(*,*) "=========================================================================="
     write(*,*) "mySigma%Type",'=',trim(mySigma%cType)
     write(*,*) "mySigma%ScrewCylinderRendering",'=',mySigma%ScrewCylinderRendering
+    write(*,*) "mySigma%BarrelRendering",'=',mySigma%BarrelRendering
     write(*,*) "mySigma%Zwickel",'=',trim(mySigma%cZwickel)
     write(*,*) "mySigma%InnerDiamNParam",'=',mySigma%InnerDiamNParam
     write(*,'(A,A,100ES12.4)') "mySigma%InnerDiamDParam",'=',mySigma%InnerDiamDParam
@@ -1604,7 +1622,11 @@
      write(*,*) "myProcess%FLUX",'=',myProcess%HeatFluxThroughBarrelWall_kWm2
     END IF
     write(*,*) "myProcess%T0",'=',myProcess%T0
-    write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
+    IF (myProcess%T0_N.gt.0) THEN
+     write(*,'(A,A,100ES12.4)')  "myProcess%T0_Zones",'=',myProcess%T0_T
+    else
+     write(*,*) "myProcess%T0_Slope",'=',myProcess%T0_Slope
+    END IF
 
     write(*,*) 
     write(*,*) "myProcess%nOfTempBCs",'=',myProcess%nOfTempBCs
@@ -1709,6 +1731,10 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(iMat)%Rheology%D
      END IF
      write(*,*) 
+
+     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%TemperatureMin",'=',myMultiMat%Mat(iMat)%Rheology%TemperatureMin
+     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%TemperatureMax",'=',myMultiMat%Mat(iMat)%Rheology%TemperatureMax
+
      IF (myMultiMat%Mat(iMat)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%aT",'=',1.0
@@ -1809,6 +1835,10 @@
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%a",'=',myMultiMat%Mat(1)%Rheology%D
      END IF
      write(*,*)
+
+     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%TemperatureMin",'=',myMultiMat%Mat(1)%Rheology%TemperatureMin
+     write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%TemperatureMax",'=',myMultiMat%Mat(1)%Rheology%TemperatureMax
+
      IF (myMultiMat%Mat(1)%Rheology%AtFunc.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%TempModel",'=','ISOTHERM'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%aT",'=',1.0
@@ -2370,6 +2400,9 @@
      WRITE(*,*) '"',TRIM(cRheology),'"'
      bReadError=.TRUE.
     END IF
+
+    CAll INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI)),"TemperatureMin",t%TemperatureMin,-1d30)
+    call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI)),"TemperatureMax",t%TemperatureMax,+1d30)
 
     t%AtFunc = 0
     cRheology = ' '
