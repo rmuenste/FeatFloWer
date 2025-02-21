@@ -2239,6 +2239,43 @@ END SUBROUTINE AddPressureGradient
 !
 ! ----------------------------------------------
 !
+SUBROUTINE AddPressureGradientWithJump()
+  INTEGER I,J,IEL,ivt
+  REAL*8 ddx,ddy,ddz,ddp,P(3)
+
+  IF (.not.allocated(dPeriodicVector)) ALLOCATE(dPeriodicVector(QuadSc%ndof))
+  dPeriodicVector = 0d0
+
+  DO i=1,SIZE(LinSc%AuxP(NLMAX)%x)
+   IF (MOD(i,4).EQ.1) then
+    LinSc%AuxP(NLMAX)%x(i) = 1d1
+   ELSE
+    LinSc%AuxP(NLMAX)%x(i) = 0d0
+   END IF
+  END DO
+
+  CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%AuxP(NLMAX)%x,&
+       QuadSc%AuxU,QuadSc%AuxV,QuadSc%AuxW,QuadSc%ndof,+1d0,0d0)
+
+  DO I=1,QuadSc%ndof
+   IF ((abs(myQ2Coor(1,i)).LT.+1e-1).and.(myQ2Coor(2,i).LT.+0d0).and.myid.eq.8) THEN
+    dPeriodicVector(i) = QuadSc%auxU(i)
+   ELSE
+    dPeriodicVector(i) = 0d0
+   END IF
+  END DO
+
+  CALL B_Mul_U(qlMat%ColA,qlMAt%LdA,BXMat,BYMat,BZMat,LinSc%valP(NLMAX)%x,&
+  QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof,TSTEP,1d0)
+
+  DO I=1,QuadSc%ndof
+   QuadSc%defU(i) = QuadSc%defU(i) + TSTEP*dPeriodicVector(i)
+  END DO
+
+END SUBROUTINE AddPressureGradientWithJump
+!
+! ----------------------------------------------
+!
 SUBROUTINE AddPeriodicPressureGradient()
   INTEGER I,J,IEL
   REAL*8 ddx,ddy,ddz,ddp
@@ -2666,6 +2703,31 @@ use cinterface, only: calculateFBM
  end if
 
 END SUBROUTINE  updateFBMGeometry
+!
+! ----------------------------------------------
+!
+SUBROUTINE FilterColdElements(mfile)
+integer, intent(in) :: mfile
+integer :: i
+real*8 :: dj
+
+if (myid.ne.0) then
+ dj = 0
+ DO i=1,QuadSc%ndof
+  if (MixerKNPR(i).eq.0.and.Temperature(i).lt.80d0) then
+   MixerKNPR(i) = 105
+   Shell(i) = -1d0
+   dj = dj + 1
+  end if
+ END DO
+end if
+
+CALL COMM_SUMM(dj)
+
+if (myid.eq.1) write(mfile,*) 'Number of solidified dofs: ',nint(dj)
+if (myid.eq.1) write(mterm,*) 'Number of solidified dofs: ',nint(dj)
+
+END SUBROUTINE FilterColdElements
 !
 ! ----------------------------------------------
 !
@@ -3890,6 +3952,8 @@ ilev = mgMesh%nlmax
 call setlev(2)
 
 if (myid.ne.0) call updateMixerGeometry(mfile)
+
+! call FilterColdElements(mfile)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!       PRESS BC        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
