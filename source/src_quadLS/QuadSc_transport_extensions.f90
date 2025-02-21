@@ -1574,7 +1574,7 @@ call fbm_updateFBM(Properties%Density(1),tstep,timens,&
 !                      mg_mesh%level(ILEV)%karea,&
 !                      mg_mesh%level(ILEV)%kedge)
 
-CALL updateFBMGeometry()
+!CALL updateFBMGeometry()
 
 CALL MonitorVeloMag(QuadSc)
 
