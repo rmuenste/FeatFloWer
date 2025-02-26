@@ -3996,5 +3996,49 @@ IF (myid.eq.1) then
 end if
 
 END SUBROUTINE DNA_GetTorques
+!=========================================================================
+! 
+!=========================================================================
+SUBROUTINE DNA_GetSoosForce(mfile)
+integer mfile
+REAL*8 Torque1(3),daux
+real*8 :: area, G, L, U
+
+external E013
+
+ilev = nlmax
+call setlev(2)
+
+call GetSoosForce(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                  LinSc%ValP(NLMAX)%x,BndrForce,& !How separate????
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  Viscosity,Torque1, E013,1)
+
+! Cube side length
+L = 0.1
+
+! Top surface area
+area = L**2 
+
+! Shear velocity
+U = 1.0
+
+! Uniform shear rate
+G = U / L
+
+daux = 1./ (G * area) 
+                  
+IF (myid.eq.1) then
+ write(mfile,'(A,4ES14.4)') "Shear Stress acting on top wall: ",timens,daux*Torque1(1:3)
+ write(mterm,'(A,4ES14.4)') "Shear Stress acting on top wall: ",timens,daux*Torque1(1:3)
+end if
+
+END SUBROUTINE DNA_GetSoosForce
+!=========================================================================
+! 
+!=========================================================================
 
 END MODULE Transport_Q2P1

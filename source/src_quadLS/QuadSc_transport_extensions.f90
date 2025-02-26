@@ -1530,6 +1530,7 @@ END IF
 CALL QuadScP1toQ2(LinSc,QuadSc)
 
 !CALL DNA_GetTorques(mfile)
+call DNA_GetSoosForce(mfile)
 
 CALL GetNonNewtViscosity()
 
