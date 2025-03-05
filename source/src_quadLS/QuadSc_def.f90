@@ -1,4 +1,5 @@
 MODULE def_QuadScalar
+use ieee_arithmetic
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
                    COMM_Maximum,COMM_MaximumN,COMM_SUMM,COMM_NLComplete,&
@@ -3160,8 +3161,8 @@ IF (nINL.EQ.0) THEN
        "INL",TRIM(C1),TRIM(C2),TRIM(C3),TRIM(C4),TRIM(C5),TRIM(C6),TRIM(C7),TRIM(C8)
  WRITE(MTERM,5)
  WRITE(MFILE,5)
- WRITE(MTERM,'(I3,5(1X,D11.4),A1)') &
-       0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
+ WRITE(MTERM,'(A3,I3,5(1X,D11.4),A1)') &
+       'XXX',0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
  WRITE(MFILE,'(I3,5(1X,D11.4),A1)') &
        0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
 ELSE
@@ -3172,6 +3173,21 @@ ELSE
  RhsScalar, myScalar%prm%MGprmOut(1)%UsedIterCycle, myScalar%prm%MGprmOut(1)%nIterCoarse,&
  myScalar%prm%MGprmOut(1)%RhoMG1
 END IF
+
+if (ieee_is_nan(ResU))then
+  print *, "Error: NaN detected in computation. Terminating"
+  stop
+end if
+
+! Check all variables
+if (.not. (ieee_is_finite(ResU) .and. ieee_is_finite(ResV) .and. ieee_is_finite(ResW) &
+    .and. ieee_is_finite(DefScalar) .and. ieee_is_finite(RhsScalar))) then
+
+  print *, "Error: Non-finite value (NaN or Inf) detected. Terminating."
+  print *, "ResU =", ResU, " ResV =", ResV, " ResW =", ResW
+  print *, "DefScalar =", DefScalar, " RhsScalar =", RhsScalar
+  stop
+end if
 
 END IF
 
