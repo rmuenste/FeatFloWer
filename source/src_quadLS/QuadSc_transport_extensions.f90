@@ -56,7 +56,7 @@ if (myid.ne.master) then
 end if
 
 !------------------------------------------------------ PREDICTION --------------------------------------------------------
-MaxInitialPressureDefect = 1e-30 
+MaxInitialPressureDefect = 1e-30
 iLoop =1
 
 ! DO iOuter=1,mySolSeq%nOuter
@@ -65,40 +65,40 @@ DO iOuter=mySolSeq%nOuter,mySolSeq%nOuter
  nSteps = 2**(iOuter-1)
  lStep  = mySolSeq%nSteps/nSteps
  tstep  = tstep_BU/DBLE(nSteps)
- 
+
 !  IF (iOuter.le.1) THEN
  IF (iOuter.le.mySolSeq%nOuter) THEN
 !  IF (iOuter.le.mySolSeq%nOuter-2) THEN
- 
+
   IF (PredictionScheme.eq.'CP') THEN
    CALL NonLin_SequentialBurgerStep_ParT()
 
    CALL PressureStepCP_ParT()
-  
+
    ! Velocity update for last pressure
    CALL NonLin_SequentialBurgerStep_ParT()
   END IF
-  
+
   IF (PredictionScheme.eq.'PP') THEN
 
    DO iStep = 1,nSteps
     CALL NonLin_BurgerStep_SingleT()
 
     CALL PressureStep_SingleT()
-    
+
     IF (myid.ne.master) THEN
      mySolSeq%S(iStep)%P(1:LinSc%ndof)  = LinSc%ValP(NLMAX)%x(1:LinSc%ndof)
      mySolSeq%S(iStep)%U(1:QuadSc%ndof) = QuadSc%ValU(1:QuadSc%ndof)
      mySolSeq%S(iStep)%V(1:QuadSc%ndof) = QuadSc%ValV(1:QuadSc%ndof)
      mySolSeq%S(iStep)%W(1:QuadSc%ndof) = QuadSc%ValW(1:QuadSc%ndof)
     end if
-    
+
    END DO
-  
+
   END IF
-  
+
  END IF
-  
+
  IF (iOuter.ne.mySolSeq%nOuter) then
   CALL InterpolatePressure_ParT(LinIntPol)
   CALL InterpolateVelocity_ParT(LinIntPol)
@@ -115,18 +115,18 @@ tstep  = tstep_BU
 !  QuadSc%ValV(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%V(1:QuadSc%ndof)
 !  QuadSc%ValW(1:QuadSc%ndof) = mySolSeq%S(mySolSeq%nSteps)%W(1:QuadSc%ndof)
 ! end if
-! 
+!
 ! if (bExit) THEN
 !  tstep  = tstep_BU
 !  GOTO 100
 ! END IF
-! 
+!
 ! IF (myid.ne.master) THEN
 !  LinSc%P_new = 1.5d0*mySolSeq%S(mySolSeq%nSteps-0)%P(1:LinSc%ndof)  - 0.5d0*mySolSeq%S(mySolSeq%nSteps-1)%P(1:LinSc%ndof)
 ! end if
 ! CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
 ! CALL FAC_GetForcesParT(mfile,iLoop)
-! 
+!
 ! return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -134,14 +134,14 @@ tstep  = tstep_BU
 
 MaxInitialPressureDefect0 = MaxInitialPressureDefect
 IF (myid.eq.1) WRITE(*,*) 'rock and roll! ',MaxInitialPressureDefect0
-! 
+!
 ! DO iStep = 0,mySolSeq%nSteps
 ! if (myid.ne.master) then
 !  QuadSc%ValU = Sol3%S(iStep)%U(1:Sol3%ndofU)
 !  QuadSc%ValV = Sol3%S(iStep)%V(1:Sol3%ndofU)
 !  QuadSc%ValW = Sol3%S(iStep)%W(1:Sol3%ndofU)
 !  LinSc%ValP(NLMAX)%x = Sol3%S(iStep)%P(1:Sol3%ndofP)
-!  
+!
 !  LinSc%P_new = LinSc%ValP(NLMAX)%x
 !  CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
 ! end if
@@ -163,23 +163,23 @@ DO iStep = 1,mySolSeq%nSteps
   QuadSc%ValV = Sol2%S(iStep)%V(1:Sol2%ndofU)
   QuadSc%ValW = Sol2%S(iStep)%W(1:Sol2%ndofU)
   LinSc%ValP(NLMAX-1)%x = mySolSeq%S(iStep)%P(1:mySolSeq%ndofP)
-  
+
   ndofP = 4*KNEL(NLMAX-1)
   LinSc%valP(NLMAX)%x(1:ndofP) = LinSc%valP(NLMAX-1)%x(1:ndofP)
-  
+
   CALL ProlongateSolution()
-  
+
   Sol3%S(iStep)%U = QuadSc%ValU(1:Sol3%ndofU)
   Sol3%S(iStep)%V = QuadSc%ValV(1:Sol3%ndofU)
   Sol3%S(iStep)%W = QuadSc%ValW(1:Sol3%ndofU)
   Sol3%S(iStep)%P = LinSc%ValP(NLMAX)%x(1:Sol3%ndofP)
-  
+
 !   LinSc%P_new = LinSc%ValP(NLMAX)%x
 !   CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
  end if
-  
+
 !  CALL Output_Profiles(iStep)
-  
+
 END DO
 !------------------------------------------------------ PREDICTION --------------------------------------------------------
 ! pause
@@ -198,13 +198,13 @@ do iLoop =1 , Properties%nTPIterations
 
 !   nLinBurgers = 1
 !   do iOX=1,nLinBurgers
-!    IF (myid.eq.1) WRITE(*,'(A,I0,A,i0)') "NumberOfLinBurgers: ",iOX," / ",nLinBurgers 
+!    IF (myid.eq.1) WRITE(*,'(A,I0,A,i0)') "NumberOfLinBurgers: ",iOX," / ",nLinBurgers
 !    CALL Lin_BurgerStep_ParT()
 !   end do
   CALL NonLin_SimultanBurgerStep_ParT()
 
 !  CALL NonLin_SequentialBurgerStep_ParT()
-  
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   IF (myid.ne.master) THEN
@@ -217,7 +217,7 @@ do iLoop =1 , Properties%nTPIterations
    tstep  = tstep_BU
    GOTO 100
   END IF
-  
+
   IF (myid.ne.master) THEN
    LinSc%P_new = 1.5d0*mySolSeq%S(mySolSeq%nSteps-0)%P(1:LinSc%ndof)  - 0.5d0*mySolSeq%S(mySolSeq%nSteps-1)%P(1:LinSc%ndof)
   end if
@@ -231,17 +231,17 @@ do iLoop =1 , Properties%nTPIterations
 
  END DO !iOuter
 
- 
+
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! QuadSc%ValU = mySolSeq%S(mySolSeq%nSteps)%U
 ! QuadSc%ValV = mySolSeq%S(mySolSeq%nSteps)%V
 ! QuadSc%ValW = mySolSeq%S(mySolSeq%nSteps)%W
-! 
+!
 ! LinSc%P_new = 1.5d0*mySolSeq%S(mySolSeq%nSteps-0)%P  - 0.5d0*mySolSeq%S(mySolSeq%nSteps-1)%P
 ! !LinSc%P_new = mySolSeq%S(mySolSeq%nSteps-0)%P
 ! CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
-! 
+!
 ! CALL FAC_GetForcesParT(mfile,iLoop)
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -255,9 +255,9 @@ do iLoop =1 , Properties%nTPIterations
  if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'PressureDefectReductionIn ', iLoop,cEnding(iEnding)//' step:',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
  if (myid.eq.1) write(mterm,'(A,I0,A,256ES12.4)') 'PressureDefects ', iLoop,cEnding(iEnding)//' : ',PressureDefect(:)
  if (myid.eq.1) write(mfile,'(A,I0,A,256ES12.4)') 'PressureDefects ', iLoop,cEnding(iEnding)//' : ',PressureDefect(:)
-!  if (MaxInitialPressureDefect.lt.1e-7) THEN 
-! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps) THEN 
- if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-10) THEN 
+!  if (MaxInitialPressureDefect.lt.1e-7) THEN
+! if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps) THEN
+ if (MaxInitialPressureDefect/MaxInitialPressureDefect0.lt.Properties%DiracEps.and.MaxInitialPressureDefect.lt.1e-10) THEN
   if (myid.eq.1) write(mterm,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   if (myid.eq.1) write(mfile,'(A,I0,A,3ES12.4)') 'ExitingCoarseTimeCPloopIn ', iLoop,cEnding(iEnding)//' step!|Init&FinPresDefect: ',MaxInitialPressureDefect0,MaxInitialPressureDefect,MaxInitialPressureDefect/MaxInitialPressureDefect0
   bEXIT = .true.
@@ -274,7 +274,7 @@ end do !iLoop
 !  QuadSc%ValV = Sol3%S(iStep)%V(1:Sol3%ndofU)
 !  QuadSc%ValW = Sol3%S(iStep)%W(1:Sol3%ndofU)
 !  LinSc%ValP(NLMAX)%x = Sol3%S(iStep)%P(1:Sol3%ndofP)
-!  
+!
 !  LinSc%P_new = LinSc%ValP(NLMAX)%x
 !  CALL QuadScP1ExtPoltoQ2(LinSc,QuadSc)
 ! end if
@@ -285,7 +285,7 @@ end do !iLoop
 if (mySolSeq%nFOuter.eq.mySolSeq%nOuter) goto 5
 
 !!!! Extrapolation !!!!!!!
-do iLoop =1 , 1 
+do iLoop =1 , 1
 
  DO iOuter=mySolSeq%nFOuter,mySolSeq%nOuter
 
@@ -352,16 +352,16 @@ IF (myid.ne.master) then
   if (.not.allocated(Sol%S(iStep)%V)) ALLOCATE(Sol%S(iStep)%V(nU))
   if (.not.allocated(Sol%S(iStep)%W)) ALLOCATE(Sol%S(iStep)%W(nU))
   if (.not.allocated(Sol%S(iStep)%P)) ALLOCATE(Sol%S(iStep)%P(nP))
- 
+
   if (.not.allocated(Sol%S(iStep)%U_aux)) ALLOCATE(Sol%S(iStep)%U_aux(nU))
   if (.not.allocated(Sol%S(iStep)%V_aux)) ALLOCATE(Sol%S(iStep)%V_aux(nU))
   if (.not.allocated(Sol%S(iStep)%W_aux)) ALLOCATE(Sol%S(iStep)%W_aux(nU))
   if (.not.allocated(Sol%S(iStep)%P_aux)) ALLOCATE(Sol%S(iStep)%P_aux(nP))
- 
+
   Sol%S(iStep)%U = QuadSc%ValU(1:nU)
   Sol%S(iStep)%V = QuadSc%ValV(1:nU)
   Sol%S(iStep)%W = QuadSc%ValW(1:nU)
-  
+
   if (icase.eq.0) then
    Sol%S(iStep)%P = LinSc%ValP(NLMAX)%x(1:nP)
   else
@@ -369,7 +369,7 @@ IF (myid.ne.master) then
     do iE=1,nP/4
      daux = LinSc%ValP(NLMAX)%x(4*(iE-1)+(iC-1)+1)
      do iS = 1,7
-      indice = nP + 4*7*(iE-1) + 4*(iS-1) + (iC-1) + 1 
+      indice = nP + 4*7*(iE-1) + 4*(iS-1) + (iC-1) + 1
       daux = daux + LinSc%ValP(NLMAX)%x(indice)
      end do
     Sol%S(iStep)%P(4*(iE-1)+(iC-1)+1) = 0.125d0*daux
@@ -393,18 +393,18 @@ SUBROUTINE InterpolateVelocity_ParT(IntPol)
 INTEGER IntPol
 
   IF (myid.ne.master) THEN
-  
+
     DO iStep = 1,nSteps
-      
+
      IPS%Actual = (iStep-0)*lStep
      IPS%IntPol1 = (iStep-0)*lStep
      IPS%IntPol2 = (iStep-0)*lStep-int(lStep/2)
-     
+
      IPS%Src1 = (iStep-1)*lStep
      IPS%Src2 = (iStep-0)*lStep
-     
+
      IF (IntPol.eq.1) then
-      
+
       if (myid.eq.showid) WRITE(*,'(A,I0,4(A,I0))') &
       "ActualStep: ",IPS%Actual, ' IntPolSourceSteps: ',IPS%Src1,',',IPS%Src2,' UpdatedSteps: ',IPS%IntPol1,',',IPS%IntPol2
       mySolSeq%S(IPS%IntPol2)%U = 0.5d0*mySolSeq%S(IPS%Src1)%U(1:QuadSc%ndof) + 0.5d0*mySolSeq%S(IPS%Src2)%U(1:QuadSc%ndof)
@@ -412,17 +412,17 @@ INTEGER IntPol
       mySolSeq%S(IPS%IntPol2)%W = 0.5d0*mySolSeq%S(IPS%Src1)%W(1:QuadSc%ndof) + 0.5d0*mySolSeq%S(IPS%Src2)%w(1:QuadSc%ndof)
 
      END IF
-     
+
      IF (IntPol.eq.0) then
       if (myid.eq.showid) WRITE(*,'(A,I0,A,i0)') "steps: from: ",IPS%Src2,' to: ', IPS%IntPol2
       mySolSeq%S(IPS%IntPol2)%U = mySolSeq%S(IPS%Src2)%U(1:QuadSc%ndof)
       mySolSeq%S(IPS%IntPol2)%V = mySolSeq%S(IPS%Src2)%V(1:QuadSc%ndof)
       mySolSeq%S(IPS%IntPol2)%W = mySolSeq%S(IPS%Src2)%W(1:QuadSc%ndof)
      END IF
-     
+
     END DO
   END IF
-    
+
 END SUBROUTINE InterpolateVelocity_ParT
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -431,11 +431,11 @@ SUBROUTINE InterpolatePressure_ParT(IntPol)
 INTEGER IntPol
 
   IF (myid.ne.master) THEN
-  
+
     DO iStep = 0,nSteps
      mySolSeq%S((iStep-0)*lStep)%P_aux = mySolSeq%S((iStep-0)*lStep)%P(1:LinSc%ndof)
     END DO
-  
+
     DO iStep = 1,nSteps
      IF (IntPol.eq.1) then
       IPS%Actual = (iStep-0)*lStep
@@ -444,16 +444,16 @@ INTEGER IntPol
       IPS%Src1 = (iStep-1)*lStep
       IPS%Src2 = (iStep-0)*lStep
       IPS%iX1Src = (iStep-0)*lStep-int(lStep/2) - lStep
-      IPS%iX2Src = (iStep-0)*lStep-int(lStep/2) 
+      IPS%iX2Src = (iStep-0)*lStep-int(lStep/2)
       IPS%X1Src = max(-1d0/(2d0*dble(mySolSeq%nSteps)),dble(IPS%iX1Src)/dble(mySolSeq%nSteps))
       IPS%X2Src = dble(IPS%iX2Src)/dble(mySolSeq%nSteps)
       IPS%X1Dest = IPS%X2Src + dble(lStep/4d0)/dble(mySolSeq%nSteps)
       IPS%X2Dest = IPS%X2Src - dble(lStep/4d0)/dble(mySolSeq%nSteps)
-     
+
       IPS%Frac1 = (IPS%X1Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
       IPS%Frac2 = (IPS%X1Src  - IPS%X1Dest)/(IPS%X1Src - IPS%X2Src)
       mySolSeq%S(IPS%IntPol1)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux(1:LinSc%ndof) + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux(1:LinSc%ndof)
-       
+
       IPS%Frac1 = (IPS%X2Dest - IPS%X2Src )/(IPS%X1Src - IPS%X2Src)
       IPS%Frac2 = (IPS%X1Src  - IPS%X2Dest)/(IPS%X1Src - IPS%X2Src)
       mySolSeq%S(IPS%IntPol2)%P = IPS%Frac1*mySolSeq%S(IPS%Src1)%P_aux(1:LinSc%ndof) + IPS%Frac2*mySolSeq%S(IPS%Src2)%P_aux(1:LinSc%ndof)
@@ -468,10 +468,10 @@ INTEGER IntPol
       if (myid.eq.showid) WRITE(*,*) "steps: ",(iStep-0)*lStep,(iStep-1)*lStep,(iStep-0)*lStep-int(lStep/2)
       mySolSeq%S((iStep-0)*lStep-int(lStep/2))%P = mySolSeq%S((iStep-0)*lStep)%P(1:LinSc%ndof)
      END IF
-     
+
     END DO
   END IF
-    
+
 END SUBROUTINE InterpolatePressure_ParT
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -717,7 +717,7 @@ IF (myid.ne.master) THEN
 
  ! Assemble the defect vector and fine level matrix
  CALL Matdef_General_QuadScalar(QuadSc,-1)
- 
+
  ! Assemble the defect vector and fine level matrix
  IF (iStep.gt.1) then
   CALL AddTimeNewtonAccelerator(QuadSc,&
@@ -741,7 +741,7 @@ IF (myid.ne.master) THEN
 
  ! Compute the norm of the defect
  CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
- 
+
  CALL MeasureDefectNorms(QuadSc,u_def0)
 
 END IF
@@ -781,14 +781,14 @@ END IF
 
 END DO ! iStep
 
-if (myid.eq.1) write(MTERM,"(104('X'))") 
-if (myid.eq.1) write(mFILE,"(104('X'))") 
+if (myid.eq.1) write(MTERM,"(104('X'))")
+if (myid.eq.1) write(mFILE,"(104('X'))")
 if (myid.eq.1) write(MTERM,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
 if (myid.eq.1) write(MFILE,'(2(A,I4),3ES12.4)') 'RelativeChangesOfU:', iLoop,'|',iLinBurgers,u_rel_max(4)/u_rel_max(1),u_rel_max(5)/u_rel_max(2),u_rel_max(6)/u_rel_max(3)
 if (myid.eq.1) write(MTERM,'(2(A,I4),3ES12.4)') 'MaxInitDefectsOfU: ', iLoop,'|',iLinBurgers,u_def0_max(1),u_def0_max(2),u_def0_max(3)
 if (myid.eq.1) write(MFILE,'(2(A,I4),3ES12.4)') 'MaxInitDefectsOfU: ', iLoop,'|',iLinBurgers,u_def0_max(1),u_def0_max(2),u_def0_max(3)
-if (myid.eq.1) write(MTERM,"(104('X'))") 
-if (myid.eq.1) write(mFILE,"(104('X'))") 
+if (myid.eq.1) write(MTERM,"(104('X'))")
+if (myid.eq.1) write(mFILE,"(104('X'))")
 
 ! Update the solution
 DO iStep = 0,nSteps
@@ -796,10 +796,10 @@ DO iStep = 0,nSteps
   QuadSc%ValU(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%U_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof)
   QuadSc%ValV(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%V_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof)
   QuadSc%ValW(1:QuadSc%ndof) = mySolSeq%S((iStep-0)*lStep)%W_aux(1:QuadSc%ndof) + mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof)
-  
+
   ! Set dirichlet boundary conditions on the solution
   CALL Boundary_QuadScalar_Val()
-  
+
   mySolSeq%S((iStep-0)*lStep)%U(1:QuadSc%ndof) = QuadSc%ValU(1:QuadSc%ndof)
   mySolSeq%S((iStep-0)*lStep)%V(1:QuadSc%ndof) = QuadSc%ValV(1:QuadSc%ndof)
   mySolSeq%S((iStep-0)*lStep)%W(1:QuadSc%ndof) = QuadSc%ValW(1:QuadSc%ndof)
@@ -1131,7 +1131,7 @@ CALL ZTIME(tttt1)
 myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
 INL=1
-! 
+!
 ! DO INL=1,2!QuadSc%prm%NLmax
 ! INLComplete = 0
 
@@ -1143,7 +1143,7 @@ Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
 !!!! ----------------------------------------------------- !!!!
 
 ! CALL OperatorRegenaration(3)
-! 
+!
 IF (myid.ne.master) THEN
 ! Restore the constant right hand side
  CALL ZTIME(tttt0)
@@ -1151,7 +1151,7 @@ IF (myid.ne.master) THEN
  QuadSc%defV = QuadSc%rhsV
  QuadSc%defW = QuadSc%rhsW
 END IF
-! 
+!
 IF (myid.ne.master) THEN
 
  ! Assemble the defect vector and fine level matrix
@@ -1181,20 +1181,20 @@ CALL COMM_Maximum(RhsUVW)
 CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
      ResU,ResV,ResW,DefUVW,RhsUVW)
 ! IF (ISNAN(RhsUVW)) stop
-! 
+!
 ! IF ((DefUVW.LE.DefUVWCrit).AND.&
 !     (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
-! 
+!
 ! CALL COMM_NLComplete(INLComplete)
 ! CALL ZTIME(tttt1)
 ! myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
-! 
+!
 ! IF (INLComplete.eq.1) GOTO 1
-! 
+!
 ! END DO
-! 
+!
 ! 1 CONTINUE
-! 
+!
 ! ! return
 ! myStat%iNonLin = myStat%iNonLin + INL
 ! inl_u = INL
@@ -1270,10 +1270,10 @@ IF (myid.ne.master) THEN
  LinSc%valP_old = mySolSeq%S((iStep-0)*lStep)%P(1:LinSc%ndof)
  LinSc%valP(NLMAX)%x = 0d0
 
- QuadSc%ValU = mySolSeq%S((iStep)*lStep)%U(1:QuadSc%ndof) - mySolSeq%S((iStep-1)*lStep)%U(1:QuadSc%ndof) 
+ QuadSc%ValU = mySolSeq%S((iStep)*lStep)%U(1:QuadSc%ndof) - mySolSeq%S((iStep-1)*lStep)%U(1:QuadSc%ndof)
  QuadSc%ValV = mySolSeq%S((iStep)*lStep)%V(1:QuadSc%ndof) - mySolSeq%S((iStep-1)*lStep)%V(1:QuadSc%ndof)
  QuadSc%ValW = mySolSeq%S((iStep)*lStep)%W(1:QuadSc%ndof) - mySolSeq%S((iStep-1)*lStep)%W(1:QuadSc%ndof)
-! 
+!
 ! Assemble the right hand side (RHS=1/k B^T U~)
  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
 
@@ -1300,7 +1300,7 @@ IF (myid.ne.0) THEN
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
 END IF
- 
+
 IF (myid.ne.master) THEN
  mySolSeq%S((iStep-0)*lStep)%P = LinSc%ValP(NLMAX)%x(1:LinSc%ndof)
 END IF
@@ -1342,8 +1342,11 @@ IF (myid.ne.master) THEN
  ! Assemble the right hand side
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
- ! Add the pressure gradient to the rhs
- CALL AddPressureGradient()
+! Add the pressure gradient
+  CALL AddPressureGradient()
+
+! Add the pressure gradient with the jump term to the rhs
+!   CALL AddPressureGradientWithJump()
 END IF
 
  ! Add the viscoelastic stress to the rhs
@@ -1536,22 +1539,22 @@ END IF
 ! call fbm_updateFBM(Properties%Density(1),tstep,timens,&
 !                    Properties%Gravity,mfile,myid,&
 !                    QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr) 
-! 
+!                    LinSc%valP(NLMAX)%x,fbm_up_handler_ptr)
+!
 ! !if (myid.eq.1) write(*,*) 'CommP: ',myStat%tCommP,'CommV: ',myStat%tCommV
-! 
+!
 ! IF (myid.ne.0) THEN
 !  CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 ! END IF
-!  
+!
 ! CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
-!  
+!
 ! IF (myid.ne.0) THEN
 !  CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
 ! END IF
-!  
+!
 !  CALL GET_MESH_VELO()
-!  
+!
 !  ILEV=NLMAX
 !  CALL SETLEV(2)
 !  CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
@@ -1559,14 +1562,14 @@ END IF
 !                       mg_mesh%level(ILEV)%kvert,&
 !                       mg_mesh%level(ILEV)%karea,&
 !                       mg_mesh%level(ILEV)%kedge)
-! 
+!
 ! CALL updateFBMGeometry()
 
 CALL MonitorVeloMag(QuadSc)
 
 RETURN
 
-END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext
 !
 ! ----------------------------------------------
 !
@@ -1787,7 +1790,7 @@ END IF
 
 RETURN
 
-END SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static 
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static
 !
 ! ----------------------------------------------
 !
@@ -1876,13 +1879,13 @@ Real*8 :: dabl
  END DO
 
  if(myid.ne.0)then
-!---------------------                          
+!---------------------
  ALLOCATE (mgDiffCoeff(NLMIN:NLMAX+1))
  DO ILEV=NLMIN,NLMAX+1
   ALLOCATE (mgDiffCoeff(ILEV)%x(mg_mesh%level(ilev)%nel))
   mgDiffCoeff(ILEV)%x = Properties%DiffCoeff(1)
  END DO
-!---------------------                          
+!---------------------
 else
  maxlevel = mg_Mesh%nlmax
  ALLOCATE (mgDiffCoeff(NLMIN:maxlevel))
@@ -1920,7 +1923,7 @@ end if
  CALL Create_AMat() !(A)
 
  ! Building up the E012/E013 E013/E012 and matrix structures
- CALL Create_QuadLinMatStruct() 
+ CALL Create_QuadLinMatStruct()
 
  ! Building up the E012/E012 matrix strucrures
  CALL Create_LinMatStruct ()
@@ -2057,7 +2060,7 @@ INTEGER INLComplete,I,J,IERR,iITER
 old_TSTEP = tstep
 tstep = xTimeStepMultiplier*tstep
 
-if (.not.allocated(MGSteps%n)) THEN 
+if (.not.allocated(MGSteps%n)) THEN
  allocate(MGSteps%n(MGSteps%m))
  allocate(MGSteps%r(MGSteps%m))
  MGSteps%i = 0
@@ -2104,7 +2107,7 @@ IF (myid.ne.master) THEN
 
 END IF
 
-  
+
 thstep = tstep*theta
 
 IF (myid.ne.master) THEN
@@ -2170,7 +2173,7 @@ DO INL=1,QuadSc%prm%NLmax
     QuadSc%prm%MGprmIn%nSmootherSteps = MIN(INT(DBLE(QuadSc%prm%MGprmIn%nSmootherSteps)*1.25d0),MaxSmootheningSteps)
     if (myid.eq.1) WRITE(*,*) 'MG smoothening step increasement to:', QuadSc%prm%MGprmIn%nSmootherSteps
    END IF
-   
+
    !!!!!!!!!!!!!!!!!!!!!!!!! Artificial TimeStep Control !!!!!!!!!!!!!!!!!!!!!!!!!
    IF (QuadSc%prm%MGprmIn%nSmootherSteps.ge.MaxSmootheningSteps) THEN
     IF (TimeStepIncrease.ge.TimeStepIncreaseCrit) then
@@ -2186,7 +2189,7 @@ DO INL=1,QuadSc%prm%NLmax
     END IF
    END IF
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
+
   END IF
 
   !!!!!          Checking the quality of the result           !!!!
@@ -2242,7 +2245,7 @@ DO INL=1,QuadSc%prm%NLmax
   CALL ZTIME(tttt1)
   myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
-  IF (INLComplete.eq.1) exit 
+  IF (INLComplete.eq.1) exit
 
 END DO
 
@@ -2314,7 +2317,7 @@ if (LinSc%prm%MGprmOut%DefInitial.lt.LinSc%prm%MGprmOut%DefFinal) then
  DivergedSolution = .true.
 end if
 
-! checking convergence of the pressure for the case when the initial values were not properly read in and the RHS is directly from the 1st timestep NaN 
+! checking convergence of the pressure for the case when the initial values were not properly read in and the RHS is directly from the 1st timestep NaN
 if (LinSc%prm%MGprmOut%UsedIterCycle.eq.0.or.ieee_is_nan(LinSc%prm%MGprmOut%DefInitial)) then
  DivergedSolution = .true.
 end if
@@ -2332,7 +2335,7 @@ end if
 
 CALL MonitorVeloMag(QuadSc)
 
-tstep = old_TSTEP 
+tstep = old_TSTEP
 
 end subroutine Transport_q2p1_UxyzP_sse
 !
@@ -2350,7 +2353,7 @@ INTEGER INLComplete,I,J,IERR,iITER
 old_TSTEP = tstep
 tstep = xTimeStepMultiplier*tstep
 
-if (.not.allocated(MGSteps%n)) THEN 
+if (.not.allocated(MGSteps%n)) THEN
  allocate(MGSteps%n(MGSteps%m))
  allocate(MGSteps%r(MGSteps%m))
  MGSteps%i = 0
@@ -2383,7 +2386,7 @@ IF (myid.ne.master) THEN
 
  ! Add the gravity force to the rhs
  CALL AddGravForce()
- 
+
  ! Add the pressure gradient
  CALL AddPeriodicPressureGradient()
 
@@ -2399,7 +2402,7 @@ IF (myid.ne.master) THEN
  CALL Boundary_QuadScalar_Val()
 
 END IF
-  
+
 thstep = tstep*theta
 
 IF (myid.ne.master) THEN
@@ -2484,7 +2487,7 @@ DO INL=1,QuadSc%prm%NLmax
    TimeStepIncrease = 0
   END IF
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
+
   !!!!!          Checking the quality of the result           !!!!
   !!!!! ----------------------------------------------------- !!!!
 
@@ -2538,7 +2541,7 @@ DO INL=1,QuadSc%prm%NLmax
   CALL ZTIME(tttt1)
   myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
 
-  IF (INLComplete.eq.1) exit 
+  IF (INLComplete.eq.1) exit
 
 END DO
 
@@ -2615,7 +2618,7 @@ IF (bMultiMat) then
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ConvergenceCheck !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-tstep = old_TSTEP 
+tstep = old_TSTEP
 
 end subroutine Transport_q2p1_UxyzP_sse_PF
 !
@@ -2639,7 +2642,7 @@ dS = DBLE(iS)/DBLE(myTransientSolution%nTimeSubStep)
 if (myid.eq.1) write(*,*) 'Time fraction: ',dS,LinSc%prm%MGprmIn%MedLev
 IF (myid.ne.0) then
  DO i=1,QuadSc%ndof
- 
+
   QuadSc%ValU(i)                  = (1d0-dS)*myTransientSolution%Velo(1,iL1)%x(i) + (dS)*myTransientSolution%Velo(1,iL2)%x(i)
   QuadSc%ValV(i)                  = (1d0-dS)*myTransientSolution%Velo(2,iL1)%x(i) + (dS)*myTransientSolution%Velo(2,iL2)%x(i)
   QuadSc%ValW(i)                  = (1d0-dS)*myTransientSolution%Velo(3,iL1)%x(i) + (dS)*myTransientSolution%Velo(3,iL2)%x(i)
@@ -2647,14 +2650,14 @@ IF (myid.ne.0) then
   mg_mesh%level(ILEV)%dcorvg(1,i) = (1d0-dS)*myTransientSolution%Coor(1,iL1)%x(i) + (dS)*myTransientSolution%Coor(1,iL2)%x(i)
   mg_mesh%level(ILEV)%dcorvg(2,i) = (1d0-dS)*myTransientSolution%Coor(2,iL1)%x(i) + (dS)*myTransientSolution%Coor(2,iL2)%x(i)
   mg_mesh%level(ILEV)%dcorvg(3,i) = (1d0-dS)*myTransientSolution%Coor(3,iL1)%x(i) + (dS)*myTransientSolution%Coor(3,iL2)%x(i)
- 
+
   Screw(i) = (1d0-dS)*myTransientSolution%Dist(iL1)%x(i) + (dS)*myTransientSolution%Dist(iL2)%x(i)
   Shell(i) = (1d0-dS)*myTransientSolution%Shell(iL1)%x(i) + (dS)*myTransientSolution%Shell(iL2)%x(i)
-  
+
   IF (myProcess%SegmentThermoPhysProps) THEN
    mySegmentIndicator(2,i) = DBLE(NINT((1d0-dS)*myTransientSolution%iSeg(iL1)%x(i) + (dS)*myTransientSolution%iSeg(iL2)%x(i)))
   END IF
-  
+
  END DO
 END IF
 
@@ -2664,7 +2667,7 @@ ELSE
   LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
   CALL CreateDumpStructures(LevDif)
 END IF
- 
+
 ILEV = LinSc%prm%MGprmIn%MedLev
 
 nLengthV = (2**(ILEV-1)+1)**3
@@ -2689,15 +2692,15 @@ CALL GetAlphaNonNewtViscosity_sse()
 
 IF (myid.ne.0) then
  DO i=1,QuadSc%ndof
- 
+
   MeshVelo(1)     = (myTransientSolution%Coor(1,iL2)%x(i)-myTransientSolution%Coor(1,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
   MeshVelo(2)     = (myTransientSolution%Coor(2,iL2)%x(i)-myTransientSolution%Coor(2,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
   MeshVelo(3)     = (myTransientSolution%Coor(3,iL2)%x(i)-myTransientSolution%Coor(3,iL1)%x(i))/(DBLE(myTransientSolution%nTimeSubStep)*tstep)
-  
+
   QuadSc%ValU(i)  = QuadSc%ValU(i) - MeshVelo(1)
   QuadSc%ValV(i)  = QuadSc%ValV(i) - MeshVelo(2)
   QuadSc%ValW(i)  = QuadSc%ValW(i) - MeshVelo(3)
-  
+
  END DO
 END IF
 !!!!!!!!!!!!!!!!Correction of the Velocities due to the ALE components !!!!!!!!!!!!!!!!!!!
@@ -2752,8 +2755,8 @@ DO iInflow=1,myProcess%nOfInflows
      ivt3 = mg_mesh%level(nlmax)%kvert(NeighA(3,j),i)
      ivt4 = mg_mesh%level(nlmax)%kvert(NeighA(4,j),i)
      ivt5 = mg_mesh%level(nlmax)%nvt + mg_mesh%level(nlmax)%net + mg_mesh%level(nlmax)%nat + i
-     
-     if (shell(ivt5).gt.0d0) THEN  ! Only faces which belong to inner (no-fbm) elements 
+
+     if (shell(ivt5).gt.0d0) THEN  ! Only faces which belong to inner (no-fbm) elements
       CALL GET_NormalArea(mg_mesh%level(nlmax)%dcorvg(1:3,ivt1),&
                           mg_mesh%level(nlmax)%dcorvg(1:3,ivt2),&
                           mg_mesh%level(nlmax)%dcorvg(1:3,ivt3),&
@@ -2770,15 +2773,15 @@ DO iInflow=1,myProcess%nOfInflows
    END IF
   END DO
  END DO
-END DO 
- 
+END DO
+
 CALL COMM_SUMMn(dIntArea,myProcess%nOfInflows)
 CALL COMM_SUMMn(dIntPress,myProcess%nOfInflows)
 
 mySetup%bPressureConvergence = .true.
 DO iInflow=1,myProcess%nOfInflows
 
- if (.not.allocated(myProcess%myInflow(iInflow)%PressureEvolution)) then 
+ if (.not.allocated(myProcess%myInflow(iInflow)%PressureEvolution)) then
   allocate(myProcess%myInflow(iInflow)%PressureEvolution(0:nMem))
   myProcess%myInflow(iInflow)%PressureEvolution = 0d0
  end if
@@ -2802,14 +2805,14 @@ DO iInflow=1,myProcess%nOfInflows
  stdNorm = stdNorm / DBLE(nMem)
  stdNorm = stdNorm**0.5d0
  stdNorm = 1d2*stdNorm/myProcess%myInflow(iInflow)%PressureEvolution(0)
- 
+
  myProcess%myInflow(iInflow)%PressureEvolution(0) = stdNorm !! percentage error for the last nMem steps
- 
+
 !  if (myid.eq.1) write(mfile,'(A,100ES12.4)') 'test :',myProcess%myInflow(iInflow)%PressureEvolution(0:nMem)
 !  if (myid.eq.1) write(mterm,'(A,100ES12.4)') 'test :',myProcess%myInflow(iInflow)%PressureEvolution(0:nMem)
- 
+
  if (itns.gt.nMem.and.istart.eq.1) then
-  if (myProcess%myInflow(iInflow)%PressureEvolution(0).gt.mySetup%PressureConvergenceTolerance) mySetup%bPressureConvergence = .false.
+  if (abs(myProcess%myInflow(iInflow)%PressureEvolution(0)).gt.mySetup%PressureConvergenceTolerance) mySetup%bPressureConvergence = .false.
   if (myid.eq.1) write(mfile,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),myProcess%myInflow(iInflow)%PressureEvolution(0)
   if (myid.eq.1) write(mterm,'(A,I0,A,4ES12.4)') 'Pressure[bar]AtInflowArea[cm2]stdErr[%]',iInflow,':',1e-6*dIntPress(iInflow)/dIntArea(iInflow),dIntArea(iInflow),myProcess%myInflow(iInflow)%PressureEvolution(0)
  else

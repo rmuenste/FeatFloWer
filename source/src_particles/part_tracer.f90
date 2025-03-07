@@ -2315,7 +2315,10 @@ IF (myid.eq.1) THEN
   CLOSE(412)
   ! We will only accept particles in the raster that reached
   ! at least 99% of the z-length
-  zMinReach = myMeshInfo%zmin + (myMeshInfo%zmax - myMeshInfo%zmin)*0.99d0
+  zMinReach = min(myParticleParam%OutflowZPos,myMeshInfo%zmin + (myMeshInfo%zmax - myMeshInfo%zmin)*0.99d0)
+
+!  zMinReach = myParticleParam%OutflowZPos !myMeshInfo%zmin + (myMeshInfo%zmax - myMeshInfo%zmin)*0.99d0
+!   zMinReach = myMeshInfo%zmin + (myMeshInfo%zmax - myMeshInfo%zmin)*0.99d0
 
   nxGrid = myParticleParam%Raster
 

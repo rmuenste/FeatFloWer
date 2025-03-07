@@ -68,29 +68,39 @@ REAL*8 PX1,PX2,dZ_max,dd1,dd2,dd3
 
 dZ_max = 0.5d0*mySigma%Dz_out
 
+IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
 
+  IF (Y.GT.0d0) THEN
 
-IF (Y.GT.0d0) THEN
+  PX1 = +SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
+  PX2 = -SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
 
-PX1 = +SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
-PX2 = -SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
+  dd1 = dZ_max - SQRT(X*X + (Y-mySigma%a/2d0)*(Y-mySigma%a/2d0))
+  dd2 =          SQRT((X-PX1)*(X-PX1) + Y*Y)
+  dd3 =          SQRT((X-PX2)*(X-PX2) + Y*Y)
 
-dd1 = dZ_max - SQRT(X*X + (Y-mySigma%a/2d0)*(Y-mySigma%a/2d0))
-dd2 =          SQRT((X-PX1)*(X-PX1) + Y*Y)
-dd3 =          SQRT((X-PX2)*(X-PX2) + Y*Y)
+  ELSE
+
+  PX1 = +SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
+  PX2 = -SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
+
+  dd1 = dZ_max - SQRT(X*X + (Y+mySigma%a/2d0)*(Y+mySigma%a/2d0))
+  dd2 =          SQRT((X-PX1)*(X-PX1) + Y*Y)
+  dd3 =          SQRT((X-PX2)*(X-PX2) + Y*Y)
+
+  END IF
+
+  d = max(-DistTolerance,min(DistTolerance,dd1,dd2,dd3))
+
+ELSEIF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+
+  d = dZ_max - SQRT(X*X + Y*Y)
 
 ELSE
 
-PX1 = +SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
-PX2 = -SQRT(dZ_max*dZ_max - (mySigma%a/2d0)*(mySigma%a/2d0))
-
-dd1 = dZ_max - SQRT(X*X + (Y+mySigma%a/2d0)*(Y+mySigma%a/2d0))
-dd2 =          SQRT((X-PX1)*(X-PX1) + Y*Y)
-dd3 =          SQRT((X-PX2)*(X-PX2) + Y*Y)
+ RETURN
 
 END IF
-
-d = max(-DistTolerance,min(DistTolerance,dd1,dd2,dd3))
 
 END SUBROUTINE Shell_dist
 !

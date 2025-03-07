@@ -424,14 +424,11 @@ subroutine AddSource_EWIKON()
 integer i,iSeg,iMat
 real*8 dSource
 
-!   ! Q_dot = [kW]
-!   ! rho   = [g/cm3]
-!   ! Cp    = [kJ/(kg*K)] = [J/(g*K)]
-!   ! V     = [cm3]
-!   
-!   ! q_dot         Q_dot                    kW                       1000 * J/s           1000 K
-!   !__________ =  ____________   =   [_______________________] = [ _______________ ] = [__________ ]
-!   ! rho * Cp     V * rho * Cp        cm3 * (g/cm3) * J/(g*K)           J/K                 s
+!BASIC units L:[cm], M[g], T[s], t[K]
+!Q_dot = [kW]
+!V     = [cm3]
+!
+!Q_dot    =  1000 [W] = 1000 * [kg*m2/s3] = 1e3* [1e3g * 1e4cm2 / s3] = 1e10 g*cm2/s3
 ! 
 DO i=1,Tracer%ndof
  iSeg = myHeatObjects%Segment(i)

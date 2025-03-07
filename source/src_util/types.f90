@@ -591,7 +591,7 @@ TYPE tSigma
   REAL*8 :: SensorRadius
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
-  LOGICAL :: ScrewCylinderRendering=.TRUE.
+  LOGICAL :: ScrewCylinderRendering=.TRUE.,BarrelRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
   REAL*8 :: Dz_out,Dz_in, a, L, L0, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
@@ -614,8 +614,8 @@ TYPE tRheology
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
    REAL*8 :: Ts, Tb, C1, C2, E,log_aT_Tilde_Max! WLF Parameter
-   REAL*8 :: ViscoMin = 1e-4
-   REAL*8 :: ViscoMax = 1e10
+   REAL*8 :: ViscoMin = 1e-4,TemperatureMin=0d0
+   REAL*8 :: ViscoMax = 1e10,TemperatureMax=1d30
 END TYPE tRheology
 
 TYPE tSubInflow
@@ -652,6 +652,8 @@ ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress, FillingDegree
+   REAL*8,allocatable :: T0_T(:)
+   INTEGER :: T0_N=-1000
    REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
@@ -664,6 +666,8 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
+   logical :: bRobinBCScrew=.false.,bRobinBCBarrel=.false.
+   REAL*8 :: RobinBCScrew_HTC=0d0,RobinBCBarrel_HTC=0d0
    LOGICAL :: UseHeatDissipationForQ1Scalar=.false.,UseAirCooling=.false.
    REAL*8  :: AirCoolingHeatTransCoeff,AirCoolingRoomTemperature
    LOGICAL :: SegmentThermoPhysProps=.false.

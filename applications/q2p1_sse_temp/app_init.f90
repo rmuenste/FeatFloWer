@@ -21,6 +21,7 @@ subroutine init_q2p1_ext(log_unit)
   integer, intent(in) :: log_unit
   integer iPeriodicityShift,jFile,iAngle,dump_in_file,i1,i2
   real*8 dTimeStep,dPeriod,meshVelo(3)
+  integer jSeg,kSeg
 
   !-------INIT PHASE-------
   ApplicationString = &
@@ -204,7 +205,26 @@ subroutine init_q2p1_ext(log_unit)
    if (myid.eq.1) write(*,*) "Reading the PID controller data  ..."
    CALL READ_PID_DATA()
   END IF
+
+  do jSeg=1,myProcess%nOfDIESensors
+   if (adjustl(trim(myProcess%mySensor(jSeg)%type)).eq."+STOP") THEN
+     do kSeg=1,myProcess%nOfDIESensors
+      if (adjustl(trim(myProcess%mySensor(kSeg)%type)).eq."-STOP") THEN
+       myProcess%SegThermoPhysProp(myProcess%mySensor(kSeg)%iSeg)%bConstTemp= .false.
+      end if
+     end do
+   END IF
+  END DO
   
+  do jSeg=1,myProcess%nOfDIESensors
+ if (myid.eq.1) write(*,*) jSeg,myProcess%mySensor(jSeg)%iSeg,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(jSeg)%iSeg)%bConstTemp,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(jSeg)%iSeg)%bHeatSource,&
+            adjustl(trim(myProcess%mySensor(jSeg)%type))
+
+  END DO
+  if (myid.eq.1) write(*,*) "asdadasdasdas asd asd as das dasd as das das dasd adad asd as"
+
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------

@@ -423,11 +423,11 @@ DO i=1,Tracer%ndof
   END IF
  END IF
  
- IF (myBoundary%bWall(i).and.myProcess%Ta.ne.myInf) THEN
+ IF (myBoundary%bWall(i).and.(myProcess%Ta.ne.myInf).and.(.not.myProcess%bRobinBCBarrel)) THEN
   Tracer%knpr(I) = 2
  END IF
  
- IF (myBoundary%iInflow(i).gt.10.and.myProcess%Ti.ne.myInf) THEN
+ IF ((myBoundary%iInflow(i).gt.10).and.(myProcess%Ti.ne.myInf).and.(.not.myProcess%bRobinBCScrew)) THEN
   Tracer%knpr(I) = 3
  END IF
 
