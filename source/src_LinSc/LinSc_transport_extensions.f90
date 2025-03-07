@@ -1004,6 +1004,44 @@ EXTERNAL E011
 integer iSwitch
 real*8 dAreaDueToCooling,dFluxDueToCooling
 
+IF (myProcess%bRobinBCScrew) then
+ ilev = NLMAX
+ call setlev(2)
+ if (myid.ne.master) then
+  CALL AddRobinHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                              Tracer%def,Tracer%oldSol,&
+                              mg_mesh%level(ilev)%kvert,&
+                              mg_mesh%level(ilev)%karea,&
+                              mg_mesh%level(ilev)%kedge,&
+                              mg_mesh%level(ilev)%dcorvg,&
+                              E011,dAreaDueToCooling,dFluxDueToCooling,iSwitch,1)
+ end if
+ if (iSwitch.eq.1) THEN
+  call COMM_SUMM(dAreaDueToCooling)
+  call COMM_SUMM(dFluxDueToCooling)
+  if (myid.eq.1) write(*,'(A,2(ES12.4,A))') 'Area and Flux due to Screw-cooling:',1e-4*dAreaDueToCooling,'m2',1e-3*dFluxDueToCooling, 'kW'
+ end if
+END IF
+
+IF (myProcess%bRobinBCBarrel) then
+ ilev = NLMAX
+ call setlev(2)
+ if (myid.ne.master) then
+  CALL AddRobinHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                              Tracer%def,Tracer%oldSol,&
+                              mg_mesh%level(ilev)%kvert,&
+                              mg_mesh%level(ilev)%karea,&
+                              mg_mesh%level(ilev)%kedge,&
+                              mg_mesh%level(ilev)%dcorvg,&
+                              E011,dAreaDueToCooling,dFluxDueToCooling,iSwitch,2)
+ end if
+ if (iSwitch.eq.1) THEN
+  call COMM_SUMM(dAreaDueToCooling)
+  call COMM_SUMM(dFluxDueToCooling)
+  if (myid.eq.1) write(*,'(A,2(ES12.4,A))') 'Area and Flux due to Barrel-cooling:',1e-4*dAreaDueToCooling,'m2',1e-3*dFluxDueToCooling, 'kW'
+ end if
+END IF
+
 IF (.NOT.ALLOCATED(mySegmentIndicator)) return
 
 IF (.NOT.myProcess%UseAirCooling) return

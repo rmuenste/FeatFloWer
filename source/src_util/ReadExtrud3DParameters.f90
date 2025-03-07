@@ -19,7 +19,7 @@
     character(len=INIP_STRLEN) cCut,cElement_i,cElemType,cKindOfConveying,cTemperature,cPressureFBM
     character(len=INIP_STRLEN) cBCtype,cInflow_i,cCenter,cNormal,cauxD,cauxZ,cOnlyBarrelAdaptation,cVelo,cTempBC_i
     character(len=INIP_STRLEN) cMidpointA, cMidpointB 
-    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor,cTVals
+    character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor,cTVals, cRobin
 
     character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
     
@@ -953,6 +953,12 @@
     call inip_toupper_replace(cTemperature)
     IF (ADJUSTL(TRIM(cTemperature)).EQ."NO") THEN
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewTemperature",myProcess%Ti,myInf)
+     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","RobinBCScrew",cRobin,"NO")
+     call inip_toupper_replace(cRobin)
+     IF (ADJUSTL(TRIM(cRobin)).EQ."YES") THEN
+      myProcess%bRobinBCScrew = .true.
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","RobinBCScrew_HTC",myProcess%RobinBCScrew_HTC,myInf)
+     END IF
     ELSE
      myProcess%Ti=myInf
     END IF
@@ -961,6 +967,12 @@
     call inip_toupper_replace(cTemperature)
     IF (ADJUSTL(TRIM(cTemperature)).EQ."NO") THEN
      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","BarrelTemperature",myProcess%Ta,myInf)
+     call INIP_getvalue_string(parameterlist,"E3DProcessParameters","RobinBCBarrel",cRobin,"NO")
+     call inip_toupper_replace(cRobin)
+     IF (ADJUSTL(TRIM(cRobin)).EQ."YES") THEN
+      myProcess%bRobinBCBarrel = .true.
+      call INIP_getvalue_double(parameterlist,"E3DProcessParameters","RobinBCBarrel_HTC",myProcess%RobinBCBarrel_HTC,myInf)
+     END IF
     ELSE
      IF (ADJUSTL(TRIM(cTemperature)).EQ."FLUX".or.ADJUSTL(TRIM(cTemperature)).EQ."YES") THEN
       call INIP_getvalue_double(parameterlist,"E3DProcessParameters","HeatFluxThroughBarrelWall_kWm2",myProcess%HeatFluxThroughBarrelWall_kWm2,0d0)
@@ -1616,8 +1628,15 @@
     IF (ieee_is_finite(myProcess%FillingDegree)) then
      write(*,*) "myProcess%FillingDegree",'=',myProcess%FillingDegree
     END IF
+
     write(*,*) "myProcess%Ti",'=',myProcess%Ti
+    IF (myProcess%bRobinBCScrew) then
+     write(*,*) "myProcess%SCREW_RobinHTC",'=',myProcess%RobinBCScrew_HTC
+    end if
     write(*,*) "myProcess%Ta",'=',myProcess%Ta
+    IF (myProcess%bRobinBCBarrel) then
+     write(*,*) "myProcess%BARREL_RobinHTC",'=',myProcess%RobinBCBarrel_HTC
+    END IF
     IF (myProcess%Ta.eq.myInf) THEN
      write(*,*) "myProcess%FLUX",'=',myProcess%HeatFluxThroughBarrelWall_kWm2
     END IF

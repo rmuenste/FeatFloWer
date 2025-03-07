@@ -666,6 +666,8 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
+   logical :: bRobinBCScrew=.false.,bRobinBCBarrel=.false.
+   REAL*8 :: RobinBCScrew_HTC=0d0,RobinBCBarrel_HTC=0d0
    LOGICAL :: UseHeatDissipationForQ1Scalar=.false.,UseAirCooling=.false.
    REAL*8  :: AirCoolingHeatTransCoeff,AirCoolingRoomTemperature
    LOGICAL :: SegmentThermoPhysProps=.false.
