@@ -257,6 +257,9 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
+#ifdef HAVE_PE 
+if (myid.eq. 1) write(*,*)'fbm force'
+#endif 
 ! Calculate the forces
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
@@ -294,6 +297,287 @@ END IF
 RETURN
 
 END SUBROUTINE Transport_q2p1_UxyzP
+!========================================================================================
+!
+!========================================================================================
+SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
+use cinterface, only: calculateDynamics,calculateFBM
+use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
+use PP3D_MPI, only: Barrier_myMPI
+
+INTEGER mfile,INL,inl_u,itns
+REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
+INTEGER INLComplete,I,J,IERR,iITER
+real*8 px, py, pz
+integer k
+k=1
+
+CALL updateFBMGeometry()
+
+thstep = tstep*(1d0-theta)
+
+CALL OperatorRegenaration(2)
+
+CALL OperatorRegenaration(3)
+
+! -------------------------------------------------
+! Compute the momentum equations
+! -------------------------------------------------
+! GOTO 1
+IF (myid.ne.master) THEN
+
+ CALL ZTIME(tttt0)
+
+ ! Assemble the right hand side
+ CALL Matdef_General_QuadScalar(QuadSc,1)
+
+! Add the pressure gradient
+  CALL AddPressureGradient()
+
+! Add the pressure gradient with the jump term to the rhs
+!   CALL AddPressureGradientWithJump()
+END IF
+
+ ! Add the viscoelastic stress to the rhs
+ IF(bViscoElastic)THEN
+   CALL AddViscoStress()
+ END IF
+
+IF (myid.ne.master) THEN
+
+ ! Add the gravity force to the rhs
+ CALL AddGravForce()
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ ! Store the constant right hand side
+ QuadSc%rhsU = QuadSc%defU
+ QuadSc%rhsV = QuadSc%defV
+ QuadSc%rhsW = QuadSc%defW
+
+ ! Set dirichlet boundary conditions on the solution
+ CALL Boundary_QuadScalar_Val()
+
+END IF
+
+thstep = tstep*theta
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the defect vector and fine level matrix
+ CALL Matdef_General_QuadScalar(QuadSc,-1)
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+!  CALL E013Sum(QuadSc%auxU)
+!  CALL E013Sum(QuadSc%auxV)
+!  CALL E013Sum(QuadSc%auxW)
+
+ ! Save the old solution
+ CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the norm of the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+CALL COMM_MaximumX(RhsUVW)
+DefUVWCrit=MAX(RhsUVW*QuadSc%prm%defCrit,QuadSc%prm%MinDef)
+
+CALL Protocol_QuadScalar(mfile,QuadSc,0,&
+     ResU,ResV,ResW,DefUVW,DefUVWCrit," Momentum equation ")
+
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+! CALL ALStructExtractor()
+
+DO INL=1,QuadSc%prm%NLmax
+INLComplete = 0
+
+! Calling the solver
+CALL Solve_General_QuadScalar(QuadSc,Boundary_QuadScalar_Val,&
+Boundary_QuadScalar_Mat,Boundary_QuadScalar_Mat_9,mfile)
+
+!!!!          Checking the quality of the result           !!!!
+!!!! ----------------------------------------------------- !!!!
+
+CALL OperatorRegenaration(3)
+
+IF (myid.ne.master) THEN
+! Restore the constant right hand side
+ CALL ZTIME(tttt0)
+ QuadSc%defU = QuadSc%rhsU
+ QuadSc%defV = QuadSc%rhsV
+ QuadSc%defW = QuadSc%rhsW
+END IF
+
+IF (myid.ne.master) THEN
+
+ ! Assemble the defect vector and fine level matrix
+ CALL Matdef_General_QuadScalar(QuadSc,-1)
+
+ ! Set dirichlet boundary conditions on the defect
+ CALL Boundary_QuadScalar_Def()
+
+ QuadSc%auxU = QuadSc%defU
+ QuadSc%auxV = QuadSc%defV
+ QuadSc%auxW = QuadSc%defW
+ CALL E013Sum3(QuadSc%auxU,QuadSc%auxV,QuadSc%auxW)
+! CALL E013Sum(QuadSc%auxU)
+! CALL E013Sum(QuadSc%auxV)
+! CALL E013Sum(QuadSc%auxW)
+
+ ! Save the old solution
+ CALL LCP1(QuadSc%valU,QuadSc%valU_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valV,QuadSc%valV_old,QuadSc%ndof)
+ CALL LCP1(QuadSc%valW,QuadSc%valW_old,QuadSc%ndof)
+
+ ! Compute the defect
+ CALL Resdfk_General_QuadScalar(QuadSc,ResU,ResV,ResW,DefUVW,RhsUVW)
+
+END IF
+
+! Checking convergence rates against criterions
+RhsUVW=DefUVW
+CALL COMM_MaximumX(RhsUVW)
+CALL Protocol_QuadScalar(mfile,QuadSc,INL,&
+     ResU,ResV,ResW,DefUVW,RhsUVW)
+IF (ISNAN(RhsUVW)) stop
+
+IF ((DefUVW.LE.DefUVWCrit).AND.&
+    (INL.GE.QuadSc%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+CALL ZTIME(tttt1)
+myStat%tDefUVW = myStat%tDefUVW + (tttt1-tttt0)
+
+IF (INLComplete.eq.1) GOTO 1
+!IF (timens.lt.tstep+1d-8) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+! return
+myStat%iNonLin = myStat%iNonLin + INL
+inl_u = INL
+
+! -------------------------------------------------
+! Compute the pressure correction
+! -------------------------------------------------
+CALL MonitorVeloMag(QuadSc)
+
+IF (myid.ne.0) THEN
+
+ CALL ZTIME(tttt0)
+ ! Save the old solution
+ LinSc%valP_old = LinSc%valP(NLMAX)%x
+ LinSc%valP(NLMAX)%x = 0d0
+
+ ! Assemble the right hand side (RHS=1/k B^T U~)
+ CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,1)
+
+!  ! Assemble the right hand side (RHS:=RHS-C*Q)
+!  CALL Matdef_General_LinScalar(LinSc,QuadSc,PLinSc,2)
+
+ ! Save the right hand side
+ LinSc%rhsP(NLMAX)%x = LinSc%defP(NLMAX)%x
+
+ CALL ZTIME(tttt1)
+ myStat%tDefP = myStat%tDefP + (tttt1-tttt0)
+END IF
+
+! Calling the solver
+CALL Solve_General_LinScalar(LinSc,PLinSc,QuadSc,Boundary_LinScalar_Mat,Boundary_LinScalar_Def,mfile)
+
+CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
+
+2 CONTINUE
+
+IF (myid.ne.0) THEN
+ CALL ZTIME(tttt0)
+ !if (myid.eq.1) write(*,*) 'no correction ... '
+ CALL Velocity_Correction()
+ CALL Pressure_Correction()
+ CALL ZTIME(tttt1)
+ myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)
+END IF
+
+CALL QuadScP1toQ2(LinSc,QuadSc)
+
+CALL FAC_GetForces(mfile)
+CALL FAC_GetSurfForces(mfile)
+
+!CALL DNA_GetTorques(mfile)
+!CALL DNA_GetTorques(mfile)
+!call DNA_GetSoosForce(mfile)
+
+CALL GetNonNewtViscosity()
+
+IF (bNS_Stabilization) THEN
+ CALL ExtractVeloGradients()
+END IF
+
+#ifdef HAVE_PE 
+if (myid.eq. 1) write(*,*)'fbm force'
+#endif 
+
+! Calculate the forces
+call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                      LinSc%valP(NLMAX)%x,&
+                      fbm_force_handler_ptr)
+
+#ifdef HAVE_PE 
+if (myid.eq. 1) write(*,*)'fbm update'
+#endif 
+
+! Step the particle simulation
+call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+                   Properties%Gravity,mfile,myid,&
+                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                   LinSc%valP(NLMAX)%x,&
+                   fbm_up_handler_ptr) 
+
+!call fbm_velBCTest()
+
+!IF (myid.ne.0) THEN
+! CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+!END IF
+! 
+!!if (myid.eq. 1) write(*,*)'umbrella smoother'
+!!CALL UmbrellaSmoother_ext(0d0,nUmbrellaSteps)
+! 
+!IF (myid.ne.0) THEN
+! CALL STORE_NEW_MESH(mg_mesh%level(NLMAX+1)%dcorvg)
+!END IF
+! 
+! CALL GET_MESH_VELO()
+! 
+! ILEV=NLMAX
+! CALL SETLEV(2)
+! CALL SetUp_myQ2Coor( mg_mesh%level(ILEV)%dcorvg,&
+!                      mg_mesh%level(ILEV)%dcorag,&
+!                      mg_mesh%level(ILEV)%kvert,&
+!                      mg_mesh%level(ILEV)%karea,&
+!                      mg_mesh%level(ILEV)%kedge)
+
+!CALL updateFBMGeometry()
+
+CALL MonitorVeloMag(QuadSc)
+
+RETURN
+
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
 !
 ! ----------------------------------------------
 !
@@ -356,9 +640,20 @@ SUBROUTINE Init_Default_Handlers()
 ! for FBM, etc. to their default values
 implicit none
 
-! fbm_up_handler_ptr => fbm_updateDefault
-! fbm_geom_handler_ptr => fbm_getFictKnpr
-! fbm_vel_bc_handler_ptr => fbm_velBC
+ fbm_up_handler_ptr => fbm_updateDefault
+ fbm_geom_handler_ptr => fbm_getFictKnpr
+ fbm_vel_bc_handler_ptr => fbm_velBC
+
+ fbm_force_handler_ptr => fbm_updateForcesFC2
+
+END SUBROUTINE Init_Default_Handlers
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_PE_Handlers()
+! In this function we set the function handlers
+! for FBM, etc. to their default values
+implicit none
 
  fbm_up_handler_ptr => fbm_updateDefaultFC2
  fbm_geom_handler_ptr => fbm_getFictKnprFC2
@@ -366,7 +661,7 @@ implicit none
 
  fbm_force_handler_ptr => fbm_updateForcesFC2
 
-END SUBROUTINE Init_Default_Handlers
+END SUBROUTINE Init_PE_Handlers
 !
 ! ----------------------------------------------
 !
@@ -1687,7 +1982,9 @@ END SUBROUTINE QuadScalar_Knpr
 !
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   use fbm, only: fbm_updateFBMGeom
+#ifdef HAVE_PE 
   use dem_query, only: getTotalParticles
+#endif
   include 'mpif.h'
 
   ! Function parameters
@@ -1714,8 +2011,9 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   if (myid /= 0) then
 
-  
+#ifdef HAVE_PE 
     call clear_fbm_maps()
+#endif
   
     CALL myMPI_Barrier()
     call ztime(tttx0)
@@ -1793,6 +2091,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 
   end if ! myid /= 0
 
+#ifdef HAVE_PE 
   call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
   if (myid /= 0) then
@@ -1806,6 +2105,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     dofsPerParticle = real(reducedVal) / reducedP 
     write(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
   end if
+#endif
 
 END SUBROUTINE QuadScalar_FictKnpr
 !
@@ -2760,13 +3060,13 @@ use cinterface, only: calculateFBM
   ILEV=NLMAX
   CALL SETLEV(2)
 
-  CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
-    mg_mesh%level(ilev)%dcorag,&
-    mg_mesh%level(ilev)%kvert,&
-    mg_mesh%level(ilev)%kedge,&
-    mg_mesh%level(ilev)%karea)
-    
-  CALL E013Max_SUPER(FictKNPR)
+!  CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
+!    mg_mesh%level(ilev)%dcorag,&
+!    mg_mesh%level(ilev)%kvert,&
+!    mg_mesh%level(ilev)%kedge,&
+!    mg_mesh%level(ilev)%karea)
+!    
+!  CALL E013Max_SUPER(FictKNPR)
   
  else
   if (myid.eq.showid) write(*,*) '> FBM disabled'

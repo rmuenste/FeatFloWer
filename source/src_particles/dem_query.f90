@@ -21,6 +21,7 @@ type, bind(C) :: tParticleData
   integer(c_short), dimension(8) :: bytes
 end type tParticleData
 
+#ifdef HAVE_PE 
 !================================================================================================
 ! Interfaces
 !================================================================================================
@@ -617,5 +618,6 @@ end function longIdMatch
 !
 !end function convertSystemId
 
+#endif 
 end module dem_query
 

@@ -89,6 +89,7 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
 
+#ifdef HAVE_PE 
 !  processRanks(1) = 0
 !  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
 !  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
@@ -465,6 +466,7 @@ SAVE
 !    write(*,*)'maxFluidForce1: ', maxLocal 
 !  end if
 
+#endif
 END SUBROUTINE ForcesLocalParticles
 !************************************************************************
 !
@@ -545,6 +547,7 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
  
+#ifdef HAVE_PE 
   localMax = 0.0
 !  processRanks(1) = 0
 !  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
@@ -918,6 +921,7 @@ SAVE
 !    write(*,*)'maxFluidForce2: ', maxLocal 
 !  end if
 
+#endif
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
 !
@@ -992,6 +996,8 @@ SAVE
   localMaxRemote = 0.0
   totalMax       = 0.0
 
+#ifdef HAVE_PE 
+
   IF (myid /= 0) then
 
   ! Local particles first
@@ -1018,4 +1024,5 @@ SAVE
 !  IF (myid.eq.0)then
 !    write(*,*)'totalMaxFluidForce: ', totalMax 
 !  end if
+#endif
 END

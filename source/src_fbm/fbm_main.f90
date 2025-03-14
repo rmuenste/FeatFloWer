@@ -46,6 +46,69 @@ logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name=
 end interface
 
 contains
+
+!=========================================================================
+! 
+!=========================================================================
+! Function to return the particle count
+integer function get_particle_count_pe()
+    implicit none
+
+    integer :: ierr, rank, size
+    integer :: value, totalP
+    integer, allocatable :: gathered_values(:)
+#ifdef HAVE_PE 
+    
+    ! Get the rank and size of the communicator
+    call MPI_Comm_rank(MPI_COMM_WORLD, rank, ierr)
+    call MPI_Comm_size(MPI_COMM_WORLD, size, ierr)
+
+    ! Each non-root process initializes its value
+    if (rank /= 0) then
+        totalP = getTotalParticles()
+        value = totalP  ! For example, each process sends its rank
+    else
+        value = 0   ! Root process can have a dummy value or initialize as needed
+    end if
+
+    ! Allocate array to gather values at the root process
+    if (rank == 0) then
+        allocate(gathered_values(size))
+    end if
+
+    ! Gather values at the root process
+    call MPI_Gather(value, 1, MPI_INTEGER, gathered_values, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+    ! Print gathered values at the root process
+    if (rank == 0) then
+        print *, "Gathered values: "
+        do i = 1, size - 1 
+            print *, gathered_values(i + 1)   ! Skip index for root itself which is initialized with zero.
+        end do
+        deallocate(gathered_values)
+    end if    
+#else
+  print *, "The function <get_particle_count_pe> should only be called if HAVE_PE is defined otherwise something is wrong:... stopping program"
+#endif
+    
+end function get_particle_count_pe
+
+!=========================================================================
+! 
+!=========================================================================
+! Function to add two integers
+integer function get_particle_count()
+    implicit none
+    integer :: x, y
+
+#ifdef HAVE_PE 
+  get_particle_count = get_particle_count_pe()
+#else
+  get_particle_count = 0
+#endif 
+    
+end function get_particle_count
+
 !=========================================================================
 ! 
 !=========================================================================
@@ -85,6 +148,8 @@ external E013
 ! local variables
 integer :: ilevel 
 
+if(get_particle_count() == 0) return
+
 if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
@@ -121,6 +186,7 @@ external E013
 ! local variables
 integer :: ilevel 
 
+if(get_particle_count() == 0) return
 
 if (calculateDynamics()) then
 
@@ -318,6 +384,7 @@ type(tUint64), intent(inout) :: longFictId
 ! local variables
 integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
 double precision, dimension(3) :: point
+#ifdef HAVE_PE 
 
  inpr = 0
  longFictId%bytes(:) = -1
@@ -344,6 +411,7 @@ double precision, dimension(3) :: point
    end if
  end if
 
+#endif
 end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
@@ -874,6 +942,7 @@ integer :: ipc
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
 
+#ifdef HAVE_PE 
   valu = 0d0
   valv = 0d0
   valw = 0d0
@@ -988,6 +1057,7 @@ integer :: numParticles, particleId
      end if
   end do
 
+#endif
 end subroutine fbm_velBCFC2
 !=========================================================================
 ! We can use this function to output the BC in a single point 
@@ -1010,6 +1080,7 @@ real*8 :: radBench = 1.00
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, particleId
 
+#ifdef HAVE_PE 
   valu = 0d0
   valv = 0d0
   valw = 0d0
@@ -1119,6 +1190,7 @@ integer :: numParticles, particleId
       return
   end do
 
+#endif
 end subroutine fbm_velBCTest
 !=========================================================================
 ! We can use this to compute the inifinite channel velocity
@@ -1145,6 +1217,7 @@ integer :: numParticles, particleId
   valv = 0d0
   valw = 0d0
 
+#ifdef HAVE_PE 
   numParticles = numLocalParticles()
 
   if(.not. allocated(theParticles)) then
@@ -1175,6 +1248,7 @@ integer :: numParticles, particleId
   ! After this call totalMax will hold the true value
   call SynchronizeValue_myMPI(localMax, totalMax)
 
+#endif
 end subroutine fbm_velValue
 !=========================================================================
 ! 
@@ -1342,7 +1416,9 @@ real*8,parameter :: PI = 3.1415926535897931D0
 real*8 :: RForce(3),dVelocity(3),timecoll
 integer :: iSubSteps
 
+#ifdef HAVE_PE 
   call step_simulation()
+#endif
 
 end subroutine fbm_updateDefaultFC2
 !=========================================================================

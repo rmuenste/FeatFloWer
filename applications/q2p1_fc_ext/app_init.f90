@@ -140,7 +140,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
+#ifdef HAVE_PE 
  include 'PartitionReader.f90'
+#else
+ include 'PartitionReader2.f90'
+#endif
 
  call MPI_Get_processor_name(processor_name, name_len, ierr)
  write(*,'(A,I0,A)') 'Hello from MPI process ', myid, ' on processor "'//trim(processor_name)//'" with mesh '//TRIM(ADJUSTL(CMESH1))
@@ -446,9 +450,12 @@ END IF
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
- if (myid .ne. 0) then
- call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
- end if
+
+#ifdef HAVE_PE 
+  if (myid .ne. 0) then
+    call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+  end if
+#endif
 
  RETURN
 

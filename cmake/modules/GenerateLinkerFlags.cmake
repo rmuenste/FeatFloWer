@@ -73,7 +73,6 @@ else(WIN32)
     Utility
     Math
     ${Boost_LIBRARIES}
-    pe_static
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
@@ -93,63 +92,39 @@ else(WIN32)
     )
 endif(WIN32)
 
-
-#${Elements} 
-#${src_q2p1} 
-#${src_pp3d} 
-#${src_mpi} 
-#${src_PLin} 
-#${src_LinSc} 
-#${src_quadLS_app} 
-#${src_visco} 
-#${src_mesh}
-#${src_cinterface}
-#${postprocessing}
-
+if(USE_PE)
+  list(APPEND FF_DEFAULT_LIBS pe_static)
+  list(APPEND FF_APPLICATION_LIBS pe_static)
+endif(USE_PE)
 
 if(USE_MUMPS)
-
   set(MUMPS_LIBRARY_LIST
     dmumps mumps_common pord ${MKL_SCALAPACK_LIBRARY} -Wl,--start-group ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_BLACS_LIBRARY} -Wl,--end-group -lpthread -lm -ldl
     )
-
   list(APPEND FF_DEFAULT_LIBS ${MUMPS_LIBRARY_LIST})
-
   list(APPEND FF_APPLICATION_LIBS ${MUMPS_LIBRARY_LIST})
-
 endif(USE_MUMPS)
 
 if(USE_ODE)
-
   list(APPEND FF_DEFAULT_LIBS ode)
-
   list(APPEND FF_APPLICATION_LIBS ode)
-
 endif(USE_ODE)
 
 if(USE_CGAL)
-
   list(APPEND FF_APPLICATION_LIBS ${CGAL_LIBRARIES})
-
 if(USE_BOOST)
   list(APPEND FF_APPLICATION_LIBS ${Boost_LIBRARIES})
 endif(USE_BOOST)
-  
 endif(USE_CGAL)
 
 if(USE_OPTICALTWEEZERS)
-
   list(APPEND FF_APPLICATION_LIBS ${OPTICALTWEEZERS_LIBRARIES})
-  
 endif(USE_OPTICALTWEEZERS)
 
 
 if(USE_HYPRE)
-
   list(APPEND FF_DEFAULT_LIBS ${HYPRE_LIBRARIES})
-
   list(APPEND FF_APPLICATION_LIBS ${HYPRE_LIBRARIES})
-
 endif(USE_HYPRE)
  
 

@@ -131,6 +131,11 @@ option(USE_HYPRE
   OFF
   )
 
+option(USE_PE
+  "Use pe library"
+  OFF
+  )
+
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
@@ -473,7 +478,10 @@ ENDIF(BUILD_APPLICATIONS)
 #                     PE Library
 #=========================================================================
 message(STATUS "Addid pe library to build")  
-add_subdirectory(libs/pe)
+if(USE_PE)
+  add_definitions(-DHAVE_PE)		
+  add_subdirectory(libs/pe)
+endif(USE_PE)
 
 #=========================================================================
 #                       INSTALL CONFIGURATION

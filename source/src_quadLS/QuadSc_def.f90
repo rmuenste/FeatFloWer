@@ -3460,8 +3460,8 @@ IF (nINL.EQ.0) THEN
        "INL",TRIM(C1),TRIM(C2),TRIM(C3),TRIM(C4),TRIM(C5),TRIM(C6),TRIM(C7),TRIM(C8)
  WRITE(MTERM,5)
  WRITE(MFILE,5)
- WRITE(MTERM,'(A3,I3,5(1X,D11.4),A1)') &
-       'XXX',0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
+ WRITE(MTERM,'(I3,5(1X,D11.4),A1)') &
+       0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
  WRITE(MFILE,'(I3,5(1X,D11.4),A1)') &
        0,ResU,ResV,ResW,DefScalar,RhsScalar,"*"
 ELSE
