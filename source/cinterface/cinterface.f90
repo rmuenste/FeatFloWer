@@ -49,13 +49,14 @@ module cinterface
 
     integer :: dodyn
 
-      call get_do_dynamics(dodyn)
-
-      if ((myFBM%nParticles.gt.0).and.(dodyn.gt.0)) then
        calculateDynamics = .true.
-      else
-       calculateDynamics = .false.
-      end if
+!      call get_do_dynamics(dodyn)
+!
+!      if ((myFBM%nParticles.gt.0).and.(dodyn.gt.0)) then
+!       calculateDynamics = .true.
+!      else
+!       calculateDynamics = .false.
+!      end if
 
   end function calculateDynamics
   !
@@ -67,13 +68,14 @@ module cinterface
 
     integer :: dofbm
 
-      call get_do_fbm(dofbm)
+!      call get_do_fbm(dofbm)
 
-      if((myFBM%nParticles.gt.0).and.(dofbm.gt.0)) then
        calculateFBM  = .true.
-      else
-       calculateFBM  = .false.
-      end if
+!      if((myFBM%nParticles.gt.0).and.(dofbm.gt.0)) then
+!       calculateFBM  = .true.
+!      else
+!       calculateFBM  = .false.
+!      end if
 
   end function calculateFBM
   !

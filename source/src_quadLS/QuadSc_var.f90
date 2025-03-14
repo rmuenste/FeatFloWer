@@ -58,6 +58,7 @@ real*8  :: extruder_angle = 0.0
 
 integer :: MaxLevelKnownToMaster
 
+real*8 :: referenceVelocity = 0.0
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
@@ -257,6 +258,7 @@ type(tMultiMesh),save :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
+type(tUint64), allocatable :: FictKNPR_uint64(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)
 REAL*8, ALLOCATABLE :: Temperature_AVG(:)

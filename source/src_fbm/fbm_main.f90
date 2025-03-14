@@ -7,9 +7,14 @@
 !#
 !# 
 !##############################################################################
+#define FULL_ROTATION 
+!#define ONLY_ROTATION 
+!#define MOVING_REFERENCE
 MODULE fbm 
 
 use var_QuadScalar
+use dem_query
+use iso_c_binding
 
 integer, dimension(:), allocatable :: mykvel
 
@@ -30,16 +35,31 @@ integer, parameter, public :: SRCH_MAXITER = 6
 ! 
 integer, parameter, public :: SRCH_RES7 = 7
 
+interface
+logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
+  use iso_c_binding, only: c_int, c_bool, c_double, c_short
+  integer(c_int), value :: vidx
+  integer(c_int) :: inpr
+  real(c_double) :: pos(*)
+  integer(c_short), dimension(8) :: bytes
+  end function
+end interface
+
 contains
 !=========================================================================
 ! 
 !=========================================================================
-Subroutine fbm_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid,u,v,w,p,usr_updateFBM)
+subroutine fbm_updateFBM(DensityL,dTime,simTime, &
+                         Gravity,mfile,myid,u,v,w,&
+                         p,&
+                         usr_updateFBM)
+!                         usr_updateFBM, usr_forceWrapper)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
 
 include 'fbm_up_include.h'
 
+!procedure(fbm_force_wrapper)  :: usr_forceWrapper 
 procedure(update_fbm_handler) :: usr_updateFBM 
 
 ! Liquid density, time step and simulation time
@@ -67,10 +87,123 @@ integer :: ilevel
 
 if (calculateDynamics()) then
 
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+
+ if (myid.eq.0)then
+   return
+ endif
+
+ call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+
+end if
+
+end subroutine fbm_updateFBM
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForces(u,v,w,p,usr_forceWrapper)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+include 'fbm_up_include.h'
+
+procedure(fbm_force_wrapper) :: usr_forceWrapper 
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+
+if (calculateDynamics()) then
+
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+              
+ call usr_forceWrapper(u,v,w,p)
+
+ if (myid.eq.0)then
+   return
+ endif
+
+end if
+
+end subroutine fbm_updateForces
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForcesFC2(u,v,w,p)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+
+if (calculateDynamics()) then
+
  if(myid.eq.1) write(*,*)'> Dynamics update'
 
  ilevel=mg_mesh%nlmax
  CALL SETLEV(2)
+              
+ CALL GetForcesFC2(Properties%ForceScale,u,&
+                v,w,p,&
+                FictKNPR,Viscosity,&
+                mg_mesh%level(ilevel)%kvert,&
+                mg_mesh%level(ilevel)%karea,&
+                mg_mesh%level(ilevel)%kedge,&
+                mg_mesh%level(ilevel)%dcorvg,&
+                E013)
+
+ if (myid.eq.0)then
+   return
+ endif
+
+end if
+
+end subroutine fbm_updateForcesFC2
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_updateForcesFC(u,v,w,p)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure, viscosity
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel 
+
+if (calculateDynamics()) then
+
+ if(myid.eq.1) write(*,*)'> Dynamics update'
+
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+              
  CALL GetForces(Properties%ForceScale,u,&
                 v,w,p,&
                 FictKNPR,Viscosity,&
@@ -80,16 +213,17 @@ if (calculateDynamics()) then
                 mg_mesh%level(ilevel)%dcorvg,&
                 E013)
 
- if(myid.eq.1) write(*,*)'> Dynamics Module Step'
- call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+ if (myid.eq.0)then
+   return
+ endif
 
 end if
 
-end subroutine fbm_updateFBM
+end subroutine fbm_updateForcesFC
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_updateFBMGeom(px, py, pz, bndryId, fictId, dist, usr_geomFBM)
+subroutine fbm_updateFBMGeom(px, py, pz, bndryId, fictId, dist, vidx, longFictId, usr_geomFBM)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
 
@@ -105,14 +239,112 @@ integer, intent(inout) :: fictId
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
 
+! vidx
+integer, intent(in) :: vidx
+
+! long FictId
+type(tUint64) :: longFictId
+
 include 'fbm_geom_include.h'
 procedure(fbm_geom_handler) :: usr_geomFBM 
 
 ! Begin function
 
- call usr_geomFBM(px, py, pz, bndryId, fictId, dist)
+ call usr_geomFBM(px, py, pz, bndryId, fictId, dist, vidx, longFictId)
 
 end subroutine fbm_updateFBMGeom
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_testFBMGeom(px, py, pz, bndryId, fictId, dist, vidx, longFictId, usr_geomFBM)
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+! Coordinates of the query point 
+real*8, intent(in) :: px, py, pz 
+
+! Id of the boundary component
+integer, intent(inout) :: bndryId
+
+! fictId
+integer, intent(inout) :: fictId
+
+! Distance solution in the query point 
+real*8, intent(inout) :: dist 
+
+! vidx
+integer, intent(in) :: vidx
+
+! long FictId
+type(tUint64) :: longFictId
+
+include 'fbm_geom_include.h'
+procedure(fbm_geom_handler) :: usr_geomFBM 
+
+! Begin function
+ call usr_geomFBM(px, py, pz, bndryId, fictId, dist, vidx, longFictId)
+ write(*,*)'Inpr: ', fictId 
+
+end subroutine fbm_testFBMGeom
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist, vidx, longFictId)
+! 
+!   This subroutine handles the FBM geometric computations
+!
+use var_QuadScalar, only : myFBM
+use iso_c_binding, only: c_short
+implicit none
+
+! Coordinates of the query point 
+real*8, intent(in) :: x, y, z 
+
+! Id of the boundary component
+integer, intent(inout) :: bndryId
+
+! fictId
+integer, intent(inout) :: inpr
+
+! Distance solution in the query point 
+real*8, intent(inout) :: dist 
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
+
+! local variables
+integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
+double precision, dimension(3) :: point
+
+ inpr = 0
+ longFictId%bytes(:) = -1
+ key = 0
+ dist = 1000.0d0
+
+ nparticles = 0
+ remParticles = 0
+
+ cvidx = vidx
+
+ point(1) = x
+ point(2) = y
+ point(3) = z
+
+ before =longFictId%bytes(1) + 1 
+ if(longFictId%bytes(1) + 1 .ne. key)then
+   write(*,*)'SUPER CRITICAL ERROR: ', vidx
+ end if
+ if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
+   inpr = 1 
+   if(longFictId%bytes(1) + 1 .ne. key)then
+     write(*,*)'CRITICAL ERROR: ', vidx, 'key: ', key, ' uint:',longFictId%bytes(1) + 1, 'before: ',before
+   end if
+ end if
+
+end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
 !=========================================================================
@@ -303,7 +535,7 @@ end subroutine fbm_updateSoftBodyDynamics
 !=========================================================================
 ! 
 !=========================================================================
-Subroutine fbm_velBCUpdate(x,y,z,valu,valv,valw,ip,t,usr_velBCUpdate)
+Subroutine fbm_velBCUpdate(x,y,z,valu,valv,valw,ip,t, vidx, usr_velBCUpdate)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
 
@@ -321,19 +553,25 @@ real*8 , intent(in) :: x,y,z,t
 ! The velocitiy values of the boundary vertex
 real*8 , intent(inout) :: valu,valv,valw
 
-call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t)
+! vidx
+integer, intent(in) :: vidx
+
+call usr_velBCUpdate(x,y,z,valu,valv,valw,ip,t,vidx)
 
 end subroutine fbm_velBCUpdate
 !=========================================================================
 ! 
 !=========================================================================
-subroutine FictKnpr_velBC(x,y,z,valu,valv,valw,ip,t)
+subroutine FictKnpr_velBC(x,y,z,valu,valv,valw,ip,t, vidx)
 use Sigma_User, only : myProcess
 
 ! Parameters
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+
+! vidx
+integer, intent(in) :: vidx
 
 valu = myProcess%FBMVeloBC(1)
 valv = myProcess%FBMVeloBC(2)
@@ -343,7 +581,7 @@ end subroutine FictKnpr_velBC
 !=========================================================================
 ! 
 !=========================================================================
-subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t)
+subroutine FictKnpr_velBC_Wangen(x,y,z,valu,valv,valw,ip,t, vidx)
 use Sigma_User, only : myProcess
 use var_QuadScalar, only : dCGALtoRealFactor,activeFBM_Z_Position
 use PP3D_MPI, only: myid
@@ -352,6 +590,9 @@ use PP3D_MPI, only: myid
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+
+! vidx
+integer, intent(in) :: vidx
 
 ! local variables
 integer :: ipc,isin, idynType
@@ -570,7 +811,7 @@ end subroutine rotation_axis_vector
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_velBC(x,y,z,valu,valv,valw,ip,t)
+subroutine fbm_velBC(x,y,z,valu,valv,valw,ip,t, vidx)
 use var_QuadScalar, only : myFBM,bRefFrame
 implicit none
 
@@ -578,6 +819,9 @@ implicit none
 integer, intent(in) :: ip
 real*8 , intent(in) :: x,y,z,t
 real*8 , intent(inout) :: valu,valv,valw
+
+! vidx
+integer, intent(in) :: vidx
 
 ! local variables
 REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
@@ -608,6 +852,330 @@ if(ip .le. myFBM%nParticles)then
 end if
 
 end subroutine fbm_velBC
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_velBCFC2(x,y,z,valu,valv,valw,ip,t, vidx)
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+integer, intent(in) :: ip
+real*8 , intent(in) :: x,y,z,t
+real*8 , intent(inout) :: valu,valv,valw
+! vidx
+integer, intent(in) :: vidx
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+#ifdef FULL_ROTATION 
+      ! full rotation
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#elif defined(ONLY_ROTATION) 
+      ! only rotation
+      valu = dvelz_x + dvely_x
+      valv = dvelz_y + dvelx_y
+      valw = dvelx_z + dvely_z
+#elif defined(MOVING_REFERENCE) 
+      ! Moving reference
+      valu = dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#else
+      ! No rotation
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+#endif
+
+      return
+     end if
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+     if(longIdMatch(vidx, theParticles(IPC)%bytes))THEN
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+#ifdef FULL_ROTATION 
+      ! full rotation
+      valu = velo(1) + dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#elif defined(ONLY_ROTATION) 
+      ! only rotation
+      valu = dvelz_x + dvely_x
+      valv = dvelz_y + dvelx_y
+      valw = dvelx_z + dvely_z
+#elif defined(MOVING_REFERENCE) 
+      ! Moving reference
+      valu = dvelz_x + dvely_x
+      valv = velo(2) + dvelz_y + dvelx_y
+      valw = velo(3) + dvelx_z + dvely_z
+#else
+      ! No rotation
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+#endif
+      return
+     end if
+  end do
+
+end subroutine fbm_velBCFC2
+!=========================================================================
+! We can use this function to output the BC in a single point 
+!=========================================================================
+subroutine fbm_velBCTest()
+use var_QuadScalar, only : myFBM,bRefFrame
+implicit none
+
+! Parameters
+real*8 :: x,y,z
+real*8 :: valu,valv,valw
+
+! local variables
+REAL*8 :: dvelz_x,dvelz_y,dvely_z,dvely_x,dvelx_y,dvelx_z
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+
+real*8 :: radBench = 1.00
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+      x = pos(1) + 0.5 * radBench
+      y = pos(2) + 0.5 * radBench
+      z = pos(3) + 0.5 * radBench
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+      ! No rotation
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+!      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+!                ' only rotation(l) = ', &
+!                 velo(1) + dvelz_x + dvely_x, &
+!                 velo(2) + dvelz_y + dvelx_y, &
+!                 velo(3) + dvelx_z + dvely_z
+
+!      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+!                ' only rotation(l) = ', &
+!                 dvelz_x + dvely_x, &
+!                 dvelz_y + dvelx_y, &
+!                 dvelx_z + dvely_z
+
+      write(*,*)'Linear_only(l) = ',valu, valv, valw, &
+                ' full rotation(l) = ', &
+                 velo(1) + dvelz_x + dvely_x, &
+                 velo(2) + dvelz_y + dvelx_y, &
+                 velo(3) + dvelx_z + dvely_z
+
+      ! full rotation
+      !valu = velo(1) + dvelz_x + dvely_x
+      !valv = velo(2) + dvelz_y + dvelx_y
+      !valw = velo(3) + dvelx_z + dvely_z
+
+      return
+  end do
+
+  numParticles = numRemParticles()
+  deallocate(theParticles)
+  if (numParticles .eq. 0)return
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numParticles)) 
+  end if
+
+  call getAllRemoteParticles(theParticles)
+
+  DO ipc = 1,numParticles
+     ! The preferred method of checking is to:
+     ! compare the particle system ID (which is a 64bit unsigned integer) to
+     ! the fortran long representation of the FictKNPR array
+      Velo  = theParticles(ipc)%velocity
+      Pos   = theParticles(ipc)%position
+      Omega = theParticles(ipc)%angvel
+
+      x = pos(1) + 0.5 * radBench
+      y = pos(2) + 0.5 * radBench
+      z = pos(3) + 0.5 * radBench
+
+      dvelz_x = -(y-Pos(2))*Omega(3)
+      dvelz_y = +(x-Pos(1))*Omega(3)
+    
+      dvely_z = -(x-Pos(1))*Omega(2)
+      dvely_x = +(z-Pos(3))*Omega(2)
+    
+      dvelx_y = -(z-Pos(3))*Omega(1)
+      dvelx_z = +(y-Pos(2))*Omega(1)
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+      write(*,*)'Linear_only(r) = ',valu, valv, valw, &
+                ' full rotation(r) = ', &
+                 velo(1) + dvelz_x + dvely_x, &
+                 velo(2) + dvelz_y + dvelx_y, &
+                 velo(3) + dvelx_z + dvely_z
+
+
+      return
+  end do
+
+end subroutine fbm_velBCTest
+!=========================================================================
+! We can use this to compute the inifinite channel velocity
+!=========================================================================
+subroutine fbm_velValue(totalMax)
+use var_QuadScalar, only : myFBM,bRefFrame
+use var_QuadScalar, only : myFBM,bRefFrame
+use PP3D_MPI, only: SynchronizeValue_myMPI
+implicit none
+
+! Parameters
+REAL*8, intent(inout) :: totalMax 
+
+! local variables
+real*8 :: valu,valv,valw
+real*8 :: Velo(3),Pos(3),Omega(3)
+integer :: ipc
+REAL*8 :: localMax 
+
+type(tParticleData), dimension(:), allocatable :: theParticles
+integer :: numParticles, particleId
+
+  valu = 0d0
+  valv = 0d0
+  valw = 0d0
+
+  numParticles = numLocalParticles()
+
+  if(.not. allocated(theParticles)) then
+    allocate(theParticles(numLocalParticles())) 
+  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    deallocate(theParticles)
+    allocate(theParticles(numLocalParticles())) 
+  end if
+
+  ! get local particles
+  call getAllParticles(theParticles)
+
+  do ipc = 1,numParticles
+      Velo  = theParticles(ipc)%velocity
+      Omega = theParticles(ipc)%angvel
+      Pos   = theParticles(ipc)%position
+
+      valu = velo(1)
+      valv = velo(2)
+      valw = velo(3)
+
+      exit
+  end do
+
+  localMax = valu
+  totalMax = 0.0
+
+  ! After this call totalMax will hold the true value
+  call SynchronizeValue_myMPI(localMax, totalMax)
+
+end subroutine fbm_velValue
 !=========================================================================
 ! 
 !=========================================================================
@@ -754,6 +1322,32 @@ end subroutine fbm_updateDefault
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_updateDefaultFC2(DensityL,dTime,simTime,Gravity,mfile,myid)
+use var_QuadScalar, only : myFBM
+use PP3D_MPI, only: myMPI_Barrier
+use cinterface
+
+real*8, intent(in) :: DensityL ! fluid density
+real*8, intent(in) :: dTime    ! time step
+real*8, intent(in) :: simTime  ! simulation time
+real*8, dimension(3), intent(in) :: Gravity  ! simulation time
+
+integer, intent(in) :: mfile   ! prot file unit
+integer, intent(in) :: myid    ! process id
+
+integer :: IP,ipc
+
+real*8 :: volume,mass,massR,radius,dimomir,dSubStep
+real*8,parameter :: PI = 3.1415926535897931D0
+real*8 :: RForce(3),dVelocity(3),timecoll
+integer :: iSubSteps
+
+  call step_simulation()
+
+end subroutine fbm_updateDefaultFC2
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_updateLaser(DensityL,dTime,simTime,Gravity,mfile,myid)
 use var_QuadScalar, only : myFBM
 use PP3D_MPI, only: myMPI_Barrier
@@ -871,7 +1465,7 @@ end subroutine fbm_updateLaser
 !=========================================================================
 ! 
 !=========================================================================
-SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist)
+SUBROUTINE GetFictKnpr_DIE(X,Y,Z,iBndr,inpr,Dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !   for a single(!) elastic or soft body.
@@ -895,6 +1489,12 @@ integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
 
 ! local variables
 integer :: IP,ipc,isin, idynType
@@ -945,7 +1545,7 @@ END SUBROUTINE GetFictKnpr_DIE
 !=========================================================================
 ! 
 !=========================================================================
-SUBROUTINE GetFictKnpr_Wangen(X,Y,Z,iBndr,inpr,Dist)
+SUBROUTINE GetFictKnpr_Wangen(X,Y,Z,iBndr,inpr,Dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !   for a single(!) elastic or soft body.
@@ -969,6 +1569,12 @@ integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
 
 ! local variables
 integer :: IP,ipc,isin, idynType
@@ -1104,7 +1710,7 @@ END SUBROUTINE GetFictKnpr_Wangen
 !=========================================================================
 ! 
 !=========================================================================
-subroutine fbm_getFictKnpr(x,y,z,bndryId,inpr,dist)
+subroutine fbm_getFictKnpr(x,y,z,bndryId,inpr,dist, vidx, longFictId)
 ! 
 !   This subroutine handles the FBM geometric computations
 !
@@ -1122,6 +1728,12 @@ integer, intent(inout) :: inpr
 
 ! Distance solution in the query point 
 real*8, intent(inout) :: dist 
+
+! Vertex id of the point
+integer, intent(in) :: vidx 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
 
 ! local variables
 integer :: IP,ipc,isin

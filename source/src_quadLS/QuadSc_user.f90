@@ -39,7 +39,8 @@ END IF
 END SUBROUTINE GetCylKnpr
 !--------------------------------------------------
 SUBROUTINE GetVeloInitVal(X,Y,Z,ValU,ValV,ValW)
-USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench
+USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench, referenceVelocity
+use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 REAL*8 X,Y,Z,ValU,ValV,ValW
 REAL*8 PX,PY,dScale
 INTEGER iC
@@ -50,6 +51,16 @@ REAL*8 :: PI=3.141592654d0
 ValU = 0d0
 ValV = 0d0
 ValW = 0d0
+return
+
+!ValU = 2.0d0 * Y
+! dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+! ValU = dScale * (y**2 - 0.25d0)
+ dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+ ValU = dScale * (0.5d0-Y) * (0.5d0+Y) - referenceVelocity
+ ValV = 0d0
+ ValW = 0d0
+
 
 if(b2DViscoBench)then
   ValV = 0d0
@@ -87,7 +98,8 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM
+use var_QuadScalar, only : myFBM, referenceVelocity
+use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
 implicit none
@@ -286,17 +298,18 @@ IF (iT.EQ.2) THEN
  ValW= 0d0
 END IF
 
-IF (iT.EQ.200) THEN
- dScale=1.0d0*(3d0/2d0)/(0.205d0*0.205d0)
- ValU=dScale*Y*(0.41d0-Y)*sin(t*PI/8d0)
- ValV= 0d0
- ValW= 0d0
+IF (iT.EQ.202) THEN
+ dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+ !ValU = dScale * (y**2 - 0.25d0)
+ ValU = dScale * (0.5d0-Y) * (0.5d0+Y) - referenceVelocity 
+ ValV = 0d0
+ ValW = 0d0
 END IF
 
-IF (iT.EQ.3) THEN
- ValU= 1d0
- ValV= 0d0
- ValW= 0d0
+IF (iT.EQ.203) THEN
+ ValU = 0.0d0 - referenceVelocity
+ ValV = 0d0
+ ValW = 0d0
 END IF
 
 IF (iT.EQ.4.OR.iT.EQ.5) THEN
@@ -351,7 +364,7 @@ IF (iT.EQ.771) THEN
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
   ValW =   -0.77d0*(dRPM/60d0)
 END IF
-
+ 
 IF (iT.EQ.772) THEN
   dRPM = 8d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
@@ -359,9 +372,13 @@ IF (iT.EQ.772) THEN
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
   ValW =   -0.77d0*(dRPM/60d0)
 END IF
-
-IF (iT.EQ.773) THEN
-  dRPM = 12d0
+ 
+! This is actually 773
+! But we hack it to be faster
+!IF (iT.EQ.773) THEN
+IF (iT.EQ.771) THEN
+  !dRPM = 12d0
+  dRPM = 40d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
@@ -1382,3 +1399,4 @@ WallSlip = 1d0-slip*d_factor*tau_factor
 ! write(*,*) WallSlip 
 
 END FUNCTION WallSlip
+

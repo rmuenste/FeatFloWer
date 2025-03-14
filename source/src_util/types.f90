@@ -1,4 +1,5 @@
 module types
+  use iso_c_binding, only: c_double, c_int, c_short
 !-------------------------------------------------------------------------------------------------
 ! A module that contains several variants of the Laplacian 
 ! smoother 'Umbrella'. Besides the standard version of this 
@@ -145,6 +146,13 @@ TYPE tMultiMesh
   type(tMesh), allocatable, dimension(:) :: level
 
 END TYPE
+
+!================================================================================================
+!  This structure can hold a C++ 8-byte unsigned integer type uint64
+!================================================================================================
+type tUint64
+  integer(c_short), dimension(8) :: bytes
+end type tUint64
 
 TYPE tParticle
  REAL*8 time
