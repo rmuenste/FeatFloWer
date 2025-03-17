@@ -53,8 +53,9 @@ contains
 ! Function to return the particle count
 integer function get_particle_count_pe()
     implicit none
+    include 'mpif.h'
 
-    integer :: ierr, rank, size
+    integer :: ierr, rank, size, i
     integer :: value, totalP
     integer, allocatable :: gathered_values(:)
 #ifdef HAVE_PE 

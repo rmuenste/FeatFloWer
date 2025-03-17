@@ -95,6 +95,7 @@ endif(WIN32)
 if(USE_PE)
   list(APPEND FF_DEFAULT_LIBS pe_static)
   list(APPEND FF_APPLICATION_LIBS pe_static)
+#  message(FATAL_ERROR "Appending pe_static")
 endif(USE_PE)
 
 if(USE_MUMPS)
