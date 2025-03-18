@@ -3948,10 +3948,6 @@ IF (myid.ne.MASTER) THEN
  END DO
  
 END IF
-
-! WRITE(*,*) "Total time for COMM :",   myStat%tCommV
-! pause
-
 END 
 ! ----------------------------------------------
 ! ----------------------------------------------
