@@ -2,7 +2,7 @@
 ! write(*,*)'length: ', len(CMESH1)
  LenFile = LEN((TRIM(ADJUSTL(cGridFileName))))
  CMESH1 = "_mesh/" // TRIM(ADJUSTL(cGridFileName)) // "/"
- write(*,*) 'mesh name: ', CMESH1
+! write(*,*) 'mesh name: ', CMESH1
  !WRITE(CMESH1(7:7+LenFile),'(A,A1)') TRIM(ADJUSTL(cGridFileName)),"/"
  IF (myid.ne.0) THEN                                  ! PARALLEL
 !   kSubPart = FLOOR(DBLE(subnodes)/DBLE(nSubCoarseMesh)-1d-10)+1
@@ -25,12 +25,12 @@
    WRITE(CMESH1(15+LenFile+1:15+11+LenFile+1),'(A4,I4.4,A4)') "GRID",iPart,".tri"  ! PARALLEL
    WRITE(cProjectNumber(1:4),'(I4.4)') iPart
 
-   write(*,*)'Myid: ', myid , 'gets part: ',iPart, " sub: ", iSubpart, " c:",cmesh1 
+   !write(*,'(A6,I4,A12,I4.4,A6,I4.4,A3,A)')'Myid: ', myid ,' gets part: ',iPart, " sub: ", iSubpart, " c:",cmesh1 
     
  ELSE                                                 ! PARALLEL
    cProjectFolder = CMESH1
    WRITE(CMESH1(7+LenFile+1:14+LenFile+1),'(A8)') "GRID.tri"  ! PARALLEL
  END IF                                               ! PARALLEL
 
- write(*,*) "Rank:",myid,"is assigned to the mesh:",ADJUSTL(TRIM(CMESH1))
+ write(*,'(A6, I4,A,A)')"Rank: ",myid," is assigned to the mesh:",ADJUSTL(TRIM(CMESH1))
  CALL CommBarrier()
