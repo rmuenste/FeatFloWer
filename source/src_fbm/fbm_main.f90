@@ -417,6 +417,47 @@ end subroutine fbm_getFictKnprFC2
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_testBasicFBM(x,y,z, longFictId)
+! 
+!   This subroutine handles the FBM geometric computations
+!
+use var_QuadScalar, only : myFBM
+use iso_c_binding, only: c_short
+implicit none
+
+! Coordinates of the query point 
+real*8, intent(in) :: x, y, z 
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
+
+! local variables
+integer :: IP,ipc, key, cvidx
+double precision, dimension(3) :: point
+
+#ifdef HAVE_PE 
+
+ longFictId%bytes(:) = -1
+ key = 0
+
+ nparticles = 0
+ remParticles = 0
+
+ cvidx = 1
+
+ point(1) = x
+ point(2) = y
+ point(3) = z
+
+ if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
+  write(*,*)'Point: ', point, " is inside"
+ end if
+
+#endif
+end subroutine fbm_getFictKnprFC2
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_getSoftKnpr(x,y,z, bndryId, inpr, dist)
 ! 
 !   This subroutine handles the FBM geometric computations
