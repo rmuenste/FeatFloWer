@@ -309,6 +309,13 @@ IF(Q2P1_BUILD_ID STREQUAL "zen3-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "pinnacleridge-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -m64 -march=znver1)
+  SET(Fortran_FLAGS -g -march=znver1 -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "epyc32core-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -g -march=znver2)
