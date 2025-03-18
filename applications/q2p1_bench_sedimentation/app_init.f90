@@ -403,8 +403,6 @@ DO ILEV=NLMIN+1,NLMAX
  call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
 
-! call  MPI_Barrier(MPI_COMM_WORLD)
-
  RETURN
 
 END SUBROUTINE General_init_ext

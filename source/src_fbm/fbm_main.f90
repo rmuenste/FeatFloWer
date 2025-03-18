@@ -56,7 +56,7 @@ integer function get_particle_count_pe()
     include 'mpif.h'
 
     integer :: ierr, rank, size, i
-    integer :: value, totalP
+    integer :: value, totalP 
     integer, allocatable :: gathered_values(:)
 #ifdef HAVE_PE 
     
@@ -82,12 +82,15 @@ integer function get_particle_count_pe()
 
     ! Print gathered values at the root process
     if (rank == 0) then
-        print *, "Gathered values: "
+        print *, "Gathered values: "!
         do i = 1, size - 1 
             print *, gathered_values(i + 1)   ! Skip index for root itself which is initialized with zero.
+            value = value + gathered_values(i + 1)
         end do
         deallocate(gathered_values)
     end if    
+
+    get_particle_count_pe = value
 #else
   print *, "The function <get_particle_count_pe> should only be called if HAVE_PE is defined otherwise something is wrong:... stopping program"
 #endif
@@ -149,8 +152,6 @@ external E013
 ! local variables
 integer :: ilevel 
 
-if(get_particle_count() == 0) return
-
 if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
@@ -187,8 +188,6 @@ external E013
 ! local variables
 integer :: ilevel 
 
-if(get_particle_count() == 0) return
-
 if (calculateDynamics()) then
 
  ilevel=mg_mesh%nlmax
@@ -221,6 +220,7 @@ external E013
 ! local variables
 integer :: ilevel 
 
+#ifdef HAVE_PE 
 
 if (calculateDynamics()) then
 
@@ -242,6 +242,7 @@ if (calculateDynamics()) then
    return
  endif
 
+#endif 
 end if
 
 end subroutine fbm_updateForcesFC2
@@ -422,6 +423,7 @@ subroutine fbm_testBasicFBM(x,y,z, longFictId)
 !   This subroutine handles the FBM geometric computations
 !
 use var_QuadScalar, only : myFBM
+use PP3D_MPI
 use iso_c_binding, only: c_short
 implicit none
 
@@ -437,11 +439,7 @@ double precision, dimension(3) :: point
 
 #ifdef HAVE_PE 
 
- longFictId%bytes(:) = -1
  key = 0
-
- nparticles = 0
- remParticles = 0
 
  cvidx = 1
 
@@ -450,11 +448,13 @@ double precision, dimension(3) :: point
  point(3) = z
 
  if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
-  write(*,*)'Point: ', point, " is inside"
+   write(*,*)'Point: ', point, " is inside domain", myid
+ else
+   write(*,*)'Point: ', point, " is outside domain", myid
  end if
 
 #endif
-end subroutine fbm_getFictKnprFC2
+end subroutine fbm_testBasicFBM
 !=========================================================================
 ! 
 !=========================================================================

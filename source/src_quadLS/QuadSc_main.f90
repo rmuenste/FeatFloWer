@@ -528,6 +528,8 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
+
+!call fbm_testBasicFBM(0.0d0, 0.0d0, 0.1275d0, FictKNPR_uint64(1))
 #ifdef HAVE_PE 
 if (myid.eq. 1) write(*,*)'fbm force'
 #endif 
@@ -589,7 +591,8 @@ include 'QuadSc_transport_extensions.f90'
 SUBROUTINE Init_QuadScalar(mfile)
 INTEGER I,J,ndof,mfile
 
- call Init_Default_Handlers()
+ ! Init pe handlers
+ call Init_PE_Handlers()
 
  QuadSc%cName = "Velo"
  LinSc%cName = "Pres"
@@ -3060,13 +3063,15 @@ use cinterface, only: calculateFBM
   ILEV=NLMAX
   CALL SETLEV(2)
 
-!  CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
-!    mg_mesh%level(ilev)%dcorag,&
-!    mg_mesh%level(ilev)%kvert,&
-!    mg_mesh%level(ilev)%kedge,&
-!    mg_mesh%level(ilev)%karea)
-!    
-!  CALL E013Max_SUPER(FictKNPR)
+  CALL QuadScalar_FictKnpr(mg_mesh%level(ilev)%dcorvg,&
+    mg_mesh%level(ilev)%dcorag,&
+    mg_mesh%level(ilev)%kvert,&
+    mg_mesh%level(ilev)%kedge,&
+    mg_mesh%level(ilev)%karea)
+    
+  ! Write a warning:
+  write(*,*)'We could hang here in E013Max_SUPER'
+  CALL E013Max_SUPER(FictKNPR)
   
  else
   if (myid.eq.showid) write(*,*) '> FBM disabled'
