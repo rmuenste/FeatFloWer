@@ -3070,7 +3070,6 @@ use cinterface, only: calculateFBM
     mg_mesh%level(ilev)%karea)
     
   ! Write a warning:
-  write(*,*)'We could hang here in E013Max_SUPER'
   CALL E013Max_SUPER(FictKNPR)
   
  else
