@@ -225,6 +225,30 @@ if(USE_CGAL)
 
   if(NOT USE_CGAL_LOCAL)
     set(USE_BOOST True)
+
+    message(STATUS "Building CGAL from source")
+    # Your existing ExternalProject_Add code for CGAL
+    set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
+    set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
+    
+    # Check if the install stamp file exists
+    if(EXISTS "${CGAL_STAMP_DIR}/cgal-install")
+      add_custom_target(cgal)
+    else()
+      ExternalProject_Add(
+        cgal
+        GIT_REPOSITORY https://github.com/CGAL/cgal.git
+        GIT_TAG v5.3.2
+        PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
+        CMAKE_ARGS 
+          -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
+          -DWITH_CGAL_ImageIO=OFF
+          -DWITH_CGAL_Qt5=OFF
+          -DCGAL_HEADER_ONLY=OFF
+        TEST_COMMAND ""
+      )
+    endif()
+
     set(CGAL_LIBRARIES 
       ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
       ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
@@ -233,66 +257,37 @@ if(USE_CGAL)
     set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
     set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
 
-    if(NOT WIN32)
-          ExternalProject_Add(CGAL_PRJ
-            GIT_REPOSITORY https://github.com/rmuenste/cgal.git 
-            GIT_PROGRESS ON 
-            GIT_SHALLOW ON 
-            GIT_TAG rafa-devel
-            SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal
-            PREFIX ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-dir
-            #INSTALL_DIR ${CMAKE_SOURCE_DIR}/extern/libraries/cgal-install-dir 
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/extern/libraries/cgal-install -DBUILD_SHARED_LIBS=False -DWITH_CGAL_Qt5=false -DWITH_CGAL_ImageIO=false -DCMAKE_C_COMPILER=$ENV{CC} -DCMAKE_CXX_COMPILER=$ENV{CXX}
-            )
-
-      if(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib/libCGAL.a
-          )
-      elseif(LSB_RELEASE_ID_SHORT STREQUAL "Scientific")
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-          )
-        message(STATUS "CGAL path: ${CGAL_LIBRARIES} ")
-      else()
-        set(CGAL_LIBRARIES 
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-          ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-          )
-      endif()
-
-    else(NOT WIN32)
-      find_package(CGAL REQUIRED COMPONENTS Core)
-      if(${CGAL_FOUND})
-        find_package(GMP)
-        find_package(MPFR)
-
-        if(NOT ${GMP_FOUND})
-          message(WARNING "GMP library not found. Cannot build cgal applications.")
-        endif()
-
-        if(NOT ${MPFR_FOUND})
-          message(WARNING "MPFR library not found. Cannot build cgal applications.")
-        endif()
-
-      endif()	
-      message("INCLUDE dirs  ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR} ${MPFR_INCLUDE_DIR}")
-      message("LIBRARIES: ${CGAL_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES}") 
-      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-    endif(NOT WIN32)
-
   else(NOT USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
-    find_package(CGAL REQUIRED COMPONENTS Core)
-    if(NOT ${CGAL_FOUND})
-      message(STATUS "Could not find CGAL on the system... Looking for user supplied path.") 
-      if(NOT "${CGAL_LIBRARIES}" STREQUAL "")
-        message(STATUS "User supplied CGAL libraries: ${CGAL_LIBRARIES}") 
-        message(STATUS "User supplied CGAL include: ${CGAL_INCLUDE_DIR}") 
-      endif()	
-    endif()	
+    # Try to find CGAL
+    find_package(CGAL QUIET
+      HINTS
+        # Standard system locations
+        /usr/local
+        /usr
+        # Windows default installation locations
+        "C:/Program Files/CGAL"
+        # Windows user installation
+        "$ENV{USERPROFILE}/CGAL"
+        # Linux user installations
+        "$ENV{HOME}/.local"
+        # Look for environment variable if set
+        "$ENV{CGAL_DIR}"
+        # Homebrew on macOS
+        /usr/local/opt/cgal
+        /opt/homebrew/opt/cgal
+    )
+
+    if(CGAL_FOUND)
+      message(STATUS "Found CGAL version ${CGAL_VERSION}")
+      message(STATUS "Using CGAL from ${CGAL_DIR}")
+      # Include CGAL settings
+      include(${CGAL_USE_FILE})
+    else()
+      message(STATUS "CGAL not found in system locations")
+      # Fallback to ExternalProject_Add or other approach
+    endif()    
+
   endif(NOT USE_CGAL_LOCAL)
 
 endif(USE_CGAL)
@@ -340,6 +335,7 @@ endif()
 # Check if USE_CGAL is ON, and set USE_BOOST accordingly
 if(USE_CGAL)
     set(USE_BOOST ON)
+    set(CGAL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/lib/cmake/CGAL CACHE PATH "Path to CGAL installation" FORCE)
 endif()
 
 if(USE_BOOST)
@@ -445,6 +441,15 @@ include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateLinkerFlags.cmake)
 include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
 
 #=========================================================================
+#                     PE Library
+#=========================================================================
+message(STATUS "Adding pe library to build")  
+if(USE_PE)
+  add_definitions(-DHAVE_PE)		
+  add_subdirectory(libs/pe)
+endif(USE_PE)
+
+#=========================================================================
 #                         Add applications
 #=========================================================================
 SET(OUT_OF_SOURCE_BUILD True)
@@ -453,7 +458,6 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   SET(${OUT_OF_SOURCE_BUILD} False)
 endif("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 
-# we need additional libraries to support CUDA
 IF(BUILD_APPLICATIONS)
   # add subdirectories
   IF(EXISTS "${CMAKE_SOURCE_DIR}/FullC0ntact")
@@ -467,21 +471,21 @@ IF(BUILD_APPLICATIONS)
       add_definitions(-DWITH_ODE)
       add_subdirectory(FullC0ntact/libs/ode-cmake)
     endif(USE_ODE)
+    #=========================================================================
+    #                    CGAL Dependendy Setup
+    #=========================================================================
+    # We set up CGAL to be dependent on the lowest level main target 
+    # This way we make sure that CGAL is built in time before it gets used
+    # in the building process
+    if(USE_CGAL)
+      add_dependencies(inshape3dcore cgal)
+    endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()
 
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
-
-#=========================================================================
-#                     PE Library
-#=========================================================================
-message(STATUS "Addid pe library to build")  
-if(USE_PE)
-  add_definitions(-DHAVE_PE)		
-  add_subdirectory(libs/pe)
-endif(USE_PE)
 
 #=========================================================================
 #                       INSTALL CONFIGURATION
