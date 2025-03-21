@@ -133,8 +133,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
- ! partitioning
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+  include 'PartitionReader.f90'
+#else
+  include 'PartitionReader2.f90'
+#endif
 
  !write(*,*)'Myid: ', myid , 'gets mesh: ',CMESH1
  CALL Init_QuadScalar(mfile)

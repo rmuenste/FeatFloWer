@@ -114,7 +114,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+  include 'PartitionReader.f90'
+#else
+  include 'PartitionReader2.f90'
+#endif
 
  CALL Init_QuadScalar(mfile)
 
