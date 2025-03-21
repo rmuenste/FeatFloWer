@@ -249,13 +249,12 @@ if(USE_CGAL)
       )
     endif()
 
-    set(CGAL_LIBRARIES 
-      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL_Core.a
-      ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/lib64/libCGAL.a
-      )
+    # Set CGAL include directory
+    set(CGAL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/include)
+    include_directories(SYSTEM ${CGAL_INCLUDE_DIR})
 
-    set(CGAL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/extern/libraries/cgal-install/include)
-    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+    set(CGAL_LIBRARIES 
+      )
 
   else(NOT USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
@@ -477,9 +476,9 @@ IF(BUILD_APPLICATIONS)
     # We set up CGAL to be dependent on the lowest level main target 
     # This way we make sure that CGAL is built in time before it gets used
     # in the building process
-    if(USE_CGAL)
-      add_dependencies(inshape3dcore cgal)
-    endif(USE_CGAL)
+#    if(USE_CGAL)
+#      add_dependencies(inshape3dcore cgal)
+#    endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()

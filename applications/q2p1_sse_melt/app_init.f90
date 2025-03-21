@@ -127,6 +127,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
+ CHARACTER (len = 60) :: ctemp 
  REAL*8 AlphaViscosityMatModel
  REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
  CHARACTER sTimeStep*(9)

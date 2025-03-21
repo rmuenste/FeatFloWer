@@ -242,8 +242,8 @@ if (calculateDynamics()) then
    return
  endif
 
-#endif 
 end if
+#endif 
 
 end subroutine fbm_updateForcesFC2
 !=========================================================================

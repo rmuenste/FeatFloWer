@@ -87,6 +87,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
+ CHARACTER (len = 60) :: ctemp 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.

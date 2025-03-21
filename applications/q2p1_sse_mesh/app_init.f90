@@ -89,6 +89,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  REAL*8 dCharVisco,dCharSize,dCharVelo,dCharShear,TimeStep
  CHARACTER sTimeStep*(9)
  
+ CHARACTER (len = 60) :: ctemp 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.

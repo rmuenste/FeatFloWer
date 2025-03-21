@@ -430,9 +430,11 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
+#ifdef HAVE_PE 
  if (myid .ne. 0) then
    call commf2c_kroupa(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
+#endif
 
  call init_fc_rigid_body(myid)      
 

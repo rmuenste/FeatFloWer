@@ -102,11 +102,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
 
+ CHARACTER (len = 60) :: ctemp 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
 
- CHARACTER (len = 60) :: ctemp 
  integer, dimension(1) :: processRanks
  integer :: MPI_W0, MPI_EX0
  integer :: MPI_Comm_EX0
@@ -395,11 +395,11 @@ DO ILEV=NLMIN+1,NLMAX
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
+#ifdef HAVE_PE 
  if (myid .ne. 0) then
- call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+   call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
-
- call  MPI_Barrier(MPI_COMM_WORLD)
+#endif
 
  RETURN
 
