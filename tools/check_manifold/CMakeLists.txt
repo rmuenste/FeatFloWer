@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5..3.23)
 
 # name of the project, specIFy the used languages
 project(CHECK_MANIFOLD C CXX)

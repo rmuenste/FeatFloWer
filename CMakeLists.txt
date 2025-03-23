@@ -30,7 +30,7 @@ endif(UNIX)
 enable_testing()
 
 include(CTest)
-
+include(CMakeDependentOption)
 include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 
 #=========================================================================
@@ -136,6 +136,13 @@ option(USE_PE
   OFF
   )
 
+cmake_dependent_option(
+  MPI                  # Dependent Option name
+  "Enable MPI support" # Description
+  ON                   # Value when condition is true
+  "USE_PE"             # The significant Condition
+  OFF                  # Value when condition is false
+)
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
@@ -476,9 +483,9 @@ IF(BUILD_APPLICATIONS)
     # We set up CGAL to be dependent on the lowest level main target 
     # This way we make sure that CGAL is built in time before it gets used
     # in the building process
-#    if(USE_CGAL)
-#      add_dependencies(inshape3dcore cgal)
-#    endif(USE_CGAL)
+    if(USE_CGAL)
+      add_dependencies(inshape3dcore cgal)
+    endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()
