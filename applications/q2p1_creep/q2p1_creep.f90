@@ -21,20 +21,8 @@ PROGRAM Q2P1_CREEP
   real               :: dtt0 = 0.0
   real               :: dtt10 = 0.0
 
-  integer(kind=16) :: val, num1
-
-  interface
-    subroutine uint64_test(value) bind(C, name="uint64_test")
-      use iso_c_binding
-      integer(kind=16), intent(out) :: value
-    end subroutine uint64_test
-  end interface
-
   !-------INIT PHASE-------
 
-!  call uint64_test(val)
-!  print *, "Imported uint64_value = ", val
-!  stop
   call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)

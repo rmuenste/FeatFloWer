@@ -8,6 +8,9 @@
 #include <CGAL/basic.h>
 
 // Updated includes for CGAL 5.3+
+// We have tested this so far for 5.3.2
+// TODO:
+// - Try GCAL 6.x
 #include <CGAL/IO/OFF.h>
 #include <CGAL/IO/STL.h>
 #include <CGAL/Modifier_base.h>

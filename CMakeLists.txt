@@ -240,23 +240,20 @@ if(USE_CGAL)
     set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
     set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
     
-    # Check if the install stamp file exists
-    if(EXISTS "${CGAL_STAMP_DIR}/cgal-install")
-      add_custom_target(cgal)
-    else()
-      ExternalProject_Add(
-        cgal
-        GIT_REPOSITORY https://github.com/CGAL/cgal.git
-        GIT_TAG v5.3.2
-        PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
-        CMAKE_ARGS 
-          -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
-          -DWITH_CGAL_ImageIO=OFF
-          -DWITH_CGAL_Qt5=OFF
-          -DCGAL_HEADER_ONLY=OFF
-        TEST_COMMAND ""
-      )
-    endif()
+    ExternalProject_Add(
+      cgal
+      GIT_REPOSITORY https://github.com/CGAL/cgal.git
+      GIT_TAG v5.3.2
+      PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
+      CMAKE_ARGS 
+        -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
+        -DWITH_CGAL_ImageIO=OFF
+        -DWITH_CGAL_Qt5=OFF
+        -DCGAL_HEADER_ONLY=OFF
+      TEST_COMMAND ""
+      UPDATE_COMMAND ""
+      BUILD_ALWAYS OFF
+    )
 
     # Set CGAL include directory
     set(CGAL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/include)
@@ -421,6 +418,7 @@ find_package(Git 2.17)
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
+    add_dependencies(check_manifold cgal)
   endif(USE_CGAL)
 endif(NOT WIN32)
 
