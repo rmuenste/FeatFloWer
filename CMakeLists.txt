@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.1...3.23)
+cmake_minimum_required(VERSION 3.8) 
+
 
 # name of the project, specIFy the used languages
 project(Q2P1 C CXX Fortran)
@@ -53,6 +54,7 @@ endif(SHOW_BUILD_IDS)
 #                         compiler settings
 #=========================================================================
 message(STATUS "Checking build type...")
+include(${CMAKE_MODULE_PATH}/CompilerQuickCheck.cmake)
 
 IF(NOT Q2P1_COMPILER)
   set(Q2P1_DEFAULT_COMPILER "gcc")

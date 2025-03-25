@@ -1,18 +1,5 @@
 set(Q2P1_BUILD_ID_FOUND false)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.1.0")
-    set(CMAKE_CXX_STANDARD 11)
-    set(CMAKE_CXX_STANDARD_REQUIRED YES)
-  else()
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CXX_STANDARD_REQUIRED YES)
-  endif()
-else()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED YES)
-endif()
-
 #===============================================================================================================
 #                                              Intel builds
 #===============================================================================================================
