@@ -1,5 +1,4 @@
 PROGRAM Q2P1_CREEP
-! hello
 
   include 'defs_include.h'
 
@@ -38,20 +37,9 @@ PROGRAM Q2P1_CREEP
   timnsh=timens
   dt=tstep
   timens=timens+dt
-!  if (myid.ne.0)then
-!    call step_simulation()
-!  end if
 
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   CALL Transport_q2p1_UxyzP_fc_ext(ufile,inonln_u,itns)
-  !call step_simulation()
-!
-!  IF (bTracer) THEN
-!    ! Solve transport equation for linear scalar
-!    CALL Transport_LinScalar(ufile,inonln_t)
-!  ELSE
-!    inonln_t = 2
-!  END IF
 
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
