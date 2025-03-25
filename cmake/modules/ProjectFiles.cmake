@@ -183,6 +183,9 @@ add_library(ff_le_solvers ${le_solvers})
 target_link_libraries(ff_le_solvers ff_util ff_mesh ${FF_DEFAULT_LIBS})
 target_include_directories(ff_le_solvers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_le_solvers PUBLIC ${Fortran_FLAGS})
+if(USE_HYPRE)
+  add_dependencies(ff_le_solvers HYPRE)
+endif(USE_HYPRE)
 
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
