@@ -3773,7 +3773,7 @@ REAL*4 tt0,tt1
 
 IF (myid.ne.MASTER) THEN
 
- CALL MPI_BARRIER(MPI_CdOMM_SUBS,IERR)
+ CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
  CALL ztime(tt0)
 
  DO iRound=1,SIZE(CommOrder(myid)%x)

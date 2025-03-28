@@ -2866,6 +2866,9 @@
      if (myid.eq.1) WRITE(*,*)  "Ambient temperature is undefined ==>", myProcess%AmbientTemperature
     end if
     
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","FarFieldTemperature", myProcess%FarFieldTemperature ,20d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HTC", myProcess%HTC ,0d0)
+
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","CoolingWaterTemperatureC", myProcess%CoolingWaterTemperature ,55d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","WorkBenchThicknessCM", myProcess%WorkBenchThickness ,5d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","MeltInflowTemperature", myProcess%MeltInflowTemperature ,290d0)
@@ -3012,7 +3015,13 @@
     END IF
     
     write(*,'(A,ES12.4)') "myProcess%AmbientTemperature=",myProcess%AmbientTemperature 
-!     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
+
+    write(*,'(A)') "==== HeatTransferViaConvectionFromSurface ===="
+    write(*,'(A,ES12.4)') "myProcess%FarFieldTemperature=",myProcess%FarFieldTemperature
+    write(*,'(A,ES12.4)') "myProcess%HTC=",myProcess%HTC
+    write(*,'(A)') "=============================================="
+
+    !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor
 !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorRadius=",myProcess%TemperatureSensorRadius
     write(*,'(A,ES12.4)') "myProcess%WorkBenchThicknessCM=",myProcess%WorkBenchThickness
     write(*,'(A,ES12.4)') "myProcess%CoolingWaterTemperatureC=",myProcess%CoolingWaterTemperature

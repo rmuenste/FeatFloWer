@@ -108,7 +108,7 @@ C
      *  myProcess%SegThermoPhysProp(iSeg)%rho*
      *  myProcess%SegThermoPhysProp(iSeg)%cp
       ELSE
-       IF (Screw(ivt).ge.0d0) THEN ! steel
+       IF (Screw(ivt).le.0d0) THEN ! steel
         dAvgCoeff = dAvgCoeff + 0.125d0*1d7*(7.8d0*0.5d0) ! rho is 7.8g/cm3 cp 0.5 J/g/K
        ELSE  ! melt
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

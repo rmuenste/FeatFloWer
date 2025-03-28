@@ -678,6 +678,7 @@ TYPE tProcess
   
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
+   REAL*8 :: FarFieldTemperature=20d0,HTC=0d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
 
 !    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]

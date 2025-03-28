@@ -2995,8 +2995,8 @@ C
       !BASIC units L:[cm], M[g], T[s], t[K]
       ![W/m2/K] = [kg*m2/s3/m2/K] = [kg/s3/K] = 1e3[g/s3/K]
 
-      dAlphaCoeff = 15d0 * 1d3    ! 20.0 W/m2/K
-      tAmbient    = 20d0
+      dAlphaCoeff = myProcess%HTC * 1d3    ! 20.0 W/m2/K
+      tAmbient    = myProcess%FarFieldTemperature
 C
       DO 1 I= 1,NNDER
 1     BDER(I)=.FALSE.

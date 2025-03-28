@@ -92,7 +92,7 @@ PROGRAM Q2P1_DEVEL
     
     if (DivergedSolution) EXIT
     
-    myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360/myProcess%Periodicity)
+    myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360)
     CALL ZTIME(myStat%t0)
     IF (myProcess%Angle.eq.0d0) THEN
      call viz_output_fields_Simple(myExport, int(myProcess%Angle), QuadSc, LinSc, & 
