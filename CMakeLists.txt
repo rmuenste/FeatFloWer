@@ -250,6 +250,7 @@ if(USE_CGAL)
         -DWITH_CGAL_ImageIO=OFF
         -DWITH_CGAL_Qt5=OFF
         -DCGAL_HEADER_ONLY=OFF
+        -DCMAKE_BUILD_TYPE=Release
       TEST_COMMAND ""
       UPDATE_COMMAND ""
       BUILD_ALWAYS OFF

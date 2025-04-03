@@ -120,7 +120,7 @@ void checkOffFile(const std::string &fileName) {
   try {
     // Using the new IO functions in CGAL 5.3+
     if (CGAL::IO::read_OFF(in, polyhedron)) {
-      if (polyhedron.is_valid(true, 0)) {
+      if (polyhedron.is_valid()) {
         std::cout << "CGAL mesh check: OK" << std::endl;
       } else {
         std::cout << "CGAL mesh check: FAIL (non-valid polyhedron)" << std::endl;
@@ -149,7 +149,7 @@ void checkStlFile(const std::string &fileName) {
     PolyhedronBuilder builder(in);
     polyhedron.delegate(builder);
     
-    if (polyhedron.is_valid(true, 0) && in.good()) {
+    if (polyhedron.is_valid() && in.good()) {
       std::cout << "CGAL mesh check: OK" << std::endl;
     } else {
       std::cout << "CGAL mesh check: FAIL" << std::endl;
