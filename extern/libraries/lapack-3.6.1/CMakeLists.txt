@@ -41,7 +41,7 @@ configure_file(
 set(CMAKE_MODULE_PATH "${LAPACK_SOURCE_DIR}/CMAKE" ${CMAKE_MODULE_PATH})
 
 if (UNIX)
-   if ( "${CMAKE_Fortran_COMPILER}" MATCHES "ifort" )
+  if ( (NOT "${CMAKE_Fortran_COMPILER}" MATCHES "mpifort") AND "${CMAKE_Fortran_COMPILER}" MATCHES "ifort" )
   set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fp-model strict" )
    endif ()
    if ( "${CMAKE_Fortran_COMPILER}" MATCHES "xlf" )
