@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8) 
+cmake_minimum_required(VERSION 3.18) 
 
 
 # name of the project, specIFy the used languages
@@ -32,7 +32,6 @@ enable_testing()
 
 include(CTest)
 include(CMakeDependentOption)
-include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 
 #=========================================================================
 #                         custom targets  
@@ -178,16 +177,25 @@ endif(BUILD_BOUNDARY_LAYER_TOOLS)
 #  FIND_PACKAGE(CUDASDK)
 #ENDIF(FC_CUDA_SUPPORT)
 
-if(BUILD_BOUNDARY_LAYER_TOOLS)
-  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
-endif(BUILD_BOUNDARY_LAYER_TOOLS)
-
 find_package(OpenMP REQUIRED)
 #=========================================================================
 #                       CMake BUILD Type
 #=========================================================================
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+endif()
+
+#=========================================================================
+#                     Check for the 'librt' library
+#=========================================================================
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
+  if(NOT LIBRT_LIBRARY)
+    find_file(LIBRT_LIBRARY librt.so  PATHS /usr/lib /usr/lib64/)
+    if(NOT LIBRT_LIBRARY)
+      message(FATAL_ERROR "You need to install the system library librt.")
+    endif()
+  endif()
 endif()
 
 #=========================================================================
@@ -298,16 +306,6 @@ if(USE_CGAL)
 
 endif(USE_CGAL)
 
-if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR UNIX AND NOT APPLE)
-  FIND_LIBRARY(LIBRT_LIBRARY NAMES rt)
-  if(NOT LIBRT_LIBRARY)
-    find_file(LIBRT_LIBRARY librt.so  PATHS /usr/lib /usr/lib64/)
-    if(NOT LIBRT_LIBRARY)
-      message(FATAL_ERROR "You need to install the system library librt.")
-    endif()
-  endif()
-endif()
-
 #=========================================================================
 #                          Configure BoostC++ 
 #=========================================================================
@@ -371,22 +369,6 @@ if(USE_BOOST)
   endif()
 
 endif(USE_BOOST)
-
-#=========================================================================
-#                     Check for the 'librt' library
-#=========================================================================
-if (UNIX AND NOT APPLE)
-    find_library(LIBRT_LIBRARY NAMES rt)
-    if(NOT LIBRT_LIBRARY)
-        find_file(LIBRT_LIBRARY librt.so  PATHS /usr/lib /usr/lib64/)
-        if(NOT LIBRT_LIBRARY)
-            message(FATAL_ERROR "Please install the system library librt to compile this code.")
-        endif()
-    endif()
-elseif (APPLE)
-    # Handle macOS case if needed
-endif()
-
 
 #=========================================================================
 #                      Configure MPI/MKL/MUMPS 
@@ -498,11 +480,10 @@ ENDIF(BUILD_APPLICATIONS)
 #                       INSTALL CONFIGURATION
 #=========================================================================
 install(DIRECTORY tools/partitioner DESTINATION bin)
-file(GLOB PYPARTITIONER "tools/PyPartitioner.py")
-install(FILES ${PYPARTITIONER} DESTINATION bin
-    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
-#install(FILES ${E3D_SCRIPTS} DESTINATION bin
-#    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+install(FILES tools/PyPartitioner.py DESTINATION bin PERMISSIONS 
+  WORLD_EXECUTE OWNER_READ OWNER_WRITE 
+  OWNER_EXECUTE GROUP_READ GROUP_WRITE 
+  GROUP_EXECUTE)
 
 #=========================================================================
 #                       CPACK CONFIGURATION
