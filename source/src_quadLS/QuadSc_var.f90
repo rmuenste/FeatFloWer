@@ -40,6 +40,8 @@ LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 REAL*8  :: AlphaControl=0d0
 
+real*8  :: total_lubrication = 0.0
+
 TYPE tTimer
  integer :: n = 0
  real*8  :: t = 0d0

@@ -2438,6 +2438,25 @@ END SUBROUTINE Reduce_myMPI
 !
 !
 !-------------------------------------------------------------
+SUBROUTINE Sum_myMPI(localMax, totalMax)
+
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+  integer :: error_indicator
+
+  totalMax = 0.0
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, error_indicator)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    print *,'Global lubrication', totalMax
+  end if
+
+END SUBROUTINE Sum_myMPI
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
 SUBROUTINE SynchronizeValue_myMPI(localMax, totalMax)
   implicit none
 

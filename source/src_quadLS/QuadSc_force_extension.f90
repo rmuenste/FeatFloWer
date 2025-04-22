@@ -1026,3 +1026,127 @@ SAVE
 !  end if
 #endif
 END
+!************************************************************************
+!
+!************************************************************************
+subroutine sliding_wall_force(pos, v, omega, resi, sliX)
+    implicit none
+    ! Declare inputs
+    real*8, dimension(3), intent(in)  :: v, omega, pos   ! Input: velocity, rotation, position vector
+    integer, intent(inout) :: resi
+    real(8), intent(out) :: sliX
+
+    ! Declare constants
+    real(8), parameter :: e = 2e-4            ! eps
+    real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
+    real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
+    real(8), parameter :: hc = 0.001041d0     ! Slip length correction
+    !real(8), parameter :: h_max = 0.2d0 * Rp ! Upper cutoff for lubrication forces
+    real(8), parameter :: h_max = 1.5d0 * hc  ! Upper cutoff for lubrication forces
+    real(8), parameter :: z_wall = 0.1d0      ! Wall coordinate at z = 0.1
+
+    ! Declare variables
+    real(8) :: center_z, h, epsilon, epsilon_c, vs, vcs, Fslw_x, Fslw_y, Fslw_z
+    real(8) :: log_eps, eps_log_eps, f_star, log_hc
+
+    real(8), dimension(3) :: n = (/ 0.0, 0.0,-1.0/)
+    real(8), dimension(3) :: vs_  = (/0.0, 0.0, 0.0/)
+    real(8), dimension(3) :: vcs_ = (/0.0, 0.0, 0.0/)
+    real(8) :: pi
+    pi = 4.0d0 * atan(1.0d0)
+
+
+    ! Example particle state (modify as needed)
+    center_z = pos(3)  ! Example particle center position
+!    vs = 0.01d0  ! Example sliding velocity in x direction
+!    vcs = 0.005d0  ! Example sliding velocity due to rotation
+
+    call compute_sliding_velocities(v, omega, n, Rp, vs_, vcs_)
+    vs = vs_(1)
+    vcs = vcs_(1)
+
+    ! Compute separation distance
+    h = z_wall - (center_z + Rp)
+
+    ! Compute epsilon values
+    epsilon = h / Rp
+    epsilon_c = hc / Rp  ! Corrected epsilon for h <= hc
+
+    ! Check if lubrication forces should be applied
+    if (h > 0.0d0 .and. h <= h_max) then
+
+        ! Compute slip correction factor f*
+        if (h > hc) then
+            log_hc = log(1.0d0 + (6.0d0 * hc) / h)
+            f_star = (h / (3.0d0 * hc)) * ((1.0d0 + h / (6.0d0 * hc)) * log_hc - 1.0d0)
+        else
+            f_star = 1.0d0  ! Ensuring finite force for h ≤ hc
+            epsilon = epsilon_c  ! Use corrected epsilon for lubrication equations
+        end if
+
+        ! Compute logarithmic terms with corrected epsilon if necessary
+        log_eps = log(epsilon)
+        eps_log_eps = epsilon * log_eps
+
+        ! Compute the sliding lubrication force from the wall with slip correction
+        Fslw_x = -6.0d0 * pi * nu_f * Rp * f_star * &
+                 (vs * (-8.0d0 / 15.0d0 * log_eps - 64.0d0 / 375.0d0 * eps_log_eps) + &
+                  vcs * (-2.0d0 / 15.0d0 * log_eps - 86.0d0 / 375.0d0 * eps_log_eps))
+
+        Fslw_y = 0.0d0  ! Assuming force is only in x-direction
+        Fslw_z = 0.0d0  ! No force in normal direction due to sliding
+        resi = 1
+        sliX = Fslw_x
+    else
+        ! No lubrication force if h > h_max or if the particle is beyond the wall
+        Fslw_x = 0.0d0
+        Fslw_y = 0.0d0
+        Fslw_z = 0.0d0
+        resi = 0
+        sliX = 0.0
+    end if
+
+    ! Print results
+!    print *, "Particle center at z =", center_z
+!    print *, "Separation distance (h) =", h
+!    print *, "Slip correction factor (f*):", f_star
+!    print *, "Epsilon used for lubrication:", epsilon
+!    print *, "Sliding Lubrication Force from Wall (Fslw_x):", Fslw_x
+!    print *, "No force applied in y or z directions (Fslw_y, Fslw_z):", Fslw_y, Fslw_z
+
+end 
+!************************************************************************
+!
+!************************************************************************
+subroutine compute_sliding_velocities(v, omega, n, Rp, vs, vcs)
+  implicit none
+  real*8, dimension(3), intent(in)  :: v, omega, n   ! Input: velocity, rotation, normal vector
+  real*8, intent(in)                :: Rp            ! Input: particle radius
+  real*8, dimension(3), intent(out) :: vs, vcs       ! Output: sliding and contact sliding velocity
+  real*8                            :: v_dot_n       ! Temporary variable for dot product
+  real*8, dimension(3)              :: cross_product ! Temporary for cross product
+  integer                           :: i
+
+  ! Compute dot product v . n
+  v_dot_n = 0.0d0
+  do i = 1, 3
+      v_dot_n = v_dot_n + v(i) * n(i)
+  end do
+
+  ! Compute sliding velocity: v_s = v - (v . n) * n
+  do i = 1, 3
+      vs(i) = v(i) - v_dot_n * n(i)
+  end do
+
+  ! Compute cross product: omega × (-Rp * n)
+  cross_product(1) = omega(2) * (-Rp * n(3)) - omega(3) * (-Rp * n(2))
+  cross_product(2) = omega(3) * (-Rp * n(1)) - omega(1) * (-Rp * n(3))
+  cross_product(3) = omega(1) * (-Rp * n(2)) - omega(2) * (-Rp * n(1))
+
+  ! Assign to vcs
+  do i = 1, 3
+      vcs(i) = cross_product(i)
+  end do
+
+end subroutine compute_sliding_velocities
+

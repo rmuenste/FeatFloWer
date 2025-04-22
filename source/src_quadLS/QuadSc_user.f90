@@ -126,6 +126,12 @@ ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 
+IF (iT.EQ.23) THEN
+ ValU= 1.0d0
+ ValV= 0d0
+ ValW= 0d0
+END IF
+
 IF (iT.lt.0) THEN
   
  iInflow = ABS(iT)

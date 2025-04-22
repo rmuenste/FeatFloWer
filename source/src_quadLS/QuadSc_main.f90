@@ -62,8 +62,9 @@ use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
-REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
+integer :: error_indicator
 
 CALL updateFBMGeometry()
 
@@ -303,11 +304,11 @@ END SUBROUTINE Transport_q2p1_UxyzP
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
-use PP3D_MPI, only: Barrier_myMPI
+use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
-REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit
+REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iITER
 real*8 px, py, pz
 integer k
@@ -520,7 +521,6 @@ CALL FAC_GetSurfForces(mfile)
 
 !CALL DNA_GetTorques(mfile)
 !CALL DNA_GetTorques(mfile)
-!call DNA_GetSoosForce(mfile)
 
 CALL GetNonNewtViscosity()
 
@@ -534,10 +534,14 @@ END IF
 if (myid.eq. 1) write(*,*)'fbm force'
 #endif 
 
+total_lubrication = 0.0d0
 ! Calculate the forces
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
                       fbm_force_handler_ptr)
+
+call Sum_myMPI(total_lubrication, global_lubrication)
+call DNA_GetSoosForce(mfile)
 
 #ifdef HAVE_PE 
 if (myid.eq. 1) write(*,*)'fbm update'
