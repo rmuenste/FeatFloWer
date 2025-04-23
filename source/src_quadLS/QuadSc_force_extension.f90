@@ -19,7 +19,7 @@ SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE
 !*     Discrete convection operator: Q1~ elements (nonparametric)
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
-USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR
+USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -52,14 +52,14 @@ INTEGER KDFG(NNBAS),KDFL(NNBAS)
 
 REAL*8 :: DResForceX,DResForceY,DResForceZ
 REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
-REAL*8 :: Center(3),dForce(6)
+REAL*8 :: Center(3),dForce(6), omega(3)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
-integer :: numParticles, particleId
+integer :: numParticles, particleId, resi, totalSliding
 
 logical :: crit1, crit2
 
-real*8 :: theNorm, totalMax
+real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX
 !integer, dimension(1) :: processRanks
 !integer :: MPI_W0, MPI_EX0
 !integer :: MPI_Comm_EX0, new_comm
@@ -96,6 +96,10 @@ SAVE
 !  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
  
   maxLocal = 0.0
+  omega = (/0.0, 0.0, 0.0/)
+
+  localSliding = 0.0
+  accumulatedSliding = 0.0
 
   IF (myid.eq.0) return! GOTO 999
 
@@ -146,6 +150,7 @@ SAVE
 
   call getAllParticles(theParticles)
 
+  totalSliding = 0
   DO IP = 1,numParticles
 #ifdef OUTPUT_LEVEL3 
   write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
@@ -156,6 +161,12 @@ SAVE
   particleId = theParticles(IP)%bytes(1) + 1
   
   Center = theParticles(IP)%position 
+
+  resi = 0
+  call sliding_wall_force(center,theParticles(IP)%velocity, omega, resi, sliX)
+
+  localSliding = localSliding + sliX
+  totalSliding = totalSliding + resi
   
   DResForceX = 0D0
   DResForceY = 0D0
@@ -214,12 +225,6 @@ SAVE
      !IF ((ALPHA(IG).EQ.1)) THEN
       NIALFA=NIALFA+1
      ENDIF
-
- !    if(.not. (crit1 .eqv. crit2))then
- !      write(*,*) 'myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
- !        FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
- !!      call ExitError('Error in GetForces',174)
- !    end if
 
    ENDDO
 
@@ -448,12 +453,8 @@ SAVE
   end if
 
 #ifdef OUTPUT_LEVEL2 
-!  write(*,'(I3,A,I5)')myid,'>Particle: ',theParticles(IP)%bytes(1) + 1
   write(*,'(A,I5,A,3D12.4,A,3D12.4,I3)')'pidx=', theParticles(ip)%bytes(1) + 1, ' theForce    : ', (/DResForceX, DResForceY, DResForceZ/),&
   ' tau: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/), myid
-!  write(*,*)'TheForce: ', (/DResForceX, DResForceY, DResForceZ/)
-!  write(*,*)myid,' nnel: ',nnel 
-  !write(*,*)'TheTorque: ', theParticles(ip)%torque
 #endif
 
   ! This function is in the dem_query module
@@ -461,10 +462,8 @@ SAVE
 
   END DO ! nParticles
 
-!  call MPI_Reduce(totalMax, maxForce, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_EX0, ierr)
-!  if (myid .eq. 1)then
-!    write(*,*)'maxFluidForce1: ', maxLocal 
-!  end if
+  !write(*,*)'localSliding: ', localSliding 
+  total_lubrication = localSliding 
 
 #endif
 END SUBROUTINE ForcesLocalParticles
@@ -1038,7 +1037,8 @@ subroutine sliding_wall_force(pos, v, omega, resi, sliX)
 
     ! Declare constants
     real(8), parameter :: e = 2e-4            ! eps
-    real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
+    !real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
+    real(8), parameter :: Rp = 0.002d0        ! Particle radius
     real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
     real(8), parameter :: hc = 0.001041d0     ! Slip length correction
     !real(8), parameter :: h_max = 0.2d0 * Rp ! Upper cutoff for lubrication forces
