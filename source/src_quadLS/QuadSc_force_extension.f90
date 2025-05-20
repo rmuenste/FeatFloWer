@@ -59,7 +59,7 @@ integer :: numParticles, particleId, resi, totalSliding
 
 logical :: crit1, crit2
 
-real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX
+real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 !integer, dimension(1) :: processRanks
 !integer :: MPI_W0, MPI_EX0
 !integer :: MPI_Comm_EX0, new_comm
@@ -99,6 +99,7 @@ SAVE
   omega = (/0.0, 0.0, 0.0/)
 
   localSliding = 0.0
+  localHydro = 0.0
   accumulatedSliding = 0.0
 
   IF (myid.eq.0) return! GOTO 999
@@ -163,6 +164,7 @@ SAVE
   Center = theParticles(IP)%position 
 
   resi = 0
+  sliX = 0.0 
   call sliding_wall_force(center,theParticles(IP)%velocity, omega, resi, sliX)
 
   localSliding = localSliding + sliX
@@ -443,6 +445,9 @@ SAVE
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
+  if (resi .gt. 0) then
+    DResForceX = DResForceX + 0.6 * sliX 
+  end if
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
@@ -457,12 +462,16 @@ SAVE
   ' tau: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/), myid
 #endif
 
+  if (resi .gt. 0) then
+    localHydro = localHydro + DResForceX
+  end if
   ! This function is in the dem_query module
   call setForcesMapped(theParticles(ip))
 
   END DO ! nParticles
 
   !write(*,*)'localSliding: ', localSliding 
+  !write(*,*)' localSlidingAvg: ', localSliding, totalSliding, localHydro 
   total_lubrication = localSliding 
 
 #endif

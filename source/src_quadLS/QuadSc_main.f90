@@ -542,6 +542,8 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
 
 call Sum_myMPI(total_lubrication, global_lubrication)
 call DNA_GetSoosForce(mfile)
+call Get_DissipationIntegral(mfile)
+
 
 #ifdef HAVE_PE 
 if (myid.eq. 1) write(*,*)'fbm update'
@@ -4730,6 +4732,28 @@ IF (myid.eq.1) then
 end if
 
 END SUBROUTINE DNA_GetTorques
+!=========================================================================
+! 
+!=========================================================================
+SUBROUTINE Get_DissipationIntegral(mfile)
+integer mfile
+REAL*8 Torque1(3),daux
+real*8 :: area, G, L, U
+
+external E013
+
+ilev = nlmax
+call setlev(2)
+
+call CalculateDissipationIntegralNumerator(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                  mg_mesh%level(ilev)%kvert,&
+                  mg_mesh%level(ilev)%karea,&
+                  mg_mesh%level(ilev)%kedge,&
+                  mg_mesh%level(ilev)%dcorvg,&
+                  E013)
+
+
+END SUBROUTINE Get_DissipationIntegral
 !=========================================================================
 ! 
 !=========================================================================
