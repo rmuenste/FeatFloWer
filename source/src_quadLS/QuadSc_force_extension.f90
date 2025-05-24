@@ -446,7 +446,7 @@ SAVE
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
   if (resi .gt. 0) then
-    DResForceX = DResForceX + 0.6 * sliX 
+    DResForceX = DResForceX + 0.70 * sliX 
   end if
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
@@ -1048,7 +1048,8 @@ subroutine sliding_wall_force(pos, v, omega, resi, sliX)
     real(8), parameter :: e = 2e-4            ! eps
     !real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
     real(8), parameter :: Rp = 0.002d0        ! Particle radius
-    real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
+    !real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
+    real(8), parameter :: nu_f = 1.85d-4      ! Fluid dynamic viscosity
     real(8), parameter :: hc = 0.001041d0     ! Slip length correction
     !real(8), parameter :: h_max = 0.2d0 * Rp ! Upper cutoff for lubrication forces
     real(8), parameter :: h_max = 1.5d0 * hc  ! Upper cutoff for lubrication forces
