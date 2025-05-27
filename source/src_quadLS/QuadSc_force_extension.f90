@@ -1049,7 +1049,8 @@ subroutine sliding_wall_force(pos, v, omega, resi, sliX)
     !real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
     real(8), parameter :: Rp = 0.002d0        ! Particle radius
     !real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
-    real(8), parameter :: nu_f = 1.85d-4      ! Fluid dynamic viscosity
+    !real(8), parameter :: nu_f = 1.85d-4      ! Fluid dynamic viscosity
+    real(8), parameter :: nu_f = 1.0d-3      ! Fluid dynamic viscosity
     real(8), parameter :: hc = 0.001041d0     ! Slip length correction
     !real(8), parameter :: h_max = 0.2d0 * Rp ! Upper cutoff for lubrication forces
     real(8), parameter :: h_max = 1.5d0 * hc  ! Upper cutoff for lubrication forces
