@@ -86,6 +86,13 @@ REAL*8 :: activeFBM_Z_Position=-1d9
 REAL*8 :: dTimeStepEnlargmentFactor=1d0
 INTEGER :: iTimeStepEnlargmentFactor=1
 
+real*8 :: GammaDot = 1.0d0
+
+real*8 :: AlphaRelax = 1.0d0
+
+real*8 :: RadParticle = 1.0d0
+
+
 TYPE tTransform
  INTEGER :: ILINT=2
 END TYPE
