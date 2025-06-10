@@ -393,7 +393,7 @@ SUBROUTINE General_init(MDATA,MFILE)
       bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
       ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
-      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster
+      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -649,7 +649,15 @@ SUBROUTINE General_init(MDATA,MFILE)
 
         CASE ("CGALtoRealFactor")
          READ(string(iEq+1:),*)dCGALtoRealFactor
-         
+
+         ! --- Add new parameters here ---
+        CASE ("GammaDot")
+         READ(string(iEq+1:),*) GammaDot
+        CASE ("AlphaRelax")
+         READ(string(iEq+1:),*) AlphaRelax
+        CASE ("RadParticle")
+         READ(string(iEq+1:),*) RadParticle
+
         CASE ("aSynchComm")
           cParam = " "
           READ(string(iEq+1:),*) cParam
@@ -869,6 +877,17 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mfile,'(A)') "FlowType = Newtonian"
         WRITE(mterm,'(A)') "FlowType = Newtonian"
       END IF
+
+      ! Print new parameters
+      WRITE(MFILE,'(A,D12.4)') "GammaDot = ", GammaDot
+      WRITE(MTERM,'(A,D12.4)') "GammaDot = ", GammaDot
+
+      WRITE(MFILE,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
+      WRITE(MTERM,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
+     
+      WRITE(MFILE,'(A,D12.4)') "RadParticle = ", RadParticle
+      WRITE(MTERM,'(A,D12.4)') "RadParticle = ", RadParticle
+
       
       IF (ProlongationDirection.eq.0) THEN 
        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"

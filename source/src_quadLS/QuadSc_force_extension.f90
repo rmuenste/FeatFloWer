@@ -20,6 +20,7 @@ SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
+USE var_QuadScalar, ONLY : AlphaRelax 
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -446,7 +447,7 @@ SAVE
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
   if (resi .gt. 0) then
-    DResForceX = DResForceX + 0.50 * sliX 
+    DResForceX = DResForceX + AlphaRelax * sliX 
   end if
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
@@ -1038,6 +1039,7 @@ END
 !
 !************************************************************************
 subroutine sliding_wall_force(pos, v, omega, resi, sliX)
+    USE var_QuadScalar, ONLY : RadParticle 
     implicit none
     ! Declare inputs
     real*8, dimension(3), intent(in)  :: v, omega, pos   ! Input: velocity, rotation, position vector
@@ -1045,16 +1047,16 @@ subroutine sliding_wall_force(pos, v, omega, resi, sliX)
     real(8), intent(out) :: sliX
 
     ! Declare constants
-    real(8), parameter :: e = 2e-4            ! eps
+    real(8), parameter :: e = 2e-4             ! eps
     !real(8), parameter :: Rp = 0.0015d0 - e   ! Particle radius
-    real(8), parameter :: Rp = 0.002d0        ! Particle radius
+    real(8) :: Rp                              !0.002d0        ! Particle radius
     !real(8), parameter :: nu_f = 8.37d-5      ! Fluid dynamic viscosity
     !real(8), parameter :: nu_f = 1.85d-4      ! Fluid dynamic viscosity
-    real(8), parameter :: nu_f = 1.0d-2      ! Fluid dynamic viscosity
-    real(8), parameter :: hc = 0.001041d0     ! Slip length correction
-    !real(8), parameter :: h_max = 0.2d0 * Rp ! Upper cutoff for lubrication forces
-    real(8), parameter :: h_max = 1.5d0 * hc  ! Upper cutoff for lubrication forces
-    real(8), parameter :: z_wall = 0.1d0      ! Wall coordinate at z = 0.1
+    real(8), parameter :: nu_f = 1.0d-2        ! Fluid dynamic viscosity
+    real(8), parameter :: hc = 0.001041d0      ! Slip length correction
+    !real(8), parameter :: h_max = 0.2d0 * Rp  ! Upper cutoff for lubrication forces
+    real(8), parameter :: h_max = 1.5d0 * hc   ! Upper cutoff for lubrication forces
+    real(8), parameter :: z_wall = 0.1d0       ! Wall coordinate at z = 0.1
 
     ! Declare variables
     real(8) :: center_z, h, epsilon, epsilon_c, vs, vcs, Fslw_x, Fslw_y, Fslw_z
@@ -1065,6 +1067,7 @@ subroutine sliding_wall_force(pos, v, omega, resi, sliX)
     real(8), dimension(3) :: vcs_ = (/0.0, 0.0, 0.0/)
     real(8) :: pi
     pi = 4.0d0 * atan(1.0d0)
+    Rp = RadParticle
 
 
     ! Example particle state (modify as needed)

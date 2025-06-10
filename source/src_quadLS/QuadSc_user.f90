@@ -39,7 +39,7 @@ END IF
 END SUBROUTINE GetCylKnpr
 !--------------------------------------------------
 SUBROUTINE GetVeloInitVal(X,Y,Z,ValU,ValV,ValW)
-USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench, referenceVelocity
+USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench, referenceVelocity, GammaDot
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 REAL*8 X,Y,Z,ValU,ValV,ValW
 REAL*8 PX,PY,dScale
@@ -48,7 +48,7 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-ValU= 15.0d0 * Z/0.1d0
+ValU= GammaDot * Z/0.1d0
 ValV = 0d0
 ValW = 0d0
 return
@@ -97,7 +97,7 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM, referenceVelocity
+use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
@@ -126,7 +126,7 @@ ValV = 0d0
 ValW = 0d0
 
 IF (iT.EQ.23) THEN
- ValU= 15.0d0
+ ValU= GammaDot
  ValV= 0d0
  ValW= 0d0
 END IF
