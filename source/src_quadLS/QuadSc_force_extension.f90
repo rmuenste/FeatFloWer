@@ -1,5 +1,6 @@
 !#define OUTPUT_LEVEL2 
 !#define SED_BENCH
+!#define ENABLE_LUBRICATION
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)
@@ -91,10 +92,6 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 SAVE
 
 #ifdef HAVE_PE 
-!  processRanks(1) = 0
-!  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
-!  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
-!  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
  
   maxLocal = 0.0
   omega = (/0.0, 0.0, 0.0/)
@@ -166,7 +163,9 @@ SAVE
 
   resi = 0
   sliX = 0.0 
+#ifdef ENABLE_LUBRICATION
   call sliding_wall_force(center,theParticles(IP)%velocity, omega, resi, sliX)
+#endif
 
   localSliding = localSliding + sliX
   totalSliding = totalSliding + resi
@@ -206,17 +205,9 @@ SAVE
      ! compare the particle system ID (which is a 64bit unsigned integer) to
      ! the fortran long representation of the FictKNPR array
      IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
-     !IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
-     !IF((ALPHA(IG).EQ.0))THEN
-      crit2 = .true.
+     crit2 = .true.
       NJALFA=NJALFA+1
      ENDIF
-
-!     if(.not. (crit1 .eqv. crit2))then
-!       write(*,*) 'myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
-!         FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
-!!       call ExitError('Error in GetForces',157)
-!     end if
 
      crit1 = .false.
      crit2 = .false.
@@ -446,9 +437,11 @@ SAVE
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
+#ifdef ENABLE_LUBRICATION
   if (resi .gt. 0) then
     DResForceX = DResForceX + AlphaRelax * sliX 
   end if
+#endif
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
 #endif
@@ -471,8 +464,6 @@ SAVE
 
   END DO ! nParticles
 
-  !write(*,*)'localSliding: ', localSliding 
-  !write(*,*)' localSlidingAvg: ', localSliding, totalSliding, localHydro 
   total_lubrication = localSliding 
 
 #endif
@@ -558,10 +549,6 @@ SAVE
  
 #ifdef HAVE_PE 
   localMax = 0.0
-!  processRanks(1) = 0
-!  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
-!  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
-!  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
   IF (myid.eq.0) return! GOTO 999
   
@@ -591,13 +578,6 @@ SAVE
     deallocate(theParticles)
   end if
   allocate(theParticles(numParticles)) 
-
-!  if(.not. allocated(theParticles)) then
-!    allocate(theParticles(numParticles)) 
-!  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numParticles))then
-!    deallocate(theParticles)
-!    allocate(theParticles(numParticles)) 
-!  end if
 
   !=====================================================================
   ! We loop over all particles first
@@ -658,14 +638,6 @@ SAVE
       NJALFA=NJALFA+1
      ENDIF
 
- !    ! This condition represents a serious error
- !    if(.not. (crit1 .eqv. crit2))then
- !      write(*,*) 'Rem: myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
- !        FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
- !!      call ExitError('Error in GetForces',157)
- !    end if
-
-
      crit1 = .false.
      crit2 = .false.
 
@@ -677,13 +649,6 @@ SAVE
       crit2 = .true.
       NIALFA=NIALFA+1
      ENDIF
-
-!     ! This condition represents a serious error
-!     if(.not. (crit1 .eqv. crit2))then
-!       write(*,*) 'Rem: myid:',myid,'> a(ig)=',alpha(ig), ' partId=',particleId, ' partLongId=',theParticles(ip)%bytes,' uintFict',&
-!         FictKNPR_uint64(ig)%bytes, ' F=',FictKNPR(ig)
-!!       call ExitError('Error in GetForces',174)
-!     end if
 
    ENDDO
 
@@ -924,12 +889,6 @@ SAVE
 
   END DO ! nParticles
 
-!  call MPI_Reduce(totalMax, maxForce, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_EX0, ierr)
-!  if (myid .eq. 1)then
-!    write(*,*)'maxRemoteFluidForce: ', maxForce 
-!    write(*,*)'maxFluidForce2: ', maxLocal 
-!  end if
-
 #endif
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
@@ -1026,13 +985,6 @@ SAVE
 
   localMax = MAX(localMax, localMaxRemote)
 
-!  call MPI_Reduce(totalMax, localMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_ALL, ierr)
-!  call MPI_Barrier(MPI_COMM_ALL, ierr)
-!  call Reduce_myMPI(localMax, totalMax)
-
-!  IF (myid.eq.0)then
-!    write(*,*)'totalMaxFluidForce: ', totalMax 
-!  end if
 #endif
 END
 !************************************************************************
