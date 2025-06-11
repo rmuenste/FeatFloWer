@@ -4,124 +4,182 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build System
 
-FeatFloWer uses CMake as its primary build system:
+FeatFloWer uses CMake (minimum version 3.18) as the primary build system for this parallel multigrid Q2/P1 computational fluid dynamics framework.
+
+### Basic Build Commands
 
 ```bash
-mkdir build
-cd build
-cmake ..
-make -j8
-```
+# Initialize submodules (required)
+git submodule update --init --recursive
 
-### Key CMake Options
-- `USE_PE=ON/OFF`: Enable PE (Physics Engine) library integration for rigid body dynamics
-- `USE_CGAL=ON/OFF`: Enable CGAL library for computational geometry
-- `USE_MUMPS=ON/OFF`: Enable MUMPS parallel direct solver
-- `USE_HYPRE=ON/OFF`: Enable Hypre library for solvers
-- `USE_OPENMESH=ON/OFF`: Enable OpenMesh library for mesh processing
-- `BUILD_APPLICATIONS=ON/OFF`: Build application executables (default: ON)
-- `BUILD_METIS=ON/OFF`: Build METIS library for graph partitioning (default: ON)
-
-### Common Build Commands
-```bash
-# Basic build
+# Standard build process
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_APPLICATIONS=ON ..
 make -j8
 
-# Build specific application
-make q2p1_fc2
-
-# Clean build
-make clean
+# Show available build configurations
+cmake -DSHOW_BUILD_IDS=ON ..
 ```
 
-## Project Architecture
+### Essential CMake Options
 
-FeatFloWer is a computational fluid dynamics framework with fluid-structure interaction capabilities.
+- `-DCMAKE_BUILD_TYPE=Release|Debug`: Build type (default: Release)
+- `-DBUILD_APPLICATIONS=ON|OFF`: Build application suite (default: ON)
+- `-DUSE_CGAL=ON`: Enable computational geometry features
+- `-DUSE_MUMPS=ON`: Enable parallel direct solver (Intel compiler required)
+- `-DUSE_HYPRE=ON`: Enable scalable linear solvers
+- `-DUSE_PE=ON`: Enable rigid body physics engine
+- `-DUSE_BOOST=ON`: Enable Boost C++ libraries
+- `-DUSE_OPENMESH=ON`: Enable mesh processing capabilities
 
-### Core Components
+### Build IDs and Compiler Configurations
 
-**source/**: Main source code directory
-- `src_quadLS/`: Q2P1 finite element solver with level-set methods
-  - `QuadSc_force.f90`: Force computation for fictitious boundary method
-  - `QuadSc_main.f90`: Main Q2P1 solver routines
-- `src_fbm/`: Fictitious Boundary Method (FBM) implementation
-- `src_particles/`: Particle simulation and tracking
-- `src_mpi/`: MPI parallelization support
-- `src_pp3d/`: Post-processing and visualization
+The build system supports compiler-specific optimizations through build IDs:
+- Intel: `nehalem-linux-intel-release`, `xeon-linux-intel-release`
+- GCC: Various architecture-specific configurations
+- Use `./configure --build-ids` to list all available build IDs
 
-**applications/**: Application-specific solvers
-- `q2p1_fc2/`: Q2P1 fluid-structure interaction solver with fictitious boundary
-- `q2p1_particles/`: Particle-laden flow simulations
-- `q2p1_die/`: Die swell flow simulations
-- `heat/`: Heat transfer applications
-- `laplace/`: Laplace equation solver
+### Dependencies
 
-**FullC0ntact/**: Rigid body dynamics library (C++)
-- Physics engine for particle-particle and particle-wall interactions
-- GPU acceleration support via CUDA
+**Required:**
+- OpenMP (always required)
+- Git 2.17+ for submodule management
 
-### Key Solver Types
-- **Q2P1**: Taylor-Hood finite elements (Q2 velocity, P1 pressure)
-- **LinSc**: Linear scalar transport equations
-- **QuadSc**: Quadratic scalar transport with level-set methods
+**Optional but Important:**
+- MPI (for parallel execution)
+- CGAL (computational geometry)
+- MUMPS (requires Intel compiler)
+- Hypre (algebraic multigrid solvers)
+- Boost C++ (≥1.68.0, required for CGAL)
 
-### Parallelization
-- MPI-based domain decomposition
-- OpenMP threading for shared memory parallelism
-- CUDA support for GPU acceleration (in FullC0ntact)
+## Code Architecture
+
+### Main Components
+
+**Core Navier-Stokes Solver (`source/src_pp3d/`):**
+- Q2/P1 finite element discretization
+- Multigrid preconditioning and parallel solvers
+- MPI parallelization with domain decomposition
+
+**Transport Equations:**
+- `src_LinSc/`: Linear scalar transport
+- `src_quadLS/`: Quadratic/linear scalar systems
+- `src_PLin/`: Particle-based transport methods
+
+**Fluid-Structure Interaction:**
+- `src_fbm/`: Fictitious Boundary Method
+- `src_particles/`: Lagrangian particle methods
+- `FullC0ntact/`: Rigid body dynamics engine
+
+**Specialized Physics:**
+- `src_visco/`: Viscoelastic and non-Newtonian flows
+- `src_mesh/`: Mesh adaptation and geometry processing
+
+### Application Structure (`applications/`)
+
+Applications follow the pattern `q2p1_*` for Navier-Stokes solvers:
+
+**Core Flow Applications:**
+- `q2p1_devel/`: General development solver
+- `q2p1_cc/`: Coupled convection-diffusion
+- `q2p1_die/`: Die swell extrusion simulation
+- `q2p1_sse/`: Single screw extruder
+
+**Fluid-Structure Interaction:**
+- `q2p1_fc_ext/`: Extended fictitious boundary method
+- `q2p1_fsi_*`: Various FSI benchmarks and applications
+- `q2p1_particles/`: Eulerian-Lagrangian coupling
+
+**Specialized Applications:**
+- `heat/`: Heat equation solver
+- `q1_scalar/`: General scalar transport
+- Various rheological and biomedical flow applications
+
+### FullC0ntact Physics Engine
+
+Independent rigid body dynamics framework (`FullC0ntact/`) with:
+- Collision detection and response systems
+- DEM (Discrete Element Method) capabilities  
+- GPU acceleration support
+- Integration with FeatFloWer through fictitious boundary methods
+
+See `libs/pe/CLAUDE.md` for detailed PE library information.
 
 ## Development Workflow
 
-### Adding New Applications
-1. Create directory in `applications/`
-2. Add `CMakeLists.txt` with application target
-3. Include `app_init.f90` for initialization
-4. Add main solver file (e.g., `your_app.f90`)
-
-### Fictitious Boundary Method (FBM)
-- Uses level-set functions to represent immersed boundaries
-- `ALPHA` array tracks fluid (0) vs solid (particle ID) regions
-- Force computation in `QuadSc_force.f90` integrates stress over particle surfaces
-
-### Common Development Tasks
-
-**Force Computations**: Modify `source/src_quadLS/QuadSc_force.f90` for custom force models
-
-**Boundary Conditions**: Add to `fbm_vel_bc_include.h` and corresponding source files
-
-**Post-processing**: Extend routines in `source/postprocessing/`
-
-**Particle Integration**: Interface with FullC0ntact library via `dem_query` module
-
-### File Organization Conventions
-- `.f90`: Modern Fortran source files
-- `.f`: Legacy Fortran 77 source files  
-- `_def.f90`: Variable and type definitions
-- `_main.f90`: Main program entry points
-- `app_init.f90`: Application-specific initialization
-
-## Testing and Validation
-
-Applications include test cases in subdirectories. Many solvers have corresponding Python scripts (`.py`) for parameter setup and post-processing.
-
 ### Running Applications
+
 ```bash
-# Navigate to application directory
-cd applications/q2p1_fc2
+# Sequential execution
+./applications/q2p1_devel/q2p1_devel
 
-# Run the solver (typically requires parameter files)
-./q2p1_fc2
+# Parallel execution with MPI
+mpirun -np 4 ./applications/q2p1_devel/q2p1_devel
 
-# Or use provided Python scripts
-python q2p1_fc_ext_start.py
+# Mesh partitioning for parallel runs
+./partitioner mesh.tri 4
 ```
 
-## Integration Points
+### Configuration Files
 
-- **PE Library**: For rigid body dynamics (when `USE_PE=ON`)
-- **CGAL**: Computational geometry operations
-- **MUMPS/HYPRE**: Advanced linear solvers
-- **MPI**: Distributed memory parallelization
-- **OpenMesh**: Mesh processing and manipulation
+- Parameter files: `_data/q2p1_param.dat` (solver configuration)
+- Particle configs: `_data/config_particles.dat`
+- Mesh files: Various formats (.tri, .off, .obj)
+- Physics setups: JSON files for rigid body configurations
 
-The codebase supports both academic research and industrial CFD applications with particular strength in fluid-structure interaction and particle-laden flows.
+### Testing and Validation
+
+```bash
+# Enable testing
+cmake -DBUILD_TESTING=ON ..
+make test
+
+# Individual application testing
+cd applications/q2p1_devel
+ctest
+```
+
+### Common Build Patterns
+
+```bash
+# Full-featured build for research/development
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DUSE_CGAL=ON \
+      -DUSE_MUMPS=ON \
+      -DUSE_HYPRE=ON \
+      -DUSE_PE=ON \
+      -DBUILD_APPLICATIONS=ON ..
+
+# Minimal CFD-only build
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_APPLICATIONS=ON ..
+```
+
+## Key File Types and Locations
+
+- **Source files**: Fortran 90/95 (`.f90`), Fortran 77 (`.f`), C++ (`.cpp`, `.h`)
+- **Mesh formats**: `.tri` (triangular), `.off` (object file format), `.obj`
+- **Output formats**: VTU/VTK for ParaView visualization
+- **Configuration**: `.dat` parameter files, `.json` for physics setups
+
+## Submodule Management
+
+This repository uses git submodules extensively:
+
+```bash
+# Initialize all submodules (essential)
+git submodule update --init --recursive
+
+# Update submodules to latest versions
+git submodule update --remote --recursive
+```
+
+Major submodules include external libraries (LAPACK, METIS, CGAL, etc.) in `extern/libraries/`.
+
+## Special Notes
+
+- **MUMPS solver**: Requires Intel compiler and MKL
+- **CGAL integration**: Automatically enables Boost dependency
+- **MPI builds**: Use `MPI_VENDOR="openmpi"` for OpenMPI
+- **PE library**: Has independent build system, see `libs/pe/CLAUDE.md`
+- **Memory requirements**: Large 3D problems may need significant RAM for multigrid hierarchy

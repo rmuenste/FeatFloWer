@@ -57,9 +57,7 @@ REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
 REAL*8 :: Center(3),dForce(6), omega(3)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
-integer :: numParticles, particleId, resi, totalSliding
-
-logical :: crit1, crit2
+integer :: numParticles, resi, totalSliding
 
 real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 !integer, dimension(1) :: processRanks
@@ -156,9 +154,6 @@ SAVE
 
 #endif
 
-  particleId = theParticles(IP)%localIdx
-  particleId = theParticles(IP)%bytes(1) + 1
-  
   Center = theParticles(IP)%position 
 
   resi = 0
@@ -195,28 +190,14 @@ SAVE
      ! map particle Id to systemId, then
      ! map IG to see if IG is in systemId
      
-     crit1 = .false.
-     crit2 = .false.
-     IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.particleId))THEN
-       crit1 = .true.
-     end if
-
      ! The preferred method of checking is to:
      ! compare the particle system ID (which is a 64bit unsigned integer) to
      ! the fortran long representation of the FictKNPR array
      IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
-     crit2 = .true.
       NJALFA=NJALFA+1
      ENDIF
 
-     crit1 = .false.
-     crit2 = .false.
-     IF (ALPHA(IG).eq.particleId) THEN
-       crit1 = .true.
-     end if
      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-      crit2 = .true.
-     !IF ((ALPHA(IG).EQ.1)) THEN
       NIALFA=NIALFA+1
      ENDIF
 
@@ -513,9 +494,8 @@ REAL*8 :: DTrqForceX,DTrqForceY,DTrqForceZ
 REAL*8 :: Center(3),dForce(6)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
-integer :: numParticles, particleId
+integer :: numParticles 
 real*8 :: pressSum, momSum
-logical :: crit1, crit2
 
 real*8 :: theNorm, totalMax
 !integer, dimension(1) :: processRanks
@@ -623,30 +603,14 @@ SAVE
    DO I=1,IDFL
      IG=KDFG(I)
 
-     crit1 = .false.
-     crit2 = .false.
-     IF((ALPHA(IG).EQ.0).or.(.not. Alpha(ig) .eq. particleId))THEN
-       crit1 = .true.
-     end if
-
      ! The preferred method of checking is to:
      ! compare the particle system ID (which is a 64bit unsigned integer) to
      ! the fortran long representation of the FictKNPR array
      IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
-!     IF((ALPHA(IG).EQ.0).or.(.not. map_local_to_system(particleId,IG)))THEN
-      crit2 = .true.
       NJALFA=NJALFA+1
      ENDIF
 
-     crit1 = .false.
-     crit2 = .false.
-
-     IF (Alpha(ig) .eq. particleId) THEN
-       crit1 = .true.
-     end if
-
      IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-      crit2 = .true.
       NIALFA=NIALFA+1
      ENDIF
 
