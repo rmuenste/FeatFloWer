@@ -30,7 +30,7 @@ end type tParticleData
 !================================================================================================
 !                              Function getTotalParticles
 !================================================================================================
-! The  endpoint function is 'getTotalParts' in object_queries
+! C++ implementation: getTotalParts() in libs/pe/src/interface/object_queries.cpp
 interface
 integer(c_int) function getTotalParticles() bind(C, name="getTotalParticles")
   use iso_c_binding, only: c_int
@@ -41,7 +41,7 @@ end interface
 !================================================================================================
 !                              Function getNumParticles
 !================================================================================================
-! The  endpoint function is 'getNumParts' in object_queries
+! C++ implementation: getNumParts() in libs/pe/src/interface/object_queries.cpp
 interface
 integer(c_int) function getNumParticles() bind(C, name="getNumParticles")
   use iso_c_binding, only: c_int
@@ -51,7 +51,7 @@ end interface
 !================================================================================================
 !                              Function getNumRemParticles
 !================================================================================================
-! The  endpoint function is 'getNumRemParts' in object_queries
+! C++ implementation: getNumRemParts() in libs/pe/src/interface/object_queries.cpp
 interface
 integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
   use iso_c_binding, only: c_int
@@ -60,6 +60,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine getParticle
+! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticle")
@@ -75,6 +76,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine getParticle2
+! C++ implementation: getPartStructByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine getParticle2(idx, particle) bind(C, name="getParticle2")
@@ -87,6 +89,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine setParticle2
+! C++ implementation: setPartStruct() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine setParticle2(particle) bind(C, name="setParticle2")
@@ -98,6 +101,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine getRemoteParticle
+! C++ implementation: getRemoteObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getRemoteParticle")
@@ -113,6 +117,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine getRemoteParticle2
+! C++ implementation: getRemPartStructByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine getRemoteParticle2(idx, particle) bind(C, name="getRemoteParticle2")
@@ -125,6 +130,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine setRemoteParticle2
+! C++ implementation: setRemPartStruct() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine setRemoteParticle2(particle) bind(C, name="setRemoteParticle2")
@@ -136,6 +142,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine setParticle
+! C++ implementation: setObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine setParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="setParticle")
@@ -151,6 +158,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine setForces
+! C++ implementation: setForcesByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
@@ -165,6 +173,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine setRemoteForces
+! C++ implementation: setRemoteForcesByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 subroutine setRemoteForces(idx, lidx, uidx, force, torque) bind(C, name="setRemoteForces")
@@ -179,6 +188,7 @@ end interface
 
 !================================================================================================
 !                              Function isSphere
+! C++ implementation: isSphereType() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 logical(c_bool) function isSphere(idx) bind(C, name="isTypeSphere")
@@ -189,6 +199,7 @@ end interface
 
 !================================================================================================
 !                              Subroutine getParticleRadius
+! C++ implementation: getObjRadius() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 real(c_double) function getParticleRadius(idx) bind(C, name="getParticleRadius")
@@ -199,6 +210,7 @@ end interface
 
 !================================================================================================
 !                              Function pointInsideObject
+! C++ implementation: isInsideObject() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 logical(c_bool) function pointInsideObject(idx, pos) bind(C, name="pointInsideObject")
@@ -210,6 +222,7 @@ end interface
 
 !================================================================================================
 !                              Function pointInsideRemObject
+! C++ implementation: isInsideRemObject() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 logical(c_bool) function pointInsideRemObject(idx, pos) bind(C, name="pointInsideRemObject")
@@ -221,6 +234,7 @@ end interface
 
 !================================================================================================
 !                              Function check_rem_id
+! C++ implementation: checkRemoteFBM() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
 interface
 logical(c_bool) function check_rem_id(fbmid, id) bind(C, name="check_rem_id")
@@ -230,6 +244,7 @@ logical(c_bool) function check_rem_id(fbmid, id) bind(C, name="check_rem_id")
   end function
 end interface
 
+! C++ implementation: getRemoteParticlesIndexMap() in libs/pe/src/interface/object_queries.cpp
 interface
 subroutine rem_particles_index_map(idxMap) bind(C, name="rem_particles_index_map")
   use iso_c_binding, only: c_int, c_double
@@ -237,6 +252,7 @@ subroutine rem_particles_index_map(idxMap) bind(C, name="rem_particles_index_map
   end subroutine
 end interface
 
+! C++ implementation: getParticlesIndexMap() in libs/pe/src/interface/object_queries.cpp
 interface
 subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
   use iso_c_binding, only: c_int, c_double
@@ -244,6 +260,7 @@ subroutine particles_index_map(idxMap) bind(C, name="particles_index_map")
   end subroutine
 end interface
 
+! C++ implementation: uint64toByteArray() in libs/pe/src/interface/object_queries.h
 interface
 subroutine get_bytes(bytes) bind(C, name="get_bytes")
   use iso_c_binding, only: c_short
@@ -251,6 +268,7 @@ subroutine get_bytes(bytes) bind(C, name="get_bytes")
 end subroutine
 end interface
 
+! C++ implementation: not found
 interface
 logical(c_bool) function map_local_to_system(lidx, vidx) bind(C, name="map_local_to_system")
   use iso_c_binding, only: c_int, c_bool 
@@ -259,6 +277,7 @@ logical(c_bool) function map_local_to_system(lidx, vidx) bind(C, name="map_local
   end function
 end interface
 
+! C++ implementation: not found
 interface
 logical(c_bool) function map_local_to_system2(lidx, vidx) bind(C, name="map_local_to_system2")
   use iso_c_binding, only: c_int, c_bool 
