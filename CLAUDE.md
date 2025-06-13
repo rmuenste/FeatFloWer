@@ -42,11 +42,12 @@ The build system supports compiler-specific optimizations through build IDs:
 ### Dependencies
 
 **Required:**
+- C/C++ and Fortran compilers
 - OpenMP (always required)
 - Git 2.17+ for submodule management
+- MPI (for parallel execution which is the only realistic way to run a 3D cfd simulation)
 
 **Optional but Important:**
-- MPI (for parallel execution)
 - CGAL (computational geometry)
 - MUMPS (requires Intel compiler)
 - Hypre (algebraic multigrid solvers)
