@@ -248,6 +248,7 @@ if(USE_CGAL)
     set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
     set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
     
+    include(ExternalProject)
     ExternalProject_Add(
       cgal
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
