@@ -399,12 +399,16 @@ endif(USE_MUMPS)
 
 find_package(Git 2.17)
 
+#=========================================================================
+# This builds our small CGAL mesh validation tool
+#=========================================================================
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
     add_dependencies(check_manifold cgal)
   endif(USE_CGAL)
 endif(NOT WIN32)
+
 
 #=========================================================================
 # Add the hypre library
