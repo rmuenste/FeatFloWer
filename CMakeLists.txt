@@ -406,6 +406,7 @@ if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
     add_dependencies(check_manifold cgal)
+    add_dependencies(validate_triangle_mesh cgal)
   endif(USE_CGAL)
 endif(NOT WIN32)
 
