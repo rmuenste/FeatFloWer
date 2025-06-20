@@ -13,6 +13,13 @@ file(COPY "wurfel.stl" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "check_manifold.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY "blender_check_manifold.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+# Copy test driver files
+file(COPY "run_tests.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "test_validator.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+# Copy test files directory
+file(COPY "test_files" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 # add a binary
 add_executable(check_manifold cgal_test.cpp)
 

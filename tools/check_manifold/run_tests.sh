@@ -107,15 +107,15 @@ echo "Running tests..."
 echo
 
 # Test 1: Clean tetrahedron (should pass all checks)
-run_test "Clean Tetrahedron" "clean_tetrahedron.off" "MANIFOLD" "none"
+run_test "Clean Tetrahedron" "test_files/clean_tetrahedron.off" "MANIFOLD" "none"
 
 # Test 2: Cube (existing test file, should be clean)
-run_test "Cube" "cube.off" "MANIFOLD" "none"
+run_test "Cube" "test_files/cube.off" "MANIFOLD" "none"
 
 # Test 3: Non-manifold edge (Note: CGAL may auto-repair some non-manifold cases)
 echo -e "${YELLOW}Testing: Non-manifold Edge (informational)${NC}"
 echo "Note: CGAL mesh loading may automatically repair some non-manifold cases"
-output=$(./build/validate_triangle_mesh nonmanifold_edge.off 2>&1)
+output=$($VALIDATOR test_files/nonmanifold_edge.off 2>&1)
 if [[ "$output" =~ "Mesh is MANIFOLD" ]]; then
     echo -e "${YELLOW}INFO: CGAL auto-repaired the mesh to manifold${NC}"
 else
@@ -124,13 +124,13 @@ fi
 echo
 
 # Test 4: Zero area triangle (collinear points)
-run_test "Zero Area Triangle" "zero_area_triangle.off" "MANIFOLD" "small_area"
+run_test "Zero Area Triangle" "test_files/zero_area_triangle.off" "MANIFOLD" "small_area"
 
 # Test 5: Sliver triangle (very small area and extreme angles)
-run_test "Sliver Triangle" "sliver_triangle.off" "MANIFOLD" "small_area" "1e-6"
+run_test "Sliver Triangle" "test_files/sliver_triangle.off" "MANIFOLD" "small_area" "1e-6"
 
 # Test 6: Open cylinder (existing test file)
-run_test "Open Cylinder" "open_cylinder.off" "MANIFOLD" "none"
+run_test "Open Cylinder" "test_files/open_cylinder.off" "MANIFOLD" "none"
 
 # Test parameter parsing
 echo -e "${YELLOW}Testing parameter parsing...${NC}"

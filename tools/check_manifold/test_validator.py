@@ -137,7 +137,7 @@ class TestRunner:
         test_cases = [
             TestCase(
                 name="Clean Tetrahedron",
-                filename="clean_tetrahedron.off",
+                filename="test_files/clean_tetrahedron.off",
                 expected_manifold=True,
                 expected_degenerate=0,
                 expected_small_area=0,
@@ -145,7 +145,7 @@ class TestRunner:
             ),
             TestCase(
                 name="Cube",
-                filename="cube.off",
+                filename="test_files/cube.off",
                 expected_manifold=True,
                 expected_degenerate=0,
                 expected_small_area=0,
@@ -153,7 +153,7 @@ class TestRunner:
             ),
             TestCase(
                 name="Zero Area Triangle",
-                filename="zero_area_triangle.off",
+                filename="test_files/zero_area_triangle.off",
                 expected_manifold=True,
                 expected_degenerate=0,
                 expected_small_area=1,
@@ -161,7 +161,7 @@ class TestRunner:
             ),
             TestCase(
                 name="Sliver Triangle (strict params)",
-                filename="sliver_triangle.off",
+                filename="test_files/sliver_triangle.off",
                 expected_manifold=True,
                 expected_degenerate=0,
                 expected_small_area=1,
@@ -170,7 +170,7 @@ class TestRunner:
             ),
             TestCase(
                 name="Non-manifold Edge (should be detected)",
-                filename="nonmanifold_edge.off",
+                filename="test_files/nonmanifold_edge.off",
                 expected_manifold=False,
                 expected_degenerate=0,
                 expected_small_area=0,
@@ -178,7 +178,7 @@ class TestRunner:
             ),
             TestCase(
                 name="Open Cylinder",
-                filename="open_cylinder.off",
+                filename="test_files/open_cylinder.off",
                 expected_manifold=True,
                 expected_degenerate=0,
                 expected_small_area=0,
