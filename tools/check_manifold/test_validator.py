@@ -126,8 +126,7 @@ class TestRunner:
         if not os.path.exists(self.validator_path):
             print("Building project...")
             try:
-                subprocess.run(["cmake", ".", "-B", "build"], check=True, capture_output=True)
-                subprocess.run(["make", "-C", "build"], check=True, capture_output=True)
+                subprocess.run(["make"], check=True, capture_output=True)
                 print("✅ Build successful\n")
             except subprocess.CalledProcessError as e:
                 print(f"❌ Build failed: {e}")
