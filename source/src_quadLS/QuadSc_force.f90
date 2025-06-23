@@ -163,6 +163,7 @@
       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
 !C
+
       CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
 !C
@@ -224,12 +225,13 @@
          DALY=DALY+DALPHA*DBI3
          DALZ=DALZ+DALPHA*DBI4
        ENDDO
-!C
 !C---------------------------------------------------------
        JJ = 4*(IEL-1) + 1
        Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) + &
                (YY-DY0)*P(JJ+2) + (ZZ-DZ0)*P(JJ+3)
 !C--------------------------------------------------------
+
+
 !c-----------Form the integrand------------------
        DN1=-DALX
        DN2=-DALY
@@ -401,6 +403,30 @@
       nnel = nnel + 1
       DNY = DVISC(IEL)
 
+!-----------------------------------------------------------------------
+! Setup for trilinear geometry mapping from reference element [-1,1]^3
+! to a physical hexahedral element with 8 corner vertices.
+!
+! Each coordinate (x,y,z) is interpolated as:
+!   x(ξ) = ∑_{k=1}^8 N_k(ξ1,ξ2,ξ3) * x_k
+!   y(ξ) = ∑_{k=1}^8 N_k(ξ1,ξ2,ξ3) * y_k
+!   z(ξ) = ∑_{k=1}^8 N_k(ξ1,ξ2,ξ3) * z_k
+!
+! The Q1 shape functions N_k(ξ1, ξ2, ξ3) for k = 1..8 are:
+!   N_k(ξ) = (1 + ξ1*ξ1k)(1 + ξ2*ξ2k)(1 + ξ3*ξ3k) / 8
+! where (ξ1k, ξ2k, ξ3k) ∈ {±1} are the reference coordinates of vertex k.
+!
+! We precompute the coefficients of the full trilinear polynomial:
+!   f(ξ1,ξ2,ξ3) = a₀ + a₁ ξ1 + a₂ ξ2 + a₃ ξ3
+!                + a₄ ξ1 ξ2 + a₅ ξ1 ξ3 + a₆ ξ2 ξ3 + a₇ ξ1 ξ2 ξ3
+!
+! These 8 coefficients are stored for each coordinate:
+!   - x: DJm1
+!   - y: DJm2
+!   - z: DJm3
+!
+!-----------------------------------------------------------------------      
+
       ! *** Evaluation of coordinates of the vertices
       DX0 = 0d0
       DY0 = 0d0
@@ -418,6 +444,23 @@
         DY0 = DY0 + 0.125d0*DY(IVE)
         DZ0 = DZ0 + 0.125d0*DZ(IVE)
       end do
+
+!-----------------------------------------------------------------------
+! Precompute monomial coefficients for mapping:
+! These encode:
+!   a₀      → DJ11/12/13  (constant term)
+!   a₁      → DJ21/22/23  (∝ ξ1)
+!   a₂      → DJ31/32/33  (∝ ξ2)
+!   a₃      → DJ41/42/43  (∝ ξ3)
+!   a₄      → DJ51/52/53  (∝ ξ1 ξ2)
+!   a₅      → DJ61/62/63  (∝ ξ1 ξ3)
+!   a₆      → DJ71/72/73  (∝ ξ2 ξ3)
+!   a₇      → DJ81/82/83  (∝ ξ1 ξ2 ξ3)
+!
+! Used for fast evaluation of:
+!   x(ξ1,ξ2,ξ3) = DJ11 + DJ21*ξ1 + DJ31*ξ2 + ... + DJ81*ξ1*ξ2*ξ3
+!   (and same for y, z)
+!-----------------------------------------------------------------------      
 !
       DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
       DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
@@ -454,7 +497,23 @@
       XI2=DXI(ICUBP,2)
       XI3=DXI(ICUBP,3)
 !
-! *** Jacobian of the bilinear mapping onto the reference element
+!-----------------------------------------------------------------------
+! Evaluate the Jacobian matrix J = ∂(x,y,z) / ∂(ξ1, ξ2, ξ3)
+! at the current cubature (Gauss) point (XI1, XI2, XI3)
+!
+! This is needed to:
+!   - transform basis gradients: ∇_x N = J^{-T} ∇_ξ N
+!   - compute integration weight |J| for volume element
+!
+! The entries are obtained by differentiating the trilinear mapping:
+!   x(ξ) = a₀ + a₁ ξ1 + a₂ ξ2 + a₃ ξ3 + ... + a₇ ξ1 ξ2 ξ3
+! ⇒ ∂x/∂ξ1 = a₁ + a₄ ξ2 + a₅ ξ3 + a₇ ξ2 ξ3
+!    (and similarly for y, z, and other ξ-variables)
+!
+! Each DJAC(i,j) = ∂(coord i) / ∂(ξ_j)
+!-----------------------------------------------------------------------
+
+! Derivatives w.r.t. ξ1 → 1st column of Jacobian      
       DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
       DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
       DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
@@ -464,14 +523,79 @@
       DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
       DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
       DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+
+!-----------------------------------------------------------------------
+! Compute determinant of Jacobian |J| at Gauss point
+! (used to convert volume integrals from reference to physical space)
+! Also needed for transforming gradients: ∇x = J^{-T} ∇ξ
+!-----------------------------------------------------------------------      
       DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))&
            -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))&
            +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+
+! Multiply with Gauss weight to get physical-space integration weight           
       OM=DOMEGA(ICUBP)*ABS(DETJ)
 !
+!-----------------------------------------------------------------------
+! Evaluate the physical coordinates (x, y, z) of the current Gauss point
+! by partially reconstructing the trilinear mapping from reference point
+! (XI1, XI2, XI3) ∈ [-1,1]³ to physical coordinates (XX, YY, ZZ).
+!
+! The full trilinear mapping has 8 monomial terms:
+!   f(ξ) = a₀ + a₁ ξ1 + a₂ ξ2 + a₃ ξ3 + a₄ ξ1ξ2 + a₅ ξ1ξ3 + a₆ ξ2ξ3 + a₇ ξ1ξ2ξ3
+!
+! Here, the code **reuses DJAC(i,i)*ξᵢ** to implicitly insert:
+!   a₁ ξ1 + a₄ ξ1ξ2 + a₅ ξ1ξ3 + a₇ ξ1ξ2ξ3  for x (via DJAC(1,1)*XI1)
+!   a₂ ξ2 + a₄ ξ1ξ2 + a₆ ξ2ξ3 + a₇ ξ1ξ2ξ3  for y (via DJAC(2,2)*XI2)
+!   a₃ ξ3 + a₅ ξ1ξ3 + a₆ ξ2ξ3 + a₇ ξ1ξ2ξ3  for z (via DJAC(3,3)*XI3)
+!
+! It then adds the remaining terms explicitly:
+!   a₂ ξ2, a₃ ξ3, a₆ ξ2ξ3 for x
+!   a₁ ξ1, a₃ ξ3, a₅ ξ1ξ3 for y
+!   a₁ ξ1, a₂ ξ2, a₄ ξ1ξ2 for z
+!
+!-----------------------------------------------------------------------      
       XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
       YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
       ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
+
+!-----------------------------------------------------------------------
+! Evaluate Q2 (27-node) basis functions and their derivatives at the
+! current Gauss point (XI1, XI2, XI3) ∈ [-1,1]^3 in the reference element.
+!
+! What this call does:
+!   - Shape functions N_k(ξ) are defined for k = 1..27 (Q2 element)
+!   - Computes:
+!       * Value         :     N_k(ξ)
+!       * Gradient in x : ∂N_k/∂x
+!       * Gradient in y : ∂N_k/∂y
+!       * Gradient in z : ∂N_k/∂z
+!
+!   - Applies chain rule using the inverse Jacobian:
+!       ∇_x N_k = J^{-T} · ∇_ξ N_k
+!
+! Output is stored in:
+!   DBAS(dim,k,deriv) where:
+!     dim   = 1 (scalar field)
+!     k     = 1..27 (local basis function index)
+!     deriv = 1: value         → N_k(ξ)
+!             2: ∂N_k/∂x
+!             3: ∂N_k/∂y
+!             4: ∂N_k/∂z
+!
+! Usage example:
+!   DO I = 1, IDFL   (IDFL = 27 for Q2)
+!     k  = KDFL(I)        ! local shape function index
+!     DBI1 = DBAS(1,k,1)  ! N_k(ξ)
+!     DBI2 = DBAS(1,k,2)  ! ∂N_k/∂x
+!     DBI3 = DBAS(1,k,3)  ! ∂N_k/∂y
+!     DBI4 = DBAS(1,k,4)  ! ∂N_k/∂z
+!   END DO
+!
+! Note:
+!   - These are the scalar-valued Q2 basis functions (e.g. for α, U1, U2, U3)
+!   - The geometry mapping (earlier) is Q1 with only 8 nodes → don’t confuse!
+!-----------------------------------------------------------------------
 !
       CALL ELE(XI1,XI2,XI3,-3)
       IF (IER.LT.0) GOTO 99999
@@ -498,6 +622,46 @@
        DALY=0D0     ! ALFA y deriv
        DALZ=0D0     ! ALFA z deriv
 
+!-----------------------------------------------------------------------
+! Interpolate field values and spatial derivatives at the current
+! Gauss (cubature) point using Q2 shape functions.
+!
+! This loop performs the **standard finite element interpolation** of
+! multiple scalar fields (U1, U2, U3, ALPHA) and their gradients.
+!
+! Each field is represented in the element as:
+!     f_h(x) = ∑_{k=1}^{27} f_k · N_k(x)
+! and its gradient as:
+!     ∇f_h(x) = ∑_{k=1}^{27} f_k · ∇N_k(x)
+!
+! What the loop does:
+!   - IDFL = 27 is the number of Q2 basis functions per element
+!   - KDFG(I) = global DOF index for I-th local basis function
+!   - KDFL(I) = local index k ∈ 1..27 used to index DBAS
+!
+! For each local basis function N_k:
+!   - DBI1 = N_k(ξ)       (basis function value at Gauss point)
+!   - DBI2 = ∂N_k/∂x      (basis function x-derivative)
+!   - DBI3 = ∂N_k/∂y      (basis function y-derivative)
+!   - DBI4 = ∂N_k/∂z      (basis function z-derivative)
+!
+! These are used to interpolate:
+!   - U1, U2, U3: components of velocity vector field
+!   - ALPHA: indicator function αᵢ(x) for particle i
+!
+! Result:
+!   After the loop, you obtain:
+!     - DU1V = u₁(x_q),   DU1X = ∂u₁/∂x, etc.
+!     - DALV = αᵢ(x_q),   DALX = ∂αᵢ/∂x, etc.
+!   at the current Gauss point
+!
+! Notes:
+!   - The interpolated gradients are used to compute ∇u and ∇α
+!   - ALPHA is stored as an integer indicator (per node):
+!       ALPHA(IG) == IP → node belongs to current particle
+!   - DALPHA is set to 1 only if current particle matches node marking
+!     ⇒ gives piecewise-constant αᵢ, smoothed to Gauss point by shape fcts
+!-----------------------------------------------------------------------       
        DO I=1,IDFL
          IG=KDFG(I)
          DBI1=DBAS(1,KDFL(I),1)
@@ -535,11 +699,66 @@
          DALZ=DALZ+DALPHA*DBI4
        ENDDO
 
+!-----------------------------------------------------------------------
+! Interpolate the pressure at the current Gauss point using the
+! element-wise linear pressure representation (P1-discontinuous basis).
+!
+! Each pressure field is stored with 4 coefficients per element:
+!   - P(JJ)     : constant term p₀
+!   - P(JJ+1)   : linear coefficient in x-direction (∝ x - x₀)
+!   - P(JJ+2)   : linear coefficient in y-direction (∝ y - y₀)
+!   - P(JJ+3)   : linear coefficient in z-direction (∝ z - z₀)
+!
+! The pressure is evaluated at the Gauss point coordinates (XX, YY, ZZ)
+! using the element center (DX0, DY0, DZ0) as the expansion point:
+!
+!     p(x,y,z) ≈ p₀ + (x - x₀) * px + (y - y₀) * py + (z - z₀) * pz
+!
+! where (x₀, y₀, z₀) = element centroid
+!
+! This linear field is element-local and does not enforce continuity
+! between elements (which is appropriate for pressure in incompressible
+! velocity-pressure formulations using e.g. Q2/P1_disc pairing).
+!-----------------------------------------------------------------------
 !C---------------------------------------------------------
        JJ = 4*(IEL-1) + 1
        Press =          P(JJ  ) + (XX-DX0)*P(JJ+1) + &
                (YY-DY0)*P(JJ+2) + (ZZ-DZ0)*P(JJ+3)
 !--------------------------------------------------------
+!-----------------------------------------------------------------------
+! Evaluate the integrand for the hydrodynamic force and torque at the
+! current Gauss point (XX, YY, ZZ).
+!
+! Based on the volume-integrated expression from the paper:
+!     Fᵢ = - ∫ σ_h · ∇αᵢ dV
+! where
+!     σ_h = -p I + μ (∇u + ∇uᵀ)     -- full Newtonian Cauchy stress
+!
+! Quantities needed at the quadrature point:
+!   - Velocity u = (u₁, u₂, u₃) and gradients ∇u
+!   - Pressure p
+!   - Indicator function αᵢ and gradient ∇αᵢ
+!   - Viscosity μ = DNY or DMU0 (interpolated or element-based)
+!
+! At this point in the code:
+!   - DU1X, DU1Y, DU1Z = ∂u₁/∂x, ∂u₁/∂y, ∂u₁/∂z
+!   - DU2X, DU2Y, DU2Z = ∂u₂/∂x, ∂u₂/∂y, ∂u₂/∂z
+!   - DU3X, DU3Y, DU3Z = ∂u₃/∂x, ∂u₃/∂y, ∂u₃/∂z
+!   - DALX, DALY, DALZ = ∂αᵢ/∂x, ∂αᵢ/∂y, ∂αᵢ/∂z
+!
+! The integrand is:
+!     f = -p ∇αᵢ + μ (∇u) · ∇αᵢ
+!
+! This code uses the **non-symmetric** form:
+!     σ_h ≈ -p I + μ ∇u          (ignoring transpose)
+!
+! NOTE:
+!     The fully symmetric tensor σ_h = -p I + μ (∇u + ∇uᵀ)
+!     is implemented in the commented-out block below.
+!     It may give better physical accuracy and should be
+!     considered for final production use.
+!-----------------------------------------------------------------------
+
 !-----------Form the integrand------------------
        DN1=-DALX
        DN2=-DALY
@@ -562,6 +781,25 @@
        DResForceX = DResForceX + AH1*OM
        DResForceY = DResForceY + AH2*OM
        DResForceZ = DResForceZ + AH3*OM
+!-----------------------------------------------------------------------
+! Evaluate the torque contribution at this Gauss point via:
+!
+!     τ_i = ∫ (x - Xᵢ) × (σ_h · ∇αᵢ) dV
+!
+! At this point:
+!   - AH = σ_h · (−∇αᵢ) has just been computed
+!   - (XX, YY, ZZ) = physical coordinates of Gauss point
+!   - Center(:) = center of mass of particle i
+!
+! The torque integrand is the cross product:
+!     τ = r × f = (x - Xᵢ) × AH
+!
+! This gives:
+!     τ₁ = (y - Yᵢ)*AH₃ - (z - Zᵢ)*AH₂
+!     τ₂ = (z - Zᵢ)*AH₁ - (x - Xᵢ)*AH₃
+!     τ₃ = (x - Xᵢ)*AH₂ - (y - Yᵢ)*AH₁
+!
+! The result is then accumulated using the quadrature weight OM.
 !-------------------Torque force------------------------- 
        XTORQUE = XX - Center(1)
        YTORQUE = YY - Center(2)
