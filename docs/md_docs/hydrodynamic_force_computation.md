@@ -432,6 +432,87 @@ The points still needing full clarification would be:
 *   **`COMMON /COAUX1/ IDFL`**: Confirmation that `IDFL` (via `NDFL(IELTYP)`) is consistently 27 for the Q2 elements.
 *   **Jacobian Calculation (DJxx terms in `GetForces`)**: Confirmation of the specific isoparametric mapping type used for geometry (appears to be trilinear).
 
+Yes, this is extremely helpful! Having the source code for `NDFGL`, `NDFL`, and its helper `NGLS` clarifies many of the assumptions and details about how degrees of freedom are mapped.
+
+**Analysis of `NDFL(IELTYP)`:**
+
+*   **Purpose:** Returns the number of local degrees of freedom (`NDFL`) for a given element type (`IELTYP`).
+*   **Key Cases:**
+    *   `IELTYP = 10` (from `GOTO ... 100` with `IELTYP+1` indexing): `NDFL = 1` (Constant elements).
+    *   `IELTYP = 11` (from `GOTO ... 110`): `NDFL = NVE` (Number of Vertices per Element, e.g., 8 for linear hexahedra if `NVE=8`). This is for "Lagrange type elements with NVE dof" according to comments in `NDFGL`.
+    *   `IELTYP = 12` (from `GOTO ... 120`): `NDFL = 4`. This perfectly matches our P1 discontinuous pressure element (`E012`).
+    *   `IELTYP = 13` (from `GOTO ... 130`): `NDFL = NVE + NEE + NAE + 1`.
+        *   `NVE`: Number of vertices per element (e.g., 8 for hex).
+        *   `NEE`: Number of edges per element (e.g., 12 for hex).
+        *   `NAE`: Number of faces (areas) per element (e.g., 6 for hex).
+        *   `+1`: For the element center/bubble DOF.
+        *   For a standard hexahedron: $8 (\text{NVE}) + 12 (\text{NEE}) + 6 (\text{NAE}) + 1 = 27$. This **perfectly matches our Q2 (27-node) element (`E013`)**. The local DOFs are associated with vertices, edge midpoints, face centers, and the element centroid.
+
+*   **Confirmation for `GetVelocityAtElementMidpoints`:**
+    *   When `ELE` is `E013`, `IELTYP` becomes 13.
+    *   `IDFL_Local = NDFL(13)` will correctly return `NVE+NEE+NAE+1`, which is 27 for hexahedra. This confirms the loop `DO I=1,IDFL_Local` iterates 27 times.
+
+**Analysis of `NGLS(KV1,KV2,IDIM)`:**
+
+*   **Purpose:** A simple insertion sort (Piksort) algorithm. It sorts array `KV1` in ascending order and applies the same permutations to `KV2`.
+*   **Usage in `NDFGL`:** It's used to sort the global DOF indices (`JVG`) and correspondingly reorder the local DOF indices (`JVL`) if `IPAR >= 0`. This is often done for cache efficiency or to ensure a canonical ordering for matrix assembly.
+
+**Analysis of `NDFGL(IEL,IPAR,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)`:**
+
+*   **Purpose:** Determines the global degree of freedom indices (`KDFG`) for element `IEL` and, if requested (`IPAR=1`), the corresponding local degree of freedom indices (`KDFL`).
+*   **DOF Assembly for `IELTYP=13` (Q2 elements):**
+    1.  **Vertex DOFs:** `JVG(IVE) = KVERT(IVE,IEL)` and `JVL(IVE) = IVE` for `IVE=1,NVE`.
+        *   Global DOF for vertex `IVE` is its global vertex number.
+        *   Local DOF index for vertex `IVE` is `IVE` (1 to 8).
+    2.  **Edge DOFs (if `NET > 0`):** `JVG(NKE+IEE) = KEDGE(IEE,IEL)+NVT` and `JVL(NKE+IEE) = NKE+IEE`.
+        *   `NVT` is the total number of global vertices.
+        *   Global DOF for edge `IEE` is its global edge number (offset by `NVT`).
+        *   Local DOF index for edge `IEE` is `NVE+IEE` (9 to 20 for hex).
+    3.  **Face DOFs (if `NAT > 0`):** `JVG(NKE+IAE) = KAREA(IAE,IEL)+NVT+NET` and `JVL(NKE+IAE) = NKE+IAE`.
+        *   `NET` is the total number of global edges.
+        *   Global DOF for face `IAE` is its global face number (offset by `NVT+NET`).
+        *   Local DOF index for face `IAE` is `NVE+NEE+IAE` (21 to 26 for hex).
+    4.  **Sorting (if `IPAR >= 0`):** `CALL NGLS(JVG,JVL,NKE)` sorts `JVG` and applies same swaps to `JVL`. `NKE` at this point is `NVE+NEE+NAE`.
+    5.  **Handling `IELTYP=13`:**
+        *   `GOTO ... 130`.
+        *   `DO 131 IKE=1,NKE; KDFG(IKE)=JVG(IKE); END DO`: Copies sorted/unsorted global vertex/edge/face DOFs to `KDFG`.
+        *   `KDFG(NKE+1)=NVT+NET+NAT+IEL`: The global DOF for the **element center/bubble function** is `NVT+NET+NAT+IEL`. `NAT` is total global faces. This is a common way to give unique global IDs to element-centered DOFs.
+        *   **If `IPAR = 1`:**
+            *   `DO 132 IKE=1,NKE; KDFL(IKE)=JVL(IKE); END DO`: Copies sorted/unsorted local vertex/edge/face DOF indices to `KDFL`.
+            *   `KDFL(NKE+1)=NKE+1`: The local DOF index for the element center is `NKE+1` (which is 27 for hex).
+
+*   **Confirmation for `GetVelocityAtElementMidpoints`:**
+    *   In `GetVelocityAtElementMidpoints`, we call `NDFGL(Current_IEL,1,IELTYP,...)`. So `IPAR=1`.
+    *   This means `KDFG` will contain the 27 global DOF indices for the Q2 element, and `KDFL` will contain the corresponding local DOF indices (1 to 27).
+    *   The line `LDOF = KDFL(I)` in the interpolation loop is correct. `DBAS(1,LDOF,1)` will use the correct local index to fetch the basis function value $\phi_{LDOF}(0,0,0)$.
+
+**Does this confirm the `GetVelocityAtElementMidpoints` implementation?**
+
+**Yes, largely.** The new information confirms:
+1.  `IDFL_Local` will be correctly set to 27 by `NDFL(13)`.
+2.  `KDFG(I)` will provide the correct global node index for the `I`-th local DOF (after potential sorting).
+3.  `KDFL(I)` will provide the correct local basis function index (1 to 27, mapping to vertices, edges, faces, center) that corresponds to `KDFG(I)`. This `KDFL(I)` is the correct index to use with `DBAS(1, KDFL(I), 1)`.
+
+**One minor detail/check for `GetVelocityAtElementMidpoints`:**
+The loop for interpolation is `DO I=1,IDFL_Local`.
+Inside, we have `IG = KDFG(I)` and `LDOF = KDFL(I)`.
+Then we use `DBI1 = DBAS(1,LDOF,1)`.
+This assumes that `E013A` calculates `DHELP(k,1,...)` where `k` directly corresponds to the local DOF indices 1 through 27 in a standard order (e.g., 1-8 vertices, 9-20 edges, 21-26 faces, 27 center). The `JVL` array initially sets up this standard local numbering before `NGLS` might reorder it. So, `KDFL(I)` gives the *original* standard local index for the basis function whose global DOF is `KDFG(I)`. This looks correct.
+
+**Example for `IELTYP=13` (Q2 Hexahedron):**
+*   `NVE=8, NEE=12, NAE=6`.
+*   `NDFL = 8+12+6+1 = 27`.
+*   `JVG` initially stores global DOFs for vertices, then edges, then faces. `JVL` stores their local indices (1-8, 9-20, 21-26).
+*   If `IPAR=1`, `NGLS` is called. Let's assume for simplicity no sorting happens or that `E013A`'s basis functions are ordered according to these local indices.
+*   `KDFG(1..26)` get `JVG(1..26)`.
+*   `KDFG(27)` gets `NVT+NET+NAT+IEL`.
+*   `KDFL(1..26)` get `JVL(1..26)`.
+*   `KDFL(27)` gets `27`.
+
+The implementation of `GetVelocityAtElementMidpoints` seems robust with this new knowledge. The handling of `KDFG` and `KDFL` ensures that the correct nodal velocity `U(KDFG(I))` is multiplied by the correct basis function value `DBAS(1, KDFL(I), 1)`.
+
+This is excellent progress! We have a very good understanding of the low-level mechanics now.
+
 We've made excellent progress! The core numerical integration and basis function evaluation are much clearer now.
 
 ## Subroutine E012
@@ -518,3 +599,128 @@ Updated to reflect the strong evidence:
 >   \end{itemize}
 
 This is a good clarification. It shows the code has distinct element routines for different variables (Q2 for velocity/alpha, P1 for pressure), which is the standard Taylor-Hood like Q2/P1 or the Q2/P1disc (discontinuous pressure) element pair, often used for incompressible flow. Given that `E012` doesn't transform derivatives to physical coordinates in the same way `E013` does, and pressure is often discontinuous, `Q2/P1disc` is a strong candidate for the element pair used.
+
+# Hydrodynamic Force Computation Overview: FEM Framework
+
+This document explains the finite element machinery behind the evaluation of hydrodynamic forces and torques in the context of dense suspensions. It connects the theoretical formulation to the practical implementation in the Fortran-based simulation framework.
+
+---
+
+## 1. Mathematical Formulation
+
+The hydrodynamic force $\mathbf{F}_i$ on particle $i$ is given by:
+
+$$
+\mathbf{F}_i = -\int_{\Omega^T} \boldsymbol{\sigma}_h : \nabla \alpha_i \, dx
+$$
+
+where the stress tensor is:
+
+$$
+\boldsymbol{\sigma}_h = -p \mathbf{I} + \mu (\nabla \mathbf{u} + \nabla \mathbf{u}^T)
+$$
+
+* $p$: pressure
+* $\mu$: fluid viscosity (possibly spatially varying)
+* $\mathbf{u}$: velocity field
+* $\alpha_i$: indicator function for particle $i$
+
+The force is obtained by integrating the projection of the stress tensor against the gradient of the indicator function.
+
+---
+
+## 2. Shape Functions and Mapping
+
+### 2.1 Geometry Mapping with Q1
+
+The physical geometry of each hexahedral element is mapped from the reference cube $[-1,1]^3$ via a trilinear interpolation using 8 Q1 shape functions:
+
+$$
+\mathbf{x}_{\text{map}}(\xi_1, \xi_2, \xi_3) = \sum_{k=1}^8 N_k^{\text{Q1}}(\xi_1, \xi_2, \xi_3) \cdot \mathbf{x}_k
+$$
+
+Precomputed combinations of vertex coordinates are stored as DJ11--DJ83 coefficients. These represent all polynomial monomials in the Q1 mapping (linear, bilinear, trilinear) and allow for optimized evaluation of:
+
+* Jacobian matrix $J = \frac{\partial (x,y,z)}{\partial (\xi_1,\xi_2,\xi_3)}$
+* Physical coordinates $(x,y,z)$ at a Gauss point
+
+### 2.2 Optimized Mapping Strategy
+
+Rather than expanding all 8 monomial terms of the trilinear map separately, the code reuses combinations inside Jacobian terms:
+
+* Terms like $DJAC(i,i) \cdot \xi_i$ include 4 monomials at once
+* Remaining monomials are added explicitly
+
+This saves floating-point operations while preserving accuracy.
+
+---
+
+## 3. Q2 Shape Functions and the `ELE` Evaluator
+
+Velocity and indicator fields $\mathbf{u}$, $\alpha$ are represented using 27-node Q2 hexahedral elements. For a given Gauss point $(\xi_1, \xi_2, \xi_3)$, the function call:
+
+```fortran
+CALL ELE(XI1, XI2, XI3, -3)
+```
+
+provides:
+
+* Values $N_k(\xi)$
+* Gradients $\nabla_x N_k = J^{-T} \cdot \nabla_\xi N_k$
+
+These are stored in:
+
+```fortran
+DBAS(1,k,1) = N_k(\xi)
+DBAS(1,k,2) = \partial N_k / \partial x
+DBAS(1,k,3) = \partial N_k / \partial y
+DBAS(1,k,4) = \partial N_k / \partial z
+```
+
+This forms the core of all field interpolations at quadrature points.
+
+---
+
+## 4. Field Interpolation and Integrand Assembly
+
+For each Gauss point:
+
+1. Interpolate viscosity $\mu(x)$, velocity $\mathbf{u}(x)$, gradient $\nabla \mathbf{u}(x)$, and indicator gradient $\nabla \alpha(x)$
+2. Interpolate pressure using 4 local P1-disc coefficients
+
+```fortran
+Press = P(JJ) + (x-x0)*P(JJ+1) + (y-y0)*P(JJ+2) + (z-z0)*P(JJ+3)
+```
+
+3. Form the integrand:
+
+```fortran
+f = -p * \nabla \alpha + \mu * (\nabla u) \cdot \nabla \alpha
+```
+
+> A symmetric form using $(\nabla u + \nabla u^T)$ is also implemented and commented for optional use.
+
+---
+
+## 5. Torque Evaluation
+
+The torque vector is computed via:
+
+$$
+\boldsymbol{\tau}_i = \int_{\Omega^T} (x - x_i) \times \left( \boldsymbol{\sigma}_h \cdot \nabla \alpha_i \right) dx
+$$
+
+This is evaluated at each Gauss point by computing the lever arm from the particle center and taking the cross product with the force integrand.
+
+---
+
+## 6. Summary
+
+This implementation leverages:
+
+* Efficient precomputed Jacobian mapping
+* Accurate Q2-based function interpolation
+* Chain-rule-based transformation from reference → physical space
+* Modular code logic encapsulated in `ELE`
+
+The result is a robust and high-fidelity evaluation of hydrodynamic forces directly from the finite element solution fields, without surface extraction.
