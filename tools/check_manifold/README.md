@@ -29,55 +29,140 @@ The executable will be built in the `tools/check_manifold` directory within your
 
 ## Usage
 
-### Basic Usage
+### Basic Usage (Production Mode)
 
 ```bash
 ./validate_triangle_mesh <mesh_file.off>
 ```
 
-### With Custom Thresholds
+This provides a clean, summary-only output suitable for production validation workflows.
 
+### Command Line Options
+
+- `--enable-repair-check`: Enable additional manifold validation that includes auto-repair checking
+- `--verbose`: Show detailed face-by-face information for debugging
+
+### Usage Patterns
+
+#### Quick Production Check (Default)
 ```bash
-./validate_triangle_mesh <mesh_file.off> [area_threshold] [min_angle] [max_angle] [aspect_ratio] [circumradius_ratio]
+# Fast validation with summary output only
+./validate_triangle_mesh mesh.off
 ```
 
-### Parameters
+#### Detailed Debugging Mode
+```bash
+# Show detailed face-by-face triangle information
+./validate_triangle_mesh mesh.off --verbose
+```
 
-- `area_threshold`: Minimum triangle area (default: 1e-12)
-- `min_angle`: Minimum angle in degrees (default: 0.1)
-- `max_angle`: Maximum angle in degrees (default: 179.9)
-- `aspect_ratio`: Maximum aspect ratio (default: 100.0)
-- `circumradius_ratio`: Maximum circumradius/inradius ratio (default: 100.0)
+#### Enable Auto-Repair Validation
+```bash
+# Include manifold check with potential auto-repair
+./validate_triangle_mesh mesh.off --enable-repair-check
+```
 
-### Example
+#### Full Debug Mode
+```bash
+# Both verbose output and auto-repair checking
+./validate_triangle_mesh mesh.off --verbose --enable-repair-check
+```
+
+### Custom Thresholds
+
+Thresholds can be specified after the options:
 
 ```bash
-# Use strict quality criteria
-./validate_triangle_mesh my_mesh.off 1e-6 1.0 179.0 30.0 10.0
+./validate_triangle_mesh mesh.off [OPTIONS] [area_threshold] [min_angle] [max_angle] [aspect_ratio] [circumradius_ratio]
+```
+
+### Threshold Parameters
+
+- `area_threshold`: Minimum triangle area (default: 1e-12)
+- `min_angle`: Minimum angle in degrees (default: 1.0)
+- `max_angle`: Maximum angle in degrees (default: 179.0)
+- `aspect_ratio`: Maximum aspect ratio (default: 30.0)
+- `circumradius_ratio`: Maximum circumradius/inradius ratio (default: 10.0)
+
+### Complete Examples
+
+```bash
+# Production validation with custom thresholds
+./validate_triangle_mesh my_mesh.off 1e-6 2.0 178.0 25.0 8.0
+
+# Debug mode with strict quality criteria
+./validate_triangle_mesh my_mesh.off --verbose --enable-repair-check 1e-6 1.0 179.0 30.0 10.0
 ```
 
 ## Output
 
-The tool provides detailed reports including:
+The tool provides different levels of output depending on the options used:
+
+### Default Output (Production Mode)
 
 ```
-=== Triangle Mesh Validation Report ===
-Mesh file: my_mesh.off
-Vertices: 8
-Triangles: 12
+CGAL Triangle Mesh Validator
+CGAL version: 5.6
+Loaded mesh with 8 vertices and 12 faces
 
 === Manifold Check ===
-Mesh is MANIFOLD
+Raw manifold check (no auto-repair): MANIFOLD
+Auto-repair check disabled (use --enable-repair-check to enable)
+Final verdict: Mesh is MANIFOLD
 
-=== Quality Analysis ===
+=== Triangle Quality Analysis ===
+
+=== Summary ===
+Total triangles: 12
 Degenerate triangles: 0
 Small area triangles: 0
 Extreme angle triangles: 0
 High aspect ratio triangles: 0
 High circumradius/inradius triangles: 0
-
-Final verdict: Mesh is MANIFOLD and passes all quality checks
 ```
+
+### Verbose Output (Debug Mode)
+
+With `--verbose` flag, detailed face-by-face information is shown:
+
+```
+Configuration:
+  Repair check enabled: NO
+  Verbose output: YES
+  Thresholds: area=1e-12, minAng=1°, maxAng=179°, edgeRatio=30, RrRatio=10
+
+=== Triangle Quality Analysis ===
+Area threshold: 1e-12
+Min angle threshold: 1°
+Max angle threshold: 179°
+Aspect ratio threshold: 30
+Circumradius/inradius threshold: 10
+
+[Individual triangle issues would be listed here if found]
+Extreme angle triangle (face 5): min = 0.5°, max = 179.2°
+High aspect ratio triangle (face 8): ratio = 45.2
+
+=== Summary ===
+...
+```
+
+### With Auto-Repair Check
+
+With `--enable-repair-check` flag:
+
+```
+=== Manifold Check ===
+Raw manifold check (no auto-repair): NON-MANIFOLD
+Loaded mesh manifold check: MANIFOLD
+Final verdict: Mesh is NON-MANIFOLD
+```
+
+## Workflow Separation
+
+The tool is designed to serve different user workflows:
+
+- **Production Users**: Quick validation with clean, summary-only output
+- **Debug/Repair Users**: Detailed analysis with face-by-face information and auto-repair checking
 
 ## Test Suites
 
@@ -88,11 +173,18 @@ Two test suites are provided to validate the tool functionality:
 ```bash
 # Run all tests
 ./run_tests.sh
+
+# Test with verbose output
+./run_tests.sh --verbose
+
+# Test with auto-repair checking
+./run_tests.sh --enable-repair-check
 ```
 
 Features:
 - Colored output for easy result interpretation
 - Tests various mesh types (clean, degenerate, non-manifold)
+- Supports testing both production and debug modes
 - Automatic build if needed
 - Comprehensive test result summary
 
@@ -101,10 +193,15 @@ Features:
 ```bash
 # Run Python test suite
 python3 test_validator.py
+
+# Test specific modes
+python3 test_validator.py --test-verbose
+python3 test_validator.py --test-repair-check
 ```
 
 Features:
 - Structured test cases with expected results
+- Tests both production and debug output modes
 - Detailed output parsing and validation
 - Automatic build if needed
 - Comprehensive error reporting

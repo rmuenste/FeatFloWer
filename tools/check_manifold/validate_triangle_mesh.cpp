@@ -192,7 +192,7 @@ public:
         return metrics;
     }
     
-    void validate_triangle_quality(const Mesh& mesh) {
+    void validate_triangle_quality(const Mesh& mesh, bool verbose = false) {
         int total_triangles = 0;
         int degenerate_triangles = 0;
         int small_area_triangles = 0;
@@ -201,11 +201,11 @@ public:
         int high_circum_inradius_triangles = 0;
         
         std::cout << "\n=== Triangle Quality Analysis ===" << std::endl;
-        std::cout << "Area threshold: " << area_threshold << std::endl;
-        std::cout << "Min angle threshold: " << min_angle_threshold * 180.0 / M_PI << "°" << std::endl;
-        std::cout << "Max angle threshold: " << max_angle_threshold * 180.0 / M_PI << "°" << std::endl;
-        std::cout << "Aspect ratio threshold: " << aspect_ratio_threshold << std::endl;
-        std::cout << "Circumradius/inradius threshold: " << circum_inradius_threshold << std::endl;
+            std::cout << "Area threshold: " << area_threshold << std::endl;
+            std::cout << "Min angle threshold: " << min_angle_threshold * 180.0 / M_PI << "°" << std::endl;
+            std::cout << "Max angle threshold: " << max_angle_threshold * 180.0 / M_PI << "°" << std::endl;
+            std::cout << "Aspect ratio threshold: " << aspect_ratio_threshold << std::endl;
+            std::cout << "Circumradius/inradius threshold: " << circum_inradius_threshold << std::endl;
         
         for (auto f : mesh.faces()) {
             auto h = mesh.halfedge(f);
@@ -222,31 +222,41 @@ public:
             
             if (metrics.is_degenerate) {
                 degenerate_triangles++;
-                std::cout << "Degenerate triangle found (face " << f << ")" << std::endl;
+                if (verbose) {
+                    std::cout << "Degenerate triangle found (face " << f << ")" << std::endl;
+                }
             }
             
             if (metrics.area < area_threshold) {
                 small_area_triangles++;
-                std::cout << "Small area triangle (face " << f << "): area = " << metrics.area << std::endl;
+                if (verbose) {
+                    std::cout << "Small area triangle (face " << f << "): area = " << metrics.area << std::endl;
+                }
             }
             
             if (metrics.min_angle < min_angle_threshold || metrics.max_angle > max_angle_threshold) {
                 extreme_angle_triangles++;
-                std::cout << "Extreme angle triangle (face " << f << "): min = " 
-                         << metrics.min_angle * 180.0 / M_PI << "°, max = " 
-                         << metrics.max_angle * 180.0 / M_PI << "°" << std::endl;
+                if (verbose) {
+                    std::cout << "Extreme angle triangle (face " << f << "): min = " 
+                             << metrics.min_angle * 180.0 / M_PI << "°, max = " 
+                             << metrics.max_angle * 180.0 / M_PI << "°" << std::endl;
+                }
             }
             
             if (metrics.edge_ratio > aspect_ratio_threshold) {
                 high_aspect_ratio_triangles++;
-                std::cout << "High aspect ratio triangle (face " << f << "): ratio = " 
-                         << metrics.edge_ratio << std::endl;
+                if (verbose) {
+                    std::cout << "High aspect ratio triangle (face " << f << "): ratio = " 
+                             << metrics.edge_ratio << std::endl;
+                }
             }
             
             if (metrics.circum_inradius_ratio > circum_inradius_threshold) {
                 high_circum_inradius_triangles++;
-                std::cout << "High circumradius/inradius triangle (face " << f << "): ratio = " 
-                         << metrics.circum_inradius_ratio << std::endl;
+                if (verbose) {
+                    std::cout << "High circumradius/inradius triangle (face " << f << "): ratio = " 
+                             << metrics.circum_inradius_ratio << std::endl;
+                }
             }
         }
         
@@ -265,20 +275,57 @@ int main(int argc, char* argv[]) {
     std::cout << "CGAL version: " << CGAL_VERSION_STR << std::endl;
     
     if (argc < 2) {
-        std::cerr << "Usage  : " << argv[0]
-                  << " input.off  [areaTol] [minAng] [maxAng] [edgeRatio] [RrRatio]\n"
-                  << "Defaults: areaTol=1e-12  minAng=1°  maxAng=179°  edgeRatio=30  RrRatio=10\n";
+        std::cerr << "Usage: " << argv[0] << " input.off [OPTIONS] [THRESHOLDS]\n"
+                  << "\nOPTIONS:\n"
+                  << "  --enable-repair-check     Enable additional manifold check with auto-repair\n"
+                  << "  --verbose                 Show detailed face-by-face information\n"
+                  << "\nTHRESHOLDS (in order):\n"
+                  << "  areaTol    Area threshold (default: 1e-12)\n"
+                  << "  minAng     Min angle in degrees (default: 1°)\n"
+                  << "  maxAng     Max angle in degrees (default: 179°)\n"
+                  << "  edgeRatio  Edge ratio threshold (default: 30)\n"
+                  << "  RrRatio    Circumradius/inradius ratio (default: 10)\n"
+                  << "\nExample: " << argv[0] << " mesh.off --verbose\n"
+                  << "Example: " << argv[0] << " mesh.off --enable-repair-check 1e-10 2.0\n";
         return EXIT_FAILURE;
     }
 
-    // ── thresholds (user-overridable from command line) ──────────────────────
-    const double AREA_EPS   = (argc > 2) ? std::stod(argv[2]) : 1e-12;
-    const double MIN_ANG    = (argc > 3) ? std::stod(argv[3]) : 1.0;   // degrees
-    const double MAX_ANG    = (argc > 4) ? std::stod(argv[4]) : 179.0; // degrees
-    const double EDGE_RATIO = (argc > 5) ? std::stod(argv[5]) : 30.0;
-    const double RR_RATIO   = (argc > 6) ? std::stod(argv[6]) : 10.0;
-    
+    // Parse command line arguments
     std::string filename = argv[1];
+    bool enable_repair_check = false;
+    bool verbose = false;
+    int threshold_start_idx = 2;
+    
+    // Parse flags
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--enable-repair-check") {
+            enable_repair_check = true;
+            threshold_start_idx = i + 1;
+        } else if (arg == "--verbose") {
+            verbose = true;
+            threshold_start_idx = i + 1;
+        } else {
+            // First non-flag argument starts threshold parsing
+            threshold_start_idx = i;
+            break;
+        }
+    }
+    
+    // ── thresholds (user-overridable from command line) ──────────────────────
+    const double AREA_EPS   = (threshold_start_idx < argc) ? std::stod(argv[threshold_start_idx]) : 1e-12;
+    const double MIN_ANG    = (threshold_start_idx + 1 < argc) ? std::stod(argv[threshold_start_idx + 1]) : 1.0;   // degrees
+    const double MAX_ANG    = (threshold_start_idx + 2 < argc) ? std::stod(argv[threshold_start_idx + 2]) : 179.0; // degrees
+    const double EDGE_RATIO = (threshold_start_idx + 3 < argc) ? std::stod(argv[threshold_start_idx + 3]) : 30.0;
+    const double RR_RATIO   = (threshold_start_idx + 4 < argc) ? std::stod(argv[threshold_start_idx + 4]) : 10.0;
+    
+    if (verbose) {
+        std::cout << "\nConfiguration:" << std::endl;
+        std::cout << "  Repair check enabled: " << (enable_repair_check ? "YES" : "NO") << std::endl;
+        std::cout << "  Verbose output: " << (verbose ? "YES" : "NO") << std::endl;
+        std::cout << "  Thresholds: area=" << AREA_EPS << ", minAng=" << MIN_ANG << "°, maxAng=" << MAX_ANG << "°, edgeRatio=" << EDGE_RATIO << ", RrRatio=" << RR_RATIO << std::endl;
+    }
+    
     Mesh mesh;
     MeshValidator validator(AREA_EPS, MIN_ANG, MAX_ANG, EDGE_RATIO, RR_RATIO);
     
@@ -287,23 +334,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Check if mesh is manifold using raw check first (no auto-repair)
+    // Always perform raw manifold check (no auto-repair)
     std::cout << "\n=== Manifold Check ===" << std::endl;
     std::cout << "Raw manifold check (no auto-repair): ";
     bool is_manifold_raw = validator.is_manifold_raw_check(filename);
     std::cout << (is_manifold_raw ? "MANIFOLD" : "NON-MANIFOLD") << std::endl;
     
-    // Also check the loaded mesh (may have been auto-repaired)
-    std::cout << "Loaded mesh manifold check: ";
-    bool is_manifold_loaded = validator.is_manifold(mesh);
-    std::cout << (is_manifold_loaded ? "MANIFOLD" : "NON-MANIFOLD") << std::endl;
+    // Optionally check the loaded mesh (may have been auto-repaired)
+    if (enable_repair_check) {
+        std::cout << "Loaded mesh manifold check: ";
+        bool is_manifold_loaded = validator.is_manifold(mesh);
+        std::cout << (is_manifold_loaded ? "MANIFOLD" : "NON-MANIFOLD") << std::endl;
+    } else {
+        std::cout << "Auto-repair check disabled (use --enable-repair-check to enable)" << std::endl;
+    }
     
-    // Final verdict - use the raw check as authoritative
+    // Final verdict - always use the raw check as authoritative
     bool is_manifold = is_manifold_raw;
     std::cout << "Final verdict: Mesh is " << (is_manifold ? "MANIFOLD" : "NON-MANIFOLD") << std::endl;
     
     // Analyze triangle quality
-    validator.validate_triangle_quality(mesh);
+    validator.validate_triangle_quality(mesh, verbose);
     
     return 0;
 }
