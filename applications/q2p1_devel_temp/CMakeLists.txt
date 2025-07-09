@@ -31,7 +31,6 @@ target_compile_options(q2p1_devel_temp PRIVATE ${Fortran_FLAGS})
 set_target_properties(q2p1_devel_temp PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 

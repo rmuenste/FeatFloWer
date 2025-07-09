@@ -269,8 +269,16 @@ if(USE_CGAL)
     set(CGAL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/include)
     include_directories(SYSTEM ${CGAL_INCLUDE_DIR})
 
+
     set(CGAL_LIBRARIES 
-      )
+    )
+
+    # Create a CMake interface for CGAL
+    add_library(CGAL::CGAL INTERFACE IMPORTED)
+    add_dependencies(CGAL::CGAL cgal)
+    # Every target that links to CGAL::CGAL will automatically get -I${CGAL_INCLUDE_DIR} added to its include directories.
+    target_include_directories(CGAL::CGAL
+                              INTERFACE ${CGAL_INCLUDE_DIR})
 
   else(NOT USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
@@ -405,8 +413,8 @@ find_package(Git 2.17)
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
-    add_dependencies(check_manifold cgal)
-    add_dependencies(validate_triangle_mesh cgal)
+    add_dependencies(check_manifold CGAL::CGAL)
+    add_dependencies(validate_triangle_mesh CGAL::CGAL)
   endif(USE_CGAL)
 endif(NOT WIN32)
 
@@ -473,12 +481,15 @@ IF(BUILD_APPLICATIONS)
     # This way we make sure that CGAL is built in time before it gets used
     # in the building process
     if(USE_CGAL)
-      add_dependencies(inshape3dcore cgal)
+      add_dependencies(inshape3dcore CGAL::CGAL)
     endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()
 
+  # Include CreateDataDirectories.cmake to make the function available to all applications
+  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)
+  
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
 

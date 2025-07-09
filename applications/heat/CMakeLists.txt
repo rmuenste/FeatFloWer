@@ -41,7 +41,6 @@ add_dependencies(${SSE_TARGET_NAME} s3d_mesher)
 get_target_property(MYTARGET ${SSE_TARGET_NAME} NAME)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 

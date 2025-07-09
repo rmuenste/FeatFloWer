@@ -28,9 +28,9 @@ add_executable(validate_triangle_mesh validate_triangle_mesh.cpp)
 
 get_target_property(MYTARGET check_manifold NAME)
 
-target_link_libraries(${MYTARGET} ${CGAL_LIBRARIES}) 
-target_link_libraries(validate_triangle_mesh ${CGAL_LIBRARIES}) 
+target_link_libraries(${MYTARGET} CGAL::CGAL) 
+target_link_libraries(validate_triangle_mesh CGAL::CGAL) 
 
 # add include directories
-target_include_directories(${MYTARGET} PUBLIC ${CGAL_INCLUDE_DIR})
-target_include_directories(validate_triangle_mesh PUBLIC ${CGAL_INCLUDE_DIR})
+#target_include_directories(${MYTARGET} PUBLIC ${CGAL_INCLUDE_DIR})
+#target_include_directories(validate_triangle_mesh PUBLIC ${CGAL_INCLUDE_DIR})

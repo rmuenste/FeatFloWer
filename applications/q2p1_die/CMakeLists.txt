@@ -56,7 +56,6 @@ set_target_properties(${SSE_DIE_TARGET_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
 add_dependencies(${SSE_DIE_TARGET_NAME} s3d_mesher)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
   # create the die specific directories 
