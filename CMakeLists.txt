@@ -36,8 +36,8 @@ include(CMakeDependentOption)
 #=========================================================================
 #                         custom targets  
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
-include(${CMAKE_MODULE_PATH}/GenerateBuildIdOutput.cmake)  
+include(CustomTargets)  
+include(GenerateBuildIdOutput)  
 option(SHOW_BUILD_IDS
   "Display all available build ids and exit"
   OFF
@@ -53,7 +53,7 @@ endif(SHOW_BUILD_IDS)
 #                         compiler settings
 #=========================================================================
 message(STATUS "Checking build type...")
-include(${CMAKE_MODULE_PATH}/CompilerQuickCheck.cmake)
+include(CompilerQuickCheck)
 
 IF(NOT Q2P1_COMPILER)
   set(Q2P1_DEFAULT_COMPILER "gcc")
@@ -61,7 +61,7 @@ ELSE(NOT Q2P1_COMPILER)
   set(Q2P1_DEFAULT_COMPILER ${Q2P1_COMPILER})
 ENDIF(NOT Q2P1_COMPILER)
 
-include(${CMAKE_MODULE_PATH}/GenerateBuildId.cmake)  
+include(GenerateBuildId)  
 
 #=========================================================================
 #                             Options
@@ -435,13 +435,13 @@ endif(USE_HYPRE)
 #      Set the flags/paths/etc. we have determined for libraries 
 #=========================================================================
 message(STATUS "Module path was set to ${CMAKE_MODULE_PATH}")
-include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateIncludeFlags.cmake)  
-include(${CMAKE_SOURCE_DIR}/cmake/modules/GenerateLinkerFlags.cmake)  
+include(GenerateIncludeFlags)  
+include(GenerateLinkerFlags)  
 
 #=========================================================================
 #                         project directories
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/ProjectFiles.cmake)  
+include(ProjectFiles)  
 
 #=========================================================================
 #                     PE Library
@@ -488,7 +488,7 @@ IF(BUILD_APPLICATIONS)
   ENDIF()
 
   # Include CreateDataDirectories.cmake to make the function available to all applications
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)
+  include(CreateDataDirectories)
   
   add_subdirectory(applications)
 ENDIF(BUILD_APPLICATIONS)
@@ -505,7 +505,7 @@ install(FILES tools/PyPartitioner.py DESTINATION bin PERMISSIONS
 #=========================================================================
 #                       CPACK CONFIGURATION
 #=========================================================================
-include(${CMAKE_MODULE_PATH}/GeneratePackageDeb.cmake)  
+include(GeneratePackageDeb)  
 
 include(CPack)
 
