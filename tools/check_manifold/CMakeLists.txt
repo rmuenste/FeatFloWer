@@ -28,9 +28,13 @@ add_executable(validate_triangle_mesh validate_triangle_mesh.cpp)
 
 get_target_property(MYTARGET check_manifold NAME)
 
-target_link_libraries(${MYTARGET} CGAL::CGAL) 
-target_link_libraries(validate_triangle_mesh CGAL::CGAL) 
+# TODO:
+# This modern syntax can already be used with the USE_CGAL_LOCAL=ON option.
+# With the ExternalProject_add mechanism this syntax will fail as the CGAL::CGAL target is not
+# available at configure time.
+#target_link_libraries(${MYTARGET} PRIVATE CGAL::CGAL CGAL::CGAL_Core)
+#target_link_libraries(validate_triangle_mesh PRIVATE CGAL::CGAL CGAL::CGAL_Core)
 
 # add include directories
-#target_include_directories(${MYTARGET} PUBLIC ${CGAL_INCLUDE_DIR})
-#target_include_directories(validate_triangle_mesh PUBLIC ${CGAL_INCLUDE_DIR})
+target_include_directories(${MYTARGET} PUBLIC ${CGAL_INCLUDE_DIR})
+target_include_directories(validate_triangle_mesh PUBLIC ${CGAL_INCLUDE_DIR})

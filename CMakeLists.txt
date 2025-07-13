@@ -247,7 +247,7 @@ if(USE_CGAL)
     # Your existing ExternalProject_Add code for CGAL
     set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
     set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
-    
+    set(CGAL_NAME cgal) 
     include(ExternalProject)
     ExternalProject_Add(
       cgal
@@ -273,17 +273,19 @@ if(USE_CGAL)
     set(CGAL_LIBRARIES 
     )
 
-    # Create a CMake interface for CGAL
-    add_library(CGAL::CGAL INTERFACE IMPORTED)
-    add_dependencies(CGAL::CGAL cgal)
-    # Every target that links to CGAL::CGAL will automatically get -I${CGAL_INCLUDE_DIR} added to its include directories.
-    target_include_directories(CGAL::CGAL
-                              INTERFACE ${CGAL_INCLUDE_DIR})
+# TODO: - The below code is ATM not working with the ExternalProject_add mechanism
+#    # Create a CMake interface for CGAL
+#    add_library(CGAL::CGAL INTERFACE IMPORTED)
+#    add_dependencies(CGAL::CGAL cgal)
+#    # Every target that links to CGAL::CGAL will automatically get -I${CGAL_INCLUDE_DIR} added to its include directories.
+#    target_include_directories(CGAL::CGAL
+#                              INTERFACE ${CGAL_INCLUDE_DIR})
 
   else(NOT USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
+
     # Try to find CGAL
-    find_package(CGAL QUIET
+    find_package(CGAL QUIET COMPONENTS Core
       HINTS
         # Standard system locations
         /usr/local
@@ -301,14 +303,19 @@ if(USE_CGAL)
         /opt/homebrew/opt/cgal
     )
 
+    set(CGAL_NAME CGAL) 
     if(CGAL_FOUND)
       message(STATUS "Found CGAL version ${CGAL_VERSION}")
       message(STATUS "Using CGAL from ${CGAL_DIR}")
       # Include CGAL settings
       include(${CGAL_USE_FILE})
+      
+      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+      list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
     else()
       message(STATUS "CGAL not found in system locations")
       # Fallback to ExternalProject_Add or other approach
+      message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
     endif()    
 
   endif(NOT USE_CGAL_LOCAL)
@@ -413,8 +420,8 @@ find_package(Git 2.17)
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
-    add_dependencies(check_manifold CGAL::CGAL)
-    add_dependencies(validate_triangle_mesh CGAL::CGAL)
+    add_dependencies(check_manifold ${CGAL_NAME})
+    add_dependencies(validate_triangle_mesh ${CGAL_NAME})
   endif(USE_CGAL)
 endif(NOT WIN32)
 
@@ -481,7 +488,7 @@ IF(BUILD_APPLICATIONS)
     # This way we make sure that CGAL is built in time before it gets used
     # in the building process
     if(USE_CGAL)
-      add_dependencies(inshape3dcore CGAL::CGAL)
+      add_dependencies(inshape3dcore ${CGAL_NAME})
     endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  

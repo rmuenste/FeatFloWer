@@ -121,7 +121,6 @@ CGAL is a powerful library for computational geometry.
     ```bash
     cmake -DUSE_CGAL=ON ..
     ```
-    *Note*: The `CMakeLists.txt` builds CGAL with `CGAL_HEADER_ONLY=OFF`, meaning it compiles CGAL libraries, not just using its headers.
 
 *   **Using a Local/System CGAL Installation**:
     If you have CGAL already installed on your system and want to use it, enable both `USE_CGAL` and `USE_CGAL_LOCAL`:

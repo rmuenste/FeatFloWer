@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(CustomTargets)  
 
 
 # # source files for q2p1_sse_partfil

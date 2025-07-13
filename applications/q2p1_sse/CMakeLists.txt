@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(CustomTargets)  
 
 
 # source files for standad q2p1 

@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(CustomTargets)  
 
 # source files for standard q2p1 
 set(src_q2p1_fc_ext
