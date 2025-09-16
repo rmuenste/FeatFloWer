@@ -1,3 +1,64 @@
+module viscosity_model
+  implicit none
+  private
+  public :: mu_eff, set_mu_f
+
+  ! Runtime-settable viscosity
+  real*8 :: mu_f = 1.0      ! Default; to be set from input
+  real*8, parameter :: phi_max   = 0.64
+  real*8, parameter :: kd_exp    = 0.605
+  real*8, parameter :: phi_low   = 0.05
+  real*8, parameter :: gdot_min  = 0.001
+  real*8, parameter :: gdot_max  = 1000.0
+
+contains
+
+  subroutine set_mu_f(mu_input)
+    real*8, intent(in) :: mu_input
+    mu_f = mu_input
+  end subroutine set_mu_f
+
+  pure function mu_low(phi) result(mu)
+    real*8, intent(in) :: phi
+    real*8 :: mu
+    mu = mu_f * (1.0 + 2.5 * phi)
+  end function mu_low
+
+  pure function mu_fit(phi) result(mu)
+    real*8, intent(in) :: phi
+    real*8 :: mu, denom
+    denom = 1.0 - phi / phi_max
+    if (denom <= 0.0) then
+      mu = 1.0e10
+    else
+      mu = mu_f * denom ** (-2.5 * kd_exp)
+    end if
+  end function mu_fit
+
+  pure function mu_shear(phi, gdot) result(mu)
+    real*8, intent(in) :: phi, gdot
+    real*8 :: mu, beta, g_ref
+    beta = 0.10
+    g_ref = 1.0
+    mu = mu_fit(phi) * (1.0 + beta * log10(gdot / g_ref))
+  end function mu_shear
+
+  pure function mu_eff(phi, gdot) result(mu)
+    real*8, intent(in) :: phi, gdot
+    real*8 :: mu
+    if (phi < phi_low) then
+      mu = mu_low(phi)
+    else if (gdot >= gdot_min .and. gdot <= gdot_max) then
+      mu = mu_shear(phi, gdot)
+    else
+      mu = mu_fit(phi)
+    end if
+  end function mu_eff
+
+end module viscosity_model
+!
+! -----------------------------------------------------
+!
 SUBROUTINE GetPresInitVal(X,Y,Z,Val)
 USE Sigma_User, ONLY : myProcess,mySigma
 REAL*8 X,Y,Z,Val(4)
@@ -689,19 +750,12 @@ IF (iT.EQ.39) THEN
   ValU = dProfil(1)
   ValV = dProfil(2)
   ValW = dProfil(3)
-
-
 END IF
  
-IF (iT.EQ.41) THEN
- ValW=RotParabolicVelo2Dz(0d0,0d0,100d0,-1d0,0.495d0)
-END IF
-
 IF (iT.EQ.45) THEN
  ValW=RotParabolicVelo2Dz(0d0,0d0,1449d0,1d0,2.495d0)
 END IF
 
-  
 IF (iT.EQ.51) THEN
   ValW=RotParabolicVelo2Dz(0d0,0d0,1270d0,1d0,2.495d0)
 END IF
@@ -864,6 +918,7 @@ IMPLICIT NONE
 REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
+REAL*8 dOmega
 integer iScrewType,iSeg
 REAL*8 ValUT,ValVT,ValWT
 
@@ -939,7 +994,24 @@ ELSE
     valU = mySigma%mySegment(iSeg)%FBMVeloBC(1)
     valV = mySigma%mySegment(iSeg)%FBMVeloBC(2)
     valW = mySigma%mySegment(iSeg)%FBMVeloBC(3)
-    
+
+    dOmega = sqrt(mySigma%mySegment(iSeg)%FBMOmegaBC(1)**2d0 + &
+                  mySigma%mySegment(iSeg)%FBMOmegaBC(2)**2d0 + &
+                  mySigma%mySegment(iSeg)%FBMOmegaBC(3)**2d0)
+    if (dOmega.gt.0d0) then
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(1).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(2).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(3).eq.0d0) THEN ! xAxis-rotation
+     end if
+
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(2).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(1).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(3).eq.0d0) THEN ! yAxis-rotation
+     end if
+
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(3).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(2).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(1).eq.0d0) THEN ! zAxis-rotation
+      ValU =  -myTwoPI*(Y-mySigma%mySegment(iSeg)%FBMOffsetBC(2))*(mySigma%mySegment(iSeg)%FBMOmegaBC(3)/6d1)
+      ValV =   myTwoPI*(X-mySigma%mySegment(iSeg)%FBMOffsetBC(1))*(mySigma%mySegment(iSeg)%FBMOmegaBC(3)/6d1)
+      ValW =   0d0
+     end if
+    end if
+
  ELSE
     iSeg = iP - 200
     
@@ -1063,6 +1135,7 @@ FUNCTION AlphaViscosityMatModel(NormShearSquare,iMat,Temperature)
 USE Transport_Q2P1, ONLY : Properties
 USE Sigma_User, ONLY: myMultiMat,tRheology
 USE PP3D_MPI, ONLY:myid
+USE viscosity_model, ONLY : mu_eff,set_mu_f
 IMPLICIT NONE
 
 real*8 :: AlphaViscosityMatModel
@@ -1088,7 +1161,7 @@ aT = 1d0
 ! else
 !  iMat=2
 ! end if
- 
+
 myRheology => myMultiMat%Mat(iMat)%Rheology
 
 ! C1C2
@@ -1166,6 +1239,8 @@ END IF
 
 ! HogenPowerLaw
 IF (myRheology%Equation.EQ.5) THEN
+!  CALL set_mu_f(Properties%Viscosity(1))
+!  VNN = mu_eff(Temperature, dStrs)
  dN = Properties%PowerLawExp-1d0
  VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
 END IF
@@ -1382,3 +1457,6 @@ WallSlip = 1d0-slip*d_factor*tau_factor
 ! write(*,*) WallSlip 
 
 END FUNCTION WallSlip
+
+
+

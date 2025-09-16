@@ -255,6 +255,16 @@
      
      call INIP_getvalue_int(parameterlist,cElement_i,"NoOfFlights", mySigma%mySegment(iSeg)%GANGZAHL,-1)
      
+     call INIP_getvalue_string(parameterlist,cElement_i,"TemperatureBC",mySigma%mySegment(iSeg)%TemperatureBC,'NO')
+     call inip_toupper_replace(mySigma%mySegment(iSeg)%TemperatureBC)
+     if (.NOT.(mySigma%mySegment(iSeg)%TemperatureBC.eq.'FLUX'.or.&
+               mySigma%mySegment(iSeg)%TemperatureBC.eq.'NO')) THEN
+       WRITE(*,*) "Undefined thermal condition: ",mySigma%mySegment(iSeg)%TemperatureBC
+     end if
+     if (mySigma%mySegment(iSeg)%TemperatureBC.eq.'FLUX') THEN
+      call INIP_getvalue_double(parameterlist,cElement_i,"RobinHTC", mySigma%mySegment(iSeg)%RobinHTC ,myInf)
+     END IF
+
      call INIP_getvalue_string(parameterlist,cElement_i,"Type",cElemType)
      mySigma%mySegment(iSeg)%ART = ' '
      call inip_toupper_replace(cElemType)
@@ -596,6 +606,20 @@
 166   write(*,*) 'WRONGLY DEFINED FBM velocity for the related segment!!'
       CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
 167   CONTINUE
+
+      call INIP_getvalue_string(parameterlist,cElement_i,"RotationVelocity",cVelo,'unknown')
+      call inip_toupper_replace(cVelo)
+      if (adjustl(trim(cVelo)).ne.'UNKNOWN') then
+       read(cVelo,*,err=168) mySigma%mySegment(iSeg)%FBMOmegaBC,mySigma%mySegment(iSeg)%FBMOffsetBC
+      else
+       mySigma%mySegment(iSeg)%FBMOmegaBC = [0d0,0d0,0d0]
+       mySigma%mySegment(iSeg)%FBMOffsetBC = [0d0,0d0,0d0]
+      end if
+      cVelo='unknown'
+      GOTO 169
+168   write(*,*) 'WRONGLY DEFINED FBM velocity for the related segment!!'
+      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
+169   CONTINUE
 
       call INIP_getvalue_double(parameterlist,cElement_i,"GapScrewScrew", mySigma%mySegment(iSeg)%s,myInf)
       mySigma%mySegment(iSeg)%s = dElemSizeScale*mySigma%mySegment(iSeg)%s
@@ -941,6 +965,10 @@
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","ScrewSpeed", myProcess%umdr,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","FillingDegree", myProcess%FillingDegree,myInf)
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperature",myProcess%T0,myInf)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureLin",myProcess%T0_Lin,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureQuad",myProcess%T0_Quad,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureCenter",myProcess%T0_RCenter,0d0)
+
     call INIP_getvalue_double(parameterlist,"E3DProcessParameters","MaterialTemperatureSlope",myProcess%T0_slope,0d0)
     call INIP_getvalue_int(parameterlist,"E3DProcessParameters","MaterialTemperatureValuesN",myProcess%T0_N,0)
     IF (myProcess%T0_N.gt.0) THEN
@@ -979,7 +1007,13 @@
      END IF
      myProcess%Ta=myInf
     END IF
-       
+
+    call INIP_getvalue_string(parameterlist,"E3DProcessParameters","RobinBCCaliber",cRobin,"NO")
+    call inip_toupper_replace(cRobin)
+    IF (ADJUSTL(TRIM(cRobin)).EQ."YES") THEN
+     myProcess%bRobinBCCaliber = .true.
+    END IF
+
     call INIP_getvalue_int(parameterlist,"E3DProcessParameters",   "nOfTempBCs"      ,myProcess%nOfTempBCs,0)
     ALLOCATE(myProcess%myTempBC(myProcess%nOfTempBCs))
     
@@ -1412,6 +1446,7 @@
     write(*,*) "mySigma%L",'=',mySigma%L
     write(*,*) "mySigma%BarrelAxialStartPos",'=',mySigma%L0
     write(*,*) "mySigma%GANGZAHL",'=',mySigma%GANGZAHL
+
     if (myProcess%iInd.eq.-1) write(*,*) "mySigma%RotationType",'=','CounterRotating'
     if (myProcess%iInd.eq.+1) write(*,*) "mySigma%RotationType",'=','CoRotating'
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
@@ -1424,6 +1459,7 @@
       write(*,*) "mySigma%RotAxisAngle",'=',mySigma%RotAxisAngle
       write(*,*) "mySigma%RotAxisCenter",'=',mySigma%RotAxisCenter
      END IF
+
     END IF
     
     
@@ -1454,6 +1490,10 @@
     DO iSeg=1,mySigma%NumberOfSeg
      write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Art=',mySigma%mySegment(iSeg)%ART
      write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%ObjectType=',mySigma%mySegment(iSeg)%ObjectType
+     if (mySigma%mySegment(iSeg)%TemperatureBC.eq.'FLUX') THEN
+      write(*,'(A,I0,A,f13.3)') " mySigma%%Segment(",iSeg,')%RobinHTC=',mySigma%mySegment(iSeg)%RobinHTC
+     end if
+
      write(*,'(A,I0,A,A)') " mySIGMA%Segment(",iSeg,')%Unit=',mySigma%mySegment(iSeg)%Unit
      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Min=',mySigma%mySegment(iSeg)%Min
      write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Max=',mySigma%mySegment(iSeg)%Max
@@ -1561,6 +1601,8 @@
       END IF
       
       write(*,'(A,I0,A,3f13.3)') " mySIGMA%Segment(",iSeg,')%FBMVeloBC=', mySigma%mySegment(iSeg)%FBMVeloBC
+      write(*,'(A,I0,A,3f13.3)') " mySIGMA%Segment(",iSeg,')%FBMOmegaBC=', mySigma%mySegment(iSeg)%FBMOmegaBC
+      write(*,'(A,I0,A,3f13.3)') " mySIGMA%Segment(",iSeg,')%FBMOffsetBC=', mySigma%mySegment(iSeg)%FBMOffsetBC
       write(*,'(A,I0,A,f13.3)') " mySIGMA%Segment(",iSeg,')%Dss=',mySigma%mySegment(iSeg)%Dss
       write(*,'(A,I0,A,I0)') " mySIGMA%Segment(",iSeg,")nOFFfiles=",mySigma%mySegment(iSeg)%nOFFfiles
       DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
@@ -1637,10 +1679,16 @@
     IF (myProcess%bRobinBCBarrel) then
      write(*,*) "myProcess%BARREL_RobinHTC",'=',myProcess%RobinBCBarrel_HTC
     END IF
+    IF (myProcess%bRobinBCCaliber) then
+     write(*,*) "myProcess%CALIBER_RobinHTC",' is ', " ACTIVATED"
+    END IF
     IF (myProcess%Ta.eq.myInf) THEN
      write(*,*) "myProcess%FLUX",'=',myProcess%HeatFluxThroughBarrelWall_kWm2
     END IF
     write(*,*) "myProcess%T0",'=',myProcess%T0
+    write(*,*) "myProcess%T0_Lin",'=',myProcess%T0_Lin
+    write(*,*) "myProcess%T0_Quad",'=',myProcess%T0_Quad
+    write(*,*) "myProcess%T0_RCenter",'=',myProcess%T0_RCenter
     IF (myProcess%T0_N.gt.0) THEN
      write(*,'(A,A,100ES12.4)')  "myProcess%T0_Zones",'=',myProcess%T0_T
     else
@@ -2868,6 +2916,7 @@
     
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","FarFieldTemperature", myProcess%FarFieldTemperature ,20d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","HTC", myProcess%HTC ,0d0)
+    call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","Emissivity", myProcess%Emissivity ,0d0)
 
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","CoolingWaterTemperatureC", myProcess%CoolingWaterTemperature ,55d0)
     call INIP_getvalue_double(parameterlist,"E3DGeometryData/Process","WorkBenchThicknessCM", myProcess%WorkBenchThickness ,5d0)
@@ -3019,6 +3068,7 @@
     write(*,'(A)') "==== HeatTransferViaConvectionFromSurface ===="
     write(*,'(A,ES12.4)') "myProcess%FarFieldTemperature=",myProcess%FarFieldTemperature
     write(*,'(A,ES12.4)') "myProcess%HTC=",myProcess%HTC
+    write(*,'(A,ES12.4)') "myProcess%Emissivity=",myProcess%Emissivity
     write(*,'(A)') "=============================================="
 
     !     write(*,'(A,3ES12.4)') "myProcess%TemperatureSensorCoor=",myProcess%TemperatureSensorCoor

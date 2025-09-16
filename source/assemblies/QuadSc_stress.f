@@ -1768,9 +1768,18 @@ C
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) = Temperature(JDFG)
 !      DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
-      DSC(JDFL) = Screw(JDFG)
-      DSH(JDFL) = Shell(JDFG)
- 150  CONTINUE      
+      IF (allocated(Screw)) THEN
+       DSC(JDFL) = Screw(JDFG)
+      else
+       DSC(JDFL) = 0d0
+      end if
+
+      IF (allocated(Shell)) THEN
+       DSH(JDFL) = Shell(JDFG)
+      else
+       DSH(JDFL) = 0d0
+      end if
+ 150  CONTINUE
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
 C
@@ -2062,9 +2071,18 @@ C
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) =  T(JDFG)
-      DSC(JDFL) = Screw(JDFG)
-      DSH(JDFL) = Shell(JDFG)
- 150  CONTINUE      
+      IF (allocated(Screw)) THEN
+       DSC(JDFL) = Screw(JDFG)
+      else
+       DSC(JDFL) = 0d0
+      end if
+
+      IF (allocated(Shell)) THEN
+       DSH(JDFL) = Shell(JDFG)
+      else
+       DSH(JDFL) = 0d0
+      end if
+ 150  CONTINUE
 ! ---===========================---
       DO 200 ICUBP=1,NCUBP
 C

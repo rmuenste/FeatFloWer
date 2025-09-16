@@ -388,14 +388,16 @@ CALL COMM_SUMM(dArea1)
 CALL COMM_SUMM(dArea2)
 CALL COMM_SUMM(dFlux1)
 CALL COMM_SUMM(dFlux2)
+CALL COMM_SUMM(dArea3)
+CALL COMM_SUMM(dFlux3)
 
 CALL IntegrateOutputQuantities(mfile)
 
 CALL CreateSensorOutputs(mfile)
 
 if (myid.eq.showid) then
- WRITE(mterm,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
- WRITE(mfile,'(A,8ES12.4)') 'Time[s]_Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea1,1e-3*dFlux1, dArea2,1e-3*dFlux2,dHeatSource
+ WRITE(mterm,'(A,10ES12.4)') 'Time[s]_{Conductive,Convective,Radiative}Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea2,1e-3*dFlux2, dArea1,1e-3*dFlux1, dArea3,1e-3*dFlux3,dHeatSource
+ WRITE(mfile,'(A,10ES12.4)') 'Time[s]_{Conductive,Convective,Radiative}Area[cm2]_HeatFlux[kW]_HeatSource[kW]: ',timens, dArea2,1e-3*dFlux2, dArea1,1e-3*dFlux1, dArea3,1e-3*dFlux3,dHeatSource
 end if
 
 if (myid.ne.master) then
@@ -984,7 +986,7 @@ if (myid.ne.master) then
  if (myProcess%HTC.ne.0d0) then
   CALL AddConvectiveHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
                               Tracer%def,Tracer%oldSol,&
-                               mg_mesh%level(ilev)%kvert,&
+                              mg_mesh%level(ilev)%kvert,&
                               mg_mesh%level(ilev)%karea,&
                               mg_mesh%level(ilev)%kedge,&
                               mg_mesh%level(ilev)%dcorvg,&
@@ -992,6 +994,19 @@ if (myid.ne.master) then
  else
   dArea1 = 0d0
   dFlux1 = 0d0
+ end if
+
+ if (myProcess%Emissivity.ne.0d0) then
+  CALL AddRadiativeHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                              Tracer%def,Tracer%oldSol,&
+                              mg_mesh%level(ilev)%kvert,&
+                              mg_mesh%level(ilev)%karea,&
+                              mg_mesh%level(ilev)%kedge,&
+                              mg_mesh%level(ilev)%dcorvg,&
+                              E011,dArea3,dFlux3,iSwitch)
+ else
+  dArea3 = 0d0
+  dFlux3 = 0d0
  end if
 
 end if
@@ -1045,6 +1060,25 @@ IF (myProcess%bRobinBCBarrel) then
 END IF
 
 IF (.NOT.ALLOCATED(mySegmentIndicator)) return
+
+IF (myProcess%bRobinBCCaliber) then
+ ilev = NLMAX
+ call setlev(2)
+ if (myid.ne.master) then
+  CALL AddRobinHeatFluxSub(Amat,lMat%LdA,lMat%ColA,&
+                              Tracer%def,Tracer%oldSol,&
+                              mg_mesh%level(ilev)%kvert,&
+                              mg_mesh%level(ilev)%karea,&
+                              mg_mesh%level(ilev)%kedge,&
+                              mg_mesh%level(ilev)%dcorvg,&
+                              E011,dAreaDueToCooling,dFluxDueToCooling,iSwitch,3)
+ end if
+ if (iSwitch.eq.1) THEN
+  call COMM_SUMM(dAreaDueToCooling)
+  call COMM_SUMM(dFluxDueToCooling)
+  if (myid.eq.1) write(*,'(A,2(ES12.4,A))') 'Area and Flux due to Caliber-cooling:',1e-4*dAreaDueToCooling,'m2',1e-3*dFluxDueToCooling, 'kW'
+ end if
+END IF
 
 IF (.NOT.myProcess%UseAirCooling) return
 

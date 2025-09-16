@@ -77,7 +77,7 @@ USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE var_QuadScalar,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer,bTracer,Temperature
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 
@@ -132,6 +132,19 @@ call read_pres_sol_single(cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !FileA='time.dmp'
 call read_time_sol_single(cInFile, istep_ns, timens)
 
+IF (bTracer.and.allocated(Temperature)) then
+ fieldName = "temperature"
+ packed(1)%p => QuadSc%auxU
+ packed(2)%p => QuadSc%auxU
+ packed(3)%p => QuadSc%auxU
+ call read_q2_sol_single(fieldName,cInFile,iLevel-1,1,NLMIN,NLMAX,&
+                        coarse%myELEMLINK,myDump%Vertices,&
+                        3, packed)
+
+ if (myid.ne.0) Tracer%Val(NLMAX+1)%x(1:ndof) = QuadSc%auxU(1:ndof)
+ Temperature = QuadSc%auxU
+END IF
+
 fieldName = "coordinates"
 
 packed(1)%p => QuadSc%auxU
@@ -142,7 +155,8 @@ packed(3)%p => QuadSc%auxW
 call read_q2_sol_single(fieldName,cInFile,iLevel-1,nn,NLMIN,NLMAX,&
                         coarse%myELEMLINK,myDump%Vertices,&
                         3,packed)
-! 
+
+!
 ! call read_q2_sol(fieldName, cInFile,ilevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
 !                  3, packed)
 
@@ -305,7 +319,7 @@ USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
 USE var_QuadScalar,ONLY:QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE var_QuadScalar,ONLY:Tracer
+USE var_QuadScalar,ONLY:Tracer,bTracer
 use solution_io
 use var_QuadScalar, only: myDump,istep_ns,fieldPtr
 use var_QuadScalar, only: GenLinScalar
@@ -350,10 +364,13 @@ call read_pres_sol(cInFile,iLevel-1,nn,NLMIN,NLMAX,coarse%myELEMLINK,&
 !FileB='new_p'
 !call write_pres_test(FileB, nn,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-IF (allocated(Temperature)) then
+IF (bTracer.and.allocated(Temperature)) then
  fieldName = "temperature"
  packed(1)%p => QuadSc%auxU
- call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,1, packed)
+ packed(2)%p => QuadSc%auxU
+ packed(3)%p => QuadSc%auxU
+ call read_q2_sol(fieldName,cInFile,iLevel-1,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,3, packed)
+ if (myid.ne.0) Tracer%Val(NLMAX+1)%x(1:ndof) = QuadSc%auxU(1:ndof)
  Temperature = QuadSc%auxU
 END IF                  
 
@@ -2331,6 +2348,13 @@ DO iField=1,SIZE(myExport%Fields)
   end do
   write(iunit, *)"        </DataArray>"
 
+ CASE('Tracer')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Tracer",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(Tracer%val(NLMAX)%x(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+
  CASE('Temperature_AVG')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Temperature_AVG",""" format=""ascii"">"
   if (DBLE(iTemperature_AVG).gt.0) then
@@ -2676,6 +2700,8 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_V","""/>"
  CASE('Temperature')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature","""/>"
+ CASE('Tracer')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Tracer","""/>"
  CASE('Temperature_AVG')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Temperature_AVG","""/>"
  CASE('Shearrate')

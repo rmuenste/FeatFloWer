@@ -22,7 +22,7 @@ USE def_FEAT
 USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
 use var_QuadScalar, only: GenLinScalar
-USE var_QuadScalar, ONLY: Tracer
+USE var_QuadScalar, ONLY: Tracer,bTracer
 USE PP3D_MPI, ONLY: myid,coarse,myMPI_Barrier
 USE cinterface, ONLY: outputRigidBodies
 
@@ -75,13 +75,15 @@ call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Ve
                   
                  
 
-IF (allocated(Temperature)) then
+IF (bTracer.and.allocated(Temperature)) then
  fieldName = "temperature"
- QuadSc%auxU = Temperature
+ if (myid.ne.0) QuadSc%auxU(1:ndof) = Tracer%Val(NLMAX+1)%x(1:ndof)
  packed(1)%p => QuadSc%auxU
+ packed(2)%p => QuadSc%auxU
+ packed(3)%p => QuadSc%auxU
  call write_q2_sol(fieldName, iOut,0,ndof,NLMIN,NLMAX,coarse%myELEMLINK,myDump%Vertices,&
-                   1, packed)                 
-END IF                  
+                   3, packed)
+END IF
 
 IF (allocated(MaterialDistribution)) then
  fieldName = "MaterialDistribution"
@@ -1773,7 +1775,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   use var_QuadScalar, only: myStat, istep_ns, myExport, mg_mesh,&
                             Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
                             iTimeStepEnlargmentFactor 
-  use Sigma_User, only: myProcess
+  use Sigma_User, only: myProcess,myTransientSolution
 
   use visualization_out, only: viz_output_fields
 
@@ -1835,8 +1837,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-!         CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
-        call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y')
+        if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
+        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y')
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
