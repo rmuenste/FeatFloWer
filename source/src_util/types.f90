@@ -705,7 +705,7 @@ TYPE tMultiMat
 END TYPE tMultiMat
 
 TYPE tTransientSolution
- INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
+ INTEGER :: nTimeSubStep = 6, DumpFormat=3 ! 2::LST, 3::MPI_DMP
  TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
