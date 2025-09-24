@@ -2757,6 +2757,7 @@ SUBROUTINE ProlongateSolution()
 
  IF (allocated(Temperature)) then
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val,Temperature)
+  if (myid.ne.0) Tracer%Val(NLMAX+1)%x = Temperature
  else
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
  end if
@@ -3564,8 +3565,8 @@ SUBROUTINE Calculate_Torque(mfile)
 implicit none
 INTEGER mfile,i,iSeg
 REAL*8 Torque1(3), Torque2(3),dVolFlow1,dVolFlow2,myPI,daux
-REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2
-REAL*8 dIntPres1,dIntPres2,dPressureDifference,zMin, zMax,dS
+REAL*8 dHeat,Ml_i,Shear,Visco,dVol,dArea1,dArea2,dArea3
+REAL*8 dIntPres1,dIntPres2,dIntPres3,dPressureDifference,zMin, zMax,dS
 REAL*8, allocatable :: SegmentForce(:,:)
 
 integer :: ilevel
@@ -3614,13 +3615,13 @@ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
  if (.not.allocated(SegmentForce) )allocate(SegmentForce(3,mySigma%NumberOfSeg))
  DO iSeg=1,mySigma%NumberOfSeg
   call GetSegmentForce(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                      LinSc%ValP(NLMAX)%x,mySegmentIndicator,& 
+                      LinSc%ValP(NLMAX)%x,mySegmentIndicator,&
                       mg_mesh%level(ilevel)%kvert,&
                       mg_mesh%level(ilevel)%karea,&
                       mg_mesh%level(ilevel)%kedge,&
                       mg_mesh%level(ilevel)%dcorvg,&
                       Viscosity,SegmentForce(:,iSeg), E013,iSeg)
- 
+
  END DO
  
 END IF
@@ -3656,6 +3657,12 @@ ELSE
 END IF
 
 IF (myid.ne.0) then
+ call IntegratePressureAtInflow(mg_mesh%level(ilevel)%dcorvg,&
+                        mg_mesh%level(ilevel)%karea,&
+                        mg_mesh%level(ilevel)%kvert,&
+                        mg_mesh%level(ilevel)%nel,&
+                        dIntPres3,dArea3)
+
  call IntegratePressure(mg_mesh%level(ilevel)%dcorvg,&
                         mg_mesh%level(ilevel)%karea,&
                         mg_mesh%level(ilevel)%kvert,&
@@ -3688,8 +3695,10 @@ CALL COMM_SUMM(dVolFlow1)
 CALL COMM_SUMM(dVolFlow2)
 CALL COMM_SUMM(dArea1)
 CALL COMM_SUMM(dArea2)
+CALL COMM_SUMM(dArea3)
 CALL COMM_SUMM(dIntPres1)
 CALL COMM_SUMM(dIntPres2)
+CALL COMM_SUMM(dIntPres3)
 CALL COMM_SUMM(dHeat)
 CALL COMM_SUMM(dVol)
 
@@ -3762,6 +3771,9 @@ IF (myid.eq.showID) THEN
     write(mfile,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
     write(mterm,'(A,2ES14.4,A,ES14.4)') "Power_acting_on_the_screw_[kW]_&_heat_generation_rate_[kW]:",timens,1e-3*daux*Torque1(3),' & ',1e-3*dHeat
   END IF
+
+  write(mfile,'(A,7ES14.4)') "PressureDiffAtInflow[bar]_&_Area[mm2]: ",timens,(dIntPres3/dArea3)*1e-6,1d2*dArea3
+  write(mterm,'(A,7ES14.4)') "PressureDiffAtInflow[bar]_&_Area[mm2]: ",timens,(dIntPres3/dArea3)*1e-6,1d2*dArea3
 
  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
   DO iSeg=1,mySigma%NumberOfSeg
@@ -3906,6 +3918,41 @@ DO i=1,nel
 END DO
 
 END SUBROUTINE IntegratePressure
+!
+! ----------------------------------------------
+!
+SUBROUTINE IntegratePressureAtInflow(dcorvg,karea,kvert,nel,dIntPres,dArea)
+REAL*8 dcorvg(3,*),dIntPres
+INTEGER karea(6,*),kvert(8,*),nel
+REAL*8 dArea
+!---------------------------------
+INTEGER NeighA(4,6)
+REAL*8 P(3),dA
+DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+
+dIntPres = 0d0
+dArea   = 0d0
+
+k=1
+DO i=1,nel
+ DO j=1,6
+  IF (k.eq.karea(j,i)) THEN
+   ivt1 = kvert(NeighA(1,j),i)
+   ivt2 = kvert(NeighA(2,j),i)
+   ivt3 = kvert(NeighA(3,j),i)
+   ivt4 = kvert(NeighA(4,j),i)
+   IF (myBoundary%iInflow(ivt1).lt.0.and.myBoundary%iInflow(ivt2).lt.0.and.myBoundary%iInflow(ivt3).lt.0.and.myBoundary%iInflow(ivt4).lt.0) then
+       CALL GET_area(dcorvg(1:3,ivt1),dcorvg(1:3,ivt2),dcorvg(1:3,ivt3),dcorvg(1:3,ivt4),dA)
+       dIntPres = dIntPres + dA*(LinSc%ValP(NLMAX)%x(4*(i-1)+1))
+       dArea = dArea + dA
+   END IF
+   k = k + 1
+  END IF
+ END DO
+END DO
+
+END SUBROUTINE IntegratePressureAtInflow
 !
 ! ----------------------------------------------
 !

@@ -111,7 +111,7 @@ SUBROUTINE Boundary_LinSc_Val_XSE()
 REAL*8 X,Y,Z
 INTEGER i,iInflow
 REAL*8 :: T1=35d0,T2=45d0
-real*8 dc(3),dR,dRR,dT,TempBC
+real*8 dc(3),dR,dRR,dT,TempBC,dLin,dQuad
 
 DO i=1,Tracer%ndof
 
@@ -124,34 +124,26 @@ DO i=1,Tracer%ndof
  END IF
 
  IF (Tracer%knpr(i).eq.1) THEN
-  Tracer%val(NLMAX)%x(i)= myProcess%T0
-    
-!     iInflow = 1
-!     
-!     dC = myProcess%myInflow(iInflow)%center
-!     
-!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
-!      TempBC = myProcess%myInflow(iInflow)%Temperature
-!     END IF
-!     
-!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
-!      dRR = myProcess%myInflow(iInflow)%outerradius
-!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
-!      dR = Min(dR,dRR)
-!      dT = myProcess%myInflow(iInflow)%TemperatureRange
-!      
-!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)/dRR
-!    END IF
-!    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
-!      dRR = myProcess%myInflow(iInflow)%outerradius
-!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
-!      dR = Min(dR,dRR)
-!      dT = myProcess%myInflow(iInflow)%TemperatureRange
-!      
-!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)*(dRR+dR)/(dRR*dRR)
-!     END IF
-!   
-!   Tracer%val(NLMAX)%x(i)= TempBC
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+   IF (Y.GE.0d0) THEN
+    dR = SQRT(X*X + (Y-mySigma%a/2d0)*(Y-mySigma%a/2d0))
+   END IF
+
+   IF (Y.LE.0d0) THEN
+    dR = SQRT(X*X + (Y+mySigma%a/2d0)*(Y+mySigma%a/2d0))
+   END IF
+  END IF
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+   dR = SQRT(X*X + Y*Y)
+  END IF
+
+  dQuad = myProcess%T0_Quad
+  dLin  = myProcess%T0_Lin
+  dRR  = myProcess%T0_RCenter
+
+  Tracer%val(NLMAX)%x(i)= dQuad*(dR-dRR)*(dR-dRR) + dLin*(dR-dRR) + myProcess%T0
  END IF
  
  IF (Tracer%knpr(i).eq.2) THEN
@@ -397,7 +389,6 @@ dIntegralHeat = 0d0
 
 DO i = 1,Tracer%ndof
 
- 
   daux = Viscosity(i)*(Shearrate(i)**2d0)
   
 !  IF (Screw(i).ge.0d0) THEN
@@ -405,7 +396,7 @@ DO i = 1,Tracer%ndof
     Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
     dIntegralHeat = dIntegralHeat + daux * MlMat(i)
 !  END IF
-  
+
 END DO
 
 end subroutine AddSource_XSE

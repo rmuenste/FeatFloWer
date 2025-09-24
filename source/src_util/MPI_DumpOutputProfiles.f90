@@ -1507,13 +1507,16 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+!  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+!  CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+  call MPI_File_write_at_all(mpiFile, myFieldOffset, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
   IF (IERR.ne.0) iGlobalError = 1
   IF (myid.eq.1) then
    WRITE(*,'(A)') ' ==> Done!'
   end if
 
+    call MPI_Barrier(MPI_COMM_subs, ierr)
+    call MPI_File_sync(mpiFile, ierr)
   CALL mpi_file_close(mpiFile,ierr)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1597,15 +1600,19 @@ deallocate(ElementOffsets)
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
-    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+ !   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+ !   CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+    call MPI_File_write_at_all(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
     IF (IERR.ne.0) iGlobalError = 1
+
+    call MPI_Barrier(MPI_COMM_subs, ierr)
+    call MPI_File_sync(mpiFile, ierr)
     CALL mpi_file_close(mpiFile,ierr)
+
     IF (myid.eq.1) then
      WRITE(*,'(A)') ' ==> Done!'
     end if
 
-    CALL mpi_file_close(mpiFile,ierr)
     deallocate (daux)
     
    END DO

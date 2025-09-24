@@ -11,7 +11,7 @@ module geometry_processing
 
   ! a variable for counting the outputs
   integer :: ifile = 0
-
+  integer :: iTSE_SEG = 0
   real*8 :: dEpsDist
 
 contains
@@ -30,16 +30,22 @@ DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
 
 timeLevel = (myProcess%Angle/360d0)/(myProcess%Umdr/60d0)
 
+IF (myProcess%SegmentThermoPhysProps) THEN
+   mySegmentIndicator(1,:) = 1d8
+   mySegmentIndicator(2,:) = 0d0
+END IF
+
 DO i=1,nvt
  PX = dcorvg(1,I)
  PY = dcorvg(2,I)
  PZ = dcorvg(3,I)
- CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS0,dS1,dS2,timeLevel)
  CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(i))
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(i),dS0,dS1,dS2,timeLevel)
  Dist1(i) = dS1
  Dist2(i) = dS2
  Dist3(i) = dS0
  ScrewDist(:,i) = [dS1,dS2]
+ mySegmentIndicator(2,i) = DBLE(iTSE_SEG)
 END DO
 
 k=1
@@ -51,12 +57,13 @@ DO i=1,nel
    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS0,dS1,dS2,timeLevel)
    CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+k))
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+k),dS0,dS1,dS2,timeLevel)
    Dist1(nvt+k) = dS1
    Dist2(nvt+k) = dS2
    Dist3(nvt+k) = dS0
    ScrewDist(:,nvt+k) = [dS1,dS2]
+   mySegmentIndicator(2,nvt+k) = DBLE(iTSE_SEG)
    k = k + 1
   END IF
  END DO
@@ -73,12 +80,13 @@ DO i=1,nel
    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS0,dS1,dS2,timeLevel)
    CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+net+k))
+   CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+k),dS0,dS1,dS2,timeLevel)
    Dist1(nvt+net+k) = dS1
    Dist2(nvt+net+k) = dS2
    Dist3(nvt+net+k) = dS0
    ScrewDist(:,nvt+net+k) = [dS1,dS2]
+   mySegmentIndicator(2,nvt+net+k) = DBLE(iTSE_SEG)
    k = k + 1
   END IF
  END DO
@@ -93,12 +101,13 @@ DO i=1,nel
   PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
   PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
  END DO
- CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS0,dS1,dS2,timeLevel)
  CALL FindMaxShearrate(PX,PY,PZ,timeLevel,maxShearRate(nvt+net+nat+i))
+ CALL GetMixerKnpr(PX,PY,PZ,MixerKNPR(nvt+net+nat+i),dS0,dS1,dS2,timeLevel)
  Dist1(nvt+net+nat+i) = dS1
  Dist2(nvt+net+nat+i) = dS2
  Dist3(nvt+net+nat+i) = dS0
  ScrewDist(:,nvt+net+nat+i) = [dS1,dS2]
+ mySegmentIndicator(2,nvt+net+nat+i) = DBLE(iTSE_SEG)
 END DO
 
 do i=1,nvt+net+nat+nel
@@ -330,6 +339,7 @@ D0 = DistTolerance
 D1 = DistTolerance
 D2 = DistTolerance
 inpr = 0
+iTSE_SEG = 0
 
 tt = t 
 
@@ -437,7 +447,10 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
   END DO
 
-  if (d1.lt.0d0) inpr = 101
+  if (d1.lt.0d0) then
+   inpr = 101
+   iTSE_SEG = iSeg
+  end if
 
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
   XB = X
@@ -481,8 +494,11 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
   END DO
 
-  if (d2.lt.0d0) inpr = 102
-  
+  if (d2.lt.0d0) THEN
+   inpr = 102
+   iTSE_SEG = iSeg
+  end if
+
   IF (d1.lt.d2) then
    ProjPReturn = ProjP1
   else
@@ -512,8 +528,10 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'OBSTACLE') THEN
    d0   = min(daux,d0)
   END DO
   
-  if (d0.lt.0d0) inpr = 100
-  
+  if (d0.lt.0d0) then
+   inpr = 100
+   iTSE_SEG = iSeg
+  end if
 END IF
 
 IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
@@ -538,8 +556,12 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'DIE') THEN
    d0   = min(daux,d0)
   END DO
   
-  if (d0.lt.0d0) inpr = 100
-  
+  if (d0.lt.-DistTolerance*1d-3) then
+   inpr = 100
+  ELSE
+   iTSE_SEG = iSeg
+  end if
+
 END IF
 
 END SUBROUTINE STL_elem
@@ -608,7 +630,10 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   d1 = max(-DistTolerance,min(DistTolerance,d1/dUnitScale))
   END DO
 
-  if (d1.lt.0d0) inpr = 101
+  if (d1.lt.0d0) then
+   inpr = 101
+   iTSE_SEG = iSeg
+  end if
 
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
   XB = X
@@ -654,7 +679,10 @@ IF (mySigma%mySegment(iSeg)%ObjectType.eq.'SCREW') THEN
   d2 = max(-DistTolerance,min(DistTolerance,d2/dUnitScale))
   END DO
 
-  if (d2.lt.0d0) inpr = 102
+  if (d2.lt.0d0) then
+   inpr = 102
+   iTSE_SEG = iSeg
+  end if
   
   IF (d1.lt.d2) then
    ProjPReturn = ProjP1
@@ -736,10 +764,16 @@ if (bProjection.and.d1.lt.DistTolerance) THEN
 END DO
 d1 = d1 + 0.0d0
 
-if (d1.lt.0d0) inpr = 101
+if (d1.lt.0d0) then
+ inpr = 101
+ iTSE_SEG = iSeg
+end if
 
 d2 = DistTolerance
-if (d2.lt.0d0) inpr = 102
+if (d2.lt.0d0) then
+ inpr = 102
+ iTSE_SEG = iSeg
+end if
 
 END SUBROUTINE STLL_elem
 !
@@ -818,10 +852,16 @@ DO iFile=1,mySigma%mySegment(iSeg)%nOFFfiles
 END DO
 d2 = d2 + 0.0d0
 
-if (d2.lt.0d0) inpr = 102
+if (d2.lt.0d0) then
+ inpr = 102
+ iTSE_SEG = iSeg
+end if
 
 d1 = DistTolerance
-if (d1.lt.0d0) inpr = 101
+if (d1.lt.0d0) then
+ inpr = 101
+ iTSE_SEG = iSeg
+end if
 
 END SUBROUTINE STLR_elem
 !------------------------------------------------------------------------------------------------

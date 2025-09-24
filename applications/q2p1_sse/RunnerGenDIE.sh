@@ -1,6 +1,14 @@
 n=128
 f=11598
 
+#export OMPI_MCA_io=romio321
+#export ROMIO_CB_BUFFER_SIZE=16777216
+#export ROMIO_DS_WRITE=enable
+
+#setenv OMPI_MCA_io romio321
+#setenv ROMIO_CB_BUFFER_SIZE 16777216
+#setenv ROMIO_DS_WRITE enable
+
 cp _data_BU/q2p1_paramV_DIE_0.dat _data_BU/q2p1_paramV_DIE.dat
 python3 ./e3d_start.py -n $n -f $f --die-simulation
 

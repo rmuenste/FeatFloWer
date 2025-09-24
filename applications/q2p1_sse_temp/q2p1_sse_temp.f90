@@ -37,7 +37,7 @@ PROGRAM Q2P1_DEVEL
   real               :: tt0 = 0.0
   real               :: dtt0 = 0.0
   real*8 dTimeStep,dPeriod
-  integer iRot,iStep,iSubStep
+  integer iRot,iStep,iSubStep,iAngle
 
   call init_q2p1_ext(ufile)
 
@@ -92,17 +92,22 @@ PROGRAM Q2P1_DEVEL
     
     if (DivergedSolution) EXIT
     
-    myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360/myProcess%Periodicity)
+    myProcess%Angle = MOD(INT(myProcess%dAlpha)*(iStep+1),360)
+    iAngle = MOD(INT(myProcess%dAlpha)*(iStep+1),360/myProcess%Periodicity)
+
     CALL ZTIME(myStat%t0)
     IF (myProcess%Angle.eq.0d0) THEN
      call viz_output_fields_Simple(myExport, int(myProcess%Angle), QuadSc, LinSc, & 
           Viscosity, Screw, Shell, Shearrate, mg_mesh)
     END IF
 
-    CALL ReleaseMPIDumpFiles(int(myProcess%Angle),'t')
-    CALL OUTPUT_PID_DATA(int(myProcess%angle))
+    if (iAngle.eq.myProcess%Angle) THEN
+     if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'t')
+     if (myTransientSolution%DumpFormat.eq.3) CALL ReleaseMPIDumpFiles(int(myProcess%Angle),'t')
+     CALL OUTPUT_PID_DATA(int(myProcess%angle))
+    end if
 
-!     CALL Release_ListFiles_General(int(myProcess%Angle),'t')
+!    CALL Release_ListFiles_General(int(myProcess%Angle),'t')
 !     CALL Release_ListFiles_SSE_temp(int(myProcess%Angle))
 !    call write_sol_to_file(insavn, timens)
     CALL ZTIME(myStat%t1)

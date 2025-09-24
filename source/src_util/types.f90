@@ -572,7 +572,7 @@ TYPE tSegment
   REAL*8, ALLOCATABLE :: Zknet(:)
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L
-  REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
+  REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0],FBMOffsetBC(3)=[0d0,0d0,0d0],FBMOmegaBC(3)=[0d0,0d0,0d0]
   REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
   REAL*8 :: SegRotFreq
   INTEGER :: ZME_N
@@ -588,6 +588,7 @@ TYPE tSegment
   TYPE(tConvergenceDetector) ConvergenceDetector
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
+  REAL*8 RobinHTC
   !!!!!!!!!!!!!!!!!!!
   INTEGER GANGZAHL
    
@@ -660,6 +661,7 @@ ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress, FillingDegree
+   REAL*8 :: T0_Lin = 0d0, T0_Quad = 0d0, T0_RCenter = 0d0
    REAL*8,allocatable :: T0_T(:)
    INTEGER :: T0_N=-1000
    REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
@@ -674,7 +676,7 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
-   logical :: bRobinBCScrew=.false.,bRobinBCBarrel=.false.
+   logical :: bRobinBCScrew=.false.,bRobinBCBarrel=.false.,bRobinBCCaliber=.false.
    REAL*8 :: RobinBCScrew_HTC=0d0,RobinBCBarrel_HTC=0d0
    LOGICAL :: UseHeatDissipationForQ1Scalar=.false.,UseAirCooling=.false.
    REAL*8  :: AirCoolingHeatTransCoeff,AirCoolingRoomTemperature
@@ -686,6 +688,7 @@ TYPE tProcess
   
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
+   REAL*8 :: FarFieldTemperature=20d0,HTC=0d0,Emissivity=0d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
 
 !    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
@@ -710,7 +713,7 @@ TYPE tMultiMat
 END TYPE tMultiMat
 
 TYPE tTransientSolution
- INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
+ INTEGER :: nTimeSubStep = 6, DumpFormat=3 ! 2::LST, 3::MPI_DMP
  TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)

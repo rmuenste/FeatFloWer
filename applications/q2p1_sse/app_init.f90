@@ -13,7 +13,7 @@ subroutine init_q2p1_ext(log_unit)
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
       ApplicationString,bMultiMat
   use solution_io, only: read_sol_from_file
-  use Sigma_User, only: myProcess
+  use Sigma_User, only: myProcess,myTransientSolution
   USE iniparser, ONLY : inip_output_init
 
 
@@ -49,8 +49,8 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,x,t,q')
-!    call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (myTransientSolution%DumpFormat.eq.2) call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (myTransientSolution%DumpFormat.eq.3) call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,x,t,q')
 !     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)

@@ -160,6 +160,10 @@ subroutine MemoryPrint(iDo,cGroup,cMSG)
  character, intent(in):: cGroup*(*)
  character, intent(in):: cMSG*(*)
  
+!!!!!!!!!!!!!!!    NEEDS TO BE REACTIVATED !!!!!!!!!!!!!!!
+ return
+!!!!!!!!!!!!!!!    NEEDS TO BE REACTIVATED !!!!!!!!!!!!!!!
+
  CALL Get_PID(id,myid,mem1,mem2)
  
  allocate(sendcounts1(0:subnodes))

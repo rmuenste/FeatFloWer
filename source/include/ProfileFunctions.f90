@@ -213,7 +213,7 @@
 
   dP = (/X, Y, Z/)
 
-  dScale = 8/3*NORM2(DB-dCenter)*NORM2(DA-dCenter)+ &
+  dScale = 8d0/3d0*NORM2(DB-dCenter)*NORM2(DA-dCenter)+ &
          PI/2*NORM2(DB-dCenter)**2
   
   dVolFlow = (1e3/3.6d3)*DM/(DRHO) 
