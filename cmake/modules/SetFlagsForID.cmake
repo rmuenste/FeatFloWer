@@ -363,7 +363,7 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CXX_FLAGS_FC -m64 )
+  SET(CXX_FLAGS_FC)
   SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
