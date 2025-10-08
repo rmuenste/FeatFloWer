@@ -752,6 +752,23 @@ IF (iT.EQ.39) THEN
   ValW = dProfil(3)
 END IF
  
+IF (iT.EQ.444) THEN
+ dDensity = myThermodyn%density
+ IF (abs(y).gt.2.5d0) THEN
+  daux = (3.29d0/3600d0)/(dDensity*1d3)
+  dScale = daux/(0.2322d0*0.0012)*1d2 ! cm/s ==> u_mean
+  if (y.lt.0d0) THEN
+   ValW = max(0d0,3d0/2d0*dScale*(1d0 - (2d0*(y + 5.053d0)/0.12d0)**2d0))
+  ELSE
+   ValW = max(0d0,3d0/2d0*dScale*(1d0 - (2d0*(y - 5.053d0)/0.12d0)**2d0))
+  END IF
+ else
+  daux = (306.45d0/3600d0)/(dDensity*1d3)
+  dScale = 3d0/2d0*daux/(0.2322d0*0.0024)*1d2
+  ValW = max(0d0,dScale*(-(2d0*(y + 0.12d0)/0.24d0)*(2d0*(y - 0.12d0)/0.24d0)))
+ end if
+END IF
+
 IF (iT.EQ.45) THEN
  ValW=RotParabolicVelo2Dz(0d0,0d0,1449d0,1d0,2.495d0)
 END IF
