@@ -2948,7 +2948,7 @@ END
 !-------------------------------------------------------
 !
 SUBROUTINE SearchPointsWRT_STLs(X,Y,Z,t,dist,bProjection,X0,Y0,Z0,iProj)
-use geometry_processing, only: STLR_elem,STLL_elem,STL_elem
+use geometry_processing, only: STLR_elem,STLL_elem,STL_elem,STL_LR_elem
 use Sigma_User, only: mySigma
 USE PP3D_MPI, ONLY : myid,master
 
@@ -2982,9 +2982,16 @@ DO k=1, mySigma%NumberOfSeg
  dSeg0=1d8
  dSeg1=1d8
  dSeg2=1d8
- IF (mySigma%mySegment(k)%ART.EQ.'STL_R')  CALL STLR_elem(XC,YC,ZC,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
- IF (mySigma%mySegment(k)%ART.EQ.'STL_L')  CALL STLL_elem(XC,YC,ZC,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
- IF (mySigma%mySegment(k)%ART.EQ.'STL'  )  CALL STL_elem(XC,YC,ZC,tt,k,dSeg0,dSeg1,dSeg2,inpr,bProjection,ProjP)
+
+ IF (t.lt.1d-8.and.mySigma%mySegment(k)%ObjectType.eq.'SCREW') THEN
+  IF (mySigma%mySegment(k)%ART.EQ.'STL_R' )  CALL STLR_elem(XC,YC,ZC,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
+  IF (mySigma%mySegment(k)%ART.EQ.'STL_L' )  CALL STLL_elem(XC,YC,ZC,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
+  IF (mySigma%mySegment(k)%ART.EQ.'STL_LR')  CALL STL_LR_elem(XC,YC,ZC,tt,k,dSeg1,dSeg2,inpr,bProjection,ProjP)
+ END IF
+
+ IF (mySigma%mySegment(k)%ObjectType.eq.'DIE'.OR.mySigma%mySegment(k)%ObjectType.eq.'OBSTACLE') THEN
+  IF (mySigma%mySegment(k)%ART.EQ.'STL'   )  CALL STL_elem(XC,YC,ZC,tt,k,dSeg0,dSeg1,dSeg2,inpr,bProjection,ProjP)
+ END IF
  
 !  if (myid.eq.1.and.bProjection) then
 !   write(*,*) mySigma%mySegment(k)%ART,inpr,dSeg0

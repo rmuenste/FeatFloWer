@@ -1051,7 +1051,7 @@ end subroutine viz_CreateHistogram
 !-------------------------------------------------------------------------------------------------
 subroutine viz_OutPut_Torque1D(iOut)
 USE PP3D_MPI, ONLY:myid
-USE var_QuadScalar, ONLY: my1DOut,my1DTorque
+USE var_QuadScalar, ONLY: my1DOut,my1DTorque,my1DForceX,my1DForceY
 use iniparser
 USE Sigma_User, ONLY: mySigma,myOutput
 
@@ -1081,6 +1081,27 @@ IF (myid.eq.1.and.allocated(my1DTorque)) THEN
 
  CLOSE(ifile)
  
+END IF
+
+IF (myid.eq.1.and.allocated(my1DTorque)) THEN
+
+ WRITE(cf2,'(A,I4.4,A)') '_1D/force_',iOut,'.res'
+
+ call inip_openFileForWriting(cf2, ifile, INIP_REPLACE, bfileExists, .TRUE.)
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+  WRITE(ifile,'(6A20)') "AxialPos_[mm/s],","ForceLx_[kN],","ForceLy_[kN],","ForceRx_[kN]","ForceRy_[kN]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(6ES20.4)') 1d1*my1DOut(1)%dLoc(i),1e-8*my1DForceX(1,i),1e-8*my1DForceY(1,i),1e-8*my1DForceX(2,i),1e-8*my1DForceY(2,i)
+  END DO
+ ELSE
+  WRITE(ifile,'(6A20)') "AxialPos_[mm/s],","Forcex_[kN],","Forcey_[kN]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(6ES20.4)') 1d1*my1DOut(1)%dLoc(i),1e-8*my1DForceX(1,i),1e-8*my1DForceY(1,i)
+  END DO
+ END IF
+
+ CLOSE(ifile)
+
 END IF
 
 end subroutine viz_OutPut_Torque1D

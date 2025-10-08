@@ -4,7 +4,7 @@
 !************************************************************************
       USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
       USE var_QuadScalar, ONLY : myFBM
-      USE var_QuadScalar, ONLY: my1DTorque
+      USE var_QuadScalar, ONLY: my1DTorque,my1DForceX,my1DForceY
       USE Sigma_User, ONLY: myOutput,mySigma
 
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -50,14 +50,30 @@
       if (.not.allocated(my1DTorque)) THEN
        IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN 
         allocate(my1DTorque(2,myOutput%nOf1DLayers))
+        allocate(my1DForceX(2,myOutput%nOf1DLayers))
+        allocate(my1DForceY(2,myOutput%nOf1DLayers))
        ELSE
         allocate(my1DTorque(1,myOutput%nOf1DLayers))
+        allocate(my1DForceX(1,myOutput%nOf1DLayers))
+        allocate(my1DForceY(1,myOutput%nOf1DLayers))
        END IF
       END IF
             
-      IF (iref.eq.101) my1DTorque(1,:) = 0d0
-      IF (iref.eq.102) my1DTorque(2,:) = 0d0
-      IF (iref.eq.103) my1DTorque(1,:) = 0d0
+      IF (iref.eq.101) THEN
+       my1DTorque(1,:) = 0d0
+       my1DForceY(1,:) = 0d0
+       my1DForceX(1,:) = 0d0
+      END IF
+      IF (iref.eq.102) THEN
+       my1DTorque(2,:) = 0d0
+       my1DForceY(2,:) = 0d0
+       my1DForceX(2,:) = 0d0
+      END IF
+      IF (iref.eq.103) THEN
+       my1DTorque(1,:) = 0d0
+       my1DForceY(1,:) = 0d0
+       my1DForceX(1,:) = 0d0
+      END IF
 
       IF (myid.eq.0) GOTO 999
 
@@ -294,10 +310,16 @@
        DTrqForce(3) = DTrqForce(3) + ATQZ*OM
        
        CALL FindSegmentForTorque(ZZ,mySigma%L,myZPosition,myOutput%nOf1DLayers)
-       IF (iref.eq.102) THEN
+!
+       IF (iref.eq.102.and.myZPosition.gt.0) THEN
         my1DTorque(2,myZPosition) = my1DTorque(2,myZPosition) + ATQZ*OM
-       ELSE
+        my1DForceX(2,myZPosition) = my1DForceX(2,myZPosition) + AH1*OM
+        my1DForceY(2,myZPosition) = my1DForceY(2,myZPosition) + AH2*OM
+       END IF
+       IF (iref.eq.101.and.myZPosition.gt.0) THEN
         my1DTorque(1,myZPosition) = my1DTorque(1,myZPosition) + ATQZ*OM
+        my1DForceX(1,myZPosition) = my1DForceX(1,myZPosition) + AH1*OM
+        my1DForceY(1,myZPosition) = my1DForceY(1,myZPosition) + AH2*OM
        END IF
 !
 !
@@ -310,8 +332,12 @@
       
       IF (iref.eq.102) THEN
        CALL COMM_SUMMN(my1DTorque(2,:),myOutput%nOf1DLayers)
+       CALL COMM_SUMMN(my1DForceX(2,:),myOutput%nOf1DLayers)
+       CALL COMM_SUMMN(my1DForceY(2,:),myOutput%nOf1DLayers)
       ELSE
        CALL COMM_SUMMN(my1DTorque(1,:),myOutput%nOf1DLayers)
+       CALL COMM_SUMMN(my1DForceX(1,:),myOutput%nOf1DLayers)
+       CALL COMM_SUMMN(my1DForceY(1,:),myOutput%nOf1DLayers)
       END IF
 
 99999 CONTINUE
@@ -347,8 +373,8 @@
       END DO
       
       IF (iPos.lt.0) THEN
-       WRITE(*,*) "Torque Value cannot be stored ... ",zPos,zLen,iPos,nPos
-       STOP
+!        WRITE(*,*) "Torque Value cannot be stored ... ",zPos,zLen,iPos,nPos
+!        STOP
       END IF
       
       END 
