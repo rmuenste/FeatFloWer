@@ -332,7 +332,8 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.3) THEN
 
-   Tracer%val(NLMAX)%x(i)= myProcess%MeltInflowTemperature
+   iSeg = myHeatObjects%Segment(i)
+   Tracer%val(NLMAX)%x(i)= mySigma%mySegment(iSeg)%InitTemp !myProcess%MeltInflowTemperature
 
  END IF
 
