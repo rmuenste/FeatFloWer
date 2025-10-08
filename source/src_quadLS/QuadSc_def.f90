@@ -3241,14 +3241,18 @@ nrm_W = 0d0
 !-------------------  U - Component -------------------!
  ndof = myScalar%ndof !SIZE(myScalar%ValU)
 
- myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU(1:ndof)
- myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV(1:ndof)
- myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW(1:ndof)
+ if (myid.ne.0) then
+  myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%ValU(1:ndof)
+  myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%ValV(1:ndof)
+  myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%ValW(1:ndof)
+ end if
  MyMG%X    => myScalar%sol
 
- myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU(1:ndof)
- myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV(1:ndof)
- myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW(1:ndof)
+ if (myid.ne.0) then
+  myScalar%rhs(NLMAX)%x(0*ndof+1:1*ndof) = myScalar%defU(1:ndof)
+  myScalar%rhs(NLMAX)%x(1*ndof+1:2*ndof) = myScalar%defV(1:ndof)
+  myScalar%rhs(NLMAX)%x(2*ndof+1:3*ndof) = myScalar%defW(1:ndof)
+ end if
  MyMG%B    => myScalar%rhs
 
  CALL MG_Solver(mfile,mterm)
@@ -3262,9 +3266,11 @@ nrm_W = 0d0
 ! !  if (myid.eq.1) write(MTERM,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
 ! !  if (myid.eq.1) write(MFILE,'(A,3ES12.4)') 'Relative Changes of U:', u_rel(4)/u_rel(1),u_rel(5)/u_rel(2),u_rel(6)/u_rel(3)
  
- myScalar%ValU(1:ndof) = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
- myScalar%ValV(1:ndof) = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
- myScalar%ValW(1:ndof) = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+ if (myid.ne.0) then
+  myScalar%ValU(1:ndof) = myScalar%sol(NLMAX)%x(0*ndof+1:1*ndof)
+  myScalar%ValV(1:ndof) = myScalar%sol(NLMAX)%x(1*ndof+1:2*ndof)
+  myScalar%ValW(1:ndof) = myScalar%sol(NLMAX)%x(2*ndof+1:3*ndof)
+ end if
 
  myScalar%prm%MGprmOut(1)%UsedIterCycle = myMG%UsedIterCycle
  myScalar%prm%MGprmOut(1)%nIterCoarse   = myMG%nIterCoarse
