@@ -58,15 +58,16 @@
                     IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
  
       SAVE
- 
-      IF (myid.eq.0) GOTO 999
- 
+
+! Main computation (skipped for master process)
+      IF (myid /= 0) THEN
+
       DO I= 1,NNDER
-        BDER(I)=.FALSE.
+        BDER(I)=.false.
       end do
- 
+
       DO I=1,4
-        BDER(I)=.TRUE.
+        BDER(I)=.true.
       end do
  
       IELTYP=-1
@@ -75,11 +76,11 @@
  
       ICUB=9
       CALL CB3H(ICUB)
-      IF (IER.ne.0)then
+      IF (IER /= 0)then
         call ExitError('Error in GetForces',605)
       end if
 
-      if(myid.eq.1) write(*,*)'> FBM Force Calculation'
+      if(myid == 1) write(*,*)'> FBM Force Calculation'
       DO IP = 1,myFBM%nParticles
  
       Center = myFBM%particleNew(IP)%Position
@@ -96,24 +97,24 @@
       DO IEL=1,NEL
 !
       CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
-      IF (IER.LT.0) GOTO 99999
+      IF (IER < 0) RETURN
 !
 !-----------------------------------------------------------------
        NJALFA=0
        NIALFA=0
        DO I=1,IDFL
          IG=KDFG(I)
-         IF((ALPHA(IG).EQ.0).or.(ALPHA(IG).NE.IP))THEN
+         IF((ALPHA(IG) == 0).or.(ALPHA(IG) /= IP))THEN
           NJALFA=NJALFA+1
          ENDIF
-         IF (ALPHA(IG).EQ.IP) THEN
+         IF (ALPHA(IG) == IP) THEN
           NIALFA=NIALFA+1
          ENDIF
        ENDDO
 
       ! Skip elements where all dofs are inside or
       ! all dofs are outside
-      IF(NJALFA.EQ.27.OR.NIALFA.EQ.27) cycle
+      IF(NJALFA == 27.OR.NIALFA == 27) cycle
 
 !      myExport%p_DataScalarCell(1)%pData(iel)=2
       !write(*,*)'adding IELEval: ',IEL
@@ -205,7 +206,7 @@
       DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
 !
       CALL ELE(0D0,0D0,0D0,-2)
-      IF (IER.LT.0) GOTO 99999
+      IF (IER < 0) RETURN
 !
 ! *** Loop over all cubature points
       DO ICUBP=1,NCUBP
@@ -315,7 +316,7 @@
 !-----------------------------------------------------------------------
 !
       CALL ELE(XI1,XI2,XI3,-3)
-      IF (IER.LT.0) GOTO 99999
+      IF (IER < 0) RETURN
 !
 !     Evaluate the solution values and derivatives in the cubature point
 
@@ -405,7 +406,7 @@
          DU3Z=DU3Z+U3(IG)*DBI4
 
          !------FOR ALFA------
-         IF (ALPHA(IG).EQ.IP) THEN
+         IF (ALPHA(IG) == IP) THEN
           DALPHA = 1d0
          ELSE
           DALPHA = 0d0
@@ -557,6 +558,8 @@
 
       END DO ! nParticles
 
+      END IF ! myid /= 0
+
 999   CALL COMM_SUMMN(myFBM%Force,6*myFBM%nParticles)
 
       DO IP = 1,myFBM%nParticles
@@ -585,8 +588,6 @@
        myFBM%ParticleNew(IP)%TorqueForce(3) = &
        factors(6) * myFBM%Force(iPointer+5)
       END DO
-      
-99999 CONTINUE
 
       END
 !
