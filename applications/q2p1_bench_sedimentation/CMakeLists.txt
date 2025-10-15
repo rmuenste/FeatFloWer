@@ -34,7 +34,6 @@ set_target_properties(q2p1_bench_sedimentation PROPERTIES LINKER_LANGUAGE Fortra
 #message(STATUS "q2p1_fc_ext bin dir: ${CMAKE_CURRENT_BINARY_DIR}")
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 

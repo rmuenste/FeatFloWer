@@ -199,8 +199,7 @@ module umbrella_smoother
      w(j) = w(j) + 1d0
     end DO
    end DO
-   CALL E013SUM(f)
-   CALL E013SUM(w)
+   CALL E013SUM2(f,w)
   
    DO i=1,nvt
     f(i) = f(i)/w(i)
@@ -270,10 +269,7 @@ module umbrella_smoother
     end DO
    end DO
   
-   CALL E013SUM(x)
-   CALL E013SUM(y)
-   CALL E013SUM(z)
-   CALL E013SUM(w)
+   CALL E013SUM4(x,y,z,w)
   
    DO i=1,nvt
      PX = x(i)/w(i)

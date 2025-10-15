@@ -32,7 +32,7 @@ subroutine init_q1_scalar(log_unit)
   ELSE
     IF (ISTART.EQ.1) THEN
       IF (myid.ne.0) CALL CreateDumpStructures(1)
-      call LoadMPIDumpFiles(0,'s,p,v,x,q')
+      call LoadMPIDumpFiles(0,'s,p,v,q')
 !       call Load_ListFiles_General(0,'s,p,v,x,q')
 !       call Load_ListFiles_Q1_Scalar(0)
     ELSE
@@ -88,6 +88,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: bfile 
  CHARACTER (len = 120) :: cExtrud3DFile
 
+ CHARACTER (len = 60) :: ctemp 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
@@ -114,7 +115,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+  include 'PartitionReader.f90'
+#else
+  include 'PartitionReader2.f90'
+#endif
 
  CALL Init_QuadScalar(mfile)
 

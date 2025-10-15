@@ -1,18 +1,5 @@
 set(Q2P1_BUILD_ID_FOUND false)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.1.0")
-    set(CMAKE_CXX_STANDARD 11)
-    set(CMAKE_CXX_STANDARD_REQUIRED YES)
-  else()
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CXX_STANDARD_REQUIRED YES)
-  endif()
-else()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED YES)
-endif()
-
 #===============================================================================================================
 #                                              Intel builds
 #===============================================================================================================
@@ -25,11 +12,19 @@ IF(Q2P1_BUILD_ID STREQUAL "nehalem-linux-intel-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "alderlake-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise)
+  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -fpp)
+  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "core2duo-linux-intel-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
   SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
-  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(FF_C_FLAGS -axCORE-AVX512-funroll-loops -fp-model precise -no-prec-div)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
@@ -51,7 +46,7 @@ ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-intel-release-checks")
   SET(CMAKE_BUILD_TYPE "Release")
-  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div -traceback -check -fpe0)
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div -traceback -check=uninit,stack -fpe0)
   SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp -traceback -check all,noarg_temp_created -fpe0)
   SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
   SET(Q2P1_BUILD_ID_FOUND true)
@@ -70,6 +65,34 @@ IF(Q2P1_BUILD_ID STREQUAL "skylake-linux-intel-release")
   SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
   SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
   SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "platinum-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -funroll-loops)
+  SET(Fortran_FLAGS -stand -funroll-loops -assume underscore -fpp)
+  SET(FF_C_FLAGS  -funroll-loops)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "icelake-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
+  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "alderlake-linux-intel-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  #  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  #  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -no-prec-div -fpp)
+  #  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise -no-prec-div)
+  SET(CXX_FLAGS_FC -axCORE-AVX512 -funroll-loops -fp-model precise)
+  SET(Fortran_FLAGS -axCORE-AVX512 -stand -funroll-loops -assume underscore -fp-model precise -fpp)
+  SET(FF_C_FLAGS -axCORE-AVX512 -funroll-loops -fp-model precise)
+
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
@@ -147,7 +170,28 @@ IF(Q2P1_BUILD_ID STREQUAL "phenomIIx4-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "epycmilan-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize)
+  SET(Fortran_FLAGS -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "epyc16core-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize)
+  SET(Fortran_FLAGS -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "genoa-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize)
+  SET(Fortran_FLAGS -g -march=znver1 -mtune=znver1 -mavx2 -ftree-vectorize -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "genoa-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -g -march=znver2)
   SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
@@ -175,6 +219,13 @@ IF(Q2P1_BUILD_ID STREQUAL "skylake-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "icelake-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=native)
+  SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 IF(Q2P1_BUILD_ID STREQUAL "broadwell-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -g -march=native -g)
@@ -190,6 +241,13 @@ IF(Q2P1_BUILD_ID STREQUAL "haswell-linux-gcc-release")
 ENDIF()
 
 IF(Q2P1_BUILD_ID STREQUAL "nehalem-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=native)
+  SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "alderlake-linux-gcc-release")
   SET(CMAKE_BUILD_TYPE "Release")
   SET(CXX_FLAGS_FC -g -march=native)
   SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
@@ -231,6 +289,34 @@ IF(Q2P1_BUILD_ID STREQUAL "zen2-linux-gcc-release")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "zen3-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -m64 -march=znver3)
+  SET(Fortran_FLAGS -g -march=znver3 -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "pinnacleridge-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -m64 -march=znver1)
+  SET(Fortran_FLAGS -g -march=znver1 -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "epyc32core-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=znver2)
+  SET(Fortran_FLAGS -g -march=native -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "sandy-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -g -march=sandybridge -mtune=sandybridge -mavx -maes )
+  SET(Fortran_FLAGS -g -march=sandybridge -mtune=sandybridge -mavx -maes -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 #===============================================================================================================
 #                                              Debug builds
 #===============================================================================================================
@@ -252,7 +338,7 @@ ENDIF()
 IF(Q2P1_BUILD_ID STREQUAL "xeon-linux-gcc-debug")
   SET(CMAKE_BUILD_TYPE "Debug")
   SET(CXX_FLAGS_FC)
-  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -fcheck=all -Wall -cpp)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
@@ -268,19 +354,34 @@ ENDIF()
 #                                             Generic Deployment Builds
 #===============================================================================================================
 
-IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-deployment")
+IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-debug")
   SET(CMAKE_BUILD_TYPE "Debug")
   SET(CXX_FLAGS_FC)
   SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+<<<<<<< HEAD
+=======
+IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+
+>>>>>>> master
 #===============================================================================================================
 #                           Temporary fix for argument mismatch errors with GFORTRAN >= 10
 #===============================================================================================================
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "10.0.0" OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "10.0.0")
     message(STATUS "For GCC greater or equal 10.0.0 we set the flag -fallow-argument-mismatch as a workaround for type mismatches")
+<<<<<<< HEAD
     SET(Fortran_FLAGS -g -march=native -finit-local-zero -fallow-argument-mismatch -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+=======
+    SET(Fortran_FLAGS ${Fortran_FLAGS} -fallow-argument-mismatch)
+>>>>>>> master
   endif()
 endif()

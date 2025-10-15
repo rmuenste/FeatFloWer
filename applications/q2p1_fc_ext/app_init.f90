@@ -106,16 +106,27 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
+ 
+ character(MPI_MAX_PROCESSOR_NAME) :: processor_name
+ integer :: name_len
+
+ CHARACTER (len = 60) :: ctemp 
+ integer, dimension(1) :: processRanks
+ integer :: MPI_W0, MPI_EX0
+ integer :: MPI_Comm_EX0
+ integer :: error_indicator
+ integer :: numParticles
 
 
  CALL ZTIME(TTT0)
-
 
  !=======================================================================
  !     Data input
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ 
+ CALL FindNodes()
  
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
@@ -129,8 +140,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
+#ifdef HAVE_PE 
  include 'PartitionReader.f90'
+#else
+ include 'PartitionReader2.f90'
+#endif
 
+ call MPI_Get_processor_name(processor_name, name_len, ierr)
+ write(*,'(A,I0,A)') 'Hello from MPI process ', myid, ' on processor "'//trim(processor_name)//'" with mesh '//TRIM(ADJUSTL(CMESH1))
+ 
  CALL Init_QuadScalar(mfile)
 
  IF (myid.EQ.0) THEN
@@ -177,41 +195,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  call readTriCoarse(CMESH1, mg_mesh)
 
- call refineMesh(mg_mesh, mg_Mesh%maxlevel)  
+ call refineMesh(mg_mesh, mg_Mesh%maxlevel,.true.)  
 
- 
- !!!! if a tria structure is needed to be written out (for old FF) this part of the code has to be activated
-!  if (myid.eq.0) then 
-! 
-!   DO II=mg_Mesh%nlmin,mg_Mesh%nlmax
-!   
-!    READ(cProjectFile(6:),'(A)') cXX
-!    iXX = INDEX(CXX,'/')
-!    READ(cXX(:iXX-1),'(A)') cXX
-!    
-!    CALL EXPORT_TRIA(mg_mesh%level(II)%nel,&
-!                     mg_mesh%level(II)%nvt,&
-!                     mg_mesh%level(II)%net,&
-!                     mg_mesh%level(II)%nat,&
-!                     mg_mesh%level(II)%nve,&
-!                     mg_mesh%level(II)%nee,&
-!                     mg_mesh%level(II)%nae,&
-!                     mg_mesh%level(II)%nvel,&
-!                     mg_mesh%level(II)%nbct,&
-!                     mg_mesh%level(II)%dcorvg,&
-!                     mg_mesh%level(II)%kvert,&
-!                     mg_mesh%level(II)%kadj,&
-!                     mg_mesh%level(II)%kedge,&
-!                     mg_mesh%level(II)%dcorag,&
-!                     mg_mesh%level(II)%kvel,&
-!                     mg_mesh%level(II)%karea,&
-!                     mg_mesh%level(II)%knpr,&
-!                     cXX,II)
-!                     
-!     WRITE(*,*) 'TRIA has been released for level', II
-!   END DO                
-! 
-!  END IF
  
  II=NLMIN
  IF (myid.eq.1) WRITE(*,*) 'setting up general parallel structures on level : ',II
@@ -267,22 +252,21 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
-!  ILEV = LinSc%prm%MGprmIn%MedLev
-! 
-!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-!                              mg_mesh%level(ILEV)%kvert,&
-!                              mg_mesh%level(ILEV)%kedge,&
-!                              mg_mesh%level(ILEV)%karea,&
-!                              mg_mesh%level(ILEV)%nvt,&
-!                              mg_mesh%level(ILEV)%net,&
-!                              mg_mesh%level(ILEV)%nat,&
-!                              mg_mesh%level(ILEV)%nel)
+ ILEV = LinSc%prm%MGprmIn%MedLev
+
+ CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+                             mg_mesh%level(ILEV)%kvert,&
+                             mg_mesh%level(ILEV)%kedge,&
+                             mg_mesh%level(ILEV)%karea,&
+                             mg_mesh%level(ILEV)%nvt,&
+                             mg_mesh%level(ILEV)%net,&
+                             mg_mesh%level(ILEV)%nat,&
+                             mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
- 
 DO ILEV=NLMIN+1,NLMAX
 
- IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
+ IF (myid.eq.1) write(*,*) '||->>>setting up parallel structures for Q2  on level : ',ILEV
 
  CALL E013_CreateComm(mg_mesh%level(ILEV)%dcorvg,&
                       mg_mesh%level(ILEV)%dcorag,&
@@ -304,48 +288,86 @@ DO ILEV=NLMIN+1,NLMAX
         mg_mesh%level(NLMAX)%nel + mg_mesh%level(NLMAX)%net
 
  CALL E011_CreateComm(NDOF)
-
- !     ----------------------------------------------------------            
- call init_fc_rigid_body(myid)      
- call FBM_GetParticles()
- CALL FBM_ScatterParticles()
- !     ----------------------------------------------------------        
-
- ILEV=NLMIN
- CALL InitParametrization(mg_mesh%level(ILEV),ILEV)
  
- DO ILEV=NLMIN,NLMAX
 
-   CALL ParametrizeBndr(mg_mesh,ilev)
-
+!     ----------------------------------------------------------            
+call init_fc_rigid_body(myid)      
+call FBM_GetParticles()
+CALL FBM_ScatterParticles()
+!     ----------------------------------------------------------        
+ 
+ILEV=NLMIN
+CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)
+ 
+DO ILEV=NLMIN,NLMAX
+   CALL ProlongateParametrization_STRCT(mg_mesh,ilev)
+END DO
+if(myid.ne.0)then
+   CALL ProlongateParametrization_STRCT(mg_mesh,nlmax+1)
+endif
+ 
+CALL DeterminePointParametrization_STRCT(mg_mesh,nlmax)
+DO ILEV=NLMIN,NLMAX
+   CALL ParametrizeBndryPoints_STRCT(mg_mesh,ilev)
+!    CALL ProjectPointToSTL(ilev)
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
-
-     CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-                                mg_mesh%level(ILEV+1)%dcorvg,&
-                                mg_mesh%level(ILEV)%karea,&
-                                mg_mesh%level(ILEV)%kvert,&
-                                mg_mesh%level(ILEV)%kedge,&
-                                mg_mesh%level(ILEV)%nel,&
-                                mg_mesh%level(ILEV)%nvt,&
-                                mg_mesh%level(ILEV)%net,&
-                                mg_mesh%level(ILEV)%nat)
+    CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
+                               mg_mesh%level(ILEV+1)%dcorvg,&
+                               mg_mesh%level(ILEV)%karea,&
+                               mg_mesh%level(ILEV)%kvert,&
+                               mg_mesh%level(ILEV)%kedge,&
+                               mg_mesh%level(ILEV)%nel,&
+                               mg_mesh%level(ILEV)%nvt,&
+                               mg_mesh%level(ILEV)%net,&
+                               mg_mesh%level(ILEV)%nat)
    END IF
- END DO
-
- ! Parametrize the highest level
- if(myid.ne.0)then
-   CALL ParametrizeBndr(mg_mesh,nlmax+1)
- endif
-
-
- ! This part here is responsible for creation of structures enabling the mesh coordinate 
- ! transfer to the master node so that it can create the corresponding matrices
- IF (myid.EQ.0) THEN
+END DO
+ 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DO iUmbrella=1,nInitUmbrellaSteps
+  CALL UmbrellaSmoother_STRCT(0d0,1)
+!   CALL ProjectPointToSTL(nlmax)
+END DO
+IF (myid.ne.0) THEN
+ 
+  CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
+                             mg_mesh%level(nlmax+1)%dcorvg,&
+                             mg_mesh%level(nlmax)%karea,&
+                             mg_mesh%level(nlmax)%kvert,&
+                             mg_mesh%level(nlmax)%kedge,&
+                             mg_mesh%level(nlmax)%nel,&
+                             mg_mesh%level(nlmax)%nvt,&
+                             mg_mesh%level(nlmax)%net,&
+                             mg_mesh%level(nlmax)%nat)
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (myid.ne.0) THEN
+   CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax+1)
+!    CALL ProjectPointToSTL(ilev+1)
+END IF
+!!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+! This part here is responsible for creation of structures enabling the mesh coordinate 
+! transfer to the master node so that it can create the corresponding matrices
+IF (myid.EQ.0) THEN
    CALL CreateDumpStructures(0)
- ELSE
+ELSE
    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
    CALL CreateDumpStructures(LevDif)
- END IF
+END IF
+ !     ----------------------------------------------------------            
+ !     ----------------------------------------------------------            
+ !     ----------------------------------------------------------            
+ !     ----------------------------------------------------------            
+ !     ----------------------------------------------------------            
+ !     ----------------------------------------------------------            
 
  ILEV = LinSc%prm%MGprmIn%MedLev
 
@@ -419,6 +441,21 @@ DO ILEV=NLMIN+1,NLMAX
    WRITE(MTERM,*)
    WRITE(MFILE,*)
  END IF
+
+ !=======================================================================
+ !     Set up the rigid body C++ library
+ !=======================================================================
+ processRanks(1) = 0
+ CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
+ CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
+ CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+
+
+#ifdef HAVE_PE 
+  if (myid .ne. 0) then
+    call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+  end if
+#endif
 
  RETURN
 

@@ -295,7 +295,7 @@ end subroutine viz_output_fields_Simple
 subroutine viz_write_vtu_process(iO,dcoor,kvert, sQuadSc, sLinSc, visc, screw, shell, shear,&
                                  ioutput_lvl, mgMesh)
 
-use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar,myALE
+use var_QuadScalar,only:myExport,MixerKnpr,MaxShearRate,mySegmentIndicator,GenLinScalar,myALE,MaterialDistribution
 USE var_QuadScalar,ONLY: myBoundary
 
 implicit none
@@ -539,6 +539,17 @@ do iField=1,size(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   end if
 
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+   IF (ioutput_lvl.LE.inlmax-1.and.ALLOCATED(MaterialDistribution(inlmax-1)%x)) THEN
+    write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Material_E",""" format=""ascii"">"
+    do ivt=1,NoOfElem
+     write(iunit, '(A,I8)')"        ",MaterialDistribution(inlmax-1)%x(ivt)
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+  
  end select
  
 end do
@@ -608,7 +619,7 @@ end subroutine viz_write_vtu_process
 !
 subroutine viz_write_pvtu_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY:myExport,GenLinScalar
+USE var_QuadScalar,ONLY:myExport,GenLinScalar,MaterialDistribution
 USE def_FEAT
 
 IMPLICIT NONE
@@ -694,11 +705,17 @@ DO iField=1,SIZE(myExport%Fields)
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure [bar]","""/>"
   END IF
 
-  CASE('KNPRP_E')
+ CASE('KNPRP_E')
 !   WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.LE.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","KNPRP_E","""/>"
   END IF
+  
+ CASE('Material_E')
+  IF (myExport%Level.LE.myExport%LevelMax.and.ALLOCATED(MaterialDistribution)) THEN
+   write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Material_E","""/>"
+  END IF
+  
 END SELECT
 END DO
 write(imainunit, '(A)')"    </PCellData>"
@@ -1034,7 +1051,7 @@ end subroutine viz_CreateHistogram
 !-------------------------------------------------------------------------------------------------
 subroutine viz_OutPut_Torque1D(iOut)
 USE PP3D_MPI, ONLY:myid
-USE var_QuadScalar, ONLY: my1DOut,my1DTorque
+USE var_QuadScalar, ONLY: my1DOut,my1DTorque,my1DForceX,my1DForceY
 use iniparser
 USE Sigma_User, ONLY: mySigma,myOutput
 
@@ -1064,6 +1081,27 @@ IF (myid.eq.1.and.allocated(my1DTorque)) THEN
 
  CLOSE(ifile)
  
+END IF
+
+IF (myid.eq.1.and.allocated(my1DTorque)) THEN
+
+ WRITE(cf2,'(A,I4.4,A)') '_1D/force_',iOut,'.res'
+
+ call inip_openFileForWriting(cf2, ifile, INIP_REPLACE, bfileExists, .TRUE.)
+ IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+  WRITE(ifile,'(6A20)') "AxialPos_[mm/s],","ForceLx_[kN],","ForceLy_[kN],","ForceRx_[kN]","ForceRy_[kN]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(6ES20.4)') 1d1*my1DOut(1)%dLoc(i),1e-8*my1DForceX(1,i),1e-8*my1DForceY(1,i),1e-8*my1DForceX(2,i),1e-8*my1DForceY(2,i)
+  END DO
+ ELSE
+  WRITE(ifile,'(6A20)') "AxialPos_[mm/s],","Forcex_[kN],","Forcey_[kN]"
+  DO i=1,myOutput%nOf1DLayers
+   WRITE(ifile,'(6ES20.4)') 1d1*my1DOut(1)%dLoc(i),1e-8*my1DForceX(1,i),1e-8*my1DForceY(1,i)
+  END DO
+ END IF
+
+ CLOSE(ifile)
+
 END IF
 
 end subroutine viz_OutPut_Torque1D

@@ -34,10 +34,19 @@ CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
 INTEGER :: iCommSwitch=3
 LOGICAL :: BaSynch=.false.
 LOGICAL :: bParallel=.true.
+LOGICAL :: bMemoryPrint=.true.
 LOGICAL :: bMasterTurnedOn=.true. ! because of hypre
 LOGICAL :: bMultiMat=.false.
 LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
 REAL*8  :: AlphaControl=0d0
+
+real*8  :: total_lubrication = 0.0
+
+TYPE tTimer
+ integer :: n = 0
+ real*8  :: t = 0d0
+END TYPE tTimer
+TYPE (tTimer) :: myTimer(6),MYCOMMTIMER(8)
 
 TYPE tSSE_covergence
  REAL*8, allocatable :: Monitor(:)
@@ -51,6 +60,7 @@ real*8  :: extruder_angle = 0.0
 
 integer :: MaxLevelKnownToMaster
 
+real*8 :: referenceVelocity = 0.0
 TYPE tMatrixRenewal
 INTEGER K,D,M,S,C
 END TYPE tMatrixRenewal
@@ -63,6 +73,8 @@ LOGICAL :: bSteadyState =.FALSE.
 LOGICAL :: bBoundaryCheck=.FALSE.
 LOGICAL :: bNS_Stabilization=.FALSE.
 
+REAL*8 :: Gamma = 0d0
+
 ! Integer parameter for terminal output
 integer, parameter :: uterm = 6
 
@@ -73,6 +85,13 @@ INTEGER :: ProlongationDirection = 0
 REAL*8 :: activeFBM_Z_Position=-1d9
 REAL*8 :: dTimeStepEnlargmentFactor=1d0
 INTEGER :: iTimeStepEnlargmentFactor=1
+
+real*8 :: GammaDot = 0.0d0
+
+real*8 :: AlphaRelax = 0.0d0
+
+real*8 :: RadParticle = 1.0d0
+
 
 TYPE tTransform
  INTEGER :: ILINT=2
@@ -107,12 +126,16 @@ REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ConstDMat,hDMat
 REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
 REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
 REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
-REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat
+REAL*8, DIMENSION(:), POINTER :: W11mat,W22mat,W33mat
+REAL*8, DIMENSION(:), POINTER :: W12mat,W13mat,W23mat,W21mat,W31mat,W32mat
+REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat,P1MMat,P1iMMat
 REAL*8, DIMENSION(:), POINTER :: VisMat_11,VisMat_22,VisMat_33
 REAL*8, DIMENSION(:), POINTER :: VisMat_12,VisMat_13,VisMat_23
 
 TYPE(TMatrix)          :: UMF_lMat
 REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
+
+INTEGER, allocatable   :: UNF_P_CrsGrid(:)
 
 TYPE tGlobalNumberingMap
  INTEGER  :: ndof,ndof_Q2,ndof_P1
@@ -158,6 +181,9 @@ TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg_S33mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W11mat,mg_W22mat,mg_W33mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W12mat,mg_W13mat,mg_W23mat
+TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W21mat,mg_W31mat,mg_W32mat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlPMat,mg_MlRhomat,mg_MlRhoPmat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat,mg_P1MMat,mg_P1iMMat
 TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
@@ -241,6 +267,7 @@ type(tMultiMesh),save :: mg_mesh
 
 INTEGER, ALLOCATABLE :: ParKNPR(:)
 INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
+type(tUint64), allocatable :: FictKNPR_uint64(:)
 REAL*8, ALLOCATABLE :: Distance(:),Distamce(:),Screw(:),Shell(:),ScrewDist(:,:)
 REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)
 REAL*8, ALLOCATABLE :: Temperature_AVG(:)
@@ -416,7 +443,7 @@ TYPE t1DOutput
  CHARACTER cName*20
 END TYPE t1DOutput
 TYPE(t1DOutput), TARGET :: my1DOut(11)
-REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:),my1DTorque(:,:)
+REAL*8, ALLOCATABLE :: my1DIntervals(:,:),my1DWeight(:),my1DTorque(:,:),my1DForceX(:,:),my1DForceY(:,:)
 INTEGER my1DOut_nol
 
 TYPE tViscFunc
@@ -432,6 +459,18 @@ TYPE (tParticleParam) :: myParticleParam
 TYPE (tErrorCodes) ::  myErrorCode
 
 TYPE (tMGSteps) MGSteps
+
+TYPE tRecursiveCommunication
+ character(len=256), allocatable :: all_hostnames(:)
+ character(len=256), allocatable :: unique_hostnames(:)
+ integer, allocatable :: hostleaders(:),groupIDs(:)
+ integer, allocatable :: hostgroup(:)
+ integer myid,numnodes,NumHosts,myNodeGroup
+ character(len=256) :: HostName
+END TYPE tRecursiveCommunication
+
+TYPE(tRecursiveCommunication) :: myRecComm
+
 
 contains 
 integer function KNEL(ilevel)

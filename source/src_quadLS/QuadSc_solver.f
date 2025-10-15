@@ -1447,4 +1447,142 @@ C
       END
 C
 C
+C 
+      SUBROUTINE E012_CGSmoother(DX,DXP,DB,NEQ,NIT,DAX0,
+     *           BNOCON,DCG0C)
+
+      USE PP3D_MPI, ONLY :E011Sum,E011Mean,myid,COMM_SUMM,COMM_Maximum,
+     *                    COMM_NLComplete
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+      DIMENSION DX(*),DXP(*),DB(*)
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      SAVE /OUTPUT/,/ERRCTL/,/CHAR/
+      DATA DEF/0D0/
+      REAL*8, allocatable ::  DR(:),DG(:),DD(:),DD1(:) 
+      REAL*8 :: RES,EPS=1d-30,FR,SIGMA0,SIGMA1,ALPHA,GAMMA,DDD
+
+      IF (myid.ne.0) THEN
+      
+!       IF (myid.eq.1) write(*,*) 'CG smoother'
+      
+      ALLOCATE(DR(NEQ),DG(NEQ)) 
+      ALLOCATE(DD(NEQ),DD1(NEQ))
+      
+      DR = 0d0
+      DG = 0d0
+      DD = 0d0
+      DD1 = 0d0
+C
+C *** Initialization
+      CALL DAX0(DX,DXP,DR,NEQ,1D0,0D0)
+      CALL LLC1(DB,DR,NEQ,-1D0,1D0)
+   
+      ! preconditioning by scaling
+      CALL LCP1(DR,DG,NEQ)
+      CALL DCG0C(DG,DXP,NEQ)
+      CALL LSP1(DR,DG,NEQ,SIGMA0)
+      CALL COMM_SUMM(SIGMA0)
+      
+      CALL LLC1(DG,DD,NEQ,-1D0,0D0)
+C
+C *** Iterative correction
+      DO ITE=1,NIT
+C
+      CALL DAX0(DD,DXP,DD1,NEQ,1D0,0D0)
+      CALL LSP1(DD,DD1,NEQ,ALPHA)
+      CALL COMM_SUMM(ALPHA)
+     
+      ALPHA=SIGMA0/ALPHA
+      CALL LLC1(DD,DX,NEQ,ALPHA,1D0)
+      CALL LLC1(DD1,DR,NEQ,ALPHA,1D0)
+C      
+      ! preconditioning by scaling
+      CALL LCP1(DR,DG,NEQ)
+      CALL DCG0C(DG,DXP,NEQ)
+      CALL LSP1(DR,DG,NEQ,SIGMA1)
+      CALL COMM_SUMM(SIGMA1)
+
+      GAMMA=SIGMA1/SIGMA0
+      SIGMA0=SIGMA1
+      CALL LLC1(DG,DD,NEQ,-1D0,GAMMA)
+      
+      END DO
+C
+      DEALLOCATE(DR,DG)
+      DEALLOCATE(DD,DD1)
+      
+      ELSE ! Myid.eq.0
+
+      CALL COMM_SUMM(SIGMA0)
+      
+      DO ITE=1,NIT
+       CALL COMM_SUMM(ALPHA)
+       CALL COMM_SUMM(SIGMA1)
+      END DO
+C
+      END IF
+C
+200   CONTINUE
+C
+      NIT = ITE-1
+C
+99999 END
+C
+C
+C
+      SUBROUTINE CG_PRECOND_SCALING(DA,KCOL,
+     *           KLD,DX,NEQ,OMEGA)
+C
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION DA(*),KCOL(*),KLD(*),DX(*)
+      COMMON /ERRCTL/ IER,ICHECK
+      SAVE /ERRCTL/
+      REAL*8 :: OMI=0.0d0
+C
+      IF (ICHECK.GE.998) CALL OTRC('ID117 ','01/02/89')
+C      
+      DO 1 IEQ=1,NEQ
+      ILD=KLD(IEQ)
+1     DX(IEQ)=DX(IEQ)/DA(ILD)
+C
+      END
+C
+C
+C 
+      SUBROUTINE CG_PRECOND_SSOR(DA,DAP,KCOL,KPCOL,
+     *           KLD,KPLD,DX,DXP,NEQ,OMEGA)
+C
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      DIMENSION DA(*),KCOL(*),KLD(*),DX(*)
+      DIMENSION DAP(*),KPCOL(*),KPLD(*),DXP(*)
+      COMMON /ERRCTL/ IER,ICHECK
+      SAVE /ERRCTL/
+C
+      IF (ICHECK.GE.998) CALL OTRC('ID117 ','01/02/89')
+C
+      DO 1 IEQ=1,NEQ
+      AUX=0D0
+      ILD=KLD(IEQ)
+      DO 4 ICOL=KPLD(IEQ),KPLD(IEQ+1)-1
+4     AUX=AUX+DAP(ICOL)*DXP(KPCOL(ICOL))
+      DO 5 ICOL=ILD+1,KLD(IEQ+1)-1
+      IF (KCOL(ICOL).GE.IEQ) GOTO 1
+5     AUX=AUX+DA(ICOL)*DX(KCOL(ICOL))
+1     DX(IEQ)=(DX(IEQ)-AUX*OMEGA)/DA(ILD)
+C
+      DO 10 IEQ=NEQ-1,1,-1
+      AUX=0D0
+      ILD=KLD(IEQ)
+      DO 12 ICOL=ILD+1,KLD(IEQ+1)-1
+      IF (KCOL(ICOL).LE.IEQ) GOTO 12
+      AUX=AUX+DA(ICOL)*DX(KCOL(ICOL))
+12    CONTINUE
+10    DX(IEQ)=DX(IEQ)-AUX*OMEGA/DA(ILD)
+C
+      END
+C
+C
 C

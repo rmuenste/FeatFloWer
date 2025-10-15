@@ -11,16 +11,17 @@ subroutine init_q2p1_ext(log_unit)
     LinSc_InitCond_XSE,Boundary_LinSc_Val_XSE,Tracer
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File, mg_Mesh, myVelo,Screw,Shell,Shearrate,&
-      Viscosity,Temperature,myExport,ApplicationString,mySegmentIndicator
+      Viscosity,Temperature,myExport,ApplicationString,mySegmentIndicator,GenLinScalar
 !   USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
 !       ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
 !       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
-  USE Sigma_User, only : myProcess, myTransientSolution, mySetup
+  USE Sigma_User, only : myProcess, myTransientSolution, mySetup, myMultiMat
 
   integer, intent(in) :: log_unit
   integer iPeriodicityShift,jFile,iAngle,dump_in_file,i1,i2
   real*8 dTimeStep,dPeriod,meshVelo(3)
+  integer jSeg,kSeg
 
   !-------INIT PHASE-------
   ApplicationString = &
@@ -54,25 +55,50 @@ subroutine init_q2p1_ext(log_unit)
   IF (myProcess%SegmentThermoPhysProps) THEN
    IF (.NOT.ALLOCATED(mySegmentIndicator)) ALLOCATE(mySegmentIndicator(2,QuadSc%ndof))
   END IF
+ 
+  if (myMultiMat%nOfMaterials.gt.1) THEN
+   GenLinScalar%cName = "Temper"
+   GenLinScalar%prm%nOfFields = myMultiMat%nOfMaterials+1
+   GenLinScalar%nOfFields = myMultiMat%nOfMaterials + 1
+   ALLOCATE(GenLinScalar%Fld(GenLinScalar%prm%nOfFields))
+   ALLOCATE(GenLinScalar%prm%cField(GenLinScalar%prm%nOfFields))
+   DO iFld=1,GenLinScalar%nOfFields
+    if (iFld.eq.1) GenLinScalar%prm%cField(iFld) = 'temp'
+    if (iFld.gt.1) then
+     write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld-1
+    end if
+   end do
+   DO iFld = 1,GenLinScalar%nOfFields
+    GenLinScalar%Fld(iFld)%cName = TRIM(GenLinScalar%prm%cField(iFld))
+    ALLOCATE(GenLinScalar%Fld(iFld)%val(QuadSc%ndof))
+   END DO
+  end if
   
   ALLOCATE(myTransientSolution%Velo(3,0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Coor(3,0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Dist(0:myProcess%nTimeLevels-1))
+  ALLOCATE(myTransientSolution%Shell(0:myProcess%nTimeLevels-1))
   ALLOCATE(myTransientSolution%Temp(0:myProcess%nTimeLevels-1))
   IF (myProcess%SegmentThermoPhysProps) THEN
    ALLOCATE(myTransientSolution%iSeg(0:myProcess%nTimeLevels-1))
   END IF
 
-  myTransientSolution%DumpFormat = 3 ! MPI_prf files
+  !myTransientSolution%DumpFormat = 2 ! 3::MPI_prf files
   DO iFile=0,myProcess%nTimeLevels/myProcess%Periodicity-1 !myProcess%nTimeLevels
    dump_in_file = iFile*iAngle
-   if (myTransientSolution%DumpFormat.eq.2) CALL Load_ListFiles_General(dump_in_file,'v,d,x,t,s')
-   IF (myProcess%SegmentThermoPhysProps) THEN
-    if (myTransientSolution%DumpFormat.eq.3) CALL LoadMPIDumpFiles(dump_in_file,'v,d,x,t,s')
-   else
-    if (myTransientSolution%DumpFormat.eq.3) CALL LoadMPIDumpFiles(dump_in_file,'v,d,x,t')
+   if (myTransientSolution%DumpFormat.eq.2) THEN
+    CALL Load_ListFiles_General(dump_in_file,'v,d,x,t,s')
    end if
-!    if (myTransientSolution%DumpFormat.eq.2) CALL Load_ListFiles_SSE_temp(dump_in_file)
+
+   if (myTransientSolution%DumpFormat.eq.3) THEN
+    CALL LoadMPIDumpFiles(dump_in_file,'v,d,x,t')
+    if (myProcess%SegmentThermoPhysProps) CALL LoadMPIDumpFiles(dump_in_file,'s')
+    if (myMultiMat%nOfMaterials.gt.1) THEN
+     CALL LoadMPIDumpFiles(dump_in_file,'q')
+    END IF
+    CALL LoadMPIDumpFiles(dump_in_file,'y')
+   end if
+   
    ALLOCATE(myTransientSolution%Velo(1,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Velo(2,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Velo(3,iFile)%x(QuadSc%ndof))
@@ -80,6 +106,7 @@ subroutine init_q2p1_ext(log_unit)
    ALLOCATE(myTransientSolution%Coor(2,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Coor(3,iFile)%x(QuadSc%ndof))
    ALLOCATE(myTransientSolution%Dist(iFile)%x(QuadSc%ndof))
+   ALLOCATE(myTransientSolution%Shell(iFile)%x(QuadSc%ndof))
    IF (myProcess%SegmentThermoPhysProps) THEN
     ALLOCATE(myTransientSolution%iSeg(iFile)%x(QuadSc%ndof))
    END IF
@@ -91,6 +118,7 @@ subroutine init_q2p1_ext(log_unit)
    myTransientSolution%Coor(2,iFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(2,:)
    myTransientSolution%Coor(3,iFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(3,:)
    myTransientSolution%Dist(  iFile)%x = Screw
+   myTransientSolution%Shell( iFile)%x = Shell
    myTransientSolution%Temp(  iFile)%x = Temperature
    IF (myProcess%SegmentThermoPhysProps) THEN
     myTransientSolution%iSeg(  iFile)%x = mySegmentIndicator(2,:)
@@ -108,6 +136,7 @@ subroutine init_q2p1_ext(log_unit)
      ALLOCATE(myTransientSolution%Coor(2,jFile)%x(QuadSc%ndof))
      ALLOCATE(myTransientSolution%Coor(3,jFile)%x(QuadSc%ndof))
      ALLOCATE(myTransientSolution%Dist(jFile)%x(QuadSc%ndof))
+     ALLOCATE(myTransientSolution%Shell(jFile)%x(QuadSc%ndof))
      ALLOCATE(myTransientSolution%Temp(jFile)%x(QuadSc%ndof))
      myTransientSolution%Velo(1,jFile)%x = QuadSc%ValU
      myTransientSolution%Velo(2,jFile)%x = QuadSc%ValV
@@ -116,6 +145,7 @@ subroutine init_q2p1_ext(log_unit)
      myTransientSolution%Coor(2,jFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(2,:)
      myTransientSolution%Coor(3,jFile)%x = mg_mesh%level(NLMAX+1)%dcorvg(3,:)
      myTransientSolution%Dist(  jFile)%x = Screw
+     myTransientSolution%Shell( jFile)%x = Shell
      myTransientSolution%Temp(  jFile)%x = Temperature
      IF (myProcess%SegmentThermoPhysProps) THEN
       myTransientSolution%iSeg(  jFile)%x = mySegmentIndicator(2,:)
@@ -172,7 +202,31 @@ subroutine init_q2p1_ext(log_unit)
    end if
   end if
   !!! SetThe True Initial Condition for angle 0 !!!!!
+
+  if (istart.ne.0) then
+   if (myid.eq.1) write(*,*) "Reading the PID controller data  ..."
+   CALL READ_PID_DATA()
+  END IF
+
+  do jSeg=1,myProcess%nOfDIESensors
+   if (adjustl(trim(myProcess%mySensor(jSeg)%type)).eq."+STOP") THEN
+     do kSeg=1,myProcess%nOfDIESensors
+      if (adjustl(trim(myProcess%mySensor(kSeg)%type)).eq."-STOP") THEN
+       myProcess%SegThermoPhysProp(myProcess%mySensor(kSeg)%iSeg)%bConstTemp= .false.
+      end if
+     end do
+   END IF
+  END DO
   
+  do jSeg=1,myProcess%nOfDIESensors
+ if (myid.eq.1) write(*,*) jSeg,myProcess%mySensor(jSeg)%iSeg,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(jSeg)%iSeg)%bConstTemp,&
+            myProcess%SegThermoPhysProp(myProcess%mySensor(jSeg)%iSeg)%bHeatSource,&
+            adjustl(trim(myProcess%mySensor(jSeg)%type))
+
+  END DO
+  if (myid.eq.1) write(*,*) "asdadasdasdas asd asd as das dasd as das das dasd adad asd as"
+
 end subroutine init_q2p1_ext
 !
 !----------------------------------------------
@@ -218,6 +272,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CHARACTER (len = 60) :: afile 
  CHARACTER (len = 60) :: bfile 
 
+ CHARACTER (len = 60) :: ctemp 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
  logical :: bwait = .true.
@@ -247,7 +302,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+  include 'PartitionReader.f90'
+#else
+  include 'PartitionReader2.f90'
+#endif
 
  CALL Init_QuadScalar(mfile)
 
@@ -358,16 +417,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
- ILEV = LinSc%prm%MGprmIn%MedLev
-
- CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
-                             mg_mesh%level(ILEV)%kvert,&
-                             mg_mesh%level(ILEV)%kedge,&
-                             mg_mesh%level(ILEV)%karea,&
-                             mg_mesh%level(ILEV)%nvt,&
-                             mg_mesh%level(ILEV)%net,&
-                             mg_mesh%level(ILEV)%nat,&
-                             mg_mesh%level(ILEV)%nel)
+!  ILEV = LinSc%prm%MGprmIn%MedLev
+! 
+!  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
+!                              mg_mesh%level(ILEV)%kvert,&
+!                              mg_mesh%level(ILEV)%kedge,&
+!                              mg_mesh%level(ILEV)%karea,&
+!                              mg_mesh%level(ILEV)%nvt,&
+!                              mg_mesh%level(ILEV)%net,&
+!                              mg_mesh%level(ILEV)%nat,&
+!                              mg_mesh%level(ILEV)%nel)
 
 IF (myid.NE.0) NLMAX = NLMAX - 1
  

@@ -18,7 +18,7 @@ IMPLICIT NONE
 
 CHARACTER*25 :: CInitFile="#data/LS02"
 
-REAL*8 dArea1,dFlux1,dArea2,dFlux2,dHeatSource
+REAL*8 dArea1,dFlux1,dArea2,dFlux2,dArea3,dFlux3,dHeatSource
 
 include 'LinSc_user_include.h'
 
@@ -143,6 +143,10 @@ END DO
 
 NLMAX = NLMAX - 1
 
+if (myid.ne.0) then
+ IF (Allocated(temperature)) Temperature = Tracer%val(NLMAX+1)%x
+end if
+
 END SUBROUTINE Transport_LinScalar
 !
 ! ----------------------------------------------
@@ -179,8 +183,8 @@ IF (myid.ne.master) THEN
 ! Initialize the scalar quantity
  CALL Initialize(Tracer)
 
-! ! Set the types of boundary conditions (set up knpr)
-!  CALL Create_Knpr(LinSc_Knpr)
+! Set the types of boundary conditions (set up knpr)
+ CALL Create_Knpr(LinSc_Knpr_DEFAULT)
 
 END IF
 
@@ -354,6 +358,26 @@ END SUBROUTINE InitCond_LinScalar_General
 !
 ! ----------------------------------------------
 !
+SUBROUTINE LinSc_Knpr_DEFAULT(dcorvg)
+REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
+INTEGER i
+
+DO i=1,Tracer%ndof
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+ Tracer%knpr(I) = 0
+
+ IF (myBoundary%iTemperature(i).ne.0) THEN
+  Tracer%knpr(I) = myBoundary%iTemperature(i)
+ END IF
+
+END DO
+
+END SUBROUTINE LinSc_Knpr_DEFAULT
+!
+! ----------------------------------------------
+!
 SUBROUTINE LinSc_Knpr(dcorvg)
 REAL*8 dcorvg(3,*),X,Y,Z,DIST,xx
 REAL*8 :: PX=0.2d0,PY=0.2d0,PZ=0.2d0,RAD=0.050d0
@@ -410,7 +434,10 @@ DO i=1,Tracer%ndof
  Z = dcorvg(3,i)
  Tracer%knpr(I) = 0
 
- IF (myBoundary%iInflow(i).lt.0) Tracer%knpr(I) = 1
+ IF (myBoundary%iInflow(i).lt.0) Tracer%knpr(I) = 1000+abs(myBoundary%iInflow(i))
+ 
+ IF (myBoundary%iTemperature(i).gt.0) Tracer%knpr(I) = 2000 + myBoundary%iTemperature(i)
+ 
  IF (myBoundary%iInflow(i).eq.10) Tracer%knpr(I) = 1
  
  IF (myProcess%SegmentThermoPhysProps) THEN
@@ -420,11 +447,11 @@ DO i=1,Tracer%ndof
   END IF
  END IF
  
- IF (myBoundary%bWall(i).and.myProcess%Ta.ne.myInf) THEN
+ IF (myBoundary%bWall(i).and.(myProcess%Ta.ne.myInf).and.(.not.myProcess%bRobinBCBarrel)) THEN
   Tracer%knpr(I) = 2
  END IF
  
- IF (myBoundary%iInflow(i).gt.10.and.myProcess%Ti.ne.myInf) THEN
+ IF ((myBoundary%iInflow(i).gt.10).and.(myProcess%Ti.ne.myInf).and.(.not.myProcess%bRobinBCScrew)) THEN
   Tracer%knpr(I) = 3
  END IF
 
@@ -715,16 +742,16 @@ if (myid.ne.0) then
  CALL SETLEV(2)
 
  ! Diffusion matrix 
- CALL Create_LambdaDiffMat()
+ CALL Create_LambdaDiffMat_Ewikon()
 
  ! Mass matrix
- CALL Create_CpRhoMassMat()
+ CALL Create_RhoCpMassMat_Ewikon()
 
  ! Convection matrix
- CALL Create_RhoCpConvMat(QuadSc%valU,QuadSc%valV,QuadSc%valW)
+ CALL Create_RhoCpConvMat_Ewikon(QuadSc%valU,QuadSc%valV,QuadSc%valW)
 
  ! Mass Lumped matrix
- CALL Create_LRhoCpMassMat()
+ CALL Create_RhoCpLMassMat()
 
  NLMAX = NLMAX - 1
 end if

@@ -1434,8 +1434,8 @@ DO iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
   
   dist = (P(1)**2d0 + P(2)**2d0)**0.5d0
   dist_CGAL = myParticleParam%D_Out*0.5d0 - dist
-  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+d_CorrDist*1.0d0) then
-   daux = myParticleParam%D_Out*0.5d0 - d_CorrDist*1.0d0
+  if (myParticleParam%bRotationalMovement.and.dist_CGAL.lt.+0.1d0*d_CorrDist*1.0d0) then
+   daux = myParticleParam%D_Out*0.5d0 - 0.1d0*d_CorrDist*1.0d0
    cdx = P(1)*daux/dist
    cdy = P(2)*daux/dist
    cdz = P(3)

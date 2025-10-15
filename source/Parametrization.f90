@@ -316,21 +316,23 @@ DO iel=1,mgMesh%level(ilevel)%nel
 END DO
 
 if (bParallel) then
- CALL E013SUM(out(1,:))
- CALL E013SUM(out(2,:))
- 
- daux = 0d0
- do i=1,nn_NEL
-  if (myBoundary%bWall(i)) then
-   daux(i) = 1d0
-  end if
- end do
- CALL E013SUM(daux)
- do i=1,NN_NEL
-  if (daux(i).ge.1d0) then
-   myBoundary%bWall(i) = .true.
-  end if
- end do
+ if (myid.ne.0) THEN
+  CALL E013SUM(out(1,:))
+  CALL E013SUM(out(2,:))
+
+  daux = 0d0
+  do i=1,nn_NEL
+   if (myBoundary%bWall(i)) then
+    daux(i) = 1d0
+   end if
+  end do
+  CALL E013SUM(daux)
+  do i=1,NN_NEL
+   if (daux(i).ge.1d0) then
+    myBoundary%bWall(i) = .true.
+   end if
+  end do
+ end if
 end if
 
 do i=1,nn_NEL
@@ -1263,6 +1265,7 @@ integer :: iRepeat,nRepeat=8
            y = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(2,iNode)
            z = dCGALtoRealFactor*mg_mesh%level(ii)%dcorvg(3,iNode)
            call projectonboundaryid(x,y,z,cpx,cpy,cpz,d_temp,ipc)
+           !write(*,*)x,y,z,cpx,cpy,cpz
            mg_mesh%level(ii)%dcorvg(1,iNode) = cpx/dCGALtoRealFactor
            mg_mesh%level(ii)%dcorvg(2,iNode) = cpy/dCGALtoRealFactor
            mg_mesh%level(ii)%dcorvg(3,iNode) = cpz/dCGALtoRealFactor

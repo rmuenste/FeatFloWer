@@ -385,13 +385,15 @@ SUBROUTINE General_init(MDATA,MFILE)
   !
   SUBROUTINE GDATNEW (cName,iCurrentStatus)
     USE PP3D_MPI
+    use iniparser
+    USE var_QuadScalar, ONLY : iCommSwitch,BaSynch
     USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
       nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
       myExport,cAdaptedMeshFile,nUmbrellaSteps,nInitUmbrellaSteps,bNoOutflow,myDataFile,&
       bViscoElastic,bRefFrame,bSteadyState,Properties,dCGALtoRealFactor,&
       nUmbrellaStepsLvl, nMainUmbrellaSteps,bBoundaryCheck,Transform,postParams,&
       ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
-      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster
+      SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle
 
     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
     PARAMETER (NNLEV=9)
@@ -647,7 +649,23 @@ SUBROUTINE General_init(MDATA,MFILE)
 
         CASE ("CGALtoRealFactor")
          READ(string(iEq+1:),*)dCGALtoRealFactor
-         
+
+         ! --- Add new parameters here ---
+        CASE ("GammaDot")
+         READ(string(iEq+1:),*) GammaDot
+        CASE ("AlphaRelax")
+         READ(string(iEq+1:),*) AlphaRelax
+        CASE ("RadParticle")
+         READ(string(iEq+1:),*) RadParticle
+
+        CASE ("aSynchComm")
+          cParam = " "
+          READ(string(iEq+1:),*) cParam
+          call inip_toupper_replace(cParam)
+          baSynch = .FALSE.
+          IF (TRIM(ADJUSTL(cParam)).EQ."YES") baSynch = .TRUE.
+        CASE ("CommSwitch")
+          READ(string(iEq+1:),*) iCommSwitch
         CASE ("OutputFormat")
           READ(string(iEq+1:),*) myExport%Format
         CASE ("OutputFields")
@@ -712,9 +730,17 @@ SUBROUTINE General_init(MDATA,MFILE)
     ! Printout of all loaded parameters
 
     IF (myid.eq.showid) THEN
-      WRITE(mfile,'(A,A)') "Meshfolder = ",cGridFileName
-      WRITE(mterm,'(A,A)') "Meshfolder = ",cGridFileName
-
+      WRITE(mfile,'(A,I3)') "CommSwitch = ",iCommSwitch
+      WRITE(mterm,'(A,I3)') "CommSwitch = ",iCommSwitch
+      
+      IF (baSynch) THEN
+       WRITE(mfile,'(A)') "aSynchComm = YES"
+       WRITE(mterm,'(A)') "aSynchComm = YES"
+      ELSE
+       WRITE(mfile,'(A)') "aSynchComm = NO"
+       WRITE(mterm,'(A)') "aSynchComm = NO"
+      END IF
+      
       WRITE(mfile,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
       WRITE(mterm,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
 
@@ -851,6 +877,17 @@ SUBROUTINE General_init(MDATA,MFILE)
         WRITE(mfile,'(A)') "FlowType = Newtonian"
         WRITE(mterm,'(A)') "FlowType = Newtonian"
       END IF
+
+      ! Print new parameters
+      WRITE(MFILE,'(A,D12.4)') "GammaDot = ", GammaDot
+      WRITE(MTERM,'(A,D12.4)') "GammaDot = ", GammaDot
+
+      WRITE(MFILE,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
+      WRITE(MTERM,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
+     
+      WRITE(MFILE,'(A,D12.4)') "RadParticle = ", RadParticle
+      WRITE(MTERM,'(A,D12.4)') "RadParticle = ", RadParticle
+
       
       IF (ProlongationDirection.eq.0) THEN 
        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"

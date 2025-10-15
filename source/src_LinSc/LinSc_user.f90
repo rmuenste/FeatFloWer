@@ -111,7 +111,7 @@ SUBROUTINE Boundary_LinSc_Val_XSE()
 REAL*8 X,Y,Z
 INTEGER i,iInflow
 REAL*8 :: T1=35d0,T2=45d0
-real*8 dc(3),dR,dRR,dT,TempBC
+real*8 dc(3),dR,dRR,dT,TempBC,dLin,dQuad
 
 DO i=1,Tracer%ndof
 
@@ -119,39 +119,31 @@ DO i=1,Tracer%ndof
  Y = mg_mesh%level(nlmax)%dcorvg(2,i)
  Z = mg_mesh%level(nlmax)%dcorvg(3,i)
  
- IF (Tracer%knpr(i).ge.100) THEN
+ IF (Tracer%knpr(i).ge.100.and.Tracer%knpr(i).lt.1000) THEN
   Tracer%val(NLMAX)%x(i)= myProcess%SegThermoPhysProp(Tracer%knpr(i)-100)%T_Const
  END IF
 
  IF (Tracer%knpr(i).eq.1) THEN
-  Tracer%val(NLMAX)%x(i)= myProcess%T0
-    
-!     iInflow = 1
-!     
-!     dC = myProcess%myInflow(iInflow)%center
-!     
-!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
-!      TempBC = myProcess%myInflow(iInflow)%Temperature
-!     END IF
-!     
-!     IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
-!      dRR = myProcess%myInflow(iInflow)%outerradius
-!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
-!      dR = Min(dR,dRR)
-!      dT = myProcess%myInflow(iInflow)%TemperatureRange
-!      
-!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)/dRR
-!    END IF
-!    IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
-!      dRR = myProcess%myInflow(iInflow)%outerradius
-!      dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(2)-Z)**2d0)
-!      dR = Min(dR,dRR)
-!      dT = myProcess%myInflow(iInflow)%TemperatureRange
-!      
-!      TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(dRR-dR)*(dRR+dR)/(dRR*dRR)
-!     END IF
-!   
-!   Tracer%val(NLMAX)%x(i)= TempBC
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+   IF (Y.GE.0d0) THEN
+    dR = SQRT(X*X + (Y-mySigma%a/2d0)*(Y-mySigma%a/2d0))
+   END IF
+
+   IF (Y.LE.0d0) THEN
+    dR = SQRT(X*X + (Y+mySigma%a/2d0)*(Y+mySigma%a/2d0))
+   END IF
+  END IF
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+   dR = SQRT(X*X + Y*Y)
+  END IF
+
+  dQuad = myProcess%T0_Quad
+  dLin  = myProcess%T0_Lin
+  dRR  = myProcess%T0_RCenter
+
+  Tracer%val(NLMAX)%x(i)= dQuad*(dR-dRR)*(dR-dRR) + dLin*(dR-dRR) + myProcess%T0
  END IF
  
  IF (Tracer%knpr(i).eq.2) THEN
@@ -167,7 +159,42 @@ DO i=1,Tracer%ndof
   Tracer%val(NLMAX)%x(i)= myProcess%Ti
  END IF
 
+ IF (Tracer%knpr(i).ge.1000.and.Tracer%knpr(i).lt.2000) THEN
+  iInflow = Tracer%knpr(i) - 1000
+
+  dC = myProcess%myInflow(iInflow)%center
+  
+  IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.0) THEN
+   TempBC = myProcess%myInflow(iInflow)%Temperature
+  END IF
+  
+  IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.1) THEN
+   dRR = myProcess%myInflow(iInflow)%outerradius
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
+   dT = myProcess%myInflow(iInflow)%TemperatureRange
+   dR = Min(dR,dRR)
+   
+   TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(1d0-(dRR-dR)/dRR)
+!    write(*,'(A,18ES12.4)') 'L',X,Y,Z,dR,dRR,dT,dC,TempBC
+ END IF
+ IF (myProcess%myInflow(iInflow)%Temperaturetype.eq.2) THEN
+   dRR = myProcess%myInflow(iInflow)%outerradius
+   dR = SQRT((dC(1)-X)**2d0 + (dC(2)-Y)**2d0 + (dC(3)-Z)**2d0)
+   dT = myProcess%myInflow(iInflow)%TemperatureRange
+   dR = Min(dR,dRR)
+   
+   TempBC = myProcess%myInflow(iInflow)%Temperature + dT*(1d0-(dRR-dR)*(dRR+dR)/(dRR*dRR))
+!   write(*,'(A,8ES12.4)') 'Q',dRR,dR,dT,dC,TempBC
+  END IF
+  Tracer%val(NLMAX)%x(i)= TempBC
+  
+ END IF
  
+ IF (Tracer%knpr(i).ge.2000) THEN
+  TempBC = DBLE(Tracer%knpr(i) - 2000)
+  Tracer%val(NLMAX)%x(i)= TempBC
+ END IF
+
 END DO
 
 END SUBROUTINE Boundary_LinSc_Val_XSE
@@ -305,7 +332,8 @@ DO i=1,Tracer%ndof
 
  IF (Tracer%knpr(i).eq.3) THEN
 
-   Tracer%val(NLMAX)%x(i)= myProcess%MeltInflowTemperature
+   iSeg = myHeatObjects%Segment(i)
+   Tracer%val(NLMAX)%x(i)= mySigma%mySegment(iSeg)%InitTemp !myProcess%MeltInflowTemperature
 
  END IF
 
@@ -354,28 +382,22 @@ USE var_QuadScalar, ONLY : Screw,Shell,Viscosity,Shearrate,dIntegralHeat,mySegme
 integer i,iSeg
 real*8 daux
 
-!    g      1   1   cm3   (k)g . K    0.1 . kg    1    1e-6 . m3     g . K          s2       0.1 . 1     1    1e-6 . 1     1 . K           1        1e-7 . K
-! --------*---*---*----* ---------- = --------- *----* ----------- * --------- * --------- = --------- *----* ----------- * --------- * --------- = ---------
-!  cm . s   s   s    g      (k)J       m . s      s2        g           1         kg . m2     1 . s       1        1           1         1 . 1          s
+!    g      1   1         g     
+! --------*---*--- = ----------  
+!  cm . s   s   s     cm .s.s.s 
 
 dIntegralHeat = 0d0
 
 DO i = 1,Tracer%ndof
 
- 
-  IF (myProcess%SegmentThermoPhysProps) THEN
-   iSeg = mySegmentIndicator(2,i)
-   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myProcess%SegThermoPhysProp(iSeg)%rho*myProcess%SegThermoPhysProp(iSeg)%cp)
-  ELSE
-   daux = (1e-7)*Viscosity(i)*(Shearrate(i)**2d0)/(myThermodyn%density*myThermodyn%cp)
-  END IF
+  daux = Viscosity(i)*(Shearrate(i)**2d0)
   
-  IF (Screw(i).ge.0d0) THEN
+!  IF (Screw(i).ge.0d0) THEN
 !  IF (Screw(i).ge.0d0.and.Shell(i).ge.0d0) THEN
     Tracer%def(i) = Tracer%def(i) + daux * MlMat(i)*tstep
     dIntegralHeat = dIntegralHeat + daux * MlMat(i)
-  END IF
-  
+!  END IF
+
 END DO
 
 end subroutine AddSource_XSE
@@ -394,14 +416,11 @@ subroutine AddSource_EWIKON()
 integer i,iSeg,iMat
 real*8 dSource
 
-!   ! Q_dot = [kW]
-!   ! rho   = [g/cm3]
-!   ! Cp    = [kJ/(kg*K)] = [J/(g*K)]
-!   ! V     = [cm3]
-!   
-!   ! q_dot         Q_dot                    kW                       1000 * J/s           1000 K
-!   !__________ =  ____________   =   [_______________________] = [ _______________ ] = [__________ ]
-!   ! rho * Cp     V * rho * Cp        cm3 * (g/cm3) * J/(g*K)           J/K                 s
+!BASIC units L:[cm], M[g], T[s], t[K]
+!Q_dot = [kW]
+!V     = [cm3]
+!
+!Q_dot    =  1000 [W] = 1000 * [kg*m2/s3] = 1e3* [1e3g * 1e4cm2 / s3] = 1e10 g*cm2/s3
 ! 
 DO i=1,Tracer%ndof
  iSeg = myHeatObjects%Segment(i)

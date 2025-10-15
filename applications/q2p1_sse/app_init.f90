@@ -13,7 +13,7 @@ subroutine init_q2p1_ext(log_unit)
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
       ApplicationString,bMultiMat
   use solution_io, only: read_sol_from_file
-  use Sigma_User, only: myProcess
+  use Sigma_User, only: myProcess,myTransientSolution
   USE iniparser, ONLY : inip_output_init
 
 
@@ -49,8 +49,8 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,x,t,q')
-!    call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (myTransientSolution%DumpFormat.eq.2) call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (myTransientSolution%DumpFormat.eq.3) call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,x,t,q')
 !     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -94,7 +94,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 ! USE Parametrization, ONLY: ParametrizeQ2Nodes
- USE Sigma_User, ONLY: mySigma,myProcess,mySetup
+ USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
  USE cinterface 
  use iniparser
 
@@ -136,8 +136,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  logical :: bwait = .true.
  logical :: bexist = .false.
 
+ CHARACTER (len = 60) :: ctemp 
+ integer, dimension(1) :: processRanks
+ integer :: MPI_W0, MPI_EX0
+ integer :: MPI_Comm_EX0
+ integer :: error_indicator
+ integer :: numParticles
+
  REAL*8 :: dTemp(3),dVisco(3),dShear
- INTEGER i,j
+ INTEGER i,j,iMat
 
  CALL ZTIME(TTT0)
 
@@ -147,6 +154,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ CALL FindNodes()
  CSimPar = "SimPar"
 
  CALL  GDATNEW (CSimPar,0)
@@ -160,7 +168,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
 
+#ifdef HAVE_PE 
  include 'PartitionReader.f90'
+#else
+ include 'PartitionReader2.f90'
+#endif
 
  CALL Init_QuadScalar(mfile)
  
@@ -193,8 +205,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
   
   !Release the flow-curve to json database for 3 temperatures and a range of shearrates
   if (myid.eq.1) then
-   WRITE(mterm,'(A)') '========================== Flow Curve ==================='
-   WRITE(mfile,'(A)') '========================== Flow Curve ==================='
+  DO iMat = 1,myMultiMat%nOfMaterials
+   WRITE(mterm,'(A,I0,A)') '========================== Flow Curve of Mat',iMat,' ==================='
+   WRITE(mfile,'(A,I0,A)') '========================== Flow Curve of Mat',iMat,'==================='
    do j=1,3
     dTemp(j)  = myProcess%T0 + dble(j-2)*10.0
    end do
@@ -208,13 +221,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
     dShear = 10**dble(i)
     do j=-1,1
      dTemp(j+2)  = myProcess%T0 + dble(j)*10.0
-     dVisco(j+2)     = AlphaViscosityMatModel((dShear**2d0)/2d0,1,dTemp(j+2))
+     dVisco(j+2)     = AlphaViscosityMatModel((dShear**2d0)/2d0,iMat,dTemp(j+2))
     end do
     WRITE(mterm,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
     WRITE(mfile,'(5(A1,ES13.5))') ' ',dShear,' ',0.1d0*dVisco(1),' ',0.1d0*dVisco(2),' ',0.1d0*dVisco(3)
    end do
    WRITE(mterm,'(A)') '========================================================='
    WRITE(mfile,'(A)') '========================================================='
+  end do
   end if
   
 
@@ -245,7 +259,13 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      dCharSize      = 1d-1*myProcess%ExtrusionGapSize
      dCharVelo      = myProcess%ExtrusionSpeed
      dCharShear     = dCharVelo/dCharSize
-     dCharVisco     = AlphaViscosityMatModel(dCharShear,1,myProcess%T0)
+     dCharVisco = 1e-6
+     DO iMat = 1,myMultiMat%nOfMaterials
+      if (AlphaViscosityMatModel(dCharShear,iMat,myProcess%T0).gt.dCharVisco) THEN
+       dCharVisco     = AlphaViscosityMatModel(dCharShear,iMat,myProcess%T0)
+       myMultiMat%InitMaterial = iMat
+      END IF
+     END DO
   !    dCharVisco     = ViscosityMatModel(mySetup%CharacteristicShearRate,1,myProcess%T0)
      TimeStep       = 5d-3 * (dCharSize/dCharVisco)
      WRITE(sTimeStep,'(ES9.1)') TimeStep
@@ -254,8 +274,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      IF (myid.eq.1) THEN
       WRITE(MTERM,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]: ",dCharSize,dCharVelo,dCharShear
       WRITE(MFILE,'(A,5ES12.4,A)') " Characteristic size[cm],velo[cm/s],shear[1/s]: ",dCharSize,dCharVelo,dCharShear
-      WRITE(MTERM,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
-      WRITE(MFILE,'(A,2ES12.4,A)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]: ",0.1d0*dCharVisco,TimeStep
+      WRITE(MTERM,'(A,2ES12.4,A,I0)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]",0.1d0*dCharVisco,TimeStep,", InitMat: ",myMultiMat%InitMaterial
+      WRITE(MFILE,'(A,2ES12.4,A,I0)') " Characteristic viscosity [Pa.s] and corresponding Timestep [s]",0.1d0*dCharVisco,TimeStep,", InitMat: ",myMultiMat%InitMaterial
      END IF
    END IF
    
@@ -359,6 +379,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  IF (myid.eq.1) write(*,*) 'setting up parallel structures for Q2  on level : ',ILEV
 
+ CALL MemoryPrint(1,'w','init0')
+ 
  CALL E013_CreateComm_coarse(mg_mesh%level(ILEV)%dcorvg,&
                              mg_mesh%level(ILEV)%dcorag,&
                              mg_mesh%level(ILEV)%kvert,&
@@ -370,6 +392,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
                              mg_mesh%level(ILEV)%nel,&
                              LinSc%prm%MGprmIn%MedLev)
 
+ CALL MemoryPrint(1,'w','init1')
+ 
 !  ILEV = LinSc%prm%MGprmIn%MedLev
 ! 
 !  CALL Create_GlobalNumbering(mg_mesh%level(ILEV)%dcorvg,&
@@ -408,11 +432,13 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL E011_CreateComm(NDOF)
 
+ CALL MemoryPrint(1,'w','CGAL0')
  !     ----------------------------------------------------------            
  call init_fc_rigid_body(myid)      
  call FBM_GetParticles()
  CALL FBM_ScatterParticles()
  !     ----------------------------------------------------------        
+ CALL MemoryPrint(1,'w','CGAL1')
 
  ILEV=NLMIN
  CALL InitParametrization_STRCT(mg_mesh%level(ILEV),ILEV)
@@ -558,6 +584,22 @@ END IF
    WRITE(MTERM,*)
    WRITE(MFILE,*)
  END IF
+
+ !=======================================================================
+ !     Set up the rigid body C++ library
+ !=======================================================================
+ processRanks(1) = 0
+ CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
+ CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
+ CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
+
+#ifdef HAVE_PE 
+ if (myid .ne. 0) then
+ call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+ end if
+
+ call  MPI_Barrier(MPI_COMM_WORLD)
+#endif
 
  RETURN
 

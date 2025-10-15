@@ -1,0 +1,71 @@
+# Multi-stage Dockerfile to build and run FeatFloWer with CGAL tools
+
+## ---------- Builder ----------
+FROM ubuntu:22.04 AS builder
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential gfortran cmake git ca-certificates \
+    python3 \
+    openmpi-bin libopenmpi-dev \
+    libboost-all-dev libgmp-dev libmpfr-dev zlib1g-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+ARG FF_REPO=https://github.com/rmuenste/FeatFloWer.git
+ARG FF_REF=master
+
+# Option A: clone the repository into the container
+RUN git clone --depth 1 --branch ${FF_REF} ${FF_REPO} /src
+
+WORKDIR /src
+
+# Configure with low-noise + JSON diagnostics; build with CGAL via ExternalProject
+RUN cmake -S . -B build -G "Unix Makefiles" \
+      -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_MESSAGE_LOG_LEVEL=WARNING \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+      -DCMAKE_C_FLAGS="-fdiagnostics-format=json" \
+      -DCMAKE_CXX_FLAGS="-fdiagnostics-format=json" \
+      -DCMAKE_Fortran_FLAGS="-fdiagnostics-format=json" \
+      -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=OFF
+
+# Quiet build; write full log to file and surface tail on failure
+RUN cmake --build build -j"$(nproc)" > /var/log/build.log 2>&1 \
+   || (tail -n 200 /var/log/build.log && exit 1)
+
+# Install what the project declares (partitioner scripts, etc.)
+RUN cmake --install build --prefix /opt/featflower
+
+# Stage artifacts for runtime: applications, tools, and needed libs
+RUN mkdir -p /opt/featflower/applications \
+    && cp -a build/applications /opt/featflower/ \
+    && mkdir -p /opt/featflower/tools \
+    && cp -a tools /opt/featflower/ \
+    && mkdir -p /opt/featflower/tools/check_manifold \
+    && cp -a build/tools/check_manifold/* /opt/featflower/tools/check_manifold/ || true \
+    && mkdir -p /opt/featflower/lib \
+    && cp -a build/extern/libraries/metis-4.0.3/Lib/*.so /opt/featflower/lib/ || true \
+    && mkdir -p /opt/cgal \
+    && cp -a build/extern/cgal/install /opt/cgal/ || true
+
+
+## ---------- Runtime ----------
+FROM ubuntu:22.04 AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    openmpi-bin libopenmpi3 libgfortran5 python3 \
+    libboost-all-dev libgmp10 libmpfr6 zlib1g \
+  && rm -rf /var/lib/apt/lists/*
+
+# Allow mpirun as root inside containers; default to single threaded OpenMP
+ENV OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 OMP_NUM_THREADS=1
+
+# App + tools + libs
+COPY --from=builder /opt/featflower /opt/featflower
+COPY --from=builder /opt/cgal /opt/cgal
+
+ENV PATH=/opt/featflower/bin:/opt/featflower/tools/check_manifold:$PATH
+ENV LD_LIBRARY_PATH=/opt/featflower/lib:/opt/cgal/install/lib:$LD_LIBRARY_PATH
+WORKDIR /work
+CMD ["bash"]
+

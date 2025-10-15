@@ -41,13 +41,13 @@ PROGRAM Q2P1_DIE
               iangle = int(angle)
               extruder_angle = angle
               SSE_HAS_ANGLE=.true.
-              write(*,*)'got angle', extruder_angle
+!               write(*,*)'got angle', extruder_angle
           case ('-a')
               read(optarg,*) angle
               iangle = int(angle)
               extruder_angle = angle
               SSE_HAS_ANGLE=.true.
-              write(*,*)'got angle ifc', extruder_angle
+!               write(*,*)'got angle ifc', extruder_angle
           case ('v')
               print '(a, f3.1)', 'version ', version
               call exit(0)

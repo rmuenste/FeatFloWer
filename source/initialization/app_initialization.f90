@@ -80,7 +80,7 @@ end subroutine init_q2p1_app
 subroutine init_q2p1_particle_tracer(log_unit)
 ! Routine to initialize a particle tracer application 
   USE def_FEAT
-  USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
+  USE Transport_Q2P1, ONLY : Init_QuadScalar_ReducedStuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     bTracer,bViscoElastic,StaticMeshAdaptation,&
     LinScalar_InitCond, Init_QuadScalar 
@@ -98,8 +98,10 @@ subroutine init_q2p1_particle_tracer(log_unit)
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
 
-  call Init_QuadScalar_Stuctures(log_unit)
+!   call Init_QuadScalar_Stuctures(log_unit)
 
+  call Init_QuadScalar_ReducedStuctures(log_unit)
+  
   if (myid.ne.0) call CreateDumpStructures(1)
   
   ! The particle tracer by default starts with a single 
@@ -210,6 +212,8 @@ end subroutine init_sol_same_level
 !                             Sub: init_sol_lower_level
 !========================================================================================
 subroutine init_sol_lower_level(start_file)
+USE Parametrization, ONLY: ParametrizeBndr
+use var_QuadScalar,only:ilev,nlmax
 implicit none
 
 character(len=*), intent(in) :: start_file
@@ -260,6 +264,14 @@ call ExchangeNodeValuesOnCoarseLevel(&
 
 call ProlongateSolution()
 
+if(myid.ne.0)then
+  NLMAX = NLMAX + 1
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  CALL ParametrizeBndr(mg_mesh,ILEV)
+  NLMAX = NLMAX - 1
+endif
+    
 call OperatorRegenaration(1)
 call OperatorRegenaration(2)
 call OperatorRegenaration(3)

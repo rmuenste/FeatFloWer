@@ -892,7 +892,7 @@ END IF
 
 IF (iType.EQ.myMatrixRenewal%K) THEN
  CALL Create_KMat(QuadSc)
- CALL Create_barMMat_iso(QuadSc)
+ CALL Create_CCbarMMat_iso(QuadSc)
  bHit = .TRUE.
 END IF
 

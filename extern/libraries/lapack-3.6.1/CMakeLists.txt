@@ -41,7 +41,7 @@ configure_file(
 set(CMAKE_MODULE_PATH "${LAPACK_SOURCE_DIR}/CMAKE" ${CMAKE_MODULE_PATH})
 
 if (UNIX)
-   if ( "${CMAKE_Fortran_COMPILER}" MATCHES "ifort" )
+  if ( (NOT "${CMAKE_Fortran_COMPILER}" MATCHES "mpifort") AND "${CMAKE_Fortran_COMPILER}" MATCHES "ifort" )
   set( CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fp-model strict" )
    endif ()
    if ( "${CMAKE_Fortran_COMPILER}" MATCHES "xlf" )
@@ -79,12 +79,7 @@ if ( CMAKE_Fortran_COMPILER_ID STREQUAL "Compaq" )
    endif()         
 endif()
 
-# Get Python
-find_package(PythonInterp)
-message(STATUS "Looking for Python found - ${PYTHONINTERP_FOUND}")
-if (PYTHONINTERP_FOUND)
-   message(STATUS "Using Python version ${PYTHON_VERSION_STRING}")
-endif()
+find_package(Python3 COMPONENTS Interpreter)
 # --------------------------------------------------
 
 set(LAPACK_INSTALL_EXPORT_NAME lapack-targets)
@@ -130,7 +125,6 @@ CheckLAPACKCompilerFlags()
 
 # --------------------------------------------------
 # Check second function
-
 include(CheckTimeFunction)
 set(TIME_FUNC NONE ${TIME_FUNC})
 CHECK_TIME_FUNCTION(NONE TIME_FUNC)
@@ -138,12 +132,24 @@ CHECK_TIME_FUNCTION(INT_CPU_TIME TIME_FUNC)
 CHECK_TIME_FUNCTION(EXT_ETIME TIME_FUNC)
 CHECK_TIME_FUNCTION(EXT_ETIME_ TIME_FUNC)
 CHECK_TIME_FUNCTION(INT_ETIME TIME_FUNC)
-message(STATUS "--> Will use second_${TIME_FUNC}.f and dsecnd_${TIME_FUNC}.f as timing function.")
 
-set(SECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/second_${TIME_FUNC}.f)
-set(DSECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/dsecnd_${TIME_FUNC}.f)
+list(LENGTH TIME_FUNC myLength)
+
+if(myLength GREATER 0)
+  math(EXPR lastIdx "${myLength} - 1")
+  list(GET TIME_FUNC ${lastIdx} elem)
+  message(STATUS "--> Will use second_${elem}.f and dsecnd_${elem}.f as timing function.")
+  set(SECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/second_${elem}.f)
+  set(DSECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/dsecnd_${elem}.f)
+else(myLength GREATER 0)
+  message(STATUS "--> Will use second_${TIME_FUNC}.f and dsecnd_${TIME_FUNC}.f as timing function.")
+  set(SECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/second_${TIME_FUNC}.f)
+  set(DSECOND_SRC  ${LAPACK_SOURCE_DIR}/INSTALL/dsecnd_${TIME_FUNC}.f)
+endif(myLength GREATER 0)
+
 set(PKG_CONFIG_DIR ${LIBRARY_DIR}/pkgconfig)
 
+#message(FATAL_ERROR "Shenanigans end here")
 # --------------------------------------------------
 # Precision to build
 # By default all precisions are generated

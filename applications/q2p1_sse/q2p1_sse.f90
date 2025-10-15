@@ -19,7 +19,6 @@ PROGRAM Q2P1_SSE
   integer            :: iOGMV,iTout
   character(len=200) :: command
   character(len=60)  :: CPP3D
-  character(len=60)  :: arg
   real               :: dout = 0.0
   integer            :: ufile,ilog,i,ierr
   real               :: tt0 = 0.0
@@ -30,7 +29,14 @@ PROGRAM Q2P1_SSE
   real*8                      :: angle = 0.0
   integer                     :: iangle = 0
   type(option_s)              :: opts(3)
+  character(len=100) :: arg
+  character(len=100) :: version_string
+  character(len=100) :: git_commit_hash_trim
+  logical :: show_version
+#include "./version.h"
 
+  integer id,mem
+ 
   opts(1) = option_s('angle', .true.,  'a')
   opts(2) = option_s('version',  .false., 'v')
   opts(3) = option_s('help',  .false., 'h')
@@ -45,15 +51,24 @@ PROGRAM Q2P1_SSE
               iangle = int(angle)
               extruder_angle = angle
               SSE_HAS_ANGLE=.true.
-              write(*,*)'got angle', extruder_angle
+!               write(*,*)'got angle', extruder_angle
           case ('-a')
               read(optarg,*) angle
               iangle = int(angle)
               extruder_angle = angle
               SSE_HAS_ANGLE=.true.
-              write(*,*)'got angle ifc', extruder_angle
+!               write(*,*)'got angle ifc', extruder_angle
           case ('v')
-              print '(a, f3.1)', 'version ', version
+              version_string = "Version: " // trim(PROJECT_VERSION)
+              git_commit_hash_trim = "Git Commit Hash: " // trim(GIT_COMMIT_HASH)
+              print *, version_string
+              print *, git_commit_hash_trim
+              call exit(0)
+          case ('-v')
+              version_string = "Version: " // trim(PROJECT_VERSION)
+              git_commit_hash_trim = "Git Commit Hash: " // trim(GIT_COMMIT_HASH)
+              print *, version_string
+              print *, git_commit_hash_trim
               call exit(0)
           case ('h')
             call print_help()
@@ -82,6 +97,8 @@ PROGRAM Q2P1_SSE
   dt=tstep
   timens=timens+dt
 
+  if (itns.eq.1) CALL MemoryPrint(1,'w','t0')
+  
   ! Solve Navier-Stokes (add discretization in name + equation or quantity)
   call Transport_q2p1_UxyzP_sse(ufile,inl_u, itns)
 
@@ -100,6 +117,8 @@ PROGRAM Q2P1_SSE
     inonln_t = 2
   END IF
 
+  CALL MemoryPrint(1,'w','tnn')
+  
   call postprocessing_sse(dout, inonln_u, inonln_t,ufile)
 
   call print_time(timens, timemx, tstep, itns, nitns, ufile, uterm)
@@ -118,13 +137,29 @@ PROGRAM Q2P1_SSE
 
   if (DivergedSolution) call MPI_Abort(MPI_COMM_WORLD, myErrorCode%DIVERGENCE_U, ierr)
   CALL DetermineIfGoalsWereReached(bGoalsReached)
-  if (.not.bGoalsReached)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
+!   if (.not.bGoalsReached)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
   
   call sim_finalize_sse(tt0,ufile)
  
+  if (bGoalsReached) then  
+   call exit(0)  ! Return code 0 for success
+  else
+   print*, "Fortran program has NOT converged."
+   call exit(myErrorCode%RUNOUTOFTIMESTEPS)  ! Return code non-0 for success
+  end if
+
+
   contains
 
-    subroutine print_help()
+!    SUBROUTINE stderr(message)
+!    ! "@(#) stderr writes a message to standard error using a standard f2003 method"
+!       USE ISO_FORTRAN_ENV, ONLY : ERROR_UNIT ! access computing environment
+!       IMPLICIT NONE
+!       CHARACTER(LEN=*),INTENT(IN) :: message
+!       WRITE(ERROR_UNIT,'(a)')trim(message) ! write message to standard error
+!    END SUBROUTINE stderr
+   
+   subroutine print_help()
         print '(a, /)', 'command-line options:'
         print '(a)',    '  -v, --version     print version information and exit'
         print '(a)',    '  -h, --help        print usage information and exit'

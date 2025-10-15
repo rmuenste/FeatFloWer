@@ -1,3 +1,287 @@
+      SUBROUTINE GetForcesOnSubmeshX(DVELOU,DVELOV,DVELOW,DPRESS,
+     *           KVERT,KAREA,KEDGE,BKNPR,DCORVG,DNY,mxx,ELE)
+c     
+      USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
+C
+      IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+      CHARACTER SUB*6,FMT*15,CPARAM*120
+C
+      PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,
+     *           NNDIM=3,NNCOF=10)
+      PARAMETER (Q2=0.5D0,Q8=0.125D0)
+C
+      REAL*8    DCORVG(NNDIM,*),DVELOU(*),DVELOV(*),DVELOW(*)
+      REAL*8    DPRESS(4,*)
+      INTEGER   KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+      LOGICal   BKNPR(*)
+      DIMENSION KDFG(NNBAS),KDFL(NNBAS)
+      REAL*8    DMyOmgP(NNCUBP),DMyCubP(NNCUBP,NNAE,NNDIM)
+      REAL*8    dNorm(NNDIM),GRADU(NNDIM,NNDIM),dN(3),dM(3)
+      INTEGER   KENTRY(NNBAS,NNBAS)
+      REAL*8    ST(NNBAS,NNBAS),STT(NNBAS,NNBAS)
+      REAL*8    dFluidNormal
+      REAL*8    DHELP(NNBAS,4,NNCUBP),DPP(NNDIM),DMM(9)
+      TYPE tF
+       REAL*8   DHELP(NNBAS,4,NNCUBP)
+      END TYPE
+      TYPE(tF) F(6)
+      REAL*8   Force(6)
+      INTEGER   NeighA(4,6),NeighAE(4,6),imap(9)
+      DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+      DATA NeighAE/ 9,10,11,12,  9,14,17,13, 10,15,18,14, 
+     *             11,16,19,15, 12,13,20,16, 17,18,19,20/
+      COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+      COMMON /ERRCTL/ IER,ICHECK
+      COMMON /CHAR/   SUB,FMT(3),CPARAM
+      COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,
+     *                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),
+     *                IEL,NDIM
+      COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,
+     *                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+      COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+      COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+      COMMON /COAUX1/ KDFG,KDFL,IDFL
+C
+C *** user COMMON blocks
+      INTEGER  VIPARM 
+      DIMENSION VIPARM(100)
+      EQUIVALENCE (IAUSAV,VIPARM)
+      COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,
+     *               IMASS,IMASSL,IUPW,IPRECA,IPRECB,
+     *               ICUBML,ICUBM,ICUBA,ICUBN,ICUBB,ICUBF,
+     *               INLMIN,INLMAX,ICYCU,ILMINU,ILMAXU,IINTU,
+     *               ISMU,ISLU,NSMU,NSLU,NSMUFA,ICYCP,ILMINP,ILMAXP,
+     *               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
+C
+      SAVE
+C
+!       return
+      
+      DO 1 I= 1,NNDER
+1     BDER(I)=.FALSE.
+C
+      DO 2 I=1,4
+2     BDER(I)=.TRUE.
+C
+      IELTYP=-1
+      CALL ELE(0D0,0D0,0D0,IELTYP)
+      IDFL=NDFL(IELTYP)
+C
+      ICUB = 2 
+      CALL SetUpMyCub(DMyOmgP,DMyCubP,NCUBP,ICUB)
+C
+      DO IAT=1,NNAE
+      DO ICUBP=1,NCUBP
+       XI1=DMyCubP(ICUBP,IAT,1)
+       XI2=DMyCubP(ICUBP,IAT,2)
+       XI3=DMyCubP(ICUBP,IAT,3)
+       CALL E013A(XI1,XI2,XI3,DHELP,ICUBP)
+      END DO
+      F(IAT)%DHELP = DHELP
+      END DO
+C
+************************************************************************
+C *** Calculation of the matrix - storage technique 7 or 8
+************************************************************************
+C
+      DG1a = 0d0
+      DG2a = 0d0
+      DG3a = 0d0
+      DG1b = 0d0
+      DG2b = 0d0
+      DG3b = 0d0
+C
+C *** Loop over all elements
+      DO 100 IEL=1,NEL
+C      
+      CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+C
+      IF (IER.LT.0) GOTO 99999
+C
+C *** Evaluation of coordinates of the vertices
+      DX0I = 0d0
+      DY0I = 0d0
+      DZ0I = 0d0
+      DO 120 IVE=1,NVE
+      JP=KVERT(IVE,IEL)
+      KVE(IVE)=JP
+      DX(IVE)=DCORVG(1,JP)
+      DY(IVE)=DCORVG(2,JP)
+      DZ(IVE)=DCORVG(3,JP)
+      DX0I = DX0I + 0.125d0*DCORVG(1,JP)
+      DY0I = DY0I + 0.125d0*DCORVG(2,JP)
+      DZ0I = DZ0I + 0.125d0*DCORVG(3,JP)
+120   CONTINUE
+C
+      DO 150 IAT=1,6
+C
+      ivt1 = kvert(NeighA(1,IAT),IEL)
+      ivt2 = kvert(NeighA(2,IAT),IEL)
+      ivt3 = kvert(NeighA(3,IAT),IEL)
+      ivt4 = kvert(NeighA(4,IAT),IEL)
+C      
+      IF (Bknpr(ivt1).and.Bknpr(ivt2).and.
+     *    Bknpr(ivt3).and.Bknpr(ivt4)) THEN          
+C      
+      DHELP = F(IAT)%DHELP
+C      
+      DO 200 ICUBP=1,NCUBP
+C
+      XI1=DMyCubP(ICUBP,IAT,1)
+      XI2=DMyCubP(ICUBP,IAT,2)
+      XI3=DMyCubP(ICUBP,IAT,3)
+      OM=DMyOmgP (ICUBP)
+C
+      DJAC=0d0
+      DO JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       DPP(:) = DCORVG(:,JDFG)
+       DJAC(1,1)= DJAC(1,1) +  DPP(1)*DHELP(JDFL,2,ICUBP)
+       DJAC(2,1)= DJAC(2,1) +  DPP(2)*DHELP(JDFL,2,ICUBP)
+       DJAC(3,1)= DJAC(3,1) +  DPP(3)*DHELP(JDFL,2,ICUBP)
+       DJAC(1,2)= DJAC(1,2) +  DPP(1)*DHELP(JDFL,3,ICUBP)
+       DJAC(2,2)= DJAC(2,2) +  DPP(2)*DHELP(JDFL,3,ICUBP)
+       DJAC(3,2)= DJAC(3,2) +  DPP(3)*DHELP(JDFL,3,ICUBP)
+       DJAC(1,3)= DJAC(1,3) +  DPP(1)*DHELP(JDFL,4,ICUBP)
+       DJAC(2,3)= DJAC(2,3) +  DPP(2)*DHELP(JDFL,4,ICUBP)
+       DJAC(3,3)= DJAC(3,3) +  DPP(3)*DHELP(JDFL,4,ICUBP)
+      END DO
+C
+      DETJ = DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))
+     *      -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))
+     *      +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+C
+      CALL ELE(XI1,XI2,XI3,0)
+       
+      IF (IER.LT.0) GOTO 99999
+      
+!       CALL ELE(XI1,XI2,XI3,-3)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      XX = 0D0
+      YY = 0D0
+      ZZ = 0D0 
+        
+      DU1V=0D0     ! U1 value
+      DU1X=0D0     ! U1 x deriv
+      DU1Y=0D0     ! U1 y deriv
+      DU1Z=0D0     ! U1 z deriv
+
+      DU2V=0D0     ! U2 value
+      DU2X=0D0     ! U2 x deriv
+      DU2Y=0D0     ! U2 y deriv
+      DU2Z=0D0     ! U2 z deriv
+
+      DU3V=0D0     ! U3 value
+      DU3X=0D0     ! U3 x deriv
+      DU3Y=0D0     ! U3 y deriv
+      DU3Z=0D0     ! U3 z deriv
+      
+      DO I=1,IDFL
+        IL=KDFL(I)
+        IG=KDFG(I)
+
+        DBI1=DBAS(1,IL,1)
+        DBI2=DBAS(1,IL,2)
+        DBI3=DBAS(1,IL,3)
+        DBI4=DBAS(1,IL,4) 
+        !---------------FOR CCOR----------------
+        XX = XX + DCORVG(1,IG)*DBI1
+        YY = YY + DCORVG(2,IG)*DBI1
+        ZZ = ZZ + DCORVG(3,IG)*DBI1 
+        !---------------FOR U1----------------
+        DU1V=DU1V+DVELOU(IG)*DBI1
+        DU1X=DU1X+DVELOU(IG)*DBI2
+        DU1Y=DU1Y+DVELOU(IG)*DBI3
+        DU1Z=DU1Z+DVELOU(IG)*DBI4
+        !---------------FOR U2----------------
+        DU2V=DU2V+DVELOV(IG)*DBI1
+        DU2X=DU2X+DVELOV(IG)*DBI2
+        DU2Y=DU2Y+DVELOV(IG)*DBI3
+        DU2Z=DU2Z+DVELOV(IG)*DBI4
+        !---------------FOR U3----------------
+        DU3V=DU3V+DVELOW(IG)*DBI1
+        DU3X=DU3X+DVELOW(IG)*DBI2
+        DU3Y=DU3Y+DVELOW(IG)*DBI3
+        DU3Z=DU3Z+DVELOW(IG)*DBI4
+      ENDDO    
+
+      Press =           dPRESS(1,iel) + (XX-DX0I)*dPRESS(2,iel) + 
+     *        (YY-DY0I)*dPRESS(3,iel) + (ZZ-DZ0I)*dPRESS(4,iel)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      IF (IAT.eq.2.or.iat.eq.4) CALL SurfDet(DJAC,2,dA,dM)
+      IF (IAT.eq.1.or.iat.eq.6) CALL SurfDet(DJAC,3,dA,dM)
+      IF (IAT.eq.3.or.iat.eq.5) CALL SurfDet(DJAC,1,dA,dM)
+      
+      dn = DCORVG(:,ivt1)+DCORVG(:,ivt2)+DCORVG(:,ivt3)+DCORVG(:,ivt4)
+      dn=0.25*dn 
+      dn = dn - [DX0I,DY0I,DZ0I]
+      
+      daux=dM(1)*dN(1)+dM(2)*dN(2)+dM(3)*dN(3)
+      if (daux.gt.0d0) then
+       dn = -dM
+      else
+       dn = dM
+      end if
+       
+      DO JDOFE=1,IDFL
+       JDFL=KDFL(JDOFE)
+       JDFG=KDFG(JDOFE)
+       HBAS=DHELP(JDFL,1,ICUBP)
+       
+       AH1a= -Press*DN(1)
+       AH2a= -Press*DN(2)
+       AH3a= -Press*DN(3)
+       
+       AH1b= DNY*(DU1X*DN(1) + DU1Y*DN(2) + DU1Z*DN(3))
+       AH2b= DNY*(DU2X*DN(1) + DU2Y*DN(2) + DU2Z*DN(3))
+       AH3b= DNY*(DU3X*DN(1) + DU3Y*DN(2) + DU3Z*DN(3))
+       
+       DG1a = DG1a + OM*dA*AH1a*HBAS
+       DG2a = DG2a + OM*dA*AH2a*HBAS
+       DG3a = DG3a + OM*dA*AH3a*HBAS
+       
+       DG1b = DG1b + OM*dA*AH1b*HBAS
+       DG2b = DG2b + OM*dA*AH2b*HBAS
+       DG3b = DG3b + OM*dA*AH3b*HBAS
+       
+      END DO
+C
+200   CONTINUE
+C
+      END IF
+C     
+       
+150   CONTINUE
+C
+100   CONTINUE
+C      
+      Force(1:6) = [DG1a,DG2a,DG3a,DG1b,DG2b,DG3b]
+      CALL COMM_SUMMN(Force,6)
+      DG1a = Force(1)
+      DG2a = Force(2)
+      DG3a = Force(3)
+      DG1b = Force(4)
+      DG2b = Force(5)
+      DG3b = Force(6)
+C
+      Factor = 2d0/((0.2d0**2d0)*0.1d0*0.05)
+      if (MYID.EQ.1) THEN
+       WRITE(*,'(A,9ES12.4)') "ForcesOnSurfInt: ",
+     *  Factor*(DG1a+DG1b),Factor*(DG2a+DG2b),Factor*(DG3a+DG3b),
+     *  Factor*DG1a,Factor*DG2a,Factor*DG3a,
+     *  Factor*DG1b,Factor*DG2b,Factor*DG3b
+       WRITE(MXX,'(A,9ES12.4)') "ForcesOnSurfInt: ",
+     *  Factor*(DG1a+DG1b),Factor*(DG2a+DG2b),Factor*(DG3a+DG3b),
+     *  Factor*DG1a,Factor*DG2a,Factor*DG3a,
+     *  Factor*DG1b,Factor*DG2b,Factor*DG3b
+       END IF
+      
+99999 END
+C
+C
+C
       SUBROUTINE GetSurface(KVERT,KAREA,KEDGE,DCORVG,ELE,dArea)
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : myBoundary

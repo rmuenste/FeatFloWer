@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(CustomTargets)  
 
 # source files for standad q2p1 
 set(src_q2p1_fc_ext
@@ -36,7 +36,6 @@ target_compile_options(q2p1_movbc PRIVATE ${Fortran_FLAGS})
 set_target_properties(q2p1_movbc PROPERTIES LINKER_LANGUAGE Fortran)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 

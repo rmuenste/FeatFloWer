@@ -6,7 +6,7 @@ MODULE PP3D_MPI
   INTEGER IERR
   INTEGER Variable,iunit
   INTEGER:: ShowID = 1
-  INTEGER myid,numnodes,subnodes,MPI_COMM_SUBS,MASTER
+  INTEGER myid,numnodes,subnodes,MPI_COMM_SUBS,MASTER,MPI_COMM_SUBGROUP
   INTEGER NParNodes(9)
   CHARACTER nodefile*60
 
@@ -100,6 +100,8 @@ MODULE PP3D_MPI
   TYPE(TparST), DIMENSION(:), ALLOCATABLE :: mg_mpi
   INTEGER NLMINp
 
+  integer, allocatable :: VerticeCommunicationScheme(:)
+  
   TYPE tmQ2
    INTEGER, ALLOCATABLE :: x(:)
   END TYPE tmQ2
@@ -152,415 +154,6 @@ CONTAINS
     CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
   END SUBROUTINE INIT_MPI
-  ! ----------------------------------------------
-  ! ----------------------------------------------
-  ! ----------------------------------------------
-  SUBROUTINE PARENTCOMM(NAT,NEL,NVT,DCORVG,DCORAG,KAREA,KVERT) !ok
-    implicit none
-    REAL*8  DCORAG(3,*),DCORVG(3,*)
-    INTEGER KAREA(6,*),KVERT(8,*)
-    INTEGER NAT,NEL,NVT
-    INTEGER I,J,JI,K,iaux
-    REAL*8,ALLOCATABLE ::  PXYZ(:,:),VXYZ(:,:)
-    REAL*8,ALLOCATABLE ::  pPXYZ(:,:),pVXYZ(:,:)
-    REAL*8 DIST
-
-    INTEGER pNEL,pNAT,pNVT,pID,pJD
-    INTEGER ,DIMENSION(:,:), ALLOCATABLE :: ParFind
-    INTEGER :: NodeTab(subnodes,subnodes),iCount
-    CHARACTER*9 ccgcc
-
-    TYPE TVector
-      INTEGER :: i,Num
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: Mids,Aux
-    END TYPE TVector
-
-    TYPE TStructure
-      INTEGER :: NeighNum
-      TYPE(TVector), DIMENSION(:), ALLOCATABLE :: Face
-    END TYPE TStructure
-    TYPE(TStructure), DIMENSION(:), ALLOCATABLE :: NeighSt
-
-    ALLOCATE (PXYZ(3,NAT),VXYZ(3,NVT))
-    ALLOCATE (pPXYZ(3,NAT),pVXYZ(3,NVT))
-
-    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-    !
-    !--------------------------------------------------------------
-    !CREATING MAPPING STRUCTURE FOR MASTER --> ASSISTANT //ELEMENTS
-    !--------------------------------------------------------------
-    IF (myid.eq.MASTER) THEN
-      coarse%pElem = NEL
-      coarse%pFace = NAT
-      coarse%pVert = NVT
-      ALLOCATE (coarse%pElemLink(subnodes,coarse%pElem))
-      ALLOCATE (coarse%pNEL(subnodes))
-      ALLOCATE (coarse%pNVT(subnodes))
-      ALLOCATE (coarse%pFaceLink(subnodes,coarse%pFace))
-      ALLOCATE (coarse%pVERTLink(subnodes,coarse%pVert))
-      ALLOCATE (coarse%pDX(coarse%pFace))
-      ALLOCATE(coarse%myELEMLINK(NEL))
-      ALLOCATE(coarse%myVERTLINK(NVT))
-    ELSE
-      coarse%pFace = NAT
-      ALLOCATE (coarse%DX(coarse%pFace))
-      ALLOCATE(coarse%myELEMLINK(NEL))
-      ALLOCATE(coarse%myVERTLINK(NVT))
-    END IF
-
-    !
-    ! --------------------------------------------------------------------------------------------------------
-    !
-    DO I=1,NVT
-    VXYZ(1,I)=DCORVG(1,I)
-    VXYZ(2,I)=DCORVG(2,I)
-    VXYZ(3,I)=DCORVG(3,I)
-    END DO
-
-
-    pNVT=0
-    IF (myid.eq.0) THEN
-
-      coarse%pVERTLINK = 0
-      
-      CALL InitOctTree(DCORVG,nvt)
-
-      DO pID=1,subnodes
-      CALL RECVI_myMPI(pNVT ,pID)
-      CALL RECVD_myMPI(pVXYZ,3*pNVT,pID)
-      coarse%pNVT(pID)=pNVT
-
-      DO I=1,pNVT
-      
-      CALL FindInOctTree(dcorvg,nvt,pVXYZ(:,I),J,DIST)
-      IF (J.lt.0) then
-       WRITE(*,*) I,"PROBLEM of vert assignement ..."
-      end if
-      IF (DIST.LT.DEpsPrec) THEN 
-       coarse%pVERTLINK(pID,I)=J
-      END IF
-      
-      END DO
-      END DO
-
-      CALL FreeOctTree()
-
-      DO pID=1,subnodes
-      iaux = 0
-      DO I=1,NVT
-      IF (coarse%pVERTLINK(pID,I).NE.0) THEN
-        iaux = iaux + 1
-        coarse%myVERTLINK(iaux)=coarse%pVERTLINK(pID,I)
-      END IF
-      END DO
-      !  WRITE(*,'(2I8,A,<iaux>I8)') pID,iaux,' | ',coarse%myELEMLINK(1:iaux)
-      CALL SENDI_myMPI(iaux ,pID)
-      CALL SENDK_myMPI(coarse%myVERTLINK,iaux,pID)
-
-      END DO
-
-    ELSE
-      CALL SENDI_myMPI(NVT ,0)
-      CALL SENDD_myMPI(VXYZ,3*NVT,0)
-      CALL RECVI_myMPI(iaux ,0)
-      CALL RECVK_myMPI(coarse%myVERTLINK,iaux,0)
-      !  ccgcc = 'aaa_X.txt'
-      !  WRITE(ccgcc(5:5),'(I1)') myid
-      !  OPEN(FILE = ccgcc, UNIT = 555)
-      !  WRITE(555,'(2I8,A,<NEL>I8)') myid,NEL,' | ',coarse%myELEMLINK(1:NEL)
-      !  CLOSE (555)
-
-    END IF
-
-    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-    !
-    ! --------------------------------------------------------------------------------------------------------
-    !
-    DO I=1,NEL
-    PXYZ(1,I)=0d0
-    PXYZ(2,I)=0d0
-    PXYZ(3,I)=0d0
-
-    DO J=1,8
-    PXYZ(1,I) = PXYZ(1,I) + DCORVG(1,KVERT(J,I))
-    PXYZ(2,I) = PXYZ(2,I) + DCORVG(2,KVERT(J,I))
-    PXYZ(3,I) = PXYZ(3,I) + DCORVG(3,KVERT(J,I))
-    END DO
-
-    PXYZ(1,I)=0.125d0*PXYZ(1,I)
-    PXYZ(2,I)=0.125d0*PXYZ(2,I)
-    PXYZ(3,I)=0.125d0*PXYZ(3,I)
-
-    END DO
-
-    IF (myid.eq.0) THEN
-
-      coarse%pELEMLINK = 0
-
-      CALL InitOctTree(PXYZ,nel)
-
-      DO pID=1,subnodes
-      CALL RECVI_myMPI(pNEL ,pID)
-      CALL RECVD_myMPI(pPXYZ,3*pNEL,pID)
-      coarse%pNEL(pID)=pNEL
-
-      DO I=1,pNEL
-       CALL FindInOctTree(PXYZ,nel,pPXYZ(:,I),J,DIST)
-       IF (J.lt.0) then
-        WRITE(*,*) I,"PROBLEM of elem assignement ..."
-       end if
-       IF (DIST.LT.DEpsPrec) THEN
-        coarse%pELEMLINK(pID,I)=J
-       END IF
-      
-      END DO
-      END DO
-
-      CALL FreeOctTree()
-       
-      DO pID=1,subnodes
-      iaux = 0
-      DO I=1,NEL
-      IF (coarse%pELEMLINK(pID,I).NE.0) THEN
-        iaux = iaux + 1
-        coarse%myELEMLINK(iaux)=coarse%pELEMLINK(pID,I)
-      END IF
-      END DO
-      !  WRITE(*,'(2I8,A,<iaux>I8)') pID,iaux,' | ',coarse%myELEMLINK(1:iaux)
-      CALL SENDK_myMPI(coarse%myELEMLINK,iaux,pID)
-
-      END DO
-
-    ELSE
-      CALL SENDI_myMPI(NEL ,0)
-      CALL SENDD_myMPI(PXYZ,3*NEL,0)
-      CALL RECVK_myMPI(coarse%myELEMLINK,NEL,0)
-      !  ccgcc = 'aaa_X.txt'
-      !  WRITE(ccgcc(5:5),'(I1)') myid
-      !  OPEN(FILE = ccgcc, UNIT = 555)
-      !  WRITE(555,'(2I8,A,<NEL>I8)') myid,NEL,' | ',coarse%myELEMLINK(1:NEL)
-      !  CLOSE (555)
-
-    END IF
-
-    CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-    !--------------------------------------------------------------
-    !CREATING MAPPING STRUCTURE FOR MASTER --> ASSISTANT //FACES
-    !--------------------------------------------------------------
-
-    DO I=1,NAT
-    PXYZ(1,I)=DCORAG(1,I)
-    PXYZ(2,I)=DCORAG(2,I)
-    PXYZ(3,I)=DCORAG(3,I)
-    END DO
-
-    IF (myid.eq.0) THEN
-
-      ALLOCATE (NeighSt(subnodes))
-      ALLOCATE (ParFind(4,NAT))
-      ParFind=0; NodeTab=0
-
-      CALL InitOctTree(PXYZ,nat)
-
-      DO pID=1,subnodes
-      CALL RECVI_myMPI(pNAT ,pID)
-      CALL RECVD_myMPI(pPXYZ,3*pNAT,pID)
-
-      DO I=1,pNAT
-      CALL FindInOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST)
-      IF (J.lt.0) then
-       WRITE(*,*) I,"PROBLEM of face assignement ..."
-      end if
-      IF (DIST.LT.DEpsPrec) THEN
-       coarse%pFACELINK(pID,I)=J
-       IF (ParFind(1,J).EQ.0) THEN
-         ParFind(1,J) = pID
-         ParFind(2,J) = I
-       ELSE
-         ParFind(3,J) = pID
-         ParFind(4,J) = I
-       END IF
-      END IF
-
-      CALL FindInPeriodicOctTree(PXYZ,nat,pPXYZ(:,I),J,DIST,dPeriodicity)
-      IF (DIST.LT.DEpsPrec) THEN
-       coarse%pFACELINK(pID,I)=J
-       IF (ParFind(1,J).EQ.0) THEN
-         ParFind(1,J) = pID
-         ParFind(2,J) = I
-       ELSE
-         ParFind(3,J) = pID
-         ParFind(4,J) = I
-       END IF
-      END IF
-      
-    END DO
-    END DO
-
-    CALL FreeOctTree()
-      
-    ! Here I try to build up the structures for communication
-    DO I=1,NAT
-    IF (ParFind(3,I).NE.0) THEN
-      NodeTab(ParFind(1,I),ParFind(3,I)) = NodeTab(ParFind(1,I),ParFind(3,I)) + 1
-      NodeTab(ParFind(3,I),ParFind(1,I)) = NodeTab(ParFind(3,I),ParFind(1,I)) + 1
-    END IF
-    END DO
-
-     DO pID=1,subnodes
-!       write(*,'(<subnodes>I4)') (NodeTab(pID,pJD),pJD=1,subnodes)
-     END DO
-!      write(*,*) 'dPeriodicity: ',dPeriodicity
-!      pause
-
-!     pause
-    DO pID=1,subnodes
-    ALLOCATE (NeighSt(pID)%Face(subnodes))
-    END DO
-
-    DO pID=1,subnodes
-    iCount = 0
-    DO pJD=1,subnodes
-    IF (NodeTab(pID,pJD).NE.0) THEN
-      NeighSt(pID)%Face(pJD)%i=1
-      NeighSt(pID)%Face(pJD)%Num=NodeTab(pID,pJD)
-      ALLOCATE (NeighSt(pID)%Face(pJD)%Mids(2,NodeTab(pID,pJD)))
-      ALLOCATE (NeighSt(pID)%Face(pJD)%Aux(2,NodeTab(pID,pJD)))
-      iCount = iCount + 1
-    END IF
-    END DO
-    NeighSt(pID)%NeighNum = iCount
-    END DO
-
-    DO I=1,NAT
-    IF (ParFind(3,I).NE.0) THEN
-      pID = ParFind(1,I)
-      pJD = ParFind(3,I)
-
-      NeighSt(pID)%Face(pJD)%Mids(1,NeighSt(pID)%Face(pJD)%i) = ParFind(4,I)
-      NeighSt(pID)%Face(pJD)%Mids(2,NeighSt(pID)%Face(pJD)%i) = ParFind(2,I)
-      NeighSt(pID)%Face(pJD)%i = NeighSt(pID)%Face(pJD)%i + 1
-
-      NeighSt(pJD)%Face(pID)%Mids(1,NeighSt(pJD)%Face(pID)%i) = ParFind(2,I)
-      NeighSt(pJD)%Face(pID)%Mids(2,NeighSt(pJD)%Face(pID)%i) = ParFind(4,I)
-      NeighSt(pJD)%Face(pID)%i = NeighSt(pJD)%Face(pID)%i + 1
-      !   write(*,*) ParFind(2,I), ParFind(4,I)
-
-    END IF
-    END DO
-
-    DO pID=1,subnodes
-    DO pJD=1,subnodes
-    IF (NodeTab(pID,pJD).NE.0) THEN
-      NeighSt(pID)%Face(pJD)%Aux = NeighSt(pID)%Face(pJD)%Mids
-      CALL SORT2D(NeighSt(pID)%Face(pJD)%Mids(1,:),&
-        NeighSt(pID)%Face(pJD)%Mids(2,:),&
-        NeighSt(pID)%Face(pJD)%Num)
-      CALL SORT2D(NeighSt(pID)%Face(pJD)%Aux(2,:),&
-        NeighSt(pID)%Face(pJD)%Aux(1,:),&
-        NeighSt(pID)%Face(pJD)%Num)
-      NeighSt(pID)%Face(pJD)%Mids(2,:) = NeighSt(pID)%Face(pJD)%aux(1,:)
-      !     do i=1,NeighSt(pID)%Face(pJD)%Num
-      !     write(*,*) pID,pJD,NeighSt(pID)%Face(pJD)%Mids(1,i),NeighSt(pID)%Face(pJD)%Mids(2,i)
-      !     end do
-    END IF
-    END DO
-    END DO
-
-    DO pID=1,subnodes
-    CALL SENDI_myMPI(NeighSt(pID)%NeighNum,pID)
-    DO pJD=1,subnodes
-    IF (NodeTab(pID,pJD).NE.0) THEN
-      CALL SENDI_myMPI(pJD,pID)
-      CALL SENDI_myMPI(NeighSt(pID)%Face(pJD)%Num,pID)
-      CALL SENDK_myMPI(NeighSt(pJD)%Face(pID)%Mids(1,:),NeighSt(pID)%Face(pJD)%Num,pID)
-      CALL SENDK_myMPI(NeighSt(pJD)%Face(pID)%Mids(2,:),NeighSt(pID)%Face(pJD)%Num,pID)
-    END IF
-    END DO
-    END DO
-
-    DEALLOCATE (NeighSt)
-    DEALLOCATE (ParFind)
-
-  ELSE
-    CALL SENDI_myMPI(NAT ,0)
-    CALL SENDD_myMPI(PXYZ,3*NAT,0)
-    ALLOCATE(mg_mpi(1:9))
-    CALL RECVI_myMPI(mg_mpi(1)%NeighNum,0)
-    ALLOCATE(mg_mpi(1)%parST(mg_mpi(1)%NeighNum))
-    ALLOCATE(mg_mpi(1)%UE(1:NAT))
-    DO pID=1,mg_mpi(1)%NeighNum
-    CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Neigh,0)
-    CALL RECVI_myMPI(mg_mpi(1)%parST(pID)%Num,0)
-    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLink(2,1:mg_mpi(1)%parST(pID)%Num))
-
-    ! REMINDER: If we pass the array mg_mpi(1)%parST(pID)%FaceLink(1,:) then
-    ! a temporary copy of the array is created because in the column-major 
-    ! ordering in FORTRAN FaceLink(1,:) is not a continuous portion of memory 
-    CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(1,:),mg_mpi(1)%parST(pID)%Num,0)
-    CALL RECVK_myMPI(mg_mpi(1)%parST(pID)%FaceLink(2,:),mg_mpi(1)%parST(pID)%Num,0)
-    ALLOCATE(mg_mpi(1)%parST(pID)%SideLink(1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLink(2,1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%SDVect(1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%RDVect(1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%SVVect(1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%RVVect(1:mg_mpi(1)%parST(pID)%Num))
-    ALLOCATE(mg_mpi(1)%parST(pID)%PE(1:mg_mpi(1)%parST(pID)%Num))
-
-    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLin1(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted elems
-    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLin1(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted faces
-    ALLOCATE(mg_mpi(1)%parST(pID)%ElemLin2(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted elems
-    ALLOCATE(mg_mpi(1)%parST(pID)%FaceLin2(2,1:mg_mpi(1)%parST(pID)%Num)) ! sorted faces
-    END DO
-
-    DO pID=1,mg_mpi(1)%NeighNum
-    !  WRITE(*,*)myid," processing:",mg_mpi(1)%parST(pID)%Neigh
-    !  WRITE(*,*) (mg_mpi(1)%parST(pID)%ElemLink(1,I),I=1,mg_mpi(1)%parST(pID)%Num)
-    !   if (myid.eq.3) WRITE(*,*) mg_mpi(1)%parST(pID)%Neigh
-    DO K=1,mg_mpi(1)%parST(pID)%Num
-    !   WRITE(*,*) myid,mg_mpi(1)%parST(pID)%FaceLink(1,K)
-    DO I=1,NEL
-    DO J=1,6
-    JI = KAREA(J,I)
-    IF (JI.EQ.mg_mpi(1)%parST(pID)%FaceLink(1,K)) THEN
-      mg_mpi(1)%parST(pID)%ElemLink(1,K)=I
-      mg_mpi(1)%parST(pID)%SideLink(K)=J
-      !       if (myid.eq.3) then
-      !       write(*,*) DCORAG(1,mg_mpi(1)%parST(pID)%FaceLink(1,K)),&
-      !                  DCORAG(2,mg_mpi(1)%parST(pID)%FaceLink(1,K)),&
-      !                  DCORAG(3,mg_mpi(1)%parST(pID)%FaceLink(1,K))
-      !       end if
-      !       if (myid.eq.2) then
-      !       write(*,*) mg_mpi(1)%parST(pID)%ElemLink(1,K),&
-      !                  mg_mpi(1)%parST(pID)%FaceLink(1,K),&
-      !                  mg_mpi(1)%parST(pID)%SideLink(K),mg_mpi(1)%parST(pID)%Neigh
-      !       end if
-    END IF
-    END DO
-    END DO
-    END DO
-    DO K=1,mg_mpi(1)%parST(pID)%Num
-    DO I=1,NEL
-    DO J=1,6
-    JI = KAREA(J,I)
-    IF (JI.EQ.mg_mpi(1)%parST(pID)%FaceLink(2,K)) THEN
-      mg_mpi(1)%parST(pID)%ElemLink(2,K)=I
-    END IF
-    END DO
-    END DO
-    END DO
-    END DO
-
-  END IF
-
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-
-  DEALLOCATE (PXYZ,VXYZ)
-  DEALLOCATE (pPXYZ,pVXYZ)
-
-END SUBROUTINE PARENTCOMM
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -2072,32 +1665,79 @@ END SUBROUTINE COMM_MGComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+SUBROUTINE COMM_Maximumn(DVAL,NN)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
+INTEGER NN
+REAL*8 DVAL(NN)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(2)%n = myTimer(2)%n + 1
+myTimer(2)%t = myTimer(2)%t + dble(tt1-tt0)
+
+END SUBROUTINE COMM_Maximumn
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_MaximumX(value) !ok
+USE var_QuadScalar, only :myStat,iCommSwitch,myTimer
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
+
+value = DVAL(1)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(6)%n = myTimer(6)%n + 1
+myTimer(6)%t = myTimer(6)%t + dble(tt1-tt0)
+
+END SUBROUTINE COMM_MaximumX
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE COMM_Maximum(value) !ok
-USE var_QuadScalar, only :myStat
+USE var_QuadScalar, only :myStat,iCommSwitch,myTimer
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
 
-  REAL*8  value
-  REAL*8  Val(1),pVal(1)
-  INTEGER pID,iEnt,IERR
-  REAL*4  tt1,tt0
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-  CALL ztime(tt0)
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_MaximumN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_MaximumN_NEW(DVAL,NN)
 
-  IF (myid.eq.MASTER) THEN
-   Val(1) = 0d0
-  ELSE
-   Val(1) = value
-  END IF
-  
-  CALL MPI_ALLREDUCE(Val,pVal,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,IERR)
+value = DVAL(1)
 
-  value = pVal(1)
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(1)%n = myTimer(1)%n + 1
+myTimer(1)%t = myTimer(1)%t + dble(tt1-tt0)
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-  CALL ztime(tt1)
-  myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
-
-  END SUBROUTINE COMM_Maximum
+END SUBROUTINE COMM_Maximum
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -2135,41 +1775,6 @@ SUBROUTINE COMM_Maximum_old(value) !ok
   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 END SUBROUTINE COMM_Maximum_old
-! ----------------------------------------------
-! ----------------------------------------------
-! ----------------------------------------------
-SUBROUTINE COMM_Maximumn(DVAL,NN)
-  INTEGER NN
-  REAL*8 DVAL(NN)
-  REAL*8, ALLOCATABLE :: pVal(:)
-  INTEGER pID,i
-
-  ALLOCATE (pVal(NN))
-
-  IF (myid.eq.MASTER) THEN
-    DVAL = -1d30
-    DO pID=1,subnodes
-    CALL RECVD_myMPI(pVAL,NN,pID)
-    DO i=1,NN
-    DVal(i) = MAX(DVAL(i),pVal(i))
-    END DO
-    END DO
-
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDD_myMPI(pVAL,NN,pID)
-    END DO
-
-  ELSE
-    pVAL=DVAL
-    CALL SENDD_myMPI(pVAL,NN,0)
-    CALL RECVD_myMPI(pVAL,NN,0)
-    DVAL = pVal
-  END IF
-
-  DEALLOCATE (pVal)
-
-END SUBROUTINE COMM_Maximumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -2245,95 +1850,108 @@ END SUBROUTINE COMM_Minimumn
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
+! SUBROUTINE COMM_NLComplete(INLComplete)
+! 
+!   INTEGER INLComplete
+!   INTEGER iNL,piNL,pID
+! 
+!   ! write(*,*) "complete?",myid,INLComplete
+!   IF (myid.eq.MASTER) THEN
+! 
+!     iNL=1
+!     DO pID=1,subnodes
+!     CALL RECVI_myMPI(piNL,pID)
+!     iNL=iNL*pINL
+!     END DO
+! 
+!     pINL=iNL
+!     DO pID=1,subnodes
+!     CALL SENDI_myMPI(piNL,pID)
+!     END DO
+!     INLComplete=iNL
+! 
+!   ELSE
+!     piNL=INLComplete
+!     CALL SENDI_myMPI(piNL,0)
+!     CALL RECVI_myMPI(piNL,0)
+!     INLComplete=piNL
+!   END IF
+! 
+!   ! write(*,*) "complete!",myid,INLComplete
+!   CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+! 
+! END SUBROUTINE COMM_NLComplete
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
 SUBROUTINE COMM_NLComplete(INLComplete)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
+INTEGER INLComplete
+REAL*4  tt1,tt0
 
-  INTEGER INLComplete
-  INTEGER iNL,piNL,pID
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  ! write(*,*) "complete?",myid,INLComplete
-  IF (myid.eq.MASTER) THEN
+if (iCommSwitch.le.2) CALL COMM_INLN_OLD(INLComplete)
+if (iCommSwitch.ge.3) CALL COMM_INLN_NEW(INLComplete)
 
-    iNL=1
-    DO pID=1,subnodes
-    CALL RECVI_myMPI(piNL,pID)
-    iNL=iNL*pINL
-    END DO
-
-    pINL=iNL
-    DO pID=1,subnodes
-    CALL SENDI_myMPI(piNL,pID)
-    END DO
-    INLComplete=iNL
-
-  ELSE
-    piNL=INLComplete
-    CALL SENDI_myMPI(piNL,0)
-    CALL RECVI_myMPI(piNL,0)
-    INLComplete=piNL
-  END IF
-
-  ! write(*,*) "complete!",myid,INLComplete
-  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(5)%n = myTimer(5)%n + 1
+myTimer(5)%t = myTimer(5)%t + dble(tt1-tt0)
 
 END SUBROUTINE COMM_NLComplete
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE COMM_SUMM(DVAL)
-  REAL*8 DVAL,pVAL
-  INTEGER pID
-
-  IF (myid.eq.MASTER) THEN
-    DVAL = 0d0
-    DO pID=1,subnodes
-    CALL RECVDD_myMPI(pVAL,pID)
-    DVal = DVal + pVal
-    END DO
-
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDDD_myMPI(pVAL,pID)
-    END DO
-  ELSE
-    pVAL=DVAL
-    CALL SENDDD_myMPI(pVAL,0)
-    CALL RECVDD_myMPI(pVAL,0)
-    DVAL = pVal
-  END IF
-END SUBROUTINE COMM_SUMM
-! ----------------------------------------------
-! ----------------------------------------------
-! ----------------------------------------------
 SUBROUTINE COMM_SUMMN(DVAL,NN)
-  INTEGER NN
-  REAL*8 DVAL(NN)
-  REAL*8, ALLOCATABLE :: pVal(:)
-  INTEGER pID
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
+INTEGER NN
+REAL*8 DVAL(NN)
+REAL*4  tt1,tt0
 
-  ALLOCATE (pVal(NN))
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
 
-  IF (myid.eq.MASTER) THEN
-    DVAL = 0d0
-    DO pID=1,subnodes
-    CALL RECVD_myMPI(pVAL,NN,pID)
-    DVal = DVal + pVal
-    END DO
+if (iCommSwitch.le.2) CALL COMM_SUMMN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
 
-    pVAL = DVAL
-    DO pID=1,subnodes
-    CALL SENDD_myMPI(pVAL,NN,pID)
-    END DO
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(4)%n = myTimer(4)%n + 1
+myTimer(4)%t = myTimer(4)%t + dble(tt1-tt0)
 
-  ELSE
-    pVAL=DVAL
-    CALL SENDD_myMPI(pVAL,NN,0)
-    CALL RECVD_myMPI(pVAL,NN,0)
-    DVAL = pVal
-  END IF
-
-  DEALLOCATE (pVal)
 
 END SUBROUTINE COMM_SUMMN
+! ----------------------------------------------
+! ----------------------------------------------
+! ----------------------------------------------
+SUBROUTINE COMM_SUMM(value)
+USE var_QuadScalar, ONLY :  myStat,iCommSwitch,myTimer
+REAL*8 value
+INTEGER NN
+REAL*8 DVAL(1)
+REAL*4  tt1,tt0
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt0)
+
+NN = 1
+dval(1) = value 
+if (iCommSwitch.le.2) CALL COMM_SUMMN_OLD(DVAL,NN)
+if (iCommSwitch.ge.3) CALL COMM_SUMMN_NEW(DVAL,NN)
+
+value = DVAL(1)
+
+!CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ztime(tt1)
+myStat%tCommS = myStat%tCommS + dble(tt1-tt0)
+myTimer(3)%n = myTimer(3)%n + 1
+myTimer(3)%t = myTimer(3)%t + dble(tt1-tt0)
+
+END SUBROUTINE COMM_SUMM
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -2437,36 +2055,36 @@ END SUBROUTINE CommBMMul
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
-SUBROUTINE CommSortPre(KTR1,KTR2,NEQ,IPAR,ILEV)
-  INTEGER KTR1(*),KTR2(*)
-  INTEGER IPAR,IEQ,NEQ,ILEV
-  INTEGER pID,I,IAUX
-
-  DO pID=1,mg_mpi(ILEV)%NeighNum
-  DO I=1,mg_mpi(ILEV)%parST(pID)%Num
-  IAUX = KTR1(mg_mpi(ILEV)%parST(pID)%FaceLink(1,I))
-  mg_mpi(ILEV)%parST(pID)%FaceLin1(1,I) = IAUX
-  IAUX = KTR1(mg_mpi(ILEV)%parST(pID)%FaceLink(2,I))
-  mg_mpi(ILEV)%parST(pID)%FaceLin1(2,I) = IAUX
-
-  IAUX = KTR2(mg_mpi(ILEV)%parST(pID)%FaceLink(1,I))
-  mg_mpi(ILEV)%parST(pID)%FaceLin2(1,I) = IAUX
-  IAUX = KTR2(mg_mpi(ILEV)%parST(pID)%FaceLink(2,I))
-  mg_mpi(ILEV)%parST(pID)%FaceLin2(2,I) = IAUX
-  END DO
-  END DO
-
-  ! IF (IPAR.EQ.1) THEN
-  !  DO IEQ=1,NEQ
-  !   DD(IEQ)=DX(KTR1(IEQ))
-  !  END DO
-  ! ELSE
-  !  DO IEQ=1,NEQ
-  !   DD(IEQ)=DX(KTR2(IEQ))
-  !  END DO
-  ! ENDIF
-
-END SUBROUTINE CommSortPre
+! SUBROUTINE CommSortPre(KTR1,KTR2,NEQ,IPAR,ILEV)
+!   INTEGER KTR1(*),KTR2(*)
+!   INTEGER IPAR,IEQ,NEQ,ILEV
+!   INTEGER pID,I,IAUX
+! 
+!   DO pID=1,mg_mpi(ILEV)%NeighNum
+!   DO I=1,mg_mpi(ILEV)%parST(pID)%Num
+!   IAUX = KTR1(mg_mpi(ILEV)%parST(pID)%FaceLink(1,I))
+!   mg_mpi(ILEV)%parST(pID)%FaceLin1(1,I) = IAUX
+!   IAUX = KTR1(mg_mpi(ILEV)%parST(pID)%FaceLink(2,I))
+!   mg_mpi(ILEV)%parST(pID)%FaceLin1(2,I) = IAUX
+! 
+!   IAUX = KTR2(mg_mpi(ILEV)%parST(pID)%FaceLink(1,I))
+!   mg_mpi(ILEV)%parST(pID)%FaceLin2(1,I) = IAUX
+!   IAUX = KTR2(mg_mpi(ILEV)%parST(pID)%FaceLink(2,I))
+!   mg_mpi(ILEV)%parST(pID)%FaceLin2(2,I) = IAUX
+!   END DO
+!   END DO
+! 
+!   ! IF (IPAR.EQ.1) THEN
+!   !  DO IEQ=1,NEQ
+!   !   DD(IEQ)=DX(KTR1(IEQ))
+!   !  END DO
+!   ! ELSE
+!   !  DO IEQ=1,NEQ
+!   !   DD(IEQ)=DX(KTR2(IEQ))
+!   !  END DO
+!   ! ENDIF
+! 
+! END SUBROUTINE CommSortPre
 ! ----------------------------------------------
 ! ----------------------------------------------
 ! ----------------------------------------------
@@ -2797,5 +2415,73 @@ SUBROUTINE SORTALL(LW,KW,MW,x,y,z,N)
   END DO
 
 END SUBROUTINE SORTALL
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE Reduce_myMPI(localMax, totalMax)
+
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+  integer :: error_indicator
+
+  totalMax = 0.0
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, error_indicator)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    write(*,'(A,E12.6)')'Total Max value: ', totalMax
+  end if
+
+END SUBROUTINE Reduce_myMPI
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE Sum_myMPI(localMax, totalMax)
+
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+  integer :: error_indicator
+
+  totalMax = 0.0
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, error_indicator)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    print *,'Global lubrication', totalMax
+  end if
+
+END SUBROUTINE Sum_myMPI
+!-------------------------------------------------------------
+!
+!
+!-------------------------------------------------------------
+SUBROUTINE SynchronizeValue_myMPI(localMax, totalMax)
+  implicit none
+
+  ! Parameters
+  REAL*8 :: localMax 
+  REAL*8 :: totalMax 
+
+  ! Local variables
+  integer :: error_indicator
+  integer :: root = 0
+
+  totalMax = 0.0
+
+  ! Reduce to find the maximum
+  call MPI_Reduce(localMax, totalMax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, root, MPI_COMM_WORLD, error_indicator)
+
+  ! Now bcast the maximum to synchronize the value among the processes
+  call MPI_Bcast(totalMax, 1, MPI_DOUBLE_PRECISION, root, MPI_COMM_WORLD, error_indicator) 
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, error_indicator)
+
+  if (myid == 0) then
+    write(*,'(A,E12.6)')'Total Max value: ', totalMax
+  end if
+
+END SUBROUTINE SynchronizeValue_myMPI
 
 END MODULE

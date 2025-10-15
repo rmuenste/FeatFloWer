@@ -1,4 +1,4 @@
-include(${CMAKE_MODULE_PATH}/CustomTargets.cmake)  
+include(CustomTargets)  
 
 
 # source files for standad q2p1 
@@ -17,6 +17,14 @@ set(SSE_TARGET_NAME "q2p1_sse")
 
 # Add the application executable
 add_executable(${SSE_TARGET_NAME} ${src_q2p1_sse}) 
+
+# Add a custom command to update version.h before the build starts
+add_custom_target(SetVersionSSE
+    COMMAND ${CMAKE_COMMAND} -DGIT_DIR=${CMAKE_SOURCE_DIR} -P "${CMAKE_SOURCE_DIR}/cmake/modules/generate_version_h.cmake"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Updating version.h with the latest git commit hash"
+)
+
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -47,16 +55,15 @@ else(Q1P1_SSE_LINK_STATIC_FORTRAN)
     )
 endif(Q1P1_SSE_LINK_STATIC_FORTRAN)
 
-target_include_directories(${SSE_TARGET_NAME} PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+target_include_directories(${SSE_TARGET_NAME} PUBLIC ${FF_APPLICATION_INCLUDE_PATH} ${CMAKE_CURRENT_BINARY_DIR})
 
 target_compile_options(${SSE_TARGET_NAME} PRIVATE ${Fortran_FLAGS})
 
 set_target_properties(${SSE_TARGET_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
 
-add_dependencies(${SSE_TARGET_NAME} s3d_mesher)
+add_dependencies(${SSE_TARGET_NAME} s3d_mesher SetVersionSSE)
 
 IF(${OUT_OF_SOURCE_BUILD})
-  include(${CMAKE_MODULE_PATH}/CreateDataDirectories.cmake)  
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
   # create the sse specific directories 
@@ -180,6 +187,8 @@ if(NOT WIN32)
 #   install the components for SCALEXA
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/SCALEXA DESTINATION bin/q2p1_gendie)
     install(FILES "${CMAKE_SOURCE_DIR}/tools/RunSCALEXA.sh" DESTINATION bin/q2p1_gendie
+        PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+    install(FILES "${CMAKE_SOURCE_DIR}/tools/RankFileGenerator.sh" DESTINATION bin/q2p1_gendie
         PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
     install(FILES ${E3D_SCRIPTS} DESTINATION bin/q2p1_gendie

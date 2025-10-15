@@ -1,4 +1,5 @@
 module types
+  use iso_c_binding, only: c_double, c_int, c_short
 !-------------------------------------------------------------------------------------------------
 ! A module that contains several variants of the Laplacian 
 ! smoother 'Umbrella'. Besides the standard version of this 
@@ -145,6 +146,13 @@ TYPE tMultiMesh
   type(tMesh), allocatable, dimension(:) :: level
 
 END TYPE
+
+!================================================================================================
+!  This structure can hold a C++ 8-byte unsigned integer type uint64
+!================================================================================================
+type tUint64
+  integer(c_short), dimension(8) :: bytes
+end type tUint64
 
 TYPE tParticle
  REAL*8 time
@@ -406,7 +414,7 @@ TYPE(tParticle), ALLOCATABLE :: myCompleteSet(:)
 TYPE(tParticle), ALLOCATABLE :: myActiveSet(:)
 TYPE(tParticle), ALLOCATABLE :: myExchangeSet(:)
 TYPE(tParticle), ALLOCATABLE :: myLostSet(:)
-TYPE(tVelo), ALLOCATABLE :: myVelo(:)
+TYPE(tVelo), ALLOCATABLE :: myVelo(:),myVorticity(:)
 
 INTEGER nCompleteSet,nActiveSet,nExchangeSet,nStartActiveSet,nLostSet
 
@@ -425,7 +433,8 @@ END TYPE tHYPRE
 TYPE(tHYPRE) :: myHYPRE
 
 TYPE tParticleInflow
- REAL*8 :: Center(3), Radius
+ REAL*8 :: Center(3), MaxRadius, MinRadius, Radius
+ INTEGER :: iMat
 END TYPE tParticleInflow
 
 TYPE tPhysParticles
@@ -508,7 +517,8 @@ type(tMeshInfoParticle) :: myMeshInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! SIGMA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
 TYPE tPID
- REAL*8 T_set,sumI,e_old
+ REAL*8 T_set
+ REAL*8 :: sumI=0d0,e_old=0d0
  REAL*8 P,I,D,omega_P,omega_I,omega_D,PID
 END TYPE tPID
 
@@ -541,6 +551,13 @@ TYPE tConvergenceDetector
   LOGICAL :: Converged=.FALSE.
 END TYPE tConvergenceDetector
 
+TYPE tDIESensor
+ real*8 :: Center(3),Radius
+ integer :: iSeg
+ TYPE(tPID) PID_ctrl
+ CHARACTER*8 ::  type
+END TYPE tDIESensor
+
 TYPE tSegment
   INTEGER :: nOFFfilesR=0,nOFFfilesL=0,nOFFfiles=0
   CHARACTER*200, ALLOCATABLE :: OFFfilesR(:),OFFfilesL(:),OFFfiles(:)
@@ -555,7 +572,7 @@ TYPE tSegment
   REAL*8, ALLOCATABLE :: Zknet(:)
   REAL*8 :: t,D,Alpha,StartAlpha ! t=Gangsteigung
   REAL*8 :: Min, Max,L
-  REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0]
+  REAL*8 :: FBMVeloBC(3)=[0d0,0d0,0d0],FBMOffsetBC(3)=[0d0,0d0,0d0],FBMOmegaBC(3)=[0d0,0d0,0d0]
   REAL*8 :: ZME_DiscThick,ZME_gap_SG, ZME_gap_SS 
   REAL*8 :: SegRotFreq
   INTEGER :: ZME_N
@@ -566,10 +583,12 @@ TYPE tSegment
   REAL*8 :: HeatSourceMax,HeatSourceMin,UseHeatSource
   character*64 :: regulation="SIMPLE"
   TYPE(tSensor) TemperatureSensor
+  
   TYPE(tPID) PID_ctrl
   TYPE(tConvergenceDetector) ConvergenceDetector
   REAL*8 :: InitTemp,Volume
   CHARACTER*200 :: TemperatureBC
+  REAL*8 RobinHTC
   !!!!!!!!!!!!!!!!!!!
   INTEGER GANGZAHL
    
@@ -581,7 +600,7 @@ TYPE tSigma
   REAL*8 :: SensorRadius
   CHARACTER cType*(50),cZwickel*(50),RotationAxis*(50)
   CHARACTER :: GeometryLength*(256),GeometryStart*(256),GeometrySymmetryBC*(256)
-  LOGICAL :: ScrewCylinderRendering=.TRUE.
+  LOGICAL :: ScrewCylinderRendering=.TRUE.,BarrelRendering=.TRUE.
   REAL*8 :: RotAxisCenter,RotAxisAngle
   REAL*8 :: Dz_out,Dz_in, a, L, L0, SegmentLength, DZz,W
   REAL*8 :: SecStr_W,SecStr_D
@@ -604,8 +623,8 @@ TYPE tRheology
    REAL*8 :: n, K ! Power Law
    REAL*8 :: eta_max, eta_min 
    REAL*8 :: Ts, Tb, C1, C2, E,log_aT_Tilde_Max! WLF Parameter
-   REAL*8 :: ViscoMin = 1e-4
-   REAL*8 :: ViscoMax = 1e10
+   REAL*8 :: ViscoMin = 1e-4,TemperatureMin=0d0
+   REAL*8 :: ViscoMax = 1e10,TemperatureMax=1d30
 END TYPE tRheology
 
 TYPE tSubInflow
@@ -637,10 +656,14 @@ TYPE tSegThermoPhysProp
  real*8 rho,cp,lambda,T_const
  character*256 :: cConstTemp
  logical :: bConstTemp=.false.
+ logical :: bHeatSource=.false.
 ENDTYPE tSegThermoPhysProp
 
 TYPE tProcess
    REAL*8 :: Umdr, Ta, Ti, T0=0d0, T0_Slope=0d0, Massestrom, Dreh, Angle, dPress, FillingDegree
+   REAL*8 :: T0_Lin = 0d0, T0_Quad = 0d0, T0_RCenter = 0d0
+   REAL*8,allocatable :: T0_T(:)
+   INTEGER :: T0_N=-1000
    REAL*8 :: HeatFluxThroughBarrelWall_kWm2=0d0
    REAL*8 :: MinInflowDiameter,MaxInflowDiameter
    INTEGER :: Periodicity,Phase, nTimeLevels=36, nPeriodicity=1
@@ -653,11 +676,19 @@ TYPE tProcess
    integer   nOfInflows,nOfTempBCs
    TYPE (tInflow), dimension(:), allocatable :: myInflow
    TYPE (tTempBC), dimension(:), allocatable :: myTempBC
-   LOGICAL :: UseHeatDissipationForQ1Scalar=.false.
+   logical :: bRobinBCScrew=.false.,bRobinBCBarrel=.false.,bRobinBCCaliber=.false.
+   REAL*8 :: RobinBCScrew_HTC=0d0,RobinBCBarrel_HTC=0d0
+   LOGICAL :: UseHeatDissipationForQ1Scalar=.false.,UseAirCooling=.false.
+   REAL*8  :: AirCoolingHeatTransCoeff,AirCoolingRoomTemperature
    LOGICAL :: SegmentThermoPhysProps=.false.
    TYPE(tSegThermoPhysProp), allocatable :: SegThermoPhysProp(:)
+   
+  INTEGER nOfDIESensors
+  TYPE(tDIESensor), allocatable :: mySensor(:)
+  
   !!!!!!!!!!!!!!!!!!!!! EWIKON !!!!!!!!!!!!!!!!!!!!!
    REAL*8 :: AmbientTemperature=280d0,MeltInflowTemperature = 290d0
+   REAL*8 :: FarFieldTemperature=20d0,HTC=0d0,Emissivity=0d0
    REAL*8 :: WorkBenchThickness = 5d0, CoolingWaterTemperature = 55d0, ConductiveLambda = 21d0
 
 !    REAL*8 :: TemperatureSensorRadius=0d0, TemperatureSensorCoor(3)=[0d0,0d0,0d0]
@@ -682,11 +713,12 @@ TYPE tMultiMat
 END TYPE tMultiMat
 
 TYPE tTransientSolution
- INTEGER :: nTimeSubStep = 6, DumpFormat=2 ! LST
+ INTEGER :: nTimeSubStep = 6, DumpFormat=3 ! 2::LST, 3::MPI_DMP
  TYPE(mg_dVector), ALLOCATABLE :: Velo(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Coor(:,:)
  TYPE(mg_dVector), ALLOCATABLE :: Dist(:)
  TYPE(mg_dVector), ALLOCATABLE :: Temp(:)
+ TYPE(mg_dVector), ALLOCATABLE :: Shell(:)
  TYPE(mg_dVector), ALLOCATABLE :: iSeg(:)
 END TYPE tTransientSolution
 

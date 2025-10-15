@@ -6,7 +6,7 @@
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
       USE var_QuadScalar, ONLY : transform
-      USE var_QuadScalar, ONLY : GenLinScalar,screw,shell
+      USE var_QuadScalar, ONLY : GenLinScalar,screw,shell,Temperature
       use Sigma_User, only: myMultiMat
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -131,7 +131,8 @@ C
       DU1(JDFL) = U1(JDFG) 
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
-      DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
+      DTT(JDFL) = Temperature(JDFG)
+!      DTT(JDFL) = GenLinScalar%Fld(1)%val(JDFG)
       DSC(JDFL) = Screw(JDFG)
       DSH(JDFL) = Shell(JDFG)
  130  CONTINUE      
@@ -209,7 +210,7 @@ C
        JDFL=KDFL(JDOFE)! local number of basic function
        JDFG=KDFG(JDOFE)! local number of basic function
        
-       DTEMP   =DTEMP      + DTT(JDFL)*DBAS(1,JDFL,1)!temperature
+       DTEMP   = DTEMP  + DTT(JDFL)*DBAS(1,JDFL,1)!temperature
        DSHELL  = DSHELL + DSH(JDFL)*DBAS(1,JDFL,1) !shell
        DSCREW  = DSCREW + DSC(JDFL)*DBAS(1,JDFL,1) !screw
        
@@ -250,7 +251,8 @@ C ----=============================================----
        dVisc = AlphaViscosityMatModel(dShearSquare,iMat,DTEMP)
 C
        if (myMultiMat%Mat(iMat)%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dVisc*dShearSquare)
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,iMat,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 
@@ -293,7 +295,7 @@ C
 C
 C
 ************************************************************************
-      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,T,kMat,DA,NA,KCOLA,KLDA,KVERT,
+      SUBROUTINE DIFFQ2_NNEWT(U1,U2,U3,T,DA,NA,KCOLA,KLDA,KVERT,
      *                  KAREA,KEDGE,DCORVG,ELE)
 ************************************************************************
 *     Discrete diffusion operator: Q2 elements ---PREPARED !!
@@ -310,7 +312,7 @@ C
       PARAMETER (Q2=0.5D0,Q8=0.125D0)
 C
       REAL*8 U1(*),U2(*),U3(*),T(*),DA(*)
-      INTEGER kMat(*)
+!       INTEGER kMat(*)
       DIMENSION KCOLA(*),KLDA(*),DCORVG(NNDIM,*)
       DIMENSION KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
       DIMENSION KENTRY(NNBAS,NNBAS),DENTRY(NNBAS,NNBAS)
@@ -424,9 +426,19 @@ C
       DU2(JDFL) = U2(JDFG)
       DU3(JDFL) = U3(JDFG)
       DTT(JDFL) = T(JDFG)
-      DSC(JDFL) = Screw(JDFG)
-      DSH(JDFL) = Shell(JDFG)
- 130  CONTINUE      
+
+      IF (allocated(Screw)) THEN
+       DSC(JDFL) = Screw(JDFG)
+      else
+       DSC(JDFL) = 0d0
+      end if
+
+      IF (allocated(Shell)) THEN
+       DSH(JDFL) = Shell(JDFG)
+      else
+       DSH(JDFL) = 0d0
+      end if
+ 130  CONTINUE
 ! ---===========================---
 
 C *** Loop over all cubature points
@@ -523,9 +535,11 @@ C ----=============================================----
      *        + 0.5d0*(GRADU1(3)+GRADU3(1))**2d0 
      *        + 0.5d0*(GRADU2(3)+GRADU3(2))**2d0
 
-       dVisc = AlphaViscosityMatModel(dShearSquare,kMat(IEL),DTEMP)
-       if (myMultiMat%Mat(kMat(IEL))%Rheology%bWallSlip) then
-        dWSFactor = WallSlip(DSHELL,DSCREW,kMat(IEL),dVisc*dShearSquare)
+       dVisc = AlphaViscosityMatModel(dShearSquare,1,DTEMP)
+       
+       if (myMultiMat%Mat(1)%Rheology%bWallSlip) then
+        dTau = dVisc*sqrt(2d0*dShearSquare)
+        dWSFactor = WallSlip(DSHELL,DSCREW,1,dTau)
         dVisc = dWSFactor*dVisc
        END IF
 C ----=============================================---- 

@@ -1,3 +1,5 @@
+! -----------------------------------------------------
+!
 SUBROUTINE GetPresInitVal(X,Y,Z,Val)
 USE Sigma_User, ONLY : myProcess,mySigma
 REAL*8 X,Y,Z,Val(4)
@@ -39,7 +41,8 @@ END IF
 END SUBROUTINE GetCylKnpr
 !--------------------------------------------------
 SUBROUTINE GetVeloInitVal(X,Y,Z,ValU,ValV,ValW)
-USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench
+USE var_QuadScalar, ONLY : b2DViscoBench,b3DViscoBench, referenceVelocity, GammaDot
+use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 REAL*8 X,Y,Z,ValU,ValV,ValW
 REAL*8 PX,PY,dScale
 INTEGER iC
@@ -47,9 +50,18 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
-ValU = 0d0
+ValU = 0d0 
 ValV = 0d0
 ValW = 0d0
+return
+
+!ValU = 2.0d0 * Y
+! dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+! ValU = dScale * (y**2 - 0.25d0)
+ dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+ ValU = dScale * (0.5d0-Y) * (0.5d0+Y) - referenceVelocity
+ ValV = 0d0
+ ValW = 0d0
 
 if(b2DViscoBench)then
   ValV = 0d0
@@ -87,7 +99,8 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM
+use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot
+use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
 implicit none
@@ -108,10 +121,17 @@ REAL*8 :: U_bar, h, normalizedTime, val,dFact
 real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
 integer iSubInflow
 real*8 dRPM
+REAL*8 ValUT,ValVT,ValWT
 
 ValU = 0d0
 ValV = 0d0
 ValW = 0d0
+
+IF (iT.EQ.23) THEN
+ ValU= GammaDot
+ ValV= 0d0
+ ValW= 0d0
+END IF
 
 IF (iT.lt.0) THEN
   
@@ -262,6 +282,14 @@ IF (iT.lt.0) THEN
  END IF
 END IF
 
+IF (iT.EQ.111) THEN
+   dist = SQRT((x-27)**2d0 + y*y)
+   dScale = 5.0d0/0.245**2d0
+   IF (dist.lt.R_inflow) THEN
+    ValW= -dScale*(dist+0.245)*(0.245-dist)
+   END IF
+END IF
+
 IF (iT.EQ.1) THEN
    dist = SQRT(z*z + y*y)
    dScale = 5.0d0/R_inflow*R_inflow
@@ -277,17 +305,18 @@ IF (iT.EQ.2) THEN
  ValW= 0d0
 END IF
 
-IF (iT.EQ.200) THEN
- dScale=1.0d0*(3d0/2d0)/(0.205d0*0.205d0)
- ValU=dScale*Y*(0.41d0-Y)*sin(t*PI/8d0)
- ValV= 0d0
- ValW= 0d0
+IF (iT.EQ.202) THEN
+ dScale = (1d0) * (3d0/2d0)/(0.5d0**2)
+ !ValU = dScale * (y**2 - 0.25d0)
+ ValU = dScale * (0.5d0-Y) * (0.5d0+Y) - referenceVelocity 
+ ValV = 0d0
+ ValW = 0d0
 END IF
 
-IF (iT.EQ.3) THEN
- ValU= 1d0
- ValV= 0d0
- ValW= 0d0
+IF (iT.EQ.203) THEN
+ ValU = 0.0d0 - referenceVelocity
+ ValV = 0d0
+ ValW = 0d0
 END IF
 
 IF (iT.EQ.4.OR.iT.EQ.5) THEN
@@ -316,6 +345,25 @@ IF (iT.EQ.770) THEN
   ValW =   0.0d0
 END IF
 
+IF (iT.EQ.666) THEN
+  dCenter=[-0.85d0,0d0,0d0]
+  DIST = SQRT((X-dCenter(1))**2d0+(Y-dCenter(2))**2d0)
+  DIST = MIN(DIST,0.18d0)
+  DAUX= 2d0*(DIST+0.18d0)*(0.18d0-DIST)/(0.18d0*0.18d0)
+  ValU =   0.3d0*DAUX
+  ValV =   0.0d0*DAUX
+  ValW =   0.3d0*DAUX
+END IF
+
+IF (iT.EQ.778) THEN
+  dScale=1.0d3*(9d0/4d0)/(0.15d0*0.0425d0)**2d0
+  XX = X-9.6d0
+  ZZ = Z
+  ValU =   0.0d0
+  ValV =   dScale*ZZ*(0.085d0-ZZ)*XX*(0.300d0-XX)
+  ValW =   0.0d0
+END IF
+
 IF (iT.EQ.771) THEN
   dRPM = 4d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
@@ -323,7 +371,7 @@ IF (iT.EQ.771) THEN
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
   ValW =   -0.77d0*(dRPM/60d0)
 END IF
-
+ 
 IF (iT.EQ.772) THEN
   dRPM = 8d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
@@ -331,9 +379,13 @@ IF (iT.EQ.772) THEN
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
   ValW =   -0.77d0*(dRPM/60d0)
 END IF
-
-IF (iT.EQ.773) THEN
-  dRPM = 12d0
+ 
+! This is actually 773
+! But we hack it to be faster
+!IF (iT.EQ.773) THEN
+IF (iT.EQ.771) THEN
+  !dRPM = 12d0
+  dRPM = 40d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
@@ -397,6 +449,82 @@ if(it.eq.10)then
   END IF
 end if
 
+! QUESTIONABLE CASE WHEN THE INFLOW FOR TSE/SSE experiences some strange things
+
+! if(it.eq.100)then
+!   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+!    dInnerRadius = 0.5d0*mySigma%Dz_In
+!
+!   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
+!    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
+!    daux = (PI/6d0)*(dInnerRadius+mySigma%a/2d0)*((mySigma%a/2d0-dInnerRadius)**3d0)
+!    dScale = (dVolFlow/2d0)/daux
+!    IF (Y.LT.0) THEN
+!      DIST = SQRT(X**2d0+(Y+mySigma%a/2d0)**2d0)
+!     ELSE
+!      DIST = SQRT(X**2d0+(Y-mySigma%a/2d0)**2d0)
+!     END IF
+!     IF (DIST.GT.dInnerRadius.AND.DIST.LT.mySigma%a/2d0) THEN
+!      ValW= dScale*(DIST-dInnerRadius)*(mySigma%a/2d0-DIST)
+!     END IF
+!     IF (DIST.LT.dInnerRadius.and.Y.gt.0d0) THEN
+!      ValU= -myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
+!      ValV = myTwoPI*X*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
+!     END IF
+!     IF (DIST.LT.dInnerRadius.and.Y.lt.0d0) THEN
+!      ValU= -myTwoPI*(Y+mySigma%a/2d0)*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
+!      ValV = myTwoPI*X*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
+!     END IF
+!   ELSE
+!    CALL TransformPointToNonparallelRotAxis(0d0,0d0,z,XX,YY,ZZ,+1d0)
+!    dInnerInflowRadius = abs(YY)
+!    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
+!    daux = (PI/6d0)*(dInnerRadius+dInnerInflowRadius)*((dInnerInflowRadius-dInnerRadius)**3d0)
+!    dScale = (dVolFlow/2d0)/daux
+!
+!    IF (Y.LT.0) CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,+1d0)
+!    IF (Y.GT.0) CALL TransformPointToNonparallelRotAxis(x,y,z,XX,YY,ZZ,-1d0)
+!
+!    DIST = SQRT(XX**2d0 + YY**2d0)
+!
+!    IF (DIST.GT.dInnerRadius.AND.DIST.LT.dInnerInflowRadius) THEN
+!     ValW= dScale*(DIST-dInnerRadius)*(dInnerInflowRadius-DIST)
+!    END IF
+!    IF (DIST.LT.dInnerRadius) THEN
+! ! ! ! ! !     IF (DIST.LT.dInnerRadius.and.Y.gt.0d0) THEN
+! ! ! ! ! !      ValU=
+! ! ! ! ! !      ValV =
+! ! ! ! ! !     END IF
+! ! ! ! ! !     IF (DIST.LT.dInnerRadius.and.Y.lt.0d0) THEN
+! ! ! ! ! !      ValU=
+! ! ! ! ! !      ValV =
+! ! ! ! ! !     END IF
+!    END IF
+!   END IF
+!
+!
+!   END IF
+!
+!   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
+!    dInnerRadius = myProcess%MinInflowDiameter*0.5d0
+!    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0
+!
+!    dVolFlow = (1e3/3.6d3)*myProcess%Massestrom/(myThermodyn%density) ! cm3/s
+!    daux = (PI/6d0)*(dInnerRadius+dOuterRadius)*((dOuterRadius-dInnerRadius)**3d0)
+!    dScale = (dVolFlow/1d0)/daux
+!
+!    DIST = SQRT(X**2d0+Y**2d0)
+!
+!    IF (DIST.GT.dInnerRadius.AND.DIST.LT.dOuterRadius) THEN
+!     ValW= dScale*(DIST-dInnerRadius)*(dOuterRadius-DIST)
+!    END IF
+!    IF (DIST.LT.dInnerRadius) THEN
+!     ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
+!     ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
+!    END IF
+!   END IF
+! end if
+
 if(it.eq.11)then
   IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
    ValU= -myTwoPI*(Y-mySigma%a/2d0)*(myProcess%Umdr/6d1)*REAL(myProcess%iInd*myProcess%ind)
@@ -407,6 +535,10 @@ if(it.eq.11)then
    ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
+   CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,-1d0)
+   ValU = ValUT
+   ValV = ValVT
+   ValW = ValWT
   END IF
 end if
 
@@ -420,6 +552,10 @@ if(it.eq.12)then
    ValU =  -DBLE(myProcess%ind)*myTwoPI*YY*(myProcess%Umdr/6d1)
    ValV =   DBLE(myProcess%ind)*myTwoPI*XX*(myProcess%Umdr/6d1)
    ValW = 0d0
+   CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,+1d0)
+   ValU = ValUT
+   ValV = ValVT
+   ValW = ValWT
   END IF
 end if
 
@@ -428,7 +564,6 @@ if(it.eq.13)then
   ValV =   DBLE(myProcess%ind)*myTwoPI*X*(myProcess%Umdr/6d1)
   ValW =   0d0
 end if
-
 
 IF (iT.EQ.20) THEN
 
@@ -578,19 +713,29 @@ IF (iT.EQ.39) THEN
   ValU = dProfil(1)
   ValV = dProfil(2)
   ValW = dProfil(3)
-
-
 END IF
  
-IF (iT.EQ.41) THEN
- ValW=RotParabolicVelo2Dz(0d0,0d0,100d0,-1d0,0.495d0)
+IF (iT.EQ.444) THEN
+ dDensity = myThermodyn%density
+ IF (abs(y).gt.2.5d0) THEN
+  daux = (3.29d0/3600d0)/(dDensity*1d3)
+  dScale = daux/(0.2322d0*0.0012)*1d2 ! cm/s ==> u_mean
+  if (y.lt.0d0) THEN
+   ValW = max(0d0,3d0/2d0*dScale*(1d0 - (2d0*(y + 5.053d0)/0.12d0)**2d0))
+  ELSE
+   ValW = max(0d0,3d0/2d0*dScale*(1d0 - (2d0*(y - 5.053d0)/0.12d0)**2d0))
+  END IF
+ else
+  daux = (306.45d0/3600d0)/(dDensity*1d3)
+  dScale = 3d0/2d0*daux/(0.2322d0*0.0024)*1d2
+  ValW = max(0d0,dScale*(-(2d0*(y + 0.12d0)/0.24d0)*(2d0*(y - 0.12d0)/0.24d0)))
+ end if
 END IF
 
 IF (iT.EQ.45) THEN
  ValW=RotParabolicVelo2Dz(0d0,0d0,1449d0,1d0,2.495d0)
 END IF
 
-  
 IF (iT.EQ.51) THEN
   ValW=RotParabolicVelo2Dz(0d0,0d0,1270d0,1d0,2.495d0)
 END IF
@@ -753,7 +898,9 @@ IMPLICIT NONE
 REAL*8 :: myTwoPI=2d0*dATAN(1d0)*4d0
 INTEGER iP
 REAL*8 X,Y,Z,ValU,ValV,ValW,t,yb,xb,zb,dYShift,dYShiftdt,timeLevel
+REAL*8 dOmega
 integer iScrewType,iSeg
+REAL*8 ValUT,ValVT,ValWT
 
 IF (iP.lt.200) then
 
@@ -771,6 +918,10 @@ IF (iP.lt.200) then
     CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,-1d0)
     ValU =  -DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
     ValV =   DBLE(myProcess%iInd*myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+    CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,-1d0)
+    ValU = ValUT
+    ValV = ValVT
+    ValW = ValWT
    END IF
   CASE (102) ! Y negativ
    IF (ADJUSTL(TRIM(mySigma%RotationAxis)).EQ."PARALLEL") THEN
@@ -781,6 +932,10 @@ IF (iP.lt.200) then
     CALL TransformPointToNonparallelRotAxis(x,y,z,XB,YB,ZB,+1d0)
     ValU =  -DBLE(myProcess%ind)*myTwoPI*YB*(myProcess%Umdr/6d1)
     ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
+    CALL TransformVelocityToNonparallelRotAxis(ValU,ValV,ValW,ValUT,ValVT,ValWT,+1d0)
+    ValU = ValUT
+    ValV = ValVT
+    ValW = ValWT
    END IF
   CASE (103) ! Y negativ
    ValU =  -DBLE(myProcess%ind)*myTwoPI*Y*(myProcess%Umdr/6d1)
@@ -807,7 +962,7 @@ IF (iP.lt.200) then
    ValV =   DBLE(myProcess%ind)*myTwoPI*XB*(myProcess%Umdr/6d1)
    ValW =   0d0
    ValV =   ValV + dYShiftdt
-   
+
  !  write(*,*) dYShiftdt
    
  END SELECT
@@ -819,7 +974,24 @@ ELSE
     valU = mySigma%mySegment(iSeg)%FBMVeloBC(1)
     valV = mySigma%mySegment(iSeg)%FBMVeloBC(2)
     valW = mySigma%mySegment(iSeg)%FBMVeloBC(3)
-    
+
+    dOmega = sqrt(mySigma%mySegment(iSeg)%FBMOmegaBC(1)**2d0 + &
+                  mySigma%mySegment(iSeg)%FBMOmegaBC(2)**2d0 + &
+                  mySigma%mySegment(iSeg)%FBMOmegaBC(3)**2d0)
+    if (dOmega.gt.0d0) then
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(1).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(2).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(3).eq.0d0) THEN ! xAxis-rotation
+     end if
+
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(2).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(1).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(3).eq.0d0) THEN ! yAxis-rotation
+     end if
+
+     if (mySigma%mySegment(iSeg)%FBMOmegaBC(3).ne.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(2).eq.0d0.and.mySigma%mySegment(iSeg)%FBMOmegaBC(1).eq.0d0) THEN ! zAxis-rotation
+      ValU =  -myTwoPI*(Y-mySigma%mySegment(iSeg)%FBMOffsetBC(2))*(mySigma%mySegment(iSeg)%FBMOmegaBC(3)/6d1)
+      ValV =   myTwoPI*(X-mySigma%mySegment(iSeg)%FBMOffsetBC(1))*(mySigma%mySegment(iSeg)%FBMOmegaBC(3)/6d1)
+      ValW =   0d0
+     end if
+    end if
+
  ELSE
     iSeg = iP - 200
     
@@ -943,6 +1115,7 @@ FUNCTION AlphaViscosityMatModel(NormShearSquare,iMat,Temperature)
 USE Transport_Q2P1, ONLY : Properties
 USE Sigma_User, ONLY: myMultiMat,tRheology
 USE PP3D_MPI, ONLY:myid
+USE viscosity_model, ONLY : mu_eff,set_mu_f
 IMPLICIT NONE
 
 real*8 :: AlphaViscosityMatModel
@@ -950,7 +1123,7 @@ real*8, intent (in) :: NormShearSquare
 ! real*8, intent (in) :: dAlpha
 integer, intent (in)  :: iMAt
 real*8, intent (in), optional :: Temperature
-REAL*8 :: dStrs, aT,log_aT,dLimStrs,MF
+REAL*8 :: dStrs, aT,log_aT,dLimStrs,MF,dLimTemperature
 REAL*8 :: VNN,daux
 REAL*8 :: dN
 TYPE(tRheology), POINTER :: myRheology
@@ -968,30 +1141,33 @@ aT = 1d0
 ! else
 !  iMat=2
 ! end if
- 
+
 myRheology => myMultiMat%Mat(iMat)%Rheology
 
 ! C1C2
 if (present(Temperature)) then
+
+ dLimTemperature = MIN(myRheology%TemperatureMax,MAX(myRheology%TemperatureMin,Temperature))
+
  IF (myRheology%AtFunc.EQ.2) THEN
-  daux = - myRheology%C1*(Temperature-myRheology%Tb)/(myRheology%C2 + Temperature- myRheology%Tb)
+  daux = - myRheology%C1*(dLimTemperature-myRheology%Tb)/(myRheology%C2 + dLimTemperature- myRheology%Tb)
   aT = EXP(daux)
  END IF
 
  ! TBTS
  IF (myRheology%AtFunc.EQ.3) THEN
   daux = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
-         myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+         myRheology%C1*(dLimTemperature-myRheology%TS)/(myRheology%C2 + dLimTemperature- myRheology%TS)
   aT = 1d1**daux
  END IF
  
  ! MeltTBTS
  IF (myRheology%AtFunc.EQ.4) THEN
 
-  CALL MeltFunction_MF(MF,Temperature)
+  CALL MeltFunction_MF(MF,dLimTemperature)
   
   log_aT = myRheology%C1*(myRheology%TB-myRheology%TS)/(myRheology%C2 + myRheology%TB - myRheology%TS) - &
-           myRheology%C1*(Temperature-myRheology%TS)/(myRheology%C2 + Temperature- myRheology%TS)
+           myRheology%C1*(dLimTemperature-myRheology%TS)/(myRheology%C2 + dLimTemperature- myRheology%TS)
 
   aT = 1d1**((1d0-MF)*myRheology%log_aT_Tilde_Max + MF*log_aT)
   
@@ -999,7 +1175,7 @@ if (present(Temperature)) then
 
  !ETB myRheology%E is in J/mol
  IF (myRheology%AtFunc.EQ.5) THEN
-  daux = (myRheology%E/8.314d0)*( 1d0/(Temperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
+  daux = (myRheology%E/8.314d0)*( 1d0/(dLimTemperature+273.15d0) - 1d0/(myRheology%TB+273.15d0))
   aT = EXP(daux)
  END IF
  
@@ -1043,6 +1219,8 @@ END IF
 
 ! HogenPowerLaw
 IF (myRheology%Equation.EQ.5) THEN
+!  CALL set_mu_f(Properties%Viscosity(1))
+!  VNN = mu_eff(Temperature, dStrs)
  dN = Properties%PowerLawExp-1d0
  VNN = Properties%Viscosity(1)*(1d-4 + NormShearSquare)**dN
 END IF
@@ -1086,13 +1264,26 @@ END SUBROUTINE TransformPointToNonparallelRotAxis
 !
 !
 !
+SUBROUTINE TransformVelocityToNonparallelRotAxis(x1,y1,z1,x2,y2,z2,dS)
+USE Sigma_User, ONLY: mySigma
+REAL*8 x1,y1,z1,x2,y2,z2,dS
+
+X2 = X1
+Y2 = Y1*cos(dS*mySigma%RotAxisAngle) - Z1*sin(dS*mySigma%RotAxisAngle)
+Z2 = Y1*sin(dS*mySigma%RotAxisAngle) + Z1*cos(dS*mySigma%RotAxisAngle)
+
+END SUBROUTINE TransformVelocityToNonparallelRotAxis
+!
+!
+!
 SUBROUTINE SetInitialTemperature(T,Coor,ndof)
-USE Sigma_User, ONLY: myProcess
+USE Sigma_User, ONLY: myProcess,mySigma
+USE PP3D_MPI, ONLY:myid
 implicit none
 integer ndof
 real*8 T(*),coor(3,*)
-integer i
-real*8 X,Y,Z,distance
+integer i,iN
+real*8 X,Y,Z,distance,dN,daux
 
 DO i=1,ndof
 
@@ -1105,11 +1296,33 @@ DO i=1,ndof
 !  distance = max(13.5d0,distance)
 !  T(i) = 200d0 - 15d0 * (distance-13.5d0)/42.7d0
  
- T(i) = myProcess%T0 + Z*myProcess%T0_slope
- 
+ IF (myProcess%T0_N.gt.0) THEN
+
+  daux = DBLE(myProcess%T0_N-1)*Z/mySigma%L
+  iN = floor(1d0+daux)
+  if (iN.eq.myProcess%T0_N) then
+   iN = iN-1
+   dN = 1d0
+  ELSE
+   dN = daux - floor(daux)
+  end if
+!  iN = MAX(1,MIN(myProcess%T0_N,INT(daux+0.5d0)))
+
+!  dN = dble(iN) - daux
+
+   T(i) = myProcess%T0_T(iN) + dN*(myProcess%T0_T(iN+1)-myProcess%T0_T(iN))
+
+!    WRITE(*,*) Z,daux,iN,nint(daux),dN,T(i)
+
+
+ ELSE
+  T(i) = myProcess%T0 + Z*myProcess%T0_slope
+ END IF
+
  
 end do
 
+!   pause
 ! Temperature = myProcess%T0
 
 END SUBROUTINE SetInitialTemperature
@@ -1213,8 +1426,9 @@ tau_min = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMin   ! scaling from Pa to 10P
 tau_max = 1d1*myMultiMat%Mat(iMat)%Rheology%WS_TauMax   ! scaling from Pa to 10Pa
 slip = myMultiMat%Mat(iMat)%Rheology%WS_SlipFactor
 
-! d = max(dShell,dScrew)                                  ! mm
-d = dShell
+!d = 1d1*dScrew                                  ! mm
+d = 1d1*min(dShell,dScrew)                                  ! mm
+!d = 1d1*dShell
 
 d_factor   = 1d0-((max(min(d,d_max),d_min)-d_min)/(d_max-d_min))
 tau_factor = ((max(min(tau,tau_max),tau_min)-tau_min)/(tau_max-tau_min))

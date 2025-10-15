@@ -1,12 +1,6 @@
 PROGRAM MUMPS_TEST
 
-  include 'defs_include.h'
-
-  use solution_io, only: postprocessing_app
-
-  use post_utils,  only: handle_statistics,&
-                         print_time,&
-                         sim_finalize
+!   include 'defs_include.h'
 
   integer            :: iOGMV,iTout
   character(len=200) :: command
@@ -36,7 +30,7 @@ PROGRAM MUMPS_TEST
   CALL MPI_COMM_SIZE(MPI_COMM_WORLD,numnodes,IERR)
   subnodes=numnodes-1
 
-  do iloop = 1,80000
+  do iloop = 1,1
 
     !  Initialize an instance of the package
     !  for L U factorization (sym = 0, with working host)
@@ -151,9 +145,9 @@ PROGRAM MUMPS_TEST
     !     controls parallelism
     MUMPS_PAR%icntl(12) = 0
     !     use ScaLAPACK for root node
-    MUMPS_PAR%icntl(13) = 0
+    MUMPS_PAR%icntl(13) = 2
     !     percentage increase in estimated workspace
-    MUMPS_PAR%icntl(14) = 100
+    MUMPS_PAR%icntl(14) = 2
 
     mumps_par%ICNTL(5)=0
     mumps_par%ICNTL(18)=3
@@ -200,6 +194,10 @@ PROGRAM MUMPS_TEST
     endif
 
     IF (associated(mumps_par%RHS)) THEN
+      write(cFile,'(A,I2.2,A,I2.2,A)')  'input_',subnodes,'/solution_',mumps_par%MYID,'.txt'
+      open(file=adjustl(trim(cFile)),unit=myFile, action="write",iostat=istat)
+      write(myFile,*) mumps_par%RHS
+      close(myFile)
       deallocate(mumps_par%RHS)
       nullify(mumps_par%RHS)
     endif

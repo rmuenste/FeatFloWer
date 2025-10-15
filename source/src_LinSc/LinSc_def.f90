@@ -30,7 +30,7 @@ TYPE(TlMatrix) :: lMat
 
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: S11Mat,S22Mat,S33Mat
 REAL*8  , DIMENSION(:)  , ALLOCATABLE :: S12Mat,S13Mat,S23Mat,S21Mat,S31Mat,S32Mat
-REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Mmat,MLmat,MLRhoCpMat,Kmat,Dmat
+REAL*8  , DIMENSION(:)  , ALLOCATABLE :: Mmat,MLmat,RhoCpMlMat,Kmat,RhoCpKmat,Dmat,LambdaDmat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: Amat
 REAL*4  , DIMENSION(:)  , ALLOCATABLE :: AmatX,AmatY,AmatZ
 
@@ -141,7 +141,7 @@ END SUBROUTINE Create_MatStruct
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_CpRhoMassMat()
+SUBROUTINE Create_RhoCpMassMat_Ewikon()
 EXTERNAL E011
 
 ILEV=NLMAX
@@ -152,14 +152,37 @@ MMat = 0d0
 
 IF (myid.eq.showid) write(*,*) 'Regenerating RhoCpM Matrix for Q1'
 
-CALL CpRhoMassMatQ1(MMat,lMat%nu,lMat%ColA,lMat%LdA,&
+CALL CpRhoMassMat_Ewikon(MMat,lMat%nu,lMat%ColA,lMat%LdA,&
                     mg_mesh%level(ilev)%kvert,&
                     mg_mesh%level(ilev)%karea,&
                     mg_mesh%level(ilev)%kedge,&
                     mg_mesh%level(ilev)%dcorvg,&
                     E011)
 
-END SUBROUTINE Create_CpRhoMassMat
+END SUBROUTINE Create_RhoCpMassMat_Ewikon
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_RhoCpMassMat_XSE(T)
+REAL*8 T(*)
+EXTERNAL E011
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+IF (.not.allocated(MMat)) ALLOCATE(Mmat(lMat%na))
+MMat = 0d0
+
+IF (myid.eq.showid) write(*,*) 'Regenerating RhoCpM Matrix for Q1'
+
+CALL CpRhoMassMat_XSE(MMat,T,lMat%nu,lMat%ColA,lMat%LdA,&
+                    mg_mesh%level(ilev)%kvert,&
+                    mg_mesh%level(ilev)%karea,&
+                    mg_mesh%level(ilev)%kedge,&
+                    mg_mesh%level(ilev)%dcorvg,&
+                    E011)
+
+END SUBROUTINE Create_RhoCpMassMat_XSE
 !
 ! ----------------------------------------------
 !
@@ -219,27 +242,27 @@ END SUBROUTINE Create_MassMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_LRhoCpMassMat()
+SUBROUTINE Create_RhoCpLMassMat()
 INTEGER I,J
 REAL*8 DML
 
 ILEV=NLMAX
 CALL SETLEV(2)
 
-IF (.not.allocated(MLRhoCpMat)) ALLOCATE(MLRhoCpMat(lMat%nu))
-MLRhoCpMat = 0d0
+IF (.not.allocated(RhoCpMlMat)) ALLOCATE(RhoCpMlMat(lMat%nu))
+RhoCpMlMat = 0d0
 
-IF (myid.eq.showid) write(*,*) 'Regenerating Ml Matrix for Q1'
+IF (myid.eq.showid) write(*,*) 'Regenerating RhoCp_Ml Matrix for Q1'
 
 DO I=1,lMat%nu
  DML = 0d0
  DO J=lMat%LdA(I),lMat%LdA(I+1)-1
   DML = DML + Mmat(J)
  END DO
- MLRhoCpMat(I) = DML
+ RhoCpMlMat(I) = DML
 END DO
 
-END SUBROUTINE Create_LRhoCpMassMat
+END SUBROUTINE Create_RhoCpLMassMat
 !
 ! ----------------------------------------------
 !
@@ -348,29 +371,6 @@ END SUBROUTINE Create_ConstDiffMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_DIE_DiffMat(Alpha)
-REAL*8 Alpha(*)
-EXTERNAL E011
-
-IF (.NOT.ALLOCATED(DMat)) ALLOCATE(DMat(lMat%na))
-DMat=0d0
-
-ILEV=NLMAX
-CALL SETLEV(2)
-
-IF (myid.eq.showid) write(*,*) 'Regenerating D Matrix with Lambda=f(x) for Q1'
-
-CALL DIE_DiffMatQ1(DMat,Alpha,lMat%nu,lMat%ColA,lMat%LdA,&
-                   mg_mesh%level(ilev)%kvert,&
-                   mg_mesh%level(ilev)%karea,&
-                   mg_mesh%level(ilev)%kedge,&
-                   mg_mesh%level(ilev)%dcorvg,&
-                   E011)
-
-END SUBROUTINE Create_DIE_DiffMat
-!
-! ----------------------------------------------
-!
 SUBROUTINE Create_XSE_DiffMat(Alpha)
 REAL*8 Alpha(*)
 EXTERNAL E011
@@ -394,7 +394,7 @@ END SUBROUTINE Create_XSE_DiffMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_LambdaDiffMat()
+SUBROUTINE Create_LambdaDiffMat_Ewikon()
 EXTERNAL E011
 
 IF (.NOT.ALLOCATED(DMat)) ALLOCATE(DMat(lMat%na))
@@ -405,18 +405,41 @@ CALL SETLEV(2)
 
 IF (myid.eq.showid) write(*,*) 'Regenerating D Matrix for Q1'
 
-CALL LambdaDiffMatQ1(DMat,lMat%nu,lMat%ColA,lMat%LdA,&
+CALL LambdaDiffMat_Ewikon (DMat,lMat%nu,lMat%ColA,lMat%LdA,&
                mg_mesh%level(ilev)%kvert,&
                mg_mesh%level(ilev)%karea,&
                mg_mesh%level(ilev)%kedge,&
                mg_mesh%level(ilev)%dcorvg,&
                E011)
 
-END SUBROUTINE Create_LambdaDiffMat
+END SUBROUTINE Create_LambdaDiffMat_Ewikon
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_RhoCpConvMat(U,V,W)
+SUBROUTINE Create_LambdaDiffMat_XSE(T)
+REAL*8 T(*)
+EXTERNAL E011
+
+IF (.NOT.ALLOCATED(LambdaDmat)) ALLOCATE(LambdaDmat(lMat%na))
+LambdaDmat=0d0
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+IF (myid.eq.showid) write(*,*) 'Regenerating LambdaD Matrix for Q1'
+
+CALL LambdaDiffMat_XSE(LambdaDmat,T,lMat%nu,lMat%ColA,lMat%LdA,&
+               mg_mesh%level(ilev)%kvert,&
+               mg_mesh%level(ilev)%karea,&
+               mg_mesh%level(ilev)%kedge,&
+               mg_mesh%level(ilev)%dcorvg,&
+               E011)
+
+END SUBROUTINE Create_LambdaDiffMat_XSE
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_RhoCpConvMat_Ewikon(U,V,W)
 REAL*8 U(*),V(*),W(*)
 INTEGER I,J,jLEV
 EXTERNAL E011
@@ -426,11 +449,11 @@ ILEV=NLMAX
 JLEV = ILEV-1
 CALL SETLEV(2)
 
-IF (myid.eq.showid) write(*,*) 'Regenerating K Matrix for Q1'
+IF (myid.eq.showid) write(*,*) 'Regenerating a K=0 Matrix for Q1'
 
 Kmat = 0d0
 
-! CALL RhoCpConvMat(U,V,W,Kmat,&
+! CALL RhoCpConvMat_Ewikon(U,V,W,Kmat,&
 ! lMat%nu,lMat%ColA,lMat%LdA,&
 ! mg_mesh%level(ilev)%kvert,&
 ! mg_mesh%level(ilev)%karea,&
@@ -445,14 +468,44 @@ Kmat = 0d0
 ! mg_mesh%level(jlev)%net,&
 ! mg_mesh%level(jlev)%nat,E011)
 
+END SUBROUTINE Create_RhoCpConvMat_Ewikon
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_RhoCpConvMat_XSE(U,V,W,T)
+REAL*8 U(*),V(*),W(*),T(*)
+INTEGER I,J,jLEV
+EXTERNAL E011
+integer invt, inet, inat, inel
+
+ILEV=NLMAX
+JLEV = ILEV-1
+CALL SETLEV(2)
+
+IF (myid.eq.showid) write(*,*) 'Regenerating RhoCp_K Matrix for Q1'
+
+IF (.NOT.ALLOCATED(RhoCpKmat)) ALLOCATE(RhoCpKmat(lMat%na))
+RhoCpKmat = 0d0
+
+CALL RhoCpConvMat_XSE(U,V,W,T,RhoCpKmat,&
+lMat%nu,lMat%ColA,lMat%LdA,&
+mg_mesh%level(ilev)%kvert,&
+mg_mesh%level(ilev)%karea,&
+mg_mesh%level(ilev)%kedge,&
+mg_mesh%level(ilev)%dcorvg,&
+mg_mesh%level(ilev)%kadj,&
+mg_mesh%level(jlev)%kvert,&
+mg_mesh%level(jlev)%karea,&
+mg_mesh%level(jlev)%kedge,&
+mg_mesh%level(jlev)%nel,&
+mg_mesh%level(jlev)%nvt,&
+mg_mesh%level(jlev)%net,&
+mg_mesh%level(jlev)%nat,E011)
+
 !ILEV=NLMAX
 !CALL SETLEV(2)
 
-!CALL Conv_LinSc1(QuadSc%valU,QuadSc%valV,QuadSc%valW,Kmat,&
-!lMat%nu,lMat%ColA,lMat%LdA,KWORK(L(LVERT)),KWORK(L(LAREA)),&
-!KWORK(L(LEDGE)),KWORK(L(KLINT(ILEV))),DWORK(L(LCORVG)),E011)
-
-END SUBROUTINE Create_RhoCpConvMat
+END SUBROUTINE Create_RhoCpConvMat_XSE
 !
 ! ----------------------------------------------
 !
@@ -514,12 +567,12 @@ TYPE(lScalar) myScalar
  ! Build up the matrix
  IF (imat.eq.1) THEN
    Amat=REAL(-thstep*(Kmat+DMat))
-   Amat(lMat%LdA(1:lMat%nu))=Amat(lMat%LdA(1:lMat%nu))+REAL(MLRhoCpMat)
+   Amat(lMat%LdA(1:lMat%nu))=Amat(lMat%LdA(1:lMat%nu))+REAL(RhoCpMlMat)
  END IF
 
  ! Build up the defect
  IF (idef.eq. 1) THEN
-   myScalar%def = MLRhoCpMat*myScalar%val(NLMAX)%x
+   myScalar%def = RhoCpMlMat*myScalar%val(NLMAX)%x
    CALL LAX17(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
    myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
    CALL LAX17(Dmat,lMat%ColA,lMat%LdA,lMat%nu,&
@@ -566,6 +619,41 @@ TYPE(lScalar) myScalar
  END IF
 
 END SUBROUTINE Matdef_LinScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE Matdef_LinScalar_XSE(myScalar,idef,imat,FluxSub)
+INTEGER :: idef,imat
+TYPE(lScalar) myScalar
+EXTERNAL FluxSub
+
+
+ ! Build up the matrix
+ IF (imat.eq.1) THEN
+   Amat=REAL(-thstep*(RhoCpKmat+LambdaDMat))
+   Amat(lMat%LdA(1:lMat%nu))=Amat(lMat%LdA(1:lMat%nu))+REAL(RhoCpMlMat)
+   
+   CALL FluxSub(2)
+ END IF
+
+ ! Build up the defect
+ IF (idef.eq. 1) THEN
+   myScalar%def = RhoCpMlMat*myScalar%val(NLMAX)%x
+   CALL LAX17(RhoCpKmat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
+   CALL LAX17(LambdaDMat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,thstep,1d0)
+ ELSE
+   CALL LAX37(Amat,lMat%ColA,lMat%LdA,lMat%nu,&
+   myScalar%val(NLMAX)%x,myScalar%def,-1d0,1d0)
+ END IF
+
+ ! Perform Algebraic Flux Correction (if needed)
+ IF (myScalar%prm%AFC) THEN
+   CALL DefTVD_LinScalar(myScalar%val(NLMAX)%x,myScalar%def,THSTEP)
+ END IF
+
+END SUBROUTINE Matdef_LinScalar_XSE
 !
 ! ----------------------------------------------
 !
@@ -701,6 +789,15 @@ CALL AFC_LinScalar(Kmat,lMat%ColA,lMat%LdA,lMat%nu,&
      AFC%isep,AFC%iaux,AFC%inod,AFC%jnod,AFC%aedge)
 
 END SUBROUTINE InitAFC_General_LinScalar
+!
+! ----------------------------------------------
+!
+SUBROUTINE InitAFC_General_LinScalar_XSE()
+
+CALL AFC_LinScalar(RhoCpKmat,lMat%ColA,lMat%LdA,lMat%nu,&
+     AFC%isep,AFC%iaux,AFC%inod,AFC%jnod,AFC%aedge)
+
+END SUBROUTINE InitAFC_General_LinScalar_XSE
 !
 ! ----------------------------------------------
 !

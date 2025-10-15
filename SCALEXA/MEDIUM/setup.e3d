@@ -1,0 +1,107 @@
+[E3DGeometryData/Machine]
+Unit = mm
+type = die
+ScrewCylinderRendering = OFF
+barreldiameter = 291.2978025491475
+noofelements = 1
+barrellength = 265.00000010003004
+innerdiameter = 100.0
+rotationdirection = LEFT
+geometryStart = -96.25,-152.44,0.00
+geometryLength = 192.50000021998247,218.6279023484168,265.00000010003004
+GeometrySymmetryBC = F,F,F,F,F,F
+
+[E3DGeometryData/Machine/Element_1]
+Unit = mm
+startposition = 0.0
+type = OFF
+objecttype = die
+name = WZ_Werbung_v2
+off_filelist = surface.off
+calculatedinflowdiammin = 100.0
+calculatedinflowdiammax = 122.5
+innerdiameter = 100.0
+
+[E3DProcessParameters]
+Unit = mm
+processtype = THROUGHPUT
+nOfInflows = 2
+materialtemperature = 195.0
+barreltemperature = 195.0
+barreltemperatureadiabatic = NO
+ExtrusionGapSize_MM_Real = 1.5560730593607306
+ExtrusionGapSize_MM = 0.9078901484481927
+ExtrusionOutflowArea_MM2 = 2140.6473453291396
+ExtrusionGapFactor = 2.25
+screwspeed = 430.0
+screwtemperature = _INVALID_
+screwtemperatureadiabatic = YES
+mininflowdiameter = 100.0
+maxinflowdiameter = 122.5
+massthroughput = 250.0
+
+[E3DMaterialParameters]
+NoOfMaterials = 1
+InitMaterial = 1
+
+[E3DMaterialParameters/Mat_1]
+name = LDPE
+type = Polymer
+
+[E3DMaterialParameters/Mat_1/RheologicalData]
+calcvisco = Carreau
+CalcTemp = isotherm
+
+[E3DMaterialParameters/Mat_1/RheologicalData/Isotherm]
+
+[E3DMaterialParameters/Mat_1/RheologicalData/Carreau]
+zeroviscosity = 6830.0
+recipvelocity = 0.0343
+exponent = 0.805
+
+[E3DMaterialParameters/Mat_1/ThermoData]
+DensityModel = DENSITY
+HeatConductivity = 0.231
+HeatConductivitySlope = 0.000017
+HeatCapacity = 2.087
+HeatCapacitySlope = 0.00431
+
+[E3DMaterialParameters/Mat_1/ThermoData/Density]
+density = 1.35
+densityslope = 0.0001
+
+[E3DProcessParameters/Inflow_1]
+Unit = mm
+material = 1
+temperature = 195.0
+type = CURVEDFLAT
+InnerRadius = 32.0
+OuterRadius = 40.0
+massflowrate = 200.0
+center = 7.105427357601002e-15,-5.404848895818071e-15,0.0
+normal = -0.0,-0.0,1.0
+
+[E3DProcessParameters/Inflow_2]
+Unit = mm
+material = 1
+temperature = 195.0
+type = CURVEDFLAT
+InnerRadius = 14.0
+OuterRadius = 17.5
+massflowrate = 50.0
+center = -2.143131898508e-15,-152.43763196572803,223.13788564488
+normal = -0.0,1.0,-0.0
+
+[E3DSimulationsettings/Output]
+nOf1DLayers = 128
+nOfHistogramBins = 16
+HistogramShearMax = 1e4
+HistogramShearMin = 1e-1
+CutData_1D = 0.001
+
+[E3DSimulationsettings]
+KTPRelease = NO
+AutomaticTimeStepControl = yes
+TimeStepEnlargementFactor = 6e0
+PressureFBM = on
+

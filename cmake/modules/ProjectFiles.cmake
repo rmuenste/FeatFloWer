@@ -5,6 +5,7 @@
 #*************************************************************************
 set(src_cinterface
 ${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
+${CMAKE_SOURCE_DIR}/source/src_particles/dem_query.f90
 )
 
 #=========================================================================
@@ -30,6 +31,7 @@ target_include_directories(ff_postprocessing PUBLIC ${FF_APPLICATION_INCLUDE_PAT
 target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
 
 set(src_ini_aux
+  ${CMAKE_SOURCE_DIR}/source/src_util/getpid_wrapper.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
 )
@@ -92,12 +94,18 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/Parametrization.f90
   ${src_mpi}
   ${CMAKE_SOURCE_DIR}/source/src_mpi/pp3d_mpi.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/comm_sum.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/min_sphere.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/OutputMumpsMatrices.f90
+  ${CMAKE_SOURCE_DIR}/source/src_mpi/parentcomm.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/FolderManagement.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/get_pid.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/f90getopt.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/MPI_SharedMemory.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
   )
@@ -122,6 +130,7 @@ ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_gravity.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_BMatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_barMmatrix.f
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_Interface.f90
+${CMAKE_SOURCE_DIR}/source/assemblies/AL.f90
 )
 
 #=========================================================================
@@ -174,10 +183,14 @@ add_library(ff_le_solvers ${le_solvers})
 target_link_libraries(ff_le_solvers ff_util ff_mesh ${FF_DEFAULT_LIBS})
 target_include_directories(ff_le_solvers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_le_solvers PUBLIC ${Fortran_FLAGS})
+if(USE_HYPRE)
+  add_dependencies(ff_le_solvers HYPRE)
+endif(USE_HYPRE)
 
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force_extension.f90
 )
 
 #=========================================================================
@@ -190,6 +203,7 @@ target_compile_options(ff_fbm PUBLIC ${Fortran_FLAGS})
 
 set(src_LinSc
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_conv.f
+  ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_mass.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_diff.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_solver.f
   ${CMAKE_SOURCE_DIR}/source/src_LinSc/LinSc_def.f90
@@ -261,6 +275,7 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
@@ -274,8 +289,10 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
