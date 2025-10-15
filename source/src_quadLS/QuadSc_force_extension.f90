@@ -98,20 +98,20 @@ SAVE
   localHydro = 0.0
   accumulatedSliding = 0.0
 
-  IF (myid.eq.0) return! GOTO 999
+  IF (myid == 0) return! GOTO 999
 
 #ifdef SED_BENCH
-  if(myid.eq.1)then
+  if(myid == 1)then
     write(*,*) 'Force with SED BENCH settings!'
   end if
 #endif
   
   DO I= 1,NNDER
-    BDER(I)=.FALSE.
+    BDER(I)=.false.
   end do
-  
+
   DO I=1,4
-    BDER(I)=.TRUE.
+    BDER(I)=.true.
   end do
   
   IELTYP=-1
@@ -120,18 +120,18 @@ SAVE
   
   ICUB=9
   CALL CB3H(ICUB)
-  IF (IER.ne.0)then
+  IF (IER /= 0)then
     call ExitError('Error in GetForces',1702)
   end if
 
   numParticles = numLocalParticles()
-  if (numParticles .eq. 0) then
+  if (numParticles == 0) then
     return
   end if
 
   if(.not. allocated(theParticles)) then
-    allocate(theParticles(numLocalParticles())) 
-  else if ((allocated(theParticles)).and.(size(theParticles) .ne. numLocalParticles()))then
+    allocate(theParticles(numLocalParticles()))
+  else if ((allocated(theParticles)).and.(size(theParticles) /= numLocalParticles()))then
     deallocate(theParticles)
     allocate(theParticles(numLocalParticles())) 
   end if
@@ -179,21 +179,21 @@ SAVE
   DO IEL=1,NEL
   
   CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
-  IF (IER.LT.0)then
+  IF (IER < 0)then
     call ExitError('Error in GetForces',1728)
-  end if 
-  
+  end if
+
    NJALFA=0
    NIALFA=0
    DO I=1,IDFL
      IG=KDFG(I)
      ! map particle Id to systemId, then
      ! map IG to see if IG is in systemId
-     
+
      ! The preferred method of checking is to:
      ! compare the particle system ID (which is a 64bit unsigned integer) to
      ! the fortran long representation of the FictKNPR array
-     IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+     IF((ALPHA(IG) == 0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
       NJALFA=NJALFA+1
      ENDIF
 
@@ -205,7 +205,7 @@ SAVE
 
   ! Skip elements where all dofs are inside or
   ! all dofs are outside
-  IF(NJALFA.EQ.27.OR.NIALFA.EQ.27)then
+  IF(NJALFA == 27.OR.NIALFA == 27)then
 !    write(*,*)myid,'>Particle: ',IP, '| njalfa: ', njalfa, ' nialfa :', nialfa
     cycle
   end if
@@ -264,9 +264,9 @@ SAVE
   ! Initialize the ELE
   CALL ELE(0D0,0D0,0D0,-2)
 
-  IF (IER.LT.0)then
+  IF (IER < 0)then
     call ExitError('Error in GetForces',1800)
-  end if 
+  end if
 
     ! Loop over all cubature points
     DO ICUBP=1,NCUBP
@@ -295,14 +295,14 @@ SAVE
     XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
     YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
     ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
-  
-    ! Call ELE with the cubature point to SET the 
+
+    ! Call ELE with the cubature point to SET the
     ! derivatives in the DBAS-Array
     CALL ELE(XI1,XI2,XI3,-3)
 
-    IF (IER.LT.0)then
+    IF (IER < 0)then
       call ExitError('Error in GetForces',1837)
-    end if 
+    end if
 
     ! Evaluate the solution values and derivatives in the cubature point
     DU1V=0D0     ! U1 value
@@ -419,8 +419,8 @@ SAVE
   theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
 #else
 #ifdef ENABLE_LUBRICATION
-  if (resi .gt. 0) then
-    DResForceX = DResForceX + AlphaRelax * sliX 
+  if (resi > 0) then
+    DResForceX = DResForceX + AlphaRelax * sliX
   end if
 #endif
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
@@ -432,12 +432,12 @@ SAVE
     maxLocal = theNorm
   end if
 
-#ifdef OUTPUT_LEVEL2 
+#ifdef OUTPUT_LEVEL2
   write(*,'(A,I5,A,3D12.4,A,3D12.4,I3)')'pidx=', theParticles(ip)%bytes(1) + 1, ' theForce    : ', (/DResForceX, DResForceY, DResForceZ/),&
   ' tau: ', (/DTrqForceX, DTrqForceY, DTrqForceZ/), myid
 #endif
 
-  if (resi .gt. 0) then
+  if (resi > 0) then
     localHydro = localHydro + DResForceX
   end if
   ! This function is in the dem_query module
@@ -527,18 +527,18 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 
 SAVE
  
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
   localMax = 0.0
 
-  IF (myid.eq.0) return! GOTO 999
-  
+  IF (myid == 0) return! GOTO 999
+
   pressSum = 0.0
   DO I= 1,NNDER
-    BDER(I)=.FALSE.
+    BDER(I)=.false.
   end do
-  
+
   DO I=1,4
-    BDER(I)=.TRUE.
+    BDER(I)=.true.
   end do
   
   IELTYP=-1
@@ -547,12 +547,12 @@ SAVE
   
   ICUB=9
   CALL CB3H(ICUB)
-  IF (IER.ne.0)then
+  IF (IER /= 0)then
     call ExitError('Error in GetForces',1702)
   end if
 
   numParticles = numRemParticles()
-  if (numParticles .eq. 0)return
+  if (numParticles == 0)return
 
   if(allocated(theParticles))then
     deallocate(theParticles)
@@ -592,12 +592,12 @@ SAVE
   ! loop over all elements 
   !=====================================================================
   DO IEL=1,NEL
-  
+
   CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
-  IF (IER.LT.0)then
+  IF (IER < 0)then
     call ExitError('Error in GetForces',1728)
-  end if 
-  
+  end if
+
    NJALFA=0
    NIALFA=0
    DO I=1,IDFL
@@ -606,7 +606,7 @@ SAVE
      ! The preferred method of checking is to:
      ! compare the particle system ID (which is a 64bit unsigned integer) to
      ! the fortran long representation of the FictKNPR array
-     IF((ALPHA(IG).EQ.0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
+     IF((ALPHA(IG) == 0).or.(.not. longIdMatch(IG, theParticles(IP)%bytes)))THEN
       NJALFA=NJALFA+1
      ENDIF
 
@@ -619,7 +619,7 @@ SAVE
 
   ! Skip elements where all dofs are inside or
   ! all dofs are outside
-  IF(NJALFA.EQ.27.OR.NIALFA.EQ.27) cycle
+  IF(NJALFA == 27.OR.NIALFA == 27) cycle
 
   nnel = nnel + 1
   DNY = DVISC(IEL)
@@ -674,9 +674,9 @@ SAVE
   ! Initialize the ELE
   CALL ELE(0D0,0D0,0D0,-2)
 
-  IF (IER.LT.0)then
+  IF (IER < 0)then
     call ExitError('Error in GetForces',1800)
-  end if 
+  end if
 
     pressSum = 0.0
     momSum = 0.0
@@ -707,14 +707,14 @@ SAVE
     XX=DJ11+DJAC(1,1)*XI1+DJ31*XI2+DJ41*XI3+DJ71*XI2*XI3
     YY=DJ12+DJ22*XI1+DJAC(2,2)*XI2+DJ42*XI3+DJ62*XI1*XI3
     ZZ=DJ13+DJ23*XI1+DJ33*XI2+DJAC(3,3)*XI3+DJ53*XI1*XI2
-  
-    ! Call ELE with the cubature point to SET the 
+
+    ! Call ELE with the cubature point to SET the
     ! derivatives in the DBAS-Array
     CALL ELE(XI1,XI2,XI3,-3)
 
-    IF (IER.LT.0)then
+    IF (IER < 0)then
       call ExitError('Error in GetForces',1837)
-    end if 
+    end if
 
     ! Evaluate the solution values and derivatives in the cubature point
     DU1V=0D0     ! U1 value
