@@ -185,6 +185,12 @@ if (sExport%Format .eq. "VTK") then
   call viz_OutPut_Torque1D(iOutput)
   
   call viz_OutputHistogram(iOutput, sQuadSc, mgMesh%nlmax)
+
+  IF (ADJUSTL(TRIM(mySigma%cType)).eq.'TSE') THEN
+   call viz_OutputShearHistograms(iOutput,mgMesh%level(mgMesh%nlmax)%dcorvg, sQuadSc, mgMesh%nlmax,'ALL')
+   call viz_OutputShearHistograms(iOutput,mgMesh%level(mgMesh%nlmax)%dcorvg, sQuadSc, mgMesh%nlmax,'ZWICKEL')
+   call viz_OutputShearHistograms(iOutput,mgMesh%level(mgMesh%nlmax)%dcorvg, sQuadSc, mgMesh%nlmax,'CYLSPALT')
+  END IF
   
  end if
  
@@ -735,6 +741,201 @@ write(imainunit, *)"  </VTKFile>"
 close(imainunit)
 
 end subroutine viz_write_pvtu_main
+!
+!-------------------------------------------------------------------------------------------------
+! A routine for outputting fields for an sse application
+!-------------------------------------------------------------------------------------------------
+!
+! @param iO Output file idx
+! @param sQuadSc The velocity solution structure of the mesh
+! @param maxlevel The maximum grid level used in computation (former NLMAX)
+SUBROUTINE viz_OutputShearHistograms(iOut, dcoor,sQuadSc, maxlevel,cCondition)
+use var_QuadScalar, only : mg_MlRhoMat, MixerKNPR, ShearRate, Viscosity
+USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,Comm_Summn
+implicit none
+
+interface
+  subroutine c_write_histogram() bind(C, name="c_write_histogram")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+!    type(c1dOutput) :: thetype
+!    character(kind=c_char) :: dataName(*)
+  end subroutine c_write_histogram
+end interface
+
+interface
+  subroutine c_add_histogram(histogram) bind(C, name="c_add_histogram")
+    use cinterface, only: histoData
+    use iso_c_binding
+    type(histoData) :: histogram
+  end subroutine c_add_histogram
+end interface
+
+interface
+  subroutine c_init_histogram_section() bind(C, name="c_init_histogram_section")
+    use cinterface, only: c1dOutput
+    use iso_c_binding
+!    type(c1dOutput) :: thetype
+!    character(kind=c_char) :: dataName(*)
+  end subroutine c_init_histogram_section
+end interface
+
+
+
+integer :: iOut
+
+type(tQuadScalar), intent(in) :: sQuadSc
+real*8, dimension(:,:), intent(in) :: dcoor
+
+character*(*), intent(in) :: cCondition
+
+integer, intent(in) :: maxlevel
+
+! local variables
+type(histoData) :: histData
+integer :: i,j,nBin
+real*8 logShear,logVisco
+real*8,allocatable ::BinEta(:,:)
+
+real*8,allocatable, dimension(:), target :: HistoEta
+real*8,allocatable, dimension(:), target :: JsonBin
+
+real*8 Ml_i,dauxEta,x,y,z,dr
+real*8 minBinEta,mAXBinEta,dBinEta,meanEta
+character*100 cHistoFile
+character*128 cField
+logical :: bCondition
+
+! myOutput%histogram_ZMIN = 5d0
+! myOutput%histogram_ZMAX = 10d0
+! myOutput%histogram_ZWICKELR = 10d0
+! myOutput%histogram_CYLSPALTR = 13d0
+
+cField=" "
+if (adjustl(trim(cCondition)).eq.'ALL')      cField = 'ETA_ALL'
+if (adjustl(trim(cCondition)).eq.'ZWICKEL')  cField = 'ETA_ZWICKEL'
+if (adjustl(trim(cCondition)).eq.'CYLSPALT') cField = 'ETA_CYLSPALT'
+
+nBin = myOutput%nOfHistogramBins
+if (.not.allocated(HistoEta)) allocate(HistoEta(nBin))
+if (.not.allocated(JsonBin))  allocate(JsonBin(nBin))
+if (.not.allocated(BinEta))   allocate(BinEta(3,nBin))
+
+IF (myid.ne.0) THEN
+
+HistoEta = 0d0
+
+BinEta(1,   1)=-1d1
+BinEta(2,nBin)=+1d1
+
+minBinEta = log10(myOutput%HistogramShearMin)
+maxBinEta = log10(myOutput%HistogramShearMax)
+
+dBinEta = (maxBinEta-minBinEta)/DBLE(nBin-2)
+
+DO i=2,nBin
+
+ BinEta(2,i-1)= minBinEta + DBLE(i-2)*dBinEta
+ BinEta(3,i-1)= minBinEta + (DBLE(i)-2.5d0)*dBinEta
+ BinEta(1,i)  = BinEta(2,i-1)
+
+END DO
+BinEta(3,nBin)= minBinEta + (DBLE(nBin)-1.5d0)*dBinEta
+
+DO i=1,sQuadSc%ndof
+
+ x = dcoor(1,i)
+ y = dcoor(2,i)
+ z = dcoor(3,i)
+ bCondition = .false.
+
+ if (MixerKNPR(i).eq.0) THEN
+
+  if (adjustl(trim(cCondition)).eq.'ALL') THEN
+    if (z.ge.myOutput%histogram_ZMIN.and.z.le.myOutput%histogram_ZMAX) THEN
+     bCondition = .true.
+    end if
+  end if
+
+  if (adjustl(trim(cCondition)).eq.'CYLSPALT') THEN
+   if (z.ge.myOutput%histogram_ZMIN.and.z.le.myOutput%histogram_ZMAX) THEN
+    if  (y.le.0d0) then
+     dr = SQRT(X*X + (Y + mySigma%a/2d0)*(Y + mySigma%a/2d0))
+    end if
+    if  (y.gt.0d0) then
+     dr = SQRT(X*X + (Y - mySigma%a/2d0)*(Y - mySigma%a/2d0))
+    end if
+    if (dr.gt.myOutput%histogram_CYLSPALTR) THEN
+     bCondition = .true.
+    end if
+   end if
+  end if
+
+  if (adjustl(trim(cCondition)).eq.'ZWICKEL') THEN
+   if (z.ge.myOutput%histogram_ZMIN.and.z.le.myOutput%histogram_ZMAX) THEN
+    dr = SQRT(X*X + Y*Y)
+    if (dr.lt.myOutput%histogram_ZWICKELR) THEN
+     bCondition = .true.
+    end if
+   end if
+  end if
+
+ end if
+
+ IF (bCondition) THEN
+  logShear = LOG10(Shearrate(i))
+  Ml_i = mg_MlRhoMat(maxlevel)%a(i)
+
+  DO j=1,nBin
+   IF (logShear.ge.BinEta(1,j).and.logShear.lt.BinEta(2,j)) HistoEta(j)  = HistoEta(j)  + Ml_i
+  END DO
+
+ END IF
+
+END DO
+END IF
+
+CALL COMM_SUMMn(HistoEta,nBin)
+
+IF (myid.eq.1) THEN
+ dauxEta = 0d0
+ DO i=1,nBin
+  dauxEta = dauxEta + HistoEta(i)
+ END DO
+
+ meanEta = 0d0
+
+ DO i=1,nBin
+  meanEta = meanEta + HistoEta(i)*BinEta(3,i)/dauxEta
+ END DO
+
+ WRITE(cHistoFile,'(A,I5.5,A)') "_hist/"//ADJUSTL(TRIM(cField))//"_",iOut, ".txt"
+ WRITE(*,'(3A)')"'",ADJUSTL(TRIM(cHistoFile)),"'"
+ OPEN(FILE=ADJUSTL(TRIM(cHistoFile)),UNIT=652)
+ DO i=1,nBin
+  WRITE(652,'(2(2(ES14.4),A))') BinEta(3,i),HistoEta(i)/dauxEta, " | "
+ END DO
+ WRITE(652,'(A)') "------------------------------------------------------"
+ WRITE(652,'(2(1(ES14.4),A))') 10d0**meanEta, " | "
+
+ CLOSE(652)
+
+ DO i=1,nBin
+  HistoEta(i) = HistoEta(i)/dauxEta
+  JsonBin(i) = BinEta(3,i)
+ END DO
+
+ histData%binPos = c_loc(JsonBin)
+ histData%binHeight = c_loc(HistoEta)
+ histData%mean = 10d0**meanEta
+ histData%length = nBin
+ call cf_make_c_char(adjustl(trim(cField)) // c_null_char, histData%name )
+
+ call c_add_histogram(histData)
+
+END IF
+
+end subroutine viz_OutputShearHistograms
 !
 !-------------------------------------------------------------------------------------------------
 ! A routine for outputting fields for an sse application

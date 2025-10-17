@@ -1097,11 +1097,22 @@
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOf1DLayers"      ,myOutput%nOf1DLayers,16)
     call INIP_getvalue_int(parameterlist,"E3DSimulationSettings/Output",   "nOfHistogramBins" ,myOutput%nOfHistogramBins,16)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMax",myOutput%HistogramShearMax,1d5)
-!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
-!     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramShearMin",myOutput%HistogramShearMin,1d-2)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMax",myOutput%HistogramViscoMax,1d6)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","HistogramViscoMin",myOutput%HistogramViscoMin,1d0)
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","CutDtata_1D",myOutput%CutDtata_1D,0.001d0)
-    
+
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","histogram_ZMIN",myOutput%histogram_ZMIN,0.001d0)
+    myOutput%histogram_ZMIN = dSizeScale*myOutput%histogram_ZMIN
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","histogram_ZMAX",myOutput%histogram_ZMAX,mySigma%L)
+    myOutput%histogram_ZMAX = dSizeScale*myOutput%histogram_ZMAX
+
+    daux = sqrt((0.5d0*mySigma%Dz_out)**2d0 - (0.5d0*mySigma%a)**2d0)
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","histogram_ZWICKELR",myOutput%histogram_ZWICKELR,daux)
+    myOutput%histogram_ZWICKELR = dSizeScale*myOutput%histogram_ZWICKELR
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings/Output","histogram_CYLSPALTR",myOutput%histogram_CYLSPALTR,0.95d0*mySigma%Dz_out)
+    myOutput%histogram_CYLSPALTR = dSizeScale*myOutput%histogram_CYLSPALTR
+
     cKTP=' '
     IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
      call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","RotationalFramOfReference",cALE,"NO")
@@ -1977,8 +1988,12 @@
     write(*,*) "myOutput%HistogramViscoMax = ",myOutput%HistogramViscoMax    
     write(*,*) "myOutput%HistogramViscoMin = ",myOutput%HistogramViscoMin    
     write(*,*) "myOutput%CutDtata_1D = ",myOutput%CutDtata_1D
-    
-    write(*,*) 
+    write(*,*) "myOutput%histogram_ZMIN  = ",myOutput%histogram_ZMIN
+    write(*,*) "myOutput%histogram_ZMAX  = ",myOutput%histogram_ZMAX
+    write(*,*) "myOutput%histogram_ZWICKELR  = ",myOutput%histogram_ZWICKELR
+    write(*,*) "myOutput%histogram_CYLSPALTR = ",myOutput%histogram_CYLSPALTR
+
+    write(*,*)
     
     write(*,*) "E3DProcessParameters@nOfDIESensors = ", myProcess%nOfDIESensors
     if (myProcess%nOfDIESensors.gt.0) then

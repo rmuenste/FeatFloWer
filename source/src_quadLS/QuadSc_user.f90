@@ -1296,6 +1296,14 @@ DO i=1,ndof
 !  distance = max(13.5d0,distance)
 !  T(i) = 200d0 - 15d0 * (distance-13.5d0)/42.7d0
  
+!   !!!!!!!!!!!!!!!!!!!! KMB Zahradpumpe !!!!!!!!!!!!!!!!!!!!!!!
+!    if (abs(z).lt.5.3d0) then
+!     T(i) = myProcess%T0
+!    else
+!     T(i) = myProcess%T0 + 30d0
+!    end if
+!   !!!!!!!!!!!!!!!!!!!! KMB Zahradpumpe !!!!!!!!!!!!!!!!!!!!!!!
+
  IF (myProcess%T0_N.gt.0) THEN
 
   daux = DBLE(myProcess%T0_N-1)*Z/mySigma%L

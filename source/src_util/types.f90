@@ -742,6 +742,7 @@ TYPE tOutput
  INTEGER :: nOfHistogramBins=16
  REAL*8 ::  HistogramShearMax=1e6,HistogramShearMin=1e-2,HistogramViscoMax=1e6,HistogramViscoMin=1e0
  REAL*8  :: CutDtata_1D=0.04d0
+ REAL*8  :: histogram_ZMIN,histogram_ZMAX,histogram_ZWICKELR,histogram_CYLSPALTR
 END TYPE tOutput
 
 TYPE tErrorCodes
