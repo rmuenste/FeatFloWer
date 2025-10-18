@@ -312,13 +312,23 @@ integer function numRemParticles()
 
 end function numRemParticles
 !================================================================================================
-!                              Function numLocalParticles
+!                              Function numTotalParticles
+!================================================================================================
+! Returns total number of particles
+! - In PE_SERIAL_MODE: All domains have access to all particles
+! - In parallel mode: Sum of local and remote particles for this domain
 !================================================================================================
 
 integer function numTotalParticles()
   implicit none
 
+#ifdef PE_SERIAL_MODE
+  ! Serial PE mode: all ranks have access to all particles
+  numTotalParticles = getTotalParticles()
+#else
+  ! Parallel PE mode: sum local and remote particles
   numTotalParticles = numRemParticles() + numLocalParticles()
+#endif
 
 end function numTotalParticles
 !================================================================================================

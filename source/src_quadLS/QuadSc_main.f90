@@ -258,8 +258,14 @@ CALL FAC_GetForces(mfile)
 
 CALL GetNonNewtViscosity()
 
-#ifdef HAVE_PE 
-if (myid.eq. 1) write(*,*)'fbm force'
+#ifdef HAVE_PE
+if (myid.eq. 1) then
+#ifdef PE_SERIAL_MODE
+  write(*,*)'fbm force (SERIAL PE mode)'
+#else
+  write(*,*)'fbm force (PARALLEL PE mode)'
+#endif
+end if
 #endif 
 ! Calculate the forces
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&

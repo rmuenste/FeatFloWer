@@ -124,6 +124,30 @@ SAVE
     call ExitError('Error in GetForces',1702)
   end if
 
+#ifdef PE_SERIAL_MODE
+  !============================================================
+  ! SERIAL MODE: Check all particles (handful of large bodies)
+  !============================================================
+  if(myid == 1) write(*,*) 'Force calculation: SERIAL PE mode'
+
+  ! Get total number of particles (same on all ranks)
+  numParticles = numTotalParticles()
+
+  if (numParticles == 0) then
+    return
+  end if
+
+  if(allocated(theParticles)) deallocate(theParticles)
+  allocate(theParticles(numParticles))
+
+  ! All ranks have full particle info
+  call getAllParticles(theParticles)
+
+#else
+  !============================================================
+  ! PARALLEL MODE: Only local particles (existing logic)
+  !============================================================
+
   numParticles = numLocalParticles()
   if (numParticles == 0) then
     return
@@ -133,19 +157,25 @@ SAVE
     allocate(theParticles(numLocalParticles()))
   else if ((allocated(theParticles)).and.(size(theParticles) /= numLocalParticles()))then
     deallocate(theParticles)
-    allocate(theParticles(numLocalParticles())) 
+    allocate(theParticles(numLocalParticles()))
   end if
+
+  call getAllParticles(theParticles)
+
+#endif
 
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
-#ifdef OUTPUT_LEVEL2 
+#ifdef OUTPUT_LEVEL2
   if (numParticles > 0) then
+#ifdef PE_SERIAL_MODE
+    write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' total particle(s) in dom ', myid
+#else
     write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' local particle(s) in dom ', myid
+#endif
   end if
 #endif
-
-  call getAllParticles(theParticles)
 
   totalSliding = 0
   DO IP = 1,numParticles
@@ -526,8 +556,20 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
 
 SAVE
- 
+
 #ifdef HAVE_PE
+
+#ifdef PE_SERIAL_MODE
+  !============================================================
+  ! SERIAL MODE: No separate "remote" particles
+  ! All particles handled in ForcesLocalParticles
+  !============================================================
+  return  ! Skip this subroutine entirely in serial mode
+
+#else
+  !============================================================
+  ! PARALLEL MODE: Handle remote particle shadow copies
+  !============================================================
   localMax = 0.0
 
   IF (myid == 0) return! GOTO 999
@@ -853,7 +895,9 @@ SAVE
 
   END DO ! nParticles
 
-#endif
+#endif  ! PE_SERIAL_MODE (else branch for parallel mode)
+
+#endif  ! HAVE_PE
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
 !
@@ -928,10 +972,30 @@ SAVE
   localMaxRemote = 0.0
   totalMax       = 0.0
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
 
   IF (myid /= 0) then
 
+#ifdef PE_SERIAL_MODE
+  !============================================================
+  ! SERIAL MODE:
+  ! - All particles handled in ForcesLocalParticles
+  ! - Skip ForcesRemoteParticles (returns immediately anyway)
+  ! - Still need sync_forces for MPI reduction
+  !============================================================
+  call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
+                            DVISC,KVERT,KAREA,KEDGE,&
+                            DCORVG,ELE, localMax)
+  ! ForcesRemoteParticles not called (returns immediately in serial mode)
+
+  ! Synchronize forces across CFD domains
+  call sync_forces()
+  call debug_output_force()
+
+#else
+  !============================================================
+  ! PARALLEL MODE: Existing logic
+  !============================================================
   ! Local particles first
   call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
                             DVISC,KVERT,KAREA,KEDGE,&
@@ -944,10 +1008,13 @@ SAVE
 
   ! Now we synchronize the forces
   call sync_forces()
-  call debug_output_force() 
-  end if
+  call debug_output_force()
 
   localMax = MAX(localMax, localMaxRemote)
+
+#endif
+
+  end if
 
 #endif
 END

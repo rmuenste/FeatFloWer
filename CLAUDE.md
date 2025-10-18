@@ -29,6 +29,7 @@ cmake -DSHOW_BUILD_IDS=ON ..
 - `-DUSE_MUMPS=ON`: Enable parallel direct solver (Intel compiler required)
 - `-DUSE_HYPRE=ON`: Enable scalable linear solvers
 - `-DUSE_PE=ON`: Enable rigid body physics engine
+- `-DUSE_PE_SERIAL_MODE=ON`: Use serial PE mode for large particles (requires `-DUSE_PE=ON`)
 - `-DUSE_BOOST=ON`: Enable Boost C++ libraries
 - `-DUSE_OPENMESH=ON`: Enable mesh processing capabilities
 
@@ -106,6 +107,50 @@ Independent rigid body dynamics framework (`FullC0ntact/`) with:
 
 See `libs/pe/CLAUDE.md` for detailed PE library information.
 
+### PE Integration Modes
+
+FeatFloWer supports three modes for rigid body physics, configured at build time with CMake options:
+
+#### No PE (`USE_PE=OFF`, default)
+- No rigid body physics
+- Pure fluid simulation only
+- Smallest binary size and build time
+
+#### Parallel PE (`USE_PE=ON`, default when PE enabled)
+- Full MPI parallelization within PE library
+- Distributed shadow copies across domains
+- **Best for:** Many small/medium particles distributed across domains
+- **Characteristics:**
+  - Particles managed by nearest domain
+  - Shadow copies for particles near domain boundaries
+  - Standard domain decomposition approach
+
+#### Serial PE (`USE_PE=ON` + `USE_PE_SERIAL_MODE=ON`)
+- Each CFD domain runs independent serial PE instance
+- Forces synchronized via CFD's MPI layer (bypasses PE MPI)
+- **Best for:** Few large particles (< 20) that span multiple domains
+- **Characteristics:**
+  - All domains maintain full particle information
+  - No shadow copies or distant process registration
+  - Each domain checks all particles for α field computation
+  - Avoids "distant process registration" MPI complexity
+- **Build command:**
+  ```bash
+  cmake -DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON ..
+  ```
+
+**When to use Serial Mode:**
+- Particles larger than domain size (e.g., die geometry in extrusion)
+- Fewer than ~20 rigid bodies total
+- Very fine mesh with small domain sizes
+- Benchmark configurations with large objects
+
+**Implementation details:**
+- Preprocessor flag: `-DPE_SERIAL_MODE`
+- Forces still synchronized via `COMM_SUMMN` in CFD layer
+- Alpha field computation checks all particles (efficient for small counts)
+- Deterministic serial PE ensures consistency across domains
+
 ## Development Workflow
 
 ### Running Applications
@@ -143,7 +188,7 @@ ctest
 ### Common Build Patterns
 
 ```bash
-# Full-featured build for research/development
+# Full-featured build for research/development (Parallel PE)
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_CGAL=ON \
       -DUSE_MUMPS=ON \
@@ -151,7 +196,13 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
       -DBUILD_APPLICATIONS=ON ..
 
-# Minimal CFD-only build
+# Build with Serial PE mode (for large particles)
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DUSE_PE=ON \
+      -DUSE_PE_SERIAL_MODE=ON \
+      -DBUILD_APPLICATIONS=ON ..
+
+# Minimal CFD-only build (no rigid bodies)
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_APPLICATIONS=ON ..
 ```
