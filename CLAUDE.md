@@ -134,10 +134,19 @@ FeatFloWer supports three modes for rigid body physics, configured at build time
   - No shadow copies or distant process registration
   - Each domain checks all particles for α field computation
   - Avoids "distant process registration" MPI complexity
-- **Build command:**
+- **Build command (recommended two-step approach):**
   ```bash
-  cmake -DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON ..
+  # Step 1: Enable PE library
+  cmake -DUSE_PE=ON ..
+
+  # Step 2: Enable serial mode
+  cmake -DUSE_PE_SERIAL_MODE=ON ..
+
+  # Build
+  make -j8
   ```
+
+  **Why two steps?** The `cmake_dependent_option` mechanism ensures `USE_PE_SERIAL_MODE` is only available when `USE_PE=ON`. The two-step configuration guarantees proper dependency resolution and prevents the PE library from being built with MPI support in serial mode.
 
 **When to use Serial Mode:**
 - Particles larger than domain size (e.g., die geometry in extrusion)
@@ -197,10 +206,11 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_APPLICATIONS=ON ..
 
 # Build with Serial PE mode (for large particles)
+# Two-step configuration recommended:
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
-      -DUSE_PE_SERIAL_MODE=ON \
       -DBUILD_APPLICATIONS=ON ..
+cmake -DUSE_PE_SERIAL_MODE=ON ..
 
 # Minimal CFD-only build (no rigid bodies)
 cmake -DCMAKE_BUILD_TYPE=Release \

@@ -146,11 +146,11 @@ cmake_dependent_option(
 )
 
 cmake_dependent_option(
-  MPI                  # Dependent Option name
-  "Enable MPI support" # Description
-  ON                   # Value when condition is true
-  "USE_PE"             # The significant Condition
-  OFF                  # Value when condition is false
+  MPI                              # Dependent Option name
+  "Enable MPI support in PE"       # Description
+  ON                               # Value when condition is true (parallel PE needs MPI)
+  "USE_PE;NOT USE_PE_SERIAL_MODE"  # Condition: USE_PE=ON AND USE_PE_SERIAL_MODE=OFF
+  OFF                              # Value when condition is false (no PE or serial PE)
 )
 
 
