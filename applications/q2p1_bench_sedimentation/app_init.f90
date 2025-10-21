@@ -132,9 +132,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
 
  CALL CommBarrier()
+   write(*,*)'Number of subnodes', subnodes
+
  
 #ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
+#else
   include 'PartitionReader.f90'
+#endif
 #else
   include 'PartitionReader2.f90'
 #endif
@@ -397,15 +403,24 @@ DO ILEV=NLMIN+1,NLMAX
  !=======================================================================
  !     Set up the rigid body C++ library
  !=======================================================================
+#ifdef PE_SERIAL_MODE
+ ! Serial PE mode: Each CFD domain runs independent serial PE instance
+ ! No MPI communicators needed - PE runs purely serial
+ if (myid .ne. 0) then
+   call commf2c(0, 0, myid)  ! Dummy MPI communicator arguments
+ end if
+#else
+ ! Parallel PE mode: Standard MPI-based domain decomposition
  processRanks(1) = 0
  CALL MPI_COMM_GROUP(MPI_COMM_WORLD, MPI_W0, error_indicator)
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
  if (myid .ne. 0) then
- call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+   call commf2c(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
+#endif
 #endif
 
  RETURN

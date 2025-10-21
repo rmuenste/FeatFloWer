@@ -549,13 +549,6 @@
       myFBM%Force(iPointer+5) = DTrqForceY
       myFBM%Force(iPointer+6) = DTrqForceZ
 
-!      myFBM%Force(iPointer+1) = 0.0d0
-!      myFBM%Force(iPointer+2) = 0.0d0
-!      myFBM%Force(iPointer+3) = DResForceZ
-!      myFBM%Force(iPointer+4) = 0.0d0
-!      myFBM%Force(iPointer+5) = 0.0d0
-!      myFBM%Force(iPointer+6) = 0.0d0
-
       END DO ! nParticles
 
       END IF ! myid /= 0

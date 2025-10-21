@@ -1,6 +1,14 @@
-!#define OUTPUT_LEVEL2 
-!#define SED_BENCH
+!#define OUTPUT_LEVEL2
+#define SED_BENCH
 !#define ENABLE_LUBRICATION
+!************************************************************************
+!
+! Include serial PE mode implementation if enabled
+!
+!************************************************************************
+#ifdef PE_SERIAL_MODE
+#include "QuadSc_force_serial.f90"
+#endif
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)
@@ -124,30 +132,9 @@ SAVE
     call ExitError('Error in GetForces',1702)
   end if
 
-#ifdef PE_SERIAL_MODE
   !============================================================
-  ! SERIAL MODE: Check all particles (handful of large bodies)
+  ! PARALLEL MODE: Only local particles
   !============================================================
-  if(myid == 1) write(*,*) 'Force calculation: SERIAL PE mode'
-
-  ! Get total number of particles (same on all ranks)
-  numParticles = numTotalParticles()
-
-  if (numParticles == 0) then
-    return
-  end if
-
-  if(allocated(theParticles)) deallocate(theParticles)
-  allocate(theParticles(numParticles))
-
-  ! All ranks have full particle info
-  call getAllParticles(theParticles)
-
-#else
-  !============================================================
-  ! PARALLEL MODE: Only local particles (existing logic)
-  !============================================================
-
   numParticles = numLocalParticles()
   if (numParticles == 0) then
     return
@@ -162,18 +149,12 @@ SAVE
 
   call getAllParticles(theParticles)
 
-#endif
-
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
 #ifdef OUTPUT_LEVEL2
   if (numParticles > 0) then
-#ifdef PE_SERIAL_MODE
-    write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' total particle(s) in dom ', myid
-#else
     write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' local particle(s) in dom ', myid
-#endif
   end if
 #endif
 
@@ -558,15 +539,6 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
 SAVE
 
 #ifdef HAVE_PE
-
-#ifdef PE_SERIAL_MODE
-  !============================================================
-  ! SERIAL MODE: No separate "remote" particles
-  ! All particles handled in ForcesLocalParticles
-  !============================================================
-  return  ! Skip this subroutine entirely in serial mode
-
-#else
   !============================================================
   ! PARALLEL MODE: Handle remote particle shadow copies
   !============================================================
@@ -895,8 +867,6 @@ SAVE
 
   END DO ! nParticles
 
-#endif  ! PE_SERIAL_MODE (else branch for parallel mode)
-
 #endif  ! HAVE_PE
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
@@ -973,49 +943,34 @@ SAVE
   totalMax       = 0.0
 
 #ifdef HAVE_PE
-
-  IF (myid /= 0) then
-
 #ifdef PE_SERIAL_MODE
   !============================================================
-  ! SERIAL MODE:
-  ! - All particles handled in ForcesLocalParticles
-  ! - Skip ForcesRemoteParticles (returns immediately anyway)
-  ! - Still need sync_forces for MPI reduction
+  ! SERIAL MODE: Single call to serial implementationI
+  ! (MPI force summation handled inside ForcesLocalParticlesSerial)
   !============================================================
-  call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
-                            DVISC,KVERT,KAREA,KEDGE,&
-                            DCORVG,ELE, localMax)
-  ! ForcesRemoteParticles not called (returns immediately in serial mode)
-
-  ! Synchronize forces across CFD domains
-  call sync_forces()
-  call debug_output_force()
+  call ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,&
+                                  DVISC,KVERT,KAREA,KEDGE,&
+                                  DCORVG,ELE, localMax)
 
 #else
+  IF (myid /= 0) then
   !============================================================
-  ! PARALLEL MODE: Existing logic
+  ! PARALLEL MODE: Local + remote particles
   !============================================================
-  ! Local particles first
   call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
                             DVISC,KVERT,KAREA,KEDGE,&
                             DCORVG,ELE, localMax)
 
-  ! Remote particles second
   call ForcesRemoteParticles(factors,U1,U2,U3,P,ALPHA,&
                              DVISC,KVERT,KAREA,KEDGE,&
                              DCORVG,ELE, localMaxRemote)
 
-  ! Now we synchronize the forces
   call sync_forces()
   call debug_output_force()
 
   localMax = MAX(localMax, localMaxRemote)
-
-#endif
-
   end if
-
+#endif
 #endif
 END
 !************************************************************************
