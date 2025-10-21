@@ -488,25 +488,29 @@ END IF
 ! MPI sum across all CFD domains (ALL RANKS)
 CALL COMM_SUMMN(forceArray, 6*numParticles)
 
-! Unpack summed forces back into theParticles with scaling factors (ALL ranks)
-DO IP = 1, numParticles
-  iPointer = 6*(IP-1)
-  theParticles(IP)%force(1) =  forceArray(iPointer+1)
-  theParticles(IP)%force(2) =  forceArray(iPointer+2)
-  theParticles(IP)%force(3) =  forceArray(iPointer+3)
-  theParticles(IP)%torque(1) = forceArray(iPointer+4)
-  theParticles(IP)%torque(2) = forceArray(iPointer+5)
-  theParticles(IP)%torque(3) = forceArray(iPointer+6)
-
-  ! Write the summed+scaled forces to PE bodies (ALL ranks)
-  call setForcesMapped(theParticles(ip))
-END DO
-
-if (myid == 1) then
+if (myid /= 0)then
+  ! Unpack summed forces back into theParticles with scaling factors (ALL ranks)
   DO IP = 1, numParticles
     iPointer = 6*(IP-1)
-    write(*,*) 'Forces: ',theParticles(IP)%force(:) 
+    theParticles(IP)%force(1) =  forceArray(iPointer+1)
+    theParticles(IP)%force(2) =  forceArray(iPointer+2)
+    theParticles(IP)%force(3) =  forceArray(iPointer+3)
+    theParticles(IP)%torque(1) = forceArray(iPointer+4)
+    theParticles(IP)%torque(2) = forceArray(iPointer+5)
+    theParticles(IP)%torque(3) = forceArray(iPointer+6)
+  
+    ! Write the summed+scaled forces to PE bodies (ALL ranks)
+    call setForcesMapped(theParticles(ip))
   END DO
+  
+  if (myid == 1) then
+    DO IP = 1, numParticles
+      iPointer = 6*(IP-1)
+      write(*,*) 'Forces: ',theParticles(IP)%force(:) 
+      write(*,*) 'Position: ',theParticles(IP)%position(:), itns 
+      write(*,*) 'Velocity: ',theParticles(IP)%velocity(:), itns 
+    END DO
+  end if
 end if
 
 deallocate(forceArray)
