@@ -18,7 +18,7 @@ SUBROUTINE ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA
 !*     Fictitious Boundary Method force calculation: Q2/P1 elements
 !*     Serial PE mode: handles all particles on each domain
 !*-----------------------------------------------------------------------
-USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
+USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN,COMM_Maximumn
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
 USE var_QuadScalar, ONLY : AlphaRelax
 use cinterface
@@ -57,6 +57,7 @@ REAL*8 :: Center(3),dForce(6), omega(3)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, resi, totalSliding
+real*8 :: dbuf1(1)
 
 real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 real*8, dimension(:), allocatable :: forceArray
@@ -101,8 +102,13 @@ accumulatedSliding = 0.0
 !========================================================================
 if(myid == 1) write(*,*) 'Force calculation: SERIAL PE mode'
 
-! Get total number of particles (ALL ranks)
+! Get total number of particles (ALL ranks need the same value).
+! Rank 0 does not run PE and would see 0 here. Use a collective
+! max across ranks so everyone agrees on the nonzero count.
 numParticles = numTotalParticles()
+dbuf1(1) = dble(numParticles)
+call COMM_Maximumn(dbuf1, 1)
+numParticles = int(dbuf1(1))
 if (numParticles == 0) then
   return
 end if
@@ -493,7 +499,7 @@ DO IP = 1, numParticles
   theParticles(IP)%torque(3) = forceArray(iPointer+6)
 
   ! Write the summed+scaled forces to PE bodies (ALL ranks)
-!  call setForcesMapped(theParticles(ip))
+  call setForcesMapped(theParticles(ip))
 END DO
 
 if (myid == 1) then
