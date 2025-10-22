@@ -1,6 +1,14 @@
-!#define OUTPUT_LEVEL2 
-!#define SED_BENCH
+!#define OUTPUT_LEVEL2
+#define SED_BENCH
 !#define ENABLE_LUBRICATION
+!************************************************************************
+!
+! Include serial PE mode implementation if enabled
+!
+!************************************************************************
+#ifdef PE_SERIAL_MODE
+#include "QuadSc_force_serial.f90"
+#endif
 !************************************************************************
 
 function calculate_l2_norm(fx, fy, fz)
@@ -124,6 +132,9 @@ SAVE
     call ExitError('Error in GetForces',1702)
   end if
 
+  !============================================================
+  ! PARALLEL MODE: Only local particles
+  !============================================================
   numParticles = numLocalParticles()
   if (numParticles == 0) then
     return
@@ -133,19 +144,19 @@ SAVE
     allocate(theParticles(numLocalParticles()))
   else if ((allocated(theParticles)).and.(size(theParticles) /= numLocalParticles()))then
     deallocate(theParticles)
-    allocate(theParticles(numLocalParticles())) 
+    allocate(theParticles(numLocalParticles()))
   end if
+
+  call getAllParticles(theParticles)
 
   !=====================================================================
   ! We loop over all particles first
   !=====================================================================
-#ifdef OUTPUT_LEVEL2 
+#ifdef OUTPUT_LEVEL2
   if (numParticles > 0) then
     write(*,'(A,I5,A,I3)')'FBM Force Calculation for ', numParticles, ' local particle(s) in dom ', myid
   end if
 #endif
-
-  call getAllParticles(theParticles)
 
   totalSliding = 0
   DO IP = 1,numParticles
@@ -526,8 +537,11 @@ COMMON /IPARM/ IAUSAV,IELT,ISTOK,IRHS,IBDR,IERANA,&
               IINTP,ISMP,ISLP,NSMP,NSLP,NSMPFA
 
 SAVE
- 
+
 #ifdef HAVE_PE
+  !============================================================
+  ! PARALLEL MODE: Handle remote particle shadow copies
+  !============================================================
   localMax = 0.0
 
   IF (myid == 0) return! GOTO 999
@@ -853,7 +867,7 @@ SAVE
 
   END DO ! nParticles
 
-#endif
+#endif  ! HAVE_PE
 END SUBROUTINE ForcesRemoteParticles
 !************************************************************************
 !
@@ -928,27 +942,35 @@ SAVE
   localMaxRemote = 0.0
   totalMax       = 0.0
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  !============================================================
+  ! SERIAL MODE: Single call to serial implementationI
+  ! (MPI force summation handled inside ForcesLocalParticlesSerial)
+  !============================================================
+  call ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,&
+                                  DVISC,KVERT,KAREA,KEDGE,&
+                                  DCORVG,ELE, localMax)
 
+#else
   IF (myid /= 0) then
-
-  ! Local particles first
+  !============================================================
+  ! PARALLEL MODE: Local + remote particles
+  !============================================================
   call ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,&
                             DVISC,KVERT,KAREA,KEDGE,&
                             DCORVG,ELE, localMax)
 
-  ! Remote particles second
   call ForcesRemoteParticles(factors,U1,U2,U3,P,ALPHA,&
                              DVISC,KVERT,KAREA,KEDGE,&
                              DCORVG,ELE, localMaxRemote)
 
-  ! Now we synchronize the forces
   call sync_forces()
-  call debug_output_force() 
-  end if
+  call debug_output_force()
 
   localMax = MAX(localMax, localMaxRemote)
-
+  end if
+#endif
 #endif
 END
 !************************************************************************

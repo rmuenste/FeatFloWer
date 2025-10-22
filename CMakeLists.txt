@@ -138,11 +138,19 @@ option(USE_PE
   )
 
 cmake_dependent_option(
-  MPI                  # Dependent Option name
-  "Enable MPI support" # Description
-  ON                   # Value when condition is true
-  "USE_PE"             # The significant Condition
-  OFF                  # Value when condition is false
+  USE_PE_SERIAL_MODE
+  "Use serial PE mode for large particles (bypasses PE MPI)"
+  OFF              # Default: use parallel PE
+  "USE_PE"         # Only show this option if USE_PE=ON
+  OFF              # Value when USE_PE=OFF
+)
+
+cmake_dependent_option(
+  MPI                              # Dependent Option name
+  "Enable MPI support in PE"       # Description
+  ON                               # Value when condition is true (parallel PE needs MPI)
+  "USE_PE;NOT USE_PE_SERIAL_MODE"  # Condition: USE_PE=ON AND USE_PE_SERIAL_MODE=OFF
+  OFF                              # Value when condition is false (no PE or serial PE)
 )
 
 
@@ -453,9 +461,24 @@ include(ProjectFiles)
 #=========================================================================
 #                     PE Library
 #=========================================================================
-message(STATUS "Adding pe library to build")  
+message(STATUS "Adding pe library to build")
 if(USE_PE)
-  add_definitions(-DHAVE_PE)		
+  add_definitions(-DHAVE_PE)
+
+  # Additional flag for serial mode
+  if(USE_PE_SERIAL_MODE)
+    add_definitions(-DPE_SERIAL_MODE)
+    message(STATUS "==============================================")
+    message(STATUS "PE SERIAL MODE ENABLED")
+    message(STATUS "  - Large particle optimization")
+    message(STATUS "  - PE runs serially in each CFD domain")
+    message(STATUS "  - Forces synchronized via CFD MPI")
+    message(STATUS "  - Bypasses PE distributed shadow copies")
+    message(STATUS "==============================================")
+  else()
+    message(STATUS "PE Parallel Mode (default): Full MPI parallelization")
+  endif()
+
   add_subdirectory(libs/pe)
 endif(USE_PE)
 

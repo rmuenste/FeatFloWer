@@ -220,7 +220,6 @@ INTEGER req
 INTEGER STATUS(MPI_STATUS_SIZE)
 
 req = MPI_REQUEST_NULL
-
 if (myid.eq.master) DVAL(1:NN) = 0d0
 
 ! Perform the asynchronous all-reduce operation to find the maximum value
