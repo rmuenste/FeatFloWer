@@ -5,6 +5,14 @@ file(GLOB metis_SRC "*.h" "*.c")
 
 add_library(metis SHARED ${metis_SRC})
 
+add_custom_command(
+  TARGET metis 
+  POST_BUILD 
+  COMMAND ${CMAKE_COMMAND} -E copy 
+ ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
+ ${CMAKE_BINARY_DIR}/applications/q2p1_fc_ext
+)
+
 install(TARGETS metis
     RUNTIME DESTINATION bin/q2p1_sse
     LIBRARY DESTINATION bin/q2p1_sse

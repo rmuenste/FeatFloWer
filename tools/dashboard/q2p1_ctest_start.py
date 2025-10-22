@@ -10,11 +10,15 @@ import sys
 import getopt
 import platform
 import subprocess
+import requests
 import re
 import json
-sys.path.append(os.environ['FF_PY_HOME'])
 import partitioner
 import pprint
+import time
+from datetime import datetime
+
+url = 'http://127.0.0.1:3000/api/user/1'
 
 #===============================================================================
 #                      Function: Usage
@@ -23,8 +27,111 @@ def usage():
     print("Usage: configure [options]")
     print("Where options can be:")
     print("[-h, --help]: prints this message")
-    print("[-h, --help]: prints this message")
 
+#===============================================================================
+#                      Function: generateSlurmScript
+#===============================================================================
+def generateSlurmScript(nProcsPerNode):
+    partition = "med"
+    constraint = "[bttf]"
+    nodes = "1"
+    ntasksPerNode = f"{nProcsPerNode}"
+    time = "08:00:00"
+    mem = "5G"
+    name = "FF-Bench"
+    executable = "q2p1_fc_ext"
+    slurmString = f"""#!/bin/bash
+#SBATCH --partition={partition}
+#SBATCH --constraint={constraint}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks-per-node={ntasksPerNode}
+#SBATCH --time={time}
+#SBATCH --mem-per-cpu={mem}
+#SBATCH --job-name={name}
+shopt -s expand_aliases
+source ~/.bashrc
+mpirun -np {ntasksPerNode} ./{executable} 
+"""
+    return slurmString
+#===============================================================================
+#                      Function:  submitAndObserve
+#===============================================================================
+def submitAndObserve():
+    # Submit job using sbatch
+    slurmString = generateSlurmScript()
+
+    sbatch_command = 'sbatch myjob.sh'
+    process = subprocess.Popen(sbatch_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        print(f'Error submitting job: {stderr.decode("utf-8")}')
+        exit(1)
+    job_id = stdout.decode("utf-8").strip()  # get job ID from sbatch output
+
+    # Query job status using sacct
+    sacct_command = f'sacct --format=State --jobs={job_id}'
+    interval_seconds = 5
+    while True:
+        process = subprocess.Popen(sacct_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if process.returncode != 0:
+            print(f'Error querying job status: {stderr.decode("utf-8")}')
+            exit(1)
+        job_status = stdout.decode("utf-8").strip().split('\n')[1].split()[0]  # get job status from sacct output
+        print(f'Job {job_id} status: {job_status}')
+        if job_status == 'COMPLETED':
+            print('Job completed successfully')
+            break
+        elif job_status in ['FAILED', 'CANCELLED']:
+            print('Job failed or was cancelled')
+            break
+        time.sleep(interval_seconds)  # wait for interval_seconds before checking job status again
+
+#===============================================================================
+#                      Function:  submitAndObserveSync
+#===============================================================================
+def submitAndObserveSync(nProcs):
+
+    slurmString = generateSlurmScript(nProcs)
+    with open("myjob.sh", "w") as f:
+        f.write(slurmString)
+
+    # Submit job using sbatch
+    sbatch_command = 'sbatch myjob.sh'
+
+    try:
+        output = subprocess.check_output(sbatch_command.split(), stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print(f'Error submitting job: {e.output.decode("utf-8")}')
+        exit(1)
+    job_id = output.decode("utf-8").strip().split()[-1]  # get job ID from sbatch output
+
+    # Query job status using sacct
+    sacct_command = f'sacct --format=State --jobs={job_id}'
+    interval_seconds = 10
+    while True:
+        try:
+            output = subprocess.check_output(sacct_command.split(), stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            print(f'Error querying job status: {e.output.decode("utf-8")}')
+            exit(1)
+        #job_status = output.decode("utf-8").strip().split('\n')[1].split()[0]  # get job status from sacct output
+        job_status = output.decode("utf-8").strip().split('\n')  # get job status from sacct output
+        job_status = [x.strip() for x in job_status]
+        if len(job_status) < 3:
+            job_status = "UNINITIALIZED"
+        else:
+            job_status = job_status[2]
+
+        print(f'Job {job_id} status: {job_status}')
+        if job_status == 'COMPLETED':
+            print('Job completed successfully')
+            break
+        elif job_status in ['FAILED', 'CANCELLED']:
+            print('Job failed or was cancelled')
+            break
+        time.sleep(interval_seconds)  # wait for interval_seconds before checking job status again        
+    return job_status
 
 #===============================================================================
 #                      Function:  moveAndSetLevel
@@ -205,14 +312,17 @@ def executeTest(fileName):
     
     partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", meshProjectFile)
 
+    result = ""
     for ilevel in range(2, 2 + testLevels):
 
         # copy the data file to the default location and set the level
         moveAndSetLevel(dataFile, "_data/q2p1_param.dat", ilevel)
 
         # call the specified binary using numProcessors processes 
-        subprocess.call(['mpirun -np %i ./%s' %(numProcessors, binaryName)], shell=True)
-
+        #subprocess.call(['mpirun -np %i ./%s' %(numProcessors, binaryName)], shell=True)
+        result = submitAndObserveSync(numProcessors)
+        if result != "COMPLETED":
+          break
 
         """ 
             append a row to the array of rows, the format of a row is in general:
@@ -260,27 +370,66 @@ def executeTest(fileName):
             rowsArray.append({"c": rowList})
 
 
-    for idx, item in enumerate(allTables):
-        jsonData['DashBoardVisualization']['DashBoardTable']['Tables'][idx]['data']['rows']=rowsArray
+    if result == "COMPLETED":
+        for idx, item in enumerate(allTables):
+            jsonData['DashBoardVisualization']['DashBoardTable']['Tables'][idx]['data']['rows']=rowsArray
 
-        for entry in jsonData['DashBoardVisualization']['DashBoardTable']['Tables'][idx]['data']['cols']:
-            if entry['label'] == "Time[s]":
-                entry['label'] = entry['label'] + ' ' + str(numProcessors) + 'P' 
+            for entry in jsonData['DashBoardVisualization']['DashBoardTable']['Tables'][idx]['data']['cols']:
+                if entry['label'] == "Time[s]":
+                    entry['label'] = entry['label'] + ' ' + str(numProcessors) + 'P' 
 
-    for idx, item in enumerate(Diagramms):
-        generator = item['DataGenerator']
-        rows = get_col_data("_data/prot.txt", generator)
-        jsonData['DashBoardVisualization']['DashBoardDiagramm']['Diagramms'][idx]['data']['rows']=rows
+        for idx, item in enumerate(Diagramms):
+            generator = item['DataGenerator']
+            rows = get_col_data("_data/prot.txt", generator)
+            jsonData['DashBoardVisualization']['DashBoardDiagramm']['Diagramms'][idx]['data']['rows']=rows
 
 
-    print(jsonData)
 
-    with open('note_single_%s.json' %noteName, 'w') as theFile:
+    timeStamp = round(time.time())
+
+    now = datetime.now()
+
+    if result == "COMPLETED":
+        jsonData["DashBoardVisualization"]["timeStamp"] = timeStamp 
+        jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%Y %H:%M:%S") 
+
+        jsonData["DashBoardVisualization"]["git"] = True 
+        jsonData["DashBoardVisualization"]["cmake"] = True 
+        jsonData["DashBoardVisualization"]["build"] = True 
+        jsonData["DashBoardVisualization"]["runtime"] = True 
+        print(jsonData)
+    else:
+        jsonData["DashBoardVisualization"]["timeStamp"] = timeStamp 
+        jsonData["DashBoardVisualization"]["date"] = now.strftime("%d/%m/%Y %H:%M:%S") 
+
+        jsonData["DashBoardVisualization"]["git"] = True 
+        jsonData["DashBoardVisualization"]["cmake"] = True 
+        jsonData["DashBoardVisualization"]["build"] = True 
+        jsonData["DashBoardVisualization"]["runtime"] = False 
+        print(jsonData)
+
+
+    finalName = f"{noteName}-{timeStamp}"
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.post(url, data=json.dumps(jsonData), headers=headers)
+        response.raise_for_status() # This line will raise an HTTPError if the status code is not in the 200 range
+        print("Request successful")
+        # Process the response here
+    except requests.exceptions.HTTPError as err:
+        print("Error: Request failed with status code", err.response.status_code)
+        # Handle the error here
+    except Exception as err:
+        print("Error: An error occurred during the request:", err)
+        # Handle any other errors here
+
+    with open('%s.json' %finalName, 'w') as theFile:
         theFile.write(json.dumps(jsonData) + '\n')
     
-    with open('../../note_single_%s.json' %noteName, 'w') as theFile:
-        theFile.write(json.dumps(jsonData) + '\n')
-
 #===============================================================================
 #                              Main function
 #===============================================================================
@@ -334,11 +483,13 @@ def main():
             usage()
             sys.exit(2)
 
-#    with open("test-config.json") as f:
-#        paramDict = json.loads(f.read())
-#
-#    print(paramDict)
-#
+    script_path = os.path.abspath(__file__)
+    
+    # get the directory that the script is located in
+    script_dir = os.path.dirname(script_path)
+    
+    os.chdir(script_dir)
+
     potentialTests = os.listdir("tests")
     
     for item in potentialTests:
