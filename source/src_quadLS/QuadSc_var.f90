@@ -156,31 +156,57 @@ MODULE var_QuadScalar
   ! Multigrid hierarchy
   ! Multigrid structures, coarse matrices, and related helpers go here.
   TYPE tMultiGrid
+    ! Human-readable identifier for the multigrid solve (e.g. "Velocity")
     CHARACTER*20 :: cVariable
+    ! Multigrid cycle flavour requested ('V','W','F',...)
     CHARACTER*1 :: CycleType
+    ! Selected prolongation strategy name passed down to setup routines
     CHARACTER*10 :: MGProlongation
+    ! Points to flag array that enables prolongation/restriction per level
     LOGICAL, POINTER :: bProlRest
+    ! Dirichlet markers for velocity components on each grid level
     INTEGER, DIMENSION(:), POINTER::  KNPRU,KNPRV,KNPRW
+    ! Dirichlet markers for pressure / scalar unknowns per level
     INTEGER, DIMENSION(:), POINTER::  KNPR
+    ! Element-wise masks used to skip constrained cells in transfer ops
     TYPE(mg_kVector), DIMENSION(:), POINTER::  KNPRP
+    ! Level-wise solution, increments, residuals, rhs, and smoother buffers for velocity
     TYPE(mg_dVector), DIMENSION(:), POINTER::  X_u,dX_u,D_u,A_u,B_u
+    ! Level-wise solution, increments, residuals, rhs, and smoother buffers for pressure
     TYPE(mg_dVector), DIMENSION(:), POINTER::  X_p,dX_p,D_p,A_p,B_p
+    ! Coupled Q2/P1 block matrices (B and BT operators) on each level
     TYPE (mg_Matrix), DIMENSION(:), POINTER :: BX,BY,BZ,BTX,BTY,BTZ
+    ! Mixed velocity-pressure coupling matrices assembled per level
     TYPE(TMatrix), DIMENSION(:),  POINTER   :: Lq,Lql,Llq
+    ! Generic mg vectors for field solves (solution, defect, auxiliary, rhs)
     TYPE(mg_dVector), DIMENSION(:), POINTER::  X,D,AUX,B
+    ! Primary system matrices and their preconditioned variants across levels
     TYPE (mg_Matrix), DIMENSION(:), POINTER :: A,AP
+    ! Split tensor blocks storing the directional stiffness contributions
     TYPE (mg_Matrix), DIMENSION(:), POINTER :: A11,A22,A33,A12,A13,A23,A21,A31,A32
+    ! Field-specific block matrices (e.g. visco-elastic extra fields)
     TYPE (tMGFldMatrix), DIMENSION(:), POINTER :: AXX
+    ! Constraint matrices and pressure blocks used by coarse solvers
     TYPE(TMatrix), DIMENSION(:),  POINTER :: L,LP
+    ! Diagonal or smoothing workspace shared by stationary smoothers
     REAL*8  , DIMENSION(:)  , POINTER :: XP
-    INTEGER :: MinLev,MaxLev,MedLev,MaxDifLev,MinIterCycle,MaxIterCycle,nIterCoarse,nSmootherSteps,CrsSolverType,SmootherType
+    ! Book-keeping for hierarchy layout and smoothing parameters
+    INTEGER :: MinLev,MaxLev,MedLev,MaxDifLev,MinIterCycle,MaxIterCycle,nIterCoarse,&
+               & nSmootherSteps,CrsSolverType,SmootherType
+    ! Number of coupled fields and sub-systems handled by this multigrid run
     INTEGER :: nOfFields,nOfSubsystemEqs
+    ! Vanka smoother configuration flag (0 disables, >0 selects variant)
     integer :: vanka
+    ! Measured defect reduction on the coarse grid during the current cycle
     REAL*8  :: DefImprCoarse
+    ! Convergence criteria and relaxation factors steering the cycles
     REAL*8  :: Criterion1,Criterion2,RLX,CrsRelaxPrm,CrsRelaxParPrm
+    ! Spectral radius estimates and defect history for convergence reports
     REAL*8  :: RhoMG1,RhoMG2,DefInitial,DefFinal
+    ! Keeps track of iteration counts used in the most recent cycle
     INTEGER :: UsedIterCycle
   END TYPE tMultiGrid
+  ! Primary multigrid controller for the coupled Q2/P1 system
   TYPE (tMultiGrid) :: myMG
   TYPE tMultiGrid_cc
     CHARACTER*10 :: cVariable
@@ -203,13 +229,21 @@ MODULE var_QuadScalar
     REAL*8  :: RhoMG1,RhoMG2,DefInitial,DefFinal
     INTEGER :: UsedIterCycle
   END TYPE tMultiGrid_cc
+  ! Multigrid descriptors for the coarse-correction (cc) subsystem
   TYPE (tMultiGrid_cc) :: myMG_cc
+  ! Cell-wise material identifiers stored on each multigrid level
   TYPE(mg_kVector), ALLOCATABLE :: MaterialDistribution(:)
+  ! Cell-centered density and diffusion coefficients per multigrid level
   TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgDensity(:),mgDiffCoeff(:)
+  ! Normalised shear stress field cached per level for post-processing
   TYPE(mg_dVector), DIMENSION(:),ALLOCATABLE :: mgNormShearStress(:)
+  ! Hierarchical mesh description shared by multigrid routines
   type(tMultiMesh),save :: mg_mesh
+  ! Marks DOFs that require MPI synchronisation during multigrid sweeps
   INTEGER, ALLOCATABLE :: ParKNPR(:)
+  ! FictKNPR stores FBM particle ids; MixerKnpr marks mixer-influenced DOFs
   INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
+  ! Packed 64-bit representation of FictKNPR entries for FBM lookups
   type(tUint64), allocatable :: FictKNPR_uint64(:)
   TYPE tElementMatrix
     REAL*8 :: A(85,85)
@@ -218,9 +252,13 @@ MODULE var_QuadScalar
   TYPE tMGElementMatrix
     TYPE(tElementMatrix), ALLOCATABLE :: E(:)
   END TYPE
+  ! Element-local coarse-correction matrices (UMFPACK factorizations)
   TYPE(tmgElementMatrix), ALLOCATABLE :: CC_EMat(:)
+  ! CRS sparsity structure of the coarse-correction system matrix
   TYPE(TMatrix)          :: CC_crs_lMat
+  ! Numeric values for the coarse-correction CRS matrix
   REAL*8 , ALLOCATABLE   :: CC_crs_AMat(:)
+  ! UMFPACK handles for the coarse-correction matrix factorisation
   INTEGER :: CC_H(2)
   TYPE crs_e013_map
     INTEGER  :: ndof,cc_ndof
@@ -228,6 +266,7 @@ MODULE var_QuadScalar
     INTEGER , allocatable :: indE(:)
     REAL*8, allocatable   :: dBuffer(:)
   END TYPE crs_e013_map
+  ! Mapping between E013 element blocks and global CRS numbering
   TYPE(crs_e013_map), ALLOCATABLE :: my_crs_e013_map(:)
   TYPE CC_Elem
     INTEGER, ALLOCATABLE :: pairE(:,:),pairV(:,:)
@@ -244,7 +283,9 @@ MODULE var_QuadScalar
     TYPE(CC_Elem), ALLOCATABLE :: E(:)
     INTEGER :: nu_qq,na_qq,nu_ql,na_ql,nu_lq,na_lq
   END TYPE mg_CCPiece
+  ! Cached coarse patches for assembling cc multigrid operators
   TYPE(mg_CCPiece),ALLOCATABLE :: my_mg_CCPiece(:)
+  ! Global numbering used while assembling coarse-correction matrices
   INTEGER, ALLOCATABLE :: GlobalNumbering(:)
   TYPE tCoarseMat
     INTEGER :: na,nu
@@ -253,6 +294,7 @@ MODULE var_QuadScalar
     REAL*8 , ALLOCATABLE   :: A(:)
     REAL*8 , ALLOCATABLE   :: D(:)
   END TYPE tCoarseMat
+  ! Sparse coarse-grid matrix storage used by the coarse-correction solve
   TYPE(tCoarseMat), target :: myCrsMat
 
   ! Material & mesh
