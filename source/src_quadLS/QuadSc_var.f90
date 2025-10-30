@@ -295,6 +295,7 @@ TYPE tFBM
  REAL*8,ALLOCATABLE :: Force(:)
  TYPE (tParticleFBM), ALLOCATABLE :: ParticleOld(:),ParticleNew(:)
  integer, allocatable, dimension(:) :: iel_ug   
+ REAL*8, ALLOCATABLE :: ParticleRe(:)
 END TYPE tFBM
 
 CHARACTER cFBM_File*30
@@ -506,4 +507,3 @@ integer function KNVT(ilevel)
 end function KNVT
 
 END MODULE var_QuadScalar
-

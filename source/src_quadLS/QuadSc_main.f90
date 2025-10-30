@@ -14,8 +14,9 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEA
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use fbm
+use fbm_particle_reynolds, only: fbm_compute_particle_reynolds
 
-use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity
 
 use, intrinsic :: ieee_arithmetic
 
@@ -271,6 +272,9 @@ end if
 call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
                       fbm_force_handler_ptr)
+
+call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                   Viscosity,Properties%Density(1),mfile)
 
 ! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&

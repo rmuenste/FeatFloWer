@@ -233,6 +233,11 @@ module cinterface
 
     ALLOCATE(myFBM%ParticleNew(myFBM%nParticles),myFBM%ParticleOld(myFBM%nParticles))
     ALLOCATE(myFBM%iel_ug(myFBM%nParticles))
+    IF (ALLOCATED(myFBM%ParticleRe)) THEN
+      DEALLOCATE(myFBM%ParticleRe)
+    END IF
+    ALLOCATE(myFBM%ParticleRe(myFBM%nParticles))
+    myFBM%ParticleRe = 0d0
 
     myFBM%iel_ug=0
 
