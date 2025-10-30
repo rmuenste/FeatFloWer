@@ -82,75 +82,134 @@ MODULE var_QuadScalar
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.
+  ! Coupled Q2 system descriptor hosting assembled velocity matrices
   TYPE(TQuadScalar), target :: QuadSc
+  ! P1 scalar container storing pressure-related matrices
   TYPE(TLinScalar)    :: LinSc
+  ! Viscoelastic scalar block collecting stress/extra field matrices
   TYPE(TViscoScalar)  :: ViscoSc
+  ! Distributed-memory linear scalar helper for parallel solves
   TYPE(TParLinScalar) :: PLinSc
+  ! Passive scalar matrix container for tracer transport
   TYPE(lScalar) :: Tracer
+  ! Vector-valued tracer matrices storing three coupled scalar fields
   TYPE(lScalar3) :: Tracer3
+  ! Generic scalar descriptor used by auxiliary linear subsystems
   TYPE(lScalarGen) :: GenLinScalar
+  ! Sparse CRS structure reused when building linearised operators
   TYPE(TcrsStructure) :: crsSTR
+  ! Level-to-level coupling pattern between linear and quadratic grids
   INTEGER , DIMENSION(:)  , ALLOCATABLE :: lqK
+  ! Pointers to active system matrices for l<->q couplings and velocity blocks
   TYPE(TMatrix), POINTER :: qlMat,qlPMat,lqMat,lMat,lPMat,qMat
+  ! Multigrid hierarchy copies of ql / qlP / lq transfer matrices
   TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_qlMat,mg_qlPMat,mg_lqMat
+  ! Multigrid hierarchy copies of linear and quadratic system matrices
   TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_lMat,mg_lPMat,mg_qMat
+  ! Coupling operators mapping velocity divergence into pressure space (B)
   REAL*8, DIMENSION(:), POINTER :: BXMat,BYMat,BZMat
+  ! Transposed coupling operators providing B^T contributions
   REAL*8, DIMENSION(:), POINTER :: BTXMat,BTYMat,BTZMat
+  ! Coupling operators for pressure mass matrices when prolongating
   REAL*8, DIMENSION(:), POINTER :: BXPMat,BYPMat,BZPMat
+  ! Mass matrices for velocity, lumped mass, and density-weighted variants
   REAL*8, DIMENSION(:), POINTER :: Mmat,MlMat,MlPmat,MlRhomat,MlRhoPmat
+  ! Diffusion, stiffness, and stabilisation matrices (diagonal tensor blocks)
   REAL*8, DIMENSION(:), POINTER :: DMat,Kmat,A11mat,A22mat,A33mat,ConstDMat,hDMat
+  ! Off-diagonal tensor blocks capturing cross-derivative couplings
   REAL*8, DIMENSION(:), POINTER :: A12mat,A13mat,A23mat,A21mat,A31mat,A32mat
+  ! Symmetric stress matrix diagonal entries for viscoelastic models
   REAL*8, DIMENSION(:), POINTER :: S11mat,S22mat,S33mat
+  ! Off-diagonal stress matrix entries for viscoelastic models
   REAL*8, DIMENSION(:), POINTER :: S12mat,S13mat,S23mat,S21mat,S31mat,S32mat
+  ! Antisymmetric vorticity matrix diagonal components
   REAL*8, DIMENSION(:), POINTER :: W11mat,W22mat,W33mat
+  ! Antisymmetric vorticity matrix off-diagonal components
   REAL*8, DIMENSION(:), POINTER :: W12mat,W13mat,W23mat,W21mat,W31mat,W32mat
+  ! Constraint, pressure-mass, and P1 interpolation matrices
   REAL*8, DIMENSION(:), POINTER :: Cmat,CPMat,P1MMat,P1iMMat
+  ! Viscosity matrix diagonal components (normal stresses)
   REAL*8, DIMENSION(:), POINTER :: VisMat_11,VisMat_22,VisMat_33
+  ! Viscosity matrix off-diagonal components (shear stresses)
   REAL*8, DIMENSION(:), POINTER :: VisMat_12,VisMat_13,VisMat_23
+  ! UMFPACK factorised linear matrix used for direct solves
   TYPE(TMatrix)          :: UMF_lMat
+  ! Dense storage of UMFPACK factor values corresponding to UMF_lMat
   REAL*8 , ALLOCATABLE   :: UMF_CMat(:)
+  ! UMFPACK CRS grid permutation describing pivoting pattern
   INTEGER, allocatable   :: UNF_P_CrsGrid(:)
   TYPE tGlobalNumberingMap
+    ! Total number of dofs for mixed Q2/P1 system and its sub-blocks
     INTEGER  :: ndof,ndof_Q2,ndof_P1
+    ! Global index mappings for the combined and split finite element spaces
     INTEGER , allocatable :: ind(:)
     INTEGER , allocatable :: indQ2(:),indP1(:)
+    ! Workspace buffers used when scattering between numbering schemes
     REAL*8, allocatable   :: dBufferQ2(:),dBufferP1(:)
   END TYPE tGlobalNumberingMap
+  ! Global numbering per subdomain required when assembling level operators
   TYPE(tGlobalNumberingMap), ALLOCATABLE :: myGlobalNumberingMap(:)
+  ! Flat global numbering for velocity (Q2) and pressure (P1) unknowns
   INTEGER, ALLOCATABLE :: GlobalNumberingQ2(:),GlobalNumberingP1(:)
+  ! Combined total number of degrees of freedom in the active system
   INTEGER :: myGlobal_ndof
   TYPE mg_Matrix
+    ! Values of a matrix stored for one multigrid level
     REAL*8  , DIMENSION(:)  , ALLOCATABLE  :: a
   END TYPE mg_Matrix
   TYPE tMGFldMatrix
+    ! Field-wise matrix collections (one mg_Matrix per extra field)
     TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE  :: fld
   END TYPE
+  ! Newton update scaling factor used in Burgers-type linearisations
   REAL*8 :: NewtonForBurgers=0d0
+  ! Barred mass matrices storing time-averaged values for each component
   REAL*8  , DIMENSION(:)  , POINTER :: barM11mat,barM22mat,barM33mat,barM12mat,barM13mat,barM23mat,barM21mat,barM31mat,barM32mat
+  ! Multigrid level storage for barred mass matrix diagonal components
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM11mat,mg_barM22mat,mg_barM33mat
+  ! Multigrid level storage for barred mass matrix off-diagonal components
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM12mat,mg_barM13mat,mg_barM23mat
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_barM21mat,mg_barM31mat,mg_barM32mat
+  ! Multigrid copies of B operators used in coarse transfer steps
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXMat,mg_BYMat,mg_BZMat
+  ! Multigrid copies of transposed B operators
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BTXMat,mg_BTYMat,mg_BTZMat
+  ! Multigrid copies of pressure mass matrices for prolongation phases
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_BXPMat,mg_BYPMat,mg_BZPMat
+  ! Multigrid diffusion and stiffness matrices (diagonal components)
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_DMat,mg_KMat,mg_ConstDMat,mg_hDMat
+  ! Multigrid stiffness tensor diagonal storage (A11/A22/A33)
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A11mat,mg_A22mat,mg_A33mat
+  ! Multigrid stiffness tensor off-diagonal storage (A12...A32)
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A12mat,mg_A13mat,mg_A23mat
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_A21mat,mg_A31mat,mg_A32mat
+  ! Multigrid viscoelastic stress tensor diagonal blocks
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S11mat,mg_S22mat,mg_S33mat
+  ! Multigrid viscoelastic stress tensor off-diagonal blocks
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S12mat,mg_S13mat,mg_S23mat
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_S21mat,mg_S31mat,mg_S32mat
+  ! Multigrid vorticity matrix diagonal entries for rotational smoothing
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W11mat,mg_W22mat,mg_W33mat
+  ! Multigrid vorticity matrix off-diagonal entries
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W12mat,mg_W13mat,mg_W23mat
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_W21mat,mg_W31mat,mg_W32mat
+  ! Multigrid velocity mass and density-weighted mass matrices
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_MMat,mg_MlMat,mg_MlPMat,mg_MlRhomat,mg_MlRhoPmat
+  ! Multigrid constraint, pressure mass, and interpolation matrices
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_CMat,mg_CPMat,mg_P1MMat,mg_P1iMMat
+  ! Multigrid viscosity tensor diagonal entries for viscoelastic solves
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_11,mg_VisMat_22,mg_VisMat_33
+  ! Multigrid viscosity tensor off-diagonal entries for viscoelastic solves
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_VisMat_12,mg_VisMat_13,mg_VisMat_23
+  ! Prolongation/restriction matrices for E012/E013 element couplings
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E012Prol,mg_E013Prol,mg_E013Rest
+  ! Explicit matrix objects for E013 prolongation/restriction operators
   TYPE(TMatrix), DIMENSION(:), ALLOCATABLE, TARGET :: mg_E013ProlM,mg_E013RestM
+  ! Prolongation/restriction matrices for E011 element couplings
   TYPE (mg_Matrix), DIMENSION(:)  , ALLOCATABLE , TARGET :: mg_E011Prol,mg_E011Rest
+  ! Explicit matrix objects backing the E011 prolongation/restriction operators
   TYPE(TMatrix)   , DIMENSION(:)  , ALLOCATABLE,  TARGET :: mg_E011ProlM,mg_E011RestM
+  ! Multigrid smoothing step configuration and statistics
   TYPE (tMGSteps) :: MGSteps
 
   ! Multigrid hierarchy
