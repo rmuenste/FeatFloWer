@@ -4,83 +4,77 @@
 ! Miscellaneous utility functions for QuadScalar module
 ! Extracted from QuadSc_main.f90 for better code organization
 !=========================================================================
-!
-!=========================================================================
-SUBROUTINE TESTER(DX,DXP)
-  REAL*8 DX(*),DXP(*)
 
-  CALL GetParPressure(DX,DXP)
-
-END SUBROUTINE TESTER
 !=========================================================================
-!
+! TESTER - Test subroutine for parallel pressure calculation
 !=========================================================================
-SUBROUTINE Analyzer
-  INTEGER I,J
-
-  J=0
-  DO I=1,QuadSc%ndof
-  IF (ABS(QuadSC%auxU(I)).GT.1d-10) THEN
-    J = J + 1
-    !   WRITE(*,*) I,J,QuadSC%auxU(I)
-  END IF
-  END DO
-
-END SUBROUTINE Analyzer
-!=========================================================================
-!
-!=========================================================================
-SUBROUTINE  GetMonitor()
+subroutine TESTER(DX, DXP)
   implicit none
-  INTEGER i
-  REAL*8 daux,px,py,pz
+  real(8), intent(inout) :: DX(*)
+  real(8), intent(inout) :: DXP(*)
+
+  call GetParPressure(DX, DXP)
+
+end subroutine TESTER
+
+!=========================================================================
+! Analyzer - Analyze auxiliary velocity field
+! Counts non-zero entries in QuadSc%auxU array
+!=========================================================================
+subroutine Analyzer
+  implicit none
+  integer :: i, j
+
+  j = 0
+  do i = 1, QuadSc%ndof
+    if (abs(QuadSC%auxU(i)) > 1.0d-10) then
+      j = j + 1
+    end if
+  end do
+
+end subroutine Analyzer
+
+!=========================================================================
+! GetMonitor - Get monitor function for mesh adaptation (currently disabled)
+!=========================================================================
+subroutine GetMonitor()
+  implicit none
+
+  ! This subroutine is currently disabled (early return)
+  ! Originally used for computing distance-based monitor function
   return
-  ILEV = NLMAX
-  CALL SETLEV(2)
 
-  !
-  !
-  !  DO i=1,nvt
-  !
-  !    PX = dcorvg(1,i)
-  !    PY = dcorvg(2,i)
-  !    PZ = dcorvg(3,i)
-  !    getdistanceid(px,py,pz,daux,i);
-  !
-  !   myALE%Monitor(i) = sqrt(daux) !HogenPowerlaw(daux)
-  !
-  !  END DO
+end subroutine GetMonitor
 
-END SUBROUTINE  GetMonitor
 !=========================================================================
-!
+! DetermineIfGoalsWereReached - Check if simulation goals are reached
+! Determines if the simulation should continue or terminate
 !=========================================================================
-SUBROUTINE DetermineIfGoalsWereReached(bGoalsReached)
-use, intrinsic :: ieee_arithmetic
-REAL*8 myinf
-LOGICAL bGoalsReached
+subroutine DetermineIfGoalsWereReached(bGoalsReached)
+  use, intrinsic :: ieee_arithmetic
+  implicit none
+  logical, intent(out) :: bGoalsReached
+  real(8) :: myInf
 
-if(ieee_support_inf(myInf))then
-  myInf = ieee_value(myInf, ieee_negative_inf)
-endif
+  ! Initialize infinity value if supported
+  if (ieee_support_inf(myInf)) then
+    myInf = ieee_value(myInf, ieee_negative_inf)
+  end if
 
-bGoalsReached = .true.
+  bGoalsReached = .true.
 
-! IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".or.ADJUSTL(TRIM(mySigma%cType)).EQ."XSE") THEN
-!  if (myProcess%FillingDegree.eq.myInf .or. myProcess%FillingDegree .eq. 1d0) then
-!     if (itns.ge.nitns) bGoalsReached=.false.
-!  end if
-! END IF
+  ! Check for DIE simulation type
+  if (adjustl(trim(mySigma%cType)) == "DIE") then
+    if (istart == 1) then
+      if (itns >= nitns) bGoalsReached = .false.
+    end if
+  end if
 
-IF (ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
- if (istart.eq.1) then
-   if (itns.ge.nitns) bGoalsReached=.false.
- end if
-END IF
+  ! Report if goals were not reached
+  if (.not. bGoalsReached) then
+    if (myid == 1) then
+      write (*, *) 'Maximum time steps reached - simulation may not have converged!'
+    end if
+  end if
 
-
-if (.not.bGoalsReached) THEN
- if (myid.eq.1) write(*,*) 'max time steps have been reached // the simulation has - most probably - not converged! '
-end if
-
-END SUBROUTINE DetermineIfGoalsWereReached
+end subroutine DetermineIfGoalsWereReached
