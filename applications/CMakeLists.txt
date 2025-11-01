@@ -14,6 +14,7 @@ add_subdirectory(q2p1_span)
 add_subdirectory(q2p1_experimental)
 add_subdirectory(q2p1_euler_fibers)
 add_subdirectory(iniparser_demo)
+add_subdirectory(fem_sandbox)
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)
@@ -59,4 +60,3 @@ if(USE_MUMPS)
     message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
   endif(${Q2P1_BUILD_ID} MATCHES "intel")
 endif(USE_MUMPS)
-
