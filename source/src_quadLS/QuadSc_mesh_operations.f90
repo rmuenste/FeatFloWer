@@ -4,241 +4,274 @@
 ! Mesh deformation and ALE (Arbitrary Lagrangian-Eulerian) operations
 ! Extracted from QuadSc_main.f90 for better code organization
 !=========================================================================
-!
+
 !=========================================================================
-SUBROUTINE  STORE_OLD_MESH(dcoor)
-  REAL*8 dcoor(3,*)
-  INTEGER i
-
-  !write(*,*)'ndof:',QuadSc%ndof,mg_mesh%level(NLMAX+1)%nvt
-  DO i=1,QuadSc%ndof
-  myALE%OldCoor(:,i) = dcoor(:,i)
-  END DO
-
-END SUBROUTINE  STORE_OLD_MESH
+! STORE_OLD_MESH - Store old mesh coordinates for ALE
+! Saves current mesh coordinates for computing mesh velocity
 !=========================================================================
-!
+subroutine STORE_OLD_MESH(dcoor)
+  implicit none
+  real(8), intent(in) :: dcoor(3, *)
+  integer :: i
+
+  do i = 1, QuadSc%ndof
+    myALE%OldCoor(:, i) = dcoor(:, i)
+  end do
+
+end subroutine STORE_OLD_MESH
+
 !=========================================================================
-SUBROUTINE  STORE_NEW_MESH(dcoor)
-  REAL*8 dcoor(3,*)
-  INTEGER i
-
-  DO i=1,QuadSc%ndof
-  myALE%NewCoor(:,i) = dcoor(:,i)
-  END DO
-
-END SUBROUTINE  STORE_NEW_MESH
+! STORE_NEW_MESH - Store new mesh coordinates for ALE
+! Saves updated mesh coordinates after deformation
 !=========================================================================
-!
+subroutine STORE_NEW_MESH(dcoor)
+  implicit none
+  real(8), intent(in) :: dcoor(3, *)
+  integer :: i
+
+  do i = 1, QuadSc%ndof
+    myALE%NewCoor(:, i) = dcoor(:, i)
+  end do
+
+end subroutine STORE_NEW_MESH
+
 !=========================================================================
-SUBROUTINE  GET_MESH_VELO()
-  INTEGER i
-  REAL*8 dmax,daux
-
-  dmax = 0d0
-  DO i=1,QuadSc%ndof
-  myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
-  ! myALE%MeshVelo(:,i) = (myALE%NewCoor(:,i)-myALE%OldCoor(:,i))/tstep
-  daux = SQRT(myALE%MeshVelo(1,i)**2d0 + myALE%MeshVelo(2,i)**2d0 +&
-    myALE%MeshVelo(3,i)**2d0)
-  IF (daux.gt.dmax) dmax = daux
-  END DO
-
-  CALL COMM_Maximum(dmax)
-  IF (myid.eq.showid) WRITE(*,*) 'max mesh velocity: ', dmax
-
-END SUBROUTINE  GET_MESH_VELO
+! GET_MESH_VELO - Compute mesh velocity from coordinate differences
+! Calculates mesh velocity for ALE formulation: v_mesh = (x_new - x_old)/dt
 !=========================================================================
-!
+subroutine GET_MESH_VELO()
+  implicit none
+  integer :: i
+  real(8) :: dmax, daux
+
+  dmax = 0.0d0
+  do i = 1, QuadSc%ndof
+    myALE%MeshVelo(:, i) = (myALE%NewCoor(:, i) - myALE%OldCoor(:, i)) / tstep
+
+    ! Compute magnitude of mesh velocity
+    daux = sqrt(myALE%MeshVelo(1, i)**2 + myALE%MeshVelo(2, i)**2 + &
+                myALE%MeshVelo(3, i)**2)
+    if (daux > dmax) dmax = daux
+  end do
+
+  call COMM_Maximum(dmax)
+  if (myid == showid) write (*, *) 'Maximum mesh velocity: ', dmax
+
+end subroutine GET_MESH_VELO
+
 !=========================================================================
-SUBROUTINE  RotateMyMesh(dcoor)
-  REAL*8 dcoor(3,*)
-  REAL*8 X,Y,Z,R,A,dAlpha
-  REAL*8 :: PI = 3.141592654d0
-  INTEGER i,nnn
+! RotateMyMesh - Rotate mesh for rotating geometry simulations
+! Applies rotation transformation for time-dependent rotation (e.g., mixers)
+!=========================================================================
+subroutine RotateMyMesh(dcoor)
+  implicit none
+  real(8), intent(inout) :: dcoor(3, *)
+  real(8) :: x, y, z, r, a, dAlpha
+  real(8), parameter :: PI = 3.141592654d0
+  integer :: i, nnn
 
-  dAlpha = 1d0*(250d0/60d0)*2d0*timens*PI
-  ! dAlpha = 2d0*(250d0/60d0)*2d0*tstep*PI
+  ! Compute rotation angle: 250 RPM
+  dAlpha = 1.0d0 * (250.0d0 / 60.0d0) * 2.0d0 * timens * PI
 
-  IF (myid.eq.0) THEN
+  if (myid == 0) then
     nnn = KNVT(NLMAX)
-  ELSE
-    nnn = KNVT(NLMAX+1)
-  END IF
+  else
+    nnn = KNVT(NLMAX + 1)
+  end if
 
-  DO i=1,nnn
-  !  X = dcoor(1,i)
-  !  Y = dcoor(2,i)
-  X = myALE%OrigCoor(1,i)
-  Y = myALE%OrigCoor(2,i)
-  R = DSQRT(X*X + Y*Y)
-  A = DATAN(Y/X)
-  IF (X.LT.0d0) A = A + PI
-  A = A + dAlpha
-  dcoor(1,i) = R*DCOS(A)
-  dcoor(2,i) = R*DSIN(A)
-  !IF (myid.eq.1) WRITE(*,'(2(2E12.4,A))') X,Y,' : ', dcoor(1:2,i)
-  END DO
+  ! Apply rotation transformation
+  do i = 1, nnn
+    x = myALE%OrigCoor(1, i)
+    y = myALE%OrigCoor(2, i)
+    r = sqrt(x * x + y * y)
+    a = atan(y / x)
+    if (x < 0.0d0) a = a + PI
+    a = a + dAlpha
+    dcoor(1, i) = r * cos(a)
+    dcoor(2, i) = r * sin(a)
+  end do
 
+  ! Update coordinates on coarse level
   ILEV = NLMIN
-  CALL SETLEV(2)
-
-  CALL ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)),KWORK(L(LVERT)),NVT,NEL)
+  call SETLEV(2)
+  call ExchangeNodeValuesOnCoarseLevel(DWORK(L(LCORVG)), KWORK(L(LVERT)), NVT, NEL)
 
   ILEV = NLMAX
-  CALL SETLEV(2)
+  call SETLEV(2)
 
-END SUBROUTINE  RotateMyMesh
-!=========================================================================
-!
-!=========================================================================
-SUBROUTINE  StoreOrigCoor(dcoor)
-  INTEGER i,nnn
-  REAL*8 dcoor(3,*)
+end subroutine RotateMyMesh
 
-  IF (myid.eq.0) THEN
+!=========================================================================
+! StoreOrigCoor - Store original mesh coordinates
+! Saves reference coordinates for rotation or deformation
+!=========================================================================
+subroutine StoreOrigCoor(dcoor)
+  implicit none
+  real(8), intent(in) :: dcoor(3, *)
+  integer :: i, nnn
+
+  if (myid == 0) then
     nnn = KNVT(NLMAX)
-  ELSE
-    nnn = KNVT(NLMAX+1)
-  END IF
+  else
+    nnn = KNVT(NLMAX + 1)
+  end if
 
-  DO i=1,nnn
-  myALE%OrigCoor(:,i) = dcoor(:,i)
-  END DO
+  do i = 1, nnn
+    myALE%OrigCoor(:, i) = dcoor(:, i)
+  end do
 
-END SUBROUTINE  StoreOrigCoor
+end subroutine StoreOrigCoor
+
 !=========================================================================
-!
+! GetMeshVelocity2 - Alternative mesh velocity computation
+! Computes mesh velocity from Q2 coordinate differences
 !=========================================================================
-SUBROUTINE GetMeshVelocity2(mfile)
-  integer mfile
-  REAL*8 dMaxVelo,daux
-  INTEGER i
+subroutine GetMeshVelocity2(mfile)
+  implicit none
+  integer, intent(in) :: mfile
+  real(8) :: dMaxVelo, daux
+  integer :: i
 
-  dMaxVelo = 0d0
-  IF (myid.ne.0) then
-    DO i=1,QuadSc%ndof
-    myALE%MeshVelo(:,i) = (myQ2Coor(:,i) -  myALE%Q2Coor_old(:,i))/tstep
-    daux = myALE%MeshVelo(1,i)**2d0+myALE%MeshVelo(2,i)**2d0+myALE%MeshVelo(3,i)**2d0
-    IF (dMaxVelo.lt.daux) dMaxVelo = daux
-    END DO
-  END IF
+  dMaxVelo = 0.0d0
+  if (myid /= 0) then
+    do i = 1, QuadSc%ndof
+      myALE%MeshVelo(:, i) = (myQ2Coor(:, i) - myALE%Q2Coor_old(:, i)) / tstep
+      daux = myALE%MeshVelo(1, i)**2 + myALE%MeshVelo(2, i)**2 + myALE%MeshVelo(3, i)**2
+      if (dMaxVelo < daux) dMaxVelo = daux
+    end do
+  end if
 
-  CALL COMM_Maximum(dMaxVelo)
+  call COMM_Maximum(dMaxVelo)
 
-  IF (myid.eq.1) THEN
-    WRITE(mfile,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-    WRITE(mterm,*)  "Maximum Mesh Velocity: ", SQRT(dMaxVelo)
-  END IF
+  if (myid == 1) then
+    write (mfile, *) "Maximum Mesh Velocity: ", sqrt(dMaxVelo)
+    write (mterm, *) "Maximum Mesh Velocity: ", sqrt(dMaxVelo)
+  end if
 
-END SUBROUTINE GetMeshVelocity2
+end subroutine GetMeshVelocity2
+
 !=========================================================================
-!
+! StaticMeshAdaptation - Apply static mesh adaptation
+! Loads pre-computed adapted mesh from file
 !=========================================================================
-SUBROUTINE StaticMeshAdaptation()
-  INTEGER iAdaptMeshLevel,idL
+subroutine StaticMeshAdaptation()
+  implicit none
+  integer :: iAdaptMeshLevel, idL
 
-  IF (.NOT.bMeshAdaptation) RETURN
+  if (.not. bMeshAdaptation) return
 
-  OPEN(474,FILE=ADJUSTL(TRIM(cAdaptedMeshFile))//"/level.prf")
-  READ(474,*) iAdaptMeshLevel
-  CLOSE(474)
+  ! Read adaptation level from file
+  open (474, file=adjustl(trim(cAdaptedMeshFile))//"/level.prf")
+  read (474, *) iAdaptMeshLevel
+  close (474)
 
   idL = iAdaptMeshLevel - NLMAX
 
-  CALL CreateDumpStructures(idL)
-  CALL LoadSmartAdaptedMeshFile(DWORK(L(KLCVG(1))),cAdaptedMeshFile,idL)
+  call CreateDumpStructures(idL)
+  call LoadSmartAdaptedMeshFile(DWORK(L(KLCVG(1))), cAdaptedMeshFile, idL)
 
-  ! ---------------------------- -  -    - -- -- - - - - - - -   ----------------
+  ! Refresh coordinates on all levels
+  do ILEV = iAdaptMeshLevel, NLMAX
+    call SETLEV(2)
+    write (*, *) 'Mesh levels:', ilev, iAdaptMeshLevel, NLMAX
+    call RefreshCoordinates(DWORK(L(KLCVG(ILEV + 1))), DWORK(L(KLCAG(ILEV))), &
+                            KWORK(L(KLVERT(ILEV))), KWORK(L(KLEDGE(ILEV))), KWORK(L(KLAREA(ILEV))))
+  end do
 
-  DO ILEV = iAdaptMeshLevel,NLMAX
-  CALL SETLEV(2)
-  WRITE(*,*) 'mesh levels', ilev,iAdaptMeshLevel,NLMAX
-  CALL RefreshCoordinates(DWORK(L(KLCVG(ILEV+1))),DWORK(L(KLCAG(ILEV))),&
-    KWORK(L(KLVERT(ILEV))),KWORK(L(KLEDGE(ILEV))),KWORK(L(KLAREA(ILEV))))
-  END DO
+end subroutine StaticMeshAdaptation
 
-  ! ---------------------------- -  -    - -- -- - - - - - - -   ----------------
-
-END SUBROUTINE StaticMeshAdaptation
 !=========================================================================
-!
+! CoorWriter - Write coordinates to file
+! Utility for writing mesh coordinates for debugging/visualization
 !=========================================================================
-SUBROUTINE CoorWriter(dcorvg,nvt,cF)
-  CHARACTER*(*) cF
-  REAL*8 dcorvg(3,*)
-  INTEGER i,nvt
+subroutine CoorWriter(dcorvg, nvt, cF)
+  implicit none
+  character(len=*), intent(in) :: cF
+  real(8), intent(in) :: dcorvg(3, *)
+  integer, intent(in) :: nvt
+  integer :: i
 
-  OPEN(547,FILE=TRIM(ADJUSTL(cF)))
-  DO i=1,nvt
-  WRITE(547,*) dcorvg(:,i)
-  END DO
-  CLOSE(547)
+  open (547, file=trim(adjustl(cF)))
+  do i = 1, nvt
+    write (547, *) dcorvg(:, i)
+  end do
+  close (547)
 
-END SUBROUTINE CoorWriter
+end subroutine CoorWriter
+
 !=========================================================================
-!
+! RefreshCoordinates - Recompute edge, face, and element coordinates
+! Updates coordinates of edge midpoints, face centers, and element centers
+! from vertex coordinates for Q2 finite element discretization
 !=========================================================================
-SUBROUTINE RefreshCoordinates(dcorvg,dcorag,kvert,kedge,karea)
-  REAL*8  dcorvg(3,*),dcorag(3,*)
-  INTEGER kvert(8,*),kedge(12,*),karea(6,*)
-  REAL*8 PX,PY,PZ,DIST
-  INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
-  INTEGER NeighE(2,12),NeighA(4,6)
-  DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
-  DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+subroutine RefreshCoordinates(dcorvg, dcorag, kvert, kedge, karea)
+  implicit none
+  real(8), intent(inout) :: dcorvg(3, *)
+  real(8), intent(inout) :: dcorag(3, *)
+  integer, intent(in) :: kvert(8, *), kedge(12, *), karea(6, *)
 
-  k=1
-  DO i=1,nel
-  DO j=1,12
-  IF (k.eq.kedge(j,i)) THEN
-    ivt1 = kvert(NeighE(1,j),i)
-    ivt2 = kvert(NeighE(2,j),i)
-    PX = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
-    PY = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
-    PZ = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
-    dcorvg(1,nvt+k) = PX
-    dcorvg(2,nvt+k) = PY
-    dcorvg(3,nvt+k) = PZ
-    k = k + 1
-  END IF
-  END DO
-  END DO
+  real(8) :: px, py, pz, dist
+  integer :: i, j, k, ivt1, ivt2, ivt3, ivt4
 
-  k=1
-  DO i=1,nel
-  DO j=1,6
-  IF (k.eq.karea(j,i)) THEN
-    ivt1 = kvert(NeighA(1,j),i)
-    ivt2 = kvert(NeighA(2,j),i)
-    ivt3 = kvert(NeighA(3,j),i)
-    ivt4 = kvert(NeighA(4,j),i)
-    PX = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
-    PY = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
-    PZ = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
-    dcorag(1,k) = PX
-    dcorag(2,k) = PY
-    dcorag(3,k) = PZ
-    dcorvg(1,nvt+net+k) = PX
-    dcorvg(2,nvt+net+k) = PY
-    dcorvg(3,nvt+net+k) = PZ
-    k = k + 1
-  END IF
-  END DO
-  END DO
+  ! Element connectivity arrays
+  integer :: NeighE(2, 12), NeighA(4, 6)
+  data NeighE/1, 2, 2, 3, 3, 4, 4, 1, 1, 5, 2, 6, 3, 7, 4, 8, 5, 6, 6, 7, 7, 8, 8, 5/
+  data NeighA/1, 2, 3, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 4, 8, 7, 4, 1, 5, 8, 5, 6, 7, 8/
 
-  DO i=1,nel
-  PX = 0d0
-  PY = 0d0
-  PZ = 0d0
-  DO j=1,8
-  PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
-  PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
-  PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
-  END DO
-  dcorvg(1,nvt+net+nat+i) = PX
-  dcorvg(2,nvt+net+nat+i) = PY
-  dcorvg(3,nvt+net+nat+i) = PZ
-  END DO
+  ! Compute edge midpoint coordinates
+  k = 1
+  do i = 1, nel
+    do j = 1, 12
+      if (k == kedge(j, i)) then
+        ivt1 = kvert(NeighE(1, j), i)
+        ivt2 = kvert(NeighE(2, j), i)
+        px = 0.5d0 * (dcorvg(1, ivt1) + dcorvg(1, ivt2))
+        py = 0.5d0 * (dcorvg(2, ivt1) + dcorvg(2, ivt2))
+        pz = 0.5d0 * (dcorvg(3, ivt1) + dcorvg(3, ivt2))
+        dcorvg(1, nvt + k) = px
+        dcorvg(2, nvt + k) = py
+        dcorvg(3, nvt + k) = pz
+        k = k + 1
+      end if
+    end do
+  end do
 
-END SUBROUTINE RefreshCoordinates
+  ! Compute face center coordinates
+  k = 1
+  do i = 1, nel
+    do j = 1, 6
+      if (k == karea(j, i)) then
+        ivt1 = kvert(NeighA(1, j), i)
+        ivt2 = kvert(NeighA(2, j), i)
+        ivt3 = kvert(NeighA(3, j), i)
+        ivt4 = kvert(NeighA(4, j), i)
+        px = 0.25d0 * (dcorvg(1, ivt1) + dcorvg(1, ivt2) + dcorvg(1, ivt3) + dcorvg(1, ivt4))
+        py = 0.25d0 * (dcorvg(2, ivt1) + dcorvg(2, ivt2) + dcorvg(2, ivt3) + dcorvg(2, ivt4))
+        pz = 0.25d0 * (dcorvg(3, ivt1) + dcorvg(3, ivt2) + dcorvg(3, ivt3) + dcorvg(3, ivt4))
+        dcorag(1, k) = px
+        dcorag(2, k) = py
+        dcorag(3, k) = pz
+        dcorvg(1, nvt + net + k) = px
+        dcorvg(2, nvt + net + k) = py
+        dcorvg(3, nvt + net + k) = pz
+        k = k + 1
+      end if
+    end do
+  end do
+
+  ! Compute element center coordinates
+  do i = 1, nel
+    px = 0.0d0
+    py = 0.0d0
+    pz = 0.0d0
+    do j = 1, 8
+      px = px + 0.125d0 * dcorvg(1, kvert(j, i))
+      py = py + 0.125d0 * dcorvg(2, kvert(j, i))
+      pz = pz + 0.125d0 * dcorvg(3, kvert(j, i))
+    end do
+    dcorvg(1, nvt + net + nat + i) = px
+    dcorvg(2, nvt + net + nat + i) = py
+    dcorvg(3, nvt + net + nat + i) = pz
+  end do
+
+end subroutine RefreshCoordinates
