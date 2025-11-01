@@ -48,3 +48,27 @@ provides a quick indicator of the drag regime experienced by a particle of radiu
 * [Velocity Evaluation at element midpoints](velocity_midpoint_evaluation.md) – illustrates the same Q2 interpolation workflow.
 * [Hydrodynamic force computation](hydrodynamic_force_computation.md) – describes the volume integration that precedes Reynolds evaluation.
 * [Strain-rate dissipation calculation](strain_rate_dissipation_calculation.md) – another example of post-processing that uses the Q2 field and MPI reductions.
+
+### 1. Sample on (or just outside) the particle surface
+
+  Instead of sampling at the centre, first project to the particle surface along a direction n (for example the local outward normal) and evaluate the Q2 field at
+  x_surf = x_p + (R + ε) · n.
+  You can reuse fbmaux_PointInHex to locate the element containing each sample point; only the point location changes. Using a small ε>0 keeps you in the fluid
+  region, so the interpolated velocity reflects the true boundary-layer flow. Slip is then ‖u_f(x_surf) − u_p‖. You can pick a few quadrature directions (e.g. 6
+  face normals or a spherical design) and average the resulting slips to reduce directional noise.
+
+  ———
+
+  ### 2. Nearest-fluid DOF averaging
+
+  Leverage the FBM distance data (Distance, FictKNPR) to identify surrounding Q2 nodes that belong to the fluid (distance>0). Gather a small ball of those DOFs,
+  interpolate/average their velocities (e.g. inverse-distance weighting), and call that u_f(x_p). Because the DOFs themselves lie outside the particle, they still
+  carry the fluid velocity. This avoids an additional point-location step, at the cost of a small unstructured stencil.
+
+  ———
+
+  ### 3. Extrapolation from the interface element
+
+  Given the drag force F on a particle and its Stokes drag coefficient 3πμd (or an empirical correction for finite Re), you can recover an effective slip speed from
+  ‖Δu‖ ≈ ‖F‖ / (3πμd). This ties the Reynolds number to the actually transferred momentum rather than the velocity field. It is attractive when you trust the force
+  evaluation more than local velocity interrogation, but it depends on a model for the drag coefficient.
