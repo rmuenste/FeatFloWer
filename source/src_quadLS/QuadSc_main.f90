@@ -14,7 +14,9 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEA
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
 use fbm
-use fbm_particle_reynolds, only: fbm_compute_particle_reynolds
+use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_particle_reynolds_interface, &
+                                 fbm_compute_particle_reynolds_interface_extended, &
+                                 fbm_compute_particle_reynolds_farfield
 
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity
 
@@ -66,6 +68,7 @@ REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iOuter,iITER
 integer :: error_indicator
+external E013
 
 CALL updateFBMGeometry()
 
@@ -274,7 +277,7 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       fbm_force_handler_ptr)
 
 call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                                   Viscosity,Properties%Density(1),mfile)
+                                   Viscosity,Properties%Density(1),mfile, E013)
 
 ! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
@@ -315,6 +318,7 @@ SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
+external E013
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -550,9 +554,21 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
                       fbm_force_handler_ptr)
 
-call Sum_myMPI(total_lubrication, global_lubrication)
-call DNA_GetSoosForce(mfile)
-call Get_DissipationIntegral(mfile)
+
+!call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+!                                   Viscosity,Properties%Density(1),mfile, E013)
+
+call fbm_compute_particle_reynolds_interface(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                  FictKNPR,Viscosity,Properties%Density(1),mfile, E013)
+call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                                      FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
+
+call fbm_compute_particle_reynolds_farfield(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                            Viscosity,Properties%Density(1),mfile)
+
+!call Sum_myMPI(total_lubrication, global_lubrication)
+!call DNA_GetSoosForce(mfile)
+!call Get_DissipationIntegral(mfile)
 
 
 #ifdef HAVE_PE 
