@@ -383,6 +383,7 @@ MODULE var_QuadScalar
     TYPE (tParticleFBM), ALLOCATABLE :: ParticleOld(:),ParticleNew(:)
     integer, allocatable, dimension(:) :: iel_ug
     REAL*8, ALLOCATABLE :: ParticleRe(:)
+    REAL*8, ALLOCATABLE :: ParticleSt(:)
   END TYPE tFBM
   CHARACTER cFBM_File*30
   TYPE (tFBM) :: myFBM

@@ -261,16 +261,113 @@ SUBROUTINE fbm_compute_particle_reynolds_interface_extended(
 - **MPI compatibility:** Natural domain decomposition, same reduction pattern
 - **Recommended use:** DNS simulations where accuracy is critical and computational cost is acceptable
 
+## Stokes Number Calculation (Particle Inertia Characterization)
+
+**Status: FULLY IMPLEMENTED** via `fbm_compute_particle_stokes`
+
+The Stokes number characterizes the ratio of particle inertia to fluid viscous forces, providing critical insight into particle response to flow variations. It is particularly useful for understanding settling behavior, flow following, and turbulent dispersion.
+
+### Physical Meaning
+
+The Stokes number is defined as:
+
+$$\mathrm{St} = \frac{\rho_p}{\rho_f} \cdot \frac{\mathrm{Re}_p}{18}$$
+
+where:
+- $\rho_p$ = particle material density (from PE library)
+- $\rho_f$ = fluid density
+- $\mathrm{Re}_p$ = particle Reynolds number (from any of the three methods above)
+
+**Physical interpretation:**
+- **St ≪ 1**: Particle closely follows fluid motion (tracer behavior)
+- **St ~ O(1)**: Particle response time comparable to flow time scales (complex dynamics)
+- **St ≫ 1**: Particle dominated by inertia, weakly coupled to fluid (ballistic motion)
+
+### Algorithm
+
+The Stokes number calculation is straightforward once Reynolds numbers are available:
+
+1. **Prerequisite check**: Ensures `ParticleRe` array has been populated by one of the Reynolds calculation methods
+2. **Particle data retrieval**: Fetches particle density from the PE library via the extended `particleData_t` interface
+3. **Formula application**: Computes `St = (ρ_p/ρ_f) * (Re_p/18)` for each particle
+4. **Storage**: Results stored in `myFBM%ParticleSt(:)` array
+
+### Implementation Details
+
+The subroutine follows the same MPI communication pattern as Reynolds calculation:
+
+```fortran
+SUBROUTINE fbm_compute_particle_stokes(RHOFLUID, mfile)
+  ! Input: RHOFLUID - fluid density
+  ! Input: mfile - protocol file handle for logging
+
+  ! Loop over all particles
+  DO ip = 1, numParticles
+    IF (myid .NE. 0) THEN
+      ! Fetch particle data including density
+      CALL getPartStructByIdx(ip-1, particle)
+      rho_particle = particle%density
+    END IF
+
+    ! Compute Stokes number from Reynolds number
+    IF (RHOFLUID .GT. 0D0) THEN
+      myFBM%ParticleSt(ip) = (rho_particle/RHOFLUID) * (myFBM%ParticleRe(ip)/18D0)
+    END IF
+  END DO
+END SUBROUTINE
+```
+
+### Data Flow
+
+The Stokes number calculation relies on data from two sources:
+
+1. **From CFD solver**: Fluid density `RHOFLUID` (typically from `Properties%Density(1)`)
+2. **From PE library**: Particle density `ρ_p` via `particleData_t` struct
+3. **From Reynolds calculation**: Particle Reynolds number `ParticleRe(ip)` (must be called first)
+
+### Material Density Integration
+
+Particle densities are automatically fetched from the PE library through the extended interface:
+
+- **C++ side** (`libs/pe/src/interface/object_queries.cpp`): Casts rigid bodies to specific geometry types and extracts material density via `Material::getDensity(mat)`
+- **Fortran side** (`source/src_particles/dem_query.f90`): Extended `tParticleData` type includes `density` field
+- **Automatic transfer**: No manual density specification required - values come directly from PE's material database
+
+### Prerequisites
+
+Before calling `fbm_compute_particle_stokes`:
+
+1. **Initialize particle system**: PE library must be initialized with particles having defined materials
+2. **Compute Reynolds numbers**: Call one of the Reynolds calculation methods:
+   - `fbm_compute_particle_reynolds` (center)
+   - `fbm_compute_particle_reynolds_interface` (interface)
+   - `fbm_compute_particle_reynolds_interface_extended` (extended interface)
+3. **Set fluid density**: Ensure `RHOFLUID` is properly set in the properties
+
+### Output and Logging
+
+The routine outputs summary statistics to the protocol file:
+
+```
+Particle Stokes numbers computed:
+  Min St = 0.152
+  Max St = 2.847
+```
+
+Results are stored in `myFBM%ParticleSt(:)` and can be exported alongside Reynolds numbers and hydrodynamic forces.
+
 ## Usage Notes
 
 * Both routines expect the viscosity array to be sized at least `NEL` for the finest level.
 * Reynolds numbers are zeroed automatically when no particles exist or when the reduction detects missing samples.
-* The values are stored in `myFBM%ParticleRe(:)` and can be exported with custom routines just like hydrodynamic forces.
-* **Element function:** Both methods require the element evaluation function `E013` to be passed as the last parameter.
+* The Reynolds values are stored in `myFBM%ParticleRe(:)` and Stokes values in `myFBM%ParticleSt(:)`. Both can be exported with custom routines just like hydrodynamic forces.
+* **Element function:** All Reynolds methods require the element evaluation function `E013` to be passed as the last parameter.
+* **Stokes number dependency:** `fbm_compute_particle_stokes` must be called AFTER one of the Reynolds calculation methods.
 * **Choosing the method:**
   - **Center sampling** (`fbm_compute_particle_reynolds`): Use for under-resolved or point-particle simulations where the particle interior is not explicitly resolved on the mesh
   - **Interface sampling** (`fbm_compute_particle_reynolds_interface`): Use for DNS or fully-resolved simulations where particles are represented on the mesh with the fictitious boundary method and the `ALPHA` field is available
   - **Extended interface sampling** (`fbm_compute_particle_reynolds_interface_extended`): Use for DNS simulations where enhanced accuracy and smoother results are desired, particularly with fine meshes or when reducing sensitivity to mesh artifacts
+  - **Stokes number** (`fbm_compute_particle_stokes`): Always called after Reynolds calculation to characterize particle inertia
 
 ### Example Usage
 
@@ -299,6 +396,23 @@ CALL fbm_compute_particle_reynolds_interface_extended( &
      Viscosity, Properties%Density(1), mfile, &
      E013, &      ! Element evaluation function
      2)           ! n_layers (optional, default=2)
+```
+
+**Stokes Number (must follow Reynolds calculation):**
+```fortran
+! First compute Reynolds numbers using any method above
+CALL fbm_compute_particle_reynolds_interface( &
+     QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+     FictKNPR, Viscosity, Properties%Density(1), mfile, E013)
+
+! Then compute Stokes numbers
+CALL fbm_compute_particle_stokes( &
+     Properties%Density(1), & ! Fluid density
+     mfile)                   ! Protocol file handle
+
+! Results available in:
+!   myFBM%ParticleRe(:) - Reynolds numbers
+!   myFBM%ParticleSt(:) - Stokes numbers
 ```
 
 ## Related Documentation

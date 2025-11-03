@@ -939,4 +939,118 @@ CONTAINS
 
   END SUBROUTINE fbm_compute_particle_reynolds_farfield
 
+!=========================================================================
+! fbm_compute_particle_stokes - Compute Stokes number from Reynolds number
+!
+! Computes the Stokes number for each particle based on previously
+! calculated Reynolds numbers and particle/fluid densities.
+!
+! The Stokes number characterizes particle inertia relative to fluid flow:
+!   St = (ρ_particle / ρ_fluid) * (Re_p / 18)
+!
+! Physical interpretation:
+!   St << 1: Particle closely follows fluid streamlines
+!   St ~ 1:  Particle responds to flow with some lag
+!   St >> 1: Particle dominated by inertia, crosses streamlines
+!
+! Prerequisites:
+!   - myFBM%ParticleRe must be populated (call Reynolds calculation first)
+!   - Particle data must be available from PE (density via getAllParticles)
+!
+! Input:
+!   RHOFLUID - Fluid density
+!   mfile    - Output file handle for logging
+!
+! Output:
+!   myFBM%ParticleSt(:) - Stokes number for each particle
+!=========================================================================
+  SUBROUTINE fbm_compute_particle_stokes(RHOFLUID, mfile)
+    USE PP3D_MPI, ONLY: COMM_Maximumn
+    use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+
+    INTEGER :: ip, numParticles
+    REAL*8 :: rho_particle
+    REAL*8 :: dbuf1(1)
+
+    TYPE(tParticleData), DIMENSION(:), ALLOCATABLE :: theParticles
+
+    ! Get total particle count
+    numParticles = numTotalParticles()
+    dbuf1(1) = DBLE(numParticles)
+    CALL COMM_Maximumn(dbuf1, 1)
+    numParticles = INT(dbuf1(1))
+
+    ! Early return if no particles
+    IF (numParticles .EQ. 0) RETURN
+
+    ! Check that ParticleRe exists and is populated
+    IF (.NOT. ALLOCATED(myFBM%ParticleRe)) THEN
+      IF (myid .EQ. 1) THEN
+        WRITE (mfile, '(A)') 'WARNING: ParticleRe not allocated. Compute Reynolds number first.'
+        WRITE (*, '(A)') 'WARNING: ParticleRe not allocated. Compute Reynolds number first.'
+      END IF
+      RETURN
+    END IF
+
+    IF (SIZE(myFBM%ParticleRe) .NE. numParticles) THEN
+      IF (myid .EQ. 1) THEN
+        WRITE (mfile, '(A)') 'WARNING: ParticleRe size mismatch. Compute Reynolds number first.'
+        WRITE (*, '(A)') 'WARNING: ParticleRe size mismatch. Compute Reynolds number first.'
+      END IF
+      RETURN
+    END IF
+
+    ! Allocate or reallocate ParticleSt array
+    IF (.NOT. ALLOCATED(myFBM%ParticleSt)) THEN
+      ALLOCATE (myFBM%ParticleSt(numParticles))
+      myFBM%ParticleSt = 0D0
+    ELSE IF (SIZE(myFBM%ParticleSt) .NE. numParticles) THEN
+      DEALLOCATE (myFBM%ParticleSt)
+      ALLOCATE (myFBM%ParticleSt(numParticles))
+      myFBM%ParticleSt = 0D0
+    END IF
+
+    ! Allocate particle data
+    ALLOCATE (theParticles(numParticles))
+
+    ! Worker ranks only
+    IF (myid .NE. 0) THEN
+      ! Fetch particle data from PE library
+      CALL getAllParticles(theParticles)
+    END IF
+
+    ! Compute Stokes number for each particle
+    ! St = (ρ_particle / ρ_fluid) * (Re_p / 18)
+    DO ip = 1, numParticles
+      IF (myid .NE. 0) THEN
+        rho_particle = theParticles(ip)%density
+      ELSE
+        rho_particle = 0D0
+      END IF
+
+      IF (RHOFLUID .GT. 0D0) THEN
+        myFBM%ParticleSt(ip) = (rho_particle/RHOFLUID) * (myFBM%ParticleRe(ip)/18D0)
+      ELSE
+        myFBM%ParticleSt(ip) = 0D0
+      END IF
+    END DO
+
+    ! Output logging
+    IF (myid .EQ. 1) THEN
+      IF (numParticles .GT. 0) THEN
+        WRITE (mfile, '(A,2E16.8)') 'Particle Stokes number range: ', &
+          MINVAL(myFBM%ParticleSt(1:numParticles)), MAXVAL(myFBM%ParticleSt(1:numParticles))
+        WRITE (*, '(A,2E16.8)') 'Particle Stokes number range: ', &
+          MINVAL(myFBM%ParticleSt(1:numParticles)), MAXVAL(myFBM%ParticleSt(1:numParticles))
+      END IF
+    END IF
+
+    ! Cleanup
+    DEALLOCATE (theParticles)
+
+  END SUBROUTINE fbm_compute_particle_stokes
+
 END MODULE fbm_particle_reynolds
