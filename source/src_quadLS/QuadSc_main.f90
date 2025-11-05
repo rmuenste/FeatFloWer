@@ -564,9 +564,6 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       fbm_force_handler_ptr)
 
 
-!call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!                                   Viscosity,Properties%Density(1),mfile, E013)
-
 call fbm_compute_particle_reynolds_interface(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                                   FictKNPR,Viscosity,Properties%Density(1),mfile, E013)
 call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&

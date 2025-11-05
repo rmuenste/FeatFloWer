@@ -7,6 +7,7 @@ MODULE fbm_particle_reynolds
 
 CONTAINS
 
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds(U1, U2, U3, DVISC, RHOFLUID, mfile, ELE)
     USE fbmaux, ONLY: fbmaux_PointInHex
     use dem_query, only: getAllParticles, tParticleData
@@ -186,6 +187,19 @@ CONTAINS
     DEALLOCATE (re_weight)
 
   END SUBROUTINE fbm_compute_particle_reynolds
+#else
+  ! Stub implementation when PE library is not available
+  SUBROUTINE fbm_compute_particle_reynolds(U1, U2, U3, DVISC, RHOFLUID, mfile, ELE)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    ! No-op: PE library not available, cannot compute particle Reynolds numbers
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds
+#endif
 
 !=========================================================================
 ! fbm_compute_particle_reynolds_interface - Interface-based Reynolds calculation
@@ -210,6 +224,7 @@ CONTAINS
 ! Output:
 !   myFBM%ParticleRe(:) - Reynolds number for each particle
 !=========================================================================
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds_interface(U1, U2, U3, ALPHA, DVISC, RHOFLUID, &
                                                      mfile, ELE)
     !USE cinterface, ONLY: tParticleData
@@ -427,6 +442,21 @@ CONTAINS
     DEALLOCATE (re_weight)
 
   END SUBROUTINE fbm_compute_particle_reynolds_interface
+#else
+  ! Stub implementation when PE library is not available
+  SUBROUTINE fbm_compute_particle_reynolds_interface(U1, U2, U3, ALPHA, DVISC, RHOFLUID, &
+                                                     mfile, ELE)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    ! No-op: PE library not available
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds_interface
+#endif
 
 !=========================================================================
 ! fbm_compute_particle_reynolds_interface_extended - Extended interface method
@@ -456,6 +486,7 @@ CONTAINS
 ! Output:
 !   myFBM%ParticleRe(:) - Reynolds number for each particle
 !=========================================================================
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds_interface_extended(U1, U2, U3, ALPHA, DVISC, &
                                                               RHOFLUID, mfile, ELE, n_layers)
     use dem_query, only: numTotalParticles, getAllParticles, tParticleData
@@ -763,6 +794,22 @@ CONTAINS
     DEALLOCATE (elem_class)
 
   END SUBROUTINE fbm_compute_particle_reynolds_interface_extended
+#else
+  ! Stub implementation when PE library is not available
+  SUBROUTINE fbm_compute_particle_reynolds_interface_extended(U1, U2, U3, ALPHA, DVISC, &
+                                                              RHOFLUID, mfile, ELE, n_layers)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    INTEGER, INTENT(IN), OPTIONAL :: n_layers
+    ! No-op: PE library not available
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds_interface_extended
+#endif
 
 !=========================================================================
 ! fbm_compute_particle_reynolds_farfield - Far-field Reynolds calculation
@@ -788,6 +835,7 @@ CONTAINS
 ! Output:
 !   myFBM%ParticleRe(:) - Far-field Reynolds number for each particle
 !=========================================================================
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, DVISC, RHOFLUID, mfile)
     USE PP3D_MPI, ONLY: COMM_Maximumn
     use dem_query, only: numTotalParticles, getAllParticles, tParticleData
@@ -938,6 +986,18 @@ CONTAINS
     DEALLOCATE (re_weight)
 
   END SUBROUTINE fbm_compute_particle_reynolds_farfield
+#else
+  ! Stub implementation when PE library is not available
+  SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, DVISC, RHOFLUID, mfile)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    ! No-op: PE library not available
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds_farfield
+#endif
 
 !=========================================================================
 ! fbm_compute_particle_stokes - Compute Stokes number from Reynolds number
@@ -964,6 +1024,7 @@ CONTAINS
 ! Output:
 !   myFBM%ParticleSt(:) - Stokes number for each particle
 !=========================================================================
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_stokes(RHOFLUID, mfile)
     USE PP3D_MPI, ONLY: COMM_Maximumn
     use dem_query, only: numTotalParticles, getAllParticles, tParticleData
@@ -1052,5 +1113,15 @@ CONTAINS
     DEALLOCATE (theParticles)
 
   END SUBROUTINE fbm_compute_particle_stokes
+#else
+  ! Stub implementation when PE library is not available
+  SUBROUTINE fbm_compute_particle_stokes(RHOFLUID, mfile)
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    ! No-op: PE library not available
+    IF (ALLOCATED(myFBM%ParticleSt)) myFBM%ParticleSt = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_stokes
+#endif
 
 END MODULE fbm_particle_reynolds
