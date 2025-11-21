@@ -893,6 +893,17 @@ CONTAINS
       RETURN
     END IF
 
+    ! NOTE ON VALIDITY:
+    !   This implementation is calibrated for the single-particle sedimentation
+    !   benchmark: the "far-field" sample is taken one particle diameter upstream
+    !   in the negative x-direction, viscosity is assumed constant, and the
+    !   nearest mesh vertex is accepted without checking the surrounding phase.
+    !   For other flow configurations (multiple particles, arbitrary inflow
+    !   direction, non-uniform viscosity) the caller must extend the sampling
+    !   logic to (a) configure the offset direction/magnitude, and (b) verify
+    !   that the sampled location lies in fluid. Without these checks the
+    !   reported Reynolds numbers can be misleading.
+
     ! Worker ranks only
     IF (myid .NE. 0) THEN
 
