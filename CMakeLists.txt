@@ -328,6 +328,20 @@ if(USE_CGAL)
 
   endif(NOT USE_CGAL_LOCAL)
 
+  # Find GMP and MPFR libraries (required dependencies for CGAL)
+  find_package(GMP REQUIRED)
+  find_package(MPFR REQUIRED)
+
+  if(GMP_FOUND)
+    message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+    message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+  endif()
+
+  if(MPFR_FOUND)
+    message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+    message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
+  endif()
+
 endif(USE_CGAL)
 
 #=========================================================================
