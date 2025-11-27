@@ -21,6 +21,16 @@ module cinterface
     character(kind = c_char) :: name(255)
   end type histoData
 
+  !----------------------------------------------
+  ! Interface for setting lubrication threshold from Fortran
+  !----------------------------------------------
+  interface
+    subroutine set_lubrication_threshold(threshold) bind(C, name="set_lubrication_threshold")
+      use iso_c_binding
+      real(c_double), intent(in) :: threshold
+    end subroutine
+  end interface
+
   contains
   !
   !----------------------------------------------
@@ -428,5 +438,6 @@ module cinterface
     stop
 
   END SUBROUTINE ExitError
+
 
 end module cinterface

@@ -63,6 +63,79 @@ end subroutine init_q2p1_ext
 !
 !----------------------------------------------
 !
+SUBROUTINE set_lubrication_threshold_from_mesh(myid)
+  USE PP3D_MPI, ONLY: master
+  USE var_QuadScalar, ONLY: mg_Mesh
+  USE cinterface, ONLY: set_lubrication_threshold
+  USE def_FEAT, ONLY: NLMAX
+
+  IMPLICIT NONE
+
+  include 'mpif.h'
+
+  INTEGER, INTENT(IN) :: myid
+  REAL*8 :: h_min, h_elem, dVol, lub_threshold, dLubricationFactor
+  REAL*8 :: x(8), y(8), z(8)
+  INTEGER :: iel, ive, ierr
+  INTEGER :: NEL, NVT
+  INTEGER, DIMENSION(:,:), POINTER :: KVERT
+  REAL*8, DIMENSION(:,:), POINTER :: DCORVG
+
+  ! Configuration parameter: lubrication threshold = factor * h_min
+  ! User can modify this value based on their simulation requirements
+  dLubricationFactor = 3.0d0  ! Default: 3x minimum mesh size
+
+  ! Get mesh data structures
+  NEL = mg_Mesh%level(NLMAX)%nel
+  NVT = mg_Mesh%level(NLMAX)%nvt
+  !KVERT => mg_Mesh%level(NLMAX)%kvert
+  !DCORVG => mg_Mesh%level(NLMAX)%dcorvg
+
+  ! Compute minimum element size on this process
+  h_min = HUGE(1.0d0)
+
+  DO iel = 1, NEL
+    ! Extract vertex coordinates for this element
+    DO ive = 1, 8
+      x(ive) = mg_Mesh%level(NLMAX)%dcorvg(1, mg_Mesh%level(NLMAX)%kvert(ive, iel))
+      y(ive) = mg_Mesh%level(NLMAX)%dcorvg(2, mg_Mesh%level(NLMAX)%kvert(ive, iel))
+      z(ive) = mg_Mesh%level(NLMAX)%dcorvg(3, mg_Mesh%level(NLMAX)%kvert(ive, iel))
+    END DO
+
+    ! Compute element volume
+    CALL GetElemVol(x, y, z, dVol)
+
+    ! Characteristic element size: h = V^(1/3)
+    h_elem = dVol**(1.0d0/3.0d0)
+
+    ! Track minimum
+    h_min = MIN(h_min, h_elem)
+  END DO
+
+  ! MPI reduction to get global minimum across all processes
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, h_min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+  ! Compute lubrication threshold
+  lub_threshold = dLubricationFactor * h_min
+
+  ! Set the threshold in PE library
+  CALL set_lubrication_threshold(lub_threshold)
+
+  ! Output information (master process only)
+  IF (myid .EQ. master) THEN
+    WRITE(*,'(A)') '=========================================='
+    WRITE(*,'(A)') 'Lubrication Threshold Configuration'
+    WRITE(*,'(A)') '=========================================='
+    WRITE(*,'(A,ES12.5)') '  Minimum mesh size (h_min):    ', h_min
+    WRITE(*,'(A,F6.2)') '  Lubrication factor:           ', dLubricationFactor
+    WRITE(*,'(A,ES12.5)') '  Lubrication threshold:        ', lub_threshold
+    WRITE(*,'(A)') '=========================================='
+  END IF
+
+END SUBROUTINE set_lubrication_threshold_from_mesh
+!
+!----------------------------------------------
+!
 SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
@@ -151,7 +224,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL CommBarrier()
  
  ! partitioning
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
+#else
+  include 'PartitionReader.f90'
+#endif
+#else
+  include 'PartitionReader2.f90'
+#endif
 
  CALL Init_QuadScalar(mfile)
 
@@ -430,13 +511,16 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
  if (myid .ne. 0) then
-   call commf2c_kroupa(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+   call commf2c_lubrication_lab(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
+
+ ! Set lubrication threshold based on mesh size
+ call set_lubrication_threshold_from_mesh(myid)
 #endif
 
- call init_fc_rigid_body(myid)      
+ call init_fc_rigid_body(myid)
 
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 

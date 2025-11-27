@@ -395,18 +395,73 @@ SUBROUTINE General_init(MDATA,MFILE)
       ProlongationDirection,bNS_Stabilization,b2DViscoBench,b3DViscoBench,&
       SSE_HAS_ANGLE, extruder_angle, ApplicationString,VersionString,MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle
 
-    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-    PARAMETER (NNLEV=9)
-    CHARACTER*7 cName
-    CHARACTER letter
-    INTEGER :: myFile=888
-    INTEGER iEnd,iAt,iEq,iLen,iCurrentStatus,istat
-    INTEGER iOutShift
-    CHARACTER string*500,cVar*7,cPar*25,cLongString*400
-    CHARACTER cParam*8,cParam2*20
-    LOGICAL bOK,bOutNMAX
+    IMPLICIT NONE
+
+    ! Parameters
+    INTEGER, PARAMETER :: NNLEV=9
+
+    ! File unit constants
+    INTEGER, PARAMETER :: PARAM_FILE_UNIT = 888
+    INTEGER, PARAMETER :: MESH_FILE_UNIT = 61
+    INTEGER, PARAMETER :: PROTOCOL_FILE_UNIT = 62
+    INTEGER, PARAMETER :: START_FILE_UNIT = 63
+    INTEGER, PARAMETER :: SOL_FILE_UNIT = 64
+
+    ! Subroutine arguments
+    CHARACTER(len=7) :: cName
+    INTEGER :: iCurrentStatus
+
+    ! Local variables - integers
+    INTEGER :: myFile = PARAM_FILE_UNIT
+    INTEGER :: iEnd, iAt, iEq, iLen, istat
+    INTEGER :: iOutShift
+    INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
+    INTEGER :: MFILE
     INTEGER, ALLOCATABLE :: iPos(:)
-    logical :: is_open
+
+    ! Local variables - characters
+    CHARACTER :: letter
+    CHARACTER(len=500) :: string
+    CHARACTER(len=7) :: cVar
+    CHARACTER(len=25) :: cPar
+    CHARACTER(len=400) :: cLongString
+    CHARACTER(len=8) :: cParam
+    CHARACTER(len=20) :: cParam2
+
+    ! Local variables - logicals
+    LOGICAL :: bOK, bOutNMAX
+    LOGICAL :: is_open
+
+    ! COMMON block variables - /OUTPUT/
+    INTEGER :: M, MT, MKEYB, MTERM, MERR, MPROT, MSYS, MTRC, IRECL8
+
+    ! COMMON block variables - /MGPAR/
+    INTEGER :: ILEV, NLEV, NLMIN, NLMAX, ICYCLE
+    INTEGER :: KPRSM, KPOSM
+    ! Note: Array dimensions for KPRSM and KPOSM are specified in COMMON statement
+
+    ! COMMON block variables - /NSPAR/
+    DOUBLE PRECISION :: TSTEP, THETA, THSTEP, TIMENS, EPSNS
+    INTEGER :: NITNS, ITNS
+
+    ! COMMON block variables - /NSADAT/
+    DOUBLE PRECISION :: TIMEMX, DTMIN, DTMAX, DTFACT, TIMEIN
+    DOUBLE PRECISION :: EPSADI, EPSADL, EPSADU
+    DOUBLE PRECISION :: PRDIF1, PRDIF2
+    INTEGER :: IEPSAD, IADIN, IREPIT, IADTIM
+
+    ! COMMON block variables - /NSSAV/
+    INTEGER :: INSAV, INSAVN
+
+    ! COMMON block variables - /NSSAVF/
+    DOUBLE PRECISION :: DTFILM, DTFILO, DTAVS, DTAVSO, DTGMV, DTGMVO
+    INTEGER :: IFUSAV, IFPSAV, IFXSAV, IGID, IGMV, IFINIT
+
+    ! COMMON block variables - /FILES/
+    INTEGER :: IMESH1, MMESH1, MFILE1
+    INTEGER :: ISTART, MSTART
+    INTEGER :: ISOL, MSOL
+    CHARACTER(len=60) :: CPARM1, CMESH1, CFILE1, CSTART, CSOL
 
     !-----------------------------------------------------------------------
     !     C O M M O N S 
@@ -425,35 +480,36 @@ SUBROUTINE General_init(MDATA,MFILE)
     COMMON /NSSAVF/ DTFILM,DTFILO,DTAVS,DTAVSO,DTGMV,DTGMVO,&
       IFUSAV,IFPSAV,IFXSAV,IGID,IGMV,IFINIT
 
-    CHARACTER CPARM1*60,CMESH1*60,CFILE1*60,CSTART*60,CSOL*60
+    ! Note: CHARACTER variables for /FILES/ declared above
     COMMON /FILES/ IMESH1,MMESH1,CPARM1,CMESH1,MFILE1,CFILE1,&
       ISTART,MSTART,CSTART,ISOL,MSOL,CSOL
 
     SAVE 
 
     inquire(unit=myFile, OPENED=is_open)
-    if(.not. is_open)then
+    if (.not. is_open) then
       OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action="read",iostat=istat)
-      if(istat .ne. 0)then
-        write(*,*)'Could not open data file: ',myDataFile
-        stop
+      if (istat /= 0) then
+        write(*,'(A)') 'ERROR: Could not open parameter data file'
+        write(*,'(A,A)') '  File: ', TRIM(myDataFile)
+        write(*,'(A,I0)') '  iostat = ', istat
+        write(*,'(A)') 'Please check that the file exists and is readable.'
+        stop 1
       end if
     end if
 
-    bOutNMAX = .FALSE.
+    bOutNMAX = .false.
     DO
     READ (UNIT=myFile,FMT='(A500)',IOSTAT=iEnd) string
-    IF (iEnd.EQ.-1) EXIT
+    IF (iEnd == -1) EXIT
     CALL StrStuct()
     IF (bOK) THEN
 
       READ(string(1:iAt-1),*) cVar
 
-      !   IF (myid.eq.1) WRITE(*,*) TRIM(ADJUSTL(cName))//"#"//TRIM(ADJUSTL(cVar)),TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))
-      IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
+      IF (TRIM(ADJUSTL(cVar)) == TRIM(ADJUSTL(cName))) THEN
 
         READ(string(iAt+1:iEq-1),*) cPar
-        !     IF (myid.eq.1) WRITE(*,*) TRIM(ADJUSTL(cName))//"#"//TRIM(ADJUSTL(cPar))
         SELECT CASE (TRIM(ADJUSTL(cPar)))
 
         CASE ("MeshFolder")
@@ -464,16 +520,16 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) cFBM_File
         CASE ("ProjectFile")
           READ(string(iEq+1:),*) cProjectFile
-          MMESH1=61
+          MMESH1 = MESH_FILE_UNIT
         CASE ("ProtocolFile")
           READ(string(iEq+1:),*) CFILE1
           if (SSE_HAS_ANGLE)then
-            CFILE1='' 
+            CFILE1=''
             iangle = int(extruder_angle)
             write(cfile1,'(a, I4.4,a)') '_data/prot.',iangle,'.txt'
           end if
-          MFILE1=62
-          MFILE=MFILE1
+          MFILE1 = PROTOCOL_FILE_UNIT
+          MFILE = MFILE1
         CASE ("StartingProc")
           READ(string(iEq+1:),*) ISTART
         CASE ("Umbrella")
@@ -486,34 +542,26 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(string(iEq+1:),*) nUmbrellaStepsLvl
         CASE ("StartFile")
           READ(string(iEq+1:),*) CSTART
-          !      iLen = LEN(TRIM(ADJUSTL(CSTART)))
-          !      IF     (myid.lt.10 ) THEN
-          !       WRITE(CSTART(iLen+1:),'(A,I1)') "00",myid
-          !      ELSEIF (myid.lt.100) THEN
-          !       WRITE(CSTART(iLen+1:),'(A,I2)') "0",myid
-          !      ELSE 
-          !       WRITE(CSTART(iLen+1:),'(I3)') myid
-          !      END IF
-          MSTART=63
+          MSTART = START_FILE_UNIT
         CASE ("LoadAdaptedMesh")
-          bMeshAdaptation = .TRUE. 
+          bMeshAdaptation = .true.
           READ(string(iEq+1:),*) cAdaptedMeshFile
         CASE ("SolFile")
           READ(string(iEq+1:),*) CSOL
           iLen = LEN(TRIM(ADJUSTL(CSOL)))
-          IF     (myid.lt.10 ) THEN
+          IF (myid < 10) THEN
             WRITE(CSOL(iLen+1:),'(A,I1)') "00",myid
-          ELSEIF (myid.lt.100) THEN
+          ELSEIF (myid < 100) THEN
             WRITE(CSOL(iLen+1:),'(A,I2)') "0",myid
-          ELSE 
+          ELSE
             WRITE(CSOL(iLen+1:),'(I3)') myid
           END IF
-          MSOL=64
+          MSOL = SOL_FILE_UNIT
           ISOL = 1
         CASE ("MinMeshLevel")
           READ(string(iEq+1:),*) NLMIN
         CASE ("MaxMeshLevel")
-          IF (myid.ne.master) THEN
+          IF (myid /= master) THEN
             READ(string(iEq+1:),*) NLMAX
             myExport%LevelMax = NLMAX
             MaxLevelKnownToMaster = NLMAX
@@ -521,13 +569,12 @@ SUBROUTINE General_init(MDATA,MFILE)
             READ(string(iEq+1:),*) MaxLevelKnownToMaster
             myExport%LevelMax = MaxLevelKnownToMaster
           END IF
-          !     IF (myid.eq.MASTER) NLMAX=2
         CASE ("TimeScheme")
           cParam = " "
           READ(string(iEq+1:),*) cParam
           THETA = 0.5d0
-          IF (TRIM(ADJUSTL(cParam)).EQ."BE") THETA = 1.0d0
-          IF (TRIM(ADJUSTL(cParam)).EQ."FE") THETA = 0.0d0
+          IF (TRIM(ADJUSTL(cParam)) == "BE") THETA = 1.0d0
+          IF (TRIM(ADJUSTL(cParam)) == "FE") THETA = 0.0d0
         CASE ("TimeStep")
           READ(string(iEq+1:),*) TSTEP
         CASE ("Bench_U_mean")
@@ -546,43 +593,26 @@ SUBROUTINE General_init(MDATA,MFILE)
         CASE ("Bench_Sc_a")
           READ(string(iEq+1:),*) postParams%Sc_a
         CASE ("TimeAdaptivity")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
           IADTIM = 0
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") IADTIM = 1
+          IF (read_yes_no_param(string, iEq)) IADTIM = 1
          CASE ("ProlongationDirection")
           READ(string(iEq+1:),*) ProlongationDirection
          CASE ("Tracer")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bTracer = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bTracer = .TRUE.
+          bTracer = read_yes_no_param(string, iEq)
         CASE ("ViscoElastic")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bViscoElastic = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
+          bViscoElastic = read_yes_no_param(string, iEq)
         CASE ("ViscoElasticBench")
           READ(string(iEq+1:),*) iVisco
           b2DViscoBench = .false.
           b3DViscoBench = .false.
-          if (iVisco.eq.2) b2DViscoBench = .true.
-          if (iVisco.eq.3) b3DViscoBench = .true.
+          if (iVisco == 2) b2DViscoBench = .true.
+          if (iVisco == 3) b3DViscoBench = .true.
         CASE ("SteadyState")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bSteadyState = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bSteadyState = .true.
+          bSteadyState = read_yes_no_param(string, iEq)
         CASE ("ReferenceFrame")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bRefFrame = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bRefFrame = .TRUE.
+          bRefFrame = read_yes_no_param(string, iEq)
         CASE ("NoOutflow")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bNoOutflow = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bNoOutflow = .TRUE.
+          bNoOutflow = read_yes_no_param(string, iEq)
         CASE ("MinTimeAdapt")
           READ(string(iEq+1:),*) DTMIN
         CASE ("MaxTimeAdapt")
@@ -601,15 +631,9 @@ SUBROUTINE General_init(MDATA,MFILE)
         CASE ("BackUpNum")
           READ(string(iEq+1:),*) INSAVN
         CASE ("BoundaryCheck")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bBoundaryCheck = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bBoundaryCheck = .true.
+          bBoundaryCheck = read_yes_no_param(string, iEq)
         CASE ("NS_Stabilization")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          bNS_Stabilization = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bNS_Stabilization = .true.
+          bNS_Stabilization = read_yes_no_param(string, iEq)
         CASE ("OutputFreq")
           READ(string(iEq+1:),*) DTGMV
         CASE ("MatrixRenewal")
@@ -626,23 +650,23 @@ SUBROUTINE General_init(MDATA,MFILE)
           READ(cParam2(iLoc:iLoc),'(I1)') myMatrixRenewal%S
         CASE ("FlowType")
           READ(string(iEq+1:),*) cParam2
-          bNonNewtonian=.TRUE.
-          IF (TRIM(ADJUSTL(cParam2)).EQ."Newtonian") bNonNewtonian=.FALSE.
+          bNonNewtonian = .true.
+          IF (TRIM(ADJUSTL(cParam2)) == "Newtonian") bNonNewtonian = .false.
         CASE ("OutputLevel")
           READ(string(iEq+1:),*) cParam2
-          IF (TRIM(ADJUSTL(cParam2)).EQ."MAX") THEN
-            bOutNMAX = .TRUE.
+          IF (TRIM(ADJUSTL(cParam2)) == "MAX") THEN
+            bOutNMAX = .true.
             iOutShift = 0
           END IF
-          IF (TRIM(ADJUSTL(cParam2)).EQ."MAX+1") THEN
-            bOutNMAX = .TRUE.
+          IF (TRIM(ADJUSTL(cParam2)) == "MAX+1") THEN
+            bOutNMAX = .true.
             iOutShift = 1
           END IF
-          IF (TRIM(ADJUSTL(cParam2)).EQ."MAX-1") THEN
-            bOutNMAX = .TRUE.
+          IF (TRIM(ADJUSTL(cParam2)) == "MAX-1") THEN
+            bOutNMAX = .true.
             iOutShift = -1
           END IF
-          IF (.NOT.bOutNMAX) THEN
+          IF (.not. bOutNMAX) THEN
             READ(string(iEq+1:),*) myExport%Level
             myExport%Level = MAX(MIN(myExport%Level,myExport%LevelMax+1),1)
           END IF
@@ -659,11 +683,7 @@ SUBROUTINE General_init(MDATA,MFILE)
          READ(string(iEq+1:),*) RadParticle
 
         CASE ("aSynchComm")
-          cParam = " "
-          READ(string(iEq+1:),*) cParam
-          call inip_toupper_replace(cParam)
-          baSynch = .FALSE.
-          IF (TRIM(ADJUSTL(cParam)).EQ."YES") baSynch = .TRUE.
+          baSynch = read_yes_no_param(string, iEq)
         CASE ("CommSwitch")
           READ(string(iEq+1:),*) iCommSwitch
         CASE ("OutputFormat")
@@ -675,7 +695,7 @@ SUBROUTINE General_init(MDATA,MFILE)
           nFields = 0
           DO i=1,mylength
           READ(cLongString(i:i),'(A)') letter
-          IF (letter.eq.',') nFields = nFields + 1
+          IF (letter == ',') nFields = nFields + 1
           END DO
           IF (ALLOCATED(myExport%Fields)) DEALLOCATE(myExport%Fields)
           IF (ALLOCATED(iPos)) DEALLOCATE(iPos)
@@ -684,7 +704,7 @@ SUBROUTINE General_init(MDATA,MFILE)
           nFields = 0
           DO i=1,mylength
           READ(cLongString(i:i),'(A)') letter
-          IF (letter.eq.',') THEN
+          IF (letter == ',') THEN
             nFields = nFields + 1
             iPos(nFields+1) = i
           END IF
@@ -712,91 +732,55 @@ SUBROUTINE General_init(MDATA,MFILE)
 
 
     inquire(unit=mfile1, OPENED=is_open)
-    if(.not. is_open)then
-      IF (myid.eq.showid) THEN
+    if (.not. is_open) then
+      IF (myid == showid) THEN
         OPEN (UNIT=mfile1,FILE=cfile1,action="write",status="replace",iostat=istat)
-        if(istat .ne. 0)then
-          write(*,*)'Could not open protocol file for writing.'
-          stop
+        if (istat /= 0) then
+          write(*,'(A)') 'ERROR: Could not open protocol file for writing'
+          write(*,'(A,A)') '  File: ', TRIM(cfile1)
+          write(*,'(A,I0)') '  iostat = ', istat
+          write(*,'(A)') 'Please check write permissions and disk space.'
+          stop 1
         end if
       end if
     end if
 
-    IF (iCurrentStatus.EQ.0) THEN
-      IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101) ApplicationString,VersionString
-      IF (myid.eq.showid) WRITE(UNIT=mfile,FMT=101) ApplicationString,VersionString
+    IF (iCurrentStatus == 0) THEN
+      IF (myid == showid) WRITE(UNIT=mterm,FMT=101) ApplicationString,VersionString
+      IF (myid == showid) WRITE(UNIT=mfile,FMT=101) ApplicationString,VersionString
     END IF
 
     ! Printout of all loaded parameters
 
-    IF (myid.eq.showid) THEN
-      WRITE(mfile,'(A,I3)') "CommSwitch = ",iCommSwitch
-      WRITE(mterm,'(A,I3)') "CommSwitch = ",iCommSwitch
-      
+    IF (myid == showid) THEN
+      CALL write_param_int(mfile, mterm, "CommSwitch = ", iCommSwitch)
+
       IF (baSynch) THEN
-       WRITE(mfile,'(A)') "aSynchComm = YES"
-       WRITE(mterm,'(A)') "aSynchComm = YES"
+       CALL write_param_str(mfile, mterm, "aSynchComm = ", "YES")
       ELSE
-       WRITE(mfile,'(A)') "aSynchComm = NO"
-       WRITE(mterm,'(A)') "aSynchComm = NO"
+       CALL write_param_str(mfile, mterm, "aSynchComm = ", "NO")
       END IF
-      
-      WRITE(mfile,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
-      WRITE(mterm,'(A,I10)') "nSubCoarseMesh = ",nSubCoarseMesh
 
-      WRITE(mfile,'(A,A)') "ParticleFile = ",cFBM_File
-      WRITE(mterm,'(A,A)') "ParticleFile = ",cFBM_File
+      CALL write_param_int(mfile, mterm, "nSubCoarseMesh = ", nSubCoarseMesh)
+      CALL write_param_str(mfile, mterm, "ParticleFile = ", cFBM_File)
+      CALL write_param_str(mfile, mterm, "ProjectFile = ", TRIM(CProjectFile))
+      CALL write_param_int(mfile, mterm, "StartingProc = ", ISTART)
+      CALL write_param_str(mfile, mterm, "StartFile = ", CSTART)
+      CALL write_param_str(mfile, mterm, "SolFile = ", CSOL)
+      CALL write_param_int(mfile, mterm, "MinMeshLevel = ", NLMIN)
+      CALL write_param_int(mfile, mterm, "MaxMeshLevel = ", NLMAX)
+      CALL write_param_real(mfile, mterm, "TimeScheme = ", THETA)
+      CALL write_param_real(mfile, mterm, "TimeStep = ", TSTEP)
+      CALL write_param_int(mfile, mterm, "TimeAdaptivity = ", IADTIM)
+      CALL write_param_real(mfile, mterm, "MinTimeAdapt = ", DTMIN)
+      CALL write_param_real(mfile, mterm, "MaxTimeAdapt = ", DTMAX)
+      CALL write_param_real(mfile, mterm, "StartSimTime = ", TIMENS)
 
-      WRITE(mfile,'(A,A)') "ProjectFile = ",TRIM(CProjectFile)
-      WRITE(mterm,'(A,A)') "ProjectFile = ",TRIM(CProjectFile)
-
-      WRITE(mfile,'(A,I1)') "StartingProc = ", ISTART
-      WRITE(mterm,'(A,I1)') "StartingProc = ", ISTART
-
-      WRITE(mfile,'(A,A)') "StartFile = ",CSTART
-      WRITE(mterm,'(A,A)') "StartFile = ",CSTART
-
-      WRITE(mfile,'(A,A)') "SolFile = ",CSOL
-      WRITE(mterm,'(A,A)') "SolFile = ",CSOL
-
-      WRITE(mfile,'(A,I1)') "MinMeshLevel = ",NLMIN
-      WRITE(mterm,'(A,I1)') "MinMeshLevel = ",NLMIN
-
-      WRITE(mfile,'(A,I1)') "MaxMeshLevel = ",NLMAX
-      WRITE(mterm,'(A,I1)') "MaxMeshLevel = ",NLMAX
-
-      WRITE(mfile,'(A,D12.4)') "TimeScheme = ",THETA
-      WRITE(mterm,'(A,D12.4)') "TimeScheme = ",THETA
-
-      WRITE(mfile,'(A,D12.4)') "TimeStep = ",TSTEP
-      WRITE(mterm,'(A,D12.4)') "TimeStep = ",TSTEP
-
-      WRITE(mfile,'(A,I1)') "TimeAdaptivity = ", IADTIM
-      WRITE(mterm,'(A,I1)') "TimeAdaptivity = ", IADTIM
-
-      WRITE(mfile,'(A,D12.4)') "MinTimeAdapt = ",DTMIN
-      WRITE(mterm,'(A,D12.4)') "MinTimeAdapt = ",DTMIN
-
-      WRITE(mfile,'(A,D12.4)') "MaxTimeAdapt = ",DTMAX
-      WRITE(mterm,'(A,D12.4)') "MaxTimeAdapt = ",DTMAX
-
-      WRITE(mfile,'(A,D12.4)') "StartSimTime = ", TIMENS
-      WRITE(mterm,'(A,D12.4)') "StartSimTime = ", TIMENS
-
-      WRITE(mfile,'(A,D12.4)') "MaxSimTime = ", TIMEMX
-      WRITE(mterm,'(A,D12.4)') "MaxSimTime = ", TIMEMX
-
-      WRITE(mfile,'(A,I10)') "MaxNumStep = ", NITNS
-      WRITE(mterm,'(A,I10)') "MaxNumStep = ", NITNS
-
-      WRITE(mfile,'(A,I10)') "BackUpFreq = ", INSAV
-      WRITE(mterm,'(A,I10)') "BackUpFreq = ", INSAV
-
-      WRITE(mfile,'(A,I10)') "BackUpNum = ", INSAVN
-      WRITE(mterm,'(A,I10)') "BackUpNum = ", INSAVN
-
-      WRITE(mfile,'(A,D12.4)') "OutputFreq = ", DTGMV
-      WRITE(mterm,'(A,D12.4)') "OutputFreq = ", DTGMV
+      CALL write_param_real(mfile, mterm, "MaxSimTime = ", TIMEMX)
+      CALL write_param_int(mfile, mterm, "MaxNumStep = ", NITNS)
+      CALL write_param_int(mfile, mterm, "BackUpFreq = ", INSAV)
+      CALL write_param_int(mfile, mterm, "BackUpNum = ", INSAVN)
+      CALL write_param_real(mfile, mterm, "OutputFreq = ", DTGMV)
 
       WRITE(mfile,'(A,I1)') "ElemTransform = Q", Transform%ilint
       WRITE(mterm,'(A,I1)') "ElemTransform = Q", Transform%ilint
@@ -808,60 +792,49 @@ SUBROUTINE General_init(MDATA,MFILE)
         ", D = ",myMatrixRenewal%D,", K = ",myMatrixRenewal%K,", S = ",myMatrixRenewal%S,&
         ", C = ",myMatrixRenewal%C
 
-      IF (bMeshAdaptation) THEN 
-        WRITE(mfile,'(A,A)') "Use initial Mesh Adaptation file: ",ADJUSTL(TRIM(cAdaptedMeshFile))
-        WRITE(mterm,'(A,A)') "Use initial Mesh Adaptation file: ",ADJUSTL(TRIM(cAdaptedMeshFile))
+      IF (bMeshAdaptation) THEN
+        CALL write_param_str(mfile, mterm, "Use initial Mesh Adaptation file: ", &
+                            ADJUSTL(TRIM(cAdaptedMeshFile)))
       ELSE
-        WRITE(mfile,'(A)') "No Initial Mesh Adaptation"
-        WRITE(mterm,'(A)') "No Initial Mesh Adaptation"
+        CALL write_param_str(mfile, mterm, "No Initial Mesh Adaptation", "")
       END IF
 
-      IF (bNS_Stabilization) THEN 
-        WRITE(mfile,'(A,A)') "Stabilization of Navier-Stokes is ::  ON"
-        WRITE(mterm,'(A,A)') "Stabilization of Navier-Stokes is ::  ON"
+      IF (bNS_Stabilization) THEN
+        CALL write_param_str(mfile, mterm, "Stabilization of Navier-Stokes is ::  ", "ON")
       ELSE
-        WRITE(mfile,'(A,A)') "Stabilization of Navier-Stokes is ::  OFF"
-        WRITE(mterm,'(A,A)') "Stabilization of Navier-Stokes is ::  OFF"
+        CALL write_param_str(mfile, mterm, "Stabilization of Navier-Stokes is ::  ", "OFF")
       END IF
 
-      WRITE(mfile,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
-      WRITE(mterm,'(A,I10)') "Number of Initial Umbrella smoothening steps",nInitUmbrellaSteps
-
-      WRITE(mfile,'(A,I10)') "Number of Umbrella smoothening steps: ",nUmbrellaSteps
-      WRITE(mterm,'(A,I10)') "Number of Umbrella smoothening steps:",nUmbrellaSteps
-
-      WRITE(mfile,'(A,I10)') "Number of Umbrella Loops: ", nMainUmbrellaSteps
-      WRITE(mterm,'(A,I10)') "Number of Umbrella Loops: ", nMainUmbrellaSteps
+      CALL write_param_int(mfile, mterm, "Number of Initial Umbrella smoothening steps", &
+                          nInitUmbrellaSteps)
+      CALL write_param_int(mfile, mterm, "Number of Umbrella smoothening steps: ", nUmbrellaSteps)
+      CALL write_param_int(mfile, mterm, "Number of Umbrella Loops: ", nMainUmbrellaSteps)
       
       WRITE(mfile,'(A,10I10)') "Number of Umbrella steps per levels: ", nUmbrellaStepsLvl
       WRITE(mterm,'(A,10I10)') "Number of Umbrella steps per levels: ", nUmbrellaStepsLvl
 
-      IF (bNoOutflow) THEN 
-        WRITE(mfile,'(A)') "Matrix modification is to be performed due to the NoOuflow Condition"
-        WRITE(mterm,'(A)') "Matrix modification is to be performed due to the NoOuflow Condition"
+      IF (bNoOutflow) THEN
+        CALL write_param_str(mfile, mterm, &
+          "Matrix modification is to be performed due to the NoOuflow Condition", "")
       END IF
 
-      IF (bTracer) THEN 
-        WRITE(mfile,'(A)') "Tracer equation is included"
-        WRITE(mterm,'(A)') "Tracer equation is included"
+      IF (bTracer) THEN
+        CALL write_param_str(mfile, mterm, "Tracer equation is included", "")
       END IF
 
-      IF (bViscoElastic) THEN 
-        WRITE(mfile,'(A)') "Visco-elastic equation is included"
-        WRITE(mterm,'(A)') "Visco-elastic equation is included"
+      IF (bViscoElastic) THEN
+        CALL write_param_str(mfile, mterm, "Visco-elastic equation is included", "")
       END IF
 
-      IF (b2DViscoBench.or.b3DViscoBench) THEN 
+      IF (b2DViscoBench .or. b3DViscoBench) THEN
         WRITE(mfile,'(A,I1,A)') "Visco-elastic benchmark computation for ",iVisco,"D"
         WRITE(mterm,'(A,I1,A)') "Visco-elastic benchmark computation for ",iVisco,"D"
       END IF
 
-      IF (bBoundaryCheck) THEN 
-        WRITE(mfile,'(A)') "BoundaryCheck is ON"
-        WRITE(mterm,'(A)') "BoundaryCheck is ON"
+      IF (bBoundaryCheck) THEN
+        CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "ON")
       ELSE
-        WRITE(mfile,'(A)') "BoundaryCheck is OFF"
-        WRITE(mterm,'(A)') "BoundaryCheck is OFF"
+        CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "OFF")
       END IF
 
       WRITE(mfile,'(A,3ES14.4)') "Newtonian FAC Benchamrk params (U,H,D) : ",postParams%U_mean,postParams%H,postParams%D
@@ -870,51 +843,43 @@ SUBROUTINE General_init(MDATA,MFILE)
       WRITE(mfile,'(A,3ES14.4)') "Viscoelastic Benchamrk params (Sc_U,Sc_Mu,Sc_a) : ",postParams%Sc_U,postParams%Sc_Mu,postParams%Sc_a
       WRITE(mterm,'(A,3ES14.4)') "Viscoelastic Benchamrk params (Sc_U,Sc_Mu,Sc_a) : ",postParams%Sc_U,postParams%Sc_Mu,postParams%Sc_a
           
-      IF (bNonNewtonian) THEN 
-        WRITE(mfile,'(A)') "FlowType = non-Newtonian"
-        WRITE(mterm,'(A)') "FlowType = non-Newtonian"
+      IF (bNonNewtonian) THEN
+        CALL write_param_str(mfile, mterm, "FlowType = ", "non-Newtonian")
       ELSE
-        WRITE(mfile,'(A)') "FlowType = Newtonian"
-        WRITE(mterm,'(A)') "FlowType = Newtonian"
+        CALL write_param_str(mfile, mterm, "FlowType = ", "Newtonian")
       END IF
 
       ! Print new parameters
-      WRITE(MFILE,'(A,D12.4)') "GammaDot = ", GammaDot
-      WRITE(MTERM,'(A,D12.4)') "GammaDot = ", GammaDot
-
-      WRITE(MFILE,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
-      WRITE(MTERM,'(A,D12.4)') "AlphaRelax = ", AlphaRelax
-     
-      WRITE(MFILE,'(A,D12.4)') "RadParticle = ", RadParticle
-      WRITE(MTERM,'(A,D12.4)') "RadParticle = ", RadParticle
+      CALL write_param_real(mfile, mterm, "GammaDot = ", GammaDot)
+      CALL write_param_real(mfile, mterm, "AlphaRelax = ", AlphaRelax)
+      CALL write_param_real(mfile, mterm, "RadParticle = ", RadParticle)
 
       
-      IF (ProlongationDirection.eq.0) THEN 
+      IF (ProlongationDirection == 0) THEN
        WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"
        WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"
       ELSE
-       IF (ProlongationDirection.eq.1) THEN 
+       IF (ProlongationDirection == 1) THEN
         WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in X axis"
         WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in X axis"
        END IF
-       IF (ProlongationDirection.eq.2) THEN 
+       IF (ProlongationDirection == 2) THEN
         WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Y axis"
         WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Y axis"
        END IF
-       IF (ProlongationDirection.eq.3) THEN 
+       IF (ProlongationDirection == 3) THEN
         WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Z axis"
         WRITE(mterm,'(A,D12.4)') "Mesh Prolongation is set to  = CYLINDRICAL in Z axis"
        END IF
       END IF
 
-      WRITE(mfile,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
-      WRITE(mterm,'(A,D12.4)') "CGALtoRealFactor = ",dCGALtoRealFactor
+      CALL write_param_real(mfile, mterm, "CGALtoRealFactor = ", dCGALtoRealFactor)
       
 
       WRITE(mfile,'(4A,I3,3A,100A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
-        myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"!,mylength,iPos
+        myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"
       WRITE(mterm,'(4A,I3,3A,100A)') "Exporting into ", "'",myExport%Format,"' on level: ",&
-        myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"!,mylength,iPos
+        myExport%Level," Fields: '",("["//TRIM(ADJUSTL(myExport%Fields(i)))//"]",i=1,nFields+1),"'"
     END IF
 
 
@@ -964,13 +929,60 @@ SUBROUTINE General_init(MDATA,MFILE)
       iAt = 0
       iEq = 0
       DO i=1,n
-      IF (string(i:i).EQ. '@') iAt = i
-      IF (string(i:i).EQ. '=') iEq = i
+      IF (string(i:i) == '@') iAt = i
+      IF (string(i:i) == '=') iEq = i
       END DO
 
-      bOk=.FALSE.
-      IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
+      bOk = .false.
+      IF (iAt /= 0 .and. iEq /= 0) bOk = .true.
 
     END SUBROUTINE StrStuct
+
+    !-----------------------------------------------------------------------
+    ! Helper subroutine to write parameter to both file and terminal
+    !-----------------------------------------------------------------------
+    SUBROUTINE write_param_int(mf, mt, label, value)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: mf, mt, value
+      CHARACTER(*), INTENT(IN) :: label
+
+      WRITE(mf,'(A,I10)') label, value
+      WRITE(mt,'(A,I10)') label, value
+    END SUBROUTINE write_param_int
+
+    SUBROUTINE write_param_real(mf, mt, label, value)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: mf, mt
+      DOUBLE PRECISION, INTENT(IN) :: value
+      CHARACTER(*), INTENT(IN) :: label
+
+      WRITE(mf,'(A,D12.4)') label, value
+      WRITE(mt,'(A,D12.4)') label, value
+    END SUBROUTINE write_param_real
+
+    SUBROUTINE write_param_str(mf, mt, label, value)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: mf, mt
+      CHARACTER(*), INTENT(IN) :: label, value
+
+      WRITE(mf,'(A,A)') label, value
+      WRITE(mt,'(A,A)') label, value
+    END SUBROUTINE write_param_str
+
+    !-----------------------------------------------------------------------
+    ! Helper function to parse Yes/No string to logical value
+    !-----------------------------------------------------------------------
+    FUNCTION read_yes_no_param(input_string, iEq_pos) RESULT(bool_value)
+      IMPLICIT NONE
+      CHARACTER(*), INTENT(IN) :: input_string
+      INTEGER, INTENT(IN) :: iEq_pos
+      LOGICAL :: bool_value
+      CHARACTER(len=8) :: cParam_local
+
+      cParam_local = " "
+      READ(input_string(iEq_pos+1:),*) cParam_local
+      bool_value = .false.
+      IF (TRIM(ADJUSTL(cParam_local)) == "Yes") bool_value = .true.
+    END FUNCTION read_yes_no_param
 
   END SUBROUTINE GDATNEW
