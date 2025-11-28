@@ -1,6 +1,7 @@
 ! ----------------------------------------------
 !
 SUBROUTINE Init_QuadScalar(mfile)
+use param_parser, only: GetVeloParameters, GetPresParameters
 INTEGER I,J,ndof,mfile
 
  ! Init pe handlers

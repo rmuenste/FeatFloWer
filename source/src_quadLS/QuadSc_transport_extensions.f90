@@ -1535,6 +1535,7 @@ END SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static
 ! ----------------------------------------------
 !
 SUBROUTINE Init_Q2_Structures(mfile)
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif

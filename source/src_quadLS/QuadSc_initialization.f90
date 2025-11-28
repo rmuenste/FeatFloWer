@@ -8,6 +8,7 @@
 !=========================================================================
 SUBROUTINE Init_QuadScalar_Structures_sse(mfile)
 use, intrinsic :: ieee_arithmetic
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
@@ -401,6 +402,7 @@ END SUBROUTINE Init_QuadScalar_Structures_sse_mesh
 !
 !=========================================================================
 SUBROUTINE Init_QuadScalar_Structures_sse_PF(mfile)
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
@@ -694,6 +696,7 @@ END SUBROUTINE InitCond_Velocity_PF
 !
 !=========================================================================
 SUBROUTINE Init_QuadScalar_ReducedStuctures(mfile)
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
@@ -943,6 +946,7 @@ END SUBROUTINE Init_QuadScalar_ReducedStuctures
 !
 !=========================================================================
 SUBROUTINE Init_QuadScalar_Stuctures(mfile)
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
