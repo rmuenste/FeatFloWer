@@ -81,6 +81,7 @@ SUBROUTINE set_lubrication_threshold_from_mesh(myid)
   INTEGER, DIMENSION(:,:), POINTER :: KVERT
   REAL*8, DIMENSION(:,:), POINTER :: DCORVG
 
+#ifdef HAVE_PE
   ! Configuration parameter: lubrication threshold = factor * h_min
   ! User can modify this value based on their simulation requirements
   dLubricationFactor = 3.0d0  ! Default: 3x minimum mesh size
@@ -132,6 +133,7 @@ SUBROUTINE set_lubrication_threshold_from_mesh(myid)
     WRITE(*,'(A)') '=========================================='
   END IF
 
+#endif 
 END SUBROUTINE set_lubrication_threshold_from_mesh
 !
 !----------------------------------------------

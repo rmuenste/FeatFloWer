@@ -97,6 +97,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
  USE cinterface 
  use iniparser
+ USE param_parser, ONLY: GDATNEW
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
