@@ -84,7 +84,7 @@ SUBROUTINE set_lubrication_threshold_from_mesh(myid)
 #ifdef HAVE_PE
   ! Configuration parameter: lubrication threshold = factor * h_min
   ! User can modify this value based on their simulation requirements
-  dLubricationFactor = 3.0d0  ! Default: 3x minimum mesh size
+  dLubricationFactor = 1.0d0  ! Default: 3x minimum mesh size
 
   ! Get mesh data structures
   NEL = mg_Mesh%level(NLMAX)%nel
