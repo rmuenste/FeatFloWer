@@ -759,6 +759,7 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
   end do
 
   ! ============== Diagnostic Logging for HYPRE /16 Mystery (Phase 0.4) ==============
+  ! Note: HYPRE setup is not restricted to myid==0, so this will print from showid process
   IF (myid == showID .and. ILEV == NLMIN) THEN
    WRITE(MTERM,'(A)') ''
    WRITE(MTERM,'(A)') '========== HYPRE Coarse Grid Diagnostic =========='
@@ -1211,7 +1212,7 @@ INTEGER i,j,iEntry,jCol
      END DO
 
      ! ============== Diagnostic Logging for /16 Mystery (Phase 0.4) ==============
-     IF (myid == showID .and. ILEV == NLMIN) THEN
+     IF (ILEV == NLMIN) THEN
       WRITE(MTERM,'(A)') ''
       WRITE(MTERM,'(A)') '========== UMFPACK Coarse Grid Diagnostic =========='
       WRITE(MTERM,'(A,I0)') 'Level:                            ', ILEV
