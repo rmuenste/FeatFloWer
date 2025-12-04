@@ -17,7 +17,7 @@
 
 MODULE QuadSc_solver_hypre
 
-USE PP3D_MPI, ONLY: myid, showID, MTERM, MFILE
+USE PP3D_MPI, ONLY: myid, showID
 USE var_QuadScalar
 use, intrinsic :: ieee_arithmetic
 
@@ -49,14 +49,15 @@ CONTAINS
 !   - Modifies global myHYPRE structure
 !   - Allocates myHYPRE arrays (Numbering, ncols, sol, rhs, rows, cols, values)
 !===============================================================================
-SUBROUTINE Setup_HYPRE_CoarseLevel_Full()
+SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
+  TYPE(TLinScalar), INTENT(IN) :: lScalar_in
   INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, NEL
   INTEGER, ALLOCATABLE :: iDofs(:)
   REAL*8, ALLOCATABLE :: dDofs(:)
 
   IF (myid.ne.0) THEN
     ! Set active level to MinLev (coarsest)
-    ILEV = lScalar%prm%MGprmIn%MinLev
+    ILEV = lScalar_in%prm%MGprmIn%MinLev
     CALL SETLEV(2)
     lMat      => mg_lMat(ILEV)
     CMat      => mg_CMat(ILEV)%a
@@ -192,7 +193,8 @@ END SUBROUTINE Setup_HYPRE_CoarseLevel_Full
 !   - Allocates myHYPRE arrays (Numbering, ncols, sol, rhs, rows, cols, values)
 !   - Prints diagnostic if at NLMIN and myid == showID
 !===============================================================================
-SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric()
+SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
+  TYPE(TLinScalar), INTENT(IN) :: lScalar_in
   INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, NEL, JEQ
   INTEGER, ALLOCATABLE :: iDofs(:)
   REAL*8, ALLOCATABLE :: dDofs(:)
@@ -200,7 +202,7 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric()
 
   IF (myid.ne.0) THEN
     ! Set active level to MinLev (coarsest)
-    ILEV = lScalar%prm%MGprmIn%MinLev
+    ILEV = lScalar_in%prm%MGprmIn%MinLev
     CALL SETLEV(2)
 
     lMat      => mg_lMat(ILEV)

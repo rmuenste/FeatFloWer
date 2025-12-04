@@ -17,7 +17,7 @@
 
 MODULE QuadSc_solver_coarse
 
-USE PP3D_MPI, ONLY: myid, showID, MTERM, MFILE, NLMIN
+USE PP3D_MPI, ONLY: myid, showID
 USE var_QuadScalar
 USE UMFPackSolver, ONLY: myUmfPack_Factorize
 
@@ -53,7 +53,8 @@ CONTAINS
 !   - Calls myUmfPack_Factorize for LU decomposition (type 2/4)
 !   - Prints diagnostic if at NLMIN
 !===============================================================================
-SUBROUTINE Setup_UMFPACK_CoarseSolver(coarse_solver, coarse_lev, bNoOutFlow)
+SUBROUTINE Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutFlow)
+  TYPE(mg_kVector), INTENT(IN) :: knprP(*)
   INTEGER, INTENT(IN) :: coarse_solver
   INTEGER, INTENT(IN) :: coarse_lev
   LOGICAL, INTENT(IN) :: bNoOutFlow
@@ -164,7 +165,7 @@ SUBROUTINE Setup_UMFPACK_CoarseSolver(coarse_solver, coarse_lev, bNoOutFlow)
     ! Apply boundary conditions (set diagonal to small value for constrained DOFs)
     DO I = 1, crsSTR%A%nu
       J = 4*(I-1) + 1
-      IF (KNPRP(ILEV)%x(I) > 0) THEN
+      IF (knprP(ILEV)%x(I) > 0) THEN
         crsSTR%A_MAT(crsSTR%A%LDA(I)) = 1d-16
       END IF
     END DO
