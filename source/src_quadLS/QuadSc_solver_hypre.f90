@@ -64,8 +64,9 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
     lPMat     => mg_lPMat(ILEV)
     CPMat     => mg_CPMat(ILEV)%a
 
-    ! Allocate numbering array
+    ! Allocate numbering array (deallocate first if needed)
     myHYPRE%nrows = lPMat%nu
+    IF (ALLOCATED(myHYPRE%Numbering)) DEALLOCATE(myHYPRE%Numbering)
     allocate(myHYPRE%Numbering(myHYPRE%nrows))
   END IF
 
@@ -95,9 +96,15 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
     ALLOCATE(myHYPRE%OffPartitionNumbering(NDOF_p))
     CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
 
-    ! Allocate main HYPRE arrays
+    ! Allocate main HYPRE arrays (deallocate first if needed)
     MaxDofs = 0
     myHYPRE%nonzeros = lPMat%na + lMat%na
+    IF (ALLOCATED(myHYPRE%ncols)) DEALLOCATE(myHYPRE%ncols)
+    IF (ALLOCATED(myHYPRE%sol)) DEALLOCATE(myHYPRE%sol)
+    IF (ALLOCATED(myHYPRE%rhs)) DEALLOCATE(myHYPRE%rhs)
+    IF (ALLOCATED(myHYPRE%rows)) DEALLOCATE(myHYPRE%rows)
+    IF (ALLOCATED(myHYPRE%cols)) DEALLOCATE(myHYPRE%cols)
+    IF (ALLOCATED(myHYPRE%values)) DEALLOCATE(myHYPRE%values)
     allocate(myHYPRE%ncols(myHYPRE%nrows))
     allocate(myHYPRE%sol(myHYPRE%nrows))
     allocate(myHYPRE%rhs(myHYPRE%nrows))
@@ -210,8 +217,9 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
     lPMat     => mg_lPMat(ILEV)
     CPMat     => mg_CPMat(ILEV)%a
 
-    ! Allocate numbering array
+    ! Allocate numbering array (deallocate first if needed)
     myHYPRE%nrows = lPMat%nu
+    IF (ALLOCATED(myHYPRE%Numbering)) DEALLOCATE(myHYPRE%Numbering)
     allocate(myHYPRE%Numbering(myHYPRE%nrows))
   END IF
 
@@ -258,8 +266,14 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
     myHYPRE%ilower = (myHYPRE%ilower + 3) / 4
     myHYPRE%iupper = myHYPRE%iupper / 4
 
-    ! Apply /16 reduction for matrix entries
+    ! Apply /16 reduction for matrix entries (deallocate first if needed)
     myHYPRE%nonzeros = lPMat%na/16 + lMat%na/16
+    IF (ALLOCATED(myHYPRE%ncols)) DEALLOCATE(myHYPRE%ncols)
+    IF (ALLOCATED(myHYPRE%sol)) DEALLOCATE(myHYPRE%sol)
+    IF (ALLOCATED(myHYPRE%rhs)) DEALLOCATE(myHYPRE%rhs)
+    IF (ALLOCATED(myHYPRE%rows)) DEALLOCATE(myHYPRE%rows)
+    IF (ALLOCATED(myHYPRE%cols)) DEALLOCATE(myHYPRE%cols)
+    IF (ALLOCATED(myHYPRE%values)) DEALLOCATE(myHYPRE%values)
     allocate(myHYPRE%ncols(myHYPRE%nrows))
     allocate(myHYPRE%sol(myHYPRE%nrows))
     allocate(myHYPRE%rhs(myHYPRE%nrows))
@@ -382,19 +396,18 @@ SUBROUTINE SORT_DOFs(LW, RW, N)
   REAL*8  :: RW(N), RWA
   INTEGER :: I, J
 
-  ! Insertion sort
+  ! Bubble sort (original algorithm - DO NOT CHANGE)
   DO I = 2, N
-    LWA = LW(I)
-    RWA = RW(I)
-    J = I - 1
-    DO WHILE (J >= 1)
-      IF (LW(J) <= LWA) EXIT
-      LW(J+1) = LW(J)
-      RW(J+1) = RW(J)
-      J = J - 1
+    DO J = N, I, -1
+      IF (LW(J) .LT. LW(J-1)) THEN
+        LWA     = LW(J)
+        RWA     = RW(J)
+        LW(J)   = LW(J-1)
+        RW(J)   = RW(J-1)
+        LW(J-1) = LWA
+        RW(J-1) = RWA
+      END IF
     END DO
-    LW(J+1) = LWA
-    RW(J+1) = RWA
   END DO
 
 END SUBROUTINE SORT_DOFs
