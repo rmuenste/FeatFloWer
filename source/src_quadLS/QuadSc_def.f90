@@ -7,6 +7,9 @@ USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
+! Phase 1: Extracted solver modules
+USE QuadSc_solver_hypre, ONLY : Setup_HYPRE_CoarseLevel_Full, Setup_HYPRE_CoarseLevel_Geometric
+USE QuadSc_solver_coarse, ONLY : Setup_UMFPACK_CoarseSolver
 
 use, intrinsic :: ieee_arithmetic
 
