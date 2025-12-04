@@ -7,6 +7,9 @@ USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
+! Phase 1: Extracted solver modules
+USE QuadSc_solver_hypre, ONLY : Setup_HYPRE_CoarseLevel_Full, Setup_HYPRE_CoarseLevel_Geometric
+USE QuadSc_solver_coarse, ONLY : Setup_UMFPACK_CoarseSolver
 
 use, intrinsic :: ieee_arithmetic
 
@@ -470,370 +473,39 @@ INTEGER IEQ,I,J,JEQ,IA,ICOL,II,III,MaxDofs
 INTEGER, allocatable :: iDofs(:)
 REAL*8 , allocatable :: dDofs(:)
 
+! Phase 1: HYPRE coarse grid solver setup (type 7 - full matrix, no geometric coarsening)
 IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
-
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
   write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
  end if
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
- IF (myid.ne.0) THEN
-  
-  ILEV = lScalar%prm%MGprmIn%MinLev
-  CALL SETLEV(2)
-  
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
-  myHYPRE%nrows    = lPMat%nu
-  allocate(myHYPRE%Numbering(myHYPRE%nrows))
- end if
- 
- if (myid.ne.0.and.bNoOutFlow) THEN
-    do iel=1,mg_mesh%level(nlmin)%nel
-     if (coarse%myELEMLINK(iel).eq.1) then
-       WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
-       j=4*(iel-1) + 1
-       DO I=lMat%LdA(j)+1,lMat%LdA(j+1)-1
-        mg_CMat(ILEV)%a(I) = 0d0
-       END DO
-     end if
-    end do
-!   IF (myid.eq.1) THEN
-!    DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
-!     CMat(IEQ) = 0d0
-!    END DO
-!   END IF
- END IF
+ ! Call extracted HYPRE setup routine
+ CALL Setup_HYPRE_CoarseLevel_Full(lScalar)
 
- CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
- 
- IF (myid.ne.0) THEN
-  
-  DO IEQ = 1,myHYPRE%nrows
-    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
-  END DO
- end if
- 
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-!  CALL myMPI_Barrier()
-!  write(*,*) 'myidX:',myid
-!  pause
-
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   IF (myid.ne.0) THEN
-!    CALL READ_TestHYPREMatrix('hypr')
-!    
-!    CALL OutputHYPREMatrix('HYPR')
-!   end if
- 
- IF (myid.ne.0) THEN
-  
-  NDOF_p = 0
-  
-  DO IEQ=1,lPMat%nu
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    NDOF_p = max(ICOL,NDOF_p)
-   END DO
-  END DO
-  
-  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
-  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
-  
-  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
-  
-!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
-  
-  MaxDofs = 0
- 
-  myHYPRE%nonzeros = lPMat%na + lMat%na
-  allocate(myHYPRE%ncols(myHYPRE%nrows))
-  allocate(myHYPRE%sol(myHYPRE%nrows))
-  allocate(myHYPRE%rhs(myHYPRE%nrows))
-  allocate(myHYPRE%rows(myHYPRE%nrows))
-  allocate(myHYPRE%cols(myHYPRE%nonzeros))
-  allocate(myHYPRE%values(myHYPRE%nonzeros))
-  
-  do IEQ=1,myHYPRE%nrows
-   nu = (lMat%LdA(IEQ+1) - lMat%LdA(IEQ)) + (lPMat%LdA(IEQ+1) - lPMat%LdA(IEQ))
-   myHYPRE%ncols(IEQ) = NU
-   MaxDofs = max(MaxDofs,NU)
-  end do
-  
-  do IEQ=1,myHYPRE%nrows
-   myHYPRE%rows(IEQ) = myHYPRE%Numbering(IEQ)
-  end do
-
-  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
-  
-  III = 0
-  do IEQ=1,myHYPRE%nrows
-   II = 0
-   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
-    ICOL = lMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = myHYPRE%Numbering(ICOL)
-    dDofs(II) = CMat(IA)
-   end do
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = myHYPRE%OffPartitionNumbering(ICOL)
-    dDofs(II) = CPMat(IA)
-   end do
-   
-   CALL SORT_DOFs(iDofs,dDofs,II)
-   
-   DO IA=1,II
-    III = III + 1
-    myHYPRE%cols(III)   = iDofs(IA)
-    myHYPRE%values(III) = dDofs(IA)
-   END DO
-  end do
-    
-  if (myHYPRE%ZeroBased) then
-   myHYPRE%ilower = myHYPRE%ilower - 1
-   myHYPRE%iupper = myHYPRE%iupper - 1 
-   myHYPRE%rows = myHYPRE%rows - 1
-   myHYPRE%cols = myHYPRE%cols - 1
-  end if
-end if
-
-! CALL OutputHYPREMatrix('HYPR')
- 
-IF (myid.ne.0) THEN
-  ILEV = NLMAX
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
- END IF
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
   write(MFILE,'(A)',advance='yes') " Done!"
  end if
- 
 END IF
  
+! Phase 1: HYPRE coarse grid solver setup (type 8 - with /16 geometric coarsening)
 IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
-
  if (myid.eq.showid) THEN
   write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
   write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
  end if
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
- IF (myid.ne.0) THEN
-  
-  ILEV = lScalar%prm%MGprmIn%MinLev
-  CALL SETLEV(2)
-  
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
-  myHYPRE%nrows    = lPMat%nu
-  allocate(myHYPRE%Numbering(myHYPRE%nrows))
- end if
- 
- if (myid.ne.0.and.bNoOutFlow) THEN
-  IF (myid.eq.1) THEN
-   WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
-   DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
-    CMat(IEQ) = 0d0
-   END DO
-  END IF
- END IF
- 
- CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
- 
- IF (myid.ne.0) THEN
-  
-  DO IEQ = 1,myHYPRE%nrows
-    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
-  END DO
- end if
- 
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-!  CALL myMPI_Barrier()
-!  write(*,*) 'myidX:',myid
-!  pause
+ ! Call extracted HYPRE setup routine with geometric coarsening
+ CALL Setup_HYPRE_CoarseLevel_Geometric(lScalar)
 
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   IF (myid.ne.0) THEN
-!    CALL READ_TestHYPREMatrix('hypr')
-!    
-!    CALL OutputHYPREMatrix('HYPR')
-!   end if
- 
- IF (myid.ne.0) THEN
-  
-  NDOF_p = 0
-  
-  DO IEQ=1,lPMat%nu
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    NDOF_p = max(ICOL,NDOF_p)
-   END DO
-  END DO
-  
-  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
-  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
-  
-  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
-  
-!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
-  
-  MaxDofs = 0
- 
-  myHYPRE%nrows    = lPMat%nu/4
-  myHYPRE%ilower=(myHYPRE%ilower+3)/4
-  myHYPRE%iupper=myHYPRE%iupper/4
-
-  myHYPRE%nonzeros = lPMat%na/16 + lMat%na/16
-  allocate(myHYPRE%ncols(myHYPRE%nrows))
-  allocate(myHYPRE%sol(myHYPRE%nrows))
-  allocate(myHYPRE%rhs(myHYPRE%nrows))
-  allocate(myHYPRE%rows(myHYPRE%nrows))
-  allocate(myHYPRE%cols(myHYPRE%nonzeros))
-  allocate(myHYPRE%values(myHYPRE%nonzeros))
-  
-  do IEQ=1,myHYPRE%nrows
-   JEQ = 4*(IEQ-1)+1
-   nu = ((lMat%LdA(JEQ+1) - lMat%LdA(JEQ)) + (lPMat%LdA(JEQ+1) - lPMat%LdA(JEQ)))/4
-   myHYPRE%ncols(IEQ) = NU
-   MaxDofs = max(MaxDofs,NU)
-  end do
-  
-  do IEQ=1,myHYPRE%nrows
-   JEQ = 4*(IEQ-1)+1
-   myHYPRE%rows(IEQ) = (myHYPRE%Numbering(JEQ)+3)/4
-  end do
-
-  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
-  
-  III = 0
-  do IEQ=1,myHYPRE%nrows
-   II = 0
-   JEQ = 4*(IEQ-1)+1
-   DO IA=lMat%LdA(JEQ),lMat%LdA(JEQ+1)-1,4
-    ICOL = lMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = (myHYPRE%Numbering(ICOL)+3)/4
-    dDofs(II) = CMat(IA)
-   end do
-   DO IA=lPMat%LdA(JEQ),lPMat%LdA(JEQ+1)-1,4
-    ICOL = lPMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = (myHYPRE%OffPartitionNumbering(ICOL)+3)/4
-    dDofs(II) = CPMat(IA)
-   end do
-
-   CALL SORT_DOFs(iDofs,dDofs,II)
-
-   DO IA=1,II
-    III = III + 1
-    myHYPRE%cols(III)   = iDofs(IA)
-    myHYPRE%values(III) = dDofs(IA)
-   END DO
-  end do
-
-  ! ============== Diagnostic Logging for HYPRE /16 Mystery (Phase 0.4) ==============
-  ! Note: HYPRE setup is not restricted to myid==0, so this will print from showid process
-  IF (myid == showID .and. ILEV == NLMIN) THEN
-   WRITE(MTERM,'(A)') ''
-   WRITE(MTERM,'(A)') '========== HYPRE Coarse Grid Diagnostic =========='
-   WRITE(MTERM,'(A,I0)') 'Level:                            ', ILEV
-   WRITE(MTERM,'(A,I0)') 'lMat%nu:                          ', lMat%nu
-   WRITE(MTERM,'(A,I0)') 'lMat%na:                          ', lMat%na
-   WRITE(MTERM,'(A,I0)') 'lPMat%nu:                         ', lPMat%nu
-   WRITE(MTERM,'(A,I0)') 'lPMat%na:                         ', lPMat%na
-   WRITE(MTERM,'(A,I0)') 'HYPRE nrows (lPMat%nu/4):         ', myHYPRE%nrows
-   WRITE(MTERM,'(A,I0)') 'HYPRE allocated (lPMat%na/16 + lMat%na/16): ', myHYPRE%nonzeros
-   WRITE(MTERM,'(A,I0)') '  = lPMat%na/16:                  ', lPMat%na/16
-   WRITE(MTERM,'(A,I0)') '  + lMat%na/16:                   ', lMat%na/16
-   WRITE(MTERM,'(A,I0)') 'HYPRE actual (III):               ', III
-   IF (III > 0) THEN
-     WRITE(MTERM,'(A,F10.2,A)') 'Allocation efficiency:            ', &
-                                  100.0*REAL(III,8)/REAL(myHYPRE%nonzeros,8), '%'
-   END IF
-   WRITE(MTERM,'(A)') '===================================================='
-   WRITE(MTERM,'(A)') ''
-  END IF
-  ! ============================================================================
-
-  if (myHYPRE%ZeroBased) then
-   myHYPRE%ilower = myHYPRE%ilower - 1
-   myHYPRE%iupper = myHYPRE%iupper - 1 
-   myHYPRE%rows = myHYPRE%rows - 1
-   myHYPRE%cols = myHYPRE%cols - 1
-  end if
-end if
-
-! CALL OutputHYPREMatrix('HYPR')
- 
-IF (myid.ne.0) THEN
-  ILEV = NLMAX
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
- END IF
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
   write(MFILE,'(A)',advance='yes') " Done!"
  end if
- 
 END IF
 
-CONTAINS
- 
- SUBROUTINE SORT_DOFs(LW,RW,N)
-   INTEGER , intent(IN) :: N
-   INTEGER LW(N),LWA
-   REAL*8  RW(N),RWA
-   INTEGER I,J
-
-   DO I=2,N
-   DO J=N,I,-1
-   IF (LW(J).LT.LW(J-1)) THEN
-     LWA     = LW(J)
-     RWA     = RW(J)
-     LW(J)   = LW(J-1)
-     RW(J)   = RW(J-1)
-     LW(J-1) = LWA
-     RW(J-1) = RWA
-   END IF
-   END DO
-   END DO
-
- END SUBROUTINE SORT_DOFs
- 
+! Phase 1: SORT_DOFs removed - now in QuadSc_solver_hypre module
 END SUBROUTINE SetUp_HYPRE_Solver
 !
 ! ----------------------------------------------
@@ -1155,97 +827,9 @@ INTEGER i,j,iEntry,jCol
  CMat      => mg_CMat(NLMAX)%a
  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
 
- ! LU factorization of C-matrix needed for UMFPACK
- IF (myid.eq.0.AND.coarse_solver.ge.1.and.coarse_solver.le.4) THEN
-
-  ILEV = coarse_lev
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-
-  IF (bNoOutFlow) THEN
-   DO I=lMat%LdA(1)+1,lMat%LdA(2)-1
-    CMat(I) = 0d0
-   END DO
-  END IF
-
-  IF (coarse_solver.EQ.2) THEN
-  
-
-   IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(lMat%na))
-   UMF_CMat = CMat
-   IF (.not.ALLOCATED(UMF_lMat%ColA)) ALLOCATE (UMF_lMat%ColA(lMat%na))
-   IF (.not.ALLOCATED(UMF_lMat%LdA)) ALLOCATE (UMF_lMat%LdA(lMat%nu+1))
-   UMF_lMat%ColA = lMat%ColA
-   UMF_lMat%LdA  = lMat%LdA
-   UMF_lMat%nu   = lMat%nu
-   UMF_lMat%na   = lMat%na
-   CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
-  END IF
-
-
-  IF (coarse_solver.EQ.4.OR.coarse_solver.EQ.3) THEN
-
-     crsSTR%A%nu = lMat%nu/4
-     crsSTR%A%na = lMat%na/16   !!!! /16????????????????
-
-     IF (.not.ALLOCATED(crsSTR%A%LdA)) ALLOCATE(crsSTR%A%Lda(crsSTR%A%nu+1))
-     IF (.not.ALLOCATED(crsSTR%A%ColA)) ALLOCATE(crsSTR%A%ColA(crsSTR%A%na))
-     IF (.not.ALLOCATED(crsSTR%A_MAT)) ALLOCATE(crsSTR%A_MAT(crsSTR%A%na))
-     IF (.not.ALLOCATED(crsSTR%A_RHS)) ALLOCATE(crsSTR%A_RHS(crsSTR%A%nu))
-     IF (.not.ALLOCATED(crsSTR%A_SOL)) ALLOCATE(crsSTR%A_SOL(crsSTR%A%nu))
-
-     crsSTR%A%LdA(1) = 1
-     DO i=1,crsSTR%A%nu
-      j = 4*i-3
-      crsSTR%A%LdA(i+1) = crsSTR%A%LdA(i) + (lMat%LdA(j+1)-lMat%LdA(j))/4
-     END DO
-
-     iEntry = 0
-     DO i=1,crsSTR%A%nu
-      j = 4*(i-1) + 1
-      DO jCol = lMat%LdA(j),lMat%LdA(j+1)-1,4
-       iEntry = iEntry + 1
-       crsSTR%A%ColA(iEntry) = (lMat%ColA(jCol)-1)/4+1
-       crsSTR%A_MAT(iEntry) = CMat(jCol)
-      END DO
-     END DO
-
-     ! ============== Diagnostic Logging for /16 Mystery (Phase 0.4) ==============
-     IF (ILEV == NLMIN) THEN
-      WRITE(MTERM,'(A)') ''
-      WRITE(MTERM,'(A)') '========== UMFPACK Coarse Grid Diagnostic =========='
-      WRITE(MTERM,'(A,I0)') 'Level:                            ', ILEV
-      WRITE(MTERM,'(A,I0)') 'Fine grid unknowns (lMat%nu):     ', lMat%nu
-      WRITE(MTERM,'(A,I0)') 'Fine grid non-zeros (lMat%na):    ', lMat%na
-      WRITE(MTERM,'(A,I0)') 'Coarse unknowns (lMat%nu/4):      ', lMat%nu/4
-      WRITE(MTERM,'(A,I0)') 'Coarse allocated (lMat%na/16):    ', lMat%na/16
-      WRITE(MTERM,'(A,I0)') 'Coarse actual (iEntry):           ', iEntry
-      IF (lMat%nu > 0) THEN
-        WRITE(MTERM,'(A,F10.4)') 'nu ratio (fine/coarse):           ', REAL(lMat%nu,8)/REAL(lMat%nu/4,8)
-      END IF
-      IF (iEntry > 0) THEN
-        WRITE(MTERM,'(A,F10.4)') 'na ratio (fine/actual):           ', REAL(lMat%na,8)/REAL(iEntry,8)
-        WRITE(MTERM,'(A,F10.2,A)') 'Allocation efficiency:            ', &
-                                     100.0*REAL(iEntry,8)/REAL(lMat%na/16,8), '%'
-      END IF
-      WRITE(MTERM,'(A)') '===================================================='
-      WRITE(MTERM,'(A)') ''
-     END IF
-     ! ============================================================================
-
-     DO i=1,crsSTR%A%nu
-      j = 4*(i-1) + 1
-      if (KNPRP(ilev)%x(i).gt.0) crsSTR%A_Mat(crsSTR%A%LDA(i)) = 1d-16
-     END DO
-  
-     IF (coarse_solver.EQ.4) THEN
-      CALL myUmfPack_Factorize(crsSTR%A_MAT,crsSTR%A)
-     END IF
-
-  END IF
-
- END IF
+ ! Phase 1: UMFPACK coarse grid solver setup (types 2, 3, 4)
+ ! Call extracted UMFPACK setup routine
+ CALL Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, .FALSE.)
 
  CALL ZTIME(myStat%t1)
  myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
