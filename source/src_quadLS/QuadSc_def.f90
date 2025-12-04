@@ -20,7 +20,12 @@ SUBROUTINE Create_QuadMatStruct()
 INTEGER iSymm,nERow
 INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
 INTEGER I,J,MatSize,NDOF
+REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
 EXTERNAL E013,coefst
+
+! ============== Performance Timing (Phase 0.5) ==============
+CALL CPU_TIME(t_start)
+! =============================================================
 
  ALLOCATE(mg_qMat(NLMIN:NLMAX))
 
@@ -60,6 +65,13 @@ EXTERNAL E013,coefst
  CALL SETLEV(2)
  qMat => mg_qMat(NLMAX)
 
+! ============== Performance Timing (Phase 0.5) ==============
+CALL CPU_TIME(t_end)
+IF (myid == showID) THEN
+  WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadMatStruct time:        ', t_end - t_start, ' sec'
+END IF
+! =============================================================
+
 END SUBROUTINE Create_QuadMatStruct
 !
 ! ----------------------------------------------
@@ -68,8 +80,13 @@ SUBROUTINE Create_QuadLinMatStruct()
 INTEGER iSymm,nERow
 INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA,TempLdA
 INTEGER I,J,MatSize,NDOF
+REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
 CHARACTER*10 myFile
 EXTERNAL E011,E013,E010,coefst
+
+! ============== Performance Timing (Phase 0.5) ==============
+CALL CPU_TIME(t_start)
+! =============================================================
 
  ALLOCATE (mg_qlMat(NLMIN:NLMAX))
  ALLOCATE (mg_lqMat(NLMIN:NLMAX))
@@ -144,6 +161,13 @@ EXTERNAL E011,E013,E010,coefst
 
  qlMat => mg_qlMat(NLMAX)
  lqMat => mg_lqMat(NLMAX)
+
+! ============== Performance Timing (Phase 0.5) ==============
+CALL CPU_TIME(t_end)
+IF (myid == showID) THEN
+  WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadLinMatStruct time:     ', t_end - t_start, ' sec'
+END IF
+! =============================================================
 
 END SUBROUTINE Create_QuadLinMatStruct
 !
@@ -724,16 +748,39 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
     iDofs(II) = (myHYPRE%OffPartitionNumbering(ICOL)+3)/4
     dDofs(II) = CPMat(IA)
    end do
-   
+
    CALL SORT_DOFs(iDofs,dDofs,II)
-   
+
    DO IA=1,II
     III = III + 1
     myHYPRE%cols(III)   = iDofs(IA)
     myHYPRE%values(III) = dDofs(IA)
    END DO
   end do
-    
+
+  ! ============== Diagnostic Logging for HYPRE /16 Mystery (Phase 0.4) ==============
+  IF (myid == showID .and. ILEV == NLMIN) THEN
+   WRITE(MTERM,'(A)') ''
+   WRITE(MTERM,'(A)') '========== HYPRE Coarse Grid Diagnostic =========='
+   WRITE(MTERM,'(A,I0)') 'Level:                            ', ILEV
+   WRITE(MTERM,'(A,I0)') 'lMat%nu:                          ', lMat%nu
+   WRITE(MTERM,'(A,I0)') 'lMat%na:                          ', lMat%na
+   WRITE(MTERM,'(A,I0)') 'lPMat%nu:                         ', lPMat%nu
+   WRITE(MTERM,'(A,I0)') 'lPMat%na:                         ', lPMat%na
+   WRITE(MTERM,'(A,I0)') 'HYPRE nrows (lPMat%nu/4):         ', myHYPRE%nrows
+   WRITE(MTERM,'(A,I0)') 'HYPRE allocated (lPMat%na/16 + lMat%na/16): ', myHYPRE%nonzeros
+   WRITE(MTERM,'(A,I0)') '  = lPMat%na/16:                  ', lPMat%na/16
+   WRITE(MTERM,'(A,I0)') '  + lMat%na/16:                   ', lMat%na/16
+   WRITE(MTERM,'(A,I0)') 'HYPRE actual (III):               ', III
+   IF (III > 0) THEN
+     WRITE(MTERM,'(A,F10.2,A)') 'Allocation efficiency:            ', &
+                                  100.0*REAL(III,8)/REAL(myHYPRE%nonzeros,8), '%'
+   END IF
+   WRITE(MTERM,'(A)') '===================================================='
+   WRITE(MTERM,'(A)') ''
+  END IF
+  ! ============================================================================
+
   if (myHYPRE%ZeroBased) then
    myHYPRE%ilower = myHYPRE%ilower - 1
    myHYPRE%iupper = myHYPRE%iupper - 1 
@@ -1162,6 +1209,29 @@ INTEGER i,j,iEntry,jCol
        crsSTR%A_MAT(iEntry) = CMat(jCol)
       END DO
      END DO
+
+     ! ============== Diagnostic Logging for /16 Mystery (Phase 0.4) ==============
+     IF (myid == showID .and. ILEV == NLMIN) THEN
+      WRITE(MTERM,'(A)') ''
+      WRITE(MTERM,'(A)') '========== UMFPACK Coarse Grid Diagnostic =========='
+      WRITE(MTERM,'(A,I0)') 'Level:                            ', ILEV
+      WRITE(MTERM,'(A,I0)') 'Fine grid unknowns (lMat%nu):     ', lMat%nu
+      WRITE(MTERM,'(A,I0)') 'Fine grid non-zeros (lMat%na):    ', lMat%na
+      WRITE(MTERM,'(A,I0)') 'Coarse unknowns (lMat%nu/4):      ', lMat%nu/4
+      WRITE(MTERM,'(A,I0)') 'Coarse allocated (lMat%na/16):    ', lMat%na/16
+      WRITE(MTERM,'(A,I0)') 'Coarse actual (iEntry):           ', iEntry
+      IF (lMat%nu > 0) THEN
+        WRITE(MTERM,'(A,F10.4)') 'nu ratio (fine/coarse):           ', REAL(lMat%nu,8)/REAL(lMat%nu/4,8)
+      END IF
+      IF (iEntry > 0) THEN
+        WRITE(MTERM,'(A,F10.4)') 'na ratio (fine/actual):           ', REAL(lMat%na,8)/REAL(iEntry,8)
+        WRITE(MTERM,'(A,F10.2,A)') 'Allocation efficiency:            ', &
+                                     100.0*REAL(iEntry,8)/REAL(lMat%na/16,8), '%'
+      END IF
+      WRITE(MTERM,'(A)') '===================================================='
+      WRITE(MTERM,'(A)') ''
+     END IF
+     ! ============================================================================
 
      DO i=1,crsSTR%A%nu
       j = 4*(i-1) + 1
