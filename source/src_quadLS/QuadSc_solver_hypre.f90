@@ -17,7 +17,7 @@
 
 MODULE QuadSc_solver_hypre
 
-USE PP3D_MPI, ONLY: myid, showID
+USE PP3D_MPI, ONLY: myid, showID, coarse
 USE var_QuadScalar
 use, intrinsic :: ieee_arithmetic
 
@@ -51,14 +51,33 @@ CONTAINS
 !===============================================================================
 SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
   TYPE(TLinScalar), INTENT(IN) :: lScalar_in
-  INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, NEL
+  INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU
+  INTEGER :: I, J, iel  ! Variables for bNoOutFlow block
   INTEGER, ALLOCATABLE :: iDofs(:)
   REAL*8, ALLOCATABLE :: dDofs(:)
+  ! NOTE: NEL comes from COMMON block via var_QuadScalar - do NOT declare it here!
+
+  ! ============================================================================
+  ! CRITICAL: SETLEV must be called on ALL processes (including process 0)
+  !
+  ! Legacy SETLEV behavior (COMMON block globals):
+  !   - SETLEV modifies global state variables via COMMON blocks (ILEV, NEL, etc.)
+  !   - GetMyHYPRENumberingLimits is an MPI collective operation that depends on
+  !     the global NEL being set correctly on ALL processes
+  !   - If SETLEV is only called on myid!=0, process 0 will have NEL=0, causing
+  !     incorrect global index ranges (iupper=0 instead of correct value)
+  !
+  ! Variable shadowing pitfall:
+  !   - NEL must NOT be declared as a local variable - it comes from COMMON blocks
+  !   - Declaring it locally shadows the global NEL, breaking SETLEV functionality
+  !
+  ! This is a source of hard-to-debug MPI collective operation failures!
+  ! ============================================================================
+  ILEV = lScalar_in%prm%MGprmIn%MinLev
+  CALL SETLEV(2)
 
   IF (myid.ne.0) THEN
-    ! Set active level to MinLev (coarsest)
-    ILEV = lScalar_in%prm%MGprmIn%MinLev
-    CALL SETLEV(2)
+    ! Setup matrix pointers and allocate arrays (worker processes only)
     lMat      => mg_lMat(ILEV)
     CMat      => mg_CMat(ILEV)%a
     lPMat     => mg_lPMat(ILEV)
@@ -70,7 +89,20 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
     allocate(myHYPRE%Numbering(myHYPRE%nrows))
   END IF
 
-  ! Get global numbering limits for this process
+  ! Handle singular (no outflow) boundary condition (original code block)
+  IF (myid.ne.0 .AND. bNoOutFlow) THEN
+    DO iel = 1, mg_mesh%level(nlmin)%nel
+      IF (coarse%myELEMLINK(iel) .eq. 1) THEN
+        WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
+        j = 4*(iel-1) + 1
+        DO I = lMat%LdA(j)+1, lMat%LdA(j+1)-1
+          mg_CMat(ILEV)%a(I) = 0d0
+        END DO
+      END IF
+    END DO
+  END IF
+
+  ! Get global numbering limits for this process (MPI collective operation)
   CALL GetMyHYPRENumberingLimits(myHYPRE%ilower, myHYPRE%iupper, NEL)
 
   IF (myid.ne.0) THEN
@@ -167,10 +199,14 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
 
     ! Clean up work arrays
     deallocate(iDofs, dDofs)
+  END IF
 
-    ! Restore level to NLMAX
-    ILEV = NLMAX
-    CALL SETLEV(2)
+  ! Restore level to NLMAX - ALL PROCESSES
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  IF (myid.ne.0) THEN
+    ! Restore matrix pointers (worker processes only)
     lMat      => mg_lMat(ILEV)
     CMat      => mg_CMat(ILEV)%a
     lPMat     => mg_lPMat(ILEV)
@@ -202,16 +238,33 @@ END SUBROUTINE Setup_HYPRE_CoarseLevel_Full
 !===============================================================================
 SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
   TYPE(TLinScalar), INTENT(IN) :: lScalar_in
-  INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, NEL, JEQ
+  INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, JEQ
   INTEGER, ALLOCATABLE :: iDofs(:)
   REAL*8, ALLOCATABLE :: dDofs(:)
   LOGICAL :: bNoOutFlow
+  ! NOTE: NEL comes from COMMON block via var_QuadScalar - do NOT declare it here!
+
+  ! ============================================================================
+  ! CRITICAL: SETLEV must be called on ALL processes (including process 0)
+  !
+  ! Legacy SETLEV behavior (COMMON block globals):
+  !   - SETLEV modifies global state variables via COMMON blocks (ILEV, NEL, etc.)
+  !   - GetMyHYPRENumberingLimits is an MPI collective operation that depends on
+  !     the global NEL being set correctly on ALL processes
+  !   - If SETLEV is only called on myid!=0, process 0 will have NEL=0, causing
+  !     incorrect global index ranges (iupper=0 instead of correct value)
+  !
+  ! Variable shadowing pitfall:
+  !   - NEL must NOT be declared as a local variable - it comes from COMMON blocks
+  !   - Declaring it locally shadows the global NEL, breaking SETLEV functionality
+  !
+  ! This is a source of hard-to-debug MPI collective operation failures!
+  ! ============================================================================
+  ILEV = lScalar_in%prm%MGprmIn%MinLev
+  CALL SETLEV(2)
 
   IF (myid.ne.0) THEN
-    ! Set active level to MinLev (coarsest)
-    ILEV = lScalar_in%prm%MGprmIn%MinLev
-    CALL SETLEV(2)
-
+    ! Setup matrix pointers and allocate arrays (worker processes only)
     lMat      => mg_lMat(ILEV)
     CMat      => mg_CMat(ILEV)%a
     lPMat     => mg_lPMat(ILEV)
@@ -363,10 +416,14 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
 
     ! Clean up work arrays
     deallocate(iDofs, dDofs)
+  END IF
 
-    ! Restore level to NLMAX
-    ILEV = NLMAX
-    CALL SETLEV(2)
+  ! Restore level to NLMAX - ALL PROCESSES
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  IF (myid.ne.0) THEN
+    ! Restore matrix pointers (worker processes only)
     lMat      => mg_lMat(ILEV)
     CMat      => mg_CMat(ILEV)%a
     lPMat     => mg_lPMat(ILEV)
