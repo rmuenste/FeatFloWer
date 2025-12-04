@@ -272,6 +272,173 @@ Allocation efficiency:            100.00%
 
 ---
 
+## Matrix Renewal Scheme (Legacy Configuration)
+
+### CRITICAL: Misleading Naming
+
+The "Matrix Renewal scheme" parameter is **poorly named** and confusing. Despite the name suggesting "renewal frequency," it actually controls **type group assignments**, NOT how often matrices are renewed during simulation.
+
+### Configuration Syntax
+
+Parameter file format:
+```
+Matrix Renewal scheme: M = 1, D = 1, K = 3, S = 0, C = 1
+```
+
+Where:
+- `M` = Mass matrix
+- `D` = Diffusion matrix
+- `K` = Convection matrix
+- `S` = Stabilization matrix
+- `C` = Coupling matrix (B, B^T, and pressure Schur complement)
+
+### What the Values Actually Mean
+
+**Common Misconception** ❌:
+- "M = 1 means renew mass matrix every 1 timestep"
+- "K = 3 means renew convection matrix every 3 timesteps"
+
+**Actual Behavior** ✅:
+- Values are **type group identifiers**, not frequencies
+- Each value assigns a matrix to a renewal "type group"
+- Matrices are renewed when `OperatorRegenaration(type_id)` is called
+- A value of `0` means "never renew this matrix"
+
+### Type Group Call Locations
+
+**Type 1** - Called during initialization only:
+```fortran
+! source/src_quadLS/QuadSc_initialization.f90:682
+CALL OperatorRegenaration(1)
+```
+Typical matrices: M, D, C (constant throughout simulation)
+
+**Type 2** - Rarely used:
+```fortran
+! source/src_quadLS/QuadSc_main.f90:85
+CALL OperatorRegenaration(2)
+```
+Often not configured (left empty)
+
+**Type 3** - Called every timestep:
+```fortran
+! source/src_quadLS/QuadSc_main.f90:87
+CALL OperatorRegenaration(3)
+```
+Typical matrices: K (convection, velocity-dependent)
+
+**Type 0** - Never called:
+Matrices assigned to type 0 are created during initialization but never updated.
+
+### Example Configuration Analysis
+
+**Configuration**: `M = 1, D = 1, K = 3, S = 0, C = 1`
+
+| Matrix | Type | Renewal Behavior |
+|--------|------|------------------|
+| M (Mass) | 1 | Created at initialization, never renewed during simulation |
+| D (Diffusion) | 1 | Created at initialization, never renewed during simulation |
+| K (Convection) | 3 | Created at initialization, **renewed every timestep** |
+| S (Stabilization) | 0 | Never created (disabled) |
+| C (Coupling) | 1 | Created at initialization, never renewed during simulation |
+
+**Implications**:
+- Assumes constant density, viscosity (M, D unchanged)
+- Updates convection matrix K every timestep (velocity-dependent)
+- UMFPACK coarse grid factorization happens **once** at startup
+- C matrix diagnostic appears **once**, not every timestep
+
+### Implementation Details
+
+**Renewal Logic** (`source/src_quadLS/QuadSc_corrections.f90:175-239`):
+```fortran
+SUBROUTINE OperatorRegenaration(iType)
+  INTEGER, INTENT(IN) :: iType
+  LOGICAL :: bHit
+
+  bHit = .false.
+
+  ! Diffusion matrix
+  IF (iType == myMatrixRenewal%D) THEN
+    CALL Create_DiffMat(QuadSc)
+    bHit = .true.
+  END IF
+
+  ! Convection matrix
+  IF (iType == myMatrixRenewal%K) THEN
+    CALL Create_KMat(QuadSc)
+    bHit = .true.
+  END IF
+
+  ! Mass matrix
+  IF (iType == myMatrixRenewal%M) THEN
+    CALL Create_MRhoMat()
+    bHit = .true.
+  END IF
+
+  ! Stabilization matrix
+  IF (iType == myMatrixRenewal%S) THEN
+    CALL Create_SMat(QuadSc)
+    bHit = .true.
+  END IF
+
+  ! Pressure coupling matrix
+  IF (iType == myMatrixRenewal%C) THEN
+    CALL Create_BMat()
+    CALL SetSlipOnBandBT()
+    CALL Create_CMat(...)  ← UMFPACK diagnostic appears here
+    bHit = .true.
+  END IF
+END SUBROUTINE OperatorRegenaration
+```
+
+### Common Configurations
+
+**Newtonian Flow** (constant viscosity):
+```
+M = 1, D = 1, K = 3, S = 0, C = 1
+```
+- Mass and diffusion constant (created once)
+- Convection renewed every step (velocity-dependent)
+- No stabilization
+
+**Non-Newtonian Flow** (variable viscosity):
+```
+M = 1, D = 3, K = 3, S = 3, C = 1
+```
+- Mass constant, diffusion updated every step (shear-dependent viscosity)
+- Convection and stabilization renewed every step
+- Coupling constant
+
+**Steady-State or Very Simple Flow**:
+```
+M = 1, D = 1, K = 1, S = 0, C = 1
+```
+- All matrices created once at initialization
+- Nothing updated during simulation (assumes fixed velocity field)
+
+### Why This Matters for Diagnostics
+
+The UMFPACK and HYPRE coarse grid diagnostics appear inside `Create_CMat()`, which is called when:
+- `OperatorRegenaration(myMatrixRenewal%C)` is executed
+- Typically at initialization (type 1)
+- **NOT every timestep** unless C is assigned to type 3 (very rare)
+
+**To see diagnostics every timestep**, you would need:
+```
+M = 3, D = 3, K = 3, S = 0, C = 3
+```
+Warning: This is computationally expensive (full UMFPACK factorization every timestep)!
+
+### Historical Note
+
+This design dates from the original FEAT library. The "type group" concept allowed selective matrix updates to balance accuracy and computational cost. Modern refactoring should consider:
+- Renaming to "Matrix Update Type Assignment"
+- Using descriptive enums instead of integers (e.g., `AT_INITIALIZATION`, `EVERY_TIMESTEP`)
+- Separating renewal strategy from type grouping
+
+---
+
 ## Matrix Assembly Overview
 
 ### Element Assembly Pattern
