@@ -279,6 +279,8 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
@@ -296,6 +298,8 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 ${CMAKE_SOURCE_DIR}/source/Init.f90
