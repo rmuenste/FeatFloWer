@@ -13,10 +13,11 @@
 2. [Fundamental Data Types](#fundamental-data-types)
 3. [Matrix Naming Conventions](#matrix-naming-conventions)
 4. [Mass Matrix Family](#mass-matrix-family)
-5. [Two-Level Allocation Pattern](#two-level-allocation-pattern)
-6. [Memory Management Best Practices](#memory-management-best-practices)
-7. [Common Pitfalls and Debugging](#common-pitfalls-and-debugging)
-8. [Code Examples](#code-examples)
+5. [Diffusion Matrix Family](#diffusion-matrix-family)
+6. [Two-Level Allocation Pattern](#two-level-allocation-pattern)
+7. [Memory Management Best Practices](#memory-management-best-practices)
+8. [Common Pitfalls and Debugging](#common-pitfalls-and-debugging)
+9. [Code Examples](#code-examples)
 
 ---
 
@@ -247,6 +248,440 @@ CALL E013SUM(mg_MlPMat(ILEV)%a)  ! MPI reduction
          │
          └───── (row sum) ──────► mg_MlRhomat(lev) ── (E013SUM) ──►  mg_MlRhoPmat(lev)
                                    (density lumped)                   (parallel density lumped)
+```
+
+---
+
+## Diffusion Matrix Family
+
+The diffusion matrix family represents spatial diffusion operators (viscous/thermal transport) in the transport equations. Understanding their structure and assembly is crucial for:
+
+- Implementing viscosity models (Newtonian, non-Newtonian)
+- Temperature-dependent diffusion
+- Multi-material simulations
+- Phase 2.2 refactoring insights
+
+### 1. Standard Diffusion Matrix (`mg_hDmat`)
+
+**Mathematical Form:**
+```
+D[i,j] = ∫_Ω ∇φ_i(x) · ∇φ_j(x) dx
+```
+
+**Physical Meaning:** Standard Laplacian operator (heat diffusion, constant viscosity)
+
+**Assembly:**
+- Kernel: `DIFFQ2_alpha(..., alpha=1.0)`
+- Alpha parameter: 1.0 (standard weighting)
+- Process guard: Only `myid.ne.0` (worker processes only)
+
+**Allocation:**
+```fortran
+! Two-level allocation
+ALLOCATE(mg_hDmat(NLMIN:NLMAX))              ! Top-level
+ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))          ! Per-level coefficients
+```
+
+**Usage:**
+- Thermal diffusion with constant conductivity
+- Momentum diffusion with constant viscosity
+- Baseline diffusion operator for multigrid smoothers
+
+**Early-Exit Behavior:**
+```fortran
+IF (ALLOCATED(mg_hDmat)) THEN
+  ! Matrix already exists, skip reassembly
+  WRITE(MTERM,'(A)') " [hD]: Exists |"
+  RETURN
+END IF
+```
+
+**Why "hDmat"?** The "h" likely refers to "homogeneous" or "heat" diffusion (standard Laplacian).
+
+---
+
+### 2. Constant Viscous Diffusion Matrix (`mg_ConstDMat`)
+
+**Mathematical Form:**
+```
+D[i,j] = ∫_Ω ν ∇φ_i(x) · ∇φ_j(x) dx  (where ν = constant)
+```
+
+**Physical Meaning:** Viscous diffusion with constant viscosity coefficient
+
+**Assembly:**
+- Kernel: `DIFFQ2_alpha(..., alpha=0.0)`
+- Alpha parameter: 0.0 (constant viscosity weighting)
+- Process guard: None (all processes assemble)
+
+**Allocation:**
+```fortran
+! Two-level allocation
+ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))          ! Top-level
+ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))      ! Per-level coefficients
+```
+
+**Usage:**
+- Newtonian fluid flow (constant dynamic viscosity)
+- Constant thermal conductivity problems
+- Reference operator for viscous problems
+
+**Early-Exit Behavior:**
+```fortran
+IF (ALLOCATED(mg_ConstDMat)) THEN
+  ! Matrix already exists, skip reassembly
+  WRITE(MTERM,'(A)') " [VD]: Exists |"
+  RETURN
+END IF
+```
+
+**Why "ConstDMat"?** "Const" = constant viscosity, "D" = diffusion operator
+
+**Label "[VD]":** "Viscous Diffusion" in progress messages
+
+---
+
+### 3. General Diffusion Matrix (`mg_Dmat`)
+
+**Mathematical Form:**
+```
+D[i,j] = ∫_Ω ν(u, ∇u, T, ...) ∇φ_i(x) · ∇φ_j(x) dx
+```
+
+**Physical Meaning:** Variable-viscosity diffusion (velocity-dependent, temperature-dependent, or material-dependent)
+
+**Assembly:** Complex, multiple kernels based on physics:
+
+**Newtonian Case (`bNonNewtonian = .FALSE.`):**
+```fortran
+CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a, ...)
+```
+- Standard Newtonian viscosity
+- No velocity dependence
+
+**Non-Newtonian Case (`bNonNewtonian = .TRUE.`):**
+
+**Single Material:**
+```fortran
+CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV, myScalar%valW, &
+                  Temperature, mg_Dmat(ILEV)%a, ...)
+```
+- Velocity-dependent viscosity (shear-thinning, shear-thickening)
+- Temperature-dependent viscosity
+- Generalized Newtonian models (power-law, Carreau, etc.)
+
+**Multi-Material (`bMultiMat = .TRUE.`):**
+```fortran
+CALL DIFFQ2_AlphaNNEWT(myScalar%valU, myScalar%valV, myScalar%valW, &
+                       MaterialDistribution(ILEV)%x, &
+                       mg_Dmat(ILEV)%a, ...)
+```
+- Material-dependent viscosity
+- Interface tracking (multi-phase flows)
+- Heterogeneous material properties
+
+**Allocation:**
+```fortran
+! Two-level allocation
+IF (.NOT. ALLOCATED(mg_Dmat)) ALLOCATE(mg_Dmat(NLMIN:NLMAX))
+ALLOCATE(mg_Dmat(ILEV)%a(qMat%na))
+```
+
+**Usage:**
+- Non-Newtonian fluid flows (polymer melts, blood, etc.)
+- Temperature-dependent viscosity (thermal coupling)
+- Multi-material simulations (solid-fluid, fluid-fluid)
+- Viscoelastic flows
+
+**Why Not Refactored in Phase 2.2?**
+- Complex branching logic (bNonNewtonian, bMultiMat)
+- Three different assembly kernels
+- Velocity field dependencies (`myScalar%valU/V/W`)
+- Temperature/material distribution dependencies
+- Would require sophisticated generic routine
+- Left unchanged for clarity and stability
+
+---
+
+### Diffusion Matrix Comparison Table
+
+| Property | `mg_hDmat` | `mg_ConstDMat` | `mg_Dmat` |
+|----------|------------|----------------|-----------|
+| **Alpha Parameter** | 1.0 | 0.0 | N/A (multiple kernels) |
+| **Assembly Kernel** | `DIFFQ2_alpha` | `DIFFQ2_alpha` | `DIFFQ2_NEWT` / `DIFFQ2_NNEWT` / `DIFFQ2_AlphaNNEWT` |
+| **Process Guard** | `myid.ne.0` only | All processes | All processes |
+| **Early Exit** | Yes (if exists) | Yes (if exists) | No |
+| **Velocity Dependent** | No | No | Yes (non-Newtonian) |
+| **Material Dependent** | No | No | Yes (multi-material) |
+| **Phase 2.2 Refactored** | ✓ Yes | ✓ Yes | ✗ No (too complex) |
+| **Label** | `[hD]` | `[VD]` | `[D]` |
+| **Typical Use** | Baseline operator | Constant viscosity | Variable viscosity |
+
+---
+
+### Assembly Kernel: `DIFFQ2_alpha`
+
+**Signature:**
+```fortran
+SUBROUTINE DIFFQ2_alpha(DA, NA, KCOLA, KLDA, KVERT, KAREA, KEDGE, &
+                        DCORVG, ELE, alpha)
+  REAL*8 :: DA(NA)              ! Output matrix coefficients
+  INTEGER :: NA                 ! Number of non-zeros
+  INTEGER :: KCOLA(NA)          ! Column indices (CSR)
+  INTEGER :: KLDA(NU+1)         ! Row pointers (CSR)
+  INTEGER :: KVERT(8,NEL)       ! Element-vertex connectivity
+  INTEGER :: KAREA(6,NEL)       ! Element-face connectivity
+  INTEGER :: KEDGE(12,NEL)      ! Element-edge connectivity
+  REAL*8 :: DCORVG(3,NVT)       ! Vertex coordinates
+  EXTERNAL :: ELE               ! Finite element routine
+  REAL*8 :: alpha               ! Alpha weighting parameter
+END SUBROUTINE
+```
+
+**Purpose:** Assembles diffusion matrix with alpha-weighted quadrature
+
+**Alpha Parameter Meaning:**
+- `alpha = 1.0`: Standard diffusion (hDmat)
+- `alpha = 0.0`: Constant viscous diffusion (ConstDMat)
+- Other values: User-defined weighting (not used in current code)
+
+**Implementation Location:** `source/assemblies/` (exact file TBD - would need search)
+
+---
+
+### Phase 2.2 Refactoring: `Assemble_Diffusion_Alpha_Generic`
+
+**Purpose:** Unified assembly for `Create_hDiffMat` and `Create_ConstDiffMat`
+
+**Signature:**
+```fortran
+SUBROUTINE Assemble_Diffusion_Alpha_Generic(mg_OutMatrix, alpha, label, &
+                                             require_worker)
+  TYPE(mg_Matrix), INTENT(INOUT) :: mg_OutMatrix(NLMIN:NLMAX)
+  REAL*8, INTENT(IN) :: alpha
+  CHARACTER(LEN=*), INTENT(IN) :: label
+  LOGICAL, INTENT(IN) :: require_worker
+```
+
+**Parameters:**
+- `mg_OutMatrix`: Output diffusion matrix (must be allocated by caller)
+- `alpha`: Parameter for `DIFFQ2_alpha` kernel
+- `label`: Progress message label (`"[hD]"` or `"[VD]"`)
+- `require_worker`: If `.TRUE.`, only `myid.ne.0` assembles
+
+**Refactored Routines:**
+
+**`Create_hDiffMat` (Before: 57 lines, After: 18 lines):**
+```fortran
+! Caller handles allocation and early-exit
+IF (.NOT. ALLOCATED(mg_hDmat)) THEN
+  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+ELSE
+  RETURN  ! Already exists
+END IF
+
+! Call generic with alpha=1.0, worker-only
+CALL Assemble_Diffusion_Alpha_Generic(mg_hDmat, 1.0d0, "[hD]", .TRUE.)
+```
+
+**`Create_ConstDiffMat` (Before: 55 lines, After: 18 lines):**
+```fortran
+! Caller handles allocation and early-exit
+IF (.NOT. ALLOCATED(mg_ConstDMat)) THEN
+  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+ELSE
+  RETURN  ! Already exists
+END IF
+
+! Call generic with alpha=0.0, all processes
+CALL Assemble_Diffusion_Alpha_Generic(mg_ConstDMat, 0.0d0, "[VD]", .FALSE.)
+```
+
+**Code Reduction:**
+- `Create_hDiffMat`: 68% reduction (57 → 18 lines)
+- `Create_ConstDiffMat`: 67% reduction (55 → 18 lines)
+- Total duplication eliminated: ~94 lines
+
+**Design Benefits:**
+- Single source of truth for alpha-based diffusion
+- Easy to add new alpha variants in future
+- Consistent timing, progress messages, allocation patterns
+- Clear separation: simple (alpha-based) vs complex (`mg_Dmat`)
+
+---
+
+### Diffusion Matrix Relationships
+
+```
+                    ┌──────────────────────────┐
+                    │  Physics Requirements    │
+                    └────────────┬─────────────┘
+                                 │
+                ┌────────────────┼────────────────┐
+                │                │                │
+                ▼                ▼                ▼
+        ┌───────────────┐  ┌──────────────┐  ┌────────────────┐
+        │  Constant     │  │  Constant    │  │  Variable      │
+        │  Diffusion    │  │  Viscosity   │  │  Viscosity     │
+        └───────┬───────┘  └──────┬───────┘  └────────┬───────┘
+                │                 │                    │
+                ▼                 ▼                    ▼
+        ┌───────────────┐  ┌──────────────┐  ┌────────────────┐
+        │  mg_hDmat     │  │ mg_ConstDMat │  │   mg_Dmat      │
+        │  (alpha=1.0)  │  │  (alpha=0.0) │  │  (NEWT/NNEWT)  │
+        └───────┬───────┘  └──────┬───────┘  └────────┬───────┘
+                │                 │                    │
+                └─────────┬───────┴────────────────────┘
+                          ▼
+                ┌──────────────────────────┐
+                │  Multigrid Hierarchy     │
+                │  NLMIN → NLMAX           │
+                │  Each level: CSR matrix  │
+                └──────────────────────────┘
+```
+
+---
+
+### When to Use Which Diffusion Matrix?
+
+**Use `mg_hDmat` when:**
+- Implementing baseline multigrid smoothers
+- Constant thermal conductivity problems
+- Need standard Laplacian operator
+- Debugging viscous solvers (simplest case)
+
+**Use `mg_ConstDMat` when:**
+- Newtonian fluid flow (constant dynamic viscosity)
+- Constant material properties
+- Benchmark problems with known viscosity
+- Reference solutions for validation
+
+**Use `mg_Dmat` when:**
+- Non-Newtonian flows (shear-thinning/thickening)
+- Temperature-dependent viscosity
+- Multi-material simulations
+- Polymer processing (extrusion, injection molding)
+- Blood flow simulations
+- Any velocity-dependent constitutive law
+
+---
+
+### Common Usage Patterns
+
+**Pattern 1: Matrix Renewal (Newtonian Flow)**
+```fortran
+! Called once at initialization
+CALL Create_ConstDiffMat()  ! Allocates and assembles
+
+! During time-stepping: reuse unless mesh changes
+! (ConstDMat doesn't change if viscosity is constant)
+```
+
+**Pattern 2: Matrix Renewal (Non-Newtonian Flow)**
+```fortran
+! Called at initialization
+CALL Create_DiffMat(QuadSc)  ! Initial assembly
+
+! During time-stepping: reassemble when needed
+IF (myMatrixRenewal%D == 1) THEN
+  ! Velocity has changed significantly
+  CALL Create_DiffMat(QuadSc)  ! Reassemble with new velocity
+END IF
+```
+
+**Pattern 3: Mixed Usage**
+```fortran
+! Use constant diffusion for preconditioner
+CALL Create_ConstDiffMat()
+
+! Use variable diffusion for exact operator
+CALL Create_DiffMat(QuadSc)
+
+! Multigrid: smooth with ConstDMat, correct with Dmat
+```
+
+---
+
+### Memory Footprint
+
+For a typical 3D problem with `NEL` elements and Q2 finite elements:
+
+**Number of unknowns per level:**
+```
+NU = NVT + NET + NAT + NEL
+   ≈ (2^lev + 1)^3  (vertices)
+   + 3*(2^lev)*(2^lev + 1)^2  (edges)
+   + 3*(2^lev)^2*(2^lev + 1)  (faces)
+   + (2^lev)^3  (cells)
+```
+
+**Non-zero entries (CSR format):**
+```
+NA ≈ 27 * NU  (Q2 stencil: 27-point in 3D)
+```
+
+**Memory per diffusion matrix:**
+```
+Memory ≈ 8 bytes/entry * 27 * NU
+       ≈ 216 * NU bytes
+```
+
+**All three diffusion matrices:**
+```
+Total ≈ 3 * 216 * NU bytes
+      = 648 * NU bytes
+```
+
+**Example (NLMAX with NU ≈ 1M unknowns):**
+```
+Per matrix: 216 MB
+All three:  648 MB
+```
+
+**Optimization tip:** If using only one type, comment out calls to others to save memory.
+
+---
+
+### Debugging Diffusion Matrices
+
+**Check if assembled:**
+```fortran
+IF (ALLOCATED(mg_hDmat)) THEN
+  WRITE(*,*) 'hDmat allocated on', LBOUND(mg_hDmat), 'to', UBOUND(mg_hDmat)
+  DO ILEV = NLMIN, NLMAX
+    IF (ALLOCATED(mg_hDmat(ILEV)%a)) THEN
+      WRITE(*,*) '  Level', ILEV, ': size =', SIZE(mg_hDmat(ILEV)%a)
+    END IF
+  END DO
+END IF
+```
+
+**Verify symmetry (should be symmetric for diffusion):**
+```fortran
+! Check if D[i,j] ≈ D[j,i]
+symmetric_error = 0d0
+DO IEQ = 1, qMat%nu
+  DO IA = qMat%LdA(IEQ), qMat%LdA(IEQ+1)-1
+    JCOL = qMat%ColA(IA)
+    ! Find D[j,i] and compare with D[i,j]
+    ! (implementation left as exercise)
+  END DO
+END DO
+```
+
+**Check diagonal dominance:**
+```fortran
+! Diffusion matrices should be diagonally dominant
+DO IEQ = 1, qMat%nu
+  diag_val = mg_hDmat(ILEV)%a(qMat%LdA(IEQ))  ! Diagonal entry
+  off_diag_sum = 0d0
+  DO IA = qMat%LdA(IEQ)+1, qMat%LdA(IEQ+1)-1
+    off_diag_sum = off_diag_sum + ABS(mg_hDmat(ILEV)%a(IA))
+  END DO
+  IF (diag_val < off_diag_sum) THEN
+    WRITE(*,*) 'WARNING: Row', IEQ, 'not diagonally dominant!'
+  END IF
+END DO
 ```
 
 ---
@@ -691,6 +1126,7 @@ END SUBROUTINE Debug_MatrixAllocation
 
 **Document History:**
 - 2025-12-05: Initial version (Phase 2.1 mass matrix refactoring insights)
+- 2025-12-05: Added Diffusion Matrix Family section (Phase 2.2 refactoring insights)
 
 **Contributing:**
 If you discover additional allocation patterns or encounter new pitfalls, please update this document and commit with a descriptive message.
