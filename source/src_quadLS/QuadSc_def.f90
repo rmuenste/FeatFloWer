@@ -552,6 +552,95 @@ END SUBROUTINE Create_MMat
 !
 ! ----------------------------------------------
 !
+! ============================================================================
+! Phase 2.2: Generic Diffusion Matrix Assembly (Alpha-based)
+! ============================================================================
+! Purpose: Unified assembly logic for diffusion matrices with constant alpha
+!
+! This routine extracts the common ~75-80% code duplication between
+! Create_hDiffMat and Create_ConstDiffMat.
+!
+! Parameters:
+!   mg_OutMatrix     - Output: diffusion matrix array (must be allocated by caller)
+!   alpha            - Alpha parameter for DIFFQ2_alpha kernel
+!   label            - Character label for progress messages
+!   require_worker   - If .TRUE., only assemble on myid != 0 processes
+!
+! Design notes:
+!   - Both Create_hDiffMat (alpha=1.0) and Create_ConstDiffMat (alpha=0.0)
+!     use the same assembly kernel DIFFQ2_alpha with different parameters
+!   - Create_hDiffMat requires myid.ne.0 guard, Create_ConstDiffMat does not
+!   - Caller is responsible for top-level allocation and early-exit checks
+! ============================================================================
+SUBROUTINE Assemble_Diffusion_Alpha_Generic(mg_OutMatrix, alpha, label, &
+                                             require_worker)
+  TYPE(mg_Matrix), INTENT(INOUT) :: mg_OutMatrix(NLMIN:NLMAX)
+  REAL*8, INTENT(IN) :: alpha
+  CHARACTER(LEN=*), INTENT(IN) :: label
+  LOGICAL, INTENT(IN) :: require_worker
+
+  EXTERNAL E013
+
+  CALL ZTIME(myStat%t0)
+
+  ! Loop over multigrid levels
+  DO ILEV = NLMIN, NLMAX
+
+    CALL SETLEV(2)
+    qMat => mg_qMat(ILEV)
+
+    ! Allocate per-level matrix
+    IF (.NOT. ALLOCATED(mg_OutMatrix(ILEV)%a)) THEN
+      ALLOCATE(mg_OutMatrix(ILEV)%a(qMat%na))
+    END IF
+
+    mg_OutMatrix(ILEV)%a = 0d0
+
+    ! Progress indicator
+    IF (myid.eq.showID) THEN
+      IF (ILEV.EQ.NLMIN) THEN
+        WRITE(MTERM,'(A,I1,A)', advance='no') " "//TRIM(label)//": [", ILEV,"]"
+      ELSE
+        WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+      END IF
+    END IF
+
+    ! Assembly kernel (with optional worker-only guard)
+    IF (require_worker) THEN
+      IF (myid.ne.0) THEN
+        CALL DIFFQ2_alpha(mg_OutMatrix(ILEV)%a, qMat%na, qMat%ColA, &
+                          qMat%LdA, &
+                          mg_mesh%level(ILEV)%kvert, &
+                          mg_mesh%level(ILEV)%karea, &
+                          mg_mesh%level(ILEV)%kedge, &
+                          mg_mesh%level(ILEV)%dcorvg, &
+                          E013, alpha)
+      END IF
+    ELSE
+      CALL DIFFQ2_alpha(mg_OutMatrix(ILEV)%a, qMat%na, qMat%ColA, &
+                        qMat%LdA, &
+                        mg_mesh%level(ILEV)%kvert, &
+                        mg_mesh%level(ILEV)%karea, &
+                        mg_mesh%level(ILEV)%kedge, &
+                        mg_mesh%level(ILEV)%dcorvg, &
+                        E013, alpha)
+    END IF
+
+  END DO
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+  ! Restore to NLMAX level
+  ILEV = NLMAX
+  CALL SETLEV(2)
+
+  CALL ZTIME(myStat%t1)
+  myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+END SUBROUTINE Assemble_Diffusion_Alpha_Generic
+!
+! ----------------------------------------------
+!
 SUBROUTINE SetSlipOnBandBT()
 
  if (.not.bMasterTurnedOn) return 
@@ -1409,118 +1498,164 @@ END SUBROUTINE Fill_QuadLinParMat
 ! ----------------------------------------------
 !
 SUBROUTINE Create_hDiffMat()
-EXTERNAL E013
+! Phase 2.2: Refactored to use Assemble_Diffusion_Alpha_Generic
 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_hDmat)) THEN
-  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+ ! ========== New Implementation (Phase 2.2) ==========
+ ! Check if matrix already exists (early exit)
+ IF (.NOT. ALLOCATED(mg_hDmat)) THEN
+   ALLOCATE(mg_hDmat(NLMIN:NLMAX))
  ELSE
-  IF (myid.eq.showID) THEN
-   WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: Exists |"
-  END IF
-  RETURN
+   IF (myid.eq.showID) THEN
+     WRITE(MTERM,'(A)', advance='no') " [hD]: Exists |"
+   END IF
+   RETURN
  END IF
 
- DO ILEV=NLMIN,NLMAX
+ ! Call generic assembly routine with alpha=1.0, worker-only guard
+ CALL Assemble_Diffusion_Alpha_Generic(mg_hDmat, 1.0d0, "[hD]", .TRUE.)
+ ! ====================================================
 
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_hDmat(ILEV)%a)) THEN
-   ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_hDmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  if (myid.ne.0) then
-  CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
-       qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013,1d0)
-  end if
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
+ ! Set final pointer to NLMAX level
  qMat  => mg_qMat(NLMAX)
  hDMat => mg_hDMat(NLMAX)%a
- 
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+! ========== Original Implementation (Phase 2.2 - Commented for validation) ==========
+! EXTERNAL E013
+!
+! CALL ZTIME(myStat%t0)
+!
+! IF (.not.ALLOCATED(mg_hDmat)) THEN
+!  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+! ELSE
+!  IF (myid.eq.showID) THEN
+!   WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: Exists |"
+!  END IF
+!  RETURN
+! END IF
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qMat => mg_qMat(ILEV)
+!
+!  IF (.not.ALLOCATED(mg_hDmat(ILEV)%a)) THEN
+!   ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))
+!  END IF
+!
+!  mg_hDmat(ILEV)%a=0d0
+!
+!  IF (myid.eq.showID) THEN
+!   IF (ILEV.EQ.NLMIN) THEN
+!    WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: [", ILEV,"]"
+!   ELSE
+!    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!   END IF
+!  END IF
+!
+!  if (myid.ne.0) then
+!  CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
+!       qMat%LdA,&
+!       mg_mesh%level(ILEV)%kvert,&
+!       mg_mesh%level(ILEV)%karea,&
+!       mg_mesh%level(ILEV)%kedge,&
+!       mg_mesh%level(ILEV)%dcorvg,&
+!       E013,1d0)
+!  end if
+!
+! END DO
+!
+! IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qMat  => mg_qMat(NLMAX)
+! hDMat => mg_hDMat(NLMAX)%a
+!
+! CALL ZTIME(myStat%t1)
+! myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+! ====================================================
 
 END SUBROUTINE Create_hDiffMat
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Create_ConstDiffMat()
-EXTERNAL E013
+! Phase 2.2: Refactored to use Assemble_Diffusion_Alpha_Generic
 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_ConstDMat)) THEN
-  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+ ! ========== New Implementation (Phase 2.2) ==========
+ ! Check if matrix already exists (early exit)
+ IF (.NOT. ALLOCATED(mg_ConstDMat)) THEN
+   ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
  ELSE
-  IF (myid.eq.showID) THEN
-   WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: Exists |"
-  END IF
-  RETURN
+   IF (myid.eq.showID) THEN
+     WRITE(MTERM,'(A)', advance='no') " [VD]: Exists |"
+   END IF
+   RETURN
  END IF
 
- DO ILEV=NLMIN,NLMAX
+ ! Call generic assembly routine with alpha=0.0, no worker guard
+ CALL Assemble_Diffusion_Alpha_Generic(mg_ConstDMat, 0.0d0, "[VD]", .FALSE.)
+ ! ====================================================
 
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_ConstDMat(ILEV)%a)) THEN
-   ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_ConstDMat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  CALL DIFFQ2_alpha(mg_ConstDMat(ILEV)%a,qMat%na,qMat%ColA,&
-       qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013,0d0)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
+ ! Set final pointer to NLMAX level
  qMat      => mg_qMat(NLMAX)
  ConstDMat => mg_ConstDMat(NLMAX)%a
- 
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+
+! ========== Original Implementation (Phase 2.2 - Commented for validation) ==========
+! EXTERNAL E013
+!
+! CALL ZTIME(myStat%t0)
+!
+! IF (.not.ALLOCATED(mg_ConstDMat)) THEN
+!  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+! ELSE
+!  IF (myid.eq.showID) THEN
+!   WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: Exists |"
+!  END IF
+!  RETURN
+! END IF
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qMat => mg_qMat(ILEV)
+!
+!  IF (.not.ALLOCATED(mg_ConstDMat(ILEV)%a)) THEN
+!   ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))
+!  END IF
+!
+!  mg_ConstDMat(ILEV)%a=0d0
+!
+!  IF (myid.eq.showID) THEN
+!   IF (ILEV.EQ.NLMIN) THEN
+!    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
+!   ELSE
+!    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!   END IF
+!  END IF
+!
+!  CALL DIFFQ2_alpha(mg_ConstDMat(ILEV)%a,qMat%na,qMat%ColA,&
+!       qMat%LdA,&
+!       mg_mesh%level(ILEV)%kvert,&
+!       mg_mesh%level(ILEV)%karea,&
+!       mg_mesh%level(ILEV)%kedge,&
+!       mg_mesh%level(ILEV)%dcorvg,&
+!       E013,0d0)
+!
+! END DO
+!
+! IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qMat      => mg_qMat(NLMAX)
+! ConstDMat => mg_ConstDMat(NLMAX)%a
+!
+! CALL ZTIME(myStat%t1)
+! myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+! ====================================================
 
 END SUBROUTINE Create_ConstDiffMat
 !
