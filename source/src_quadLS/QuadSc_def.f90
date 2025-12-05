@@ -260,69 +260,142 @@ END SUBROUTINE Create_ParLinMatStruct
 !
 ! ----------------------------------------------
 !
+! ============================================================================
+! Phase 2.1: Generic Mass Matrix Assembly
+! ============================================================================
+! Purpose: Unified assembly logic for mass matrices with/without density
+!
+! This routine extracts the common ~85% code duplication between
+! Create_MMat and Create_MRhoMat into a single generic implementation.
+!
+! Parameters:
+!   use_density     - LOGICAL: if .TRUE., use BuildMRhoMat, else BuildMMat
+!   mg_MlMatrix     - Output: lumped mass matrix (row sums)
+!   mg_MlPMatrix    - Output: parallel lumped mass matrix (MPI synchronized)
+!   density_opt     - Optional: density array for BuildMRhoMat
+!   label           - Character label for progress messages
+!
+! Design notes:
+!   - Both Create_MMat and Create_MRhoMat allocate and fill mg_Mmat
+!   - Row sum loop is identical (lines 309-315 vs 380-386 in original)
+!   - E013SUM synchronization is identical
+!   - Differences are handled by caller wrappers
+! ============================================================================
+SUBROUTINE Assemble_Mass_Generic(use_density, mg_MlMatrix, mg_MlPMatrix, &
+                                  density_opt, label)
+  LOGICAL, INTENT(IN) :: use_density
+  TYPE(mg_Matrix), INTENT(INOUT) :: mg_MlMatrix(NLMIN:NLMAX)
+  TYPE(mg_Matrix), INTENT(INOUT) :: mg_MlPMatrix(NLMIN:NLMAX)
+  TYPE(mg_dVector), INTENT(IN), OPTIONAL :: density_opt(NLMIN:NLMAX)
+  CHARACTER(LEN=*), INTENT(IN) :: label
+
+  EXTERNAL E013
+  REAL*8  DML
+  INTEGER I, J
+
+  ! Ensure mg_Mmat is allocated (shared by both MMat and MRhoMat)
+  ! Note: mg_MlMatrix and mg_MlPMatrix are passed by caller, so they handle allocation
+  IF (.not.ALLOCATED(mg_Mmat)) ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+
+  ! Loop over all multigrid levels
+  DO ILEV=NLMIN,NLMAX
+    CALL SETLEV(2)
+    qMat => mg_qMat(ILEV)
+
+    ! Allocate mass matrix if needed
+    IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
+      ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
+    END IF
+
+    mg_Mmat(ILEV)%a = 0d0
+
+    ! Progress indicator
+    IF (myid.eq.showID) THEN
+      IF (ILEV.EQ.NLMIN) THEN
+        WRITE(MTERM,'(A,I1,A)', advance='no') " "//TRIM(label)//": [", ILEV,"]"
+      ELSE
+        WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+      END IF
+    END IF
+
+    ! Call appropriate matrix builder
+    IF (use_density) THEN
+      IF (.NOT. PRESENT(density_opt)) THEN
+        WRITE(*,*) 'ERROR: Assemble_Mass_Generic called with use_density=.TRUE. but no density array!'
+        STOP
+      END IF
+      CALL BuildMRhoMat(density_opt(ILEV)%x, mg_Mmat(ILEV)%a, qMat%na, &
+                        qMat%ColA, qMat%LdA, &
+                        mg_mesh%level(ILEV)%kvert, &
+                        mg_mesh%level(ILEV)%karea, &
+                        mg_mesh%level(ILEV)%kedge, &
+                        mg_mesh%level(ILEV)%dcorvg, &
+                        E013)
+    ELSE
+      CALL BuildMMat(mg_Mmat(ILEV)%a, qMat%na, &
+                     qMat%ColA, qMat%LdA, &
+                     mg_mesh%level(ILEV)%kvert, &
+                     mg_mesh%level(ILEV)%karea, &
+                     mg_mesh%level(ILEV)%kedge, &
+                     mg_mesh%level(ILEV)%dcorvg, &
+                     E013)
+    END IF
+
+    ! Compute lumped mass matrix (row sum) - identical for both variants
+    IF (.not.ALLOCATED(mg_MlMatrix(ILEV)%a)) ALLOCATE(mg_MlMatrix(ILEV)%a(qMat%nu))
+
+    DO I=1,qMat%nu
+      DML = 0d0
+      DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        DML = DML + mg_Mmat(ILEV)%a(J)
+      END DO
+      mg_MlMatrix(ILEV)%a(I) = DML
+    END DO
+
+    ! Parallel synchronization - identical for both variants
+    IF (.not.ALLOCATED(mg_MlPMatrix(ILEV)%a)) ALLOCATE(mg_MlPMatrix(ILEV)%a(qMat%nu))
+    mg_MlPMatrix(ILEV)%a = mg_MlMatrix(ILEV)%a
+    CALL E013SUM(mg_MlPMatrix(ILEV)%a)
+
+  END DO
+
+  ! Restore to NLMAX and set pointers
+  ILEV=NLMAX
+  CALL SETLEV(2)
+  qMat => mg_qMat(NLMAX)
+
+  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+END SUBROUTINE Assemble_Mass_Generic
+!
+! ----------------------------------------------
+!
 SUBROUTINE Create_MRhoMat()
-EXTERNAL E013
-REAL*8  DML
-INTEGER I,J
+! Phase 2.1: Refactored to use Assemble_Mass_Generic
+INTEGER :: ILEV_save
 
  if (.not.bMasterTurnedOn) return
- 
+
  CALL ZTIME(myStat%t0)
 
- IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+ ! ========== New Implementation (Phase 2.1) ==========
+ ! Allocate top-level arrays (must be done by caller before passing to generic)
  IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
  IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
 
- DO ILEV=NLMIN,NLMAX
+ ! Call generic assembly routine with density
+ CALL Assemble_Mass_Generic(.TRUE., mg_MlRhomat, mg_MlRhoPmat, &
+                             mgDensity, "[MRho] & [MlRho]")
 
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Mmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-  mg_mesh%level(ILEV)%kvert,&
-  mg_mesh%level(ILEV)%karea,&
-  mg_mesh%level(ILEV)%kedge,&
-  mg_mesh%level(ILEV)%dcorvg,&
-  E013)
-
-  if(bSteadyState)then
-    mg_MMat(ILEV)%a = 0d0
-  end if
-
-  IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
-
-!  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling MLRho Matrix on Level [", ILEV,"]"
-  DO I=1,qMat%nu
-   DML = 0d0
-   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-    DML = DML + mg_Mmat(ILEV)%a(J)
+ ! Handle bSteadyState special case (only in MRhoMat, not MMat)
+ if(bSteadyState)then
+   DO ILEV_save=NLMIN,NLMAX
+     mg_MMat(ILEV_save)%a = 0d0
    END DO
-   mg_MlRhomat(ILEV)%a(I) = DML
-  END DO
+ end if
+ ! ====================================================
 
-  IF (.not.ALLOCATED(mg_MlRhoPmat(ILEV)%a)) ALLOCATE(mg_MlRhoPmat(ILEV)%a(qMat%nu))
-  mg_MlRhoPmat(ILEV)%a = mg_MlRhomat(ILEV)%a
-  CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
+ ! Set final pointers to NLMAX level
  qMat      => mg_qMat(NLMAX)
  Mmat      => mg_Mmat(NLMAX)%a
  MlRhomat  => mg_MlRhomat(NLMAX)%a
@@ -330,70 +403,88 @@ INTEGER I,J
 
  CALL ZTIME(myStat%t1)
  myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+! ========== Original Implementation (Phase 2.1 - Commented for validation) ==========
+! EXTERNAL E013
+! REAL*8  DML
+! INTEGER I,J
+!
+! IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+! IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
+! IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qMat => mg_qMat(ILEV)
+!
+!  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
+!   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
+!  END IF
+!
+!  mg_Mmat(ILEV)%a=0d0
+!
+!  IF (myid.eq.showID) THEN
+!   IF (ILEV.EQ.NLMIN) THEN
+!    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
+!   ELSE
+!    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!   END IF
+!  END IF
+!
+!  CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+!  mg_mesh%level(ILEV)%kvert,&
+!  mg_mesh%level(ILEV)%karea,&
+!  mg_mesh%level(ILEV)%kedge,&
+!  mg_mesh%level(ILEV)%dcorvg,&
+!  E013)
+!
+!  if(bSteadyState)then
+!    mg_MMat(ILEV)%a = 0d0
+!  end if
+!
+!  IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
+!
+!  DO I=1,qMat%nu
+!   DML = 0d0
+!   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!    DML = DML + mg_Mmat(ILEV)%a(J)
+!   END DO
+!   mg_MlRhomat(ILEV)%a(I) = DML
+!  END DO
+!
+!  IF (.not.ALLOCATED(mg_MlRhoPmat(ILEV)%a)) ALLOCATE(mg_MlRhoPmat(ILEV)%a(qMat%nu))
+!  mg_MlRhoPmat(ILEV)%a = mg_MlRhomat(ILEV)%a
+!  CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
+!
+! END DO
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+! ====================================================
 
 END SUBROUTINE Create_MRhoMat
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Create_MMat()
-EXTERNAL E013
-REAL*8  DML
-INTEGER I,J
+! Phase 2.1: Refactored to use Assemble_Mass_Generic
 
  if (.not.bMasterTurnedOn) return
- 
+
  CALL ZTIME(myStat%t0)
 
- IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+ ! ========== New Implementation (Phase 2.1) ==========
+ ! Allocate top-level arrays (must be done by caller before passing to generic)
  IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
  IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
 
- DO ILEV=NLMIN,NLMAX
+ ! Call generic assembly routine without density
+ CALL Assemble_Mass_Generic(.FALSE., mg_MlMat, mg_MlPMat, &
+                             label="[MRho] & [MlRho]")
+ ! ====================================================
 
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Mmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-  CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-                 mg_mesh%level(ILEV)%kvert,&
-                 mg_mesh%level(ILEV)%karea,&
-                 mg_mesh%level(ILEV)%kedge,&
-                 mg_mesh%level(ILEV)%dcorvg,&
-                 E013)
-
-
-  IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
-
-  DO I=1,qMat%nu
-   DML = 0d0
-   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-    DML = DML + mg_Mmat(ILEV)%a(J)
-   END DO
-   mg_MlMat(ILEV)%a(I) = DML
-  END DO
-
-  IF (.not.ALLOCATED(mg_MlPmat(ILEV)%a)) ALLOCATE(mg_MlPmat(ILEV)%a(qMat%nu))
-  mg_MlPmat(ILEV)%a = mg_MlMat(ILEV)%a
-  CALL E013SUM(mg_MlPmat(ILEV)%a)
-  
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
+ ! Set final pointers to NLMAX level
  qMat      => mg_qMat(NLMAX)
  Mmat      => mg_Mmat(NLMAX)%a
  MlMat     => mg_MlMat(NLMAX)%a
@@ -401,7 +492,61 @@ INTEGER I,J
 
  CALL ZTIME(myStat%t1)
  myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+
+! ========== Original Implementation (Phase 2.1 - Commented for validation) ==========
+! EXTERNAL E013
+! REAL*8  DML
+! INTEGER I,J
+!
+! IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
+! IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
+! IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qMat => mg_qMat(ILEV)
+!
+!  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
+!   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
+!  END IF
+!
+!  mg_Mmat(ILEV)%a=0d0
+!
+!  IF (myid.eq.showID) THEN
+!   IF (ILEV.EQ.NLMIN) THEN
+!    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
+!   ELSE
+!    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!   END IF
+!  END IF
+!  CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+!                 mg_mesh%level(ILEV)%kvert,&
+!                 mg_mesh%level(ILEV)%karea,&
+!                 mg_mesh%level(ILEV)%kedge,&
+!                 mg_mesh%level(ILEV)%dcorvg,&
+!                 E013)
+!
+!
+!  IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
+!
+!  DO I=1,qMat%nu
+!   DML = 0d0
+!   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+!    DML = DML + mg_Mmat(ILEV)%a(J)
+!   END DO
+!   mg_MlMat(ILEV)%a(I) = DML
+!  END DO
+!
+!  IF (.not.ALLOCATED(mg_MlPmat(ILEV)%a)) ALLOCATE(mg_MlPmat(ILEV)%a(qMat%nu))
+!  mg_MlPmat(ILEV)%a = mg_MlMat(ILEV)%a
+!  CALL E013SUM(mg_MlPmat(ILEV)%a)
+!
+! END DO
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+! ====================================================
 
 END SUBROUTINE Create_MMat
 !
