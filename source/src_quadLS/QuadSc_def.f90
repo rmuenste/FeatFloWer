@@ -1381,117 +1381,259 @@ END SUBROUTINE BuildUpPressureCommunicator
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_QuadLinParMatStruct(myPLinSc) !(B)
-TYPE(TParLinScalar) myPLinSc
-INTEGER pNEL,MatSize
-INTEGER, ALLOCATABLE :: TempLdB(:)
+!===============================================================================
+! Subroutine: Assemble_ParallelMatrix_Generic
+!
+! Purpose: Generic routine for parallel matrix setup and coefficient filling
+!          Extracted as part of Phase 2.3 refactoring
+!
+! Description:
+!   Unified logic for Create_QuadLinParMatStruct and Fill_QuadLinParMat.
+!   These routines had ~30 lines of duplicated code for:
+!   - Level loop structure
+!   - Matrix pointer assignments
+!   - Create_ParB_COLMAT call for coefficient filling
+!
+!   Key difference controlled by allocate_structure flag:
+!   - TRUE:  Allocate arrays + fill (Create_QuadLinParMatStruct behavior)
+!   - FALSE: Only refill coefficients (Fill_QuadLinParMat behavior)
+!
+! Arguments:
+!   allocate_structure - LOGICAL: If TRUE, allocate structure arrays
+!   myPLinSc_opt      - TYPE(TParLinScalar), OPTIONAL: Output parameter structure
+!
+! Side Effects:
+!   - Allocates mg_BXPMat, mg_BYPMat, mg_BZPMat, mg_qlPMat (if allocate_structure)
+!   - Fills parallel matrix coefficients via Create_ParB_COLMAT
+!   - Sets myPLinSc_opt%ndof and allocates myPLinSc_opt%Val (if present)
+!
+! History:
+!   Phase 2.3 (2025-12-05): Initial extraction from Create/Fill pair
+!===============================================================================
+SUBROUTINE Assemble_ParallelMatrix_Generic(allocate_structure, myPLinSc_opt)
+  LOGICAL, INTENT(IN) :: allocate_structure
+  TYPE(TParLinScalar), INTENT(INOUT), OPTIONAL :: myPLinSc_opt
 
- ALLOCATE (mg_BXPMat(NLMIN:NLMAX))
- ALLOCATE (mg_BYPMat(NLMIN:NLMAX))
- ALLOCATE (mg_BZPMat(NLMIN:NLMAX))
- ALLOCATE (mg_qlPMat(NLMIN:NLMAX))
+  ! Local variables
+  INTEGER :: pNEL, MatSize
+  INTEGER, ALLOCATABLE :: TempLdB(:)
 
- DO ILEV=NLMIN,NLMAX
+  ! Top-level allocation (only if creating structure)
+  IF (allocate_structure) THEN
+    ALLOCATE(mg_BXPMat(NLMIN:NLMAX))
+    ALLOCATE(mg_BYPMat(NLMIN:NLMAX))
+    ALLOCATE(mg_BZPMat(NLMIN:NLMAX))
+    ALLOCATE(mg_qlPMat(NLMIN:NLMAX))
+  END IF
 
+  ! Process all multigrid levels
+  DO ILEV = NLMIN, NLMAX
+
+    CALL SETLEV(2)
+
+    ! Set up matrix pointers for this level
+    qlMat => mg_qlMat(ILEV)
+    BXMat => mg_BXMat(ILEV)%a
+    BYMat => mg_BYMat(ILEV)%a
+    BZMat => mg_BZMat(ILEV)%a
+
+    ! Structure allocation (only if creating)
+    IF (allocate_structure) THEN
+      ! Initialize parallel pressure communication
+      CALL ParPresComm_Init(qlMat%ColA, qlMat%LdA, qlMat%nu, &
+                            mg_mesh%level(ILEV)%nel, ILEV)
+
+      ! Allocate parallel matrix structure
+      mg_qlPMat(ILEV)%nu = qlMat%nu
+      ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
+      mg_qlPMat(ILEV)%LdA = 0
+
+      ! Get parallel matrix row pointer structure
+      CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA, qlMat%LdA, qlMat%nu, ILEV)
+
+      MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
+
+      IF (myid.eq.showID) THEN
+        WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
+                       mg_qlPMat(ILEV)%nu, MatSize
+      END IF
+
+      ! Allocate column index and coefficient arrays
+      ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
+      mg_qlPMat(ILEV)%ColA = 0
+
+      ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
+      ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
+      ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
+    END IF
+
+    ! Fill coefficient arrays (always executed for both create and fill)
+    ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+    TempLdB = mg_qlPMat(ILEV)%LdA
+
+    ! Get parallel matrix column structure and coefficients
+    CALL Create_ParB_COLMAT(BXMat, BYMat, BZMat, &
+                            mg_BXPMat(ILEV)%a, mg_BYPMat(ILEV)%a, mg_BZPMat(ILEV)%a, &
+                            mg_qlPMat(ILEV)%LdA, mg_qlPMat(ILEV)%ColA, TempLdB, &
+                            qlMat%LdA, qlMat%ColA, qlMat%nu, NEL, pNEL, ILEV)
+
+    DEALLOCATE(TempLdB)
+
+  END DO
+
+  ! Set up output parameter structure (only if creating and parameter present)
+  IF (allocate_structure .AND. PRESENT(myPLinSc_opt)) THEN
+    myPLinSc_opt%ndof = pNEL
+    IF (ALLOCATED(myPLinSc_opt%Val)) DEALLOCATE(myPLinSc_opt%Val)
+    ALLOCATE(myPLinSc_opt%Val(4*pNEL))
+  END IF
+
+  ! Restore pointers to finest level (NLMAX)
+  ILEV = NLMAX
   CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  BXMat => mg_BXMat(ILEV)%a
-  BYMat => mg_BYMat(ILEV)%a
-  BZMat => mg_BZMat(ILEV)%a
 
-  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,mg_mesh%level(ILEV)%nel,ILEV)
+  qlMat  => mg_qlMat(NLMAX)
+  qlPMat => mg_qlPMat(NLMAX)
+  BXPMat => mg_BXPMat(NLMAX)%a
+  BYPMat => mg_BYPMat(NLMAX)%a
+  BZPMat => mg_BZPMat(NLMAX)%a
+  BXMat  => mg_BXMat(NLMAX)%a
+  BYMat  => mg_BYMat(NLMAX)%a
+  BZMat  => mg_BZMat(NLMAX)%a
 
-  mg_qlPMat(ILEV)%nu = qlMat%nu
-  ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
-  mg_qlPMat(ILEV)%LdA = 0
-  ! Get the Par_LD_B structure
-  CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA,qlMat%LdA,qlMat%nu,ILEV)
-  MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
-  IF (myid.eq.showID) WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
-  mg_qlPMat(ILEV)%nu,MatSize
-  ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
-  mg_qlPMat(ILEV)%ColA = 0
+END SUBROUTINE Assemble_ParallelMatrix_Generic
+!
+! ----------------------------------------------
+!
+SUBROUTINE Create_QuadLinParMatStruct(myPLinSc) !(B)
+! Phase 2.3: Refactored to use Assemble_ParallelMatrix_Generic
+  TYPE(TParLinScalar) myPLinSc
 
-  ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
-  ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
-  ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
+  ! ========== New Implementation (Phase 2.3) ==========
+  ! Call generic routine with allocate_structure=TRUE
+  CALL Assemble_ParallelMatrix_Generic(.TRUE., myPLinSc)
+  ! ====================================================
 
-  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
-  TempLdB = mg_qlPMat(ILEV)%LdA
-
-  ! Get the Par_COL_B structure
-  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
-       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
-       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
-       qlMat%LdA,qlMat%ColA,qlMat%nu,&
-       mg_mesh%level(ILEV)%nel,&
-       pNEL,ILEV)
-
-  DEALLOCATE(TempLdB)
-
- END DO
-
- myPLinSc%ndof=pNEL
- IF (ALLOCATED(myPLinSc%Val)) DEALLOCATE(myPLinSc%Val)
- ALLOCATE (myPLinSc%Val(4*pNEL))
-
-! CALL OutputMatrixStuct("BPm3",mg_qlPMat(3))
-!  CALL OutputMatrix("bXPM",mg_qlPMat(2),mg_BXPMat(2)%a,2)
-!  CALL OutputMatrix("bYPM",mg_qlPMat(2),mg_BYPMat(2)%a,2)
-!  CALL OutputMatrix("bZPM",mg_qlPMat(2),mg_BZPMat(2)%a,2)
-!  STOP
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat  => mg_qlMat(NLMAX)
- qlPMat => mg_qlPMat(NLMAX)
- BXPMat => mg_BXPMat(NLMAX)%a
- BYPMat => mg_BYPMat(NLMAX)%a
- BZPMat => mg_BZPMat(NLMAX)%a
- BXMat  => mg_BXMat(NLMAX)%a
- BYMat  => mg_BYMat(NLMAX)%a
- BZMat  => mg_BZMat(NLMAX)%a
+! ========== Original Implementation (Phase 2.3 - Commented for validation) ==========
+! INTEGER pNEL,MatSize
+! INTEGER, ALLOCATABLE :: TempLdB(:)
+!
+! ALLOCATE (mg_BXPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_BYPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_BZPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_qlPMat(NLMIN:NLMAX))
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qlMat => mg_qlMat(ILEV)
+!  BXMat => mg_BXMat(ILEV)%a
+!  BYMat => mg_BYMat(ILEV)%a
+!  BZMat => mg_BZMat(ILEV)%a
+!
+!  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,mg_mesh%level(ILEV)%nel,ILEV)
+!
+!  mg_qlPMat(ILEV)%nu = qlMat%nu
+!  ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
+!  mg_qlPMat(ILEV)%LdA = 0
+!  ! Get the Par_LD_B structure
+!  CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA,qlMat%LdA,qlMat%nu,ILEV)
+!  MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
+!  IF (myid.eq.showID) WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
+!  mg_qlPMat(ILEV)%nu,MatSize
+!  ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
+!  mg_qlPMat(ILEV)%ColA = 0
+!
+!  ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
+!  ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
+!  ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
+!
+!  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+!  TempLdB = mg_qlPMat(ILEV)%LdA
+!
+!  ! Get the Par_COL_B structure
+!  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
+!       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
+!       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
+!       qlMat%LdA,qlMat%ColA,qlMat%nu,&
+!       mg_mesh%level(ILEV)%nel,&
+!       pNEL,ILEV)
+!
+!  DEALLOCATE(TempLdB)
+!
+! END DO
+!
+! myPLinSc%ndof=pNEL
+! IF (ALLOCATED(myPLinSc%Val)) DEALLOCATE(myPLinSc%Val)
+! ALLOCATE (myPLinSc%Val(4*pNEL))
+!
+!! CALL OutputMatrixStuct("BPm3",mg_qlPMat(3))
+!!  CALL OutputMatrix("bXPM",mg_qlPMat(2),mg_BXPMat(2)%a,2)
+!!  CALL OutputMatrix("bYPM",mg_qlPMat(2),mg_BYPMat(2)%a,2)
+!!  CALL OutputMatrix("bZPM",mg_qlPMat(2),mg_BZPMat(2)%a,2)
+!!  STOP
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qlMat  => mg_qlMat(NLMAX)
+! qlPMat => mg_qlPMat(NLMAX)
+! BXPMat => mg_BXPMat(NLMAX)%a
+! BYPMat => mg_BYPMat(NLMAX)%a
+! BZPMat => mg_BZPMat(NLMAX)%a
+! BXMat  => mg_BXMat(NLMAX)%a
+! BYMat  => mg_BYMat(NLMAX)%a
+! BZMat  => mg_BZMat(NLMAX)%a
+! =====================================================================================
 
 END SUBROUTINE Create_QuadLinParMatStruct
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Fill_QuadLinParMat() !(B)
-INTEGER pNEL
-INTEGER, ALLOCATABLE :: TempLdB(:)
+! Phase 2.3: Refactored to use Assemble_ParallelMatrix_Generic
 
- DO ILEV=NLMIN,NLMAX
+  ! ========== New Implementation (Phase 2.3) ==========
+  ! Call generic routine with allocate_structure=FALSE (refill only)
+  CALL Assemble_ParallelMatrix_Generic(.FALSE.)
+  ! ====================================================
 
-  CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  BXMat => mg_BXMat(ILEV)%a
-  BYMat => mg_BYMat(ILEV)%a
-  BZMat => mg_BZMat(ILEV)%a
-
-  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
-  TempLdB = mg_qlPMat(ILEV)%LdA
-
-  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
-       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
-       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
-       qlMat%LdA,qlMat%ColA,qlMat%nu,NEL,pNEL,ILEV)
-
-  DEALLOCATE(TempLdB)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat  => mg_qlMat(NLMAX)
- qlPMat => mg_qlPMat(NLMAX)
- BXPMat => mg_BXPMat(NLMAX)%a
- BYPMat => mg_BYPMat(NLMAX)%a
- BZPMat => mg_BZPMat(NLMAX)%a
- BXMat  => mg_BXMat(NLMAX)%a
- BYMat  => mg_BYMat(NLMAX)%a
- BZMat  => mg_BZMat(NLMAX)%a
+! ========== Original Implementation (Phase 2.3 - Commented for validation) ==========
+! INTEGER pNEL
+! INTEGER, ALLOCATABLE :: TempLdB(:)
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qlMat => mg_qlMat(ILEV)
+!  BXMat => mg_BXMat(ILEV)%a
+!  BYMat => mg_BYMat(ILEV)%a
+!  BZMat => mg_BZMat(ILEV)%a
+!
+!  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+!  TempLdB = mg_qlPMat(ILEV)%LdA
+!
+!  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
+!       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
+!       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
+!       qlMat%LdA,qlMat%ColA,qlMat%nu,NEL,pNEL,ILEV)
+!
+!  DEALLOCATE(TempLdB)
+!
+! END DO
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qlMat  => mg_qlMat(NLMAX)
+! qlPMat => mg_qlPMat(NLMAX)
+! BXPMat => mg_BXPMat(NLMAX)%a
+! BYPMat => mg_BYPMat(NLMAX)%a
+! BZPMat => mg_BZPMat(NLMAX)%a
+! BXMat  => mg_BXMat(NLMAX)%a
+! BYMat  => mg_BYMat(NLMAX)%a
+! BZMat  => mg_BZMat(NLMAX)%a
+! =====================================================================================
 
 END SUBROUTINE Fill_QuadLinParMat
 !
