@@ -10,6 +10,9 @@ USE UMFPackSolver, ONLY : myUmfPack_Factorize
 ! Phase 1: Extracted solver modules
 USE QuadSc_solver_hypre, ONLY : Setup_HYPRE_CoarseLevel_Full, Setup_HYPRE_CoarseLevel_Geometric
 USE QuadSc_solver_coarse, ONLY : Setup_UMFPACK_CoarseSolver
+! Phase 3.1: Extracted structure routines
+USE QuadSc_struct, ONLY : Create_QuadMatStruct, Create_QuadLinMatStruct, &
+                           Create_LinMatStruct, Create_ParLinMatStruct
 
 use, intrinsic :: ieee_arithmetic
 
@@ -19,244 +22,262 @@ CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_QuadMatStruct()
-INTEGER iSymm,nERow
-INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
-INTEGER I,J,MatSize,NDOF
-REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
-EXTERNAL E013,coefst
-
-! ============== Performance Timing (Phase 0.5) ==============
-CALL CPU_TIME(t_start)
-! =============================================================
-
- ALLOCATE(mg_qMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-   CALL SETLEV(2)
-
-   ndof = mg_mesh%level(ilev)%nvt+&
-          mg_mesh%level(ilev)%net+&
-          mg_mesh%level(ilev)%nat+&
-          mg_mesh%level(ilev)%nel
-
-   MatSize = 300*NDOF
-
-   ALLOCATE(TempColA(MatSize))
-   ALLOCATE(mg_qMat(ILEV)%LdA(NDOF+1))
-   mg_qMat(ILEV)%nu = NDOF
-   mg_qMat(ILEV)%na = MatSize
-   iSymm =   0
-   nERow =   300
-
-   CALL AP7(TempColA,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%na,&
-            mg_qMat(ILEV)%nu,E013,iSymm,nERow,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea)
-
-   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-      "M,K,D,A matrix structure created",mg_qMat(ILEV)%nu,mg_qMat(ILEV)%na
-
-   ALLOCATE(mg_qMat(ILEV)%ColA(mg_qMat(ILEV)%na))
-   mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
-   DEALLOCATE(TempColA)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
- qMat => mg_qMat(NLMAX)
-
-! ============== Performance Timing (Phase 0.5) ==============
-CALL CPU_TIME(t_end)
-IF (myid == showID) THEN
-  WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadMatStruct time:        ', t_end - t_start, ' sec'
-END IF
-! =============================================================
-
-END SUBROUTINE Create_QuadMatStruct
+!===============================================================================
+! Phase 3.1: Structure routines moved to QuadSc_struct.f90
+!===============================================================================
+! The following routines have been extracted to QuadSc_struct.f90:
+!   - Create_QuadMatStruct (lines 22-78, ~56 lines)
+!   - Create_QuadLinMatStruct (lines 82-175, ~93 lines)
+!   - Create_LinMatStruct (lines 179-217, ~38 lines)
+!   - Create_ParLinMatStruct (lines 221-259, ~38 lines)
+!
+! Total: ~225 lines of structure allocation code moved to dedicated module
+! These routines are now accessed via: USE QuadSc_struct
+!===============================================================================
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_QuadLinMatStruct()
-INTEGER iSymm,nERow
-INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA,TempLdA
-INTEGER I,J,MatSize,NDOF
-REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
-CHARACTER*10 myFile
-EXTERNAL E011,E013,E010,coefst
-
-! ============== Performance Timing (Phase 0.5) ==============
-CALL CPU_TIME(t_start)
-! =============================================================
-
- ALLOCATE (mg_qlMat(NLMIN:NLMAX))
- ALLOCATE (mg_lqMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-  CALL SETLEV(2)
-
-  NDOF = mg_mesh%level(ilev)%nvt+&
-         mg_mesh%level(ilev)%net+&
-         mg_mesh%level(ilev)%nat+&
-         mg_mesh%level(ilev)%nel
-
-  MatSize = 16*27*mg_mesh%level(ilev)%nel
-
-  ALLOCATE(TempColA(MatSize))
-  ALLOCATE(mg_qlMat(ILEV)%LdA(NDOF+1))
-  mg_qlMat(ILEV)%nu = NDOF
-  mg_qlMat(ILEV)%na = MatSize
-  iSymm =   0
-  nERow =   16
-
-  CALL AP9(TempColA,mg_qlMat(ILEV)%LdA,mg_qlMat(ILEV)%na,&
-           mg_qlMat(ILEV)%nu,E013,E010,nERow,&
-           mg_mesh%level(ILEV)%kvert,&
-           mg_mesh%level(ILEV)%kedge,&
-           mg_mesh%level(ILEV)%karea)
-
-  mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
-
-  ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
-
-  CALL MatStructQ2P1(TempColA,mg_qlMat(ILEV)%ColA,mg_qlMat(ILEV)%LdA,&
-       mg_qlMat(ILEV)%na,mg_qlMat(ILEV)%nu)
-
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-   "B matrix structure created",mg_qlMat(ILEV)%nu,mg_qlMat(ILEV)%na
-
-!   CALL OutputMatrixStuct("MatB",mg_qlMat(ILEV))
-
-  MatSize = 4*27*mg_mesh%level(ilev)%nel
-  ALLOCATE (TempLdA(4*mg_mesh%level(ilev)%nel+1))
-  mg_lqMat(ILEV)%nu = mg_mesh%level(ilev)%nel
-  mg_lqMat(ILEV)%na = MatSize
-  iSymm =   0
-  nERow =   27
-
-  CALL AP9(TempColA,TempLdA,mg_lqMat(ILEV)%na,mg_lqMat(ILEV)%nu,E010,E013,nERow,&
-           mg_mesh%level(ILEV)%kvert,&
-           mg_mesh%level(ILEV)%kedge,&
-           mg_mesh%level(ILEV)%karea)
-
-  mg_lqMat(ILEV)%nu = 4*mg_lqMat(ILEV)%nu
-  mg_lqMat(ILEV)%na = 4*mg_lqMat(ILEV)%na
-
-  ALLOCATE(mg_lqMat(ILEV)%LdA(mg_lqMat(ILEV)%nu+1))
-  ALLOCATE(mg_lqMat(ILEV)%ColA(mg_lqMat(ILEV)%na))
-
-  CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,&
-                     TempColA,&
-                     mg_lqMat(ILEV)%ColA,&
-                     MatSize,mg_mesh%level(ilev)%nel)
-
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "BT matrix structure created",mg_lqMat(ILEV)%nu,mg_lqMat(ILEV)%na
-
-  DEALLOCATE(TempColA,TempLdA)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat => mg_qlMat(NLMAX)
- lqMat => mg_lqMat(NLMAX)
-
-! ============== Performance Timing (Phase 0.5) ==============
-CALL CPU_TIME(t_end)
-IF (myid == showID) THEN
-  WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadLinMatStruct time:     ', t_end - t_start, ' sec'
-END IF
-! =============================================================
-
-END SUBROUTINE Create_QuadLinMatStruct
+! SUBROUTINE Create_QuadMatStruct() - MOVED TO QuadSc_struct.f90
+! (Original implementation commented out for validation)
 !
-! ----------------------------------------------
-!
-SUBROUTINE Create_LinMatStruct()
-
- ALLOCATE (mg_lMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  qlPMat => mg_qlPMat(ILEV)
-
-  CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
-                   mg_mesh%level(ILEV)%kvert,&
-                   mg_mesh%level(ilev)%nel,&
-                   mg_lMat(ILEV)%na,1)
-
-
-
-  mg_lMat(ILEV)%nu = 4*mg_mesh%level(ilev)%nel
-  ALLOCATE (mg_lMat(ILEV)%LdA(mg_lMat(ILEV)%nu+1),mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
-
-  mg_lMat(ILEV)%LdA=0
-  mg_lMat(ILEV)%ColA=0
-
-  CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
-       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
-
-  ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "C matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat => mg_qlMat(NLMAX)
- lMat  => mg_lMat(NLMAX)
-
-END SUBROUTINE Create_LinMatStruct
-!
-! ----------------------------------------------
-!
-SUBROUTINE Create_ParLinMatStruct()
-
- ALLOCATE (mg_lPMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qlPMat => mg_qlPMat(ILEV)
-  
-
-
-
-  CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,&
-                   mg_mesh%level(ilev)%kvert,&
-                   mg_mesh%level(ilev)%nel,&
-                   mg_lPMat(ILEV)%na,2)
-
-  mg_lPMat(ILEV)%nu = 4*NEL
-  ALLOCATE (mg_lPMat(ILEV)%LdA(mg_lPMat(ILEV)%nu+1),mg_lPMat(ILEV)%ColA(mg_lPMat(ILEV)%na))
-  mg_lPMat(ILEV)%LdA=0
-  mg_lPMat(ILEV)%ColA=0
-
-  CALL Get_CMatStruct(mg_lPMat(ILEV)%LdA,mg_lPMat(ILEV)%ColA,qlPMat%LdA,qlPMat%ColA,&
-       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,&
-       mg_lPMat(ILEV)%na,2)
-
-  ! CALL OutputMatrixStuct("MaPC",mg_lPMat(ILEV))
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "Parallel C matrix structure created",mg_lPMat(ILEV)%nu,mg_lPMat(ILEV)%na
-  ! pause
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlPMat => mg_lqMat(NLMAX)
- lPMat => mg_lPMat(NLMAX)
-
-END SUBROUTINE Create_ParLinMatStruct
+!SUBROUTINE Create_QuadMatStruct()
+! INTEGER iSymm,nERow
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
+! INTEGER I,J,MatSize,NDOF
+! REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
+! EXTERNAL E013,coefst
+! 
+! ! ============== Performance Timing (Phase 0.5) ==============
+! CALL CPU_TIME(t_start)
+! ! =============================================================
+! 
+!  ALLOCATE(mg_qMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+!    CALL SETLEV(2)
+! 
+!    ndof = mg_mesh%level(ilev)%nvt+&
+!           mg_mesh%level(ilev)%net+&
+!           mg_mesh%level(ilev)%nat+&
+!           mg_mesh%level(ilev)%nel
+! 
+!    MatSize = 300*NDOF
+! 
+!    ALLOCATE(TempColA(MatSize))
+!    ALLOCATE(mg_qMat(ILEV)%LdA(NDOF+1))
+!    mg_qMat(ILEV)%nu = NDOF
+!    mg_qMat(ILEV)%na = MatSize
+!    iSymm =   0
+!    nERow =   300
+! 
+!    CALL AP7(TempColA,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%na,&
+!             mg_qMat(ILEV)%nu,E013,iSymm,nERow,&
+!                       mg_mesh%level(ILEV)%kvert,&
+!                       mg_mesh%level(ILEV)%kedge,&
+!                       mg_mesh%level(ILEV)%karea)
+! 
+!    IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+!       "M,K,D,A matrix structure created",mg_qMat(ILEV)%nu,mg_qMat(ILEV)%na
+! 
+!    ALLOCATE(mg_qMat(ILEV)%ColA(mg_qMat(ILEV)%na))
+!    mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
+!    DEALLOCATE(TempColA)
+! 
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+!  qMat => mg_qMat(NLMAX)
+! 
+! ! ============== Performance Timing (Phase 0.5) ==============
+! CALL CPU_TIME(t_end)
+! IF (myid == showID) THEN
+!   WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadMatStruct time:        ', t_end - t_start, ' sec'
+! END IF
+! ! =============================================================
+! 
+! END SUBROUTINE Create_QuadMatStruct
+! !
+! ! ----------------------------------------------
+! !
+! SUBROUTINE Create_QuadLinMatStruct()
+! INTEGER iSymm,nERow
+! INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA,TempLdA
+! INTEGER I,J,MatSize,NDOF
+! REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
+! CHARACTER*10 myFile
+! EXTERNAL E011,E013,E010,coefst
+! 
+! ! ============== Performance Timing (Phase 0.5) ==============
+! CALL CPU_TIME(t_start)
+! ! =============================================================
+! 
+!  ALLOCATE (mg_qlMat(NLMIN:NLMAX))
+!  ALLOCATE (mg_lqMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+!   CALL SETLEV(2)
+! 
+!   NDOF = mg_mesh%level(ilev)%nvt+&
+!          mg_mesh%level(ilev)%net+&
+!          mg_mesh%level(ilev)%nat+&
+!          mg_mesh%level(ilev)%nel
+! 
+!   MatSize = 16*27*mg_mesh%level(ilev)%nel
+! 
+!   ALLOCATE(TempColA(MatSize))
+!   ALLOCATE(mg_qlMat(ILEV)%LdA(NDOF+1))
+!   mg_qlMat(ILEV)%nu = NDOF
+!   mg_qlMat(ILEV)%na = MatSize
+!   iSymm =   0
+!   nERow =   16
+! 
+!   CALL AP9(TempColA,mg_qlMat(ILEV)%LdA,mg_qlMat(ILEV)%na,&
+!            mg_qlMat(ILEV)%nu,E013,E010,nERow,&
+!            mg_mesh%level(ILEV)%kvert,&
+!            mg_mesh%level(ILEV)%kedge,&
+!            mg_mesh%level(ILEV)%karea)
+! 
+!   mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
+! 
+!   ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
+! 
+!   CALL MatStructQ2P1(TempColA,mg_qlMat(ILEV)%ColA,mg_qlMat(ILEV)%LdA,&
+!        mg_qlMat(ILEV)%na,mg_qlMat(ILEV)%nu)
+! 
+!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+!    "B matrix structure created",mg_qlMat(ILEV)%nu,mg_qlMat(ILEV)%na
+! 
+! !   CALL OutputMatrixStuct("MatB",mg_qlMat(ILEV))
+! 
+!   MatSize = 4*27*mg_mesh%level(ilev)%nel
+!   ALLOCATE (TempLdA(4*mg_mesh%level(ilev)%nel+1))
+!   mg_lqMat(ILEV)%nu = mg_mesh%level(ilev)%nel
+!   mg_lqMat(ILEV)%na = MatSize
+!   iSymm =   0
+!   nERow =   27
+! 
+!   CALL AP9(TempColA,TempLdA,mg_lqMat(ILEV)%na,mg_lqMat(ILEV)%nu,E010,E013,nERow,&
+!            mg_mesh%level(ILEV)%kvert,&
+!            mg_mesh%level(ILEV)%kedge,&
+!            mg_mesh%level(ILEV)%karea)
+! 
+!   mg_lqMat(ILEV)%nu = 4*mg_lqMat(ILEV)%nu
+!   mg_lqMat(ILEV)%na = 4*mg_lqMat(ILEV)%na
+! 
+!   ALLOCATE(mg_lqMat(ILEV)%LdA(mg_lqMat(ILEV)%nu+1))
+!   ALLOCATE(mg_lqMat(ILEV)%ColA(mg_lqMat(ILEV)%na))
+! 
+!   CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,&
+!                      TempColA,&
+!                      mg_lqMat(ILEV)%ColA,&
+!                      MatSize,mg_mesh%level(ilev)%nel)
+! 
+!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+!   "BT matrix structure created",mg_lqMat(ILEV)%nu,mg_lqMat(ILEV)%na
+! 
+!   DEALLOCATE(TempColA,TempLdA)
+! 
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qlMat => mg_qlMat(NLMAX)
+!  lqMat => mg_lqMat(NLMAX)
+! 
+! ! ============== Performance Timing (Phase 0.5) ==============
+! CALL CPU_TIME(t_end)
+! IF (myid == showID) THEN
+!   WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadLinMatStruct time:     ', t_end - t_start, ' sec'
+! END IF
+! ! =============================================================
+! 
+! END SUBROUTINE Create_QuadLinMatStruct
+! !
+! ! ----------------------------------------------
+! !
+! SUBROUTINE Create_LinMatStruct()
+! 
+!  ALLOCATE (mg_lMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qlMat => mg_qlMat(ILEV)
+!   qlPMat => mg_qlPMat(ILEV)
+! 
+!   CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
+!                    mg_mesh%level(ILEV)%kvert,&
+!                    mg_mesh%level(ilev)%nel,&
+!                    mg_lMat(ILEV)%na,1)
+! 
+! 
+! 
+!   mg_lMat(ILEV)%nu = 4*mg_mesh%level(ilev)%nel
+!   ALLOCATE (mg_lMat(ILEV)%LdA(mg_lMat(ILEV)%nu+1),mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
+! 
+!   mg_lMat(ILEV)%LdA=0
+!   mg_lMat(ILEV)%ColA=0
+! 
+!   CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
+!        mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
+! 
+!   ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
+!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+!   "C matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
+! 
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qlMat => mg_qlMat(NLMAX)
+!  lMat  => mg_lMat(NLMAX)
+! 
+! END SUBROUTINE Create_LinMatStruct
+! !
+! ! ----------------------------------------------
+! !
+! SUBROUTINE Create_ParLinMatStruct()
+! 
+!  ALLOCATE (mg_lPMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qlPMat => mg_qlPMat(ILEV)
+!   
+! 
+! 
+! 
+!   CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,&
+!                    mg_mesh%level(ilev)%kvert,&
+!                    mg_mesh%level(ilev)%nel,&
+!                    mg_lPMat(ILEV)%na,2)
+! 
+!   mg_lPMat(ILEV)%nu = 4*NEL
+!   ALLOCATE (mg_lPMat(ILEV)%LdA(mg_lPMat(ILEV)%nu+1),mg_lPMat(ILEV)%ColA(mg_lPMat(ILEV)%na))
+!   mg_lPMat(ILEV)%LdA=0
+!   mg_lPMat(ILEV)%ColA=0
+! 
+!   CALL Get_CMatStruct(mg_lPMat(ILEV)%LdA,mg_lPMat(ILEV)%ColA,qlPMat%LdA,qlPMat%ColA,&
+!        mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,&
+!        mg_lPMat(ILEV)%na,2)
+! 
+!   ! CALL OutputMatrixStuct("MaPC",mg_lPMat(ILEV))
+!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
+!   "Parallel C matrix structure created",mg_lPMat(ILEV)%nu,mg_lPMat(ILEV)%na
+!   ! pause
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qlPMat => mg_lqMat(NLMAX)
+!  lPMat => mg_lPMat(NLMAX)
+! 
+! END SUBROUTINE Create_ParLinMatStruct
 !
 ! ----------------------------------------------
 !
@@ -3888,58 +3909,58 @@ END SUBROUTINE PressureToGMV
 !
 ! ----------------------------------------------
 !
-SUBROUTINE MatStructQ2P1(ColAo,ColAn,LdA,na,nu)
-IMPLICIT NONE
-INTEGER ColAo(*),ColAn(*),LdA(*),na,nu
-INTEGER i,j,k,nn,ijEntry
-
-nn = 0
-DO i=1,nu
- DO j=LdA(i),LdA(i+1)-1
-  ijEntry = ColAo(j)
-  DO k=1,4
-   nn = nn + 1
-   ColAn(nn) = 4*(ijEntry-1) + k
-  END DO
- END DO
-END DO
-
-DO i=2,nu+1
- LdA(i) = 4*(LdA(i)-1)+1
-END DO
-
-END SUBROUTINE MatStructQ2P1
-!
-! ----------------------------------------------
-!
-SUBROUTINE MatStructP1Q2(LdAo,LdAn,ColAo,ColAn,na,nu)
-IMPLICIT NONE
-INTEGER ColAo(*),ColAn(*),LdAo(*),LdAn(*),na,nu
-INTEGER i,j,k,nn,iPos
-
-nn = 0
-DO i=1,nu
- DO k=1,4
-  DO j=LdAo(i),LdAo(i+1)-1
-   nn = nn + 1
-   ColAn(nn) = ColAo(j)
-  END DO
- END DO
-END DO
-
-nn = 0
-iPos = -26
-DO i=1,nu
- DO k=1,4
-  nn = nn + 1
-  iPos = iPos + 27
-  LdAn(nn) = iPos
- END DO
-END DO
-nn = nn + 1
-LdAn(nn) = LdAn(nn-1) + 27
-
-END SUBROUTINE MatStructP1Q2
+! SUBROUTINE MatStructQ2P1(ColAo,ColAn,LdA,na,nu)
+! IMPLICIT NONE
+! INTEGER ColAo(*),ColAn(*),LdA(*),na,nu
+! INTEGER i,j,k,nn,ijEntry
+! 
+! nn = 0
+! DO i=1,nu
+!  DO j=LdA(i),LdA(i+1)-1
+!   ijEntry = ColAo(j)
+!   DO k=1,4
+!    nn = nn + 1
+!    ColAn(nn) = 4*(ijEntry-1) + k
+!   END DO
+!  END DO
+! END DO
+! 
+! DO i=2,nu+1
+!  LdA(i) = 4*(LdA(i)-1)+1
+! END DO
+! 
+! END SUBROUTINE MatStructQ2P1
+! !
+! ! ----------------------------------------------
+! !
+! SUBROUTINE MatStructP1Q2(LdAo,LdAn,ColAo,ColAn,na,nu)
+! IMPLICIT NONE
+! INTEGER ColAo(*),ColAn(*),LdAo(*),LdAn(*),na,nu
+! INTEGER i,j,k,nn,iPos
+! 
+! nn = 0
+! DO i=1,nu
+!  DO k=1,4
+!   DO j=LdAo(i),LdAo(i+1)-1
+!    nn = nn + 1
+!    ColAn(nn) = ColAo(j)
+!   END DO
+!  END DO
+! END DO
+! 
+! nn = 0
+! iPos = -26
+! DO i=1,nu
+!  DO k=1,4
+!   nn = nn + 1
+!   iPos = iPos + 27
+!   LdAn(nn) = iPos
+!  END DO
+! END DO
+! nn = nn + 1
+! LdAn(nn) = LdAn(nn-1) + 27
+! 
+! END SUBROUTINE MatStructP1Q2
 !
 ! ----------------------------------------------
 !
