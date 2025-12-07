@@ -1,3 +1,31 @@
+!===============================================================================
+! MODULE: def_QuadScalar (Facade Module - Phase 3.3)
+!===============================================================================
+! DESCRIPTION:
+!   Facade module that re-exports all QuadSc functionality while maintaining
+!   backward compatibility with existing code.
+!
+!   After Phase 3 refactoring, implementation is split across modules:
+!   - QuadSc_struct: Structure allocation routines
+!   - QuadSc_assembly: Matrix assembly routines
+!   - QuadSc_solver_hypre: HYPRE solver setup
+!   - QuadSc_solver_coarse: Coarse grid solver setup
+!
+!   This module:
+!   1. Re-exports extracted routines (PUBLIC declarations below)
+!   2. Contains high-level workflow orchestration (Matdef, Solve, etc.)
+!   3. Contains specialized operations not worth extracting
+!
+!   External code using "USE def_QuadScalar" requires NO CHANGES.
+!
+! HISTORY:
+!   - Phase 1: Extracted solver setup routines
+!   - Phase 2: Internal deduplication (generic assembly routines)
+!   - Phase 3.1: Extracted structure allocation to QuadSc_struct.f90
+!   - Phase 3.2: Extracted assembly routines to QuadSc_assembly.f90
+!   - Phase 3.3: Transformed to facade module (THIS MODULE)
+!===============================================================================
+
 MODULE def_QuadScalar
 use ieee_arithmetic
 
@@ -24,270 +52,47 @@ use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
+!===============================================================================
+! PUBLIC RE-EXPORTS (Backward Compatibility - Phase 3.3 Facade Pattern)
+!===============================================================================
+! External code using "USE def_QuadScalar" gets access to all extracted
+! routines without modification. This facade pattern maintains the original
+! API while the implementation is split across multiple modules.
+!===============================================================================
+
+! Structure allocation (QuadSc_struct.f90)
+PUBLIC :: Create_QuadMatStruct
+PUBLIC :: Create_QuadLinMatStruct
+PUBLIC :: Create_LinMatStruct
+PUBLIC :: Create_ParLinMatStruct
+
+! Matrix assembly (QuadSc_assembly.f90)
+PUBLIC :: Assemble_Mass_Generic
+PUBLIC :: Assemble_Diffusion_Alpha_Generic
+PUBLIC :: Assemble_ParallelMatrix_Generic
+PUBLIC :: Create_MRhoMat
+PUBLIC :: Create_MMat
+PUBLIC :: Create_CMat
+PUBLIC :: Create_BMat
+PUBLIC :: Create_hDiffMat
+PUBLIC :: Create_ConstDiffMat
+PUBLIC :: Create_DiffMat
+PUBLIC :: Create_SMat
+PUBLIC :: Create_KMat
+
+! Solver setup (QuadSc_solver_hypre.f90)
+PUBLIC :: Setup_HYPRE_CoarseLevel_Full
+PUBLIC :: Setup_HYPRE_CoarseLevel_Geometric
+
+! Coarse solver (QuadSc_solver_coarse.f90)
+PUBLIC :: Setup_UMFPACK_CoarseSolver
+
+!===============================================================================
+
 CONTAINS
 !
 ! ----------------------------------------------
 !
-!===============================================================================
-! Phase 3.1: Structure routines moved to QuadSc_struct.f90
-!===============================================================================
-! The following routines have been extracted to QuadSc_struct.f90:
-!   - Create_QuadMatStruct (lines 22-78, ~56 lines)
-!   - Create_QuadLinMatStruct (lines 82-175, ~93 lines)
-!   - Create_LinMatStruct (lines 179-217, ~38 lines)
-!   - Create_ParLinMatStruct (lines 221-259, ~38 lines)
-!
-! Total: ~225 lines of structure allocation code moved to dedicated module
-! These routines are now accessed via: USE QuadSc_struct
-!===============================================================================
-!
-! ----------------------------------------------
-!
-! SUBROUTINE Create_QuadMatStruct() - MOVED TO QuadSc_struct.f90
-! (Original implementation commented out for validation)
-!
-!SUBROUTINE Create_QuadMatStruct()
-! INTEGER iSymm,nERow
-! INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
-! INTEGER I,J,MatSize,NDOF
-! REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
-! EXTERNAL E013,coefst
-! 
-! ! ============== Performance Timing (Phase 0.5) ==============
-! CALL CPU_TIME(t_start)
-! ! =============================================================
-! 
-!  ALLOCATE(mg_qMat(NLMIN:NLMAX))
-! 
-!  DO ILEV=NLMIN,NLMAX
-!    CALL SETLEV(2)
-! 
-!    ndof = mg_mesh%level(ilev)%nvt+&
-!           mg_mesh%level(ilev)%net+&
-!           mg_mesh%level(ilev)%nat+&
-!           mg_mesh%level(ilev)%nel
-! 
-!    MatSize = 300*NDOF
-! 
-!    ALLOCATE(TempColA(MatSize))
-!    ALLOCATE(mg_qMat(ILEV)%LdA(NDOF+1))
-!    mg_qMat(ILEV)%nu = NDOF
-!    mg_qMat(ILEV)%na = MatSize
-!    iSymm =   0
-!    nERow =   300
-! 
-!    CALL AP7(TempColA,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%na,&
-!             mg_qMat(ILEV)%nu,E013,iSymm,nERow,&
-!                       mg_mesh%level(ILEV)%kvert,&
-!                       mg_mesh%level(ILEV)%kedge,&
-!                       mg_mesh%level(ILEV)%karea)
-! 
-!    IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-!       "M,K,D,A matrix structure created",mg_qMat(ILEV)%nu,mg_qMat(ILEV)%na
-! 
-!    ALLOCATE(mg_qMat(ILEV)%ColA(mg_qMat(ILEV)%na))
-!    mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
-!    DEALLOCATE(TempColA)
-! 
-!  END DO
-! 
-!  ILEV=NLMAX
-!  CALL SETLEV(2)
-!  qMat => mg_qMat(NLMAX)
-! 
-! ! ============== Performance Timing (Phase 0.5) ==============
-! CALL CPU_TIME(t_end)
-! IF (myid == showID) THEN
-!   WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadMatStruct time:        ', t_end - t_start, ' sec'
-! END IF
-! ! =============================================================
-! 
-! END SUBROUTINE Create_QuadMatStruct
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE Create_QuadLinMatStruct()
-! INTEGER iSymm,nERow
-! INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA,TempLdA
-! INTEGER I,J,MatSize,NDOF
-! REAL(KIND=8) :: t_start, t_end  ! Phase 0.5: Performance timing
-! CHARACTER*10 myFile
-! EXTERNAL E011,E013,E010,coefst
-! 
-! ! ============== Performance Timing (Phase 0.5) ==============
-! CALL CPU_TIME(t_start)
-! ! =============================================================
-! 
-!  ALLOCATE (mg_qlMat(NLMIN:NLMAX))
-!  ALLOCATE (mg_lqMat(NLMIN:NLMAX))
-! 
-!  DO ILEV=NLMIN,NLMAX
-!   CALL SETLEV(2)
-! 
-!   NDOF = mg_mesh%level(ilev)%nvt+&
-!          mg_mesh%level(ilev)%net+&
-!          mg_mesh%level(ilev)%nat+&
-!          mg_mesh%level(ilev)%nel
-! 
-!   MatSize = 16*27*mg_mesh%level(ilev)%nel
-! 
-!   ALLOCATE(TempColA(MatSize))
-!   ALLOCATE(mg_qlMat(ILEV)%LdA(NDOF+1))
-!   mg_qlMat(ILEV)%nu = NDOF
-!   mg_qlMat(ILEV)%na = MatSize
-!   iSymm =   0
-!   nERow =   16
-! 
-!   CALL AP9(TempColA,mg_qlMat(ILEV)%LdA,mg_qlMat(ILEV)%na,&
-!            mg_qlMat(ILEV)%nu,E013,E010,nERow,&
-!            mg_mesh%level(ILEV)%kvert,&
-!            mg_mesh%level(ILEV)%kedge,&
-!            mg_mesh%level(ILEV)%karea)
-! 
-!   mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
-! 
-!   ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
-! 
-!   CALL MatStructQ2P1(TempColA,mg_qlMat(ILEV)%ColA,mg_qlMat(ILEV)%LdA,&
-!        mg_qlMat(ILEV)%na,mg_qlMat(ILEV)%nu)
-! 
-!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-!    "B matrix structure created",mg_qlMat(ILEV)%nu,mg_qlMat(ILEV)%na
-! 
-! !   CALL OutputMatrixStuct("MatB",mg_qlMat(ILEV))
-! 
-!   MatSize = 4*27*mg_mesh%level(ilev)%nel
-!   ALLOCATE (TempLdA(4*mg_mesh%level(ilev)%nel+1))
-!   mg_lqMat(ILEV)%nu = mg_mesh%level(ilev)%nel
-!   mg_lqMat(ILEV)%na = MatSize
-!   iSymm =   0
-!   nERow =   27
-! 
-!   CALL AP9(TempColA,TempLdA,mg_lqMat(ILEV)%na,mg_lqMat(ILEV)%nu,E010,E013,nERow,&
-!            mg_mesh%level(ILEV)%kvert,&
-!            mg_mesh%level(ILEV)%kedge,&
-!            mg_mesh%level(ILEV)%karea)
-! 
-!   mg_lqMat(ILEV)%nu = 4*mg_lqMat(ILEV)%nu
-!   mg_lqMat(ILEV)%na = 4*mg_lqMat(ILEV)%na
-! 
-!   ALLOCATE(mg_lqMat(ILEV)%LdA(mg_lqMat(ILEV)%nu+1))
-!   ALLOCATE(mg_lqMat(ILEV)%ColA(mg_lqMat(ILEV)%na))
-! 
-!   CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,&
-!                      TempColA,&
-!                      mg_lqMat(ILEV)%ColA,&
-!                      MatSize,mg_mesh%level(ilev)%nel)
-! 
-!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-!   "BT matrix structure created",mg_lqMat(ILEV)%nu,mg_lqMat(ILEV)%na
-! 
-!   DEALLOCATE(TempColA,TempLdA)
-! 
-!  END DO
-! 
-!  ILEV=NLMAX
-!  CALL SETLEV(2)
-! 
-!  qlMat => mg_qlMat(NLMAX)
-!  lqMat => mg_lqMat(NLMAX)
-! 
-! ! ============== Performance Timing (Phase 0.5) ==============
-! CALL CPU_TIME(t_end)
-! IF (myid == showID) THEN
-!   WRITE(MTERM,'(A,F10.4,A)') 'Create_QuadLinMatStruct time:     ', t_end - t_start, ' sec'
-! END IF
-! ! =============================================================
-! 
-! END SUBROUTINE Create_QuadLinMatStruct
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE Create_LinMatStruct()
-! 
-!  ALLOCATE (mg_lMat(NLMIN:NLMAX))
-! 
-!  DO ILEV=NLMIN,NLMAX
-! 
-!   CALL SETLEV(2)
-!   qlMat => mg_qlMat(ILEV)
-!   qlPMat => mg_qlPMat(ILEV)
-! 
-!   CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
-!                    mg_mesh%level(ILEV)%kvert,&
-!                    mg_mesh%level(ilev)%nel,&
-!                    mg_lMat(ILEV)%na,1)
-! 
-! 
-! 
-!   mg_lMat(ILEV)%nu = 4*mg_mesh%level(ilev)%nel
-!   ALLOCATE (mg_lMat(ILEV)%LdA(mg_lMat(ILEV)%nu+1),mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
-! 
-!   mg_lMat(ILEV)%LdA=0
-!   mg_lMat(ILEV)%ColA=0
-! 
-!   CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
-!        mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
-! 
-!   ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
-!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-!   "C matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
-! 
-!  END DO
-! 
-!  ILEV=NLMAX
-!  CALL SETLEV(2)
-! 
-!  qlMat => mg_qlMat(NLMAX)
-!  lMat  => mg_lMat(NLMAX)
-! 
-! END SUBROUTINE Create_LinMatStruct
-! !
-! ! ----------------------------------------------
-! !
-! SUBROUTINE Create_ParLinMatStruct()
-! 
-!  ALLOCATE (mg_lPMat(NLMIN:NLMAX))
-! 
-!  DO ILEV=NLMIN,NLMAX
-! 
-!   CALL SETLEV(2)
-!   qlPMat => mg_qlPMat(ILEV)
-!   
-! 
-! 
-! 
-!   CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,&
-!                    mg_mesh%level(ilev)%kvert,&
-!                    mg_mesh%level(ilev)%nel,&
-!                    mg_lPMat(ILEV)%na,2)
-! 
-!   mg_lPMat(ILEV)%nu = 4*NEL
-!   ALLOCATE (mg_lPMat(ILEV)%LdA(mg_lPMat(ILEV)%nu+1),mg_lPMat(ILEV)%ColA(mg_lPMat(ILEV)%na))
-!   mg_lPMat(ILEV)%LdA=0
-!   mg_lPMat(ILEV)%ColA=0
-! 
-!   CALL Get_CMatStruct(mg_lPMat(ILEV)%LdA,mg_lPMat(ILEV)%ColA,qlPMat%LdA,qlPMat%ColA,&
-!        mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,&
-!        mg_lPMat(ILEV)%na,2)
-! 
-!   ! CALL OutputMatrixStuct("MaPC",mg_lPMat(ILEV))
-!   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-!   "Parallel C matrix structure created",mg_lPMat(ILEV)%nu,mg_lPMat(ILEV)%na
-!   ! pause
-!  END DO
-! 
-!  ILEV=NLMAX
-!  CALL SETLEV(2)
-! 
-!  qlPMat => mg_lqMat(NLMAX)
-!  lPMat => mg_lPMat(NLMAX)
-! 
-! END SUBROUTINE Create_ParLinMatStruct
-!
-! ----------------------------------------------
-!
-! ============================================================================
 ! Phase 2.1: Generic Mass Matrix Assembly
 ! ============================================================================
 ! Purpose: Unified assembly logic for mass matrices with/without density
@@ -309,395 +114,6 @@ CONTAINS
 !   - Differences are handled by caller wrappers
 ! ============================================================================
 !===============================================================================
-! Phase 3.2: Assembly routines moved to QuadSc_assembly.f90
-!===============================================================================
-! The following routines have been extracted to QuadSc_assembly.f90:
-!
-! Generic Assembly (Phase 2):
-!   - Assemble_Mass_Generic (lines 311-396, ~86 lines)
-!   - Assemble_Diffusion_Alpha_Generic (lines 602-667, ~66 lines)
-!   - Assemble_ParallelMatrix_Generic (lines 1440-1531, ~92 lines)
-!
-! Mass Matrices:
-!   - Create_MRhoMat (lines 400-493, ~94 lines)
-!   - Create_MMat (lines 497-578, ~82 lines)
-!
-! Diffusion Matrices:
-!   - Create_hDiffMat (lines 1669-1748, ~80 lines)
-!   - Create_ConstDiffMat (lines 1752-1829, ~78 lines)
-!   - Create_DiffMat (lines 1833-1905, ~73 lines)
-!
-! Velocity-Pressure Coupling:
-!   - Create_BMat (lines 1195-1298, ~104 lines)
-!   - Create_CMat (lines 1005-1100, ~96 lines)
-!
-! Convection Matrices:
-!   - Create_SMat (lines 1909-1991, ~83 lines)
-!   - Create_KMat (lines 1995-2051, ~57 lines)
-!
-! Total: 12 routines, ~991 lines of assembly code moved to dedicated module
-!===============================================================================
-!
-! SUBROUTINE Assemble_Mass_Generic(use_density, mg_MlMatrix, mg_MlPMatrix, &
-!                                   density_opt, label)
-!   LOGICAL, INTENT(IN) :: use_density
-!   TYPE(mg_Matrix), INTENT(INOUT) :: mg_MlMatrix(NLMIN:NLMAX)
-!   TYPE(mg_Matrix), INTENT(INOUT) :: mg_MlPMatrix(NLMIN:NLMAX)
-!   TYPE(mg_dVector), INTENT(IN), OPTIONAL :: density_opt(NLMIN:NLMAX)
-!   CHARACTER(LEN=*), INTENT(IN) :: label
-! 
-!   EXTERNAL E013
-!   REAL*8  DML
-!   INTEGER I, J
-! 
-!   ! Ensure mg_Mmat is allocated (shared by both MMat and MRhoMat)
-!   ! Note: mg_MlMatrix and mg_MlPMatrix are passed by caller, so they handle allocation
-!   IF (.not.ALLOCATED(mg_Mmat)) ALLOCATE(mg_Mmat(NLMIN:NLMAX))
-! 
-!   ! Loop over all multigrid levels
-!   DO ILEV=NLMIN,NLMAX
-!     CALL SETLEV(2)
-!     qMat => mg_qMat(ILEV)
-! 
-!     ! Allocate mass matrix if needed
-!     IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-!       ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-!     END IF
-! 
-!     mg_Mmat(ILEV)%a = 0d0
-! 
-!     ! Progress indicator
-!     IF (myid.eq.showID) THEN
-!       IF (ILEV.EQ.NLMIN) THEN
-!         WRITE(MTERM,'(A,I1,A)', advance='no') " "//TRIM(label)//": [", ILEV,"]"
-!       ELSE
-!         WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-!       END IF
-!     END IF
-! 
-!     ! Call appropriate matrix builder
-!     IF (use_density) THEN
-!       IF (.NOT. PRESENT(density_opt)) THEN
-!         WRITE(*,*) 'ERROR: Assemble_Mass_Generic called with use_density=.TRUE. but no density array!'
-!         STOP
-!       END IF
-!       CALL BuildMRhoMat(density_opt(ILEV)%x, mg_Mmat(ILEV)%a, qMat%na, &
-!                         qMat%ColA, qMat%LdA, &
-!                         mg_mesh%level(ILEV)%kvert, &
-!                         mg_mesh%level(ILEV)%karea, &
-!                         mg_mesh%level(ILEV)%kedge, &
-!                         mg_mesh%level(ILEV)%dcorvg, &
-!                         E013)
-!     ELSE
-!       CALL BuildMMat(mg_Mmat(ILEV)%a, qMat%na, &
-!                      qMat%ColA, qMat%LdA, &
-!                      mg_mesh%level(ILEV)%kvert, &
-!                      mg_mesh%level(ILEV)%karea, &
-!                      mg_mesh%level(ILEV)%kedge, &
-!                      mg_mesh%level(ILEV)%dcorvg, &
-!                      E013)
-!     END IF
-! 
-!     ! Compute lumped mass matrix (row sum) - identical for both variants
-!     IF (.not.ALLOCATED(mg_MlMatrix(ILEV)%a)) ALLOCATE(mg_MlMatrix(ILEV)%a(qMat%nu))
-! 
-!     DO I=1,qMat%nu
-!       DML = 0d0
-!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!         DML = DML + mg_Mmat(ILEV)%a(J)
-!       END DO
-!       mg_MlMatrix(ILEV)%a(I) = DML
-!     END DO
-! 
-!     ! Parallel synchronization - identical for both variants
-!     IF (.not.ALLOCATED(mg_MlPMatrix(ILEV)%a)) ALLOCATE(mg_MlPMatrix(ILEV)%a(qMat%nu))
-!     mg_MlPMatrix(ILEV)%a = mg_MlMatrix(ILEV)%a
-!     CALL E013SUM(mg_MlPMatrix(ILEV)%a)
-! 
-!   END DO
-! 
-!   ! Restore to NLMAX and set pointers
-!   ILEV=NLMAX
-!   CALL SETLEV(2)
-!   qMat => mg_qMat(NLMAX)
-! 
-!   IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-! 
-! END SUBROUTINE Assemble_Mass_Generic
-! !
-! ----------------------------------------------
-!
-! SUBROUTINE Create_MRhoMat()
-! ! Phase 2.1: Refactored to use Assemble_Mass_Generic
-! INTEGER :: ILEV_save
-! 
-!  if (.not.bMasterTurnedOn) return
-! 
-!  CALL ZTIME(myStat%t0)
-! 
-!  ! ========== New Implementation (Phase 2.1) ==========
-!  ! Allocate top-level arrays (must be done by caller before passing to generic)
-!  IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
-!  IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
-! 
-!  ! Call generic assembly routine with density
-!  CALL Assemble_Mass_Generic(.TRUE., mg_MlRhomat, mg_MlRhoPmat, &
-!                              mgDensity, "[MRho] & [MlRho]")
-! 
-!  ! Handle bSteadyState special case (only in MRhoMat, not MMat)
-!  if(bSteadyState)then
-!    DO ILEV_save=NLMIN,NLMAX
-!      mg_MMat(ILEV_save)%a = 0d0
-!    END DO
-!  end if
-!  ! ====================================================
-! 
-!  ! Set final pointers to NLMAX level
-!  qMat      => mg_qMat(NLMAX)
-!  Mmat      => mg_Mmat(NLMAX)%a
-!  MlRhomat  => mg_MlRhomat(NLMAX)%a
-!  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
-! 
-!  CALL ZTIME(myStat%t1)
-!  myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
-! 
-! ! ========== Original Implementation (Phase 2.1 - Commented for validation) ==========
-! ! EXTERNAL E013
-! ! REAL*8  DML
-! ! INTEGER I,J
-! !
-! ! IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
-! ! IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
-! ! IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
-! !
-! ! DO ILEV=NLMIN,NLMAX
-! !
-! !  CALL SETLEV(2)
-! !  qMat => mg_qMat(ILEV)
-! !
-! !  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-! !   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-! !  END IF
-! !
-! !  mg_Mmat(ILEV)%a=0d0
-! !
-! !  IF (myid.eq.showID) THEN
-! !   IF (ILEV.EQ.NLMIN) THEN
-! !    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-! !   ELSE
-! !    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-! !   END IF
-! !  END IF
-! !
-! !  CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-! !  mg_mesh%level(ILEV)%kvert,&
-! !  mg_mesh%level(ILEV)%karea,&
-! !  mg_mesh%level(ILEV)%kedge,&
-! !  mg_mesh%level(ILEV)%dcorvg,&
-! !  E013)
-! !
-! !  if(bSteadyState)then
-! !    mg_MMat(ILEV)%a = 0d0
-! !  end if
-! !
-! !  IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
-! !
-! !  DO I=1,qMat%nu
-! !   DML = 0d0
-! !   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-! !    DML = DML + mg_Mmat(ILEV)%a(J)
-! !   END DO
-! !   mg_MlRhomat(ILEV)%a(I) = DML
-! !  END DO
-! !
-! !  IF (.not.ALLOCATED(mg_MlRhoPmat(ILEV)%a)) ALLOCATE(mg_MlRhoPmat(ILEV)%a(qMat%nu))
-! !  mg_MlRhoPmat(ILEV)%a = mg_MlRhomat(ILEV)%a
-! !  CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
-! !
-! ! END DO
-! !
-! ! ILEV=NLMAX
-! ! CALL SETLEV(2)
-! ! ====================================================
-! 
-! END SUBROUTINE Create_MRhoMat
-! !
-! ----------------------------------------------
-!
-! SUBROUTINE Create_MMat()
-! ! Phase 2.1: Refactored to use Assemble_Mass_Generic
-! 
-!  if (.not.bMasterTurnedOn) return
-! 
-!  CALL ZTIME(myStat%t0)
-! 
-!  ! ========== New Implementation (Phase 2.1) ==========
-!  ! Allocate top-level arrays (must be done by caller before passing to generic)
-!  IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
-!  IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
-! 
-!  ! Call generic assembly routine without density
-!  CALL Assemble_Mass_Generic(.FALSE., mg_MlMat, mg_MlPMat, &
-!                              label="[MRho] & [MlRho]")
-!  ! ====================================================
-! 
-!  ! Set final pointers to NLMAX level
-!  qMat      => mg_qMat(NLMAX)
-!  Mmat      => mg_Mmat(NLMAX)%a
-!  MlMat     => mg_MlMat(NLMAX)%a
-!  MlPMat    => mg_MlPMat(NLMAX)%a
-! 
-!  CALL ZTIME(myStat%t1)
-!  myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
-! 
-! ! ========== Original Implementation (Phase 2.1 - Commented for validation) ==========
-! ! EXTERNAL E013
-! ! REAL*8  DML
-! ! INTEGER I,J
-! !
-! ! IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
-! ! IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
-! ! IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
-! !
-! ! DO ILEV=NLMIN,NLMAX
-! !
-! !  CALL SETLEV(2)
-! !  qMat => mg_qMat(ILEV)
-! !
-! !  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-! !   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-! !  END IF
-! !
-! !  mg_Mmat(ILEV)%a=0d0
-! !
-! !  IF (myid.eq.showID) THEN
-! !   IF (ILEV.EQ.NLMIN) THEN
-! !    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-! !   ELSE
-! !    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-! !   END IF
-! !  END IF
-! !  CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-! !                 mg_mesh%level(ILEV)%kvert,&
-! !                 mg_mesh%level(ILEV)%karea,&
-! !                 mg_mesh%level(ILEV)%kedge,&
-! !                 mg_mesh%level(ILEV)%dcorvg,&
-! !                 E013)
-! !
-! !
-! !  IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
-! !
-! !  DO I=1,qMat%nu
-! !   DML = 0d0
-! !   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-! !    DML = DML + mg_Mmat(ILEV)%a(J)
-! !   END DO
-! !   mg_MlMat(ILEV)%a(I) = DML
-! !  END DO
-! !
-! !  IF (.not.ALLOCATED(mg_MlPmat(ILEV)%a)) ALLOCATE(mg_MlPmat(ILEV)%a(qMat%nu))
-! !  mg_MlPmat(ILEV)%a = mg_MlMat(ILEV)%a
-! !  CALL E013SUM(mg_MlPmat(ILEV)%a)
-! !
-! ! END DO
-! !
-! ! ILEV=NLMAX
-! ! CALL SETLEV(2)
-! ! ====================================================
-! 
-! END SUBROUTINE Create_MMat
-! !
-! ----------------------------------------------
-!
-! ============================================================================
-! Phase 2.2: Generic Diffusion Matrix Assembly (Alpha-based)
-! ============================================================================
-! Purpose: Unified assembly logic for diffusion matrices with constant alpha
-!
-! This routine extracts the common ~75-80% code duplication between
-! Create_hDiffMat and Create_ConstDiffMat.
-!
-! Parameters:
-!   mg_OutMatrix     - Output: diffusion matrix array (must be allocated by caller)
-!   alpha            - Alpha parameter for DIFFQ2_alpha kernel
-!   label            - Character label for progress messages
-!   require_worker   - If .TRUE., only assemble on myid != 0 processes
-!
-! Design notes:
-!   - Both Create_hDiffMat (alpha=1.0) and Create_ConstDiffMat (alpha=0.0)
-!     use the same assembly kernel DIFFQ2_alpha with different parameters
-!   - Create_hDiffMat requires myid.ne.0 guard, Create_ConstDiffMat does not
-!   - Caller is responsible for top-level allocation and early-exit checks
-! ============================================================================
-! SUBROUTINE Assemble_Diffusion_Alpha_Generic(mg_OutMatrix, alpha, label, &
-!                                              require_worker)
-!   TYPE(mg_Matrix), INTENT(INOUT) :: mg_OutMatrix(NLMIN:NLMAX)
-!   REAL*8, INTENT(IN) :: alpha
-!   CHARACTER(LEN=*), INTENT(IN) :: label
-!   LOGICAL, INTENT(IN) :: require_worker
-! 
-!   EXTERNAL E013
-! 
-!   CALL ZTIME(myStat%t0)
-! 
-!   ! Loop over multigrid levels
-!   DO ILEV = NLMIN, NLMAX
-! 
-!     CALL SETLEV(2)
-!     qMat => mg_qMat(ILEV)
-! 
-!     ! Allocate per-level matrix
-!     IF (.NOT. ALLOCATED(mg_OutMatrix(ILEV)%a)) THEN
-!       ALLOCATE(mg_OutMatrix(ILEV)%a(qMat%na))
-!     END IF
-! 
-!     mg_OutMatrix(ILEV)%a = 0d0
-! 
-!     ! Progress indicator
-!     IF (myid.eq.showID) THEN
-!       IF (ILEV.EQ.NLMIN) THEN
-!         WRITE(MTERM,'(A,I1,A)', advance='no') " "//TRIM(label)//": [", ILEV,"]"
-!       ELSE
-!         WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-!       END IF
-!     END IF
-! 
-!     ! Assembly kernel (with optional worker-only guard)
-!     IF (require_worker) THEN
-!       IF (myid.ne.0) THEN
-!         CALL DIFFQ2_alpha(mg_OutMatrix(ILEV)%a, qMat%na, qMat%ColA, &
-!                           qMat%LdA, &
-!                           mg_mesh%level(ILEV)%kvert, &
-!                           mg_mesh%level(ILEV)%karea, &
-!                           mg_mesh%level(ILEV)%kedge, &
-!                           mg_mesh%level(ILEV)%dcorvg, &
-!                           E013, alpha)
-!       END IF
-!     ELSE
-!       CALL DIFFQ2_alpha(mg_OutMatrix(ILEV)%a, qMat%na, qMat%ColA, &
-!                         qMat%LdA, &
-!                         mg_mesh%level(ILEV)%kvert, &
-!                         mg_mesh%level(ILEV)%karea, &
-!                         mg_mesh%level(ILEV)%kedge, &
-!                         mg_mesh%level(ILEV)%dcorvg, &
-!                         E013, alpha)
-!     END IF
-! 
-!   END DO
-! 
-!   IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-! 
-!   ! Restore to NLMAX level
-!   ILEV = NLMAX
-!   CALL SETLEV(2)
-! 
-!   CALL ZTIME(myStat%t1)
-!   myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
-! 
-! END SUBROUTINE Assemble_Diffusion_Alpha_Generic
-! !
-! ----------------------------------------------
-!
 SUBROUTINE SetSlipOnBandBT()
 
  if (.not.bMasterTurnedOn) return 
