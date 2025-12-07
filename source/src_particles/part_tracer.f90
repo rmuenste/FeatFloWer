@@ -2874,6 +2874,32 @@ END DO
 
 END SUBROUTINE subPostProcessRTD
 
+!===============================================================================
+! SUBROUTINE: Finalize_Particles (TEMPORARY STUB)
+!===============================================================================
+! TODO: This is a temporary stub implementation. Replace with proper cleanup
+!       when the actual implementation becomes available.
+!===============================================================================
+SUBROUTINE Finalize_Particles(time, log_unit)
+  USE PP3D_MPI, ONLY: myid
+  IMPLICIT NONE
+
+  REAL, INTENT(IN) :: time
+  INTEGER, INTENT(IN) :: log_unit
+
+  ! Temporary stub - no cleanup performed
+  IF (myid == 0) THEN
+    WRITE(log_unit,*) 'Finalize_Particles: stub implementation (no cleanup)'
+  END IF
+
+END SUBROUTINE Finalize_Particles
+
+END MODULE Particle
+
+!===============================================================================
+! External subroutines (outside MODULE Particle)
+!===============================================================================
+
 SUBROUTINE getSubstring(cH,cS,nC,iC)
 use iniparser, only : inip_toupper_replace
 Character*256 cH
@@ -2943,7 +2969,6 @@ END DO
 ! pause
 
 END SUBROUTINE getSubstring
-END
 !
 !-------------------------------------------------------
 !
