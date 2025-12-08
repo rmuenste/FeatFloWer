@@ -119,7 +119,7 @@ SUBROUTINE set_lubrication_threshold_from_mesh(myid)
   lub_threshold = dLubricationFactor * h_min
 
   ! Set the threshold in PE library
-  CALL set_lubrication_threshold(lub_threshold)
+  !CALL set_lubrication_threshold(lub_threshold)
 
   ! Output information (master process only)
   IF (myid .EQ. master) THEN
