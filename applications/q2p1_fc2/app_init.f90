@@ -519,8 +519,10 @@ IF (myid.eq.1) write(*,*) 'done!'
    call commf2c_lubrication_lab(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
 
+#ifdef LUBRICATION_PIPELINE
  ! Set lubrication threshold based on mesh size
  call set_lubrication_threshold_from_mesh(myid)
+#endif
 #endif
 
  call init_fc_rigid_body(myid)
