@@ -17,7 +17,8 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   nMainUmbrellaSteps, bBoundaryCheck, Transform, postParams, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
-  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle
+  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, &
+  skipFBMForce, skipFBMDynamics
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -722,6 +723,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bBoundaryCheck = read_yes_no_param(string, iEq)
       CASE ("NS_Stabilization")
         bNS_Stabilization = read_yes_no_param(string, iEq)
+      CASE ("skipFBMForce")
+        skipFBMForce = read_yes_no_param(string, iEq)
+      CASE ("skipFBMDynamics")
+        skipFBMDynamics = read_yes_no_param(string, iEq)
       CASE ("OutputFreq")
         READ(string(iEq+1:),*) DTGMV
       CASE ("MatrixRenewal")
@@ -923,6 +928,18 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "OFF")
+    END IF
+
+    IF (skipFBMForce) THEN
+      CALL write_param_str(mfile, mterm, "skipFBMForce is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "skipFBMForce is ", "OFF")
+    END IF
+
+    IF (skipFBMDynamics) THEN
+      CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "OFF")
     END IF
 
     WRITE(mfile,'(A,3ES14.4)') "Newtonian FAC Benchamrk params (U,H,D) : ",postParams%U_mean,postParams%H,postParams%D

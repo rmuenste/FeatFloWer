@@ -558,10 +558,13 @@ if (myid.eq. 1) write(*,*)'fbm force'
 #endif 
 
 total_lubrication = 0.0d0
+
 ! Calculate the forces
-call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                      LinSc%valP(NLMAX)%x,&
-                      fbm_force_handler_ptr)
+if(.not. skipFBMForce) then
+  call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                        LinSc%valP(NLMAX)%x,&
+                        fbm_force_handler_ptr)
+end if
 
 
 !call fbm_compute_particle_reynolds_interface(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
@@ -581,12 +584,14 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
 if (myid.eq. 1) write(*,*)'fbm update'
 #endif 
 
-! Step the particle simulation
-call fbm_updateFBM(Properties%Density(1),tstep,timens,&
-                   Properties%Gravity,mfile,myid,&
-                   QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                   LinSc%valP(NLMAX)%x,&
-                   fbm_up_handler_ptr) 
+if(.not. skipFBMDynamics) then
+  ! Step the particle simulation
+  call fbm_updateFBM(Properties%Density(1),tstep,timens,&
+                     Properties%Gravity,mfile,myid,&
+                     QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                     LinSc%valP(NLMAX)%x,&
+                     fbm_up_handler_ptr) 
+end if
 
 !call fbm_velBCTest()
 

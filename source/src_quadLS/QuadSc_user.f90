@@ -128,10 +128,19 @@ ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 
+
 IF (iT.EQ.23) THEN
  ValU= 0.0d0 
  ValV= 0d0
  ValW= 0d0
+END IF
+
+IF (iT.EQ.300) THEN
+U_bar = 150
+dScale=  U_bar / (0.1**2D0)!*(6D0/(0.010d0*0.010d0))
+ValU= dScale*Z*(0.2d0-Z)
+ValV= 0d0
+ValW= 0d0
 END IF
 
 IF (iT.lt.0) THEN
