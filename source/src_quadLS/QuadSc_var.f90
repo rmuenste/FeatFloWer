@@ -62,6 +62,7 @@ MODULE var_QuadScalar
   LOGICAL :: bSteadyState =.FALSE.
   LOGICAL :: bBoundaryCheck=.FALSE.
   LOGICAL :: bNS_Stabilization=.FALSE.
+  LOGICAL :: skipFBMForce=.FALSE.,skipFBMDynamics=.FALSE.
   REAL*8 :: Gamma = 0d0
   integer, parameter :: uterm = 6
   REAL*8  :: dCGALtoRealFactor = 1d0

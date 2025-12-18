@@ -35,7 +35,8 @@ Category@ParameterName = value
 
 ### SimPar@ - Simulation Control Parameters
 
-**Source**: `source/Init.f90` (GDATNEW subroutine, lines 386-976)
+**Source**: `source/src_util/param_parser.f90` (GDATNEW subroutine, lines 542-1076)
+**Note**: GDATNEW was migrated from `source/Init.f90` to the centralized `param_parser` module for better maintainability.
 
 | Parameter | Type | Units | Description | Example |
 |-----------|------|-------|-------------|---------|
@@ -73,6 +74,9 @@ Category@ParameterName = value
 | **Physics Models** |
 | Tracer | Yes/No | - | Enable tracer transport equation | `No` |
 | bViscoElastic | Yes/No | - | Enable viscoelastic model | `No` |
+| **Fictitious Boundary Method (FBM)** |
+| skipFBMForce | Yes/No | - | Skip FBM force computation (for testing/debugging) | `No` |
+| skipFBMDynamics | Yes/No | - | Skip FBM dynamics update (for testing/debugging) | `No` |
 | **Mesh Processing** |
 | Umbrella | integer | - | Umbrella mesh smoothing steps | `0` |
 | InitUmbrella | integer | - | Initial umbrella smoothing steps | - |
@@ -461,18 +465,59 @@ The solver will automatically adjust the timestep based on:
 
 ---
 
+## Fictitious Boundary Method (FBM) Control
+
+### SimPar@skipFBMForce and SimPar@skipFBMDynamics
+
+These boolean parameters provide fine-grained control over FBM (Fictitious Boundary Method) computations for particle-laden flows and fluid-structure interaction simulations.
+
+**SimPar@skipFBMForce** (default: `No`):
+- When set to `Yes`: Skips the computation of hydrodynamic forces acting on FBM particles
+- **Use case**: Testing pure fluid flow without particle feedback
+- **Warning**: Particles will not affect the fluid when this is enabled
+
+**SimPar@skipFBMDynamics** (default: `No`):
+- When set to `Yes`: Skips the rigid body dynamics update for FBM particles
+- **Use case**: Fixed particles/bodies (stationary obstacles)
+- **Note**: Forces are still computed (unless `skipFBMForce = Yes`), but particle positions/velocities are not updated
+
+**Example configurations**:
+
+```fortran
+! Standard particle simulation (default)
+SimPar@skipFBMForce = No
+SimPar@skipFBMDynamics = No
+
+! Stationary particles (forces computed but particles don't move)
+SimPar@skipFBMForce = No
+SimPar@skipFBMDynamics = Yes
+
+! Pure fluid flow (particles present but non-interacting)
+SimPar@skipFBMForce = Yes
+SimPar@skipFBMDynamics = Yes
+```
+
+**Debugging workflow**:
+1. First run: Both `No` (full coupling)
+2. If unstable: Set `skipFBMDynamics = Yes` to check if particle motion is the issue
+3. For one-way coupling tests: Set `skipFBMForce = Yes` (fluid affects particles, but not vice versa is not implemented - use both `Yes` for decoupling)
+
+---
+
 ## Source Code Reference
 
 All parameters are parsed from `q2p1_param.dat` in these subroutines:
 
 | Category | File | Subroutine | Lines |
 |----------|------|------------|-------|
-| **SimPar@** | `source/Init.f90` | GDATNEW | 386-976 |
-| **Velo@** | `source/src_quadLS/QuadSc_def.f90` | GetVeloParameters | 4235-4409 |
-| **Pres@** | `source/src_quadLS/QuadSc_def.f90` | GetPresParameters | 4447-4569 |
-| **Prop@** | `source/src_quadLS/QuadSc_def.f90` | GetPhysiclaParameters | 4573-4689 |
+| **SimPar@** | `source/src_util/param_parser.f90` | GDATNEW | 542-1076 |
+| **Velo@** | `source/src_util/param_parser.f90` | GetVeloParameters | 104-249 |
+| **Pres@** | `source/src_util/param_parser.f90` | GetPresParameters | 254-353 |
+| **Prop@** | `source/src_util/param_parser.f90` | GetPhysiclaParameters | 359-500 |
 
-**Note**: `GetPhysiclaParameters` has a spelling error in the source code (missing 'a' in "Physical").
+**Note**:
+- `GetPhysiclaParameters` has a spelling error in the source code (missing 'a' in "Physical").
+- **IMPORTANT**: All parameter parsing functions were migrated from `source/Init.f90` and `source/src_quadLS/QuadSc_def.f90` to the centralized `source/src_util/param_parser.f90` module for better code organization and maintainability.
 
 ---
 

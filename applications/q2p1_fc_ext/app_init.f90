@@ -459,7 +459,7 @@ END IF
 
 #ifdef HAVE_PE 
   if (myid .ne. 0) then
-    call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+    call commf2c_fsi(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
   end if
 #endif
 
