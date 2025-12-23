@@ -39,15 +39,13 @@ if(USE_CGAL)
   add_subdirectory(q2p1_particle_tracer)
   add_subdirectory(q2p1_particle_tracer_xse)
   add_subdirectory(q2p1_xParticles)
+  add_subdirectory(q2p1_ATC)
 endif(USE_CGAL)
 
 if (USE_HYPRE)
   #add_subdirectory(hypre_test)
 endif (USE_HYPRE)
 
-if(NOT WIN32)
-add_subdirectory(q2p1_particles)
-endif(NOT WIN32)
 
 if(USE_OPTICALTWEEZERS)
   add_subdirectory(q2p1_optic_tweezers)
