@@ -10,13 +10,13 @@ q2p1_ATC.f90
 add_executable(q2p1_ATC ${src_q2p1_ATC})
 
 # Add a custom command to update version.h before the build starts
-add_custom_target(SetVersion
+add_custom_target(SetVersion_ATC  
     COMMAND ${CMAKE_COMMAND} -DGIT_DIR=${CMAKE_SOURCE_DIR} -P "${CMAKE_SOURCE_DIR}/cmake/modules/generate_version_h.cmake"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Updating version.h with the latest git commit hash"
 )
 
-add_dependencies(q2p1_ATC SetVersion)
+add_dependencies(q2p1_ATC SetVersion_ATC)
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})

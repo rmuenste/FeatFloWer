@@ -17,7 +17,7 @@ subroutine init_q2p1_atc(log_unit)
   !-------INIT PHASE-------
 
   ! Initialization for FEATFLOW
-  call General_init_atc(79,log_unit)
+  call General_init_ext(79,log_unit)
 
   call Init_QuadScalar_Stuctures(log_unit)
 
@@ -62,7 +62,7 @@ end subroutine init_q2p1_atc
 !
 !----------------------------------------------
 !
-SUBROUTINE General_init_atc(MDATA,MFILE)
+SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
  USE MESH_Structures
@@ -465,4 +465,4 @@ END IF
 
  RETURN
 
-END SUBROUTINE General_init_atc
+END SUBROUTINE General_init_ext
