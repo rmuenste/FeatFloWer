@@ -49,8 +49,9 @@ CONTAINS
 !   - Modifies global myHYPRE structure
 !   - Allocates myHYPRE arrays (Numbering, ncols, sol, rhs, rows, cols, values)
 !===============================================================================
-SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in)
+SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
   TYPE(TLinScalar), INTENT(IN) :: lScalar_in
+  LOGICAL, INTENT(IN) :: bNoOutFlow
   INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU
   INTEGER :: I, J, iel  ! Variables for bNoOutFlow block
   INTEGER, ALLOCATABLE :: iDofs(:)
@@ -236,12 +237,12 @@ END SUBROUTINE Setup_HYPRE_CoarseLevel_Full
 !   - Allocates myHYPRE arrays (Numbering, ncols, sol, rhs, rows, cols, values)
 !   - Prints diagnostic if at NLMIN and myid == showID
 !===============================================================================
-SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
+SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in, bNoOutFlow)
   TYPE(TLinScalar), INTENT(IN) :: lScalar_in
+  LOGICAL, INTENT(IN) :: bNoOutFlow
   INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU, JEQ
   INTEGER, ALLOCATABLE :: iDofs(:)
   REAL*8, ALLOCATABLE :: dDofs(:)
-  LOGICAL :: bNoOutFlow
   ! NOTE: NEL comes from COMMON block via var_QuadScalar - do NOT declare it here!
 
   ! ============================================================================
@@ -277,7 +278,6 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in)
   END IF
 
   ! Handle singular (no outflow) configuration
-  bNoOutFlow = .false.  ! TODO: Get from appropriate module/parameter
   IF (myid.ne.0 .AND. bNoOutFlow) THEN
     IF (myid.eq.1) THEN
       WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'

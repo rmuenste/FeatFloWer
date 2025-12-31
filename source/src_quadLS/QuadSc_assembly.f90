@@ -689,7 +689,7 @@ INTEGER i,j,iEntry,jCol
 
  ! Phase 1: UMFPACK coarse grid solver setup (types 2, 3, 4)
  ! Call extracted UMFPACK setup routine
- CALL Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, .FALSE.)
+ CALL Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutflow)
 
  CALL ZTIME(myStat%t1)
  myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)

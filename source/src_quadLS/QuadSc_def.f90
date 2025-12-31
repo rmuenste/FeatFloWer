@@ -188,7 +188,7 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
  end if
 
  ! Call extracted HYPRE setup routine
- CALL Setup_HYPRE_CoarseLevel_Full(lScalar)
+ CALL Setup_HYPRE_CoarseLevel_Full(lScalar, bNoOutflow)
 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
@@ -204,7 +204,7 @@ IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
  end if
 
  ! Call extracted HYPRE setup routine with geometric coarsening
- CALL Setup_HYPRE_CoarseLevel_Geometric(lScalar)
+ CALL Setup_HYPRE_CoarseLevel_Geometric(lScalar, bNoOutflow)
 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
