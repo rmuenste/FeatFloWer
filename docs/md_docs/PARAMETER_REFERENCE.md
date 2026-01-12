@@ -78,13 +78,13 @@ Category@ParameterName = value
 | skipFBMForce | Yes/No | - | Skip FBM force computation (for testing/debugging) | `No` |
 | skipFBMDynamics | Yes/No | - | Skip FBM dynamics update (for testing/debugging) | `No` |
 | **Mesh Processing** |
-| Umbrella | integer | - | Umbrella mesh smoothing steps | `0` |
-| InitUmbrella | integer | - | Initial umbrella smoothing steps | - |
+| Umbrella | integer | - | Umbrella smoothing steps in `InitCond_QuadScalar()` (set to 0, see §Umbrella Mesh Smoothing) | `0` |
+| InitUmbrella | integer | - | Umbrella smoothing steps in `General_init_ext()` (set to 0 on restart, see §Umbrella Mesh Smoothing) | `20` |
 | UmbrellaStepM | integer | - | Main umbrella smoothing steps | - |
 | UmbrellaStepL | integer | - | Umbrella steps per level | - |
 | LoadAdaptedMesh | string | - | Path to pre-adapted mesh file | `"_dump/msh"` |
 | **Advanced** |
-| StartingProc | integer | - | Starting process mode (0, 1, or 2) | `0` |
+| StartingProc | integer | - | Restart mode: 0=fresh start, 1=same level/partitions, 2=lower level, 3=repartition (see §Umbrella Mesh Smoothing for restart workflow) | `0` |
 | ElemTrans | integer | - | Element transformation type (1 or 2) | `2` |
 | ProlongationDirection | integer | - | Mesh prolongation: 0=standard, 1=X-cyl, 2=Y-cyl, 3=Z-cyl | `0` |
 | CGALtoRealFactor | real | - | Conversion factor for CGAL geometry | - |
@@ -363,6 +363,123 @@ Format: `M#D#K#S#C#` where each number controls renewal frequency:
 
 ---
 
+## Umbrella Mesh Smoothing
+
+### SimPar@InitUmbrella and SimPar@Umbrella
+
+**⚠️ CRITICAL**: These two parameters control mesh smoothing at different stages of execution. Understanding when each is applied is essential for correct restart behavior.
+
+#### Execution Stages
+
+**Fresh Start (StartingProc=0)**:
+1. **`General_init_ext()`** (mesh initialization):
+   - Applies mesh parametrization (projects nodes to boundary surfaces)
+   - Applies umbrella smoothing: **`SimPar@InitUmbrella`** steps
+   - Writes `initial_mesh.pvtu` (if debug output enabled)
+
+2. **`InitCond_QuadScalar()`** (solution initialization):
+   - Sets up initial velocity/pressure fields
+   - Applies umbrella smoothing: **`SimPar@Umbrella`** steps
+   - First output written with this final mesh
+
+**Restart (StartingProc=1,2,3)**:
+1. **`General_init_ext()`** (mesh re-initialization):
+   - Re-applies parametrization and `InitUmbrella` smoothing
+
+2. **`SolFromFile()`** (load saved state):
+   - Loads mesh coordinates, velocity, pressure from dump files
+   - **Overwrites** the mesh from step 1 with saved coordinates
+
+3. **`InitCond_QuadScalar()`**:
+   - **Skipped during restart** (solution already loaded)
+   - `Umbrella` smoothing is NOT applied
+
+#### Problem: Coordinate Mismatch on Restart
+
+If smoothing parameters are not adjusted for restart, you get a coordinate mismatch:
+
+```
+Fresh start mesh after InitUmbrella + Umbrella smoothing
+  ≠
+Restart mesh after InitUmbrella smoothing + loaded coordinates
+```
+
+This causes the loaded velocity field to be inconsistent with the mesh geometry, leading to solver divergence.
+
+#### ✅ Recommended Workflow
+
+**Stage 1: Fresh Start**
+```fortran
+SimPar@StartingProc = 0
+SimPar@InitUmbrella = 20    ! Apply smoothing during initialization
+SimPar@Umbrella = 0         ! No additional smoothing (recommended)
+```
+
+**Stage 2: Restart from Dump**
+```fortran
+SimPar@StartingProc = 1
+SimPar@StartFile = "_dump/10"
+SimPar@InitUmbrella = 0     ! ⚠️ CRITICAL: Disable, coordinates in dump already smoothed
+SimPar@Umbrella = 0         ! Already disabled
+```
+
+#### Alternative: Two-Stage Smoothing (Advanced)
+
+If you need smoothing at both stages (rare):
+
+**Fresh Start**:
+```fortran
+SimPar@InitUmbrella = 10    ! First stage smoothing
+SimPar@Umbrella = 10        ! Second stage smoothing
+```
+
+**Restart**:
+```fortran
+SimPar@InitUmbrella = 0     ! Disable both stages
+SimPar@Umbrella = 0
+```
+
+The dump files contain coordinates **after both smoothing stages**, so both must be disabled on restart.
+
+#### Why Two Smoothing Stages?
+
+Historically, umbrella smoothing was applied:
+1. **`InitUmbrella`**: After parametrization, before multilevel hierarchy generation
+2. **`Umbrella`**: After full solver setup, with complete Q2 coordinate structures
+
+Modern practice: **Use only `InitUmbrella`** and set `Umbrella = 0` to avoid confusion and ensure restart consistency.
+
+#### Source Code Locations
+
+- **InitUmbrella**: Applied in `applications/*/app_init.f90` (`General_init_ext`), line ~334
+- **Umbrella**: Applied in `source/src_quadLS/QuadSc_initialization.f90` (`InitCond_QuadScalar`), line ~1221
+
+#### Common Pitfalls
+
+❌ **Wrong**: Using same parameters for fresh start and restart
+```fortran
+! Fresh start
+SimPar@InitUmbrella = 20
+SimPar@Umbrella = 0
+
+! Restart (WRONG - will re-smooth mesh!)
+SimPar@InitUmbrella = 20    ← This will apply smoothing before loading dump!
+SimPar@Umbrella = 0
+```
+
+✅ **Correct**: Adjust parameters for restart
+```fortran
+! Fresh start
+SimPar@InitUmbrella = 20
+SimPar@Umbrella = 0
+
+! Restart (CORRECT)
+SimPar@InitUmbrella = 0    ← Disabled, dump already contains smoothed mesh
+SimPar@Umbrella = 0
+```
+
+---
+
 ## Output Configuration
 
 ### SimPar@OutputFields
@@ -593,6 +710,7 @@ Prop@Viscosity = 1d-6,1d0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2025-01-11 | Added comprehensive §Umbrella Mesh Smoothing section documenting InitUmbrella vs Umbrella and critical restart workflow |
 | 1.0 | 2025-01-27 | Initial comprehensive documentation of all ~85 parameters |
 
 ---

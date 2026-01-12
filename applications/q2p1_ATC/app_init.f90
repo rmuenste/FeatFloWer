@@ -463,6 +463,34 @@ END IF
   end if
 #endif
 
+ !=======================================================================
+ !     Debug output: Write parametrized mesh to VTK for visual reference
+ !=======================================================================
+ IF (myid.eq.1) THEN
+   WRITE(MTERM,*) 'Writing parametrized mesh to VTK for debugging...'
+   WRITE(MFILE,*) 'Writing parametrized mesh to VTK for debugging...'
+ END IF
+
+ ! Create output directory
+ IF (myid.eq.0) THEN
+   call execute_command_line('mkdir -p _vtk', wait=.true.)
+ END IF
+ CALL CommBarrier()
+
+ ! Output the parametrized mesh (mesh-only, no field data)
+ IF (myid.NE.0) THEN
+   CALL Output_VTK_mesh_piece('initial_mesh', &
+     mg_mesh%level(mg_Mesh%maxlevel)%dcorvg, &
+     mg_mesh%level(mg_Mesh%maxlevel)%kvert)
+ ELSE
+   CALL Output_VTK_mesh_main('initial_mesh')
+ END IF
+
+ IF (myid.eq.1) THEN
+   WRITE(MTERM,*) 'Parametrized mesh written to _vtk/initial_mesh.pvtu'
+   WRITE(MFILE,*) 'Parametrized mesh written to _vtk/initial_mesh.pvtu'
+ END IF
+
  RETURN
 
 END SUBROUTINE General_init_ext

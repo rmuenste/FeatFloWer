@@ -394,8 +394,7 @@ END IF
 ! But we hack it to be faster
 !IF (iT.EQ.773) THEN
 IF (iT.EQ.771) THEN
-  !dRPM = 12d0
-  dRPM = 40d0
+  dRPM = 12d0
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s

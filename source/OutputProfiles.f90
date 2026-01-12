@@ -2797,6 +2797,161 @@ close(imainunit)
 
 END SUBROUTINE Output_VTK_main
 
+!========================================================================================
+!                    Mesh-only VTK output routines (no field data)
+!========================================================================================
+
+SUBROUTINE Output_VTK_mesh_piece(cname, dcoor, kvert)
+!
+! Outputs only mesh geometry (coordinates and connectivity) to VTK format
+! without any field data. Useful for debugging mesh initialization.
+!
+! Parameters:
+!   cname  - custom name for output files (e.g., "initial", "parametrized")
+!   dcoor  - node coordinates
+!   kvert  - element connectivity
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+INTEGER :: ioffset, ive, ivt
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908071
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+! Generate filename with custom name
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_node_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing mesh-only VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+! Write VTK header
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', KNVT(ILEV), &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+! No PointData or CellData sections - mesh only!
+
+! Write mesh coordinates
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+! Write element connectivity
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfElem-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write offsets
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write cell types (12 = hexahedron)
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_mesh_piece
+
+
+SUBROUTINE Output_VTK_mesh_main(cname)
+!
+! Outputs main .pvtu file for parallel mesh-only VTK output
+!
+! Parameters:
+!   cname - custom name for output files (e.g., "initial", "parametrized")
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+INTEGER :: iproc
+INTEGER :: iMainUnit = 556
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+! Generate main filename with custom name
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+! No PPointData or PCellData sections - mesh only!
+
+! Write mesh structure
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+! Reference all piece files
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_node_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main mesh VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main
+
 
 SUBROUTINE Output_GMV_fields(iO,dcoor,kvert)
 USE def_FEAT
