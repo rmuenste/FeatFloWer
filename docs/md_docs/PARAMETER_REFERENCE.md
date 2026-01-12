@@ -375,6 +375,7 @@ Format: `M#D#K#S#C#` where each number controls renewal frequency:
 1. **`General_init_ext()`** (mesh initialization):
    - Applies mesh parametrization (projects nodes to boundary surfaces)
    - Applies umbrella smoothing: **`SimPar@InitUmbrella`** steps
+   - Generates Q2 mesh nodes (edges, faces, element centers) from P1 vertices
    - Writes `initial_mesh.pvtu` (if debug output enabled)
 
 2. **`InitCond_QuadScalar()`** (solution initialization):
@@ -384,27 +385,57 @@ Format: `M#D#K#S#C#` where each number controls renewal frequency:
 
 **Restart (StartingProc=1,2,3)**:
 1. **`General_init_ext()`** (mesh re-initialization):
-   - Re-applies parametrization and `InitUmbrella` smoothing
+   - Re-applies parametrization and `InitUmbrella` smoothing ← **PROBLEM IF >0**
+   - Re-generates Q2 mesh nodes from P1 vertices
 
 2. **`SolFromFile()`** (load saved state):
-   - Loads mesh coordinates, velocity, pressure from dump files
-   - **Overwrites** the mesh from step 1 with saved coordinates
+   - Loads **P1 vertex coordinates only** from dump files
+   - Loads velocity and pressure fields
+   - **Overwrites** P1 vertices in mesh
+   - **Q2 nodes (edges/faces/elements) remain as generated in step 1**
 
 3. **`InitCond_QuadScalar()`**:
    - **Skipped during restart** (solution already loaded)
    - `Umbrella` smoothing is NOT applied
 
-#### Problem: Coordinate Mismatch on Restart
+#### Understanding Q2 Mesh Coordinate Storage
 
-If smoothing parameters are not adjusted for restart, you get a coordinate mismatch:
+**Key Insight**: Dump files store **only P1 vertex coordinates**, not the full Q2 nodal structure.
 
+- **P1 vertices**: Corner nodes of hexahedral elements (stored in dumps)
+- **Q2 nodes**: Edge midpoints, face centers, element centers (regenerated on each run)
+
+On restart, Q2 nodes are **regenerated** from P1 vertices via `SetUp_myQ2Coor()`:
+```fortran
+! Edge nodes: midpoint of two vertices
+PX = 0.5 * (vertex1 + vertex2)
+
+! Face nodes: center of four vertices
+PX = 0.25 * (vertex1 + vertex2 + vertex3 + vertex4)
+
+! Element nodes: center of eight vertices
+PX = 0.125 * (sum of 8 vertices)
 ```
-Fresh start mesh after InitUmbrella + Umbrella smoothing
-  ≠
-Restart mesh after InitUmbrella smoothing + loaded coordinates
+
+**Source**: `source/src_quadLS/QuadSc_def.f90:4015`
+
+#### Problem: Mesh Smoothing Mismatch on Restart
+
+If smoothing parameters are not adjusted for restart, the mesh undergoes different processing:
+
+**Fresh Start:**
+```
+P1 vertices → parametrization → InitUmbrella → Q2 generation → Umbrella → FINAL MESH
 ```
 
-This causes the loaded velocity field to be inconsistent with the mesh geometry, leading to solver divergence.
+**Restart (with InitUmbrella>0):**
+```
+Loaded P1 → parametrization → InitUmbrella → Q2 generation → NO Umbrella
+                                   ↑
+                           EXTRA SMOOTHING APPLIED!
+```
+
+The restarted mesh has undergone **different smoothing** than the dumped mesh, causing the loaded velocity field to be inconsistent with mesh geometry → solver divergence.
 
 #### ✅ Recommended Workflow
 
@@ -439,7 +470,7 @@ SimPar@InitUmbrella = 0     ! Disable both stages
 SimPar@Umbrella = 0
 ```
 
-The dump files contain coordinates **after both smoothing stages**, so both must be disabled on restart.
+The dump files contain P1 vertex coordinates **after both smoothing stages**. Since Q2 nodes are regenerated from these P1 vertices, any smoothing during restart must be disabled to match the original mesh.
 
 #### Why Two Smoothing Stages?
 
@@ -453,6 +484,8 @@ Modern practice: **Use only `InitUmbrella`** and set `Umbrella = 0` to avoid con
 
 - **InitUmbrella**: Applied in `applications/*/app_init.f90` (`General_init_ext`), line ~334
 - **Umbrella**: Applied in `source/src_quadLS/QuadSc_initialization.f90` (`InitCond_QuadScalar`), line ~1221
+- **Q2 regeneration**: `source/src_quadLS/QuadSc_def.f90:4015` (`SetUp_myQ2Coor`)
+- **Coordinate restoration**: `source/initialization/app_initialization.f90:151,189,233,305` (restores P1 vertices only)
 
 #### Common Pitfalls
 
@@ -710,7 +743,7 @@ Prop@Viscosity = 1d-6,1d0
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.1 | 2025-01-11 | Added comprehensive §Umbrella Mesh Smoothing section documenting InitUmbrella vs Umbrella and critical restart workflow |
+| 1.1 | 2025-01-12 | Added comprehensive §Umbrella Mesh Smoothing section; clarified that dump files store P1 vertices only and Q2 nodes are regenerated via `SetUp_myQ2Coor()` |
 | 1.0 | 2025-01-27 | Initial comprehensive documentation of all ~85 parameters |
 
 ---
