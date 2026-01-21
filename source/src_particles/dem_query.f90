@@ -326,8 +326,7 @@ integer function numTotalParticles()
 
 #ifdef PE_SERIAL_MODE
   ! Serial PE mode: all ranks have access to all particles
-  numTotalParticles = 1 
-  !numTotalParticles = getTotalParticles() 
+  numTotalParticles = getNumParticles()
 #else
   ! Parallel PE mode: sum local and remote particles
   numTotalParticles = numRemParticles() + numLocalParticles()

@@ -1,7 +1,7 @@
 # FeatFloWer Parameter Reference
 
-**Version**: 1.0
-**Last Updated**: 2025-01-27
+**Version**: 1.2
+**Last Updated**: 2026-01-21
 
 ## Introduction
 
@@ -186,7 +186,9 @@ Category@ParameterName = value
 | **Basic Fluid Properties** |
 | Gravity | real(3) | m/s² | Gravity vector [x, y, z] | `0d0,0d0,-9.81d0` |
 | Density | real(2) | kg/m³ | Fluid densities (phase 1, phase 2) | `1000d0,1d0` |
-| **Viscosity** | real(2) | **m²/s** | **KINEMATIC viscosity ν** (phase 1, phase 2) | `1d-6,1.5d-5` |
+| **Viscosity** |
+| Viscosity | real(2) | **m²/s** | **KINEMATIC viscosity ν** (phase 1, phase 2) | `1d-6,1.5d-5` |
+| DynVisc | real(2) | **Pa·s** | **DYNAMIC viscosity μ** (auto-converted to kinematic) | `1d-3,1d0` |
 | DiffCoeff | real(2) | m²/s | Diffusion coefficients (phase 1, phase 2) | `1d-4,1d-4` |
 | **Interfacial Properties** |
 | Sigma | real | N/m | Surface tension coefficient | `0.073d0` |
@@ -220,6 +222,8 @@ Category@ParameterName = value
 
 `Prop@Viscosity` specifies **kinematic viscosity ν [m²/s]**, not dynamic viscosity μ [Pa·s].
 
+**Recommendation**: Use **`Prop@DynVisc`** to provide the dynamic viscosity μ [Pa·s] directly. The solver will automatically convert it to kinematic viscosity using the provided `Prop@Density`.
+
 **Relationship**:
 ```
 ν = μ / ρ
@@ -234,7 +238,13 @@ where:
 - Density: ρ = 998.2 kg/m³
 - Kinematic viscosity: ν = μ/ρ = 1.004×10⁻⁶ m²/s
 
-**Correct parameter file**:
+**Preferred parameter file (using DynVisc)**:
+```
+Prop@Density = 998.2d0,1d0
+Prop@DynVisc = 1.002d-3,1d0  ! μ in [Pa·s], auto-converted to ν
+```
+
+**Alternative (using manual conversion)**:
 ```
 Prop@Density = 998.2d0,1d0
 Prop@Viscosity = 1.004d-6,1d0  ! This is ν, NOT μ!
@@ -743,6 +753,7 @@ Prop@Viscosity = 1d-6,1d0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2026-01-21 | Added `Prop@DynVisc` parameter for intuitive specification of dynamic viscosity μ with automatic conversion to kinematic viscosity ν. |
 | 1.1 | 2025-01-12 | Added comprehensive §Umbrella Mesh Smoothing section; clarified that dump files store P1 vertices only and Q2 nodes are regenerated via `SetUp_myQ2Coor()` |
 | 1.0 | 2025-01-27 | Initial comprehensive documentation of all ~85 parameters |
 

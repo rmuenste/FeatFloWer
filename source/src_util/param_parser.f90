@@ -370,6 +370,11 @@ SUBROUTINE GetPhysiclaParameters(Props, cName, mfile)
   CHARACTER(len=50) :: param, cPar
   CHARACTER(len=7) :: cVar
   LOGICAL :: bOK
+  REAL*8  :: dTmpDynVisc(2)
+  LOGICAL :: bDynVisc
+
+  dTmpDynVisc = 0d0
+  bDynVisc = .FALSE.
 
   OPEN (UNIT=myFile, FILE=TRIM(ADJUSTL(myDataFile)), action='read', iostat=istat)
   IF (istat /= 0) THEN
@@ -427,6 +432,12 @@ SUBROUTINE GetPhysiclaParameters(Props, cName, mfile)
             READ(string(iEq+1:), *) Props%Viscosity
             IF (myid == showid) WRITE(mterm, '(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", Props%Viscosity
             IF (myid == showid) WRITE(mfile, '(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", Props%Viscosity
+
+          CASE ("DynVisc")
+            READ(string(iEq+1:), *) dTmpDynVisc
+            bDynVisc = .TRUE.
+            IF (myid == showid) WRITE(mterm, '(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", dTmpDynVisc
+            IF (myid == showid) WRITE(mfile, '(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ", dTmpDynVisc
 
           CASE ("DiffCoeff")
             READ(string(iEq+1:), *) Props%DiffCoeff
@@ -495,6 +506,18 @@ SUBROUTINE GetPhysiclaParameters(Props, cName, mfile)
 
   IF (myid == showid) WRITE(mfile, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
   IF (myid == showid) WRITE(mterm, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
+
+  IF (bDynVisc) THEN
+    IF (ANY(Props%Density <= 0d0)) THEN
+      IF (myid == showid) WRITE(*,*) "ERROR: Density must be > 0 to use Prop@DynVisc"
+      STOP
+    END IF
+    Props%Viscosity = dTmpDynVisc / Props%Density
+    IF (myid == showid) THEN
+      WRITE(mterm, '(A,2E16.8)') "Prop    - Calculated Kinematic Viscosity = ", Props%Viscosity
+      WRITE(mfile, '(A,2E16.8)') "Prop    - Calculated Kinematic Viscosity = ", Props%Viscosity
+    END IF
+  END IF
 
   CLOSE (myFile)
 
