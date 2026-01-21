@@ -1232,7 +1232,7 @@ USE var_QuadScalar,ONLY:QuadSc,LinSc,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE var_QuadScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,myMPI_Barrier
-USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
+USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh,bBinaryVtkOutput
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 ! USE PLinScalar,ONLY:PLinScP1toQ1,OutputInterphase,PLinLS,&
 !                dNorm,IntPhaseElem,FracFieldQ1
@@ -1272,9 +1272,15 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX + 1
   ILEV = myExport%Level
   CALL SETLEV(2)
-  CALL Output_VTK_piece(iOutput,&
-    mg_mesh%level(ILEV)%dcorvg,&
-    mg_mesh%level(ILEV)%kvert)
+  IF (bBinaryVtkOutput) THEN
+   CALL Output_VTK_piece_binary(iOutput,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     mg_mesh%level(ILEV)%kvert)
+  ELSE
+   CALL Output_VTK_piece(iOutput,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     mg_mesh%level(ILEV)%kvert)
+  END IF
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
@@ -2133,11 +2139,13 @@ END SUBROUTINE LoadSmartAdaptedMeshFile
 SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce, &
+  mgNormShearStress,myALE,Shell
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
-USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
+  mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 USE var_QuadScalar,ONLY: GenLinScalar
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
@@ -2624,6 +2632,708 @@ write(iunit, *)"</VTKFile>"
 close(iunit)
 
 END SUBROUTINE Output_VTK_piece
+
+
+
+SUBROUTINE Output_VTK_piece_binary(iO,dcoor,kvert)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,subnodes
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
+USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
+USE var_QuadScalar,ONLY: Tracer
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
+  mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY: GenLinScalar
+USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
+USE var_QuadScalar,ONLY: myLostSet
+USE, INTRINSIC :: iso_fortran_env, ONLY: int8, int32, int64, real32
+
+IMPLICIT NONE
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*),iO,ive,ivt,iField,i,istat
+CHARACTER fileid*(5),filename*(28),procid*(3),cGenScalar*(50)
+INTEGER NoOfElem,NoOfVert
+REAL*8,ALLOCATABLE ::  tau(:,:)
+REAL*8 psi(6)
+REAL*8 Temp,dMF
+INTEGER :: iunit = 908071
+INTEGER iX, ifbm,iFld
+INTEGER(int64) :: offset, off
+INTEGER(int64), PARAMETER :: header_bytes = 8_int64
+CHARACTER(len=256) :: line
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename=" "
+WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_****.',iO,".vtu"
+
+IF(myid.eq.showid) WRITE(*,'(104("="))')
+IF(myid.eq.showid) WRITE(*,*) "Outputting vtk binary file into ",filename
+WRITE(filename(15:18),'(I4.4)') myid
+
+OPEN (UNIT=iunit,FILE=filename,action='write',access='stream',form='unformatted',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open file for writing. "
+  stop
+end if
+
+offset = 0_int64
+
+call write_line(iunit, '<VTKFile type="UnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">')
+call write_line(iunit, '  <UnstructuredGrid>')
+write(line, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', KNVT(ILEV), &
+  '" NumberOfCells="', NoOfElem, '">'
+call write_line(iunit, line)
+
+call write_line(iunit, '    <PointData>')
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Velocity')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity', 3, off)
+
+ CASE('GradVelocity')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_x', 3, off)
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_y', 3, off)
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_z', 3, off)
+
+ CASE('PartForce')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'PartForce', 3, off)
+
+ CASE('Psi')
+  if(bViscoElastic)then
+   call reserve_offset(6_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Psi', 6, off)
+  end if
+
+ CASE('Stress')
+  if(bViscoElastic)then
+   call reserve_offset(6_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Stress', 6, off)
+  end if
+
+ CASE('GradStress')
+  if(bViscoElastic)then
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_11', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_22', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_33', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_12', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_13', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_23', 3, off)
+  end if
+
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+   WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   call reserve_offset(4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', ADJUSTL(TRIM(cGenScalar)), 1, off)
+  END DO
+
+ CASE('MeshVelo')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'MeshVelocity', 3, off)
+
+ CASE('BoundaryNormal')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'BoundaryNormal', 3, off)
+
+ CASE('Pressure_V')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Pressure_V', 1, off)
+
+ CASE('Temperature')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Temperature', 1, off)
+
+ CASE('Tracer')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Tracer', 1, off)
+
+ CASE('Temperature_AVG')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Temperature_AVG', 1, off)
+
+ CASE('Shearrate')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shearrate', 1, off)
+
+ CASE('Wall')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Wall', 1, off)
+
+ CASE('LogShearrate')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'LogShearrate', 1, off)
+
+ CASE('HeatObjects')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Block', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Wire', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Melt', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Int32', 'Sensor', 1, off)
+
+ CASE('ElemSizeDist')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'ElemSizeDist', 1, off)
+
+ CASE('Distamce')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shell', 1, off)
+
+ CASE('Mixer')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Mixer', 1, off)
+
+ CASE('Viscosity')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Viscosity', 1, off)
+
+ CASE('Monitor')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Monitor', 1, off)
+
+ CASE('Distance')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Distance', 1, off)
+
+ CASE('Shell')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shell', 1, off)
+
+ CASE('BndryType')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'BndryType', 1, off)
+
+ CASE('OuterPoint')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'OuterPoint', 1, off)
+ END SELECT
+END DO
+
+call write_line(iunit, '    </PointData>')
+
+call write_line(iunit, '    <CellData>')
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Pressure_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Pressure_E', 1, off)
+  END IF
+
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'MF_E_[kg/m3]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Rho_E_[kg/m3]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Cp_E_[J/kg/K]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Lambda_E_[W/m/K]', 1, off)
+  END IF
+
+ CASE('Viscosity_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Viscosity_E', 1, off)
+  END IF
+
+ CASE('ParticleTime')
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(myLostSet)) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'AGE_E [s]', 1, off)
+  END IF
+
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Material_E', 1, off)
+  END IF
+  END IF
+ END SELECT
+END DO
+call write_line(iunit, '    </CellData>')
+
+call write_line(iunit, '      <Points>')
+call reserve_offset(3_int64*4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'Points', 3, off)
+call write_line(iunit, '      </Points>')
+
+call write_line(iunit, '      <Cells>')
+call reserve_offset(8_int64*4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'connectivity', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'offsets', 1, off)
+call reserve_offset(1_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'UInt8', 'types', 1, off)
+call write_line(iunit, '      </Cells>')
+
+call write_line(iunit, '    </Piece>')
+call write_line(iunit, '  </UnstructuredGrid>')
+call write_line(iunit, '  <AppendedData encoding="raw">')
+call write_char(iunit, '_')
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Velocity')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValU(ivt))
+   call write_r32(iunit, QuadSc%ValV(ivt))
+   call write_r32(iunit, QuadSc%ValW(ivt))
+  end do
+
+ CASE('GradVelocity')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValUx(ivt))
+   call write_r32(iunit, QuadSc%ValUy(ivt))
+   call write_r32(iunit, QuadSc%ValUz(ivt))
+  end do
+
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValVx(ivt))
+   call write_r32(iunit, QuadSc%ValVy(ivt))
+   call write_r32(iunit, QuadSc%ValVz(ivt))
+  end do
+
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValWx(ivt))
+   call write_r32(iunit, QuadSc%ValWy(ivt))
+   call write_r32(iunit, QuadSc%ValWz(ivt))
+  end do
+
+ CASE('PartForce')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   if((FictKNPR(ivt) .ne. 0).and.(FictKNPR(ivt).le.myFBM%nParticles))then
+     ifbm = 1
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(1))
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(2))
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(3))
+   else
+     ifbm = 0
+     call write_r32(iunit, 0d0)
+     call write_r32(iunit, 0d0)
+     call write_r32(iunit, 0d0)
+   end if
+  end do
+
+ CASE('Psi')
+  if(bViscoElastic)then
+   call write_header(iunit, 6_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Val11(ivt))
+    call write_r32(iunit, ViscoSc%Val22(ivt))
+    call write_r32(iunit, ViscoSc%Val33(ivt))
+    call write_r32(iunit, ViscoSc%Val12(ivt))
+    call write_r32(iunit, ViscoSc%Val13(ivt))
+    call write_r32(iunit, ViscoSc%Val23(ivt))
+   end do
+  end if
+
+ CASE('Stress')
+  if(bViscoElastic)then
+   ALLOCATE(tau(6,NoOfVert))
+   DO i=1,NoOfVert
+    psi = [ViscoSc%Val11(i),ViscoSc%Val22(i),ViscoSc%Val33(i),&
+           ViscoSc%Val12(i),ViscoSc%Val13(i),ViscoSc%Val23(i)]
+    CALL ConvertPsiToTau(psi,tau(:,i))
+   END DO
+   call write_header(iunit, 6_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, tau(1,ivt))
+    call write_r32(iunit, tau(2,ivt))
+    call write_r32(iunit, tau(3,ivt))
+    call write_r32(iunit, tau(4,ivt))
+    call write_r32(iunit, tau(5,ivt))
+    call write_r32(iunit, tau(6,ivt))
+   end do
+   DEALLOCATE(tau)
+  end if
+
+ CASE('GradStress')
+  if(bViscoElastic)then
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad11%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad11%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad11%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad22%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad22%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad22%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad33%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad33%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad33%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad12%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad12%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad12%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad13%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad13%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad13%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad23%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad23%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad23%z(ivt))
+   end do
+  end if
+
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+   call write_header(iunit, 4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+  END DO
+
+ CASE('MeshVelo')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myALE%MeshVelo(1,ivt))
+   call write_r32(iunit, myALE%MeshVelo(2,ivt))
+   call write_r32(iunit, myALE%MeshVelo(3,ivt))
+  end do
+
+ CASE('BoundaryNormal')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, BoundaryNormal(1,ivt))
+   call write_r32(iunit, BoundaryNormal(2,ivt))
+   call write_r32(iunit, BoundaryNormal(3,ivt))
+  end do
+
+ CASE('Pressure_V')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, LinSc%Q2(ivt))
+  end do
+
+ CASE('Temperature')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Temperature(ivt))
+  end do
+
+ CASE('Tracer')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Tracer%val(NLMAX)%x(ivt))
+  end do
+
+ CASE('Temperature_AVG')
+  call write_header(iunit, 4_int64*NoOfVert)
+  if (DBLE(iTemperature_AVG).gt.0) then
+   do ivt=1,NoOfVert
+    call write_r32(iunit, Temperature_AVG(ivt)/DBLE(iTemperature_AVG))
+   end do
+  else
+   do ivt=1,NoOfVert
+    call write_r32(iunit, 0d0)
+   end do
+  end if
+
+ CASE('Shearrate')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, 10.0d0**Shearrate(ivt))
+  end do
+
+ CASE('Wall')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   IF (myBoundary%bWall(ivt)) THEN
+    call write_r32(iunit, 1d0)
+   ELSE
+    call write_r32(iunit, 0d0)
+   END IF
+  end do
+
+ CASE('LogShearrate')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Shearrate(ivt))
+  end do
+
+ CASE('HeatObjects')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Block(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Wire(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Channel(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_i32(iunit, myHeatObjects%Sensor(ivt))
+  end do
+
+ CASE('ElemSizeDist')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, ElemSizeDist(ivt))
+  end do
+
+ CASE('Distamce')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Distance(ivt))
+  end do
+
+ CASE('Mixer')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, dble(FictKNPR(ivt)))
+  end do
+
+ CASE('Viscosity')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Viscosity(ivt))
+  end do
+
+ CASE('Monitor')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myALE%monitor(ivt))
+  end do
+
+ CASE('Distance')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Distance(ivt))
+  end do
+
+ CASE('Shell')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Shell(ivt))
+  end do
+
+ CASE('BndryType')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   iX = 5
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(1)) iX = Min(1,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(2)) iX = Min(2,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(3)) iX = Min(3,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(4)) iX = Min(4,iX)
+   IF (iX.eq.5) iX = 0
+   call write_r32(iunit, dble(iX))
+  end do
+
+ CASE('OuterPoint')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   iX = 0
+   IF (mg_mesh%BndryNodes(ivt)%bOuterPoint) iX=1
+   call write_r32(iunit, dble(iX))
+  end do
+ END SELECT
+END DO
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Pressure_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    ive = 4*(ivt-1)+1
+    call write_r32(iunit, LinSc%ValP(NLMAX-1)%x(ive))
+   end do
+  END IF
+
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=KNVT(ILEV+1)-NoOfElem+1,KNVT(ILEV+1)
+    Temp = GenLinScalar%Fld(1)%Val(ivt)
+    CALL MeltFunction_MF(dMF,Temp)
+    call write_r32(iunit, dMF)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_RhoCoeff(NLMAX-1)%x(ivt)/1d-9)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_CpCoeff(NLMAX-1)%x(ivt)/1d+4)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_LambdaCoeff(NLMAX-1)%x(ivt)/1d-1)
+   end do
+  END IF
+
+ CASE('Viscosity_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, Viscosity((nvt+net+nat+ivt)))
+   end do
+  END IF
+
+ CASE('ParticleTime')
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(myLostSet)) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, myLostSet(ivt)%time)
+   end do
+  END IF
+
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ive=1,NoOfElem
+    call write_r32(iunit, dble(MaterialDistribution(ILEV)%x(ive)))
+   end do
+  END IF
+  END IF
+ END SELECT
+END DO
+
+call write_header(iunit, 3_int64*4_int64*NoOfVert)
+do ivt=1,NoOfVert
+ call write_r32(iunit, dcoor(1,ivt))
+ call write_r32(iunit, dcoor(2,ivt))
+ call write_r32(iunit, dcoor(3,ivt))
+end do
+
+call write_header(iunit, 8_int64*4_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i32(iunit, kvert(1,ive)-1)
+ call write_i32(iunit, kvert(2,ive)-1)
+ call write_i32(iunit, kvert(3,ive)-1)
+ call write_i32(iunit, kvert(4,ive)-1)
+ call write_i32(iunit, kvert(5,ive)-1)
+ call write_i32(iunit, kvert(6,ive)-1)
+ call write_i32(iunit, kvert(7,ive)-1)
+ call write_i32(iunit, kvert(8,ive)-1)
+end do
+
+call write_header(iunit, 4_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i32(iunit, ive*8)
+end do
+
+call write_header(iunit, 1_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i8(iunit, 12_int8)
+end do
+
+call write_char(iunit, achar(10))
+call write_line(iunit, '  </AppendedData>')
+call write_line(iunit, '</VTKFile>')
+close(iunit)
+
+CONTAINS
+
+  SUBROUTINE reserve_offset(nbytes, off)
+    INTEGER(int64), INTENT(IN) :: nbytes
+    INTEGER(int64), INTENT(OUT) :: off
+    off = offset
+    offset = offset + header_bytes + nbytes
+  END SUBROUTINE reserve_offset
+
+  SUBROUTINE write_line(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text//achar(10)
+  END SUBROUTINE write_line
+
+  SUBROUTINE write_char(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text
+  END SUBROUTINE write_char
+
+  SUBROUTINE write_dataarray_tag(unit, indent, dtype, name, ncomp, off)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: indent, dtype, name
+    INTEGER, INTENT(IN) :: ncomp
+    INTEGER(int64), INTENT(IN) :: off
+    CHARACTER(len=256) :: lcl
+    IF (ncomp .gt. 1) THEN
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A,I0,A)') indent, '<DataArray type="', &
+        TRIM(dtype), '" Name="', TRIM(name), '" NumberOfComponents="', ncomp, &
+        '" format="appended" offset="', off, '"/>'
+    ELSE
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A)') indent, '<DataArray type="', TRIM(dtype), &
+        '" Name="', TRIM(name), '" format="appended" offset="', off, '"/>'
+    END IF
+    call write_line(unit, lcl)
+  END SUBROUTINE write_dataarray_tag
+
+  SUBROUTINE write_header(unit, nbytes)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int64), INTENT(IN) :: nbytes
+    WRITE(unit) nbytes
+  END SUBROUTINE write_header
+
+  SUBROUTINE write_r32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    REAL*8, INTENT(IN) :: val
+    REAL(real32) :: tmp
+    tmp = REAL(val, real32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_r32
+
+  SUBROUTINE write_i32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER, INTENT(IN) :: val
+    INTEGER(int32) :: tmp
+    tmp = INT(val, int32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_i32
+
+  SUBROUTINE write_i8(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int8), INTENT(IN) :: val
+    WRITE(unit) val
+  END SUBROUTINE write_i8
+
+END SUBROUTINE Output_VTK_piece_binary
 
 
 

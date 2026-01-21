@@ -18,7 +18,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, &
-  skipFBMForce, skipFBMDynamics
+  skipFBMForce, skipFBMDynamics, bBinaryVtkOutput
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -750,6 +750,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")
         skipFBMDynamics = read_yes_no_param(string, iEq)
+      CASE ("BinaryVtkOutput")
+        bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("OutputFreq")
         READ(string(iEq+1:),*) DTGMV
       CASE ("MatrixRenewal")
@@ -963,6 +965,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "OFF")
+    END IF
+
+    IF (bBinaryVtkOutput) THEN
+      CALL write_param_str(mfile, mterm, "BinaryVtkOutput is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "BinaryVtkOutput is ", "OFF")
     END IF
 
     WRITE(mfile,'(A,3ES14.4)') "Newtonian FAC Benchamrk params (U,H,D) : ",postParams%U_mean,postParams%H,postParams%D
