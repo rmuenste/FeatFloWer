@@ -503,14 +503,14 @@ if (myid /= 0)then
     call setForcesMapped(theParticles(ip))
   END DO
   
-  if (myid == 1) then
-    DO IP = 1, numParticles
-      iPointer = 6*(IP-1)
-      write(*,*) 'Forces: ',theParticles(IP)%force(:) 
-      write(*,*) 'Position: ',theParticles(IP)%position(:), itns 
-      write(*,*) 'Velocity: ',theParticles(IP)%velocity(:), itns 
-    END DO
-  end if
+!  if (myid == 1) then
+!    DO IP = 1, numParticles
+!      iPointer = 6*(IP-1)
+!      write(*,*) 'Forces: ',theParticles(IP)%force(:) 
+!      write(*,*) 'Position: ',theParticles(IP)%position(:), itns 
+!      write(*,*) 'Velocity: ',theParticles(IP)%velocity(:), itns 
+!    END DO
+!  end if
 end if
 
 deallocate(forceArray)
