@@ -17,7 +17,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   nMainUmbrellaSteps, bBoundaryCheck, Transform, postParams, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
-  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, &
+  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, &
   skipFBMForce, skipFBMDynamics, bBinaryVtkOutput
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -799,6 +799,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
        READ(string(iEq+1:),*) AlphaRelax
       CASE ("RadParticle")
        READ(string(iEq+1:),*) RadParticle
+      CASE ("RPM")
+       READ(string(iEq+1:),*) RPM
 
       CASE ("aSynchComm")
         baSynch = read_yes_no_param(string, iEq)
@@ -989,6 +991,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     CALL write_param_real(mfile, mterm, "GammaDot = ", GammaDot)
     CALL write_param_real(mfile, mterm, "AlphaRelax = ", AlphaRelax)
     CALL write_param_real(mfile, mterm, "RadParticle = ", RadParticle)
+    CALL write_param_real(mfile, mterm, "RPM = ", RPM)
 
 
     IF (ProlongationDirection == 0) THEN

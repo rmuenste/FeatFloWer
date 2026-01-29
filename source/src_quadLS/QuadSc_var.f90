@@ -76,6 +76,7 @@ MODULE var_QuadScalar
   real*8 :: GammaDot = 0.0d0
   real*8 :: AlphaRelax = 0.0d0
   real*8 :: RadParticle = 1.0d0
+  real*8 :: RPM = 12.0d0
   TYPE tTransform
     INTEGER :: ILINT=2
   END TYPE

@@ -100,7 +100,7 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot
+use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
@@ -394,7 +394,7 @@ END IF
 ! But we hack it to be faster
 !IF (iT.EQ.773) THEN
 IF (iT.EQ.771) THEN
-  dRPM = 12d0
+  dRPM = RPM
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
