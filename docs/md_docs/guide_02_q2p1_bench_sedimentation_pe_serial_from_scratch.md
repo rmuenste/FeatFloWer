@@ -225,6 +225,21 @@ Expected output should include:
 - Edge cut count
 - `The partitioning was successful!`
 
+### One-Shot Staging + Partitioning Target (Recommended)
+
+You can now do build + METIS + staging + partitioning in one command:
+
+```bash
+cmake --build build-ninja-release --target q2p1_bench_sedimentation_stage
+```
+
+To change the partition count:
+
+```bash
+cmake -S . -B build-ninja-release -DQ2P1_BENCH_SEDIMENTATION_PARTS=31
+cmake --build build-ninja-release --target q2p1_bench_sedimentation_stage
+```
+
 **Agent workflow:**
 
 ```bash
@@ -283,7 +298,7 @@ Display contents to verify parameters:
 cat build-ninja-release/applications/q2p1_bench_sedimentation/example.json
 ```
 
-Expected contents include:
+Expected contents include (example values for the benchmark):
 
 ```json
 {
@@ -297,6 +312,9 @@ Expected contents include:
     ...
 }
 ```
+
+**Note:** `libs/pe/pe/interface/example.json` now contains **all JSON-supported fields with default values**
+(from `SimulationConfig::SimulationConfig()`). Edit this file for the sedimentation benchmark.
 
 **Physical parameters for Nylon sphere in silicone oil:**
 - `benchRadius_`: 0.0075 m (sphere radius = 7.5 mm, diameter = 15 mm)
@@ -313,26 +331,11 @@ Expected contents include:
 
 ## 6) Ensure `_data/MG.dat` exists in runtime directory
 
-In the current setup, `MG.dat` may be missing in:
-
-- `build-ninja-release/applications/q2p1_bench_sedimentation/_data`
-
-Copy it manually from repository `_data`:
-
-```bash
-cp _data/MG.dat build-ninja-release/applications/q2p1_bench_sedimentation/_data/
-```
-
-Quick check:
+`MG.dat` is now staged automatically by CMake for this benchmark. Verify it exists:
 
 ```bash
 ls build-ninja-release/applications/q2p1_bench_sedimentation/_data/MG.dat
 ```
-
-Developer note:
-
-- This manual copy step is unfortunate and should be removed in future code iterations by making
-  CMake/runtime staging copy `MG.dat` automatically for this benchmark.
 
 ## 7) Understanding JSON and Eigen Dependencies
 
@@ -383,16 +386,19 @@ grep "HAVE_JSON" build-ninja-release/libs/pe/config.h
 ls build-ninja-release/applications/q2p1_bench_sedimentation/_mesh/NEWFAC/sub0001/ | grep -c "GRID00"
 # Expected: 31
 
-# 4. Verify example.json staged with correct physical parameters
+# 4. Verify example.json staged (then edit for benchmark values)
 ls -lh build-ninja-release/applications/q2p1_bench_sedimentation/example.json
 grep -E "particleDensity_|fluidViscosity_|fluidDensity_" \
   build-ninja-release/applications/q2p1_bench_sedimentation/example.json
-# Expected:
+# Expected (after editing example.json for the benchmark):
 #   "particleDensity_": 1120.0  (Nylon, kg/m³)
 #   "fluidViscosity_": 0.058    (Silicone oil, Pa·s = 58 mPa·s)
 #   "fluidDensity_": 960.0      (Silicone oil, kg/m³)
 
-# 5. Verify parameter file references correct mesh
+# 5. Verify MG.dat staged
+ls -lh build-ninja-release/applications/q2p1_bench_sedimentation/_data/MG.dat
+
+# 6. Verify parameter file references correct mesh
 cd build-ninja-release/applications/q2p1_bench_sedimentation
 grep "MeshFolder\|ProjectFile" _data/q2p1_param.dat
 # Expected:
@@ -411,7 +417,7 @@ build-ninja-release/
 │       ├── libmetis.so                   # 412K (for partitioner)
 │       ├── _data/
 │       │   ├── q2p1_param.dat            # CFD parameters
-│       │   └── MG.dat                    # Multigrid config (check manually)
+│       │   └── MG.dat                    # Multigrid config (auto-staged)
 │       ├── _mesh/NEWFAC/sub0001/
 │       │   ├── GRID0001.tri ... GRID0031.tri  # 31 partitions
 │       │   └── GRID.tri                  # Base grid
@@ -439,8 +445,9 @@ build-ninja-release/
 - **Fix:** Re-partition with correct count (31 for this guide)
 
 **Issue:** `MG.dat` missing errors
-- **Cause:** CMake didn't copy multigrid configuration to `_data`
-- **Fix:** Manually copy from repository (see Section 6)
+- **Cause:** Staging step not run or build directory incomplete
+- **Fix:** Run `cmake --build build-ninja-release --target q2p1_bench_sedimentation_stage`
+  or manually copy from repository (see Section 6)
 
 ## 9) SLURM Job Submission and Monitoring
 

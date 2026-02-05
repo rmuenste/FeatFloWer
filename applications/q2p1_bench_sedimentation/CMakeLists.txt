@@ -37,8 +37,37 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
+set(Q2P1_BENCH_SEDIMENTATION_PARTS "31" CACHE STRING "Partition count for q2p1_bench_sedimentation (CFD subdomains)")
+
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_data)
+file(COPY ${CMAKE_SOURCE_DIR}/_data/MG.dat DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data)
+file(COPY ${CMAKE_SOURCE_DIR}/libs/pe/pe/interface/example.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY cube.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 add_test(q2p1-bench-sedimentation python ./q2p1_ctest_start.py)
 
+if(NOT Python3_EXECUTABLE)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+endif()
+
+add_custom_target(q2p1_bench_sedimentation_stage
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
+          ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/libs/pe/pe/interface/example.json
+          ${CMAKE_CURRENT_BINARY_DIR}/example.json
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/_data/MG.dat
+          ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+  COMMAND ${CMAKE_COMMAND} -E env
+          "LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
+          ${Python3_EXECUTABLE}
+          ${CMAKE_SOURCE_DIR}/tools/PyPartitioner.py
+          ${Q2P1_BENCH_SEDIMENTATION_PARTS} 1 1 NEWFAC _adc/benchSym/bench.prj
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS q2p1_bench_sedimentation metis
+  COMMENT "Staging q2p1_bench_sedimentation runtime files and partitioning mesh"
+)
