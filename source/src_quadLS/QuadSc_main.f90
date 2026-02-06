@@ -80,6 +80,7 @@ integer :: error_indicator
 external E013
 
 CALL updateFBMGeometry()
+CALL report_and_reset_hashgrid_stats()
 
 thstep = tstep*(1d0-theta)
 
@@ -316,6 +317,7 @@ END IF
                       mg_mesh%level(ILEV)%kedge)
 
  CALL updateFBMGeometry()
+ CALL report_and_reset_hashgrid_stats()
 
 RETURN
 
@@ -338,6 +340,7 @@ integer k
 k=1
 
 CALL updateFBMGeometry()
+CALL report_and_reset_hashgrid_stats()
 
 thstep = tstep*(1d0-theta)
 

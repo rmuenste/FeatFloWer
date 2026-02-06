@@ -18,6 +18,7 @@ add_subdirectory(q2p1_experimental)
 add_subdirectory(q2p1_euler_fibers)
 add_subdirectory(iniparser_demo)
 add_subdirectory(fem_sandbox)
+add_subdirectory(q2p1_hashgrid_test)
 
 if(USE_CGAL)
   add_subdirectory(q2p1_geom_test)

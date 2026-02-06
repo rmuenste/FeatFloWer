@@ -5,18 +5,26 @@
 !# In this module we define functions that related to the handling of
 !# fictitious boundary components.
 !#
-!# 
+!#
 !##############################################################################
-#define FULL_ROTATION 
-!#define ONLY_ROTATION 
+#define FULL_ROTATION
+!#define ONLY_ROTATION
 !#define MOVING_REFERENCE
-MODULE fbm 
+#define VERIFY_HASHGRID
+MODULE fbm
 
 use var_QuadScalar
 use dem_query
 use iso_c_binding
 
 integer, dimension(:), allocatable :: mykvel
+
+#ifdef VERIFY_HASHGRID
+! Module-level HashGrid verification statistics
+integer :: hashgrid_total_queries = 0
+integer :: hashgrid_mismatch_count = 0
+integer :: hashgrid_particle_mismatch_count = 0
+#endif
 
 ! 
 integer, parameter, public :: SRCH_UNDEF = 0
@@ -36,19 +44,63 @@ integer, parameter, public :: SRCH_MAXITER = 6
 integer, parameter, public :: SRCH_RES7 = 7
 
 interface
-logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
-  use iso_c_binding, only: c_int, c_bool, c_double, c_short
-  integer(c_int), value :: vidx
-  integer(c_int) :: inpr
-  real(c_double) :: pos(*)
-  integer(c_short), dimension(8) :: bytes
+  logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
+    use iso_c_binding, only: c_int, c_bool, c_double, c_short
+    integer(c_int), value :: vidx
+    integer(c_int) :: inpr
+    real(c_double) :: pos(*)
+    integer(c_short), dimension(8) :: bytes
+  end function
+
+  logical(c_bool) function verifyAllParticles(vidx, inpr, pos, bytes) bind(C, name="verifyAllParticles")
+    use iso_c_binding, only: c_int, c_bool, c_double, c_short
+    integer(c_int), value :: vidx
+    integer(c_int) :: inpr
+    real(c_double) :: pos(*)
+    integer(c_short), dimension(8) :: bytes
   end function
 end interface
+
 
 contains
 
 !=========================================================================
-! 
+! report_and_reset_hashgrid_stats - Report and reset HashGrid verification
+!=========================================================================
+subroutine report_and_reset_hashgrid_stats()
+  use PP3D_MPI, only: myid
+  implicit none
+
+#ifdef VERIFY_HASHGRID
+  if (myid == 1 .and. hashgrid_total_queries > 0) then
+    write(*,'(A)') '================================================'
+    write(*,'(A,I0,A)') 'HashGrid Verification Summary (', hashgrid_total_queries, ' queries)'
+    write(*,'(A)') '================================================'
+
+    if (hashgrid_mismatch_count == 0) then
+      write(*,'(A)') '✓ Perfect match: 0 mismatches'
+    else
+      write(*,'(A,I0,A,F8.4,A)') 'Boolean mismatches: ', hashgrid_mismatch_count, &
+                                  ' (', 100.0*real(hashgrid_mismatch_count)/real(hashgrid_total_queries), '%)'
+    endif
+
+    if (hashgrid_particle_mismatch_count > 0) then
+      write(*,'(A,I0,A)') 'Particle ID mismatches: ', hashgrid_particle_mismatch_count, &
+                          ' (both found particle but different IDs)'
+    endif
+
+    write(*,'(A)') '================================================'
+  endif
+
+  ! Reset counters for next updateFBMGeometry call
+  hashgrid_total_queries = 0
+  hashgrid_mismatch_count = 0
+  hashgrid_particle_mismatch_count = 0
+#endif
+
+end subroutine report_and_reset_hashgrid_stats
+!=========================================================================
+!
 !=========================================================================
 ! Function to return the particle count
 integer function get_particle_count_pe()
@@ -358,15 +410,16 @@ end subroutine fbm_testFBMGeom
 ! 
 !=========================================================================
 subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist, vidx, longFictId)
-! 
+!
 !   This subroutine handles the FBM geometric computations
 !
 use var_QuadScalar, only : myFBM
-use iso_c_binding, only: c_short
+use PP3D_MPI, only: myid
+use iso_c_binding, only: c_short, c_bool
 implicit none
 
-! Coordinates of the query point 
-real*8, intent(in) :: x, y, z 
+! Coordinates of the query point
+real*8, intent(in) :: x, y, z
 
 ! Id of the boundary component
 integer, intent(inout) :: bndryId
@@ -374,11 +427,11 @@ integer, intent(inout) :: bndryId
 ! fictId
 integer, intent(inout) :: inpr
 
-! Distance solution in the query point 
-real*8, intent(inout) :: dist 
+! Distance solution in the query point
+real*8, intent(inout) :: dist
 
 ! Vertex id of the point
-integer, intent(in) :: vidx 
+integer, intent(in) :: vidx
 
 ! long FictId
 type(tUint64), intent(inout) :: longFictId
@@ -386,7 +439,16 @@ type(tUint64), intent(inout) :: longFictId
 ! local variables
 integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
 double precision, dimension(3) :: point
-#ifdef HAVE_PE 
+logical(c_bool) :: accel_result
+
+#ifdef VERIFY_HASHGRID
+! Variables for baseline verification
+logical(c_bool) :: baseline_result
+integer :: baseline_key
+integer(c_short), dimension(8) :: baseline_bytes
+#endif
+
+#ifdef HAVE_PE
 
  inpr = 0
  longFictId%bytes(:) = -1
@@ -402,12 +464,51 @@ double precision, dimension(3) :: point
  point(2) = y
  point(3) = z
 
- before =longFictId%bytes(1) + 1 
+ before =longFictId%bytes(1) + 1
  if(longFictId%bytes(1) + 1 .ne. key)then
    write(*,*)'SUPER CRITICAL ERROR: ', vidx
  end if
- if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
-   inpr = 1 
+
+ ! Call accelerated version (HashGrid)
+ accel_result = checkAllParticles(cvidx, key, point, longFictId%bytes)
+
+#ifdef VERIFY_HASHGRID
+ ! Call baseline version (linear search) for verification
+ baseline_key = 0
+ baseline_bytes(:) = -1
+ baseline_result = verifyAllParticles(cvidx, baseline_key, point, baseline_bytes)
+
+ ! Update module-level statistics
+ hashgrid_total_queries = hashgrid_total_queries + 1
+
+ ! Compare results: check if both found same inside/outside state
+ if (accel_result .neqv. baseline_result) then
+   hashgrid_mismatch_count = hashgrid_mismatch_count + 1
+   if (myid == 1) then
+     write(*,'(A,I0,A,3F12.6)') 'HASHGRID MISMATCH at vertex ', vidx, &
+                                 ' point: ', x, y, z
+     write(*,'(A,L1,A,L1)') '  Accelerated: ', accel_result, &
+                            ' Baseline: ', baseline_result
+   endif
+ endif
+
+ ! If both found a particle, check if it's the same particle
+ if (accel_result .and. baseline_result) then
+   if (longFictId%bytes(1) /= baseline_bytes(1)) then
+     hashgrid_particle_mismatch_count = hashgrid_particle_mismatch_count + 1
+     if (myid == 1) then
+       write(*,'(A,I0,A,3F12.6)') 'HASHGRID PARTICLE MISMATCH at vertex ', vidx, &
+                                   ' point: ', x, y, z
+       write(*,'(A,I0,A,I0)') '  Accelerated particle: ', longFictId%bytes(1)+1, &
+                              ' Baseline particle: ', baseline_bytes(1)+1
+     endif
+   endif
+ endif
+#endif
+
+ ! Use accelerated result
+ if(accel_result)then
+   inpr = 1
    if(longFictId%bytes(1) + 1 .ne. key)then
      write(*,*)'CRITICAL ERROR: ', vidx, 'key: ', key, ' uint:',longFictId%bytes(1) + 1, 'before: ',before
    end if
@@ -3519,6 +3620,34 @@ end subroutine fbm_getFictKnpr
 !
 !end subroutine fbm_InitPointLocation
 !
-!****************************************************************************  
-!  
+!****************************************************************************
+!
+!=========================================================================
+! Print final HashGrid verification summary
+!=========================================================================
+subroutine fbm_print_hashgrid_verification_summary()
+use PP3D_MPI, only: myid
+implicit none
+
+#ifdef VERIFY_HASHGRID
+! Access the statistics from fbm_getFictKnprFC2
+! Note: These are declared as module-level saved variables in that subroutine
+! We'll need to extract them somehow or make them module-level
+
+if (myid == 1) then
+  write(*,*)
+  write(*,'(A)') '=========================================================='
+  write(*,'(A)') 'HASHGRID VERIFICATION SUMMARY'
+  write(*,'(A)') '=========================================================='
+  write(*,'(A)') 'See periodic output above for detailed statistics.'
+  write(*,'(A)') 'Final summary will be printed during simulation.'
+  write(*,'(A)') '=========================================================='
+  write(*,*)
+endif
+#endif
+
+end subroutine fbm_print_hashgrid_verification_summary
+!
+!****************************************************************************
+!
 end module
