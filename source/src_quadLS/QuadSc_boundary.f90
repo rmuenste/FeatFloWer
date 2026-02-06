@@ -58,7 +58,7 @@ END SUBROUTINE QuadScalar_Knpr
 !
 !=========================================================================
 SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
-  use fbm, only: fbm_updateFBMGeom
+  use fbm, only: fbm_updateFBMGeom, report_and_reset_hashgrid_stats
 #ifdef HAVE_PE
   use dem_query, only: getTotalParticles
 #endif
@@ -73,8 +73,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4,totalInside, reducedVal, ierr, totalP, reducedP
   REAL*8 PX,PY,PZ,DIST
   real*8 :: dofsPerParticle
-  REAL tttx0,tttx1
   logical :: isSilent
+
+  ! Modern Fortran timing variables
+  integer(kind=8) :: clock_start, clock_end, clock_rate, clock_max
+  real(kind=8) :: elapsed_time, queries_per_second
+  integer :: total_queries
 
   ! Constants
   INTEGER NeighE(2,12),NeighA(4,6)
@@ -93,7 +97,9 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 #endif
 
     CALL myMPI_Barrier()
-    call ztime(tttx0)
+
+    ! Start timing using modern Fortran system_clock
+    call system_clock(clock_start, clock_rate, clock_max)
 
     DO i=1,nvt
     PX = dcorvg(1,I)
@@ -154,8 +160,27 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     END DO
 
     CALL myMPI_Barrier()
-    call ztime(tttx1)
-    if (myid.eq.1) WRITE(*,*) 'FBM time : ', tttx1-tttt0, ' s'
+
+    ! End timing and compute performance metrics
+    call system_clock(clock_end, clock_rate, clock_max)
+    elapsed_time = real(clock_end - clock_start, kind=8) / real(clock_rate, kind=8)
+    total_queries = nvt + net + nat + nel
+    queries_per_second = real(total_queries, kind=8) / elapsed_time
+
+    ! Report timing results
+    if (myid.eq.1) then
+      write(*,*)
+      write(*,'(A)') '=================================================='
+      write(*,'(A)') 'FBM Alpha Field Computation Performance'
+      write(*,'(A)') '=================================================='
+      write(*,'(A,F12.6,A)') 'Wall-clock time:    ', elapsed_time, ' s'
+      write(*,'(A,I0)')       'Total point queries:', total_queries
+      write(*,'(A,F12.1,A)')  'Performance:        ', queries_per_second, ' queries/sec'
+      write(*,*)
+    end if
+
+    ! Report HashGrid verification and detailed timing (if enabled)
+    call report_and_reset_hashgrid_stats()
 
     do i=1,nvt+net+nat+nel
       myALE%Monitor(i)=distance(i)
