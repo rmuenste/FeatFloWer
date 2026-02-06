@@ -62,10 +62,13 @@ real*8 :: dbuf1(1)
 real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 real*8, dimension(:), allocatable :: forceArray
 integer :: iPointer
+character(len=*), parameter :: fmt_sed = '(A,1X,A,ES14.6,1X,A,I6,1X,3ES14.6)'
+real*8 :: time_out
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
 COMMON /CHAR/   SUB,FMT(3),CPARAM
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
 COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,&
                 DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),&
                 IEL,NDIM
@@ -503,14 +506,21 @@ if (myid /= 0)then
     call setForcesMapped(theParticles(ip))
   END DO
   
-!  if (myid == 1) then
-!    DO IP = 1, numParticles
-!      iPointer = 6*(IP-1)
-!      write(*,*) 'Forces: ',theParticles(IP)%force(:) 
-!      write(*,*) 'Position: ',theParticles(IP)%position(:), itns 
-!      write(*,*) 'Velocity: ',theParticles(IP)%velocity(:), itns 
-!    END DO
-!  end if
+#ifdef SED_BENCH
+  if (myid == 1) then
+    time_out = dble(itns - 1) * tstep
+    DO IP = 1, numParticles
+      iPointer = 6*(IP-1)
+      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%force(:)
+      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%position(:)
+      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%velocity(:)
+    END DO
+  end if
+#endif 
+
 end if
 
 deallocate(forceArray)
