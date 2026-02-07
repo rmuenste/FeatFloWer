@@ -10,7 +10,7 @@
 #define FULL_ROTATION
 !#define ONLY_ROTATION
 !#define MOVING_REFERENCE
-#define VERIFY_HASHGRID  ! Controlled by CMake: -DVERIFY_HASHGRID=ON
+!#define VERIFY_HASHGRID  ! Controlled by CMake: -DVERIFY_HASHGRID=ON
 MODULE fbm
 
 use var_QuadScalar
@@ -490,11 +490,13 @@ integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
 double precision, dimension(3) :: point
 logical(c_bool) :: accel_result
 
-#ifdef VERIFY_HASHGRID
-! Variables for baseline verification
-logical(c_bool) :: baseline_result
+! Variables for baseline (used in deferred acceleration and verification)
 integer :: baseline_key
 integer(c_short), dimension(8) :: baseline_bytes
+
+#ifdef VERIFY_HASHGRID
+! Variables for verification comparison
+logical(c_bool) :: baseline_result
 
 ! Timing variables for performance measurement
 integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
