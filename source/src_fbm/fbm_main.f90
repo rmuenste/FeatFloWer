@@ -486,7 +486,7 @@ integer, intent(in) :: vidx
 type(tUint64), intent(inout) :: longFictId
 
 ! local variables
-integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
+integer :: IP,ipc, nparticles, remParticles, key, cvidx
 double precision, dimension(3) :: point
 logical(c_bool) :: accel_result
 
@@ -517,11 +517,6 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
  point(1) = x
  point(2) = y
  point(3) = z
-
- before =longFictId%bytes(1) + 1
- if(longFictId%bytes(1) + 1 .ne. key)then
-   write(*,*)'SUPER CRITICAL ERROR: ', vidx
- end if
 
  ! Use baseline on first timestep (before collision pipeline initializes HashGrid)
  ! After initialization, use accelerated with verification
@@ -587,9 +582,6 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
  ! Use accelerated result
  if(accel_result)then
    inpr = 1
-   if(longFictId%bytes(1) + 1 .ne. key)then
-     write(*,*)'CRITICAL ERROR: ', vidx, 'key: ', key, ' uint:',longFictId%bytes(1) + 1, 'before: ',before
-   end if
  end if
 
 #endif
