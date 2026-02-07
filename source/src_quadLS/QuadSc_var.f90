@@ -307,6 +307,28 @@ MODULE var_QuadScalar
   INTEGER, ALLOCATABLE :: FictKNPR(:),MixerKnpr(:)
   ! Packed 64-bit representation of FictKNPR entries for FBM lookups
   type(tUint64), allocatable :: FictKNPR_uint64(:)
+
+  ! ============================================================================
+  ! Vertex Cache for KVEL-based Force Acceleration
+  ! ============================================================================
+  TYPE tVertexCache
+    INTEGER :: nVertices                    ! Number of cached DOF indices
+    INTEGER, ALLOCATABLE :: dofIndices(:)   ! DOF indices (1..ndof)
+    INTEGER :: particleID                   ! Particle index for debugging
+  END TYPE tVertexCache
+
+  TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
+  LOGICAL :: bUseKVEL_Accel = .TRUE.
+
+  ! Statistics for performance monitoring
+  TYPE tKVEL_Stats
+    INTEGER :: nCachedVertices
+    INTEGER :: nCandidateElements
+    INTEGER :: nBoundaryElements
+    REAL*8  :: cacheTime, candidateTime, forceTime
+  END TYPE tKVEL_Stats
+  TYPE(tKVEL_Stats) :: myKVEL_Stats
+
   TYPE tElementMatrix
     REAL*8 :: A(85,85)
     INTEGER :: H(2)

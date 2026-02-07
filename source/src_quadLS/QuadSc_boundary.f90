@@ -347,6 +347,88 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
 
   END DO ! IP
 
+  ! ============================================================================
+  ! Build KVEL Vertex Cache for Force Acceleration
+  ! ============================================================================
+  if (bUseKVEL_Accel) then
+    allocate(ParticleVertexCache(myFBM%nParticles))
+
+    ! Pass 1: Count vertices per particle
+    DO IP = 1, myFBM%nParticles
+      ParticleVertexCache(IP)%nVertices = 0
+      ParticleVertexCache(IP)%particleID = IP
+
+      ! Count Q2 vertices (nvt)
+      DO ivt = 1, nvt
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+        end if
+      END DO
+
+      ! Count edge DOFs (net)
+      DO i = 1, net
+        ivt = nvt + i
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+        end if
+      END DO
+
+      ! Count face DOFs (nat)
+      DO i = 1, nat
+        ivt = nvt + net + i
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+        end if
+      END DO
+
+      ! Allocate exact size
+      if (ParticleVertexCache(IP)%nVertices > 0) then
+        allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
+      end if
+    END DO
+
+    ! Pass 2: Fill vertex indices
+    DO IP = 1, myFBM%nParticles
+      if (ParticleVertexCache(IP)%nVertices == 0) cycle
+
+      i = 0  ! Reuse i as cache counter
+
+      ! Cache Q2 vertices
+      DO ivt = 1, nvt
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          i = i + 1
+          ParticleVertexCache(IP)%dofIndices(i) = ivt
+        end if
+      END DO
+
+      ! Cache edge DOFs
+      DO j = 1, net
+        ivt = nvt + j
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          i = i + 1
+          ParticleVertexCache(IP)%dofIndices(i) = ivt
+        end if
+      END DO
+
+      ! Cache face DOFs
+      DO j = 1, nat
+        ivt = nvt + net + j
+        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
+          i = i + 1
+          ParticleVertexCache(IP)%dofIndices(i) = ivt
+        end if
+      END DO
+    END DO
+
+    if (myid == 1) then
+      k = 0
+      DO IP = 1, myFBM%nParticles
+        k = k + ParticleVertexCache(IP)%nVertices
+      END DO
+      WRITE(*,'(A,I0,A)') 'KVEL cache: ', k, ' vertices cached'
+    end if
+  end if
+
 1 continue
 
   iCount(3) = 4*ndof
