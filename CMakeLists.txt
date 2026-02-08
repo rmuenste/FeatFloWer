@@ -153,6 +153,11 @@ cmake_dependent_option(
   OFF                              # Value when condition is false (no PE or serial PE)
 )
 
+option(SED_BENCH
+  "Enable sedimentation benchmark output (force/position/velocity per timestep)"
+  OFF
+)
+
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
@@ -495,6 +500,11 @@ if(USE_PE)
 
   add_subdirectory(libs/pe)
 endif(USE_PE)
+
+if(SED_BENCH)
+  add_definitions(-DSED_BENCH)
+  message(STATUS "SED_BENCH: sedimentation benchmark output enabled")
+endif()
 
 #=========================================================================
 #                         Add applications
