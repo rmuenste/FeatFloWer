@@ -261,7 +261,7 @@ end if
 
 ! Fallback if no candidates found
 if (nCandidates == 0) then
-  if (myid == 1) WRITE(*,'(A,I0,A)') 'WARNING: No KVEL candidates for particle ', IP, ' - using all elements'
+  ! No KVEL candidates on this rank (particle not in this subdomain) - fall back to all elements
   nCandidates = NEL
   DO IEL = 1, NEL
     CandidateList(IEL) = IEL
@@ -548,15 +548,19 @@ deallocate(CandidateList)
 
 END DO ! nParticles
 
-! Output KVEL acceleration statistics
-if (bUseKVEL_Accel .and. myid == 1) then
-  WRITE(*,'(A,I0,A,I0,A,F8.1,A)') &
-    'KVEL: ', myKVEL_Stats%nCandidateElements, ' candidates vs ', &
-    NEL*numParticles, ' brute-force (', &
-    real(NEL*numParticles)/max(real(myKVEL_Stats%nCandidateElements),1.0), 'x speedup)'
-end if
-
 END IF  ! myid /= 0 (end of force calculation section)
+
+! Output KVEL acceleration statistics (aggregated across all ranks)
+if (bUseKVEL_Accel) then
+  dbuf1(1) = dble(myKVEL_Stats%nCandidateElements)
+  call COMM_SUMMN(dbuf1, 1)
+  if (myid == 0) then
+    WRITE(*,'(A,I0,A,I0,A,F8.1,A)') &
+      'KVEL: ', NINT(dbuf1(1)), ' candidates vs ', &
+      NEL*numParticles*(showID-1), ' brute-force (', &
+      real(NEL*numParticles*(showID-1))/max(dbuf1(1),1.0d0), 'x speedup)'
+  end if
+end if
 
 !========================================================================
 ! MPI Force Summation (CFD layer) - ALL RANKS PARTICIPATE

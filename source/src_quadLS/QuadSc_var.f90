@@ -318,7 +318,7 @@ MODULE var_QuadScalar
   END TYPE tVertexCache
 
   TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
-  LOGICAL :: bUseKVEL_Accel = .TRUE.
+  LOGICAL :: bUseKVEL_Accel = .FALSE.
 
   ! Statistics for performance monitoring
   TYPE tKVEL_Stats
