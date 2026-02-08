@@ -69,7 +69,7 @@ real*8 :: time_out
 ! KVEL acceleration variables
 LOGICAL, ALLOCATABLE :: bCandidateElement(:)
 INTEGER, ALLOCATABLE :: CandidateList(:)
-INTEGER :: nCandidates, iCand, iVtx, j
+INTEGER :: nCandidates, iCand, iVtx, j, iedge, iface
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
@@ -215,13 +215,37 @@ if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
       DO iVtx = 1, ParticleVertexCache(IP)%nVertices
         ivt = ParticleVertexCache(IP)%dofIndices(iVtx)
 
-        ! Only process corner vertices (Q2 vertex DOFs) for KVEL lookup
         IF (ivt <= NVT) THEN
-          ! Use KVEL to find elements touching this vertex
+          ! Corner vertex DOF -> use KVEL
           DO j = 1, mg_mesh%level(NLMAX)%nvel
             IEL = mg_mesh%level(NLMAX)%kvel(j, ivt)
-            IF (IEL == 0) EXIT  ! No more elements
+            IF (IEL == 0) EXIT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
+          END DO
 
+        ELSE IF (ivt <= NVT + NET) THEN
+          ! Edge midpoint DOF -> use KEEL
+          iedge = ivt - NVT
+          DO j = 1, mg_mesh%level(NLMAX)%neel
+            IEL = mg_mesh%level(NLMAX)%keel(j, iedge)
+            IF (IEL == 0) EXIT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
+          END DO
+
+        ELSE IF (ivt <= NVT + NET + NAT) THEN
+          ! Face midpoint DOF -> use KAAL
+          iface = ivt - NVT - NET
+          DO j = 1, mg_mesh%level(NLMAX)%naal
+            IEL = mg_mesh%level(NLMAX)%kaal(j, iface)
+            IF (IEL == 0) EXIT
             IF (.not. bCandidateElement(IEL)) THEN
               bCandidateElement(IEL) = .TRUE.
               nCandidates = nCandidates + 1
