@@ -18,7 +18,8 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, &
-  skipFBMForce, skipFBMDynamics, bBinaryVtkOutput
+  skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
+  bUseHashGridAccel, bUseKVEL_Accel
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -802,6 +803,11 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CASE ("RPM")
        READ(string(iEq+1:),*) RPM
 
+      CASE ("UseHashGridAccel")
+        bUseHashGridAccel = read_yes_no_param(string, iEq)
+      CASE ("UseKVELAccel")
+        bUseKVEL_Accel = read_yes_no_param(string, iEq)
+
       CASE ("aSynchComm")
         baSynch = read_yes_no_param(string, iEq)
       CASE ("CommSwitch")
@@ -993,6 +999,22 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     CALL write_param_real(mfile, mterm, "RadParticle = ", RadParticle)
     CALL write_param_real(mfile, mterm, "RPM = ", RPM)
 
+    ! Print FBM acceleration control flags
+#ifdef ENABLE_FBM_ACCELERATION
+    IF (bUseHashGridAccel) THEN
+      CALL write_param_str(mfile, mterm, "UseHashGridAccel = ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "UseHashGridAccel = ", "OFF")
+    END IF
+
+    IF (bUseKVEL_Accel) THEN
+      CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "UseKVELAccel = ", "OFF")
+    END IF
+#else
+    CALL write_param_str(mfile, mterm, "FBM Acceleration = ", "DISABLED AT COMPILE TIME")
+#endif
 
     IF (ProlongationDirection == 0) THEN
      WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"

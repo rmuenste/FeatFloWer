@@ -158,6 +158,11 @@ option(SED_BENCH
   OFF
 )
 
+option(ENABLE_FBM_ACCELERATION
+  "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Disable for pure baseline builds."
+  ON
+)
+
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
@@ -504,6 +509,17 @@ endif(USE_PE)
 if(SED_BENCH)
   add_definitions(-DSED_BENCH)
   message(STATUS "SED_BENCH: sedimentation benchmark output enabled")
+endif()
+
+if(ENABLE_FBM_ACCELERATION)
+  add_definitions(-DENABLE_FBM_ACCELERATION)
+  message(STATUS "FBM acceleration enabled (HashGrid + KVEL). Control at runtime via q2p1_param.dat")
+else()
+  message(STATUS "==============================================")
+  message(STATUS "FBM ACCELERATION DISABLED")
+  message(STATUS "  - Pure baseline (brute-force) build")
+  message(STATUS "  - For correctness verification only")
+  message(STATUS "==============================================")
 endif()
 
 #=========================================================================

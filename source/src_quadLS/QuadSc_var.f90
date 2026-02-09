@@ -318,7 +318,10 @@ MODULE var_QuadScalar
   END TYPE tVertexCache
 
   TYPE(tVertexCache), ALLOCATABLE :: ParticleVertexCache(:)
-  LOGICAL :: bUseKVEL_Accel = .FALSE.
+
+  ! Runtime acceleration control flags (read from q2p1_param.dat)
+  LOGICAL :: bUseHashGridAccel = .TRUE.
+  LOGICAL :: bUseKVEL_Accel = .TRUE.
 
   ! Statistics for performance monitoring
   TYPE tKVEL_Stats

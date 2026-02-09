@@ -520,14 +520,18 @@ integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
 
  ! Use baseline on first timestep (before collision pipeline initializes HashGrid)
  ! After initialization, use accelerated with verification
- if (.not. collision_pipeline_initialized) then
-   ! HashGrid not yet initialized - use baseline only for correctness
+#ifdef ENABLE_FBM_ACCELERATION
+ if (.not. collision_pipeline_initialized .or. .not. bUseHashGridAccel) then
+#else
+ if (.TRUE.) then
+#endif
+   ! HashGrid not yet initialized OR runtime flag disabled - use baseline only
    baseline_key = 0
    longFictId%bytes(:) = -1
    accel_result = verifyAllParticles(cvidx, baseline_key, point, longFictId%bytes)
    key = baseline_key
  else
-   ! HashGrid initialized - use accelerated version
+   ! HashGrid initialized AND runtime flag enabled - use accelerated version
    ! Call accelerated version (HashGrid)
 #ifdef VERIFY_HASHGRID
    ! Time the accelerated method

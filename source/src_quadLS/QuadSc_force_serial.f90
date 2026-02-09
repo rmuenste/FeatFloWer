@@ -58,7 +58,7 @@ REAL*8 :: Center(3),dForce(6), omega(3)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, resi, totalSliding
-real*8 :: dbuf1(1)
+real*8 :: dbuf1(2)
 
 real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 real*8, dimension(:), allocatable :: forceArray
@@ -208,7 +208,11 @@ bCandidateElement = .FALSE.
 nCandidates = 0
 
 ! Build candidate set using vertex cache and KVEL
+#ifdef ENABLE_FBM_ACCELERATION
 if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+#else
+if (.FALSE.) then
+#endif
   if (IP <= size(ParticleVertexCache)) then
     if (ParticleVertexCache(IP)%nVertices > 0) then
 
@@ -259,13 +263,21 @@ if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
   end if
 end if
 
-! Fallback if no candidates found
+! Handle case when no candidates found
 if (nCandidates == 0) then
-  ! No KVEL candidates on this rank (particle not in this subdomain) - fall back to all elements
-  nCandidates = NEL
-  DO IEL = 1, NEL
-    CandidateList(IEL) = IEL
-  END DO
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    ! Cache is populated but particle has no DOFs on this rank
+    ! -> force contribution is guaranteed zero, skip element loop
+    deallocate(bCandidateElement)
+    deallocate(CandidateList)
+    cycle  ! next particle
+  else
+    ! No cache available, fall back to all elements (brute-force)
+    nCandidates = NEL
+    DO IEL = 1, NEL
+      CandidateList(IEL) = IEL
+    END DO
+  end if
 end if
 
 ! Accumulate statistics
@@ -516,7 +528,7 @@ deallocate(CandidateList)
   !========================================================================
   ! Post-processing: benchmark-specific modifications
   !========================================================================
-#ifdef SED_BENCH
+#ifdef SED_BENCH22
   DResForceX = 0.0
   DResForceY = 0.0
   DResForceZ = 4.0 * DResForceZ
@@ -551,14 +563,19 @@ END DO ! nParticles
 END IF  ! myid /= 0 (end of force calculation section)
 
 ! Output KVEL acceleration statistics (aggregated across all ranks)
+#ifdef ENABLE_FBM_ACCELERATION
 if (bUseKVEL_Accel) then
+#else
+if (.FALSE.) then
+#endif
   dbuf1(1) = dble(myKVEL_Stats%nCandidateElements)
-  call COMM_SUMMN(dbuf1, 1)
+  dbuf1(2) = dble(NEL) * dble(numParticles)
+  call COMM_SUMMN(dbuf1, 2)
   if (myid == 0) then
-    WRITE(*,'(A,I0,A,I0,A,F8.1,A)') &
-      'KVEL: ', NINT(dbuf1(1)), ' candidates vs ', &
-      NEL*numParticles*(showID-1), ' brute-force (', &
-      real(NEL*numParticles*(showID-1))/max(dbuf1(1),1.0d0), 'x speedup)'
+    WRITE(*,'(A,ES12.4,A,ES12.4,A,F8.1,A)') &
+      'KVEL: ', dbuf1(1), ' candidates vs ', &
+      dbuf1(2), ' brute-force (', &
+      dbuf1(2)/max(dbuf1(1),1.0d0), 'x speedup)'
   end if
 end if
 
@@ -608,7 +625,7 @@ if (myid /= 0)then
     call setForcesMapped(theParticles(ip))
   END DO
   
-#ifdef SED_BENCH
+#ifdef SED_BENCH22
   if (myid == 1) then
     time_out = dble(itns - 1) * tstep
     DO IP = 1, numParticles

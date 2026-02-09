@@ -202,7 +202,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     ! The actual particle identity is in FictKNPR_uint64(i). We must use
     ! longIdMatch(dof_idx, theParticles(IP)%bytes) to map DOFs to particles.
     ! ============================================================================
-#ifdef HAVE_PE
+#if defined(HAVE_PE) && defined(ENABLE_FBM_ACCELERATION)
     numCacheParticles = numTotalParticles()
     if (bUseKVEL_Accel .and. numCacheParticles > 0) then
 
