@@ -1,0 +1,6 @@
+SimPar@MeshFolder = "NEWFAC"
+SimPar@SubMeshNumber = 1
+SimPar@MaxMeshLevel = 3
+SimPar@ProjectFile = "_adc/2D_FAC/2Dbench.prj"
+SimPar@TimeSteps = 100
+SimPar@TimeStepSize = 0.01
