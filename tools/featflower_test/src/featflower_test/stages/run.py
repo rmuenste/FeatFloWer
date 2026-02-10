@@ -81,7 +81,7 @@ def run_simulation(
             # Patch parameter file for this level
             if levels.parameter_patch:
                 file_in = os.path.join(
-                    repo_root, levels.parameter_patch.get("file_in", "")
+                    workdir, levels.parameter_patch.get("file_in", "")
                 )
                 file_out = os.path.join(
                     workdir, levels.parameter_patch.get("file_out", "_data/q2p1_param.dat")

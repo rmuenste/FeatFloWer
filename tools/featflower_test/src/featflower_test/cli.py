@@ -203,7 +203,7 @@ def cmd_run(args) -> int:
     runner = None
     if args.slurm:
         from featflower_test.runners.slurm import SlurmRunner
-        runner = SlurmRunner()
+        runner = SlurmRunner(modules=td.setup.modules)
 
     print("Stage: run ... ", end="", flush=True)
     run_results = run_simulation(

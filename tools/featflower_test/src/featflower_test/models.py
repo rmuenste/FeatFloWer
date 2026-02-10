@@ -214,6 +214,7 @@ class MetricConfig:
     occurrence: str = "last"
     numeric_format: str = "fortran_d_or_e"
     compare: Optional[MetricCompareConfig] = None
+    filter: Optional[Dict[str, Any]] = None
 
 
 @dataclass

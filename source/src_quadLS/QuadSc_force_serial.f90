@@ -528,7 +528,7 @@ deallocate(CandidateList)
   !========================================================================
   ! Post-processing: benchmark-specific modifications
   !========================================================================
-#ifdef SED_BENCH22
+#ifdef SED_BENCH
   DResForceX = 0.0
   DResForceY = 0.0
   DResForceZ = 4.0 * DResForceZ
@@ -625,7 +625,7 @@ if (myid /= 0)then
     call setForcesMapped(theParticles(ip))
   END DO
   
-#ifdef SED_BENCH22
+#ifdef SED_BENCH
   if (myid == 1) then
     time_out = dble(itns - 1) * tstep
     DO IP = 1, numParticles

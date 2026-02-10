@@ -85,3 +85,45 @@ class TestExtractKeywordColumns:
         lift = next(v for v in result.values if v.name == "lift")
         assert drag.value == pytest.approx(5.5795)
         assert lift.value == pytest.approx(0.010618)
+
+    def test_filter_by_column_value(self, tmp_path):
+        """Test filter feature: select line where a column matches a value."""
+        prot = tmp_path / "prot.txt"
+        # Simulate SED_BENCH_VEL output at multiple timesteps
+        prot.write_text(
+            "SED_BENCH_VEL  time= 1.000000E-01 ip=     1  0.000000E+00 0.000000E+00 -5.000000E-02\n"
+            "SED_BENCH_VEL  time= 2.500000E-01 ip=     1  0.000000E+00 0.000000E+00 -9.996908E-02\n"
+            "SED_BENCH_VEL  time= 5.000000E-01 ip=     1  0.000000E+00 0.000000E+00 -1.254251E-01\n"
+            "SED_BENCH_VEL  time= 7.500000E-01 ip=     1  0.000000E+00 0.000000E+00 -1.316896E-01\n"
+            "SED_BENCH_VEL  time= 1.000000E+00 ip=     1  0.000000E+00 0.000000E+00 -1.313007E-01\n"
+        )
+        metric = MetricConfig(
+            id="vz_at_t050",
+            keyword="SED_BENCH_VEL",
+            columns={"vz": 7},
+            occurrence="last",
+            filter={"column": 2, "value": 0.50, "tolerance": 1e-6},
+        )
+        result = extract_keyword_columns(str(prot), metric)
+        assert result.error is None
+        assert len(result.values) == 1
+        vz = result.values[0]
+        assert vz.name == "vz"
+        assert vz.value == pytest.approx(-0.1254251)
+
+    def test_filter_no_match(self, tmp_path):
+        """Test filter returns error when no line matches."""
+        prot = tmp_path / "prot.txt"
+        prot.write_text(
+            "SED_BENCH_VEL  time= 1.000000E-01 ip=     1  0.000000E+00 0.000000E+00 -5.000000E-02\n"
+        )
+        metric = MetricConfig(
+            id="vz_missing",
+            keyword="SED_BENCH_VEL",
+            columns={"vz": 7},
+            occurrence="last",
+            filter={"column": 2, "value": 9.99, "tolerance": 1e-6},
+        )
+        result = extract_keyword_columns(str(prot), metric)
+        assert result.error is not None
+        assert "No lines match filter" in result.error

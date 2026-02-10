@@ -56,6 +56,33 @@ def extract_keyword_columns(
             error=f"Keyword '{metric.keyword}' not found in {file_path}",
         )
 
+    # Apply optional filter: narrow matching lines to those where a
+    # specific column value matches within tolerance.
+    if metric.filter:
+        filter_col = metric.filter.get("column")
+        filter_val = float(metric.filter.get("value", 0))
+        filter_tol = float(metric.filter.get("tolerance", 1e-6))
+        filtered = []
+        for line in matching:
+            toks = line.split()
+            if filter_col is not None and filter_col < len(toks):
+                try:
+                    col_val = parse_fortran_float(toks[filter_col])
+                    if abs(col_val - filter_val) <= filter_tol:
+                        filtered.append(line)
+                except ValueError:
+                    pass
+        if not filtered:
+            return MetricExtractionResult(
+                metric_id=metric.id,
+                source_file=file_path,
+                error=(
+                    f"No lines match filter (column {filter_col} "
+                    f"~ {filter_val} +/- {filter_tol})"
+                ),
+            )
+        matching = filtered
+
     # Select occurrence (default: last, matching legacy reversed() search)
     if metric.occurrence == "first":
         selected = matching[0]

@@ -25,8 +25,9 @@ _TERMINAL_STATES = {
 class SlurmRunner(Runner):
     """Execute simulations via SLURM batch submission."""
 
-    def __init__(self, poll_interval: int = _POLL_INTERVAL):
+    def __init__(self, poll_interval: int = _POLL_INTERVAL, modules: Optional[List[str]] = None):
         self.poll_interval = poll_interval
+        self.modules = modules or []
 
     def execute(
         self,
@@ -52,12 +53,16 @@ class SlurmRunner(Runner):
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
         try:
-            # Generate job script
-            script_content = _generate_job_script(launch, slurm)
+            # Generate job script with predictable output filename
+            output_file = f"simulation_output_level_{level}.log"
+            script_content = _generate_job_script(
+                launch, slurm, modules=self.modules, output_file=output_file,
+            )
             script_path = os.path.join(workdir, f"job_level_{level}.sh")
             with open(script_path, "w") as fh:
                 fh.write(script_content)
             metadata["script_path"] = script_path
+            metadata["output_file"] = output_file
 
             # Submit via sbatch
             job_id = _submit_job(script_path, workdir)
@@ -108,6 +113,8 @@ class SlurmRunner(Runner):
 def _generate_job_script(
     launch: LaunchConfig,
     slurm: SlurmConfig,
+    modules: Optional[List[str]] = None,
+    output_file: str = "simulation_output.log",
 ) -> str:
     """Generate a SLURM batch script."""
     lines = ["#!/bin/bash"]
@@ -116,6 +123,7 @@ def _generate_job_script(
     lines.append(f"#SBATCH --ntasks={slurm.ntasks}")
     lines.append(f"#SBATCH --cpus-per-task={slurm.cpus_per_task}")
     lines.append(f"#SBATCH --time={slurm.time}")
+    lines.append(f"#SBATCH --output={output_file}")
     if slurm.constraint:
         lines.append(f"#SBATCH --constraint={slurm.constraint}")
     if slurm.mem_per_cpu:
@@ -124,6 +132,10 @@ def _generate_job_script(
     lines.append("")
     lines.append("set -euo pipefail")
     lines.append("")
+    if modules:
+        for mod in modules:
+            lines.append(f"module load {mod}")
+        lines.append("")
     lines.append(f"mpirun -np {launch.mpi_ranks} {launch.command}")
     lines.append("")
     return "\n".join(lines)

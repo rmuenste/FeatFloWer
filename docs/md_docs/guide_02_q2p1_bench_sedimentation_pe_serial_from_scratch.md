@@ -90,17 +90,20 @@ cmake -S . -B build-ninja-release -G Ninja \
   -DUSE_PE=ON \
   -DUSE_PE_SERIAL_MODE=ON \
   -DUSE_JSON=ON \
+  -DSED_BENCH=ON \
+  -DVERIFY_HASHGRID=OFF \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
   -DCMAKE_Fortran_COMPILER=mpifort
 ```
 
-**Important:** `-DUSE_JSON=ON` is **required** for PE Serial Mode. The setup functions (`setupParticleBenchSerial`, etc.) load runtime configuration from `example.json` via `SimulationConfig::loadFromFile()`. Without JSON support, this function is a no-op and all parameters remain at default values.
+**Important:** `-DUSE_JSON=ON` is **required** for PE Serial Mode. `-DSED_BENCH=ON` enables the sedimentation benchmark output (e.g. `SED_BENCH_VEL` lines). `-DVERIFY_HASHGRID=OFF` disables hashgrid verification overhead. The setup functions (`setupParticleBenchSerial`, etc.) load runtime configuration from `example.json` via `SimulationConfig::loadFromFile()`. Without JSON support, this function is a no-op and all parameters remain at default values.
 
 The configure banner should show:
 
 - `Adding pe library to build`
 - `PE SERIAL MODE ENABLED`
+- `SED_BENCH is ON`
 - `nlohmann/json will be downloaded to: ...`
 - `Found MPI_C`, `Found MPI_CXX`, `Found MPI_Fortran`
 
@@ -118,6 +121,8 @@ bash -c '
     -DUSE_PE=ON \
     -DUSE_PE_SERIAL_MODE=ON \
     -DUSE_JSON=ON \
+    -DSED_BENCH=ON \
+    -DVERIFY_HASHGRID=OFF \
     -DCMAKE_C_COMPILER=mpicc \
     -DCMAKE_CXX_COMPILER=mpicxx \
     -DCMAKE_Fortran_COMPILER=mpifort

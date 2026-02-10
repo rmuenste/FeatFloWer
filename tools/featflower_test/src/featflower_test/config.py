@@ -229,6 +229,7 @@ def _parse_metrics(data: list) -> List[MetricConfig]:
             occurrence=item.get("occurrence", "last"),
             numeric_format=item.get("numeric_format", "fortran_d_or_e"),
             compare=compare,
+            filter=item.get("filter"),
         ))
     return metrics
 
