@@ -893,9 +893,38 @@ IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
 
+! Fluidization inflow profile (z-only) with parabolic ramp in x and y.
+! Free inflow identifier: 974
+IF (iT.EQ.974) THEN
+ ValU = 0d0
+ ValV = 0d0
+ ValW = inflow_velocity_xy_profile(X, Y, 2d0, 20.3d0, 0.686d0, 0.1d0)
+END IF
+
 RETURN
 
  CONTAINS
+pure function ramp_1d_profile(coord, L, delta) result(r)
+ real*8, intent(in) :: coord, L, delta
+ real*8 :: r, wall_dist, d
+
+ wall_dist = min(coord, L - coord)
+ if (wall_dist < delta) then
+  d = wall_dist / delta
+  r = 2d0 * d - d * d
+ else
+  r = 1d0
+ end if
+end function ramp_1d_profile
+
+pure function inflow_velocity_xy_profile(x, y, v_fluidization, Lx, Ly, delta) result(v)
+ real*8, intent(in) :: x, y
+ real*8, intent(in) :: v_fluidization, Lx, Ly, delta
+ real*8 :: v
+
+ v = v_fluidization * ramp_1d_profile(x, Lx, delta) * ramp_1d_profile(y, Ly, delta)
+end function inflow_velocity_xy_profile
+
 include '../include/ProfileFunctions.f90'
 
 END SUBROUTINE GetVeloBCVal
