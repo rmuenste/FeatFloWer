@@ -8,6 +8,7 @@ The first implementation target remains:
 
 - `docs/md_docs/guide_01_q2p1_fc_ext_cylinder_benchmark_from_scratch.md`
 - `docs/md_docs/guide_02_q2p1_bench_sedimentation_pe_serial_from_scratch.md`
+- `docs/md_docs/guide_03_q2p1_sse_tse_gendie_from_scratch.md`
 - `build_guide.md`
 
 ## Scope and Principles
@@ -420,7 +421,7 @@ modules, compiler/MPI versions, and all SLURM job IDs.
 For reproducibility, store the resolved CMake option set, including PE/JSON
 flags and any FetchContent source overrides used in restricted environments.
 
-## Guide 01 / Guide 02 Test Blueprint
+## Guide 01 / Guide 02 / Guide 03 Test Blueprint
 
 ### Guide 01 (`q2p1_fc_ext`)
 
@@ -439,6 +440,18 @@ flags and any FetchContent source overrides used in restricted environments.
 - Run under SLURM with explicit module loads inside job script.
 - Compare using extracted force/velocity/position metrics and optional
   ParaView-derived outputs.
+
+### Guide 03 (`q2p1_sse` for SSE/TSE, gendie context)
+
+- Configure/build with `USE_CGAL=ON`, `USE_HYPRE=ON`, `USE_PE=OFF`,
+  `ENABLE_FBM_ACCELERATION=OFF`.
+- Build and stage with `q2p1_sse_stage` so runtime dependencies are present
+  (`s3d_mesher`, `libmetis.so`, `_ianus`, `_data/MG.dat`, scripts).
+- Run under SLURM using `python3 ./e3d_start.py -n 32 -f _ianus/TSE/Conv -a 0 --short-test`.
+- Require explicit ROMIO/OpenMPI I/O environment in submit script:
+  `OMPI_MCA_io=romio321`, `ROMIO_CB_BUFFER_SIZE=16777216`,
+  `ROMIO_DS_WRITE=enable`.
+- Compare via log-state checks and selected convergence/output metrics.
 
 ## CTest/CDash Replacement
 
@@ -485,7 +498,7 @@ featflower-test migrate-json <legacy-json> --out <yaml>
 
 ## Acceptance Criteria for Phase 1
 
-- Guide 01 and guide 02 run fully through new system on SLURM.
+- Guide 01, guide 02, and guide 03 run fully through new system on SLURM.
 - Submodule state is verified and logged for every run.
 - Failures are categorized and traceable to logs/stages.
 - Scalar comparisons and at least one ParaView-derived comparison are supported.

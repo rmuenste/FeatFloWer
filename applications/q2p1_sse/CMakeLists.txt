@@ -106,6 +106,41 @@ IF(${OUT_OF_SOURCE_BUILD})
 
 ENDIF()
 
+add_custom_target(q2p1_sse_stage
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+          ${CMAKE_CURRENT_BINARY_DIR}/_data
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_CURRENT_SOURCE_DIR}/_data_BU
+          ${CMAKE_CURRENT_BINARY_DIR}/_data_BU
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_CURRENT_SOURCE_DIR}/_ianus
+          ${CMAKE_CURRENT_BINARY_DIR}/_ianus
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/tools/partitioner
+          ${CMAKE_CURRENT_BINARY_DIR}/partitioner
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py
+          ${CMAKE_CURRENT_BINARY_DIR}/e3d_start.py
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_sse_start.py
+          ${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh
+          ${CMAKE_CURRENT_BINARY_DIR}/conv_check.sh
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/_data/MG.dat
+          ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
+          ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_BINARY_DIR}/applications/s3d_mesher/s3d_mesher
+          ${CMAKE_CURRENT_BINARY_DIR}/s3d_mesher
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS ${SSE_TARGET_NAME} s3d_mesher metis
+  COMMENT "Staging q2p1_sse runtime files in build directory"
+)
+
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================

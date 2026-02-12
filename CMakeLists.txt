@@ -159,9 +159,17 @@ option(SED_BENCH
 )
 
 option(ENABLE_FBM_ACCELERATION
-  "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Disable for pure baseline builds."
-  ON
+  "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+  OFF
 )
+
+if(NOT USE_PE AND ENABLE_FBM_ACCELERATION)
+  message(STATUS "ENABLE_FBM_ACCELERATION requested with USE_PE=OFF; forcing ENABLE_FBM_ACCELERATION=OFF.")
+  set(ENABLE_FBM_ACCELERATION OFF CACHE BOOL
+    "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+    FORCE
+  )
+endif()
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
@@ -578,4 +586,3 @@ install(FILES tools/PyPartitioner.py DESTINATION bin PERMISSIONS
 include(GeneratePackageDeb)  
 
 include(CPack)
-

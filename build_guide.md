@@ -2,6 +2,14 @@
 
 This document provides instructions for configuring and building the FeatFloWer (internally referred to as Q2P1) software project using CMake.
 
+## From-Scratch Guide Series
+
+For end-to-end, command-by-command workflows (configure/build/stage/run), see:
+
+* `docs/md_docs/guide_01_q2p1_fc_ext_cylinder_benchmark_from_scratch.md`
+* `docs/md_docs/guide_02_q2p1_bench_sedimentation_pe_serial_from_scratch.md`
+* `docs/md_docs/guide_03_q2p1_sse_tse_gendie_from_scratch.md`
+
 ## 1. Prerequisites
 
 Before you begin, ensure you have the following installed on your system:
