@@ -412,6 +412,8 @@ MODULE var_QuadScalar
     integer, allocatable, dimension(:) :: iel_ug
     REAL*8, ALLOCATABLE :: ParticleRe(:)
     REAL*8, ALLOCATABLE :: ParticleSt(:)
+    REAL*8, ALLOCATABLE :: ParticleSlipVel(:,:)  ! (3, nParticles) slip velocity for drag
+    REAL*8, ALLOCATABLE :: ParticleEpsilon(:)    ! local void fraction per particle
   END TYPE tFBM
   CHARACTER cFBM_File*30
   TYPE (tFBM) :: myFBM

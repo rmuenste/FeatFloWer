@@ -16,7 +16,8 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEA
 use fbm
 use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_particle_reynolds_interface, &
                                  fbm_compute_particle_reynolds_interface_extended, &
-                                 fbm_compute_particle_reynolds_farfield
+                                 fbm_compute_particle_reynolds_farfield, &
+                                 fbm_compute_particle_reynolds_el
 
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity
 

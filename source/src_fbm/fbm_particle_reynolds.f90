@@ -1011,6 +1011,293 @@ CONTAINS
 #endif
 
 !=========================================================================
+! fbm_compute_particle_reynolds_el - Euler-Lagrange particle Reynolds number
+!
+! Computes particle Reynolds numbers for Euler-Lagrange simulations where
+! particles are treated as subgrid point particles embedded in a volume-
+! averaged fluid field. Designed for semi-dense suspensions (volume
+! fractions of order 5-10%) where drag correlations (Schiller-Naumann,
+! Wen-Yu, Gidaspow, Di Felice, etc.) require Re_p and the local void
+! fraction epsilon_f.
+!
+! Standard definition:
+!   Re_p = rho_f * |u_f - v_p| * d_p / mu
+!
+! The void fraction does NOT enter Re_p itself; it is stored separately
+! for the drag correlation to use (e.g. Wen-Yu multiplies C_D by
+! epsilon_f^{-2.65}).
+!
+! Method:
+!   For each particle, locate the containing mesh element via bounding-
+!   box culling + trilinear inversion (fbmaux_PointInHex), interpolate
+!   the Q2 velocity field at the particle position, and read the element-
+!   wise void fraction. The slip velocity vector is stored for direct
+!   use in the drag force computation.
+!
+! Input:
+!   U1, U2, U3 - Velocity field components (Q2 DOFs)
+!   DVISC       - Element-wise dynamic viscosity
+!   RHOFLUID    - Fluid density
+!   EPSI        - Element-wise fluid void fraction, epsilon_f = 1 - epsilon_s
+!   mfile       - Output file handle
+!   ELE         - Element evaluation function (e.g., E013)
+!
+! Output (stored in myFBM):
+!   ParticleRe(:)        - Particle Reynolds number
+!   ParticleSlipVel(:,:) - Slip velocity components (3, nParticles)
+!   ParticleEpsilon(:)   - Local void fraction at each particle
+!=========================================================================
+#ifdef HAVE_PE
+  SUBROUTINE fbm_compute_particle_reynolds_el(U1, U2, U3, DVISC, RHOFLUID, &
+                                               EPSI, mfile, ELE)
+    USE fbmaux, ONLY: fbmaux_PointInHex
+    use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+    USE PP3D_MPI, ONLY: COMM_Maximumn
+    INTEGER, PARAMETER :: NNBAS = 27, NNDER = 10, NNVE = 8, NNDIM = 3
+
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    REAL*8, DIMENSION(:), INTENT(IN) :: EPSI
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+
+    INTEGER :: ip, ig, il, IELTYP, ilev, nel_local, numParticles
+    REAL*8 :: xi1, xi2, xi3
+    REAL*8 :: vel_sample(3), slip(3), speed, diameter, mu_loc, epsi_loc
+    REAL*8 :: xverts(8), yverts(8), zverts(8)
+    REAL*8 :: xmin, xmax, ymin, ymax, zmin, zmax, eps_box
+    REAL*8 :: dbuf1(1)
+    LOGICAL :: found
+
+    TYPE(tParticleData), DIMENSION(:), ALLOCATABLE :: theParticles
+    REAL*8, ALLOCATABLE :: re_local(:), re_weight(:)
+    REAL*8, ALLOCATABLE :: slip_local(:,:), epsi_local(:)
+
+    INTEGER KDFG(NNBAS), KDFL(NNBAS)
+    REAL*8 DX(NNVE), DY(NNVE), DZ(NNVE), DJAC(3, 3), DETJ
+    REAL*8 DBAS(NNDIM, NNBAS, NNDER)
+    LOGICAL BDER(NNDER)
+    INTEGER KVE(NNVE), NDIM, IEL
+    INTEGER :: ive
+
+    COMMON/ELEM/DX, DY, DZ, DJAC, DETJ, DBAS, BDER, KVE, IEL, NDIM
+    COMMON/COAUX1/KDFG, KDFL, IDFL
+    INTEGER :: IDFL
+
+    EXTERNAL :: NDFGL, SETLEV
+    INTEGER :: NDFL
+
+    ! --- Determine global particle count (all ranks must agree) ---
+    numParticles = numTotalParticles()
+    dbuf1(1) = DBLE(numParticles)
+    CALL COMM_Maximumn(dbuf1, 1)
+    numParticles = INT(dbuf1(1))
+
+    IF (numParticles .EQ. 0) RETURN
+
+    ! --- (Re-)allocate result arrays in myFBM ---
+    IF (.NOT. ALLOCATED(myFBM%ParticleRe)) THEN
+      ALLOCATE (myFBM%ParticleRe(numParticles))
+    ELSE IF (SIZE(myFBM%ParticleRe) .NE. numParticles) THEN
+      DEALLOCATE (myFBM%ParticleRe)
+      ALLOCATE (myFBM%ParticleRe(numParticles))
+    END IF
+    myFBM%ParticleRe = 0D0
+
+    IF (.NOT. ALLOCATED(myFBM%ParticleSlipVel)) THEN
+      ALLOCATE (myFBM%ParticleSlipVel(3, numParticles))
+    ELSE IF (SIZE(myFBM%ParticleSlipVel, 2) .NE. numParticles) THEN
+      DEALLOCATE (myFBM%ParticleSlipVel)
+      ALLOCATE (myFBM%ParticleSlipVel(3, numParticles))
+    END IF
+    myFBM%ParticleSlipVel = 0D0
+
+    IF (.NOT. ALLOCATED(myFBM%ParticleEpsilon)) THEN
+      ALLOCATE (myFBM%ParticleEpsilon(numParticles))
+    ELSE IF (SIZE(myFBM%ParticleEpsilon) .NE. numParticles) THEN
+      DEALLOCATE (myFBM%ParticleEpsilon)
+      ALLOCATE (myFBM%ParticleEpsilon(numParticles))
+    END IF
+    myFBM%ParticleEpsilon = 1D0  ! default: pure fluid
+
+    ! --- Allocate work arrays ---
+    ALLOCATE (theParticles(numParticles))
+    ALLOCATE (re_local(numParticles))
+    ALLOCATE (re_weight(numParticles))
+    ALLOCATE (slip_local(3, numParticles))
+    ALLOCATE (epsi_local(numParticles))
+    re_local = 0D0
+    re_weight = 0D0
+    slip_local = 0D0
+    epsi_local = 0D0
+
+    ilev = mg_mesh%nlmax
+    CALL SETLEV(2)
+    nel_local = mg_mesh%level(ilev)%nel
+    IF (SIZE(DVISC) .LT. nel_local .OR. SIZE(EPSI) .LT. nel_local) THEN
+      myFBM%ParticleRe = 0D0
+      myFBM%ParticleSlipVel = 0D0
+      myFBM%ParticleEpsilon = 1D0
+      DEALLOCATE (theParticles, re_local, re_weight, slip_local, epsi_local)
+      RETURN
+    END IF
+
+    ! Setup basis function evaluation (values only, no derivatives)
+    DO ive = 1, NNDER
+      BDER(ive) = .FALSE.
+    END DO
+    BDER(1) = .TRUE.
+
+    IELTYP = -1
+    CALL ELE(0D0, 0D0, 0D0, IELTYP)
+    IDFL = NDFL(IELTYP)
+
+    eps_box = 1D-10
+
+    IF (myid .NE. 0) THEN
+
+      CALL getAllParticles(theParticles)
+
+      ! ===== PARTICLE LOOP =====
+      DO ip = 1, numParticles
+        found = .FALSE.
+
+        ! ===== ELEMENT SEARCH (bounding-box cull + trilinear inversion) =====
+        DO iel = 1, nel_local
+          DO ive = 1, NNVE
+            ig = mg_mesh%level(ilev)%kvert(ive, iel)
+            xverts(ive) = mg_mesh%level(ilev)%dcorvg(1, ig)
+            yverts(ive) = mg_mesh%level(ilev)%dcorvg(2, ig)
+            zverts(ive) = mg_mesh%level(ilev)%dcorvg(3, ig)
+          END DO
+
+          xmin = MINVAL(xverts); xmax = MAXVAL(xverts)
+          ymin = MINVAL(yverts); ymax = MAXVAL(yverts)
+          zmin = MINVAL(zverts); zmax = MAXVAL(zverts)
+
+          IF (theParticles(ip)%position(1) .LT. xmin - eps_box) CYCLE
+          IF (theParticles(ip)%position(1) .GT. xmax + eps_box) CYCLE
+          IF (theParticles(ip)%position(2) .LT. ymin - eps_box) CYCLE
+          IF (theParticles(ip)%position(2) .GT. ymax + eps_box) CYCLE
+          IF (theParticles(ip)%position(3) .LT. zmin - eps_box) CYCLE
+          IF (theParticles(ip)%position(3) .GT. zmax + eps_box) CYCLE
+
+          xi1 = 0D0; xi2 = 0D0; xi3 = 0D0
+          found = fbmaux_PointInHex(theParticles(ip)%position(1), &
+                                    theParticles(ip)%position(2), &
+                                    theParticles(ip)%position(3), &
+                                    xverts, yverts, zverts, xi1, xi2, xi3, iel)
+          IF (.NOT. found) CYCLE
+
+          ! --- Evaluate Q2 basis at particle position ---
+          DO ive = 1, NNDER
+            BDER(ive) = .FALSE.
+          END DO
+          BDER(1) = .TRUE.
+
+          CALL NDFGL(iel, 1, IELTYP, mg_mesh%level(ilev)%kvert, &
+                     mg_mesh%level(ilev)%kedge, mg_mesh%level(ilev)%karea, &
+                     KDFG, KDFL)
+
+          DO ive = 1, NNVE
+            ig = mg_mesh%level(ilev)%kvert(ive, iel)
+            KVE(ive) = ig
+            DX(ive) = xverts(ive)
+            DY(ive) = yverts(ive)
+            DZ(ive) = zverts(ive)
+          END DO
+
+          CALL ELE(xi1, xi2, xi3, 0)
+
+          ! --- Interpolate fluid velocity at particle position ---
+          vel_sample = 0D0
+          DO il = 1, IDFL
+            ig = KDFG(il)
+            ive = KDFL(il)
+            vel_sample(1) = vel_sample(1) + U1(ig)*DBAS(1, ive, 1)
+            vel_sample(2) = vel_sample(2) + U2(ig)*DBAS(1, ive, 1)
+            vel_sample(3) = vel_sample(3) + U3(ig)*DBAS(1, ive, 1)
+          END DO
+
+          ! --- Read element-wise quantities ---
+          mu_loc = DVISC(iel)
+          epsi_loc = EPSI(iel)
+
+          ! --- Slip velocity ---
+          slip = vel_sample - theParticles(ip)%velocity
+          speed = SQRT(slip(1)**2 + slip(2)**2 + slip(3)**2)
+
+          ! Particle diameter from AABB (largest extent)
+          diameter = MAXVAL(theParticles(ip)%aabb)
+
+          ! --- Standard particle Reynolds number ---
+          ! Re_p = rho_f * |u_f - v_p| * d_p / mu
+          IF (mu_loc .GT. 0D0 .AND. diameter .GT. 0D0) THEN
+            re_local(ip) = RHOFLUID * speed * diameter / mu_loc
+          ELSE
+            re_local(ip) = 0D0
+          END IF
+
+          slip_local(:, ip) = slip
+          epsi_local(ip) = epsi_loc
+          re_weight(ip) = 1D0
+
+          EXIT  ! particle found in this element, move to next particle
+        END DO  ! elements
+      END DO  ! particles
+
+    END IF  ! myid /= 0
+
+    ! --- MPI reduction ---
+    CALL COMM_SUMMN(re_local, numParticles)
+    CALL COMM_SUMMN(re_weight, numParticles)
+    CALL COMM_SUMMN(slip_local, 3*numParticles)
+    CALL COMM_SUMMN(epsi_local, numParticles)
+
+    ! --- Store results ---
+    DO ip = 1, numParticles
+      IF (re_weight(ip) .GT. 0D0) THEN
+        myFBM%ParticleRe(ip) = re_local(ip) / re_weight(ip)
+        myFBM%ParticleSlipVel(:, ip) = slip_local(:, ip) / re_weight(ip)
+        myFBM%ParticleEpsilon(ip) = epsi_local(ip) / re_weight(ip)
+      ELSE
+        myFBM%ParticleRe(ip) = 0D0
+        myFBM%ParticleSlipVel(:, ip) = 0D0
+        myFBM%ParticleEpsilon(ip) = 1D0  ! pure fluid if particle not found
+      END IF
+    END DO
+
+    ! --- Logging ---
+    IF (myid .EQ. 1) THEN
+      IF (numParticles .GT. 0) THEN
+        WRITE (mfile, '(A,2E16.8)') 'Particle Re (E-L): ', &
+          MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
+        WRITE (mfile, '(A,2E16.8)') 'Void fraction range at particles: ', &
+          MINVAL(myFBM%ParticleEpsilon(1:numParticles)), MAXVAL(myFBM%ParticleEpsilon(1:numParticles))
+      END IF
+    END IF
+
+    DEALLOCATE (theParticles, re_local, re_weight, slip_local, epsi_local)
+
+  END SUBROUTINE fbm_compute_particle_reynolds_el
+#else
+  SUBROUTINE fbm_compute_particle_reynolds_el(U1, U2, U3, DVISC, RHOFLUID, &
+                                               EPSI, mfile, ELE)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    REAL*8, DIMENSION(:), INTENT(IN) :: EPSI
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    IF (ALLOCATED(myFBM%ParticleSlipVel)) myFBM%ParticleSlipVel = 0D0
+    IF (ALLOCATED(myFBM%ParticleEpsilon)) myFBM%ParticleEpsilon = 1D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds_el
+#endif
+
+!=========================================================================
 ! fbm_compute_particle_stokes - Compute Stokes number from Reynolds number
 !
 ! Computes the Stokes number for each particle based on previously
