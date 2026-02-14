@@ -1,6 +1,6 @@
 SUBROUTINE Transport_q2p1_UxyzP_ParT(mfile,inl_u,itns)
 use cinterface, only: calculateDynamics,calculateFBM
-use fbm, only: fbm_updateFBM
+use fbm, only: fbm_updateFBM, report_and_reset_hashgrid_stats
 
 INTEGER mfile,INL,inl_u,itns
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
@@ -1535,6 +1535,7 @@ END SUBROUTINE Transport_q2p1_UxyzP_fc_ext_static
 ! ----------------------------------------------
 !
 SUBROUTINE Init_Q2_Structures(mfile)
+use param_parser, only: GetPhysiclaParameters
 implicit none
 LOGICAL bExist
 INTEGER I,J,ndof,mfile,LevDif
@@ -1746,6 +1747,7 @@ IF (myid.ne.0) THEN
 
  IF (myFBM%nParticles.GT.0) THEN
   CALL updateFBMGeometry()
+  CALL report_and_reset_hashgrid_stats()
  END IF
 
  ! Set dirichlet boundary conditions on the solution
@@ -1773,6 +1775,7 @@ IF (myid.ne.0) THEN
 
  IF (myFBM%nParticles.GT.0) THEN
   CALL updateFBMGeometry()
+  CALL report_and_reset_hashgrid_stats()
  END IF
 
  ! Set dirichlet boundary conditions on the solution

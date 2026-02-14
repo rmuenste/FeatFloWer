@@ -97,6 +97,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
  USE cinterface 
  use iniparser
+ USE param_parser, ONLY: GDATNEW
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -168,10 +169,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
 
-#ifdef HAVE_PE 
- include 'PartitionReader.f90'
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
 #else
- include 'PartitionReader2.f90'
+  include 'PartitionReader.f90'
+#endif
+#else
+  include 'PartitionReader2.f90'
 #endif
 
  CALL Init_QuadScalar(mfile)

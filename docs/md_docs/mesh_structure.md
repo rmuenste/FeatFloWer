@@ -14,6 +14,9 @@ FeatFloWer uses a sophisticated hierarchical mesh structure designed for multigr
 - **Complex connectivity**: Comprehensive element-vertex-edge-face relationships
 - **Parallel decomposition**: Domain decomposition for MPI parallelization
 
+For the MPI-side data structures built on top of this mesh, see
+`docs/md_docs/communication_structures.md`.
+
 ---
 
 ## 2. Mesh Data Structures

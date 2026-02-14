@@ -1,3 +1,31 @@
+!===============================================================================
+! MODULE: def_QuadScalar (Facade Module - Phase 3.3)
+!===============================================================================
+! DESCRIPTION:
+!   Facade module that re-exports all QuadSc functionality while maintaining
+!   backward compatibility with existing code.
+!
+!   After Phase 3 refactoring, implementation is split across modules:
+!   - QuadSc_struct: Structure allocation routines
+!   - QuadSc_assembly: Matrix assembly routines
+!   - QuadSc_solver_hypre: HYPRE solver setup
+!   - QuadSc_solver_coarse: Coarse grid solver setup
+!
+!   This module:
+!   1. Re-exports extracted routines (PUBLIC declarations below)
+!   2. Contains high-level workflow orchestration (Matdef, Solve, etc.)
+!   3. Contains specialized operations not worth extracting
+!
+!   External code using "USE def_QuadScalar" requires NO CHANGES.
+!
+! HISTORY:
+!   - Phase 1: Extracted solver setup routines
+!   - Phase 2: Internal deduplication (generic assembly routines)
+!   - Phase 3.1: Extracted structure allocation to QuadSc_struct.f90
+!   - Phase 3.2: Extracted assembly routines to QuadSc_assembly.f90
+!   - Phase 3.3: Transformed to facade module (THIS MODULE)
+!===============================================================================
+
 MODULE def_QuadScalar
 use ieee_arithmetic
 
@@ -7,379 +35,85 @@ USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
+! Phase 1: Extracted solver modules
+USE QuadSc_solver_hypre, ONLY : Setup_HYPRE_CoarseLevel_Full, Setup_HYPRE_CoarseLevel_Geometric
+USE QuadSc_solver_coarse, ONLY : Setup_UMFPACK_CoarseSolver
+! Phase 3.1: Extracted structure routines
+USE QuadSc_struct, ONLY : Create_QuadMatStruct, Create_QuadLinMatStruct, &
+                           Create_LinMatStruct, Create_ParLinMatStruct
+! Phase 3.2: Extracted assembly routines
+USE QuadSc_assembly, ONLY : Assemble_Mass_Generic, Assemble_Diffusion_Alpha_Generic, &
+                             Assemble_ParallelMatrix_Generic, &
+                             Create_MRhoMat, Create_MMat, Create_CMat, Create_BMat, &
+                             Create_hDiffMat, Create_ConstDiffMat, Create_DiffMat, &
+                             Create_SMat, Create_KMat
 
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
 
+!===============================================================================
+! PUBLIC RE-EXPORTS (Backward Compatibility - Phase 3.3 Facade Pattern)
+!===============================================================================
+! External code using "USE def_QuadScalar" gets access to all extracted
+! routines without modification. This facade pattern maintains the original
+! API while the implementation is split across multiple modules.
+!===============================================================================
+
+! Structure allocation (QuadSc_struct.f90)
+PUBLIC :: Create_QuadMatStruct
+PUBLIC :: Create_QuadLinMatStruct
+PUBLIC :: Create_LinMatStruct
+PUBLIC :: Create_ParLinMatStruct
+
+! Matrix assembly (QuadSc_assembly.f90)
+PUBLIC :: Assemble_Mass_Generic
+PUBLIC :: Assemble_Diffusion_Alpha_Generic
+PUBLIC :: Assemble_ParallelMatrix_Generic
+PUBLIC :: Create_MRhoMat
+PUBLIC :: Create_MMat
+PUBLIC :: Create_CMat
+PUBLIC :: Create_BMat
+PUBLIC :: Create_hDiffMat
+PUBLIC :: Create_ConstDiffMat
+PUBLIC :: Create_DiffMat
+PUBLIC :: Create_SMat
+PUBLIC :: Create_KMat
+
+! Solver setup (QuadSc_solver_hypre.f90)
+PUBLIC :: Setup_HYPRE_CoarseLevel_Full
+PUBLIC :: Setup_HYPRE_CoarseLevel_Geometric
+
+! Coarse solver (QuadSc_solver_coarse.f90)
+PUBLIC :: Setup_UMFPACK_CoarseSolver
+
+!===============================================================================
+
 CONTAINS
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_QuadMatStruct()
-INTEGER iSymm,nERow
-INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA
-INTEGER I,J,MatSize,NDOF
-EXTERNAL E013,coefst
-
- ALLOCATE(mg_qMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-   CALL SETLEV(2)
-
-   ndof = mg_mesh%level(ilev)%nvt+&
-          mg_mesh%level(ilev)%net+&
-          mg_mesh%level(ilev)%nat+&
-          mg_mesh%level(ilev)%nel
-
-   MatSize = 300*NDOF
-
-   ALLOCATE(TempColA(MatSize))
-   ALLOCATE(mg_qMat(ILEV)%LdA(NDOF+1))
-   mg_qMat(ILEV)%nu = NDOF
-   mg_qMat(ILEV)%na = MatSize
-   iSymm =   0
-   nERow =   300
-
-   CALL AP7(TempColA,mg_qMat(ILEV)%LdA,mg_qMat(ILEV)%na,&
-            mg_qMat(ILEV)%nu,E013,iSymm,nERow,&
-                      mg_mesh%level(ILEV)%kvert,&
-                      mg_mesh%level(ILEV)%kedge,&
-                      mg_mesh%level(ILEV)%karea)
-
-   IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-      "M,K,D,A matrix structure created",mg_qMat(ILEV)%nu,mg_qMat(ILEV)%na
-
-   ALLOCATE(mg_qMat(ILEV)%ColA(mg_qMat(ILEV)%na))
-   mg_qMat(ILEV)%ColA(:) = TempColA(1:mg_qMat(ILEV)%na)
-   DEALLOCATE(TempColA)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
- qMat => mg_qMat(NLMAX)
-
-END SUBROUTINE Create_QuadMatStruct
+! Phase 2.1: Generic Mass Matrix Assembly
+! ============================================================================
+! Purpose: Unified assembly logic for mass matrices with/without density
 !
-! ----------------------------------------------
+! This routine extracts the common ~85% code duplication between
+! Create_MMat and Create_MRhoMat into a single generic implementation.
 !
-SUBROUTINE Create_QuadLinMatStruct()
-INTEGER iSymm,nERow
-INTEGER , DIMENSION(:)  , ALLOCATABLE :: TempColA,TempLdA
-INTEGER I,J,MatSize,NDOF
-CHARACTER*10 myFile
-EXTERNAL E011,E013,E010,coefst
-
- ALLOCATE (mg_qlMat(NLMIN:NLMAX))
- ALLOCATE (mg_lqMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-  CALL SETLEV(2)
-
-  NDOF = mg_mesh%level(ilev)%nvt+&
-         mg_mesh%level(ilev)%net+&
-         mg_mesh%level(ilev)%nat+&
-         mg_mesh%level(ilev)%nel
-
-  MatSize = 16*27*mg_mesh%level(ilev)%nel
-
-  ALLOCATE(TempColA(MatSize))
-  ALLOCATE(mg_qlMat(ILEV)%LdA(NDOF+1))
-  mg_qlMat(ILEV)%nu = NDOF
-  mg_qlMat(ILEV)%na = MatSize
-  iSymm =   0
-  nERow =   16
-
-  CALL AP9(TempColA,mg_qlMat(ILEV)%LdA,mg_qlMat(ILEV)%na,&
-           mg_qlMat(ILEV)%nu,E013,E010,nERow,&
-           mg_mesh%level(ILEV)%kvert,&
-           mg_mesh%level(ILEV)%kedge,&
-           mg_mesh%level(ILEV)%karea)
-
-  mg_qlMat(ILEV)%na = 4*mg_qlMat(ILEV)%na
-
-  ALLOCATE(mg_qlMat(ILEV)%ColA(mg_qlMat(ILEV)%na))
-
-  CALL MatStructQ2P1(TempColA,mg_qlMat(ILEV)%ColA,mg_qlMat(ILEV)%LdA,&
-       mg_qlMat(ILEV)%na,mg_qlMat(ILEV)%nu)
-
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-   "B matrix structure created",mg_qlMat(ILEV)%nu,mg_qlMat(ILEV)%na
-
-!   CALL OutputMatrixStuct("MatB",mg_qlMat(ILEV))
-
-  MatSize = 4*27*mg_mesh%level(ilev)%nel
-  ALLOCATE (TempLdA(4*mg_mesh%level(ilev)%nel+1))
-  mg_lqMat(ILEV)%nu = mg_mesh%level(ilev)%nel
-  mg_lqMat(ILEV)%na = MatSize
-  iSymm =   0
-  nERow =   27
-
-  CALL AP9(TempColA,TempLdA,mg_lqMat(ILEV)%na,mg_lqMat(ILEV)%nu,E010,E013,nERow,&
-           mg_mesh%level(ILEV)%kvert,&
-           mg_mesh%level(ILEV)%kedge,&
-           mg_mesh%level(ILEV)%karea)
-
-  mg_lqMat(ILEV)%nu = 4*mg_lqMat(ILEV)%nu
-  mg_lqMat(ILEV)%na = 4*mg_lqMat(ILEV)%na
-
-  ALLOCATE(mg_lqMat(ILEV)%LdA(mg_lqMat(ILEV)%nu+1))
-  ALLOCATE(mg_lqMat(ILEV)%ColA(mg_lqMat(ILEV)%na))
-
-  CALL MatStructP1Q2(TempLdA,mg_lqMat(ILEV)%LdA,&
-                     TempColA,&
-                     mg_lqMat(ILEV)%ColA,&
-                     MatSize,mg_mesh%level(ilev)%nel)
-
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "BT matrix structure created",mg_lqMat(ILEV)%nu,mg_lqMat(ILEV)%na
-
-  DEALLOCATE(TempColA,TempLdA)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat => mg_qlMat(NLMAX)
- lqMat => mg_lqMat(NLMAX)
-
-END SUBROUTINE Create_QuadLinMatStruct
+! Parameters:
+!   use_density     - LOGICAL: if .TRUE., use BuildMRhoMat, else BuildMMat
+!   mg_MlMatrix     - Output: lumped mass matrix (row sums)
+!   mg_MlPMatrix    - Output: parallel lumped mass matrix (MPI synchronized)
+!   density_opt     - Optional: density array for BuildMRhoMat
+!   label           - Character label for progress messages
 !
-! ----------------------------------------------
-!
-SUBROUTINE Create_LinMatStruct()
-
- ALLOCATE (mg_lMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  qlPMat => mg_qlPMat(ILEV)
-
-  CALL Get_CMatLen(qlMat%LdA,qlMat%ColA,&
-                   mg_mesh%level(ILEV)%kvert,&
-                   mg_mesh%level(ilev)%nel,&
-                   mg_lMat(ILEV)%na,1)
-
-
-
-  mg_lMat(ILEV)%nu = 4*mg_mesh%level(ilev)%nel
-  ALLOCATE (mg_lMat(ILEV)%LdA(mg_lMat(ILEV)%nu+1),mg_lMat(ILEV)%ColA(mg_lMat(ILEV)%na))
-
-  mg_lMat(ILEV)%LdA=0
-  mg_lMat(ILEV)%ColA=0
-
-  CALL Get_CMatStruct(mg_lMat(ILEV)%LdA,mg_lMat(ILEV)%ColA,qlMat%LdA,qlMat%ColA,&
-       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,mg_lMat(ILEV)%na,1)
-
-  ! CALL OutputMatrixStuct("MatC",mg_lMat(ILEV))
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "C matrix structure created",mg_lMat(ILEV)%nu,mg_lMat(ILEV)%na
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat => mg_qlMat(NLMAX)
- lMat  => mg_lMat(NLMAX)
-
-END SUBROUTINE Create_LinMatStruct
-!
-! ----------------------------------------------
-!
-SUBROUTINE Create_ParLinMatStruct()
-
- ALLOCATE (mg_lPMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qlPMat => mg_qlPMat(ILEV)
-  
-
-
-
-  CALL Get_CMatLen(qlPMat%LdA,qlPMat%ColA,&
-                   mg_mesh%level(ilev)%kvert,&
-                   mg_mesh%level(ilev)%nel,&
-                   mg_lPMat(ILEV)%na,2)
-
-  mg_lPMat(ILEV)%nu = 4*NEL
-  ALLOCATE (mg_lPMat(ILEV)%LdA(mg_lPMat(ILEV)%nu+1),mg_lPMat(ILEV)%ColA(mg_lPMat(ILEV)%na))
-  mg_lPMat(ILEV)%LdA=0
-  mg_lPMat(ILEV)%ColA=0
-
-  CALL Get_CMatStruct(mg_lPMat(ILEV)%LdA,mg_lPMat(ILEV)%ColA,qlPMat%LdA,qlPMat%ColA,&
-       mg_mesh%level(ilev)%kvert,mg_mesh%level(ilev)%nel,&
-       mg_lPMat(ILEV)%na,2)
-
-  ! CALL OutputMatrixStuct("MaPC",mg_lPMat(ILEV))
-  IF (myid.eq.showID) WRITE(MTERM,'(A40,2I10)') &
-  "Parallel C matrix structure created",mg_lPMat(ILEV)%nu,mg_lPMat(ILEV)%na
-  ! pause
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlPMat => mg_lqMat(NLMAX)
- lPMat => mg_lPMat(NLMAX)
-
-END SUBROUTINE Create_ParLinMatStruct
-!
-! ----------------------------------------------
-!
-SUBROUTINE Create_MRhoMat()
-EXTERNAL E013
-REAL*8  DML
-INTEGER I,J
-
- if (.not.bMasterTurnedOn) return
- 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_Mmat))      ALLOCATE(mg_Mmat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_MlRhomat))  ALLOCATE(mg_MlRhomat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_MlRhoPmat)) ALLOCATE(mg_MlRhoPmat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Mmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  CALL BuildMRhoMat(mgDensity(ILEV)%x,mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-  mg_mesh%level(ILEV)%kvert,&
-  mg_mesh%level(ILEV)%karea,&
-  mg_mesh%level(ILEV)%kedge,&
-  mg_mesh%level(ILEV)%dcorvg,&
-  E013)
-
-  if(bSteadyState)then
-    mg_MMat(ILEV)%a = 0d0
-  end if
-
-  IF (.not.ALLOCATED(mg_MlRhomat(ILEV)%a)) ALLOCATE(mg_MlRhomat(ILEV)%a(qMat%nu))
-
-!  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling MLRho Matrix on Level [", ILEV,"]"
-  DO I=1,qMat%nu
-   DML = 0d0
-   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-    DML = DML + mg_Mmat(ILEV)%a(J)
-   END DO
-   mg_MlRhomat(ILEV)%a(I) = DML
-  END DO
-
-  IF (.not.ALLOCATED(mg_MlRhoPmat(ILEV)%a)) ALLOCATE(mg_MlRhoPmat(ILEV)%a(qMat%nu))
-  mg_MlRhoPmat(ILEV)%a = mg_MlRhomat(ILEV)%a
-  CALL E013SUM(mg_MlRhoPmat(ILEV)%a)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat      => mg_qMat(NLMAX)
- Mmat      => mg_Mmat(NLMAX)%a
- MlRhomat  => mg_MlRhomat(NLMAX)%a
- MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
-END SUBROUTINE Create_MRhoMat
-!
-! ----------------------------------------------
-!
-SUBROUTINE Create_MMat()
-EXTERNAL E013
-REAL*8  DML
-INTEGER I,J
-
- if (.not.bMasterTurnedOn) return
- 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_Mmat))  ALLOCATE(mg_Mmat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_MlMat))  ALLOCATE(mg_MlMat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_MlPMat))  ALLOCATE(mg_MlPMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Mmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Mmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Mmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [MRho] & [MlRho]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-  CALL BuildMMat(mg_Mmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-                 mg_mesh%level(ILEV)%kvert,&
-                 mg_mesh%level(ILEV)%karea,&
-                 mg_mesh%level(ILEV)%kedge,&
-                 mg_mesh%level(ILEV)%dcorvg,&
-                 E013)
-
-
-  IF (.not.ALLOCATED(mg_MlMat(ILEV)%a)) ALLOCATE(mg_MlMat(ILEV)%a(qMat%nu))
-
-  DO I=1,qMat%nu
-   DML = 0d0
-   DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-    DML = DML + mg_Mmat(ILEV)%a(J)
-   END DO
-   mg_MlMat(ILEV)%a(I) = DML
-  END DO
-
-  IF (.not.ALLOCATED(mg_MlPmat(ILEV)%a)) ALLOCATE(mg_MlPmat(ILEV)%a(qMat%nu))
-  mg_MlPmat(ILEV)%a = mg_MlMat(ILEV)%a
-  CALL E013SUM(mg_MlPmat(ILEV)%a)
-  
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat      => mg_qMat(NLMAX)
- Mmat      => mg_Mmat(NLMAX)%a
- MlMat     => mg_MlMat(NLMAX)%a
- MlPMat    => mg_MlPMat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tMMat = myStat%tMMat + (myStat%t1-myStat%t0)
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
-END SUBROUTINE Create_MMat
-!
-! ----------------------------------------------
-!
+! Design notes:
+!   - Both Create_MMat and Create_MRhoMat allocate and fill mg_Mmat
+!   - Row sum loop is identical (lines 309-315 vs 380-386 in original)
+!   - E013SUM synchronization is identical
+!   - Differences are handled by caller wrappers
+! ============================================================================
+!===============================================================================
 SUBROUTINE SetSlipOnBandBT()
 
  if (.not.bMasterTurnedOn) return 
@@ -446,346 +180,39 @@ INTEGER IEQ,I,J,JEQ,IA,ICOL,II,III,MaxDofs
 INTEGER, allocatable :: iDofs(:)
 REAL*8 , allocatable :: dDofs(:)
 
+! Phase 1: HYPRE coarse grid solver setup (type 7 - full matrix, no geometric coarsening)
 IF (lScalar%prm%MGprmIn%CrsSolverType.eq.7) then
-
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
   write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
  end if
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
- IF (myid.ne.0) THEN
-  
-  ILEV = lScalar%prm%MGprmIn%MinLev
-  CALL SETLEV(2)
-  
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
-  myHYPRE%nrows    = lPMat%nu
-  allocate(myHYPRE%Numbering(myHYPRE%nrows))
- end if
- 
- if (myid.ne.0.and.bNoOutFlow) THEN
-    do iel=1,mg_mesh%level(nlmin)%nel
-     if (coarse%myELEMLINK(iel).eq.1) then
-       WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
-       j=4*(iel-1) + 1
-       DO I=lMat%LdA(j)+1,lMat%LdA(j+1)-1
-        mg_CMat(ILEV)%a(I) = 0d0
-       END DO
-     end if
-    end do
-!   IF (myid.eq.1) THEN
-!    DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
-!     CMat(IEQ) = 0d0
-!    END DO
-!   END IF
- END IF
+ ! Call extracted HYPRE setup routine
+ CALL Setup_HYPRE_CoarseLevel_Full(lScalar, bNoOutflow)
 
- CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
- 
- IF (myid.ne.0) THEN
-  
-  DO IEQ = 1,myHYPRE%nrows
-    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
-  END DO
- end if
- 
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-!  CALL myMPI_Barrier()
-!  write(*,*) 'myidX:',myid
-!  pause
-
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   IF (myid.ne.0) THEN
-!    CALL READ_TestHYPREMatrix('hypr')
-!    
-!    CALL OutputHYPREMatrix('HYPR')
-!   end if
- 
- IF (myid.ne.0) THEN
-  
-  NDOF_p = 0
-  
-  DO IEQ=1,lPMat%nu
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    NDOF_p = max(ICOL,NDOF_p)
-   END DO
-  END DO
-  
-  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
-  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
-  
-  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
-  
-!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
-  
-  MaxDofs = 0
- 
-  myHYPRE%nonzeros = lPMat%na + lMat%na
-  allocate(myHYPRE%ncols(myHYPRE%nrows))
-  allocate(myHYPRE%sol(myHYPRE%nrows))
-  allocate(myHYPRE%rhs(myHYPRE%nrows))
-  allocate(myHYPRE%rows(myHYPRE%nrows))
-  allocate(myHYPRE%cols(myHYPRE%nonzeros))
-  allocate(myHYPRE%values(myHYPRE%nonzeros))
-  
-  do IEQ=1,myHYPRE%nrows
-   nu = (lMat%LdA(IEQ+1) - lMat%LdA(IEQ)) + (lPMat%LdA(IEQ+1) - lPMat%LdA(IEQ))
-   myHYPRE%ncols(IEQ) = NU
-   MaxDofs = max(MaxDofs,NU)
-  end do
-  
-  do IEQ=1,myHYPRE%nrows
-   myHYPRE%rows(IEQ) = myHYPRE%Numbering(IEQ)
-  end do
-
-  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
-  
-  III = 0
-  do IEQ=1,myHYPRE%nrows
-   II = 0
-   DO IA=lMat%LdA(IEQ),lMat%LdA(IEQ+1)-1
-    ICOL = lMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = myHYPRE%Numbering(ICOL)
-    dDofs(II) = CMat(IA)
-   end do
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = myHYPRE%OffPartitionNumbering(ICOL)
-    dDofs(II) = CPMat(IA)
-   end do
-   
-   CALL SORT_DOFs(iDofs,dDofs,II)
-   
-   DO IA=1,II
-    III = III + 1
-    myHYPRE%cols(III)   = iDofs(IA)
-    myHYPRE%values(III) = dDofs(IA)
-   END DO
-  end do
-    
-  if (myHYPRE%ZeroBased) then
-   myHYPRE%ilower = myHYPRE%ilower - 1
-   myHYPRE%iupper = myHYPRE%iupper - 1 
-   myHYPRE%rows = myHYPRE%rows - 1
-   myHYPRE%cols = myHYPRE%cols - 1
-  end if
-end if
-
-! CALL OutputHYPREMatrix('HYPR')
- 
-IF (myid.ne.0) THEN
-  ILEV = NLMAX
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
- END IF
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
   write(MFILE,'(A)',advance='yes') " Done!"
  end if
- 
 END IF
  
+! Phase 1: HYPRE coarse grid solver setup (type 8 - with /16 geometric coarsening)
 IF (lScalar%prm%MGprmIn%CrsSolverType.eq.8) then
-
  if (myid.eq.showid) THEN
   write(MFILE,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
   write(MTERM,'(A)',advance='no') "HYPRE structures are being generated for the C matrix ..."
  end if
 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
- IF (myid.ne.0) THEN
-  
-  ILEV = lScalar%prm%MGprmIn%MinLev
-  CALL SETLEV(2)
-  
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
-  myHYPRE%nrows    = lPMat%nu
-  allocate(myHYPRE%Numbering(myHYPRE%nrows))
- end if
- 
- if (myid.ne.0.and.bNoOutFlow) THEN
-  IF (myid.eq.1) THEN
-   WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
-   DO IEQ=lMat%LdA(1)+1,lMat%LdA(2)-1
-    CMat(IEQ) = 0d0
-   END DO
-  END IF
- END IF
- 
- CALL GetMyHYPRENumberingLimits(myHYPRE%ilower,myHYPRE%iupper,NEL)
- 
- IF (myid.ne.0) THEN
-  
-  DO IEQ = 1,myHYPRE%nrows
-    myHYPRE%Numbering(IEQ) = myHYPRE%ilower + IEQ - 1 
-  END DO
- end if
- 
- !!!!!!!!!!!!!!!!!!!!!! Create the global numbering for HYPRE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-!  CALL myMPI_Barrier()
-!  write(*,*) 'myidX:',myid
-!  pause
+ ! Call extracted HYPRE setup routine with geometric coarsening
+ CALL Setup_HYPRE_CoarseLevel_Geometric(lScalar, bNoOutflow)
 
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   IF (myid.ne.0) THEN
-!    CALL READ_TestHYPREMatrix('hypr')
-!    
-!    CALL OutputHYPREMatrix('HYPR')
-!   end if
- 
- IF (myid.ne.0) THEN
-  
-  NDOF_p = 0
-  
-  DO IEQ=1,lPMat%nu
-   DO IA=lPMat%LdA(IEQ),lPMat%LdA(IEQ+1)-1
-    ICOL = lPMat%ColA(IA)
-    NDOF_p = max(ICOL,NDOF_p)
-   END DO
-  END DO
-  
-  IF (ALLOCATED(myHYPRE%OffPartitionNumbering)) DEALLOCATE(myHYPRE%OffPartitionNumbering)
-  ALLOCATE (myHYPRE%OffPartitionNumbering(NDOF_p))
-  
-  CALL GetHYPREParPressureIndices(myHYPRE%OffPartitionNumbering)
-  
-!   WRITE(*,'(I,A,<NDOF_p>I)') myid,' : ',myHYPRE%OffPartitionNumbering(1:NDOF_p)
-  
-  MaxDofs = 0
- 
-  myHYPRE%nrows    = lPMat%nu/4
-  myHYPRE%ilower=(myHYPRE%ilower+3)/4
-  myHYPRE%iupper=myHYPRE%iupper/4
-
-  myHYPRE%nonzeros = lPMat%na/16 + lMat%na/16
-  allocate(myHYPRE%ncols(myHYPRE%nrows))
-  allocate(myHYPRE%sol(myHYPRE%nrows))
-  allocate(myHYPRE%rhs(myHYPRE%nrows))
-  allocate(myHYPRE%rows(myHYPRE%nrows))
-  allocate(myHYPRE%cols(myHYPRE%nonzeros))
-  allocate(myHYPRE%values(myHYPRE%nonzeros))
-  
-  do IEQ=1,myHYPRE%nrows
-   JEQ = 4*(IEQ-1)+1
-   nu = ((lMat%LdA(JEQ+1) - lMat%LdA(JEQ)) + (lPMat%LdA(JEQ+1) - lPMat%LdA(JEQ)))/4
-   myHYPRE%ncols(IEQ) = NU
-   MaxDofs = max(MaxDofs,NU)
-  end do
-  
-  do IEQ=1,myHYPRE%nrows
-   JEQ = 4*(IEQ-1)+1
-   myHYPRE%rows(IEQ) = (myHYPRE%Numbering(JEQ)+3)/4
-  end do
-
-  allocate(iDofs(MaxDofs),dDofs(MaxDofs))
-  
-  III = 0
-  do IEQ=1,myHYPRE%nrows
-   II = 0
-   JEQ = 4*(IEQ-1)+1
-   DO IA=lMat%LdA(JEQ),lMat%LdA(JEQ+1)-1,4
-    ICOL = lMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = (myHYPRE%Numbering(ICOL)+3)/4
-    dDofs(II) = CMat(IA)
-   end do
-   DO IA=lPMat%LdA(JEQ),lPMat%LdA(JEQ+1)-1,4
-    ICOL = lPMat%ColA(IA)
-    II = II + 1
-    iDofs(II) = (myHYPRE%OffPartitionNumbering(ICOL)+3)/4
-    dDofs(II) = CPMat(IA)
-   end do
-   
-   CALL SORT_DOFs(iDofs,dDofs,II)
-   
-   DO IA=1,II
-    III = III + 1
-    myHYPRE%cols(III)   = iDofs(IA)
-    myHYPRE%values(III) = dDofs(IA)
-   END DO
-  end do
-    
-  if (myHYPRE%ZeroBased) then
-   myHYPRE%ilower = myHYPRE%ilower - 1
-   myHYPRE%iupper = myHYPRE%iupper - 1 
-   myHYPRE%rows = myHYPRE%rows - 1
-   myHYPRE%cols = myHYPRE%cols - 1
-  end if
-end if
-
-! CALL OutputHYPREMatrix('HYPR')
- 
-IF (myid.ne.0) THEN
-  ILEV = NLMAX
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-  lPMat     => mg_lPMat(ILEV)
-  CPMat     => mg_CPMat(ILEV)%a
- 
- END IF
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!!!!!!!!!!!!!!!!!!!!!      Fill up the HYPRE structures     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
  if (myid.eq.showid) THEN
   write(MTERM,'(A)',advance='yes') " Done!"
   write(MFILE,'(A)',advance='yes') " Done!"
  end if
- 
 END IF
 
-CONTAINS
- 
- SUBROUTINE SORT_DOFs(LW,RW,N)
-   INTEGER , intent(IN) :: N
-   INTEGER LW(N),LWA
-   REAL*8  RW(N),RWA
-   INTEGER I,J
-
-   DO I=2,N
-   DO J=N,I,-1
-   IF (LW(J).LT.LW(J-1)) THEN
-     LWA     = LW(J)
-     RWA     = RW(J)
-     LW(J)   = LW(J-1)
-     RW(J)   = RW(J-1)
-     LW(J-1) = LWA
-     RW(J-1) = RWA
-   END IF
-   END DO
-   END DO
-
- END SUBROUTINE SORT_DOFs
- 
+! Phase 1: SORT_DOFs removed - now in QuadSc_solver_hypre module
 END SUBROUTINE SetUp_HYPRE_Solver
 !
 ! ----------------------------------------------
@@ -1021,168 +448,103 @@ END SUBROUTINE Create_GradDivMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
-INTEGER coarse_lev,coarse_solver
-TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
-INTEGER i,j,iEntry,jCol
-
- if (.not.bMasterTurnedOn) return
-
- CALL ZTIME(myStat%t0)
-
- IF (.NOT.ALLOCATED(mg_CMat)) ALLOCATE(mg_CMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat      => mg_qMat(ILEV)
-  lMat      => mg_lMat(ILEV)
-  qlMat     => mg_qlMat(ILEV)
-  lqMat     => mg_lqMat(ILEV)
-  BXMat     => mg_BXMat(ILEV)%a
-  BYMat     => mg_BYMat(ILEV)%a
-  BZMat     => mg_BZMat(ILEV)%a
-  BTXMat    => mg_BTXMat(ILEV)%a
-  BTYMat    => mg_BTYMat(ILEV)%a
-  BTZMat    => mg_BTZMat(ILEV)%a
-  MlRhoPmat => mg_MlRhoPmat(ILEV)%a
-
-  IF (.NOT.ALLOCATED(mg_CMat(ILEV)%a)) ALLOCATE(mg_CMat(ILEV)%a(lMat%na))
-  mg_CMat(ILEV)%a=0d0
-  CALL Get_CMat(MlRhoPmat,mg_CMat(ILEV)%a,lMat%LdA,lMat%ColA,&
-       BXMat,BYMat,BZMat,qlMat%LdA,qlMat%ColA,&
-       BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
-       knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lMat%nu,qMat%nu)
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T} MRho{-1} B]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-   !CALL OutputMatrix("MATC",lMat,mg_CMat(ILEV)%a,ILEV)
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
-!  WRITE(*,*) myid,mg_qMat(2)%nu
-!  WRITE(outfile(8:9),'(A1,I1)') "K",myid
-!  OPEN(FILE=outfile,UNIT=987)
-!  WRITE(987,*) mg_lPMat(2)%ColA
-!  CLOSE(987)
-!  STOP
-
-!   DO I=1,mg_qlMat(2)%na
-!   WRITE(987,'(G12.4)') mg_qlMAt(2)%ColA(I)
-!   WRITE(987,'(G12.4)') mg_lqMAt(2)%ColA(I)
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BXMat(2)%a(I)))
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BYMat(2)%a(I)))
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BZMat(2)%a(I)))
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTXMat(2)%a(I)))
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTYMat(2)%a(I)))
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTZMat(2)%a(I)))
-!   END DO
-!   DO I=1,mg_lMat(2)%na
-!   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_CMat(2)%a(I)))
-!   END DO
-!  CLOSE(987)
-!  STOP
-
-!  CALL OutputMatrix("cMAP",mg_lPMat(2),mg_CPMat(2)%a,2)
-! !  CALL OutputMatrix("CMAT",mg_lMat(2),mg_CMat(2)%a,2)
-!  STOP
-
- qMat      => mg_qMat(NLMAX)
- lMat      => mg_lMat(NLMAX)
- qlMat     => mg_qlMat(NLMAX)
- lqMat     => mg_lqMat(NLMAX)
- BXMat     => mg_BXMat(NLMAX)%a
- BYMat     => mg_BYMat(NLMAX)%a
- BZMat     => mg_BZMat(NLMAX)%a
- BTXMat    => mg_BTXMat(NLMAX)%a
- BTYMat    => mg_BTYMat(NLMAX)%a
- BTZMat    => mg_BTZMat(NLMAX)%a
- CMat      => mg_CMat(NLMAX)%a
- MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
-
- ! LU factorization of C-matrix needed for UMFPACK
- IF (myid.eq.0.AND.coarse_solver.ge.1.and.coarse_solver.le.4) THEN
-
-  ILEV = coarse_lev
-  CALL SETLEV(2)
-  lMat      => mg_lMat(ILEV)
-  CMat      => mg_CMat(ILEV)%a
-
-  IF (bNoOutFlow) THEN
-   DO I=lMat%LdA(1)+1,lMat%LdA(2)-1
-    CMat(I) = 0d0
-   END DO
-  END IF
-
-  IF (coarse_solver.EQ.2) THEN
-  
-
-   IF (.not.ALLOCATED(UMF_CMat)) ALLOCATE (UMF_CMat(lMat%na))
-   UMF_CMat = CMat
-   IF (.not.ALLOCATED(UMF_lMat%ColA)) ALLOCATE (UMF_lMat%ColA(lMat%na))
-   IF (.not.ALLOCATED(UMF_lMat%LdA)) ALLOCATE (UMF_lMat%LdA(lMat%nu+1))
-   UMF_lMat%ColA = lMat%ColA
-   UMF_lMat%LdA  = lMat%LdA
-   UMF_lMat%nu   = lMat%nu
-   UMF_lMat%na   = lMat%na
-   CALL myUmfPack_Factorize(UMF_CMat,UMF_lMat)
-  END IF
-
-
-  IF (coarse_solver.EQ.4.OR.coarse_solver.EQ.3) THEN
-
-     crsSTR%A%nu = lMat%nu/4
-     crsSTR%A%na = lMat%na/16   !!!! /16????????????????
-
-     IF (.not.ALLOCATED(crsSTR%A%LdA)) ALLOCATE(crsSTR%A%Lda(crsSTR%A%nu+1))
-     IF (.not.ALLOCATED(crsSTR%A%ColA)) ALLOCATE(crsSTR%A%ColA(crsSTR%A%na))
-     IF (.not.ALLOCATED(crsSTR%A_MAT)) ALLOCATE(crsSTR%A_MAT(crsSTR%A%na))
-     IF (.not.ALLOCATED(crsSTR%A_RHS)) ALLOCATE(crsSTR%A_RHS(crsSTR%A%nu))
-     IF (.not.ALLOCATED(crsSTR%A_SOL)) ALLOCATE(crsSTR%A_SOL(crsSTR%A%nu))
-
-     crsSTR%A%LdA(1) = 1
-     DO i=1,crsSTR%A%nu
-      j = 4*i-3
-      crsSTR%A%LdA(i+1) = crsSTR%A%LdA(i) + (lMat%LdA(j+1)-lMat%LdA(j))/4
-     END DO
-
-     iEntry = 0
-     DO i=1,crsSTR%A%nu
-      j = 4*(i-1) + 1
-      DO jCol = lMat%LdA(j),lMat%LdA(j+1)-1,4
-       iEntry = iEntry + 1
-       crsSTR%A%ColA(iEntry) = (lMat%ColA(jCol)-1)/4+1
-       crsSTR%A_MAT(iEntry) = CMat(jCol)
-      END DO
-     END DO
-
-     DO i=1,crsSTR%A%nu
-      j = 4*(i-1) + 1
-      if (KNPRP(ilev)%x(i).gt.0) crsSTR%A_Mat(crsSTR%A%LDA(i)) = 1d-16
-     END DO
-  
-     IF (coarse_solver.EQ.4) THEN
-      CALL myUmfPack_Factorize(crsSTR%A_MAT,crsSTR%A)
-     END IF
-
-  END IF
-
- END IF
-
- CALL ZTIME(myStat%t1)
- myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
-
-END SUBROUTINE Create_CMat
-!
+! SUBROUTINE Create_CMat(knprU,knprV,knprW,knprP,coarse_lev,coarse_solver) !(C)
+! INTEGER coarse_lev,coarse_solver
+! TYPE(mg_kVector) :: knprU(*),knprV(*),knprW(*),knprP(*)
+! INTEGER i,j,iEntry,jCol
+! 
+!  if (.not.bMasterTurnedOn) return
+! 
+!  CALL ZTIME(myStat%t0)
+! 
+!  IF (.NOT.ALLOCATED(mg_CMat)) ALLOCATE(mg_CMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qMat      => mg_qMat(ILEV)
+!   lMat      => mg_lMat(ILEV)
+!   qlMat     => mg_qlMat(ILEV)
+!   lqMat     => mg_lqMat(ILEV)
+!   BXMat     => mg_BXMat(ILEV)%a
+!   BYMat     => mg_BYMat(ILEV)%a
+!   BZMat     => mg_BZMat(ILEV)%a
+!   BTXMat    => mg_BTXMat(ILEV)%a
+!   BTYMat    => mg_BTYMat(ILEV)%a
+!   BTZMat    => mg_BTZMat(ILEV)%a
+!   MlRhoPmat => mg_MlRhoPmat(ILEV)%a
+! 
+!   IF (.NOT.ALLOCATED(mg_CMat(ILEV)%a)) ALLOCATE(mg_CMat(ILEV)%a(lMat%na))
+!   mg_CMat(ILEV)%a=0d0
+!   CALL Get_CMat(MlRhoPmat,mg_CMat(ILEV)%a,lMat%LdA,lMat%ColA,&
+!        BXMat,BYMat,BZMat,qlMat%LdA,qlMat%ColA,&
+!        BTXMat,BTYMat,BTZMat,lqMat%LdA,lqMat%ColA, &
+!        knprU(ILEV)%x,knprV(ILEV)%x,knprW(ILEV)%x,lMat%nu,qMat%nu)
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T} MRho{-1} B]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+!    !CALL OutputMatrix("MATC",lMat,mg_CMat(ILEV)%a,ILEV)
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+! !  WRITE(*,*) myid,mg_qMat(2)%nu
+! !  WRITE(outfile(8:9),'(A1,I1)') "K",myid
+! !  OPEN(FILE=outfile,UNIT=987)
+! !  WRITE(987,*) mg_lPMat(2)%ColA
+! !  CLOSE(987)
+! !  STOP
+! 
+! !   DO I=1,mg_qlMat(2)%na
+! !   WRITE(987,'(G12.4)') mg_qlMAt(2)%ColA(I)
+! !   WRITE(987,'(G12.4)') mg_lqMAt(2)%ColA(I)
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BXMat(2)%a(I)))
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BYMat(2)%a(I)))
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BZMat(2)%a(I)))
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTXMat(2)%a(I)))
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTYMat(2)%a(I)))
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_BTZMat(2)%a(I)))
+! !   END DO
+! !   DO I=1,mg_lMat(2)%na
+! !   WRITE(987,'(G12.4)') MAX(1d-18,ABS(mg_CMat(2)%a(I)))
+! !   END DO
+! !  CLOSE(987)
+! !  STOP
+! 
+! !  CALL OutputMatrix("cMAP",mg_lPMat(2),mg_CPMat(2)%a,2)
+! ! !  CALL OutputMatrix("CMAT",mg_lMat(2),mg_CMat(2)%a,2)
+! !  STOP
+! 
+!  qMat      => mg_qMat(NLMAX)
+!  lMat      => mg_lMat(NLMAX)
+!  qlMat     => mg_qlMat(NLMAX)
+!  lqMat     => mg_lqMat(NLMAX)
+!  BXMat     => mg_BXMat(NLMAX)%a
+!  BYMat     => mg_BYMat(NLMAX)%a
+!  BZMat     => mg_BZMat(NLMAX)%a
+!  BTXMat    => mg_BTXMat(NLMAX)%a
+!  BTYMat    => mg_BTYMat(NLMAX)%a
+!  BTZMat    => mg_BTZMat(NLMAX)%a
+!  CMat      => mg_CMat(NLMAX)%a
+!  MlRhoPmat => mg_MlRhoPmat(NLMAX)%a
+! 
+!  ! Phase 1: UMFPACK coarse grid solver setup (types 2, 3, 4)
+!  ! Call extracted UMFPACK setup routine
+!  CALL Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, .FALSE.)
+! 
+!  CALL ZTIME(myStat%t1)
+!  myStat%tCMat = myStat%tCMat + (myStat%t1-myStat%t0)
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! 
+! 
+! END SUBROUTINE Create_CMat
+! !
 ! ----------------------------------------------
 !
 SUBROUTINE Create_ParCMat(knprU,knprV,knprW) !(C)
@@ -1276,111 +638,111 @@ END SUBROUTINE Create_ParCMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_BMat() !(B)
-INTEGER nERow,pNEL
-INTEGER I,J
-real*8 ddx,ddy,ddz
-CHARACTER*10 myFile
-EXTERNAL E011,E013
-
- if (.not.bMasterTurnedOn) return
- 
- IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
- IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
- IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-
-  qlMat => mg_qlMat(ILEV)
-  IF (.NOT.ALLOCATED(mg_BXMat(ILEV)%a)) ALLOCATE(mg_BXMat(ILEV)%a(qlMat%na))
-  IF (.NOT.ALLOCATED(mg_BYMat(ILEV)%a)) ALLOCATE(mg_BYMat(ILEV)%a(qlMat%na))
-  IF (.NOT.ALLOCATED(mg_BZMat(ILEV)%a)) ALLOCATE(mg_BZMat(ILEV)%a(qlMat%na))
-  mg_BXMat(ILEV)%a=0d0
-  mg_BYMat(ILEV)%a=0d0
-  mg_BZMat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [B]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-  CALL Build_BMatP1(mg_BXMat(ILEV)%a,mg_BYMat(ILEV)%a,&
-       mg_BZMat(ILEV)%a,qlMat%LdA,qlMat%ColA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       qlMat%na,E013)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- IF (.NOT.ALLOCATED(mg_BTXMat)) ALLOCATE(mg_BTXMat(NLMIN:NLMAX))
- IF (.NOT.ALLOCATED(mg_BTYMat)) ALLOCATE(mg_BTYMat(NLMIN:NLMAX))
- IF (.NOT.ALLOCATED(mg_BTZMat)) ALLOCATE(mg_BTZMat(NLMIN:NLMAX))
-
-DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-
-  lqMat => mg_lqMat(ILEV)
-  IF (.NOT.ALLOCATED(mg_BTXMat(ILEV)%a)) ALLOCATE(mg_BTXMat(ILEV)%a(lqMat%na))
-  IF (.NOT.ALLOCATED(mg_BTYMat(ILEV)%a)) ALLOCATE(mg_BTYMat(ILEV)%a(lqMat%na))
-  IF (.NOT.ALLOCATED(mg_BTZMat(ILEV)%a)) ALLOCATE(mg_BTZMat(ILEV)%a(lqMat%na))
-  mg_BTXMat(ILEV)%a=0d0
-  mg_BTYMat(ILEV)%a=0d0
-  mg_BTZMat(ILEV)%a=0d0
-
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T}]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-  CALL Build_BTMatP1(mg_BTXMat(ILEV)%a,mg_BTYMat(ILEV)%a,&
-       mg_BTZMat(ILEV)%a,lqMat%LdA,lqMat%ColA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       lqMat%na,E013)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
-!  CALL OutputMatrix("bXMM",mg_qlMat(2),mg_BXMat(2)%a,2)
-!  CALL OutputMatrix("bYMM",mg_qlMat(2),mg_BYMat(2)%a,2)
-!  CALL OutputMatrix("bZMM",mg_qlMat(2),mg_BZMat(2)%a,2)
-!  CALL OutputMatrix("bXTM",mg_lqMat(2),mg_BTXMat(2)%a,2)
-!  CALL OutputMatrix("bYTM",mg_lqMat(2),mg_BTYMat(2)%a,2)
-!  CALL OutputMatrix("bZTM",mg_lqMat(2),mg_BTZMat(2)%a,2)
-!  STOP
-
-55 CONTINUE
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat  => mg_qlMat(NLMAX)
- BXMat => mg_BXMat(NLMAX)%a
- BYMat => mg_BYMat(NLMAX)%a
- BZMat => mg_BZMat(NLMAX)%a
-
- lqMat  => mg_lqMat(NLMAX)
- BTXMat => mg_BTXMat(NLMAX)%a
- BTYMat => mg_BTYMat(NLMAX)%a
- BTZMat => mg_BTZMat(NLMAX)%a
-
-END SUBROUTINE Create_BMat
-!
+! SUBROUTINE Create_BMat() !(B)
+! INTEGER nERow,pNEL
+! INTEGER I,J
+! real*8 ddx,ddy,ddz
+! CHARACTER*10 myFile
+! EXTERNAL E011,E013
+! 
+!  if (.not.bMasterTurnedOn) return
+!  
+!  IF (.NOT.ALLOCATED(mg_BXMat)) ALLOCATE(mg_BXMat(NLMIN:NLMAX))
+!  IF (.NOT.ALLOCATED(mg_BYMat)) ALLOCATE(mg_BYMat(NLMIN:NLMAX))
+!  IF (.NOT.ALLOCATED(mg_BZMat)) ALLOCATE(mg_BZMat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+! 
+!   qlMat => mg_qlMat(ILEV)
+!   IF (.NOT.ALLOCATED(mg_BXMat(ILEV)%a)) ALLOCATE(mg_BXMat(ILEV)%a(qlMat%na))
+!   IF (.NOT.ALLOCATED(mg_BYMat(ILEV)%a)) ALLOCATE(mg_BYMat(ILEV)%a(qlMat%na))
+!   IF (.NOT.ALLOCATED(mg_BZMat(ILEV)%a)) ALLOCATE(mg_BZMat(ILEV)%a(qlMat%na))
+!   mg_BXMat(ILEV)%a=0d0
+!   mg_BYMat(ILEV)%a=0d0
+!   mg_BZMat(ILEV)%a=0d0
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [B]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+!   CALL Build_BMatP1(mg_BXMat(ILEV)%a,mg_BYMat(ILEV)%a,&
+!        mg_BZMat(ILEV)%a,qlMat%LdA,qlMat%ColA,&
+!        mg_mesh%level(ILEV)%kvert,&
+!        mg_mesh%level(ILEV)%karea,&
+!        mg_mesh%level(ILEV)%kedge,&
+!        mg_mesh%level(ILEV)%dcorvg,&
+!        qlMat%na,E013)
+! 
+!  END DO
+! 
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! 
+!  IF (.NOT.ALLOCATED(mg_BTXMat)) ALLOCATE(mg_BTXMat(NLMIN:NLMAX))
+!  IF (.NOT.ALLOCATED(mg_BTYMat)) ALLOCATE(mg_BTYMat(NLMIN:NLMAX))
+!  IF (.NOT.ALLOCATED(mg_BTZMat)) ALLOCATE(mg_BTZMat(NLMIN:NLMAX))
+! 
+! DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+! 
+!   lqMat => mg_lqMat(ILEV)
+!   IF (.NOT.ALLOCATED(mg_BTXMat(ILEV)%a)) ALLOCATE(mg_BTXMat(ILEV)%a(lqMat%na))
+!   IF (.NOT.ALLOCATED(mg_BTYMat(ILEV)%a)) ALLOCATE(mg_BTYMat(ILEV)%a(lqMat%na))
+!   IF (.NOT.ALLOCATED(mg_BTZMat(ILEV)%a)) ALLOCATE(mg_BTZMat(ILEV)%a(lqMat%na))
+!   mg_BTXMat(ILEV)%a=0d0
+!   mg_BTYMat(ILEV)%a=0d0
+!   mg_BTZMat(ILEV)%a=0d0
+! 
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [B{T}]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+!   CALL Build_BTMatP1(mg_BTXMat(ILEV)%a,mg_BTYMat(ILEV)%a,&
+!        mg_BTZMat(ILEV)%a,lqMat%LdA,lqMat%ColA,&
+!        mg_mesh%level(ILEV)%kvert,&
+!        mg_mesh%level(ILEV)%karea,&
+!        mg_mesh%level(ILEV)%kedge,&
+!        mg_mesh%level(ILEV)%dcorvg,&
+!        lqMat%na,E013)
+! 
+!  END DO
+! 
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! 
+! !  CALL OutputMatrix("bXMM",mg_qlMat(2),mg_BXMat(2)%a,2)
+! !  CALL OutputMatrix("bYMM",mg_qlMat(2),mg_BYMat(2)%a,2)
+! !  CALL OutputMatrix("bZMM",mg_qlMat(2),mg_BZMat(2)%a,2)
+! !  CALL OutputMatrix("bXTM",mg_lqMat(2),mg_BTXMat(2)%a,2)
+! !  CALL OutputMatrix("bYTM",mg_lqMat(2),mg_BTYMat(2)%a,2)
+! !  CALL OutputMatrix("bZTM",mg_lqMat(2),mg_BTZMat(2)%a,2)
+! !  STOP
+! 
+! 55 CONTINUE
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qlMat  => mg_qlMat(NLMAX)
+!  BXMat => mg_BXMat(NLMAX)%a
+!  BYMat => mg_BYMat(NLMAX)%a
+!  BZMat => mg_BZMat(NLMAX)%a
+! 
+!  lqMat  => mg_lqMat(NLMAX)
+!  BTXMat => mg_BTXMat(NLMAX)%a
+!  BTYMat => mg_BTYMat(NLMAX)%a
+!  BTZMat => mg_BTZMat(NLMAX)%a
+! 
+! END SUBROUTINE Create_BMat
+! !
 ! ----------------------------------------------
 ! barMMat
 ! ----------------------------------------------
@@ -1492,460 +854,648 @@ END SUBROUTINE BuildUpPressureCommunicator
 !
 ! ----------------------------------------------
 !
+!===============================================================================
+! Subroutine: Assemble_ParallelMatrix_Generic
+!
+! Purpose: Generic routine for parallel matrix setup and coefficient filling
+!          Extracted as part of Phase 2.3 refactoring
+!
+! Description:
+!   Unified logic for Create_QuadLinParMatStruct and Fill_QuadLinParMat.
+!   These routines had ~30 lines of duplicated code for:
+!   - Level loop structure
+!   - Matrix pointer assignments
+!   - Create_ParB_COLMAT call for coefficient filling
+!
+!   Key difference controlled by allocate_structure flag:
+!   - TRUE:  Allocate arrays + fill (Create_QuadLinParMatStruct behavior)
+!   - FALSE: Only refill coefficients (Fill_QuadLinParMat behavior)
+!
+! Arguments:
+!   allocate_structure - LOGICAL: If TRUE, allocate structure arrays
+!   myPLinSc_opt      - TYPE(TParLinScalar), OPTIONAL: Output parameter structure
+!
+! Side Effects:
+!   - Allocates mg_BXPMat, mg_BYPMat, mg_BZPMat, mg_qlPMat (if allocate_structure)
+!   - Fills parallel matrix coefficients via Create_ParB_COLMAT
+!   - Sets myPLinSc_opt%ndof and allocates myPLinSc_opt%Val (if present)
+!
+! History:
+!   Phase 2.3 (2025-12-05): Initial extraction from Create/Fill pair
+!===============================================================================
+! SUBROUTINE Assemble_ParallelMatrix_Generic(allocate_structure, myPLinSc_opt)
+!   LOGICAL, INTENT(IN) :: allocate_structure
+!   TYPE(TParLinScalar), INTENT(INOUT), OPTIONAL :: myPLinSc_opt
+! 
+!   ! Local variables
+!   INTEGER :: pNEL, MatSize
+!   INTEGER, ALLOCATABLE :: TempLdB(:)
+! 
+!   ! Top-level allocation (only if creating structure)
+!   IF (allocate_structure) THEN
+!     ALLOCATE(mg_BXPMat(NLMIN:NLMAX))
+!     ALLOCATE(mg_BYPMat(NLMIN:NLMAX))
+!     ALLOCATE(mg_BZPMat(NLMIN:NLMAX))
+!     ALLOCATE(mg_qlPMat(NLMIN:NLMAX))
+!   END IF
+! 
+!   ! Process all multigrid levels
+!   DO ILEV = NLMIN, NLMAX
+! 
+!     CALL SETLEV(2)
+! 
+!     ! Set up matrix pointers for this level
+!     qlMat => mg_qlMat(ILEV)
+!     BXMat => mg_BXMat(ILEV)%a
+!     BYMat => mg_BYMat(ILEV)%a
+!     BZMat => mg_BZMat(ILEV)%a
+! 
+!     ! Structure allocation (only if creating)
+!     IF (allocate_structure) THEN
+!       ! Initialize parallel pressure communication
+!       CALL ParPresComm_Init(qlMat%ColA, qlMat%LdA, qlMat%nu, &
+!                             mg_mesh%level(ILEV)%nel, ILEV)
+! 
+!       ! Allocate parallel matrix structure
+!       mg_qlPMat(ILEV)%nu = qlMat%nu
+!       ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
+!       mg_qlPMat(ILEV)%LdA = 0
+! 
+!       ! Get parallel matrix row pointer structure
+!       CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA, qlMat%LdA, qlMat%nu, ILEV)
+! 
+!       MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
+! 
+!       IF (myid.eq.showID) THEN
+!         WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
+!                        mg_qlPMat(ILEV)%nu, MatSize
+!       END IF
+! 
+!       ! Allocate column index and coefficient arrays
+!       ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
+!       mg_qlPMat(ILEV)%ColA = 0
+! 
+!       ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
+!       ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
+!       ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
+!     END IF
+! 
+!     ! Fill coefficient arrays (always executed for both create and fill)
+!     ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+!     TempLdB = mg_qlPMat(ILEV)%LdA
+! 
+!     ! Get parallel matrix column structure and coefficients
+!     CALL Create_ParB_COLMAT(BXMat, BYMat, BZMat, &
+!                             mg_BXPMat(ILEV)%a, mg_BYPMat(ILEV)%a, mg_BZPMat(ILEV)%a, &
+!                             mg_qlPMat(ILEV)%LdA, mg_qlPMat(ILEV)%ColA, TempLdB, &
+!                             qlMat%LdA, qlMat%ColA, qlMat%nu, NEL, pNEL, ILEV)
+! 
+!     DEALLOCATE(TempLdB)
+! 
+!   END DO
+! 
+!   ! Set up output parameter structure (only if creating and parameter present)
+!   IF (allocate_structure .AND. PRESENT(myPLinSc_opt)) THEN
+!     myPLinSc_opt%ndof = pNEL
+!     IF (ALLOCATED(myPLinSc_opt%Val)) DEALLOCATE(myPLinSc_opt%Val)
+!     ALLOCATE(myPLinSc_opt%Val(4*pNEL))
+!   END IF
+! 
+!   ! Restore pointers to finest level (NLMAX)
+!   ILEV = NLMAX
+!   CALL SETLEV(2)
+! 
+!   qlMat  => mg_qlMat(NLMAX)
+!   qlPMat => mg_qlPMat(NLMAX)
+!   BXPMat => mg_BXPMat(NLMAX)%a
+!   BYPMat => mg_BYPMat(NLMAX)%a
+!   BZPMat => mg_BZPMat(NLMAX)%a
+!   BXMat  => mg_BXMat(NLMAX)%a
+!   BYMat  => mg_BYMat(NLMAX)%a
+!   BZMat  => mg_BZMat(NLMAX)%a
+! 
+! END SUBROUTINE Assemble_ParallelMatrix_Generic
+! !
+! ----------------------------------------------
+!
 SUBROUTINE Create_QuadLinParMatStruct(myPLinSc) !(B)
-TYPE(TParLinScalar) myPLinSc
-INTEGER pNEL,MatSize
-INTEGER, ALLOCATABLE :: TempLdB(:)
+! Phase 2.3: Refactored to use Assemble_ParallelMatrix_Generic
+  TYPE(TParLinScalar) myPLinSc
 
- ALLOCATE (mg_BXPMat(NLMIN:NLMAX))
- ALLOCATE (mg_BYPMat(NLMIN:NLMAX))
- ALLOCATE (mg_BZPMat(NLMIN:NLMAX))
- ALLOCATE (mg_qlPMat(NLMIN:NLMAX))
+  ! ========== New Implementation (Phase 2.3) ==========
+  ! Call generic routine with allocate_structure=TRUE
+  CALL Assemble_ParallelMatrix_Generic(.TRUE., myPLinSc)
+  ! ====================================================
 
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  BXMat => mg_BXMat(ILEV)%a
-  BYMat => mg_BYMat(ILEV)%a
-  BZMat => mg_BZMat(ILEV)%a
-
-  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,mg_mesh%level(ILEV)%nel,ILEV)
-
-  mg_qlPMat(ILEV)%nu = qlMat%nu
-  ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
-  mg_qlPMat(ILEV)%LdA = 0
-  ! Get the Par_LD_B structure
-  CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA,qlMat%LdA,qlMat%nu,ILEV)
-  MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
-  IF (myid.eq.showID) WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
-  mg_qlPMat(ILEV)%nu,MatSize
-  ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
-  mg_qlPMat(ILEV)%ColA = 0
-
-  ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
-  ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
-  ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
-
-  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
-  TempLdB = mg_qlPMat(ILEV)%LdA
-
-  ! Get the Par_COL_B structure
-  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
-       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
-       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
-       qlMat%LdA,qlMat%ColA,qlMat%nu,&
-       mg_mesh%level(ILEV)%nel,&
-       pNEL,ILEV)
-
-  DEALLOCATE(TempLdB)
-
- END DO
-
- myPLinSc%ndof=pNEL
- IF (ALLOCATED(myPLinSc%Val)) DEALLOCATE(myPLinSc%Val)
- ALLOCATE (myPLinSc%Val(4*pNEL))
-
-! CALL OutputMatrixStuct("BPm3",mg_qlPMat(3))
-!  CALL OutputMatrix("bXPM",mg_qlPMat(2),mg_BXPMat(2)%a,2)
-!  CALL OutputMatrix("bYPM",mg_qlPMat(2),mg_BYPMat(2)%a,2)
-!  CALL OutputMatrix("bZPM",mg_qlPMat(2),mg_BZPMat(2)%a,2)
-!  STOP
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat  => mg_qlMat(NLMAX)
- qlPMat => mg_qlPMat(NLMAX)
- BXPMat => mg_BXPMat(NLMAX)%a
- BYPMat => mg_BYPMat(NLMAX)%a
- BZPMat => mg_BZPMat(NLMAX)%a
- BXMat  => mg_BXMat(NLMAX)%a
- BYMat  => mg_BYMat(NLMAX)%a
- BZMat  => mg_BZMat(NLMAX)%a
+! ========== Original Implementation (Phase 2.3 - Commented for validation) ==========
+! INTEGER pNEL,MatSize
+! INTEGER, ALLOCATABLE :: TempLdB(:)
+!
+! ALLOCATE (mg_BXPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_BYPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_BZPMat(NLMIN:NLMAX))
+! ALLOCATE (mg_qlPMat(NLMIN:NLMAX))
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qlMat => mg_qlMat(ILEV)
+!  BXMat => mg_BXMat(ILEV)%a
+!  BYMat => mg_BYMat(ILEV)%a
+!  BZMat => mg_BZMat(ILEV)%a
+!
+!  CALL ParPresComm_Init(qlMat%ColA,qlMat%LdA,qlMat%nu,mg_mesh%level(ILEV)%nel,ILEV)
+!
+!  mg_qlPMat(ILEV)%nu = qlMat%nu
+!  ALLOCATE(mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1))
+!  mg_qlPMat(ILEV)%LdA = 0
+!  ! Get the Par_LD_B structure
+!  CALL Create_ParB_LD(mg_qlPMat(ILEV)%LdA,qlMat%LdA,qlMat%nu,ILEV)
+!  MatSize = mg_qlPMat(ILEV)%LdA(mg_qlPMat(ILEV)%nu+1)
+!  IF (myid.eq.showID) WRITE(MTERM,*) "Parallel B Matrix and Structure created", &
+!  mg_qlPMat(ILEV)%nu,MatSize
+!  ALLOCATE(mg_qlPMat(ILEV)%ColA(MatSize))
+!  mg_qlPMat(ILEV)%ColA = 0
+!
+!  ALLOCATE(mg_BXPMat(ILEV)%a(MatSize))
+!  ALLOCATE(mg_BYPMat(ILEV)%a(MatSize))
+!  ALLOCATE(mg_BZPMat(ILEV)%a(MatSize))
+!
+!  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+!  TempLdB = mg_qlPMat(ILEV)%LdA
+!
+!  ! Get the Par_COL_B structure
+!  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
+!       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
+!       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
+!       qlMat%LdA,qlMat%ColA,qlMat%nu,&
+!       mg_mesh%level(ILEV)%nel,&
+!       pNEL,ILEV)
+!
+!  DEALLOCATE(TempLdB)
+!
+! END DO
+!
+! myPLinSc%ndof=pNEL
+! IF (ALLOCATED(myPLinSc%Val)) DEALLOCATE(myPLinSc%Val)
+! ALLOCATE (myPLinSc%Val(4*pNEL))
+!
+!! CALL OutputMatrixStuct("BPm3",mg_qlPMat(3))
+!!  CALL OutputMatrix("bXPM",mg_qlPMat(2),mg_BXPMat(2)%a,2)
+!!  CALL OutputMatrix("bYPM",mg_qlPMat(2),mg_BYPMat(2)%a,2)
+!!  CALL OutputMatrix("bZPM",mg_qlPMat(2),mg_BZPMat(2)%a,2)
+!!  STOP
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qlMat  => mg_qlMat(NLMAX)
+! qlPMat => mg_qlPMat(NLMAX)
+! BXPMat => mg_BXPMat(NLMAX)%a
+! BYPMat => mg_BYPMat(NLMAX)%a
+! BZPMat => mg_BZPMat(NLMAX)%a
+! BXMat  => mg_BXMat(NLMAX)%a
+! BYMat  => mg_BYMat(NLMAX)%a
+! BZMat  => mg_BZMat(NLMAX)%a
+! =====================================================================================
 
 END SUBROUTINE Create_QuadLinParMatStruct
 !
 ! ----------------------------------------------
 !
 SUBROUTINE Fill_QuadLinParMat() !(B)
-INTEGER pNEL
-INTEGER, ALLOCATABLE :: TempLdB(:)
+! Phase 2.3: Refactored to use Assemble_ParallelMatrix_Generic
 
- DO ILEV=NLMIN,NLMAX
+  ! ========== New Implementation (Phase 2.3) ==========
+  ! Call generic routine with allocate_structure=FALSE (refill only)
+  CALL Assemble_ParallelMatrix_Generic(.FALSE.)
+  ! ====================================================
 
-  CALL SETLEV(2)
-  qlMat => mg_qlMat(ILEV)
-  BXMat => mg_BXMat(ILEV)%a
-  BYMat => mg_BYMat(ILEV)%a
-  BZMat => mg_BZMat(ILEV)%a
-
-  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
-  TempLdB = mg_qlPMat(ILEV)%LdA
-
-  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
-       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
-       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
-       qlMat%LdA,qlMat%ColA,qlMat%nu,NEL,pNEL,ILEV)
-
-  DEALLOCATE(TempLdB)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qlMat  => mg_qlMat(NLMAX)
- qlPMat => mg_qlPMat(NLMAX)
- BXPMat => mg_BXPMat(NLMAX)%a
- BYPMat => mg_BYPMat(NLMAX)%a
- BZPMat => mg_BZPMat(NLMAX)%a
- BXMat  => mg_BXMat(NLMAX)%a
- BYMat  => mg_BYMat(NLMAX)%a
- BZMat  => mg_BZMat(NLMAX)%a
+! ========== Original Implementation (Phase 2.3 - Commented for validation) ==========
+! INTEGER pNEL
+! INTEGER, ALLOCATABLE :: TempLdB(:)
+!
+! DO ILEV=NLMIN,NLMAX
+!
+!  CALL SETLEV(2)
+!  qlMat => mg_qlMat(ILEV)
+!  BXMat => mg_BXMat(ILEV)%a
+!  BYMat => mg_BYMat(ILEV)%a
+!  BZMat => mg_BZMat(ILEV)%a
+!
+!  ALLOCATE(TempLdB(mg_qlPMat(ILEV)%nu+1))
+!  TempLdB = mg_qlPMat(ILEV)%LdA
+!
+!  CALL Create_ParB_COLMAT(BXMat,BYMat,BZMat,&
+!       mg_BXPMat(ILEV)%a,mg_BYPMat(ILEV)%a,mg_BZPMat(ILEV)%a,&
+!       mg_qlPMat(ILEV)%LdA,mg_qlPMat(ILEV)%ColA,TempLdB,&
+!       qlMat%LdA,qlMat%ColA,qlMat%nu,NEL,pNEL,ILEV)
+!
+!  DEALLOCATE(TempLdB)
+!
+! END DO
+!
+! ILEV=NLMAX
+! CALL SETLEV(2)
+!
+! qlMat  => mg_qlMat(NLMAX)
+! qlPMat => mg_qlPMat(NLMAX)
+! BXPMat => mg_BXPMat(NLMAX)%a
+! BYPMat => mg_BYPMat(NLMAX)%a
+! BZPMat => mg_BZPMat(NLMAX)%a
+! BXMat  => mg_BXMat(NLMAX)%a
+! BYMat  => mg_BYMat(NLMAX)%a
+! BZMat  => mg_BZMat(NLMAX)%a
+! =====================================================================================
 
 END SUBROUTINE Fill_QuadLinParMat
 !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_hDiffMat()
-EXTERNAL E013
-
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_hDmat)) THEN
-  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
- ELSE
-  IF (myid.eq.showID) THEN
-   WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: Exists |"
-  END IF
-  RETURN
- END IF
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_hDmat(ILEV)%a)) THEN
-   ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_hDmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  if (myid.ne.0) then
-  CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
-       qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013,1d0)
-  end if
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat  => mg_qMat(NLMAX)
- hDMat => mg_hDMat(NLMAX)%a
- 
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
-
-END SUBROUTINE Create_hDiffMat
-!
+! SUBROUTINE Create_hDiffMat()
+! ! Phase 2.2: Refactored to use Assemble_Diffusion_Alpha_Generic
+! 
+!  ! ========== New Implementation (Phase 2.2) ==========
+!  ! Check if matrix already exists (early exit)
+!  IF (.NOT. ALLOCATED(mg_hDmat)) THEN
+!    ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+!  ELSE
+!    IF (myid.eq.showID) THEN
+!      WRITE(MTERM,'(A)', advance='no') " [hD]: Exists |"
+!    END IF
+!    RETURN
+!  END IF
+! 
+!  ! Call generic assembly routine with alpha=1.0, worker-only guard
+!  CALL Assemble_Diffusion_Alpha_Generic(mg_hDmat, 1.0d0, "[hD]", .TRUE.)
+!  ! ====================================================
+! 
+!  ! Set final pointer to NLMAX level
+!  qMat  => mg_qMat(NLMAX)
+!  hDMat => mg_hDMat(NLMAX)%a
+! 
+! ! ========== Original Implementation (Phase 2.2 - Commented for validation) ==========
+! ! EXTERNAL E013
+! !
+! ! CALL ZTIME(myStat%t0)
+! !
+! ! IF (.not.ALLOCATED(mg_hDmat)) THEN
+! !  ALLOCATE(mg_hDmat(NLMIN:NLMAX))
+! ! ELSE
+! !  IF (myid.eq.showID) THEN
+! !   WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: Exists |"
+! !  END IF
+! !  RETURN
+! ! END IF
+! !
+! ! DO ILEV=NLMIN,NLMAX
+! !
+! !  CALL SETLEV(2)
+! !  qMat => mg_qMat(ILEV)
+! !
+! !  IF (.not.ALLOCATED(mg_hDmat(ILEV)%a)) THEN
+! !   ALLOCATE(mg_hDmat(ILEV)%a(qMat%na))
+! !  END IF
+! !
+! !  mg_hDmat(ILEV)%a=0d0
+! !
+! !  IF (myid.eq.showID) THEN
+! !   IF (ILEV.EQ.NLMIN) THEN
+! !    WRITE(MTERM,'(A,I1,A)', advance='no') " [hD]: [", ILEV,"]"
+! !   ELSE
+! !    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+! !   END IF
+! !  END IF
+! !
+! !  if (myid.ne.0) then
+! !  CALL DIFFQ2_alpha(mg_hDmat(ILEV)%a,qMat%na,qMat%ColA,&
+! !       qMat%LdA,&
+! !       mg_mesh%level(ILEV)%kvert,&
+! !       mg_mesh%level(ILEV)%karea,&
+! !       mg_mesh%level(ILEV)%kedge,&
+! !       mg_mesh%level(ILEV)%dcorvg,&
+! !       E013,1d0)
+! !  end if
+! !
+! ! END DO
+! !
+! ! IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! !
+! ! ILEV=NLMAX
+! ! CALL SETLEV(2)
+! !
+! ! qMat  => mg_qMat(NLMAX)
+! ! hDMat => mg_hDMat(NLMAX)%a
+! !
+! ! CALL ZTIME(myStat%t1)
+! ! myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+! ! ====================================================
+! 
+! END SUBROUTINE Create_hDiffMat
+! !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_ConstDiffMat()
-EXTERNAL E013
-
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_ConstDMat)) THEN
-  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
- ELSE
-  IF (myid.eq.showID) THEN
-   WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: Exists |"
-  END IF
-  RETURN
- END IF
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_ConstDMat(ILEV)%a)) THEN
-   ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_ConstDMat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  CALL DIFFQ2_alpha(mg_ConstDMat(ILEV)%a,qMat%na,qMat%ColA,&
-       qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013,0d0)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat      => mg_qMat(NLMAX)
- ConstDMat => mg_ConstDMat(NLMAX)%a
- 
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
-
-END SUBROUTINE Create_ConstDiffMat
-!
+! SUBROUTINE Create_ConstDiffMat()
+! ! Phase 2.2: Refactored to use Assemble_Diffusion_Alpha_Generic
+! 
+!  ! ========== New Implementation (Phase 2.2) ==========
+!  ! Check if matrix already exists (early exit)
+!  IF (.NOT. ALLOCATED(mg_ConstDMat)) THEN
+!    ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+!  ELSE
+!    IF (myid.eq.showID) THEN
+!      WRITE(MTERM,'(A)', advance='no') " [VD]: Exists |"
+!    END IF
+!    RETURN
+!  END IF
+! 
+!  ! Call generic assembly routine with alpha=0.0, no worker guard
+!  CALL Assemble_Diffusion_Alpha_Generic(mg_ConstDMat, 0.0d0, "[VD]", .FALSE.)
+!  ! ====================================================
+! 
+!  ! Set final pointer to NLMAX level
+!  qMat      => mg_qMat(NLMAX)
+!  ConstDMat => mg_ConstDMat(NLMAX)%a
+! 
+! ! ========== Original Implementation (Phase 2.2 - Commented for validation) ==========
+! ! EXTERNAL E013
+! !
+! ! CALL ZTIME(myStat%t0)
+! !
+! ! IF (.not.ALLOCATED(mg_ConstDMat)) THEN
+! !  ALLOCATE(mg_ConstDMat(NLMIN:NLMAX))
+! ! ELSE
+! !  IF (myid.eq.showID) THEN
+! !   WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: Exists |"
+! !  END IF
+! !  RETURN
+! ! END IF
+! !
+! ! DO ILEV=NLMIN,NLMAX
+! !
+! !  CALL SETLEV(2)
+! !  qMat => mg_qMat(ILEV)
+! !
+! !  IF (.not.ALLOCATED(mg_ConstDMat(ILEV)%a)) THEN
+! !   ALLOCATE(mg_ConstDMat(ILEV)%a(qMat%na))
+! !  END IF
+! !
+! !  mg_ConstDMat(ILEV)%a=0d0
+! !
+! !  IF (myid.eq.showID) THEN
+! !   IF (ILEV.EQ.NLMIN) THEN
+! !    WRITE(MTERM,'(A,I1,A)', advance='no') " [VD]: [", ILEV,"]"
+! !   ELSE
+! !    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+! !   END IF
+! !  END IF
+! !
+! !  CALL DIFFQ2_alpha(mg_ConstDMat(ILEV)%a,qMat%na,qMat%ColA,&
+! !       qMat%LdA,&
+! !       mg_mesh%level(ILEV)%kvert,&
+! !       mg_mesh%level(ILEV)%karea,&
+! !       mg_mesh%level(ILEV)%kedge,&
+! !       mg_mesh%level(ILEV)%dcorvg,&
+! !       E013,0d0)
+! !
+! ! END DO
+! !
+! ! IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! !
+! ! ILEV=NLMAX
+! ! CALL SETLEV(2)
+! !
+! ! qMat      => mg_qMat(NLMAX)
+! ! ConstDMat => mg_ConstDMat(NLMAX)%a
+! !
+! ! CALL ZTIME(myStat%t1)
+! ! myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+! ! ====================================================
+! 
+! END SUBROUTINE Create_ConstDiffMat
+! !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_DiffMat(myScalar)
-TYPE(TQuadScalar) myScalar
-EXTERNAL E013
-
- if (.not.bMasterTurnedOn) return 
- 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_Dmat)) ALLOCATE(mg_Dmat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Dmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Dmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Dmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  if(bNonNewtonian) THEN
-   if (bMultiMat) then
-    CALL DIFFQ2_AlphaNNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
-         MaterialDistribution(ILEV)%x,&
-         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-         mg_mesh%level(ILEV)%kvert,&
-         mg_mesh%level(ILEV)%karea,&
-         mg_mesh%level(ILEV)%kedge,&
-         mg_mesh%level(ILEV)%dcorvg,&
-         E013)
-   else
-    CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
-         Temperature,& !MaterialDistribution(ILEV)%x,&
-         mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
-         mg_mesh%level(ILEV)%kvert,&
-         mg_mesh%level(ILEV)%karea,&
-         mg_mesh%level(ILEV)%kedge,&
-         mg_mesh%level(ILEV)%dcorvg,&
-         E013)
-   end if
-  else 
-    CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
-         qMat%LdA,&
-         mg_mesh%level(ILEV)%kvert,&
-         mg_mesh%level(ILEV)%karea,&
-         mg_mesh%level(ILEV)%kedge,&
-         mg_mesh%level(ILEV)%dcorvg,&
-         E013)
-  end if
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat  => mg_qMat(NLMAX)
- DMat => mg_DMat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
-
-END SUBROUTINE Create_DiffMat
-!
+! SUBROUTINE Create_DiffMat(myScalar)
+! TYPE(TQuadScalar) myScalar
+! EXTERNAL E013
+! 
+!  if (.not.bMasterTurnedOn) return 
+!  
+!  CALL ZTIME(myStat%t0)
+! 
+!  IF (.not.ALLOCATED(mg_Dmat)) ALLOCATE(mg_Dmat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qMat => mg_qMat(ILEV)
+! 
+!   IF (.not.ALLOCATED(mg_Dmat(ILEV)%a)) THEN
+!    ALLOCATE(mg_Dmat(ILEV)%a(qMat%na))
+!   END IF
+! 
+!   mg_Dmat(ILEV)%a=0d0
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [D]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+! 
+!   if(bNonNewtonian) THEN
+!    if (bMultiMat) then
+!     CALL DIFFQ2_AlphaNNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+!          MaterialDistribution(ILEV)%x,&
+!          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+!          mg_mesh%level(ILEV)%kvert,&
+!          mg_mesh%level(ILEV)%karea,&
+!          mg_mesh%level(ILEV)%kedge,&
+!          mg_mesh%level(ILEV)%dcorvg,&
+!          E013)
+!    else
+!     CALL DIFFQ2_NNEWT(myScalar%valU, myScalar%valV,myScalar%valW, &
+!          Temperature,& !MaterialDistribution(ILEV)%x,&
+!          mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,qMat%LdA,&
+!          mg_mesh%level(ILEV)%kvert,&
+!          mg_mesh%level(ILEV)%karea,&
+!          mg_mesh%level(ILEV)%kedge,&
+!          mg_mesh%level(ILEV)%dcorvg,&
+!          E013)
+!    end if
+!   else 
+!     CALL DIFFQ2_NEWT(mg_Dmat(ILEV)%a,qMat%na,qMat%ColA,&
+!          qMat%LdA,&
+!          mg_mesh%level(ILEV)%kvert,&
+!          mg_mesh%level(ILEV)%karea,&
+!          mg_mesh%level(ILEV)%kedge,&
+!          mg_mesh%level(ILEV)%dcorvg,&
+!          E013)
+!   end if
+! 
+!  END DO
+! 
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qMat  => mg_qMat(NLMAX)
+!  DMat => mg_DMat(NLMAX)%a
+! 
+!  CALL ZTIME(myStat%t1)
+!  myStat%tDMat = myStat%tDMat + (myStat%t1-myStat%t0)
+! 
+! END SUBROUTINE Create_DiffMat
+! !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_SMat(myScalar)
-TYPE(TQuadScalar) myScalar
-EXTERNAL E013
-INTEGER i
-
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_S11mat)) ALLOCATE(mg_S11mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S22mat)) ALLOCATE(mg_S22mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S33mat)) ALLOCATE(mg_S33mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S12mat)) ALLOCATE(mg_S12mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S13mat)) ALLOCATE(mg_S13mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S23mat)) ALLOCATE(mg_S23mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S21mat)) ALLOCATE(mg_S21mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S31mat)) ALLOCATE(mg_S31mat(NLMIN:NLMAX))
- IF (.not.ALLOCATED(mg_S32mat)) ALLOCATE(mg_S32mat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_S11mat(ILEV)%a)) ALLOCATE(mg_S11mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S22mat(ILEV)%a)) ALLOCATE(mg_S22mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S33mat(ILEV)%a)) ALLOCATE(mg_S33mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S12mat(ILEV)%a)) ALLOCATE(mg_S12mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S13mat(ILEV)%a)) ALLOCATE(mg_S13mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S23mat(ILEV)%a)) ALLOCATE(mg_S23mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S21mat(ILEV)%a)) ALLOCATE(mg_S21mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S31mat(ILEV)%a)) ALLOCATE(mg_S31mat(ILEV)%a(qMat%na))
-  IF (.not.ALLOCATED(mg_S32mat(ILEV)%a)) ALLOCATE(mg_S32mat(ILEV)%a(qMat%na))
-
-  mg_S11mat(ILEV)%a=0d0
-  mg_S22mat(ILEV)%a=0d0
-  mg_S33mat(ILEV)%a=0d0
-  mg_S12mat(ILEV)%a=0d0
-  mg_S13mat(ILEV)%a=0d0
-  mg_S23mat(ILEV)%a=0d0
-  mg_S21mat(ILEV)%a=0d0
-  mg_S31mat(ILEV)%a=0d0
-  mg_S32mat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [S]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-!  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling S Matrix on Level", ILEV
-
-  CALL CUBATURESTRESS(myScalar%valU, myScalar%valV,myScalar%valW, &
-       Temperature,&
-       mg_S11mat(ILEV)%a,mg_S22mat(ILEV)%a,mg_S33mat(ILEV)%a,&
-       mg_S12mat(ILEV)%a,mg_S13mat(ILEV)%a,mg_S23mat(ILEV)%a,&
-       mg_S21mat(ILEV)%a,mg_S31mat(ILEV)%a,mg_S32mat(ILEV)%a,&
-       qMat%na,qMat%ColA,qMat%LdA,&
-       mg_mesh%level(ILEV)%kvert,&
-       mg_mesh%level(ILEV)%karea,&
-       mg_mesh%level(ILEV)%kedge,&
-       mg_mesh%level(ILEV)%dcorvg,&
-       E013)
-
- END DO
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat  => mg_qMat(NLMAX)
- S11Mat => mg_S11Mat(NLMAX)%a
- S22Mat => mg_S22Mat(NLMAX)%a
- S33Mat => mg_S33Mat(NLMAX)%a
- S12Mat => mg_S12Mat(NLMAX)%a
- S13Mat => mg_S13Mat(NLMAX)%a
- S23Mat => mg_S23Mat(NLMAX)%a
- S21Mat => mg_S21Mat(NLMAX)%a
- S31Mat => mg_S31Mat(NLMAX)%a
- S32Mat => mg_S32Mat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tSMat = myStat%tSMat + (myStat%t1-myStat%t0)
-
-END SUBROUTINE Create_SMat
-!
+! SUBROUTINE Create_SMat(myScalar)
+! TYPE(TQuadScalar) myScalar
+! EXTERNAL E013
+! INTEGER i
+! 
+!  CALL ZTIME(myStat%t0)
+! 
+!  IF (.not.ALLOCATED(mg_S11mat)) ALLOCATE(mg_S11mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S22mat)) ALLOCATE(mg_S22mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S33mat)) ALLOCATE(mg_S33mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S12mat)) ALLOCATE(mg_S12mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S13mat)) ALLOCATE(mg_S13mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S23mat)) ALLOCATE(mg_S23mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S21mat)) ALLOCATE(mg_S21mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S31mat)) ALLOCATE(mg_S31mat(NLMIN:NLMAX))
+!  IF (.not.ALLOCATED(mg_S32mat)) ALLOCATE(mg_S32mat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qMat => mg_qMat(ILEV)
+! 
+!   IF (.not.ALLOCATED(mg_S11mat(ILEV)%a)) ALLOCATE(mg_S11mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S22mat(ILEV)%a)) ALLOCATE(mg_S22mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S33mat(ILEV)%a)) ALLOCATE(mg_S33mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S12mat(ILEV)%a)) ALLOCATE(mg_S12mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S13mat(ILEV)%a)) ALLOCATE(mg_S13mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S23mat(ILEV)%a)) ALLOCATE(mg_S23mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S21mat(ILEV)%a)) ALLOCATE(mg_S21mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S31mat(ILEV)%a)) ALLOCATE(mg_S31mat(ILEV)%a(qMat%na))
+!   IF (.not.ALLOCATED(mg_S32mat(ILEV)%a)) ALLOCATE(mg_S32mat(ILEV)%a(qMat%na))
+! 
+!   mg_S11mat(ILEV)%a=0d0
+!   mg_S22mat(ILEV)%a=0d0
+!   mg_S33mat(ILEV)%a=0d0
+!   mg_S12mat(ILEV)%a=0d0
+!   mg_S13mat(ILEV)%a=0d0
+!   mg_S23mat(ILEV)%a=0d0
+!   mg_S21mat(ILEV)%a=0d0
+!   mg_S31mat(ILEV)%a=0d0
+!   mg_S32mat(ILEV)%a=0d0
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [S]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+! !  IF (myid.eq.showID) WRITE(MTERM,*) "Assembling S Matrix on Level", ILEV
+! 
+!   CALL CUBATURESTRESS(myScalar%valU, myScalar%valV,myScalar%valW, &
+!        Temperature,&
+!        mg_S11mat(ILEV)%a,mg_S22mat(ILEV)%a,mg_S33mat(ILEV)%a,&
+!        mg_S12mat(ILEV)%a,mg_S13mat(ILEV)%a,mg_S23mat(ILEV)%a,&
+!        mg_S21mat(ILEV)%a,mg_S31mat(ILEV)%a,mg_S32mat(ILEV)%a,&
+!        qMat%na,qMat%ColA,qMat%LdA,&
+!        mg_mesh%level(ILEV)%kvert,&
+!        mg_mesh%level(ILEV)%karea,&
+!        mg_mesh%level(ILEV)%kedge,&
+!        mg_mesh%level(ILEV)%dcorvg,&
+!        E013)
+! 
+!  END DO
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qMat  => mg_qMat(NLMAX)
+!  S11Mat => mg_S11Mat(NLMAX)%a
+!  S22Mat => mg_S22Mat(NLMAX)%a
+!  S33Mat => mg_S33Mat(NLMAX)%a
+!  S12Mat => mg_S12Mat(NLMAX)%a
+!  S13Mat => mg_S13Mat(NLMAX)%a
+!  S23Mat => mg_S23Mat(NLMAX)%a
+!  S21Mat => mg_S21Mat(NLMAX)%a
+!  S31Mat => mg_S31Mat(NLMAX)%a
+!  S32Mat => mg_S32Mat(NLMAX)%a
+! 
+!  CALL ZTIME(myStat%t1)
+!  myStat%tSMat = myStat%tSMat + (myStat%t1-myStat%t0)
+! 
+! END SUBROUTINE Create_SMat
+! !
 ! ----------------------------------------------
 !
-SUBROUTINE Create_KMat(myScalar)
-TYPE(TQuadScalar) myScalar
-INTEGER LINT
-EXTERNAL E013
-! Assembly for Convection Kmat
-
- if (.not.bMasterTurnedOn) return 
- 
- CALL ZTIME(myStat%t0)
-
- IF (.not.ALLOCATED(mg_Kmat)) ALLOCATE(mg_Kmat(NLMIN:NLMAX))
-
- DO ILEV=NLMIN,NLMAX
-
-  CALL SETLEV(2)
-  qMat => mg_qMat(ILEV)
-
-  IF (.not.ALLOCATED(mg_Kmat(ILEV)%a)) THEN
-   ALLOCATE(mg_Kmat(ILEV)%a(qMat%na))
-  END IF
-
-  mg_Kmat(ILEV)%a=0d0
-
-  IF (myid.eq.showID) THEN
-   IF (ILEV.EQ.NLMIN) THEN
-    WRITE(MTERM,'(A,I1,A)', advance='no') " [KRho]: [", ILEV,"]"
-   ELSE
-    WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-   END IF
-  END IF
-
-  LINT = KLINT(ILEV)
-
-  CALL CONVQ2(mgDensity(ILEV)%x,myScalar%valU,myScalar%valV,myScalar%valW,&
-  myALE%MeshVelo,&
-  mg_Kmat(ILEV)%a,qMat%nu,qMat%ColA,qMat%LdA,&
-  mg_mesh%level(ILEV)%kvert,&
-  mg_mesh%level(ILEV)%karea,&
-  mg_mesh%level(ILEV)%kedge,&
-  mg_mesh%level(ILEV)%dcorvg,&
-  E013)
-
- END DO
-
- IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
-
- ILEV=NLMAX
- CALL SETLEV(2)
-
- qMat  => mg_qMat(NLMAX)
- KMat => mg_KMat(NLMAX)%a
-
- CALL ZTIME(myStat%t1)
- myStat%tKMat = myStat%tKMat + (myStat%t1-myStat%t0)
-!  WRITE(*,*) myid,myStat%tKMat,myStat%t1-myStat%t0
-
-END SUBROUTINE Create_KMat
-!
+! SUBROUTINE Create_KMat(myScalar)
+! TYPE(TQuadScalar) myScalar
+! INTEGER LINT
+! EXTERNAL E013
+! ! Assembly for Convection Kmat
+! 
+!  if (.not.bMasterTurnedOn) return 
+!  
+!  CALL ZTIME(myStat%t0)
+! 
+!  IF (.not.ALLOCATED(mg_Kmat)) ALLOCATE(mg_Kmat(NLMIN:NLMAX))
+! 
+!  DO ILEV=NLMIN,NLMAX
+! 
+!   CALL SETLEV(2)
+!   qMat => mg_qMat(ILEV)
+! 
+!   IF (.not.ALLOCATED(mg_Kmat(ILEV)%a)) THEN
+!    ALLOCATE(mg_Kmat(ILEV)%a(qMat%na))
+!   END IF
+! 
+!   mg_Kmat(ILEV)%a=0d0
+! 
+!   IF (myid.eq.showID) THEN
+!    IF (ILEV.EQ.NLMIN) THEN
+!     WRITE(MTERM,'(A,I1,A)', advance='no') " [KRho]: [", ILEV,"]"
+!    ELSE
+!     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
+!    END IF
+!   END IF
+! 
+!   LINT = KLINT(ILEV)
+! 
+!   CALL CONVQ2(mgDensity(ILEV)%x,myScalar%valU,myScalar%valV,myScalar%valW,&
+!   myALE%MeshVelo,&
+!   mg_Kmat(ILEV)%a,qMat%nu,qMat%ColA,qMat%LdA,&
+!   mg_mesh%level(ILEV)%kvert,&
+!   mg_mesh%level(ILEV)%karea,&
+!   mg_mesh%level(ILEV)%kedge,&
+!   mg_mesh%level(ILEV)%dcorvg,&
+!   E013)
+! 
+!  END DO
+! 
+!  IF (myid.eq.showID) WRITE(MTERM,'(A)', advance='no') " |"
+! 
+!  ILEV=NLMAX
+!  CALL SETLEV(2)
+! 
+!  qMat  => mg_qMat(NLMAX)
+!  KMat => mg_KMat(NLMAX)%a
+! 
+!  CALL ZTIME(myStat%t1)
+!  myStat%tKMat = myStat%tKMat + (myStat%t1-myStat%t0)
+! !  WRITE(*,*) myid,myStat%tKMat,myStat%t1-myStat%t0
+! 
+! END SUBROUTINE Create_KMat
+! !
 ! ----------------------------------------------
 !
 ! SUBROUTINE AddStressToRHS(myScalar)
@@ -3811,58 +3361,58 @@ END SUBROUTINE PressureToGMV
 !
 ! ----------------------------------------------
 !
-SUBROUTINE MatStructQ2P1(ColAo,ColAn,LdA,na,nu)
-IMPLICIT NONE
-INTEGER ColAo(*),ColAn(*),LdA(*),na,nu
-INTEGER i,j,k,nn,ijEntry
-
-nn = 0
-DO i=1,nu
- DO j=LdA(i),LdA(i+1)-1
-  ijEntry = ColAo(j)
-  DO k=1,4
-   nn = nn + 1
-   ColAn(nn) = 4*(ijEntry-1) + k
-  END DO
- END DO
-END DO
-
-DO i=2,nu+1
- LdA(i) = 4*(LdA(i)-1)+1
-END DO
-
-END SUBROUTINE MatStructQ2P1
-!
-! ----------------------------------------------
-!
-SUBROUTINE MatStructP1Q2(LdAo,LdAn,ColAo,ColAn,na,nu)
-IMPLICIT NONE
-INTEGER ColAo(*),ColAn(*),LdAo(*),LdAn(*),na,nu
-INTEGER i,j,k,nn,iPos
-
-nn = 0
-DO i=1,nu
- DO k=1,4
-  DO j=LdAo(i),LdAo(i+1)-1
-   nn = nn + 1
-   ColAn(nn) = ColAo(j)
-  END DO
- END DO
-END DO
-
-nn = 0
-iPos = -26
-DO i=1,nu
- DO k=1,4
-  nn = nn + 1
-  iPos = iPos + 27
-  LdAn(nn) = iPos
- END DO
-END DO
-nn = nn + 1
-LdAn(nn) = LdAn(nn-1) + 27
-
-END SUBROUTINE MatStructP1Q2
+! SUBROUTINE MatStructQ2P1(ColAo,ColAn,LdA,na,nu)
+! IMPLICIT NONE
+! INTEGER ColAo(*),ColAn(*),LdA(*),na,nu
+! INTEGER i,j,k,nn,ijEntry
+! 
+! nn = 0
+! DO i=1,nu
+!  DO j=LdA(i),LdA(i+1)-1
+!   ijEntry = ColAo(j)
+!   DO k=1,4
+!    nn = nn + 1
+!    ColAn(nn) = 4*(ijEntry-1) + k
+!   END DO
+!  END DO
+! END DO
+! 
+! DO i=2,nu+1
+!  LdA(i) = 4*(LdA(i)-1)+1
+! END DO
+! 
+! END SUBROUTINE MatStructQ2P1
+! !
+! ! ----------------------------------------------
+! !
+! SUBROUTINE MatStructP1Q2(LdAo,LdAn,ColAo,ColAn,na,nu)
+! IMPLICIT NONE
+! INTEGER ColAo(*),ColAn(*),LdAo(*),LdAn(*),na,nu
+! INTEGER i,j,k,nn,iPos
+! 
+! nn = 0
+! DO i=1,nu
+!  DO k=1,4
+!   DO j=LdAo(i),LdAo(i+1)-1
+!    nn = nn + 1
+!    ColAn(nn) = ColAo(j)
+!   END DO
+!  END DO
+! END DO
+! 
+! nn = 0
+! iPos = -26
+! DO i=1,nu
+!  DO k=1,4
+!   nn = nn + 1
+!   iPos = iPos + 27
+!   LdAn(nn) = iPos
+!  END DO
+! END DO
+! nn = nn + 1
+! LdAn(nn) = LdAn(nn-1) + 27
+! 
+! END SUBROUTINE MatStructP1Q2
 !
 ! ----------------------------------------------
 !
@@ -4229,489 +3779,6 @@ CALL GetForces(Properties%ForceScale,U,V,W,P,FBM,Nu,&
                E013)
 
 END SUBROUTINE EvaluateDragLift
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetVeloParameters(myParam,cName,mfile)
-IMPLICIT NONE
-TYPE(tParamV) myParam
-CHARACTER*7 cName
-INTEGER mfile
-INTEGER iEnd,iAt,iEq,istat
-CHARACTER string*100,param*50,cVar*7,cPar*50
-LOGICAL bOK
-INTEGER :: myFile=90909090
-CHARACTER(20) :: out_string
-  
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
-if(istat .ne. 0)then
-  write(*,*)"Could not open data file: ",myDataFile  
-  stop          
-end if
-
-! IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-! IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-myParam%MGprmIn%RLX = 0.66d0
-myParam%MGprmIn%CrsSolverType = 1
-
-DO
- READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
- IF (iEnd.EQ.-1) EXIT
- CALL StrStuct()
-!   IF (myid.eq.showid) write(*,*) myid,iAt,iEq,bOK
-  IF (bOK) THEN
-
-  READ(string(1:iAt-1),*) cVar
-
-!   IF (myid.eq.showid) write(*,*) myid,cVar,iAt,iEq,string
-  IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
-
-   READ(string(iAt+1:iEq-1),*) cPar
-!    IF (myid.eq.showid) write(*,*) myid,cPar
-
-   SELECT CASE (TRIM(ADJUSTL(cPar)))
-
-    ! Problems with GCC: 
-    ! The gfortran compiler does not permit a statement like write(*,'(A,I)') where
-    ! the length of the integer I is not specified.
-    ! A way to solve this problem is to write the integer to a string:
-    ! write(string,'(i20)')myParam%iMass
-    ! that is long enough to hold all reasonable integer values
-    ! then adjust the length of the string write it out:
-    ! write(*,'(A)')adjustl(string)
-    CASE ("iMass")
-    READ(string(iEq+1:),*) myParam%iMass
-    write(out_string,'(i20)')myParam%iMass
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%iMass)
-
-    CASE ("SolvType")
-    READ(string(iEq+1:),*) param
-    IF (TRIM(ADJUSTL(param)).EQ."Jacobi") myParam%SolvType = 1
-    IF (TRIM(ADJUSTL(param)).EQ."BiCGSTAB")myParam%SolvType = 2
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%SolvType)
-
-    CASE ("defCrit")
-    READ(string(iEq+1:),*) myParam%defCrit
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%defCrit)
-
-    CASE ("Alpha")
-    READ(string(iEq+1:),*) myParam%Alpha
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%Alpha)
-
-    CASE ("MinDef")
-    READ(string(iEq+1:),*) myParam%MinDef
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MinDef)
-
-    CASE ("NLmin")
-    READ(string(iEq+1:),*) myParam%NLmin
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%NLmin)
-
-    CASE ("NLmax")
-    READ(string(iEq+1:),*) myParam%NLmax
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%NLmax)
-
-    CASE ("MGMinLev")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MinLev
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinLev)
-
-    CASE ("MGMedLev")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MedLev
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MedLev)
-
-    CASE ("MGMinIterCyc")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinIterCycle)
-
-    CASE ("MGMaxIterCyc")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MaxIterCycle)
-
-    CASE ("MGSmoothSteps")
-    READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nSmootherSteps)
-
-    CASE ("MGIterCoarse")
-    READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nIterCoarse)
-
-    CASE ("MG_VANKA")
-    READ(string(iEq+1:),*) myParam%MGprmIn%VANKA
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%VANKA)
-
-    CASE ("MGCrsRelaxPrm")
-    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxPrm
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxPrm)
-
-    CASE ("MGCrsRelaxParPrm")
-    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxParPrm
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxParPrm)
-
-    CASE ("MGCrsSolverType")
-    READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
-
-    CASE ("MGDefImprCoarse")
-    READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%DefImprCoarse)
-
-    CASE ("MGCriterion1")
-    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion1)
-
-    CASE ("MGCriterion2")
-    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion2
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion2)
-
-    CASE ("MGCycType")
-    READ(string(iEq+1:),*) param
-    myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
-    IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
-    IF (myid.eq.showid) write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
-
-    CASE ("MGRelaxPrm")
-    READ(string(iEq+1:),*) myParam%MGprmIn%RLX
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%RLX)
-  END SELECT
-
-  END IF
- END IF
-END DO
-
-! IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-! IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-
-CLOSE (myFile)
-
-myParam%MGprmIn%MaxLev = NLMAX
-out_string = ""
-write(out_string,'(i20)')myParam%iMass
-call write_param_int(mfile,"Velo","MGMaxLev",out_string,myParam%MGprmIn%MaxLev)
-
-CONTAINS
-
-SUBROUTINE StrStuct()
-IMPLICIT NONE
-INTEGER i,n
-
-n = len(string)
-iAt = 0
-iEq = 0
-DO i=1,n
- IF (string(i:i).EQ. '@') iAt = i
- IF (string(i:i).EQ. '=') iEq = i
-END DO
-
-bOk=.FALSE.
-IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
-
-END SUBROUTINE StrStuct
-
-END SUBROUTINE GetVeloParameters
-!
-! ----------------------------------------------
-!
-subroutine write_param_real(unitid,cVar,cPar,out_string,val)
-  implicit none
-  integer :: unitid
-  character(len=*) :: cVar
-  character(len=*) :: cPar
-  character(len=*) :: out_string
-  Real*8 :: val
-
-  out_string = " "
-  write(out_string,'(E16.8)')val
-  IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
-  IF (myid.eq.showid) write(unitid,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
-
-end subroutine write_param_real
-!
-! ----------------------------------------------
-!
-subroutine write_param_int(unitid,cVar,cPar,out_string,val)
-  implicit none
-  integer :: unitid
-  character(len=*) :: cVar
-  character(len=*) :: cPar
-  character(len=*) :: out_string
-  integer :: val
-
-  out_string = " "
-  write(out_string,'(I20)')val
-  IF (myid.eq.showid) write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
-  IF (myid.eq.showid) write(unitid,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",adjustl(out_string)
-
-end subroutine write_param_int
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetPresParameters(myParam,cName,mfile)
-IMPLICIT NONE
-TYPE(tParamP) myParam
-INTEGER mfile
-CHARACTER*7 cName
-INTEGER iEnd,iAt,iEq,istat
-CHARACTER string*100,param*50,cVar*7,cPar*50
-LOGICAL bOK
-INTEGER :: myFile=90909090
-character(len=20) :: out_string
-  
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
-if(istat .ne. 0)then
-  write(*,*)"Could not open data file: ",myDataFile  
-  stop          
-end if
-
-!IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-!IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-myParam%MGprmIn%RLX = 0.66d0
-
-DO
- READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
- IF (iEnd.EQ.-1) EXIT
- CALL StrStuct()
-!   !IF (myid.eq.showid) write(*,*) myid,iAt,iEq,bOK
-  IF (bOK) THEN
-
-  READ(string(1:iAt-1),*) cVar
-
-!   !IF (myid.eq.showid) write(*,*) myid,cVar,iAt,iEq,string
-  IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
-
-   READ(string(iAt+1:iEq-1),*) cPar
-
-!    !IF (myid.eq.showid) write(*,*) myid,cPar
-   SELECT CASE (TRIM(ADJUSTL(cPar)))
-
-    CASE ("MGMinLev")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MinLev
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinLev)
-
-    CASE ("MGMedLev")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MedLev
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MedLev)
-
-    CASE ("MGMinIterCyc")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MinIterCycle
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MinIterCycle)
-
-    CASE ("MGMaxIterCyc")
-    READ(string(iEq+1:),*) myParam%MGprmIn%MaxIterCycle
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%MaxIterCycle)
-
-    CASE ("MGSmoothSteps")
-    READ(string(iEq+1:),*) myParam%MGprmIn%nSmootherSteps
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nSmootherSteps)
-
-    CASE ("MGIterCoarse")
-    READ(string(iEq+1:),*) myParam%MGprmIn%nIterCoarse
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%nIterCoarse)
-
-    CASE ("MGDefImprCoarse")
-    READ(string(iEq+1:),*) myParam%MGprmIn%DefImprCoarse
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%DefImprCoarse)
-
-    CASE ("MGCrsRelaxPrm")
-    READ(string(iEq+1:),*) myParam%MGprmIn%CrsRelaxPrm
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsRelaxPrm)
-
-    CASE ("MGCriterion1")
-    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion1
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion1)
-
-    CASE ("MGCriterion2")
-    READ(string(iEq+1:),*) myParam%MGprmIn%Criterion2
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%Criterion2)
-
-    CASE ("MGCycType")
-    READ(string(iEq+1:),*) param
-    myParam%MGprmIn%CycleType = TRIM(ADJUSTL(param))
-    IF (myid.eq.showid) write(mterm,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
-    IF (myid.eq.showid) write(mfile,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",myParam%MGprmIn%CycleType
-
-    CASE ("MGCrsSolverType")
-    READ(string(iEq+1:),*) myParam%MGprmIn%CrsSolverType
-    call write_param_int(mfile,cVar,cPar,out_string,myParam%MGprmIn%CrsSolverType)
-    
-    CASE ("MGRelaxPrm")
-    READ(string(iEq+1:),*) myParam%MGprmIn%RLX
-    call write_param_real(mfile,cVar,cPar,out_string,myParam%MGprmIn%RLX)
-
-   END SELECT
-
-  END IF
- END IF
-END DO
-
-!IF (myid.eq.showid) write(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-!IF (myid.eq.showid) write(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-
-CLOSE (myFile)
-
-CONTAINS
-
-SUBROUTINE StrStuct()
-IMPLICIT NONE
-INTEGER i,n
-
-n = len(string)
-iAt = 0
-iEq = 0
-DO i=1,n
- IF (string(i:i).EQ. '@') iAt = i
- IF (string(i:i).EQ. '=') iEq = i
-END DO
-
-bOk=.FALSE.
-IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
-
-END SUBROUTINE StrStuct
-
-END SUBROUTINE GetPresParameters
-!
-! ----------------------------------------------
-!
-SUBROUTINE GetPhysiclaParameters(Props,cName,mfile)
-IMPLICIT NONE
-TYPE(tProperties) Props
-INTEGER mfile
-CHARACTER*7 cName
-
-INTEGER iEnd,iAt,iEq,istat
-CHARACTER string*100,param*50,cVar*7,cPar*50
-LOGICAL bOK
-INTEGER :: myFile=90909090
-  
-OPEN (UNIT=myFile,FILE=TRIM(ADJUSTL(myDataFile)),action='read',iostat=istat)
-if(istat .ne. 0)then
-  write(*,*)"Could not open data file: ",myDataFile  
-  stop          
-end if
-
-IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-
-DO
- READ (UNIT=myFile,FMT='(A100)',IOSTAT=iEnd) string
- IF (iEnd.EQ.-1) EXIT
- CALL StrStuct()
-  IF (bOK) THEN
-
-  READ(string(1:iAt-1),*) cVar
-
-  IF (TRIM(ADJUSTL(cVar)).EQ.TRIM(ADJUSTL(cName))) THEN
-
-   READ(string(iAt+1:iEq-1),*) cPar
-   SELECT CASE (TRIM(ADJUSTL(cPar)))
-
-    CASE ("nTPSubSteps")
-    READ(string(iEq+1:),*) Props%nTPSubSteps
-    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
-    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPSubSteps
-    CASE ("nTPFSubSteps")
-    READ(string(iEq+1:),*) Props%nTPFSubSteps
-    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
-    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPFSubSteps
-    CASE ("nTPIterations")
-    READ(string(iEq+1:),*) Props%nTPIterations
-    IF (myid.eq.showid) write(mterm,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
-    IF (myid.eq.showid) write(mfile,'(A,I5)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%nTPIterations
-    CASE ("Material")
-    READ(string(iEq+1:),*) Props%Material
-    IF (myid.eq.showid) write(mterm,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Material
-    IF (myid.eq.showid) write(mfile,'(A,A)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Material
-    CASE ("Gravity")
-    READ(string(iEq+1:),*) Props%Gravity
-    IF (myid.eq.showid) write(mterm,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Gravity
-    IF (myid.eq.showid) write(mfile,'(A,3E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Gravity
-    CASE ("Density")
-    READ(string(iEq+1:),*) Props%Density
-    IF (myid.eq.showid) write(mterm,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Density
-    IF (myid.eq.showid) write(mfile,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Density
-    CASE ("Viscosity")
-    READ(string(iEq+1:),*) Props%Viscosity
-    IF (myid.eq.showid) write(mterm,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Viscosity
-    IF (myid.eq.showid) write(mfile,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Viscosity
-    CASE ("DiffCoeff")
-    READ(string(iEq+1:),*) Props%DiffCoeff
-    IF (myid.eq.showid) write(mterm,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%DiffCoeff
-    IF (myid.eq.showid) write(mfile,'(A,2E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%DiffCoeff
-    CASE ("Sigma")
-    READ(string(iEq+1:),*) Props%Sigma
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Sigma
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%Sigma
-    CASE ("DiracEps")
-    READ(string(iEq+1:),*) Props%DiracEps
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%DiracEps
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%DiracEps
-    CASE ("PowerLawExp")
-    READ(string(iEq+1:),*) Props%PowerLawExp
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%PowerLawExp
-    CASE ("GAMMA")
-    READ(string(iEq+1:),*) GAMMA
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",GAMMA
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",GAMMA
-    CASE ("ViscoLambda")
-    READ(string(iEq+1:),*) Props%ViscoLambda
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoLambda
-    CASE ("ViscoAlphaImp")
-    READ(string(iEq+1:),*) Props%ViscoAlphaImp
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaImp
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaImp
-    CASE ("ViscoAlphaExp")
-    READ(string(iEq+1:),*) Props%ViscoAlphaExp
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoAlphaExp
-    CASE ("NS_StabAlpha_Imp")
-    READ(string(iEq+1:),*) Props%NS_StabAlpha_Imp
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Imp
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Imp
-    CASE ("NS_StabAlpha_Exp")
-    READ(string(iEq+1:),*) Props%NS_StabAlpha_Exp
-    IF (myid.eq.showid) write(mterm,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Exp
-    IF (myid.eq.showid) write(mfile,'(A,E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%NS_StabAlpha_Exp
-    CASE ("ViscoModel")
-    READ(string(iEq+1:),*) Props%ViscoModel
-    IF (myid.eq.showid) write(mterm,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
-    IF (myid.eq.showid) write(mfile,'(A,I2)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ViscoModel
-    CASE ("ForceScale")
-    READ(string(iEq+1:),*) Props%ForceScale
-    IF (myid.eq.showid) write(mterm,'(A,6E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
-    IF (myid.eq.showid) write(mfile,'(A,6E16.8)') cVar//" - "//TRIM(ADJUSTL(cPar))//" "//"= ",Props%ForceScale
-  END SELECT
-
-  END IF
- END IF
-END DO
-
-IF (myid.eq.showid) WRITE(mfile,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-IF (myid.eq.showid) WRITE(mterm,'(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
-
-CLOSE (myFile)
-
-CONTAINS
-
-SUBROUTINE StrStuct()
-IMPLICIT NONE
-INTEGER i,n
-
-n = len(string)
-iAt = 0
-iEq = 0
-DO i=1,n
- IF (string(i:i).EQ. '@') iAt = i
- IF (string(i:i).EQ. '=') iEq = i
-END DO
-
-bOk=.FALSE.
-IF (iAt.ne.0.AND.iEq.ne.0) bOk=.TRUE.
-
-END SUBROUTINE StrStuct
-
-END SUBROUTINE GetPhysiclaParameters
-!
-! ----------------------------------------------
 !
 !SUBROUTINE Correct_myQ2Coor(dcorvg,kvert,karea,kedge)
 !REAL*8  dcorvg(3,*)

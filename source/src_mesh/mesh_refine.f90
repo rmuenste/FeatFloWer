@@ -670,6 +670,22 @@ subroutine genMeshStructures(mesh, extended, icurr, noe)
   END IF
 
   CALL ZTIME(TTT0)
+  call genKEEL(mesh%level(icurr))
+  CALL ZTIME(TTT1)
+  TTGRID=TTT1-TTT0
+  IF (myid.eq.showid) THEN
+    WRITE(*,*) 'time for KEEL  : ',TTGRID
+  END IF
+
+  CALL ZTIME(TTT0)
+  call genKAAL(mesh%level(icurr))
+  CALL ZTIME(TTT1)
+  TTGRID=TTT1-TTT0
+  IF (myid.eq.showid) THEN
+    WRITE(*,*) 'time for KAAL  : ',TTGRID
+  END IF
+
+  CALL ZTIME(TTT0)
 
   call genKVAR(mesh%level(icurr))
 
@@ -764,7 +780,131 @@ subroutine genKVEL(mesh)
 end subroutine
 
 !================================================================================================
-!                                 Sub: genKADJ  
+!                                 Sub: genKEEL
+!================================================================================================
+subroutine genKEEL(mesh)
+  use PP3D_MPI, only:myid,showid
+  use var_QuadScalar
+  IMPLICIT NONE
+  type(tMesh) :: mesh
+  integer :: i,j,k
+  integer :: iedge
+  integer :: iglobal, itemp
+  integer, allocatable, dimension(:) :: neel_temp
+
+  mesh%neel = 0
+
+  allocate(neel_temp(mesh%net))
+
+  neel_temp = 0
+
+  do i=1,mesh%nel
+    do iedge=1,mesh%nee
+      iglobal = mesh%kedge(iedge,i)
+      neel_temp(iglobal) = neel_temp(iglobal) + 1
+      mesh%neel=max(mesh%neel,neel_temp(iglobal))
+    end do
+  end do
+
+  deallocate(neel_temp)
+
+  if(.not.allocated(mesh%keel))then
+    allocate(mesh%keel(mesh%neel,mesh%net))
+    mesh%keel = 0
+  end if
+
+  do i=1,mesh%nel
+    do iedge=1,mesh%nee
+      iglobal = mesh%kedge(iedge,i)
+      do j=1,mesh%neel
+        if(mesh%keel(j,iglobal).eq.0)then
+          mesh%keel(j,iglobal) = i
+          exit
+        end if
+      end do
+    end do
+  end do
+
+  ! Sort keel
+  do i = 1,mesh%net
+    do j = 1,mesh%neel
+      do k = j+1,mesh%neel
+        if(mesh%keel(j,i).gt.mesh%keel(k,i).and.&
+          (.not.mesh%keel(k,i).eq.0))then
+          itemp = mesh%keel(j,i)
+          mesh%keel(j,i) = mesh%keel(k,i)
+          mesh%keel(k,i) = itemp
+        end if
+      end do
+    end do
+  end do
+
+end subroutine
+
+!================================================================================================
+!                                 Sub: genKAAL
+!================================================================================================
+subroutine genKAAL(mesh)
+  use PP3D_MPI, only:myid,showid
+  use var_QuadScalar
+  IMPLICIT NONE
+  type(tMesh) :: mesh
+  integer :: i,j,k
+  integer :: iface
+  integer :: iglobal, itemp
+  integer, allocatable, dimension(:) :: naal_temp
+
+  mesh%naal = 0
+
+  allocate(naal_temp(mesh%nat))
+
+  naal_temp = 0
+
+  do i=1,mesh%nel
+    do iface=1,mesh%nae
+      iglobal = mesh%karea(iface,i)
+      naal_temp(iglobal) = naal_temp(iglobal) + 1
+      mesh%naal=max(mesh%naal,naal_temp(iglobal))
+    end do
+  end do
+
+  deallocate(naal_temp)
+
+  if(.not.allocated(mesh%kaal))then
+    allocate(mesh%kaal(mesh%naal,mesh%nat))
+    mesh%kaal = 0
+  end if
+
+  do i=1,mesh%nel
+    do iface=1,mesh%nae
+      iglobal = mesh%karea(iface,i)
+      do j=1,mesh%naal
+        if(mesh%kaal(j,iglobal).eq.0)then
+          mesh%kaal(j,iglobal) = i
+          exit
+        end if
+      end do
+    end do
+  end do
+
+  ! Sort kaal
+  do i = 1,mesh%nat
+    do j = 1,mesh%naal
+      do k = j+1,mesh%naal
+        if(mesh%kaal(j,i).gt.mesh%kaal(k,i).and.&
+          (.not.mesh%kaal(k,i).eq.0))then
+          itemp = mesh%kaal(j,i)
+          mesh%kaal(j,i) = mesh%kaal(k,i)
+          mesh%kaal(k,i) = itemp
+        end if
+      end do
+    end do
+  end do
+
+end subroutine
+
+!================================================================================================
+!                                 Sub: genKADJ
 !================================================================================================
 subroutine genKADJ(mesh)
   use PP3D_MPI, only:myid,showid

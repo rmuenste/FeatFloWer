@@ -53,6 +53,8 @@ TYPE tMesh
   integer :: NAE = 6
 
   integer :: NVEL = 0
+  integer :: NEEL = 0       ! Max elements per edge (for KEEL)
+  integer :: NAAL = 0       ! Max elements per face (for KAAL)
 
   integer :: NNelAtVertex = 0
 
@@ -74,8 +76,14 @@ TYPE tMesh
   ! The vertices at an element
   integer, allocatable, dimension(:,:) :: kvert
 
-  ! The elements at a vertex 
+  ! The elements at a vertex
   integer, allocatable, dimension(:,:) :: kvel
+
+  ! The elements at an edge
+  integer, allocatable, dimension(:,:) :: keel
+
+  ! The elements at a face
+  integer, allocatable, dimension(:,:) :: kaal
 
   ! The edges at a vertex
   integer, allocatable, dimension(:,:) :: kved

@@ -5,18 +5,34 @@
 !# In this module we define functions that related to the handling of
 !# fictitious boundary components.
 !#
-!# 
+!#
 !##############################################################################
-#define FULL_ROTATION 
-!#define ONLY_ROTATION 
+#define FULL_ROTATION
+!#define ONLY_ROTATION
 !#define MOVING_REFERENCE
-MODULE fbm 
+!#define VERIFY_HASHGRID  ! Controlled by CMake: -DVERIFY_HASHGRID=ON
+MODULE fbm
 
 use var_QuadScalar
 use dem_query
 use iso_c_binding
 
 integer, dimension(:), allocatable :: mykvel
+
+! Module-level flag to track collision pipeline initialization
+! On first timestep, HashGrid may not be initialized yet, so we use baseline
+logical :: collision_pipeline_initialized = .false.
+
+#ifdef VERIFY_HASHGRID
+! Module-level HashGrid verification statistics
+integer :: hashgrid_total_queries = 0
+integer :: hashgrid_mismatch_count = 0
+integer :: hashgrid_particle_mismatch_count = 0
+
+! Module-level timing statistics (in nanoseconds for precision)
+integer(kind=8) :: hashgrid_accel_time_ns = 0
+integer(kind=8) :: hashgrid_baseline_time_ns = 0
+#endif
 
 ! 
 integer, parameter, public :: SRCH_UNDEF = 0
@@ -36,19 +52,95 @@ integer, parameter, public :: SRCH_MAXITER = 6
 integer, parameter, public :: SRCH_RES7 = 7
 
 interface
-logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
-  use iso_c_binding, only: c_int, c_bool, c_double, c_short
-  integer(c_int), value :: vidx
-  integer(c_int) :: inpr
-  real(c_double) :: pos(*)
-  integer(c_short), dimension(8) :: bytes
+  logical(c_bool) function checkAllParticles(vidx, inpr, pos, bytes) bind(C, name="checkAllParticles")
+    use iso_c_binding, only: c_int, c_bool, c_double, c_short
+    integer(c_int), value :: vidx
+    integer(c_int) :: inpr
+    real(c_double) :: pos(*)
+    integer(c_short), dimension(8) :: bytes
+  end function
+
+  logical(c_bool) function verifyAllParticles(vidx, inpr, pos, bytes) bind(C, name="verifyAllParticles")
+    use iso_c_binding, only: c_int, c_bool, c_double, c_short
+    integer(c_int), value :: vidx
+    integer(c_int) :: inpr
+    real(c_double) :: pos(*)
+    integer(c_short), dimension(8) :: bytes
   end function
 end interface
+
 
 contains
 
 !=========================================================================
-! 
+! report_and_reset_hashgrid_stats - Report and reset HashGrid verification
+!=========================================================================
+subroutine report_and_reset_hashgrid_stats()
+  use PP3D_MPI, only: myid
+  implicit none
+
+#ifdef VERIFY_HASHGRID
+  real(kind=8) :: accel_time_sec, baseline_time_sec, speedup
+  real(kind=8) :: accel_time_per_query_us, baseline_time_per_query_us
+
+  if (myid == 1 .and. hashgrid_total_queries > 0) then
+    ! Convert nanoseconds to seconds and compute per-query times
+    accel_time_sec = real(hashgrid_accel_time_ns, kind=8) / 1.0e9_8
+    baseline_time_sec = real(hashgrid_baseline_time_ns, kind=8) / 1.0e9_8
+    accel_time_per_query_us = real(hashgrid_accel_time_ns, kind=8) / &
+                              real(hashgrid_total_queries, kind=8) / 1000.0_8
+    baseline_time_per_query_us = real(hashgrid_baseline_time_ns, kind=8) / &
+                                 real(hashgrid_total_queries, kind=8) / 1000.0_8
+
+    if (accel_time_sec > 0.0_8) then
+      speedup = baseline_time_sec / accel_time_sec
+    else
+      speedup = 0.0_8
+    endif
+
+    write(*,*)
+    write(*,'(A)') '=================================================='
+    write(*,'(A)') 'HashGrid Verification & Performance Summary'
+    write(*,'(A)') '=================================================='
+    write(*,*)
+    write(*,'(A)') '--- Correctness ---'
+    write(*,'(A,I0)') 'Total queries:         ', hashgrid_total_queries
+
+    if (hashgrid_mismatch_count == 0) then
+      write(*,'(A)') 'Result:                ✓ Perfect match (0 mismatches)'
+    else
+      write(*,'(A,I0,A,F8.4,A)') 'Boolean mismatches:    ', hashgrid_mismatch_count, &
+                                  ' (', 100.0*real(hashgrid_mismatch_count)/real(hashgrid_total_queries), '%)'
+    endif
+
+    if (hashgrid_particle_mismatch_count > 0) then
+      write(*,'(A,I0)') 'Particle ID mismatches:', hashgrid_particle_mismatch_count
+    endif
+
+    write(*,*)
+    write(*,'(A)') '--- Performance Comparison ---'
+    write(*,'(A,F12.6,A)') 'Accelerated (HashGrid):', accel_time_sec, ' s'
+    write(*,'(A,F12.3,A)') '  Per query:           ', accel_time_per_query_us, ' μs'
+    write(*,*)
+    write(*,'(A,F12.6,A)') 'Baseline (Linear):    ', baseline_time_sec, ' s'
+    write(*,'(A,F12.3,A)') '  Per query:           ', baseline_time_per_query_us, ' μs'
+    write(*,*)
+    write(*,'(A,F12.2,A)') 'Speedup:               ', speedup, 'x'
+    write(*,'(A)') '=================================================='
+    write(*,*)
+  endif
+
+  ! Reset counters and timers for next updateFBMGeometry call
+  hashgrid_total_queries = 0
+  hashgrid_mismatch_count = 0
+  hashgrid_particle_mismatch_count = 0
+  hashgrid_accel_time_ns = 0
+  hashgrid_baseline_time_ns = 0
+#endif
+
+end subroutine report_and_reset_hashgrid_stats
+!=========================================================================
+!
 !=========================================================================
 ! Function to return the particle count
 integer function get_particle_count_pe()
@@ -162,6 +254,15 @@ if (calculateDynamics()) then
  endif
 
  call usr_updateFBM(DensityL,dTime,simTime,Gravity,mfile,myid)
+
+ ! Mark collision pipeline as initialized after first update
+ ! This ensures HashGrid is built before we use accelerated queries
+ if (.not. collision_pipeline_initialized) then
+   collision_pipeline_initialized = .true.
+   if (myid == 1) then
+     write(*,'(A)') '> Collision pipeline initialized - HashGrid acceleration now active'
+   endif
+ endif
 
 end if
 
@@ -358,15 +459,16 @@ end subroutine fbm_testFBMGeom
 ! 
 !=========================================================================
 subroutine fbm_getFictKnprFC2(x,y,z,bndryId,inpr,dist, vidx, longFictId)
-! 
+!
 !   This subroutine handles the FBM geometric computations
 !
 use var_QuadScalar, only : myFBM
-use iso_c_binding, only: c_short
+use PP3D_MPI, only: myid
+use iso_c_binding, only: c_short, c_bool
 implicit none
 
-! Coordinates of the query point 
-real*8, intent(in) :: x, y, z 
+! Coordinates of the query point
+real*8, intent(in) :: x, y, z
 
 ! Id of the boundary component
 integer, intent(inout) :: bndryId
@@ -374,19 +476,33 @@ integer, intent(inout) :: bndryId
 ! fictId
 integer, intent(inout) :: inpr
 
-! Distance solution in the query point 
-real*8, intent(inout) :: dist 
+! Distance solution in the query point
+real*8, intent(inout) :: dist
 
 ! Vertex id of the point
-integer, intent(in) :: vidx 
+integer, intent(in) :: vidx
 
 ! long FictId
 type(tUint64), intent(inout) :: longFictId
 
 ! local variables
-integer :: IP,ipc, nparticles, remParticles, key, cvidx,before
+integer :: IP,ipc, nparticles, remParticles, key, cvidx
 double precision, dimension(3) :: point
-#ifdef HAVE_PE 
+logical(c_bool) :: accel_result
+
+! Variables for baseline (used in deferred acceleration and verification)
+integer :: baseline_key
+integer(c_short), dimension(8) :: baseline_bytes
+
+#ifdef VERIFY_HASHGRID
+! Variables for verification comparison
+logical(c_bool) :: baseline_result
+
+! Timing variables for performance measurement
+integer(kind=8) :: timing_start, timing_end, timing_rate, timing_max
+#endif
+
+#ifdef HAVE_PE
 
  inpr = 0
  longFictId%bytes(:) = -1
@@ -402,15 +518,74 @@ double precision, dimension(3) :: point
  point(2) = y
  point(3) = z
 
- before =longFictId%bytes(1) + 1 
- if(longFictId%bytes(1) + 1 .ne. key)then
-   write(*,*)'SUPER CRITICAL ERROR: ', vidx
- end if
- if( checkAllParticles(cvidx, key, point, longFictId%bytes) )then
-   inpr = 1 
-   if(longFictId%bytes(1) + 1 .ne. key)then
-     write(*,*)'CRITICAL ERROR: ', vidx, 'key: ', key, ' uint:',longFictId%bytes(1) + 1, 'before: ',before
-   end if
+ ! Use baseline on first timestep (before collision pipeline initializes HashGrid)
+ ! After initialization, use accelerated with verification
+#ifdef ENABLE_FBM_ACCELERATION
+ if (.not. collision_pipeline_initialized .or. .not. bUseHashGridAccel) then
+#else
+ if (.TRUE.) then
+#endif
+   ! HashGrid not yet initialized OR runtime flag disabled - use baseline only
+   baseline_key = 0
+   longFictId%bytes(:) = -1
+   accel_result = verifyAllParticles(cvidx, baseline_key, point, longFictId%bytes)
+   key = baseline_key
+ else
+   ! HashGrid initialized AND runtime flag enabled - use accelerated version
+   ! Call accelerated version (HashGrid)
+#ifdef VERIFY_HASHGRID
+   ! Time the accelerated method
+   call system_clock(timing_start, timing_rate, timing_max)
+#endif
+   accel_result = checkAllParticles(cvidx, key, point, longFictId%bytes)
+#ifdef VERIFY_HASHGRID
+   call system_clock(timing_end, timing_rate, timing_max)
+   hashgrid_accel_time_ns = hashgrid_accel_time_ns + &
+                            (timing_end - timing_start) * 1000000000_8 / timing_rate
+
+   ! Call baseline version (linear search) for verification
+   baseline_key = 0
+   baseline_bytes(:) = -1
+
+   ! Time the baseline method
+   call system_clock(timing_start, timing_rate, timing_max)
+   baseline_result = verifyAllParticles(cvidx, baseline_key, point, baseline_bytes)
+   call system_clock(timing_end, timing_rate, timing_max)
+   hashgrid_baseline_time_ns = hashgrid_baseline_time_ns + &
+                               (timing_end - timing_start) * 1000000000_8 / timing_rate
+
+   ! Update module-level statistics
+   hashgrid_total_queries = hashgrid_total_queries + 1
+
+   ! Compare results: check if both found same inside/outside state
+   if (accel_result .neqv. baseline_result) then
+     hashgrid_mismatch_count = hashgrid_mismatch_count + 1
+     if (myid == 1) then
+       write(*,'(A,I0,A,3F12.6)') 'HASHGRID MISMATCH at vertex ', vidx, &
+                                   ' point: ', x, y, z
+       write(*,'(A,L1,A,L1)') '  Accelerated: ', accel_result, &
+                              ' Baseline: ', baseline_result
+     endif
+   endif
+
+   ! If both found a particle, check if it's the same particle
+   if (accel_result .and. baseline_result) then
+     if (longFictId%bytes(1) /= baseline_bytes(1)) then
+       hashgrid_particle_mismatch_count = hashgrid_particle_mismatch_count + 1
+       if (myid == 1) then
+         write(*,'(A,I0,A,3F12.6)') 'HASHGRID PARTICLE MISMATCH at vertex ', vidx, &
+                                     ' point: ', x, y, z
+         write(*,'(A,I0,A,I0)') '  Accelerated particle: ', longFictId%bytes(1)+1, &
+                                ' Baseline particle: ', baseline_bytes(1)+1
+       endif
+     endif
+   endif
+#endif
+ endif  ! collision_pipeline_initialized
+
+ ! Use accelerated result
+ if(accel_result)then
+   inpr = 1
  end if
 
 #endif
@@ -3519,6 +3694,34 @@ end subroutine fbm_getFictKnpr
 !
 !end subroutine fbm_InitPointLocation
 !
-!****************************************************************************  
-!  
+!****************************************************************************
+!
+!=========================================================================
+! Print final HashGrid verification summary
+!=========================================================================
+subroutine fbm_print_hashgrid_verification_summary()
+use PP3D_MPI, only: myid
+implicit none
+
+#ifdef VERIFY_HASHGRID
+! Access the statistics from fbm_getFictKnprFC2
+! Note: These are declared as module-level saved variables in that subroutine
+! We'll need to extract them somehow or make them module-level
+
+if (myid == 1) then
+  write(*,*)
+  write(*,'(A)') '=========================================================='
+  write(*,'(A)') 'HASHGRID VERIFICATION SUMMARY'
+  write(*,'(A)') '=========================================================='
+  write(*,'(A)') 'See periodic output above for detailed statistics.'
+  write(*,'(A)') 'Final summary will be printed during simulation.'
+  write(*,'(A)') '=========================================================='
+  write(*,*)
+endif
+#endif
+
+end subroutine fbm_print_hashgrid_verification_summary
+!
+!****************************************************************************
+!
 end module

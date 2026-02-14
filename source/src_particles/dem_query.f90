@@ -15,6 +15,8 @@ type, bind(C) :: tParticleData
   real(c_double), dimension(3)  :: force = (/0d0, 0d0, 0d0/)
   real(c_double), dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
   real(c_double) :: time
+  real(c_double) :: density
+  real(c_double), dimension(3)  :: aabb
   integer(c_int) :: localIdx
   integer(c_int) :: uniqueIdx
   integer(c_int) :: systemIdx
@@ -324,8 +326,7 @@ integer function numTotalParticles()
 
 #ifdef PE_SERIAL_MODE
   ! Serial PE mode: all ranks have access to all particles
-  numTotalParticles = 1 
-  !numTotalParticles = getTotalParticles() 
+  numTotalParticles = getNumParticles()
 #else
   ! Parallel PE mode: sum local and remote particles
   numTotalParticles = numRemParticles() + numLocalParticles()

@@ -153,6 +153,24 @@ cmake_dependent_option(
   OFF                              # Value when condition is false (no PE or serial PE)
 )
 
+option(SED_BENCH
+  "Enable sedimentation benchmark output (force/position/velocity per timestep)"
+  OFF
+)
+
+option(ENABLE_FBM_ACCELERATION
+  "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+  OFF
+)
+
+if(NOT USE_PE AND ENABLE_FBM_ACCELERATION)
+  message(STATUS "ENABLE_FBM_ACCELERATION requested with USE_PE=OFF; forcing ENABLE_FBM_ACCELERATION=OFF.")
+  set(ENABLE_FBM_ACCELERATION OFF CACHE BOOL
+    "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+    FORCE
+  )
+endif()
+
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
   SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
@@ -328,6 +346,20 @@ if(USE_CGAL)
 
   endif(NOT USE_CGAL_LOCAL)
 
+  # Find GMP and MPFR libraries (required dependencies for CGAL)
+  find_package(GMP REQUIRED)
+  find_package(MPFR REQUIRED)
+
+  if(GMP_FOUND)
+    message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+    message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+  endif()
+
+  if(MPFR_FOUND)
+    message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+    message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
+  endif()
+
 endif(USE_CGAL)
 
 #=========================================================================
@@ -482,6 +514,22 @@ if(USE_PE)
   add_subdirectory(libs/pe)
 endif(USE_PE)
 
+if(SED_BENCH)
+  add_definitions(-DSED_BENCH)
+  message(STATUS "SED_BENCH: sedimentation benchmark output enabled")
+endif()
+
+if(ENABLE_FBM_ACCELERATION)
+  add_definitions(-DENABLE_FBM_ACCELERATION)
+  message(STATUS "FBM acceleration enabled (HashGrid + KVEL). Control at runtime via q2p1_param.dat")
+else()
+  message(STATUS "==============================================")
+  message(STATUS "FBM ACCELERATION DISABLED")
+  message(STATUS "  - Pure baseline (brute-force) build")
+  message(STATUS "  - For correctness verification only")
+  message(STATUS "==============================================")
+endif()
+
 #=========================================================================
 #                         Add applications
 #=========================================================================
@@ -538,4 +586,3 @@ install(FILES tools/PyPartitioner.py DESTINATION bin PERMISSIONS
 include(GeneratePackageDeb)  
 
 include(CPack)
-

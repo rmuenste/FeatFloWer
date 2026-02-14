@@ -21,6 +21,7 @@ SUBROUTINE ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN,COMM_Maximumn
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
 USE var_QuadScalar, ONLY : AlphaRelax
+USE var_QuadScalar, ONLY : ParticleVertexCache, bUseKVEL_Accel, myKVEL_Stats, mg_mesh
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -57,21 +58,30 @@ REAL*8 :: Center(3),dForce(6), omega(3)
 
 type(tParticleData), dimension(:), allocatable :: theParticles
 integer :: numParticles, resi, totalSliding
-real*8 :: dbuf1(1)
+real*8 :: dbuf1(2)
 
 real*8 :: theNorm, totalMax, localSliding, accumulatedSliding,sliX, localHydro
 real*8, dimension(:), allocatable :: forceArray
 integer :: iPointer
+character(len=*), parameter :: fmt_sed = '(A,1X,A,ES14.6,1X,A,I6,1X,3ES14.6)'
+real*8 :: time_out
+
+! KVEL acceleration variables
+LOGICAL, ALLOCATABLE :: bCandidateElement(:)
+INTEGER, ALLOCATABLE :: CandidateList(:)
+INTEGER :: nCandidates, iCand, iVtx, j, iedge, iface
 
 COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
 COMMON /ERRCTL/ IER,ICHECK
 COMMON /CHAR/   SUB,FMT(3),CPARAM
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
 COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,&
                 DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),&
                 IEL,NDIM
 COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,&
                 NVAR,NEAR,NBCT,NVBD,NEBD,NABD
 COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+COMMON /MGPAR/  ILEV,NLEV,NLMIN,NLMAX,ICYCLE,KPRSM,KPOSM
 COMMON /COAUX1/ KDFG,KDFL,IDFL
 
 !user COMMON blocks
@@ -96,6 +106,11 @@ omega = (/0.0, 0.0, 0.0/)
 localSliding = 0.0
 localHydro = 0.0
 accumulatedSliding = 0.0
+
+! Initialize KVEL statistics
+myKVEL_Stats%nCachedVertices = 0
+myKVEL_Stats%nCandidateElements = 0
+myKVEL_Stats%nBoundaryElements = 0
 
 !========================================================================
 ! Get particle data (ALL RANKS need particle count for MPI)
@@ -184,9 +199,95 @@ DTrqForceZ = 0d0
 nnel = 0
 
 !========================================================================
-! ELEMENT LOOP - Core mathematical integration
+! Build KVEL Candidate Element Set
 !========================================================================
-DO IEL=1,NEL
+allocate(bCandidateElement(NEL))
+allocate(CandidateList(NEL))
+
+bCandidateElement = .FALSE.
+nCandidates = 0
+
+! Build candidate set using vertex cache and KVEL
+#ifdef ENABLE_FBM_ACCELERATION
+if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+#else
+if (.FALSE.) then
+#endif
+  if (IP <= size(ParticleVertexCache)) then
+    if (ParticleVertexCache(IP)%nVertices > 0) then
+
+      DO iVtx = 1, ParticleVertexCache(IP)%nVertices
+        ivt = ParticleVertexCache(IP)%dofIndices(iVtx)
+
+        IF (ivt <= NVT) THEN
+          ! Corner vertex DOF -> use KVEL
+          DO j = 1, mg_mesh%level(NLMAX)%nvel
+            IEL = mg_mesh%level(NLMAX)%kvel(j, ivt)
+            IF (IEL == 0) EXIT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
+          END DO
+
+        ELSE IF (ivt <= NVT + NET) THEN
+          ! Edge midpoint DOF -> use KEEL
+          iedge = ivt - NVT
+          DO j = 1, mg_mesh%level(NLMAX)%neel
+            IEL = mg_mesh%level(NLMAX)%keel(j, iedge)
+            IF (IEL == 0) EXIT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
+          END DO
+
+        ELSE IF (ivt <= NVT + NET + NAT) THEN
+          ! Face midpoint DOF -> use KAAL
+          iface = ivt - NVT - NET
+          DO j = 1, mg_mesh%level(NLMAX)%naal
+            IEL = mg_mesh%level(NLMAX)%kaal(j, iface)
+            IF (IEL == 0) EXIT
+            IF (.not. bCandidateElement(IEL)) THEN
+              bCandidateElement(IEL) = .TRUE.
+              nCandidates = nCandidates + 1
+              CandidateList(nCandidates) = IEL
+            END IF
+          END DO
+        END IF
+      END DO
+
+    end if
+  end if
+end if
+
+! Handle case when no candidates found
+if (nCandidates == 0) then
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    ! Cache is populated but particle has no DOFs on this rank
+    ! -> force contribution is guaranteed zero, skip element loop
+    deallocate(bCandidateElement)
+    deallocate(CandidateList)
+    cycle  ! next particle
+  else
+    ! No cache available, fall back to all elements (brute-force)
+    nCandidates = NEL
+    DO IEL = 1, NEL
+      CandidateList(IEL) = IEL
+    END DO
+  end if
+end if
+
+! Accumulate statistics
+myKVEL_Stats%nCandidateElements = myKVEL_Stats%nCandidateElements + nCandidates
+
+!========================================================================
+! ELEMENT LOOP - Process CANDIDATE elements only
+!========================================================================
+DO iCand = 1, nCandidates
+IEL = CandidateList(iCand)
 
 CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
 IF (IER < 0)then
@@ -420,6 +521,10 @@ end if
 
 end do ! end loop elements
 
+! Cleanup candidate lists
+deallocate(bCandidateElement)
+deallocate(CandidateList)
+
   !========================================================================
   ! Post-processing: benchmark-specific modifications
   !========================================================================
@@ -456,6 +561,23 @@ end do ! end loop elements
 END DO ! nParticles
 
 END IF  ! myid /= 0 (end of force calculation section)
+
+! Output KVEL acceleration statistics (aggregated across all ranks)
+#ifdef ENABLE_FBM_ACCELERATION
+if (bUseKVEL_Accel) then
+#else
+if (.FALSE.) then
+#endif
+  dbuf1(1) = dble(myKVEL_Stats%nCandidateElements)
+  dbuf1(2) = dble(NEL) * dble(numParticles)
+  call COMM_SUMMN(dbuf1, 2)
+  if (myid == 0) then
+    WRITE(*,'(A,ES12.4,A,ES12.4,A,F8.1,A)') &
+      'KVEL: ', dbuf1(1), ' candidates vs ', &
+      dbuf1(2), ' brute-force (', &
+      dbuf1(2)/max(dbuf1(1),1.0d0), 'x speedup)'
+  end if
+end if
 
 !========================================================================
 ! MPI Force Summation (CFD layer) - ALL RANKS PARTICIPATE
@@ -503,17 +625,34 @@ if (myid /= 0)then
     call setForcesMapped(theParticles(ip))
   END DO
   
+#ifdef SED_BENCH
   if (myid == 1) then
+    time_out = dble(itns - 1) * tstep
     DO IP = 1, numParticles
       iPointer = 6*(IP-1)
-      write(*,*) 'Forces: ',theParticles(IP)%force(:) 
-      write(*,*) 'Position: ',theParticles(IP)%position(:), itns 
-      write(*,*) 'Velocity: ',theParticles(IP)%velocity(:), itns 
+      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%force(:)
+      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%position(:)
+      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%velocity(:)
     END DO
   end if
+#endif 
+
 end if
 
 deallocate(forceArray)
+
+! Deallocate vertex cache (single-timestep lifetime)
+if (allocated(ParticleVertexCache)) then
+  DO IP = 1, size(ParticleVertexCache)
+    if (allocated(ParticleVertexCache(IP)%dofIndices)) then
+      deallocate(ParticleVertexCache(IP)%dofIndices)
+    end if
+  END DO
+  deallocate(ParticleVertexCache)
+end if
 
 total_lubrication = localSliding
 

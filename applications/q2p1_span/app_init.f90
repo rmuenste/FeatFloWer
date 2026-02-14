@@ -74,6 +74,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
+ USE param_parser, ONLY: GDATNEW
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -139,11 +140,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
 
  CALL CommBarrier()
- 
-#ifdef HAVE_PE 
- include 'PartitionReader.f90'
+
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
 #else
- include 'PartitionReader2.f90'
+  include 'PartitionReader.f90'
+#endif
+#else
+  include 'PartitionReader2.f90'
 #endif
 
  call MPI_Get_processor_name(processor_name, name_len, ierr)

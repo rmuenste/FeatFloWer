@@ -13,6 +13,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE cinterface 
  USE Transport_Q2P1, ONLY : fbm_up_handler_ptr, fbm_geom_handler_ptr 
  use fbm, only: fbm_getSoftKnpr, fbm_updateSoftBodyDynamics
+ USE param_parser, ONLY: GDATNEW
 
 
 

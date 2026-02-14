@@ -1,0 +1,79 @@
+schema_version: "0.2"
+id: q2p1_fc_ext_cylinder
+name: Q2P1 FC_EXT Cylinder Benchmark
+suite: smoke
+priority: normal
+enabled: true
+
+setup:
+  modules:
+    - gcc/latest-v13
+    - openmpi/options/interface/ethernet
+    - openmpi/4.1.6
+  git:
+    submodules:
+      mode: strict
+      update_recursive: true
+
+build:
+  workspace: build-release
+  cache_policy: reuse_if_compatible
+  steps:
+    - kind: cmake_configure
+      build_dir: build-release
+      source_dir: .
+      options:
+        - CMAKE_BUILD_TYPE=Release
+        - BUILD_APPLICATIONS=ON
+        - USE_HYPRE=ON
+        - CMAKE_C_COMPILER=mpicc
+        - CMAKE_CXX_COMPILER=mpicxx
+        - CMAKE_Fortran_COMPILER=mpifort
+    - kind: cmake_build
+      build_dir: build-release
+      targets: [q2p1_fc_ext, metis]
+      jobs: 8
+
+run:
+  levels:
+    start: 2
+    count: 1
+    parameter_patch:
+      file_in: _adc/2D_FAC/q2p1_param_2D.dat
+      file_out: _data/q2p1_param.dat
+      key: SimPar@MaxMeshLevel
+  partition:
+    tool: python
+    command: "python3 {repo_root}/tools/PyPartitioner.py 3 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj"
+    expected_partition_count: 3
+  launch:
+    workdir: build-release/applications/q2p1_fc_ext
+    mpi_ranks: 4
+    command: "./q2p1_fc_ext"
+  slurm:
+    partition: med
+    nodes: 1
+    ntasks: 4
+    cpus_per_task: 1
+    time: "00:30:00"
+
+outputs:
+  logs: [run.log, build.log]
+  artifacts:
+    - _data/prot.txt
+    - _data/Statistics.txt
+
+metrics:
+  - id: drag_lift
+    parser: keyword_columns
+    file: _data/prot.txt
+    keyword: "BenchForce:"
+    columns: {drag: 2, lift: 3}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {drag: 1.0e-4, lift: 1.0e-4}
+
+references:
+  baseline: testcases/baselines/q2p1_fc_ext_cylinder.yaml

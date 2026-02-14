@@ -73,6 +73,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE param_parser, ONLY: GDATNEW
  USE cinterface 
 
  IMPLICIT NONE
@@ -140,10 +141,15 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
-#ifdef HAVE_PE 
- include 'PartitionReader.f90'
+ ! partitioning
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
 #else
- include 'PartitionReader2.f90'
+  include 'PartitionReader.f90'
+#endif
+#else
+  include 'PartitionReader2.f90'
 #endif
 
  call MPI_Get_processor_name(processor_name, name_len, ierr)
@@ -453,7 +459,7 @@ END IF
 
 #ifdef HAVE_PE 
   if (myid .ne. 0) then
-    call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+    call commf2c_fsi(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
   end if
 #endif
 
