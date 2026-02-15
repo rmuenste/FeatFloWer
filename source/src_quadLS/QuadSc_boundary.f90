@@ -303,11 +303,13 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     write(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
   end if
 
-  ! Report KVEL cache stats across all ranks
-  ! k holds the local cached DOF count (set above, 0 on rank 0)
-  call MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  IF (myid.eq.0) THEN
-    write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
+  ! Report KVEL cache stats across all ranks (only if KVEL acceleration is enabled)
+  if (bUseKVEL_Accel) then
+    ! k holds the local cached DOF count (set above, 0 on rank 0)
+    call MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+    IF (myid.eq.0) THEN
+      write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
+    end if
   end if
 #endif
 
