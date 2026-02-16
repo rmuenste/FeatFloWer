@@ -17,7 +17,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   nMainUmbrellaSteps, bBoundaryCheck, Transform, postParams, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
-  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, &
+  MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel
 USE types, ONLY: tParamV, tParamP, tProperties
@@ -802,6 +802,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
        READ(string(iEq+1:),*) RadParticle
       CASE ("RPM")
        READ(string(iEq+1:),*) RPM
+      CASE ("FluidizationVelocity")
+       READ(string(iEq+1:),*) FluidizationVelocity
 
       CASE ("UseHashGridAccel")
         bUseHashGridAccel = read_yes_no_param(string, iEq)
@@ -998,6 +1000,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     CALL write_param_real(mfile, mterm, "AlphaRelax = ", AlphaRelax)
     CALL write_param_real(mfile, mterm, "RadParticle = ", RadParticle)
     CALL write_param_real(mfile, mterm, "RPM = ", RPM)
+    CALL write_param_real(mfile, mterm, "FluidizationVelocity = ", FluidizationVelocity)
 
     ! Print FBM acceleration control flags
 #ifdef ENABLE_FBM_ACCELERATION
