@@ -244,6 +244,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
           end if
         END DO
 
+        DO i = 1, nel
+          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
+            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+          end if
+        END DO
+
         if (ParticleVertexCache(IP)%nVertices > 0) then
           allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
         end if
@@ -272,6 +278,13 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
           if (FictKNPR(nvt + net + i) /= 0 .and. longIdMatch(nvt + net + i, cacheParticles(IP)%bytes)) then
             k = k + 1
             ParticleVertexCache(IP)%dofIndices(k) = nvt + net + i
+          end if
+        END DO
+
+        DO i = 1, nel
+          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
+            k = k + 1
+            ParticleVertexCache(IP)%dofIndices(k) = nvt + net + nat + i
           end if
         END DO
       END DO
