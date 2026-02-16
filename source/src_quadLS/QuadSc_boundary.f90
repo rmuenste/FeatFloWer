@@ -291,16 +291,15 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
 #ifdef HAVE_PE
   call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
-  if (myid /= 0) then
-    totalP = getTotalParticles()
-  end if
+  ! Get total particle count on all ranks (including rank 0)
+  totalP = getTotalParticles()
 
   call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
   IF (myid.eq.0) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
     dofsPerParticle = real(reducedVal) / reducedP
-    write(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
   end if
 
   ! Report KVEL cache stats across all ranks (only if KVEL acceleration is enabled)
