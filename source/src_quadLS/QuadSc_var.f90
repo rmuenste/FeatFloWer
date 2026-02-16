@@ -309,6 +309,11 @@ MODULE var_QuadScalar
   ! Packed 64-bit representation of FictKNPR entries for FBM lookups
   type(tUint64), allocatable :: FictKNPR_uint64(:)
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+  ! Alpha field reconstructed from KVEL cache for verification
+  INTEGER, ALLOCATABLE :: FictKNPR_KVEL_Verify(:)
+#endif
+
   ! ============================================================================
   ! Vertex Cache for KVEL-based Force Acceleration
   ! ============================================================================

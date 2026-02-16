@@ -2142,6 +2142,9 @@ USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce, &
   mgNormShearStress,myALE,Shell
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
 USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
@@ -2444,6 +2447,15 @@ CASE('ElemSizeDist')
   end do
   write(iunit, *)"        </DataArray>"
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MixerKVEL",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(FictKNPR_KVEL_Verify(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+#endif
+
  CASE('Viscosity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Viscosity",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2640,6 +2652,9 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
 USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
@@ -2801,6 +2816,12 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Mixer')
   call reserve_offset(4_int64*NoOfVert, off)
   call write_dataarray_tag(iunit, '        ', 'Float32', 'Mixer', 1, off)
+
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'MixerKVEL', 1, off)
+#endif
 
  CASE('Viscosity')
   call reserve_offset(4_int64*NoOfVert, off)
@@ -3126,6 +3147,14 @@ DO iField=1,SIZE(myExport%Fields)
    call write_r32(iunit, dble(FictKNPR(ivt)))
   end do
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, dble(FictKNPR_KVEL_Verify(ivt)))
+  end do
+#endif
+
  CASE('Viscosity')
   call write_header(iunit, 4_int64*NoOfVert)
   do ivt=1,NoOfVert
@@ -3431,6 +3460,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Mixer","""/>"
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MixerKVEL","""/>"
+#endif
  CASE('Viscosity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity","""/>"
  CASE('Monitor')
@@ -3670,6 +3703,9 @@ USE var_QuadScalar,ONLY:QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStre
 USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -3771,6 +3807,14 @@ DO iField=1,SIZE(myExport%Fields)
   DO i=1,NoOfVert
    WRITE(iOutUnit,1000) REAL(Distamce(i))
   END DO
+
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  WRITE(iOutUnit,*)  'mixerkvel 1'
+  DO i=1,NoOfVert
+   WRITE(iOutUnit,1000) REAL(FictKNPR_KVEL_Verify(i))
+  END DO
+#endif
 
  CASE('Monitor')
   WRITE(iOutUnit,*)  'monitor 1'
