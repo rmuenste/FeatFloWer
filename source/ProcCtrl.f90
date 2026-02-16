@@ -46,7 +46,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
- CHARACTER(len=200) :: string
+ CHARACTER(len=200) :: string, line
  CHARACTER(len=100) :: command, cvalue
  CHARACTER(len=7)   :: CSimPar
  INTEGER :: iEnd(1), iCmnd(1), iExist(1), iPos, iFile, istat
@@ -91,17 +91,24 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 
    CALL ShareValueC_myMPI(string,200,showid)
 
-   ! Parse command and value from the control string
-   iPos = INDEX(string,"=")
-   IF (iPos /= 0) THEN
-    READ(string(1:iPos-1),'(A)') command
-    READ(string(iPos+1:),'(A)') cvalue
-    cvalue = TRIM(ADJUSTL(cvalue))
-   ELSE
-    command = "Nothing to be done ... "
-    cvalue = ""  ! Initialize to prevent undefined behavior
-    IF (myid == showid) THEN
-      WRITE(MTERM,'(A,A)') 'WARNING: Malformed line in ProcCtrl.txt: ', TRIM(string)
+   ! Parse command and value from the control string.
+   ! Empty lines and comment lines are ignored silently.
+   line = TRIM(ADJUSTL(string))
+   command = ""
+   cvalue  = ""
+
+   IF (LEN_TRIM(line) > 0) THEN
+    IF (line(1:1) /= "#" .AND. line(1:1) /= "!" .AND. line(1:1) /= ";") THEN
+      iPos = INDEX(line,"=")
+      IF (iPos /= 0) THEN
+        READ(line(1:iPos-1),'(A)') command
+        READ(line(iPos+1:),'(A)') cvalue
+        cvalue = TRIM(ADJUSTL(cvalue))
+      ELSE
+        IF (myid == showid) THEN
+          WRITE(MTERM,'(A,A)') 'WARNING: Malformed line in ProcCtrl.txt: ', TRIM(line)
+        END IF
+      END IF
     END IF
    END IF
 
@@ -181,10 +188,12 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 
   END DO
 
-  ! Reset control file to default state
-  IF (myid == showid) REWIND(PROCCTRL_UNIT)
-  IF (myid == showid) WRITE(PROCCTRL_UNIT,*) "Nothing to be done ... "
-  IF (myid == showid) CLOSE(PROCCTRL_UNIT)
+  ! Reset control file by truncating it to zero length.
+  IF (myid == showid) THEN
+    REWIND(PROCCTRL_UNIT)
+    ENDFILE(PROCCTRL_UNIT)
+    CLOSE(PROCCTRL_UNIT)
+  END IF
 
 END SUBROUTINE ProcessControl
 

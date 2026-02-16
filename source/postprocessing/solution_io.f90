@@ -1403,6 +1403,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
   use def_FEAT
+  use ProcCtrl_mod, only: ProcessControl
 
   implicit none
 
@@ -1456,7 +1457,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 !   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
-!   CALL ProcessControl(filehandle,mterm)
+  CALL ProcessControl(filehandle,mterm)
 
 end subroutine postprocessing_app
 !
@@ -1943,4 +1944,3 @@ subroutine write_sse_1d_sol()
 end subroutine write_sse_1d_sol
 
 end module solution_io
-

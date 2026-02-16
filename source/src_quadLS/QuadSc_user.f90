@@ -100,7 +100,7 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM
+use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM, FluidizationVelocity
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
@@ -898,7 +898,7 @@ END IF
 IF (iT.EQ.974) THEN
  ValU = 0d0
  ValV = 0d0
- ValW = inflow_velocity_xy_profile(X, Y, 2d0, 20.3d0, 0.686d0, 0.1d0)
+ ValW = inflow_velocity_xy_profile(X, Y, FluidizationVelocity, 20.3d0, 0.686d0, 0.1d0)
 END IF
 
 RETURN
