@@ -530,6 +530,22 @@ else()
   message(STATUS "==============================================")
 endif()
 
+option(DEBUG_FBM_OPTIMIZATION
+  "Enable FBM optimization debug mode: run both standard and KVEL force computation, compare results, write per-timestep debug files. Requires ENABLE_FBM_ACCELERATION."
+  OFF
+)
+
+if(NOT ENABLE_FBM_ACCELERATION AND DEBUG_FBM_OPTIMIZATION)
+  message(STATUS "DEBUG_FBM_OPTIMIZATION requested with ENABLE_FBM_ACCELERATION=OFF; forcing OFF.")
+  set(DEBUG_FBM_OPTIMIZATION OFF CACHE BOOL
+    "Enable FBM optimization debug mode" FORCE)
+endif()
+
+if(DEBUG_FBM_OPTIMIZATION)
+  add_definitions(-DDEBUG_FBM_OPTIMIZATION)
+  message(STATUS "DEBUG_FBM_OPTIMIZATION: dual force computation + per-timestep debug output enabled")
+endif()
+
 #=========================================================================
 #                         Add applications
 #=========================================================================

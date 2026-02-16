@@ -286,20 +286,66 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     end if
 #endif
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+    ! ============================================================================
+    ! Verify KVEL cache against FictKNPR (alpha field)
+    ! Reconstruct alpha from cached DOFs and compare with brute-force result
+    ! ============================================================================
+    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+      if (.not. allocated(FictKNPR_KVEL_Verify)) then
+        allocate(FictKNPR_KVEL_Verify(nvt+net+nat+nel))
+      end if
+      FictKNPR_KVEL_Verify = 0
+
+      do IP = 1, size(ParticleVertexCache)
+        do i = 1, ParticleVertexCache(IP)%nVertices
+          j = ParticleVertexCache(IP)%dofIndices(i)
+          if (j >= 1 .and. j <= nvt+net+nat+nel) then
+            FictKNPR_KVEL_Verify(j) = ParticleVertexCache(IP)%particleID
+          end if
+        end do
+      end do
+
+      ! Compare with FictKNPR and report mismatches
+      k = 0
+      do i = 1, nvt+net+nat+nel
+        ! Mismatch: FictKNPR says solid but cache missed it, or vice versa
+        if ((FictKNPR(i) /= 0) .neqv. (FictKNPR_KVEL_Verify(i) /= 0)) then
+          k = k + 1
+        end if
+      end do
+
+      if (myid == 1) then
+        if (k == 0) then
+          write(*,'(A)') 'DEBUG_FBM: Alpha verification PASSED - KVEL cache matches FictKNPR'
+        else
+          write(*,'(A,I0,A)') 'DEBUG_FBM: Alpha verification FAILED - ', k, ' mismatches between KVEL cache and FictKNPR'
+        end if
+      end if
+    end if
+#endif
+
   end if ! myid /= 0
 
 #ifdef HAVE_PE
-  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
 
   ! Get total particle count on all ranks (including rank 0)
   totalP = getTotalParticles()
 
+#ifdef PE_SERIAL_MODE
+  IF (myid.eq.1) THEN
+    write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
+    dofsPerParticle = real(reducedVal) / totalP
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
+  end if
+#else
   call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
   IF (myid.eq.0) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
     dofsPerParticle = real(reducedVal) / reducedP
-    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', reducedP, ' particles'
   end if
 
   ! Report KVEL cache stats across all ranks (only if KVEL acceleration is enabled)
@@ -310,6 +356,7 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
       write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
     end if
   end if
+#endif
 #endif
 
 END SUBROUTINE QuadScalar_FictKnpr
@@ -531,6 +578,42 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
       WRITE(*,'(A,I0,A)') 'KVEL cache: ', k, ' vertices cached'
     end if
   end if
+
+#ifdef DEBUG_FBM_OPTIMIZATION
+  ! ============================================================================
+  ! Verify KVEL cache against FictKNPR (alpha field)
+  ! ============================================================================
+  if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+    if (.not. allocated(FictKNPR_KVEL_Verify)) then
+      allocate(FictKNPR_KVEL_Verify(ndof))
+    end if
+    FictKNPR_KVEL_Verify = 0
+
+    do IP = 1, myFBM%nParticles
+      do i = 1, ParticleVertexCache(IP)%nVertices
+        j = ParticleVertexCache(IP)%dofIndices(i)
+        if (j >= 1 .and. j <= ndof) then
+          FictKNPR_KVEL_Verify(j) = ParticleVertexCache(IP)%particleID
+        end if
+      end do
+    end do
+
+    k = 0
+    do i = 1, ndof
+      if ((FictKNPR(i) /= 0) .neqv. (FictKNPR_KVEL_Verify(i) /= 0)) then
+        k = k + 1
+      end if
+    end do
+
+    if (myid == 1) then
+      if (k == 0) then
+        write(*,'(A)') 'DEBUG_FBM: Alpha verification PASSED - KVEL cache matches FictKNPR'
+      else
+        write(*,'(A,I0,A)') 'DEBUG_FBM: Alpha verification FAILED - ', k, ' mismatches between KVEL cache and FictKNPR'
+      end if
+    end if
+  end if
+#endif
 
 1 continue
 
