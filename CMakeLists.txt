@@ -511,6 +511,12 @@ if(USE_PE)
     message(STATUS "PE Parallel Mode (default): Full MPI parallelization")
   endif()
 
+  # Propagate FBM acceleration to PE library's HashGrid
+  if(ENABLE_FBM_ACCELERATION)
+    set(USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
+      "Enable HashGrid spatial hashing in PE (controlled by ENABLE_FBM_ACCELERATION)" FORCE)
+  endif()
+
   add_subdirectory(libs/pe)
 endif(USE_PE)
 
