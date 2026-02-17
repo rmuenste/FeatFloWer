@@ -10,7 +10,7 @@
 #define FULL_ROTATION
 !#define ONLY_ROTATION
 !#define MOVING_REFERENCE
-!#define VERIFY_HASHGRID  ! Controlled by CMake: -DVERIFY_HASHGRID=ON
+#define VERIFY_HASHGRID 
 MODULE fbm
 
 use var_QuadScalar

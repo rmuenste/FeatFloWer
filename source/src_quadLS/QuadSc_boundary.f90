@@ -244,6 +244,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
           end if
         END DO
 
+        DO i = 1, nel
+          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
+            ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
+          end if
+        END DO
+
         if (ParticleVertexCache(IP)%nVertices > 0) then
           allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
         end if
@@ -274,6 +280,13 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
             ParticleVertexCache(IP)%dofIndices(k) = nvt + net + i
           end if
         END DO
+
+        DO i = 1, nel
+          if (FictKNPR(nvt + net + nat + i) /= 0 .and. longIdMatch(nvt + net + nat + i, cacheParticles(IP)%bytes)) then
+            k = k + 1
+            ParticleVertexCache(IP)%dofIndices(k) = nvt + net + nat + i
+          end if
+        END DO
       END DO
 
       ! Count local cached DOFs and reduce across all ranks
@@ -286,29 +299,77 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
     end if
 #endif
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+    ! ============================================================================
+    ! Verify KVEL cache against FictKNPR (alpha field)
+    ! Reconstruct alpha from cached DOFs and compare with brute-force result
+    ! ============================================================================
+    if (bUseKVEL_Accel .and. allocated(ParticleVertexCache)) then
+      if (.not. allocated(FictKNPR_KVEL_Verify)) then
+        allocate(FictKNPR_KVEL_Verify(nvt+net+nat+nel))
+      end if
+      FictKNPR_KVEL_Verify = 0
+
+      do IP = 1, size(ParticleVertexCache)
+        do i = 1, ParticleVertexCache(IP)%nVertices
+          j = ParticleVertexCache(IP)%dofIndices(i)
+          if (j >= 1 .and. j <= nvt+net+nat+nel) then
+            FictKNPR_KVEL_Verify(j) = ParticleVertexCache(IP)%particleID
+          end if
+        end do
+      end do
+
+      ! Compare with FictKNPR and report mismatches
+      k = 0
+      do i = 1, nvt+net+nat+nel
+        ! Mismatch: FictKNPR says solid but cache missed it, or vice versa
+        if ((FictKNPR(i) /= 0) .neqv. (FictKNPR_KVEL_Verify(i) /= 0)) then
+          k = k + 1
+        end if
+      end do
+
+      if (myid == 1) then
+        if (k == 0) then
+          write(*,'(A)') 'DEBUG_FBM: Alpha verification PASSED - KVEL cache matches FictKNPR'
+        else
+          write(*,'(A,I0,A)') 'DEBUG_FBM: Alpha verification FAILED - ', k, ' mismatches between KVEL cache and FictKNPR'
+        end if
+      end if
+    end if
+#endif
+
   end if ! myid /= 0
 
 #ifdef HAVE_PE
-  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
 
-  if (myid /= 0) then
-    totalP = getTotalParticles()
+  ! Get total particle count on all ranks (including rank 0)
+  totalP = getTotalParticles()
+
+#ifdef PE_SERIAL_MODE
+  IF (myid.eq.1) THEN
+    write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
+    dofsPerParticle = real(reducedVal) / totalP
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
   end if
-
+#else
   call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
   IF (myid.eq.0) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
     dofsPerParticle = real(reducedVal) / reducedP
-    write(*,'(A,I0)') '> Dofs per Particle: ', NINT(dofsPerParticle)
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', reducedP, ' particles'
   end if
 
-  ! Report KVEL cache stats across all ranks
-  ! k holds the local cached DOF count (set above, 0 on rank 0)
-  call MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  IF (myid.eq.0) THEN
-    write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
+  ! Report KVEL cache stats across all ranks (only if KVEL acceleration is enabled)
+  if (bUseKVEL_Accel) then
+    ! k holds the local cached DOF count (set above, 0 on rank 0)
+    call MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+    IF (myid.eq.0) THEN
+      write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
+    end if
   end if
+#endif
 #endif
 
 END SUBROUTINE QuadScalar_FictKnpr
@@ -448,88 +509,6 @@ SUBROUTINE QuadScalar_FictKnpr_Wangen(dcorvg,dcorag,kvert,kedge,karea)
   END DO
 
   END DO ! IP
-
-  ! ============================================================================
-  ! Build KVEL Vertex Cache for Force Acceleration
-  ! ============================================================================
-  if (bUseKVEL_Accel) then
-    allocate(ParticleVertexCache(myFBM%nParticles))
-
-    ! Pass 1: Count vertices per particle
-    DO IP = 1, myFBM%nParticles
-      ParticleVertexCache(IP)%nVertices = 0
-      ParticleVertexCache(IP)%particleID = IP
-
-      ! Count Q2 vertices (nvt)
-      DO ivt = 1, nvt
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-        end if
-      END DO
-
-      ! Count edge DOFs (net)
-      DO i = 1, net
-        ivt = nvt + i
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-        end if
-      END DO
-
-      ! Count face DOFs (nat)
-      DO i = 1, nat
-        ivt = nvt + net + i
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          ParticleVertexCache(IP)%nVertices = ParticleVertexCache(IP)%nVertices + 1
-        end if
-      END DO
-
-      ! Allocate exact size
-      if (ParticleVertexCache(IP)%nVertices > 0) then
-        allocate(ParticleVertexCache(IP)%dofIndices(ParticleVertexCache(IP)%nVertices))
-      end if
-    END DO
-
-    ! Pass 2: Fill vertex indices
-    DO IP = 1, myFBM%nParticles
-      if (ParticleVertexCache(IP)%nVertices == 0) cycle
-
-      i = 0  ! Reuse i as cache counter
-
-      ! Cache Q2 vertices
-      DO ivt = 1, nvt
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          i = i + 1
-          ParticleVertexCache(IP)%dofIndices(i) = ivt
-        end if
-      END DO
-
-      ! Cache edge DOFs
-      DO j = 1, net
-        ivt = nvt + j
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          i = i + 1
-          ParticleVertexCache(IP)%dofIndices(i) = ivt
-        end if
-      END DO
-
-      ! Cache face DOFs
-      DO j = 1, nat
-        ivt = nvt + net + j
-        if (bMark(ivt) .and. FictKNPR(ivt) == IP) then
-          i = i + 1
-          ParticleVertexCache(IP)%dofIndices(i) = ivt
-        end if
-      END DO
-    END DO
-
-    if (myid == 1) then
-      k = 0
-      DO IP = 1, myFBM%nParticles
-        k = k + ParticleVertexCache(IP)%nVertices
-      END DO
-      WRITE(*,'(A,I0,A)') 'KVEL cache: ', k, ' vertices cached'
-    end if
-  end if
 
 1 continue
 
