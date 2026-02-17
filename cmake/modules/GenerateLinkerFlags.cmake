@@ -45,7 +45,6 @@ if(WIN32)
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
-    ff_postprocessing
     ff_ini_aux
     ff_ini_c
     ff_util
@@ -57,6 +56,7 @@ if(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_postprocessing
     )
 else(WIN32)
   set(FF_APPLICATION_LIBS
@@ -76,7 +76,6 @@ else(WIN32)
     ${LIBRT_LIBRARY}
     ${MPI_Fortran_LIBRARIES}
     ff_cinterface
-    ff_postprocessing
     ff_ini_aux
     ff_ini_c
     ff_util
@@ -88,6 +87,7 @@ else(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_postprocessing
     ff_particles
     )
 endif(WIN32)
