@@ -38,6 +38,7 @@ SimPar@noLoadAdaptedMesh = "_dump/msh"
 SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+SimPar@PartitionFormat=legacy
 ----------------- Velocity --------------------
 Velo@defCrit =1d-3
 Velo@epsCrit =1d-3

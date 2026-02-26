@@ -1,4 +1,4 @@
-Module Mesh_Structures
+MODULE Mesh_Structures
 
   DIMENSION KIV(2,12)
   DATA KIV /1,2, 2,3, 3,4, 4,1, 1,5, 2,6, &
@@ -550,19 +550,24 @@ subroutine split_file_components(file_name, base_name, digits, has_digits, succe
   end do
 
   if (idx < len_trim(root)) then
-    has_digits = .true.
-    digits = root(idx+1:)
+    if (len_trim(root) - idx >= 4) then
+      has_digits = .true.
+      digits = root(idx+1:)
+    else
+      has_digits = .false.
+      digits = ""
+    end if
   else
     has_digits = .false.
     digits = ""
   end if
 
-  if (idx <= 0) then
-    cleaned_root = ""
-  else
-    cleaned_root = root(:idx)
-  end if
   if (has_digits) then
+    if (idx <= 0) then
+      cleaned_root = ""
+    else
+      cleaned_root = root(:idx)
+    end if
     cleaned_root = strip_trailing_char(cleaned_root, '_')
     if (len_trim(cleaned_root) == 0) then
       if (idx > 0) then
@@ -571,6 +576,8 @@ subroutine split_file_components(file_name, base_name, digits, has_digits, succe
         cleaned_root = root
       end if
     end if
+  else
+    cleaned_root = root
   end if
 
   if (len_trim(cleaned_root) == 0) return
@@ -1082,6 +1089,123 @@ subroutine sanitize_number_buffer(buffer)
     end select
   end do
 end subroutine
+
+logical function parse_string_field(text, key, value)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  character(len=*), intent(out) :: value
+  integer :: s, e
+  character(len=:), allocatable :: buffer
+
+  parse_string_field = .false.
+  value = ""
+  if (.not. find_json_value_span(text, key, s, e)) return
+  buffer = text(s:e)
+  if (.not. decode_json_string(buffer, value)) return
+  parse_string_field = .true.
+end function
+
+logical function decode_json_string(raw_text, dest)
+  implicit none
+  character(len=*), intent(in) :: raw_text
+  character(len=*), intent(out) :: dest
+  integer :: start_idx, end_idx, len_raw, i, out_idx
+  character :: ch
+
+  decode_json_string = .false.
+  dest = ""
+  len_raw = len_trim(raw_text)
+  start_idx = 1
+  do while (start_idx <= len_raw .and. is_json_whitespace(raw_text(start_idx:start_idx)))
+    start_idx = start_idx + 1
+  end do
+  end_idx = len_raw
+  do while (end_idx >= start_idx .and. is_json_whitespace(raw_text(end_idx:end_idx)))
+    end_idx = end_idx - 1
+  end do
+  if (start_idx > end_idx) return
+  if (raw_text(start_idx:start_idx) /= '"' .or. raw_text(end_idx:end_idx) /= '"') return
+  out_idx = 1
+  i = start_idx + 1
+  do while (i <= end_idx - 1)
+    ch = raw_text(i:i)
+    if (ch == '\' .and. i < end_idx - 1) then
+      i = i + 1
+      ch = raw_text(i:i)
+    end if
+    if (out_idx <= len(dest)) dest(out_idx:out_idx) = ch
+    out_idx = out_idx + 1
+    i = i + 1
+  end do
+  if (out_idx <= len(dest)) dest(out_idx:) = ' '
+  decode_json_string = .true.
+end function
+
+logical function is_json_whitespace(ch)
+  implicit none
+  character, intent(in) :: ch
+
+  select case (ch)
+  case (' ', char(9), char(10), char(13))
+    is_json_whitespace = .true.
+  case default
+    is_json_whitespace = .false.
+  end select
+end function
+
+integer function count_numeric_tokens(buffer)
+  implicit none
+  character(len=*), intent(in) :: buffer
+  integer :: i
+  logical :: in_token
+  character :: ch
+
+  count_numeric_tokens = 0
+  in_token = .false.
+  do i = 1, len(buffer)
+    ch = buffer(i:i)
+    select case (ch)
+    case (' ', char(9), char(10), char(13))
+      in_token = .false.
+    case default
+      if (.not. in_token) then
+        count_numeric_tokens = count_numeric_tokens + 1
+        in_token = .true.
+      end if
+    end select
+  end do
+end function
+
+logical function parse_int_list_field(text, key, values, count)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  integer, allocatable, intent(out) :: values(:)
+  integer, intent(out) :: count
+  integer :: s, e, ios
+  character(len=:), allocatable :: buffer
+
+  parse_int_list_field = .false.
+  if (.not. find_json_value_span(text, key, s, e)) return
+  buffer = text(s:e)
+  call sanitize_number_buffer(buffer)
+  count = count_numeric_tokens(buffer)
+  if (count < 0) count = 0
+  if (allocated(values)) deallocate(values)
+  if (count == 0) then
+    allocate(values(0))
+    parse_int_list_field = .true.
+    return
+  end if
+  allocate(values(count))
+  read(buffer, *, iostat=ios) values
+  if (ios /= 0) then
+    deallocate(values)
+    return
+  end if
+  parse_int_list_field = .true.
+end function
 
 !================================================================================================
 !                                 Sub: refineMesh  

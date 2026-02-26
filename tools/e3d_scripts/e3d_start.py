@@ -243,7 +243,8 @@ paramDict = {
     "partialFilling" : False,
     "onlyMeshCreation" : False,
     "retryDeformation" : False,
-    "maxMeshLevel" : -1
+    "maxMeshLevel" : -1,
+    "partitionFormat": "legacy"
 }
 
 class ProtocolObserver(FileSystemEventHandler):
@@ -326,6 +327,35 @@ def mkdir(dir):
 
 
 #===============================================================================
+#                    Parse partition format from parameter file
+#===============================================================================
+def parsePartitionFormat(paramFile):
+    """
+    Returns 'legacy' or 'json' based on SimPar@PartitionFormat entry.
+    Defaults to legacy on missing/invalid values.
+    """
+    fmt = "legacy"
+    try:
+        with open(paramFile, "r") as f:
+            for raw_line in f:
+                line = raw_line.split("!")[0].strip()
+                if not line:
+                    continue
+                lower_line = line.lower()
+                if lower_line.startswith("simpar@partitionformat"):
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        candidate = parts[1].strip().strip('"').strip("'").lower()
+                        if candidate in ("legacy", "json"):
+                            fmt = candidate
+                    break
+    except OSError:
+        pass
+    return fmt
+#===============================================================================
+
+
+#===============================================================================
 #                          simple file in-situ replacement method
 #===============================================================================
 def replace_in_file(file_path, search_text, new_text):
@@ -399,6 +429,7 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     destDataFile = Path("_data") / Path("q2p1_param.dat")
 
     shutil.copyfile(str(backupDataFile), str(destDataFile))
+    paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
     shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
 
     offList = []
@@ -456,7 +487,14 @@ def partitionerStep(workingDir, projectFile, projectPath, projectFolder):
     print("Partitioner parameters: ",-1, partitionerParameters)
     try:
         myLog.updateStatusLine("CurrentStatus=running Partitioner")
-        partitioner.partition(paramDict['numProcessors']-1, partitionerParameters[0], partitionerParameters[1], "NEWFAC", "_data/meshDir/file.prj")
+        partitioner.partition(
+            paramDict['numProcessors']-1,
+            partitionerParameters[0],
+            partitionerParameters[1],
+            "NEWFAC",
+            "_data/meshDir/file.prj",
+            partition_format=paramDict.get('partitionFormat', 'legacy')
+        )
     except:
         myLog.logErrorExit("CurrentStatus=abnormal Termination Partitioner", 2)
     

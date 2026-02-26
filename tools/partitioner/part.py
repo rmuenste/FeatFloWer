@@ -14,6 +14,7 @@ from six.moves import zip
 from itertools import repeat, count
 
 from collections import Counter
+import json
 
 from math import sqrt
 import os
@@ -22,6 +23,137 @@ from shutil import copy
 
 metis=None
 metis_func=[]
+PARTITION_FORMAT = "legacy"
+JSON_WRITER = None
+BASE_OUTPUT_PATH = None
+GRID_CACHE = {}
+PAR_CACHE = {}
+
+def cache_grid_data(path, grid):
+  GRID_CACHE[os.path.abspath(path)] = grid
+
+def cache_par_data(path, par_data):
+  PAR_CACHE[os.path.abspath(path)] = par_data
+
+
+class JsonPartitionWriter:
+  def __init__(self, base_path):
+    self.base_path = base_path
+    self.files = {}
+
+  def _get_file_entry(self, source_name, file_type):
+    entry = self.files.get(source_name)
+    if entry is None:
+      entry = {
+        "type": file_type,
+        "master": None,
+        "subs": {},
+      }
+      self.files[source_name] = entry
+    return entry
+
+  def _classify_path(self, rel_path):
+    normalized = rel_path.replace("\\", "/")
+    parts = normalized.split("/")
+    if len(parts) > 1 and parts[0].startswith("sub") and parts[0][3:].isdigit():
+      return parts[0], "/".join(parts[1:])
+    return None, normalized
+
+  def add_grid(self, source_name, rel_path, grid):
+    entry = self._get_file_entry(source_name, "tri")
+    (nel, nvt, coord, kvert, knpr) = grid
+    payload = {
+      "nel": nel,
+      "nvt": nvt,
+      "dcorvg": [list(node) for node in coord],
+      "kvert": [list(elem) for elem in kvert],
+      "knpr": list(knpr),
+    }
+    sub_key, remainder = self._classify_path(rel_path)
+    if sub_key is None:
+      entry["master"] = payload
+    else:
+      sub_bucket = entry["subs"].setdefault(sub_key, {"coarse": None, "parts": {}})
+      normalized = self._normalize_part_name(source_name, remainder)
+      if normalized.lower() == source_name.lower():
+        sub_bucket["coarse"] = payload
+      else:
+        sub_bucket["parts"][normalized] = payload
+
+  def add_par(self, source_name, rel_path, par_type, parameter, boundary):
+    entry = self._get_file_entry(source_name, "par")
+    payload = {
+      "type": par_type,
+      "parameter": parameter,
+      "nodes": list(boundary),
+    }
+    sub_key, remainder = self._classify_path(rel_path)
+    base_name = os.path.basename(source_name)
+    normalized = self._normalize_part_name(base_name, remainder)
+    if sub_key is None:
+      entry["master"] = payload
+    else:
+      sub_bucket = entry["subs"].setdefault(sub_key, {"coarse": None, "parts": {}})
+      if normalized.lower() == base_name.lower():
+        sub_bucket["coarse"] = payload
+      else:
+        sub_bucket["parts"][normalized] = payload
+
+  def write_files(self):
+    for source_name, payload in self.files.items():
+      out_path = os.path.join(self.base_path, "%s.json" % source_name)
+      data = {
+        "format": "FeatFloWerPartition",
+        "version": 1,
+        "source": source_name,
+        "kind": payload["type"],
+        "master": payload["master"],
+        "subs": payload["subs"],
+      }
+      with open(out_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+  def _normalize_part_name(self, base_name, remainder):
+    if remainder is None:
+      return remainder
+    if "/" in remainder or "\\" in remainder:
+      return remainder
+    base_root, base_ext = os.path.splitext(base_name)
+    rem_root, rem_ext = os.path.splitext(remainder)
+    if rem_ext.lower() != base_ext.lower():
+      return remainder
+    suffix_start = len(rem_root)
+    while suffix_start > 0 and rem_root[suffix_start - 1].isdigit():
+      suffix_start -= 1
+    if suffix_start == len(rem_root):
+      return remainder
+    suffix = rem_root[suffix_start:]
+    prefix = rem_root[:suffix_start]
+    if prefix.lower()[:len(base_root)] != base_root.lower():
+      return remainder
+    extra = prefix[len(base_root):]
+    if extra not in ("", "_"):
+      return remainder
+    if not suffix:
+      return remainder
+    return f"{base_root}.{suffix}{base_ext}"
+
+
+def init_partition_output(base_path, partition_format):
+  global PARTITION_FORMAT, JSON_WRITER, BASE_OUTPUT_PATH, GRID_CACHE, PAR_CACHE
+  PARTITION_FORMAT = partition_format
+  BASE_OUTPUT_PATH = base_path
+  if PARTITION_FORMAT == "json":
+    JSON_WRITER = JsonPartitionWriter(base_path)
+  else:
+    JSON_WRITER = None
+  GRID_CACHE = {}
+  PAR_CACHE = {}
+
+
+def finalize_partition_output():
+  if JSON_WRITER is not None:
+    JSON_WRITER.write_files()
 
 #Kleine private Hilfsroutinen
 def _readAfterKeyword(fh,keyword):
@@ -81,6 +213,9 @@ def GetGrid(GridFileName):
     Liest ein Gitter aus der Datei "GridFileName".
     Der Rückgabewert hat die Struktur: (NEL,NVT,Coord,KVert,Knpr)
     """
+    abs_name = os.path.abspath(GridFileName)
+    if PARTITION_FORMAT == "json" and abs_name in GRID_CACHE:
+        return GRID_CACHE[abs_name]
     print("Grid input file: '%s'" % GridFileName)
     f=open(GridFileName,'r')
     f.readline()
@@ -115,6 +250,9 @@ def GetPar(ParFileName,NVT):
     bestimmt zudem die Länge der Randliste.
     Rückgabe: (Name des Randes, Daten des Randes, Boolsche Liste für alle Knoten)
     """
+    abs_name = os.path.abspath(ParFileName)
+    if PARTITION_FORMAT == "json" and abs_name in PAR_CACHE:
+        return PAR_CACHE[abs_name]
     print("Parameter input file: '%s'" % ParFileName)
     with open(ParFileName,'r') as f:
         g=f.readline().split()
@@ -204,7 +342,7 @@ def GetParts(Neigh,nPart,Method):
   # Fertig
   return tuple(Part)
 
-def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
+def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub,sourceName="GRID.tri"):
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
@@ -241,7 +379,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
       localGridName=os.path.join(BaseName,"GRID%04d.tri"%iPart)
     else:
       localGridName=os.path.join(BaseName,"sub%04d"%iPart,"GRID.tri")
-    OutputGrid(localGridName,localGrid)
+    OutputGrid(localGridName,localGrid,sourceName=sourceName)
+    if PARTITION_FORMAT == "json":
+      cache_grid_data(localGridName, localGrid)
 
     ###
 
@@ -255,23 +395,42 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
       # dann gehoert er dort auch zur Randparametrisierung
       localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
       localBoundary.sort()
-      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+      baseParName="%s.par"%ParNames[iPar]
+      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary,source_name=baseParName)
+      if PARTITION_FORMAT == "json":
+        cache_par_data(localParName, (ParTypes[iPar],Parameters[iPar],set(localBoundary)))
 
 def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
 
-def OutputParFile(Name,Type,Parameters,Boundary):
+def OutputParFile(Name,Type,Parameters,Boundary,source_name=None):
   #print("Output parameter file: " + Name)
+  if PARTITION_FORMAT == "json":
+    if JSON_WRITER is None or BASE_OUTPUT_PATH is None:
+      raise RuntimeError("JSON writer not initialised")
+    rel_path = os.path.relpath(Name, BASE_OUTPUT_PATH)
+    entry_name = source_name if source_name is not None else os.path.basename(Name)
+    JSON_WRITER.add_par(entry_name, rel_path, Type, Parameters, Boundary)
+    cache_par_data(Name, (Type, Parameters, set(Boundary)))
+    return
   with open(Name,"w") as f:
     f.write("%d %s\n"%(len(Boundary),Type))
     f.write(Parameters+"\n")
     f.write(_build_line_by_format_list("%d",Boundary,"\n"))
   pass
 
-def OutputGrid(Name,Grid):
+def OutputGrid(Name,Grid,sourceName=None):
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
   #print("Output grid file: " + Name)
+  if PARTITION_FORMAT == "json":
+    if JSON_WRITER is None or BASE_OUTPUT_PATH is None:
+      raise RuntimeError("JSON writer not initialised")
+    rel_path = os.path.relpath(Name, BASE_OUTPUT_PATH)
+    entry_name = sourceName if sourceName is not None else os.path.basename(Name)
+    JSON_WRITER.add_grid(entry_name, rel_path, Grid)
+    cache_grid_data(Name, Grid)
+    return
   with open(Name,'w') as f:
     f.write("Coarse mesh exported by Partitioner\n")
     f.write("Parametrisierung PARXC, PARYC, TMAXC\n")
@@ -379,4 +538,3 @@ metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METI
 if __name__=="__main__":
   if metis!=None:
     print("Metis has been loaded.")
-
