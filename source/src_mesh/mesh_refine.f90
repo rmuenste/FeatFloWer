@@ -11,6 +11,10 @@ Module Mesh_Structures
     integer, dimension(6) :: I_conData
   end type t_connector3D
 
+  integer, parameter :: JSON_ENTRY_MASTER = 0
+  integer, parameter :: JSON_ENTRY_SUB_COARSE = 1
+  integer, parameter :: JSON_ENTRY_SUB_PART = 2
+
 contains
 
 !================================================================================================
@@ -218,6 +222,12 @@ subroutine readTriCoarse(CFILE, mgMesh)
   integer :: cunit = 18
   integer :: i,istat
 
+  if (partition_uses_json_mesh()) then
+    if (readTriCoarse_from_json(trim(adjustl(cfile)), mgMesh)) then
+      return
+    end if
+  end if
+
   inquire(file=adjustl(trim(cfile)),exist=bExist)
   if (.not. bExist) then
     write(*,*) "File '"//adjustl(trim(cfile)),"' could not be read ..."
@@ -275,6 +285,802 @@ subroutine readTriCoarse(CFILE, mgMesh)
   close(cunit)
 
 
+end subroutine
+
+logical function partition_uses_json_mesh()
+  use var_QuadScalar, only: cPartitionFormat
+  implicit none
+  character(len=16) :: fmt
+  integer :: i
+
+  fmt = cPartitionFormat
+  do i = 1, len(fmt)
+    select case (fmt(i:i))
+    case ("A":"Z")
+      fmt(i:i) = char(iachar(fmt(i:i)) + 32)
+    end select
+  end do
+  partition_uses_json_mesh = (trim(fmt) == "json")
+end function
+
+logical function readTriCoarse_from_json(cfile, mgMesh)
+  use var_QuadScalar
+  use PP3D_MPI, only: myid
+  implicit none
+  character(len=*), intent(in) :: cfile
+  type(tMultiMesh), intent(inout) :: mgMesh
+  character(len=:), allocatable :: json_file, sub_key, entry_key, source_name
+  character(len=:), allocatable :: json_text
+  logical :: success
+  integer :: entry_kind
+  integer :: entry_start, entry_end
+
+  readTriCoarse_from_json = .false.
+  call derive_json_lookup(trim(cfile), json_file, sub_key, entry_key, entry_kind, source_name, success)
+  if (.not. success) then
+    write(*,*) "Failed to analyze JSON mesh path: ", trim(cfile)
+    return
+  end if
+
+  call read_file_to_string(trim(json_file), json_text, success)
+  if (.not. success) then
+    write(*,*) "JSON mesh file not found: ", trim(json_file)
+    return
+  end if
+
+  select case (entry_kind)
+  case (JSON_ENTRY_MASTER)
+    success = find_json_value_span(json_text, "master", entry_start, entry_end)
+  case (JSON_ENTRY_SUB_COARSE)
+    success = locate_sub_entry(json_text, trim(sub_key), "coarse", entry_start, entry_end)
+  case (JSON_ENTRY_SUB_PART)
+    success = locate_sub_part(json_text, trim(sub_key), trim(entry_key), entry_start, entry_end)
+  case default
+    success = .false.
+  end select
+
+  if (.not. success) then
+    if (entry_kind == 0) then
+      write(*,*) "JSON master mesh entry not found in ", trim(json_file)
+    else
+      write(*,*) "JSON mesh entry not found for ", trim(entry_key)
+    end if
+    if (allocated(json_text)) deallocate(json_text)
+    return
+  end if
+
+  success = parse_json_mesh_payload(json_text(entry_start:entry_end), mgMesh)
+  if (.not. success) then
+    write(*,*) "Could not parse JSON mesh payload for ", trim(entry_key)
+    if (allocated(json_text)) deallocate(json_text)
+    return
+  end if
+
+  write(*,'(A,I0,A,A,A,I0,A,I0)') "Rank ", myid, " read JSON mesh entry ", &
+       trim(entry_key), " -> NEL=", mgMesh%level(1)%nel, ", NVT=", mgMesh%level(1)%nvt
+
+  if (allocated(json_text)) deallocate(json_text)
+  readTriCoarse_from_json = .true.
+end function
+
+subroutine derive_json_lookup(cfile, json_file, sub_key, entry_key, entry_kind, source_name, success)
+  implicit none
+  character(len=*), intent(in) :: cfile
+  character(len=:), allocatable, intent(out) :: json_file
+  character(len=:), allocatable, intent(out) :: sub_key
+  character(len=:), allocatable, intent(out) :: entry_key
+  character(len=:), allocatable, intent(out) :: source_name
+  integer, intent(out) :: entry_kind
+  logical, intent(out) :: success
+  character(len=:), allocatable :: dir_part, file_name
+  character(len=:), allocatable :: base_dir, base_name, digits
+  logical :: ok, has_digits
+
+  json_file = ""
+  sub_key = ""
+  entry_key = ""
+  source_name = ""
+  entry_kind = JSON_ENTRY_MASTER
+  success = .false.
+
+  call split_last_component(trim(cfile), dir_part, file_name, ok)
+  if (.not. ok) return
+
+  call split_base_directory(dir_part, base_dir, sub_key)
+  if (len_trim(base_dir) == 0) return
+
+  call split_file_components(file_name, base_name, digits, has_digits, ok)
+  if (.not. ok) return
+  source_name = trim(base_name)
+
+  if (len_trim(base_dir) > 0) then
+    if (base_dir(len_trim(base_dir):len_trim(base_dir)) == '/' .or. &
+        base_dir(len_trim(base_dir):len_trim(base_dir)) == '\') then
+      json_file = trim(base_dir)//trim(source_name)//".json"
+    else
+      json_file = trim(base_dir)//"/"//trim(source_name)//".json"
+    end if
+  else
+    json_file = trim(source_name)//".json"
+  end if
+
+  if (len_trim(sub_key) == 0) then
+    entry_kind = JSON_ENTRY_MASTER
+    entry_key = trim(source_name)
+  else
+    if (has_digits) then
+      entry_kind = JSON_ENTRY_SUB_PART
+      call build_part_entry_name(source_name, file_name, digits, entry_key)
+    else
+      entry_kind = JSON_ENTRY_SUB_COARSE
+      entry_key = trim(source_name)
+    end if
+  end if
+
+  success = (len_trim(json_file) > 0)
+end subroutine
+
+subroutine split_last_component(full_path, directory, filename, success)
+  implicit none
+  character(len=*), intent(in) :: full_path
+  character(len=:), allocatable, intent(out) :: directory
+  character(len=:), allocatable, intent(out) :: filename
+  logical, intent(out) :: success
+  integer :: len_path, idx
+  character(len=:), allocatable :: work
+
+  directory = ""
+  filename = ""
+  success = .false.
+  work = trim(full_path)
+  len_path = len_trim(work)
+  if (len_path <= 0) return
+
+  idx = len_path
+  do while (idx >= 1)
+    if (work(idx:idx) == '/' .or. work(idx:idx) == '\') exit
+    idx = idx - 1
+  end do
+  if (idx <= 0 .or. idx == len_path) return
+
+  directory = trim(work(:idx-1))
+  filename = trim(work(idx+1:len_path))
+  success = (len_trim(filename) > 0)
+end subroutine
+
+subroutine split_base_directory(path_dir, base_dir, sub_key)
+  implicit none
+  character(len=*), intent(in) :: path_dir
+  character(len=:), allocatable, intent(out) :: base_dir
+  character(len=:), allocatable, intent(out) :: sub_key
+  integer :: len_dir, idx
+  character(len=:), allocatable :: work, candidate
+
+  work = trim(path_dir)
+  len_dir = len_trim(work)
+  if (len_dir <= 0) then
+    base_dir = ""
+    sub_key = ""
+    return
+  end if
+
+  idx = len_dir
+  do while (idx >= 1)
+    if (work(idx:idx) == '/' .or. work(idx:idx) == '\') exit
+    idx = idx - 1
+  end do
+
+  if (idx <= 0) then
+    base_dir = trim(work)
+    sub_key = ""
+    return
+  end if
+
+  candidate = trim(work(idx+1:len_dir))
+  if (is_subfolder_token(candidate)) then
+    base_dir = trim(work(:idx-1))
+    sub_key = candidate
+  else
+    base_dir = trim(work)
+    sub_key = ""
+  end if
+end subroutine
+
+logical function is_subfolder_token(token)
+  implicit none
+  character(len=*), intent(in) :: token
+  character(len=:), allocatable :: lower
+  integer :: len_tok, i
+
+  lower = token
+  call to_lower_string(lower)
+  len_tok = len_trim(lower)
+  if (len_tok < 4) then
+    is_subfolder_token = .false.
+    return
+  end if
+  if (lower(1:3) /= "sub") then
+    is_subfolder_token = .false.
+    return
+  end if
+  do i = 4, len_tok
+    if (lower(i:i) < "0" .or. lower(i:i) > "9") then
+      is_subfolder_token = .false.
+      return
+    end if
+  end do
+  is_subfolder_token = .true.
+end function
+
+subroutine split_file_components(file_name, base_name, digits, has_digits, success)
+  implicit none
+  character(len=*), intent(in) :: file_name
+  character(len=:), allocatable, intent(out) :: base_name
+  character(len=:), allocatable, intent(out) :: digits
+  logical, intent(out) :: has_digits
+  logical, intent(out) :: success
+  character(len=:), allocatable :: work, extension, root, cleaned_root
+  integer :: len_name, dot_pos, idx
+
+  base_name = ""
+  digits = ""
+  has_digits = .false.
+  success = .false.
+
+  work = trim(file_name)
+  len_name = len_trim(work)
+  if (len_name <= 0) return
+
+  dot_pos = len_name
+  do while (dot_pos >= 1)
+    if (work(dot_pos:dot_pos) == '.') exit
+    dot_pos = dot_pos - 1
+  end do
+  if (dot_pos <= 1) return
+
+  extension = work(dot_pos:len_name)
+  root = work(:dot_pos-1)
+  idx = len_trim(root)
+  do while (idx >= 1)
+    if (root(idx:idx) >= '0' .and. root(idx:idx) <= '9') then
+      idx = idx - 1
+    else
+      exit
+    end if
+  end do
+
+  if (idx < len_trim(root)) then
+    has_digits = .true.
+    digits = root(idx+1:)
+  else
+    has_digits = .false.
+    digits = ""
+  end if
+
+  if (idx <= 0) then
+    cleaned_root = ""
+  else
+    cleaned_root = root(:idx)
+  end if
+  if (has_digits) then
+    cleaned_root = strip_trailing_char(cleaned_root, '_')
+    if (len_trim(cleaned_root) == 0) then
+      if (idx > 0) then
+        cleaned_root = root(:idx)
+      else
+        cleaned_root = root
+      end if
+    end if
+  end if
+
+  if (len_trim(cleaned_root) == 0) return
+  base_name = trim(cleaned_root)//trim(extension)
+  success = .true.
+end subroutine
+
+subroutine build_part_entry_name(base_name, file_name, digits, entry_name)
+  implicit none
+  character(len=*), intent(in) :: base_name
+  character(len=*), intent(in) :: file_name
+  character(len=*), intent(in) :: digits
+  character(len=:), allocatable, intent(out) :: entry_name
+  character(len=:), allocatable :: base_root, base_ext
+  character(len=:), allocatable :: file_root, file_ext
+  integer :: len_digits
+
+  len_digits = len_trim(digits)
+  if (len_digits == 0) then
+    entry_name = trim(base_name)
+    return
+  end if
+
+  call split_name_and_ext(base_name, base_root, base_ext)
+  call split_name_and_ext(file_name, file_root, file_ext)
+
+  if (.not. strings_equal_ignore_case(base_ext, file_ext)) then
+    entry_name = trim(file_name)
+    return
+  end if
+
+  if (len_trim(file_root) <= len_digits .or. len_trim(file_root) <= len_trim(base_root)) then
+    entry_name = trim(file_name)
+    return
+  end if
+
+  file_root = file_root(:len_trim(file_root)-len_digits)
+  file_root = strip_trailing_char(file_root, '_')
+
+  if (.not. strings_equal_ignore_case(file_root, base_root)) then
+    entry_name = trim(file_name)
+    return
+  end if
+
+  entry_name = trim(base_root)//"."//trim(digits)//trim(base_ext)
+end subroutine
+
+subroutine split_name_and_ext(full_name, name_root, name_ext)
+  implicit none
+  character(len=*), intent(in) :: full_name
+  character(len=:), allocatable, intent(out) :: name_root
+  character(len=:), allocatable, intent(out) :: name_ext
+  integer :: len_name, dot_pos
+  character(len=:), allocatable :: work
+
+  work = trim(full_name)
+  len_name = len_trim(work)
+  dot_pos = len_name
+  do while (dot_pos >= 1)
+    if (work(dot_pos:dot_pos) == '.') exit
+    dot_pos = dot_pos - 1
+  end do
+  if (dot_pos <= 0) then
+    name_root = work
+    name_ext = ""
+    return
+  end if
+  name_root = work(:dot_pos-1)
+  name_ext = work(dot_pos:len_name)
+end subroutine
+
+function strip_trailing_char(text, target) result(output)
+  implicit none
+  character(len=*), intent(in) :: text
+  character, intent(in) :: target
+  character(len=:), allocatable :: output
+  integer :: last_idx
+
+  output = trim(text)
+  do
+    last_idx = len_trim(output)
+    if (last_idx <= 0) exit
+    if (output(last_idx:last_idx) /= target) exit
+    if (last_idx == 1) then
+      output = ""
+    else
+      output = output(:last_idx-1)
+    end if
+  end do
+end function
+
+subroutine to_lower_string(text)
+  implicit none
+  character(len=*), intent(inout) :: text
+  integer :: i
+
+  do i = 1, len(text)
+    select case (text(i:i))
+    case ("A":"Z")
+      text(i:i) = char(iachar(text(i:i)) + 32)
+    end select
+  end do
+end subroutine
+
+logical function strings_equal_ignore_case(a, b)
+  implicit none
+  character(len=*), intent(in) :: a
+  character(len=*), intent(in) :: b
+  character(len=:), allocatable :: aa, bb
+  integer :: len_a, len_b, i
+
+  aa = trim(a)
+  bb = trim(b)
+  len_a = len_trim(aa)
+  len_b = len_trim(bb)
+  if (len_a /= len_b) then
+    strings_equal_ignore_case = .false.
+    return
+  end if
+  call to_lower_string(aa)
+  call to_lower_string(bb)
+  do i = 1, len_a
+    if (aa(i:i) /= bb(i:i)) then
+      strings_equal_ignore_case = .false.
+      return
+    end if
+  end do
+  strings_equal_ignore_case = .true.
+end function
+
+subroutine read_file_to_string(filename, content, success)
+  implicit none
+  character(len=*), intent(in) :: filename
+  character(len=:), allocatable, intent(out) :: content
+  logical, intent(out) :: success
+  integer(kind=8) :: file_size
+  logical :: exists
+  integer :: ios
+  integer, parameter :: JSON_UNIT = 942
+  integer :: buffer_len
+
+  content = ""
+  success = .false.
+  inquire(file=trim(filename), exist=exists, size=file_size)
+  if (.not. exists) return
+  if (file_size <= 0) return
+
+  buffer_len = int(file_size)
+  if (buffer_len <= 0) return
+
+  if (allocated(content)) deallocate(content)
+  allocate(character(len=buffer_len) :: content)
+  open(unit=JSON_UNIT, file=trim(filename), access="stream", &
+       form="unformatted", status="old", action="read", iostat=ios)
+  if (ios /= 0) then
+    deallocate(content)
+    return
+  end if
+  read(JSON_UNIT, iostat=ios) content
+  close(JSON_UNIT)
+  if (ios /= 0) then
+    deallocate(content)
+    return
+  end if
+  success = .true.
+end subroutine
+
+logical function locate_sub_entry(json_text, sub_key, target_key, start_pos, end_pos)
+  implicit none
+  character(len=*), intent(in) :: json_text
+  character(len=*), intent(in) :: sub_key
+  character(len=*), intent(in) :: target_key
+  integer, intent(out) :: start_pos, end_pos
+  integer :: subs_start, subs_end
+  integer :: local_start, local_end
+  integer :: sub_start, sub_end
+
+  locate_sub_entry = .false.
+  if (.not. find_json_value_span(json_text, "subs", subs_start, subs_end)) return
+  if (.not. find_json_value_span(json_text(subs_start:subs_end), sub_key, local_start, local_end)) return
+  sub_start = subs_start + local_start - 1
+  sub_end = subs_start + local_end - 1
+  if (.not. find_json_value_span(json_text(sub_start:sub_end), target_key, local_start, local_end)) return
+  start_pos = sub_start + local_start - 1
+  end_pos = sub_start + local_end - 1
+  locate_sub_entry = .true.
+end function
+
+logical function locate_sub_part(json_text, sub_key, part_key, start_pos, end_pos)
+  implicit none
+  character(len=*), intent(in) :: json_text
+  character(len=*), intent(in) :: sub_key
+  character(len=*), intent(in) :: part_key
+  integer, intent(out) :: start_pos, end_pos
+  integer :: subs_start, subs_end
+  integer :: local_start, local_end
+  integer :: sub_start, sub_end
+  integer :: parts_start, parts_end
+
+  locate_sub_part = .false.
+  if (.not. find_json_value_span(json_text, "subs", subs_start, subs_end)) return
+  if (.not. find_json_value_span(json_text(subs_start:subs_end), sub_key, local_start, local_end)) return
+  sub_start = subs_start + local_start - 1
+  sub_end = subs_start + local_end - 1
+  if (.not. find_json_value_span(json_text(sub_start:sub_end), "parts", local_start, local_end)) return
+  parts_start = sub_start + local_start - 1
+  parts_end = sub_start + local_end - 1
+  if (.not. find_json_value_span(json_text(parts_start:parts_end), part_key, local_start, local_end)) return
+  start_pos = parts_start + local_start - 1
+  end_pos = parts_start + local_end - 1
+  locate_sub_part = .true.
+end function
+
+logical function find_json_value_span(text, key, start_pos, end_pos)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  integer, intent(out) :: start_pos, end_pos
+  character(len=:), allocatable :: token
+  integer :: location, idx, len_text
+  logical :: ok
+  character :: ch
+
+  find_json_value_span = .false.
+  start_pos = 1
+  end_pos = 0
+  len_text = len(text)
+  token = '"'//trim(key)//'"'
+  location = index(text, token)
+  if (location <= 0) return
+  idx = location + len_trim(token)
+  do while (idx <= len_text)
+    if (text(idx:idx) == ':') exit
+    idx = idx + 1
+  end do
+  if (idx > len_text) return
+  idx = idx + 1
+  idx = idx + skip_whitespace(text, idx)
+  if (idx > len_text) return
+  ch = text(idx:idx)
+  select case (ch)
+  case ('{')
+    call match_block(text, idx, '{', '}', end_pos, ok)
+    if (.not. ok) return
+    start_pos = idx
+  case ('[')
+    call match_block(text, idx, '[', ']', end_pos, ok)
+    if (.not. ok) return
+    start_pos = idx
+  case default
+    call find_simple_value_end(text, idx, end_pos)
+    start_pos = idx
+  end select
+  find_json_value_span = (end_pos >= start_pos)
+end function
+
+integer function skip_whitespace(text, start_idx)
+  implicit none
+  character(len=*), intent(in) :: text
+  integer, intent(in) :: start_idx
+  integer :: pos, len_text
+
+  skip_whitespace = 0
+  len_text = len(text)
+  pos = start_idx
+  do while (pos <= len_text)
+    select case (text(pos:pos))
+    case (' ', char(9), char(10), char(13))
+      pos = pos + 1
+    case default
+      exit
+    end select
+  end do
+  skip_whitespace = pos - start_idx
+end function
+
+logical function is_escaped(text, pos)
+  implicit none
+  character(len=*), intent(in) :: text
+  integer, intent(in) :: pos
+
+  if (pos <= 1) then
+    is_escaped = .false.
+  else
+    is_escaped = (text(pos-1:pos-1) == '\')
+  end if
+end function
+
+subroutine match_block(text, start_idx, open_ch, close_ch, end_idx, success)
+  implicit none
+  character(len=*), intent(in) :: text
+  integer, intent(in) :: start_idx
+  character, intent(in) :: open_ch
+  character, intent(in) :: close_ch
+  integer, intent(out) :: end_idx
+  logical, intent(out) :: success
+  integer :: depth, i, len_text
+  logical :: in_string
+
+  success = .false.
+  depth = 0
+  in_string = .false.
+  len_text = len(text)
+  do i = start_idx, len_text
+    if (text(i:i) == '"' .and. .not. is_escaped(text, i)) then
+      in_string = .not. in_string
+    else if (.not. in_string) then
+      if (text(i:i) == open_ch) then
+        depth = depth + 1
+      else if (text(i:i) == close_ch) then
+        depth = depth - 1
+        if (depth == 0) then
+          end_idx = i
+          success = .true.
+          return
+        end if
+      end if
+    end if
+  end do
+end subroutine
+
+subroutine find_simple_value_end(text, start_idx, end_idx)
+  implicit none
+  character(len=*), intent(in) :: text
+  integer, intent(in) :: start_idx
+  integer, intent(out) :: end_idx
+  integer :: i, len_text
+  logical :: in_string
+
+  len_text = len(text)
+  in_string = .false.
+  end_idx = len_text
+  do i = start_idx, len_text
+    if (text(i:i) == '"' .and. .not. is_escaped(text, i)) then
+      in_string = .not. in_string
+    else if (.not. in_string) then
+      if (text(i:i) == ',' .or. text(i:i) == '}' .or. text(i:i) == ']') then
+        end_idx = i - 1
+        exit
+      end if
+    end if
+  end do
+  do while (end_idx >= start_idx)
+    if (text(end_idx:end_idx) == ' ' .or. text(end_idx:end_idx) == char(9) .or. &
+        text(end_idx:end_idx) == char(10) .or. text(end_idx:end_idx) == char(13)) then
+      end_idx = end_idx - 1
+    else
+      exit
+    end if
+  end do
+end subroutine
+
+logical function parse_json_mesh_payload(entry_text, mgMesh)
+  use var_QuadScalar, only: tMultiMesh
+  implicit none
+  character(len=*), intent(in) :: entry_text
+  type(tMultiMesh), intent(inout) :: mgMesh
+  integer :: nel, nvt
+  logical :: ok
+  real*8, allocatable :: coords(:)
+  integer, allocatable :: elements(:)
+  integer, allocatable :: knpr_vals(:)
+  integer :: i, idx
+
+  parse_json_mesh_payload = .false.
+  if (.not. parse_int_field(entry_text, "nel", nel)) return
+  if (.not. parse_int_field(entry_text, "nvt", nvt)) return
+  if (nel <= 0 .or. nvt <= 0) return
+
+  call ensure_mesh_allocations(mgMesh, nel, nvt)
+
+  allocate(coords(3*nvt))
+  ok = parse_real_array(entry_text, "dcorvg", coords, 3*nvt)
+  if (.not. ok) then
+    deallocate(coords)
+    return
+  end if
+
+  allocate(elements(8*nel))
+  ok = parse_int_array(entry_text, "kvert", elements, 8*nel)
+  if (.not. ok) then
+    deallocate(coords)
+    deallocate(elements)
+    return
+  end if
+
+  allocate(knpr_vals(nvt))
+  ok = parse_int_array(entry_text, "knpr", knpr_vals, nvt)
+  if (.not. ok) then
+    deallocate(coords)
+    deallocate(elements)
+    deallocate(knpr_vals)
+    return
+  end if
+
+  do i = 1, nvt
+    idx = 3*(i-1)
+    mgMesh%level(1)%dcorvg(1,i) = coords(idx+1)
+    mgMesh%level(1)%dcorvg(2,i) = coords(idx+2)
+    mgMesh%level(1)%dcorvg(3,i) = coords(idx+3)
+    mgMesh%level(1)%knpr(i) = knpr_vals(i)
+  end do
+
+  do i = 1, nel
+    idx = 8*(i-1)
+    mgMesh%level(1)%kvert(1,i) = elements(idx+1)
+    mgMesh%level(1)%kvert(2,i) = elements(idx+2)
+    mgMesh%level(1)%kvert(3,i) = elements(idx+3)
+    mgMesh%level(1)%kvert(4,i) = elements(idx+4)
+    mgMesh%level(1)%kvert(5,i) = elements(idx+5)
+    mgMesh%level(1)%kvert(6,i) = elements(idx+6)
+    mgMesh%level(1)%kvert(7,i) = elements(idx+7)
+    mgMesh%level(1)%kvert(8,i) = elements(idx+8)
+  end do
+
+  deallocate(coords)
+  deallocate(elements)
+  deallocate(knpr_vals)
+  parse_json_mesh_payload = .true.
+end function
+
+subroutine ensure_mesh_allocations(mgMesh, nel, nvt)
+  use var_QuadScalar, only: tMultiMesh
+  implicit none
+  type(tMultiMesh), intent(inout) :: mgMesh
+  integer, intent(in) :: nel, nvt
+
+  mgMesh%level(1)%nel = nel
+  mgMesh%level(1)%nvt = nvt
+  mgMesh%level(1)%nbct = 1
+  mgMesh%level(1)%nve = 8
+  mgMesh%level(1)%nee = 12
+  mgMesh%level(1)%nae = 6
+
+  if (.not. associated(mgMesh%level(1)%dcorvg)) then
+    allocate(mgMesh%level(1)%dcorvg(3,nvt))
+  end if
+  if (.not. allocated(mgMesh%level(1)%kvert)) then
+    allocate(mgMesh%level(1)%kvert(8,nel))
+  end if
+  if (.not. allocated(mgMesh%level(1)%knpr)) then
+    allocate(mgMesh%level(1)%knpr(nvt))
+  end if
+end subroutine
+
+logical function parse_int_field(text, key, value)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  integer, intent(out) :: value
+  integer :: s, e, ios
+
+  parse_int_field = .false.
+  if (.not. find_json_value_span(text, key, s, e)) return
+  read(text(s:e), *, iostat=ios) value
+  if (ios /= 0) return
+  parse_int_field = .true.
+end function
+
+logical function parse_real_array(text, key, values, expected)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  real*8, intent(out) :: values(:)
+  integer, intent(in) :: expected
+  integer :: s, e, ios
+  character(len=:), allocatable :: buffer
+
+  parse_real_array = .false.
+  if (size(values) /= expected) return
+  if (.not. find_json_value_span(text, key, s, e)) return
+  buffer = text(s:e)
+  call sanitize_number_buffer(buffer)
+  read(buffer, *, iostat=ios) values
+  if (ios /= 0) return
+  parse_real_array = .true.
+end function
+
+logical function parse_int_array(text, key, values, expected)
+  implicit none
+  character(len=*), intent(in) :: text
+  character(len=*), intent(in) :: key
+  integer, intent(out) :: values(:)
+  integer, intent(in) :: expected
+  integer :: s, e, ios
+  character(len=:), allocatable :: buffer
+
+  parse_int_array = .false.
+  if (size(values) /= expected) return
+  if (.not. find_json_value_span(text, key, s, e)) return
+  buffer = text(s:e)
+  call sanitize_number_buffer(buffer)
+  read(buffer, *, iostat=ios) values
+  if (ios /= 0) return
+  parse_int_array = .true.
+end function
+
+subroutine sanitize_number_buffer(buffer)
+  implicit none
+  character(len=*), intent(inout) :: buffer
+  integer :: i
+
+  do i = 1, len(buffer)
+    select case (buffer(i:i))
+    case ('[',']',',')
+      buffer(i:i) = ' '
+    case default
+      if (iachar(buffer(i:i)) < 32) buffer(i:i) = ' '
+    end select
+  end do
 end subroutine
 
 !================================================================================================

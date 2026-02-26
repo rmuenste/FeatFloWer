@@ -20,6 +20,7 @@ MODULE var_QuadScalar
   CHARACTER*200 :: VersionString=&
   "  |                                                          Version:22.01  Date:2022.02.02          |"
   CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
+  CHARACTER(len=16) :: cPartitionFormat = "legacy"
 
   ! Runtime control
   ! Extend runtime flags, timers, and control scalars here.

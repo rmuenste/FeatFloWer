@@ -18,7 +18,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, &
-  skipFBMForce, skipFBMDynamics
+  skipFBMForce, skipFBMDynamics, cPartitionFormat
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -774,6 +774,9 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
        READ(string(iEq+1:),*) AlphaRelax
       CASE ("RadParticle")
        READ(string(iEq+1:),*) RadParticle
+      CASE ("PartitionFormat")
+       READ(string(iEq+1:),*) cParam2
+       cPartitionFormat = normalize_partition_format(cParam2)
 
       CASE ("aSynchComm")
         baSynch = read_yes_no_param(string, iEq)
@@ -953,6 +956,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     ELSE
       CALL write_param_str(mfile, mterm, "FlowType = ", "Newtonian")
     END IF
+    CALL write_param_str(mfile, mterm, "PartitionFormat = ", cPartitionFormat)
 
     ! Print new parameters
     CALL write_param_real(mfile, mterm, "GammaDot = ", GammaDot)
@@ -1073,6 +1077,42 @@ CONTAINS
     WRITE(mf,'(A,A)') label, value
     WRITE(mterm,'(A,A)') label, value
   END SUBROUTINE write_param_str
+
+  !-----------------------------------------------------------------------
+  ! Helper to normalize requested partition format and apply defaults
+  !-----------------------------------------------------------------------
+  FUNCTION normalize_partition_format(input_string) RESULT(out_value)
+    IMPLICIT NONE
+    CHARACTER(*), INTENT(IN) :: input_string
+    CHARACTER(len=16) :: out_value
+    CHARACTER(len=len(input_string)) :: work
+    INTEGER :: eff_len, i
+    CHARACTER :: ch
+
+    out_value = "legacy"
+    IF (LEN(input_string) == 0) RETURN
+
+    work = ADJUSTL(input_string)
+    work = TRIM(work)
+    eff_len = LEN_TRIM(work)
+    IF (eff_len == 0) RETURN
+
+    DO i = 1, eff_len
+      ch = work(i:i)
+      IF (ch >= 'A' .AND. ch <= 'Z') THEN
+        work(i:i) = CHAR(IACHAR(ch) + 32)
+      END IF
+    END DO
+
+    SELECT CASE (work(1:eff_len))
+    CASE ("json")
+      out_value = "json"
+    CASE ("legacy")
+      out_value = "legacy"
+    CASE DEFAULT
+      out_value = "legacy"
+    END SELECT
+  END FUNCTION normalize_partition_format
 
   !-----------------------------------------------------------------------
   ! Helper function to parse Yes/No string to logical value
