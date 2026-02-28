@@ -82,9 +82,12 @@ class JsonPartitionWriter:
 
   def add_par(self, source_name, rel_path, par_type, parameter, boundary):
     entry = self._get_file_entry(source_name, "par")
+    cleaned = parameter
+    if len(cleaned) >= 2 and cleaned[0] == "'" and cleaned[-1] == "'":
+      cleaned = cleaned[1:-1]
     payload = {
       "type": par_type,
-      "parameter": parameter,
+      "parameter": cleaned,
       "nodes": list(boundary),
     }
     sub_key, remainder = self._classify_path(rel_path)
