@@ -356,9 +356,6 @@ logical function readTriCoarse_from_json(cfile, mgMesh)
     return
   end if
 
-  write(*,'(A,I0,A,A,A,I0,A,I0)') "Rank ", myid, " read JSON mesh entry ", &
-       trim(entry_key), " -> NEL=", mgMesh%level(1)%nel, ", NVT=", mgMesh%level(1)%nvt
-
   if (allocated(json_text)) deallocate(json_text)
   readTriCoarse_from_json = .true.
 end function

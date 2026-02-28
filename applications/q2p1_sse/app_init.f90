@@ -88,7 +88,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,mySSE_covergence,&
-   cProjectFolder,cProjectNumber,nInitUmbrellaSteps,mg_mesh,MaxLevelKnownToMaster
+   cProjectFolder,cProjectNumber,nInitUmbrellaSteps,mg_mesh,MaxLevelKnownToMaster,myRecComm
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -172,7 +172,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 #ifdef HAVE_PE 
  include 'PartitionReader.f90'
 #else
- include 'PartitionReader2.f90'
+ include 'PartitionReader_sse.f90'
 #endif
 
  CALL Init_QuadScalar(mfile)

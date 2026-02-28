@@ -8,6 +8,8 @@
   integer :: ierr, hostname_len, max_hostname_len
   integer :: i, myNodeGroup,world_group,new_group
   INTEGER pID,pJD
+  integer :: kSubPart,lastSize,lastHost,currentIndex,localIndex
+  integer, allocatable :: hostCounts(:),hostSubIndex(:)
   character(len=256) :: cFMT
 
   call MPI_COMM_GROUP(MPI_COMM_WORLD, world_group, ierr)
@@ -37,8 +39,6 @@
   do i=1,myRecComm%NumHosts
    if (adjustl(trim(myRecComm%hostname)).eq.adjustl(trim(myRecComm%unique_hostnames(i)))) then
     myRecComm%myNodeGroup = i
-    write(cFMT,*) '(A,I0,A,A,A,I0,A,',size(myRecComm%hostgroup)-1,'(I0,(",")),I0)'
-    write(*,cFMT) "myid: ",myid," My Node is :",adjustl(trim(myRecComm%hostname))," My GroupLeader is :",myRecComm%hostleaders(myNodeGroup), " My group is: ",myRecComm%hostgroup
    end if
   end do
 
@@ -77,8 +77,70 @@
   end if
 
   CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
+
+  if (myRecComm%NumHosts.gt.0) then
+    allocate(hostCounts(myRecComm%NumHosts))
+    allocate(hostSubIndex(myRecComm%NumHosts))
+    hostCounts = 0
+    hostSubIndex = 0
+
+    DO pID=1,subnodes
+      pJD = myRecComm%groupIDs(pID)
+      if (pJD.ge.1 .and. pJD.le.myRecComm%NumHosts) then
+        hostCounts(pJD) = hostCounts(pJD) + 1
+      end if
+    END DO
+
+    kSubPart = subnodes / myRecComm%NumHosts
+    if (mod(subnodes,myRecComm%NumHosts).ne.0) kSubPart = kSubPart + 1
+    lastSize = subnodes - (myRecComm%NumHosts-1)*kSubPart
+    if (lastSize.le.0) lastSize = kSubPart
+
+    lastHost = 0
+    if (lastSize.ne.kSubPart) then
+      do i=1,myRecComm%NumHosts
+        if (hostCounts(i).eq.lastSize) then
+          lastHost = i
+          exit
+        end if
+      end do
+    end if
+
+    currentIndex = 1
+    do i=1,myRecComm%NumHosts
+      if (lastHost.gt.0 .and. i.eq.lastHost) cycle
+      hostSubIndex(i) = currentIndex
+      currentIndex = currentIndex + 1
+    end do
+    if (lastHost.gt.0) then
+      hostSubIndex(lastHost) = currentIndex
+    end if
+
+    if (myRecComm%myNodeGroup.ge.1 .and. myRecComm%myNodeGroup.le.myRecComm%NumHosts) then
+      myRecComm%subIndex = hostSubIndex(myRecComm%myNodeGroup)
+    else
+      myRecComm%subIndex = 0
+    end if
+
+    localIndex = 0
+    do i=1,size(myRecComm%hostgroup)
+      if (myRecComm%hostgroup(i).eq.myid) then
+        localIndex = i
+        exit
+      end if
+    end do
+    if (localIndex.eq.0) localIndex = 1
+    myRecComm%gridIndex = localIndex
+
+    write(cFMT,*) '(A,I0,A,A,A,',size(myRecComm%hostgroup)-1,'(I0,(",")),I0,A,I0,A,I0)'
+    write(*,cFMT) "myid: ",myid," My Node is :",adjustl(trim(myRecComm%hostname)), &
+      " My group is: ",myRecComm%hostgroup," mesh: sub",myRecComm%subIndex," GRID",myRecComm%gridIndex
+
+    deallocate(hostCounts)
+    deallocate(hostSubIndex)
+  end if
 !   pause
-  
+ 
  contains
 
   subroutine unique(input, output, leaders, group)
@@ -161,7 +223,7 @@ subroutine MemoryPrint(iDo,cGroup,cMSG)
  character, intent(in):: cMSG*(*)
  
 !!!!!!!!!!!!!!!    NEEDS TO BE REACTIVATED !!!!!!!!!!!!!!!
- return
+! return
 !!!!!!!!!!!!!!!    NEEDS TO BE REACTIVATED !!!!!!!!!!!!!!!
 
  CALL Get_PID(id,myid,mem1,mem2)

@@ -480,6 +480,7 @@ MODULE var_QuadScalar
     integer, allocatable :: hostleaders(:),groupIDs(:)
     integer, allocatable :: hostgroup(:)
     integer :: myid,numnodes,NumHosts,myNodeGroup
+    integer :: subIndex = 0, gridIndex = 0
     character(len=256) :: HostName
   END TYPE tRecursiveCommunication
   TYPE(tRecursiveCommunication) :: myRecComm
