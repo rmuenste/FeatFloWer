@@ -78,4 +78,40 @@ implicit none
  fbm_force_handler_ptr => fbm_updateForcesFC2
 
 END SUBROUTINE Init_PE_Handlers
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_Cyl_Handlers()
+! In this function we set the function handlers
+! for FBM, etc. to their default values
+implicit none
 
+ fbm_up_handler_ptr => fbm_updateDefault
+ fbm_geom_handler_ptr => fbm_getFictKnprCyl
+ fbm_vel_bc_handler_ptr => fbm_velBC
+
+ fbm_force_handler_ptr => fbm_updateForcesCylFC2
+
+ if ((myid.eq.0).or.(myid.eq.1)) then
+   write(*,'(A)') 'Init_Cyl_Handlers: using fbm_updateForcesCylFC2'
+ end if
+
+END SUBROUTINE Init_Cyl_Handlers
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_FAC3D_Handlers()
+! Dedicated handler setup for q2p1_fac3d.
+implicit none
+
+ fbm_up_handler_ptr => fbm_updateDefault
+ fbm_geom_handler_ptr => fbm_getFictKnprCyl
+ fbm_vel_bc_handler_ptr => fbm_velBC
+
+ fbm_force_handler_ptr => fbm_updateForcesCylFC2
+
+ if ((myid.eq.0).or.(myid.eq.1)) then
+   write(*,'(A)') 'Init_FAC3D_Handlers: using fbm_updateForcesCylFC2'
+ end if
+
+END SUBROUTINE Init_FAC3D_Handlers
