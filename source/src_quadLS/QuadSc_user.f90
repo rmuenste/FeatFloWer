@@ -128,6 +128,15 @@ ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 
+! Rectangular duct inflow profile:
+! U(0,y,z) = 16*U_m*y*z*(H-y)*(H-z)/H^4, V = 0, W = 0 with H = 0.41
+! Free inflow identifier: 975
+IF (iT.EQ.22) THEN
+  ValU = 16d0*0.45d0*Y*Z*(0.41d0-Y)*(0.41d0-Z)/(0.41d0**4d0)
+  ValV = 0d0
+  ValW = 0d0
+END IF
+
 
 IF (iT.EQ.23) THEN
  ValU= 0.0d0 
@@ -632,16 +641,16 @@ IF (iT.EQ.21) THEN
  END IF
 END IF
 
-IF (iT.EQ.22) THEN
- R_inflow = 0.3d0
- dist = SQRT((x-5.5)**2d0 + (y-0.01)**2d0 + (z+0.84)**2d0)
- IF (dist.lt.R_inflow) THEN
-  dScale = 5.0d0/R_inflow*R_inflow
-  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
-  ValV=  0d0
-  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
- END IF
-END IF
+!IF (iT.EQ.22) THEN
+! R_inflow = 0.3d0
+! dist = SQRT((x-5.5)**2d0 + (y-0.01)**2d0 + (z+0.84)**2d0)
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 5.0d0/R_inflow*R_inflow
+!  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValV=  0d0
+!  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+! END IF
+!END IF
 
 !Aneurysm Case 1
 IF (iT.EQ.33) THEN
