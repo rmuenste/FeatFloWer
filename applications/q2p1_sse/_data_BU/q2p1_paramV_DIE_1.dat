@@ -1,4 +1,5 @@
 ----------- Simulation Parameters --------------
+SimPar@PartitionFormat=json
 SimPar@aSynchComm = yes
 SimPar@CommSwitch = 3
 SimPar@MeshFolder = "NEWFAC"
