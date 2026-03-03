@@ -67,7 +67,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
+   myRecComm,bRecursivePartitioning
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -127,7 +128,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !
  CALL INIT_MPI()                                 ! PARALLEL
  
- CALL FindNodes()
+#ifndef HAVE_PE
+ IF (bRecursivePartitioning) CALL FindNodes()
+#endif
  
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
@@ -149,7 +152,11 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
   include 'PartitionReader.f90'
 #endif
 #else
+  if (bRecursivePartitioning) then
+  include 'PartitionReader_sse.f90'
+  else
   include 'PartitionReader2.f90'
+  end if
 #endif
 
  call MPI_Get_processor_name(processor_name, name_len, ierr)

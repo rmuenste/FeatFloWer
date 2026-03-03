@@ -80,6 +80,12 @@ Activation steps:
    ```
    The Fortran readers (`readTriCoarse`, `InitParametrization[_STRCT]`) automatically switch to the JSON files and suppress writing legacy `.par` outputs during post-processing.
 
+3. **Two-level split control:** recursive partitioning is enabled by default. To revert to the legacy single-level (`PartitionReader2.f90`) workflow, add
+   ```
+   RecursivePartitioning = No
+   ```
+   to your `SimPar@` block. The launchers (`fc_ext_start.py`, `e3d_start.py`) will then pass `NSubPart = 1` to the partitioner and skip the node-aware mapping.
+
 Keep `PartitionFormat = legacy` (default) to retain the previous behaviour and file layout.
 
 ---
