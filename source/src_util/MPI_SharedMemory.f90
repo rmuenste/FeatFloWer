@@ -36,23 +36,42 @@ module shared_memory_module
         integer, intent(out) :: win
         type(c_ptr), intent(out) :: baseptr
         integer, intent(out) :: ierr
-        integer(kind=MPI_ADDRESS_KIND) :: win_size
-        integer :: disp_unit
+        integer(kind=MPI_ADDRESS_KIND) :: win_size, test_size
+        integer :: disp_unit, rankid
         INTEGER :: info
+        integer :: probe_win, probe_ierr
+        type(c_ptr) :: probe_ptr
         
         ! Set the size and displacement unit
         win_size = shared_size * 4  ! Size in bytes (4 bytes per INT)
         disp_unit = 4               ! Size of each element (INT)
 
         
+        call MPI_Comm_rank(comm, rankid, ierr)
         call MPI_Info_create(info, ierr)
+        if (ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0)') 'MPI_Info_create failed in get_shared_memory_INT on rank ', rankid
+            return
+        end if
         call MPI_Info_set(info, "no_locks", "true", ierr)
+        if (ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0)') 'MPI_Info_set failed in get_shared_memory_INT on rank ', rankid
+        end if
+
+        test_size = disp_unit
+        call MPI_Win_allocate_shared(test_size, 1, MPI_INFO_NULL, comm, probe_ptr, probe_win, probe_ierr)
+        if (probe_ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0,A)') "Shared-memory probe failed in get_shared_memory_INT on rank ", rankid, &
+                ". Please verify MPI shared memory support on this node."
+        else
+            call MPI_Win_free(probe_win, ierr)
+        end if
         
         ! Allocate shared memory window
 !         call MPI_Win_allocate_shared(win_size, disp_unit, MPI_INFO_NULL, comm, baseptr, win, ierr)
         call MPI_Win_allocate_shared(win_size, disp_unit, info, comm, baseptr, win, ierr)
         if (ierr /= MPI_SUCCESS) then
-            print *, "Error in MPI_Win_allocate_shared"
+            write(*,'(A,I0,A,I0)') "MPI_Win_allocate_shared failed (INT) on rank ", rankid, " size bytes =", win_size
             return
         end if
 
@@ -74,22 +93,41 @@ module shared_memory_module
         integer, intent(out) :: win
         type(c_ptr), intent(out) :: baseptr
         integer, intent(out) :: ierr
-        integer(kind=MPI_ADDRESS_KIND) :: win_size
-        integer :: disp_unit
+        integer(kind=MPI_ADDRESS_KIND) :: win_size, test_size
+        integer :: disp_unit, rankid
         INTEGER :: info
+        integer :: probe_win, probe_ierr
+        type(c_ptr) :: probe_ptr
 
         ! Set the size and displacement unit
         win_size = shared_size * 8  ! Size in bytes (4 bytes per DOUBLE)
         disp_unit = 8               ! Size of each element (DOUBLE)
 
+        call MPI_Comm_rank(comm, rankid, ierr)
         call MPI_Info_create(info, ierr)
+        if (ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0)') 'MPI_Info_create failed in get_shared_memory_DBL on rank ', rankid
+            return
+        end if
         call MPI_Info_set(info, "no_locks", "true", ierr)
+        if (ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0)') 'MPI_Info_set failed in get_shared_memory_DBL on rank ', rankid
+        end if
+
+        test_size = disp_unit
+        call MPI_Win_allocate_shared(test_size, 1, MPI_INFO_NULL, comm, probe_ptr, probe_win, probe_ierr)
+        if (probe_ierr /= MPI_SUCCESS) then
+            write(*,'(A,I0,A)') "Shared-memory probe failed in get_shared_memory_DBL on rank ", rankid, &
+                ". Please verify MPI shared memory support on this node."
+        else
+            call MPI_Win_free(probe_win, ierr)
+        end if
         
         ! Allocate shared memory window
 !        call MPI_Win_allocate_shared(win_size, disp_unit, MPI_INFO_NULL, comm, baseptr, win, ierr)
         call MPI_Win_allocate_shared(win_size, disp_unit, info, comm, baseptr, win, ierr)
         if (ierr /= MPI_SUCCESS) then
-            print *, "Error in MPI_Win_allocate_shared"
+            write(*,'(A,I0,A,I0)') "MPI_Win_allocate_shared failed (DBL) on rank ", rankid, " size bytes =", win_size
             return
         end if
 
