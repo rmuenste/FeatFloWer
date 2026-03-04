@@ -172,7 +172,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 #ifdef HAVE_PE 
  include 'PartitionReader.f90'
 #else
- include 'PartitionReader_sse.f90'
+ include 'PartitionReader_rec.f90'
 #endif
 
  CALL Init_QuadScalar(mfile)

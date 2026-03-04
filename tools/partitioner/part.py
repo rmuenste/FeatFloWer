@@ -105,6 +105,7 @@ class JsonPartitionWriter:
   def write_files(self):
     for source_name, payload in self.files.items():
       out_path = os.path.join(self.base_path, "%s.json" % source_name)
+      tmp_path = out_path + ".tmp"
       data = {
         "format": "FeatFloWerPartition",
         "version": 1,
@@ -113,8 +114,20 @@ class JsonPartitionWriter:
         "master": payload["master"],
         "subs": payload["subs"],
       }
-      with open(out_path, "w") as f:
+      with open(tmp_path, "w") as f:
         json.dump(data, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+      os.replace(tmp_path, out_path)
+
+    try:
+      dir_fd = os.open(self.base_path, os.O_RDONLY)
+    except OSError:
+      return
+    try:
+      os.fsync(dir_fd)
+    finally:
+      os.close(dir_fd)
 
   def _normalize_part_name(self, base_name, remainder):
     if remainder is None:

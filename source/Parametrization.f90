@@ -1033,6 +1033,7 @@ SUBROUTINE InitParametrization_STRCT(mesh,ilevel)
 
 !  WRITE(*,'(I,3A)') myid,"|",myParBndr(iBnds)%Parameters,"|"
   READ(myParBndr(iBnds)%Parameters,*,IOSTAT=iError) myParBndr(iBnds)%nBndrPar
+  myParBndr(iBnds)%Dimens = 0
   IF (iError.NE.0.OR.myParBndr(iBnds)%nBndrPar.EQ.0) THEN
     myParBndr(iBnds)%nBndrPar = 0
   ELSE
@@ -1124,6 +1125,12 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
  END DO
 
  IF (myid.ne.MASTER) then
+   DO iNode=1,mgMesh%level(ilevel+1)%nvt
+       mgMesh%BndryNodes(iNode)%nPoint   = 0
+       mgMesh%BndryNodes(iNode)%nLine    = 0
+       mgMesh%BndryNodes(iNode)%nSurf    = 0
+       mgMesh%BndryNodes(iNode)%nVolume  = 0
+   END DO
    DO iBnds = 1, nBnds
     DO iNode=1,mgMesh%level(ilevel+1)%nvt
       IF (myParBndr(iBnds)%Bndr(ilevel+1)%Vert(iNode)) THEN
@@ -1136,10 +1143,22 @@ SUBROUTINE DeterminePointParametrization_STRCT(mgMesh,ilevel)
    END DO
 
    DO iNode=1,mgMesh%level(ilevel+1)%nvt
-     IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%P(mgMesh%BndryNodes(iNode)%nPoint))
-     IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%L(mgMesh%BndryNodes(iNode)%nLine))
-     IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%S(mgMesh%BndryNodes(iNode)%nSurf))
-     IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) ALLOCATE(mgMesh%BndryNodes(iNode)%V(mgMesh%BndryNodes(iNode)%nVolume))
+     IF (mgMesh%BndryNodes(iNode)%nPoint .ne.0) THEN
+      ALLOCATE(mgMesh%BndryNodes(iNode)%P(mgMesh%BndryNodes(iNode)%nPoint))
+      mgMesh%BndryNodes(iNode)%P = 0
+     END IF
+     IF (mgMesh%BndryNodes(iNode)%nLine  .ne.0) THEN
+      ALLOCATE(mgMesh%BndryNodes(iNode)%L(mgMesh%BndryNodes(iNode)%nLine))
+      mgMesh%BndryNodes(iNode)%L = 0
+     END IF
+     IF (mgMesh%BndryNodes(iNode)%nSurf  .ne.0) THEN
+      ALLOCATE(mgMesh%BndryNodes(iNode)%S(mgMesh%BndryNodes(iNode)%nSurf))
+      mgMesh%BndryNodes(iNode)%S = 0
+     END IF
+     IF (mgMesh%BndryNodes(iNode)%nVolume.ne.0) THEN
+      ALLOCATE(mgMesh%BndryNodes(iNode)%V(mgMesh%BndryNodes(iNode)%nVolume))
+      mgMesh%BndryNodes(iNode)%V = 0
+     END IF
    END DO
 
    DO iNode=1,mgMesh%level(ilevel+1)%nvt

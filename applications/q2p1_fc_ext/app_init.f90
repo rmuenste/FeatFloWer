@@ -68,7 +68,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
-   myRecComm,bRecursivePartitioning
+   myRecComm,bRecursivePartitioning,iCommSwitch
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -127,13 +127,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
- 
-#ifndef HAVE_PE
- IF (bRecursivePartitioning) CALL FindNodes()
-#endif
- 
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
+
+#ifndef HAVE_PE
+ IF (bRecursivePartitioning .or. iCommSwitch == 4) CALL FindNodes()
+#endif
 
  CFILE=CFILE1
  MFILE=MFILE1
@@ -153,7 +152,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 #endif
 #else
   if (bRecursivePartitioning) then
-  include 'PartitionReader_sse.f90'
+  include 'PartitionReader_rec.f90'
   else
   include 'PartitionReader2.f90'
   end if

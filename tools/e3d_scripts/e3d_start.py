@@ -244,7 +244,6 @@ paramDict = {
     "retryDeformation" : False,
     "maxMeshLevel" : -1,
     "partitionFormat": "legacy",
-    "recursivePartitioning": True,
 }
 
 class ProtocolObserver(FileSystemEventHandler):
@@ -354,33 +353,6 @@ def parsePartitionFormat(paramFile):
     return fmt
 #===============================================================================
 
-
-#===============================================================================
-def parseRecursivePartitioning(paramFile):
-    """
-    Returns True/False based on SimPar@RecursivePartitioning entry.
-    Defaults to True when absent.
-    """
-    try:
-        with open(paramFile, "r") as f:
-            for raw_line in f:
-                line = raw_line.split("!")[0].strip()
-                if not line:
-                    continue
-                lower_line = line.lower()
-                if lower_line.startswith("simpar@recursivepartitioning"):
-                    parts = line.split("=", 1)
-                    if len(parts) == 2:
-                        token = parts[1].strip().strip('"').strip("'").lower()
-                        if token in ("yes", "true", "on"):
-                            return True
-                        if token in ("no", "false", "off"):
-                            return False
-                    break
-    except OSError:
-        pass
-    return True
-#===============================================================================
 
 
 #===============================================================================
@@ -520,7 +492,7 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
 
     shutil.copyfile(str(backupDataFile), str(destDataFile))
     paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
-    paramDict['recursivePartitioning'] = parseRecursivePartitioning(str(destDataFile))
+    paramDict['recursivePartitioning'] = True
     shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
 
     offList = []
@@ -572,17 +544,13 @@ def mesherStep(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def partitionerStep(workingDir, projectFile, projectPath, projectFolder):
     partitionerParameters = [1, 1]
-    if paramDict.get('recursivePartitioning', True):
-        detected_nodes = detect_node_count()
-        if detected_nodes <= 0:
-            detected_nodes = 1
-            print("Could not detect node count automatically; defaulting to a single group.")
-        else:
-            print("Detected %d compute nodes for partitioning." % detected_nodes)
-        partitionerParameters[1] = detected_nodes
+    detected_nodes = detect_node_count()
+    if detected_nodes <= 0:
+        detected_nodes = 1
+        print("Could not detect node count automatically; defaulting to a single group.")
     else:
-        print("Recursive partitioning disabled, using single-level partitions.")
-        partitionerParameters[1] = 1
+        print("Detected %d compute nodes for partitioning." % detected_nodes)
+    partitionerParameters[1] = detected_nodes
 
     print("Partitioner parameters: ",-1, partitionerParameters)
     try:
