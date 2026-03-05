@@ -218,6 +218,33 @@ These are inner multigrid/coarse-solver diagnostics for the current nonlinear st
 
 In the example above, the inner solve reduces the defect by ~12 orders of magnitude (`~1e-12` ratio), indicating a very strong linear solve in that stage.
 
+### Interpreting the pressure-solver block
+
+After the velocity `INL` section, logs typically print a pressure summary table:
+
+```text
+    nMGcycPres   DefInitPres  DefFinalPres CoarseItePres    RhoMGNPres    RhoMGAPres
+XxX             2   0.3229D-05   0.1399D-08             1   0.2081D-01   0.0000D+00 8
+```
+
+Read this row as:
+
+- `nMGcycPres`: number of pressure multigrid cycles (here `2`)
+- `DefInitPres`: initial pressure defect before the pressure solve
+- `DefFinalPres`: final pressure defect after the pressure solve
+- `CoarseItePres`: coarse-grid iterations used in the pressure solve
+- `RhoMGNPres`: normalized final/initial defect ratio (smaller is better)
+- `RhoMGAPres`: auxiliary/asymptotic MG rate diagnostic (code-specific)
+
+Practical interpretation:
+
+- pressure convergence quality is mainly judged by `DefFinalPres << DefInitPres`
+- equivalently by `RhoMGNPres << 1`
+- with the example values above, defect is reduced by about
+  `0.1399D-08 / 0.3229D-05 ~= 4.33e-4`, i.e. strong pressure convergence
+
+The leading `XxX` marker is just a print label for the summary row.
+
 ### Force line consistency check
 
 For lines of the form:

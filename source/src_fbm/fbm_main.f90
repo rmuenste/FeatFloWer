@@ -350,6 +350,95 @@ end subroutine fbm_updateForcesFC2
 !=========================================================================
 ! 
 !=========================================================================
+subroutine fbm_updateForcesCylFC2(u,v,w,p)
+use PP3D_MPI, only: myMPI_Barrier,myid
+use cinterface
+use var_QuadScalar, only: myFBM
+
+! U/V/W velocity components
+REAL*8, dimension(:), intent(inout) :: u,v,w
+
+! Pressure
+Real*8, dimension(:), intent(inout) :: p
+
+external E013
+
+! local variables
+integer :: ilevel, i, iPointer
+real*8  :: dResForce(3), fx, fy, fz
+real*8  :: qA, cd, cl
+logical, allocatable :: bAlpha(:)
+real*8, parameter :: cylD = 0.1d0
+real*8, parameter :: cylL = 0.41d0
+real*8, parameter :: uMean = (4d0/9d0)*0.45d0
+
+if (calculateDynamics()) then
+
+ if(myid.eq.1) write(*,*)'> Dynamics update (cyl/fbm-alpha)'
+
+ ilevel=mg_mesh%nlmax
+ CALL SETLEV(2)
+
+ if (.not. allocated(bAlpha)) allocate(bAlpha(size(FictKNPR)))
+ do i = 1,size(FictKNPR)
+   bAlpha(i) = (FictKNPR(i).ne.0)
+ end do
+
+ CALL GetForcesCyl(u,v,w,p,&
+                   bAlpha,Viscosity,&
+                   mg_mesh%level(ilevel)%kvert,&
+                   mg_mesh%level(ilevel)%karea,&
+                   mg_mesh%level(ilevel)%kedge,&
+                   mg_mesh%level(ilevel)%dcorvg,&
+                   dResForce,E013)
+
+ deallocate(bAlpha)
+
+ fx = Properties%ForceScale(1)*dResForce(1)
+ fy = Properties%ForceScale(2)*dResForce(2)
+ fz = Properties%ForceScale(3)*dResForce(3)
+
+ if (myFBM%nParticles.gt.0) then
+   myFBM%ParticleNew(1)%ResistanceForce(1) = fx
+   myFBM%ParticleNew(1)%ResistanceForce(2) = fy
+   myFBM%ParticleNew(1)%ResistanceForce(3) = fz
+   myFBM%ParticleNew(1)%TorqueForce(1:3)   = 0d0
+
+   do i = 2,myFBM%nParticles
+     myFBM%ParticleNew(i)%ResistanceForce(1:3) = 0d0
+     myFBM%ParticleNew(i)%TorqueForce(1:3)     = 0d0
+   end do
+ end if
+
+ if (allocated(myFBM%Force)) then
+   myFBM%Force = 0d0
+   if (myFBM%nParticles.gt.0) then
+     iPointer = 1
+     myFBM%Force(iPointer  ) = fx
+     myFBM%Force(iPointer+1) = fy
+     myFBM%Force(iPointer+2) = fz
+   end if
+ end if
+
+ qA = 0.5d0*Properties%Density(1)*uMean*uMean*cylD*cylL
+ if ((qA.gt.0d0).and.(myid.eq.1)) then
+   cd = fx/qA
+   cl = fy/qA
+   write(*,'(A,3ES14.4)') 'FBM Cyl force (summed): ',fx,fy,fz
+   write(*,'(A,2ES14.4)') 'FBM Cyl coefficients Cd/Cl: ',cd,cl
+ end if
+
+ if (myid.eq.0)then
+   return
+ endif
+
+end if
+
+
+end subroutine fbm_updateForcesCylFC2
+!=========================================================================
+! 
+!=========================================================================
 subroutine fbm_updateForcesFC(u,v,w,p)
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
@@ -2045,6 +2134,60 @@ integer :: IP,ipc,isin
  end do
 
 end subroutine fbm_getFictKnpr
+
+!=========================================================================
+! 
+!=========================================================================
+subroutine fbm_getFictKnprCyl(x,y,z,bndryId,inpr,dist, vidx, longFictId)
+!
+!   Analytic cylinder classifier for FBM:
+!   center in x/y at (0.5, 0.2), radius 0.05,
+!   finite z-length 0.4105 centered at z=0.205.
+!
+implicit none
+
+! Coordinates of the query point
+real*8, intent(in) :: x, y, z
+
+! Id of the boundary component
+integer, intent(inout) :: bndryId
+
+! fictId
+integer, intent(inout) :: inpr
+
+! Distance solution in the query point
+real*8, intent(inout) :: dist
+
+! Vertex id of the point
+integer, intent(in) :: vidx
+
+! long FictId
+type(tUint64), intent(inout) :: longFictId
+
+! local variables
+real*8 :: dx, dy, dzabs, rxy, zgap
+real*8, parameter :: cylCenterX = 0.5d0
+real*8, parameter :: cylCenterY = 0.2d0
+real*8, parameter :: cylCenterZ = 0.205d0
+real*8, parameter :: cylRadius  = 0.05d0
+real*8, parameter :: cylHalfLen = 0.4105d0 * 0.5d0
+
+inpr = 0
+
+dx = x - cylCenterX
+dy = y - cylCenterY
+dzabs = dabs(z - cylCenterZ)
+rxy = dsqrt(dx*dx + dy*dy)
+zgap = dzabs - cylHalfLen
+
+! Positive outside, negative inside.
+dist = max(rxy - cylRadius, zgap)
+
+if ((rxy .le. cylRadius) .and. (dzabs .le. cylHalfLen)) then
+ inpr = 1
+endif
+
+end subroutine fbm_getFictKnprCyl
 
 !=========================================================================
 ! 
