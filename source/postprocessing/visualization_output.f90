@@ -3,7 +3,8 @@ module visualization_out
 use cinterface
 
 use var_QuadScalar, only:knvt,knet,knat,knel,tMultiMesh,tQuadScalar,tLinScalar, MaxShearRate,&
-                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh,GenLinScalar
+                         t1DOutput,MlRhoMat, mg_MlRhomat, MixerKNPR, temperature, mg_mesh,GenLinScalar,&
+                         myRecComm
 
 use Sigma_User, only: tOutput, tSigma,dMinOutputPressure
 use Sigma_User, only: myOutput, mySigma, myProcess
@@ -555,7 +556,26 @@ do iField=1,size(myExport%Fields)
     write(iunit, *)"        </DataArray>"
    END IF
   END IF
-  
+ 
+ CASE('Partition')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition:GlobalRank",""" format=""ascii"">"
+  do ivt=1,NoOfElem
+   write(iunit, '(A,I10)')"        ", myid
+  end do
+  write(iunit, *)"        </DataArray>"
+
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition:Node",""" format=""ascii"">"
+  do ivt=1,NoOfElem
+   write(iunit, '(A,I10)')"        ", myRecComm%subIndex
+  end do
+  write(iunit, *)"        </DataArray>"
+
+  write(iunit, '(A,A,A)')"        <DataArray type=""Int32"" Name=""","Partition:NodalRank",""" format=""ascii"">"
+  do ivt=1,NoOfElem
+   write(iunit, '(A,I10)')"        ", myRecComm%gridIndex
+  end do
+  write(iunit, *)"        </DataArray>"
+ 
  end select
  
 end do
@@ -721,6 +741,11 @@ DO iField=1,SIZE(myExport%Fields)
   IF (myExport%Level.LE.myExport%LevelMax.and.ALLOCATED(MaterialDistribution)) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Material_E","""/>"
   END IF
+ 
+ CASE('Partition')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition:GlobalRank","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition:Node","""/>"
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Int32"" Name=""","Partition:NodalRank","""/>"
   
 END SELECT
 END DO
