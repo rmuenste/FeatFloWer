@@ -4097,6 +4097,82 @@ if (myid.eq.1) then
 end if
 
 END SUBROUTINE MonitorVeloMag
+!
+! ----------------------------------------------
+!
+SUBROUTINE ComputeCFL(myScalar)
+#ifdef HAVE_PE
+USE PP3D_MPI, ONLY: COMM_Maximumn
+use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+#endif
+TYPE(TQuadScalar), INTENT(IN) :: myScalar
+
+INTEGER  :: iel, nvt, net, nat, nel, idof
+REAL*8   :: ucx, ucy, ucz, umag, hvol, cfl_loc, cfl_max
+REAL*8   :: neg_h_min, h_min, vp_mag, cfl_p_max
+REAL*8   :: dbuf(1)
+
+#ifdef HAVE_PE
+type(tParticleData), allocatable :: theParticles(:)
+INTEGER :: numParticles, IP
+#endif
+
+cfl_max   = 0d0
+neg_h_min = 0d0
+
+IF (myid .NE. 0) THEN
+  nvt = mg_mesh%level(NLMAX)%nvt
+  net = mg_mesh%level(NLMAX)%net
+  nat = mg_mesh%level(NLMAX)%nat
+  nel = mg_mesh%level(NLMAX)%nel
+
+  DO iel = 1, nel
+    idof    = nvt + net + nat + iel          ! element-centre Q2 DOF
+    ucx     = myScalar%valU(idof)
+    ucy     = myScalar%valV(idof)
+    ucz     = myScalar%valW(idof)
+    umag    = SQRT(ucx*ucx + ucy*ucy + ucz*ucz)
+    hvol    = mg_mesh%level(NLMAX)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
+    cfl_loc = umag * tstep / hvol
+    cfl_max = MAX(cfl_max, cfl_loc)
+    neg_h_min = MIN(neg_h_min, -hvol)
+  END DO
+END IF
+
+! Fluid CFL: global max
+CALL COMM_Maximum(cfl_max)
+cfl_global = cfl_max
+
+! h_min via negation trick (COMM_Maximum of negatives gives negative of global min)
+CALL COMM_Maximum(neg_h_min)
+h_min = -neg_h_min
+
+! Particle CFL (PE only)
+cfl_p_max = 0d0
+#ifdef HAVE_PE
+numParticles = numTotalParticles()
+dbuf(1) = dble(numParticles)
+CALL COMM_Maximumn(dbuf, 1)
+numParticles = int(dbuf(1))
+
+IF (numParticles .GT. 0 .AND. h_min .GT. 0d0) THEN
+  ALLOCATE(theParticles(numParticles))
+  IF (myid .NE. 0) CALL getAllParticles(theParticles)
+
+  ! Particle data only valid on workers; broadcast via max
+  DO IP = 1, numParticles
+    vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
+               + theParticles(IP)%velocity(2)**2 &
+               + theParticles(IP)%velocity(3)**2)
+    cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
+  END DO
+
+  DEALLOCATE(theParticles)
+END IF
+#endif
+cfl_particle_global = cfl_p_max
+
+END SUBROUTINE ComputeCFL
 
 END MODULE def_QuadScalar
 

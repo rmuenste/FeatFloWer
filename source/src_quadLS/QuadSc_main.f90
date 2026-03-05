@@ -622,6 +622,16 @@ end if
 !CALL updateFBMGeometry()
 
 CALL MonitorVeloMag(QuadSc)
+CALL ComputeCFL(QuadSc)
+
+IF (myid .EQ. 1) THEN
+  IF (bPrintCFL) THEN
+    WRITE(*,'(A,F10.4)') ' CFL (fluid): ', cfl_global
+  END IF
+  IF (bPrintParticleCFL) THEN
+    WRITE(*,'(A,F10.4)') ' CFL (particle): ', cfl_particle_global
+  END IF
+END IF
 
 RETURN
 

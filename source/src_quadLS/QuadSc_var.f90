@@ -83,6 +83,10 @@ MODULE var_QuadScalar
   END TYPE
   TYPE (tTransform) :: Transform
   integer :: istep_ns = 1
+  REAL*8  :: cfl_global = 0d0   ! Global max CFL, updated each timestep
+  REAL*8  :: cfl_particle_global = 0d0  ! Global max particle CFL
+  LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
+  LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.

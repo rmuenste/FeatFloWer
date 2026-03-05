@@ -19,7 +19,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
-  bUseHashGridAccel, bUseKVEL_Accel
+  bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -751,6 +751,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")
         skipFBMDynamics = read_yes_no_param(string, iEq)
+      CASE ("PrintCFL")
+        bPrintCFL = read_yes_no_param(string, iEq)
+      CASE ("PrintParticleCFL")
+        bPrintParticleCFL = read_yes_no_param(string, iEq)
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("OutputFreq")
@@ -975,6 +979,18 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "skipFBMDynamics is ", "OFF")
+    END IF
+
+    IF (bPrintCFL) THEN
+      CALL write_param_str(mfile, mterm, "PrintCFL is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "PrintCFL is ", "OFF")
+    END IF
+
+    IF (bPrintParticleCFL) THEN
+      CALL write_param_str(mfile, mterm, "PrintParticleCFL is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "PrintParticleCFL is ", "OFF")
     END IF
 
     IF (bBinaryVtkOutput) THEN
