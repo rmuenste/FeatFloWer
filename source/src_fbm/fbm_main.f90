@@ -2183,7 +2183,7 @@ zgap = dzabs - cylHalfLen
 ! Positive outside, negative inside.
 dist = max(rxy - cylRadius, zgap)
 
-if ((rxy .le. cylRadius) .and. (dzabs .le. cylHalfLen)) then
+if ((rxy .le. cylRadius + 1e-6) .and. (dzabs .le. cylHalfLen)) then
  inpr = 1
 endif
 
