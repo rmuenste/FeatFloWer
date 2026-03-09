@@ -63,6 +63,8 @@ PROGRAM Q2P1_DEVEL
   
   !-------MAIN LOOP-------
   
+  if (mySetup%bConstantMesh) CALL Assemble_LinScOperators_XSE(ufile)
+
   DO iRot=1,nitns
    DO iStep=0,myProcess%nTimeLevels-1
     DO iSubStep=1,myTransientSolution%nTimeSubStep
@@ -77,7 +79,7 @@ PROGRAM Q2P1_DEVEL
      inonln_t = 2
    
      CALL TemporalFieldInterpolator(iStep,iSubStep)
-     CALL Assemble_LinScOperators_XSE(ufile)
+     if (.not. mySetup%bConstantMesh) CALL Assemble_LinScOperators_XSE(ufile)
      CALL Transport_LinScalar_XSE(Boundary_LinSc_Val_XSE,AddSource_XSE,ufile,inonln_t)
      if (DivergedSolution) EXIT
 
