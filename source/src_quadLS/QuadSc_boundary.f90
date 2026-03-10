@@ -756,7 +756,8 @@ END SUBROUTINE  Setup_PeriodicVelocityRHS
 !=========================================================================
 !
 !=========================================================================
-SUBROUTINE RestrictWallBC()
+SUBROUTINE RestrictWallBC(commBuf)
+REAL*8, INTENT(INOUT) :: commBuf(:)
 INTEGER ndof
 INTEGER i,j,k
 integer iat,ivt1,ivt2,ivt3,ivt4
@@ -841,6 +842,18 @@ DATA NeighU/1,2,3,4, 1,6,9,5, 2,7,10,6, 3,8,11,7, 4,5,12,8, 9,10,11,12/
      k = k + 1
     END IF
    END DO
+  END DO
+
+  ! Synchronize wall markers across ranks using the provided buffer.
+  commBuf = 0d0
+  DO i=1,ndof
+    IF (myBoundary%bWall(i)) commBuf(i) = 1d0
+  END DO
+
+  IF (myid.ne.master) CALL E013SUM(commBuf)
+
+  DO i=1,ndof
+    IF (commBuf(i).gt.0d0) myBoundary%bWall(i) = .true.
   END DO
 
 END SUBROUTINE RestrictWallBC
