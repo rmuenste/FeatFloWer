@@ -141,8 +141,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CFILE=CFILE1
  MFILE=MFILE1
 
-! dPeriodicity(1)= 0.1d0
-! dPeriodicity(2)= 0.1d0
+ dPeriodicity(1)= 0.1d0
+ dPeriodicity(2)= 0.1d0
 
  !=======================================================================
  !     Grid generation
@@ -150,8 +150,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
- ! partitioning
- include 'PartitionReader.f90'
+! partitioning
+include 'PartitionReader.f90'
 
  CALL Init_QuadScalar(mfile)
 

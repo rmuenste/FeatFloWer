@@ -37,14 +37,17 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_fc_ext_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
 IF(${OUT_OF_SOURCE_BUILD})
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/example.json")
     file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/example.json" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
   ENDIF()
 ENDIF()
 
-add_test(q2p1-fac-newt python ./q2p1_ctest_start.py)
+add_custom_target(q2p1_dns_drag_stage
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
+          ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS q2p1_dns_drag metis
+  COMMENT "Staging q2p1_dns_drag runtime files in build directory"
+)
