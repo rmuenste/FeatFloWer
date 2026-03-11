@@ -160,6 +160,10 @@ module load gcc/latest-v13
 module load openmpi/options/interface/ethernet
 module load openmpi/4.1.6
 
+# Force Python stdout to flush immediately so setup/partitioner output
+# appears before the solver output in the SLURM log (not after due to buffering).
+export PYTHONUNBUFFERED=1
+
 # Critical MPI-IO tuning for this workflow
 export OMPI_MCA_io=romio321
 export ROMIO_CB_BUFFER_SIZE=16777216
