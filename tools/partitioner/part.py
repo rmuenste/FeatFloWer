@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Alles was man zum Laden von Metis benötigt
-from ctypes import CDLL, c_int, POINTER, byref
+from ctypes import CDLL, c_int, c_float, POINTER, byref
 
 #from future.standard_library import install_aliases
 #install_aliases()
@@ -167,40 +167,50 @@ def GetParts(Neigh,nPart,Method):
   # mit 0 Elementen und mehr als einem Element erzeugt.
   if len(Neigh)<=nPart:
     return GetAtomicSplitting(len(Neigh))
-  # Ein paar Einstellungsparameter
-  cOpts=(c_int * 5)(0,100,4,1,1)
-  cNum=c_int(1) # Nummerierung beginnt mit 1
-  cWeight=c_int(0) # Keine Gewichte
 
   # Zähle alle nichtnull Elemente der Nachbarschaftsliste
-  iCount=sum(list(map(lambda x: list(map(lambda y: bool(y),x)).count(True),Neigh)))
+  iCount=sum(sum(1 for y in x if y) for x in Neigh)
 
   # Alloziere die Listen MetisA, MetisB und Part
   NEL=len(Neigh)
   MetisA=(c_int * (NEL+1))()
   MetisB=(c_int * iCount)()
   Part=(c_int * NEL)()
-  # Baue die komprimierte Graphenstruktur auf
-  iOffset=1
+
+  # Baue die komprimierte Graphenstruktur auf (0-basiert, METIS 5 erwartet C-Indizierung)
+  iOffset=0
   for (Idx,Elem_Neigh) in enumerate(Neigh):
     MetisA[Idx]=iOffset
     for iNeigh in Elem_Neigh:
       if iNeigh:
-        MetisB[iOffset-1]=iNeigh
+        MetisB[iOffset]=iNeigh-1  # 1-basierte Elementnummern → 0-basiert
         iOffset+=1
-  MetisA[NEL]=iCount+1
-  # Rufe Metis auf
-  null_ptr = POINTER(c_int)()
-  cNEL=c_int(NEL)
-  cnPart=c_int(nPart)
-  EdgeCut=c_int()
+  MetisA[NEL]=iCount
+
+  # METIS 5 Aufrufparameter
+  # Signatur: (nvtxs, ncon, xadj, adjncy, vwgt, vsize, adjwgt,
+  #            nparts, tpwgts, ubvec, options, edgecut, part)
+  cNEL    = c_int(NEL)
+  cNcon   = c_int(1)   # eine Balancierungsbedingung
+  cnPart  = c_int(nPart)
+  EdgeCut = c_int()
+
+  # Method 1 → METIS_PartGraphRecursive
+  # Method 2 or 3 → METIS_PartGraphKway (VKway aus METIS 5 entfernt)
+  func_idx = 0 if Method == 1 else 1
   print("Calling Metis...")
-  metis_func[Method-1](byref(cNEL),MetisA,MetisB,null_ptr,null_ptr,\
-                       byref(cWeight),byref(cNum),byref(cnPart),cOpts,\
-                       byref(EdgeCut),Part)
+  metis_func[func_idx](
+    byref(cNEL), byref(cNcon),
+    MetisA, MetisB,
+    None, None, None,  # vwgt, vsize, adjwgt (keine Gewichte)
+    byref(cnPart),
+    None, None,        # tpwgts, ubvec (gleichmäßige Aufteilung, Standardtoleranz)
+    None,              # options=NULL → METIS verwendet interne Standardwerte
+    byref(EdgeCut), Part)
   print("%d edges were cut by Metis." % EdgeCut.value)
-  # Fertig
-  return tuple(Part)
+
+  # METIS 5 liefert 0-basierte Partitions-IDs; konvertiere zu 1-basiert
+  return tuple(p+1 for p in Part)
 
 def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
@@ -365,14 +375,35 @@ else:
 if metis==None:
   sys.exit("Could not load the Metis library!")
 
-# Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
-_pidx=POINTER(c_int)
-_pint=POINTER(c_int)
-_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
-metis.METIS_PartGraphRecursive.argtypes=_PartArgs
-metis.METIS_PartGraphVKway.argtypes=_PartArgs
-metis.METIS_PartGraphKway.argtypes=_PartArgs
-metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
+# METIS 5 Signatur:
+# (nvtxs*, ncon*, xadj*, adjncy*, vwgt*, vsize*, adjwgt*,
+#  nparts*, tpwgts*, ubvec*, options*, edgecut*, part*)
+# real_t is float (REALTYPEWIDTH 32 in metis.h)
+_pidx  = POINTER(c_int)
+_preal = POINTER(c_float)
+_PartArgs = (
+  _pidx,   # nvtxs
+  _pidx,   # ncon
+  _pidx,   # xadj
+  _pidx,   # adjncy
+  _pidx,   # vwgt
+  _pidx,   # vsize
+  _pidx,   # adjwgt
+  _pidx,   # nparts
+  _preal,  # tpwgts
+  _preal,  # ubvec
+  _pidx,   # options
+  _pidx,   # edgecut
+  _pidx,   # part
+)
+metis.METIS_PartGraphRecursive.argtypes = _PartArgs
+metis.METIS_PartGraphKway.argtypes      = _PartArgs
+# METIS 5 removed METIS_PartGraphVKway; Methods 2 and 3 both map to Kway.
+metis_func = (
+  metis.METIS_PartGraphRecursive,  # Method 1
+  metis.METIS_PartGraphKway,       # Method 2 (formerly VKway)
+  metis.METIS_PartGraphKway,       # Method 3
+)
 
 if __name__=="__main__":
   if metis!=None:
