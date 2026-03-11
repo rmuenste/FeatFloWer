@@ -284,7 +284,7 @@ if(USE_CGAL)
     ExternalProject_Add(
       cgal
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
-      GIT_TAG v5.3.2
+      GIT_TAG v5.6.3
       PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
       CMAKE_ARGS 
         -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
