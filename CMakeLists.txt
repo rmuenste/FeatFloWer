@@ -264,7 +264,7 @@ else(USE_SYSTEM_BLASLAPACK)
 endif(USE_SYSTEM_BLASLAPACK)
 
 if(BUILD_METIS)
-  add_subdirectory(extern/libraries/metis-4.0.3)
+  add_subdirectory(extern/libraries/metis-5.1.0)
 endif(BUILD_METIS)
 
 #=========================================================================
