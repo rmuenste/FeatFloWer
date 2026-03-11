@@ -126,16 +126,31 @@ CGAL is a powerful library for computational geometry.
     ```
 
 *   **Using a Local/System CGAL Installation**:
-    If you have CGAL already installed on your system:
+    If you have CGAL already installed on your system, set `USE_CGAL_LOCAL=ON` and point `CGAL_DIR` to the CGAL cmake config directory (the subdirectory containing `CGALConfig.cmake`):
     ```bash
-    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON ..
+    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON \
+          -DCGAL_DIR=/path/to/cgal/lib64/cmake/CGAL ..
     ```
-    The build system will attempt to find CGAL in standard system locations or via the `CGAL_DIR` environment variable.
+    The minimum required CGAL version is **5.3**. Older versions will be rejected at configure time.
 
-*   **Cluster-specific note**: Linking can fail due to static/dynamic Boost conflicts. If so, try:
-    ```bash
-    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON -DBoost_USE_STATIC_LIBS=ON ..
+    The build system also searches standard locations (`/usr`, `/usr/local`, `$ENV{HOME}/.local`, `$ENV{CGAL_DIR}`) if `CGAL_DIR` is not given explicitly.
+
+*   **Boost static/dynamic conflict with local CGAL**:
+    When using `USE_CGAL_LOCAL=ON`, CGAL's own cmake machinery (`CGAL_TweakFindBoost.cmake`) runs as part of `find_package(CGAL)`. Depending on how the CGAL installation was originally configured, it may set `Boost_USE_STATIC_LIBS=ON` before the project's own Boost search runs — causing the linker to look for `.a` files that may not exist on the system.
+
+    **Symptom**: build fails with:
     ```
+    error: '/usr/lib64/libboost_thread.a', needed by '...', missing and no known rule to make it
+    ```
+
+    **Fix**: explicitly pass `-DCGAL_Boost_USE_STATIC_LIBS=OFF` at configure time:
+    ```bash
+    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON \
+          -DCGAL_DIR=/path/to/cgal/lib64/cmake/CGAL \
+          -DCGAL_Boost_USE_STATIC_LIBS=OFF ..
+    ```
+
+    Note: `CGAL_Boost_USE_STATIC_LIBS` is a flag owned by CGAL's cmake layer, not FeatFloWer. It controls whether CGAL's Boost detection prefers static (`.a`) or shared (`.so`) libraries. The old advice of `-DBoost_USE_STATIC_LIBS=ON` is incorrect for systems that only provide shared Boost libraries.
 
 ### 5.2. Building with PE (Physics Engine)
 
