@@ -9,8 +9,6 @@ from ctypes import CDLL, c_int, POINTER, byref
 
 from functools import reduce
 
-from six.moves import zip
-
 from itertools import repeat, count
 
 from collections import Counter
