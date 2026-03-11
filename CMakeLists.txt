@@ -97,6 +97,12 @@ option(USE_CGAL_LOCAL
   OFF
   )
 
+# USE_CGAL_LOCAL implies USE_CGAL — no need to set both on the command line.
+if(USE_CGAL_LOCAL AND NOT USE_CGAL)
+  set(USE_CGAL ON CACHE BOOL "Use CGAL library" FORCE)
+  message(STATUS "USE_CGAL_LOCAL=ON implies USE_CGAL=ON (auto-enabled)")
+endif()
+
 option(USE_BOOST
   "Use Boost library"
   OFF
@@ -308,7 +314,19 @@ if(USE_CGAL)
 #                              INTERFACE ${CGAL_INCLUDE_DIR})
 
   else(NOT USE_CGAL_LOCAL)
+    set(USE_BOOST True)
     message(STATUS "Trying to find system installation of CGAL")
+
+    # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
+    # On Linux systems only shared Boost libraries are typically available.
+    # Override by passing -DCGAL_Boost_USE_STATIC_LIBS=ON if static Boost is needed.
+    if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
+      set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
+        "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
+      message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
+    else()
+      message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
+    endif()
 
     # Try to find CGAL
     find_package(CGAL QUIET COMPONENTS Core
@@ -329,10 +347,13 @@ if(USE_CGAL)
         /opt/homebrew/opt/cgal
     )
 
-    set(CGAL_NAME CGAL) 
+    set(CGAL_NAME CGAL)
     if(CGAL_FOUND)
       message(STATUS "Found CGAL version ${CGAL_VERSION}")
       message(STATUS "Using CGAL from ${CGAL_DIR}")
+      if(CGAL_VERSION VERSION_LESS "5.3")
+        message(FATAL_ERROR "CGAL version ${CGAL_VERSION} is too old. Minimum required version is 5.3.")
+      endif()
       # Include CGAL settings
       include(${CGAL_USE_FILE})
       
@@ -392,9 +413,9 @@ endif(USE_CGAL)
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
-# Check if USE_CGAL is ON, and set USE_BOOST accordingly
-if(USE_CGAL)
-    set(USE_BOOST ON)
+# When building CGAL via ExternalProject, pin CGAL_DIR to the build-tree install.
+# When USE_CGAL_LOCAL=ON, CGAL_DIR is already resolved by find_package(CGAL) above.
+if(USE_CGAL AND NOT USE_CGAL_LOCAL)
     set(CGAL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/lib/cmake/CGAL CACHE PATH "Path to CGAL installation" FORCE)
 endif()
 
@@ -416,10 +437,6 @@ if(USE_BOOST)
       message(STATUS "Boost found: ${Boost_VERSION}")
       message(STATUS "Boost include directories: ${Boost_INCLUDE_DIRS}")
       message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
-
-      # Set Boost_USE_STATIC_LIBS to ON
-      set(Boost_USE_STATIC_LIBS ON)
-      set(Boost_USE_MULTITHREADED ON )
   else()
       message(FATAL_ERROR "Boost ${Boost_MIN_VERSION} not found.")
   endif()
