@@ -126,9 +126,9 @@ CGAL is a powerful library for computational geometry.
     ```
 
 *   **Using a Local/System CGAL Installation**:
-    If you have CGAL already installed on your system, set `USE_CGAL_LOCAL=ON` and point `CGAL_DIR` to the CGAL cmake config directory (the subdirectory containing `CGALConfig.cmake`):
+    If you have CGAL already installed on your system, set `USE_CGAL_LOCAL=ON` and point `CGAL_DIR` to the CGAL cmake config directory (the subdirectory containing `CGALConfig.cmake`). Setting `USE_CGAL_LOCAL=ON` automatically implies `USE_CGAL=ON`, so the two flags can be collapsed into one:
     ```bash
-    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON \
+    cmake -DUSE_CGAL_LOCAL=ON \
           -DCGAL_DIR=/path/to/cgal/lib64/cmake/CGAL ..
     ```
     The minimum required CGAL version is **5.3**. Older versions will be rejected at configure time.
@@ -138,16 +138,18 @@ CGAL is a powerful library for computational geometry.
 *   **Boost static/dynamic conflict with local CGAL**:
     When using `USE_CGAL_LOCAL=ON`, CGAL's own cmake machinery (`CGAL_TweakFindBoost.cmake`) runs as part of `find_package(CGAL)`. Depending on how the CGAL installation was originally configured, it may set `Boost_USE_STATIC_LIBS=ON` before the project's own Boost search runs — causing the linker to look for `.a` files that may not exist on the system.
 
-    **Symptom**: build fails with:
+    **This is now handled automatically**: the build system sets `CGAL_Boost_USE_STATIC_LIBS=OFF` by default when using `USE_CGAL_LOCAL=ON`, so shared Boost libraries (`.so`) are preferred without any extra flags.
+
+    **Symptom** (should no longer occur, but shown for reference): build fails with:
     ```
     error: '/usr/lib64/libboost_thread.a', needed by '...', missing and no known rule to make it
     ```
 
-    **Fix**: explicitly pass `-DCGAL_Boost_USE_STATIC_LIBS=OFF` at configure time:
+    **Override**: if your system only has static Boost (`.a`) and you need to force static linking, pass explicitly:
     ```bash
-    cmake -DUSE_CGAL=ON -DUSE_CGAL_LOCAL=ON \
+    cmake -DUSE_CGAL_LOCAL=ON \
           -DCGAL_DIR=/path/to/cgal/lib64/cmake/CGAL \
-          -DCGAL_Boost_USE_STATIC_LIBS=OFF ..
+          -DCGAL_Boost_USE_STATIC_LIBS=ON ..
     ```
 
     Note: `CGAL_Boost_USE_STATIC_LIBS` is a flag owned by CGAL's cmake layer, not FeatFloWer. It controls whether CGAL's Boost detection prefers static (`.a`) or shared (`.so`) libraries. The old advice of `-DBoost_USE_STATIC_LIBS=ON` is incorrect for systems that only provide shared Boost libraries.
@@ -361,3 +363,33 @@ Run from the build directory. Generates Debian packages (`.deb`) as configured b
     cmake -DQ2P1_COMPILER=intel -DUSE_MUMPS=ON ..
     make -j8
     ```
+
+*   **Build with a non-default GCC module (e.g. GCC14) and local CGAL:**
+    ```bash
+    cmake -S . -B build-sse-gcc14 -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_C_COMPILER=/sfw/gcc/14.3.0-static-gmp-mpfr-mpc-isl/bin/gcc \
+      -DCMAKE_CXX_COMPILER=/sfw/gcc/14.3.0-static-gmp-mpfr-mpc-isl/bin/g++ \
+      -DCMAKE_Fortran_COMPILER=/sfw/gcc/14.3.0-static-gmp-mpfr-mpc-isl/bin/gfortran \
+      -DBUILD_APPLICATIONS=ON \
+      -DUSE_CGAL_LOCAL=ON \
+      -DCGAL_DIR=/data/warehouse17/rmuenste/code/FF-REGRESS/cgal-5.3.2/lib64/cmake/CGAL \
+      -DUSE_HYPRE=ON \
+      -DUSE_PE=OFF \
+      -DENABLE_FBM_ACCELERATION=OFF \
+      -DMPFR_INCLUDE_DIR=/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/include \
+      -DMPFR_LIBRARIES=/sfw/gcc/13.2.0-static-gmp-mpfr-mpc-isl/lib64/libmpfr.a
+    cmake --build build-sse-gcc14 --target q2p1_sse metis -- -j8
+    ```
+
+    **Important:** Always pin all three compilers (`CMAKE_C_COMPILER`, `CMAKE_CXX_COMPILER`,
+    `CMAKE_Fortran_COMPILER`) to the same GCC installation. If the C compiler is left as
+    the default system `cc` (which may be an older GCC), CMake adds the older GCC's lib
+    directory to the linker path, causing ABI mismatches such as
+    `undefined reference to '__cxa_call_terminate'` at link time.
+
+    **MPFR workaround:** The GCC14 module on this system does not expose GMP/MPFR dev
+    headers. Until the admin populates `/sfw/gcc/14.3.0-static-gmp-mpfr-mpc-isl/include/`
+    and `lib64/` (mirroring the GCC13 module), pass the GCC13 MPFR paths explicitly via
+    `-DMPFR_INCLUDE_DIR` and `-DMPFR_LIBRARIES` as shown above. The GCC13 MPFR headers
+    are plain C and fully ABI-compatible with GCC14.

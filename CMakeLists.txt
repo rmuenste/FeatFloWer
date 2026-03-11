@@ -317,6 +317,22 @@ if(USE_CGAL)
     set(USE_BOOST True)
     message(STATUS "Trying to find system installation of CGAL")
 
+    # Find GMP and MPFR before find_package(CGAL) so that our updated Find modules
+    # (which scan ENV CPATH / ENV LIBRARY_PATH set by GCC module systems) run first.
+    # CMake caches the results, so CGAL's own internal find_package(GMP/MPFR) calls
+    # will reuse them — including any user-supplied -DMPFR_INCLUDE_DIR=... hints.
+    list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+    find_package(GMP REQUIRED)
+    find_package(MPFR REQUIRED)
+    if(GMP_FOUND)
+      message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+      message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+    endif()
+    if(MPFR_FOUND)
+      message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+      message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
+    endif()
+
     # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
     # On Linux systems only shared Boost libraries are typically available.
     # Override by passing -DCGAL_Boost_USE_STATIC_LIBS=ON if static Boost is needed.
@@ -358,28 +374,13 @@ if(USE_CGAL)
       include(${CGAL_USE_FILE})
       
       set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-      list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
     else()
       message(STATUS "CGAL not found in system locations")
       # Fallback to ExternalProject_Add or other approach
       message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
-    endif()    
+    endif()
 
   endif(NOT USE_CGAL_LOCAL)
-
-  # Find GMP and MPFR libraries (required dependencies for CGAL)
-  find_package(GMP REQUIRED)
-  find_package(MPFR REQUIRED)
-
-  if(GMP_FOUND)
-    message(STATUS "Found GMP: ${GMP_LIBRARIES}")
-    message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
-  endif()
-
-  if(MPFR_FOUND)
-    message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
-    message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
-  endif()
 
 endif(USE_CGAL)
 
