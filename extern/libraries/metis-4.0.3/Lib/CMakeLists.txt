@@ -5,6 +5,10 @@ file(GLOB metis_SRC "*.h" "*.c")
 
 add_library(metis SHARED ${metis_SRC})
 
+# METIS 4.0.3 is legacy C code with implicit function declarations that GCC14
+# promotes to errors by default. Downgrade back to a warning for this target only.
+target_compile_options(metis PRIVATE -Wno-implicit-function-declaration)
+
 add_custom_command(
   TARGET metis 
   POST_BUILD 

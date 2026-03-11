@@ -25,10 +25,13 @@ if (GMP_in_cache)
 
 else()
 
+  # ENV CPATH and ENV LIBRARY_PATH are set by GCC module systems (e.g. module load gcc/...)
+  # but CMake's find_path/find_library do not scan them automatically — add them explicitly.
   find_path(GMP_INCLUDE_DIR
             NAMES gmp.h
             HINTS ENV GMP_INC_DIR
                   ENV GMP_DIR
+                  ENV CPATH
                   ${CGAL_INSTALLATION_PACKAGE_DIR}/auxiliary/gmp/include
             PATH_SUFFIXES include
   	        DOC "The directory containing the GMP header files"
@@ -41,8 +44,9 @@ else()
   find_library(GMP_LIBRARIES NAMES gmp libgmp-10 mpir
     HINTS ENV GMP_LIB_DIR
           ENV GMP_DIR
+          ENV LIBRARY_PATH
           ${CGAL_INSTALLATION_PACKAGE_DIR}/auxiliary/gmp/lib
-    PATH_SUFFIXES lib
+    PATH_SUFFIXES lib lib64
     DOC "Path to the GMP library"
     )
 
