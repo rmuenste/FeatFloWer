@@ -49,6 +49,21 @@ def GetFileList(cProjName):
     print("- Grid File:", myGridFile)
     print("- Boundary Files:")
     print("\n".join(map(lambda x: "  * %s" % x, myParFiles)))
+    if not myGridFile:
+        raise RuntimeError(
+            "No .tri grid file entry found in project file '%s'.\n"
+            "Check that the file is not empty and contains a line ending in '.tri'." % cProjName
+        )
+    if not os.path.exists(myGridFile):
+        raise RuntimeError(
+            "Grid file '%s' listed in '%s' does not exist." % (myGridFile, cProjName)
+        )
+    missing_par = [f for f in myParFiles if not os.path.exists(f)]
+    if missing_par:
+        raise RuntimeError(
+            "The following boundary file(s) listed in '%s' do not exist:\n  %s"
+            % (cProjName, "\n  ".join(missing_par))
+        )
     return (nPar, myGridFile, myParFiles, myParNames)
 
 
