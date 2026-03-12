@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "featflower-partitioner"
+version = "0.1.0"
+description = "Mesh partitioner for the FeatFloWer CFD framework (METIS 5)"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+featflower-partition = "featflower_partitioner.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+featflower_partitioner = ["libmetis.so"]
