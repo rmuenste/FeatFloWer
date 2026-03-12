@@ -1,0 +1,68 @@
+{
+    "TestConfiguration": {
+        "DetailedConfiguration": {
+            "meshFolderPath": "_adc/2D_FAC",
+            "meshProjectFile": "_adc/2D_FAC/2Dbench.prj",
+            "testDataFile": "_adc/2D_FAC/q2p1_param_nnewt_2D.dat",
+            "testBinaryName": "q2p1_fc_ext",
+            "testNoteName": "fac2Dnnewt-bench",
+            "testLevels": "1",
+            "processorCount": "16"
+        },
+        "DashBoardConfiguration": {
+            "name": "conf1",
+            "DashBoardAttributes": {
+                "benchName": "NON-NEWTFAC",
+                "DashBoardData": {
+                    "benchKeyword": "BenchForce:",
+                    "DataValues": {
+                        "count": "2",
+                        "value": [
+                            "2",
+                            "3"
+                        ]
+                    }
+                },
+                "DashBoardVisualization": {
+                    "name": "Vis1",
+                    "type": "table",
+                    "DashBoardTable": {
+                        "Tables": [{
+                            "DataGenerator": {
+                                "benchKeyword": "BenchForce:",
+                                "DataValues": {
+                                    "count": "2",
+                                    "value": [
+                                        "2",
+                                        "3"
+                                    ]
+                                }
+                            },
+                            "benchName": "NON-NEWTFAC",
+                            "tableCaption": "Non-Newt 2D Flow Around A Cylinder",
+                            "data": {
+                                "cols": [{
+                                        "label": "Level",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Drag",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Lift",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Time[s]",
+                                        "type": "number"
+                                    }
+                                ]
+                            }
+                        }]
+                    }
+                }
+            }
+        }
+    }
+}
