@@ -130,7 +130,9 @@ module umbrella_smoother
   USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
 !   use Parametrization, only: ParametrizeBndr
   use Sigma_User, only: mySigma,Shell_dist
-  use var_QuadScalar, only: tMultiMesh,FictKNPR
+  use var_QuadScalar, only: tMultiMesh,FictKNPR, &
+                            bFAC3D_CylUmbrellaWeight, &
+                            dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength
   
   !USE STL_Processing, ONLY : dEpsDist
   implicit none
@@ -205,25 +207,31 @@ module umbrella_smoother
     f(i) = f(i)/w(i)
    end DO
   
-   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
-    qscStruct%AuxU = dEpsDist
-    qscStruct%AuxV = dEpsDist
-    qscStruct%AuxW = dEpsDist
-    CALL calcDistanceFunction_heat(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
-                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW,qscStruct%defW)
-   END IF
-   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
-    qscStruct%AuxU = dEpsDist
-    qscStruct%AuxV = dEpsDist
-    CALL calcDistanceFunction_sse(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
-                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
-   END IF
-   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
-    qscStruct%AuxU = dEpsDist
-    qscStruct%AuxV = dEpsDist
-    qscStruct%AuxW = dEpsDist
-    CALL QuadScalar_MixerKnpr(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
-                             qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+   IF (bFAC3D_CylUmbrellaWeight) THEN
+    CALL ComputeFAC3DCylDistance(nvt,dcorvg,qscStruct%AuxU)
+    qscStruct%AuxV(1:nvt) = qscStruct%AuxU(1:nvt)
+    qscStruct%AuxW(1:nvt) = qscStruct%AuxU(1:nvt)
+   ELSE
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."HEAT") THEN
+     qscStruct%AuxU = dEpsDist
+     qscStruct%AuxV = dEpsDist
+     qscStruct%AuxW = dEpsDist
+     CALL calcDistanceFunction_heat(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW,qscStruct%defW)
+    END IF
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE".OR.ADJUSTL(TRIM(mySigma%cType)).EQ."DIE") THEN
+     qscStruct%AuxU = dEpsDist
+     qscStruct%AuxV = dEpsDist
+     CALL calcDistanceFunction_sse(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+    END IF
+    IF (ADJUSTL(TRIM(mySigma%cType)).EQ."TSE") THEN
+     qscStruct%AuxU = dEpsDist
+     qscStruct%AuxV = dEpsDist
+     qscStruct%AuxW = dEpsDist
+     CALL QuadScalar_MixerKnpr(dcorvg,kvert2,kedge2,karea2,nel2,nvt2,nat2,net2,&
+                              qscStruct%AuxU,qscStruct%AuxV,qscStruct%AuxW)
+    END IF
    END IF
   
    DO i=1,nvt
@@ -291,7 +299,8 @@ module umbrella_smoother
    CONTAINS
   
   subroutine GetWeight(x,y,z,t,f)
-  USE var_QuadScalar , ONLY :dCGALtoRealFactor
+  USE var_QuadScalar , ONLY :dCGALtoRealFactor, &
+                              bFAC3D_CylUmbrellaWeight
   IMPLICIT NONE
   real*8 x,y,z,t,f
   real*8 d1,d2,d3
@@ -307,7 +316,19 @@ module umbrella_smoother
    f = 1d0
   ELSE
   
-  dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
+  if (ABS(mySigma%Dz_Out).gt.1d-12) then
+   dScaleFactor = 5d0*6d0*(6d0/mySigma%Dz_Out)
+  else
+   dScaleFactor = 1d0
+  end if
+
+  IF (bFAC3D_CylUmbrellaWeight) THEN
+   d1 = dScaleFactor*qscStruct%AuxU(i)
+   CALL KernelFunction(d1,f1)
+   f = MIN(f1,25d0)
+   f = f**2.3d0
+   RETURN
+  END IF
 
   IF (ADJUSTL(TRIM(mySigma%cType)).EQ."SSE") THEN
    d1 = dScaleFactor*(0.5d0*mySigma%Dz_Out - SQRT(X*X + Y*Y))
@@ -371,6 +392,27 @@ module umbrella_smoother
   f = max(daux,0.8d0)
   
   end subroutine KernelFunction
+
+  subroutine ComputeFAC3DCylDistance(nLocalVtx,dcoor,dist)
+  implicit none
+  integer, intent(in) :: nLocalVtx
+  real*8, dimension(:,:), intent(in) :: dcoor
+  real*8, dimension(:), intent(inout) :: dist
+  integer :: iVtx
+  real*8 :: dx,dy,dzAbs,rxy,zGap,halfLen
+
+  halfLen = 0.5d0*dFAC3D_CylLength
+
+  DO iVtx=1,nLocalVtx
+   dx = dcoor(1,iVtx) - dFAC3D_CylCenter(1)
+   dy = dcoor(2,iVtx) - dFAC3D_CylCenter(2)
+   dzAbs = ABS(dcoor(3,iVtx) - dFAC3D_CylCenter(3))
+   rxy = SQRT(dx*dx + dy*dy)
+   zGap = dzAbs - halfLen
+   dist(iVtx) = MAX(rxy - dFAC3D_CylRadius,zGap)
+  END DO
+
+  end subroutine ComputeFAC3DCylDistance
   
   end
   !

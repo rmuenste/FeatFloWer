@@ -402,6 +402,10 @@ MODULE var_QuadScalar
   REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)
   REAL*8, ALLOCATABLE :: Temperature_AVG(:)
   INTEGER :: iTemperature_AVG = 0
+  LOGICAL :: bFAC3D_CylUmbrellaWeight = .FALSE.
+  REAL*8 :: dFAC3D_CylCenter(3) = (/0.5d0, 0.2d0, 0.205d0/)
+  REAL*8 :: dFAC3D_CylRadius = 0.05d0
+  REAL*8 :: dFAC3D_CylLength = 0.4105d0
   TYPE tCGALObjects
     REAL*8, ALLOCATABLE :: Block(:)
     REAL*8, ALLOCATABLE :: Wire(:)

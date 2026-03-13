@@ -67,7 +67,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
+   bFAC3D_CylUmbrellaWeight,dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength
  USE Transport_Q2P1, ONLY : Init_FAC3D_Handlers, Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -157,6 +158,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  
  CALL Init_QuadScalar(mfile)
  call Init_FAC3D_Handlers()
+
+ bFAC3D_CylUmbrellaWeight = .TRUE.
+ dFAC3D_CylCenter = (/0.5d0, 0.2d0, 0.205d0/)
+ dFAC3D_CylRadius = 0.05d0
+ dFAC3D_CylLength = 0.4105d0
+ if ((myid.eq.0).or.(myid.eq.1)) then
+   write(*,'(A)') 'FAC3D umbrella weighting: analytic cylinder distance is enabled'
+ end if
 
  IF (myid.EQ.0) THEN
   NLMAX = LinSc%prm%MGprmIn%MedLev
