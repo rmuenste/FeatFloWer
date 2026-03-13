@@ -1134,7 +1134,7 @@ END IF
  ! Correct the wall BCs
  IF (allocated(mg_mesh%BndryNodes))  then
   ilev = nlmax
-  CALL RestrictWallBC()
+  CALL RestrictWallBC(QuadSc%auxU)
  END IF
 
 ! Set up the boundary condition types (knpr)

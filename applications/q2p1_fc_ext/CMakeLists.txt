@@ -48,10 +48,56 @@ ENDIF()
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_fc_ext_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/fc_ext_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test(q2p1-fac-newt python ./q2p1_ctest_start.py)
+
+#=========================================================================
+#                       INSTALL CONFIGURATION
+#=========================================================================
+set(FC_EXT_INSTALL_DIR bin/q2p1_fc_ext)
+
+install(TARGETS q2p1_fc_ext
+    RUNTIME DESTINATION ${FC_EXT_INSTALL_DIR}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+
+# Ship the python-based mesh partitioner alongside the release binary
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner
+    DESTINATION ${FC_EXT_INSTALL_DIR})
+
+set(FC_EXT_DEF_DIRS _data start)
+unset(FC_EXT_SHARE_DIRS)
+FOREACH(dir ${FC_EXT_DEF_DIRS})
+  IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/${dir}")
+    list(APPEND FC_EXT_SHARE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/${dir}")
+  ENDIF()
+ENDFOREACH()
+
+IF(FC_EXT_SHARE_DIRS)
+  install(DIRECTORY ${FC_EXT_SHARE_DIRS}
+      DESTINATION ${FC_EXT_INSTALL_DIR})
+ENDIF()
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/fc_ext_start.py
+    DESTINATION ${FC_EXT_INSTALL_DIR}
+    PERMISSIONS WORLD_EXECUTE WORLD_READ OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
+
+set(FC_EXT_EMPTY_DIRS _vtk _dump _mesh)
+FOREACH(clean_dir ${FC_EXT_EMPTY_DIRS})
+  install(CODE
+    "file(REMOVE_RECURSE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${FC_EXT_INSTALL_DIR}/${clean_dir}\")
+file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${FC_EXT_INSTALL_DIR}/${clean_dir}\")")
+ENDFOREACH()
+
+install(CODE
+  "if(DEFINED ENV{Q2P1_MESH_DIR} AND NOT \"\$ENV{Q2P1_MESH_DIR}\" STREQUAL \"\")
+    file(REMOVE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${FC_EXT_INSTALL_DIR}/_adc\")
+    execute_process(COMMAND \"${CMAKE_COMMAND}\" -E create_symlink \"\$ENV{Q2P1_MESH_DIR}\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${FC_EXT_INSTALL_DIR}/_adc\")
+  endif()")
 
 IF(${OUT_OF_SOURCE_BUILD})
 

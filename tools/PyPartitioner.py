@@ -8,7 +8,19 @@ import partitioner
 # Erzeuge benötigte Verzeichnisse, falls noch nicht vorhanden
 partitioner.mkdir("_mesh")
 
-NPart, PartMethod, NSubPart, MeshName, ProjektFile = partitioner.checkParameters(sys.argv) 
+(NPart,
+ PartMethod,
+ NSubPart,
+ MeshName,
+ ProjektFile,
+ PartitionFormat) = partitioner.checkParameters(sys.argv)
 
 # Aufruf der Hauptroutine
-partitioner.MainProcess(NPart,PartMethod,NSubPart,MeshName,ProjektFile)
+partitioner.MainProcess(
+    NPart,
+    PartMethod,
+    NSubPart,
+    MeshName,
+    ProjektFile,
+    partition_format=PartitionFormat,
+)

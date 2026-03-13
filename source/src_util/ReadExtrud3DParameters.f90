@@ -1193,6 +1193,15 @@
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","PressureConvergenceTolerance", mySetup%PressureConvergenceTolerance,5d-3)
 
+    cKTP=' '
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","ConstantMesh",cKTP,"NO")
+    call inip_toupper_replace(cKTP)
+    IF (ADJUSTL(TRIM(cKTP)).eq."YES".OR.ADJUSTL(TRIM(cKTP)).eq."ON") THEN
+     mySetup%bConstantMesh = .TRUE.
+    ELSE
+     mySetup%bConstantMesh = .FALSE.
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
 

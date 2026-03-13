@@ -62,6 +62,32 @@ iPart    = myid - (iSubPart-1)*kSubPart
 
 This distributes sub-partitions more evenly when `nSubCoarseMesh` > number of processes.
 
+### 2.3 JSON Partition Format (Optional)
+
+FeatFloWer can now bundle all partitioned geometry and boundary data into JSON containers instead of writing the legacy `.tri/.par` hierarchy. This is useful when a single logical mesh needs to be shipped or inspected without navigating the `_mesh/<case>/subXXXX` tree.
+
+Activation steps:
+
+1. **Partitioner:** add `--partition-format=json` when invoking `tools/PyPartitioner.py` (or the CMake-built wrapper). Example:
+   ```bash
+   ./PyPartitioner.py 8 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj --partition-format=json
+   ```
+   The `_mesh/<case>/` folder now contains `GRID.tri.json`, `wall.par.json`, etc., each embedding every sub-part under `subs.sub0001.parts` with names like `GRID.0001.tri`.
+
+2. **Solver input:** in the parameter file (`SimPar@` section) set
+   ```
+   PartitionFormat = json
+   ```
+   The Fortran readers (`readTriCoarse`, `InitParametrization[_STRCT]`) automatically switch to the JSON files and suppress writing legacy `.par` outputs during post-processing.
+
+3. **Two-level split control:** recursive partitioning is enabled by default. To revert to the legacy single-level (`PartitionReader2.f90`) workflow, add
+   ```
+   RecursivePartitioning = No
+   ```
+   to your `SimPar@` block. The launchers (`fc_ext_start.py`, `e3d_start.py`) will then pass `NSubPart = 1` to the partitioner and skip the node-aware mapping.
+
+Keep `PartitionFormat = legacy` (default) to retain the previous behaviour and file layout.
+
 ---
 
 ## 3. Hierarchical Mesh Refinement

@@ -1307,12 +1307,14 @@ END
 !
 SUBROUTINE Output_Mesh(iO,cFolder)
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary
+USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary,cPartitionFormat
 USE Parametrization, ONLY : myParBndr,nBnds
 IMPLICIT NONE
 INTEGER i,j,iO,iBnds
 CHARACTER cf*(24)
 CHARACTER cFolder*(*)
+CHARACTER(len=16) :: fmt_local
+LOGICAL :: do_param_output
 
 WRITE(cf,'(A11,I3.3,A4)') ADJUSTL(TRIM(cFolder))//'/cMESH_',iO, '.tri'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -1351,28 +1353,38 @@ CLOSE(1)
 OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cFolder))//'/file.prj')
 WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
 WRITE(2,'(A)') ADJUSTL(TRIM(cf))
- 
-DO iBnds = 1, nBnds
- cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
- WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
- WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
- j=0
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   j = j + 1
-  END IF
+
+fmt_local = cPartitionFormat
+do i = 1, len(fmt_local)
+  if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+    fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+  end if
+end do
+do_param_output = (trim(fmt_local) /= "json")
+
+IF (do_param_output) THEN
+ DO iBnds = 1, nBnds
+  cf = ' '
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+  j=0
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    j = j + 1
+   END IF
+  END DO
+  WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+  WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    WRITE(1,'(I8,A)') i
+   END IF
+  END DO
+  CLOSE(1)
  END DO
- WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
- WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   WRITE(1,'(I8,A)') i
-  END IF
- END DO
- CLOSE(1)
-END DO
+END IF
 CLOSE(2)
 
 END SUBROUTINE Output_Mesh
@@ -3856,10 +3868,13 @@ SUBROUTINE OutputTriMesh(dcorvg,kvert,knpr,nvt,nel,iO)
 !USE QuadScalar,ONLY:myQ2Coor
 USE var_QuadScalar,ONLY:ilev
 USE Parametrization, ONLY : myParBndr,nBnds
+USE var_QuadScalar, ONLY: cPartitionFormat
 IMPLICIT NONE
 REAL*8 dcorvg(3,*)
 INTEGER nvt,nel,kvert(8,*),knpr(*),i,iO,j,iIt,iBnds
 CHARACTER cf*(40)
+CHARACTER(len=16) :: fmt_local
+LOGICAL :: do_param_output
 
 WRITE(cf,'(A)') '_vtk/mesh.tri'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -3885,26 +3900,36 @@ END DO
 
 CLOSE(1)
 
- DO iBnds = 1, nBnds
-  cf = ' '
-  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
-  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
-  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
-   j=0
-   DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-     j = j + 1
-    END IF
-   END DO
-   WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
-   WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
-   DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-     WRITE(1,'(I8,A)') i
-    END IF
-   END DO
-   CLOSE(1)
- END DO
+fmt_local = cPartitionFormat
+do i = 1, len(fmt_local)
+  if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+    fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+  end if
+end do
+do_param_output = (trim(fmt_local) /= "json")
+
+ IF (do_param_output) THEN
+  DO iBnds = 1, nBnds
+   cf = ' '
+   WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+    j=0
+    DO i=1,NVT
+     IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+      j = j + 1
+     END IF
+    END DO
+    WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+    WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
+    DO i=1,NVT
+     IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+      WRITE(1,'(I8,A)') i
+     END IF
+    END DO
+    CLOSE(1)
+  END DO
+ END IF
  
 ! DO iIt=1,Properties%nInterface
 !  IF (allocated(myTSurf(iIT)%T)) then
@@ -4801,7 +4826,7 @@ END SUBROUTINE ResetTimer
 !
 subroutine ReduceMesh_sse_mesh()
 USE def_FEAT
-USE var_QuadScalar,ONLY:LinSc,mg_Mesh,myBoundary
+USE var_QuadScalar,ONLY:LinSc,mg_Mesh,myBoundary,cPartitionFormat
 USE Parametrization, ONLY : myParBndr,nBnds
 USE PP3D_MPI, ONLY:myid
 
@@ -4811,6 +4836,8 @@ integer, allocatable :: knpr(:)
 integer i,j,k,ivt,iat,iadj,ibnds,nnel,nnvt,nnat
 integer ivt1,ivt2,ivt3,ivt4
 character cTRIFolder*(256),cf*(256)
+character(len=16) :: fmt_local
+logical :: do_param_output
 INTEGER NeighA(4,6)
 logical bBndry
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
@@ -4923,12 +4950,21 @@ if (myid.eq.0) then
  WRITE(cf,'(A)') 'ReducedMesh.tri' 
  WRITE(2,'(A)') ADJUSTL(TRIM(cf))
   
- DO iBnds = 1, nBnds
-  cf = ' '
-  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
-  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
-  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
-  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+ fmt_local = cPartitionFormat
+ do i = 1, len(fmt_local)
+   if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+     fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+   end if
+ end do
+ do_param_output = (trim(fmt_local) /= "json")
+
+ IF (do_param_output) THEN
+  DO iBnds = 1, nBnds
+   cf = ' '
+   WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
+   WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
+   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
   
   k=1
   DO i=1,nel
@@ -4963,8 +4999,9 @@ if (myid.eq.0) then
    WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
    END IF
   END DO
-  CLOSE(1)
- END DO
+   CLOSE(1)
+  END DO
+ END IF
  
  knpr=0
  k=1
@@ -4984,28 +5021,30 @@ if (myid.eq.0) then
   End do
  End do
  
- cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//"NewWall.par"
- WRITE(2,'(A)') "NewWall.par"
- WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
- 
- j=0
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (knpr(i).eq.1) THEN
-   j = j + 1
-  END IF
- END DO
- WRITE(1,'(I8,A)') j," Wall"
- WRITE(1,'(A)')    "' '"
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (knpr(i).eq.1) THEN
-   WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
-  END IF
- END DO
- CLOSE(1)
+ IF (do_param_output) THEN
+  cf = ' '
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//"NewWall.par"
+  WRITE(2,'(A)') "NewWall.par"
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+  
+  j=0
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (knpr(i).eq.1) THEN
+    j = j + 1
+   END IF
+  END DO
+  WRITE(1,'(I8,A)') j," Wall"
+  WRITE(1,'(A)')    "' '"
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (knpr(i).eq.1) THEN
+    WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
+   END IF
+  END DO
+  CLOSE(1)
+ END IF
 
- CLOSE(2)
+CLOSE(2)
 
 end if
 

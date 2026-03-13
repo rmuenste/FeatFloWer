@@ -78,6 +78,91 @@ def replace(file_path, pattern, subst):
     #Move new file
     move(abs_path, file_path)
 
+def parse_partition_format(param_file):
+    """
+    Returns 'legacy' or 'json' based on SimPar@PartitionFormat entry.
+    Defaults to legacy on missing/invalid values.
+    """
+    fmt = "legacy"
+    try:
+        with open(param_file, "r") as f:
+            for raw_line in f:
+                line = raw_line.split("!")[0].strip()
+                if not line:
+                    continue
+                lower_line = line.lower()
+                if lower_line.startswith("simpar@partitionformat"):
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        candidate = parts[1].strip().strip('"').strip("'").lower()
+                        if candidate in ("legacy", "json"):
+                            fmt = candidate
+                    break
+    except OSError:
+        pass
+    return fmt
+
+def detect_node_count():
+    """
+    Returns the number of compute nodes assigned to this run.
+    Tries scheduler env vars first, then host/rank files.
+    """
+    for env_var in ("SLURM_STEP_NUM_NODES", "SLURM_JOB_NUM_NODES"):
+        val = os.environ.get(env_var)
+        if val:
+            try:
+                nodes = int(val)
+                if nodes > 0:
+                    return nodes
+            except ValueError:
+                pass
+
+    nodelist = os.environ.get("SLURM_JOB_NODELIST")
+    if nodelist:
+        try:
+            output = subprocess.check_output(
+                ["scontrol", "show", "hostnames", nodelist],
+                universal_newlines=True,
+            )
+            hosts = [line.strip() for line in output.splitlines() if line.strip()]
+            if hosts:
+                return len(set(hosts))
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    hostfile = os.environ.get("HOSTFILE") or os.environ.get("PBS_NODEFILE")
+    if hostfile:
+        try:
+            hosts = set()
+            with open(hostfile, "r") as f:
+                for raw in f:
+                    line = raw.split("#", 1)[0].strip()
+                    if not line:
+                        continue
+                    token = line.split()[0]
+                    hosts.add(token.split(":", 1)[0])
+            if hosts:
+                return len(hosts)
+        except OSError:
+            pass
+
+    rankfile = os.environ.get("OMPI_MCA_rankfile")
+    if rankfile:
+        pattern = re.compile(r"rank\s+\d+\s*=\s*([^\s]+)")
+        try:
+            hosts = set()
+            with open(rankfile, "r") as f:
+                for raw in f:
+                    match = pattern.search(raw)
+                    if match:
+                        hosts.add(match.group(1))
+            if hosts:
+                return len(hosts)
+        except OSError:
+            pass
+
+    return 0
+
 def main(argv):
     inputFile = '_data/meshDir/file.prj'
     inputCaseFolder = ''
@@ -135,7 +220,25 @@ def main(argv):
         sys.exit(2)
       
     # Call the partitioner
-    partitioner.partition(numProcessors - 1, 1, 1, "NEWFAC", str(inputFile))
+    param_file = Path("_data") / "q2p1_param.dat"
+    partition_format = parse_partition_format(str(param_file))
+    node_groups = detect_node_count()
+    if node_groups <= 0:
+        node_groups = 1
+    print("Partitioner configuration: %d worker parts, %d node group(s), format '%s'" %
+          (numProcessors - 1, node_groups, partition_format))
+    try:
+        partitioner.partition(
+            numProcessors - 1,
+            1,
+            node_groups,
+            "NEWFAC",
+            str(inputFile),
+            partition_format=partition_format
+        )
+    except TypeError:
+        # Legacy partitioner versions do not expose the partition_format keyword.
+        partitioner.partition(numProcessors - 1, 1, node_groups, "NEWFAC", str(inputFile))
 
     # Configure the launch command and start a simulation
     launchCommand = ""

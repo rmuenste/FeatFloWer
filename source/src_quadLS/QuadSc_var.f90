@@ -20,6 +20,7 @@ MODULE var_QuadScalar
   CHARACTER*200 :: VersionString=&
   "  |                                                          Version:22.01  Date:2022.02.02          |"
   CHARACTER*200 :: myDataFile="_data/q2p1_param.dat"
+  CHARACTER(len=16) :: cPartitionFormat = "legacy"
 
   ! Runtime control
   ! Extend runtime flags, timers, and control scalars here.
@@ -64,6 +65,7 @@ MODULE var_QuadScalar
   LOGICAL :: bNS_Stabilization=.FALSE.
   LOGICAL :: skipFBMForce=.FALSE.,skipFBMDynamics=.FALSE.
   LOGICAL :: bBinaryVtkOutput=.FALSE.
+  LOGICAL :: bRecursivePartitioning=.TRUE.
   REAL*8 :: Gamma = 0d0
   integer, parameter :: uterm = 6
   REAL*8  :: dCGALtoRealFactor = 1d0
@@ -516,6 +518,7 @@ MODULE var_QuadScalar
     integer, allocatable :: hostleaders(:),groupIDs(:)
     integer, allocatable :: hostgroup(:)
     integer :: myid,numnodes,NumHosts,myNodeGroup
+    integer :: subIndex = 0, gridIndex = 0
     character(len=256) :: HostName
   END TYPE tRecursiveCommunication
   TYPE(tRecursiveCommunication) :: myRecComm
