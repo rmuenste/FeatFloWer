@@ -54,7 +54,7 @@ endif()
 
 add_custom_target(q2p1_bench_fluidization_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
+          ${CMAKE_BINARY_DIR}/extern/libraries/metis-5.1.0/libmetis/libmetis.so
           ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/libs/pe/pe/interface/example.json

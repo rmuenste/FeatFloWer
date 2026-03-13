@@ -23,10 +23,13 @@ if (MPFR_in_cache)
 
 else()
 
+  # ENV CPATH and ENV LIBRARY_PATH are set by GCC module systems (e.g. module load gcc/...)
+  # but CMake's find_path/find_library do not scan them automatically — add them explicitly.
   find_path(MPFR_INCLUDE_DIR
             NAMES mpfr.h
             HINTS ENV MPFR_INC_DIR
                   ENV MPFR_DIR
+                  ENV CPATH
                   ${CGAL_INSTALLATION_PACKAGE_DIR}/auxiliary/gmp/include
             PATH_SUFFIXES include
   	        DOC "The directory containing the MPFR header files"
@@ -39,8 +42,9 @@ else()
   find_library(MPFR_LIBRARIES NAMES mpfr libmpfr-4 libmpfr-1
     HINTS ENV MPFR_LIB_DIR
           ENV MPFR_DIR
+          ENV LIBRARY_PATH
           ${CGAL_INSTALLATION_PACKAGE_DIR}/auxiliary/gmp/lib
-    PATH_SUFFIXES lib
+    PATH_SUFFIXES lib lib64
     DOC "Path to the MPFR library"
     )
 

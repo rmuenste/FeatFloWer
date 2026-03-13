@@ -264,7 +264,7 @@ else(USE_SYSTEM_BLASLAPACK)
 endif(USE_SYSTEM_BLASLAPACK)
 
 if(BUILD_METIS)
-  add_subdirectory(extern/libraries/metis-4.0.3)
+  add_subdirectory(extern/libraries/metis-5.1.0)
 endif(BUILD_METIS)
 
 #=========================================================================
@@ -284,7 +284,7 @@ if(USE_CGAL)
     ExternalProject_Add(
       cgal
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
-      GIT_TAG v5.3.2
+      GIT_TAG v5.6.3
       PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
       CMAKE_ARGS 
         -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
@@ -316,6 +316,22 @@ if(USE_CGAL)
   else(NOT USE_CGAL_LOCAL)
     set(USE_BOOST True)
     message(STATUS "Trying to find system installation of CGAL")
+
+    # Find GMP and MPFR before find_package(CGAL) so that our updated Find modules
+    # (which scan ENV CPATH / ENV LIBRARY_PATH set by GCC module systems) run first.
+    # CMake caches the results, so CGAL's own internal find_package(GMP/MPFR) calls
+    # will reuse them — including any user-supplied -DMPFR_INCLUDE_DIR=... hints.
+    list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+    find_package(GMP REQUIRED)
+    find_package(MPFR REQUIRED)
+    if(GMP_FOUND)
+      message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+      message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+    endif()
+    if(MPFR_FOUND)
+      message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+      message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
+    endif()
 
     # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
     # On Linux systems only shared Boost libraries are typically available.
@@ -358,28 +374,13 @@ if(USE_CGAL)
       include(${CGAL_USE_FILE})
       
       set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-      list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
     else()
       message(STATUS "CGAL not found in system locations")
       # Fallback to ExternalProject_Add or other approach
       message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
-    endif()    
+    endif()
 
   endif(NOT USE_CGAL_LOCAL)
-
-  # Find GMP and MPFR libraries (required dependencies for CGAL)
-  find_package(GMP REQUIRED)
-  find_package(MPFR REQUIRED)
-
-  if(GMP_FOUND)
-    message(STATUS "Found GMP: ${GMP_LIBRARIES}")
-    message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
-  endif()
-
-  if(MPFR_FOUND)
-    message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
-    message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
-  endif()
 
 endif(USE_CGAL)
 

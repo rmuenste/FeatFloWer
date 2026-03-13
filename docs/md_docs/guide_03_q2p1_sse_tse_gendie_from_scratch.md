@@ -109,7 +109,7 @@ cmake --build build-sse-ninja-mod --target q2p1_sse metis -- -j8
 Key expected artifacts:
 
 - `build-sse-ninja-mod/applications/q2p1_sse/q2p1_sse`
-- `build-sse-ninja-mod/extern/libraries/metis-4.0.3/Lib/libmetis.so`
+- `build-sse-ninja-mod/extern/libraries/metis-5.1.0/libmetis/libmetis.so`
 
 ---
 
@@ -159,6 +159,10 @@ module purge
 module load gcc/latest-v13
 module load openmpi/options/interface/ethernet
 module load openmpi/4.1.6
+
+# Force Python stdout to flush immediately so setup/partitioner output
+# appears before the solver output in the SLURM log (not after due to buffering).
+export PYTHONUNBUFFERED=1
 
 # Critical MPI-IO tuning for this workflow
 export OMPI_MCA_io=romio321

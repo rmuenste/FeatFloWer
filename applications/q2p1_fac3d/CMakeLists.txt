@@ -55,7 +55,7 @@ add_test(q2p1-fac3d python ./q2p1_ctest_start.py)
 
 add_custom_target(q2p1_fac3d_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
+          ${CMAKE_BINARY_DIR}/extern/libraries/metis-5.1.0/libmetis/libmetis.so
           ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS q2p1_fac3d metis
