@@ -6,6 +6,7 @@
     use Sigma_User, only : mySigma,myThermodyn,mySetup,myOutput,myTransientSolution,&
         myProcess,myMultiMat,SoftwareRelease,bKTPRelease,DistTolerance
     USE var_QuadScalar
+    use types, only : HEAT_RUN_MODE_PID, HEAT_RUN_MODE_FIXED
 
     use, intrinsic :: ieee_arithmetic
 
@@ -202,6 +203,26 @@
 
     IF (mySigma%NumberOfSeg.ge.1) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
+     mySigma%bHasPIDRegulation = .false.
+     mySigma%bHasFixedPowerRegulation = .false.
+     mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+     mySigma%MeltMonitor%bEnabled = .false.
+     mySigma%MeltMonitor%bInitialized = .false.
+     mySigma%MeltMonitor%Detector%Counter = 0
+     mySigma%MeltMonitor%Detector%Converged = .FALSE.
+     mySigma%MeltMonitor%Detector%Condition = 1d-3
+     mySigma%MeltMonitor%Detector%Limit = 250
+     mySigma%MeltMonitor%PreviousValue = 0d0
+     mySigma%bHasPIDRegulation = .false.
+     mySigma%bHasFixedPowerRegulation = .false.
+     mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+     mySigma%MeltMonitor%bEnabled = .false.
+     mySigma%MeltMonitor%bInitialized = .false.
+     mySigma%MeltMonitor%Detector%Counter = 0
+     mySigma%MeltMonitor%Detector%Converged = .FALSE.
+     mySigma%MeltMonitor%Detector%Condition = 1d-3
+     mySigma%MeltMonitor%Detector%Limit = 250
+     mySigma%MeltMonitor%PreviousValue = 0d0
     ELSE
      WRITE(*,*) "not a valid number of segments"
      WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
@@ -2858,6 +2879,7 @@
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_I_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,myInf)
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_D_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_D,myInf)
         mySigma%mySegment(iSeg)%PID_Ctrl%SumI = 0d0
+        mySigma%bHasPIDRegulation = .true.
         
         IF (mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
@@ -2874,6 +2896,9 @@
             mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,&
             mySigma%mySegment(iSeg)%PID_Ctrl%omega_D
         END IF
+       ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."NONE".OR.&
+               ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."FIXED") then
+        mySigma%bHasFixedPowerRegulation = .true.
        ELSE
             WRITE(*,*) "Unknown regulation mechanism ... "
             CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
@@ -2962,6 +2987,29 @@
      END IF
     END IF
     
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","MeltMonitorTolerance", &
+         mySigma%MeltMonitor%Detector%Condition ,1d-3)
+    if (mySigma%MeltMonitor%Detector%Condition.le.0d0) then
+      mySigma%MeltMonitor%Detector%Condition = 1d-3
+    end if
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","MeltMonitorLimit", &
+         mySigma%MeltMonitor%Detector%Limit, 250)
+    if (mySigma%MeltMonitor%Detector%Limit.lt.1) then
+      mySigma%MeltMonitor%Detector%Limit = 250
+    end if
+    
+    if (mySigma%bHasPIDRegulation) then
+      mySigma%HeatRunMode = HEAT_RUN_MODE_PID
+      mySigma%MeltMonitor%bEnabled = .false.
+    elseif (mySigma%bHasFixedPowerRegulation) then
+      mySigma%HeatRunMode = HEAT_RUN_MODE_FIXED
+      mySigma%MeltMonitor%bEnabled = .true.
+    else
+      mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+      mySigma%MeltMonitor%bEnabled = .false.
+      mySigma%MeltMonitor%bInitialized = .false.
+    end if
+    
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
     
@@ -3045,6 +3093,9 @@
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaP=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaI=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_I
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaD=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D
+      ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."NONE".or.&
+              ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."FIXED") then
+        write(*,'(A,I0,A)') " mySIGMA%Segment(",iSeg,') operates with fixed heater power'
       END IF
      END IF
      

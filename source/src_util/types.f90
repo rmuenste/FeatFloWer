@@ -9,6 +9,10 @@ module types
 ! No implicit variables in this module
 implicit none
 
+integer, parameter :: HEAT_RUN_MODE_NONE = 0
+integer, parameter :: HEAT_RUN_MODE_PID = 1
+integer, parameter :: HEAT_RUN_MODE_FIXED = 2
+
 !================================================================================================
 !  A structure for a bounding box 
 !================================================================================================
@@ -551,11 +555,18 @@ TYPE tConvergenceDetector
   LOGICAL :: Converged=.FALSE.
 END TYPE tConvergenceDetector
 
+TYPE tMeltConvergenceMonitor
+  TYPE(tConvergenceDetector) :: Detector
+  REAL*8 :: PreviousValue = 0d0
+  LOGICAL :: bInitialized = .false.
+  LOGICAL :: bEnabled = .false.
+END TYPE tMeltConvergenceMonitor
+
 TYPE tDIESensor
- real*8 :: Center(3),Radius
- integer :: iSeg
- TYPE(tPID) PID_ctrl
- CHARACTER*8 ::  type
+real*8 :: Center(3),Radius
+integer :: iSeg
+TYPE(tPID) PID_ctrl
+CHARACTER*8 ::  type
 END TYPE tDIESensor
 
 TYPE tSegment
@@ -611,6 +622,10 @@ TYPE tSigma
   INTEGER :: InnerDiamNParam=0
   REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
   LOGICAL :: bOnlyBarrelAdaptation=.false., bAnalyticalShearRateRestriction=.false.
+  INTEGER :: HeatRunMode = HEAT_RUN_MODE_NONE
+  LOGICAL :: bHasPIDRegulation = .false.
+  LOGICAL :: bHasFixedPowerRegulation = .false.
+  TYPE(tMeltConvergenceMonitor) :: MeltMonitor
   
 END TYPE tSigma
 

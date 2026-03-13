@@ -1335,8 +1335,10 @@ END SUBROUTINE CreateSensorOutputs
 SUBROUTINE IntegrateOutputQuantities(mfile)
 EXTERNAL E011
 REAL*8 dQuant(12),dSensorTemperature(2),P(3),Q(3),R,dist
-REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff,daux(3)
+REAL*8 :: dTotalEnthalpy(2)=0d0,defT,diff,daux(3),meltSurfaceTemp=0d0,meltDelta=0d0
 integer mfile,iS,iSeg,i
+LOGICAL :: bMeltTempValid
+LOGICAL :: bHasPIDSegment
 
 
 CALL LL21(Temperature,Tracer%ndof,DefT)
@@ -1438,6 +1440,13 @@ CALL Comm_SummN(dTotalEnthalpy,1)
 ! CALL Comm_SummN(dSensorTemperature,2)
 CALL Comm_SummN(dQuant,12)
 
+bMeltTempValid = .false.
+meltSurfaceTemp = 0d0
+IF (dQuant(8+1).gt.0d0) THEN
+  meltSurfaceTemp = dQuant(8+2)/dQuant(8+1)
+  bMeltTempValid = .true.
+END IF
+
 if (itns.eq.1) then
  dTotalEnthalpy(2) = dTotalEnthalpy(1)
 end if
@@ -1511,52 +1520,100 @@ end do
 
 IF (mySetup%bConvergenceEstimator) THEN
 
- IF (myid.eq.1) then
-   write(MTERM,'(A$)') 'Convergence: '
-   write(MFILE,'(A$)') 'Convergence: '
- END IF
-     
- ConvergedSolution = .TRUE.
- iSeg = 0
- 
- do 
-  iSeg = iSeg + 1
-  if (iSeg.gt.mySigma%NumberOfSeg) exit 
+ SELECT CASE (mySigma%HeatRunMode)
+ CASE (HEAT_RUN_MODE_PID)
+  IF (myid.eq.1) then
+    write(MTERM,'(A$)') 'Convergence: '
+    write(MFILE,'(A$)') 'Convergence: '
+  END IF
+      
+  ConvergedSolution = .TRUE.
+  bHasPIDSegment = .FALSE.
+  iSeg = 0
   
-  IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE') THEN
-   diff = mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature - mySigma%mySegment(iSeg)%PID_Ctrl%T_set
-   if (abs(diff).lt.mySigma%mySegment(iSeg)%ConvergenceDetector%Condition) THEN
-    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = mySigma%mySegment(iSeg)%ConvergenceDetector%Counter + 1
-   ELSE
-    mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = 0
+  do 
+   iSeg = iSeg + 1
+   if (iSeg.gt.mySigma%NumberOfSeg) exit 
+   
+   IF (TRIM(mySigma%mySegment(iSeg)%ObjectType).eq.'WIRE'.AND.&
+       ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."PID") THEN
+    bHasPIDSegment = .TRUE.
+    diff = mySigma%mySegment(iSeg)%TemperatureSensor%CurrentTemperature - mySigma%mySegment(iSeg)%PID_Ctrl%T_set
+    if (abs(diff).lt.mySigma%mySegment(iSeg)%ConvergenceDetector%Condition) THEN
+     mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = mySigma%mySegment(iSeg)%ConvergenceDetector%Counter + 1
+    ELSE
+     mySigma%mySegment(iSeg)%ConvergenceDetector%Counter = 0
+    END IF
+    
+    IF (mySigma%mySegment(iSeg)%ConvergenceDetector%Counter.gt.mySigma%mySegment(iSeg)%ConvergenceDetector%Limit) THEN
+     mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .TRUE.
+    ELSE
+     mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .FALSE.
+    END IF
+   
+    IF (.not.mySigma%mySegment(iSeg)%ConvergenceDetector%Converged) THEN
+     ConvergedSolution=.false.
+     IF (myid.eq.1) then
+      write(MTERM,'(A$)') "F"
+      write(MFILE,'(A$)') "F"
+     END IF
+    ELSE
+     IF (myid.eq.1) then
+      write(MTERM,'(A$)') "T"
+      write(MFILE,'(A$)') "T"
+     END IF
+    END IF
    END IF
    
-   IF (mySigma%mySegment(iSeg)%ConvergenceDetector%Counter.gt.mySigma%mySegment(iSeg)%ConvergenceDetector%Limit) THEN
-    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .TRUE.
-   ELSE
-    mySigma%mySegment(iSeg)%ConvergenceDetector%Converged = .FALSE.
-   END IF
+  end do
   
-   IF (.not.mySigma%mySegment(iSeg)%ConvergenceDetector%Converged) THEN
-    ConvergedSolution=.false.
-    IF (myid.eq.1) then
-     write(MTERM,'(A$)') "F"
-     write(MFILE,'(A$)') "F"
-    END IF
+  IF (.not.bHasPIDSegment) ConvergedSolution = .FALSE.
+  
+  IF (myid.eq.1) then
+   write(MTERM,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+   write(MFILE,'(A,L,ES12.4)') "|",ConvergedSolution,diff
+  END IF
+ CASE (HEAT_RUN_MODE_FIXED)
+  ConvergedSolution = .FALSE.
+  meltDelta = 0d0
+  IF (mySigma%MeltMonitor%bEnabled.and.bMeltTempValid) THEN
+   IF (.not.mySigma%MeltMonitor%bInitialized) THEN
+    mySigma%MeltMonitor%PreviousValue = meltSurfaceTemp
+    mySigma%MeltMonitor%bInitialized = .true.
+    mySigma%MeltMonitor%Detector%Counter = 0
+    mySigma%MeltMonitor%Detector%Converged = .FALSE.
    ELSE
-    IF (myid.eq.1) then
-     write(MTERM,'(A$)') "T"
-     write(MFILE,'(A$)') "T"
+    meltDelta = ABS(meltSurfaceTemp - mySigma%MeltMonitor%PreviousValue)
+    mySigma%MeltMonitor%PreviousValue = meltSurfaceTemp
+    IF (meltDelta.lt.mySigma%MeltMonitor%Detector%Condition) THEN
+     mySigma%MeltMonitor%Detector%Counter = mySigma%MeltMonitor%Detector%Counter + 1
+    ELSE
+     mySigma%MeltMonitor%Detector%Counter = 0
+    END IF
+    IF (mySigma%MeltMonitor%Detector%Counter.gt.mySigma%MeltMonitor%Detector%Limit) THEN
+     mySigma%MeltMonitor%Detector%Converged = .TRUE.
+    ELSE
+     mySigma%MeltMonitor%Detector%Converged = .FALSE.
     END IF
    END IF
+   ConvergedSolution = mySigma%MeltMonitor%Detector%Converged
+  ELSE
+   mySigma%MeltMonitor%Detector%Counter = 0
+   mySigma%MeltMonitor%Detector%Converged = .FALSE.
+   mySigma%MeltMonitor%bInitialized = .false.
   END IF
   
- end do
-
- IF (myid.eq.1) then
-  write(MTERM,'(A,L,ES12.4)') "|",ConvergedSolution,diff
-  write(MFILE,'(A,L,ES12.4)') "|",ConvergedSolution,diff
- END IF
+  IF (myid.eq.1) then
+   write(MTERM,'(A,6ES12.4,L2)') 'MeltConvergence_t[s]_Ta[C]_dTa[C]_Tol[C]_Counter_Limit_Status: ', &
+        timens,meltSurfaceTemp,meltDelta,mySigma%MeltMonitor%Detector%Condition,&
+        dble(mySigma%MeltMonitor%Detector%Counter),dble(mySigma%MeltMonitor%Detector%Limit),ConvergedSolution
+   write(MFILE,'(A,6ES12.4,L2)') 'MeltConvergence_t[s]_Ta[C]_dTa[C]_Tol[C]_Counter_Limit_Status: ', &
+        timens,meltSurfaceTemp,meltDelta,mySigma%MeltMonitor%Detector%Condition,&
+        dble(mySigma%MeltMonitor%Detector%Counter),dble(mySigma%MeltMonitor%Detector%Limit),ConvergedSolution
+  END IF
+ CASE DEFAULT
+  ConvergedSolution = .FALSE.
+ END SELECT
 END IF
 
 1 continue
