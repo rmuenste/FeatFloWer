@@ -107,6 +107,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  INTEGER nLengthV,nLengthE,LevDif
  REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
+ REAL*8 , ALLOCATABLE :: dCylDist(:), dCylWeight(:)
  logical :: bwait = .true.
  
  character(MPI_MAX_PROCESSOR_NAME) :: processor_name
@@ -343,8 +344,35 @@ END DO
 !!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 DO iUmbrella=1,nInitUmbrellaSteps
   CALL UmbrellaSmoother_STRCT(0d0,1)
-!   CALL ProjectPointToSTL(nlmax)
 END DO
+!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (bFAC3D_CylUmbrellaWeight .AND. myid.NE.0) THEN
+  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: pulling nodes toward cylinder surface...'
+  DO iUmbrella=1,8
+    CALL CylinderAttraction(mg_mesh%level(NLMAX)%nvt, &
+      mg_mesh%level(NLMAX)%dcorvg, 0.2d0)
+    CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax)
+  END DO
+  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: done.'
+END IF
+!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+IF (bFAC3D_CylUmbrellaWeight) THEN
+  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing...'
+  DO iUmbrella=1,2
+    CALL UmbrellaSmoother_STRCT(0d0,1)
+  END DO
+  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing: done.'
+END IF
+!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 IF (myid.ne.0) THEN
  
   CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
@@ -369,7 +397,43 @@ IF (myid.ne.0) THEN
 END IF
 !!!!!!!!!!!!!!!!!!!!!!!!! FINAL Projection to NLMAX +1  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
+
+!=======================================================================
+!     Debug output: Write parametrized mesh + cylinder distance to VTK
+!=======================================================================
+IF (myid.eq.1) THEN
+  WRITE(MTERM,*) 'Writing parametrized mesh with cylinder distance to VTK...'
+  WRITE(MFILE,*) 'Writing parametrized mesh with cylinder distance to VTK...'
+END IF
+
+IF (myid.eq.0) THEN
+  call execute_command_line('mkdir -p _vtk', wait=.true.)
+END IF
+CALL CommBarrier()
+
+IF (myid.NE.0) THEN
+  ALLOCATE(dCylDist(mg_mesh%level(mg_mesh%maxlevel)%nvt))
+  ALLOCATE(dCylWeight(mg_mesh%level(mg_mesh%maxlevel)%nvt))
+  CALL ComputeCylDist(mg_mesh%level(mg_mesh%maxlevel)%nvt, &
+    mg_mesh%level(mg_mesh%maxlevel)%dcorvg, dCylDist)
+  CALL ComputeCylAttractionWeight(mg_mesh%level(mg_mesh%maxlevel)%nvt, &
+    dCylDist, dCylWeight)
+  CALL Output_VTK_mesh_piece_with_2fields('initial_mesh', &
+    mg_mesh%level(mg_mesh%maxlevel)%dcorvg, &
+    mg_mesh%level(mg_mesh%maxlevel)%kvert, &
+    dCylDist, 'CylinderDistance', &
+    dCylWeight, 'AttractionWeight')
+  DEALLOCATE(dCylDist, dCylWeight)
+ELSE
+  CALL Output_VTK_mesh_main_with_2fields('initial_mesh', &
+    'CylinderDistance', 'AttractionWeight')
+END IF
+
+IF (myid.eq.1) THEN
+  WRITE(MTERM,*) 'Mesh + distance written to _vtk/initial_mesh.pvtu'
+  WRITE(MFILE,*) 'Mesh + distance written to _vtk/initial_mesh.pvtu'
+END IF
+
 ! This part here is responsible for creation of structures enabling the mesh coordinate 
 ! transfer to the master node so that it can create the corresponding matrices
 IF (myid.EQ.0) THEN
@@ -907,3 +971,119 @@ END SUBROUTINE General_init_ext
  END SUBROUTINE StrStuct
 
  END SUBROUTINE myGDATNEW
+
+ SUBROUTINE ComputeCylDist(nVtx, dcoor, dist)
+   USE var_QuadScalar, ONLY : dFAC3D_CylCenter, dFAC3D_CylRadius, dFAC3D_CylLength
+   IMPLICIT NONE
+   INTEGER, intent(in) :: nVtx
+   REAL*8, intent(in)  :: dcoor(3,*)
+   REAL*8, intent(out) :: dist(*)
+   INTEGER :: i
+   REAL*8  :: dx, dy, dzAbs, rxy, zGap, halfLen
+
+   halfLen = 0.5d0 * dFAC3D_CylLength
+
+   DO i = 1, nVtx
+     dx    = dcoor(1,i) - dFAC3D_CylCenter(1)
+     dy    = dcoor(2,i) - dFAC3D_CylCenter(2)
+     dzAbs = ABS(dcoor(3,i) - dFAC3D_CylCenter(3))
+     rxy   = SQRT(dx*dx + dy*dy)
+     zGap  = dzAbs - halfLen
+     dist(i) = MAX(rxy - dFAC3D_CylRadius, zGap)
+   END DO
+
+ END SUBROUTINE ComputeCylDist
+
+ SUBROUTINE CylinderAttraction(nVtx, dcorvg, dOmega)
+ !
+ ! Attracts mesh nodes toward the cylinder surface using distance bands:
+ !   [0.0, dBand1):  full attraction (alpha = 1)
+ !   [dBand1, dBand2]: linear fade-out (alpha -> 0)
+ !   > dBand2:        no movement
+ !
+ ! Only affects nodes outside the cylinder (dist > 0).
+ ! The attraction is purely radial toward the nearest point on the
+ ! cylinder barrel surface.
+ !
+   USE var_QuadScalar, ONLY : dFAC3D_CylCenter, dFAC3D_CylRadius, dFAC3D_CylLength
+   IMPLICIT NONE
+   INTEGER, intent(in) :: nVtx
+   REAL*8, intent(inout) :: dcorvg(3,*)
+   REAL*8, intent(in) :: dOmega
+
+   INTEGER :: i
+   REAL*8  :: dx, dy, dz, rxy, dist, alpha
+   REAL*8  :: nearX, nearY, halfLen, dzAbs, zGap
+   REAL*8, parameter :: dBand1 = 0.04d0
+   REAL*8, parameter :: dBand2 = 0.15d0
+
+   halfLen = 0.5d0 * dFAC3D_CylLength
+
+   DO i = 1, nVtx
+     dx = dcorvg(1,i) - dFAC3D_CylCenter(1)
+     dy = dcorvg(2,i) - dFAC3D_CylCenter(2)
+     dz = dcorvg(3,i) - dFAC3D_CylCenter(3)
+     dzAbs = ABS(dz)
+     rxy = SQRT(dx*dx + dy*dy)
+
+     ! Signed distance to cylinder surface
+     zGap = dzAbs - halfLen
+     dist = MAX(rxy - dFAC3D_CylRadius, zGap)
+
+     ! Only attract exterior nodes within the band
+     IF (dist .LE. 0d0 .OR. dist .GT. dBand2) CYCLE
+
+     ! Skip nodes whose closest surface point is on the cap, not the barrel
+     IF (zGap .GT. rxy - dFAC3D_CylRadius) CYCLE
+
+     ! Attraction factor: strong near surface, rapid fade further out
+     ! Uses (1 - dist/dBand2)^2 for a steep drop-off
+     IF (dist .LT. dBand1) THEN
+       alpha = 0.6d0 + 0.4d0 * dist / dBand1
+     ELSE
+       alpha = ((dBand2 - dist) / (dBand2 - dBand1))**2
+     END IF
+
+     ! Nearest point on cylinder barrel (radial projection)
+     IF (rxy .GT. 1d-14) THEN
+       nearX = dFAC3D_CylCenter(1) + dFAC3D_CylRadius * dx / rxy
+       nearY = dFAC3D_CylCenter(2) + dFAC3D_CylRadius * dy / rxy
+     ELSE
+       CYCLE
+     END IF
+
+     ! Move node radially toward the barrel surface
+     dcorvg(1,i) = dcorvg(1,i) + dOmega * alpha * (nearX - dcorvg(1,i))
+     dcorvg(2,i) = dcorvg(2,i) + dOmega * alpha * (nearY - dcorvg(2,i))
+   END DO
+
+ END SUBROUTINE CylinderAttraction
+
+ SUBROUTINE ComputeCylAttractionWeight(nVtx, dist, weight)
+ !
+ ! Computes the attraction weight (alpha * omega) for visualization.
+ ! Must match the alpha logic in CylinderAttraction exactly.
+ !
+   IMPLICIT NONE
+   INTEGER, intent(in) :: nVtx
+   REAL*8, intent(in)  :: dist(*)
+   REAL*8, intent(out) :: weight(*)
+   INTEGER :: i
+   REAL*8  :: d, alpha
+   REAL*8, parameter :: dBand1 = 0.04d0
+   REAL*8, parameter :: dBand2 = 0.15d0
+
+   DO i = 1, nVtx
+     d = dist(i)
+     IF (d .LE. 0d0 .OR. d .GT. dBand2) THEN
+       weight(i) = 0d0
+     ELSE IF (d .LT. dBand1) THEN
+       alpha = 0.6d0 + 0.4d0 * d / dBand1
+       weight(i) = alpha
+     ELSE
+       alpha = ((dBand2 - d) / (dBand2 - dBand1))**2
+       weight(i) = alpha
+     END IF
+   END DO
+
+ END SUBROUTINE ComputeCylAttractionWeight
