@@ -47,6 +47,9 @@ add_custom_target(q2p1_dns_drag_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_BINARY_DIR}/extern/libraries/metis-4.0.3/Lib/libmetis.so
           ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/_data/MG.dat
+          ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS q2p1_dns_drag metis
   COMMENT "Staging q2p1_dns_drag runtime files in build directory"
