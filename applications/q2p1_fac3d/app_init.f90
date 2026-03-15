@@ -401,6 +401,11 @@ END IF
 !=======================================================================
 !     Debug output: Write parametrized mesh + cylinder distance to VTK
 !=======================================================================
+! Restore ILEV to finest level — UmbrellaSmoother_STRCT resets it to
+! mgMesh%nlmin, but the VTK routines use KNVT(ILEV)/KNEL(ILEV) for
+! array sizes, which must match the data from mg_mesh%level(maxlevel).
+ILEV = NLMAX + 1
+
 IF (myid.eq.1) THEN
   WRITE(MTERM,*) 'Writing parametrized mesh with cylinder distance to VTK...'
   WRITE(MFILE,*) 'Writing parametrized mesh with cylinder distance to VTK...'
@@ -997,13 +1002,13 @@ END SUBROUTINE General_init_ext
  SUBROUTINE CylinderAttraction(nVtx, dcorvg, dOmega)
  !
  ! Attracts mesh nodes toward the cylinder surface using distance bands:
- !   [0.0, dBand1):  full attraction (alpha = 1)
- !   [dBand1, dBand2]: linear fade-out (alpha -> 0)
- !   > dBand2:        no movement
- !
- ! Only affects nodes outside the cylinder (dist > 0).
- ! The attraction is purely radial toward the nearest point on the
- ! cylinder barrel surface.
+ !   Exterior:
+ !     [0.0, dBand1):    strong attraction (alpha = 0.6 to 1.0)
+ !     [dBand1, dBand2]:  quadratic fade-out
+ !     > dBand2:          no movement
+ !   Interior:
+ !     [0.0, dBandIn):    gentle outward push (alpha linearly fading)
+ !     > dBandIn:          no movement
  !
    USE var_QuadScalar, ONLY : dFAC3D_CylCenter, dFAC3D_CylRadius, dFAC3D_CylLength
    IMPLICIT NONE
@@ -1013,9 +1018,13 @@ END SUBROUTINE General_init_ext
 
    INTEGER :: i
    REAL*8  :: dx, dy, dz, rxy, dist, alpha
-   REAL*8  :: nearX, nearY, halfLen, dzAbs, zGap
+   REAL*8  :: nearX, nearY, halfLen, dzAbs, zGap, absDist
+   ! Exterior bands
    REAL*8, parameter :: dBand1 = 0.04d0
    REAL*8, parameter :: dBand2 = 0.15d0
+   ! Interior band: gentle push, max alpha = 0.3, linear fade over dBandIn
+   REAL*8, parameter :: dBandIn   = 0.04d0
+   REAL*8, parameter :: dAlphaIn  = 0.45d0
 
    halfLen = 0.5d0 * dFAC3D_CylLength
 
@@ -1026,28 +1035,34 @@ END SUBROUTINE General_init_ext
      dzAbs = ABS(dz)
      rxy = SQRT(dx*dx + dy*dy)
 
-     ! Signed distance to cylinder surface
+     ! Signed distance to cylinder surface (negative = inside)
      zGap = dzAbs - halfLen
      dist = MAX(rxy - dFAC3D_CylRadius, zGap)
 
-     ! Only attract exterior nodes within the band
-     IF (dist .LE. 0d0 .OR. dist .GT. dBand2) CYCLE
-
      ! Skip nodes whose closest surface point is on the cap, not the barrel
      IF (zGap .GT. rxy - dFAC3D_CylRadius) CYCLE
-
-     ! Attraction factor: strong near surface, rapid fade further out
-     ! Uses (1 - dist/dBand2)^2 for a steep drop-off
-     IF (dist .LT. dBand1) THEN
-       alpha = 0.6d0 + 0.4d0 * dist / dBand1
-     ELSE
-       alpha = ((dBand2 - dist) / (dBand2 - dBand1))**2
-     END IF
 
      ! Nearest point on cylinder barrel (radial projection)
      IF (rxy .GT. 1d-14) THEN
        nearX = dFAC3D_CylCenter(1) + dFAC3D_CylRadius * dx / rxy
        nearY = dFAC3D_CylCenter(2) + dFAC3D_CylRadius * dy / rxy
+     ELSE
+       CYCLE
+     END IF
+
+     IF (dist .GT. 0d0 .AND. dist .LE. dBand2) THEN
+       ! --- Exterior attraction ---
+       IF (dist .LT. dBand1) THEN
+         alpha = 0.6d0 + 0.4d0 * dist / dBand1
+       ELSE
+         alpha = ((dBand2 - dist) / (dBand2 - dBand1))**2
+       END IF
+     ELSE IF (dist .LT. 0d0) THEN
+       ! --- Interior: gentle outward push ---
+       absDist = ABS(dist)
+       IF (absDist .GT. dBandIn) CYCLE
+       ! Linear fade: strongest near surface, zero at dBandIn
+       alpha = dAlphaIn * (1d0 - absDist / dBandIn)
      ELSE
        CYCLE
      END IF
@@ -1069,20 +1084,27 @@ END SUBROUTINE General_init_ext
    REAL*8, intent(in)  :: dist(*)
    REAL*8, intent(out) :: weight(*)
    INTEGER :: i
-   REAL*8  :: d, alpha
+   REAL*8  :: d, alpha, absDist
    REAL*8, parameter :: dBand1 = 0.04d0
    REAL*8, parameter :: dBand2 = 0.15d0
+   REAL*8, parameter :: dBandIn  = 0.04d0
+   REAL*8, parameter :: dAlphaIn = 0.45d0
 
    DO i = 1, nVtx
      d = dist(i)
-     IF (d .LE. 0d0 .OR. d .GT. dBand2) THEN
-       weight(i) = 0d0
-     ELSE IF (d .LT. dBand1) THEN
-       alpha = 0.6d0 + 0.4d0 * d / dBand1
-       weight(i) = alpha
+     IF (d .GT. 0d0 .AND. d .LT. dBand1) THEN
+       weight(i) = 0.6d0 + 0.4d0 * d / dBand1
+     ELSE IF (d .GE. dBand1 .AND. d .LE. dBand2) THEN
+       weight(i) = ((dBand2 - d) / (dBand2 - dBand1))**2
+     ELSE IF (d .LT. 0d0) THEN
+       absDist = ABS(d)
+       IF (absDist .LE. dBandIn) THEN
+         weight(i) = -dAlphaIn * (1d0 - absDist / dBandIn)
+       ELSE
+         weight(i) = 0d0
+       END IF
      ELSE
-       alpha = ((dBand2 - d) / (dBand2 - dBand1))**2
-       weight(i) = alpha
+       weight(i) = 0d0
      END IF
    END DO
 

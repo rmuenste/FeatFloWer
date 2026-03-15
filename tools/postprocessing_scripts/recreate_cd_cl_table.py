@@ -20,6 +20,7 @@ REFERENCE_DRAG = 6.185330
 REFERENCE_LIFT = 0.009401
 
 HEADER_COLORS = {
+    "FBM-DEF": "#f7e9e6",
     "FBM-FAC": "#e7edf8",
     "CC": "#e8f3ea",
     "CC-iso": "#f5eedf",
@@ -43,6 +44,14 @@ class Section:
 
 
 SECTIONS = [
+    Section(
+        name="FBM-DEF",
+        rows=[
+            {"Level": 2, "NEL": 5120, "NEQ": "-", "Drag": 5.7840, "Lift": 0.12876},
+            {"Level": 3, "NEL": 40960, "NEQ": "-", "Drag": 6.0034, "Lift": 0.083599},
+            {"Level": 4, "NEL": 262144, "NEQ": "-", "Drag": 6.1384, "Lift": 0.011709},
+        ],
+    ),
     Section(
         name="FBM-FAC",
         rows=[
@@ -144,7 +153,7 @@ def add_section_table(
 
 
 def create_figure(output_path: Path) -> None:
-    fig = plt.figure(figsize=(12.4, 6.88))
+    fig = plt.figure(figsize=(12.4, 9.1))
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off")
 
@@ -157,22 +166,23 @@ def create_figure(output_path: Path) -> None:
         y=0.982,
     )
 
-    positions = [
-        {"label_y": 0.862, "table_y": 0.645, "table_h": 0.198},
-        {"label_y": 0.531, "table_y": 0.315, "table_h": 0.198},
-        {"label_y": 0.245, "table_y": 0.025, "table_h": 0.198},
-    ]
+    label_start = 0.885
+    label_step = 0.210
+    table_h = 0.145
+    table_top_offset = 0.019
 
-    for section, pos in zip(SECTIONS, positions, strict=True):
+    for index, section in enumerate(SECTIONS):
         frame = build_dataframe(section)
         formatted = format_frame(frame)
+        label_y = label_start - index * label_step
+        table_y = label_y - table_top_offset - table_h
         add_section_table(
             ax,
             section_name=section.name,
             formatted_frame=formatted,
-            label_y=pos["label_y"],
-            table_y=pos["table_y"],
-            table_h=pos["table_h"],
+            label_y=label_y,
+            table_y=table_y,
+            table_h=table_h,
         )
 
     fig.savefig(output_path, format=output_path.suffix.lstrip("."))
