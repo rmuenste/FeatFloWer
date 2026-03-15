@@ -401,11 +401,6 @@ END IF
 !=======================================================================
 !     Debug output: Write parametrized mesh + cylinder distance to VTK
 !=======================================================================
-! Restore ILEV to finest level — UmbrellaSmoother_STRCT resets it to
-! mgMesh%nlmin, but the VTK routines use KNVT(ILEV)/KNEL(ILEV) for
-! array sizes, which must match the data from mg_mesh%level(maxlevel).
-ILEV = NLMAX + 1
-
 IF (myid.eq.1) THEN
   WRITE(MTERM,*) 'Writing parametrized mesh with cylinder distance to VTK...'
   WRITE(MFILE,*) 'Writing parametrized mesh with cylinder distance to VTK...'

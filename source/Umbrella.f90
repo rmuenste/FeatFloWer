@@ -249,8 +249,12 @@ CHARACTER*60 :: cFile
 REAL*8 , ALLOCATABLE :: SendVect(:,:,:)
 REAL*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
 integer :: ndof
+integer :: ILEV_save
 
 IF (nSteps.EQ.0) RETURN
+
+! Save ILEV so callers are not affected by level changes inside this routine
+ILEV_save = ILEV
 
 IF (myid.eq.0) GOTO 1
 
@@ -296,6 +300,9 @@ IF (myid.eq.0) GOTO 1
 DEALLOCATE(a1,a2,a3,a4,a5,a6)
 
 1 CONTINUE
+
+! Restore ILEV to its original value
+ILEV = ILEV_save
 
 END SUBROUTINE UmbrellaSmoother_STRCT
 ! 

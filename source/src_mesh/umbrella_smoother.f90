@@ -45,7 +45,11 @@ module umbrella_smoother
   real*8 , ALLOCATABLE :: a1(:),a2(:),a3(:),a4(:),a5(:),a6(:)
 
   integer :: jlev, ndof
-  
+  integer :: ILEV_save
+
+  ! Save ILEV so callers are not affected by level changes inside this routine
+  ILEV_save = ILEV
+
   IF (myid.ne.0)then
   
     ndof = KNEL(mgMesh%nlmax) + KNVT(mgMesh%nlmax) + KNET(mgMesh%nlmax) + KNAT(mgMesh%nlmax)
@@ -115,7 +119,10 @@ module umbrella_smoother
                                          mgMesh%level(ilev)%kvert,&
                                          mgMesh%level(ilev)%nvt,&
                                          mgMesh%level(ilev)%nel)
-  
+
+  ! Restore ILEV to its original value
+  ILEV = ILEV_save
+
   end subroutine us_UmbrellaSmoother
   !
   ! --------------------------------------------------------------
