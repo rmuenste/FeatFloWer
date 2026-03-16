@@ -16,7 +16,8 @@ USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,mySetup,myMultiMat,BKTPRELEA
 use fbm
 use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_particle_reynolds_interface, &
                                  fbm_compute_particle_reynolds_interface_extended, &
-                                 fbm_compute_particle_reynolds_farfield
+                                 fbm_compute_particle_reynolds_farfield, &
+                                 fbm_compute_particle_reynolds_reference_shell
 
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity
 
@@ -572,11 +573,15 @@ end if
 
 !call fbm_compute_particle_reynolds_interface(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
 !                                  FictKNPR,Viscosity,Properties%Density(1),mfile, E013)
-!call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!                                                      FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
-!
-!call fbm_compute_particle_reynolds_farfield(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!                                            Viscosity,Properties%Density(1),mfile)
+call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                                      FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
+
+call fbm_compute_particle_reynolds_farfield(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                            FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
+
+! Keep the robust shell-based reference velocity as the default ParticleRe value.
+call fbm_compute_particle_reynolds_reference_shell(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                                   FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
 
 !call Sum_myMPI(total_lubrication, global_lubrication)
 !call DNA_GetSoosForce(mfile)
