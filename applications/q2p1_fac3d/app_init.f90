@@ -366,7 +366,7 @@ END IF
 !!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF (bFAC3D_CylUmbrellaWeight) THEN
   if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing...'
-  DO iUmbrella=1,2
+  DO iUmbrella=1,5
     CALL UmbrellaSmoother_STRCT(0d0,1)
   END DO
   if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing: done.'
@@ -1017,11 +1017,16 @@ END SUBROUTINE General_init_ext
    ! Exterior bands
    REAL*8, parameter :: dBand1 = 0.04d0
    REAL*8, parameter :: dBand2 = 0.15d0
-   ! Interior band: gentle push, max alpha = 0.3, linear fade over dBandIn
-   REAL*8, parameter :: dBandIn   = 0.04d0
-   REAL*8, parameter :: dAlphaIn  = 0.45d0
+   ! Interior band: push outward toward surface, linear fade over dBandIn
+   REAL*8, parameter :: dBandIn   = 0.10d0
+   REAL*8, parameter :: dAlphaIn  = 0.6d0
+   ! Radius offset: use a slightly smaller radius as attraction target
+   ! so the concentrated ring coincides with the actual cylinder surface
+   REAL*8, parameter :: dRadiusOffset = 0.0075d0
+   REAL*8 :: attractRadius
 
    halfLen = 0.5d0 * dFAC3D_CylLength
+   attractRadius = dFAC3D_CylRadius - dRadiusOffset
 
    DO i = 1, nVtx
      dx = dcorvg(1,i) - dFAC3D_CylCenter(1)
@@ -1037,10 +1042,10 @@ END SUBROUTINE General_init_ext
      ! Skip nodes whose closest surface point is on the cap, not the barrel
      IF (zGap .GT. rxy - dFAC3D_CylRadius) CYCLE
 
-     ! Nearest point on cylinder barrel (radial projection)
+     ! Nearest point on reduced-radius barrel (radial projection)
      IF (rxy .GT. 1d-14) THEN
-       nearX = dFAC3D_CylCenter(1) + dFAC3D_CylRadius * dx / rxy
-       nearY = dFAC3D_CylCenter(2) + dFAC3D_CylRadius * dy / rxy
+       nearX = dFAC3D_CylCenter(1) + attractRadius * dx / rxy
+       nearY = dFAC3D_CylCenter(2) + attractRadius * dy / rxy
      ELSE
        CYCLE
      END IF
@@ -1082,8 +1087,8 @@ END SUBROUTINE General_init_ext
    REAL*8  :: d, alpha, absDist
    REAL*8, parameter :: dBand1 = 0.04d0
    REAL*8, parameter :: dBand2 = 0.15d0
-   REAL*8, parameter :: dBandIn  = 0.04d0
-   REAL*8, parameter :: dAlphaIn = 0.45d0
+   REAL*8, parameter :: dBandIn  = 0.10d0
+   REAL*8, parameter :: dAlphaIn = 0.6d0
 
    DO i = 1, nVtx
      d = dist(i)
