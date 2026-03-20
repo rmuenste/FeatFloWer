@@ -35,10 +35,22 @@ INTEGER :: nTime = 10
 !$OMP   THREADPRIVATE(DJ,DJACI,DJAC,DBAS,DerBAS,DV0,DV1,DETJ,XI1,XI2,XI3,XX,YY,ZZ)
 !$OMP   THREADPRIVATE(DV_Loc,dParticleVelo,P8,P,PR,P_new,OK_FLAG)
 !$OMP   THREADPRIVATE(dFact,dFaux,diff1,diff2,diff3,iter,DeltaT)
+!$OMP   THREADPRIVATE(xPROCESS,cMeshFile)
 
 
  CONTAINS
  
+!========================================================================================
+!                            Sub: SetLocal_P8
+!========================================================================================
+SUBROUTINE SetLocal_P8(lP8)
+implicit none
+REAL*8  lP8(3,8)
+
+P8 = lP8
+
+END SUBROUTINE SetLocal_P8
+
 !========================================================================================
 !                            Sub: GetPointFromElement
 !========================================================================================
@@ -160,9 +172,6 @@ REAL*8 :: dVelo,dElemSize,dFracTime,dist,dfrac
 integer iMove
 logical :: ok_flag
 
-SAVE dAlpha,XB,YB,ZB,dVelo,dElemSize,dFracTime,dist,dfrac,iMove,ok_flag
-!$OMP   THREADPRIVATE(dAlpha,XB,YB,ZB,dVelo,dElemSize,dFracTime,dist,dfrac,iMove,ok_flag)
-
 iMove = 0
 dVelo = 0d0
 
@@ -263,8 +272,6 @@ SUBROUTINE RETURN_Velo()
 implicit none
 !!!!!!!!!!!!!!!!!!!!!!
 integer i
-save i
-!$OMP   THREADPRIVATE(i)
 
 ! Loop not neccesary because nothing depends on i?
 ! DO i=1,27
@@ -314,9 +321,6 @@ implicit none
 integer i
 REAL*8 DerBas1,DerBas2,DerBas3,DETI
 
-save i,DerBas1,DerBas2,DerBas3,DETI
-!$OMP   THREADPRIVATE(i,DerBas1,DerBas2,DerBas3,DETI)
-
 DBAS( 1)=-Q8*XI1*(1D0-XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DBAS( 2)= Q8*XI1*(1D0+XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DBAS( 3)=-Q8*XI1*(1D0+XI1)*XI2*(1D0+XI2)*XI3*(1D0-XI3)
@@ -359,9 +363,6 @@ implicit none
 !!!!!!!!!!!!!!!!!!!!!!
 integer i
 REAL*8 DerBas1,DerBas2,DerBas3,DETI
-
-save i,DerBas1,DerBas2,DerBas3,DETI
-!$OMP   THREADPRIVATE(i,DerBas1,DerBas2,DerBas3,DETI)
 
 DerBas(1,1)= Q8*(-1D0+2D0*XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
 DerBas(2,1)= Q8*(1D0+2D0*XI1)*XI2*(1D0-XI2)*XI3*(1D0-XI3)
@@ -537,9 +538,6 @@ LOGICAL, INTENT(OUT) :: OK_FLAG
 DOUBLE PRECISION, PARAMETER :: EPS = 1.0D-10
 DOUBLE PRECISION :: DET
 DOUBLE PRECISION, DIMENSION(3,3) :: COFACTOR
-
-save DET,COFACTOR
-!$OMP   THREADPRIVATE(DET,COFACTOR)
 
 
 DET =   A(1,1)*A(2,2)*A(3,3)  &

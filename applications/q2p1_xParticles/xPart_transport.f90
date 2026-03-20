@@ -15,14 +15,18 @@ integer nParticles,iChunk,jChunk,nChunks,ivt_min,ivt_max,pID,pJD,i,mParticles,ia
 integer iStatus(MPI_STATUS_SIZE)
 INTEGER iErr,indice,n,Stats(6)
 real*8, allocatable :: daux(:,:),saux(:,:)
+integer, allocatable :: iauxbuf(:)
 character :: cCSV_File*(128)
 integer, allocatable :: sendcounts(:),displs(:)
+integer, allocatable :: sendcounts_idx(:),displs_idx(:)
 real*8, allocatable :: gathered_data(:,:)
+integer, allocatable :: gathered_indices(:)
 real*8 BoundingBox(3,2),P(3),Q(3),dL(3),dist
 logical bxOutput
-integer ixOutput,iInflow
+integer ixOutput,iInflow,iInInflow
 
 integer :: num_threads, thread_num,xivt_min,xivt_max,xnParticles
+integer :: nLocalComplete
 
 
 
@@ -182,45 +186,72 @@ end if
 !!! Lets collect all the particles being still inside of the FD  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
+ nLocalComplete = nCompleteSet
  allocate(sendcounts(0:numnodes),displs(0:numnodes+1))
+ allocate(sendcounts_idx(0:numnodes),displs_idx(0:numnodes+1))
  sendcounts = 0; displs = 0
+ sendcounts_idx = 0; displs_idx = 0
  
- call MPI_allgather(3*nCompleteSet, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
+ call MPI_allgather(3*nLocalComplete, 1, MPI_INTEGER, sendcounts, 1, MPI_INTEGER, MPI_COMM_WORLD, ierr)
 
  displs = 0
  do i = 2, numnodes+1
    displs(i) = displs(i-1) + sendcounts(i-1)
  end do
+ do i=0,numnodes
+   sendcounts_idx(i) = sendcounts(i)/3
+ end do
+ displs_idx = 0
+ do i = 2, numnodes+1
+   displs_idx(i) = displs_idx(i-1) + sendcounts_idx(i-1)
+ end do
+ 
+ ALLOCATE(daux(3,max(1,nLocalComplete)))
+ ALLOCATE(iauxbuf(max(1,nLocalComplete)))
+ if (nLocalComplete.gt.0) then
+  DO i=1,nLocalComplete
+   daux(:,i) = myCompleteSet(i)%coor
+   iauxbuf(i) = myCompleteSet(i)%indice
+  END DO
+ else
+  daux = 0d0
+  iauxbuf = 0
+ end if
  
  if (myid.eq.master) then
-   allocate(gathered_data(3,displs(numnodes+1)/3))
-   nCompleteSet = 0 
-   n=0
- else 
-  n = 3*nCompleteSet
-  ALLOCATE(daux(3,nCompleteSet))
-  DO i=1,nCompleteSet
-   daux(:,i) = myCompleteSet(i)%coor
-  END DO
- endif
+   allocate(gathered_data(3, max(1,displs(numnodes+1)/3)))
+   allocate(gathered_indices(max(1,displs_idx(numnodes+1))))
+ else
+   allocate(gathered_data(3,1))
+   allocate(gathered_indices(1))
+ end if
  
- call MPI_Gatherv(daux, n, MPI_DOUBLE_PRECISION, &
+ call MPI_Gatherv(daux, 3*nLocalComplete, MPI_DOUBLE_PRECISION, &
                   gathered_data, sendcounts, displs, &
                   MPI_DOUBLE_PRECISION, master, MPI_COMM_WORLD, ierr)
+ call MPI_Gatherv(iauxbuf, nLocalComplete, MPI_INTEGER, &
+                  gathered_indices, sendcounts_idx, displs_idx, &
+                  MPI_INTEGER, master, MPI_COMM_WORLD, ierr)
                   
  
- call MPI_AllReduce(nCompleteSet, iaux, 1, MPI_INT, MPI_SUM, MPI_COMM_World, ierr)
+ call MPI_AllReduce(nLocalComplete, iaux, 1, MPI_INT, MPI_SUM, MPI_COMM_World, ierr)
  nCompleteSet = iaux
  
- if (myid.eq.master) then
-  ALLOCATE(myCompleteSet(1:nCompleteSet))
-  DO i=1,nCompleteSet
-   myCompleteSet(i)%coor = gathered_data(:,i)
-  END DO
-  DeALLOCATE(gathered_data)
- else
-  DeALLOCATE(daux)
- endif
+if (myid.eq.master) then
+ ALLOCATE(myCompleteSet(1:max(1,nCompleteSet)))
+ DO i=1,nCompleteSet
+  myCompleteSet(i)%coor = gathered_data(:,i)
+  myCompleteSet(i)%indice = gathered_indices(i)
+ END DO
+endif
+if (allocated(daux))      deallocate(daux)
+if (allocated(iauxbuf))   deallocate(iauxbuf)
+if (allocated(gathered_data)) deallocate(gathered_data)
+if (allocated(gathered_indices)) deallocate(gathered_indices)
+if (allocated(sendcounts)) deallocate(sendcounts)
+if (allocated(displs)) deallocate(displs)
+if (allocated(sendcounts_idx)) deallocate(sendcounts_idx)
+if (allocated(displs_idx)) deallocate(displs_idx)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -235,6 +266,12 @@ if (myid.eq.master) then
   END DO
   write(*,*) "Overall number of remaining particles: ", nCompleteSet
   CLOSE(11)
+  if (nCompleteSet.gt.0) then
+   call WriteRemainingParticlesVTU('IN_particles.vtu',myCompleteSet,nCompleteSet,&
+        mg_mesh%level(ILEV)%dcorvg,mg_mesh%level(ILEV)%nvt+mg_mesh%level(ILEV)%net+&
+        mg_mesh%level(ILEV)%nat+mg_mesh%level(ILEV)%nel,&
+        mg_mesh%level(ILEV)%kvert,mg_mesh%level(ILEV)%nel)
+  end if
 end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -282,6 +319,7 @@ end if
 
  if (myid.ne.0) then
  
+  iInInflow = 0
   allocate(MaterialDistribution(1:NLMAX))
   allocate(MaterialDistribution(NLMAX)%x(nParticles))
   
@@ -300,7 +338,10 @@ end if
      DO iInflow=1,myProcess%nOfInflows
       Q = myProcess%myInflow(iInflow)%Center
       dist = sqrt((P(1)-Q(1))**2d0 + (P(2)-Q(2))**2d0 + (P(3)-Q(3))**2d0)
-      IF (dist.lt.myProcess%myInflow(iInflow)%outerradius) MaterialDistribution(NLMAX)%x(i) = myProcess%myInflow(iInflow)%Material
+      IF (dist.le.myProcess%myInflow(iInflow)%outerradius*1.05d0) THEN
+       iInInflow = iInInflow + 1
+       MaterialDistribution(NLMAX)%x(i) = myProcess%myInflow(iInflow)%Material
+      END IF
      END DO
     end if
    else
@@ -308,6 +349,8 @@ end if
    end if
   END DO
   
+!  write(*,*) "Overall number of identified outflow particles(",myid,"): ", iInInflow
+
  end if
  
  END subroutine Transport_xParticles_MPI
@@ -391,7 +434,7 @@ nLostSet = 0
 
 CALL InitOctTree(mg_mesh%level(ILEV)%dcorvg,mg_mesh%level(ILEV)%nvt)
 
-!$omp parallel private(thread_num, iMinParticleIndex ,iMaxParticleIndex,dStart,dTime)
+!$omp parallel private(thread_num, iMinParticleIndex ,iMaxParticleIndex,dStart,dTime,iTime)
 
 dTime     = 0d0
 
@@ -489,3 +532,189 @@ CALL FreeOctTree()
 deALLOCATE(myActiveSet)
 
 end subroutine Transport_xParticles
+
+!========================================================================================
+!                           Sub: WriteRemainingParticlesVTU
+!========================================================================================
+subroutine WriteRemainingParticlesVTU(filename,particles,nParticles,dcorvg,nCoord,kvert,nElem)
+ USE types, ONLY : tParticle
+ implicit none
+ CHARACTER(*), intent(in) :: filename
+ TYPE(tParticle), intent(in) :: particles(*)
+ integer, intent(in) :: nParticles
+ REAL*8, intent(in) :: dcorvg(3,*)
+ integer, intent(in) :: nCoord
+ integer, intent(in) :: kvert(8,*)
+ integer, intent(in) :: nElem
+ character(len=512) :: baseName,pointsFile,hexFile
+ integer :: lenName
+
+ if (nParticles.le.0) return
+
+ baseName = ADJUSTL(TRIM(filename))
+ lenName = LEN_TRIM(baseName)
+ if (lenName.gt.4 .and. baseName(lenName-3:lenName).eq.'.vtu') then
+  pointsFile = baseName(1:lenName-4)//'_points.vtu'
+  hexFile    = baseName(1:lenName-4)//'_hex.vtu'
+ else
+  pointsFile = baseName//'_points.vtu'
+  hexFile    = baseName//'_hex.vtu'
+ end if
+
+ call WriteParticlePoints(pointsFile,particles,nParticles)
+ call WriteParticleHex(hexFile,particles,nParticles,dcorvg,nCoord,kvert,nElem)
+
+contains
+
+ subroutine WriteParticlePoints(cFile,particles,nParticles)
+  character(*), intent(in) :: cFile
+  TYPE(tParticle), intent(in) :: particles(*)
+  integer, intent(in) :: nParticles
+  integer :: unitVTU,i,offset
+  character(len=32) :: cTmpPoints,cTmpCells
+
+  WRITE(cTmpPoints,'(I0)') nParticles
+  WRITE(cTmpCells ,'(I0)') nParticles
+
+  open(newunit=unitVTU,file=ADJUSTL(TRIM(cFile)),status='replace',action='write')
+  write(unitVTU,'(A)') '<?xml version="1.0"?>'
+  write(unitVTU,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+  write(unitVTU,'(A)') '  <UnstructuredGrid>'
+  write(unitVTU,'(A)') '    <Piece NumberOfPoints="'//TRIM(cTmpPoints)//'" NumberOfCells="'//TRIM(cTmpCells)//'">'
+
+  write(unitVTU,'(A)') '      <Points>'
+  write(unitVTU,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(3(1X,ES23.16))') particles(i)%coor
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </Points>'
+
+  write(unitVTU,'(A)') '      <Cells>'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') i-1
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+  offset = 0
+  do i=1,nParticles
+   offset = offset + 1
+   write(unitVTU,'(1X,I0)') offset
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+
+  write(unitVTU,'(A)') '        <DataArray type="UInt8" Name="types" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') 1
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </Cells>'
+
+  write(unitVTU,'(A)') '      <CellData Scalars="pair_id">'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="pair_id" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') i
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="start_element" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') particles(i)%indice
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </CellData>'
+
+  write(unitVTU,'(A)') '    </Piece>'
+  write(unitVTU,'(A)') '  </UnstructuredGrid>'
+  write(unitVTU,'(A)') '</VTKFile>'
+  close(unitVTU)
+ end subroutine WriteParticlePoints
+
+ subroutine WriteParticleHex(cFile,particles,nParticles,dcorvg,nCoord,kvert,nElem)
+  character(*), intent(in) :: cFile
+  TYPE(tParticle), intent(in) :: particles(*)
+  integer, intent(in) :: nParticles
+  REAL*8, intent(in) :: dcorvg(3,*)
+  integer, intent(in) :: nCoord
+  integer, intent(in) :: kvert(8,*)
+  integer, intent(in) :: nElem
+  integer :: unitVTU,i,j,elem,offset,pointBase,ivt
+  REAL*8 :: coords(3)
+  logical :: hasHex
+  character(len=32) :: cTmpPoints,cTmpCells
+
+  WRITE(cTmpPoints,'(I0)') 8*nParticles
+  WRITE(cTmpCells ,'(I0)') nParticles
+
+  open(newunit=unitVTU,file=ADJUSTL(TRIM(cFile)),status='replace',action='write')
+  write(unitVTU,'(A)') '<?xml version="1.0"?>'
+  write(unitVTU,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+  write(unitVTU,'(A)') '  <UnstructuredGrid>'
+  write(unitVTU,'(A)') '    <Piece NumberOfPoints="'//TRIM(cTmpPoints)//'" NumberOfCells="'//TRIM(cTmpCells)//'">'
+
+  write(unitVTU,'(A)') '      <Points>'
+  write(unitVTU,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+  do i=1,nParticles
+   elem = particles(i)%indice
+   hasHex = elem.ge.1 .and. elem.le.nElem
+   do j=1,8
+    if (hasHex) then
+     ivt = kvert(j,elem)
+     if (ivt.ge.1 .and. ivt.le.nCoord) then
+      coords = dcorvg(:,ivt)
+     else
+      coords = particles(i)%coor
+     end if
+    else
+     coords = particles(i)%coor
+    end if
+    write(unitVTU,'(3(1X,ES23.16))') coords
+   end do
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </Points>'
+
+  write(unitVTU,'(A)') '      <Cells>'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+  do i=1,nParticles
+   pointBase = (i-1)*8
+   write(unitVTU,'(8(1X,I0))') (pointBase + j - 1,j=1,8)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+  offset = 0
+  do i=1,nParticles
+   offset = offset + 8
+   write(unitVTU,'(1X,I0)') offset
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+
+  write(unitVTU,'(A)') '        <DataArray type="UInt8" Name="types" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') 12
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </Cells>'
+
+  write(unitVTU,'(A)') '      <CellData Scalars="pair_id">'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="pair_id" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') i
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '        <DataArray type="Int32" Name="start_element" format="ascii">'
+  do i=1,nParticles
+   write(unitVTU,'(1X,I0)') particles(i)%indice
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+  write(unitVTU,'(A)') '      </CellData>'
+
+  write(unitVTU,'(A)') '    </Piece>'
+  write(unitVTU,'(A)') '  </UnstructuredGrid>'
+  write(unitVTU,'(A)') '</VTKFile>'
+  close(unitVTU)
+ end subroutine WriteParticleHex
+
+end subroutine WriteRemainingParticlesVTU
