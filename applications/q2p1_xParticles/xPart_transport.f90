@@ -14,6 +14,7 @@ integer, intent(in) :: log_unit
 integer nParticles,iChunk,jChunk,nChunks,ivt_min,ivt_max,pID,pJD,i,mParticles,iaux
 integer iStatus(MPI_STATUS_SIZE)
 INTEGER iErr,indice,n,Stats(6)
+real*8 chunkTimeStart,chunkTimeEnd,chunkDuration,chunkTimeReport,chunkTime
 real*8, allocatable :: daux(:,:),saux(:,:)
 integer, allocatable :: iauxbuf(:)
 character :: cCSV_File*(128)
@@ -59,8 +60,11 @@ if (myid.eq.1) then
  write(*,'(A,2ES12.4)') "z: ", BoundingBox(3,:)
 end if
 
+ call PrepareDistanceToInflowOrdering()
+
 ! initialization of LostSet and CompleteSet and process the first data Chunk
 if (myid.ne.master) then
+ chunkTimeReport = 0d0
  ALLOCATE(myLostSet(1:nParticles))
  nLostSet = nParticles
  DO indice=1,nParticles
@@ -87,14 +91,17 @@ if (myid.ne.master) then
  if (iChunk.eq.nChunks) ivt_max = nParticles
  
  Stats(6) = iChunk
- 
+ chunkTimeStart = MPI_WTIME()
  CALL Transport_xParticles(log_unit,iChunk,ivt_min,ivt_max,Stats)
+ chunkTimeEnd = MPI_WTIME()
+ chunkDuration = chunkTimeEnd - chunkTimeStart
+ chunkTimeReport = chunkDuration
  mParticles = myParticleParam%nParticles
  
 end if
 
 if (myid.eq.0) THEN 
- write(*,'(8A10)') " -- ","Chunk","pID","#ALL","#ALLinFD","#Active","#Lost","Progress"
+ write(*,'(9A10)') " -- ","Chunk","pID","#ALL","#ALLinFD","#Active","#Lost","Time[s]","Progress"
 end if
 
 CALL Barrier_myMPI()
@@ -106,7 +113,8 @@ if (myid.eq.0) THEN
   jChunk = jChunk + 1
   CALL MPI_RECV(Stats,6,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,iStatus,iErr)
   pID = Stats(1)
-  write(*,'(A10,6I10,F8.1,A)') "done:",Stats(6),Stats(1:5),1d2*dble(jChunk)/dble(nChunks),"%"
+  CALL MPI_RECV(chunkTime,1,MPI_DOUBLE_PRECISION,pID,1,MPI_COMM_WORLD,iStatus,iErr)
+  write(*,'(A10,6I10,F10.3,F8.1,A)') "done:",Stats(6),Stats(1:5),chunkTime,1d2*dble(jChunk)/dble(nChunks),"%"
   
   CALL MPI_SEND(iChunk,1,MPI_INT,pID,0,MPI_COMM_WORLD,iStatus,iErr)
  END DO
@@ -116,7 +124,8 @@ if (myid.eq.0) THEN
   jChunk = jChunk + 1
   CALL MPI_RECV(Stats,6,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,iStatus,iErr)
   pID = Stats(1)
-  write(*,'(A10,6I10,F8.1,A)') "done:",Stats(6),Stats(1:5),1d2*dble(jChunk)/dble(nChunks),"%"
+  CALL MPI_RECV(chunkTime,1,MPI_DOUBLE_PRECISION,pID,1,MPI_COMM_WORLD,iStatus,iErr)
+  write(*,'(A10,6I10,F10.3,F8.1,A)') "done:",Stats(6),Stats(1:5),chunkTime,1d2*dble(jChunk)/dble(nChunks),"%"
   
   CALL MPI_SEND(iChunk,1,MPI_INT,pID,0,MPI_COMM_WORLD,iStatus,iErr)
  END DO
@@ -127,6 +136,7 @@ END IF
 if (myid.ne.0) then
  DO 
   CALL MPI_SEND(Stats,6,MPI_INT,0,0,MPI_COMM_WORLD,iStatus,iErr)
+  CALL MPI_SEND(chunkTimeReport,1,MPI_DOUBLE_PRECISION,0,1,MPI_COMM_WORLD,iStatus,iErr)
   CALL MPI_RECV(iChunk,1,MPI_INT,0,MPI_ANY_TAG,MPI_COMM_WORLD,iStatus,iErr)
   Stats(6) = iChunk
   if (iChunk.eq.0) GOTO 1
@@ -134,7 +144,11 @@ if (myid.ne.0) then
   ivt_min = (iChunk-1)*(nParticles/nChunks) + 1
   ivt_max = (iChunk+0)*(nParticles/nChunks) + 0
   if (iChunk.eq.nChunks) ivt_max = nParticles
+  chunkTimeStart = MPI_WTIME()
   CALL Transport_xParticles(log_unit,iChunk,ivt_min,ivt_max,Stats)
+  chunkTimeEnd = MPI_WTIME()
+  chunkDuration = chunkTimeEnd - chunkTimeStart
+  chunkTimeReport = chunkDuration
   mParticles = mParticles + myParticleParam%nParticles
  end do
 end if
@@ -715,6 +729,171 @@ contains
   write(unitVTU,'(A)') '  </UnstructuredGrid>'
   write(unitVTU,'(A)') '</VTKFile>'
   close(unitVTU)
- end subroutine WriteParticleHex
+end subroutine WriteParticleHex
 
 end subroutine WriteRemainingParticlesVTU
+
+subroutine PrepareDistanceToInflowOrdering()
+ use def_FEAT, ONLY : NLMAX
+ use var_QuadScalar, ONLY : mg_mesh
+ use Sigma_User, only : myProcess
+ use PP3D_MPI, ONLY : myid,master
+ use xPart_def, ONLY : DistanceToInflow,InflowOrdering,nInflowDistanceBins,InflowBins
+ implicit none
+ include 'mpif.h'
+ integer :: ILEV,nElem,elemIdx,iInflow,binIdx,position,localIdx,iErr
+ real*8 :: elemCenter(3),center(3),diffVec(3)
+ real*8 :: radialDist,distCandidate,minDist
+ real*8 :: minDistance,maxDistance,binWidth,innerRadius,outerRadius,centerlineRadius
+ integer, allocatable :: binCounts(:),binOffsets(:),binPosition(:)
+ real*8, allocatable :: localHist(:),globalHist(:)
+
+ ILEV = NLMAX
+ nElem = mg_mesh%level(ILEV)%nel
+
+ if (myProcess%nOfInflows.le.0) then
+  if (myid.eq.1) write(*,*) "ERROR: No inflows defined for q2p1_xParticles."
+  call MPI_ABORT(MPI_COMM_WORLD, 1, iErr)
+ end if
+
+ if (allocated(DistanceToInflow)) then
+  if (size(DistanceToInflow).ne.nElem) deallocate(DistanceToInflow)
+ end if
+ if (.not.allocated(DistanceToInflow)) allocate(DistanceToInflow(nElem))
+
+ if (allocated(InflowOrdering%ids)) then
+  if (size(InflowOrdering%ids).ne.nElem) deallocate(InflowOrdering%ids)
+ end if
+ if (.not.allocated(InflowOrdering%ids)) allocate(InflowOrdering%ids(nElem))
+
+ if (allocated(InflowOrdering%distances)) then
+  if (size(InflowOrdering%distances).ne.nElem) deallocate(InflowOrdering%distances)
+ end if
+ if (.not.allocated(InflowOrdering%distances)) allocate(InflowOrdering%distances(nElem))
+
+ if (allocated(InflowBins)) then
+  if (size(InflowBins).ne.nInflowDistanceBins) then
+   do binIdx=1,size(InflowBins)
+    if (allocated(InflowBins(binIdx)%ids)) deallocate(InflowBins(binIdx)%ids)
+    if (allocated(InflowBins(binIdx)%distances)) deallocate(InflowBins(binIdx)%distances)
+   end do
+   deallocate(InflowBins)
+  end if
+ end if
+ if (.not.allocated(InflowBins)) allocate(InflowBins(nInflowDistanceBins))
+
+ do binIdx=1,nInflowDistanceBins
+  InflowBins(binIdx)%count = 0
+  if (allocated(InflowBins(binIdx)%ids)) deallocate(InflowBins(binIdx)%ids)
+  if (allocated(InflowBins(binIdx)%distances)) deallocate(InflowBins(binIdx)%distances)
+ end do
+
+ do elemIdx=1,nElem
+  elemCenter = mg_mesh%level(ILEV)%dcorvg(:,mg_mesh%level(ILEV)%nvt + &
+               mg_mesh%level(ILEV)%net + mg_mesh%level(ILEV)%nat + elemIdx)
+  minDist = huge(1d0)
+  do iInflow=1,myProcess%nOfInflows
+   center = myProcess%myInflow(iInflow)%Center
+   diffVec = elemCenter - center
+   radialDist = sqrt(diffVec(1)**2 + diffVec(2)**2 + diffVec(3)**2)
+   select case (myProcess%myInflow(iInflow)%iBCtype)
+   case (2)
+    innerRadius = myProcess%myInflow(iInflow)%innerradius
+    outerRadius = myProcess%myInflow(iInflow)%outerradius
+    centerlineRadius = 0.5d0*(innerRadius + outerRadius)
+    distCandidate = abs(radialDist - centerlineRadius)
+   case default
+    distCandidate = radialDist
+   end select
+   if (distCandidate.lt.minDist) minDist = distCandidate
+  end do
+  DistanceToInflow(elemIdx) = minDist
+ end do
+
+ if (myid.eq.master) then
+  write(*,*) "Computed inflow distances for all elements."
+ end if
+
+ minDistance = minval(DistanceToInflow)
+ maxDistance = maxval(DistanceToInflow)
+ if (maxDistance.le.minDistance) then
+  binWidth = 0d0
+ else
+  binWidth = (maxDistance - minDistance)/real(nInflowDistanceBins,8)
+ end if
+
+ allocate(localHist(nInflowDistanceBins))
+ allocate(globalHist(nInflowDistanceBins))
+ localHist = 0d0
+ globalHist = 0d0
+
+ do elemIdx=1,nElem
+  if (binWidth.eq.0d0) then
+   binIdx = 1
+  else
+   binIdx = int((DistanceToInflow(elemIdx) - minDistance)/binWidth) + 1
+  end if
+  binIdx = max(1,min(nInflowDistanceBins,binIdx))
+  localHist(binIdx) = localHist(binIdx) + 1d0
+ end do
+
+ call MPI_Allreduce(localHist,globalHist,nInflowDistanceBins,MPI_DOUBLE_PRECISION,&
+                    MPI_SUM,MPI_COMM_WORLD,iErr)
+
+ if (myid.eq.master) then
+  write(*,*) "Global inflow-distance histogram collected."
+ end if
+
+ allocate(binCounts(nInflowDistanceBins))
+ allocate(binOffsets(nInflowDistanceBins+1))
+ allocate(binPosition(nInflowDistanceBins))
+ binCounts = 0
+
+ do elemIdx=1,nElem
+  if (binWidth.eq.0d0) then
+   binIdx = 1
+  else
+   binIdx = int((DistanceToInflow(elemIdx) - minDistance)/binWidth) + 1
+  end if
+  binIdx = max(1,min(nInflowDistanceBins,binIdx))
+  binCounts(binIdx) = binCounts(binIdx) + 1
+ end do
+
+ binOffsets(1) = 1
+ do binIdx=1,nInflowDistanceBins
+  binOffsets(binIdx+1) = binOffsets(binIdx) + binCounts(binIdx)
+  binPosition(binIdx) = binOffsets(binIdx)
+  InflowBins(binIdx)%count = binCounts(binIdx)
+  if (binCounts(binIdx).gt.0) then
+   allocate(InflowBins(binIdx)%ids(binCounts(binIdx)))
+   allocate(InflowBins(binIdx)%distances(binCounts(binIdx)))
+  end if
+ end do
+
+ do elemIdx=1,nElem
+  if (binWidth.eq.0d0) then
+   binIdx = 1
+  else
+   binIdx = int((DistanceToInflow(elemIdx) - minDistance)/binWidth) + 1
+  end if
+  binIdx = max(1,min(nInflowDistanceBins,binIdx))
+  position = binPosition(binIdx)
+  binPosition(binIdx) = binPosition(binIdx) + 1
+  InflowOrdering%ids(position) = elemIdx
+  InflowOrdering%distances(position) = DistanceToInflow(elemIdx)
+  if (InflowBins(binIdx)%count.gt.0) then
+   localIdx = position - binOffsets(binIdx) + 1
+  InflowBins(binIdx)%ids(localIdx) = elemIdx
+  InflowBins(binIdx)%distances(localIdx) = DistanceToInflow(elemIdx)
+ end if
+end do
+
+ if (myid.eq.master) then
+  write(*,'(A,2ES12.4)') "Inflow distance range:", minDistance,maxDistance
+  write(*,*) "Prepared inflow-aware element ordering (no chunk coupling yet)."
+  write(*,*) "Inflow-distance ordering arrays populated."
+ end if
+
+ deallocate(localHist,globalHist,binCounts,binOffsets,binPosition)
+
+end subroutine PrepareDistanceToInflowOrdering

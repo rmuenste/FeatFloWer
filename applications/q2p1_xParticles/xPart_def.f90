@@ -31,6 +31,22 @@ CHARACTER :: xPROCESS*(64)
 REAL*8 :: d_CorrDist = 0.25d0,dTimeStep=1.00d1, minDist = -0.01d0
 INTEGER :: nTime = 10
 
+REAL*8, allocatable :: DistanceToInflow(:)
+
+TYPE tElementInflowOrdering
+  INTEGER, allocatable :: ids(:)
+  REAL*8, allocatable :: distances(:)
+END TYPE tElementInflowOrdering
+TYPE(tElementInflowOrdering) :: InflowOrdering
+
+INTEGER, PARAMETER :: nInflowDistanceBins = 1000
+TYPE tInflowBin
+  INTEGER :: count = 0
+  INTEGER, allocatable :: ids(:)
+  REAL*8, allocatable :: distances(:)
+END TYPE tInflowBin
+TYPE(tInflowBin), allocatable :: InflowBins(:)
+
 !$OMP   THREADPRIVATE(dist_CGAL,cdx,cdy,cdz,distance,dNormal,shellE)
 !$OMP   THREADPRIVATE(DJ,DJACI,DJAC,DBAS,DerBAS,DV0,DV1,DETJ,XI1,XI2,XI3,XX,YY,ZZ)
 !$OMP   THREADPRIVATE(DV_Loc,dParticleVelo,P8,P,PR,P_new,OK_FLAG)
