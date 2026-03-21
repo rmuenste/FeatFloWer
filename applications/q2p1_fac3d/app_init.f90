@@ -366,7 +366,7 @@ END IF
 !!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF (bFAC3D_CylUmbrellaWeight) THEN
   if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing...'
-  DO iUmbrella=1,5
+  DO iUmbrella=1,3
     CALL UmbrellaSmoother_STRCT(0d0,1)
   END DO
   if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing: done.'
@@ -418,14 +418,14 @@ IF (myid.NE.0) THEN
     mg_mesh%level(mg_mesh%maxlevel)%dcorvg, dCylDist)
   CALL ComputeCylAttractionWeight(mg_mesh%level(mg_mesh%maxlevel)%nvt, &
     dCylDist, dCylWeight)
-  CALL Output_VTK_mesh_piece_with_2fields('initial_mesh', &
+  CALL Output_VTK_mesh_piece_with_2fields_binary('initial_mesh', &
     mg_mesh%level(mg_mesh%maxlevel)%dcorvg, &
     mg_mesh%level(mg_mesh%maxlevel)%kvert, &
     dCylDist, 'CylinderDistance', &
     dCylWeight, 'AttractionWeight')
   DEALLOCATE(dCylDist, dCylWeight)
 ELSE
-  CALL Output_VTK_mesh_main_with_2fields('initial_mesh', &
+  CALL Output_VTK_mesh_main_with_2fields_binary('initial_mesh', &
     'CylinderDistance', 'AttractionWeight')
 END IF
 
@@ -1012,35 +1012,30 @@ END SUBROUTINE General_init_ext
    REAL*8, intent(in) :: dOmega
 
    INTEGER :: i
-   REAL*8  :: dx, dy, dz, rxy, dist, alpha
-   REAL*8  :: nearX, nearY, halfLen, dzAbs, zGap, absDist
-   ! Exterior bands
-   REAL*8, parameter :: dBand1 = 0.04d0
-   REAL*8, parameter :: dBand2 = 0.15d0
-   ! Interior band: push outward toward surface, linear fade over dBandIn
-   REAL*8, parameter :: dBandIn   = 0.10d0
-   REAL*8, parameter :: dAlphaIn  = 0.6d0
+   REAL*8  :: dx, dy, rxy, dist, alpha
+   REAL*8  :: nearX, nearY, absDist
+   ! Exterior band: quadratic decay from dAlphaOut at surface to 0 at dBandOut
+   REAL*8, parameter :: dBandOut  = 0.15d0
+   REAL*8, parameter :: dAlphaOut = 0.80d0
+   ! Interior band: linear fade from dAlphaIn at surface to 0 at dBandIn
+   REAL*8, parameter :: dBandIn   = 0.04d0
+   REAL*8, parameter :: dAlphaIn  = 0.95d0
    ! Radius offset: use a slightly smaller radius as attraction target
    ! so the concentrated ring coincides with the actual cylinder surface
-   REAL*8, parameter :: dRadiusOffset = 0.0075d0
+   REAL*8, parameter :: dRadiusOffset = 0.00d0
    REAL*8 :: attractRadius
 
-   halfLen = 0.5d0 * dFAC3D_CylLength
    attractRadius = dFAC3D_CylRadius - dRadiusOffset
 
    DO i = 1, nVtx
      dx = dcorvg(1,i) - dFAC3D_CylCenter(1)
      dy = dcorvg(2,i) - dFAC3D_CylCenter(2)
-     dz = dcorvg(3,i) - dFAC3D_CylCenter(3)
-     dzAbs = ABS(dz)
      rxy = SQRT(dx*dx + dy*dy)
 
-     ! Signed distance to cylinder surface (negative = inside)
-     zGap = dzAbs - halfLen
-     dist = MAX(rxy - dFAC3D_CylRadius, zGap)
-
-     ! Skip nodes whose closest surface point is on the cap, not the barrel
-     IF (zGap .GT. rxy - dFAC3D_CylRadius) CYCLE
+     ! Radial distance to barrel surface (negative = inside)
+     ! No cap handling needed: the cylinder spans the full channel
+     ! width, so caps are outside the domain and never meshed.
+     dist = rxy - dFAC3D_CylRadius - dRadiusOffset
 
      ! Nearest point on reduced-radius barrel (radial projection)
      IF (rxy .GT. 1d-14) THEN
@@ -1050,13 +1045,9 @@ END SUBROUTINE General_init_ext
        CYCLE
      END IF
 
-     IF (dist .GT. 0d0 .AND. dist .LE. dBand2) THEN
-       ! --- Exterior attraction ---
-       IF (dist .LT. dBand1) THEN
-         alpha = 0.6d0 + 0.4d0 * dist / dBand1
-       ELSE
-         alpha = ((dBand2 - dist) / (dBand2 - dBand1))**2
-       END IF
+     IF (dist .GT. 0d0 .AND. dist .LE. dBandOut) THEN
+       ! --- Exterior attraction: peak at surface, quadratic decay ---
+       alpha = dAlphaOut * ((dBandOut - dist) / dBandOut)**2
      ELSE IF (dist .LT. 0d0) THEN
        ! --- Interior: gentle outward push ---
        absDist = ABS(dist)
@@ -1067,7 +1058,7 @@ END SUBROUTINE General_init_ext
        CYCLE
      END IF
 
-     ! Move node radially toward the barrel surface
+     ! Move node radially toward the barrel surface (x-y only)
      dcorvg(1,i) = dcorvg(1,i) + dOmega * alpha * (nearX - dcorvg(1,i))
      dcorvg(2,i) = dcorvg(2,i) + dOmega * alpha * (nearY - dcorvg(2,i))
    END DO
@@ -1085,17 +1076,15 @@ END SUBROUTINE General_init_ext
    REAL*8, intent(out) :: weight(*)
    INTEGER :: i
    REAL*8  :: d, alpha, absDist
-   REAL*8, parameter :: dBand1 = 0.04d0
-   REAL*8, parameter :: dBand2 = 0.15d0
-   REAL*8, parameter :: dBandIn  = 0.10d0
-   REAL*8, parameter :: dAlphaIn = 0.6d0
+   REAL*8, parameter :: dBandOut = 0.15d0
+   REAL*8, parameter :: dAlphaOut = 0.6d0
+   REAL*8, parameter :: dBandIn  = 0.04d0
+   REAL*8, parameter :: dAlphaIn = 0.95d0
 
    DO i = 1, nVtx
      d = dist(i)
-     IF (d .GT. 0d0 .AND. d .LT. dBand1) THEN
-       weight(i) = 0.6d0 + 0.4d0 * d / dBand1
-     ELSE IF (d .GE. dBand1 .AND. d .LE. dBand2) THEN
-       weight(i) = ((dBand2 - d) / (dBand2 - dBand1))**2
+     IF (d .GT. 0d0 .AND. d .LE. dBandOut) THEN
+       weight(i) = dAlphaOut * ((dBandOut - d) / dBandOut)**2
      ELSE IF (d .LT. 0d0) THEN
        absDist = ABS(d)
        IF (absDist .LE. dBandIn) THEN

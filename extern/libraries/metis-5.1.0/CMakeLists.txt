@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.8)
-project(METIS)
+cmake_minimum_required(VERSION 2.8.12...3.31)
+project(METIS VERSION 5.1.0)
 
 # GKlib is bundled in the source tree; use an absolute path so that
 # the include() below resolves correctly when built as a subdirectory

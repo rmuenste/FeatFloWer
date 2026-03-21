@@ -364,10 +364,18 @@ Real*8, dimension(:), intent(inout) :: p
 external E013
 
 ! local variables
-integer :: ilevel, i, iPointer
+integer :: ilevel, i, iPointer, nel_loc
 real*8  :: dResForce(3), fx, fy, fz
 real*8  :: qA, cd, cl
 logical, allocatable :: bAlpha(:)
+real*8, allocatable :: DCellForce(:,:), DCellNormal(:,:), DCellVol(:)
+real*8, allocatable :: DCellSymGrad(:,:)
+real*8, allocatable :: CellForceX(:), CellForceY(:), CellForceZ(:)
+real*8, allocatable :: CellNormalX(:), CellNormalY(:), CellNormalZ(:)
+real*8, allocatable :: ScaledForceX(:), ScaledForceY(:), ScaledForceZ(:)
+real*8, allocatable :: SymGradX(:), SymGradY(:), SymGradZ(:)
+real*8, allocatable :: dAlphaField(:), VolScale(:)
+real*8 :: dVolScale
 real*8, parameter :: cylD = 0.1d0
 real*8, parameter :: cylL = 0.41d0
 real*8, parameter :: uMean = (4d0/9d0)*0.45d0
@@ -377,6 +385,7 @@ if (calculateDynamics()) then
  if(myid.eq.1) write(*,*)'> Dynamics update (cyl/fbm-alpha)'
 
  ilevel=mg_mesh%nlmax
+ ILEV=ilevel
  CALL SETLEV(2)
 
  if (.not. allocated(bAlpha)) allocate(bAlpha(size(FictKNPR)))
@@ -392,11 +401,85 @@ if (calculateDynamics()) then
                    mg_mesh%level(ilevel)%dcorvg,&
                    dResForce,E013)
 
- deallocate(bAlpha)
-
  fx = Properties%ForceScale(1)*dResForce(1)
  fy = Properties%ForceScale(2)*dResForce(2)
  fz = Properties%ForceScale(3)*dResForce(3)
+
+ ! Per-cell force, normal, volume and sym. grad integral for VTK output
+ nel_loc = KNEL(ilevel)
+ allocate(DCellForce(3, nel_loc), DCellNormal(3, nel_loc))
+ allocate(DCellVol(nel_loc), DCellSymGrad(3, nel_loc))
+ allocate(CellForceX(nel_loc), CellForceY(nel_loc), CellForceZ(nel_loc))
+ allocate(CellNormalX(nel_loc), CellNormalY(nel_loc), CellNormalZ(nel_loc))
+ allocate(ScaledForceX(nel_loc), ScaledForceY(nel_loc), ScaledForceZ(nel_loc))
+ allocate(SymGradX(nel_loc), SymGradY(nel_loc), SymGradZ(nel_loc))
+ allocate(VolScale(nel_loc))
+
+ CALL GetForcesCylPerCell(u,v,w,p,&
+                  bAlpha,Viscosity,&
+                  mg_mesh%level(ilevel)%kvert,&
+                  mg_mesh%level(ilevel)%karea,&
+                  mg_mesh%level(ilevel)%kedge,&
+                  mg_mesh%level(ilevel)%dcorvg,&
+                  DCellForce,DCellNormal,DCellVol,DCellSymGrad,&
+                  nel_loc,E013)
+
+ ! Convert logical alpha to real for VTK point data output
+ allocate(dAlphaField(size(bAlpha)))
+ do i = 1, size(bAlpha)
+   if (bAlpha(i)) then
+     dAlphaField(i) = 1d0
+   else
+     dAlphaField(i) = 0d0
+   end if
+ end do
+
+ deallocate(bAlpha)
+
+ do i = 1, nel_loc
+   CellForceX(i) = Properties%ForceScale(1) * DCellForce(1, i)
+   CellForceY(i) = Properties%ForceScale(2) * DCellForce(2, i)
+   CellForceZ(i) = Properties%ForceScale(3) * DCellForce(3, i)
+   CellNormalX(i) = DCellNormal(1, i)
+   CellNormalY(i) = DCellNormal(2, i)
+   CellNormalZ(i) = DCellNormal(3, i)
+   SymGradX(i) = DCellSymGrad(1, i)
+   SymGradY(i) = DCellSymGrad(2, i)
+   SymGradZ(i) = DCellSymGrad(3, i)
+   ! Scale by Volume(T)^(2/3) to approximate surface traction
+   if (DCellVol(i).gt.0d0) then
+     dVolScale = DCellVol(i)**(2d0/3d0)
+     VolScale(i) = dVolScale
+     ScaledForceX(i) = CellForceX(i) / dVolScale
+     ScaledForceY(i) = CellForceY(i) / dVolScale
+     ScaledForceZ(i) = CellForceZ(i) / dVolScale
+   else
+     VolScale(i) = 0d0
+     ScaledForceX(i) = 0d0
+     ScaledForceY(i) = 0d0
+     ScaledForceZ(i) = 0d0
+   end if
+ end do
+
+ CALL Output_VTK_fbm_forces_piece_binary('fbm_forces', &
+      mg_mesh%level(ilevel)%dcorvg, &
+      mg_mesh%level(ilevel)%kvert, &
+      CellForceX, CellForceY, CellForceZ, &
+      ScaledForceX, ScaledForceY, ScaledForceZ, &
+      CellNormalX, CellNormalY, CellNormalZ, &
+      SymGradX, SymGradY, SymGradZ, &
+      VolScale, dAlphaField)
+
+ if (myid.eq.1) then
+   CALL Output_VTK_fbm_forces_main_binary('fbm_forces')
+ end if
+
+ deallocate(DCellForce, DCellNormal, DCellVol, DCellSymGrad)
+ deallocate(CellForceX, CellForceY, CellForceZ)
+ deallocate(CellNormalX, CellNormalY, CellNormalZ)
+ deallocate(ScaledForceX, ScaledForceY, ScaledForceZ)
+ deallocate(SymGradX, SymGradY, SymGradZ)
+ deallocate(VolScale, dAlphaField)
 
  if (myFBM%nParticles.gt.0) then
    myFBM%ParticleNew(1)%ResistanceForce(1) = fx

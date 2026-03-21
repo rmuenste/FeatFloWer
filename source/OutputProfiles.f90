@@ -4014,6 +4014,1024 @@ IF(myid.eq.showid) WRITE(*,*) "Main mesh+2fields VTK file written: ", TRIM(mainn
 END SUBROUTINE Output_VTK_mesh_main_with_2fields
 
 
+SUBROUTINE Output_VTK_mesh_piece_with_2fields_binary(cname, dcoor, kvert, &
+  field1, fname1, field2, fname2)
+!
+! Binary (appended raw) version of Output_VTK_mesh_piece_with_2fields.
+! Outputs mesh geometry plus two node-based scalar fields.
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+USE, INTRINSIC :: iso_fortran_env, ONLY: int8, int32, int64, real32
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: field1(*), field2(*)
+INTEGER :: ive, ivt
+CHARACTER(len=100) :: filename
+CHARACTER(len=256) :: line
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908074
+INTEGER :: istat
+INTEGER(int64) :: offset, off
+INTEGER(int64), PARAMETER :: header_bytes = 8_int64
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_node_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing binary mesh+2fields VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', access='stream', &
+     form='unformatted', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+offset = 0_int64
+
+! --- XML header ---
+call write_line(iunit, '<VTKFile type="UnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">')
+call write_line(iunit, '  <UnstructuredGrid>')
+write(line, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+  '" NumberOfCells="', NoOfElem, '">'
+call write_line(iunit, line)
+
+! PointData tags (reserve offsets into appended block)
+write(line, '(A,A,A)') '    <PointData Scalars="', TRIM(fname1), '">'
+call write_line(iunit, line)
+call reserve_offset(4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '      ', 'Float32', fname1, 1, off)
+call reserve_offset(4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '      ', 'Float32', fname2, 1, off)
+call write_line(iunit, '    </PointData>')
+
+! Points
+call write_line(iunit, '      <Points>')
+call reserve_offset(3_int64*4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'Points', 3, off)
+call write_line(iunit, '      </Points>')
+
+! Cells
+call write_line(iunit, '      <Cells>')
+call reserve_offset(8_int64*4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'connectivity', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'offsets', 1, off)
+call reserve_offset(1_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'UInt8', 'types', 1, off)
+call write_line(iunit, '      </Cells>')
+
+call write_line(iunit, '    </Piece>')
+call write_line(iunit, '  </UnstructuredGrid>')
+
+! --- Appended binary data ---
+call write_line(iunit, '  <AppendedData encoding="raw">')
+call write_char(iunit, '_')
+
+! Field 1
+call write_header(iunit, 4_int64*NoOfVert)
+do ivt = 1, NoOfVert
+  call write_r32(iunit, field1(ivt))
+end do
+
+! Field 2
+call write_header(iunit, 4_int64*NoOfVert)
+do ivt = 1, NoOfVert
+  call write_r32(iunit, field2(ivt))
+end do
+
+! Points
+call write_header(iunit, 3_int64*4_int64*NoOfVert)
+do ivt = 1, NoOfVert
+  call write_r32(iunit, dcoor(1,ivt))
+  call write_r32(iunit, dcoor(2,ivt))
+  call write_r32(iunit, dcoor(3,ivt))
+end do
+
+! Connectivity
+call write_header(iunit, 8_int64*4_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i32(iunit, kvert(1,ive)-1)
+  call write_i32(iunit, kvert(2,ive)-1)
+  call write_i32(iunit, kvert(3,ive)-1)
+  call write_i32(iunit, kvert(4,ive)-1)
+  call write_i32(iunit, kvert(5,ive)-1)
+  call write_i32(iunit, kvert(6,ive)-1)
+  call write_i32(iunit, kvert(7,ive)-1)
+  call write_i32(iunit, kvert(8,ive)-1)
+end do
+
+! Offsets
+call write_header(iunit, 4_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i32(iunit, ive*8)
+end do
+
+! Types (12 = VTK_HEXAHEDRON)
+call write_header(iunit, 1_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i8(iunit, 12_int8)
+end do
+
+call write_char(iunit, achar(10))
+call write_line(iunit, '  </AppendedData>')
+call write_line(iunit, '</VTKFile>')
+close(iunit)
+
+CONTAINS
+
+  SUBROUTINE reserve_offset(nbytes, off)
+    INTEGER(int64), INTENT(IN) :: nbytes
+    INTEGER(int64), INTENT(OUT) :: off
+    off = offset
+    offset = offset + header_bytes + nbytes
+  END SUBROUTINE reserve_offset
+
+  SUBROUTINE write_line(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) TRIM(text)//achar(10)
+  END SUBROUTINE write_line
+
+  SUBROUTINE write_char(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text
+  END SUBROUTINE write_char
+
+  SUBROUTINE write_dataarray_tag(unit, indent, dtype, name, ncomp, off)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: indent, dtype, name
+    INTEGER, INTENT(IN) :: ncomp
+    INTEGER(int64), INTENT(IN) :: off
+    CHARACTER(len=256) :: lcl
+    IF (ncomp .gt. 1) THEN
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A,I0,A)') indent, '<DataArray type="', &
+        TRIM(dtype), '" Name="', TRIM(name), '" NumberOfComponents="', ncomp, &
+        '" format="appended" offset="', off, '"/>'
+    ELSE
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A)') indent, '<DataArray type="', TRIM(dtype), &
+        '" Name="', TRIM(name), '" format="appended" offset="', off, '"/>'
+    END IF
+    call write_line(unit, lcl)
+  END SUBROUTINE write_dataarray_tag
+
+  SUBROUTINE write_header(unit, nbytes)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int64), INTENT(IN) :: nbytes
+    WRITE(unit) nbytes
+  END SUBROUTINE write_header
+
+  SUBROUTINE write_r32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    REAL*8, INTENT(IN) :: val
+    REAL(real32) :: tmp
+    tmp = REAL(val, real32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_r32
+
+  SUBROUTINE write_i32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER, INTENT(IN) :: val
+    INTEGER(int32) :: tmp
+    tmp = INT(val, int32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_i32
+
+  SUBROUTINE write_i8(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int8), INTENT(IN) :: val
+    WRITE(unit) val
+  END SUBROUTINE write_i8
+
+END SUBROUTINE Output_VTK_mesh_piece_with_2fields_binary
+
+
+SUBROUTINE Output_VTK_mesh_main_with_2fields_binary(cname, fname1, fname2)
+!
+! Binary-compatible main .pvtu file for parallel mesh VTK output with two scalar fields.
+! References piece files written by Output_VTK_mesh_piece_with_2fields_binary.
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2
+INTEGER :: iproc
+INTEGER :: iMainUnit = 558
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, '(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">'
+write(imainunit, '(A)') '  <PUnstructuredGrid GhostLevel="0">'
+
+write(imainunit, '(A,A,A)') '    <PPointData Scalars="', TRIM(fname1), '">'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float32" Name="', TRIM(fname1), '"/>'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float32" Name="', TRIM(fname2), '"/>'
+write(imainunit, '(A)') '    </PPointData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_node_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, '(A)') '  </PUnstructuredGrid>'
+write(imainunit, '(A)') '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main binary mesh+2fields VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main_with_2fields_binary
+
+
+SUBROUTINE Output_VTK_mesh_piece_with_3cellfields(cname, dcoor, kvert, &
+  cellfield1, fname1, cellfield2, fname2, cellfield3, fname3)
+!
+! Outputs mesh geometry plus three cell-based scalar fields to VTK format.
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2, fname3
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: cellfield1(*), cellfield2(*), cellfield3(*)
+INTEGER :: ioffset, ive, ivt, ielem
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908074
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_cell_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing mesh+3cellfields VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+write(iunit, '(A,A,A)') '      <CellData Scalars="', TRIM(fname1), '">'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fname1), '" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", cellfield1(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fname2), '" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", cellfield2(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fname3), '" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", cellfield3(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '      </CellData>'
+
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfElem-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_mesh_piece_with_3cellfields
+
+
+SUBROUTINE Output_VTK_mesh_main_with_3cellfields(cname, fname1, fname2, fname3)
+!
+! Outputs main .pvtu file for parallel mesh VTK output with three cell-based scalar fields
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2, fname3
+INTEGER :: iproc
+INTEGER :: iMainUnit = 559
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+write(imainunit, '(A,A,A)') '    <PCellData Scalars="', TRIM(fname1), '">'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fname1), '"/>'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fname2), '"/>'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fname3), '"/>'
+write(imainunit, '(A)') '    </PCellData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_cell_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main mesh+3cellfields VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main_with_3cellfields
+
+
+SUBROUTINE Output_VTK_fbm_forces_piece(cname, dcoor, kvert, &
+  forceX, forceY, forceZ, &
+  scaledX, scaledY, scaledZ, &
+  normalX, normalY, normalZ, &
+  symgradX, symgradY, symgradZ, &
+  volscale, alphaField)
+!
+! Combined VTK output for FBM per-cell force visualization.
+! Writes CellData (force, scaled force, normal) and PointData (alpha)
+! into a single .vtu file per MPI rank.
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: forceX(*), forceY(*), forceZ(*)
+REAL*8, intent(in) :: scaledX(*), scaledY(*), scaledZ(*)
+REAL*8, intent(in) :: normalX(*), normalY(*), normalZ(*)
+REAL*8, intent(in) :: symgradX(*), symgradY(*), symgradZ(*)
+REAL*8, intent(in) :: volscale(*), alphaField(*)
+INTEGER :: ioffset, ive, ivt, ielem
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908075
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing FBM forces VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+! --- PointData: Alpha ---
+write(iunit, '(A)') '      <PointData Scalars="Alpha">'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="Alpha" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,E16.7)') "          ", alphaField(ivt)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '      </PointData>'
+
+! --- CellData: Forces, Scaled Forces, Normal ---
+write(iunit, '(A)') '      <CellData Scalars="CellForceX">'
+
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellForceX" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", forceX(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellForceY" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", forceY(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellForceZ" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", forceZ(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="Float64" Name="ScaledForceX" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", scaledX(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="ScaledForceY" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", scaledY(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="ScaledForceZ" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", scaledZ(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellNormalX" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", normalX(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellNormalY" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", normalY(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="CellNormalZ" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", normalZ(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="Float64" Name="SymGradX" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", symgradX(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="SymGradY" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", symgradY(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '        <DataArray type="Float64" Name="SymGradZ" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", symgradZ(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="Float64" Name="VolScale" format="ascii">'
+do ielem = 1, NoOfElem
+  write(iunit, '(A10,E16.7)') "          ", volscale(ielem)
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '      </CellData>'
+
+! --- Points ---
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+! --- Cells ---
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfVert-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_fbm_forces_piece
+
+
+SUBROUTINE Output_VTK_fbm_forces_main(cname)
+!
+! Main .pvtu file for combined FBM force visualization output.
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+INTEGER :: iproc
+INTEGER :: iMainUnit = 560
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+write(imainunit, '(A)') '    <PPointData Scalars="Alpha">'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="Alpha"/>'
+write(imainunit, '(A)') '    </PPointData>'
+
+write(imainunit, '(A)') '    <PCellData Scalars="CellForceX">'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellForceX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellForceY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellForceZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="ScaledForceX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="ScaledForceY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="ScaledForceZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellNormalX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellNormalY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="CellNormalZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="SymGradX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="SymGradY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="SymGradZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float64" Name="VolScale"/>'
+write(imainunit, '(A)') '    </PCellData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main FBM forces VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_fbm_forces_main
+
+
+SUBROUTINE Output_VTK_fbm_forces_piece_binary(cname, dcoor, kvert, &
+  forceX, forceY, forceZ, &
+  scaledX, scaledY, scaledZ, &
+  normalX, normalY, normalZ, &
+  symgradX, symgradY, symgradZ, &
+  volscale, alphaField)
+!
+! Binary (appended raw) version of Output_VTK_fbm_forces_piece.
+! Writes CellData (13 fields) and PointData (Alpha) as Float32.
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+USE, INTRINSIC :: iso_fortran_env, ONLY: int8, int32, int64, real32
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: forceX(*), forceY(*), forceZ(*)
+REAL*8, intent(in) :: scaledX(*), scaledY(*), scaledZ(*)
+REAL*8, intent(in) :: normalX(*), normalY(*), normalZ(*)
+REAL*8, intent(in) :: symgradX(*), symgradY(*), symgradZ(*)
+REAL*8, intent(in) :: volscale(*), alphaField(*)
+INTEGER :: ive, ivt, ielem
+CHARACTER(len=100) :: filename
+CHARACTER(len=256) :: line
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908076
+INTEGER :: istat
+INTEGER(int64) :: offset, off
+INTEGER(int64), PARAMETER :: header_bytes = 8_int64
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing FBM forces VTK (binary): ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', access='stream', &
+     form='unformatted', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+offset = 0_int64
+
+! --- XML header ---
+call write_line(iunit, '<VTKFile type="UnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">')
+call write_line(iunit, '  <UnstructuredGrid>')
+write(line, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+  '" NumberOfCells="', NoOfElem, '">'
+call write_line(iunit, line)
+
+! --- PointData tags ---
+call write_line(iunit, '      <PointData Scalars="Alpha">')
+call reserve_offset(4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'Alpha', 1, off)
+call write_line(iunit, '      </PointData>')
+
+! --- CellData tags ---
+call write_line(iunit, '      <CellData Scalars="CellForceX">')
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellForceX', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellForceY', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellForceZ', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'ScaledForceX', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'ScaledForceY', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'ScaledForceZ', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellNormalX', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellNormalY', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'CellNormalZ', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'SymGradX', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'SymGradY', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'SymGradZ', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'VolScale', 1, off)
+call write_line(iunit, '      </CellData>')
+
+! --- Points ---
+call write_line(iunit, '      <Points>')
+call reserve_offset(3_int64*4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'Points', 3, off)
+call write_line(iunit, '      </Points>')
+
+! --- Cells ---
+call write_line(iunit, '      <Cells>')
+call reserve_offset(8_int64*4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'connectivity', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'offsets', 1, off)
+call reserve_offset(1_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'UInt8', 'types', 1, off)
+call write_line(iunit, '      </Cells>')
+
+call write_line(iunit, '    </Piece>')
+call write_line(iunit, '  </UnstructuredGrid>')
+
+! --- Appended binary data ---
+call write_line(iunit, '  <AppendedData encoding="raw">')
+call write_char(iunit, '_')
+
+! Alpha (PointData)
+call write_header(iunit, 4_int64*NoOfVert)
+do ivt = 1, NoOfVert
+  call write_r32(iunit, alphaField(ivt))
+end do
+
+! CellForceX/Y/Z
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, forceX(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, forceY(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, forceZ(ielem))
+end do
+
+! ScaledForceX/Y/Z
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, scaledX(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, scaledY(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, scaledZ(ielem))
+end do
+
+! CellNormalX/Y/Z
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, normalX(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, normalY(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, normalZ(ielem))
+end do
+
+! SymGradX/Y/Z
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, symgradX(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, symgradY(ielem))
+end do
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, symgradZ(ielem))
+end do
+
+! VolScale
+call write_header(iunit, 4_int64*NoOfElem)
+do ielem = 1, NoOfElem
+  call write_r32(iunit, volscale(ielem))
+end do
+
+! Points
+call write_header(iunit, 3_int64*4_int64*NoOfVert)
+do ivt = 1, NoOfVert
+  call write_r32(iunit, dcoor(1,ivt))
+  call write_r32(iunit, dcoor(2,ivt))
+  call write_r32(iunit, dcoor(3,ivt))
+end do
+
+! Connectivity
+call write_header(iunit, 8_int64*4_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i32(iunit, kvert(1,ive)-1)
+  call write_i32(iunit, kvert(2,ive)-1)
+  call write_i32(iunit, kvert(3,ive)-1)
+  call write_i32(iunit, kvert(4,ive)-1)
+  call write_i32(iunit, kvert(5,ive)-1)
+  call write_i32(iunit, kvert(6,ive)-1)
+  call write_i32(iunit, kvert(7,ive)-1)
+  call write_i32(iunit, kvert(8,ive)-1)
+end do
+
+! Offsets
+call write_header(iunit, 4_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i32(iunit, ive*8)
+end do
+
+! Types (12 = VTK_HEXAHEDRON)
+call write_header(iunit, 1_int64*NoOfElem)
+do ive = 1, NoOfElem
+  call write_i8(iunit, 12_int8)
+end do
+
+call write_char(iunit, achar(10))
+call write_line(iunit, '  </AppendedData>')
+call write_line(iunit, '</VTKFile>')
+close(iunit)
+
+CONTAINS
+
+  SUBROUTINE reserve_offset(nbytes, off)
+    INTEGER(int64), INTENT(IN) :: nbytes
+    INTEGER(int64), INTENT(OUT) :: off
+    off = offset
+    offset = offset + header_bytes + nbytes
+  END SUBROUTINE reserve_offset
+
+  SUBROUTINE write_line(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) TRIM(text)//achar(10)
+  END SUBROUTINE write_line
+
+  SUBROUTINE write_char(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text
+  END SUBROUTINE write_char
+
+  SUBROUTINE write_dataarray_tag(unit, indent, dtype, name, ncomp, off)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: indent, dtype, name
+    INTEGER, INTENT(IN) :: ncomp
+    INTEGER(int64), INTENT(IN) :: off
+    CHARACTER(len=256) :: lcl
+    IF (ncomp .gt. 1) THEN
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A,I0,A)') indent, '<DataArray type="', &
+        TRIM(dtype), '" Name="', TRIM(name), '" NumberOfComponents="', ncomp, &
+        '" format="appended" offset="', off, '"/>'
+    ELSE
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A)') indent, '<DataArray type="', TRIM(dtype), &
+        '" Name="', TRIM(name), '" format="appended" offset="', off, '"/>'
+    END IF
+    call write_line(unit, lcl)
+  END SUBROUTINE write_dataarray_tag
+
+  SUBROUTINE write_header(unit, nbytes)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int64), INTENT(IN) :: nbytes
+    WRITE(unit) nbytes
+  END SUBROUTINE write_header
+
+  SUBROUTINE write_r32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    REAL*8, INTENT(IN) :: val
+    REAL(real32) :: tmp
+    tmp = REAL(val, real32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_r32
+
+  SUBROUTINE write_i32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER, INTENT(IN) :: val
+    INTEGER(int32) :: tmp
+    tmp = INT(val, int32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_i32
+
+  SUBROUTINE write_i8(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int8), INTENT(IN) :: val
+    WRITE(unit) val
+  END SUBROUTINE write_i8
+
+END SUBROUTINE Output_VTK_fbm_forces_piece_binary
+
+
+SUBROUTINE Output_VTK_fbm_forces_main_binary(cname)
+!
+! Binary-compatible main .pvtu file for FBM force visualization.
+! References piece files written by Output_VTK_fbm_forces_piece_binary.
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+INTEGER :: iproc
+INTEGER :: iMainUnit = 560
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, '(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">'
+write(imainunit, '(A)') '  <PUnstructuredGrid GhostLevel="0">'
+
+write(imainunit, '(A)') '    <PPointData Scalars="Alpha">'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Alpha"/>'
+write(imainunit, '(A)') '    </PPointData>'
+
+write(imainunit, '(A)') '    <PCellData Scalars="CellForceX">'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellForceX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellForceY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellForceZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="ScaledForceX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="ScaledForceY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="ScaledForceZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellNormalX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellNormalY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="CellNormalZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="SymGradX"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="SymGradY"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="SymGradZ"/>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="VolScale"/>'
+write(imainunit, '(A)') '    </PCellData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, '(A)') '  </PUnstructuredGrid>'
+write(imainunit, '(A)') '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main FBM forces VTK (binary) written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_fbm_forces_main_binary
+
+
 SUBROUTINE Output_GMV_fields(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
