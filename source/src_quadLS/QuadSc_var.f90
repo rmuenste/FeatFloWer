@@ -85,6 +85,8 @@ MODULE var_QuadScalar
   integer :: istep_ns = 1
   REAL*8  :: cfl_global = 0d0   ! Global max CFL, updated each timestep
   REAL*8  :: cfl_particle_global = 0d0  ! Global max particle CFL
+  REAL*8  :: cfl_particle_vdt = 0d0    ! |v_particle_max| * dt used in particle CFL
+  REAL*8  :: cfl_particle_hmin = 0d0   ! h_min used in particle CFL
   LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
 

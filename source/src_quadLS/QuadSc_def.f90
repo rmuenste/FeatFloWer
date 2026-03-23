@@ -4109,7 +4109,7 @@ TYPE(TQuadScalar), INTENT(IN) :: myScalar
 
 INTEGER  :: iel, nvt, net, nat, nel, idof
 REAL*8   :: ucx, ucy, ucz, umag, hvol, cfl_loc, cfl_max
-REAL*8   :: neg_h_min, h_min, vp_mag, cfl_p_max
+REAL*8   :: neg_h_min, h_min, vp_mag, vdt, vdt_max, cfl_p_max
 REAL*8   :: dbuf(1)
 
 #ifdef HAVE_PE
@@ -4149,6 +4149,7 @@ h_min = -neg_h_min
 
 ! Particle CFL (PE only)
 cfl_p_max = 0d0
+vdt_max = 0d0
 #ifdef HAVE_PE
 numParticles = numTotalParticles()
 dbuf(1) = dble(numParticles)
@@ -4164,13 +4165,17 @@ IF (numParticles .GT. 0 .AND. h_min .GT. 0d0) THEN
     vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
                + theParticles(IP)%velocity(2)**2 &
                + theParticles(IP)%velocity(3)**2)
-    cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
+    vdt = vp_mag * tstep
+    IF (vdt .GT. vdt_max) vdt_max = vdt
+    cfl_p_max = MAX(cfl_p_max, vdt / h_min)
   END DO
 
   DEALLOCATE(theParticles)
 END IF
 #endif
 cfl_particle_global = cfl_p_max
+cfl_particle_hmin = h_min
+cfl_particle_vdt = vdt_max
 
 END SUBROUTINE ComputeCFL
 

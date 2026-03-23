@@ -629,7 +629,8 @@ IF (myid .EQ. 1) THEN
     WRITE(*,'(A,F10.4)') ' CFL (fluid): ', cfl_global
   END IF
   IF (bPrintParticleCFL) THEN
-    WRITE(*,'(A,F10.4)') ' CFL (particle): ', cfl_particle_global
+    WRITE(*,'(A,F10.4,A,ES12.4,A,ES12.4)') ' CFL (particle): ', cfl_particle_global, &
+      '  |v|*dt= ', cfl_particle_vdt, '  h_min= ', cfl_particle_hmin
   END IF
 END IF
 
