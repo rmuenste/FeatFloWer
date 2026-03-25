@@ -870,6 +870,7 @@ real*8 :: theNorm
 integer :: iPointer
 character(len=*), parameter :: fmt_sed = '(A,1X,A,ES14.6,1X,A,I6,1X,3ES14.6)'
 real*8 :: time_out
+integer, parameter :: force_log_unit = 779
 
 ! Force arrays and boundary element tracking
 integer, parameter :: maxBdryPerPart = 500
@@ -1129,8 +1130,45 @@ if (myid /= 0) then
     END DO
   end if
 #endif
+  if (myid == 1) then
+    time_out = dble(itns - 1) * tstep
+    DO IP = 1, numParticles
+      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%force(:)
+      write(*,fmt_sed) 'SED_BENCH_FORCE/mp', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%force(:)/0.15283524d0
+      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%position(:)
+      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
+        theParticles(IP)%velocity(:)
+    END DO
+  end if
+
+  if (myid == 1) then
+    time_out = dble(itns - 1) * tstep
+
+    if (itns == 1) then
+      open(unit=force_log_unit, file='particle_force.log', action='write', status='replace')
+      write(force_log_unit,'(A)') '# time ip fx fy fz tx ty tz px py pz vx vy vz'
+    else
+      open(unit=force_log_unit, file='particle_force.log', action='write', &
+           status='old', position='append')
+    end if
+
+    DO IP = 1, numParticles
+      write(force_log_unit,'(F12.6,1X,I6,1X,12ES16.8)') time_out, IP, &
+        theParticles(IP)%force(1), theParticles(IP)%force(2), theParticles(IP)%force(3), &
+        theParticles(IP)%torque(1), theParticles(IP)%torque(2), theParticles(IP)%torque(3), &
+        theParticles(IP)%position(1), theParticles(IP)%position(2), theParticles(IP)%position(3), &
+        theParticles(IP)%velocity(1), theParticles(IP)%velocity(2), theParticles(IP)%velocity(3)
+    END DO
+
+    close(force_log_unit)
+  end if
 
 end if
+
+call MonitorBulkFlowSerial(U1,U2,U3,ALPHA,KVERT,KAREA,KEDGE,DCORVG,ELE)
 
 deallocate(forceArray_result)
 
@@ -1147,3 +1185,223 @@ end if
 total_lubrication = 0.0d0
 
 END SUBROUTINE ForcesLocalParticlesSerial
+
+!========================================================================
+! MonitorBulkFlowSerial - Log bulk flow aligned with constant forcing
+!========================================================================
+SUBROUTINE MonitorBulkFlowSerial(U1,U2,U3,ALPHA,KVERT,KAREA,KEDGE,DCORVG,ELE)
+USE PP3D_MPI, ONLY: myid, COMM_SUMMN
+USE var_QuadScalar, ONLY: bConstForce, ConstForce
+IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
+
+PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,&
+           NNDIM=3,NNCOF=10)
+PARAMETER (Q8=0.125D0)
+
+REAL*8 :: U1(*),U2(*),U3(*)
+REAL*8 :: DCORVG(NNDIM,*)
+INTEGER :: ALPHA(*)
+INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
+EXTERNAL ELE
+
+INTEGER KDFG(NNBAS),KDFL(NNBAS)
+REAL*8 :: force_norm, force_dir(3), upar_elem, upar_avg_elem
+REAL*8 :: vol_elem, solid_vol_elem, fluid_vol_elem, fluid_frac_elem
+REAL*8 :: local_sums(4), global_sums(4)
+REAL*8 :: dbi1, alpha_val
+INTEGER, PARAMETER :: bulk_log_unit = 780
+LOGICAL :: bulk_monitor_valid, bulk_monitor_enabled, bulk_log_exists
+
+COMMON /OUTPUT/ M,MT,MKEYB,MTERM,MERR,MPROT,MSYS,MTRC,IRECL8
+COMMON /ERRCTL/ IER,ICHECK
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
+COMMON /ELEM/   DX(NNVE),DY(NNVE),DZ(NNVE),DJAC(3,3),DETJ,&
+                DBAS(NNDIM,NNBAS,NNDER),BDER(NNDER),KVE(NNVE),&
+                IEL,NDIM
+COMMON /TRIAD/  NEL,NVT,NET,NAT,NVE,NEE,NAE,NVEL,NEEL,NVED,&
+                NVAR,NEAR,NBCT,NVBD,NEBD,NABD
+COMMON /CUB/    DXI(NNCUBP,3),DOMEGA(NNCUBP),NCUBP,ICUBP
+COMMON /MGPAR/  ILEV,NLEV,NLMIN,NLMAX,ICYCLE,KPRSM,KPOSM
+COMMON /COAUX1/ KDFG,KDFL,IDFL
+
+force_norm = SQRT(ConstForce(1)**2 + ConstForce(2)**2 + ConstForce(3)**2)
+bulk_monitor_enabled = bConstForce .AND. (force_norm > 0.0D0)
+
+force_dir = 0.0D0
+IF (bulk_monitor_enabled) THEN
+  force_dir(1) = ConstForce(1)/force_norm
+  force_dir(2) = ConstForce(2)/force_norm
+  force_dir(3) = ConstForce(3)/force_norm
+END IF
+
+local_sums = 0.0D0
+bulk_monitor_valid = bulk_monitor_enabled
+
+IF ((myid /= 0) .AND. bulk_monitor_enabled) THEN
+  DO I = 1, NNDER
+    BDER(I) = .FALSE.
+  END DO
+  DO I = 1, 4
+    BDER(I) = .TRUE.
+  END DO
+
+  IELTYP = -1
+  CALL ELE(0D0,0D0,0D0,IELTYP)
+  IDFL = NDFL(IELTYP)
+
+  ICUB = 9
+  CALL CB3H(ICUB)
+  IF (IER /= 0) THEN
+    bulk_monitor_valid = .FALSE.
+  END IF
+END IF
+
+DO IEL = 1, NEL
+  IF (.NOT. bulk_monitor_valid) EXIT
+  CALL NDFGL(IEL,1,IELTYP,KVERT,KEDGE,KAREA,KDFG,KDFL)
+  IF (IER < 0) THEN
+    bulk_monitor_valid = .FALSE.
+    EXIT
+  END IF
+
+  DO IVE=1,NVE
+    JP=KVERT(IVE,IEL)
+    KVE(IVE)=JP
+    DX(IVE)=DCORVG(1,JP)
+    DY(IVE)=DCORVG(2,JP)
+    DZ(IVE)=DCORVG(3,JP)
+  END DO
+
+  DJ11=( DX(1)+DX(2)+DX(3)+DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+  DJ12=( DY(1)+DY(2)+DY(3)+DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+  DJ13=( DZ(1)+DZ(2)+DZ(3)+DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+  DJ21=(-DX(1)+DX(2)+DX(3)-DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+  DJ22=(-DY(1)+DY(2)+DY(3)-DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+  DJ23=(-DZ(1)+DZ(2)+DZ(3)-DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+  DJ31=(-DX(1)-DX(2)+DX(3)+DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+  DJ32=(-DY(1)-DY(2)+DY(3)+DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+  DJ33=(-DZ(1)-DZ(2)+DZ(3)+DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+  DJ41=(-DX(1)-DX(2)-DX(3)-DX(4)+DX(5)+DX(6)+DX(7)+DX(8))*Q8
+  DJ42=(-DY(1)-DY(2)-DY(3)-DY(4)+DY(5)+DY(6)+DY(7)+DY(8))*Q8
+  DJ43=(-DZ(1)-DZ(2)-DZ(3)-DZ(4)+DZ(5)+DZ(6)+DZ(7)+DZ(8))*Q8
+  DJ51=( DX(1)-DX(2)+DX(3)-DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+  DJ52=( DY(1)-DY(2)+DY(3)-DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+  DJ53=( DZ(1)-DZ(2)+DZ(3)-DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+  DJ61=( DX(1)-DX(2)-DX(3)+DX(4)-DX(5)+DX(6)+DX(7)-DX(8))*Q8
+  DJ62=( DY(1)-DY(2)-DY(3)+DY(4)-DY(5)+DY(6)+DY(7)-DY(8))*Q8
+  DJ63=( DZ(1)-DZ(2)-DZ(3)+DZ(4)-DZ(5)+DZ(6)+DZ(7)-DZ(8))*Q8
+  DJ71=( DX(1)+DX(2)-DX(3)-DX(4)-DX(5)-DX(6)+DX(7)+DX(8))*Q8
+  DJ72=( DY(1)+DY(2)-DY(3)-DY(4)-DY(5)-DY(6)+DY(7)+DY(8))*Q8
+  DJ73=( DZ(1)+DZ(2)-DZ(3)-DZ(4)-DZ(5)-DZ(6)+DZ(7)+DZ(8))*Q8
+  DJ81=(-DX(1)+DX(2)-DX(3)+DX(4)+DX(5)-DX(6)+DX(7)-DX(8))*Q8
+  DJ82=(-DY(1)+DY(2)-DY(3)+DY(4)+DY(5)-DY(6)+DY(7)-DY(8))*Q8
+  DJ83=(-DZ(1)+DZ(2)-DZ(3)+DZ(4)+DZ(5)-DZ(6)+DZ(7)-DZ(8))*Q8
+
+  CALL ELE(0D0,0D0,0D0,-2)
+  IF (IER < 0) THEN
+    bulk_monitor_valid = .FALSE.
+    EXIT
+  END IF
+
+  upar_elem = 0.0D0
+  vol_elem = 0.0D0
+  solid_vol_elem = 0.0D0
+
+  DO ICUBP=1,NCUBP
+    XI1=DXI(ICUBP,1)
+    XI2=DXI(ICUBP,2)
+    XI3=DXI(ICUBP,3)
+
+    DJAC(1,1)=DJ21+DJ51*XI2+DJ61*XI3+DJ81*XI2*XI3
+    DJAC(1,2)=DJ31+DJ51*XI1+DJ71*XI3+DJ81*XI1*XI3
+    DJAC(1,3)=DJ41+DJ61*XI1+DJ71*XI2+DJ81*XI1*XI2
+    DJAC(2,1)=DJ22+DJ52*XI2+DJ62*XI3+DJ82*XI2*XI3
+    DJAC(2,2)=DJ32+DJ52*XI1+DJ72*XI3+DJ82*XI1*XI3
+    DJAC(2,3)=DJ42+DJ62*XI1+DJ72*XI2+DJ82*XI1*XI2
+    DJAC(3,1)=DJ23+DJ53*XI2+DJ63*XI3+DJ83*XI2*XI3
+    DJAC(3,2)=DJ33+DJ53*XI1+DJ73*XI3+DJ83*XI1*XI3
+    DJAC(3,3)=DJ43+DJ63*XI1+DJ73*XI2+DJ83*XI1*XI2
+    DETJ= DJAC(1,1)*(DJAC(2,2)*DJAC(3,3)-DJAC(3,2)*DJAC(2,3))&
+         -DJAC(2,1)*(DJAC(1,2)*DJAC(3,3)-DJAC(3,2)*DJAC(1,3))&
+         +DJAC(3,1)*(DJAC(1,2)*DJAC(2,3)-DJAC(2,2)*DJAC(1,3))
+    OM=DOMEGA(ICUBP)*ABS(DETJ)
+
+    CALL ELE(XI1,XI2,XI3,-3)
+    IF (IER < 0) THEN
+      bulk_monitor_valid = .FALSE.
+      EXIT
+    END IF
+
+    DU1V=0D0
+    DU2V=0D0
+    DU3V=0D0
+    alpha_val=0D0
+
+    DO I=1,IDFL
+      IG=KDFG(I)
+      DBI1=DBAS(1,KDFL(I),1)
+
+      DU1V=DU1V+U1(IG)*DBI1
+      DU2V=DU2V+U2(IG)*DBI1
+      DU3V=DU3V+U3(IG)*DBI1
+
+      IF (ALPHA(IG) /= 0) THEN
+        DALPHA = 1D0
+      ELSE
+        DALPHA = 0D0
+      END IF
+      alpha_val = alpha_val + DALPHA*DBI1
+    END DO
+
+    if (alpha_val < 0.0d0) alpha_val = 0.0d0
+    if (alpha_val > 1.0d0) alpha_val = 1.0d0
+
+    upar = DU1V*force_dir(1) + DU2V*force_dir(2) + DU3V*force_dir(3)
+    upar_elem = upar_elem + upar*OM
+    vol_elem = vol_elem + OM
+    solid_vol_elem = solid_vol_elem + alpha_val*OM
+  END DO
+
+  IF (.NOT. bulk_monitor_valid) EXIT
+  IF (vol_elem <= 0.0D0) CYCLE
+
+  fluid_vol_elem = vol_elem - solid_vol_elem
+  IF (fluid_vol_elem < 0.0D0) fluid_vol_elem = 0.0D0
+  fluid_frac_elem = fluid_vol_elem / vol_elem
+  upar_avg_elem = upar_elem / vol_elem
+
+  local_sums(1) = local_sums(1) + vol_elem
+  local_sums(2) = local_sums(2) + fluid_vol_elem
+  local_sums(3) = local_sums(3) + upar_avg_elem*vol_elem
+  local_sums(4) = local_sums(4) + upar_avg_elem*fluid_frac_elem*vol_elem
+END DO
+
+global_sums = local_sums
+CALL COMM_SUMMN(global_sums, 4)
+
+IF (myid == 1) THEN
+  time_out = dble(itns - 1) * tstep
+  U_sup = 0.0D0
+  U_fluid = 0.0D0
+  fluid_fraction = 0.0D0
+  IF (global_sums(1) > 0.0D0) THEN
+    U_sup = global_sums(3) / global_sums(1)
+    fluid_fraction = global_sums(2) / global_sums(1)
+  END IF
+  IF (global_sums(2) > 0.0D0) U_fluid = global_sums(4) / global_sums(2)
+
+  INQUIRE(file='bulk_flow.log', exist=bulk_log_exists)
+  IF ((itns == 1) .OR. (.NOT. bulk_log_exists)) THEN
+    open(unit=bulk_log_unit, file='bulk_flow.log', action='write', status='replace')
+    write(bulk_log_unit,'(A)') '# time U_sup U_fluid fluid_fraction valid enabled'
+  ELSE
+    open(unit=bulk_log_unit, file='bulk_flow.log', action='write', &
+         status='unknown', position='append')
+  END IF
+
+  write(bulk_log_unit,'(F12.6,1X,3ES16.8,1X,2L1)') time_out, U_sup, U_fluid, &
+       fluid_fraction, bulk_monitor_valid, bulk_monitor_enabled
+  close(bulk_log_unit)
+END IF
+
+END SUBROUTINE MonitorBulkFlowSerial

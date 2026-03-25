@@ -18,9 +18,9 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   ProlongationDirection, bNS_Stabilization, b2DViscoBench, b3DViscoBench, &
   SSE_HAS_ANGLE, extruder_angle, ApplicationString, VersionString, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
-  skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
+  bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  cPartitionFormat, bRecursivePartitioning
+  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -748,6 +748,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bBoundaryCheck = read_yes_no_param(string, iEq)
       CASE ("NS_Stabilization")
         bNS_Stabilization = read_yes_no_param(string, iEq)
+      CASE ("UseConstantForcing")
+        bConstForce = read_yes_no_param(string, iEq)
+      CASE ("ConstantForcing")
+        READ(string(iEq+1:),*) ConstForce
       CASE ("skipFBMForce")
         skipFBMForce = read_yes_no_param(string, iEq)
       CASE ("skipFBMDynamics")
@@ -756,6 +760,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintCFL = read_yes_no_param(string, iEq)
       CASE ("PrintParticleCFL")
         bPrintParticleCFL = read_yes_no_param(string, iEq)
+      CASE ("PrintParticleReynolds")
+        bPrintParticleReynolds = read_yes_no_param(string, iEq)
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")
@@ -975,6 +981,14 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "BoundaryCheck is ", "OFF")
     END IF
 
+    IF (bConstForce) THEN
+      CALL write_param_str(mfile, mterm, "UseConstantForcing is ", "ON")
+      WRITE(mfile,'(A,3ES14.4)') "ConstantForcing = ", ConstForce
+      WRITE(mterm,'(A,3ES14.4)') "ConstantForcing = ", ConstForce
+    ELSE
+      CALL write_param_str(mfile, mterm, "UseConstantForcing is ", "OFF")
+    END IF
+
     IF (skipFBMForce) THEN
       CALL write_param_str(mfile, mterm, "skipFBMForce is ", "ON")
     ELSE
@@ -1002,6 +1016,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "PrintParticleCFL is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "PrintParticleCFL is ", "OFF")
+    END IF
+
+    IF (bPrintParticleReynolds) THEN
+      CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "OFF")
     END IF
 
     IF (bBinaryVtkOutput) THEN

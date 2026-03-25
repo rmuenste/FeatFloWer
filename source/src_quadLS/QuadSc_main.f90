@@ -19,7 +19,7 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
                                  fbm_compute_particle_reynolds_farfield, &
                                  fbm_compute_particle_reynolds_reference_shell
 
-use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, bPrintParticleReynolds
 
 use, intrinsic :: ieee_arithmetic
 
@@ -113,6 +113,7 @@ END IF
 IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
+ CALL AddConstantForce()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -287,8 +288,10 @@ call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                       LinSc%valP(NLMAX)%x,&
                       fbm_force_handler_ptr)
 
-call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                                   Viscosity,Properties%Density(1),mfile, E013)
+if (bPrintParticleReynolds) then
+  call fbm_compute_particle_reynolds(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                     Viscosity,Properties%Density(1),mfile, E013)
+end if
 
 ! Step the particle simulation
 call fbm_updateFBM(Properties%Density(1),tstep,timens,&
@@ -376,6 +379,7 @@ IF (myid.ne.master) THEN
 
  ! Add the gravity force to the rhs
  CALL AddGravForce()
+ CALL AddConstantForce()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -555,8 +559,6 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-
-!call fbm_testBasicFBM(0.0d0, 0.0d0, 0.1275d0, FictKNPR_uint64(1))
 #ifdef HAVE_PE 
 if (myid.eq. 1) write(*,*)'fbm force'
 #endif 
@@ -571,17 +573,17 @@ if(.not. skipFBMForce) then
 end if
 
 
-!call fbm_compute_particle_reynolds_interface(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-!                                  FictKNPR,Viscosity,Properties%Density(1),mfile, E013)
-call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                                                      FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
+if (bPrintParticleReynolds) then
+  call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                                        FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
 
-call fbm_compute_particle_reynolds_farfield(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                                            FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
+  call fbm_compute_particle_reynolds_farfield(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                              FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
 
-! Keep the robust shell-based reference velocity as the default ParticleRe value.
-call fbm_compute_particle_reynolds_reference_shell(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
-                                                   FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
+  ! Keep the robust shell-based reference velocity as the default ParticleRe value.
+  call fbm_compute_particle_reynolds_reference_shell(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
+                                                     FictKNPR,Viscosity,Properties%Density(1),mfile,E013)
+end if
 
 !call Sum_myMPI(total_lubrication, global_lubrication)
 !call DNA_GetSoosForce(mfile)
@@ -600,8 +602,6 @@ if(.not. skipFBMDynamics) then
                      LinSc%valP(NLMAX)%x,&
                      fbm_up_handler_ptr) 
 end if
-
-!call fbm_velBCTest()
 
 !IF (myid.ne.0) THEN
 ! CALL STORE_OLD_MESH(mg_mesh%level(NLMAX+1)%dcorvg)

@@ -169,6 +169,33 @@ subroutine AddGravForce
 end subroutine AddGravForce
 
 !=========================================================================
+! AddConstantForce - Add user-defined constant body force
+! Reuses the gravity assembly kernel with a general forcing vector.
+!=========================================================================
+subroutine AddConstantForce
+  implicit none
+  integer :: lint
+  real(8) :: daux
+  external E013
+
+  daux = sqrt(ConstForce(1)**2 + ConstForce(2)**2 + ConstForce(3)**2)
+  if ((.not. bConstForce) .or. daux <= 0.0d0) return
+
+  ILEV = NLMAX
+  call SETLEV(2)
+
+  call Grav_QuadSc(QuadSc%defU, QuadSc%defV, QuadSc%defW, mgDensity(ILEV)%x, &
+                   ConstForce, QuadSc%ndof, &
+                   mg_mesh%level(ilev)%kvert, &
+                   mg_mesh%level(ilev)%karea, &
+                   mg_mesh%level(ilev)%kedge, &
+                   KWORK(L(KLINT(NLMAX))), &
+                   mg_mesh%level(ilev)%dcorvg, &
+                   tstep, E013)
+
+end subroutine AddConstantForce
+
+!=========================================================================
 ! OperatorRegenaration - Regenerate system matrices
 ! Rebuilds various system matrices based on type parameter
 !=========================================================================

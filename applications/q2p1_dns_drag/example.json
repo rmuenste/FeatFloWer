@@ -20,5 +20,5 @@
   "packingMethod_": "none",
   "benchRadius_": 0.05,
   "checkpoint_path_": "checkpoints/",
-  "config_string": "q2p1_dns_drag serial setup: monodisperse fixed sphere array in unit cube"
+  "config_string": "q2p1_dns_drag serial setup: fixed sphere array in periodic unit cube"
 }
