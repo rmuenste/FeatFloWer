@@ -852,6 +852,15 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
+IF (iT.EQ.231) THEN
+ dCenter=[-5.98,12.922,5.30]
+ dNormal=[0.396,-0.821,-0.411]
+ dProfil = RotParabolicVelo3D(1d0,1d0,0.95d0)
+ ValU = dProfil(1)
+ ValV = dProfil(2)
+ ValW = dProfil(3)
+END IF
+
 IF (iT.EQ.171) THEN
    dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
    ValU= +dScale*900d0
