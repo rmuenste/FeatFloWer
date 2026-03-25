@@ -78,26 +78,26 @@ if (.not.myHypre%solverIsSet) then
   !print solve info + parameters
   call HYPRE_BoomerAMGSetPrintLevel(myHypre%solver, 0, ierr)
 
-  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%solver, 0.5, ierr)
-  !set coarsening type (8 or 10 recommended)
-  call HYPRE_BoomerAMGSetCoarsenType(myHypre%solver, 0, ierr)
+  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%solver, 0.25d0, ierr)
+  !use HMIS coarsening (robust for 3D Laplace systems)
+  call HYPRE_BoomerAMGSetCoarsenType(myHypre%solver, 10, ierr)
   !G-S/Jacobi hybrid relaxation
   call HYPRE_BoomerAMGSetRelaxType(myHypre%solver, 8, ierr)
   !C/F relaxation
   call HYPRE_BoomerAMGSetRelaxOrder(myHypre%solver, 1, ierr)
-  !Sweeeps on each level
-  call HYPRE_BoomerAMGSetNumSweeps(myHypre%solver, 32, ierr)
+  !Sweeps on each level
+  call HYPRE_BoomerAMGSetNumSweeps(myHypre%solver, 2, ierr)
   !maximum number of levels
   call HYPRE_BoomerAMGSetMaxLevels(myHypre%solver, 20, ierr)
   !set interpolation type
-  call Hypre_BoomerAMGSetInterpType(myHypre%solver, 0, ierr)
+  call Hypre_BoomerAMGSetInterpType(myHypre%solver, 13, ierr)
   !Max numbers per rows
-  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%solver, 7, ierr)
+  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%solver, 5, ierr)
 
 !   call HYPRE_BoomerAMGSetNumFunctions(myHypre%solver, 4, ierr)
 !   call HYPRE_BoomerAMGSetNodal(myHypre%solver, 3, ierr)
 
-  call HYPRE_BoomerAMGSetCycleType(myHypre%solver, 2, ierr)
+  call HYPRE_BoomerAMGSetCycleType(myHypre%solver, 1, ierr)
 
   call Hypre_BoomerAMGSetMaxIter(myHypre%solver, 50, ierr)
 
@@ -237,21 +237,21 @@ if (.not.myHypre%solverIsSet) then
   !Create solver
   call HYPRE_BoomerAMGCreate(myHypre%precond, ierr)
 
-  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.6, ierr)
-  !set coarsening type (8 or 10 recommended)
-  call HYPRE_BoomerAMGSetCoarsenType(myHypre%precond, 0, ierr)
+  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.25d0, ierr)
+  !set coarsening type (HMIS for scalar Laplace)
+  call HYPRE_BoomerAMGSetCoarsenType(myHypre%precond, 10, ierr)
   !G-S/Jacobi hybrid relaxation
   call HYPRE_BoomerAMGSetRelaxType(myHypre%precond, 8, ierr)
   !C/F relaxation
   call HYPRE_BoomerAMGSetRelaxOrder(myHypre%precond, 1, ierr)
   ! Sweeeps on each level
-  call HYPRE_BoomerAMGSetNumSweeps(myHypre%precond, 32, ierr)
+  call HYPRE_BoomerAMGSetNumSweeps(myHypre%precond, 2, ierr)
   !maximum number of levels
   call HYPRE_BoomerAMGSetMaxLevels(myHypre%precond, 20, ierr)
   !set interpolation type
-  call Hypre_BoomerAMGSetInterpType(myHypre%precond, 0, ierr)
+  call Hypre_BoomerAMGSetInterpType(myHypre%precond, 13, ierr)
   !Max numbers per rows
-  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 7, ierr)
+  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 5, ierr)
   
   CALL HYPRE_BoomerAMGSetMinCoarseSize(myHypre%precond, 60, ierr)
 
@@ -263,7 +263,7 @@ if (.not.myHypre%solverIsSet) then
 
   call HYPRE_BoomerAMGSetNodal(myHypre%precond, 3, ierr)
 
-  call HYPRE_BoomerAMGSetCycleType(myHypre%precond, 2, ierr)
+  call HYPRE_BoomerAMGSetCycleType(myHypre%precond, 1, ierr)
 
   call Hypre_BoomerAMGSetMaxIter(myHypre%precond, 1, ierr)
 
@@ -398,26 +398,26 @@ if (.not.myHypre%solverIsSet) then
   !        print solve info + parameters
   ! call HYPRE_BoomerAMGSetPrintLevel(myHypre%precond, 3, ierr)
   !        set 3d problem
-  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.25, ierr)
-  !        set coarsening type (8 or 10 recommended)
-  call HYPRE_BoomerAMGSetCoarsenType(myHypre%precond, 0, ierr)
+  call HYPRE_BoomerAMGSetStrongThrshld(myHypre%precond, 0.25d0, ierr)
+  !        use HMIS coarsening
+  call HYPRE_BoomerAMGSetCoarsenType(myHypre%precond, 10, ierr)
   !        G-S/Jacobi hybrid relaxation
   call HYPRE_BoomerAMGSetRelaxType(myHypre%precond, 8, ierr)
   !        C/F relaxation
   call HYPRE_BoomerAMGSetRelaxOrder(myHypre%precond, 1, ierr)
   !        Sweeeps on each level
-  call HYPRE_BoomerAMGSetNumSweeps(myHypre%precond, 32, ierr)
+  call HYPRE_BoomerAMGSetNumSweeps(myHypre%precond, 2, ierr)
   !        maximum number of levels
   call HYPRE_BoomerAMGSetMaxLevels(myHypre%precond, 20, ierr)
   !        set interpolation type
-  call Hypre_BoomerAMGSetInterpType(myHypre%precond, 0, ierr)
+  call Hypre_BoomerAMGSetInterpType(myHypre%precond, 13, ierr)
   !        Max numbers per rows
-  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 7, ierr)
+  call HYPRE_BoomerAMGSetPMaxElmts(myHypre%precond, 5, ierr)
 
   call HYPRE_BoomerAMGSetNumFunctions(myHypre%precond, 4, ierr)
   call HYPRE_BoomerAMGSetNodal(myHypre%precond, 3, ierr)
 
-  call HYPRE_BoomerAMGSetCycleType(myHypre%precond, 2, ierr)
+  call HYPRE_BoomerAMGSetCycleType(myHypre%precond, 1, ierr)
 
   call Hypre_BoomerAMGSetMaxIter(myHypre%precond, 1, ierr)
 
