@@ -63,10 +63,12 @@ MODULE var_QuadScalar
   LOGICAL :: bSteadyState =.FALSE.
   LOGICAL :: bBoundaryCheck=.FALSE.
   LOGICAL :: bNS_Stabilization=.FALSE.
+  LOGICAL :: bConstForce=.FALSE.
   LOGICAL :: skipFBMForce=.FALSE.,skipFBMDynamics=.FALSE.
   LOGICAL :: bBinaryVtkOutput=.FALSE.
   LOGICAL :: bRecursivePartitioning=.TRUE.
   REAL*8 :: Gamma = 0d0
+  REAL*8 :: ConstForce(3) = (/0d0, 0d0, 0d0/)
   integer, parameter :: uterm = 6
   REAL*8  :: dCGALtoRealFactor = 1d0
   INTEGER, PARAMETER :: Giesekus = 0
@@ -89,6 +91,7 @@ MODULE var_QuadScalar
   REAL*8  :: cfl_particle_global = 0d0  ! Global max particle CFL
   LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
+  LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.

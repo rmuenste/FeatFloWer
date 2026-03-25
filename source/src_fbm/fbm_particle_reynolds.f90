@@ -8,6 +8,22 @@ MODULE fbm_particle_reynolds
 CONTAINS
 
 #ifdef HAVE_PE
+  REAL*8 FUNCTION fbm_particle_characteristic_diameter(particle)
+    USE dem_query, ONLY: tParticleData
+    USE iso_c_binding, ONLY: c_int
+
+    TYPE(tParticleData), INTENT(IN) :: particle
+    INTEGER(c_int), PARAMETER :: PE_SPHERE_TYPE = 1_c_int
+
+    IF (particle%typeId .EQ. PE_SPHERE_TYPE .AND. particle%radius .GT. 0D0) THEN
+      fbm_particle_characteristic_diameter = 2D0*particle%radius
+    ELSE
+      fbm_particle_characteristic_diameter = MAXVAL(particle%aabb)
+    END IF
+  END FUNCTION fbm_particle_characteristic_diameter
+#endif
+
+#ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds(U1, U2, U3, DVISC, RHOFLUID, mfile, ELE)
     USE fbmaux, ONLY: fbmaux_PointInHex
     use dem_query, only: getAllParticles, tParticleData
@@ -147,8 +163,7 @@ CONTAINS
           mu_loc = DVISC(iel)
           slip = vel_sample - myFBM%ParticleNew(ip)%Velocity
           speed = SQRT(slip(1)**2 + slip(2)**2 + slip(3)**2)
-          ! Get diameter from particle AABB (largest extent)
-          diameter = MAXVAL(theParticles(ip)%aabb)
+          diameter = fbm_particle_characteristic_diameter(theParticles(ip))
 
           IF (mu_loc .GT. 0D0 .AND. diameter .GT. 0D0) THEN
             re_local(ip) = RHOFLUID*speed*diameter/mu_loc
@@ -222,7 +237,7 @@ CONTAINS
 !   mfile       - Output file handle
 !
 ! Output:
-!   myFBM%ParticleRe(:) - Reynolds number for each particle
+!   myFBM%ParticleRe(:) - Local-slip Reynolds number for each particle
 !=========================================================================
 #ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds_interface(U1, U2, U3, ALPHA, DVISC, RHOFLUID, &
@@ -288,7 +303,6 @@ CONTAINS
     ALLOCATE (re_weight(numParticles))
     re_local = 0D0
     re_weight = 0D0
-
     ilev = mg_mesh%nlmax
     CALL SETLEV(2)
     nel_local = mg_mesh%level(ilev)%nel
@@ -389,8 +403,7 @@ CONTAINS
           slip = vel_avg - theParticles(ip)%velocity
           speed = SQRT(slip(1)**2 + slip(2)**2 + slip(3)**2)
 
-          ! Get diameter from particle AABB (largest extent)
-          diameter = MAXVAL(theParticles(ip)%aabb) 
+          diameter = fbm_particle_characteristic_diameter(theParticles(ip))
 
           ! Use average viscosity (could improve by weighted average from interface elements)
           mu_avg = SUM(DVISC(1:nel_local))/DBLE(nel_local)
@@ -429,9 +442,9 @@ CONTAINS
     ! Output logging
     IF (myid .EQ. 1) THEN
       IF (numParticles .GT. 0) THEN
-        WRITE (mfile, '(A,2E16.8)') 'Particle Re (interface method): ', &
+        WRITE (mfile, '(A,2E16.8)') 'Particle Re (local slip, interface average): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
-        WRITE (*, '(A,2E16.8)') 'Particle Re (interface method): ', &
+        WRITE (*, '(A,2E16.8)') 'Particle Re (local slip, interface average): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
       END IF
     END IF
@@ -484,7 +497,7 @@ CONTAINS
 !   n_layers    - Number of layers to sample (optional, default=2)
 !
 ! Output:
-!   myFBM%ParticleRe(:) - Reynolds number for each particle
+!   myFBM%ParticleRe(:) - Local-slip Reynolds number for each particle
 !=========================================================================
 #ifdef HAVE_PE
   SUBROUTINE fbm_compute_particle_reynolds_interface_extended(U1, U2, U3, ALPHA, DVISC, &
@@ -741,8 +754,7 @@ CONTAINS
           slip = vel_avg - theParticles(ip)%velocity
           speed = SQRT(slip(1)**2 + slip(2)**2 + slip(3)**2)
 
-          ! Get diameter from particle AABB (largest extent)
-          diameter = MAXVAL(theParticles(ip)%aabb)
+          diameter = fbm_particle_characteristic_diameter(theParticles(ip))
 
           ! Average viscosity
           mu_avg = SUM(DVISC(1:nel_local))/DBLE(nel_local)
@@ -780,9 +792,9 @@ CONTAINS
     ! Output logging
     IF (myid .EQ. 1) THEN
       IF (numParticles .GT. 0) THEN
-        WRITE (mfile, '(A,2E16.8)') 'Particle Re (extended interface, 2-layer): ', &
+        WRITE (mfile, '(A,2E16.8)') 'Particle Re (local slip, extended interface 2-layer): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
-        WRITE (*, '(A,2E16.8)') 'Particle Re (extended interface, 2-layer): ', &
+        WRITE (*, '(A,2E16.8)') 'Particle Re (local slip, extended interface 2-layer): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
       END IF
     END IF
@@ -812,6 +824,281 @@ CONTAINS
 #endif
 
 !=========================================================================
+! fbm_compute_particle_reynolds_reference_shell - Robust shell-based Re estimate
+!
+! Builds a reference fluid velocity from fluid-dominated elements in a shell
+! around each particle. When the particle has a clear motion direction, the
+! sampling is biased to the upstream hemisphere to reduce wake contamination.
+! A second pass trims strong outliers before forming the final reference state.
+!=========================================================================
+#ifdef HAVE_PE
+  SUBROUTINE fbm_compute_particle_reynolds_reference_shell(U1, U2, U3, ALPHA, DVISC, &
+                                                           RHOFLUID, mfile, ELE, shell_inner, shell_outer)
+    use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+    USE PP3D_MPI, ONLY: COMM_Maximumn
+    INTEGER, PARAMETER :: NNBAS = 27, NNDER = 10, NNVE = 8, NNDIM = 3
+
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    REAL*8, INTENT(IN), OPTIONAL :: shell_inner, shell_outer
+
+    INTEGER :: ip, ig, il, iel_local, ive, i, IELTYP, ilev, nel_local, numParticles
+    INTEGER :: fluid_dofs, sample_count, valid_count
+    REAL*8 :: diameter, particle_speed, shell_rmin, shell_rmax, mu_ref
+    REAL*8 :: vel_sample(3), vel_ref(3), vel_mean(3), slip(3), speed, dir_cos
+    REAL*8 :: elem_center(3), rel_vec(3), dist_to_center, radial_weight, dir_weight
+    REAL*8 :: weight_sum, dev_sq, rms_dev, threshold, dbuf1(1)
+    REAL*8 :: sample_dir(3), sample_weights_sum
+    REAL*8, ALLOCATABLE :: re_local(:), re_weight(:)
+    REAL*8, ALLOCATABLE :: sample_vel(:,:), sample_mu(:), sample_weight(:), sample_dev(:)
+    TYPE(tParticleData), DIMENSION(:), ALLOCATABLE :: theParticles
+
+    INTEGER KDFG(NNBAS), KDFL(NNBAS)
+    REAL*8 DX(NNVE), DY(NNVE), DZ(NNVE), DJAC(3, 3), DETJ
+    REAL*8 DBAS(NNDIM, NNBAS, NNDER)
+    LOGICAL BDER(NNDER)
+    INTEGER KVE(NNVE), NDIM, IEL
+
+    COMMON/ELEM/DX, DY, DZ, DJAC, DETJ, DBAS, BDER, KVE, IEL, NDIM
+    COMMON/COAUX1/KDFG, KDFL, IDFL
+    INTEGER :: IDFL
+
+    EXTERNAL :: NDFGL, SETLEV
+    INTEGER :: NDFL
+
+    IF (PRESENT(shell_inner)) THEN
+      shell_rmin = shell_inner
+    ELSE
+      shell_rmin = 1.5D0
+    END IF
+    IF (PRESENT(shell_outer)) THEN
+      shell_rmax = shell_outer
+    ELSE
+      shell_rmax = 3.0D0
+    END IF
+
+    numParticles = numTotalParticles()
+    dbuf1(1) = DBLE(numParticles)
+    CALL COMM_Maximumn(dbuf1, 1)
+    numParticles = INT(dbuf1(1))
+    IF (numParticles .EQ. 0) RETURN
+
+    IF (.NOT. ALLOCATED(myFBM%ParticleRe)) THEN
+      ALLOCATE (myFBM%ParticleRe(numParticles))
+      myFBM%ParticleRe = 0D0
+    ELSE IF (SIZE(myFBM%ParticleRe) .NE. numParticles) THEN
+      DEALLOCATE (myFBM%ParticleRe)
+      ALLOCATE (myFBM%ParticleRe(numParticles))
+      myFBM%ParticleRe = 0D0
+    END IF
+
+    ALLOCATE (theParticles(numParticles))
+    ALLOCATE (re_local(numParticles))
+    ALLOCATE (re_weight(numParticles))
+    re_local = 0D0
+    re_weight = 0D0
+
+    ilev = mg_mesh%nlmax
+    CALL SETLEV(2)
+    nel_local = mg_mesh%level(ilev)%nel
+    IF (SIZE(DVISC) .LT. nel_local) THEN
+      myFBM%ParticleRe = 0D0
+      DEALLOCATE (theParticles, re_local, re_weight)
+      RETURN
+    END IF
+
+    ALLOCATE (sample_vel(3, nel_local))
+    ALLOCATE (sample_mu(nel_local))
+    ALLOCATE (sample_weight(nel_local))
+    ALLOCATE (sample_dev(nel_local))
+
+    DO ive = 1, NNDER
+      BDER(ive) = .FALSE.
+    END DO
+    BDER(1) = .TRUE.
+
+    IELTYP = -1
+    CALL ELE(0D0, 0D0, 0D0, IELTYP)
+    IDFL = NDFL(IELTYP)
+
+    IF (myid .NE. 0) THEN
+      CALL getAllParticles(theParticles)
+
+      DO ip = 1, numParticles
+        diameter = fbm_particle_characteristic_diameter(theParticles(ip))
+        particle_speed = SQRT(SUM(theParticles(ip)%velocity**2))
+        sample_vel = 0D0
+        sample_mu = 0D0
+        sample_weight = 0D0
+        sample_dev = 0D0
+        sample_count = 0
+
+        IF (diameter .LE. 0D0) CYCLE
+
+        IF (particle_speed .GT. 1D-12) THEN
+          sample_dir = -theParticles(ip)%velocity/particle_speed
+        ELSE
+          sample_dir = 0D0
+        END IF
+
+        DO iel_local = 1, nel_local
+          CALL NDFGL(iel_local, 1, IELTYP, &
+                     mg_mesh%level(ilev)%kvert, &
+                     mg_mesh%level(ilev)%kedge, &
+                     mg_mesh%level(ilev)%karea, &
+                     KDFG, KDFL)
+
+          fluid_dofs = 0
+          DO i = 1, IDFL
+            ig = KDFG(i)
+            IF (ALPHA(ig) .EQ. 0) fluid_dofs = fluid_dofs + 1
+          END DO
+          IF (fluid_dofs .LT. 20) CYCLE
+
+          DO ive = 1, NNVE
+            ig = mg_mesh%level(ilev)%kvert(ive, iel_local)
+            KVE(ive) = ig
+            DX(ive) = mg_mesh%level(ilev)%dcorvg(1, ig)
+            DY(ive) = mg_mesh%level(ilev)%dcorvg(2, ig)
+            DZ(ive) = mg_mesh%level(ilev)%dcorvg(3, ig)
+          END DO
+
+          elem_center(1) = SUM(DX(1:NNVE))/DBLE(NNVE)
+          elem_center(2) = SUM(DY(1:NNVE))/DBLE(NNVE)
+          elem_center(3) = SUM(DZ(1:NNVE))/DBLE(NNVE)
+          rel_vec = elem_center - theParticles(ip)%position
+          dist_to_center = SQRT(SUM(rel_vec**2))
+
+          IF (dist_to_center .LT. shell_rmin*diameter) CYCLE
+          IF (dist_to_center .GT. shell_rmax*diameter) CYCLE
+
+          IF (particle_speed .GT. 1D-12) THEN
+            dir_cos = DOT_PRODUCT(rel_vec, sample_dir)/MAX(dist_to_center, 1D-12)
+            IF (dir_cos .LE. 0D0) CYCLE
+            dir_weight = dir_cos**2
+          ELSE
+            dir_weight = 1D0
+          END IF
+
+          radial_weight = 1D0 - ABS(dist_to_center - 0.5D0*(shell_rmin + shell_rmax)*diameter)/ &
+                                MAX(0.5D0*(shell_rmax - shell_rmin)*diameter, 1D-12)
+          radial_weight = MAX(radial_weight, 0.25D0)
+
+          CALL ELE(0D0, 0D0, 0D0, 0)
+
+          vel_sample = 0D0
+          DO il = 1, IDFL
+            ig = KDFG(il)
+            ive = KDFL(il)
+            vel_sample(1) = vel_sample(1) + U1(ig)*DBAS(1, ive, 1)
+            vel_sample(2) = vel_sample(2) + U2(ig)*DBAS(1, ive, 1)
+            vel_sample(3) = vel_sample(3) + U3(ig)*DBAS(1, ive, 1)
+          END DO
+
+          sample_count = sample_count + 1
+          sample_vel(:, sample_count) = vel_sample
+          sample_mu(sample_count) = DVISC(iel_local)
+          sample_weight(sample_count) = radial_weight*dir_weight
+        END DO
+
+        IF (sample_count .EQ. 0) CYCLE
+
+        vel_mean = 0D0
+        mu_ref = 0D0
+        sample_weights_sum = SUM(sample_weight(1:sample_count))
+        IF (sample_weights_sum .LE. 0D0) CYCLE
+
+        DO i = 1, sample_count
+          vel_mean = vel_mean + sample_weight(i)*sample_vel(:, i)
+          mu_ref = mu_ref + sample_weight(i)*sample_mu(i)
+        END DO
+        vel_mean = vel_mean/sample_weights_sum
+        mu_ref = mu_ref/sample_weights_sum
+
+        rms_dev = 0D0
+        DO i = 1, sample_count
+          dev_sq = SUM((sample_vel(:, i) - vel_mean)**2)
+          sample_dev(i) = SQRT(dev_sq)
+          rms_dev = rms_dev + sample_weight(i)*dev_sq
+        END DO
+        rms_dev = SQRT(rms_dev/sample_weights_sum)
+        threshold = MAX(2D0*rms_dev, 1D-10)
+
+        vel_ref = 0D0
+        mu_ref = 0D0
+        weight_sum = 0D0
+        valid_count = 0
+        DO i = 1, sample_count
+          IF (sample_dev(i) .GT. threshold) CYCLE
+          vel_ref = vel_ref + sample_weight(i)*sample_vel(:, i)
+          mu_ref = mu_ref + sample_weight(i)*sample_mu(i)
+          weight_sum = weight_sum + sample_weight(i)
+          valid_count = valid_count + 1
+        END DO
+
+        IF (valid_count .EQ. 0 .OR. weight_sum .LE. 0D0) CYCLE
+
+        vel_ref = vel_ref/weight_sum
+        mu_ref = mu_ref/weight_sum
+        slip = vel_ref - theParticles(ip)%velocity
+        speed = SQRT(SUM(slip**2))
+
+        IF (mu_ref .GT. 0D0) THEN
+          re_local(ip) = RHOFLUID*speed*diameter/mu_ref
+          re_weight(ip) = 1D0
+        END IF
+      END DO
+    END IF
+
+    CALL COMM_SUMMN(re_local, numParticles)
+    CALL COMM_SUMMN(re_weight, numParticles)
+
+    DO ip = 1, numParticles
+      IF (re_weight(ip) .GT. 0D0) THEN
+        myFBM%ParticleRe(ip) = re_local(ip)/re_weight(ip)
+      ELSE
+        myFBM%ParticleRe(ip) = 0D0
+      END IF
+    END DO
+
+    IF (myid .EQ. 1) THEN
+      IF (numParticles .GT. 0) THEN
+        WRITE (mfile, '(A,2E16.8)') 'Particle Re (reference shell, default): ', &
+          MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
+        WRITE (*, '(A,2E16.8)') 'Particle Re (reference shell, default): ', &
+          MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
+      END IF
+    END IF
+
+    DEALLOCATE (theParticles)
+    DEALLOCATE (re_local)
+    DEALLOCATE (re_weight)
+    DEALLOCATE (sample_vel)
+    DEALLOCATE (sample_mu)
+    DEALLOCATE (sample_weight)
+    DEALLOCATE (sample_dev)
+
+  END SUBROUTINE fbm_compute_particle_reynolds_reference_shell
+#else
+  SUBROUTINE fbm_compute_particle_reynolds_reference_shell(U1, U2, U3, ALPHA, DVISC, &
+                                                           RHOFLUID, mfile, ELE, shell_inner, shell_outer)
+    REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
+    REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
+    REAL*8, INTENT(IN) :: RHOFLUID
+    INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
+    REAL*8, INTENT(IN), OPTIONAL :: shell_inner, shell_outer
+    IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
+    RETURN
+  END SUBROUTINE fbm_compute_particle_reynolds_reference_shell
+#endif
+
+!=========================================================================
 ! fbm_compute_particle_reynolds_farfield - Far-field Reynolds calculation
 !
 ! Simplified far-field Reynolds number estimation by sampling velocity at
@@ -836,25 +1123,44 @@ CONTAINS
 !   myFBM%ParticleRe(:) - Far-field Reynolds number for each particle
 !=========================================================================
 #ifdef HAVE_PE
-  SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, DVISC, RHOFLUID, mfile)
+  SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, ALPHA, DVISC, RHOFLUID, mfile, ELE)
     USE PP3D_MPI, ONLY: COMM_Maximumn
+    USE fbmaux, ONLY: fbmaux_PointInHex
     use dem_query, only: numTotalParticles, getAllParticles, tParticleData
+    INTEGER, PARAMETER :: NNBAS = 27, NNDER = 10, NNVE = 8, NNDIM = 3
 
     REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
     REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
     REAL*8, INTENT(IN) :: RHOFLUID
     INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
 
-    INTEGER :: ip, ig, ilev, nel_local, numParticles, nvt_local
-    INTEGER :: closest_vertex
-    REAL*8 :: target_point(3), dist, min_dist, diameter
-    REAL*8 :: vel_farfield(3), slip(3), speed, mu_avg
+    INTEGER :: ip, ig, il, iel_local, ive, i, IELTYP, ilev, nel_local, numParticles
+    INTEGER :: fluid_dofs, sample_idx
+    REAL*8 :: target_point(3), diameter, xi1, xi2, xi3
+    REAL*8 :: vel_farfield(3), slip(3), speed, mu_avg, particle_speed
+    REAL*8 :: sample_dir(3), offset_scale, sample_offsets(4)
+    REAL*8 :: xverts(8), yverts(8), zverts(8)
+    REAL*8 :: xmin, xmax, ymin, ymax, zmin, zmax, eps_box
     REAL*8 :: dbuf1(1)
+    LOGICAL :: found_sample
+
+    INTEGER KDFG(NNBAS), KDFL(NNBAS)
+    REAL*8 DX(NNVE), DY(NNVE), DZ(NNVE), DJAC(3, 3), DETJ
+    REAL*8 DBAS(NNDIM, NNBAS, NNDER)
+    LOGICAL BDER(NNDER)
+    INTEGER KVE(NNVE), NDIM, IEL
 
     TYPE(tParticleData), DIMENSION(:), ALLOCATABLE :: theParticles
     REAL*8, ALLOCATABLE :: re_local(:), re_weight(:)
 
-    EXTERNAL :: SETLEV
+    COMMON/ELEM/DX, DY, DZ, DJAC, DETJ, DBAS, BDER, KVE, IEL, NDIM
+    COMMON/COAUX1/KDFG, KDFL, IDFL
+    INTEGER :: IDFL
+
+    EXTERNAL :: NDFGL, SETLEV
+    INTEGER :: NDFL
 
     ! Get total particle count
     numParticles = numTotalParticles()
@@ -885,7 +1191,6 @@ CONTAINS
     ilev = mg_mesh%nlmax
     CALL SETLEV(2)
     nel_local = mg_mesh%level(ilev)%nel
-    nvt_local = mg_mesh%level(ilev)%nvt
 
     IF (SIZE(DVISC) .LT. nel_local) THEN
       myFBM%ParticleRe = 0D0
@@ -895,14 +1200,23 @@ CONTAINS
 
     ! NOTE ON VALIDITY:
     !   This implementation is calibrated for the single-particle sedimentation
-    !   benchmark: the "far-field" sample is taken one particle diameter upstream
-    !   in the negative x-direction, viscosity is assumed constant, and the
-    !   nearest mesh vertex is accepted without checking the surrounding phase.
-    !   For other flow configurations (multiple particles, arbitrary inflow
-    !   direction, non-uniform viscosity) the caller must extend the sampling
-    !   logic to (a) configure the offset direction/magnitude, and (b) verify
-    !   that the sampled location lies in fluid. Without these checks the
-    !   reported Reynolds numbers can be misleading.
+    !   benchmark: the sample direction is chosen opposite the current particle
+    !   motion (falling back to +z if the particle is nearly stationary), and
+    !   the code searches a small set of upstream offsets until it finds a point
+    !   inside a fluid-dominated element. This is intended to approximate the
+    !   undisturbed ambient velocity for the ten Cate settling case.
+
+    sample_offsets = (/ 2D0, 3D0, 4D0, 6D0 /)
+    eps_box = 1D-10
+
+    DO ive = 1, NNDER
+      BDER(ive) = .FALSE.
+    END DO
+    BDER(1) = .TRUE.
+
+    IELTYP = -1
+    CALL ELE(0D0, 0D0, 0D0, IELTYP)
+    IDFL = NDFL(IELTYP)
 
     ! Worker ranks only
     IF (myid .NE. 0) THEN
@@ -914,36 +1228,93 @@ CONTAINS
       DO ip = 1, numParticles
 
         ! Get diameter from particle AABB (largest extent)
-        diameter = MAXVAL(theParticles(ip)%aabb)
+        diameter = fbm_particle_characteristic_diameter(theParticles(ip))
+        particle_speed = SQRT(SUM(theParticles(ip)%velocity**2))
 
-        ! Target point: one diameter upstream in x-direction
-        target_point(1) = theParticles(ip)%position(1) - diameter
-        target_point(2) = theParticles(ip)%position(2)
-        target_point(3) = theParticles(ip)%position(3)
+        IF (particle_speed .GT. 1D-12) THEN
+          sample_dir = -theParticles(ip)%velocity/particle_speed
+        ELSE
+          sample_dir = (/ 0D0, 0D0, 1D0 /)
+        END IF
 
-        ! Find closest mesh vertex to target point
-        min_dist = 1D10
-        closest_vertex = -1
+        found_sample = .FALSE.
+        vel_farfield = 0D0
 
-        DO ig = 1, nvt_local
-          dist = SQRT((mg_mesh%level(ilev)%dcorvg(1, ig) - target_point(1))**2 + &
-                      (mg_mesh%level(ilev)%dcorvg(2, ig) - target_point(2))**2 + &
-                      (mg_mesh%level(ilev)%dcorvg(3, ig) - target_point(3))**2)
+        DO sample_idx = 1, SIZE(sample_offsets)
+          offset_scale = sample_offsets(sample_idx)*diameter
+          target_point = theParticles(ip)%position + offset_scale*sample_dir
 
-          IF (dist .LT. min_dist) THEN
-            min_dist = dist
-            closest_vertex = ig
-          END IF
+          DO iel_local = 1, nel_local
+            DO ive = 1, NNVE
+              ig = mg_mesh%level(ilev)%kvert(ive, iel_local)
+              xverts(ive) = mg_mesh%level(ilev)%dcorvg(1, ig)
+              yverts(ive) = mg_mesh%level(ilev)%dcorvg(2, ig)
+              zverts(ive) = mg_mesh%level(ilev)%dcorvg(3, ig)
+            END DO
+
+            xmin = MINVAL(xverts)
+            xmax = MAXVAL(xverts)
+            ymin = MINVAL(yverts)
+            ymax = MAXVAL(yverts)
+            zmin = MINVAL(zverts)
+            zmax = MAXVAL(zverts)
+
+            IF (target_point(1) .LT. xmin - eps_box) CYCLE
+            IF (target_point(1) .GT. xmax + eps_box) CYCLE
+            IF (target_point(2) .LT. ymin - eps_box) CYCLE
+            IF (target_point(2) .GT. ymax + eps_box) CYCLE
+            IF (target_point(3) .LT. zmin - eps_box) CYCLE
+            IF (target_point(3) .GT. zmax + eps_box) CYCLE
+
+            xi1 = 0D0
+            xi2 = 0D0
+            xi3 = 0D0
+            found_sample = fbmaux_PointInHex(target_point(1), target_point(2), target_point(3), &
+                                             xverts, yverts, zverts, xi1, xi2, xi3, iel_local)
+            IF (.NOT. found_sample) CYCLE
+
+            CALL NDFGL(iel_local, 1, IELTYP, &
+                       mg_mesh%level(ilev)%kvert, &
+                       mg_mesh%level(ilev)%kedge, &
+                       mg_mesh%level(ilev)%karea, &
+                       KDFG, KDFL)
+
+            fluid_dofs = 0
+            DO i = 1, IDFL
+              ig = KDFG(i)
+              IF (ALPHA(ig) .EQ. 0) fluid_dofs = fluid_dofs + 1
+            END DO
+            IF (fluid_dofs .LT. 20) THEN
+              found_sample = .FALSE.
+              CYCLE
+            END IF
+
+            DO ive = 1, NNVE
+              ig = mg_mesh%level(ilev)%kvert(ive, iel_local)
+              KVE(ive) = ig
+              DX(ive) = xverts(ive)
+              DY(ive) = yverts(ive)
+              DZ(ive) = zverts(ive)
+            END DO
+
+            CALL ELE(xi1, xi2, xi3, 0)
+
+            vel_farfield = 0D0
+            DO il = 1, IDFL
+              ig = KDFG(il)
+              ive = KDFL(il)
+              vel_farfield(1) = vel_farfield(1) + U1(ig)*DBAS(1, ive, 1)
+              vel_farfield(2) = vel_farfield(2) + U2(ig)*DBAS(1, ive, 1)
+              vel_farfield(3) = vel_farfield(3) + U3(ig)*DBAS(1, ive, 1)
+            END DO
+
+            EXIT
+          END DO
+
+          IF (found_sample) EXIT
         END DO
 
-        ! If we found a vertex, evaluate velocity there
-        IF (closest_vertex .GT. 0) THEN
-
-          ! Get velocity at closest vertex (Q2 DOF)
-          vel_farfield(1) = U1(closest_vertex)
-          vel_farfield(2) = U2(closest_vertex)
-          vel_farfield(3) = U3(closest_vertex)
-
+        IF (found_sample) THEN
           ! Compute slip velocity
           slip = vel_farfield - theParticles(ip)%velocity
           speed = SQRT(slip(1)**2 + slip(2)**2 + slip(3)**2)
@@ -984,9 +1355,9 @@ CONTAINS
     ! Output logging
     IF (myid .EQ. 1) THEN
       IF (numParticles .GT. 0) THEN
-        WRITE (mfile, '(A,2E16.8)') 'Particle Re (far-field, 1-diameter upstream): ', &
+        WRITE (mfile, '(A,2E16.8)') 'Particle Re (upstream far-field reference): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
-        WRITE (*, '(A,2E16.8)') 'Particle Re (far-field, 1-diameter upstream): ', &
+        WRITE (*, '(A,2E16.8)') 'Particle Re (upstream far-field reference): ', &
           MINVAL(myFBM%ParticleRe(1:numParticles)), MAXVAL(myFBM%ParticleRe(1:numParticles))
       END IF
     END IF
@@ -999,11 +1370,13 @@ CONTAINS
   END SUBROUTINE fbm_compute_particle_reynolds_farfield
 #else
   ! Stub implementation when PE library is not available
-  SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, DVISC, RHOFLUID, mfile)
+  SUBROUTINE fbm_compute_particle_reynolds_farfield(U1, U2, U3, ALPHA, DVISC, RHOFLUID, mfile, ELE)
     REAL*8, DIMENSION(:), INTENT(IN) :: U1, U2, U3
+    INTEGER, DIMENSION(:), INTENT(IN) :: ALPHA
     REAL*8, DIMENSION(:), INTENT(IN) :: DVISC
     REAL*8, INTENT(IN) :: RHOFLUID
     INTEGER, INTENT(IN) :: mfile
+    EXTERNAL :: ELE
     ! No-op: PE library not available
     IF (ALLOCATED(myFBM%ParticleRe)) myFBM%ParticleRe = 0D0
     RETURN

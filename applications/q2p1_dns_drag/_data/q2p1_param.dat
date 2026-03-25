@@ -2,7 +2,7 @@
 SimPar@MeshFolder = "NEWFAC"
 SimPar@SubMeshNumber = 27                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
 SimPar@ParticleFile = "_data/particles.dat"
-SimPar@ProjectFile = "Couette_cube_12v2/file.prj"
+SimPar@ProjectFile = "unit_cube_27_case/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@StartFile = "_dump/01"
@@ -17,6 +17,8 @@ SimPar@MaxTimeAdapt = 0.050d0
 SimPar@StartSimTime = 0d0
 SimPar@MaxSimTime = 10.0001d0
 SimPar@MaxNumStep = 2000
+SimPar@UseConstantForcing = YES
+SimPar@ConstantForcing = 0d0,0d0,1d-2
 SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 10
 SimPar@NoOutflow = No                                                    ! Yes
