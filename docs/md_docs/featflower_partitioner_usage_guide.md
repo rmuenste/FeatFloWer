@@ -33,6 +33,40 @@ this step.
 It is strongly recommended to install into a virtual environment rather than the
 system or user Python, to keep dependencies isolated and avoid conflicts.
 
+#### Option A: `uv` (recommended)
+
+`uv` is the simplest way to create a named environment such as
+`~/.venvs/featflower` against a specific Python interpreter:
+
+```bash
+uv venv --python /sfw/python/3.13.5/bin/python ~/.venvs/featflower
+source ~/.venvs/featflower/bin/activate
+```
+
+If `python/3.13.5` comes from the module system on your machine, load that module
+before activating the environment, then activate the venv afterwards so the venv's
+`python` stays first on `PATH`:
+
+```bash
+module load python/3.13.5
+source ~/.venvs/featflower/bin/activate
+```
+
+Recommended verification:
+
+```bash
+which python
+python -c "import sys; print(sys.executable)"
+```
+
+Expected interpreter:
+
+```text
+/home/<user>/.venvs/featflower/bin/python
+```
+
+#### Option B: standard library `venv`
+
 ```bash
 python3 -m venv ~/.venvs/featflower
 source ~/.venvs/featflower/bin/activate
@@ -45,8 +79,24 @@ source ~/.venvs/featflower/bin/activate
 > Some teams keep it inside the repo at `.venv/` (add `.venv/` to `.gitignore` in
 > that case).
 
-Once activated, `python` and `pip` refer to the venv and all packages installed
-there are fully isolated from the system Python.
+Once activated, `python` and `pip` should refer to the venv and all packages
+installed there are isolated from the system Python.
+
+> If `which python` still points to a module or system interpreter such as
+> `/sfw/python/.../bin/python`, then the venv is not actually first on `PATH`.
+> Re-activate it and verify before installing packages.
+
+### Step 3 — Install Python packages for a fresh environment
+
+For a fresh `uv` environment, install the partitioner-related Python packages from the
+partitioner-specific requirements export:
+
+```bash
+uv pip install -r tools/featflower_partitioner/featflower-requirements.txt
+```
+
+This file is intentionally stored under `tools/featflower_partitioner/` so it is clear
+that these are not general top-level FeatFloWer requirements.
 
 ### Step 4 — Build METIS
 
@@ -76,6 +126,12 @@ Set `FEATFLOWER_BUILD_DIR` to your build directory and install:
 
 ```bash
 export FEATFLOWER_BUILD_DIR=$(pwd)/build
+uv pip install -e tools/featflower_partitioner/
+```
+
+If you are not using `uv`, the equivalent is:
+
+```bash
 pip install -e tools/featflower_partitioner/
 ```
 
@@ -113,14 +169,16 @@ If `~/.local/bin` is not in your `$PATH`, invoke via:
 python -m featflower_partitioner --help
 ```
 
-### Summary of install commands
+### Summary of install commands (`uv` workflow)
 
 ```bash
 git clone <repo-url> FeatFloWer && cd FeatFloWer
 git submodule update --init --recursive
 
-python3 -m venv ~/.venvs/featflower
+uv venv --python /sfw/python/3.13.5/bin/python ~/.venvs/featflower
 source ~/.venvs/featflower/bin/activate
+
+uv pip install -r tools/featflower_partitioner/featflower-requirements.txt
 
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_APPLICATIONS=OFF ..
@@ -128,7 +186,7 @@ make -j$(nproc) metis
 cd ..
 
 export FEATFLOWER_BUILD_DIR=$(pwd)/build
-pip install -e tools/featflower_partitioner/
+uv pip install -e tools/featflower_partitioner/
 ```
 
 ## 3) Command-Line Usage
@@ -229,13 +287,77 @@ package to pick up the new library:
 ```bash
 source ~/.venvs/featflower/bin/activate
 export FEATFLOWER_BUILD_DIR=$(pwd)/build
-pip install -e tools/featflower_partitioner/
+uv pip install -e tools/featflower_partitioner/
 ```
 
 This re-runs the `setup.py` hook and overwrites the bundled `libmetis.so` with the
 freshly built copy.
 
-## 6) Python API
+## 6) Fresh `uv` Environment From Scratch
+
+For a new user who is not migrating an old environment, the cleanest workflow is:
+
+```bash
+git clone <repo-url> FeatFloWer && cd FeatFloWer
+git submodule update --init --recursive
+
+uv venv --python /sfw/python/3.13.5/bin/python ~/.venvs/featflower
+source ~/.venvs/featflower/bin/activate
+
+uv pip install -r tools/featflower_partitioner/featflower-requirements.txt
+
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_APPLICATIONS=OFF ..
+make -j$(nproc) metis
+cd ..
+
+export FEATFLOWER_BUILD_DIR=$(pwd)/build
+uv pip install -e tools/featflower_partitioner/
+```
+
+Recommended verification:
+
+```bash
+which python
+python -c "import sys; print(sys.executable)"
+python -m pip show watchdog
+featflower-partition --help
+```
+
+## 7) Recreating the Environment From Requirements
+
+If you export the environment with `python -m pip freeze > featflower-requirements.txt`,
+that file captures the regular Python packages, but you should still treat the local
+editable `tools/featflower_partitioner` install as an explicit project step.
+
+Recommended export location:
+
+```bash
+python -m pip freeze > tools/featflower_partitioner/featflower-requirements.txt
+```
+
+Recommended rebuild flow:
+
+```bash
+uv venv --python /sfw/python/3.13.5/bin/python ~/.venvs/featflower
+source ~/.venvs/featflower/bin/activate
+
+uv pip install -r tools/featflower_partitioner/featflower-requirements.txt
+
+export FEATFLOWER_BUILD_DIR=$(pwd)/build
+uv pip install -e tools/featflower_partitioner/
+```
+
+Why reinstall the partitioner explicitly:
+
+- `tools/featflower_partitioner/featflower-requirements.txt` is scoped to the
+  partitioner environment rather than FeatFloWer as a whole
+- it is a local editable package from this repository
+- the install step bundles `libmetis.so` from the current build tree
+- reinstalling it after `FEATFLOWER_BUILD_DIR` is set ensures the package carries the
+  correct `libmetis.so`
+
+## 8) Python API
 
 The package also exposes a Python API for use in scripts:
 
@@ -263,7 +385,7 @@ Full public API:
 | `checkParameters(params)` | Validate a `sys.argv`-style parameter list; raises `sys.exit` on error |
 | `mkdir(dir)` | Create a directory only if it does not already exist |
 
-## 7) Relationship to Legacy Components
+## 9) Relationship to Legacy Components
 
 The package wraps the code in `tools/partitioner/` without modifying it. The original
 files remain in place and continue to be used by `e3d_start.py` via `PYTHONPATH`.
