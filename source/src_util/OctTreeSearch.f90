@@ -678,13 +678,6 @@ real*8 dmax,dmin
 REAL*8 :: q(3),daux
 integer k,iP,kk,iAux
 
-save i,i1,iii,iix,iiy,iiz,iiix,iiiy,iiiz
-save dmax,dmin,q,daux,k,iP,kk,iAux
-
-!$OMP   THREADPRIVATE(i,i1,iii,iix,iiy,iiz,iiix,iiiy,iiiz)
-!$OMP   THREADPRIVATE(dmax,dmin,q,daux,k,iP,kk,iAux)
-
-
  iMonitor = -1
  dMonitor = 1d30
  iP = -2
@@ -737,33 +730,35 @@ save dmax,dmin,q,daux,k,iP,kk,iAux
  do iiix=iix-1,iix+1
   do iiiy=iiy-1,iiy+1
    do iiiz=iiz-1,iiz+1
-    do iii = 1,OctTree%E(iiix,iiiy,iiiz)%N
-     k = OctTree%E(iiix,iiiy,iiiz)%L(iii)
-     q = dcorvg(:,k)
-     daux = sqrt((p(1)-q(1))**2d0 + (p(2)-q(2))**2d0 + (p(3)-q(3))**2d0)
-     
-     IF (daux.lt.dMonitor(nXX)) THEN
-      dMonitor(nXX) = daux
-      iMonitor(nXX) = k
-      DO kk=nXX-1,1,-1
-       IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
-        iAux = iMonitor(kk)
-        dAux = dMonitor(kk)
-        iMonitor(kk) = iMonitor(kk+1)
-        dMonitor(kk) = dMonitor(kk+1)
-        iMonitor(kk+1) = iAux
-        dMonitor(kk+1) = dAux
-       END IF
-      END DO
-     END IF
 
-!      IF (daux.lt.dist) then
-!       dist = daux
-!       iP = k
-!      END IF
-!      bFound = .true.
-!      GOTO 1
-    end do
+    if ((iiiX.lt.1).or.(iiiX.gt.OctTree%nx).or.&
+        (iiiY.lt.1).or.(iiiY.gt.OctTree%ny).or.&
+        (iiiZ.lt.1).or.(iiiZ.gt.OctTree%nz)) then
+
+    else
+     do iii = 1,OctTree%E(iiix,iiiy,iiiz)%N
+      k = OctTree%E(iiix,iiiy,iiiz)%L(iii)
+      q = dcorvg(:,k)
+      daux = sqrt((p(1)-q(1))**2d0 + (p(2)-q(2))**2d0 + (p(3)-q(3))**2d0)
+
+      IF (daux.lt.dMonitor(nXX)) THEN
+       dMonitor(nXX) = daux
+       iMonitor(nXX) = k
+       DO kk=nXX-1,1,-1
+        IF (dMonitor(kk+1).lt.dMonitor(kk)) THEN
+         iAux = iMonitor(kk)
+         dAux = dMonitor(kk)
+         iMonitor(kk) = iMonitor(kk+1)
+         dMonitor(kk) = dMonitor(kk+1)
+         iMonitor(kk+1) = iAux
+         dMonitor(kk+1) = dAux
+        END IF
+       END DO
+      END IF
+
+     end do
+    end if
+
    end do
   end do
  end do
