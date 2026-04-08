@@ -370,8 +370,10 @@ if(USE_CGAL)
       if(CGAL_VERSION VERSION_LESS "5.3")
         message(FATAL_ERROR "CGAL version ${CGAL_VERSION} is too old. Minimum required version is 5.3.")
       endif()
-      # Include CGAL settings
-      include(${CGAL_USE_FILE})
+      # Older CGAL packages export a helper include file; newer releases may not.
+      if(CGAL_USE_FILE)
+        include(${CGAL_USE_FILE})
+      endif()
       
       set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
     else()

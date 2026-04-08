@@ -34,6 +34,10 @@ Important dependency rule:
 
 ### For human users (interactive shell)
 
+Choose the compiler stack that matches your target system.
+
+GCC 13:
+
 ```bash
 source /etc/profile.d/modules.sh
 module purge
@@ -43,15 +47,34 @@ module load openmpi/4.1.6
 module list
 ```
 
-Expected loaded modules:
+GCC 14:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+module list
+```
+
+Expected loaded modules for GCC 13:
 
 - `gcc/latest-v13`
 - `openmpi/options/interface/ethernet`
 - `openmpi/4.1.6`
 
+Expected loaded modules for GCC 14:
+
+- `gcc/latest-v14`
+- `openmpi/options/interface/ethernet`
+- `openmpi/4.1.6`
+
 ### For AI agents / non-interactive commands
 
-Each command should include module loading in the same shell invocation:
+Each command should include module loading in the same shell invocation.
+
+GCC 13:
 
 ```bash
 bash -lc '
@@ -66,11 +89,46 @@ bash -lc '
 '
 ```
 
+GCC 14:
+
+```bash
+bash -lc '
+  source /etc/profile.d/modules.sh
+  module purge
+  module load gcc/latest-v14
+  module load openmpi/options/interface/ethernet
+  module load openmpi/4.1.6
+
+  # actual command here
+  cmake --version
+'
+```
+
+### GCC 14 note for this system
+
+On this machine, the GCC 14/OpenMPI 4.1.6 module stack is the working configuration for this guide:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+```
+
+Also note:
+
+- the default `-DUSE_CGAL=ON` path tries to clone CGAL from GitHub during the build
+- in restricted environments, use the site-local CGAL installation instead
+- validated local CGAL path on this system: `/sfw/cgal/gcc14.3.0/lib64/cmake/CGAL`
+
 ---
 
 ## 3) Configure Build Directory
 
-From repository root:
+From repository root.
+
+### Default configure recipe
 
 ```bash
 cmake -S . -B build-sse-ninja-mod -G Ninja \
@@ -82,10 +140,25 @@ cmake -S . -B build-sse-ninja-mod -G Ninja \
   -DENABLE_FBM_ACCELERATION=OFF
 ```
 
+### GCC 14 / local-CGAL recipe validated on this system
+
+Use this variant when outbound GitHub access is unavailable and CGAL must come from the site installation:
+
+```bash
+cmake -S . -B build-sse-ninja-mod -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_APPLICATIONS=ON \
+  -DUSE_CGAL_LOCAL=ON \
+  -DCGAL_DIR=/sfw/cgal/gcc14.3.0/lib64/cmake/CGAL \
+  -DUSE_HYPRE=ON \
+  -DUSE_PE=OFF \
+  -DENABLE_FBM_ACCELERATION=OFF
+```
+
 Recommended validation:
 
 ```bash
-rg -n "ENABLE_FBM_ACCELERATION:BOOL|USE_CGAL:BOOL|USE_HYPRE:BOOL|USE_PE:BOOL" \
+rg -n "ENABLE_FBM_ACCELERATION:BOOL|USE_CGAL:BOOL|USE_CGAL_LOCAL:BOOL|USE_HYPRE:BOOL|USE_PE:BOOL" \
   build-sse-ninja-mod/CMakeCache.txt
 ```
 
@@ -93,6 +166,7 @@ Expected values:
 
 - `ENABLE_FBM_ACCELERATION:BOOL=OFF`
 - `USE_CGAL:BOOL=ON`
+- `USE_CGAL_LOCAL:BOOL=ON` (when using the local-CGAL recipe above)
 - `USE_HYPRE:BOOL=ON`
 - `USE_PE:BOOL=OFF`
 
@@ -143,7 +217,9 @@ ls -ld _ianus _data_BU partitioner
 
 ## 6) Create SLURM Submission Script (2h, `nx`, 32 tasks)
 
-Create `run_sse_short.sh` in `build-sse-ninja-mod/applications/q2p1_sse`:
+Create `run_sse_short.sh` in `build-sse-ninja-mod/applications/q2p1_sse`.
+
+Use the GCC module line that matches the system where the job will run. The example below shows the GCC 14 variant validated on this machine:
 
 ```bash
 #!/bin/bash
@@ -156,7 +232,7 @@ Create `run_sse_short.sh` in `build-sse-ninja-mod/applications/q2p1_sse`:
 
 source /etc/profile.d/modules.sh
 module purge
-module load gcc/latest-v13
+module load gcc/latest-v14
 module load openmpi/options/interface/ethernet
 module load openmpi/4.1.6
 
@@ -260,9 +336,14 @@ Fix:
 
 ```bash
 # 1) Module environment
+# Choose one compiler stack:
+# GCC 13:
+# module load gcc/latest-v13
+# GCC 14:
+# module load gcc/latest-v14
 source /etc/profile.d/modules.sh
 module purge
-module load gcc/latest-v13
+module load gcc/latest-v14
 module load openmpi/options/interface/ethernet
 module load openmpi/4.1.6
 
@@ -304,4 +385,3 @@ with your run directory requirements.
 - Guide 01: baseline `q2p1_fc_ext` benchmark from scratch
 - Guide 02: `q2p1_bench_sedimentation` + PE serial mode from scratch
 - Guide 03 (this guide): `q2p1_sse` workflow for SSE/TSE execution with robust staging and SLURM submission
-
