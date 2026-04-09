@@ -417,7 +417,9 @@ subroutine setForcesMapped(particle)
   implicit none
 
   type(tParticleData), intent(inout) :: particle
-  
+
+  ! Canonical CFD->PE force path: write the full particle struct so
+  ! force, torque, and identity stay coupled in one interface.
   call setLocalParticle2(particle)
 
 end subroutine setForcesMapped
@@ -429,7 +431,9 @@ subroutine setRemoteForcesMapped(particle)
   implicit none
 
   type(tParticleData), intent(inout) :: particle
-  
+
+  ! Remote/shadow-particle equivalent of the canonical struct-based
+  ! CFD->PE force path.
   call setRemoteParticle2(particle)
 
 end subroutine setRemoteForcesMapped
