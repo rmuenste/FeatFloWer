@@ -1404,6 +1404,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
   use def_FEAT
   use ProcCtrl_mod, only: ProcessControl
+  use timestep_control, only: SetSimulationTimeStep
 
   implicit none
 
@@ -1437,7 +1438,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
-    tstep = dTimeStepEnlargmentFactor*tstep
+    CALL SetSimulationTimeStep(dTimeStepEnlargmentFactor*tstep)
     dtgmv = dTimeStepEnlargmentFactor*dtgmv
     dout=dout+dtgmv
 
