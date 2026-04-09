@@ -1130,19 +1130,19 @@ if (myid /= 0) then
     END DO
   end if
 #endif
-  if (myid == 1) then
-    time_out = dble(itns - 1) * tstep
-    DO IP = 1, numParticles
-      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%force(:)
-      write(*,fmt_sed) 'SED_BENCH_FORCE/mp', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%force(:)/0.15283524d0
-      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%position(:)
-      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%velocity(:)
-    END DO
-  end if
+!  if (myid == 1) then
+!    time_out = dble(itns - 1) * tstep
+!    DO IP = 1, numParticles
+!      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%force(:)
+!      write(*,fmt_sed) 'SED_BENCH_FORCE/mp', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%force(:)/0.15283524d0
+!      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%position(:)
+!      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%velocity(:)
+!    END DO
+!  end if
 
   if (myid == 1) then
     time_out = dble(itns - 1) * tstep
