@@ -63,22 +63,6 @@ integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
 end interface
 
 !================================================================================================
-!                              Subroutine getParticle
-! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
-!================================================================================================
-interface
-subroutine getParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getParticle")
-  use iso_c_binding, only: c_int, c_double
-  integer(c_int), value :: idx
-  integer(c_int)        :: lidx
-  integer(c_int)        :: uidx
-  real(c_double)        :: time
-  real(c_double)        :: pos(*)
-  real(c_double)        :: vel(*)
-  end subroutine
-end interface
-
-!================================================================================================
 !                              Subroutine getParticle2
 ! C++ implementation: getPartStructByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
@@ -104,22 +88,6 @@ subroutine setParticle2(particle) bind(C, name="setParticle2")
 end interface
 
 !================================================================================================
-!                              Subroutine getRemoteParticle
-! C++ implementation: getRemoteObjByIdx() in libs/pe/src/interface/object_queries.cpp
-!================================================================================================
-interface
-subroutine getRemoteParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="getRemoteParticle")
-  use iso_c_binding, only: c_int, c_double
-  integer(c_int) :: idx
-  integer(c_int) :: lidx
-  integer(c_int) :: uidx
-  real(c_double) :: time
-  real(c_double) :: pos(*)
-  real(c_double) :: vel(*)
-  end subroutine
-end interface
-
-!================================================================================================
 !                              Subroutine getRemoteParticle2
 ! C++ implementation: getRemPartStructByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
@@ -141,52 +109,6 @@ subroutine setRemoteParticle2(particle) bind(C, name="setRemoteParticle2")
   use iso_c_binding, only: c_int, c_double
   import tParticleData
   type(tParticleData) :: particle
-  end subroutine
-end interface
-
-!================================================================================================
-!                              Subroutine setParticle
-! C++ implementation: setObjByIdx() in libs/pe/src/interface/object_queries.cpp
-!================================================================================================
-interface
-subroutine setParticle(idx, lidx, uidx, time, pos, vel) bind(C, name="setParticle")
-  use iso_c_binding, only: c_int, c_double
-  integer(c_int) :: idx
-  integer(c_int) :: lidx
-  integer(c_int) :: uidx
-  real(c_double) :: time
-  real(c_double) :: pos(*)
-  real(c_double) :: vel(*)
-  end subroutine
-end interface
-
-!================================================================================================
-!                              Subroutine setForces
-! C++ implementation: setForcesByIdx() in libs/pe/src/interface/object_queries.cpp
-!================================================================================================
-interface
-subroutine setForces(idx, lidx, uidx, force, torque) bind(C, name="setForces")
-  use iso_c_binding, only: c_int, c_double
-  integer(c_int) :: idx
-  integer(c_int) :: lidx
-  integer(c_int) :: uidx
-  real(c_double) :: force(*)
-  real(c_double) :: torque(*)
-  end subroutine
-end interface
-
-!================================================================================================
-!                              Subroutine setRemoteForces
-! C++ implementation: setRemoteForcesByIdx() in libs/pe/src/interface/object_queries.cpp
-!================================================================================================
-interface
-subroutine setRemoteForces(idx, lidx, uidx, force, torque) bind(C, name="setRemoteForces")
-  use iso_c_binding, only: c_int, c_double
-  integer(c_int) :: idx
-  integer(c_int) :: lidx
-  integer(c_int) :: uidx
-  real(c_double) :: force(*)
-  real(c_double) :: torque(*)
   end subroutine
 end interface
 
@@ -270,24 +192,6 @@ subroutine get_bytes(bytes) bind(C, name="get_bytes")
   use iso_c_binding, only: c_short
   integer(c_short), dimension(8) :: bytes 
 end subroutine
-end interface
-
-! C++ implementation: not found
-interface
-logical(c_bool) function map_local_to_system(lidx, vidx) bind(C, name="map_local_to_system")
-  use iso_c_binding, only: c_int, c_bool 
-  integer(c_int), value :: lidx
-  integer(c_int), value :: vidx
-  end function
-end interface
-
-! C++ implementation: not found
-interface
-logical(c_bool) function map_local_to_system2(lidx, vidx) bind(C, name="map_local_to_system2")
-  use iso_c_binding, only: c_int, c_bool 
-  integer(c_int), value :: lidx
-  integer(c_int), value :: vidx
-  end function
 end interface
 
 !integer :: numLocalParticles
@@ -433,29 +337,6 @@ subroutine setRemoteForcesMapped(particle)
   call setRemoteParticle2(particle)
 
 end subroutine setRemoteForcesMapped
-!================================================================================================
-!                              Function getLocalParticle
-!================================================================================================
-
-type(tParticleData) function getLocalParticle(idx)
-  implicit none
-  integer, intent(in) :: idx
-
-  type(tParticleData) :: temp
-  integer :: a
-  
-  a = numLocalParticles()
-  
-  call getParticle(idx,&
-                   temp%localIdx,& 
-                   temp%uniqueIdx,& 
-                   temp%time,& 
-                   temp%position,& 
-                   temp%velocity)
-
-  getLocalParticle = temp
-
-end function getLocalParticle
 !================================================================================================
 !                              Function getLocalParticle2
 !================================================================================================

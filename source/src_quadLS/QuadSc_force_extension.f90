@@ -776,9 +776,7 @@ SAVE
       DU3Z=DU3Z+U3(IG)*DBI4
   
       !------FOR ALFA------
-      !IF((map_local_to_system(particleId,IG)))THEN
       IF (longIdMatch(IG, theParticles(IP)%bytes)) THEN
-      !IF (Alpha(ig) .eq. particleId) THEN
        DALPHA = 1d0
       ELSE
        DALPHA = 0d0
