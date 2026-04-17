@@ -438,29 +438,6 @@ subroutine setRemoteForcesMapped(particle)
 
 end subroutine setRemoteForcesMapped
 !================================================================================================
-!                              Function getLocalParticle
-!================================================================================================
-
-type(tParticleData) function getLocalParticle(idx)
-  implicit none
-  integer, intent(in) :: idx
-
-  type(tParticleData) :: temp
-  integer :: a
-  
-  a = numLocalParticles()
-  
-  call getParticle(idx,&
-                   temp%localIdx,& 
-                   temp%uniqueIdx,& 
-                   temp%time,& 
-                   temp%position,& 
-                   temp%velocity)
-
-  getLocalParticle = temp
-
-end function getLocalParticle
-!================================================================================================
 !                              Function getLocalParticle2
 !================================================================================================
 
@@ -592,18 +569,6 @@ subroutine testParticleRadius()
 
 end subroutine testParticleRadius
   
-!================================================================================================
-!                              Subroutine testMapParticles 
-!================================================================================================
-
-subroutine testMapParticles()
-  implicit none
-
-  
-  call map_particles()
-
-end subroutine testMapParticles
-
 !================================================================================================
 !                              checkLongId
 !================================================================================================
