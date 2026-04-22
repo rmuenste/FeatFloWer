@@ -1,6 +1,6 @@
 # Euler-Lagrange Development Notes
 
-This note summarizes the current repository state with respect to a future two-way coupled Euler-Lagrange (E-L) solver in FeatFlower.
+This note summarizes the current repository state in this checkout with respect to a future two-way coupled Euler-Lagrange (E-L) solver in FeatFlower.
 
 Short answer: the current code base has strong pieces for resolved FBM/PE coupling, but it does not yet contain a full unresolved two-way Euler-Lagrange coupling layer.
 
@@ -62,11 +62,11 @@ I did not find a `P2G` force-spreading kernel that takes particle hydrodynamic r
 
 The existing generic forcing path still looks like a standard body-force interface. For example, the user RHS function still returns zero in:
 
-- [source/src_pp3d/coeff.f](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_pp3d/coeff.f):193
+- [source/src_pp3d/coeff.f](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_pp3d/coeff.f):193
 
 and existing correction helpers cover gravity or constant forcing, e.g.:
 
-- [source/src_quadLS/QuadSc_corrections.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_corrections.f90):142
+- [source/src_quadLS/QuadSc_corrections.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_corrections.f90):142
 
 For a real two-way E-L solver, the following are still missing:
 
@@ -81,8 +81,8 @@ The present force evaluation is FBM/DNS-style: compute force from resolved stres
 
 The transport path calls:
 
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_main.f90):568
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_main.f90):597
+- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):568
+- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):597
 
 This is not yet the same as unresolved E-L force closure evaluation.
 
@@ -104,12 +104,12 @@ There is useful partial infrastructure for `G2P`.
 
 Velocity sampling and point location already exist in reusable form, for example:
 
-- [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_fbm/fbm_loc.f90):61
-- [source/src_fbm/fbm_particle_reynolds.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_fbm/fbm_particle_reynolds.f90):27
+- [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_loc.f90):61
+- [source/src_fbm/fbm_particle_reynolds.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_particle_reynolds.f90):27
 
 There is also particle tracing logic using element lookup and velocity evaluation:
 
-- [source/src_fbm/fbm_ptrace.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_fbm/fbm_ptrace.f90):16
+- [source/src_fbm/fbm_ptrace.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_ptrace.f90):16
 
 However, for E-L this still needs to be turned into a clean public coupling interface that can reliably provide:
 
@@ -125,7 +125,7 @@ The code already has resolved solid-marking via `FictKNPR`, which is part of the
 
 Current handler setup is still FBM-oriented:
 
-- [source/src_quadLS/QuadSc_handlers.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_handlers.f90):69
+- [source/src_quadLS/QuadSc_handlers.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_handlers.f90):69
 
 For unresolved two-way E-L, the following are still missing:
 
@@ -144,12 +144,12 @@ The current order is effectively:
 
 For example:
 
-- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/applications/q2p1_dns_drag/q2p1_dns_drag.f90):41
+- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_dns_drag/q2p1_dns_drag.f90):41
 
 and then in the transport code:
 
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_main.f90):570
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_quadLS/QuadSc_main.f90):599
+- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):570
+- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):599
 
 For two-way E-L, the reaction force must feed back into the fluid equations. Even with an explicit first version, the infrastructure must define:
 
@@ -162,19 +162,19 @@ For two-way E-L, the reaction force must feed back into the fluid equations. Eve
 
 The PE bridge is already useful and exposes a good amount of particle data:
 
-- [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_particles/dem_query.f90):11
+- [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_particles/dem_query.f90):11
 
 The struct-based setter reaches PE here:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/libs/pe/src/interface/object_queries.cpp):1313
+- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1313
 
 and writes force and torque here:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/libs/pe/src/interface/object_queries.cpp):1402
+- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1402
 
 This is a good base for E-L. However, the older index-based setter still contains special behavior:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/libs/pe/src/interface/object_queries.cpp):1126
+- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1126
 
 That path applies a hardcoded `1.025` multiplier and zeroes torque instead of using the incoming torque. For a clean E-L solver, all force-setting paths should use a single, well-defined convention for:
 
@@ -187,12 +187,12 @@ That path applies a hardcoded `1.025` multiplier and zeroes torque instead of us
 
 The main applications such as `q2p1_ATC` and `q2p1_dns_drag` still run through the FBM/FC extension path:
 
-- [applications/q2p1_ATC/q2p1_ATC.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/applications/q2p1_ATC/q2p1_ATC.f90):67
-- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/applications/q2p1_dns_drag/q2p1_dns_drag.f90):42
+- [applications/q2p1_ATC/q2p1_ATC.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_ATC/q2p1_ATC.f90):67
+- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_dns_drag/q2p1_dns_drag.f90):42
 
 There is also ongoing work in:
 
-- [applications/q2p1_bench_fluidization/app_init.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/applications/q2p1_bench_fluidization/app_init.f90)
+- [applications/q2p1_bench_fluidization/app_init.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_bench_fluidization/app_init.f90)
 
 but this still looks like PE/FBM-oriented infrastructure and benchmark staging, not yet a separate unresolved E-L source assembly path.
 
@@ -209,9 +209,9 @@ The following pieces are already useful for an E-L implementation:
 
 In particular:
 
-- particle bridge definitions: [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_particles/dem_query.f90)
-- point location: [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/source/src_fbm/fbm_loc.f90)
-- PE simulation stepping: [libs/pe/src/interface/sim_setup.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-dns-drag/libs/pe/src/interface/sim_setup.cpp):151
+- particle bridge definitions: [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_particles/dem_query.f90)
+- point location: [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_loc.f90)
+- PE simulation stepping: [libs/pe/src/interface/sim_setup.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/sim_setup.cpp):151
 
 ## Bottom Line
 
@@ -253,9 +253,10 @@ The roadmap below is intentionally conservative. Each stage ends with a test gat
 The main principle is:
 
 1. build the coupling infrastructure first
-2. validate it in one-way mode
-3. add two-way feedback only after interpolation and particle forcing are trustworthy
-4. add denser-flow corrections only after the dilute solver is stable
+2. validate the kernels against a frozen carrier field before introducing a live fluid solve
+3. validate the same kernels again in one-way mode with a real driver
+4. add two-way feedback only after interpolation and particle forcing are trustworthy
+5. add denser-flow corrections only after the dilute solver is stable
 
 ## Stage 0: Interface Cleanup And Baseline Freeze
 
@@ -343,24 +344,149 @@ Build a reusable `G2P` coupling layer for unresolved particles.
 - gradient reconstruction error is within agreed tolerance
 - MPI point-location and sampling are stable and deterministic
 
-## Stage 2: One-Way Euler-Lagrange Force Closure Layer
+## Stage 2: Frozen-Field Euler-Lagrange Tracing Harness
 
 ### Goal
 
-Build the first unresolved particle force module without fluid feedback.
+Create a near-real E-L execution path that runs particles against a static carrier field loaded from checkpoint data.
+
+This stage is intentionally not a full E-L solver. The fluid solution is loaded once, held fixed, and used as a reproducible carrier field for particle tracing and force evaluation. The purpose is to validate the important kernels in an execution environment that is close to the final architecture without yet coupling to a live Navier-Stokes solve.
+
+### Why This Stage Exists
+
+This stage should remove a large amount of development risk before two-way coupling begins. It allows us to verify:
+
+- checkpoint-based field initialization
+- particle point location and repeated sampling on realistic CFD fields
+- force-closure evaluation using the intended E-L kernels
+- PE force write and particle state readback
+- particle substepping and time integration
+- MPI ownership and communication behavior around partition boundaries
+
+At the same time, it deliberately avoids introducing errors from:
+
+- fluid time integration
+- nonlinear solver behavior
+- `P2G` force feedback
+- porosity coupling
+
+### Required Architecture
+
+This stage must not be implemented as a throwaway tracer path. The core requirement is that the frozen-field driver calls the same public kernels that the later live E-L application will call.
+
+The architecture should therefore be split into:
+
+- reusable E-L kernel layer in `source/src_el/`
+- frozen-field driver application, for example:
+  - `applications/q2p1_el_frozen_trace`
+- later live one-way or two-way application drivers, for example:
+  - `applications/q2p1_el_*`
+
+The reusable kernel layer should own at least:
+
+- particle sample record format
+- public `G2P` sampling API
+- force-closure API
+- particle update and PE exchange interface
+- diagnostics and trajectory output helpers
+
+The frozen-field driver should be responsible only for:
+
+- loading mesh and checkpointed field data
+- initializing particle sets
+- calling the E-L kernel layer in time-stepping order
+- writing diagnostics and output
+
+### Suggested Time-Stepping Shape
+
+1. load mesh, partition data, and checkpointed carrier fields
+2. initialize particle state and PE
+3. for each particle step:
+4. locate particles and refresh element-local caches as needed
+5. sample velocity, pressure, and optional gradients from the frozen field
+6. evaluate one-way particle closures
+7. write force and torque to PE
+8. advance PE / particle state
+9. collect diagnostics and write trajectory output
 
 ### Work Items
 
-- implement a modular force-closure framework
+- define a checkpoint-loading path for the carrier solution that initializes the same field structures used by sampling
+- add a frozen-field application driver that does not call the fluid update
+- connect Stage 1 sampling kernels to the driver
+- implement the first E-L force-closure path on top of the Stage 1 sampled values
+- run particle advancement through the cleaned PE interface
+- add deterministic diagnostics for:
+  - sampled carrier values
+  - particle trajectories
+  - particle forces and torques
+  - particle Reynolds number and slip velocity
+- define restart and output conventions for frozen-field tracing runs
+
+### Recommended First Scope
+
+Start with:
+
+- static velocity field from checkpoint
+- drag, gravity, and buoyancy
+- one particle and few-particle tests
+- explicit particle stepping and optional particle subcycling
+
+Add later within the same stage only if needed:
+
+- pressure-gradient force
+- rotational drag torque
+- more complex checkpoint fields with recirculation or shear
+
+### Tests
+
+- uniform-flow checkpoint:
+  - particles should asymptotically relax toward the carrier velocity
+- quiescent-fluid checkpoint:
+  - settling particle should match analytic or semi-analytic terminal behavior
+- analytic manufactured field loaded through the same structures:
+  - sampled values and gradients should match exact values within tolerance
+- realistic CFD checkpoint regression:
+  - trajectories, sampled values, and force histories should remain stable across reruns
+- MPI partition-boundary tracing test:
+  - particles crossing partition boundaries should produce consistent trajectories on 1 rank and multiple ranks
+
+### Exit Criteria
+
+- frozen-field driver uses the intended public sampling and force APIs without bypass paths
+- particle trajectories are reproducible on repeated runs
+- sampled carrier values and closure outputs match reference data within agreed tolerance
+- MPI tracing behavior is stable for particles near partition boundaries
+
+## Stage 3: One-Way Euler-Lagrange Force Closure Layer
+
+### Goal
+
+Move from frozen-field tracing to a one-way E-L driver that is compatible with the future live solver path.
+
+### Work Items
+
+- reuse the Stage 2 force-closure framework in a real one-way application driver
 - first closures should be:
   - drag
   - gravity
   - buoyancy
-- use sampled fluid values from Stage 1
+- use sampled fluid values from Stage 1 through the public E-L sampling API
 - write forces and torques into PE through the cleaned particle interface
 - keep this stage strictly one-way:
   - fluid affects particles
   - particles do not affect fluid yet
+
+### Architecture Constraint
+
+The one-way driver should differ from Stage 2 mainly in the source of the carrier field:
+
+- Stage 2:
+  - checkpointed frozen carrier field
+- Stage 3:
+  - carrier field provided by the application run path
+
+The particle sampling, closure evaluation, PE interaction, and diagnostics path should remain the same.
 
 ### Recommended First Closure Set
 
@@ -391,7 +517,7 @@ Build the first unresolved particle force module without fluid feedback.
 - particle relaxation test matches expected response-time behavior
 - particle motion is stable for the target time-step range
 
-## Stage 3: Particle-To-Grid Reaction Force Spreading
+## Stage 4: Particle-To-Grid Reaction Force Spreading
 
 ### Goal
 
@@ -435,7 +561,7 @@ Build the `P2G` operator for conservative particle reaction-force feedback.
 - distributed and serial runs agree on integrated source terms
 - no spurious source appears in the null test
 
-## Stage 4: Two-Way Coupled Momentum Source Assembly
+## Stage 5: Two-Way Coupled Momentum Source Assembly
 
 ### Goal
 
@@ -483,7 +609,7 @@ Do not combine this stage yet with:
 - coupled runs remain stable in dilute regimes
 - integrated momentum budget is consistent
 
-## Stage 5: Void Fraction And Porosity Coupling
+## Stage 6: Void Fraction And Porosity Coupling
 
 ### Goal
 
@@ -510,7 +636,7 @@ Add unresolved particle volume displacement effects.
 - mesh refinement test:
   - porosity field converges under refinement
 - low-concentration regression:
-  - porosity-enabled solver reduces to Stage 4 behavior as particle volume fraction approaches zero
+  - porosity-enabled solver reduces to Stage 5 behavior as particle volume fraction approaches zero
 
 ### Exit Criteria
 
@@ -518,7 +644,7 @@ Add unresolved particle volume displacement effects.
 - porosity behaves smoothly under mesh refinement
 - low-volume-fraction limit matches the dilute two-way solver
 
-## Stage 6: Dense-Regime Hydrodynamic Corrections
+## Stage 7: Dense-Regime Hydrodynamic Corrections
 
 ### Goal
 
@@ -556,7 +682,7 @@ Do this in the following order:
 - no regression in dilute cases from earlier stages
 - clustered and near-wall cases remain numerically stable
 
-## Stage 7: Parallel Ownership, Migration, And Production Hardening
+## Stage 8: Parallel Ownership, Migration, And Production Hardening
 
 ### Goal
 
@@ -591,7 +717,7 @@ Make the solver operational for larger distributed runs.
 - migration and restart work reliably
 - conservation diagnostics remain bounded over long runs
 
-## Stage 8: Validation Against DNS And Experiments
+## Stage 9: Validation Against DNS And Experiments
 
 ### Goal
 
@@ -629,16 +755,18 @@ The safest stage boundaries are:
 2. `Stage 1 -> Stage 2`
    only after interpolation and gradients are verified
 3. `Stage 2 -> Stage 3`
-   only after one-way particle dynamics match reference behavior
+   only after frozen-field tracing is reproducible and closure outputs match reference behavior
 4. `Stage 3 -> Stage 4`
-   only after force spreading is conservative
+   only after one-way particle dynamics match reference behavior
 5. `Stage 4 -> Stage 5`
-   only after dilute two-way momentum coupling is stable
+   only after force spreading is conservative
 6. `Stage 5 -> Stage 6`
-   only after porosity transport and accumulation are reliable
+   only after dilute two-way momentum coupling is stable
 7. `Stage 6 -> Stage 7`
-   only after dense closures pass small-scale validation
+   only after porosity transport and accumulation are reliable
 8. `Stage 7 -> Stage 8`
+   only after dense closures pass small-scale validation
+9. `Stage 8 -> Stage 9`
    only after MPI consistency and long-run robustness are established
 
 ## Suggested First Practical Milestone
@@ -649,11 +777,17 @@ The most defensible first milestone is:
 - Stage 1 completed
 - Stage 2 completed
 
-That yields a one-way unresolved Euler-Lagrange solver on top of PE, with a reusable `G2P` sampling layer and validated drag-driven particle motion.
+That yields a frozen-field E-L tracing harness on top of PE, with a reusable `G2P` sampling layer, checkpoint-driven carrier-field initialization, and validated particle forcing kernels.
 
 The next milestone should then be:
 
 - Stage 3 completed
 - Stage 4 completed
+
+That yields the first live one-way E-L path together with a conservative `P2G` reaction-force spreading operator.
+
+The milestone after that is:
+
+- Stage 5 completed
 
 That yields the first true two-way coupled dilute E-L solver.
