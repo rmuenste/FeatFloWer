@@ -29,6 +29,7 @@ module el_frozen_driver
   real*8 :: el_fluid_density = 1.0d0
   real*8 :: el_kinematic_viscosity = 1.0d-3
   real*8 :: el_particle_density = 1.0d0
+  real*8 :: el_gravity(3) = 0.0d0
 
   interface
     subroutine step_el_frozen_trace_c() bind(C, name="step_el_frozen_trace_")
@@ -396,7 +397,7 @@ contains
     real*8, intent(out) :: force(3), torque(3), slip(3), re_p
 
     integer :: kernel_id
-    real*8 :: mu, diameter, slip_norm, correction
+    real*8 :: mu, diameter, slip_norm, correction, particle_volume
 
     force = 0.0d0
     torque = 0.0d0
@@ -431,6 +432,11 @@ contains
       end if
 
       force = 3.0d0 * acos(-1.0d0) * mu * diameter * correction * slip
+
+      if (el_enable_buoyancy) then
+        particle_volume = 4.0d0/3.0d0 * acos(-1.0d0) * particle%radius**3
+        force = force + particle_volume * (el_particle_density - el_fluid_density) * el_gravity
+      end if
     case default
       return
     end select
@@ -545,12 +551,16 @@ contains
       write(log_unit,'(A,L1)') '  ELWriteDiagnostics = ', el_write_diagnostics
       write(mterm,'(A,L1)') '  ELApplyForces = ', el_apply_forces
       write(log_unit,'(A,L1)') '  ELApplyForces = ', el_apply_forces
+      write(mterm,'(A,L1)') '  ELEnableBuoyancy = ', el_enable_buoyancy
+      write(log_unit,'(A,L1)') '  ELEnableBuoyancy = ', el_enable_buoyancy
       write(mterm,'(A,ES12.4)') '  ELFluidDensity = ', el_fluid_density
       write(log_unit,'(A,ES12.4)') '  ELFluidDensity = ', el_fluid_density
       write(mterm,'(A,ES12.4)') '  ELKinematicViscosity = ', el_kinematic_viscosity
       write(log_unit,'(A,ES12.4)') '  ELKinematicViscosity = ', el_kinematic_viscosity
       write(mterm,'(A,ES12.4)') '  ELParticleDensity = ', el_particle_density
       write(log_unit,'(A,ES12.4)') '  ELParticleDensity = ', el_particle_density
+      write(mterm,'(A,3(ES12.4,1X))') '  ELGravity = ', el_gravity
+      write(log_unit,'(A,3(ES12.4,1X))') '  ELGravity = ', el_gravity
       write(mterm,'(A,L1,A,L1,A,L1)') '  capabilities: force=', caps%supports_force, &
         ', torque=', caps%supports_torque, ', reynolds=', caps%supports_reynolds
       write(log_unit,'(A,L1,A,L1,A,L1)') '  capabilities: force=', caps%supports_force, &

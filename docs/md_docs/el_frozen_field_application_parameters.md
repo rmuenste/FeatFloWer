@@ -104,21 +104,48 @@ Recommended current value:
 
 ### `SimPar@ELEnableBuoyancy`
 
-Reserved switch for buoyancy/gravity contribution in the closure layer.
+Controls whether the FeatFloWer-side closure layer adds the net gravity/buoyancy body force to
+force-producing kernels.
 
 Supported values:
 
 - `Yes`
 - `No`
 
-Current status:
+Implemented force contribution:
 
-- parsed and reported
-- not yet used by the present closure implementation
+- `F_body = (rho_p - rho_f) * V_p * ELGravity`
+- `rho_p` comes from `SimPar@ELParticleDensity`
+- `rho_f` comes from `SimPar@ELFluidDensity`
+- `V_p` is the spherical particle volume computed from the PE particle radius
+
+Notes:
+
+- this contribution is added on the FeatFloWer side, not inside PE
+- PE should therefore keep its own gravity/body-force contribution neutral for this E-L mode
+- the current implementation adds this term to drag-producing kernels such as `stokes_drag` and `schiller_naumann`
 
 Recommended current value:
 
 - `No`
+
+### `SimPar@ELGravity`
+
+Gravity/acceleration vector used by the FeatFloWer-side E-L closure layer when
+`SimPar@ELEnableBuoyancy = Yes`.
+
+Format:
+
+- three real values: `gx gy gz`
+
+Examples:
+
+- `0.0d0 0.0d0 0.0d0` keeps buoyancy/gravity force inactive even if the switch is enabled
+- `0.0d0 0.0d0 -981.0d0` is the usual CGS gravity vector for a `z`-vertical setup
+
+Default sample value:
+
+- `0.0d0 0.0d0 0.0d0`
 
 ### `SimPar@ELFluidDensity`
 
@@ -223,6 +250,7 @@ SimPar@ELEnableBuoyancy = No
 SimPar@ELFluidDensity = 1.0d0
 SimPar@ELKinematicViscosity = 1.0d-3
 SimPar@ELParticleDensity = 1.0d0
+SimPar@ELGravity = 0.0d0 0.0d0 0.0d0
 ```
 
 ## Planned Extensions

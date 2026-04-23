@@ -13,7 +13,7 @@ subroutine init_q2p1_ext(log_unit)
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
-                              el_particle_density, el_print_configuration, el_parse_yes_no
+                              el_particle_density, el_gravity, el_print_configuration, el_parse_yes_no
 
   integer, intent(in) :: log_unit
   integer :: ierr_abort
@@ -635,7 +635,7 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE PP3D_MPI
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
-                              el_particle_density, el_parse_yes_no
+                              el_particle_density, el_gravity, el_parse_yes_no
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
@@ -783,9 +783,11 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
          READ(string(iEq+1:),*) el_fluid_density
        CASE ("ELKinematicViscosity")
          READ(string(iEq+1:),*) el_kinematic_viscosity
-       CASE ("ELParticleDensity")
+      CASE ("ELParticleDensity")
          READ(string(iEq+1:),*) el_particle_density
-       CASE ("Tracer")
+      CASE ("ELGravity")
+         READ(string(iEq+1:),*) el_gravity
+      CASE ("Tracer")
          cParam = " "
          READ(string(iEq+1:),*) cParam
          bTracer = .FALSE.
@@ -979,6 +981,9 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
 
      WRITE(mfile,'(A,ES12.4)') "ELParticleDensity = ", el_particle_density
      WRITE(mterm,'(A,ES12.4)') "ELParticleDensity = ", el_particle_density
+
+     WRITE(mfile,'(A,3(ES12.4,1X))') "ELGravity = ", el_gravity
+     WRITE(mterm,'(A,3(ES12.4,1X))') "ELGravity = ", el_gravity
 
      WRITE(mfile,'(A,D12.4)') "MinTimeAdapt = ",DTMIN
      WRITE(mterm,'(A,D12.4)') "MinTimeAdapt = ",DTMIN
