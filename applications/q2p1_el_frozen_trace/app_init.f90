@@ -4,7 +4,7 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Stuctures, &
     InitCond_QuadScalar,ProlongateSolution, &
     bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond
+    LinScalar_InitCond, QuadSc
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
@@ -13,10 +13,12 @@ subroutine init_q2p1_ext(log_unit)
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
-                              el_particle_density, el_gravity, el_print_configuration, el_parse_yes_no
+                              el_particle_density, el_gravity, el_sampling_debug_enabled, &
+                              el_print_configuration, el_parse_yes_no, el_set_debug_ids
 
   integer, intent(in) :: log_unit
   integer :: ierr_abort
+  external :: E013Sum3
 
   include 'mpif.h'
 
@@ -71,6 +73,10 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
+  end if
+
+  if (myid .ne. 0) then
+    call E013Sum3(QuadSc%ValU, QuadSc%ValV, QuadSc%ValW)
   end if
 
   call report_loaded_frozen_field(log_unit)
@@ -635,7 +641,8 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE PP3D_MPI
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
-                              el_particle_density, el_gravity, el_parse_yes_no
+                              el_particle_density, el_gravity, el_sampling_debug_enabled, &
+                              el_parse_yes_no, el_set_debug_ids
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
@@ -771,6 +778,10 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
          cParam = " "
          READ(string(iEq+1:),*) cParam
          el_write_diagnostics = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_sampling_debug_enabled = el_parse_yes_no(cParam)
        CASE ("ELApplyForces")
          cParam = " "
          READ(string(iEq+1:),*) cParam
@@ -787,6 +798,10 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
          READ(string(iEq+1:),*) el_particle_density
       CASE ("ELGravity")
          READ(string(iEq+1:),*) el_gravity
+      CASE ("ELDebugIDs")
+         cParam = " "
+         cParam = adjustl(string(iEq+1:))
+         call el_set_debug_ids(trim(cParam))
       CASE ("Tracer")
          cParam = " "
          READ(string(iEq+1:),*) cParam
