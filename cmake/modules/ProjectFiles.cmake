@@ -18,6 +18,7 @@ target_compile_options(ff_cinterface PUBLIC ${Fortran_FLAGS})
 
 set(postprocessing
   ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io_provenance.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
   )
