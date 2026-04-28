@@ -54,20 +54,35 @@ Recommended current value:
 
 ### `SimPar@ELWriteDiagnostics`
 
-Controls whether the frozen-field particle pass writes a CSV diagnostics file.
+Controls whether the frozen-field particle pass writes the main particle CSV
+diagnostics file family.
 
 Supported values:
 
 - `Yes`
 - `No`
 
-Current output:
+Current outputs:
 
 - `el_frozen_particles_stepXXXXXX.csv`
+- `el_frozen_particles_rankXXXX_stepXXXXXX.csv`
 
-The file is written by the representative rank (`myid == showid`) and contains, per particle:
+Defaults:
+
+- current code default: `No`
+
+Notes:
+
+- serial/representative mode writes one file per step:
+  - `el_frozen_particles_stepXXXXXX.csv`
+- PE-parallel writes one rank-local file per rank and step:
+  - `el_frozen_particles_rankXXXX_stepXXXXXX.csv`
+- on managed clusters this can generate many files if enabled for long runs
+
+Contents:
 
 - particle id
+- PE system id
 - position
 - radius
 - particle velocity
@@ -80,7 +95,178 @@ The file is written by the representative rank (`myid == showid`) and contains, 
 
 Recommended current value:
 
+- `No` for production or cluster runs
+- `Yes` only for short focused diagnostics
+
+### `SimPar@ELWriteSamplingDebug`
+
+Backward-compatible coarse switch for the sampling-debug file family.
+
+Supported values:
+
 - `Yes`
+- `No`
+
+Defaults:
+
+- current code default: `No`
+
+Behavior:
+
+- `Yes` enables all sampling-debug file families listed below
+- the fine-grained switches may then be used to disable individual families
+- if `ELWriteSamplingDebug = No`, individual fine-grained switches may still be
+  set explicitly to enable selected families only
+
+### `SimPar@ELWriteSamplingSummaryDebug`
+
+Controls:
+
+- `el_frozen_sampling_debug_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- particle id / system id
+- rank
+- sample kind (`serial`, `parallel_owned`, `parallel_remote`)
+- `found_count`
+- sampled element id
+- particle position
+- sampled carrier velocity
+- local reference coordinates
+- sampled element bounding box
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingDofDebug`
+
+Controls:
+
+- `el_frozen_sampling_dofs_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- interpolation DOF rows
+- `kdfg`, `kdfl`
+- basis values
+- nodal `u/v/w`
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingConnectivityDebug`
+
+Controls:
+
+- `el_frozen_sampling_connectivity_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- `NDFGL`-returned connectivity vs. direct Q2 connectivity slot mapping
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingTopologyDebug`
+
+Controls:
+
+- `el_frozen_sampling_topology_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- `kvert`, `kedge`, `karea`
+- ordered element vertex coordinates
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingFieldDebug`
+
+Controls:
+
+- `el_frozen_sampling_field_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- sorted Q2 field values on the sampled element
+- `global_dof`
+- nodal `u/v/w`
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingDumpmapDebug`
+
+Controls:
+
+- `el_frozen_sampling_dumpmap_entries_rankXXXX_stepXXXXXX.csv`
+- `el_frozen_sampling_dumpelem_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- dump-map rows from `myDump%Vertices`
+- dump-element rows from `myDump%Elements`
+- sampled coarse-row / subelement mapping
+
+Default:
+
+- `No`
+
+### `SimPar@ELWriteSamplingDofSourcesDebug`
+
+Controls:
+
+- `el_frozen_sampling_dof_sources_rankXXXX_stepXXXXXX.csv`
+
+Contents:
+
+- all coarse-row/source occurrences of sampled Q2 dofs inside `myDump%Vertices`
+
+Default:
+
+- `No`
+
+### `SimPar@ELDebugIDs`
+
+Comma-separated particle id list used to restrict all sampling-debug file
+families.
+
+Example:
+
+- `SimPar@ELDebugIDs = 398,403,1069`
+
+Behavior:
+
+- only particles whose stable `id` is listed generate sampling-debug files
+- this parameter does not affect `ELWriteDiagnostics`
+- leaving the list empty suppresses all per-particle sampling-debug output even
+  if a sampling-debug switch is enabled
+
+## Diagnostics File Count Risk
+
+The sampling-debug file families are rank-local and step-local.
+
+That means a long run with multiple debug families enabled can create:
+
+- one file per family
+- per rank
+- per step
+
+This can easily exceed file-count quotas on managed clusters.
+
+Recommended safe usage:
+
+- keep `ELWriteDiagnostics = No` for long runs
+- keep all sampling-debug switches at `No` unless actively debugging
+- use `ELDebugIDs` to reduce output to a very small particle subset
+- prefer short runs when any sampling-debug family is enabled
 
 ### `SimPar@ELApplyForces`
 
@@ -244,7 +430,8 @@ SimPar@StartingProc = 1
 SimPar@StartFile = "_dump/01"
 
 SimPar@ELForceKernel = none
-SimPar@ELWriteDiagnostics = Yes
+SimPar@ELWriteDiagnostics = No
+SimPar@ELWriteSamplingDebug = No
 SimPar@ELApplyForces = Yes
 SimPar@ELEnableBuoyancy = No
 SimPar@ELFluidDensity = 1.0d0

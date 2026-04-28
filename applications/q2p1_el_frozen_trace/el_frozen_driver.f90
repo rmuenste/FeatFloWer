@@ -28,6 +28,13 @@ module el_frozen_driver
   character(len=32) :: el_force_kernel = 'none'
   logical :: el_write_diagnostics = .false.
   logical :: el_sampling_debug_enabled = .false.
+  logical :: el_write_sampling_summary_debug = .false.
+  logical :: el_write_sampling_dof_debug = .false.
+  logical :: el_write_sampling_connectivity_debug = .false.
+  logical :: el_write_sampling_topology_debug = .false.
+  logical :: el_write_sampling_field_debug = .false.
+  logical :: el_write_sampling_dumpmap_debug = .false.
+  logical :: el_write_sampling_dof_sources_debug = .false.
   logical :: el_apply_forces = .true.
   logical :: el_enable_buoyancy = .false.
   real*8 :: el_fluid_density = 1.0d0
@@ -341,6 +348,7 @@ contains
                                          kvert_debug, kedge_debug, karea_debug, xverts_debug, yverts_debug, zverts_debug)
       local_found = merge(1, 0, local_elem .gt. 0)
       call el_evaluate_closure(remote_particles(ip), vel_sample, local_found, force, torque, slip, re_p)
+
       call el_write_sampling_debug_record(istep, remote_particles(ip), myid, 'parallel_remote', local_elem, local_found, &
                                           xi_debug, bbox_debug, vel_sample)
       call el_write_sampling_dof_debug_record(istep, remote_particles(ip), myid, 'parallel_remote', local_elem, dof_count_debug, &
@@ -721,13 +729,23 @@ contains
 
   end subroutine el_sample_particle_velocity_local
 
+  logical function el_any_sampling_debug_enabled()
+
+    el_any_sampling_debug_enabled = el_sampling_debug_enabled .or. &
+      el_write_sampling_summary_debug .or. el_write_sampling_dof_debug .or. &
+      el_write_sampling_connectivity_debug .or. el_write_sampling_topology_debug .or. &
+      el_write_sampling_field_debug .or. el_write_sampling_dumpmap_debug .or. &
+      el_write_sampling_dof_sources_debug
+
+  end function el_any_sampling_debug_enabled
+
   logical function el_is_debug_particle(particle_id)
 
     integer, intent(in) :: particle_id
     integer :: i
 
     el_is_debug_particle = .false.
-    if (.not. el_sampling_debug_enabled) return
+    if (.not. el_any_sampling_debug_enabled()) return
 
     do i = 1, el_num_debug_ids
       if (el_debug_ids(i) .eq. particle_id) then
@@ -749,6 +767,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_summary_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
 
     write(filename,'(A,I4.4,A,I6.6,A)') 'el_frozen_sampling_debug_rank', rank_id, '_step', istep, '.csv'
@@ -783,6 +802,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_dof_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
 
     write(filename,'(A,I4.4,A,I6.6,A)') 'el_frozen_sampling_dofs_rank', rank_id, '_step', istep, '.csv'
@@ -815,6 +835,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_connectivity_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
 
     write(filename,'(A,I4.4,A,I6.6,A)') 'el_frozen_sampling_connectivity_rank', rank_id, '_step', istep, '.csv'
@@ -848,6 +869,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_topology_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
 
     write(filename,'(A,I4.4,A,I6.6,A)') 'el_frozen_sampling_topology_rank', rank_id, '_step', istep, '.csv'
@@ -888,6 +910,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_field_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
     if (elem_id .le. 0) return
 
@@ -962,6 +985,7 @@ contains
     character(len=128) :: filename
     logical :: file_exists_elem
 
+    if (.not. el_write_sampling_dumpmap_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
     if (elem_id .le. 0) return
 
@@ -1017,6 +1041,7 @@ contains
     logical :: file_exists
     character(len=128) :: filename
 
+    if (.not. el_write_sampling_dof_sources_debug) return
     if (.not. el_is_debug_particle(particle%uniqueIdx)) return
     if (elem_id .le. 0) return
     if (.not. allocated(myDump%Vertices)) return
@@ -1280,6 +1305,20 @@ contains
       write(log_unit,'(A,L1)') '  ELWriteDiagnostics = ', el_write_diagnostics
       write(mterm,'(A,L1)') '  ELWriteSamplingDebug = ', el_sampling_debug_enabled
       write(log_unit,'(A,L1)') '  ELWriteSamplingDebug = ', el_sampling_debug_enabled
+      write(mterm,'(A,L1)') '  ELWriteSamplingSummaryDebug = ', el_write_sampling_summary_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingSummaryDebug = ', el_write_sampling_summary_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingDofDebug = ', el_write_sampling_dof_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingDofDebug = ', el_write_sampling_dof_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingConnectivityDebug = ', el_write_sampling_connectivity_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingConnectivityDebug = ', el_write_sampling_connectivity_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingTopologyDebug = ', el_write_sampling_topology_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingTopologyDebug = ', el_write_sampling_topology_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingFieldDebug = ', el_write_sampling_field_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingFieldDebug = ', el_write_sampling_field_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingDumpmapDebug = ', el_write_sampling_dumpmap_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingDumpmapDebug = ', el_write_sampling_dumpmap_debug
+      write(mterm,'(A,L1)') '  ELWriteSamplingDofSourcesDebug = ', el_write_sampling_dof_sources_debug
+      write(log_unit,'(A,L1)') '  ELWriteSamplingDofSourcesDebug = ', el_write_sampling_dof_sources_debug
       write(mterm,'(A,L1)') '  ELApplyForces = ', el_apply_forces
       write(log_unit,'(A,L1)') '  ELApplyForces = ', el_apply_forces
       write(mterm,'(A,L1)') '  ELEnableBuoyancy = ', el_enable_buoyancy

@@ -15,7 +15,11 @@ subroutine init_q2p1_ext(log_unit)
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
                               el_particle_density, el_gravity, el_sampling_debug_enabled, &
-                              el_print_configuration, el_parse_yes_no, el_set_debug_ids
+                              el_write_sampling_summary_debug, el_write_sampling_dof_debug, &
+                              el_write_sampling_connectivity_debug, el_write_sampling_topology_debug, &
+                              el_write_sampling_field_debug, el_write_sampling_dumpmap_debug, &
+                              el_write_sampling_dof_sources_debug, el_print_configuration, &
+                              el_parse_yes_no, el_set_debug_ids
 
   integer, intent(in) :: log_unit
   integer :: ierr_abort
@@ -656,7 +660,10 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
                               el_particle_density, el_gravity, el_sampling_debug_enabled, &
-                              el_parse_yes_no, el_set_debug_ids
+                              el_write_sampling_summary_debug, el_write_sampling_dof_debug, &
+                              el_write_sampling_connectivity_debug, el_write_sampling_topology_debug, &
+                              el_write_sampling_field_debug, el_write_sampling_dumpmap_debug, &
+                              el_write_sampling_dof_sources_debug, el_parse_yes_no, el_set_debug_ids
   USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
@@ -800,6 +807,43 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
          cParam = " "
          READ(string(iEq+1:),*) cParam
          el_sampling_debug_enabled = el_parse_yes_no(cParam)
+         if (el_sampling_debug_enabled) then
+           el_write_sampling_summary_debug = .true.
+           el_write_sampling_dof_debug = .true.
+           el_write_sampling_connectivity_debug = .true.
+           el_write_sampling_topology_debug = .true.
+           el_write_sampling_field_debug = .true.
+           el_write_sampling_dumpmap_debug = .true.
+           el_write_sampling_dof_sources_debug = .true.
+         end if
+       CASE ("ELWriteSamplingSummaryDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_summary_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingDofDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_dof_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingConnectivityDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_connectivity_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingTopologyDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_topology_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingFieldDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_field_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingDumpmapDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_dumpmap_debug = el_parse_yes_no(cParam)
+       CASE ("ELWriteSamplingDofSourcesDebug")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         el_write_sampling_dof_sources_debug = el_parse_yes_no(cParam)
        CASE ("ELApplyForces")
          cParam = " "
          READ(string(iEq+1:),*) cParam
@@ -1007,6 +1051,22 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
 
      WRITE(mfile,'(A,L1)') "ELWriteDiagnostics = ", el_write_diagnostics
      WRITE(mterm,'(A,L1)') "ELWriteDiagnostics = ", el_write_diagnostics
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingDebug = ", el_sampling_debug_enabled
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingDebug = ", el_sampling_debug_enabled
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingSummaryDebug = ", el_write_sampling_summary_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingSummaryDebug = ", el_write_sampling_summary_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingDofDebug = ", el_write_sampling_dof_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingDofDebug = ", el_write_sampling_dof_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingConnectivityDebug = ", el_write_sampling_connectivity_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingConnectivityDebug = ", el_write_sampling_connectivity_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingTopologyDebug = ", el_write_sampling_topology_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingTopologyDebug = ", el_write_sampling_topology_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingFieldDebug = ", el_write_sampling_field_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingFieldDebug = ", el_write_sampling_field_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingDumpmapDebug = ", el_write_sampling_dumpmap_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingDumpmapDebug = ", el_write_sampling_dumpmap_debug
+     WRITE(mfile,'(A,L1)') "ELWriteSamplingDofSourcesDebug = ", el_write_sampling_dof_sources_debug
+     WRITE(mterm,'(A,L1)') "ELWriteSamplingDofSourcesDebug = ", el_write_sampling_dof_sources_debug
 
      WRITE(mfile,'(A,L1)') "ELApplyForces = ", el_apply_forces
      WRITE(mterm,'(A,L1)') "ELApplyForces = ", el_apply_forces
