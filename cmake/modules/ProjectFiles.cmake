@@ -105,6 +105,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90

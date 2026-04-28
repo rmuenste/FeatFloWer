@@ -1419,6 +1419,8 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   use def_FEAT
   use ProcCtrl_mod, only: ProcessControl
   use timestep_control, only: SetSimulationTimeStep
+  use solution_io_provenance, only: write_sol_to_file_prov
+  use prov_dump_config, only: use_prov_dump_io
 
   implicit none
 
@@ -1460,7 +1462,11 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
     IF (insav.NE.0.AND.itns.NE.1) THEN
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
-        call write_sol_to_file(insavn, timens)
+        if (use_prov_dump_io) then
+          call write_sol_to_file_prov(insavn, timens)
+        else
+          call write_sol_to_file(insavn, timens)
+        end if
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF

@@ -26,7 +26,7 @@ module el_frozen_driver
   end type tElClosureCapabilities
 
   character(len=32) :: el_force_kernel = 'none'
-  logical :: el_write_diagnostics = .true.
+  logical :: el_write_diagnostics = .false.
   logical :: el_sampling_debug_enabled = .false.
   logical :: el_apply_forces = .true.
   logical :: el_enable_buoyancy = .false.

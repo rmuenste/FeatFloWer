@@ -1,6 +1,7 @@
 module solution_io_provenance
 
 use var_QuadScalar, only: knvt, knet, knat, knel
+use prov_dump_config, only: use_prov_dump_io, set_use_prov_dump
 
 implicit none
 
@@ -23,7 +24,7 @@ subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx)
   use def_FEAT, only: NLMAX
   use var_QuadScalar, only: QuadSc, LinSc, Temperature, MaterialDistribution
   use var_QuadScalar, only: bTracer, Tracer, myDump, istep_ns, fieldPtr, mg_mesh
-  use var_QuadScalar, only: GenLinScalar, GlobalNumberingQ2
+  use var_QuadScalar, only: GenLinScalar
   use pp3d_mpi, only: myid, coarse
 
   implicit none
@@ -200,7 +201,7 @@ end subroutine build_prov_output_dir
 
 subroutine gather_q2_metadata(meta)
   use def_FEAT, only: NLMIN
-  use var_QuadScalar, only: myDump, GlobalNumberingQ2
+  use var_QuadScalar, only: myDump
   use pp3d_mpi, only: myid, subnodes, coarse
   use pp3d_mpi, only: SENDI_myMPI, RECVI_myMPI, SENDK_myMPI, RECVK_myMPI
 
@@ -210,20 +211,21 @@ subroutine gather_q2_metadata(meta)
 
   integer :: nslots, nlocal, nelem_global
   integer, allocatable :: local_ids(:,:), recv_ids(:,:)
-  integer :: iel, ivt, pID, global_iel, gid, max_gid
-
-  nslots = size(myDump%Vertices,2)
-  if (myid.ne.0 .and. .not.allocated(GlobalNumberingQ2)) then
-    write(*,*) 'solution_io_provenance requires GlobalNumberingQ2 to be allocated.'
-    stop 1
-  end if
+  integer :: iel, ivt, pID, global_iel, gid, max_gid, recv_nlocal, dump_id, recv_nslots, recv_max_gid
 
   if (myid.ne.0) then
+    nslots = size(myDump%Vertices,2)
     nlocal = knel(NLMIN)
     allocate(local_ids(nslots,nlocal))
     do iel = 1, nlocal
       do ivt = 1, nslots
-        local_ids(ivt,iel) = GlobalNumberingQ2(myDump%Vertices(iel,ivt))
+        dump_id = myDump%Vertices(iel,ivt)
+        if (dump_id.lt.1) then
+          write(*,*) 'solution_io_provenance: invalid dump vertex id in gather_q2_metadata', &
+                     ' myid=', myid, ' local_iel=', iel, ' slot=', ivt, ' dump_id=', dump_id
+          stop 1
+        end if
+        local_ids(ivt,iel) = dump_id
       end do
     end do
     call SENDI_myMPI(nslots, 0)
@@ -231,24 +233,47 @@ subroutine gather_q2_metadata(meta)
     call SENDK_myMPI(local_ids, nslots*nlocal, 0)
     deallocate(local_ids)
   else
+    nslots = 0
     nelem_global = knel(NLMIN)
     meta%nelem_global = nelem_global
-    meta%nslots = nslots
-    allocate(meta%global_ids(nslots, nelem_global))
-    meta%global_ids = 0
+    max_gid = 0
     do pID = 1, subnodes
-      call RECVI_myMPI(nslots, pID)
-      call RECVI_myMPI(nlocal, pID)
-      allocate(recv_ids(nslots,nlocal))
-      call RECVK_myMPI(recv_ids, nslots*nlocal, pID)
-      do iel = 1, nlocal
+      call RECVI_myMPI(recv_nslots, pID)
+      call RECVI_myMPI(recv_nlocal, pID)
+      if (nslots.eq.0) then
+        nslots = recv_nslots
+        meta%nslots = nslots
+        allocate(meta%global_ids(nslots, nelem_global))
+        meta%global_ids = 0
+      else if (recv_nslots.ne.nslots) then
+        write(*,*) 'solution_io_provenance: inconsistent q2 slot count in gather_q2_metadata', &
+                   ' pid=', pID, ' recv_nslots=', recv_nslots, ' expected=', nslots
+        stop 1
+      end if
+      if (recv_nlocal.le.0) cycle
+      allocate(recv_ids(recv_nslots, recv_nlocal))
+      call RECVK_myMPI(recv_ids, nslots*recv_nlocal, pID)
+      recv_max_gid = maxval(recv_ids)
+      if (recv_max_gid.gt.max_gid) max_gid = recv_max_gid
+      do iel = 1, recv_nlocal
         global_iel = coarse%pELEMLINK(pID, iel)
+        if (global_iel.lt.1 .or. global_iel.gt.nelem_global) then
+          write(*,*) 'solution_io_provenance: invalid coarse element mapping in gather_q2_metadata', &
+                     ' pid=', pID, ' local_iel=', iel, ' global_iel=', global_iel, ' nelem_global=', nelem_global
+          stop 1
+        end if
         meta%global_ids(:,global_iel) = recv_ids(:,iel)
       end do
       deallocate(recv_ids)
     end do
-
-    max_gid = maxval(meta%global_ids)
+    if (nslots.le.0) then
+      write(*,*) 'solution_io_provenance: did not receive any q2 metadata rows'
+      stop 1
+    end if
+    if (max_gid.lt.1) then
+      write(*,*) 'solution_io_provenance: no valid q2 ids received in gather_q2_metadata'
+      stop 1
+    end if
     allocate(meta%owner_elem(max_gid), meta%owner_slot(max_gid), meta%owner_index_by_gid(max_gid), meta%duplicate_count(max_gid))
     meta%owner_elem = huge(1)
     meta%owner_slot = huge(1)
@@ -259,6 +284,11 @@ subroutine gather_q2_metadata(meta)
       do ivt = 1, nslots
         gid = meta%global_ids(ivt,global_iel)
         if (gid.le.0) cycle
+        if (gid.gt.max_gid) then
+          write(*,*) 'solution_io_provenance: q2 id out of range in gather_q2_metadata', &
+                     ' global_iel=', global_iel, ' slot=', ivt, ' gid=', gid, ' max_gid=', max_gid
+          stop 1
+        end if
         meta%duplicate_count(gid) = meta%duplicate_count(gid) + 1
         if (global_iel.lt.meta%owner_elem(gid)) then
           meta%owner_elem(gid) = global_iel
@@ -296,7 +326,6 @@ subroutine free_q2_meta(meta)
 end subroutine free_q2_meta
 
 subroutine write_manifest(out_dir, meta)
-  use def_FEAT, only: NLMAX
   use pp3d_mpi, only: myid
   implicit none
   character(len=*), intent(in) :: out_dir
@@ -309,7 +338,7 @@ subroutine write_manifest(out_dir, meta)
   write(unit_id,'(A)') 'format=ff_prov_dump_v1'
   write(unit_id,'(A,I0)') 'coarse_elements=', meta%nelem_global
   write(unit_id,'(A,I0)') 'q2_slots_per_coarse=', meta%nslots
-  write(unit_id,'(A,I0)') 'p1_slots_per_coarse=', 8**(NLMAX-1)
+  write(unit_id,'(A,I0)') 'p1_slots_per_coarse=', meta%nslots
   write(unit_id,'(A,I0)') 'q2_owner_count=', meta%owner_count
   close(unit_id)
 end subroutine write_manifest
@@ -363,12 +392,13 @@ subroutine write_q2_field(out_dir, field_name, ncomp, field_pack, meta)
   type(tProvQ2Meta), intent(in) :: meta
 
   integer :: nslots, nlocal, pID, iel, ivt, comp, global_iel, owner_idx, gid
+  integer :: recv_nlocal, recv_ncomp, recv_nslots
   real*8, allocatable :: local_vals(:,:,:), recv_vals(:,:,:), owner_vals(:,:)
   character(len=256) :: file_name
   integer :: unit_id
 
-  nslots = size(myDump%Vertices,2)
   if (myid.ne.0) then
+    nslots = size(myDump%Vertices,2)
     nlocal = knel(NLMIN)
     allocate(local_vals(nslots,nlocal,ncomp))
     do comp = 1, ncomp
@@ -384,21 +414,40 @@ subroutine write_q2_field(out_dir, field_name, ncomp, field_pack, meta)
     call SENDD_myMPI(local_vals, nslots*nlocal*ncomp, 0)
     deallocate(local_vals)
   else
+    nslots = 0
     allocate(owner_vals(meta%owner_count,ncomp))
     owner_vals = 0d0
     do pID = 1, subnodes
-      call RECVI_myMPI(nslots, pID)
-      call RECVI_myMPI(nlocal, pID)
-      call RECVI_myMPI(comp, pID)
-      allocate(recv_vals(nslots,nlocal,comp))
-      call RECVD_myMPI(recv_vals, nslots*nlocal*comp, pID)
-      do iel = 1, nlocal
+      call RECVI_myMPI(recv_nslots, pID)
+      call RECVI_myMPI(recv_nlocal, pID)
+      call RECVI_myMPI(recv_ncomp, pID)
+      if (nslots.eq.0) then
+        nslots = recv_nslots
+      else if (recv_nslots.ne.nslots) then
+        write(*,*) 'solution_io_provenance: inconsistent q2 slot count in write_q2_field', &
+                   ' pid=', pID, ' recv_nslots=', recv_nslots, ' expected=', nslots
+        stop 1
+      end if
+      if (recv_nlocal.le.0) cycle
+      if (recv_ncomp.ne.ncomp) then
+        write(*,*) 'solution_io_provenance: component count mismatch in write_q2_field', &
+                   ' pid=', pID, ' recv_ncomp=', recv_ncomp, ' ncomp=', ncomp
+        stop 1
+      end if
+      allocate(recv_vals(nslots, recv_nlocal, ncomp))
+      call RECVD_myMPI(recv_vals, nslots*recv_nlocal*ncomp, pID)
+      do iel = 1, recv_nlocal
         global_iel = coarse%pELEMLINK(pID, iel)
+        if (global_iel.lt.1 .or. global_iel.gt.meta%nelem_global) then
+          write(*,*) 'solution_io_provenance: invalid coarse element mapping in write_q2_field', &
+                     ' pid=', pID, ' local_iel=', iel, ' global_iel=', global_iel, ' nelem_global=', meta%nelem_global
+          stop 1
+        end if
         do ivt = 1, nslots
           gid = meta%global_ids(ivt,global_iel)
           if (meta%owner_elem(gid).eq.global_iel .and. meta%owner_slot(gid).eq.ivt) then
             owner_idx = meta%owner_index_by_gid(gid)
-            owner_vals(owner_idx,1:comp) = recv_vals(ivt,iel,1:comp)
+            owner_vals(owner_idx,1:ncomp) = recv_vals(ivt,iel,1:ncomp)
           end if
         end do
       end do
@@ -436,12 +485,12 @@ subroutine write_pressure_field(out_dir, nelem, pres)
   integer, intent(in) :: nelem
   real*8, dimension(:), intent(in) :: pres
 
-  integer :: nslots, nlocal, pID, iel, islot, global_iel, idx
+  integer :: nslots, nlocal, pID, iel, islot, global_iel, idx, recv_nlocal, recv_nslots
   real*8, allocatable :: local_vals(:,:,:), recv_vals(:,:,:), all_vals(:,:,:)
   integer :: unit_id
 
-  nslots = size(myDump%Elements,2)
   if (myid.ne.0) then
+    nslots = size(myDump%Elements,2)
     nlocal = knel(NLMIN)
     allocate(local_vals(nslots,nlocal,4))
     do iel = 1, nlocal
@@ -458,19 +507,37 @@ subroutine write_pressure_field(out_dir, nelem, pres)
     call SENDD_myMPI(local_vals, nslots*nlocal*4, 0)
     deallocate(local_vals)
   else
-    allocate(all_vals(nslots,knel(NLMIN),4))
-    all_vals = 0d0
+    nslots = 0
     do pID = 1, subnodes
-      call RECVI_myMPI(nslots, pID)
-      call RECVI_myMPI(nlocal, pID)
-      allocate(recv_vals(nslots,nlocal,4))
-      call RECVD_myMPI(recv_vals, nslots*nlocal*4, pID)
-      do iel = 1, nlocal
+      call RECVI_myMPI(recv_nslots, pID)
+      call RECVI_myMPI(recv_nlocal, pID)
+      if (nslots.eq.0) then
+        nslots = recv_nslots
+        allocate(all_vals(nslots,knel(NLMIN),4))
+        all_vals = 0d0
+      else if (recv_nslots.ne.nslots) then
+        write(*,*) 'solution_io_provenance: inconsistent p1 slot count in write_pressure_field', &
+                   ' pid=', pID, ' recv_nslots=', recv_nslots, ' expected=', nslots
+        stop 1
+      end if
+      if (recv_nlocal.le.0) cycle
+      allocate(recv_vals(nslots, recv_nlocal, 4))
+      call RECVD_myMPI(recv_vals, nslots*recv_nlocal*4, pID)
+      do iel = 1, recv_nlocal
         global_iel = coarse%pELEMLINK(pID, iel)
+        if (global_iel.lt.1 .or. global_iel.gt.knel(NLMIN)) then
+          write(*,*) 'solution_io_provenance: invalid coarse element mapping in write_pressure_field', &
+                     ' pid=', pID, ' local_iel=', iel, ' global_iel=', global_iel, ' nelem_global=', knel(NLMIN)
+          stop 1
+        end if
         all_vals(:,global_iel,:) = recv_vals(:,iel,:)
       end do
       deallocate(recv_vals)
     end do
+    if (nslots.le.0) then
+      write(*,*) 'solution_io_provenance: did not receive any pressure rows'
+      stop 1
+    end if
 
     unit_id = 711
     open(unit=unit_id, file=trim(adjustl(out_dir))//'/pressure.csv', status='replace')
@@ -577,13 +644,13 @@ subroutine read_pressure_map(base_dir, nelem_global, nslots_p1, pressure_map)
   character(len=*), intent(in) :: base_dir
   integer, intent(in) :: nelem_global, nslots_p1
   real*8, allocatable, intent(out) :: pressure_map(:,:,:)
-  integer :: unit_id, ios
+  integer :: unit_id, ios, max_slot, coarse_seen
   character(len=512) :: line
   integer :: coarse_elem_global, slot
   real*8 :: v0, v1, v2, v3
 
-  allocate(pressure_map(4,nslots_p1,nelem_global))
-  pressure_map = 0
+  max_slot = 0
+  coarse_seen = 0
   unit_id = 740 + myid
   open(unit=unit_id, file=trim(adjustl(base_dir))//'/pressure.csv', status='old', action='read', iostat=ios)
   if (ios.ne.0) then
@@ -595,6 +662,39 @@ subroutine read_pressure_map(base_dir, nelem_global, nslots_p1, pressure_map)
     read(unit_id,'(A)',iostat=ios) line
     if (ios.ne.0) exit
     read(line,*) coarse_elem_global, slot, v0, v1, v2, v3
+    if (slot.gt.max_slot) max_slot = slot
+    if (coarse_elem_global.gt.coarse_seen) coarse_seen = coarse_elem_global
+  end do
+  close(unit_id)
+
+  if (coarse_seen.gt.nelem_global) then
+    write(*,*) 'solution_io_provenance: pressure.csv references more coarse elements than manifest', &
+               ' coarse_seen=', coarse_seen, ' nelem_global=', nelem_global
+    stop 1
+  end if
+
+  if (nslots_p1.gt.0 .and. nslots_p1.ne.max_slot) then
+    write(*,*) 'solution_io_provenance: manifest pressure slot count mismatch, using file contents', &
+               ' manifest=', nslots_p1, ' file=', max_slot
+  end if
+
+  allocate(pressure_map(4,max_slot,nelem_global))
+  pressure_map = 0
+  open(unit=unit_id, file=trim(adjustl(base_dir))//'/pressure.csv', status='old', action='read', iostat=ios)
+  if (ios.ne.0) then
+    write(*,*) 'Could not open pressure provenance file in ', trim(adjustl(base_dir))
+    stop 1
+  end if
+  read(unit_id,'(A)') line
+  do
+    read(unit_id,'(A)',iostat=ios) line
+    if (ios.ne.0) exit
+    read(line,*) coarse_elem_global, slot, v0, v1, v2, v3
+    if (slot.lt.1 .or. slot.gt.max_slot) then
+      write(*,*) 'solution_io_provenance: invalid pressure slot in read_pressure_map', &
+                 ' slot=', slot, ' max_slot=', max_slot, ' coarse_elem_global=', coarse_elem_global
+      stop 1
+    end if
     pressure_map(1,slot,coarse_elem_global) = v0
     pressure_map(2,slot,coarse_elem_global) = v1
     pressure_map(3,slot,coarse_elem_global) = v2

@@ -11,6 +11,7 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
+  USE prov_dump_config, ONLY : use_prov_dump_io
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
                               el_particle_density, el_gravity, el_sampling_debug_enabled, &
@@ -54,7 +55,11 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
+    if (use_prov_dump_io) then
+      call SolFromFileProv(CSTART,1)
+    else
+      call SolFromFile(CSTART,1)
+    end if
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
@@ -62,7 +67,11 @@ subroutine init_q2p1_ext(log_unit)
     ! In order to read in from a lower level
     ! the lower level structures are needed
     if (myid.ne.0) call CreateDumpStructures(0)
-    call SolFromFile(CSTART,0)
+    if (use_prov_dump_io) then
+      call SolFromFileProv(CSTART,0)
+    else
+      call SolFromFile(CSTART,0)
+    end if
     call ProlongateSolution()
 
     ! Now generate the structures for the actual level 
@@ -72,7 +81,11 @@ subroutine init_q2p1_ext(log_unit)
   ! with a different number of partitions
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
+    if (use_prov_dump_io) then
+      call SolFromFileRepartProv(CSTART,1)
+    else
+      call SolFromFileRepart(CSTART,1)
+    end if
   end if
 
   if (myid .ne. 0) then
@@ -639,6 +652,7 @@ END SUBROUTINE get_global_domain_extents
  !
 SUBROUTINE myGDATNEW (cName,iCurrentStatus)
   USE PP3D_MPI
+  USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
   use el_frozen_driver, only: el_force_kernel, el_write_diagnostics, el_apply_forces, &
                               el_enable_buoyancy, el_fluid_density, el_kinematic_viscosity, &
                               el_particle_density, el_gravity, el_sampling_debug_enabled, &
@@ -721,6 +735,10 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
          MFILE=MFILE1
        CASE ("StartingProc")
          READ(string(iEq+1:),*) ISTART
+       CASE ("UseProvDump")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         call set_use_prov_dump(el_parse_yes_no(cParam))
        CASE ("Umbrella")
          READ(string(iEq+1:),*) nUmbrellaSteps
        CASE ("StartFile")
@@ -954,6 +972,14 @@ SUBROUTINE myGDATNEW (cName,iCurrentStatus)
 
      WRITE(mfile,'(A,I1)') "StartingProc = ", ISTART
      WRITE(mterm,'(A,I1)') "StartingProc = ", ISTART
+
+     IF (use_prov_dump_io) THEN
+       WRITE(mfile,'(A)') "UseProvDump = YES"
+       WRITE(mterm,'(A)') "UseProvDump = YES"
+     ELSE
+       WRITE(mfile,'(A)') "UseProvDump = NO"
+       WRITE(mterm,'(A)') "UseProvDump = NO"
+     END IF
 
      WRITE(mfile,'(A,A)') "StartFile = ",CSTART
      WRITE(mterm,'(A,A)') "StartFile = ",CSTART
