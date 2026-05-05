@@ -20,7 +20,14 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning
+  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, &
+  bAttractionSmootherEnable, bUmbrellaDistanceWeightEnable, cAttractionMode, &
+  cAttractionDistanceProvider, nAttractionSteps, nPostAttractionUmbrellaSteps, &
+  iAttractionApplyOnLevel, dAttractionOmega, dAttractionBandOuterStrong, &
+  dAttractionBandOuterMax, dAttractionBandInner, dAttractionInnerMaxAlpha, &
+  dAttractionOuterMinAlpha, dAttractionOuterMaxAlpha, dAttractionOuterFarExponent, &
+  dUmbrellaWeightCap, dUmbrellaWeightPower, bAttractionCylinderUseCaps, &
+  dFAC3D_CylCenter, dFAC3D_CylRadius, dFAC3D_CylLength
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -589,7 +596,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   CHARACTER :: letter
   CHARACTER(len=500) :: string
   CHARACTER(len=7) :: cVar
-  CHARACTER(len=25) :: cPar
+  CHARACTER(len=40) :: cPar
   CHARACTER(len=400) :: cLongString
   CHARACTER(len=8) :: cParam
   CHARACTER(len=20) :: cParam2
@@ -654,6 +661,48 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) nMainUmbrellaSteps
       CASE ("UmbrellaStepL")
         READ(string(iEq+1:),*) nUmbrellaStepsLvl
+      CASE ("AttractionEnable")
+        bAttractionSmootherEnable = read_yes_no_param(string, iEq)
+      CASE ("AttractionMode")
+        READ(string(iEq+1:),*) cAttractionMode
+      CASE ("AttractionDistanceProvider")
+        READ(string(iEq+1:),*) cAttractionDistanceProvider
+      CASE ("AttractionSteps")
+        READ(string(iEq+1:),*) nAttractionSteps
+      CASE ("PostAttractionUmbrellaSteps")
+        READ(string(iEq+1:),*) nPostAttractionUmbrellaSteps
+      CASE ("AttractionOmega")
+        READ(string(iEq+1:),*) dAttractionOmega
+      CASE ("AttractionApplyOnLevel")
+        READ(string(iEq+1:),*) iAttractionApplyOnLevel
+      CASE ("AttractionBandOuterStrong")
+        READ(string(iEq+1:),*) dAttractionBandOuterStrong
+      CASE ("AttractionBandOuterMax")
+        READ(string(iEq+1:),*) dAttractionBandOuterMax
+      CASE ("AttractionBandInner")
+        READ(string(iEq+1:),*) dAttractionBandInner
+      CASE ("AttractionInnerMaxAlpha")
+        READ(string(iEq+1:),*) dAttractionInnerMaxAlpha
+      CASE ("AttractionOuterMinAlpha")
+        READ(string(iEq+1:),*) dAttractionOuterMinAlpha
+      CASE ("AttractionOuterMaxAlpha")
+        READ(string(iEq+1:),*) dAttractionOuterMaxAlpha
+      CASE ("AttractionOuterFarExponent")
+        READ(string(iEq+1:),*) dAttractionOuterFarExponent
+      CASE ("UmbrellaDistanceWeightEnable")
+        bUmbrellaDistanceWeightEnable = read_yes_no_param(string, iEq)
+      CASE ("UmbrellaWeightCap")
+        READ(string(iEq+1:),*) dUmbrellaWeightCap
+      CASE ("UmbrellaWeightPower")
+        READ(string(iEq+1:),*) dUmbrellaWeightPower
+      CASE ("AttractionCylinderCenter")
+        READ(string(iEq+1:),*) dFAC3D_CylCenter
+      CASE ("AttractionCylinderRadius")
+        READ(string(iEq+1:),*) dFAC3D_CylRadius
+      CASE ("AttractionCylinderLength")
+        READ(string(iEq+1:),*) dFAC3D_CylLength
+      CASE ("AttractionCylinderUseCaps")
+        bAttractionCylinderUseCaps = read_yes_no_param(string, iEq)
       CASE ("StartFile")
         READ(string(iEq+1:),*) CSTART
         MSTART = START_FILE_UNIT

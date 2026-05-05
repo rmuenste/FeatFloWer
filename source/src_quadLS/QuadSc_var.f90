@@ -405,6 +405,24 @@ MODULE var_QuadScalar
   REAL*8, ALLOCATABLE :: Viscosity(:), Shearrate(:),Temperature(:),ElemSizeDist(:),MaxShearRate(:)
   REAL*8, ALLOCATABLE :: Temperature_AVG(:)
   INTEGER :: iTemperature_AVG = 0
+  LOGICAL :: bAttractionSmootherEnable = .FALSE.
+  LOGICAL :: bUmbrellaDistanceWeightEnable = .FALSE.
+  CHARACTER(len=32) :: cAttractionMode = "node_attraction"
+  CHARACTER(len=32) :: cAttractionDistanceProvider = "cylinder"
+  INTEGER :: nAttractionSteps = 8
+  INTEGER :: nPostAttractionUmbrellaSteps = 2
+  INTEGER :: iAttractionApplyOnLevel = 0
+  REAL*8 :: dAttractionOmega = 0.2d0
+  REAL*8 :: dAttractionBandOuterStrong = 0.04d0
+  REAL*8 :: dAttractionBandOuterMax = 0.15d0
+  REAL*8 :: dAttractionBandInner = 0.04d0
+  REAL*8 :: dAttractionInnerMaxAlpha = 0.45d0
+  REAL*8 :: dAttractionOuterMinAlpha = 0.6d0
+  REAL*8 :: dAttractionOuterMaxAlpha = 1.0d0
+  REAL*8 :: dAttractionOuterFarExponent = 2.0d0
+  REAL*8 :: dUmbrellaWeightCap = 25d0
+  REAL*8 :: dUmbrellaWeightPower = 2.3d0
+  LOGICAL :: bAttractionCylinderUseCaps = .FALSE.
   LOGICAL :: bFAC3D_CylUmbrellaWeight = .FALSE.
   REAL*8 :: dFAC3D_CylCenter(3) = (/0.5d0, 0.2d0, 0.205d0/)
   REAL*8 :: dFAC3D_CylRadius = 0.05d0

@@ -136,10 +136,11 @@ module umbrella_smoother
   !use PP3D_MPI, only: myid,coarse
   USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
 !   use Parametrization, only: ParametrizeBndr
+  use attraction_smoother, only: AttractionSmoother_ComputeDistance, &
+                                AttractionSmoother_GetUmbrellaWeight, &
+                                AttractionSmoother_UseUmbrellaDistanceWeight
   use Sigma_User, only: mySigma,Shell_dist
-  use var_QuadScalar, only: tMultiMesh,FictKNPR, &
-                            bFAC3D_CylUmbrellaWeight, &
-                            dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength
+  use var_QuadScalar, only: tMultiMesh,FictKNPR
   
   !USE STL_Processing, ONLY : dEpsDist
   implicit none
@@ -214,8 +215,8 @@ module umbrella_smoother
     f(i) = f(i)/w(i)
    end DO
   
-   IF (bFAC3D_CylUmbrellaWeight) THEN
-    CALL ComputeFAC3DCylDistance(nvt,dcorvg,qscStruct%AuxU)
+   IF (AttractionSmoother_UseUmbrellaDistanceWeight()) THEN
+    CALL AttractionSmoother_ComputeDistance(nvt,dcorvg,qscStruct%AuxU)
     qscStruct%AuxV(1:nvt) = qscStruct%AuxU(1:nvt)
     qscStruct%AuxW(1:nvt) = qscStruct%AuxU(1:nvt)
    ELSE
@@ -306,8 +307,9 @@ module umbrella_smoother
    CONTAINS
   
   subroutine GetWeight(x,y,z,t,f)
-  USE var_QuadScalar , ONLY :dCGALtoRealFactor, &
-                              bFAC3D_CylUmbrellaWeight
+  USE attraction_smoother, ONLY : AttractionSmoother_GetUmbrellaWeight, &
+                                  AttractionSmoother_UseUmbrellaDistanceWeight
+  USE var_QuadScalar , ONLY :dCGALtoRealFactor
   IMPLICIT NONE
   real*8 x,y,z,t,f
   real*8 d1,d2,d3
@@ -329,11 +331,9 @@ module umbrella_smoother
    dScaleFactor = 1d0
   end if
 
-  IF (bFAC3D_CylUmbrellaWeight) THEN
+  IF (AttractionSmoother_UseUmbrellaDistanceWeight()) THEN
    d1 = dScaleFactor*qscStruct%AuxU(i)
-   CALL KernelFunction(d1,f1)
-   f = MIN(f1,25d0)
-   f = f**2.3d0
+   CALL AttractionSmoother_GetUmbrellaWeight(d1,f)
    RETURN
   END IF
 
@@ -399,28 +399,6 @@ module umbrella_smoother
   f = max(daux,0.8d0)
   
   end subroutine KernelFunction
-
-  subroutine ComputeFAC3DCylDistance(nLocalVtx,dcoor,dist)
-  implicit none
-  integer, intent(in) :: nLocalVtx
-  real*8, dimension(:,:), intent(in) :: dcoor
-  real*8, dimension(:), intent(inout) :: dist
-  integer :: iVtx
-  real*8 :: dx,dy,dzAbs,rxy,zGap,halfLen
-
-  halfLen = 0.5d0*dFAC3D_CylLength
-
-  DO iVtx=1,nLocalVtx
-   dx = dcoor(1,iVtx) - dFAC3D_CylCenter(1)
-   dy = dcoor(2,iVtx) - dFAC3D_CylCenter(2)
-   dzAbs = ABS(dcoor(3,iVtx) - dFAC3D_CylCenter(3))
-   rxy = SQRT(dx*dx + dy*dy)
-   zGap = dzAbs - halfLen
-   dist(iVtx) = MAX(rxy - dFAC3D_CylRadius,zGap)
-  END DO
-
-  end subroutine ComputeFAC3DCylDistance
-  
   end
   !
   ! --------------------------------------------------------------
