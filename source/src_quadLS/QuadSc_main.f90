@@ -635,6 +635,9 @@ IF (myid .EQ. 1) THEN
   END IF
   IF (bPrintParticleCFL) THEN
     WRITE(*,'(A,F10.4)') ' CFL (particle): ', cfl_particle_global
+    WRITE(*,'(A,ES12.4,A,ES12.4,A,ES12.4)') &
+      '   CFL components: vp_max=', vp_max_global, &
+      '  h_min=', h_min_global, '  dt=', tstep
   END IF
 END IF
 

@@ -1119,7 +1119,7 @@ if (myid /= 0) then
 
 #ifdef SED_BENCH
   if (myid == 1) then
-    time_out = dble(itns - 1) * tstep
+    time_out = timens
     DO IP = 1, numParticles
       write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
         theParticles(IP)%force(:)
@@ -1130,22 +1130,22 @@ if (myid /= 0) then
     END DO
   end if
 #endif
-  if (myid == 1) then
-    time_out = dble(itns - 1) * tstep
-    DO IP = 1, numParticles
-      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%force(:)
-      write(*,fmt_sed) 'SED_BENCH_FORCE/mp', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%force(:)/0.15283524d0
-      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%position(:)
-      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
-        theParticles(IP)%velocity(:)
-    END DO
-  end if
+!  if (myid == 1) then
+!    time_out = dble(itns - 1) * tstep
+!    DO IP = 1, numParticles
+!      write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%force(:)
+!      write(*,fmt_sed) 'SED_BENCH_FORCE/mp', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%force(:)/0.15283524d0
+!      write(*,fmt_sed) 'SED_BENCH_POS  ', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%position(:)
+!      write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
+!        theParticles(IP)%velocity(:)
+!    END DO
+!  end if
 
   if (myid == 1) then
-    time_out = dble(itns - 1) * tstep
+    time_out = timens
 
     if (itns == 1) then
       open(unit=force_log_unit, file='particle_force.log', action='write', status='replace')
@@ -1380,7 +1380,7 @@ global_sums = local_sums
 CALL COMM_SUMMN(global_sums, 4)
 
 IF (myid == 1) THEN
-  time_out = dble(itns - 1) * tstep
+  time_out = timens
   U_sup = 0.0D0
   U_fluid = 0.0D0
   fluid_fraction = 0.0D0

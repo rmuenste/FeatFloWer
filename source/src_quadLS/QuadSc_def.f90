@@ -4147,8 +4147,12 @@ cfl_global = cfl_max
 CALL COMM_Maximum(neg_h_min)
 h_min = -neg_h_min
 
+! Store global h_min for diagnostics
+h_min_global = h_min
+
 ! Particle CFL (PE only)
 cfl_p_max = 0d0
+vp_mag = 0d0
 #ifdef HAVE_PE
 numParticles = numTotalParticles()
 dbuf(1) = dble(numParticles)
@@ -4167,10 +4171,20 @@ IF (numParticles .GT. 0 .AND. h_min .GT. 0d0) THEN
     cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
   END DO
 
+  ! Store first particle position and radius for gap-based adaptivity
+  particle_z_global = theParticles(1)%position(3)
+  particle_rad_global = theParticles(1)%radius
+
   DEALLOCATE(theParticles)
 END IF
 #endif
 cfl_particle_global = cfl_p_max
+! Store max particle velocity for diagnostics (cfl_p_max = vp_max * tstep / h_min)
+IF (h_min .GT. 0d0 .AND. tstep .GT. 0d0) THEN
+  vp_max_global = cfl_p_max * h_min / tstep
+ELSE
+  vp_max_global = 0d0
+END IF
 
 END SUBROUTINE ComputeCFL
 
