@@ -245,6 +245,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
  USE param_parser, ONLY: GDATNEW
+ USE Sigma_User, ONLY: myTransientSolution
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -459,9 +460,11 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
- call init_fc_rigid_body(myid)      
- call FBM_GetParticles()
- CALL FBM_ScatterParticles()
+ IF (.NOT.(istart.ne.0 .and. myTransientSolution%DumpFormat.eq.3)) THEN
+  call init_fc_rigid_body(myid)
+  call FBM_GetParticles()
+  CALL FBM_ScatterParticles()
+ END IF
  !     ----------------------------------------------------------        
 
  ILEV=NLMIN

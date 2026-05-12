@@ -11,7 +11,7 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
-      ApplicationString,bMultiMat
+      ApplicationString,bMultiMat,bUseDumpedMixerGeometry,bCGALGeometryInitialized
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess,myTransientSolution
   USE iniparser, ONLY : inip_output_init
@@ -40,6 +40,7 @@ subroutine init_q2p1_ext(log_unit)
   
   ! Normal start from inital configuration
   if (istart.eq.0) then
+    bUseDumpedMixerGeometry = .false.
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitMeshDeform(log_unit, mg_mesh)
     call InitOperators(log_unit, mg_mesh,.true.)
@@ -48,9 +49,13 @@ subroutine init_q2p1_ext(log_unit)
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
+    bUseDumpedMixerGeometry = .false.
     if (myid.ne.0) call CreateDumpStructures(1)
     if (myTransientSolution%DumpFormat.eq.2) call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
-    if (myTransientSolution%DumpFormat.eq.3) call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (myTransientSolution%DumpFormat.eq.3) then
+      call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,s,y,z,x,t,q')
+      bUseDumpedMixerGeometry = .true.
+    end if
 !     call Load_ListFiles_SSE(int(myProcess%Angle))
 !    call read_sol_from_file(CSTART,1,timens)
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -59,6 +64,7 @@ subroutine init_q2p1_ext(log_unit)
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
+    bUseDumpedMixerGeometry = .false.
     ! In order to read in from a lower level
     ! the lower level structures are needed
     if (myid.ne.0) call CreateDumpStructures(0)
@@ -71,6 +77,7 @@ subroutine init_q2p1_ext(log_unit)
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
+    bUseDumpedMixerGeometry = .false.
     IF (myid.ne.0) CALL CreateDumpStructures(1)
     call SolFromFileRepart(CSTART,1)
     if (myid.ne.0) call CreateDumpStructures(1)
@@ -88,13 +95,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,mySSE_covergence,&
-   cProjectFolder,cProjectNumber,nInitUmbrellaSteps,mg_mesh,MaxLevelKnownToMaster,myRecComm
+   cProjectFolder,cProjectNumber,nInitUmbrellaSteps,mg_mesh,MaxLevelKnownToMaster,myRecComm,&
+   bCGALGeometryInitialized
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
 ! USE Parametrization, ONLY: ParametrizeQ2Nodes
- USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat
+ USE Sigma_User, ONLY: mySigma,myProcess,mySetup,myMultiMat,myTransientSolution
  USE cinterface 
  use iniparser
  USE param_parser, ONLY: GDATNEW
@@ -148,6 +156,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER i,j,iMat
 
  CALL ZTIME(TTT0)
+ bCGALGeometryInitialized = .false.
 
 
  !=======================================================================
@@ -439,9 +448,12 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL MemoryPrint(1,'w','CGAL0')
  !     ----------------------------------------------------------            
- call init_fc_rigid_body(myid)      
- call FBM_GetParticles()
- CALL FBM_ScatterParticles()
+ if (.not.(istart.eq.1.and.myTransientSolution%DumpFormat.eq.3)) then
+  call init_fc_rigid_body(myid)
+  call FBM_GetParticles()
+  CALL FBM_ScatterParticles()
+  bCGALGeometryInitialized = .true.
+ end if
  !     ----------------------------------------------------------        
  CALL MemoryPrint(1,'w','CGAL1')
 

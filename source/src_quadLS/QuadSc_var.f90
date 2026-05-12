@@ -35,6 +35,8 @@ MODULE var_QuadScalar
   LOGICAL :: bMemoryPrint=.true.
   LOGICAL :: bMasterTurnedOn=.true. ! because of hypre
   LOGICAL :: bMultiMat=.false.
+  LOGICAL :: bUseDumpedMixerGeometry=.false.
+  LOGICAL :: bCGALGeometryInitialized=.false.
   LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
   REAL*8  :: AlphaControl=0d0
   REAL*8  :: total_lubrication = 0.0

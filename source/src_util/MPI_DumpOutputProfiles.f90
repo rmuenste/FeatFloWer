@@ -374,7 +374,7 @@ USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 ! USE PP3D_MPI
-USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,shell,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,shell,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator,MixerKNPR
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
 
@@ -453,6 +453,13 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','shell')
 
+  if (cFLD(jFld).eq.'z'.or.cFLD(jFld).eq.'Z') then
+   CALL ReLoadMPIFieldQ2_NX('mixerknpr',1,QuadSc%AuxU)
+   MixerKNPR = NINT(QuadSc%AuxU)
+  end if
+  CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
+  if (jGlobalError.ne.0) CALL ProcessError('R','mixerknpr')
+
   if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReLoadMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
@@ -491,6 +498,8 @@ END IF
  
 !!! Exchange trhe coordinates with the master !!!!
 CALL CommCoordinatesWithMaster()
+CALL CommQ2ScalarFieldWithMaster(Screw)
+CALL CommQ2ScalarFieldWithMaster(Shell)
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -800,6 +809,77 @@ deallocate(ElementOffsets)
   DEALLOCATE(SendVect)
   
  END SUBROUTINE CommCoordinatesWithMaster
+
+ SUBROUTINE CommQ2ScalarFieldWithMaster(field)
+ USE PP3D_MPI
+ implicit none
+ REAL*8, intent(inout) :: field(*)
+ integer LevDif
+ REAL*8, ALLOCATABLE :: SendScal(:,:)
+ REAL*8, ALLOCATABLE :: recvField(:), recvCount(:)
+ integer pN, pnE, pID
+ integer iel, jel, ivt, jvt
+ integer nLengthV, nLengthE
+ integer :: i
+
+  IF (myid.EQ.0) THEN
+    CALL CreateDumpStructures(0)
+  ELSE
+    LevDif = LinSc%prm%MGprmIn%MedLev - NLMAX
+    CALL CreateDumpStructures(LevDif)
+  END IF
+
+  ILEV = LinSc%prm%MGprmIn%MedLev
+
+  nLengthV = (2**(ILEV-1)+1)**3
+  nLengthE = mg_mesh%level(NLMIN)%nel
+
+  ALLOCATE(SendScal(nLengthV,nLengthE))
+
+  IF (myid.NE.0) THEN
+    DO iel=1,nLengthE
+      DO ivt=1,nLengthV
+        jvt = myDump%Vertices(iel,ivt)
+        SendScal(ivt,iel) = field(jvt)
+      END DO
+    END DO
+
+    pN = nLengthE*nLengthV
+    CALL SENDI_myMPI(pN,0)
+    CALL SENDI_myMPI(nLengthE,0)
+    CALL SENDD_myMPI(SendScal,pN,0)
+  ELSE
+    ALLOCATE(recvField(QuadSc%ndof))
+    ALLOCATE(recvCount(QuadSc%ndof))
+    recvField = 0d0
+    recvCount = 0d0
+
+    DO pID=1,subnodes
+      CALL RECVI_myMPI(pN,pID)
+      CALL RECVI_myMPI(pnE,pID)
+      CALL RECVD_myMPI(SendScal,pN,pID)
+
+      DO iel=1,pnE
+        jel = coarse%pELEMLINK(pID,iel)
+        DO ivt=1,nLengthV
+          jvt = myDump%Vertices(jel,ivt)
+          recvField(jvt) = recvField(jvt) + SendScal(ivt,iel)
+          recvCount(jvt) = recvCount(jvt) + 1d0
+        END DO
+      END DO
+    END DO
+
+    DO i=1,QuadSc%ndof
+      IF (recvCount(i).GT.0d0) field(i) = recvField(i)/recvCount(i)
+    END DO
+
+    DEALLOCATE(recvField)
+    DEALLOCATE(recvCount)
+  END IF
+
+  DEALLOCATE(SendScal)
+
+ END SUBROUTINE CommQ2ScalarFieldWithMaster
  
  SUBROUTINE LoadMPIFieldQ2_NX(cF,nF,Field1,Field2,Field3,Field4,Field5,Field6,Field7,Field8,Field9,Field10)
  character cF*(*)
@@ -1181,7 +1261,7 @@ SUBROUTINE ReleaseMPIDumpFiles(iOutO,cList)
 USE def_FEAT
 USE PP3D_MPI, ONLY:myid,showid,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
-USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,shell,MaterialDistribution,temperature,mySegmentIndicator
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,shell,MaterialDistribution,temperature,mySegmentIndicator,MixerKNPR
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
 
@@ -1271,6 +1351,13 @@ IF (myid.NE.0) THEN
   if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL ReleaseMPIFieldQ2_NX('shell',1,shell)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','shell')
+
+  if (cFLD(jFld).eq.'z'.or.cFLD(jFld).eq.'Z') then
+   QuadSc%AuxU = DBLE(MixerKNPR)
+   CALL ReleaseMPIFieldQ2_NX('mixerknpr',1,QuadSc%AuxU)
+  end if
+  CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
+  if (jGlobalError.ne.0) CALL ProcessError('W','mixerknpr')
 
   if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReleaseMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)

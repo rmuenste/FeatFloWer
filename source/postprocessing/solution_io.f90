@@ -1839,7 +1839,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
         CALL ZTIME(myStat%t0)
         
         if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
-        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y')
+        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y,z')
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)

@@ -701,7 +701,7 @@ end subroutine InitMeshDeform
 !=========================================================================
 subroutine InitOperators(mfile, mgMesh,bCreate)
 use PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
-use var_QuadScalar, only : tMultiMesh
+use var_QuadScalar, only : tMultiMesh,bUseDumpedMixerGeometry,bCGALGeometryInitialized
 implicit none
 
 integer, intent(in) :: mfile
@@ -726,7 +726,7 @@ call store_old_mesh(mgMesh%level(mgMesh%nlmax)%dcorvg)
 ilev = mgMesh%nlmax
 call setlev(2)
 
-if (myid.ne.0) call updateMixerGeometry(mfile)
+if (myid.ne.0 .and. .not.bUseDumpedMixerGeometry) call updateMixerGeometry(mfile)
 
 ! call FilterColdElements(mfile)
 
@@ -764,7 +764,10 @@ IF (bCreate) THEN
  
  CALL MemoryPrint(1,'w','CGALOUT0')
 #ifdef USE_CGAL
-      CALL Release_cgal_structures()
+      if (bCGALGeometryInitialized) then
+       CALL Release_cgal_structures()
+       bCGALGeometryInitialized = .false.
+      end if
 #endif
  CALL MemoryPrint(1,'w','CGALOUT1')
  
