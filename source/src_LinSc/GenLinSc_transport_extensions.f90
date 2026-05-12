@@ -237,6 +237,10 @@ IF (myid.ne.0) THEN
   ! Convection + stabilization
   CALL Create_GenLinSc_Q1_AFCConvection()
 
+  DO iFld=2,GenLinScalar%nOfFields
+   GenLinScalar%Fld(iFld)%val = 0d0
+  end do
+
   bInit = .false.
  end if
 
@@ -1362,7 +1366,7 @@ DO iFld=2,GenLinScalar%nOfFields
 end do
 
 AlphaControl = dMaxValue/dVolPhase(1)
-if (AlphaControl.gt.0.9d0) bAlphaConverged=.true.
+if (AlphaControl.gt.0.99d0) bAlphaConverged=.true.
 
 if (myid.eq.1) then
  write(mterm,'(A,100ES12.4)') 'VolumeFractions[%]: ',1d2*dMaxValue/dVolPhase(1),1d2*dVolPhase(2:GenLinScalar%nOfFields)/dVolPhase(1)
