@@ -464,15 +464,15 @@ DO ILEV=NLMIN+1,NLMAX
   
    IF (.not.(myid.eq.0.AND.ilev.gt.LinSc%prm%MGprmIn%MedLev)) THEN
    
-    CALL ProlongateCoordinates(mg_mesh%level(ILEV)%dcorvg,&
-                               mg_mesh%level(ILEV+1)%dcorvg,&
-                               mg_mesh%level(ILEV)%karea,&
-                               mg_mesh%level(ILEV)%kvert,&
-                               mg_mesh%level(ILEV)%kedge,&
-                               mg_mesh%level(ILEV)%nel,&
-                               mg_mesh%level(ILEV)%nvt,&
-                               mg_mesh%level(ILEV)%net,&
-                               mg_mesh%level(ILEV)%nat)
+    CALL ProlongateCoordinates_SSE(mg_mesh%level(ILEV)%dcorvg,&
+                                   mg_mesh%level(ILEV+1)%dcorvg,&
+                                   mg_mesh%level(ILEV)%karea,&
+                                   mg_mesh%level(ILEV)%kvert,&
+                                   mg_mesh%level(ILEV)%kedge,&
+                                   mg_mesh%level(ILEV)%nel,&
+                                   mg_mesh%level(ILEV)%nvt,&
+                                   mg_mesh%level(ILEV)%net,&
+                                   mg_mesh%level(ILEV)%nat)
    END IF
  END DO
 
@@ -485,15 +485,15 @@ DO ILEV=NLMIN+1,NLMAX
  
 IF (myid.ne.0) THEN
 
-  CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
-                             mg_mesh%level(nlmax+1)%dcorvg,&
-                             mg_mesh%level(nlmax)%karea,&
-                             mg_mesh%level(nlmax)%kvert,&
-                             mg_mesh%level(nlmax)%kedge,&
-                             mg_mesh%level(nlmax)%nel,&
-                             mg_mesh%level(nlmax)%nvt,&
-                             mg_mesh%level(nlmax)%net,&
-                             mg_mesh%level(nlmax)%nat)
+  CALL ProlongateCoordinates_SSE(mg_mesh%level(nlmax)%dcorvg,&
+                                 mg_mesh%level(nlmax+1)%dcorvg,&
+                                 mg_mesh%level(nlmax)%karea,&
+                                 mg_mesh%level(nlmax)%kvert,&
+                                 mg_mesh%level(nlmax)%kedge,&
+                                 mg_mesh%level(nlmax)%nel,&
+                                 mg_mesh%level(nlmax)%nvt,&
+                                 mg_mesh%level(nlmax)%net,&
+                                 mg_mesh%level(nlmax)%nat)
 END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -22,7 +22,7 @@
     character(len=INIP_STRLEN) cMidpointA, cMidpointB 
     character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor,cTVals, cRobin
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT,cGeometryType
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -114,6 +114,21 @@
      WRITE(*,*) "Program stops!"
      CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
     END IF
+    END IF
+
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryType",cGeometryType,'BOX')
+    call inip_toupper_replace(cGeometryType)
+    IF (.NOT.(ADJUSTL(TRIM(cGeometryType)).EQ."BOX".OR.ADJUSTL(TRIM(cGeometryType)).EQ."ROUND")) THEN
+     IF (myid.eq.1) WRITE(*,*) "GeometryType is invalid. Only BOX or ROUND are allowed:", TRIM(cGeometryType)
+     cGeometryType = 'BOX'
+    END IF
+    GeometryType = ADJUSTL(TRIM(cGeometryType))
+    bProlongationDZMAXInitialized = .FALSE.
+    ProlongationDZMAX = 0d0
+    IF (GeometryType.EQ.'ROUND') THEN
+     ProlongationDirection = 3
+    ELSE
+     ProlongationDirection = 0
     END IF
 
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryStart", mySigma%GeometryStart ,'_INVALID_')
@@ -1799,6 +1814,11 @@
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%K",'=',myMultiMat%Mat(iMat)%Rheology%K
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(iMat)%Rheology%n
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%eta_min",'=',myMultiMat%Mat(iMat)%Rheology%eta_min
+      write(*,'(A)') " modified Carreau ::"
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(iMat)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(iMat)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(iMat)%Rheology%C
      END IF
      IF (myMultiMat%Mat(iMat)%Rheology%Equation.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Carreau'
@@ -1903,6 +1923,11 @@
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%K",'=',myMultiMat%Mat(1)%Rheology%K
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%n
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%eta_min",'=',myMultiMat%Mat(1)%Rheology%eta_min
+      write(*,'(A)') " modified Carreau ::"
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
      END IF
      IF (myMultiMat%Mat(1)%Rheology%Equation.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Carreau'
@@ -2473,6 +2498,12 @@
       t%Equation = 2
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Consistence", t%K,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Exponent",t%n,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"ShearRateLimit",t%eta_min,1d-3)
+      !! here comes an update for a powerlaw normalization towards Carraeu
+      t%A = t%K*(t%eta_min**(t%n-1d0))
+      t%B = 1d0/t%eta_min
+      t%C = 1d0-t%n
+
 !       if (t%K.eq.myInf) then
 !        call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Consistence", t%K,myInf)
 !       end if

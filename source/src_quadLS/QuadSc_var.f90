@@ -72,6 +72,9 @@ MODULE var_QuadScalar
   INTEGER, PARAMETER :: Giesekus = 0
   INTEGER, PARAMETER :: OldroydB = 1
   INTEGER :: ProlongationDirection = 0
+  CHARACTER(len=16) :: GeometryType = 'BOX'
+  LOGICAL :: bProlongationDZMAXInitialized = .FALSE.
+  REAL*8 :: ProlongationDZMAX = 0d0
   REAL*8 :: activeFBM_Z_Position=-1d9
   REAL*8 :: dTimeStepEnlargmentFactor=1d0
   INTEGER :: iTimeStepEnlargmentFactor=1
