@@ -53,7 +53,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
-   myRecComm
+   myRecComm,myDataFile
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -107,6 +107,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL INIT_MPI()                                 ! PARALLEL
  CALL FindNodes()
  CSimPar = "SimPar"
+ myDataFile = '_data/q2p1_paramAlpha.dat'
  CALL  GDATNEW (CSimPar,0)
 
  CFILE=CFILE1
