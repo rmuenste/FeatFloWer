@@ -425,7 +425,7 @@ IF (myid.NE.0) THEN
  
  iGlobalError = 0
  DO jFld = 1,nFLD
-  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL ReLoadMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
+  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL LoadMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','pressure')
   
@@ -433,41 +433,41 @@ IF (myid.NE.0) THEN
 !   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
 !   if (jGlobalError.ne.0) CALL ProcessError('R','material')
   
-  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL ReLoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
+  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL LoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','coordinates')
   
-  if (cFLD(jFld).eq.'v'.or.cFLD(jFld).eq.'V') CALL ReLoadMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
+  if (cFLD(jFld).eq.'v'.or.cFLD(jFld).eq.'V') CALL LoadMPIFieldQ2_NX('velocity',3,QuadSc%valU,QuadSc%valV,QuadSc%valW)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','velocity')
 
-  if (cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') CALL ReLoadMPIFieldQ2_NX('distance',1,Screw)
+  if (cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') CALL LoadMPIFieldQ2_NX('distance',1,Screw)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','distance')
   
-  if (cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') CALL ReLoadMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
+  if (cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') CALL LoadMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','segment')
 
-  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL ReLoadMPIFieldQ2_NX('shell',1,shell)
+  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL LoadMPIFieldQ2_NX('shell',1,shell)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','shell')
 
   if (cFLD(jFld).eq.'z'.or.cFLD(jFld).eq.'Z') then
-   CALL ReLoadMPIFieldQ2_NX('mixerknpr',1,QuadSc%AuxU)
+   CALL LoadMPIFieldQ2_NX('mixerknpr',1,QuadSc%AuxU)
    MixerKNPR = NINT(QuadSc%AuxU)
   end if
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','mixerknpr')
 
-  if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReLoadMPIFieldQ2_NX('temperature',1,temperature)
+  if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL LoadMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
   
   if (cFLD(jFld).eq.'q'.or.cFLD(jFld).eq.'Q') THEN
    if (allocated(GenLinScalar%Fld)) then
     DO iFld=1,GenLinScalar%nOfFields
-     CALL ReLoadMPIFieldQ2_NX(adjustl(trim(GenLinScalar%prm%cField(iFld))),1,GenLinScalar%fld(iFld)%Val)
+     CALL LoadMPIFieldQ2_NX(adjustl(trim(GenLinScalar%prm%cField(iFld))),1,GenLinScalar%fld(iFld)%Val)
      CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
      if (jGlobalError.ne.0) CALL ProcessError('R',adjustl(trim(GenLinScalar%prm%cField(iFld))))
     END DO     
@@ -897,7 +897,7 @@ deallocate(ElementOffsets)
  
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:),jaux(:)
- INTEGER ivt,jvt,jel,kel,lel,NNEL
+ INTEGER ivt,jvt,kel,NNEL,iRunS,iRunE,iRun,recLen
  integer iEntry,ndof,iComp
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
@@ -911,35 +911,10 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
-  
-  cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
-  offset = 0
-  IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
-  end if
-  
-  NNEL = INT(ElementOffsets(subnodes+1))
-  allocate(iaux(NNEL),jaux(NNEL))
-  
-  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
-  offset = 0
-  myFieldOffset = offset
-  
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-  if (ierr.ne.0) iGlobalError = 1
-  CALL mpi_file_close(mpiFile,ierr)
-  
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
-  
-  do iel=1,NNEL
-   jaux(iel) = iel
-  end do
-  
+  NNEL = knel(nlmin)
+  allocate(iaux(NNEL),jaux(NNEL))
+  CALL LoadLocalKeyIndex(cF,iaux,jaux)
   CALL sort2D(iaux,jaux,NNEL)
 
   DO iComp= 1,nF
@@ -948,8 +923,7 @@ deallocate(ElementOffsets)
     ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
     ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
     if (iChunk.eq.nChunks) ivt_max = nLengthV
-    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
-    allocate(daux(ndof))
+    recLen = ivt_max-ivt_min+1
     
     cPOutFile = '_dump/'
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
@@ -959,71 +933,48 @@ deallocate(ElementOffsets)
     end if
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
     
-    DO iel=1,knel(nlmin)
-     jel = coarse%myELEMLINK(iel)
-     kel = jaux(jel) 
-     
-     myFieldOffset = offset + dblesize*(kel-1)*(ivt_max-ivt_min+1)
+    iRunS = 1
+    DO WHILE (iRunS.le.NNEL)
+     iRunE = iRunS
+     DO WHILE (iRunE.lt.NNEL)
+      IF (iaux(iRunE+1).ne.iaux(iRunE)+1) EXIT
+      iRunE = iRunE + 1
+     END DO
+
+     ndof = recLen*(iRunE-iRunS+1)
+     allocate(daux(ndof))
+     myFieldOffset = offset + dblesize*(iaux(iRunS)-1)*recLen
      CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
      if (ierr.ne.0) iGlobalError = 1
-    
+
      iEntry = 0
-     
-     DO ivt=ivt_min,ivt_max
-     
-      jvt = myDump%Vertices(iel,ivt)
-      
-      iEntry = iEntry + 1
-      if (iComp.eq.1) then
-       Field1(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.2.and.present(Field2)) then
-       Field2(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.3.and.present(Field3)) then
-       Field3(jvt) = daux(iEntry)
-      end if
+     DO iRun=iRunS,iRunE
+      kel = jaux(iRun)
+      DO ivt=ivt_min,ivt_max
+       jvt = myDump%Vertices(kel,ivt)
+       iEntry = iEntry + 1
 
-      if (iComp.eq.4.and.present(Field4)) then
-       Field4(jvt) = daux(iEntry)
-      end if
-
-      if (iComp.eq.5.and.present(Field5)) then
-       Field5(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.6.and.present(Field6)) then
-       Field6(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.7.and.present(Field7)) then
-       Field7(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.8.and.present(Field8)) then
-       Field8(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.9.and.present(Field9)) then
-       Field9(jvt) = daux(iEntry)
-      end if
-      
-      if (iComp.eq.10.and.present(Field10)) then
-       Field10(jvt) = daux(iEntry)
-      end if
-      
+       if (iComp.eq.1) Field1(jvt) = daux(iEntry)
+       if (iComp.eq.2.and.present(Field2)) Field2(jvt) = daux(iEntry)
+       if (iComp.eq.3.and.present(Field3)) Field3(jvt) = daux(iEntry)
+       if (iComp.eq.4.and.present(Field4)) Field4(jvt) = daux(iEntry)
+       if (iComp.eq.5.and.present(Field5)) Field5(jvt) = daux(iEntry)
+       if (iComp.eq.6.and.present(Field6)) Field6(jvt) = daux(iEntry)
+       if (iComp.eq.7.and.present(Field7)) Field7(jvt) = daux(iEntry)
+       if (iComp.eq.8.and.present(Field8)) Field8(jvt) = daux(iEntry)
+       if (iComp.eq.9.and.present(Field9)) Field9(jvt) = daux(iEntry)
+       if (iComp.eq.10.and.present(Field10)) Field10(jvt) = daux(iEntry)
+      end do
      end do
-    end do
+     deallocate(daux)
+     iRunS = iRunE + 1
+    END DO
     
     CALL mpi_file_close(mpiFile,ierr)
     
     IF (myid.eq.1) then
      WRITE(*,'(A)') ' ==> Done!'
     end if
-    
-    deallocate (daux)
     
    end do  
   end do
@@ -1037,7 +988,7 @@ deallocate(ElementOffsets)
  REAL*8 Field(*)
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:),jaux(:)
- INTEGER ivt,jvt,jel,kel,lel,NNEL
+ INTEGER ivt,jvt,kel,NNEL,iRunS,iRunE,iRun,recLen
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: nF=3,iComp
@@ -1053,34 +1004,9 @@ deallocate(ElementOffsets)
    nChunks = 1
   end if
 
-  cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
-  offset = 0
-  IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
-  end if
-  
-  NNEL = INT(ElementOffsets(subnodes+1))
-  ndof = nLengthV!*NNEL
+  NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
-  
-  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
-
-  offset = 0
-  myFieldOffset = offset
-  
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-  if (ierr.ne.0) iGlobalError = 1
-  CALL mpi_file_close(mpiFile,ierr)
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
-  
-  do iel=1,NNEL
-   jaux(iel) = iel
-  end do
-  
+  CALL LoadLocalKeyIndex(cF,iaux,jaux)
   CALL sort2D(iaux,jaux,NNEL)
   
   do iComp = 1,nF
@@ -1089,44 +1015,49 @@ deallocate(ElementOffsets)
     ivt_min = (iChunk-1)*(nLengthV/nChunks) + 1
     ivt_max = (iChunk+0)*(nLengthV/nChunks) + 0
     if (iChunk.eq.nChunks) ivt_max = nLengthV
-    ndof = (ivt_max-ivt_min+1)*knel(nlmin)
-    allocate(daux(ndof))
+    recLen = ivt_max-ivt_min+1
     
     cPOutFile = '_dump/'
     WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',iComp,'_chunk_',iChunk,'.prf'
+    offset = 0
     IF (myid.eq.1) then
      WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
 
-    DO iel=1,knel(nlmin)
-     jel = coarse%myELEMLINK(iel)
-     kel = jaux(jel) 
-     
-     myFieldOffset = offset +  dblesize*(kel-1)*(ivt_max-ivt_min+1)
+    iRunS = 1
+    DO WHILE (iRunS.le.NNEL)
+     iRunE = iRunS
+     DO WHILE (iRunE.lt.NNEL)
+      IF (iaux(iRunE+1).ne.iaux(iRunE)+1) EXIT
+      iRunE = iRunE + 1
+     END DO
+
+     ndof = recLen*(iRunE-iRunS+1)
+     allocate(daux(ndof))
+     myFieldOffset = offset +  dblesize*(iaux(iRunS)-1)*recLen
      CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
      if (ierr.ne.0) iGlobalError = 1
      
      iEntry = 0
-     DO ivt= ivt_min,ivt_max
-     
-      jvt = myDump%Vertices(IEL,ivt)
-      
-      iP = nF*(jvt-1)
-      iEntry = iEntry + 1
-      
-      Field(iP+iComp) = daux(iEntry) 
-      
+     DO iRun=iRunS,iRunE
+      kel = jaux(iRun)
+      DO ivt=ivt_min,ivt_max
+       jvt = myDump%Vertices(kel,ivt)
+       iP = nF*(jvt-1)
+       iEntry = iEntry + 1
+       Field(iP+iComp) = daux(iEntry)
+      end do
      end do
-    end do
+     deallocate(daux)
+     iRunS = iRunE + 1
+    END DO
     
     CALL mpi_file_close(mpiFile,ierr)
     IF (myid.eq.1) then
      WRITE(*,'(A)') ' ==> Done!'
     end if
-    
-    deallocate (daux)
     
    end do
   end do
@@ -1140,7 +1071,7 @@ deallocate(ElementOffsets)
  REAL*8 Field(*)
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:),jaux(:)
- INTEGER ivt,jvt,jel,kel,lel,NNEL
+ INTEGER jvt,jel,kel,NNEL,iRunS,iRunE,iRun,recLen
  integer iEntry,ndof
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
  integer :: nF=4
@@ -1156,40 +1087,17 @@ deallocate(ElementOffsets)
    nChunks = 1
   end if
   
-  cPOutFile = '_dump/'
-  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
-  offset = 0
-  IF (myid.eq.1) then
-   WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
-  end if
-  
-  NNEL = INT(ElementOffsets(subnodes+1))
+  NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
-  
-  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
-
-  offset = 0
-  myFieldOffset = offset
-  
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_read_all(mpiFile, iaux, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
-  if (ierr.ne.0) iGlobalError = 1
-  CALL mpi_file_close(mpiFile,ierr)
-  IF (myid.eq.1) then
-   WRITE(*,'(A)') ' ==> Done!'
-  end if
-  
-  do iel=1,NNEL
-   jaux(iel) = iel
-  end do
+  CALL LoadLocalKeyIndex(cF,iaux,jaux)
+  CALL sort2D(iaux,jaux,NNEL)
   
   DO iChunk =1,nChunks
   
    ivt_min = (iChunk-1)*(nLengthE/nChunks) + 1
    ivt_max = (iChunk+0)*(nLengthE/nChunks) + 0
    if (iChunk.eq.nChunks) ivt_max = nLengthE
-   ndof = nF*(ivt_max-ivt_min+1)*knel(nlmin)
-   allocate(daux(ndof))
+   recLen = nF*(ivt_max-ivt_min+1)
    
    cPOutFile = '_dump/'
    WRITE(cPOutFile(7:),'(I0,A,I0,A,I0,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_comp',1,'_chunk_',iChunk,'.prf'
@@ -1198,41 +1106,112 @@ deallocate(ElementOffsets)
     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
    end if
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
-   
-   CALL sort2D(iaux,jaux,NNEL)
 
-   DO iel=1,knel(nlmin)
-    jel = coarse%myELEMLINK(iel)
-    kel = jaux(jel) 
-    
-    myFieldOffset = offset + dblesize*(kel-1)*(ivt_max-ivt_min+1)*nF
+   iRunS = 1
+   DO WHILE (iRunS.le.NNEL)
+    iRunE = iRunS
+    DO WHILE (iRunE.lt.NNEL)
+     IF (iaux(iRunE+1).ne.iaux(iRunE)+1) EXIT
+     iRunE = iRunE + 1
+    END DO
+
+    ndof = recLen*(iRunE-iRunS+1)
+    allocate(daux(ndof))
+    myFieldOffset = offset + dblesize*(iaux(iRunS)-1)*recLen
     CALL MPI_File_read_at(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
     if (ierr.ne.0) iGlobalError = 1
        
-    DO jel=ivt_min,ivt_max
-    
-     kel = myDump%Elements(IEL,jel)
-     
-     iP = nF*(kel-1)
-     iEntry = (jel-1)*nF
-     
-     Field(iP+1:iP+nF) = daux(iEntry+1:iEntry+nF) 
-     
+    iEntry = 0
+    DO iRun=iRunS,iRunE
+     kel = jaux(iRun)
+     DO jel=ivt_min,ivt_max
+      jvt = myDump%Elements(kel,jel)
+      iP = nF*(jvt-1)
+      Field(iP+1:iP+nF) = daux(iEntry+1:iEntry+nF)
+      iEntry = iEntry + nF
+     end do
     end do
-   end do
+    deallocate(daux)
+    iRunS = iRunE + 1
+   END DO
    
    CALL mpi_file_close(mpiFile,ierr)
    IF (myid.eq.1) then
     WRITE(*,'(A)') ' ==> Done!'
    end if
    
-   deallocate (daux)
-   
   end do
   
   deallocate (iaux,jaux)
 
  END SUBROUTINE LoadMPIFieldP1
+
+ SUBROUTINE LoadLocalKeyIndex(cF,iFilePos,iElemIdx)
+   character cF*(*)
+   integer, intent(out) :: iFilePos(:),iElemIdx(:)
+   integer :: iel,NNEL
+   integer, allocatable :: iauxG(:),jauxG(:)
+   logical :: bExists
+    integer(kind=MPI_Offset_kind) :: myKeyOffset,myFieldOffset
+    integer(kind=MPI_Offset_kind) :: offset
+
+   NNEL = SIZE(iFilePos)
+   DO iel=1,NNEL
+    iElemIdx(iel) = iel
+   END DO
+
+   cPOutFile = '_dump/'
+   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key_idx','.prf'
+   INQUIRE(FILE=ADJUSTL(TRIM(cPOutFile)),EXIST=bExists)
+
+   IF (bExists) THEN
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    end if
+
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+    DO iel=1,NNEL
+     myKeyOffset = intsize*(coarse%myELEMLINK(iel)-1)
+     CALL MPI_File_read_at(mpiFile,myKeyOffset,iFilePos(iel),1,MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
+     if (ierr.ne.0) iGlobalError = 1
+    END DO
+    CALL mpi_file_close(mpiFile,ierr)
+
+    IF (myid.eq.1) then
+     WRITE(*,'(A)') ' ==> Done!'
+    end if
+   ELSE
+    cPOutFile = '_dump/'
+    WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
+    IF (myid.eq.1) then
+     WRITE(*,'(A$)') 'Loading file:"'//TRIM(ADJUSTL(cPOutFile))
+    end if
+
+    allocate(iauxG(INT(ElementOffsets(subnodes+1))),jauxG(INT(ElementOffsets(subnodes+1))))
+    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+    offset = 0
+    myFieldOffset = offset
+    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
+    CALL MPI_File_read_all(mpiFile, iauxG, INT(ElementOffsets(subnodes+1)), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    CALL mpi_file_close(mpiFile,ierr)
+
+    DO iel=1,INT(ElementOffsets(subnodes+1))
+     jauxG(iel) = iel
+    END DO
+    CALL sort2D(iauxG,jauxG,INT(ElementOffsets(subnodes+1)))
+
+    DO iel=1,NNEL
+     iFilePos(iel) = jauxG(coarse%myELEMLINK(iel))
+    END DO
+
+    deallocate(iauxG,jauxG)
+
+    IF (myid.eq.1) then
+     WRITE(*,'(A)') ' ==> Done!'
+    end if
+   END IF
+ END SUBROUTINE LoadLocalKeyIndex
 
  SUBROUTINE SORT2D(LW,KW,N)
    INTEGER LW(N),KW(N),LWA,KWA
@@ -1422,6 +1401,7 @@ deallocate(ElementOffsets)
    WRITE(*,'(A)') ' ==> Done!'
   end if
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  CALL WriteMPIFieldKeyIndex(cF)
   
   DO iChunk=1,nChunks
   
@@ -1504,6 +1484,7 @@ deallocate(ElementOffsets)
     WRITE(*,'(A,I0)') ' ==> Done!',IERR
    end if
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  CALL WriteMPIFieldKeyIndex(cF)
     
   DO iComp = 1,nF
    DO iChunk = 1,nChunks
@@ -1606,6 +1587,7 @@ deallocate(ElementOffsets)
     call MPI_File_sync(mpiFile, ierr)
   CALL mpi_file_close(mpiFile,ierr)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  CALL WriteMPIFieldKeyIndex(cF)
 
 
   DO iComp = 1,nF
@@ -1707,6 +1689,33 @@ deallocate(ElementOffsets)
   
   
  end SUBROUTINE ReleaseMPIFieldQ2_NX
+
+ SUBROUTINE WriteMPIFieldKeyIndex(cF)
+  character cF*(*)
+  integer :: iel,iPos
+  integer(kind=MPI_Offset_kind) :: myKeyOffset
+
+  cPOutFile = '_dump/'
+  WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key_idx','.prf'
+  IF (myid.eq.1) then
+   WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
+  end if
+
+  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  DO iel=1,knel(nlmin)
+   iPos = INT(ElementOffsets(myid)) + iel
+   myKeyOffset = intsize*(coarse%myELEMLINK(iel)-1)
+   CALL MPI_File_write_at(mpiFile,myKeyOffset,iPos,1,MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
+   IF (IERR.ne.0) iGlobalError = 1
+  END DO
+  call MPI_Barrier(MPI_COMM_subs, ierr)
+  call MPI_File_sync(mpiFile, ierr)
+  CALL mpi_file_close(mpiFile,ierr)
+
+  IF (myid.eq.1) then
+   WRITE(*,'(A)') ' ==> Done!'
+  end if
+ END SUBROUTINE WriteMPIFieldKeyIndex
  
 END SUBROUTINE ReleaseMPIDumpFiles
 

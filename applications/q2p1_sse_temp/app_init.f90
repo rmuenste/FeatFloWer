@@ -57,16 +57,13 @@ subroutine init_q2p1_ext(log_unit)
   END IF
  
   if (myMultiMat%nOfMaterials.gt.1) THEN
-   GenLinScalar%cName = "Temper"
-   GenLinScalar%prm%nOfFields = myMultiMat%nOfMaterials+1
-   GenLinScalar%nOfFields = myMultiMat%nOfMaterials + 1
+   GenLinScalar%cName = "MultiMatAlpha"
+   GenLinScalar%prm%nOfFields = myMultiMat%nOfMaterials
+   GenLinScalar%nOfFields = myMultiMat%nOfMaterials
    ALLOCATE(GenLinScalar%Fld(GenLinScalar%prm%nOfFields))
    ALLOCATE(GenLinScalar%prm%cField(GenLinScalar%prm%nOfFields))
    DO iFld=1,GenLinScalar%nOfFields
-    if (iFld.eq.1) GenLinScalar%prm%cField(iFld) = 'temp'
-    if (iFld.gt.1) then
-     write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld-1
-    end if
+    write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld
    end do
    DO iFld = 1,GenLinScalar%nOfFields
     GenLinScalar%Fld(iFld)%cName = TRIM(GenLinScalar%prm%cField(iFld))
