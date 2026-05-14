@@ -67,12 +67,16 @@ subroutine init_q2p1_ext(log_unit)
     bUseDumpedMixerGeometry = .false.
     ! In order to read in from a lower level
     ! the lower level structures are needed
-    if (myid.ne.0) call CreateDumpStructures(0)
-    call read_sol_from_file(CSTART,0,timens)
-    call ProlongateSolution()
-    ! Now generate the structures for the actual level 
-    if (myid.ne.0) call CreateDumpStructures(1)
-    call InitOperators(log_unit, mg_mesh,.true.)
+    if (myTransientSolution%DumpFormat.eq.3) then
+      call LoadMPIDumpFilesProlongateSSE(int(myProcess%Angle),'p,v,x,t,q',log_unit)
+    else
+      if (myid.ne.0) call CreateDumpStructures(0)
+      call read_sol_from_file(CSTART,0,timens)
+      call ProlongateSolution()
+      ! Now generate the structures for the actual level
+      if (myid.ne.0) call CreateDumpStructures(1)
+      call InitOperators(log_unit, mg_mesh,.true.)
+    end if
     
   ! Start from a solution on the same lvl
   ! with a different number of partitions

@@ -790,7 +790,6 @@ SUBROUTINE ProlongateSolution()
 
  IF (allocated(Temperature)) then
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val,Temperature)
-  if (myid.ne.0) Tracer%Val(NLMAX+1)%x = Temperature
  else
   CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
  end if
