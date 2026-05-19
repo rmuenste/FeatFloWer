@@ -12,6 +12,7 @@ USE var_QuadScalar, ONLY: Tracer, Tracer3,GenLinScalar
 USE var_QuadScalar, only : AlphaControl
 USE mg_LinScalar, ONLY : mgProlRestInit,mgProlongation
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,MyMaterials,mySetup
+USE types, ONLY: HEAT_RUN_MODE_PID,HEAT_RUN_MODE_FIXED,HEAT_RUN_MODE_NONE
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE

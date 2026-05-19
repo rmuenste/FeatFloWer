@@ -9,6 +9,7 @@ USE types, ONLY : myActiveSet,myLostSet,nActiveSet,nLostSet
 USE OctTreeSearch, ONLY : FindRankingInOctTreeOMP
 USE xPart_def
 use omp_lib
+use fbm, only : myFBM
 
 ! XXXXXXXXXXXX
 IMPLICIT NONE
@@ -35,24 +36,13 @@ PARAMETER (nXX = 12)
 
 INTEGER :: iIter, iLoc,iParticel,iLostParticel,idynType,indice
 REAL*8 cpx,cpy,cpz,cnormal(3)
+REAL*8 local_P8(3,8)
 
 ! LOGICAL :: bExit
 INTEGER iBuffElem,jBuffElem,BuffElem(nBuffElem),maxBufferSize,maxBufferElem
 
 INTEGER iMonitor(nXX),iAux
 REAL*8  dMonitor(nXX),dAux
-
-save KDFG,KDFL,i,iPoint,jPoint,ivt,jel,iel,iFoundElem,kk,iMon
-save dist,point,pointR,LocVel0,LocVel1,tLevel,bFound
-save iIter, iLoc,iParticel,iLostParticel,idynType,indice,cpx,cpy,cpz,cnormal
-save iBuffElem,jBuffElem,BuffElem,maxBufferSize,maxBufferElem
-save iMonitor,dMonitor,iAux,dAux
-
-!$OMP   THREADPRIVATE(KDFG,KDFL,i,iPoint,jPoint,ivt,jel,iel,iFoundElem,kk,iMon)
-!$OMP   THREADPRIVATE(dist,point,pointR,LocVel0,LocVel1,tLevel,bFound)
-!$OMP   THREADPRIVATE(iIter, iLoc,iParticel,iLostParticel,idynType,indice,cpx,cpy,cpz,cnormal)
-!$OMP   THREADPRIVATE(iBuffElem,jBuffElem,BuffElem,maxBufferSize,maxBufferElem)
-!$OMP   THREADPRIVATE(iMonitor,dMonitor,iAux,dAux)
 
 iLostParticel = 0
 iActiveParticel = 0
@@ -132,12 +122,10 @@ END DO
  contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
  subroutine GetNeighborsOfFoundElem()
- real*8 ddd
- 
+
  DO i=1,8
   ivt = kvert(i,iFoundElem)
-  ddd = (dcorvg(1,ivt)-point(1))**2d0 + (dcorvg(2,ivt)-point(2))**2d0 + (dcorvg(3,ivt)-point(3))**2d0
-  dMonitor(i) = ddd
+  dMonitor(i) = (dcorvg(1,ivt)-point(1))**2d0 + (dcorvg(2,ivt)-point(2))**2d0 + (dcorvg(3,ivt)-point(3))**2d0
   iMonitor(i) = ivt
  END DO
  
@@ -217,14 +205,16 @@ END DO
 
     DO i=1,8
      ivt = kvert(i,jel)
-     P8(:,i) = dcorvg(:,ivt)
+     local_P8(:,i) = dcorvg(:,ivt)
     END DO
    
+    CALL SetLocal_P8(local_P8)
+
     dist = 1d30
     jPoint = 0
 
     DO i=1,8
-     daux = sqrt((P8(1,i)-point(1))**2d0 + (P8(2,i)-point(2))**2d0 + (P8(3,i)-point(3))**2d0)
+     daux = sqrt((local_P8(1,i)-point(1))**2d0 + (local_P8(2,i)-point(2))**2d0 + (local_P8(3,i)-point(3))**2d0)
      IF (daux.lt.dist) THEN
       dist = daux
       jPoint = i
@@ -232,7 +222,6 @@ END DO
     END DO
 
     CALL GetPointFromElement(point,jPoint,bFound,pointR,iParticel)
-    IF (Point(3).gt.myParticleParam%OutflowZPos) bFound=.false.
 
     IF (bFound) THEN
     
@@ -270,55 +259,87 @@ END DO
      
      point = P
      
-     CALL RETURN_Distance()
-     
-     ! scaling [mm] to [cm]
-     distance = 1d1*distance
-    
-     if (distance.lt. d_CorrDist*0.5d0) then
-     
-       ! d_CorrDist is in [mm], distance as well is in [mm] / at the end we have to come back to [cm]
-       
-      cdx = 1d1*P(1) 
-      cdy = 1d1*P(2)
-      cdz = 1d1*P(3)
-      
-      CALL RETURN_Normal()
-      daux = SQRT(dnormal(1)**2d0 + dnormal(2)**2d0 + dnormal(3)**2d0)
-      dnormal = dnormal/daux
-      
-      cpx = cdx + dnormal(1)*(-distance + d_CorrDist*0.5d0)
-      cpy = cdy + dnormal(2)*(-distance + d_CorrDist*0.5d0)
-      cpz = cdz + dnormal(3)*(-distance + d_CorrDist*0.5d0)
+     cdx = 1d1*P(1)
+     cdy = 1d1*P(2)
+     cdz = 1d1*P(3)
 
-      P=0.1d0*[cpx,cpy,cpz]
-      
+!      CALL RETURN_Distance()
+!
+!      ! scaling [mm] to [cm]
+!      distance = 1d1*distance
+    
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      if (distance.lt. d_CorrDist*0.5d0) then
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        ! d_CorrDist is in [mm], distance as well is in [mm] / at the end we have to come back to [cm]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdx = 1d1*P(1)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdy = 1d1*P(2)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdz = 1d1*P(3)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       CALL RETURN_Normal()
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       daux = SQRT(dnormal(1)**2d0 + dnormal(2)**2d0 + dnormal(3)**2d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       dnormal = dnormal/daux
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpx = cdx + dnormal(1)*(-distance + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpy = cdy + dnormal(2)*(-distance + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpz = cdz + dnormal(3)*(-distance + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       P=0.1d0*[cpx,cpy,cpz]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       point = [P(1),P(2),P(3)]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      end if
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !     end if
+    
+!      if (distance.lt. d_CorrDist*0.5d0) then
+     myFBM%nParticles = 1
+     CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+
+     dist_CGAL = - dist_CGAL
+
+     if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+
+!       write (*,*) 'yes',dist_CGAL,d_CorrDist*0.5d0
+
+      cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+      daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+      if (dist_CGAL.gt.0d0) then
+       cnormal = -cnormal/daux
+      else
+       cnormal = cnormal/daux
+      end if
+
+      cdx = cpx + cnormal(1)*(-dist_CGAL + d_CorrDist*0.5d0)
+      cdy = cpy + cnormal(2)*(-dist_CGAL + d_CorrDist*0.5d0)
+      cdz = cpz + cnormal(3)*(-dist_CGAL + d_CorrDist*0.5d0)
+
+      P=0.1d0*[cdx,cdy,cdz]
       point = [P(1),P(2),P(3)]
-
      end if
-    
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !     CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! 
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      if (dist_CGAL.lt. d_CorrDist*0.5d0) then
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       if (dist_CGAL.gt.0d0) then
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        cnormal = -cnormal/daux
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       else
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        cnormal = cnormal/daux
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       end if
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! 
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! 
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       P=0.1d0*[cdx,cdy,cdz]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       point = [P(1),P(2),P(3)]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      end if
-     
+
+! !       CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+! !
+! !      if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+! !
+! !       cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+! !       daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+! !       if (dist_CGAL.gt.0d0) then
+! !        cnormal = -cnormal/daux
+! !       else
+! !        cnormal = cnormal/daux
+! !       end if
+! !
+! !       cdx = cpx + cnormal(1)*d_CorrDist*0.5d0
+! !       cdy = cpy + cnormal(2)*d_CorrDist*0.5d0
+! !       cdz = cpz + cnormal(3)*d_CorrDist*0.5d0
+! !
+! !       P=0.1d0*[cdx,cdy,cdz]
+! !       point = [P(1),P(2),P(3)]
+! !      end if
+
      iFoundElem = jel
-   
+
 !      bExit = .true.
      RETURN
     END IF

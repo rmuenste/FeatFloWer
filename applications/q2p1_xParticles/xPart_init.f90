@@ -9,8 +9,9 @@ subroutine init_q2p1_xParicles(log_unit)
 
   integer, intent(in) :: log_unit
   real*8, allocatable, Dimension(:) :: xField,yField,zField
-  integer ndof
+  integer ndof,ierr
   Character cField*(128)
+  include 'mpif.h'
 
   !-------INIT PHASE-------
 
@@ -191,28 +192,163 @@ end subroutine OUTPUT_xParticleDUMP
 !                           Sub: init_q2p1_xParicles
 !========================================================================================
 SUBROUTINE OUTPUT_xParticleVTK(iOut)
- USE def_FEAT
- USE var_QuadScalar, ONLY : mg_Mesh,QuadSc,myExport
- USE PP3D_MPI, ONLY : myid,master,showid
-
+ USE PP3D_MPI, ONLY : myid
  implicit none
- integer iOut
+ integer, intent(in) :: iOut
 
- if (myid.eq.1) THEN
-  NLMAX = NLMAX + 1
-  ILEV = myExport%Level
-  myExport%Format = 'VTK'
-  allocate(myExport%Fields(5))
-  myExport%Fields(1) = 'Velocity'
-  myExport%Fields(2) = 'Shell'
-  myExport%Fields(3) = 'Material_E'
-  myExport%Fields(4) = 'GenScalar'
-  myExport%Fields(5) = 'ParticleTime'
-  CALL Output_VTK_piece(iOut,mg_mesh%level(ILEV)%dcorvg,mg_mesh%level(ILEV)%kvert)   
-  NLMAX = NLMAX - 1
+ if (myid.eq.1) then
+  call WriteFinalVTU('FINAL.vtu')
  end if
 
 END SUBROUTINE OUTPUT_xParticleVTK
+!
+!----------------------------------------------
+!
+SUBROUTINE WriteFinalVTU(filename)
+ USE def_FEAT, ONLY : NLMAX
+ USE var_QuadScalar, ONLY : mg_Mesh,QuadSc,Shell,GenLinScalar,MaterialDistribution,myExport
+ USE types, ONLY : myLostSet
+ USE xPart_def, ONLY : DistanceToInflow
+ implicit none
+ character(*), intent(in) :: filename
+ integer :: unitVTU,ILEV,nPoints,nCells,ivt,elemIdx,iFld
+ logical :: hasVelocity,hasShell,hasMaterial,hasTime,hasDistance
+ character(len=64) :: fieldName
+
+ if (.not.allocated(mg_mesh%level)) return
+
+ ILEV = myExport%Level
+ if (ILEV.lt.1 .or. ILEV.gt.NLMAX) ILEV = NLMAX
+ if (ILEV.gt.size(mg_mesh%level)) ILEV = size(mg_mesh%level)
+
+ nPoints = mg_mesh%level(ILEV)%nvt
+ nCells  = mg_mesh%level(ILEV)%nel
+ if (nPoints.le.0 .or. nCells.le.0) return
+
+ hasVelocity = allocated(QuadSc%ValU) .and. allocated(QuadSc%ValV) .and. allocated(QuadSc%ValW)
+ if (hasVelocity) then
+  hasVelocity = size(QuadSc%ValU).ge.nPoints .and. &
+                size(QuadSc%ValV).ge.nPoints .and. &
+                size(QuadSc%ValW).ge.nPoints
+ end if
+
+ hasShell = allocated(Shell)
+ if (hasShell) hasShell = size(Shell).ge.nPoints
+
+ hasMaterial = allocated(MaterialDistribution)
+ if (hasMaterial) then
+  if (ILEV.gt.size(MaterialDistribution)) then
+   hasMaterial = .false.
+  else if (.not.allocated(MaterialDistribution(ILEV)%x)) then
+   hasMaterial = .false.
+  else
+   hasMaterial = size(MaterialDistribution(ILEV)%x).ge.nCells
+  end if
+ end if
+
+ hasTime = allocated(myLostSet)
+ if (hasTime) hasTime = size(myLostSet).ge.nCells
+
+ hasDistance = allocated(DistanceToInflow)
+ if (hasDistance) hasDistance = size(DistanceToInflow).ge.nCells
+
+ open(newunit=unitVTU,file=adjustl(trim(filename)),status='replace',action='write')
+ write(unitVTU,'(A)') '<?xml version="1.0"?>'
+ write(unitVTU,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+ write(unitVTU,'(A)') '  <UnstructuredGrid>'
+ write(unitVTU,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',nPoints,'" NumberOfCells="',nCells,'">'
+
+ write(unitVTU,'(A)') '      <Points>'
+ write(unitVTU,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+ do ivt=1,nPoints
+  write(unitVTU,'(3(1X,ES23.16))') mg_mesh%level(ILEV)%dcorvg(:,ivt)
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '      </Points>'
+
+ write(unitVTU,'(A)') '      <Cells>'
+ write(unitVTU,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(8(1X,I0))') (mg_mesh%level(ILEV)%kvert(ivt,elemIdx)-1,ivt=1,8)
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(1X,I0)') elemIdx*8
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '        <DataArray type="UInt8" Name="types" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(1X,I0)') 12
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '      </Cells>'
+
+ write(unitVTU,'(A)') '      <PointData>'
+ if (hasVelocity) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Velocity" NumberOfComponents="3" format="ascii">'
+  do ivt=1,nPoints
+   write(unitVTU,'(3(1X,ES23.16))') QuadSc%ValU(ivt),QuadSc%ValV(ivt),QuadSc%ValW(ivt)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasShell) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Shell" format="ascii">'
+  do ivt=1,nPoints
+   write(unitVTU,'(1X,ES23.16)') Shell(ivt)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (allocated(GenLinScalar%Fld)) then
+  do iFld=1,size(GenLinScalar%Fld)
+   if (.not.allocated(GenLinScalar%Fld(iFld)%val)) cycle
+   if (size(GenLinScalar%Fld(iFld)%val).lt.nPoints) cycle
+   fieldName = adjustl(trim(GenLinScalar%Fld(iFld)%cName))
+   if (len_trim(fieldName).eq.0) cycle
+   write(unitVTU,'(A,A,A)') '        <DataArray type="Float64" Name="',trim(fieldName),'" format="ascii">'
+   do ivt=1,nPoints
+    write(unitVTU,'(1X,ES23.16)') GenLinScalar%Fld(iFld)%val(ivt)
+   end do
+   write(unitVTU,'(A)') '        </DataArray>'
+  end do
+ end if
+ write(unitVTU,'(A)') '      </PointData>'
+
+ write(unitVTU,'(A)') '      <CellData>'
+ if (hasMaterial) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Material_E" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') real(MaterialDistribution(ILEV)%x(elemIdx),8)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasDistance) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="InflowDistance_E" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') DistanceToInflow(elemIdx)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasTime) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="ParticleTime" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') myLostSet(elemIdx)%time
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ write(unitVTU,'(A)') '      </CellData>'
+
+ write(unitVTU,'(A)') '    </Piece>'
+ write(unitVTU,'(A)') '  </UnstructuredGrid>'
+ write(unitVTU,'(A)') '</VTKFile>'
+ close(unitVTU)
+
+END SUBROUTINE WriteFinalVTU
 !
 !----------------------------------------------
 !
@@ -290,6 +426,7 @@ USE def_FEAT
 USE xPart_def
 USE var_QuadScalar, ONLY : myExport
 use Sigma_User, only : myProcess,mySigma
+USE mpi
 
 implicit none
 
@@ -297,6 +434,7 @@ type(t_parlist) :: parameterlist
 integer :: unitProtfile = -1 ! I guess you use mfile here
 integer :: unitTerminal = 6 ! I guess you use mterm here
 character(len=INIP_STRLEN) cParserString
+integer :: ierr
 
 if (myid.eq.1) WRITE(*,*) "Parameter File:",ADJUSTL(TRIM(cParamFile))
 
@@ -328,6 +466,10 @@ if (myid.eq.1) WRITE(*,*) "nIter = ",nIter
 
 call INIP_getvalue_double(parameterlist,"MAIN","xFactor",xFactor,1d0)
 if (myid.eq.1) WRITE(*,*) "xFactor = ",xFactor
+if (abs(xFactor-1d0).gt.1d-12) then
+ if (myid.eq.1) write(*,*) "ERROR: xFactor must be 1.0 for q2p1_xParticles."
+ call MPI_Abort(MPI_COMM_WORLD,1,ierr)
+end if
 
 call INIP_getvalue_double(parameterlist,"MAIN","d_CorrDist",d_CorrDist,0.25d0)
 if (myid.eq.1) WRITE(*,*) "d_CorrDist = ",d_CorrDist
@@ -871,4 +1013,3 @@ SUBROUTINE READ_MPI_dDATA(dData,nData,cData)
  end  SUBROUTINE READ_MPI_kDATA
  
 end subroutine read_tria
-
