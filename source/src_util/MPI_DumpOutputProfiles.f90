@@ -1242,10 +1242,7 @@ USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDO
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,&
   MPI_COMM_subs,MPI_Offset_kind,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,temperature,GenLinScalar,DataSizeThresholdMPI
-USE var_QuadScalar,ONLY:bUseDumpedMixerGeometry,Screw,Shell
 USE var_QuadScalar,ONLY:knel
-USE Transport_Q2P1, ONLY: ProlongateSolution, InitOperators, updateFBMGeometry,&
-  GetAlphaNonNewtViscosity_sse, Create_MRhoMat, Create_MMat, InitializeProlRest
 USE PP3D_MPI, ONLY: SENDI_myMPI,RECVI_myMPI,SENDD_myMPI,RECVD_myMPI
 IMPLICIT NONE
 
@@ -1343,23 +1340,7 @@ CALL ExchangeNodeValuesOnCoarseLevel(&
   mg_mesh%level(1)%nvt,&
   mg_mesh%level(1)%nel)
 
-QuadSc%bProlRest = .FALSE.
-LinSc%bProlRest = .FALSE.
-CALL InitializeProlRest(QuadSc,LinSc)
-
-CALL Create_MRhoMat()
-CALL ProlongateSolution()
-
 CALL CommCoordinatesWithMaster()
-
-bUseDumpedMixerGeometry = .false.
-CALL InitOperators(mfile, mg_mesh,.false.)
-IF (myid.ne.0) CALL updateFBMGeometry()
-CALL Create_MMat()
-CALL GetAlphaNonNewtViscosity_sse()
-CALL CommQ2ScalarFieldWithMaster(Screw)
-CALL CommQ2ScalarFieldWithMaster(Shell)
-CALL InitOperators(mfile, mg_mesh,.true.)
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 

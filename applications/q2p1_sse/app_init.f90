@@ -4,14 +4,17 @@ subroutine init_q2p1_ext(log_unit)
   USE Transport_Q2P1, ONLY : Init_QuadScalar_Structures_sse, &
     InitCond_QuadScalar,ProlongateSolution,updateFBMGeometry, &
     bTracer,bViscoElastic,StaticMeshAdaptation,&
-    LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators 
+    LinScalar_InitCond, QuadSc, InitMeshDeform, InitOperators, &
+    InitializeProlRest, Create_MRhoMat, Create_MMat, GetAlphaNonNewtViscosity_sse
     
   USE Transport_Q1, ONLY : Init_GenLinSc_MULTIMATALPHA_Q1
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
+  USE def_QuadScalar, ONLY: ProlongateSingleFieldQ2
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh,tQuadScalar,nUmbrellaStepsLvl,&
-      ApplicationString,bMultiMat,bUseDumpedMixerGeometry,bCGALGeometryInitialized
+      ApplicationString,bMultiMat,bUseDumpedMixerGeometry,bCGALGeometryInitialized,&
+      LinSc, GenLinScalar, Screw, Shell, knvt, myDump
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess,myTransientSolution
   USE iniparser, ONLY : inip_output_init
@@ -68,7 +71,7 @@ subroutine init_q2p1_ext(log_unit)
     ! In order to read in from a lower level
     ! the lower level structures are needed
     if (myTransientSolution%DumpFormat.eq.3) then
-      call LoadMPIDumpFilesProlongateSSE(int(myProcess%Angle),'p,v,x,t,q',log_unit)
+      call RestartFromMPILowerLevelSSE(log_unit)
     else
       if (myid.ne.0) call CreateDumpStructures(0)
       call read_sol_from_file(CSTART,0,timens)
@@ -91,6 +94,117 @@ subroutine init_q2p1_ext(log_unit)
  
 
 end subroutine init_q2p1_ext
+!
+!----------------------------------------------
+!
+subroutine RestartFromMPILowerLevelSSE(log_unit)
+  USE def_FEAT
+  USE Transport_Q2P1, ONLY : ProlongateSolution, updateFBMGeometry, InitOperators, &
+    InitializeProlRest, Create_MRhoMat, Create_MMat, GetAlphaNonNewtViscosity_sse
+  USE def_QuadScalar, ONLY: ProlongateSingleFieldQ2
+  USE PP3D_MPI, ONLY : myid, subnodes, coarse, SENDI_myMPI, RECVI_myMPI, SENDD_myMPI, RECVD_myMPI
+  USE var_QuadScalar, ONLY : mg_mesh, QuadSc, LinSc, GenLinScalar, Screw, Shell, &
+    bUseDumpedMixerGeometry, knvt, myDump
+  USE Sigma_User, ONLY: myProcess
+  implicit none
+
+  integer, intent(in) :: log_unit
+  integer :: iFld
+
+  call LoadMPIDumpFilesProlongateSSE(int(myProcess%Angle),'p,v,x,t,q',log_unit)
+
+  QuadSc%bProlRest = .FALSE.
+  LinSc%bProlRest = .FALSE.
+  call InitializeProlRest(QuadSc,LinSc)
+
+  call Create_MRhoMat()
+  call ProlongateSolution()
+
+  if (allocated(GenLinScalar%Fld)) then
+    do iFld=1,GenLinScalar%nOfFields
+      call ProlongateSingleFieldQ2(GenLinScalar%Fld(iFld)%Val,KNVT(NLMAX-1),KNVT(NLMAX), &
+        adjustl(trim(GenLinScalar%Fld(iFld)%cName)))
+    end do
+  end if
+
+  bUseDumpedMixerGeometry = .false.
+  call InitOperators(log_unit, mg_mesh,.false.)
+  if (myid.ne.0) call updateFBMGeometry()
+  call Create_MMat()
+  call GetAlphaNonNewtViscosity_sse()
+  call CommQ2ScalarFieldWithMaster_Local(Screw)
+  call CommQ2ScalarFieldWithMaster_Local(Shell)
+  call InitOperators(log_unit, mg_mesh,.true.)
+
+contains
+
+  subroutine CommQ2ScalarFieldWithMaster_Local(field)
+    implicit none
+    real*8, intent(inout) :: field(*)
+    real*8, allocatable :: SendScal(:,:)
+    real*8, allocatable :: recvField(:), recvCount(:)
+    integer :: pN, pnE, pID
+    integer :: iel, jel, ivt, jvt
+    integer :: nLengthV, nLengthE
+    integer :: i
+
+    if (myid.eq.0) then
+      call CreateDumpStructures(0)
+    else
+      call CreateDumpStructures(LinSc%prm%MGprmIn%MedLev - NLMAX)
+    end if
+
+    ILEV = LinSc%prm%MGprmIn%MedLev
+    nLengthV = (2**(ILEV-1)+1)**3
+    nLengthE = mg_mesh%level(NLMIN)%nel
+
+    allocate(SendScal(nLengthV,nLengthE))
+
+    if (myid.ne.0) then
+      do iel=1,nLengthE
+        do ivt=1,nLengthV
+          jvt = myDump%Vertices(iel,ivt)
+          SendScal(ivt,iel) = field(jvt)
+        end do
+      end do
+
+      pN = nLengthE*nLengthV
+      call SENDI_myMPI(pN,0)
+      call SENDI_myMPI(nLengthE,0)
+      call SENDD_myMPI(SendScal,pN,0)
+    else
+      allocate(recvField(QuadSc%ndof))
+      allocate(recvCount(QuadSc%ndof))
+      recvField = 0d0
+      recvCount = 0d0
+
+      do pID=1,subnodes
+        call RECVI_myMPI(pN,pID)
+        call RECVI_myMPI(pnE,pID)
+        call RECVD_myMPI(SendScal,pN,pID)
+
+        do iel=1,pnE
+          jel = coarse%pELEMLINK(pID,iel)
+          do ivt=1,nLengthV
+            jvt = myDump%Vertices(jel,ivt)
+            recvField(jvt) = recvField(jvt) + SendScal(ivt,iel)
+            recvCount(jvt) = recvCount(jvt) + 1d0
+          end do
+        end do
+      end do
+
+      do i=1,QuadSc%ndof
+        if (recvCount(i).gt.0d0) field(i) = recvField(i)/recvCount(i)
+      end do
+
+      deallocate(recvField)
+      deallocate(recvCount)
+    end if
+
+    deallocate(SendScal)
+  end subroutine CommQ2ScalarFieldWithMaster_Local
+
+end subroutine RestartFromMPILowerLevelSSE
 !
 !----------------------------------------------
 !
