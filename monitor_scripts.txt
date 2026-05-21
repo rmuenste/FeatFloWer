@@ -1,0 +1,6 @@
+python3 applications/q2p1_dns_drag/monitor_force_log.py \
+build2/applications/q2p1_dns_drag/particle_force.log                                                                                                                                                           
+
+python3 applications/q2p1_dns_drag/monitor_bulk_flow_log.py \
+   build2/applications/q2p1_dns_drag/bulk_flow.log
+                                                          

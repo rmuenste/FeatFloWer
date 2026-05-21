@@ -41,6 +41,10 @@ IF(${OUT_OF_SOURCE_BUILD})
   IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/example.json")
     file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/example.json" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
   ENDIF()
+  IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/unit_cube_27_case")
+    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/unit_cube_27_case"
+         DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+  ENDIF()
 ENDIF()
 
 add_custom_target(q2p1_dns_drag_stage
@@ -50,6 +54,9 @@ add_custom_target(q2p1_dns_drag_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/_data/MG.dat
           ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_CURRENT_SOURCE_DIR}/unit_cube_27_case
+          ${CMAKE_CURRENT_BINARY_DIR}/unit_cube_27_case
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS q2p1_dns_drag metis
   COMMENT "Staging q2p1_dns_drag runtime files in build directory"

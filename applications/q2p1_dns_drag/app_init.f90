@@ -68,7 +68,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
+   bConstForce, ConstForce
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -141,8 +142,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CFILE=CFILE1
  MFILE=MFILE1
 
- dPeriodicity(1)= 0.1d0
- dPeriodicity(2)= 0.1d0
+ dPeriodicity(1)= 1.0d0
+ dPeriodicity(2)= 1.0d0
+ dPeriodicity(3)= 1.0d0
 
  !=======================================================================
  !     Grid generation
@@ -334,9 +336,6 @@ DO ILEV=NLMIN+1,NLMAX
    CALL ParametrizeBndr(mg_mesh,nlmax+1)
  endif
 
- !!call writeTriFile(mg_mesh%level(NLMAX+1), filename)
-
-
  ! This part here is responsible for creation of structures enabling the mesh coordinate 
  ! transfer to the master node so that it can create the corresponding matrices
  IF (myid.EQ.0) THEN
@@ -440,6 +439,35 @@ IF (myid.eq.1) write(*,*) 'done!'
 
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 
+ !=======================================================================
+ !     Debug output: Write parametrized mesh to VTK for visual reference
+ !=======================================================================
+ IF (myid.eq.1) THEN
+   WRITE(MTERM,*) 'Writing parametrized mesh to VTK for debugging...'
+   WRITE(MFILE,*) 'Writing parametrized mesh to VTK for debugging...'
+ END IF
+
+ ! Create output directory
+ IF (myid.eq.0) THEN
+   call execute_command_line('mkdir -p _vtk', wait=.true.)
+ END IF
+ CALL CommBarrier()
+
+ ! Output the parametrized mesh (mesh-only, no field data)
+ IF (myid.NE.0) THEN
+   CALL Output_VTK_mesh_piece('initial_mesh', &
+     mg_mesh%level(mg_Mesh%maxlevel)%dcorvg, &
+     mg_mesh%level(mg_Mesh%maxlevel)%kvert)
+ ELSE
+   CALL Output_VTK_mesh_main('initial_mesh')
+ END IF
+
+ IF (myid.eq.1) THEN
+   WRITE(MTERM,*) 'Parametrized mesh written to _vtk/initial_mesh.pvtu'
+   WRITE(MFILE,*) 'Parametrized mesh written to _vtk/initial_mesh.pvtu'
+ END IF
+
+
 RETURN
 
 END SUBROUTINE General_init_ext
@@ -451,7 +479,7 @@ END SUBROUTINE General_init_ext
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bRefFrame
+     bViscoElastic,bRefFrame,bConstForce,ConstForce
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -595,6 +623,14 @@ END SUBROUTINE General_init_ext
          READ(string(iEq+1:),*) cParam
          bNoOutflow = .FALSE.
          IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bNoOutflow = .TRUE.
+       CASE ("UseConstantForcing")
+         cParam = " "
+         READ(string(iEq+1:),*) cParam
+         bConstForce = .FALSE.
+         IF (TRIM(ADJUSTL(cParam)).EQ."Yes" .OR. &
+             TRIM(ADJUSTL(cParam)).EQ."YES") bConstForce = .TRUE.
+       CASE ("ConstantForcing")
+         READ(string(iEq+1:),*) ConstForce
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
        CASE ("MaxTimeAdapt")
@@ -755,6 +791,16 @@ END SUBROUTINE General_init_ext
 
      WRITE(mfile,'(A,I10)') "MaxNumStep = ", NITNS
      WRITE(mterm,'(A,I10)') "MaxNumStep = ", NITNS
+
+     IF (bConstForce) THEN
+       WRITE(mfile,'(A)') "UseConstantForcing = ON"
+       WRITE(mterm,'(A)') "UseConstantForcing = ON"
+       WRITE(mfile,'(A,3ES14.4)') "ConstantForcing = ", ConstForce
+       WRITE(mterm,'(A,3ES14.4)') "ConstantForcing = ", ConstForce
+     ELSE
+       WRITE(mfile,'(A)') "UseConstantForcing = OFF"
+       WRITE(mterm,'(A)') "UseConstantForcing = OFF"
+     END IF
 
      WRITE(mfile,'(A,I10)') "BackUpFreq = ", INSAV
      WRITE(mterm,'(A,I10)') "BackUpFreq = ", INSAV

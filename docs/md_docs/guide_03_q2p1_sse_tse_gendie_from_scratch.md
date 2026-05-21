@@ -70,6 +70,13 @@ Expected loaded modules for GCC 14:
 - `openmpi/options/interface/ethernet`
 - `openmpi/4.1.6`
 
+Expected loaded modules for GCC 14 with local CGAL from the module system:
+
+- `gcc/latest-v14`
+- `openmpi/options/interface/ethernet`
+- `openmpi/4.1.6`
+- `cgal/6.0.1`
+
 ### For AI agents / non-interactive commands
 
 Each command should include module loading in the same shell invocation.
@@ -104,6 +111,22 @@ bash -lc '
 '
 ```
 
+GCC 14 with local CGAL from the module system:
+
+```bash
+bash -lc '
+  source /etc/profile.d/modules.sh
+  module purge
+  module load gcc/latest-v14
+  module load openmpi/options/interface/ethernet
+  module load openmpi/4.1.6
+  module load cgal/6.0.1
+
+  # actual command here
+  cmake --version
+'
+```
+
 ### GCC 14 note for this system
 
 On this machine, the GCC 14/OpenMPI 4.1.6 module stack is the working configuration for this guide:
@@ -121,6 +144,7 @@ Also note:
 - the default `-DUSE_CGAL=ON` path tries to clone CGAL from GitHub during the build
 - in restricted environments, use the site-local CGAL installation instead
 - validated local CGAL path on this system: `/sfw/cgal/gcc14.3.0/lib64/cmake/CGAL`
+- validated module for that local CGAL installation on this system: `cgal/6.0.1`
 
 ---
 
@@ -155,6 +179,50 @@ cmake -S . -B build-sse-ninja-mod -G Ninja \
   -DENABLE_FBM_ACCELERATION=OFF
 ```
 
+### GCC 14 / local-CGAL module workflow validated on this system
+
+If you want to follow this guide with the CGAL module loaded explicitly, use:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+module load cgal/6.0.1
+
+cmake -S . -B build-sse-ninja-mod -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_APPLICATIONS=ON \
+  -DUSE_CGAL_LOCAL=ON \
+  -DCGAL_DIR=/sfw/cgal/gcc14.3.0/lib64/cmake/CGAL \
+  -DUSE_HYPRE=ON \
+  -DUSE_PE=OFF \
+  -DENABLE_FBM_ACCELERATION=OFF
+```
+
+### GCC 14 / local-CGAL module workflow with `Unix Makefiles`
+
+If you prefer the classic `Unix Makefiles` generator instead of Ninja, use:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+module load cgal/6.0.1
+
+cmake -S . -B build-sse-make-mod -G "Unix Makefiles" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_APPLICATIONS=ON \
+  -DUSE_CGAL_LOCAL=ON \
+  -DCGAL_DIR=/sfw/cgal/gcc14.3.0/lib64/cmake/CGAL \
+  -DUSE_HYPRE=ON \
+  -DUSE_PE=OFF \
+  -DENABLE_FBM_ACCELERATION=OFF
+```
+
 Recommended validation:
 
 ```bash
@@ -180,6 +248,32 @@ Build the solver and METIS:
 cmake --build build-sse-ninja-mod --target q2p1_sse metis -- -j8
 ```
 
+If you configured with the local CGAL module workflow above, the build command is the same:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+module load cgal/6.0.1
+
+cmake --build build-sse-ninja-mod --target q2p1_sse metis -- -j8
+```
+
+If you configured with the `Unix Makefiles` variant above, build with:
+
+```bash
+source /etc/profile.d/modules.sh
+module purge
+module load gcc/latest-v14
+module load openmpi/options/interface/ethernet
+module load openmpi/4.1.6
+module load cgal/6.0.1
+
+cmake --build build-sse-make-mod --target q2p1_sse metis -- -j8
+```
+
 Key expected artifacts:
 
 - `build-sse-ninja-mod/applications/q2p1_sse/q2p1_sse`
@@ -193,6 +287,12 @@ A dedicated staging target is available (analogous to Guide 02 style):
 
 ```bash
 cmake --build build-sse-ninja-mod --target q2p1_sse_stage -- -j8
+```
+
+For the `Unix Makefiles` variant:
+
+```bash
+cmake --build build-sse-make-mod --target q2p1_sse_stage -- -j8
 ```
 
 What `q2p1_sse_stage` prepares in `build-sse-ninja-mod/applications/q2p1_sse`:

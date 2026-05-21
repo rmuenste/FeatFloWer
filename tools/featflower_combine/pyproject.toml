@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "featflower-combine"
+version = "0.1.0"
+description = "Combine partitioned FeatFloWer .dmp field files for the FeatFloWer CFD framework"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+featflower-combine = "featflower_combine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

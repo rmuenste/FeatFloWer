@@ -1353,6 +1353,7 @@ END IF
 IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
+ CALL AddConstantForce()
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -2129,6 +2130,7 @@ IF (myid.ne.master) THEN
 
  ! Add the gravity force to the rhs
  CALL AddGravForce()
+ CALL AddConstantForce()
 
  ! Add the pressure gradient
  CALL AddPeriodicPressureGradient()

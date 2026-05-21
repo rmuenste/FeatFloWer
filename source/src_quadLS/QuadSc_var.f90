@@ -65,10 +65,12 @@ MODULE var_QuadScalar
   LOGICAL :: bSteadyState =.FALSE.
   LOGICAL :: bBoundaryCheck=.FALSE.
   LOGICAL :: bNS_Stabilization=.FALSE.
+  LOGICAL :: bConstForce=.FALSE.
   LOGICAL :: skipFBMForce=.FALSE.,skipFBMDynamics=.FALSE.
   LOGICAL :: bBinaryVtkOutput=.FALSE.
   LOGICAL :: bRecursivePartitioning=.TRUE.
   REAL*8 :: Gamma = 0d0
+  REAL*8 :: ConstForce(3) = (/0d0, 0d0, 0d0/)
   integer, parameter :: uterm = 6
   REAL*8  :: dCGALtoRealFactor = 1d0
   INTEGER, PARAMETER :: Giesekus = 0
@@ -92,8 +94,14 @@ MODULE var_QuadScalar
   integer :: istep_ns = 1
   REAL*8  :: cfl_global = 0d0   ! Global max CFL, updated each timestep
   REAL*8  :: cfl_particle_global = 0d0  ! Global max particle CFL
+  REAL*8  :: h_min_global = 0d0  ! Global min element size h (from CFL computation)
+  REAL*8  :: vp_max_global = 0d0 ! Global max particle velocity magnitude
+  REAL*8  :: particle_z_global = 0d0 ! Z-position of first particle (for gap-based adaptivity)
+  REAL*8  :: particle_rad_global = 0d0 ! Radius of first particle
+  LOGICAL :: bGapAdaptiveTimeStep = .FALSE. ! Enable gap-based timestep reduction for sedimentation runs
   LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
+  LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.

@@ -17,6 +17,8 @@ type, bind(C) :: tParticleData
   real(c_double) :: time
   real(c_double) :: density
   real(c_double), dimension(3)  :: aabb
+  real(c_double) :: radius
+  integer(c_int) :: typeId
   integer(c_int) :: localIdx
   integer(c_int) :: uniqueIdx
   integer(c_int) :: systemIdx
@@ -651,4 +653,3 @@ end function longIdMatch
 
 #endif 
 end module dem_query
-
