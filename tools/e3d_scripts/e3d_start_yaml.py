@@ -725,6 +725,45 @@ def replace_in_file(file_path, search_text, new_text):
 
 
 #===============================================================================
+#                     Update shared E3D simulation settings
+#===============================================================================
+def write_shared_e3d_settings(file_path):
+    filepath = Path(file_path)
+    with open(filepath, "r") as f:
+        lines = f.readlines()
+
+    new_lines = []
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == "[E3DSimulationSettings]":
+            i += 1
+            while i < len(lines):
+                stripped = lines[i].strip()
+                if stripped.startswith("[") and stripped.endswith("]"):
+                    break
+                i += 1
+            continue
+        new_lines.append(lines[i])
+        i += 1
+
+    if new_lines and not new_lines[-1].endswith("\n"):
+        new_lines[-1] = new_lines[-1] + "\n"
+    if new_lines and new_lines[-1].strip() != "":
+        new_lines.append("\n")
+
+    new_lines.append("[E3DSimulationSettings]\n")
+    new_lines.append("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
+    new_lines.append("Periodicity=" + str(paramDict['periodicity']) + "\n")
+    new_lines.append("nSolutions=" + str(paramDict['timeLevels']) + "\n")
+    if paramDict.get('startAngle', 0.0) > 0.0:
+        new_lines.append("StartAngle=" + str(paramDict['startAngle']) + "\n")
+
+    with open(filepath, "w") as f:
+        f.writelines(new_lines)
+#===============================================================================
+
+
+#===============================================================================
 #                     Apply mesh resolution override to param files
 #===============================================================================
 def get_effective_resolution_level():
@@ -828,7 +867,11 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     shutil.copyfile(str(backupDataFile), str(destDataFile))
     paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
     paramDict['recursivePartitioning'] = True
-    shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
+    extrud3d_base = workingDir / Path("_data/Extrud3D_0.dat")
+    if extrud3d_base.exists():
+        print("Preserving existing _data/Extrud3D_0.dat")
+    else:
+        shutil.copyfile(str(projectFile), str(extrud3d_base))
 
     offList = []
     if not sys.platform == "win32":
@@ -1025,13 +1068,7 @@ def simLoopVelocity(workingDir):
 
     nmin = 0
     maxInnerIters = parseMaxNumSteps("_data/q2p1_param.dat")
-    with open("_data/Extrud3D_0.dat", "a") as f:
-        f.write("\n[E3DSimulationSettings]\n")
-        f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
-        f.write("Periodicity=" + str(paramDict['periodicity']) + "\n")
-        f.write("nSolutions=" + str(paramDict['timeLevels']) + "\n")
-        if paramDict.get('startAngle', 0.0) > 0.0:
-            f.write("StartAngle=" + str(paramDict['startAngle']) + "\n")
+    write_shared_e3d_settings("_data/Extrud3D_0.dat")
 
     if nmax <= 0:
         print("No angle positions left to compute for this stage.")
