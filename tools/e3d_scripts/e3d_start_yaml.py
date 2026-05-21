@@ -294,7 +294,7 @@ def usage():
     """
     Print out usage information
     """
-    print("Usage: python e3d_start.py [options]")
+    print("Usage: python e3d_start_yaml.py [options]")
     print("Where options can be:")
     print("[-f', '--project-folder]: Path to project folder containing a setup.e3d file")
     print("[-n', '--num-processors]: Number of processors to use")
@@ -312,8 +312,20 @@ def usage():
     print("[-v', '--version']: prints out version information")
     print("[-x', '--short-test']: configures the program for a short test")
     print("[-u', '--use-srun']: Uses the srun launch mechanism")
+    print("[-y', '--yaml']: YAML driver file to use")
     print("['--die-simulation']: fires up a single angle DIE sim with the corresponding datafile")
-    print("Example: python ./e3d_start.py -f myFolder -n 5 -t 0")
+    print("")
+    print("DIE usage:")
+    print("  isothermal single material: e3d_die.yaml")
+    print("  nonisothermal single material: e3d_die_temp.yaml")
+    print("  isothermal multi material: e3d_die_multi.yaml")
+    print("  nonisothermal multi material: e3d_die_multi_temp.yaml")
+    print("  example: python ./e3d_start_yaml.py -f _ianus/DIE/RH_LOC -n 5 -y e3d_die.yaml")
+    print("")
+    print("SCREW usage:")
+    print("  isothermal: e3d_xse.yaml")
+    print("  nonisothermal: e3d_xse_temp.yaml")
+    print("  example: python ./e3d_start_yaml.py -f _ianus/TSE/Conv -n 5 -y e3d_xse.yaml")
 #===============================================================================
 
 

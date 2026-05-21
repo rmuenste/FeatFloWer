@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+src=0
+
+while [ $# != 0 ]; do
+ flag="$1"
+ case "$flag" in
+  -s) echo "source is being copied as well ... "
+      src=1
+   ;;
+   *) echo "Unrecognized flag or argument: $flag"
+      exit 1
+   ;;
+ esac
+ shift
+done
+
+prefix=E3D_
+suffix=$(date '+%y%m%d')
+foldernamename=$prefix$suffix
+checkfoldernamename=$(ls | grep -w $foldernamename)
+if [ "$checkfoldernamename" != "" ]
+then
+ suffix=$(date '+%y%m%d%H%M')
+ foldernamename=$prefix$suffix
+fi
+echo "The back up folder is" $foldernamename
+
+mkdir $foldernamename
+mkdir $foldernamename/"_data"
+mkdir $foldernamename/"_1D"
+mkdir $foldernamename/"_hist"
+mkdir $foldernamename/"_RTD"
+cp _data/parti*.dat "_data"/ProcCtrl.txt "_data"/feat.msg $foldernamename/"_data"/.
+cp -r _data_BU $foldernamename/.
+cp -r "_Sigma" $foldernamename/.
+cp -r "start" $foldernamename/.
+mkdir $foldernamename/"_mesh"
+mkdir $foldernamename/"_prot0"
+mkdir $foldernamename/"_prot1"
+
+cp partitioner e3d_* submission.tq $foldernamename/.
+mkdir $foldernamename/"_vtk"
+mkdir $foldernamename/"_dump"
+
+if [ ${src} == 1 ]
+then
+ cp Makefile CMakeLists.txt $foldernamename/.
+ cp -r "cmake" $foldernamename/.
+ rm -rf source/*~
+ rm -rf source/*/*~
+ cp -r source $foldernamename/.
+ mkdir $foldernamename/"o"
+fi
+
+exit 1
