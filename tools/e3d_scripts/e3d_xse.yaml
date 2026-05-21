@@ -12,8 +12,8 @@ stages:
   main:
     loop: 1
     steps:
-      - solver: HeatEquation
-        param_file: _data_BU/q2p1_paramT_1.dat
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_1.dat
 
   final:
     steps:

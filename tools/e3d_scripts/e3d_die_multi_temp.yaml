@@ -17,7 +17,7 @@ stages:
     loop: 1
     steps:
       - solver: MomentumEquation
-        param_file: _data_BU/q2p1_paramV_DIE_1.dat
+        param_file: _data_BU/q2p1_paramV_DIE_2.dat
       - solver: MaterialDistribution
         param_file: _data_BU/q2p1_paramAlpha.dat
       - solver: HeatEquation
@@ -26,4 +26,4 @@ stages:
   final:
     steps:
       - solver: MomentumEquation
-        param_file: _data_BU/q2p1_paramV_DIE_1.dat
+        param_file: _data_BU/q2p1_paramV_DIE_2.dat
