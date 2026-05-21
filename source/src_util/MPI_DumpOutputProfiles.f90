@@ -1149,10 +1149,11 @@ deallocate(ElementOffsets)
  SUBROUTINE LoadLocalKeyIndex(cF,iFilePos,iElemIdx)
    character cF*(*)
    integer, intent(out) :: iFilePos(:),iElemIdx(:)
-   integer :: iel,NNEL
+   integer :: iel,NNEL,keyFileType
    integer, allocatable :: iauxG(:),jauxG(:)
+   integer, allocatable :: iDisp(:)
    logical :: bExists
-    integer(kind=MPI_Offset_kind) :: myKeyOffset,myFieldOffset
+    integer(kind=MPI_Offset_kind) :: myFieldOffset
     integer(kind=MPI_Offset_kind) :: offset
 
    NNEL = SIZE(iFilePos)
@@ -1170,11 +1171,22 @@ deallocate(ElementOffsets)
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+    allocate(iDisp(NNEL))
     DO iel=1,NNEL
-     myKeyOffset = intsize*(coarse%myELEMLINK(iel)-1)
-     CALL MPI_File_read_at(mpiFile,myKeyOffset,iFilePos(iel),1,MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
-     if (ierr.ne.0) iGlobalError = 1
+     iDisp(iel) = coarse%myELEMLINK(iel)-1
     END DO
+    call MPI_Type_create_indexed_block(NNEL,1,iDisp,MPI_INTEGER,keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    call MPI_Type_commit(keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    myFieldOffset = 0
+    call MPI_File_set_view(mpiFile, myFieldOffset, MPI_INTEGER, keyFileType, 'native', MPI_INFO_NULL, ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    CALL MPI_File_read_all(mpiFile, iFilePos, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    call MPI_Type_free(keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    deallocate(iDisp)
     CALL mpi_file_close(mpiFile,ierr)
 
     IF (myid.eq.1) then
@@ -1534,10 +1546,11 @@ CONTAINS
  SUBROUTINE LoadLocalKeyIndex(cF,iFilePos,iElemIdx)
    character cF*(*)
    integer, intent(out) :: iFilePos(:),iElemIdx(:)
-   integer :: iel,NNEL
+   integer :: iel,NNEL,keyFileType
    integer, allocatable :: iauxG(:),jauxG(:)
+   integer, allocatable :: iDisp(:)
    logical :: bExists
-   integer(kind=MPI_Offset_kind) :: myKeyOffset,myFieldOffset
+   integer(kind=MPI_Offset_kind) :: myFieldOffset
    integer(kind=MPI_Offset_kind) :: offset
 
    NNEL = SIZE(iFilePos)
@@ -1555,11 +1568,22 @@ CONTAINS
     end if
 
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)),MPI_MODE_RDONLY, MPI_INFO_NULL, mpiFile,ierr)
+    allocate(iDisp(NNEL))
     DO iel=1,NNEL
-     myKeyOffset = intsize*(coarse%myELEMLINK(iel)-1)
-     CALL MPI_File_read_at(mpiFile,myKeyOffset,iFilePos(iel),1,MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
-     if (ierr.ne.0) iGlobalError = 1
+     iDisp(iel) = coarse%myELEMLINK(iel)-1
     END DO
+    call MPI_Type_create_indexed_block(NNEL,1,iDisp,MPI_INTEGER,keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    call MPI_Type_commit(keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    myFieldOffset = 0
+    call MPI_File_set_view(mpiFile, myFieldOffset, MPI_INTEGER, keyFileType, 'native', MPI_INFO_NULL, ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    CALL MPI_File_read_all(mpiFile, iFilePos, NNEL, MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    call MPI_Type_free(keyFileType,ierr)
+    if (ierr.ne.0) iGlobalError = 1
+    deallocate(iDisp)
     CALL mpi_file_close(mpiFile,ierr)
 
     IF (myid.eq.1) then
@@ -2176,8 +2200,9 @@ deallocate(ElementOffsets)
 
  SUBROUTINE WriteMPIFieldKeyIndex(cF)
   character cF*(*)
-  integer :: iel,iPos
-  integer(kind=MPI_Offset_kind) :: myKeyOffset
+  integer :: iel,keyFileType
+  integer, allocatable :: iPos(:),iDisp(:)
+  integer(kind=MPI_Offset_kind) :: myFieldOffset
 
   cPOutFile = '_dump/'
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key_idx','.prf'
@@ -2185,16 +2210,28 @@ deallocate(ElementOffsets)
    WRITE(*,'(A$)') 'Writing file:"'//TRIM(ADJUSTL(cPOutFile))//'"'
   end if
 
-  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  allocate(iPos(knel(nlmin)),iDisp(knel(nlmin)))
   DO iel=1,knel(nlmin)
-   iPos = INT(ElementOffsets(myid)) + iel
-   myKeyOffset = intsize*(coarse%myELEMLINK(iel)-1)
-   CALL MPI_File_write_at(mpiFile,myKeyOffset,iPos,1,MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
-   IF (IERR.ne.0) iGlobalError = 1
+   iPos(iel) = INT(ElementOffsets(myid)) + iel
+   iDisp(iel) = coarse%myELEMLINK(iel)-1
   END DO
+
+  CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  call MPI_Type_create_indexed_block(knel(nlmin),1,iDisp,MPI_INTEGER,keyFileType,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Type_commit(keyFileType,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
+  myFieldOffset = 0
+  call MPI_File_set_view(mpiFile, myFieldOffset, MPI_INTEGER, keyFileType, 'native', MPI_INFO_NULL, ierr)
+  IF (IERR.ne.0) iGlobalError = 1
+  CALL MPI_File_write_all(mpiFile,iPos,knel(nlmin),MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Type_free(keyFileType,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   call MPI_Barrier(MPI_COMM_subs, ierr)
   call MPI_File_sync(mpiFile, ierr)
   CALL mpi_file_close(mpiFile,ierr)
+  deallocate(iPos,iDisp)
 
   IF (myid.eq.1) then
    WRITE(*,'(A)') ' ==> Done!'
