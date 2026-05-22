@@ -32,6 +32,7 @@ use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
 CHARACTER SUB*6,FMT*15,CPARAM*120
+logical :: bDirExists
 
 PARAMETER (NNBAS=27,NNDER=10,NNCUBP=36,NNVE=8,NNEE=12,NNAE=6,&
            NNDIM=3,NNCOF=10)
@@ -869,7 +870,10 @@ real*8 :: dbuf1(2)
 real*8 :: theNorm
 integer :: iPointer
 character(len=*), parameter :: fmt_sed = '(A,1X,A,ES14.6,1X,A,I6,1X,3ES14.6)'
+character(len=*), parameter :: fmt_dns_dump = '(I8,1X,3ES20.12,1X,3ES20.12,1X,3ES20.12)'
 real*8 :: time_out
+integer :: iDumpUnit
+character(len=64) :: dumpFileName
 
 ! Force arrays and boundary element tracking
 integer, parameter :: maxBdryPerPart = 500
@@ -1133,6 +1137,24 @@ if (myid /= 0) then
 end if
 
 deallocate(forceArray_result)
+
+if (myid == 1) then
+  inquire(file='dns_force_results', exist=bDirExists)
+  if (.not. bDirExists) then
+    call system('mkdir -p dns_force_results')
+  end if
+  write(dumpFileName, '(A,I5.5,A)') 'dns_force_results/dns_drag_force_dump_', ITNS, '.dat'
+  iDumpUnit = 913
+  open(unit=iDumpUnit, file=dumpFileName, status='replace', action='write')
+  write(iDumpUnit, '(A)') '# id pos_x pos_y pos_z force_x force_y force_z torque_x torque_y torque_z'
+  DO IP = 1, numParticles
+    write(iDumpUnit, fmt_dns_dump) IP, &
+      theParticles(IP)%position(1), theParticles(IP)%position(2), theParticles(IP)%position(3), &
+      theParticles(IP)%force(1), theParticles(IP)%force(2), theParticles(IP)%force(3), &
+      theParticles(IP)%torque(1), theParticles(IP)%torque(2), theParticles(IP)%torque(3)
+  END DO
+  close(iDumpUnit)
+end if
 
 ! Deallocate vertex cache (single-timestep lifetime)
 if (allocated(ParticleVertexCache)) then
