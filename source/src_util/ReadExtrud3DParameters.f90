@@ -6,6 +6,7 @@
     use Sigma_User, only : mySigma,myThermodyn,mySetup,myOutput,myTransientSolution,&
         myProcess,myMultiMat,SoftwareRelease,bKTPRelease,DistTolerance
     USE var_QuadScalar
+    use types, only : HEAT_RUN_MODE_PID, HEAT_RUN_MODE_FIXED
 
     use, intrinsic :: ieee_arithmetic
 
@@ -21,7 +22,7 @@
     character(len=INIP_STRLEN) cMidpointA, cMidpointB 
     character(len=INIP_STRLEN) cParserString,cSCR,cALE,cDissip,cSensor,cTVals, cRobin
 
-    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT
+    character(len=INIP_STRLEN) cProcessType,cRotation,cRheology,cMeshQuality,cKTP,cUnit,cOFF_Files,cShearRateRest,cTXT,cGeometryType
     
     integer :: unitProtfile = -1 ! I guess you use mfile here
     integer :: unitTerminal = 6 ! I guess you use mterm here
@@ -115,6 +116,21 @@
     END IF
     END IF
 
+    call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryType",cGeometryType,'BOX')
+    call inip_toupper_replace(cGeometryType)
+    IF (.NOT.(ADJUSTL(TRIM(cGeometryType)).EQ."BOX".OR.ADJUSTL(TRIM(cGeometryType)).EQ."ROUND")) THEN
+     IF (myid.eq.1) WRITE(*,*) "GeometryType is invalid. Only BOX or ROUND are allowed:", TRIM(cGeometryType)
+     cGeometryType = 'BOX'
+    END IF
+    GeometryType = ADJUSTL(TRIM(cGeometryType))
+    bProlongationDZMAXInitialized = .FALSE.
+    ProlongationDZMAX = 0d0
+    IF (GeometryType.EQ.'ROUND') THEN
+     ProlongationDirection = 3
+    ELSE
+     ProlongationDirection = 0
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DGeometryData/Machine","GeometryStart", mySigma%GeometryStart ,'_INVALID_')
     call inip_toupper_replace(mySigma%GeometryStart)
     IF (adjustl(trim(mySigma%GeometryStart)).ne.'_INVALID_') THEN
@@ -202,6 +218,26 @@
 
     IF (mySigma%NumberOfSeg.ge.1) THEN
      ALLOCATE (mySigma%mySegment(mySigma%NumberOfSeg))
+     mySigma%bHasPIDRegulation = .false.
+     mySigma%bHasFixedPowerRegulation = .false.
+     mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+     mySigma%MeltMonitor%bEnabled = .false.
+     mySigma%MeltMonitor%bInitialized = .false.
+     mySigma%MeltMonitor%Detector%Counter = 0
+     mySigma%MeltMonitor%Detector%Converged = .FALSE.
+     mySigma%MeltMonitor%Detector%Condition = 1d-3
+     mySigma%MeltMonitor%Detector%Limit = 250
+     mySigma%MeltMonitor%PreviousValue = 0d0
+     mySigma%bHasPIDRegulation = .false.
+     mySigma%bHasFixedPowerRegulation = .false.
+     mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+     mySigma%MeltMonitor%bEnabled = .false.
+     mySigma%MeltMonitor%bInitialized = .false.
+     mySigma%MeltMonitor%Detector%Counter = 0
+     mySigma%MeltMonitor%Detector%Converged = .FALSE.
+     mySigma%MeltMonitor%Detector%Condition = 1d-3
+     mySigma%MeltMonitor%Detector%Limit = 250
+     mySigma%MeltMonitor%PreviousValue = 0d0
     ELSE
      WRITE(*,*) "not a valid number of segments"
      WRITE(*,*) '"',mySigma%NumberOfSeg,'"'
@@ -1193,6 +1229,15 @@
     
     call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","PressureConvergenceTolerance", mySetup%PressureConvergenceTolerance,5d-3)
 
+    cKTP=' '
+    call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","ConstantMesh",cKTP,"NO")
+    call inip_toupper_replace(cKTP)
+    IF (ADJUSTL(TRIM(cKTP)).eq."YES".OR.ADJUSTL(TRIM(cKTP)).eq."ON") THEN
+     mySetup%bConstantMesh = .TRUE.
+    ELSE
+     mySetup%bConstantMesh = .FALSE.
+    END IF
+
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
 
@@ -1769,6 +1814,11 @@
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%K",'=',myMultiMat%Mat(iMat)%Rheology%K
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(iMat)%Rheology%n
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%eta_min",'=',myMultiMat%Mat(iMat)%Rheology%eta_min
+      write(*,'(A)') " modified Carreau ::"
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(iMat)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(iMat)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(iMat)%Rheology%C
      END IF
      IF (myMultiMat%Mat(iMat)%Rheology%Equation.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Carreau'
@@ -1873,6 +1923,11 @@
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Powerlaw'
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%K",'=',myMultiMat%Mat(1)%Rheology%K
       write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%n",'=',myMultiMat%Mat(1)%Rheology%n
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%eta_min",'=',myMultiMat%Mat(1)%Rheology%eta_min
+      write(*,'(A)') " modified Carreau ::"
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%A",'=',myMultiMat%Mat(1)%Rheology%A
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%B",'=',myMultiMat%Mat(1)%Rheology%B
+      write(*,'(A,I0,A,A,ES12.4)') " myRheology(",iMat,")%C",'=',myMultiMat%Mat(1)%Rheology%C
      END IF
      IF (myMultiMat%Mat(1)%Rheology%Equation.eq.1) THEN
       write(*,'(A,I0,A,A,A)') " myRheology(",iMat,")%model",'=','Carreau'
@@ -2443,6 +2498,12 @@
       t%Equation = 2
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Consistence", t%K,myInf)
       call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"Exponent",t%n,myInf)
+      call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/"//ADJUSTL(TRIM(cRheology)),"ShearRateLimit",t%eta_min,1d-3)
+      !! here comes an update for a powerlaw normalization towards Carraeu
+      t%A = t%K*(t%eta_min**(t%n-1d0))
+      t%B = 1d0/t%eta_min
+      t%C = 1d0-t%n
+
 !       if (t%K.eq.myInf) then
 !        call INIP_getvalue_double(parameterlist,ADJUSTL(TRIM(cINI))//"/Power","Consistence", t%K,myInf)
 !       end if
@@ -2849,6 +2910,7 @@
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_I_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,myInf)
         call INIP_getvalue_double(parameterlist,cElement_i,"PID_D_CNST", mySigma%mySegment(iSeg)%PID_Ctrl%omega_D,myInf)
         mySigma%mySegment(iSeg)%PID_Ctrl%SumI = 0d0
+        mySigma%bHasPIDRegulation = .true.
         
         IF (mySigma%mySegment(iSeg)%HeatSourceMax.eq.myinf.or.&
             mySigma%mySegment(iSeg)%HeatSourceMin.eq.myinf.or.&
@@ -2865,6 +2927,9 @@
             mySigma%mySegment(iSeg)%PID_Ctrl%omega_I,&
             mySigma%mySegment(iSeg)%PID_Ctrl%omega_D
         END IF
+       ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."NONE".OR.&
+               ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."FIXED") then
+        mySigma%bHasFixedPowerRegulation = .true.
        ELSE
             WRITE(*,*) "Unknown regulation mechanism ... "
             CALL StopTheProgramFromReader(subnodes,myErrorCode%SIGMA_READER)
@@ -2953,6 +3018,29 @@
      END IF
     END IF
     
+    call INIP_getvalue_double(parameterlist,"E3DSimulationSettings","MeltMonitorTolerance", &
+         mySigma%MeltMonitor%Detector%Condition ,1d-3)
+    if (mySigma%MeltMonitor%Detector%Condition.le.0d0) then
+      mySigma%MeltMonitor%Detector%Condition = 1d-3
+    end if
+    call INIP_getvalue_int(parameterlist,"E3DSimulationSettings","MeltMonitorLimit", &
+         mySigma%MeltMonitor%Detector%Limit, 250)
+    if (mySigma%MeltMonitor%Detector%Limit.lt.1) then
+      mySigma%MeltMonitor%Detector%Limit = 250
+    end if
+    
+    if (mySigma%bHasPIDRegulation) then
+      mySigma%HeatRunMode = HEAT_RUN_MODE_PID
+      mySigma%MeltMonitor%bEnabled = .false.
+    elseif (mySigma%bHasFixedPowerRegulation) then
+      mySigma%HeatRunMode = HEAT_RUN_MODE_FIXED
+      mySigma%MeltMonitor%bEnabled = .true.
+    else
+      mySigma%HeatRunMode = HEAT_RUN_MODE_NONE
+      mySigma%MeltMonitor%bEnabled = .false.
+      mySigma%MeltMonitor%bInitialized = .false.
+    end if
+    
     call INIP_getvalue_string(parameterlist,"E3DSimulationSettings","HexMesher", mySetup%cMesher,"OFF")
     call inip_toupper_replace(mySetup%cMesher)
     
@@ -3036,6 +3124,9 @@
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaP=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_P
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaI=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_I
        write(*,'(A,I0,A,3ES12.4)') " mySIGMA%Segment(",iSeg,')%PID_OmegaD=',mySigma%mySegment(iSeg)%PID_Ctrl%Omega_D
+      ELSEIF (ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."NONE".or.&
+              ADJUSTL(TRIM(mySigma%mySegment(iSeg)%Regulation)).eq."FIXED") then
+        write(*,'(A,I0,A)') " mySIGMA%Segment(",iSeg,') operates with fixed heater power'
       END IF
      END IF
      

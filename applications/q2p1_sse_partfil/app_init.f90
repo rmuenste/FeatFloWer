@@ -95,6 +95,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Sigma_User, ONLY: mySigma,myProcess,mySetup
  USE cinterface 
  use iniparser
+ USE param_parser, ONLY: GDATNEW
  use, intrinsic :: ieee_arithmetic
 
  IMPLICIT NONE

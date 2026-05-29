@@ -1,5 +1,6 @@
 ----------- Simulation Parameters --------------
-SimPar@aSynchComm = yes
+SimPar@PartitionFormat=json
+SimPar@aSynchComm = Yes
 SimPar@CommSwitch = 3
 SimPar@MeshFolder = "NEWFAC"
 SimPar@SubMeshNumber = 1                                               ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
@@ -70,7 +71,7 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-2
 Pres@MGCriterion2 = 1d-3
 Pres@MGCycType = F
-Pres@MGCrsSolverType = 7
+Pres@MGCrsSolverType = 8
 ----------------- LinSc ---------------------
 Temper@NLmin             = 4
 Temper@NLmax             = 5

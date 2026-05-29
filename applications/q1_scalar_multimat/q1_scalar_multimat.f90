@@ -5,12 +5,14 @@ PROGRAM Q1_GenScalar
   use solution_io, only: postprocessing_general
   use var_QuadScalar, only: bAlphaConverged,DivergedSolution,myErrorCode,AlphaControl
   USE PP3D_MPI, ONLY: MPI_COMM_WORLD
+  USE Sigma_User, ONLY: myProcess
 
                            
   USE Transport_Q2P1, ONLY : GetAlphaNonNewtViscosity_sse
   
-  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_ALPHA,&
-                           EstimateAlphaTimeStepSize,Recover_GenLinSc_OldSolution
+  use Transport_Q1, only : Reinit_GenLinSc_Q1,Correct_GenLinSc_Q1_MULTIMATALPHA,&
+                           EstimateAlphaTimeStepSize,Recover_GenLinSc_OldSolution,&
+                           Transport_GenLinSc_Q1_MultiMat_AlphaOnly
   use post_utils,  only: handle_statistics,&
                          print_time_Q1,&
                          sim_finalize_sse
@@ -60,11 +62,13 @@ PROGRAM Q1_GenScalar
   dt=tstep
   timens=timens+dt
 
-  ! recover the viscosity and shearrates for the dissipation term
-  CALL GetAlphaNonNewtViscosity_sse()
+  ! Only update viscosity/shear-rate if the optional viscous heating term is active.
+  if (myProcess%UseHeatDissipationForQ1Scalar) THEN
+   CALL GetAlphaNonNewtViscosity_sse()
+  end if
 
   ! Solve transport equation for linear scalar
-  CALL Transport_GenLinSc_Q1_Multimat(ufile,inonln_t)
+  CALL Transport_GenLinSc_Q1_MultiMat_AlphaOnly(ufile,inonln_t)
 
   if (DivergedSolution .eqv. .true.) THEN
    timens=timens-dt
@@ -119,7 +123,7 @@ PROGRAM Q1_GenScalar
   if (.not.bAlphaConverged)  call MPI_Abort(MPI_COMM_WORLD, myErrorCode%RUNOUTOFTIMESTEPS, ierr)
   
 !   write(*,*) '0',bAlphaConverged
-  CALL Correct_GenLinSc_Q1_ALPHA(ufile)
+  CALL Correct_GenLinSc_Q1_MULTIMATALPHA(ufile)
   timens = timens + dtgmv
   itns = max(itns,2)
   call postprocessing_general(dout, inonln_u, inonln_t,ufile,'q')

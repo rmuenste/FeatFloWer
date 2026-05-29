@@ -1,0 +1,129 @@
+schema_version: "0.2"
+id: q2p1_bench_sedimentation_pe_serial
+name: Q2P1 Bench Sedimentation PE Serial Mode
+suite: smoke
+priority: normal
+enabled: true
+
+setup:
+  modules:
+    - gcc/latest-v13
+    - openmpi/options/interface/ethernet
+    - openmpi/4.1.6
+  git:
+    submodules:
+      mode: strict
+      update_recursive: true
+
+build:
+  workspace: build-ninja-release
+  cache_policy: reuse_if_compatible
+  steps:
+    # Single configure step with all PE serial options
+    - kind: cmake_configure
+      build_dir: build-ninja-release
+      source_dir: .
+      options:
+        - CMAKE_BUILD_TYPE=Release
+        - BUILD_APPLICATIONS=ON
+        - USE_PE=ON
+        - USE_PE_SERIAL_MODE=ON
+        - USE_JSON=ON
+        - SED_BENCH=ON
+        - VERIFY_HASHGRID=OFF
+        - Q2P1_BENCH_SEDIMENTATION_PARTS=31
+        - CMAKE_C_COMPILER=mpicc
+        - CMAKE_CXX_COMPILER=mpicxx
+        - CMAKE_Fortran_COMPILER=mpifort
+    # Stage target: builds application + METIS, stages example.json
+    # + MG.dat + libmetis.so, and runs partitioning (31 parts)
+    - kind: cmake_build
+      build_dir: build-ninja-release
+      targets: [q2p1_bench_sedimentation_stage]
+      jobs: 8
+
+run:
+  levels:
+    start: 3
+    count: 1
+  partition:
+    tool: python
+    command: "python3 {repo_root}/tools/PyPartitioner.py 31 1 1 NEWFAC _adc/benchSym/bench.prj"
+    expected_partition_count: 31
+  launch:
+    workdir: build-ninja-release/applications/q2p1_bench_sedimentation
+    mpi_ranks: 32
+    command: "./q2p1_bench_sedimentation"
+  slurm:
+    partition: short
+    constraint: nx
+    nodes: 1
+    ntasks: 32
+    cpus_per_task: 1
+    time: "02:00:00"
+    mem_per_cpu: "3G"
+
+outputs:
+  logs: [run.log, build.log]
+  artifacts:
+    - _data/prot.txt
+    - _data/Statistics.txt
+
+metrics:
+  # Settling velocity from SED_BENCH_VEL output in QuadSc_force_serial.f90
+  # Format: SED_BENCH_VEL time= <time> ip= <idx> <vx> <vy> <vz>
+  # After split(): [0]=SED_BENCH_VEL [1]=time= [2]=time [3]=ip= [4]=idx [5]=vx [6]=vy [7]=vz
+  #
+  # Reference data from E4_lvl2.txt (level 2 mesh computation)
+  # Compare vz (settling velocity) at 4 time checkpoints
+
+  - id: vz_at_t025
+    parser: keyword_columns
+    file: simulation_output_level_3.log
+    keyword: "SED_BENCH_VEL"
+    columns: {vz: 7}
+    filter: {column: 2, value: 0.25, tolerance: 1.0e-6}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {vz: 1.0e-3}
+
+  - id: vz_at_t050
+    parser: keyword_columns
+    file: simulation_output_level_3.log
+    keyword: "SED_BENCH_VEL"
+    columns: {vz: 7}
+    filter: {column: 2, value: 0.50, tolerance: 1.0e-6}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {vz: 1.0e-3}
+
+  - id: vz_at_t075
+    parser: keyword_columns
+    file: simulation_output_level_3.log
+    keyword: "SED_BENCH_VEL"
+    columns: {vz: 7}
+    filter: {column: 2, value: 0.75, tolerance: 1.0e-6}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {vz: 1.0e-3}
+
+  - id: vz_at_t100
+    parser: keyword_columns
+    file: simulation_output_level_3.log
+    keyword: "SED_BENCH_VEL"
+    columns: {vz: 7}
+    filter: {column: 2, value: 1.00, tolerance: 1.0e-6}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {vz: 1.0e-3}
+
+references:
+  baseline: tools/featflower_test/testcases/baselines/q2p1_bench_sedimentation_pe_serial.yaml

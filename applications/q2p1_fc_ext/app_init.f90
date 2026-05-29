@@ -11,6 +11,7 @@ subroutine init_q2p1_ext(log_unit)
     Transport_LinScalar
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File,mg_Mesh
+  USE prov_dump_config, ONLY : use_prov_dump_io
 
   integer, intent(in) :: log_unit
 
@@ -37,7 +38,11 @@ subroutine init_q2p1_ext(log_unit)
   ! with the same number of partitions
   elseif (istart.eq.1) then
     if (myid.ne.0) call CreateDumpStructures(1)
-    call SolFromFile(CSTART,1)
+    if (use_prov_dump_io) then
+      call SolFromFileProv(CSTART,1)
+    else
+      call SolFromFile(CSTART,1)
+    end if
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
@@ -45,7 +50,11 @@ subroutine init_q2p1_ext(log_unit)
     ! In order to read in from a lower level
     ! the lower level structures are needed
     if (myid.ne.0) call CreateDumpStructures(0)
-    call SolFromFile(CSTART,0)
+    if (use_prov_dump_io) then
+      call SolFromFileProv(CSTART,0)
+    else
+      call SolFromFile(CSTART,0)
+    end if
     call ProlongateSolution()
 
     ! Now generate the structures for the actual level 
@@ -55,7 +64,11 @@ subroutine init_q2p1_ext(log_unit)
   ! with a different number of partitions
   elseif (istart.eq.3) then
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
+    if (use_prov_dump_io) then
+      call SolFromFileRepartProv(CSTART,1)
+    else
+      call SolFromFileRepart(CSTART,1)
+    end if
   end if
 
 end subroutine init_q2p1_ext
@@ -67,12 +80,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps
- USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
+   myRecComm,bRecursivePartitioning,iCommSwitch
+ USE Transport_Q2P1, ONLY : Init_Cyl_Handlers, Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
+ USE param_parser, ONLY: GDATNEW
  USE cinterface 
 
  IMPLICIT NONE
@@ -125,11 +140,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
- 
- CALL FindNodes()
- 
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
+
+#ifndef HAVE_PE
+ IF (bRecursivePartitioning .or. iCommSwitch == 4) CALL FindNodes()
+#endif
 
  CFILE=CFILE1
  MFILE=MFILE1
@@ -140,16 +156,28 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 
  CALL CommBarrier()
  
-#ifdef HAVE_PE 
- include 'PartitionReader.f90'
+ ! partitioning
+#ifdef HAVE_PE
+#ifdef PE_SERIAL_MODE
+  include 'PartitionReader2.f90'
 #else
- include 'PartitionReader2.f90'
+  include 'PartitionReader.f90'
+#endif
+#else
+  if (bRecursivePartitioning) then
+  include 'PartitionReader_rec.f90'
+  else
+  include 'PartitionReader2.f90'
+  end if
 #endif
 
  call MPI_Get_processor_name(processor_name, name_len, ierr)
  write(*,'(A,I0,A)') 'Hello from MPI process ', myid, ' on processor "'//trim(processor_name)//'" with mesh '//TRIM(ADJUSTL(CMESH1))
  
  CALL Init_QuadScalar(mfile)
+ ! Here we  can make a call to overwrite 
+ ! i.e. default handlers
+ !call Init_Cyl_Handlers()
 
  IF (myid.EQ.0) THEN
   NLMAX = LinSc%prm%MGprmIn%MedLev
@@ -453,7 +481,7 @@ END IF
 
 #ifdef HAVE_PE 
   if (myid .ne. 0) then
-    call commf2c_archimedes(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+    call commf2c_fsi(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
   end if
 #endif
 

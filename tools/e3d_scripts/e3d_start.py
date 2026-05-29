@@ -28,6 +28,13 @@ else:
 debugNoSim = False
 debugOutput = False
 
+# Defaults required for reliable MPI file I/O on OpenMPI based runs
+MPI_ENV_DEFAULTS = {
+    "OMPI_MCA_io": "romio321",
+    "ROMIO_CB_BUFFER_SIZE": "16777216",
+    "ROMIO_DS_WRITE": "enable",
+}
+
 class E3dLog:
     def __init__(self):
 #        print("The E3dLog constructor")
@@ -233,10 +240,10 @@ paramDict = {
     "meshReduction": False,
     "dieSimulation": False,
     "temperature" : False,
-    "partialFilling" : False,
     "onlyMeshCreation" : False,
     "retryDeformation" : False,
-    "maxMeshLevel" : -1
+    "maxMeshLevel" : -1,
+    "partitionFormat": "legacy",
 }
 
 class ProtocolObserver(FileSystemEventHandler):
@@ -319,6 +326,102 @@ def mkdir(dir):
 
 
 #===============================================================================
+#                    Parse partition format from parameter file
+#===============================================================================
+def parsePartitionFormat(paramFile):
+    """
+    Returns 'legacy' or 'json' based on SimPar@PartitionFormat entry.
+    Defaults to legacy on missing/invalid values.
+    """
+    fmt = "legacy"
+    try:
+        with open(paramFile, "r") as f:
+            for raw_line in f:
+                line = raw_line.split("!")[0].strip()
+                if not line:
+                    continue
+                lower_line = line.lower()
+                if lower_line.startswith("simpar@partitionformat"):
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        candidate = parts[1].strip().strip('"').strip("'").lower()
+                        if candidate in ("legacy", "json"):
+                            fmt = candidate
+                    break
+    except OSError:
+        pass
+    return fmt
+#===============================================================================
+
+
+
+#===============================================================================
+#                    Detect number of allocated nodes
+#===============================================================================
+def detect_node_count():
+    """
+    Returns the number of compute nodes assigned to this run.
+    Tries scheduler env vars first, then host/rank files.
+    """
+    for env_var in ("SLURM_STEP_NUM_NODES", "SLURM_JOB_NUM_NODES"):
+        val = os.environ.get(env_var)
+        if val:
+            try:
+                nodes = int(val)
+                if nodes > 0:
+                    return nodes
+            except ValueError:
+                pass
+
+    nodelist = os.environ.get("SLURM_JOB_NODELIST")
+    if nodelist:
+        try:
+            output = subprocess.check_output(
+                ["scontrol", "show", "hostnames", nodelist],
+                universal_newlines=True,
+            )
+            hosts = [line.strip() for line in output.splitlines() if line.strip()]
+            if hosts:
+                return len(set(hosts))
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    hostfile = paramDict.get('hostFile', "")
+    if hostfile:
+        try:
+            hosts = set()
+            with open(hostfile, "r") as f:
+                for raw in f:
+                    line = raw.split("#", 1)[0].strip()
+                    if not line:
+                        continue
+                    token = line.split()[0]
+                    hosts.add(token.split(":", 1)[0])
+            if hosts:
+                return len(hosts)
+        except OSError:
+            pass
+
+    rankfile = paramDict.get('rankFile', "")
+    if rankfile:
+        try:
+            hosts = set()
+            pattern = re.compile(r"rank\s+\d+\s*=\s*([^\s]+)")
+            with open(rankfile, "r") as f:
+                for raw in f:
+                    match = pattern.search(raw)
+                    if match:
+                        hosts.add(match.group(1))
+            if hosts:
+                return len(hosts)
+        except OSError:
+            pass
+
+    return 0
+#===============================================================================
+
+
+#===============================================================================
 #                          simple file in-situ replacement method
 #===============================================================================
 def replace_in_file(file_path, search_text, new_text):
@@ -372,8 +475,6 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     if paramDict['shortTest']:
         if (paramDict['dieSimulation']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE_test.dat")
-        elif (paramDict['partialFilling']) :
-            backupDataFile = Path("_data_PF") / Path("q2p1_paramV_0_test.dat")
         elif (paramDict['meshReduction']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_MESH.dat")
         else:
@@ -381,8 +482,6 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     else:
         if (paramDict['dieSimulation']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_DIE.dat")
-        elif (paramDict['partialFilling']) :
-            backupDataFile = Path("_data_PF") / Path("q2p1_paramV_0.dat")
         elif (paramDict['meshReduction']) :
             backupDataFile = Path("_data_BU") / Path("q2p1_paramV_MESH.dat")
         else:
@@ -392,6 +491,8 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     destDataFile = Path("_data") / Path("q2p1_param.dat")
 
     shutil.copyfile(str(backupDataFile), str(destDataFile))
+    paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
+    paramDict['recursivePartitioning'] = True
     shutil.copyfile(str(projectFile), str(workingDir / Path("_data/Extrud3D_0.dat")))
 
     offList = []
@@ -443,13 +544,25 @@ def mesherStep(workingDir, projectFile, projectPath, projectFolder):
 #===============================================================================
 def partitionerStep(workingDir, projectFile, projectPath, projectFolder):
     partitionerParameters = [1, 1]
-    if paramDict['partialFilling']:
-        partitionerParameters = [-3, 2]
+    detected_nodes = detect_node_count()
+    if detected_nodes <= 0:
+        detected_nodes = 1
+        print("Could not detect node count automatically; defaulting to a single group.")
+    else:
+        print("Detected %d compute nodes for partitioning." % detected_nodes)
+    partitionerParameters[1] = detected_nodes
 
     print("Partitioner parameters: ",-1, partitionerParameters)
     try:
         myLog.updateStatusLine("CurrentStatus=running Partitioner")
-        partitioner.partition(paramDict['numProcessors']-1, partitionerParameters[0], partitionerParameters[1], "NEWFAC", "_data/meshDir/file.prj")
+        partitioner.partition(
+            paramDict['numProcessors']-1,
+            partitionerParameters[0],
+            partitionerParameters[1],
+            "NEWFAC",
+            "_data/meshDir/file.prj",
+            partition_format=paramDict.get('partitionFormat', 'legacy')
+        )
     except:
         myLog.logErrorExit("CurrentStatus=abnormal Termination Partitioner", 2)
     
@@ -517,6 +630,29 @@ def setupMPICommand():
         mpiPath = Path(os.environ['MSMPI_BIN']) / Path("mpiexec.exe")
 
     paramDict['mpiCmd'] = mpiPath
+#===============================================================================
+
+
+#===============================================================================
+#                Configure MPI environment variables
+#===============================================================================
+def configureMPIEnvironment():
+    """
+    Ensure the MPI file I/O environment matches the settings required
+    for the die simulations, replacing the shell logic in RunnerGenDIE.
+    """
+    print("Configuring MPI environment variables for ROMIO:")
+    for var, desired in MPI_ENV_DEFAULTS.items():
+        prev = os.environ.get(var)
+        os.environ[var] = desired
+        if prev is None:
+            status = "set"
+        elif prev == desired:
+            status = "kept"
+        else:
+            status = f"overridden (was {prev})"
+        print(f"  {var}={desired} [{status}]")
+#===============================================================================
 #===============================================================================
 
 #===============================================================================
@@ -764,186 +900,6 @@ def simLoopTemperatureCombined(workingDir):
 
 
 #===============================================================================
-#                The cfd simulation loop for partial filling
-#===============================================================================
-def simLoopMainPartialFilling(workingDir, it, loops):
-
-    nmax = calcMaxSimIterations()
-
-    mpiPath = paramDict['mpiCmd']
-    numProcessors = paramDict['numProcessors']
-
-    nmin = 0
-    start = 0.0
-    maxInnerIters = parseMaxNumSteps("_data/q2p1_param.dat")
-    if debugNoSim:
-        print("Line 676, Updating maxInnerIters: ", maxInnerIters)
-    with open("_data/Extrud3D_0.dat", "a") as f:
-        f.write("\n[E3DSimulationSettings]\n")
-        f.write("dAlpha=" + str(paramDict['deltaAngle']) + "\n")
-        f.write("Periodicity=" + str(paramDict['periodicity']) + "\n")
-        f.write("nSolutions=" + str(paramDict['timeLevels']) + "\n")
-
-
-    for i in range(nmin, nmax):  # nmax means the loop goes to nmax-1
-
-        if paramDict['singleAngle'] >= 0.0:
-            angle = paramDict['singleAngle']
-        else:
-            angle = start + i * paramDict['deltaAngle']
-
-        shutil.copyfile("_data/Extrud3D_0.dat", "_data/Extrud3D.dat")
-
-        with open("_data/Extrud3D.dat", "a") as f:
-            f.write("Angle=" + str(angle) + "\n")
-
-        statusMsg = "CurrentAngleIteration=%i\n"\
-                    "MaxAngleIteration=%i\n"\
-                    "CurrentInnerIteration=%i\n"\
-                    "MaxInnerIteration=%i\n"\
-                    "CurrentStatus=running Momentum Solver" %(it+1, loops+1, 1, maxInnerIters)
-
-        myLog.updateStatusLineIteration(statusMsg, it)
-
-        workingDir = os.getcwd()
-        protocolFilePath = os.path.join(workingDir, "_data")
-
-        eventHandler = ProtocolObserver()
-        observer = ""   
-        if sys.platform == "win32":
-            observer = PollingObserver()
-        else:
-            observer = Observer()
-
-        observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
-        observer.start()
-
-        if not debugNoSim:
-            if sys.platform == "win32":
-                exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_partfil.exe"])
-            else:
-                launchCommand = ""
-
-                if paramDict['useSrun']:
-                    launchCommand = "srun " + os.getcwd() + "/q2p1_sse"
-                    if paramDict['singleAngle'] >= 0.0:
-                        launchCommand = launchCommand + " -a %d" %(angle)
-                else:
-                    launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q2p1_sse_partfil"
-                    if paramDict['singleAngle'] >= 0.0 :
-                        launchCommand = launchCommand + " -a %d" %(angle)
-
-                exitCode = subprocess.call([launchCommand], shell=True)
-
-                if paramDict['retryDeformation'] and exitCode == 55:
-                    with open("_data/q2p1_param.dat", "r") as f:
-                        for l in f:
-                            if "SimPar@UmbrellaStepM" in l:
-                                orig_umbrella = int(l.split()[2])
-                        UmbrellaStepM = orig_umbrella
-                        while exitCode == 55 and UmbrellaStepM != 0:
-                            replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(int(UmbrellaStepM/2)))
-                            UmbrellaStepM = int(UmbrellaStepM / 2)
-                            exitCode = subprocess.call([launchCommand], shell=True)
-                        replace_in_file("_data/q2p1_param.dat", "SimPar@UmbrellaStepM = "+str(UmbrellaStepM), "SimPar@UmbrellaStepM = "+str(orig_umbrella))
-        else:
-            input("Line 743, DebugMode, SimLoopMainPartialFilling: q2p1_sse_partfil")
-            exitCode = 0   
-        # Here the observer can be turned off
-        observer.stop()
-        
-        if exitCode == 88:
-          myLog.logErrorExit("CurrentStatus=the screw could not be created: wrong angle", exitCode)
-
-        if exitCode != 0:
-            myLog.logErrorExit("CurrentStatus=abnormal Termination Momentum Solver", exitCode)
-
-        # Write final inner iteration state
-        statusMsg = "CurrentInnerIteration=%i\n"\
-                    "MaxInnerIteration=%i\n"\
-                    "CurrentStatus=running Multiphase Momentum Solver" %(maxInnerIters, maxInnerIters)
-        myLog.updateStatusLineInnerIteration(statusMsg)
-
-        iangle = int(angle)
-        if os.path.exists(Path("_data/prot.txt")):
-            shutil.copyfile("_data/prot.txt", "_data/prot_%04d.txt" % iangle)
-
-    return exitCode    
-#===============================================================================
-
-
-#===============================================================================
-#                The simulation loop for partial filling
-#===============================================================================
-def simLoopPartialFilling(workingDir):
-
-    mpiPath = paramDict['mpiCmd']
-    numProcessors = paramDict['numProcessors']
-
-    if paramDict['shortTest']:
-        nLoops = 2 
-    else:
-        nLoops = 4 
-
-    # Start the initial loop
-    it = 0
-    if debugNoSim:
-        input("Line 784, DebugMode, SimLoopPartialFilling: Initial q2p1_sse_partfil iteration")
-    simLoopMainPartialFilling(workingDir, it, nLoops)
-    it = it + 1
-
-    
-    for i in range(nLoops):
-        if paramDict['shortTest']:
-            sourceParamFile = Path("_data_PF") / Path("q2p1_paramAlpha_test.dat")
-        else:
-            sourceParamFile = Path("_data_PF") / Path("q2p1_paramAlpha.dat")
-        
-        destBackupFile = Path("_data") / Path("q2p1_param.dat")
-        shutil.copyfile(str(sourceParamFile), str(destBackupFile))
-        msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        if debugNoSim:
-            print(msg)
-
-        sourceParamFile = Path("_data_PF") / Path("mesh_names.offs")
-        destBackupFile = Path("./mesh_names.offs")
-        shutil.copyfile(str(sourceParamFile), str(destBackupFile))
-        msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        #print(msg)
-
-        if not debugNoSim:
-            if sys.platform == "win32":
-                exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q1_scalar_partfil.exe"])
-            else:
-                launchCommand = ""
-
-                if paramDict['useSrun']:
-                    launchCommand = "srun " + os.getcwd() + "/q1_scalar_partfil"
-                else:
-                    launchCommand = "mpirun -np " + str(numProcessors) + " " + os.getcwd() + "/q1_scalar_partfil"
-
-                exitCode = subprocess.call([launchCommand], shell=True)        
-        else:
-            input("Line 824, DebugMode, SimLoopPartialFilling: q1_scalar_partfil")
-            exitCode = 0   
-
-        if paramDict['shortTest']:
-            sourceParamFile = Path("_data_PF") / Path("q2p1_paramV_1_test.dat")
-        else:
-            sourceParamFile = Path("_data_PF") / Path("q2p1_paramV_1.dat")
-
-        destBackupFile = Path("_data") / Path("q2p1_param.dat")
-        shutil.copyfile(str(sourceParamFile), str(destBackupFile))
-        msg = "Copied %s => %s " %(str(sourceParamFile), str(destBackupFile))
-        if debugNoSim:
-            print(msg)
-
-        simLoopMainPartialFilling(workingDir, it, nLoops)
-        it = it + 1
-#===============================================================================
-    
-
-#===============================================================================
 #                        Main Script Function
 #===============================================================================
 def main():
@@ -967,7 +923,7 @@ def main():
                                     'host-conf=', 'rank-file=', 'time=', 'skip-setup','die-simulation',
                                     'skip-simulation','short-test', 'help',
                                     'do-temperature','version', 'use-srun',
-                                    'retry-deformation', 'partial-filling','only-mesh-creation',
+                                    'retry-deformation', 'only-mesh-creation',
                                     'mesh-reduction','max-meshlevel='])
 
     except getopt.GetoptError:
@@ -1021,9 +977,6 @@ def main():
             paramDict['meshReduction'] = True
         elif opt in ('--retry-deformation'):
             paramDict['retryDeformation'] = True
-        elif opt in ('--partial-filling'):
-            paramDict['partialFilling'] = True
-            paramDict['singleAngle'] = 0.0 
         elif opt in ('--only-mesh-creation'):
             paramDict['onlyMeshCreation'] = True
         elif opt in ('--max-meshlevel'):
@@ -1074,6 +1027,7 @@ def main():
     myLog.closeFileHandle()
 
     setupMPICommand()
+    configureMPIEnvironment()
 
     e3dSetupDict = e3dToDict(projectFile)
 
@@ -1133,10 +1087,7 @@ def main():
     print("  ")
     print("  ")
 
-    if paramDict['partialFilling']:
-        simLoopPartialFilling(workingDir)
-        cleanWorkingDir(workingDir)
-    elif paramDict['temperature']:
+    if paramDict['temperature']:
         simLoopTemperatureCombined(workingDir)
         cleanWorkingDir(workingDir)
     elif paramDict['meshReduction']:

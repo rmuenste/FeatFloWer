@@ -3,7 +3,7 @@ Parallel Multigrid Q2/P1 code for Navier Stokes (executable name is q2p1)
 * Basic implementation of Fictitious Boundary Method
 * Boundary conditions and user defined functions are in source/src_quad/QuadSc_user.f90
 * New style of partititioning (the partitioner does not hae to be run separately from the program)
-* first time output is indexed with 0 (res_**_0000.gmv), merger has to be run accordingly (./merger n 0)
+* Legacy root-level postprocessing binaries such as merger are no longer shipped with the repository
 * The coarse grid solver for the pressure is changed to UMFPack
 * Compiler bug omitted (in the old Extract_ParElems) now the code runs on more machines 
 * Basic version of the Non-Newtonian flowsolver is implemented

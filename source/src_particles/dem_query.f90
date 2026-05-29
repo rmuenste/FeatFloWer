@@ -15,6 +15,10 @@ type, bind(C) :: tParticleData
   real(c_double), dimension(3)  :: force = (/0d0, 0d0, 0d0/)
   real(c_double), dimension(3)  :: torque = (/0d0, 0d0, 0d0/)
   real(c_double) :: time
+  real(c_double) :: density
+  real(c_double), dimension(3)  :: aabb
+  real(c_double) :: radius
+  integer(c_int) :: typeId
   integer(c_int) :: localIdx
   integer(c_int) :: uniqueIdx
   integer(c_int) :: systemIdx
@@ -324,8 +328,7 @@ integer function numTotalParticles()
 
 #ifdef PE_SERIAL_MODE
   ! Serial PE mode: all ranks have access to all particles
-  numTotalParticles = 1 
-  !numTotalParticles = getTotalParticles() 
+  numTotalParticles = getNumParticles()
 #else
   ! Parallel PE mode: sum local and remote particles
   numTotalParticles = numRemParticles() + numLocalParticles()
@@ -414,7 +417,9 @@ subroutine setForcesMapped(particle)
   implicit none
 
   type(tParticleData), intent(inout) :: particle
-  
+
+  ! Canonical CFD->PE force path: write the full particle struct so
+  ! force, torque, and identity stay coupled in one interface.
   call setLocalParticle2(particle)
 
 end subroutine setForcesMapped
@@ -426,33 +431,12 @@ subroutine setRemoteForcesMapped(particle)
   implicit none
 
   type(tParticleData), intent(inout) :: particle
-  
+
+  ! Remote/shadow-particle equivalent of the canonical struct-based
+  ! CFD->PE force path.
   call setRemoteParticle2(particle)
 
 end subroutine setRemoteForcesMapped
-!================================================================================================
-!                              Function getLocalParticle
-!================================================================================================
-
-type(tParticleData) function getLocalParticle(idx)
-  implicit none
-  integer, intent(in) :: idx
-
-  type(tParticleData) :: temp
-  integer :: a
-  
-  a = numLocalParticles()
-  
-  call getParticle(idx,&
-                   temp%localIdx,& 
-                   temp%uniqueIdx,& 
-                   temp%time,& 
-                   temp%position,& 
-                   temp%velocity)
-
-  getLocalParticle = temp
-
-end function getLocalParticle
 !================================================================================================
 !                              Function getLocalParticle2
 !================================================================================================
@@ -586,18 +570,6 @@ subroutine testParticleRadius()
 end subroutine testParticleRadius
   
 !================================================================================================
-!                              Subroutine testMapParticles 
-!================================================================================================
-
-subroutine testMapParticles()
-  implicit none
-
-  
-  call map_particles()
-
-end subroutine testMapParticles
-
-!================================================================================================
 !                              checkLongId
 !================================================================================================
 
@@ -650,4 +622,3 @@ end function longIdMatch
 
 #endif 
 end module dem_query
-

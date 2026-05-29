@@ -1,0 +1,12 @@
+# Baseline for q2p1_bench_sedimentation_pe_serial
+# Reference data from E4_lvl2.txt (level 2 mesh computation)
+# Settling velocity vz at 4 time checkpoints
+metrics:
+  vz_at_t025:
+    vz: -9.996908e-02
+  vz_at_t050:
+    vz: -1.254251e-01
+  vz_at_t075:
+    vz: -1.316896e-01
+  vz_at_t100:
+    vz: -1.313007e-01

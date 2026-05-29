@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "featflower-test"
+version = "0.1.0"
+description = "Automated test runner for FeatFloWer CFD framework"
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+featflower-test = "featflower_test.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

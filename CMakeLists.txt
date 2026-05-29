@@ -97,6 +97,12 @@ option(USE_CGAL_LOCAL
   OFF
   )
 
+# USE_CGAL_LOCAL implies USE_CGAL — no need to set both on the command line.
+if(USE_CGAL_LOCAL AND NOT USE_CGAL)
+  set(USE_CGAL ON CACHE BOOL "Use CGAL library" FORCE)
+  message(STATUS "USE_CGAL_LOCAL=ON implies USE_CGAL=ON (auto-enabled)")
+endif()
+
 option(USE_BOOST
   "Use Boost library"
   OFF
@@ -152,6 +158,24 @@ cmake_dependent_option(
   "USE_PE;NOT USE_PE_SERIAL_MODE"  # Condition: USE_PE=ON AND USE_PE_SERIAL_MODE=OFF
   OFF                              # Value when condition is false (no PE or serial PE)
 )
+
+option(SED_BENCH
+  "Enable sedimentation benchmark output (force/position/velocity per timestep)"
+  OFF
+)
+
+option(ENABLE_FBM_ACCELERATION
+  "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+  OFF
+)
+
+if(NOT USE_PE AND ENABLE_FBM_ACCELERATION)
+  message(STATUS "ENABLE_FBM_ACCELERATION requested with USE_PE=OFF; forcing ENABLE_FBM_ACCELERATION=OFF.")
+  set(ENABLE_FBM_ACCELERATION OFF CACHE BOOL
+    "Enable FBM acceleration techniques (HashGrid alpha + KVEL force). Requires USE_PE."
+    FORCE
+  )
+endif()
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
@@ -240,7 +264,7 @@ else(USE_SYSTEM_BLASLAPACK)
 endif(USE_SYSTEM_BLASLAPACK)
 
 if(BUILD_METIS)
-  add_subdirectory(extern/libraries/metis-4.0.3)
+  add_subdirectory(extern/libraries/metis-5.1.0)
 endif(BUILD_METIS)
 
 #=========================================================================
@@ -260,7 +284,7 @@ if(USE_CGAL)
     ExternalProject_Add(
       cgal
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
-      GIT_TAG v5.3.2
+      GIT_TAG v5.6.3
       PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
       CMAKE_ARGS 
         -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
@@ -290,7 +314,35 @@ if(USE_CGAL)
 #                              INTERFACE ${CGAL_INCLUDE_DIR})
 
   else(NOT USE_CGAL_LOCAL)
+    set(USE_BOOST True)
     message(STATUS "Trying to find system installation of CGAL")
+
+    # Find GMP and MPFR before find_package(CGAL) so that our updated Find modules
+    # (which scan ENV CPATH / ENV LIBRARY_PATH set by GCC module systems) run first.
+    # CMake caches the results, so CGAL's own internal find_package(GMP/MPFR) calls
+    # will reuse them — including any user-supplied -DMPFR_INCLUDE_DIR=... hints.
+    list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+    find_package(GMP REQUIRED)
+    find_package(MPFR REQUIRED)
+    if(GMP_FOUND)
+      message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+      message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+    endif()
+    if(MPFR_FOUND)
+      message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+      message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
+    endif()
+
+    # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
+    # On Linux systems only shared Boost libraries are typically available.
+    # Override by passing -DCGAL_Boost_USE_STATIC_LIBS=ON if static Boost is needed.
+    if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
+      set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
+        "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
+      message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
+    else()
+      message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
+    endif()
 
     # Try to find CGAL
     find_package(CGAL QUIET COMPONENTS Core
@@ -311,20 +363,24 @@ if(USE_CGAL)
         /opt/homebrew/opt/cgal
     )
 
-    set(CGAL_NAME CGAL) 
+    set(CGAL_NAME CGAL)
     if(CGAL_FOUND)
       message(STATUS "Found CGAL version ${CGAL_VERSION}")
       message(STATUS "Using CGAL from ${CGAL_DIR}")
-      # Include CGAL settings
-      include(${CGAL_USE_FILE})
+      if(CGAL_VERSION VERSION_LESS "5.3")
+        message(FATAL_ERROR "CGAL version ${CGAL_VERSION} is too old. Minimum required version is 5.3.")
+      endif()
+      # Older CGAL packages export a helper include file; newer releases may not.
+      if(CGAL_USE_FILE)
+        include(${CGAL_USE_FILE})
+      endif()
       
       set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-      list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
     else()
       message(STATUS "CGAL not found in system locations")
       # Fallback to ExternalProject_Add or other approach
       message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
-    endif()    
+    endif()
 
   endif(NOT USE_CGAL_LOCAL)
 
@@ -360,9 +416,9 @@ endif(USE_CGAL)
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
 
-# Check if USE_CGAL is ON, and set USE_BOOST accordingly
-if(USE_CGAL)
-    set(USE_BOOST ON)
+# When building CGAL via ExternalProject, pin CGAL_DIR to the build-tree install.
+# When USE_CGAL_LOCAL=ON, CGAL_DIR is already resolved by find_package(CGAL) above.
+if(USE_CGAL AND NOT USE_CGAL_LOCAL)
     set(CGAL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/lib/cmake/CGAL CACHE PATH "Path to CGAL installation" FORCE)
 endif()
 
@@ -384,10 +440,6 @@ if(USE_BOOST)
       message(STATUS "Boost found: ${Boost_VERSION}")
       message(STATUS "Boost include directories: ${Boost_INCLUDE_DIRS}")
       message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
-
-      # Set Boost_USE_STATIC_LIBS to ON
-      set(Boost_USE_STATIC_LIBS ON)
-      set(Boost_USE_MULTITHREADED ON )
   else()
       message(FATAL_ERROR "Boost ${Boost_MIN_VERSION} not found.")
   endif()
@@ -479,8 +531,46 @@ if(USE_PE)
     message(STATUS "PE Parallel Mode (default): Full MPI parallelization")
   endif()
 
+  # Propagate FBM acceleration to PE library's HashGrid
+  if(ENABLE_FBM_ACCELERATION)
+    set(USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
+      "Enable HashGrid spatial hashing in PE (controlled by ENABLE_FBM_ACCELERATION)" FORCE)
+  endif()
+
   add_subdirectory(libs/pe)
 endif(USE_PE)
+
+if(SED_BENCH)
+  add_definitions(-DSED_BENCH)
+  message(STATUS "SED_BENCH: sedimentation benchmark output enabled")
+endif()
+
+if(ENABLE_FBM_ACCELERATION)
+  add_definitions(-DENABLE_FBM_ACCELERATION)
+  message(STATUS "FBM acceleration enabled (HashGrid + KVEL). Control at runtime via q2p1_param.dat")
+else()
+  message(STATUS "==============================================")
+  message(STATUS "FBM ACCELERATION DISABLED")
+  message(STATUS "  - Pure baseline (brute-force) build")
+  message(STATUS "  - For correctness verification only")
+  message(STATUS "==============================================")
+endif()
+
+option(DEBUG_FBM_OPTIMIZATION
+  "Enable FBM optimization debug mode: run both standard and KVEL force computation, compare results, write per-timestep debug files. Requires ENABLE_FBM_ACCELERATION."
+  OFF
+)
+
+if(NOT ENABLE_FBM_ACCELERATION AND DEBUG_FBM_OPTIMIZATION)
+  message(STATUS "DEBUG_FBM_OPTIMIZATION requested with ENABLE_FBM_ACCELERATION=OFF; forcing OFF.")
+  set(DEBUG_FBM_OPTIMIZATION OFF CACHE BOOL
+    "Enable FBM optimization debug mode" FORCE)
+endif()
+
+if(DEBUG_FBM_OPTIMIZATION)
+  add_definitions(-DDEBUG_FBM_OPTIMIZATION)
+  message(STATUS "DEBUG_FBM_OPTIMIZATION: dual force computation + per-timestep debug output enabled")
+endif()
 
 #=========================================================================
 #                         Add applications
@@ -538,4 +628,3 @@ install(FILES tools/PyPartitioner.py DESTINATION bin PERMISSIONS
 include(GeneratePackageDeb)  
 
 include(CPack)
-

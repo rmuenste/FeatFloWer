@@ -18,6 +18,7 @@ target_compile_options(ff_cinterface PUBLIC ${Fortran_FLAGS})
 
 set(postprocessing
   ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io_provenance.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
   )
@@ -29,6 +30,8 @@ add_library(ff_postprocessing ${postprocessing})
 target_link_libraries(ff_postprocessing ff_cinterface ff_util ff_mesh)
 target_include_directories(ff_postprocessing PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
+# ff_postprocessing depends on ProcCtrl_mod from ff_quadLS_app for compilation order
+add_dependencies(ff_postprocessing ff_quadLS_app)
 
 set(src_ini_aux
   ${CMAKE_SOURCE_DIR}/source/src_util/getpid_wrapper.c
@@ -102,6 +105,9 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/get_pid.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/f90getopt.f90
@@ -190,6 +196,7 @@ endif(USE_HYPRE)
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_main.f90
+  ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_particle_reynolds.f90
   ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force_extension.f90
 )
 
@@ -253,6 +260,8 @@ add_library(ff_q2p1 ${src_q2p1})
 target_link_libraries(ff_q2p1 ff_util ff_mesh ff_fbm ff_postprocessing ${FF_DEFAULT_LIBS})
 target_include_directories(ff_q2p1 PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_q2p1 PUBLIC ${Fortran_FLAGS})
+# ff_q2p1 depends on solution_io.mod from ff_postprocessing for compilation order
+add_dependencies(ff_q2p1 ff_postprocessing)
 
 
 #*************************************************************************
@@ -277,6 +286,10 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_var.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
@@ -287,13 +300,16 @@ ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_cylforce.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_torque.f90
-${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_Sigma_User.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mpi.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_comm.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_main.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_user.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/viscosity_model.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_mg.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_hypre.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver_coarse.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_struct.f90
+${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_assembly.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_def.f90
 ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 ${CMAKE_SOURCE_DIR}/source/Init.f90

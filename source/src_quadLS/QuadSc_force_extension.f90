@@ -1,5 +1,4 @@
 !#define OUTPUT_LEVEL2
-#define SED_BENCH
 !#define ENABLE_LUBRICATION
 !************************************************************************
 !

@@ -72,6 +72,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
+ USE param_parser, ONLY: GDATNEW
 
  IMPLICIT NONE
  ! -------------- workspace -------------------

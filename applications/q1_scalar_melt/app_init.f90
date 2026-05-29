@@ -58,6 +58,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
      DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
+ USE param_parser, ONLY: GDATNEW
 
  IMPLICIT NONE
  ! -------------- workspace -------------------

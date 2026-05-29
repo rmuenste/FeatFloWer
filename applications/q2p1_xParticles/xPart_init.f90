@@ -9,8 +9,9 @@ subroutine init_q2p1_xParicles(log_unit)
 
   integer, intent(in) :: log_unit
   real*8, allocatable, Dimension(:) :: xField,yField,zField
-  integer ndof
+  integer ndof,ierr
   Character cField*(128)
+  include 'mpif.h'
 
   !-------INIT PHASE-------
 
@@ -191,28 +192,163 @@ end subroutine OUTPUT_xParticleDUMP
 !                           Sub: init_q2p1_xParicles
 !========================================================================================
 SUBROUTINE OUTPUT_xParticleVTK(iOut)
- USE def_FEAT
- USE var_QuadScalar, ONLY : mg_Mesh,QuadSc,myExport
- USE PP3D_MPI, ONLY : myid,master,showid
-
+ USE PP3D_MPI, ONLY : myid
  implicit none
- integer iOut
+ integer, intent(in) :: iOut
 
- if (myid.eq.1) THEN
-  NLMAX = NLMAX + 1
-  ILEV = myExport%Level
-  myExport%Format = 'VTK'
-  allocate(myExport%Fields(5))
-  myExport%Fields(1) = 'Velocity'
-  myExport%Fields(2) = 'Shell'
-  myExport%Fields(3) = 'Material_E'
-  myExport%Fields(4) = 'GenScalar'
-  myExport%Fields(5) = 'ParticleTime'
-  CALL Output_VTK_piece(iOut,mg_mesh%level(ILEV)%dcorvg,mg_mesh%level(ILEV)%kvert)   
-  NLMAX = NLMAX - 1
+ if (myid.eq.1) then
+  call WriteFinalVTU('FINAL.vtu')
  end if
 
 END SUBROUTINE OUTPUT_xParticleVTK
+!
+!----------------------------------------------
+!
+SUBROUTINE WriteFinalVTU(filename)
+ USE def_FEAT, ONLY : NLMAX
+ USE var_QuadScalar, ONLY : mg_Mesh,QuadSc,Shell,GenLinScalar,MaterialDistribution,myExport
+ USE types, ONLY : myLostSet
+ USE xPart_def, ONLY : DistanceToInflow
+ implicit none
+ character(*), intent(in) :: filename
+ integer :: unitVTU,ILEV,nPoints,nCells,ivt,elemIdx,iFld
+ logical :: hasVelocity,hasShell,hasMaterial,hasTime,hasDistance
+ character(len=64) :: fieldName
+
+ if (.not.allocated(mg_mesh%level)) return
+
+ ILEV = myExport%Level
+ if (ILEV.lt.1 .or. ILEV.gt.NLMAX) ILEV = NLMAX
+ if (ILEV.gt.size(mg_mesh%level)) ILEV = size(mg_mesh%level)
+
+ nPoints = mg_mesh%level(ILEV)%nvt
+ nCells  = mg_mesh%level(ILEV)%nel
+ if (nPoints.le.0 .or. nCells.le.0) return
+
+ hasVelocity = allocated(QuadSc%ValU) .and. allocated(QuadSc%ValV) .and. allocated(QuadSc%ValW)
+ if (hasVelocity) then
+  hasVelocity = size(QuadSc%ValU).ge.nPoints .and. &
+                size(QuadSc%ValV).ge.nPoints .and. &
+                size(QuadSc%ValW).ge.nPoints
+ end if
+
+ hasShell = allocated(Shell)
+ if (hasShell) hasShell = size(Shell).ge.nPoints
+
+ hasMaterial = allocated(MaterialDistribution)
+ if (hasMaterial) then
+  if (ILEV.gt.size(MaterialDistribution)) then
+   hasMaterial = .false.
+  else if (.not.allocated(MaterialDistribution(ILEV)%x)) then
+   hasMaterial = .false.
+  else
+   hasMaterial = size(MaterialDistribution(ILEV)%x).ge.nCells
+  end if
+ end if
+
+ hasTime = allocated(myLostSet)
+ if (hasTime) hasTime = size(myLostSet).ge.nCells
+
+ hasDistance = allocated(DistanceToInflow)
+ if (hasDistance) hasDistance = size(DistanceToInflow).ge.nCells
+
+ open(newunit=unitVTU,file=adjustl(trim(filename)),status='replace',action='write')
+ write(unitVTU,'(A)') '<?xml version="1.0"?>'
+ write(unitVTU,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+ write(unitVTU,'(A)') '  <UnstructuredGrid>'
+ write(unitVTU,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',nPoints,'" NumberOfCells="',nCells,'">'
+
+ write(unitVTU,'(A)') '      <Points>'
+ write(unitVTU,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'
+ do ivt=1,nPoints
+  write(unitVTU,'(3(1X,ES23.16))') mg_mesh%level(ILEV)%dcorvg(:,ivt)
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '      </Points>'
+
+ write(unitVTU,'(A)') '      <Cells>'
+ write(unitVTU,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(8(1X,I0))') (mg_mesh%level(ILEV)%kvert(ivt,elemIdx)-1,ivt=1,8)
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(1X,I0)') elemIdx*8
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '        <DataArray type="UInt8" Name="types" format="ascii">'
+ do elemIdx=1,nCells
+  write(unitVTU,'(1X,I0)') 12
+ end do
+ write(unitVTU,'(A)') '        </DataArray>'
+ write(unitVTU,'(A)') '      </Cells>'
+
+ write(unitVTU,'(A)') '      <PointData>'
+ if (hasVelocity) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Velocity" NumberOfComponents="3" format="ascii">'
+  do ivt=1,nPoints
+   write(unitVTU,'(3(1X,ES23.16))') QuadSc%ValU(ivt),QuadSc%ValV(ivt),QuadSc%ValW(ivt)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasShell) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Shell" format="ascii">'
+  do ivt=1,nPoints
+   write(unitVTU,'(1X,ES23.16)') Shell(ivt)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (allocated(GenLinScalar%Fld)) then
+  do iFld=1,size(GenLinScalar%Fld)
+   if (.not.allocated(GenLinScalar%Fld(iFld)%val)) cycle
+   if (size(GenLinScalar%Fld(iFld)%val).lt.nPoints) cycle
+   fieldName = adjustl(trim(GenLinScalar%Fld(iFld)%cName))
+   if (len_trim(fieldName).eq.0) cycle
+   write(unitVTU,'(A,A,A)') '        <DataArray type="Float64" Name="',trim(fieldName),'" format="ascii">'
+   do ivt=1,nPoints
+    write(unitVTU,'(1X,ES23.16)') GenLinScalar%Fld(iFld)%val(ivt)
+   end do
+   write(unitVTU,'(A)') '        </DataArray>'
+  end do
+ end if
+ write(unitVTU,'(A)') '      </PointData>'
+
+ write(unitVTU,'(A)') '      <CellData>'
+ if (hasMaterial) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="Material_E" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') real(MaterialDistribution(ILEV)%x(elemIdx),8)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasDistance) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="InflowDistance_E" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') DistanceToInflow(elemIdx)
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ if (hasTime) then
+  write(unitVTU,'(A)') '        <DataArray type="Float64" Name="ParticleTime" format="ascii">'
+  do elemIdx=1,nCells
+   write(unitVTU,'(1X,ES23.16)') myLostSet(elemIdx)%time
+  end do
+  write(unitVTU,'(A)') '        </DataArray>'
+ end if
+
+ write(unitVTU,'(A)') '      </CellData>'
+
+ write(unitVTU,'(A)') '    </Piece>'
+ write(unitVTU,'(A)') '  </UnstructuredGrid>'
+ write(unitVTU,'(A)') '</VTKFile>'
+ close(unitVTU)
+
+END SUBROUTINE WriteFinalVTU
 !
 !----------------------------------------------
 !
@@ -228,10 +364,12 @@ SUBROUTINE General_init_ext(MFILE)
  INTEGER MFILE
  character*(256) :: cTRIA
  character*(256) :: cArray(7)
+ integer :: istatus
 
  CALL INIT_MPI()
  
- CALL ReadParameters(cParamFile)
+ CALL ReadParameters()
+ CALL ResolveProjectTriFile()
  
  mg_Mesh%nlmax = NLMAX
  mg_Mesh%nlmin = NLMIN
@@ -239,9 +377,11 @@ SUBROUTINE General_init_ext(MFILE)
  allocate(mg_mesh%level(mg_Mesh%maxlevel))
  
  call readTriCoarse(cMeshFile, mg_mesh)
+
+ cTRIA='_tria/'
+ call EnsureTriaDirectory(cTRIA)
  
 if (ADJUSTL(TRIM(xProcess)).eq.'TRACE_TRIA') THEN
- cTRIA='_data/tria'
  cArray = ["DCORVG             ",&
            "KVERT              ",&
            "KEDGE              ",&
@@ -259,7 +399,6 @@ end if
  
 if (ADJUSTL(TRIM(xProcess)).eq.'WRITE_TRIA') THEN
  if (myid.eq.1) then
-  cTRIA='_data/tria'
   cArray = ["DCORVG             ",&
             "KVERT              ",&
             "KEDGE              ",&
@@ -278,6 +417,81 @@ end if
  call init_fc_rigid_body(myid)      
  !     ----------------------------------------------------------        
 
+ CONTAINS
+
+ SUBROUTINE EnsureTriaDirectory(cDir)
+  character(len=*), intent(in) :: cDir
+  integer :: iisdir,ierrLocal
+  character(len=256) :: cDirNoSlash
+  external isdirectory
+  external mkdir_recursive
+
+  cDirNoSlash = trim(cDir)
+  if (len_trim(cDirNoSlash).gt.0) then
+   if (cDirNoSlash(len_trim(cDirNoSlash):len_trim(cDirNoSlash)).eq.'/') then
+    cDirNoSlash = cDirNoSlash(1:len_trim(cDirNoSlash)-1)
+   end if
+  end if
+
+  if (myid.eq.1) then
+   call isdirectory(trim(cDirNoSlash)//achar(0), iisdir, ierrLocal)
+   if (ierrLocal.ne.0 .or. iisdir.eq.0) then
+    call mkdir_recursive(trim(cDirNoSlash)//achar(0), istatus)
+    if (istatus.ne.0) then
+     write(*,*) 'Unable to create TRIA cache directory: ',trim(cDirNoSlash)
+     call MPI_Abort(MPI_COMM_WORLD,1,ierrLocal)
+    end if
+   end if
+  end if
+
+  CALL Barrier_myMPI()
+ END SUBROUTINE EnsureTriaDirectory
+
+ SUBROUTINE ResolveProjectTriFile()
+  character(len=256) :: cProjectFile,cProjectFolder,cLine,cTriFile
+  integer :: iunit,ios,iLen
+  logical :: bFound
+
+  cProjectFile = '_data/meshDir/file.prj'
+  cProjectFolder = '_data/meshDir/'
+  bFound = .false.
+
+  if (myid.eq.1) then
+   write(*,*) "Project file = '"//trim(cProjectFile)//"'"
+  end if
+
+  open(newunit=iunit,file=trim(cProjectFile),status='old',action='read',iostat=ios)
+  if (ios.ne.0) then
+   write(*,*) 'Unable to open project file: ',trim(cProjectFile)
+   call MPI_Abort(MPI_COMM_WORLD,1,ios)
+  end if
+
+  do
+   read(iunit,'(A)',iostat=ios) cLine
+   if (ios.ne.0) exit
+   cLine = adjustl(trim(cLine))
+   iLen = len_trim(cLine)
+   if (iLen.gt.4) then
+    if (cLine(iLen-3:iLen).eq.'.tri') then
+     cTriFile = cLine
+     bFound = .true.
+     exit
+    end if
+   end if
+  end do
+  close(iunit)
+
+  if (.not.bFound) then
+   write(*,*) 'Mesh file was NOT found in project file: ',trim(cProjectFile)
+   call MPI_Abort(MPI_COMM_WORLD,1,ios)
+  end if
+
+  cMeshFile = trim(cProjectFolder)//trim(cTriFile)
+  if (myid.eq.1) then
+   write(*,*) "Resolved MeshFile = '"//trim(cMeshFile)//"'"
+  end if
+ END SUBROUTINE ResolveProjectTriFile
+
 END SUBROUTINE General_init_ext
 !========================================================================================
 !                           Sub: ReadParameters
@@ -290,6 +504,7 @@ USE def_FEAT
 USE xPart_def
 USE var_QuadScalar, ONLY : myExport
 use Sigma_User, only : myProcess,mySigma
+USE mpi
 
 implicit none
 
@@ -297,6 +512,7 @@ type(t_parlist) :: parameterlist
 integer :: unitProtfile = -1 ! I guess you use mfile here
 integer :: unitTerminal = 6 ! I guess you use mterm here
 character(len=INIP_STRLEN) cParserString
+integer :: ierr
 
 if (myid.eq.1) WRITE(*,*) "Parameter File:",ADJUSTL(TRIM(cParamFile))
 
@@ -328,6 +544,10 @@ if (myid.eq.1) WRITE(*,*) "nIter = ",nIter
 
 call INIP_getvalue_double(parameterlist,"MAIN","xFactor",xFactor,1d0)
 if (myid.eq.1) WRITE(*,*) "xFactor = ",xFactor
+if (abs(xFactor-1d0).gt.1d-12) then
+ if (myid.eq.1) write(*,*) "ERROR: xFactor must be 1.0 for q2p1_xParticles."
+ call MPI_Abort(MPI_COMM_WORLD,1,ierr)
+end if
 
 call INIP_getvalue_double(parameterlist,"MAIN","d_CorrDist",d_CorrDist,0.25d0)
 if (myid.eq.1) WRITE(*,*) "d_CorrDist = ",d_CorrDist
@@ -593,7 +813,9 @@ END SUBROUTINE ReadParameters
 !================================================================================================
 subroutine write_tria(mgMesh, maxlevel, cF, cFields, nFields)
   USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
-  USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
+  USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL, &
+                     mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind, &
+                     mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
   use var_QuadScalar
   implicit none
 
@@ -601,117 +823,270 @@ subroutine write_tria(mgMesh, maxlevel, cF, cFields, nFields)
   integer, intent(in) :: maxlevel
   CHARACTER (len = 256), intent(in) :: cF 
   integer :: nfine
-  integer :: ilevel,i,nmax,ld00,ld11,iField
-  integer :: cunit=1111
-  CHARACTER (len = 256) :: cfile, cFMT
+  integer :: ilevel,nmax,iField
+  integer :: n1,n2,totalItems,bytesPerItem,nChunks
+  integer, allocatable :: chunkSizes(:)
+  CHARACTER (len = 256) :: cfile
   CHARACTER (len = *), intent(in) :: cFields(*)
   integer, intent(in) :: nFields
 
   nfine = maxlevel-1 
 
-  write(cFile,'(A)') adjustl(trim(cF))//'_header.dat'
-  write(*,*) "cFile: ",adjustl(trim(cFile))
-  open (unit=cunit,file=cFile)
-  write(cunit, '(I0)') maxlevel
-  do ilevel =1,maxlevel
-   write(cunit, '(8(I0,(" ")))') mgMesh%level(ilevel)%nvt,&
-                                 mgMesh%level(ilevel)%net,&
-                                 mgMesh%level(ilevel)%nat,&
-                                 mgMesh%level(ilevel)%nel,&
-                                 mgMesh%level(ilevel)%nvel
-  end do
-  close(cunit)
-
   DO iField = 1, nFields
   
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'DCORVG') THEN
     do ilevel =maxlevel,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_dcorvg_',ilevel,'.dat'
-     CALL WRITE_MPI_dDATA(mgMesh%level(ilevel)%dcorvg,3*mgMesh%level(ilevel)%nvt,cFile)
+     n1 = 3
+     n2 = mgMesh%level(ilevel)%nvt
+     totalItems = n1*n2
+     bytesPerItem = 8
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'dcorvg',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_dDATA(mgMesh%level(ilevel)%dcorvg,totalItems,cF,'dcorvg',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'dcorvg',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KVERT') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kvert_',ilevel,'.dat'
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kvert,8*mgMesh%level(ilevel)%nel,cFile)
+     n1 = 8
+     n2 = mgMesh%level(ilevel)%nel
+     totalItems = n1*n2
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'kvert',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kvert,totalItems,cF,'kvert',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'kvert',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KEDGE') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kedge_',ilevel,'.dat'
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kedge,12*mgMesh%level(ilevel)%nel,cFile)
+     n1 = 12
+     n2 = mgMesh%level(ilevel)%nel
+     totalItems = n1*n2
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'kedge',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kedge,totalItems,cF,'kedge',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'kedge',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KAREA') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_karea_',ilevel,'.dat'
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%karea,6*mgMesh%level(ilevel)%nel,cFile)
+     n1 = 6
+     n2 = mgMesh%level(ilevel)%nel
+     totalItems = n1*n2
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'karea',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%karea,totalItems,cF,'karea',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'karea',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KADJ') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kadj_',ilevel,'.dat'
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kadj,6*mgMesh%level(ilevel)%nel,cFile)
+     n1 = 6
+     n2 = mgMesh%level(ilevel)%nel
+     totalItems = n1*n2
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'kadj',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%kadj,totalItems,cF,'kadj',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'kadj',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'elementsAtVertexIdx') THEN
     do ilevel =1,nfine
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_elementsAtVertexIdx_',ilevel,'.dat'
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertexIdx,mgMesh%level(ilevel)%nvt+1,cFile)
+     n1 = mgMesh%level(ilevel)%nvt + 1
+     n2 = 1
+     totalItems = n1
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'elementsAtVertexIdx',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertexIdx,totalItems,cF,'elementsAtVertexIdx',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'elementsAtVertexIdx',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'elementsAtVertex') THEN
     do ilevel =1,nfine
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_elementsAtVertex_',ilevel,'.dat'
      nmax = mgMesh%level(ilevel)%elementsAtVertexIdx(mgMesh%level(ilevel)%nvt+1)-1
-     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertex,nmax,cFile)
+     n1 = nmax
+     n2 = 1
+     totalItems = nmax
+     bytesPerItem = 4
+     call ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+     call BuildMetaFileName(cF,'elementsAtVertex',ilevel,cFile)
+     call DeleteFileIfExists(cFile)
+     CALL WRITE_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertex,totalItems,cF,'elementsAtVertex',ilevel,chunkSizes,nChunks)
+     call WriteMetaInfo(cF,'elementsAtVertex',ilevel,n1,n2,totalItems,mgMesh%level(ilevel)%nvt,&
+                        mgMesh%level(ilevel)%net,mgMesh%level(ilevel)%nat,mgMesh%level(ilevel)%nel,&
+                        mgMesh%level(ilevel)%nvel,chunkSizes,nChunks)
+     deallocate(chunkSizes)
     end do
    END IF
    
   END DO
  
  CONTAINS  
+
+ SUBROUTINE ComputeChunkLayout(totalItems,bytesPerItem,chunkSizes,nChunks)
+  integer, intent(in) :: totalItems,bytesPerItem
+  integer, allocatable, intent(out) :: chunkSizes(:)
+  integer, intent(out) :: nChunks
+  integer :: itemsPerChunk,remaining,idx
+
+  itemsPerChunk = int(DataSizeThresholdMPI / dble(bytesPerItem))
+  if (itemsPerChunk.le.0) itemsPerChunk = 1
+
+  nChunks = totalItems / itemsPerChunk
+  if (mod(totalItems,itemsPerChunk).ne.0) nChunks = nChunks + 1
+  if (nChunks.le.0) nChunks = 1
+
+  allocate(chunkSizes(nChunks))
+  remaining = totalItems
+  do idx = 1,nChunks
+   chunkSizes(idx) = min(itemsPerChunk,remaining)
+   remaining = remaining - chunkSizes(idx)
+  end do
+ END SUBROUTINE ComputeChunkLayout
+
+ SUBROUTINE BuildMetaFileName(baseDir,fieldName,ilevel,fileName)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel
+  CHARACTER(len=256), intent(out) :: fileName
+  write(fileName,'(A,A,"_",I0,".meta")') adjustl(trim(baseDir)),trim(fieldName),ilevel
+ END SUBROUTINE BuildMetaFileName
+
+ SUBROUTINE BuildChunkFileName(baseDir,fieldName,ilevel,iChunk,fileName)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel,iChunk
+  CHARACTER(len=256), intent(out) :: fileName
+  write(fileName,'(A,A,"_",I0,"_chunk",I0,".dat")') adjustl(trim(baseDir)),trim(fieldName),ilevel,iChunk
+ END SUBROUTINE BuildChunkFileName
+
+ SUBROUTINE FailTriaIO(message)
+  CHARACTER(len=*), intent(in) :: message
+  integer :: ierrAbort
+  write(*,*) 'TRIA cache I/O error: ',trim(message)
+  call MPI_Abort(MPI_COMM_WORLD,1,ierrAbort)
+ END SUBROUTINE FailTriaIO
+
+ SUBROUTINE DeleteFileIfExists(fileName)
+  CHARACTER(len=*), intent(in) :: fileName
+  logical :: exists
+  integer :: unitLocal
+  inquire(file=trim(fileName),exist=exists)
+  if (.not.exists) return
+  open(newunit=unitLocal,file=trim(fileName),status='old')
+  close(unitLocal,status='delete')
+ END SUBROUTINE DeleteFileIfExists
+
+ SUBROUTINE WriteMetaInfo(baseDir,fieldName,ilevel,n1,n2,totalItems,nvt,net,nat,nel,nvel,chunkSizes,nChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel,n1,n2,totalItems,nvt,net,nat,nel,nvel,nChunks
+  integer, intent(in) :: chunkSizes(nChunks)
+  integer :: unitMeta,idx
+
+  if (myid.ne.1) return
+
+  call BuildMetaFileName(baseDir,fieldName,ilevel,cFile)
+  call DeleteFileIfExists(cFile)
+  open(newunit=unitMeta,file=trim(cFile),status='replace',action='write')
+  write(unitMeta,'(A)') 'TRIA_CHUNKED_V1'
+  write(unitMeta,'(A)') trim(fieldName)
+  write(unitMeta,'(I0)') ilevel
+  write(unitMeta,'(3(I0,1X))') n1,n2,totalItems
+  write(unitMeta,'(5(I0,1X))') nvt,net,nat,nel,nvel
+  write(unitMeta,'(I0)') nChunks
+  do idx = 1,nChunks
+   write(unitMeta,'(2(I0,1X))') idx-1,chunkSizes(idx)
+  end do
+  close(unitMeta)
+ end SUBROUTINE WriteMetaInfo
  
- SUBROUTINE WRITE_MPI_dDATA(dData,nData,cData)
-  CHARACTER (len = 256) :: cData
-  integer nData
+ SUBROUTINE WRITE_MPI_dDATA(dData,nData,baseDir,fieldName,ilevel,chunkSizes,nChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: nData,ilevel,nChunks
+  integer, intent(in) :: chunkSizes(nChunks)
   real*8 dData(*)
   integer ierr,file_handle
   integer(kind=MPI_Offset_kind) :: offset
+  integer :: iChunk,startIdx,chunkItems
   
   if (myid.ne.1) return
-  write(*,*) "File: '",adjustl(trim(cData))//"' is being released ..."
-  call MPI_File_open(1, trim(cData), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, file_handle, ierr)
-  offset = 0
-  call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
-  ! Read data from the file collectively
-  call MPI_File_write(file_handle, dData, nData, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
-  ! Close the file
-  call MPI_File_close(file_handle, ierr)
+  startIdx = 1
+  do iChunk = 1,nChunks
+   chunkItems = chunkSizes(iChunk)
+   call BuildChunkFileName(baseDir,fieldName,ilevel,iChunk-1,cFile)
+   write(*,*) "File: '",adjustl(trim(cFile))//"' is being released ..."
+   call MPI_File_open(1, trim(cFile), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to open chunk file '"//trim(cFile)//"' for writing")
+   offset = 0
+   call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to seek chunk file '"//trim(cFile)//"'")
+   call MPI_File_write(file_handle, dData(startIdx), chunkItems, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to write chunk file '"//trim(cFile)//"'")
+   call MPI_File_close(file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to close chunk file '"//trim(cFile)//"'")
+   startIdx = startIdx + chunkItems
+  end do
  end  SUBROUTINE WRITE_MPI_dDATA
  
- SUBROUTINE WRITE_MPI_kDATA(dData,nData,cData)
-  CHARACTER (len = 256) :: cData
-  integer nData
+ SUBROUTINE WRITE_MPI_kDATA(dData,nData,baseDir,fieldName,ilevel,chunkSizes,nChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: nData,ilevel,nChunks
+  integer, intent(in) :: chunkSizes(nChunks)
   integer dData(*)
   integer ierr,file_handle
   integer(kind=MPI_Offset_kind) :: offset
+  integer :: iChunk,startIdx,chunkItems
   
   if (myid.ne.1) return
-  write(*,*) "File: '",adjustl(trim(cData))//"' is being released ..."
-  call MPI_File_open(1, trim(cData), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, file_handle, ierr)
-  offset = 0
-  call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
-  ! Read data from the file collectively
-  call MPI_File_write(file_handle, dData, nData, MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
-  ! Close the file
-  call MPI_File_close(file_handle, ierr)
+  startIdx = 1
+  do iChunk = 1,nChunks
+   chunkItems = chunkSizes(iChunk)
+   call BuildChunkFileName(baseDir,fieldName,ilevel,iChunk-1,cFile)
+   write(*,*) "File: '",adjustl(trim(cFile))//"' is being released ..."
+   call MPI_File_open(1, trim(cFile), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to open chunk file '"//trim(cFile)//"' for writing")
+   offset = 0
+   call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to seek chunk file '"//trim(cFile)//"'")
+   call MPI_File_write(file_handle, dData(startIdx), chunkItems, MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to write chunk file '"//trim(cFile)//"'")
+   call MPI_File_close(file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to close chunk file '"//trim(cFile)//"'")
+   startIdx = startIdx + chunkItems
+  end do
  end  SUBROUTINE WRITE_MPI_kDATA
  
 end SUBROUTINE WRITE_tria
@@ -721,7 +1096,9 @@ end SUBROUTINE WRITE_tria
 !================================================================================================
 subroutine read_tria(mgMesh, maxlevel, cF, cFields, nFields)
   USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
-  USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
+  USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL, &
+                     mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind, &
+                     mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
   use var_QuadScalar
   implicit none
 
@@ -732,41 +1109,25 @@ subroutine read_tria(mgMesh, maxlevel, cF, cFields, nFields)
   integer, intent(in) :: nFields
   
   integer :: nfine
-  integer :: ilevel,i,nmax,ld00,ld11,iField
-  integer :: cunit=1111
-  CHARACTER (len = 256) :: cfile, cFMT
+  integer :: ilevel,nmax,iField
+  integer :: metaN1,metaN2,metaTotalItems,metaNvt,metaNet,metaNat,metaNel,metaNvel
+  integer :: metaNChunks
+  integer, allocatable :: metaChunkSizes(:)
+  CHARACTER (len = 256) :: cfile
 
   nfine = maxlevel-1
-
-  write(cFile,'(A)') adjustl(trim(cF))//'_header.dat'
-  if (myid.eq.1) write(*,*) "'"//adjustl(trim(cFile))//"' is being read"
-  open (unit=cunit,file=cFile)
-  read(cunit, *) nmax
-  if (maxlevel.gt.nmax) THEN
-   WRITE(*,*) 'incompatible TRIA data  // data is available on too coarse level only'
-  END IF
-  
-  do ilevel =1,maxlevel
-   read(cunit, *) mgMesh%level(ilevel)%nvt,&
-                  mgMesh%level(ilevel)%net,&
-                  mgMesh%level(ilevel)%nat,&
-                  mgMesh%level(ilevel)%nel,&
-                  mgMesh%level(ilevel)%nvel
-                  
-   mg_mesh%level(ilevel)%nve = 8
-   mg_mesh%level(ilevel)%nee = 12
-   mg_mesh%level(ilevel)%nae = 6
-  end do
-  close(cunit)
 
   DO iField = 1, nFields
   
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'DCORVG') THEN
     do ilevel =maxlevel,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_dcorvg_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'dcorvg',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (associated(mgMesh%level(ilevel)%dcorvg)) deallocate(mgMesh%level(ilevel)%dcorvg)
-     if (.not.associated(mgMesh%level(ilevel)%dcorvg)) allocate(mgMesh%level(ilevel)%dcorvg(3,mgMesh%level(ilevel)%nvt))
-     CALL READ_MPI_dDATA(mgMesh%level(ilevel)%dcorvg,3*mgMesh%level(ilevel)%nvt,cFile)
+     if (.not.associated(mgMesh%level(ilevel)%dcorvg)) allocate(mgMesh%level(ilevel)%dcorvg(metaN1,metaN2))
+     CALL READ_MPI_dDATA(mgMesh%level(ilevel)%dcorvg,metaTotalItems,cF,'dcorvg',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
     do ilevel=1,maxlevel-1
       if (associated(mgMesh%level(ilevel)%dcorvg)) deallocate(mgMesh%level(ilevel)%dcorvg)
@@ -774,60 +1135,78 @@ subroutine read_tria(mgMesh, maxlevel, cF, cFields, nFields)
     end do
    END IF
     
-    
+   
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KVERT') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kvert_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'kvert',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (allocated(mgMesh%level(ilevel)%kvert)) deallocate(mgMesh%level(ilevel)%kvert)
-     if (.not.allocated(mgMesh%level(ilevel)%kvert)) allocate(mgMesh%level(ilevel)%kvert(8,mgMesh%level(ilevel)%nel))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kvert,8*mgMesh%level(ilevel)%nel,cFile)
+     if (.not.allocated(mgMesh%level(ilevel)%kvert)) allocate(mgMesh%level(ilevel)%kvert(metaN1,metaN2))
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kvert,metaTotalItems,cF,'kvert',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KEDGE') THEN
     do ilevel =1,nfine
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kedge_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'kedge',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (allocated(mgMesh%level(ilevel)%kedge)) deallocate(mgMesh%level(ilevel)%kedge)
-     if (.not.allocated(mgMesh%level(ilevel)%kedge)) allocate(mgMesh%level(ilevel)%kedge(12,mgMesh%level(ilevel)%nel))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kedge,12*mgMesh%level(ilevel)%nel,cFile)
+     if (.not.allocated(mgMesh%level(ilevel)%kedge)) allocate(mgMesh%level(ilevel)%kedge(metaN1,metaN2))
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kedge,metaTotalItems,cF,'kedge',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
    END IF
    
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KAREA') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_karea_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'karea',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (allocated(mgMesh%level(ilevel)%karea)) deallocate(mgMesh%level(ilevel)%karea)
-     if (.not.allocated(mgMesh%level(ilevel)%karea)) allocate(mgMesh%level(ilevel)%karea(6,mgMesh%level(ilevel)%nel))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%karea,6*mgMesh%level(ilevel)%nel,cFile)
+     if (.not.allocated(mgMesh%level(ilevel)%karea)) allocate(mgMesh%level(ilevel)%karea(metaN1,metaN2))
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%karea,metaTotalItems,cF,'karea',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KADJ') THEN
     do ilevel =1,maxlevel
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_kadj_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'kadj',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (allocated(mgMesh%level(ilevel)%kadj)) deallocate(mgMesh%level(ilevel)%kadj)
-     if (.not.allocated(mgMesh%level(ilevel)%kadj)) allocate(mgMesh%level(ilevel)%kadj(6,mgMesh%level(ilevel)%nel))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kadj,6*mgMesh%level(ilevel)%nel,cFile)
+     if (.not.allocated(mgMesh%level(ilevel)%kadj)) allocate(mgMesh%level(ilevel)%kadj(metaN1,metaN2))
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%kadj,metaTotalItems,cF,'kadj',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'elementsAtVertexIdx') THEN
     do ilevel =1,nfine
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_elementsAtVertexIdx_',ilevel,'.dat'
+     call ReadMetaInfo(cF,'elementsAtVertexIdx',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
      if (allocated(mgMesh%level(ilevel)%elementsAtVertexIdx)) deallocate(mgMesh%level(ilevel)%elementsAtVertexIdx)
-     if (.not.allocated(mgMesh%level(ilevel)%elementsAtVertexIdx)) allocate(mgMesh%level(ilevel)%elementsAtVertexIdx(mgMesh%level(ilevel)%nvt+1))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertexIdx,mgMesh%level(ilevel)%nvt+1,cFile)
+     if (.not.allocated(mgMesh%level(ilevel)%elementsAtVertexIdx)) allocate(mgMesh%level(ilevel)%elementsAtVertexIdx(metaN1))
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertexIdx,metaTotalItems,cF,'elementsAtVertexIdx',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
 
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'elementsAtVertex') THEN
     do ilevel =1,nfine
-     write(cFile,'(A,I0,A)') adjustl(trim(cF))//'_elementsAtVertex_',ilevel,'.dat'
-     nmax = mgMesh%level(ilevel)%elementsAtVertexIdx(mgMesh%level(ilevel)%nvt+1)-1
+     call ReadMetaInfo(cF,'elementsAtVertex',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                       metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
+     call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
+     nmax = metaTotalItems
      if (allocated(mgMesh%level(ilevel)%elementsAtVertex)) deallocate(mgMesh%level(ilevel)%elementsAtVertex)
      if (.not.allocated(mgMesh%level(ilevel)%elementsAtVertex)) allocate(mgMesh%level(ilevel)%elementsAtVertex(nmax))
-     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertex,nmax,cFile)
+     CALL READ_MPI_kDATA(mgMesh%level(ilevel)%elementsAtVertex,nmax,cF,'elementsAtVertex',ilevel,metaChunkSizes,metaNChunks)
+     deallocate(metaChunkSizes)
     end do
     
    END IF
@@ -835,40 +1214,160 @@ subroutine read_tria(mgMesh, maxlevel, cF, cFields, nFields)
   END DO
   
  CONTAINS  
+
+ SUBROUTINE BuildMetaFileName(baseDir,fieldName,ilevel,fileName)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel
+  CHARACTER(len=256), intent(out) :: fileName
+  write(fileName,'(A,A,"_",I0,".meta")') adjustl(trim(baseDir)),trim(fieldName),ilevel
+ END SUBROUTINE BuildMetaFileName
+
+ SUBROUTINE BuildChunkFileName(baseDir,fieldName,ilevel,iChunk,fileName)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel,iChunk
+  CHARACTER(len=256), intent(out) :: fileName
+  write(fileName,'(A,A,"_",I0,"_chunk",I0,".dat")') adjustl(trim(baseDir)),trim(fieldName),ilevel,iChunk
+ END SUBROUTINE BuildChunkFileName
+
+ SUBROUTINE FailTriaIO(message)
+  CHARACTER(len=*), intent(in) :: message
+  integer :: ierrAbort
+  write(*,*) 'TRIA cache I/O error: ',trim(message)
+  call MPI_Abort(MPI_COMM_WORLD,1,ierrAbort)
+ END SUBROUTINE FailTriaIO
+
+ SUBROUTINE ApplyLevelInfo(level,metaNvt,metaNet,metaNat,metaNel,metaNvel)
+  type(tMesh), intent(inout) :: level
+  integer, intent(in) :: metaNvt,metaNet,metaNat,metaNel,metaNvel
+  level%nvt = metaNvt
+  level%net = metaNet
+  level%nat = metaNat
+  level%nel = metaNel
+  level%nvel = metaNvel
+  level%nve = 8
+  level%nee = 12
+  level%nae = 6
+ END SUBROUTINE ApplyLevelInfo
+
+ SUBROUTINE ReadMetaInfo(baseDir,fieldName,ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
+                         metaNat,metaNel,metaNvel,chunkSizes,metaNChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: ilevel
+  integer, intent(out) :: metaN1,metaN2,metaTotalItems,metaNvt,metaNet,metaNat,metaNel
+  integer, intent(out) :: metaNvel,metaNChunks
+  integer, allocatable, intent(out) :: chunkSizes(:)
+  integer :: unitMeta,idx,chunkId
+  logical :: exists
+  CHARACTER(len=256) :: magic,fieldInMeta
+
+  call BuildMetaFileName(baseDir,fieldName,ilevel,cFile)
+  inquire(file=trim(cFile),exist=exists)
+  if (.not.exists) call FailTriaIO("missing meta file '"//trim(cFile)//"'")
+
+  open(newunit=unitMeta,file=trim(cFile),status='old',action='read')
+  read(unitMeta,'(A)') magic
+  if (trim(magic).ne.'TRIA_CHUNKED_V1') then
+   close(unitMeta)
+   call FailTriaIO("unsupported meta format in '"//trim(cFile)//"'")
+  end if
+
+  read(unitMeta,'(A)') fieldInMeta
+  if (trim(fieldInMeta).ne.trim(fieldName)) then
+   close(unitMeta)
+   call FailTriaIO("field mismatch in meta file '"//trim(cFile)//"'")
+  end if
+
+  read(unitMeta,*) chunkId
+  if (chunkId.ne.ilevel) then
+   close(unitMeta)
+   call FailTriaIO("level mismatch in meta file '"//trim(cFile)//"'")
+  end if
+
+  read(unitMeta,*) metaN1,metaN2,metaTotalItems
+  read(unitMeta,*) metaNvt,metaNet,metaNat,metaNel,metaNvel
+  read(unitMeta,*) metaNChunks
+  if (metaNChunks.le.0) then
+   close(unitMeta)
+   call FailTriaIO("invalid chunk count in '"//trim(cFile)//"'")
+  end if
+
+  allocate(chunkSizes(metaNChunks))
+  do idx = 1,metaNChunks
+   read(unitMeta,*) chunkId,chunkSizes(idx)
+   if (chunkId.ne.idx-1) then
+    close(unitMeta)
+    call FailTriaIO("unexpected chunk index in '"//trim(cFile)//"'")
+   end if
+   if (chunkSizes(idx).le.0) then
+    close(unitMeta)
+    call FailTriaIO("non-positive chunk size in '"//trim(cFile)//"'")
+   end if
+  end do
+  close(unitMeta)
+
+  if (sum(chunkSizes).ne.metaTotalItems) then
+   call FailTriaIO("chunk size sum mismatch in '"//trim(cFile)//"'")
+  end if
+ END SUBROUTINE ReadMetaInfo
  
-SUBROUTINE READ_MPI_dDATA(dData,nData,cData)
-  CHARACTER (len = 256) :: cData
-  integer nData
+SUBROUTINE READ_MPI_dDATA(dData,nData,baseDir,fieldName,ilevel,chunkSizes,nChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: nData,ilevel,nChunks
+  integer, intent(in) :: chunkSizes(nChunks)
   real*8 dData(*)
   integer ierr,file_handle
   integer(kind=MPI_Offset_kind) :: offset
+  integer :: iChunk,startIdx,chunkItems
+  logical :: exists
     
-  if (myid.eq.1) write(*,*) "File: '",adjustl(trim(cData))//"' is being loaded ..."
-  call MPI_File_open(MPI_COMM_WORLD, trim(cData), MPI_MODE_RDONLY, MPI_INFO_NULL, file_handle, ierr)
-  offset = 0
-  call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
-  ! Read data from the file collectively
-  call MPI_File_read_all(file_handle, dData, nData, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
-  ! Close the file
-  call MPI_File_close(file_handle, ierr)
+  startIdx = 1
+  do iChunk = 1,nChunks
+   chunkItems = chunkSizes(iChunk)
+   call BuildChunkFileName(baseDir,fieldName,ilevel,iChunk-1,cFile)
+   inquire(file=trim(cFile),exist=exists)
+   if (.not.exists) call FailTriaIO("missing chunk file '"//trim(cFile)//"'")
+   if (myid.eq.1) write(*,*) "File: '",adjustl(trim(cFile))//"' is being loaded ..."
+   call MPI_File_open(MPI_COMM_WORLD, trim(cFile), MPI_MODE_RDONLY, MPI_INFO_NULL, file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to open chunk file '"//trim(cFile)//"' for reading")
+   offset = 0
+   call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to seek chunk file '"//trim(cFile)//"'")
+   call MPI_File_read_all(file_handle, dData(startIdx), chunkItems, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to read chunk file '"//trim(cFile)//"'")
+   call MPI_File_close(file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to close chunk file '"//trim(cFile)//"'")
+   startIdx = startIdx + chunkItems
+  end do
  end  SUBROUTINE READ_MPI_dDATA
  
- SUBROUTINE READ_MPI_kDATA(dData,nData,cData)
-  CHARACTER (len = 256) :: cData
-  integer nData
+ SUBROUTINE READ_MPI_kDATA(dData,nData,baseDir,fieldName,ilevel,chunkSizes,nChunks)
+  CHARACTER(len=*), intent(in) :: baseDir,fieldName
+  integer, intent(in) :: nData,ilevel,nChunks
+  integer, intent(in) :: chunkSizes(nChunks)
   integer dData(*)
   integer ierr,file_handle
   integer(kind=MPI_Offset_kind) :: offset
+  integer :: iChunk,startIdx,chunkItems
+  logical :: exists
     
-  if (myid.eq.1) write(*,*) "File: '",adjustl(trim(cData))//"' is being loaded ..."
-  call MPI_File_open(MPI_COMM_WORLD, trim(cData), MPI_MODE_RDONLY, MPI_INFO_NULL, file_handle, ierr)
-  offset = 0
-  call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
-  ! Read data from the file collectively
-  call MPI_File_read_all(file_handle, dData, nData, MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
-  ! Close the file
-  call MPI_File_close(file_handle, ierr)
+  startIdx = 1
+  do iChunk = 1,nChunks
+   chunkItems = chunkSizes(iChunk)
+   call BuildChunkFileName(baseDir,fieldName,ilevel,iChunk-1,cFile)
+   inquire(file=trim(cFile),exist=exists)
+   if (.not.exists) call FailTriaIO("missing chunk file '"//trim(cFile)//"'")
+   if (myid.eq.1) write(*,*) "File: '",adjustl(trim(cFile))//"' is being loaded ..."
+   call MPI_File_open(MPI_COMM_WORLD, trim(cFile), MPI_MODE_RDONLY, MPI_INFO_NULL, file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to open chunk file '"//trim(cFile)//"' for reading")
+   offset = 0
+   call MPI_File_seek(file_handle, offset, MPI_SEEK_SET, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to seek chunk file '"//trim(cFile)//"'")
+   call MPI_File_read_all(file_handle, dData(startIdx), chunkItems, MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to read chunk file '"//trim(cFile)//"'")
+   call MPI_File_close(file_handle, ierr)
+   if (ierr.ne.0) call FailTriaIO("unable to close chunk file '"//trim(cFile)//"'")
+   startIdx = startIdx + chunkItems
+  end do
  end  SUBROUTINE READ_MPI_kDATA
  
 end subroutine read_tria
-

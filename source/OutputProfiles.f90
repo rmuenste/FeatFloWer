@@ -72,6 +72,19 @@ END SUBROUTINE SolToFile
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SolToFileProv(iOutput)
+USE def_FEAT
+use solution_io_provenance, only: write_sol_to_file_prov
+
+IMPLICIT NONE
+INTEGER iOutput
+
+call write_sol_to_file_prov(insavn, timens, iOutput)
+
+END SUBROUTINE SolToFileProv
+!
+! ----------------------------------------------
+!
 SUBROUTINE SolFromFileRepart(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
@@ -161,6 +174,20 @@ call read_q2_sol_single(fieldName,cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !                  3, packed)
 
 END SUBROUTINE SolFromFileRepart
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFileRepartProv(cInFile,iLevel)
+USE def_FEAT
+use solution_io_provenance, only: read_sol_from_file_repart_prov
+
+IMPLICIT NONE
+INTEGER iLevel
+CHARACTER(60) :: cInFile
+
+call read_sol_from_file_repart_prov(cInFile, iLevel, timens)
+
+END SUBROUTINE SolFromFileRepartProv
 !
 ! ----------------------------------------------
 !
@@ -412,6 +439,20 @@ if(bViscoElastic)then
 end if
 
 END SUBROUTINE SolFromFile
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFileProv(cInFile,iLevel)
+USE def_FEAT
+use solution_io_provenance, only: read_sol_from_file_prov
+
+IMPLICIT NONE
+INTEGER iLevel
+CHARACTER(60) :: cInFile
+
+call read_sol_from_file_prov(cInFile, iLevel, timens)
+
+END SUBROUTINE SolFromFileProv
 !
 ! ----------------------------------------------
 !
@@ -1232,7 +1273,7 @@ USE var_QuadScalar,ONLY:QuadSc,LinSc,&
     Viscosity,Distance,Distamce,mgNormShearStress
 USE var_QuadScalar,ONLY:Tracer
 USE PP3D_MPI, ONLY:myid,showid,Comm_Summ,myMPI_Barrier
-USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh
+USE var_QuadScalar,ONLY:myExport,myFBM,mg_mesh,bBinaryVtkOutput
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 ! USE PLinScalar,ONLY:PLinScP1toQ1,OutputInterphase,PLinLS,&
 !                dNorm,IntPhaseElem,FracFieldQ1
@@ -1272,9 +1313,15 @@ ELSEIF (myExport%Format.EQ."VTK") THEN
   NLMAX = NLMAX + 1
   ILEV = myExport%Level
   CALL SETLEV(2)
-  CALL Output_VTK_piece(iOutput,&
-    mg_mesh%level(ILEV)%dcorvg,&
-    mg_mesh%level(ILEV)%kvert)
+  IF (bBinaryVtkOutput) THEN
+   CALL Output_VTK_piece_binary(iOutput,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     mg_mesh%level(ILEV)%kvert)
+  ELSE
+   CALL Output_VTK_piece(iOutput,&
+     mg_mesh%level(ILEV)%dcorvg,&
+     mg_mesh%level(ILEV)%kvert)
+  END IF
   NLMAX = NLMAX - 1
  ELSE
   CALL Output_VTK_main(iOutput)
@@ -1301,12 +1348,14 @@ END
 !
 SUBROUTINE Output_Mesh(iO,cFolder)
 USE PP3D_MPI, ONLY:myid,showid
-USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary
+USE var_QuadScalar,ONLY:mg_mesh,ilev,myBoundary,cPartitionFormat
 USE Parametrization, ONLY : myParBndr,nBnds
 IMPLICIT NONE
 INTEGER i,j,iO,iBnds
 CHARACTER cf*(24)
 CHARACTER cFolder*(*)
+CHARACTER(len=16) :: fmt_local
+LOGICAL :: do_param_output
 
 WRITE(cf,'(A11,I3.3,A4)') ADJUSTL(TRIM(cFolder))//'/cMESH_',iO, '.tri'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -1345,28 +1394,38 @@ CLOSE(1)
 OPEN(UNIT=2,FILE=ADJUSTL(TRIM(cFolder))//'/file.prj')
 WRITE(cf,'(A11,I3.3,A4)') 'cMESH_',iO, '.tri'
 WRITE(2,'(A)') ADJUSTL(TRIM(cf))
- 
-DO iBnds = 1, nBnds
- cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
- WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
- WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
- j=0
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   j = j + 1
-  END IF
+
+fmt_local = cPartitionFormat
+do i = 1, len(fmt_local)
+  if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+    fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+  end if
+end do
+do_param_output = (trim(fmt_local) /= "json")
+
+IF (do_param_output) THEN
+ DO iBnds = 1, nBnds
+  cf = ' '
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+  j=0
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    j = j + 1
+   END IF
+  END DO
+  WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+  WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+    WRITE(1,'(I8,A)') i
+   END IF
+  END DO
+  CLOSE(1)
  END DO
- WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
- WRITE(1,'(A)')    "'"//ADJUSTL(TRIM(myParBndr(iBnds)%Parameters))//"'"
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-   WRITE(1,'(I8,A)') i
-  END IF
- END DO
- CLOSE(1)
-END DO
+END IF
 CLOSE(2)
 
 END SUBROUTINE Output_Mesh
@@ -2133,11 +2192,16 @@ END SUBROUTINE LoadSmartAdaptedMeshFile
 SUBROUTINE Output_VTK_piece(iO,dcoor,kvert)
 USE def_FEAT
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
-USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce, &
+  mgNormShearStress,myALE,Shell
 USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
 USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
 USE var_QuadScalar,ONLY: Tracer
-USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM,mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
+  mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
 USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 USE var_QuadScalar,ONLY: GenLinScalar
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
@@ -2436,6 +2500,15 @@ CASE('ElemSizeDist')
   end do
   write(iunit, *)"        </DataArray>"
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MixerKVEL",""" format=""ascii"">"
+  do ivt=1,NoOfVert
+   write(iunit, '(A,E16.7)')"        ",REAL(FictKNPR_KVEL_Verify(ivt))
+  end do
+  write(iunit, *)"        </DataArray>"
+#endif
+
  CASE('Viscosity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Viscosity",""" format=""ascii"">"
   do ivt=1,NoOfVert
@@ -2627,6 +2700,725 @@ END SUBROUTINE Output_VTK_piece
 
 
 
+SUBROUTINE Output_VTK_piece_binary(iO,dcoor,kvert)
+USE def_FEAT
+USE PP3D_MPI, ONLY:myid,showid,subnodes
+USE var_QuadScalar,ONLY: QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStress,myALE,Shell
+USE var_QuadScalar,ONLY: MixerKnpr,FictKNPR,ViscoSc,myBoundary
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
+USE var_QuadScalar,ONLY: iTemperature_AVG,Temperature_AVG,Temperature
+USE var_QuadScalar,ONLY: Tracer
+USE var_QuadScalar,ONLY: myExport, Properties, bViscoElastic,myFBM, &
+  mg_mesh,Shearrate,myHeatObjects,MaterialDistribution
+USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
+USE var_QuadScalar,ONLY: GenLinScalar
+USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
+USE var_QuadScalar,ONLY: myLostSet
+USE, INTRINSIC :: iso_fortran_env, ONLY: int8, int32, int64, real32
+
+IMPLICIT NONE
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*),iO,ive,ivt,iField,i,istat
+CHARACTER fileid*(5),filename*(28),procid*(3),cGenScalar*(50)
+INTEGER NoOfElem,NoOfVert
+REAL*8,ALLOCATABLE ::  tau(:,:)
+REAL*8 psi(6)
+REAL*8 Temp,dMF
+INTEGER :: iunit = 908071
+INTEGER iX, ifbm,iFld
+INTEGER(int64) :: offset, off
+INTEGER(int64), PARAMETER :: header_bytes = 8_int64
+CHARACTER(len=256) :: line
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename=" "
+WRITE(filename(1:),'(A,I5.5,A4)') '_vtk/res_node_****.',iO,".vtu"
+
+IF(myid.eq.showid) WRITE(*,'(104("="))')
+IF(myid.eq.showid) WRITE(*,*) "Outputting vtk binary file into ",filename
+WRITE(filename(15:18),'(I4.4)') myid
+
+OPEN (UNIT=iunit,FILE=filename,action='write',access='stream',form='unformatted',iostat=istat)
+if(istat .ne. 0)then
+  write(*,*)"Could not open file for writing. "
+  stop
+end if
+
+offset = 0_int64
+
+call write_line(iunit, '<VTKFile type="UnstructuredGrid" version="0.1" '// &
+  'byte_order="LittleEndian" header_type="UInt64">')
+call write_line(iunit, '  <UnstructuredGrid>')
+write(line, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', KNVT(ILEV), &
+  '" NumberOfCells="', NoOfElem, '">'
+call write_line(iunit, line)
+
+call write_line(iunit, '    <PointData>')
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Velocity')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity', 3, off)
+
+ CASE('GradVelocity')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_x', 3, off)
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_y', 3, off)
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_z', 3, off)
+
+ CASE('PartForce')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'PartForce', 3, off)
+
+ CASE('Psi')
+  if(bViscoElastic)then
+   call reserve_offset(6_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Psi', 6, off)
+  end if
+
+ CASE('Stress')
+  if(bViscoElastic)then
+   call reserve_offset(6_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Stress', 6, off)
+  end if
+
+ CASE('GradStress')
+  if(bViscoElastic)then
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_11', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_22', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_33', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_12', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_13', 3, off)
+   call reserve_offset(3_int64*4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'GradStress_23', 3, off)
+  end if
+
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+   WRITE(cGenScalar,'(A)') TRIM(GenLinScalar%Fld(iFld)%cName)
+   call reserve_offset(4_int64*NoOfVert, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', ADJUSTL(TRIM(cGenScalar)), 1, off)
+  END DO
+
+ CASE('MeshVelo')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'MeshVelocity', 3, off)
+
+ CASE('BoundaryNormal')
+  call reserve_offset(3_int64*4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'BoundaryNormal', 3, off)
+
+ CASE('Pressure_V')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Pressure_V', 1, off)
+
+ CASE('Temperature')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Temperature', 1, off)
+
+ CASE('Tracer')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Tracer', 1, off)
+
+ CASE('Temperature_AVG')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Temperature_AVG', 1, off)
+
+ CASE('Shearrate')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shearrate', 1, off)
+
+ CASE('Wall')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Wall', 1, off)
+
+ CASE('LogShearrate')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'LogShearrate', 1, off)
+
+ CASE('HeatObjects')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Block', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Wire', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Melt', 1, off)
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Int32', 'Sensor', 1, off)
+
+ CASE('ElemSizeDist')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'ElemSizeDist', 1, off)
+
+ CASE('Distamce')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shell', 1, off)
+
+ CASE('Mixer')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Mixer', 1, off)
+
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'MixerKVEL', 1, off)
+#endif
+
+ CASE('Viscosity')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Viscosity', 1, off)
+
+ CASE('Monitor')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Monitor', 1, off)
+
+ CASE('Distance')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Distance', 1, off)
+
+ CASE('Shell')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'Shell', 1, off)
+
+ CASE('BndryType')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'BndryType', 1, off)
+
+ CASE('OuterPoint')
+  call reserve_offset(4_int64*NoOfVert, off)
+  call write_dataarray_tag(iunit, '        ', 'Float32', 'OuterPoint', 1, off)
+ END SELECT
+END DO
+
+call write_line(iunit, '    </PointData>')
+
+call write_line(iunit, '    <CellData>')
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Pressure_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Pressure_E', 1, off)
+  END IF
+
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'MF_E_[kg/m3]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Rho_E_[kg/m3]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Cp_E_[J/kg/K]', 1, off)
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Lambda_E_[W/m/K]', 1, off)
+  END IF
+
+ CASE('Viscosity_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Viscosity_E', 1, off)
+  END IF
+
+ CASE('ParticleTime')
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(myLostSet)) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'AGE_E [s]', 1, off)
+  END IF
+
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   call reserve_offset(4_int64*NoOfElem, off)
+   call write_dataarray_tag(iunit, '        ', 'Float32', 'Material_E', 1, off)
+  END IF
+  END IF
+ END SELECT
+END DO
+call write_line(iunit, '    </CellData>')
+
+call write_line(iunit, '      <Points>')
+call reserve_offset(3_int64*4_int64*NoOfVert, off)
+call write_dataarray_tag(iunit, '        ', 'Float32', 'Points', 3, off)
+call write_line(iunit, '      </Points>')
+
+call write_line(iunit, '      <Cells>')
+call reserve_offset(8_int64*4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'connectivity', 1, off)
+call reserve_offset(4_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'Int32', 'offsets', 1, off)
+call reserve_offset(1_int64*NoOfElem, off)
+call write_dataarray_tag(iunit, '        ', 'UInt8', 'types', 1, off)
+call write_line(iunit, '      </Cells>')
+
+call write_line(iunit, '    </Piece>')
+call write_line(iunit, '  </UnstructuredGrid>')
+call write_line(iunit, '  <AppendedData encoding="raw">')
+call write_char(iunit, '_')
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Velocity')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValU(ivt))
+   call write_r32(iunit, QuadSc%ValV(ivt))
+   call write_r32(iunit, QuadSc%ValW(ivt))
+  end do
+
+ CASE('GradVelocity')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValUx(ivt))
+   call write_r32(iunit, QuadSc%ValUy(ivt))
+   call write_r32(iunit, QuadSc%ValUz(ivt))
+  end do
+
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValVx(ivt))
+   call write_r32(iunit, QuadSc%ValVy(ivt))
+   call write_r32(iunit, QuadSc%ValVz(ivt))
+  end do
+
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, QuadSc%ValWx(ivt))
+   call write_r32(iunit, QuadSc%ValWy(ivt))
+   call write_r32(iunit, QuadSc%ValWz(ivt))
+  end do
+
+ CASE('PartForce')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   if((FictKNPR(ivt) .ne. 0).and.(FictKNPR(ivt).le.myFBM%nParticles))then
+     ifbm = 1
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(1))
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(2))
+     call write_r32(iunit, dble(ifbm) * myFBM%particleNew(FictKNPR(ivt))%ResistanceForce(3))
+   else
+     ifbm = 0
+     call write_r32(iunit, 0d0)
+     call write_r32(iunit, 0d0)
+     call write_r32(iunit, 0d0)
+   end if
+  end do
+
+ CASE('Psi')
+  if(bViscoElastic)then
+   call write_header(iunit, 6_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Val11(ivt))
+    call write_r32(iunit, ViscoSc%Val22(ivt))
+    call write_r32(iunit, ViscoSc%Val33(ivt))
+    call write_r32(iunit, ViscoSc%Val12(ivt))
+    call write_r32(iunit, ViscoSc%Val13(ivt))
+    call write_r32(iunit, ViscoSc%Val23(ivt))
+   end do
+  end if
+
+ CASE('Stress')
+  if(bViscoElastic)then
+   ALLOCATE(tau(6,NoOfVert))
+   DO i=1,NoOfVert
+    psi = [ViscoSc%Val11(i),ViscoSc%Val22(i),ViscoSc%Val33(i),&
+           ViscoSc%Val12(i),ViscoSc%Val13(i),ViscoSc%Val23(i)]
+    CALL ConvertPsiToTau(psi,tau(:,i))
+   END DO
+   call write_header(iunit, 6_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, tau(1,ivt))
+    call write_r32(iunit, tau(2,ivt))
+    call write_r32(iunit, tau(3,ivt))
+    call write_r32(iunit, tau(4,ivt))
+    call write_r32(iunit, tau(5,ivt))
+    call write_r32(iunit, tau(6,ivt))
+   end do
+   DEALLOCATE(tau)
+  end if
+
+ CASE('GradStress')
+  if(bViscoElastic)then
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad11%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad11%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad11%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad22%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad22%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad22%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad33%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad33%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad33%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad12%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad12%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad12%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad13%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad13%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad13%z(ivt))
+   end do
+   call write_header(iunit, 3_int64*4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, ViscoSc%Grad23%x(ivt))
+    call write_r32(iunit, ViscoSc%Grad23%y(ivt))
+    call write_r32(iunit, ViscoSc%Grad23%z(ivt))
+   end do
+  end if
+
+ CASE('GenScalar')
+  DO iFld=1,GenLinScalar%nOfFields
+   call write_header(iunit, 4_int64*NoOfVert)
+   do ivt=1,NoOfVert
+    call write_r32(iunit, GenLinScalar%Fld(iFld)%Val(ivt))
+   end do
+  END DO
+
+ CASE('MeshVelo')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myALE%MeshVelo(1,ivt))
+   call write_r32(iunit, myALE%MeshVelo(2,ivt))
+   call write_r32(iunit, myALE%MeshVelo(3,ivt))
+  end do
+
+ CASE('BoundaryNormal')
+  call write_header(iunit, 3_int64*4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, BoundaryNormal(1,ivt))
+   call write_r32(iunit, BoundaryNormal(2,ivt))
+   call write_r32(iunit, BoundaryNormal(3,ivt))
+  end do
+
+ CASE('Pressure_V')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, LinSc%Q2(ivt))
+  end do
+
+ CASE('Temperature')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Temperature(ivt))
+  end do
+
+ CASE('Tracer')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Tracer%val(NLMAX)%x(ivt))
+  end do
+
+ CASE('Temperature_AVG')
+  call write_header(iunit, 4_int64*NoOfVert)
+  if (DBLE(iTemperature_AVG).gt.0) then
+   do ivt=1,NoOfVert
+    call write_r32(iunit, Temperature_AVG(ivt)/DBLE(iTemperature_AVG))
+   end do
+  else
+   do ivt=1,NoOfVert
+    call write_r32(iunit, 0d0)
+   end do
+  end if
+
+ CASE('Shearrate')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, 10.0d0**Shearrate(ivt))
+  end do
+
+ CASE('Wall')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   IF (myBoundary%bWall(ivt)) THEN
+    call write_r32(iunit, 1d0)
+   ELSE
+    call write_r32(iunit, 0d0)
+   END IF
+  end do
+
+ CASE('LogShearrate')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Shearrate(ivt))
+  end do
+
+ CASE('HeatObjects')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Block(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Wire(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myHeatObjects%Channel(ivt))
+  end do
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_i32(iunit, myHeatObjects%Sensor(ivt))
+  end do
+
+ CASE('ElemSizeDist')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, ElemSizeDist(ivt))
+  end do
+
+ CASE('Distamce')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Distance(ivt))
+  end do
+
+ CASE('Mixer')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, dble(FictKNPR(ivt)))
+  end do
+
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, dble(FictKNPR_KVEL_Verify(ivt)))
+  end do
+#endif
+
+ CASE('Viscosity')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Viscosity(ivt))
+  end do
+
+ CASE('Monitor')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, myALE%monitor(ivt))
+  end do
+
+ CASE('Distance')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Distance(ivt))
+  end do
+
+ CASE('Shell')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   call write_r32(iunit, Shell(ivt))
+  end do
+
+ CASE('BndryType')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   iX = 5
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(1)) iX = Min(1,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(2)) iX = Min(2,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(3)) iX = Min(3,iX)
+   IF (mg_mesh%BndryNodes(ivt)%ParamTypes(4)) iX = Min(4,iX)
+   IF (iX.eq.5) iX = 0
+   call write_r32(iunit, dble(iX))
+  end do
+
+ CASE('OuterPoint')
+  call write_header(iunit, 4_int64*NoOfVert)
+  do ivt=1,NoOfVert
+   iX = 0
+   IF (mg_mesh%BndryNodes(ivt)%bOuterPoint) iX=1
+   call write_r32(iunit, dble(iX))
+  end do
+ END SELECT
+END DO
+
+DO iField=1,SIZE(myExport%Fields)
+ SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('Pressure_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    ive = 4*(ivt-1)+1
+    call write_r32(iunit, LinSc%ValP(NLMAX-1)%x(ive))
+   end do
+  END IF
+
+ CASE('MatProps_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=KNVT(ILEV+1)-NoOfElem+1,KNVT(ILEV+1)
+    Temp = GenLinScalar%Fld(1)%Val(ivt)
+    CALL MeltFunction_MF(dMF,Temp)
+    call write_r32(iunit, dMF)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_RhoCoeff(NLMAX-1)%x(ivt)/1d-9)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_CpCoeff(NLMAX-1)%x(ivt)/1d+4)
+   end do
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, mg_LambdaCoeff(NLMAX-1)%x(ivt)/1d-1)
+   end do
+  END IF
+
+ CASE('Viscosity_E')
+  IF (ILEV.EQ.NLMAX-1) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, Viscosity((nvt+net+nat+ivt)))
+   end do
+  END IF
+
+ CASE('ParticleTime')
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(myLostSet)) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ivt=1,NoOfElem
+    call write_r32(iunit, myLostSet(ivt)%time)
+   end do
+  END IF
+
+ CASE('Material_E')
+  IF (ALLOCATED(MaterialDistribution)) THEN
+  IF (ILEV.LE.NLMAX-1.and.ALLOCATED(MaterialDistribution(ILEV)%x)) THEN
+   call write_header(iunit, 4_int64*NoOfElem)
+   do ive=1,NoOfElem
+    call write_r32(iunit, dble(MaterialDistribution(ILEV)%x(ive)))
+   end do
+  END IF
+  END IF
+ END SELECT
+END DO
+
+call write_header(iunit, 3_int64*4_int64*NoOfVert)
+do ivt=1,NoOfVert
+ call write_r32(iunit, dcoor(1,ivt))
+ call write_r32(iunit, dcoor(2,ivt))
+ call write_r32(iunit, dcoor(3,ivt))
+end do
+
+call write_header(iunit, 8_int64*4_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i32(iunit, kvert(1,ive)-1)
+ call write_i32(iunit, kvert(2,ive)-1)
+ call write_i32(iunit, kvert(3,ive)-1)
+ call write_i32(iunit, kvert(4,ive)-1)
+ call write_i32(iunit, kvert(5,ive)-1)
+ call write_i32(iunit, kvert(6,ive)-1)
+ call write_i32(iunit, kvert(7,ive)-1)
+ call write_i32(iunit, kvert(8,ive)-1)
+end do
+
+call write_header(iunit, 4_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i32(iunit, ive*8)
+end do
+
+call write_header(iunit, 1_int64*NoOfElem)
+do ive=1,NoOfElem
+ call write_i8(iunit, 12_int8)
+end do
+
+call write_char(iunit, achar(10))
+call write_line(iunit, '  </AppendedData>')
+call write_line(iunit, '</VTKFile>')
+close(iunit)
+
+CONTAINS
+
+  SUBROUTINE reserve_offset(nbytes, off)
+    INTEGER(int64), INTENT(IN) :: nbytes
+    INTEGER(int64), INTENT(OUT) :: off
+    off = offset
+    offset = offset + header_bytes + nbytes
+  END SUBROUTINE reserve_offset
+
+  SUBROUTINE write_line(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text//achar(10)
+  END SUBROUTINE write_line
+
+  SUBROUTINE write_char(unit, text)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: text
+    WRITE(unit) text
+  END SUBROUTINE write_char
+
+  SUBROUTINE write_dataarray_tag(unit, indent, dtype, name, ncomp, off)
+    INTEGER, INTENT(IN) :: unit
+    CHARACTER(len=*), INTENT(IN) :: indent, dtype, name
+    INTEGER, INTENT(IN) :: ncomp
+    INTEGER(int64), INTENT(IN) :: off
+    CHARACTER(len=256) :: lcl
+    IF (ncomp .gt. 1) THEN
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A,I0,A)') indent, '<DataArray type="', &
+        TRIM(dtype), '" Name="', TRIM(name), '" NumberOfComponents="', ncomp, &
+        '" format="appended" offset="', off, '"/>'
+    ELSE
+      WRITE(lcl,'(A,A,A,A,A,A,I0,A)') indent, '<DataArray type="', TRIM(dtype), &
+        '" Name="', TRIM(name), '" format="appended" offset="', off, '"/>'
+    END IF
+    call write_line(unit, lcl)
+  END SUBROUTINE write_dataarray_tag
+
+  SUBROUTINE write_header(unit, nbytes)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int64), INTENT(IN) :: nbytes
+    WRITE(unit) nbytes
+  END SUBROUTINE write_header
+
+  SUBROUTINE write_r32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    REAL*8, INTENT(IN) :: val
+    REAL(real32) :: tmp
+    tmp = REAL(val, real32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_r32
+
+  SUBROUTINE write_i32(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER, INTENT(IN) :: val
+    INTEGER(int32) :: tmp
+    tmp = INT(val, int32)
+    WRITE(unit) tmp
+  END SUBROUTINE write_i32
+
+  SUBROUTINE write_i8(unit, val)
+    INTEGER, INTENT(IN) :: unit
+    INTEGER(int8), INTENT(IN) :: val
+    WRITE(unit) val
+  END SUBROUTINE write_i8
+
+END SUBROUTINE Output_VTK_piece_binary
+
+
+
 SUBROUTINE Output_VTK_main(iO)
 USE  PP3D_MPI, ONLY:myid,showid,subnodes
 USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
@@ -2721,6 +3513,10 @@ DO iField=1,SIZE(myExport%Fields)
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Shell","""/>"
  CASE('Mixer')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Mixer","""/>"
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","MixerKVEL","""/>"
+#endif
  CASE('Viscosity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Viscosity","""/>"
  CASE('Monitor')
@@ -2797,6 +3593,467 @@ close(imainunit)
 
 END SUBROUTINE Output_VTK_main
 
+!========================================================================================
+!                    Mesh-only VTK output routines (no field data)
+!========================================================================================
+
+SUBROUTINE Output_VTK_mesh_piece(cname, dcoor, kvert)
+!
+! Outputs only mesh geometry (coordinates and connectivity) to VTK format
+! without any field data. Useful for debugging mesh initialization.
+!
+! Parameters:
+!   cname  - custom name for output files (e.g., "initial", "parametrized")
+!   dcoor  - node coordinates
+!   kvert  - element connectivity
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+INTEGER :: ioffset, ive, ivt
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908071
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+! Generate filename with custom name
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_node_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing mesh-only VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+! Write VTK header
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', KNVT(ILEV), &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+! No PointData or CellData sections - mesh only!
+
+! Write mesh coordinates
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+! Write element connectivity
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfElem-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write offsets
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write cell types (12 = hexahedron)
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_mesh_piece
+
+
+SUBROUTINE Output_VTK_mesh_main(cname)
+!
+! Outputs main .pvtu file for parallel mesh-only VTK output
+!
+! Parameters:
+!   cname - custom name for output files (e.g., "initial", "parametrized")
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname
+INTEGER :: iproc
+INTEGER :: iMainUnit = 556
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+! Generate main filename with custom name
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+! No PPointData or PCellData sections - mesh only!
+
+! Write mesh structure
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+! Reference all piece files
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_node_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main mesh VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main
+
+
+SUBROUTINE Output_VTK_mesh_piece_with_field(cname, dcoor, kvert, field, fieldname)
+!
+! Outputs mesh geometry plus a node-based scalar field to VTK format.
+!
+! Parameters:
+!   cname     - custom name for output files
+!   dcoor     - node coordinates
+!   kvert     - element connectivity
+!   field     - node-based scalar field (size >= NVT)
+!   fieldname - name of the scalar field in VTK
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fieldname
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: field(*)
+INTEGER :: ioffset, ive, ivt
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908072
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_node_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing mesh+field VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+! PointData section with scalar field
+write(iunit, '(A,A,A)') '      <PointData Scalars="', TRIM(fieldname), '">'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fieldname), '" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,E16.7)') "          ", field(ivt)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '      </PointData>'
+
+! Write mesh coordinates
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+! Write element connectivity
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfElem-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write offsets
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+! Write cell types (12 = hexahedron)
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_mesh_piece_with_field
+
+
+SUBROUTINE Output_VTK_mesh_main_with_field(cname, fieldname)
+!
+! Outputs main .pvtu file for parallel mesh VTK output with a scalar field
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fieldname
+INTEGER :: iproc
+INTEGER :: iMainUnit = 557
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+! PPointData section declaring the scalar field
+write(imainunit, '(A,A,A)') '    <PPointData Scalars="', TRIM(fieldname), '">'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fieldname), '"/>'
+write(imainunit, '(A)') '    </PPointData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_node_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main mesh+field VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main_with_field
+
+
+SUBROUTINE Output_VTK_mesh_piece_with_2fields(cname, dcoor, kvert, &
+  field1, fname1, field2, fname2)
+!
+! Outputs mesh geometry plus two node-based scalar fields to VTK format.
+!
+USE def_FEAT
+USE PP3D_MPI, ONLY: myid, showid
+USE var_QuadScalar, ONLY: knvt, knel
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2
+REAL*8 dcoor(3,*)
+INTEGER kvert(8,*)
+REAL*8, intent(in) :: field1(*), field2(*)
+INTEGER :: ioffset, ive, ivt
+CHARACTER(len=100) :: filename
+INTEGER :: NoOfElem, NoOfVert
+INTEGER :: iunit = 908073
+INTEGER :: istat
+
+NoOfElem = KNEL(ILEV)
+NoOfVert = KNVT(ILEV)
+
+filename = " "
+WRITE(filename,'(A,A,A,I4.4,A)') '_vtk/', TRIM(cname), '_node_', myid, '.vtu'
+
+IF(myid.eq.showid) WRITE(*,*) "Writing mesh+2fields VTK: ", TRIM(filename)
+
+OPEN(UNIT=iunit, FILE=filename, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(filename)
+  stop
+end if
+
+write(iunit, *) '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(iunit, *) '  <UnstructuredGrid>'
+write(iunit, '(A,I0,A,I0,A)') '    <Piece NumberOfPoints="', NoOfVert, &
+                              '" NumberOfCells="', NoOfElem, '">'
+
+write(iunit, '(A,A,A)') '      <PointData Scalars="', TRIM(fname1), '">'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fname1), '" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,E16.7)') "          ", field1(ivt)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A,A,A)') '        <DataArray type="Float64" Name="', TRIM(fname2), '" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,E16.7)') "          ", field2(ivt)
+end do
+write(iunit, '(A)') '        </DataArray>'
+write(iunit, '(A)') '      </PointData>'
+
+write(iunit, '(A)') '      <Points>'
+write(iunit, '(A)') '        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii">'
+do ivt = 1, NoOfVert
+  write(iunit, '(A10,3E16.7)') "          ", REAL(dcoor(1,ivt)), REAL(dcoor(2,ivt)), REAL(dcoor(3,ivt))
+end do
+write(iunit, *) '        </DataArray>'
+write(iunit, *) '      </Points>'
+
+write(iunit, *) '      <Cells>'
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="connectivity" format="ascii" RangeMin="0" RangeMax="', NoOfElem-1, '">'
+do ive = 1, NoOfElem
+  write(iunit, '(8I10)') kvert(1,ive)-1, kvert(2,ive)-1, kvert(3,ive)-1, kvert(4,ive)-1, &
+                         kvert(5,ive)-1, kvert(6,ive)-1, kvert(7,ive)-1, kvert(8,ive)-1
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A,I0,A)') '        <DataArray type="Int32" Name="offsets" format="ascii" RangeMin="8" RangeMax="', 8*NoOfElem, '">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') ive*8, (ive+1)*8, (ive+2)*8, (ive+3)*8, (ive+4)*8, (ive+5)*8, (ive+6)*8, (ive+7)*8
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') ive*8
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, '(A)') '        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="12" RangeMax="12">'
+ioffset = NoOfElem / 8
+ioffset = ioffset * 8
+do ive = 1, ioffset, 8
+  write(iunit, '(8I10)') 12, 12, 12, 12, 12, 12, 12, 12
+end do
+do ive = ioffset+1, NoOfElem
+  write(iunit, '(I10)') 12
+end do
+write(iunit, '(A)') '        </DataArray>'
+
+write(iunit, *) '      </Cells>'
+write(iunit, *) '    </Piece>'
+write(iunit, *) '  </UnstructuredGrid>'
+write(iunit, *) '</VTKFile>'
+close(iunit)
+
+END SUBROUTINE Output_VTK_mesh_piece_with_2fields
+
+
+SUBROUTINE Output_VTK_mesh_main_with_2fields(cname, fname1, fname2)
+!
+! Outputs main .pvtu file for parallel mesh VTK output with two scalar fields
+!
+USE PP3D_MPI, ONLY: myid, showid, subnodes
+USE def_FEAT
+
+IMPLICIT NONE
+CHARACTER(len=*), intent(in) :: cname, fname1, fname2
+INTEGER :: iproc
+INTEGER :: iMainUnit = 558
+CHARACTER(len=100) :: mainname
+CHARACTER(len=100) :: filename
+INTEGER :: istat
+
+mainname = ' '
+WRITE(mainname, '(A,A,A)') '_vtk/', TRIM(cname), '.pvtu'
+
+OPEN(UNIT=imainunit, FILE=mainname, action='write', iostat=istat)
+if(istat .ne. 0) then
+  write(*,*) "Could not open file for writing: ", TRIM(mainname)
+  stop
+end if
+
+write(imainunit, *) '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+write(imainunit, *) '  <PUnstructuredGrid GhostLevel="0">'
+
+write(imainunit, '(A,A,A)') '    <PPointData Scalars="', TRIM(fname1), '">'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fname1), '"/>'
+write(imainunit, '(A,A,A)') '      <PDataArray type="Float64" Name="', TRIM(fname2), '"/>'
+write(imainunit, '(A)') '    </PPointData>'
+
+write(imainunit, '(A)') '    <PPoints>'
+write(imainunit, '(A)') '      <PDataArray type="Float32" Name="Points" NumberOfComponents="3"/>'
+write(imainunit, '(A)') '    </PPoints>'
+
+do iproc = 1, subnodes
+  filename = " "
+  WRITE(filename, '(A,A,I4.4,A)') TRIM(cname), '_node_', iproc, '.vtu'
+  write(imainunit, '(A,A,A)') '      <Piece Source="', trim(adjustl(filename)), '"/>'
+end do
+
+write(imainunit, *) '  </PUnstructuredGrid>'
+write(imainunit, *) '</VTKFile>'
+close(imainunit)
+
+IF(myid.eq.showid) WRITE(*,*) "Main mesh+2fields VTK file written: ", TRIM(mainname)
+
+END SUBROUTINE Output_VTK_mesh_main_with_2fields
+
 
 SUBROUTINE Output_GMV_fields(iO,dcoor,kvert)
 USE def_FEAT
@@ -2805,6 +4062,9 @@ USE var_QuadScalar,ONLY:QuadSc,LinSc,Viscosity,Distance,Distamce,mgNormShearStre
 USE var_QuadScalar,ONLY:Tracer
 USE var_QuadScalar,ONLY:myExport
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
+#ifdef DEBUG_FBM_OPTIMIZATION
+USE var_QuadScalar,ONLY: FictKNPR_KVEL_Verify
+#endif
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2907,6 +4167,14 @@ DO iField=1,SIZE(myExport%Fields)
    WRITE(iOutUnit,1000) REAL(Distamce(i))
   END DO
 
+#ifdef DEBUG_FBM_OPTIMIZATION
+ CASE('MixerKVEL')
+  WRITE(iOutUnit,*)  'mixerkvel 1'
+  DO i=1,NoOfVert
+   WRITE(iOutUnit,1000) REAL(FictKNPR_KVEL_Verify(i))
+  END DO
+#endif
+
  CASE('Monitor')
   WRITE(iOutUnit,*)  'monitor 1'
   DO i=1,NoOfVert
@@ -2947,10 +4215,13 @@ SUBROUTINE OutputTriMesh(dcorvg,kvert,knpr,nvt,nel,iO)
 !USE QuadScalar,ONLY:myQ2Coor
 USE var_QuadScalar,ONLY:ilev
 USE Parametrization, ONLY : myParBndr,nBnds
+USE var_QuadScalar, ONLY: cPartitionFormat
 IMPLICIT NONE
 REAL*8 dcorvg(3,*)
 INTEGER nvt,nel,kvert(8,*),knpr(*),i,iO,j,iIt,iBnds
 CHARACTER cf*(40)
+CHARACTER(len=16) :: fmt_local
+LOGICAL :: do_param_output
 
 WRITE(cf,'(A)') '_vtk/mesh.tri'
 WRITE(*,*) "Outputting actual Coarse mesh into: '"//ADJUSTL(TRIM(cf))//"'"
@@ -2976,26 +4247,36 @@ END DO
 
 CLOSE(1)
 
- DO iBnds = 1, nBnds
-  cf = ' '
-  WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
-  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
-  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
-   j=0
-   DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-     j = j + 1
-    END IF
-   END DO
-   WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
-   WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
-   DO i=1,NVT
-    IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
-     WRITE(1,'(I8,A)') i
-    END IF
-   END DO
-   CLOSE(1)
- END DO
+fmt_local = cPartitionFormat
+do i = 1, len(fmt_local)
+  if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+    fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+  end if
+end do
+do_param_output = (trim(fmt_local) /= "json")
+
+ IF (do_param_output) THEN
+  DO iBnds = 1, nBnds
+   cf = ' '
+   WRITE(cf,'(A)') "_vtk/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))
+   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+    j=0
+    DO i=1,NVT
+     IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+      j = j + 1
+     END IF
+    END DO
+    WRITE(1,'(I8,A)') j," "//myParBndr(iBnds)%Types
+    WRITE(1,'(A)')    "'"//myParBndr(iBnds)%Parameters//"'"
+    DO i=1,NVT
+     IF (myParBndr(iBnds)%Bndr(ILEV)%Vert(i)) THEN
+      WRITE(1,'(I8,A)') i
+     END IF
+    END DO
+    CLOSE(1)
+  END DO
+ END IF
  
 ! DO iIt=1,Properties%nInterface
 !  IF (allocated(myTSurf(iIT)%T)) then
@@ -3892,7 +5173,7 @@ END SUBROUTINE ResetTimer
 !
 subroutine ReduceMesh_sse_mesh()
 USE def_FEAT
-USE var_QuadScalar,ONLY:LinSc,mg_Mesh,myBoundary
+USE var_QuadScalar,ONLY:LinSc,mg_Mesh,myBoundary,cPartitionFormat
 USE Parametrization, ONLY : myParBndr,nBnds
 USE PP3D_MPI, ONLY:myid
 
@@ -3902,6 +5183,8 @@ integer, allocatable :: knpr(:)
 integer i,j,k,ivt,iat,iadj,ibnds,nnel,nnvt,nnat
 integer ivt1,ivt2,ivt3,ivt4
 character cTRIFolder*(256),cf*(256)
+character(len=16) :: fmt_local
+logical :: do_param_output
 INTEGER NeighA(4,6)
 logical bBndry
 DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
@@ -4014,12 +5297,21 @@ if (myid.eq.0) then
  WRITE(cf,'(A)') 'ReducedMesh.tri' 
  WRITE(2,'(A)') ADJUSTL(TRIM(cf))
   
- DO iBnds = 1, nBnds
-  cf = ' '
-  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
-  WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
-  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
-  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+ fmt_local = cPartitionFormat
+ do i = 1, len(fmt_local)
+   if (fmt_local(i:i) >= 'A' .and. fmt_local(i:i) <= 'Z') then
+     fmt_local(i:i) = char(iachar(fmt_local(i:i)) + 32)
+   end if
+ end do
+ do_param_output = (trim(fmt_local) /= "json")
+
+ IF (do_param_output) THEN
+  DO iBnds = 1, nBnds
+   cf = ' '
+   WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//ADJUSTL(TRIM(myParBndr(iBnds)%Names))! //".par"
+   WRITE(2,'(A)') ADJUSTL(TRIM(myParBndr(iBnds)%Names)) !//".par"
+   WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+   OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
   
   k=1
   DO i=1,nel
@@ -4054,8 +5346,9 @@ if (myid.eq.0) then
    WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
    END IF
   END DO
-  CLOSE(1)
- END DO
+   CLOSE(1)
+  END DO
+ END IF
  
  knpr=0
  k=1
@@ -4075,28 +5368,30 @@ if (myid.eq.0) then
   End do
  End do
  
- cf = ' '
- WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//"NewWall.par"
- WRITE(2,'(A)') "NewWall.par"
- WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
- OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
- 
- j=0
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (knpr(i).eq.1) THEN
-   j = j + 1
-  END IF
- END DO
- WRITE(1,'(I8,A)') j," Wall"
- WRITE(1,'(A)')    "' '"
- DO i=1,mg_mesh%level(ilev)%nvt
-  IF (knpr(i).eq.1) THEN
-   WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
-  END IF
- END DO
- CLOSE(1)
+ IF (do_param_output) THEN
+  cf = ' '
+  WRITE(cf,'(A)') ADJUSTL(TRIM(cTRIFolder))//"/"//"NewWall.par"
+  WRITE(2,'(A)') "NewWall.par"
+  WRITE(*,*) "Outputting actual parametrization into: '"//ADJUSTL(TRIM(cf))//"'"
+  OPEN(UNIT=1,FILE=ADJUSTL(TRIM(cf)))
+  
+  j=0
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (knpr(i).eq.1) THEN
+    j = j + 1
+   END IF
+  END DO
+  WRITE(1,'(I8,A)') j," Wall"
+  WRITE(1,'(A)')    "' '"
+  DO i=1,mg_mesh%level(ilev)%nvt
+   IF (knpr(i).eq.1) THEN
+    WRITE(1,'(I0,A,I0)') VertexIndices(i)!,", ",i
+   END IF
+  END DO
+  CLOSE(1)
+ END IF
 
- CLOSE(2)
+CLOSE(2)
 
 end if
 

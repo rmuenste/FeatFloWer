@@ -9,6 +9,10 @@ module types
 ! No implicit variables in this module
 implicit none
 
+integer, parameter :: HEAT_RUN_MODE_NONE = 0
+integer, parameter :: HEAT_RUN_MODE_PID = 1
+integer, parameter :: HEAT_RUN_MODE_FIXED = 2
+
 !================================================================================================
 !  A structure for a bounding box 
 !================================================================================================
@@ -53,6 +57,8 @@ TYPE tMesh
   integer :: NAE = 6
 
   integer :: NVEL = 0
+  integer :: NEEL = 0       ! Max elements per edge (for KEEL)
+  integer :: NAAL = 0       ! Max elements per face (for KAAL)
 
   integer :: NNelAtVertex = 0
 
@@ -74,8 +80,14 @@ TYPE tMesh
   ! The vertices at an element
   integer, allocatable, dimension(:,:) :: kvert
 
-  ! The elements at a vertex 
+  ! The elements at a vertex
   integer, allocatable, dimension(:,:) :: kvel
+
+  ! The elements at an edge
+  integer, allocatable, dimension(:,:) :: keel
+
+  ! The elements at a face
+  integer, allocatable, dimension(:,:) :: kaal
 
   ! The edges at a vertex
   integer, allocatable, dimension(:,:) :: kved
@@ -551,11 +563,18 @@ TYPE tConvergenceDetector
   LOGICAL :: Converged=.FALSE.
 END TYPE tConvergenceDetector
 
+TYPE tMeltConvergenceMonitor
+  TYPE(tConvergenceDetector) :: Detector
+  REAL*8 :: PreviousValue = 0d0
+  LOGICAL :: bInitialized = .false.
+  LOGICAL :: bEnabled = .false.
+END TYPE tMeltConvergenceMonitor
+
 TYPE tDIESensor
- real*8 :: Center(3),Radius
- integer :: iSeg
- TYPE(tPID) PID_ctrl
- CHARACTER*8 ::  type
+real*8 :: Center(3),Radius
+integer :: iSeg
+TYPE(tPID) PID_ctrl
+CHARACTER*8 ::  type
 END TYPE tDIESensor
 
 TYPE tSegment
@@ -611,6 +630,10 @@ TYPE tSigma
   INTEGER :: InnerDiamNParam=0
   REAL*8,ALLOCATABLE ::  InnerDiamDParam(:),InnerDiamZParam(:)
   LOGICAL :: bOnlyBarrelAdaptation=.false., bAnalyticalShearRateRestriction=.false.
+  INTEGER :: HeatRunMode = HEAT_RUN_MODE_NONE
+  LOGICAL :: bHasPIDRegulation = .false.
+  LOGICAL :: bHasFixedPowerRegulation = .false.
+  TYPE(tMeltConvergenceMonitor) :: MeltMonitor
   
 END TYPE tSigma
 
@@ -728,6 +751,7 @@ TYPE tSetup
  Logical :: bPressureConvergence= .FALSE.
  LOGICAL :: bAutomaticTimeStepControl = .TRUE.,bRotationalFramOfReference=.FALSE.
  LOGICAL :: bConvergenceEstimator=.FALSE.
+ LOGICAL :: bConstantMesh = .FALSE.
  REAL*8 :: CharacteristicShearRate=1d1
  CHARACTER*200 cMeshPath
  CHARACTER*20 cMesher

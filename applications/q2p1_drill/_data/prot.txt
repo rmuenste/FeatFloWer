@@ -1,0 +1,198 @@
+
+  ====================================================================================================
+  |                                                                                                  |
+  |          Parellel Q2/P1 FEM Fluid Dynamics code          FeatFloWer                              |
+  |                                                                                                  |  
+  |                                                          Version:22.01  Date:2022.02.02          |  
+  |                                                                                                  |
+  |          Developed by:                                   Otto Mierka, Raphael Münster            |
+  |          under the supervision of:                       Stefan Turek and Dmitri Kuzmin          |
+  |          additional contributions from:                  Robert Jendrny, Christoph Lohmann       |
+  |                                                          Tatiana Theis, Malte Schuh              |
+  |                                                          Michael Fast                            |
+  |                                                                                                  |
+  |          Developed at:                                                                           |
+  |                                                                                                  |
+  |                                                                                                  |
+  |               #####   #    #         ###     ###   ###   ##### #   #  #    #  #   #  ###         |
+  |                 #     #    #         #  #   #   #  #  #    #   ## ##  #    #  ##  #  #  #        |
+  |                 #     #    #   ###   #   #  #   #  ###     #   # # #  #    #  # # #  #   #       |
+  |                 #     #    #         #  #   #   #  #  #    #   #   #  #    #  #  ##  #  #        |
+  |                 #      ####          ###     ###   #   #   #   #   #   ####   #   #  ###         |
+  |                                                                                                  |
+  |                                                                                                  |
+  |                                                                     Chair of Mathematics III     |
+  |                                                             Applied Mathematics and Numerics     |
+  |                                                                             Vogelopthsweg 87     |
+  |                                                                               Dortmund 44225     |
+  |                                                                                                  |
+  |          Based on FeatFlow (c)     see also: http://www.featflow.de                              |
+  |          Correspondance:                                                                         |
+  |          otto.mierka@math.tu-dortmund.de, stefan.turek@math.tu-dortmund.de                       |
+  |                                                                                                  |
+  ====================================================================================================
+
+CommSwitch =   3
+aSynchComm = NO
+nSubCoarseMesh =          4
+ParticleFile = _data/particles.dat           
+ProjectFile = drilling/drill.prj
+StartingProc = 0
+StartFile = _dump/04                                                    
+SolFile = _sol/1/mySol001                                             
+MinMeshLevel = 1
+MaxMeshLevel = 2
+TimeScheme =   0.5000D+00
+TimeStep =   0.1000D-02
+TimeAdaptivity = 0
+MinTimeAdapt =   0.1000D-03
+MaxTimeAdapt =   0.5000D-01
+StartSimTime =   0.0000D+00
+MaxSimTime =   0.8000D+01
+MaxNumStep =          3
+BackUpFreq =        100
+BackUpNum =         10
+OutputFreq =   0.1000D-02
+ElemTransform = Q1
+Matrix Renewal scheme :   M = 1, D = 1, K = 3, S = 0, C = 1
+No Initial Mesh Adaptation
+Stabilization of Navier-Stokes is ::  OFF
+Number of Initial Umbrella smoothening steps         0
+Number of Umbrella smoothening steps:          0
+Number of Umbrella Loops:          0
+Number of Umbrella steps per levels:          0         0         0         0         0         0         0         0         0
+BoundaryCheck is OFF
+Newtonian FAC Benchamrk params (U,H,D) :     2.0000E-01    5.0000E-02    1.0000E-01
+Viscoelastic Benchamrk params (Sc_U,Sc_Mu,Sc_a) :     1.0000E+00    1.0000E+00    1.0000E+00
+FlowType = Newtonian
+GammaDot =   0.0000D+00
+AlphaRelax =   0.0000D+00
+RadParticle =   0.1000D+01
+Mesh Prolongation is set to  = STANDARD
+CGALtoRealFactor =   0.1000D+01
+Exporting into 'VTK' on level:   3 Fields: '[Pressure_V][Velocity][Viscosity_E][Viscosity][Mixer][Monitor]'
+Velo - defCrit = 0.10000000E-03      
+Velo - MinDef = 0.10000000E-08      
+Velo - NLmin = 2                   
+Velo - NLmax = 5                   
+Velo - Alpha = 0.10000000E+01      
+Velo - MGMinLev = 1                   
+Velo - MGMedLev = 1                   
+Velo - MGMinIterCyc = 1                   
+Velo - MGMaxIterCyc = 5                   
+Velo - MGSmoothSteps = 3                   
+Velo - MGIterCoarse = 25                  
+Velo - MGCrsSolverType = 1                   
+Velo - MGDefImprCoarse = 0.10000000E+00      
+Velo - MGCriterion1 = 0.90000000E-01      
+Velo - MGCriterion2 = 0.90000000E-01      
+Velo - MGCycType = F
+Velo - MGRelaxPrm = 0.60000000E+00      
+Velo - MGMaxLev = 2                   
+Pres - MGMinLev = 1                   
+Pres - MGMedLev = 1                   
+Pres - MGMinIterCyc = 2                   
+Pres - MGMaxIterCyc = 20                  
+Pres - MGSmoothSteps = 3                   
+Pres - MGIterCoarse = 799                 
+Pres - MGDefImprCoarse = 0.10000000E-02      
+Pres - MGCriterion1 = 0.10000000E-02      
+Pres - MGCriterion2 = 0.10000000E-05      
+Pres    - MGCycType = F
+Pres - MGCrsSolverType = 4                   
+      ILEV       NVT       NAT       NEL       NET      NDOF
+         1      1519      3636      1080      4074     10309
+         2     10309     27504      8640     29172     75625
+
+ time for grid initialization :   0.48003199696540833     
+
+-----------------------------------------------      Prop-----------------------------------------------
+Prop    - ForceScale =   0.00000000E+00  0.00000000E+00  0.40000000E+01  0.00000000E+00  0.00000000E+00  0.00000000E+00
+Prop    - Gravity =   0.00000000E+00  0.00000000E+00  0.00000000E+00
+Prop    - Density =   0.10000000E+04  0.30000000E+02
+Prop    - Viscosity =   0.10000000E-02  0.10000000E+01
+Prop    - DiffCoeff =   0.10000000E-03  0.10000000E-03
+Prop    - PowerLawExp =   0.10000000E+01
+-----------------------------------------------      Prop-----------------------------------------------
+--------------------------------------------------------------------------------------------------------
+INL   ResVelo_U   ResVelo_V   ResVelo_W     DefVelo GlobDefVelo nMGcycItVelo nMGcrsItVelo  MGRatesVelo 
+--------------------------------------------------------------------------------------------------------
+  0  0.0000D+00  0.0000D+00  0.0000D+00  0.1000D-31  0.1000D-08*
+   0   0.000       1.000    
+  1  0.0000D+00  0.0000D+00  0.0000D+00  0.1000D-31  0.1000D-31        0            0       0.0000D+00
+   0   0.000       1.000    
+  2  0.0000D+00  0.0000D+00  0.0000D+00  0.1000D-31  0.1000D-31        0            0       0.0000D+00
+   0   0.000       1.000    
+--------------------------------------------------------------------------------------------------------
+    nMGcycPres   DefInitPres  DefFinalPres CoarseItePres    RhoMGNPres    RhoMGAPres
+--------------------------------------------------------------------------------------------------------
+XxX             0   0.0000D+00   0.0000D+00            0   0.0000D+00   0.0000D+00 1
+--------------------------------------------------------------------------------------------------------
+Force:            Time            C_D            C_L        ForceVx        ForceVy        ForcePx        ForcePy
+Force:   1.0000000E-03  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00
+BenchForce:   1.0000000E-03  0.0000000E+00  0.0000000E+00
+--------------------------------------------------------------------------------------------------------
+ForcesOnSurfInt:   0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+Shear Stress acting on top wall:     1.0000E-03    0.0000E+00    0.0000E+00    0.0000E+00
+========================================================================================================
+time:  0.1000D-02/  0.8000D+01 | itns:       1/       3  | dt:  0.1000D-02
+========================================================================================================
+--------------------------------------------------------------------------------------------------------
+INL   ResVelo_U   ResVelo_V   ResVelo_W     DefVelo GlobDefVelo nMGcycItVelo nMGcrsItVelo  MGRatesVelo 
+--------------------------------------------------------------------------------------------------------
+  0  0.0000D+00  0.0000D+00  0.2182D+25  0.2182D-07  0.1000D-08*
+   0  0.2265E-07   1.000    
+   1  0.8328E-13  0.3677E-05 |    25 |    3
+  1  0.0000D+00  0.0000D+00  0.1051D+27  0.1051D-05  0.1487D-05        1           25       0.3677D-05
+   0  0.1487E-05   1.000    
+   1  0.5608E-11  0.3772E-05 |    25 |    3
+  2  0.0000D+00  0.0000D+00  0.1186D+22  0.1186D-10  0.1605D-10        1           25       0.3772D-05
+   0   1.969       1.000    
+   1  0.6761E-01  0.3435E-01 |     1 |    3
+   2  0.7464E-02  0.3791E-02 |     1 |    3
+   3  0.9548E-03  0.4850E-03 |     1 |    3
+   4  0.1266E-03  0.6433E-04 |     1 |    3
+--------------------------------------------------------------------------------------------------------
+    nMGcycPres   DefInitPres  DefFinalPres CoarseItePres    RhoMGNPres    RhoMGAPres
+--------------------------------------------------------------------------------------------------------
+XxX             4   0.1969D+01   0.1266D-03            1   0.8956D-01   0.1303D+00 2
+--------------------------------------------------------------------------------------------------------
+Force:            Time            C_D            C_L        ForceVx        ForceVy        ForcePx        ForcePy
+Force:   2.0000001E-03  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00
+BenchForce:   2.0000001E-03  0.0000000E+00  0.0000000E+00
+--------------------------------------------------------------------------------------------------------
+ForcesOnSurfInt:   0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+Shear Stress acting on top wall:     2.0000E-03    0.0000E+00    0.0000E+00    0.0000E+00
+========================================================================================================
+time:  0.2000D-02/  0.8000D+01 | itns:       2/       3  | dt:  0.1000D-02
+========================================================================================================
+--------------------------------------------------------------------------------------------------------
+INL   ResVelo_U   ResVelo_V   ResVelo_W     DefVelo GlobDefVelo nMGcycItVelo nMGcrsItVelo  MGRatesVelo 
+--------------------------------------------------------------------------------------------------------
+  0  0.9533D-01  0.1436D+00  0.2062D+00  0.6814D-01  0.3329D-04*
+   0  0.9753E-01   1.000    
+   1  0.2752E-06  0.2822E-05 |    25 |    3
+  1  0.5385D-06  0.8663D-06  0.6374D-05  0.2106D-05  0.2520D-05        1           25       0.2822D-05
+   0  0.2547E-05   1.000    
+   1  0.1032E-10  0.4050E-05 |    25 |    3
+  2  0.8528D-11  0.1489D-10  0.1056D-09  0.3487D-10  0.4961D-10        1           25       0.4050D-05
+   0   1.940       1.000    
+   1  0.3559E-01  0.1835E-01 |     1 |    3
+   2  0.3766E-02  0.1941E-02 |     1 |    3
+   3  0.4420E-03  0.2279E-03 |     1 |    3
+   4  0.5547E-04  0.2859E-04 |     1 |    3
+--------------------------------------------------------------------------------------------------------
+    nMGcycPres   DefInitPres  DefFinalPres CoarseItePres    RhoMGNPres    RhoMGAPres
+--------------------------------------------------------------------------------------------------------
+XxX             4   0.1940D+01   0.5547D-04            1   0.7312D-01   0.1214D+00 3
+--------------------------------------------------------------------------------------------------------
+Force:            Time            C_D            C_L        ForceVx        ForceVy        ForcePx        ForcePy
+Force:   3.0000001E-03  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00  0.0000000E+00
+BenchForce:   3.0000001E-03  0.0000000E+00  0.0000000E+00
+--------------------------------------------------------------------------------------------------------
+ForcesOnSurfInt:   0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+Shear Stress acting on top wall:     3.0000E-03    0.0000E+00    0.0000E+00    0.0000E+00
+========================================================================================================
+time:  0.3000D-02/  0.8000D+01 | itns:       3/       3  | dt:  0.1000D-02
+========================================================================================================
+ PP3D_LES has successfully finished. 

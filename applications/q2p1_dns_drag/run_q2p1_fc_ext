@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#PyPartitioner 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
+#python /home/user/rmuenste/bin/PyPartitioner.py 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj 
+
+python /home/rafa/bin/PyPartitioner.py 4 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj 
+
+#mpirun -np 5 ./q2p1_fc_ext >/dev/null 2>/dev/null
+mpirun -np 5 ./q2p1_fc_ext #>/dev/null 2>/dev/null
+#cp _data/prot.txt fac_new_prot.txt
+echo "Test Results" >> ./results.txt
+echo "Newtonian: Drag Lift" >> ./results.txt
+grep 'Force acting' _data/prot.txt | tail -1 | awk '{print ""$7" "$8""}' >> ./results.txt

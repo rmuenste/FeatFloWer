@@ -154,6 +154,7 @@ END SUBROUTINE TimeStepCtrl
 ! ----------------------------------------------
 !
 subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
+ USE ProcCtrl_mod, ONLY: ProcessControl
 
 include 'defs_include.h'
 

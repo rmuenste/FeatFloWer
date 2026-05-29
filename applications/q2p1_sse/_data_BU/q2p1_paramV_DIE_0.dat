@@ -1,5 +1,6 @@
 ----------- Simulation Parameters --------------
-SimPar@aSynchComm = yes
+SimPar@PartitionFormat=json
+SimPar@aSynchComm = Yes
 SimPar@CommSwitch = 3
 SimPar@MeshFolder = "NEWFAC"
 SimPar@SubMeshNumber = 1                                               ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
@@ -35,7 +36,7 @@ SimPar@FlowType = nonNewtonian                                              ! Ne
 SimPar@Tracer = No                                                      ! Yes
 SimPar@bViscoElastic = No                                               ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar"
+SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar,Temperature"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ----------------- Velocity --------------------
@@ -70,7 +71,7 @@ Pres@MGDefImprCoarse = 1d-3
 Pres@MGCriterion1 = 1d-2
 Pres@MGCriterion2 = 1d-3
 Pres@MGCycType = F
-Pres@MGCrsSolverType = 7
+Pres@MGCrsSolverType = 8
 ----------------- LinSc ---------------------
 Temper@NLmin             = 4
 Temper@NLmax             = 5

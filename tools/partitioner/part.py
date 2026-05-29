@@ -2,18 +2,17 @@
 # -*- coding: utf-8 -*-
 
 # Alles was man zum Laden von Metis benötigt
-from ctypes import CDLL, c_int, POINTER, byref
+from ctypes import CDLL, c_int, c_float, POINTER, byref
 
 #from future.standard_library import install_aliases
 #install_aliases()
 
 from functools import reduce
 
-from six.moves import zip
-
 from itertools import repeat, count
 
 from collections import Counter
+import json
 
 from math import sqrt
 import os
@@ -22,6 +21,153 @@ from shutil import copy
 
 metis=None
 metis_func=[]
+PARTITION_FORMAT = "legacy"
+JSON_WRITER = None
+BASE_OUTPUT_PATH = None
+GRID_CACHE = {}
+PAR_CACHE = {}
+
+def cache_grid_data(path, grid):
+  GRID_CACHE[os.path.abspath(path)] = grid
+
+def cache_par_data(path, par_data):
+  PAR_CACHE[os.path.abspath(path)] = par_data
+
+
+class JsonPartitionWriter:
+  def __init__(self, base_path):
+    self.base_path = base_path
+    self.files = {}
+
+  def _get_file_entry(self, source_name, file_type):
+    entry = self.files.get(source_name)
+    if entry is None:
+      entry = {
+        "type": file_type,
+        "master": None,
+        "subs": {},
+      }
+      self.files[source_name] = entry
+    return entry
+
+  def _classify_path(self, rel_path):
+    normalized = rel_path.replace("\\", "/")
+    parts = normalized.split("/")
+    if len(parts) > 1 and parts[0].startswith("sub") and parts[0][3:].isdigit():
+      return parts[0], "/".join(parts[1:])
+    return None, normalized
+
+  def add_grid(self, source_name, rel_path, grid):
+    entry = self._get_file_entry(source_name, "tri")
+    (nel, nvt, coord, kvert, knpr) = grid
+    payload = {
+      "nel": nel,
+      "nvt": nvt,
+      "dcorvg": [list(node) for node in coord],
+      "kvert": [list(elem) for elem in kvert],
+      "knpr": list(knpr),
+    }
+    sub_key, remainder = self._classify_path(rel_path)
+    if sub_key is None:
+      entry["master"] = payload
+    else:
+      sub_bucket = entry["subs"].setdefault(sub_key, {"coarse": None, "parts": {}})
+      normalized = self._normalize_part_name(source_name, remainder)
+      if normalized.lower() == source_name.lower():
+        sub_bucket["coarse"] = payload
+      else:
+        sub_bucket["parts"][normalized] = payload
+
+  def add_par(self, source_name, rel_path, par_type, parameter, boundary):
+    entry = self._get_file_entry(source_name, "par")
+    cleaned = parameter
+    if len(cleaned) >= 2 and cleaned[0] == "'" and cleaned[-1] == "'":
+      cleaned = cleaned[1:-1]
+    payload = {
+      "type": par_type,
+      "parameter": cleaned,
+      "nodes": list(boundary),
+    }
+    sub_key, remainder = self._classify_path(rel_path)
+    base_name = os.path.basename(source_name)
+    normalized = self._normalize_part_name(base_name, remainder)
+    if sub_key is None:
+      entry["master"] = payload
+    else:
+      sub_bucket = entry["subs"].setdefault(sub_key, {"coarse": None, "parts": {}})
+      if normalized.lower() == base_name.lower():
+        sub_bucket["coarse"] = payload
+      else:
+        sub_bucket["parts"][normalized] = payload
+
+  def write_files(self):
+    for source_name, payload in self.files.items():
+      out_path = os.path.join(self.base_path, "%s.json" % source_name)
+      tmp_path = out_path + ".tmp"
+      data = {
+        "format": "FeatFloWerPartition",
+        "version": 1,
+        "source": source_name,
+        "kind": payload["type"],
+        "master": payload["master"],
+        "subs": payload["subs"],
+      }
+      with open(tmp_path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+      os.replace(tmp_path, out_path)
+
+    try:
+      dir_fd = os.open(self.base_path, os.O_RDONLY)
+    except OSError:
+      return
+    try:
+      os.fsync(dir_fd)
+    finally:
+      os.close(dir_fd)
+
+  def _normalize_part_name(self, base_name, remainder):
+    if remainder is None:
+      return remainder
+    if "/" in remainder or "\\" in remainder:
+      return remainder
+    base_root, base_ext = os.path.splitext(base_name)
+    rem_root, rem_ext = os.path.splitext(remainder)
+    if rem_ext.lower() != base_ext.lower():
+      return remainder
+    suffix_start = len(rem_root)
+    while suffix_start > 0 and rem_root[suffix_start - 1].isdigit():
+      suffix_start -= 1
+    if suffix_start == len(rem_root):
+      return remainder
+    suffix = rem_root[suffix_start:]
+    prefix = rem_root[:suffix_start]
+    if prefix.lower()[:len(base_root)] != base_root.lower():
+      return remainder
+    extra = prefix[len(base_root):]
+    if extra not in ("", "_"):
+      return remainder
+    if not suffix:
+      return remainder
+    return f"{base_root}.{suffix}{base_ext}"
+
+
+def init_partition_output(base_path, partition_format):
+  global PARTITION_FORMAT, JSON_WRITER, BASE_OUTPUT_PATH, GRID_CACHE, PAR_CACHE
+  PARTITION_FORMAT = partition_format
+  BASE_OUTPUT_PATH = base_path
+  if PARTITION_FORMAT == "json":
+    JSON_WRITER = JsonPartitionWriter(base_path)
+  else:
+    JSON_WRITER = None
+  GRID_CACHE = {}
+  PAR_CACHE = {}
+
+
+def finalize_partition_output():
+  if JSON_WRITER is not None:
+    JSON_WRITER.write_files()
 
 #Kleine private Hilfsroutinen
 def _readAfterKeyword(fh,keyword):
@@ -81,6 +227,9 @@ def GetGrid(GridFileName):
     Liest ein Gitter aus der Datei "GridFileName".
     Der Rückgabewert hat die Struktur: (NEL,NVT,Coord,KVert,Knpr)
     """
+    abs_name = os.path.abspath(GridFileName)
+    if PARTITION_FORMAT == "json" and abs_name in GRID_CACHE:
+        return GRID_CACHE[abs_name]
     print("Grid input file: '%s'" % GridFileName)
     f=open(GridFileName,'r')
     f.readline()
@@ -115,6 +264,9 @@ def GetPar(ParFileName,NVT):
     bestimmt zudem die Länge der Randliste.
     Rückgabe: (Name des Randes, Daten des Randes, Boolsche Liste für alle Knoten)
     """
+    abs_name = os.path.abspath(ParFileName)
+    if PARTITION_FORMAT == "json" and abs_name in PAR_CACHE:
+        return PAR_CACHE[abs_name]
     print("Parameter input file: '%s'" % ParFileName)
     with open(ParFileName,'r') as f:
         g=f.readline().split()
@@ -169,42 +321,52 @@ def GetParts(Neigh,nPart,Method):
   # mit 0 Elementen und mehr als einem Element erzeugt.
   if len(Neigh)<=nPart:
     return GetAtomicSplitting(len(Neigh))
-  # Ein paar Einstellungsparameter
-  cOpts=(c_int * 5)(0,100,4,1,1)
-  cNum=c_int(1) # Nummerierung beginnt mit 1
-  cWeight=c_int(0) # Keine Gewichte
 
   # Zähle alle nichtnull Elemente der Nachbarschaftsliste
-  iCount=sum(list(map(lambda x: list(map(lambda y: bool(y),x)).count(True),Neigh)))
+  iCount=sum(sum(1 for y in x if y) for x in Neigh)
 
   # Alloziere die Listen MetisA, MetisB und Part
   NEL=len(Neigh)
   MetisA=(c_int * (NEL+1))()
   MetisB=(c_int * iCount)()
   Part=(c_int * NEL)()
-  # Baue die komprimierte Graphenstruktur auf
-  iOffset=1
+
+  # Baue die komprimierte Graphenstruktur auf (0-basiert, METIS 5 erwartet C-Indizierung)
+  iOffset=0
   for (Idx,Elem_Neigh) in enumerate(Neigh):
     MetisA[Idx]=iOffset
     for iNeigh in Elem_Neigh:
       if iNeigh:
-        MetisB[iOffset-1]=iNeigh
+        MetisB[iOffset]=iNeigh-1  # 1-basierte Elementnummern → 0-basiert
         iOffset+=1
-  MetisA[NEL]=iCount+1
-  # Rufe Metis auf
-  null_ptr = POINTER(c_int)()
-  cNEL=c_int(NEL)
-  cnPart=c_int(nPart)
-  EdgeCut=c_int()
-  print("Calling Metis...")
-  metis_func[Method-1](byref(cNEL),MetisA,MetisB,null_ptr,null_ptr,\
-                       byref(cWeight),byref(cNum),byref(cnPart),cOpts,\
-                       byref(EdgeCut),Part)
-  print("%d edges were cut by Metis." % EdgeCut.value)
-  # Fertig
-  return tuple(Part)
+  MetisA[NEL]=iCount
 
-def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
+  # METIS 5 Aufrufparameter
+  # Signatur: (nvtxs, ncon, xadj, adjncy, vwgt, vsize, adjwgt,
+  #            nparts, tpwgts, ubvec, options, edgecut, part)
+  cNEL    = c_int(NEL)
+  cNcon   = c_int(1)   # eine Balancierungsbedingung
+  cnPart  = c_int(nPart)
+  EdgeCut = c_int()
+
+  # Method 1 → METIS_PartGraphRecursive
+  # Method 2 or 3 → METIS_PartGraphKway (VKway aus METIS 5 entfernt)
+  func_idx = 0 if Method == 1 else 1
+  print("Calling Metis...")
+  metis_func[func_idx](
+    byref(cNEL), byref(cNcon),
+    MetisA, MetisB,
+    None, None, None,  # vwgt, vsize, adjwgt (keine Gewichte)
+    byref(cnPart),
+    None, None,        # tpwgts, ubvec (gleichmäßige Aufteilung, Standardtoleranz)
+    None,              # options=NULL → METIS verwendet interne Standardwerte
+    byref(EdgeCut), Part)
+  print("%d edges were cut by Metis." % EdgeCut.value)
+
+  # METIS 5 liefert 0-basierte Partitions-IDs; konvertiere zu 1-basiert
+  return tuple(p+1 for p in Part)
+
+def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub,sourceName="GRID.tri"):
   face=((0,1,2,3),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7))
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
@@ -241,7 +403,9 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
       localGridName=os.path.join(BaseName,"GRID%04d.tri"%iPart)
     else:
       localGridName=os.path.join(BaseName,"sub%04d"%iPart,"GRID.tri")
-    OutputGrid(localGridName,localGrid)
+    OutputGrid(localGridName,localGrid,sourceName=sourceName)
+    if PARTITION_FORMAT == "json":
+      cache_grid_data(localGridName, localGrid)
 
     ###
 
@@ -255,23 +419,42 @@ def GetSubs(BaseName,Grid,nPart,Part,Neigh,nParFiles,Param,bSub):
       # dann gehoert er dort auch zur Randparametrisierung
       localBoundary=[LookUp[i] for i in (Boundaries[iPar]&localRestriktion)]
       localBoundary.sort()
-      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary)
+      baseParName="%s.par"%ParNames[iPar]
+      OutputParFile(localParName,ParTypes[iPar],Parameters[iPar],localBoundary,source_name=baseParName)
+      if PARTITION_FORMAT == "json":
+        cache_par_data(localParName, (ParTypes[iPar],Parameters[iPar],set(localBoundary)))
 
 def _build_line_by_format_list(format,L,sep=" "):
   return sep.join(map(lambda x: format % (x,),L))+"\n"
 
-def OutputParFile(Name,Type,Parameters,Boundary):
+def OutputParFile(Name,Type,Parameters,Boundary,source_name=None):
   #print("Output parameter file: " + Name)
+  if PARTITION_FORMAT == "json":
+    if JSON_WRITER is None or BASE_OUTPUT_PATH is None:
+      raise RuntimeError("JSON writer not initialised")
+    rel_path = os.path.relpath(Name, BASE_OUTPUT_PATH)
+    entry_name = source_name if source_name is not None else os.path.basename(Name)
+    JSON_WRITER.add_par(entry_name, rel_path, Type, Parameters, Boundary)
+    cache_par_data(Name, (Type, Parameters, set(Boundary)))
+    return
   with open(Name,"w") as f:
     f.write("%d %s\n"%(len(Boundary),Type))
     f.write(Parameters+"\n")
     f.write(_build_line_by_format_list("%d",Boundary,"\n"))
   pass
 
-def OutputGrid(Name,Grid):
+def OutputGrid(Name,Grid,sourceName=None):
   # Auspacken der Gitterstruktur in einzelne Variablen
   (nel,nvt,coord,kvert,knpr)=Grid
   #print("Output grid file: " + Name)
+  if PARTITION_FORMAT == "json":
+    if JSON_WRITER is None or BASE_OUTPUT_PATH is None:
+      raise RuntimeError("JSON writer not initialised")
+    rel_path = os.path.relpath(Name, BASE_OUTPUT_PATH)
+    entry_name = sourceName if sourceName is not None else os.path.basename(Name)
+    JSON_WRITER.add_grid(entry_name, rel_path, Grid)
+    cache_grid_data(Name, Grid)
+    return
   with open(Name,'w') as f:
     f.write("Coarse mesh exported by Partitioner\n")
     f.write("Parametrisierung PARXC, PARYC, TMAXC\n")
@@ -367,16 +550,36 @@ else:
 if metis==None:
   sys.exit("Could not load the Metis library!")
 
-# Füge Aufrufparameter von den drei verwendeten Metis-Funktionen hinzu
-_pidx=POINTER(c_int)
-_pint=POINTER(c_int)
-_PartArgs=(_pint,_pidx,_pidx,_pidx,_pidx,_pint,_pint,_pint,_pint,_pint,_pidx)
-metis.METIS_PartGraphRecursive.argtypes=_PartArgs
-metis.METIS_PartGraphVKway.argtypes=_PartArgs
-metis.METIS_PartGraphKway.argtypes=_PartArgs
-metis_func=(metis.METIS_PartGraphRecursive,metis.METIS_PartGraphVKway,metis.METIS_PartGraphKway)
+# METIS 5 Signatur:
+# (nvtxs*, ncon*, xadj*, adjncy*, vwgt*, vsize*, adjwgt*,
+#  nparts*, tpwgts*, ubvec*, options*, edgecut*, part*)
+# real_t is float (REALTYPEWIDTH 32 in metis.h)
+_pidx  = POINTER(c_int)
+_preal = POINTER(c_float)
+_PartArgs = (
+  _pidx,   # nvtxs
+  _pidx,   # ncon
+  _pidx,   # xadj
+  _pidx,   # adjncy
+  _pidx,   # vwgt
+  _pidx,   # vsize
+  _pidx,   # adjwgt
+  _pidx,   # nparts
+  _preal,  # tpwgts
+  _preal,  # ubvec
+  _pidx,   # options
+  _pidx,   # edgecut
+  _pidx,   # part
+)
+metis.METIS_PartGraphRecursive.argtypes = _PartArgs
+metis.METIS_PartGraphKway.argtypes      = _PartArgs
+# METIS 5 removed METIS_PartGraphVKway; Methods 2 and 3 both map to Kway.
+metis_func = (
+  metis.METIS_PartGraphRecursive,  # Method 1
+  metis.METIS_PartGraphKway,       # Method 2 (formerly VKway)
+  metis.METIS_PartGraphKway,       # Method 3
+)
 
 if __name__=="__main__":
   if metis!=None:
     print("Metis has been loaded.")
-

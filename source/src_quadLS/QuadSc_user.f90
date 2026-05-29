@@ -50,6 +50,7 @@ REAL*8 :: RX = 0.0d0,RY = 0.0d0,RZ = 0.0d0, RAD = 0.245d0
 REAL*8 :: R_inflow=4d0
 REAL*8 :: PI=3.141592654d0
 
+!ValU = Z * 10.0 
 ValU = 0d0 
 ValV = 0d0
 ValW = 0d0
@@ -99,7 +100,7 @@ RETURN
 END SUBROUTINE GetVeloInitVal
 !---------------------------------------------------
 SUBROUTINE GetVeloBCVal(X,Y,Z,ValU,ValV,ValW,iT,t)
-use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot
+use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM, FluidizationVelocity
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
@@ -127,10 +128,28 @@ ValU = 0d0
 ValV = 0d0
 ValW = 0d0
 
+! Rectangular duct inflow profile:
+! U(0,y,z) = 16*U_m*y*z*(H-y)*(H-z)/H^4, V = 0, W = 0 with H = 0.41
+! Free inflow identifier: 975
+IF (iT.EQ.22) THEN
+  ValU = 16d0*0.45d0*Y*Z*(0.41d0-Y)*(0.41d0-Z)/(0.41d0**4d0)
+  ValV = 0d0
+  ValW = 0d0
+END IF
+
+
 IF (iT.EQ.23) THEN
- ValU= GammaDot
+ ValU= 0.0d0 
  ValV= 0d0
  ValW= 0d0
+END IF
+
+IF (iT.EQ.300) THEN
+U_bar = 150
+dScale=  U_bar / (0.1**2D0)!*(6D0/(0.010d0*0.010d0))
+ValU= dScale*Z*(0.2d0-Z)
+ValV= 0d0
+ValW= 0d0
 END IF
 
 IF (iT.lt.0) THEN
@@ -384,8 +403,7 @@ END IF
 ! But we hack it to be faster
 !IF (iT.EQ.773) THEN
 IF (iT.EQ.771) THEN
-  !dRPM = 12d0
-  dRPM = 40d0
+  dRPM = RPM
   ValU =  -myTwoPI*Y*(dRPM/6d1)
   ValV =   myTwoPI*X*(dRPM/6d1)
   ! one rotation takes 1min=60s ==> in one roatation the translation is 0.193*4=0.772cm ==> translation velocity is 0.772cm/min = 0.772cm/60s
@@ -623,16 +641,16 @@ IF (iT.EQ.21) THEN
  END IF
 END IF
 
-IF (iT.EQ.22) THEN
- R_inflow = 0.3d0
- dist = SQRT((x-5.5)**2d0 + (y-0.01)**2d0 + (z+0.84)**2d0)
- IF (dist.lt.R_inflow) THEN
-  dScale = 5.0d0/R_inflow*R_inflow
-  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
-  ValV=  0d0
-  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
- END IF
-END IF
+!IF (iT.EQ.22) THEN
+! R_inflow = 0.3d0
+! dist = SQRT((x-5.5)**2d0 + (y-0.01)**2d0 + (z+0.84)**2d0)
+! IF (dist.lt.R_inflow) THEN
+!  dScale = 5.0d0/R_inflow*R_inflow
+!  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+!  ValV=  0d0
+!  ValU= -0.5d0*dScale*(dist+R_inflow)*(R_inflow-dist)
+! END IF
+!END IF
 
 !Aneurysm Case 1
 IF (iT.EQ.33) THEN
@@ -842,6 +860,15 @@ IF (iT.EQ.87) THEN
 !  ValW = dNz*dScale
 END IF
 
+IF (iT.EQ.231) THEN
+ dCenter=[-5.98,12.922,5.30]
+ dNormal=[0.396,-0.821,-0.411]
+ dProfil = RotParabolicVelo3D(1d0,1d0,0.95d0)
+ ValU = dProfil(1)
+ ValV = dProfil(2)
+ ValW = dProfil(3)
+END IF
+
 IF (iT.EQ.171) THEN
    dScale = 2.25d0*(Y)*(Y-0.1d0)*(Z)*(Z-0.1d0)/(0.05d0**4d0)
    ValU= +dScale*900d0
@@ -884,9 +911,38 @@ IF (iT.EQ.99) THEN
  ValW = -myFBM%ParticleNew(1)%Velocity(3)
 END IF
 
+! Fluidization inflow profile (z-only) with parabolic ramp in x and y.
+! Free inflow identifier: 974
+IF (iT.EQ.974) THEN
+ ValU = 0d0
+ ValV = 0d0
+ ValW = inflow_velocity_xy_profile(X, Y, FluidizationVelocity, 20.3d0, 0.686d0, 0.1d0)
+END IF
+
 RETURN
 
  CONTAINS
+pure function ramp_1d_profile(coord, L, delta) result(r)
+ real*8, intent(in) :: coord, L, delta
+ real*8 :: r, wall_dist, d
+
+ wall_dist = min(coord, L - coord)
+ if (wall_dist < delta) then
+  d = wall_dist / delta
+  r = 2d0 * d - d * d
+ else
+  r = 1d0
+ end if
+end function ramp_1d_profile
+
+pure function inflow_velocity_xy_profile(x, y, v_fluidization, Lx, Ly, delta) result(v)
+ real*8, intent(in) :: x, y
+ real*8, intent(in) :: v_fluidization, Lx, Ly, delta
+ real*8 :: v
+
+ v = v_fluidization * ramp_1d_profile(x, Lx, delta) * ramp_1d_profile(y, Ly, delta)
+end function inflow_velocity_xy_profile
+
 include '../include/ProfileFunctions.f90'
 
 END SUBROUTINE GetVeloBCVal
@@ -1070,7 +1126,10 @@ END IF
 
 !PowerLaw
 IF (myRheology%Equation.EQ.2) THEN
- VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+! VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+ !! here comes an update for a powerlaw normalization towards Carraeu
+ myRheology%A = myRheology%K*(myRheology%eta_min**(-1d0-myRheology%C))
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 !POLYFLOW carreau
@@ -1194,7 +1253,10 @@ END IF
 
 !PowerLaw
 IF (myRheology%Equation.EQ.2) THEN
- VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+! VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+ !! here comes an update for a powerlaw normalization towards Carraeu
+ myRheology%A = myRheology%K*(myRheology%eta_min**(-1d0-myRheology%C))
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 !POLYFLOW carreau

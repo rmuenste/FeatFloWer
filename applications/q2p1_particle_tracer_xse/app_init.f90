@@ -15,6 +15,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE def_FEAT
  USE PP3D_MPI
  USE MESH_Structures
+ USE param_parser, ONLY: GDATNEW
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc

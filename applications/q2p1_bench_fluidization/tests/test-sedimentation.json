@@ -1,0 +1,110 @@
+{
+    "TestConfiguration": {
+        "DetailedConfiguration": {
+            "meshFolderPath": "_adc/benchSym",
+            "meshProjectFile": "_adc/benchSym/bench.prj",
+            "testDataFile": "_adc/benchSym/q2p1_param.dat",
+            "testBinaryName": "q2p1_bench_fluidization",
+            "testNoteName": "sedimentation-bench",
+            "testLevels": "1",
+            "processorCount": "16"
+        },
+        "DashBoardConfiguration": {
+            "name": "conf1",
+            "DashBoardAttributes": {
+                "benchName": "BENCHSED",
+                "DashBoardData": {
+                    "benchKeyword": "PartVel:",
+                    "DataValues": {
+                        "count": "2",
+                        "value": [
+                            "1",
+                            "2"
+                        ]
+                    }
+                },
+                "DashBoardVisualization": {
+                    "name": "Vis1",
+                    "type": "table",
+                    "DashBoardTable": {
+                        "Tables": [{
+                            "DataGenerator": {
+                                "benchKeyword": "PartVel:",
+                                "DataValues": {
+                                    "count": "2",
+                                    "value": [
+                                        "4",
+                                        "3"
+                                    ]
+                                }
+                            },
+                            "benchName": "BENCHSED",
+                            "tableCaption": "Sedimentation Benchmark",
+                            "data": {
+                                "cols": [{
+                                        "label": "Level",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Drag",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Lift",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Time[s]",
+                                        "type": "number"
+                                    }
+                                ]
+                            }
+                        }]
+                    },
+                    "DashBoardDiagramm": {
+                        "Diagramms": [{
+                            "DataGenerator": {
+                                "benchKeyword": "PartVel:",
+                                "DataValues": {
+                                    "count": "2",
+                                    "value": [
+                                        "4",
+                                        "3"
+                                    ]
+                                }
+                            },
+                            "type": "GoogleAPILineChart",
+                            "Caption": "Sedimentation Benchmark",
+                            "data": {
+                                "cols": [{
+                                        "label": "Time[s]",
+                                        "type": "number"
+                                    },
+                                    {
+                                        "label": "Z-Velocity",
+                                        "type": "number"
+                                    }
+                                ],
+                                "rows": [{
+                                        "c": [{
+                                            "v": 0
+                                        }, {
+                                            "v": 0
+                                        }]
+                                    },
+                                    {
+                                        "c": [{
+                                            "v": 1
+                                        }, {
+                                            "v": 1
+                                        }]
+                                    }
+                                ]
+                            }
+                        }]
+                    }
+                }
+            }
+        }
+    }
+}

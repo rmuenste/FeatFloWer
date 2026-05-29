@@ -23,7 +23,7 @@ contains
     type(t_parlist) :: parameterlist
 
     character(len=256) :: tmpstring,cSeg,cInitType,cInitTypeUpper
-    integer :: i, numberOfElements,ierr
+    integer :: i, numberOfElements,ierr,iLen
 
     ! Declare default parameters
     real*8 :: minFrac, dEps1, dEps2,Z_seed,Epsilon,Z1,Z2,hSize
@@ -144,7 +144,15 @@ contains
       ParticleParam%inittype  = ParticleSeed_CSVFILE
       IF (INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=').ne.0) THEN
        ParticleParam%Plane = 1
-       READ(cInitType(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=')+5:),*) ParticleParam%sourcefile
+       ! Extract filename using direct string assignment to handle paths with '/'
+       ParticleParam%sourcefile = ADJUSTL(TRIM(cInitType(INDEX(ADJUSTL(TRIM(cInitTypeUpper)),'FILE=')+5:)))
+       ! Strip quotes if present (backwards compatibility with quoted paths)
+       IF (LEN_TRIM(ParticleParam%sourcefile) > 0) THEN
+         IF (ParticleParam%sourcefile(1:1) == "'" .OR. ParticleParam%sourcefile(1:1) == '"') THEN
+           iLen = LEN_TRIM(ParticleParam%sourcefile)
+           IF (iLen > 1) ParticleParam%sourcefile = ParticleParam%sourcefile(2:iLen-1)
+         END IF
+       END IF
        if (myid.eq.1) WRITE(*,*) "Particle sourcefile: '",ADJUSTL(TRIM(ParticleParam%sourcefile)),"'"
       END IF
     ELSEIF (ADJUSTL(TRIM(cInitTypeUpper)).eq.'ELEM') THEN

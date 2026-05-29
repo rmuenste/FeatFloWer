@@ -1,0 +1,25 @@
+options:
+  periodicity: 36
+  die-simulation: true
+  ResolutionLevel: 3
+ 
+stages:
+  init:
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_DIE_0.dat
+      - solver: HeatEquation
+        param_file: _data_BU/q2p1_paramT_DIE_0.dat
+
+  main:
+    loop: 1
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_DIE_2.dat
+      - solver: HeatEquation
+        param_file: _data_BU/q2p1_paramT_DIE_1.dat
+
+  final:
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_DIE_2.dat
