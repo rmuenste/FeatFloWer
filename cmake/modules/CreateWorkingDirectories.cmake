@@ -29,7 +29,7 @@ IF(${OUT_OF_SOURCE_BUILD})
     set(DIRECTORYLINKS _adc meshes)
   ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
 
-  set(FILELINKS partitioner)
+  set(FILELINKS)
   set(DIRECTORYCOPIES _data start)
   set(DEF_DIRECTORIES _dump _gmv _mesh _ns solution testresults _vtk)
 
