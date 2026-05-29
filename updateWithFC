@@ -54,7 +54,7 @@ if [ -d "FullC0ntact" ]; then
   cp -r "FullC0ntact" $foldernamename
 fi
 
-cp Makefile merger partitioner updateWithFC update LiDoscript Hostfile Description.txt CMakeLists.txt $foldernamename/.
+cp Makefile updateWithFC update LiDoscript Hostfile Description.txt CMakeLists.txt $foldernamename/.
 mkdir $foldernamename/"_gmv"
 mkdir $foldernamename/"_vtk"
 mkdir $foldernamename/"_ns"

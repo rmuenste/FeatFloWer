@@ -657,7 +657,11 @@ character(1024) :: c_buf
 
 integer :: nel_coarse_global
 
-real*8, dimension(:), allocatable :: buf
+real*8, dimension(:), allocatable :: buf_u
+real*8, dimension(:), allocatable :: buf_v
+real*8, dimension(:), allocatable :: buf_w
+integer, dimension(:), allocatable :: source_coarse
+integer :: coarse_source
 
 ndof = KNVT(nmax) + KNAT(nmax) + KNET(nmax) + KNEL(nmax)
 
@@ -684,7 +688,11 @@ if(myid.ne.0)then
  i_local = 1
  open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/velocity.dmp", iostat=istatus, action="read")
 
- allocate(buf(dofsInCoarseElement)) 
+ allocate(buf_u(dofsInCoarseElement))
+ allocate(buf_v(dofsInCoarseElement))
+ allocate(buf_w(dofsInCoarseElement))
+ allocate(source_coarse(ndof))
+ source_coarse = huge(1)
 
  ! read header
  READ(iunit,'(A)')c_buf 
@@ -697,28 +705,19 @@ if(myid.ne.0)then
 
   if(elemmap(i_local) .eq. iel)then
 
-    ! read u
-    read(iunit,*) buf(1:dofsInCoarseElement)
+    read(iunit,*) buf_u(1:dofsInCoarseElement)
+    read(iunit,*) buf_v(1:dofsInCoarseElement)
+    read(iunit,*) buf_w(1:dofsInCoarseElement)
 
+    coarse_source = elemmap(i_local)
     do ivt=1,dofsInCoarseElement
       jvt = edofs(i_local,ivt)
-      u(jvt) = buf(ivt)
-    end do
-
-    ! read v
-    read(iunit,*) buf(1:dofsInCoarseElement)
-
-    do ivt=1,dofsInCoarseElement
-      jvt = edofs(i_local,ivt)
-      v(jvt) = buf(ivt)
-    end do
-
-    ! read w
-    read(iunit,*) buf(1:dofsInCoarseElement)
-
-    do ivt=1,dofsInCoarseElement
-      jvt = edofs(i_local,ivt)
-      w(jvt) = buf(ivt)
+      if (coarse_source .lt. source_coarse(jvt)) then
+        u(jvt) = buf_u(ivt)
+        v(jvt) = buf_v(ivt)
+        w(jvt) = buf_w(ivt)
+        source_coarse(jvt) = coarse_source
+      end if
     end do
 
     IF (i_local.lt.elemCoarse) then
@@ -734,6 +733,10 @@ if(myid.ne.0)then
  END DO
 
  close(iunit)
+ deallocate(source_coarse)
+ deallocate(buf_u)
+ deallocate(buf_v)
+ deallocate(buf_w)
 
 end if
 
@@ -914,7 +917,9 @@ character(1024) :: c_buf
 
 integer :: nel_coarse_global
 
-real*8, dimension(:), allocatable :: buf
+real*8, dimension(:,:), allocatable :: buf
+integer, dimension(:), allocatable :: source_coarse
+integer :: coarse_source
 
 ndof = KNVT(nmax) + KNAT(nmax) + KNET(nmax) + KNEL(nmax)
 
@@ -941,7 +946,9 @@ if(myid.ne.0)then
  i_local = 1
  open(unit=iunit, file="_dump/"//trim(adjustl(startFrom))//"/"//TRIM(ADJUSTL(fieldName))//".dmp", iostat=istatus, action="read")
 
- allocate(buf(dofsInCoarseElement)) 
+ allocate(buf(dofsInCoarseElement,icomp))
+ allocate(source_coarse(ndof))
+ source_coarse = huge(1)
 
  ! read header
  READ(iunit,'(A)')c_buf 
@@ -955,13 +962,18 @@ if(myid.ne.0)then
   if(elemmap(i_local) .eq. iel)then
 
     do idx=1,icomp
-      ! read u
-      read(iunit,*) buf(1:dofsInCoarseElement)
+      read(iunit,*) buf(1:dofsInCoarseElement,idx)
+    end do
 
-      do ivt=1,dofsInCoarseElement
-        jvt = edofs(i_local,ivt)
-        field_pack(idx)%p(jvt) = buf(ivt)
-      end do
+    coarse_source = elemmap(i_local)
+    do ivt=1,dofsInCoarseElement
+      jvt = edofs(i_local,ivt)
+      if (coarse_source .lt. source_coarse(jvt)) then
+        do idx=1,icomp
+          field_pack(idx)%p(jvt) = buf(ivt,idx)
+        end do
+        source_coarse(jvt) = coarse_source
+      end if
     end do
 
     IF (i_local.lt.elemCoarse) then
@@ -977,6 +989,8 @@ if(myid.ne.0)then
  END DO
 
  close(iunit)
+ deallocate(source_coarse)
+ deallocate(buf)
 
 end if
 
@@ -1404,6 +1418,9 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
   use def_FEAT
   use ProcCtrl_mod, only: ProcessControl
+  use timestep_control, only: SetSimulationTimeStep
+  use solution_io_provenance, only: write_sol_to_file_prov
+  use prov_dump_config, only: use_prov_dump_io
 
   implicit none
 
@@ -1437,7 +1454,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
       CALL ZTIME(myStat%t1)
       myStat%tGMVOut = myStat%tGMVOut + (myStat%t1-myStat%t0)
     END IF
-    tstep = dTimeStepEnlargmentFactor*tstep
+    CALL SetSimulationTimeStep(dTimeStepEnlargmentFactor*tstep)
     dtgmv = dTimeStepEnlargmentFactor*dtgmv
     dout=dout+dtgmv
 
@@ -1445,7 +1462,11 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
     IF (insav.NE.0.AND.itns.NE.1) THEN
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
-        call write_sol_to_file(insavn, timens)
+        if (use_prov_dump_io) then
+          call write_sol_to_file_prov(insavn, timens)
+        else
+          call write_sol_to_file(insavn, timens)
+        end if
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
       END IF
@@ -1839,7 +1860,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
         CALL ZTIME(myStat%t0)
         
         if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
-        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y')
+        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y,z')
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)

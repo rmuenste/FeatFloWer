@@ -1126,7 +1126,10 @@ END IF
 
 !PowerLaw
 IF (myRheology%Equation.EQ.2) THEN
- VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+! VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+ !! here comes an update for a powerlaw normalization towards Carraeu
+ myRheology%A = myRheology%K*(myRheology%eta_min**(-1d0-myRheology%C))
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 !POLYFLOW carreau
@@ -1250,7 +1253,10 @@ END IF
 
 !PowerLaw
 IF (myRheology%Equation.EQ.2) THEN
- VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+! VNN =(1d1*myRheology%K)*aT*(dLimStrs)**(-(1d0-myRheology%n))
+ !! here comes an update for a powerlaw normalization towards Carraeu
+ myRheology%A = myRheology%K*(myRheology%eta_min**(-1d0-myRheology%C))
+ VNN = (1d1*myRheology%A)*aT*(1d0+myRheology%B*aT*dLimStrs)**(-myRheology%C)
 END IF
 
 !POLYFLOW carreau

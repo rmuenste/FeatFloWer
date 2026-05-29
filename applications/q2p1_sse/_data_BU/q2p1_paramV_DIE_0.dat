@@ -36,7 +36,7 @@ SimPar@FlowType = nonNewtonian                                              ! Ne
 SimPar@Tracer = No                                                      ! Yes
 SimPar@bViscoElastic = No                                               ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar"
+SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar,Temperature"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ----------------- Velocity --------------------

@@ -112,9 +112,9 @@ subroutine UpdateDensityDistribution_XSE(mfile)
         dMaxMat = 1.0d-5
 
         ! Find dominant material based on volume fraction
-        do iFld = 2, GenLinScalar%nOfFields
+        do iFld = 1, GenLinScalar%nOfFields
           if (GenLinScalar%Fld(iFld)%val(i) > dMaxMat) then
-            iMat = iFld - 1
+            iMat = iFld
             dMaxMat = GenLinScalar%Fld(iFld)%val(i)
           end if
         end do
@@ -206,9 +206,9 @@ subroutine GetAlphaNonNewtViscosity_sse()
       ! Multi-material: determine dominant material
       iMat = myMultiMat%InitMaterial
       dMaxMat = 1.0d-5
-      do iFld = 2, GenLinScalar%nOfFields
+      do iFld = 1, GenLinScalar%nOfFields
         if (GenLinScalar%Fld(iFld)%val(i) > dMaxMat) then
-          iMat = iFld - 1
+          iMat = iFld
           dMaxMat = GenLinScalar%Fld(iFld)%val(i)
         end if
       end do

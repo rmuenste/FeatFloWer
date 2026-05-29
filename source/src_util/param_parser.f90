@@ -9,6 +9,7 @@ MODULE param_parser
 !-------------------------------------------------------------------------------------------------
 USE PP3D_MPI, ONLY: myid, showID, master
 USE iniparser
+USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   myMatrixRenewal, bNonNewtonian, cGridFileName, nSubCoarseMesh, cFBM_File, &
   bTracer, cProjectFile, bMeshAdaptation, myExport, cAdaptedMeshFile, &
@@ -657,6 +658,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CASE ("StartFile")
         READ(string(iEq+1:),*) CSTART
         MSTART = START_FILE_UNIT
+      CASE ("UseProvDump")
+        CALL set_use_prov_dump(read_yes_no_param(string, iEq))
       CASE ("LoadAdaptedMesh")
         bMeshAdaptation = .true.
         READ(string(iEq+1:),*) cAdaptedMeshFile
@@ -910,6 +913,11 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     CALL write_param_str(mfile, mterm, "ProjectFile = ", TRIM(CProjectFile))
     CALL write_param_int(mfile, mterm, "StartingProc = ", ISTART)
     CALL write_param_str(mfile, mterm, "StartFile = ", CSTART)
+    IF (use_prov_dump_io) THEN
+      CALL write_param_str(mfile, mterm, "UseProvDump = ", "YES")
+    ELSE
+      CALL write_param_str(mfile, mterm, "UseProvDump = ", "NO")
+    END IF
     CALL write_param_str(mfile, mterm, "SolFile = ", CSOL)
     CALL write_param_int(mfile, mterm, "MinMeshLevel = ", NLMIN)
     CALL write_param_int(mfile, mterm, "MaxMeshLevel = ", NLMAX)

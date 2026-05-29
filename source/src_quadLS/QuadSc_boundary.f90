@@ -787,13 +787,14 @@ END SUBROUTINE Boundary_QuadScalar_Mat_9
 !
 !=========================================================================
 SUBROUTINE ProlongateSolution()
+ INTEGER :: ndofCoarse,ndofFine
 
  IF (allocated(Temperature)) then
-  CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val,Temperature)
-  if (myid.ne.0) Tracer%Val(NLMAX+1)%x = Temperature
- else
-  CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
+  ndofCoarse = KNVT(NLMAX-1) + KNAT(NLMAX-1) + KNET(NLMAX-1) + KNEL(NLMAX-1)
+  ndofFine   = KNVT(NLMAX  ) + KNAT(NLMAX  ) + KNET(NLMAX  ) + KNEL(NLMAX  )
+  CALL ProlongateSingleFieldQ2(Temperature,ndofCoarse,ndofFine,"temperature")
  end if
+ CALL ProlongateSolutionSub(QuadSc,LinSc,Boundary_QuadScalar_Val)
  CALL QuadScP1toQ2(LinSc,QuadSc)
 
 END SUBROUTINE ProlongateSolution

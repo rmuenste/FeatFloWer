@@ -6,6 +6,9 @@ PROGRAM Q2P1_xParticles
   IMPLICIT NONE
   real               :: tt0 = 0.0
   real               :: tt1 = 0.0
+  real*8             :: mpi_tt0 = 0d0
+  real*8             :: mpi_tt1 = 0d0
+  real*8             :: MPI_WTIME
   integer            :: ufile,ierr
   
   CALL ZTIME(tt0)
@@ -15,11 +18,11 @@ PROGRAM Q2P1_xParticles
   
   
   CALL Barrier_myMPI()
-  
-  CALL ZTIME(tt0)
+  mpi_tt0 = MPI_WTIME()
   CALL Transport_xParticles_MPI(ufile)
-  CALL ZTIME(tt1)
-  if (myid.eq.1) write(*,'(A,ES12.4,A)') "computation took ", dble(tt1-tt0),"s"
+  CALL Barrier_myMPI()
+  mpi_tt1 = MPI_WTIME()
+  if (myid.eq.1) write(*,'(A,ES12.4,A)') "computation took ", mpi_tt1-mpi_tt0,"s"
   
   
   CALL Barrier_myMPI()

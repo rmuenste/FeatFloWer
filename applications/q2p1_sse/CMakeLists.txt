@@ -166,8 +166,14 @@ install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
 # the driver script
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_TARGET_NAME})
 
+file(GLOB E3D_XSE_YAML_SCRIPTS
+  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xse*.yaml"
+  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xse*.yml")
+
 # install the driver script
 set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+list(APPEND E3D_SCRIPTS ${E3D_XSE_YAML_SCRIPTS})
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 
 install(FILES ${E3D_SCRIPTS} DESTINATION bin/${SSE_TARGET_NAME}
@@ -207,8 +213,14 @@ if(NOT WIN32)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/q2p1_gendie)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/testcases/gendie/VEKA_S DESTINATION bin/q2p1_gendie)
 
+    file(GLOB E3D_DIE_YAML_SCRIPTS
+      "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_die*.yaml"
+      "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_die*.yml")
+
     # install the driver script
     set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+    list(APPEND E3D_SCRIPTS ${E3D_DIE_YAML_SCRIPTS})
     list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")
     list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/RunnerGenDIE.sh")
