@@ -15,7 +15,7 @@ Discover tuned toolchains with `cmake -S . -B build -DSHOW_BUILD_IDS=ON`. Run te
 cmake --build build --target test
 ctest --test-dir build --output-on-failure
 ```
-Use `cmake --build build --target install` for staged packaging. For parallel application runs, partition meshes via `./partitioner mesh.tri 4` and launch solvers with `mpirun -np <ranks> ./applications/q2p1_devel/q2p1_devel`.
+Use `cmake --build build --target install` for staged packaging. The legacy root-level `partitioner` binary has been removed; for parallel application runs, use application staging targets or the maintained partitioner tooling documented in `docs/md_docs/featflower_partitioner_usage_guide.md`, then launch solvers with `mpirun -np <ranks> ./applications/q2p1_devel/q2p1_devel`.
 
 ## Coding Style & Naming Conventions
 Fortran sources adopt two-space indentation, uppercase module and subroutine names, and aligned `::` declarations (see `source/Init.f90`). Keep lines under 100 characters and group related declarations. Follow existing directory prefixes (`src_`, `q2p1_`) when introducing new physics or applications. CMake files prefer lowercase commands and cached options prefixed with `USE_` or `BUILD_`. Document new input parameters in `_data` samples or `docs/md_docs/`.
