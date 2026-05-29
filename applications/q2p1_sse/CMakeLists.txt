@@ -167,8 +167,8 @@ install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_TARGET_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_TARGET_NAME})
 
 file(GLOB E3D_XSE_YAML_SCRIPTS
-  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xs*.yaml"
-  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xs*.yml")
+  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xse*.yaml"
+  "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_xse*.yml")
 
 # install the driver script
 set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
