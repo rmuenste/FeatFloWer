@@ -92,8 +92,6 @@ IF(${OUT_OF_SOURCE_BUILD})
     file(COPY q2p1_die_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   ENDIF()
 
-  file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_die.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
- 
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check_DIE.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/plot_conv_DIE.gp" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -125,7 +123,7 @@ install(DIRECTORY ${mydirs} DESTINATION bin/${SSE_DIE_TARGET_NAME})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/tools/partitioner DESTINATION bin/${SSE_DIE_TARGET_NAME})
 
 # install the driver script
-set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_die.py")
+set(E3D_SCRIPTS)
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check_DIE.sh")
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/plot_conv_DIE.gp")
 

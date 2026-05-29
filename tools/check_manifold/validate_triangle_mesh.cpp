@@ -1,3 +1,6 @@
+#include <gmpxx.h>
+#include <mpfr.h>
+#include <boost/multiprecision/gmp.hpp>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/Polyhedron_3.h>

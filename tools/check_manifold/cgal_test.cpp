@@ -1,3 +1,6 @@
+#include <gmpxx.h>
+#include <mpfr.h>
+#include <boost/multiprecision/gmp.hpp>
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/AABB_tree.h>
 #include <CGAL/AABB_traits.h>

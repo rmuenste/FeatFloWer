@@ -35,6 +35,8 @@ MODULE var_QuadScalar
   LOGICAL :: bMemoryPrint=.true.
   LOGICAL :: bMasterTurnedOn=.true. ! because of hypre
   LOGICAL :: bMultiMat=.false.
+  LOGICAL :: bUseDumpedMixerGeometry=.false.
+  LOGICAL :: bCGALGeometryInitialized=.false.
   LOGICAL :: DivergedSolution=.false., ConvergedSolution = .false., bAlphaConverged=.false.
   REAL*8  :: AlphaControl=0d0
   REAL*8  :: total_lubrication = 0.0
@@ -74,6 +76,9 @@ MODULE var_QuadScalar
   INTEGER, PARAMETER :: Giesekus = 0
   INTEGER, PARAMETER :: OldroydB = 1
   INTEGER :: ProlongationDirection = 0
+  CHARACTER(len=16) :: GeometryType = 'BOX'
+  LOGICAL :: bProlongationDZMAXInitialized = .FALSE.
+  REAL*8 :: ProlongationDZMAX = 0d0
   REAL*8 :: activeFBM_Z_Position=-1d9
   REAL*8 :: dTimeStepEnlargmentFactor=1d0
   INTEGER :: iTimeStepEnlargmentFactor=1

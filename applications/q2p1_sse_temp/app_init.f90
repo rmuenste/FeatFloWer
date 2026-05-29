@@ -57,16 +57,13 @@ subroutine init_q2p1_ext(log_unit)
   END IF
  
   if (myMultiMat%nOfMaterials.gt.1) THEN
-   GenLinScalar%cName = "Temper"
-   GenLinScalar%prm%nOfFields = myMultiMat%nOfMaterials+1
-   GenLinScalar%nOfFields = myMultiMat%nOfMaterials + 1
+   GenLinScalar%cName = "MultiMatAlpha"
+   GenLinScalar%prm%nOfFields = myMultiMat%nOfMaterials
+   GenLinScalar%nOfFields = myMultiMat%nOfMaterials
    ALLOCATE(GenLinScalar%Fld(GenLinScalar%prm%nOfFields))
    ALLOCATE(GenLinScalar%prm%cField(GenLinScalar%prm%nOfFields))
    DO iFld=1,GenLinScalar%nOfFields
-    if (iFld.eq.1) GenLinScalar%prm%cField(iFld) = 'temp'
-    if (iFld.gt.1) then
-     write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld-1
-    end if
+    write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld
    end do
    DO iFld = 1,GenLinScalar%nOfFields
     GenLinScalar%Fld(iFld)%cName = TRIM(GenLinScalar%prm%cField(iFld))
@@ -245,6 +242,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE Parametrization, ONLY: ParametrizeQ2Nodes
  USE cinterface 
  USE param_parser, ONLY: GDATNEW
+ USE Sigma_User, ONLY: myTransientSolution
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -459,9 +457,11 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
- call init_fc_rigid_body(myid)      
- call FBM_GetParticles()
- CALL FBM_ScatterParticles()
+ IF (.NOT.(istart.ne.0 .and. myTransientSolution%DumpFormat.eq.3)) THEN
+  call init_fc_rigid_body(myid)
+  call FBM_GetParticles()
+  CALL FBM_ScatterParticles()
+ END IF
  !     ----------------------------------------------------------        
 
  ILEV=NLMIN

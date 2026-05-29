@@ -10,6 +10,16 @@ For end-to-end, command-by-command workflows (configure/build/stage/run), see:
 * `docs/md_docs/guide_02_q2p1_bench_sedimentation_pe_serial_from_scratch.md`
 * `docs/md_docs/guide_03_q2p1_sse_tse_gendie_from_scratch.md`
 
+## Code Cleanup Registry
+
+Potentially obsolete code is tracked in `cemetery/planned_removals.md`.
+
+This registry is intentionally conservative:
+
+* it is a list of candidates, not an automatic deletion queue
+* entries should be added whenever unused or superseded code is suspected
+* actual removals require an explicit author review
+
 ## 1. Prerequisites
 
 Before you begin, ensure you have the following installed on your system:
