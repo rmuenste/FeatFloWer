@@ -154,13 +154,143 @@ For automation this means:
 - The parameter-file switching is internalized in the driver.
 - The same launcher syntax can be used across the different DIE variants.
 - The driver performs a YAML preflight check and stops early if referenced parameter files are missing.
-- Stage outputs are archived into `_prot_<stage-index>` folders, which may be useful for structured post-run
+- Stage outputs are archived into legacy-compatible `_prot<stage-index>` folders, which may be useful for structured post-run
   collection on cluster jobs.
 
 In short, the new path is more suitable for robust production sequencing than the older `e3d_start.py`
 workflow.
 At the same time, it should be seen as an additive upgrade rather than a removal of the old path, since the legacy
 launcher and legacy parameterization remain available.
+
+## YAML Stage Progress in `e3d.log`
+
+The YAML driver now also exposes the staged execution state through `e3d.log`.
+This is intended for cluster-side monitoring tools that already inspect the `[SimulationStatus]` section and should
+not have to parse terminal output to understand where a staged YAML run currently is.
+
+The status block now uses YAML-specific keys:
+
+```ini
+YamlStageProgress=<current-stage>/<total-stages>
+YamlInStageProgress=<current-solver-in-stage>/<solvers-in-stage>
+CurrentYamlSolver=<MomentumEquation|HeatEquation|MaterialDistribution>
+CurrentYamlSolverProgress=<solver-local-current>/<solver-local-maximum>
+CurrentYamlStatus=<status-text>
+```
+
+When the YAML driver is active, transient status keys are intentionally named with `Yaml` in the keyword.
+For example, `CurrentStatus` is emitted as `CurrentYamlStatus`, and the final timestamp is emitted as
+`YamlFinishingTime`.
+Legacy inner-iteration keys such as `CurrentInnerIteration` and `MaxInnerIteration` are not repeated in the YAML
+status block because the same information is represented by `CurrentYamlSolverProgress`.
+
+The total stage count is computed from the active YAML plan:
+
+- `init` contributes one stage if it is present and has steps.
+- `main` contributes its configured `loop` count.
+- `final` contributes one stage if it is present and has steps.
+
+For example, a plan with:
+
+```yaml
+stages:
+  init:
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  main:
+    loop: 2
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  final:
+    steps:
+      - solver: MomentumEquation
+```
+
+has four YAML stages in total:
+
+```text
+1/4 = init
+2/4 = main loop 1
+3/4 = main loop 2
+4/4 = final
+```
+
+Inside each stage, `YamlInStageProgress` tracks normalized stage work, not just the raw solver index.
+This matters for XSE/screw runs because one `MomentumEquation` step can expand to multiple angular positions.
+If a momentum solve needs `L` angular positions, it contributes `L` in-stage progress units.
+`HeatEquation` and `MaterialDistribution` each contribute one in-stage progress unit.
+
+For an `init` or `main` stage with `MomentumEquation + MaterialDistribution + HeatEquation`, the denominator is
+therefore `L + 2`.
+If an XSE run needs `18` angular positions, the momentum solve advances through `1/20`, `2/20`, ... `18/20`,
+the material-distribution step is `19/20`, and the heat step is `20/20`.
+For a DIE single-angle run, `L = 1`, so the same stage naturally becomes `1/3`, `2/3`, and `3/3`.
+
+The solver-local progress is sampled from the solver protocol file where possible.
+For momentum and heat solves, the driver watches `_data/prot.txt` and parses the existing `itns: current/max`
+lines.
+For the material-distribution solve, the driver watches the Q1 scalar output and maps the reported
+`VolumeFractions[%]` filling degree to an integer progress value against `100`.
+
+Representative `e3d.log` status snapshots for the example pipeline are shown below.
+The surrounding fixed header lines such as `PathToE3DFile`, `NumOfCpus`, and `YamlStartingTime` are omitted here for
+brevity.
+In YAML mode, the legacy header entries `NumOfAnglePositions` and `Periodicity` are not emitted; angular progress is
+represented through `YamlInStageProgress`, `CurrentYamlAngleIteration`, and `MaxYamlAngleIteration`.
+
+During the `init` momentum solve:
+
+```ini
+YamlStageProgress=1/4
+YamlInStageProgress=4/20
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=4/12
+CurrentYamlAngleIteration=4
+MaxYamlAngleIteration=18
+CurrentYamlStatus=running Momentum Solver
+```
+
+During the first `main` material-distribution solve:
+
+```ini
+YamlStageProgress=2/4
+YamlInStageProgress=19/20
+CurrentYamlSolver=MaterialDistribution
+CurrentYamlSolverProgress=67/100
+CurrentYamlMaterialFillingDegree=67
+MaxYamlMaterialFillingDegree=100
+CurrentYamlStatus=running Material Distribution Solver
+```
+
+During the second `main` heat solve:
+
+```ini
+YamlStageProgress=3/4
+YamlInStageProgress=20/20
+CurrentYamlSolver=HeatEquation
+CurrentYamlSolverProgress=6/10
+CurrentYamlStatus=running Heat Solver
+```
+
+At the end of the `final` momentum stage:
+
+```ini
+YamlStageProgress=4/4
+YamlInStageProgress=18/18
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=12/12
+CurrentYamlStatus=finished
+YamlFinishingTime=...
+```
+
+This keeps YAML-mode monitoring unambiguous: automation can restrict itself to keys containing `Yaml` and still
+distinguish between `init`, repeated `main` stages, and `final`.
 
 ## Constant-Mesh Heat Optimization
 

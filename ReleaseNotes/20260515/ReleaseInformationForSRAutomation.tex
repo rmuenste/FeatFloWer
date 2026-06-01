@@ -160,13 +160,145 @@ entrypoint.
   \item The parameter-file switching is internalized in the driver.
   \item The same launcher syntax can be used across the different DIE variants.
   \item The driver performs a YAML preflight check and stops early if referenced parameter files are missing.
-  \item Stage outputs are archived into \texttt{\_prot\_<stage-index>} folders, which may be useful for structured
+  \item Stage outputs are archived into legacy-compatible \texttt{\_prot<stage-index>} folders, which may be useful for structured
         post-run collection on cluster jobs.
 \end{itemize}
 
 In short, the new path is more suitable for robust production sequencing than the older \texttt{e3d\_start.py}
 workflow. At the same time, it should be seen as an additive upgrade rather than a removal of the old path, since
 the legacy launcher and legacy parameterization remain available.
+
+\section*{YAML Stage Progress in \texttt{e3d.log}}
+
+The YAML driver now also exposes the staged execution state through \texttt{e3d.log}. This is intended for
+cluster-side monitoring tools that already inspect the \texttt{[SimulationStatus]} section and should not have to
+parse terminal output to understand where a staged YAML run currently is.
+
+The status block now uses YAML-specific keys:
+
+\begin{verbatim}
+YamlStageProgress=<current-stage>/<total-stages>
+YamlInStageProgress=<current-solver-in-stage>/<solvers-in-stage>
+CurrentYamlSolver=<MomentumEquation|HeatEquation|MaterialDistribution>
+CurrentYamlSolverProgress=<solver-local-current>/<solver-local-maximum>
+CurrentYamlStatus=<status-text>
+\end{verbatim}
+
+When the YAML driver is active, transient status keys are intentionally named with \texttt{Yaml} in the keyword.
+For example, \texttt{CurrentStatus} is emitted as \texttt{CurrentYamlStatus}, and the final timestamp is emitted as
+\texttt{YamlFinishingTime}. Legacy inner-iteration keys such as \texttt{CurrentInnerIteration} and
+\texttt{MaxInnerIteration} are not repeated in the YAML status block because the same information is represented by
+\texttt{CurrentYamlSolverProgress}.
+
+The total stage count is computed from the active YAML plan:
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{init} contributes one stage if it is present and has steps.
+  \item \texttt{main} contributes its configured \texttt{loop} count.
+  \item \texttt{final} contributes one stage if it is present and has steps.
+\end{itemize}
+
+For example, a plan with:
+
+\begin{verbatim}
+stages:
+  init:
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  main:
+    loop: 2
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  final:
+    steps:
+      - solver: MomentumEquation
+\end{verbatim}
+
+has four YAML stages in total:
+
+\begin{verbatim}
+1/4 = init
+2/4 = main loop 1
+3/4 = main loop 2
+4/4 = final
+\end{verbatim}
+
+Inside each stage, \texttt{YamlInStageProgress} tracks normalized stage work, not just the raw solver index. This
+matters for XSE/screw runs because one \texttt{MomentumEquation} step can expand to multiple angular positions. If
+a momentum solve needs \texttt{L} angular positions, it contributes \texttt{L} in-stage progress units.
+\texttt{HeatEquation} and \texttt{MaterialDistribution} each contribute one in-stage progress unit.
+
+For an \texttt{init} or \texttt{main} stage with
+\texttt{MomentumEquation + MaterialDistribution + HeatEquation}, the denominator is therefore \texttt{L + 2}. If an
+XSE run needs \texttt{18} angular positions, the momentum solve advances through \texttt{1/20}, \texttt{2/20}, ...
+\texttt{18/20}, the material-distribution step is \texttt{19/20}, and the heat step is \texttt{20/20}. For a DIE
+single-angle run, \texttt{L = 1}, so the same stage naturally becomes \texttt{1/3}, \texttt{2/3}, and
+\texttt{3/3}.
+
+The solver-local progress is sampled from the solver protocol file where possible. For momentum and heat solves,
+the driver watches \texttt{\_data/prot.txt} and parses the existing \texttt{itns: current/max} lines. For the
+material-distribution solve, the driver watches the Q1 scalar output and maps the reported
+\texttt{VolumeFractions[\%]} filling degree to an integer progress value against \texttt{100}.
+
+Representative \texttt{e3d.log} status snapshots for the example pipeline are shown below. The surrounding fixed
+header lines such as \texttt{PathToE3DFile}, \texttt{NumOfCpus}, and \texttt{YamlStartingTime} are omitted here for
+brevity. In YAML mode, the legacy header entries \texttt{NumOfAnglePositions} and \texttt{Periodicity} are not
+emitted; angular progress is represented through \texttt{YamlInStageProgress},
+\texttt{CurrentYamlAngleIteration}, and \texttt{MaxYamlAngleIteration}.
+
+During the \texttt{init} momentum solve:
+
+\begin{verbatim}
+YamlStageProgress=1/4
+YamlInStageProgress=4/20
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=4/12
+CurrentYamlAngleIteration=4
+MaxYamlAngleIteration=18
+CurrentYamlStatus=running Momentum Solver
+\end{verbatim}
+
+During the first \texttt{main} material-distribution solve:
+
+\begin{verbatim}
+YamlStageProgress=2/4
+YamlInStageProgress=19/20
+CurrentYamlSolver=MaterialDistribution
+CurrentYamlSolverProgress=67/100
+CurrentYamlMaterialFillingDegree=67
+MaxYamlMaterialFillingDegree=100
+CurrentYamlStatus=running Material Distribution Solver
+\end{verbatim}
+
+During the second \texttt{main} heat solve:
+
+\begin{verbatim}
+YamlStageProgress=3/4
+YamlInStageProgress=20/20
+CurrentYamlSolver=HeatEquation
+CurrentYamlSolverProgress=6/10
+CurrentYamlStatus=running Heat Solver
+\end{verbatim}
+
+At the end of the \texttt{final} momentum stage:
+
+\begin{verbatim}
+YamlStageProgress=4/4
+YamlInStageProgress=18/18
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=12/12
+CurrentYamlStatus=finished
+YamlFinishingTime=...
+\end{verbatim}
+
+This keeps YAML-mode monitoring unambiguous: automation can restrict itself to keys containing \texttt{Yaml} and
+still distinguish between \texttt{init}, repeated \texttt{main} stages, and \texttt{final}.
 
 \section*{Constant-Mesh Heat Optimization}
 
