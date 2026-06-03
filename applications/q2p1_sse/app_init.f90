@@ -104,12 +104,12 @@ subroutine RestartFromMPILowerLevelSSE(log_unit)
   USE def_QuadScalar, ONLY: ProlongateSingleFieldQ2
   USE PP3D_MPI, ONLY : myid, subnodes, coarse, SENDI_myMPI, RECVI_myMPI, SENDD_myMPI, RECVD_myMPI
   USE var_QuadScalar, ONLY : mg_mesh, QuadSc, LinSc, GenLinScalar, Screw, Shell, &
-    bUseDumpedMixerGeometry, knvt, myDump
+    bUseDumpedMixerGeometry, knvt, knat,knet,knel,myDump
   USE Sigma_User, ONLY: myProcess
   implicit none
 
   integer, intent(in) :: log_unit
-  integer :: iFld
+  integer :: iFld,ndofCoarse,ndofFine
 
   call LoadMPIDumpFilesProlongateSSE(int(myProcess%Angle),'p,v,x,t,q',log_unit)
 
@@ -122,7 +122,9 @@ subroutine RestartFromMPILowerLevelSSE(log_unit)
 
   if (allocated(GenLinScalar%Fld)) then
     do iFld=1,GenLinScalar%nOfFields
-      call ProlongateSingleFieldQ2(GenLinScalar%Fld(iFld)%Val,KNVT(NLMAX-1),KNVT(NLMAX), &
+      ndofCoarse = KNVT(NLMAX-1) + KNAT(NLMAX-1) + KNET(NLMAX-1) + KNEL(NLMAX-1)
+      ndofFine   = KNVT(NLMAX  ) + KNAT(NLMAX  ) + KNET(NLMAX  ) + KNEL(NLMAX  )
+      call ProlongateSingleFieldQ2(GenLinScalar%Fld(iFld)%Val,ndofCoarse,ndofFine, &
         adjustl(trim(GenLinScalar%Fld(iFld)%cName)))
     end do
   end if
