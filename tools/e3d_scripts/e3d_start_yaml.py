@@ -236,7 +236,8 @@ paramDict = {
     "retryDeformation" : False,
     "resolutionLevel" : -1,
     "partitionFormat": "legacy",
-    "yamlConfig": ""
+    "yamlConfig": "",
+    "forceE3DSetupRefresh": False
 }
 
 XSE_PARAM_DIR = Path("_data_BU") / Path("XSE")
@@ -286,6 +287,15 @@ def initialize_yaml_status(stages):
     yamlStatus["current_solver"] = "none"
     yamlStatus["current_solver_stage_offset"] = 0
     yamlStatus["current_solver_progress"] = "not_available"
+
+def yaml_has_nonempty_init_stage(stages):
+    if not isinstance(stages, dict):
+        return False
+    stage_def = stages.get('init', {})
+    if not isinstance(stage_def, dict):
+        return False
+    steps = stage_def.get('steps', [])
+    return isinstance(steps, list) and len(steps) > 0
 
 def set_yaml_stage_status(stage_current, in_stage_current, in_stage_total, solver, stage_offset=0):
     yamlStatus["stage_current"] = stage_current
@@ -362,36 +372,36 @@ class ProtocolObserver(FileSystemEventHandler):
     def on_modified(self, event):
         fileBaseName = os.path.basename(event.src_path)
         if is_protocol_file(fileBaseName):
-          pattern = "itns:\s*([0-9]+)[/]\s*([0-9]+)"
-          volumePattern = "VolumeFractions\\[%\\]:\\s*([+-]?(?:[0-9]*[.])?[0-9]+(?:[EeDd][+-]?[0-9]+)?)"
-          with open(event.src_path, "r") as f:
-              fileContents = f.readlines()
-          for line in reversed(fileContents):
-              matchObj = re.search(pattern, line)
-              if matchObj and yamlStatus["current_solver"] != "MaterialDistribution":
-                  progress = "%i/%i" %(int(matchObj.group(1)), int(matchObj.group(2)))
-                  set_yaml_solver_progress(progress)
-                  statusMsg = "CurrentInnerIteration=%i\n"\
-                              "MaxInnerIteration=%i\n"\
-                              "CurrentStatus=%s" %(int(matchObj.group(1)),
-                                                   int(matchObj.group(2)),
-                                                   current_yaml_status_text())
-                  myLog.updateStatusLineInnerIteration(statusMsg)
-                  break
-              matchObj = re.search(volumePattern, line)
-              if matchObj:
-                  filling = float(matchObj.group(1).replace("D", "E").replace("d", "e"))
-                  if filling < 0.0:
-                      filling = 0.0
-                  if filling > 100.0:
-                      filling = 100.0
-                  filling = int(round(filling))
-                  set_yaml_solver_progress("%i/100" %filling)
-                  statusMsg = "CurrentMaterialFillingDegree=%i\n"\
-                              "MaxMaterialFillingDegree=100\n"\
-                              "CurrentStatus=%s" %(filling, current_yaml_status_text())
-                  myLog.updateStatusLineInnerIteration(statusMsg)
-                  break
+            pattern = r"itns:\s*([0-9]+)[/]\s*([0-9]+)"
+            volumePattern = "VolumeFractions\\[%\\]:\\s*([+-]?(?:[0-9]*[.])?[0-9]+(?:[EeDd][+-]?[0-9]+)?)"
+            with open(event.src_path, "r") as f:
+                fileContents = f.readlines()
+            for line in reversed(fileContents):
+                matchObj = re.search(pattern, line)
+                if matchObj and yamlStatus["current_solver"] != "MaterialDistribution":
+                    progress = "%i/%i" %(int(matchObj.group(1)), int(matchObj.group(2)))
+                    set_yaml_solver_progress(progress)
+                    statusMsg = "CurrentInnerIteration=%i\n"\
+                                "MaxInnerIteration=%i\n"\
+                                "CurrentStatus=%s" %(int(matchObj.group(1)),
+                                                     int(matchObj.group(2)),
+                                                     current_yaml_status_text())
+                    myLog.updateStatusLineInnerIteration(statusMsg)
+                    break
+                matchObj = re.search(volumePattern, line)
+                if matchObj:
+                    filling = float(matchObj.group(1).replace("D", "E").replace("d", "e"))
+                    if filling < 0.0:
+                        filling = 0.0
+                    if filling > 100.0:
+                        filling = 100.0
+                    filling = int(round(filling))
+                    set_yaml_solver_progress("%i/100" %filling)
+                    statusMsg = "CurrentMaterialFillingDegree=%i\n"\
+                                "MaxMaterialFillingDegree=100\n"\
+                                "CurrentStatus=%s" %(filling, current_yaml_status_text())
+                    myLog.updateStatusLineInnerIteration(statusMsg)
+                    break
 #===============================================================================
 
 
@@ -1025,7 +1035,12 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
     paramDict['recursivePartitioning'] = True
     extrud3d_base = workingDir / Path("_data/Extrud3D_0.dat")
-    if extrud3d_base.exists():
+    extrud3d_active = workingDir / Path("_data/Extrud3D.dat")
+    if paramDict.get('forceE3DSetupRefresh', False):
+        shutil.copyfile(str(projectFile), str(extrud3d_base))
+        shutil.copyfile(str(projectFile), str(extrud3d_active))
+        print("Regenerated _data/Extrud3D_0.dat and _data/Extrud3D.dat from project E3D file")
+    elif extrud3d_base.exists():
         print("Preserving existing _data/Extrud3D_0.dat")
     else:
         shutil.copyfile(str(projectFile), str(extrud3d_base))
@@ -1582,10 +1597,12 @@ def main():
         plan = {}
     apply_yaml_options(plan)
     validate_yaml_stage_inputs(plan, paramDict['yamlConfig'])
+    print("Using YAML execution file: %s" %paramDict['yamlConfig'])
     stages = plan.get('stages')
     if 'main' in stages:
         stages['main'].setdefault('loop', 1)
     initialize_yaml_status(stages)
+    paramDict['forceE3DSetupRefresh'] = yaml_has_nonempty_init_stage(stages)
 
     if (paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']):
         print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
