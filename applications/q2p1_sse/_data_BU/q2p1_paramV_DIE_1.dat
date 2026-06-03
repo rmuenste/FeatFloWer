@@ -18,7 +18,7 @@ SimPar@TimeAdaptivity = No                                              ! Yes
 SimPar@MinTimeAdapt = 0.0000010d0
 SimPar@MaxTimeAdapt = 0.050d0
 SimPar@StartSimTime = 0d0
-SimPar@MaxNumStep = 960
+SimPar@MaxNumStep = 240
 SimPar@MaxSimTime = 10.0001d0
 SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 4
@@ -36,7 +36,7 @@ SimPar@FlowType = nonNewtonian                                              ! Ne
 SimPar@Tracer = No                                                      ! Yes
 SimPar@bViscoElastic = No                                               ! Yes
 SimPar@noLoadAdaptedMesh = "_dump/msh"
-SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar"
+SimPar@OutputFields = "Pressure_E,Velocity,Viscosity,Shell,NormShearRate,GenScalar,Temperature"
 SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
 SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
 ----------------- Velocity --------------------
