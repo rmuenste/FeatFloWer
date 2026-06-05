@@ -884,7 +884,7 @@ DO i=1,nUniqueElems
 !      pause
 !     end if
     IF (bKeep) THEN
-     write(*,*) "Element ",i," has been determined to be added to list"
+!     write(*,*) "Element ",i," has been determined to be added to list"
      bKeep = .TRUE.
      jElem = jElem + 1
      iElemKeep(i) = jElem

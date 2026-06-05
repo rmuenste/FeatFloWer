@@ -44,6 +44,7 @@ class E3dLog:
         self.currPos = 0
         self.statusLineLength = 0
         self.statusLinePos = 0
+        self.statusTailLines = 0
         self.fileContents = []
 
     def __def__(self):
@@ -61,6 +62,8 @@ class E3dLog:
             f.write(msg + "\n")
 
     def writeNumAnglePositions(self, numAngPos):
+        if yamlStatus["enabled"]:
+            return
         self.fileHandle.write("NumOfAnglePositions=%i\n" %numAngPos)        
         self.fileHandle.write("Periodicity=%i\n" %paramDict['periodicity'])        
         self.currPos = self.fileHandle.tell()
@@ -88,89 +91,59 @@ class E3dLog:
         self.fileHandle.write("PathToE3DFile=%s\n" %str(projectFile))
         self.fileHandle.write("TemperatureCalculation=%s\n" %tempValue)        
         self.fileHandle.write("NumOfCpus=%i\n" %parameterDict['numProcessors'])
-        self.fileHandle.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
+        if yamlStatus["enabled"]:
+            self.fileHandle.write("YamlStartingTime=" + str(datetime.datetime.now()) + "\n")
+        else:
+            self.fileHandle.write("StartingTime=" + str(datetime.datetime.now()) + "\n")
         self.fileHandle.flush()
 
         self.currPos = self.fileHandle.tell()
 
-    def updateStatusLine(self, msg):
+    def _countStatusLines(self, msg):
+        if msg == "":
+            return 0
+        return len(msg.splitlines())
+
+    def replaceStatusBlock(self, msg):
+        msg = withYamlStatus(msg)
 
         with open(self.fileName, "r") as f:
             self.fileContents = f.readlines()
 
-        self.fileContents = self.fileContents[:-1] 
+        if self.statusTailLines > 0:
+            self.fileContents = self.fileContents[:-self.statusTailLines]
         with open(self.fileName, "w") as f:
             for line in self.fileContents:
                 f.write(line)
 
             f.write(msg)
+        self.statusTailLines = self._countStatusLines(msg)
+
+    def updateStatusLine(self, msg):
+
+        self.replaceStatusBlock(msg)
 
     def updateStatusLineInnerIteration(self, msg):
 
-        with open(self.fileName, "r") as f:
-            self.fileContents = f.readlines()
-
-        self.fileContents = self.fileContents[:-3] 
-
-        with open(self.fileName, "w") as f:
-            for line in self.fileContents:
-                f.write(line)
-
-            f.write(msg)
+        self.replaceStatusBlock(msg)
             
 
     def updateStatusLineIteration(self, msg, itCurr):
 
-        with open(self.fileName, "r") as f:
-            self.fileContents = f.readlines()
-
-        if itCurr == 0:
-            self.fileContents = self.fileContents[:-1] 
-        else:
-            self.fileContents = self.fileContents[:-5] 
-        
-        with open(self.fileName, "w") as f:
-            for line in self.fileContents:
-                f.write(line)
-
-            f.write(msg)
+        self.replaceStatusBlock(msg)
             
 
     def updateStatusLineHeatIteration(self, msg, numLines=3):
 
-        with open(self.fileName, "r") as f:
-            self.fileContents = f.readlines()
-
-        self.fileContents = self.fileContents[:-3] 
-        with open(self.fileName, "w") as f:
-            for line in self.fileContents:
-                f.write(line)
-
-            f.write(msg)
+        self.replaceStatusBlock(msg)
 
     def writeStatusHeat(self, msg):
 
-        with open(self.fileName, "r") as f:
-            self.fileContents = f.readlines()
-
-        self.fileContents = self.fileContents[:-1] 
-        with open(self.fileName, "w") as f:
-            for line in self.fileContents:
-                f.write(line)
-
-            f.write(msg)
+        self.replaceStatusBlock(msg)
 
     def popLinesAndWrite(self, numLines, msg):
 
-        with open(self.fileName, "r") as f:
-            self.fileContents = f.readlines()
-
-        self.fileContents = self.fileContents[:-numLines] 
-        with open(self.fileName, "w") as f:
-            for line in self.fileContents:
-                f.write(line)
-
-            f.write(msg)
+        self.replaceStatusBlock(msg)
 
 
     def popLinesBack(self, numLines):
@@ -186,39 +159,56 @@ class E3dLog:
             f.write(msg)
 
     def writeExitMsg(self):
+        status_msg = withYamlStatus("CurrentStatus=finished")
         with open(self.fileName, "r") as f:
             self.fileContents = f.readlines()
 
 
-        self.fileContents = self.fileContents[:-1] 
+        if self.statusTailLines > 0:
+            self.fileContents = self.fileContents[:-self.statusTailLines]
         with open(self.fileName, "w") as f:
             for line in self.fileContents:
                 f.write(line)
 
-            f.write("CurrentStatus=finished\n")
-            f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+            f.write(status_msg + "\n")
+            if yamlStatus["enabled"]:
+                f.write("YamlFinishingTime=" + str(datetime.datetime.now()) + "\n")
+            else:
+                f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+        self.statusTailLines = self._countStatusLines(status_msg) + 1
 
     def writeStatusLine(self):
         self.openFileHandle()
-        self.fileHandle.write("CurrentStatus=running")
+        msg = withYamlStatus("CurrentStatus=running")
+        self.fileHandle.write(msg)
+        self.statusTailLines = self._countStatusLines(msg)
         self.closeFileHandle()
 
     def writeStatusLine2(self):
-        self.fileHandle.write("CurrentStatus=running")
+        msg = withYamlStatus("CurrentStatus=running")
+        self.fileHandle.write(msg)
         self.currPos = self.fileHandle.tell()
+        self.statusTailLines = self._countStatusLines(msg)
 
     def logErrorExit(self, message, errorCode):
+        status_msg = withYamlStatus(message)
         with open(self.fileName, "r") as f:
             self.fileContents = f.readlines()
 
-        self.fileContents = self.fileContents[:-1] 
+        if self.statusTailLines > 0:
+            self.fileContents = self.fileContents[:-self.statusTailLines]
         with open(self.fileName, "w") as f:
             for line in self.fileContents:
                 f.write(line)
 
-            f.write(message + "\n")
-            f.write("ErrorCode=%i\n" % errorCode)
-            f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+            f.write(status_msg + "\n")
+            if yamlStatus["enabled"]:
+                f.write("YamlErrorCode=%i\n" % errorCode)
+                f.write("YamlFinishingTime=" + str(datetime.datetime.now()) + "\n")
+            else:
+                f.write("ErrorCode=%i\n" % errorCode)
+                f.write("FinishingTime=" + str(datetime.datetime.now()) + "\n")
+            self.statusTailLines = self._countStatusLines(status_msg) + 2
             sys.exit(errorCode)        
 
 myLog = E3dLog()
@@ -246,12 +236,134 @@ paramDict = {
     "retryDeformation" : False,
     "resolutionLevel" : -1,
     "partitionFormat": "legacy",
-    "yamlConfig": ""
+    "yamlConfig": "",
+    "forceE3DSetupRefresh": False
 }
 
 XSE_PARAM_DIR = Path("_data_BU") / Path("XSE")
 DIE_PARAM_DIR = Path("_data_BU") / Path("DIE")
 stage_counter = 0
+yamlStatus = {
+    "enabled": False,
+    "stage_current": 0,
+    "stage_total": 0,
+    "in_stage_current": 0,
+    "in_stage_total": 0,
+    "current_solver": "none",
+    "current_solver_stage_offset": 0,
+    "current_solver_progress": "not_available"
+}
+
+def format_progress(current, total):
+    if total <= 0:
+        return "0/0"
+    return "%i/%i" %(current, total)
+
+def count_yaml_stages(stages):
+    total = 0
+    for phase in ['init', 'main', 'final']:
+        if phase not in stages:
+            continue
+        stage_def = stages.get(phase, {})
+        if not isinstance(stage_def, dict):
+            continue
+        steps = stage_def.get('steps', [])
+        if not isinstance(steps, list) or not steps:
+            continue
+        try:
+            iterations = int(stage_def.get('loop', 1))
+        except (TypeError, ValueError):
+            iterations = 0
+        if iterations > 0:
+            total += iterations
+    return total
+
+def initialize_yaml_status(stages):
+    yamlStatus["enabled"] = True
+    yamlStatus["stage_current"] = 0
+    yamlStatus["stage_total"] = count_yaml_stages(stages)
+    yamlStatus["in_stage_current"] = 0
+    yamlStatus["in_stage_total"] = 0
+    yamlStatus["current_solver"] = "none"
+    yamlStatus["current_solver_stage_offset"] = 0
+    yamlStatus["current_solver_progress"] = "not_available"
+
+def yaml_has_nonempty_init_stage(stages):
+    if not isinstance(stages, dict):
+        return False
+    stage_def = stages.get('init', {})
+    if not isinstance(stage_def, dict):
+        return False
+    steps = stage_def.get('steps', [])
+    return isinstance(steps, list) and len(steps) > 0
+
+def set_yaml_stage_status(stage_current, in_stage_current, in_stage_total, solver, stage_offset=0):
+    yamlStatus["stage_current"] = stage_current
+    yamlStatus["in_stage_current"] = in_stage_current
+    yamlStatus["in_stage_total"] = in_stage_total
+    yamlStatus["current_solver"] = solver
+    yamlStatus["current_solver_stage_offset"] = stage_offset
+    yamlStatus["current_solver_progress"] = "not_available"
+
+def set_yaml_in_stage_progress(current):
+    yamlStatus["in_stage_current"] = current
+
+def set_yaml_solver_progress(progress):
+    yamlStatus["current_solver_progress"] = progress
+
+def current_yaml_status_text():
+    solver = yamlStatus["current_solver"]
+    if solver == "MomentumEquation":
+        return "running Momentum Solver"
+    if solver == "HeatEquation":
+        return "running Heat Solver"
+    if solver == "MaterialDistribution":
+        return "running Material Distribution Solver"
+    return "running"
+
+def yaml_status_lines_from_message(msg):
+    yaml_lines = []
+    for line in msg.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key == "CurrentStatus":
+            yaml_lines.append("CurrentYamlStatus=%s" %value)
+        elif key == "CurrentAngleIteration":
+            yaml_lines.append("CurrentYamlAngleIteration=%s" %value)
+        elif key == "MaxAngleIteration":
+            yaml_lines.append("MaxYamlAngleIteration=%s" %value)
+        elif key == "CurrentMaterialFillingDegree":
+            yaml_lines.append("CurrentYamlMaterialFillingDegree=%s" %value)
+        elif key == "MaxMaterialFillingDegree":
+            yaml_lines.append("MaxYamlMaterialFillingDegree=%s" %value)
+        elif key == "CurrentHeatIteration":
+            yaml_lines.append("CurrentYamlHeatIteration=%s" %value)
+        elif key == "HeatMaxIteration":
+            yaml_lines.append("MaxYamlHeatIteration=%s" %value)
+        elif key == "MaxHeatIteration":
+            yaml_lines.append("MaxYamlHeatIteration=%s" %value)
+    return yaml_lines
+
+def withYamlStatus(msg):
+    if not yamlStatus["enabled"]:
+        return msg
+
+    yaml_lines = [
+        "YamlStageProgress=%s" %format_progress(yamlStatus["stage_current"], yamlStatus["stage_total"]),
+        "YamlInStageProgress=%s" %format_progress(yamlStatus["in_stage_current"], yamlStatus["in_stage_total"]),
+        "CurrentYamlSolver=%s" %yamlStatus["current_solver"],
+        "CurrentYamlSolverProgress=%s" %yamlStatus["current_solver_progress"]
+    ]
+
+    yaml_lines.extend(yaml_status_lines_from_message(msg))
+
+    if msg == "":
+        return "\n".join(yaml_lines)
+    return "\n".join(yaml_lines)
+
+def is_protocol_file(file_name):
+    return re.match(r"^prot([._][0-9]+)?\.txt$", file_name) is not None
 
 class ProtocolObserver(FileSystemEventHandler):
     def on_created(self, event):
@@ -259,21 +371,49 @@ class ProtocolObserver(FileSystemEventHandler):
 
     def on_modified(self, event):
         fileBaseName = os.path.basename(event.src_path)
-        patternFound = False
-        if fileBaseName == "prot.txt":
-          pattern = "itns:\s*([0-9]+)[/]\s*([0-9]+)"
-          with open(event.src_path, "r") as f:
-              fileContents = f.readlines()
-          for line in reversed(fileContents):
-              matchObj = re.search(pattern, line)
-              if matchObj: 
-                  patternFound = True
-                  statusMsg = "CurrentInnerIteration=%i\n"\
-                              "MaxInnerIteration=%i\n"\
-                              "CurrentStatus=running Momentum Solver" %(int(matchObj.group(1)), int(matchObj.group(2)))
-                  myLog.updateStatusLineInnerIteration(statusMsg)
-                  break
+        if is_protocol_file(fileBaseName):
+            pattern = r"itns:\s*([0-9]+)[/]\s*([0-9]+)"
+            volumePattern = "VolumeFractions\\[%\\]:\\s*([+-]?(?:[0-9]*[.])?[0-9]+(?:[EeDd][+-]?[0-9]+)?)"
+            with open(event.src_path, "r") as f:
+                fileContents = f.readlines()
+            for line in reversed(fileContents):
+                matchObj = re.search(pattern, line)
+                if matchObj and yamlStatus["current_solver"] != "MaterialDistribution":
+                    progress = "%i/%i" %(int(matchObj.group(1)), int(matchObj.group(2)))
+                    set_yaml_solver_progress(progress)
+                    statusMsg = "CurrentInnerIteration=%i\n"\
+                                "MaxInnerIteration=%i\n"\
+                                "CurrentStatus=%s" %(int(matchObj.group(1)),
+                                                     int(matchObj.group(2)),
+                                                     current_yaml_status_text())
+                    myLog.updateStatusLineInnerIteration(statusMsg)
+                    break
+                matchObj = re.search(volumePattern, line)
+                if matchObj:
+                    filling = float(matchObj.group(1).replace("D", "E").replace("d", "e"))
+                    if filling < 0.0:
+                        filling = 0.0
+                    if filling > 100.0:
+                        filling = 100.0
+                    filling = int(round(filling))
+                    set_yaml_solver_progress("%i/100" %filling)
+                    statusMsg = "CurrentMaterialFillingDegree=%i\n"\
+                                "MaxMaterialFillingDegree=100\n"\
+                                "CurrentStatus=%s" %(filling, current_yaml_status_text())
+                    myLog.updateStatusLineInnerIteration(statusMsg)
+                    break
 #===============================================================================
+
+
+def start_protocol_observer(protocolFilePath):
+    eventHandler = ProtocolObserver()
+    if sys.platform == "win32":
+        observer = PollingObserver()
+    else:
+        observer = Observer()
+    observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
+    observer.start()
+    return observer
 
 
 #===============================================================================
@@ -346,7 +486,7 @@ def mkdir(dir):
 #                    Stage output archiving helper
 #===============================================================================
 def archive_stage_outputs(stage_idx, include_heat):
-    stage_dir = Path(f"_prot_{stage_idx}")
+    stage_dir = Path("_prot%i" %stage_idx)
     if stage_dir.exists():
         if stage_dir.is_dir():
             shutil.rmtree(stage_dir)
@@ -392,6 +532,8 @@ def run_material_step(param_file):
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
     angle = paramDict['singleAngle'] if paramDict['singleAngle'] >= 0.0 else 0.0
+    protocolFilePath = os.path.join(os.getcwd(), "_data")
+    observer = start_protocol_observer(protocolFilePath)
 
     if sys.platform == "win32":
         exec_name = "./q1_scalar_multimat.exe"
@@ -404,6 +546,8 @@ def run_material_step(param_file):
         if paramDict['singleAngle'] >= 0.0:
             launchCommand = launchCommand + " -a %d" %(angle)
         exitCode = subprocess.call([launchCommand], shell=True)
+
+    observer.stop()
 
     if exitCode != 0:
         myLog.logErrorExit("CurrentStatus=abnormal Termination Material Distribution Solver", exitCode)
@@ -427,6 +571,8 @@ def run_heat_step(param_file):
     numProcessors = paramDict['numProcessors']
     mpiPath = paramDict['mpiCmd']
     angle = paramDict['singleAngle'] if paramDict['singleAngle'] >= 0.0 else 0.0
+    protocolFilePath = os.path.join(os.getcwd(), "_data")
+    observer = start_protocol_observer(protocolFilePath)
 
     if sys.platform == "win32":
         exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse_temp.exe"])
@@ -438,6 +584,8 @@ def run_heat_step(param_file):
         if paramDict['singleAngle'] >= 0.0:
             launchCommand = launchCommand + " -a %d" %(angle)
         exitCode = subprocess.call([launchCommand], shell=True)
+
+    observer.stop()
 
     if exitCode != 0:
         myLog.logErrorExit("CurrentStatus=abnormal Termination Heat Solver", exitCode)
@@ -486,20 +634,39 @@ def execute_yaml_plan(stages, workingDir):
             heat_present = any(step.get('solver') == 'HeatEquation' for step in steps)
             print(f"[Stage {stage_counter}] Phase '{phase}' iteration {iter_idx+1}/{iterations}")
             paramDict['startAngle'] = stage_start_angle
+            step_units = []
             for step in steps:
+                solver = step.get('solver')
+                if solver == 'MomentumEquation':
+                    _, angle_positions = calcSimLoopWindow()
+                    step_units.append(max(angle_positions, 1))
+                else:
+                    step_units.append(1)
+            num_steps = sum(step_units)
+            stage_offset = 0
+            for step_idx, step in enumerate(steps):
                 solver = step.get('solver')
                 param_file = step.get('param_file')
                 print(f"  -> {solver} using {param_file}")
+                set_yaml_stage_status(stage_counter + 1,
+                                      min(stage_offset + 1, num_steps),
+                                      num_steps,
+                                      solver,
+                                      stage_offset)
                 if solver == 'MomentumEquation':
+                    myLog.updateStatusLine("CurrentStatus=running Momentum Solver")
                     run_momentum_step(param_file, workingDir)
                 elif solver == 'HeatEquation':
+                    myLog.updateStatusLine("CurrentStatus=running Heat Solver")
                     run_heat_step(param_file)
                 elif solver == 'MaterialDistribution':
+                    myLog.updateStatusLine("CurrentStatus=running Material Distribution Solver")
                     run_material_step(param_file)
                 else:
                     raise ValueError(f"Unknown solver '{solver}' in YAML plan")
+                stage_offset = stage_offset + step_units[step_idx]
             archive_stage_outputs(stage_counter, include_heat=heat_present)
-            print(f"[Stage {stage_counter}] archived outputs to _prot_{stage_counter}")
+            print(f"[Stage {stage_counter}] archived outputs to _prot{stage_counter}")
             stage_counter += 1
 #===============================================================================
 
@@ -868,7 +1035,12 @@ def folderSetup(workingDir, projectFile, projectPath, projectFolder):
     paramDict['partitionFormat'] = parsePartitionFormat(str(destDataFile))
     paramDict['recursivePartitioning'] = True
     extrud3d_base = workingDir / Path("_data/Extrud3D_0.dat")
-    if extrud3d_base.exists():
+    extrud3d_active = workingDir / Path("_data/Extrud3D.dat")
+    if paramDict.get('forceE3DSetupRefresh', False):
+        shutil.copyfile(str(projectFile), str(extrud3d_base))
+        shutil.copyfile(str(projectFile), str(extrud3d_active))
+        print("Regenerated _data/Extrud3D_0.dat and _data/Extrud3D.dat from project E3D file")
+    elif extrud3d_base.exists():
         print("Preserving existing _data/Extrud3D_0.dat")
     else:
         shutil.copyfile(str(projectFile), str(extrud3d_base))
@@ -1090,20 +1262,14 @@ def simLoopVelocity(workingDir):
                     "CurrentInnerIteration=%i\n"\
                     "MaxInnerIteration=%i\n"\
                     "CurrentStatus=running Momentum Solver" %(i+1, nmax, 1, maxInnerIters)
+        set_yaml_in_stage_progress(yamlStatus["current_solver_stage_offset"] + i + 1)
+        set_yaml_solver_progress("%i/%i" %(1, maxInnerIters))
         myLog.updateStatusLineIteration(statusMsg, i)
 
         workingDir = os.getcwd()
         protocolFilePath = os.path.join(workingDir, "_data")
 
-        eventHandler = ProtocolObserver()
-        observer = ""   
-        if sys.platform == "win32":
-            observer = PollingObserver()
-        else:
-            observer = Observer()
-
-        observer.schedule(eventHandler, path=protocolFilePath, recursive=False)
-        observer.start()
+        observer = start_protocol_observer(protocolFilePath)
 
         if sys.platform == "win32":
             exitCode = subprocess.call([r"%s" % str(mpiPath), "-n",  "%i" % numProcessors,  "./q2p1_sse.exe"])
@@ -1161,6 +1327,8 @@ def simLoopVelocity(workingDir):
         statusMsg = "CurrentInnerIteration=%i\n"\
                     "MaxInnerIteration=%i\n"\
                     "CurrentStatus=running Momentum Solver" %(maxInnerIters, maxInnerIters)
+        set_yaml_in_stage_progress(yamlStatus["current_solver_stage_offset"] + i + 1)
+        set_yaml_solver_progress("%i/%i" %(maxInnerIters, maxInnerIters))
         myLog.updateStatusLineInnerIteration(statusMsg)
 
         iangle = int(angle)
@@ -1429,6 +1597,12 @@ def main():
         plan = {}
     apply_yaml_options(plan)
     validate_yaml_stage_inputs(plan, paramDict['yamlConfig'])
+    print("Using YAML execution file: %s" %paramDict['yamlConfig'])
+    stages = plan.get('stages')
+    if 'main' in stages:
+        stages['main'].setdefault('loop', 1)
+    initialize_yaml_status(stages)
+    paramDict['forceE3DSetupRefresh'] = yaml_has_nonempty_init_stage(stages)
 
     if (paramDict['hasDeltaAngle'] and paramDict['hasTimeLevels']):
         print("Error: Specifying both deltaAngle and timeLevels at the same time is error-prone and therefore prohibited.")
@@ -1497,10 +1671,6 @@ def main():
     print("  ----------------------------------------------------------------------------------------------------- ")
     print("  ")
     print("  ")
-
-    stages = plan.get('stages')
-    if 'main' in stages:
-        stages['main'].setdefault('loop', 1)
 
     execute_yaml_plan(stages, workingDir)
     cleanWorkingDir(workingDir)

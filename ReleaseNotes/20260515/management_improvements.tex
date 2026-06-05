@@ -1,0 +1,42 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{parskip}
+
+\title{Management Summary of Selected Improvements}
+\author{Otto Mierka}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+This document provides a compact management-style wording of selected development achievements identified from Otto Mierka's 2026 commit stream.
+
+\section*{Compact Management Wording}
+\begin{itemize}[leftmargin=*,itemsep=0.8em]
+  \item \textbf{HYPRE-related SSE tuning:} Improved the robustness and efficiency of the SSE pressure-solver setup by retuning the HYPRE coarse-grid strategy and rolling the new configuration into the relevant benchmark parameter files.
+
+  \item \textbf{YAML-based SSE execution drivers:} Introduced a configurable YAML-driven execution framework for staged SSE workflows and integrated it into the installable application tooling.
+
+  \item \textbf{Rheology model alignment:} Harmonized the default rheology treatment by redirecting the former power-law handling toward a Carreau-based formulation consistent with the active process input setups.
+
+  \item \textbf{Round-geometry-aware prolongation:} Added explicit round-geometry recognition and a geometry-aware coordinate-prolongation path to improve restart and transfer quality for cylindrical extrusion configurations.
+
+  \item \textbf{SSE prolongation workflow:} Developed the SSE prolongation path from a partial field-transfer capability into a complete restart mechanism covering flow, temperature, alpha, and derived auxiliary fields.
+
+  \item \textbf{Rank-independent MPI-dump restart:} Generalized the MPI-dump restart workflow so dump data can be reused reliably even when the simulation is restarted with a different MPI rank count.
+
+  \item \textbf{Reduced restart dependencies:} Simplified SSE restart and startup handling by removing avoidable OFF-based geometry reloads whenever the required state is already available in dumped simulation data.
+
+  \item \textbf{Multimat workflow cleanup:} Reworked multimat initialization and communication toward a cleaner alpha-focused workflow with stricter convergence behavior and more reliable restart handling.
+
+  \item \textbf{Constant-mesh SSE-TEMP optimization:} Reduced repeated assembly cost in constant-mesh SSE-TEMP runs by reusing scalar operators instead of regenerating them at every substep.
+
+  \item \textbf{Recursive partitioning as default:} Established recursive partitioning as the standard decomposition workflow and propagated it across SSE, SSE-TEMP, multimat, and HEAT-related execution paths.
+
+  \item \textbf{JSON partition workflow integration:} Introduced and integrated a JSON-based partition workflow across mesh loading, boundary I/O, and parametrization, turning it into a documented and usable production path.
+\end{itemize}
+
+\end{document}

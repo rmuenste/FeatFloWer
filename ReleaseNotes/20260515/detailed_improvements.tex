@@ -1,0 +1,53 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{parskip}
+
+\title{Selected Development Improvements}
+\author{Otto Mierka}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+This document summarizes selected development achievements identified from Otto Mierka's commits in 2026, with intermediate correction steps folded into the main topics.
+
+\section*{Detailed Topic Descriptions}
+\begin{itemize}[leftmargin=*,itemsep=0.9em]
+  \item \textbf{HYPRE-related SSE tuning.}
+  The SSE pressure-solver setup was retuned to use the HYPRE coarse-grid path more consistently by switching the parameter files to \texttt{Pres@MGCrsSolverType = 8}. In \texttt{source/HypreSolver.f90}, the AMG configuration was updated toward a 3D Laplace-oriented setup with HMIS coarsening, interpolation type 13, fewer sweeps, reduced interpolation stencil width, and V-cycles instead of W-cycles. This was not just an input-file cleanup, but a concrete coarse-solver strategy update propagated into the SSE benchmark parameter sets.
+
+  \item \textbf{YAML-based SSE execution drivers introduced and installed.}
+  A new Python driver, \texttt{tools/e3d\_scripts/e3d\_start\_yaml.py}, was introduced to run SSE workflows from YAML stage descriptions instead of hardwired shell logic. The YAML files define explicit \texttt{init}, \texttt{main}, and \texttt{final} stages and bind each stage to solver steps such as momentum, material-distribution, and heat solves with specific parameter files. Follow-up work integrated the driver into the application install path and expanded the YAML set for DIE, DIE+TEMP, multi-stage DIE, XSE, and XSE+TEMP use cases.
+
+  \item \textbf{Rheology defaults adjusted by redirecting power-law handling to Carreau.}
+  In the rheology evaluation path, the former pure power-law normalization was replaced by a Carreau-style formulation derived from the power-law parameters. The implementation now computes Carreau-related coefficients from the existing rheology data and evaluates the viscosity update in the Carreau form instead of the older direct power-law expression. This aligned the SSE material handling more closely with the \texttt{CalcVisco=Carreau} setups already used in the Extrud3D input files.
+
+  \item \textbf{Round-geometry recognition and round prolongation introduced.}
+  The parameter reader was extended with a \texttt{GeometryType} switch accepting \texttt{BOX} or \texttt{ROUND}, and a dedicated SSE coordinate-prolongation path was introduced for round geometries. In \texttt{source/Umbrella.f90}, the new prolongation routine blends Cartesian and cylindrical point placement using a radius-based weighting and a global characteristic radius measure. This made restart and prolongation handling more geometry-aware and better suited to round extrusion layouts.
+
+  \item \textbf{SSE prolongation functionality developed.}
+  The SSE restart/prolongation path was extended in two steps: first to velocity, pressure, and temperature, and then to the full field set including alpha fields and auxiliary mixer-related quantities. The new MPI-dump prolongation workflow loads low-level fields, rebuilds coordinates, initializes prolongation/restriction operators, recreates material data, and updates derived quantities such as \texttt{SHELL}, \texttt{SCREW}, segment information, and alpha-dependent viscosity contributions. By the end of the sequence, \texttt{startprocedure = 2} had become a complete lower-level-to-current-level SSE restart path for the MPI-dump workflow.
+
+  \item \textbf{MPI-dump restart strategy generalized to arbitrary rank counts.}
+  The MPI-dump reader was reworked so that restart is no longer tied to the original partition count used when the dump files were written. Instead of assuming a fixed element ordering, the implementation reconstructs local key indices, sorts them, and reads contiguous runs from the dump files to map old records onto the current partition layout. This made the dump-based restart path robust against changes in MPI process count between output and restart.
+
+  \item \textbf{SSE restart workflow improved by removing unnecessary OFF-file dependencies.}
+  For restart-oriented startup modes, the initialization path was changed to avoid rebuilding geometry from OFF readers when the required state is already available in the dump data. The dump loader was extended to recover not only pressure, velocity, coordinates, temperature, and alpha, but also dumped mixer-geometry-related fields such as distance, segment, shell, and mixer markers. This reduced restart overhead and removed avoidable dependence on repeated geometry reconstruction.
+
+  \item \textbf{Multimat initialization and communication reworked.}
+  The multimat path was cleaned up so that initialization and restart focus on alpha transport rather than a mixed temperature-plus-alpha layout. A dedicated alpha-only transport path and corresponding matrix definition were introduced, initial fields are reset more aggressively, and the convergence threshold for \texttt{AlphaControl} was tightened from 0.9 to 0.99. In parallel, communication setup was corrected so that multimat runs consistently pick up the intended parameter file and recursive communication metadata.
+
+  \item \textbf{Constant-mesh SSE-TEMP runs optimized by avoiding repeated matrix regeneration.}
+  A new \texttt{ConstantMesh} switch was added to \texttt{E3DSimulationSettings} and stored in the runtime setup structure. When this flag is enabled, \texttt{q2p1\_sse\_temp} assembles the linear-scalar operators once before the time loop and skips reassembly during later substeps. This is a targeted runtime optimization for cases with non-deforming meshes and unchanged scalar operator structure.
+
+  \item \textbf{Recursive partitioning established as the default strategy.}
+  Recursive partitioning became the default workflow, with the old single-level approach remaining available only as an explicit fallback. On the implementation side, \texttt{q2p1\_sse} gained automatic recursive partitioning through \texttt{e3d\_start.py}, while \texttt{q2p1\_sse\_temp}, \texttt{q1\_scalar\_multimat}, and HEAT-related paths were adjusted to use the same scheme. The launcher logic was also made node-aware so partition grouping can follow the actual allocated compute-node layout.
+
+  \item \textbf{JSON-based partition workflow introduced and integrated.}
+  A full JSON partition reader was added in \texttt{source/src\_mesh/mesh\_refine.f90}, and the parametrization and I/O layer was extended to switch automatically when \texttt{SimPar@PartitionFormat = json} is selected. The workflow was documented in the domain-decomposition notes and connected to the partitioner, boundary I/O, and parameter handling. Follow-up commits corrected the partition-format string handling and updated SSE parameter files so the JSON workflow is actively used in practice.
+\end{itemize}
+
+\end{document}
