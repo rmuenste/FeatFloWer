@@ -154,8 +154,9 @@ For automation this means:
 - The parameter-file switching is internalized in the driver.
 - The same launcher syntax can be used across the different DIE variants.
 - The driver performs a YAML preflight check and stops early if referenced parameter files are missing.
-- Stage outputs are archived into legacy-compatible `_prot<stage-index>` folders, which may be useful for structured post-run
-  collection on cluster jobs.
+- Stage outputs are archived into legacy-compatible `_prot<stage-index>` folders, while the protocol files from the
+  `final` stage are collected in `_prot_final`. For report generation and related post-run analysis, the relevant
+  protocol set should be taken from `_prot_final` so that the final stage is used consistently.
 
 In short, the new path is more suitable for robust production sequencing than the older `e3d_start.py`
 workflow.
