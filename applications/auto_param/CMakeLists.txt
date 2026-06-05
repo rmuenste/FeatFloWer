@@ -43,6 +43,20 @@ install(FILES ${AUTOPARAM} DESTINATION bin/heat
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 #=========================================================================
+#                       INSTALL CONFIGURATION Q2P1_SSE PYTHON
+#=========================================================================
+install(TARGETS autoparam
+    RUNTIME DESTINATION bin/q2p1_sse
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    )
+    
+set(AUTOPARAM "${CMAKE_CURRENT_SOURCE_DIR}/param_vtu_mesher.cfg")
+
+install(FILES ${AUTOPARAM} DESTINATION bin/q2p1_sse
+    PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+
+#=========================================================================
 #                       INSTALL CONFIGURATION Q2P1_GENDIE PYTHON
 #=========================================================================
 install(TARGETS autoparam

@@ -79,6 +79,7 @@ PUBLIC :: Create_ConstDiffMat
 PUBLIC :: Create_DiffMat
 PUBLIC :: Create_SMat
 PUBLIC :: Create_KMat
+PUBLIC :: ProlongateSingleFieldQ2
 
 ! Solver setup (QuadSc_solver_hypre.f90)
 PUBLIC :: Setup_HYPRE_CoarseLevel_Full
@@ -2882,10 +2883,51 @@ END SUBROUTINE Solve_General_QuadScalar
 !
 ! ----------------------------------------------
 !
-SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val,Temperature)
+SUBROUTINE ProlongateSingleFieldQ2(Field,nDofCoarse,nDofFine,cField)
+REAL*8, INTENT(INOUT) :: Field(*)
+INTEGER, INTENT(IN) :: nDofCoarse,nDofFine
+CHARACTER(*), INTENT(IN) :: cField
+INTEGER :: I,JJ,ICOL,K,J
+REAL*8, ALLOCATABLE :: CoarseField(:),FineField(:)
+
+IF (myid.ne.0) THEN
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ J = NLMAX
+ K = NLMAX-1
+ mgLev = J
+
+ IF(myid.eq.showid) WRITE(*,'(A,A,A)') "Prolongation of ",TRIM(ADJUSTL(cField))," to a higher level"
+
+ ALLOCATE(CoarseField(KNVT(K) + KNAT(K) + KNET(K) + KNEL(K)))
+ ALLOCATE(FineField(KNVT(J) + KNAT(J) + KNET(J) + KNEL(J)))
+ CoarseField = 0d0
+ FineField = 0d0
+
+ CoarseField(1:nDofCoarse) = Field(1:nDofCoarse)
+
+DO I=1,nDofFine
+  DO JJ=mg_E013ProlM(mgLev-1)%LdA(I),mg_E013ProlM(mgLev-1)%LdA(I+1)-1
+   ICOL = mg_E013ProlM(mgLev-1)%ColA(JJ)
+   FineField(I) = FineField(I) + mg_E013Prol(mgLev-1)%a(JJ)*CoarseField(ICOL)
+  END DO
+END DO
+
+ Field(1:nDofFine) = FineField(1:nDofFine)
+
+ DEALLOCATE(CoarseField,FineField)
+
+END IF
+
+END SUBROUTINE ProlongateSingleFieldQ2
+!
+! ----------------------------------------------
+!
+SUBROUTINE ProlongateSolutionSub(qScalar,lScalar,Bndry_Val)
 TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
-REAL*8, optional :: Temperature(*)
 INTEGER J,K,ndof
 REAL*8 dnorm
 EXTERNAL Bndry_Val
@@ -2898,27 +2940,6 @@ IF (myid.ne.0) THEN
  J = NLMAX
  K = NLMAX-1
  mgLev = J
-
-IF (present(Temperature)) then
- IF(myid.eq.showid) WRITE(*,*) "Prolongation of temperature solution to a higher level"
-
- MyMG%cVariable = "Velocity"
- MyMG%KNPRU => qScalar%knprT(J)%x
- MyMG%KNPRV => qScalar%knprV(J)%x
- MyMG%KNPRW => qScalar%knprW(J)%x
-
- ndof = KNVT(K) + KNAT(K) + KNET(K) + KNEL(K)
- qScalar%sol(K)%x(0*ndof+1:1*ndof) = Temperature(1:ndof)
- qScalar%sol(K)%x(1*ndof+1:2*ndof) = Temperature(1:ndof)
- qScalar%sol(K)%x(2*ndof+1:3*ndof) = Temperature(1:ndof)
- MyMG%X    => qScalar%sol
- MyMG%AUX  => qScalar%aux
-
- CALL mgProlongation()
-
- ndof = KNVT(J) + KNAT(J) + KNET(J) + KNEL(J)
- Temperature(0*ndof+1:1*ndof) = qScalar%aux(J)%x(0*ndof+1:1*ndof)
-END IF
 
  IF(myid.eq.showid) WRITE(*,*) "Prolongation of velocity solution to a higher level"
 
@@ -4189,4 +4210,3 @@ END IF
 END SUBROUTINE ComputeCFL
 
 END MODULE def_QuadScalar
-

@@ -44,6 +44,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
  USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters
+ USE timestep_control, ONLY : SetSimulationTimeStep
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
  CHARACTER(len=200) :: string, line
@@ -51,6 +52,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  CHARACTER(len=7)   :: CSimPar
  INTEGER :: iEnd(1), iCmnd(1), iExist(1), iPos, iFile, istat
  LOGICAL :: bExist
+ DOUBLE PRECISION :: TSTEP, THETA, THSTEP, TIMENS, EPSNS
+ INTEGER :: NITNS, ITNS
+ COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
 
  ! Check if control file exists
  iExist = 0
@@ -174,6 +178,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
     IF (bExist) THEN
       CSimPar = "SimPar"
       CALL GDATNEW(CSimPar, 1)
+      CALL SetSimulationTimeStep(TSTEP)
     END IF
 
 ! -------------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+options:
+  periodicity: 2
+  ResolutionLevel: 3
+  
+stages:
+  init:
+    startangle: 0.0
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_0.dat
+
+  main:
+    loop: 1
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_1.dat
+
+  final:
+    steps:
+      - solver: MomentumEquation
+        param_file: _data_BU/q2p1_paramV_1.dat

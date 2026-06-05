@@ -166,7 +166,7 @@ Category@ParameterName = value
 | MGRelaxPrm | real | `0.66` | MG relaxation parameter (ω) | - |
 | **Coarse Grid Solver** |
 | MGIterCoarse | integer | - | MG iterations on coarsest grid | `799` |
-| MGCrsSolverType | integer | - | Coarse grid solver type | `4` |
+| MGCrsSolverType | integer | - | Coarse grid solver type: `1`=BiCGStab (master), `2`=UMFPACK full coarse matrix, `3`=BiCGStab on `/16` coarse matrix, `4`=UMFPACK on `/16` coarse matrix, `5`=MUMPS, `7`=HYPRE full coarse matrix, `8`=HYPRE `/16` coarse matrix | `4` |
 | MGCrsRelaxPrm | real | - | Coarse grid relaxation parameter | - |
 | **Multigrid Convergence** |
 | MGDefImprCoarse | real | - | Defect improvement on coarse grid | `1d-3` |
@@ -316,6 +316,15 @@ Velo@MGMedLev = 3
 **Velo@MGCrsSolverType** and **Pres@MGCrsSolverType**:
 - `1`: SSOR + block Jacobi (default, fast, works on all systems)
 - `5`: MUMPS direct solver (requires Intel compiler, more robust for difficult problems)
+
+**Pres@MGCrsSolverType** only:
+- `2`: UMFPACK direct solve on the full coarse pressure matrix
+- `3`: BiCGStab on the reduced `/16` coarse pressure matrix
+- `4`: UMFPACK direct solve on the reduced `/16` coarse pressure matrix
+- `7`: HYPRE/BoomerAMG setup and solve on the full coarse matrix
+- `8`: HYPRE/BoomerAMG setup and solve on the reduced `/16` coarse matrix
+
+`6` is currently not used by the pressure coarse-grid solver.
 
 ---
 

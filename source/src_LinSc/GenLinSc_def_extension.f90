@@ -265,6 +265,75 @@ END SUBROUTINE Matdef_HEATALPHA_GenLinSc_Q1
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Matdef_MULTIMATALPHA_GenLinSc_Q1(lSc,idef,imat)
+INTEGER :: idef,imat
+TYPE(lScalarGen) lSc
+INTEGER i,j,iFld
+REAL*8 daux
+EXTERNAL E011
+
+ if (imat.eq.1) then
+  DO ILEV=NLMIN,NLMAX
+
+   CALL SETLEV(2)
+
+   AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+   LMassMat      => mg_LMassMat(ILEV)%a
+   ConvectionMat =>  mg_ConvMat(ILEV)%a
+   plMat  => mg_lMat(ILEV)
+
+   DO iFld=1,lSc%nOfFields
+    DO I=1,plMat%nu
+     J = plMat%LdA(I)
+     daux = LMassMat(I) - thstep*(AlphaDiffMat(J) + ConvectionMat(J))
+     mg_AMat(iFld)%fld(ILEV)%a(J) = daux
+     DO J=plMat%LdA(I)+1,plMat%LdA(I+1)-1
+      daux = -thstep*(AlphaDiffMat(J) + ConvectionMat(J))
+      mg_AMat(iFld)%fld(ILEV)%a(J) =  daux
+     END DO
+    END DO
+   END DO
+  END DO
+ end if
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ AlphaDiffMat  => mg_AlphaDiffMat(ILEV)%a
+ LMassMat      => mg_LMassMat(ILEV)%a
+ ConvectionMat => mg_ConvMat(ILEV)%a
+ plMat  => mg_lMat(ILEV)
+
+ IF (idef.eq. 1) THEN
+  DO iFld=1,lSc%nOfFields
+   DO j=1,plMat%nu
+    lSc%fld(iFld)%def(j) = LMassMat(j)*lSc%fld(iFld)%val(j)
+   END DO
+
+   CALL LAX17(ConvectionMat,plMat%ColA,plMat%LdA,plMat%nu,&
+   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+
+   CALL LAX17(AlphaDiffMat,plMat%ColA,plMat%LdA,plMat%nu,&
+   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep,1d0)
+  END DO
+ ELSE
+  DO iFld=1,lSc%nOfFields
+   CALL LAX17(mg_AMat(iFld)%fld(ILEV)%a,plMat%ColA,plMat%LdA,plMat%nu,&
+   lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,-1d0,1d0)
+  END DO
+ END IF
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ DO iFld=1,lSc%nOfFields
+  CALL DefTVD_LinScalar(lSc%Fld(iFld)%val,lSc%Fld(iFld)%def,thstep)
+ END DO
+
+END SUBROUTINE Matdef_MULTIMATALPHA_GenLinSc_Q1
+!
+! ----------------------------------------------
+!
 SUBROUTINE Matdef_STATIONARY_GenLinSc_Q1(lSc,idef,imat)
 INTEGER :: idef,imat
 TYPE(lScalarGen) lSc

@@ -41,7 +41,10 @@ set(Q2P1_BENCH_FLUIDIZATION_PARTS "31" CACHE STRING "Partition count for q2p1_be
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_data)
 file(COPY ${CMAKE_SOURCE_DIR}/_data/MG.dat DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data)
-file(COPY ${CMAKE_SOURCE_DIR}/libs/pe/pe/interface/example.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/_data/q2p1_param.dat DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/example.json")
+  file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/example.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/tools/dashboard/q2p1_ctest_start.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -53,15 +56,20 @@ if(NOT Python3_EXECUTABLE)
 endif()
 
 add_custom_target(q2p1_bench_fluidization_stage
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+          ${CMAKE_CURRENT_BINARY_DIR}/_data
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_BINARY_DIR}/extern/libraries/metis-5.1.0/libmetis/libmetis.so
           ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${CMAKE_SOURCE_DIR}/libs/pe/pe/interface/example.json
+          ${CMAKE_CURRENT_SOURCE_DIR}/example.json
           ${CMAKE_CURRENT_BINARY_DIR}/example.json
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/_data/MG.dat
           ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/_data/q2p1_param.dat
+          ${CMAKE_CURRENT_BINARY_DIR}/_data/q2p1_param.dat
   COMMAND ${CMAKE_COMMAND} -E env
           "LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}"
           ${Python3_EXECUTABLE}

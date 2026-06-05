@@ -17,7 +17,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE param_parser, ONLY: GDATNEW
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh
+   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,myRecComm
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr
  USE Parametrization, ONLY: ParametrizeQ2Nodes
@@ -64,6 +64,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  !=======================================================================
  !
  CALL INIT_MPI()                                 ! PARALLEL
+ CALL FindNodes()
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
 
@@ -79,7 +80,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 #ifdef HAVE_PE
   include 'PartitionReader.f90'
 #else
-  include 'PartitionReader2.f90'
+ include 'PartitionReader_rec.f90'
 #endif
 
  CALL Init_QuadScalar(mfile)

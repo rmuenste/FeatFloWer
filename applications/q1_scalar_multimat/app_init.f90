@@ -7,7 +7,7 @@ subroutine init_q1_scalar(log_unit)
   USE ViscoScalar, ONLY : Init_ViscoScalar_Stuctures, &
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar_Q1, &
-    Transport_LinScalar, Init_GenLinSc_HEATALPHA_Q1,ProlongateSolution_GenLinSc_Q1
+    Transport_LinScalar, Init_GenLinSc_MULTIMATALPHA_Q1,ProlongateSolution_GenLinSc_Q1
   USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
   USE var_QuadScalar, ONLY : myStat,cFBM_File
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
@@ -23,7 +23,7 @@ subroutine init_q1_scalar(log_unit)
   
   CALL Create_MMat() ! for the viscosity and shearrate evaluation
 
-  CALL Init_GenLinSc_HEATALPHA_Q1(log_unit)
+  CALL Init_GenLinSc_MULTIMATALPHA_Q1(log_unit)
 
   IF (ISTART.EQ.0) THEN
     IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -53,7 +53,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
    cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
-   myRecComm
+   myRecComm,myDataFile
  USE Transport_Q2P1, ONLY : Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -107,6 +107,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL INIT_MPI()                                 ! PARALLEL
  CALL FindNodes()
  CSimPar = "SimPar"
+ myDataFile = '_data/q2p1_paramAlpha.dat'
  CALL  GDATNEW (CSimPar,0)
 
  CFILE=CFILE1

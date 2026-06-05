@@ -6,6 +6,7 @@ SimPar@ProjectFile = "_adc/3D_FAC_FBM/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@StartFile = 0
+SimPar@UseProvDump = No                                                 ! Yes -> use _dump_prov/<StartFile>
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 3
@@ -77,4 +78,3 @@ Prop@Density = 1d0,1d0
 Prop@Viscosity = 1d-3,1d0
 Prop@DiffCoeff = 1d-4,1d-4
 Prop@PowerLawExp = 1.0
-

@@ -35,6 +35,34 @@ get_target_property(MYTARGET check_manifold NAME)
 #target_link_libraries(${MYTARGET} PRIVATE CGAL::CGAL CGAL::CGAL_Core)
 #target_link_libraries(validate_triangle_mesh PRIVATE CGAL::CGAL CGAL::CGAL_Core)
 
+if(TARGET CGAL::CGAL)
+  target_link_libraries(${MYTARGET} PRIVATE CGAL::CGAL)
+  target_link_libraries(validate_triangle_mesh PRIVATE CGAL::CGAL)
+else()
+  target_link_libraries(${MYTARGET} PRIVATE ${CGAL_LIBRARIES})
+  target_link_libraries(validate_triangle_mesh PRIVATE ${CGAL_LIBRARIES})
+
+  if(DEFINED GMP_LIBRARIES)
+    target_link_libraries(${MYTARGET} PRIVATE ${GMP_LIBRARIES})
+    target_link_libraries(validate_triangle_mesh PRIVATE ${GMP_LIBRARIES})
+  endif()
+
+  if(DEFINED MPFR_LIBRARIES)
+    target_link_libraries(${MYTARGET} PRIVATE ${MPFR_LIBRARIES})
+    target_link_libraries(validate_triangle_mesh PRIVATE ${MPFR_LIBRARIES})
+  endif()
+endif()
+
 # add include directories
 target_include_directories(${MYTARGET} PUBLIC ${CGAL_INCLUDE_DIR})
 target_include_directories(validate_triangle_mesh PUBLIC ${CGAL_INCLUDE_DIR})
+
+if(DEFINED GMP_INCLUDE_DIR)
+  target_include_directories(${MYTARGET} PUBLIC ${GMP_INCLUDE_DIR})
+  target_include_directories(validate_triangle_mesh PUBLIC ${GMP_INCLUDE_DIR})
+endif()
+
+if(DEFINED MPFR_INCLUDE_DIR)
+  target_include_directories(${MYTARGET} PUBLIC ${MPFR_INCLUDE_DIR})
+  target_include_directories(validate_triangle_mesh PUBLIC ${MPFR_INCLUDE_DIR})
+endif()

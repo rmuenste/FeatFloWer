@@ -483,7 +483,8 @@ DO ILEV=NLMIN+1,NLMAX
  ! Serial PE mode: Each CFD domain runs independent serial PE instance
  ! No MPI communicators needed - PE runs purely serial
  if (myid .ne. 0) then
-   call commf2c_fluidization(0, 0, myid)  ! Dummy MPI communicator arguments
+   !call commf2c_fluidization(0, 0, myid)  ! Dummy MPI communicator arguments
+   call commf2c_fluidization_srr(0, 0, myid)
  end if
    ! Set lubrication threshold based on mesh size
    call set_lubrication_threshold_from_mesh(myid)

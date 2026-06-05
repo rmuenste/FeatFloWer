@@ -655,7 +655,7 @@ if (myid.ne.master) then
   ILEV=mg_Mesh%maxlevel-1
   do i=1,mg_mesh%level(ilev)%nel
    j = mg_mesh%level(ilev)%nvt+mg_mesh%level(ilev)%net+mg_mesh%level(ilev)%nat+i
-   if (GenLinScalar%Fld(2)%val(j).gt.GenLinScalar%Fld(3)%val(j)) THEN
+   if (GenLinScalar%Fld(1)%val(j).gt.GenLinScalar%Fld(2)%val(j)) THEN
     mgDensity(ILEV)%x(i)  = myMultiMat%Mat(1)%Thermodyn%density
    else
     mgDensity(ILEV)%x(i)  = myMultiMat%Mat(2)%Thermodyn%density

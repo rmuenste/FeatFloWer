@@ -51,7 +51,7 @@ thstep = tstep*(1d0-theta)
 
 IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
 
  DO iFld = 1,GenLinScalar%nOfFields
   GenLinScalar%Fld(iFld)%def = 0d0
@@ -114,7 +114,7 @@ CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
 IF (myid.ne.0) THEN
 
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
  
  ! Restore the constant right hand side
  DO iFld=1,GenLinScalar%nOfFields
@@ -237,6 +237,10 @@ IF (myid.ne.0) THEN
   ! Convection + stabilization
   CALL Create_GenLinSc_Q1_AFCConvection()
 
+  DO iFld=1,GenLinScalar%nOfFields
+   GenLinScalar%Fld(iFld)%val = 0d0
+  end do
+
   bInit = .false.
  end if
 
@@ -250,7 +254,7 @@ thstep = tstep*(1d0-theta)
 
 IF (myid.ne.0) THEN
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
 
  CALL Matdef_HEATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
 END IF
@@ -311,7 +315,7 @@ CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
 IF (myid.ne.0) THEN
 
  ! Set dirichlet boundary conditions on the solution
- CALL Boundary_GenLinSc_HEATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
  
  ! Restore the constant right hand side
  DO iFld=1,GenLinScalar%nOfFields
@@ -373,7 +377,7 @@ END DO
 
 2 CONTINUE
 
-CALL CheckAlphaConvergence(mfile)
+CALL CheckAlphaConvergence_MULTIMATALPHA(mfile)
 
 IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
 
@@ -388,6 +392,167 @@ END IF
 
 
 END SUBROUTINE Transport_GenLinSc_Q1_MultiMat
+!
+! ----------------------------------------------
+!
+SUBROUTINE Transport_GenLinSc_Q1_MultiMat_AlphaOnly(mfile,INL)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+INTEGER mfile,INL
+REAL*8, allocatable :: ResTemp(:),DefTemp(:),DefTempCrit(:),DefTemp0(:),RhsTemp(:)
+INTEGER INLComplete,I,J,iFld,iEnd,iStart
+logical bDefTemp
+logical :: bInit=.true.
+
+if (.not.allocated(ResTemp)) allocate(ResTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTemp)) allocate(DefTemp(GenLinScalar%nOfFields))
+if (.not.allocated(DefTemp0)) allocate(DefTemp0(GenLinScalar%nOfFields))
+if (.not.allocated(DefTempCrit)) allocate(DefTempCrit(GenLinScalar%nOfFields))
+if (.not.allocated(RhsTemp)) allocate(RhsTemp(GenLinScalar%nOfFields))
+
+IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+DO iFld = 1,GenLinScalar%nOfFields
+ CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old_timestep,GenLinScalar%ndof)
+END DO
+
+IF (myid.ne.0) THEN
+
+ if (bInit) then
+  CALL Create_GenLinSc_Q1_Mass(1d0)
+  CALL Create_GenLinSc_Q1_Alpha_Diffusion(1d-1)
+  CALL Create_GenLinSc_Q1_AFCConvection()
+
+  DO iFld=1,GenLinScalar%nOfFields
+   GenLinScalar%Fld(iFld)%val = 0d0
+  end do
+
+  bInit = .false.
+ end if
+
+END IF
+
+thstep = tstep*(1d0-theta)
+
+IF (myid.ne.0) THEN
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+ CALL Matdef_MULTIMATALPHA_GenLinSc_Q1(GenLinScalar,1,0)
+END IF
+
+IF (myid.ne.0) THEN
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%rhs0,GenLinScalar%ndof)
+ END DO
+END IF
+
+thstep = tstep*(theta)
+IF (myid.ne.0) THEN
+
+ CALL Matdef_MULTIMATALPHA_GenLinSc_Q1(GenLinScalar,0,1)
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%aux,GenLinScalar%ndof)
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old,GenLinScalar%ndof)
+ END DO
+
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+end if
+
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+ CALL COMM_Maximum(DefTemp(iFld))
+END DO
+
+DO iFld=1,GenLinScalar%nOfFields
+ DefTemp0(iFld) = DefTemp(iFld)
+ DefTempCrit(iFld)=MAX((DefTemp(iFld))*GenLinScalar%prm%defCrit,GenLinScalar%prm%MinDef)
+END DO
+
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,0,&
+       ResTemp,DefTemp,DefTempCrit," Alpha-only equation ")
+
+do INL=1,GenLinScalar%prm%NLmax
+INLComplete = 0
+
+CALL Solve_GenLinSc_Q1_MGLinScalar(GenLinScalar,&
+                                   Boundary_GenLinSc_Q1_Mat,&
+                                   mfile)
+
+IF (myid.ne.0) THEN
+
+ CALL Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(mg_mesh%level(nlmax)%dcorvg)
+
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%rhs0,GenLinScalar%Fld(iFld)%def,GenLinScalar%ndof)
+ END DO
+
+ CALL Matdef_MULTIMATALPHA_GenLinSc_Q1(GenLinScalar,-1,0)
+ CALL Boundary_GenLinSc_Q1_Def()
+
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%def,GenLinScalar%Fld(iFld)%aux,GenLinScalar%ndof)
+  CALL E011Sum(GenLinScalar%fld(iFld)%def)
+ END DO
+
+ DO iFld=1,GenLinScalar%nOfFields
+  CALL LCP1(GenLinScalar%Fld(iFld)%val,GenLinScalar%Fld(iFld)%val_old,GenLinScalar%ndof)
+ END DO
+
+ CALL Resdfk_GenLinSc_Q1(GenLinScalar,ResTemp,DefTemp,RhsTemp)
+
+END IF
+
+RhsTemp=DefTemp
+DO iFld=1,GenLinScalar%nOfFields
+ CALL COMM_Maximum(RhsTemp(iFld))
+ CALL COMM_Maximum(DefTemp(iFld))
+END DO
+
+CALL Protocol_GenLinSc_Q1(mfile,GenLinScalar,INL,&
+       ResTemp,DefTemp,DefTempCrit," GenLinScalar equation ")
+
+bDefTemp = .True.
+DO iFld=1,GenLinScalar%nOfFields
+ bDefTemp = (bDefTemp.and.DefTemp(iFld).LE.DefTempCrit(iFld))
+END DO
+
+DO iFld=1,GenLinScalar%nOfFields
+ IF (isnan(DefTemp(iFld)).or.DefTemp(iFld).eq.0d0.or.DefTemp(iFld).gt.1d1*DefTemp0(iFld)) THEN
+  DivergedSolution = .TRUE.
+  RETURN
+ END IF
+END DO
+
+IF (bDefTemp.and.(INL.GE.GenLinScalar%prm%NLmin)) INLComplete = 1
+
+CALL COMM_NLComplete(INLComplete)
+IF (INLComplete.eq.1) GOTO 1
+
+END DO
+
+1 CONTINUE
+
+2 CONTINUE
+
+CALL CheckAlphaConvergence_MULTIMATALPHA(mfile)
+
+IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
+
+IF (myid.ne.0) THEN
+ iStart = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+ iEnd   = NLMAX
+ do NLMAX = iStart,iEnd
+  CALL ProlongateSolution_GenLinSc_Q1()
+ END DO
+ NLMAX = iEnd
+END IF
+
+END SUBROUTINE Transport_GenLinSc_Q1_MultiMat_AlphaOnly
 !
 ! ----------------------------------------------
 !
@@ -708,6 +873,79 @@ integer :: n, ndof, iFld,nMaterials
 !!=========================================================================
 
 END SUBROUTINE Init_GenLinSc_HEATALPHA_Q1
+!
+! ----------------------------------------------
+!
+SUBROUTINE Init_GenLinSc_MULTIMATALPHA_Q1(log_unit)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE Sigma_User, ONLY: myMultiMat
+USE var_QuadScalar
+implicit none
+integer, intent(in) :: log_unit
+integer :: n, ndof, iFld,nMaterials
+
+ GenLinScalar%cName = "Temper"
+ nMaterials = myMultiMat%nOfMaterials
+
+ CALL Get_GenLinSc_Q1_Parameters(GenLinScalar%prm,GenLinScalar%cName,log_unit)
+ if (allocated(GenLinScalar%prm%cField)) deallocate(GenLinScalar%prm%cField)
+ GenLinScalar%prm%nOfFields = nMaterials
+ ALLOCATE(GenLinScalar%prm%cField(GenLinScalar%prm%nOfFields))
+ DO iFld=1,nMaterials
+  write(GenLinScalar%prm%cField(iFld),'(A,I0)') 'alpha',iFld
+ END DO
+ GenLinScalar%nOfFields = GenLinScalar%prm%nOfFields
+
+ IF (myid.ne.0) NLMAX = NLMAX + GenLinScalar%prm%MGprmIn%MaxDifLev
+
+ CALL Create_MatStruct_Q1()
+ CALL Create_AMat_GenLinSc_Q1(GenLinScalar)
+ CALL Initialize_GenLinSc_Q1(GenLinScalar)
+
+ DO iFld=1,nMaterials
+  GenLinScalar%Fld(iFld)%ID = iFld
+ END DO
+
+ ILEV=NLMAX
+ CALL SETLEV(2)
+
+ call Knpr_GenLinSc_MULTIMATALPHA_Q1(mg_mesh%level(ilev)%dcorvg)
+
+ DO iFld = 1,GenLinScalar%nOfFields
+  GenLinScalar%Fld(iFld)%val = 0d0
+ END DO
+
+ ILEV = NLMAX
+ CALL Create_GenLinSc_Q1_AFCStruct()
+
+ IF (myid.ne.0) NLMAX = NLMAX - GenLinScalar%prm%MGprmIn%MaxDifLev
+
+ IF (myid.ne.0) NLMAX = NLMAX + 1
+ ALLOCATE(mg_E011Prol(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011Rest(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011ProlM(NLMIN:NLMAX-1))
+ ALLOCATE(mg_E011RestM(NLMIN:NLMAX-1))
+
+ DO ILEV=NLMIN,NLMAX-1
+  N = KNVT(ILEV+1) + 2*KNET(ILEV+1) + 4*KNAT(ILEV+1) + 8*KNEL(ILEV+1)
+  ALLOCATE(mg_E011Prol(ILEV)%a(N))
+  ALLOCATE(mg_E011Rest(ILEV)%a(N))
+  ALLOCATE(mg_E011ProlM(ILEV)%ColA(N))
+  ALLOCATE(mg_E011RestM(ILEV)%ColA(N))
+  mg_E011ProlM(ILEV)%na = N
+  mg_E011RestM(ILEV)%na = N
+  NDOF = KNVT(ILEV+1)
+  mg_E011ProlM(ILEV)%nu = NDOF
+  ALLOCATE(mg_E011ProlM(ILEV)%LdA(NDOF+1))
+  NDOF = KNVT(ILEV)
+  mg_E011RestM(ILEV)%nu = NDOF
+  ALLOCATE(mg_E011RestM(ILEV)%LdA(NDOF+1))
+ END DO
+
+ CALL InitializeProlRest_GenLinSc_Q1(GenLinScalar,GenLinScalar%cName)
+ IF (myid.ne.0) NLMAX = NLMAX - 1
+
+END SUBROUTINE Init_GenLinSc_MULTIMATALPHA_Q1
 !
 ! ----------------------------------------------
 !
@@ -1310,6 +1548,65 @@ END SUBROUTINE Correct_GenLinSc_Q1_ALPHA
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Correct_GenLinSc_Q1_MULTIMATALPHA(mfile)
+use Sigma_User, only: mySegmentIndicator
+INTEGER mfile
+integer iFld,i,iMat,iFldMax
+real*8 dFldMax,dMaxValue
+
+IF (myid.ne.0) THEN
+
+ if (myid.eq.1) then
+  write(mterm,*) 'Reinitialization of the fields takes place now!'
+  write(mfile,*) 'Reinitialization of the fields takes place now!'
+ end if
+
+ NLMAX = NLMAX + 1
+
+ DO i=1,mg_mesh%level(nlmax)%nvt
+  dMaxValue = 1d0
+
+  iMat = 0
+  dFldMax = -1d0
+  do iFld=1,GenLinScalar%nOfFields
+   if (GenLinScalar%Fld(iFld)%val(i).gt.0.5d0)  then
+    iMat = iFld
+   else
+    if (GenLinScalar%Fld(iFld)%val(i).gt.dFldMax)  then
+     iFldMax = iFld
+     dFldMax = GenLinScalar%Fld(iFld)%val(i)
+    end if
+   end if
+  end do
+
+  if (iMat.ne.0) then
+   do iFld=1,GenLinScalar%nOfFields
+    if (iMat.eq.iFld) then
+     GenLinScalar%Fld(iFld)%val(i) = dMaxValue
+    else
+     GenLinScalar%Fld(iFld)%val(i) = 0d0
+    end if
+   end do
+  else
+   do iFld=1,GenLinScalar%nOfFields
+    if (iFldMax.eq.iFld) then
+     GenLinScalar%Fld(iFld)%val(i) = dMaxValue
+    else
+     GenLinScalar%Fld(iFld)%val(i) = 0d0
+    end if
+   end do
+  end if
+
+ END DO
+
+ NLMAX = NLMAX - 1
+
+END IF
+
+END SUBROUTINE Correct_GenLinSc_Q1_MULTIMATALPHA
+!
+! ----------------------------------------------
+!
 SUBROUTINE CheckAlphaConvergence(mfile)
 use Sigma_User, only: mySegmentIndicator
 USE var_QuadScalar, ONLY: bAlphaConverged
@@ -1362,7 +1659,7 @@ DO iFld=2,GenLinScalar%nOfFields
 end do
 
 AlphaControl = dMaxValue/dVolPhase(1)
-if (AlphaControl.gt.0.9d0) bAlphaConverged=.true.
+if (AlphaControl.gt.0.99d0) bAlphaConverged=.true.
 
 if (myid.eq.1) then
  write(mterm,'(A,100ES12.4)') 'VolumeFractions[%]: ',1d2*dMaxValue/dVolPhase(1),1d2*dVolPhase(2:GenLinScalar%nOfFields)/dVolPhase(1)
@@ -1372,6 +1669,70 @@ end if
 deallocate(dVolPhase)
 
 END SUBROUTINE CheckAlphaConvergence
+!
+! ----------------------------------------------
+!
+SUBROUTINE CheckAlphaConvergence_MULTIMATALPHA(mfile)
+use Sigma_User, only: mySegmentIndicator
+USE var_QuadScalar, ONLY: bAlphaConverged
+integer mfile
+integer i,iPhase,ifld,iSeg
+real*8 dMaxValue
+real*8, allocatable :: dVolPhase(:)
+real*8 :: dAlphaThreshold = 0.3333d0
+
+allocate(dVolPhase(GenLinScalar%nOfFields+1))
+dVolPhase = 0d0
+
+bAlphaConverged=.false.
+
+IF (myid.ne.0) THEN
+
+  LMassMat   => mg_LMassMat(nlmax)%a
+
+  DO i=1,mg_mesh%level(nlmax)%nvt
+
+   iSeg = INT(mySegmentIndicator(2,i))
+
+   IF (iSeg.ne.0) THEN
+    iPhase = 0
+    dMaxValue = 0d0
+
+    do iFld=1,GenLinScalar%nOfFields
+     if (GenLinScalar%Fld(iFld)%val(i).gt.dAlphaThreshold.and.GenLinScalar%Fld(iFld)%val(i).gt.dMaxValue) then
+      dMaxValue = GenLinScalar%Fld(iFld)%val(i)
+      iPhase = iFld
+     end if
+    end do
+
+    if (iPhase.ne.0) then
+     dVolPhase(iPhase+1) = dVolPhase(iPhase+1) + LMassMat(i)
+    end if
+    dVolPhase(1) = dVolPhase(1) + lMassMat(i)
+   END IF
+
+  END DO
+
+END IF
+
+CALL COMM_SUMMN(dVolPhase,GenLinScalar%nOfFields+1)
+
+dMaxValue=0d0
+DO iFld=2,GenLinScalar%nOfFields+1
+ dMaxValue = dMaxValue + dVolPhase(iFld)
+END DO
+
+AlphaControl = dMaxValue/dVolPhase(1)
+if (AlphaControl.gt.0.99d0) bAlphaConverged=.true.
+
+if (myid.eq.1) then
+ write(mterm,'(A,100ES12.4)') 'VolumeFractions[%]: ',1d2*dMaxValue/dVolPhase(1),1d2*dVolPhase(2:GenLinScalar%nOfFields+1)/dVolPhase(1)
+ write(mfile,'(A,100ES12.4)') 'VolumeFractions[%]: ',1d2*dMaxValue/dVolPhase(1),1d2*dVolPhase(2:GenLinScalar%nOfFields+1)/dVolPhase(1)
+end if
+
+deallocate(dVolPhase)
+
+END SUBROUTINE CheckAlphaConvergence_MULTIMATALPHA
 !
 ! ----------------------------------------------
 !

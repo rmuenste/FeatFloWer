@@ -43,6 +43,9 @@ INTEGER iBuffElem,jBuffElem,BuffElem(nBuffElem),maxBufferSize,maxBufferElem
 
 INTEGER iMonitor(nXX),iAux
 REAL*8  dMonitor(nXX),dAux
+INTEGER :: iLastElem,iExitKind,iExitFaceLocal,iExitVertexLocal
+INTEGER :: iExitEdgeVerts(2),iExitFaceVerts(4)
+LOGICAL :: bHaveLocalHint,bTriedOctree
 
 iLostParticel = 0
 iActiveParticel = 0
@@ -52,6 +55,13 @@ maxBufferElem = 0
 DO iParticel = iMinParticleID,iMaxParticleID
 
 iIter = 0
+iLastElem = 0
+iExitKind = 0
+iExitFaceLocal = 0
+iExitVertexLocal = 0
+iExitEdgeVerts = 0
+iExitFaceVerts = 0
+bHaveLocalHint = .FALSE.
 
 if (myActiveSet(iParticel)%id.eq.0) then
 
@@ -62,9 +72,15 @@ dParticleVelo = myActiveSet(iParticel)%velo
 55 CONTINUE
 
 bFound = .FALSE.
+bTriedOctree = .FALSE.
 
-CALL FindRankingInOctTreeOMP(dcorvg,nvt,point,iMonitor,dMonitor,nxx)
-call CreateElemBuffer()
+if (bHaveLocalHint) then
+ call CreateLocalElemBuffer()
+else
+ call FindRankingInOctTreeOMP(dcorvg,nvt,point,iMonitor,dMonitor,nxx)
+ call CreateElemBuffer()
+ bTriedOctree = .TRUE.
+end if
 
 ! if (iX.eq.1) then
 !  write(*,*) 'fsdfdfs',iParticel
@@ -76,8 +92,21 @@ call CreateElemBuffer()
   jel = BuffElem(jBuffElem)
   CALL TraceParticleInTheRightElement()
   maxBufferElem = Max(maxBufferElem,jBuffElem)
+ if (bFound) goto 1
+ END DO
+
+IF ((.not.bFound).and.(.not.bTriedOctree)) THEN
+ CALL FindRankingInOctTreeOMP(dcorvg,nvt,point,iMonitor,dMonitor,nxx)
+ call CreateElemBuffer()
+ bTriedOctree = .TRUE.
+
+ DO jBuffElem = 1,iBuffElem
+  jel = BuffElem(jBuffElem)
+  CALL TraceParticleInTheRightElement()
+  maxBufferElem = Max(maxBufferElem,jBuffElem)
   if (bFound) goto 1
  END DO
+END IF
 
 IF (.not.bFound) THEN
  iLostParticel = iLostParticel + 1
@@ -88,13 +117,21 @@ IF (.not.bFound) THEN
  myLostSet(indice)%velo   = dParticleVelo
  myLostSet(indice)%indice = indice
  myLostSet(indice)%id     = myid
- 
+
  myActiveSet(iParticel)%id   = -1
+ bHaveLocalHint = .FALSE.
  
  GOTO 2
 END IF
 
 1 CONTINUE
+
+iLastElem = iFoundElem
+bHaveLocalHint = .FALSE.
+if (tLevel.lt.tDelta) then
+ call ClassifyElementExit(iExitKind,iExitFaceLocal,iExitVertexLocal,iExitEdgeVerts,iExitFaceVerts)
+ if (iExitKind.gt.0) bHaveLocalHint = .TRUE.
+end if
 
 iIter = iIter + 1
 IF (tLevel.lt.tDelta.AND.iIter.LT.nIter) GOTO 55
@@ -169,6 +206,313 @@ END DO
  
  end subroutine GetNeighborsOfFoundElem
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+ subroutine AddElementToBuffer(iElem)
+ integer, intent(in) :: iElem
+
+ if (iElem.le.0.or.iElem.gt.nel) return
+
+ do jBuffElem=1,iBuffElem
+  if (iElem.eq.BuffElem(jBuffElem)) return
+ end do
+
+ iBuffElem = iBuffElem + 1
+ IF (iBuffElem.gt.nBuffElem) THEN
+  write(*,*) 'buffer is too small ... ', myid
+  pause
+ end if
+ BuffElem(iBuffElem) = iElem
+
+ end subroutine AddElementToBuffer
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ logical function ElementHasVertex(iElem,iVertex)
+ integer, intent(in) :: iElem,iVertex
+
+ ElementHasVertex = .FALSE.
+ do i=1,8
+  if (kvert(i,iElem).eq.iVertex) then
+   ElementHasVertex = .TRUE.
+   return
+  end if
+ end do
+
+ end function ElementHasVertex
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine GetFaceLocalVertices(iFaceLocal,faceVerts)
+ integer, intent(in)  :: iFaceLocal
+ integer, intent(out) :: faceVerts(4)
+
+ select case (iFaceLocal)
+ case (1)
+  faceVerts = (/1,4,8,5/)
+ case (2)
+  faceVerts = (/2,3,7,6/)
+ case (3)
+  faceVerts = (/1,2,6,5/)
+ case (4)
+  faceVerts = (/4,3,7,8/)
+ case (5)
+  faceVerts = (/1,2,3,4/)
+ case (6)
+  faceVerts = (/5,6,7,8/)
+ case default
+  faceVerts = 0
+ end select
+
+ end subroutine GetFaceLocalVertices
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine AddIncidentElementsOfVertex(localVertex)
+ integer, intent(in) :: localVertex
+
+ if (localVertex.le.0.or.localVertex.gt.8) return
+
+ iPoint = kvert(localVertex,iLastElem)
+ do iel = kel_LdA(iPoint),kel_LdA(iPoint+1)-1
+  jel = kel_ColA(iel)
+  if (jel.ne.0) call AddElementToBuffer(jel)
+ end do
+
+ end subroutine AddIncidentElementsOfVertex
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine AddIncidentElementsOfEdge(localEdgeVerts)
+ integer, intent(in) :: localEdgeVerts(2)
+ integer :: v1,v2
+
+ if (minval(localEdgeVerts).le.0) return
+
+ v1 = kvert(localEdgeVerts(1),iLastElem)
+ v2 = kvert(localEdgeVerts(2),iLastElem)
+ do iel = kel_LdA(v1),kel_LdA(v1+1)-1
+  jel = kel_ColA(iel)
+  if (jel.ne.0) then
+   if (ElementHasVertex(jel,v2)) call AddElementToBuffer(jel)
+  end if
+ end do
+
+ end subroutine AddIncidentElementsOfEdge
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine AddIncidentElementsOfFaceVertices(faceVerts)
+ integer, intent(in) :: faceVerts(4)
+
+ do kk=1,4
+  call AddIncidentElementsOfVertex(faceVerts(kk))
+ end do
+
+ end subroutine AddIncidentElementsOfFaceVertices
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine AddNeighborAcrossFace(iFaceLocal)
+ integer, intent(in) :: iFaceLocal
+ integer :: faceVerts(4),sharedArea,globalVerts(4)
+ logical :: bAllVerts
+
+ if (iFaceLocal.le.0.or.iFaceLocal.gt.6) return
+
+ sharedArea = karea(iFaceLocal,iLastElem)
+ call GetFaceLocalVertices(iFaceLocal,faceVerts)
+ do kk=1,4
+  globalVerts(kk) = kvert(faceVerts(kk),iLastElem)
+ end do
+
+ do iel = kel_LdA(globalVerts(1)),kel_LdA(globalVerts(1)+1)-1
+  jel = kel_ColA(iel)
+  if (jel.eq.0.or.jel.eq.iLastElem) cycle
+  if (.not.ElementHasVertex(jel,globalVerts(2))) cycle
+  if (.not.ElementHasVertex(jel,globalVerts(3))) cycle
+  if (.not.ElementHasVertex(jel,globalVerts(4))) cycle
+  bAllVerts = .FALSE.
+  do i=1,6
+   if (karea(i,jel).eq.sharedArea) then
+    bAllVerts = .TRUE.
+    exit
+   end if
+  end do
+  if (bAllVerts) then
+   call AddElementToBuffer(jel)
+   return
+  end if
+ end do
+
+ end subroutine AddNeighborAcrossFace
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine CreateLocalElemBuffer()
+ 
+ iBuffElem = 0
+
+ if (iLastElem.le.0) return
+
+ select case (iExitKind)
+ case (1)
+  call AddNeighborAcrossFace(iExitFaceLocal)
+ case (2)
+  call AddIncidentElementsOfEdge(iExitEdgeVerts)
+ case (3)
+  call AddIncidentElementsOfVertex(iExitVertexLocal)
+ end select
+
+ if (minval(iExitFaceVerts).gt.0) then
+  call AddIncidentElementsOfFaceVertices(iExitFaceVerts)
+ end if
+
+ maxBufferSize = Max(maxBufferSize,iBuffElem)
+ 
+ end subroutine CreateLocalElemBuffer
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine ClassifyElementExit(iKind,iFaceLocal,iVertexLocal,iEdgeVerts,iFaceVerts)
+ integer, intent(out) :: iKind,iFaceLocal,iVertexLocal
+ integer, intent(out) :: iEdgeVerts(2),iFaceVerts(4)
+ integer :: iViolationCount,violationDim(3),signDim(3),dominantDim
+ real*8  :: overshoot(3),localXi(3)
+
+ iKind = 0
+ iFaceLocal = 0
+ iVertexLocal = 0
+ iEdgeVerts = 0
+ iFaceVerts = 0
+
+ localXi = (/XI1,XI2,XI3/)
+ overshoot = 0d0
+ violationDim = 0
+ signDim = 0
+ iViolationCount = 0
+
+ do i=1,3
+  if (localXi(i).gt.1d0) then
+   iViolationCount = iViolationCount + 1
+   violationDim(iViolationCount) = i
+   signDim(iViolationCount) = 1
+   overshoot(i) = localXi(i) - 1d0
+  else if (localXi(i).lt.-1d0) then
+   iViolationCount = iViolationCount + 1
+   violationDim(iViolationCount) = i
+   signDim(iViolationCount) = -1
+   overshoot(i) = -1d0 - localXi(i)
+  end if
+ end do
+
+ if (iViolationCount.le.0) return
+
+ dominantDim = violationDim(1)
+ do i=2,iViolationCount
+  if (overshoot(violationDim(i)).gt.overshoot(dominantDim)) dominantDim = violationDim(i)
+ end do
+
+ iFaceLocal = GetFaceIndex(dominantDim,localXi(dominantDim))
+ call GetFaceLocalVertices(iFaceLocal,iFaceVerts)
+
+ select case (iViolationCount)
+ case (1)
+  iKind = 1
+ case (2)
+  iKind = 2
+  call GetEdgeLocalVertices(violationDim(1),signDim(1),violationDim(2),signDim(2),iEdgeVerts)
+ case default
+  iKind = 3
+  iVertexLocal = GetVertexLocalIndex(signDim(1),signDim(2),signDim(3))
+ end select
+
+ end subroutine ClassifyElementExit
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ integer function GetFaceIndex(iDim,xiValue)
+ integer, intent(in) :: iDim
+ real*8,  intent(in) :: xiValue
+
+ select case (iDim)
+ case (1)
+  if (xiValue.lt.0d0) then
+   GetFaceIndex = 1
+  else
+   GetFaceIndex = 2
+  end if
+ case (2)
+  if (xiValue.lt.0d0) then
+   GetFaceIndex = 3
+  else
+   GetFaceIndex = 4
+  end if
+ case (3)
+  if (xiValue.lt.0d0) then
+   GetFaceIndex = 5
+  else
+   GetFaceIndex = 6
+  end if
+ case default
+  GetFaceIndex = 0
+ end select
+
+ end function GetFaceIndex
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ integer function GetVertexLocalIndex(sign1,sign2,sign3)
+ integer, intent(in) :: sign1,sign2,sign3
+
+ GetVertexLocalIndex = 0
+ do i=1,8
+  if (GetVertexXiSign(i,1).ne.sign1) cycle
+  if (GetVertexXiSign(i,2).ne.sign2) cycle
+  if (GetVertexXiSign(i,3).ne.sign3) cycle
+  GetVertexLocalIndex = i
+  return
+ end do
+
+ end function GetVertexLocalIndex
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ integer function GetVertexXiSign(iVertex,iDim)
+ integer, intent(in) :: iVertex,iDim
+
+ select case (iVertex)
+ case (1)
+  if (iDim.eq.1) GetVertexXiSign = -1
+  if (iDim.eq.2) GetVertexXiSign = -1
+  if (iDim.eq.3) GetVertexXiSign = -1
+ case (2)
+  if (iDim.eq.1) GetVertexXiSign =  1
+  if (iDim.eq.2) GetVertexXiSign = -1
+  if (iDim.eq.3) GetVertexXiSign = -1
+ case (3)
+  if (iDim.eq.1) GetVertexXiSign =  1
+  if (iDim.eq.2) GetVertexXiSign =  1
+  if (iDim.eq.3) GetVertexXiSign = -1
+ case (4)
+  if (iDim.eq.1) GetVertexXiSign = -1
+  if (iDim.eq.2) GetVertexXiSign =  1
+  if (iDim.eq.3) GetVertexXiSign = -1
+ case (5)
+  if (iDim.eq.1) GetVertexXiSign = -1
+  if (iDim.eq.2) GetVertexXiSign = -1
+  if (iDim.eq.3) GetVertexXiSign =  1
+ case (6)
+  if (iDim.eq.1) GetVertexXiSign =  1
+  if (iDim.eq.2) GetVertexXiSign = -1
+  if (iDim.eq.3) GetVertexXiSign =  1
+ case (7)
+  if (iDim.eq.1) GetVertexXiSign =  1
+  if (iDim.eq.2) GetVertexXiSign =  1
+  if (iDim.eq.3) GetVertexXiSign =  1
+ case (8)
+  if (iDim.eq.1) GetVertexXiSign = -1
+  if (iDim.eq.2) GetVertexXiSign =  1
+  if (iDim.eq.3) GetVertexXiSign =  1
+ case default
+  GetVertexXiSign = 0
+ end select
+
+ end function GetVertexXiSign
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ subroutine GetEdgeLocalVertices(dimA,signA,dimB,signB,edgeVerts)
+ integer, intent(in)  :: dimA,signA,dimB,signB
+ integer, intent(out) :: edgeVerts(2)
+ integer :: nMatch
+
+ edgeVerts = 0
+ nMatch = 0
+
+ do i=1,8
+  if (GetVertexXiSign(i,dimA).ne.signA) cycle
+  if (GetVertexXiSign(i,dimB).ne.signB) cycle
+  nMatch = nMatch + 1
+  if (nMatch.le.2) edgeVerts(nMatch) = i
+ end do
+
+ end subroutine GetEdgeLocalVertices
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  subroutine CreateElemBuffer()
  
  iBuffElem = 0
@@ -263,60 +607,60 @@ END DO
      cdy = 1d1*P(2)
      cdz = 1d1*P(3)
 
-!      CALL RETURN_Distance()
-!
-!      ! scaling [mm] to [cm]
-!      distance = 1d1*distance
+     CALL RETURN_Distance()
+
+     ! scaling [mm] to [cm]
+     distance = 1d1*distance
     
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      if (distance.lt. d_CorrDist*0.5d0) then
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        ! d_CorrDist is in [mm], distance as well is in [mm] / at the end we have to come back to [cm]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdx = 1d1*P(1)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdy = 1d1*P(2)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdz = 1d1*P(3)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       CALL RETURN_Normal()
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       daux = SQRT(dnormal(1)**2d0 + dnormal(2)**2d0 + dnormal(3)**2d0)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       dnormal = dnormal/daux
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpx = cdx + dnormal(1)*(-distance + d_CorrDist*0.5d0)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpy = cdy + dnormal(2)*(-distance + d_CorrDist*0.5d0)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cpz = cdz + dnormal(3)*(-distance + d_CorrDist*0.5d0)
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       P=0.1d0*[cpx,cpy,cpz]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       point = [P(1),P(2),P(3)]
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      end if
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
-! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !     end if
-    
-!      if (distance.lt. d_CorrDist*0.5d0) then
-     myFBM%nParticles = 1
-     CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+     if (distance.lt. d_CorrDist*0.5d0) then
 
-     dist_CGAL = - dist_CGAL
+       ! d_CorrDist is in [mm], distance as well is in [mm] / at the end we have to come back to [cm]
 
-     if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+      cdx = 1d1*P(1)
+      cdy = 1d1*P(2)
+      cdz = 1d1*P(3)
 
-!       write (*,*) 'yes',dist_CGAL,d_CorrDist*0.5d0
+      CALL RETURN_Normal()
+      daux = SQRT(dnormal(1)**2d0 + dnormal(2)**2d0 + dnormal(3)**2d0)
+      dnormal = dnormal/daux
 
-      cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
-      daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
-      if (dist_CGAL.gt.0d0) then
-       cnormal = -cnormal/daux
-      else
-       cnormal = cnormal/daux
-      end if
+      cpx = cdx + dnormal(1)*(-distance + d_CorrDist*0.5d0)
+      cpy = cdy + dnormal(2)*(-distance + d_CorrDist*0.5d0)
+      cpz = cdz + dnormal(3)*(-distance + d_CorrDist*0.5d0)
 
-      cdx = cpx + cnormal(1)*(-dist_CGAL + d_CorrDist*0.5d0)
-      cdy = cpy + cnormal(2)*(-dist_CGAL + d_CorrDist*0.5d0)
-      cdz = cpz + cnormal(3)*(-dist_CGAL + d_CorrDist*0.5d0)
+      P=0.1d0*[cpx,cpy,cpz]
 
-      P=0.1d0*[cdx,cdy,cdz]
       point = [P(1),P(2),P(3)]
-     end if
+
+!      end if
+
+    end if
+    
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      if (distance.lt. d_CorrDist*0.5d0) then
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      myFBM%nParticles = 1
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      dist_CGAL = - dist_CGAL
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      if (dist_CGAL.lt. d_CorrDist*0.5d0) then
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       write (*,*) 'yes',dist_CGAL,d_CorrDist*0.5d0
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cnormal = [cpx-cdx,cpy-cdy,cpz-cdz]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       daux = SQRT(cnormal(1)**2d0 + cnormal(2)**2d0 + cnormal(3)**2d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       if (dist_CGAL.gt.0d0) then
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        cnormal = -cnormal/daux
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       else
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !        cnormal = cnormal/daux
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       end if
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdx = cpx + cnormal(1)*(-dist_CGAL + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdy = cpy + cnormal(2)*(-dist_CGAL + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       cdz = cpz + cnormal(3)*(-dist_CGAL + d_CorrDist*0.5d0)
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       P=0.1d0*[cdx,cdy,cdz]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !       point = [P(1),P(2),P(3)]
+! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !      end if
 
 ! !       CALL GetDistAndProjPToAllSTLs(cdx,cdy,cdz,cpx,cpy,cpz,dist_CGAL)
 ! !

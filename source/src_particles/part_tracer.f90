@@ -1972,8 +1972,6 @@ DO
 !DO iElement=1,iElements
 
   READ(745,*,IOSTAT=io)  dValues
-  dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
-  myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -1982,6 +1980,9 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElement
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
+      myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
+
 
 !       if (myid.eq.1) write(*,*) dBuff
       cdx = myParticleParam%dFacUnitSourcefile*dBuff(1)
@@ -2040,8 +2041,11 @@ END SUBROUTINE Init_Particles_from_csv_xse
 !-------------------------------------------------------------------
 !
 SUBROUTINE Init_Particles_from_csv(mfile)
-INTEGER i,j,iParticles, iElements, iElement
+IMPLICIT NONE
+INTEGER i,j,iParticles, iElements, iElement, mfile
+INTEGER idx1,idx2,idx3,idx4
 REAL*8 myRandomNumber(3),R_min,R_max,Y,X_box,Y_box,Z_min
+REAL*8 cpx,cpy,cpz
 Character*256 cHeader
 REAL*8 dBuff(3)
 INTEGER nColumns,Columns(4)
@@ -2120,10 +2124,6 @@ DO
 !DO iElement=1,iElements
 
    READ(745,*,IOSTAT=io)  dValues
-   dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
-   
-!  READ(745,*,IOSTAT=io)  dCrap,dBuff
-  myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
 
    IF (io > 0) THEN
       WRITE(*,*) 'Check input.  Something was wrong'
@@ -2132,6 +2132,11 @@ DO
       IF (myid.eq.1) WRITE(*,*) 'iParticles= ',iParticles,iElement
       EXIT
    ELSE
+      dBuff = [dValues(Columns(2)),dValues(Columns(3)),dValues(Columns(4))]
+      
+!  READ(745,*,IOSTAT=io)  dCrap,dBuff
+      myRandomNumber = 1d0*myParticleParam%dFacUnitSourcefile*dBuff
+
 
 !       if (myid.eq.1) write(*,*) dBuff
       cdx = 1d1*dBuff(1)
@@ -2881,9 +2886,13 @@ END SUBROUTINE subPostProcessRTD
 !       when the actual implementation becomes available.
 !===============================================================================
 SUBROUTINE Finalize_Particles(time, log_unit)
-  USE PP3D_MPI, ONLY: myid
+  USE PP3D_MPI, ONLY: myid,MPI_COMM_WORLD
+  use var_QuadScalar, only: mg_mesh
+  use Mesh_Structures, only: release_mesh
   IMPLICIT NONE
 
+
+  integer :: ierr
   REAL, INTENT(IN) :: time
   INTEGER, INTENT(IN) :: log_unit
 
@@ -2891,6 +2900,10 @@ SUBROUTINE Finalize_Particles(time, log_unit)
   IF (myid == 0) THEN
     WRITE(log_unit,*) 'Finalize_Particles: stub implementation (no cleanup)'
   END IF
+
+  call release_mesh(mg_mesh)
+  CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+  CALL MPI_Finalize(ierr)
 
 END SUBROUTINE Finalize_Particles
 
@@ -2910,15 +2923,21 @@ integer iC(4),nC
 integer i,jPos1,jPos2
 integer, allocatable :: iPos(:)
 Character*1 cA
-Integer nS
+Integer nS,nHeaderLen
 
 nC = 0
 iC = 0
 
 if (myid.eq.1) write(*,*) ",",adjustl(trim(cH)),","
 
+nHeaderLen = len_trim(cH)
+if (nHeaderLen.le.0) then
+ if (myid.eq.1) write(*,*) 'Empty CSV header encountered'
+ return
+end if
+
 nS = 0
-Do i=1,256
+Do i=1,nHeaderLen
  READ(cH(i:i),'(A1)') cA
  if (cA.eq.cS) nS = nS + 1
 END DO
@@ -2929,7 +2948,7 @@ iPos = 0
 !write(*,*) 'nS=',nS
 
 nS = 0
-Do i=1,256
+Do i=1,nHeaderLen
  READ(cH(i:i),'(A1)') cA
  if (cA.eq.cS) THEN
   nS = nS + 1
@@ -2937,7 +2956,7 @@ Do i=1,256
  end if
 END DO
 
-iPos(nS+1) = LEN(adjustl(trim(cH)))+1
+iPos(nS+1) = nHeaderLen+1
 nC = nS + 1
 
 if (myid.eq.1) write(*,*) 'nS=',nS, 'iPos= ',iPos
@@ -2945,7 +2964,8 @@ if (myid.eq.1) write(*,*) 'nS=',nS, 'iPos= ',iPos
 jPos1 = 0
 Do i=1,nS+1
  jPos2 = iPos(i)
- READ(cH(jPos1+1:jPos2-1),'(A)') cF
+ cF = ''
+ cF = cH(jPos1+1:jPos2-1)
  CALL inip_toupper_replace(cF)
  if (INDEX(ADJUSTL(TRIM(cF)),"RESULT").ne.0) then
   if (myid.eq.1) write(*,*) 'res-column is :', i,ADJUSTL(TRIM(cF))
@@ -2965,6 +2985,13 @@ Do i=1,nS+1
  end if
  jPos1=jPos2
 END DO
+
+if (any(iC.eq.0)) then
+ if (myid.eq.1) then
+  write(*,*) 'CSV header parsing failed. Columns=',iC
+  write(*,*) 'Expected POINTS:0, POINTS:1, POINTS:2 and RESULT in header.'
+ end if
+end if
 
 ! pause
 

@@ -1024,9 +1024,146 @@ SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,na
 END SUBROUTINE SetPoint
 
 END SUBROUTINE ProlongateCoordinates
-    !
-    ! --------------------------------------------------------------
-    !
+!
+! --------------------------------------------------------------
+!
+SUBROUTINE ProlongateCoordinates_SSE(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
+      USE PP3D_MPI, ONLY: myid,COMM_MaximumN
+      USE var_QuadScalar, ONLY : ProlongationDirection,GeometryType,&
+                                 ProlongationDZMAX,bProlongationDZMAXInitialized
+      IMPLICIT NONE
+      INTEGER iDir
+      REAL*8  dcorvg(3,*)
+      REAL*8  dcorvg2(3,*)
+      INTEGER kvert(8,*),kedge(12,*),karea(6,*),nel,nvt,net,nat
+      REAL*8 PX,PY,PZ,localDZMAX
+      REAL*8 rBox,rCyl,rPoint,dWeight
+      REAL*8 Qcart(3),Qcyl(3),Daux(1)
+      INTEGER i,j,k,ivt1,ivt2,ivt3,ivt4
+      INTEGER NeighE(2,12),NeighA(4,6)
+      REAL*8  PatchPoint(3,8)
+      DATA NeighE/1,2,2,3,3,4,4,1,1,5,2,6,3,7,4,8,5,6,6,7,7,8,8,5/
+      DATA NeighA/1,2,3,4,1,2,6,5,2,3,7,6,3,4,8,7,4,1,5,8,5,6,7,8/
+
+      iDir = ProlongationDirection
+
+      IF (iDir.NE.3 .OR. ADJUSTL(TRIM(GeometryType)).NE.'ROUND') THEN
+       CALL ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
+       RETURN
+      END IF
+
+      IF (.NOT.bProlongationDZMAXInitialized) THEN
+       localDZMAX = 0d0
+       DO i=1,nvt
+        localDZMAX = MAX(localDZMAX,SQRT(dcorvg(1,i)**2d0 + dcorvg(2,i)**2d0))
+       END DO
+       Daux(1) = localDZMAX
+       CALL COMM_MaximumN(Daux,1)
+       ProlongationDZMAX = Daux(1)
+       bProlongationDZMAXInitialized = .TRUE.
+       IF (myid.eq.1) WRITE(*,*) 'SSE mesh prolongation uses DZMAX=',ProlongationDZMAX
+      END IF
+
+      rBox = 0.1d0*ProlongationDZMAX
+      rCyl = 0.2d0*ProlongationDZMAX
+
+      k=1
+      DO i=1,nel
+       DO j=1,12
+        IF (k.eq.kedge(j,i)) THEN
+         ivt1 = kvert(NeighE(1,j),i)
+         ivt2 = kvert(NeighE(2,j),i)
+         PatchPoint(:,1) = dcorvg(:,ivt1)
+         PatchPoint(:,2) = dcorvg(:,ivt2)
+         Qcart(1) = 0.5d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2))
+         Qcart(2) = 0.5d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2))
+         Qcart(3) = 0.5d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2))
+         Qcyl = Qcart
+         CALL SetPointSSE(PatchPoint,Qcyl,2)
+         CALL BlendPointSSE(Qcart,Qcyl,dcorvg2(:,nvt+k))
+         k = k + 1
+        END IF
+       END DO
+      END DO
+
+      k=1
+      DO i=1,nel
+       DO j=1,6
+        IF (k.eq.karea(j,i)) THEN
+         ivt1 = kvert(NeighA(1,j),i)
+         ivt2 = kvert(NeighA(2,j),i)
+         ivt3 = kvert(NeighA(3,j),i)
+         ivt4 = kvert(NeighA(4,j),i)
+         PatchPoint(:,1) = dcorvg(:,ivt1)
+         PatchPoint(:,2) = dcorvg(:,ivt2)
+         PatchPoint(:,3) = dcorvg(:,ivt3)
+         PatchPoint(:,4) = dcorvg(:,ivt4)
+         Qcart(1) = 0.25d0*(dcorvg(1,ivt1)+dcorvg(1,ivt2)+dcorvg(1,ivt3)+dcorvg(1,ivt4))
+         Qcart(2) = 0.25d0*(dcorvg(2,ivt1)+dcorvg(2,ivt2)+dcorvg(2,ivt3)+dcorvg(2,ivt4))
+         Qcart(3) = 0.25d0*(dcorvg(3,ivt1)+dcorvg(3,ivt2)+dcorvg(3,ivt3)+dcorvg(3,ivt4))
+         Qcyl = Qcart
+         CALL SetPointSSE(PatchPoint,Qcyl,4)
+         CALL BlendPointSSE(Qcart,Qcyl,dcorvg2(:,nvt+net+k))
+         k = k + 1
+        END IF
+       END DO
+      END DO
+
+      DO i=1,nel
+       DO j=1,8
+        PatchPoint(:,j)  = dcorvg(:,kvert(j,i))
+       END DO
+       PX = 0d0
+       PY = 0d0
+       PZ = 0d0
+       DO j=1,8
+        PX = PX + 0.125d0*(dcorvg(1,kvert(j,i)))
+        PY = PY + 0.125d0*(dcorvg(2,kvert(j,i)))
+        PZ = PZ + 0.125d0*(dcorvg(3,kvert(j,i)))
+       END DO
+       Qcart = [PX,PY,PZ]
+       Qcyl = Qcart
+       CALL SetPointSSE(PatchPoint,Qcyl,8)
+       CALL BlendPointSSE(Qcart,Qcyl,dcorvg2(:,nvt+net+nat+i))
+      END DO
+
+      CONTAINS
+      SUBROUTINE SetPointSSE(P,Q,n)
+      REAL*8 P(3,8),Q(3)
+      REAL*8 dR1,dR2
+      INTEGER l,n
+
+      dR1 = 0d0
+      DO l=1,n
+       dR1 = dR1 + SQRT(P(1,l)**2d0 + P(2,l)**2d0)
+      END DO
+
+      dR1 = dR1/DBLE(n)
+      dR2 = SQRT(Q(1)**2d0 + Q(2)**2d0)
+
+      IF (dR2.ne.0d0) THEN
+       Q(1) = dR1*Q(1)/dR2
+       Q(2) = dR1*Q(2)/dR2
+      END IF
+      END SUBROUTINE SetPointSSE
+
+      SUBROUTINE BlendPointSSE(Qcart,Qcyl,Qout)
+      REAL*8 Qcart(3),Qcyl(3),Qout(3)
+
+      rPoint = SQRT(Qcart(1)**2d0 + Qcart(2)**2d0)
+      IF (rPoint.le.rBox .OR. rCyl.le.rBox) THEN
+       Qout = Qcart
+      ELSEIF (rPoint.ge.rCyl) THEN
+       Qout = Qcyl
+      ELSE
+       dWeight = (rPoint-rBox)/(rCyl-rBox)
+       Qout = (1d0-dWeight)*Qcart + dWeight*Qcyl
+      END IF
+      END SUBROUTINE BlendPointSSE
+END SUBROUTINE ProlongateCoordinates_SSE
+!
+! --------------------------------------------------------------
+!
 !     SUBROUTINE ProlongateCoordinates(dcorvg,dcorvg2,karea,kvert,kedge,nel,nvt,net,nat)
 !       USE PP3D_MPI, ONLY: myid,coarse
 !       IMPLICIT NONE

@@ -18,6 +18,7 @@ target_compile_options(ff_cinterface PUBLIC ${Fortran_FLAGS})
 
 set(postprocessing
   ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io_provenance.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
   )
@@ -104,6 +105,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90

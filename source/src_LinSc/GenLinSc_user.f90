@@ -332,6 +332,203 @@ END SUBROUTINE Boundary_GenLinSc_HEATALPHA_Q1_Val
 !
 ! ----------------------------------------------
 !
+SUBROUTINE Knpr_GenLinSc_MULTIMATALPHA_Q1(dcorvg)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE Sigma_User, ONLY: myProcess,myMultiMat
+IMPLICIT NONE
+REAL*8 dcorvg(3,*)
+real*8 X,Y,Z,DIST
+INTEGER i,j,ifld
+integer iInflow,iSubInflow,iMat,mySubinflow
+REAL*8 dMassFlow,daux,dDensity,dInnerRadius,dOuterRadius,dVolFlow,dScale
+REAL*8 dCenter(3),dNormal(3),dProfil(3)
+REAL*8 :: dMidpointA(3), dMidpointB(3)
+real*8, dimension(11) :: x_arr, y_arr, CC, DD, MM
+REAL*8 :: PI=dATAN(1d0)*4d0,myTwoPI=2d0*dATAN(1d0)*4d0
+REAL*8 :: U_bar, h, normalizedTime, val,dFact
+logical bBC,iBC
+
+DO i=1,GenLinScalar%ndof
+
+  bBC = .false.
+
+  X = dcorvg(1,i)
+  Y = dcorvg(2,i)
+  Z = dcorvg(3,i)
+
+  iInflow = ABS(myBoundary%iInflow(i))
+
+  if (iInflow.gt.0) then
+   IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+    mySubinflow = 1
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.1) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dOuterRadius  = myProcess%myInflow(iInflow)%outerradius
+     dInnerRadius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.2) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dOuterRadius  = myProcess%myInflow(iInflow)%outerradius
+     dInnerRadius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = RotDoubleParabolicVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.3) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dOuterRadius  = myProcess%myInflow(iInflow)%outerradius
+     dProfil = FlatVelo3D(dMassFlow,dDensity,dOuterRadius)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.4) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dOuterRadius  = myProcess%myInflow(iInflow)%outerradius
+     dInnerRadius  = myProcess%myInflow(iInflow)%innerradius
+     dProfil = CurvedFlatVelo3D(dMassFlow,dDensity,dInnerRadius,dOuterRadius)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.5) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+     dProfil = RectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+    IF (myProcess%myInflow(iInflow)%iBCType.eq.6) then
+     dCenter       = myProcess%myInflow(iInflow)%center
+     dNormal       = myProcess%myInflow(iInflow)%normal
+     dMassFlow     = myProcess%myInflow(iInflow)%massflowrate
+     iMat          = myProcess%myInflow(iInflow)%Material
+     dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+     dMidpointA    = myProcess%myInflow(iInflow)%midpointA
+     dMidpointB    = myProcess%myInflow(iInflow)%midpointB
+     dProfil = CurvedRectangleVelo3D(dMassFlow,dDensity,dMidpointA,dMidpointB)
+     daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+     if (daux.ne.0d0) bBC=.true.
+    END IF
+
+   ELSE
+
+    DO iSubInflow=1,myProcess%myInflow(iInflow)%nSubInflows
+      if (allocated(myProcess%myInflow))then
+         IF (myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%iBCType.eq.1) then
+          dCenter       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%center
+          dNormal       = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%normal
+          dMassFlow     = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%massflowrate
+          iMat          = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%Material
+          dDensity      = myMultiMat%Mat(iMat)%Thermodyn%density
+          dOuterRadius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%outerradius
+          dInnerRadius  = myProcess%myInflow(iInflow)%mySubInflow(iSubInflow)%innerradius
+          dProfil = RotParabolicVelo3D(dMassFlow,dDensity,dOuterRadius)
+          daux = dProfil(1)**2d0 + dProfil(2)**2d0 + dProfil(3)**2d0
+          if (daux.ne.0d0) then
+           mySubinflow = iSubInflow
+           bBC=.true.
+          END IF
+         END IF
+      end if
+    END DO
+
+   END IF
+
+   do iFld=1,GenLinScalar%nOfFields
+    GenLinScalar%fld(iFld)%knpr(i) = 0
+   end do
+
+   do iFld=1,GenLinScalar%nOfFields
+    IF (bBC) THEN
+     GenLinScalar%fld(iFld)%knpr(i) = mySubinflow
+    END IF
+   end do
+  END IF
+
+END DO
+
+return
+
+ CONTAINS
+include '../include/ProfileFunctions.f90'
+
+END SUBROUTINE Knpr_GenLinSc_MULTIMATALPHA_Q1
+!
+! ----------------------------------------------
+!
+SUBROUTINE Boundary_GenLinSc_MULTIMATALPHA_Q1_Val(dcorvg)
+USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
+USE Sigma_User, ONLY: myProcess,myMultiMat
+REAL*8 dcorvg(3,*)
+REAL*8 X,Y,Z
+INTEGER i,ifld,mySubinflow,iInflow,iMat
+
+if (myid.eq.0) return
+
+DO i=1,GenLinScalar%ndof
+
+ X = dcorvg(1,i)
+ Y = dcorvg(2,i)
+ Z = dcorvg(3,i)
+
+ do iFld=1,GenLinScalar%nOfFields
+
+  iInflow=abs(myBoundary%iInflow(i))
+  IF (iInflow.gt.0) THEN
+   mySubInflow = GenLinScalar%Fld(iFld)%knpr(i)
+  ELSE
+   mySubInflow = 0
+  END IF
+  iMat = 0
+
+  IF (mySubinflow.ne.0) then
+   IF (myProcess%myInflow(iInflow)%nSubInflows.eq.0) then
+    iMat = myProcess%myInflow(iInflow)%Material
+   ELSE
+    iMat = myProcess%myInflow(iInflow)%mySubInflow(mySubInflow)%Material
+   END IF
+
+   IF (iMat.eq.iFld) THEN
+    GenLinScalar%Fld(iFld)%val(i) = 1d0
+   else
+    GenLinScalar%Fld(iFld)%val(i) = 0d0
+   end if
+  END IF
+ end do
+END DO
+
+END SUBROUTINE Boundary_GenLinSc_MULTIMATALPHA_Q1_Val
+!
+! ----------------------------------------------
+!
 SUBROUTINE Knpr_GenLinSc_Q1(dcorvg)
 USE PP3D_MPI, ONLY : myid,master,showid,myMPI_Barrier
 IMPLICIT NONE

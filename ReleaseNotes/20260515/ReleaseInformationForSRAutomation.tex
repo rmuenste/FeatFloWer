@@ -1,0 +1,389 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\title{Release Information for SR Automation}
+\author{Otto Mierka}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+This note summarizes the recent SSE execution updates that are relevant for embedding the new mechanisms into a
+cluster-side automation sequence. The \textcolor{red}{red-highlighted} text addresses changes in the current
+Gendie(/SSE) execution tracks and, where configuration entries are shown in red, those entries are to be provided
+in the conventional simulation configuration file \texttt{setup.e3d}.
+
+\section*{Background}
+
+Previously, the production-oriented launcher logic was centered around \texttt{e3d\_start.py}. That path was mainly
+preconfigured for momentum-equation CFD runs. For XSE/screw cases it could also handle temperature runs, but this
+was not yet arranged as a clean production automation path.
+
+This legacy path remains available. The original \texttt{e3d\_start.py} keeps its previous functionality, and the
+previously used parameter files are still present so the established legacy SSE/gendie track can continue to be
+used where backward compatibility is needed. In other words, the original track functions the same way as before.
+
+The new setup introduces YAML-driven staged execution plans. This makes the solver sequence explicit while keeping
+the runtime call itself a one-liner. In the FeatFloWer installation, the exported launcher and YAML helper files
+are available in \texttt{tools/e3d\_scripts/}.
+
+At the moment, the YAML-based update is mainly foreseen for manual executions. This already provides a practical
+benefit for cases such as non-isothermal screw simulations.
+
+Operationally, \texttt{e3d\_start.py} can be replaced one-to-one by \texttt{e3d\_start\_yaml.py} when the
+corresponding execution track is supplied. For example, \texttt{e3d\_xse.yaml} selects the isothermal screw/XSE
+case.
+
+At present, no non-isothermal execution runs are requestable from SR, and no corresponding feature request has been
+placed so far.
+
+\section*{Main Improvement}
+
+The user-facing execution is now reduced to a single command of the form:
+
+\begin{flushleft}
+\textcolor{red}{\texttt{python3 e3d\_start\_yaml.py -f <project-folder> -n <ranks> -y <yaml-plan>}}
+\end{flushleft}
+
+If the cluster workflow prefers \texttt{srun}, the same driver also supports the script option
+\texttt{-u} / \texttt{--use-srun}.
+
+Important clarification for cluster integration:
+
+\begin{itemize}[leftmargin=*]
+  \item In \texttt{e3d\_start.py} and \texttt{e3d\_start\_yaml.py}, \texttt{-u} and
+  \texttt{--use-srun} are two spellings for the same script flag.
+  \item This flag only switches the launcher from \texttt{mpirun ...} to \texttt{srun ...}.
+  \item It is not the same as Slurm's own \texttt{srun -u} option.
+  \item The driver does not append \texttt{-u} to the generated \texttt{srun}
+  command; it only prefixes the solver call with \texttt{srun}.
+  \item When \texttt{--use-srun} is active, the script still keeps its internal
+  \texttt{-n <ranks>} value for logging and partitioning, but it does not translate that value into
+  \texttt{srun -n <ranks>}. The actual task count must therefore come from the Slurm allocation or
+  outer launch context.
+\end{itemize}
+
+\begin{verbatim}
+python3 e3d_start_yaml.py -f <project-folder> -n 16 -y e3d_xse.yaml -u
+\end{verbatim}
+
+This means ``use the script's srun launch path''. It does not mean that the script
+will generate \texttt{srun -u ...}, and it does not guarantee that \texttt{16} is forwarded as an
+\texttt{srun -n 16} argument.
+
+The important operational simplification is that the old manual hide/seek around the active
+\texttt{q2p1\_param*.dat} files now happens behind the curtains inside the YAML driver. The YAML stages point to the
+backing parameter files, and the driver copies them into the active \texttt{\_data/} locations required by the
+solvers. This is easier to automate than the older production variant where the surrounding script logic had to
+manage the parameter-file switching explicitly.
+
+\section*{DIE Variants to Expose in Automation}
+
+All four DIE variants are now available as predefined YAML plans.
+
+\subsection*{1. Pure die run}
+
+\begin{itemize}[leftmargin=*]
+  \item YAML plan: \texttt{e3d\_die.yaml}
+  \item Command pattern:
+\end{itemize}
+
+\begin{verbatim}
+python3 e3d_start_yaml.py -f <project-folder> -n <ranks> -y e3d_die.yaml
+\end{verbatim}
+
+This is the isothermal single-material DIE path.
+
+\subsection*{2. Die with multimat}
+
+\begin{itemize}[leftmargin=*]
+  \item YAML plan: \texttt{e3d\_die\_multi.yaml}
+  \item Command pattern:
+\end{itemize}
+
+\begin{verbatim}
+python3 e3d_start_yaml.py -f <project-folder> -n <ranks> -y e3d_die_multi.yaml
+\end{verbatim}
+
+This is the isothermal DIE path with alpha/material-distribution transport. It also resolves the previously used
+multimaterial track with the long-criticized parameter-file ``switching game'' (\texttt{Huetchenspiel}), because the
+required parameter activation is now handled by the YAML driver instead of by fragile external script logic.
+Compared with the legacy track, the material-distribution step is no longer used only once to influence the CFD.
+In the current YAML setup it is applied two times, once in \texttt{init} and once in \texttt{main}. This gives the
+material distribution a stronger and more sustained coupling into the flow solution and allows runs to reach a
+broader material-filled portion of the flow domain.
+
+\subsection*{3. Die with temperature}
+
+\begin{itemize}[leftmargin=*]
+  \item YAML plan: \texttt{e3d\_die\_temp.yaml}
+  \item Command pattern:
+\end{itemize}
+
+\begin{verbatim}
+python3 e3d_start_yaml.py -f <project-folder> -n <ranks> -y e3d_die_temp.yaml
+\end{verbatim}
+
+This is the non-isothermal single-material DIE path.
+
+\subsection*{4. Die with temperature and multimat}
+
+\begin{itemize}[leftmargin=*]
+  \item YAML plan: \texttt{e3d\_die\_multi\_temp.yaml}
+  \item Command pattern:
+\end{itemize}
+
+\begin{verbatim}
+python3 e3d_start_yaml.py -f <project-folder> -n <ranks> -y e3d_die_multi_temp.yaml
+\end{verbatim}
+
+This is the non-isothermal multi-material DIE path. An important practical point is that the heat solver is no
+longer limited to the pure CFD path. With the staged YAML setup it can be combined both with the CFD solver alone
+and with the multi-material module in one normalized execution pipeline. As in the isothermal multi-material YAML
+track, the material-distribution step is applied two times, once in \texttt{init} and once in \texttt{main},
+rather than influencing the CFD only once as in the older legacy handling.
+
+\section*{Why This Matters for Cluster Automation}
+
+The relevant benefit is not only that these combinations exist, but that they are now normalized behind one
+entrypoint.
+
+\begin{itemize}[leftmargin=*]
+  \item The selection of the physical run variant is reduced to choosing the YAML file.
+  \item The concrete solver ordering is encoded in the YAML stage definition instead of in external ad hoc shell logic.
+  \item The parameter-file switching is internalized in the driver.
+  \item The same launcher syntax can be used across the different DIE variants.
+  \item The driver performs a YAML preflight check and stops early if referenced parameter files are missing.
+  \item Stage outputs are archived into legacy-compatible \texttt{\_prot<stage-index>} folders, which may be useful for structured
+        post-run collection on cluster jobs.
+\end{itemize}
+
+In short, the new path is more suitable for robust production sequencing than the older \texttt{e3d\_start.py}
+workflow. At the same time, it should be seen as an additive upgrade rather than a removal of the old path, since
+the legacy launcher and legacy parameterization remain available.
+
+\section*{YAML Stage Progress in \texttt{e3d.log}}
+
+The YAML driver now also exposes the staged execution state through \texttt{e3d.log}. This is intended for
+cluster-side monitoring tools that already inspect the \texttt{[SimulationStatus]} section and should not have to
+parse terminal output to understand where a staged YAML run currently is.
+
+The status block now uses YAML-specific keys:
+
+\begin{verbatim}
+YamlStageProgress=<current-stage>/<total-stages>
+YamlInStageProgress=<current-solver-in-stage>/<solvers-in-stage>
+CurrentYamlSolver=<MomentumEquation|HeatEquation|MaterialDistribution>
+CurrentYamlSolverProgress=<solver-local-current>/<solver-local-maximum>
+CurrentYamlStatus=<status-text>
+\end{verbatim}
+
+When the YAML driver is active, transient status keys are intentionally named with \texttt{Yaml} in the keyword.
+For example, \texttt{CurrentStatus} is emitted as \texttt{CurrentYamlStatus}, and the final timestamp is emitted as
+\texttt{YamlFinishingTime}. Legacy inner-iteration keys such as \texttt{CurrentInnerIteration} and
+\texttt{MaxInnerIteration} are not repeated in the YAML status block because the same information is represented by
+\texttt{CurrentYamlSolverProgress}.
+
+The total stage count is computed from the active YAML plan:
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{init} contributes one stage if it is present and has steps.
+  \item \texttt{main} contributes its configured \texttt{loop} count.
+  \item \texttt{final} contributes one stage if it is present and has steps.
+\end{itemize}
+
+For example, a plan with:
+
+\begin{verbatim}
+stages:
+  init:
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  main:
+    loop: 2
+    steps:
+      - solver: MomentumEquation
+      - solver: MaterialDistribution
+      - solver: HeatEquation
+
+  final:
+    steps:
+      - solver: MomentumEquation
+\end{verbatim}
+
+has four YAML stages in total:
+
+\begin{verbatim}
+1/4 = init
+2/4 = main loop 1
+3/4 = main loop 2
+4/4 = final
+\end{verbatim}
+
+Inside each stage, \texttt{YamlInStageProgress} tracks normalized stage work, not just the raw solver index. This
+matters for XSE/screw runs because one \texttt{MomentumEquation} step can expand to multiple angular positions. If
+a momentum solve needs \texttt{L} angular positions, it contributes \texttt{L} in-stage progress units.
+\texttt{HeatEquation} and \texttt{MaterialDistribution} each contribute one in-stage progress unit.
+
+For an \texttt{init} or \texttt{main} stage with
+\texttt{MomentumEquation + MaterialDistribution + HeatEquation}, the denominator is therefore \texttt{L + 2}. If an
+XSE run needs \texttt{18} angular positions, the momentum solve advances through \texttt{1/20}, \texttt{2/20}, ...
+\texttt{18/20}, the material-distribution step is \texttt{19/20}, and the heat step is \texttt{20/20}. For a DIE
+single-angle run, \texttt{L = 1}, so the same stage naturally becomes \texttt{1/3}, \texttt{2/3}, and
+\texttt{3/3}.
+
+The solver-local progress is sampled from the solver protocol file where possible. For momentum and heat solves,
+the driver watches \texttt{\_data/prot.txt} and parses the existing \texttt{itns: current/max} lines. For the
+material-distribution solve, the driver watches the Q1 scalar output and maps the reported
+\texttt{VolumeFractions[\%]} filling degree to an integer progress value against \texttt{100}.
+
+Representative \texttt{e3d.log} status snapshots for the example pipeline are shown below. The surrounding fixed
+header lines such as \texttt{PathToE3DFile}, \texttt{NumOfCpus}, and \texttt{YamlStartingTime} are omitted here for
+brevity. In YAML mode, the legacy header entries \texttt{NumOfAnglePositions} and \texttt{Periodicity} are not
+emitted; angular progress is represented through \texttt{YamlInStageProgress},
+\texttt{CurrentYamlAngleIteration}, and \texttt{MaxYamlAngleIteration}.
+
+During the \texttt{init} momentum solve:
+
+\begin{verbatim}
+YamlStageProgress=1/4
+YamlInStageProgress=4/20
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=4/12
+CurrentYamlAngleIteration=4
+MaxYamlAngleIteration=18
+CurrentYamlStatus=running Momentum Solver
+\end{verbatim}
+
+During the first \texttt{main} material-distribution solve:
+
+\begin{verbatim}
+YamlStageProgress=2/4
+YamlInStageProgress=19/20
+CurrentYamlSolver=MaterialDistribution
+CurrentYamlSolverProgress=67/100
+CurrentYamlMaterialFillingDegree=67
+MaxYamlMaterialFillingDegree=100
+CurrentYamlStatus=running Material Distribution Solver
+\end{verbatim}
+
+During the second \texttt{main} heat solve:
+
+\begin{verbatim}
+YamlStageProgress=3/4
+YamlInStageProgress=20/20
+CurrentYamlSolver=HeatEquation
+CurrentYamlSolverProgress=6/10
+CurrentYamlStatus=running Heat Solver
+\end{verbatim}
+
+At the end of the \texttt{final} momentum stage:
+
+\begin{verbatim}
+YamlStageProgress=4/4
+YamlInStageProgress=18/18
+CurrentYamlSolver=MomentumEquation
+CurrentYamlSolverProgress=12/12
+CurrentYamlStatus=finished
+YamlFinishingTime=...
+\end{verbatim}
+
+This keeps YAML-mode monitoring unambiguous: automation can restrict itself to keys containing \texttt{Yaml} and
+still distinguish between \texttt{init}, repeated \texttt{main} stages, and \texttt{final}.
+
+\section*{Constant-Mesh Heat Optimization}
+
+There is one further runtime-relevant improvement that should be visible to automation users.
+
+If the setup provides:
+
+\begin{flushleft}
+\textcolor{red}{\texttt{[E3DSimulationSettings]}}\\
+\textcolor{red}{\texttt{ConstantMesh = yes}}
+\end{flushleft}
+
+These \textcolor{red}{additional entries are to be provided in the conventional simulation
+configuration file \texttt{setup.e3d}}.
+
+Then the code detects that the mesh is constant and treats the heat transport accordingly. In that case the matrix
+set for the heat solve is built once initially and then reused, instead of being rebuilt repeatedly during the run.
+
+Operationally, this matters because constant-mesh SSE-TEMP style runs avoid unnecessary matrix regeneration while
+still using the same staged execution framework.
+
+\section*{Relation to Screw/XSE Cases}
+
+The same YAML concept also exists for screw/XSE cases:
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{e3d\_xse.yaml}
+  \item \texttt{e3d\_xse\_temp.yaml}
+\end{itemize}
+
+So the DIE rollout is not a one-off mechanism. It fits into a broader staged-launch concept for SSE-related
+executions.
+
+\section*{Optional Extension: ROUND Geometry Keyword}
+
+There is a second, independent update that may be relevant for automation as an optional feature flag.
+
+If the setup contains:
+
+\begin{flushleft}
+\textcolor{red}{\texttt{[E3DGeometryData/Machine]}}\\
+\textcolor{red}{\texttt{GeometryType = ROUND}}
+\end{flushleft}
+
+This \textcolor{red}{additional entry is likewise to be provided in the conventional simulation
+configuration file \texttt{setup.e3d}}.
+
+Then the new-generation mesher reacts to this keyword. That mesh generation step happens in the separate meshing
+module, not inside FFer itself.
+
+The intended workflow is:
+
+\begin{enumerate}[leftmargin=*]
+  \item The geometry setup advertises \texttt{GeometryType = ROUND}.
+  \item The new mesher creates the corresponding round mesh.
+  \item FFer then prolongates that mesh to higher levels using cylindrical parametrization for the higher-level
+        nodes/vertices.
+\end{enumerate}
+
+This means the keyword is not just descriptive. It activates a geometry-dependent path spanning meshing and later
+in-solver prolongation.
+
+\section*{Boundary Between Mesher and FFer}
+
+\begin{itemize}[leftmargin=*]
+  \item Mesh creation for the round setup is handled by the separate, recently rolled-out meshing module.
+  \item The higher-level coordinate prolongation is handled on the FFer side.
+  \item The FFer prolongation uses round/cylindrical information when building the higher mesh levels.
+\end{itemize}
+
+So cluster automation may need to treat \texttt{GeometryType = ROUND} as a keyword-level switch that affects both
+the meshing stage and the subsequent simulation startup path.
+
+\section*{Summary Message}
+
+The SSE execution path now supports four predefined YAML-driven DIE pipelines
+(\texttt{die}, \texttt{die\_multi}, \texttt{die\_temp}, \texttt{die\_multi\_temp}) through a single launcher,
+\texttt{e3d\_start\_yaml.py}. This reduces automation to selecting the appropriate YAML plan while the driver
+handles internal parameter-file activation and stage sequencing, including the former multimat parameter-file
+switching track. The heat solver can now be embedded both in pure CFD runs and in combined CFD plus
+multi-material runs through the same mechanism. If \texttt{ConstantMesh = yes} is provided, the heat path also
+avoids repeated matrix rebuilds by reusing the initially assembled transport matrices. In addition,
+\texttt{GeometryType = ROUND} can optionally activate the newer round-mesh plus cylindrical-prolongation workflow,
+with mesh creation in the separate mesher and higher-level coordinate prolongation in FFer. The original
+\texttt{e3d\_start.py} path and the older parameter files remain available as a legacy-compatible fallback for the
+traditional SSE/gendie workflow.
+
+\end{document}

@@ -72,6 +72,19 @@ END SUBROUTINE SolToFile
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SolToFileProv(iOutput)
+USE def_FEAT
+use solution_io_provenance, only: write_sol_to_file_prov
+
+IMPLICIT NONE
+INTEGER iOutput
+
+call write_sol_to_file_prov(insavn, timens, iOutput)
+
+END SUBROUTINE SolToFileProv
+!
+! ----------------------------------------------
+!
 SUBROUTINE SolFromFileRepart(cInFile,iLevel)
 USE PP3D_MPI, ONLY:myid,coarse,myMPI_Barrier
 USE def_FEAT
@@ -161,6 +174,20 @@ call read_q2_sol_single(fieldName,cInFile,iLevel-1,nn,NLMIN,NLMAX,&
 !                  3, packed)
 
 END SUBROUTINE SolFromFileRepart
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFileRepartProv(cInFile,iLevel)
+USE def_FEAT
+use solution_io_provenance, only: read_sol_from_file_repart_prov
+
+IMPLICIT NONE
+INTEGER iLevel
+CHARACTER(60) :: cInFile
+
+call read_sol_from_file_repart_prov(cInFile, iLevel, timens)
+
+END SUBROUTINE SolFromFileRepartProv
 !
 ! ----------------------------------------------
 !
@@ -412,6 +439,20 @@ if(bViscoElastic)then
 end if
 
 END SUBROUTINE SolFromFile
+!
+! ----------------------------------------------
+!
+SUBROUTINE SolFromFileProv(cInFile,iLevel)
+USE def_FEAT
+use solution_io_provenance, only: read_sol_from_file_prov
+
+IMPLICIT NONE
+INTEGER iLevel
+CHARACTER(60) :: cInFile
+
+call read_sol_from_file_prov(cInFile, iLevel, timens)
+
+END SUBROUTINE SolFromFileProv
 !
 ! ----------------------------------------------
 !
