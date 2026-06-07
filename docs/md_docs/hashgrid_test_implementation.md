@@ -238,7 +238,7 @@ extern "C" void commf2c_hashgrid_test_(int *Fcomm, int *FcommEx0, int *remoteRan
 ### 7. Documentation
 **Files**:
 - `applications/q2p1_hashgrid_test/README.md`
-- `HASHGRID_TEST_IMPLEMENTATION.md` (this file)
+- `hashgrid_test_implementation.md` (this file)
 
 **Purpose**: Usage instructions and implementation notes
 

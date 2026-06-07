@@ -181,7 +181,7 @@ If you encounter problems:
 1. Check build log for errors: `/tmp/build_kvel3.log`
 2. Verify PE_SERIAL_MODE is enabled
 3. Check that KVEL mesh structure is built (mg_mesh)
-4. Review implementation summary: `KVEL_IMPLEMENTATION_SUMMARY.md`
+4. Review implementation summary: `kvel_implementation_summary.md`
 
 ---
 
