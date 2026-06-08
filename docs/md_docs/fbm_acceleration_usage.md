@@ -33,10 +33,14 @@ Controls KVEL/KEEL/KAAL candidate element acceleration for force integration.
 
 Both accelerations require:
 ```bash
-cmake -DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON ..
+cmake -S . -B build \
+  -DUSE_PE=ON \
+  -DUSE_PE_SERIAL_MODE=ON \
+  -DENABLE_FBM_ACCELERATION=ON
 ```
 
-The acceleration code is compiled in by default (`-DENABLE_FBM_ACCELERATION=ON`).
+`ENABLE_FBM_ACCELERATION` defaults to `OFF`; enable it explicitly to compile
+the HashGrid and KVEL acceleration paths.
 
 ## Testing Workflow
 
@@ -44,8 +48,11 @@ The acceleration code is compiled in by default (`-DENABLE_FBM_ACCELERATION=ON`)
 
 Build once with acceleration compiled in:
 ```bash
-cmake -DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON ..
-make -j8
+cmake -S . -B build \
+  -DUSE_PE=ON \
+  -DUSE_PE_SERIAL_MODE=ON \
+  -DENABLE_FBM_ACCELERATION=ON
+cmake --build build -- -j8
 ```
 
 **Run A — Accelerated:**
@@ -66,8 +73,11 @@ Compare forces/positions/velocities — should match to machine precision.
 
 Rebuild without acceleration code:
 ```bash
-cmake -DENABLE_FBM_ACCELERATION=OFF ..
-make -j8
+cmake -S . -B build-baseline \
+  -DUSE_PE=ON \
+  -DUSE_PE_SERIAL_MODE=ON \
+  -DENABLE_FBM_ACCELERATION=OFF
+cmake --build build-baseline -- -j8
 ```
 
 The runtime flags have no effect. Compare this pure baseline against the accelerated run.

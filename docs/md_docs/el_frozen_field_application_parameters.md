@@ -453,5 +453,4 @@ The following parameters are likely to appear later, but are not part of the cur
 
 For the broader development roadmap, see:
 
-- [euler_lagrange_development.md](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/docs/md_docs/euler_lagrange_development.md)
-- [README.md](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/el-frozen/README.md)
+- [euler_lagrange_development.md](euler_lagrange_development.md)

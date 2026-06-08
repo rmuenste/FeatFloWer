@@ -34,8 +34,8 @@ Two dump layouts are relevant:
    - `_dump/<idx>/MaterialDistribution.dmp`
    - `_dump/<idx>/time.dmp`
 
-The merged layout is produced from the partitioned layout by
-`tools/combine_fields.py`.
+The merged layout is produced from the partitioned layout by the
+`featflower-combine` CLI in `tools/featflower_combine/`.
 
 ## Writer Chains
 
@@ -46,15 +46,15 @@ This is the legacy coarse-row dump path built around `WriteSol`.
 Call chain:
 
 - `SolToFile_Compact`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:220)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L220)
 - `WriteSol_Velo`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:568)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L568)
 - `WriteSol_Pres`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:615)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L615)
 - `WriteSol_Coor`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:651)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L651)
 - `WriteSol`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:682)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L682)
 
 Purpose:
 
@@ -65,7 +65,7 @@ Purpose:
 Important clarification:
 
 - `WriteSol` itself does not write per-rank `processor_*` files.
-- In [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:705),
+- In [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L705),
   nonzero ranks assemble local coarse-element rows and send them to rank 0.
 - Rank 0 gathers those rows through `coarse%pELEMLINK` and writes a single
   merged file `_dump/<idx>_<field>.dmp`.
@@ -81,15 +81,15 @@ This is the path currently used by the application-side merged dump writers.
 Call chain:
 
 - `SolToFile`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:1)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L1)
 - `write_vel_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:494)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L494)
 - `write_pres_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:303)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L303)
 - `write_q2_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:1014)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L1014)
 - `write_time_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:1323)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L1323)
 
 Purpose:
 
@@ -108,15 +108,15 @@ different partitioning.
 Call chain:
 
 - `SolFromFileRepart`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:101)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L101)
 - `read_vel_sol_single`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:623)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L623)
 - `read_pres_sol_single`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:749)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L749)
 - `read_q2_sol_single`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:885)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L885)
 - `read_time_sol_single`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:1374)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L1374)
 
 Purpose:
 
@@ -128,15 +128,15 @@ Purpose:
 Call chain:
 
 - `SolFromFile`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:298)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L298)
 - `read_vel_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:575)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L575)
 - `read_pres_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:431)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L431)
 - `read_q2_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:1123)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L1123)
 - `read_time_sol`
-  - [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90:1347)
+  - [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90#L1347)
 
 Purpose:
 
@@ -148,7 +148,7 @@ Purpose:
 The common topology map for merged dump writing and reading is built in:
 
 - `CreateDumpStructures`
-  - [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:1738)
+  - [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L1738)
 
 Purpose:
 
@@ -233,16 +233,22 @@ This structure is central to both:
 - writing coarse-element rows
 - reconstructing fine local fields from merged repartition dumps
 
-## `combine_fields.py`
+## `featflower-combine`
 
-Script:
+Package:
 
-- [tools/combine_fields.py](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/tools/combine_fields.py)
+- [tools/featflower_combine](../../tools/featflower_combine)
 
 Purpose:
 
 - read partitioned dump files from `_dump/processor_*/<idx>/`
 - merge them into `_dump/<idx>/`
+
+Example:
+
+```bash
+featflower-combine --dump-path=_dump --idx=1
+```
 
 Current observed behavior:
 
@@ -277,7 +283,7 @@ be corrupting the merge through duplicate coarse-element rows.
 
 In:
 
-- [source/postprocessing/solution_io.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/postprocessing/solution_io.f90)
+- [source/postprocessing/solution_io.f90](../../source/postprocessing/solution_io.f90)
 
 we tried two reader-side reconstruction policies for overlapping Q2 dofs:
 
@@ -320,7 +326,7 @@ This is currently the leading hypothesis.
 
 ## Recommended Next Steps
 
-1. Audit legacy `WriteSol` in [source/OutputProfiles.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/OutputProfiles.f90:682)
+1. Audit legacy `WriteSol` in [source/OutputProfiles.f90](../../source/OutputProfiles.f90#L682)
    as the likely partitioned `.dmp` writer.
 2. Compare repartition versus non-repartition dump loading for the same frozen
    field.

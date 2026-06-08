@@ -76,4 +76,4 @@ metrics:
       tolerance: {drag: 1.0e-4, lift: 1.0e-4}
 
 references:
-  baseline: testcases/baselines/q2p1_fc_ext_cylinder.yaml
+  baseline: tools/featflower_test/testcases/baselines/q2p1_fc_ext_cylinder.yaml

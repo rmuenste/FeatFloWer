@@ -1,7 +1,6 @@
 # FeatFloWer Parameter Reference
 
 **Version**: 1.2
-**Last Updated**: 2026-01-21
 
 ## Introduction
 

@@ -73,9 +73,11 @@ In `applications/q2p1_<name>/CMakeLists.txt`:
 - Use `createDefaultDirectories(...)` for out-of-source builds.
 - Copy only required runtime files (for example `example.json`, `_data` assets, mesh/config helpers) to binary dir.
 
-Legacy items to skip for new applications:
-- Do **not** add `add_test(...)` entries in the app CMake (CTest path is legacy).
-- Do **not** copy legacy test/starter scripts by default:
+Testing and launcher guidance:
+- Add `add_test(...)` when the application has a maintained, reproducible CTest
+  scenario; CTest remains enabled at the repository level.
+- Do **not** copy dashboard-specific or application-specific launcher scripts
+  without adapting them:
   - `tests/`
   - `q2p1_fc_ext_start.py`
   - `q2p1_ctest_start.py`
@@ -204,7 +206,8 @@ Ensure runtime assets are present in app binary directory:
 - `libmetis.so` (via stage target)
 
 If using out-of-source builds, verify copy rules under `IF(${OUT_OF_SOURCE_BUILD})`.
-Avoid adding legacy CTest helper copies in new app templates.
+Avoid copying legacy CTest launcher scripts into new application templates;
+prefer a focused test definition or an application-specific maintained test.
 
 ## 9. Build and Verify
 

@@ -62,11 +62,11 @@ I did not find a `P2G` force-spreading kernel that takes particle hydrodynamic r
 
 The existing generic forcing path still looks like a standard body-force interface. For example, the user RHS function still returns zero in:
 
-- [source/src_pp3d/coeff.f](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_pp3d/coeff.f):193
+- [source/src_pp3d/coeff.f](../../source/src_pp3d/coeff.f):193
 
 and existing correction helpers cover gravity or constant forcing, e.g.:
 
-- [source/src_quadLS/QuadSc_corrections.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_corrections.f90):142
+- [source/src_quadLS/QuadSc_corrections.f90](../../source/src_quadLS/QuadSc_corrections.f90):142
 
 For a real two-way E-L solver, the following are still missing:
 
@@ -81,8 +81,8 @@ The present force evaluation is FBM/DNS-style: compute force from resolved stres
 
 The transport path calls:
 
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):568
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):597
+- [source/src_quadLS/QuadSc_main.f90](../../source/src_quadLS/QuadSc_main.f90):568
+- [source/src_quadLS/QuadSc_main.f90](../../source/src_quadLS/QuadSc_main.f90):597
 
 This is not yet the same as unresolved E-L force closure evaluation.
 
@@ -104,12 +104,12 @@ There is useful partial infrastructure for `G2P`.
 
 Velocity sampling and point location already exist in reusable form, for example:
 
-- [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_loc.f90):61
-- [source/src_fbm/fbm_particle_reynolds.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_particle_reynolds.f90):27
+- [source/src_fbm/fbm_loc.f90](../../source/src_fbm/fbm_loc.f90):61
+- [source/src_fbm/fbm_particle_reynolds.f90](../../source/src_fbm/fbm_particle_reynolds.f90):27
 
 There is also particle tracing logic using element lookup and velocity evaluation:
 
-- [source/src_fbm/fbm_ptrace.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_ptrace.f90):16
+- [source/src_fbm/fbm_ptrace.f90](../../source/src_fbm/fbm_ptrace.f90):16
 
 However, for E-L this still needs to be turned into a clean public coupling interface that can reliably provide:
 
@@ -125,7 +125,7 @@ The code already has resolved solid-marking via `FictKNPR`, which is part of the
 
 Current handler setup is still FBM-oriented:
 
-- [source/src_quadLS/QuadSc_handlers.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_handlers.f90):69
+- [source/src_quadLS/QuadSc_handlers.f90](../../source/src_quadLS/QuadSc_handlers.f90):69
 
 For unresolved two-way E-L, the following are still missing:
 
@@ -144,12 +144,12 @@ The current order is effectively:
 
 For example:
 
-- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_dns_drag/q2p1_dns_drag.f90):41
+- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](../../applications/q2p1_dns_drag/q2p1_dns_drag.f90):41
 
 and then in the transport code:
 
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):570
-- [source/src_quadLS/QuadSc_main.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_quadLS/QuadSc_main.f90):599
+- [source/src_quadLS/QuadSc_main.f90](../../source/src_quadLS/QuadSc_main.f90):570
+- [source/src_quadLS/QuadSc_main.f90](../../source/src_quadLS/QuadSc_main.f90):599
 
 For two-way E-L, the reaction force must feed back into the fluid equations. Even with an explicit first version, the infrastructure must define:
 
@@ -162,19 +162,19 @@ For two-way E-L, the reaction force must feed back into the fluid equations. Eve
 
 The PE bridge is already useful and exposes a good amount of particle data:
 
-- [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_particles/dem_query.f90):11
+- [source/src_particles/dem_query.f90](../../source/src_particles/dem_query.f90):11
 
 The struct-based setter reaches PE here:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1313
+- [libs/pe/src/interface/object_queries.cpp](../../libs/pe/src/interface/object_queries.cpp):1313
 
 and writes force and torque here:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1402
+- [libs/pe/src/interface/object_queries.cpp](../../libs/pe/src/interface/object_queries.cpp):1402
 
 This is a good base for E-L. However, the older index-based setter still contains special behavior:
 
-- [libs/pe/src/interface/object_queries.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/object_queries.cpp):1126
+- [libs/pe/src/interface/object_queries.cpp](../../libs/pe/src/interface/object_queries.cpp):1126
 
 That path applies a hardcoded `1.025` multiplier and zeroes torque instead of using the incoming torque. For a clean E-L solver, all force-setting paths should use a single, well-defined convention for:
 
@@ -187,12 +187,12 @@ That path applies a hardcoded `1.025` multiplier and zeroes torque instead of us
 
 The main applications such as `q2p1_ATC` and `q2p1_dns_drag` still run through the FBM/FC extension path:
 
-- [applications/q2p1_ATC/q2p1_ATC.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_ATC/q2p1_ATC.f90):67
-- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_dns_drag/q2p1_dns_drag.f90):42
+- [applications/q2p1_ATC/q2p1_ATC.f90](../../applications/q2p1_ATC/q2p1_ATC.f90):67
+- [applications/q2p1_dns_drag/q2p1_dns_drag.f90](../../applications/q2p1_dns_drag/q2p1_dns_drag.f90):42
 
 There is also ongoing work in:
 
-- [applications/q2p1_bench_fluidization/app_init.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/applications/q2p1_bench_fluidization/app_init.f90)
+- [applications/q2p1_bench_fluidization/app_init.f90](../../applications/q2p1_bench_fluidization/app_init.f90)
 
 but this still looks like PE/FBM-oriented infrastructure and benchmark staging, not yet a separate unresolved E-L source assembly path.
 
@@ -209,9 +209,9 @@ The following pieces are already useful for an E-L implementation:
 
 In particular:
 
-- particle bridge definitions: [source/src_particles/dem_query.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_particles/dem_query.f90)
-- point location: [source/src_fbm/fbm_loc.f90](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/source/src_fbm/fbm_loc.f90)
-- PE simulation stepping: [libs/pe/src/interface/sim_setup.cpp](/data/warehouse17/rmuenste/code/FF-ATC-NEW/feature-euler-lagrange/libs/pe/src/interface/sim_setup.cpp):151
+- particle bridge definitions: [source/src_particles/dem_query.f90](../../source/src_particles/dem_query.f90)
+- point location: [source/src_fbm/fbm_loc.f90](../../source/src_fbm/fbm_loc.f90)
+- PE simulation stepping: [libs/pe/src/interface/sim_setup.cpp](../../libs/pe/src/interface/sim_setup.cpp):151
 
 ## Bottom Line
 

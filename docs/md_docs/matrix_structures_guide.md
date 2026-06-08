@@ -1475,8 +1475,9 @@ END SUBROUTINE Debug_MatrixAllocation
 
 ## References
 
-- **Phase 1 Documentation:** `docs/md_docs/phase1_extraction_complete.md` (HYPRE/UMFPACK solver extraction, SETLEV pitfalls)
-- **Phase 2 Roadmap:** `docs/md_docs/refactoring_roadmap.md` (Deduplication strategy)
+- **Solver extraction references:** `docs/md_docs/hypre_csr_analysis.md` and
+  `docs/md_docs/umfpack_hypre_analysis.md`
+- **Refactoring status:** `docs/md_docs/quadsc_refactoring_status.md`
 - **Source Files:**
   - Type definitions: `source/src_util/types.f90`
   - Matrix variables: `source/src_quadLS/QuadSc_var.f90`

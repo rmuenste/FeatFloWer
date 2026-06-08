@@ -1,7 +1,6 @@
 # FeatFloWer Runtime Process Control
 
 **Version**: 1.0
-**Last Updated**: 2025-01-28
 **Source**: `source/ProcCtrl.f90`
 
 ## Introduction
