@@ -11,6 +11,19 @@ Subcommands
   rings   Full-centerline seeding with margin-based exclusion zones (mirrors C++).
   region  Seeding in a user-defined arc-length fraction window; the number of
           concentric rings is derived automatically from the vessel-radius constraint.
+
+Output files
+------------
+By default the script only prints particle counts and the volume fraction. Add
+``-o FILE.xyz`` to write generated particle centre positions as plain ``x y z``
+rows, and add ``--vtk FILE.vtk`` to write a ParaView-compatible VTK PolyData
+file containing the particle centres and centerline.
+
+Example
+-------
+  python3 generate_centerline_particles.py rings vertices.txt -r 0.0137 -V 0.78 \
+      --num-rings 5 --num-steps 31 --margin-steps 4 \
+      -o my_positions.xyz --vtk particles.vtk
 """
 
 import argparse
