@@ -44,6 +44,7 @@ The supported build arguments are:
 
 - `CMAKE_BUILD_TYPE` (default: `Release`)
 - `BUILD_APPLICATIONS` (default: `ON`)
+- `BUILD_TESTING` (default: `ON`)
 - `Q2P1_BUILD_ID` (default: `generic-linux-gcc-release`)
 - `USERNAME` (default: `featflower`)
 - `USER_UID` (default: `1000`)
@@ -67,15 +68,15 @@ docker build -t featflower:libs \
 The image is built from the current working tree. To build a particular tag or
 commit, check out that revision on the host before running `docker build`.
 
-## Important Build-Context Note
+## Build Context
 
-The repository currently has no `.dockerignore`. Docker therefore sends the
-entire working tree as build context, including local build directories and
-other untracked files.
+The repository `.dockerignore` excludes CMake build trees, generated CMake
+files, and Python caches. This prevents a host `build/CMakeCache.txt` from being
+copied to `/workspace/build`, where its host-specific absolute paths would
+break container configuration.
 
-For smaller and more reproducible image builds, keep large generated
-directories outside the checkout or add an appropriate `.dockerignore` in a
-separate change.
+The Git metadata remains in the build context because the Dockerfile uses it
+to initialize and normalize submodule checkouts.
 
 ## Start an Interactive Container
 
@@ -202,15 +203,39 @@ of this image.
 
 ## Run Tests
 
-CTest is enabled by the top-level CMake configuration:
+CTest is enabled in the default image. Running it without the external mesh
+repository verifies that the test harness starts, but the numerical tests stop
+when their `_adc` project files are unavailable:
 
 ```bash
 docker run --rm featflower:latest \
   ctest --test-dir /workspace/build --output-on-failure
 ```
 
-Some tests require external meshes, application runtime data, or MPI settings
-that are not self-contained in the image.
+For a complete run, mount the mesh repository and link it into each tested
+application directory:
+
+```bash
+docker run --rm \
+  -v "$MESHDIR":/meshes:ro \
+  featflower:latest \
+  bash -lc '
+    for app in \
+      q2p1_fac_visco \
+      q2p1_bench_sedimentation \
+      q2p1_bench_fluidization \
+      q2p1_fc2 \
+      q2p1_fc_ext \
+      q2p1_fac3d
+    do
+      ln -sfn /meshes "/workspace/build/applications/$app/_adc"
+    done
+    ctest --test-dir /workspace/build --output-on-failure
+  '
+```
+
+Tests may also require application runtime data or MPI settings that are not
+self-contained in the image.
 
 ## Optional CGAL Tools
 
