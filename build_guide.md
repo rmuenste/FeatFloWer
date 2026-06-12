@@ -130,7 +130,7 @@ These options control which components and features are enabled or disabled.
 CGAL is a powerful library for computational geometry.
 
 *   **Building CGAL from Source (Default with `USE_CGAL=ON`)**:
-    When `USE_CGAL=ON` and `USE_CGAL_LOCAL=OFF` (default), the build system will download and compile CGAL (version v5.3.2) as an external project. This also automatically enables `USE_BOOST=ON`.
+    When `USE_CGAL=ON` and `USE_CGAL_LOCAL=OFF` (default), CMake FetchContent downloads CGAL 5.6.3 and makes `CGAL::CGAL` available during configuration. Documentation, Qt, ImageIO, examples, and CGAL tests are disabled. This also automatically enables `USE_BOOST=ON`.
     ```bash
     cmake -DUSE_CGAL=ON ..
     ```

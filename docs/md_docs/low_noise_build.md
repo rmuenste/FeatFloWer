@@ -22,7 +22,7 @@ Notes
 - Generator: prefer `-G "Unix Makefiles"` to avoid Ninja’s Fortran module collisions.
 - Message filtering: `CMAKE_RULE_MESSAGES=OFF` + `CMAKE_MESSAGE_LOG_LEVEL=WARNING` reduces CMake chatter.
 - JSON diagnostics: `-fdiagnostics-format=json` on all languages keeps compiler output structured and compact.
-- CGAL: `-DUSE_CGAL=ON -DUSE_CGAL_LOCAL=OFF` uses the ExternalProject flow (preferred).
+- CGAL: `-DUSE_CGAL=ON -DUSE_CGAL_LOCAL=OFF` fetches CGAL 5.6.3 during configuration.
 
 Optional flags you may add as needed (examples):
 - `-DUSE_PE=ON` to enable particle engine features if required by your target.
@@ -108,4 +108,3 @@ set_target_properties(<tgt> PROPERTIES
 ```
 
 Until that is arranged, prefer `-G "Unix Makefiles"` for low‑noise builds involving multiple applications.
-

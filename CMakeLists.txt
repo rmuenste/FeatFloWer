@@ -32,6 +32,7 @@ enable_testing()
 
 include(CTest)
 include(CMakeDependentOption)
+include(FetchContent)
 
 #=========================================================================
 #                         custom targets  
@@ -271,120 +272,66 @@ endif(BUILD_METIS)
 # Add the cgal library
 #=========================================================================
 if(USE_CGAL)
+  set(USE_BOOST TRUE)
 
-  if(NOT USE_CGAL_LOCAL)
-    set(USE_BOOST True)
+  # CGAL's imported target must carry these exact arithmetic dependencies to
+  # every C++ consumer, including PE and FullC0ntact applications.
+  find_package(GMP REQUIRED)
+  find_package(MPFR REQUIRED)
+  message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+  message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+  message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+  message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
 
-    message(STATUS "Building CGAL from source")
-    # Your existing ExternalProject_Add code for CGAL
-    set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
-    set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
-    set(CGAL_NAME cgal) 
-    include(ExternalProject)
-    ExternalProject_Add(
-      cgal
+  # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
+  if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
+    set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
+      "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
+    message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
+  else()
+    message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
+  endif()
+
+  if(USE_CGAL_LOCAL)
+    message(STATUS "Trying to find system installation of CGAL")
+    find_package(CGAL 5.3 REQUIRED CONFIG)
+  else()
+    message(STATUS "Fetching CGAL 5.6.3")
+    set(CGAL_BUILD_DOCS OFF CACHE BOOL "Build CGAL documentation" FORCE)
+    set(CGAL_BUILD_EXAMPLES OFF CACHE BOOL "Build CGAL examples" FORCE)
+    set(CGAL_BUILD_TESTING OFF CACHE BOOL "Build CGAL tests" FORCE)
+    set(WITH_CGAL_ImageIO OFF CACHE BOOL "Build CGAL ImageIO support" FORCE)
+    set(WITH_CGAL_Qt5 OFF CACHE BOOL "Build CGAL Qt5 support" FORCE)
+
+    FetchContent_Declare(
+      CGAL
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
       GIT_TAG v5.6.3
-      PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
-      CMAKE_ARGS 
-        -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
-        -DWITH_CGAL_ImageIO=OFF
-        -DWITH_CGAL_Qt5=OFF
-        -DCGAL_HEADER_ONLY=OFF
-        -DCMAKE_BUILD_TYPE=Release
-      TEST_COMMAND ""
-      UPDATE_COMMAND ""
-      BUILD_ALWAYS OFF
+      GIT_SHALLOW TRUE
     )
-
-    # Set CGAL include directory
-    set(CGAL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/include)
-    include_directories(SYSTEM ${CGAL_INCLUDE_DIR})
-
-
-    set(CGAL_LIBRARIES 
+    set(_ff_build_testing "${BUILD_TESTING}")
+    set(BUILD_TESTING OFF)
+    FetchContent_MakeAvailable(CGAL)
+    set(BUILD_TESTING "${_ff_build_testing}")
+    unset(_ff_build_testing)
+    find_package(CGAL REQUIRED CONFIG
+      PATHS "${cgal_BINARY_DIR}"
+      NO_DEFAULT_PATH
     )
+  endif()
 
-# TODO: - The below code is ATM not working with the ExternalProject_add mechanism
-#    # Create a CMake interface for CGAL
-#    add_library(CGAL::CGAL INTERFACE IMPORTED)
-#    add_dependencies(CGAL::CGAL cgal)
-#    # Every target that links to CGAL::CGAL will automatically get -I${CGAL_INCLUDE_DIR} added to its include directories.
-#    target_include_directories(CGAL::CGAL
-#                              INTERFACE ${CGAL_INCLUDE_DIR})
+  if(NOT TARGET CGAL::CGAL)
+    message(FATAL_ERROR "CGAL support is enabled, but CGAL::CGAL is unavailable")
+  endif()
 
-  else(NOT USE_CGAL_LOCAL)
-    set(USE_BOOST True)
-    message(STATUS "Trying to find system installation of CGAL")
-
-    # Find GMP and MPFR before find_package(CGAL) so that our updated Find modules
-    # (which scan ENV CPATH / ENV LIBRARY_PATH set by GCC module systems) run first.
-    # CMake caches the results, so CGAL's own internal find_package(GMP/MPFR) calls
-    # will reuse them — including any user-supplied -DMPFR_INCLUDE_DIR=... hints.
-    list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
-    find_package(GMP REQUIRED)
-    find_package(MPFR REQUIRED)
-    if(GMP_FOUND)
-      message(STATUS "Found GMP: ${GMP_LIBRARIES}")
-      message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
-    endif()
-    if(MPFR_FOUND)
-      message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
-      message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
-    endif()
-
-    # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
-    # On Linux systems only shared Boost libraries are typically available.
-    # Override by passing -DCGAL_Boost_USE_STATIC_LIBS=ON if static Boost is needed.
-    if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
-      set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
-        "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
-      message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
-    else()
-      message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
-    endif()
-
-    # Try to find CGAL
-    find_package(CGAL QUIET COMPONENTS Core
-      HINTS
-        # Standard system locations
-        /usr/local
-        /usr
-        # Windows default installation locations
-        "C:/Program Files/CGAL"
-        # Windows user installation
-        "$ENV{USERPROFILE}/CGAL"
-        # Linux user installations
-        "$ENV{HOME}/.local"
-        # Look for environment variable if set
-        "$ENV{CGAL_DIR}"
-        # Homebrew on macOS
-        /usr/local/opt/cgal
-        /opt/homebrew/opt/cgal
-    )
-
-    set(CGAL_NAME CGAL)
-    if(CGAL_FOUND)
-      message(STATUS "Found CGAL version ${CGAL_VERSION}")
-      message(STATUS "Using CGAL from ${CGAL_DIR}")
-      if(CGAL_VERSION VERSION_LESS "5.3")
-        message(FATAL_ERROR "CGAL version ${CGAL_VERSION} is too old. Minimum required version is 5.3.")
-      endif()
-      # Older CGAL packages export a helper include file; newer releases may not.
-      if(CGAL_USE_FILE)
-        include(${CGAL_USE_FILE})
-      endif()
-      
-      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-    else()
-      message(STATUS "CGAL not found in system locations")
-      # Fallback to ExternalProject_Add or other approach
-      message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
-    endif()
-
-  endif(NOT USE_CGAL_LOCAL)
-
-endif(USE_CGAL)
+  message(STATUS "Using CGAL version ${CGAL_VERSION}")
+  set(CGAL_LIBRARIES CGAL::CGAL)
+  if(CGAL_INCLUDE_DIRS)
+    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+  else()
+    get_target_property(CGAL_INCLUDE_DIR CGAL::CGAL INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+endif()
 
 #=========================================================================
 #                          Configure BoostC++ 
@@ -415,12 +362,6 @@ endif(USE_CGAL)
 # Boost_LIBRARY_DIRS : - Boost library directories
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
-
-# When building CGAL via ExternalProject, pin CGAL_DIR to the build-tree install.
-# When USE_CGAL_LOCAL=ON, CGAL_DIR is already resolved by find_package(CGAL) above.
-if(USE_CGAL AND NOT USE_CGAL_LOCAL)
-    set(CGAL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/lib/cmake/CGAL CACHE PATH "Path to CGAL installation" FORCE)
-endif()
 
 if(USE_BOOST)
 
@@ -480,8 +421,6 @@ find_package(Git 2.17)
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
-    add_dependencies(check_manifold ${CGAL_NAME})
-    add_dependencies(validate_triangle_mesh ${CGAL_NAME})
   endif(USE_CGAL)
 endif(NOT WIN32)
 
@@ -594,15 +533,6 @@ IF(BUILD_APPLICATIONS)
       add_definitions(-DWITH_ODE)
       add_subdirectory(FullC0ntact/libs/ode-cmake)
     endif(USE_ODE)
-    #=========================================================================
-    #                    CGAL Dependendy Setup
-    #=========================================================================
-    # We set up CGAL to be dependent on the lowest level main target 
-    # This way we make sure that CGAL is built in time before it gets used
-    # in the building process
-    if(USE_CGAL)
-      add_dependencies(inshape3dcore ${CGAL_NAME})
-    endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()
