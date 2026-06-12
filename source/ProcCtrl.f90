@@ -297,3 +297,11 @@ SUBROUTINE Finalize_Particles(MFILE,MTERM)
 END SUBROUTINE Finalize_Particles
 
 END MODULE ProcCtrl_mod
+
+SUBROUTINE ProcessControl_External(MFILE,MTERM)
+ USE ProcCtrl_mod, ONLY : ProcessControl
+ IMPLICIT NONE
+ INTEGER, INTENT(IN) :: MFILE, MTERM
+
+ CALL ProcessControl(MFILE,MTERM)
+END SUBROUTINE ProcessControl_External

@@ -1417,7 +1417,6 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   
   use var_QuadScalar, only: myStat, istep_ns,dTimeStepEnlargmentFactor
   use def_FEAT
-  use ProcCtrl_mod, only: ProcessControl
   use timestep_control, only: SetSimulationTimeStep
   use solution_io_provenance, only: write_sol_to_file_prov
   use prov_dump_config, only: use_prov_dump_io
@@ -1478,7 +1477,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
 !   CALL TimeStepCtrl(tstep,inlU,inlT,filehandle)
 
   ! Interaction from user
-  CALL ProcessControl(filehandle,mterm)
+  CALL ProcessControl_External(filehandle,mterm)
 
 end subroutine postprocessing_app
 !
