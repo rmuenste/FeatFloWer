@@ -5,9 +5,9 @@ It documents the exact configuration that was validated for `q2p1_ATC`:
 
 - `-DUSE_PE=ON`
 - `-DUSE_PE_SERIAL_MODE=ON`
-- `-DUSE_JSON=ON`
+- `-DPE_USE_JSON=ON`
 - `-DUSE_CGAL=ON`
-- `-DEIGEN=ON`
+- `-DPE_USE_EIGEN=ON`
 - `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration)
 
 ## 1) Environment Setup (GCC 13 validated stack)
@@ -82,9 +82,9 @@ cmake -S . -B build-atc-ninja-release-eigen -G Ninja \
   -DBUILD_APPLICATIONS=ON \
   -DUSE_PE=ON \
   -DUSE_PE_SERIAL_MODE=ON \
-  -DUSE_JSON=ON \
+  -DPE_USE_JSON=ON \
   -DUSE_CGAL=ON \
-  -DEIGEN=ON \
+  -DPE_USE_EIGEN=ON \
   -DENABLE_FBM_ACCELERATION=ON \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
@@ -99,9 +99,9 @@ cmake -S . -B build-atc-ninja-release-eigen-gcc14 -G Ninja \
   -DBUILD_APPLICATIONS=ON \
   -DUSE_PE=ON \
   -DUSE_PE_SERIAL_MODE=ON \
-  -DUSE_JSON=ON \
+  -DPE_USE_JSON=ON \
   -DUSE_CGAL=ON \
-  -DEIGEN=ON \
+  -DPE_USE_EIGEN=ON \
   -DENABLE_FBM_ACCELERATION=ON \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
@@ -155,22 +155,22 @@ ls -lh build-atc-ninja-release-eigen-gcc14/applications/q2p1_ATC/q2p1_ATC
 Verify CMake cache options:
 
 ```bash
-rg -n "^(EIGEN|USE_PE|USE_PE_SERIAL_MODE|USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
+rg -n "^(PE_USE_EIGEN|USE_PE|USE_PE_SERIAL_MODE|PE_USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
   build-atc-ninja-release-eigen/CMakeCache.txt
 ```
 
 For the GCC 14 build:
 
 ```bash
-rg -n "^(EIGEN|USE_PE|USE_PE_SERIAL_MODE|USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
+rg -n "^(PE_USE_EIGEN|USE_PE|USE_PE_SERIAL_MODE|PE_USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
   build-atc-ninja-release-eigen-gcc14/CMakeCache.txt
 ```
 
 Expected values:
-- `EIGEN:BOOL=ON`
+- `PE_USE_EIGEN:BOOL=ON`
 - `USE_PE:BOOL=ON`
 - `USE_PE_SERIAL_MODE:BOOL=ON`
-- `USE_JSON:BOOL=ON`
+- `PE_USE_JSON:BOOL=ON`
 - `USE_CGAL:BOOL=ON`
 - `ENABLE_FBM_ACCELERATION:BOOL=ON`
 

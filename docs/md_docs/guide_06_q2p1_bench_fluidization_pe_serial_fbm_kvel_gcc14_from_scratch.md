@@ -13,8 +13,8 @@ The validated configuration is:
 
 - `-DUSE_PE=ON`
 - `-DUSE_PE_SERIAL_MODE=ON`
-- `-DUSE_JSON=ON`
-- `-DEIGEN=ON`
+- `-DPE_USE_JSON=ON`
+- `-DPE_USE_EIGEN=ON`
 - `-DENABLE_FBM_ACCELERATION=ON` (HashGrid + KVEL force acceleration)
 - `-DUSE_CGAL=OFF` (default; CGAL is not needed for `q2p1_bench_fluidization`)
 - GCC/G++/GFortran 14.3.0 through the OpenMPI 4.1.6 GCC 14 wrapper compilers
@@ -71,7 +71,7 @@ Important for this build:
 
 - PE is built from `libs/pe`.
 - FullC0ntact is configured as a subproject.
-- Eigen is required because this guide uses `-DEIGEN=ON`.
+- Eigen is required because this guide uses `-DPE_USE_EIGEN=ON`.
 
 Quick check:
 
@@ -92,8 +92,8 @@ cmake -S . -B build-q2p1-bench-fluidization-gcc14-pe-serial-fbm -G Ninja \
   -DBUILD_APPLICATIONS=ON \
   -DUSE_PE=ON \
   -DUSE_PE_SERIAL_MODE=ON \
-  -DUSE_JSON=ON \
-  -DEIGEN=ON \
+  -DPE_USE_JSON=ON \
+  -DPE_USE_EIGEN=ON \
   -DENABLE_FBM_ACCELERATION=ON \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
@@ -153,7 +153,7 @@ Validated result:
 Verify the important CMake cache options:
 
 ```bash
-rg -n "^(CMAKE_(C|CXX|Fortran)_COMPILER|EIGEN|USE_PE|USE_PE_SERIAL_MODE|USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
+rg -n "^(CMAKE_(C|CXX|Fortran)_COMPILER|PE_USE_EIGEN|USE_PE|USE_PE_SERIAL_MODE|PE_USE_JSON|USE_CGAL|ENABLE_FBM_ACCELERATION):" \
   build-q2p1-bench-fluidization-gcc14-pe-serial-fbm/CMakeCache.txt
 ```
 
@@ -162,10 +162,10 @@ Expected values:
 - `CMAKE_C_COMPILER:UNINITIALIZED=mpicc`
 - `CMAKE_CXX_COMPILER:UNINITIALIZED=mpicxx`
 - `CMAKE_Fortran_COMPILER:UNINITIALIZED=mpifort`
-- `EIGEN:BOOL=ON`
+- `PE_USE_EIGEN:BOOL=ON`
 - `ENABLE_FBM_ACCELERATION:BOOL=ON`
 - `USE_CGAL:BOOL=OFF`
-- `USE_JSON:BOOL=ON`
+- `PE_USE_JSON:BOOL=ON`
 - `USE_PE:BOOL=ON`
 - `USE_PE_SERIAL_MODE:BOOL=ON`
 

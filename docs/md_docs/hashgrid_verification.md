@@ -32,8 +32,8 @@ module load gcc/latest-v13 openmpi/options/interface/ethernet openmpi/4.1.6
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
       -DUSE_PE_SERIAL_MODE=ON \
-      -DUSE_ACCELERATED_POINT_QUERY=ON \
-      -DVERIFY_HASHGRID=ON \
+      -DPE_USE_ACCELERATED_POINT_QUERY=ON \
+      -DPE_VERIFY_HASHGRID=ON \
       -DBUILD_APPLICATIONS=ON \
       ..
 
@@ -42,9 +42,9 @@ make -j8
 
 ### CMake Options
 
-- **`USE_ACCELERATED_POINT_QUERY=ON`** - Enable HashGrid acceleration (required for verification)
-- **`VERIFY_HASHGRID=ON`** - Enable runtime verification
-- **`VERIFY_HASHGRID=OFF`** - Disable verification (default, for production runs)
+- **`PE_USE_ACCELERATED_POINT_QUERY=ON`** - Enable HashGrid acceleration (required for verification)
+- **`PE_VERIFY_HASHGRID=ON`** - Enable runtime verification
+- **`PE_VERIFY_HASHGRID=OFF`** - Disable verification (default, for production runs)
 
 ## Output Format
 
@@ -123,7 +123,7 @@ HashGrid verification: 500000 queries, 0 mismatches (  0.0000%)
 ```bash
 # Build with verification
 cd build_verify
-cmake -DUSE_ACCELERATED_POINT_QUERY=ON -DVERIFY_HASHGRID=ON ..
+cmake -DPE_USE_ACCELERATED_POINT_QUERY=ON -DPE_VERIFY_HASHGRID=ON ..
 make -j8 q2p1_hashgrid_test
 
 # Run test (will be slower)
@@ -143,7 +143,7 @@ cd ../..
 mkdir build_production
 cd build_production
 
-cmake -DUSE_ACCELERATED_POINT_QUERY=ON -DVERIFY_HASHGRID=OFF ..
+cmake -DPE_USE_ACCELERATED_POINT_QUERY=ON -DPE_VERIFY_HASHGRID=OFF ..
 make -j8
 
 # Now run at full speed
@@ -192,13 +192,13 @@ The build system:
 **Error:**
 ```
 CMake Warning:
-  VERIFY_HASHGRID is enabled but USE_ACCELERATED_POINT_QUERY is OFF.
+  PE_VERIFY_HASHGRID is enabled but PE_USE_ACCELERATED_POINT_QUERY is OFF.
   Verification requires acceleration to be enabled.
 ```
 
 **Solution:** Enable both options:
 ```bash
-cmake -DUSE_ACCELERATED_POINT_QUERY=ON -DVERIFY_HASHGRID=ON ..
+cmake -DPE_USE_ACCELERATED_POINT_QUERY=ON -DPE_VERIFY_HASHGRID=ON ..
 ```
 
 ### No verification output during run

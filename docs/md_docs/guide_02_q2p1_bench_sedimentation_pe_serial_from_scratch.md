@@ -63,7 +63,7 @@ If the agent is limited to a restricted mode (e.g., “write-workspace” only),
 - `slurm_set_addr: Unable to resolve <controller>` (Slurm submission)
 
 Practical workaround if network is blocked:
-- Use `-DEIGEN=OFF` and point JSON to a pre-downloaded source via
+- Use `-DPE_USE_EIGEN=OFF` and point JSON to a pre-downloaded source via
   `-DFETCHCONTENT_SOURCE_DIR_JSON=/path/to/json-src`.
 
 This guide assumes a mode with **both filesystem write access and outbound network access**. For Codex CLI,
@@ -89,15 +89,15 @@ cmake -S . -B build-ninja-release -G Ninja \
   -DBUILD_APPLICATIONS=ON \
   -DUSE_PE=ON \
   -DUSE_PE_SERIAL_MODE=ON \
-  -DUSE_JSON=ON \
+  -DPE_USE_JSON=ON \
   -DSED_BENCH=ON \
-  -DVERIFY_HASHGRID=OFF \
+  -DPE_VERIFY_HASHGRID=OFF \
   -DCMAKE_C_COMPILER=mpicc \
   -DCMAKE_CXX_COMPILER=mpicxx \
   -DCMAKE_Fortran_COMPILER=mpifort
 ```
 
-**Important:** `-DUSE_JSON=ON` is **required** for PE Serial Mode. `-DSED_BENCH=ON` enables the sedimentation benchmark output (e.g. `SED_BENCH_VEL` lines). `-DVERIFY_HASHGRID=OFF` disables hashgrid verification overhead. The setup functions (`setupParticleBenchSerial`, etc.) load runtime configuration from `example.json` via `SimulationConfig::loadFromFile()`. Without JSON support, this function is a no-op and all parameters remain at default values.
+**Important:** `-DPE_USE_JSON=ON` is **required** for PE Serial Mode. `-DSED_BENCH=ON` enables the sedimentation benchmark output (e.g. `SED_BENCH_VEL` lines). `-DPE_VERIFY_HASHGRID=OFF` disables hashgrid verification overhead. The setup functions (`setupParticleBenchSerial`, etc.) load runtime configuration from `example.json` via `SimulationConfig::loadFromFile()`. Without JSON support, this function is a no-op and all parameters remain at default values.
 
 The configure banner should show:
 
@@ -120,9 +120,9 @@ bash -c '
     -DBUILD_APPLICATIONS=ON \
     -DUSE_PE=ON \
     -DUSE_PE_SERIAL_MODE=ON \
-    -DUSE_JSON=ON \
+    -DPE_USE_JSON=ON \
     -DSED_BENCH=ON \
-    -DVERIFY_HASHGRID=OFF \
+    -DPE_VERIFY_HASHGRID=OFF \
     -DCMAKE_C_COMPILER=mpicc \
     -DCMAKE_CXX_COMPILER=mpicxx \
     -DCMAKE_Fortran_COMPILER=mpifort
@@ -346,7 +346,7 @@ ls build-ninja-release/applications/q2p1_bench_sedimentation/_data/MG.dat
 
 ### JSON is Required
 
-**Critical:** `-DUSE_JSON=ON` is **mandatory** for PE Serial Mode. The setup functions load runtime configuration from `example.json`, and without JSON support, all parameters remain at default values.
+**Critical:** `-DPE_USE_JSON=ON` is **mandatory** for PE Serial Mode. The setup functions load runtime configuration from `example.json`, and without JSON support, all parameters remain at default values.
 
 CMake's `FetchContent` automatically downloads nlohmann/json from GitHub:
 - Source: `https://github.com/nlohmann/json.git`
@@ -355,7 +355,7 @@ CMake's `FetchContent` automatically downloads nlohmann/json from GitHub:
 
 ### Eigen (Optional)
 
-Eigen support can be disabled with `-DEIGEN=OFF` if you encounter network issues or don't need it for your simulation:
+Eigen support can be disabled with `-DPE_USE_EIGEN=OFF` if you encounter network issues or don't need it for your simulation:
 - Source (when enabled): `https://gitlab.com/libeigen/eigen.git`
 - May fail in restricted network environments
 - Not required for basic sphere sedimentation benchmarks
@@ -366,7 +366,7 @@ If you encounter `Could not resolve host` errors during configure:
 
 1. **Check network/proxy settings** - CMake FetchContent needs internet access
 2. **Use pre-downloaded dependencies** - Advanced: vendor the dependencies locally
-3. **Disable optional components** - Use `-DEIGEN=OFF` if Eigen fetch fails
+3. **Disable optional components** - Use `-DPE_USE_EIGEN=OFF` if Eigen fetch fails
 
 In this guide's tested environment (RHEL 9.7 with standard network access), JSON FetchContent succeeded without issues.
 
@@ -443,7 +443,7 @@ build-ninja-release/
 
 **Issue:** All parameters at default values despite `example.json`
 - **Cause:** PE built without JSON support (`HAVE_JSON` not defined)
-- **Fix:** Reconfigure with `-DUSE_JSON=ON` and rebuild (see Section 2)
+- **Fix:** Reconfigure with `-DPE_USE_JSON=ON` and rebuild (see Section 2)
 
 **Issue:** Partition count mismatch errors at runtime
 - **Cause:** Mesh partitioned to different count than parameter file expects
