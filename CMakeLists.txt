@@ -153,7 +153,7 @@ cmake_dependent_option(
 )
 
 cmake_dependent_option(
-  MPI                              # Dependent Option name
+  PE_USE_MPI                       # Dependent Option name (PE-owned, PE_-prefixed)
   "Enable MPI support in PE"       # Description
   ON                               # Value when condition is true (parallel PE needs MPI)
   "USE_PE;NOT USE_PE_SERIAL_MODE"  # Condition: USE_PE=ON AND USE_PE_SERIAL_MODE=OFF
@@ -472,8 +472,16 @@ if(USE_PE)
 
   # Propagate FBM acceleration to PE library's HashGrid
   if(ENABLE_FBM_ACCELERATION)
-    set(USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
+    set(PE_USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
       "Enable HashGrid spatial hashing in PE (controlled by ENABLE_FBM_ACCELERATION)" FORCE)
+  endif()
+
+  # Forward FeatFloWer's CGAL choice to the PE library. PE removed its
+  # USE_CGAL deprecated alias; its own option is now PE_USE_CGAL (default OFF),
+  # so we must set it explicitly to keep PE's CGAL code paths compiled.
+  if(USE_CGAL)
+    set(PE_USE_CGAL ON CACHE BOOL
+      "Build PE with CGAL support (controlled by FeatFloWer USE_CGAL)" FORCE)
   endif()
 
   add_subdirectory(libs/pe)

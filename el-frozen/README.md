@@ -58,9 +58,9 @@ Implemented so far:
 - successful configure/build path with:
   - `USE_PE=ON`
   - `USE_PE_SERIAL_MODE=ON`
-  - `USE_JSON=ON`
+  - `PE_USE_JSON=ON`
   - `USE_CGAL=OFF`
-  - `EIGEN=ON`
+  - `PE_USE_EIGEN=ON`
   - `ENABLE_FBM_ACCELERATION=ON`
 
 Important implementation correction already identified:

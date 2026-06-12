@@ -467,7 +467,7 @@ WARNING: DistanceMap acceleration failed to initialize for chip
 ```bash
 # Rebuild PE library with CGAL
 cd libs/pe/build
-cmake -DCGAL=ON ..
+cmake -DPE_USE_CGAL=ON ..
 make -j8
 ```
 
