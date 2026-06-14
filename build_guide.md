@@ -309,6 +309,16 @@ The project includes a system for managing "Build IDs" corresponding to specific
     cmake -DSHOW_BUILD_IDS=ON ..
     ```
 
+For conservative GCC builds on 64-bit ARM systems, use:
+
+```bash
+cmake -S . -B build-arm64 \
+  -DQ2P1_BUILD_ID=arm64-linux-gcc-release \
+  -DBUILD_APPLICATIONS=ON
+```
+
+The ARM64 profiles avoid x86-specific flags such as `-m64`, AVX, and SSE.
+
 *   **To use a specific Build ID**:
     ```bash
     cmake -DQ2P1_COMPILER=intel ..

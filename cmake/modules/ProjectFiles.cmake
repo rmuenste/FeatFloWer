@@ -105,6 +105,8 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
@@ -274,6 +276,11 @@ set(src_quadLS_app
 ${src_util}
 ${src_fbm}
 ${src_assemblies}
+${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -295,6 +302,11 @@ ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
 
 set(src_quadLS_app_only
+${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -328,9 +340,19 @@ set(src_visco
 #                        QuadLS Library Source
 #=========================================================================
 add_library(ff_quadLS_app ${src_quadLS_app_only} ${src_visco})
-target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ${FF_DEFAULT_LIBS})
+target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_cinterface ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ${FF_DEFAULT_LIBS})
 target_include_directories(ff_quadLS_app PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_quadLS_app PUBLIC ${Fortran_FLAGS})
+add_dependencies(ff_quadLS_app ff_cinterface)
+
+if(BUILD_TESTING)
+  add_executable(test_el_kernel_forces
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_kernel_forces.f90)
+  target_link_libraries(test_el_kernel_forces ff_quadLS_app)
+  target_include_directories(test_el_kernel_forces PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_kernel_forces PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-kernel-forces-restart COMMAND test_el_kernel_forces)
+endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

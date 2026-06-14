@@ -329,13 +329,71 @@ END SUBROUTINE Transport_q2p1_UxyzP
 !========================================================================================
 !
 !========================================================================================
+SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
+
+  USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES
+
+  INTEGER, INTENT(IN) :: mfile, itns
+  INTEGER, INTENT(OUT) :: inl_u
+  REAL*8 :: dummy_velocity(1)
+
+  dummy_velocity = 0.0d0
+
+  IF (ALLOCATED(FictKNPR)) FictKNPR = 0
+
+  ! Evaluate hydrodynamic particle forces from the current fluid state.
+  IF (myid.EQ.master) THEN
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
+      dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
+      Properties%Viscosity(1), tstep, mfile, -itns)
+  ELSE
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      tstep, mfile, -itns)
+  END IF
+
+  CALL EL_ADVANCE_PARTICLES()
+
+  ! Refresh volume fraction and diagnostic feedback after particle motion.
+  IF (myid.EQ.master) THEN
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
+      dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
+      Properties%Viscosity(1), tstep, mfile, itns)
+  ELSE
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      tstep, mfile, itns)
+  END IF
+
+  IF (ALLOCATED(FictKNPR)) FictKNPR = 0
+  CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+
+END SUBROUTINE Transport_q2p1_UxyzP_el
+!========================================================================================
+!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
+
+INTEGER, INTENT(IN) :: mfile, itns
+INTEGER, INTENT(OUT) :: inl_u
+
+CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.TRUE.)
+
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext
+!========================================================================================
+!
+! Shared low-level Q2/P1 solve. enable_fbm is true only for the validated FBM transport.
+!========================================================================================
+SUBROUTINE Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,enable_fbm)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 external E013
 
-INTEGER mfile,INL,inl_u,itns
+INTEGER, INTENT(IN) :: mfile,itns
+INTEGER, INTENT(OUT) :: inl_u
+LOGICAL, INTENT(IN) :: enable_fbm
+INTEGER INL
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iITER
@@ -343,8 +401,10 @@ real*8 px, py, pz
 integer k
 k=1
 
-CALL updateFBMGeometry()
-CALL report_and_reset_hashgrid_stats()
+IF (enable_fbm) THEN
+  CALL updateFBMGeometry()
+  CALL report_and_reset_hashgrid_stats()
+END IF
 
 thstep = tstep*(1d0-theta)
 
@@ -559,21 +619,23 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-#ifdef HAVE_PE 
-if (myid.eq. 1) write(*,*)'fbm force'
-#endif 
+#ifdef HAVE_PE
+IF (enable_fbm) THEN
+  if (myid.eq. 1) write(*,*)'fbm force'
+END IF
+#endif
 
 total_lubrication = 0.0d0
 
 ! Calculate the forces
-if(.not. skipFBMForce) then
+if(enable_fbm .and. .not. skipFBMForce) then
   call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                         LinSc%valP(NLMAX)%x,&
                         fbm_force_handler_ptr)
 end if
 
 
-if (bPrintParticleReynolds) then
+if (enable_fbm .and. bPrintParticleReynolds) then
   call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                                                         FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
 
@@ -590,11 +652,13 @@ end if
 !call Get_DissipationIntegral(mfile)
 
 
-#ifdef HAVE_PE 
-if (myid.eq. 1) write(*,*)'fbm update'
-#endif 
+#ifdef HAVE_PE
+IF (enable_fbm) THEN
+  if (myid.eq. 1) write(*,*)'fbm update'
+END IF
+#endif
 
-if(.not. skipFBMDynamics) then
+if(enable_fbm .and. .not. skipFBMDynamics) then
   ! Step the particle simulation
   call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                      Properties%Gravity,mfile,myid,&
@@ -643,7 +707,7 @@ END IF
 
 RETURN
 
-END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
+END SUBROUTINE Transport_q2p1_UxyzP_fluid_core
 !=========================================================================
 ! 
 !=========================================================================

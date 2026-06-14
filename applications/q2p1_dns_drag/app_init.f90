@@ -122,6 +122,10 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  integer :: numParticles, ierror, ndims, reorder
  integer, dimension(3) :: dim_size
  logical periods(0:2)
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+ real*8 :: domain_xmin, domain_xmax, domain_ymin, domain_ymax
+ real*8 :: domain_zmin, domain_zmax
+#endif
 
  ndims = 3
  dim_size = (/2, 2, 2/)
@@ -430,12 +434,24 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
 #ifdef HAVE_PE 
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+ call get_global_domain_extents(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
+                                domain_zmin, domain_zmax)
+ if (myid .ne. 0) then
+   call commf2c_el_frozen_trace(MPI_COMM_WORLD, MPI_Comm_Ex0, myid, &
+                                domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
+                                domain_zmin, domain_zmax)
+ end if
+#else
  if (myid .ne. 0) then
    call commf2c_dns_drag(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
  end if
 #endif
+#endif
 
+#ifndef BUILD_Q2P1_EL_PIPEFLOW
  call init_fc_rigid_body(myid)      
+#endif
 
  call MPI_Barrier(MPI_COMM_WORLD, error_indicator)
 
@@ -474,8 +490,71 @@ END SUBROUTINE General_init_ext
  !
  !-----------------------------------------------------------------------
  !
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+SUBROUTINE get_global_domain_extents(xmin, xmax, ymin, ymax, zmin, zmax)
+
+  USE def_FEAT
+  USE PP3D_MPI, ONLY: myid, showid
+  USE var_QuadScalar, ONLY: mg_mesh
+
+  IMPLICIT NONE
+
+  REAL*8, INTENT(OUT) :: xmin, xmax, ymin, ymax, zmin, zmax
+  REAL*8 :: xmin_local, xmax_local, ymin_local, ymax_local
+  REAL*8 :: zmin_local, zmax_local
+  INTEGER :: ierr
+
+  INCLUDE 'mpif.h'
+
+  IF (myid.NE.0) THEN
+    xmin_local = MINVAL(mg_mesh%level(NLMAX)%dcorvg(1,:))
+    xmax_local = MAXVAL(mg_mesh%level(NLMAX)%dcorvg(1,:))
+    ymin_local = MINVAL(mg_mesh%level(NLMAX)%dcorvg(2,:))
+    ymax_local = MAXVAL(mg_mesh%level(NLMAX)%dcorvg(2,:))
+    zmin_local = MINVAL(mg_mesh%level(NLMAX)%dcorvg(3,:))
+    zmax_local = MAXVAL(mg_mesh%level(NLMAX)%dcorvg(3,:))
+  ELSE
+    xmin_local = HUGE(1.0d0)
+    ymin_local = HUGE(1.0d0)
+    zmin_local = HUGE(1.0d0)
+    xmax_local = -HUGE(1.0d0)
+    ymax_local = -HUGE(1.0d0)
+    zmax_local = -HUGE(1.0d0)
+  END IF
+
+  CALL MPI_Allreduce(xmin_local, xmin, 1, MPI_DOUBLE_PRECISION, MPI_MIN, &
+                     MPI_COMM_WORLD, ierr)
+  CALL MPI_Allreduce(xmax_local, xmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, &
+                     MPI_COMM_WORLD, ierr)
+  CALL MPI_Allreduce(ymin_local, ymin, 1, MPI_DOUBLE_PRECISION, MPI_MIN, &
+                     MPI_COMM_WORLD, ierr)
+  CALL MPI_Allreduce(ymax_local, ymax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, &
+                     MPI_COMM_WORLD, ierr)
+  CALL MPI_Allreduce(zmin_local, zmin, 1, MPI_DOUBLE_PRECISION, MPI_MIN, &
+                     MPI_COMM_WORLD, ierr)
+  CALL MPI_Allreduce(zmax_local, zmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX, &
+                     MPI_COMM_WORLD, ierr)
+
+  IF (myid.EQ.showid) THEN
+    WRITE(mterm,'(A,6ES14.6)') 'Global CFD domain extents: ', &
+      xmin, xmax, ymin, ymax, zmin, zmax
+    WRITE(mfile1,'(A,6ES14.6)') 'Global CFD domain extents: ', &
+      xmin, xmax, ymin, ymax, zmin, zmax
+  END IF
+
+END SUBROUTINE get_global_domain_extents
+#endif
+ !
+ !-----------------------------------------------------------------------
+ !
  SUBROUTINE myGDATNEW (cName,iCurrentStatus)
    USE PP3D_MPI
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+   USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
+                        el_eps_f_relax, el_drag_model, &
+                        el_apply_particle_forces, EL_VALIDATE_CONFIG, &
+                        EL_PRINT_CONFIG
+#endif
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
@@ -631,6 +710,24 @@ END SUBROUTINE General_init_ext
              TRIM(ADJUSTL(cParam)).EQ."YES") bConstForce = .TRUE.
        CASE ("ConstantForcing")
          READ(string(iEq+1:),*) ConstForce
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+       CASE ("ELKernel")
+         READ(string(iEq+1:),*) el_kernel
+       CASE ("ELKernelWidthFactor")
+         READ(string(iEq+1:),*) el_kernel_width_factor
+       CASE ("ELEpsFMin")
+         READ(string(iEq+1:),*) el_eps_f_min
+       CASE ("ELEpsFRelax")
+         READ(string(iEq+1:),*) el_eps_f_relax
+       CASE ("ELDragModel")
+         READ(string(iEq+1:),*) el_drag_model
+       CASE ("ELApplyParticleForces")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_apply_particle_forces = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+#endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
        CASE ("MaxTimeAdapt")
@@ -719,6 +816,10 @@ END SUBROUTINE General_init_ext
 
    CLOSE (myFile)
 
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+   CALL EL_VALIDATE_CONFIG()
+#endif
+
    M     = 1
    MT    = 1
    IGMV   = NLMAX
@@ -732,6 +833,10 @@ END SUBROUTINE General_init_ext
        stop
      end if
    end if
+
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+   IF (myid.eq.showid) CALL EL_PRINT_CONFIG(mfile1, mterm)
+#endif
 
    IF (iCurrentStatus.EQ.0) THEN
      IF (myid.eq.showid) WRITE(UNIT=mterm,FMT=101)
