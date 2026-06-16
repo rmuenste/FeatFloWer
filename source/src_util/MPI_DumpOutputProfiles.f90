@@ -441,7 +441,8 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','velocity')
 
-  if (cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') CALL LoadMPIFieldQ2_NX('distance',1,Screw)
+  if ((cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') .and. allocated(Screw)) &
+       CALL LoadMPIFieldQ2_NX('distance',1,Screw)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','distance')
   
@@ -449,7 +450,8 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','segment')
 
-  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL LoadMPIFieldQ2_NX('shell',1,shell)
+  if ((cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') .and. allocated(Shell)) &
+       CALL LoadMPIFieldQ2_NX('shell',1,shell)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','shell')
 
@@ -498,8 +500,8 @@ END IF
  
 !!! Exchange trhe coordinates with the master !!!!
 CALL CommCoordinatesWithMaster()
-CALL CommQ2ScalarFieldWithMaster(Screw)
-CALL CommQ2ScalarFieldWithMaster(Shell)
+IF (allocated(Screw)) CALL CommQ2ScalarFieldWithMaster(Screw)
+IF (allocated(Shell)) CALL CommQ2ScalarFieldWithMaster(Shell)
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1827,7 +1829,8 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','velocity')
   
-  if (cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') CALL ReleaseMPIFieldQ2_NX('distance',1,Screw)
+  if ((cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') .and. allocated(Screw)) &
+       CALL ReleaseMPIFieldQ2_NX('distance',1,Screw)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','distance')
   
@@ -1835,7 +1838,8 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','segment')
   
-  if (cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') CALL ReleaseMPIFieldQ2_NX('shell',1,shell)
+  if ((cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') .and. allocated(Shell)) &
+       CALL ReleaseMPIFieldQ2_NX('shell',1,shell)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','shell')
 
