@@ -154,9 +154,16 @@ CONTAINS
         record_result(2:4,i), el_field_data)
     END DO
 
+    ! Capture the fluid feedback source from the DISTRIBUTED force_rhs, i.e.
+    ! BEFORE E013Sum3. The momentum RHS this source is added to (QuadSc%defU,
+    ! alongside AddGravForce) is in distributed/additive form and is summed once
+    ! by the fluid solver. If we captured after E013Sum3 the source would already
+    ! be consistent (summed), and the solver's subsequent sum would multiply it
+    ! by the sharing multiplicity on partition-boundary DOFs (double-counting).
+    ! The diagnostic force_rhs is still summed below for reporting/output.
+    IF (advance_history) CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
     CALL E013Sum3(el_field_data%force_rhs(1,:),el_field_data%force_rhs(2,:), &
                   el_field_data%force_rhs(3,:))
-    IF (advance_history) CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
     CALL EL_FINALIZE_VOID_FRACTION(dt, clipped_local)
     CALL MPI_Allreduce(clipped_local, clipped_global, 1, MPI_INTEGER, MPI_SUM, &
                        MPI_COMM_SUBS, ierr)

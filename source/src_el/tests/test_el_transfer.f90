@@ -94,6 +94,7 @@ PROGRAM TEST_EL_TRANSFER
   CALL test_zero_force(failures)
   CALL test_halo_predicates(failures)
   CALL test_rank_independence(failures)
+  CALL test_partitioned_feedback_no_double_count(failures)
 
   CALL report(failures, rank, nproc)
 
@@ -312,6 +313,92 @@ CONTAINS
     CALL check(spread.LE.1.0d-12*MAX(1.0d0, expected), &
                'rank-independent deposited volume', nf)
   END SUBROUTINE test_rank_independence
+
+  SUBROUTINE test_partitioned_feedback_no_double_count(nf)
+    ! Partitioned-mesh feedback regression (the genuinely distributed case).
+    !
+    ! The fluid feedback source must be captured from the DISTRIBUTED force_rhs
+    ! (before E013Sum3), because the momentum RHS it is added to is distributed
+    ! and is summed exactly once by the fluid solver. If it were captured AFTER
+    ! E013Sum3 (consistent form), partition-boundary DOFs would be summed twice.
+    !
+    ! A full FEAT partition cannot be exercised here (E013Sum3 needs the parallel
+    ! coupling tables built by the real app), so this models a particle whose
+    ! kernel straddles a partition with the REAL EL_CAPTURE_FLUID_FEEDBACK_SOURCE
+    ! and field storage:
+    !   DOF 1 -> interior to rank 0, DOF 3 -> interior to the last rank,
+    !   DOF 2 -> shared by all ranks (each holds a partial S/nproc).
+    ! The global reaction summed over unique DOFs is A + S + B == -feedback.
+    !
+    ! LIMITATIONS (what this test does and does NOT cover):
+    !   * It guards the CONVENTION/invariant and the EL_CAPTURE_FLUID_FEEDBACK_
+    !     SOURCE semantics: a distributed source sums (once) to -feedback, while a
+    !     consistent (pre-summed) source double-counts shared DOFs.
+    !   * It does NOT regression-test the production line ordering inside
+    !     EL_PARTICLE_MESH_PASS (capture BEFORE E013Sum3). This test builds
+    !     force_rhs itself and calls EL_CAPTURE directly, so it would still pass
+    !     if the production capture were (wrongly) moved after E013Sum3. The
+    !     standalone harness cannot call E013Sum3 because that needs the parallel
+    !     coupling tables built by the real app.
+    !   * The "partition" is a 3-DOF model, not a real FEAT mesh decomposition:
+    !     no actual deposit kernel, element geometry, or shared-DOF topology is
+    !     exercised; the shared-DOF partials are prescribed, not produced by
+    !     EL_DEPOSIT_PARTICLE straddling a true rank boundary.
+    !   * Closing the gap requires an end-to-end partitioned q2p1_el_pipeflow
+    !     regression (the standing Phase-1 distributed-straddling TODO), which
+    !     drives EL_PARTICLE_MESH_PASS -> E013Sum3 on a real partitioned mesh.
+    INTEGER, INTENT(INOUT) :: nf
+    INTEGER, PARAMETER :: NL = 3
+    REAL*8 :: A(3), B(3), S(3), feedback(3)
+    REAL*8 :: local_sum(3), global_sum(3), shared(3), shared_glob(3)
+    INTEGER :: c
+    LOGICAL :: ok
+
+    A = (/-0.20d0,  0.10d0,  0.05d0/)
+    B = (/-0.30d0,  0.40d0, -0.15d0/)
+    S = (/-0.50d0, -0.20d0,  0.60d0/)
+    feedback = -(A + S + B)
+
+    CALL EL_ENSURE_FIELDS(1, NL)
+    el_field_data%force_rhs = 0.0d0
+    IF (rank.EQ.0)         el_field_data%force_rhs(:,1) = A
+    el_field_data%force_rhs(:,2) = S / DBLE(nproc)
+    IF (rank.EQ.nproc-1)   el_field_data%force_rhs(:,3) = B
+
+    ! FIX path: capture distributed force_rhs; the solver's single sum (modeled
+    ! by the cross-rank Allreduce of local DOF sums) reconstructs -feedback.
+    CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
+    DO c = 1, 3
+      local_sum(c) = SUM(el_field_data%fluid_feedback_source(c,:))
+    END DO
+    CALL MPI_Allreduce(local_sum, global_sum, 3, MPI_DOUBLE_PRECISION, &
+                       MPI_SUM, MPI_COMM_WORLD, ierr)
+    ok = MAXVAL(ABS(global_sum + feedback)).LT.1.0d-12
+    CALL check(ok, 'partitioned feedback: distributed capture sums to -F', nf)
+
+    ! BUG guard (only meaningful when DOFs are actually shared): make the shared
+    ! DOF consistent first (an E013Sum), THEN capture. Summed once more by the
+    ! solver, the shared DOF is over-counted by (nproc-1)*S, so the global
+    ! reaction no longer equals -feedback.
+    IF (nproc.GE.2) THEN
+      shared = el_field_data%force_rhs(:,2)
+      CALL MPI_Allreduce(shared, shared_glob, 3, MPI_DOUBLE_PRECISION, &
+                         MPI_SUM, MPI_COMM_WORLD, ierr)
+      el_field_data%force_rhs(:,2) = shared_glob
+      CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
+      DO c = 1, 3
+        local_sum(c) = SUM(el_field_data%fluid_feedback_source(c,:))
+      END DO
+      CALL MPI_Allreduce(local_sum, global_sum, 3, MPI_DOUBLE_PRECISION, &
+                         MPI_SUM, MPI_COMM_WORLD, ierr)
+      ok = MAXVAL(ABS(global_sum + feedback)).GT.1.0d-6
+      CALL check(ok, &
+        'partitioned feedback: consistent capture double-counts (guard)', nf)
+    END IF
+
+    ! restore the working-mesh field sizes
+    CALL EL_ENSURE_FIELDS(nel, ndof)
+  END SUBROUTINE test_partitioned_feedback_no_double_count
 
   !----------------------------------------------------------------------
   ! Helpers
