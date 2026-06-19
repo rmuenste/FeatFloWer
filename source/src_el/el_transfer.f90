@@ -121,7 +121,14 @@ CONTAINS
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(2:4,i) = force_result%feedback_force
 #ifdef HAVE_PE
-      IF (el_apply_particle_forces) THEN
+      ! Only the pre-advance pass (advance_history, istep<0) is allowed to arm
+      ! PE: it runs immediately before EL_ADVANCE_PARTICLES. The post-step
+      ! diagnostic pass (istep>0) must NOT push a hydro state, otherwise it
+      ! would leave PE armed with stale fluid forcing between this step and the
+      ! next pre-advance pass. The PE side clears all hydro states at the end of
+      ! each PE step, so a body is integrated semi-implicitly only when it was
+      ! freshly armed for the step that is about to run.
+      IF (el_apply_particle_forces .AND. advance_history) THEN
         owned_particles(i)%force = force_result%particle_total
         owned_particles(i)%torque = 0.0d0
         CALL setForcesMapped(owned_particles(i))

@@ -92,6 +92,39 @@ CONTAINS
 
     SELECT CASE (TRIM(el_drag_model))
     CASE ('difelice')
+      ! ----------------------------------------------------------------------
+      ! Di Felice (1994) drag with voidage correction.
+      !
+      !   F_drag = 0.5 * rho_f * Cd * A * |u_rel| * u_rel * eps_f**(2 - chi)
+      !   Cd     = single-sphere drag coefficient (EL_SPHERE_CD, Schiller-
+      !            Naumann form below Re=1000, 0.44 above)
+      !   chi    = 3.7 - 0.65 * exp( -0.5 * (1.5 - log10(Re_p))**2 )
+      !
+      ! NOTE ON THE VOIDAGE EXPONENT (provisional, Phase 2).
+      ! The exponent on eps_f encodes BOTH the empirical Di Felice voidage
+      ! function AND the velocity basis chosen for the slip. There are several
+      ! conventions in circulation and they differ only in the dense limit
+      ! (eps_f < 1); the dilute limit eps_f = 1 collapses to the exact
+      ! single-sphere drag for all of them, so it cannot be used to tell them
+      ! apart (the eps_f = 1, Re -> 0 Stokes limit verified in the unit test
+      ! is therefore necessary but NOT sufficient to validate the exponent):
+      !   * Di Felice (1994), original   : f(eps) = eps_f**(-chi)
+      !     (single-sphere drag, Re_p built on the interstitial slip)
+      !   * Common CFD-DEM per-particle  : eps_f**(1 - chi)
+      !     (e.g. Zhou et al., JFM 661 (2010), "set A"; one extra eps from
+      !      writing the force per particle rather than per unit volume)
+      !   * Implemented here             : eps_f**(2 - chi)
+      !     (a further factor of eps_f, consistent with expressing the slip on
+      !      a superficial / Darcy basis u_super = eps_f * u_interstitial in
+      !      the |u_rel| * u_rel product)
+      ! The implemented (2 - chi) form is INTENTIONAL for the superficial-slip
+      ! convention used by this transfer layer, but it MUST be re-checked
+      ! against the reference the validation cases are compared to before any
+      ! quantitative dense-suspension claim. If the carrier velocity sampled by
+      ! the kernel is interstitial rather than superficial, drop one power of
+      ! eps_f (use 1 - chi). Full Segre-Silberberg / fixed-bed validation that
+      ! would actually pin the exponent is Phase 5 work.
+      ! ----------------------------------------------------------------------
       cd = EL_SPHERE_CD(reynolds)
       chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
       area = ACOS(-1.0d0)*diameter*diameter/4.0d0
