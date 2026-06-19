@@ -68,9 +68,16 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
         IF(${_cpu_model} EQUAL 1)
           set(Q2P1_CPU_TYPE "epycmilan")
         ENDIF()
+      ELSEIF(${_cpu_family} EQUAL 26)
+        # AMD Zen 5 (family 0x1A, e.g. Ryzen 9000 / 9800X3D). This is the
+        # CPU class seen on developer WSL2 boxes where we only need a
+        # portable local build; route it to a compatibility build id whose
+        # flags favour portability over micro-architecture tuning
+        # (gfortran has no -march=znver5 yet).
+        set(Q2P1_CPU_TYPE "zen5")
       ELSE()
         message(FATAL_ERROR "Unknown CPU model, cannot set up default configuration")
-      ENDIF()    
+      ENDIF()
     ELSEIF(${_vendor_id} MATCHES "GenuineIntel")
       IF(${_cpu_family} EQUAL 6)
         IF("15 21 22 23 29" MATCHES ${_cpu_model})

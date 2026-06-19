@@ -247,6 +247,14 @@ CONTAINS
 
   END FUNCTION EL_ELEMENT_INTERSECTS_SUPPORT
 
+  ! Geometric isoparametric map and Jacobian for the cubature points.
+  ! NOTE: this uses the trilinear (Q1) hex map even though the fluid fields
+  ! live in the triquadratic Q2 (E013) space. That is exact for the affine /
+  ! straight-edged hexes produced by the structured mesh hierarchy used here
+  ! (the geometry is genuinely Q1), so the cubature weights omega = |detJ|*w
+  ! and the kernel-volume conservation are correct. If curved/Q2-geometry
+  ! hexes are ever introduced, this map must be upgraded to the full Q2
+  ! isoparametric Jacobian to preserve conservation.
   SUBROUTINE EL_Q1_MAP(x, y, z, xi, point, jac, detj)
 
     REAL*8, INTENT(IN) :: x(8), y(8), z(8), xi(3)

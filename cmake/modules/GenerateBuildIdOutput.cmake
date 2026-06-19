@@ -40,6 +40,8 @@ set(result
 "generic-linux-gcc-release\n"
 "arm64-linux-gcc-debug\n"
 "arm64-linux-gcc-release\n"
+"zen5-linux-gcc-debug\n"
+"zen5-linux-gcc-release\n"
 )
 message(STATUS "The available build-ids are:")
 foreach(str ${result})

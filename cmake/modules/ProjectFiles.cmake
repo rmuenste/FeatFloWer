@@ -352,6 +352,30 @@ if(BUILD_TESTING)
   target_include_directories(test_el_kernel_forces PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_kernel_forces PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-kernel-forces-restart COMMAND test_el_kernel_forces)
+
+  # Particle-mesh transfer conservation/interpolation suite. Runs the
+  # assertable transfer math against a synthetic structured Q2/P1 mesh on
+  # 1/2/8 ranks (see source/src_el/tests/test_el_transfer.f90 header for the
+  # distributed-halo cases still marked TODO).
+  add_executable(test_el_transfer
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_transfer.f90)
+  target_link_libraries(test_el_transfer ff_quadLS_app)
+  target_include_directories(test_el_transfer PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_transfer PRIVATE ${Fortran_FLAGS})
+
+  add_test(NAME el-transfer-serial COMMAND test_el_transfer)
+  if(MPIEXEC_EXECUTABLE)
+    foreach(_np 2 8)
+      add_test(NAME el-transfer-mpi-${_np}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np}
+                ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_el_transfer>
+                ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(el-transfer-mpi-${_np} PROPERTIES PROCESSORS ${_np})
+    endforeach()
+    # The 8-rank case may exceed available slots on small CI hosts; if so,
+    # set MPIEXEC_PREFLAGS to include the vendor oversubscribe flag
+    # (e.g. --oversubscribe for Open MPI) at configure time.
+  endif()
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

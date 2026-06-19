@@ -10,3 +10,4 @@ _mesh/*
 *.pyc
 
 
+build/

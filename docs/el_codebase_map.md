@@ -100,3 +100,28 @@ assets.
 - The first milestone uses P0 element fields for `alpha_p`, `epsilon_f`,
   `epsilon_f_old`, and `d epsilon_f/dt`. Q2 force feedback is diagnostic
   until two-way coupling is enabled.
+- The transfer cubature (`EL_Q1_MAP` in `source/src_el/el_quadrature.f90`)
+  evaluates the geometric Jacobian with the trilinear (Q1) hex map even
+  though the velocity fields are triquadratic (Q2/E013). This is exact for
+  the straight-edged hexes the structured mesh hierarchy produces, so the
+  cubature weights and kernel-volume conservation are correct. Curved/Q2
+  geometry would require upgrading this to the full Q2 isoparametric
+  Jacobian.
+
+## Phase 1 transfer tests
+
+- `source/src_el/tests/test_el_kernel_forces.f90` — serial unit test for
+  kernel positivity, Stokes drag, and field restart round-trip
+  (`el-kernel-forces-restart`).
+- `source/src_el/tests/test_el_transfer.f90` — particle-mesh transfer
+  conservation/interpolation suite on a synthetic structured Q2/P1 mesh,
+  registered as `el-transfer-serial` and `el-transfer-mpi-{2,8}`. Covers
+  constant/linear interpolation, central + wall-adjacent volume
+  conservation, componentwise force-spread conservation, zero-force
+  behaviour, halo overlap predicates, and rank-independence of the transfer
+  math. TODO (documented in the file header): the genuinely distributed
+  straddling-particle path (`EL_REFRESH_COUPLING_HALO` ->
+  `EL_REDUCE_TO_OWNERS` -> `E013Sum3`) needs the partitioned production mesh
+  and PE ownership, so it must be driven from a `q2p1_el_pipeflow`
+  regression harness on the staged `unit_cube_27_case` (face/edge/corner
+  straddling on 2 and 8 ranks).
