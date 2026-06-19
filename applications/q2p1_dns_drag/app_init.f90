@@ -552,6 +552,7 @@ END SUBROUTINE get_global_domain_extents
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
                         el_eps_f_relax, el_drag_model, &
+                        el_pressure_force, el_lift_model, el_magnus, &
                         el_apply_particle_forces, EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -721,6 +722,20 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_eps_f_relax
        CASE ("ELDragModel")
          READ(string(iEq+1:),*) el_drag_model
+       CASE ("ELPressureForce")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_pressure_force = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+       CASE ("ELLiftModel")
+         READ(string(iEq+1:),*) el_lift_model
+       CASE ("ELMagnus")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_magnus = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELApplyParticleForces")
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2

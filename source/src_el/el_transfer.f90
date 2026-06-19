@@ -1,5 +1,6 @@
 MODULE EL_TRANSFER
 
+  USE ISO_C_BINDING, ONLY: C_DOUBLE, C_INT, C_SHORT
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
@@ -9,11 +10,12 @@ MODULE EL_TRANSFER
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_write_diagnostics
-  USE EL_FORCES, ONLY: EL_DRAG_FORCE
+  USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
-  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_INTEGRATE_PARTICLE, &
+  USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
+                           EL_INTEGRATE_PARTICLE, &
                            EL_DEPOSIT_PARTICLE
 
   IMPLICIT NONE
@@ -25,27 +27,37 @@ MODULE EL_TRANSFER
 
     SUBROUTINE sync_el_forces_c() BIND(C, NAME='sync_el_frozen_forces_')
     END SUBROUTINE sync_el_forces_c
+
+    SUBROUTINE set_el_hydro_state_c(bytes, drag_b, u_f, f_other, active) &
+      BIND(C, NAME='set_el_hydro_state')
+      USE ISO_C_BINDING, ONLY: C_DOUBLE, C_INT, C_SHORT
+      INTEGER(C_SHORT), INTENT(IN) :: bytes(8)
+      REAL(C_DOUBLE), INTENT(IN) :: drag_b
+      REAL(C_DOUBLE), INTENT(IN) :: u_f(3), f_other(3)
+      INTEGER(C_INT), INTENT(IN) :: active
+    END SUBROUTINE set_el_hydro_state_c
   END INTERFACE
 #endif
 
 CONTAINS
 
   SUBROUTINE EL_PARTICLE_MESH_PASS(mesh, ilev, val_u, val_v, val_w, val_p, &
-                                   density, viscosity, dt, mfile, istep)
+                                   density, viscosity, gravity, dt, mfile, istep)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev, mfile, istep
     REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:), val_p(:)
-    REAL*8, INTENT(IN) :: density, viscosity, dt
+    REAL*8, INTENT(IN) :: density, viscosity, gravity(3), dt
 
     TYPE(tParticleData), ALLOCATABLE :: owned_particles(:)
     TYPE(tElParticleRecord), ALLOCATABLE :: records(:)
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:)
     REAL*8, ALLOCATABLE :: owned_result(:,:), record_result(:,:)
-    REAL*8 :: force(3), carrier_velocity(3), expected_volume
+    REAL*8 :: expected_volume, f_other(3)
+    TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
-    INTEGER :: global_owned
+    INTEGER :: global_owned, hydro_active
     INTEGER :: clipped_local, clipped_global
     LOGICAL :: advance_history
 
@@ -104,16 +116,20 @@ CONTAINS
           ' has no positive fluid support at ', owned_particles(i)%position
         CALL MPI_Abort(MPI_COMM_SUBS, 901, ierr)
       END IF
-      carrier_velocity = owned_samples(2:4,i)/owned_samples(1,i)
-      CALL EL_DRAG_FORCE_FROM_PARTICLE(owned_particles(i), carrier_velocity, &
-        density, viscosity, force)
-      owned_result(1,i) = owned_samples(1,i)
-      owned_result(2:4,i) = force
+      CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
+        density, viscosity, gravity, force_result)
+      owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
+      owned_result(2:4,i) = force_result%feedback_force
 #ifdef HAVE_PE
       IF (el_apply_particle_forces) THEN
-        owned_particles(i)%force = force
+        owned_particles(i)%force = force_result%particle_total
         owned_particles(i)%torque = 0.0d0
         CALL setForcesMapped(owned_particles(i))
+        f_other = force_result%pressure + force_result%lift + &
+                  force_result%grav_buoy
+        hydro_active = 1
+        CALL set_el_hydro_state_c(owned_particles(i)%bytes, &
+          force_result%drag_B, force_result%u_f, f_other, hydro_active)
       END IF
 #endif
     END DO
@@ -166,21 +182,23 @@ CONTAINS
 
   END SUBROUTINE EL_PARTICLE_MESH_PASS
 
-  SUBROUTINE EL_DRAG_FORCE_FROM_PARTICLE(particle, carrier_velocity, density, &
-                                          viscosity, force)
+  SUBROUTINE EL_FORCES_FROM_PARTICLE(particle, sample, density, viscosity, &
+                                     gravity, result)
 
     TYPE(tParticleData), INTENT(IN) :: particle
-    REAL*8, INTENT(IN) :: carrier_velocity(3), density, viscosity
-    REAL*8, INTENT(OUT) :: force(3)
+    REAL*8, INTENT(IN) :: sample(EL_SAMPLE_SIZE)
+    REAL*8, INTENT(IN) :: density, viscosity, gravity(3)
+    TYPE(tElForceResult), INTENT(OUT) :: result
     REAL*8 :: state(8)
 
     state(1:3) = particle%position
     state(4:6) = particle%velocity
     state(7) = particle%radius
     state(8) = particle%density
-    CALL EL_DRAG_FORCE(state, carrier_velocity, density, viscosity, force)
+    CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, density, viscosity, &
+                                    gravity, result)
 
-  END SUBROUTINE EL_DRAG_FORCE_FROM_PARTICLE
+  END SUBROUTINE EL_FORCES_FROM_PARTICLE
 
   SUBROUTINE EL_ADVANCE_PARTICLES()
 

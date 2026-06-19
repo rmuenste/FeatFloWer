@@ -345,11 +345,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), tstep, mfile, -itns)
+      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, -itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
-      tstep, mfile, -itns)
+      Properties%Gravity, tstep, mfile, -itns)
   END IF
 
   CALL EL_ADVANCE_PARTICLES()
@@ -358,11 +358,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
       dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
-      Properties%Viscosity(1), tstep, mfile, itns)
+      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, itns)
   ELSE
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
-      tstep, mfile, itns)
+      Properties%Gravity, tstep, mfile, itns)
   END IF
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
