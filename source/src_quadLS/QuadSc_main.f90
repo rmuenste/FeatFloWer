@@ -21,6 +21,9 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
 
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, bPrintParticleReynolds
 
+use EL_CONFIG, only: el_apply_fluid_feedback
+use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE
+
 use, intrinsic :: ieee_arithmetic
 
 IMPLICIT NONE
@@ -440,6 +443,10 @@ IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
  CALL AddConstantForce()
+ IF (el_apply_fluid_feedback) THEN
+   CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
+     QuadSc%defW, tstep)
+ END IF
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()

@@ -3,12 +3,13 @@ MODULE EL_CONFIG
   IMPLICIT NONE
 
   CHARACTER(LEN=32) :: el_kernel = 'deen_poly'
-  CHARACTER(LEN=32) :: el_drag_model = 'stokes'
+  CHARACTER(LEN=32) :: el_drag_model = 'difelice'
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   REAL*8 :: el_kernel_width_factor = 2.5d0
   REAL*8 :: el_eps_f_min = 0.4d0
   REAL*8 :: el_eps_f_relax = 0.0d0
   LOGICAL :: el_apply_particle_forces = .TRUE.
+  LOGICAL :: el_apply_fluid_feedback = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
@@ -80,6 +81,7 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
     WRITE(mfile,'(A,L1)') 'EL Magnus                 = ', el_magnus
     WRITE(mfile,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
+    WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -91,6 +93,7 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
       WRITE(mterm,'(A,L1)') 'EL Magnus                 = ', el_magnus
       WRITE(mterm,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
+      WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG

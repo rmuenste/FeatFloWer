@@ -10,6 +10,7 @@ MODULE EL_FIELDS
     REAL*8, ALLOCATABLE :: epsilon_f_old(:)
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
     REAL*8, ALLOCATABLE :: force_rhs(:,:)
+    REAL*8, ALLOCATABLE :: fluid_feedback_source(:,:)
   END TYPE tElFieldStorage
 
   TYPE(tElFieldStorage), SAVE :: el_field_data
@@ -39,12 +40,14 @@ CONTAINS
     ALLOCATE(el_field_data%epsilon_f_old(nel))
     ALLOCATE(el_field_data%deps_f_dt(nel))
     ALLOCATE(el_field_data%force_rhs(3,ndof))
+    ALLOCATE(el_field_data%fluid_feedback_source(3,ndof))
 
     el_field_data%alpha_p = 0.0d0
     el_field_data%epsilon_f = 1.0d0
     el_field_data%epsilon_f_old = 1.0d0
     el_field_data%deps_f_dt = 0.0d0
     el_field_data%force_rhs = 0.0d0
+    el_field_data%fluid_feedback_source = 0.0d0
 
   END SUBROUTINE EL_ENSURE_FIELDS
 
@@ -62,6 +65,32 @@ CONTAINS
 
   END SUBROUTINE EL_BEGIN_FIELD_UPDATE
 
+  SUBROUTINE EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
+
+    IF (.NOT.ALLOCATED(el_field_data%force_rhs)) RETURN
+    IF (.NOT.ALLOCATED(el_field_data%fluid_feedback_source)) RETURN
+    el_field_data%fluid_feedback_source = el_field_data%force_rhs
+
+  END SUBROUTINE EL_CAPTURE_FLUID_FEEDBACK_SOURCE
+
+  SUBROUTINE EL_APPLY_FLUID_FEEDBACK_SOURCE(def_u, def_v, def_w, dt)
+
+    REAL*8, INTENT(INOUT) :: def_u(:), def_v(:), def_w(:)
+    REAL*8, INTENT(IN) :: dt
+    INTEGER :: ndof
+
+    IF (.NOT.ALLOCATED(el_field_data%fluid_feedback_source)) RETURN
+    ndof = SIZE(el_field_data%fluid_feedback_source,2)
+    IF (SIZE(def_u).LT.ndof .OR. SIZE(def_v).LT.ndof .OR. SIZE(def_w).LT.ndof) THEN
+      ERROR STOP 'E-L fluid feedback source/velocity RHS size mismatch.'
+    END IF
+
+    def_u(1:ndof) = def_u(1:ndof) + dt*el_field_data%fluid_feedback_source(1,:)
+    def_v(1:ndof) = def_v(1:ndof) + dt*el_field_data%fluid_feedback_source(2,:)
+    def_w(1:ndof) = def_w(1:ndof) + dt*el_field_data%fluid_feedback_source(3,:)
+
+  END SUBROUTINE EL_APPLY_FLUID_FEEDBACK_SOURCE
+
   SUBROUTINE EL_RELEASE_FIELDS()
 
     IF (ALLOCATED(el_field_data%alpha_p)) DEALLOCATE(el_field_data%alpha_p)
@@ -69,6 +98,8 @@ CONTAINS
     IF (ALLOCATED(el_field_data%epsilon_f_old)) DEALLOCATE(el_field_data%epsilon_f_old)
     IF (ALLOCATED(el_field_data%deps_f_dt)) DEALLOCATE(el_field_data%deps_f_dt)
     IF (ALLOCATED(el_field_data%force_rhs)) DEALLOCATE(el_field_data%force_rhs)
+    IF (ALLOCATED(el_field_data%fluid_feedback_source)) &
+      DEALLOCATE(el_field_data%fluid_feedback_source)
     el_field_data%nel = 0
     el_field_data%ndof = 0
 

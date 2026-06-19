@@ -11,7 +11,8 @@ MODULE EL_TRANSFER
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_write_diagnostics
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES
-  USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE
+  USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
+                       EL_CAPTURE_FLUID_FEEDBACK_SOURCE
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
@@ -53,11 +54,17 @@ CONTAINS
     TYPE(tElParticleRecord), ALLOCATABLE :: records(:)
     REAL*8, ALLOCATABLE :: local_samples(:,:), owned_samples(:,:)
     REAL*8, ALLOCATABLE :: owned_result(:,:), record_result(:,:)
-    REAL*8 :: expected_volume, f_other(3)
+    REAL*8 :: expected_volume
+#ifdef HAVE_PE
+    REAL*8 :: f_other(3)
+#endif
     TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
-    INTEGER :: global_owned, hydro_active
+    INTEGER :: global_owned
+#ifdef HAVE_PE
+    INTEGER :: hydro_active
+#endif
     INTEGER :: clipped_local, clipped_global
     LOGICAL :: advance_history
 
@@ -149,6 +156,7 @@ CONTAINS
 
     CALL E013Sum3(el_field_data%force_rhs(1,:),el_field_data%force_rhs(2,:), &
                   el_field_data%force_rhs(3,:))
+    IF (advance_history) CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
     CALL EL_FINALIZE_VOID_FRACTION(dt, clipped_local)
     CALL MPI_Allreduce(clipped_local, clipped_global, 1, MPI_INTEGER, MPI_SUM, &
                        MPI_COMM_SUBS, ierr)

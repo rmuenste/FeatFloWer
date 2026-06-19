@@ -35,7 +35,9 @@ PROGRAM TEST_EL_TRANSFER
   USE EL_CONFIG,         ONLY: el_kernel, el_kernel_width_factor
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FIELDS,         ONLY: el_field_data, EL_ENSURE_FIELDS, &
-                               EL_BEGIN_FIELD_UPDATE, EL_FINALIZE
+                               EL_BEGIN_FIELD_UPDATE, &
+                               EL_CAPTURE_FLUID_FEEDBACK_SOURCE, &
+                               EL_APPLY_FLUID_FEEDBACK_SOURCE, EL_FINALIZE
   USE EL_HALO,           ONLY: tElParticleRecord, EL_BOXES_WITHIN_DELTA, &
                                EL_SPHERE_INTERSECTS_BOX
   USE EL_QUADRATURE,     ONLY: EL_SAMPLE_SIZE, EL_INTEGRATE_PARTICLE, &
@@ -87,6 +89,8 @@ PROGRAM TEST_EL_TRANSFER
   CALL test_central_volume_conservation(failures)
   CALL test_wall_volume_conservation(failures)
   CALL test_force_spread_conservation(failures)
+  CALL test_feedback_source_capture(failures)
+  CALL test_feedback_source_apply(failures)
   CALL test_zero_force(failures)
   CALL test_halo_predicates(failures)
   CALL test_rank_independence(failures)
@@ -200,6 +204,66 @@ CONTAINS
     END DO
     CALL check(ok, 'force spreading: sum_a b_a = -F_i (componentwise)', nf)
   END SUBROUTINE test_force_spread_conservation
+
+  SUBROUTINE test_feedback_source_capture(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    TYPE(tElParticleRecord) :: p
+    REAL*8 :: sample(EL_SAMPLE_SIZE), feedback(3), expected(3), saved(3)
+    INTEGER :: c
+    LOGICAL :: ok
+    p = central_particle()
+    feedback = (/0.4d0, 0.0d0, -0.9d0/)
+    val_u = 0.0d0; val_v = 0.0d0; val_w = 0.0d0; val_p = 0.0d0
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    CALL EL_INTEGRATE_PARTICLE(mesh, 1, val_u, val_v, val_w, val_p, &
+                               el_field_data%epsilon_f, p, sample)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), feedback, el_field_data)
+    CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
+    ok = .TRUE.
+    DO c = 1, 3
+      expected(c) = -feedback(c)
+      saved(c) = SUM(el_field_data%fluid_feedback_source(c,:))
+      IF (ABS(saved(c)-expected(c)).GT.1.0d-10*(ABS(feedback(c))+1.0d0)) &
+        ok = .FALSE.
+    END DO
+    CALL check(ok, 'fluid source captures deposited reaction sign', nf)
+
+    ! The post-advance diagnostic pass clears/reuses force_rhs but must not
+    ! erase the pre-advance source snapshot used by the fluid solve.
+    CALL EL_BEGIN_FIELD_UPDATE(.FALSE.)
+    ok = MAXVAL(ABS(el_field_data%force_rhs)).EQ.0.0d0
+    DO c = 1, 3
+      saved(c) = SUM(el_field_data%fluid_feedback_source(c,:))
+      IF (ABS(saved(c)-expected(c)).GT.1.0d-10*(ABS(feedback(c))+1.0d0)) &
+        ok = .FALSE.
+    END DO
+    CALL check(ok, 'fluid source survives diagnostic field refresh', nf)
+  END SUBROUTINE test_feedback_source_capture
+
+  SUBROUTINE test_feedback_source_apply(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8, ALLOCATABLE :: du(:), dv(:), dw(:)
+    REAL*8 :: dt
+    LOGICAL :: ok
+    INTEGER :: i
+    dt = 0.125d0
+    ALLOCATE(du(ndof), dv(ndof), dw(ndof))
+    du = 1.0d0
+    dv = -2.0d0
+    dw = 0.5d0
+    el_field_data%fluid_feedback_source = 0.0d0
+    DO i = 1, ndof
+      el_field_data%fluid_feedback_source(1,i) = 0.25d0
+      el_field_data%fluid_feedback_source(2,i) = -0.5d0
+      el_field_data%fluid_feedback_source(3,i) = 1.0d0
+    END DO
+    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(du, dv, dw, dt)
+    ok = MAXVAL(ABS(du - (1.0d0 + dt*0.25d0))).LT.1.0d-14
+    ok = ok .AND. MAXVAL(ABS(dv - (-2.0d0 - dt*0.5d0))).LT.1.0d-14
+    ok = ok .AND. MAXVAL(ABS(dw - (0.5d0 + dt))).LT.1.0d-14
+    CALL check(ok, 'fluid source insertion applies exact tstep scaling', nf)
+    DEALLOCATE(du, dv, dw)
+  END SUBROUTINE test_feedback_source_apply
 
   SUBROUTINE test_zero_force(nf)
     INTEGER, INTENT(INOUT) :: nf

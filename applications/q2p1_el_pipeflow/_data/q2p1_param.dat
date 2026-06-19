@@ -28,6 +28,7 @@ SimPar@ELPressureForce = Yes
 SimPar@ELLiftModel = none
 SimPar@ELMagnus = No
 SimPar@ELApplyParticleForces = Yes
+SimPar@ELApplyFluidFeedback = No
 SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 10
 SimPar@NoOutflow = No
