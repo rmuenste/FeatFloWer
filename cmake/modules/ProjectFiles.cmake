@@ -346,6 +346,12 @@ target_compile_options(ff_quadLS_app PUBLIC ${Fortran_FLAGS})
 add_dependencies(ff_quadLS_app ff_cinterface)
 
 if(BUILD_TESTING)
+  add_library(el_test_helpers STATIC
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/el_test_helpers.f90)
+  target_link_libraries(el_test_helpers ff_quadLS_app)
+  target_include_directories(el_test_helpers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(el_test_helpers PRIVATE ${Fortran_FLAGS})
+
   add_executable(test_el_kernel_forces
     ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_kernel_forces.f90)
   target_link_libraries(test_el_kernel_forces ff_quadLS_app)
@@ -359,7 +365,7 @@ if(BUILD_TESTING)
   # distributed-halo cases still marked TODO).
   add_executable(test_el_transfer
     ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_transfer.f90)
-  target_link_libraries(test_el_transfer ff_quadLS_app)
+  target_link_libraries(test_el_transfer ff_quadLS_app el_test_helpers)
   target_include_directories(test_el_transfer PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_transfer PRIVATE ${Fortran_FLAGS})
 
@@ -376,6 +382,13 @@ if(BUILD_TESTING)
     # set MPIEXEC_PREFLAGS to include the vendor oversubscribe flag
     # (e.g. --oversubscribe for Open MPI) at configure time.
   endif()
+
+  add_executable(test_el_convergence
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_convergence.f90)
+  target_link_libraries(test_el_convergence ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_convergence PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_convergence PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-convergence-serial COMMAND test_el_convergence)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

@@ -4,7 +4,7 @@ PROGRAM TEST_EL_KERNEL_FORCES
                        el_lift_model
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FORCES, ONLY: tElForceResult, EL_DRAG_FORCE, &
-                       EL_COMPUTE_PARTICLE_FORCES
+                       EL_COMPUTE_PARTICLE_FORCES, EL_SPHERE_CD
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -15,12 +15,14 @@ PROGRAM TEST_EL_KERNEL_FORCES
 
   IMPLICIT NONE
 
-  INTEGER :: i, restart_unit
+  INTEGER :: i, j, restart_unit
   REAL*8 :: distance, width
   REAL*8 :: state(8), carrier_velocity(3), force(3), expected(3)
   REAL*8 :: sample(EL_SAMPLE_SIZE), gravity(3), slip(3), force_eps1(3)
   TYPE(tElForceResult) :: force_result
-  REAL*8 :: relative_error
+  REAL*8 :: relative_error, diameter, dynamic_viscosity, reynolds_values(5)
+  REAL*8 :: reynolds, slip_norm, correction, cd, area, chi, eps_ratio
+  REAL*8 :: grad_u(3,3), omega_norm, lift_coeff
 
   width = 0.25d0
   DO i=0,100
@@ -52,6 +54,41 @@ PROGRAM TEST_EL_KERNEL_FORCES
   relative_error = SQRT(SUM((force-expected)**2))/SQRT(SUM(expected**2))
   IF (relative_error.GT.1.0d-2) STOP 40
 
+  diameter = 2.0d0*state(7)
+  dynamic_viscosity = 1.0d0*1.0d-3
+  area = ACOS(-1.0d0)*diameter*diameter/4.0d0
+  reynolds_values = (/1.0d-3, 1.0d-1, 1.0d0, 1.0d1, 5.0d2/)
+  DO j = 1, SIZE(reynolds_values)
+    reynolds = reynolds_values(j)
+    slip_norm = reynolds*dynamic_viscosity/(1.0d0*diameter)
+    carrier_velocity = (/slip_norm, 0.0d0, 0.0d0/)
+
+    el_drag_model = 'stokes'
+    CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
+    expected = 3.0d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
+               carrier_velocity
+    relative_error = SQRT(SUM((force-expected)**2))/MAX(SQRT(SUM(expected**2)), &
+                     TINY(1.0d0))
+    IF (relative_error.GT.1.0d-12) STOP 50
+
+    el_drag_model = 'schiller_naumann'
+    correction = 1.0d0 + 0.15d0*reynolds**0.687d0
+    CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
+    expected = 3.0d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
+               correction*carrier_velocity
+    relative_error = SQRT(SUM((force-expected)**2))/MAX(SQRT(SUM(expected**2)), &
+                     TINY(1.0d0))
+    IF (relative_error.GT.1.0d-12) STOP 51
+
+    el_drag_model = 'difelice'
+    cd = EL_SPHERE_CD(reynolds)
+    CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
+    expected = 0.5d0*1.0d0*cd*area*slip_norm*carrier_velocity
+    relative_error = SQRT(SUM((force-expected)**2))/MAX(SQRT(SUM(expected**2)), &
+                     TINY(1.0d0))
+    IF (relative_error.GT.1.0d-12) STOP 52
+  END DO
+
   sample = 0.0d0
   sample(EL_SAMPLE_NORMALIZATION) = 2.0d0
   sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) = 2.0d0*(/0.2d0,0.1d0,-0.3d0/)
@@ -81,20 +118,41 @@ PROGRAM TEST_EL_KERNEL_FORCES
   CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
                                   force_result)
   IF (SQRT(SUM(force_result%drag**2)).LE.SQRT(SUM(force_eps1**2))) STOP 47
+  slip = force_result%u_f - state(4:6)
+  slip_norm = SQRT(SUM(slip*slip))
+  reynolds = MAX(1.0d-12, 1.0d0*diameter*slip_norm/dynamic_viscosity)
+  chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
+  eps_ratio = 0.5d0**(2.0d0-chi)
+  relative_error = ABS(SQRT(SUM(force_result%drag**2))/ &
+    SQRT(SUM(force_eps1**2)) - eps_ratio) / eps_ratio
+  IF (relative_error.GT.1.0d-12) STOP 53
 
   sample(EL_SAMPLE_EPSILON_F) = 2.0d0
+  state(4:6) = 0.0d0
+  sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) = 2.0d0*(/1.0d0, 0.0d0, 0.0d0/)
+  grad_u = 0.0d0
+  grad_u(1,2) = 2.0d0
   sample(EL_SAMPLE_GRAD_U_BEGIN:EL_SAMPLE_GRAD_U_END) = &
-    2.0d0*(/0.0d0, -1.0d0, 0.5d0, &
-            1.5d0,  0.0d0, 0.0d0, &
-           -0.5d0,  0.0d0, 0.0d0/)
+    2.0d0*(/grad_u(1,:), grad_u(2,:), grad_u(3,:)/)
   el_lift_model = 'saffman_mei'
   CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
                                   force_result)
-  IF (ANY(force_result%lift.NE.force_result%lift)) STOP 48
+  omega_norm = 2.0d0
+  lift_coeff = 1.615d0*diameter*diameter* &
+               SQRT(1.0d0*dynamic_viscosity*omega_norm)
+  expected = (/0.0d0, lift_coeff, 0.0d0/)
+  relative_error = SQRT(SUM((force_result%lift-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
+  IF (relative_error.GT.1.0d-12) STOP 48
+
+  sample(EL_SAMPLE_EPSILON_F) = 2.0d0*0.5d0
   el_lift_model = 'saffman_mei_wall'
   CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
                                   force_result)
-  IF (ANY(force_result%lift.NE.force_result%lift)) STOP 49
+  expected = 0.5d0*(/0.0d0, lift_coeff, 0.0d0/)
+  relative_error = SQRT(SUM((force_result%lift-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
+  IF (relative_error.GT.1.0d-12) STOP 49
 
   CALL EL_INITIALIZE(3,5)
   el_field_data%alpha_p = (/0.1d0,0.2d0,0.3d0/)

@@ -158,7 +158,7 @@ CONTAINS
     ! BEFORE E013Sum3. The momentum RHS this source is added to (QuadSc%defU,
     ! alongside AddGravForce) is in distributed/additive form and is summed once
     ! by the fluid solver. If we captured after E013Sum3 the source would already
-    ! be consistent (summed), and the solver's subsequent sum would multiply it
+    ! be consistent (summed), and the later solver sum would multiply it
     ! by the sharing multiplicity on partition-boundary DOFs (double-counting).
     ! The diagnostic force_rhs is still summed below for reporting/output.
     IF (advance_history) CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
