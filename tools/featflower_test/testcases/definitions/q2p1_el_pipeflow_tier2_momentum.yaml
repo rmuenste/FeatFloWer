@@ -1,0 +1,81 @@
+schema_version: "0.2"
+id: q2p1_el_pipeflow_tier2_momentum
+name: Q2P1 E-L Pipeflow Tier 2 Momentum Conservation
+suite: verification
+priority: normal
+enabled: true
+
+setup:
+  modules:
+    - gcc/latest-v13
+    - openmpi/options/interface/ethernet
+    - openmpi/4.1.6
+  git:
+    submodules:
+      mode: strict
+      update_recursive: true
+
+build:
+  workspace: build-el-tier2-pe
+  cache_policy: reuse_if_compatible
+  steps:
+    - kind: cmake_configure
+      build_dir: build-el-tier2-pe
+      source_dir: .
+      options:
+        - CMAKE_BUILD_TYPE=Release
+        - BUILD_APPLICATIONS=ON
+        - USE_PE=ON
+        - USE_PE_SERIAL_MODE=OFF
+        - USE_JSON=ON
+        - VERIFY_HASHGRID=OFF
+        - CMAKE_C_COMPILER=mpicc
+        - CMAKE_CXX_COMPILER=mpicxx
+        - CMAKE_Fortran_COMPILER=mpifort
+    - kind: cmake_build
+      build_dir: build-el-tier2-pe
+      targets: [q2p1_el_pipeflow_tier2_momentum_conservation_stage]
+      jobs: 8
+
+run:
+  levels:
+    start: 2
+    count: 1
+  launch:
+    workdir: build-el-tier2-pe/applications/q2p1_el_pipeflow
+    mpi_ranks: 28
+    command: "./q2p1_el_pipeflow"
+  slurm:
+    partition: short
+    constraint: nx
+    nodes: 1
+    ntasks: 28
+    cpus_per_task: 1
+    time: "00:45:00"
+    mem_per_cpu: "2G"
+
+metrics:
+  - id: total_momentum_drift
+    parser: keyword_columns
+    file: simulation_output_level_2.log
+    keyword: "EL_MOMENTUM"
+    columns: {drift: 18}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {drift: 5.0e-3}
+
+  - id: feedback_newton_pair
+    parser: keyword_columns
+    file: simulation_output_level_2.log
+    keyword: "EL_FEEDBACK_CONSERVATION"
+    columns: {residual: 12}
+    occurrence: last
+    numeric_format: fortran_d_or_e
+    compare:
+      type: tolerance
+      tolerance: {residual: 1.0e-10}
+
+references:
+  baseline: tools/featflower_test/testcases/baselines/q2p1_el_pipeflow_tier2_momentum.yaml

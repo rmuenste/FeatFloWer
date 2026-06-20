@@ -1,0 +1,5 @@
+metrics:
+  straddling_volume:
+    rel_error: 0.0
+  straddling_feedback:
+    residual: 0.0

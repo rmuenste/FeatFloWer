@@ -61,3 +61,24 @@ add_custom_target(q2p1_el_pipeflow_stage
   DEPENDS q2p1_el_pipeflow metis
   COMMENT "Staging q2p1_el_pipeflow runtime files in build directory"
 )
+
+foreach(_el_tier2_case
+    momentum_conservation
+    terminal_velocity
+    saffman_lift
+    straddling_conservation)
+  add_custom_target(q2p1_el_pipeflow_tier2_${_el_tier2_case}_stage
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/q2p1_param.dat
+            ${CMAKE_CURRENT_BINARY_DIR}/_data/q2p1_param.dat
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/example.json
+            ${CMAKE_CURRENT_BINARY_DIR}/example.json
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/particles.xyz
+            ${CMAKE_CURRENT_BINARY_DIR}/particles.xyz
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS q2p1_el_pipeflow_stage
+    COMMENT "Staging q2p1_el_pipeflow Tier 2 case ${_el_tier2_case}"
+  )
+endforeach()

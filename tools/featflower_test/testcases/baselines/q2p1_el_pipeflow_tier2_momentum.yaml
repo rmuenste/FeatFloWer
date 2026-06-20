@@ -1,0 +1,5 @@
+metrics:
+  total_momentum_drift:
+    drift: 0.0
+  feedback_newton_pair:
+    residual: 0.0

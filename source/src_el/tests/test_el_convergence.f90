@@ -48,15 +48,16 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: nf
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coord(:,:), u(:), v(:), w(:), p(:)
-    TYPE(tElParticleRecord) :: particle
+    TYPE(tElParticleRecord) :: particles(2), particle
     REAL*8 :: sample(EL_SAMPLE_SIZE), carrier(3), grad_u(3,3), grad_p(3)
     REAL*8 :: expected_carrier(3), expected_grad_u(3,3), expected_grad_p(3)
     REAL*8 :: expected_pressure, pressure_value
-    INTEGER :: ndof, i
+    INTEGER :: ndof, i, ip
     LOGICAL :: ok
 
     CALL setup_case(8, mesh, coord, u, v, w, p, ndof)
-    particle = make_particle(0.5d0, 0.5d0, 0.5d0, 0.35d0/8.0d0)
+    particles(1) = make_particle(0.5d0, 0.5d0, 0.5d0, 0.35d0/8.0d0)
+    particles(2) = make_particle(0.4137d0, 0.5273d0, 0.6191d0, 0.25d0/8.0d0)
 
     DO i = 1, ndof
       u(i) = 0.3d0 + 0.5d0*coord(1,i) - 0.25d0*coord(2,i)
@@ -65,39 +66,51 @@ CONTAINS
     END DO
     CALL fill_linear_pressure(mesh, p, (/0.7d0, 0.2d0, -0.3d0, 0.4d0/))
 
-    CALL EL_INTEGRATE_PARTICLE(mesh, 1, u, v, w, p, el_field_data%epsilon_f, &
-                               particle, sample)
-    carrier = sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) / &
-              sample(EL_SAMPLE_NORMALIZATION)
-    grad_u(1,:) = sample(EL_SAMPLE_GRAD_U_BEGIN:EL_SAMPLE_GRAD_U_BEGIN+2) / &
-                  sample(EL_SAMPLE_NORMALIZATION)
-    grad_u(2,:) = sample(EL_SAMPLE_GRAD_U_BEGIN+3:EL_SAMPLE_GRAD_U_BEGIN+5) / &
-                  sample(EL_SAMPLE_NORMALIZATION)
-    grad_u(3,:) = sample(EL_SAMPLE_GRAD_U_BEGIN+6:EL_SAMPLE_GRAD_U_END) / &
-                  sample(EL_SAMPLE_NORMALIZATION)
-    pressure_value = sample(EL_SAMPLE_PRESSURE) / sample(EL_SAMPLE_NORMALIZATION)
-    grad_p = sample(EL_SAMPLE_GRAD_P_BEGIN:EL_SAMPLE_GRAD_P_END) / &
-             sample(EL_SAMPLE_NORMALIZATION)
+    DO ip = 1, 2
+      particle = particles(ip)
+      CALL EL_INTEGRATE_PARTICLE(mesh, 1, u, v, w, p, el_field_data%epsilon_f, &
+                                 particle, sample)
+      carrier = sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) / &
+                sample(EL_SAMPLE_NORMALIZATION)
+      grad_u(1,:) = sample(EL_SAMPLE_GRAD_U_BEGIN:EL_SAMPLE_GRAD_U_BEGIN+2) / &
+                    sample(EL_SAMPLE_NORMALIZATION)
+      grad_u(2,:) = sample(EL_SAMPLE_GRAD_U_BEGIN+3:EL_SAMPLE_GRAD_U_BEGIN+5) / &
+                    sample(EL_SAMPLE_NORMALIZATION)
+      grad_u(3,:) = sample(EL_SAMPLE_GRAD_U_BEGIN+6:EL_SAMPLE_GRAD_U_END) / &
+                    sample(EL_SAMPLE_NORMALIZATION)
+      pressure_value = sample(EL_SAMPLE_PRESSURE) / sample(EL_SAMPLE_NORMALIZATION)
+      grad_p = sample(EL_SAMPLE_GRAD_P_BEGIN:EL_SAMPLE_GRAD_P_END) / &
+               sample(EL_SAMPLE_NORMALIZATION)
 
-    expected_carrier = (/ &
-      0.3d0 + 0.5d0*particle%position(1) - 0.25d0*particle%position(2), &
-     -0.7d0 + 0.2d0*particle%position(2) + 0.125d0*particle%position(3), &
-      0.1d0 - 0.4d0*particle%position(1) + 0.3d0*particle%position(3) /)
-    expected_grad_u = 0.0d0
-    expected_grad_u(1,:) = (/0.5d0, -0.25d0, 0.0d0/)
-    expected_grad_u(2,:) = (/0.0d0, 0.2d0, 0.125d0/)
-    expected_grad_u(3,:) = (/-0.4d0, 0.0d0, 0.3d0/)
-    expected_pressure = 0.7d0 + 0.2d0*particle%position(1) - &
-      0.3d0*particle%position(2) + 0.4d0*particle%position(3)
-    expected_grad_p = (/0.2d0, -0.3d0, 0.4d0/)
+      expected_carrier = (/ &
+        0.3d0 + 0.5d0*particle%position(1) - 0.25d0*particle%position(2), &
+       -0.7d0 + 0.2d0*particle%position(2) + 0.125d0*particle%position(3), &
+        0.1d0 - 0.4d0*particle%position(1) + 0.3d0*particle%position(3) /)
+      expected_grad_u = 0.0d0
+      expected_grad_u(1,:) = (/0.5d0, -0.25d0, 0.0d0/)
+      expected_grad_u(2,:) = (/0.0d0, 0.2d0, 0.125d0/)
+      expected_grad_u(3,:) = (/-0.4d0, 0.0d0, 0.3d0/)
+      expected_pressure = 0.7d0 + 0.2d0*particle%position(1) - &
+        0.3d0*particle%position(2) + 0.4d0*particle%position(3)
+      expected_grad_p = (/0.2d0, -0.3d0, 0.4d0/)
 
-    ok = sample(EL_SAMPLE_NORMALIZATION).GT.0.0d0
-    ok = ok .AND. MAXVAL(ABS(carrier-expected_carrier)).LT.1.0d-10
-    ok = ok .AND. MAXVAL(ABS(grad_u-expected_grad_u)).LT.1.0d-10
-    ok = ok .AND. ABS(pressure_value-expected_pressure).LT.1.0d-12
-    ok = ok .AND. MAXVAL(ABS(grad_p-expected_grad_p)).LT.1.0d-14
-    CALL EL_TEST_CHECK(ok, 'exact constant/linear velocity and pressure gather', &
-                       nf, rank)
+      IF (ip.EQ.1) THEN
+        ok = sample(EL_SAMPLE_NORMALIZATION).GT.0.0d0
+        ok = ok .AND. MAXVAL(ABS(carrier-expected_carrier)).LT.1.0d-10
+        ok = ok .AND. MAXVAL(ABS(grad_u-expected_grad_u)).LT.1.0d-10
+        ok = ok .AND. ABS(pressure_value-expected_pressure).LT.1.0d-12
+        ok = ok .AND. MAXVAL(ABS(grad_p-expected_grad_p)).LT.1.0d-14
+        CALL EL_TEST_CHECK(ok, 'exact gather at symmetric particle', nf, rank)
+      ELSE
+        ok = sample(EL_SAMPLE_NORMALIZATION).GT.0.0d0
+        ok = ok .AND. MAXVAL(ABS(carrier-expected_carrier)).LT.2.0d-4
+        ok = ok .AND. MAXVAL(ABS(grad_u-expected_grad_u)).LT.1.0d-10
+        ok = ok .AND. ABS(pressure_value-expected_pressure).LT.3.0d-5
+        ok = ok .AND. MAXVAL(ABS(grad_p-expected_grad_p)).LT.1.0d-14
+        CALL EL_TEST_CHECK(ok, 'off-grid linear gather bounded, gradients exact', &
+                           nf, rank)
+      END IF
+    END DO
 
     CALL cleanup_case(mesh, coord, u, v, w, p)
 
@@ -107,29 +120,27 @@ CONTAINS
 
     INTEGER, INTENT(INOUT) :: nf
     INTEGER, PARAMETER :: NC(4) = (/4, 8, 16, 32/)
-    REAL*8 :: value_error(4), grad_error(4), h
-    REAL*8 :: value_order_1, value_order_2, grad_order_1, grad_order_2
+    REAL*8 :: value_error(4), grad_error(4), h, pos(3)
     INTEGER :: i
-    LOGICAL :: ok
 
     DO i = 1, 4
       h = 1.0d0 / DBLE(NC(i))
-      CALL smooth_error_at_resolution(NC(i), 0.35d0*h, value_error(i), &
+      pos = (/0.5d0, 0.5d0, 0.5d0/)
+      CALL smooth_error_at_resolution(NC(i), 0.35d0*h, pos, value_error(i), &
                                       grad_error(i))
     END DO
 
-    value_order_1 = LOG(value_error(1)/value_error(2)) / LOG(2.0d0)
-    value_order_2 = LOG(value_error(2)/value_error(3)) / LOG(2.0d0)
-    grad_order_1 = LOG(grad_error(1)/grad_error(2)) / LOG(2.0d0)
-    grad_order_2 = LOG(grad_error(2)/grad_error(3)) / LOG(2.0d0)
+    CALL check_eoc(value_error, grad_error, 'smooth EOC at symmetric particle', &
+                   nf)
 
-    ok = value_error(4).LT.value_error(3) .AND. value_error(3).LT.value_error(2)
-    ok = ok .AND. grad_error(4).LT.grad_error(3) .AND. &
-      grad_error(3).LT.grad_error(2)
-    ok = ok .AND. MIN(value_order_1,value_order_2).GT.1.2d0
-    ok = ok .AND. MIN(grad_order_1,grad_order_2).GT.1.2d0
-    CALL EL_TEST_CHECK(ok, 'smooth gather errors decrease with measured EOC', &
-                       nf, rank)
+    DO i = 1, 4
+      h = 1.0d0 / DBLE(NC(i))
+      pos = (/0.4137d0, 0.5273d0, 0.6191d0/)
+      CALL smooth_error_at_resolution(NC(i), 0.25d0*h, pos, value_error(i), &
+                                      grad_error(i))
+    END DO
+
+    CALL check_eoc(value_error, grad_error, 'smooth EOC at off-grid particle', nf)
 
   END SUBROUTINE test_smooth_field_convergence
 
@@ -179,19 +190,36 @@ CONTAINS
 
     INTEGER, INTENT(INOUT) :: nf
     INTEGER, PARAMETER :: NC(4) = (/4, 8, 16, 32/)
-    REAL*8 :: moment_error(4), zeroth_error(4)
+    REAL*8 :: moment_error(4), zeroth_error(4), h, pos(3)
     INTEGER :: i
     LOGICAL :: ok
 
     DO i = 1, 4
-      CALL spread_moment_error(NC(i), moment_error(i), zeroth_error(i))
+      h = 1.0d0 / DBLE(NC(i))
+      pos = (/0.5d0, 0.5d0, 0.5d0/)
+      CALL spread_moment_error(NC(i), pos, 0.35d0*h, moment_error(i), &
+                               zeroth_error(i))
     END DO
 
     ok = MAXVAL(zeroth_error).LT.1.0d-10
     CALL EL_TEST_CHECK(ok, 'P2G zeroth moment exact across refinements', &
                        nf, rank)
     ok = MAXVAL(moment_error).LT.1.0d-10
-    CALL EL_TEST_CHECK(ok, 'P2G first moment is centered to roundoff', &
+    CALL EL_TEST_CHECK(ok, 'P2G first moment symmetry exactness', &
+                       nf, rank)
+
+    DO i = 1, 4
+      h = 1.0d0 / DBLE(NC(i))
+      pos = (/0.4137d0, 0.5273d0, 0.6191d0/)
+      CALL spread_moment_error(NC(i), pos, 0.25d0*h, moment_error(i), &
+                               zeroth_error(i))
+    END DO
+    ok = MAXVAL(zeroth_error).LT.1.0d-10
+    ok = ok .AND. moment_error(4).LT.moment_error(3) .AND. &
+      moment_error(3).LT.moment_error(2) .AND. &
+      moment_error(2).LT.moment_error(1)
+    ok = ok .AND. moment_error(4).LT.0.25d0*moment_error(1)
+    CALL EL_TEST_CHECK(ok, 'P2G off-grid first moment improves with refinement', &
                        nf, rank)
 
   END SUBROUTINE test_spread_moments
@@ -237,10 +265,33 @@ CONTAINS
 
   END SUBROUTINE test_gather_scatter_adjoint
 
-  SUBROUTINE smooth_error_at_resolution(ncell, radius, value_error, grad_error)
+  SUBROUTINE check_eoc(value_error, grad_error, label, nf)
+
+    REAL*8, INTENT(IN) :: value_error(4), grad_error(4)
+    CHARACTER(LEN=*), INTENT(IN) :: label
+    INTEGER, INTENT(INOUT) :: nf
+    REAL*8 :: value_order_1, value_order_2, grad_order_1, grad_order_2
+    LOGICAL :: ok
+
+    value_order_1 = LOG(value_error(1)/value_error(2)) / LOG(2.0d0)
+    value_order_2 = LOG(value_error(2)/value_error(3)) / LOG(2.0d0)
+    grad_order_1 = LOG(grad_error(1)/grad_error(2)) / LOG(2.0d0)
+    grad_order_2 = LOG(grad_error(2)/grad_error(3)) / LOG(2.0d0)
+
+    ok = value_error(4).LT.value_error(3) .AND. value_error(3).LT.value_error(2)
+    ok = ok .AND. grad_error(4).LT.grad_error(3) .AND. &
+      grad_error(3).LT.grad_error(2)
+    ok = ok .AND. MIN(value_order_1,value_order_2).GT.1.2d0
+    ok = ok .AND. MIN(grad_order_1,grad_order_2).GT.1.2d0
+    CALL EL_TEST_CHECK(ok, label, nf, rank)
+
+  END SUBROUTINE check_eoc
+
+  SUBROUTINE smooth_error_at_resolution(ncell, radius, position, value_error, &
+                                        grad_error)
 
     INTEGER, INTENT(IN) :: ncell
-    REAL*8, INTENT(IN) :: radius
+    REAL*8, INTENT(IN) :: radius, position(3)
     REAL*8, INTENT(OUT) :: value_error, grad_error
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coord(:,:), u(:), v(:), w(:), p(:)
@@ -250,7 +301,7 @@ CONTAINS
     INTEGER :: ndof, g
 
     CALL setup_case(ncell, mesh, coord, u, v, w, p, ndof)
-    particle = make_particle(0.5d0, 0.5d0, 0.5d0, radius)
+    particle = make_particle(position(1), position(2), position(3), radius)
     pi = ACOS(-1.0d0)
     DO g = 1, ndof
       x = coord(:,g)
@@ -289,9 +340,11 @@ CONTAINS
 
   END SUBROUTINE smooth_error_at_resolution
 
-  SUBROUTINE spread_moment_error(ncell, moment_error, zeroth_error)
+  SUBROUTINE spread_moment_error(ncell, position, radius, moment_error, &
+                                 zeroth_error)
 
     INTEGER, INTENT(IN) :: ncell
+    REAL*8, INTENT(IN) :: position(3), radius
     REAL*8, INTENT(OUT) :: moment_error, zeroth_error
     TYPE(tMultiMesh) :: mesh
     REAL*8, ALLOCATABLE :: coord(:,:), u(:), v(:), w(:), p(:)
@@ -300,7 +353,7 @@ CONTAINS
     INTEGER :: ndof, i, j, g
 
     CALL setup_case(ncell, mesh, coord, u, v, w, p, ndof)
-    particle = make_particle(0.5d0, 0.5d0, 0.5d0, 0.35d0/DBLE(ncell))
+    particle = make_particle(position(1), position(2), position(3), radius)
     force = (/0.7d0, -1.3d0, 2.1d0/)
     u = 0.0d0
     v = 0.0d0

@@ -19,9 +19,12 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
                                  fbm_compute_particle_reynolds_farfield, &
                                  fbm_compute_particle_reynolds_reference_shell
 
-use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, bPrintParticleReynolds
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
+                          bPrintParticleReynolds, MlRhoPmat
 
 use EL_CONFIG, only: el_apply_fluid_feedback
+use EL_CONFIG, only: el_write_diagnostics
+use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE
 
 use, intrinsic :: ieee_arithmetic
@@ -370,6 +373,11 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+
+  IF (myid.NE.master .AND. el_write_diagnostics .AND. ASSOCIATED(MlRhoPmat)) THEN
+    CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, MlRhoPmat, timens, mfile, itns)
+  END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
 !========================================================================================

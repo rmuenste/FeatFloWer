@@ -554,7 +554,8 @@ END SUBROUTINE get_global_domain_extents
                         el_eps_f_relax, el_drag_model, &
                         el_pressure_force, el_lift_model, el_magnus, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
-                        EL_VALIDATE_CONFIG, EL_PRINT_CONFIG
+                        el_write_diagnostics, EL_VALIDATE_CONFIG, &
+                        EL_PRINT_CONFIG
 #endif
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
@@ -746,6 +747,12 @@ END SUBROUTINE get_global_domain_extents
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2
          el_apply_fluid_feedback = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+       CASE ("ELWriteDiagnostics")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_write_diagnostics = &
            TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
            TRIM(ADJUSTL(cParam2)).EQ."YES"
 #endif

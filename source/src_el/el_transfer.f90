@@ -60,6 +60,12 @@ CONTAINS
 #endif
     TYPE(tElForceResult) :: force_result
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
+    REAL*8 :: local_feedback(3), global_feedback(3)
+    REAL*8 :: local_drag(3), global_drag(3), local_lift(3), global_lift(3)
+    REAL*8 :: local_pressure(3), global_pressure(3), local_grav_buoy(3)
+    REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
+    REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
+    REAL*8 :: feedback_residual_norm, volume_rel_error
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
     INTEGER :: global_owned
 #ifdef HAVE_PE
@@ -109,6 +115,12 @@ CONTAINS
     owned_samples = 0.0d0
     owned_result = 0.0d0
     record_result = 0.0d0
+    local_feedback = 0.0d0
+    local_drag = 0.0d0
+    local_lift = 0.0d0
+    local_pressure = 0.0d0
+    local_grav_buoy = 0.0d0
+    local_particle_total = 0.0d0
 
     DO i=1,n_records
       CALL EL_INTEGRATE_PARTICLE(mesh, ilev, val_u, val_v, val_w, val_p, &
@@ -127,6 +139,12 @@ CONTAINS
         density, viscosity, gravity, force_result)
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
       owned_result(2:4,i) = force_result%feedback_force
+      local_feedback = local_feedback + force_result%feedback_force
+      local_drag = local_drag + force_result%drag
+      local_lift = local_lift + force_result%lift
+      local_pressure = local_pressure + force_result%pressure
+      local_grav_buoy = local_grav_buoy + force_result%grav_buoy
+      local_particle_total = local_particle_total + force_result%particle_total
 #ifdef HAVE_PE
       ! Only the pre-advance pass (advance_history, istep<0) is allowed to arm
       ! PE: it runs immediately before EL_ADVANCE_PARTICLES. The post-step
@@ -153,6 +171,10 @@ CONTAINS
       CALL EL_DEPOSIT_PARTICLE(mesh, ilev, records(i), record_result(1,i), &
         record_result(2:4,i), el_field_data)
     END DO
+
+    local_rhs(1) = SUM(el_field_data%force_rhs(1,:))
+    local_rhs(2) = SUM(el_field_data%force_rhs(2,:))
+    local_rhs(3) = SUM(el_field_data%force_rhs(3,:))
 
     ! Capture the fluid feedback source from the DISTRIBUTED force_rhs, i.e.
     ! BEFORE E013Sum3. The momentum RHS this source is added to (QuadSc%defU,
@@ -185,18 +207,54 @@ CONTAINS
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_expected, global_expected, 1, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_feedback, global_feedback, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_drag, global_drag, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_lift, global_lift, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_pressure, global_pressure, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_grav_buoy, global_grav_buoy, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_particle_total, global_particle_total, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_rhs, global_rhs, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(n_owned, global_owned, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
 
     IF (myid.EQ.showid .AND. el_write_diagnostics .AND. istep.GE.0) THEN
       expected_volume = MAX(global_expected,TINY(1.0d0))
+      volume_rel_error = ABS(global_deposited-global_expected)/expected_volume
+      feedback_residual = global_rhs + global_feedback
+      feedback_residual_norm = SQRT(SUM(feedback_residual**2))
       WRITE(*,'(A,I0,A,I0,A,3ES14.6)') 'EL step ', istep, &
         ': owned particles=', global_owned, ', volume deposited/expected/error=', &
-        global_deposited, global_expected, &
-        ABS(global_deposited-global_expected)/expected_volume
+        global_deposited, global_expected, volume_rel_error
       WRITE(mfile,'(A,I0,A,3ES14.6)') 'EL step ', istep, &
         ': volume deposited/expected/error=', global_deposited, global_expected, &
-        ABS(global_deposited-global_expected)/expected_volume
+        volume_rel_error
+      WRITE(*,'(A,I0,A,2ES14.6,A,ES14.6)') &
+        'EL_VOLUME_CONSERVATION step= ', istep, ' deposited_expected= ', &
+        global_deposited, global_expected, ' rel_error= ', volume_rel_error
+      WRITE(mfile,'(A,I0,A,2ES14.6,A,ES14.6)') &
+        'EL_VOLUME_CONSERVATION step= ', istep, ' deposited_expected= ', &
+        global_deposited, global_expected, ' rel_error= ', volume_rel_error
+      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
+        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
+      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
+        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
+      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
+        ' pressure= ', global_pressure, ' lift= ', global_lift, &
+        ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
+      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
+        ' pressure= ', global_pressure, ' lift= ', global_lift, &
+        ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
     END IF
 
     DEALLOCATE(owned_particles, records, local_samples, owned_samples)
