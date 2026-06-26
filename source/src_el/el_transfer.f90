@@ -212,6 +212,20 @@ CONTAINS
     local_rhs(2) = SUM(el_field_data%force_rhs(2,:))
     local_rhs(3) = SUM(el_field_data%force_rhs(3,:))
 
+    ! issue-D step-2 deposit probe: per-rank owner force, broadcast record force,
+    ! and deposited rhs (z). If owner force /= Sum(record force) the broadcast
+    ! drops it; if Sum(record force) /= Sum(rhs) the deposit drops it. Compare to
+    ! the volume path, which conserves -- isolates the force-feedback failure.
+    IF (el_write_diagnostics .AND. ABS(istep).LE.3 .AND. &
+        (n_owned.GT.0 .OR. n_records.GT.0)) THEN
+      WRITE(*,'(A,I0,A,I0,A,L1,A,I0,A,I0,A,ES13.5,A,ES13.5,A,ES13.5,A,ES13.5)') &
+        'EL_DEPOSIT_DBG rank=', myid, ' istep=', istep, ' adv=', advance_history, &
+        ' n_owned=', n_owned, ' n_rec=', n_records, &
+        ' rec_fz=', SUM(record_result(4,:)), ' rhs_z=', local_rhs(3), &
+        ' vol_local=', SUM(el_field_data%alpha_p*mesh%level(ilev)%dvol), &
+        ' rec_norm=', SUM(record_result(1,:))
+    END IF
+
     ! Capture the fluid feedback source from the DISTRIBUTED force_rhs, i.e.
     ! BEFORE E013Sum3. The momentum RHS this source is added to (QuadSc%defU,
     ! alongside AddGravForce) is in distributed/additive form and is summed once
