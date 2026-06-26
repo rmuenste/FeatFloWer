@@ -4,12 +4,18 @@ MODULE EL_TRANSFER
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
+  ! Global multigrid level from COMMON /MGPAR/ (def_FEAT). Imported under an alias
+  ! so it does not collide with the per-call `ilev` dummy argument. E013Sum3 reads
+  ! this global ILEV to pick MGE013(ILEV); it must be set to the EL coupling level
+  ! before the feedback assembly (see EL_PARTICLE_MESH_PASS).
+  USE def_FEAT, ONLY: el_mg_ilev => ILEV
   USE DEM_QUERY, ONLY: tParticleData
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, setForcesMapped
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
-                       el_apply_particle_forces, el_write_diagnostics
+                       el_apply_particle_forces, el_apply_fluid_feedback, &
+                       el_write_diagnostics
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
                        EL_CAPTURE_FLUID_FEEDBACK_SOURCE
@@ -67,6 +73,7 @@ CONTAINS
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
+    INTEGER :: saved_mg_ilev
     INTEGER :: global_owned
 #ifdef HAVE_PE
     INTEGER :: hydro_active
@@ -184,8 +191,25 @@ CONTAINS
     ! by the sharing multiplicity on partition-boundary DOFs (double-counting).
     ! The diagnostic force_rhs is still summed below for reporting/output.
     IF (advance_history) CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
-    CALL E013Sum3(el_field_data%force_rhs(1,:),el_field_data%force_rhs(2,:), &
-                  el_field_data%force_rhs(3,:))
+    ! The parallel assembly (E013Sum3) of the spread force is only needed when the
+    ! feedback is actually added to the fluid momentum, which is itself gated on
+    ! el_apply_fluid_feedback (QuadSc_main); in one-way mode the summed force_rhs
+    ! is never consumed, so skip it.
+    !
+    ! E013Sum3 picks the communication structure MGE013(ILEV) using the GLOBAL
+    ! multigrid level (COMMON /MGPAR/), not our `ilev` argument. On entry the
+    ! global level is whatever the previous solver phase left it at (e.g. a coarse
+    ! pressure level), so MGE013(ILEV) would not match the force_rhs DOF layout
+    ! (sized at mesh%level(ilev)) and the sum would index the wrong/!unallocated
+    ! structure. Pin the global level to the EL coupling level for the sum, then
+    ! restore it so we do not perturb the surrounding solver state.
+    IF (el_apply_fluid_feedback) THEN
+      saved_mg_ilev = el_mg_ilev
+      el_mg_ilev = ilev
+      CALL E013Sum3(el_field_data%force_rhs(1,:),el_field_data%force_rhs(2,:), &
+                    el_field_data%force_rhs(3,:))
+      el_mg_ilev = saved_mg_ilev
+    END IF
     CALL EL_FINALIZE_VOID_FRACTION(dt, clipped_local)
     CALL MPI_Allreduce(clipped_local, clipped_global, 1, MPI_INTEGER, MPI_SUM, &
                        MPI_COMM_SUBS, ierr)

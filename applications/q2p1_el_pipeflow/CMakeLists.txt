@@ -1,7 +1,7 @@
 include(${CMAKE_SOURCE_DIR}/cmake/modules/CustomTargets.cmake)
 
 set(src_q2p1_el_pipeflow
-  ${CMAKE_CURRENT_SOURCE_DIR}/../q2p1_dns_drag/app_init.f90
+  ${CMAKE_CURRENT_SOURCE_DIR}/app_init.f90
   q2p1_el_pipeflow.f90
 )
 

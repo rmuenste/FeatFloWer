@@ -1,15 +1,15 @@
 {
-  "timesteps_": 20,
-  "stepsize_": 0.001,
+  "timesteps_": 60,
+  "stepsize_": 0.0005,
   "substeps_": 2,
-  "processesX_": 27,
-  "processesY_": 1,
-  "processesZ_": 1,
+  "processesX_": 3,
+  "processesY_": 3,
+  "processesZ_": 3,
   "seed_": 12345,
   "verbose_": false,
   "vtk_": false,
-  "particleDensity_": 1000.0,
-  "fluidViscosity_": 0.001,
+  "particleDensity_": 5.0,
+  "fluidViscosity_": 0.1,
   "fluidDensity_": 1.0,
   "gravity_": [0.0, 0.0, 0.0],
   "visspacing_": 10000,
@@ -18,7 +18,7 @@
   "useCheckpointer_": false,
   "packingMethod_": "external",
   "xyzFilePath_": "particles.xyz",
-  "benchRadius_": 0.005,
+  "benchRadius_": 0.02,
   "initialParticleVelocity_": [0.0, 0.0, 0.05],
-  "config_string": "q2p1_el_pipeflow Tier 2 momentum conservation"
+  "config_string": "q2p1_el_pipeflow Tier 2 momentum conservation (periodic, two-way, initial slip)"
 }

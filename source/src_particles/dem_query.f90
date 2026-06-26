@@ -365,23 +365,53 @@ subroutine getAllParticles(theParticles)
   implicit none
   type(tParticleData), dimension(:), intent(inout) :: theParticles
 
-  type(tParticleData) :: temp
+  type(tParticleData) :: temp, zeroParticle
   integer, allocatable, dimension(:) :: indexMap
-  integer :: a,i,idx
-  
-  a = size(theParticles) 
+  integer :: a,i,idx,nLocal
+
+  a = size(theParticles)
+
+  ! Number of particles actually owned by this rank. In parallel PE a particle
+  ! may live on a single rank only, so the caller-provided array (sized by the
+  ! GLOBAL particle count, e.g. in ComputeCFL) can be larger than this rank's
+  ! local index map. Reading the surplus slots from an uninitialised index map
+  ! yields a garbage body index and aborts getParticle2 ("Body index ... out of
+  ! range"). Read only the local slots and zero-fill the rest. This is a no-op
+  ! when local == global (the usual multi-particle, every-rank-populated case).
+  nLocal = getNumParticles()
+  if (nLocal .gt. a) nLocal = a
 
   allocate(indexMap(a))
 
-  call getParticlesIndexMap(indexMap)
-  
-  do i=1,a
-    idx = indexMap(i)
-    call getParticle2(idx,&
-                      temp)
+  if (nLocal .gt. 0) call getParticlesIndexMap(indexMap)
 
-    theParticles(i) = temp
+  zeroParticle%position = 0d0
+  zeroParticle%velocity = 0d0
+  zeroParticle%angvel   = 0d0
+  zeroParticle%force    = 0d0
+  zeroParticle%torque   = 0d0
+  zeroParticle%time     = 0d0
+  zeroParticle%density  = 0d0
+  zeroParticle%aabb     = 0d0
+  zeroParticle%radius   = 0d0
+  zeroParticle%typeId   = 0
+  zeroParticle%localIdx = 0
+  zeroParticle%uniqueIdx= 0
+  zeroParticle%systemIdx= 0
+  zeroParticle%bytes    = 0
+
+  do i=1,a
+    if (i .le. nLocal) then
+      idx = indexMap(i)
+      call getParticle2(idx,&
+                        temp)
+      theParticles(i) = temp
+    else
+      theParticles(i) = zeroParticle
+    end if
   end do
+
+  deallocate(indexMap)
 
 end subroutine getAllParticles
 !================================================================================================
