@@ -67,18 +67,46 @@ foreach(_el_tier2_case
     terminal_velocity
     saffman_lift
     straddling_conservation)
+  set(_el_tier2_case_src ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case})
+  # Self-contained staging: depends only on the binary (not q2p1_el_pipeflow_stage,
+  # which stages the frozen-trace mesh and copies a build-specific libmetis that is
+  # vestigial here — the EL cases use pre-partitioned meshes and are not linked to
+  # metis). Runtime directories (_data, _mesh, ...) are created at configure time by
+  # createDefaultDirectories above.
   add_custom_target(q2p1_el_pipeflow_tier2_${_el_tier2_case}_stage
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/q2p1_param.dat
+            ${CMAKE_SOURCE_DIR}/_data/MG.dat
+            ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${_el_tier2_case_src}/q2p1_param.dat
             ${CMAKE_CURRENT_BINARY_DIR}/_data/q2p1_param.dat
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/example.json
+            ${_el_tier2_case_src}/example.json
             ${CMAKE_CURRENT_BINARY_DIR}/example.json
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case}/particles.xyz
+            ${_el_tier2_case_src}/particles.xyz
             ${CMAKE_CURRENT_BINARY_DIR}/particles.xyz
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS q2p1_el_pipeflow_stage
+    DEPENDS q2p1_el_pipeflow
     COMMENT "Staging q2p1_el_pipeflow Tier 2 case ${_el_tier2_case}"
   )
+
+  # Self-contained mesh: each case carries its own coarse project (mesh/quiescent_box_9)
+  # and pre-partitioned submeshes (mesh/partitions/<MeshFolder>). The runtime
+  # PartitionReader reads _mesh/<MeshFolder>/sub<rank>/GRID0001.tri directly (no
+  # ./partitioner step), so pre-placing _mesh is sufficient. The committed source dir is
+  # named "partitions" (not "_mesh") so it is not caught by the _mesh/* gitignore rule.
+  # Only cases that have a mesh/ dir get this staging; cases still being set up stay
+  # config-only.
+  if(EXISTS ${_el_tier2_case_src}/mesh)
+    add_custom_command(TARGET q2p1_el_pipeflow_tier2_${_el_tier2_case}_stage POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+              ${_el_tier2_case_src}/mesh/quiescent_box_9
+              ${CMAKE_CURRENT_BINARY_DIR}/quiescent_box_9
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+              ${_el_tier2_case_src}/mesh/partitions
+              ${CMAKE_CURRENT_BINARY_DIR}/_mesh
+      COMMENT "Staging self-contained mesh for ${_el_tier2_case}"
+    )
+  endif()
 endforeach()
