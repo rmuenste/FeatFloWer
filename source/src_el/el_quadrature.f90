@@ -253,7 +253,7 @@ CONTAINS
     LOGICAL :: supported
     REAL*8 :: dbg_elem_int, dbg_basis_int, dbg_sum_n, dbg_force_written
     REAL*8 :: dbg_field_entry
-    INTEGER :: dbg_nel_used, dbg_max_kdfg
+    INTEGER :: dbg_nel_used, dbg_max_kdfg, dbg_oob_iel
     LOGICAL :: dbg_first
 
     REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
@@ -287,6 +287,7 @@ CONTAINS
     dbg_force_written = 0.0d0
     dbg_nel_used = 0
     dbg_max_kdfg = 0
+    dbg_oob_iel = 0
     dbg_first = .TRUE.
     dbg_field_entry = 0.0d0
     IF (el_deposit_dbg.NE.0) dbg_field_entry = SUM(fields%force_rhs(3,:))
@@ -316,6 +317,22 @@ CONTAINS
       CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
         mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
       IF (ier.LT.0) RETURN
+
+      IF (el_deposit_dbg.NE.0 .AND. dbg_oob_iel.EQ.0 .AND. &
+          MAXVAL(kdfg(1:idfl)).GT.SIZE(fields%force_rhs,2)) THEN
+        dbg_oob_iel = iel
+        WRITE(*,'(A,I0,A,I0,A,I0,A,I0,A,I0,A,I0,A,I0,A,I0)') &
+          'EL_OOB rank=', myid, ' iel=', iel, ' nel=', mesh%level(ilev)%nel, &
+          ' nvt=', nvt_common, ' net=', net_common, ' nat=', nat_common, &
+          ' nel_triad=', nel_common, ' max_kdfg=', MAXVAL(kdfg(1:idfl))
+        WRITE(*,'(A,I0,A,8I8)') 'EL_OOB rank=', myid, ' kvert=', &
+          mesh%level(ilev)%kvert(:,iel)
+        WRITE(*,'(A,I0,A,12I8)') 'EL_OOB rank=', myid, ' kedge=', &
+          mesh%level(ilev)%kedge(:,iel)
+        WRITE(*,'(A,I0,A,6I8)') 'EL_OOB rank=', myid, ' karea=', &
+          mesh%level(ilev)%karea(:,iel)
+      END IF
+
       CALL E013(0.0d0,0.0d0,0.0d0,-2)
 
       element_integral = 0.0d0
