@@ -63,6 +63,18 @@ integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
 end interface
 
 !================================================================================================
+!                              Function getElSubsteps
+!================================================================================================
+! C++ implementation: getElSubsteps() in libs/pe/pe/interface/c_interface_queries.h
+! Returns the PE sub-step count n_sub = max(1, substeps_), so the Euler-Lagrange
+! feedback can reproduce PE's sub-cycled semi-implicit drag exactly.
+interface
+integer(c_int) function getElSubsteps() bind(C, name="getElSubsteps")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

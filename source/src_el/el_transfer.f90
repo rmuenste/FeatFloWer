@@ -11,12 +11,14 @@ MODULE EL_TRANSFER
   USE def_FEAT, ONLY: el_mg_ilev => ILEV
   USE DEM_QUERY, ONLY: tParticleData
 #ifdef HAVE_PE
-  USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, setForcesMapped
+  USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, setForcesMapped, &
+                       getElSubsteps
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
                        el_write_diagnostics
-  USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES
+  USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
+                       EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
                        EL_CAPTURE_FLUID_FEEDBACK_SOURCE
   USE EL_HALO, ONLY: tElParticleRecord, EL_REFRESH_COUPLING_HALO, &
@@ -68,6 +70,9 @@ CONTAINS
     REAL*8 :: local_deposited, global_deposited, local_expected, global_expected
     REAL*8 :: local_feedback(3), global_feedback(3)
     REAL*8 :: local_drag(3), global_drag(3), local_lift(3), global_lift(3)
+    REAL*8 :: drag_force_eff(3), feedback_used(3), m_p
+    REAL*8 :: local_drag_impl(3), global_drag_impl(3)
+    INTEGER :: n_sub
     REAL*8 :: local_pressure(3), global_pressure(3), local_grav_buoy(3)
     REAL*8 :: global_grav_buoy(3), local_particle_total(3), global_particle_total(3)
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
@@ -128,6 +133,12 @@ CONTAINS
     local_pressure = 0.0d0
     local_grav_buoy = 0.0d0
     local_particle_total = 0.0d0
+    local_drag_impl = 0.0d0
+#ifdef HAVE_PE
+    n_sub = getElSubsteps()
+#else
+    n_sub = 1
+#endif
 
     DO i=1,n_records
       CALL EL_INTEGRATE_PARTICLE(mesh, ilev, val_u, val_v, val_w, val_p, &
@@ -145,8 +156,12 @@ CONTAINS
       CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
         density, viscosity, gravity, force_result)
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
-      owned_result(2:4,i) = force_result%feedback_force
-      local_feedback = local_feedback + force_result%feedback_force
+      ! Default (post-advance diagnostic pass): explicit drag + lift. The
+      ! pre-advance pass below replaces the drag part with the sub-cycled
+      ! implicit drag impulse PE actually applies (issue-D fix), then the
+      ! finalised feedback_used is deposited after the PE-arming block.
+      drag_force_eff = 0.0d0
+      feedback_used = force_result%feedback_force
       local_drag = local_drag + force_result%drag
       local_lift = local_lift + force_result%lift
       local_pressure = local_pressure + force_result%pressure
@@ -166,11 +181,25 @@ CONTAINS
         CALL setForcesMapped(owned_particles(i))
         f_other = force_result%pressure + force_result%lift + &
                   force_result%grav_buoy
+        ! Issue-D fix: feed the fluid the drag impulse PE will actually apply over
+        ! its n_sub sub-cycled semi-implicit steps (drag_force_eff), plus explicit
+        ! lift -- not the explicit old-velocity drag -- so the momentum the fluid
+        ! gains equals the drag momentum the particle loses. Lift is in f_other
+        ! (shaping the implicit velocity, hence excluded from drag_force_eff) AND
+        ! spread explicitly; the Newton pair holds for lift with no double count.
+        m_p = EL_PARTICLE_VOLUME(owned_particles(i)%radius) * &
+              owned_particles(i)%density
+        CALL EL_SEMI_IMPLICIT_DRAG_IMPULSE(owned_particles(i)%velocity, m_p, &
+          force_result%drag_B, force_result%u_f, f_other, dt, n_sub, drag_force_eff)
+        feedback_used = drag_force_eff + force_result%lift
         hydro_active = 1
         CALL set_el_hydro_state_c(owned_particles(i)%bytes, &
           force_result%drag_B, force_result%u_f, f_other, hydro_active)
       END IF
 #endif
+      owned_result(2:4,i) = feedback_used
+      local_feedback = local_feedback + feedback_used
+      local_drag_impl = local_drag_impl + drag_force_eff
     END DO
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
@@ -235,6 +264,8 @@ CONTAINS
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_drag, global_drag, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_drag_impl, global_drag_impl, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_lift, global_lift, 3, &
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_pressure, global_pressure, 3, &
@@ -279,6 +310,27 @@ CONTAINS
         'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
         ' pressure= ', global_pressure, ' lift= ', global_lift, &
         ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
+    END IF
+
+    ! Issue-D metric (pre-advance pass only, where the corrected drag is formed):
+    ! the per-step impulse mismatch dt*(explicit_drag - implicit_drag) is the
+    ! intrinsic explicit-vs-implicit drag gap; its running sum equals the OLD
+    ! momentum drift. It stays nonzero after the fix (the gap is real) -- but the
+    ! drift collapses because the fluid is now fed the implicit drag, so this line
+    ! reports the size of the correction being applied each step.
+    IF (myid.EQ.showid .AND. el_write_diagnostics .AND. advance_history) THEN
+      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,I0)') &
+        'EL_DRAG_IMPULSE step= ', ABS(istep), &
+        ' explicit_drag_impulse= ', global_drag*dt, &
+        ' implicit_drag_impulse= ', global_drag_impl*dt, &
+        ' mismatch= ', SQRT(SUM(((global_drag-global_drag_impl)*dt)**2)), &
+        ' substeps= ', n_sub
+      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,I0)') &
+        'EL_DRAG_IMPULSE step= ', ABS(istep), &
+        ' explicit_drag_impulse= ', global_drag*dt, &
+        ' implicit_drag_impulse= ', global_drag_impl*dt, &
+        ' mismatch= ', SQRT(SUM(((global_drag-global_drag_impl)*dt)**2)), &
+        ' substeps= ', n_sub
     END IF
 
     DEALLOCATE(owned_particles, records, local_samples, owned_samples)

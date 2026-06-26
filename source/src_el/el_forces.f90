@@ -218,4 +218,49 @@ CONTAINS
 
   END FUNCTION EL_CROSS
 
+  !----------------------------------------------------------------------------
+  ! EL_SEMI_IMPLICIT_DRAG_IMPULSE
+  !
+  ! Reproduce the drag impulse PE actually applies to a hydrodynamic particle
+  ! over one CFD/PE coupling step, so the fluid can be fed exactly what the
+  ! particle's drag removed (issue-D fix). PE advances the body with n_sub
+  ! semi-implicit sub-steps of dt/n_sub on the SAME frozen hydro state
+  ! (u_f, drag_B, f_other); this mirrors pe::elSemiImplicitVelocity
+  ! (libs/pe/pe/core/collisionsystem/ELSemiImplicitDrag.h) exactly.
+  !
+  !   dt_sub = dt / n_sub
+  !   U      = U_old; repeat n_sub: U = (U + dt_sub/m*(B*u_f + f_other))/(1+dt_sub*B/m)
+  !   I_drag = m*(U - U_old) - f_other*dt        (exact: f_other contributes f_other*dt)
+  !   F_drag_effective = I_drag / dt
+  !
+  ! f_other (= pressure + lift + grav_buoy) is subtracted out, so the result is
+  ! the pure DRAG impulse; lift is re-added explicitly by the caller. Returns 0
+  ! for degenerate inputs (no drag / zero step / massless).
+  !----------------------------------------------------------------------------
+  SUBROUTINE EL_SEMI_IMPLICIT_DRAG_IMPULSE(u_old, m_p, drag_B, u_f, f_other, dt, &
+                                           n_sub, drag_force_eff)
+
+    REAL*8, INTENT(IN) :: u_old(3), m_p, drag_B, u_f(3), f_other(3), dt
+    INTEGER, INTENT(IN) :: n_sub
+    REAL*8, INTENT(OUT) :: drag_force_eff(3)
+
+    REAL*8 :: u(3), dt_sub, denom
+    INTEGER :: k, nsub_use
+
+    drag_force_eff = 0.0d0
+    IF (dt.LE.0.0d0 .OR. m_p.LE.0.0d0) RETURN
+
+    nsub_use = MAX(1, n_sub)
+    dt_sub = dt / DBLE(nsub_use)
+    denom = 1.0d0 + dt_sub*drag_B/m_p
+
+    u = u_old
+    DO k = 1, nsub_use
+      u = (u + (dt_sub/m_p)*(drag_B*u_f + f_other)) / denom
+    END DO
+
+    drag_force_eff = (m_p*(u - u_old) - f_other*dt) / dt
+
+  END SUBROUTINE EL_SEMI_IMPLICIT_DRAG_IMPULSE
+
 END MODULE EL_FORCES
