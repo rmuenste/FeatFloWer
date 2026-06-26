@@ -25,7 +25,7 @@ MODULE EL_TRANSFER
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_INTEGRATE_PARTICLE, &
-                           EL_DEPOSIT_PARTICLE
+                           EL_DEPOSIT_PARTICLE, el_deposit_dbg
 
   IMPLICIT NONE
 
@@ -203,10 +203,12 @@ CONTAINS
     END DO
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
+    IF (el_write_diagnostics .AND. ABS(istep).LE.3) el_deposit_dbg = istep
     DO i=1,n_records
       CALL EL_DEPOSIT_PARTICLE(mesh, ilev, records(i), record_result(1,i), &
         record_result(2:4,i), el_field_data)
     END DO
+    el_deposit_dbg = 0
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))
     local_rhs(2) = SUM(el_field_data%force_rhs(2,:))
