@@ -9,6 +9,13 @@ MODULE EL_TRANSFER
   ! this global ILEV to pick MGE013(ILEV); it must be set to the EL coupling level
   ! before the feedback assembly (see EL_PARTICLE_MESH_PASS).
   USE def_FEAT, ONLY: el_mg_ilev => ILEV
+  ! Global mesh dimensions from COMMON /TRIAD/ (def_FEAT). NDFGL (called from
+  ! EL_INTEGRATE_PARTICLE / EL_DEPOSIT_PARTICLE) derives Q2 global DOF indices
+  ! from these offsets; like ILEV they are left at whatever level the previous
+  ! solver phase set, so they must be pinned to the EL coupling level for the pass
+  ! (see EL_PARTICLE_MESH_PASS). Aliased to avoid colliding with the local `nel`.
+  USE def_FEAT, ONLY: el_tr_nel => NEL, el_tr_nvt => NVT, &
+                      el_tr_net => NET, el_tr_nat => NAT
   USE DEM_QUERY, ONLY: tParticleData
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, setForcesMapped, &
@@ -79,6 +86,7 @@ CONTAINS
     REAL*8 :: feedback_residual_norm, volume_rel_error
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
     INTEGER :: saved_mg_ilev
+    INTEGER :: saved_tr_nel, saved_tr_nvt, saved_tr_net, saved_tr_nat
     INTEGER :: global_owned
 #ifdef HAVE_PE
     INTEGER :: hydro_active
@@ -102,6 +110,23 @@ CONTAINS
     ndof = mesh%level(ilev)%nvt + mesh%level(ilev)%net + &
            mesh%level(ilev)%nat + nel
     CALL EL_ENSURE_FIELDS(nel, ndof)
+
+    ! Pin the global /TRIAD/ mesh offsets to the EL coupling level for the whole
+    ! pass. NDFGL (inside EL_INTEGRATE_PARTICLE and EL_DEPOSIT_PARTICLE) builds Q2
+    ! global DOF indices as e.g. centre = NVT+NET+NAT+iel. If NVT/NET/NAT are left
+    ! at a finer level (whatever the previous solver phase set), those indices
+    ! overrun force_rhs (sized ndof at mesh%level(ilev)) and the spread is silently
+    ! lost -- a one-off ~1/27 force-feedback loss that breaks momentum conservation
+    ! (see EL_OOB diagnostics). Restored at the end of the pass.
+    saved_tr_nel = el_tr_nel
+    saved_tr_nvt = el_tr_nvt
+    saved_tr_net = el_tr_net
+    saved_tr_nat = el_tr_nat
+    el_tr_nel = nel
+    el_tr_nvt = mesh%level(ilev)%nvt
+    el_tr_net = mesh%level(ilev)%net
+    el_tr_nat = mesh%level(ilev)%nat
+
     advance_history = istep.LT.0
     CALL EL_BEGIN_FIELD_UPDATE(advance_history)
 
@@ -348,6 +373,12 @@ CONTAINS
         ' mismatch= ', SQRT(SUM(((global_drag-global_drag_impl)*dt)**2)), &
         ' substeps= ', n_sub
     END IF
+
+    ! Restore the global /TRIAD/ offsets we pinned to the coupling level on entry.
+    el_tr_nel = saved_tr_nel
+    el_tr_nvt = saved_tr_nvt
+    el_tr_net = saved_tr_net
+    el_tr_nat = saved_tr_nat
 
     DEALLOCATE(owned_particles, records, local_samples, owned_samples)
     DEALLOCATE(owned_result, record_result)
