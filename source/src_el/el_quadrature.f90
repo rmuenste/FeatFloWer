@@ -139,6 +139,100 @@ CONTAINS
 
   END SUBROUTINE EL_INTEGRATE_PARTICLE
 
+  !----------------------------------------------------------------------------
+  ! EL_INTEGRATE_FLUID_MOMENTUM
+  !
+  ! Physical element-cubature integral of the fluid momentum over all LOCALLY
+  ! OWNED elements (each cell counted exactly once), using the same Q2 (E013)
+  ! basis/quadrature as the solver. This avoids the partition/periodic shared-DOF
+  ! double counting of the lumped  Sum(MlRhoPmat*u)  diagnostic.
+  !   momentum     = integral rho * u            dV
+  !   momentum_eps = integral rho * epsilon_f * u dV   (void-fraction weighted)
+  ! Local (per-rank) result; the caller MPI_Allreduce's over MPI_COMM_SUBS.
+  !----------------------------------------------------------------------------
+  SUBROUTINE EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, velocity_u, velocity_v, &
+      velocity_w, epsilon_f, density, momentum, momentum_eps)
+
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: velocity_u(:), velocity_v(:), velocity_w(:)
+    REAL*8, INTENT(IN) :: epsilon_f(:), density
+    REAL*8, INTENT(OUT) :: momentum(3), momentum_eps(3)
+
+    INTEGER :: iel, icubp, i, ig, ieltyp, idfl
+    INTEGER :: kdfl(NNBAS), kdfg(NNBAS)
+    REAL*8 :: xi(3), point(3), jac(3,3), detj, omega, basis, velocity(3)
+
+    REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
+    REAL*8 :: dbas(3,NNBAS,NNDER), dxi(NNCUBP,3), domega(NNCUBP)
+    LOGICAL :: bder(NNDER)
+    INTEGER :: kve(NNVE), iel_common, ndim, idfl_common
+    INTEGER :: nel_common, nvt_common, net_common, nat_common
+    INTEGER :: nve_common, nee_common, nae_common, nvel_common, neel_common
+    INTEGER :: nved_common, nvar_common, near_common, nbct_common
+    INTEGER :: nvbd_common, nebd_common, nabd_common, ncubp
+    INTEGER :: ier, icheck
+
+    COMMON /ERRCTL/ ier,icheck
+    COMMON /ELEM/ dx,dy,dz,djac,detj_common,dbas,bder,kve,iel_common,ndim
+    COMMON /TRIAD/ nel_common,nvt_common,net_common,nat_common,nve_common, &
+      nee_common,nae_common,nvel_common,neel_common,nved_common,nvar_common, &
+      near_common,nbct_common,nvbd_common,nebd_common,nabd_common
+    COMMON /CUB/ dxi,domega,ncubp,icubp
+    COMMON /COAUX1/ kdfg,kdfl,idfl_common
+
+    INTEGER, EXTERNAL :: NDFL
+    EXTERNAL E013
+
+    momentum = 0.0d0
+    momentum_eps = 0.0d0
+
+    bder = .FALSE.
+    bder(1) = .TRUE.
+    ieltyp = -1
+    CALL E013(0.0d0,0.0d0,0.0d0,ieltyp)
+    idfl = NDFL(ieltyp)
+    idfl_common = idfl
+    CALL CB3H(9)
+    IF (ier.NE.0) RETURN
+
+    DO iel=1,mesh%level(ilev)%nel
+      iel_common = iel
+      DO i=1,NNVE
+        ig = mesh%level(ilev)%kvert(i,iel)
+        kve(i) = ig
+        dx(i) = mesh%level(ilev)%dcorvg(1,ig)
+        dy(i) = mesh%level(ilev)%dcorvg(2,ig)
+        dz(i) = mesh%level(ilev)%dcorvg(3,ig)
+      END DO
+      CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
+        mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
+      IF (ier.LT.0) RETURN
+      CALL E013(0.0d0,0.0d0,0.0d0,-2)
+
+      DO icubp=1,ncubp
+        xi = dxi(icubp,:)
+        CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
+        djac = jac
+        detj_common = detj
+        omega = domega(icubp)*ABS(detj)
+        CALL E013(xi(1),xi(2),xi(3),-3)
+        IF (ier.LT.0) RETURN
+        velocity = 0.0d0
+        DO i=1,idfl
+          ig = kdfg(i)
+          basis = dbas(1,kdfl(i),1)
+          velocity(1) = velocity(1) + velocity_u(ig)*basis
+          velocity(2) = velocity(2) + velocity_v(ig)*basis
+          velocity(3) = velocity(3) + velocity_w(ig)*basis
+        END DO
+        momentum = momentum + density*omega*velocity
+        momentum_eps = momentum_eps + density*epsilon_f(iel)*omega*velocity
+      END DO
+    END DO
+
+  END SUBROUTINE EL_INTEGRATE_FLUID_MOMENTUM
+
   SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh

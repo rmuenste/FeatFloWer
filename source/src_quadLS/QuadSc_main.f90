@@ -26,7 +26,7 @@ use EL_CONFIG, only: el_apply_fluid_feedback
 use EL_CONFIG, only: el_write_diagnostics
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
-                          EL_DEBUG_GZSUM
+                          EL_DEBUG_GZSUM, EL_DEBUG_PROJKICK
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 
 use, intrinsic :: ieee_arithmetic
@@ -393,7 +393,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   IF (myid.NE.master .AND. el_write_diagnostics .AND. ASSOCIATED(MlRhoPmat)) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, MlRhoPmat, timens, mfile, itns)
+      QuadSc%valW, MlRhoPmat, timens, mfile, itns, &
+      mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el

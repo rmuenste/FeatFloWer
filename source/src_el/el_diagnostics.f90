@@ -3,6 +3,8 @@ MODULE EL_DIAGNOSTICS
   USE MPI
   USE PP3D_MPI, ONLY: myid, showid, MPI_COMM_SUBS
   USE DEM_QUERY, ONLY: tParticleData
+  USE TYPES, ONLY: tMultiMesh
+  USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles
 #endif
@@ -15,17 +17,26 @@ MODULE EL_DIAGNOSTICS
 CONTAINS
 
   SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS(val_u, val_v, val_w, &
-                                           fluid_mass, time, mfile, istep)
+                                           fluid_mass, time, mfile, istep, &
+                                           mesh, ilev, density, epsilon_f)
 
     REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:), fluid_mass(:)
     REAL*8, INTENT(IN) :: time
     INTEGER, INTENT(IN) :: mfile, istep
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: density, epsilon_f(:)
 
     REAL*8 :: local_fluid(3), global_fluid(3)
     REAL*8 :: local_particle(3), global_particle(3)
     REAL*8 :: local_velocity_sum(3), global_velocity_sum(3)
     REAL*8 :: total(3), mean_velocity(3), drift(3), speed, drift_norm
     REAL*8 :: ref_norm, drift_rel
+    ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
+    ! plain rho*u and void-fraction-weighted rho*eps_f*u.
+    REAL*8 :: local_fei(3), global_fei(3), local_fei_eps(3), global_fei_eps(3)
+    REAL*8 :: total_ei(3), drift_ei(3), drift_ei_norm, drift_ei_rel
+    REAL*8 :: total_ei_eps(3), drift_ei_eps(3), drift_ei_eps_norm
     INTEGER :: local_count, global_count, ndof, ierr
 
     ndof = MIN(SIZE(fluid_mass), SIZE(val_u), SIZE(val_v), SIZE(val_w))
@@ -49,6 +60,15 @@ CONTAINS
     CALL MPI_Allreduce(local_count, global_count, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
 
+    ! Element-integrated fluid momentum (each cell once; no shared-DOF double
+    ! count). global_fei = integral rho*u; global_fei_eps = integral rho*eps_f*u.
+    CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
+                                     epsilon_f, density, local_fei, local_fei_eps)
+    CALL MPI_Allreduce(local_fei, global_fei, 3, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_fei_eps, global_fei_eps, 3, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+
     total = global_fluid + global_particle
     ! Reference is normally captured before the first coupled update (see
     ! EL_CAPTURE_MOMENTUM_REFERENCE, called from the time loop). Fall back to the
@@ -62,6 +82,17 @@ CONTAINS
     ref_norm = SQRT(SUM(el_momentum_reference**2))
     drift_rel = drift_norm / MAX(ref_norm, 1.0d-30)
 
+    ! Element-integrated totals/drift, measured against the SAME t=0 reference
+    ! (at t=0 the fluid is at rest, so lumped and element-integrated totals both
+    ! equal the initial particle momentum).
+    total_ei = global_fei + global_particle
+    drift_ei = total_ei - el_momentum_reference
+    drift_ei_norm = SQRT(SUM(drift_ei**2))
+    drift_ei_rel = drift_ei_norm / MAX(ref_norm, 1.0d-30)
+    total_ei_eps = global_fei_eps + global_particle
+    drift_ei_eps = total_ei_eps - el_momentum_reference
+    drift_ei_eps_norm = SQRT(SUM(drift_ei_eps**2))
+
     mean_velocity = 0.0d0
     IF (global_count.GT.0) THEN
       mean_velocity = global_velocity_sum / DBLE(global_count)
@@ -70,13 +101,21 @@ CONTAINS
 
     IF (myid.EQ.showid) THEN
       WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6)') &
-        'EL_MOMENTUM time= ', time, ' step= ', istep, ' fluid= ', &
+        'EL_MOMENTUM_LUMPED time= ', time, ' step= ', istep, ' fluid= ', &
         global_fluid, ' particle= ', global_particle, ' total= ', total, &
         ' drift= ', drift_norm, ' drift_rel= ', drift_rel
       WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6)') &
-        'EL_MOMENTUM time= ', time, ' step= ', istep, ' fluid= ', &
+        'EL_MOMENTUM_LUMPED time= ', time, ' step= ', istep, ' fluid= ', &
         global_fluid, ' particle= ', global_particle, ' total= ', total, &
         ' drift= ', drift_norm, ' drift_rel= ', drift_rel
+      WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6,A,ES14.6)') &
+        'EL_MOMENTUM_ELEMINT time= ', time, ' step= ', istep, ' fluid= ', &
+        global_fei, ' total= ', total_ei, ' drift= ', drift_ei_norm, &
+        ' drift_rel= ', drift_ei_rel, ' drift_eps= ', drift_ei_eps_norm
+      WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6,A,ES14.6)') &
+        'EL_MOMENTUM_ELEMINT time= ', time, ' step= ', istep, ' fluid= ', &
+        global_fei, ' total= ', total_ei, ' drift= ', drift_ei_norm, &
+        ' drift_rel= ', drift_ei_rel, ' drift_eps= ', drift_ei_eps_norm
       WRITE(*,'(A,ES14.6,A,I0,A,I0,A,3ES14.6,A,ES14.6)') &
         'EL_TERMINAL_VEL time= ', time, ' step= ', istep, ' count= ', &
         global_count, ' velocity= ', mean_velocity, ' speed= ', speed
@@ -188,6 +227,26 @@ CONTAINS
         ' z= ', glob
     END IF
   END SUBROUTINE EL_DEBUG_GZSUM
+
+  SUBROUTINE EL_DEBUG_PROJKICK(label, field, n)
+    ! Stdout-only z-sum probe for instrumenting Velocity_Correction (which has no
+    ! mfile/istep in scope). Used to test whether the pressure-gradient kick
+    ! Sum(B*P) genuinely integrates non-zero over the periodic box (injecting mean
+    ! momentum -> NoOutflow/nullspace) or only becomes non-zero through E013Sum/BC.
+    CHARACTER(*), INTENT(IN) :: label
+    REAL*8, INTENT(IN) :: field(:)
+    INTEGER, INTENT(IN) :: n
+
+    REAL*8 :: loc, glob
+    INTEGER :: m, ierr
+
+    m = MIN(n, SIZE(field))
+    loc = SUM(field(1:m))
+    CALL MPI_Allreduce(loc, glob, 1, MPI_DOUBLE_PRECISION, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+    IF (myid.EQ.showid) WRITE(*,'(A,A,A,ES20.12)') 'EL_PROJKICK ', label, &
+      ' z= ', glob
+  END SUBROUTINE EL_DEBUG_PROJKICK
 
   SUBROUTINE EL_RESET_MOMENTUM_REFERENCE()
 
