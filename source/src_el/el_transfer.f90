@@ -85,6 +85,8 @@ CONTAINS
     REAL*8 :: local_rhs(3), global_rhs(3), feedback_residual(3)
     REAL*8 :: feedback_residual_norm, volume_rel_error
     INTEGER :: n_owned, n_records, i, ierr, ndof, nel
+    INTEGER :: local_record_rank, global_record_ranks
+    INTEGER :: global_records, max_records
     INTEGER :: saved_mg_ilev
     INTEGER :: saved_tr_nel, saved_tr_nvt, saved_tr_net, saved_tr_nat
     INTEGER :: global_owned
@@ -301,6 +303,14 @@ CONTAINS
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(n_owned, global_owned, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
+    local_record_rank = 0
+    IF (n_records.GT.0) local_record_rank = 1
+    CALL MPI_Allreduce(local_record_rank, global_record_ranks, 1, &
+      MPI_INTEGER, MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(n_records, global_records, 1, MPI_INTEGER, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(n_records, max_records, 1, MPI_INTEGER, &
+      MPI_MAX, MPI_COMM_SUBS, ierr)
 
     feedback_residual = global_rhs + global_feedback
     feedback_residual_norm = SQRT(SUM(feedback_residual**2))
@@ -328,6 +338,12 @@ CONTAINS
         'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
         ' pressure= ', global_pressure, ' lift= ', global_lift, &
         ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
+      WRITE(*,'(A,I0,A,I0,A,I0,A,I0)') 'EL_HALO_RECORDS step= ', &
+        istep, ' record_ranks= ', global_record_ranks, &
+        ' total_records= ', global_records, ' max_records= ', max_records
+      WRITE(mfile,'(A,I0,A,I0,A,I0,A,I0)') 'EL_HALO_RECORDS step= ', &
+        istep, ' record_ranks= ', global_record_ranks, &
+        ' total_records= ', global_records, ' max_records= ', max_records
     END IF
 
     IF (myid.EQ.showid .AND. istep.GE.0 .AND. &

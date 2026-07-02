@@ -1,8 +1,8 @@
 ----------- Simulation Parameters --------------
-SimPar@MeshFolder = "NEWFAC"
+SimPar@MeshFolder = "QBOX9"
 SimPar@SubMeshNumber = 27
 SimPar@ParticleFile = "_data/particles.dat"
-SimPar@ProjectFile = "unit_cube_27_case/file.prj"
+SimPar@ProjectFile = "quiescent_box_9/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0
 SimPar@StartFile = "_dump/01"
@@ -33,7 +33,8 @@ SimPar@ELWriteDiagnostics = Yes
 SimPar@ELMomentumAuditFreq = 1
 SimPar@BackUpFreq = 1000
 SimPar@BackUpNum = 1
-SimPar@NoOutflow = No
+SimPar@NoOutflow = Yes
+SimPar@Periodic = Yes
 SimPar@Umbrella = 0
 SimPar@OutputFreq = 1000.0d0
 SimPar@MatrixRenewal = M1D1K3S0C1

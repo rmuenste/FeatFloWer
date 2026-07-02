@@ -68,6 +68,11 @@ foreach(_el_tier2_case
     saffman_lift
     straddling_conservation)
   set(_el_tier2_case_src ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case})
+  if("${_el_tier2_case}" STREQUAL "straddling_conservation")
+    set(_el_tier2_mesh_src ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/momentum_conservation/mesh)
+  else()
+    set(_el_tier2_mesh_src ${_el_tier2_case_src}/mesh)
+  endif()
   # Self-contained staging: depends only on the binary (not q2p1_el_pipeflow_stage,
   # which stages the frozen-trace mesh and copies a build-specific libmetis that is
   # vestigial here — the EL cases use pre-partitioned meshes and are not linked to
@@ -98,13 +103,13 @@ foreach(_el_tier2_case
   # named "partitions" (not "_mesh") so it is not caught by the _mesh/* gitignore rule.
   # Only cases that have a mesh/ dir get this staging; cases still being set up stay
   # config-only.
-  if(EXISTS ${_el_tier2_case_src}/mesh)
+  if(EXISTS "${_el_tier2_mesh_src}")
     add_custom_command(TARGET q2p1_el_pipeflow_tier2_${_el_tier2_case}_stage POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_directory
-              ${_el_tier2_case_src}/mesh/quiescent_box_9
+              ${_el_tier2_mesh_src}/quiescent_box_9
               ${CMAKE_CURRENT_BINARY_DIR}/quiescent_box_9
       COMMAND ${CMAKE_COMMAND} -E copy_directory
-              ${_el_tier2_case_src}/mesh/partitions
+              ${_el_tier2_mesh_src}/partitions
               ${CMAKE_CURRENT_BINARY_DIR}/_mesh
       COMMENT "Staging self-contained mesh for ${_el_tier2_case}"
     )
