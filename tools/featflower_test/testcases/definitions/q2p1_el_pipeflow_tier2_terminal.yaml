@@ -43,13 +43,13 @@ run:
     count: 1
   launch:
     workdir: build-el-tier2-pe/applications/q2p1_el_pipeflow
-    mpi_ranks: 28
+    mpi_ranks: 4
     command: "./q2p1_el_pipeflow"
   slurm:
     partition: short
     constraint: nx
     nodes: 1
-    ntasks: 28
+    ntasks: 4
     cpus_per_task: 1
     time: "00:45:00"
     mem_per_cpu: "2G"
