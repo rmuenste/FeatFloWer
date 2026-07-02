@@ -5,9 +5,11 @@ MODULE EL_CONFIG
   CHARACTER(LEN=32) :: el_kernel = 'deen_poly'
   CHARACTER(LEN=32) :: el_drag_model = 'difelice'
   CHARACTER(LEN=32) :: el_lift_model = 'none'
+  CHARACTER(LEN=32) :: el_prescribed_field = 'none'
   REAL*8 :: el_kernel_width_factor = 2.5d0
   REAL*8 :: el_eps_f_min = 0.4d0
   REAL*8 :: el_eps_f_relax = 0.0d0
+  REAL*8 :: el_shear_rate = 0.0d0
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
@@ -22,6 +24,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_kernel)
     CALL EL_LOWERCASE(el_drag_model)
     CALL EL_LOWERCASE(el_lift_model)
+    CALL EL_LOWERCASE(el_prescribed_field)
 
     SELECT CASE (TRIM(el_kernel))
     CASE ('deen_poly', 'gaussian')
@@ -44,6 +47,14 @@ CONTAINS
       CONTINUE
     CASE DEFAULT
       WRITE(*,'(A,A)') 'Invalid ELLiftModel: ', TRIM(el_lift_model)
+      STOP 1
+    END SELECT
+
+    SELECT CASE (TRIM(el_prescribed_field))
+    CASE ('none', 'linear_shear')
+      CONTINUE
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELPrescribedField: ', TRIM(el_prescribed_field)
       STOP 1
     END SELECT
 
@@ -85,6 +96,8 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
+    WRITE(mfile,'(A,A)') 'EL prescribed field       = ', TRIM(el_prescribed_field)
+    WRITE(mfile,'(A,ES14.6)') 'EL shear rate             = ', el_shear_rate
     WRITE(mfile,'(A,L1)') 'EL Magnus                 = ', el_magnus
     WRITE(mfile,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
     WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
@@ -98,6 +111,8 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL drag model             = ', TRIM(el_drag_model)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
+      WRITE(mterm,'(A,A)') 'EL prescribed field       = ', TRIM(el_prescribed_field)
+      WRITE(mterm,'(A,ES14.6)') 'EL shear rate             = ', el_shear_rate
       WRITE(mterm,'(A,L1)') 'EL Magnus                 = ', el_magnus
       WRITE(mterm,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
       WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback

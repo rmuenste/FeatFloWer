@@ -1,10 +1,10 @@
 {
-  "timesteps_": 20,
+  "timesteps_": 5,
   "stepsize_": 0.001,
   "substeps_": 2,
-  "processesX_": 27,
-  "processesY_": 1,
-  "processesZ_": 1,
+  "processesX_": 3,
+  "processesY_": 3,
+  "processesZ_": 3,
   "seed_": 12345,
   "verbose_": false,
   "vtk_": false,
@@ -19,6 +19,6 @@
   "packingMethod_": "external",
   "xyzFilePath_": "particles.xyz",
   "benchRadius_": 0.005,
-  "initialParticleVelocity_": [0.0, 0.0, 0.05],
-  "config_string": "q2p1_el_pipeflow Tier 2 Saffman lift"
+  "initialParticleVelocity_": [0.0, 0.0, 0.0],
+  "config_string": "q2p1_el_pipeflow Tier 2 Saffman lift in prescribed linear shear"
 }

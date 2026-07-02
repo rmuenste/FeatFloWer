@@ -59,12 +59,12 @@ metrics:
     parser: keyword_columns
     file: simulation_output_level_2.log
     keyword: "EL_FORCE_BUDGET"
-    columns: {lift_y: 13}
+    columns: {drag_x: 4, lift_z: 14}
     occurrence: last
     numeric_format: fortran_d_or_e
     compare:
       type: tolerance
-      tolerance: {lift_y: 1.0e-12}
+      tolerance: {drag_x: 1.0e-9, lift_z: 1.0e-9}
 
 references:
   baseline: tools/featflower_test/testcases/baselines/q2p1_el_pipeflow_tier2_saffman.yaml

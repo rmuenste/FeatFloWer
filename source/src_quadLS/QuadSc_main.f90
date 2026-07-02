@@ -22,7 +22,7 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
                           bPrintParticleReynolds
 
-use EL_CONFIG, only: el_apply_fluid_feedback
+use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
 use EL_CONFIG, only: el_write_diagnostics
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set
@@ -343,10 +343,14 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   INTEGER, INTENT(IN) :: mfile, itns
   INTEGER, INTENT(OUT) :: inl_u
   REAL*8 :: dummy_velocity(1)
+  LOGICAL :: prescribed_active
 
   dummy_velocity = 0.0d0
+  inl_u = 0
+  prescribed_active = TRIM(el_prescribed_field).NE.'none'
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
+  IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
 
   ! Evaluate hydrodynamic particle forces from the current fluid state.
   IF (myid.EQ.master) THEN
@@ -362,7 +366,8 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   ! Capture the element-integrated total-momentum reference at the true initial
   ! state, before the first particle or fluid update. The pre-advance EL pass
   ! above initializes epsilon_f but does not advance particle or fluid state.
-  IF (myid.NE.master .AND. .NOT.el_momentum_reference_set) THEN
+  IF (myid.NE.master .AND. .NOT.prescribed_active .AND. &
+      .NOT.el_momentum_reference_set) THEN
     CALL EL_CAPTURE_MOMENTUM_REFERENCE(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
       el_field_data%epsilon_f)
@@ -382,15 +387,47 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   END IF
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
-  CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+  IF (.NOT.prescribed_active) THEN
+    CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+  END IF
 
-  IF (myid.NE.master) THEN
+  IF (myid.NE.master .AND. .NOT.prescribed_active) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
       Properties%Density(1), el_field_data%epsilon_f)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
+
+SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
+
+  INTEGER :: i, ndof
+  REAL*8 :: zc
+
+  IF (TRIM(el_prescribed_field).EQ.'none') RETURN
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                      mg_mesh%level(ILEV)%dcorag, &
+                      mg_mesh%level(ILEV)%kvert, &
+                      mg_mesh%level(ILEV)%karea, &
+                      mg_mesh%level(ILEV)%kedge)
+
+  ndof = mg_mesh%level(ILEV)%nvt + mg_mesh%level(ILEV)%net + &
+         mg_mesh%level(ILEV)%nat + mg_mesh%level(ILEV)%nel
+
+  SELECT CASE (TRIM(el_prescribed_field))
+  CASE ('linear_shear')
+    zc = 0.5d0
+    DO i=1,ndof
+      QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
+      QuadSc%valV(i) = 0.0d0
+      QuadSc%valW(i) = 0.0d0
+    END DO
+  END SELECT
+
+END SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD
 !========================================================================================
 !
 !========================================================================================
