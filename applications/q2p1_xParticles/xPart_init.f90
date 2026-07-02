@@ -394,7 +394,15 @@ END IF
   
 if (ADJUSTL(TRIM(xProcess)).eq.'TRACE'.or.&
     ADJUSTL(TRIM(xProcess)).eq.'WRITE_TRIA') THEN
- call refineMesh(mg_mesh, mg_Mesh%maxlevel,.TRUE.)  
+
+  call refineMesh(mg_mesh, mg_Mesh%maxlevel-1, .TRUE.)
+
+  call refineMeshLevel(mg_mesh%level(mg_Mesh%maxlevel-1), &
+                        mg_mesh%level(mg_Mesh%maxlevel))
+
+  call genKADJ3(mg_mesh%level(mg_Mesh%maxlevel-1), &
+                mg_mesh%level(mg_Mesh%maxlevel))
+
 end if
  
 if (ADJUSTL(TRIM(xProcess)).eq.'WRITE_TRIA') THEN
@@ -869,7 +877,7 @@ subroutine write_tria(mgMesh, maxlevel, cF, cFields, nFields)
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KEDGE') THEN
-    do ilevel =1,maxlevel
+    do ilevel =1,nfine
      n1 = 12
      n2 = mgMesh%level(ilevel)%nel
      totalItems = n1*n2
@@ -886,7 +894,7 @@ subroutine write_tria(mgMesh, maxlevel, cF, cFields, nFields)
    END IF
 
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KAREA') THEN
-    do ilevel =1,maxlevel
+    do ilevel =1,nfine
      n1 = 6
      n2 = mgMesh%level(ilevel)%nel
      totalItems = n1*n2
@@ -1161,7 +1169,7 @@ subroutine read_tria(mgMesh, maxlevel, cF, cFields, nFields)
    END IF
    
    IF (ADJUSTL(TRIM(cFields(iField))).eq.'KAREA') THEN
-    do ilevel =1,maxlevel
+    do ilevel =1,nfine
      call ReadMetaInfo(cF,'karea',ilevel,metaN1,metaN2,metaTotalItems,metaNvt,metaNet, &
                        metaNat,metaNel,metaNvel,metaChunkSizes,metaNChunks)
      call ApplyLevelInfo(mgMesh%level(ilevel),metaNvt,metaNet,metaNat,metaNel,metaNvel)
