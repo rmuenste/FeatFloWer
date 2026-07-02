@@ -24,17 +24,9 @@ subroutine Velocity_Correction()
   call B_Mul_U(qlMat%ColA, qlMAt%LdA, BXMat, BYMat, BZMat, LinSc%ValP(NLMAX)%x, &
                QuadSc%defU, QuadSc%defV, QuadSc%defW, QuadSc%ndof, -TSTEP, 0.0d0)
 
-  ! issue-D projection-kick budget: the lumped fluid z-momentum changes by
-  ! -Sum(defW) here. Probe the raw pressure-gradient kick Sum(-dt*B*P) and how
-  ! E013Sum/BC change it -- a non-zero raw sum means the periodic/NoOutflow
-  ! pressure treatment injects mean momentum (genuine non-conservation).
-  IF (el_write_diagnostics) CALL EL_DEBUG_PROJKICK('Bp_raw    ', QuadSc%defW, QuadSc%ndof)
-
   call E013Sum3(QuadSc%defU, QuadSc%defV, QuadSc%defW)
-  IF (el_write_diagnostics) CALL EL_DEBUG_PROJKICK('Bp_e013sum', QuadSc%defW, QuadSc%ndof)
 
   call Boundary_QuadScalar_Def()
-  IF (el_write_diagnostics) CALL EL_DEBUG_PROJKICK('Bp_postbc ', QuadSc%defW, QuadSc%ndof)
 
   do i = 1, QuadSc%ndof
     QuadSc%valU(i) = QuadSc%valU(i) - QuadSc%defU(i) / MlRhoPmat(i)

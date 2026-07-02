@@ -1,17 +1,14 @@
 MODULE EL_QUADRATURE
 
+  USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE EL_HALO, ONLY: tElParticleRecord
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FIELDS, ONLY: tElFieldStorage
   USE EL_CONFIG, ONLY: el_kernel_width_factor
-  USE PP3D_MPI, ONLY: myid
+  USE PP3D_MPI, ONLY: myid, MPI_COMM_SUBS
 
   IMPLICIT NONE
-
-  ! Debug: when /=0, EL_DEPOSIT_PARTICLE prints its Q2 partition-of-unity budget
-  ! (basis_integral vs element_integral) tagged with this step. Set by el_transfer.
-  INTEGER :: el_deposit_dbg = 0
 
   INTEGER, PARAMETER :: EL_SAMPLE_SIZE = 18
   INTEGER, PARAMETER :: EL_SAMPLE_NORMALIZATION = 1
@@ -99,6 +96,9 @@ CONTAINS
       CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
         mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
       IF (ier.LT.0) RETURN
+      CALL EL_ASSERT_KDFG_IN_BOUNDS('EL_INTEGRATE_PARTICLE', ilev, iel, &
+        ieltyp, MIN(SIZE(velocity_u), SIZE(velocity_v), SIZE(velocity_w)), &
+        kdfg, idfl)
       CALL E013(0.0d0,0.0d0,0.0d0,-2)
 
       DO icubp=1,ncubp
@@ -213,6 +213,9 @@ CONTAINS
       CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
         mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
       IF (ier.LT.0) RETURN
+      CALL EL_ASSERT_KDFG_IN_BOUNDS('EL_INTEGRATE_FLUID_MOMENTUM', ilev, &
+        iel, ieltyp, MIN(SIZE(velocity_u), SIZE(velocity_v), &
+        SIZE(velocity_w)), kdfg, idfl)
       CALL E013(0.0d0,0.0d0,0.0d0,-2)
 
       DO icubp=1,ncubp
@@ -251,10 +254,6 @@ CONTAINS
     REAL*8 :: xi(3), point(3), jac(3,3), detj, omega, kernel_weight
     REAL*8 :: width, particle_volume, element_integral, basis_integral(NNBAS)
     LOGICAL :: supported
-    REAL*8 :: dbg_elem_int, dbg_basis_int, dbg_sum_n, dbg_force_written
-    REAL*8 :: dbg_field_entry
-    INTEGER :: dbg_nel_used, dbg_max_kdfg, dbg_oob_iel
-    LOGICAL :: dbg_first
 
     REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
     REAL*8 :: dbas(3,NNBAS,NNDER), dxi(NNCUBP,3), domega(NNCUBP)
@@ -281,17 +280,6 @@ CONTAINS
     width = 2.0d0*el_kernel_width_factor*particle%radius
     particle_volume = 4.0d0*ACOS(-1.0d0)*particle%radius**3/3.0d0
 
-    dbg_elem_int = 0.0d0
-    dbg_basis_int = 0.0d0
-    dbg_sum_n = 0.0d0
-    dbg_force_written = 0.0d0
-    dbg_nel_used = 0
-    dbg_max_kdfg = 0
-    dbg_oob_iel = 0
-    dbg_first = .TRUE.
-    dbg_field_entry = 0.0d0
-    IF (el_deposit_dbg.NE.0) dbg_field_entry = SUM(fields%force_rhs(3,:))
-
     bder = .FALSE.
     bder(1) = .TRUE.
     ieltyp = -1
@@ -317,21 +305,8 @@ CONTAINS
       CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
         mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
       IF (ier.LT.0) RETURN
-
-      IF (el_deposit_dbg.NE.0 .AND. dbg_oob_iel.EQ.0 .AND. &
-          MAXVAL(kdfg(1:idfl)).GT.SIZE(fields%force_rhs,2)) THEN
-        dbg_oob_iel = iel
-        WRITE(*,'(A,I0,A,I0,A,I0,A,I0,A,I0,A,I0,A,I0,A,I0)') &
-          'EL_OOB rank=', myid, ' iel=', iel, ' nel=', mesh%level(ilev)%nel, &
-          ' nvt=', nvt_common, ' net=', net_common, ' nat=', nat_common, &
-          ' nel_triad=', nel_common, ' max_kdfg=', MAXVAL(kdfg(1:idfl))
-        WRITE(*,'(A,I0,A,8I8)') 'EL_OOB rank=', myid, ' kvert=', &
-          mesh%level(ilev)%kvert(:,iel)
-        WRITE(*,'(A,I0,A,12I8)') 'EL_OOB rank=', myid, ' kedge=', &
-          mesh%level(ilev)%kedge(:,iel)
-        WRITE(*,'(A,I0,A,6I8)') 'EL_OOB rank=', myid, ' karea=', &
-          mesh%level(ilev)%karea(:,iel)
-      END IF
+      CALL EL_ASSERT_KDFG_IN_BOUNDS('EL_DEPOSIT_PARTICLE', ilev, iel, &
+        ieltyp, SIZE(fields%force_rhs,2), kdfg, idfl)
 
       CALL E013(0.0d0,0.0d0,0.0d0,-2)
 
@@ -353,25 +328,7 @@ CONTAINS
           basis_integral(i) = basis_integral(i) + &
             dbas(1,kdfl(i),1)*kernel_weight*omega
         END DO
-        IF (el_deposit_dbg.NE.0 .AND. dbg_first) THEN
-          dbg_sum_n = 0.0d0
-          DO i=1,idfl
-            dbg_sum_n = dbg_sum_n + dbas(1,kdfl(i),1)
-          END DO
-          dbg_first = .FALSE.
-        END IF
       END DO
-
-      IF (el_deposit_dbg.NE.0) THEN
-        dbg_elem_int = dbg_elem_int + element_integral
-        DO i=1,idfl
-          dbg_basis_int = dbg_basis_int + basis_integral(i)
-          dbg_force_written = dbg_force_written - &
-            force(3)*basis_integral(i)/normalization
-          dbg_max_kdfg = MAX(dbg_max_kdfg, kdfg(i))
-        END DO
-        dbg_nel_used = dbg_nel_used + 1
-      END IF
 
       fields%alpha_p(iel) = fields%alpha_p(iel) + &
         particle_volume*element_integral/(normalization*mesh%level(ilev)%dvol(iel))
@@ -382,19 +339,34 @@ CONTAINS
       END DO
     END DO
 
-    IF (el_deposit_dbg.NE.0) THEN
-      ! Partition-of-unity budget: basis_int should equal elem_int (Sum_i N_i = 1)
-      ! and sumN (raw Sum_i dbas at one cubature point) should equal 1. A 1/27
-      ! ratio with sumN~1 implies idfl/kdfl (DOF count/map) is wrong; a 1/27 sumN
-      ! implies dbas (E013 basis values) is wrong.
-      WRITE(*,'(A,I0,A,I0,A,I0,A,ES13.5,A,ES13.5,A,ES13.5,A,I0,A,I0)') &
-        'EL_DEPDBG rank=', myid, ' step=', el_deposit_dbg, ' nel=', dbg_nel_used, &
-        ' field_entry_z=', dbg_field_entry, ' force_written_z=', dbg_force_written, &
-        ' field_exit_z=', SUM(fields%force_rhs(3,:)), &
-        ' max_kdfg=', dbg_max_kdfg, ' ndof=', SIZE(fields%force_rhs,2)
+  END SUBROUTINE EL_DEPOSIT_PARTICLE
+
+  SUBROUTINE EL_ASSERT_KDFG_IN_BOUNDS(context, ilev, iel, ieltyp, ndof, kdfg, idfl)
+
+    CHARACTER(*), INTENT(IN) :: context
+    INTEGER, INTENT(IN) :: ilev, iel, ieltyp, ndof, idfl
+    INTEGER, INTENT(IN) :: kdfg(:)
+
+    INTEGER :: ierr, kmin, kmax
+
+    IF (idfl.LE.0) THEN
+      WRITE(*,*) 'Fatal EL NDFGL bounds: rank=', myid, &
+        ' context=', TRIM(context), ' ilev=', ilev, ' iel=', iel, &
+        ' ieltyp=', ieltyp, ' ndof=', ndof, ' idfl=', idfl
+      CALL MPI_Abort(MPI_COMM_SUBS, 905, ierr)
     END IF
 
-  END SUBROUTINE EL_DEPOSIT_PARTICLE
+    kmin = MINVAL(kdfg(1:idfl))
+    kmax = MAXVAL(kdfg(1:idfl))
+    IF (kmin.LT.1 .OR. kmax.GT.ndof) THEN
+      WRITE(*,*) 'Fatal EL NDFGL bounds: rank=', myid, &
+        ' context=', TRIM(context), ' ilev=', ilev, ' iel=', iel, &
+        ' ieltyp=', ieltyp, ' ndof=', ndof, ' min_kdfg=', kmin, &
+        ' max_kdfg=', kmax
+      CALL MPI_Abort(MPI_COMM_SUBS, 905, ierr)
+    END IF
+
+  END SUBROUTINE EL_ASSERT_KDFG_IN_BOUNDS
 
   LOGICAL FUNCTION EL_ELEMENT_INTERSECTS_SUPPORT(mesh, ilev, iel, position, radius)
 

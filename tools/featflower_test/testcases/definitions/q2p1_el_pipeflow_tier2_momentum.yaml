@@ -58,13 +58,13 @@ metrics:
   - id: total_momentum_drift
     parser: keyword_columns
     file: simulation_output_level_2.log
-    keyword: "EL_MOMENTUM"
-    columns: {drift: 18}
+    keyword: "EL_MOMENTUM_ELEMINT"
+    columns: {drift_rel: 16}
     occurrence: last
     numeric_format: fortran_d_or_e
     compare:
       type: tolerance
-      tolerance: {drift: 5.0e-3}
+      tolerance: {drift_rel: 1.0e-5}
 
   - id: feedback_newton_pair
     parser: keyword_columns

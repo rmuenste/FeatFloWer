@@ -20,13 +20,12 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
                                  fbm_compute_particle_reynolds_reference_shell
 
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
-                          bPrintParticleReynolds, MlRhoPmat
+                          bPrintParticleReynolds
 
 use EL_CONFIG, only: el_apply_fluid_feedback
 use EL_CONFIG, only: el_write_diagnostics
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
-                          EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
-                          EL_DEBUG_GZSUM, EL_DEBUG_PROJKICK
+                          EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 
 use, intrinsic :: ieee_arithmetic
@@ -347,21 +346,6 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   dummy_velocity = 0.0d0
 
-  ! Capture the total-momentum reference at the true initial state, BEFORE the
-  ! first coupled update, so the printed drift is measured from t=0 rather than
-  ! from the post-step-1 state (which would hide the first update's imbalance).
-  ! The lumped mass matrix is not assembled on the very first step; the initial
-  ! fluid is at rest, so the fluid momentum contribution is omitted (zero) here.
-  IF (myid.NE.master .AND. el_write_diagnostics .AND. &
-      .NOT.el_momentum_reference_set) THEN
-    IF (ASSOCIATED(MlRhoPmat)) THEN
-      CALL EL_CAPTURE_MOMENTUM_REFERENCE(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
-                                         MlRhoPmat)
-    ELSE
-      CALL EL_CAPTURE_MOMENTUM_REFERENCE()
-    END IF
-  END IF
-
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
 
   ! Evaluate hydrodynamic particle forces from the current fluid state.
@@ -373,6 +357,15 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
       Properties%Gravity, tstep, mfile, -itns)
+  END IF
+
+  ! Capture the element-integrated total-momentum reference at the true initial
+  ! state, before the first particle or fluid update. The pre-advance EL pass
+  ! above initializes epsilon_f but does not advance particle or fluid state.
+  IF (myid.NE.master .AND. .NOT.el_momentum_reference_set) THEN
+    CALL EL_CAPTURE_MOMENTUM_REFERENCE(QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
+      el_field_data%epsilon_f)
   END IF
 
   CALL EL_ADVANCE_PARTICLES()
@@ -391,10 +384,10 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
 
-  IF (myid.NE.master .AND. el_write_diagnostics .AND. ASSOCIATED(MlRhoPmat)) THEN
+  IF (myid.NE.master) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, MlRhoPmat, timens, mfile, itns, &
-      mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f)
+      QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
+      Properties%Density(1), el_field_data%epsilon_f)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
@@ -452,10 +445,6 @@ IF (myid.ne.master) THEN
  ! Assemble the right hand side
  CALL Matdef_General_QuadScalar(QuadSc,1)
 
- ! --- issue-D fluid momentum budget (first steps only) ---
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('P_fluid_pre      ', QuadSc%valW, QuadSc%ndof, itns, mfile, MlRhoPmat)
-
 ! Add the pressure gradient
   CALL AddPressureGradient()
 
@@ -473,23 +462,13 @@ IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
  CALL AddConstantForce()
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('defW_pre_feedbk  ', QuadSc%defW, QuadSc%ndof, itns, mfile)
  IF (el_apply_fluid_feedback) THEN
    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
      QuadSc%defW, tstep)
-   IF (el_write_diagnostics .AND. itns.LE.3 .AND. &
-       ALLOCATED(el_field_data%fluid_feedback_source)) &
-     CALL EL_DEBUG_GZSUM('fed_force_z      ', &
-       el_field_data%fluid_feedback_source(3,:), QuadSc%ndof, itns, mfile)
  END IF
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('defW_post_feedbk ', QuadSc%defW, QuadSc%ndof, itns, mfile)
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('defW_post_bc     ', QuadSc%defW, QuadSc%ndof, itns, mfile)
 
  ! Store the constant right hand side
  QuadSc%rhsU = QuadSc%defU
@@ -646,11 +625,7 @@ CALL Protocol_LinScalar(mfile,LinSc," Pressure-Poisson equation")
 IF (myid.ne.0) THEN
  CALL ZTIME(tttt0)
  !if (myid.eq.1) write(*,*) 'no correction ... '
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('P_fluid_post_velo', QuadSc%valW, QuadSc%ndof, itns, mfile, MlRhoPmat)
  CALL Velocity_Correction()
- IF (el_write_diagnostics .AND. itns.LE.3) &
-   CALL EL_DEBUG_GZSUM('P_fluid_post_proj', QuadSc%valW, QuadSc%ndof, itns, mfile, MlRhoPmat)
  CALL Pressure_Correction()
  CALL ZTIME(tttt1)
  myStat%tCorrUVWP = myStat%tCorrUVWP + (tttt1-tttt0)

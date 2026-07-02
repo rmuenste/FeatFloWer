@@ -23,7 +23,7 @@ MODULE EL_TRANSFER
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
-                       el_write_diagnostics
+                       el_write_diagnostics, el_momentum_audit_freq
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
@@ -32,7 +32,7 @@ MODULE EL_TRANSFER
                      EL_REDUCE_TO_OWNERS, EL_BROADCAST_FROM_OWNERS
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_INTEGRATE_PARTICLE, &
-                           EL_DEPOSIT_PARTICLE, el_deposit_dbg
+                           EL_DEPOSIT_PARTICLE
 
   IMPLICIT NONE
 
@@ -114,10 +114,8 @@ CONTAINS
     ! Pin the global /TRIAD/ mesh offsets to the EL coupling level for the whole
     ! pass. NDFGL (inside EL_INTEGRATE_PARTICLE and EL_DEPOSIT_PARTICLE) builds Q2
     ! global DOF indices as e.g. centre = NVT+NET+NAT+iel. If NVT/NET/NAT are left
-    ! at a finer level (whatever the previous solver phase set), those indices
-    ! overrun force_rhs (sized ndof at mesh%level(ilev)) and the spread is silently
-    ! lost -- a one-off ~1/27 force-feedback loss that breaks momentum conservation
-    ! (see EL_OOB diagnostics). Restored at the end of the pass.
+    ! at another level, those indices no longer match the EL coupling arrays.
+    ! Restored at the end of the pass.
     saved_tr_nel = el_tr_nel
     saved_tr_nvt = el_tr_nvt
     saved_tr_net = el_tr_net
@@ -228,30 +226,14 @@ CONTAINS
     END DO
 
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
-    IF (el_write_diagnostics .AND. ABS(istep).LE.3) el_deposit_dbg = istep
     DO i=1,n_records
       CALL EL_DEPOSIT_PARTICLE(mesh, ilev, records(i), record_result(1,i), &
         record_result(2:4,i), el_field_data)
     END DO
-    el_deposit_dbg = 0
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))
     local_rhs(2) = SUM(el_field_data%force_rhs(2,:))
     local_rhs(3) = SUM(el_field_data%force_rhs(3,:))
-
-    ! issue-D step-2 deposit probe: per-rank owner force, broadcast record force,
-    ! and deposited rhs (z). If owner force /= Sum(record force) the broadcast
-    ! drops it; if Sum(record force) /= Sum(rhs) the deposit drops it. Compare to
-    ! the volume path, which conserves -- isolates the force-feedback failure.
-    IF (el_write_diagnostics .AND. ABS(istep).LE.3 .AND. &
-        (n_owned.GT.0 .OR. n_records.GT.0)) THEN
-      WRITE(*,'(A,I0,A,I0,A,L1,A,I0,A,I0,A,ES13.5,A,ES13.5,A,ES13.5,A,ES13.5)') &
-        'EL_DEPOSIT_DBG rank=', myid, ' istep=', istep, ' adv=', advance_history, &
-        ' n_owned=', n_owned, ' n_rec=', n_records, &
-        ' rec_fz=', SUM(record_result(4,:)), ' rhs_z=', local_rhs(3), &
-        ' vol_local=', SUM(el_field_data%alpha_p*mesh%level(ilev)%dvol), &
-        ' rec_norm=', SUM(record_result(1,:))
-    END IF
 
     ! Capture the fluid feedback source from the DISTRIBUTED force_rhs, i.e.
     ! BEFORE E013Sum3. The momentum RHS this source is added to (QuadSc%defU,
@@ -320,11 +302,12 @@ CONTAINS
     CALL MPI_Allreduce(n_owned, global_owned, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
 
+    feedback_residual = global_rhs + global_feedback
+    feedback_residual_norm = SQRT(SUM(feedback_residual**2))
+
     IF (myid.EQ.showid .AND. el_write_diagnostics .AND. istep.GE.0) THEN
       expected_volume = MAX(global_expected,TINY(1.0d0))
       volume_rel_error = ABS(global_deposited-global_expected)/expected_volume
-      feedback_residual = global_rhs + global_feedback
-      feedback_residual_norm = SQRT(SUM(feedback_residual**2))
       WRITE(*,'(A,I0,A,I0,A,3ES14.6)') 'EL step ', istep, &
         ': owned particles=', global_owned, ', volume deposited/expected/error=', &
         global_deposited, global_expected, volume_rel_error
@@ -337,12 +320,6 @@ CONTAINS
       WRITE(mfile,'(A,I0,A,2ES14.6,A,ES14.6)') &
         'EL_VOLUME_CONSERVATION step= ', istep, ' deposited_expected= ', &
         global_deposited, global_expected, ' rel_error= ', volume_rel_error
-      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
-        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
-        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
-      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
-        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
-        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
       WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
         'EL_FORCE_BUDGET step= ', istep, ' drag= ', global_drag, &
         ' pressure= ', global_pressure, ' lift= ', global_lift, &
@@ -353,25 +330,14 @@ CONTAINS
         ' grav_buoy= ', global_grav_buoy, ' total= ', global_particle_total
     END IF
 
-    ! Issue-D metric (pre-advance pass only, where the corrected drag is formed):
-    ! the per-step impulse mismatch dt*(explicit_drag - implicit_drag) is the
-    ! intrinsic explicit-vs-implicit drag gap; its running sum equals the OLD
-    ! momentum drift. It stays nonzero after the fix (the gap is real) -- but the
-    ! drift collapses because the fluid is now fed the implicit drag, so this line
-    ! reports the size of the correction being applied each step.
-    IF (myid.EQ.showid .AND. el_write_diagnostics .AND. advance_history) THEN
-      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,I0)') &
-        'EL_DRAG_IMPULSE step= ', ABS(istep), &
-        ' explicit_drag_impulse= ', global_drag*dt, &
-        ' implicit_drag_impulse= ', global_drag_impl*dt, &
-        ' mismatch= ', SQRT(SUM(((global_drag-global_drag_impl)*dt)**2)), &
-        ' substeps= ', n_sub
-      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,I0)') &
-        'EL_DRAG_IMPULSE step= ', ABS(istep), &
-        ' explicit_drag_impulse= ', global_drag*dt, &
-        ' implicit_drag_impulse= ', global_drag_impl*dt, &
-        ' mismatch= ', SQRT(SUM(((global_drag-global_drag_impl)*dt)**2)), &
-        ' substeps= ', n_sub
+    IF (myid.EQ.showid .AND. istep.GE.0 .AND. &
+        MOD(ABS(istep), el_momentum_audit_freq).EQ.0) THEN
+      WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
+        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
+      WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
+        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
     END IF
 
     ! Restore the global /TRIAD/ offsets we pinned to the coupling level on entry.

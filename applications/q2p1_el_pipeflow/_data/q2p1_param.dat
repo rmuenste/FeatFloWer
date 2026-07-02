@@ -30,6 +30,7 @@ SimPar@ELMagnus = No
 SimPar@ELApplyParticleForces = Yes
 SimPar@ELApplyFluidFeedback = No
 SimPar@ELWriteDiagnostics = Yes
+SimPar@ELMomentumAuditFreq = 100
 SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 10
 SimPar@NoOutflow = No

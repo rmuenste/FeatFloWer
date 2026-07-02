@@ -243,6 +243,13 @@
   ELDragModel              = stokes | schiller_naumann
   ELApplyParticleForces    = Yes | No
   ELWriteDiagnostics       = Yes | No
+  ELMomentumAuditFreq      = positive integer
+
+  `ELMomentumAuditFreq` controls the permanent momentum-conservation audit
+  cadence. The audit writes `EL_MOMENTUM_ELEMINT` and
+  `EL_FEEDBACK_CONSERVATION` every N steps even when `ELWriteDiagnostics = No`.
+  `ELWriteDiagnostics` only controls verbose verification/debug output such as
+  volume conservation and force-budget lines.
 
   No global simulation_mode option is introduced.
 

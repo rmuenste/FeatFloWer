@@ -13,6 +13,7 @@ MODULE EL_CONFIG
   LOGICAL :: el_pressure_force = .TRUE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
+  INTEGER :: el_momentum_audit_freq = 100
 
 CONTAINS
 
@@ -66,6 +67,11 @@ CONTAINS
       STOP 1
     END IF
 
+    IF (el_momentum_audit_freq.LE.0) THEN
+      WRITE(*,*) 'ELMomentumAuditFreq must be positive.'
+      STOP 1
+    END IF
+
   END SUBROUTINE EL_VALIDATE_CONFIG
 
   SUBROUTINE EL_PRINT_CONFIG(mfile, mterm)
@@ -82,6 +88,7 @@ CONTAINS
     WRITE(mfile,'(A,L1)') 'EL Magnus                 = ', el_magnus
     WRITE(mfile,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
     WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
+    WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
 
     IF (mterm.NE.mfile) THEN
       WRITE(mterm,'(A,A)') 'EL kernel                 = ', TRIM(el_kernel)
@@ -94,6 +101,7 @@ CONTAINS
       WRITE(mterm,'(A,L1)') 'EL Magnus                 = ', el_magnus
       WRITE(mterm,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
       WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
+      WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     END IF
 
   END SUBROUTINE EL_PRINT_CONFIG

@@ -57,13 +57,12 @@ The stage target copies `mesh/quiescent_box_9 → <rundir>/quiescent_box_9` and
 
 With the no-wall (`Periodic`-tagged) mesh the box conserves momentum to leading
 order: as the particle decelerates, the fluid mean flow gains the momentum
-(verified over 60 steps, e.g. particle `p_z` 7.6e-6 → 0.2e-6 while fluid `p_z`
-1.0e-6 → 10.1e-6). A residual **~15–20 % drift remains** — this is the
-explicit/implicit drag inconsistency ("issue D"): the fluid receives the
-explicitly-evaluated drag while the particle is advanced with the smaller
-semi-implicit drag, so the exchange does not balance exactly. The drift is
-bounded and plateaus as the drag → 0.
+(verified over 60 steps). The post-fix regression metric is
+`EL_MOMENTUM_ELEMINT drift_rel`, which uses an element-integrated fluid momentum
+and avoids shared-DOF double counting. The Tier-2 test asserts
+`EL_MOMENTUM_ELEMINT drift_rel < 1.0e-5` and
+`EL_FEEDBACK_CONSERVATION residual < 1.0e-10`.
 
-The test therefore asserts `drift` below a tolerance set to this issue-D band
-(it quantifies the inconsistency); it cannot assert `drift → 0` until the future
-"spread the **implicit** drag reaction to the fluid" fix lands.
+The case sets `SimPar@ELMomentumAuditFreq = 1` so the permanent low-frequency
+momentum audit is emitted every step. Production runs can use the default
+cadence (`100`) to keep a conservation tripwire without verbose logs.
