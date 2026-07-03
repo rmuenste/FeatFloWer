@@ -75,6 +75,16 @@ integer(c_int) function getElSubsteps() bind(C, name="getElSubsteps")
 end interface
 
 !================================================================================================
+!                              Function getElStepsize
+!================================================================================================
+! C++ implementation: getElStepsize() in libs/pe/pe/interface/c_interface_queries.h
+interface
+real(c_double) function getElStepsize() bind(C, name="getElStepsize")
+  use iso_c_binding, only: c_double
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

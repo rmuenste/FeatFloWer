@@ -128,6 +128,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
  real*8 :: domain_xmin, domain_xmax, domain_ymin, domain_ymax
  real*8 :: domain_zmin, domain_zmax
+#ifdef HAVE_PE
+ real*8 :: pe_stepsize, pe_dt_tol
+#endif
 #endif
 
  ndims = 3
@@ -456,6 +459,16 @@ IF (myid.eq.1) write(*,*) 'done!'
    call commf2c_el_terminal_velocity(MPI_COMM_WORLD, MPI_Comm_Ex0, myid, &
                                 domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
                                 domain_zmin, domain_zmax)
+   pe_stepsize = getElStepsize()
+   pe_dt_tol = 1.0d-10*MAX(ABS(TSTEP),1.0d-300)
+   IF (ABS(TSTEP-pe_stepsize).GT.pe_dt_tol) THEN
+     IF (myid.eq.showid) THEN
+       WRITE(*,'(A,2ES24.16,A,ES14.6)') &
+         'Fatal E-L timestep mismatch at startup: CFD TimeStep and PE stepsize_ = ', &
+         TSTEP, pe_stepsize, ' tolerance= ', pe_dt_tol
+     END IF
+     CALL MPI_Abort(MPI_COMM_WORLD, 905, error_indicator)
+   END IF
  end if
 #else
  if (myid .ne. 0) then

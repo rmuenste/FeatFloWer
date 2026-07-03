@@ -19,7 +19,7 @@ MODULE EL_TRANSFER
   USE DEM_QUERY, ONLY: tParticleData
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, setForcesMapped, &
-                       getElSubsteps
+                       getElSubsteps, getElStepsize
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
@@ -57,6 +57,33 @@ MODULE EL_TRANSFER
 #endif
 
 CONTAINS
+
+  SUBROUTINE EL_ASSERT_PE_TIMESTEP(dt, mfile, context)
+
+    REAL*8, INTENT(IN) :: dt
+    INTEGER, INTENT(IN) :: mfile
+    CHARACTER(LEN=*), INTENT(IN) :: context
+
+#ifdef HAVE_PE
+    REAL*8 :: pe_dt, tol
+    INTEGER :: ierr
+
+    pe_dt = getElStepsize()
+    tol = 1.0d-10*MAX(ABS(dt),1.0d-300)
+    IF (ABS(dt-pe_dt).GT.tol) THEN
+      IF (myid.EQ.showid) THEN
+        WRITE(*,'(A,A,A,2ES24.16,A,ES14.6)') &
+          'Fatal E-L timestep mismatch in ', TRIM(context), &
+          ': CFD dt, PE stepsize_ = ', dt, pe_dt, ' tolerance= ', tol
+        WRITE(mfile,'(A,A,A,2ES24.16,A,ES14.6)') &
+          'Fatal E-L timestep mismatch in ', TRIM(context), &
+          ': CFD dt, PE stepsize_ = ', dt, pe_dt, ' tolerance= ', tol
+      END IF
+      CALL MPI_Abort(MPI_COMM_SUBS, 905, ierr)
+    END IF
+#endif
+
+  END SUBROUTINE EL_ASSERT_PE_TIMESTEP
 
   SUBROUTINE EL_PARTICLE_MESH_PASS(mesh, ilev, val_u, val_v, val_w, val_p, &
                                    density, viscosity, gravity, dt, mfile, istep)
@@ -164,6 +191,7 @@ CONTAINS
     coupling_mode = 'explicit'
     IF (el_drag_semi_implicit) coupling_mode = 'semi_implicit'
 #ifdef HAVE_PE
+    IF (advance_history) CALL EL_ASSERT_PE_TIMESTEP(dt, mfile, 'pre-advance pass')
     n_sub = getElSubsteps()
 #else
     n_sub = 1
