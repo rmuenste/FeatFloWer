@@ -1,6 +1,6 @@
 MODULE EL_HALO
 
-  USE ISO_C_BINDING, ONLY: c_int
+  USE ISO_C_BINDING, ONLY: c_int, c_short
   USE MPI
   USE TYPES, ONLY: tMultiMesh
   USE PP3D_MPI, ONLY: myid, master, showid, MPI_COMM_SUBS
@@ -10,7 +10,7 @@ MODULE EL_HALO
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: EL_RECORD_REAL_COUNT = 8
-  INTEGER, PARAMETER :: EL_RECORD_INT_COUNT = 3
+  INTEGER, PARAMETER :: EL_RECORD_INT_COUNT = 11
 
   TYPE tElParticleRecord
     REAL*8 :: position(3) = 0.0d0
@@ -18,6 +18,7 @@ MODULE EL_HALO
     REAL*8 :: radius = 0.0d0
     REAL*8 :: density = 0.0d0
     INTEGER(c_int) :: system_id = 0
+    INTEGER(c_short) :: bytes(8) = 0
     INTEGER :: owner_rank = -1
     INTEGER :: owner_slot = 0
     LOGICAL :: owned = .FALSE.
@@ -230,7 +231,7 @@ CONTAINS
         CALL MPI_Abort(MPI_COMM_SUBS, 902, ierr)
       END IF
       DO j=i+1,SIZE(records)
-        IF (records(i)%system_id.EQ.records(j)%system_id) THEN
+        IF (ALL(records(i)%bytes.EQ.records(j)%bytes)) THEN
           WRITE(*,'(A,I0,A,I0)') 'Fatal E-L halo error on rank ', halo%rank, &
             ': duplicate particle record, system ID ', records(i)%system_id
           CALL MPI_Abort(MPI_COMM_SUBS, 903, ierr)
@@ -379,6 +380,7 @@ CONTAINS
     int_buffer(i0+1) = particle%systemIdx
     int_buffer(i0+2) = halo%rank
     int_buffer(i0+3) = owner_slot
+    int_buffer(i0+4:i0+11) = INT(particle%bytes)
 
   END SUBROUTINE EL_PACK_RECORD
 
@@ -393,6 +395,7 @@ CONTAINS
     record%radius = particle%radius
     record%density = particle%density
     record%system_id = particle%systemIdx
+    record%bytes = particle%bytes
     record%owner_rank = halo%rank
     record%owner_slot = owner_slot
     record%owned = .TRUE.
@@ -414,6 +417,7 @@ CONTAINS
     record%radius = real_buffer(r0+7)
     record%density = real_buffer(r0+8)
     record%system_id = int_buffer(i0+1)
+    record%bytes = INT(int_buffer(i0+4:i0+11), c_short)
     record%owner_rank = int_buffer(i0+2)
     record%owner_slot = int_buffer(i0+3)
     record%owned = .FALSE.
