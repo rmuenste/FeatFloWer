@@ -4,7 +4,7 @@ PROGRAM TEST_EL_KERNEL_FORCES
                        el_lift_model
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FORCES, ONLY: tElForceResult, EL_DRAG_FORCE, &
-                       EL_COMPUTE_PARTICLE_FORCES, EL_SPHERE_CD
+                       EL_COMPUTE_PARTICLE_FORCES, EL_DRAG_CLOSURE
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -21,7 +21,8 @@ PROGRAM TEST_EL_KERNEL_FORCES
   REAL*8 :: sample(EL_SAMPLE_SIZE), gravity(3), slip(3), force_eps1(3)
   TYPE(tElForceResult) :: force_result
   REAL*8 :: relative_error, diameter, dynamic_viscosity, reynolds_values(5)
-  REAL*8 :: reynolds, slip_norm, correction, cd, area, chi, eps_ratio
+  REAL*8 :: reynolds, slip_norm, correction, cd, area, chi, eps, drag_B
+  REAL*8 :: expected_ratio, stokes_norm, difelice_norm
   REAL*8 :: grad_u(3,3), omega_norm, lift_coeff
 
   width = 0.25d0
@@ -50,9 +51,26 @@ PROGRAM TEST_EL_KERNEL_FORCES
   el_drag_model = 'difelice'
   carrier_velocity = (/1.0d-9, -2.0d-9, 3.0d-9/)
   CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
-  expected = 3.0d0*ACOS(-1.0d0)*1.0d-3*0.01d0*carrier_velocity
+  diameter = 2.0d0*state(7)
+  dynamic_viscosity = 1.0d0*1.0d-3
+  area = ACOS(-1.0d0)*diameter*diameter/4.0d0
+  slip_norm = SQRT(SUM(carrier_velocity*carrier_velocity))
+  reynolds = MAX(1.0d-12,diameter*slip_norm/1.0d-3)
+  cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
+  expected = 0.5d0*1.0d0*cd*area*slip_norm*carrier_velocity
   relative_error = SQRT(SUM((force-expected)**2))/SQRT(SUM(expected**2))
-  IF (relative_error.GT.1.0d-2) STOP 40
+  IF (relative_error.GT.1.0d-12) STOP 40
+
+  reynolds = 1.0d-6
+  slip_norm = reynolds*dynamic_viscosity/(1.0d0*diameter)
+  carrier_velocity = (/slip_norm, 0.0d0, 0.0d0/)
+  CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
+  difelice_norm = SQRT(SUM(force**2))
+  el_drag_model = 'stokes'
+  CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
+  stokes_norm = SQRT(SUM(force**2))
+  expected_ratio = (0.63d0*SQRT(reynolds) + 4.8d0)**2 / 24.0d0
+  IF (ABS(difelice_norm/stokes_norm - expected_ratio).GT.1.0d-3) STOP 54
 
   diameter = 2.0d0*state(7)
   dynamic_viscosity = 1.0d0*1.0d-3
@@ -81,7 +99,7 @@ PROGRAM TEST_EL_KERNEL_FORCES
     IF (relative_error.GT.1.0d-12) STOP 51
 
     el_drag_model = 'difelice'
-    cd = EL_SPHERE_CD(reynolds)
+    cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
     CALL EL_DRAG_FORCE(state, carrier_velocity, 1.0d0, 1.0d-3, force)
     expected = 0.5d0*1.0d0*cd*area*slip_norm*carrier_velocity
     relative_error = SQRT(SUM((force-expected)**2))/MAX(SQRT(SUM(expected**2)), &
@@ -120,12 +138,31 @@ PROGRAM TEST_EL_KERNEL_FORCES
   IF (SQRT(SUM(force_result%drag**2)).LE.SQRT(SUM(force_eps1**2))) STOP 47
   slip = force_result%u_f - state(4:6)
   slip_norm = SQRT(SUM(slip*slip))
-  reynolds = MAX(1.0d-12, 1.0d0*diameter*slip_norm/dynamic_viscosity)
+  eps = 0.5d0
+  reynolds = MAX(1.0d-12, 1.0d0*eps*diameter*slip_norm/dynamic_viscosity)
+  cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
   chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
-  eps_ratio = 0.5d0**(2.0d0-chi)
-  relative_error = ABS(SQRT(SUM(force_result%drag**2))/ &
-    SQRT(SUM(force_eps1**2)) - eps_ratio) / eps_ratio
+  expected = 0.5d0*1.0d0*cd*area*slip_norm*eps**(-chi)*slip
+  relative_error = SQRT(SUM((force_result%drag-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
   IF (relative_error.GT.1.0d-12) STOP 53
+
+  state(4:6) = 0.0d0
+  carrier_velocity = 0.0d0
+  CALL EL_DRAG_CLOSURE(state, carrier_velocity, 1.0d0, 1.0d-3, 0.5d0, &
+                       force, drag_B)
+  chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(1.0d-12))**2)
+  expected_ratio = 2.88d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
+                   0.5d0**(-chi-1.0d0)
+  IF (ABS(drag_B-expected_ratio)/expected_ratio.GT.1.0d-12) STOP 55
+
+  carrier_velocity = (/1.0d-14, 0.0d0, 0.0d0/)
+  CALL EL_DRAG_CLOSURE(state, carrier_velocity, 1.0d0, 1.0d-3, 0.5d0, &
+                       force, drag_B)
+  expected = expected_ratio*carrier_velocity
+  relative_error = SQRT(SUM((force-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
+  IF (relative_error.GT.1.0d-12) STOP 56
 
   sample(EL_SAMPLE_EPSILON_F) = 2.0d0
   state(4:6) = 0.0d0

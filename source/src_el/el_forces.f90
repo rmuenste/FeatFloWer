@@ -76,7 +76,7 @@ CONTAINS
     REAL*8, INTENT(IN) :: density, viscosity, epsilon_f
     REAL*8, INTENT(OUT) :: force(3), drag_B
 
-    REAL*8 :: diameter, slip(3), slip_norm, reynolds, correction
+    REAL*8 :: diameter, slip(3), slip_norm, reynolds, reynolds_raw, correction
     REAL*8 :: dynamic_viscosity, eps, cd, area, chi
 
     force = 0.0d0
@@ -87,52 +87,36 @@ CONTAINS
 
     slip = carrier_velocity - state(4:6)
     slip_norm = SQRT(SUM(slip*slip))
-    reynolds = MAX(1.0d-12,density*diameter*slip_norm/dynamic_viscosity)
     eps = MIN(1.0d0,MAX(1.0d-12,epsilon_f))
+    reynolds_raw = density*diameter*slip_norm/dynamic_viscosity
+    reynolds = MAX(1.0d-12,reynolds_raw)
 
     SELECT CASE (TRIM(el_drag_model))
     CASE ('difelice')
       ! ----------------------------------------------------------------------
-      ! Di Felice (1994) drag with voidage correction.
+      ! Di Felice drag is treated as one consistent closure package:
+      ! interstitial slip from the EL sampler, Re_p = rho_f eps_f d |u_rel|/mu,
+      ! Dallavalle-type Cd = (0.63 + 4.8/sqrt(Re_p))**2, and voidage factor
+      ! eps_f**(-chi). The older note that suggested dropping to 1-chi applies
+      ! to the Zhou set-A / Schiller-Naumann convention, not to the original
+      ! Di Felice form used here. Richardson-Zaki validation remains the
+      ! empirical arbiter for dense suspensions.
       !
-      !   F_drag = 0.5 * rho_f * Cd * A * |u_rel| * u_rel * eps_f**(2 - chi)
-      !   Cd     = single-sphere drag coefficient (EL_SPHERE_CD, Schiller-
-      !            Naumann form below Re=1000, 0.44 above)
-      !   chi    = 3.7 - 0.65 * exp( -0.5 * (1.5 - log10(Re_p))**2 )
-      !
-      ! NOTE ON THE VOIDAGE EXPONENT (provisional, Phase 2).
-      ! The exponent on eps_f encodes BOTH the empirical Di Felice voidage
-      ! function AND the velocity basis chosen for the slip. There are several
-      ! conventions in circulation and they differ only in the dense limit
-      ! (eps_f < 1); the dilute limit eps_f = 1 collapses to the exact
-      ! single-sphere drag for all of them, so it cannot be used to tell them
-      ! apart (the eps_f = 1, Re -> 0 Stokes limit verified in the unit test
-      ! is therefore necessary but NOT sufficient to validate the exponent):
-      !   * Di Felice (1994), original   : f(eps) = eps_f**(-chi)
-      !     (single-sphere drag, Re_p built on the interstitial slip)
-      !   * Common CFD-DEM per-particle  : eps_f**(1 - chi)
-      !     (e.g. Zhou et al., JFM 661 (2010), "set A"; one extra eps from
-      !      writing the force per particle rather than per unit volume)
-      !   * Implemented here             : eps_f**(2 - chi)
-      !     (a further factor of eps_f, consistent with expressing the slip on
-      !      a superficial / Darcy basis u_super = eps_f * u_interstitial in
-      !      the |u_rel| * u_rel product)
-      ! The implemented (2 - chi) form is INTENTIONAL for the superficial-slip
-      ! convention used by this transfer layer, but it MUST be re-checked
-      ! against the reference the validation cases are compared to before any
-      ! quantitative dense-suspension claim. If the carrier velocity sampled by
-      ! the kernel is interstitial rather than superficial, drop one power of
-      ! eps_f (use 1 - chi). Full Segre-Silberberg / fixed-bed validation that
-      ! would actually pin the exponent is Phase 5 work.
+      ! Since Cd(Re->0) = 23.04/Re, this closure's dilute low-Re drag is
+      ! 2.88*pi*mu*d rather than the Stokes 3*pi*mu*d, about 4% lower. The
+      ! zero-slip drag_B fallback is therefore the slip->0 limit
+      ! 2.88*pi*mu*d*eps_f**(-chi-1).
       ! ----------------------------------------------------------------------
-      cd = EL_SPHERE_CD(reynolds)
+      reynolds_raw = density*eps*diameter*slip_norm/dynamic_viscosity
+      reynolds = MAX(1.0d-12,reynolds_raw)
+      cd = (0.63d0 + 4.8d0/SQRT(reynolds))**2
       chi = 3.7d0 - 0.65d0*EXP(-0.5d0*(1.5d0-LOG10(reynolds))**2)
       area = ACOS(-1.0d0)*diameter*diameter/4.0d0
-      IF (slip_norm.GT.0.0d0) THEN
-        drag_B = 0.5d0*density*cd*area*slip_norm*eps**(2.0d0-chi)
+      IF (reynolds_raw.GT.1.0d-12) THEN
+        drag_B = 0.5d0*density*cd*area*slip_norm*eps**(-chi)
       ELSE
-        drag_B = 3.0d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
-                 eps**(2.0d0-chi)
+        drag_B = 2.88d0*ACOS(-1.0d0)*dynamic_viscosity*diameter* &
+                 eps**(-chi-1.0d0)
       END IF
     CASE DEFAULT
       correction = 1.0d0
