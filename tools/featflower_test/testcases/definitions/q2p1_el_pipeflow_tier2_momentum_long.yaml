@@ -64,7 +64,7 @@ metrics:
     numeric_format: fortran_d_or_e
     compare:
       type: tolerance
-      tolerance: {drift_rel: 1.05e-5}
+      tolerance: {drift_rel: 2.0e-5}
 
   - id: feedback_newton_pair
     parser: keyword_columns

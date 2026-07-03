@@ -24,6 +24,7 @@ use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
 
 use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
 use EL_CONFIG, only: el_write_diagnostics
+use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
@@ -419,7 +420,7 @@ SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
 
   SELECT CASE (TRIM(el_prescribed_field))
   CASE ('linear_shear')
-    zc = 0.5d0
+    zc = EL_DOMAIN_Z_CENTER()
     DO i=1,ndof
       QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
       QuadSc%valV(i) = 0.0d0

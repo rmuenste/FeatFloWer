@@ -2,6 +2,7 @@ MODULE EL_FORCES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
                        el_lift_model
+  USE EL_GEOMETRY, ONLY: el_domain_box_set, EL_WALL_DISTANCE_AND_NORMAL
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -141,7 +142,12 @@ CONTAINS
     REAL*8, INTENT(IN) :: density, viscosity, epsilon_f
     REAL*8, INTENT(OUT) :: lift(3)
     REAL*8 :: slip(3), omega(3), cross_term(3), omega_norm, coeff
-    REAL*8 :: dynamic_viscosity, wall_factor
+    REAL*8 :: dynamic_viscosity, diameter, slip_norm, reynolds, re_shear
+    REAL*8 :: beta, mei_factor, saffman_lift(3), zeng_lift(3)
+    REAL*8 :: wall_distance, wall_normal(3), l_over_d, cl_zeng, area, blend
+    REAL*8 :: zeng_re
+    LOGICAL, SAVE :: warned_unset_box = .FALSE.
+    LOGICAL, SAVE :: warned_zeng_clamp = .FALSE.
 
     lift = 0.0d0
     IF (TRIM(el_lift_model).EQ.'none') RETURN
@@ -150,6 +156,10 @@ CONTAINS
     IF (dynamic_viscosity.LE.0.0d0 .OR. state(7).LE.0.0d0) RETURN
 
     slip = carrier_velocity - state(4:6)
+    slip_norm = SQRT(SUM(slip*slip))
+    IF (slip_norm.LE.0.0d0) RETURN
+
+    diameter = 2.0d0*state(7)
     omega(1) = grad_u(3,2) - grad_u(2,3)
     omega(2) = grad_u(1,3) - grad_u(3,1)
     omega(3) = grad_u(2,1) - grad_u(1,2)
@@ -157,13 +167,58 @@ CONTAINS
     IF (omega_norm.LE.0.0d0) RETURN
 
     cross_term = EL_CROSS(slip,omega)
-    coeff = 1.615d0*(2.0d0*state(7))**2* &
-            SQRT(density*dynamic_viscosity*omega_norm)
-    wall_factor = 1.0d0
-    IF (TRIM(el_lift_model).EQ.'saffman_mei_wall') THEN
-      wall_factor = MIN(1.0d0,MAX(0.0d0,epsilon_f))
-    END IF
-    lift = wall_factor*coeff*cross_term/MAX(omega_norm,TINY(1.0d0))
+    coeff = 1.615d0*diameter**2*SQRT(density*dynamic_viscosity*omega_norm)
+    saffman_lift = coeff*cross_term/MAX(omega_norm,TINY(1.0d0))
+
+    reynolds = density*diameter*slip_norm/dynamic_viscosity
+    re_shear = density*diameter**2*omega_norm/dynamic_viscosity
+    beta = 0.5d0*re_shear/MAX(reynolds,TINY(1.0d0))
+    beta = MIN(0.4d0,MAX(0.005d0,beta))
+    mei_factor = EL_MEI_LIFT_FACTOR(reynolds,beta)
+
+    SELECT CASE (TRIM(el_lift_model))
+    CASE ('saffman')
+      lift = saffman_lift
+    CASE ('saffman_mei')
+      lift = mei_factor*saffman_lift
+    CASE ('saffman_mei_wall')
+      IF (.NOT.el_domain_box_set) THEN
+        IF (.NOT.warned_unset_box) THEN
+          WRITE(*,'(A)') 'WARNING: saffman_mei_wall requested without EL_SET_DOMAIN_BOX; using saffman_mei.'
+          warned_unset_box = .TRUE.
+        END IF
+        lift = mei_factor*saffman_lift
+        RETURN
+      END IF
+
+      IF (reynolds.LE.0.5d0) THEN
+        lift = mei_factor*saffman_lift
+        RETURN
+      END IF
+
+      CALL EL_WALL_DISTANCE_AND_NORMAL(state(1:3), wall_distance, wall_normal)
+      l_over_d = MAX(wall_distance/diameter,0.5d0)
+      zeng_re = reynolds
+      IF (zeng_re.GT.200.0d0) THEN
+        IF (.NOT.warned_zeng_clamp) THEN
+          WRITE(*,'(A)') 'WARNING: Zeng wall-lift Re exceeds 200; clamping correlation input.'
+          warned_zeng_clamp = .TRUE.
+        END IF
+        zeng_re = 200.0d0
+      END IF
+
+      cl_zeng = EL_ZENG_SHEAR_LIFT_COEFFICIENT(MAX(zeng_re,1.0d-12), l_over_d)
+      area = ACOS(-1.0d0)*diameter*diameter/4.0d0
+      zeng_lift = cl_zeng*0.5d0*density*slip_norm*slip_norm*area*wall_normal
+
+      IF (reynolds.GE.2.0d0) THEN
+        lift = zeng_lift
+      ELSE
+        blend = LOG(reynolds/0.5d0)/LOG(4.0d0)
+        blend = MIN(1.0d0,MAX(0.0d0,blend))
+        lift = (1.0d0-blend)*mei_factor*saffman_lift + blend*zeng_lift
+      END IF
+    END SELECT
 
   END SUBROUTINE EL_LIFT_CLOSURE
 
@@ -190,6 +245,57 @@ CONTAINS
     END IF
 
   END FUNCTION EL_SPHERE_CD
+
+  REAL*8 FUNCTION EL_MEI_LIFT_FACTOR(reynolds, beta)
+
+    REAL*8, INTENT(IN) :: reynolds, beta
+    REAL*8 :: re_use, beta_use
+
+    re_use = MAX(0.0d0,reynolds)
+    beta_use = MAX(0.0d0,beta)
+    IF (re_use.LE.40.0d0) THEN
+      EL_MEI_LIFT_FACTOR = (1.0d0 - 0.3314d0*SQRT(beta_use))* &
+                           EXP(-re_use/10.0d0) + 0.3314d0*SQRT(beta_use)
+    ELSE
+      EL_MEI_LIFT_FACTOR = 0.0524d0*SQRT(beta_use*re_use)
+    END IF
+
+  END FUNCTION EL_MEI_LIFT_FACTOR
+
+  REAL*8 FUNCTION EL_ZENG_CONTACT_LIFT_COEFFICIENT(reynolds)
+
+    REAL*8, INTENT(IN) :: reynolds
+    REAL*8 :: re_use
+
+    re_use = MAX(0.0d0,reynolds)
+    EL_ZENG_CONTACT_LIFT_COEFFICIENT = &
+      3.663d0/(re_use*re_use + 0.1173d0)**0.22d0
+
+  END FUNCTION EL_ZENG_CONTACT_LIFT_COEFFICIENT
+
+  REAL*8 FUNCTION EL_ZENG_SHEAR_LIFT_COEFFICIENT(reynolds, l_over_d)
+
+    REAL*8, INTENT(IN) :: reynolds, l_over_d
+    REAL*8 :: re_use, delta, alpha_sl, beta_sl, lambda_sl
+
+    ! Zeng, Najjar, Balachandar & Fischer, Phys. Fluids 21, 033302 (2009):
+    ! Eq. (19) gives the contact limit CLs,w; Eqs. (28)-(29) give the
+    ! stationary-particle wall-bounded shear composite. Here L is center-wall
+    ! distance normalized by particle diameter, so contact is L=0.5 and
+    ! delta = L - 0.5. The coefficient is normalized by
+    ! F_L = CLs * 0.5*rho*|u_slip|**2*pi*d**2/4 and is positive away from
+    ! the nearest wall.
+    re_use = MAX(0.0d0,reynolds)
+    delta = MAX(0.0d0,l_over_d - 0.5d0)
+    alpha_sl = -EXP(-0.3d0 + 0.025d0*re_use)
+    beta_sl = 0.8d0 + 0.01d0*re_use
+    lambda_sl = (1.0d0 - EXP(-delta))*(re_use/250.0d0)**2.5d0
+    EL_ZENG_SHEAR_LIFT_COEFFICIENT = &
+      EL_ZENG_CONTACT_LIFT_COEFFICIENT(re_use)* &
+      EXP(-0.5d0*delta*(re_use/250.0d0)**(4.0d0/3.0d0))* &
+      (EXP(alpha_sl*delta**beta_sl) - lambda_sl)
+
+  END FUNCTION EL_ZENG_SHEAR_LIFT_COEFFICIENT
 
   PURE FUNCTION EL_CROSS(a,b) RESULT(c)
 

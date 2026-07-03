@@ -43,7 +43,7 @@ CONTAINS
     END SELECT
 
     SELECT CASE (TRIM(el_lift_model))
-    CASE ('none', 'saffman_mei', 'saffman_mei_wall')
+    CASE ('none', 'saffman', 'saffman_mei', 'saffman_mei_wall')
       CONTINUE
     CASE DEFAULT
       WRITE(*,'(A,A)') 'Invalid ELLiftModel: ', TRIM(el_lift_model)

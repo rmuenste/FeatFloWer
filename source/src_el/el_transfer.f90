@@ -303,14 +303,16 @@ CONTAINS
       MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(n_owned, global_owned, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
-    local_record_rank = 0
-    IF (n_records.GT.0) local_record_rank = 1
-    CALL MPI_Allreduce(local_record_rank, global_record_ranks, 1, &
-      MPI_INTEGER, MPI_SUM, MPI_COMM_SUBS, ierr)
-    CALL MPI_Allreduce(n_records, global_records, 1, MPI_INTEGER, &
-      MPI_SUM, MPI_COMM_SUBS, ierr)
-    CALL MPI_Allreduce(n_records, max_records, 1, MPI_INTEGER, &
-      MPI_MAX, MPI_COMM_SUBS, ierr)
+    IF (el_write_diagnostics) THEN
+      local_record_rank = 0
+      IF (n_records.GT.0) local_record_rank = 1
+      CALL MPI_Allreduce(local_record_rank, global_record_ranks, 1, &
+        MPI_INTEGER, MPI_SUM, MPI_COMM_SUBS, ierr)
+      CALL MPI_Allreduce(n_records, global_records, 1, MPI_INTEGER, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      CALL MPI_Allreduce(n_records, max_records, 1, MPI_INTEGER, &
+        MPI_MAX, MPI_COMM_SUBS, ierr)
+    END IF
 
     feedback_residual = global_rhs + global_feedback
     feedback_residual_norm = SQRT(SUM(feedback_residual**2))

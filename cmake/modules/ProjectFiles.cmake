@@ -277,6 +277,7 @@ ${src_util}
 ${src_fbm}
 ${src_assemblies}
 ${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
@@ -304,6 +305,7 @@ ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 
 set(src_quadLS_app_only
 ${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90

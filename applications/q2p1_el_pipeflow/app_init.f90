@@ -78,6 +78,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE cinterface 
  use dem_query
  use post_utils,  only: sim_finalize
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
+ USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
+#endif
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -436,10 +439,15 @@ IF (myid.eq.1) write(*,*) 'done!'
  CALL MPI_GROUP_EXCL(MPI_W0, 1, processRanks, MPI_EX0, error_indicator)
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
-#ifdef HAVE_PE 
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
  call get_global_domain_extents(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
                                 domain_zmin, domain_zmax)
+ call EL_SET_DOMAIN_BOX(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
+                        domain_zmin, domain_zmax)
+#endif
+
+#ifdef HAVE_PE
+#ifdef BUILD_Q2P1_EL_PIPEFLOW
  if (myid .ne. 0) then
    ! Dedicated single-free-sphere PE setup for the terminal-velocity case.
    ! Uses the general decomposeDomain (driven by processesX_/Y_/Z_) so the PE

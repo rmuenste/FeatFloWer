@@ -4,7 +4,11 @@ PROGRAM TEST_EL_KERNEL_FORCES
                        el_lift_model
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FORCES, ONLY: tElForceResult, EL_DRAG_FORCE, &
-                       EL_COMPUTE_PARTICLE_FORCES, EL_DRAG_CLOSURE
+                       EL_COMPUTE_PARTICLE_FORCES, EL_DRAG_CLOSURE, &
+                       EL_MEI_LIFT_FACTOR, &
+                       EL_ZENG_CONTACT_LIFT_COEFFICIENT, &
+                       EL_ZENG_SHEAR_LIFT_COEFFICIENT
+  USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -23,7 +27,8 @@ PROGRAM TEST_EL_KERNEL_FORCES
   REAL*8 :: relative_error, diameter, dynamic_viscosity, reynolds_values(5)
   REAL*8 :: reynolds, slip_norm, correction, cd, area, chi, eps, drag_B
   REAL*8 :: expected_ratio, stokes_norm, difelice_norm
-  REAL*8 :: grad_u(3,3), omega_norm, lift_coeff
+  REAL*8 :: grad_u(3,3), omega_norm, lift_coeff, mei_factor
+  REAL*8 :: lift_low(3), lift_high(3), zeng_value, dns_value
 
   width = 0.25d0
   DO i=0,100
@@ -171,7 +176,7 @@ PROGRAM TEST_EL_KERNEL_FORCES
   grad_u(1,2) = 2.0d0
   sample(EL_SAMPLE_GRAD_U_BEGIN:EL_SAMPLE_GRAD_U_END) = &
     2.0d0*(/grad_u(1,:), grad_u(2,:), grad_u(3,:)/)
-  el_lift_model = 'saffman_mei'
+  el_lift_model = 'saffman'
   CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
                                   force_result)
   omega_norm = 2.0d0
@@ -182,14 +187,74 @@ PROGRAM TEST_EL_KERNEL_FORCES
                    MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
   IF (relative_error.GT.1.0d-12) STOP 48
 
+  IF (ABS(EL_MEI_LIFT_FACTOR(0.0d0,0.1d0)-1.0d0).GT.1.0d-12) STOP 57
+  IF (ABS(EL_MEI_LIFT_FACTOR(100.0d0,0.1d0)- &
+      0.1657033493928231d0).GT.1.0d-12) STOP 58
+  IF (ABS(EL_MEI_LIFT_FACTOR(40.0d0,1.0d0)- &
+      ((1.0d0-0.3314d0)*EXP(-4.0d0)+0.3314d0)).GT.1.0d-12) STOP 59
+
+  el_lift_model = 'saffman_mei'
+  CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
+                                  force_result)
+  mei_factor = EL_MEI_LIFT_FACTOR(10.0d0,0.01d0)
+  expected = mei_factor*(/0.0d0, lift_coeff, 0.0d0/)
+  relative_error = SQRT(SUM((force_result%lift-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
+  IF (relative_error.GT.1.0d-12) STOP 60
+
   sample(EL_SAMPLE_EPSILON_F) = 2.0d0*0.5d0
   el_lift_model = 'saffman_mei_wall'
   CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
                                   force_result)
-  expected = 0.5d0*(/0.0d0, lift_coeff, 0.0d0/)
+  expected = mei_factor*(/0.0d0, lift_coeff, 0.0d0/)
   relative_error = SQRT(SUM((force_result%lift-expected)**2))/ &
                    MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
   IF (relative_error.GT.1.0d-12) STOP 49
+
+  IF (ABS(EL_ZENG_CONTACT_LIFT_COEFFICIENT(0.0d0)-5.86936821706617d0) &
+      .GT.1.0d-12) STOP 61
+  dns_value = 2.653d0
+  zeng_value = EL_ZENG_CONTACT_LIFT_COEFFICIENT(2.0d0)
+  IF (ABS(zeng_value-dns_value)/dns_value.GT.0.06d0) STOP 62
+  dns_value = 1.305d0
+  zeng_value = EL_ZENG_CONTACT_LIFT_COEFFICIENT(10.0d0)
+  IF (ABS(zeng_value-dns_value)/dns_value.GT.0.06d0) STOP 63
+  dns_value = 0.3384d0
+  zeng_value = EL_ZENG_CONTACT_LIFT_COEFFICIENT(200.0d0)
+  IF (ABS(zeng_value-dns_value)/dns_value.GT.0.06d0) STOP 64
+  IF (ABS(EL_ZENG_SHEAR_LIFT_COEFFICIENT(20.0d0,0.5d0)- &
+      EL_ZENG_CONTACT_LIFT_COEFFICIENT(20.0d0)).GT.1.0d-12) STOP 65
+  IF (EL_ZENG_SHEAR_LIFT_COEFFICIENT(20.0d0,4.0d0).LE.0.0d0) STOP 66
+  IF (EL_ZENG_SHEAR_LIFT_COEFFICIENT(30.0d0,4.0d0).GE.0.0d0) STOP 67
+
+  CALL EL_SET_DOMAIN_BOX(0.0d0,1.0d0,0.0d0,1.0d0,0.0d0,1.0d0)
+  sample(EL_SAMPLE_EPSILON_F) = 2.0d0
+  el_lift_model = 'saffman_mei_wall'
+  state(1:3) = (/0.5d0,0.5d0,0.75d0/)
+
+  state(4:6) = 0.0d0
+  sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) = &
+    2.0d0*(/0.05d0, 0.0d0, 0.0d0/)
+  CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
+                                  force_result)
+  lift_low = force_result%lift
+  sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) = &
+    2.0d0*(/0.0500001d0, 0.0d0, 0.0d0/)
+  CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
+                                  force_result)
+  IF (SQRT(SUM((force_result%lift-lift_low)**2)).GT.1.0d-10) STOP 68
+
+  sample(EL_SAMPLE_UF_BEGIN:EL_SAMPLE_UF_END) = &
+    2.0d0*(/0.2d0, 0.0d0, 0.0d0/)
+  CALL EL_COMPUTE_PARTICLE_FORCES(state, sample, 1.0d0, 1.0d-3, gravity, &
+                                  force_result)
+  lift_high = force_result%lift
+  expected = 0.0d0
+  expected(3) = -EL_ZENG_SHEAR_LIFT_COEFFICIENT(2.0d0,25.0d0)* &
+                0.5d0*1.0d0*0.2d0*0.2d0*area
+  relative_error = SQRT(SUM((lift_high-expected)**2))/ &
+                   MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
+  IF (relative_error.GT.1.0d-12) STOP 69
 
   CALL EL_INITIALIZE(3,5)
   el_field_data%alpha_p = (/0.1d0,0.2d0,0.3d0/)
