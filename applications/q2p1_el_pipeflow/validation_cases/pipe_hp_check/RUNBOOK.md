@@ -51,3 +51,21 @@ staged `_data/q2p1_param.dat` (halved resolution; expect a larger deficit).
 - Level 2 recorded alongside (convergence direction must be toward analytic).
 - No periodic-plane anomalies (pressure/velocity fields smooth across z = 0/2,
   spot-check VTK output); startup dt assertion passes; run completes cleanly.
+
+## Results (2026-07-04, np=28, build-el-phase2-pe-gcc14)
+
+| Level | elements | uf_intr_z (TAVG) | error vs 0.03125 |
+|---|---|---|---|
+| 2 | 10,368 | 0.0313647 | +0.37% |
+| 3 | 82,944 | 0.0312310 | **−0.06%** |
+
+- PASS: level-3 error 0.06% (gate 3%); |error| drops 6.2× from level 2 —
+  clean mesh convergence toward analytic.
+- eps = 0.9999583 = 1 − V_probe/V_pipe exactly (probe bookkeeping correct);
+  transverse velocity components O(1e-14); no fatal/OOB/clipping lines;
+  startup dt assertion passed; textbook startup transient
+  (u(t): 0.0072 @ t=0.5 → 0.03113 @ t=10 → converged by t=12).
+- Two defects found and fixed by this case (commit da536c8e): unquoted
+  type-7 hull descriptor in the generated .par files (list-directed read
+  truncation → EOF abort in InitParametrization), and the unsliced
+  dvol(nel+1) total-volume slot doubling the EL volume integrals.
