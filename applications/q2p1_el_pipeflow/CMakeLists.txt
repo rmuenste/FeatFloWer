@@ -120,3 +120,48 @@ foreach(_el_tier2_case
     )
   endif()
 endforeach()
+
+# Validation-campaign cases (validation_cases/<case>): same self-contained staging
+# pattern as the Tier-2 cases. Each case carries its own coarse project folder
+# (mesh/<project>) and pre-partitioned submeshes (mesh/partitions/<MeshFolder>).
+foreach(_el_val_case
+    pipe_hp_check)
+  set(_el_val_case_src ${CMAKE_CURRENT_SOURCE_DIR}/validation_cases/${_el_val_case})
+  add_custom_target(q2p1_el_pipeflow_val_${_el_val_case}_stage
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/_data/MG.dat
+            ${CMAKE_CURRENT_BINARY_DIR}/_data/MG.dat
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${_el_val_case_src}/q2p1_param.dat
+            ${CMAKE_CURRENT_BINARY_DIR}/_data/q2p1_param.dat
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${_el_val_case_src}/example.json
+            ${CMAKE_CURRENT_BINARY_DIR}/example.json
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${_el_val_case_src}/particles.xyz
+            ${CMAKE_CURRENT_BINARY_DIR}/particles.xyz
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS q2p1_el_pipeflow
+    COMMENT "Staging q2p1_el_pipeflow validation case ${_el_val_case}"
+  )
+  if(EXISTS "${_el_val_case_src}/mesh")
+    file(GLOB _el_val_projects RELATIVE ${_el_val_case_src}/mesh
+         ${_el_val_case_src}/mesh/*)
+    foreach(_el_val_proj ${_el_val_projects})
+      if(NOT "${_el_val_proj}" STREQUAL "partitions")
+        add_custom_command(TARGET q2p1_el_pipeflow_val_${_el_val_case}_stage POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_directory
+                  ${_el_val_case_src}/mesh/${_el_val_proj}
+                  ${CMAKE_CURRENT_BINARY_DIR}/${_el_val_proj}
+          COMMENT "Staging coarse project ${_el_val_proj} for ${_el_val_case}"
+        )
+      endif()
+    endforeach()
+    add_custom_command(TARGET q2p1_el_pipeflow_val_${_el_val_case}_stage POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+              ${_el_val_case_src}/mesh/partitions
+              ${CMAKE_CURRENT_BINARY_DIR}/_mesh
+      COMMENT "Staging partitioned mesh for ${_el_val_case}"
+    )
+  endif()
+endforeach()
