@@ -318,7 +318,10 @@ CONTAINS
         clipped_global, ' cells at step ', ABS(istep)
     END IF
 
-    local_deposited = SUM(el_field_data%alpha_p*mesh%level(ilev)%dvol)
+    ! Slice dvol to nel: it carries the FEAT total-volume slot at nel+1
+    ! (see el_diagnostics volume integrals); alpha_p is nel-sized.
+    local_deposited = SUM(el_field_data%alpha_p(1:nel)* &
+                          mesh%level(ilev)%dvol(1:nel))
     local_expected = 0.0d0
     DO i=1,n_owned
       local_expected = local_expected + 4.0d0*ACOS(-1.0d0)* &

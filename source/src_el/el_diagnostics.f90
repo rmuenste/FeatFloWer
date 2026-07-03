@@ -50,7 +50,7 @@ CONTAINS
     REAL*8 :: local_fei(3), global_fei(3), local_fei_eps(3), global_fei_eps(3)
     REAL*8 :: total_ei(3), drift_ei(3), drift_ei_norm, drift_ei_rel
     REAL*8 :: total_ei_eps(3), drift_ei_eps(3), drift_ei_eps_norm
-    INTEGER :: local_count, global_count, ierr
+    INTEGER :: local_count, global_count, ierr, nel_vol
 
     IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
@@ -72,8 +72,13 @@ CONTAINS
       MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_fei_eps, global_fei_eps, 3, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
-    local_vol = SUM(mesh%level(ilev)%dvol)
-    local_eps_vol = SUM(epsilon_f*mesh%level(ilev)%dvol)
+    ! dvol carries the FEAT total-volume slot at index nel+1 (mesh_refine.f90
+    ! SETARE convention: DVOL(NEL+1)=SUM) -- an unsliced SUM double-counts the
+    ! domain volume and an unsliced epsilon_f*dvol product is nonconforming.
+    ! Always slice to the first nel entries.
+    nel_vol = mesh%level(ilev)%nel
+    local_vol = SUM(mesh%level(ilev)%dvol(1:nel_vol))
+    local_eps_vol = SUM(epsilon_f(1:nel_vol)*mesh%level(ilev)%dvol(1:nel_vol))
     CALL MPI_Allreduce(local_vol, global_vol, 1, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_eps_vol, global_eps_vol, 1, MPI_DOUBLE_PRECISION, &
