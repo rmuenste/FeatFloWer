@@ -81,6 +81,7 @@ PROGRAM TEST_EL_TRANSFER
   CALL test_central_volume_conservation(failures)
   CALL test_wall_volume_conservation(failures)
   CALL test_force_spread_conservation(failures)
+  CALL test_drag_B_spread_conservation(failures)
   CALL test_feedback_source_capture(failures)
   CALL test_feedback_source_apply(failures)
   CALL test_zero_force(failures)
@@ -199,19 +200,40 @@ CONTAINS
     CALL check(ok, 'force spreading: sum_a b_a = -F_i (componentwise)', nf)
   END SUBROUTINE test_force_spread_conservation
 
-  SUBROUTINE test_feedback_source_capture(nf)
+  SUBROUTINE test_drag_B_spread_conservation(nf)
     INTEGER, INTENT(INOUT) :: nf
     TYPE(tElParticleRecord) :: p
-    REAL*8 :: sample(EL_SAMPLE_SIZE), feedback(3), expected(3), saved(3)
-    INTEGER :: c
-    LOGICAL :: ok
+    REAL*8 :: sample(EL_SAMPLE_SIZE), force(3), drag_b, deposited
     p = central_particle()
-    feedback = (/0.4d0, 0.0d0, -0.9d0/)
+    force = 0.0d0
+    drag_b = 3.75d0
     val_u = 0.0d0; val_v = 0.0d0; val_w = 0.0d0; val_p = 0.0d0
     CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
     CALL EL_INTEGRATE_PARTICLE(mesh, 1, val_u, val_v, val_w, val_p, &
                                el_field_data%epsilon_f, p, sample)
-    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), feedback, el_field_data)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), force, el_field_data, &
+                             drag_b=drag_b)
+    deposited = SUM(el_field_data%drag_B_ml)
+    CALL check(ABS(deposited-drag_b).LE.1.0d-10*(ABS(drag_b)+1.0d0), &
+               'drag_B spreading: sum_a B_a = B_i', nf)
+  END SUBROUTINE test_drag_B_spread_conservation
+
+  SUBROUTINE test_feedback_source_capture(nf)
+    INTEGER, INTENT(INOUT) :: nf
+    TYPE(tElParticleRecord) :: p
+    REAL*8 :: sample(EL_SAMPLE_SIZE), feedback(3), expected(3), saved(3)
+    REAL*8 :: drag_b, saved_drag_b
+    INTEGER :: c
+    LOGICAL :: ok
+    p = central_particle()
+    feedback = (/0.4d0, 0.0d0, -0.9d0/)
+    drag_b = 2.5d0
+    val_u = 0.0d0; val_v = 0.0d0; val_w = 0.0d0; val_p = 0.0d0
+    CALL EL_BEGIN_FIELD_UPDATE(.TRUE.)
+    CALL EL_INTEGRATE_PARTICLE(mesh, 1, val_u, val_v, val_w, val_p, &
+                               el_field_data%epsilon_f, p, sample)
+    CALL EL_DEPOSIT_PARTICLE(mesh, 1, p, sample(1), feedback, el_field_data, &
+                             drag_b=drag_b)
     CALL EL_CAPTURE_FLUID_FEEDBACK_SOURCE()
     ok = .TRUE.
     DO c = 1, 3
@@ -220,6 +242,8 @@ CONTAINS
       IF (ABS(saved(c)-expected(c)).GT.1.0d-10*(ABS(feedback(c))+1.0d0)) &
         ok = .FALSE.
     END DO
+    saved_drag_b = SUM(el_field_data%drag_B_source)
+    IF (ABS(saved_drag_b-drag_b).GT.1.0d-10*(ABS(drag_b)+1.0d0)) ok = .FALSE.
     CALL check(ok, 'fluid source captures deposited reaction sign', nf)
 
     ! The post-advance diagnostic pass clears/reuses force_rhs but must not
@@ -231,6 +255,8 @@ CONTAINS
       IF (ABS(saved(c)-expected(c)).GT.1.0d-10*(ABS(feedback(c))+1.0d0)) &
         ok = .FALSE.
     END DO
+    saved_drag_b = SUM(el_field_data%drag_B_source)
+    IF (ABS(saved_drag_b-drag_b).GT.1.0d-10*(ABS(drag_b)+1.0d0)) ok = .FALSE.
     CALL check(ok, 'fluid source survives diagnostic field refresh', nf)
   END SUBROUTINE test_feedback_source_capture
 

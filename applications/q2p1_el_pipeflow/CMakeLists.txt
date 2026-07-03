@@ -65,12 +65,14 @@ add_custom_target(q2p1_el_pipeflow_stage
 foreach(_el_tier2_case
     momentum_conservation
     momentum_conservation_long
+    momentum_conservation_semi
     terminal_velocity
     saffman_lift
     straddling_conservation)
   set(_el_tier2_case_src ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/${_el_tier2_case})
   if("${_el_tier2_case}" STREQUAL "straddling_conservation" OR
      "${_el_tier2_case}" STREQUAL "momentum_conservation_long" OR
+     "${_el_tier2_case}" STREQUAL "momentum_conservation_semi" OR
      "${_el_tier2_case}" STREQUAL "saffman_lift")
     set(_el_tier2_mesh_src ${CMAKE_CURRENT_SOURCE_DIR}/tier2_cases/momentum_conservation/mesh)
   else()

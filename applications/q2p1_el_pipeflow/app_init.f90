@@ -566,7 +566,7 @@ END SUBROUTINE get_global_domain_extents
    USE PP3D_MPI
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
-                        el_eps_f_relax, el_drag_model, &
+                        el_eps_f_relax, el_drag_model, el_drag_coupling, &
                         el_pressure_force, el_lift_model, el_magnus, &
                         el_prescribed_field, el_shear_rate, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
@@ -755,6 +755,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_eps_f_relax
        CASE ("ELDragModel")
          READ(string(iEq+1:),*) el_drag_model
+       CASE ("ELDragCoupling")
+         READ(string(iEq+1:),*) el_drag_coupling
        CASE ("ELPressureForce")
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2

@@ -28,7 +28,7 @@ export PYTHONPATH="$PWD/tools/featflower_test/src:$PYTHONPATH"
 The harness compares the final audited lines:
 
 - `EL_MOMENTUM_ELEMINT` column 16 as `drift_rel`, tolerance `2.0e-5`.
-- `EL_FEEDBACK_CONSERVATION` column 12 as `residual`, tolerance `1.0e-10`.
+- `EL_FEEDBACK_CONSERVATION` column 14 as `residual`, tolerance `1.0e-10`.
 
 The first Slurm validation run (`20260702-211527-1fafec3a`) measured
 `drift_rel=1.000013e-5` and `residual=1.229441e-27`. The tolerance is set

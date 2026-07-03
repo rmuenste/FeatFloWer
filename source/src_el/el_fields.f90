@@ -11,6 +11,8 @@ MODULE EL_FIELDS
     REAL*8, ALLOCATABLE :: deps_f_dt(:)
     REAL*8, ALLOCATABLE :: force_rhs(:,:)
     REAL*8, ALLOCATABLE :: fluid_feedback_source(:,:)
+    REAL*8, ALLOCATABLE :: drag_B_ml(:)
+    REAL*8, ALLOCATABLE :: drag_B_source(:)
   END TYPE tElFieldStorage
 
   TYPE(tElFieldStorage), SAVE :: el_field_data
@@ -41,6 +43,8 @@ CONTAINS
     ALLOCATE(el_field_data%deps_f_dt(nel))
     ALLOCATE(el_field_data%force_rhs(3,ndof))
     ALLOCATE(el_field_data%fluid_feedback_source(3,ndof))
+    ALLOCATE(el_field_data%drag_B_ml(ndof))
+    ALLOCATE(el_field_data%drag_B_source(ndof))
 
     el_field_data%alpha_p = 0.0d0
     el_field_data%epsilon_f = 1.0d0
@@ -48,6 +52,8 @@ CONTAINS
     el_field_data%deps_f_dt = 0.0d0
     el_field_data%force_rhs = 0.0d0
     el_field_data%fluid_feedback_source = 0.0d0
+    el_field_data%drag_B_ml = 0.0d0
+    el_field_data%drag_B_source = 0.0d0
 
   END SUBROUTINE EL_ENSURE_FIELDS
 
@@ -62,6 +68,7 @@ CONTAINS
     IF (update_history) el_field_data%epsilon_f_old = el_field_data%epsilon_f
     el_field_data%alpha_p = 0.0d0
     el_field_data%force_rhs = 0.0d0
+    el_field_data%drag_B_ml = 0.0d0
 
   END SUBROUTINE EL_BEGIN_FIELD_UPDATE
 
@@ -69,7 +76,10 @@ CONTAINS
 
     IF (.NOT.ALLOCATED(el_field_data%force_rhs)) RETURN
     IF (.NOT.ALLOCATED(el_field_data%fluid_feedback_source)) RETURN
+    IF (.NOT.ALLOCATED(el_field_data%drag_B_ml)) RETURN
+    IF (.NOT.ALLOCATED(el_field_data%drag_B_source)) RETURN
     el_field_data%fluid_feedback_source = el_field_data%force_rhs
+    el_field_data%drag_B_source = el_field_data%drag_B_ml
 
   END SUBROUTINE EL_CAPTURE_FLUID_FEEDBACK_SOURCE
 
@@ -100,6 +110,8 @@ CONTAINS
     IF (ALLOCATED(el_field_data%force_rhs)) DEALLOCATE(el_field_data%force_rhs)
     IF (ALLOCATED(el_field_data%fluid_feedback_source)) &
       DEALLOCATE(el_field_data%fluid_feedback_source)
+    IF (ALLOCATED(el_field_data%drag_B_ml)) DEALLOCATE(el_field_data%drag_B_ml)
+    IF (ALLOCATED(el_field_data%drag_B_source)) DEALLOCATE(el_field_data%drag_B_source)
     el_field_data%nel = 0
     el_field_data%ndof = 0
 
@@ -108,7 +120,7 @@ CONTAINS
   SUBROUTINE EL_WRITE_RESTART(filename)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, PARAMETER :: restart_version = 1
+    INTEGER, PARAMETER :: restart_version = 2
     INTEGER :: unit
 
     IF (.NOT.ALLOCATED(el_field_data%alpha_p)) RETURN
@@ -120,6 +132,8 @@ CONTAINS
     WRITE(unit) el_field_data%epsilon_f_old
     WRITE(unit) el_field_data%deps_f_dt
     WRITE(unit) el_field_data%force_rhs
+    WRITE(unit) el_field_data%drag_B_ml
+    WRITE(unit) el_field_data%drag_B_source
     CLOSE(unit)
 
   END SUBROUTINE EL_WRITE_RESTART
@@ -127,13 +141,13 @@ CONTAINS
   SUBROUTINE EL_READ_RESTART(filename)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, PARAMETER :: restart_version = 1
+    INTEGER, PARAMETER :: restart_version = 2
     INTEGER :: unit, version, nel, ndof
 
     OPEN(NEWUNIT=unit, FILE=TRIM(filename), STATUS='OLD', ACCESS='STREAM', &
          FORM='UNFORMATTED', ACTION='READ')
     READ(unit) version, nel, ndof
-    IF (version.NE.restart_version) THEN
+    IF (version.NE.1 .AND. version.NE.restart_version) THEN
       CLOSE(unit)
       ERROR STOP 'Unsupported E-L restart version.'
     END IF
@@ -143,6 +157,13 @@ CONTAINS
     READ(unit) el_field_data%epsilon_f_old
     READ(unit) el_field_data%deps_f_dt
     READ(unit) el_field_data%force_rhs
+    IF (version.GE.2) THEN
+      READ(unit) el_field_data%drag_B_ml
+      READ(unit) el_field_data%drag_B_source
+    ELSE
+      el_field_data%drag_B_ml = 0.0d0
+      el_field_data%drag_B_source = 0.0d0
+    END IF
     CLOSE(unit)
 
   END SUBROUTINE EL_READ_RESTART

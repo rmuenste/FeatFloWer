@@ -241,13 +241,15 @@ CONTAINS
 
   END SUBROUTINE EL_INTEGRATE_FLUID_MOMENTUM
 
-  SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields)
+  SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields, &
+      drag_b)
 
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
     TYPE(tElParticleRecord), INTENT(IN) :: particle
     REAL*8, INTENT(IN) :: normalization, force(3)
     TYPE(tElFieldStorage), INTENT(INOUT) :: fields
+    REAL*8, INTENT(IN), OPTIONAL :: drag_b
 
     INTEGER :: iel, icubp, i, ig
     INTEGER :: kdfl(NNBAS), kdfg(NNBAS), ieltyp, idfl
@@ -336,6 +338,10 @@ CONTAINS
         ig = kdfg(i)
         fields%force_rhs(:,ig) = fields%force_rhs(:,ig) - &
           force*basis_integral(i)/normalization
+        IF (PRESENT(drag_b)) THEN
+          fields%drag_B_ml(ig) = fields%drag_B_ml(ig) + &
+            drag_b*basis_integral(i)/normalization
+        END IF
       END DO
     END DO
 

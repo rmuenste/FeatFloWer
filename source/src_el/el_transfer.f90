@@ -23,7 +23,8 @@ MODULE EL_TRANSFER
 #endif
   USE EL_CONFIG, ONLY: el_eps_f_min, el_eps_f_relax, &
                        el_apply_particle_forces, el_apply_fluid_feedback, &
-                       el_write_diagnostics, el_momentum_audit_freq
+                       el_write_diagnostics, el_momentum_audit_freq, &
+                       el_drag_semi_implicit
   USE EL_FORCES, ONLY: tElForceResult, EL_COMPUTE_PARTICLE_FORCES, &
                        EL_SEMI_IMPLICIT_DRAG_IMPULSE, EL_PARTICLE_VOLUME
   USE EL_FIELDS, ONLY: el_field_data, EL_ENSURE_FIELDS, EL_BEGIN_FIELD_UPDATE, &
@@ -95,6 +96,7 @@ CONTAINS
 #endif
     INTEGER :: clipped_local, clipped_global
     LOGICAL :: advance_history
+    CHARACTER(LEN=16) :: coupling_mode
 
     IF (myid.EQ.master) RETURN
 
@@ -147,7 +149,7 @@ CONTAINS
     n_records = SIZE(records)
     ALLOCATE(local_samples(EL_SAMPLE_SIZE,n_records))
     ALLOCATE(owned_samples(EL_SAMPLE_SIZE,n_owned))
-    ALLOCATE(owned_result(4,n_owned), record_result(4,n_records))
+    ALLOCATE(owned_result(5,n_owned), record_result(5,n_records))
     local_samples = 0.0d0
     owned_samples = 0.0d0
     owned_result = 0.0d0
@@ -159,6 +161,8 @@ CONTAINS
     local_grav_buoy = 0.0d0
     local_particle_total = 0.0d0
     local_drag_impl = 0.0d0
+    coupling_mode = 'explicit'
+    IF (el_drag_semi_implicit) coupling_mode = 'semi_implicit'
 #ifdef HAVE_PE
     n_sub = getElSubsteps()
 #else
@@ -181,6 +185,7 @@ CONTAINS
       CALL EL_FORCES_FROM_PARTICLE(owned_particles(i), owned_samples(:,i), &
         density, viscosity, gravity, force_result)
       owned_result(1,i) = owned_samples(EL_SAMPLE_NORMALIZATION,i)
+      owned_result(5,i) = force_result%drag_B
       ! Default (post-advance diagnostic pass): explicit drag + lift. The
       ! pre-advance pass below replaces the drag part with the sub-cycled
       ! implicit drag impulse PE actually applies (issue-D fix), then the
@@ -216,7 +221,17 @@ CONTAINS
               owned_particles(i)%density
         CALL EL_SEMI_IMPLICIT_DRAG_IMPULSE(owned_particles(i)%velocity, m_p, &
           force_result%drag_B, force_result%u_f, f_other, dt, n_sub, drag_force_eff)
-        feedback_used = drag_force_eff + force_result%lift
+        IF (el_drag_semi_implicit) THEN
+          ! Fluid semi-implicit split around PE's actual sub-cycled drag impulse:
+          !   target fluid force = -drag_force_eff - lift
+          !   target = (B*u_f - drag_force_eff - lift) - B*u_new
+          ! EL_DEPOSIT_PARTICLE subtracts feedback_used, so pass
+          !   feedback_used = drag_force_eff + lift - B*u_f.
+          feedback_used = drag_force_eff + force_result%lift - &
+            force_result%drag_B*force_result%u_f
+        ELSE
+          feedback_used = drag_force_eff + force_result%lift
+        END IF
         hydro_active = 1
         CALL set_el_hydro_state_c(owned_particles(i)%bytes, &
           force_result%drag_B, force_result%u_f, f_other, hydro_active)
@@ -230,7 +245,7 @@ CONTAINS
     CALL EL_BROADCAST_FROM_OWNERS(owned_result, record_result)
     DO i=1,n_records
       CALL EL_DEPOSIT_PARTICLE(mesh, ilev, records(i), record_result(1,i), &
-        record_result(2:4,i), el_field_data)
+        record_result(2:4,i), el_field_data, drag_b=record_result(5,i))
     END DO
 
     local_rhs(1) = SUM(el_field_data%force_rhs(1,:))
@@ -351,11 +366,13 @@ CONTAINS
     IF (myid.EQ.showid .AND. istep.GE.0 .AND. &
         MOD(ABS(istep), el_momentum_audit_freq).EQ.0) THEN
       WRITE(*,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
-        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
-        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' mode= '//TRIM(coupling_mode)// &
+        ' rhs= ', global_rhs, ' feedback= ', global_feedback, ' residual= ', &
+        feedback_residual_norm
       WRITE(mfile,'(A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
-        'EL_FEEDBACK_CONSERVATION step= ', istep, ' rhs= ', global_rhs, &
-        ' feedback= ', global_feedback, ' residual= ', feedback_residual_norm
+        'EL_FEEDBACK_CONSERVATION step= ', istep, ' mode= '//TRIM(coupling_mode)// &
+        ' rhs= ', global_rhs, ' feedback= ', global_feedback, ' residual= ', &
+        feedback_residual_norm
     END IF
 
     ! Restore the global /TRIAD/ offsets we pinned to the coupling level on entry.

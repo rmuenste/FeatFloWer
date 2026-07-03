@@ -1,6 +1,6 @@
 schema_version: "0.2"
-id: q2p1_el_pipeflow_tier2_momentum_long
-name: Q2P1 E-L Pipeflow Tier 2 Long-Horizon Momentum Conservation
+id: q2p1_el_pipeflow_tier2_momentum_semi
+name: Q2P1 E-L Pipeflow Tier 2 Momentum Conservation Semi-Implicit
 suite: verification
 priority: normal
 enabled: false
@@ -34,7 +34,7 @@ build:
         - CMAKE_Fortran_COMPILER=mpifort
     - kind: cmake_build
       build_dir: build-el-tier2-pe
-      targets: [q2p1_el_pipeflow_tier2_momentum_conservation_long_stage]
+      targets: [q2p1_el_pipeflow_tier2_momentum_conservation_semi_stage]
       jobs: 8
 
 run:
@@ -51,7 +51,7 @@ run:
     nodes: 1
     ntasks: 28
     cpus_per_task: 1
-    time: "02:00:00"
+    time: "00:45:00"
     mem_per_cpu: "2G"
 
 metrics:
@@ -64,9 +64,9 @@ metrics:
     numeric_format: fortran_d_or_e
     compare:
       type: tolerance
-      tolerance: {drift_rel: 2.0e-5}
+      tolerance: {drift_rel: 3.1e-3}
 
-  - id: feedback_newton_pair
+  - id: feedback_source_fidelity
     parser: keyword_columns
     file: simulation_output_level_2.log
     keyword: "EL_FEEDBACK_CONSERVATION"
@@ -78,4 +78,4 @@ metrics:
       tolerance: {residual: 1.0e-10}
 
 references:
-  baseline: tools/featflower_test/testcases/baselines/q2p1_el_pipeflow_tier2_momentum_long.yaml
+  baseline: tools/featflower_test/testcases/baselines/q2p1_el_pipeflow_tier2_momentum_semi.yaml

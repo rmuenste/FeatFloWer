@@ -24,6 +24,7 @@ SimPar@ELKernelWidthFactor = 2.5d0
 SimPar@ELEpsFMin = 0.4d0
 SimPar@ELEpsFRelax = 0.0d0
 SimPar@ELDragModel = stokes
+SimPar@ELDragCoupling = explicit
 SimPar@ELPressureForce = No
 SimPar@ELLiftModel = saffman
 SimPar@ELPrescribedField = linear_shear

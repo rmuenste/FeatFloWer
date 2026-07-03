@@ -1,7 +1,9 @@
 PROGRAM TEST_EL_KERNEL_FORCES
 
   USE EL_CONFIG, ONLY: el_kernel, el_drag_model, el_pressure_force, &
-                       el_lift_model
+                       el_lift_model, el_drag_coupling, &
+                       el_apply_fluid_feedback, el_drag_semi_implicit, &
+                       EL_VALIDATE_CONFIG
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FORCES, ONLY: tElForceResult, EL_DRAG_FORCE, &
                        EL_COMPUTE_PARTICLE_FORCES, EL_DRAG_CLOSURE, &
@@ -29,6 +31,18 @@ PROGRAM TEST_EL_KERNEL_FORCES
   REAL*8 :: expected_ratio, stokes_norm, difelice_norm
   REAL*8 :: grad_u(3,3), omega_norm, lift_coeff, mei_factor
   REAL*8 :: lift_low(3), lift_high(3), zeng_value, dns_value
+
+  el_drag_coupling = 'explicit'
+  el_apply_fluid_feedback = .FALSE.
+  CALL EL_VALIDATE_CONFIG()
+  IF (el_drag_semi_implicit) STOP 70
+  el_drag_coupling = 'semi_implicit'
+  el_apply_fluid_feedback = .TRUE.
+  CALL EL_VALIDATE_CONFIG()
+  IF (.NOT.el_drag_semi_implicit) STOP 71
+  el_drag_coupling = 'explicit'
+  el_apply_fluid_feedback = .FALSE.
+  CALL EL_VALIDATE_CONFIG()
 
   width = 0.25d0
   DO i=0,100
@@ -262,12 +276,18 @@ PROGRAM TEST_EL_KERNEL_FORCES
   el_field_data%epsilon_f_old = (/0.95d0,0.85d0,0.75d0/)
   el_field_data%deps_f_dt = (/-0.5d0,-0.5d0,-0.5d0/)
   el_field_data%force_rhs = RESHAPE((/(DBLE(i),i=1,15)/),(/3,5/))
+  el_field_data%drag_B_ml = (/(0.25d0*DBLE(i),i=1,5)/)
+  el_field_data%drag_B_source = (/(0.5d0*DBLE(i),i=1,5)/)
   CALL EL_WRITE_RESTART('test_el_fields.restart')
   CALL EL_FINALIZE()
   CALL EL_READ_RESTART('test_el_fields.restart')
   IF (MAXVAL(ABS(el_field_data%epsilon_f_old- &
       (/0.95d0,0.85d0,0.75d0/))).GT.1.0d-14) STOP 5
   IF (MAXVAL(ABS(el_field_data%deps_f_dt+0.5d0)).GT.1.0d-14) STOP 6
+  IF (MAXVAL(ABS(el_field_data%drag_B_ml- &
+      (/(0.25d0*DBLE(i),i=1,5)/))).GT.1.0d-14) STOP 72
+  IF (MAXVAL(ABS(el_field_data%drag_B_source- &
+      (/(0.5d0*DBLE(i),i=1,5)/))).GT.1.0d-14) STOP 73
   CALL EL_FINALIZE()
   OPEN(NEWUNIT=restart_unit,FILE='test_el_fields.restart',STATUS='OLD')
   CLOSE(restart_unit,STATUS='DELETE')

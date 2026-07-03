@@ -240,7 +240,8 @@
   ELKernelWidthFactor      = 2.5
   ELEpsFMin                = 0.4
   ELEpsFRelax              = 0.0
-  ELDragModel              = stokes | schiller_naumann
+  ELDragModel              = difelice | stokes | schiller_naumann
+  ELDragCoupling           = explicit | semi_implicit
   ELApplyParticleForces    = Yes | No
   ELWriteDiagnostics       = Yes | No
   ELMomentumAuditFreq      = positive integer
@@ -250,6 +251,9 @@
   `EL_FEEDBACK_CONSERVATION` every N steps even when `ELWriteDiagnostics = No`.
   `ELWriteDiagnostics` only controls verbose verification/debug output such as
   volume conservation and force-budget lines.
+  `ELDragCoupling = semi_implicit` moves the linear drag sink/source into the
+  fluid velocity operator and requires `ELApplyFluidFeedback = Yes`; the default
+  `explicit` mode preserves the existing feedback path.
 
   No global simulation_mode option is introduced.
 
@@ -284,4 +288,5 @@
   - A large δmax relative to partition width is permitted with a clear warning because direct graph connections preserve
     correctness.
 
-  - Fluid feedback and semi-implicit drag coupling remain Phase 3 work.
+  - Fluid feedback is available; `ELDragCoupling = semi_implicit` is opt-in while
+    `explicit` remains the default production mode.

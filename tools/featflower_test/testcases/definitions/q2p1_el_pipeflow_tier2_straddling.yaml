@@ -70,7 +70,7 @@ metrics:
     parser: keyword_columns
     file: simulation_output_level_2.log
     keyword: "EL_FEEDBACK_CONSERVATION"
-    columns: {residual: 12}
+    columns: {residual: 14}
     occurrence: last
     numeric_format: fortran_d_or_e
     compare:

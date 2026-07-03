@@ -2266,6 +2266,18 @@ DO iField=1,SIZE(myExport%Fields)
     write(iunit, *)"        </DataArray>"
    END IF
   END IF
+
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    write(iunit, '(A)') &
+      '        <DataArray type="Float32" Name="ELDragB" format="ascii">'
+    do ivt=1,NoOfVert
+     write(iunit, '(A,E16.7)') '        ', REAL(el_field_data%drag_B_ml(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
   
  CASE('GradVelocity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3"" format=""ascii"">"
@@ -2820,6 +2832,14 @@ DO iField=1,SIZE(myExport%Fields)
    END IF
   END IF
 
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    call reserve_offset(4_int64*NoOfVert, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELDragB', 1, off)
+   END IF
+  END IF
+
  CASE('GradVelocity')
   call reserve_offset(3_int64*4_int64*NoOfVert, off)
   call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity_x', 3, off)
@@ -3056,6 +3076,16 @@ DO iField=1,SIZE(myExport%Fields)
      call write_r32(iunit, el_field_data%force_rhs(1,ivt))
      call write_r32(iunit, el_field_data%force_rhs(2,ivt))
      call write_r32(iunit, el_field_data%force_rhs(3,ivt))
+    end do
+   END IF
+  END IF
+
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    call write_header(iunit, 4_int64*NoOfVert)
+    do ivt=1,NoOfVert
+     call write_r32(iunit, el_field_data%drag_B_ml(ivt))
     end do
    END IF
   END IF
@@ -3582,6 +3612,10 @@ DO iField=1,SIZE(myExport%Fields)
   IF (ALLOCATED(el_field_data%force_rhs)) THEN
    write(imainunit, '(A)') &
     '       <PDataArray type="Float32" Name="ELReactionForce" NumberOfComponents="3"/>'
+  END IF
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   write(imainunit, '(A)') '       <PDataArray type="Float32" Name="ELDragB"/>'
   END IF
  CASE('GradVelocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3""/>"
