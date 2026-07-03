@@ -22,7 +22,9 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
 use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
                           bPrintParticleReynolds
 
-use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
+use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate, &
+                     el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
+                     el_cylinder_axis
 use EL_CONFIG, only: el_write_diagnostics
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
@@ -403,7 +405,7 @@ END SUBROUTINE Transport_q2p1_UxyzP_el
 SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
 
   INTEGER :: i, ndof
-  REAL*8 :: zc
+  REAL*8 :: zc, r2, radius2
 
   IF (TRIM(el_prescribed_field).EQ.'none') RETURN
 
@@ -425,6 +427,28 @@ SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
       QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
       QuadSc%valV(i) = 0.0d0
       QuadSc%valW(i) = 0.0d0
+    END DO
+  CASE ('poiseuille')
+    radius2 = el_cylinder_radius*el_cylinder_radius
+    IF (radius2.LE.0.0d0) RETURN
+    DO i=1,ndof
+      QuadSc%valU(i) = 0.0d0
+      QuadSc%valV(i) = 0.0d0
+      QuadSc%valW(i) = 0.0d0
+      SELECT CASE (TRIM(el_cylinder_axis))
+      CASE ('x')
+        r2 = (myQ2Coor(2,i)-el_cylinder_center(2))**2 + &
+             (myQ2Coor(3,i)-el_cylinder_center(3))**2
+        QuadSc%valU(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      CASE ('y')
+        r2 = (myQ2Coor(1,i)-el_cylinder_center(1))**2 + &
+             (myQ2Coor(3,i)-el_cylinder_center(3))**2
+        QuadSc%valV(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      CASE DEFAULT
+        r2 = (myQ2Coor(1,i)-el_cylinder_center(1))**2 + &
+             (myQ2Coor(2,i)-el_cylinder_center(2))**2
+        QuadSc%valW(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      END SELECT
     END DO
   END SELECT
 

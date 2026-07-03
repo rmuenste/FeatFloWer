@@ -2,7 +2,7 @@ MODULE EL_FORCES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
                        el_lift_model
-  USE EL_GEOMETRY, ONLY: el_domain_box_set, EL_WALL_DISTANCE_AND_NORMAL
+  USE EL_GEOMETRY, ONLY: el_domain_set, EL_WALL_DISTANCE_AND_NORMAL
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
                            EL_SAMPLE_GRAD_U_BEGIN, EL_SAMPLE_GRAD_U_END, &
@@ -182,9 +182,9 @@ CONTAINS
     CASE ('saffman_mei')
       lift = mei_factor*saffman_lift
     CASE ('saffman_mei_wall')
-      IF (.NOT.el_domain_box_set) THEN
+      IF (.NOT.el_domain_set) THEN
         IF (.NOT.warned_unset_box) THEN
-          WRITE(*,'(A)') 'WARNING: saffman_mei_wall requested without EL_SET_DOMAIN_BOX; using saffman_mei.'
+          WRITE(*,'(A)') 'WARNING: saffman_mei_wall requested without EL domain; using saffman_mei.'
           warned_unset_box = .TRUE.
         END IF
         lift = mei_factor*saffman_lift

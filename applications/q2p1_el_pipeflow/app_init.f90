@@ -79,7 +79,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  use dem_query
  use post_utils,  only: sim_finalize
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
- USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
+ USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX, EL_SET_DOMAIN_CYLINDER
+ USE EL_CONFIG, ONLY: el_domain_type, el_cylinder_center, &
+                      el_cylinder_radius, el_cylinder_axis
 #endif
 
  IMPLICIT NONE
@@ -445,8 +447,13 @@ IF (myid.eq.1) write(*,*) 'done!'
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
  call get_global_domain_extents(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
                                 domain_zmin, domain_zmax)
- call EL_SET_DOMAIN_BOX(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
-                        domain_zmin, domain_zmax)
+ if (TRIM(el_domain_type).EQ.'cylinder') then
+   call EL_SET_DOMAIN_CYLINDER(el_cylinder_center, el_cylinder_radius, &
+                               el_cylinder_axis)
+ else
+   call EL_SET_DOMAIN_BOX(domain_xmin, domain_xmax, domain_ymin, domain_ymax, &
+                          domain_zmin, domain_zmax)
+ end if
 #endif
 
 #ifdef HAVE_PE
@@ -582,8 +589,12 @@ END SUBROUTINE get_global_domain_extents
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
                         el_pressure_force, el_lift_model, el_magnus, &
                         el_prescribed_field, el_shear_rate, &
+                        el_prescribed_umax, el_domain_type, &
+                        el_cylinder_center, el_cylinder_radius, &
+                        el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
                         el_write_diagnostics, el_momentum_audit_freq, &
+                        el_tavg_window, &
                         EL_VALIDATE_CONFIG, &
                         EL_PRINT_CONFIG
 #endif
@@ -601,7 +612,10 @@ END SUBROUTINE get_global_domain_extents
    INTEGER iOutShift
    CHARACTER string*500,cVar*7,cPar*25,cLongString*400
    CHARACTER cParam*8,cParam2*20
+   CHARACTER cPeriodicAxis*8
    LOGICAL bOK,bOutNMAX
+   LOGICAL bPeriodicAxisSet
+   REAL*8 dPeriodicLength
    INTEGER, ALLOCATABLE :: iPos(:)
 
    !-----------------------------------------------------------------------
@@ -634,6 +648,9 @@ END SUBROUTINE get_global_domain_extents
    end if
 
    bOutNMAX = .FALSE.
+   cPeriodicAxis = " "
+   bPeriodicAxisSet = .FALSE.
+   dPeriodicLength = 1.0d0
 
    DO
    READ (UNIT=myFile,FMT='(A500)',IOSTAT=iEnd) string
@@ -749,6 +766,11 @@ END SUBROUTINE get_global_domain_extents
            dPeriodicity(2) = 1.0d0
            dPeriodicity(3) = 1.0d0
          END IF
+       CASE ("PeriodicAxis")
+         READ(string(iEq+1:),*) cPeriodicAxis
+         bPeriodicAxisSet = .TRUE.
+       CASE ("PeriodicLength")
+         READ(string(iEq+1:),*) dPeriodicLength
        CASE ("UseConstantForcing")
          cParam = " "
          READ(string(iEq+1:),*) cParam
@@ -782,6 +804,16 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_prescribed_field
        CASE ("ELShearRate")
          READ(string(iEq+1:),*) el_shear_rate
+       CASE ("ELPrescribedUmax")
+         READ(string(iEq+1:),*) el_prescribed_umax
+       CASE ("ELDomainType")
+         READ(string(iEq+1:),*) el_domain_type
+       CASE ("ELCylinderCenter")
+         READ(string(iEq+1:),*) el_cylinder_center
+       CASE ("ELCylinderRadius")
+         READ(string(iEq+1:),*) el_cylinder_radius
+       CASE ("ELCylinderAxis")
+         READ(string(iEq+1:),*) el_cylinder_axis
        CASE ("ELMagnus")
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2
@@ -808,6 +840,8 @@ END SUBROUTINE get_global_domain_extents
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
+       CASE ("ELTAvgWindow")
+         READ(string(iEq+1:),*) el_tavg_window
 #endif
        CASE ("MinTimeAdapt")
          READ(string(iEq+1:),*) DTMIN
@@ -898,6 +932,22 @@ END SUBROUTINE get_global_domain_extents
    CLOSE (myFile)
 
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
+   IF (bPeriodicAxisSet) THEN
+     dPeriodicity = (/1.0d9,1.0d9,1.0d9/)
+     SELECT CASE (TRIM(ADJUSTL(cPeriodicAxis)))
+     CASE ("x", "X")
+       dPeriodicity(1) = dPeriodicLength
+     CASE ("y", "Y")
+       dPeriodicity(2) = dPeriodicLength
+     CASE ("z", "Z")
+       dPeriodicity(3) = dPeriodicLength
+     CASE DEFAULT
+       WRITE(*,'(A,A)') 'Invalid PeriodicAxis: ', TRIM(ADJUSTL(cPeriodicAxis))
+       STOP 1
+     END SELECT
+     bNoOutflow = .TRUE.
+   END IF
+
    CALL EL_VALIDATE_CONFIG()
 #endif
 

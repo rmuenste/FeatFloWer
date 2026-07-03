@@ -85,6 +85,26 @@ real(c_double) function getElStepsize() bind(C, name="getElStepsize")
 end interface
 
 !================================================================================================
+!                              Function getElContactCount
+!================================================================================================
+! C++ implementation: getElContactCount() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElContactCount() bind(C, name="getElContactCount")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Function getElMaxPenetration
+!================================================================================================
+! C++ implementation: getElMaxPenetration() in libs/pe/pe/interface/c_interface_queries.h
+interface
+real(c_double) function getElMaxPenetration() bind(C, name="getElMaxPenetration")
+  use iso_c_binding, only: c_double
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

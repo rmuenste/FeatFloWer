@@ -5,15 +5,23 @@ MODULE EL_DIAGNOSTICS
   USE DEM_QUERY, ONLY: tParticleData
   USE TYPES, ONLY: tMultiMesh
   USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM
-  USE EL_CONFIG, ONLY: el_momentum_audit_freq
+  USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window
+  USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
-  USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles
+  USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
+                       getElContactCount, getElMaxPenetration
 #endif
 
   IMPLICIT NONE
 
   LOGICAL :: el_momentum_reference_set = .FALSE.
   REAL*8 :: el_momentum_reference(3) = 0.0d0
+  INTEGER :: el_mean_slip_tavg_count = 0
+  REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
+  REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
+  REAL*8 :: el_mean_slip_tavg_uf_super(3) = 0.0d0
+  REAL*8 :: el_mean_slip_tavg_slip_intr(3) = 0.0d0
+  REAL*8 :: el_mean_slip_tavg_eps = 0.0d0
 
 CONTAINS
 
@@ -31,6 +39,12 @@ CONTAINS
     REAL*8 :: local_particle(3), global_particle(3)
     REAL*8 :: local_velocity_sum(3), global_velocity_sum(3)
     REAL*8 :: mean_velocity(3), speed, ref_norm
+    REAL*8 :: local_vol, global_vol, local_eps_vol, global_eps_vol
+    REAL*8 :: uf_intr(3), uf_super(3), slip_intr(3), eps_mean
+    REAL*8 :: tavg_up(3), tavg_uf_intr(3), tavg_uf_super(3)
+    REAL*8 :: tavg_slip_intr(3), tavg_eps
+    REAL*8 :: local_tgran, global_tgran, max_overlap_local, max_overlap
+    INTEGER :: tavg_start_step, ncontacts_local, ncontacts
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
     ! plain rho*u and void-fraction-weighted rho*eps_f*u.
     REAL*8 :: local_fei(3), global_fei(3), local_fei_eps(3), global_fei_eps(3)
@@ -58,6 +72,12 @@ CONTAINS
       MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(local_fei_eps, global_fei_eps, 3, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
+    local_vol = SUM(mesh%level(ilev)%dvol)
+    local_eps_vol = SUM(epsilon_f*mesh%level(ilev)%dvol)
+    CALL MPI_Allreduce(local_vol, global_vol, 1, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_eps_vol, global_eps_vol, 1, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
 
     ! Element-integrated totals/drift, measured against the SAME t=0 reference
     ! (at t=0 the fluid is at rest, so the initial particle momentum is enough).
@@ -80,6 +100,64 @@ CONTAINS
     END IF
     speed = SQRT(SUM(mean_velocity**2))
 
+    uf_intr = 0.0d0
+    uf_super = 0.0d0
+    IF (global_eps_vol.GT.0.0d0) uf_intr = global_fei_eps / &
+      (density*global_eps_vol)
+    IF (global_vol.GT.0.0d0) uf_super = global_fei_eps / &
+      (density*global_vol)
+    slip_intr = mean_velocity - uf_intr
+    eps_mean = 0.0d0
+    IF (global_vol.GT.0.0d0) eps_mean = global_eps_vol / global_vol
+
+    local_tgran = 0.0d0
+#ifdef HAVE_PE
+    IF (local_count.GT.0) THEN
+      CALL EL_LOCAL_GRANULAR_TEMPERATURE(mean_velocity, local_tgran)
+    END IF
+#endif
+    CALL MPI_Allreduce(local_tgran, global_tgran, 1, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    IF (global_count.GT.0) global_tgran = global_tgran / DBLE(global_count)
+
+    tavg_start_step = 0
+    IF (NITNS.GT.0) tavg_start_step = INT((1.0d0-el_tavg_window)*DBLE(NITNS))
+    IF (ABS(istep).GE.tavg_start_step) THEN
+      el_mean_slip_tavg_count = el_mean_slip_tavg_count + 1
+      el_mean_slip_tavg_up = el_mean_slip_tavg_up + mean_velocity
+      el_mean_slip_tavg_uf_intr = el_mean_slip_tavg_uf_intr + uf_intr
+      el_mean_slip_tavg_uf_super = el_mean_slip_tavg_uf_super + uf_super
+      el_mean_slip_tavg_slip_intr = el_mean_slip_tavg_slip_intr + slip_intr
+      el_mean_slip_tavg_eps = el_mean_slip_tavg_eps + eps_mean
+    END IF
+    IF (el_mean_slip_tavg_count.GT.0) THEN
+      tavg_up = el_mean_slip_tavg_up / DBLE(el_mean_slip_tavg_count)
+      tavg_uf_intr = el_mean_slip_tavg_uf_intr / DBLE(el_mean_slip_tavg_count)
+      tavg_uf_super = el_mean_slip_tavg_uf_super / DBLE(el_mean_slip_tavg_count)
+      tavg_slip_intr = el_mean_slip_tavg_slip_intr / DBLE(el_mean_slip_tavg_count)
+      tavg_eps = el_mean_slip_tavg_eps / DBLE(el_mean_slip_tavg_count)
+    ELSE
+      tavg_up = 0.0d0
+      tavg_uf_intr = 0.0d0
+      tavg_uf_super = 0.0d0
+      tavg_slip_intr = 0.0d0
+      tavg_eps = 0.0d0
+    END IF
+
+#ifdef HAVE_PE
+    ncontacts_local = getElContactCount()
+    max_overlap_local = getElMaxPenetration()
+#else
+    ncontacts_local = 0
+    max_overlap_local = 0.0d0
+#endif
+    ! Rank-summed contacts are a stationarity diagnostic; shadow-copy
+    ! boundary contacts may be represented on more than one rank.
+    CALL MPI_Allreduce(ncontacts_local, ncontacts, 1, MPI_INTEGER, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(max_overlap_local, max_overlap, 1, MPI_DOUBLE_PRECISION, &
+      MPI_MAX, MPI_COMM_SUBS, ierr)
+
     IF (myid.EQ.showid) THEN
       WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,ES14.6,A,ES14.6,A,ES14.6)') &
         'EL_MOMENTUM_ELEMINT time= ', time, ' step= ', istep, ' fluid= ', &
@@ -95,6 +173,30 @@ CONTAINS
       WRITE(mfile,'(A,ES14.6,A,I0,A,I0,A,3ES14.6,A,ES14.6)') &
         'EL_TERMINAL_VEL time= ', time, ' step= ', istep, ' count= ', &
         global_count, ' velocity= ', mean_velocity, ' speed= ', speed
+      WRITE(*,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_MEAN_SLIP t= ', time, ' up= ', mean_velocity, &
+        ' uf_intr= ', uf_intr, ' uf_super= ', uf_super, &
+        ' slip_intr= ', slip_intr, ' eps= ', eps_mean
+      WRITE(mfile,'(A,ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_MEAN_SLIP t= ', time, ' up= ', mean_velocity, &
+        ' uf_intr= ', uf_intr, ' uf_super= ', uf_super, &
+        ' slip_intr= ', slip_intr, ' eps= ', eps_mean
+      WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_MEAN_SLIP_TAVG t= ', time, ' samples= ', el_mean_slip_tavg_count, &
+        ' up= ', tavg_up, ' uf_intr= ', tavg_uf_intr, &
+        ' uf_super= ', tavg_uf_super, ' slip_intr= ', tavg_slip_intr, &
+        ' eps= ', tavg_eps
+      WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,3ES14.6,A,ES14.6)') &
+        'EL_MEAN_SLIP_TAVG t= ', time, ' samples= ', el_mean_slip_tavg_count, &
+        ' up= ', tavg_up, ' uf_intr= ', tavg_uf_intr, &
+        ' uf_super= ', tavg_uf_super, ' slip_intr= ', tavg_slip_intr, &
+        ' eps= ', tavg_eps
+      WRITE(*,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6)') &
+        'EL_CONTACT_STATS t= ', time, ' ncontacts= ', ncontacts, &
+        ' max_overlap= ', max_overlap, ' Tgran= ', global_tgran
+      WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6)') &
+        'EL_CONTACT_STATS t= ', time, ' ncontacts= ', ncontacts, &
+        ' max_overlap= ', max_overlap, ' Tgran= ', global_tgran
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS
@@ -133,6 +235,32 @@ CONTAINS
 
   END SUBROUTINE EL_LOCAL_PARTICLE_MOMENTUM
 
+  SUBROUTINE EL_LOCAL_GRANULAR_TEMPERATURE(mean_velocity, tgran_sum)
+
+    REAL*8, INTENT(IN) :: mean_velocity(3)
+    REAL*8, INTENT(OUT) :: tgran_sum
+
+#ifdef HAVE_PE
+    TYPE(tParticleData), ALLOCATABLE :: particles(:)
+    REAL*8 :: vel_fluct(3)
+    INTEGER :: i, count
+#endif
+
+    tgran_sum = 0.0d0
+#ifdef HAVE_PE
+    count = numLocalParticles()
+    IF (count.LE.0) RETURN
+    ALLOCATE(particles(count))
+    CALL getAllParticles(particles)
+    DO i=1,count
+      vel_fluct = particles(i)%velocity - mean_velocity
+      tgran_sum = tgran_sum + SUM(vel_fluct**2)/3.0d0
+    END DO
+    DEALLOCATE(particles)
+#endif
+
+  END SUBROUTINE EL_LOCAL_GRANULAR_TEMPERATURE
+
   SUBROUTINE EL_CAPTURE_MOMENTUM_REFERENCE(val_u, val_v, val_w, mesh, ilev, &
                                            density, epsilon_f)
     ! Capture the same element-integrated total momentum used by the permanent
@@ -169,6 +297,12 @@ CONTAINS
 
     el_momentum_reference_set = .FALSE.
     el_momentum_reference = 0.0d0
+    el_mean_slip_tavg_count = 0
+    el_mean_slip_tavg_up = 0.0d0
+    el_mean_slip_tavg_uf_intr = 0.0d0
+    el_mean_slip_tavg_uf_super = 0.0d0
+    el_mean_slip_tavg_slip_intr = 0.0d0
+    el_mean_slip_tavg_eps = 0.0d0
 
   END SUBROUTINE EL_RESET_MOMENTUM_REFERENCE
 
