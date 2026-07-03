@@ -87,6 +87,15 @@ drive the definition at
 baseline). Verify the definition keys the metric on `EL_MOMENTUM_ELEMINT` at column
 16 with tol 3.1e-3, and that the baseline file key/value match.
 
+## Characterization result
+
+A dt-halving run with both CFD `q2p1_param.dat` and PE `example.json` set to
+`dt = 2.5e-4` and `120` steps measured `drift_rel = 7.486821e-4`, about half of the
+60-step value `1.510406e-3`. This identifies the current semi-implicit drift as
+first-order temporal pairing error for this case, not a timestep-independent spatial
+kernel-smearing term. Keep CFD and PE timesteps matched; changing only
+`q2p1_param.dat` is an invalid characterization setup.
+
 ## Common gotchas
 - **Wrong mesh:** `QBOX9Z3` (3 subs) with np=28 fails partition/rank matching. Use
   `QBOX9` (27 subs).
