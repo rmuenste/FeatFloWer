@@ -6,6 +6,7 @@ MODULE EL_CONFIG
   CHARACTER(LEN=32) :: el_drag_model = 'difelice'
   CHARACTER(LEN=32) :: el_drag_coupling = 'explicit'
   CHARACTER(LEN=32) :: el_lift_model = 'none'
+  CHARACTER(LEN=32) :: el_inertial_lift = 'none'
   CHARACTER(LEN=32) :: el_prescribed_field = 'none'
   CHARACTER(LEN=32) :: el_domain_type = 'box'
   CHARACTER(LEN=8) :: el_cylinder_axis = 'x'
@@ -14,6 +15,7 @@ MODULE EL_CONFIG
   REAL*8 :: el_eps_f_relax = 0.0d0
   REAL*8 :: el_shear_rate = 0.0d0
   REAL*8 :: el_prescribed_umax = 0.0d0
+  REAL*8 :: el_inertial_lift_umax = 0.0d0
   REAL*8 :: el_cylinder_center(3) = (/0.0d0,0.0d0,0.0d0/)
   REAL*8 :: el_cylinder_radius = -1.0d0
   LOGICAL :: el_apply_particle_forces = .TRUE.
@@ -33,6 +35,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_drag_model)
     CALL EL_LOWERCASE(el_drag_coupling)
     CALL EL_LOWERCASE(el_lift_model)
+    CALL EL_LOWERCASE(el_inertial_lift)
     CALL EL_LOWERCASE(el_prescribed_field)
     CALL EL_LOWERCASE(el_domain_type)
     CALL EL_LOWERCASE(el_cylinder_axis)
@@ -75,6 +78,29 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELLiftModel: ', TRIM(el_lift_model)
       STOP 1
     END SELECT
+
+    SELECT CASE (TRIM(el_inertial_lift))
+    CASE ('none', 'matas_asmolov')
+      CONTINUE
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELInertialLift: ', TRIM(el_inertial_lift)
+      STOP 1
+    END SELECT
+
+    IF (TRIM(el_inertial_lift).NE.'none') THEN
+      IF (TRIM(el_domain_type).NE.'cylinder' .OR. &
+          el_cylinder_radius.LE.0.0d0) THEN
+        WRITE(*,*) 'ELInertialLift requires ELDomainType=cylinder with ', &
+          'ELCylinderRadius > 0.'
+        STOP 1
+      END IF
+      IF (el_inertial_lift_umax.LE.0.0d0 .AND. &
+          el_prescribed_umax.LE.0.0d0) THEN
+        WRITE(*,*) 'ELInertialLift requires ELInertialLiftUmax > 0 ', &
+          '(or ELPrescribedUmax > 0 in frozen runs).'
+        STOP 1
+      END IF
+    END IF
 
     SELECT CASE (TRIM(el_prescribed_field))
     CASE ('none', 'linear_shear', 'poiseuille')
@@ -150,6 +176,8 @@ CONTAINS
     WRITE(mfile,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
     WRITE(mfile,'(A,L1)') 'EL pressure force         = ', el_pressure_force
     WRITE(mfile,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
+    WRITE(mfile,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
+    WRITE(mfile,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax
     WRITE(mfile,'(A,A)') 'EL prescribed field       = ', TRIM(el_prescribed_field)
     WRITE(mfile,'(A,ES14.6)') 'EL shear rate             = ', el_shear_rate
     WRITE(mfile,'(A,ES14.6)') 'EL prescribed umax        = ', el_prescribed_umax
@@ -172,6 +200,8 @@ CONTAINS
       WRITE(mterm,'(A,A)') 'EL drag coupling          = ', TRIM(el_drag_coupling)
       WRITE(mterm,'(A,L1)') 'EL pressure force         = ', el_pressure_force
       WRITE(mterm,'(A,A)') 'EL lift model             = ', TRIM(el_lift_model)
+      WRITE(mterm,'(A,A)') 'EL inertial lift          = ', TRIM(el_inertial_lift)
+      WRITE(mterm,'(A,ES14.6)') 'EL inertial lift umax     = ', el_inertial_lift_umax
       WRITE(mterm,'(A,A)') 'EL prescribed field       = ', TRIM(el_prescribed_field)
       WRITE(mterm,'(A,ES14.6)') 'EL shear rate             = ', el_shear_rate
       WRITE(mterm,'(A,ES14.6)') 'EL prescribed umax        = ', el_prescribed_umax

@@ -1,7 +1,10 @@
 MODULE EL_FORCES
 
   USE EL_CONFIG, ONLY: el_drag_model, el_eps_f_min, el_pressure_force, &
-                       el_lift_model
+                       el_lift_model, el_inertial_lift, &
+                       el_inertial_lift_umax, el_prescribed_umax, &
+                       el_cylinder_center, el_cylinder_radius, &
+                       el_cylinder_axis
   USE EL_GEOMETRY, ONLY: el_domain_set, EL_WALL_DISTANCE_AND_NORMAL
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
@@ -32,6 +35,7 @@ CONTAINS
     TYPE(tElForceResult), INTENT(OUT) :: result
 
     REAL*8 :: norm, grad_u(3,3), grad_p(3), eps_f, volume
+    REAL*8 :: inertial_lift(3)
 
     result = tElForceResult()
     norm = sample(EL_SAMPLE_NORMALIZATION)
@@ -50,6 +54,10 @@ CONTAINS
     IF (el_pressure_force) result%pressure = -volume*grad_p
     CALL EL_LIFT_CLOSURE(state, result%u_f, grad_u, density, viscosity, &
                          eps_f, result%lift)
+    IF (TRIM(el_inertial_lift).NE.'none') THEN
+      CALL EL_INERTIAL_LIFT_FORCE(state, density, inertial_lift)
+      result%lift = result%lift + inertial_lift
+    END IF
     result%grav_buoy = (state(8)-density)*volume*gravity
 
     result%particle_total = result%drag + result%pressure + result%lift + &
@@ -221,6 +229,75 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE EL_LIFT_CLOSURE
+
+  SUBROUTINE EL_INERTIAL_LIFT_FORCE(state, density, force)
+
+    ! Neutrally-buoyant inertial (Segre-Silberberg) lift for tube Poiseuille
+    ! flow. Matched-asymptotics lift profile digitized from Matas, Morris &
+    ! Guazzelli (2004) J. Fluid Mech. 515, 171-195, figure 14, Rc = 30 curve
+    ! (Rc = Umax*D/nu, Asmolov's channel Reynolds number; Schonberg-Hinch/
+    ! Asmolov theory, valid for Re_p = Rc*(a/D)^2 << 1). With the paper's
+    ! normalization Fl*Rc^{1/2}*eps^{-3}/(eta*Umax*a), eps = sqrt(Re_p/2),
+    ! the dimensional force collapses to
+    !   F_r(s) = fhat(s) * rho_f * Umax^2 * a^4 / (8*sqrt(2)*R^2),  s = r/R,
+    ! applied along the radial unit vector (positive fhat pushes outward).
+    ! Channel profile applied radially in the tube (the paper's own channel
+    ! -> pipe mapping, 2z/l <-> r/R); zero crossing at s_eq ~ 0.68.
+    REAL*8, INTENT(IN) :: state(8)
+    REAL*8, INTENT(IN) :: density
+    REAL*8, INTENT(OUT) :: force(3)
+
+    INTEGER, PARAMETER :: NTAB = 19
+    ! s = 0.00 .. 0.90 in steps of 0.05
+    REAL*8, PARAMETER :: FHAT(NTAB) = (/ 0.00d0, 1.10d0, 1.70d0, 2.30d0, &
+      2.90d0, 3.50d0, 3.85d0, 4.15d0, 4.20d0, 3.90d0, 3.50d0, 2.85d0, &
+      2.00d0, 0.80d0, -0.80d0, -2.60d0, -5.20d0, -8.20d0, -12.10d0 /)
+    REAL*8, PARAMETER :: DS = 0.05d0
+
+    REAL*8 :: axial(3), radial(3), dx(3), r, s, umax, fhat_s, coeff, frac
+    INTEGER :: ibin
+
+    force = 0.0d0
+    IF (el_cylinder_radius.LE.0.0d0) RETURN
+
+    umax = el_inertial_lift_umax
+    IF (umax.LE.0.0d0) umax = el_prescribed_umax
+    IF (umax.LE.0.0d0) RETURN
+
+    axial = 0.0d0
+    SELECT CASE (TRIM(el_cylinder_axis))
+    CASE ('x')
+      axial(1) = 1.0d0
+    CASE ('y')
+      axial(2) = 1.0d0
+    CASE DEFAULT
+      axial(3) = 1.0d0
+    END SELECT
+
+    dx = state(1:3) - el_cylinder_center
+    radial = dx - SUM(dx*axial)*axial
+    r = SQRT(SUM(radial*radial))
+    IF (r.LE.1.0d-14*el_cylinder_radius) RETURN
+    radial = radial/r
+    s = r/el_cylinder_radius
+
+    ! Linear interpolation on the table; linear extrapolation of the last
+    ! segment beyond s = 0.90 (steep near-wall repulsion; the particle
+    ! center is geometrically capped at s = 1 - a/R).
+    IF (s.GE.DBLE(NTAB-1)*DS) THEN
+      fhat_s = FHAT(NTAB) + (FHAT(NTAB)-FHAT(NTAB-1))/DS * &
+               (s - DBLE(NTAB-1)*DS)
+    ELSE
+      ibin = INT(s/DS) + 1
+      frac = s/DS - DBLE(ibin-1)
+      fhat_s = (1.0d0-frac)*FHAT(ibin) + frac*FHAT(ibin+1)
+    END IF
+
+    coeff = density*umax*umax*state(7)**4 / &
+            (8.0d0*SQRT(2.0d0)*el_cylinder_radius**2)
+    force = fhat_s*coeff*radial
+
+  END SUBROUTINE EL_INERTIAL_LIFT_FORCE
 
   REAL*8 FUNCTION EL_PARTICLE_VOLUME(radius)
 

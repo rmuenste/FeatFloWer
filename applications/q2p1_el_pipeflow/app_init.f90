@@ -588,6 +588,7 @@ END SUBROUTINE get_global_domain_extents
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
                         el_pressure_force, el_lift_model, el_magnus, &
+                        el_inertial_lift, el_inertial_lift_umax, &
                         el_prescribed_field, el_shear_rate, &
                         el_prescribed_umax, el_domain_type, &
                         el_cylinder_center, el_cylinder_radius, &
@@ -800,6 +801,10 @@ END SUBROUTINE get_global_domain_extents
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELLiftModel")
          READ(string(iEq+1:),*) el_lift_model
+       CASE ("ELInertialLift")
+         READ(string(iEq+1:),*) el_inertial_lift
+       CASE ("ELInertialLiftUmax")
+         READ(string(iEq+1:),*) el_inertial_lift_umax
        CASE ("ELPrescribedField")
          READ(string(iEq+1:),*) el_prescribed_field
        CASE ("ELShearRate")

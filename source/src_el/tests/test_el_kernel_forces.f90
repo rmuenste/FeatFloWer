@@ -3,13 +3,17 @@ PROGRAM TEST_EL_KERNEL_FORCES
   USE EL_CONFIG, ONLY: el_kernel, el_drag_model, el_pressure_force, &
                        el_lift_model, el_drag_coupling, &
                        el_apply_fluid_feedback, el_drag_semi_implicit, &
+                       el_inertial_lift, el_inertial_lift_umax, &
+                       el_cylinder_center, el_cylinder_radius, &
+                       el_cylinder_axis, &
                        EL_VALIDATE_CONFIG
   USE EL_KERNEL_FUNCTIONS, ONLY: EL_KERNEL_VALUE
   USE EL_FORCES, ONLY: tElForceResult, EL_DRAG_FORCE, &
                        EL_COMPUTE_PARTICLE_FORCES, EL_DRAG_CLOSURE, &
                        EL_MEI_LIFT_FACTOR, &
                        EL_ZENG_CONTACT_LIFT_COEFFICIENT, &
-                       EL_ZENG_SHEAR_LIFT_COEFFICIENT
+                       EL_ZENG_SHEAR_LIFT_COEFFICIENT, &
+                       EL_INERTIAL_LIFT_FORCE
   USE EL_GEOMETRY, ONLY: EL_SET_DOMAIN_BOX
   USE EL_QUADRATURE, ONLY: EL_SAMPLE_SIZE, EL_SAMPLE_NORMALIZATION, &
                            EL_SAMPLE_UF_BEGIN, EL_SAMPLE_UF_END, &
@@ -269,6 +273,48 @@ PROGRAM TEST_EL_KERNEL_FORCES
   relative_error = SQRT(SUM((lift_high-expected)**2))/ &
                    MAX(SQRT(SUM(expected**2)),TINY(1.0d0))
   IF (relative_error.GT.1.0d-12) STOP 69
+
+  ! Matas-Asmolov inertial lift: table anchors, interpolation, zero crossing,
+  ! and radial direction (F = fhat(r/R)*rho*Umax^2*a^4/(8*sqrt(2)*R^2)*e_r).
+  el_inertial_lift = 'matas_asmolov'
+  el_inertial_lift_umax = 0.6d0
+  el_cylinder_center = 0.0d0
+  el_cylinder_radius = 0.5d0
+  el_cylinder_axis = 'z'
+  state = 0.0d0
+  state(7) = 0.025d0
+
+  ! Grid point s = 0.40 (fhat = 4.20), particle on +x: outward push.
+  state(1:3) = (/0.2d0, 0.0d0, 1.0d0/)
+  CALL EL_INERTIAL_LIFT_FORCE(state, 1.0d0, force)
+  expected = 0.0d0
+  expected(1) = 4.20d0*1.0d0*0.36d0*0.025d0**4/ &
+                (8.0d0*SQRT(2.0d0)*0.25d0)
+  relative_error = SQRT(SUM((force-expected)**2))/SQRT(SUM(expected**2))
+  IF (relative_error.GT.1.0d-12) STOP 74
+
+  ! s = 0.80 (fhat = -5.20): inward push, placed on -y so e_r = (0,-1,0).
+  state(1:3) = (/0.0d0, -0.4d0, 1.0d0/)
+  CALL EL_INERTIAL_LIFT_FORCE(state, 1.0d0, force)
+  IF (force(2).LE.0.0d0) STOP 75
+  IF (ABS(force(1)).GT.1.0d-18 .OR. ABS(force(3)).GT.1.0d-18) STOP 75
+
+  ! Zero crossing of the interpolated table: between s = 0.65 (+0.80) and
+  ! s = 0.70 (-0.80) the linear interpolant vanishes at s = 0.675.
+  state(1:3) = (/0.3375d0, 0.0d0, 1.0d0/)
+  CALL EL_INERTIAL_LIFT_FORCE(state, 1.0d0, force)
+  IF (SQRT(SUM(force**2)).GT.1.0d-18) STOP 76
+
+  ! Off-grid interpolation at s = 0.42: 0.6*4.20 + 0.4*3.90 = 4.08.
+  state(1:3) = (/0.21d0, 0.0d0, 1.0d0/)
+  CALL EL_INERTIAL_LIFT_FORCE(state, 1.0d0, force)
+  expected(1) = 4.08d0*1.0d0*0.36d0*0.025d0**4/ &
+                (8.0d0*SQRT(2.0d0)*0.25d0)
+  relative_error = ABS(force(1)-expected(1))/expected(1)
+  IF (relative_error.GT.1.0d-12) STOP 77
+  el_inertial_lift = 'none'
+  el_inertial_lift_umax = 0.0d0
+  el_cylinder_radius = -1.0d0
 
   CALL EL_INITIALIZE(3,5)
   el_field_data%alpha_p = (/0.1d0,0.2d0,0.3d0/)

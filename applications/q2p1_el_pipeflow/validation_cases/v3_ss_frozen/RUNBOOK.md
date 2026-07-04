@@ -95,6 +95,31 @@ mpirun --oversubscribe --wdir "$RUN" -np 28 "$BIN" > "$RUN/run_ss_dense.log" 2>&
 grep EL_SS_RADIUS "$RUN/run_ss_dense.log" > ss_dense.dat
 ```
 
+## Variant: Matas–Asmolov inertial lift (W4.2 closure, option b)
+
+`ELInertialLift = matas_asmolov` (with `ELLiftModel = none`) activates the
+neutrally-buoyant inertial-lift closure: the Rc = 30 lift profile digitized
+from Matas, Morris & Guazzelli (2004) JFM 515, figure 14 (their
+Asmolov-method computation), F_r = ĝ(r/R)·ρ·Umax²·a⁴/(8√2·R²), table zero
+crossing at s_eq = 0.675. Set `ELPrescribedUmax = 0.6` so Rc = Umax·D/ν =
+30 matches the table's Reynolds number, and `"periodicZ_": true` (runs are
+longer than the axial track).
+
+Results (2026-07-04, 450 steps / t = 0.9 of a 2000-step run, np=28):
+- Migration directions correct: rmin (s=0.1) drifts outward, rmax (s=0.9)
+  inward, both toward s_eq; trajectories linear in t.
+- Profile shape: measured slope ratio |rmax/rmin| = 7.34 vs table
+  ĝ(0.9)/ĝ(0.1) = 7.12 (3%).
+- Absolute rates: ds/dt = +1.56e-5 (rmin) / −1.15e-4 (rmax) vs ε=1
+  quasi-steady predictions +1.87e-5 / −1.33e-4 (ratio 0.84–0.86). The
+  deficit is the Di Felice ε^(−χ−1) voidage factor acting on the particle's
+  own kernel deposit (ε ≈ 0.97 at the particle ⇒ ~15% extra lateral drag) —
+  an unresolved-EL self-influence effect, not a closure defect.
+- Full convergence to the annulus at a/R = 0.05 takes O(10⁴) time units
+  (physical: v_migr ∝ (a/D)³; SS experiments needed meters of tube). The
+  convergence demonstration run uses d_p = 0.1 (64× faster, ~250 t.u.,
+  ~50k steps at dt = 0.005) — pending.
+
 ## Acceptance (plumbing)
 
 - Both runs complete cleanly: no fatal/OOB/clipping lines, dt assertion
