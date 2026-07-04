@@ -5,7 +5,9 @@ MODULE EL_DIAGNOSTICS
   USE DEM_QUERY, ONLY: tParticleData
   USE TYPES, ONLY: tMultiMesh
   USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM
-  USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window
+  USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
+                       el_domain_type, el_cylinder_center, &
+                       el_cylinder_radius, el_cylinder_axis
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
@@ -205,6 +207,83 @@ CONTAINS
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS
+
+  SUBROUTINE EL_WRITE_SS_RADIUS(time, mfile, istep)
+
+    ! Radial-position statistics of all particles about the configured
+    ! cylinder axis, normalized by the cylinder radius (Segre-Silberberg
+    ! migration monitor). Unlike EL_WRITE_MOMENTUM_DIAGNOSTICS this is also
+    ! called in prescribed-field (frozen) runs, where the momentum audit is
+    ! meaningless but radial trajectories are the payload.
+    REAL*8, INTENT(IN) :: time
+    INTEGER, INTENT(IN) :: mfile, istep
+
+    REAL*8 :: local_rsum, global_rsum, local_rmin, global_rmin
+    REAL*8 :: local_rmax, global_rmax, rmean, r
+    INTEGER :: local_count, global_count, ierr
+#ifdef HAVE_PE
+    TYPE(tParticleData), ALLOCATABLE :: particles(:)
+    REAL*8 :: dx(3)
+    INTEGER :: i
+#endif
+
+    IF (TRIM(el_domain_type).NE.'cylinder') RETURN
+    IF (el_cylinder_radius.LE.0.0d0) RETURN
+    IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
+
+    local_rsum = 0.0d0
+    local_rmin = HUGE(1.0d0)
+    local_rmax = -HUGE(1.0d0)
+    local_count = 0
+
+#ifdef HAVE_PE
+    local_count = numLocalParticles()
+    IF (local_count.GT.0) THEN
+      ALLOCATE(particles(local_count))
+      CALL getAllParticles(particles)
+      DO i = 1, local_count
+        dx = particles(i)%position - el_cylinder_center
+        SELECT CASE (TRIM(el_cylinder_axis))
+        CASE ('x')
+          r = SQRT(dx(2)**2 + dx(3)**2)
+        CASE ('y')
+          r = SQRT(dx(1)**2 + dx(3)**2)
+        CASE DEFAULT
+          r = SQRT(dx(1)**2 + dx(2)**2)
+        END SELECT
+        r = r / el_cylinder_radius
+        local_rsum = local_rsum + r
+        local_rmin = MIN(local_rmin, r)
+        local_rmax = MAX(local_rmax, r)
+      END DO
+      DEALLOCATE(particles)
+    END IF
+#endif
+
+    CALL MPI_Allreduce(local_rsum, global_rsum, 1, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_rmin, global_rmin, 1, MPI_DOUBLE_PRECISION, &
+      MPI_MIN, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_rmax, global_rmax, 1, MPI_DOUBLE_PRECISION, &
+      MPI_MAX, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(local_count, global_count, 1, MPI_INTEGER, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+
+    IF (global_count.LE.0) RETURN
+    rmean = global_rsum / DBLE(global_count)
+
+    IF (myid.EQ.showid) THEN
+      WRITE(*,'(A,ES14.6,A,I0,A,I0,A,ES14.6,A,ES14.6,A,ES14.6)') &
+        'EL_SS_RADIUS t= ', time, ' step= ', istep, ' count= ', &
+        global_count, ' rmean= ', rmean, ' rmin= ', global_rmin, &
+        ' rmax= ', global_rmax
+      WRITE(mfile,'(A,ES14.6,A,I0,A,I0,A,ES14.6,A,ES14.6,A,ES14.6)') &
+        'EL_SS_RADIUS t= ', time, ' step= ', istep, ' count= ', &
+        global_count, ' rmean= ', rmean, ' rmin= ', global_rmin, &
+        ' rmax= ', global_rmax
+    END IF
+
+  END SUBROUTINE EL_WRITE_SS_RADIUS
 
   SUBROUTINE EL_LOCAL_PARTICLE_MOMENTUM(momentum, velocity_sum, count)
 

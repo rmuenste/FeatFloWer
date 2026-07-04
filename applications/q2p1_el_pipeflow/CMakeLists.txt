@@ -123,9 +123,12 @@ endforeach()
 
 # Validation-campaign cases (validation_cases/<case>): same self-contained staging
 # pattern as the Tier-2 cases. Each case carries its own coarse project folder
-# (mesh/<project>) and pre-partitioned submeshes (mesh/partitions/<MeshFolder>).
+# (mesh/<project>) and pre-partitioned submeshes (mesh/partitions/<MeshFolder>);
+# a case may share another case's mesh via a "mesh" symlink (v3_ss_frozen ->
+# pipe_hp_check).
 foreach(_el_val_case
-    pipe_hp_check)
+    pipe_hp_check
+    v3_ss_frozen)
   set(_el_val_case_src ${CMAKE_CURRENT_SOURCE_DIR}/validation_cases/${_el_val_case})
   add_custom_target(q2p1_el_pipeflow_val_${_el_val_case}_stage
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -28,7 +28,8 @@ use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate
 use EL_CONFIG, only: el_write_diagnostics
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
-                          EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set
+                          EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
+                          EL_WRITE_SS_RADIUS
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 
 use, intrinsic :: ieee_arithmetic
@@ -389,12 +390,16 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       Properties%Gravity, tstep, mfile, itns)
   END IF
 
+  ! Radial-migration monitor; internally gated on cylinder domain + audit
+  ! frequency, and (unlike the momentum audit) also active in frozen runs.
+  IF (myid.NE.master) CALL EL_WRITE_SS_RADIUS(timens, mfile, itns)
+
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (.NOT.prescribed_active) THEN
     CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
   END IF
 
-  IF (myid.NE.master .AND. .NOT.prescribed_active) THEN
+  IF (myid.NE.master) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
       Properties%Density(1), el_field_data%epsilon_f)
