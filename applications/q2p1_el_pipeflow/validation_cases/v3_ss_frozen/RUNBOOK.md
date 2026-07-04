@@ -22,9 +22,12 @@ lift OFF.
   separations.
 - Time: dt = 0.002 (PE `stepsize_` matched), 650 steps → t = 1.3. Particle
   response time τ_p = ρ_p d²/(18μ) = 6.9e-3 → dt/τ_p ≈ 0.29 (explicit drag
-  stable). Run length is capped by the axial track: the PE side does NOT wrap
-  particles across the z-periodic plane (Stage-2 work item), and the fastest
-  particle (r/R = 0.1, u ≈ 1.19) reaches z ≈ 1.75 by t = 1.3.
+  stable). The committed baseline (650 steps) predates particle wrap; runs
+  are no longer track-capped when `"periodicZ_": true` is set in
+  `example.json` (PE `decomposePeriodicZ3D`, requires `processesZ_ ≥ 3`).
+  Wrap verification (lift OFF, 2000 steps → fastest particle wraps z = 0/2
+  twice): count = 16 throughout, radii frozen to all printed digits, worst
+  EL_VOLUME_CONSERVATION rel_error 2.5e-15 across the periodic plane.
 - Diagnostic: `EL_SS_RADIUS t= step= count= rmean= rmin= rmax=` every 25
   steps (values are r/R, reduced over all particles).
 
