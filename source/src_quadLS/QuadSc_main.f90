@@ -356,6 +356,12 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
 
+  ! Viscosity convention: Properties%Viscosity is KINEMATIC (param_parser
+  ! stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density);
+  ! the EL closures take the kinematic value and form mu = rho*nu
+  ! internally (el_forces.f90 dynamic_viscosity). Do NOT pre-multiply by
+  ! density here -- that double-counts rho for any fluid with rho /= 1
+  ! (caught by the ten Cate SI validation case).
   ! Evaluate hydrodynamic particle forces from the current fluid state.
   IF (myid.EQ.master) THEN
     CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
