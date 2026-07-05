@@ -119,8 +119,33 @@ count = 16 throughout, wrap active):
   closure defect.
 - Full convergence to the annulus at a/R = 0.05 takes O(10⁴) time units
   (physical: v_migr ∝ (a/D)³; SS experiments needed meters of tube). The
-  convergence demonstration run uses d_p = 0.1 (64× faster, ~250 t.u.,
-  ~50k steps at dt = 0.005) — pending.
+  convergence demonstration therefore uses d_p = 0.1 — see below.
+
+### Convergence demonstration (2026-07-05, np=28, own rundir): PASS
+
+Setup: 16 neutrally buoyant d_p = 0.1 particles (a/R = 0.1) on a fan
+r/R = 0.25…0.85 bracketing the annulus, z-staggered 0.15…1.65,
+`ELInertialLift = matas_asmolov`, `ELLiftModel = none`, Umax = 0.6
+(Rc = 30 = the table's Reynolds number), `periodicZ_: true`, dt = 0.05
+(quasi-static migration; PE drag update is semi-implicit so dt is not
+τ_p-limited), 40 000 steps → t = 2000.
+
+| t | rmin | rmean | rmax |
+|---|---|---|---|
+| 10 | 0.2525 | 0.5507 | 0.8442 |
+| 250 | 0.3194 | 0.5742 | 0.7572 |
+| 500 | 0.3963 | 0.6013 | 0.7184 |
+| 1000 | 0.5336 | 0.6428 | 0.6971 |
+| 2000 | **0.6531** | **0.6714** | **0.6796** |
+
+All 16 particles collapse onto the annulus from BOTH sides; final band
+[0.653, 0.680] centered on the implemented table's zero crossing
+s_eq = 0.675 (rmean −0.5%), band still shrinking at cutoff (inner tail
+≈ +5e-4 per 10 t.u.). Health: count = 16 on all 200 samples, ~500
+z-wraps PER PARTICLE (≈8000 crossings) with worst volume-conservation
+rel_error 2.9e-15, zero fatal/OOB. This is the Segré–Silberberg
+reproduction the campaign's option (b) targeted; W4.2 adds two-way
+coupling on top.
 
 ## Acceptance (plumbing)
 
