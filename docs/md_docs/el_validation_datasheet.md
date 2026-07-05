@@ -24,5 +24,14 @@ Source branch: `feature/euler-lagrange-phase1`
 | stage0 | seeding | byte_identity_seed_12345 | clean_diff | `docs/md_docs/el_stage0_acceptance.md` PE 1x1x3 vs 3x3x3 comparison | clean_diff | 0 | byte_identity | PASS |
 | stage0 | seeding | byte_identity_seed_99991 | clean_diff | `docs/md_docs/el_stage0_acceptance.md` PE 1x1x3 vs 3x3x3 comparison | clean_diff | 0 | byte_identity | PASS |
 | stage0 | file_mode | terminal_series_diff | clean_diff | `docs/md_docs/el_stage0_acceptance.md` Part-A terminal vs file-mode rerun | clean_diff | 0 | byte_identity | PASS |
+| validation | v1b_tencate_settling | u_t_E1_oneway | 3.82e-02 | Di Felice fixed point (eps=1) in v1b_tencate_settling RUNBOOK; ten Cate u_inf 0.038 | 3.4547e-02 | 9.6e-02 | eps_eff_0.975_corrected_2pct | PASS |
+| validation | v1b_tencate_settling | u_t_E2_oneway | 5.86e-02 | Di Felice fixed point (eps=1); ten Cate u_inf 0.060 | 5.3611e-02 | 8.5e-02 | eps_eff_0.975_corrected_2pct | PASS |
+| validation | v1b_tencate_settling | u_t_E3_oneway | 8.66e-02 | Di Felice fixed point (eps=1); ten Cate u_inf 0.091 | 8.0134e-02 | 7.5e-02 | eps_eff_0.975_corrected_2pct | PASS |
+| validation | v1b_tencate_settling | u_t_E4_oneway | 1.197e-01 | Di Felice fixed point (eps=1); ten Cate u_inf 0.128 | 1.11905e-01 | 6.5e-02 | eps_eff_0.975_corrected_2pct | PASS |
+| validation | v1b_tencate_settling | u_t_E4_twoway | ~0.123 | ten Cate confined 0.955*u_inf; feedback co-flow raises u_t (see RUNBOOK finding 3) | 1.18638e-01 | 3.5e-02 | informative | RECORDED |
+| validation | v3_ss_frozen | inertial_outer_dsdt_Rc30 | -1.72e-04 | Matas 2004 fig.14 Rc=30 table at s=0.9 via ghat*1.055e-5 (eps=1) | -1.147e-04 | 1.0e-01 | eps_selfvoidage_0.89_ratio | PASS |
+| validation | v3_ss_frozen | inertial_inner_dsdt_Rc30 | 1.79e-05 | Matas 2004 fig.14 Rc=30 table at s=0.1 via ghat*1.055e-5 (eps=1) | 1.59e-05 | 1.1e-01 | eps_selfvoidage_0.89_ratio | PASS |
+| validation | v3_ss_frozen | inertial_slope_ratio_outer_inner | 7.12 | Matas table ghat(0.9)/ghat(0.1) profile-shape check | 7.20 | 1.1e-02 | 5.0e-02 | PASS |
+| infrastructure | pe_z_periodic_wrap | volume_conservation_through_wrap | 0 | decomposePeriodicZ3D verification in v3_ss_frozen RUNBOOK (2000 steps; 2 wraps) | 2.5e-15 | 2.5e-15_abs | 1.0e-10 | PASS |
 
 For rows with zero expected value, the `rel_error` entry is an absolute error marker because relative error is undefined.
