@@ -20,6 +20,13 @@ MODULE EL_CONFIG
   REAL*8 :: el_cylinder_radius = -1.0d0
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
+  ! Apply Prop@Gravity as a fluid body force (AddGravForce). Set to No for
+  ! fully periodic suspensions: without boundaries there is no hydrostatic
+  ! pressure to absorb rho_f*g, so fluid gravity must be dropped (absorbed
+  ! into the modified pressure) while particles keep the analytic
+  ! grav_buoy = (rho_p-rho_f)*V*g. Default Yes preserves bounded-domain
+  ! behavior (tier2 terminal, ten Cate).
+  LOGICAL :: el_fluid_gravity = .TRUE.
   LOGICAL :: el_drag_semi_implicit = .FALSE.
   LOGICAL :: el_pressure_force = .TRUE.
   LOGICAL :: el_magnus = .FALSE.
@@ -188,6 +195,7 @@ CONTAINS
     WRITE(mfile,'(A,L1)') 'EL Magnus                 = ', el_magnus
     WRITE(mfile,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
     WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
+    WRITE(mfile,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
@@ -212,6 +220,7 @@ CONTAINS
       WRITE(mterm,'(A,L1)') 'EL Magnus                 = ', el_magnus
       WRITE(mterm,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
       WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
+      WRITE(mterm,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF

@@ -25,7 +25,7 @@ use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
 use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate, &
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis
-use EL_CONFIG, only: el_write_diagnostics
+use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &

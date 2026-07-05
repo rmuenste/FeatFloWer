@@ -594,6 +594,7 @@ END SUBROUTINE get_global_domain_extents
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
+                        el_fluid_gravity, &
                         el_write_diagnostics, el_momentum_audit_freq, &
                         el_tavg_window, &
                         EL_VALIDATE_CONFIG, &
@@ -835,6 +836,12 @@ END SUBROUTINE get_global_domain_extents
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2
          el_apply_fluid_feedback = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+       CASE ("ELFluidGravity")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_fluid_gravity = &
            TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELWriteDiagnostics")

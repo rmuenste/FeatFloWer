@@ -149,6 +149,13 @@ subroutine AddGravForce
   real(8) :: daux
   external E013
 
+  ! ELFluidGravity=No (fully periodic suspensions): fluid gravity is absorbed
+  ! into the modified pressure -- without boundaries no hydrostatic gradient
+  ! exists and rho_f*g would uniformly accelerate the whole fluid. Particles
+  ! keep gravity/buoyancy analytically via the EL grav_buoy term. Default
+  ! .TRUE. leaves every bounded-domain and non-EL app unchanged.
+  if (.not. el_fluid_gravity) return
+
   ILEV = NLMAX
   call SETLEV(2)
 
