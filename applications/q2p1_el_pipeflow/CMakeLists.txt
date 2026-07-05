@@ -130,7 +130,8 @@ foreach(_el_val_case
     pipe_hp_check
     v3_ss_frozen
     v1b_tencate_settling
-    v2_rz_settling)
+    v2_rz_settling
+    v3_ss_coupled)
   set(_el_val_case_src ${CMAKE_CURRENT_SOURCE_DIR}/validation_cases/${_el_val_case})
   add_custom_target(q2p1_el_pipeflow_val_${_el_val_case}_stage
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
