@@ -80,3 +80,31 @@ code. Citation hints are from memory — verify year/venue before quoting.
   (2016)**, J. Comput. Phys. / **Gualtieri et al. (2015)**.
 - Semi-implicit fluid-drag momentum drift ≈ 3·dt (first order, dt-halving
   characterized).
+
+## 8. Component ↔ validation cross-reference
+
+Which concrete FeatFloWer test targets which component. Test name = ctest
+target, tier2 harness case (`tools/featflower_test/testcases/definitions/`),
+or `validation_cases/<case>` RUNBOOK. Status as of 2026-07-05.
+
+| EL component | Dedicated / primary tests | Supporting evidence | Status |
+|---|---|---|---|
+| Kernel G2P/P2G transfer + ε_f field | `test_el_kernel_forces` (kernel positivity/support), `el-transfer-mpi-2/8`, `el-convergence-serial`; tier2 `straddling_conservation` (cross-rank deposit, residual ~5e-26) | `EL_VOLUME_CONSERVATION` machine-zero in every campaign run (incl. ~8000 periodic crossings) | PASS |
+| Two-way feedback (Model A) | tier2 `momentum_conservation` (+`_long`: 1e-5 per 10⁴ steps) | v2 smoke mixture-momentum balance 0.4% at ρ_p≠ρ_f; v1b E4 two-way co-flow quantified | PASS |
+| Di Felice drag (voidage package) | v1b_tencate_settling E1–E4 (EXTERNAL truth: +0.4…−6.5% algebraic vs u_∞) | tier2 `terminal_velocity`; unit Di Felice/Stokes ratio checks; **v2_rz_settling production sweep = ε^χ arbiter (in flight)** | PASS / in flight |
+| Stokes & Schiller–Naumann drag | unit analytic checks (`test_el_kernel_forces`) | tier2 terminal (stokes); v1b handoff SN cross-table | PASS |
+| Semi-implicit drag coupling (fluid + particle side) | ctest `pe-el-semi-implicit-drag`; tier2 `momentum_conservation_semi` (gate 3.1e-3) | dt-halving characterization (drift ≈ 3·dt, first order); v3 convergence run at dt = 1.8·τ_p stable | PASS |
+| Saffman–Mei slip lift | tier2 `saffman_lift` (analytic drag 2.356e-5 / lift 1.277e-6 to 1e-9) | v3_ss_frozen dense variant: sustained migration at 0.73–0.76× pure Saffman = Mei trim, both fan extremes | PASS |
+| Zeng wall lift + option-A blend | unit coefficient anchors (Re-switch, contact/shear arms) | exercised in v3_ss_frozen ON runs (near-wall fan members); no dedicated quantitative wall-lift gate yet | PASS (unit) / gate open |
+| Matas–Asmolov inertial lift | unit table anchors (s=0.4/0.675/0.8/0.42); v3_ss_frozen rate check (profile shape 1–3%, rates 0.84–0.90× ε=1) + convergence demo (annulus 0.6714 vs 0.675) | **v3_ss_coupled lift ON/OFF pair (in flight)** | PASS / in flight |
+| Pressure-gradient force | — (flag `ELPressureForce`, off in all current cases to avoid hydrostatic double-count) | no dedicated test; candidate: prescribed-∇p unit check | gate open |
+| Gravity/buoyancy (grav_buoy) | tier2 terminal; v1b (SI, ρ_p≠ρ_f) | v2 settling; force-budget balance 1e-7 at plateau | PASS |
+| Self-voidage / disturbed-field bias (scheme property) | quantified: v1b E1–E4 (ε_eff 0.974–0.978) + v3 rate check (0.974) cross-consistent | documented as "this work"; mitigation (Horwitz–Mani) not implemented | QUANTIFIED |
+| PE hard contacts (PGS, dry, e=0) | v2 φ=0.20 smoke (`EL_CONTACT_STATS`: overlap 0.0, Tgran bounded, 5.6k contacts) | **Stage-2 four-way sheared box + periodic-image contact check PENDING** | partial |
+| PE periodic wrap (per-axis) | v3_ss_frozen wrap verification (z: radii frozen through 2 wraps, 2.5e-15) ; v2 smoke (fully periodic banner + run) | convergence run: ~500 wraps/particle; z-path bit-identical regression after dispatch refactor | PASS |
+| Seeding (file + deterministic random) | Stage-0 battery: byte-identical across PE decompositions (2 seeds), achieved-φ 2% gate, file-mode bit-for-bit regression | v2 smoke: N=3056 at φ=0.2000147 | PASS |
+| dt/PE-stepsize contract | Stage-0: mismatch hard-abort verified | enforced at every case start | PASS |
+| Pipe infrastructure (CFD z-periodicity, cylinder wall geometry) | `pipe_hp_check` (HP profile −0.06% at L3, 6.2× convergence) | v3_ss_frozen lift-OFF radial freeze to all digits (geometry/transfer clean) | PASS |
+| Prescribed frozen fields (`linear_shear`, `poiseuille`) | tier2 saffman (shear); v3_ss_frozen (poiseuille, exact parabola) | — | PASS |
+| Periodic-suspension body-force treatment (`ELFluidGravity`) | v2 smoke: broken (fluid free-fall −0.2) vs fixed (momentum 0.4%) documented pair | — | PASS |
+| Effective suspension viscosity (Krieger–Dougherty) | — | **V4/V5 pipe pressure-drop campaign PENDING (Stage 5)** | pending |
