@@ -37,6 +37,12 @@ MODULE EL_TRANSFER
 
   IMPLICIT NONE
 
+  ! Newton-pair audit: total impulse the particles are EXPECTED to receive
+  ! over the next EL_ADVANCE_PARTICLES (mirrored drag impulse + lift +
+  ! pressure + grav_buoy, times dt), summed over all owned particles and
+  ! ranks. Set by the pre-advance pass; consumed by EL_NEWTON_PAIR_END.
+  REAL*8 :: el_pair_expected_impulse(3) = 0.0d0
+
 #ifdef HAVE_PE
   INTERFACE
     SUBROUTINE step_el_particles_c() BIND(C, NAME='step_el_frozen_trace_')
@@ -358,6 +364,11 @@ CONTAINS
         MPI_SUM, MPI_COMM_SUBS, ierr)
       CALL MPI_Allreduce(n_records, max_records, 1, MPI_INTEGER, &
         MPI_MAX, MPI_COMM_SUBS, ierr)
+    END IF
+
+    IF (advance_history) THEN
+      el_pair_expected_impulse = dt*(global_drag_impl + global_lift + &
+        global_pressure + global_grav_buoy)
     END IF
 
     feedback_residual = global_rhs + global_feedback

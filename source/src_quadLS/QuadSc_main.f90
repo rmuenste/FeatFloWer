@@ -342,7 +342,9 @@ END SUBROUTINE Transport_q2p1_UxyzP
 !========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
-  USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES
+  USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES, &
+                         el_pair_expected_impulse
+  USE EL_DIAGNOSTICS, ONLY: EL_NEWTON_PAIR_BEGIN, EL_NEWTON_PAIR_END
 
   INTEGER, INTENT(IN) :: mfile, itns
   INTEGER, INTENT(OUT) :: inl_u
@@ -383,7 +385,10 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
       el_field_data%epsilon_f)
   END IF
 
+  IF (myid.NE.master) CALL EL_NEWTON_PAIR_BEGIN()
   CALL EL_ADVANCE_PARTICLES()
+  IF (myid.NE.master) CALL EL_NEWTON_PAIR_END(el_pair_expected_impulse, &
+    timens, mfile, itns)
 
   ! Refresh volume fraction and diagnostic feedback after particle motion.
   IF (myid.EQ.master) THEN

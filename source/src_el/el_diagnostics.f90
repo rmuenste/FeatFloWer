@@ -18,6 +18,7 @@ MODULE EL_DIAGNOSTICS
 
   LOGICAL :: el_momentum_reference_set = .FALSE.
   REAL*8 :: el_momentum_reference(3) = 0.0d0
+  REAL*8 :: el_pair_momentum_before(3) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -207,6 +208,50 @@ CONTAINS
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS
+
+  SUBROUTINE EL_NEWTON_PAIR_BEGIN()
+
+    ! Snapshot the global particle momentum immediately before
+    ! EL_ADVANCE_PARTICLES. Paired with EL_NEWTON_PAIR_END.
+    REAL*8 :: local_p(3), vsum(3)
+    INTEGER :: cnt, ierr
+
+    CALL EL_LOCAL_PARTICLE_MOMENTUM(local_p, vsum, cnt)
+    CALL MPI_Allreduce(local_p, el_pair_momentum_before, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+
+  END SUBROUTINE EL_NEWTON_PAIR_BEGIN
+
+  SUBROUTINE EL_NEWTON_PAIR_END(expected_impulse, time, mfile, istep)
+
+    ! Third-law audit: the measured particle-momentum change over the PE
+    ! advance vs the impulse the CFD side charged to the fluid (mirrored
+    ! drag + lift + pressure + grav_buoy). Contact impulses are internal
+    ! and cancel in the global sum, so mismatch = Newton-pair violation
+    ! between PE integration and the deposited feedback.
+    REAL*8, INTENT(IN) :: expected_impulse(3), time
+    INTEGER, INTENT(IN) :: mfile, istep
+
+    REAL*8 :: local_p(3), p_after(3), vsum(3), dp(3), mismatch(3)
+    INTEGER :: cnt, ierr
+
+    CALL EL_LOCAL_PARTICLE_MOMENTUM(local_p, vsum, cnt)
+    CALL MPI_Allreduce(local_p, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+    IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
+
+    dp = p_after - el_pair_momentum_before
+    mismatch = dp - expected_impulse
+    IF (myid.EQ.showid) THEN
+      WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_NEWTON_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
+        ' expected= ', expected_impulse, ' mismatch= ', mismatch
+      WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_NEWTON_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
+        ' expected= ', expected_impulse, ' mismatch= ', mismatch
+    END IF
+
+  END SUBROUTINE EL_NEWTON_PAIR_END
 
   SUBROUTINE EL_WRITE_SS_RADIUS(time, mfile, istep)
 
