@@ -94,4 +94,28 @@ exists (fluid gravity absorbed into the modified pressure; particles keep
 grav_buoy analytically) — REQUIRED for all periodic-suspension cases,
 harmless default Yes everywhere else.
 
-(per-φ production table pending Slurm runs)
+## Results — production sweep, FIRST ATTEMPT (2026-07-05/06): ANOMALY
+
+- U₀ reference (job 131966): slip = 8.24e-3 vs algebraic Di Felice
+  7.10e-3 → +16% two-way co-flow bias (V1b effect, stronger without
+  walls). Usable as the two-way-consistent U₀.
+- φ = 0.05 (job 131962): settles correctly at the hindered scale
+  (⟨u_p,z⟩ ≈ −9e-3) until t ≈ 25, then the WHOLE system (both phases)
+  drifts upward, linear in t (+2e-3/t.u.) — a sustained internal
+  momentum leak ≈ 5% of the counterforce (external forces balance to
+  5e-6; ε-weighted total momentum audit grows). Onset coincides with
+  clustering (ncontacts 250 → 520, Tgran 4e-5 → 1e-3). U_RZ from this
+  run is NOT quotable.
+- Leak investigation (task ongoing): ruled out — PE substep-contact
+  drag interaction (control pair D0/D1, jobs 132110/132111: substeps
+  2 vs 1 leak identically, also reproduces at level 2); post-advance
+  deposit overwrite (capture is advance_history-gated); deps_f_dt
+  (diagnostic-only). Under test via the EL_NEWTON_PAIR audit:
+  PE-impulse-vs-mirror mismatch vs fluid-side discrete momentum error
+  (non-conservative convection under developing pseudo-turbulence is
+  the remaining fluid-side candidate).
+- φ = 0.10/0.15/0.20 (131963-965): same substeps-2 physics — will show
+  the same leak; useful as φ-scaling evidence, not as RZ points.
+
+The RZ fit is BLOCKED on resolving the leak; the sweep will be
+re-submitted afterwards.

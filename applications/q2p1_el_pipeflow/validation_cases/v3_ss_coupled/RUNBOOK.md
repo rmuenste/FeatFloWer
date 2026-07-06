@@ -42,6 +42,19 @@ tools/el_slurm_submit.sh <rundir_on>  w42_lift_on  1-23:00:00 long
 tools/el_slurm_submit.sh <rundir_off> w42_lift_off 1-23:00:00 long
 ```
 
-## Results
+## Results (2026-07-06, Slurm jobs 131967/131968, nx nodes, 50k steps)
 
-(pending Slurm)
+| t | lift ON rmean [rmin, rmax] | lift OFF rmean [rmin, rmax] |
+|---|---|---|
+| 2 | 0.532 [0.209, 0.869] | 0.532 [0.208, 0.871] |
+| 400 | 0.575 [0.262, 0.852] | — |
+| 1000 | **0.620 [0.338, 0.839]** | **0.536 [0.092, 0.871]** |
+
+PASS (direction/rate criterion, the plan's fallback): lift ON focuses the
+30-particle suspension steadily toward the annulus (Δrmean = +0.088 over
+t = 1000, inner tail migrating out at the frozen-run rate for a/R = 0.1);
+lift OFF shows no systematic contraction (Δrmean = +0.004, spread
+random-walks). Full annulus convergence would need ≈ 2× the steps
+(frozen-field reference reached the band at t ≈ 1500–2000 from a similar
+inner tail); a 100k-step continuation is optional follow-up, the ON/OFF
+discrimination is already unambiguous (22:1 in Δrmean).
