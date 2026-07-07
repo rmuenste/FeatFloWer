@@ -147,6 +147,30 @@ rel_error 2.9e-15, zero fatal/OOB. This is the Segré–Silberberg
 reproduction the campaign's option (b) targeted; W4.2 adds two-way
 coupling on top.
 
+## Wrap canary with ParaView output (migration regression)
+
+The lift-OFF wrap configuration doubles as the standing regression for PE
+ownership-migration changes (one-way, frozen field — the two-way
+counterpart is the v2 φ=0.05 Newton-pair reproducer). To run it with
+visualization (2026-07-07 recipe; produced 29 particle frames + 5 fluid
+dumps):
+
+```bash
+tools/el_stage_rundir.sh v3_ss_frozen <rundir>
+sed -i -e 's/^SimPar@ELLiftModel = .*/SimPar@ELLiftModel = none/' \
+       -e 's/^SimPar@MaxNumStep = .*/SimPar@MaxNumStep = 2000/' \
+       -e 's/^SimPar@MaxSimTime = .*/SimPar@MaxSimTime = 4.0001d0/' \
+       -e 's/^SimPar@OutputFreq = .*/SimPar@OutputFreq = 1.0d0/' <rundir>/_data/q2p1_param.dat
+# json: "timesteps_": 2000, "periodicZ_": true, "vtk_": true, "visspacing_": 50
+```
+
+Gates: radii frozen to all printed digits through 2 wraps; worst
+EL_VOLUME_CONSERVATION ≈ 2.9e-15; worst EL_NEWTON_PAIR mismatch at
+machine zero (2.9e-19 with the 8b037ae PE fix). ParaView: open
+`<rundir>/paraview/collector.pvd` (particle series; wrap events visible
+as z-jumps at frozen radii) and the `<rundir>/_vtk/main.*.pvtu` group
+(frozen parabola + kernel footprints incl. periodic-plane splits).
+
 ## Acceptance (plumbing)
 
 - Both runs complete cleanly: no fatal/OOB/clipping lines, dt assertion
