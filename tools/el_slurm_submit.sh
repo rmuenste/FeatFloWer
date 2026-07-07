@@ -19,6 +19,7 @@ cat > "$RUNDIR/job.sbatch" <<EOF
 #SBATCH --cpus-per-task=1
 #SBATCH --time=$WALL
 #SBATCH --mem=25G
+#SBATCH --prefer=nx
 #SBATCH --output=$RUNDIR/slurm-%j.out
 source /etc/profile >/dev/null 2>&1 || true
 module load gcc/latest-v13 openmpi/options/interface/ethernet openmpi/4.1.6
