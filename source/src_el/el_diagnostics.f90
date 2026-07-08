@@ -19,6 +19,7 @@ MODULE EL_DIAGNOSTICS
   LOGICAL :: el_momentum_reference_set = .FALSE.
   REAL*8 :: el_momentum_reference(3) = 0.0d0
   REAL*8 :: el_pair_momentum_before(3) = 0.0d0
+  REAL*8 :: el_fluid_pair_before(3) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -208,6 +209,84 @@ CONTAINS
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS
+
+  SUBROUTINE EL_FLUID_PAIR_BEGIN(val_u, val_v, val_w, mesh, ilev, density, &
+                                 epsilon_f)
+
+    ! Snapshot the global element-integrated fluid momentum (plain rho*u)
+    ! immediately before the fluid solve. Paired with EL_FLUID_PAIR_END.
+    REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: density, epsilon_f(:)
+
+    REAL*8 :: local_f(3), local_feps(3)
+    INTEGER :: ierr
+
+    CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
+                                     epsilon_f, density, local_f, local_feps)
+    CALL MPI_Allreduce(local_f, el_fluid_pair_before, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+
+  END SUBROUTINE EL_FLUID_PAIR_BEGIN
+
+  SUBROUTINE EL_FLUID_PAIR_END(val_u, val_v, val_w, mesh, ilev, density, &
+                               epsilon_f, source, ext_force, dt, time, &
+                               mfile, istep)
+
+    ! Fluid-side momentum audit: the measured change of the element-
+    ! integrated fluid momentum over the fluid solve vs the impulse the
+    ! step SHOULD add: dt*(deposited EL feedback + external body force).
+    ! Viscous/pressure/convective terms are internal and must be momentum-
+    ! neutral in a fully periodic domain, so a persistent mismatch measures
+    ! the fluid-internal discrete non-conservation (e.g. the convective
+    ! form) plus any source-application defect.
+    REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: density, epsilon_f(:), source(:,:), ext_force(3)
+    REAL*8, INTENT(IN) :: dt, time
+    INTEGER, INTENT(IN) :: mfile, istep
+
+    REAL*8 :: local_f(3), local_feps(3), p_after(3), dp(3)
+    REAL*8 :: local_src(3), global_src(3), expected(3), mismatch(3)
+    REAL*8 :: local_vol, global_vol
+    INTEGER :: ierr, nel_vol
+
+    CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
+                                     epsilon_f, density, local_f, local_feps)
+    CALL MPI_Allreduce(local_f, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+    IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
+
+    ! ext_force is the body force per unit volume; integrate over the domain
+    ! (dvol carries the FEAT total-volume slot at nel+1 -- slice!).
+    nel_vol = mesh%level(ilev)%nel
+    local_vol = SUM(mesh%level(ilev)%dvol(1:nel_vol))
+    CALL MPI_Allreduce(local_vol, global_vol, 1, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+
+    ! The feedback source is stored in distributed/additive form; the rank
+    ! sum of DOF sums is the total deposited force.
+    local_src(1) = SUM(source(1,:))
+    local_src(2) = SUM(source(2,:))
+    local_src(3) = SUM(source(3,:))
+    CALL MPI_Allreduce(local_src, global_src, 3, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+
+    dp = p_after - el_fluid_pair_before
+    expected = dt*(global_src + ext_force*global_vol)
+    mismatch = dp - expected
+    IF (myid.EQ.showid) THEN
+      WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_FLUID_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
+        ' expected= ', expected, ' mismatch= ', mismatch
+      WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
+        'EL_FLUID_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
+        ' expected= ', expected, ' mismatch= ', mismatch
+    END IF
+
+  END SUBROUTINE EL_FLUID_PAIR_END
 
   SUBROUTINE EL_NEWTON_PAIR_BEGIN()
 

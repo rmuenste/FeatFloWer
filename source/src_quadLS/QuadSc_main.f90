@@ -344,11 +344,13 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES, &
                          el_pair_expected_impulse
-  USE EL_DIAGNOSTICS, ONLY: EL_NEWTON_PAIR_BEGIN, EL_NEWTON_PAIR_END
+  USE EL_DIAGNOSTICS, ONLY: EL_NEWTON_PAIR_BEGIN, EL_NEWTON_PAIR_END, &
+                            EL_FLUID_PAIR_BEGIN, EL_FLUID_PAIR_END
+  USE var_QuadScalar, ONLY: bConstForce, ConstForce
 
   INTEGER, INTENT(IN) :: mfile, itns
   INTEGER, INTENT(OUT) :: inl_u
-  REAL*8 :: dummy_velocity(1)
+  REAL*8 :: dummy_velocity(1), el_ext_force(3)
   LOGICAL :: prescribed_active
 
   dummy_velocity = 0.0d0
@@ -407,7 +409,24 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
 
   IF (ALLOCATED(FictKNPR)) FictKNPR = 0
   IF (.NOT.prescribed_active) THEN
+    ! Fluid-side momentum audit around the whole fluid solve: body force
+    ! per unit volume = rho*(ConstForce + Gravity if fluid gravity is on).
+    el_ext_force = 0.0d0
+    IF (bConstForce) el_ext_force = el_ext_force + &
+      Properties%Density(1)*ConstForce
+    IF (el_fluid_gravity) el_ext_force = el_ext_force + &
+      Properties%Density(1)*Properties%Gravity
+    IF (myid.NE.master) CALL EL_FLUID_PAIR_BEGIN(QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
+      el_field_data%epsilon_f)
     CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+    IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+        ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      CALL EL_FLUID_PAIR_END(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+        mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f, &
+        el_field_data%fluid_feedback_source, el_ext_force, tstep, timens, &
+        mfile, itns)
+    END IF
   END IF
 
   IF (myid.NE.master) THEN
