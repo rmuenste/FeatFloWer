@@ -411,17 +411,29 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (.NOT.prescribed_active) THEN
     ! Fluid-side momentum audit around the whole fluid solve: body force
     ! per unit volume = rho*(ConstForce + Gravity if fluid gravity is on).
+    ! EL_INTEGRATE_FLUID_MOMENTUM relies on the GLOBAL multigrid level
+    ! (/MGPAR/ ILEV) for its NDFGL structures; the preceding EL mesh pass
+    ! restores whatever coarse level the previous solver phase used, so pin
+    ! ILEV to the coupling level before each audit call (the post-solve END
+    ! call is pinned too, defensively).
     el_ext_force = 0.0d0
     IF (bConstForce) el_ext_force = el_ext_force + &
       Properties%Density(1)*ConstForce
     IF (el_fluid_gravity) el_ext_force = el_ext_force + &
       Properties%Density(1)*Properties%Gravity
-    IF (myid.NE.master) CALL EL_FLUID_PAIR_BEGIN(QuadSc%valU, QuadSc%valV, &
-      QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
-      el_field_data%epsilon_f)
+    IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+        ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
+      CALL EL_FLUID_PAIR_BEGIN(QuadSc%valU, QuadSc%valV, &
+        QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
+        el_field_data%epsilon_f)
+    END IF
     CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
       CALL EL_FLUID_PAIR_END(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
         mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f, &
         el_field_data%fluid_feedback_source, el_ext_force, tstep, timens, &
