@@ -18,7 +18,16 @@ BoomerAMG parameters.
   `CMakeLists.txt:16`). FeatFloWer builds it via `add_subdirectory` when `-DUSE_HYPRE=ON`
   (root `CMakeLists.txt:431-438`), defines `-DHYPRE_AVAIL`, and compiles the wrapper
   `source/HypreSolver.f90`.
-- The vendored hypre's own CMake already exposes the GPU knobs: `HYPRE_WITH_CUDA`,
+- **Version strategy:** v2.25.0 (mid-2022) belongs to hypre's early GPU era; many GPU
+  fixes (IJ host/device pointer handling, device SpGemm/setup, PMIS on device,
+  `HYPRE_SetGpuAwareMPI`) landed in later releases. Stage 1 therefore uses a **current
+  hypre release (>= 2.31, ideally latest 2.3x) built externally on the remote system as
+  the primary path** (Step 2a/2b). Building the vendored 2.25 with CUDA (Step 2c) is the
+  fallback only. The wrapper's API surface (`HYPRE_Init`, IJ interface,
+  BoomerAMG/GMRES/PCG, `HYPRE_SetMemoryLocation/ExecutionPolicy/SpGemmUseVendor`,
+  `HYPREf.h`) is stable across 2.25 -> 2.3x, so `source/HypreSolver.f90` should compile
+  unchanged; report any signature drift you do hit.
+- For reference, the vendored hypre's own CMake exposes the GPU knobs: `HYPRE_WITH_CUDA`,
   `HYPRE_ENABLE_UNIFIED_MEMORY`, `HYPRE_CUDA_SM` (default `70`; the A100 needs `80`).
 - The wrapper **already requests device execution**:
   `HYPRE_SetMemoryLocation(HYPRE_MEMORY_DEVICE)`, `HYPRE_SetExecutionPolicy(HYPRE_EXEC_DEVICE)`,
@@ -49,41 +58,87 @@ which nvcc && nvcc --version
 CUDA-aware MPI is *not* required (hypre stages communication buffers through the host by
 default), but note whether the MPI module is CUDA-aware for later tuning.
 
-## Step 2 — CMake wiring in FeatFloWer
+## Step 2a — Obtain a current GPU-enabled hypre (primary path)
 
-Edit the hypre block in the root `CMakeLists.txt` (lines 431-438) to add a
+Check the module system first (`module avail hypre` — only use a module that was built
+with CUDA *and* unified memory; verify with `grep HYPRE_USING_UNIFIED_MEMORY` on its
+installed `HYPRE_config.h`). Otherwise build the latest 2.3x release from source — this
+is quick (~minutes) and gives full control:
+
+```bash
+git clone --depth 1 --branch v2.33.0 https://github.com/hypre-space/hypre.git hypre-gpu
+cd hypre-gpu/src
+./configure --prefix=$HOME/opt/hypre-2.33-cuda \
+            --with-cuda --with-gpu-arch=80 \
+            --enable-unified-memory \
+            CC=mpicc CXX=mpicxx FC=mpif90
+make -j16 install
+```
+
+(Adjust the tag to the newest release available. `--enable-unified-memory` matters: the
+FeatFloWer wrapper passes host-side Fortran arrays, see Step 4.)
+
+## Step 2b — CMake wiring in FeatFloWer for an external hypre
+
+Extend the hypre block in the root `CMakeLists.txt` (lines 431-438) with a
+`USE_EXTERNAL_HYPRE` path so the vendored copy is bypassed:
+
+```cmake
+option(USE_EXTERNAL_HYPRE "Link a pre-installed hypre instead of the vendored copy" OFF)
+set(EXTERNAL_HYPRE_DIR "" CACHE PATH "Install prefix of the external hypre")
+if(USE_HYPRE)
+  add_definitions(-DHYPRE_AVAIL)
+  if(USE_EXTERNAL_HYPRE)
+    find_library(HYPRE_LIB HYPRE PATHS ${EXTERNAL_HYPRE_DIR}/lib NO_DEFAULT_PATH)
+    set(HYPRE_LIBRARIES ${HYPRE_LIB})
+    include_directories(${EXTERNAL_HYPRE_DIR}/include)
+  else()
+    add_subdirectory(extern/libraries/hypre/src)
+    set(HYPRE_LIBRARIES HYPRE)
+  endif()
+  set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
+endif()
+```
+
+Two auxiliary CMake files reference the vendored paths and need the same switch:
+`cmake/modules/GenerateIncludeFlags.cmake:28-39` (hypre include dirs — must point at
+`${EXTERNAL_HYPRE_DIR}/include`, where `HYPREf.h` also lives) and
+`cmake/modules/GenerateLinkerFlags.cmake:125-128` (link line — use `${HYPRE_LIBRARIES}`
+and append the CUDA runtime libs: `cudart cusparse curand cublas stdc++`, from the
+CUDA toolkit's `lib64`).
+
+Configure a fresh build directory:
+
+```bash
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_APPLICATIONS=ON \
+      -DUSE_HYPRE=ON -DUSE_EXTERNAL_HYPRE=ON \
+      -DEXTERNAL_HYPRE_DIR=$HOME/opt/hypre-2.33-cuda ..
+make -j16 2>&1 | tee build.log
+```
+
+C++ device code linked into Fortran executables typically needs `-lstdc++`; add it to the
+link line if you see missing `__cxa_*`/`std::` symbols.
+
+## Step 2c — Fallback: build the vendored 2.25 with CUDA
+
+Only if the external build hits a blocker (e.g. wrapper/API incompatibility). Add a
 `USE_HYPRE_CUDA` option that forwards to the vendored hypre's own options **before**
 `add_subdirectory`:
 
 ```cmake
-option(USE_HYPRE_CUDA "Build hypre with CUDA backend" OFF)
-if(USE_HYPRE)
-  ...
-  if(USE_HYPRE_CUDA)
-    set(HYPRE_WITH_CUDA ON CACHE BOOL "" FORCE)
-    set(HYPRE_ENABLE_UNIFIED_MEMORY ON CACHE BOOL "" FORCE)
-    set(HYPRE_CUDA_SM "80" CACHE STRING "" FORCE)   # A100
-  endif()
-  add_subdirectory(extern/libraries/hypre/src)
-  ...
+option(USE_HYPRE_CUDA "Build vendored hypre with CUDA backend" OFF)
+...
+if(USE_HYPRE_CUDA)
+  set(HYPRE_WITH_CUDA ON CACHE BOOL "" FORCE)
+  set(HYPRE_ENABLE_UNIFIED_MEMORY ON CACHE BOOL "" FORCE)
+  set(HYPRE_CUDA_SM "80" CACHE STRING "" FORCE)   # A100
 endif()
+add_subdirectory(extern/libraries/hypre/src)
 ```
 
-Then configure a fresh build directory:
-
-```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_APPLICATIONS=ON \
-      -DUSE_HYPRE=ON -DUSE_HYPRE_CUDA=ON ..
-make -j16 2>&1 | tee build.log
-```
-
-**Expected link problems (fix as they appear):** the final Fortran-linked executables may
-miss CUDA runtime symbols if hypre 2.25's target does not propagate them transitively. If
-you see undefined references to `cuda*`/`cusparse*`/`curand*`, append
-`cudart cusparse curand cublas nvToolsExt stdc++` to the hypre link section in
-`cmake/modules/GenerateLinkerFlags.cmake:125-128` (or better,
-`target_link_libraries(HYPRE PUBLIC CUDA::cudart ...)`). C++ device code linked into
-Fortran executables typically also needs `-lstdc++`.
+then `cmake -DUSE_HYPRE=ON -DUSE_HYPRE_CUDA=ON ..`. Expect more GPU rough edges at
+runtime (this is a 2022 release) and the same link-line fixes as in Step 2b if hypre's
+target does not propagate CUDA libs transitively.
 
 ## Step 3 — Smoke test with the standalone app
 
@@ -99,7 +154,8 @@ input arrays live in device-accessible memory. The wrapper passes ordinary Fortr
 arrays. Three outcomes, in order of likelihood:
 
 1. **It just works** — the unified-memory build plus hypre's internal pointer-location
-   checks handle host input. Test first; do nothing if clean.
+   checks handle host input. Current 2.3x releases are much better at this than 2.25.
+   Test first; do nothing if clean.
 2. **Segfault / illegal access inside SetValues** — fix by making the marshalling arrays
    managed. Cleanest approach: a small C shim compiled into the project:
 
@@ -118,7 +174,7 @@ arrays. Three outcomes, in order of likelihood:
 
 ## Step 5 — GPU-compatible BoomerAMG parameters
 
-Hypre 2.25 executes only certain AMG components on device; the current settings in
+Hypre executes only certain AMG components on device; the current settings in
 `source/HypreSolver.f90` were chosen for CPU and will silently fall back to host paths.
 Change, in all three solver routines (`myHypre_Solve`, `myHypreGMRES_Solve`,
 `myHyprePCG_Solve`):
@@ -130,8 +186,9 @@ Change, in all three solver routines (`myHypre_Solve`, `myHypreGMRES_Solve`,
 | Relaxation | type 8 (hybrid sym-G-S) | **type 18 (l1-Jacobi)** or 7 (Jacobi) |
 | Aggressive coarsening | (as set) | keep, with `SetAggInterpType` 5 or 7 if levels > 0 |
 
-Keep `HYPRE_SetSpGemmUseVendor(0)` (already set — hypre's own SpGemm beats cuSPARSE for
-AMG setup on this version). These parameter changes alter iteration counts slightly; that
+Keep `HYPRE_SetSpGemmUseVendor(0)` initially (hypre's own SpGemm has historically beaten
+cuSPARSE for AMG setup); on a current release it is worth benchmarking both settings.
+These parameter changes alter iteration counts slightly; that
 is expected and acceptable as long as the solve converges to the same tolerance.
 
 ## Step 6 — Validate in the real application
@@ -154,10 +211,10 @@ is expected and acceptable as long as the solve converges to the same tolerance.
 Deliver:
 
 - (a) the diff (CMake wiring, any managed-memory shim, AMG parameter changes),
-- (b) build log confirmations,
+- (b) build log confirmations and the exact hypre version/configure line used,
 - (c) a small table — CPU-hypre vs GPU-hypre coarse-solve time and iteration counts at
   4/8 ranks for types 7 and 8,
-- (d) any 2.25-specific bugs hit.
+- (d) any version-specific bugs or wrapper/API incompatibilities hit.
 
 ## Known limitations to state up front (not to fix in Stage 1)
 
@@ -165,7 +222,7 @@ Deliver:
   latency-bound. Stage 1's purpose is to establish a working, validated GPU-hypre build
   and the managed-memory pattern — the payoff comes in Stage 2, when the *fine-level*
   pressure system is handed to the same machinery.
-- **Hypre 2.25 is 2022-era.** If its GPU path proves buggy (known rough edges in early
-  GPU releases), the fallback is building a current hypre (>= 2.31) externally on the
-  remote system and pointing FeatFloWer at it instead of the vendored copy — note it in
-  the report; upgrading the vendored copy is a separate task.
+- **The vendored hypre stays at 2.25 for now.** Stage 1 links an external current hypre
+  on the remote system; replacing the vendored `extern/libraries/hypre` tree with a
+  current release (and revalidating all existing CPU builds) is a separate follow-up
+  task, informed by which version Stage 1 validates.
