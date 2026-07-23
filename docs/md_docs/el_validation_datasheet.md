@@ -40,6 +40,7 @@ Source branch: `feature/euler-lagrange-phase1`
 | stage2 | fourway_shear | newton_pair_under_contact_load | 0 | EL_NEWTON_PAIR at ~5.3k simultaneous contacts; fourway_shear RUNBOOK | 0.0 | 0.0_abs | 1.0e-10 | PASS |
 | stage2 | unit_periodic_contact | newton_pair_periodic_image_contact | 0 | Contact through periodic z-plane; unit_periodic_contact RUNBOOK | 4.5e-20 | 4.5e-20_abs | 1.0e-10 | PASS |
 | infrastructure | pe_newton_pair_fix | worst_mismatch_rz_sweep_phi020 | 0 | pe 8b037ae fix verified at scale; v2_rz_settling RUNBOOK second sweep (jobs 132467-132471) | 1.9e-17 | 1.9e-17_abs | 1.0e-10 | PASS |
-| validation | v2_rz_settling | fluid_internal_momentum_leak_z | 0 | EL_FLUID_PAIR audit (job 132698, 800 audited steps to t=40); v2_rz_settling RUNBOOK leak part 2 | 7.4e-04_cumulative | 7.4e-04_abs | 1.0e-10 | OPEN |
+| validation | v2_rz_settling | fluid_internal_momentum_leak_z | 0 | EL_FLUID_PAIR audit (job 132698, 800 audited steps to t=40); v2_rz_settling RUNBOOK leak part 2 | 7.4e-04_cumulative | 7.4e-04_abs | 1.0e-10 | RESOLVED |
+| infrastructure | fluid_conv_divergence_form | fluid_pair_mismatch_z_per_step | 0 | Convective-form leak root cause + divergence-form fix (commit 879933b1); v2_rz_settling RUNBOOK leak part 3 (jobs 135770-135772) | 1.94e-13_flat | 1.94e-13_abs | non_growing_vs_9.8e-8_legacy | PASS |
 
 For rows with zero expected value, the `rel_error` entry is an absolute error marker because relative error is undefined.

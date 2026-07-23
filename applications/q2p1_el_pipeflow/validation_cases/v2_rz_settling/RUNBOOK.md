@@ -171,3 +171,37 @@ dt·(Σ feedback source + external force·V) each audited step.
 
 The RZ fit stays BLOCKED on the fluid-side fix; the sweep re-runs once
 EL_FLUID_PAIR is at machine zero.
+
+## Leak resolution, part 3 — root cause found and FIXED (2026-07-23, commits 2022e126 + 879933b1)
+
+Stage-split audit (EL_FLUID_STAGE, jobs 135770/135771/135772, φ=0.05
+level 2):
+
+1. The mismatch splits as mis_mom (momentum/Burgers stage) + mis_prj
+   (projection). Measured: mis_prj at machine zero (worst 1.5e-17 over
+   5000 steps); mis_mom carries the ENTIRE mismatch to every digit.
+2. Tightening the momentum solver (defCrit 1e-6 → 1e-10, NLmax 8)
+   leaves the mismatch unchanged to ~0.1% — not solver truncation.
+3. Mass, diffusion and projection are pointwise momentum-neutral
+   (partition of unity + row-sum lumping), sources audited ⇒ the leak
+   is the Galerkin CONVECTIVE FORM in CONVQ2: it injects
+   −ρ∫u_i(div u)dV per step, nonzero under the weakly-enforced Q2/P1
+   divergence, growing with the pseudo-turbulent fluctuations — exactly
+   the observed behaviour (onset with clustering, z-dominant).
+
+Fix: `SimPar@ELConvectionForm = divergence` (commit 879933b1) switches
+CONVQ2 to the integrated-by-parts form K_JI = −ρ∫(u φ_I)·∇φ_J, whose
+column sums vanish POINTWISE — momentum-exact in floating point on
+periodic domains regardless of quadrature and div u. Verification (job
+135772, 5000 steps vs legacy job 135770): mismatch x/y ~1e-20; z flat
+at 1.94e-13 the whole run (constant audit-bookkeeping offset between
+the dvol volume in the expected term and the lumped-mass body-force
+application — NOT dynamics; cumulative 3.9e-11 vs legacy 7.4e-4, seven
+orders). Physics unchanged: slip −7.839e-3 vs −7.851e-3 (<1%, the
+expected discretization-form difference), identical wall time and
+solver convergence. Default stays `convective` — tier2 suite
+bit-compatible, no other application affected.
+
+REQUIRED for all periodic-suspension production runs (like
+ELFluidGravity = No): `SimPar@ELConvectionForm = divergence`. The RZ
+sweep re-runs with this key; the fit is UNBLOCKED.
