@@ -29,7 +29,7 @@ use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
-                          EL_WRITE_SS_RADIUS
+                          EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
 use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 
 use, intrinsic :: ieee_arithmetic
@@ -528,6 +528,7 @@ INTEGER INL
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iITER
+INTEGER iaux_lev
 real*8 px, py, pz
 integer k
 k=1
@@ -698,6 +699,21 @@ END DO
 ! return
 myStat%iNonLin = myStat%iNonLin + INL
 inl_u = INL
+
+! Mid-solve momentum snapshot for the EL fluid audit: after the momentum
+! (Burgers) solve, before the projection. EL_INTEGRATE_FLUID_MOMENTUM
+! needs the global ILEV pinned to the coupling level for its NDFGL
+! lookups; restore the solver's level afterwards.
+IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+    ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+  iaux_lev = ILEV
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL EL_FLUID_PAIR_STAGE(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+    mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f)
+  ILEV = iaux_lev
+  CALL SETLEV(2)
+END IF
 
 ! -------------------------------------------------
 ! Compute the pressure correction

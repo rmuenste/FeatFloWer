@@ -20,6 +20,8 @@ MODULE EL_DIAGNOSTICS
   REAL*8 :: el_momentum_reference(3) = 0.0d0
   REAL*8 :: el_pair_momentum_before(3) = 0.0d0
   REAL*8 :: el_fluid_pair_before(3) = 0.0d0
+  REAL*8 :: el_fluid_pair_mid(3) = 0.0d0
+  LOGICAL :: el_fluid_pair_stage_set = .FALSE.
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -230,6 +232,32 @@ CONTAINS
 
   END SUBROUTINE EL_FLUID_PAIR_BEGIN
 
+  SUBROUTINE EL_FLUID_PAIR_STAGE(val_u, val_v, val_w, mesh, ilev, density, &
+                                 epsilon_f)
+
+    ! Snapshot the global element-integrated fluid momentum AFTER the
+    ! nonlinear momentum (Burgers) solve but BEFORE the projection
+    ! (pressure Poisson + velocity correction). Lets EL_FLUID_PAIR_END
+    ! split its mismatch into a momentum-solve part (convection/
+    ! stabilization assembly -- all sources enter this stage's rhs) and a
+    ! projection part, which must be momentum-neutral in a periodic box
+    ! (the discrete pressure gradient annihilates constant test fields).
+    REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: density, epsilon_f(:)
+
+    REAL*8 :: local_f(3), local_feps(3)
+    INTEGER :: ierr
+
+    CALL EL_INTEGRATE_FLUID_MOMENTUM(mesh, ilev, val_u, val_v, val_w, &
+                                     epsilon_f, density, local_f, local_feps)
+    CALL MPI_Allreduce(local_f, el_fluid_pair_mid, 3, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_SUBS, ierr)
+    el_fluid_pair_stage_set = .TRUE.
+
+  END SUBROUTINE EL_FLUID_PAIR_STAGE
+
   SUBROUTINE EL_FLUID_PAIR_END(val_u, val_v, val_w, mesh, ilev, density, &
                                epsilon_f, source, ext_force, dt, time, &
                                mfile, istep)
@@ -284,7 +312,21 @@ CONTAINS
       WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
         'EL_FLUID_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
         ' expected= ', expected, ' mismatch= ', mismatch
+      IF (el_fluid_pair_stage_set) THEN
+        ! Stage split: all sources belong to the momentum stage, the
+        ! projection stage must be momentum-neutral, so
+        ! mismatch == mis_mom + mis_prj.
+        WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6)') &
+          'EL_FLUID_STAGE t= ', time, ' step= ', istep, &
+          ' mis_mom= ', el_fluid_pair_mid - el_fluid_pair_before - &
+          expected, ' mis_prj= ', p_after - el_fluid_pair_mid
+        WRITE(mfile,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6)') &
+          'EL_FLUID_STAGE t= ', time, ' step= ', istep, &
+          ' mis_mom= ', el_fluid_pair_mid - el_fluid_pair_before - &
+          expected, ' mis_prj= ', p_after - el_fluid_pair_mid
+      END IF
     END IF
+    el_fluid_pair_stage_set = .FALSE.
 
   END SUBROUTINE EL_FLUID_PAIR_END
 
