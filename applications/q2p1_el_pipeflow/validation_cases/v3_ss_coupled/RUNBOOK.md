@@ -58,3 +58,27 @@ random-walks). Full annulus convergence would need ≈ 2× the steps
 (frozen-field reference reached the band at t ≈ 1500–2000 from a similar
 inner tail); a 100k-step continuation is optional follow-up, the ON/OFF
 discrimination is already unambiguous (22:1 in Δrmean).
+
+## Results — report-grade 100k-step run (2026-07-09, Slurm job 132699 `w42fix_on`, nx-01, 21h23)
+
+Clean rerun with the fixed binaries (pe 8b037ae Newton-pair fix +
+src_el 2c6ee44d audit ILEV pin), lift ON, 100 000 steps → t = 2000,
+full VTK (29 particle frames in `paraview/`):
+
+| t | rmean | [rmin, rmax] |
+|---|---|---|
+| 2 | 0.532 | [0.209, 0.869] |
+| 100 | 0.542 | [0.231, 0.841] |
+| 500 | 0.582 | [0.262, 0.853] |
+| 1000 | 0.622 | [0.348, 0.820] |
+| 1500 | 0.651 | [0.379, 0.798] |
+| 2000 | **0.664** | [0.454, 0.778] |
+
+PASS (full criterion, no fallback needed): rmean converges to 0.6643 vs
+the Matas–Asmolov equilibrium 0.675 (−1.6%, well inside ±0.05); the
+radial band contracts monotonically from width 0.66 to 0.32 and is still
+tightening at t = 2000 (the slowest particles are the inner tail, whose
+lift force ∝ ĝ(s) is smallest near the axis — expected). This is the W4.2
+lift-arbiter result to quote: the coupled two-way solver with the
+Matas–Asmolov closure reproduces Segré–Silberberg annulus focusing at
+Rc = 30 with a/R = 0.1, N = 30.

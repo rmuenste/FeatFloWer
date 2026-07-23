@@ -119,3 +119,55 @@ harmless default Yes everywhere else.
 
 The RZ fit is BLOCKED on resolving the leak; the sweep will be
 re-submitted afterwards.
+
+## Leak resolution, part 1 — PE Newton-pair fix (pe commit 8b037ae)
+
+The EL_NEWTON_PAIR audit split the leak in two. The PARTICLE-side part
+(~4e-6/step under contact, machine zero without) was root-caused to four
+mechanisms in HardContactEulerLagrange: (1) elRelax 1.0-vs-0.9 fold
+asymmetry on cross-rank contacts, (2) pe::equal epsilon zero-test dropping
+small remote corrections, (3) migration leaving stale armed hydro state
+(1.9× forcing), (4) substep drag computed from contact-perturbed velocity.
+Fixed in pe 8b037ae (fold-once-at-caching, exact zero test, migration
+payload handover, elRefVelocity_ free-flight reference); permanent unit
+reproducers: unit_straddling_contact, unit_migration_hydro,
+unit_periodic_contact.
+
+## Results — production sweep, SECOND ATTEMPT with fixed PE (2026-07-08/09, jobs 132467–132471)
+
+All five runs (φ = 0.05/0.10/0.15/0.20 to t = 100, U₀ to t = 10)
+completed on the fixed binary.
+
+- EL_NEWTON_PAIR at machine zero at scale for the entire sweep: worst
+  |mismatch| = 1.6e-18 (φ=0.05), 5.0e-18 (0.10), 1.5e-17 (0.15),
+  1.9e-17 (0.20), 5.6e-22 (U₀). The particle-side leak is CLOSED.
+- U₀ reference (job 132471): slip_intr,z = −8.249e-3 — reproduces the
+  first-attempt value (8.24e-3, +16% two-way co-flow bias over algebraic
+  Di Felice 7.10e-3). Usable as the two-way-consistent U₀.
+- BUT the fluid-side leak persists and dominates by t = 100: uf_super,z
+  drifts to +4.84e-2 (φ=0.05), +6.31e-2 (0.10), +1.27e-2 (0.15),
+  +1.55e-2 (0.20) — non-monotone in φ, large enough that the
+  frame-corrected U_RZ is unphysical (e.g. |U_RZ| ≈ 5×|U₀| at φ=0.05).
+  The RZ fit remains NOT quotable from this sweep.
+
+## Leak resolution, part 2 — fluid-side localization (EL_FLUID_PAIR, job 132698)
+
+Dedicated φ = 0.05 audit run (20k steps to t = 40, audit every 25 steps,
+src_el commits bfadfe9b + 2c6ee44d): EL_FLUID_PAIR compares the fluid
+momentum change across `Transport_q2p1_UxyzP_fluid_core` against
+dt·(Σ feedback source + external force·V) each audited step.
+
+- The mismatch is REAL, z-dominant, and GROWS with the developing
+  pseudo-turbulence: ~1e-11/step at t≈0 → ~3e-7/step at t = 40;
+  cumulative over the 800 audited steps +7.4e-4 in z (order-consistent
+  with the observed uf_super drift given the 1-in-25 audit sampling).
+- EL_NEWTON_PAIR simultaneously at machine zero (worst 8e-19) in the same
+  run — the two audits together prove the residual leak is INTERNAL to
+  the fluid momentum solve (transfer layer and PE both conserve exactly).
+- Prime suspect: non-conservative discrete convection of the growing
+  velocity fluctuations (the mismatch tracks fluctuation amplitude, not
+  contact activity). Next step: bisect inside the fluid core
+  (convection / diffusion / pressure sub-stages).
+
+The RZ fit stays BLOCKED on the fluid-side fix; the sweep re-runs once
+EL_FLUID_PAIR is at machine zero.

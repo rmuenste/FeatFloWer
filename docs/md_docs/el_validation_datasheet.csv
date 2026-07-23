@@ -28,3 +28,11 @@ validation,v3_ss_frozen,inertial_outer_dsdt_Rc30,-1.72e-04,"Matas 2004 fig.14 Rc
 validation,v3_ss_frozen,inertial_inner_dsdt_Rc30,1.79e-05,"Matas 2004 fig.14 Rc=30 table at s=0.1 via ghat*1.055e-5 (eps=1)",1.59e-05,1.1e-01,eps_selfvoidage_0.89_ratio,PASS
 validation,v3_ss_frozen,inertial_slope_ratio_outer_inner,7.12,"Matas table ghat(0.9)/ghat(0.1) profile-shape check",7.20,1.1e-02,5.0e-02,PASS
 infrastructure,pe_z_periodic_wrap,volume_conservation_through_wrap,0,"decomposePeriodicZ3D verification in v3_ss_frozen RUNBOOK (2000 steps; 2 wraps)",2.5e-15,2.5e-15_abs,1.0e-10,PASS
+validation,v3_ss_coupled,lift_on_off_drmean_ratio_t1000,discriminating,"v3_ss_coupled RUNBOOK W4.2 ON/OFF pair (jobs 131967/131968)","22:1 (ON +0.088 vs OFF +0.004)",NA,sign_and_rate,PASS
+validation,v3_ss_coupled,rmean_annulus_t2000,0.675,"Matas-Asmolov equilibrium s_eq; v3_ss_coupled RUNBOOK 100k-step run (job 132699)",0.6643,1.6e-02,7.4e-02,PASS
+stage2,fourway_shear,max_overlap_frac_dp,0,"Stage-2 gate max_overlap <= 1% d_p; fourway_shear RUNBOOK (job 132694, 400 samples)",0.0,0.0_abs,1.0e-02,PASS
+stage2,fourway_shear,tgran_late_over_early,1,"Stage-2 no-spontaneous-heating gate; fourway_shear RUNBOOK",1.0002,2.4e-04,bounded,PASS
+stage2,fourway_shear,newton_pair_under_contact_load,0,"EL_NEWTON_PAIR at ~5.3k simultaneous contacts; fourway_shear RUNBOOK",0.0,0.0_abs,1.0e-10,PASS
+stage2,unit_periodic_contact,newton_pair_periodic_image_contact,0,"Contact through periodic z-plane; unit_periodic_contact RUNBOOK",4.5e-20,4.5e-20_abs,1.0e-10,PASS
+infrastructure,pe_newton_pair_fix,worst_mismatch_rz_sweep_phi020,0,"pe 8b037ae fix verified at scale; v2_rz_settling RUNBOOK second sweep (jobs 132467-132471)",1.9e-17,1.9e-17_abs,1.0e-10,PASS
+validation,v2_rz_settling,fluid_internal_momentum_leak_z,0,"EL_FLUID_PAIR audit (job 132698, 800 audited steps to t=40); v2_rz_settling RUNBOOK leak part 2",7.4e-04_cumulative,7.4e-04_abs,1.0e-10,OPEN
