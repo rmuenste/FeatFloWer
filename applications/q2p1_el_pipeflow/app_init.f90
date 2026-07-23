@@ -603,7 +603,7 @@ END SUBROUTINE get_global_domain_extents
    USE var_QuadScalar, ONLY : myMatrixRenewal,bNonNewtonian,cGridFileName,&
      nSubCoarseMesh,cFBM_File,bTracer,cProjectFile,bMeshAdaptation,&
      myExport,cAdaptedMeshFile,nUmbrellaSteps,bNoOutflow,myDataFile,&
-     bViscoElastic,bRefFrame,bConstForce,ConstForce
+     bViscoElastic,bRefFrame,bConstForce,ConstForce,iConvectionForm
 
    IMPLICIT DOUBLE PRECISION(A-H,O-Z)
    PARAMETER (NNLEV=9)
@@ -852,6 +852,19 @@ END SUBROUTINE get_global_domain_extents
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
+       CASE ("ELConvectionForm")
+         ! convective (legacy, default) | divergence (globally momentum-
+         ! conservative on periodic domains; see CONVQ2/iConvectionForm)
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         IF (TRIM(ADJUSTL(cParam2)).EQ."divergence") THEN
+           iConvectionForm = 1
+         ELSE IF (TRIM(ADJUSTL(cParam2)).EQ."convective") THEN
+           iConvectionForm = 0
+         ELSE
+           WRITE(*,*) 'ELConvectionForm must be convective or divergence'
+           STOP
+         END IF
        CASE ("ELTAvgWindow")
          READ(string(iEq+1:),*) el_tavg_window
 #endif
