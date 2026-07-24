@@ -42,5 +42,7 @@ Source branch: `feature/euler-lagrange-phase1`
 | infrastructure | pe_newton_pair_fix | worst_mismatch_rz_sweep_phi020 | 0 | pe 8b037ae fix verified at scale; v2_rz_settling RUNBOOK second sweep (jobs 132467-132471) | 1.9e-17 | 1.9e-17_abs | 1.0e-10 | PASS |
 | validation | v2_rz_settling | fluid_internal_momentum_leak_z | 0 | EL_FLUID_PAIR audit (job 132698, 800 audited steps to t=40); v2_rz_settling RUNBOOK leak part 2 | 7.4e-04_cumulative | 7.4e-04_abs | 1.0e-10 | RESOLVED |
 | infrastructure | fluid_conv_divergence_form | fluid_pair_mismatch_z_per_step | 0 | Convective-form leak root cause + divergence-form fix (commit 879933b1); v2_rz_settling RUNBOOK leak part 3 (jobs 135770-135772) | 1.94e-13_flat | 1.94e-13_abs | non_growing_vs_9.8e-8_legacy | PASS |
+| infrastructure | fluid_conv_divergence_form | energy_stability_production | stable_to_t100 | RZ sweep jobs 135773-135776; v2_rz_settling RUNBOOK leak part 4 | NaN_at_t31..49 | NA | audit_use_only | RECORDED |
+| infrastructure | el_momentum_fix | residual_mismatch_z_per_step | 0 | Measured-leak compensator (commit 22da0d5c); v2_rz_settling RUNBOOK leak part 4 (job 135865) | 6.0e-10_worst_nongrowing | 6.0e-10_abs | bounded_vs_9.8e-8_growing_legacy | PASS |
 
 For rows with zero expected value, the `rel_error` entry is an absolute error marker because relative error is undefined.

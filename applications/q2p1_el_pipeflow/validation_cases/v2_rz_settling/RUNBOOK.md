@@ -205,3 +205,29 @@ bit-compatible, no other application affected.
 REQUIRED for all periodic-suspension production runs (like
 ELFluidGravity = No): `SimPar@ELConvectionForm = divergence`. The RZ
 sweep re-runs with this key; the fit is UNBLOCKED.
+
+## Leak resolution, part 4 — divergence form not energy-robust; measured-leak compensator (2026-07-24, commit 22da0d5c)
+
+The divergence-form RZ sweep (jobs 135773–135776) FAILED: NaN in the
+momentum solve at t = 41.5 (φ=0.05), ~31 (0.10), ~32 (0.15), 48.6
+(0.20). Momentum conservation held to the last audit (~1e-12), but
+Tgran grew ~2.5× faster than the legacy runs at equal times before
+blowup — the divergence form is momentum-exact but NOT energy-robust
+under developed pseudo-turbulence (the densest, most drag-damped case
+survived longest; the legacy convective form ran identical configs to
+t=100). Keep `divergence` for short audit/verification runs only.
+
+Production answer: `SimPar@ELMomentumFix = Yes` with the LEGACY
+convective form. The EL_FLUID_PAIR mismatch is computed every step and
+its negative applied one step lagged as a uniform body force
+(Grav_QuadSc pathway, deadbeat recursion C_{n+1} = C_n − mismatch_n):
+cumulative fluid-momentum drift bounded by one step's leak (~1e-7)
+instead of the linear ~5.7e-4/t.u. ramp. Verified (job 135865, level 2,
+5000 steps): residual mismatch sign-alternating ~1e-10 (worst 6.0e-10,
+cumulative 4.1e-9, no growth), physics within 0.3% of both forms,
+stability unchanged.
+
+REVISED prescription for periodic-suspension production runs:
+`ELFluidGravity = No` + `ELMomentumFix = Yes` (legacy convection).
+EMAC-form convection (momentum+energy conserving) is the future proper
+discretization fix. The RZ sweep re-runs with the compensator.
