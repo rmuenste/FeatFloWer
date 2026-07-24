@@ -203,6 +203,36 @@ subroutine AddConstantForce
 end subroutine AddConstantForce
 
 !=========================================================================
+! EL_APPLY_MOMENTUM_FIX - apply the measured-leak momentum compensator
+! (SimPar@ELMomentumFix): the negative of the fluid-internal momentum
+! mismatch measured by EL_FLUID_PAIR on the previous step, as a uniform
+! body force through the same Grav_QuadSc pathway as AddConstantForce so
+! the applied impulse matches the audit's accounting exactly.
+!=========================================================================
+subroutine EL_APPLY_MOMENTUM_FIX
+  use EL_CONFIG, only: el_momentum_fix
+  use EL_DIAGNOSTICS, only: el_momfix_accel
+  implicit none
+  external E013
+
+  if (.not. el_momentum_fix) return
+  if (sqrt(sum(el_momfix_accel**2)) <= 0.0d0) return
+
+  ILEV = NLMAX
+  call SETLEV(2)
+
+  call Grav_QuadSc(QuadSc%defU, QuadSc%defV, QuadSc%defW, mgDensity(ILEV)%x, &
+                   el_momfix_accel, QuadSc%ndof, &
+                   mg_mesh%level(ilev)%kvert, &
+                   mg_mesh%level(ilev)%karea, &
+                   mg_mesh%level(ilev)%kedge, &
+                   KWORK(L(KLINT(NLMAX))), &
+                   mg_mesh%level(ilev)%dcorvg, &
+                   tstep, E013)
+
+end subroutine EL_APPLY_MOMENTUM_FIX
+
+!=========================================================================
 ! OperatorRegenaration - Regenerate system matrices
 ! Rebuilds various system matrices based on type parameter
 !=========================================================================

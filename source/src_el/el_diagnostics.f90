@@ -7,7 +7,8 @@ MODULE EL_DIAGNOSTICS
   USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM
   USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
                        el_domain_type, el_cylinder_center, &
-                       el_cylinder_radius, el_cylinder_axis
+                       el_cylinder_radius, el_cylinder_axis, &
+                       el_momentum_fix
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
@@ -22,6 +23,11 @@ MODULE EL_DIAGNOSTICS
   REAL*8 :: el_fluid_pair_before(3) = 0.0d0
   REAL*8 :: el_fluid_pair_mid(3) = 0.0d0
   LOGICAL :: el_fluid_pair_stage_set = .FALSE.
+  ! Compensating acceleration (per unit mass, ConstForce convention) for
+  ! the measured-leak momentum fix; applied by EL_APPLY_MOMENTUM_FIX via
+  ! Grav_QuadSc next step. Recursion C_{n+1} = C_n - mismatch_n keeps the
+  ! cumulative fluid-momentum drift bounded by a single step's leak.
+  REAL*8 :: el_momfix_accel(3) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -285,7 +291,10 @@ CONTAINS
                                      epsilon_f, density, local_f, local_feps)
     CALL MPI_Allreduce(local_f, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
-    IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
+    ! With the momentum fix the mismatch feeds the compensator and must be
+    ! computed EVERY step; without it, non-audit steps stop here.
+    IF (.NOT.el_momentum_fix .AND. &
+        MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
     ! ext_force is the body force per unit volume; integrate over the domain
     ! (dvol carries the FEAT total-volume slot at nel+1 -- slice!).
@@ -303,8 +312,19 @@ CONTAINS
       MPI_SUM, MPI_COMM_SUBS, ierr)
 
     dp = p_after - el_fluid_pair_before
+    ! ext_force excludes the compensating force, so with the fix active
+    ! mismatch_n = leak_n + C_n and the recursion below yields
+    ! C_{n+1} = -leak_n (deadbeat, one-step lag).
     expected = dt*(global_src + ext_force*global_vol)
     mismatch = dp - expected
+    IF (el_momentum_fix .AND. dt.GT.0.0d0 .AND. global_vol.GT.0.0d0) THEN
+      el_momfix_accel = el_momfix_accel - &
+        mismatch/(dt*density*global_vol)
+    END IF
+    IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) THEN
+      el_fluid_pair_stage_set = .FALSE.
+      RETURN
+    END IF
     IF (myid.EQ.showid) THEN
       WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
         'EL_FLUID_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &

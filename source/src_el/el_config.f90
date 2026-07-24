@@ -31,6 +31,16 @@ MODULE EL_CONFIG
   LOGICAL :: el_pressure_force = .TRUE.
   LOGICAL :: el_magnus = .FALSE.
   LOGICAL :: el_write_diagnostics = .TRUE.
+  ! Measured-leak momentum compensator (SimPar@ELMomentumFix): each step
+  ! the EL_FLUID_PAIR audit measures the fluid-internal momentum error of
+  ! the previous fluid solve (dominated by the Galerkin convective form,
+  ! -rho*int(u_i div u)); when enabled, its negative is applied as a
+  ! uniform body force through the Grav_QuadSc pathway one step lagged
+  ! (deadbeat: cumulative drift stays bounded by one step's leak).
+  ! Use with the legacy convective form; the momentum-exact divergence
+  ! form (ELConvectionForm=divergence) is not energy-robust in developed
+  ! pseudo-turbulence (NaN blowup, see v2_rz_settling RUNBOOK part 4).
+  LOGICAL :: el_momentum_fix = .FALSE.
   INTEGER :: el_momentum_audit_freq = 100
   REAL*8 :: el_tavg_window = 0.5d0
 
@@ -196,6 +206,7 @@ CONTAINS
     WRITE(mfile,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
     WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
     WRITE(mfile,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
+    WRITE(mfile,'(A,L1)') 'EL momentum fix           = ', el_momentum_fix
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
@@ -221,6 +232,7 @@ CONTAINS
       WRITE(mterm,'(A,L1)') 'EL apply particle forces  = ', el_apply_particle_forces
       WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
       WRITE(mterm,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
+      WRITE(mterm,'(A,L1)') 'EL momentum fix           = ', el_momentum_fix
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF

@@ -572,6 +572,7 @@ IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
  CALL AddConstantForce()
+ CALL EL_APPLY_MOMENTUM_FIX()
  IF (el_apply_fluid_feedback) THEN
    CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
      QuadSc%defW, tstep)
