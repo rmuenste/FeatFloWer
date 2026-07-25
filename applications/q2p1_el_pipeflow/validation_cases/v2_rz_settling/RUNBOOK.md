@@ -231,3 +231,108 @@ REVISED prescription for periodic-suspension production runs:
 `ELFluidGravity = No` + `ELMomentumFix = Yes` (legacy convection).
 EMAC-form convection (momentum+energy conserving) is the future proper
 discretization fix. The RZ sweep re-runs with the compensator.
+
+## Sweep 3 (compensated) — infrastructure clean, RZ gate NOT met: mesoscale settling instability (2026-07-25, jobs 135866–135870)
+
+Configuration: level-3 production sweep, `ELFluidGravity = No` +
+`ELMomentumFix = Yes` (legacy convection), 50000 steps to t=100,
+np=28. U₀ reference v2mfx_u0 (135870, 5000 steps to t=10). All five
+runs COMPLETED (10.6h / 16.3h / 20.6h / 24.2h / short).
+
+### Infrastructure verdict — everything the compensator sweep was gated on: PASS
+
+| check | φ=0.05 | φ=0.10 | φ=0.15 | φ=0.20 |
+|---|---|---|---|---|
+| NaN/Inf | none | none | none | none |
+| worst per-step mismatch_z | 2.1e-8 | 3.0e-8 | 4.7e-8 | 9.9e-8 |
+| worst cumulative drift_z | 9.6e-8 | 5.2e-7 | 2.9e-7 | 3.7e-7 |
+| worst Newton-pair_z | 1.3e-18 | 7.3e-18 | 1.5e-17 | 1.7e-17 |
+| max_overlap (every sample) | 0.0 | 0.0 | 0.0 | 0.0 |
+| ⟨ε_f⟩ vs 1−φ | 5 digits | 5 digits | 5 digits | 5 digits |
+
+The cumulative fluid-momentum drift is bounded and sign-alternating
+(vs the previous linear 5.7e-4/t.u. ramp → ~5.7e-2 by t=100: five
+orders better). The energy instability of the divergence form does not
+appear: legacy convection + compensator is stable to t=100 at all φ.
+The momentum ledger of these runs is trustworthy; what follows is a
+physics result, not an accounting artifact.
+
+### RZ verdict — FAIL: settling ENHANCEMENT, not hindrance, at late time
+
+Frame-corrected metric U_RZ = ⟨u_p,z⟩ − j, j = uf_super,z + φ⟨u_p,z⟩
+(mixture volume flux; the balanced-body-force box settles into the
+zero-total-momentum state, uf_super ≈ −(ρ_p/ρ_f)φ⟨u_p,z⟩ with
+ρ_p/ρ_f = 2, so the zero-net-volume-flux RZ frame differs from the lab
+frame — the correction accounts for it). U₀ = −8.2391e-3
+(frame-corrected u0 TAVG; consistent with all previous references to
+4–5 digits).
+
+TAVG window t=[50,100]:
+
+| φ | U_RZ | U/U₀ | RZ ε^4.65 | verdict |
+|---|---|---|---|---|
+| 0.05 | −2.179e-2 | 2.645 | 0.788 | FAIL (+236%) |
+| 0.10 | −2.759e-2 | 3.349 | 0.613 | FAIL (+447%) |
+| 0.15 | −2.728e-2 | 3.311 | 0.470 | FAIL (+605%) |
+| 0.20 | −2.486e-2 | 3.017 | 0.354 | FAIL (+752%) |
+
+Mean settling is 2.6–3.3× FASTER than the single particle, and
+non-monotonic in φ. No RZ exponent is quotable from this state.
+
+### Two-regime structure — the homogeneous state is unstable
+
+Early window t=[5,15], before the instability develops:
+
+| φ | U/U₀ | RZ ε^4.65 | n_eff |
+|---|---|---|---|
+| 0.05 | 0.922 | 0.788 | 1.58 |
+| 0.10 | 0.812 | 0.613 | 1.98 |
+| 0.15 | 0.741 | 0.470 | 1.85 |
+| 0.20 | 0.511 | 0.354 | 3.01 |
+
+Early time IS hindered (U/U₀ < 1, ordered in φ) but weaker than RZ
+(fit n ≈ 2.5–3.3 vs 4.65) — and the window is itself still transient:
+the box-scale backflow structure needs ~L/U ~ 100 t.u. to develop,
+while the instability overtakes it from t ≈ 20.
+
+Instability evidence (all φ, strongest at 0.20):
+- Tgran grows two orders of magnitude exactly at the enhancement
+  onset (φ=0.20: 5e-5 at t=15 → 9.7e-3 at t=40, decaying to 2.9e-3 by
+  t=100 — not yet statistically stationary at end of run).
+- Proximity-pair count rises ~50% from its seeded value (φ=0.05:
+  ~240 → ~550 peak) — clustering.
+- ⟨u_p,z⟩ shows slow box-scale oscillations (period ~40 t.u.,
+  amplitude 2–3×) — plume/convection-cell dynamics.
+- Ga = √(g'd³)/ν ≈ 0.55: far below any particle-inertia clustering
+  threshold — this is the two-way-coupled concentration (plume)
+  instability of a periodic settling suspension, not turbulence.
+
+Interpretation: the RZ correlation describes wall-bounded batch
+sedimentation, where container walls suppress box-scale convection.
+A triply periodic box with uniform counter-forcing has no such
+mechanism: concentration fluctuations self-amplify (dense regions drag
+fluid down, reducing local slip and collecting more particles) and the
+saturated state is cluster-induced enhanced settling. Candidate
+contributors to the growth rate that are OUR modelling choices rather
+than physics: no undisturbed-field correction (each particle feels its
+own kernel-smoothed wake — deferred item), kernel δ ≈ mean
+interparticle spacing at φ=0.05, and the box being only L/d_p = 20.
+
+### Options forward (decision needed before Stage 5 gating)
+
+1. Suppress the mesoscale mode: horizontal-plane-wise zero-net-flux
+   forcing (subtract the xy-mean fluid velocity per plane each step),
+   the standard trick for periodic hindered-settling measurements.
+2. Shrink the box (L/d_p ~ 8–10): the instability's fastest-growing
+   wavelength is box-limited; a smaller box may hold the homogeneous
+   state long enough to measure n. Trades against ⟨ε_f⟩ statistics.
+3. Early-window fit only: quote n from t=[5,15] with the caveat that
+   the backflow is not fully developed (current n ≈ 2.5–3.3).
+4. Reframe V2: validate against cluster-induced-settling literature
+   instead of RZ (enhancement factors 2–4× are reported for two-way
+   coupled point-particle sedimentation) and gate Stage 5 on the
+   infrastructure checks (all PASS) plus V4's own acceptance.
+
+Stage-5 note: the pipe cases are wall-bounded — the mesoscale mode
+that breaks the periodic box is suppressed there by construction, so
+Stage 5 is NOT invalidated by this result.
