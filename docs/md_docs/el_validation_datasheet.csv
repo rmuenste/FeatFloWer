@@ -43,3 +43,4 @@ infrastructure,el_momentum_fix,cum_drift_z_production_sweep_t100,0,"Compensator 
 validation,v2_rz_settling,rz_ratio_U_over_U0_tavg,"eps^4.65 (0.79/0.61/0.47/0.35)","Richardson-Zaki 1954 n=4.65 low-Re; v2_rz_settling RUNBOOK sweep 3","2.65/3.35/3.31/3.02 (enhanced)",+2.4e+00_to_+7.5e+00,1.0e-01,FAIL
 validation,v2_rz_settling,rz_exponent_early_window_t5_15,4.65,"RZ fit on pre-instability window; v2_rz_settling RUNBOOK sweep 3",2.5_to_3.3,4.6e-01,0.5_abs,RECORDED
 validation,v2_rz_settling,mesoscale_settling_instability,homogeneous_state_stable,"RZ assumes wall-bounded homogeneous suspension; periodic box has no suppression mechanism","Tgran x100 onset t~20; clustering; 2.6-3.3x enhancement",NA,physics_finding,RECORDED
+infrastructure,unit_lubrication_pair,cross_rank_pair_visibility_and_newton,"pairs>0, NP=0","Shadow-copy margin + fold-once lubrication (pe 916600a/24295f5); unit_lubrication_pair RUNBOOK (job 135994)","pairs=20, NP 1.8e-22",1.8e-22_abs,1.0e-10,PASS

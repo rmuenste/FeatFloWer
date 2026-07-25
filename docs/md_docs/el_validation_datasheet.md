@@ -50,3 +50,4 @@ Source branch: `feature/euler-lagrange-phase1`
 | validation | v2_rz_settling | mesoscale_settling_instability | homogeneous_state_stable | RZ assumes wall-bounded homogeneous suspension; periodic box has no suppression mechanism | Tgran x100 onset t~20; clustering; 2.6-3.3x enhancement | NA | physics_finding | RECORDED |
 
 For rows with zero expected value, the `rel_error` entry is an absolute error marker because relative error is undefined.
+| infrastructure | unit_lubrication_pair | cross_rank_pair_visibility_and_newton | pairs>0, NP=0 | Shadow-copy margin + fold-once lubrication (pe 916600a/24295f5); unit_lubrication_pair RUNBOOK (job 135994) | pairs=20, NP 1.8e-22 | 1.8e-22_abs | 1.0e-10 | PASS |

@@ -19,3 +19,11 @@ the sliding lubrication term produces a nonzero virial.
 
 ## Run log
 (appended as runs complete)
+
+### 2026-07-26 — job 135994 (np=28, 8 s): ALL GATES PASS
+- pairs = 20 every audit step (1 pair x 10 substeps, both boundary ranks
+  counting) — without the shadow-copy margin this is 0, since neither
+  center is within R of the boundary plane.
+- sig_xz ~ 7e-7 nonzero, dissipative sign, sliding-dominated structure.
+- EL_NEWTON_PAIR worst 1.8e-22 — fold-once antisymmetry exact.
+- max_overlap 0.0 throughout (no contact; pure lubrication pair).
