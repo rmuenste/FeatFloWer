@@ -105,6 +105,30 @@ real(c_double) function getElMaxPenetration() bind(C, name="getElMaxPenetration"
 end interface
 
 !================================================================================================
+!                              Subroutine getElLubricationVirial
+!================================================================================================
+! C++ implementation: getElLubricationVirial() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local impulse virial of the current macro step (9 components, row-major
+! force x separation); MPI-SUM counts each pair exactly once (0.5 weight per
+! locally-owned member). Particle-phase stress: sigma = -virial/(dt*V).
+interface
+subroutine getElLubricationVirial(sigma) bind(C, name="getElLubricationVirial")
+  use iso_c_binding, only: c_double
+  real(c_double) :: sigma(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElLubricationPairs
+!================================================================================================
+! C++ implementation: getElLubricationPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElLubricationPairs() bind(C, name="getElLubricationPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

@@ -8,11 +8,14 @@ MODULE EL_DIAGNOSTICS
   USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
                        el_domain_type, el_cylinder_center, &
                        el_cylinder_radius, el_cylinder_axis, &
-                       el_momentum_fix, el_meso_filter_bins
+                       el_momentum_fix, el_meso_filter_bins, &
+                       el_shear_rate
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
-                       getElContactCount, getElMaxPenetration
+                       getElContactCount, getElMaxPenetration, &
+                       getElStepsize, getElLubricationVirial, &
+                       getElLubricationPairs
 #endif
 
   IMPLICIT NONE
@@ -33,6 +36,8 @@ MODULE EL_DIAGNOSTICS
   LOGICAL :: el_meso_bounds_set = .FALSE.
   REAL*8 :: el_meso_xmin = 0.0d0, el_meso_xlen = 0.0d0
   REAL*8 :: el_meso_ymin = 0.0d0, el_meso_ylen = 0.0d0
+  INTEGER :: el_susp_tavg_count = 0
+  REAL*8 :: el_susp_tavg_sig(9) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -61,6 +66,9 @@ CONTAINS
     REAL*8 :: tavg_up(3), tavg_uf_intr(3), tavg_uf_super(3)
     REAL*8 :: tavg_slip_intr(3), tavg_eps
     REAL*8 :: local_tgran, global_tgran, max_overlap_local, max_overlap
+    REAL*8 :: susp_local(9), susp_virial(9), susp_sig(9), susp_tavg(9)
+    REAL*8 :: susp_dt, susp_eta
+    INTEGER :: lubpairs_local, lubpairs
     INTEGER :: tavg_start_step, ncontacts_local, ncontacts
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
     ! plain rho*u and void-fraction-weighted rho*eps_f*u.
@@ -142,6 +150,28 @@ CONTAINS
       MPI_SUM, MPI_COMM_SUBS, ierr)
     IF (global_count.GT.0) global_tgran = global_tgran / DBLE(global_count)
 
+
+    ! Pairwise-lubrication impulse virial (Kroupa closure in PE): the MPI sum
+    ! counts each pair exactly once (0.5 weight per locally-owned member on
+    ! the PE side); particle-phase stress sigma = -virial/(dt*V). Zero when
+    ! lubrication is disabled. The pair count double-counts cross-rank pairs
+    ! (informational, like ncontacts).
+    susp_local = 0.0d0
+    lubpairs_local = 0
+    susp_dt = 0.0d0
+#ifdef HAVE_PE
+    CALL getElLubricationVirial(susp_local)
+    lubpairs_local = getElLubricationPairs()
+    susp_dt = getElStepsize()
+#endif
+    CALL MPI_Allreduce(susp_local, susp_virial, 9, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(lubpairs_local, lubpairs, 1, MPI_INTEGER, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
+    susp_sig = 0.0d0
+    IF (susp_dt.GT.0.0d0 .AND. global_vol.GT.0.0d0) &
+      susp_sig = -susp_virial / (susp_dt*global_vol)
+
     tavg_start_step = 0
     IF (NITNS.GT.0) tavg_start_step = INT((1.0d0-el_tavg_window)*DBLE(NITNS))
     IF (ABS(istep).GE.tavg_start_step) THEN
@@ -151,7 +181,12 @@ CONTAINS
       el_mean_slip_tavg_uf_super = el_mean_slip_tavg_uf_super + uf_super
       el_mean_slip_tavg_slip_intr = el_mean_slip_tavg_slip_intr + slip_intr
       el_mean_slip_tavg_eps = el_mean_slip_tavg_eps + eps_mean
+      el_susp_tavg_count = el_susp_tavg_count + 1
+      el_susp_tavg_sig = el_susp_tavg_sig + susp_sig
     END IF
+    susp_tavg = 0.0d0
+    IF (el_susp_tavg_count.GT.0) susp_tavg = el_susp_tavg_sig / &
+      DBLE(el_susp_tavg_count)
     IF (el_mean_slip_tavg_count.GT.0) THEN
       tavg_up = el_mean_slip_tavg_up / DBLE(el_mean_slip_tavg_count)
       tavg_uf_intr = el_mean_slip_tavg_uf_intr / DBLE(el_mean_slip_tavg_count)
@@ -219,6 +254,18 @@ CONTAINS
       WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6)') &
         'EL_CONTACT_STATS t= ', time, ' ncontacts= ', ncontacts, &
         ' max_overlap= ', max_overlap, ' Tgran= ', global_tgran
+      ! sig_xz row-major component (1-based index 3); etaL = sig_xz/G for the
+      ! frozen linear-shear box u_x(z) with G = el_shear_rate.
+      susp_eta = 0.0d0
+      IF (ABS(el_shear_rate).GT.0.0d0) susp_eta = susp_tavg(3)/el_shear_rate
+      WRITE(*,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6,A,ES14.6,A,9ES14.6)') &
+        'EL_SUSP_STRESS t= ', time, ' pairs= ', lubpairs, &
+        ' sig_xz= ', susp_sig(3), ' sig_xz_tavg= ', susp_tavg(3), &
+        ' etaL_tavg= ', susp_eta, ' sig= ', susp_sig
+      WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6,A,ES14.6,A,9ES14.6)') &
+        'EL_SUSP_STRESS t= ', time, ' pairs= ', lubpairs, &
+        ' sig_xz= ', susp_sig(3), ' sig_xz_tavg= ', susp_tavg(3), &
+        ' etaL_tavg= ', susp_eta, ' sig= ', susp_sig
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS
