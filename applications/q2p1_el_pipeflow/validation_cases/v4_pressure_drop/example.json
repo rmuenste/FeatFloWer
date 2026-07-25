@@ -1,0 +1,43 @@
+{
+ "timesteps_": 20000,
+ "stepsize_": 0.02,
+ "substeps_": 1,
+ "processesX_": 1,
+ "processesY_": 1,
+ "processesZ_": 27,
+ "seed_": 12345,
+ "verbose_": false,
+ "vtk_": false,
+ "particleDensity_": 1.0,
+ "fluidViscosity_": 0.02,
+ "fluidDensity_": 1.0,
+ "gravity_": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "visspacing_": 10000,
+ "pointerspacing_": 10000,
+ "resume_": false,
+ "useCheckpointer_": false,
+ "packingMethod_": "external",
+ "seedMode_": "random",
+ "volumeFraction_": 0.2,
+ "seedDomain_": "cylinder",
+ "seedCylinderCenter_": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "seedCylinderRadius_": 0.5,
+ "seedCylinderAxis_": "z",
+ "xyzFilePath_": "particles.xyz",
+ "benchRadius_": 0.025,
+ "periodicZ_": true,
+ "initialParticleVelocity_": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "config_string": "v4_pressure_drop: neutrally buoyant suspension in z-pipe R=0.5 L=2, d_p=0.05 (R/d_p=10), fixed axial forcing 0.192 across phi, random cylinder seeding; mu_app(phi)=f*R^2/(8*u_mean) vs Krieger-Dougherty (stage the per-phi rundir by sed'ing volumeFraction_)"
+}
