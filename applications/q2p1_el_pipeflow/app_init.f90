@@ -595,6 +595,7 @@ END SUBROUTINE get_global_domain_extents
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
                         el_fluid_gravity, el_momentum_fix, &
+                        el_meso_filter, el_meso_filter_bins, &
                         el_write_diagnostics, el_momentum_audit_freq, &
                         el_tavg_window, &
                         EL_VALIDATE_CONFIG, &
@@ -858,6 +859,14 @@ END SUBROUTINE get_global_domain_extents
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
+       CASE ("ELMesoFilter")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_meso_filter = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+       CASE ("ELMesoFilterBins")
+         READ(string(iEq+1:),*) el_meso_filter_bins
        CASE ("ELConvectionForm")
          ! convective (legacy, default) | divergence (globally momentum-
          ! conservative on periodic domains; see CONVQ2/iConvectionForm)

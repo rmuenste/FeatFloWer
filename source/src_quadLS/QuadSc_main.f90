@@ -25,7 +25,7 @@ use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
 use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate, &
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
                      el_cylinder_axis
-use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity
+use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
                           EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
@@ -345,8 +345,9 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES, &
                          el_pair_expected_impulse
   USE EL_DIAGNOSTICS, ONLY: EL_NEWTON_PAIR_BEGIN, EL_NEWTON_PAIR_END, &
-                            EL_FLUID_PAIR_BEGIN, EL_FLUID_PAIR_END
-  USE var_QuadScalar, ONLY: bConstForce, ConstForce
+                            EL_FLUID_PAIR_BEGIN, EL_FLUID_PAIR_END, &
+                            EL_MESO_FILTER_APPLY
+  USE var_QuadScalar, ONLY: bConstForce, ConstForce, myQ2Coor
 
   INTEGER, INTENT(IN) :: mfile, itns
   INTEGER, INTENT(OUT) :: inl_u
@@ -430,6 +431,20 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
         el_field_data%epsilon_f)
     END IF
     CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+    ! Mesoscale lane-mode filter (periodic settling boxes): applied inside
+    ! the audited window so its (near-zero) momentum residue lands in the
+    ! EL_FLUID_PAIR mismatch and is nulled by the ELMomentumFix deadbeat.
+    IF (myid.NE.master .AND. el_meso_filter) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
+      CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                          mg_mesh%level(ILEV)%dcorag, &
+                          mg_mesh%level(ILEV)%kvert, &
+                          mg_mesh%level(ILEV)%karea, &
+                          mg_mesh%level(ILEV)%kedge)
+      CALL EL_MESO_FILTER_APPLY(QuadSc%valW, mg_mesh, NLMAX, myQ2Coor, &
+        QuadSc%ndof)
+    END IF
     IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
         ALLOCATED(el_field_data%fluid_feedback_source)) THEN
       ILEV = NLMAX

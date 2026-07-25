@@ -4,11 +4,11 @@ MODULE EL_DIAGNOSTICS
   USE PP3D_MPI, ONLY: myid, showid, MPI_COMM_SUBS
   USE DEM_QUERY, ONLY: tParticleData
   USE TYPES, ONLY: tMultiMesh
-  USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM
+  USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM, EL_INTEGRATE_UZ_LANES
   USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
                        el_domain_type, el_cylinder_center, &
                        el_cylinder_radius, el_cylinder_axis, &
-                       el_momentum_fix
+                       el_momentum_fix, el_meso_filter_bins
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
@@ -28,6 +28,11 @@ MODULE EL_DIAGNOSTICS
   ! Grav_QuadSc next step. Recursion C_{n+1} = C_n - mismatch_n keeps the
   ! cumulative fluid-momentum drift bounded by a single step's leak.
   REAL*8 :: el_momfix_accel(3) = 0.0d0
+  ! Mesoscale lane-mode filter state: global horizontal domain bounds,
+  ! resolved once on first use (Allreduce over vertex coordinates).
+  LOGICAL :: el_meso_bounds_set = .FALSE.
+  REAL*8 :: el_meso_xmin = 0.0d0, el_meso_xlen = 0.0d0
+  REAL*8 :: el_meso_ymin = 0.0d0, el_meso_ylen = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -263,6 +268,78 @@ CONTAINS
     el_fluid_pair_stage_set = .TRUE.
 
   END SUBROUTINE EL_FLUID_PAIR_STAGE
+
+  SUBROUTINE EL_MESO_FILTER_APPLY(val_w, mesh, ilev, coor, ndof)
+
+    ! Subtract from u_z its zero-mean x-slab and y-slab averages (the
+    ! gravest lane modes of the periodic-box settling instability; the
+    ! wall-suppression surrogate, see el_config.f90). The subtracted
+    ! nodal field depends on (x,y) only, so on the axis-aligned periodic
+    ! box it is discretely divergence-free, and its global mean is
+    ! removed so it carries (up to slab-vs-Q2 representation residue)
+    ! zero net momentum. Caller pins ILEV to the coupling level.
+    REAL*8, INTENT(INOUT) :: val_w(:)
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev, ndof
+    REAL*8, INTENT(IN) :: coor(:,:)
+
+    INTEGER :: nbins, i, ib, ierr, ig
+    REAL*8 :: gmean, xw, yw
+    REAL*8 :: bounds_local(4), bounds(4)
+    REAL*8, ALLOCATABLE :: lanes_local(:), lanes(:)
+    REAL*8, ALLOCATABLE :: fx(:), fy(:)
+
+    nbins = MAX(2, el_meso_filter_bins)
+
+    IF (.NOT.el_meso_bounds_set) THEN
+      bounds_local(1) = MINVAL(mesh%level(ilev)%dcorvg(1,1:mesh%level(ilev)%nvt))
+      bounds_local(2) = -MAXVAL(mesh%level(ilev)%dcorvg(1,1:mesh%level(ilev)%nvt))
+      bounds_local(3) = MINVAL(mesh%level(ilev)%dcorvg(2,1:mesh%level(ilev)%nvt))
+      bounds_local(4) = -MAXVAL(mesh%level(ilev)%dcorvg(2,1:mesh%level(ilev)%nvt))
+      CALL MPI_Allreduce(bounds_local, bounds, 4, MPI_DOUBLE_PRECISION, &
+        MPI_MIN, MPI_COMM_SUBS, ierr)
+      el_meso_xmin = bounds(1)
+      el_meso_xlen = -bounds(2) - bounds(1)
+      el_meso_ymin = bounds(3)
+      el_meso_ylen = -bounds(4) - bounds(3)
+      el_meso_bounds_set = .TRUE.
+    END IF
+    IF (el_meso_xlen.LE.0.0d0 .OR. el_meso_ylen.LE.0.0d0) RETURN
+
+    ALLOCATE(lanes_local(4*nbins), lanes(4*nbins), fx(nbins), fy(nbins))
+    CALL EL_INTEGRATE_UZ_LANES(mesh, ilev, val_w, nbins, &
+      el_meso_xmin, el_meso_xlen, el_meso_ymin, el_meso_ylen, &
+      lanes_local(1:nbins), lanes_local(nbins+1:2*nbins), &
+      lanes_local(2*nbins+1:3*nbins), lanes_local(3*nbins+1:4*nbins))
+    CALL MPI_Allreduce(lanes_local, lanes, 4*nbins, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+
+    IF (SUM(lanes(nbins+1:2*nbins)).LE.0.0d0) THEN
+      DEALLOCATE(lanes_local, lanes, fx, fy)
+      RETURN
+    END IF
+    gmean = SUM(lanes(1:nbins))/SUM(lanes(nbins+1:2*nbins))
+    DO i=1,nbins
+      fx(i) = 0.0d0
+      IF (lanes(nbins+i).GT.0.0d0) fx(i) = lanes(i)/lanes(nbins+i) - gmean
+      fy(i) = 0.0d0
+      IF (lanes(3*nbins+i).GT.0.0d0) fy(i) = lanes(2*nbins+i)/lanes(3*nbins+i) - gmean
+    END DO
+
+    ! Periodic wrap in the dof binning so matched dofs on the two copies
+    ! of a periodic face receive identical corrections.
+    DO ig=1,ndof
+      xw = MODULO(coor(1,ig)-el_meso_xmin, el_meso_xlen)
+      yw = MODULO(coor(2,ig)-el_meso_ymin, el_meso_ylen)
+      ib = MIN(nbins, 1 + INT(xw/el_meso_xlen*DBLE(nbins)))
+      val_w(ig) = val_w(ig) - fx(ib)
+      ib = MIN(nbins, 1 + INT(yw/el_meso_ylen*DBLE(nbins)))
+      val_w(ig) = val_w(ig) - fy(ib)
+    END DO
+
+    DEALLOCATE(lanes_local, lanes, fx, fy)
+
+  END SUBROUTINE EL_MESO_FILTER_APPLY
 
   SUBROUTINE EL_FLUID_PAIR_END(val_u, val_v, val_w, mesh, ilev, density, &
                                epsilon_f, source, ext_force, dt, time, &

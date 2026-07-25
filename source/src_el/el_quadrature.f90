@@ -241,6 +241,104 @@ CONTAINS
 
   END SUBROUTINE EL_INTEGRATE_FLUID_MOMENTUM
 
+  !----------------------------------------------------------------------------
+  ! EL_INTEGRATE_UZ_LANES
+  !
+  ! Element-cubature accumulation of  integral u_z dV  and  integral dV  into
+  ! nbins uniform slabs in x and (independently) in y, over all LOCALLY OWNED
+  ! elements. Feeds the mesoscale lane-mode filter: the caller Allreduce's the
+  ! bins over MPI_COMM_SUBS and forms the zero-mean slab-average profiles
+  ! ubar_z(x), ubar_z(y). Same E013 basis/quadrature as the momentum audit.
+  !----------------------------------------------------------------------------
+  SUBROUTINE EL_INTEGRATE_UZ_LANES(mesh, ilev, velocity_w, nbins, &
+      xmin, xlen, ymin, ylen, num_x, den_x, num_y, den_y)
+
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev, nbins
+    REAL*8, INTENT(IN) :: velocity_w(:)
+    REAL*8, INTENT(IN) :: xmin, xlen, ymin, ylen
+    REAL*8, INTENT(OUT) :: num_x(nbins), den_x(nbins)
+    REAL*8, INTENT(OUT) :: num_y(nbins), den_y(nbins)
+
+    INTEGER :: iel, icubp, i, ig, ieltyp, idfl, ibx, iby
+    INTEGER :: kdfl(NNBAS), kdfg(NNBAS)
+    REAL*8 :: xi(3), point(3), jac(3,3), detj, omega, wvel
+
+    REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
+    REAL*8 :: dbas(3,NNBAS,NNDER), dxi(NNCUBP,3), domega(NNCUBP)
+    LOGICAL :: bder(NNDER)
+    INTEGER :: kve(NNVE), iel_common, ndim, idfl_common
+    INTEGER :: nel_common, nvt_common, net_common, nat_common
+    INTEGER :: nve_common, nee_common, nae_common, nvel_common, neel_common
+    INTEGER :: nved_common, nvar_common, near_common, nbct_common
+    INTEGER :: nvbd_common, nebd_common, nabd_common, ncubp
+    INTEGER :: ier, icheck
+
+    COMMON /ERRCTL/ ier,icheck
+    COMMON /ELEM/ dx,dy,dz,djac,detj_common,dbas,bder,kve,iel_common,ndim
+    COMMON /TRIAD/ nel_common,nvt_common,net_common,nat_common,nve_common, &
+      nee_common,nae_common,nvel_common,neel_common,nved_common,nvar_common, &
+      near_common,nbct_common,nvbd_common,nebd_common,nabd_common
+    COMMON /CUB/ dxi,domega,ncubp,icubp
+    COMMON /COAUX1/ kdfg,kdfl,idfl_common
+
+    INTEGER, EXTERNAL :: NDFL
+    EXTERNAL E013
+
+    num_x = 0.0d0
+    den_x = 0.0d0
+    num_y = 0.0d0
+    den_y = 0.0d0
+    IF (xlen.LE.0.0d0 .OR. ylen.LE.0.0d0) RETURN
+
+    bder = .FALSE.
+    bder(1) = .TRUE.
+    ieltyp = -1
+    CALL E013(0.0d0,0.0d0,0.0d0,ieltyp)
+    idfl = NDFL(ieltyp)
+    idfl_common = idfl
+    CALL CB3H(9)
+    IF (ier.NE.0) RETURN
+
+    DO iel=1,mesh%level(ilev)%nel
+      iel_common = iel
+      DO i=1,NNVE
+        ig = mesh%level(ilev)%kvert(i,iel)
+        kve(i) = ig
+        dx(i) = mesh%level(ilev)%dcorvg(1,ig)
+        dy(i) = mesh%level(ilev)%dcorvg(2,ig)
+        dz(i) = mesh%level(ilev)%dcorvg(3,ig)
+      END DO
+      CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
+        mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
+      IF (ier.LT.0) RETURN
+      CALL EL_ASSERT_KDFG_IN_BOUNDS('EL_INTEGRATE_UZ_LANES', ilev, &
+        iel, ieltyp, SIZE(velocity_w), kdfg, idfl)
+      CALL E013(0.0d0,0.0d0,0.0d0,-2)
+
+      DO icubp=1,ncubp
+        xi = dxi(icubp,:)
+        CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
+        djac = jac
+        detj_common = detj
+        omega = domega(icubp)*ABS(detj)
+        CALL E013(xi(1),xi(2),xi(3),-3)
+        IF (ier.LT.0) RETURN
+        wvel = 0.0d0
+        DO i=1,idfl
+          wvel = wvel + velocity_w(kdfg(i))*dbas(1,kdfl(i),1)
+        END DO
+        ibx = MIN(nbins, MAX(1, 1 + INT((point(1)-xmin)/xlen*DBLE(nbins))))
+        iby = MIN(nbins, MAX(1, 1 + INT((point(2)-ymin)/ylen*DBLE(nbins))))
+        num_x(ibx) = num_x(ibx) + omega*wvel
+        den_x(ibx) = den_x(ibx) + omega
+        num_y(iby) = num_y(iby) + omega*wvel
+        den_y(iby) = den_y(iby) + omega
+      END DO
+    END DO
+
+  END SUBROUTINE EL_INTEGRATE_UZ_LANES
+
   SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields, &
       drag_b)
 

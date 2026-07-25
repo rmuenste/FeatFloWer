@@ -43,6 +43,17 @@ MODULE EL_CONFIG
   LOGICAL :: el_momentum_fix = .FALSE.
   INTEGER :: el_momentum_audit_freq = 100
   REAL*8 :: el_tavg_window = 0.5d0
+  ! Mesoscale lane-mode filter for periodic settling boxes: each step,
+  ! subtract from u_z its zero-mean x-binned and y-binned plane averages
+  ! (the gravest "lane" modes of the two-way-coupled concentration
+  ! instability, which lateral container walls would suppress in the
+  ! wall-bounded experiments RZ describes). The subtracted field is
+  ! z-independent (divergence-free on the axis-aligned box) and has its
+  ! global mean removed (momentum-neutral; any lumping residue lands in
+  ! the EL_FLUID_PAIR mismatch and is absorbed by ELMomentumFix).
+  ! Periodic-box suspension runs only.
+  LOGICAL :: el_meso_filter = .FALSE.
+  INTEGER :: el_meso_filter_bins = 16
 
 CONTAINS
 
@@ -207,6 +218,8 @@ CONTAINS
     WRITE(mfile,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
     WRITE(mfile,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
     WRITE(mfile,'(A,L1)') 'EL momentum fix           = ', el_momentum_fix
+    WRITE(mfile,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
+      ' (bins ', el_meso_filter_bins, ')'
     WRITE(mfile,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
     WRITE(mfile,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
 
@@ -233,6 +246,8 @@ CONTAINS
       WRITE(mterm,'(A,L1)') 'EL apply fluid feedback   = ', el_apply_fluid_feedback
       WRITE(mterm,'(A,L1)') 'EL fluid gravity          = ', el_fluid_gravity
       WRITE(mterm,'(A,L1)') 'EL momentum fix           = ', el_momentum_fix
+      WRITE(mterm,'(A,L1,A,I0,A)') 'EL meso filter            = ', el_meso_filter, &
+        ' (bins ', el_meso_filter_bins, ')'
       WRITE(mterm,'(A,I0)') 'EL momentum audit freq    = ', el_momentum_audit_freq
       WRITE(mterm,'(A,ES14.6)') 'EL tavg window            = ', el_tavg_window
     END IF
