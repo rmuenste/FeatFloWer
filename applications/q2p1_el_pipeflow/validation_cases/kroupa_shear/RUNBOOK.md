@@ -38,3 +38,22 @@ the V4 pipe rerun (mu_app vs Krieger-Dougherty).
 
 ## Run log
 (appended as runs complete)
+
+## Smoke ladder (2026-07-26) — two real bugs caught by the Newton-pair audit
+
+1. Job 135995 (cutoff-only shadow margin): etaL sane (5.15e-3) and
+   OFF-twin (135996) exactly zero, but EL_NEWTON_PAIR worst 4.3e-6 —
+   one-sided pairs. Root cause: margin must be radius + cutoff (a
+   partner can sit up to R+cutoff beyond the boundary when the owned
+   body's center is at the domain edge). Fix pe 11895f3.
+2. Job 136001 (margin fixed): 3.2e-7 residual — Gauss-Seidel fold: pair
+   forces applied into v_ mid-sweep, so later pairs on the owner rank
+   read updates the partner's owner rank never saw. Fix: Jacobi
+   accumulation against the frozen synced state (pe commit after
+   11895f3).
+3. Job 136017 (both fixes): EL_NEWTON_PAIR worst 4.0e-20 at phi=0.20
+   under 83k pair-substep evaluations; etaL_tavg 5.11e-3; max_overlap
+   0.0; no NaN. ALL SMOKE GATES PASS.
+
+Full sweep submitted: jobs 136021-136024 (phi 0.05/0.10/0.20/0.30 ON)
++ 136025 (phi=0.20 OFF twin), 5000 steps to t=10, med partition.
