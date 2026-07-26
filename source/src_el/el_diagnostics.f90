@@ -15,7 +15,7 @@ MODULE EL_DIAGNOSTICS
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
                        getElContactCount, getElMaxPenetration, &
                        getElStepsize, getElLubricationVirial, &
-                       getElLubricationPairs
+                       getElLubricationPairs, getElLubricationImpulse
 #endif
 
   IMPLICIT NONE
@@ -69,6 +69,7 @@ CONTAINS
     REAL*8 :: susp_local(9), susp_virial(9), susp_sig(9), susp_tavg(9)
     REAL*8 :: susp_dt, susp_eta
     INTEGER :: lubpairs_local, lubpairs
+    REAL*8 :: lubdp_local(3), lubdp(3)
     INTEGER :: tavg_start_step, ncontacts_local, ncontacts
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
     ! plain rho*u and void-fraction-weighted rho*eps_f*u.
@@ -159,11 +160,15 @@ CONTAINS
     susp_local = 0.0d0
     lubpairs_local = 0
     susp_dt = 0.0d0
+    lubdp_local = 0.0d0
 #ifdef HAVE_PE
     CALL getElLubricationVirial(susp_local)
+    CALL getElLubricationImpulse(lubdp_local)
     lubpairs_local = getElLubricationPairs()
     susp_dt = getElStepsize()
 #endif
+    CALL MPI_Allreduce(lubdp_local, lubdp, 3, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(susp_local, susp_virial, 9, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(lubpairs_local, lubpairs, 1, MPI_INTEGER, MPI_SUM, &
@@ -266,6 +271,10 @@ CONTAINS
         'EL_SUSP_STRESS t= ', time, ' pairs= ', lubpairs, &
         ' sig_xz= ', susp_sig(3), ' sig_xz_tavg= ', susp_tavg(3), &
         ' etaL_tavg= ', susp_eta, ' sig= ', susp_sig
+      WRITE(*,'(A,ES14.6,A,3ES14.6)') &
+        'EL_LUB_IMPULSE t= ', time, ' net_dp= ', lubdp
+      WRITE(mfile,'(A,ES14.6,A,3ES14.6)') &
+        'EL_LUB_IMPULSE t= ', time, ' net_dp= ', lubdp
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS

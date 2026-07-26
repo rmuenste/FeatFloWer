@@ -129,6 +129,19 @@ integer(c_int) function getElLubricationPairs() bind(C, name="getElLubricationPa
 end interface
 
 !================================================================================================
+!                              Subroutine getElLubricationImpulse
+!================================================================================================
+! C++ implementation: getElLubricationImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local net momentum folded by the lubrication sweep this macro step; the
+! MPI sum across ranks measures pair one-sidedness (must be ~0).
+interface
+subroutine getElLubricationImpulse(dp) bind(C, name="getElLubricationImpulse")
+  use iso_c_binding, only: c_double
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
