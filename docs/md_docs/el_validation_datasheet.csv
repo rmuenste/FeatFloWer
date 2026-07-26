@@ -48,3 +48,4 @@ validation,kroupa_shear,etaL_over_mu_phi_sweep,"positive, monotone, superlinear 
 validation,kroupa_shear,lubrication_off_twin_etaL,0,"Virial accumulates only lubrication pairs; kroupa_shear RUNBOOK (job 136025)",0.0_exact,0.0_abs,1.0e-12,PASS
 infrastructure,kroupa_shear,newton_pair_designated_treater,0,"Relay-based pair treatment Newton-exact by construction; kroupa_shear RUNBOOK",2.1e-19_worst_full_sweep,2.1e-19_abs,1.0e-10,PASS
 validation,v4_pressure_drop,mu_app_over_mu_baseline_no_lubrication,"1.0_flat (drag-only model boundary)","Kroupa Fig 5 lubrication-off branch; v4_pressure_drop RUNBOOK (jobs 135958-135961)",0.999/0.998/0.993/0.987 at phi 0.05-0.20,NA,model_boundary_reference,RECORDED
+infrastructure,el_meso_filter,plume_suppression_phi020,homogeneous_state_stable,"Lane-mode filter (commit 6520efbe); v2_rz_settling RUNBOOK option-1 probe (job 135956)","Tgran/6 but U/U0=2.14 (diag modes persist)",NA,insufficient_fallback_option2,RECORDED

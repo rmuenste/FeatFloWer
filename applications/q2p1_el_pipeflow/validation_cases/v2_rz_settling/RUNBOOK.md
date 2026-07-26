@@ -336,3 +336,18 @@ interparticle spacing at φ=0.05, and the box being only L/d_p = 20.
 Stage-5 note: the pipe cases are wall-bounded — the mesoscale mode
 that breaks the periodic box is suppressed there by construction, so
 Stage 5 is NOT invalidated by this result.
+
+## Mesoscale lane filter (option 1) — probe verdict: INSUFFICIENT (2026-07-27, jobs 135956/135957)
+
+Filtered phi=0.20 probe (ELMesoFilter=Yes, 16 bins, t=100): fluctuation
+suppression works — Tgran peak 1.6e-3 vs 9.7e-3 unfiltered (6x), onset
+delayed ~2x, compensator drift bounded at 1.2e-5 — but the mean settling
+enhancement persists: up_z grows all run (not stationary at t=100), TAVG
+U_RZ = -1.67e-2, U/U0 = 2.14 vs RZ 0.354. The diagonal/checkerboard
+concentration modes, untouched by the x/y lane filter, carry the
+instability. Filtered U0 = -7.830e-3 (job 135957; the filter removes
+part of the self-co-flow bias). Remaining filtered phi points NOT
+submitted. Proceeding to option 2: shrink L/d_p from 20 to 10 by
+doubling d_p to 0.1 in the same box/mesh (delta/h = 8, Re_p ~ 0.17,
+N(0.20) = 382) — the box then excludes the unstable long wavelengths.
+Probe-first: phi=0.20 + U0 at d_p=0.1 before any sweep.
