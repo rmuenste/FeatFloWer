@@ -51,3 +51,7 @@ Source branch: `feature/euler-lagrange-phase1`
 
 For rows with zero expected value, the `rel_error` entry is an absolute error marker because relative error is undefined.
 | infrastructure | unit_lubrication_pair | cross_rank_pair_visibility_and_newton | pairs>0, NP=0 | Shadow-copy margin + fold-once lubrication (pe 916600a/24295f5); unit_lubrication_pair RUNBOOK (job 135994) | pairs=20, NP 1.8e-22 | 1.8e-22_abs | 1.0e-10 | PASS |
+| validation | kroupa_shear | etaL_over_mu_phi_sweep | positive, monotone, superlinear (Kroupa Fig 2b/3 shape) | Kroupa et al. Langmuir 2016 lubrication-stress mechanism; kroupa_shear RUNBOOK (jobs 136099-136102) | 0.0079/0.0363/0.2496/0.7610 at phi 0.05-0.30 | NA | shape_and_monotonicity | PASS |
+| validation | kroupa_shear | lubrication_off_twin_etaL | 0 | Virial accumulates only lubrication pairs; kroupa_shear RUNBOOK (job 136025) | 0.0_exact | 0.0_abs | 1.0e-12 | PASS |
+| infrastructure | kroupa_shear | newton_pair_designated_treater | 0 | Relay-based pair treatment Newton-exact by construction; kroupa_shear RUNBOOK | 2.1e-19_worst_full_sweep | 2.1e-19_abs | 1.0e-10 | PASS |
+| validation | v4_pressure_drop | mu_app_over_mu_baseline_no_lubrication | 1.0_flat (drag-only model boundary) | Kroupa Fig 5 lubrication-off branch; v4_pressure_drop RUNBOOK (jobs 135958-135961) | 0.999/0.998/0.993/0.987 at phi 0.05-0.20 | NA | model_boundary_reference | RECORDED |

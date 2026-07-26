@@ -60,3 +60,24 @@ size the Slurm allocations.
 ## Run log
 
 (appended as runs complete)
+
+## Baseline (no lubrication) — 2026-07-27, jobs 135958-135961: model boundary confirmed
+
+All four runs clean to t=400 (no NaN). Mixture flow rate
+u_mean = uf_super,z + phi*up,z from EL_MEAN_SLIP_TAVG:
+
+| phi | u_mean | mu_app/mu |
+|----:|-------:|----------:|
+| 0.05 | 0.3004 | 0.999 |
+| 0.10 | 0.3007 | 0.998 |
+| 0.15 | 0.3020 | 0.993 |
+| 0.20 | 0.3039 | 0.987 |
+
+Flat (slightly below 1) vs Krieger-Dougherty's expected +15%..+72%: the
+drag-only unresolved model generates no suspension viscosity for
+neutrally buoyant particles — the lubrication-OFF branch of Kroupa
+et al. Fig 5, reproduced in our pipe. This table is the reference for
+the LUBRICATED rerun (jobs 136103-136106, Kroupa closure + substeps 10).
+Note: tail-averaged <eps_f> drifts slightly above 1-phi at higher phi
+(0.812 vs 0.800 at phi=0.20) — kernel/wall bookkeeping worth a look, but
+u_mean does not depend on it.
