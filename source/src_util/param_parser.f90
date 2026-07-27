@@ -21,7 +21,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning
+  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -125,6 +125,10 @@ SUBROUTINE GetVeloParameters(myParam, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  ! The unit number is reused across all Get*Parameters calls; force the read
+  ! position even if the unit was already connected (a stale connection left
+  ! the position at EOF in the 2026-07 split-runtime incident).
+  REWIND(myFile)
 
   ! Initialize default values
   myParam%MGprmIn%RLX = 0.66d0
@@ -132,7 +136,10 @@ SUBROUTINE GetVeloParameters(myParam, cName, mfile)
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetVeloParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -275,13 +282,21 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  REWIND(myFile)
 
   ! Initialize default values
   myParam%MGprmIn%RLX = 0.66d0
+  ! Mirror the Velo@ default. Without it a q2p1_param.dat that omits
+  ! Pres@MGCrsSolverType left the field at its static-storage value 0, which
+  ! matches no branch of mgCoarseGridSolver_P (silent no-op coarse solve).
+  myParam%MGprmIn%CrsSolverType = 1
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetPresParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -357,6 +372,33 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
 END SUBROUTINE GetPresParameters
 
 !-------------------------------------------------------------------------------------------------
+! Guard for the parameter-file READ loops.  End of file (iEnd < 0) is the
+! normal loop termination; a positive iostat is a real read error and must
+! abort.  The loops used to exit only on iEnd == -1, so a unit stuck at EOF
+! (returning e.g. iostat 5001 on every READ) spun forever at 100% CPU on all
+! ranks with no output.  A read error can be rank-local (filesystem hiccup,
+! runtime mismatch), so every rank that hits one prints and aborts the job.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE CheckParamReadError(iEnd, cRoutine)
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: iEnd
+  CHARACTER(len=*), INTENT(IN) :: cRoutine
+  INTEGER :: ierr
+
+  IF (iEnd <= 0) RETURN
+
+  WRITE(*,'(A)') REPEAT('=',78)
+  WRITE(*,'(A,I0,A,I0,A)') ' FATAL: READ error (iostat = ', iEnd, ', rank ', myid, &
+    ') while parsing '//TRIM(ADJUSTL(myDataFile))//' in '//TRIM(cRoutine)//'.'
+  WRITE(*,'(A)') ' The parameter file could not be read to the end; aborting.'
+  WRITE(*,'(A)') REPEAT('=',78)
+  FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, ierr)
+
+END SUBROUTINE CheckParamReadError
+
+!-------------------------------------------------------------------------------------------------
 ! Parse physical properties (Prop@ section)
 ! Note: Function name has typo "Physicla" instead of "Physical" - preserved for compatibility
 !-------------------------------------------------------------------------------------------------
@@ -384,13 +426,17 @@ SUBROUTINE GetPhysiclaParameters(Props, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  REWIND(myFile)
 
   IF (myid == showid) WRITE(mfile, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
   IF (myid == showid) WRITE(mterm, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetPhysiclaParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -612,11 +658,15 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       stop 1
     end if
   end if
+  REWIND(myFile)
 
   bOutNMAX = .false.
   DO
   READ (UNIT=myFile,FMT='(A500)',IOSTAT=iEnd) string
-  IF (iEnd == -1) EXIT
+  IF (iEnd /= 0) THEN
+    CALL CheckParamReadError(iEnd, 'GDATNEW')
+    EXIT
+  END IF
   CALL StrStuct()
   IF (bOK) THEN
 
