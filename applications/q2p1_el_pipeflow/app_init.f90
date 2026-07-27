@@ -589,11 +589,12 @@ END SUBROUTINE get_global_domain_extents
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
                         el_pressure_force, el_lift_model, el_magnus, &
                         el_inertial_lift, el_inertial_lift_umax, &
-                        el_prescribed_field, el_shear_rate, &
+                        el_prescribed_field, el_initial_field, el_shear_rate, &
                         el_prescribed_umax, el_domain_type, &
                         el_cylinder_center, el_cylinder_radius, &
                         el_cylinder_axis, &
                         el_apply_particle_forces, el_apply_fluid_feedback, &
+                        el_wall_stress_diag, &
                         el_fluid_gravity, el_momentum_fix, &
                         el_meso_filter, el_meso_filter_bins, &
                         el_write_diagnostics, el_momentum_audit_freq, &
@@ -809,6 +810,8 @@ END SUBROUTINE get_global_domain_extents
          READ(string(iEq+1:),*) el_inertial_lift_umax
        CASE ("ELPrescribedField")
          READ(string(iEq+1:),*) el_prescribed_field
+       CASE ("ELInitialField")
+         READ(string(iEq+1:),*) el_initial_field
        CASE ("ELShearRate")
          READ(string(iEq+1:),*) el_shear_rate
        CASE ("ELPrescribedUmax")
@@ -837,6 +840,12 @@ END SUBROUTINE get_global_domain_extents
          cParam2 = " "
          READ(string(iEq+1:),*) cParam2
          el_apply_fluid_feedback = &
+           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
+           TRIM(ADJUSTL(cParam2)).EQ."YES"
+       CASE ("ELWallStressDiag")
+         cParam2 = " "
+         READ(string(iEq+1:),*) cParam2
+         el_wall_stress_diag = &
            TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
            TRIM(ADJUSTL(cParam2)).EQ."YES"
        CASE ("ELFluidGravity")
@@ -981,6 +990,10 @@ END SUBROUTINE get_global_domain_extents
        dPeriodicity(2) = dPeriodicLength
      CASE ("z", "Z")
        dPeriodicity(3) = dPeriodicLength
+     CASE ("xy", "XY", "xY", "Xy")
+       ! Plane-Couette: periodic in the two wall-parallel directions, walls in z.
+       dPeriodicity(1) = dPeriodicLength
+       dPeriodicity(2) = dPeriodicLength
      CASE DEFAULT
        WRITE(*,'(A,A)') 'Invalid PeriodicAxis: ', TRIM(ADJUSTL(cPeriodicAxis))
        STOP 1

@@ -167,6 +167,45 @@ integer(c_int) function getElContactVirialPairs() bind(C, name="getElContactViri
 end interface
 
 !================================================================================================
+!                              Subroutine getElWallLubImpulse
+!================================================================================================
+! C++ implementation: getElWallLubImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local lubrication impulse the spheres exert on z-wall `wall`
+! (0 = bottom, 1 = top) this macro step; MPI-SUM counts each sphere once.
+! Wall shear stress: tau = Sum(dp_x)/(dt_macro*A).
+interface
+subroutine getElWallLubImpulse(wall, dp) bind(C, name="getElWallLubImpulse")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int), value :: wall
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine getElWallContactImpulse
+!================================================================================================
+! C++ implementation: getElWallContactImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local converged PGS contact impulse ON z-wall `wall` (0/1) this macro
+! step; each contact counted once (sphere-owner rank).
+interface
+subroutine getElWallContactImpulse(wall, dp) bind(C, name="getElWallContactImpulse")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int), value :: wall
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElWallLubPairs
+!================================================================================================
+! C++ implementation: getElWallLubPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElWallLubPairs() bind(C, name="getElWallLubPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================

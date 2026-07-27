@@ -6,7 +6,7 @@ PROGRAM Q2P1_EL_PIPEFLOW
   USE APP_INITIALIZATION, ONLY: init_q2p1_app
   USE PP3D_MPI, ONLY: myMPI_Barrier
   USE POST_UTILS, ONLY: handle_statistics, print_time, sim_finalize
-  USE TRANSPORT_Q2P1, ONLY: Transport_q2p1_UxyzP_el
+  USE TRANSPORT_Q2P1, ONLY: Transport_q2p1_UxyzP_el, EL_IMPOSE_INITIAL_FIELD
 
   INTEGER :: ufile
   REAL :: dout = 0.0
@@ -14,6 +14,10 @@ PROGRAM Q2P1_EL_PIPEFLOW
   REAL :: dtt0 = 0.0
 
   CALL init_q2p1_app(ufile)
+
+  ! Seed the linear Couette profile as IC (no-op unless
+  ! ELInitialField=linear_shear); restarts keep their loaded field.
+  IF (ISTART.EQ.0) CALL EL_IMPOSE_INITIAL_FIELD()
 
   CALL ZTIME(tt0)
   CALL ZTIME(dtt0)

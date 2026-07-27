@@ -339,6 +339,153 @@ CONTAINS
 
   END SUBROUTINE EL_INTEGRATE_UZ_LANES
 
+  !----------------------------------------------------------------------------
+  ! EL_INTEGRATE_WALL_STRESS
+  !
+  ! Face-quadrature accumulation of  integral du_x/dz dA  and  integral dA
+  ! over the two z-walls (1 = bottom z=zbot, 2 = top z=ztop) of a box
+  ! domain, on locally OWNED elements. The caller multiplies by the DYNAMIC
+  ! viscosity and MPI-reduces both outputs. Q2 (E013) z-derivatives are
+  ! evaluated directly at 3x3 Gauss points on the wall face (element mode
+  ! IPAR=0, no cubature cache). The wall face is located in reference
+  ! coordinates by mapping the six reference-face centers - valid for any
+  ! hex whose face lies in the wall plane.
+  !----------------------------------------------------------------------------
+  SUBROUTINE EL_INTEGRATE_WALL_STRESS(mesh, ilev, velocity_u, zbot, ztop, &
+      dudz_area, area)
+
+    TYPE(tMultiMesh), INTENT(IN) :: mesh
+    INTEGER, INTENT(IN) :: ilev
+    REAL*8, INTENT(IN) :: velocity_u(:)
+    REAL*8, INTENT(IN) :: zbot, ztop
+    REAL*8, INTENT(OUT) :: dudz_area(2), area(2)
+
+    INTEGER :: iel, i, ig, ieltyp, idfl, iw, k, kf, sf, ia, ib, ipar0
+    INTEGER :: dira, dirb, nface
+    INTEGER :: kdfl(NNBAS), kdfg(NNBAS)
+    REAL*8 :: xi(3), point(3), jac(3,3), detj, zwall, tol
+    REAL*8 :: ta(3), tb(3), cn(3), dA, dudz
+    REAL*8 :: gp(3), gw(3)
+    LOGICAL :: found
+
+    REAL*8 :: dx(NNVE), dy(NNVE), dz(NNVE), djac(3,3), detj_common
+    REAL*8 :: dbas(3,NNBAS,NNDER), dxi(NNCUBP,3), domega(NNCUBP)
+    LOGICAL :: bder(NNDER)
+    INTEGER :: kve(NNVE), iel_common, ndim, idfl_common
+    INTEGER :: nel_common, nvt_common, net_common, nat_common
+    INTEGER :: nve_common, nee_common, nae_common, nvel_common, neel_common
+    INTEGER :: nved_common, nvar_common, near_common, nbct_common
+    INTEGER :: nvbd_common, nebd_common, nabd_common, ncubp, icubp
+    INTEGER :: ier, icheck
+
+    COMMON /ERRCTL/ ier,icheck
+    COMMON /ELEM/ dx,dy,dz,djac,detj_common,dbas,bder,kve,iel_common,ndim
+    COMMON /TRIAD/ nel_common,nvt_common,net_common,nat_common,nve_common, &
+      nee_common,nae_common,nvel_common,neel_common,nved_common,nvar_common, &
+      near_common,nbct_common,nvbd_common,nebd_common,nabd_common
+    COMMON /CUB/ dxi,domega,ncubp,icubp
+    COMMON /COAUX1/ kdfg,kdfl,idfl_common
+
+    INTEGER, EXTERNAL :: NDFL
+    EXTERNAL E013
+
+    dudz_area = 0.0d0
+    area = 0.0d0
+    tol = 1.0d-6
+
+    gp = (/-SQRT(0.6d0), 0.0d0, SQRT(0.6d0)/)
+    gw = (/5.0d0/9.0d0, 8.0d0/9.0d0, 5.0d0/9.0d0/)
+
+    bder = .FALSE.
+    bder(1) = .TRUE.
+    bder(4) = .TRUE.
+    ieltyp = -1
+    CALL E013(0.0d0,0.0d0,0.0d0,ieltyp)
+    idfl = NDFL(ieltyp)
+    idfl_common = idfl
+
+    DO iel=1,mesh%level(ilev)%nel
+      iel_common = iel
+      DO i=1,NNVE
+        ig = mesh%level(ilev)%kvert(i,iel)
+        kve(i) = ig
+        dx(i) = mesh%level(ilev)%dcorvg(1,ig)
+        dy(i) = mesh%level(ilev)%dcorvg(2,ig)
+        dz(i) = mesh%level(ilev)%dcorvg(3,ig)
+      END DO
+
+      DO iw=1,2
+        IF (iw.EQ.1) THEN
+          zwall = zbot
+        ELSE
+          zwall = ztop
+        END IF
+        ! A hex face lies in the wall plane iff exactly its 4 face vertices
+        ! sit at zwall.
+        nface = 0
+        DO i=1,NNVE
+          IF (ABS(dz(i)-zwall).LT.tol) nface = nface + 1
+        END DO
+        IF (nface.LT.4) CYCLE
+
+        ! Locate the reference face (xi(kf) = sf) that maps onto the wall.
+        found = .FALSE.
+        DO k=1,3
+          DO sf=-1,1,2
+            xi = 0.0d0
+            xi(k) = DBLE(sf)
+            CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
+            IF (ABS(point(3)-zwall).LT.tol) THEN
+              kf = k
+              found = .TRUE.
+              EXIT
+            END IF
+          END DO
+          IF (found) EXIT
+        END DO
+        IF (.NOT.found) CYCLE
+
+        dira = MOD(kf,3) + 1
+        dirb = MOD(kf+1,3) + 1
+
+        CALL NDFGL(iel,1,ieltyp,mesh%level(ilev)%kvert, &
+          mesh%level(ilev)%kedge,mesh%level(ilev)%karea,kdfg,kdfl)
+        IF (ier.LT.0) RETURN
+        CALL EL_ASSERT_KDFG_IN_BOUNDS('EL_INTEGRATE_WALL_STRESS', ilev, &
+          iel, ieltyp, SIZE(velocity_u), kdfg, idfl)
+
+        DO ia=1,3
+          DO ib=1,3
+            xi = 0.0d0
+            xi(kf) = DBLE(sf)
+            xi(dira) = gp(ia)
+            xi(dirb) = gp(ib)
+            CALL EL_Q1_MAP(dx,dy,dz,xi,point,jac,detj)
+            djac = jac
+            detj_common = detj
+            ! Surface measure: |d(x)/d(xi_a) x d(x)/d(xi_b)|.
+            ta = jac(:,dira)
+            tb = jac(:,dirb)
+            cn(1) = ta(2)*tb(3) - ta(3)*tb(2)
+            cn(2) = ta(3)*tb(1) - ta(1)*tb(3)
+            cn(3) = ta(1)*tb(2) - ta(2)*tb(1)
+            dA = SQRT(cn(1)**2 + cn(2)**2 + cn(3)**2)*gw(ia)*gw(ib)
+            ipar0 = 0
+            CALL E013(xi(1),xi(2),xi(3),ipar0)
+            IF (ier.LT.0) RETURN
+            dudz = 0.0d0
+            DO i=1,idfl
+              dudz = dudz + velocity_u(kdfg(i))*dbas(1,kdfl(i),4)
+            END DO
+            dudz_area(iw) = dudz_area(iw) + dudz*dA
+            area(iw) = area(iw) + dA
+          END DO
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE EL_INTEGRATE_WALL_STRESS
+
   SUBROUTINE EL_DEPOSIT_PARTICLE(mesh, ilev, particle, normalization, force, fields, &
       drag_b)
 

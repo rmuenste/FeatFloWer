@@ -8,6 +8,10 @@ MODULE EL_CONFIG
   CHARACTER(LEN=32) :: el_lift_model = 'none'
   CHARACTER(LEN=32) :: el_inertial_lift = 'none'
   CHARACTER(LEN=32) :: el_prescribed_field = 'none'
+  ! One-shot initial velocity field for COUPLED runs (istart=0 only):
+  ! 'linear_shear' seeds u_x = el_shear_rate*(z - z_c) at t=0 (Couette
+  ! startup skip); unlike el_prescribed_field it does NOT freeze the solve.
+  CHARACTER(LEN=32) :: el_initial_field = 'none'
   CHARACTER(LEN=32) :: el_domain_type = 'box'
   CHARACTER(LEN=8) :: el_cylinder_axis = 'x'
   REAL*8 :: el_kernel_width_factor = 2.5d0
@@ -20,6 +24,9 @@ MODULE EL_CONFIG
   REAL*8 :: el_cylinder_radius = -1.0d0
   LOGICAL :: el_apply_particle_forces = .TRUE.
   LOGICAL :: el_apply_fluid_feedback = .FALSE.
+  ! EL_WALL_STRESS diagnostic (Couette wall force balance): fluid wall shear
+  ! stress + PE wall lubrication/contact channels on the two z-walls.
+  LOGICAL :: el_wall_stress_diag = .FALSE.
   ! Apply Prop@Gravity as a fluid body force (AddGravForce). Set to No for
   ! fully periodic suspensions: without boundaries there is no hydrostatic
   ! pressure to absorb rho_f*g, so fluid gravity must be dropped (absorbed
@@ -65,6 +72,7 @@ CONTAINS
     CALL EL_LOWERCASE(el_lift_model)
     CALL EL_LOWERCASE(el_inertial_lift)
     CALL EL_LOWERCASE(el_prescribed_field)
+    CALL EL_LOWERCASE(el_initial_field)
     CALL EL_LOWERCASE(el_domain_type)
     CALL EL_LOWERCASE(el_cylinder_axis)
 
@@ -137,6 +145,19 @@ CONTAINS
       WRITE(*,'(A,A)') 'Invalid ELPrescribedField: ', TRIM(el_prescribed_field)
       STOP 1
     END SELECT
+
+    SELECT CASE (TRIM(el_initial_field))
+    CASE ('none', 'linear_shear')
+      CONTINUE
+    CASE DEFAULT
+      WRITE(*,'(A,A)') 'Invalid ELInitialField: ', TRIM(el_initial_field)
+      STOP 1
+    END SELECT
+    IF (TRIM(el_initial_field).EQ.'linear_shear' .AND. &
+        ABS(el_shear_rate).LE.0.0d0) THEN
+      WRITE(*,*) 'ELInitialField=linear_shear requires ELShearRate /= 0.'
+      STOP 1
+    END IF
 
     SELECT CASE (TRIM(el_domain_type))
     CASE ('box', 'cylinder')

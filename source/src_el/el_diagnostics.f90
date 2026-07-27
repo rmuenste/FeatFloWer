@@ -4,19 +4,23 @@ MODULE EL_DIAGNOSTICS
   USE PP3D_MPI, ONLY: myid, showid, MPI_COMM_SUBS
   USE DEM_QUERY, ONLY: tParticleData
   USE TYPES, ONLY: tMultiMesh
-  USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM, EL_INTEGRATE_UZ_LANES
+  USE EL_QUADRATURE, ONLY: EL_INTEGRATE_FLUID_MOMENTUM, EL_INTEGRATE_UZ_LANES, &
+                           EL_INTEGRATE_WALL_STRESS
   USE EL_CONFIG, ONLY: el_momentum_audit_freq, el_tavg_window, &
                        el_domain_type, el_cylinder_center, &
                        el_cylinder_radius, el_cylinder_axis, &
                        el_momentum_fix, el_meso_filter_bins, &
-                       el_shear_rate
+                       el_shear_rate, el_wall_stress_diag
+  USE EL_GEOMETRY, ONLY: el_domain_box, el_domain_box_set
   USE def_FEAT, ONLY: NITNS
 #ifdef HAVE_PE
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
                        getElContactCount, getElMaxPenetration, &
                        getElStepsize, getElLubricationVirial, &
                        getElLubricationPairs, getElLubricationImpulse, &
-                       getElContactVirial, getElContactVirialPairs
+                       getElContactVirial, getElContactVirialPairs, &
+                       getElWallLubImpulse, getElWallContactImpulse, &
+                       getElWallLubPairs
 #endif
 
   IMPLICIT NONE
@@ -42,6 +46,10 @@ MODULE EL_DIAGNOSTICS
   ! Contact-impulse virial tail average (same sample window/counter as the
   ! lubrication virial: el_susp_tavg_count).
   REAL*8 :: el_cont_tavg_sig(9) = 0.0d0
+  ! Wall-stress tail averages (same window/counter): per wall (1=bottom,
+  ! 2=top) the +x traction the suspension exerts on the wall, split into
+  ! fluid (H), wall lubrication (L) and wall contact (C) channels.
+  REAL*8 :: el_wall_tavg_tau(3,2) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -53,14 +61,14 @@ CONTAINS
 
   SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS(val_u, val_v, val_w, &
                                            time, mfile, istep, mesh, ilev, &
-                                           density, epsilon_f)
+                                           density, viscosity, epsilon_f)
 
     REAL*8, INTENT(IN) :: val_u(:), val_v(:), val_w(:)
     REAL*8, INTENT(IN) :: time
     INTEGER, INTENT(IN) :: mfile, istep
     TYPE(tMultiMesh), INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: ilev
-    REAL*8, INTENT(IN) :: density, epsilon_f(:)
+    REAL*8, INTENT(IN) :: density, viscosity, epsilon_f(:)
 
     REAL*8 :: local_particle(3), global_particle(3)
     REAL*8 :: local_velocity_sum(3), global_velocity_sum(3)
@@ -76,6 +84,11 @@ CONTAINS
     REAL*8 :: cont_local(9), cont_virial(9), cont_sig(9), cont_tavg(9)
     REAL*8 :: cont_eta
     INTEGER :: contpairs_local, contpairs
+    REAL*8 :: wall_dudz_loc(2), wall_dudz(2), wall_area_loc(2), wall_area(2)
+    REAL*8 :: wall_lub_loc(3,2), wall_lub(3,2)
+    REAL*8 :: wall_con_loc(3,2), wall_con(3,2)
+    REAL*8 :: wall_tau(3,2), wall_tau_tavg(3,2), wall_eta, mu_dyn, wsign
+    INTEGER :: wallpairs_local, wallpairs, iw
     REAL*8 :: lubdp_local(3), lubdp(3)
     INTEGER :: tavg_start_step, ncontacts_local, ncontacts
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
@@ -197,6 +210,48 @@ CONTAINS
       cont_sig = -cont_virial / (susp_dt*global_vol)
     END IF
 
+    ! Couette wall force balance (Kroupa eqs 26-33): per wall the +x
+    ! traction the suspension exerts on the wall, split into the fluid
+    ! shear-stress channel (tau_H = sigma_xz * n_z with n pointing from the
+    ! wall into the fluid: +dudz at the bottom, -dudz at the top) and the PE
+    ! wall lubrication / contact impulse channels (already "force on wall").
+    wall_tau = 0.0d0
+    wallpairs = 0
+    IF (el_wall_stress_diag .AND. el_domain_box_set) THEN
+      CALL EL_INTEGRATE_WALL_STRESS(mesh, ilev, val_u, el_domain_box(5), &
+        el_domain_box(6), wall_dudz_loc, wall_area_loc)
+      CALL MPI_Allreduce(wall_dudz_loc, wall_dudz, 2, MPI_DOUBLE_PRECISION, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      CALL MPI_Allreduce(wall_area_loc, wall_area, 2, MPI_DOUBLE_PRECISION, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      wall_lub_loc = 0.0d0
+      wall_con_loc = 0.0d0
+      wallpairs_local = 0
+#ifdef HAVE_PE
+      CALL getElWallLubImpulse(0, wall_lub_loc(1,1))
+      CALL getElWallLubImpulse(1, wall_lub_loc(1,2))
+      CALL getElWallContactImpulse(0, wall_con_loc(1,1))
+      CALL getElWallContactImpulse(1, wall_con_loc(1,2))
+      wallpairs_local = getElWallLubPairs()
+#endif
+      CALL MPI_Allreduce(wall_lub_loc, wall_lub, 6, MPI_DOUBLE_PRECISION, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      CALL MPI_Allreduce(wall_con_loc, wall_con, 6, MPI_DOUBLE_PRECISION, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      CALL MPI_Allreduce(wallpairs_local, wallpairs, 1, MPI_INTEGER, &
+        MPI_SUM, MPI_COMM_SUBS, ierr)
+      mu_dyn = density*viscosity
+      DO iw=1,2
+        wsign = 3.0d0 - 2.0d0*DBLE(iw)   ! +1 bottom, -1 top
+        IF (wall_area(iw).GT.0.0d0) &
+          wall_tau(1,iw) = wsign*mu_dyn*wall_dudz(iw)/wall_area(iw)
+        IF (susp_dt.GT.0.0d0 .AND. wall_area(iw).GT.0.0d0) THEN
+          wall_tau(2,iw) = wall_lub(1,iw)/(susp_dt*wall_area(iw))
+          wall_tau(3,iw) = wall_con(1,iw)/(susp_dt*wall_area(iw))
+        END IF
+      END DO
+    END IF
+
     tavg_start_step = 0
     IF (NITNS.GT.0) tavg_start_step = INT((1.0d0-el_tavg_window)*DBLE(NITNS))
     IF (ABS(istep).GE.tavg_start_step) THEN
@@ -209,12 +264,15 @@ CONTAINS
       el_susp_tavg_count = el_susp_tavg_count + 1
       el_susp_tavg_sig = el_susp_tavg_sig + susp_sig
       el_cont_tavg_sig = el_cont_tavg_sig + cont_sig
+      el_wall_tavg_tau = el_wall_tavg_tau + wall_tau
     END IF
     susp_tavg = 0.0d0
     cont_tavg = 0.0d0
+    wall_tau_tavg = 0.0d0
     IF (el_susp_tavg_count.GT.0) THEN
       susp_tavg = el_susp_tavg_sig / DBLE(el_susp_tavg_count)
       cont_tavg = el_cont_tavg_sig / DBLE(el_susp_tavg_count)
+      wall_tau_tavg = el_wall_tavg_tau / DBLE(el_susp_tavg_count)
     END IF
     IF (el_mean_slip_tavg_count.GT.0) THEN
       tavg_up = el_mean_slip_tavg_up / DBLE(el_mean_slip_tavg_count)
@@ -311,6 +369,27 @@ CONTAINS
         'EL_LUB_IMPULSE t= ', time, ' net_dp= ', lubdp
       WRITE(mfile,'(A,ES14.6,A,3ES14.6)') &
         'EL_LUB_IMPULSE t= ', time, ' net_dp= ', lubdp
+      IF (el_wall_stress_diag) THEN
+        ! Total-viscosity estimate from the wall balance: in steady Couette
+        ! tau(bot) = +eta*G and tau(top) = -eta*G, so
+        ! eta = [tau(bot) - tau(top)] / (2G) summed over all channels.
+        wall_eta = 0.0d0
+        IF (ABS(el_shear_rate).GT.0.0d0) &
+          wall_eta = ( SUM(wall_tau_tavg(:,1)) - SUM(wall_tau_tavg(:,2)) ) / &
+                     (2.0d0*el_shear_rate)
+        WRITE(*,'(A,ES14.6,A,I0,A,2ES14.6,A,2ES14.6,A,2ES14.6,A,ES14.6)') &
+          'EL_WALL_STRESS t= ', time, ' wpairs= ', wallpairs, &
+          ' tauH_bt= ', wall_tau(1,1), wall_tau(1,2), &
+          ' tauL_bt= ', wall_tau(2,1), wall_tau(2,2), &
+          ' tauC_bt= ', wall_tau(3,1), wall_tau(3,2), &
+          ' eta_wall_tavg= ', wall_eta
+        WRITE(mfile,'(A,ES14.6,A,I0,A,2ES14.6,A,2ES14.6,A,2ES14.6,A,ES14.6)') &
+          'EL_WALL_STRESS t= ', time, ' wpairs= ', wallpairs, &
+          ' tauH_bt= ', wall_tau(1,1), wall_tau(1,2), &
+          ' tauL_bt= ', wall_tau(2,1), wall_tau(2,2), &
+          ' tauC_bt= ', wall_tau(3,1), wall_tau(3,2), &
+          ' eta_wall_tavg= ', wall_eta
+      END IF
     END IF
 
   END SUBROUTINE EL_WRITE_MOMENTUM_DIAGNOSTICS

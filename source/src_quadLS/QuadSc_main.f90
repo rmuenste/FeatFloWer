@@ -24,7 +24,7 @@ use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
 
 use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate, &
                      el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
-                     el_cylinder_axis
+                     el_cylinder_axis, el_initial_field
 use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
 use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
 use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
@@ -459,7 +459,7 @@ SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
   IF (myid.NE.master) THEN
     CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
       QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
-      Properties%Density(1), el_field_data%epsilon_f)
+      Properties%Density(1), Properties%Viscosity(1), el_field_data%epsilon_f)
   END IF
 
 END SUBROUTINE Transport_q2p1_UxyzP_el
@@ -515,6 +515,44 @@ SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
   END SELECT
 
 END SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD
+!========================================================================================
+!
+!========================================================================================
+! One-shot initial condition for COUPLED runs (ELInitialField=linear_shear):
+! seeds the exact single-phase Couette solution u_x = G*(z-z_c) so the run
+! skips the viscous startup (L^2/nu time units). Called once from the app
+! driver after init (istart=0 only); afterwards the fluid solve owns the
+! field, unlike EL_IMPOSE_PRESCRIBED_FIELD which re-freezes it every step.
+SUBROUTINE EL_IMPOSE_INITIAL_FIELD()
+
+  INTEGER :: i, ndof
+  REAL*8 :: zc
+
+  IF (TRIM(el_initial_field).NE.'linear_shear') RETURN
+  IF (myid.EQ.master) RETURN
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                      mg_mesh%level(ILEV)%dcorag, &
+                      mg_mesh%level(ILEV)%kvert, &
+                      mg_mesh%level(ILEV)%karea, &
+                      mg_mesh%level(ILEV)%kedge)
+
+  ndof = mg_mesh%level(ILEV)%nvt + mg_mesh%level(ILEV)%net + &
+         mg_mesh%level(ILEV)%nat + mg_mesh%level(ILEV)%nel
+
+  zc = EL_DOMAIN_Z_CENTER()
+  DO i=1,ndof
+    QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
+    QuadSc%valV(i) = 0.0d0
+    QuadSc%valW(i) = 0.0d0
+  END DO
+
+  ! Re-assert Dirichlet values so wall DOFs carry the BC, not the raw IC.
+  CALL Boundary_QuadScalar_Val()
+
+END SUBROUTINE EL_IMPOSE_INITIAL_FIELD
 !========================================================================================
 !
 !========================================================================================
