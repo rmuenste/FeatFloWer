@@ -72,3 +72,21 @@ reshaping of the profile, which the wall gradient sees as eta_H - mu).
 ## Run log
 
 (appended as runs complete)
+
+## Smoke gates — ALL PASS (2026-07-28, jobs 136250/136251/136252)
+
+1. cou_reg (frozen kroupa_shear phi=0.20, 200 steps, new binary):
+   EL_SUSP_STRESS bitwise identical to the kc20 run -> wall code inert
+   when disabled.
+2. cou_sp (single particle at center, coupled, t=1): tauH = +-2.000000e-2
+   on the two walls, eta_wall/mu = 1.0000 to all printed digits; profile
+   stationary at machine precision; wpairs = 0. The tau_H quadrature,
+   sign convention and linear-shear IC are exact.
+3. cou_p20s (phi=0.20 coupled, 200 steps): no NaN, xy-periodic comm
+   stable (E013_CreateComm fine on QBOX9 3x3x3), wall lubrication firing
+   (3370 wall pairs/step, tauL nonzero both walls), EL_NEWTON_PAIR
+   2.7e-20 WITH the wall-momentum audit extension. ~1.7 s/step ->
+   5000-step production ~2.5 h.
+
+Production sweep phi = 0.05/0.10/0.20/0.30 submitted as jobs
+136253-136256 (med, 7 h).
