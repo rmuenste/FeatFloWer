@@ -622,15 +622,32 @@ CONTAINS
     INTEGER, INTENT(IN) :: mfile, istep
 
     REAL*8 :: local_p(3), p_after(3), vsum(3), dp(3), mismatch(3)
-    INTEGER :: cnt, ierr
+    REAL*8 :: wall_dp_loc(3), wall_dp(3), wtmp(3)
+    INTEGER :: cnt, ierr, iw
 
     CALL EL_LOCAL_PARTICLE_MOMENTUM(local_p, vsum, cnt)
     CALL MPI_Allreduce(local_p, p_after, 3, MPI_DOUBLE_PRECISION, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
     IF (MOD(ABS(istep), el_momentum_audit_freq).NE.0) RETURN
 
+    ! Momentum absorbed by the z-walls this macro step (wall lubrication +
+    ! wall contacts): the impulse ON the walls is momentum the particles
+    ! legitimately lost, so it belongs on the expected side. Zero when no
+    ! walls are configured.
+    wall_dp_loc = 0.0d0
+#ifdef HAVE_PE
+    DO iw=0,1
+      CALL getElWallLubImpulse(iw, wtmp)
+      wall_dp_loc = wall_dp_loc + wtmp
+      CALL getElWallContactImpulse(iw, wtmp)
+      wall_dp_loc = wall_dp_loc + wtmp
+    END DO
+#endif
+    CALL MPI_Allreduce(wall_dp_loc, wall_dp, 3, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+
     dp = p_after - el_pair_momentum_before
-    mismatch = dp - expected_impulse
+    mismatch = dp - (expected_impulse - wall_dp)
     IF (myid.EQ.showid) THEN
       WRITE(*,'(A,ES14.6,A,I0,A,3ES14.6,A,3ES14.6,A,3ES14.6)') &
         'EL_NEWTON_PAIR t= ', time, ' step= ', istep, ' dp= ', dp, &
