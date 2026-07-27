@@ -15,7 +15,8 @@ MODULE EL_DIAGNOSTICS
   USE DEM_QUERY, ONLY: numLocalParticles, getAllParticles, &
                        getElContactCount, getElMaxPenetration, &
                        getElStepsize, getElLubricationVirial, &
-                       getElLubricationPairs, getElLubricationImpulse
+                       getElLubricationPairs, getElLubricationImpulse, &
+                       getElContactVirial, getElContactVirialPairs
 #endif
 
   IMPLICIT NONE
@@ -38,6 +39,9 @@ MODULE EL_DIAGNOSTICS
   REAL*8 :: el_meso_ymin = 0.0d0, el_meso_ylen = 0.0d0
   INTEGER :: el_susp_tavg_count = 0
   REAL*8 :: el_susp_tavg_sig(9) = 0.0d0
+  ! Contact-impulse virial tail average (same sample window/counter as the
+  ! lubrication virial: el_susp_tavg_count).
+  REAL*8 :: el_cont_tavg_sig(9) = 0.0d0
   INTEGER :: el_mean_slip_tavg_count = 0
   REAL*8 :: el_mean_slip_tavg_up(3) = 0.0d0
   REAL*8 :: el_mean_slip_tavg_uf_intr(3) = 0.0d0
@@ -69,6 +73,9 @@ CONTAINS
     REAL*8 :: susp_local(9), susp_virial(9), susp_sig(9), susp_tavg(9)
     REAL*8 :: susp_dt, susp_eta
     INTEGER :: lubpairs_local, lubpairs
+    REAL*8 :: cont_local(9), cont_virial(9), cont_sig(9), cont_tavg(9)
+    REAL*8 :: cont_eta
+    INTEGER :: contpairs_local, contpairs
     REAL*8 :: lubdp_local(3), lubdp(3)
     INTEGER :: tavg_start_step, ncontacts_local, ncontacts
     ! Element-integrated (consistent, no shared-DOF double count) fluid momentum,
@@ -161,11 +168,17 @@ CONTAINS
     lubpairs_local = 0
     susp_dt = 0.0d0
     lubdp_local = 0.0d0
+    cont_local = 0.0d0
+    contpairs_local = 0
 #ifdef HAVE_PE
     CALL getElLubricationVirial(susp_local)
     CALL getElLubricationImpulse(lubdp_local)
     lubpairs_local = getElLubricationPairs()
     susp_dt = getElStepsize()
+    ! Converged PGS contact-impulse virial: the PE contact filter accepts
+    ! every contact on exactly one rank, so the SUM counts each contact once.
+    CALL getElContactVirial(cont_local)
+    contpairs_local = getElContactVirialPairs()
 #endif
     CALL MPI_Allreduce(lubdp_local, lubdp, 3, MPI_DOUBLE_PRECISION, &
       MPI_SUM, MPI_COMM_SUBS, ierr)
@@ -173,9 +186,16 @@ CONTAINS
       MPI_SUM, MPI_COMM_SUBS, ierr)
     CALL MPI_Allreduce(lubpairs_local, lubpairs, 1, MPI_INTEGER, MPI_SUM, &
       MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(cont_local, cont_virial, 9, MPI_DOUBLE_PRECISION, &
+      MPI_SUM, MPI_COMM_SUBS, ierr)
+    CALL MPI_Allreduce(contpairs_local, contpairs, 1, MPI_INTEGER, MPI_SUM, &
+      MPI_COMM_SUBS, ierr)
     susp_sig = 0.0d0
-    IF (susp_dt.GT.0.0d0 .AND. global_vol.GT.0.0d0) &
+    cont_sig = 0.0d0
+    IF (susp_dt.GT.0.0d0 .AND. global_vol.GT.0.0d0) THEN
       susp_sig = -susp_virial / (susp_dt*global_vol)
+      cont_sig = -cont_virial / (susp_dt*global_vol)
+    END IF
 
     tavg_start_step = 0
     IF (NITNS.GT.0) tavg_start_step = INT((1.0d0-el_tavg_window)*DBLE(NITNS))
@@ -188,10 +208,14 @@ CONTAINS
       el_mean_slip_tavg_eps = el_mean_slip_tavg_eps + eps_mean
       el_susp_tavg_count = el_susp_tavg_count + 1
       el_susp_tavg_sig = el_susp_tavg_sig + susp_sig
+      el_cont_tavg_sig = el_cont_tavg_sig + cont_sig
     END IF
     susp_tavg = 0.0d0
-    IF (el_susp_tavg_count.GT.0) susp_tavg = el_susp_tavg_sig / &
-      DBLE(el_susp_tavg_count)
+    cont_tavg = 0.0d0
+    IF (el_susp_tavg_count.GT.0) THEN
+      susp_tavg = el_susp_tavg_sig / DBLE(el_susp_tavg_count)
+      cont_tavg = el_cont_tavg_sig / DBLE(el_susp_tavg_count)
+    END IF
     IF (el_mean_slip_tavg_count.GT.0) THEN
       tavg_up = el_mean_slip_tavg_up / DBLE(el_mean_slip_tavg_count)
       tavg_uf_intr = el_mean_slip_tavg_uf_intr / DBLE(el_mean_slip_tavg_count)
@@ -271,6 +295,18 @@ CONTAINS
         'EL_SUSP_STRESS t= ', time, ' pairs= ', lubpairs, &
         ' sig_xz= ', susp_sig(3), ' sig_xz_tavg= ', susp_tavg(3), &
         ' etaL_tavg= ', susp_eta, ' sig= ', susp_sig
+      ! Contact-channel stress (converged PGS impulses), same normalization
+      ! and shear-viscosity convention as EL_SUSP_STRESS.
+      cont_eta = 0.0d0
+      IF (ABS(el_shear_rate).GT.0.0d0) cont_eta = cont_tavg(3)/el_shear_rate
+      WRITE(*,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6,A,ES14.6,A,9ES14.6)') &
+        'EL_CONT_STRESS t= ', time, ' pairs= ', contpairs, &
+        ' sig_xz= ', cont_sig(3), ' sig_xz_tavg= ', cont_tavg(3), &
+        ' etaC_tavg= ', cont_eta, ' sig= ', cont_sig
+      WRITE(mfile,'(A,ES14.6,A,I0,A,ES14.6,A,ES14.6,A,ES14.6,A,9ES14.6)') &
+        'EL_CONT_STRESS t= ', time, ' pairs= ', contpairs, &
+        ' sig_xz= ', cont_sig(3), ' sig_xz_tavg= ', cont_tavg(3), &
+        ' etaC_tavg= ', cont_eta, ' sig= ', cont_sig
       WRITE(*,'(A,ES14.6,A,3ES14.6)') &
         'EL_LUB_IMPULSE t= ', time, ' net_dp= ', lubdp
       WRITE(mfile,'(A,ES14.6,A,3ES14.6)') &

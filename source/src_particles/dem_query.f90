@@ -142,6 +142,31 @@ subroutine getElLubricationImpulse(dp) bind(C, name="getElLubricationImpulse")
 end interface
 
 !================================================================================================
+!                              Subroutine getElContactVirial
+!================================================================================================
+! C++ implementation: getElContactVirial() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local impulse virial of the converged sphere-sphere PGS contact impulses
+! this macro step (9 components, row-major, Sum p x r12); the PE contact filter
+! treats each contact on exactly one rank, so MPI-SUM counts each contact once.
+! Same normalization as the lubrication virial: sigma = -virial/(dt*V).
+interface
+subroutine getElContactVirial(sigma) bind(C, name="getElContactVirial")
+  use iso_c_binding, only: c_double
+  real(c_double) :: sigma(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElContactVirialPairs
+!================================================================================================
+! C++ implementation: getElContactVirialPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElContactVirialPairs() bind(C, name="getElContactVirialPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
