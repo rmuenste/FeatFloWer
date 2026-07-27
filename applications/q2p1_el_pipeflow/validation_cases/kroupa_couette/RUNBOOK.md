@@ -90,3 +90,50 @@ reshaping of the profile, which the wall gradient sees as eta_H - mu).
 
 Production sweep phi = 0.05/0.10/0.20/0.30 submitted as jobs
 136253-136256 (med, 7 h).
+
+## RESULT — production sweep (2026-07-28, jobs 136253-136256)
+
+All four runs clean to t=10 (no NaN); runtimes 1:05-3:20 h. Tail-averaged
+wall-balance viscosity vs the interior-virial estimate and
+Krieger-Dougherty (phi_max = 0.64):
+
+| phi | eta_wall/mu | interior (mu+etaL+etaC)/mu | wall-vs-interior | KD | vs KD |
+|----:|------------:|---------------------------:|-----------------:|-----:|------:|
+| 0.05 | 1.034 | 1.016 | +1.8% | 1.139 | -9% |
+| 0.10 | 1.126 | 1.093 | +3.0% | 1.312 | -14% |
+| 0.20 | 1.664 | 1.606 | +3.7% | 1.821 | -9% |
+| 0.30 | 2.936 | 2.874 | +2.2% | 2.751 | +7% |
+
+Verdicts:
+
+1. CROSS-CHECK PASS (the publication-grade result): the wall force
+   balance and the interior impulse virial - two fully independent
+   estimators (boundary traction vs bulk momentum flux) - agree within
+   2-4% at every phi. The small positive gap is physical: the wall
+   balance additionally sees the fluid-feedback reshaping of the
+   profile (eta_H beyond mu), which the interior particle channels do
+   not contain.
+2. KD COMPARISON PASS (shape and band): monotone, superlinear, within
+   ~15% of Krieger-Dougherty across phi = 0.05-0.30, crossing KD
+   between 0.2 and 0.3. Compare the no-wall pipe (recovered only 9-20%
+   of the KD excess) and the frozen box (structurally missing eta_H):
+   the coupled Couette cell closes the gap. Dilute end sits below KD
+   (eta/mu - 1 = 0.034 at phi = 0.05 vs Einstein 2.5*phi = 0.125): the
+   unresolved model generates only part of the Einstein term - the
+   known model boundary, shared with Kroupa's method.
+3. Channel structure: wall lubrication is the dominant wall channel at
+   high phi (tauL ~ 2-3x tauH at phi >= 0.2); wall contacts contribute
+   < 7% of the total everywhere.
+4. Gates: <eps_f> TAVG = 1-phi to 4 decimals at all phi (the deen_poly
+   wall-truncation concern did not materialize); max_overlap <= 2.5e-10;
+   no NaN. EL_NEWTON_PAIR closes to <= 3.9e-6 (about 7e-5 of the system
+   momentum scale), NOT machine zero: the residual is z-dominant (6x
+   the x-component), scales with wall-CONTACT activity, and was machine
+   zero in the wall-lubrication-only smoke. Attribution: the converged
+   PGS cache impulse p_ vs the relaxation-folded applied velocity
+   change differ by the fixed-iteration truncation; in periodic runs
+   this is invisible (pairwise antisymmetry cancels it in the global
+   sum), while a sphere-wall contact exposes the sphere-side truncation
+   directly. A solver-accuracy footnote, not a momentum leak; the
+   x-channels entering eta are 5-10x cleaner, and verdict 1 bounds any
+   effect on the measurement.
