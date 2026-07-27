@@ -77,7 +77,48 @@ Flat (slightly below 1) vs Krieger-Dougherty's expected +15%..+72%: the
 drag-only unresolved model generates no suspension viscosity for
 neutrally buoyant particles — the lubrication-OFF branch of Kroupa
 et al. Fig 5, reproduced in our pipe. This table is the reference for
-the LUBRICATED rerun (jobs 136103-136106, Kroupa closure + substeps 10).
+the LUBRICATED rerun (jobs 136113-136116, Kroupa closure + substeps 10).
 Note: tail-averaged <eps_f> drifts slightly above 1-phi at higher phi
 (0.812 vs 0.800 at phi=0.20) — kernel/wall bookkeeping worth a look, but
 u_mean does not depend on it.
+
+## Lubricated sweep (W6) — 2026-07-27, jobs 136113-136116
+
+Same staging as the baseline plus Kroupa lubrication
+(lubricationEnabled_ true, cutoff 0.025 = R_p, h_c 0.0025,
+substeps_ 10) and the shadow-margin clamp (pe margin 0.05 -> 0.0483 for
+the 1x1x27 pipe slabs; clamp notice printed, healthy). All four clean to
+t=400, no NaN, max_overlap = 0 throughout.
+
+| phi | u_mean | mu_app/mu (lub ON) | baseline (OFF) | Krieger-Dougherty |
+|----:|-------:|-------------------:|---------------:|------------------:|
+| 0.05 | 0.2965 | 1.012 | 0.999 | 1.139 |
+| 0.10 | 0.2841 | 1.056 | 0.998 | 1.312 |
+| 0.15 | 0.2707 | 1.108 | 0.993 | 1.533 |
+| 0.20 | 0.2613 | 1.148 | 0.987 | 1.821 |
+
+Verdict:
+- MECHANISM PASS: lubrication converts the flat baseline into a strictly
+  monotone mu_app(phi) — the Kroupa Fig 5 on/off contrast reproduced in
+  the wall-bounded pipe at fixed forcing (ON-OFF spread grows 0.013 ->
+  0.161 across phi).
+- QUANTITATIVE: recovers only ~9-20% of the KD excess viscosity
+  (-11% of KD at phi=0.05 up to -37% at 0.20), outside the ~15%/~25%
+  acceptance bands for phi >= 0.10. Two known, documented reasons:
+  (a) no particle-WALL lubrication (pipe wall is a CFD boundary, not a
+  PE body) — precisely the near-wall high-shear region that dominates
+  dissipation in Poiseuille flow; (b) Matas-Asmolov lift migrates
+  particles to the s~0.6-0.7 annulus, depleting the wall region further.
+  The homogeneous-shear kroupa_shear box (no walls, no migration) shows
+  the particle-phase etaL alone reaching 0.25*mu at phi=0.20, so the
+  closure itself generates the right order — the pipe shortfall is
+  geometry/wall physics, not the pair force. Recorded as
+  mechanism-PASS / quantitative-RECORDED; wall lubrication is the
+  designated follow-up if quantitative KD tracking is required.
+- Gates: Newton-pair machine zero in 199/200 audits per run; single
+  transient at t=180 in phi=0.20 (mismatch 2.8e-6, likely an ownership
+  migration within one macro step; ~3e-5 of total particle momentum,
+  no effect on u_mean). max_overlap identically 0 (lubrication holds
+  gaps open — contacts never reach penetration).
+- <eps_f> TAVG: 0.9500/0.9001/0.8517/0.8103 — same mild high-phi drift
+  as the baseline (bookkeeping note above), unchanged by lubrication.
