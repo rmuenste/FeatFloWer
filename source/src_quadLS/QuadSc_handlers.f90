@@ -1,7 +1,7 @@
 ! ----------------------------------------------
 !
 SUBROUTINE Init_QuadScalar(mfile)
-use param_parser, only: GetVeloParameters, GetPresParameters
+use param_parser, only: GetVeloParameters, GetPresParameters, ValidateSolverTypes
 INTEGER I,J,ndof,mfile
 
  ! Init pe handlers
@@ -12,6 +12,13 @@ INTEGER I,J,ndof,mfile
 
  CALL GetVeloParameters(QuadSc%prm,QuadSc%cName,mfile)
  CALL GetPresParameters(LinSc%prm,LinSc%cName,mfile)
+
+ ! Fail fast (all ranks, MPI_Abort) if a requested coarse/fine solver type is
+ ! unknown or its library is not compiled in. This is the shared init path of
+ ! every q2p1 application and runs before the type 7/8/10 hierarchy
+ ! reconfiguration in Init_QuadScalar_Structures*.
+ CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
+                          LinSc%prm%MGprmIn%CrsSolverType,mfile)
 
 END SUBROUTINE Init_QuadScalar
 !

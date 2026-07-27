@@ -75,6 +75,7 @@ PRIVATE
 PUBLIC :: GDATNEW
 PUBLIC :: GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 PUBLIC :: write_param_real, write_param_int
+PUBLIC :: ValidateSolverTypes
 
 CONTAINS
 
@@ -370,6 +371,151 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
   CLOSE (myFile)
 
 END SUBROUTINE GetPresParameters
+
+!-------------------------------------------------------------------------------------------------
+! Early validation of the requested coarse/fine solver types against the solver
+! libraries that were actually compiled into this binary.
+!
+! Called on ALL ranks from Init_QuadScalar, i.e. directly after Velo@ and Pres@
+! have been read from q2p1_param.dat.  That is long before the first solve, the
+! coarse matrix factorization, and - importantly - before the type 7/8/10
+! multigrid hierarchy reconfiguration in Init_QuadScalar_Structures*, so a
+! doomed run never reshapes the master level hierarchy.
+!
+! Solver types that are actually dispatched (see QuadSc_mg.f90 and
+! QuadSc_def.f90):
+!   Pres@MGCrsSolverType : 1,2,3,4,5,7,8,9,10   mgCoarseGridSolver_P, plus
+!                          type 10 = Hypre on the finest level in
+!                          Solve_General_LinScalar
+!   Velo@MGCrsSolverType : 1,2,5                mgCoarseGridSolver_U
+! Anything else used to be a silent no-op (no coarse correction at all).
+!
+! Library requirements:
+!   5      -> MUMPS       (MUMPS_AVAIL,       CMake -DUSE_MUMPS=ON)
+!   7,8,10 -> Hypre       (HYPRE_AVAIL,       CMake -DUSE_HYPRE=ON)
+!   9      -> MKL PARDISO (MKL_PARDISO_AVAIL, CMake -DUSE_MKL_PARDISO=ON)
+!
+! Every rank evaluates the identical check on identical values, the master
+! rank prints the reason (and the showID rank mirrors it into the protocol
+! file), then every rank calls MPI_Abort.  No barrier is used: MPI_Abort from
+! any rank tears down the job, the printing rank only has to flush first.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, mfile)
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: iVeloType, iPresType, mfile
+
+  INTEGER, PARAMETER :: MAX_MSG = 4
+  CHARACTER(len=120) :: cMsg(MAX_MSG)
+  INTEGER :: nMsg, i, ierr
+
+  nMsg = 0
+  cMsg = ' '
+
+  CALL CheckOneSolverType("Velo", iVeloType, .FALSE., cMsg, nMsg)
+  CALL CheckOneSolverType("Pres", iPresType, .TRUE. , cMsg, nMsg)
+
+  IF (nMsg == 0) RETURN
+
+  IF (myid == master) THEN
+    WRITE(*,'(A)') REPEAT('=',78)
+    WRITE(*,'(A)') ' FATAL: invalid solver type requested in '//TRIM(ADJUSTL(myDataFile))
+    DO i = 1, nMsg
+      WRITE(*,'(A)') TRIM(cMsg(i))
+    END DO
+    WRITE(*,'(A)') REPEAT('=',78)
+    FLUSH(6)
+  END IF
+
+  IF (myid == showid) THEN
+    WRITE(mfile,'(A)') REPEAT('=',78)
+    WRITE(mfile,'(A)') ' FATAL: invalid solver type requested in '//TRIM(ADJUSTL(myDataFile))
+    DO i = 1, nMsg
+      WRITE(mfile,'(A)') TRIM(cMsg(i))
+    END DO
+    WRITE(mfile,'(A)') REPEAT('=',78)
+    FLUSH(mfile)
+  END IF
+
+  CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%SOLVER_TYPE_INVALID, ierr)
+
+END SUBROUTINE ValidateSolverTypes
+
+!-------------------------------------------------------------------------------------------------
+! Helper for ValidateSolverTypes: check the solver type of one component and
+! append the explanatory lines to cMsg if it is unknown or unavailable.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE CheckOneSolverType(cComponent, iType, bIsPressure, cMsg, nMsg)
+  IMPLICIT NONE
+  CHARACTER(len=*), INTENT(IN) :: cComponent
+  INTEGER, INTENT(IN) :: iType
+  LOGICAL, INTENT(IN) :: bIsPressure
+  CHARACTER(len=*), INTENT(INOUT) :: cMsg(:)
+  INTEGER, INTENT(INOUT) :: nMsg
+
+  LOGICAL :: bKnown, bAvail
+  CHARACTER(len=16) :: cLib
+  CHARACTER(len=24) :: cOption
+
+  ! ---- is this type dispatched at all for this component? ----
+  IF (bIsPressure) THEN
+    bKnown = (iType >= 1 .AND. iType <= 5) .OR. (iType >= 7 .AND. iType <= 10)
+  ELSE
+    bKnown = (iType == 1 .OR. iType == 2 .OR. iType == 5)
+  END IF
+
+  IF (.NOT. bKnown) THEN
+    nMsg = nMsg + 1
+    WRITE(cMsg(nMsg),'(A,I0,A)') '  '//TRIM(cComponent)//'@MGCrsSolverType = ', iType, &
+      ' is not a supported solver type.'
+    nMsg = nMsg + 1
+    IF (bIsPressure) THEN
+      cMsg(nMsg) = '  Valid Pres@MGCrsSolverType values are 1,2,3,4,5,7,8,9,10.'
+    ELSE
+      cMsg(nMsg) = '  Valid Velo@MGCrsSolverType values are 1,2,5.'
+    END IF
+    RETURN
+  END IF
+
+  ! ---- is the library backing this type compiled in? ----
+  bAvail = .TRUE.
+  cLib    = ' '
+  cOption = ' '
+
+  IF (iType == 5) THEN
+    cLib    = 'MUMPS'
+    cOption = '-DUSE_MUMPS=ON'
+#ifndef MUMPS_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (iType == 7 .OR. iType == 8 .OR. iType == 10) THEN
+    cLib    = 'Hypre'
+    cOption = '-DUSE_HYPRE=ON'
+#ifndef HYPRE_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (iType == 9) THEN
+    cLib    = 'MKL PARDISO'
+    cOption = '-DUSE_MKL_PARDISO=ON'
+#ifndef MKL_PARDISO_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (.NOT. bAvail) THEN
+    nMsg = nMsg + 1
+    WRITE(cMsg(nMsg),'(A,I0,A)') '  '//TRIM(cComponent)//'@MGCrsSolverType = ', iType, &
+      ' requires '//TRIM(cLib)//', which is not compiled into this binary.'
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  Rebuild FeatFloWer with '//TRIM(cOption)// &
+      ' or select a different solver type.'
+  END IF
+
+END SUBROUTINE CheckOneSolverType
 
 !-------------------------------------------------------------------------------------------------
 ! Guard for the parameter-file READ loops.  End of file (iEnd < 0) is the

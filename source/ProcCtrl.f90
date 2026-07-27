@@ -43,7 +43,8 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
- USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters
+ USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters,&
+                          ValidateSolverTypes
  USE timestep_control, ONLY : SetSimulationTimeStep
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
@@ -165,12 +166,22 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 ! -------------------------------------------------------------------------------
    CASE ("Reload_Velo")
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Velocity", bExist)
-    IF (bExist) CALL GetVeloParameters(QuadSc%prm, QuadSc%cName, MFILE)
+    IF (bExist) THEN
+     CALL GetVeloParameters(QuadSc%prm, QuadSc%cName, MFILE)
+     ! A runtime reload must not be able to smuggle in an unsupported type.
+     CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%CrsSolverType, MFILE)
+    END IF
 
 ! -------------------------------------------------------------------------------
    CASE ("Reload_Pres")
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Pressure", bExist)
-    IF (bExist) CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
+    IF (bExist) THEN
+     CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
+     ! A runtime reload must not be able to smuggle in an unsupported type.
+     CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%CrsSolverType, MFILE)
+    END IF
 
 ! -------------------------------------------------------------------------------
    CASE ("Reload_SimPar")
