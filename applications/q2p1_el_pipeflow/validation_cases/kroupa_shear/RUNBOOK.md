@@ -136,3 +136,30 @@ Findings:
 Contact-channel phi sweep (kc05/kc10/kc20, jobs 136222-136224,
 substeps 10, new binary) completes the etaC(phi) curve; results below
 when finished.
+
+## Contact-channel phi sweep (2026-07-27, jobs 136222/136223/136224)
+
+Reruns of phi=0.05/0.10/0.20 with the EL_CONT_STRESS binary (substeps
+10); etaL reproduces the original sweep to all printed digits (bitwise
+repro of the lubrication channel). Full two-channel picture:
+
+| phi | etaL/mu | etaC/mu | etaP/mu | 1+etaP/mu | KD | KD-(1+etaP/mu) | 2.5*phi |
+|----:|--------:|--------:|--------:|----------:|-----:|------:|------:|
+| 0.05 | 0.0079 | 0.0017 | 0.0096 | 1.010 | 1.139 | 0.129 | 0.125 |
+| 0.10 | 0.0363 | 0.0125 | 0.0488 | 1.049 | 1.312 | 0.264 | 0.250 |
+| 0.20 | 0.2496 | 0.2106 | 0.4602 | 1.460 | 1.821 | 0.361 | 0.500 |
+| 0.30 | 0.7610 | 0.8306 | 1.5916 | 2.592 | 2.751 | 0.160 | 0.750 |
+
+- Contact fraction of the particle-phase stress grows 18% -> 26% -> 46%
+  -> 52% with phi: the dry-contact channel is co-dominant from
+  phi ~ 0.2 up.
+- CONSISTENCY CHECK, dilute limit: the component MISSING from the
+  frozen box (KD minus our total) matches the Einstein hydrodynamic
+  term 2.5*phi almost exactly at phi = 0.05 (0.129 vs 0.125) and 0.10
+  (0.264 vs 0.250). Exactly what the construction predicts: the frozen
+  field cannot produce the hydrodynamic (eta_H) contribution, which IS
+  the entire suspension viscosity in the dilute limit. This is strong
+  evidence the pair channels are measured correctly and the walled
+  Couette twin (which adds eta_H by solving the fluid) is the right
+  remaining step.
+- Gates: no NaN, NP <= 1.7e-19 at all phi.
