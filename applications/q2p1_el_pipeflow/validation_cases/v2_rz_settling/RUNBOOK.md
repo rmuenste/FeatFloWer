@@ -351,3 +351,31 @@ submitted. Proceeding to option 2: shrink L/d_p from 20 to 10 by
 doubling d_p to 0.1 in the same box/mesh (delta/h = 8, Re_p ~ 0.17,
 N(0.20) = 382) — the box then excludes the unstable long wavelengths.
 Probe-first: phi=0.20 + U0 at d_p=0.1 before any sweep.
+
+## Small-box probe (option 2) — verdict: FAIL, instability persists at L/d_p=10 (2026-07-27, jobs 136121/136122)
+
+d_p=0.1 twin pair: U0 run (job 136121) gave U0 = -3.068e-2
+(frame-corrected from up = -3.449e-2, uf_super = -3.810e-3). phi=0.20
+run (job 136122) clean to t=100 (no NaN, worst NP 7.2e-18):
+
+- TAVG (tail window): up_z = -2.554e-2, uf_super_z = +1.259e-2
+  -> U_RZ = up_z - (uf_super,z + phi*up_z) = -3.302e-2.
+- RZ target: U0 * 0.8^4.65 = -1.087e-2. Ratio 3.04x -- SAME
+  enhancement band as the L/d_p=20 box (2.6-3.3x).
+- |U_RZ|/|U0| = 1.08: the suspension settles FASTER than an isolated
+  particle. Not residual hindrance -- net collective enhancement.
+- Time series: up_z grows non-monotonically all run (plume formation /
+  breakup cycles: -1.5e-2 at t=10, -1.3e-2 at t=50, -3.1e-2 at t=90);
+  Tgran ramps to 3.0e-3 by t=100 with no plateau.
+
+Halving the box (L/d_p 20 -> 10) did NOT stabilize the homogeneous
+state: the fastest-growing mode still fits. Combined with the lane
+filter's failure (diagonal modes) this exhausts the cheap suppression
+routes. DECISION: option 4 -- V2 is reframed against the
+cluster-induced-settling literature (2-4x enhancement is the documented
+behavior of two-way coupled point-particle sedimentation in fully
+periodic domains); RZ hindered settling is a wall-bounded/homogenized
+result our periodic box does not represent. The V2 infrastructure gates
+(momentum conservation, Newton pairs, compensator drift) all PASS and
+stand; the RZ ratio rows stay FAIL-as-measured with this physics
+explanation. Remaining small-box phi points NOT submitted.
