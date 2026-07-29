@@ -51,6 +51,7 @@ if(USE_CGAL)
 endif(USE_CGAL)
 
 if (USE_HYPRE)
+  # Build the maintained Hypre smoke-test target whenever Hypre is enabled.
   add_subdirectory(hypre_test)
 endif (USE_HYPRE)
 

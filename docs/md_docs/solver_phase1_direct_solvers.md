@@ -47,8 +47,8 @@ to one core during the coarse solve.
 
 Restrictions: type 9 requires `Pres@MGMedLev == Pres@MGMinLev` (the nested
 coarse-MG path used by types 1–4 when the levels differ is not wired for
-it); the run stops with a clear message otherwise. Selecting type 9 in a
-build without `USE_MKL_PARDISO` stops with "MKL PARDISO is not available!".
+it); startup validation rejects a mismatch before matrix assembly. Selecting
+type 9 in a build without `USE_MKL_PARDISO` is rejected by the same validator.
 
 ## Build (warehouse/tardis nodes)
 

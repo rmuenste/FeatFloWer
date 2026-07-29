@@ -373,8 +373,8 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
 END SUBROUTINE GetPresParameters
 
 !-------------------------------------------------------------------------------------------------
-! Early validation of the requested coarse/fine solver types against the solver
-! libraries that were actually compiled into this binary.
+! Early validation of requested coarse/fine solver types, their compiled solver
+! libraries, and solver-specific level constraints.
 !
 ! Called on ALL ranks from Init_QuadScalar, i.e. directly after Velo@ and Pres@
 ! have been read from q2p1_param.dat.  That is long before the first solve, the
@@ -400,12 +400,12 @@ END SUBROUTINE GetPresParameters
 ! file), then every rank calls MPI_Abort.  No barrier is used: MPI_Abort from
 ! any rank tears down the job, the printing rank only has to flush first.
 !-------------------------------------------------------------------------------------------------
-SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, mfile)
+SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile)
   USE PP3D_MPI, ONLY: MPI_COMM_WORLD
   IMPLICIT NONE
-  INTEGER, INTENT(IN) :: iVeloType, iPresType, mfile
+  INTEGER, INTENT(IN) :: iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile
 
-  INTEGER, PARAMETER :: MAX_MSG = 4
+  INTEGER, PARAMETER :: MAX_MSG = 6
   CHARACTER(len=120) :: cMsg(MAX_MSG)
   INTEGER :: nMsg, i, ierr
 
@@ -414,6 +414,11 @@ SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, mfile)
 
   CALL CheckOneSolverType("Velo", iVeloType, .FALSE., cMsg, nMsg)
   CALL CheckOneSolverType("Pres", iPresType, .TRUE. , cMsg, nMsg)
+
+  IF (iPresType == 9 .AND. iPresMinLev /= iPresMedLev) THEN
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  PARDISO requires Pres@MGMinLev = Pres@MGMedLev.'
+  END IF
 
   IF (nMsg == 0) RETURN
 
