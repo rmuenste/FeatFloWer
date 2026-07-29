@@ -217,6 +217,7 @@ stage_case() {
       -e 's|^SimPar@MinMeshLevel.*|SimPar@MinMeshLevel = 1|' \
       -e "s|^SimPar@MaxMeshLevel.*|SimPar@MaxMeshLevel = ${fac3d_level}|" \
       -e 's|^SimPar@TimeStep.*|SimPar@TimeStep = 0.001d0|' \
+      -e 's|^SimPar@ApplyFAC3DMeshDeformation.*|SimPar@ApplyFAC3DMeshDeformation = No|' \
       -e 's|^SimPar@OutputLevel.*|SimPar@OutputLevel = 1|' \
       -e 's|^Velo@MGMinLev.*|Velo@MGMinLev = 2|' \
       -e 's|^Velo@MGMedLev.*|Velo@MGMedLev = 2|' \

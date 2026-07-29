@@ -145,6 +145,7 @@ stage_case() {
     -e 's|^SimPar@MinMeshLevel.*|SimPar@MinMeshLevel = 1|' \
     -e "s|^SimPar@MaxMeshLevel.*|SimPar@MaxMeshLevel = ${mesh_level}|" \
     -e 's|^SimPar@TimeStep.*|SimPar@TimeStep = 0.001d0|' \
+    -e 's|^SimPar@ApplyFAC3DMeshDeformation.*|SimPar@ApplyFAC3DMeshDeformation = No|' \
     -e "s|^SimPar@MaxNumStep.*|SimPar@MaxNumStep = ${steps}|" \
     -e 's|^SimPar@BackUpFreq.*|SimPar@BackUpFreq = 1000000|' \
     -e 's|^SimPar@OutputFreq.*|SimPar@OutputFreq = 1000000.0d0|' \

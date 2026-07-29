@@ -8,6 +8,8 @@ summarizer over a fixed benchmark set.
 
 The benchmark set is the `q2p1_fc_ext` flow-around-a-cylinder case and the
 undeformed FAC3D case. SSE is deliberately excluded from this harness.
+The harness explicitly sets `SimPar@ApplyFAC3DMeshDeformation = No` so FAC3D
+mesh behavior cannot depend on the staged application's parameter-file default.
 
 ## Instrumentation
 

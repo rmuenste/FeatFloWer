@@ -7,7 +7,7 @@ MODULE param_parser
 !
 ! Centralized parameter parsing: GDATNEW, GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 !-------------------------------------------------------------------------------------------------
-USE PP3D_MPI, ONLY: myid, showID, master
+USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD
 USE iniparser
 USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
@@ -22,6 +22,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
   bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
+USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -777,7 +778,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
 
   ! Local variables - integers
   INTEGER :: myFile = PARAM_FILE_UNIT
-  INTEGER :: iEnd, iAt, iEq, iLen, istat
+  INTEGER :: iEnd, iAt, iEq, iLen, istat, abortError
   INTEGER :: iOutShift
   INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
   INTEGER :: MFILE
@@ -852,6 +853,22 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) nUmbrellaSteps
       CASE ("InitUmbrella")
         READ(string(iEq+1:),*) nInitUmbrellaSteps
+      CASE ("ApplyFAC3DMeshDeformation")
+        cParam = " "
+        READ(string(iEq+1:),*) cParam
+        SELECT CASE (TRIM(ADJUSTL(cParam)))
+        CASE ("Yes")
+          bApplyFAC3DMeshDeformation = .true.
+        CASE ("No")
+          bApplyFAC3DMeshDeformation = .false.
+        CASE DEFAULT
+          IF (myid == master) THEN
+            WRITE(*,'(A)') 'FATAL: invalid SimPar@ApplyFAC3DMeshDeformation value.'
+            WRITE(*,'(A,A)') 'Expected Yes or No, got: ', TRIM(ADJUSTL(cParam))
+            FLUSH(6)
+          END IF
+          CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%PARAM_FILE_READ_ERROR,abortError)
+        END SELECT
       CASE ("UmbrellaStepM")
         READ(string(iEq+1:),*) nMainUmbrellaSteps
       CASE ("UmbrellaStepL")
