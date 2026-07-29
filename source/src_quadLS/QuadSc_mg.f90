@@ -1,9 +1,13 @@
 MODULE mg_QuadScalar
 
-USE PP3D_MPI, ONLY:E011DMat,myid,showID,& !E011Sum,
+USE PP3D_MPI, ONLY:E011DMat,myid,showID,MPI_COMM_WORLD,& !E011Sum,
                    COMM_Maximum,COMM_SUMM,COMM_NLComplete
 USE var_QuadScalar
 USE UMFPackSolver, ONLY : myUmfPack_Solve,myUmfPack_Free
+#ifdef MKL_PARDISO_AVAIL
+USE PardisoSolver, ONLY : myPardiso_Solve,myPardiso_Free
+#endif
+USE ff_timing, ONLY : ff_report_timing,ff_crs_u_calls,ff_crs_p_calls
 #ifdef MUMPS_AVAIL
 USE MumpsSolver, ONLY : MUMPS_Init,MUMPS_SetUpQ2_1_SLAVE,MUMPS_SetUpQ2_3_SLAVE,&
     MUMPS_SetUpQ2_1_MASTER,MUMPS_SetUpQ2_3_MASTER,MUMPS_Solve,MUMPS_SetUpP1_SLAVE,MUMPS_SetUpP1_MASTER,MUMPS_CleanUp
@@ -129,7 +133,15 @@ IF (.not. DefNorm.lt.1d-32) then
 end if ! if def norm
 
 IF (MyMG%cVariable.EQ."Pressure".AND.myid.eq.0.AND.myMatrixRenewal%C.GE.2) THEN
+#ifdef MKL_PARDISO_AVAIL
+  IF (MyMG%CrsSolverType.EQ.9) THEN
+    CALL myPardiso_Free()
+  ELSE
+    CALL myUmfPack_Free()
+  END IF
+#else
   CALL myUmfPack_Free()
+#endif
 END IF
 
 myMG%DefFinal = DefNorm
@@ -1846,10 +1858,22 @@ END SUBROUTINE outputsol1
 SUBROUTINE mgCoarseGridSolver_U
 INTEGER ITE,i,j,k,ndof
 INTEGER nnSteps,neq
+INTEGER ffAbortErr
 REAL*8 def,def0,dCrit
+REAL*8 chkNumbering
+#ifdef FF_SOLVER_TIMING
+REAL*8 MPI_WTIME
+REAL*8 ff_t0,ff_t1,ff_tsolve0
+CHARACTER(LEN=16) :: ff_label
+#endif
 
 def0 = 0d0
 def = 0d0
+
+#ifdef FF_SOLVER_TIMING
+ff_t0 = MPI_WTIME()
+ff_tsolve0 = ff_t0
+#endif
 
 ! WRITE(*,*) 'MyMG%CrsSolverType',MyMG%CrsSolverType
 
@@ -1925,8 +1949,30 @@ IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
  ndof = mg_mesh%level(mgLev)%nel + mg_mesh%level(mgLev)%net + &
         mg_mesh%level(mgLev)%nvt + mg_mesh%level(mgLev)%nat
 
+ ! The global Q2 numbering (Create_GlobalNumbering) is built once at
+ ! Pres@MGMedLev. If the velocity coarse level differs, the E013DISTR
+ ! buffers are mis-sized and the run dies in an opaque MPI truncation --
+ ! detect the mismatch collectively and stop with a clear message.
+ chkNumbering = 0d0
+ IF (myid.ne.0) THEN
+  IF (.NOT.ALLOCATED(GlobalNumberingQ2)) THEN
+   chkNumbering = 1d0
+  ELSE IF (SIZE(GlobalNumberingQ2).NE.3*ndof) THEN
+   chkNumbering = 1d0
+  END IF
+ END IF
+ CALL COMM_maximum(chkNumbering)
+ IF (chkNumbering.GT.0.5d0) THEN
+  IF (myid.eq.showid) THEN
+   WRITE(*,*) 'Velocity MUMPS coarse solver: the global Q2 numbering was built'
+   WRITE(*,*) 'for a different mesh level than the velocity coarse level.'
+   WRITE(*,*) 'Set Velo@MGMinLev = Velo@MGMedLev = Pres@MGMedLev.'
+  END IF
+  STOP
+ END IF
+
  if (myid.eq.0) myMG%B(mgLev)%x = 0d0
- 
+
  CALL E013DISTR_L1(myMG%B(mgLev)%x,ndof)
 
  CALL MUMPS_Init()
@@ -1950,6 +1996,9 @@ IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
   END IF
  END IF
  
+#ifdef FF_SOLVER_TIMING
+ ff_tsolve0 = MPI_WTIME()
+#endif
  CALL MUMPS_Solve(myMG%X(mgLev)%x)
  CoarseIter = 1
 
@@ -1960,15 +2009,25 @@ IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
 END IF
 #else
    IF (MyMG%CrsSolverType.EQ.5) THEN
-    
+
     IF (myid.eq.0) WRITE(*,*) 'MUMPS is not available!'
-    STOP
-    
+    IF (myid.eq.0) WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_MUMPS=ON.'
+    IF (myid.eq.0) FLUSH(6)
+    CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
+
    END IF
 #endif
 
 !  WRITE(*,*) 'ok',myid
 !  pause
+
+#ifdef FF_SOLVER_TIMING
+ff_t1 = MPI_WTIME()
+ff_crs_u_calls = ff_crs_u_calls + 1
+WRITE(ff_label,'(A,I0)') 'crs-u-t',MyMG%CrsSolverType
+CALL ff_report_timing(TRIM(ff_label),ff_crs_u_calls,ff_tsolve0-ff_t0,&
+     ff_t1-ff_tsolve0,ff_t1-ff_t0,CoarseIter,def/MAX(def0,1d-32))
+#endif
 
 END SUBROUTINE mgCoarseGridSolver_U
 !
@@ -1978,21 +2037,39 @@ SUBROUTINE mgCoarseGridSolver_P()
 INTEGER Iter,i,j,k,ndof
 REAL*8 daux,dCrit
 INTEGER iEntry,jCol,mgLevBU
+INTEGER ffAbortErr
 EXTERNAL E011
+#ifdef FF_SOLVER_TIMING
+REAL*8 MPI_WTIME
+REAL*8 ff_t0,ff_t1,ff_tsolve0
+CHARACTER(LEN=16) :: ff_label
+#endif
 
-  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5) THEN
+#ifdef FF_SOLVER_TIMING
+  ff_t0 = MPI_WTIME()
+  ff_tsolve0 = ff_t0
+#endif
+
+  IF (MyMG%CrsSolverType.EQ.9.AND.myMG%MinLev.NE.myMG%MedLev) THEN
+   IF (myid.eq.0) WRITE(*,*) 'CrsSolverType 9 (PARDISO) requires MGMedLev == MGMinLev'
+   STOP
+  END IF
+
+  IF ((MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5).OR.&
+      MyMG%CrsSolverType.EQ.9) THEN
    IF (myid.eq.0) THEN
     myMG%X(mgLev)%x = 0d0
    END IF
    IF (myMG%MedLev.EQ.1) CALL E012DISTR_L1(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
    IF (myMG%MedLev.EQ.2) CALL E012DISTR_L2(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
    IF (myMG%MedLev.EQ.3) CALL E012DISTR_L3(myMG%B(mgLev)%x,mg_mesh%level(mgLev)%nel)
-   
+
    ILEV = mgLev
    CALL SETLEV(2)
   END IF
 
-  IF (myid.eq.0.and.MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4) THEN
+  IF (myid.eq.0.and.((MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.4).OR.&
+      MyMG%CrsSolverType.EQ.9)) THEN
   
    IF (myMG%MinLev.EQ.myMG%MedLev) THEN
  
@@ -2008,6 +2085,20 @@ EXTERNAL E011
     IF (MyMG%CrsSolverType.EQ.2) THEN
      CALL myUmfPack_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat,1)
      CoarseIter = 1
+    END IF
+
+    IF (MyMG%CrsSolverType.EQ.9) THEN
+#ifdef MKL_PARDISO_AVAIL
+     CALL myPardiso_Solve(myMG%X(mgLev)%x,myMG%B(mgLev)%x,UMF_CMat,UMF_lMat)
+     CoarseIter = 1
+#else
+     WRITE(*,*) 'MKL PARDISO is not available!'
+     WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_MKL_PARDISO=ON.'
+     FLUSH(6)
+     ! MPI_Abort, not STOP: this branch is master-only, a bare STOP would
+     ! leave every worker blocked in MPI.
+     CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
+#endif
     END IF
 
     IF (MyMG%CrsSolverType.EQ.3.OR.MyMG%CrsSolverType.EQ.4) THEN
@@ -2080,6 +2171,9 @@ EXTERNAL E011
                               myMG%X(mgLev)%X,myMG%XP,ndof)
     END IF
     
+#ifdef FF_SOLVER_TIMING
+    ff_tsolve0 = MPI_WTIME()
+#endif
     CALL MUMPS_Solve(myMG%X(mgLev)%x)
     CoarseIter = 1
 
@@ -2088,13 +2182,15 @@ EXTERNAL E011
    END IF
 #else
    IF (MyMG%CrsSolverType.EQ.5) THEN
-    
+
     IF (myid.eq.0) WRITE(*,*) 'MUMPS is not available!'
-    STOP
-    
+    IF (myid.eq.0) WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_MUMPS=ON.'
+    IF (myid.eq.0) FLUSH(6)
+    CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
+
    END IF
 #endif
-  IF (MyMG%CrsSolverType.EQ.7.or.MyMG%CrsSolverType.EQ.8) THEN    
+  IF (MyMG%CrsSolverType.EQ.7.or.MyMG%CrsSolverType.EQ.8) THEN
 #ifdef HYPRE_AVAIL
     if (myid.eq.0) THEN 
      mgLevBU = mglev
@@ -2189,11 +2285,14 @@ EXTERNAL E011
 !    CALL myHypre_Solve(crsSTR%A_SOL,crsSTR%A_RHS,crsSTR%A)
 #else
     IF (myid.eq.0) WRITE(*,*) 'Hypre is not available!'
-    STOP
+    IF (myid.eq.0) WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_HYPRE=ON.'
+    IF (myid.eq.0) FLUSH(6)
+    CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
 #endif
   END IF
 
-  IF (MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5) THEN
+  IF ((MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5).OR.&
+      MyMG%CrsSolverType.EQ.9) THEN
    IF (myMG%MedLev.EQ.1) CALL E012GATHR_L1(myMG%X(mgLev)%x,KNEL(mgLev))
    IF (myMG%MedLev.EQ.2) CALL E012GATHR_L2(myMG%X(mgLev)%x,KNEL(mgLev))
    IF (myMG%MedLev.EQ.3) CALL E012GATHR_L3(myMG%X(mgLev)%x,KNEL(mgLev))
@@ -2209,6 +2308,14 @@ EXTERNAL E011
 !  pause
 
  CALL E013SendK(0,showid,CoarseIter)
+
+#ifdef FF_SOLVER_TIMING
+ ff_t1 = MPI_WTIME()
+ ff_crs_p_calls = ff_crs_p_calls + 1
+ WRITE(ff_label,'(A,I0)') 'crs-p-t',MyMG%CrsSolverType
+ CALL ff_report_timing(TRIM(ff_label),ff_crs_p_calls,ff_tsolve0-ff_t0,&
+      ff_t1-ff_tsolve0,ff_t1-ff_t0,CoarseIter,0d0)
+#endif
 
 END SUBROUTINE mgCoarseGridSolver_P
 !

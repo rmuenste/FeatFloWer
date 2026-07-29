@@ -80,7 +80,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
+   cProjectFolder,cProjectNumber,mg_mesh,&
    bFAC3D_CylUmbrellaWeight,dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength
  USE Transport_Q2P1, ONLY : Init_FAC3D_Handlers, Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
@@ -109,7 +109,7 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  INTEGER ISEAR,ISEVE,ISAVE,ISVBD,ISEBD,ISABD,IDISP
  INTEGER NEL0,NEL1,NEL2
  REAL ttt0,ttt1
- INTEGER II,NDOF,iUmbrella
+ INTEGER II,NDOF
  LOGICAL BLIN
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
@@ -173,12 +173,14 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL Init_QuadScalar(mfile)
  call Init_FAC3D_Handlers()
 
- bFAC3D_CylUmbrellaWeight = .TRUE.
+ ! Keep all FAC3D attraction-weight and umbrella mesh deformation disabled.
+ ! The cylinder geometry below is retained only for the diagnostic VTK fields.
+ bFAC3D_CylUmbrellaWeight = .FALSE.
  dFAC3D_CylCenter = (/0.5d0, 0.2d0, 0.205d0/)
  dFAC3D_CylRadius = 0.05d0
  dFAC3D_CylLength = 0.4105d0
  if ((myid.eq.0).or.(myid.eq.1)) then
-   write(*,'(A)') 'FAC3D umbrella weighting: analytic cylinder distance is enabled'
+   write(*,'(A)') 'FAC3D mesh deformation: disabled'
  end if
 
  IF (myid.EQ.0) THEN
@@ -353,39 +355,6 @@ DO ILEV=NLMIN,NLMAX
    END IF
 END DO
  
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-DO iUmbrella=1,nInitUmbrellaSteps
-  CALL UmbrellaSmoother_STRCT(0d0,1)
-END DO
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (bFAC3D_CylUmbrellaWeight .AND. myid.NE.0) THEN
-  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: pulling nodes toward cylinder surface...'
-  DO iUmbrella=1,8
-    CALL CylinderAttraction(mg_mesh%level(NLMAX)%nvt, &
-      mg_mesh%level(NLMAX)%dcorvg, 0.2d0)
-    CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax)
-  END DO
-  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: done.'
-END IF
-!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (bFAC3D_CylUmbrellaWeight) THEN
-  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing...'
-  DO iUmbrella=1,2
-    CALL UmbrellaSmoother_STRCT(0d0,1)
-  END DO
-  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing: done.'
-END IF
-!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 IF (myid.ne.0) THEN
  
   CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&

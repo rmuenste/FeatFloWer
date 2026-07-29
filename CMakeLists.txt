@@ -139,6 +139,89 @@ option(USE_HYPRE
   OFF
   )
 
+cmake_dependent_option(
+  USE_EXTERNAL_HYPRE
+  "Link a pre-installed hypre instead of the vendored copy"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+set(EXTERNAL_HYPRE_DIR "" CACHE PATH
+  "Install prefix of an external hypre"
+  )
+
+cmake_dependent_option(
+  USE_HYPRE_CUDA
+  "Enable hypre's CUDA execution path"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+cmake_dependent_option(
+  USE_HYPRE_GPU_AMG
+  "Use GPU-compatible BoomerAMG parameters"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+cmake_dependent_option(
+  ENABLE_HYPRE_TIMING
+  "Print machine-readable hypre coarse-solver timings"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+option(ENABLE_SOLVER_TIMING
+  "Print machine-readable FF_TIMING records for MG stages and coarse solvers"
+  OFF
+  )
+
+option(USE_EXTERNAL_SUITESPARSE
+  "Use an external SuiteSparse UMFPACK instead of the vendored UMFPACK 4"
+  OFF
+  )
+
+set(EXTERNAL_SUITESPARSE_DIR "" CACHE PATH
+  "Install prefix of an external SuiteSparse (empty: system paths)"
+  )
+
+option(USE_MKL_PARDISO
+  "Enable MKL PARDISO as pressure coarse solver type 9"
+  OFF
+  )
+
+set(MKL_PARDISO_DIR "$ENV{MKLROOT}" CACHE PATH
+  "MKL install root providing lib/libmkl_*.a (required for USE_MKL_PARDISO)"
+  )
+
+cmake_dependent_option(
+  USE_EXTERNAL_MUMPS
+  "Link a pre-installed MUMPS (works with GCC) instead of the vendored MUMPS 5.0.1 + MKL"
+  OFF
+  "USE_MUMPS"
+  OFF
+  )
+
+set(EXTERNAL_MUMPS_DIR "" CACHE PATH
+  "Install prefix of an external MUMPS (lib/, include/)"
+  )
+
+set(EXTERNAL_SCALAPACK_DIR "" CACHE PATH
+  "Install prefix of the ScaLAPACK matching the external MUMPS"
+  )
+
+set(EXTERNAL_SCOTCH_DIR "" CACHE PATH
+  "Install prefix of the SCOTCH/esmumps matching the external MUMPS"
+  )
+
+set(EXTERNAL_PARMETIS_DIR "" CACHE PATH
+  "Install prefix of the ParMETIS/METIS matching the external MUMPS"
+  )
+
 option(USE_PE
   "Use pe library"
   OFF
@@ -180,8 +263,17 @@ endif()
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
-  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE)
 endif(BUILD_BOUNDARY_LAYER_TOOLS)
+
+#=========================================================================
+#      Solver dependency providers (vendored / external / system / fetch)
+#      Declares FF_FETCH_DEPENDENCIES, FF_HYPRE_PROVIDER,
+#      FF_SUITESPARSE_PROVIDER, FF_HYPRE_GPU_AWARE_MPI and the
+#      ff_setup_* macros used further down.
+#      See docs/md_docs/fetchcontent_dependencies.md
+#=========================================================================
+include(FFDependencies)
 
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
@@ -399,18 +491,81 @@ message(STATUS "CMake MPI_Fortran_LIBRARIES : ${MPI_Fortran_LIBRARIES}")
 
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
-add_subdirectory(extern/libraries/amd)
-add_subdirectory(extern/libraries/umfpack4)
+
+# SuiteSparse/UMFPACK provider: vendored UMFPACK 4, a site install
+# (USE_EXTERNAL_SUITESPARSE + EXTERNAL_SUITESPARSE_DIR) or the pinned
+# SuiteSparse tarball (FF_SUITESPARSE_PROVIDER=fetch).
+ff_setup_suitesparse()
+
+if(USE_MKL_PARDISO)
+  ff_setup_mkl_pardiso()
+endif()
 
 if(USE_MUMPS)
-  find_package(MKL)
-  if(${Q2P1_BUILD_ID} MATCHES "intel")
+  if(USE_EXTERNAL_MUMPS)
+    foreach(_mumps_lib dmumps mumps_common pord)
+      string(TOUPPER ${_mumps_lib} _MUMPS_LIB_U)
+      find_library(FF_${_MUMPS_LIB_U}_LIBRARY ${_mumps_lib}
+        HINTS ${EXTERNAL_MUMPS_DIR}/lib ${EXTERNAL_MUMPS_DIR}/lib64)
+      if(NOT FF_${_MUMPS_LIB_U}_LIBRARY)
+        message(FATAL_ERROR
+          "External MUMPS: lib${_mumps_lib} not found under ${EXTERNAL_MUMPS_DIR}")
+      endif()
+    endforeach()
+    if(NOT EXISTS ${EXTERNAL_MUMPS_DIR}/include/dmumps_struc.h)
+      message(FATAL_ERROR
+        "External MUMPS: dmumps_struc.h not found under ${EXTERNAL_MUMPS_DIR}/include")
+    endif()
+    find_library(FF_SCALAPACK_LIBRARY scalapack
+      HINTS ${EXTERNAL_SCALAPACK_DIR}/lib ${EXTERNAL_SCALAPACK_DIR}/lib64)
+    if(NOT FF_SCALAPACK_LIBRARY)
+      message(FATAL_ERROR
+        "External MUMPS: libscalapack not found under ${EXTERNAL_SCALAPACK_DIR}")
+    endif()
+    # SCOTCH orderings are optional in principle but required by the site
+    # MUMPS builds; collect whatever variants the prefix provides.
+    set(FF_SCOTCH_LIBRARIES "")
+    foreach(_scotch_lib esmumps ptscotch scotch ptscotcherr scotcherr)
+      find_library(FF_SCOTCH_${_scotch_lib}_LIBRARY ${_scotch_lib}
+        HINTS ${EXTERNAL_SCOTCH_DIR}/lib ${EXTERNAL_SCOTCH_DIR}/lib64)
+      if(FF_SCOTCH_${_scotch_lib}_LIBRARY)
+        list(APPEND FF_SCOTCH_LIBRARIES ${FF_SCOTCH_${_scotch_lib}_LIBRARY})
+      endif()
+    endforeach()
+    # The site MUMPS builds also use ParMETIS orderings.
+    set(FF_PARMETIS_LIBRARIES "")
+    foreach(_pm_lib parmetis metis gklib)
+      find_library(FF_PARMETIS_${_pm_lib}_LIBRARY ${_pm_lib}
+        HINTS ${EXTERNAL_PARMETIS_DIR}/lib ${EXTERNAL_PARMETIS_DIR}/lib64
+        NO_DEFAULT_PATH)
+      if(FF_PARMETIS_${_pm_lib}_LIBRARY)
+        list(APPEND FF_PARMETIS_LIBRARIES ${FF_PARMETIS_${_pm_lib}_LIBRARY})
+      endif()
+    endforeach()
+    if(NOT FF_PARMETIS_LIBRARIES)
+      message(FATAL_ERROR
+        "External MUMPS: libparmetis not found under ${EXTERNAL_PARMETIS_DIR}")
+    endif()
+    find_library(FF_OPENBLAS_LIBRARY openblas)
+    if(NOT FF_OPENBLAS_LIBRARY)
+      message(FATAL_ERROR "External MUMPS: libopenblas not found")
+    endif()
     add_definitions(-DMUMPS_AVAIL)
-    add_subdirectory(extern/libraries/MUMPS_5.0.1)
     set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
-  else(${Q2P1_BUILD_ID} MATCHES "intel")
-    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
-  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+    set(MUMPS_STRUCTURES_INCLUDE_PATH ${EXTERNAL_MUMPS_DIR}/include)
+    message(STATUS "External MUMPS: ${FF_DMUMPS_LIBRARY}")
+    message(STATUS "External MUMPS ScaLAPACK: ${FF_SCALAPACK_LIBRARY}")
+    message(STATUS "External MUMPS SCOTCH libs: ${FF_SCOTCH_LIBRARIES}")
+  else()
+    find_package(MKL)
+    if(${Q2P1_BUILD_ID} MATCHES "intel")
+      add_definitions(-DMUMPS_AVAIL)
+      add_subdirectory(extern/libraries/MUMPS_5.0.1)
+      set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
+    else(${Q2P1_BUILD_ID} MATCHES "intel")
+      message(FATAL_ERROR "The vendored MUMPS library requires the intel compiler. Choose a build-id with the intel compiler, or set USE_EXTERNAL_MUMPS=ON with a GCC-compatible MUMPS install.")
+    endif(${Q2P1_BUILD_ID} MATCHES "intel")
+  endif()
 endif(USE_MUMPS)
 
 find_package(Git 2.17)
@@ -429,13 +584,36 @@ endif(NOT WIN32)
 # Add the hypre library
 #=========================================================================
 if(USE_HYPRE)
-  # Use the sources from the repository  
-  message(STATUS "Using repository versions of hypre")
-  add_definitions(-DHYPRE_AVAIL)		
-  add_subdirectory(extern/libraries/hypre/src)
+  add_definitions(-DHYPRE_AVAIL)
+
+  # hypre provider: vendored submodule, a site install
+  # (USE_EXTERNAL_HYPRE + EXTERNAL_HYPRE_DIR) or the pinned hypre tarball
+  # (FF_HYPRE_PROVIDER=fetch).
+  ff_setup_hypre()
+
+  if(USE_HYPRE_CUDA)
+    add_definitions(-DHYPRE_CUDA)
+    if(NOT USE_HYPRE_GPU_AMG)
+      message(STATUS "USE_HYPRE_CUDA enables USE_HYPRE_GPU_AMG")
+      set(USE_HYPRE_GPU_AMG ON CACHE BOOL
+        "Use GPU-compatible BoomerAMG parameters" FORCE)
+    endif()
+  endif()
+
+  if(USE_HYPRE_GPU_AMG)
+    add_definitions(-DHYPRE_GPU_AMG)
+  endif()
+
+  if(ENABLE_HYPRE_TIMING)
+    add_definitions(-DHYPRE_TIMING)
+  endif()
+
   set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
-  set(HYPRE_LIBRARIES HYPRE)
 endif(USE_HYPRE)
+
+if(ENABLE_SOLVER_TIMING)
+  add_definitions(-DFF_SOLVER_TIMING)
+endif()
 
 #=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 

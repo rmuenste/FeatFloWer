@@ -434,12 +434,20 @@ TYPE tHYPRE
  logical :: ZeroBased=.false.
  INTEGER iupper,ilower,nrows,nonzeros
  INTEGER, allocatable, dimension(:) :: Numbering,OffPartitionNumbering
+#ifdef HYPRE_CUDA
+ INTEGER(c_int), pointer, dimension(:) :: ncols => null()
+ INTEGER(c_int), pointer, dimension(:) :: rows => null(), cols => null()
+ REAL(c_double), pointer, dimension(:) :: values => null()
+ REAL(c_double), pointer, dimension(:) :: rhs => null(), sol => null()
+#else
  INTEGER, allocatable, dimension(:) :: ncols
  INTEGER, allocatable, dimension(:) :: rows,cols
  REAL*8 , allocatable, dimension(:) :: values,rhs,sol
+#endif
  INTEGER*8 solver, precond
  INTEGER*8 A, parcsr_A, b, par_b, x, par_x
  logical :: solverIsSet = .false.
+ logical :: FineIsSet = .false.
  integer communicator
 END TYPE tHYPRE
 TYPE(tHYPRE) :: myHYPRE
@@ -778,6 +786,7 @@ TYPE tErrorCodes
  INTEGER :: DUMPFILE_READER=45
  INTEGER :: DUMPFILE_WRITER=46
  INTEGER :: RUNOUTOFTIMESTEPS=57
+ INTEGER :: SOLVER_TYPE_INVALID=58
  INTEGER :: PARAM_FILE_READ_ERROR=59
 END TYPE
 

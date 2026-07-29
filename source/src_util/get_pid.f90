@@ -72,7 +72,13 @@
       print *, i,trim(myRecComm%unique_hostnames(i)),myRecComm%hostleaders(i)
     end do
     cFMT=' '
-    write(cFMT,*) '(A,',subnodes-1,'(I0,(",")),I0)'
+    IF (subnodes.GT.1) THEN
+      ! A zero repeat count '0(...)' is an invalid format, so the single
+      ! worker case needs its own format.
+      write(cFMT,*) '(A,',subnodes-1,'(I0,(",")),I0)'
+    ELSE
+      cFMT = '(A,I0)'
+    END IF
     write(*,cFMT) "GroupIDs: ",myRecComm%groupIDs
   end if
 
@@ -132,7 +138,12 @@
     if (localIndex.eq.0) localIndex = 1
     myRecComm%gridIndex = localIndex
 
-    write(cFMT,*) '(A,I0,A,A,A,',size(myRecComm%hostgroup)-1,'(I0,(",")),I0,A,I0,A,I0)'
+    IF (size(myRecComm%hostgroup).GT.1) THEN
+      write(cFMT,*) '(A,I0,A,A,A,',size(myRecComm%hostgroup)-1,'(I0,(",")),I0,A,I0,A,I0)'
+    ELSE
+      ! A zero repeat count '0(...)' is an invalid format (single worker).
+      cFMT = '(A,I0,A,A,A,I0,A,I0,A,I0)'
+    END IF
     write(*,cFMT) "myid: ",myid," My Node is :",adjustl(trim(myRecComm%hostname)), &
       " My group is: ",myRecComm%hostgroup," mesh: sub",myRecComm%subIndex," GRID",myRecComm%gridIndex
 

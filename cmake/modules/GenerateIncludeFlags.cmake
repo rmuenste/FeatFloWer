@@ -15,9 +15,13 @@ set(FF_APPLICATION_INCLUDE_PATH
 
 if(USE_MUMPS)
 
-  set(MUMPS_STRUCTURES_INCLUDE_PATH
-    ${CMAKE_SOURCE_DIR}/extern/libraries/MUMPS_5.0.1/include
-    )
+  # USE_EXTERNAL_MUMPS sets MUMPS_STRUCTURES_INCLUDE_PATH to the external
+  # include directory in the top-level CMakeLists before this file is read.
+  if(NOT MUMPS_STRUCTURES_INCLUDE_PATH)
+    set(MUMPS_STRUCTURES_INCLUDE_PATH
+      ${CMAKE_SOURCE_DIR}/extern/libraries/MUMPS_5.0.1/include
+      )
+  endif()
 
   list(APPEND FF_DEFAULT_INCLUDE_PATH ${MUMPS_STRUCTURES_INCLUDE_PATH})
 
@@ -27,9 +31,11 @@ endif(USE_MUMPS)
 
 if(USE_HYPRE)
 
-  set(HYPRE_STRUCTURES_INCLUDE_PATH
-    ${CMAKE_SOURCE_DIR}/extern/libraries/hypre/src/
-    )
+  if(NOT HYPRE_STRUCTURES_INCLUDE_PATH)
+    set(HYPRE_STRUCTURES_INCLUDE_PATH
+      ${CMAKE_SOURCE_DIR}/extern/libraries/hypre/src/
+      )
+  endif()
 
   list(APPEND FF_DEFAULT_INCLUDE_PATH ${HYPRE_STRUCTURES_INCLUDE_PATH})
 

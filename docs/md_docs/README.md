@@ -42,6 +42,13 @@ not be treated as canonical behavior without checking the current source.
 - [matrix_structures_guide.md](matrix_structures_guide.md): Detailed matrix families, allocation patterns, and level-dependent storage.
 - [matrix_assembly_guide.md](matrix_assembly_guide.md): Q2/P1 matrix assembly workflow, generic helpers, and parallel handling.
 - [hypre_csr_analysis.md](hypre_csr_analysis.md): Pressure Schur-complement CSR construction and HYPRE conversion.
+- [hypre_gpu_stage1_tardis.md](hypre_gpu_stage1_tardis.md): External Hypre CUDA build, managed-memory interface, and Tardis cylinder validation.
+- [solver_baseline_phase0.md](solver_baseline_phase0.md): FF_TIMING instrumentation, CPU baseline job harness, and summarizer for the solver-library evaluation.
+- [solver_phase1_direct_solvers.md](solver_phase1_direct_solvers.md): External SuiteSparse UMFPACK for coarse types 2/4 and MKL PARDISO as new type 9.
+- [solver_phase2_velocity_coarse.md](solver_phase2_velocity_coarse.md): External GCC-compatible MUMPS (drops the Intel requirement) and the velocity coarse-solver sweep.
+- [solver_phase3_fine_level_pressure.md](solver_phase3_fine_level_pressure.md): Fine-level pressure solve via Hypre GMRES+BoomerAMG (Pres@MGCrsSolverType = 10).
+- [fetchcontent_dependencies.md](fetchcontent_dependencies.md): Provider pattern for hypre/SuiteSparse/MKL, pinned FetchContent versions and hashes, and offline/cluster pre-staging.
+- [solver_type_validation.md](solver_type_validation.md): Startup validation of Pres/Velo@MGCrsSolverType against compiled-in solver libraries (MPI_Abort with a clear message instead of late STOPs or silent no-ops).
 - [umfpack_hypre_analysis.md](umfpack_hypre_analysis.md): Comparison of UMFPACK and HYPRE coarse-solver interfaces.
 - [ff_theta_solution_scheme.md](ff_theta_solution_scheme.md): Analytical walkthrough of the fractional-step theta transport routine; verify details against current source.
 
