@@ -341,23 +341,29 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   end if ! myid /= 0
 
 #ifdef HAVE_PE
-  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
-
-  ! Get total particle count on all ranks (including rank 0)
-  totalP = getTotalParticles()
+  ! getTotalParticles() already returns the GLOBAL particle count on every
+  ! PE rank; the CFD master (rank 0) has no PE world and must not call the
+  ! query (uninitialized garbage). Combine across ranks with MAX, never SUM.
+  totalP = 0
+  IF (myid.NE.0) totalP = getTotalParticles()
 
 #ifdef PE_SERIAL_MODE
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INTEGER, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
   IF (myid.eq.1) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / totalP
+    dofsPerParticle = real(reducedVal) / MAX(totalP,1)
     write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
   end if
 #else
-  call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  ! Reduce to the rank that prints (0) - the old code reduced totalInside
+  ! to root 1 but printed rank 0's untouched buffer, and rank-summed the
+  ! already-global particle count.
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_Reduce(totalP, reducedP, 1, MPI_INTEGER, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
 
   IF (myid.eq.0) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / reducedP
+    dofsPerParticle = real(reducedVal) / MAX(reducedP,1)
     write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', reducedP, ' particles'
   end if
 
