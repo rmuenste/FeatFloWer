@@ -479,9 +479,15 @@ END IF
  CALL MPI_COMM_CREATE(MPI_COMM_WORLD, MPI_EX0, MPI_Comm_EX0, error_indicator)
 
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
   if (myid .ne. 0) then
-    call commf2c_fsi(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
+    ! Generic inert PE bootstrap (commf2c_init), as in q2p1_fac_nnewt and
+    ! the scalar apps. The previous commf2c_fsi entry point has been
+    ! repurposed on pe master into the span-complex FSI experiment setup
+    ! (loads example.json, validates a PE process grid, reads chip1.obj),
+    ! which a plain flow-around-cylinder benchmark cannot and should not
+    ! satisfy.
+    call commf2c_init(MPI_COMM_WORLD, MPI_Comm_Ex0, myid)
   end if
 #endif
 
