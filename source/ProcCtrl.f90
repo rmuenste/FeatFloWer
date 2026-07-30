@@ -170,7 +170,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
      CALL GetVeloParameters(QuadSc%prm, QuadSc%cName, MFILE)
      ! A runtime reload must not be able to smuggle in an unsupported type.
      CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
-                              LinSc%prm%MGprmIn%CrsSolverType, MFILE)
+                              LinSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%MinLev,&
+                              LinSc%prm%MGprmIn%MedLev,MFILE)
     END IF
 
 ! -------------------------------------------------------------------------------
@@ -180,7 +182,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
      CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
      ! A runtime reload must not be able to smuggle in an unsupported type.
      CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
-                              LinSc%prm%MGprmIn%CrsSolverType, MFILE)
+                              LinSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%MinLev,&
+                              LinSc%prm%MGprmIn%MedLev,MFILE)
     END IF
 
 ! -------------------------------------------------------------------------------

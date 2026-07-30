@@ -7,7 +7,7 @@ MODULE param_parser
 !
 ! Centralized parameter parsing: GDATNEW, GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 !-------------------------------------------------------------------------------------------------
-USE PP3D_MPI, ONLY: myid, showID, master
+USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD
 USE iniparser
 USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
@@ -22,6 +22,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
   bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
+USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -373,8 +374,8 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
 END SUBROUTINE GetPresParameters
 
 !-------------------------------------------------------------------------------------------------
-! Early validation of the requested coarse/fine solver types against the solver
-! libraries that were actually compiled into this binary.
+! Early validation of requested coarse/fine solver types, their compiled solver
+! libraries, and solver-specific level constraints.
 !
 ! Called on ALL ranks from Init_QuadScalar, i.e. directly after Velo@ and Pres@
 ! have been read from q2p1_param.dat.  That is long before the first solve, the
@@ -400,12 +401,12 @@ END SUBROUTINE GetPresParameters
 ! file), then every rank calls MPI_Abort.  No barrier is used: MPI_Abort from
 ! any rank tears down the job, the printing rank only has to flush first.
 !-------------------------------------------------------------------------------------------------
-SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, mfile)
+SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile)
   USE PP3D_MPI, ONLY: MPI_COMM_WORLD
   IMPLICIT NONE
-  INTEGER, INTENT(IN) :: iVeloType, iPresType, mfile
+  INTEGER, INTENT(IN) :: iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile
 
-  INTEGER, PARAMETER :: MAX_MSG = 4
+  INTEGER, PARAMETER :: MAX_MSG = 6
   CHARACTER(len=120) :: cMsg(MAX_MSG)
   INTEGER :: nMsg, i, ierr
 
@@ -414,6 +415,11 @@ SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, mfile)
 
   CALL CheckOneSolverType("Velo", iVeloType, .FALSE., cMsg, nMsg)
   CALL CheckOneSolverType("Pres", iPresType, .TRUE. , cMsg, nMsg)
+
+  IF (iPresType == 9 .AND. iPresMinLev /= iPresMedLev) THEN
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  PARDISO requires Pres@MGMinLev = Pres@MGMedLev.'
+  END IF
 
   IF (nMsg == 0) RETURN
 
@@ -847,6 +853,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) nUmbrellaSteps
       CASE ("InitUmbrella")
         READ(string(iEq+1:),*) nInitUmbrellaSteps
+      CASE ("ApplyFAC3DMeshDeformation")
+        bApplyFAC3DMeshDeformation = read_yes_no_param(string, iEq)
       CASE ("UmbrellaStepM")
         READ(string(iEq+1:),*) nMainUmbrellaSteps
       CASE ("UmbrellaStepL")
@@ -1422,19 +1430,61 @@ CONTAINS
   END FUNCTION normalize_partition_format
 
   !-----------------------------------------------------------------------
-  ! Helper function to parse Yes/No string to logical value
+  ! Helper function to parse a Yes/No parameter value.
+  !
+  ! The value is case-folded before comparison, so YeS, yEs and YES all mean
+  ! the same thing.  A value that matches neither Yes nor No aborts.
+  !
+  ! This used to compare against the literal string "Yes" and start from
+  ! .FALSE., so "No" and "dontknow" reached .FALSE. through the very same
+  ! path: the parser could not tell "the user said no" from "I did not
+  ! understand the user".  A mis-capitalised switch therefore turned itself
+  ! off without a word -- SimPar@UseConstantForcing = YES in q2p1_dns_drag
+  ! and q2p1_el_frozen_trace had been running with constant forcing OFF.
+  !
+  ! cName and cPar come from the host scope, so the message can name the
+  ! offending key without every call site having to pass it.
   !-----------------------------------------------------------------------
   FUNCTION read_yes_no_param(input_string, iEq_pos) RESULT(bool_value)
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN) :: input_string
     INTEGER, INTENT(IN) :: iEq_pos
     LOGICAL :: bool_value
-    CHARACTER(len=8) :: cParam_local
+    CHARACTER(len=8) :: cRaw, cUpper
+    INTEGER :: iPos, iChar, iAbortErr
 
-    cParam_local = " "
-    READ(input_string(iEq_pos+1:),*) cParam_local
-    bool_value = .false.
-    IF (TRIM(ADJUSTL(cParam_local)) == "Yes") bool_value = .true.
+    cRaw = " "
+    READ(input_string(iEq_pos+1:),*) cRaw
+    cRaw = ADJUSTL(cRaw)
+
+    cUpper = cRaw
+    DO iPos = 1, LEN_TRIM(cUpper)
+      iChar = IACHAR(cUpper(iPos:iPos))
+      IF (iChar >= IACHAR('a') .AND. iChar <= IACHAR('z')) THEN
+        cUpper(iPos:iPos) = ACHAR(iChar - (IACHAR('a') - IACHAR('A')))
+      END IF
+    END DO
+
+    SELECT CASE (TRIM(cUpper))
+    CASE ("YES", "Y", "TRUE")
+      bool_value = .true.
+    CASE ("NO", "N", "FALSE")
+      bool_value = .false.
+    CASE DEFAULT
+      bool_value = .false.
+      IF (myid == master) THEN
+        WRITE(*,'(A)') REPEAT('=',78)
+        WRITE(*,'(A)') ' FATAL: invalid Yes/No value in '//TRIM(ADJUSTL(myDataFile))
+        WRITE(*,'(A)') '  '//TRIM(ADJUSTL(cName))//'@'//TRIM(ADJUSTL(cPar))// &
+          ' = '//TRIM(cRaw)
+        WRITE(*,'(A)') '  Expected Yes or No (any capitalisation).'
+        WRITE(*,'(A)') REPEAT('=',78)
+        FLUSH(6)
+      END IF
+      ! MPI_Abort, not STOP: only the master prints, and a rank-local STOP
+      ! would leave every other rank blocked in the next collective.
+      CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
+    END SELECT
   END FUNCTION read_yes_no_param
 
 END SUBROUTINE GDATNEW

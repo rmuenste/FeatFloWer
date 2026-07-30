@@ -21,6 +21,8 @@ SimPar@MaxNumStep = 1000000
 SimPar@BackUpFreq = 1
 SimPar@BackUpNum = 10
 SimPar@NoOutflow = No                                                    ! Yes
+! Yes restores FAC3D startup smoothing and cylinder attraction
+SimPar@ApplyFAC3DMeshDeformation = No
 SimPar@InitUmbrella = 0     
 SimPar@Umbrella = 0	
 SimPar@OutputFreq = 15.000d0

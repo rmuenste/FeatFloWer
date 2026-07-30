@@ -17,7 +17,7 @@
 
 MODULE QuadSc_solver_hypre
 
-USE PP3D_MPI, ONLY: myid, showID, coarse
+USE PP3D_MPI, ONLY: myid, showID, coarse, MPI_COMM_WORLD
 USE var_QuadScalar
 use, intrinsic :: ieee_arithmetic
 #ifdef HYPRE_CUDA
@@ -60,6 +60,7 @@ CONTAINS
 #ifdef HYPRE_CUDA
 SUBROUTINE Allocate_HYPRE_Managed_Arrays
   INTEGER(c_size_t) :: integer_bytes, real_bytes
+  INTEGER :: ffAbortErr
 
   CALL Release_HYPRE_Managed_Arrays
 
@@ -82,7 +83,11 @@ SUBROUTINE Allocate_HYPRE_Managed_Arrays
       .NOT.c_associated(hypre_values_memory) .OR. &
       .NOT.c_associated(hypre_rhs_memory) .OR. &
       .NOT.c_associated(hypre_sol_memory)) THEN
-    ERROR STOP 'Failed to allocate CUDA managed memory for HYPRE arrays'
+    WRITE(*,'(A,I0)') 'Failed to allocate CUDA managed memory for HYPRE arrays on rank ',myid
+    FLUSH(6)
+    ! MPI_Abort, not ERROR STOP: managed-memory allocation failure is rank-local,
+    ! and surviving ranks can block in downstream collective HYPRE setup calls.
+    CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_RUNTIME_FAILURE,ffAbortErr)
   END IF
 
   CALL c_f_pointer(hypre_ncols_memory, myHYPRE%ncols, [myHYPRE%nrows])

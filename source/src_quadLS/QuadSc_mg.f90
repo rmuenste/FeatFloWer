@@ -1967,8 +1967,9 @@ IF (MyMG%CrsSolverType.EQ.5) THEN  !!!! MUMPS
    WRITE(*,*) 'Velocity MUMPS coarse solver: the global Q2 numbering was built'
    WRITE(*,*) 'for a different mesh level than the velocity coarse level.'
    WRITE(*,*) 'Set Velo@MGMinLev = Velo@MGMedLev = Pres@MGMedLev.'
+   FLUSH(6)
   END IF
-  STOP
+  CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
  END IF
 
  if (myid.eq.0) myMG%B(mgLev)%x = 0d0
@@ -2052,7 +2053,8 @@ CHARACTER(LEN=16) :: ff_label
 
   IF (MyMG%CrsSolverType.EQ.9.AND.myMG%MinLev.NE.myMG%MedLev) THEN
    IF (myid.eq.0) WRITE(*,*) 'CrsSolverType 9 (PARDISO) requires MGMedLev == MGMinLev'
-   STOP
+   IF (myid.eq.0) FLUSH(6)
+   CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
   END IF
 
   IF ((MyMG%CrsSolverType.GE.1.AND.MyMG%CrsSolverType.LE.5).OR.&

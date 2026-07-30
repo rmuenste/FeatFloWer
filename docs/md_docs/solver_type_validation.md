@@ -16,8 +16,8 @@ assembly — and in the worst case not at all.
 
 ## What is validated
 
-`ValidateSolverTypes` (in `source/src_util/param_parser.f90`) checks two
-things for each component:
+`ValidateSolverTypes` (in `source/src_util/param_parser.f90`) checks three
+things:
 
 1. **Is the type dispatched at all?** The dispatchers are chains of
    independent `IF` blocks; a value that matches no branch used to be a
@@ -27,6 +27,10 @@ things for each component:
 
 2. **Is the backing library compiled in?** Checked via the `#ifdef` symbols
    that the dispatchers themselves use.
+
+3. **Are solver-specific level constraints satisfied?** Pressure solver type
+   9 requires `Pres@MGMinLev == Pres@MGMedLev`, because its nested coarse-MG
+   path is not implemented.
 
 ### Supported types per component
 
@@ -114,6 +118,15 @@ Unknown / unsupported type (both components are reported in one go):
   Valid Velo@MGCrsSolverType values are 1,2,5.
   Pres@MGCrsSolverType = 6 is not a supported solver type.
   Valid Pres@MGCrsSolverType values are 1,2,3,4,5,7,8,9,10.
+==============================================================================
+```
+
+Invalid solver-specific level configuration:
+
+```
+==============================================================================
+ FATAL: invalid solver type requested in _data/q2p1_param.dat
+  PARDISO requires Pres@MGMinLev = Pres@MGMedLev.
 ==============================================================================
 ```
 

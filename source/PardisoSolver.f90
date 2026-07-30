@@ -5,6 +5,8 @@ MODULE PardisoSolver
 ! Setup_UMFPACK_CoarseSolver and reused across coarse solves until
 ! myPardiso_Free is called. Runs on the master rank only, on the same
 ! gathered UMF_CMat/UMF_lMat matrix as solver type 2.
+! Fatal paths must call MPI_Abort, not STOP: a master-only stop would leave
+! worker ranks blocked in MPI.
 !
 ! Compiled only with USE_MKL_PARDISO=ON (links sequential MKL; the master
 ! rank is bound to one core during the coarse solve).
@@ -21,11 +23,12 @@ CONTAINS
 
 SUBROUTINE myPardiso_Factorize(Ax,Mat)
 USE var_QuadScalar
+USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 IMPLICIT NONE
 
  REAL*8 Ax(*)
  TYPE(TMatrix) Mat
- INTEGER i,j1,j2,ierror,idum(1)
+ INTEGER i,j1,j2,ierror,idum(1),abortError
  REAL*8 ddum(1)
 
  ! PARDISO requires ascending column indices within each row
@@ -54,7 +57,8 @@ IMPLICIT NONE
 
  IF (ierror.NE.0) THEN
   WRITE(*,*) 'PARDISO factorization failed with error ',ierror
-  STOP
+  FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_RUNTIME_FAILURE,abortError)
  END IF
 
  bPardisoFactorized = .TRUE.
@@ -65,15 +69,17 @@ END SUBROUTINE myPardiso_Factorize
 !
 SUBROUTINE myPardiso_Solve(x,b,Ax,Mat)
 USE var_QuadScalar
+USE PP3D_MPI, ONLY: MPI_COMM_WORLD
 IMPLICIT NONE
 
  REAL*8 x(*),b(*),Ax(*)
  TYPE(TMatrix) Mat
- INTEGER ierror,idum(1)
+ INTEGER ierror,idum(1),abortError
 
  IF (.NOT.bPardisoFactorized) THEN
   WRITE(*,*) 'PARDISO solve called without factorization'
-  STOP
+  FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_RUNTIME_FAILURE,abortError)
  END IF
 
  ! Solve + iterative refinement (phase 33); b is unchanged, x receives
@@ -83,7 +89,8 @@ IMPLICIT NONE
 
  IF (ierror.NE.0) THEN
   WRITE(*,*) 'PARDISO solve failed with error ',ierror
-  STOP
+  FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_RUNTIME_FAILURE,abortError)
  END IF
 
 END SUBROUTINE myPardiso_Solve

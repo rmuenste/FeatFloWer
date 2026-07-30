@@ -18,7 +18,9 @@ INTEGER I,J,ndof,mfile
  ! every q2p1 application and runs before the type 7/8/10 hierarchy
  ! reconfiguration in Init_QuadScalar_Structures*.
  CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
-                          LinSc%prm%MGprmIn%CrsSolverType,mfile)
+                          LinSc%prm%MGprmIn%CrsSolverType,&
+                          LinSc%prm%MGprmIn%MinLev,&
+                          LinSc%prm%MGprmIn%MedLev,mfile)
 
 END SUBROUTINE Init_QuadScalar
 !
