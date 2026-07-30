@@ -25,7 +25,8 @@ Category@ParameterName = value
 - **Integer**: `1`, `100`, `1000000`
 - **Real (Fortran double precision)**: `1d0`, `0.01d0`, `1d-6`
 - **String**: `"filename"`, `Newtonian`, `BE`
-- **Yes/No**: `Yes`, `No` (case-sensitive)
+- **Yes/No**: `Yes`, `No` (case-insensitive; `Y`/`N` and `True`/`False` also accepted). Any
+  other value is a fatal parameter error — an unrecognised value is never silently read as `No`.
 - **Array**: `0d0,0d0,-9.81d0` (comma-separated, no spaces)
 
 ---
@@ -398,7 +399,7 @@ PR 22. Set it to `Yes` on a fresh start to apply, in order:
 2. Eight cylinder-surface attraction steps.
 3. Two post-attraction smoothing steps.
 
-The option accepts the case-sensitive values `Yes` and `No`. Enabling it with
+The option takes the usual case-insensitive `Yes`/`No` values. Enabling it with
 `StartingProc = 1`, `2`, or `3` is rejected because restart dumps already contain
 processed P1 coordinates. Deformed and undeformed FAC3D results are not directly
 comparable.
@@ -771,7 +772,8 @@ Prop@Viscosity = 1d-6,1d0
 ## Notes and Conventions
 
 1. **Fortran double precision**: Always use `d0` notation (e.g., `1d-6`, not `1e-6`)
-2. **Case sensitivity**: Parameter names are case-insensitive, but values like `Yes/No` are case-sensitive
+2. **Case sensitivity**: Parameter names are case-insensitive, and so are `Yes/No` values. Other
+   string values (e.g. `BE`, `Newtonian`) are still matched case-sensitively
 3. **Comments**: Use `!` for comments in parameter files
 4. **Arrays**: No spaces in comma-separated arrays (e.g., `1d0,2d0,3d0`)
 5. **String values**: Quotes are optional for strings without spaces

@@ -778,7 +778,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
 
   ! Local variables - integers
   INTEGER :: myFile = PARAM_FILE_UNIT
-  INTEGER :: iEnd, iAt, iEq, iLen, istat, abortError
+  INTEGER :: iEnd, iAt, iEq, iLen, istat
   INTEGER :: iOutShift
   INTEGER :: iVisco, iLoc, iangle, mylength, nFields, i
   INTEGER :: MFILE
@@ -854,21 +854,7 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CASE ("InitUmbrella")
         READ(string(iEq+1:),*) nInitUmbrellaSteps
       CASE ("ApplyFAC3DMeshDeformation")
-        cParam = " "
-        READ(string(iEq+1:),*) cParam
-        SELECT CASE (TRIM(ADJUSTL(cParam)))
-        CASE ("Yes")
-          bApplyFAC3DMeshDeformation = .true.
-        CASE ("No")
-          bApplyFAC3DMeshDeformation = .false.
-        CASE DEFAULT
-          IF (myid == master) THEN
-            WRITE(*,'(A)') 'FATAL: invalid SimPar@ApplyFAC3DMeshDeformation value.'
-            WRITE(*,'(A,A)') 'Expected Yes or No, got: ', TRIM(ADJUSTL(cParam))
-            FLUSH(6)
-          END IF
-          CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%PARAM_FILE_READ_ERROR,abortError)
-        END SELECT
+        bApplyFAC3DMeshDeformation = read_yes_no_param(string, iEq)
       CASE ("UmbrellaStepM")
         READ(string(iEq+1:),*) nMainUmbrellaSteps
       CASE ("UmbrellaStepL")
@@ -1444,19 +1430,61 @@ CONTAINS
   END FUNCTION normalize_partition_format
 
   !-----------------------------------------------------------------------
-  ! Helper function to parse Yes/No string to logical value
+  ! Helper function to parse a Yes/No parameter value.
+  !
+  ! The value is case-folded before comparison, so YeS, yEs and YES all mean
+  ! the same thing.  A value that matches neither Yes nor No aborts.
+  !
+  ! This used to compare against the literal string "Yes" and start from
+  ! .FALSE., so "No" and "dontknow" reached .FALSE. through the very same
+  ! path: the parser could not tell "the user said no" from "I did not
+  ! understand the user".  A mis-capitalised switch therefore turned itself
+  ! off without a word -- SimPar@UseConstantForcing = YES in q2p1_dns_drag
+  ! and q2p1_el_frozen_trace had been running with constant forcing OFF.
+  !
+  ! cName and cPar come from the host scope, so the message can name the
+  ! offending key without every call site having to pass it.
   !-----------------------------------------------------------------------
   FUNCTION read_yes_no_param(input_string, iEq_pos) RESULT(bool_value)
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN) :: input_string
     INTEGER, INTENT(IN) :: iEq_pos
     LOGICAL :: bool_value
-    CHARACTER(len=8) :: cParam_local
+    CHARACTER(len=8) :: cRaw, cUpper
+    INTEGER :: iPos, iChar, iAbortErr
 
-    cParam_local = " "
-    READ(input_string(iEq_pos+1:),*) cParam_local
-    bool_value = .false.
-    IF (TRIM(ADJUSTL(cParam_local)) == "Yes") bool_value = .true.
+    cRaw = " "
+    READ(input_string(iEq_pos+1:),*) cRaw
+    cRaw = ADJUSTL(cRaw)
+
+    cUpper = cRaw
+    DO iPos = 1, LEN_TRIM(cUpper)
+      iChar = IACHAR(cUpper(iPos:iPos))
+      IF (iChar >= IACHAR('a') .AND. iChar <= IACHAR('z')) THEN
+        cUpper(iPos:iPos) = ACHAR(iChar - (IACHAR('a') - IACHAR('A')))
+      END IF
+    END DO
+
+    SELECT CASE (TRIM(cUpper))
+    CASE ("YES", "Y", "TRUE")
+      bool_value = .true.
+    CASE ("NO", "N", "FALSE")
+      bool_value = .false.
+    CASE DEFAULT
+      bool_value = .false.
+      IF (myid == master) THEN
+        WRITE(*,'(A)') REPEAT('=',78)
+        WRITE(*,'(A)') ' FATAL: invalid Yes/No value in '//TRIM(ADJUSTL(myDataFile))
+        WRITE(*,'(A)') '  '//TRIM(ADJUSTL(cName))//'@'//TRIM(ADJUSTL(cPar))// &
+          ' = '//TRIM(cRaw)
+        WRITE(*,'(A)') '  Expected Yes or No (any capitalisation).'
+        WRITE(*,'(A)') REPEAT('=',78)
+        FLUSH(6)
+      END IF
+      ! MPI_Abort, not STOP: only the master prints, and a rank-local STOP
+      ! would leave every other rank blocked in the next collective.
+      CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
+    END SELECT
   END FUNCTION read_yes_no_param
 
 END SUBROUTINE GDATNEW
