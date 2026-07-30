@@ -5,6 +5,8 @@ MODULE PardisoSolver
 ! Setup_UMFPACK_CoarseSolver and reused across coarse solves until
 ! myPardiso_Free is called. Runs on the master rank only, on the same
 ! gathered UMF_CMat/UMF_lMat matrix as solver type 2.
+! Fatal paths must call MPI_Abort, not STOP: a master-only stop would leave
+! worker ranks blocked in MPI.
 !
 ! Compiled only with USE_MKL_PARDISO=ON (links sequential MKL; the master
 ! rank is bound to one core during the coarse solve).

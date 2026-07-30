@@ -10,7 +10,8 @@ MODULE ff_timing
 !             iterations=<n> rel_res=<r>
 !
 ! ff_report_timing is collective over MPI_COMM_WORLD: every rank must call
-! it. Times and iteration counts are max-reduced and printed by the master.
+! it. Times are min-reduced; iteration counts and relative residuals are
+! max-reduced and printed by the master.
 USE PP3D_MPI
 IMPLICIT NONE
 
