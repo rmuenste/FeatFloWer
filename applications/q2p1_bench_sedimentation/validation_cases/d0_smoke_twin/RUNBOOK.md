@@ -62,17 +62,24 @@ Rundirs `q2p1_dns_rundir_par_smoke/` (new binary) and
 | `DNS_RESOLUTION` global count in parallel mode | 1108 inside-DOFs vs rank-1-local legacy print of **0** (particle not in rank 1's slab) — the old diagnostic measured nothing | PASS |
 | Serial vs parallel trajectory | differs within guide-07's documented absolute band (2.8e-4 m/s at step 2 vs their 8.4e-4 max) | RECORDED |
 
-### Open item: parallel-mode dvol inconsistency (pre-existing)
+### RESOLVED: the mode-dependent h_min (was "dvol inconsistency")
 
-At the DOF-matched mesh level, `dvol` gives h_min = 1.745e-3 (serial-PE)
-vs 6.980e-3 = the COARSE h (parallel-PE) on the byte-identical mesh —
-while `dofs_per_particle` (1190 vs 1108, gap = subdomain-interface
-duplication) proves both modes resolve the sphere identically. Conclusion:
-the parallel `PartitionReader` path populates `dvol` with wrong (coarse)
-volumes at the solve level; `h_min`/`D_over_h`/`cfl` columns are
-trustworthy in serial mode only until probed. Reproduced with the
-pre-campaign binary — NOT introduced by this branch. Probe plan: dump
-per-rank min/max `dvol` per level in both modes on the 10-step smoke.
+The per-rank `DNS_MESH_PROBE` diagnostic disproved the dvol hypothesis:
+`dvol` is correct and in-bounds on the DOF-matched level in both modes.
+The real bug was an **inverted negation trick** in `ComputeCFL`
+(pre-existing): the local pass used `MIN(neg_h_min, -hvol)`, tracking
+−h_MAX, so the `COMM_Maximum` reduction returned *min over ranks of each
+rank's LARGEST element* — a partition-layout artifact. Every 1×1×12 slab
+contains the full xy grading → parallel reported the global max h
+(6.980e-3); the 31 METIS parts → serial reported the smallest per-part
+maximum (1.745e-3). Fixed (MAX locally, −1e30 init so the master cannot
+poison the reduction): both modes now report **h_min = 1.31425e-3,
+D_over_h = 11.413** on the level-2 mesh, and the serial twin stays
+bitwise identical. Two latent allocation bugs in `Init.f90`
+(stale-NEL 1/8 partial fill of level NLMAX+1 dvol; missing AVOL(NEL+1)
+sum slot) fixed defensively in the same commit. The cross-mode
+`cfl_fluid` identity is explained: its max element is the smallest
+element inside the particle (u = v_p, h = h_min).
 
 ## Known gaps (documented, not tuned around)
 
