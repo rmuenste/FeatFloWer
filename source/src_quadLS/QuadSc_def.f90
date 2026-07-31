@@ -4249,7 +4249,7 @@ use dem_query, only: numTotalParticles, getAllParticles, tParticleData
 #endif
 TYPE(TQuadScalar), INTENT(IN) :: myScalar
 
-INTEGER  :: iel, nvt, net, nat, nel, idof
+INTEGER  :: iel, nvt, net, nat, nel, idof, lvl
 REAL*8   :: ucx, ucy, ucz, umag, hvol, cfl_loc, cfl_max
 REAL*8   :: neg_h_min, h_min, vp_mag, cfl_p_max
 REAL*8   :: dbuf(1)
@@ -4263,10 +4263,32 @@ cfl_max   = 0d0
 neg_h_min = 0d0
 
 IF (myid .NE. 0) THEN
-  nvt = mg_mesh%level(NLMAX)%nvt
-  net = mg_mesh%level(NLMAX)%net
-  nat = mg_mesh%level(NLMAX)%nat
-  nel = mg_mesh%level(NLMAX)%nel
+  ! Pick the mesh level the velocity vector actually lives on: the Q2 DOF
+  ! count nvt+net+nat+nel must equal SIZE(valU). Neither the /MGPAR/
+  ! NLMAX common nor mg_mesh%nlmax is reliable here - their meaning
+  ! differs between the serial-PE and parallel-PE partition readers
+  ! (measured: h_min off by exactly two levels between modes on the
+  ! identical mesh, while the solves themselves agree).
+  lvl = -1
+  DO iel = SIZE(mg_mesh%level), 1, -1
+    IF (mg_mesh%level(iel)%nvt + mg_mesh%level(iel)%net + &
+        mg_mesh%level(iel)%nat + mg_mesh%level(iel)%nel .EQ. &
+        SIZE(myScalar%valU)) THEN
+      lvl = iel
+      EXIT
+    END IF
+  END DO
+
+  nel = 0
+  IF (lvl .GT. 0) THEN
+    nvt = mg_mesh%level(lvl)%nvt
+    net = mg_mesh%level(lvl)%net
+    nat = mg_mesh%level(lvl)%nat
+    nel = mg_mesh%level(lvl)%nel
+    IF (.NOT. ALLOCATED(mg_mesh%level(lvl)%dvol)) nel = 0
+  END IF
+  IF (nel .EQ. 0 .AND. myid .EQ. 1) WRITE(*,'(A)') &
+    'ComputeCFL: no mesh level matches the velocity DOF vector - CFL skipped'
 
   DO iel = 1, nel
     idof    = nvt + net + nat + iel          ! element-centre Q2 DOF
@@ -4274,7 +4296,7 @@ IF (myid .NE. 0) THEN
     ucy     = myScalar%valV(idof)
     ucz     = myScalar%valW(idof)
     umag    = SQRT(ucx*ucx + ucy*ucy + ucz*ucz)
-    hvol    = mg_mesh%level(NLMAX)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
+    hvol    = mg_mesh%level(lvl)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
     cfl_loc = umag * tstep / hvol
     cfl_max = MAX(cfl_max, cfl_loc)
     neg_h_min = MIN(neg_h_min, -hvol)
