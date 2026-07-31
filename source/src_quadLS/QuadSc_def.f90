@@ -4296,29 +4296,37 @@ h_min_global = h_min
 cfl_p_max = 0d0
 vp_mag = 0d0
 #ifdef HAVE_PE
-numParticles = numTotalParticles()
+! The CFD master has no PE world - its queries return uninitialized
+! garbage that would dominate the MAX reduction. Master contributes 0.
+numParticles = 0
+IF (myid .NE. 0) numParticles = numTotalParticles()
 dbuf(1) = dble(numParticles)
 CALL COMM_Maximumn(dbuf, 1)
 numParticles = int(dbuf(1))
 
 IF (numParticles .GT. 0 .AND. h_min .GT. 0d0) THEN
-  ALLOCATE(theParticles(numParticles))
-  IF (myid .NE. 0) CALL getAllParticles(theParticles)
+  IF (myid .NE. 0) THEN
+    ALLOCATE(theParticles(numParticles))
+    CALL getAllParticles(theParticles)
 
-  ! Particle data only valid on workers; broadcast via max
-  DO IP = 1, numParticles
-    vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
-               + theParticles(IP)%velocity(2)**2 &
-               + theParticles(IP)%velocity(3)**2)
-    cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
-  END DO
+    DO IP = 1, numParticles
+      vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
+                 + theParticles(IP)%velocity(2)**2 &
+                 + theParticles(IP)%velocity(3)**2)
+      cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
+    END DO
 
-  ! Store first particle position and radius for gap-based adaptivity
-  particle_z_global = theParticles(1)%position(3)
-  particle_rad_global = theParticles(1)%radius
+    ! Store first particle position and radius for gap-based adaptivity
+    particle_z_global = theParticles(1)%position(3)
+    particle_rad_global = theParticles(1)%radius
 
-  DEALLOCATE(theParticles)
+    DEALLOCATE(theParticles)
+  END IF
 END IF
+! Make the particle CFL truly global (in parallel PE getAllParticles only
+! covers rank-local particles). Rank-symmetric: all ranks reach this call.
+CALL COMM_Maximum(cfl_p_max)
+CALL COMM_Maximum(particle_rad_global)
 #endif
 cfl_particle_global = cfl_p_max
 ! Store max particle velocity for diagnostics (cfl_p_max = vp_max * tstep / h_min)

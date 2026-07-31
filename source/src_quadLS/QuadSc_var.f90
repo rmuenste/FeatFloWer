@@ -111,6 +111,7 @@ MODULE var_QuadScalar
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
   LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
   LOGICAL :: bPrintParticleState = .FALSE. ! Print DNS_PART_STATE/DNS_PART_FORCE lines each step (SimPar@PrintParticleState = Yes)
+  INTEGER :: dns_inside_dofs_local = 0 ! Rank-local FictKNPR inside-DOF count; set collective-free in QuadScalar_FictKnpr, reduced on the rank-symmetric DNS_RESOLUTION path
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.

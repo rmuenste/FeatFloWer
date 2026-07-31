@@ -572,6 +572,9 @@ SUBROUTINE Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,enable_fbm)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
+#ifdef HAVE_PE
+use dem_query, only: numLocalParticles, numTotalParticles
+#endif
 external E013
 
 INTEGER, INTENT(IN) :: mfile,itns
@@ -583,6 +586,7 @@ REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iITER
 INTEGER iaux_lev
 real*8 px, py, pz
+real*8 dres_buf(2), dofs_pp, d_over_h
 integer k
 k=1
 
@@ -909,6 +913,38 @@ IF (myid .EQ. 1) THEN
       '  h_min=', h_min_global, '  dt=', tstep
   END IF
 END IF
+
+#ifdef HAVE_PE
+IF (bPrintParticleState .AND. enable_fbm) THEN
+  ! Rank-symmetric reduction of the per-rank inside-DOF counts stored by
+  ! QuadScalar_FictKnpr (the classification block itself runs under
+  ! rank-asymmetric control flow and must stay collective-free). The flag
+  ! is parsed identically on every rank, so gating the collective is safe.
+  dres_buf(1) = DBLE(dns_inside_dofs_local)
+  dres_buf(2) = 0d0
+#ifdef PE_SERIAL_MODE
+  ! Serial PE: every worker holds the full particle world - count it once.
+  IF (myid .EQ. 1) dres_buf(2) = DBLE(numTotalParticles())
+#else
+  ! Parallel PE: each particle is local to exactly one rank - sum is global.
+  IF (myid .NE. 0) dres_buf(2) = DBLE(numLocalParticles())
+#endif
+  CALL Comm_SummN(dres_buf, 2)
+  IF (myid .EQ. 1) THEN
+    dofs_pp = dres_buf(1) / MAX(dres_buf(2), 1d0)
+    d_over_h = 0d0
+    IF (h_min_global .GT. 0d0) d_over_h = 2d0*particle_rad_global/h_min_global
+    WRITE(*,'(A,ES16.8,A,F12.1,A,I9,A,ES16.8,A,F10.3)') &
+      'DNS_RESOLUTION time= ', timens, ' dofs_per_particle= ', dofs_pp, &
+      ' nparticles= ', NINT(dres_buf(2)), ' h_min= ', h_min_global, &
+      ' D_over_h= ', d_over_h
+    WRITE(*,'(A,ES16.8,A,ES16.8,A,ES16.8,A,ES16.8,A,ES16.8)') &
+      'DNS_CFL time= ', timens, ' cfl_fluid= ', cfl_global, &
+      ' cfl_particle= ', cfl_particle_global, ' vp_max= ', vp_max_global, &
+      ' dt= ', tstep
+  END IF
+END IF
+#endif
 
 RETURN
 
