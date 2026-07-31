@@ -22,7 +22,14 @@ Naming convention: `surname[_surname...]_year.pdf`, lowercase.
 | `glowinski_pan_hesla_joseph_periaux_2001.pdf` | Glowinski et al., JCP 169 (2001) 363–426 | D2 DKT computation |
 | `apte_martin_patankar_2009.pdf` | Apte, Martin & Patankar, JCP 228 (2009) 2712–2738 | D2 DKT candidate primary reference |
 | `breugem_2012.pdf` | Breugem, JCP 231 (2012) 4469–4498 | D2 DKT alternative reference |
+| `beestra_2007.pdf` | Beetstra, van der Hoef & Kuipers, AIChE J. 53 (2007) 489–501 | D3.1 random-array drag correlation (filename keeps provider's spelling) |
+| `tenneti_2011.pdf` | Tenneti, Garg & Subramaniam, IJMF 37 (2011) 1072–1092 | D3.1 second drag correlation |
+| `richardson_1954.pdf` | Richardson & Zaki, Trans. Inst. Chem. Eng. 32 (1954) 35–53 | D3.2 hindered-settling exponent band |
+| `ergun_1952.pdf` | Ergun, Chem. Eng. Prog. 48 (1952) 89–94 | D3.3 fixed-bed Δp / u_mf anchor |
+| `jeffrey_1922.pdf` | Jeffery, Proc. R. Soc. Lond. A 102 (1922) 161–179 (title page verified) | D4.2 orbit period (filename keeps provider's spelling; author is G.B. Jeffery) |
+| `happel_brenner_1973.pdf` | Happel & Brenner, *Low Reynolds Number Hydrodynamics*, Noordhoff (full book) | D4.3 spheroid drag formulas |
+| `ardekani_2016.pdf` | Ardekani, Costa, Breugem & Brandt, IJMF 87 (2016) 16–34 (arXiv 1602.05769 preprint; title page verified) | D4-ORIENT primary; also covers **spheroid DKT** — bridges D2.3/D4 |
 
-Still wanted (plan §12 priority list): Beetstra 2007, Tenneti 2011,
-Richardson–Zaki 1954, Ergun 1952, Jeffery 1922, Happel & Brenner
-(spheroid chapter), Ardekani et al. 2016, Di Felice 1994.
+Still wanted: **Di Felice 1994** (D5 closure under test) — the only
+outstanding paper. Note: `happel_brenner_1073.pdf` is a byte-identical
+duplicate of `happel_brenner_1973.pdf` (same md5) and can be deleted.

@@ -704,20 +704,21 @@ against the title pages and confirmed.
 ### D3 — collective behavior
 - R. Beetstra, M.A. van der Hoef, J.A.M. Kuipers, "Drag force of
   intermediate Reynolds number flow past mono- and bidisperse arrays of
-  spheres", *AIChE J.* 53 (2007) 489–501. **[wanted]** — D3-RAND primary
-  correlation.
+  spheres", *AIChE J.* 53 (2007) 489–501. **[in repo]** (`literature/beestra_2007.pdf`)
+  — D3-RAND primary correlation.
 - S. Tenneti, R. Garg, S. Subramaniam, "Drag law for monodisperse
   gas–solid systems using particle-resolved direct numerical simulation of
   flow past fixed assemblies of spheres", *Int. J. Multiphase Flow* 37
-  (2011) 1072–1092. **[wanted]** — D3-RAND second correlation (the gate is
-  the band between the two).
+  (2011) 1072–1092. **[in repo]** (`literature/tenneti_2011.pdf`) —
+  D3-RAND second correlation (the gate is the band between the two).
 - M.A. van der Hoef, R. Beetstra, J.A.M. Kuipers, "Lattice-Boltzmann
   simulations of low-Reynolds-number flow past mono- and bidisperse arrays
   of spheres: results for the permeability and drag force", *J. Fluid
   Mech.* 528 (2005) 233–254. **[optional]** — low-Re limit of D3-RAND.
 - J.F. Richardson, W.N. Zaki, "Sedimentation and fluidisation: Part I",
-  *Trans. Inst. Chem. Eng.* 32 (1954) 35–53. **[wanted]** — D3-HS exponent
-  band (also closes the loop on the EL campaign's RZ reframe).
+  *Trans. Inst. Chem. Eng.* 32 (1954) 35–53. **[in repo]**
+  (`literature/richardson_1954.pdf`) — D3-HS exponent band (also closes
+  the loop on the EL campaign's RZ reframe).
 - N.-Q. Nguyen, A.J.C. Ladd, "Sedimentation of hard-sphere suspensions at
   low Reynolds number", *J. Fluid Mech.* 525 (2005) 73–104. **[optional]**
   — DNS hindered-settling reference at modest N.
@@ -726,7 +727,8 @@ against the title pages and confirmed.
   Fluids* 19 (2007) 093302. **[optional]** — finite-Re hindered settling
   DNS, closer to our achievable regime than pure-Stokes references.
 - S. Ergun, "Fluid flow through packed columns", *Chem. Eng. Prog.* 48
-  (1952) 89–94. **[wanted]** — D3-FLU fixed-bed Δp and u_mf anchor.
+  (1952) 89–94. **[in repo]** (`literature/ergun_1952.pdf`) — D3-FLU
+  fixed-bed Δp and u_mf anchor.
 - C.Y. Wen, Y.H. Yu, "Mechanics of fluidization", *Chem. Eng. Prog. Symp.
   Ser.* 62 (1966) 100–111. **[optional]**
 - M.A. van der Hoef, M. van Sint Annaland, N.G. Deen, J.A.M. Kuipers,
@@ -736,19 +738,23 @@ against the title pages and confirmed.
 
 ### D4 — non-spherical particles
 - G.B. Jeffery, "The motion of ellipsoidal particles immersed in a viscous
-  fluid", *Proc. R. Soc. Lond. A* 102 (1922) 161–179. **[wanted]** —
-  D4-JEFF orbit period, parameter-free.
+  fluid", *Proc. R. Soc. Lond. A* 102 (1922) 161–179. **[in repo]**
+  (`literature/jeffrey_1922.pdf`, title page verified) — D4-JEFF orbit
+  period, parameter-free.
 - A. Oberbeck, "Über stationäre Flüssigkeitsbewegungen mit
   Berücksichtigung der inneren Reibung", *J. Reine Angew. Math.* 81 (1876)
   62–80. **[optional]** — original spheroid Stokes drag; the practical
   formulas come from Happel & Brenner.
 - J. Happel, H. Brenner, *Low Reynolds Number Hydrodynamics*, Noordhoff
-  (1973 ed.). **[wanted]** (relevant chapter suffices) — D4-OBER drag
-  formulas for prolate/oblate spheroids, both orientations.
+  (1973 ed.). **[in repo]** (`literature/happel_brenner_1973.pdf`, full
+  book) — D4-OBER drag formulas for prolate/oblate spheroids, both
+  orientations.
 - M.N. Ardekani, P. Costa, W.-P. Breugem, L. Brandt, "Numerical study of
   the sedimentation of spheroidal particles", *Int. J. Multiphase Flow* 87
-  (2016) 16–34. **[wanted]** *(verify page range)* — candidate primary for
-  D4-ORIENT (inertial orientation attractor, resolved DNS).
+  (2016) 16–34. **[in repo]** (`literature/ardekani_2016.pdf`, arXiv
+  1602.05769 preprint, title page verified) — candidate primary for
+  D4-ORIENT (inertial orientation attractor, resolved DNS); also treats
+  spheroid pair DKT (bridges D2.3/D4).
 - W.W. Willmarth, N.E. Hawk, R.L. Harvey, "Steady and unsteady motions and
   wakes of freely falling disks", *Phys. Fluids* 7 (1964) 197–208.
   **[optional]** — if a disk/oblate case is added.
@@ -764,8 +770,9 @@ against the title pages and confirmed.
   suspensions of rigid spheres", *Trans. Soc. Rheol.* 3 (1959) 137–152.
   **[optional]** — already the EL campaign's KD anchor.
 
-**Priority acquisition list — remaining** (first batch of 12 received
-2026-07-31 into `literature/`; still wanted, in rough order of need):
-Beetstra 2007, Tenneti 2011, Richardson–Zaki 1954, Ergun 1952,
-Jeffery 1922, Happel–Brenner (spheroid chapter), Ardekani 2016,
-Di Felice 1994.
+**Priority acquisition list — remaining** (second batch received
+2026-07-31: Beetstra 2007, Tenneti 2011, Richardson–Zaki 1954,
+Ergun 1952, Jeffery 1922 [verified], Happel–Brenner full book,
+Ardekani 2016 [verified; arXiv preprint — also covers spheroid DKT,
+bridging D2.3/D4]; filenames in `literature/README.md`): only
+**Di Felice 1994** is still outstanding.
