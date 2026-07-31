@@ -49,6 +49,31 @@ Interim DNS solver until `HardContactDNS` exists: `HardContactAndFluid`,
 selected per build tree with
 `cmake -DCMAKE_CXX_FLAGS="-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid"`.
 
+## Parallel-mode verification (2026-07-31, np = 13, 1×1×12 Cartesian)
+
+Rundirs `q2p1_dns_rundir_par_smoke/` (new binary) and
+`q2p1_dns_rundir_par_smoke_oldbin/` (old binary), identical inputs
+(mesh12 partition, guide-07 deck at MaxNumStep = 10).
+
+| Gate | Result | Verdict |
+|---|---|---|
+| New parallel binary vs old parallel binary trajectory | vz sequence matches PE's `Velocity:` prints to printed precision, all steps | PASS |
+| `DNS_PART_STATE` exactly-once in parallel mode | 10 lines for 10 steps, printed by the owner rank (id column = systemID byte, 145) | PASS |
+| `DNS_RESOLUTION` global count in parallel mode | 1108 inside-DOFs vs rank-1-local legacy print of **0** (particle not in rank 1's slab) — the old diagnostic measured nothing | PASS |
+| Serial vs parallel trajectory | differs within guide-07's documented absolute band (2.8e-4 m/s at step 2 vs their 8.4e-4 max) | RECORDED |
+
+### Open item: parallel-mode dvol inconsistency (pre-existing)
+
+At the DOF-matched mesh level, `dvol` gives h_min = 1.745e-3 (serial-PE)
+vs 6.980e-3 = the COARSE h (parallel-PE) on the byte-identical mesh —
+while `dofs_per_particle` (1190 vs 1108, gap = subdomain-interface
+duplication) proves both modes resolve the sphere identically. Conclusion:
+the parallel `PartitionReader` path populates `dvol` with wrong (coarse)
+volumes at the solve level; `h_min`/`D_over_h`/`cfl` columns are
+trustworthy in serial mode only until probed. Reproduced with the
+pre-campaign binary — NOT introduced by this branch. Probe plan: dump
+per-rank min/max `dvol` per level in both modes on the 10-step smoke.
+
 ## Known gaps (documented, not tuned around)
 
 - `SED_BENCH_FORCE` x/y columns may print `-0.000000E+00` under the
