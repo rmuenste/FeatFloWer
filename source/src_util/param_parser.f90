@@ -77,8 +77,67 @@ PUBLIC :: GDATNEW
 PUBLIC :: GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 PUBLIC :: write_param_real, write_param_int
 PUBLIC :: ValidateSolverTypes
+PUBLIC :: parse_yes_no_param
 
 CONTAINS
+
+!-------------------------------------------------------------------------------------------------
+! Parse a Yes/No parameter value, case-insensitively, aborting on anything else.
+!
+! This is the module-level form of the helper contained in GDATNEW, exposed so that
+! application-local parameter readers (the per-application myGDATNEW routines) can use
+! the same semantics instead of re-implementing a literal string comparison. The
+! section and key names are passed in rather than host-associated, since those readers
+! keep them in their own locals.
+!
+! Accepts YES/Y/TRUE and NO/N/FALSE in any capitalisation. Anything else is a fatal
+! parameter-file error: the old literal comparison started from .FALSE. and let both
+! "No" and a typo reach .FALSE. through the very same path, so the parser could not
+! distinguish "the user said no" from "I did not understand".
+!-------------------------------------------------------------------------------------------------
+FUNCTION parse_yes_no_param(input_string, iEq_pos, cSection, cKey) RESULT(bool_value)
+  IMPLICIT NONE
+  CHARACTER(*), INTENT(IN) :: input_string
+  INTEGER, INTENT(IN) :: iEq_pos
+  CHARACTER(*), INTENT(IN) :: cSection
+  CHARACTER(*), INTENT(IN) :: cKey
+  LOGICAL :: bool_value
+  CHARACTER(len=8) :: cRaw, cUpper
+  INTEGER :: iPos, iChar, iAbortErr
+
+  cRaw = " "
+  READ(input_string(iEq_pos+1:),*) cRaw
+  cRaw = ADJUSTL(cRaw)
+
+  cUpper = cRaw
+  DO iPos = 1, LEN_TRIM(cUpper)
+    iChar = IACHAR(cUpper(iPos:iPos))
+    IF (iChar >= IACHAR('a') .AND. iChar <= IACHAR('z')) THEN
+      cUpper(iPos:iPos) = ACHAR(iChar - (IACHAR('a') - IACHAR('A')))
+    END IF
+  END DO
+
+  SELECT CASE (TRIM(cUpper))
+  CASE ("YES", "Y", "TRUE")
+    bool_value = .true.
+  CASE ("NO", "N", "FALSE")
+    bool_value = .false.
+  CASE DEFAULT
+    bool_value = .false.
+    IF (myid == master) THEN
+      WRITE(*,'(A)') REPEAT('=',78)
+      WRITE(*,'(A)') ' FATAL: invalid Yes/No value in '//TRIM(ADJUSTL(myDataFile))
+      WRITE(*,'(A)') '  '//TRIM(ADJUSTL(cSection))//'@'//TRIM(ADJUSTL(cKey))// &
+        ' = '//TRIM(cRaw)
+      WRITE(*,'(A)') '  Expected Yes or No (any capitalisation).'
+      WRITE(*,'(A)') REPEAT('=',78)
+      FLUSH(6)
+    END IF
+    ! MPI_Abort, not STOP: only the master prints, and a rank-local STOP
+    ! would leave every other rank blocked in the next collective.
+    CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
+  END SELECT
+END FUNCTION parse_yes_no_param
 
 !-------------------------------------------------------------------------------------------------
 ! Shared helper subroutine to parse parameter file lines
@@ -1445,46 +1504,15 @@ CONTAINS
   ! cName and cPar come from the host scope, so the message can name the
   ! offending key without every call site having to pass it.
   !-----------------------------------------------------------------------
+  ! Thin wrapper: supplies the host-associated section/key names to the module-level
+  ! parse_yes_no_param so GDATNEW's existing call sites need no change.
   FUNCTION read_yes_no_param(input_string, iEq_pos) RESULT(bool_value)
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN) :: input_string
     INTEGER, INTENT(IN) :: iEq_pos
     LOGICAL :: bool_value
-    CHARACTER(len=8) :: cRaw, cUpper
-    INTEGER :: iPos, iChar, iAbortErr
 
-    cRaw = " "
-    READ(input_string(iEq_pos+1:),*) cRaw
-    cRaw = ADJUSTL(cRaw)
-
-    cUpper = cRaw
-    DO iPos = 1, LEN_TRIM(cUpper)
-      iChar = IACHAR(cUpper(iPos:iPos))
-      IF (iChar >= IACHAR('a') .AND. iChar <= IACHAR('z')) THEN
-        cUpper(iPos:iPos) = ACHAR(iChar - (IACHAR('a') - IACHAR('A')))
-      END IF
-    END DO
-
-    SELECT CASE (TRIM(cUpper))
-    CASE ("YES", "Y", "TRUE")
-      bool_value = .true.
-    CASE ("NO", "N", "FALSE")
-      bool_value = .false.
-    CASE DEFAULT
-      bool_value = .false.
-      IF (myid == master) THEN
-        WRITE(*,'(A)') REPEAT('=',78)
-        WRITE(*,'(A)') ' FATAL: invalid Yes/No value in '//TRIM(ADJUSTL(myDataFile))
-        WRITE(*,'(A)') '  '//TRIM(ADJUSTL(cName))//'@'//TRIM(ADJUSTL(cPar))// &
-          ' = '//TRIM(cRaw)
-        WRITE(*,'(A)') '  Expected Yes or No (any capitalisation).'
-        WRITE(*,'(A)') REPEAT('=',78)
-        FLUSH(6)
-      END IF
-      ! MPI_Abort, not STOP: only the master prints, and a rank-local STOP
-      ! would leave every other rank blocked in the next collective.
-      CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
-    END SELECT
+    bool_value = parse_yes_no_param(input_string, iEq_pos, cName, cPar)
   END FUNCTION read_yes_no_param
 
 END SUBROUTINE GDATNEW

@@ -584,6 +584,7 @@ END SUBROUTINE get_global_domain_extents
  !
  SUBROUTINE myGDATNEW (cName,iCurrentStatus)
    USE PP3D_MPI
+   USE param_parser, ONLY: parse_yes_no_param
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
    USE EL_CONFIG, ONLY: el_kernel, el_kernel_width_factor, el_eps_f_min, &
                         el_eps_f_relax, el_drag_model, el_drag_coupling, &
@@ -731,30 +732,16 @@ END SUBROUTINE get_global_domain_extents
        CASE ("TimeStep")
          READ(string(iEq+1:),*) TSTEP
        CASE ("TimeAdaptivity")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
          IADTIM = 0
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") IADTIM = 1
+         IF (parse_yes_no_param(string, iEq, cName, cPar)) IADTIM = 1
        CASE ("Tracer")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bTracer = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bTracer = .TRUE.
+         bTracer = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ViscoElastic")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bViscoElastic = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bViscoElastic = .TRUE.
+         bViscoElastic = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ReferenceFrame")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bRefFrame = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bRefFrame = .TRUE.
+         bRefFrame = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("NoOutflow")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bNoOutflow = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes") bNoOutflow = .TRUE.
+         bNoOutflow = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("Periodic")
          ! q2p1_el_pipeflow: enable a fully periodic box by setting the periodic
          ! match length to the unit-box edge (dPeriodicity defaults to 1d9 = off).
@@ -762,10 +749,7 @@ END SUBROUTINE get_global_domain_extents
          ! pipeflow init no longer hard-resets dPeriodicity, so this value persists.
          ! Needed by the Tier-2 momentum-conservation (Newton-pair) case; the
          ! terminal-velocity case leaves this unset (enclosed box + NoOutflow).
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes" .OR. &
-             TRIM(ADJUSTL(cParam)).EQ."YES") THEN
+         IF (parse_yes_no_param(string, iEq, cName, cPar)) THEN
            dPeriodicity(1) = 1.0d0
            dPeriodicity(2) = 1.0d0
            dPeriodicity(3) = 1.0d0
@@ -776,11 +760,7 @@ END SUBROUTINE get_global_domain_extents
        CASE ("PeriodicLength")
          READ(string(iEq+1:),*) dPeriodicLength
        CASE ("UseConstantForcing")
-         cParam = " "
-         READ(string(iEq+1:),*) cParam
-         bConstForce = .FALSE.
-         IF (TRIM(ADJUSTL(cParam)).EQ."Yes" .OR. &
-             TRIM(ADJUSTL(cParam)).EQ."YES") bConstForce = .TRUE.
+         bConstForce = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ConstantForcing")
          READ(string(iEq+1:),*) ConstForce
 #ifdef BUILD_Q2P1_EL_PIPEFLOW
@@ -797,11 +777,7 @@ END SUBROUTINE get_global_domain_extents
        CASE ("ELDragCoupling")
          READ(string(iEq+1:),*) el_drag_coupling
        CASE ("ELPressureForce")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_pressure_force = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_pressure_force = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELLiftModel")
          READ(string(iEq+1:),*) el_lift_model
        CASE ("ELInertialLift")
@@ -825,55 +801,23 @@ END SUBROUTINE get_global_domain_extents
        CASE ("ELCylinderAxis")
          READ(string(iEq+1:),*) el_cylinder_axis
        CASE ("ELMagnus")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_magnus = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_magnus = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELApplyParticleForces")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_apply_particle_forces = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_apply_particle_forces = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELApplyFluidFeedback")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_apply_fluid_feedback = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_apply_fluid_feedback = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELWallStressDiag")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_wall_stress_diag = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_wall_stress_diag = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELFluidGravity")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_fluid_gravity = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_fluid_gravity = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELWriteDiagnostics")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_write_diagnostics = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_write_diagnostics = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMomentumFix")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_momentum_fix = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_momentum_fix = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMomentumAuditFreq")
          READ(string(iEq+1:),*) el_momentum_audit_freq
        CASE ("ELMesoFilter")
-         cParam2 = " "
-         READ(string(iEq+1:),*) cParam2
-         el_meso_filter = &
-           TRIM(ADJUSTL(cParam2)).EQ."Yes" .OR. &
-           TRIM(ADJUSTL(cParam2)).EQ."YES"
+         el_meso_filter = parse_yes_no_param(string, iEq, cName, cPar)
        CASE ("ELMesoFilterBins")
          READ(string(iEq+1:),*) el_meso_filter_bins
        CASE ("ELConvectionForm")
