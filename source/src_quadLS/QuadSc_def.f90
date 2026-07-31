@@ -4253,6 +4253,7 @@ INTEGER  :: iel, nvt, net, nat, nel, idof, lvl
 REAL*8   :: ucx, ucy, ucz, umag, hvol, cfl_loc, cfl_max
 REAL*8   :: neg_h_min, h_min, vp_mag, cfl_p_max
 REAL*8   :: dbuf(1)
+LOGICAL, SAVE :: bDNSMeshProbePrinted = .FALSE.
 
 #ifdef HAVE_PE
 type(tParticleData), allocatable :: theParticles(:)
@@ -4260,7 +4261,12 @@ INTEGER :: numParticles, IP
 #endif
 
 cfl_max   = 0d0
-neg_h_min = 0d0
+! Global-min-via-COMM_Maximum: track the local MAX of (-h), reduce with
+! MAX, negate. The previous code used MIN locally, which tracked -h_max
+! instead - the reduced "h_min" was the min over ranks of each rank's
+! LARGEST element (partition-layout dependent; measured 6.98e-3 parallel
+! vs 1.75e-3 serial on the identical mesh whose true h_min is 1.31e-3).
+neg_h_min = -1d30
 
 IF (myid .NE. 0) THEN
   ! Pick the mesh level the velocity vector actually lives on: the Q2 DOF
@@ -4290,6 +4296,16 @@ IF (myid .NE. 0) THEN
   IF (nel .EQ. 0 .AND. myid .EQ. 1) WRITE(*,'(A)') &
     'ComputeCFL: no mesh level matches the velocity DOF vector - CFL skipped'
 
+  IF (bPrintParticleState .AND. .NOT. bDNSMeshProbePrinted .AND. nel .GT. 0) THEN
+    bDNSMeshProbePrinted = .TRUE.
+    WRITE(*,'(A,I4,A,I3,A,I9,A,I9,A,I9,2(A,ES14.6))') &
+      'DNS_MESH_PROBE rank= ', myid, ' lvl= ', lvl, ' nel= ', nel, &
+      ' size_dvol= ', SIZE(mg_mesh%level(lvl)%dvol), &
+      ' size_valU= ', SIZE(myScalar%valU), &
+      ' hmin_inbounds= ', MINVAL(mg_mesh%level(lvl)%dvol(1:MIN(nel,SIZE(mg_mesh%level(lvl)%dvol))))**(1d0/3d0), &
+      ' hmax_inbounds= ', MAXVAL(mg_mesh%level(lvl)%dvol(1:MIN(nel,SIZE(mg_mesh%level(lvl)%dvol))))**(1d0/3d0)
+  END IF
+
   DO iel = 1, nel
     idof    = nvt + net + nat + iel          ! element-centre Q2 DOF
     ucx     = myScalar%valU(idof)
@@ -4299,7 +4315,7 @@ IF (myid .NE. 0) THEN
     hvol    = mg_mesh%level(lvl)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
     cfl_loc = umag * tstep / hvol
     cfl_max = MAX(cfl_max, cfl_loc)
-    neg_h_min = MIN(neg_h_min, -hvol)
+    neg_h_min = MAX(neg_h_min, -hvol)
   END DO
 END IF
 
@@ -4307,9 +4323,10 @@ END IF
 CALL COMM_Maximum(cfl_max)
 cfl_global = cfl_max
 
-! h_min via negation trick (COMM_Maximum of negatives gives negative of global min)
+! h_min via negation trick (COMM_Maximum of -h gives -(global min h))
 CALL COMM_Maximum(neg_h_min)
 h_min = -neg_h_min
+IF (h_min .LE. 0d0 .OR. h_min .GE. 1d29) h_min = 0d0  ! no rank computed
 
 ! Store global h_min for diagnostics
 h_min_global = h_min
