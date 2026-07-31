@@ -202,16 +202,67 @@ library) verified against the rest of the build (2026-07-28):
   MPI-context abort — **verified pre-existing** by rebuilding the
   pre-campaign PE (commit 8b037ae, before any campaign change) in the
   same configuration: identical failures.
-- **Non-EL solver runs** (with the in-tree metis on the loader path —
-  the harness's metis discovery is an environment gap, not code):
-  q2p1-fac-newt (×2), q2p1-fac3d, q2p1-bench-sedimentation and
-  q2p1-bench-fluidization — real FBM/PE-coupled solver benchmarks —
-  all PASS on the branch. q2p1-fac-visco is blocked by a missing mesh
-  fixture in the local mesh repo (`_adc/ViscoHex2/aaa.prj`),
-  independent of code.
 - **Bitwise walls-off regression** (§ 5.4): frozen-box EL_SUSP_STRESS
   identical to pre-wall binary output.
 
-Conclusion: zero regressions attributable to the branch; the three
-red items (hashgrid link, resume-roundtrip smokes, fac-visco fixture)
-are all demonstrably pre-existing or environmental.
+### 8.1 Runtime benchmark verification (2026-07-30/31) — corrected record
+
+An earlier revision of this section reported the dashboard-harness ctest
+entries (fac-newt, fac3d, bench-sedimentation, bench-fluidization) as
+runtime PASSes. That was wrong: those "PASS" verdicts certify
+git/cmake/build checks plus SLURM JOB SUBMISSION only — the submitted
+solves had been failing at startup for months. Chasing this (prompted by
+a PR review question) surfaced six pre-existing infrastructure defects
+and produced real runtime results:
+
+Pre-existing defects found (none branch-caused; deadlocks reproduced
+identically on FeatFloWer master, job 137036):
+1. Harness job template lacks the MPI module environment
+   (`mpirun: command not found` on compute nodes); sedimentation's
+   template even names the wrong binary.
+2. Harness partitioner invocation emits a stale single-subdir layout the
+   current `PartitionReader` cannot consume.
+3. Harness's metis discovery fails (in-tree `libmetis.so` not on the
+   loader path).
+4. `q2p1_fc_ext` called `commf2c_fsi`, which pe master has repurposed
+   into the span-complex FSI setup (requires example.json, a matching PE
+   process grid, chip1.obj) — the app could not start in parallel-PE
+   builds. FIXED on this branch: it now calls the generic
+   `commf2c_init`.
+5. `setupGeneralInit` (the generic PE bootstrap) had a fully
+   commented-out body — passive PE users deadlocked in
+   `synchronizeForces()` because `MPISettings::comm()` was never set and
+   the barrier spanned the CFD master, which by design never enters it
+   (`GetForcesFC2` is `IF (myid /= 0)`). FIXED in pe: setupGeneralInit
+   now wires `theMPISystem()->setComm(ex0)`; gdb-verified before/after.
+6. The FictKnpr diagnostic block executed MPI_Reduce calls under
+   rank-asymmetric control flow (the CFD master never initializes PE),
+   producing — depending on reduce ordering — garbage counts (the
+   "23815 particles" line), an MPI_ERR_TRUNCATE abort, or a
+   master-vs-workers deadlock (gdb census: master parked in the stats
+   reduce, all 15 workers in the next COMM_MaximumX allreduce). This
+   deadlock also masqueraded as "slow" sedimentation runs (hung, not
+   slow). FIXED on this branch: the parallel path of the block is now
+   collective-free (rank-local report from worker 1).
+
+Runtime results with the fixes (branch binaries):
+- **q2p1_fc_ext / DFG flow-around-cylinder**: completes t=0..10
+  (1001 samples) in 4:37 wall; steady drag 5.6013, lift 0.009947
+  (Schäfer–Turek reference band 5.57–5.59 / 0.0104–0.0110;
+  coarse-level deck). Bonus equivalence datapoint: the step-1
+  BenchForce is BITWISE IDENTICAL between the branch binary and an
+  origin/master build (292.51768 / −0.75737452 to all printed digits).
+- **q2p1_bench_sedimentation**: the single-sphere deck (1 particle
+  confirmed via FBM_GetParticles) completes its 10-step smoke in 36 s.
+  The staged deck is a smoke (MaxNumStep=10, fluid gravity zero); a
+  physically meaningful ten Cate trajectory requires a longer,
+  gravity-enabled deck — deferred to the app owner.
+- q2p1-fac-visco remains blocked by a missing mesh fixture
+  (`_adc/ViscoHex2/aaa.prj`), independent of code.
+
+Conclusion: zero regressions attributable to the branch — now backed by
+actual runtime evidence (converged DFG benchmark + bitwise step-1
+equivalence vs master) rather than harness verdicts; three of the six
+pre-existing defects are fixed on this branch (entry point, PE general
+init, diagnostics collectives), the remaining three are harness/fixture
+repairs listed for follow-up.
