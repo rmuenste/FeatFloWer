@@ -183,9 +183,18 @@ are, and put the existing single-sphere claim on defensible footing.
   corrections inside the PGS sweep; the FBM path instead injects resolved
   forces via `setForcesMapped` through the standard force→integration
   pathway). DNS gets its own solver — a dedicated `HardContactDNS`,
-  starting from `HardContactSemiImplicitTimesteppingSolvers` or
-  `HardContactLubricated`; the choice is recorded as a short design note in
-  the report.
+  starting from `HardContactSemiImplicitTimesteppingSolvers`,
+  `HardContactLubricated` or `HardContactAndFluid`; the choice is recorded
+  as a short design note in the report.
+  *Empirical confirmation (2026-07-31, campaign day one)*: a fresh build
+  tree inheriting pe master's default (`HardContactEulerLagrange`) produced
+  an all-zero sedimentation trajectory — force and velocity exactly 0 for
+  10 steps, no error raised — because `setForcesMapped` forces are a dead
+  end in that solver. Interim campaign selection until `HardContactDNS`
+  exists: `HardContactAndFluid` via
+  `cmake -DCMAKE_CXX_FLAGS="-Dpe_CONSTRAINT_SOLVER=pe::response::HardContactAndFluid"`
+  (the define is `#ifndef`-guarded; no submodule edit needed). The
+  zero-trajectory signature is now a documented failure mode.
 - **Share components, not the class**: (a) the Kroupa lubrication closure
   functions become a solver-agnostic pure-math component both solvers call
   (with different policy — see D2.2); (b) the accumulator/audit machinery

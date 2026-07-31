@@ -1,0 +1,4 @@
+suite,case,quantity,expected,expected_source,measured,rel_error,tolerance,verdict
+d0_infra,d0_smoke_twin,10-step SED_BENCH_VEL trajectory new ForceScale binary vs old SED_BENCH binary,byte-identical,d0_smoke_twin RUNBOOK,10/10 lines identical,0,byte_identity,PASS
+d0_infra,d0_smoke_twin,old-binary rerun vs 1300-step reference log head (determinism),byte-identical,d0_smoke_twin RUNBOOK,10/10 lines identical,0,byte_identity,PASS
+d0_infra,d0_solver,FBM dynamics under pe master default solver (HardContactEulerLagrange),nonzero settling trajectory,ten Cate E4 physics,force and velocity exactly 0 no error,n/a,physics_finding,RECORDED
