@@ -11,3 +11,6 @@ _mesh/*
 /stage1-work/
 
 build/
+
+# Campaign literature PDFs stay untracked (copyright); index in literature/README.md
+literature/*.pdf

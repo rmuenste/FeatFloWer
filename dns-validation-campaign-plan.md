@@ -582,11 +582,15 @@ Full citations for every reference in this table, with acquisition status
 ## 12. Literature references
 
 Full citations, grouped by campaign role. Status tags: **[in repo]** = PDF
-already at repo root; **[wanted]** = please provide the PDF (the dashboard
-build fails on cited-but-missing literature, and the EL campaign showed
-having the originals on hand pays off during case design); **[optional]** =
-useful context, not gate-defining; *(verify)* marks bibliographic details
-recalled from memory that should be checked against the actual paper.
+available locally — DNS-campaign papers live in `literature/` (untracked;
+index in `literature/README.md`), EL-era papers remain at repo root until
+the dashboard's path check is updated; **[wanted]** = please provide the
+PDF (the EL campaign showed having the originals on hand pays off during
+case design); **[optional]** = useful context, not gate-defining;
+*(verify)* marks bibliographic details recalled from memory that should be
+checked against the actual paper. First batch of 12 PDFs received
+2026-07-31; the three *(verify)*-tagged entries among them were checked
+against the title pages and confirmed.
 
 ### Method lineage (FeatFloWer FBM + PE)
 - S. Turek, D. Wan, L.S. Rivkind, "The fictitious boundary method for the
@@ -595,15 +599,20 @@ recalled from memory that should be checked against the actual paper.
   Computing*, LNCSE 35, Springer (2003). **[optional]** *(verify)*
 - D. Wan, S. Turek, "Direct numerical simulation of particulate flow via
   multigrid FEM techniques and the fictitious boundary method", *Int. J.
-  Numer. Meth. Fluids* 51 (2006) 531–566. **[wanted]** — the method paper
-  behind `ForcesLocalParticles`' volume-integral force.
+  Numer. Meth. Fluids* 51 (2006) 531–566. **[in repo]**
+  (`literature/wan_turek_2006.pdf`, citation confirmed) — the method paper
+  behind `ForcesLocalParticles`' volume-integral force; also the origin of
+  the Glowinski-style collision model examined there.
 - D. Wan, S. Turek, "Fictitious boundary and moving mesh methods for the
   numerical simulation of rigid particulate flows", *J. Comput. Phys.* 222
   (2007) 28–56. **[optional]** *(verify)*
 - R. Münster, O. Mierka, S. Turek, "Finite element-fictitious boundary
   methods (FEM-FBM) for 3D particulate flow", *Int. J. Numer. Meth.
-  Fluids* 69 (2012) 294–313. **[wanted]** *(verify)* — the 3D FBM lineage
-  of this codebase.
+  Fluids* 69 (2012) 294–313. **[in repo]**
+  (`literature/munster_mierka_turek_2012.pdf`, citation confirmed) — the
+  3D FBM lineage of this codebase; covers static AND adaptively aligned
+  meshes (grid deformation), relevant to the dormant r-adaptivity
+  machinery noted in §0.
 - K. Iglberger, U. Rüde, "Massively parallel rigid body dynamics
   simulations", *Comput. Sci. Res. Dev.* 23 (2009) 159–167. **[optional]**
   — PE library origin.
@@ -628,57 +637,65 @@ recalled from memory that should be checked against the actual paper.
   C_D/C_L reference already regression-pinned.
 - H. Hasimoto, "On the periodic fundamental solutions of the Stokes
   equations and their application to viscous flow past a cubic array of
-  spheres", *J. Fluid Mech.* 5 (1959) 317–328. **[wanted]** — D1-ARR-CONV
-  dilute-array drag expansion.
+  spheres", *J. Fluid Mech.* 5 (1959) 317–328. **[in repo]**
+  (`literature/hasimoto_1959.pdf`) — D1-ARR-CONV dilute-array drag
+  expansion.
 - A.A. Zick, G.M. Homsy, "Stokes flow through periodic arrays of spheres",
-  *J. Fluid Mech.* 115 (1982) 13–26. **[wanted]** — D1-ARR-CONV tabulated
-  drag at general φ.
+  *J. Fluid Mech.* 115 (1982) 13–26. **[in repo]**
+  (`literature/zick_homsy_1982.pdf`) — D1-ARR-CONV tabulated drag at
+  general φ.
 - A.S. Sangani, A. Acrivos, "Slow flow through a periodic array of
   spheres", *Int. J. Multiphase Flow* 8 (1982) 343–360. **[optional]** —
   cross-check on Zick–Homsy.
 - M. Uhlmann, J. Dušek, "The motion of a single heavy sphere in ambient
   fluid: a benchmark for interface-resolved particulate flow simulations
   with significant relative velocities", *Int. J. Multiphase Flow* 59
-  (2014) 221–243. **[wanted if D1.4 runs]** — includes documented
-  resolution requirements (D/h up to ~24), directly comparable to our
-  guideline study.
+  (2014) 221–243. **[in repo]** (`literature/uhlmann_dusek_2014.pdf`) —
+  includes documented resolution requirements (D/h up to ~24), directly
+  comparable to our guideline study; D1.4 go/no-go now unblocked on the
+  reference side.
 - N. Mordant, J.-F. Pinton, "Velocity measurement of a settling sphere",
   *Eur. Phys. J. B* 18 (2000) 343–352. **[optional]** — experimental v(t)
   time series, alternative free-fall anchor.
 
 ### D2 — pair interactions
 - H. Brenner, "The slow motion of a sphere through a viscous fluid towards
-  a plane surface", *Chem. Eng. Sci.* 16 (1961) 242–251. **[wanted]** —
-  D2-WALL analytic drag divergence.
+  a plane surface", *Chem. Eng. Sci.* 16 (1961) 242–251. **[in repo]**
+  (`literature/brenner_1961.pdf`) — D2-WALL analytic drag divergence.
 - M.D.A. Cooley, M.E. O'Neill, "On the slow motion generated in a viscous
   fluid by the approach of a sphere to a plane wall or stationary sphere",
-  *Mathematika* 16 (1969) 37–49. **[wanted]** — near-contact asymptotics
+  *Mathematika* 16 (1969) 37–49. **[in repo]**
+  (`literature/cooley_oneill_1969.pdf`) — near-contact asymptotics
   complementing Brenner.
 - D.J. Jeffrey, Y. Onishi, "Calculation of the resistance and mobility
   functions for two unequal rigid spheres in low-Reynolds-number flow",
-  *J. Fluid Mech.* 139 (1984) 261–290. **[wanted]** — D2-PAIR normal +
-  tangential two-sphere resistance functions.
+  *J. Fluid Mech.* 139 (1984) 261–290. **[in repo]**
+  (`literature/jeffrey_onishi_1984.pdf`) — D2-PAIR normal + tangential
+  two-sphere resistance functions.
 - S. Kim, S.J. Karrila, *Microhydrodynamics: Principles and Selected
   Applications*, Butterworth-Heinemann (1991). **[optional]** — closed-form
   compilation of the above.
 - A.F. Fortes, D.D. Joseph, T.S. Lundgren, "Nonlinear mechanics of
   fluidization of beds of spherical particles", *J. Fluid Mech.* 177
-  (1987) 467–483. **[wanted]** — the DKT experiment.
+  (1987) 467–483. **[in repo]**
+  (`literature/fortes_joseph_lundgren_1987.pdf`) — the DKT experiment.
 - R. Glowinski, T.-W. Pan, T.I. Hesla, D.D. Joseph, J. Périaux, "A
   fictitious domain approach to the direct numerical simulation of
   incompressible viscous flow past moving rigid bodies: application to
-  particulate flow", *J. Comput. Phys.* 169 (2001) 363–426. **[wanted]** —
-  canonical DKT computation.
+  particulate flow", *J. Comput. Phys.* 169 (2001) 363–426. **[in repo]**
+  (`literature/glowinski_pan_hesla_joseph_periaux_2001.pdf`) — canonical
+  DKT computation.
 - S.V. Apte, M. Martin, N.A. Patankar, "A numerical method for fully
   resolved simulation (FRS) of rigid particle–flow interactions in complex
-  flows", *J. Comput. Phys.* 228 (2009) 2712–2738. **[wanted]** *(verify
-  page range)* — 3D sphere DKT with quantitative trajectories; candidate
-  primary D2-DKT reference.
+  flows", *J. Comput. Phys.* 228 (2009) 2712–2738. **[in repo]**
+  (`literature/apte_martin_patankar_2009.pdf`, citation confirmed) — 3D
+  sphere DKT with quantitative trajectories; candidate primary D2-DKT
+  reference.
 - W.-P. Breugem, "A second-order accurate immersed boundary method for
   fully resolved simulations of particle-laden flows", *J. Comput. Phys.*
-  231 (2012) 4469–4498. **[optional]** — alternative modern DKT reference
-  with published trajectories; pick Apte or Breugem as primary during
-  D2-DKT design.
+  231 (2012) 4469–4498. **[in repo]** (`literature/breugem_2012.pdf`) —
+  alternative modern DKT reference with published trajectories; pick Apte
+  or Breugem as primary during D2-DKT design.
 
 ### D3 — collective behavior
 - R. Beetstra, M.A. van der Hoef, J.A.M. Kuipers, "Drag force of
@@ -743,10 +760,8 @@ recalled from memory that should be checked against the actual paper.
   suspensions of rigid spheres", *Trans. Soc. Rheol.* 3 (1959) 137–152.
   **[optional]** — already the EL campaign's KD anchor.
 
-**Priority acquisition list** (the ones that define gates, in rough order
-of need): Wan–Turek 2006, Münster–Mierka–Turek 2012, Hasimoto 1959,
-Zick–Homsy 1982, Brenner 1961, Cooley–O'Neill 1969, Jeffrey–Onishi 1984,
-Fortes 1987, Glowinski 2001 or Apte 2009, Beetstra 2007, Tenneti 2011,
-Richardson–Zaki 1954, Ergun 1952, Jeffery 1922, Happel–Brenner (spheroid
-chapter), Ardekani 2016, Uhlmann–Dušek 2014 (only if D1.4 goes ahead),
+**Priority acquisition list — remaining** (first batch of 12 received
+2026-07-31 into `literature/`; still wanted, in rough order of need):
+Beetstra 2007, Tenneti 2011, Richardson–Zaki 1954, Ergun 1952,
+Jeffery 1922, Happel–Brenner (spheroid chapter), Ardekani 2016,
 Di Felice 1994.
