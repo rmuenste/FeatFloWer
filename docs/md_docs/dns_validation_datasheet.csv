@@ -6,3 +6,4 @@ d0_infra,d0_smoke_twin,parallel-PE new vs old binary 10-step trajectory,match to
 d0_infra,d0_smoke_twin,DNS_RESOLUTION global inside-DOF count parallel vs serial,same-order (interface duplication only),d0_smoke_twin RUNBOOK,1108 vs 1190 (6.9% duplication gap),0.069,same_order_gate,PASS
 d0_infra,d0_hmin,mode-consistent global h_min on identical mesh,fine-mesh h_min equal to serial,mesh identity (byte-identical .tri),was min-over-ranks of local MAX h (inverted negation trick); dvol itself correct,4x,physics_finding,RESOLVED
 d0_infra,d0_hmin,"h_min and D_over_h after reduction fix, serial vs parallel",identical,byte-identical mesh,1.31425429e-3 / 11.413 in both modes,0,exact_match,PASS
+d0_infra,d0_visc,E4 deck CFD viscosity vs paper and PE side,0.058 (ten Cate Table I; example.json fluidViscosity_),ten_cate_piv.pdf; example.json,deck had 53d-3 (-8.6%); Schiller-Naumann predicts +3.6% u_t from this alone (measured overshoot vs PIV: +8.1%),0.086,physics_finding,RESOLVED

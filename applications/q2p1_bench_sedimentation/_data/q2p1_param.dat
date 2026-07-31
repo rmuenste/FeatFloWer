@@ -68,6 +68,6 @@ Pres@MGCrsSolverType = 4
 Prop@ForceScale = 0d0,0d0,4d0,0d0,0d0,0d0
 Prop@Gravity = 0d0,0d0,0d0
 Prop@Density = 960d0,30d0
-Prop@Viscosity = 53d-3,1d0
+Prop@Viscosity = 58d-3,1d0                                             ! ten Cate E4 mu=0.058 (was 53d-3 - inconsistent with the paper AND with example.json's fluidViscosity_=0.058; see dns_validation_datasheet d0_visc)
 Prop@DiffCoeff = 1d-4,1d-4
 Prop@PowerLawExp = 1.0d0
