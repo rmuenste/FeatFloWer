@@ -1,0 +1,37 @@
+{
+  "timesteps_": 20,
+  "stepsize_": 0.002,
+  "substeps_": 2,
+  "processesX_": 3,
+  "processesY_": 3,
+  "processesZ_": 3,
+  "seed_": 12345,
+  "verbose_": false,
+  "vtk_": false,
+  "particleDensity_": 2.0,
+  "fluidViscosity_": 0.02,
+  "fluidDensity_": 1.0,
+  "gravity_": [
+    0,
+    0,
+    0
+  ],
+  "visspacing_": 10000,
+  "pointerspacing_": 10000,
+  "resume_": false,
+  "useCheckpointer_": false,
+  "packingMethod_": "external",
+  "seedMode_": "file",
+  "xyzFilePath_": "particles.xyz",
+  "benchRadius_": 0.025,
+  "periodicX_": true,
+  "periodicY_": true,
+  "periodicZ_": true,
+  "initialParticleVelocity_": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "config_string": "unit_periodic_contact: two spheres in contact THROUGH the periodic z-plane (also cross-rank); gates: contact fires, EL_NEWTON_PAIR machine zero, overlap relaxes",
+  "seedAllowContact_": true
+}

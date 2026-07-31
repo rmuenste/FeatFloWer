@@ -47,6 +47,8 @@ USE QuadSc_assembly, ONLY : Assemble_Mass_Generic, Assemble_Diffusion_Alpha_Gene
                              Create_MRhoMat, Create_MMat, Create_CMat, Create_BMat, &
                              Create_hDiffMat, Create_ConstDiffMat, Create_DiffMat, &
                              Create_SMat, Create_KMat
+USE EL_CONFIG, ONLY: el_apply_fluid_feedback, el_drag_semi_implicit
+USE EL_FIELDS, ONLY: el_field_data
 
 use, intrinsic :: ieee_arithmetic
 
@@ -2411,6 +2413,20 @@ REAL tttx1,tttx0
    END DO
   END DO
  END IF
+
+ IF (el_apply_fluid_feedback.AND.el_drag_semi_implicit) THEN
+  IF (ALLOCATED(el_field_data%drag_B_source)) THEN
+   IF (SIZE(el_field_data%drag_B_source).GE.qMat%nu) THEN
+    DO I=1,qMat%nu
+     J = qMat%LdA(I)
+     daux = thstep*el_field_data%drag_B_source(I)
+     A11mat(J) = A11mat(J) + daux
+     A22mat(J) = A22mat(J) + daux
+     A33mat(J) = A33mat(J) + daux
+    END DO
+   END IF
+  END IF
+ END IF
     !!-------------------  MATRIX Assembly -------------------!!
 
     !!-------------------    POINTER Setup  -------------------!!
@@ -2495,6 +2511,19 @@ REAL tttx1,tttx0
     myScalar%defU = myScalar%defU + MlRhoMat*myScalar%valU
     myScalar%defV = myScalar%defV + MlRhoMat*myScalar%valV
     myScalar%defW = myScalar%defW + MlRhoMat*myScalar%valW
+   END IF
+
+   IF (el_apply_fluid_feedback.AND.el_drag_semi_implicit) THEN
+    IF (ALLOCATED(el_field_data%drag_B_source)) THEN
+     IF (SIZE(el_field_data%drag_B_source).GE.qMat%nu) THEN
+      DO I=1,qMat%nu
+       daux = thstep*el_field_data%drag_B_source(I)
+       myScalar%defU(I) = myScalar%defU(I) - daux*myScalar%valU(I)
+       myScalar%defV(I) = myScalar%defV(I) - daux*myScalar%valV(I)
+       myScalar%defW(I) = myScalar%defW(I) - daux*myScalar%valW(I)
+      END DO
+     END IF
+    END IF
    END IF
 
    IF (myMatrixRenewal%D.GE.1.AND.(.NOT.bNonNewtonian)) THEN

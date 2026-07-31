@@ -1,0 +1,4 @@
+# Per-case meshes are not version-controlled (large; fetched from the cloud).
+# Place the fetched mesh under tier2_cases/<case>/mesh/ (see each case's MESH.md);
+# the *_stage CMake target auto-copies it into the run dir when present.
+tier2_cases/*/mesh/

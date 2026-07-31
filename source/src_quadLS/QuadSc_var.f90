@@ -91,6 +91,14 @@ MODULE var_QuadScalar
     INTEGER :: ILINT=2
   END TYPE
   TYPE (tTransform) :: Transform
+  ! Convection discretization in CONVQ2 (SimPar@ELConvectionForm):
+  !   0 = convective form K_ji = rho*int((u.grad phi_i) phi_j)  [legacy]
+  !   1 = divergence form K_ji = -rho*int((u phi_i).grad phi_j)
+  ! The divergence (integrated-by-parts) form is globally momentum-
+  ! conservative to machine precision on periodic domains regardless of
+  ! the discrete divergence (sum_j grad phi_j = 0 pointwise), removing
+  ! the convective-form momentum leak measured by EL_FLUID_PAIR.
+  INTEGER :: iConvectionForm = 0
   integer :: istep_ns = 1
   REAL*8  :: cfl_global = 0d0   ! Global max CFL, updated each timestep
   REAL*8  :: cfl_particle_global = 0d0  ! Global max particle CFL

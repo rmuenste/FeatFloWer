@@ -1,0 +1,4 @@
+metrics:
+  saffman_lift_budget:
+    drag_x: 2.356194490192e-5
+    lift_z: 1.276769605293e-6

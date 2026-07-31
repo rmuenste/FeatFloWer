@@ -2206,6 +2206,7 @@ USE var_QuadScalar,ONLY: myFBM,knvt,knet,knat,knel,ElemSizeDist,BoundaryNormal
 USE var_QuadScalar,ONLY: GenLinScalar
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 USE var_QuadScalar,ONLY: myLostSet
+USE EL_FIELDS, ONLY: el_field_data
 
 
 IMPLICIT NONE
@@ -2253,6 +2254,30 @@ DO iField=1,SIZE(myExport%Fields)
      REAL(QuadSc%ValW(ivt))
   end do
   write(iunit, *)"        </DataArray>"
+
+ CASE('ELReactionForce')
+  IF (ALLOCATED(el_field_data%force_rhs)) THEN
+   IF (SIZE(el_field_data%force_rhs,2).GE.NoOfVert) THEN
+    write(iunit, '(A)') &
+      '        <DataArray type="Float32" Name="ELReactionForce" NumberOfComponents="3" format="ascii">'
+    do ivt=1,NoOfVert
+     write(iunit, '(A,3E16.7)') '        ', REAL(el_field_data%force_rhs(:,ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    write(iunit, '(A)') &
+      '        <DataArray type="Float32" Name="ELDragB" format="ascii">'
+    do ivt=1,NoOfVert
+     write(iunit, '(A,E16.7)') '        ', REAL(el_field_data%drag_B_ml(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
   
  CASE('GradVelocity')
   write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3"" format=""ascii"">"
@@ -2588,6 +2613,39 @@ DO iField=1,SIZE(myExport%Fields)
    write(iunit, *)"        </DataArray>"
   END IF
 
+ CASE('ELAlphaP')
+  IF (ALLOCATED(el_field_data%alpha_p)) THEN
+   IF (SIZE(el_field_data%alpha_p).EQ.NoOfElem) THEN
+    write(iunit, '(A)') '        <DataArray type="Float32" Name="ELAlphaP" format="ascii">'
+    do ivt=1,NoOfElem
+     write(iunit, '(A,E16.7)') '        ', REAL(el_field_data%alpha_p(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+
+ CASE('ELEpsilonF')
+  IF (ALLOCATED(el_field_data%epsilon_f)) THEN
+   IF (SIZE(el_field_data%epsilon_f).EQ.NoOfElem) THEN
+    write(iunit, '(A)') '        <DataArray type="Float32" Name="ELEpsilonF" format="ascii">'
+    do ivt=1,NoOfElem
+     write(iunit, '(A,E16.7)') '        ', REAL(el_field_data%epsilon_f(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+
+ CASE('ELDepsFDt')
+  IF (ALLOCATED(el_field_data%deps_f_dt)) THEN
+   IF (SIZE(el_field_data%deps_f_dt).EQ.NoOfElem) THEN
+    write(iunit, '(A)') '        <DataArray type="Float32" Name="ELDepsFDt" format="ascii">'
+    do ivt=1,NoOfElem
+     write(iunit, '(A,E16.7)') '        ', REAL(el_field_data%deps_f_dt(ivt))
+    end do
+    write(iunit, *)"        </DataArray>"
+   END IF
+  END IF
+
  CASE('MatProps_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    write(iunit, '(A,A,A)')"        <DataArray type=""Float32"" Name=""","MF_E_[kg/m3]",""" format=""ascii"">"
@@ -2717,6 +2775,7 @@ USE var_QuadScalar,ONLY: GenLinScalar
 USE def_LinScalar, ONLY: mg_RhoCoeff,mg_CpCoeff,mg_LambdaCoeff
 USE var_QuadScalar,ONLY: myLostSet
 USE, INTRINSIC :: iso_fortran_env, ONLY: int8, int32, int64, real32
+USE EL_FIELDS, ONLY: el_field_data
 
 IMPLICIT NONE
 REAL*8 dcoor(3,*)
@@ -2764,6 +2823,22 @@ DO iField=1,SIZE(myExport%Fields)
  CASE('Velocity')
   call reserve_offset(3_int64*4_int64*NoOfVert, off)
   call write_dataarray_tag(iunit, '        ', 'Float32', 'Velocity', 3, off)
+
+ CASE('ELReactionForce')
+  IF (ALLOCATED(el_field_data%force_rhs)) THEN
+   IF (SIZE(el_field_data%force_rhs,2).GE.NoOfVert) THEN
+    call reserve_offset(3_int64*4_int64*NoOfVert, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELReactionForce', 3, off)
+   END IF
+  END IF
+
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    call reserve_offset(4_int64*NoOfVert, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELDragB', 1, off)
+   END IF
+  END IF
 
  CASE('GradVelocity')
   call reserve_offset(3_int64*4_int64*NoOfVert, off)
@@ -2913,6 +2988,30 @@ DO iField=1,SIZE(myExport%Fields)
    call write_dataarray_tag(iunit, '        ', 'Float32', 'Pressure_E', 1, off)
   END IF
 
+ CASE('ELAlphaP')
+  IF (ALLOCATED(el_field_data%alpha_p)) THEN
+   IF (SIZE(el_field_data%alpha_p).EQ.NoOfElem) THEN
+    call reserve_offset(4_int64*NoOfElem, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELAlphaP', 1, off)
+   END IF
+  END IF
+
+ CASE('ELEpsilonF')
+  IF (ALLOCATED(el_field_data%epsilon_f)) THEN
+   IF (SIZE(el_field_data%epsilon_f).EQ.NoOfElem) THEN
+    call reserve_offset(4_int64*NoOfElem, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELEpsilonF', 1, off)
+   END IF
+  END IF
+
+ CASE('ELDepsFDt')
+  IF (ALLOCATED(el_field_data%deps_f_dt)) THEN
+   IF (SIZE(el_field_data%deps_f_dt).EQ.NoOfElem) THEN
+    call reserve_offset(4_int64*NoOfElem, off)
+    call write_dataarray_tag(iunit, '        ', 'Float32', 'ELDepsFDt', 1, off)
+   END IF
+  END IF
+
  CASE('MatProps_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    call reserve_offset(4_int64*NoOfElem, off)
@@ -2969,6 +3068,28 @@ call write_char(iunit, '_')
 
 DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('ELReactionForce')
+  IF (ALLOCATED(el_field_data%force_rhs)) THEN
+   IF (SIZE(el_field_data%force_rhs,2).GE.NoOfVert) THEN
+    call write_header(iunit, 3_int64*4_int64*NoOfVert)
+    do ivt=1,NoOfVert
+     call write_r32(iunit, el_field_data%force_rhs(1,ivt))
+     call write_r32(iunit, el_field_data%force_rhs(2,ivt))
+     call write_r32(iunit, el_field_data%force_rhs(3,ivt))
+    end do
+   END IF
+  END IF
+
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   IF (SIZE(el_field_data%drag_B_ml).GE.NoOfVert) THEN
+    call write_header(iunit, 4_int64*NoOfVert)
+    do ivt=1,NoOfVert
+     call write_r32(iunit, el_field_data%drag_B_ml(ivt))
+    end do
+   END IF
+  END IF
+
  CASE('Velocity')
   call write_header(iunit, 3_int64*4_int64*NoOfVert)
   do ivt=1,NoOfVert
@@ -3256,6 +3377,36 @@ END DO
 
 DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
+ CASE('ELAlphaP')
+  IF (ALLOCATED(el_field_data%alpha_p)) THEN
+   IF (SIZE(el_field_data%alpha_p).EQ.NoOfElem) THEN
+    call write_header(iunit, 4_int64*NoOfElem)
+    do ivt=1,NoOfElem
+     call write_r32(iunit, el_field_data%alpha_p(ivt))
+    end do
+   END IF
+  END IF
+
+ CASE('ELEpsilonF')
+  IF (ALLOCATED(el_field_data%epsilon_f)) THEN
+   IF (SIZE(el_field_data%epsilon_f).EQ.NoOfElem) THEN
+    call write_header(iunit, 4_int64*NoOfElem)
+    do ivt=1,NoOfElem
+     call write_r32(iunit, el_field_data%epsilon_f(ivt))
+    end do
+   END IF
+  END IF
+
+ CASE('ELDepsFDt')
+  IF (ALLOCATED(el_field_data%deps_f_dt)) THEN
+   IF (SIZE(el_field_data%deps_f_dt).EQ.NoOfElem) THEN
+    call write_header(iunit, 4_int64*NoOfElem)
+    do ivt=1,NoOfElem
+     call write_r32(iunit, el_field_data%deps_f_dt(ivt))
+    end do
+   END IF
+  END IF
+
  CASE('Pressure_E')
   IF (ILEV.EQ.NLMAX-1) THEN
    call write_header(iunit, 4_int64*NoOfElem)
@@ -3425,6 +3576,7 @@ USE var_QuadScalar,ONLY:myExport,bViscoElastic,MaterialDistribution
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar
 USE def_FEAT
+USE EL_FIELDS, ONLY: el_field_data
 
 IMPLICIT NONE
 INTEGER iO,iproc,iField,iFld
@@ -3456,6 +3608,15 @@ DO iField=1,SIZE(myExport%Fields)
  SELECT CASE(ADJUSTL(TRIM(myExport%Fields(iField))))
  CASE('Velocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity",""" NumberOfComponents=""3""/>"
+ CASE('ELReactionForce')
+  IF (ALLOCATED(el_field_data%force_rhs)) THEN
+   write(imainunit, '(A)') &
+    '       <PDataArray type="Float32" Name="ELReactionForce" NumberOfComponents="3"/>'
+  END IF
+ CASE('ELDragB')
+  IF (ALLOCATED(el_field_data%drag_B_ml)) THEN
+   write(imainunit, '(A)') '       <PDataArray type="Float32" Name="ELDragB"/>'
+  END IF
  CASE('GradVelocity')
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_x",""" NumberOfComponents=""3""/>"
   write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Velocity_y",""" NumberOfComponents=""3""/>"
@@ -3544,6 +3705,21 @@ DO iField=1,SIZE(myExport%Fields)
 !  WRITE(*,*) myExport%Level,myExport%LevelMax,myExport%Level.EQ.myExport%LevelMax
   IF (myExport%Level.EQ.myExport%LevelMax) THEN
    write(imainunit, '(A,A,A)')"       <PDataArray type=""Float32"" Name=""","Pressure_E","""/>"
+  END IF
+
+ CASE('ELAlphaP')
+  IF (ALLOCATED(el_field_data%alpha_p)) THEN
+   write(imainunit, '(A)') '       <PDataArray type="Float32" Name="ELAlphaP"/>'
+  END IF
+
+ CASE('ELEpsilonF')
+  IF (ALLOCATED(el_field_data%epsilon_f)) THEN
+   write(imainunit, '(A)') '       <PDataArray type="Float32" Name="ELEpsilonF"/>'
+  END IF
+
+ CASE('ELDepsFDt')
+  IF (ALLOCATED(el_field_data%deps_f_dt)) THEN
+   write(imainunit, '(A)') '       <PDataArray type="Float32" Name="ELDepsFDt"/>'
   END IF
 
 CASE('MatProps_E')

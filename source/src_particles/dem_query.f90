@@ -63,6 +63,149 @@ integer(c_int) function getNumRemParticles() bind(C, name="getNumRemParticles")
 end interface
 
 !================================================================================================
+!                              Function getElSubsteps
+!================================================================================================
+! C++ implementation: getElSubsteps() in libs/pe/pe/interface/c_interface_queries.h
+! Returns the PE sub-step count n_sub = max(1, substeps_), so the Euler-Lagrange
+! feedback can reproduce PE's sub-cycled semi-implicit drag exactly.
+interface
+integer(c_int) function getElSubsteps() bind(C, name="getElSubsteps")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Function getElStepsize
+!================================================================================================
+! C++ implementation: getElStepsize() in libs/pe/pe/interface/c_interface_queries.h
+interface
+real(c_double) function getElStepsize() bind(C, name="getElStepsize")
+  use iso_c_binding, only: c_double
+  end function
+end interface
+
+!================================================================================================
+!                              Function getElContactCount
+!================================================================================================
+! C++ implementation: getElContactCount() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElContactCount() bind(C, name="getElContactCount")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Function getElMaxPenetration
+!================================================================================================
+! C++ implementation: getElMaxPenetration() in libs/pe/pe/interface/c_interface_queries.h
+interface
+real(c_double) function getElMaxPenetration() bind(C, name="getElMaxPenetration")
+  use iso_c_binding, only: c_double
+  end function
+end interface
+
+!================================================================================================
+!                              Subroutine getElLubricationVirial
+!================================================================================================
+! C++ implementation: getElLubricationVirial() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local impulse virial of the current macro step (9 components, row-major
+! force x separation); MPI-SUM counts each pair exactly once (0.5 weight per
+! locally-owned member). Particle-phase stress: sigma = -virial/(dt*V).
+interface
+subroutine getElLubricationVirial(sigma) bind(C, name="getElLubricationVirial")
+  use iso_c_binding, only: c_double
+  real(c_double) :: sigma(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElLubricationPairs
+!================================================================================================
+! C++ implementation: getElLubricationPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElLubricationPairs() bind(C, name="getElLubricationPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Subroutine getElLubricationImpulse
+!================================================================================================
+! C++ implementation: getElLubricationImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local net momentum folded by the lubrication sweep this macro step; the
+! MPI sum across ranks measures pair one-sidedness (must be ~0).
+interface
+subroutine getElLubricationImpulse(dp) bind(C, name="getElLubricationImpulse")
+  use iso_c_binding, only: c_double
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine getElContactVirial
+!================================================================================================
+! C++ implementation: getElContactVirial() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local impulse virial of the converged sphere-sphere PGS contact impulses
+! this macro step (9 components, row-major, Sum p x r12); the PE contact filter
+! treats each contact on exactly one rank, so MPI-SUM counts each contact once.
+! Same normalization as the lubrication virial: sigma = -virial/(dt*V).
+interface
+subroutine getElContactVirial(sigma) bind(C, name="getElContactVirial")
+  use iso_c_binding, only: c_double
+  real(c_double) :: sigma(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElContactVirialPairs
+!================================================================================================
+! C++ implementation: getElContactVirialPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElContactVirialPairs() bind(C, name="getElContactVirialPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Subroutine getElWallLubImpulse
+!================================================================================================
+! C++ implementation: getElWallLubImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local lubrication impulse the spheres exert on z-wall `wall`
+! (0 = bottom, 1 = top) this macro step; MPI-SUM counts each sphere once.
+! Wall shear stress: tau = Sum(dp_x)/(dt_macro*A).
+interface
+subroutine getElWallLubImpulse(wall, dp) bind(C, name="getElWallLubImpulse")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int), value :: wall
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Subroutine getElWallContactImpulse
+!================================================================================================
+! C++ implementation: getElWallContactImpulse() in libs/pe/pe/interface/c_interface_queries.h
+! Rank-local converged PGS contact impulse ON z-wall `wall` (0/1) this macro
+! step; each contact counted once (sphere-owner rank).
+interface
+subroutine getElWallContactImpulse(wall, dp) bind(C, name="getElWallContactImpulse")
+  use iso_c_binding, only: c_int, c_double
+  integer(c_int), value :: wall
+  real(c_double) :: dp(*)
+  end subroutine
+end interface
+
+!================================================================================================
+!                              Function getElWallLubPairs
+!================================================================================================
+! C++ implementation: getElWallLubPairs() in libs/pe/pe/interface/c_interface_queries.h
+interface
+integer(c_int) function getElWallLubPairs() bind(C, name="getElWallLubPairs")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
 !                              Subroutine getParticle
 ! C++ implementation: getObjByIdx() in libs/pe/src/interface/object_queries.cpp
 !================================================================================================
@@ -365,23 +508,53 @@ subroutine getAllParticles(theParticles)
   implicit none
   type(tParticleData), dimension(:), intent(inout) :: theParticles
 
-  type(tParticleData) :: temp
+  type(tParticleData) :: temp, zeroParticle
   integer, allocatable, dimension(:) :: indexMap
-  integer :: a,i,idx
-  
-  a = size(theParticles) 
+  integer :: a,i,idx,nLocal
+
+  a = size(theParticles)
+
+  ! Number of particles actually owned by this rank. In parallel PE a particle
+  ! may live on a single rank only, so the caller-provided array (sized by the
+  ! GLOBAL particle count, e.g. in ComputeCFL) can be larger than this rank's
+  ! local index map. Reading the surplus slots from an uninitialised index map
+  ! yields a garbage body index and aborts getParticle2 ("Body index ... out of
+  ! range"). Read only the local slots and zero-fill the rest. This is a no-op
+  ! when local == global (the usual multi-particle, every-rank-populated case).
+  nLocal = getNumParticles()
+  if (nLocal .gt. a) nLocal = a
 
   allocate(indexMap(a))
 
-  call getParticlesIndexMap(indexMap)
-  
-  do i=1,a
-    idx = indexMap(i)
-    call getParticle2(idx,&
-                      temp)
+  if (nLocal .gt. 0) call getParticlesIndexMap(indexMap)
 
-    theParticles(i) = temp
+  zeroParticle%position = 0d0
+  zeroParticle%velocity = 0d0
+  zeroParticle%angvel   = 0d0
+  zeroParticle%force    = 0d0
+  zeroParticle%torque   = 0d0
+  zeroParticle%time     = 0d0
+  zeroParticle%density  = 0d0
+  zeroParticle%aabb     = 0d0
+  zeroParticle%radius   = 0d0
+  zeroParticle%typeId   = 0
+  zeroParticle%localIdx = 0
+  zeroParticle%uniqueIdx= 0
+  zeroParticle%systemIdx= 0
+  zeroParticle%bytes    = 0
+
+  do i=1,a
+    if (i .le. nLocal) then
+      idx = indexMap(i)
+      call getParticle2(idx,&
+                        temp)
+      theParticles(i) = temp
+    else
+      theParticles(i) = zeroParticle
+    end if
   end do
+
+  deallocate(indexMap)
 
 end subroutine getAllParticles
 !================================================================================================

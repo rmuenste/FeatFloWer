@@ -1,0 +1,40 @@
+{
+ "timesteps_": 5000,
+ "stepsize_": 0.002,
+ "substeps_": 10,
+ "processesX_": 3,
+ "processesY_": 3,
+ "processesZ_": 3,
+ "seed_": 12345,
+ "verbose_": false,
+ "vtk_": true,
+ "particleDensity_": 1.0,
+ "fluidViscosity_": 0.02,
+ "fluidDensity_": 1.0,
+ "gravity_": [
+  0,
+  0,
+  0
+ ],
+ "visspacing_": 200,
+ "pointerspacing_": 10000,
+ "resume_": false,
+ "useCheckpointer_": false,
+ "packingMethod_": "external",
+ "seedMode_": "random",
+ "volumeFraction_": 0.2,
+ "xyzFilePath_": "particles.xyz",
+ "benchRadius_": 0.025,
+ "periodicX_": true,
+ "periodicY_": true,
+ "periodicZ_": true,
+ "initialParticleVelocity_": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "config_string": "kroupa_shear: suspension viscosity via Irving-Kirkwood lubrication virial in frozen linear shear G=1 (Kroupa et al. Langmuir 2016 analog, walls-free). Neutrally buoyant d_p=0.05, unit periodic box; stage per-phi rundirs by sed'ing volumeFraction_; OFF-twin: lubricationEnabled_ false",
+ "lubricationEnabled_": true,
+ "lubricationCutoff_": 0.025,
+ "lubricationSlipLength_": 0.0025
+}

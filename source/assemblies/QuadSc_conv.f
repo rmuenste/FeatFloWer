@@ -5,7 +5,7 @@
 *     Discrete convection operator: Q1 elements
 *-----------------------------------------------------------------------
       USE PP3D_MPI, ONLY:myid
-      USE var_QuadScalar, ONLY : transform
+      USE var_QuadScalar, ONLY : transform,iConvectionForm
 C     
       IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
       CHARACTER SUB*6,FMT*15,CPARAM*120
@@ -192,7 +192,19 @@ C *** Summing up over all pairs of multiindices
        HSUMJ=HBASJ2*DU1+HBASJ3*DU2+HBASJ4*DU3
 C
        DO 240 IDOFE=1,IDFL
-        IF (IDOFE.EQ.JDOFE) THEN
+        IF (iConvectionForm.EQ.1) THEN
+C ***    Divergence (integrated-by-parts) form:
+C ***    K_JI = -int((u phi_I).grad phi_J). Row sums vanish pointwise
+C ***    (sum_J grad phi_J = 0), so global momentum is conserved to
+C ***    machine precision on periodic domains regardless of div u.
+         IF (IDOFE.EQ.JDOFE) THEN
+          AH=-HSUMJ*HBASJ1
+         ELSE
+          IDOFEH=KDFL(IDOFE)
+          HBASI1=DBAS(1,IDOFEH,1)
+          AH=-HSUMJ*HBASI1
+         ENDIF
+        ELSE IF (IDOFE.EQ.JDOFE) THEN
          AH=HSUMJ*HBASJ1
         ELSE
          IDOFEH=KDFL(IDOFE)
