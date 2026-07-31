@@ -52,7 +52,8 @@ if(USE_CGAL)
 endif(USE_CGAL)
 
 if (USE_HYPRE)
-  #add_subdirectory(hypre_test)
+  # Build the maintained Hypre smoke-test target whenever Hypre is enabled.
+  add_subdirectory(hypre_test)
 endif (USE_HYPRE)
 
 
@@ -61,11 +62,11 @@ if(USE_OPTICALTWEEZERS)
 endif(USE_OPTICALTWEEZERS)
 
 if(USE_MUMPS)
-  if(${Q2P1_BUILD_ID} MATCHES "intel")
+  if(USE_EXTERNAL_MUMPS OR ${Q2P1_BUILD_ID} MATCHES "intel")
     # add_subdirectory(mumps_test)
        add_subdirectory(q2p1_cc)
        add_subdirectory(mumps_test)
-  else(${Q2P1_BUILD_ID} MATCHES "intel")
-    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
-  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+  else()
+    message(FATAL_ERROR "The vendored MUMPS library requires the intel compiler. Choose a build-id with the intel compiler, or set USE_EXTERNAL_MUMPS=ON.")
+  endif()
 endif(USE_MUMPS)

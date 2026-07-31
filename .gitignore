@@ -8,6 +8,6 @@ _mesh/*
 *.vtk
 *.swp
 *.pyc
-
+/stage1-work/
 
 build/

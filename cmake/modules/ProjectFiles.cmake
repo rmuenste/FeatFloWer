@@ -175,7 +175,8 @@ add_library(ff_elements ${Elements})
 target_include_directories(ff_elements PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_elements PUBLIC ${Fortran_FLAGS})
 
-set(le_solvers 
+set(le_solvers
+  ${CMAKE_SOURCE_DIR}/source/ff_timing.f90
   ${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
 )
 
@@ -183,17 +184,37 @@ if(USE_MUMPS)
   list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
 endif(USE_MUMPS)
 
+if(USE_MKL_PARDISO)
+  list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/PardisoSolver.f90)
+endif(USE_MKL_PARDISO)
+
+if(FF_UMFPACK_WRAPPER_PORT)
+  # The umf4* Fortran wrapper is compiled against the SuiteSparse headers of
+  # the active provider (external/system/fetch); the vendored UMFPACK 4
+  # library itself is not built. See cmake/modules/FFDependencies.cmake.
+  list(APPEND le_solvers
+    ${CMAKE_SOURCE_DIR}/extern/libraries/umfpack4/src/umf4_f77wrapper_port.c)
+endif(FF_UMFPACK_WRAPPER_PORT)
+
 if(USE_HYPRE)
   list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
+  if(USE_HYPRE_CUDA)
+    list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/hypre_managed_memory.c)
+  endif()
 endif(USE_HYPRE)
 
 add_library(ff_le_solvers ${le_solvers})
+if(FF_UMFPACK_WRAPPER_PORT AND FF_SUITESPARSE_INCLUDE_DIR)
+  target_include_directories(ff_le_solvers PRIVATE ${FF_SUITESPARSE_INCLUDE_DIR})
+endif()
 target_link_libraries(ff_le_solvers ff_util ff_mesh ${FF_DEFAULT_LIBS})
 target_include_directories(ff_le_solvers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
-target_compile_options(ff_le_solvers PUBLIC ${Fortran_FLAGS})
-if(USE_HYPRE)
+target_compile_options(ff_le_solvers PUBLIC
+  $<$<COMPILE_LANGUAGE:Fortran>:${Fortran_FLAGS}>
+  )
+if(USE_HYPRE AND TARGET HYPRE)
   add_dependencies(ff_le_solvers HYPRE)
-endif(USE_HYPRE)
+endif()
 
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90

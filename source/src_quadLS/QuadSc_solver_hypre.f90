@@ -17,9 +17,13 @@
 
 MODULE QuadSc_solver_hypre
 
-USE PP3D_MPI, ONLY: myid, showID, coarse
+USE PP3D_MPI, ONLY: myid, showID, coarse, MPI_COMM_WORLD
 USE var_QuadScalar
 use, intrinsic :: ieee_arithmetic
+#ifdef HYPRE_CUDA
+USE, INTRINSIC :: iso_c_binding, ONLY: c_associated, c_double, c_f_pointer, &
+                                      c_int, c_null_ptr, c_ptr, c_size_t, c_sizeof
+#endif
 
 IMPLICIT NONE
 PRIVATE
@@ -28,7 +32,104 @@ PRIVATE
 PUBLIC :: Setup_HYPRE_CoarseLevel_Full
 PUBLIC :: Setup_HYPRE_CoarseLevel_Geometric
 
+#ifdef HYPRE_CUDA
+TYPE(c_ptr), SAVE :: hypre_ncols_memory = c_null_ptr
+TYPE(c_ptr), SAVE :: hypre_rows_memory = c_null_ptr
+TYPE(c_ptr), SAVE :: hypre_cols_memory = c_null_ptr
+TYPE(c_ptr), SAVE :: hypre_values_memory = c_null_ptr
+TYPE(c_ptr), SAVE :: hypre_rhs_memory = c_null_ptr
+TYPE(c_ptr), SAVE :: hypre_sol_memory = c_null_ptr
+
+INTERFACE
+  FUNCTION ff_hypre_malloc_managed(bytes) BIND(C) RESULT(pointer)
+    IMPORT :: c_ptr, c_size_t
+    INTEGER(c_size_t), VALUE :: bytes
+    TYPE(c_ptr) :: pointer
+  END FUNCTION ff_hypre_malloc_managed
+
+  FUNCTION ff_hypre_free_managed(pointer) BIND(C) RESULT(error)
+    IMPORT :: c_int, c_ptr
+    TYPE(c_ptr), VALUE :: pointer
+    INTEGER(c_int) :: error
+  END FUNCTION ff_hypre_free_managed
+END INTERFACE
+#endif
+
 CONTAINS
+
+#ifdef HYPRE_CUDA
+SUBROUTINE Allocate_HYPRE_Managed_Arrays
+  INTEGER(c_size_t) :: integer_bytes, real_bytes
+  INTEGER :: ffAbortErr
+
+  CALL Release_HYPRE_Managed_Arrays
+
+  integer_bytes = INT(myHYPRE%nrows, c_size_t) * c_sizeof(0_c_int)
+  real_bytes = INT(myHYPRE%nrows, c_size_t) * c_sizeof(0.0_c_double)
+
+  hypre_ncols_memory = ff_hypre_malloc_managed(integer_bytes)
+  hypre_rows_memory = ff_hypre_malloc_managed(integer_bytes)
+  hypre_rhs_memory = ff_hypre_malloc_managed(real_bytes)
+  hypre_sol_memory = ff_hypre_malloc_managed(real_bytes)
+
+  integer_bytes = INT(myHYPRE%nonzeros, c_size_t) * c_sizeof(0_c_int)
+  real_bytes = INT(myHYPRE%nonzeros, c_size_t) * c_sizeof(0.0_c_double)
+  hypre_cols_memory = ff_hypre_malloc_managed(integer_bytes)
+  hypre_values_memory = ff_hypre_malloc_managed(real_bytes)
+
+  IF (.NOT.c_associated(hypre_ncols_memory) .OR. &
+      .NOT.c_associated(hypre_rows_memory) .OR. &
+      .NOT.c_associated(hypre_cols_memory) .OR. &
+      .NOT.c_associated(hypre_values_memory) .OR. &
+      .NOT.c_associated(hypre_rhs_memory) .OR. &
+      .NOT.c_associated(hypre_sol_memory)) THEN
+    WRITE(*,'(A,I0)') 'Failed to allocate CUDA managed memory for HYPRE arrays on rank ',myid
+    FLUSH(6)
+    ! MPI_Abort, not ERROR STOP: managed-memory allocation failure is rank-local,
+    ! and surviving ranks can block in downstream collective HYPRE setup calls.
+    CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_RUNTIME_FAILURE,ffAbortErr)
+  END IF
+
+  CALL c_f_pointer(hypre_ncols_memory, myHYPRE%ncols, [myHYPRE%nrows])
+  CALL c_f_pointer(hypre_rows_memory, myHYPRE%rows, [myHYPRE%nrows])
+  CALL c_f_pointer(hypre_cols_memory, myHYPRE%cols, [myHYPRE%nonzeros])
+  CALL c_f_pointer(hypre_values_memory, myHYPRE%values, [myHYPRE%nonzeros])
+  CALL c_f_pointer(hypre_rhs_memory, myHYPRE%rhs, [myHYPRE%nrows])
+  CALL c_f_pointer(hypre_sol_memory, myHYPRE%sol, [myHYPRE%nrows])
+END SUBROUTINE Allocate_HYPRE_Managed_Arrays
+
+SUBROUTINE Release_HYPRE_Managed_Arrays
+  INTEGER(c_int) :: error
+
+  IF (c_associated(hypre_ncols_memory)) THEN
+    error = ff_hypre_free_managed(hypre_ncols_memory)
+    hypre_ncols_memory = c_null_ptr
+  END IF
+  IF (c_associated(hypre_rows_memory)) THEN
+    error = ff_hypre_free_managed(hypre_rows_memory)
+    hypre_rows_memory = c_null_ptr
+  END IF
+  IF (c_associated(hypre_cols_memory)) THEN
+    error = ff_hypre_free_managed(hypre_cols_memory)
+    hypre_cols_memory = c_null_ptr
+  END IF
+  IF (c_associated(hypre_values_memory)) THEN
+    error = ff_hypre_free_managed(hypre_values_memory)
+    hypre_values_memory = c_null_ptr
+  END IF
+  IF (c_associated(hypre_rhs_memory)) THEN
+    error = ff_hypre_free_managed(hypre_rhs_memory)
+    hypre_rhs_memory = c_null_ptr
+  END IF
+  IF (c_associated(hypre_sol_memory)) THEN
+    error = ff_hypre_free_managed(hypre_sol_memory)
+    hypre_sol_memory = c_null_ptr
+  END IF
+
+  NULLIFY(myHYPRE%ncols, myHYPRE%rows, myHYPRE%cols)
+  NULLIFY(myHYPRE%values, myHYPRE%rhs, myHYPRE%sol)
+END SUBROUTINE Release_HYPRE_Managed_Arrays
+#endif
 
 !===============================================================================
 ! Subroutine: Setup_HYPRE_CoarseLevel_Full
@@ -49,9 +150,13 @@ CONTAINS
 !   - Modifies global myHYPRE structure
 !   - Allocates myHYPRE arrays (Numbering, ncols, sol, rhs, rows, cols, values)
 !===============================================================================
-SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
+SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow, iSetupLev)
   TYPE(TLinScalar), INTENT(IN) :: lScalar_in
   LOGICAL, INTENT(IN) :: bNoOutFlow
+  ! Optional level override: pass NLMAX to marshal the finest-level pressure
+  ! system (Pres@MGCrsSolverType = 10) instead of the coarse level. The
+  ! singular no-outflow fix is coarse-level specific and is skipped then.
+  INTEGER, INTENT(IN), OPTIONAL :: iSetupLev
   INTEGER :: IEQ, IA, ICOL, II, III, NDOF_p, MaxDofs, NU
   INTEGER :: I, J, iel  ! Variables for bNoOutFlow block
   INTEGER, ALLOCATABLE :: iDofs(:)
@@ -74,7 +179,11 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
   !
   ! This is a source of hard-to-debug MPI collective operation failures!
   ! ============================================================================
-  ILEV = lScalar_in%prm%MGprmIn%MinLev
+  IF (PRESENT(iSetupLev)) THEN
+    ILEV = iSetupLev
+  ELSE
+    ILEV = lScalar_in%prm%MGprmIn%MinLev
+  END IF
   CALL SETLEV(2)
 
   IF (myid.ne.0) THEN
@@ -90,8 +199,9 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
     allocate(myHYPRE%Numbering(myHYPRE%nrows))
   END IF
 
-  ! Handle singular (no outflow) boundary condition (original code block)
-  IF (myid.ne.0 .AND. bNoOutFlow) THEN
+  ! Handle singular (no outflow) boundary condition (original code block;
+  ! coarse-level specific, not applied for the fine-level setup)
+  IF (myid.ne.0 .AND. bNoOutFlow .AND. .NOT.PRESENT(iSetupLev)) THEN
     DO iel = 1, mg_mesh%level(nlmin)%nel
       IF (coarse%myELEMLINK(iel) .eq. 1) THEN
         WRITE(*,*) 'Imposing Dirichlet pressure for the singular (no outflow) configuration'
@@ -132,6 +242,9 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
     ! Allocate main HYPRE arrays (deallocate first if needed)
     MaxDofs = 0
     myHYPRE%nonzeros = lPMat%na + lMat%na
+#ifdef HYPRE_CUDA
+    CALL Allocate_HYPRE_Managed_Arrays
+#else
     IF (ALLOCATED(myHYPRE%ncols)) DEALLOCATE(myHYPRE%ncols)
     IF (ALLOCATED(myHYPRE%sol)) DEALLOCATE(myHYPRE%sol)
     IF (ALLOCATED(myHYPRE%rhs)) DEALLOCATE(myHYPRE%rhs)
@@ -144,6 +257,7 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Full(lScalar_in, bNoOutFlow)
     allocate(myHYPRE%rows(myHYPRE%nrows))
     allocate(myHYPRE%cols(myHYPRE%nonzeros))
     allocate(myHYPRE%values(myHYPRE%nonzeros))
+#endif
 
     ! Count columns per row
     DO IEQ=1, myHYPRE%nrows
@@ -321,6 +435,9 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in, bNoOutFlow)
 
     ! Apply /16 reduction for matrix entries (deallocate first if needed)
     myHYPRE%nonzeros = lPMat%na/16 + lMat%na/16
+#ifdef HYPRE_CUDA
+    CALL Allocate_HYPRE_Managed_Arrays
+#else
     IF (ALLOCATED(myHYPRE%ncols)) DEALLOCATE(myHYPRE%ncols)
     IF (ALLOCATED(myHYPRE%sol)) DEALLOCATE(myHYPRE%sol)
     IF (ALLOCATED(myHYPRE%rhs)) DEALLOCATE(myHYPRE%rhs)
@@ -333,6 +450,7 @@ SUBROUTINE Setup_HYPRE_CoarseLevel_Geometric(lScalar_in, bNoOutFlow)
     allocate(myHYPRE%rows(myHYPRE%nrows))
     allocate(myHYPRE%cols(myHYPRE%nonzeros))
     allocate(myHYPRE%values(myHYPRE%nonzeros))
+#endif
 
     ! Count columns per row (stride-4 access)
     DO IEQ=1, myHYPRE%nrows

@@ -80,8 +80,9 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE PP3D_MPI
  USE MESH_Structures
  USE var_QuadScalar, ONLY : cGridFileName,nSubCoarseMesh,cProjectFile,&
-   cProjectFolder,cProjectNumber,nUmbrellaSteps,mg_mesh,nInitUmbrellaSteps,&
-   bFAC3D_CylUmbrellaWeight,dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength
+   cProjectFolder,cProjectNumber,mg_mesh,nInitUmbrellaSteps,&
+   bApplyFAC3DMeshDeformation,bFAC3D_CylUmbrellaWeight,&
+   dFAC3D_CylCenter,dFAC3D_CylRadius,dFAC3D_CylLength,myErrorCode
  USE Transport_Q2P1, ONLY : Init_FAC3D_Handlers, Init_QuadScalar,LinSc,QuadSc
  USE Parametrization, ONLY: InitParametrization,ParametrizeBndr,&
      ProlongateParametrization_STRCT,InitParametrization_STRCT,ParametrizeBndryPoints,&
@@ -105,11 +106,12 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  ! -------------- workspace -------------------
 
  INTEGER MDATA,MFILE
+ INTEGER abortError
  INTEGER ISE,ISA,ISVEL,ISEEL,ISAEL,ISVED,ISAED,ISVAR
  INTEGER ISEAR,ISEVE,ISAVE,ISVBD,ISEBD,ISABD,IDISP
  INTEGER NEL0,NEL1,NEL2
  REAL ttt0,ttt1
- INTEGER II,NDOF,iUmbrella
+ INTEGER II,NDOF
  LOGICAL BLIN
  CHARACTER CFILE*60 !CFILE1*60,
  INTEGER kSubPart,iSubPart,iPart,LenFile
@@ -147,6 +149,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CSimPar = "SimPar"
  CALL  GDATNEW (CSimPar,0)
 
+ IF (bApplyFAC3DMeshDeformation .AND. ISTART.NE.0) THEN
+   IF (myid.EQ.master) THEN
+     WRITE(*,'(A)') 'FATAL: FAC3D startup mesh deformation cannot be applied on a restart.'
+     WRITE(*,'(A)') 'Set SimPar@ApplyFAC3DMeshDeformation = No; dump coordinates are'
+     WRITE(*,'(A)') 'already processed.'
+     FLUSH(6)
+   END IF
+   CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%PARAMETER_CONFLICT,abortError)
+ END IF
+
  CFILE=CFILE1
  MFILE=MFILE1
 
@@ -173,12 +185,16 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  CALL Init_QuadScalar(mfile)
  call Init_FAC3D_Handlers()
 
- bFAC3D_CylUmbrellaWeight = .TRUE.
+ bFAC3D_CylUmbrellaWeight = bApplyFAC3DMeshDeformation
  dFAC3D_CylCenter = (/0.5d0, 0.2d0, 0.205d0/)
  dFAC3D_CylRadius = 0.05d0
  dFAC3D_CylLength = 0.4105d0
  if ((myid.eq.0).or.(myid.eq.1)) then
-   write(*,'(A)') 'FAC3D umbrella weighting: analytic cylinder distance is enabled'
+   IF (bApplyFAC3DMeshDeformation) THEN
+     WRITE(*,'(A)') 'FAC3D startup mesh deformation: enabled'
+   ELSE
+     WRITE(*,'(A)') 'FAC3D startup mesh deformation: disabled'
+   END IF
  end if
 
  IF (myid.EQ.0) THEN
@@ -352,40 +368,11 @@ DO ILEV=NLMIN,NLMAX
                                mg_mesh%level(ILEV)%nat)
    END IF
 END DO
+
+IF (bApplyFAC3DMeshDeformation) THEN
+  CALL ApplyFAC3DInitialMeshDeformation(NLMAX,nInitUmbrellaSteps,MFILE,MTERM)
+END IF
  
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-DO iUmbrella=1,nInitUmbrellaSteps
-  CALL UmbrellaSmoother_STRCT(0d0,1)
-END DO
-!!!!!!!!!!!!!!!!!!!!!!!!!!! Initial mesh smoothening !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (bFAC3D_CylUmbrellaWeight .AND. myid.NE.0) THEN
-  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: pulling nodes toward cylinder surface...'
-  DO iUmbrella=1,8
-    CALL CylinderAttraction(mg_mesh%level(NLMAX)%nvt, &
-      mg_mesh%level(NLMAX)%dcorvg, 0.2d0)
-    CALL ParametrizeBndryPoints_STRCT(mg_mesh,nlmax)
-  END DO
-  if (myid.eq.1) WRITE(*,'(A)') 'Cylinder attraction: done.'
-END IF
-!!!!!!!!!!!!!!!!!!!!! Cylinder surface attraction !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IF (bFAC3D_CylUmbrellaWeight) THEN
-  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing...'
-  DO iUmbrella=1,2
-    CALL UmbrellaSmoother_STRCT(0d0,1)
-  END DO
-  if (myid.eq.1) WRITE(*,'(A)') 'Post-attraction umbrella smoothing: done.'
-END IF
-!!!!!!!!!!!!!! Post-attraction smoothing: heal transition zone !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 IF (myid.ne.0) THEN
  
   CALL ProlongateCoordinates(mg_mesh%level(nlmax)%dcorvg,&
@@ -553,6 +540,53 @@ END IF
  RETURN
 
 END SUBROUTINE General_init_ext
+
+!-----------------------------------------------------------------------
+! Apply the optional FAC3D startup deformation in the historical order.
+! Runtime SimPar@Umbrella smoothing remains an independent setting.
+!-----------------------------------------------------------------------
+SUBROUTINE ApplyFAC3DInitialMeshDeformation(nLevel,nInitialSteps,mfile,mterm)
+  USE PP3D_MPI, ONLY: myid
+  USE var_QuadScalar, ONLY: mg_mesh
+  USE Parametrization, ONLY: ParametrizeBndryPoints_STRCT
+  IMPLICIT NONE
+
+  INTEGER, INTENT(IN) :: nLevel,nInitialSteps,mfile,mterm
+  INTEGER :: iStep
+  INTEGER, PARAMETER :: FAC3D_ATTRACTION_STEPS = 8
+  INTEGER, PARAMETER :: FAC3D_POST_SMOOTHING_STEPS = 2
+  REAL*8, PARAMETER :: FAC3D_ATTRACTION_OMEGA = 0.2d0
+
+  IF (myid.EQ.1) THEN
+    WRITE(mterm,'(A,I0,A)') 'FAC3D initial umbrella smoothing: ',nInitialSteps,' step(s)'
+    WRITE(mfile,'(A,I0,A)') 'FAC3D initial umbrella smoothing: ',nInitialSteps,' step(s)'
+  END IF
+  DO iStep=1,nInitialSteps
+    CALL UmbrellaSmoother_STRCT(0d0,1)
+  END DO
+
+  IF (myid.NE.0) THEN
+    IF (myid.EQ.1) THEN
+      WRITE(mterm,'(A,I0,A)') 'FAC3D cylinder attraction: ',FAC3D_ATTRACTION_STEPS,' step(s)'
+      WRITE(mfile,'(A,I0,A)') 'FAC3D cylinder attraction: ',FAC3D_ATTRACTION_STEPS,' step(s)'
+    END IF
+    DO iStep=1,FAC3D_ATTRACTION_STEPS
+      CALL CylinderAttraction(mg_mesh%level(nLevel)%nvt, &
+        mg_mesh%level(nLevel)%dcorvg,FAC3D_ATTRACTION_OMEGA)
+      CALL ParametrizeBndryPoints_STRCT(mg_mesh,nLevel)
+    END DO
+  END IF
+
+  IF (myid.EQ.1) THEN
+    WRITE(mterm,'(A,I0,A)') 'FAC3D post-attraction smoothing: ', &
+      FAC3D_POST_SMOOTHING_STEPS,' step(s)'
+    WRITE(mfile,'(A,I0,A)') 'FAC3D post-attraction smoothing: ', &
+      FAC3D_POST_SMOOTHING_STEPS,' step(s)'
+  END IF
+  DO iStep=1,FAC3D_POST_SMOOTHING_STEPS
+    CALL UmbrellaSmoother_STRCT(0d0,1)
+  END DO
+END SUBROUTINE ApplyFAC3DInitialMeshDeformation
  !
  !-----------------------------------------------------------------------
  !

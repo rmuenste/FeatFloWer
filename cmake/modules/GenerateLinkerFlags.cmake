@@ -8,23 +8,23 @@
 
 if(WIN32)
 set(FF_DEFAULT_LIBS
-  amd
-  umfpack4
+  ${FF_UMFPACK_LINK_LIBS}
   feat2d
   feat3d
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
+  ${FF_MKL_PARDISO_LIBS}
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   )
 else(WIN32)
 set(FF_DEFAULT_LIBS
-  amd
-  umfpack4
+  ${FF_UMFPACK_LINK_LIBS}
   feat2d
   feat3d
   ${BLAS_LIBRARIES}
   ${LAPACK_LIBRARIES}
+  ${FF_MKL_PARDISO_LIBS}
   ${LIBRT_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   stdc++fs
@@ -33,12 +33,12 @@ endif(WIN32)
 
 if(WIN32)
   set(FF_APPLICATION_LIBS
-    amd
-    umfpack4
+    ${FF_UMFPACK_LINK_LIBS}
     feat2d
     feat3d
     ${BLAS_LIBRARIES}
     ${LAPACK_LIBRARIES}
+  ${FF_MKL_PARDISO_LIBS}
     inshape3dcore
     Utility
     Math
@@ -60,12 +60,12 @@ if(WIN32)
     )
 else(WIN32)
   set(FF_APPLICATION_LIBS
-    amd
-    umfpack4
+    ${FF_UMFPACK_LINK_LIBS}
     feat2d
     feat3d
     ${BLAS_LIBRARIES}
     ${LAPACK_LIBRARIES}
+  ${FF_MKL_PARDISO_LIBS}
     stdc++
     stdc++fs
     OpenMP::OpenMP_Fortran
@@ -98,9 +98,17 @@ if(USE_PE)
 endif(USE_PE)
 
 if(USE_MUMPS)
-  set(MUMPS_LIBRARY_LIST
-    dmumps mumps_common pord ${MKL_SCALAPACK_LIBRARY} -Wl,--start-group ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_BLACS_LIBRARY} -Wl,--end-group -lpthread -lm -ldl
-    )
+  if(USE_EXTERNAL_MUMPS)
+    set(MUMPS_LIBRARY_LIST
+      ${FF_DMUMPS_LIBRARY} ${FF_MUMPS_COMMON_LIBRARY} ${FF_PORD_LIBRARY}
+      ${FF_SCALAPACK_LIBRARY} ${FF_SCOTCH_LIBRARIES} ${FF_PARMETIS_LIBRARIES}
+      ${FF_OPENBLAS_LIBRARY} gomp -lpthread -lm -ldl
+      )
+  else()
+    set(MUMPS_LIBRARY_LIST
+      dmumps mumps_common pord ${MKL_SCALAPACK_LIBRARY} -Wl,--start-group ${MKL_INTERFACE_LIBRARY} ${MKL_THREADING_LIBRARY} ${MKL_CORE_LIBRARY} ${MKL_BLACS_LIBRARY} -Wl,--end-group -lpthread -lm -ldl
+      )
+  endif()
   list(APPEND FF_DEFAULT_LIBS ${MUMPS_LIBRARY_LIST})
   list(APPEND FF_APPLICATION_LIBS ${MUMPS_LIBRARY_LIST})
 endif(USE_MUMPS)

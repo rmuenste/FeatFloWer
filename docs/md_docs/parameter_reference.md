@@ -25,7 +25,8 @@ Category@ParameterName = value
 - **Integer**: `1`, `100`, `1000000`
 - **Real (Fortran double precision)**: `1d0`, `0.01d0`, `1d-6`
 - **String**: `"filename"`, `Newtonian`, `BE`
-- **Yes/No**: `Yes`, `No` (case-sensitive)
+- **Yes/No**: `Yes`, `No` (case-insensitive; `Y`/`N` and `True`/`False` also accepted). Any
+  other value is a fatal parameter error — an unrecognised value is never silently read as `No`.
 - **Array**: `0d0,0d0,-9.81d0` (comma-separated, no spaces)
 
 ---
@@ -77,8 +78,9 @@ Category@ParameterName = value
 | skipFBMForce | Yes/No | - | Skip FBM force computation (for testing/debugging) | `No` |
 | skipFBMDynamics | Yes/No | - | Skip FBM dynamics update (for testing/debugging) | `No` |
 | **Mesh Processing** |
+| ApplyFAC3DMeshDeformation | Yes/No | - | Apply FAC3D startup smoothing and cylinder attraction; defaults to `No` | `No` |
 | Umbrella | integer | - | Umbrella smoothing steps in `InitCond_QuadScalar()` (set to 0, see §Umbrella Mesh Smoothing) | `0` |
-| InitUmbrella | integer | - | Umbrella smoothing steps in `General_init_ext()` (set to 0 on restart, see §Umbrella Mesh Smoothing) | `20` |
+| InitUmbrella | integer | - | Initial smoothing steps; in FAC3D these require `ApplyFAC3DMeshDeformation = Yes` | `20` |
 | UmbrellaStepM | integer | - | Main umbrella smoothing steps | - |
 | UmbrellaStepL | integer | - | Umbrella steps per level | - |
 | LoadAdaptedMesh | string | - | Path to pre-adapted mesh file | `"_dump/msh"` |
@@ -387,12 +389,32 @@ Format: `M#D#K#S#C#` where each number controls renewal frequency:
 
 **⚠️ CRITICAL**: These two parameters control mesh smoothing at different stages of execution. Understanding when each is applied is essential for correct restart behavior.
 
+#### FAC3D startup deformation switch
+
+`SimPar@ApplyFAC3DMeshDeformation` controls the FAC3D-specific startup pipeline.
+It defaults to `No`, which preserves the undeformed FAC3D benchmark introduced in
+PR 22. Set it to `Yes` on a fresh start to apply, in order:
+
+1. `InitUmbrella` initial smoothing steps.
+2. Eight cylinder-surface attraction steps.
+3. Two post-attraction smoothing steps.
+
+The option takes the usual case-insensitive `Yes`/`No` values. Enabling it with
+`StartingProc = 1`, `2`, or `3` is rejected because restart dumps already contain
+processed P1 coordinates. Deformed and undeformed FAC3D results are not directly
+comparable.
+
+`SimPar@Umbrella` remains independent and may deform the mesh during later FAC3D
+initialization and time stepping. Set both `ApplyFAC3DMeshDeformation = No` and
+`Umbrella = 0` when no optional mesh smoothing should run.
+
 #### Execution Stages
 
 **Fresh Start (StartingProc=0)**:
 1. **`General_init_ext()`** (mesh initialization):
    - Applies mesh parametrization (projects nodes to boundary surfaces)
-   - Applies umbrella smoothing: **`SimPar@InitUmbrella`** steps
+   - Applies umbrella smoothing: **`SimPar@InitUmbrella`** steps (for FAC3D only
+     when `ApplyFAC3DMeshDeformation = Yes`)
    - Generates Q2 mesh nodes (edges, faces, element centers) from P1 vertices
    - Writes `initial_mesh.pvtu` (if debug output enabled)
 
@@ -750,7 +772,8 @@ Prop@Viscosity = 1d-6,1d0
 ## Notes and Conventions
 
 1. **Fortran double precision**: Always use `d0` notation (e.g., `1d-6`, not `1e-6`)
-2. **Case sensitivity**: Parameter names are case-insensitive, but values like `Yes/No` are case-sensitive
+2. **Case sensitivity**: Parameter names are case-insensitive, and so are `Yes/No` values. Other
+   string values (e.g. `BE`, `Newtonian`) are still matched case-sensitively
 3. **Comments**: Use `!` for comments in parameter files
 4. **Arrays**: No spaces in comma-separated arrays (e.g., `1d0,2d0,3d0`)
 5. **String values**: Quotes are optional for strings without spaces

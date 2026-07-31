@@ -7,7 +7,7 @@ MODULE param_parser
 !
 ! Centralized parameter parsing: GDATNEW, GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 !-------------------------------------------------------------------------------------------------
-USE PP3D_MPI, ONLY: myid, showID, master
+USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD
 USE iniparser
 USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
@@ -21,7 +21,8 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning
+  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
+USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -75,6 +76,7 @@ PRIVATE
 PUBLIC :: GDATNEW
 PUBLIC :: GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 PUBLIC :: write_param_real, write_param_int
+PUBLIC :: ValidateSolverTypes
 
 CONTAINS
 
@@ -125,6 +127,10 @@ SUBROUTINE GetVeloParameters(myParam, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  ! The unit number is reused across all Get*Parameters calls; force the read
+  ! position even if the unit was already connected (a stale connection left
+  ! the position at EOF in the 2026-07 split-runtime incident).
+  REWIND(myFile)
 
   ! Initialize default values
   myParam%MGprmIn%RLX = 0.66d0
@@ -132,7 +138,10 @@ SUBROUTINE GetVeloParameters(myParam, cName, mfile)
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetVeloParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -275,13 +284,21 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  REWIND(myFile)
 
   ! Initialize default values
   myParam%MGprmIn%RLX = 0.66d0
+  ! Mirror the Velo@ default. Without it a q2p1_param.dat that omits
+  ! Pres@MGCrsSolverType left the field at its static-storage value 0, which
+  ! matches no branch of mgCoarseGridSolver_P (silent no-op coarse solve).
+  myParam%MGprmIn%CrsSolverType = 1
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetPresParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -357,6 +374,183 @@ SUBROUTINE GetPresParameters(myParam, cName, mfile)
 END SUBROUTINE GetPresParameters
 
 !-------------------------------------------------------------------------------------------------
+! Early validation of requested coarse/fine solver types, their compiled solver
+! libraries, and solver-specific level constraints.
+!
+! Called on ALL ranks from Init_QuadScalar, i.e. directly after Velo@ and Pres@
+! have been read from q2p1_param.dat.  That is long before the first solve, the
+! coarse matrix factorization, and - importantly - before the type 7/8/10
+! multigrid hierarchy reconfiguration in Init_QuadScalar_Structures*, so a
+! doomed run never reshapes the master level hierarchy.
+!
+! Solver types that are actually dispatched (see QuadSc_mg.f90 and
+! QuadSc_def.f90):
+!   Pres@MGCrsSolverType : 1,2,3,4,5,7,8,9,10   mgCoarseGridSolver_P, plus
+!                          type 10 = Hypre on the finest level in
+!                          Solve_General_LinScalar
+!   Velo@MGCrsSolverType : 1,2,5                mgCoarseGridSolver_U
+! Anything else used to be a silent no-op (no coarse correction at all).
+!
+! Library requirements:
+!   5      -> MUMPS       (MUMPS_AVAIL,       CMake -DUSE_MUMPS=ON)
+!   7,8,10 -> Hypre       (HYPRE_AVAIL,       CMake -DUSE_HYPRE=ON)
+!   9      -> MKL PARDISO (MKL_PARDISO_AVAIL, CMake -DUSE_MKL_PARDISO=ON)
+!
+! Every rank evaluates the identical check on identical values, the master
+! rank prints the reason (and the showID rank mirrors it into the protocol
+! file), then every rank calls MPI_Abort.  No barrier is used: MPI_Abort from
+! any rank tears down the job, the printing rank only has to flush first.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile)
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile
+
+  INTEGER, PARAMETER :: MAX_MSG = 6
+  CHARACTER(len=120) :: cMsg(MAX_MSG)
+  INTEGER :: nMsg, i, ierr
+
+  nMsg = 0
+  cMsg = ' '
+
+  CALL CheckOneSolverType("Velo", iVeloType, .FALSE., cMsg, nMsg)
+  CALL CheckOneSolverType("Pres", iPresType, .TRUE. , cMsg, nMsg)
+
+  IF (iPresType == 9 .AND. iPresMinLev /= iPresMedLev) THEN
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  PARDISO requires Pres@MGMinLev = Pres@MGMedLev.'
+  END IF
+
+  IF (nMsg == 0) RETURN
+
+  IF (myid == master) THEN
+    WRITE(*,'(A)') REPEAT('=',78)
+    WRITE(*,'(A)') ' FATAL: invalid solver type requested in '//TRIM(ADJUSTL(myDataFile))
+    DO i = 1, nMsg
+      WRITE(*,'(A)') TRIM(cMsg(i))
+    END DO
+    WRITE(*,'(A)') REPEAT('=',78)
+    FLUSH(6)
+  END IF
+
+  IF (myid == showid) THEN
+    WRITE(mfile,'(A)') REPEAT('=',78)
+    WRITE(mfile,'(A)') ' FATAL: invalid solver type requested in '//TRIM(ADJUSTL(myDataFile))
+    DO i = 1, nMsg
+      WRITE(mfile,'(A)') TRIM(cMsg(i))
+    END DO
+    WRITE(mfile,'(A)') REPEAT('=',78)
+    FLUSH(mfile)
+  END IF
+
+  CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%SOLVER_TYPE_INVALID, ierr)
+
+END SUBROUTINE ValidateSolverTypes
+
+!-------------------------------------------------------------------------------------------------
+! Helper for ValidateSolverTypes: check the solver type of one component and
+! append the explanatory lines to cMsg if it is unknown or unavailable.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE CheckOneSolverType(cComponent, iType, bIsPressure, cMsg, nMsg)
+  IMPLICIT NONE
+  CHARACTER(len=*), INTENT(IN) :: cComponent
+  INTEGER, INTENT(IN) :: iType
+  LOGICAL, INTENT(IN) :: bIsPressure
+  CHARACTER(len=*), INTENT(INOUT) :: cMsg(:)
+  INTEGER, INTENT(INOUT) :: nMsg
+
+  LOGICAL :: bKnown, bAvail
+  CHARACTER(len=16) :: cLib
+  CHARACTER(len=24) :: cOption
+
+  ! ---- is this type dispatched at all for this component? ----
+  IF (bIsPressure) THEN
+    bKnown = (iType >= 1 .AND. iType <= 5) .OR. (iType >= 7 .AND. iType <= 10)
+  ELSE
+    bKnown = (iType == 1 .OR. iType == 2 .OR. iType == 5)
+  END IF
+
+  IF (.NOT. bKnown) THEN
+    nMsg = nMsg + 1
+    WRITE(cMsg(nMsg),'(A,I0,A)') '  '//TRIM(cComponent)//'@MGCrsSolverType = ', iType, &
+      ' is not a supported solver type.'
+    nMsg = nMsg + 1
+    IF (bIsPressure) THEN
+      cMsg(nMsg) = '  Valid Pres@MGCrsSolverType values are 1,2,3,4,5,7,8,9,10.'
+    ELSE
+      cMsg(nMsg) = '  Valid Velo@MGCrsSolverType values are 1,2,5.'
+    END IF
+    RETURN
+  END IF
+
+  ! ---- is the library backing this type compiled in? ----
+  bAvail = .TRUE.
+  cLib    = ' '
+  cOption = ' '
+
+  IF (iType == 5) THEN
+    cLib    = 'MUMPS'
+    cOption = '-DUSE_MUMPS=ON'
+#ifndef MUMPS_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (iType == 7 .OR. iType == 8 .OR. iType == 10) THEN
+    cLib    = 'Hypre'
+    cOption = '-DUSE_HYPRE=ON'
+#ifndef HYPRE_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (iType == 9) THEN
+    cLib    = 'MKL PARDISO'
+    cOption = '-DUSE_MKL_PARDISO=ON'
+#ifndef MKL_PARDISO_AVAIL
+    bAvail = .FALSE.
+#endif
+  END IF
+
+  IF (.NOT. bAvail) THEN
+    nMsg = nMsg + 1
+    WRITE(cMsg(nMsg),'(A,I0,A)') '  '//TRIM(cComponent)//'@MGCrsSolverType = ', iType, &
+      ' requires '//TRIM(cLib)//', which is not compiled into this binary.'
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  Rebuild FeatFloWer with '//TRIM(cOption)// &
+      ' or select a different solver type.'
+  END IF
+
+END SUBROUTINE CheckOneSolverType
+
+!-------------------------------------------------------------------------------------------------
+! Guard for the parameter-file READ loops.  End of file (iEnd < 0) is the
+! normal loop termination; a positive iostat is a real read error and must
+! abort.  The loops used to exit only on iEnd == -1, so a unit stuck at EOF
+! (returning e.g. iostat 5001 on every READ) spun forever at 100% CPU on all
+! ranks with no output.  A read error can be rank-local (filesystem hiccup,
+! runtime mismatch), so every rank that hits one prints and aborts the job.
+!-------------------------------------------------------------------------------------------------
+SUBROUTINE CheckParamReadError(iEnd, cRoutine)
+  USE PP3D_MPI, ONLY: MPI_COMM_WORLD
+  IMPLICIT NONE
+  INTEGER, INTENT(IN) :: iEnd
+  CHARACTER(len=*), INTENT(IN) :: cRoutine
+  INTEGER :: ierr
+
+  IF (iEnd <= 0) RETURN
+
+  WRITE(*,'(A)') REPEAT('=',78)
+  WRITE(*,'(A,I0,A,I0,A)') ' FATAL: READ error (iostat = ', iEnd, ', rank ', myid, &
+    ') while parsing '//TRIM(ADJUSTL(myDataFile))//' in '//TRIM(cRoutine)//'.'
+  WRITE(*,'(A)') ' The parameter file could not be read to the end; aborting.'
+  WRITE(*,'(A)') REPEAT('=',78)
+  FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, ierr)
+
+END SUBROUTINE CheckParamReadError
+
+!-------------------------------------------------------------------------------------------------
 ! Parse physical properties (Prop@ section)
 ! Note: Function name has typo "Physicla" instead of "Physical" - preserved for compatibility
 !-------------------------------------------------------------------------------------------------
@@ -384,13 +578,17 @@ SUBROUTINE GetPhysiclaParameters(Props, cName, mfile)
     WRITE(*,*) "Could not open data file: ", myDataFile
     STOP
   END IF
+  REWIND(myFile)
 
   IF (myid == showid) WRITE(mfile, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
   IF (myid == showid) WRITE(mterm, '(47("-"),A10,47("-"))') TRIM(ADJUSTL(cName))
 
   DO
     READ (UNIT=myFile, FMT='(A100)', IOSTAT=iEnd) string
-    IF (iEnd == -1) EXIT
+    IF (iEnd /= 0) THEN
+      CALL CheckParamReadError(iEnd, 'GetPhysiclaParameters')
+      EXIT
+    END IF
     CALL StrStuct(string, iAt, iEq, bOK)
 
     IF (bOK) THEN
@@ -612,11 +810,15 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       stop 1
     end if
   end if
+  REWIND(myFile)
 
   bOutNMAX = .false.
   DO
   READ (UNIT=myFile,FMT='(A500)',IOSTAT=iEnd) string
-  IF (iEnd == -1) EXIT
+  IF (iEnd /= 0) THEN
+    CALL CheckParamReadError(iEnd, 'GDATNEW')
+    EXIT
+  END IF
   CALL StrStuct()
   IF (bOK) THEN
 
@@ -651,6 +853,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         READ(string(iEq+1:),*) nUmbrellaSteps
       CASE ("InitUmbrella")
         READ(string(iEq+1:),*) nInitUmbrellaSteps
+      CASE ("ApplyFAC3DMeshDeformation")
+        bApplyFAC3DMeshDeformation = read_yes_no_param(string, iEq)
       CASE ("UmbrellaStepM")
         READ(string(iEq+1:),*) nMainUmbrellaSteps
       CASE ("UmbrellaStepL")
@@ -1226,19 +1430,61 @@ CONTAINS
   END FUNCTION normalize_partition_format
 
   !-----------------------------------------------------------------------
-  ! Helper function to parse Yes/No string to logical value
+  ! Helper function to parse a Yes/No parameter value.
+  !
+  ! The value is case-folded before comparison, so YeS, yEs and YES all mean
+  ! the same thing.  A value that matches neither Yes nor No aborts.
+  !
+  ! This used to compare against the literal string "Yes" and start from
+  ! .FALSE., so "No" and "dontknow" reached .FALSE. through the very same
+  ! path: the parser could not tell "the user said no" from "I did not
+  ! understand the user".  A mis-capitalised switch therefore turned itself
+  ! off without a word -- SimPar@UseConstantForcing = YES in q2p1_dns_drag
+  ! and q2p1_el_frozen_trace had been running with constant forcing OFF.
+  !
+  ! cName and cPar come from the host scope, so the message can name the
+  ! offending key without every call site having to pass it.
   !-----------------------------------------------------------------------
   FUNCTION read_yes_no_param(input_string, iEq_pos) RESULT(bool_value)
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN) :: input_string
     INTEGER, INTENT(IN) :: iEq_pos
     LOGICAL :: bool_value
-    CHARACTER(len=8) :: cParam_local
+    CHARACTER(len=8) :: cRaw, cUpper
+    INTEGER :: iPos, iChar, iAbortErr
 
-    cParam_local = " "
-    READ(input_string(iEq_pos+1:),*) cParam_local
-    bool_value = .false.
-    IF (TRIM(ADJUSTL(cParam_local)) == "Yes") bool_value = .true.
+    cRaw = " "
+    READ(input_string(iEq_pos+1:),*) cRaw
+    cRaw = ADJUSTL(cRaw)
+
+    cUpper = cRaw
+    DO iPos = 1, LEN_TRIM(cUpper)
+      iChar = IACHAR(cUpper(iPos:iPos))
+      IF (iChar >= IACHAR('a') .AND. iChar <= IACHAR('z')) THEN
+        cUpper(iPos:iPos) = ACHAR(iChar - (IACHAR('a') - IACHAR('A')))
+      END IF
+    END DO
+
+    SELECT CASE (TRIM(cUpper))
+    CASE ("YES", "Y", "TRUE")
+      bool_value = .true.
+    CASE ("NO", "N", "FALSE")
+      bool_value = .false.
+    CASE DEFAULT
+      bool_value = .false.
+      IF (myid == master) THEN
+        WRITE(*,'(A)') REPEAT('=',78)
+        WRITE(*,'(A)') ' FATAL: invalid Yes/No value in '//TRIM(ADJUSTL(myDataFile))
+        WRITE(*,'(A)') '  '//TRIM(ADJUSTL(cName))//'@'//TRIM(ADJUSTL(cPar))// &
+          ' = '//TRIM(cRaw)
+        WRITE(*,'(A)') '  Expected Yes or No (any capitalisation).'
+        WRITE(*,'(A)') REPEAT('=',78)
+        FLUSH(6)
+      END IF
+      ! MPI_Abort, not STOP: only the master prints, and a rank-local STOP
+      ! would leave every other rank blocked in the next collective.
+      CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
+    END SELECT
   END FUNCTION read_yes_no_param
 
 END SUBROUTINE GDATNEW

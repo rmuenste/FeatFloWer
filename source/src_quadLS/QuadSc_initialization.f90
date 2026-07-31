@@ -21,7 +21,7 @@ integer :: idx
 
  bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
-  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.10) THEN
    NLMAX = NLMIN
    bMasterTurnedON = .FALSE.
   END IF
@@ -706,7 +706,7 @@ Real*8 :: dabl
 
  bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
-  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.10) THEN
    NLMAX = NLMIN
    bMasterTurnedON = .FALSE.
   END IF
@@ -956,7 +956,7 @@ Real*8 :: dabl
 
  bMasterTurnedON = .TRUE.
  IF (myid.eq.0) then
-  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8) THEN
+  IF (LinSc%prm%MGprmIn%CrsSolverType.EQ.7.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.8.or.LinSc%prm%MGprmIn%CrsSolverType.EQ.10) THEN
    NLMAX = NLMIN
    bMasterTurnedON = .FALSE.
   END IF
