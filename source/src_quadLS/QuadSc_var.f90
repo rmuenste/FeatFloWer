@@ -110,6 +110,7 @@ MODULE var_QuadScalar
   LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
   LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
+  LOGICAL :: bPrintParticleState = .FALSE. ! Print DNS_PART_STATE/DNS_PART_FORCE lines each step (SimPar@PrintParticleState = Yes)
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.

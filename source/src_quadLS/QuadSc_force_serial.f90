@@ -332,22 +332,22 @@ IF (myid /= 0) THEN
   end do ! elements
 
   !========================================================================
-  ! Post-processing: benchmark-specific modifications
+  ! Post-processing
   !========================================================================
-#ifdef SED_BENCH
-  DResForceX = 0.0
-  DResForceY = 0.0
-  DResForceZ = 4.0 * DResForceZ
-  DTrqForceX = 0.0
-  DTrqForceY = 0.0
-  DTrqForceZ = 0.0
-#else
 #ifdef ENABLE_LUBRICATION
   if (resi > 0) then
     DResForceX = DResForceX + AlphaRelax * sliX
   end if
 #endif
-#endif
+  ! Runtime force/torque scaling (Prop@ForceScale); symmetry decks such as the
+  ! quarter-box ten Cate case use 0,0,4,0,0,0. Replaces the compile-time
+  ! -DSED_BENCH hack (identical arithmetic for that deck).
+  DResForceX = factors(1)*DResForceX
+  DResForceY = factors(2)*DResForceY
+  DResForceZ = factors(3)*DResForceZ
+  DTrqForceX = factors(4)*DTrqForceX
+  DTrqForceY = factors(5)*DTrqForceY
+  DTrqForceZ = factors(6)*DTrqForceZ
 
   ! Pack into forceArray
   iPointer = 6*(IP-1)
@@ -778,20 +778,18 @@ IF (myid /= 0) THEN
   !========================================================================
   ! Post-processing
   !========================================================================
-#ifdef SED_BENCH
-  DResForceX = 0.0
-  DResForceY = 0.0
-  DResForceZ = 4.0 * DResForceZ
-  DTrqForceX = 0.0
-  DTrqForceY = 0.0
-  DTrqForceZ = 0.0
-#else
 #ifdef ENABLE_LUBRICATION
   if (resi > 0) then
     DResForceX = DResForceX + AlphaRelax * sliX
   end if
 #endif
-#endif
+  ! Runtime force/torque scaling (Prop@ForceScale) — see the Standard variant.
+  DResForceX = factors(1)*DResForceX
+  DResForceY = factors(2)*DResForceY
+  DResForceZ = factors(3)*DResForceZ
+  DTrqForceX = factors(4)*DTrqForceX
+  DTrqForceY = factors(5)*DTrqForceY
+  DTrqForceZ = factors(6)*DTrqForceZ
 
   ! Pack into forceArray
   iPointer = 6*(IP-1)
@@ -841,7 +839,7 @@ SUBROUTINE ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA
                                 DCORVG,ELE, maxLocal)
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN,COMM_Maximumn
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
-USE var_QuadScalar, ONLY : AlphaRelax
+USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState
 USE var_QuadScalar, ONLY : ParticleVertexCache, bUseKVEL_Accel, myKVEL_Stats, mg_mesh
 use cinterface
 use dem_query
@@ -869,6 +867,9 @@ real*8 :: dbuf1(2)
 real*8 :: theNorm
 integer :: iPointer
 character(len=*), parameter :: fmt_sed = '(A,1X,A,ES14.6,1X,A,I6,1X,3ES14.6)'
+! Unified per-particle diagnostic lines (mode-independent parse targets)
+character(len=*), parameter :: fmt_state = '(A,1X,A,ES16.8,1X,A,I6,1X,9ES16.8)'
+character(len=*), parameter :: fmt_force = '(A,1X,A,ES16.8,1X,A,I6,1X,6ES16.8)'
 real*8 :: time_out
 integer, parameter :: force_log_unit = 779
 
@@ -923,9 +924,6 @@ allocate(theParticles(numParticles))
 
 IF (myid /= 0) THEN
   call getAllParticles(theParticles)
-#ifdef SED_BENCH
-  if(myid == 1) write(*,*) 'Force with SED BENCH settings!'
-#endif
 END IF
 
 !========================================================================
@@ -1117,8 +1115,11 @@ if (myid /= 0) then
     call setForcesMapped(theParticles(ip))
   END DO
 
-#ifdef SED_BENCH
-  if (myid == 1) then
+  ! Runtime-gated trajectory output (SimPar@PrintParticleState = Yes); replaces
+  ! the compile-time SED_BENCH gate. The SED_BENCH_* tags are kept verbatim for
+  ! existing baseline parsers; DNS_PART_* are the unified campaign tags emitted
+  ! identically in serial and parallel PE mode.
+  if (bPrintParticleState .and. myid == 1) then
     time_out = timens
     DO IP = 1, numParticles
       write(*,fmt_sed) 'SED_BENCH_FORCE', 'time=', time_out, 'ip=', IP, &
@@ -1127,9 +1128,12 @@ if (myid /= 0) then
         theParticles(IP)%position(:)
       write(*,fmt_sed) 'SED_BENCH_VEL  ', 'time=', time_out, 'ip=', IP, &
         theParticles(IP)%velocity(:)
+      write(*,fmt_state) 'DNS_PART_STATE', 'time=', time_out, 'id=', IP, &
+        theParticles(IP)%position(:), theParticles(IP)%velocity(:), theParticles(IP)%angvel(:)
+      write(*,fmt_force) 'DNS_PART_FORCE', 'time=', time_out, 'id=', IP, &
+        theParticles(IP)%force(:), theParticles(IP)%torque(:)
     END DO
   end if
-#endif
 !  if (myid == 1) then
 !    time_out = dble(itns - 1) * tstep
 !    DO IP = 1, numParticles

@@ -21,7 +21,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
+  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -1028,6 +1028,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintParticleCFL = read_yes_no_param(string, iEq)
       CASE ("PrintParticleReynolds")
         bPrintParticleReynolds = read_yes_no_param(string, iEq)
+      CASE ("PrintParticleState")
+        bPrintParticleState = read_yes_no_param(string, iEq)
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")
@@ -1293,6 +1295,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "OFF")
+    END IF
+
+    IF (bPrintParticleState) THEN
+      CALL write_param_str(mfile, mterm, "PrintParticleState is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "PrintParticleState is ", "OFF")
     END IF
 
     IF (bBinaryVtkOutput) THEN
