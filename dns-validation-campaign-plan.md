@@ -156,12 +156,16 @@ are, and put the existing single-sphere claim on defensible footing.
   campaign); stop staging the shared scratch copy.
 
 ### D0.4 ten Cate truth chain (recertification)
-- Digitize the ten Cate PIV trajectories for E1–E4 from `ten_cate_piv.pdf`
-  (repo root) into committed CSVs (`tc-ref/case_E*_v.csv`) — this repairs
-  the dangling references in
-  `pipemesh_v1/handoff_euler_lagrange_drag_validation_ten_cate.md` and
-  gives the campaign an in-repo physics reference (the paper's u_∞ values
-  are unbounded-fluid; the confined box settles at ≈0.955·u_∞).
+- ~~Digitize the ten Cate PIV trajectories~~ **DONE 2026-07-31**: digitized
+  E1–E4 curves provided by the user and committed as `tc-ref/`
+  (`case_E*_h.csv` = t vs gap h/d; `ref_E*.dat` = t vs v_z [m/s]; format
+  and sanity checks in `tc-ref/README.md`). This repairs the dangling
+  references in
+  `pipemesh_v1/handoff_euler_lagrange_drag_validation_ten_cate.md`.
+  Sharpened gate: the confined-PIV E4 peak is −0.1230 m/s, so the
+  documented serial DNS −0.1329 is **+8.1% vs PIV** (not +3.8% vs the
+  unbounded u_∞ = 0.128) — the honest baseline the D1 resolution matrix
+  must explain or close.
 - Commit the mesh fixtures this campaign owns (`git add -f`):
   `benchSym/` quarter-box + `benchSym/mesh12/NEWFAC` (1×1×12 Cartesian),
   and the full-box `ten_cate_mesh_v1/` (already mirrored in the EL v1b
