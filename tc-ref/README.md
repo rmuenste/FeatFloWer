@@ -30,17 +30,25 @@ from the paper's figures).
 Sphere: d = 15 mm, ρ_p = 1120 kg/m³, release z = 0.1275 m; box
 100×100×160 mm.
 
-## Peak settling velocities in these curves (sanity-checked 2026-07-31)
+## Peak settling velocities: digitized curves vs the paper's printed ratios
 
-| Case | v_min [m/s] | \|v_min\|/u_∞ |
-|---|---|---|
-| E1 | −0.0372 | 0.979 |
-| E2 | −0.0594 | 0.989 |
-| E3 | −0.0866 | 0.952 |
-| E4 | −0.1230 | 0.961 |
+The paper's Table II (p. 4018) ends with the **experimentally obtained**
+u_max/u_∞ ratios — printed numbers, more authoritative than any
+digitization. Audit (2026-08-01):
 
-Consistent with the confined-box ratio ≈ 0.955 quoted in the EL-campaign
-notes. **Gate note:** DNS comparisons must target these confined-PIV
-curves, not the unbounded u_∞ — e.g. the documented serial E4 result
-−0.1329 m/s is +3.8% vs u_∞ = 0.128 but **+8.1% vs the PIV peak
-−0.1230**, which is the honest baseline for the D1 resolution study.
+| Case | Table II u_max/u_∞ | → v_peak [m/s] | digitized-curve v_min | digitized ratio | curve error |
+|---|---|---|---|---|---|
+| E1 | 0.947 | −0.03599 | −0.0372 | 0.979 | **+3.4%** |
+| E2 | 0.953 | −0.05718 | −0.0594 | 0.990 | **+3.9%** |
+| E3 | 0.959 | −0.08727 | −0.0866 | 0.952 | −0.7% |
+| E4 | 0.955 | −0.12224 | −0.1230 | 0.961 | +0.6% |
+
+The digitized E3/E4 peaks are consistent with print (≲0.7%), but the
+digitized **E1/E2 peaks are ~3.5–4% too fast** — also unphysical in
+trend (wall retardation should strengthen, not weaken, as Re drops).
+
+**Gate note:** peak-velocity gates use the Table II printed values above
+as primary reference; the digitized curves remain the reference for
+*shape* (v(t), h/d trajectories, timing) with the E1/E2 amplitude caveat.
+Never gate against unbounded u_∞ — e.g. the documented serial E4 result
+−0.1329 m/s is +3.8% vs u_∞ = 0.128 but +8.7% vs Table II's −0.12224.
