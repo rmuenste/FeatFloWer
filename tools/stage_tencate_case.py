@@ -90,7 +90,7 @@ def main():
         (r'^SimPar@MaxMeshLevel = .*$',
          'SimPar@MaxMeshLevel = %d' % a.level, 1),
         (r'^SimPar@TimeStep = .*$',
-         'SimPar@TimeStep = %.4fd0' % a.dt, 1),
+         'SimPar@TimeStep = %sd0' % ('%.8g' % a.dt), 1),
         (r'^SimPar@MaxNumStep = .*$',
          'SimPar@MaxNumStep = %d' % steps, 1),
         (r'^Prop@Density = .*$',
