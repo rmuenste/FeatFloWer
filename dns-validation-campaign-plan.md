@@ -306,6 +306,15 @@ analogue of the EL campaign's lubrication arc, and the direct bridge to it.
   campaign left open (ε_c sensitivity).
 - Re-enable/gate the `set_lubrication_threshold_from_mesh` path per this
   rule.
+- **Legacy code note (do not reuse):** the `#ifdef ENABLE_LUBRICATION`
+  blocks (`sliding_wall_force`, `total_lubrication`) in
+  `QuadSc_force_serial.f90`/`QuadSc_main.f90` are leftovers of a
+  pre-campaign Kroupa-box effective-viscosity study (rough preliminary
+  wall-sliding forces feeding the total-stress → effective-viscosity
+  path; results matched Krieger–Dougherty, but the implementation is
+  explicitly not to be revived). Any D2 near-contact treatment starts
+  clean from the Brenner/Cooley–O'Neill gates. HCAF itself has no
+  lubrication (API stubs return 0/no-op).
 
 ### D2.2 Sphere–sphere approach
 - Same protocol, two spheres, head-on and shear (tangential) motion, vs
