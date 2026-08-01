@@ -73,6 +73,35 @@ accuracy ceiling and a **stability floor** in dt at fixed mesh:
   — plateau jitter should be ~10⁻⁵ m/s; the unstable run shows O(1)
   swings. A runtime sawtooth warning is a planned D0 hardening.
 
+## 3b. Quantified error budget (D1.3 ladder fit)
+
+`tools/tencate_error_decomposition.py` fits err(L, dt) = S(L) + c·dt^p
+to the measured peak errors (vs Table II printed peaks). The additive
+model holds to 0.06 pp on the 5-point E4 set. Ranges below span the
+p = 1 ↔ p = 2 temporal-order assumption (order not yet pinned):
+
+| | T(1 ms) [pp] | S(L2) | S(L3) | S(L4) | Richardson ratio h→0 | ten Cate LBM |
+|---|---|---|---|---|---|---|
+| E4 (Re 31.9) | −0.8…−1.2 | +5.2…+5.6 | +1.5…+1.9 | −0.3…−0.7 | 0.930…0.945 | 0.947 |
+| E1 (Re 1.5) | −0.6…−0.8 | — | −2.4…−2.6 | −4.4…−4.7 | 0.886…0.899 | 0.894 |
+
+Readings:
+
+- The temporal term always *slows* the particle; halving dt removes
+  half (p=1) to three-quarters (p=2) of it.
+- E4's spatial error decays L2→L3→L4 with apparent order ~1.5 and is
+  effectively converged at L4; the h→0 extrapolation (O(h²) reading
+  0.945) agrees with ten Cate's LBM (0.947).
+- **E1's h→0 extrapolation (0.886–0.899) brackets ten Cate's converged
+  LBM (0.894)** — independent confirmation that the ~−5% vs the
+  experiment is a sim-vs-experiment gap, not discretization error.
+- Practical budget at the workhorse config (L3, dt = 1 ms): at Re ≈ 30
+  the +1.7 pp spatial and −1 pp temporal partially cancel (hence the
+  deceptively good raw number); at Re ≈ 1.5 both are negative and add.
+- Caveats: temporal order unpinned (stability floor blocks the third dt
+  point); E1 fit has no redundancy (3 points, 3 unknowns); L2 is
+  pre-asymptotic.
+
 ## 4. Reference discipline (ten Cate specifics)
 
 - Peak gates use the **printed Table II ratios** (u_max/u_∞ = 0.947 /
