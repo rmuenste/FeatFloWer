@@ -60,9 +60,13 @@ accuracy ceiling and a **stability floor** in dt at fixed mesh:
   growing oscillatory coupling mode from t ≈ 0.025 s, |v| reaching
   ±4 m/s, while the run "successfully finishes". Signature and regime
   (ρ_p/ρ_f = 1.17) match the added-mass instability of loosely-coupled
-  partitioned FSI (Causin–Gerbeau–Nobile 2005: decreasing dt *aggravates*
-  it). Floor at L3 lies in (0.25, 0.5] ms; level/density-ratio dependence
-  unmeasured.
+  partitioned FSI (Causin–Gerbeau–Nobile 2005 [in repo]: decreasing dt
+  *aggravates* it). The floor is **mesh-independent** within L2–L3
+  (dt = 0.25 ms unstable at both D/h = 11.4 and 23.9; dt ≥ 0.5 ms stable
+  at every level tested): an absolute threshold in (0.25, 0.5] ms for
+  ρ_p/ρ_f = 1.17, density-ratio-governed rather than CFL-like.
+  Density-ratio dependence unmeasured — expect the floor to RISE as the
+  ratio approaches 1.
 - **Recommendation**: dt = 1.0 ms at D/h ≈ 24; dt = 0.5–1.0 ms at
   D/h ≈ 49 (sub-1% peaks at Re ≈ 32 with dt = 0.5 ms). Never reduce dt
   "for safety" without checking the trajectory for step-to-step sawtooth
@@ -93,10 +97,10 @@ accuracy ceiling and a **stability floor** in dt at fixed mesh:
 ## 6. Open items feeding v1
 
 - Pin the temporal order with a non-dyadic ladder inside the stable band
-  (e.g. dt = 0.7 ms), or map the stability floor vs level first.
-- Stability-floor dependence on mesh level and density ratio (the ATC/D6
-  regime is ~5% solids at similar density ratios — the floor matters
-  there).
+  (e.g. dt = 0.7 ms).
+- Stability-floor dependence on density ratio (level dependence measured:
+  none within L2–L3). The ATC/D6 regime is ~5% solids at similar density
+  ratios — the floor matters there.
 - E2/E3 level ladder points (only L3 run so far).
 - Grid-crossing noise characterization (D1.2) and fixed-sphere array
   drag convergence order (D1.1).
