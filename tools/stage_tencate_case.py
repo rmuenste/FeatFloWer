@@ -57,6 +57,8 @@ def main():
     ap.add_argument('--np', type=int, default=32)
     ap.add_argument('--partition', default='short')
     ap.add_argument('--walltime', default='02:00:00')
+    ap.add_argument('--mem', default='25G',
+                    help='sbatch --mem; L4 needs 60G')
     ap.add_argument('--binary', default='build-dns-pe-serial/applications/'
                     'q2p1_bench_sedimentation/q2p1_bench_sedimentation')
     a = ap.parse_args()
@@ -112,14 +114,14 @@ def main():
 #SBATCH --nodes=1
 #SBATCH --ntasks=%d
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=25G
+#SBATCH --mem=%s
 #SBATCH --prefer=nx
 #SBATCH --time=%s
 #SBATCH --output=%s/slurm-%%j.out
 module load gcc/latest-v13 openmpi/options/interface/ethernet openmpi/4.1.6
 cd %s
 mpirun -np %d %s > run_slurm.log 2>&1
-''' % (tag, a.partition, a.np, a.walltime, dest_abs, dest_abs,
+''' % (tag, a.partition, a.np, a.mem, a.walltime, dest_abs, dest_abs,
        a.np, os.path.join(root, a.binary)))
 
     print('staged %s: rho_f=%g mu=%g level=%d dt=%g steps=%d (t_end=%g s)'
