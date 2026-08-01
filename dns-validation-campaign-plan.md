@@ -727,6 +727,13 @@ against the title pages and confirmed.
 - N. Mordant, J.-F. Pinton, "Velocity measurement of a settling sphere",
   *Eur. Phys. J. B* 18 (2000) 343–352. **[optional]** — experimental v(t)
   time series, alternative free-fall anchor.
+- P. Causin, J.-F. Gerbeau, F. Nobile, "Added-mass effect in the design of
+  partitioned algorithms for fluid–structure problems", *Comput. Methods
+  Appl. Mech. Eng.* 194 (2005) 4506–4527. **[wanted]** — theory for the
+  empirically observed lower dt stability bound of the loose FBM↔PE
+  coupling (E4/L3 dt=0.25 ms blow-up, datasheet `dt_stability`): proves
+  decreasing dt aggravates the added-mass instability in partitioned
+  schemes at density ratios near 1.
 
 ### D2 — pair interactions
 - H. Brenner, "The slow motion of a sphere through a viscous fluid towards
