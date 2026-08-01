@@ -18,6 +18,12 @@ D_P = 0.015          # sphere diameter [m]
 R_P = 0.0075
 Z_WALL = 0.0         # bottom wall
 
+# Paper Table II (p.4018) printed u_max/u_inf ratios x Table I u_inf.
+# Primary peak reference; digitized E1/E2 curve peaks are ~3.5-4% fast
+# (see tc-ref/README.md audit 2026-08-01). Curves stay authoritative for shape.
+V_PEAK_PRINTED = {'E1': -0.947 * 0.038, 'E2': -0.953 * 0.060,
+                  'E3': -0.959 * 0.091, 'E4': -0.955 * 0.128}
+
 def parse_run(path):
     t_v, v, t_z, z = [], [], [], []
     pat_v = re.compile(r'SED_BENCH_VEL\s+time=\s*(\S+)\s+ip=\s*\d+\s+(\S+)\s+(\S+)\s+(\S+)')
@@ -57,8 +63,13 @@ def main():
     vp, tp = v[i], t_v[i]
     vr, tr = ref_v[ir, 1], ref_v[ir, 0]
     print('run : v_peak = %+.5f m/s at t = %.3f s' % (vp, tp))
-    print('PIV : v_peak = %+.5f m/s at t = %.3f s' % (vr, tr))
-    print('peak error: %+.2f%% (velocity), %+.3f s (timing)' % ((vp/vr - 1)*100, tp - tr))
+    print('PIV : v_peak = %+.5f m/s at t = %.3f s (digitized curve)' % (vr, tr))
+    print('peak error: %+.2f%% (velocity), %+.3f s (timing) vs digitized curve'
+          % ((vp/vr - 1)*100, tp - tr))
+    vpr = V_PEAK_PRINTED.get(a.case)
+    if vpr:
+        print('Table II : v_peak = %+.5f m/s (printed, PRIMARY peak gate)' % vpr)
+        print('peak error vs Table II: %+.2f%%' % ((vp/vpr - 1)*100))
 
     # RMS over the overlapping settling window (PIV time support)
     lo, hi = ref_v[0, 0], ref_v[-1, 0]
