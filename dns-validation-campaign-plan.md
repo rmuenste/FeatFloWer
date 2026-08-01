@@ -729,7 +729,8 @@ against the title pages and confirmed.
   time series, alternative free-fall anchor.
 - P. Causin, J.-F. Gerbeau, F. Nobile, "Added-mass effect in the design of
   partitioned algorithms for fluid–structure problems", *Comput. Methods
-  Appl. Mech. Eng.* 194 (2005) 4506–4527. **[wanted]** — theory for the
+  Appl. Mech. Eng.* 194 (2005) 4506–4527. **[in repo]**
+  (`literature/causin_2005.pdf`, title page verified) — theory for the
   empirically observed lower dt stability bound of the loose FBM↔PE
   coupling (E4/L3 dt=0.25 ms blow-up, datasheet `dt_stability`): proves
   decreasing dt aggravates the added-mass instability in partitioned

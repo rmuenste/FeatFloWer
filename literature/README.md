@@ -29,6 +29,7 @@ Naming convention: `surname[_surname...]_year.pdf`, lowercase.
 | `jeffrey_1922.pdf` | Jeffery, Proc. R. Soc. Lond. A 102 (1922) 161–179 (title page verified) | D4.2 orbit period (filename keeps provider's spelling; author is G.B. Jeffery) |
 | `happel_brenner_1973.pdf` | Happel & Brenner, *Low Reynolds Number Hydrodynamics*, Noordhoff (full book) | D4.3 spheroid drag formulas |
 | `ardekani_2016.pdf` | Ardekani, Costa, Breugem & Brandt, IJMF 87 (2016) 16–34 (arXiv 1602.05769 preprint; title page verified) | D4-ORIENT primary; also covers **spheroid DKT** — bridges D2.3/D4 |
+| `causin_2005.pdf` | Causin, Gerbeau & Nobile, CMAME 194 (2005) 4506–4527 (title page verified) | Theory for the D1 dt **stability floor** finding (datasheet `dt_stability`): added-mass instability of loosely-coupled partitioned schemes, aggravated by decreasing dt |
 
 Still wanted: **Di Felice 1994** (D5 closure under test) — the only
 outstanding paper. Note: `happel_brenner_1073.pdf` is a byte-identical
