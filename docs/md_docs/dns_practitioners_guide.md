@@ -71,7 +71,14 @@ accuracy ceiling and a **stability floor** in dt at fixed mesh:
   D/h ≈ 49 (sub-1% peaks at Re ≈ 32 with dt = 0.5 ms). Never reduce dt
   "for safety" without checking the trajectory for step-to-step sawtooth
   — plateau jitter should be ~10⁻⁵ m/s; the unstable run shows O(1)
-  swings. A runtime sawtooth warning is a planned D0 hardening.
+  swings.
+- **Runtime watchdog (built in)**: both PE modes now emit
+  `DNS_SAWTOOTH_WARNING` when amplitude-gated alternating velocity
+  reversals persist (validated: fires at t = 0.029 s on the unstable
+  control — during the growth phase — and stays silent through a full
+  stable acceleration; datasheet `sawtooth_watchdog`). If you see this
+  tag in a log, the run's dt is likely below the stability floor —
+  treat the results as garbage and increase dt.
 
 ## 3b. Quantified error budget (D1.3 ladder fit)
 
