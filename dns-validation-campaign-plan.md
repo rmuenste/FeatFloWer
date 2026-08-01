@@ -8,6 +8,16 @@ documented and validated to the same depth as the EL method — so both can be
 used selectively, and DNS can serve as in-house ground truth for EL closures
 ("DNS-informed EL").
 
+The deeper motivation (R. Münster, 2026-08-01): pre-campaign DNS studies
+with this codebase — the Kroupa-box effective-viscosity study and the
+Archimedes-tube-crystallizer slug — *did* produce correct physics, but
+only through painful trial-and-error on resolution, dt, collision
+handling and meshing. The campaign's yardstick is that such cases become
+set-up-able in an informed, structured way from written guidelines
+(D1–D3), first-time-right at predictable cost. That claim is tested
+literally: both pain-cases return as the D6 capstone ("Endgegner")
+stage.
+
 ---
 
 ## 0. What we are validating (method map, from code survey 2026-07-31)
@@ -105,8 +115,10 @@ Campaign artifacts (mirror the EL set):
 | D3 | Collective: fixed random arrays → hindered settling → fluidization | D1 (D2 for contact-heavy runs) | DNS drag law vs Beetstra/Tenneti; wall-bounded hindered settling; fluidization pressure-drop gate |
 | D4 | Non-spherical single particle | D0 (parts of D1) | Jeffery orbit + spheroid settling validated; non-sphere diagnostics fixed |
 | D5 | DNS↔EL cross-validation, DNS-informed EL | D1–D3 | Closure-comparison memo; DNS-measured hindrance correction for EL |
+| D6 | Capstone ("Endgegner") re-runs: Kroupa box, ATC slug | D1–D3 (D2 for contact-heavy regimes) | Both prior pain-cases reproduced with setup taken straight from the practitioner's guide |
 
-D2, D3, D4 are parallelizable after D1; D5 consumes their outputs. Each
+D2, D3, D4 are parallelizable after D1; D5 consumes their outputs; D6 is
+the closing acid test of the guides themselves. Each
 stage below lists prerequisites, cases, gates, deliverables, and an exit
 gate that must be green (or FAIL-attributed) before dependent stages start.
 
@@ -508,12 +520,55 @@ DNS to close EL's documented model boundaries.
   d_p/L, Re, φ, wall proximity, shape) → DNS / EL / EL-with-DNS-closures,
   with cost estimates per row from the campaign's measured job costs.
 
-**Exit gate D5 (= campaign exit)**: report + datasheet complete; memo and
-selection guide published; any EL closure changes validated and gated.
+**Exit gate D5**: report + datasheet complete; memo and selection guide
+published; any EL closure changes validated and gated.
 
 ---
 
-## 9. Case ledger (initial — IDs are datasheet keys)
+## 9. Stage D6 — Capstone ("Endgegner") cases
+
+Both cases were solved before the campaign, by brute trial-and-error.
+They return at the end as the acid test of the campaign's central
+promise: a practitioner armed with the D1–D3 guidelines sets them up in
+an informed, structured way — no parameter fishing. Success is measured
+as much by the *setup process* (every choice traceable to a guideline
+table) as by the physics gates; every place the guide proves
+insufficient is logged and fed back into it. That feedback is the real
+deliverable.
+
+### D6.1 Kroupa box — effective viscosity of a sheared suspension
+- Prior art: pre-campaign in-house DNS agreed with Krieger–Dougherty
+  predictions and the Kroupa & Šoóš simulations (the Kroupa length scale
+  differed, but for effective viscosity the Re regime and solid fraction
+  dominate). Reference: Kroupa & Šoóš 2016 [in repo], §13.
+- Observable: total stress → effective viscosity μ_eff(φ); gate:
+  Krieger–Dougherty band + consistency with the prior in-house result.
+- Rule: fresh implementation only — the legacy
+  `ENABLE_LUBRICATION`/`sliding_wall_force` path (D2.1 note) stays
+  retired.
+
+### D6.2 Archimedes tube crystallizer (ATC) — suspension regime vs RPM
+- Prior in-house study: a single liquid slug with a **rotation boundary
+  condition** standing in for the full ATC helix (full-helix DNS is out
+  of reach); the rotating BC "drives" the fixed-mesh slug through the
+  ATC; ~5% particle volume fraction.
+- Observable: particle-suspension regime as a function of rotation
+  speed — at low RPM particles settle out; above a critical RPM they
+  suspend evenly (the engineering target).
+- Gate: reproduce the regime boundary (settling ↔ even suspension) of
+  the prior study; mechanism-level observables (vertical concentration
+  profile vs RPM) rather than point values.
+- Prerequisites beyond D1–D3: rotation-BC recertification (audit the
+  existing rotating-boundary support before staging); D3.2 diagnostics
+  (concentration profiles) reused.
+
+**Exit gate D6 (= campaign exit)**: both cases green (or
+FAIL-attributed) with setup performed strictly from the practitioner's
+guide; guide-defect log folded back into the guide.
+
+---
+
+## 10. Case ledger (initial — IDs are datasheet keys)
 
 | ID | Case | App | Observable | Reference | Gate type | Stage |
 |---|---|---|---|---|---|---|
@@ -537,14 +592,16 @@ selection guide published; any EL closure changes validated and gated.
 | D5-TWIN | DNS vs EL vs PIV, E1–E4 | both | v(t) overlays | campaign data | memo | D5 |
 | D5-CLOS | Di Felice vs DNS F(φ,Re) | el_pipeflow | closure deviation | D3-RAND | band + EL re-run | D5 |
 | D5-SV | EL self-voidage vs DNS truth | both | bias vs δ/d_p | D-campaign data | measured curve | D5 |
+| D6-KROUPA | sheared-suspension μ_eff(φ) (Kroupa box) | new box case | μ_eff(φ) | Krieger–Dougherty; Kroupa–Šoóš 2016; prior in-house | band + setup-process audit | D6 |
+| D6-ATC | ATC slug: suspension regime vs RPM | new rotating-BC case | regime boundary, concentration profile | prior in-house study | mechanism + regime boundary | D6 |
 
 Full citations for every reference in this table, with acquisition status
 (dashboard convention: cited literature PDFs live at repo root), are in
-§12.
+§13.
 
 ---
 
-## 10. Risks and standing decision points
+## 11. Risks and standing decision points
 
 1. **Cost blow-up** is the main risk: resolved DNS scales as (D/h)³ per
    particle per level. Mitigation: D1's cost table is a *gate* for D3.2/D3.3
@@ -575,7 +632,7 @@ Full citations for every reference in this table, with acquisition status
    under the DNS solver once that twin is green — never silently reused
    across solvers.
 
-## 11. First tactical moves when execution starts
+## 12. First tactical moves when execution starts
 
 1. `git checkout -b feature/dns-validation-phase1` (branch off master per
    EL-campaign convention; PR targets `master`).
@@ -592,7 +649,7 @@ Full citations for every reference in this table, with acquisition status
 
 ---
 
-## 12. Literature references
+## 13. Literature references
 
 Full citations, grouped by campaign role. Status tags: **[in repo]** = PDF
 available locally — DNS-campaign papers live in `literature/` (untracked;
