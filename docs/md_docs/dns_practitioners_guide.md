@@ -98,9 +98,12 @@ Readings:
 - Practical budget at the workhorse config (L3, dt = 1 ms): at Re ≈ 30
   the +1.7 pp spatial and −1 pp temporal partially cancel (hence the
   deceptively good raw number); at Re ≈ 1.5 both are negative and add.
-- Caveats: temporal order unpinned (stability floor blocks the third dt
-  point); E1 fit has no redundancy (3 points, 3 unknowns); L2 is
-  pre-asymptotic.
+- Caveats: temporal order unpinned — the dt = 0.7 ms probe came back
+  +1.05% (three-point ratio 1.04 vs 1.50 for p=1 / 2.13 for p=2; global
+  fit SSE flat in p at the ~0.05 pp peak-wobble level; p=2 weakly
+  disfavored). The peak metric lacks resolving power; pinning would need
+  a whole-trajectory fit (D1.2 territory). E1 fit has no redundancy
+  (3 points, 3 unknowns); L2 is pre-asymptotic.
 
 ## 4. Reference discipline (ten Cate specifics)
 
