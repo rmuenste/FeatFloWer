@@ -28,7 +28,7 @@ SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
-USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState
+USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState, DNS_SawtoothCheck
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -453,6 +453,10 @@ SAVE
   end if
   ! This function is in the dem_query module
   call setForcesMapped(theParticles(ip))
+
+  ! Sawtooth watchdog (owner rank -> exactly once globally per particle).
+  call DNS_SawtoothCheck(int(theParticles(IP)%bytes(1))+1, &
+       theParticles(IP)%velocity, TIMENS)
 
   ! Owner-rank printing: each particle is local to exactly one rank, so the
   ! lines appear exactly once globally without any collective.

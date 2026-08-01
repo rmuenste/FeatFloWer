@@ -839,7 +839,7 @@ SUBROUTINE ForcesLocalParticlesSerial(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA
                                 DCORVG,ELE, maxLocal)
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN,COMM_Maximumn
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
-USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState
+USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState, DNS_SawtoothCheck
 USE var_QuadScalar, ONLY : ParticleVertexCache, bUseKVEL_Accel, myKVEL_Stats, mg_mesh
 use cinterface
 use dem_query
@@ -1132,6 +1132,14 @@ if (myid /= 0) then
         theParticles(IP)%position(:), theParticles(IP)%velocity(:), theParticles(IP)%angvel(:)
       write(*,fmt_force) 'DNS_PART_FORCE', 'time=', time_out, 'id=', IP, &
         theParticles(IP)%force(:), theParticles(IP)%torque(:)
+    END DO
+  end if
+
+  ! Sawtooth watchdog, independent of the print gate (serial PE: every rank
+  ! holds an identical world, so rank 1 warns exactly once globally).
+  if (myid == 1) then
+    DO IP = 1, numParticles
+      call DNS_SawtoothCheck(IP, theParticles(IP)%velocity, timens)
     END DO
   end if
 !  if (myid == 1) then
