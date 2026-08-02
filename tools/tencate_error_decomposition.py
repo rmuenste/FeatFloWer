@@ -43,8 +43,15 @@ MEASURED = {
 
 
 def fit(case, p):
-    """LSQ fit err = S(level) + c*dt^p; returns (S dict, c, residuals)."""
+    """LSQ fit err = S(level) + c*dt^p; returns (S dict, c, residuals).
+
+    Requires at least two distinct dt values; with a single dt the c
+    column is collinear with the S columns and the split is arbitrary.
+    """
     data = MEASURED[case]
+    if len({d[2] for d in data}) < 2:
+        raise ValueError('%s: single-dt dataset, S and T cannot be separated '
+                         '(reporting raw errors only)' % case)
     levels = sorted({d[0] for d in data})
     err = np.array([(d[3] / REF[case] - 1) * 100 for d in data])  # in %
     A = np.zeros((len(data), len(levels) + 1))
@@ -61,6 +68,9 @@ def main():
         print('=== %s (reference peak %.5f m/s, Table II printed)' % (case, REF[case]))
         for _, _, dt, v, run in MEASURED[case]:
             print('    %-34s dt=%.2gms  err=%+.2f%%' % (run, dt, (v / REF[case] - 1) * 100))
+        if len({d[2] for d in MEASURED[case]}) < 2:
+            print('  single-dt dataset: S and T entangled, raw errors only\n')
+            continue
         for p in (1, 2):
             S, c, res = fit(case, p)
             terms = '  '.join('S(L%d)=%+.2f' % (L, S[L]) for L in sorted(S))
