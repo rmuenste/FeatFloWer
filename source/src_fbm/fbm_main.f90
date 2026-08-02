@@ -1706,6 +1706,9 @@ subroutine fbm_updateDefaultFC2(DensityL,dTime,simTime,Gravity,mfile,myid)
 use var_QuadScalar, only : myFBM
 use PP3D_MPI, only: myMPI_Barrier
 use cinterface
+#ifdef HAVE_PE
+use dem_query, only : getElStepsize
+#endif
 
 real*8, intent(in) :: DensityL ! fluid density
 real*8, intent(in) :: dTime    ! time step
@@ -1721,8 +1724,29 @@ real*8 :: volume,mass,massR,radius,dimomir,dSubStep
 real*8,parameter :: PI = 3.1415926535897931D0
 real*8 :: RForce(3),dVelocity(3),timecoll
 integer :: iSubSteps
+real*8 :: pe_dt
+logical, save :: bStepsizeChecked = .false.
 
-#ifdef HAVE_PE 
+#ifdef HAVE_PE
+  ! PE advances with SimulationConfig stepsize_ (from the per-case json),
+  ! NOT with dTime: step_simulation() takes no arguments. A deck/json
+  ! mismatch silently warps particle dynamics in CFD time (datasheet
+  ! pe_stepsize_mismatch, 2026-08-02: every dt/=1ms run integrated PE at
+  ! 1ms; a 4x mismatch even mimics an instability). Both PE modes pass
+  ! through here, so one first-step check eradicates the whole class.
+  if (.not. bStepsizeChecked) then
+    bStepsizeChecked = .true.
+    pe_dt = getElStepsize()
+    if (abs(pe_dt - dTime) > 1d-12*max(abs(dTime), 1d-30)) then
+      write(*,'(A,ES16.8,A,ES16.8)') &
+        'FATAL: PE stepsize_ (json) = ', pe_dt, &
+        ' /= CFD SimPar@TimeStep = ', dTime
+      write(*,'(A)') 'Set "stepsize_" in the rundir example.json equal to '// &
+        'the deck TimeStep (tools/stage_tencate_case.py does this since '// &
+        'commit 7e3e7bf7).'
+      call ExitError('PE/CFD timestep mismatch (pe_stepsize_mismatch)', 4242)
+    end if
+  end if
   call step_simulation()
 #endif
 
