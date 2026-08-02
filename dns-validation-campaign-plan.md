@@ -255,6 +255,32 @@ the user asked for and calibrates every later stage's cost model.
 - Deliverable: error-vs-D/h convergence curve for the α-integral force on a
   *stationary* interface; the asymptotic order of the FBM force (expected
   ~1st order in h for staircase indicator methods) measured, not assumed.
+- **Periodicity setup — use the EL-proven path, not dns_drag's hard-coded
+  one (decided 2026-08-02).** CFD periodicity is the `dPeriodicity(3)`
+  PARENTCOMM pairing trick in both components, but `q2p1_dns_drag` sets
+  `dPeriodicity = 1.0` unconditionally, which the EL campaign documented
+  as unsafe: a partition that does not respect the periodic pairing
+  corrupts `E013_CreateComm` (`q2p1_el_pipeflow/app_init.f90:157`; the
+  z-only QBOX9Z3 split *crashes* under periodicity — momentum_conservation
+  MESH.md). Constraints and pattern to port into `q2p1_dns_drag`:
+  (a) deck-controlled keys `SimPar@Periodic = Yes` /
+  `PeriodicAxis = x|y|z|xy` + `PeriodicLength` (copy the pipeflow app_init
+  CASE block) instead of the hard-coded value; (b) regular partition with
+  **≥3 ranks per periodic axis** (3×3×3 for a fully periodic box);
+  (c) periodic faces carry the inert `Periodic` tag in the `.par`
+  headers — never `Wall` (no-slip Dirichlet would close the box).
+- **Mesh: reuse the committed QBOX9 fixture** —
+  `q2p1_el_pipeflow/tier2_cases/momentum_conservation/mesh/quiescent_box_9/`
+  (unit-cube 9³ hex `box.tri`, six `Periodic` `.par` files, `file.prj`)
+  plus the `QBOX9` 3×3×3/27-subdomain partition (28 ranks, matches the
+  3×3×3 PE decomposition in that case's `example.json`). This exact
+  periodic comm path passed the Tier-2 Newton-pair momentum test at
+  machine zero. MG levels give D/h = 4.5/9/18/36 (L1–L4) for d/L = 0.5;
+  φ is set by the sphere radius alone — no new mesh per φ or level.
+  `make_box_tri.py` is thereby demoted to a D2.3 (DKT column) need.
+  For D6.1: the `kroupa_couette` mesh (retagged QBOX9, z-face headers
+  `Periodic → Inflow300` moving walls, `PeriodicAxis = xy`) is the shear-
+  cell template.
 
 ### D1.2 Grid-crossing noise (translating sphere, frozen dynamics)
 - Case: sphere dragged at constant velocity across the mesh
