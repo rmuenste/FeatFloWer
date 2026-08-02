@@ -56,6 +56,16 @@ Rules of thumb (this flow class):
 
 ## 3. Timestep: the window is TWO-SIDED
 
+> **CORRECTION IN PROGRESS (2026-08-02, `pe_stepsize_mismatch`)**: all
+> dt =/= 1 ms results in this section and 3b were produced while
+> serial-PE integrated with `example.json` `stepsize_` (1 ms) instead
+> of the CFD dt — `stepSimulationSerial` ignores the CFD value. The
+> temporal-term magnitudes, the order analysis, and the added-mass
+> attribution of the stability floor are superseded pending synced
+> reruns. The dt=1 ms spatial results (section 2) are unaffected.
+> The staging tool now syncs `stepsize_` to dt; when staging by hand,
+> **deck `SimPar@TimeStep` and json `stepsize_` MUST be equal.**
+
 The coupling (one explicit CFD↔PE force exchange per step) has both an
 accuracy ceiling and a **stability floor** in dt at fixed mesh:
 

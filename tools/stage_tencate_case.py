@@ -141,6 +141,11 @@ def main():
          '"fluidDensity_": %.1f' % c['rho'], 1),
         (r'"fluidViscosity_":\s*[0-9.eE+-]+',
          '"fluidViscosity_": %.3f' % c['mu'], 1),
+        # CRITICAL: serial-PE advances with config.getStepsize() from THIS
+        # value (stepSimulationSerial ignores the CFD dt) - a mismatch warps
+        # particle dynamics in CFD time (pe_stepsize_mismatch, 2026-08-02).
+        (r'"stepsize_":\s*[0-9.eE+-]+',
+         '"stepsize_": %s' % ('%.8g' % a.dt), 1),
     ])
 
     root = os.path.abspath('.')
