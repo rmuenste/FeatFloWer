@@ -48,8 +48,17 @@ Campaign: `dns-validation-campaign-plan.md` §D1.1. First executed 2026-08-02.
 | Job | Level | D/h | F_z steady | K = F/(6πμrU_sup) | vs Hasimoto 1.8322 | Momentum balance |
 |---|---|---|---|---|---|---|
 | 137363 | L2 | 6 | 1.00137e-2 | 1.623 | −11.4% | +0.14% PASS |
-| 137364 | L3 | 12 | — | — | — | — |
-| 137365 | L4 | 24 | — | — | — | — |
+| 137364 | L3 | 12 | 1.00173e-2 | 1.640 | −10.5% | +0.17% PASS |
+| 137365 | L4 | 24 | 1.00116e-2 | 1.684 | −8.1% | +0.12% PASS |
+
+Implied hydrodynamic-radius calibration (ten Cate §IV-C analogue,
+sensitivity dlnK/dlnr ≈ 1.87): r_h/r = 1.067 / 1.061 / 1.046 at
+D/h = 6/12/24. ten Cate's LBM needed 1.12 at D/h ≈ 8 against the same
+formula — same phenomenon, FF-FBM smaller. Indicator VOLUME error is
+only −0.4% (fluid fraction), so the deficit sits in the effective
+no-slip surface, not the represented volume. Open probes: forcing-volume
+convention (f·V_total vs f·V_fluid, ~2%), L5 point (D/h=48), φ-scaling
+probe (larger sphere discriminates confinement- vs radius-coupling).
 
 Symmetry check (L2): transverse forces ~1e-12 vs axial 1e-2.
 Indicator fluid fraction 0.98005 vs exact 0.98061 (L2 volume error
