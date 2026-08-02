@@ -374,9 +374,24 @@ analogue of the EL campaign's lubrication arc, and the direct bridge to it.
 ### D2.3 Drafting–kissing–tumbling (the qualitative flagship)
 - Prerequisite build-out: PE has `setupDraftKissTumb`
   (`commf2c_dkt_`, see `docs/md_docs/pe_initialization.md:64`) but **no
-  application, deck, or mesh**. Deliverable: `q2p1_dkt` case (likely as a
+  application or deck**. Deliverable: `q2p1_dkt` case (likely as a
   `q2p1_fc_ext`/`q2p1_bench_sedimentation` variant rather than a new app —
-  decide during implementation) with committed mesh + pinned config.
+  decide during implementation) with pinned config.
+- **Mesh: DONE (R. Münster, 2026-08-02)** — `dkt_mesh_v1/` at repo root:
+  6d×6d×24d closed box, nondimensional d=1, coarse B 12×12×48 (cell d/2)
+  giving the D/h = 8/16/32 ladder at L3/L4/L5; partitions `DKT_B_108`
+  (x3-y3-z12) and `DKT_B_864` (x6-y6-z24, needs a bigger cluster than nx);
+  coarse C 24×24×96 as the thin-coarse-per-rank fallback. The 25k-file
+  fixture is deliberately **untracked** (like the literature PDFs); the
+  committed record is `dkt_mesh_v1/README.md` + `REPRODUCE.md` (full
+  recipe with verified expected values via `meshing_component/
+  gmsh-learning2`/pe_partpy — `make_box_tri.py` is obsolete,
+  `unit_cube_vtk.py` already is that script). Mandatory gate before the
+  D/h=32 rung: the README's decomposition-invariance check (D/h=16 on
+  both 108 and 864 ranks).
+- **Physics prerequisite**: dt-stability-floor probe at the DKT density
+  ratio (near-neutral ρ_p/ρ_f, deeper in added-mass territory than the
+  measured 1.17 floor; sawtooth watchdog makes this a 10-minute smoke).
 - References: Fortes, Joseph & Lundgren (1987) experiments; 3D sphere DKT
   computations (Glowinski et al. 2001; Apte, Martin & Patankar 2009 —
   select the primary quantitative reference during case design and pull
