@@ -54,81 +54,29 @@ Rules of thumb (this flow class):
   paper itself (their S1: −5.6%). Do not chase it with resolution.
 - D/h ≈ 11 is smoke-test grade only (+4.4%).
 
-## 3. Timestep: the window is TWO-SIDED
+## 3. Timestep: accuracy-bounded only (corrected 2026-08-02)
 
-> **CORRECTION IN PROGRESS (2026-08-02, `pe_stepsize_mismatch`)**: all
-> dt =/= 1 ms results in this section and 3b were produced while
-> serial-PE integrated with `example.json` `stepsize_` (1 ms) instead
-> of the CFD dt — `stepSimulationSerial` ignores the CFD value. The
-> temporal-term magnitudes, the order analysis, and the added-mass
-> attribution of the stability floor are superseded pending synced
-> reruns. The dt=1 ms spatial results (section 2) are unaffected.
-> The staging tool now syncs `stepsize_` to dt; when staging by hand,
-> **deck `SimPar@TimeStep` and json `stepsize_` MUST be equal.**
+All dt-dependence below is from SYNCED runs (deck TimeStep == json
+stepsize_; the pe_stepsize_mismatch contamination is resolved and a
+fatal guard now enforces equality).
 
-The coupling (one explicit CFD↔PE force exchange per step) has both an
-accuracy ceiling and a **stability floor** in dt at fixed mesh:
-
-- **Accuracy (upper bound)**: the temporal term at dt = 1 ms is ≈ −1 pp
-  (slows the particle); halving dt recovered +0.47 pp at L3 and +0.71 pp
-  at L4 (E4), +0.43 pp at L3 (E1). Two-point evidence is consistent with
-  a **first-order** coupling term (nominal CN order is not observed);
-  order not yet pinned (see below).
-- **Stability (lower bound)**: at E4/L3, dt = 0.25 ms is **unstable** — a
-  growing oscillatory coupling mode from t ≈ 0.025 s, |v| reaching
-  ±4 m/s, while the run "successfully finishes". Signature and regime
-  (ρ_p/ρ_f = 1.17) match the added-mass instability of loosely-coupled
-  partitioned FSI (Causin–Gerbeau–Nobile 2005 [in repo]: decreasing dt
-  *aggravates* it). The floor is **mesh-independent** within L2–L3
-  (dt = 0.25 ms unstable at both D/h = 11.4 and 23.9; dt ≥ 0.5 ms stable
-  at every level tested): an absolute threshold in (0.25, 0.5] ms for
-  ρ_p/ρ_f = 1.17, density-ratio-governed rather than CFL-like.
-  Density-ratio dependence unmeasured — expect the floor to RISE as the
-  ratio approaches 1.
-- **Recommendation**: dt = 1.0 ms at D/h ≈ 24; dt = 0.5–1.0 ms at
-  D/h ≈ 49 (sub-1% peaks at Re ≈ 32 with dt = 0.5 ms). Never reduce dt
-  "for safety" without checking the trajectory for step-to-step sawtooth
-  — plateau jitter should be ~10⁻⁵ m/s; the unstable run shows O(1)
-  swings.
-- **Runtime watchdog (built in)**: both PE modes now emit
-  `DNS_SAWTOOTH_WARNING` when amplitude-gated alternating velocity
-  reversals persist (validated: fires at t = 0.029 s on the unstable
-  control — during the growth phase — and stays silent through a full
-  stable acceleration; datasheet `sawtooth_watchdog`). If you see this
-  tag in a log, the run's dt is likely below the stability floor —
-  treat the results as garbage and increase dt.
-
-## 3b. Quantified error budget (D1.3 ladder fit)
-
-`tools/tencate_error_decomposition.py` fits err(L, dt) = S(L) + c·dt^p
-to the measured peak errors (vs Table II printed peaks). The additive
-model holds to 0.06 pp on the 5-point E4 set. Ranges below span the
-p = 1 ↔ p = 2 temporal-order assumption (order not yet pinned):
-
-| | T(1 ms) [pp] | S(L2) | S(L3) | S(L4) | Richardson ratio h→0 | ten Cate LBM |
-|---|---|---|---|---|---|---|
-| E4 (Re 31.9) | −0.8…−1.2 | +5.2…+5.6 | +1.5…+1.9 | −0.3…−0.7 | 0.930…0.945 | 0.947 |
-| E1 (Re 1.5) | −0.6…−0.8 | — | −2.4…−2.6 | −4.4…−4.7 | 0.886…0.899 | 0.894 |
-
-Readings:
-
-- The temporal term always *slows* the particle; halving dt removes
-  half (p=1) to three-quarters (p=2) of it.
-- E4's spatial error decays L2→L3→L4 with apparent order ~1.5 and is
-  effectively converged at L4; the h→0 extrapolation (O(h²) reading
-  0.945) agrees with ten Cate's LBM (0.947).
-- **E1's h→0 extrapolation (0.886–0.899) brackets ten Cate's converged
-  LBM (0.894)** — independent confirmation that the ~−5% vs the
-  experiment is a sim-vs-experiment gap, not discretization error.
-- Practical budget at the workhorse config (L3, dt = 1 ms): at Re ≈ 30
-  the +1.7 pp spatial and −1 pp temporal partially cancel (hence the
-  deceptively good raw number); at Re ≈ 1.5 both are negative and add.
-- Caveats: temporal order unpinned — the dt = 0.7 ms probe came back
-  +1.05% (three-point ratio 1.04 vs 1.50 for p=1 / 2.13 for p=2; global
-  fit SSE flat in p at the ~0.05 pp peak-wobble level; p=2 weakly
-  disfavored). The peak metric lacks resolving power; pinning would need
-  a whole-trajectory fit (D1.2 territory). E1 fit has no redundancy
-  (3 points, 3 unknowns); L2 is pre-asymptotic.
+- **There is NO stability floor.** The earlier two-sided-window finding
+  is refuted: synced dt = 0.25 ms is fully stable (0 sawtooth warnings)
+  at rho_p/rho_f = 1.17, and the DKT-ratio probes (1.10, 1.02) are
+  clean at dt = 0.5-1.0 ms. The instability was the 4x PE/CFD desync.
+  The sawtooth watchdog stays as cheap insurance.
+- **Genuine temporal term, sub-linear**: E4 L3 synced ladder
+  +0.81/+1.41/+1.94% at dt = 1.0/0.5/0.25 ms - near-equal increments
+  per halving favor apparent order ~0.5-1. Global fit: T(1 ms) =
+  -1.5..-2.4 pp (order 1..0.5 reading), S(L3) = +1.9..+3.1 pp,
+  S(L4) = -0.5..+0.9 pp (converged within uncertainty). E1: +0.42 pp
+  per halving (2 points).
+- **Reading**: smaller dt moves peaks toward the (positive) spatial
+  error; the good raw numbers at dt = 1 ms ride on partial S/T
+  cancellation. Choose dt by matching the T column against your error
+  budget - not by stability.
+- **Config rule (fatal-guarded)**: deck SimPar@TimeStep == json
+  stepsize_. The guard aborts step 1 on mismatch.
 
 ## 4. Reference discipline (ten Cate specifics)
 

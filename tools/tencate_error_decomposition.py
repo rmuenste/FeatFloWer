@@ -24,10 +24,10 @@ MEASURED = {
     'E4': [
         (2, 11.4, 1.0, -0.12763, 'q2p1_dns_rundir_e4_l2'),
         (3, 23.9, 1.0, -0.12323, 'q2p1_dns_rundir_e4_l3'),
-        (3, 23.9, 0.5, -0.12381, 'q2p1_dns_rundir_e4_l3_dt0p5'),
-        (3, 23.9, 0.7, -0.12352, 'q2p1_dns_rundir_e4_l3_dt0p7'),
+        (3, 23.9, 0.5, -0.12396, 'q2p1_dns_rundir_e4_l3_dt0p5_sync'),
+        (3, 23.9, 0.25, -0.12461, 'q2p1_dns_rundir_e4_l3_dt0p25_sync'),
         (4, 49.1, 1.0, -0.12033, 'q2p1_dns_rundir_e4_l4'),
-        (4, 49.1, 0.5, -0.12120, 'q2p1_dns_rundir_e4_l4_dt0p5'),
+        (4, 49.1, 0.5, -0.12133, 'q2p1_dns_rundir_e4_l4_dt0p5_sync'),
     ],
     'E2': [
         (2, 11.4, 1.0, -0.05923, 'q2p1_dns_rundir_e2_l2'),
@@ -41,7 +41,7 @@ MEASURED = {
     ],
     'E1': [
         (3, 23.9, 1.0, -0.03484, 'q2p1_dns_rundir_e1_l3'),
-        (3, 23.9, 0.5, -0.03499, 'q2p1_dns_rundir_e1_l3_dt0p5'),
+        (3, 23.9, 0.5, -0.03499, 'q2p1_dns_rundir_e1_l3_dt0p5_sync'),
         (4, 49.1, 1.0, -0.03410, 'q2p1_dns_rundir_e1_l4'),
     ],
 }
