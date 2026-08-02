@@ -17,7 +17,7 @@ ten Cate's own LBM (S1 ratio 0.894), not the experiment.
 import numpy as np
 
 # case: reference peak [m/s] (Table II ratio x Table I u_inf)
-REF = {'E4': -0.955 * 0.128, 'E1': -0.947 * 0.038}
+REF = {'E4': -0.955 * 0.128, 'E3': -0.959 * 0.091, 'E1': -0.947 * 0.038}
 
 # (level, D/h, dt [ms], measured peak [m/s], rundir)
 MEASURED = {
@@ -28,6 +28,11 @@ MEASURED = {
         (3, 23.9, 0.7, -0.12352, 'q2p1_dns_rundir_e4_l3_dt0p7'),
         (4, 49.1, 1.0, -0.12033, 'q2p1_dns_rundir_e4_l4'),
         (4, 49.1, 0.5, -0.12120, 'q2p1_dns_rundir_e4_l4_dt0p5'),
+    ],
+    'E3': [
+        (2, 11.4, 1.0, -0.09023, 'q2p1_dns_rundir_e3_l2'),
+        (3, 23.9, 1.0, -0.08753, 'q2p1_dns_rundir_e3_l3'),
+        (4, 49.1, 1.0, -0.08546, 'q2p1_dns_rundir_e3_l4'),
     ],
     'E1': [
         (3, 23.9, 1.0, -0.03484, 'q2p1_dns_rundir_e1_l3'),
@@ -52,7 +57,7 @@ def fit(case, p):
 
 
 def main():
-    for case in ('E4', 'E1'):
+    for case in ('E4', 'E3', 'E1'):
         print('=== %s (reference peak %.5f m/s, Table II printed)' % (case, REF[case]))
         for _, _, dt, v, run in MEASURED[case]:
             print('    %-34s dt=%.2gms  err=%+.2f%%' % (run, dt, (v / REF[case] - 1) * 100))
@@ -71,7 +76,7 @@ def main():
                 v_inf = REF[case] * (1 + s_inf / 100)
                 print('  Richardson %s: S_inf=%+.2f pp -> v_inf=%.5f m/s (ratio %.3f)'
                       % (name, s_inf, v_inf, abs(v_inf) / (abs(REF[case]) /
-                         {'E4': 0.955, 'E1': 0.947}[case])))
+                         {'E4': 0.955, 'E3': 0.959, 'E1': 0.947}[case])))
         print()
 
 
