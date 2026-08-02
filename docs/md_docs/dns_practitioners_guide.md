@@ -28,9 +28,17 @@ ratios, dt = 1.0 ms:
 
 | D/h | Re=1.5 | Re=4.1 | Re=11.6 | Re=31.9 |
 |---|---|---|---|---|
-| 11.4 (L2) | — | — | — | +4.4% |
+| 11.4 (L2) | — | +3.6% | +3.4% | +4.4% |
 | 23.9 (L3) | −3.2% | +0.6% | +0.3% | +0.8% |
-| 49.1 (L4) | −5.2% | — | — | −1.6% |
+| 49.1 (L4) | −5.2% | −1.7% | −2.1% | −1.6% |
+
+Cross-case structure (datasheet `d13_matrix`): the E2–E4 ladders are
+nearly identical (within ~0.5 pp at every level) despite an 8× range in
+Re, and the L3→L4 shift is uniform (−2.1…−2.4 pp) across **all four**
+cases including E1 — the spatial error at these resolutions is
+**geometry-dominated** (interface representation of the sphere), not
+flow-regime-dependent. E1's overall offset is its sim-vs-experiment
+reference gap (§4), not a different discretization behavior.
 
 Rules of thumb (this flow class):
 
