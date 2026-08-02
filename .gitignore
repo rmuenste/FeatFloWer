@@ -14,3 +14,12 @@ build/
 
 # Campaign literature PDFs stay untracked (copyright); index in literature/README.md
 literature/*.pdf
+
+# big untracked run/build output dirs - guard against accidental staging
+/build-*/
+/q2p1_*_rundir_*/
+/results/
+paraview/
+_dump/
+_gmv/
+_vtk/

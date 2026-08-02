@@ -31,7 +31,10 @@ CASES = {
     'E4': dict(rho=960.0, mu=0.058, steps=1300),   # PIV ends 1.20 s
 }
 
-EXCLUDE = {'_dump', '_gmv', '_vtk', 'testresults'}
+EXCLUDE = {'_dump', '_gmv', '_vtk', 'testresults', 'paraview', '_sol',
+           'solution'}
+# run-output dirs the solver expects to exist in a fresh rundir
+RECREATE = ('_dump', '_gmv', '_vtk', 'testresults')
 
 
 def edit_file(path, subs):
@@ -54,6 +57,22 @@ def main():
                     help='override step count (default: case table scaled by dt)')
     ap.add_argument('--template', default='q2p1_dns_rundir_e4_l3')
     ap.add_argument('--dest', default=None)
+    ap.add_argument('--backupfreq', type=int, default=100000,
+                    help='SimPar@BackUpFreq: counts OUTPUT EVENTS (a dump is '
+                         'written each time a VTK output happens) and '
+                         'SimPar@BackUpNum rotates a bounded slot set; high '
+                         'value = effectively no restart dumps, correct for '
+                         'gate runs that are never restarted (default '
+                         '100000)')
+    ap.add_argument('--outputlevel', default='MAX-1',
+                    help='SimPar@OutputLevel; MAX-1 suffices for '
+                         'numerics/physics runs, MAX+1 (once-refined mesh, '
+                         '~8x file size) only for figure-quality viz '
+                         '(default MAX-1)')
+    ap.add_argument('--viz', action='store_true',
+                    help='keep the template SimPar@OutputFreq (VTK output '
+                         'on); default OFF sets OutputFreq = 1d6, i.e. '
+                         'effectively no VTK')
     ap.add_argument('--np', type=int, default=32)
     ap.add_argument('--partition', default='short')
     ap.add_argument('--walltime', default='02:00:00')
@@ -69,6 +88,11 @@ def main():
     if a.dt != 0.0010:
         tag += '_dt%s' % ('%g' % (a.dt * 1e3)).replace('.', 'p')
     dest = a.dest or 'q2p1_dns_rundir_' + tag
+    if any(p.startswith('build') for p in
+           os.path.normpath(os.path.abspath(dest)).split(os.sep)):
+        sys.exit('refusing to stage into a build tree: %s '
+                 '(buried rundirs under build-*/ are how 60 GB of VTK '
+                 'gets lost)' % dest)
     if os.path.exists(dest):
         sys.exit('%s already exists; remove it or pass --dest' % dest)
 
@@ -77,7 +101,7 @@ def main():
                                              if n in EXCLUDE
                                              or n.endswith(('.log', '.png'))
                                              or n.startswith('slurm-')])
-    for d in EXCLUDE:
+    for d in RECREATE:
         os.makedirs(os.path.join(dest, d), exist_ok=True)
 
     # mu in the deck as integer milli-Pa-s (matches 58d-3 style); rho as NNNd0
@@ -86,18 +110,32 @@ def main():
         sys.exit('mu %g not representable as integer milli-Pa-s' % c['mu'])
     deck = os.path.join(dest, '_data', 'q2p1_param.dat')
     # NOTE: numeric Prop@ lines must NOT carry inline comments (list-directed read)
-    edit_file(deck, [
+    deck_subs = [
         (r'^SimPar@MaxMeshLevel = .*$',
          'SimPar@MaxMeshLevel = %d' % a.level, 1),
         (r'^SimPar@TimeStep = .*$',
          'SimPar@TimeStep = %sd0' % ('%.8g' % a.dt), 1),
         (r'^SimPar@MaxNumStep = .*$',
          'SimPar@MaxNumStep = %d' % steps, 1),
+        # BackUpFreq counts output events (dump written per VTK output);
+        # BackUpNum rotates bounded slots, so dumps are size-bounded.
+        # High BackUpFreq = effectively no restart dumps (right for gate runs).
+        (r'^SimPar@BackUpFreq = .*$',
+         'SimPar@BackUpFreq = %d' % a.backupfreq, 1),
+        # OutputLevel MAX+1 writes on a once-refined mesh (~8x file size);
+        # MAX-1 suffices for numerics/physics runs.
+        (r'^SimPar@OutputLevel = .*$',
+         'SimPar@OutputLevel = %s' % a.outputlevel, 1),
         (r'^Prop@Density = .*$',
          'Prop@Density = %dd0,30d0' % round(c['rho']), 1),
         (r'^Prop@Viscosity = .*$',
          'Prop@Viscosity = %dd-3,1d0' % mu_milli, 1),
-    ])
+    ]
+    if not a.viz:
+        # viz off by default: effectively no VTK output
+        deck_subs.append((r'^SimPar@OutputFreq = .*$',
+                          'SimPar@OutputFreq = 1d6', 1))
+    edit_file(deck, deck_subs)
     edit_file(os.path.join(dest, 'example.json'), [
         (r'"fluidDensity_":\s*[0-9.eE+-]+',
          '"fluidDensity_": %.1f' % c['rho'], 1),
@@ -120,6 +158,7 @@ def main():
 #SBATCH --output=%s/slurm-%%j.out
 module load gcc/latest-v13 openmpi/options/interface/ethernet openmpi/4.1.6
 cd %s
+FREE_GB=$(df -BG --output=avail /data/warehouse17 | tail -1 | tr -dc 0-9); [ "$FREE_GB" -lt "${FF_MIN_FREE_GB:-100}" ] && { echo "REFUSING to run: only ${FREE_GB}G free on warehouse17"; exit 1; }
 mpirun -np %d %s > run_slurm.log 2>&1
 ''' % (tag, a.partition, a.np, a.mem, a.walltime, dest_abs, dest_abs,
        a.np, os.path.join(root, a.binary)))
