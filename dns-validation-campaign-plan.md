@@ -296,6 +296,17 @@ the user asked for and calibrates every later stage's cost model.
   periodic coupling directly, FBM out of the loop.
 - Diagnostic 2 (code): trace PARENTCOMM/E013_CreateComm dPeriodicity
   pairing - are edge/face DOFs matched or only vertices?
+- **RESOLVED-cause (2026-08-03, datasheet d11_periodicity_absent)**: the
+  Q2 comm has NO periodic pairs - VerticeCommunicationScheme is built
+  non-periodically and gates every E013 exchange + parallel pressure;
+  periodic faces are solved traction-free. Fix location: extend
+  myVERTLINK/VerticeCommunicationScheme construction (parentcomm.f90)
+  with the periodic octree search already used at face level; also fix
+  the 2x periodic face double-count (parentcomm.f90:787-844) and the
+  MUMPS label-swap (Create_GlobalNumbering). CROSS-CAMPAIGN IMPLICATION:
+  every "fully periodic" EL run (momentum_conservation, RZ settling,
+  kroupa xy-periodicity) was also traction-free - EL rows citing
+  periodicity need re-interpretation once confirmed.
 - Diagnostic 3: doubled cell (2x2x2 images explicit, one sphere) - if K
   jumps toward Hasimoto, the boundary coupling is confirmed as the sink.
 
