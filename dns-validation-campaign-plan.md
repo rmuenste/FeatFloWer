@@ -282,7 +282,7 @@ the user asked for and calibrates every later stage's cost model.
   `Periodic → Inflow300` moving walls, `PeriodicAxis = xy`) is the shear-
   cell template.
 
-### D1.1b Periodic-coupling anomaly investigation (OPEN, priority)
+### D1.1b Periodic-coupling anomaly investigation (FIXED 2026-08-03)
 - Finding (datasheet d11_asymptote): the Hasimoto ladder converges at
   apparent order ~1.7 to a residual ~-8.9% deficit - the wrong answer.
   Image-strength dependence: confinement captured ~80% (phi=0.019) /
@@ -317,6 +317,36 @@ the user asked for and calibrates every later stage's cost model.
   with PyPartitioner axis_uniform partitions.
 - Diagnostic 3: doubled cell (2x2x2 images explicit, one sphere) - if K
   jumps toward Hasimoto, the boundary coupling is confirmed as the sink.
+  NOT NEEDED - superseded by the fix below.
+- **FIXED (2026-08-03)**: parentcomm now builds a second, parallel
+  periodic vertex-share table (myVERTLINKPER/pVERTLINKPER) from which
+  VerticeCommunicationScheme is formed as a union with the exact table.
+  Datasheet rows `d11b_periodic_comm`, `d11b_walled_twin`,
+  `d11_uxtest_fixed`, `d11_l{2,3,4}_postfix`, `d11_rh_calib_postfix`,
+  `d11_el_momentum_recheck`.
+  - The single-axis probe of `FindInPeriodicOctTree` was NOT sufficient:
+    it reports one image per point, so periodic edge/corner DOFs stayed
+    partially coupled and the assembled system was inconsistent (the
+    first attempt diverged to NaN). New `FindPeriodicImagesInOctTree`
+    sweeps all 26 shift combinations and returns every image. On the
+    QBOX9 3x3x3 torus this yields the complete 27x26 = 702 pair set.
+  - Evidence: u_x symmetry-plane ratio 0.102 -> 1.75e-9;
+    max|u(0,y,z)-u(1,y,z)| = 1e-20 over matched coordinates.
+  - Hasimoto ladder K: 1.623/1.640/1.684 -> 1.7213/1.7404/1.7902 at
+    D/h = 6/12/24 (-11.4/-10.5/-8.1% -> -6.05/-5.01/-2.29%), and the
+    increments now grow with refinement instead of flattening at ~1.70.
+  - Walled decks are bit-identical (all periodic work is behind
+    `bPeriodicRun = ANY(dPeriodicity < 1d8)`; the union degenerates to
+    the historic exact-only count).
+  - Guards added: `CheckFaceClaimDecode` aborts, naming the axis-uniform
+    partitioning rule, when a coarse face is not claimed by exactly two
+    subdomains; MUMPS coarse solver is refused on periodic decks
+    (Create_GlobalNumbering label swap, still unfixed).
+  - **Still open / handed to the owner**: re-running the EL campaign's
+    periodic physics cases (RZ settling, kroupa xy-periodicity) - their
+    rows were measured on traction-free boxes; the phi-scaling anomaly
+    (`d11_phi_small`) and the L5 asymptote need re-measurement on the
+    fixed code; parallel-PE periodic alignment; MUMPS periodic support.
 
 ### D1.2 Grid-crossing noise (translating sphere, frozen dynamics)
 - Case: sphere dragged at constant velocity across the mesh

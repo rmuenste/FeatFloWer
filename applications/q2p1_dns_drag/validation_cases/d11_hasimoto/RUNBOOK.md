@@ -45,20 +45,61 @@ Campaign: `dns-validation-campaign-plan.md` §D1.1. First executed 2026-08-02.
 
 ## Results
 
+> **All pre-fix numbers below were measured on a box whose periodic faces
+> were solved traction-free** (D1.1b, datasheet `d11_periodicity_absent`
+> / `d11_uxtest`): the Q2/E013 communicator contained zero periodic DOF
+> pairs. The fix landed 2026-08-03; **use the post-fix table.** Anything
+> derived from the pre-fix ladder (the r_h calibration curve, the −8.9%
+> asymptote, the φ-scaling anomaly) has to be re-measured.
+
+### Post-fix (periodic Q2 coupling active)
+
+| Job | Level | D/h | F_z steady | K = F/(6πμrU_sup) | vs Hasimoto 1.8322 | Momentum balance |
+|---|---|---|---|---|---|---|
+| 137539 | L2 | 6 | 1.00087e-2 | 1.7213 | −6.05% | +0.09% PASS |
+| 137540 | L3 | 12 | 1.00123e-2 | 1.7404 | −5.01% | +0.12% PASS |
+| 137541 | L4 | 24 | 1.00052e-2 | 1.7902 | −2.29% | +0.05% PASS |
+
+Ladder increments now **grow** with refinement (+0.019 then +0.050)
+instead of flattening out at ≈1.70 — the pre-fix ladder's convergence to
+a wrong asymptote is gone. Transverse forces stay at 5e-12 (L2) / 2.8e-10
+(L4). Re-measured hydrodynamic-radius calibration: r_h/r =
+**1.034 / 1.028 / 1.013** at D/h = 6/12/24 — roughly half the pre-fix
+values and clearly shrinking with h, i.e. most of the apparent effective-
+radius offset was the traction-free box, not the FBM interface.
+
+Verification that the coupling is real: `PERIODIC_COMM` lines in the log
+report 702 = 27×26 neighbour pairs on the QBOX9 3×3×3 torus (every rank
+neighbours every other rank), 386 of them periodic-only. The u_x
+symmetry-plane test dropped from 0.102 to 1.75e-9 (job 137535).
+
+### Pre-fix (traction-free faces — historical)
+
 | Job | Level | D/h | F_z steady | K = F/(6πμrU_sup) | vs Hasimoto 1.8322 | Momentum balance |
 |---|---|---|---|---|---|---|
 | 137363 | L2 | 6 | 1.00137e-2 | 1.623 | −11.4% | +0.14% PASS |
 | 137364 | L3 | 12 | 1.00173e-2 | 1.640 | −10.5% | +0.17% PASS |
 | 137365 | L4 | 24 | 1.00116e-2 | 1.684 | −8.1% | +0.12% PASS |
 
-Implied hydrodynamic-radius calibration (ten Cate §IV-C analogue,
+Pre-fix implied hydrodynamic-radius calibration (ten Cate §IV-C analogue,
 sensitivity dlnK/dlnr ≈ 1.87): r_h/r = 1.067 / 1.061 / 1.046 at
-D/h = 6/12/24. ten Cate's LBM needed 1.12 at D/h ≈ 8 against the same
-formula — same phenomenon, FF-FBM smaller. Indicator VOLUME error is
-only −0.4% (fluid fraction), so the deficit sits in the effective
-no-slip surface, not the represented volume. Open probes: forcing-volume
-convention (f·V_total vs f·V_fluid, ~2%), L5 point (D/h=48), φ-scaling
-probe (larger sphere discriminates confinement- vs radius-coupling).
+D/h = 6/12/24 — **superseded**, see above. Indicator VOLUME error is
+only −0.4% (fluid fraction), so the residual deficit sits in the
+effective no-slip surface, not the represented volume.
+
+## Partitioning prerequisite (periodic decks)
+
+Periodic runs require an **axis-uniform Cartesian partition with ≥2 ranks
+per periodic axis**, so that subdomain faces coincide with their periodic
+images. METIS graph partitions are invalid. This is now enforced: the
+coarse-face neighbour decode in `parentcomm.f90` aborts with an
+explanatory message (`CheckFaceClaimDecode`) if a coarse face is not
+claimed by exactly two distinct subdomains. QBOX9 (3×3×3/27) satisfies
+this by construction.
+
+MUMPS (`*@MGCrsSolverType = 5`) is refused on periodic decks —
+`Create_GlobalNumbering` swaps periodic DOF labels instead of merging
+them, so the global numbering handed to MUMPS is wrong.
 
 Symmetry check (L2): transverse forces ~1e-12 vs axial 1e-2.
 Indicator fluid fraction 0.98005 vs exact 0.98061 (L2 volume error
