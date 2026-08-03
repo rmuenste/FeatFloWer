@@ -1,0 +1,40 @@
+{
+    "timesteps_": 15000,
+    "stepsize_": 0.00025,
+    "substeps_": 1,
+    "processesX_": 2,
+    "processesY_": 2,
+    "processesZ_": 4,
+    "seed_": 98765,
+    "verbose_": false,
+    "vtk_": false,
+    "particleDensity_" : 1.42,
+    "fluidViscosity_" : 0.01,
+    "fluidDensity_" : 1.0,
+    "gravity_" : [0.0,-980.0, 0.0],
+    "visspacing_": 50,
+    "pointerspacing_": 5000,
+    "resume_": false,
+    "useCheckpointer_": true,
+    "domainBoundary_": {
+        "enabled": true,
+        "file": "atc_boundary_param_zero.obj",
+        "position": [0.000006, -2.25096, 0.08719],
+        "fixed": true,
+        "visible": true,
+        "distanceMap": {
+            "enabled": true,
+            "resolution": 128,
+            "tolerance": 6,
+            "invertForDomainBoundary": true,
+            "writeVti": false,
+            "vtiFile": "atc_boundary_distancemap.vti"
+        }
+    },
+    "volumeFraction_": 0.0,
+    "packingMethod_": "none",
+    "xyzFilePath_": "sphere_centers_50.xyz",
+    "benchRadius_": 0.0137,
+    "checkpoint_path_": "checkpoints/",
+    "config_string": "ATC smoke: fluid+mixer only (no particles), atc_35_mesh, RPM40, dt=0.25ms synced"
+}
