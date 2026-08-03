@@ -60,6 +60,14 @@ Campaign: `dns-validation-campaign-plan.md` §D1.1. First executed 2026-08-02.
 | 137540 | L3 | 12 | 1.00123e-2 | 1.7404 | −5.01% | +0.12% PASS |
 | 137541 | L4 | 24 | 1.00052e-2 | 1.7902 | −2.29% | +0.05% PASS |
 
+Both tables quote the **raw** K = F/(6πμr·U_sup), so pre- and post-fix are
+directly comparable. Applying the `d11_convention` correction (exterior
+drag = f·V_fluid, i.e. K·fluid_fraction) gives K = 1.6870 / 1.7071 /
+1.7555 → −7.93 / −6.83 / **−4.18%** at D/h = 6/12/24. Three-point
+Richardson on the corrected ladder: apparent order ≈ 0.33, K_∞ ≈ 1.815
+(−0.9% vs Hasimoto) — versus the pre-fix free asymptote of −8.9%.
+L5 (D/h=48) is being run separately by the campaign owner.
+
 Ladder increments now **grow** with refinement (+0.019 then +0.050)
 instead of flattening out at ≈1.70 — the pre-fix ladder's convergence to
 a wrong asymptote is gone. Transverse forces stay at 5e-12 (L2) / 2.8e-10
