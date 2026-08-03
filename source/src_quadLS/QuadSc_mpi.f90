@@ -1870,6 +1870,10 @@ CALL MemoryPrint(1,'s','COMM1')
 
 ! IF (ALLOCATED(CoorST)) DEALLOCATE (CoorST)
 ALLOCATE(CoorST(subnodes))
+! %Num is only assigned for neighbours with VerticeCommunicationScheme > 0;
+! the match loop below reads it for every neighbour with a nonzero send list,
+! so an unset value is read as garbage.  Initialise explicitly.
+CoorST(:)%Num = 0
 
 ! write(*,'(I3,2(A,<subnodes>I5))') myid," : ", MGE013(ILEV-1)%ST(:)%Num
 ! CALL MPI_BARRIER(MPI_COMM_SUBS,IERR)
@@ -2282,6 +2286,9 @@ END DO
 
 IF (ALLOCATED(CoorST)) DEALLOCATE (CoorST)
 ALLOCATE(CoorST(subnodes))
+! Only neighbours with VerticeCommunicationScheme > 0 receive a coordinate
+! list, so every other %Num would stay undefined - initialise explicitly.
+CoorST(:)%Num = 0
 
 CALL MemoryPrint(1,'s','comm1')
 
@@ -2367,6 +2374,11 @@ DO pID=1,subnodes
         ((ABS(P1Y-P2Y).LT.DEpsPrec).OR.(ABS(ABS(P1Y-P2Y)-dPeriodicity(2)).LT.DEpsPrec)).AND.& 
         ((ABS(P1Z-P2Z).LT.DEpsPrec).OR.(ABS(ABS(P1Z-P2Z)-dPeriodicity(3)).LT.DEpsPrec))) THEN
      jAux = jAux + 1
+     ! The per-axis OR test is permissive: a periodic corner/edge image can
+     ! match several local DOFs.  The fill loop below stops at the first hit,
+     ! so the counter has to do the same or %Num overshoots the entries that
+     ! actually get written into VertLink.
+     EXIT
     END IF
    END DO
   END DO
