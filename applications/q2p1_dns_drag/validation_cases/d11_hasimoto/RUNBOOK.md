@@ -59,19 +59,37 @@ Campaign: `dns-validation-campaign-plan.md` §D1.1. First executed 2026-08-02.
 | 137539 | L2 | 6 | 1.00087e-2 | 1.7213 | −6.05% | +0.09% PASS |
 | 137540 | L3 | 12 | 1.00123e-2 | 1.7404 | −5.01% | +0.12% PASS |
 | 137541 | L4 | 24 | 1.00052e-2 | 1.7902 | −2.29% | +0.05% PASS |
+| 137611 | L5 | 48 | 9.98535e-3 | 1.8075 | −1.35% | −0.15% (still creeping +0.01%/0.1s at t=4) |
 
 Both tables quote the **raw** K = F/(6πμr·U_sup), so pre- and post-fix are
-directly comparable. Applying the `d11_convention` correction (exterior
-drag = f·V_fluid, i.e. K·fluid_fraction) gives K = 1.6870 / 1.7071 /
-1.7555 → −7.93 / −6.83 / **−4.18%** at D/h = 6/12/24. Three-point
-Richardson on the corrected ladder: apparent order ≈ 0.33, K_∞ ≈ 1.815
-(−0.9% vs Hasimoto) — versus the pre-fix free asymptote of −8.9%.
-L5 (D/h=48) is being run separately by the campaign owner.
+directly comparable. Ladder increments no longer flatten at ≈1.70 — the
+pre-fix convergence to a wrong asymptote is gone. Transverse forces stay
+at 5e-12 (L2) / 2.8e-10 (L4).
 
-Ladder increments now **grow** with refinement (+0.019 then +0.050)
-instead of flattening out at ≈1.70 — the pre-fix ladder's convergence to
-a wrong asymptote is gone. Transverse forces stay at 5e-12 (L2) / 2.8e-10
-(L4). Re-measured hydrodynamic-radius calibration: r_h/r =
+**Closure analysis (datasheet `d11_rh_collapse`).** The residual ladder is
+explained by two measurable discretization terms, no unexplained physics
+left:
+
+1. **Indicator-volume error** per rung (measured fluid_frac vs analytic
+   0.9806075): the L2 discrete sphere is +0.95% in radius, L3 −0.43%,
+   L4/L5 ≲0.05%. Dividing each K by (1+Δr/r)^1.87 removes it.
+2. **O(h) interface widening**: the volume-corrected superficial ladder
+   is near-first-order (increments +0.063/+0.037/+0.017, orders
+   0.76/1.18) with a level-constant grid coefficient c = (r_h−1)·a/h ≈
+   0.12–0.17, i.e. **a_eff ≈ a + 0.14h**. Richardson: K_∞ = 1.821–1.825
+   (−0.4…−0.6% vs 1.8322) — closes within resolution uncertainty.
+
+**Convention caveat (open)**: this closure holds when Hasimoto's U is
+read as the superficial (Darcy) velocity — the standard reading
+(Zick–Homsy, Ladd). Using the interstitial velocity instead leaves a
+−2.2% asymptote (exactly the O(φ) convention gap). The earlier
+`d11_convention` decision was made on the traction-free box and needs
+re-derivation; pin against the Hasimoto 1959 paper when available.
+
+Superseded intermediate reading: the 3-point (L2–L4) Richardson quoted
+below commit 63482ea1 (order ≈0.33, K_∞ ≈ 1.815) mixed conventions and
+lacked the volume correction; the collapse analysis above replaces it.
+Re-measured hydrodynamic-radius calibration: r_h/r =
 **1.034 / 1.028 / 1.013** at D/h = 6/12/24 — roughly half the pre-fix
 values and clearly shrinking with h, i.e. most of the apparent effective-
 radius offset was the traction-free box, not the FBM interface.
