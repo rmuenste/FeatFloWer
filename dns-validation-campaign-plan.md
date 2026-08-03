@@ -282,6 +282,23 @@ the user asked for and calibrates every later stage's cost model.
   `Periodic → Inflow300` moving walls, `PeriodicAxis = xy`) is the shear-
   cell template.
 
+### D1.1b Periodic-coupling anomaly investigation (OPEN, priority)
+- Finding (datasheet d11_asymptote): the Hasimoto ladder converges at
+  apparent order ~1.7 to a residual ~-8.9% deficit - the wrong answer.
+  Image-strength dependence: confinement captured ~80% (phi=0.019) /
+  ~45% (phi=0.008). The walled ten Cate case certifies the FBM force to
+  +0.03% vs LBM; the periodic cell is the only sphere case exercising
+  dPeriodicity -> prime suspect is incomplete periodic pairing of Q2
+  edge/face/interior-face DOFs (vertex-only coupling would transmit
+  stresses weakly across periodic faces).
+- Diagnostic 1 (no sphere, exact solution): transverse body-force mode
+  in the periodic cell vs analytic Fourier solution - tests the Q2
+  periodic coupling directly, FBM out of the loop.
+- Diagnostic 2 (code): trace PARENTCOMM/E013_CreateComm dPeriodicity
+  pairing - are edge/face DOFs matched or only vertices?
+- Diagnostic 3: doubled cell (2x2x2 images explicit, one sphere) - if K
+  jumps toward Hasimoto, the boundary coupling is confirmed as the sink.
+
 ### D1.2 Grid-crossing noise (translating sphere, frozen dynamics)
 - Case: sphere dragged at constant velocity across the mesh
   (`SimPar@skipFBMDynamics = Yes`, prescribed motion), uniform flow frame.
