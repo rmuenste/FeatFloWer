@@ -430,6 +430,21 @@
     CHARACTER*9 ccgcc
     integer, allocatable :: sendcounts(:),displs(:),gathered_data(:)
     logical, allocatable :: xComm(:,:)
+    ! --- periodic vertex-share bookkeeping (D1.1b) -------------------------------
+    ! Second, parallel link table: local coarse vertex -> ALL parent coarse
+    ! vertices reachable through a periodic image shift.  A vertex on a periodic
+    ! face has 1 image, on a periodic edge 3, in a periodic corner 7 - hence
+    ! nPerImg = 7 slots.  It never replaces myVERTLINK (that identity feeds the
+    ! coarse gather); it only widens the VerticeCommunicationScheme so that
+    ! periodic neighbours are no longer gated out of every E013/E011/pressure
+    ! exchange.
+    INTEGER, PARAMETER :: nPerImg = 7
+    integer, allocatable :: myVERTLINKPER(:,:),pVERTLINKPER(:,:,:)
+    integer, allocatable :: sendcountsP(:),displsP(:),gathered_dataP(:)
+    integer, allocatable :: nExactScheme(:)
+    logical, allocatable :: xCommPer(:,:)
+    logical :: bPeriodicRun,bI,bIper
+    integer :: nPerio,nImg,iImg,iPerImg(nPerImg)
 
     TYPE TVector
       INTEGER :: i,Num
@@ -444,10 +459,15 @@
 
     CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
+    ! dPeriodicity defaults to [1d9,1d9,1d9] == "no periodicity".  Everything
+    ! guarded by bPeriodicRun below is a strict no-op for walled decks, which
+    ! keeps their communication tables (and hence their results) bit-identical.
+    bPeriodicRun = ANY(dPeriodicity.LT.1d8)
+
     !--------------------------------------------------------------
     !CREATING MAPPING STRUCTURE FOR MASTER --> ASSISTANT //ELEMENTS
     !--------------------------------------------------------------
-    
+
     call ztime(time0)
     CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
     If (myid.eq.1) write(*,*) "ParentComm start!"
@@ -493,25 +513,40 @@
     
     call MPI_Bcast(dCOORDINATES, 3*pNVT, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
 
+    ALLOCATE(myVERTLINKPER(nPerImg,MAX(NVT,1)))
+    myVERTLINKPER = 0
+
     IF (myid.ne.master) THEN
       CALL InitOctTree(dCOORDINATES,pNVT)
-      
+
        DO I=1,NVT
-       
+
         CALL FindInOctTree(dCOORDINATES,pNVT,DCORVG(:,I),J,DIST)
-        
+
         IF (J.lt.0) then
          WRITE(*,*) I,"PROBLEM of vert assignement ..."
         end if
-        IF (DIST.LT.DEpsPrec) THEN 
+        IF (DIST.LT.DEpsPrec) THEN
          coarse%myVERTLINK(I)=J
         END IF
-       
+
+        ! Periodic pass: the same local coarse vertex, shifted by a periodic
+        ! image, may sit on parent vertices owned by periodic neighbours.  All
+        ! images are needed - a vertex on a periodic edge/corner belongs to 4/8
+        ! subdomains and every one of those pairs has to exchange.
+        IF (bPeriodicRun) THEN
+         CALL FindPeriodicImagesInOctTree(dCOORDINATES,pNVT,DCORVG(:,I),&
+                                          iPerImg,nImg,nPerImg,DEpsPrec,dPeriodicity)
+         DO iImg=1,nImg
+          myVERTLINKPER(iImg,I)=iPerImg(iImg)
+         END DO
+        END IF
+
        END DO
-    
+
       CALL FreeOctTree()
     END IF
-    
+
     allocate(sendcounts(0:numnodes),displs(0:numnodes+1))
     sendcounts = 0; displs = 0
 
@@ -548,7 +583,43 @@
        END DO
       end do
     END IF
-    ! Prepare the vertice-based Communication Structure 
+
+    ! Gather the periodic link table - same layout, nPerImg slots per vertex.
+    IF (bPeriodicRun) THEN
+      allocate(sendcountsP(0:numnodes),displsP(0:numnodes+1))
+      sendcountsP = nPerImg*sendcounts
+      displsP     = nPerImg*displs
+
+      if (myid.eq.master) then
+       allocate(pVERTLINKPER(nPerImg,subnodes,coarse%pVert))
+       pVERTLINKPER = 0
+       allocate(gathered_dataP(MAX(displsP(numnodes+1),1)))
+       n = 0
+      else
+       allocate(gathered_dataP(1))
+       n = nPerImg*nvt
+      end if
+
+      call MPI_Gatherv(myVERTLINKPER, n, MPI_INTEGER, &
+                     gathered_dataP, sendcountsP, displsP, &
+                     MPI_INTEGER, master, MPI_COMM_WORLD, ierr)
+
+      IF (myid.eq.0) THEN
+        DO pID=1,subnodes
+         j = 0
+         DO i=displsP(pID)+1, displsP(pID+1), nPerImg
+          j = j + 1
+          DO iImg=1,nPerImg
+           pVERTLINKPER(iImg,pID,J)=gathered_dataP(i+iImg-1)
+          END DO
+         END DO
+        end do
+      END IF
+
+      deallocate(sendcountsP,displsP,gathered_dataP)
+    END IF
+
+    ! Prepare the vertice-based Communication Structure
     if (myid.eq.0) then
      allocate(xComm(coarse%pVert,subnodes))
      xComm = .FALSE.
@@ -560,30 +631,76 @@
        end if
       END DO
      END DO
-   
+
+     ! Periodic share table.  Empty (all .FALSE.) for walled decks, so the
+     ! union below degenerates to the historic exact-only count.
+     allocate(xCommPer(coarse%pVert,subnodes))
+     xCommPer = .FALSE.
+     IF (bPeriodicRun) THEN
+      DO pID=1,subnodes
+       DO ivt=1,coarse%pVert
+        DO iImg=1,nPerImg
+         jvt = pVERTLINKPER(iImg,pID,ivt)
+         if (jvt.ne.0) then
+          xCommPer(jvt,pID) = .TRUE.
+         end if
+        END DO
+       END DO
+      END DO
+     END IF
+
      allocate(VerticeCommunicationScheme(subnodes))
-     
+     allocate(nExactScheme(subnodes))
+
      DO pID=1,subnodes
       VerticeCommunicationScheme = 0
-      DO ivt=1,coarse%pVert
-       jvt = coarse%pVERTLINK(pID,ivt)
-       if (jvt.ne.0) then
+      nExactScheme = 0
+      ! Union form: a parent coarse vertex is shared between pID and pJD if
+      ! BOTH reach it, each one either exactly or through a periodic image.
+      ! The exact-only term is a subset of this, hence walled decks keep their
+      ! historic counts to the bit.
+      DO jvt=1,coarse%pVert
+       bI    = xComm   (jvt,pID)
+       bIper = xCommPer(jvt,pID)
+       if (bI.or.bIper) then
         DO pJD=1,subnodes
-         if (pID.ne.pJD.and.xComm(jvt,pJD)) then
-          VerticeCommunicationScheme(PJD) = VerticeCommunicationScheme(PJD) + 1
+         if (pID.ne.pJD) then
+          if (xComm(jvt,pJD).or.xCommPer(jvt,pJD)) then
+           VerticeCommunicationScheme(PJD) = VerticeCommunicationScheme(PJD) + 1
+          end if
+          if (bI.and.xComm(jvt,pJD)) then
+           nExactScheme(PJD) = nExactScheme(PJD) + 1
+          end if
          end if
         END DO
        END IF
       END DO
+
+      ! One-time, grep-able evidence that periodic coupling is actually built.
+      IF (bPeriodicRun) THEN
+       DO pJD=1,subnodes
+        IF (pID.ne.pJD.and.VerticeCommunicationScheme(pJD).gt.0) THEN
+         nPerio = VerticeCommunicationScheme(pJD) - nExactScheme(pJD)
+         WRITE(*,'(A,I0,A,I0,A,I0,A,I0)') "PERIODIC_COMM rank ",pID," neigh ",pJD,&
+              " exact=",nExactScheme(pJD)," periodic=",nPerio
+        END IF
+       END DO
+      END IF
+
 !       WRITE(*,'(A,I0,A,1000(I0," "))') "pID=",pID," :: ", VerticeCommunicationScheme
       CALL SENDK_myMPI(VerticeCommunicationScheme,subnodes,pID)
      END DO
      deallocate(xComm)
+     deallocate(xCommPer)
+     deallocate(nExactScheme)
     else
      allocate(VerticeCommunicationScheme(subnodes))
      VerticeCommunicationScheme = 0
      CALL RECVK_myMPI(VerticeCommunicationScheme,subnodes,0)
     end if
+
+    IF (ALLOCATED(myVERTLINKPER)) deallocate(myVERTLINKPER)
+    IF (ALLOCATED(pVERTLINKPER)) deallocate(pVERTLINKPER)
 
 !     IF (myid.eq.0) THEN
 !      DO pID=1,subnodes
@@ -769,12 +886,21 @@
         myFACELINK(2,J)=myid
        END IF
       
-       CALL FindInPeriodicOctTree(dCOORDINATES,nat,DCORAG(:,I),J,DIST,dPeriodicity)
-       IF (DIST.LT.DEpsPrec) THEN 
-        myFACELINK(1,J)=I
-        myFACELINK(2,J)=myid
+       ! Periodic image pass.  dCOORDINATES holds pNAT parent face midpoints -
+       ! passing the local `nat` here was a latent out-of-bounds descriptor.
+       ! The myFACELINK(1,J)==0 guard keeps a periodic hit from overwriting an
+       ! exact hit, which is what corrupted the table whenever one rank owned
+       ! both sides of a periodic pair.
+       IF (bPeriodicRun) THEN
+        CALL FindInPeriodicOctTree(dCOORDINATES,pNAT,DCORAG(:,I),J,DIST,dPeriodicity)
+        IF (J.GT.0.AND.DIST.LT.DEpsPrec) THEN
+         IF (myFACELINK(1,J).EQ.0) THEN
+          myFACELINK(1,J)=I
+          myFACELINK(2,J)=myid
+         END IF
+        END IF
        END IF
-      
+
       END DO
     
       CALL FreeOctTree()
@@ -789,6 +915,11 @@
         IF (myFACELINK(1,I) /= myFACEPINK(1,I)) THEN
          pID = myid
          PJD = myFACEPINK(2,I) - myid
+         ! The "sum of the two claimants minus me" decode is only valid if the
+         ! parent face is claimed by EXACTLY two distinct subdomains.  A third
+         ! claimant, or a rank owning both sides of a periodic pair, produces a
+         ! nonsense neighbour id which used to silently corrupt the tables.
+         CALL CheckFaceClaimDecode(PJD,I,myFACEPINK(2,I))
          iFace = myFACELINK(1,I)
          jFace = myFACEPINK(1,I) - myFACELINK(1,I)
          nFACELISTS(PJD) = nFACELISTS(PJD) + 1
@@ -830,6 +961,7 @@
        DO I=1,pNAT
         IF (myFACELINK(1,I).ne.0) THEN
          IF (myFACELINK(1,I) /= myFACEPINK(1,I)) THEN
+          CALL CheckFaceClaimDecode(myFACEPINK(2,I)-myid,I,myFACEPINK(2,I))
           IF (pJD.eq.myFACEPINK(2,I) - myid) THEN
            iFace = myFACELINK(1,I)
            jFace = myFACEPINK(1,I) - myFACELINK(1,I)
@@ -889,3 +1021,37 @@
     IF (ALLOCATED(dCOORDINATES)) DEALLOCATE(dCOORDINATES)
 
   END
+  ! ----------------------------------------------
+  ! ----------------------------------------------
+  ! ----------------------------------------------
+  ! Validate the "claim sum" decode used to identify the partner subdomain of a
+  ! shared coarse face.  myFACEPINK(2,:) is an MPI_SUM over all ranks that claim
+  ! the parent face, so `sum - myid` is the partner id ONLY when exactly two
+  ! distinct ranks claim it.  Anything else (three claimants, or a rank that
+  ! owns both sides of a periodic pair) silently produced garbage neighbour ids
+  ! and corrupted the parST/E013 tables.  Turn it into a loud configuration
+  ! error instead - it always means the partition violates the periodic
+  ! partitioning prerequisite.
+  SUBROUTINE CheckFaceClaimDecode(PJD,iParentFace,iClaimSum)
+  USE PP3D_MPI
+
+    implicit none
+    INTEGER, INTENT(IN) :: PJD,iParentFace,iClaimSum
+    INTEGER :: iAbortErr
+
+    IF (PJD.GE.1.AND.PJD.LE.subnodes.AND.PJD.NE.myid) RETURN
+
+    WRITE(*,'(A)') REPEAT('=',78)
+    WRITE(*,'(A,I0)') ' FATAL PARENTCOMM: invalid coarse face pairing on rank ',myid
+    WRITE(*,'(A,I0,A,I0,A,I0)') '  parent face ',iParentFace,' : claim sum ',iClaimSum,&
+                                ' decodes to neighbour ',PJD
+    WRITE(*,'(A)') '  A coarse face must be claimed by exactly two distinct subdomains.'
+    WRITE(*,'(A)') '  Periodic runs require an axis-uniform Cartesian partition with at'
+    WRITE(*,'(A)') '  least 2 ranks per periodic axis; METIS graph partitions are invalid'
+    WRITE(*,'(A)') '  for periodic decks (use the PyPartitioner axis_uniform mode).'
+    WRITE(*,'(A)') REPEAT('=',78)
+    FLUSH(6)
+
+    CALL MPI_Abort(MPI_COMM_WORLD,1,iAbortErr)
+
+  END SUBROUTINE CheckFaceClaimDecode
