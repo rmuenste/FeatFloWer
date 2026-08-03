@@ -115,21 +115,23 @@ Expected configure indicators:
 
 ## 4) Build `q2p1_ATC`
 
-Recommended first-time sequence:
-
 ```bash
-cmake --build build-atc-ninja-release-eigen --target cgal -- -j8
 cmake --build build-atc-ninja-release-eigen --target q2p1_ATC -- -j8
 ```
 
 For the GCC 14 build directory:
 
 ```bash
-cmake --build build-atc-ninja-release-eigen-gcc14 --target cgal -- -j8
 cmake --build build-atc-ninja-release-eigen-gcc14 --target q2p1_ATC -- -j8
 ```
 
-The first command avoids first-build ordering issues where PE sources may compile before CGAL headers are staged.
+Note: older revisions of this guide prescribed a first-time
+`cmake --build <dir> --target cgal` step to avoid PE sources compiling
+before CGAL headers were staged. Since CGAL moved to centralized
+FetchContent handling (PR #17, `feature/cgal-fetchcontent`), that target
+no longer exists (`ninja: error: unknown target 'cgal'`) and the
+ordering issue it worked around is gone — CGAL is staged at configure
+time. Build `q2p1_ATC` directly.
 
 To keep a full log:
 
