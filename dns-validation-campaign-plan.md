@@ -307,6 +307,14 @@ the user asked for and calibrates every later stage's cost model.
   every "fully periodic" EL run (momentum_conservation, RZ settling,
   kroupa xy-periodicity) was also traction-free - EL rows citing
   periodicity need re-interpretation once confirmed.
+- **Partitioning prerequisite (R. Muenster)**: periodic computing
+  requires a PE-parallel-style axis-uniform Cartesian partition whose
+  subdomain faces coincide with their periodic images - METIS graph
+  partitions cannot produce a valid mesh for periodic runs (the
+  E013_CreateComm corruption note is this failure). Necessary but not
+  sufficient: even aligned partitions currently yield zero Q2 periodic
+  pairs until the myVERTLINK fix lands. Enforce: periodic decks only
+  with PyPartitioner axis_uniform partitions.
 - Diagnostic 3: doubled cell (2x2x2 images explicit, one sphere) - if K
   jumps toward Hasimoto, the boundary coupling is confirmed as the sink.
 
