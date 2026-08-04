@@ -79,12 +79,17 @@ left:
    0.12–0.17, i.e. **a_eff ≈ a + 0.14h**. Richardson: K_∞ = 1.821–1.825
    (−0.4…−0.6% vs 1.8322) — closes within resolution uncertainty.
 
-**Convention caveat (open)**: this closure holds when Hasimoto's U is
-read as the superficial (Darcy) velocity — the standard reading
-(Zick–Homsy, Ladd). Using the interstitial velocity instead leaves a
-−2.2% asymptote (exactly the O(φ) convention gap). The earlier
-`d11_convention` decision was made on the traction-free box and needs
-re-derivation; pin against the Hasimoto 1959 paper when available.
+**Convention PINNED from the paper** (`literature/hasimoto_1959.pdf`):
+eq. (2.14) P₀ = F/τ₀ — the sphere force balances the mean pressure
+gradient over the WHOLE cell, so with body-force driving F = f·V_cell,
+which is exactly the measured force (no f·V_fluid "exterior" correction);
+and eqs. (2.5)+(4.7–4.8) — the U in F = 6πμaU/(1−κa) is v₀, the k=0
+Fourier mode = volume average over the entire unit cell = the superficial
+(Darcy) velocity (bulk_flow col 2). The raw K_sup table above IS
+Hasimoto's convention on both counts. The earlier `d11_convention`
+"exterior drag = f·V_fluid" reading (decided on the traction-free box)
+is superseded; the interstitial-velocity variant (−2.2% residual) is the
+wrong comparison, not a discretization defect.
 
 Superseded intermediate reading: the 3-point (L2–L4) Richardson quoted
 below commit 63482ea1 (order ≈0.33, K_∞ ≈ 1.815) mixed conventions and
