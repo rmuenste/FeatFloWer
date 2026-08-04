@@ -41,8 +41,6 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
-file(COPY q2p1_sse_temp.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
 #=========================================================================
 #                       INSTALL CONFIGURATION
 #=========================================================================
