@@ -380,7 +380,7 @@ NDOF = nvt + nat + nel + net  ! Total DOFs per level
 ./partitioner 8 1 8 "channel_mesh" "project.dat"
 
 # 2. Parallel execution  
-mpirun -np 8 ./applications/q2p1_devel/q2p1_devel
+mpirun -np 8 ./applications/q2p1_fc_ext/q2p1_fc_ext
 ```
 
 ### 11.2 Performance Tuning

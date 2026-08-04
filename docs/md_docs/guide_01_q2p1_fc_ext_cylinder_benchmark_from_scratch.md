@@ -235,7 +235,7 @@ grep '^Force:' _data/prot.txt | tail -1
 
 > **Do not use `grep 'Force acting' _data/prot.txt`.** That string is never
 > emitted by the solver — it survives only in legacy `run_q2p1_fc_ext` helper
-> scripts under `applications/q2p1_creep/`, `applications/q2p1_dns_drag/` and
+> scripts under `applications/q2p1_dns_drag/` and
 > `applications/q2p1_xParticles/`. Because `grep` simply matches nothing, the
 > old `awk` pipeline printed an **empty line instead of failing**, which makes
 > this a silent-wrong-answer trap in any script that copied it.
