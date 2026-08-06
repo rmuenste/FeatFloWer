@@ -50,14 +50,37 @@ def main():
         if ok:
             pts.append(p)
 
+    # Periodic image copies: the FBM indicator is NOT periodic (datasheet
+    # d31_periodic_indicator) - a sphere crossing a face loses the part
+    # outside [0,1]^3. For FIXED arrays explicit image spheres restore the
+    # geometry exactly. One line per image; .meta records parent indices.
+    images = []
+    for ip, p in enumerate(pts):
+        shifts = [[0.0], [0.0], [0.0]]
+        for c in range(3):
+            if p[c] < r:
+                shifts[c].append(1.0)
+            elif p[c] > 1.0 - r:
+                shifts[c].append(-1.0)
+        for sx in shifts[0]:
+            for sy in shifts[1]:
+                for sz in shifts[2]:
+                    if sx == sy == sz == 0.0:
+                        continue
+                    images.append((ip, (p[0] + sx, p[1] + sy, p[2] + sz)))
+
     with open(a.out, 'w') as f:
         for p in pts:
             f.write('%.12f %.12f %.12f\n' % p)
+        for _, q in images:
+            f.write('%.12f %.12f %.12f\n' % q)
     with open(a.out + '.meta', 'w') as f:
-        f.write('n=%d phi=%.6f radius=%.9f mingap=%.3fd seed=%d tries=%d\n'
-                % (a.n, a.phi, r, a.mingap, a.seed, tries))
-    print('n=%d phi=%.4f -> radius=%.6f (D=%.4f), mingap=%.3fd, seed=%d, %d tries'
-          % (a.n, a.phi, r, 2 * r, a.mingap, a.seed, tries))
+        f.write('n=%d phi=%.6f radius=%.9f mingap=%.3fd seed=%d tries=%d nimages=%d\n'
+                % (a.n, a.phi, r, a.mingap, a.seed, tries, len(images)))
+        for k, (ip, _) in enumerate(images):
+            f.write('image %d parent %d\n' % (a.n + k, ip))
+    print('n=%d phi=%.4f -> radius=%.6f (D=%.4f), mingap=%.3fd, seed=%d, %d tries, %d image spheres'
+          % (a.n, a.phi, r, 2 * r, a.mingap, a.seed, tries, len(images)))
 
 
 if __name__ == '__main__':
