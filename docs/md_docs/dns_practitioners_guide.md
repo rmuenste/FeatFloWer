@@ -1,8 +1,8 @@
-# DNS (FBM) practitioner's guide — v1
+# DNS (FBM) practitioner's guide — v2
 
-Status: **v1**, 2026-08-06, after D1 (single-sphere metrology), D1.1
-(periodic array drag, closed), D1.2 (noise floor), D2.1 (wall-approach
-crossover rule) and the D2.3 DKT mechanism study. Every number below
+Status: **v2**, 2026-08-11, adding D3.1 (random-array drag law, closed)
+and the production-resolution probes to the v1 scope (D1 metrology, D1.1
+Hasimoto, D1.2 noise floor, D2.1 crossover rule, D2.3 DKT). Every number below
 traces to a row in `dns_validation_datasheet.md`. Scope: spheres,
 Re ≈ 0.003–32, serial-PE mode. Multi-particle collective behavior (D3),
 non-spherical particles (D4) and the shared lubrication closure (D2.2)
@@ -151,6 +151,12 @@ point and **suppresses genuine fluid-mediated instabilities**.
   **superficial** (whole-cell mean, Darcy) velocity — pinned from the
   paper (`d11_convention_pinned`); the interstitial variant differs by
   O(φ) and is the wrong comparison.
+- Beetstra comparisons: the correlation is for the DRAG PART only,
+  F_d = (1−φ)·F_total (their p. 490 force split — our momentum-balance
+  force is F_total), normalized by superficial U; Re uses superficial U
+  too (`d31_convention_pinned`). Third convention pin of the campaign:
+  **pin the reference's own definitions from its own text before
+  believing any discrepancy.**
 
 ## 8. Prescribed-motion probes (protocol)
 
@@ -160,7 +166,51 @@ sphere (ρ_p/ρ_f = 1e6) + `gravity_ = [0,0,0]` +
 velocity stays constant to ~1e-5 relative while the FBM force is logged
 (`d12_prescribed_smoke`). Twin-certified no-op when the keys are absent.
 
-## 9. Measured job costs (32 ranks unless noted, nx nodes)
+## 9. The random-array drag law (D3.1, closed)
+
+F_d*(φ, Re) measured on N=16 random fixed-sphere arrays (RSA, 0.05d min
+gap, periodic cell with explicit image spheres), 3 seeds/point, vs the
+Beetstra 2007 correlation (eqs. 6/17):
+
+| φ | Re≈0 | Re≈9 | Re≈27 |
+|---|---|---|---|
+| 0.05 | 1.90±0.08 | 2.51±0.11 | 2.95±0.21 |
+| 0.10 | 2.48±0.20 | 3.00±0.23 | 3.63±0.39 |
+| 0.20 | 4.37±0.25 | 4.96±0.24 | 6.07±0.39 |
+| 0.30 | 7.53±0.24 | 8.46±0.31 | 10.51±0.39 |
+
+What the deviations taught (each attributed, none unexplained):
+
+- **Resolution**: L4→L5 shifts +1.3…+3.5% everywhere (Stokes AND the
+  moderate-Re corner) — the a_eff = a + 0.14h picture again; L4
+  (D/h 13–24) is production-grade for array drag.
+- **Finite-N**: the +4…+11% converged Stokes offset vs the correlation
+  is the N=16 box talking to its own periodic images; at Beetstra's own
+  N=54 the FBM value reproduces the correlation to **+0.4%**
+  (`d31_n54_verdict`). Rule: for quantitative closure comparisons use
+  N≈50+, or expect a few-% finite-N offset at N=16.
+- **Microstructure dispersion at Re ≳ 20**: single-configuration drag
+  scatters ±10–30% around the ensemble mean (vs 3–8% at Stokes) —
+  inertia amplifies configuration sensitivity ~3×
+  (`d31_corner_discriminator`). This dispersion is physics, not error:
+  mean-field closures integrate it away; a DNS-informed EL closure can
+  carry it as a fluctuation model (D5 input).
+- **The FBM indicator is NOT periodic** (`d31_periodic_indicator`):
+  spheres straddling a periodic face lose the part outside the box.
+  Fixed arrays: emit explicit image spheres (generator does this).
+  Moving particles crossing periodic faces remain UNSUPPORTED — flag
+  for any wrapping-particle run.
+
+**Production resolution (D/h = 3–4)** — single-sphere and array-level
+evidence agree (`d11_coarse_probes`, `d31_l2_production`): mean drag is
+~85–90% of converged, nearly Re-independent (long-range screening
+survives coarse meshes; no boundary-layer blowup) → apply one
+correction factor ≈ 1.15 (equivalently a_eff = a + 0.14h). Per-particle
+forces carry ~8–15% rms grid noise there, and everything within ~2
+cells of contact (= half a diameter at D/h 3–4) is the contact model's
+job — tune its parameters as physics (§6).
+
+## 10. Measured job costs (32 ranks unless noted, nx nodes)
 
 | Config | steps | wall time |
 |---|---|---|
@@ -172,12 +222,14 @@ velocity stays constant to ~1e-5 relative while the FBM force is logged
 | DKT D/h=8 (109 rk) | 5000 | ~6 h |
 | DKT D/h=16 (109 rk, 2 nodes) | 5000 | ~30 h |
 
-## 10. Open items feeding v2
+## 11. Open items feeding v3
 
+- D3.2 wall-bounded hindered settling (RZ band — the walled answer to
+  the EL campaign's periodic-box RZ question).
 - D2.2 sphere–sphere approach + shared lubrication closure (uses §5's
-  collapse curve).
-- D3.1 static random arrays → DNS drag law F(φ,Re) vs Beetstra/Tenneti
-  (first post-fix periodic production stage; axis-uniform partitions).
-- D1.2 spectral characterization (noise vs crossing frequency) if any
-  gate needs it; E2/E3 dt points.
+  collapse curve and §9's dispersion finding).
+- Periodic support for MOVING particles crossing faces (indicator +
+  PE) if any wrapping-particle case is needed.
+- D1.2 spectral characterization; E2/E3 dt points; Tenneti 2011
+  comparison of the §9 surface.
 - Non-spherical (D4) and the D6 capstones.
