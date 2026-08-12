@@ -361,6 +361,44 @@ IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-debug")
   SET(Q2P1_BUILD_ID_FOUND true)
 ENDIF()
 
+IF(Q2P1_BUILD_ID STREQUAL "generic-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -m64)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "arm64-linux-gcc-debug")
+  SET(CMAKE_BUILD_TYPE "Debug")
+  SET(CXX_FLAGS_FC)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "arm64-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+# AMD Zen 5 / WSL2 developer boxes. Compatibility-first: a portable x86-64
+# baseline (no -march=native, which gfortran cannot tune for znver5 yet) so
+# the tree builds and runs locally. Not intended for production HPC tuning.
+IF(Q2P1_BUILD_ID STREQUAL "zen5-linux-gcc-debug")
+  SET(CMAKE_BUILD_TYPE "Debug")
+  SET(CXX_FLAGS_FC -m64)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
+IF(Q2P1_BUILD_ID STREQUAL "zen5-linux-gcc-release")
+  SET(CMAKE_BUILD_TYPE "Release")
+  SET(CXX_FLAGS_FC -m64)
+  SET(Fortran_FLAGS -finit-local-zero -ffixed-line-length-none -ffree-line-length-none -Wall -cpp)
+  SET(Q2P1_BUILD_ID_FOUND true)
+ENDIF()
+
 #===============================================================================================================
 #                           Temporary fix for argument mismatch errors with GFORTRAN >= 10
 #===============================================================================================================

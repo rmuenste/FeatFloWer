@@ -32,6 +32,7 @@ enable_testing()
 
 include(CTest)
 include(CMakeDependentOption)
+include(FetchContent)
 
 #=========================================================================
 #                         custom targets  
@@ -138,6 +139,89 @@ option(USE_HYPRE
   OFF
   )
 
+cmake_dependent_option(
+  USE_EXTERNAL_HYPRE
+  "Link a pre-installed hypre instead of the vendored copy"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+set(EXTERNAL_HYPRE_DIR "" CACHE PATH
+  "Install prefix of an external hypre"
+  )
+
+cmake_dependent_option(
+  USE_HYPRE_CUDA
+  "Enable hypre's CUDA execution path"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+cmake_dependent_option(
+  USE_HYPRE_GPU_AMG
+  "Use GPU-compatible BoomerAMG parameters"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+cmake_dependent_option(
+  ENABLE_HYPRE_TIMING
+  "Print machine-readable hypre coarse-solver timings"
+  OFF
+  "USE_HYPRE"
+  OFF
+  )
+
+option(ENABLE_SOLVER_TIMING
+  "Print machine-readable FF_TIMING records for MG stages and coarse solvers"
+  OFF
+  )
+
+option(USE_EXTERNAL_SUITESPARSE
+  "Use an external SuiteSparse UMFPACK instead of the vendored UMFPACK 4"
+  OFF
+  )
+
+set(EXTERNAL_SUITESPARSE_DIR "" CACHE PATH
+  "Install prefix of an external SuiteSparse (empty: system paths)"
+  )
+
+option(USE_MKL_PARDISO
+  "Enable MKL PARDISO as pressure coarse solver type 9"
+  OFF
+  )
+
+set(MKL_PARDISO_DIR "$ENV{MKLROOT}" CACHE PATH
+  "MKL install root providing lib/libmkl_*.a (required for USE_MKL_PARDISO)"
+  )
+
+cmake_dependent_option(
+  USE_EXTERNAL_MUMPS
+  "Link a pre-installed MUMPS (works with GCC) instead of the vendored MUMPS 5.0.1 + MKL"
+  OFF
+  "USE_MUMPS"
+  OFF
+  )
+
+set(EXTERNAL_MUMPS_DIR "" CACHE PATH
+  "Install prefix of an external MUMPS (lib/, include/)"
+  )
+
+set(EXTERNAL_SCALAPACK_DIR "" CACHE PATH
+  "Install prefix of the ScaLAPACK matching the external MUMPS"
+  )
+
+set(EXTERNAL_SCOTCH_DIR "" CACHE PATH
+  "Install prefix of the SCOTCH/esmumps matching the external MUMPS"
+  )
+
+set(EXTERNAL_PARMETIS_DIR "" CACHE PATH
+  "Install prefix of the ParMETIS/METIS matching the external MUMPS"
+  )
+
 option(USE_PE
   "Use pe library"
   OFF
@@ -152,7 +236,7 @@ cmake_dependent_option(
 )
 
 cmake_dependent_option(
-  MPI                              # Dependent Option name
+  PE_USE_MPI                       # Dependent Option name (PE-owned, PE_-prefixed)
   "Enable MPI support in PE"       # Description
   ON                               # Value when condition is true (parallel PE needs MPI)
   "USE_PE;NOT USE_PE_SERIAL_MODE"  # Condition: USE_PE=ON AND USE_PE_SERIAL_MODE=OFF
@@ -179,8 +263,17 @@ endif()
 
 
 if(BUILD_BOUNDARY_LAYER_TOOLS)
-  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE) 
+  SET(USE_OPENMESH ON CACHE BOOL "Build OpenMesh library" FORCE)
 endif(BUILD_BOUNDARY_LAYER_TOOLS)
+
+#=========================================================================
+#      Solver dependency providers (vendored / external / system / fetch)
+#      Declares FF_FETCH_DEPENDENCIES, FF_HYPRE_PROVIDER,
+#      FF_SUITESPARSE_PROVIDER, FF_HYPRE_GPU_AWARE_MPI and the
+#      ff_setup_* macros used further down.
+#      See docs/md_docs/fetchcontent_dependencies.md
+#=========================================================================
+include(FFDependencies)
 
 #option(FC_CUDA_SUPPORT
 #    "Enables use of CUDA extensions"
@@ -271,120 +364,66 @@ endif(BUILD_METIS)
 # Add the cgal library
 #=========================================================================
 if(USE_CGAL)
+  set(USE_BOOST TRUE)
 
-  if(NOT USE_CGAL_LOCAL)
-    set(USE_BOOST True)
+  # CGAL's imported target must carry these exact arithmetic dependencies to
+  # every C++ consumer, including PE and FullC0ntact applications.
+  find_package(GMP REQUIRED)
+  find_package(MPFR REQUIRED)
+  message(STATUS "Found GMP: ${GMP_LIBRARIES}")
+  message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
+  message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
+  message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
 
-    message(STATUS "Building CGAL from source")
-    # Your existing ExternalProject_Add code for CGAL
-    set(CGAL_INSTALL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install)
-    set(CGAL_STAMP_DIR ${CMAKE_BINARY_DIR}/extern/cgal/src/cgal-stamp)
-    set(CGAL_NAME cgal) 
-    include(ExternalProject)
-    ExternalProject_Add(
-      cgal
+  # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
+  if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
+    set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
+      "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
+    message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
+  else()
+    message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
+  endif()
+
+  if(USE_CGAL_LOCAL)
+    message(STATUS "Trying to find system installation of CGAL")
+    find_package(CGAL 5.3 REQUIRED CONFIG)
+  else()
+    message(STATUS "Fetching CGAL 5.6.3")
+    set(CGAL_BUILD_DOCS OFF CACHE BOOL "Build CGAL documentation" FORCE)
+    set(CGAL_BUILD_EXAMPLES OFF CACHE BOOL "Build CGAL examples" FORCE)
+    set(CGAL_BUILD_TESTING OFF CACHE BOOL "Build CGAL tests" FORCE)
+    set(WITH_CGAL_ImageIO OFF CACHE BOOL "Build CGAL ImageIO support" FORCE)
+    set(WITH_CGAL_Qt5 OFF CACHE BOOL "Build CGAL Qt5 support" FORCE)
+
+    FetchContent_Declare(
+      CGAL
       GIT_REPOSITORY https://github.com/CGAL/cgal.git
       GIT_TAG v5.6.3
-      PREFIX ${CMAKE_BINARY_DIR}/extern/cgal
-      CMAKE_ARGS 
-        -DCMAKE_INSTALL_PREFIX=${CGAL_INSTALL_DIR}
-        -DWITH_CGAL_ImageIO=OFF
-        -DWITH_CGAL_Qt5=OFF
-        -DCGAL_HEADER_ONLY=OFF
-        -DCMAKE_BUILD_TYPE=Release
-      TEST_COMMAND ""
-      UPDATE_COMMAND ""
-      BUILD_ALWAYS OFF
+      GIT_SHALLOW TRUE
     )
-
-    # Set CGAL include directory
-    set(CGAL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/include)
-    include_directories(SYSTEM ${CGAL_INCLUDE_DIR})
-
-
-    set(CGAL_LIBRARIES 
+    set(_ff_build_testing "${BUILD_TESTING}")
+    set(BUILD_TESTING OFF)
+    FetchContent_MakeAvailable(CGAL)
+    set(BUILD_TESTING "${_ff_build_testing}")
+    unset(_ff_build_testing)
+    find_package(CGAL REQUIRED CONFIG
+      PATHS "${cgal_BINARY_DIR}"
+      NO_DEFAULT_PATH
     )
+  endif()
 
-# TODO: - The below code is ATM not working with the ExternalProject_add mechanism
-#    # Create a CMake interface for CGAL
-#    add_library(CGAL::CGAL INTERFACE IMPORTED)
-#    add_dependencies(CGAL::CGAL cgal)
-#    # Every target that links to CGAL::CGAL will automatically get -I${CGAL_INCLUDE_DIR} added to its include directories.
-#    target_include_directories(CGAL::CGAL
-#                              INTERFACE ${CGAL_INCLUDE_DIR})
+  if(NOT TARGET CGAL::CGAL)
+    message(FATAL_ERROR "CGAL support is enabled, but CGAL::CGAL is unavailable")
+  endif()
 
-  else(NOT USE_CGAL_LOCAL)
-    set(USE_BOOST True)
-    message(STATUS "Trying to find system installation of CGAL")
-
-    # Find GMP and MPFR before find_package(CGAL) so that our updated Find modules
-    # (which scan ENV CPATH / ENV LIBRARY_PATH set by GCC module systems) run first.
-    # CMake caches the results, so CGAL's own internal find_package(GMP/MPFR) calls
-    # will reuse them — including any user-supplied -DMPFR_INCLUDE_DIR=... hints.
-    list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
-    find_package(GMP REQUIRED)
-    find_package(MPFR REQUIRED)
-    if(GMP_FOUND)
-      message(STATUS "Found GMP: ${GMP_LIBRARIES}")
-      message(STATUS "GMP include directory: ${GMP_INCLUDE_DIR}")
-    endif()
-    if(MPFR_FOUND)
-      message(STATUS "Found MPFR: ${MPFR_LIBRARIES}")
-      message(STATUS "MPFR include directory: ${MPFR_INCLUDE_DIR}")
-    endif()
-
-    # Prevent CGAL's TweakFindBoost.cmake from silently requesting static Boost.
-    # On Linux systems only shared Boost libraries are typically available.
-    # Override by passing -DCGAL_Boost_USE_STATIC_LIBS=ON if static Boost is needed.
-    if(NOT DEFINED CGAL_Boost_USE_STATIC_LIBS)
-      set(CGAL_Boost_USE_STATIC_LIBS OFF CACHE BOOL
-        "Tell CGAL's FindBoost tweak to prefer shared Boost libraries" FORCE)
-      message(STATUS "CGAL_Boost_USE_STATIC_LIBS not set -- defaulting to OFF (shared Boost)")
-    else()
-      message(STATUS "CGAL_Boost_USE_STATIC_LIBS explicitly set to ${CGAL_Boost_USE_STATIC_LIBS}")
-    endif()
-
-    # Try to find CGAL
-    find_package(CGAL QUIET COMPONENTS Core
-      HINTS
-        # Standard system locations
-        /usr/local
-        /usr
-        # Windows default installation locations
-        "C:/Program Files/CGAL"
-        # Windows user installation
-        "$ENV{USERPROFILE}/CGAL"
-        # Linux user installations
-        "$ENV{HOME}/.local"
-        # Look for environment variable if set
-        "$ENV{CGAL_DIR}"
-        # Homebrew on macOS
-        /usr/local/opt/cgal
-        /opt/homebrew/opt/cgal
-    )
-
-    set(CGAL_NAME CGAL)
-    if(CGAL_FOUND)
-      message(STATUS "Found CGAL version ${CGAL_VERSION}")
-      message(STATUS "Using CGAL from ${CGAL_DIR}")
-      if(CGAL_VERSION VERSION_LESS "5.3")
-        message(FATAL_ERROR "CGAL version ${CGAL_VERSION} is too old. Minimum required version is 5.3.")
-      endif()
-      # Older CGAL packages export a helper include file; newer releases may not.
-      if(CGAL_USE_FILE)
-        include(${CGAL_USE_FILE})
-      endif()
-      
-      set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
-    else()
-      message(STATUS "CGAL not found in system locations")
-      # Fallback to ExternalProject_Add or other approach
-      message(FATAL_ERROR "Option USE_CGAL was requested, but the CGAL library was not found. Please consult the build_guide.md how to help the system find CGAL.")
-    endif()
-
-  endif(NOT USE_CGAL_LOCAL)
-
-endif(USE_CGAL)
+  message(STATUS "Using CGAL version ${CGAL_VERSION}")
+  set(CGAL_LIBRARIES CGAL::CGAL)
+  if(CGAL_INCLUDE_DIRS)
+    set(CGAL_INCLUDE_DIR ${CGAL_INCLUDE_DIRS})
+  else()
+    get_target_property(CGAL_INCLUDE_DIR CGAL::CGAL INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+endif()
 
 #=========================================================================
 #                          Configure BoostC++ 
@@ -415,12 +454,6 @@ endif(USE_CGAL)
 # Boost_LIBRARY_DIRS : - Boost library directories
 # Boost_LIBRARIES    : - Boost libraries to be linked
 # Boost version vars : - Boost detailed library version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}
-
-# When building CGAL via ExternalProject, pin CGAL_DIR to the build-tree install.
-# When USE_CGAL_LOCAL=ON, CGAL_DIR is already resolved by find_package(CGAL) above.
-if(USE_CGAL AND NOT USE_CGAL_LOCAL)
-    set(CGAL_DIR ${CMAKE_BINARY_DIR}/extern/cgal/install/lib/cmake/CGAL CACHE PATH "Path to CGAL installation" FORCE)
-endif()
 
 if(USE_BOOST)
 
@@ -458,18 +491,81 @@ message(STATUS "CMake MPI_Fortran_LIBRARIES : ${MPI_Fortran_LIBRARIES}")
 
 add_subdirectory(extern/libraries/feat2d)
 add_subdirectory(extern/libraries/feat3d)
-add_subdirectory(extern/libraries/amd)
-add_subdirectory(extern/libraries/umfpack4)
+
+# SuiteSparse/UMFPACK provider: vendored UMFPACK 4, a site install
+# (USE_EXTERNAL_SUITESPARSE + EXTERNAL_SUITESPARSE_DIR) or the pinned
+# SuiteSparse tarball (FF_SUITESPARSE_PROVIDER=fetch).
+ff_setup_suitesparse()
+
+if(USE_MKL_PARDISO)
+  ff_setup_mkl_pardiso()
+endif()
 
 if(USE_MUMPS)
-  find_package(MKL)
-  if(${Q2P1_BUILD_ID} MATCHES "intel")
+  if(USE_EXTERNAL_MUMPS)
+    foreach(_mumps_lib dmumps mumps_common pord)
+      string(TOUPPER ${_mumps_lib} _MUMPS_LIB_U)
+      find_library(FF_${_MUMPS_LIB_U}_LIBRARY ${_mumps_lib}
+        HINTS ${EXTERNAL_MUMPS_DIR}/lib ${EXTERNAL_MUMPS_DIR}/lib64)
+      if(NOT FF_${_MUMPS_LIB_U}_LIBRARY)
+        message(FATAL_ERROR
+          "External MUMPS: lib${_mumps_lib} not found under ${EXTERNAL_MUMPS_DIR}")
+      endif()
+    endforeach()
+    if(NOT EXISTS ${EXTERNAL_MUMPS_DIR}/include/dmumps_struc.h)
+      message(FATAL_ERROR
+        "External MUMPS: dmumps_struc.h not found under ${EXTERNAL_MUMPS_DIR}/include")
+    endif()
+    find_library(FF_SCALAPACK_LIBRARY scalapack
+      HINTS ${EXTERNAL_SCALAPACK_DIR}/lib ${EXTERNAL_SCALAPACK_DIR}/lib64)
+    if(NOT FF_SCALAPACK_LIBRARY)
+      message(FATAL_ERROR
+        "External MUMPS: libscalapack not found under ${EXTERNAL_SCALAPACK_DIR}")
+    endif()
+    # SCOTCH orderings are optional in principle but required by the site
+    # MUMPS builds; collect whatever variants the prefix provides.
+    set(FF_SCOTCH_LIBRARIES "")
+    foreach(_scotch_lib esmumps ptscotch scotch ptscotcherr scotcherr)
+      find_library(FF_SCOTCH_${_scotch_lib}_LIBRARY ${_scotch_lib}
+        HINTS ${EXTERNAL_SCOTCH_DIR}/lib ${EXTERNAL_SCOTCH_DIR}/lib64)
+      if(FF_SCOTCH_${_scotch_lib}_LIBRARY)
+        list(APPEND FF_SCOTCH_LIBRARIES ${FF_SCOTCH_${_scotch_lib}_LIBRARY})
+      endif()
+    endforeach()
+    # The site MUMPS builds also use ParMETIS orderings.
+    set(FF_PARMETIS_LIBRARIES "")
+    foreach(_pm_lib parmetis metis gklib)
+      find_library(FF_PARMETIS_${_pm_lib}_LIBRARY ${_pm_lib}
+        HINTS ${EXTERNAL_PARMETIS_DIR}/lib ${EXTERNAL_PARMETIS_DIR}/lib64
+        NO_DEFAULT_PATH)
+      if(FF_PARMETIS_${_pm_lib}_LIBRARY)
+        list(APPEND FF_PARMETIS_LIBRARIES ${FF_PARMETIS_${_pm_lib}_LIBRARY})
+      endif()
+    endforeach()
+    if(NOT FF_PARMETIS_LIBRARIES)
+      message(FATAL_ERROR
+        "External MUMPS: libparmetis not found under ${EXTERNAL_PARMETIS_DIR}")
+    endif()
+    find_library(FF_OPENBLAS_LIBRARY openblas)
+    if(NOT FF_OPENBLAS_LIBRARY)
+      message(FATAL_ERROR "External MUMPS: libopenblas not found")
+    endif()
     add_definitions(-DMUMPS_AVAIL)
-    add_subdirectory(extern/libraries/MUMPS_5.0.1)
     set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
-  else(${Q2P1_BUILD_ID} MATCHES "intel")
-    message(FATAL_ERROR "The MUMPS library requires the intel compiler. Choose a build-id with the intel compiler to resolve this issue.")
-  endif(${Q2P1_BUILD_ID} MATCHES "intel")
+    set(MUMPS_STRUCTURES_INCLUDE_PATH ${EXTERNAL_MUMPS_DIR}/include)
+    message(STATUS "External MUMPS: ${FF_DMUMPS_LIBRARY}")
+    message(STATUS "External MUMPS ScaLAPACK: ${FF_SCALAPACK_LIBRARY}")
+    message(STATUS "External MUMPS SCOTCH libs: ${FF_SCOTCH_LIBRARIES}")
+  else()
+    find_package(MKL)
+    if(${Q2P1_BUILD_ID} MATCHES "intel")
+      add_definitions(-DMUMPS_AVAIL)
+      add_subdirectory(extern/libraries/MUMPS_5.0.1)
+      set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
+    else(${Q2P1_BUILD_ID} MATCHES "intel")
+      message(FATAL_ERROR "The vendored MUMPS library requires the intel compiler. Choose a build-id with the intel compiler, or set USE_EXTERNAL_MUMPS=ON with a GCC-compatible MUMPS install.")
+    endif(${Q2P1_BUILD_ID} MATCHES "intel")
+  endif()
 endif(USE_MUMPS)
 
 find_package(Git 2.17)
@@ -480,8 +576,6 @@ find_package(Git 2.17)
 if(NOT WIN32)
   if(USE_CGAL)
     add_subdirectory(tools/check_manifold)
-    add_dependencies(check_manifold ${CGAL_NAME})
-    add_dependencies(validate_triangle_mesh ${CGAL_NAME})
   endif(USE_CGAL)
 endif(NOT WIN32)
 
@@ -490,13 +584,36 @@ endif(NOT WIN32)
 # Add the hypre library
 #=========================================================================
 if(USE_HYPRE)
-  # Use the sources from the repository  
-  message(STATUS "Using repository versions of hypre")
-  add_definitions(-DHYPRE_AVAIL)		
-  add_subdirectory(extern/libraries/hypre/src)
+  add_definitions(-DHYPRE_AVAIL)
+
+  # hypre provider: vendored submodule, a site install
+  # (USE_EXTERNAL_HYPRE + EXTERNAL_HYPRE_DIR) or the pinned hypre tarball
+  # (FF_HYPRE_PROVIDER=fetch).
+  ff_setup_hypre()
+
+  if(USE_HYPRE_CUDA)
+    add_definitions(-DHYPRE_CUDA)
+    if(NOT USE_HYPRE_GPU_AMG)
+      message(STATUS "USE_HYPRE_CUDA enables USE_HYPRE_GPU_AMG")
+      set(USE_HYPRE_GPU_AMG ON CACHE BOOL
+        "Use GPU-compatible BoomerAMG parameters" FORCE)
+    endif()
+  endif()
+
+  if(USE_HYPRE_GPU_AMG)
+    add_definitions(-DHYPRE_GPU_AMG)
+  endif()
+
+  if(ENABLE_HYPRE_TIMING)
+    add_definitions(-DHYPRE_TIMING)
+  endif()
+
   set(src_q2p1 ${src_q2p1} ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
-  set(HYPRE_LIBRARIES HYPRE)
 endif(USE_HYPRE)
+
+if(ENABLE_SOLVER_TIMING)
+  add_definitions(-DFF_SOLVER_TIMING)
+endif()
 
 #=========================================================================
 #      Set the flags/paths/etc. we have determined for libraries 
@@ -533,8 +650,16 @@ if(USE_PE)
 
   # Propagate FBM acceleration to PE library's HashGrid
   if(ENABLE_FBM_ACCELERATION)
-    set(USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
+    set(PE_USE_ACCELERATED_POINT_QUERY ON CACHE BOOL
       "Enable HashGrid spatial hashing in PE (controlled by ENABLE_FBM_ACCELERATION)" FORCE)
+  endif()
+
+  # Forward FeatFloWer's CGAL choice to the PE library. PE removed its
+  # USE_CGAL deprecated alias; its own option is now PE_USE_CGAL (default OFF),
+  # so we must set it explicitly to keep PE's CGAL code paths compiled.
+  if(USE_CGAL)
+    set(PE_USE_CGAL ON CACHE BOOL
+      "Build PE with CGAL support (controlled by FeatFloWer USE_CGAL)" FORCE)
   endif()
 
   add_subdirectory(libs/pe)
@@ -594,15 +719,6 @@ IF(BUILD_APPLICATIONS)
       add_definitions(-DWITH_ODE)
       add_subdirectory(FullC0ntact/libs/ode-cmake)
     endif(USE_ODE)
-    #=========================================================================
-    #                    CGAL Dependendy Setup
-    #=========================================================================
-    # We set up CGAL to be dependent on the lowest level main target 
-    # This way we make sure that CGAL is built in time before it gets used
-    # in the building process
-    if(USE_CGAL)
-      add_dependencies(inshape3dcore ${CGAL_NAME})
-    endif(USE_CGAL)
   else()
     message(FATAL_ERROR "FullC0ntact directory is required for applications.")  
   ENDIF()

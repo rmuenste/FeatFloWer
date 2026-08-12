@@ -172,7 +172,9 @@ FeatFloWer supports three modes for rigid body physics, configured at build time
 mpirun -np 4 ./applications/q2p1_devel/q2p1_devel
 
 # Mesh partitioning for parallel runs
-./partitioner mesh.tri 4
+# The legacy root-level ./partitioner binary has been removed.
+# Use application staging targets or the maintained partitioner tooling documented in:
+# docs/md_docs/featflower_partitioner_usage_guide.md
 ```
 
 ### Configuration Files

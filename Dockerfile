@@ -21,7 +21,9 @@ RUN apt-get update && \
       libboost-dev \
       libboost-program-options-dev \
       ca-certificates \
-      python3 && \
+      python3 \
+      python3-requests \
+      python-is-python3 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -34,10 +36,12 @@ RUN git submodule update --init --recursive
 # Configure and build once during image creation so downstream users can run binaries directly.
 ARG CMAKE_BUILD_TYPE=Release
 ARG BUILD_APPLICATIONS=ON
+ARG BUILD_TESTING=ON
 ARG Q2P1_BUILD_ID=generic-linux-gcc-release
 RUN cmake -S . -B build \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
         -DBUILD_APPLICATIONS=${BUILD_APPLICATIONS} \
+        -DBUILD_TESTING=${BUILD_TESTING} \
         -DQ2P1_BUILD_ID=${Q2P1_BUILD_ID} && \
     cmake --build build -- -j"$(nproc)"
 
@@ -64,7 +68,8 @@ RUN set -eux; \
       usermod --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash "${USERNAME}"; \
     else \
       usermod --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash "${USERNAME}"; \
-    fi
+    fi; \
+    chown -R "${USER_UID}:${USER_GID}" /workspace/build
 
 USER ${USERNAME}
 WORKDIR /workspace

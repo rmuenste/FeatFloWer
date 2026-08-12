@@ -10,6 +10,7 @@ SimPar@ProjectFile = "_adc/2D_FAC/2Dbench.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@StartFile = "_dump/01"
+SimPar@UseProvDump = No                                                 ! Yes -> use _dump_prov/<StartFile>
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 2

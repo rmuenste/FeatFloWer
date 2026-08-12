@@ -1,0 +1,5 @@
+metrics:
+  total_momentum_drift:
+    drift_rel: 0.0
+  feedback_source_fidelity:
+    residual: 0.0

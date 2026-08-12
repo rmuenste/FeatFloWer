@@ -384,7 +384,6 @@
 !        Set some parameters (See Reference Manual for more parameters)
          call HYPRE_ParCSRGMRESSetMaxIter(solver, 1000, ierr)
          call HYPRE_ParCSRGMRESSetTol(solver, 1.0d-7, ierr)
-!          call HYPRE_ParCSRGMRESSetTwoNorm(solver, 1, ierr)
          call HYPRE_ParCSRGMRESSetPrintLevel(solver, 2, ierr)
          call HYPRE_ParCSRGMRESSetLogging(solver, 1, ierr)
           

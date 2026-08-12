@@ -20,7 +20,9 @@ Where $\mathbf{x}_k$ are the coordinates of the 8 element vertices.
 
 ## Implementation Files
 
-### Core Implementation: `evaluate_velocity_midpoint.f90`
+These files are reference implementations under `docs/code_examples/`; they are not part of the normal CMake build.
+
+### Core Implementation: `docs/code_examples/evaluate_velocity_midpoint.f90`
 
 #### Main Subroutine: `Evaluate_Velocity_Midpoint`
 
@@ -45,7 +47,7 @@ SUBROUTINE Evaluate_Velocity_Midpoint(QuadSc, velocity_midpoints, element_center
 1. **`Evaluate_Single_Element_Velocity`** - Evaluate velocity at any point within a specific element
 2. **`Write_Velocity_Midpoints_VTK`** - Export results to VTK format for visualization
 
-### Interface Module: `velocity_midpoint_interface.f90`
+### Interface Module: `docs/code_examples/velocity_midpoint_interface.f90`
 
 #### Simple Interface: `Call_VelocityMidpointEvaluation`
 
@@ -238,10 +240,11 @@ Generated VTK files contain:
 ## File Structure
 ```
 FeatFloWer/
-├── evaluate_velocity_midpoint.f90      # Core implementation
-├── velocity_midpoint_interface.f90     # Easy-to-use interfaces
+├── docs/code_examples/
+│   ├── evaluate_velocity_midpoint.f90      # Core implementation
+│   └── velocity_midpoint_interface.f90     # Easy-to-use interfaces
 └── docs/md_docs/
-    └── velocity_midpoint_evaluation.md # This documentation
+    └── velocity_midpoint_evaluation.md     # This documentation
 ```
 
 ## References

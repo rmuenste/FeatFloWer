@@ -847,9 +847,9 @@ When adding/modifying matrix assembly:
 
 ## Further Reading
 
-- `def_refactoring.md` - Refactoring roadmap and dependency analysis
+- `quadsc_refactoring_status.md` - Completed refactoring and remaining work
 - `matrix_structures_guide.md` - Detailed CSR format and structure allocation
-- `refactoring_roadmap.md` - Phase 1-4 refactoring plan
+- `quadsc_current_implementation.md` - Current module organization and conventions
 - FeatFloWer User Manual (if available)
 
 **Questions?** Check `QuadSc_assembly.f90` for working examples of all matrix types.

@@ -1,7 +1,6 @@
 # FeatFloWer Runtime Process Control
 
 **Version**: 1.0
-**Last Updated**: 2025-01-28
 **Source**: `source/ProcCtrl.f90`
 
 ## Introduction
@@ -697,7 +696,7 @@ ProcessControl is typically called:
 
 ## Related Documentation
 
-- **Parameter Reference:** See `PARAMETER_REFERENCE.md` for all `Velo@`, `Pres@`, `Prop@`, and `SimPar@` parameters
+- **Parameter Reference:** See `parameter_reference.md` for all `Velo@`, `Pres@`, `Prop@`, and `SimPar@` parameters
 - **Checkpoint Format:** See application-specific documentation for `SolToFile`/`SolFromFile` format
 - **Output Formats:** See `Output_Profiles` documentation for GMV/VTU format details
 

@@ -33,7 +33,7 @@ cd build_test_baseline
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
       -DUSE_PE_SERIAL_MODE=ON \
-      -DUSE_ACCELERATED_POINT_QUERY=OFF \
+      -DPE_USE_ACCELERATED_POINT_QUERY=OFF \
       -DBUILD_APPLICATIONS=ON \
       ..
 
@@ -50,7 +50,7 @@ cd build_test_accelerated
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DUSE_PE=ON \
       -DUSE_PE_SERIAL_MODE=ON \
-      -DUSE_ACCELERATED_POINT_QUERY=ON \
+      -DPE_USE_ACCELERATED_POINT_QUERY=ON \
       -DBUILD_APPLICATIONS=ON \
       ..
 
@@ -148,7 +148,7 @@ Add diagnostic output in `libs/pe/src/interface/object_queries.cpp` to print whi
 If the counts differ:
 
 1. Check that both builds are using PE_SERIAL_MODE
-2. Verify the CMake configuration (check for `USE_ACCELERATED_POINT_QUERY`)
+2. Verify the CMake configuration (check for `PE_USE_ACCELERATED_POINT_QUERY`)
 3. Enable debug output in the point query code to trace the discrepancy
 4. Try with fewer spheres (e.g., 5×5×5 = 125) to test below the activation threshold
 

@@ -341,33 +341,37 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   end if ! myid /= 0
 
 #ifdef HAVE_PE
-  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INT, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
-
-  ! Get total particle count on all ranks (including rank 0)
-  totalP = getTotalParticles()
+  ! getTotalParticles() already returns the GLOBAL particle count on every
+  ! PE rank; the CFD master (rank 0) has no PE world and must not call the
+  ! query (uninitialized garbage). Combine across ranks with MAX, never SUM.
+  totalP = 0
+  IF (myid.NE.0) totalP = getTotalParticles()
 
 #ifdef PE_SERIAL_MODE
+  call MPI_Reduce(totalInside, reducedVal, 1, MPI_INTEGER, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
   IF (myid.eq.1) THEN
     write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / totalP
+    dofsPerParticle = real(reducedVal) / MAX(totalP,1)
     write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', totalP, ' particles'
   end if
 #else
-  call MPI_Reduce(totalP, reducedP, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-
-  IF (myid.eq.0) THEN
-    write(*,'(A,I0)') '> Total dofs inside: ', reducedVal
-    dofsPerParticle = real(reducedVal) / reducedP
-    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle: ', NINT(dofsPerParticle), ' for ', reducedP, ' particles'
-  end if
-
-  ! Report KVEL cache stats across all ranks (only if KVEL acceleration is enabled)
-  if (bUseKVEL_Accel) then
-    ! k holds the local cached DOF count (set above, 0 on rank 0)
-    call MPI_Reduce(k, reducedVal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-    IF (myid.eq.0) THEN
-      write(*,'(A,I0,A)') 'KVEL cache: ', reducedVal, ' DOFs cached (all ranks)'
-    end if
+  ! Parallel PE: NO MPI collectives in this diagnostic block. This routine
+  ! is reached with rank-asymmetric control flow (the CFD master never
+  ! initializes PE and skips the worker-only sections above); MPI_Reduce
+  ! calls here produced a collective-sequence skew against the rest of the
+  ! step - observed as a master-vs-workers deadlock (jobs 137056: master
+  ! parked in the stats reduce, all 15 workers already in a later
+  ! COMM_MaximumX allreduce) and, with a different reduce ordering, as an
+  ! MPI_ERR_TRUNCATE abort (job 137032), plus garbage counts printed from
+  ! the PE-less master's uninitialized query (the notorious "23815
+  ! particles" line). Report rank-local numbers from one worker instead -
+  ! diagnostic value preserved, zero communication.
+  IF (myid.eq.1) THEN
+    write(*,'(A,I0,A)') '> Inside-dofs (rank 1, local): ', totalInside, &
+      ' (collective-free diagnostic)'
+    dofsPerParticle = real(totalInside) / MAX(totalP,1)
+    write(*,'(A,I0,A,I0,A)') '> Dofs per Particle (rank 1): ', &
+      NINT(dofsPerParticle), ' for ', totalP, ' particles (global count)'
   end if
 #endif
 #endif

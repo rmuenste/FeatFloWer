@@ -19,7 +19,18 @@ use fbm_particle_reynolds, only: fbm_compute_particle_reynolds, fbm_compute_part
                                  fbm_compute_particle_reynolds_farfield, &
                                  fbm_compute_particle_reynolds_reference_shell
 
-use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, bPrintParticleReynolds
+use var_QuadScalar, only: QuadSc, LinSc, ViscoSc, PLinSc, Viscosity, &
+                          bPrintParticleReynolds
+
+use EL_CONFIG, only: el_apply_fluid_feedback, el_prescribed_field, el_shear_rate, &
+                     el_prescribed_umax, el_cylinder_center, el_cylinder_radius, &
+                     el_cylinder_axis, el_initial_field
+use EL_CONFIG, only: el_write_diagnostics, el_fluid_gravity, el_meso_filter
+use EL_GEOMETRY, only: EL_DOMAIN_Z_CENTER
+use EL_DIAGNOSTICS, only: EL_WRITE_MOMENTUM_DIAGNOSTICS, &
+                          EL_CAPTURE_MOMENTUM_REFERENCE, el_momentum_reference_set, &
+                          EL_WRITE_SS_RADIUS, EL_FLUID_PAIR_STAGE
+use EL_FIELDS, only: EL_APPLY_FLUID_FEEDBACK_SOURCE, el_field_data
 
 use, intrinsic :: ieee_arithmetic
 
@@ -329,22 +340,256 @@ END SUBROUTINE Transport_q2p1_UxyzP
 !========================================================================================
 !
 !========================================================================================
+SUBROUTINE Transport_q2p1_UxyzP_el(mfile,inl_u,itns)
+
+  USE EL_TRANSFER, ONLY: EL_PARTICLE_MESH_PASS, EL_ADVANCE_PARTICLES, &
+                         el_pair_expected_impulse
+  USE EL_DIAGNOSTICS, ONLY: EL_NEWTON_PAIR_BEGIN, EL_NEWTON_PAIR_END, &
+                            EL_FLUID_PAIR_BEGIN, EL_FLUID_PAIR_END, &
+                            EL_MESO_FILTER_APPLY
+  USE var_QuadScalar, ONLY: bConstForce, ConstForce, myQ2Coor
+
+  INTEGER, INTENT(IN) :: mfile, itns
+  INTEGER, INTENT(OUT) :: inl_u
+  REAL*8 :: dummy_velocity(1), el_ext_force(3)
+  LOGICAL :: prescribed_active
+
+  dummy_velocity = 0.0d0
+  inl_u = 0
+  prescribed_active = TRIM(el_prescribed_field).NE.'none'
+
+  IF (ALLOCATED(FictKNPR)) FictKNPR = 0
+  IF (myid.NE.master .AND. prescribed_active) CALL EL_IMPOSE_PRESCRIBED_FIELD()
+
+  ! Viscosity convention: Properties%Viscosity is KINEMATIC (param_parser
+  ! stores Prop@Viscosity as-is and converts Prop@DynVisc via /Density);
+  ! the EL closures take the kinematic value and form mu = rho*nu
+  ! internally (el_forces.f90 dynamic_viscosity). Do NOT pre-multiply by
+  ! density here -- that double-counts rho for any fluid with rho /= 1
+  ! (caught by the ten Cate SI validation case).
+  ! Evaluate hydrodynamic particle forces from the current fluid state.
+  IF (myid.EQ.master) THEN
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
+      dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
+      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, -itns)
+  ELSE
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      Properties%Gravity, tstep, mfile, -itns)
+  END IF
+
+  ! Capture the element-integrated total-momentum reference at the true initial
+  ! state, before the first particle or fluid update. The pre-advance EL pass
+  ! above initializes epsilon_f but does not advance particle or fluid state.
+  IF (myid.NE.master .AND. .NOT.prescribed_active .AND. &
+      .NOT.el_momentum_reference_set) THEN
+    CALL EL_CAPTURE_MOMENTUM_REFERENCE(QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
+      el_field_data%epsilon_f)
+  END IF
+
+  IF (myid.NE.master) CALL EL_NEWTON_PAIR_BEGIN()
+  CALL EL_ADVANCE_PARTICLES()
+  IF (myid.NE.master) CALL EL_NEWTON_PAIR_END(el_pair_expected_impulse, &
+    timens, mfile, itns)
+
+  ! Refresh volume fraction and diagnostic feedback after particle motion.
+  IF (myid.EQ.master) THEN
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, dummy_velocity, &
+      dummy_velocity, dummy_velocity, dummy_velocity, Properties%Density(1), &
+      Properties%Viscosity(1), Properties%Gravity, tstep, mfile, itns)
+  ELSE
+    CALL EL_PARTICLE_MESH_PASS(mg_mesh, NLMAX, QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, LinSc%valP(NLMAX)%x, Properties%Density(1), Properties%Viscosity(1), &
+      Properties%Gravity, tstep, mfile, itns)
+  END IF
+
+  ! Radial-migration monitor; internally gated on cylinder domain + audit
+  ! frequency, and (unlike the momentum audit) also active in frozen runs.
+  IF (myid.NE.master) CALL EL_WRITE_SS_RADIUS(timens, mfile, itns)
+
+  IF (ALLOCATED(FictKNPR)) FictKNPR = 0
+  IF (.NOT.prescribed_active) THEN
+    ! Fluid-side momentum audit around the whole fluid solve: body force
+    ! per unit volume = rho*(ConstForce + Gravity if fluid gravity is on).
+    ! EL_INTEGRATE_FLUID_MOMENTUM relies on the GLOBAL multigrid level
+    ! (/MGPAR/ ILEV) for its NDFGL structures; the preceding EL mesh pass
+    ! restores whatever coarse level the previous solver phase used, so pin
+    ! ILEV to the coupling level before each audit call (the post-solve END
+    ! call is pinned too, defensively).
+    el_ext_force = 0.0d0
+    IF (bConstForce) el_ext_force = el_ext_force + &
+      Properties%Density(1)*ConstForce
+    IF (el_fluid_gravity) el_ext_force = el_ext_force + &
+      Properties%Density(1)*Properties%Gravity
+    IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+        ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
+      CALL EL_FLUID_PAIR_BEGIN(QuadSc%valU, QuadSc%valV, &
+        QuadSc%valW, mg_mesh, NLMAX, Properties%Density(1), &
+        el_field_data%epsilon_f)
+    END IF
+    CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.FALSE.)
+    ! Mesoscale lane-mode filter (periodic settling boxes): applied inside
+    ! the audited window so its (near-zero) momentum residue lands in the
+    ! EL_FLUID_PAIR mismatch and is nulled by the ELMomentumFix deadbeat.
+    IF (myid.NE.master .AND. el_meso_filter) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
+      CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                          mg_mesh%level(ILEV)%dcorag, &
+                          mg_mesh%level(ILEV)%kvert, &
+                          mg_mesh%level(ILEV)%karea, &
+                          mg_mesh%level(ILEV)%kedge)
+      CALL EL_MESO_FILTER_APPLY(QuadSc%valW, mg_mesh, NLMAX, myQ2Coor, &
+        QuadSc%ndof)
+    END IF
+    IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+        ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+      ILEV = NLMAX
+      CALL SETLEV(2)
+      CALL EL_FLUID_PAIR_END(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+        mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f, &
+        el_field_data%fluid_feedback_source, el_ext_force, tstep, timens, &
+        mfile, itns)
+    END IF
+  END IF
+
+  IF (myid.NE.master) THEN
+    CALL EL_WRITE_MOMENTUM_DIAGNOSTICS(QuadSc%valU, QuadSc%valV, &
+      QuadSc%valW, timens, mfile, itns, mg_mesh, NLMAX, &
+      Properties%Density(1), Properties%Viscosity(1), el_field_data%epsilon_f)
+  END IF
+
+END SUBROUTINE Transport_q2p1_UxyzP_el
+
+SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD()
+
+  INTEGER :: i, ndof
+  REAL*8 :: zc, r2, radius2
+
+  IF (TRIM(el_prescribed_field).EQ.'none') RETURN
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                      mg_mesh%level(ILEV)%dcorag, &
+                      mg_mesh%level(ILEV)%kvert, &
+                      mg_mesh%level(ILEV)%karea, &
+                      mg_mesh%level(ILEV)%kedge)
+
+  ndof = mg_mesh%level(ILEV)%nvt + mg_mesh%level(ILEV)%net + &
+         mg_mesh%level(ILEV)%nat + mg_mesh%level(ILEV)%nel
+
+  SELECT CASE (TRIM(el_prescribed_field))
+  CASE ('linear_shear')
+    zc = EL_DOMAIN_Z_CENTER()
+    DO i=1,ndof
+      QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
+      QuadSc%valV(i) = 0.0d0
+      QuadSc%valW(i) = 0.0d0
+    END DO
+  CASE ('poiseuille')
+    radius2 = el_cylinder_radius*el_cylinder_radius
+    IF (radius2.LE.0.0d0) RETURN
+    DO i=1,ndof
+      QuadSc%valU(i) = 0.0d0
+      QuadSc%valV(i) = 0.0d0
+      QuadSc%valW(i) = 0.0d0
+      SELECT CASE (TRIM(el_cylinder_axis))
+      CASE ('x')
+        r2 = (myQ2Coor(2,i)-el_cylinder_center(2))**2 + &
+             (myQ2Coor(3,i)-el_cylinder_center(3))**2
+        QuadSc%valU(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      CASE ('y')
+        r2 = (myQ2Coor(1,i)-el_cylinder_center(1))**2 + &
+             (myQ2Coor(3,i)-el_cylinder_center(3))**2
+        QuadSc%valV(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      CASE DEFAULT
+        r2 = (myQ2Coor(1,i)-el_cylinder_center(1))**2 + &
+             (myQ2Coor(2,i)-el_cylinder_center(2))**2
+        QuadSc%valW(i) = el_prescribed_umax*MAX(0.0d0,1.0d0-r2/radius2)
+      END SELECT
+    END DO
+  END SELECT
+
+END SUBROUTINE EL_IMPOSE_PRESCRIBED_FIELD
+!========================================================================================
+!
+!========================================================================================
+! One-shot initial condition for COUPLED runs (ELInitialField=linear_shear):
+! seeds the exact single-phase Couette solution u_x = G*(z-z_c) so the run
+! skips the viscous startup (L^2/nu time units). Called once from the app
+! driver after init (istart=0 only); afterwards the fluid solve owns the
+! field, unlike EL_IMPOSE_PRESCRIBED_FIELD which re-freezes it every step.
+SUBROUTINE EL_IMPOSE_INITIAL_FIELD()
+
+  INTEGER :: i, ndof
+  REAL*8 :: zc
+
+  IF (TRIM(el_initial_field).NE.'linear_shear') RETURN
+  IF (myid.EQ.master) RETURN
+
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL SetUp_myQ2Coor(mg_mesh%level(ILEV)%dcorvg, &
+                      mg_mesh%level(ILEV)%dcorag, &
+                      mg_mesh%level(ILEV)%kvert, &
+                      mg_mesh%level(ILEV)%karea, &
+                      mg_mesh%level(ILEV)%kedge)
+
+  ndof = mg_mesh%level(ILEV)%nvt + mg_mesh%level(ILEV)%net + &
+         mg_mesh%level(ILEV)%nat + mg_mesh%level(ILEV)%nel
+
+  zc = EL_DOMAIN_Z_CENTER()
+  DO i=1,ndof
+    QuadSc%valU(i) = el_shear_rate*(myQ2Coor(3,i)-zc)
+    QuadSc%valV(i) = 0.0d0
+    QuadSc%valW(i) = 0.0d0
+  END DO
+
+  ! Re-assert Dirichlet values so wall DOFs carry the BC, not the raw IC.
+  CALL Boundary_QuadScalar_Val()
+
+END SUBROUTINE EL_IMPOSE_INITIAL_FIELD
+!========================================================================================
+!
+!========================================================================================
 SUBROUTINE Transport_q2p1_UxyzP_fc_ext(mfile,inl_u,itns)
+
+INTEGER, INTENT(IN) :: mfile, itns
+INTEGER, INTENT(OUT) :: inl_u
+
+CALL Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,.TRUE.)
+
+END SUBROUTINE Transport_q2p1_UxyzP_fc_ext
+!========================================================================================
+!
+! Shared low-level Q2/P1 solve. enable_fbm is true only for the validated FBM transport.
+!========================================================================================
+SUBROUTINE Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,enable_fbm)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 external E013
 
-INTEGER mfile,INL,inl_u,itns
+INTEGER, INTENT(IN) :: mfile,itns
+INTEGER, INTENT(OUT) :: inl_u
+LOGICAL, INTENT(IN) :: enable_fbm
+INTEGER INL
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit, global_lubrication
 INTEGER INLComplete,I,J,IERR,iITER
+INTEGER iaux_lev
 real*8 px, py, pz
 integer k
 k=1
 
-CALL updateFBMGeometry()
-CALL report_and_reset_hashgrid_stats()
+IF (enable_fbm) THEN
+  CALL updateFBMGeometry()
+  CALL report_and_reset_hashgrid_stats()
+END IF
 
 thstep = tstep*(1d0-theta)
 
@@ -380,6 +625,11 @@ IF (myid.ne.master) THEN
  ! Add the gravity force to the rhs
  CALL AddGravForce()
  CALL AddConstantForce()
+ CALL EL_APPLY_MOMENTUM_FIX()
+ IF (el_apply_fluid_feedback) THEN
+   CALL EL_APPLY_FLUID_FEEDBACK_SOURCE(QuadSc%defU, QuadSc%defV, &
+     QuadSc%defW, tstep)
+ END IF
 
  ! Set dirichlet boundary conditions on the defect
  CALL Boundary_QuadScalar_Def()
@@ -504,6 +754,21 @@ END DO
 myStat%iNonLin = myStat%iNonLin + INL
 inl_u = INL
 
+! Mid-solve momentum snapshot for the EL fluid audit: after the momentum
+! (Burgers) solve, before the projection. EL_INTEGRATE_FLUID_MOMENTUM
+! needs the global ILEV pinned to the coupling level for its NDFGL
+! lookups; restore the solver's level afterwards.
+IF (myid.NE.master .AND. el_apply_fluid_feedback .AND. &
+    ALLOCATED(el_field_data%fluid_feedback_source)) THEN
+  iaux_lev = ILEV
+  ILEV = NLMAX
+  CALL SETLEV(2)
+  CALL EL_FLUID_PAIR_STAGE(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+    mg_mesh, NLMAX, Properties%Density(1), el_field_data%epsilon_f)
+  ILEV = iaux_lev
+  CALL SETLEV(2)
+END IF
+
 ! -------------------------------------------------
 ! Compute the pressure correction
 ! -------------------------------------------------
@@ -559,21 +824,23 @@ IF (bNS_Stabilization) THEN
  CALL ExtractVeloGradients()
 END IF
 
-#ifdef HAVE_PE 
-if (myid.eq. 1) write(*,*)'fbm force'
-#endif 
+#ifdef HAVE_PE
+IF (enable_fbm) THEN
+  if (myid.eq. 1) write(*,*)'fbm force'
+END IF
+#endif
 
 total_lubrication = 0.0d0
 
 ! Calculate the forces
-if(.not. skipFBMForce) then
+if(enable_fbm .and. .not. skipFBMForce) then
   call fbm_updateForces(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                         LinSc%valP(NLMAX)%x,&
                         fbm_force_handler_ptr)
 end if
 
 
-if (bPrintParticleReynolds) then
+if (enable_fbm .and. bPrintParticleReynolds) then
   call fbm_compute_particle_reynolds_interface_extended(QuadSc%valU,QuadSc%valV,QuadSc%valW,&
                                                         FictKNPR,Viscosity,Properties%Density(1),mfile, E013, 2)
 
@@ -590,11 +857,13 @@ end if
 !call Get_DissipationIntegral(mfile)
 
 
-#ifdef HAVE_PE 
-if (myid.eq. 1) write(*,*)'fbm update'
-#endif 
+#ifdef HAVE_PE
+IF (enable_fbm) THEN
+  if (myid.eq. 1) write(*,*)'fbm update'
+END IF
+#endif
 
-if(.not. skipFBMDynamics) then
+if(enable_fbm .and. .not. skipFBMDynamics) then
   ! Step the particle simulation
   call fbm_updateFBM(Properties%Density(1),tstep,timens,&
                      Properties%Gravity,mfile,myid,&
@@ -643,7 +912,7 @@ END IF
 
 RETURN
 
-END SUBROUTINE Transport_q2p1_UxyzP_fc_ext 
+END SUBROUTINE Transport_q2p1_UxyzP_fluid_core
 !=========================================================================
 ! 
 !=========================================================================

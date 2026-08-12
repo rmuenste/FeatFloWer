@@ -43,7 +43,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  USE PP3D_MPI, ONLY : myid,master,showid,ShareValueK_myMPI,&
                       Barrier_myMPI,ShareValueC_myMPI
  USE Transport_Q2P1, ONLY : myDataFile,QuadSc,LinSc,Properties
- USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters
+ USE param_parser, ONLY : GDATNEW,GetVeloParameters,GetPresParameters,GetPhysiclaParameters,&
+                          ValidateSolverTypes
+ USE timestep_control, ONLY : SetSimulationTimeStep
  IMPLICIT NONE
  INTEGER, INTENT(IN) :: MFILE, MTERM
  CHARACTER(len=200) :: string, line
@@ -51,6 +53,9 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
  CHARACTER(len=7)   :: CSimPar
  INTEGER :: iEnd(1), iCmnd(1), iExist(1), iPos, iFile, istat
  LOGICAL :: bExist
+ DOUBLE PRECISION :: TSTEP, THETA, THSTEP, TIMENS, EPSNS
+ INTEGER :: NITNS, ITNS
+ COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
 
  ! Check if control file exists
  iExist = 0
@@ -161,12 +166,26 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
 ! -------------------------------------------------------------------------------
    CASE ("Reload_Velo")
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Velocity", bExist)
-    IF (bExist) CALL GetVeloParameters(QuadSc%prm, QuadSc%cName, MFILE)
+    IF (bExist) THEN
+     CALL GetVeloParameters(QuadSc%prm, QuadSc%cName, MFILE)
+     ! A runtime reload must not be able to smuggle in an unsupported type.
+     CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%MinLev,&
+                              LinSc%prm%MGprmIn%MedLev,MFILE)
+    END IF
 
 ! -------------------------------------------------------------------------------
    CASE ("Reload_Pres")
     CALL ReloadParameterFile(MFILE, MTERM, cvalue, "Pressure", bExist)
-    IF (bExist) CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
+    IF (bExist) THEN
+     CALL GetPresParameters(LinSc%prm, LinSc%cName, MFILE)
+     ! A runtime reload must not be able to smuggle in an unsupported type.
+     CALL ValidateSolverTypes(QuadSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%CrsSolverType,&
+                              LinSc%prm%MGprmIn%MinLev,&
+                              LinSc%prm%MGprmIn%MedLev,MFILE)
+    END IF
 
 ! -------------------------------------------------------------------------------
    CASE ("Reload_SimPar")
@@ -174,6 +193,7 @@ SUBROUTINE ProcessControl(MFILE,MTERM)
     IF (bExist) THEN
       CSimPar = "SimPar"
       CALL GDATNEW(CSimPar, 1)
+      CALL SetSimulationTimeStep(TSTEP)
     END IF
 
 ! -------------------------------------------------------------------------------
@@ -292,3 +312,11 @@ SUBROUTINE Finalize_Particles(MFILE,MTERM)
 END SUBROUTINE Finalize_Particles
 
 END MODULE ProcCtrl_mod
+
+SUBROUTINE ProcessControl_External(MFILE,MTERM)
+ USE ProcCtrl_mod, ONLY : ProcessControl
+ IMPLICIT NONE
+ INTEGER, INTENT(IN) :: MFILE, MTERM
+
+ CALL ProcessControl(MFILE,MTERM)
+END SUBROUTINE ProcessControl_External

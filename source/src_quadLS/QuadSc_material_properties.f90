@@ -142,15 +142,15 @@ subroutine UpdateDensityDistribution_XSE(mfile)
   ! Send density data to master process for coarse-level solvers
   ILEV = LinSc%prm%MGprmIn%MedLev
 
-  if (LinSc%prm%MGprmIn%MedLev >= 1 .and. LinSc%prm%MGprmIn%CrsSolverType <= 4) then
+  if (LinSc%prm%MGprmIn%MedLev >= 1 .and. (LinSc%prm%MGprmIn%CrsSolverType <= 4 .or. LinSc%prm%MGprmIn%CrsSolverType == 9)) then
     call E010GATHR_L1(mgDensity(1)%x, mg_mesh%level(1)%nel)
   end if
 
-  if (LinSc%prm%MGprmIn%MedLev >= 2 .and. LinSc%prm%MGprmIn%CrsSolverType <= 4) then
+  if (LinSc%prm%MGprmIn%MedLev >= 2 .and. (LinSc%prm%MGprmIn%CrsSolverType <= 4 .or. LinSc%prm%MGprmIn%CrsSolverType == 9)) then
     call E010GATHR_L2(mgDensity(2)%x, mg_mesh%level(2)%nel)
   end if
 
-  if (LinSc%prm%MGprmIn%MedLev >= 3 .and. LinSc%prm%MGprmIn%CrsSolverType <= 4) then
+  if (LinSc%prm%MGprmIn%MedLev >= 3 .and. (LinSc%prm%MGprmIn%CrsSolverType <= 4 .or. LinSc%prm%MGprmIn%CrsSolverType == 9)) then
     call E010GATHR_L3(mgDensity(3)%x, mg_mesh%level(3)%nel)
   end if
 

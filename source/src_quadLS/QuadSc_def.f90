@@ -31,7 +31,7 @@ use ieee_arithmetic
 
 USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,COMM_SUMMN,&
                    COMM_Maximum,COMM_MaximumN,COMM_SUMM,COMM_NLComplete,&
-                   myMPI_Barrier,coarse
+                   myMPI_Barrier,coarse,MPI_COMM_WORLD
 USE var_QuadScalar
 USE mg_QuadScalar, ONLY : MG_Solver,mgProlRestInit,mgProlongation,myMG,mgLev
 USE UMFPackSolver, ONLY : myUmfPack_Factorize
@@ -47,6 +47,8 @@ USE QuadSc_assembly, ONLY : Assemble_Mass_Generic, Assemble_Diffusion_Alpha_Gene
                              Create_MRhoMat, Create_MMat, Create_CMat, Create_BMat, &
                              Create_hDiffMat, Create_ConstDiffMat, Create_DiffMat, &
                              Create_SMat, Create_KMat
+USE EL_CONFIG, ONLY: el_apply_fluid_feedback, el_drag_semi_implicit
+USE EL_FIELDS, ONLY: el_field_data
 
 use, intrinsic :: ieee_arithmetic
 
@@ -1963,6 +1965,9 @@ END SUBROUTINE Resdfk_General_LinScalar
 ! ----------------------------------------------
 !
 SUBROUTINE Solve_General_LinScalar(lScalar,lPScalar,qScalar,Bndry_Mat,Bndry_Def,mfile)
+#ifdef FF_SOLVER_TIMING
+USE ff_timing, ONLY : ff_report_timing,ff_mg_pressure_calls
+#endif
 INTEGER mfile
 TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
 TYPE(TParLinScalar), INTENT(INOUT), TARGET ::  lPScalar
@@ -1970,7 +1975,12 @@ TYPE(TQuadScalar), INTENT(INOUT), TARGET :: qScalar
 REAL*8 resP,resDP,res,ddd
 REAL*8 dnormu1,dnormu2,dnormu3,dnormu
 INTEGER :: I,J
+INTEGER :: ffAbortErr
 EXTERNAL Bndry_Mat,Bndry_Def
+#ifdef FF_SOLVER_TIMING
+REAL*8 MPI_WTIME
+REAL*8 ff_t0,ff_t1
+#endif
 
 ! REAL*8, ALLOCATABLE, DIMENSION(:) :: d1,D2,d3
 
@@ -2031,7 +2041,29 @@ EXTERNAL Bndry_Mat,Bndry_Def
  MyMG%Criterion2 = dnormu*lScalar%prm%MGprmIn%Criterion2/TSTEP
 
 !-------------------  P - Component -------------------!
- CALL MG_Solver(mfile,mterm)
+#ifdef FF_SOLVER_TIMING
+ ff_t0 = MPI_WTIME()
+#endif
+ IF (lScalar%prm%MGprmIn%CrsSolverType.EQ.10) THEN
+#ifdef HYPRE_AVAIL
+  ! Fine-level pressure solve: Hypre GMRES+BoomerAMG on the NLMAX system,
+  ! bypassing the geometric multigrid entirely.
+  CALL Solve_LinScalar_HYPRE_Fine(lScalar)
+#else
+  IF (myid.eq.0) WRITE(*,*) 'Hypre is not available!'
+  IF (myid.eq.0) WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_HYPRE=ON.'
+  IF (myid.eq.0) FLUSH(6)
+  CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
+#endif
+ ELSE
+  CALL MG_Solver(mfile,mterm)
+ END IF
+#ifdef FF_SOLVER_TIMING
+ ff_t1 = MPI_WTIME()
+ ff_mg_pressure_calls = ff_mg_pressure_calls + 1
+ CALL ff_report_timing('mg-pressure',ff_mg_pressure_calls,0d0,ff_t1-ff_t0,&
+      ff_t1-ff_t0,MyMG%UsedIterCycle,MyMG%DefFinal/MAX(MyMG%DefInitial,1d-32))
+#endif
  lScalar%prm%MGprmOut%UsedIterCycle = myMG%UsedIterCycle
  lScalar%prm%MGprmOut%nIterCoarse   = myMG%nIterCoarse
  lScalar%prm%MGprmOut%DefInitial    = myMG%DefInitial
@@ -2045,6 +2077,52 @@ EXTERNAL Bndry_Mat,Bndry_Def
 !  IF (myid.eq.showid) write(*,*) myStat%t1-myStat%t0, "time needed ..."
 
 END SUBROUTINE Solve_General_LinScalar
+!
+! ----------------------------------------------
+!
+#ifdef HYPRE_AVAIL
+SUBROUTINE Solve_LinScalar_HYPRE_Fine(lScalar)
+! Pressure solve via Hypre GMRES+BoomerAMG on the finest-level system
+! (Pres@MGCrsSolverType = 10). The matrix is marshalled lazily on the first
+! call, after the boundary operators have been applied; it is NOT re-uploaded
+! when the pressure matrix is rebuilt (same reuse semantics as the type 7/8
+! coarse solvers, valid while myMatrixRenewal%C keeps the matrix constant).
+USE HypreSolver, ONLY : myHypreGMRES_Solve
+TYPE(TLinScalar), INTENT(INOUT), TARGET :: lScalar
+INTEGER i, nIter
+
+ IF (.NOT.myHYPRE%FineIsSet) THEN
+  ! Collective: all ranks participate in the numbering handshake.
+  CALL Setup_HYPRE_CoarseLevel_Full(lScalar, .FALSE., NLMAX)
+  myHYPRE%FineIsSet = .TRUE.
+ END IF
+
+ IF (myid.ne.0) THEN
+  DO i=1,myHYPRE%nrows
+   myHYPRE%rhs(i) = lScalar%rhsP(NLMAX)%x(i)
+   myHYPRE%sol(i) = lScalar%valP(NLMAX)%x(i)
+  END DO
+ END IF
+
+ nIter = 0
+ CALL myHypreGMRES_Solve(nIter)
+
+ IF (myid.ne.0) THEN
+  DO i=1,myHYPRE%nrows
+   lScalar%valP(NLMAX)%x(i) = myHYPRE%sol(i)
+  END DO
+ END IF
+
+ ! Fill the MG output block consumed by Solve_General_LinScalar/Protocol
+ MyMG%UsedIterCycle = nIter
+ MyMG%nIterCoarse   = nIter
+ MyMG%DefInitial    = 1d0
+ MyMG%DefFinal      = 0d0
+ MyMG%RhoMG1        = 0d0
+ MyMG%RhoMG2        = 0d0
+
+END SUBROUTINE Solve_LinScalar_HYPRE_Fine
+#endif
 !
 ! ----------------------------------------------
 !
@@ -2335,6 +2413,20 @@ REAL tttx1,tttx0
    END DO
   END DO
  END IF
+
+ IF (el_apply_fluid_feedback.AND.el_drag_semi_implicit) THEN
+  IF (ALLOCATED(el_field_data%drag_B_source)) THEN
+   IF (SIZE(el_field_data%drag_B_source).GE.qMat%nu) THEN
+    DO I=1,qMat%nu
+     J = qMat%LdA(I)
+     daux = thstep*el_field_data%drag_B_source(I)
+     A11mat(J) = A11mat(J) + daux
+     A22mat(J) = A22mat(J) + daux
+     A33mat(J) = A33mat(J) + daux
+    END DO
+   END IF
+  END IF
+ END IF
     !!-------------------  MATRIX Assembly -------------------!!
 
     !!-------------------    POINTER Setup  -------------------!!
@@ -2419,6 +2511,19 @@ REAL tttx1,tttx0
     myScalar%defU = myScalar%defU + MlRhoMat*myScalar%valU
     myScalar%defV = myScalar%defV + MlRhoMat*myScalar%valV
     myScalar%defW = myScalar%defW + MlRhoMat*myScalar%valW
+   END IF
+
+   IF (el_apply_fluid_feedback.AND.el_drag_semi_implicit) THEN
+    IF (ALLOCATED(el_field_data%drag_B_source)) THEN
+     IF (SIZE(el_field_data%drag_B_source).GE.qMat%nu) THEN
+      DO I=1,qMat%nu
+       daux = thstep*el_field_data%drag_B_source(I)
+       myScalar%defU(I) = myScalar%defU(I) - daux*myScalar%valU(I)
+       myScalar%defV(I) = myScalar%defV(I) - daux*myScalar%valV(I)
+       myScalar%defW(I) = myScalar%defW(I) - daux*myScalar%valW(I)
+      END DO
+     END IF
+    END IF
    END IF
 
    IF (myMatrixRenewal%D.GE.1.AND.(.NOT.bNonNewtonian)) THEN
@@ -2700,12 +2805,19 @@ END SUBROUTINE Resdfk_General_QuadScalar
 ! ----------------------------------------------
 !
 SUBROUTINE Solve_General_QuadScalar(myScalar,Bndry_Val,Bndry_Mat,Bndry_Mat_9,mfile)
+#ifdef FF_SOLVER_TIMING
+USE ff_timing, ONLY : ff_report_timing,ff_mg_velocity_calls
+#endif
 INTEGER mfile
 TYPE(TQuadScalar), INTENT(INOUT), TARGET :: myScalar
 REAL*8 daux,nrm_U,nrm_V,nrm_W
 REAL*8 u_rel(6)
 INTEGER ndof
 EXTERNAL Bndry_Val,Bndry_Mat,Bndry_Mat_9
+#ifdef FF_SOLVER_TIMING
+REAL*8 MPI_WTIME
+REAL*8 ff_t0,ff_t1
+#endif
 
 nrm_U = 0d0
 nrm_V = 0d0
@@ -2807,7 +2919,16 @@ nrm_W = 0d0
  end if
  MyMG%B    => myScalar%rhs
 
+#ifdef FF_SOLVER_TIMING
+ ff_t0 = MPI_WTIME()
+#endif
  CALL MG_Solver(mfile,mterm)
+#ifdef FF_SOLVER_TIMING
+ ff_t1 = MPI_WTIME()
+ ff_mg_velocity_calls = ff_mg_velocity_calls + 1
+ CALL ff_report_timing('mg-velocity',ff_mg_velocity_calls,0d0,ff_t1-ff_t0,&
+      ff_t1-ff_t0,MyMG%UsedIterCycle,MyMG%DefFinal/MAX(MyMG%DefInitial,1d-32))
+#endif
 
  call ll21(myScalar%sol(NLMAX)%x(0*ndof+1:),ndof,u_rel(4))
  call ll21(myScalar%sol(NLMAX)%x(1*ndof+1:),ndof,u_rel(5))

@@ -22,7 +22,9 @@ Where the rate of strain tensor components are:
 
 ## Implementation Files
 
-### Core Implementation: `calculate_dissipation_integral.f90`
+These files are reference implementations under `docs/code_examples/`; they are not part of the normal CMake build.
+
+### Core Implementation: `docs/code_examples/calculate_dissipation_integral.f90`
 
 **Subroutine:** `Get_DissipationIntegral(QuadSc, ALPHA, total_dissipation, mfile)`
 
@@ -39,7 +41,7 @@ Where the rate of strain tensor components are:
 - Uses MPI reduction to sum contributions across all processors
 - 3×3×3 Gaussian cubature for high accuracy integration
 
-### Interface Functions: `dissipation_interface.f90`
+### Interface Functions: `docs/code_examples/dissipation_interface.f90`
 
 **Simple Interface:** `Call_DissipationCalculation(mfile)`
 - Easy-to-use wrapper that can be called from main transport routines
@@ -144,8 +146,10 @@ Monitor dissipation integral during:
 ## File Structure
 ```
 FeatFloWer/
-├── calculate_dissipation_integral.f90    # Core implementation
-├── dissipation_interface.f90             # Easy-to-use interfaces  
+├── docs/code_examples/
+│   ├── calculate_dissipation_integral.f90    # Core implementation
+│   ├── dissipation_interface.f90             # Easy-to-use interfaces
+│   └── strain_rate_dissipation.f90           # Alternative reference implementation
 └── docs/md_docs/
     └── strain_rate_dissipation_calculation.md  # This documentation
 ```

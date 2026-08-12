@@ -3,7 +3,7 @@
 !
 ! Purpose: Matrix structure allocation routines for QuadScalar solver
 !          Extracted from QuadSc_def.f90 as part of Phase 3.1 refactoring
-!          (See docs/md_docs/refactoring_roadmap.md)
+!          (See docs/md_docs/quadsc_refactoring_status.md)
 !
 ! History:
 !   Phase 3.1 (2025-12-06): Initial extraction from QuadSc_def.f90

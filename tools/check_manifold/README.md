@@ -222,13 +222,13 @@ The `test_files/` directory contains various test meshes:
 The tool is automatically built when:
 - Building on non-Windows systems
 - CGAL support is enabled (`-DUSE_CGAL=ON`)
-- The CGAL external project dependency is satisfied
+- The `CGAL::CGAL` target is available
 
 ## Troubleshooting
 
 ### Build Issues
 
-- Ensure CGAL is properly installed or the external project is configured
+- Ensure FetchContent can download CGAL, or configure with `-DUSE_CGAL_LOCAL=ON`
 - Check that C++17 support is available
 - Verify CMAKE_BUILD_TYPE is set appropriately
 

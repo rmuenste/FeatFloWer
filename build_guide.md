@@ -117,10 +117,10 @@ These options control which components and features are enabled or disabled.
 | `BUILD_APPLICATIONS`            | `ON`    | Enable build of applications.                                                                              | Requires the `FullC0ntact` subdirectory.                                                              |
 | `BUILD_BOUNDARY_LAYER_TOOLS`    | `OFF`   | Build the boundary layer tools.                                                                            | Forces `USE_OPENMESH=ON`.                                                                             |
 | `USE_HYPRE`                     | `OFF`   | Use the HYPRE (High Performance Preconditioners) library.                                                  | Builds bundled HYPRE. Adds `HypreSolver.f90`.                                                        |
-| `USE_PE`                        | `OFF`   | Use the PE (rigid body physics engine) library.                                                            | Builds `libs/pe`. Enables `MPI` option.                                                              |
+| `USE_PE`                        | `OFF`   | Use the PE (rigid body physics engine) library.                                                            | Builds `libs/pe`. Enables `PE_USE_MPI` option.                                                       |
 | `USE_PE_SERIAL_MODE`            | `OFF`   | Use serial PE mode for large particles that span multiple domains.                                         | Only available when `USE_PE=ON`. See section 5.2.                                                    |
 | `SED_BENCH`                     | `OFF`   | Enable sedimentation benchmark output (force/position/velocity per timestep).                              | Adds `-DSED_BENCH` preprocessor flag; activates `SED_BENCH_FORCE/POS/VEL` log lines.                |
-| `VERIFY_HASHGRID`               | `OFF`   | Run HashGrid alpha acceleration alongside brute-force baseline for correctness verification.               | **Significant performance overhead.** For debugging only; do not use in production runs.             |
+| `PE_VERIFY_HASHGRID`            | `OFF`   | Run HashGrid alpha acceleration alongside brute-force baseline for correctness verification.               | **Significant performance overhead.** For debugging only; do not use in production runs.             |
 | `SHOW_BUILD_IDS`                | `OFF`   | Display all available build IDs (compiler/flag configurations) and exit.                                   | Useful for developers to see predefined toolchain settings.                                           |
 
 ## 5. Specific Feature Configurations
@@ -130,7 +130,7 @@ These options control which components and features are enabled or disabled.
 CGAL is a powerful library for computational geometry.
 
 *   **Building CGAL from Source (Default with `USE_CGAL=ON`)**:
-    When `USE_CGAL=ON` and `USE_CGAL_LOCAL=OFF` (default), the build system will download and compile CGAL (version v5.3.2) as an external project. This also automatically enables `USE_BOOST=ON`.
+    When `USE_CGAL=ON` and `USE_CGAL_LOCAL=OFF` (default), CMake FetchContent downloads CGAL 5.6.3 and makes `CGAL::CGAL` available during configuration. Documentation, Qt, ImageIO, examples, and CGAL tests are disabled. This also automatically enables `USE_BOOST=ON`.
     ```bash
     cmake -DUSE_CGAL=ON ..
     ```
@@ -262,7 +262,7 @@ The FBM geometry query `fbm_getFictKnprFC2` — which classifies every mesh DOF 
 *   **Runtime control:** `SimPar@UseHashGridAccel` in `q2p1_param.dat`
 *   On timestep 1 the brute-force baseline (`verifyAllParticles`) is used because the HashGrid is not yet built.
 *   From timestep 2 onwards, `checkAllParticles` (HashGrid lookup) is called if enabled.
-*   To verify correctness, build with `-DVERIFY_HASHGRID=ON`, which runs both paths in parallel and reports any mismatches (at significant cost).
+*   To verify correctness, build with `-DPE_VERIFY_HASHGRID=ON`, which runs both paths in parallel and reports any mismatches (at significant cost).
 
 ### 6.3. Force Integration Acceleration (KVEL/KEEL/KAAL candidate elements)
 
@@ -289,7 +289,7 @@ This produces a pure brute-force binary where the acceleration code paths are ne
 |---|---|---|---|---|
 | Alpha / HashGrid | `SimPar@UseHashGridAccel` | `-DENABLE_FBM_ACCELERATION` | ON | ON |
 | Force / KVEL | `SimPar@UseKVELAccel` | `-DENABLE_FBM_ACCELERATION` | ON | ON |
-| HashGrid verification | N/A (debug only) | `-DVERIFY_HASHGRID=ON` | N/A | OFF |
+| HashGrid verification | N/A (debug only) | `-DPE_VERIFY_HASHGRID=ON` | N/A | OFF |
 
 **Required CMake flags:** `-DUSE_PE=ON -DUSE_PE_SERIAL_MODE=ON`
 
@@ -308,6 +308,16 @@ The project includes a system for managing "Build IDs" corresponding to specific
     ```bash
     cmake -DSHOW_BUILD_IDS=ON ..
     ```
+
+For conservative GCC builds on 64-bit ARM systems, use:
+
+```bash
+cmake -S . -B build-arm64 \
+  -DQ2P1_BUILD_ID=arm64-linux-gcc-release \
+  -DBUILD_APPLICATIONS=ON
+```
+
+The ARM64 profiles avoid x86-specific flags such as `-m64`, AVX, and SSE.
 
 *   **To use a specific Build ID**:
     ```bash

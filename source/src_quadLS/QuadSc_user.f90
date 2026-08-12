@@ -104,6 +104,8 @@ use var_QuadScalar, only : myFBM, referenceVelocity, GammaDot, RPM, Fluidization
 use fbm, only: fbm_updateFBM, fbm_velBCTest, fbm_velValue
 USE Sigma_User, ONLY: mySigma,myThermodyn,myProcess,myMultiMat
 USE PP3D_MPI, ONLY:myid
+USE EL_CONFIG, ONLY: el_shear_rate
+USE EL_GEOMETRY, ONLY: EL_DOMAIN_Z_CENTER
 implicit none
 
 REAL*8 X,Y,Z,ValU,ValV,ValW,t
@@ -883,6 +885,16 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!! INNOSPIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF (iT.EQ.222) THEN
  ValW=-1d0
+END IF
+
+! EL plane-Couette moving walls (tag Inflow300 on both z-faces): the wall
+! velocity follows the same linear-shear convention as the EL frozen field,
+! u_x = G*(z - z_c), so the +z wall moves at +G*L/2 and the -z wall at
+! -G*L/2 (symmetric, zero net momentum). G = SimPar@ELShearRate.
+IF (iT.EQ.300) THEN
+ ValU = el_shear_rate*(Z - EL_DOMAIN_Z_CENTER())
+ ValV = 0d0
+ ValW = 0d0
 END IF
 
 IF (iT.EQ.223) THEN

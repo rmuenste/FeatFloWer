@@ -12,7 +12,7 @@ It shows how to configure, compile, partition, run, and validate a **basic FeatF
 - FeatFloWer source tree checked out.
 - Submodules available.
 - CMake + Ninja + GNU toolchain.
-- MPI (OpenMPI or equivalent) and wrappers (`mpicc`, `mpicxx`, `mpifort`).
+- MPI (OpenMPI or equivalent) and wrappers (`mpicc`, `mpicxx`, `mpifort`) **on your `PATH`** — on module-based clusters this is not the default, see section 2.
 - Python 3 for partitioning tools.
 - Mesh repository available and pointed to by `Q2P1_MESH_DIR`.
 
@@ -25,6 +25,37 @@ The benchmark project file used in this guide is:
 - `_adc/2D_FAC/2Dbench.prj`
 
 ## 2) One-Time Environment Setup
+
+### 2a) Load the compiler toolchain (module-based systems)
+
+On the group cluster the MPI wrappers are **not** on the default `PATH`; `which mpifort`
+fails until the modules are loaded. Load a GCC and a matching OpenMPI:
+
+```bash
+source /usr/share/Modules/init/bash   # only needed in non-interactive shells/scripts
+module load gcc/14.3.0
+module load openmpi/4.1.6
+```
+
+> **Load them as two separate `module load` commands.**
+> Combining them (`module load gcc/14.3.0 openmpi/4.1.6`) returns exit code 0 but
+> silently leaves the MPI wrappers unset, because the OpenMPI modulefile resolves
+> its compiler-specific prefix from the GCC module *at evaluation time* — and in a
+> combined invocation that has not been applied yet. The failure is easy to miss:
+> the next symptom is a CMake `FindMPI` error or `mpicc: command not found`.
+
+Sanity check (both must resolve before you configure):
+
+```bash
+which mpicc mpicxx mpifort
+mpifort --version | head -1
+```
+
+Use `module avail` to see the versions installed on your machine; any consistent
+GCC + OpenMPI pair works. If your site is not module-based, just ensure the three
+wrappers are on `PATH` by whatever mechanism applies.
+
+### 2b) Point at the mesh repository
 
 From the FeatFloWer repository root:
 
@@ -73,10 +104,20 @@ Build METIS shared library (needed by Python partitioner):
 cmake --build build-release --target metis -- -j3
 ```
 
-After this, `libmetis.so` should be available at least in:
+`metis` is already a dependency of the application target, so in a normal build
+this step reports `ninja: no work to do` — that is success, not a problem. Keep it
+as a safety net for partial or app-less builds.
 
-- `build-release/applications/q2p1_fc_ext/libmetis.so`
-- `build-release/extern/libraries/metis-4.0.3/Lib/libmetis.so`
+Verify the library exists:
+
+```bash
+ls build-release/applications/q2p1_fc_ext/libmetis.so
+```
+
+The build places `libmetis.so` in the **application run folder**, which is exactly
+where step 6 picks it up via `LD_LIBRARY_PATH="$PWD:..."`. Do not expect a copy
+under `build-release/extern/libraries/metis-4.0.3/Lib/` — the METIS sources live
+there, but the shared object is not staged into that directory.
 
 ## 5) Verify the Benchmark Run Directory
 
@@ -172,17 +213,32 @@ Protocol file location (from default parameters):
 
 - `_data/prot.txt`
 
-Quick extraction of latest force line:
+Quick extraction of the latest drag/lift pair:
 
 ```bash
-grep 'Force acting' _data/prot.txt | tail -1
+grep 'BenchForce:' _data/prot.txt | tail -1
 ```
 
-A compact drag/lift extraction pattern used in existing helper scripts:
+Output columns are `BenchForce: <time> <C_D> <C_L>`, so a compact drag/lift
+extraction is:
 
 ```bash
-grep 'Force acting' _data/prot.txt | tail -1 | awk '{print $7, $8}'
+grep 'BenchForce:' _data/prot.txt | tail -1 | awk '{print $3, $4}'
 ```
+
+For the full split into viscous and pressure contributions, use the `Force:`
+lines instead (`Time C_D C_L ForceVx ForceVy ForcePx ForcePy`):
+
+```bash
+grep '^Force:' _data/prot.txt | tail -1
+```
+
+> **Do not use `grep 'Force acting' _data/prot.txt`.** That string is never
+> emitted by the solver — it survives only in legacy `run_q2p1_fc_ext` helper
+> scripts under `applications/q2p1_creep/`, `applications/q2p1_dns_drag/` and
+> `applications/q2p1_xParticles/`. Because `grep` simply matches nothing, the
+> old `awk` pipeline printed an **empty line instead of failing**, which makes
+> this a silent-wrong-answer trap in any script that copied it.
 
 ## 10) How to Read a Typical Timestep Log Block
 
@@ -295,11 +351,16 @@ LD_LIBRARY_PATH="$PWD:$LD_LIBRARY_PATH" \
 python3 /path/to/FeatFloWer/tools/PyPartitioner.py 3 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
 ```
 
-Alternative explicit path:
+If you invoke the partitioner from outside the application run folder, point at
+that folder explicitly:
 
 ```bash
-LD_LIBRARY_PATH="/path/to/build-release/extern/libraries/metis-4.0.3/Lib:$LD_LIBRARY_PATH"
+LD_LIBRARY_PATH="/path/to/build-release/applications/q2p1_fc_ext:$LD_LIBRARY_PATH"
 ```
+
+Confirm the file is really there first with
+`ls /path/to/build-release/applications/q2p1_fc_ext/libmetis.so`; if it is
+missing, rebuild the application target (section 4).
 
 #### 1b) Partition-count mismatch (very common and hard to debug)
 
@@ -381,6 +442,12 @@ Use MPI wrappers explicitly:
 
 ```bash
 # from repo root
+
+# toolchain (module-based systems; two separate loads, see section 2a)
+source /usr/share/Modules/init/bash
+module load gcc/14.3.0
+module load openmpi/4.1.6
+
 export Q2P1_MESH_DIR=/absolute/path/to/mesh-repo
 
 git submodule update --init --recursive
@@ -401,8 +468,26 @@ mpirun -np 4 ./q2p1_fc_ext > run_q2p1_fc_ext_np4.log 2>&1
 
 rg -n "Force:|BenchForce:|error|failed|stopped" run_q2p1_fc_ext_np4.log | tail -n 20
 
-grep 'Force acting' _data/prot.txt | tail -1
+grep 'BenchForce:' _data/prot.txt | tail -1
 ```
+
+### Expected result
+
+On the 3-partition `NEWFAC` mesh the run advances 1001 steps to `t = 10.01` and
+settles to a steady state (`C_D` constant to 8 digits over the final steps),
+ending with `PP3D_LES has successfully finished.`:
+
+```text
+BenchForce:   1.0010000E+01  5.6012960E+00  9.9471100E-03
+```
+
+Compared against the DFG 2D-1 steady benchmark reference (`C_D = 5.57954`,
+`C_L = 0.0106189`) that is `+0.39%` in drag and `-6.3%` in lift — normal
+discretization error at this coarse resolution. Use these numbers as the
+regression baseline for the workflow.
+
+As an internal consistency check on any `Force:` line, `C_D = ForceVx + ForcePx`
+and `C_L = ForceVy + ForcePy` must both hold to roundoff.
 
 ## 13) Where to Go Next in the Series
 

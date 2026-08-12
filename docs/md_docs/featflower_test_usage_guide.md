@@ -4,7 +4,9 @@ This guide covers installation, configuration, and practical use of the
 `featflower-test` CLI tool introduced in Phase 1a of the automated test system.
 
 - tool location: `tools/featflower_test/`
-- first supported test case: Guide 01 (`q2p1_fc_ext` cylinder benchmark)
+- included test definitions:
+  - Guide 01 (`q2p1_fc_ext` cylinder benchmark)
+  - Guide 02 (`q2p1_bench_sedimentation` with PE serial mode)
 - supported runners: local (mpirun) and SLURM (sbatch)
 
 ## 1) Prerequisites
@@ -58,7 +60,7 @@ OK: q2p1_fc_ext_cylinder (Q2P1 FC_EXT Cylinder Benchmark)
   suite: smoke
   build steps: 2
   metrics: 1
-  baseline: testcases/baselines/q2p1_fc_ext_cylinder.yaml
+  baseline: tools/featflower_test/testcases/baselines/q2p1_fc_ext_cylinder.yaml
 ```
 
 Exit code is `0` on success, `1` on validation failure.
@@ -158,7 +160,8 @@ This executes the following pipeline stages in order:
 5. **Metrics** -- Extracts drag and lift from the last `BenchForce:` line in
    `_data/prot.txt` (columns 2 and 3, 0-indexed after `split()`).
 6. **Compare** -- Compares extracted values against the baseline
-   (`testcases/baselines/q2p1_fc_ext_cylinder.yaml`) with tolerance `1.0e-4`
+   (`tools/featflower_test/testcases/baselines/q2p1_fc_ext_cylinder.yaml`)
+   with tolerance `1.0e-4`
    per metric.
 
 ### 5.3) Expected output on success
@@ -326,7 +329,8 @@ $ cmake --build /path/to/build-release --target q2p1_fc_ext -- -j8
 ## 8) Understanding the YAML Test Definition
 
 The test definition is the central configuration file. Here is an annotated
-walkthrough of `testcases/definitions/q2p1_fc_ext_cylinder.yaml`:
+walkthrough of
+`tools/featflower_test/testcases/definitions/q2p1_fc_ext_cylinder.yaml`:
 
 ```yaml
 # Schema version (required, must be "0.2")
@@ -423,7 +427,7 @@ metrics:
 
 # --- Baseline reference ---
 references:
-  baseline: testcases/baselines/q2p1_fc_ext_cylinder.yaml
+  baseline: tools/featflower_test/testcases/baselines/q2p1_fc_ext_cylinder.yaml
 ```
 
 ### Understanding `keyword` + `columns`
@@ -457,7 +461,8 @@ After `split()`, the tokens are:
 
 ### Understanding the baseline file
 
-The baseline file (`testcases/baselines/q2p1_fc_ext_cylinder.yaml`) stores
+The baseline file
+(`tools/featflower_test/testcases/baselines/q2p1_fc_ext_cylinder.yaml`) stores
 reference values keyed by metric ID and value name:
 
 ```yaml

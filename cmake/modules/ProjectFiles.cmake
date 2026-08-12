@@ -18,6 +18,7 @@ target_compile_options(ff_cinterface PUBLIC ${Fortran_FLAGS})
 
 set(postprocessing
   ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io.f90
+  ${CMAKE_SOURCE_DIR}/source/postprocessing/solution_io_provenance.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/post_utils.f90
   ${CMAKE_SOURCE_DIR}/source/postprocessing/visualization_output.f90
   )
@@ -104,6 +105,9 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/MPI_DumpOutputProfiles.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/ReadExtrud3DParameters.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
+  ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/OctTreeSearch.f90
@@ -171,7 +175,8 @@ add_library(ff_elements ${Elements})
 target_include_directories(ff_elements PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_elements PUBLIC ${Fortran_FLAGS})
 
-set(le_solvers 
+set(le_solvers
+  ${CMAKE_SOURCE_DIR}/source/ff_timing.f90
   ${CMAKE_SOURCE_DIR}/source/UmfpackSolver.f90
 )
 
@@ -179,17 +184,37 @@ if(USE_MUMPS)
   list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/MumpsSolver.f90)
 endif(USE_MUMPS)
 
+if(USE_MKL_PARDISO)
+  list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/PardisoSolver.f90)
+endif(USE_MKL_PARDISO)
+
+if(FF_UMFPACK_WRAPPER_PORT)
+  # The umf4* Fortran wrapper is compiled against the SuiteSparse headers of
+  # the active provider (external/system/fetch); the vendored UMFPACK 4
+  # library itself is not built. See cmake/modules/FFDependencies.cmake.
+  list(APPEND le_solvers
+    ${CMAKE_SOURCE_DIR}/extern/libraries/umfpack4/src/umf4_f77wrapper_port.c)
+endif(FF_UMFPACK_WRAPPER_PORT)
+
 if(USE_HYPRE)
   list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/HypreSolver.f90)
+  if(USE_HYPRE_CUDA)
+    list(APPEND le_solvers ${CMAKE_SOURCE_DIR}/source/hypre_managed_memory.c)
+  endif()
 endif(USE_HYPRE)
 
 add_library(ff_le_solvers ${le_solvers})
+if(FF_UMFPACK_WRAPPER_PORT AND FF_SUITESPARSE_INCLUDE_DIR)
+  target_include_directories(ff_le_solvers PRIVATE ${FF_SUITESPARSE_INCLUDE_DIR})
+endif()
 target_link_libraries(ff_le_solvers ff_util ff_mesh ${FF_DEFAULT_LIBS})
 target_include_directories(ff_le_solvers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
-target_compile_options(ff_le_solvers PUBLIC ${Fortran_FLAGS})
-if(USE_HYPRE)
+target_compile_options(ff_le_solvers PUBLIC
+  $<$<COMPILE_LANGUAGE:Fortran>:${Fortran_FLAGS}>
+  )
+if(USE_HYPRE AND TARGET HYPRE)
   add_dependencies(ff_le_solvers HYPRE)
-endif(USE_HYPRE)
+endif()
 
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
@@ -272,6 +297,13 @@ set(src_quadLS_app
 ${src_util}
 ${src_fbm}
 ${src_assemblies}
+${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -293,6 +325,13 @@ ${CMAKE_SOURCE_DIR}/source/initialization/app_initialization.f90
 )
 
 set(src_quadLS_app_only
+${CMAKE_SOURCE_DIR}/source/src_el/el_kernel.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_geometry.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_forces.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
+${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -326,9 +365,56 @@ set(src_visco
 #                        QuadLS Library Source
 #=========================================================================
 add_library(ff_quadLS_app ${src_quadLS_app_only} ${src_visco})
-target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ${FF_DEFAULT_LIBS})
+target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_cinterface ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ${FF_DEFAULT_LIBS})
 target_include_directories(ff_quadLS_app PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_quadLS_app PUBLIC ${Fortran_FLAGS})
+add_dependencies(ff_quadLS_app ff_cinterface)
+
+if(BUILD_TESTING)
+  add_library(el_test_helpers STATIC
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/el_test_helpers.f90)
+  target_link_libraries(el_test_helpers ff_quadLS_app)
+  target_include_directories(el_test_helpers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(el_test_helpers PRIVATE ${Fortran_FLAGS})
+
+  add_executable(test_el_kernel_forces
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_kernel_forces.f90)
+  target_link_libraries(test_el_kernel_forces ff_quadLS_app)
+  target_include_directories(test_el_kernel_forces PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_kernel_forces PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-kernel-forces-restart COMMAND test_el_kernel_forces)
+
+  # Particle-mesh transfer conservation/interpolation suite. Runs the
+  # assertable transfer math against a synthetic structured Q2/P1 mesh on
+  # 1/2/8 ranks (see source/src_el/tests/test_el_transfer.f90 header for the
+  # distributed-halo cases still marked TODO).
+  add_executable(test_el_transfer
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_transfer.f90)
+  target_link_libraries(test_el_transfer ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_transfer PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_transfer PRIVATE ${Fortran_FLAGS})
+
+  add_test(NAME el-transfer-serial COMMAND test_el_transfer)
+  if(MPIEXEC_EXECUTABLE)
+    foreach(_np 2 8)
+      add_test(NAME el-transfer-mpi-${_np}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${_np}
+                ${MPIEXEC_PREFLAGS} $<TARGET_FILE:test_el_transfer>
+                ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(el-transfer-mpi-${_np} PROPERTIES PROCESSORS ${_np})
+    endforeach()
+    # The 8-rank case may exceed available slots on small CI hosts; if so,
+    # set MPIEXEC_PREFLAGS to include the vendor oversubscribe flag
+    # (e.g. --oversubscribe for Open MPI) at configure time.
+  endif()
+
+  add_executable(test_el_convergence
+    ${CMAKE_SOURCE_DIR}/source/src_el/tests/test_el_convergence.f90)
+  target_link_libraries(test_el_convergence ff_quadLS_app el_test_helpers)
+  target_include_directories(test_el_convergence PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_el_convergence PRIVATE ${Fortran_FLAGS})
+  add_test(NAME el-convergence-serial COMMAND test_el_convergence)
+endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

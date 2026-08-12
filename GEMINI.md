@@ -27,7 +27,7 @@ cmake -S . -B build-ninja-release -G Ninja
   -DBUILD_APPLICATIONS=ON 
   -DUSE_PE=ON 
   -DUSE_PE_SERIAL_MODE=ON 
-  -DUSE_JSON=ON 
+  -DPE_USE_JSON=ON 
   -DCMAKE_C_COMPILER=mpicc 
   -DCMAKE_CXX_COMPILER=mpicxx 
   -DCMAKE_Fortran_COMPILER=mpifort
@@ -36,7 +36,7 @@ cmake -S . -B build-ninja-release -G Ninja
 **Critical Flags:**
 - `-DUSE_PE=ON`: Enables the Physics Engine.
 - `-DUSE_PE_SERIAL_MODE=ON`: Enables Serial PE mode (essential for large particles/benchmarks).
-- `-DUSE_JSON=ON`: **Mandatory** for Serial Mode to load `example.json` configuration.
+- `-DPE_USE_JSON=ON`: **Mandatory** for Serial Mode to load `example.json` configuration.
 
 ## 3. Workflow: Building & Partitioning
 
@@ -66,7 +66,7 @@ python3 ../../../tools/PyPartitioner.py <N_PARTS> 1 1 NEWFAC <PROJECT_FILE>
 ### Required Files in Run Directory
 1.  **Executable**: `q2p1_bench_sedimentation`
 2.  **CFD Config**: `_data/q2p1_param.dat` (Controls `MaxNumStep` for CFD)
-3.  **PE Config**: `example.json` (Required if `-DUSE_JSON=ON`. Controls particle physics parameters).
+3.  **PE Config**: `example.json` (Required if `-DPE_USE_JSON=ON`. Controls particle physics parameters).
     *   *Source:* `libs/pe/pe/interface/example.json`
 4.  **Multigrid**: `_data/MG.dat` (Often staged automatically, but verify).
 5.  **Metis Lib**: `libmetis.so` (If re-partitioning is needed).

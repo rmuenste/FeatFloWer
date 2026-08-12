@@ -132,6 +132,8 @@ subroutine sim_finalize(dttt0, filehandle)
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
   use var_QuadScalar, only: istep_ns,mg_mesh
   use solution_io, only: write_sol_to_file
+  use solution_io_provenance, only: write_sol_to_file_prov
+  use prov_dump_config, only: use_prov_dump_io
 
   real, intent(inout) :: dttt0
   integer, intent(in) :: filehandle
@@ -150,7 +152,11 @@ subroutine sim_finalize(dttt0, filehandle)
   ! Save the final solution vector in unformatted form
   istep_ns = istep_ns - 1
   !CALL SolToFile(-1)
-  call write_sol_to_file(insavn, timens)
+  if (use_prov_dump_io) then
+    call write_sol_to_file_prov(insavn, timens)
+  else
+    call write_sol_to_file(insavn, timens)
+  end if
 
   IF (myid.eq.showid) THEN
     WRITE(*,*) "PP3D_LES has successfully finished. "

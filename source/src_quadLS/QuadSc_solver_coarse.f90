@@ -3,7 +3,7 @@
 !
 ! Purpose: UMFPACK coarse grid solver interface for QuadScalar
 !          Extracted from QuadSc_def.f90 as part of Phase 1 refactoring
-!          (See docs/md_docs/refactoring_roadmap.md)
+!          (See docs/md_docs/quadsc_refactoring_status.md)
 !
 ! History:
 !   Phase 1 (2025-12-04): Initial extraction from QuadSc_def.f90
@@ -17,9 +17,12 @@
 
 MODULE QuadSc_solver_coarse
 
-USE PP3D_MPI, ONLY: myid, showID
+USE PP3D_MPI, ONLY: myid, showID, MPI_COMM_WORLD
 USE var_QuadScalar
 USE UMFPackSolver, ONLY: myUmfPack_Factorize
+#ifdef MKL_PARDISO_AVAIL
+USE PardisoSolver, ONLY: myPardiso_Factorize
+#endif
 
 IMPLICIT NONE
 PRIVATE
@@ -60,14 +63,15 @@ SUBROUTINE Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutFl
   LOGICAL, INTENT(IN) :: bNoOutFlow
 
   INTEGER :: I, J, jCol, iEntry
+  INTEGER :: ffAbortErr
   TYPE(TMatrix), POINTER :: lMat_work
   REAL*8, POINTER :: CMat_work(:)
 
   ! Only coarse grid process (myid==0) performs this setup
   IF (myid /= 0) RETURN
 
-  ! Validate solver type
-  IF (coarse_solver < 1 .OR. coarse_solver > 4) RETURN
+  ! Validate solver type (9 = MKL PARDISO on the same gathered matrix as 2)
+  IF (coarse_solver < 1 .OR. (coarse_solver > 4 .AND. coarse_solver /= 9)) RETURN
 
   ! Set active level to coarse grid
   ILEV = coarse_lev
@@ -83,10 +87,12 @@ SUBROUTINE Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutFl
   END IF
 
   ! ===========================================================================
-  ! Solver Type 2: Full UMFPACK (no geometric coarsening)
+  ! Solver Type 2/9: Full direct solver (no geometric coarsening)
+  !   Type 2: UMFPACK, Type 9: MKL PARDISO — both factorize the gathered
+  !   full coarse matrix copied into UMF_CMat/UMF_lMat.
   ! ===========================================================================
-  IF (coarse_solver == 2) THEN
-    ! Allocate UMFPACK arrays
+  IF (coarse_solver == 2 .OR. coarse_solver == 9) THEN
+    ! Allocate direct-solver arrays
     IF (.NOT. ALLOCATED(UMF_CMat)) ALLOCATE(UMF_CMat(lMat_work%na))
     UMF_CMat = CMat_work
 
@@ -100,7 +106,20 @@ SUBROUTINE Setup_UMFPACK_CoarseSolver(knprP, coarse_solver, coarse_lev, bNoOutFl
     UMF_lMat%na   = lMat_work%na
 
     ! Perform LU factorization
-    CALL myUmfPack_Factorize(UMF_CMat, UMF_lMat)
+    IF (coarse_solver == 2) THEN
+      CALL myUmfPack_Factorize(UMF_CMat, UMF_lMat)
+    ELSE
+#ifdef MKL_PARDISO_AVAIL
+      CALL myPardiso_Factorize(UMF_CMat, UMF_lMat)
+#else
+      WRITE(*,*) 'MKL PARDISO is not available!'
+      WRITE(*,*) 'Rebuild FeatFloWer with -DUSE_MKL_PARDISO=ON.'
+      FLUSH(6)
+      ! MPI_Abort, not STOP: this routine runs on myid==0 only, a bare STOP
+      ! would leave every worker blocked in MPI.
+      CALL MPI_Abort(MPI_COMM_WORLD,myErrorCode%SOLVER_TYPE_INVALID,ffAbortErr)
+#endif
+    END IF
   END IF
 
   ! ===========================================================================
