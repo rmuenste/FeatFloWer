@@ -88,7 +88,11 @@ IF(CMAKE_SYSTEM_NAME MATCHES "Linux")
         ELSEIF("94" MATCHES ${_cpu_model})
           set(Q2P1_CPU_TYPE "skylake")
         ELSEIF("106" MATCHES ${_cpu_model})
-          set(Q2P1_CPU_TYPE "platinum")
+          # Model 106 is Ice Lake Server (e.g. Xeon Platinum 8360Y). Use the "icelake"
+          # type: both icelake-linux-gcc-release and icelake-linux-intel-release exist in
+          # SetFlagsForID.cmake, whereas "platinum" only ever had an Intel variant and is
+          # not listed by SHOW_BUILD_IDS.
+          set(Q2P1_CPU_TYPE "icelake")
         ELSEIF("85" MATCHES ${_cpu_model})
           set(Q2P1_CPU_TYPE "xeongold")
         ELSEIF("79" MATCHES ${_cpu_model})
