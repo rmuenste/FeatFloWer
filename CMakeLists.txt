@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.18) 
+# 3.21 is the floor imposed by the vendored/fetched hypre 2.33.0 sub-project.
+# (FetchContent's FIND_PACKAGE_ARGS, used by the fetch providers, needs 3.24 --
+# see FF_FETCHCONTENT_MIN_VERSION in cmake/modules/FFDependencies.cmake.)
+cmake_minimum_required(VERSION 3.21)
 
 
 # name of the project, specIFy the used languages
