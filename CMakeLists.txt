@@ -389,7 +389,11 @@ if(USE_CGAL)
 
   if(USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
-    find_package(CGAL 5.3 REQUIRED CONFIG)
+    # Floor tied to the GIT_TAG below: a site install must be at least as new
+    # as the version the fetch path pins, so both providers give the same
+    # baseline. This is a minimum, not a pin -- CGAL 6.x satisfies it and is
+    # known to build. Bump the tag and this floor together.
+    find_package(CGAL 5.6.3 REQUIRED CONFIG)
   else()
     message(STATUS "Fetching CGAL 5.6.3")
     set(CGAL_BUILD_DOCS OFF CACHE BOOL "Build CGAL documentation" FORCE)
