@@ -1,6 +1,6 @@
 # DNS campaign handoff — state as of 2026-08-03
 
-Companion to `EL_CAMPAIGN_HANDOFF.md`. Branch `feature/dns-validation-phase1`
+Companion to `EL_CAMPAIGN_HANDOFF.md`. Branch `feature/dns-validation`
 (~60 commits, owner pushes). Records: `docs/md_docs/dns_validation_datasheet.md`
 (+.csv, authoritative), `docs/md_docs/dns_practitioners_guide.md`,
 `dns-validation-campaign-plan.md` (design, stages D0–D6). Artifacts:
