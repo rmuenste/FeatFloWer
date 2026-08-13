@@ -81,10 +81,14 @@ All dt-dependence from SYNCED runs (deck TimeStep == json stepsize_).
   desync. The sawtooth watchdog stays as cheap insurance.
 - **Genuine temporal term, sub-linear**: E4 L3 synced ladder
   +0.81/+1.41/+1.94% at dt = 1.0/0.5/0.25 ms (apparent order ~0.5–1).
-  Global fit: T(1 ms) = −1.5…−2.4 pp; S(L4) converged within
+  Global fit (tools/tencate_error_decomposition.py, synced data):
+  T(1 ms) = −1.5/−1.1 pp for E4 and −0.8/−0.6 pp for E1 (p=1/p=2
+  readings; order not pinned), S(L4) = −0.0…−0.5 pp — converged within
   uncertainty. Smaller dt moves peaks toward the (positive) spatial
   error — the good dt = 1 ms numbers ride on partial cancellation.
   Choose dt against your error budget, not against stability.
+  (A previously quoted upper bound of −2.4 pp was a pre-sync carryover
+  and does not reproduce from the tool — corrected 2026-08-13.)
 
 ## 4. Force noise floor (grid-crossing) — first order in h
 
