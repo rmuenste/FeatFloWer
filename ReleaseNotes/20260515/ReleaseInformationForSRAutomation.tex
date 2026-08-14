@@ -160,8 +160,10 @@ entrypoint.
   \item The parameter-file switching is internalized in the driver.
   \item The same launcher syntax can be used across the different DIE variants.
   \item The driver performs a YAML preflight check and stops early if referenced parameter files are missing.
-  \item Stage outputs are archived into legacy-compatible \texttt{\_prot<stage-index>} folders, which may be useful for structured
-        post-run collection on cluster jobs.
+  \item Stage outputs are archived into legacy-compatible \texttt{\_prot<stage-index>} folders, while the protocol
+        files from the \texttt{final} stage are collected in \texttt{\_prot\_final}. For report generation and other
+        post-run analysis, the relevant protocol set should be taken from \texttt{\_prot\_final} so that the final
+        stage is used consistently.
 \end{itemize}
 
 In short, the new path is more suitable for robust production sequencing than the older \texttt{e3d\_start.py}

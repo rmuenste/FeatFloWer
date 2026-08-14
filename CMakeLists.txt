@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.18) 
+# 3.21 is the floor imposed by the vendored/fetched hypre 2.33.0 sub-project.
+# (FetchContent's FIND_PACKAGE_ARGS, used by the fetch providers, needs 3.24 --
+# see FF_FETCHCONTENT_MIN_VERSION in cmake/modules/FFDependencies.cmake.)
+cmake_minimum_required(VERSION 3.21)
 
 
 # name of the project, specIFy the used languages
@@ -386,7 +389,11 @@ if(USE_CGAL)
 
   if(USE_CGAL_LOCAL)
     message(STATUS "Trying to find system installation of CGAL")
-    find_package(CGAL 5.3 REQUIRED CONFIG)
+    # Floor tied to the GIT_TAG below: a site install must be at least as new
+    # as the version the fetch path pins, so both providers give the same
+    # baseline. This is a minimum, not a pin -- CGAL 6.x satisfies it and is
+    # known to build. Bump the tag and this floor together.
+    find_package(CGAL 5.6.3 REQUIRED CONFIG)
   else()
     message(STATUS "Fetching CGAL 5.6.3")
     set(CGAL_BUILD_DOCS OFF CACHE BOOL "Build CGAL documentation" FORCE)

@@ -485,8 +485,11 @@ def mkdir(dir):
 #===============================================================================
 #                    Stage output archiving helper
 #===============================================================================
-def archive_stage_outputs(stage_idx, include_heat):
-    stage_dir = Path("_prot%i" %stage_idx)
+def archive_stage_outputs(stage_idx, include_heat, stage_phase=None):
+    if stage_phase == "final":
+        stage_dir = Path("_prot_final")
+    else:
+        stage_dir = Path("_prot%i" %stage_idx)
     if stage_dir.exists():
         if stage_dir.is_dir():
             shutil.rmtree(stage_dir)
@@ -501,6 +504,7 @@ def archive_stage_outputs(stage_idx, include_heat):
         any_copied = True
     if not any_copied:
         print(f"[Stage {stage_idx}] Warning: no protocol files found to archive.")
+    return stage_dir
 #===============================================================================
 
 
@@ -665,8 +669,8 @@ def execute_yaml_plan(stages, workingDir):
                 else:
                     raise ValueError(f"Unknown solver '{solver}' in YAML plan")
                 stage_offset = stage_offset + step_units[step_idx]
-            archive_stage_outputs(stage_counter, include_heat=heat_present)
-            print(f"[Stage {stage_counter}] archived outputs to _prot{stage_counter}")
+            stage_dir = archive_stage_outputs(stage_counter, include_heat=heat_present, stage_phase=phase)
+            print(f"[Stage {stage_counter}] archived outputs to {stage_dir.name}")
             stage_counter += 1
 #===============================================================================
 

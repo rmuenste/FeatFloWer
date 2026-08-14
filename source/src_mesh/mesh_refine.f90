@@ -1290,8 +1290,21 @@ subroutine refineMeshLevel(mesh0, mesh1)
   integer :: midpointE
   integer :: midpointF
   integer :: ielmid
+  real*8 :: nextNvt
 
   integer, allocatable, dimension(:) :: midpointsAtFace
+
+  if (mesh0%nel > huge(mesh0%nel) / 8) then
+    write(*,*) 'refineMeshLevel: NEL overflow during refinement: ', mesh0%nel
+    stop
+  end if
+
+  nextNvt = dble(mesh0%nvt) + dble(mesh0%net) + dble(mesh0%nat) + dble(mesh0%nel)
+  if (nextNvt > dble(huge(mesh0%nvt))) then
+    write(*,*) 'refineMeshLevel: NVT overflow during refinement: ', &
+      mesh0%nvt, mesh0%net, mesh0%nat, mesh0%nel
+    stop
+  end if
 
   mesh1%nvt = mesh0%nvt + mesh0%net + mesh0%nat + mesh0%nel
 
@@ -1506,7 +1519,9 @@ subroutine genMeshStructures(mesh, extended, icurr, noe)
 
   ! local variables
   real :: ttt0=0.0,ttt1=0.0
+  real*8 :: nextNet
   logical :: calculateExtendedConnectivity 
+  integer :: levelNoe
   integer, intent(in) :: icurr, noe
 
 
@@ -1540,12 +1555,23 @@ subroutine genMeshStructures(mesh, extended, icurr, noe)
 
   CALL ZTIME(TTT0)
   if (icurr.gt.1) then
+    nextNet = 2d0*dble(mesh%level(icurr-1)%net) + &
+              4d0*dble(mesh%level(icurr-1)%nat) + &
+              6d0*dble(mesh%level(icurr-1)%nel)
+    if (nextNet > dble(huge(mesh%level(icurr-1)%net))) then
+      write(*,*) 'genMeshStructures: NET overflow during refinement: ', &
+        mesh%level(icurr-1)%net, mesh%level(icurr-1)%nat, &
+        mesh%level(icurr-1)%nel
+      stop
+    end if
     mesh%level(icurr)%net = 2*mesh%level(icurr-1)%net+&
                             4*mesh%level(icurr-1)%nat+&
                             6*mesh%level(icurr-1)%nel
   end if
 
-  call genKEDGE3(mesh%level(icurr), icurr, noe)
+  levelNoe = noe
+  call getNumberOfEdgesOnVerts(mesh%level(icurr), levelNoe)
+  call genKEDGE3(mesh%level(icurr), icurr, levelNoe)
 
   CALL ZTIME(TTT1)
   TTGRID=TTT1-TTT0
@@ -2480,12 +2506,29 @@ subroutine genKEDGE3(mesh, icurr, noe)
       min_vert = MIN(iv1,iv2)
       max_vert = MAX(iv1,iv2)
 
+      if (min_vert .lt. 1 .or. min_vert .gt. mesh%nvt .or. &
+          max_vert .lt. 1 .or. max_vert .gt. mesh%nvt) then
+        write(*,*) 'genKEDGE3: invalid edge vertex ids: ', &
+          iv1, iv2, i, j, mesh%nvt, mesh%nel
+        stop
+      end if
+
       aux = edgesOnVert( min_vert, 1, len)
+      if (aux .lt. 0 .or. aux .gt. len-1) then
+        write(*,*) 'genKEDGE3: invalid edge counter: ', &
+          min_vert, aux, len-1, mesh%nvt, mesh%nel
+        stop
+      end if
       aux = findloc(edgesOnVert( min_vert, 1, 1:aux), max_vert, DIM=1)
       IF (aux.GT.0) THEN
         mesh%kedge(j, i) = edgesOnVert( min_vert, 2, aux)
       ELSE
         k = k+1
+        if (edgesOnVert(min_vert, 1, len) .ge. len-1) then
+          write(*,*) 'genKEDGE3: edgesOnVert capacity exceeded: ', &
+            min_vert, edgesOnVert(min_vert, 1, len), len-1, mesh%nvt, mesh%nel
+          stop
+        end if
         edgesOnVert(min_vert, 1, len) = edgesOnVert(min_vert, 1, len)+1
         aux = edgesOnVert( min_vert, 1, len)
         edgesOnVert( min_vert, 1, aux) = max_vert
@@ -2528,28 +2571,72 @@ subroutine getNumberOfEdgesOnVerts(mesh, noe)
   implicit none
   type(tMesh) :: mesh
   integer, intent(inout) :: noe
-  integer, allocatable, dimension(:) :: edgeList
-  integer :: i, j, iv1, iv2
+  integer, allocatable, dimension(:) :: headOfVertex
+  integer, allocatable, dimension(:) :: nextEdge
+  integer, allocatable, dimension(:) :: otherVertex
+  integer, allocatable, dimension(:) :: uniqueEdgeCount
+  integer :: i, j, iv1, iv2, minVert, maxVert
+  integer :: iedge, currentEdge
+  logical :: bfound
 
-  if(.not.allocated(edgeList))then
-    allocate(edgeList(mesh%nvt))
+  if(.not.allocated(headOfVertex))then
+    allocate(headOfVertex(mesh%nvt))
   end if
-  edgeList = 0
+
+  if(.not.allocated(uniqueEdgeCount))then
+    allocate(uniqueEdgeCount(mesh%nvt))
+  end if
+
+  if(.not.allocated(nextEdge))then
+    allocate(nextEdge(mesh%nee * mesh%nel))
+  end if
+
+  if(.not.allocated(otherVertex))then
+    allocate(otherVertex(mesh%nee * mesh%nel))
+  end if
+
+  headOfVertex = 0
+  uniqueEdgeCount = 0
+  nextEdge = 0
+  otherVertex = 0
+  iedge = 0
 
   DO i = 1,mesh%nel
     DO j = 1,12
       iv1 = mesh%kvert(KIV(1,j), i)
       iv2 = mesh%kvert(KIV(2,j), i)
 
-      edgeList(iv1) = edgeList(iv1) +1
-      edgeList(iv2) = edgeList(iv2) +1
+      minVert = MIN(iv1,iv2)
+      maxVert = MAX(iv1,iv2)
+
+      currentEdge = headOfVertex(minVert)
+      bfound = .false.
+
+      do while(currentEdge .gt. 0)
+        if (otherVertex(currentEdge) .eq. maxVert) then
+          bfound = .true.
+          exit
+        end if
+        currentEdge = nextEdge(currentEdge)
+      end do
+
+      if (.not. bfound) then
+        iedge = iedge + 1
+        otherVertex(iedge) = maxVert
+        nextEdge(iedge) = headOfVertex(minVert)
+        headOfVertex(minVert) = iedge
+        uniqueEdgeCount(minVert) = uniqueEdgeCount(minVert) + 1
+      end if
     END DO
   END DO
 
-  noe = maxval(edgeList)
+  noe = maxval(uniqueEdgeCount)
   noe = max(noe, 6)
 
-  deallocate(edgeList)
+  deallocate(headOfVertex)
+  deallocate(nextEdge)
+  deallocate(otherVertex)
+  deallocate(uniqueEdgeCount)
 
 end subroutine getNumberOfEdgesOnVerts
 
