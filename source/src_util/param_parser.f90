@@ -7,7 +7,7 @@ MODULE param_parser
 !
 ! Centralized parameter parsing: GDATNEW, GetVeloParameters, GetPresParameters, GetPhysiclaParameters
 !-------------------------------------------------------------------------------------------------
-USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD
+USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD, dPeriodicity
 USE iniparser
 USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
@@ -21,7 +21,7 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   MaxLevelKnownToMaster, GammaDot, AlphaRelax, RadParticle, RPM, FluidizationVelocity, &
   bConstForce, ConstForce, skipFBMForce, skipFBMDynamics, bBinaryVtkOutput, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
-  bPrintParticleReynolds, cPartitionFormat, bRecursivePartitioning, myErrorCode
+  bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
 USE types, ONLY: tParamV, tParamP, tProperties
 
@@ -465,7 +465,7 @@ SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, iPresMinLev, iPresMedLev, m
   IMPLICIT NONE
   INTEGER, INTENT(IN) :: iVeloType, iPresType, iPresMinLev, iPresMedLev, mfile
 
-  INTEGER, PARAMETER :: MAX_MSG = 6
+  INTEGER, PARAMETER :: MAX_MSG = 9
   CHARACTER(len=120) :: cMsg(MAX_MSG)
   INTEGER :: nMsg, i, ierr
 
@@ -478,6 +478,17 @@ SUBROUTINE ValidateSolverTypes(iVeloType, iPresType, iPresMinLev, iPresMedLev, m
   IF (iPresType == 9 .AND. iPresMinLev /= iPresMedLev) THEN
     nMsg = nMsg + 1
     cMsg(nMsg) = '  PARDISO requires Pres@MGMinLev = Pres@MGMedLev.'
+  END IF
+
+  ! MUMPS builds its global Q2 numbering in Create_GlobalNumbering, where the
+  ! periodic octree hit OVERWRITES the exact one (a label swap, not a merge).
+  ! That silently mislabels every periodic DOF, so refuse the combination
+  ! instead of producing a wrong factorization.  See D1.1b.
+  IF ((iVeloType == 5 .OR. iPresType == 5) .AND. ANY(dPeriodicity < 1d8)) THEN
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  MUMPS (type 5) is not supported for periodic runs:'
+    nMsg = nMsg + 1
+    cMsg(nMsg) = '  Create_GlobalNumbering swaps periodic DOF labels instead of merging them.'
   END IF
 
   IF (nMsg == 0) RETURN
@@ -1028,6 +1039,8 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bPrintParticleCFL = read_yes_no_param(string, iEq)
       CASE ("PrintParticleReynolds")
         bPrintParticleReynolds = read_yes_no_param(string, iEq)
+      CASE ("PrintParticleState")
+        bPrintParticleState = read_yes_no_param(string, iEq)
       CASE ("BinaryVtkOutput")
         bBinaryVtkOutput = read_yes_no_param(string, iEq)
       CASE ("RecursivePartitioning")
@@ -1293,6 +1306,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "ON")
     ELSE
       CALL write_param_str(mfile, mterm, "PrintParticleReynolds is ", "OFF")
+    END IF
+
+    IF (bPrintParticleState) THEN
+      CALL write_param_str(mfile, mterm, "PrintParticleState is ", "ON")
+    ELSE
+      CALL write_param_str(mfile, mterm, "PrintParticleState is ", "OFF")
     END IF
 
     IF (bBinaryVtkOutput) THEN

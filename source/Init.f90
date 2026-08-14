@@ -341,7 +341,8 @@ SUBROUTINE General_init(MDATA,MFILE)
   END IF
 
   if(.not.allocated(mg_mesh%level(II)%dvol))then
-    allocate(mg_mesh%level(II)%dvol(NEL))
+    ! NEL+1: SETARE writes the volume sum into AVOL(NEL+1)
+    allocate(mg_mesh%level(II)%dvol(NEL+1))
   end if
 
   CALL  SETARE(mg_mesh%level(II)%dvol,&
@@ -352,10 +353,15 @@ SUBROUTINE General_init(MDATA,MFILE)
   END DO
 
   IF (myid.ne.0) THEN
-    ILEV=NLMAX +1 
+    ILEV=NLMAX +1
+
+    ! Use THIS level's element count - the loop above left NEL at
+    ! level(NLMAX)%nel, which under-allocated dvol by 8x and filled only
+    ! the first eighth of the level(NLMAX+1) volumes.
+    NEL = mg_mesh%level(ILEV)%nel
 
     if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
-      allocate(mg_mesh%level(ILEV)%dvol(NEL))
+      allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
     end if
 
     CALL  SETARE(mg_mesh%level(ILEV)%dvol,&

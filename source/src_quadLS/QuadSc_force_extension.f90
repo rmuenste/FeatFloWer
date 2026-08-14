@@ -28,7 +28,7 @@ SUBROUTINE ForcesLocalParticles(factors,U1,U2,U3,P,ALPHA,DVISC,KVERT,KAREA,KEDGE
 !*-----------------------------------------------------------------------
 USE PP3D_MPI, ONLY:myid,showID,COMM_SUMMN
 USE var_QuadScalar, ONLY : myExport,Properties,FictKNPR_uint64, FictKNPR, total_lubrication
-USE var_QuadScalar, ONLY : AlphaRelax 
+USE var_QuadScalar, ONLY : AlphaRelax, bPrintParticleState, DNS_SawtoothCheck
 use cinterface
 use dem_query
 IMPLICIT DOUBLE PRECISION (A,C-H,O-U,W-Z),LOGICAL(B)
@@ -55,6 +55,12 @@ integer :: ALPHA(*)
 
 ! The maximum force magnitude
 REAL*8, intent(inout) :: maxLocal
+
+! Unified per-particle diagnostic lines (mode-independent parse targets)
+character(len=*), parameter :: fmt_state = '(A,1X,A,ES16.8,1X,A,I6,1X,9ES16.8)'
+character(len=*), parameter :: fmt_force = '(A,1X,A,ES16.8,1X,A,I6,1X,6ES16.8)'
+
+COMMON /NSPAR/  TSTEP,THETA,THSTEP,TIMENS,EPSNS,NITNS,ITNS
 
 INTEGER KVERT(NNVE,*),KAREA(NNAE,*),KEDGE(NNEE,*)
 INTEGER KDFG(NNBAS),KDFL(NNBAS)
@@ -107,12 +113,6 @@ SAVE
 
   IF (myid == 0) return! GOTO 999
 
-#ifdef SED_BENCH
-  if(myid == 1)then
-    write(*,*) 'Force with SED BENCH settings!'
-  end if
-#endif
-  
   DO I= 1,NNDER
     BDER(I)=.false.
   end do
@@ -421,21 +421,22 @@ SAVE
 
   end do ! end loop elements
 
-#ifdef SED_BENCH
-  DResForceX = 0.0
-  DResForceY = 0.0
-  DResForceZ = 4.0 * DResForceZ
-  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
-  theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
-#else
 #ifdef ENABLE_LUBRICATION
   if (resi > 0) then
     DResForceX = DResForceX + AlphaRelax * sliX
   end if
 #endif
+  ! Runtime force/torque scaling (Prop@ForceScale); symmetry decks such as the
+  ! quarter-box ten Cate case use 0,0,4,0,0,0. Replaces the compile-time
+  ! -DSED_BENCH hack (identical arithmetic for that deck).
+  DResForceX = factors(1)*DResForceX
+  DResForceY = factors(2)*DResForceY
+  DResForceZ = factors(3)*DResForceZ
+  DTrqForceX = factors(4)*DTrqForceX
+  DTrqForceY = factors(5)*DTrqForceY
+  DTrqForceZ = factors(6)*DTrqForceZ
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
-#endif
 
   theNorm = calculate_l2_norm(DResForceX, DResForceY, DResForceZ)
   if( theNorm >= maxLocal ) then
@@ -453,9 +454,22 @@ SAVE
   ! This function is in the dem_query module
   call setForcesMapped(theParticles(ip))
 
+  ! Sawtooth watchdog (owner rank -> exactly once globally per particle).
+  call DNS_SawtoothCheck(int(theParticles(IP)%bytes(1))+1, &
+       theParticles(IP)%velocity, TIMENS)
+
+  ! Owner-rank printing: each particle is local to exactly one rank, so the
+  ! lines appear exactly once globally without any collective.
+  if (bPrintParticleState) then
+    write(*,fmt_state) 'DNS_PART_STATE', 'time=', TIMENS, 'id=', int(theParticles(IP)%bytes(1))+1, &
+      theParticles(IP)%position(:), theParticles(IP)%velocity(:), theParticles(IP)%angvel(:)
+    write(*,fmt_force) 'DNS_PART_FORCE', 'time=', TIMENS, 'id=', int(theParticles(IP)%bytes(1))+1, &
+      theParticles(IP)%force(:), theParticles(IP)%torque(:)
+  end if
+
   END DO ! nParticles
 
-  total_lubrication = localSliding 
+  total_lubrication = localSliding
 
 #endif
 END SUBROUTINE ForcesLocalParticles
@@ -840,16 +854,16 @@ SAVE
 
   end do ! end loop elements
 
-#ifdef SED_BENCH
-  DResForceX = 0.0
-  DResForceY = 0.0
-  DResForceZ = 4.0 * DResForceZ
-  theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
-  theParticles(ip)%torque(:) = (/0.0, 0.0, 0.0/)
-#else
+  ! Runtime force/torque scaling (Prop@ForceScale) — see ForcesLocalParticles.
+  ! Shadow-copy partial forces are summed linearly, so scaling here is exact.
+  DResForceX = factors(1)*DResForceX
+  DResForceY = factors(2)*DResForceY
+  DResForceZ = factors(3)*DResForceZ
+  DTrqForceX = factors(4)*DTrqForceX
+  DTrqForceY = factors(5)*DTrqForceY
+  DTrqForceZ = factors(6)*DTrqForceZ
   theParticles(ip)%force(:) = (/DResForceX, DResForceY, DResForceZ/)
   theParticles(ip)%torque(:) = (/DTrqForceX, DTrqForceY, DTrqForceZ/)
-#endif
 
   theNorm = calculate_l2_norm(DResForceX, DResForceY, DResForceZ)
   if( theNorm >= localMax ) then

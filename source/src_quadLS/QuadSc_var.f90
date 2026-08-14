@@ -110,6 +110,15 @@ MODULE var_QuadScalar
   LOGICAL :: bPrintCFL = .FALSE. ! Print CFL each timestep (SimPar@PrintCFL = Yes)
   LOGICAL :: bPrintParticleCFL = .FALSE. ! Print particle CFL each timestep (SimPar@PrintParticleCFL = Yes)
   LOGICAL :: bPrintParticleReynolds = .FALSE. ! Compute particle Reynolds diagnostics (SimPar@PrintParticleReynolds = Yes)
+  LOGICAL :: bPrintParticleState = .FALSE. ! Print DNS_PART_STATE/DNS_PART_FORCE lines each step (SimPar@PrintParticleState = Yes)
+  INTEGER :: dns_inside_dofs_local = 0 ! Rank-local FictKNPR inside-DOF count; set collective-free in QuadScalar_FictKnpr, reduced on the rank-symmetric DNS_RESOLUTION path
+
+  ! DNS sawtooth watchdog state (DNS_SawtoothCheck): detects the added-mass
+  ! coupling instability of the loose FBM<->PE exchange, which produces
+  ! alternating step-to-step particle-velocity reversals while the run
+  ! otherwise "successfully finishes" (datasheet dt_stability rows).
+  REAL*8, ALLOCATABLE, PRIVATE :: dns_saw_prev_v(:,:), dns_saw_prev_dv(:,:), dns_saw_vmax(:)
+  INTEGER, ALLOCATABLE, PRIVATE :: dns_saw_count(:), dns_saw_cooldown(:), dns_saw_have(:)
 
   ! Solver matrices
   ! Place solver handles, matrix pointers, and assembled blocks below.
@@ -581,5 +590,65 @@ MODULE var_QuadScalar
     KNVT = mg_mesh%level(ilevel)%nvt
     return
   end function KNVT
+
+  subroutine DNS_SawtoothCheck(id, vel, time)
+    ! Watchdog for the added-mass instability of the loose FBM<->PE
+    ! coupling: alternating large step-to-step velocity reversals while
+    ! the run otherwise completes normally (datasheet dt_stability rows;
+    ! dns_practitioners_guide.md sec 3). Healthy plateau jitter is
+    ! ~1e-5 m/s; the instability swings O(0.1..1) m/s per step, so the
+    ! amplitude gate (20% of the largest speed seen) cannot misfire on a
+    ! stable run. Leaky counter: alternation +2, otherwise -1, so the
+    ! saturated (imperfectly periodic) phase still accumulates. Call
+    ! once per particle per time step from exactly one rank per particle.
+    implicit none
+    integer, intent(in) :: id
+    real*8, intent(in) :: vel(3), time
+    real*8 :: dv(3), dvn, pdvn, vscale
+    integer :: n
+    integer, parameter :: SAW_TRIGGER = 8, SAW_COOLDOWN = 200
+    real*8, parameter :: SAW_REL_AMP = 0.2d0, SAW_ABS_FLOOR = 1d-3
+
+    if (.not. allocated(dns_saw_vmax) .or. id > size(dns_saw_vmax)) then
+      ! (Re)size with headroom; losing state only delays detection.
+      n = max(2*id, 16)
+      if (allocated(dns_saw_vmax)) then
+        deallocate(dns_saw_prev_v, dns_saw_prev_dv, dns_saw_vmax, &
+                   dns_saw_count, dns_saw_cooldown, dns_saw_have)
+      end if
+      allocate(dns_saw_prev_v(3,n), dns_saw_prev_dv(3,n), dns_saw_vmax(n), &
+               dns_saw_count(n), dns_saw_cooldown(n), dns_saw_have(n))
+      dns_saw_prev_v = 0d0; dns_saw_prev_dv = 0d0; dns_saw_vmax = 0d0
+      dns_saw_count = 0; dns_saw_cooldown = 0; dns_saw_have = 0
+    end if
+
+    dv = vel - dns_saw_prev_v(:,id)
+    dvn = sqrt(sum(dv**2))
+    pdvn = sqrt(sum(dns_saw_prev_dv(:,id)**2))
+    vscale = max(dns_saw_vmax(id), SAW_ABS_FLOOR)
+
+    if (dns_saw_have(id) >= 2) then
+      if (dvn > SAW_REL_AMP*vscale .and. pdvn > SAW_REL_AMP*vscale .and. &
+          sum(dv*dns_saw_prev_dv(:,id)) < 0d0) then
+        dns_saw_count(id) = min(dns_saw_count(id) + 2, 4*SAW_TRIGGER)
+      else
+        dns_saw_count(id) = max(dns_saw_count(id) - 1, 0)
+      end if
+      if (dns_saw_count(id) >= SAW_TRIGGER .and. dns_saw_cooldown(id) == 0) then
+        write(*,'(A,ES14.6,A,I5,A,ES12.4,A)') &
+          'DNS_SAWTOOTH_WARNING time= ', time, ' id= ', id, ' |dv|= ', dvn, &
+          ' : alternating velocity reversals - possible added-mass coupling' // &
+          ' instability, dt may be BELOW the stability floor' // &
+          ' (dns_practitioners_guide.md sec 3)'
+        dns_saw_cooldown(id) = SAW_COOLDOWN
+      end if
+    end if
+
+    if (dns_saw_cooldown(id) > 0) dns_saw_cooldown(id) = dns_saw_cooldown(id) - 1
+    dns_saw_prev_dv(:,id) = dv
+    dns_saw_prev_v(:,id) = vel
+    dns_saw_vmax(id) = max(dns_saw_vmax(id), sqrt(sum(vel**2)))
+    if (dns_saw_have(id) < 2) dns_saw_have(id) = dns_saw_have(id) + 1
+  end subroutine DNS_SawtoothCheck
 
 END MODULE var_QuadScalar

@@ -864,6 +864,72 @@ END SUBROUTINE FindInPeriodicOctTree
 !
 !-------------------------------------------------------------------------------------
 !
+! FindInPeriodicOctTree probes ONE axis at a time and keeps only the single
+! closest hit, so a point sitting on a periodic edge or corner reports just one
+! of its 3 or 7 images.  This routine returns ALL of them: it sweeps the 26
+! non-zero combinations of (-1,0,+1) shifts and collects every match within
+! dEps.  Axes whose period is "off" (>= 1d8) are never shifted.
+!
+SUBROUTINE FindPeriodicImagesInOctTree(dcorvg,nvt,pp,iPs,nP,maxP,dEps,dPerio)
+integer :: nvt,nP,maxP
+integer :: iPs(maxP)
+real*8 :: dcorvg(3,nvt),pp(3)
+real*8, intent(in) :: dEps
+real*8, intent(in) :: dPerio(3)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+integer :: iSx,iSy,iSz,iShift(3),iDir,iBest,i
+real*8  :: p(3),dist
+logical :: bSkip,bKnown
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ nP = 0
+ iPs = 0
+
+ DO iSx=-1,1
+ DO iSy=-1,1
+ DO iSz=-1,1
+
+  IF (iSx.eq.0.and.iSy.eq.0.and.iSz.eq.0) CYCLE
+
+  iShift = [iSx,iSy,iSz]
+
+  bSkip = .FALSE.
+  DO iDir=1,3
+   IF (iShift(iDir).ne.0.and.dPerio(iDir).ge.1d8) bSkip = .TRUE.
+  END DO
+  IF (bSkip) CYCLE
+
+  DO iDir=1,3
+   p(iDir) = pp(iDir) + dble(iShift(iDir))*dPerio(iDir)
+  END DO
+
+  ! The shifted probe must land inside the octree bounding box, otherwise the
+  ! bucket lookup is meaningless (and out of range).
+  IF (p(1).lt.OctTree%xmin.or.p(1).gt.OctTree%xmax) CYCLE
+  IF (p(2).lt.OctTree%ymin.or.p(2).gt.OctTree%ymax) CYCLE
+  IF (p(3).lt.OctTree%zmin.or.p(3).gt.OctTree%zmax) CYCLE
+
+  CALL FindInOctTree(dcorvg,nvt,p,iBest,dist)
+
+  IF (iBest.gt.0.and.dist.lt.dEps) THEN
+   bKnown = .FALSE.
+   DO i=1,nP
+    IF (iPs(i).eq.iBest) bKnown = .TRUE.
+   END DO
+   IF (.not.bKnown.and.nP.lt.maxP) THEN
+    nP = nP + 1
+    iPs(nP) = iBest
+   END IF
+  END IF
+
+ END DO
+ END DO
+ END DO
+
+END SUBROUTINE FindPeriodicImagesInOctTree
+!
+!-------------------------------------------------------------------------------------
+!
 SUBROUTINE FreeOctTree
 
 deallocate(OctTree%E)

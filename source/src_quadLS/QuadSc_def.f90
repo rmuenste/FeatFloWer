@@ -4249,10 +4249,11 @@ use dem_query, only: numTotalParticles, getAllParticles, tParticleData
 #endif
 TYPE(TQuadScalar), INTENT(IN) :: myScalar
 
-INTEGER  :: iel, nvt, net, nat, nel, idof
+INTEGER  :: iel, nvt, net, nat, nel, idof, lvl
 REAL*8   :: ucx, ucy, ucz, umag, hvol, cfl_loc, cfl_max
 REAL*8   :: neg_h_min, h_min, vp_mag, cfl_p_max
 REAL*8   :: dbuf(1)
+LOGICAL, SAVE :: bDNSMeshProbePrinted = .FALSE.
 
 #ifdef HAVE_PE
 type(tParticleData), allocatable :: theParticles(:)
@@ -4260,13 +4261,50 @@ INTEGER :: numParticles, IP
 #endif
 
 cfl_max   = 0d0
-neg_h_min = 0d0
+! Global-min-via-COMM_Maximum: track the local MAX of (-h), reduce with
+! MAX, negate. The previous code used MIN locally, which tracked -h_max
+! instead - the reduced "h_min" was the min over ranks of each rank's
+! LARGEST element (partition-layout dependent; measured 6.98e-3 parallel
+! vs 1.75e-3 serial on the identical mesh whose true h_min is 1.31e-3).
+neg_h_min = -1d30
 
 IF (myid .NE. 0) THEN
-  nvt = mg_mesh%level(NLMAX)%nvt
-  net = mg_mesh%level(NLMAX)%net
-  nat = mg_mesh%level(NLMAX)%nat
-  nel = mg_mesh%level(NLMAX)%nel
+  ! Pick the mesh level the velocity vector actually lives on: the Q2 DOF
+  ! count nvt+net+nat+nel must equal SIZE(valU). Neither the /MGPAR/
+  ! NLMAX common nor mg_mesh%nlmax is reliable here - their meaning
+  ! differs between the serial-PE and parallel-PE partition readers
+  ! (measured: h_min off by exactly two levels between modes on the
+  ! identical mesh, while the solves themselves agree).
+  lvl = -1
+  DO iel = SIZE(mg_mesh%level), 1, -1
+    IF (mg_mesh%level(iel)%nvt + mg_mesh%level(iel)%net + &
+        mg_mesh%level(iel)%nat + mg_mesh%level(iel)%nel .EQ. &
+        SIZE(myScalar%valU)) THEN
+      lvl = iel
+      EXIT
+    END IF
+  END DO
+
+  nel = 0
+  IF (lvl .GT. 0) THEN
+    nvt = mg_mesh%level(lvl)%nvt
+    net = mg_mesh%level(lvl)%net
+    nat = mg_mesh%level(lvl)%nat
+    nel = mg_mesh%level(lvl)%nel
+    IF (.NOT. ALLOCATED(mg_mesh%level(lvl)%dvol)) nel = 0
+  END IF
+  IF (nel .EQ. 0 .AND. myid .EQ. 1) WRITE(*,'(A)') &
+    'ComputeCFL: no mesh level matches the velocity DOF vector - CFL skipped'
+
+  IF (bPrintParticleState .AND. .NOT. bDNSMeshProbePrinted .AND. nel .GT. 0) THEN
+    bDNSMeshProbePrinted = .TRUE.
+    WRITE(*,'(A,I4,A,I3,A,I9,A,I9,A,I9,2(A,ES14.6))') &
+      'DNS_MESH_PROBE rank= ', myid, ' lvl= ', lvl, ' nel= ', nel, &
+      ' size_dvol= ', SIZE(mg_mesh%level(lvl)%dvol), &
+      ' size_valU= ', SIZE(myScalar%valU), &
+      ' hmin_inbounds= ', MINVAL(mg_mesh%level(lvl)%dvol(1:MIN(nel,SIZE(mg_mesh%level(lvl)%dvol))))**(1d0/3d0), &
+      ' hmax_inbounds= ', MAXVAL(mg_mesh%level(lvl)%dvol(1:MIN(nel,SIZE(mg_mesh%level(lvl)%dvol))))**(1d0/3d0)
+  END IF
 
   DO iel = 1, nel
     idof    = nvt + net + nat + iel          ! element-centre Q2 DOF
@@ -4274,10 +4312,10 @@ IF (myid .NE. 0) THEN
     ucy     = myScalar%valV(idof)
     ucz     = myScalar%valW(idof)
     umag    = SQRT(ucx*ucx + ucy*ucy + ucz*ucz)
-    hvol    = mg_mesh%level(NLMAX)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
+    hvol    = mg_mesh%level(lvl)%dvol(iel)**(1d0/3d0)   ! h = V^(1/3)
     cfl_loc = umag * tstep / hvol
     cfl_max = MAX(cfl_max, cfl_loc)
-    neg_h_min = MIN(neg_h_min, -hvol)
+    neg_h_min = MAX(neg_h_min, -hvol)
   END DO
 END IF
 
@@ -4285,9 +4323,10 @@ END IF
 CALL COMM_Maximum(cfl_max)
 cfl_global = cfl_max
 
-! h_min via negation trick (COMM_Maximum of negatives gives negative of global min)
+! h_min via negation trick (COMM_Maximum of -h gives -(global min h))
 CALL COMM_Maximum(neg_h_min)
 h_min = -neg_h_min
+IF (h_min .LE. 0d0 .OR. h_min .GE. 1d29) h_min = 0d0  ! no rank computed
 
 ! Store global h_min for diagnostics
 h_min_global = h_min
@@ -4296,29 +4335,37 @@ h_min_global = h_min
 cfl_p_max = 0d0
 vp_mag = 0d0
 #ifdef HAVE_PE
-numParticles = numTotalParticles()
+! The CFD master has no PE world - its queries return uninitialized
+! garbage that would dominate the MAX reduction. Master contributes 0.
+numParticles = 0
+IF (myid .NE. 0) numParticles = numTotalParticles()
 dbuf(1) = dble(numParticles)
 CALL COMM_Maximumn(dbuf, 1)
 numParticles = int(dbuf(1))
 
 IF (numParticles .GT. 0 .AND. h_min .GT. 0d0) THEN
-  ALLOCATE(theParticles(numParticles))
-  IF (myid .NE. 0) CALL getAllParticles(theParticles)
+  IF (myid .NE. 0) THEN
+    ALLOCATE(theParticles(numParticles))
+    CALL getAllParticles(theParticles)
 
-  ! Particle data only valid on workers; broadcast via max
-  DO IP = 1, numParticles
-    vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
-               + theParticles(IP)%velocity(2)**2 &
-               + theParticles(IP)%velocity(3)**2)
-    cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
-  END DO
+    DO IP = 1, numParticles
+      vp_mag = SQRT(theParticles(IP)%velocity(1)**2 &
+                 + theParticles(IP)%velocity(2)**2 &
+                 + theParticles(IP)%velocity(3)**2)
+      cfl_p_max = MAX(cfl_p_max, vp_mag * tstep / h_min)
+    END DO
 
-  ! Store first particle position and radius for gap-based adaptivity
-  particle_z_global = theParticles(1)%position(3)
-  particle_rad_global = theParticles(1)%radius
+    ! Store first particle position and radius for gap-based adaptivity
+    particle_z_global = theParticles(1)%position(3)
+    particle_rad_global = theParticles(1)%radius
 
-  DEALLOCATE(theParticles)
+    DEALLOCATE(theParticles)
+  END IF
 END IF
+! Make the particle CFL truly global (in parallel PE getAllParticles only
+! covers rank-local particles). Rank-symmetric: all ranks reach this call.
+CALL COMM_Maximum(cfl_p_max)
+CALL COMM_Maximum(particle_rad_global)
 #endif
 cfl_particle_global = cfl_p_max
 ! Store max particle velocity for diagnostics (cfl_p_max = vp_max * tstep / h_min)

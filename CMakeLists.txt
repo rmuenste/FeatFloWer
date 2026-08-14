@@ -247,7 +247,7 @@ cmake_dependent_option(
 )
 
 option(SED_BENCH
-  "Enable sedimentation benchmark output (force/position/velocity per timestep)"
+  "RETIRED: use runtime keys Prop@ForceScale and SimPar@PrintParticleState instead"
   OFF
 )
 
@@ -673,8 +673,9 @@ if(USE_PE)
 endif(USE_PE)
 
 if(SED_BENCH)
-  add_definitions(-DSED_BENCH)
-  message(STATUS "SED_BENCH: sedimentation benchmark output enabled")
+  message(WARNING "SED_BENCH is retired and has no effect. The quarter-symmetry "
+    "force scaling is the runtime key Prop@ForceScale (e.g. 0,0,4,0,0,0) and the "
+    "per-step trajectory output is SimPar@PrintParticleState = Yes.")
 endif()
 
 if(ENABLE_FBM_ACCELERATION)

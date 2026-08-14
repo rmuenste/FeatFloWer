@@ -347,6 +347,12 @@ SUBROUTINE QuadScalar_FictKnpr(dcorvg,dcorag,kvert,kedge,karea, silent)
   totalP = 0
   IF (myid.NE.0) totalP = getTotalParticles()
 
+  ! Stash the rank-local inside-DOF count (master keeps 0). The global
+  ! DNS_RESOLUTION reduction happens later in the step on a rank-symmetric
+  ! path (Transport_q2p1_UxyzP_fluid_core) - NO collectives here, see the
+  ! deadlock note below.
+  dns_inside_dofs_local = totalInside
+
 #ifdef PE_SERIAL_MODE
   call MPI_Reduce(totalInside, reducedVal, 1, MPI_INTEGER, MPI_SUM, 1, MPI_COMM_WORLD, ierr)
   IF (myid.eq.1) THEN
