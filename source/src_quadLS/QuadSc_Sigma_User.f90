@@ -21,7 +21,7 @@ TYPE(tSetup) :: mySetup
 
 TYPE(tOutput) :: myOutput
 
-LOGICAL bCtrl
+LOGICAL bCtrl,BcRAP
 REAL*8 DistTolerance
 REAL*8 :: dMinOutputPressure = 0d0
 LOGICAL :: bKTPRelease = .TRUE.
