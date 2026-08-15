@@ -1,4 +1,5 @@
 
+
 <title>DNS Validation Campaign Plan</title>
 
 <style>
@@ -1141,18 +1142,17 @@ html { scroll-behavior: smooth; }
           <h2>Status &amp; results</h2>
         </div>
         <div class="flow">
-          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed &middot; D3.1 closed &middot; D3.2 underway</p>
+          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed &middot; D3.1 closed &middot; D3.2 scope closed</p>
 
           <div class="statusband">
 
             <div class="tally">
               <div class="pass"><span class="n">34</span><span class="l">Pass</span></div>
-              <div class="rec"><span class="n">50</span><span class="l">Recorded</span></div>
+              <div class="rec"><span class="n">51</span><span class="l">Recorded</span></div>
               <div class="res"><span class="n">14</span><span class="l">Resolved</span></div>
               <div class="fail"><span class="n">2</span><span class="l">Fail</span></div>
-              <div class="run"><span class="n">4</span><span class="l">Running</span></div>
             </div>
-            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. <em>Running</em> counts jobs in flight rather than ledger rows: the four outstanding <a href="#D3-2">D3.2 ladder points</a>.</p>
+            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. <strong>Nothing is in flight.</strong> The last <a href="#D3-2">D3.2 ladder points</a> landed, so every count above is a settled reading rather than a partial one.</p>
 
             <div class="statblock">
               <p class="subhead">Benchmark 1 — ten Cate sphere sedimentation (E1–E4)</p>
@@ -1646,7 +1646,7 @@ html { scroll-behavior: smooth; }
               <p class="subhead">Next up</p>
               <ul class="plain">
                 <li><span class="pill s">next</span><span><strong>Practitioner's guide v1</strong> — it can now carry the measured noise floor, the crossover rule and the contact-friction guideline, which were the three gaps in v0.</span></li>
-                <li><span class="v run">RUNNING</span><span><strong><a href="#D3-2">D3.2 wall-bounded hindered settling</a> — the φ ladder is live and 8 of 12 points are banked.</strong> The mechanism gate is green and the exponent is fitted but <em>preliminary</em>; the three N = 120 seeds and one N = 40 seed still in flight are what decide it. This is the campaign's open front, and the stage the EL campaign's Richardson–Zaki FAIL was designed to inform.</span></li>
+                <li><span class="v rec">RECORDED</span><span><strong><a href="#D3-2">D3.2 wall-bounded hindered settling</a> — the φ ladder is complete at 12 of 12 points and the stage closes its planned scope.</strong> The mechanism gate is PASS across the whole ladder, and the confined-configuration hindrance law is measured tightly: <strong>n ≈ 4.3–4.6</strong>, far above the unbounded Rowe/RZ band. What is left is the <em>attribution</em> between wall drag and finite-cloud effects, mapped to two named discriminators rather than left open-ended.</span></li>
                 <li><span class="pill w">deferred</span><span>Re-interpreting the periodicity-dependent <strong>EL</strong> results (Richardson–Zaki FAIL attribution, kroupa xy shear) on the fixed binary — deferred to its own session. The DNS side of that fix is fully closed.</span></li>
               </ul>
             </div>
@@ -2109,9 +2109,9 @@ html { scroll-behavior: smooth; }
           </div>
 
           <div>
-            <h3 class="blk" id="D3-2"><span class="tag">D3.2</span> Wall-bounded hindered settling <span class="aside">the campaign's open front</span> <span class="v run">IN PROGRESS — PRELIMINARY</span></h3>
+            <h3 class="blk" id="D3-2"><span class="tag">D3.2</span> Wall-bounded hindered settling <span class="aside">planned scope closed</span> <span class="v rec">RECORDED</span></h3>
             <div class="blkbody">
-              <p class="note"><strong>8 of the 12 ladder points are banked; the three N = 120 seeds and one N = 40 seed are running now.</strong> The mechanism result below is settled. Everything quantitative — the exponent above all — is <em>preliminary</em>, because the φ ≈ 0.12 tier is exactly the arm that decides whether a slope fitted over φ ≲ 0.08 is real or an artefact of a short lever.</p>
+              <p class="note"><strong>All 12 ladder points are banked — N = 20 / 40 / 80 / 120 × 3 seeds, ~6 h 15 m each</strong> — reduced by <code>tools/d32_ladder_analysis.py</code> over the plateau window <strong>t = 15–25</strong>. The φ ≈ 0.11 tier that was supposed to decide whether a slope fitted over φ ≲ 0.08 was real landed <em>on</em> the line: the collapse holds over the full lever, and the exponent below is a measurement rather than an extrapolation.</p>
 
               <div class="setup">
                 <span class="lbl">Setup &amp; expectation</span>
@@ -2124,34 +2124,49 @@ html { scroll-behavior: smooth; }
                 <p>The same code family produced cluster-induced <em>enhancement</em>, U/u_t &gt; 1, in the EL tri-periodic box (which we now know was solving traction-free faces). Put the particles in a column with walls and the settling is stably hindered. That is direct evidence for the EL campaign's Richardson–Zaki FAIL reframe: <strong>hindered settling recovers as soon as the geometry supplies the confinement Richardson–Zaki assumes.</strong> Same solver, different box, opposite qualitative behaviour.</p>
               </div>
 
-              <p class="subhead">The φ ladder so far — 8 of 12 points</p>
+              <p class="subhead">The φ ladder — 12 of 12 points</p>
               <div class="tablewrap">
                 <table class="num">
-                  <caption>U = −⟨v_z⟩ over the plateau window t = 15–25; φ_cloud = N·V_p /(36·H_cloud) from measured particle extents</caption>
+                  <caption>U = −⟨v_z⟩ over the plateau window t = 15–25; φ_cloud = N·V_p /(36·H_cloud) from measured particle extents; swarm Re from U and d</caption>
                   <thead>
-                    <tr><th scope="col">N</th><th scope="col">φ_cloud</th><th scope="col">U/u_t, per seed</th></tr>
+                    <tr><th scope="col">N</th><th scope="col">φ_cloud</th><th scope="col">U/u_t, per seed</th><th scope="col">swarm Re</th></tr>
                   </thead>
                   <tbody>
-                    <tr><th scope="row" class="id">20</th><td class="err">0.019–0.021</td><td class="err">0.895 / 0.901 / 0.879</td></tr>
-                    <tr><th scope="row" class="id">40</th><td class="err">0.038–0.045</td><td class="err">0.802 / 0.842 &nbsp;<span class="v run">3rd seed running</span></td></tr>
-                    <tr><th scope="row" class="id">80</th><td class="err">0.076–0.079</td><td class="err">0.684 / 0.706 / 0.678</td></tr>
-                    <tr><th scope="row" class="id">120</th><td class="err">≈ 0.12</td><td class="err"><span class="v run">3 seeds running</span></td></tr>
+                    <tr><th scope="row" class="id">20</th><td class="err">0.019–0.021</td><td class="err">0.895 / 0.901 / 0.879</td><td class="err">≈ 77</td></tr>
+                    <tr><th scope="row" class="id">40</th><td class="err">0.038–0.045</td><td class="err">0.802 / 0.842 / 0.834</td><td class="err">≈ 71</td></tr>
+                    <tr><th scope="row" class="id">80</th><td class="err">0.076–0.079</td><td class="err">0.684 / 0.706 / 0.678</td><td class="err">≈ 60</td></tr>
+                    <tr><th scope="row" class="id">120</th><td class="err">0.105–0.115</td><td class="err">0.597 / 0.561 / 0.605</td><td class="err">≈ 51</td></tr>
                   </tbody>
                 </table>
               </div>
 
               <div class="finding">
-                <span class="h">A very tight power law — sitting well above the literature band</span>
-                <p>Fitting <strong>ln(U/u_t) = n·ln(1 − φ)</strong> through the eight banked points gives <strong>n = 4.66 with an rms ln-residual of 0.016</strong>. That is an unusually tight collapse: the runs fall on one power law to well inside their own <strong>2–4% seed scatter</strong> in U/u_t, over a four-fold range in φ_cloud. The <em>quality</em> of the fit is not in doubt.</p>
-                <p>The <em>value</em> is. Rowe's interpolation of the Richardson–Zaki exponent puts n ≈ <strong>2.7–2.9 at Re_t ≈ 86</strong>, so the measured slope is far steeper than the literature band. The ~7% extra hindrance first seen in the N = 40 smoke was therefore <strong>not a one-off</strong> — the whole ladder follows a systematically steeper hindrance law, and it does so smoothly enough that whatever causes it is a property of the configuration rather than of any one run. <span class="v rec">PRELIMINARY</span></p>
+                <span class="h">1 — The collapse is excellent, and it certifies its own reference</span>
+                <p>Fitting <strong>ln(U/u_t) against ln(1 − φ_cloud)</strong> is linear across the entire ladder, with an <strong>rms residual of 2.3%</strong> — the through-origin fit gives <strong>n = 4.57</strong>. Freeing the intercept gives <strong>n = 4.31</strong> with <strong>U/u_t(φ → 0) = 0.978</strong>: extrapolated to zero concentration the swarm data recovers the independently measured single-sphere u_t <strong>to 2%</strong>. That is the internal-consistency check the ladder was designed to carry, and it passes — <strong>the measurement chain is sound</strong>. Seed spans are only <strong>0.02–0.04</strong> in U/u_t.</p>
               </div>
+
+              <div class="finding">
+                <span class="h">2 — But n ≈ 4.3–4.6 sits far above the unbounded-suspension band, and not because of low Re</span>
+                <p>The Rowe/Richardson–Zaki band for an unbounded suspension is <strong>n ≈ 2.7–3.0</strong> at these Reynolds numbers. The measured exponent is far above it. <strong>This is not a low-Re effect:</strong> the swarm Re stays in the range <strong>51–77</strong> over the whole ladder, squarely where the literature band applies. The near-coincidence with the RZ Stokes-limit exponent 4.65 is <em>explicitly a coincidence</em> — nothing in this data sits in the Stokes limit.</p>
+                <p>The honest reading is that <strong>the walled 6d column measures a confined hindered-settling law, not the mean-field one</strong>. The return flow that the narrow walls force through and around the cloud adds hindrance on top of what the unbounded law accounts for. <span class="v rec">RECORDED</span></p>
+              </div>
+
+              <p class="subhead">Attribution is open — with two named discriminators</p>
               <ul class="plain">
-                <li><span class="pill w">candidate</span><span><strong>A finite cloud is not a homogeneous suspension.</strong> A cloud of bounded extent has to drive its own return flow <em>back through itself</em>; the homogeneous suspension Richardson–Zaki describes does not. This would show up as extra hindrance growing with the volume displaced.</span></li>
                 <li><span class="pill w">candidate</span><span><strong>Column-wall drag on the backflow.</strong> Displaced fluid returns through a <strong>6d cross-section</strong>, and the walls tax that return path. The single-sphere reference absorbs the static part of this, but not the part that scales with the settling cloud.</span></li>
-                <li><span class="v run">PENDING</span><span><strong>The verdict waits on N = 120.</strong> φ ≈ 0.12 roughly doubles the lever arm in ln(1 − φ). If the three N = 120 seeds land on the fitted line, n ≈ 4.66 is a real property of this configuration and the attribution question becomes the whole content of the stage; if they fall off it, the tight fit over φ ≲ 0.08 was the short lever flattering itself. <strong>No exponent is claimed until they report.</strong></span></li>
+                <li><span class="pill w">candidate</span><span><strong>A finite cloud is not a homogeneous suspension.</strong> A cloud of bounded extent has to drive its own return flow <em>back through itself</em>; the homogeneous suspension Richardson–Zaki describes does not.</span></li>
+                <li><span class="pill s">discriminator</span><span><strong>A wider-column ladder</strong> — repeat the sweep at larger cross-section. Wall drag scales with the confinement; the finite-cloud term does not, so the two separate cleanly.</span></li>
+                <li><span class="pill s">discriminator</span><span><strong>A genuinely periodic box</strong>, which removes the walls outright — but this is <strong>blocked today</strong> by the known <a href="#D3-1">moving-particle periodic-indicator limitation</a> (<code>d31_periodic_indicator</code>): particles crossing a periodic face lose their outside cap, and the fix that works for fixed arrays (explicit image spheres) does not carry to moving ones.</span></li>
               </ul>
 
-              <p class="cost"><b>tooling</b>Reduction is committed as <code>tools/d32_ladder_analysis.py</code> — plateau U, φ_cloud from particle extents, velocity spread, and the RZ slope fit across a set of rundirs, so the ladder re-reduces in one command as the remaining points land. Datasheet rows: <code>d32_ut_ref</code> (reference), <code>d32_n40_smoke</code> (mechanism).</p>
+              <div class="finding">
+                <span class="h">3 — The mechanism gate stays PASS everywhere on the ladder</span>
+                <p>Inter-particle velocity spread <strong>grows with φ</strong> — from <strong>11% of U</strong> at the dilute end to <strong>27%</strong> at N = 120 — but at every single point it <strong>saturates in time</strong> rather than running away. <strong>There is no runaway clustering anywhere on the ladder.</strong> That reinforces the cross-campaign story the stage was built to test: the walled column settles stably hindered where the tri-periodic EL box produced cluster-induced enhancement, so <strong>confinement is what stabilises hindered settling</strong>. <span class="v pass">PASS</span></p>
+              </div>
+
+              <p class="note"><strong>D3.2 closes its planned scope:</strong> the mechanism is validated, a tight confined-configuration hindrance law is measured (<strong>n ≈ 4.6</strong>), and the path to the unbounded-RZ comparison is mapped via the two discriminators above.</p>
+
+              <p class="cost"><b>tooling</b>Reduction is committed as <code>tools/d32_ladder_analysis.py</code> — plateau U, φ_cloud from particle extents, velocity spread, and the RZ slope fit across a set of rundirs, so the whole ladder re-reduces in one command. Datasheet rows: <code>d32_ut_ref</code> (reference), <code>d32_n40_smoke</code> (mechanism), <code>d32_phi_ladder</code> (the completed ladder).</p>
 
               <p class="subhead">Original stage design</p>
               <ul>
@@ -2756,4 +2771,5 @@ html { scroll-behavior: smooth; }
   });
 })();
 </script>
+
 
