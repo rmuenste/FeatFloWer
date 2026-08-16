@@ -115,8 +115,11 @@ def main():
                 r4 = run_data(l4_name(pp, s, tier), phi)
                 r2 = run_data(f"d31_{pp}_{s}{tier}_l2", phi)
                 dr = r2["F"] / r4["F"] - 1
-                corr = (eq17(phi, r2["Re"]) - eq17(phi, r4["Re"])) if tier else 0.0
-                dm = (r2["F"] - corr) / r4["F"] - 1
+                # matched-Re transport: multiplicative, along the correlation's
+                # relative Re-dependence (consistent with the deficit acting as a
+                # factor on drag); see CHERD SI eq. si_matched_re
+                ratio = (eq17(phi, r4["Re"]) / eq17(phi, r2["Re"])) if tier else 1.0
+                dm = (r2["F"] * ratio) / r4["F"] - 1
                 raw.append(dr); mat.append(dm)
                 re4r.append(r4["Re"]); re2r.append(r2["Re"])
             print(f"{pp} {lab:6s}: raw {'/'.join(f'{x:+.1%}' for x in raw)} (mean {sum(raw)/3:+.1%})"
