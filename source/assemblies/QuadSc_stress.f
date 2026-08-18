@@ -1857,8 +1857,8 @@ C
        DSHELL  = DSHELL + DSH(JDFL)*DBAS(1,JDFL,1) !shell
        DSCREW  = DSCREW + DSC(JDFL)*DBAS(1,JDFL,1) !screw
        
-       do iFld=2,GenLinScalar%nOfFields
-        DALPHA(iFld-1)  =DALPHA(iFld-1) + 
+       do iFld=1,GenLinScalar%nOfFields
+        DALPHA(iFld)  =DALPHA(iFld) + 
      *  GenLinScalar%Fld(iFld)%val(JDFG)*DBAS(1,JDFL,1)!alpha
        end do
        
@@ -1878,10 +1878,10 @@ C
 
        iMat = myMultiMat%InitMaterial
        dMaxMat = -1d5
-       do iFld=2,GenLinScalar%nOfFields
-        if (DALPHA(iFld-1).gt.dMAxMat) then
-         iMat = iFld-1
-         dMaxMat = DALPHA(iFld-1)
+       do iFld=1,GenLinScalar%nOfFields
+        if (DALPHA(iFld).gt.dMAxMat) then
+         iMat = iFld
+         dMaxMat = DALPHA(iFld)
         end if
        end do
 C ----=============================================---- 

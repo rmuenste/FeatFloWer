@@ -568,12 +568,12 @@ DO ILEV=NLMIN+1,NLMAX
 
  CALL MemoryPrint(1,'w','CGAL0')
  !     ----------------------------------------------------------            
- if (.not.(istart.eq.1.and.myTransientSolution%DumpFormat.eq.3)) then
+! if (.not.(istart.eq.1.and.myTransientSolution%DumpFormat.eq.3)) then
   call init_fc_rigid_body(myid)
   call FBM_GetParticles()
   CALL FBM_ScatterParticles()
   bCGALGeometryInitialized = .true.
- end if
+! end if
  !     ----------------------------------------------------------        
  CALL MemoryPrint(1,'w','CGAL1')
 

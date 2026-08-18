@@ -175,15 +175,15 @@ macro(ff_setup_hypre)
     endif()
     unset(_ff_hypre_inc)
 
-  # ---- vendored: unchanged legacy path ----------------------------------
+  # ---- vendored ----------------------------------------------------------
+  # The submodule now tracks upstream hypre-space/hypre v2.33.0, the same
+  # release the fetch provider pins, so both providers speak the same option
+  # vocabulary (HYPRE_ENABLE_*, not the 2.25-era HYPRE_WITH_*) and get the
+  # same configuration through ff_configure_fetched_hypre_options().
   elseif(_ff_hypre_provider STREQUAL "vendored")
 
     message(STATUS "Using repository version of hypre")
-    if(USE_HYPRE_CUDA)
-      set(HYPRE_WITH_CUDA ON CACHE BOOL "" FORCE)
-      set(HYPRE_ENABLE_UNIFIED_MEMORY ON CACHE BOOL "" FORCE)
-      set(HYPRE_CUDA_SM "80" CACHE STRING "" FORCE)
-    endif()
+    ff_configure_fetched_hypre_options()
     add_subdirectory("${_ff_hypre_vendored_dir}")
     target_link_libraries(ff_hypre INTERFACE HYPRE)
     set(HYPRE_STRUCTURES_INCLUDE_PATH "${_ff_hypre_vendored_dir}")

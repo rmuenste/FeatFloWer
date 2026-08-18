@@ -30,8 +30,6 @@ add_library(ff_postprocessing ${postprocessing})
 target_link_libraries(ff_postprocessing ff_cinterface ff_util ff_mesh)
 target_include_directories(ff_postprocessing PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
-# ff_postprocessing depends on ProcCtrl_mod from ff_quadLS_app for compilation order
-add_dependencies(ff_postprocessing ff_quadLS_app)
 
 set(src_ini_aux
   ${CMAKE_SOURCE_DIR}/source/src_util/getpid_wrapper.c
