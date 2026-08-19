@@ -62,7 +62,6 @@ DO i=1,nLoops
  write(*,*) nTol(i),aTol(i)
 END DO
 
-#if defined __INTEL_COMPILER
 allocate(cParFile(1000))
 DO 
  READ(1,*,IOSTAT=Reason) cParFile(nParFiles+1)
@@ -71,6 +70,7 @@ DO
  nParFiles = nParFiles + 1
 END DO
 
+#if defined __INTEL_COMPILER
 allocate(cStitchFile(1000))
 DO 
  READ(1,*,IOSTAT=Reason) cStitchFile(nStitchFiles+1)
