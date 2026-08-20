@@ -78,7 +78,7 @@ instead of a hand-computed cutoff factor per case.
 
 | gate | what | pass criterion |
 |---|---|---|
-| G0 | lubrication-OFF twins with refactored pe: DKT 20-step + e4_l3, vs certified logs | bitwise (d=1 family expected bitwise; SI ten Cate family is the sensitive one — AABB size-class analysis 2026-08-20) |
+| G0 | lubrication-OFF twins with refactored pe, vs certified logs — AMENDED 2026-08-20 after the hcaf_angvel_reset fix (a71c34d) joined the branch: (a) **e4_l3** stays the BITWISE instrument (settling, spin ≈ 0, ω-fix inert); (b) **DKT 20-step** is now a physics-DIFF case — the ω restoration changes rotating trajectories by construction, so its twin is EXPECTED to differ; its deviation is the ω-restoration signal and feeds the D2.3 frictional rerun (datasheet hcaf_angvel_reset) | e4_l3 bitwise; DKT diff attributed to rotation (report, don't gate); SI ten Cate family remains the AABB-sensitive one |
 | G1 | unit tests: existing 4 re-pointed at the runtime switch + the new serial/CFD-coupled test | all pass |
 | G2 | **Brenner wall-approach rerun** (D2.1 fixture, constant-V protocol, Re 0.78) with lubrication ON | sub-2h force follows Brenner's exact solution where FBM alone was −20%; ALSO measure the 2–3h overlap band overshoot = the double-counting number that decides §7 |
 | G3 | **lubricated ten Cate**: reproduce Fig. 13 (pairs S16/S18 at Re 1.5, S17/S19 at Re 4.1) — first `legacy` model (like-for-like with the paper's Eq. 10), then full Kroupa | early velocity-decay improvement reproduced; Kroupa's epsCritical saturation avoids the paper's documented time-to-contact overprediction ("the abrupt stop remains" pathology) |
