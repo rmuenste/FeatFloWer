@@ -40,7 +40,7 @@ SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@StartFile = "_dump/04"
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
-SimPar@MaxMeshLevel = 2
+SimPar@MaxMeshLevel = 3                                                 ! coarse cell d/2 + two refinements -> h=d/8, D/h=8 (CASE_SPEC §4)
 SimPar@TimeScheme = CN                                                 ! CN,BE,FE
 SimPar@TimeStep = 0.05d0                                               ! MUST equal stepsize_ in example.json (pe_stepsize_mismatch guard)
 SimPar@TimeAdaptivity = No                                              ! Yes
