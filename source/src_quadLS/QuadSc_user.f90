@@ -585,6 +585,32 @@ if(it.eq.13)then
   ValW =   0d0
 end if
 
+! ---------------------------------------------------------------------
+! iT = 14 : rigid rotation about the z-axis through the origin.
+!
+! u = Omega x r = (-Omega*y, +Omega*x, 0), with Omega = 2*pi*RPM/60.
+!
+! Introduced for the D5.1 numerical viscometer (q2p1_viscometer): the
+! rotating inner bob of the Searle cell is a blind coaxial bore in the
+! mesh whose surfaces carry this Dirichlet condition; it is steady in
+! the lab frame.
+!
+! The rotation rate is taken from the deck key SimPar@RPM (module
+! var_QuadScalar, imported at the top of this routine).  This is
+! deliberately NOT modelled on iT=13, which reads myProcess%Umdr and
+! myProcess%ind - extruder deck fields that are uninitialised outside
+! the Sigma/extruder parameter sets.
+!
+! No-op for every existing application: the block can only fire for a
+! boundary component declared 'Inflow14' in a mesh .par file, and no
+! mesh currently in the tree declares one.
+! ---------------------------------------------------------------------
+IF (iT.EQ.14) THEN
+  ValU = -myTwoPI*Y*(RPM/6d1)
+  ValV =  myTwoPI*X*(RPM/6d1)
+  ValW =  0d0
+END IF
+
 IF (iT.EQ.20) THEN
 
    dOuterRadius = myProcess%MaxInflowDiameter*0.5d0 !cm
