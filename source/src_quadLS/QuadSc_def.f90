@@ -3905,6 +3905,130 @@ END SUBROUTINE EvaluateDragLift_old
 !
 ! ----------------------------------------------
 !
+!=======================================================================
+! EvaluateTorque_residual
+!
+! Residual-based (variationally consistent) boundary torque about the
+! z-axis through the origin - the rigid-rotation analog of the
+! benchmark-certified BenchForce method implemented in
+! EvaluateDragLift_old (immediately above).
+!
+! Method
+! ------
+! EvaluateDragLift_old reconstructs, for every DOF i marked by the
+! boundary-force mask CYL (= BndrForce, set from 'WallF' components in
+! Parametrization.f90), the discrete reaction of the momentum equation
+! carried by that DOF:
+!
+!   R_i = -sum_j D_ij * u_j   +  sum_k B_ik * p_k       (per component)
+!
+! and sums it into a net force.  Choosing instead the rigid-rotation
+! test function v = e_z x r, i.e. weighting the SAME per-DOF reactions
+! with the lever arm of the DOF, yields the boundary torque
+!
+!   T_z = sum_i ( x_i * R_y,i  -  y_i * R_x,i ).
+!
+! The full torque vector T = sum_i r_i x R_i is assembled here; only
+! T_z is physically meaningful for the D5.1 viscometer, the other two
+! components are useful as a symmetry diagnostic.
+!
+! DOF coordinates are taken from the existing Q2 coordinate array
+! myQ2Coor (var_QuadScalar), which is indexed by the same global Q2 DOF
+! numbering (vertices, edges, faces, elements) as CYL/BndrForce and as
+! the matrix rows - see Boundary_QuadScalar_Val (QuadSc_boundary.f90)
+! and the BndrForce assignment in Parametrization.f90.
+!
+! Parallel reduction mirrors EvaluateDragLift_old exactly: rank 0 does
+! not own a matrix and skips the loop, and all ranks (including 0)
+! enter COMM_SUMM.  The lever arm is identical on every rank that owns
+! a shared DOF, so the weighting commutes with the sum over the
+! partial matrix rows.
+!
+! Scope: Newtonian.  The non-Newtonian 9-block deformation-tensor
+! variant (cf. EvaluateDragLift9_old) is NOT mirrored - the D5.1
+! viscometer runs SimPar@FlowType = Newtonian.  Callers must not use
+! this routine when bNonNewtonian .AND. myMatrixRenewal%S /= 0.
+!
+! Arguments
+!   U,V,W  : Q2 velocity components
+!   P      : P1 pressure (LinSc%P_new)
+!   CYL    : boundary-force mask (BndrForce)
+!   dtV    : out, viscous/diffusive part of the torque vector
+!   dtP    : out, pressure part of the torque vector
+!=======================================================================
+SUBROUTINE EvaluateTorque_residual(U,V,W,P,CYL,dtV,dtP)
+REAL*8 U(*),V(*),W(*),P(*)
+LOGICAL CYL(*)
+REAL*8 dtV(3),dtP(3)
+REAL*8 dRV(3),dRP(3),dPX,dPY,dPZ
+INTEGER I,J,K
+
+dtV = 0d0; dtP = 0d0
+
+IF (myid.ne.0) THEN
+
+ILEV=NLMAX
+CALL SETLEV(2)
+
+DMat     => mg_DMat(ILEV)%a
+BXMat    => mg_BXMat(ILEV)%a
+BYMat    => mg_BYMat(ILEV)%a
+BZMat    => mg_BZMat(ILEV)%a
+qMat     => mg_qMat(ILEV)
+! EvaluateDragLift_old relies on qlMat being left at NLMAX by the
+! caller; set it explicitly here so this routine is self-contained.
+qlMat    => mg_qlMat(ILEV)
+
+DO I=1,qMat%nu
+ IF (CYL(I)) THEN
+
+  dRV = 0d0
+  dRP = 0d0
+
+  DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+   K = qMat%ColA(J)
+   dRV(1) = dRV(1) - DMat(J)*U(K)
+   dRV(2) = dRV(2) - DMat(J)*V(K)
+   dRV(3) = dRV(3) - DMat(J)*W(K)
+  END DO
+
+  DO J=qlMat%LdA(I),qlMat%LdA(I+1)-1
+   K = qlMat%ColA(J)
+   dRP(1) = dRP(1) + BXMat(J)*P(K)
+   dRP(2) = dRP(2) + BYMat(J)*P(K)
+   dRP(3) = dRP(3) + BZMat(J)*P(K)
+  END DO
+
+  ! lever arm of this Q2 DOF (axis = z through the origin)
+  dPX = myQ2Coor(1,I)
+  dPY = myQ2Coor(2,I)
+  dPZ = myQ2Coor(3,I)
+
+  ! T = r x R
+  dtV(1) = dtV(1) + (dPY*dRV(3) - dPZ*dRV(2))
+  dtV(2) = dtV(2) + (dPZ*dRV(1) - dPX*dRV(3))
+  dtV(3) = dtV(3) + (dPX*dRV(2) - dPY*dRV(1))
+
+  dtP(1) = dtP(1) + (dPY*dRP(3) - dPZ*dRP(2))
+  dtP(2) = dtP(2) + (dPZ*dRP(1) - dPX*dRP(3))
+  dtP(3) = dtP(3) + (dPX*dRP(2) - dPY*dRP(1))
+
+ END IF
+END DO
+
+END IF
+
+CALL COMM_SUMM(dtV(1))
+CALL COMM_SUMM(dtV(2))
+CALL COMM_SUMM(dtV(3))
+CALL COMM_SUMM(dtP(1))
+CALL COMM_SUMM(dtP(2))
+CALL COMM_SUMM(dtP(3))
+
+END SUBROUTINE EvaluateTorque_residual
+!
+! ----------------------------------------------
+!
 SUBROUTINE EvaluateDragLift(U,V,W,P,Nu,FBM)
 REAL*8 U(*),V(*),W(*),P(*),Nu(*)
 INTEGER FBM(*)

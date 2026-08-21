@@ -1,8 +1,14 @@
-# DNS (FBM) practitioner's guide — v2
+# DNS (FBM) practitioner's guide — v2.1
 
-Status: **v2**, 2026-08-11, adding D3.1 (random-array drag law, closed)
-and the production-resolution probes to the v1 scope (D1 metrology, D1.1
-Hasimoto, D1.2 noise floor, D2.1 crossover rule, D2.3 DKT). Every number below
+Status: **v2.1**, 2026-08-18. v2 (2026-08-11) added D3.1 (random-array
+drag law, closed) and the production-resolution probes to the v1 scope
+(D1 metrology, D1.1 Hasimoto, D1.2 noise floor, D2.1 crossover rule,
+D2.3 DKT). v2.1 applies the SI-hardening audit: the a_eff **sign
+erratum** (a_eff = a − 0.14h, `d11_aeff_sign_erratum`), the
+**transient-bias revision** of the dilute finite-Re array numbers
+(`d31_transient_bias`, `d31_t12_measured`), the multiplicative
+matched-Re basis (`d31_matched_re_operation`), and the completed
+nine-check refinement set (`d31_l5_re9_p010`). Every number below
 traces to a row in `dns_validation_datasheet.md`. Scope: spheres,
 Re ≈ 0.003–32, serial-PE mode. Multi-particle collective behavior (D3),
 non-spherical particles (D4) and the shared lubrication closure (D2.2)
@@ -54,9 +60,14 @@ flow-regime-dependent.
 The periodic-array benchmark (D1.1, closed) makes the mechanism
 quantitative: after correcting each level for its measured
 indicator-volume error, the drag ladder is **first-order in h** with an
-effective-radius picture a_eff ≈ a + 0.14h, converging to Hasimoto's
-analytic value within −0.4…−0.6% (`d11_rh_collapse`). The FBM interface
-behaves like a sphere widened by ~0.14 cells.
+effective-radius picture a_eff ≈ a − 0.14h, converging to Hasimoto's
+analytic value within −0.4…−0.6% (`d11_rh_collapse`,
+`d11_aeff_sign_erratum`). The FBM interface behaves like a sphere
+**narrowed** by ~0.14 cells — the discrete constraint under-enforces
+no-slip between velocity nodes, so flow effectively penetrates ~0.14h
+into the nominal solid. (v2 recorded the sign as +0.14h; the drag
+sensitivity dlnK/dln a ≈ +1.8 > 0 combined with the measured deficits
+forces the minus sign. All magnitudes stand.)
 
 Rules of thumb (this flow class):
 
@@ -174,25 +185,37 @@ velocity stays constant to ~1e-5 relative while the FBM force is logged
 
 F_d*(φ, Re) measured on N=16 random fixed-sphere arrays (RSA, 0.05d min
 gap, periodic cell with explicit image spheres), 3 seeds/point, vs the
-Beetstra 2007 correlation (eqs. 6/17):
+Beetstra 2007 correlation (eqs. 6/17). Values are **steady-state**
+(`tools/d31_steady_extrapolation.py`; the v2 table read the dilute
+finite-Re runs at their t=4 endpoint, which was up to 13% transient-
+biased — `d31_transient_bias`, verified by direct t=12 reruns,
+`d31_t12_measured`):
 
 | φ | Re≈0 | Re≈9 | Re≈27 |
 |---|---|---|---|
-| 0.05 | 1.90±0.08 | 2.51±0.11 | 2.95±0.21 |
-| 0.10 | 2.48±0.20 | 3.00±0.23 | 3.63±0.39 |
-| 0.20 | 4.37±0.25 | 4.96±0.24 | 6.07±0.39 |
-| 0.30 | 7.53±0.24 | 8.46±0.31 | 10.51±0.39 |
+| 0.05 | 1.90±0.07 | 2.25±0.14 | 2.78±0.21 |
+| 0.10 | 2.48±0.17 | 2.88±0.23 | 3.57±0.34 |
+| 0.20 | 4.38±0.20 | 4.95±0.20 | 6.07±0.32 |
+| 0.30 | 7.54±0.20 | 8.46±0.25 | 10.57±0.32 |
+
+Practitioner rule from that audit: weakly forced runs relax with
+τ ≈ ρU_ss/(f(1−φ)) — for dilute cells this is O(1–2) time units, so
+budget ≳ 6τ of integration or gate on the endpoint drift
+|U(t_e)−U(t_e−1)|/U(t_e) < 5×10⁻³ before reading off a steady value.
 
 What the deviations taught (each attributed, none unexplained):
 
-- **Resolution**: L4→L5 shifts +1.3…+3.5% everywhere (Stokes AND the
-  moderate-Re corner) — the a_eff = a + 0.14h picture again; L4
-  (D/h 13–24) is production-grade for array drag.
-- **Finite-N**: the +4…+11% converged Stokes offset vs the correlation
+- **Resolution**: L4→L5 shifts small and uniform — all nine refinement
+  checks now **measured** (`d31_l5_re9_p010`): Stokes
+  +2.3/+2.3/+2.9/+3.6% across φ, finite-Re +1.3…+1.7% — the
+  a_eff = a − 0.14h picture again; L4 (D/h 13–24) is production-grade
+  for array drag.
+- **Finite-N**: the +2…+8% converged Stokes offset vs the correlation
   is the N=16 box talking to its own periodic images; at Beetstra's own
-  N=54 the FBM value reproduces the correlation to **+0.4%**
-  (`d31_n54_verdict`). Rule: for quantitative closure comparisons use
-  N≈50+, or expect a few-% finite-N offset at N=16.
+  N=54 the FBM value reproduces the correlation to **+0.5%** (L5,
+  steady balance-force basis, `d31_n54_verdict`). Rule: for
+  quantitative closure comparisons use N≈50+, or expect a few-%
+  finite-N offset at N=16.
 - **Microstructure dispersion at Re ≳ 20**: single-configuration drag
   scatters ±10–30% around the ensemble mean (vs 3–8% at Stokes) —
   inertia amplifies configuration sensitivity ~3×
@@ -206,10 +229,14 @@ What the deviations taught (each attributed, none unexplained):
   for any wrapping-particle run.
 
 **Production resolution (D/h = 3–4)** — single-sphere and array-level
-evidence agree (`d11_coarse_probes`, `d31_l2_production`): mean drag is
-~85–90% of converged, nearly Re-independent (long-range screening
-survives coarse meshes; no boundary-layer blowup) → apply one
-correction factor ≈ 1.15 (equivalently a_eff = a + 0.14h). Per-particle
+evidence agree (`d11_coarse_probes`, `d31_l2_production`,
+`d31_matched_re_operation`): mean drag is **84–87% of converged**
+(matched-Re basis: deficits −12.1…−13.9%, Stokes → Re≈27, mildly
+deepening with Re) → apply one correction factor **1.15–1.20**
+(equivalently a_eff = a − 0.14h). The matched-Re comparison is
+multiplicative — scale the coarse value by the correlation ratio
+F_corr(Re_fine)/F_corr(Re_coarse), not by an additive increment
+(the operation matters ~2 pp at Re≈27). Per-particle
 forces carry ~8–15% rms grid noise there, and everything within ~2
 cells of contact (= half a diameter at D/h 3–4) is the contact model's
 job — tune its parameters as physics (§6).
@@ -228,8 +255,11 @@ job — tune its parameters as physics (§6).
 
 ## 11. Open items feeding v3
 
-- D3.2 wall-bounded hindered settling (RZ band — the walled answer to
-  the EL campaign's periodic-box RZ question).
+- D3.2 wall-bounded hindered settling — ladder CLOSED 2026-08-15
+  (`d32_phi_ladder`: confined exponent n ≈ 4.3–4.6 in the 6d walled
+  column vs unbounded Rowe/RZ 2.7–3.0 at swarm Re 51–77; collapse rms
+  2.3%); v3 write-up pending, wall-vs-cloud attribution open
+  (wider-column discriminator identified).
 - D2.2 sphere–sphere approach + shared lubrication closure (uses §5's
   collapse curve and §9's dispersion finding).
 - Periodic support for MOVING particles crossing faces (indicator +

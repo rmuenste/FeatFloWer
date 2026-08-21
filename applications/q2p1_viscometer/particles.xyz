@@ -1,0 +1,24 @@
+# q2p1_viscometer - default particle file = V0 baseline (phi = 0).
+#
+# Lines that do not parse as three floats are ignored by
+# readVectorsFromFile (libs/pe/pe/interface/geometry_utils.h:38-47),
+# so these comments are safe.
+#
+# The PE serial setup used by this application (setupDraftKissTumbSerial,
+# libs/pe/pe/interface/sim_setup_serial.h:1461-1469) THROWS a
+# std::runtime_error when the xyz file yields zero positions, and an
+# absent file yields the same (readVectorsFromFile returns empty on open
+# failure).  A truly empty V0 is therefore not possible without patching
+# the PE setup.
+#
+# Instead V0 uses exactly one "parked" sphere at the centre of the
+# un-meshed bob bore.  The bore (r < 4, 4 <= z <= 12) contains no fluid
+# DOFs at all; the nearest fluid DOFs sit on the bore surface at r = 4,
+# i.e. 4 d away from a sphere of radius 0.5.  No DOF is ever covered, so
+# FictKNPR stays 0 everywhere and the fluid solution is identical to a
+# particle-free run.  With gravity_ = [0,0,0] the sphere never moves.
+#
+# For V1 (phi = 0.05) replace the single line below by the RSA packing of
+# ~200 sphere centres in the annulus (margins: 0.5 d to walls, 1 d to the
+# bob bottom and the lid).
+0.0 0.0 8.0

@@ -443,6 +443,19 @@ end subroutine Calculate_Torque
 !=========================================================================
 !
 !=========================================================================
+! DNA_GetTorques - SECONDARY (cross-check) boundary-torque estimator.
+!
+! Volume-form torque integral over the grad(alpha) band around the
+! BndrForce-masked ('WallF') surface.  Used by the D5.1 numerical
+! viscometer (q2p1_viscometer) as an independent cross-check of the
+! residual-based primary estimator (VISC_GetTorqueResidual below).
+!
+! The former hard-coded normalisation 1/(mu*rho*Omega*R_i^2*H) with
+! literal 0.2/0.8/1-RPM values has been replaced by 1d0: the RAW torque
+! is printed and any normalisation is applied offline.  This routine had
+! no active call site in the tree when the change was made (the two
+! calls in QuadSc_main.f90:822-823 are commented out), so the change is
+! a no-op for every existing application.
 subroutine DNA_GetTorques(mfile)
   integer mfile
   real * 8 Torque1(3), daux
@@ -460,15 +473,55 @@ subroutine DNA_GetTorques(mfile)
                     mg_mesh%level(ilev)%dcorvg, &
                     Viscosity, Torque1, E013, 1)
 
-!daux = 1/(mu*rho*OMEGA*R_i^2*H)
- daux = 1d0/(Properties%Viscosity(1)*Properties%Density(1)*(2*3.14d0*(1d0/60d0))*(0.2d0**2d0)*0.8d0)
+! Raw torque: normalisation is done offline, not here.
+  daux = 1d0
 
   if (myid .eq. 1) then
-    write (mfile, '(A,4ES14.4)') "Torque acting on surface:", timens, daux * Torque1(1:3)
-    write (mterm, '(A,4ES14.4)') "Torque acting on surface:", timens, daux * Torque1(1:3)
+    write (mfile, '(A,ES16.8E2,A,ES16.8E2)') &
+      "VISC_TORQUE_DNA time= ", timens, " Tz= ", daux * Torque1(3)
+    write (mterm, '(A,ES16.8E2,A,ES16.8E2)') &
+      "VISC_TORQUE_DNA time= ", timens, " Tz= ", daux * Torque1(3)
+    write (mfile, '(A,3ES16.8E2)') "VISC_TORQUE_DNA_VEC ", daux * Torque1(1:3)
   end if
 
 end subroutine DNA_GetTorques
+!=========================================================================
+!
+!=========================================================================
+! VISC_GetTorqueResidual - PRIMARY boundary-torque estimator for the
+! D5.1 numerical viscometer.
+!
+! Thin wrapper around EvaluateTorque_residual (QuadSc_def.f90), the
+! rigid-rotation analog of the benchmark-certified BenchForce reaction
+! method used by FAC_GetForces.  Prints the RAW z-torque acting on the
+! BndrForce-masked ('WallF') surface; normalisation happens offline.
+!
+! Newtonian only - see the scope note on EvaluateTorque_residual.
+!
+! Not called from any shared code path: the viscometer application
+! invokes it from its own per-step postprocessing.
+subroutine VISC_GetTorqueResidual(mfile)
+  integer mfile
+  real * 8 TorqueV(3), TorqueP(3), Torque(3)
+
+  ilev = nlmax
+  call setlev(2)
+
+  call EvaluateTorque_residual(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+                               LinSc%P_new, BndrForce, TorqueV, TorqueP)
+
+  Torque = TorqueV + TorqueP
+
+  if (myid .eq. 1) then
+    write (mfile, '(A,ES16.8E2,A,ES16.8E2)') &
+      "VISC_TORQUE_RES time= ", timens, " Tz= ", Torque(3)
+    write (mterm, '(A,ES16.8E2,A,ES16.8E2)') &
+      "VISC_TORQUE_RES time= ", timens, " Tz= ", Torque(3)
+    write (mfile, '(A,3ES16.8E2,A,3ES16.8E2)') &
+      "VISC_TORQUE_RES_SPLIT visc= ", TorqueV(1:3), " pres= ", TorqueP(1:3)
+  end if
+
+end subroutine VISC_GetTorqueResidual
 !=========================================================================
 !
 !=========================================================================

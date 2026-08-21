@@ -135,3 +135,16 @@ them, so the global numbering handed to MUMPS is wrong.
 Symmetry check (L2): transverse forces ~1e-12 vs axial 1e-2.
 Indicator fluid fraction 0.98005 vs exact 0.98061 (L2 volume error
 0.06% of cell).
+
+## Erratum (2026-08-15, datasheet `d11_aeff_sign_erratum`)
+
+The sign of the near-interface model above is wrong: the sensitivity
+dlnK/dln a = 1 + 3phi dlnK_ref/dphi is **+1.77** at the ladder's phi, so an
+enlarged effective radius would *raise* the measured K — yet every measured
+value sits below the reference. The deficits therefore imply
+**a_eff = a − 0.14h** (flow penetrates ~0.14h into the nominal solid; the
+constraint under-enforces no-slip between velocity nodes). All magnitudes,
+per-level c values, probe predictions, and the Richardson closure are
+unchanged (the arithmetic always used the deficit form). The r_h/r values
+quoted above are magnitude-correct but direction-inverted: a_eff/a =
+0.966/0.972/0.987 at D/h = 6/12/24.

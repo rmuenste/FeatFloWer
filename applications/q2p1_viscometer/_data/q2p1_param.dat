@@ -1,0 +1,106 @@
+----------- Simulation Parameters --------------
+! D5.1 numerical viscometer (Searle cell) - template deck.
+!
+! Geometry (units of particle diameter d = 1, axis = z through origin):
+!   vessel  : cylinder r_a = 10, z in [0,12], closed
+!   bore    : coaxial cylinder r_i = 4, from z = 12 down to z = 4 (not meshed)
+!   annular gap = 6 d, immersion depth = 8 d
+!
+! Boundary types expected from the mesh .par set:
+!   Wall     outer wall, bottom z=0, top annulus z=12
+!   Inflow14 bore disc face z=4 and bore side wall  -> u = Omega x r
+!   WallF    overlay on the same bore vertex sets   -> torque mask
+!
+! Operating point (CASE_SPEC section 3):
+!   nu = 0.2, rho = 1.0, Omega = 0.1 rad/t.u., gravity = 0
+!   dt = 0.05, 5000 steps -> t = 250 (~1.4 tau_nu + averaging window)
+!
+! RUN VARIANTS
+!   V1 (phi = 0.05): particles.xyz = RSA packing in the annulus (~200 spheres,
+!                    margins 0.5d to walls, 1d to bob bottom / lid).
+!   V0 (phi = 0):    the PE serial setup (setupDraftKissTumbSerial,
+!                    libs/pe/pe/interface/sim_setup_serial.h:1461-1469) THROWS
+!                    if particles.xyz yields zero positions - an empty or
+!                    absent file aborts the run.  V0 therefore uses a
+!                    particles.xyz with exactly ONE "parked" sphere placed
+!                    inside the un-meshed bob bore, e.g.
+!                        0.0  0.0  8.0
+!                    That point is >= 4 d away from the nearest fluid DOF (the
+!                    bore surface at r = 4), so no DOF is ever covered by the
+!                    sphere: FictKNPR stays 0 everywhere and the fluid solution
+!                    is unaffected.  With gravity = 0 the sphere never moves.
+!                    (See applications/q2p1_viscometer/particles.xyz.)
+--------------------------------------------------
+SimPar@MeshFolder = "VISCO_108"                                         ! placeholder name, supplied by the D5.1 meshing workflow
+SimPar@SubMeshNumber = 1                                                ! if too less elements are on the coarse grid makes sense to perform multilevel partitioning (eg. 2,4,5,10 subpartitions)
+SimPar@ParticleFile = "_data/particles.dat"
+SimPar@ProjectFile = "_adc/d51_viscometer/visco.prj"                    ! placeholder path, supplied by the D5.1 meshing workflow
+SimPar@ProtocolFile = "_data/prot.txt"
+SimPar@StartingProc = 0                                                 ! 0,1,2
+SimPar@StartFile = "_dump/04"
+SimPar@SolFile = "_sol/1/mySol"
+SimPar@MinMeshLevel = 1
+SimPar@MaxMeshLevel = 3                                                 ! coarse cell d/2 + two refinements -> h=d/8, D/h=8 (CASE_SPEC §4)
+SimPar@TimeScheme = CN                                                 ! CN,BE,FE
+SimPar@TimeStep = 0.05d0                                               ! MUST equal stepsize_ in example.json (pe_stepsize_mismatch guard)
+SimPar@TimeAdaptivity = No                                              ! Yes
+SimPar@MinTimeAdapt = 0.0001d0
+SimPar@MaxTimeAdapt = 0.050d0
+SimPar@StartSimTime = 0d0
+SimPar@MaxSimTime = 250.0001d0
+SimPar@MaxNumStep = 5000
+SimPar@RPM = 0.95493d0                                                  ! Omega = 2*pi*RPM/60 = 0.1 rad/t.u. -> Inflow14 rotating bore
+SimPar@BackUpFreq = 100
+SimPar@BackUpNum = 10
+SimPar@NoOutflow = Yes                                                    ! Yes
+SimPar@Umbrella = 40
+SimPar@OutputFreq = 1.00d0
+SimPar@ElemTrans = 1
+SimPar@MatrixRenewal = M1D1K3S0C1
+SimPar@FlowType = Newtonian                                              ! Newtonian (the residual torque estimator is Newtonian-only)
+SimPar@Tracer = No                                                      ! Yes
+SimPar@bViscoElastic = No                                                      ! Yes
+SimPar@noLoadAdaptedMesh = "_dump/msh"
+SimPar@OutputFields = "Pressure_V,Velocity,Viscosity_E,Viscosity,Mixer,Monitor"
+PossibleOutputFields = Temperature,Velocity,Pressure_E
+SimPar@OutputFormat = "VTK"                                              ! GMV,VTK
+SimPar@OutputLevel = MAX                                               ! 1,2,3,4 ... , MAX,MAX+1,MAX-1
+SimPar@PrintParticleState = Yes                                        ! per-step DNS_PART_* trajectory lines
+----------------- Velocity 5--------------------
+Velo@defCrit =1d-4
+Velo@epsCrit =1d-3
+Velo@MinDef  =1d-9
+Velo@NLmin = 2
+Velo@NLmax = 5
+Velo@Alpha = 1d0
+Velo@MGMinLev = 1
+Velo@MGMedLev = 1
+Velo@MGMinIterCyc = 1
+Velo@MGMaxIterCyc = 5
+Velo@MGSmoothSteps = 3
+Velo@MGIterCoarse = 25
+Velo@MGCrsSolverType = 1                                                   ! 1 SSOR + blockJacobi, 5 Mumps
+Velo@MGDefImprCoarse = 0.1d0
+Velo@MGCriterion1 = 0.9d-1
+Velo@MGCriterion2 = 0.9d-1
+Velo@MGCycType = F
+Velo@MGRelaxPrm = 0.6d0
+----------------- Pressure ---------------------
+Pres@MGMinLev = 1
+Pres@MGMedLev = 1
+Pres@MGMinIterCyc = 2
+Pres@MGMaxIterCyc = 20
+Pres@MGSmoothSteps = 32
+Pres@MGIterCoarse = 799
+Pres@MGDefImprCoarse = 1d-3
+Pres@MGCriterion1 = 1d-3
+Pres@MGCriterion2 = 1d-6
+Pres@MGCycType = F
+Pres@MGCrsSolverType = 4
+------------- Physical parameters --------------
+Prop@ForceScale = 0d0,0d0,4d0,0d0,0d0,0d0
+Prop@Gravity = 0d0,0d0,0d0
+Prop@Density = 1.0d0,1.0d0
+Prop@Viscosity = 0.2d0,1d0                                             ! FF Prop@Viscosity is KINEMATIC; with rho = 1.0 nu == mu = 0.2
+Prop@DiffCoeff = 1d-4,1d-4
+Prop@PowerLawExp = 1.0d0
