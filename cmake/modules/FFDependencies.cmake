@@ -199,6 +199,14 @@ macro(ff_setup_hypre)
       URL "${FF_HYPRE_FETCH_URL}"
       URL_HASH SHA256=${FF_HYPRE_FETCH_SHA256}
       SOURCE_SUBDIR src
+      # Upstream hypre 2.33.0 adds globally named maintenance targets even
+      # when embedded.  In particular, its `uninstall` target collides with
+      # fetched CGAL's target.  Mirror the fix carried by our hypre submodule
+      # before FetchContent adds the downloaded source as a subdirectory.
+      PATCH_COMMAND
+        "${CMAKE_COMMAND}"
+        "-DFF_HYPRE_SOURCE_DIR=<SOURCE_DIR>"
+        -P "${CMAKE_SOURCE_DIR}/cmake/patches/PatchHypreMaintenanceTargets.cmake"
       FIND_PACKAGE_ARGS 2.31 NAMES HYPRE
       )
 
