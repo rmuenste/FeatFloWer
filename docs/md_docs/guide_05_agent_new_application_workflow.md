@@ -22,7 +22,8 @@ Choose one canonical application name and use it consistently:
 
 ## 2. Scaffold the Application Folder
 
-Use a similar app as template (for Q2/P1 + FBM/PE, `q2p1_creep`, `q2p1_fc_ext`, `q2p1_drill` are common references).
+Use a similar app as template (for Q2/P1 + FBM/PE, `q2p1_fc2` is the periodic
+reference; `q2p1_fc_ext` and `q2p1_drill` are common general references).
 
 Typical files to create:
 - `applications/q2p1_<name>/CMakeLists.txt`
