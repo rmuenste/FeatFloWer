@@ -82,7 +82,7 @@ The build system supports compiler-specific optimizations through build IDs:
 Applications follow the pattern `q2p1_*` for Navier-Stokes solvers:
 
 **Core Flow Applications:**
-- `q2p1_devel/`: General development solver
+- `q2p1_fc_ext/`: General development solver and extended fictitious boundary method
 - `q2p1_cc/`: Coupled convection-diffusion
 - `q2p1_die/`: Die swell extrusion simulation
 - `q2p1_sse/`: Single screw extruder
@@ -166,10 +166,10 @@ FeatFloWer supports three modes for rigid body physics, configured at build time
 
 ```bash
 # Sequential execution
-./applications/q2p1_devel/q2p1_devel
+./applications/q2p1_fc_ext/q2p1_fc_ext
 
 # Parallel execution with MPI
-mpirun -np 4 ./applications/q2p1_devel/q2p1_devel
+mpirun -np 4 ./applications/q2p1_fc_ext/q2p1_fc_ext
 
 # Mesh partitioning for parallel runs
 # The legacy root-level ./partitioner binary has been removed.
@@ -191,9 +191,8 @@ mpirun -np 4 ./applications/q2p1_devel/q2p1_devel
 cmake -DBUILD_TESTING=ON ..
 make test
 
-# Individual application testing
-cd applications/q2p1_devel
-ctest
+# Build a maintained application target
+cmake --build build --target q2p1_fc_ext
 ```
 
 ### Common Build Patterns

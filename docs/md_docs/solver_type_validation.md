@@ -157,8 +157,8 @@ configurations at startup; they remain as a safety net.
 `GetVeloParameters` has always defaulted `Velo@MGCrsSolverType` to `1` when
 the key is absent from `q2p1_param.dat`; `GetPresParameters` had no such
 default, so the field kept its static-storage value `0`, which matches no
-branch of `mgCoarseGridSolver_P`. Five shipped applications
-(`q2p1_cc`, `q2p1_fac_bench3D`, `q2p1_hashgrid_test`, `q2p1_particle_tracer`,
+branch of `mgCoarseGridSolver_P`. Four shipped applications
+(`q2p1_cc`, `q2p1_hashgrid_test`, `q2p1_particle_tracer`,
 `q2p1_particle_tracer_xse`) ship a `q2p1_param.dat` without
 `Pres@MGCrsSolverType` and were therefore running the silent-no-op case.
 `GetPresParameters` now mirrors the velocity default (`= 1`), which both

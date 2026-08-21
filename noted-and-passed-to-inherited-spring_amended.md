@@ -286,7 +286,7 @@ is the top risk — single-IF gating, pattern `bNS_Stabilization`
      short `docs/md_docs/el_semi_implicit_drag_note.md` (audit semantics + θ placement
      + measured numbers).
   4. Default stays `explicit` until step 3 numbers are reviewed with the user.
-  5. One non-EL smoke (existing FBM/DNS featflower test or q2p1_devel run) to prove
+  5. One non-EL smoke (existing FBM/DNS featflower test or q2p1_fc_ext run) to prove
      no shared-path regression.
 
 ---

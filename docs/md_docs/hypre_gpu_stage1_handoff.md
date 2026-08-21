@@ -193,7 +193,7 @@ is expected and acceptable as long as the solve converges to the same tolerance.
 
 ## Step 6 — Validate in the real application
 
-1. Build a q2p1 application (e.g. `q2p1_devel`), run a case with
+1. Build a q2p1 application (e.g. `q2p1_fc_ext`), run a case with
    `Pres@MGCrsSolverType = 7`, then `8`, on e.g. 4 and 8 ranks (`mpirun -np N`; remember
    rank 0 idles during the hypre solve, so N ranks = N-1 GPU clients).
 2. Since multiple ranks share one A100, start **CUDA MPS**
