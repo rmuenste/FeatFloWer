@@ -1,6 +1,10 @@
-# DNS (FBM) practitioner's guide — v2.1
+# DNS (FBM) practitioner's guide — v2.2
 
-Status: **v2.1**, 2026-08-18. v2 (2026-08-11) added D3.1 (random-array
+Status: **v2.2**, 2026-08-22. v2.2 rewrites §6: the "frictional stall"
+of the DKT benchmark was an artifact of the `hcaf_angvel_reset` solver
+defect (angular velocity zeroed every step; fixed at libs/pe ≥ de855b6)
+— on the repaired binary the frictional run tumbles
+(`d23_omegafix_rerun`). v2.1, 2026-08-18. v2 (2026-08-11) added D3.1 (random-array
 drag law, closed) and the production-resolution probes to the v1 scope
 (D1 metrology, D1.1 Hasimoto, D1.2 noise floor, D2.1 crossover rule,
 D2.3 DKT). v2.1 applies the SI-hardening audit: the a_eff **sign
@@ -136,22 +140,42 @@ protocol, Re = 0.78; figure `dns_figures/d21_brenner_crossover.png`):
 
 ## 6. Contact parameters are physics, not stabilizers (D2.3/DKT)
 
-The DKT benchmark stalled at a 4° tilt in exact contact at BOTH D/h = 8
-and 16 (resolution-independent), and unlocked into the full Fortes
-tumble (4.8°→22.3° and accelerating) the moment contact friction was
-zeroed (`dkt_nofric`). Reading: real spheres in liquid contact ride a
-lubrication film that transmits almost no tangential traction; a dry
-frictional contact (the default μ_s/μ_d = 0.1/0.05) pins the contact
-point and **suppresses genuine fluid-mediated instabilities**.
+**v2.2 correction.** Earlier versions of this section reported a
+resolution-independent "frictional stall": tilt frozen at ~4° under the
+default friction (μ_s/μ_d = 0.1/0.05) at both D/h = 8 and 16, unlocking
+only when friction was zeroed. That stall was an **artifact of the
+`hcaf_angvel_reset` solver defect** (datasheet row): the certified
+binaries zeroed every particle's angular velocity each step, making
+rolling kinematically impossible — so *any* tangential friction froze
+the contact. On the repaired binary (libs/pe ≥ de855b6) the identical
+frictional run proceeds through tumble onset: same drafting phase and
+kiss time (t = 18.10), then tilt growing exponentially — 16.2° by
+t = 25, doubling every 3 t.u. — versus 4.2° frozen before the fix
+(`d23_omegafix_rerun`; the stall's apparent resolution-independence was
+the defect's, not the physics').
+
+What survives, measured on consistent binaries: friction *modulates*
+the tumble rather than suppressing it — the frictionless run reaches
+22.3° where the frictional one reaches 16.2° at the same t = 25. The
+physical argument stands: spheres in liquid contact ride a lubrication
+film that transmits little tangential traction, so a dry frictional
+contact overstates tangential coupling.
 
 - For DKT-class problems (mobile particle-particle contacts in liquid):
-  set `staticFriction_`/`dynamicFriction_` ≈ 0 in the json (keys are
-  config-driven since libs/pe `dcc35f2`), or use a lubricated-contact
-  model once D2.2 lands.
+  prefer `staticFriction_`/`dynamicFriction_` ≈ 0 in the json (keys are
+  config-driven since libs/pe `dcc35f2`), or the lubricated-contact
+  add-on once D2.2's validation ladder closes — but on a repaired
+  binary this is now a quantitative modeling choice, not the difference
+  between tumbling and not tumbling.
 - Keep friction where it is physical (dry granular contacts, resting
   beds).
 - Corollary of §5: everything below ~2 cells of gap IS the contact
   model — choose its parameters as physics, not for stability.
+- If your binary predates the fix (libs/pe < de855b6), all rotation-
+  coupled results are suspect: check for `w = Vec3(0,0,0)` in
+  `HardContactAndFluid::integratePositions`, or simply verify that
+  `DNS_PART_STATE` angular velocities are not exactly zero for all
+  time under nonzero torque.
 
 ## 7. Reference discipline (ten Cate specifics)
 
