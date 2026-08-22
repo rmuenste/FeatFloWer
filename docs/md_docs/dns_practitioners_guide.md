@@ -282,8 +282,15 @@ job — tune its parameters as physics (§6).
 - D3.2 wall-bounded hindered settling — ladder CLOSED 2026-08-15
   (`d32_phi_ladder`: confined exponent n ≈ 4.3–4.6 in the 6d walled
   column vs unbounded Rowe/RZ 2.7–3.0 at swarm Re 51–77; collapse rms
-  2.3%); v3 write-up pending, wall-vs-cloud attribution open
-  (wider-column discriminator identified).
+  2.3%); attribution CLOSED 2026-08-22 (`d32_wide_attribution`): the
+  exponent is a **confinement law carried by collective return flow**
+  — in a 12d column the byte-identical clouds settle *enhanced*
+  (U/u_t up to 1.16, growing with N) while the single-particle u_t is
+  unchanged (0.4034 vs 0.4061, < 1σ), so per-particle wall drag is
+  ruled out and n ≈ 4.57 applies only to vessel-filling confined
+  suspensions — never as an unbounded hindrance law. Finite clouds in
+  wide vessels are a third regime (enhanced settling). v3 write-up
+  pending.
 - D2.2 sphere–sphere approach + shared lubrication closure (uses §5's
   collapse curve and §9's dispersion finding).
 - Periodic support for MOVING particles crossing faces (indicator +
