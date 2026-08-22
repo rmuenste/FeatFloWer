@@ -1,23 +1,8 @@
 
-# CMakeLists of q2p1_fc_ext application
-set(src_cinterface
-${CMAKE_SOURCE_DIR}/source/cinterface/cinterface.f90
-)
-
-# source files for standad q2p1 
+# CC-specific sources. Core FEATFLOW sources are provided by
+# FF_APPLICATION_LIBS; compiling them again here creates duplicate COMMON
+# blocks and module state in the executable.
 set(src_q2p1_cc
-${Elements} 
-${src_util}
-${src_q2p1} 
-${src_pp3d} 
-${src_mpi}  
-# ${src_PLin} 
-${src_LinSc} 
-${src_quadLS_app} 
-${src_visco} 
-${src_mesh}
-${src_cinterface}
-${postprocessing}
 app_init.f90
 assemblies_cc.f
 iso_assemblies.f
@@ -33,6 +18,10 @@ q2p1_var_newton.f90
 
 # Add the application executable
 add_executable(q2p1_cc ${src_q2p1_cc}) 
+add_dependencies(q2p1_cc metis)
+add_custom_command(TARGET q2p1_cc POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_FILE:metis> ${CMAKE_CURRENT_BINARY_DIR}/libmetis.so)
 
 source_group(src_quadLS FILES ${src_q2p1})
 source_group(src_pp3d FILES ${src_pp3d})
@@ -42,7 +31,6 @@ source_group(src_LinSc FILES ${src_LinSc})
 source_group(src_quadLS FILES ${src_quadLS_ext})
 source_group(src_visco FILES ${src_visco})
 source_group(src_mesh FILES ${src_mesh})
-source_group(src_cinterface FILES ${src_cinterface})
 source_group(Elements FILES ${Elements})
 
 target_link_libraries(q2p1_cc 
@@ -59,11 +47,12 @@ IF(${OUT_OF_SOURCE_BUILD})
   createDefaultDirectories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF()
 
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/_data/q2p1_param.dat
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data)
+file(COPY ${CMAKE_SOURCE_DIR}/_data/MG.dat
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/_data)
+file(COPY ${CMAKE_SOURCE_DIR}/tools/partitioner
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/tools/PyPartitioner.py
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY q2p1_cc.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-set(NPROCS 0)
-if(NOT $ENV{NUM_PROCS} STREQUAL "")
-  set(NPROCS $ENV{NUM_PROCS})
-endif(NOT $ENV{NUM_PROCS} STREQUAL "")
-
-add_test(q2p1-fac3D-CC python ./q2p1_cc.py -n ${PROCS})

@@ -10,6 +10,7 @@ not be treated as canonical behavior without checking the current source.
 - [containerization.md](containerization.md): Build and run FeatFloWer with the bundled Docker setup.
 - [low_noise_build.md](low_noise_build.md): Configure low-noise builds while retaining complete logs and diagnostics.
 - [guide_01_q2p1_fc_ext_cylinder_benchmark_from_scratch.md](guide_01_q2p1_fc_ext_cylinder_benchmark_from_scratch.md): Full build, partition, run, and validation workflow for the `q2p1_fc_ext` cylinder benchmark.
+- [q2p1_cc_solver.md](q2p1_cc_solver.md): Coupled CC/MPSC solver architecture, rehabilitation notes, cylinder workflow, validation, and current limitations.
 - [guide_02_q2p1_bench_sedimentation_pe_serial_from_scratch.md](guide_02_q2p1_bench_sedimentation_pe_serial_from_scratch.md): Build and stage the PE-serial sedimentation benchmark.
 - [guide_03_q2p1_sse_tse_gendie_from_scratch.md](guide_03_q2p1_sse_tse_gendie_from_scratch.md): Configure, stage, and submit `q2p1_sse` SSE/TSE workflows.
 - [guide_04_q2p1_atc_pe_serial_fbm_kvel_from_scratch.md](guide_04_q2p1_atc_pe_serial_fbm_kvel_from_scratch.md): Build `q2p1_ATC` with PE serial mode, CGAL, and FBM acceleration.

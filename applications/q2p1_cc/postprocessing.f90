@@ -110,6 +110,10 @@ subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
+USE ProcCtrl_mod, ONLY : ProcessControl
+! Expose the dependency hidden in defs_include.h to CMake's Fortran scanner.
+USE Transport_CC
+
 implicit none
 
 integer, intent(in) :: filehandle
@@ -1377,4 +1381,3 @@ END SUBROUTINE DistributeElemField
 ! -----------------------------------------------------------------
 
 END SUBROUTINE myReadSol
-

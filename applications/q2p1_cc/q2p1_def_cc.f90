@@ -31,7 +31,7 @@ REAL*8 daux,tttx1,tttx0,alpha
  IF (idef.eq.-1) THEN
   DO ILEV=NLMIN,NLMAX
 
-    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    IF (ALLOCATED(mg_A12Mat)) THEN
      A11Mat     => mg_A11Mat(ILEV)%a
      A22Mat     => mg_A22Mat(ILEV)%a
      A33Mat     => mg_A33Mat(ILEV)%a
@@ -183,33 +183,34 @@ REAL*8 daux,tttx1,tttx0,alpha
 
     ELSE 
 
-! Newtonian Navier-Stokes
-!  ---> can be done with Non-newtonian problem
-
-!     IF (myMatrixRenewal%K.GE.1) THEN
-!      DO I=1,qMat%nu
-!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + zeitstep*(DMat(J)+KMat(J))
-!        daux2 = MMat(J) + zeitstep*(DMat(J)+KMat(J)+alpha*KnewMat(J))
-!        A11mat(J) =  daux
-!        A22mat(J) =  daux
-!        A33mat(J) =  daux
-!        AA11mat(J) =  daux2
-!        AA22mat(J) =  daux2
-!        AA33mat(J) =  daux2
-!       END DO
-!      END DO
-!     ELSE ! Newtonian Stokes
-!      DO I=1,qMat%nu
-!       J = qMat%LdA(I)
-!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + zeitstep*(DMat(J))
-!        A11mat(J) =  daux
-!        A22mat(J) =  daux
-!        A33mat(J) =  daux
-!       END DO
-!      END DO
-!     END IF
+! Newtonian Oseen operator. A forms the nonlinear defect and AA is used
+! by the coupled multigrid correction. The original WIP application left
+! this entire branch commented, so Newtonian runs had zero velocity blocks.
+     IF (myMatrixRenewal%K.GE.1) THEN
+      DO I=1,qMat%nu
+       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        daux = MMat(J) + zeitstep*(DMat(J)+KMat(J))
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        AA11mat(J) = daux + zeitstep*alpha*barM11Mat(J)
+        AA22mat(J) = daux + zeitstep*alpha*barM22Mat(J)
+        AA33mat(J) = daux + zeitstep*alpha*barM33Mat(J)
+       END DO
+      END DO
+     ELSE
+      DO I=1,qMat%nu
+       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        daux = MMat(J) + zeitstep*DMat(J)
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        AA11mat(J) = daux
+        AA22mat(J) = daux
+        AA33mat(J) = daux
+       END DO
+      END DO
+     END IF
     END IF
 
   END DO
@@ -222,7 +223,7 @@ REAL*8 daux,tttx1,tttx0,alpha
  ILEV=NLMAX
  CALL SETLEV(2)
 
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_A12Mat)) THEN
   A11Mat     => mg_A11Mat(ILEV)%a
   A22Mat     => mg_A22Mat(ILEV)%a
   A33Mat     => mg_A33Mat(ILEV)%a
@@ -1178,7 +1179,7 @@ EXTERNAL E013
  ILEV = NLMAX
  CALL SETLEV(2)
 
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_A12Mat)) THEN
   A11Mat     => mg_A11Mat(ILEV)%a
   A22Mat     => mg_A22Mat(ILEV)%a
   A33Mat     => mg_A33Mat(ILEV)%a
@@ -1876,7 +1877,7 @@ REAL*8 dmaxx(3)
  lScalar%rhsP(NLMAX)%x                     = lScalar%defP(NLMAX)%x !0d0             !Div U = 0d0
 
 ! Matrices
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_AA12Mat)) THEN
   MyMG%A11  => mg_AA11Mat
   MyMG%A22  => mg_AA22Mat
   MyMG%A33  => mg_AA33Mat
@@ -2425,7 +2426,10 @@ END SUBROUTINE InitializeProlRest_cc
 SUBROUTINE Create_AMat_new()
 INTEGER NA,complete
 
-IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+! The CC extraction, coarse solve, and Vanka patches use a uniform 4x4
+! block layout. Keep all nine velocity blocks present even when the
+! Newtonian operator is block diagonal.
+IF (ALLOCATED(mg_A11mat)) RETURN
   ALLOCATE(mg_A11mat(NLMIN:NLMAX))
   ALLOCATE(mg_A22mat(NLMIN:NLMAX))
   ALLOCATE(mg_A33mat(NLMIN:NLMAX))
@@ -2478,6 +2482,18 @@ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
    ALLOCATE(mg_AA21mat(ILEV)%a(NA))
    ALLOCATE(mg_AA31mat(ILEV)%a(NA))
    ALLOCATE(mg_AA32mat(ILEV)%a(NA))
+   mg_A12mat(ILEV)%a = 0d0
+   mg_A13mat(ILEV)%a = 0d0
+   mg_A21mat(ILEV)%a = 0d0
+   mg_A23mat(ILEV)%a = 0d0
+   mg_A31mat(ILEV)%a = 0d0
+   mg_A32mat(ILEV)%a = 0d0
+   mg_AA12mat(ILEV)%a = 0d0
+   mg_AA13mat(ILEV)%a = 0d0
+   mg_AA21mat(ILEV)%a = 0d0
+   mg_AA23mat(ILEV)%a = 0d0
+   mg_AA31mat(ILEV)%a = 0d0
+   mg_AA32mat(ILEV)%a = 0d0
   END DO
   A11Mat => mg_A11mat(NLMAX)%a
   A22Mat => mg_A22mat(NLMAX)%a
@@ -2497,42 +2513,6 @@ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
   AA21Mat => mg_AA21mat(NLMAX)%a
   AA31Mat => mg_AA31mat(NLMAX)%a
   AA32Mat => mg_AA32mat(NLMAX)%a
- ELSE
-  ALLOCATE(mg_A11mat(NLMIN:NLMAX))
-  ALLOCATE(mg_A22mat(NLMIN:NLMAX))
-  ALLOCATE(mg_A33mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA11mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA22mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA33mat(NLMIN:NLMAX))
-  DO ILEV=NLMIN,NLMAX
-
-   IF (myid.eq.showID) THEN
-    IF (ILEV.EQ.NLMIN) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='no') "Allocation of A Matrix on Level [", ILEV,"]"
-    END IF
-    IF (ILEV.EQ.NLMAX) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='yes') ", [",ILEV,"]"
-    END IF
-    IF (ILEV.NE.NLMAX.AND.ILEV.NE.NLMIN) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-    END IF
-   END IF
-
-   NA = mg_qMat(ILEV)%na
-   ALLOCATE(mg_A11mat(ILEV)%a(NA))
-   ALLOCATE(mg_A22mat(ILEV)%a(NA))
-   ALLOCATE(mg_A33mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA11mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA22mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA33mat(ILEV)%a(NA))
-  END DO
-  A11Mat => mg_A11mat(NLMAX)%a
-  A22Mat => mg_A22mat(NLMAX)%a
-  A33Mat => mg_A33mat(NLMAX)%a
-  AA11Mat => mg_AA11mat(NLMAX)%a
-  AA22Mat => mg_AA22mat(NLMAX)%a
-  AA33Mat => mg_AA33mat(NLMAX)%a
- END IF
 
 END SUBROUTINE Create_AMat_new
 !

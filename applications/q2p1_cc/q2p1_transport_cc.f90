@@ -5,6 +5,7 @@ USE Transport_Q2P1
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
                    COMM_NLComplete,Comm_Summ,myMPI_Barrier,Barrier_myMPI
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
+USE param_parser, ONLY : GetPhysiclaParameters,write_param_real,write_param_int
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -261,7 +262,7 @@ implicit none
 INTEGER mfile,INL,inl_u
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
-INTEGER INLComplete,I,J,IERR,iOuter
+INTEGER INLComplete,I,J,IERR,iOuter,meshMaxLevel
 REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
 REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
@@ -615,12 +616,20 @@ IF (myid.eq.showid) THEN
   MGnonLin = iIterges/ni
   write(mfile,55) 
   write(mterm,55)
-  write(mfile,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
-  write(mterm,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+  write(mfile,'(A,F8.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+  write(mterm,'(A,F8.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
 END IF
 
 
- CALL GetNonNewtViscosity()
+! The shared projection routine addresses mg_mesh%nlmax, which is the
+! auxiliary output level on worker ranks rather than the CC NLMAX value.
+! Newtonian runs carry the constant viscosity initialized above.
+ IF (bNonNewtonian) THEN
+  meshMaxLevel = mg_mesh%nlmax
+  mg_mesh%nlmax = NLMAX
+  CALL GetNonNewtViscosity()
+  mg_mesh%nlmax = meshMaxLevel
+ END IF
 
 CALL QuadScP1toQ2_cc(LinSc,QuadSc)
 
@@ -750,15 +759,17 @@ DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
   qMat => mg_qMat(ILEV)
   
-  IF (ALLOCATED(mg_S11mat(ILEV)%a)) DEALLOCATE(mg_S11mat(ILEV)%a)
-  IF (ALLOCATED(mg_S22mat(ILEV)%a)) DEALLOCATE(mg_S22mat(ILEV)%a)
-  IF (ALLOCATED(mg_S33mat(ILEV)%a)) DEALLOCATE(mg_S33mat(ILEV)%a)
-  IF (ALLOCATED(mg_S12mat(ILEV)%a)) DEALLOCATE(mg_S12mat(ILEV)%a)
-  IF (ALLOCATED(mg_S13mat(ILEV)%a)) DEALLOCATE(mg_S13mat(ILEV)%a)
-  IF (ALLOCATED(mg_S23mat(ILEV)%a)) DEALLOCATE(mg_S23mat(ILEV)%a)
-  IF (ALLOCATED(mg_S21mat(ILEV)%a)) DEALLOCATE(mg_S21mat(ILEV)%a)
-  IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
-  IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
+  IF (ALLOCATED(mg_S11mat)) THEN
+    IF (ALLOCATED(mg_S11mat(ILEV)%a)) DEALLOCATE(mg_S11mat(ILEV)%a)
+    IF (ALLOCATED(mg_S22mat(ILEV)%a)) DEALLOCATE(mg_S22mat(ILEV)%a)
+    IF (ALLOCATED(mg_S33mat(ILEV)%a)) DEALLOCATE(mg_S33mat(ILEV)%a)
+    IF (ALLOCATED(mg_S12mat(ILEV)%a)) DEALLOCATE(mg_S12mat(ILEV)%a)
+    IF (ALLOCATED(mg_S13mat(ILEV)%a)) DEALLOCATE(mg_S13mat(ILEV)%a)
+    IF (ALLOCATED(mg_S23mat(ILEV)%a)) DEALLOCATE(mg_S23mat(ILEV)%a)
+    IF (ALLOCATED(mg_S21mat(ILEV)%a)) DEALLOCATE(mg_S21mat(ILEV)%a)
+    IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
+    IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
+  END IF
 
   IF (myMatrixRenewal%K.ne.0) THEN  
     IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
@@ -792,8 +803,6 @@ EXTERNAL E013
 
  ILEV=NLMAX
  CALL SETLEV(2)
- IF (bNonNewtonian) THEN
-
 ! CALL GetForceCyl_cc(QuadSc%valU,QuadSc%valV,&
 !                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
 !                     BndrForce,&
@@ -811,8 +820,6 @@ EXTERNAL E013
                      mg_mesh%level(ILEV)%kedge,&
                      mg_mesh%level(ILEV)%dcorvg,&
                      Force, E013,bNonNewtonian)
-
- END IF
 
  if (postParams%D.eq.0d0) then
    Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*PI*postParams%H*postParams%H)
@@ -1108,5 +1115,3 @@ END SUBROUTINE StrStuct
 END SUBROUTINE Init_CCParam
 
 END MODULE Transport_CC
-
-
