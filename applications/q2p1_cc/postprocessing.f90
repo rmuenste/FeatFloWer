@@ -277,6 +277,7 @@ subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 USE var_QuadScalar, ONLY : myStat
+USE Transport_CC, ONLY : nNLLoopTotal,nNLLoopExhausted,worstNLCriterion
 
 real, intent(inout) :: dttt0
 integer, intent(in) :: filehandle
@@ -302,6 +303,14 @@ CALL myStatOut(time_passed,terminal)
 
 
 IF (myid.eq.showid) THEN
+  IF (nNLLoopExhausted.GT.0) THEN
+    WRITE(*,'(A,I0,A,I0,A,ES10.3)') " WARNING: ",nNLLoopExhausted," of ", &
+      nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
+      " stopping criterion; worst achieved criterion: ",worstNLCriterion
+    WRITE(filehandle,'(A,I0,A,I0,A,ES10.3)') " WARNING: ",nNLLoopExhausted," of ", &
+      nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
+      " stopping criterion; worst achieved criterion: ",worstNLCriterion
+  END IF
   WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
   WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
 END IF

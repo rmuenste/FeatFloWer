@@ -14,6 +14,12 @@ use def_QuadScalar
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
+! Nonlinear-loop outcome tracking: how many loops ran, how many hit
+! NLmax without meeting the stopping criterion, and the worst achieved
+! criterion. Reported per step and summarized in sim_finalize.
+INTEGER :: nNLLoopTotal = 0
+INTEGER :: nNLLoopExhausted = 0
+REAL*8  :: worstNLCriterion = 0d0
 
 CONTAINS
 !
@@ -267,10 +273,14 @@ REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
 REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 REAL*8 B,a,h1,h2,h3
+LOGICAL bNLConverged
+REAL*8 achievedCriterion
 
 thstep = 0d0
 FORCES_OLD = 0d0
 iIterges = 0d0
+bNLConverged = .FALSE.
+achievedCriterion = 1d30
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
 tsm = ccParams%BDF
@@ -565,12 +575,12 @@ FORCES_OLD = FORCES_NEW
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
 
 IF (bSteadyState) THEN
-	IF(DefNorm.LT.myTolerance) exit
-ELSE 
-	IF (DefNorm/DefNorm0.LT.myTolerance) exit
+	achievedCriterion = DefNorm
+ELSE
+	achievedCriterion = DefNorm/DefNorm0
 END IF
-
-IF (DefNorm.EQ.0d0) exit
+bNLConverged = (achievedCriterion.LT.myTolerance).OR.(DefNorm.EQ.0d0)
+IF (bNLConverged) exit
 
 !IF (stopOne.LT.1d-4) THEN
 !	IF (myid.eq.showid) THEN
@@ -582,6 +592,18 @@ IF (DefNorm.EQ.0d0) exit
 !        exit
 !END IF
 END DO
+
+nNLLoopTotal = nNLLoopTotal + 1
+IF (.NOT.bNLConverged) THEN
+ nNLLoopExhausted = nNLLoopExhausted + 1
+ IF (achievedCriterion.GT.worstNLCriterion) worstNLCriterion = achievedCriterion
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A,I0,A,ES10.3,A,ES10.3)') " WARNING: nonlinear loop exhausted NLmax=", &
+    ccParams%NLmax,", achieved criterion ",achievedCriterion," > required ",myTolerance
+  write(mfile,'(A,I0,A,ES10.3,A,ES10.3)') " WARNING: nonlinear loop exhausted NLmax=", &
+    ccParams%NLmax,", achieved criterion ",achievedCriterion," > required ",myTolerance
+ END IF
+END IF
 
 IF (ccParams%BDF.ne.0) THEN
 !#########################################

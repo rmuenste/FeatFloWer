@@ -158,6 +158,16 @@ CCuvwp@MGCycType = S
 CCuvwp@MGRelaxPrm = 0.2
 ```
 
+Each nonlinear loop that reaches `CCuvwp@NLmax` without meeting
+`CCuvwp@Stopping` now prints a per-step warning with the achieved and required
+criteria, and `sim_finalize` summarizes how many loops were exhausted together
+with the worst achieved criterion before the success banner. Note that with
+`SteadyState = No` the criterion is a *relative per-step* reduction that is
+re-baselined every time step; in a pseudo-transient run it becomes increasingly
+hard to meet as the flow approaches steady state, so these warnings are
+expected in the tail of such runs and the absolute defect is the meaningful
+convergence measure there.
+
 The shipped deck uses `dt=1` and ten implicit steps to reach the steady Reynolds
 number 20 result in practical time. This pseudo-transient trajectory is not
 temporally equivalent to the PP guide's `dt=0.01` run; use `dt=0.01` when the
