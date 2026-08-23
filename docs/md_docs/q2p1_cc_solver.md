@@ -145,42 +145,51 @@ residual below `1e-8`; the remaining issue is the legacy intergrid correction,
 not the direct solve. `S` therefore preserves the working coupled algorithm
 without allowing the experimental coarse transfer to undo local Vanka work.
 
-The shipped cylinder deck uses:
+The shipped cylinder deck solves the *stationary* Re-20 problem directly:
 
 ```text
 SimPar@MatrixRenewal = M1D1K3S0C0
 SimPar@FlowType = Newtonian
+SimPar@SteadyState = Yes
+SimPar@MaxNumStep = 1
 CCuvwp@NewtonTreatment = Diagonal
-CCuvwp@NLmax = 4
+CCuvwp@StrictConvergence = Yes
+CCuvwp@NLmax = 25
+CCuvwp@Stopping = 1d-8
 CCuvwp@MGMaxIterCyc = 100
 CCuvwp@MGSmoothSteps = 1
 CCuvwp@MGCycType = S
 CCuvwp@MGRelaxPrm = 0.2
 ```
 
+`SteadyState = Yes` does two things: the shared mass-matrix assembly zeroes
+`MMat`, so the assembled operator is the stationary Oseen system `dt (D + K)`
+(with `dt` a pure scale factor), and the nonlinear stopping test uses the
+*absolute* defect `CCuvwp@Stopping = 1d-8`. On the level-1/2 `2Dbench` mesh
+with three worker partitions this converges from a cold start in about 13
+nonlinear iterations (defect `1.07e-3` down to below `1e-8`, contraction
+roughly `0.4` per iteration) in under a minute, exits with status 0, and
+prints no warnings. `NewtonTreatment = Full` saves about one iteration at a
+higher cost per iteration; `Off` and `Diagonal` are equivalent within one
+iteration on this case.
+
 Each nonlinear loop that reaches `CCuvwp@NLmax` without meeting
-`CCuvwp@Stopping` now prints a per-step warning with the achieved and required
+`CCuvwp@Stopping` prints a per-step warning with the achieved and required
 criteria, and `sim_finalize` summarizes how many loops were exhausted together
 with the worst achieved criterion. In strict mode
 (`CCuvwp@StrictConvergence = Yes`, the default) such a run additionally
 replaces the success banner with a failure message and exits with status 1;
 set `CCuvwp@StrictConvergence = No` to keep the warnings but exit with
-status 0. Note that with `SteadyState = No` the criterion is a *relative
-per-step* reduction that is re-baselined every time step; in a
-pseudo-transient run it becomes increasingly hard to meet as the flow
-approaches steady state, so these warnings are expected in the tail of such
-runs and the absolute defect is the meaningful convergence measure there.
-Consequently the shipped deck's `Stopping = 1d-6` cannot be met with
-`NLmax = 4` and the benchmark run currently ends with exit status 1 by
-design; reconciling the deck (achievable tolerance, higher `NLmax`, or an
-absolute steady criterion) is a known open item from the implementation
-review.
+status 0.
 
-The shipped deck uses `dt=1` and ten implicit steps to reach the steady Reynolds
-number 20 result in practical time. This pseudo-transient trajectory is not
-temporally equivalent to the PP guide's `dt=0.01` run; use `dt=0.01` when the
-transient history itself is the comparison target. Both runs target the same
-steady cylinder solution at `t=10`.
+A pseudo-transient run remains possible (`SteadyState = No`, e.g. `dt=1` with
+ten implicit steps, or `dt=0.01` when the transient history itself is the
+comparison target). Note that its stopping test is a *relative per-step*
+reduction that is re-baselined every time step; it becomes increasingly hard
+to meet as the flow approaches steady state, so NLmax warnings are expected
+in the tail of such runs, the absolute defect is the meaningful convergence
+measure there, and strict mode should be disabled or the tolerance chosen
+accordingly.
 
 ## Build and run the cylinder benchmark
 
@@ -213,11 +222,11 @@ mpirun -np 4 ./q2p1_cc > run_q2p1_cc_np4.log 2>&1
 ```
 
 A fully successful run ends with exit status 0 and
-`CC3D_iso_adaptive has successfully finished.` If any nonlinear loop was
-exhausted, strict mode (see above) prints a failure message instead and the
-run exits with status 1 — with the current deck tolerance this is the
-expected outcome until the deck is reconciled. The normalized cylinder values
-are printed as `BenchForce: time drag lift` in either case.
+`CC3D_iso_adaptive has successfully finished.` — with the shipped stationary
+deck this is the out-of-the-box outcome. If any nonlinear loop was exhausted,
+strict mode (see above) prints a failure message instead and the run exits
+with status 1. The normalized cylinder values are printed as
+`BenchForce: time drag lift` in either case.
 
 ## Validation status and remaining work
 
@@ -238,12 +247,16 @@ The first successful runs recorded during rehabilitation were:
 | --- | ---: | ---: | ---: | --- |
 | Physical-step smoke test, `dt=0.01`, four nonlinear corrections | `0.01` | `139.42` | `0.476` | Intentionally under-converged impulsive first step; not a benchmark endpoint |
 | Pseudo-transient smoke test, `dt=1`, four nonlinear corrections | `1` | `6.9194472` | `0.013909134` | First successful complete CC step |
-| Ten-step pseudo-transient validation, `dt=1` | `10` | `5.5880793` | `0.0099092682` | Successful endpoint; approximately 163 seconds on the validation machine |
+| Ten-step pseudo-transient validation, `dt=1` | `10` | `5.5880793` | `0.0099092682` | Under-converged endpoint (NLmax=4 exhausted each step); approximately 163 seconds |
+| Stationary solve, shipped deck, absolute defect below `1d-8` | steady | `5.5981453` | `0.0099736961` | Converged benchmark result; 13 nonlinear iterations, about 50 seconds, exit status 0 |
 
 The PP reference from the from-scratch guide is drag `5.601296` and lift
-`0.00994712` near `t=10`. The validated CC endpoint differs by approximately
-`0.24%` in drag and `0.38%` in lift. A production acceptance test should compare
-the converged endpoint, not the first implicit step, against those values.
+`0.00994712` near `t=10`. The converged stationary CC result differs by
+approximately `0.06%` in drag and `0.26%` in lift; at absolute defect `1d-8`
+the forces are settled to about four digits, so these residual differences
+reflect the discretization/solver differences between the CC and PP paths,
+not under-convergence. Tightening from `1d-6` to `1d-8` still moved the drag
+by about `0.08%`, which is why the shipped tolerance is `1d-8`.
 
 Known follow-up items are:
 
