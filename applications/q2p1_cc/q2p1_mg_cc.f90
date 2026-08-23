@@ -2542,8 +2542,10 @@ REAL*8, INTENT(OUT) :: sol(:)
 REAL*8, INTENT(IN)  :: rhs(:)
 INTEGER :: i,j,k,n,nz,row,first_pressure,sym,num
 INTEGER, ALLOCATABLE :: row_count(:),next_entry(:),tmp_col(:),csr_row(:),csr_col(:)
-REAL*8, ALLOCATABLE :: tmp_val(:),csr_val(:),work_rhs(:),check_residual(:)
-REAL*8 :: residual_norm
+REAL*8, ALLOCATABLE :: tmp_val(:),csr_val(:),work_rhs(:),check_residual(:),row_amax(:)
+REAL*8 :: residual_norm,rhs_norm
+LOGICAL :: bPinPressure
+LOGICAL, SAVE :: bReported = .FALSE.
 
 n = myCrsMat%nu
 nz = myCrsMat%na
@@ -2572,15 +2574,45 @@ DO k=1,nz
   END IF
 END DO
 
-! Pressure is determined only up to a constant; pin its first coarse DOF.
+! The CC coarse saddle-point system couples the pressure only through the
+! element-wise discontinuous-P1 gradient/divergence blocks, so a globally
+! constant pressure is a nullspace vector regardless of outflow boundaries
+! (unpinned factorizations fail on the first solve; verified empirically).
+! Pin the first coarse pressure DOF unconditionally. This deliberately
+! differs from Setup_UMFPACK_CoarseSolver's bNoOutflow-conditional
+! handling, which applies to the PP pressure-Poisson matrix where the
+! outflow boundary condition does enter the operator.
+bPinPressure = .TRUE.
 first_pressure = 3*mg_qMat(NLMIN)%nu + 1
+IF (first_pressure.lt.1.or.first_pressure.gt.n) bPinPressure = .FALSE.
 work_rhs = rhs
-IF (first_pressure.ge.1.and.first_pressure.le.n) work_rhs(first_pressure) = 0d0
+IF (bPinPressure) work_rhs(first_pressure) = 0d0
+
+IF (.NOT.bReported) THEN
+  WRITE(*,'(A)') ' Coarse UMFPACK fallback: pinning one pressure DOF'// &
+    ' (constant-pressure nullspace of the coupled system)'
+  bReported = .TRUE.
+END IF
+
+! A structurally zero row means the assembled coarse operator itself is
+! defective (e.g. an operator block never assembled on the master); the
+! direct solver cannot recover from that, so report it loudly.
+ALLOCATE(row_amax(n))
+row_amax = 0d0
+DO k=1,nz
+  row = myCrsMat%Row(k)
+  IF (row.ge.1.and.row.le.n) row_amax(row) = MAX(row_amax(row),ABS(myCrsMat%A(k)))
+END DO
+i = COUNT(row_amax.LE.1d-300)
+IF (i.GT.0) THEN
+  WRITE(*,'(A,I0,A)') ' WARNING: coarse matrix has ',i, &
+    ' (near-)zero rows; the assembled coarse operator is singular'
+END IF
 
 k = 1
 csr_row(1) = 1
 DO i=1,n
-  IF (i.eq.first_pressure) THEN
+  IF (bPinPressure.AND.i.eq.first_pressure) THEN
     csr_col(k) = i
     csr_val(k) = 1d0
     k = k + 1
@@ -2596,33 +2628,39 @@ DO i=1,n
   csr_row(i+1) = k
 END DO
 
-! A row-wise CSR matrix is a CSC representation of A^T. The wrapper uses
-! The transposed UMFPACK solve (sys=2) therefore solves A*x=rhs.
+! The row-wise CSR structure is handed to UMFPACK as CSC, i.e. as A^T;
+! the transposed solve (sys=2) in the wrapper therefore yields A*x=rhs.
 csr_row = csr_row - 1
 csr_col(1:k-1) = csr_col(1:k-1) - 1
 CALL myUmfPack_CCFactorize(csr_val,csr_row,csr_col,sym,num,n)
 CALL myUmfPack_CCSolveMaster(sol,work_rhs,csr_val,csr_row,csr_col,sym,num,n)
 CALL myUmfPack_CCFree(sym,num)
 
-! Verify the fallback against the original coordinate matrix. The pinned
+! Verify the fallback against the original coordinate matrix. A pinned
 ! pressure equation is excluded because it was deliberately replaced.
 ALLOCATE(check_residual(n))
 check_residual = -work_rhs
 DO k=1,nz
   row = myCrsMat%Row(k)
-  IF (row.ne.first_pressure) THEN
+  IF (.NOT.(bPinPressure.AND.row.eq.first_pressure)) THEN
     check_residual(row) = check_residual(row) + &
       myCrsMat%A(k)*sol(myCrsMat%Col(k))
   END IF
 END DO
-check_residual(first_pressure) = 0d0
+IF (bPinPressure) check_residual(first_pressure) = 0d0
+! Judge the solve relative to the right-hand side: the absolute defect
+! scales with the incoming rhs, which grows without bound if the outer
+! cycle diverges, and that is not the direct solver's fault.
 residual_norm = MAXVAL(ABS(check_residual))
-IF (residual_norm.gt.1d-8) THEN
-  WRITE(*,'(A,ES12.4)') 'WARNING: coarse UMFPACK residual: ',residual_norm
+rhs_norm = MAX(MAXVAL(ABS(work_rhs)),1d-300)
+IF (residual_norm/rhs_norm.gt.1d-8) THEN
+  WRITE(*,'(A,ES12.4,A,ES12.4)') ' WARNING: coarse UMFPACK relative residual: ', &
+    residual_norm/rhs_norm,', rhs norm: ',rhs_norm
 END IF
 myCrsMat%D = sol
 
-DEALLOCATE(row_count,next_entry,tmp_col,tmp_val,csr_row,csr_col,csr_val,work_rhs,check_residual)
+DEALLOCATE(row_count,next_entry,tmp_col,tmp_val,csr_row,csr_col,csr_val,work_rhs,&
+           check_residual,row_amax)
 END SUBROUTINE SolveCoarseWithUMFPACK
 !
 ! ----------------------------------------------

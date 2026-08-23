@@ -145,6 +145,29 @@ residual below `1e-8`; the remaining issue is the legacy intergrid correction,
 not the direct solve. `S` therefore preserves the working coupled algorithm
 without allowing the experimental coarse transfer to undo local Vanka work.
 
+### Coarse pressure handling in the UMFPACK fallback
+
+`SolveCoarseWithUMFPACK` pins the first coarse pressure DOF *unconditionally*.
+This was investigated against the shared solver's practice
+(`Setup_UMFPACK_CoarseSolver` applies singular-pressure handling only for
+`bNoOutflow`): the two operators differ. The CC coarse saddle-point system
+couples the pressure only through the element-wise discontinuous-P1
+gradient/divergence blocks, so a globally constant pressure is a nullspace
+vector regardless of outflow boundaries — an unpinned factorization fails on
+the very first coarse solve (verification residual `~1e15` at rhs scale
+`~1e-3`), while the pinned solution satisfies every unmodified equation of
+the original system to relative accuracy below `1e-8`. The PP
+pressure-Poisson matrix is a different operator in which the outflow boundary
+condition does enter, which is why the shared solver's conditional handling
+does not transfer to the CC system.
+
+The fallback's verification residual is measured *relative to the incoming
+right-hand side*: in a diverging `F`/`V`/`W` cycle the rhs grows without
+bound, and an absolute check would misattribute that outer divergence to the
+direct solve. The routine also counts structurally zero matrix rows and
+reports them, so a defective coarse assembly is diagnosed explicitly instead
+of surfacing as an unexplained solver failure.
+
 The shipped cylinder deck solves the *stationary* Re-20 problem directly:
 
 ```text
