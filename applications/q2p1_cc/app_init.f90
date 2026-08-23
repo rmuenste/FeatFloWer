@@ -364,8 +364,18 @@ END DO
  END DO
 
  IF (myid.ne.0) THEN
-   ILEV=NLMAX +1 
+   ILEV=NLMAX +1
 
+   ! Use THIS level's element count - the loop above left NEL at
+   ! level(NLMAX)%nel, which under-allocated dvol by 8x and filled only
+   ! the first eighth of the level(NLMAX+1) volumes (cf. source/Init.f90).
+   NEL = mg_mesh%level(ILEV)%nel
+
+   if(allocated(mg_mesh%level(ILEV)%dvol))then
+     if(size(mg_mesh%level(ILEV)%dvol).ne.NEL+1)then
+       deallocate(mg_mesh%level(ILEV)%dvol)
+     end if
+   end if
    if(.not.allocated(mg_mesh%level(ILEV)%dvol))then
      allocate(mg_mesh%level(ILEV)%dvol(NEL+1))
    end if
