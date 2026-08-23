@@ -2575,13 +2575,15 @@ DO k=1,nz
 END DO
 
 ! The CC coarse saddle-point system couples the pressure only through the
-! element-wise discontinuous-P1 gradient/divergence blocks, so a globally
-! constant pressure is a nullspace vector regardless of outflow boundaries
-! (unpinned factorizations fail on the first solve; verified empirically).
-! Pin the first coarse pressure DOF unconditionally. This deliberately
-! differs from Setup_UMFPACK_CoarseSolver's bNoOutflow-conditional
-! handling, which applies to the PP pressure-Poisson matrix where the
-! outflow boundary condition does enter the operator.
+! element-wise discontinuous-P1 gradient/divergence blocks, whose action on
+! a globally constant pressure vanishes element-wise, so a constant-pressure
+! nullspace is expected regardless of outflow boundaries. Direct proof on
+! the assembled matrix is still outstanding (see q2p1_cc_solver.md, "Coarse
+! pressure handling"); until then the unconditional pin is a pragmatic
+! regularization of the coarse direct solve. This deliberately differs from
+! Setup_UMFPACK_CoarseSolver's bNoOutflow-conditional handling, which
+! applies to the PP pressure-Poisson matrix where the outflow boundary
+! condition does enter the operator.
 bPinPressure = .TRUE.
 first_pressure = 3*mg_qMat(NLMIN)%nu + 1
 IF (first_pressure.lt.1.or.first_pressure.gt.n) bPinPressure = .FALSE.

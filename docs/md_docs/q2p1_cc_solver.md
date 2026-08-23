@@ -148,18 +148,38 @@ without allowing the experimental coarse transfer to undo local Vanka work.
 ### Coarse pressure handling in the UMFPACK fallback
 
 `SolveCoarseWithUMFPACK` pins the first coarse pressure DOF *unconditionally*.
-This was investigated against the shared solver's practice
+This deliberately differs from the shared solver's practice
 (`Setup_UMFPACK_CoarseSolver` applies singular-pressure handling only for
-`bNoOutflow`): the two operators differ. The CC coarse saddle-point system
-couples the pressure only through the element-wise discontinuous-P1
-gradient/divergence blocks, so a globally constant pressure is a nullspace
-vector regardless of outflow boundaries — an unpinned factorization fails on
-the very first coarse solve (verification residual `~1e15` at rhs scale
-`~1e-3`), while the pinned solution satisfies every unmodified equation of
-the original system to relative accuracy below `1e-8`. The PP
-pressure-Poisson matrix is a different operator in which the outflow boundary
-condition does enter, which is why the shared solver's conditional handling
-does not transfer to the CC system.
+`bNoOutflow`), because the operators differ: the PP pressure-Poisson matrix
+receives the outflow boundary condition directly, whereas the CC coarse
+saddle-point system couples the pressure only through the element-wise
+discontinuous-P1 gradient/divergence blocks, whose action on a globally
+constant pressure vanishes element-wise. The analytical expectation is
+therefore a constant-pressure nullspace regardless of outflow boundaries, and
+the pin is retained as a pragmatic regularization of the coarse direct solve.
+
+**Open verification item (postponed).** A re-review showed that the earlier
+empirical "proof" was flawed: an unpinned factorization does *not* fail on
+the first coarse solve (the first cycles contract normally), and the
+astronomical verification residuals observed in both pinned and unpinned
+experiments track the divergence of the legacy `F`/`V`/`W` intergrid
+transfer, not the direct solve. The current residual check also only proves
+that the pinned solution satisfies the *unmodified* rows — not that the
+replaced pressure row was redundant. Before the multilevel cycles are
+declared rehabilitated, the nullspace claim should be established directly:
+
+1. assemble the constant-pressure coefficient vector `z` in the actual
+   discontinuous-P1 basis and evaluate `||A z||` on the assembled coarse
+   matrix;
+2. evaluate the residual of the *discarded* original pressure row for the
+   pinned solution;
+3. compare pinned and unpinned solutions modulo a pressure constant;
+4. compare MUMPS and UMFPACK coarse solutions and original-system residuals
+   for `NoOutflow = Yes` and `No`.
+
+Until then the pin is a documented pragmatic choice, and `F`/`V`/`W` remain
+unsupported anyway (see above). The default `S` cycle never executes this
+code path.
 
 The fallback's verification residual is measured *relative to the incoming
 right-hand side*: in a diverging `F`/`V`/`W` cycle the rhs grows without
