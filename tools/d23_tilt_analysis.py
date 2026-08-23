@@ -5,7 +5,13 @@ Parses particle_force.log (columns: time ip fx fy fz tx ty tz px py pz vx vy vz)
 from a two-particle DKT rundir and reports, per run:
 
   - t_kiss: first time the center separation reaches contact (sep <= d + tol)
-  - tilt(t): angle of the pair axis from vertical, deg
+  - tilt(t): angle of the pair axis from vertical, deg, in the UNFOLDED
+    0-180 convention (matches the site exporter dkt_export_series.py):
+    the reference direction is particle 2 above particle 1, so tilt > 90
+    means the pair has swung past horizontal and exchanged roles.
+    (Versions before 2026-08-23 folded to 0-90: tilt_folded =
+    min(tilt, 180 - tilt); datasheet rows written with the folded
+    convention are annotated in place.)
   - tilt at kiss and at end of run
   - exponential growth rate of the tilt over a fit window (default final 3 t.u.)
     with the corresponding doubling time
@@ -46,7 +52,7 @@ def load(path):
 
 def tilt_deg(r):
     (x1, y1, z1), (x2, y2, z2) = r[1]['P'], r[2]['P']
-    return math.degrees(math.atan2(math.hypot(x2 - x1, y2 - y1), abs(z2 - z1)))
+    return math.degrees(math.atan2(math.hypot(x2 - x1, y2 - y1), z2 - z1))
 
 
 def separation(r):
