@@ -28,10 +28,11 @@ TYPE tParamCC
  CHARACTER*1 CycleType
  integer :: vanka,BDF
  ! Newton reactive blocks in the Newtonian correction operator AA:
- ! 0 = Off (pure Oseen preconditioner, Turek's S^F, eq. (3.174))
- ! 1 = Diagonal (barM11/22/33 only)
- ! 2 = Full (all nine barM blocks, Newton derivative, eqs. (3.167)-(3.169))
- integer :: NewtonType = 1
+ ! 0 = Off (pure Oseen preconditioner, Turek's S^F, eq. (3.174); default)
+ ! 1 = Diagonal (alpha-scaled barM11/22/33 only)
+ ! 2 = Full (all nine alpha-scaled barM blocks; equals the exact Newton
+ !     derivative of eqs. (3.167)-(3.169) only when alpha = 1)
+ integer :: NewtonType = 0
  ! Strict mode: exit with nonzero status when any nonlinear loop
  ! exhausted NLmax without meeting the stopping criterion.
  logical :: StrictConvergence = .TRUE.

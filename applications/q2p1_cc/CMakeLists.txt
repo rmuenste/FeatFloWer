@@ -73,7 +73,7 @@ if(BUILD_TESTING AND NOT WIN32)
   add_test(NAME q2p1_cc_cylinder_stationary
            COMMAND ${_q2p1_cc_python} ${CMAKE_CURRENT_BINARY_DIR}/q2p1_cc.py
                    -n 4 --log ctest_q2p1_cc.log
-                   --expect-drag 5.5981453 --expect-lift 0.0099736961
+                   --expect-drag 5.5981911 --expect-lift 0.0099684876
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(q2p1_cc_cylinder_stationary PROPERTIES
                        TIMEOUT 900
@@ -87,7 +87,7 @@ if(BUILD_TESTING AND NOT WIN32)
   add_test(NAME q2p1_cc_nan_guard
            COMMAND ${_q2p1_cc_python} ${CMAKE_CURRENT_BINARY_DIR}/q2p1_cc.py
                    --validate-log-only ${CMAKE_CURRENT_BINARY_DIR}/ctest_nan_sample.log
-                   --expect-drag 5.5981453 --expect-lift 0.0099736961
+                   --expect-drag 5.5981911 --expect-lift 0.0099684876
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   set_tests_properties(q2p1_cc_nan_guard PROPERTIES
                        PASS_REGULAR_EXPRESSION "FAILED: non-finite forces"

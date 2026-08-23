@@ -1168,8 +1168,10 @@ DO
      STOP 1
     END SELECT
     IF (myid.eq.showid) THEN
-     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
-     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
     END IF
     CASE ("StrictConvergence")
     READ(string(iEq+1:),*) param
@@ -1188,8 +1190,10 @@ DO
      STOP 1
     END SELECT
     IF (myid.eq.showid) THEN
-     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
-     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
     END IF
 
 

@@ -77,9 +77,9 @@ coarse matrix) is selected by `CCuvwp@NewtonTreatment`:
 
 | Value | Correction operator | Turek reference |
 | --- | --- | --- |
-| `Off` | `AAii = Aii`, no reactive blocks | favored fixed-point/Oseen preconditioner `S^F`, eq. (3.174) |
-| `Diagonal` (default) | `AAii = Aii + dt alpha barMii` | hybrid: diagonal part of the Newton reaction term only |
-| `Full` | additionally `AAij = dt alpha barMij` for all six cross blocks | full Newton derivative, eqs. (3.167)--(3.169) |
+| `Off` (default) | `AAii = Aii`, no reactive blocks | favored fixed-point/Oseen preconditioner `S^F`, eq. (3.174) |
+| `Diagonal` | `AAii = Aii + dt alpha barMii` | hybrid: diagonal part of the Newton reaction term only |
+| `Full` | additionally `AAij = dt alpha barMij` for all six cross blocks | blended nine-block Newton reaction; equals the exact Newton derivative of eqs. (3.167)--(3.169) only when `alpha = 1` |
 
 `barMij` is the assembled reaction tensor `int rho (du_i/dx_j) phi phi` — the
 discretization of the Newton term `(delta u . grad) u`. These blocks are *not*
@@ -195,7 +195,7 @@ SimPar@MatrixRenewal = M1D1K3S0C0
 SimPar@FlowType = Newtonian
 SimPar@SteadyState = Yes
 SimPar@MaxNumStep = 1
-CCuvwp@NewtonTreatment = Diagonal
+CCuvwp@NewtonTreatment = Off
 CCuvwp@StrictConvergence = Yes
 CCuvwp@NLmax = 25
 CCuvwp@Stopping = 1d-8
@@ -209,12 +209,12 @@ CCuvwp@MGRelaxPrm = 0.2
 `MMat`, so the assembled operator is the stationary Oseen system `dt (D + K)`
 (with `dt` a pure scale factor), and the nonlinear stopping test uses the
 *absolute* defect `CCuvwp@Stopping = 1d-8`. On the level-1/2 `2Dbench` mesh
-with three worker partitions this converges from a cold start in about 13
+with three worker partitions this converges from a cold start in 13
 nonlinear iterations (defect `1.07e-3` down to below `1e-8`, contraction
 roughly `0.4` per iteration) in under a minute, exits with status 0, and
-prints no warnings. `NewtonTreatment = Full` saves about one iteration at a
-higher cost per iteration; `Off` and `Diagonal` are equivalent within one
-iteration on this case.
+prints no warnings. At this tolerance `Off` and `Diagonal` both take 13
+iterations and agree in drag to five digits; `NewtonTreatment = Full` saves
+about one iteration at a higher cost per iteration.
 
 Each nonlinear loop that reaches `CCuvwp@NLmax` without meeting
 `CCuvwp@Stopping` prints a per-step warning with the achieved and required
@@ -297,11 +297,11 @@ The first successful runs recorded during rehabilitation were:
 | Physical-step smoke test, `dt=0.01`, four nonlinear corrections | `0.01` | `139.42` | `0.476` | Intentionally under-converged impulsive first step; not a benchmark endpoint |
 | Pseudo-transient smoke test, `dt=1`, four nonlinear corrections | `1` | `6.9194472` | `0.013909134` | First successful complete CC step |
 | Ten-step pseudo-transient validation, `dt=1` | `10` | `5.5880793` | `0.0099092682` | Under-converged endpoint (NLmax=4 exhausted each step); approximately 163 seconds |
-| Stationary solve, shipped deck, absolute defect below `1d-8` | steady | `5.5981453` | `0.0099736961` | Converged benchmark result; 13 nonlinear iterations, about 50 seconds, exit status 0 |
+| Stationary solve, shipped deck (`NewtonTreatment = Off`), absolute defect below `1d-8` | steady | `5.5981911` | `0.0099684876` | Converged benchmark result; 13 nonlinear iterations, about 50 seconds, exit status 0 |
 
 The PP reference from the from-scratch guide is drag `5.601296` and lift
 `0.00994712` near `t=10`. The converged stationary CC result differs by
-approximately `0.06%` in drag and `0.26%` in lift; at absolute defect `1d-8`
+approximately `0.06%` in drag and `0.22%` in lift; at absolute defect `1d-8`
 the forces are settled to about four digits, so these residual differences
 reflect the discretization/solver differences between the CC and PP paths,
 not under-convergence. Tightening from `1d-6` to `1d-8` still moved the drag

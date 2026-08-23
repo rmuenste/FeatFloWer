@@ -185,7 +185,8 @@ REAL*8 daux,tttx1,tttx0,alpha
 ! operator used by the coupled multigrid; CCuvwp@NewtonTreatment selects
 ! which alpha-scaled Newton reactive blocks barMij it carries:
 ! Off = none (Turek's S^F Oseen preconditioner), Diagonal = barM11/22/33,
-! Full = all nine blocks (exact Newton derivative).
+! Full = all nine blocks (blended Newton reaction; the exact Newton
+! derivative only when alpha = 1).
      IF (myMatrixRenewal%K.GE.1) THEN
       DO I=1,qMat%nu
        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
