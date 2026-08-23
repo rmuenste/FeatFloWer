@@ -229,8 +229,12 @@ cd build-cc-check/applications/q2p1_cc
 ./q2p1_cc.py --num-processors 4
 ```
 
-The launcher creates three worker partitions and runs four MPI ranks (one
-master plus three workers). If `_mesh/NEWFAC` is already current:
+The launcher reads the project file, mesh folder, and submesh count from the
+`SimPar@` keys of `_data/q2p1_param.dat`, so the mesh it partitions is always
+the mesh the solver loads — the parameter file is the single source of truth.
+To run a different case, edit the parameter file. The launcher creates three
+worker partitions and runs four MPI ranks (one master plus three workers). If
+`_mesh/NEWFAC` is already current:
 
 ```bash
 python3 ./q2p1_cc.py -n 4 --skip-partition
