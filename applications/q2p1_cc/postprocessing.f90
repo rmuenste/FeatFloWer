@@ -278,7 +278,8 @@ subroutine sim_finalize(dttt0, filehandle)
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 USE var_QuadScalar, ONLY : myStat
 USE var_QuadScalar_newton, ONLY : ccParams
-USE Transport_CC, ONLY : nNLLoopTotal,nNLLoopExhausted,worstNLCriterion
+USE Transport_CC, ONLY : nNLLoopTotal,nNLLoopExhausted,worstNLCriterion,&
+                         bInvalidNumerics
 
 real, intent(inout) :: dttt0
 integer, intent(in) :: filehandle
@@ -312,7 +313,14 @@ IF (myid.eq.showid) THEN
       nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
       " stopping criterion; worst achieved criterion: ",worstNLCriterion
   END IF
-  IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) THEN
+  IF (bInvalidNumerics) THEN
+    WRITE(*,*) "CC3D_iso_adaptive FAILED: non-finite values (NaN/Inf)"// &
+      " were detected during the solve."
+    WRITE(*,*) "Exiting with status 1; this failure cannot be disabled."
+    WRITE(filehandle,*) "CC3D_iso_adaptive FAILED: non-finite values"// &
+      " (NaN/Inf) were detected during the solve."
+    WRITE(filehandle,*) "Exiting with status 1; this failure cannot be disabled."
+  ELSE IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) THEN
     WRITE(*,*) "CC3D_iso_adaptive finished WITHOUT meeting the nonlinear"// &
       " convergence requirements."
     WRITE(*,*) "Exiting with status 1 (strict mode); set"// &
@@ -332,8 +340,10 @@ call release_mesh()
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
 
-! The counters are identical on every rank (the stopping test is a
-! collective decision), so all ranks take this branch together.
+! The counters and the invalid-numerics flag are identical on every rank
+! (both are derived from collective reductions), so all ranks take this
+! branch together. Invalid numerics fail regardless of StrictConvergence.
+IF (bInvalidNumerics) STOP 1
 IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) STOP 1
 
 end subroutine sim_finalize

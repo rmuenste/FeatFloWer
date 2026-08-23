@@ -79,4 +79,18 @@ if(BUILD_TESTING AND NOT WIN32)
                        TIMEOUT 900
                        PROCESSORS 4
                        LABELS "mpi;benchmark")
+
+  # Fail-closed guard: a NaN in the reported forces must be rejected by the
+  # launcher's validator, never accepted as a passing benchmark.
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/ctest_nan_sample.log
+       "BenchForce:  0.10000000E+01             NaN             NaN\n")
+  add_test(NAME q2p1_cc_nan_guard
+           COMMAND ${_q2p1_cc_python} ${CMAKE_CURRENT_BINARY_DIR}/q2p1_cc.py
+                   --validate-log-only ${CMAKE_CURRENT_BINARY_DIR}/ctest_nan_sample.log
+                   --expect-drag 5.5981453 --expect-lift 0.0099736961
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(q2p1_cc_nan_guard PROPERTIES
+                       PASS_REGULAR_EXPRESSION "FAILED: non-finite forces"
+                       TIMEOUT 60
+                       LABELS "unit")
 endif()

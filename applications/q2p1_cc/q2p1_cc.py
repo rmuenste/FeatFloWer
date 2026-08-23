@@ -10,6 +10,7 @@ the mesh the solver will load.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 from pathlib import Path
 import re
@@ -45,7 +46,48 @@ def parse_args() -> argparse.Namespace:
         default=2e-3,
         help="relative tolerance for --expect-drag/--expect-lift",
     )
+    parser.add_argument(
+        "--validate-log-only",
+        metavar="LOG",
+        help="do not partition or run; parse LOG and apply the force checks "
+        "(used by the fail-closed regression test)",
+    )
     return parser.parse_args()
+
+
+def check_forces(force: str | None, args: argparse.Namespace) -> int:
+    """Validate the final BenchForce line; returns a process exit status.
+
+    A missing, malformed, or non-finite force always fails, independent of
+    whether expected values were given: NaN must never look like success.
+    """
+    if not force:
+        print("FAILED: no BenchForce line found in the log")
+        return 1
+    values = force.split()
+    try:
+        drag, lift = float(values[1]), float(values[2])
+    except (IndexError, ValueError):
+        print(f"FAILED: malformed BenchForce line: {force!r}")
+        return 1
+    if not (math.isfinite(drag) and math.isfinite(lift)):
+        print(f"FAILED: non-finite forces: drag={drag}, lift={lift}")
+        return 1
+    for name, actual, expected in (
+        ("drag", drag, args.expect_drag),
+        ("lift", lift, args.expect_lift),
+    ):
+        if expected is None:
+            continue
+        deviation = abs(actual - expected) / max(abs(expected), 1e-300)
+        if not math.isfinite(deviation) or deviation > args.rtol:
+            print(
+                f"FAILED: {name} {actual} deviates from {expected} "
+                f"by {deviation:.2e} (rtol {args.rtol:.1e})"
+            )
+            return 1
+        print(f"{name} {actual} matches {expected} within rtol {args.rtol:.1e}")
+    return 0
 
 
 def read_deck_values(parameter_file: Path) -> dict[str, str]:
@@ -90,6 +132,18 @@ def final_force(log_path: Path) -> str | None:
 
 def main() -> int:
     args = parse_args()
+    if not math.isfinite(args.rtol) or args.rtol < 0:
+        raise SystemExit("--rtol must be finite and non-negative")
+    for label, value in (
+        ("--expect-drag", args.expect_drag),
+        ("--expect-lift", args.expect_lift),
+    ):
+        if value is not None and not math.isfinite(value):
+            raise SystemExit(f"{label} must be finite")
+
+    if args.validate_log_only:
+        return check_forces(final_force(Path(args.validate_log_only)), args)
+
     if args.num_processors < 2:
         raise SystemExit("q2p1_cc needs one master rank and at least one worker rank")
 
@@ -152,28 +206,12 @@ def main() -> int:
         print(f"Final BenchForce: {force}")
     print(f"Log: {log_path}")
 
-    if result.returncode == 0 and (
-        args.expect_drag is not None or args.expect_lift is not None
-    ):
-        if not force:
-            print("FAILED: no BenchForce line found in the log")
-            return 1
-        values = force.split()
-        drag, lift = float(values[1]), float(values[2])
-        for name, actual, expected in (
-            ("drag", drag, args.expect_drag),
-            ("lift", lift, args.expect_lift),
-        ):
-            if expected is None:
-                continue
-            deviation = abs(actual - expected) / max(abs(expected), 1e-300)
-            if deviation > args.rtol:
-                print(
-                    f"FAILED: {name} {actual} deviates from {expected} "
-                    f"by {deviation:.2e} (rtol {args.rtol:.1e})"
-                )
-                return 1
-            print(f"{name} {actual} matches {expected} within rtol {args.rtol:.1e}")
+    if result.returncode == 0:
+        expects = args.expect_drag is not None or args.expect_lift is not None
+        if expects or force:
+            status = check_forces(force, args)
+            if status != 0:
+                return status
 
     return result.returncode
 

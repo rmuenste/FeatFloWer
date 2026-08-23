@@ -1352,10 +1352,11 @@ END SUBROUTINE CC_GetDefect
 ! ----------------------------------------------
 !
 SUBROUTINE GetDefNorms(qScalar,lScalar,DefNorm)
+USE, INTRINSIC :: ieee_arithmetic, ONLY : ieee_is_finite
 TYPE(TQuadScalar) qScalar
 TYPE(TLinScalar)  lScalar
 REAL*8 DefNorm(4)
-INTEGER ndof
+INTEGER ndof,iCmp
 
 IF (myid.ne.0) THEN
 
@@ -1374,12 +1375,31 @@ IF (myid.ne.0) THEN
  CALL LL21(qScalar%auxV,ndof ,DefNorm(2))
  CALL LL21(qScalar%auxW,ndof ,DefNorm(3))
  CALL LL21(lScalar%defP(ILEV)%x(      1:),4*nel,DefNorm(4))
+
+ ! Map invalid local norms to a huge sentinel BEFORE the maximum
+ ! reduction: MPI_MAX drops NaN operands (and the master rank
+ ! contributes -1d99), which would turn a diverged solve into a
+ ! false convergence signal.
+ DO iCmp=1,4
+  IF (.NOT.ieee_is_finite(DefNorm(iCmp)).OR.DefNorm(iCmp).LT.0d0) THEN
+   DefNorm(iCmp) = 1d99
+  END IF
+ END DO
 END IF
 
 CALL COMM_Maximum(DefNorm(1))
 CALL COMM_Maximum(DefNorm(2))
 CALL COMM_Maximum(DefNorm(3))
 CALL COMM_Maximum(DefNorm(4))
+
+! Post-reduction guard: catches the -1d99 master sentinel and any
+! residual non-finite value, so callers can rely on DefNorm >= 0 and
+! DefNorm >= 1d98 meaning "invalid numerics".
+DO iCmp=1,4
+ IF (.NOT.ieee_is_finite(DefNorm(iCmp)).OR.DefNorm(iCmp).LT.0d0) THEN
+  DefNorm(iCmp) = 1d99
+ END IF
+END DO
 
 IF (myid.eq.showid) WRITE(*,'(A,4ES12.3)') "non-linear Defect",DefNorm
 

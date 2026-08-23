@@ -20,6 +20,10 @@ IMPLICIT NONE
 INTEGER :: nNLLoopTotal = 0
 INTEGER :: nNLLoopExhausted = 0
 REAL*8  :: worstNLCriterion = 0d0
+! Hard-failure state: a NaN/Inf was detected in defect norms or forces.
+! Distinct from tolerance exhaustion; it forces a nonzero exit status
+! regardless of CCuvwp@StrictConvergence.
+LOGICAL :: bInvalidNumerics = .FALSE.
 
 CONTAINS
 !
@@ -263,6 +267,7 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 ! ----------------------------------------------
 !
 SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
+USE, INTRINSIC :: ieee_arithmetic, ONLY : ieee_is_finite
 implicit none
 
 INTEGER mfile,INL,inl_u
@@ -274,7 +279,12 @@ REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 REAL*8 B,a,h1,h2,h3
 LOGICAL bNLConverged
-REAL*8 achievedCriterion
+REAL*8 achievedCriterion,dInvalidFlag
+INTEGER iCmp
+
+! A previous time step already hit invalid numerics; do not compute
+! further garbage steps, let sim_finalize fail the run.
+IF (bInvalidNumerics) RETURN
 
 thstep = 0d0
 FORCES_OLD = 0d0
@@ -448,6 +458,16 @@ END IF
  CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP0)
 IF (i.eq.1) DefNorm0 = MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4))
 
+! GetDefNorms maps NaN/Inf to the 1d99 sentinel on all ranks.
+IF (MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4)).GE.1d98) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
+
 IF (myid.ne.master) THEN
  QuadSc%valU          = 0d0 
  QuadSc%valV          = 0d0 
@@ -514,6 +534,17 @@ END IF
  DefNorm = MAX(DefNormUVWP(1),DefNormUVWP(2),DefNormUVWP(3),DefNormUVWP(4))
 ! PLEASE DO NOT COMMENT THESE TWO LINES
 
+! Abort on invalid numerics BEFORE the ratio DefNorm/DefNormOld feeds
+! the alpha controller and digitcriterion below.
+IF (DefNorm.GE.1d98) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
+
 !---------------------------
 ! Fixpoint-Newton-adaptivity
 !---------------------------
@@ -551,6 +582,22 @@ END IF
 
  CALL FAC_GetForces_CC(mfile,FORCES_NEW)
  CALL OperatorDeallocation()
+
+! Validate the force components collectively (COMM_Maximum keeps the
+! decision identical on every rank, so all ranks leave the loop together).
+dInvalidFlag = 0d0
+DO iCmp=1,7
+ IF (.NOT.ieee_is_finite(FORCES_NEW(iCmp))) dInvalidFlag = 1d0
+END DO
+CALL COMM_Maximum(dInvalidFlag)
+IF (dInvalidFlag.GT.0.5d0) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite force values detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite force values detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
 
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
 diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
@@ -594,7 +641,7 @@ IF (bNLConverged) exit
 END DO
 
 nNLLoopTotal = nNLLoopTotal + 1
-IF (.NOT.bNLConverged) THEN
+IF (.NOT.bNLConverged .AND. .NOT.bInvalidNumerics) THEN
  nNLLoopExhausted = nNLLoopExhausted + 1
  IF (achievedCriterion.GT.worstNLCriterion) worstNLCriterion = achievedCriterion
  IF (myid.eq.showid) THEN
