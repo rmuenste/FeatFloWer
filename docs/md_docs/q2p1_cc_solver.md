@@ -311,7 +311,12 @@ The benchmark is registered as a CTest (`q2p1_cc_cylinder_stationary`,
 labels `mpi;benchmark`, 4 ranks, 15-minute timeout): it partitions the
 vendored case, runs the launcher, relies on strict mode for the convergence
 verdict, and additionally checks drag/lift against the values above with a
-relative tolerance of `2e-3`. Run it with
+relative tolerance of `2e-3`. The tests execute in a dedicated hermetic
+working directory (`ctest_run/`) whose `_adc` always points at the vendored
+source-tree case even when `Q2P1_MESH_DIR` is set, so the baseline cannot
+drift with an external mesh repository. A companion unit test
+(`q2p1_cc_nan_guard`) asserts that non-finite forces are rejected by the
+launcher's validator. Run them with
 
 ```bash
 ctest --test-dir build-cc-check -R q2p1_cc_cylinder_stationary --output-on-failure
