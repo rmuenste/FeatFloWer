@@ -55,4 +55,28 @@ file(COPY ${CMAKE_SOURCE_DIR}/tools/partitioner
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_SOURCE_DIR}/tools/PyPartitioner.py
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-file(COPY q2p1_cc.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY q2p1_cc.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+     FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                      GROUP_READ GROUP_EXECUTE
+                      WORLD_READ WORLD_EXECUTE)
+
+# Stationary Re-20 cylinder regression: partitions the vendored (or
+# Q2P1_MESH_DIR) 2D_FAC case, runs 4 MPI ranks, and checks convergence
+# (strict mode governs the exit status) plus the documented drag/lift.
+if(BUILD_TESTING AND NOT WIN32)
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(Python3_Interpreter_FOUND)
+    set(_q2p1_cc_python ${Python3_EXECUTABLE})
+  else()
+    set(_q2p1_cc_python python3)
+  endif()
+  add_test(NAME q2p1_cc_cylinder_stationary
+           COMMAND ${_q2p1_cc_python} ${CMAKE_CURRENT_BINARY_DIR}/q2p1_cc.py
+                   -n 4 --log ctest_q2p1_cc.log
+                   --expect-drag 5.5981453 --expect-lift 0.0099736961
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(q2p1_cc_cylinder_stationary PROPERTIES
+                       TIMEOUT 900
+                       PROCESSORS 4
+                       LABELS "mpi;benchmark")
+endif()

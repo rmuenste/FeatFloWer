@@ -216,14 +216,16 @@ accordingly.
 
 ## Build and run the cylinder benchmark
 
-Configure exactly as for `q2p1_fc_ext`; `Q2P1_MESH_DIR` must contain
-`2D_FAC/2Dbench.prj`:
+The `2D_FAC` cylinder case is vendored in the source tree (`_adc/2D_FAC/`),
+so a plain checkout is self-sufficient. If the `Q2P1_MESH_DIR` *environment
+variable* points at an external mesh repository at configure time, that
+repository is linked instead (note: it is read from the environment, not
+from a `-D` cache variable):
 
 ```bash
 cmake -S . -B build-cc-check \
   -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_APPLICATIONS=ON \
-  -DQ2P1_MESH_DIR=/path/to/mesh_repo
+  -DBUILD_APPLICATIONS=ON
 cmake --build build-cc-check --target q2p1_cc -- -j8
 cd build-cc-check/applications/q2p1_cc
 ./q2p1_cc.py --num-processors 4
@@ -285,13 +287,26 @@ reflect the discretization/solver differences between the CC and PP paths,
 not under-convergence. Tightening from `1d-6` to `1d-8` still moved the drag
 by about `0.08%`, which is why the shipped tolerance is `1d-8`.
 
+The benchmark is registered as a CTest (`q2p1_cc_cylinder_stationary`,
+labels `mpi;benchmark`, 4 ranks, 15-minute timeout): it partitions the
+vendored case, runs the launcher, relies on strict mode for the convergence
+verdict, and additionally checks drag/lift against the values above with a
+relative tolerance of `2e-3`. Run it with
+
+```bash
+ctest --test-dir build-cc-check -R q2p1_cc_cylinder_stationary --output-on-failure
+```
+
+On constrained CI runners set `FF_MPIRUN_FLAGS` (e.g.
+`"--oversubscribe --allow-run-as-root"`); the launcher inserts these into the
+`mpirun` command line.
+
 Known follow-up items are:
 
 - repair or replace the legacy Q2/P1 intergrid transfer before recommending
   `F`, `V`, or `W` cycles;
 - reduce the cost of repeated patch solves (factor reuse/coloring or a modern
   block preconditioner);
-- convert the external-mesh cylinder run into a bounded CTest fixture;
 - reconcile legacy FEAT COMMON-block size warnings emitted by `feat2d`. They
   also occur in old application code and should not be ignored in a broader
   modernization effort.

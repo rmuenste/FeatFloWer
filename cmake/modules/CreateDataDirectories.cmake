@@ -9,7 +9,14 @@ function(createDefaultDirectories bdir sdir)
           ${bdir}/_adc)
       ENDIF()
     ELSE(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
-      set(DIRECTORYLINKS _adc meshes)
+      # Fall back to the meshes vendored in the source tree (_adc/) so a
+      # plain checkout works without the external mesh repository. The old
+      # DIRECTORYLINKS assignment here was never processed by any loop.
+      IF(EXISTS ${CMAKE_SOURCE_DIR}/_adc AND NOT EXISTS ${bdir}/_adc)
+        execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+          ${CMAKE_SOURCE_DIR}/_adc
+          ${bdir}/_adc)
+      ENDIF()
     ENDIF(NOT $ENV{Q2P1_MESH_DIR} STREQUAL "")
   endif(NOT WIN32)
 
