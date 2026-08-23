@@ -1080,6 +1080,28 @@ DO
     CASE ("BDF")
     READ(string(iEq+1:),*) ccParams%BDF
     call write_param_int(mfile,cVar,cPar,out_string,ccParams%BDF)
+    CASE ("NewtonTreatment")
+    READ(string(iEq+1:),*) param
+    SELECT CASE (TRIM(ADJUSTL(param)))
+     CASE ("Off","off","OFF","Oseen","oseen")
+     ccParams%NewtonType = 0
+     CASE ("Diagonal","diagonal","DIAGONAL")
+     ccParams%NewtonType = 1
+     CASE ("Full","full","FULL","Newton","newton")
+     ccParams%NewtonType = 2
+     CASE DEFAULT
+     IF (myid.eq.showid) THEN
+      write(mterm,'(A)') "Invalid CCuvwp@NewtonTreatment = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Off, Diagonal or Full."
+      write(mfile,'(A)') "Invalid CCuvwp@NewtonTreatment = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Off, Diagonal or Full."
+     END IF
+     STOP 1
+    END SELECT
+    IF (myid.eq.showid) THEN
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+    END IF
 
 
   END SELECT

@@ -40,6 +40,7 @@ SimPar@OutputLevel = MAX+1
 CCuvwp@NLmin = 1
 CCuvwp@NLmax = 4
 CCuvwp@Alpha = 0.5d0
+CCuvwp@NewtonTreatment = Diagonal
 CCuvwp@ValAdap = 3d0,2d-1
 CCuvwp@Stopping = 1d-6
 CCuvwp@MGMinLev = 1

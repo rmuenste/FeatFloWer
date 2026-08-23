@@ -56,22 +56,48 @@ coupled solver received empty/zero blocks instead of the Oseen operator. The
 only apparent workaround was to enter the non-Newtonian path with a power-law
 exponent of one.
 
-The restored Newtonian Navier--Stokes branch in `q2p1_def_cc.f90` now forms,
-for each velocity component,
+The restored Newtonian Navier--Stokes branch in `q2p1_def_cc.f90` always forms
+the pure Oseen defect operator, for each velocity component,
 
 ```text
 Aii  = M + dt (D + K(u^k))
-AAii = Aii + dt alpha barMii
 ```
 
 Here `M` is the transient mass matrix, `D` is the Newtonian viscous operator,
 and `K(u^k)` is the convection operator linearized at the current nonlinear
-iterate. `Aii` evaluates the nonlinear defect, while `AAii` is extracted into
-the coupled patch system used for the correction. For a Newtonian fluid the
-six cross-component velocity blocks are zero, but they are still allocated
-because patch extraction, coarse assembly, and Vanka smoothing share a uniform
-nine-block velocity layout. The Stokes branch similarly forms `M + dt D` when
-convection is disabled.
+iterate. `Aii` evaluates the nonlinear defect, so the root of the defect
+correction is always the plain Navier--Stokes solution, independent of the
+correction operator chosen below. The Stokes branch similarly forms `M + dt D`
+when convection is disabled.
+
+### Newton treatment of the correction operator
+
+The correction matrix `AA` (extracted into the coupled patch system and the
+coarse matrix) is selected by `CCuvwp@NewtonTreatment`:
+
+| Value | Correction operator | Turek reference |
+| --- | --- | --- |
+| `Off` | `AAii = Aii`, no reactive blocks | favored fixed-point/Oseen preconditioner `S^F`, eq. (3.174) |
+| `Diagonal` (default) | `AAii = Aii + dt alpha barMii` | hybrid: diagonal part of the Newton reaction term only |
+| `Full` | additionally `AAij = dt alpha barMij` for all six cross blocks | full Newton derivative, eqs. (3.167)--(3.169) |
+
+`barMij` is the assembled reaction tensor `int rho (du_i/dx_j) phi phi` — the
+discretization of the Newton term `(delta u . grad) u`. These blocks are *not*
+zero for a Newtonian fluid; `Off` and `Diagonal` deliberately omit some or all
+of them from the correction operator, which is legitimate in the
+defect-correction framework (the converged root is defined by `A`, not `AA`)
+but affects the nonlinear contraction rate. Turek (Sec. 3.3.1) warns that the
+reactive blocks resist robust multigrid smoothing; in this solver the Vanka
+patches are solved by direct LU, so `Full` is worth measuring. All nine `AA`
+blocks are always allocated because patch extraction, coarse assembly, and
+Vanka smoothing share a uniform nine-block velocity layout.
+
+The blending factor `alpha` (`CCuvwp@Alpha`, adapted each nonlinear iteration)
+scales the retained reactive blocks inside `AA`. Note that this is an operator
+blending between Oseen (`alpha=0`) and Newton (`alpha=1`); it is not Turek's
+adaptive step-length damping `omega` of eqs. (3.175)--(3.177) — the computed
+correction is applied undamped. With `NewtonTreatment = Off`, `alpha` only
+influences the multigrid stopping criterion.
 
 ## Rehabilitated implementation
 
@@ -124,6 +150,7 @@ The shipped cylinder deck uses:
 ```text
 SimPar@MatrixRenewal = M1D1K3S0C0
 SimPar@FlowType = Newtonian
+CCuvwp@NewtonTreatment = Diagonal
 CCuvwp@NLmax = 4
 CCuvwp@MGMaxIterCyc = 100
 CCuvwp@MGSmoothSteps = 1

@@ -77,21 +77,17 @@ REAL*8 daux,tttx1,tttx0,alpha
 
     IF (myMatrixRenewal%K.GE.1) THEN
      KMat     => mg_KMat(ILEV)%a
-     IF(bNonNewtonian) THEN
-      barM11Mat     => mg_barM11Mat(ILEV)%a
-      barM22Mat     => mg_barM22Mat(ILEV)%a
-      barM33Mat     => mg_barM33Mat(ILEV)%a
-      barM12Mat     => mg_barM12Mat(ILEV)%a
-      barM13Mat     => mg_barM13Mat(ILEV)%a
-      barM23Mat     => mg_barM23Mat(ILEV)%a
-      barM21Mat     => mg_barM21Mat(ILEV)%a
-      barM31Mat     => mg_barM31Mat(ILEV)%a
-      barM32Mat     => mg_barM32Mat(ILEV)%a
-     ELSE
-      barM11Mat     => mg_barM11Mat(ILEV)%a
-      barM22Mat     => mg_barM22Mat(ILEV)%a
-      barM33Mat     => mg_barM33Mat(ILEV)%a
-     END IF
+     ! Create_CCbarMMat_iso always assembles all nine reactive blocks,
+     ! so the full set is available to every Newton treatment.
+     barM11Mat     => mg_barM11Mat(ILEV)%a
+     barM22Mat     => mg_barM22Mat(ILEV)%a
+     barM33Mat     => mg_barM33Mat(ILEV)%a
+     barM12Mat     => mg_barM12Mat(ILEV)%a
+     barM13Mat     => mg_barM13Mat(ILEV)%a
+     barM23Mat     => mg_barM23Mat(ILEV)%a
+     barM21Mat     => mg_barM21Mat(ILEV)%a
+     barM31Mat     => mg_barM31Mat(ILEV)%a
+     barM32Mat     => mg_barM32Mat(ILEV)%a
     END IF
 
     IF (myMatrixRenewal%M.GE.1) THEN
@@ -183,9 +179,13 @@ REAL*8 daux,tttx1,tttx0,alpha
 
     ELSE 
 
-! Newtonian Oseen operator. A forms the nonlinear defect and AA is used
-! by the coupled multigrid correction. The original WIP application left
-! this entire branch commented, so Newtonian runs had zero velocity blocks.
+! Newtonian Oseen operator. A forms the nonlinear defect and always stays
+! the pure Oseen matrix M + dt(D+K); the root of the defect correction is
+! therefore independent of the treatment below. AA is the correction
+! operator used by the coupled multigrid; CCuvwp@NewtonTreatment selects
+! which alpha-scaled Newton reactive blocks barMij it carries:
+! Off = none (Turek's S^F Oseen preconditioner), Diagonal = barM11/22/33,
+! Full = all nine blocks (exact Newton derivative).
      IF (myMatrixRenewal%K.GE.1) THEN
       DO I=1,qMat%nu
        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
@@ -193,11 +193,32 @@ REAL*8 daux,tttx1,tttx0,alpha
         A11mat(J) = daux
         A22mat(J) = daux
         A33mat(J) = daux
-        AA11mat(J) = daux + zeitstep*alpha*barM11Mat(J)
-        AA22mat(J) = daux + zeitstep*alpha*barM22Mat(J)
-        AA33mat(J) = daux + zeitstep*alpha*barM33Mat(J)
+        AA11mat(J) = daux
+        AA22mat(J) = daux
+        AA33mat(J) = daux
        END DO
       END DO
+      IF (ccParams%NewtonType.GE.1) THEN
+       DO I=1,qMat%nu
+        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+         AA11mat(J) = AA11mat(J) + zeitstep*alpha*barM11Mat(J)
+         AA22mat(J) = AA22mat(J) + zeitstep*alpha*barM22Mat(J)
+         AA33mat(J) = AA33mat(J) + zeitstep*alpha*barM33Mat(J)
+        END DO
+       END DO
+      END IF
+      IF (ccParams%NewtonType.GE.2) THEN
+       DO I=1,qMat%nu
+        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+         AA12mat(J) = zeitstep*alpha*barM12Mat(J)
+         AA13mat(J) = zeitstep*alpha*barM13Mat(J)
+         AA23mat(J) = zeitstep*alpha*barM23Mat(J)
+         AA21mat(J) = zeitstep*alpha*barM21Mat(J)
+         AA31mat(J) = zeitstep*alpha*barM31Mat(J)
+         AA32mat(J) = zeitstep*alpha*barM32Mat(J)
+        END DO
+       END DO
+      END IF
      ELSE
       DO I=1,qMat%nu
        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
