@@ -32,6 +32,9 @@ TYPE tParamCC
  ! 1 = Diagonal (barM11/22/33 only)
  ! 2 = Full (all nine barM blocks, Newton derivative, eqs. (3.167)-(3.169))
  integer :: NewtonType = 1
+ ! Strict mode: exit with nonzero status when any nonlinear loop
+ ! exhausted NLmax without meeting the stopping criterion.
+ logical :: StrictConvergence = .TRUE.
 END TYPE tParamCC
 
 TYPE(tParamCC) ccParams

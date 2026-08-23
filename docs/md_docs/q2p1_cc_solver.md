@@ -161,12 +161,20 @@ CCuvwp@MGRelaxPrm = 0.2
 Each nonlinear loop that reaches `CCuvwp@NLmax` without meeting
 `CCuvwp@Stopping` now prints a per-step warning with the achieved and required
 criteria, and `sim_finalize` summarizes how many loops were exhausted together
-with the worst achieved criterion before the success banner. Note that with
-`SteadyState = No` the criterion is a *relative per-step* reduction that is
-re-baselined every time step; in a pseudo-transient run it becomes increasingly
-hard to meet as the flow approaches steady state, so these warnings are
-expected in the tail of such runs and the absolute defect is the meaningful
-convergence measure there.
+with the worst achieved criterion. In strict mode
+(`CCuvwp@StrictConvergence = Yes`, the default) such a run additionally
+replaces the success banner with a failure message and exits with status 1;
+set `CCuvwp@StrictConvergence = No` to keep the warnings but exit with
+status 0. Note that with `SteadyState = No` the criterion is a *relative
+per-step* reduction that is re-baselined every time step; in a
+pseudo-transient run it becomes increasingly hard to meet as the flow
+approaches steady state, so these warnings are expected in the tail of such
+runs and the absolute defect is the meaningful convergence measure there.
+Consequently the shipped deck's `Stopping = 1d-6` cannot be met with
+`NLmax = 4` and the benchmark run currently ends with exit status 1 by
+design; reconciling the deck (achievable tolerance, higher `NLmax`, or an
+absolute steady criterion) is a known open item from the implementation
+review.
 
 The shipped deck uses `dt=1` and ten implicit steps to reach the steady Reynolds
 number 20 result in practical time. This pseudo-transient trajectory is not
@@ -204,9 +212,12 @@ python3 ./PyPartitioner.py 3 1 1 NEWFAC _adc/2D_FAC/2Dbench.prj
 mpirun -np 4 ./q2p1_cc > run_q2p1_cc_np4.log 2>&1
 ```
 
-Success is indicated by a zero exit status and
-`CC3D_iso_adaptive has successfully finished.` The normalized cylinder values
-are printed as `BenchForce: time drag lift`.
+A fully successful run ends with exit status 0 and
+`CC3D_iso_adaptive has successfully finished.` If any nonlinear loop was
+exhausted, strict mode (see above) prints a failure message instead and the
+run exits with status 1 — with the current deck tolerance this is the
+expected outcome until the deck is reconciled. The normalized cylinder values
+are printed as `BenchForce: time drag lift` in either case.
 
 ## Validation status and remaining work
 

@@ -277,6 +277,7 @@ subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 USE var_QuadScalar, ONLY : myStat
+USE var_QuadScalar_newton, ONLY : ccParams
 USE Transport_CC, ONLY : nNLLoopTotal,nNLLoopExhausted,worstNLCriterion
 
 real, intent(inout) :: dttt0
@@ -311,14 +312,29 @@ IF (myid.eq.showid) THEN
       nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
       " stopping criterion; worst achieved criterion: ",worstNLCriterion
   END IF
-  WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
-  WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
+  IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) THEN
+    WRITE(*,*) "CC3D_iso_adaptive finished WITHOUT meeting the nonlinear"// &
+      " convergence requirements."
+    WRITE(*,*) "Exiting with status 1 (strict mode); set"// &
+      " CCuvwp@StrictConvergence = No to disable this behavior."
+    WRITE(filehandle,*) "CC3D_iso_adaptive finished WITHOUT meeting the"// &
+      " nonlinear convergence requirements."
+    WRITE(filehandle,*) "Exiting with status 1 (strict mode); set"// &
+      " CCuvwp@StrictConvergence = No to disable this behavior."
+  ELSE
+    WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
+    WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
+  END IF
 END IF
 
 call release_mesh()
 
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
+
+! The counters are identical on every rank (the stopping test is a
+! collective decision), so all ranks take this branch together.
+IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) STOP 1
 
 end subroutine sim_finalize
 !

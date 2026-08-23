@@ -1124,6 +1124,26 @@ DO
      write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
      write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
     END IF
+    CASE ("StrictConvergence")
+    READ(string(iEq+1:),*) param
+    SELECT CASE (TRIM(ADJUSTL(param)))
+     CASE ("Yes","yes","YES","On","on","ON")
+     ccParams%StrictConvergence = .TRUE.
+     CASE ("No","no","NO","Off","off","OFF")
+     ccParams%StrictConvergence = .FALSE.
+     CASE DEFAULT
+     IF (myid.eq.showid) THEN
+      write(mterm,'(A)') "Invalid CCuvwp@StrictConvergence = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Yes or No."
+      write(mfile,'(A)') "Invalid CCuvwp@StrictConvergence = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Yes or No."
+     END IF
+     STOP 1
+    END SELECT
+    IF (myid.eq.showid) THEN
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+    END IF
 
 
   END SELECT
