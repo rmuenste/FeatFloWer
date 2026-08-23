@@ -1,0 +1,3 @@
+# Vendored benchmark mesh data is kept byte-identical to the external
+# mesh-repository originals for provenance; suppress whitespace checks.
+_adc/2D_FAC/** -whitespace

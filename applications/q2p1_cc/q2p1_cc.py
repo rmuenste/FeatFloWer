@@ -1,149 +1,220 @@
-#!/usr/bin/env python
-# vim: set filetype=python
+#!/usr/bin/env python3
+"""Partition and launch the q2p1_cc cylinder benchmark.
+
+The parameter file _data/q2p1_param.dat is the single source of truth:
+the partitioning inputs (project file, mesh folder, submesh count) are
+read from its SimPar@ keys, so the mesh that gets partitioned is always
+the mesh the solver will load.
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
 import os
-import shutil
-
-import sys
-import getopt
-import platform
-import subprocess
+from pathlib import Path
 import re
-import json
-sys.path.append(os.environ['FF_PY_HOME'])
-import partitioner
+import shlex
+import subprocess
+import sys
 
-################
-def usage():
-  print("Usage: configure [options]")
-  print("Where options can be:")
-  print("[-h, --help]: prints this message")
-  print("[-n, --num-processors]: Total number of MPI processes to be used in the simulation")
-################
-def write_json_data(col, level):
 
-  rows_array = [] 
-  for i in range(len(col)-1):
-    rows_array.append({"c": [{"v" : level}, {"v" : col[i][0]}, {"v": col[i][1]}] })
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run q2p1_cc with one master rank and N-1 worker ranks. "
+        "Project file, mesh folder, and submesh count are taken from "
+        "_data/q2p1_param.dat."
+    )
+    parser.add_argument("-n", "--num-processors", type=int, default=4)
+    parser.add_argument("--skip-partition", action="store_true")
+    parser.add_argument("--log", default="run_q2p1_cc.log")
+    parser.add_argument(
+        "--expect-drag",
+        type=float,
+        default=None,
+        help="fail unless the final drag matches this value within --rtol",
+    )
+    parser.add_argument(
+        "--expect-lift",
+        type=float,
+        default=None,
+        help="fail unless the final lift matches this value within --rtol",
+    )
+    parser.add_argument(
+        "--rtol",
+        type=float,
+        default=2e-3,
+        help="relative tolerance for --expect-drag/--expect-lift",
+    )
+    parser.add_argument(
+        "--validate-log-only",
+        metavar="LOG",
+        help="do not partition or run; parse LOG and apply the force checks "
+        "(used by the fail-closed regression test)",
+    )
+    return parser.parse_args()
 
-  d = {
-   "ID" : "BENCHSED", 
-   "Caption" : "Sedimentation Benchmark", 
-   "data" : {
-     "cols": [
-     {"label" : "Level", "type" : "number"},
-     {"label" : "Drag", "type" : "number"},
-     {"label" : "Lift", "type" : "number"}
-     ],
-     "rows" : rows_array
-   }
-  }
-###################################################################      
-def moveAndSetLevel(file_in, file_out, level):
-    maxLevelStr = "SimPar@MaxMeshLevel = " + str(level) 
-    with open(file_out, "w") as n:
-        with open(file_in, "r") as f:
-            for line in f:
-                new_line = re.sub(r"^[\s]*SimPar@MaxMeshLevel[\s]*=(\s | \w)*", maxLevelStr, line)
-                n.write(new_line)
 
-#===============================================================================
-#                              Main function
-#===============================================================================
-def get_log_entry(file_name, var_name):
-  with open(file_name, "r") as sources:
-    lines = sources.readlines()
-  
-  it_found = False
-  t_found = False
+def check_forces(force: str | None, args: argparse.Namespace) -> int:
+    """Validate the final BenchForce line; returns a process exit status.
 
-  for line in reversed(lines):
-    m = re.match(var_name,line)
-    if m != None:
-      mysplit = line.split(':')
-      val = mysplit[1].strip()
-      t_found = True
-      break
-
-  if t_found:
-    return val
-  else :
+    A missing, malformed, or non-finite force always fails, independent of
+    whether expected values were given: NaN must never look like success.
+    """
+    if not force:
+        print("FAILED: no BenchForce line found in the log")
+        return 1
+    values = force.split()
+    try:
+        drag, lift = float(values[1]), float(values[2])
+    except (IndexError, ValueError):
+        print(f"FAILED: malformed BenchForce line: {force!r}")
+        return 1
+    if not (math.isfinite(drag) and math.isfinite(lift)):
+        print(f"FAILED: non-finite forces: drag={drag}, lift={lift}")
+        return 1
+    for name, actual, expected in (
+        ("drag", drag, args.expect_drag),
+        ("lift", lift, args.expect_lift),
+    ):
+        if expected is None:
+            continue
+        deviation = abs(actual - expected) / max(abs(expected), 1e-300)
+        if not math.isfinite(deviation) or deviation > args.rtol:
+            print(
+                f"FAILED: {name} {actual} deviates from {expected} "
+                f"by {deviation:.2e} (rtol {args.rtol:.1e})"
+            )
+            return 1
+        print(f"{name} {actual} matches {expected} within rtol {args.rtol:.1e}")
     return 0
 
-#===============================================================================
-#                              Main function
-#===============================================================================
-def main():
-  try:
-      opts, args = getopt.getopt(sys.argv[1:], 'n:p:h', ['num-processors=', 'params=', 'help'])
-  except getopt.GetoptError:
-      usage()
-      sys.exit(2)
-  
-  params=''
 
-  numProcessors=16
-  
-  for opt, arg in opts:
-      if opt in ('-h', '--help'):
-          usage()
-          sys.exit(2)
-      elif opt in ('-n', '--num-processors'):
-          numProcessors = int(arg)
-      elif opt in ('-p', '--params'):
-          params = arg
-      else:
-          usage()
-          sys.exit(2)
-  
-  if params != '':
-      print("Parameter params = " + params)
-  
-  print("Platform machine: " + platform.machine())
-  print("Platform system: " + platform.system())
-  print("System path: " + str(sys.path))
+def read_deck_values(parameter_file: Path) -> dict[str, str]:
+    """Read the SimPar@ keys that define the mesh from the parameter file."""
+    wanted = {"ProjectFile", "MeshFolder", "SubMeshNumber"}
+    pattern = re.compile(r"^\s*SimPar@(\w+)\s*=\s*([^!]*)")
+    values: dict[str, str] = {}
+    with parameter_file.open(encoding="utf-8", errors="replace") as stream:
+        for line in stream:
+            match = pattern.match(line)
+            if match and match.group(1) in wanted:
+                values[match.group(1)] = match.group(2).strip().strip('"').strip("'")
+    missing = sorted(wanted - values.keys())
+    if missing:
+        raise SystemExit(
+            f"{parameter_file} does not define SimPar@{', SimPar@'.join(missing)}"
+        )
+    return values
 
 
-  if numProcessors == 0:
-    print("Number of processors is 0")
-    usage()
-    sys.exit(2)
+def find_partitioner(script_path: Path, run_dir: Path) -> Path:
+    candidates = [
+        run_dir / "PyPartitioner.py",
+        script_path.parents[2] / "tools" / "PyPartitioner.py",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError("PyPartitioner.py was not found in the run or source tree")
 
-  print("Starting CC Test with %i processors." %numProcessors)
-  
-  rows_array = [] 
-  
-  for l in range(2,4):
-    moveAndSetLevel("_adc/FAC3Ds/q2p1_param_FAC3D_stat_CC.dat", "_data/q2p1_param.dat",l)
-    partitioner.partition(numProcessors-1, 1, 1, "NEWFAC", "_adc/FAC3Ds/fac3D_stat_Re20.prj")
-    subprocess.call(['mpirun -np %i ./q2p1_cc' %numProcessors],shell=True)
-    force = get_log_entry("_data/prot.txt", "BenchForce:")
-    force = force.split()
-    timeEntry = get_log_entry("_data/Statistics.txt", " Overall time")
-    timeEntry = timeEntry.split()
-    rows_array.append({"c": [{"v" : l}, {"v" : force[1]}, {"v": force[2]}, {"v": timeEntry[0][:-3]} ] })
-  
-  d = {
-   "benchName" : "CC3DSTAT", 
-   "tableCaption" : "Re20 Stationary FAC", 
-   "style" : "Table",
-   "data" : {
-     "cols": [
-     {"label" : "Level", "type" : "number"},
-     {"label" : "Drag", "type" : "number"},
-     {"label" : "Lift", "type" : "number"},
-     {"label" : "Time[s]", "type" : "number"}
-     ],
-     "rows" : rows_array
-   }
-  }
-  
-  #print(str(json.dumps(rows_array)))
-  with open('../../note_single_Re20FAC3DCC-bench.json','w') as f:
-    f.write(json.dumps(d) + '\n')
 
-#===============================================================================
-#                           Main "Boiler Plate"
-#===============================================================================
+def final_force(log_path: Path) -> str | None:
+    match = None
+    pattern = re.compile(r"^BenchForce:\s+(.+)$")
+    with log_path.open(encoding="utf-8", errors="replace") as stream:
+        for line in stream:
+            current = pattern.match(line)
+            if current:
+                match = current.group(1).strip()
+    return match
+
+
+def main() -> int:
+    args = parse_args()
+    if not math.isfinite(args.rtol) or args.rtol < 0:
+        raise SystemExit("--rtol must be finite and non-negative")
+    for label, value in (
+        ("--expect-drag", args.expect_drag),
+        ("--expect-lift", args.expect_lift),
+    ):
+        if value is not None and not math.isfinite(value):
+            raise SystemExit(f"{label} must be finite")
+
+    if args.validate_log_only:
+        return check_forces(final_force(Path(args.validate_log_only)), args)
+
+    if args.num_processors < 2:
+        raise SystemExit("q2p1_cc needs one master rank and at least one worker rank")
+
+    run_dir = Path.cwd()
+    executable = run_dir / "q2p1_cc"
+    parameter_file = run_dir / "_data" / "q2p1_param.dat"
+    for required in (executable, parameter_file):
+        if not required.exists():
+            raise FileNotFoundError(f"required runtime file is missing: {required}")
+
+    deck = read_deck_values(parameter_file)
+    project = run_dir / deck["ProjectFile"]
+    if not project.exists():
+        raise FileNotFoundError(
+            f"SimPar@ProjectFile from {parameter_file} is missing: {project}"
+        )
+    print(
+        f"Partitioning per parameter file: project={deck['ProjectFile']}, "
+        f"mesh folder={deck['MeshFolder']}, submeshes={deck['SubMeshNumber']}",
+        flush=True,
+    )
+
+    environment = os.environ.copy()
+    old_library_path = environment.get("LD_LIBRARY_PATH", "")
+    environment["LD_LIBRARY_PATH"] = f"{run_dir}:{old_library_path}"
+
+    if not args.skip_partition:
+        partitioner = find_partitioner(Path(__file__).resolve(), run_dir)
+        subprocess.run(
+            [
+                sys.executable,
+                str(partitioner),
+                str(args.num_processors - 1),
+                "1",
+                deck["SubMeshNumber"],
+                deck["MeshFolder"],
+                deck["ProjectFile"],
+            ],
+            cwd=run_dir,
+            env=environment,
+            check=True,
+        )
+
+    # Extra mpirun flags for constrained environments, e.g.
+    # FF_MPIRUN_FLAGS="--oversubscribe --allow-run-as-root" for CI runners.
+    mpirun_flags = shlex.split(environment.get("FF_MPIRUN_FLAGS", ""))
+    log_path = run_dir / args.log
+    with log_path.open("w", encoding="utf-8") as log:
+        result = subprocess.run(
+            ["mpirun", *mpirun_flags, "-np", str(args.num_processors), str(executable)],
+            cwd=run_dir,
+            env=environment,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+
+    force = final_force(log_path)
+    if force:
+        print(f"Final BenchForce: {force}")
+    print(f"Log: {log_path}")
+
+    if result.returncode == 0:
+        expects = args.expect_drag is not None or args.expect_lift is not None
+        if expects or force:
+            status = check_forces(force, args)
+            if status != 0:
+                return status
+
+    return result.returncode
+
+
 if __name__ == "__main__":
-  main()
-
+    raise SystemExit(main())

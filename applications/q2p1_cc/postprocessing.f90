@@ -110,6 +110,10 @@ subroutine postprocessing_fc_ext(dout, iogmv, inlU,inlT,filehandle)
 
 include 'defs_include.h'
 
+USE ProcCtrl_mod, ONLY : ProcessControl
+! Expose the dependency hidden in defs_include.h to CMake's Fortran scanner.
+USE Transport_CC
+
 implicit none
 
 integer, intent(in) :: filehandle
@@ -273,6 +277,9 @@ subroutine sim_finalize(dttt0, filehandle)
 
 USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI
 USE var_QuadScalar, ONLY : myStat
+USE var_QuadScalar_newton, ONLY : ccParams
+USE Transport_CC, ONLY : nNLLoopTotal,nNLLoopExhausted,worstNLCriterion,&
+                         bInvalidNumerics
 
 real, intent(inout) :: dttt0
 integer, intent(in) :: filehandle
@@ -298,14 +305,46 @@ CALL myStatOut(time_passed,terminal)
 
 
 IF (myid.eq.showid) THEN
-  WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
-  WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
+  IF (nNLLoopExhausted.GT.0) THEN
+    WRITE(*,'(A,I0,A,I0,A,ES10.3)') " WARNING: ",nNLLoopExhausted," of ", &
+      nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
+      " stopping criterion; worst achieved criterion: ",worstNLCriterion
+    WRITE(filehandle,'(A,I0,A,I0,A,ES10.3)') " WARNING: ",nNLLoopExhausted," of ", &
+      nNLLoopTotal," nonlinear loops exhausted NLmax without meeting the"// &
+      " stopping criterion; worst achieved criterion: ",worstNLCriterion
+  END IF
+  IF (bInvalidNumerics) THEN
+    WRITE(*,*) "CC3D_iso_adaptive FAILED: non-finite values (NaN/Inf)"// &
+      " were detected during the solve."
+    WRITE(*,*) "Exiting with status 1; this failure cannot be disabled."
+    WRITE(filehandle,*) "CC3D_iso_adaptive FAILED: non-finite values"// &
+      " (NaN/Inf) were detected during the solve."
+    WRITE(filehandle,*) "Exiting with status 1; this failure cannot be disabled."
+  ELSE IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) THEN
+    WRITE(*,*) "CC3D_iso_adaptive finished WITHOUT meeting the nonlinear"// &
+      " convergence requirements."
+    WRITE(*,*) "Exiting with status 1 (strict mode); set"// &
+      " CCuvwp@StrictConvergence = No to disable this behavior."
+    WRITE(filehandle,*) "CC3D_iso_adaptive finished WITHOUT meeting the"// &
+      " nonlinear convergence requirements."
+    WRITE(filehandle,*) "Exiting with status 1 (strict mode); set"// &
+      " CCuvwp@StrictConvergence = No to disable this behavior."
+  ELSE
+    WRITE(*,*) "CC3D_iso_adaptive has successfully finished. "
+    WRITE(filehandle,*) "CC3D_iso_adaptive has successfully finished. "
+  END IF
 END IF
 
 call release_mesh()
 
 CALL Barrier_myMPI()
 CALL MPI_Finalize(ierr)
+
+! The counters and the invalid-numerics flag are identical on every rank
+! (both are derived from collective reductions), so all ranks take this
+! branch together. Invalid numerics fail regardless of StrictConvergence.
+IF (bInvalidNumerics) STOP 1
+IF (nNLLoopExhausted.GT.0 .AND. ccParams%StrictConvergence) STOP 1
 
 end subroutine sim_finalize
 !
@@ -1377,4 +1416,3 @@ END SUBROUTINE DistributeElemField
 ! -----------------------------------------------------------------
 
 END SUBROUTINE myReadSol
-
