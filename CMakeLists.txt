@@ -306,6 +306,20 @@ include(FFDependencies)
 #ENDIF(FC_CUDA_SUPPORT)
 
 find_package(OpenMP REQUIRED)
+
+# FindOpenMP supplies the OpenMP runtime libraries through its imported target,
+# but for GNU compilers it does not necessarily put the compiler driver's
+# OpenMP option on the final link command.  That option is required when the
+# link contains GCC offload objects (for example, with OpenMPI 5), otherwise
+# symbols such as __offload_func_table remain undefined.  Apply the
+# compiler-specific option found by FindOpenMP to every Fortran executable
+# link; LINK_LANGUAGE keeps it away from C/C++ linker invocations.
+if(OpenMP_Fortran_FLAGS)
+  add_link_options(
+    "$<$<LINK_LANGUAGE:Fortran>:SHELL:${OpenMP_Fortran_FLAGS}>"
+    )
+endif()
+
 #=========================================================================
 #                       CMake BUILD Type
 #=========================================================================
