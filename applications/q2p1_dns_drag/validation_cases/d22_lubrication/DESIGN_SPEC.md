@@ -54,14 +54,36 @@ layer 3.
 
 ## 4. FF-side wire (plumbing only)
 
-One interface call at setup passing h_min (FF already computes it — the
-`DNS_RESOLUTION` print) → `lubrication::setMeshDx()`. This activates the
-already-implemented-but-dead `lubricationMeshClampFactor_` clamp
-(`setMeshDx` currently called only from a unit test). With clamp factor
+DONE 2026-08-26 (pe feature/lubrication-meshdx-wiring 8c5eab1 + FF
+ComputeCFL commit; gate row `d22_meshdx_wiring`, job 141389 bitwise):
+`ComputeCFL` pushes the collectively reduced global `h_min` through the
+extern-C entry `set_lubrication_mesh_dx` every call — setup-function-
+agnostic (no per-setup edits; the params store is process-global), every
+rank's PE instance receives the same value. Arming prints a one-time
+`PE_LUB_MESHDX` line on the representative rank; a configured clamp with
+no pushed dx warns loudly at the first stage sweep. The same pe commit
+also centralizes `applyOptionalLubricationParams` after every
+parallel-mode setup dispatch — previously only setupKroupa applied it in
+parallel mode, so `lubricationEnabled_` was a silent no-op in the other
+twelve parallel setups. With clamp factor
 c = 2 the activation gap is **gap < 2h automatically per resolution** —
 the D2.1 crossover rule (resolved FBM tracks Brenner to ~10% down to
 2–3 cells, −20% at ~1.5 cells; departure collapses in gap/h) wired in,
 instead of a hand-computed cutoff factor per case.
+
+SIZE-DEPENDENCE AUDIT (recorded 2026-08-26, owner-raised): parameters
+that are RELATIVE and scale-free — `lubricationEpsCritical_` (h_c/a),
+`lubricationCutoffFactor_` (h_cut/a), `lubricationMeshClampFactor_`
+(·h_min), `alphaImpulseCap_`. Parameters that are ABSOLUTE lengths and
+must be restated per unit system — `minEpsLub_` (gap floor),
+`contactHysteresisDelta_` / `lubricationHysteresisDelta_` (blend
+half-widths); EL-only absolutes: `lubricationCutoff_`,
+`lubricationSlipLength_`. Campaign decks are d = 1, where the shipped
+defaults read as fractions of a diameter; a ten Cate G3 deck (d = 0.15 m
+units) must scale the three absolutes by 0.15 accordingly. Proposal for
+upstream (not implemented — schema decision for the owner): relative
+variants minEpsLubFactor_/hysteresis factors à la Kroupa's roughness
+eps_min = h_min/a, defaulting to the absolute keys when unset.
 
 ## 5. Setup procedure (the "robust by construction" requirement)
 

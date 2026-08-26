@@ -32,6 +32,20 @@ end type tParticleData
 
 
 !================================================================================================
+!                              Subroutine set_lubrication_mesh_dx
+!================================================================================================
+! C++ implementation: set_lubrication_mesh_dx() in libs/pe/pe/interface/c_interface_queries.h
+! Pushes the reduced global h_min into the pe lubrication mesh clamp: with
+! lubricationMeshClampFactor_ = c > 0 the effective outer cutoff becomes
+! min(cutoffFactor*a, c*h_min). Inert while lubrication is disabled or c = 0.
+interface
+subroutine set_lubrication_mesh_dx(dx) bind(C, name="set_lubrication_mesh_dx")
+  use iso_c_binding, only: c_double
+  real(c_double) :: dx
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Function getTotalParticles
 !================================================================================================
 ! C++ implementation: getTotalParts() in libs/pe/src/interface/object_queries.cpp
