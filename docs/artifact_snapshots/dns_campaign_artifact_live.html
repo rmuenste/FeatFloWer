@@ -973,6 +973,51 @@ figure.fig figcaption b {
 .dktschem .eqn     { fill: var(--ink); font-family: var(--ff-mono); font-size: 11.5px; }
 .dktschem .lbl2    { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 11px; }
 
+/* ---------- D3.2 hindered settling: column cross-sections + hindrance curve ---------- */
+.d32schem, .d32curve { display: block; width: 100%; height: auto; }
+
+.d32schem .panel   { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
+.d32schem .fluid   { fill: var(--accent-wash); stroke: none; }
+.d32schem .ret     { fill: var(--warm); opacity: .16; }
+.d32schem .cloud   { fill: var(--accent); opacity: .16; }
+.d32schem .env     { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
+.d32schem .colbox  { fill: none; stroke: var(--ink-2); stroke-width: 2.4; }
+.d32schem .pcl     { fill: var(--accent); }
+.d32schem .uarw    { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.d32schem .uhead   { fill: var(--accent); }
+.d32schem .retarw  { fill: none; stroke: var(--warm); stroke-width: 1.4; }
+.d32schem .rhead   { fill: var(--warm); }
+.d32schem .tick    { stroke: var(--muted); stroke-width: 1; }
+.d32schem .zt      { fill: var(--muted); font-family: var(--ff-mono); font-size: 9px; }
+.d32schem .utxt    { fill: var(--accent); font-family: var(--ff-mono); font-size: 11px; font-weight: 600; }
+.d32schem .rtxt    { fill: var(--warm); font-family: var(--ff-mono); font-size: 9px; }
+.d32schem .dimtxt  { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
+.d32schem .step    { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; letter-spacing: .12em; font-weight: 600; }
+.d32schem .lbl     { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
+
+.d32curve .plotbg  { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
+.d32curve .enh     { fill: var(--warm); opacity: .07; }
+.d32curve .grid line { stroke: var(--rule-soft); stroke-width: 1; }
+.d32curve .ax      { stroke: var(--rule); stroke-width: 1.2; }
+.d32curve .rzband  { fill: var(--ok); opacity: .22; }
+.d32curve .rzedge  { fill: none; stroke: var(--ok); stroke-width: 1; }
+.d32curve .fit     { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; }
+.d32curve .one     { stroke: var(--muted); stroke-width: 1.2; }
+.d32curve .slope   { fill: none; stroke: var(--warm); stroke-width: 2; stroke-dasharray: 7 4; }
+.d32curve .box6    { fill: var(--accent); fill-opacity: .3; stroke: var(--accent); stroke-width: 1.4; }
+.d32curve .m6      { fill: var(--accent); stroke: var(--surface); stroke-width: 1; }
+.d32curve .bar12   { stroke: var(--warm); stroke-width: 2.6; stroke-linecap: round; }
+.d32curve .m12     { fill: var(--warm); stroke: var(--surface); stroke-width: 1.2; }
+.d32curve .ytick, .d32curve .xtick { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
+.d32curve .axtitle { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 10px; }
+.d32curve .ptitle  { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; font-weight: 600; }
+.d32curve .annot   { font-family: var(--ff-mono); font-size: 9.5px; }
+.d32curve .annot.fitT  { fill: var(--accent); }
+.d32curve .annot.rzT   { fill: var(--ok); }
+.d32curve .annot.wT    { fill: var(--warm); }
+.d32curve .annot.dim   { fill: var(--muted); }
+.d32curve .legend text { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
+.d32curve .legend line { stroke-width: 2.4; }
 /* ------- D5.1 V2 viscometer: through-hole cell schematic + analytic reference ------- */
 .d52schem, .d52prof { display: block; width: 100%; height: auto; }
 
@@ -2544,11 +2589,131 @@ html { scroll-behavior: smooth; }
           <div>
             <h3 class="blk" id="D3-2"><span class="tag">D3.2</span> Wall-bounded hindered settling <span class="aside">planned scope closed &middot; attribution discriminator answered</span> <span class="v rec">RECORDED</span> <span class="v res">CLOSED</span></h3>
             <div class="blkbody">
-              <p class="note"><strong>All 12 ladder points are banked — N = 20 / 40 / 80 / 120 × 3 seeds, ~6 h 15 m each</strong> — reduced by <code>tools/d32_ladder_analysis.py</code> over the plateau window <strong>t = 15–25</strong>. The φ ≈ 0.11 tier that was supposed to decide whether a slope fitted over φ ≲ 0.08 was real landed <em>on</em> the line: the collapse holds over the full lever, and the exponent below is a measurement rather than an extrapolation.</p>
+              <p class="note"><strong>All 12 ladder points are banked</strong>, reduced by <code>tools/d32_ladder_analysis.py</code> over the plateau window t = 15&#8211;25. The &#966; &#8776; 0.11 tier that was supposed to decide whether a slope fitted over &#966; &#8818; 0.08 was real landed <em>on</em> the line: the collapse holds over the full lever, and the exponent below is a measurement rather than an extrapolation.</p>
+
+              <figure class="fig">
+                <svg class="d32schem" viewBox="0 0 760 252" role="img" aria-labelledby="d32CellT d32CellD">
+                  <title id="d32CellT">The two settling columns in cross-section, with the same particle cloud</title>
+                  <desc id="d32CellD">Three diagrams, the first two drawn to the same scale. Left, the cross-section of the narrow column: a square six particle diameters on a side, with a circular cloud footprint five and a half diameters across almost filling it, leaving only a quarter-diameter clearance to each wall. The thin frame of fluid left between the cloud and the walls is shaded as the return path. Middle, the cross-section of the wide column: the identical cloud in a square twelve diameters on a side, so the clearance grows to three and a quarter diameters and the shaded return path becomes a broad surround; the cross-sectional area rises from thirty-six to one hundred and forty-four square diameters, a factor of four. Right, an elevation of the column: twenty-four diameters tall, with the cloud seeded between heights eight and twenty-two, a thick downward arrow marking the settling velocity beside the cloud and two thin upward arrows marking the return flow driven back past the cloud.</desc>
+
+                  <defs>
+                    <marker id="d32Uh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.4" markerHeight="4.4" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="uhead"/></marker>
+                    <marker id="d32Rh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.6" markerHeight="4.6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="rhead"/></marker>
+                  </defs>
+
+                  <!-- ============ panel 1 : 6d cross-section ============ -->
+                  <g>
+                    <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
+                    <text class="dimtxt" x="124" y="34" text-anchor="middle">wall clearance &#8776; 0.25 d</text>
+                    <rect class="fluid" x="85" y="59" width="78" height="78"/>
+                    <path class="ret" fill-rule="evenodd" d="M85,59 H163 V137 H85 Z M124,62.25 A35.75,35.75 0 1,0 124,133.75 A35.75,35.75 0 1,0 124,62.25 Z"/>
+                    <circle class="cloud" cx="124" cy="98" r="35.75"/>
+                    <circle class="env" cx="124" cy="98" r="35.75"/>
+                    <rect class="colbox" x="85" y="59" width="78" height="78"/>
+                    <circle class="pcl" cx="124" cy="98" r="6.5"/>
+                    <circle class="pcl" cx="136.14" cy="106.82" r="6.5"/><circle class="pcl" cx="119.36" cy="112.27" r="6.5"/>
+                    <circle class="pcl" cx="109.00" cy="98.00" r="6.5"/><circle class="pcl" cx="119.36" cy="83.73" r="6.5"/>
+                    <circle class="pcl" cx="136.14" cy="89.18" r="6.5"/>
+                    <circle class="pcl" cx="148.95" cy="108.33" r="6.5"/><circle class="pcl" cx="134.33" cy="122.95" r="6.5"/>
+                    <circle class="pcl" cx="113.67" cy="122.95" r="6.5"/><circle class="pcl" cx="99.05" cy="108.33" r="6.5"/>
+                    <circle class="pcl" cx="99.05" cy="87.67" r="6.5"/><circle class="pcl" cx="113.67" cy="73.05" r="6.5"/>
+                    <circle class="pcl" cx="134.33" cy="73.05" r="6.5"/><circle class="pcl" cx="148.95" cy="87.67" r="6.5"/>
+                    <text class="dimtxt" x="124" y="154" text-anchor="middle">cross-section 36 d&#178;</text>
+                    <text class="dimtxt" x="124" y="167" text-anchor="middle">cloud footprint &#8960; 5.5 d</text>
+                    <text class="rtxt" x="124" y="182" text-anchor="middle">shaded = return path</text>
+                    <text class="step" x="124" y="220" text-anchor="middle">6d COLUMN &#183; THE LADDER</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">the cloud fills the cross-section, so</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">the return flow is squeezed past it</text>
+                  </g>
+
+                  <!-- ============ panel 2 : 12d cross-section ============ -->
+                  <g transform="translate(254,0)">
+                    <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
+                    <rect class="fluid" x="46" y="20" width="156" height="156"/>
+                    <path class="ret" fill-rule="evenodd" d="M46,20 H202 V176 H46 Z M124,62.25 A35.75,35.75 0 1,0 124,133.75 A35.75,35.75 0 1,0 124,62.25 Z"/>
+                    <circle class="cloud" cx="124" cy="98" r="35.75"/>
+                    <circle class="env" cx="124" cy="98" r="35.75"/>
+                    <rect class="colbox" x="46" y="20" width="156" height="156"/>
+                    <circle class="pcl" cx="124" cy="98" r="6.5"/>
+                    <circle class="pcl" cx="136.14" cy="106.82" r="6.5"/><circle class="pcl" cx="119.36" cy="112.27" r="6.5"/>
+                    <circle class="pcl" cx="109.00" cy="98.00" r="6.5"/><circle class="pcl" cx="119.36" cy="83.73" r="6.5"/>
+                    <circle class="pcl" cx="136.14" cy="89.18" r="6.5"/>
+                    <circle class="pcl" cx="148.95" cy="108.33" r="6.5"/><circle class="pcl" cx="134.33" cy="122.95" r="6.5"/>
+                    <circle class="pcl" cx="113.67" cy="122.95" r="6.5"/><circle class="pcl" cx="99.05" cy="108.33" r="6.5"/>
+                    <circle class="pcl" cx="99.05" cy="87.67" r="6.5"/><circle class="pcl" cx="113.67" cy="73.05" r="6.5"/>
+                    <circle class="pcl" cx="134.33" cy="73.05" r="6.5"/><circle class="pcl" cx="148.95" cy="87.67" r="6.5"/>
+                    <line class="tick" x1="46" y1="98" x2="88.25" y2="98"/>
+                    <text class="dimtxt" x="67" y="94" text-anchor="middle">3.25 d</text>
+                    <text class="dimtxt" x="124" y="188" text-anchor="middle">cross-section 144 d&#178; &#8212; 4&#215;</text>
+                    <text class="rtxt" x="124" y="199" text-anchor="middle">the same return flow, over 4&#215; the area</text>
+                    <text class="step" x="124" y="220" text-anchor="middle">12d COLUMN &#183; DISCRIMINATOR</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">byte-identical cloud, same resolution,</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">deck differs by one line: the mesh</text>
+                  </g>
+
+                  <!-- ============ panel 3 : elevation ============ -->
+                  <g transform="translate(508,0)">
+                    <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
+                    <rect class="fluid" x="104" y="20" width="39" height="156"/>
+                    <rect class="cloud" x="106.1" y="33" width="35.8" height="91"/>
+                    <rect class="colbox" x="104" y="20" width="39" height="156"/>
+                    <circle class="pcl" cx="117" cy="42" r="3.25"/><circle class="pcl" cx="128" cy="49" r="3.25"/>
+                    <circle class="pcl" cx="137" cy="44" r="3.25"/><circle class="pcl" cx="121" cy="60" r="3.25"/>
+                    <circle class="pcl" cx="133" cy="66" r="3.25"/><circle class="pcl" cx="113" cy="71" r="3.25"/>
+                    <circle class="pcl" cx="126" cy="80" r="3.25"/><circle class="pcl" cx="135" cy="88" r="3.25"/>
+                    <circle class="pcl" cx="116" cy="92" r="3.25"/><circle class="pcl" cx="128" cy="101" r="3.25"/>
+                    <circle class="pcl" cx="111" cy="103" r="3.25"/><circle class="pcl" cx="120" cy="111" r="3.25"/>
+                    <circle class="pcl" cx="133" cy="113" r="3.25"/><circle class="pcl" cx="124" cy="121" r="3.25"/>
+                    <path class="retarw" d="M107.5,126 L107.5,40" marker-end="url(#d32Rh)"/>
+                    <path class="retarw" d="M139.5,126 L139.5,40" marker-end="url(#d32Rh)"/>
+                    <path class="uarw" d="M156,48 L156,114" marker-end="url(#d32Uh)"/>
+                    <text class="utxt" x="161" y="84">U</text>
+                    <text class="rtxt" x="161" y="128">return</text>
+                    <text class="rtxt" x="161" y="139">flow</text>
+                    <line class="tick" x1="96" y1="20" x2="104" y2="20"/>
+                    <line class="tick" x1="96" y1="33" x2="104" y2="33"/>
+                    <line class="tick" x1="96" y1="124" x2="104" y2="124"/>
+                    <line class="tick" x1="96" y1="176" x2="104" y2="176"/>
+                    <text class="zt" x="92" y="23" text-anchor="end">z = 24</text>
+                    <text class="zt" x="92" y="36" text-anchor="end">22</text>
+                    <text class="zt" x="92" y="127" text-anchor="end">8</text>
+                    <text class="zt" x="92" y="179" text-anchor="end">0</text>
+                    <text class="dimtxt" x="124" y="194" text-anchor="middle">RSA seed band, min centre gap 1.10 d</text>
+                    <text class="step" x="124" y="220" text-anchor="middle">ELEVATION &#183; BOTH COLUMNS</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">24 d tall in both cases; U is read over</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">the settled plateau, t = 15 &#8211; 25</text>
+                  </g>
+                </svg>
+                <figcaption><b>one variable moves</b>Panels 1 and 2 are drawn to the <strong>same scale</strong>, which is the whole argument: the cloud is identical &#8212; the same <code>particles.xyz</code>, verified byte-for-byte with <code>cmp</code> &#8212; and only the wall distance changes. In the <strong>6d column</strong> the cloud footprint (&#8960; 5.5 d) all but fills the 6 d &#215; 6 d cross-section, leaving <strong>&#8776; 0.25 d</strong> of clearance, so continuity forces the displaced fluid back <em>through and past the cloud itself</em>. In the <strong>12d column</strong> the same cloud sits in <strong>4&#215; the cross-section</strong> with <strong>&#8776; 3.25 d</strong> of clearance and the constraint releases. Both columns are <strong>24 d tall</strong>, both run at <strong>D/h = 8.000</strong> on the same certified binary, and the wide deck differs from its 6d twin by <strong>exactly one line</strong> &#8212; the mesh folder. The hindrance ratio in each is read against a single sphere settling in the <em>same</em> column, so the static part of the confinement cancels in U/u_t instead of contaminating it.</figcaption>
+              </figure>
 
               <div class="setup">
                 <span class="lbl">Setup &amp; expectation</span>
-                <p>A random cloud of spheres settles in a <strong>walled column, 6d × 6d × 24d</strong> — the same geometry family as the DKT case — with <strong>d = 1</strong>, <strong>ρ_p/ρ_f = 1.14</strong> and frictionless contact. Clouds are seeded by <strong>RSA in z ∈ [8, 22] with a minimum gap of 1.10 d</strong>, at <strong>N = 20 / 40 / 80 / 120</strong>, three seeds each. The hindrance ratio is read against a single sphere settling in the <em>same</em> column: <strong>u_t = 0.4061</strong>, <strong>Re_t = 86.4</strong>. That reference is wall-hindered by construction, which is the point — the confinement then partially cancels in the U/u_t ratio instead of contaminating it.</p>
+                <p>A random cloud of spheres settles in a <strong>walled column</strong> &#8212; the same geometry family as the DKT case &#8212; and the swarm velocity U is divided by the terminal velocity of a <em>single</em> sphere in that same column. <strong>That reference is wall-hindered by construction, which is the point</strong>: the static confinement then partially cancels in the ratio rather than contaminating it. The expectation is stable hindered settling, U/u_t &lt; 1, against the Rowe/Richardson&#8211;Zaki band for an unbounded suspension. The parameters below are pinned across every run in the stage.</p>
+              </div>
+
+              <div class="tablewrap">
+                <table class="num">
+                  <caption>D3.2 parameters &#8212; the 6d ladder and the 12d discriminator, side by side</caption>
+                  <thead>
+                    <tr><th scope="col">Quantity</th><th scope="col">6d column &#183; the &#966; ladder</th><th scope="col">12d column &#183; discriminator</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row" class="id">Column W &#215; W &#215; H</th><td class="err">6d &#215; 6d &#215; 24d</td><td class="err">12d &#215; 12d &#215; 24d</td></tr>
+                    <tr><th scope="row" class="id">Cross-section</th><td class="err">36 d&#178;</td><td class="err">144 d&#178; &#8212; <strong>4&#215;</strong></td></tr>
+                    <tr><th scope="row" class="id">Cloud&#8211;wall surface clearance</th><td class="err">&#8776; 0.25 d</td><td class="err">&#8776; 3.25 d</td></tr>
+                    <tr><th scope="row" class="id">Particles</th><td colspan="2">d = 1, &#961;_p/&#961;_f = 1.14, frictionless contact</td></tr>
+                    <tr><th scope="row" class="id">Seeding</th><td colspan="2">RSA in z &#8712; [8, 22], minimum centre gap 1.10 d; clouds inside &#177; 2.25</td></tr>
+                    <tr><th scope="row" class="id">N &#215; seeds</th><td class="err">20 / 40 / 80 / 120 &#215; 3 &#8594; 12 runs</td><td class="err">40 / 120 &#215; 3 &#8594; 6 runs + 1 u_t</td></tr>
+                    <tr><th scope="row" class="id">Concentration lever</th><td class="err">&#966;_cloud 0.019 &#8594; 0.115</td><td class="err">&#966;_env 0.043 (N = 40), 0.071 (N = 120)</td></tr>
+                    <tr><th scope="row" class="id">Single-sphere reference</th><td class="err">u_t = <strong>0.4061</strong>, Re_t = 86.4</td><td class="err">u_t = <strong>0.4034 &#177; 0.0064</strong></td></tr>
+                    <tr><th scope="row" class="id">Swarm Re over the ladder</th><td class="err">51 &#8211; 77</td><td class="err">&#8212;</td></tr>
+                    <tr><th scope="row" class="id">Plateau window</th><td colspan="2">t = 15 &#8211; 25, reduced by <code>tools/d32_ladder_analysis.py</code></td></tr>
+                    <tr><th scope="row" class="id">Resolution</th><td colspan="2"><code>DNS_RESOLUTION</code> D_over_h = <strong>8.000</strong>, h_min = 0.125 &#8212; identical in both columns</td></tr>
+                    <tr><th scope="row" class="id">Mesh / partition</th><td class="err">DKT column mesh</td><td class="err">27,648 el (24&#215;24&#215;48), <code>DKT_W_108</code></td></tr>
+                    <tr><th scope="row" class="id">Job shape / cost</th><td class="err">109 ranks, &#8776; 6 h 15 m each</td><td class="err">109 ranks, &#8776; 17.2 h each</td></tr>
+                  </tbody>
+                </table>
               </div>
 
               <div class="finding">
@@ -2572,6 +2737,103 @@ html { scroll-behavior: smooth; }
                   </tbody>
                 </table>
               </div>
+
+              <figure class="fig">
+                <svg class="d32curve" viewBox="0 0 760 350" role="img" aria-labelledby="d32CurveT d32CurveD">
+                  <title id="d32CurveT">Hindrance ratio against solid fraction for both columns, with the unbounded reference band</title>
+                  <desc id="d32CurveD">A chart of settling velocity divided by single-sphere terminal velocity against solid fraction, from zero to thirteen percent. A horizontal line marks the unhindered value of one; everything above it is lightly shaded as enhanced settling. A green band running from one down to about zero point six eight is the Rowe and Richardson-Zaki reference for an unbounded suspension, exponent two point seven to three. Well below that band, a blue curve is the measured fit for the narrow column with exponent four point five seven, and four blue boxes sit on it, one for each particle number, each box spanning the recorded range of solid fraction horizontally and of the three seed results vertically: about zero point eight nine at N equals twenty, zero point eight two at forty, zero point six nine at eighty and zero point five eight at one hundred and twenty. Above the unhindered line, two orange markers with vertical seed bars show the wide-column results for the same clouds, about one point zero five at N equals forty and one point one four at N equals one hundred and twenty, joined by an orange dashed line whose slope corresponds to a negative exponent of minus two point six three.</desc>
+
+                  <rect class="plotbg" x="66" y="40" width="574" height="230"/>
+                  <rect class="enh" x="66" y="40" width="574" height="76.67"/>
+                  <g class="grid">
+                    <line x1="66" y1="55.33" x2="640" y2="55.33"/>
+                    <line x1="66" y1="86.00" x2="640" y2="86.00"/>
+                    <line x1="66" y1="147.33" x2="640" y2="147.33"/>
+                    <line x1="66" y1="178.00" x2="640" y2="178.00"/>
+                    <line x1="66" y1="208.67" x2="640" y2="208.67"/>
+                    <line x1="66" y1="239.33" x2="640" y2="239.33"/>
+                  </g>
+
+                  <path class="rzband" d="M66,116.67 L154.31,132.95 L242.62,148.67 L330.92,163.84 L419.23,178.49 L507.54,192.59 L595.85,206.18 L640,212.78 L640,221.39 L595.85,214.35 L507.54,199.77 L419.23,184.53 L330.92,168.62 L242.62,151.95 L154.31,134.70 Z"/>
+                  <polyline class="rzedge" points="66,116.67 154.31,132.95 242.62,148.67 330.92,163.84 419.23,178.49 507.54,192.59 595.85,206.18 640,212.78"/>
+                  <polyline class="rzedge" points="66,116.67 154.31,134.70 242.62,151.95 330.92,168.62 419.23,184.53 507.54,199.77 595.85,214.35 640,221.39"/>
+
+                  <line class="one" x1="66" y1="116.67" x2="640" y2="116.67"/>
+                  <polyline class="fit" points="66,116.67 154.31,143.71 242.62,168.86 330.92,192.20 419.23,213.84 507.54,233.86 595.85,252.35 640,261.05"/>
+                  <line class="slope" x1="198.5" y1="112.17" x2="463.4" y2="55.26"/>
+
+                  <rect class="box6" x="149.90" y="147.00" width="8.83" height="6.75"/>
+                  <rect class="box6" x="233.80" y="165.13" width="30.90" height="12.27"/>
+                  <rect class="box6" x="401.60" y="206.83" width="13.20" height="8.58"/>
+                  <rect class="box6" x="529.60" y="237.80" width="44.20" height="13.49"/>
+                  <circle class="m6" cx="154.31" cy="150.38" r="3"/>
+                  <circle class="m6" cx="249.25" cy="171.27" r="3"/>
+                  <circle class="m6" cx="408.20" cy="211.12" r="3"/>
+                  <circle class="m6" cx="551.70" cy="244.55" r="3"/>
+
+                  <line class="bar12" x1="255.90" y1="99.19" x2="255.90" y2="102.56"/>
+                  <line class="bar12" x1="379.50" y1="66.98" x2="379.50" y2="85.38"/>
+                  <circle class="m12" cx="255.90" cy="100.93" r="4"/>
+                  <circle class="m12" cx="379.50" cy="74.87" r="4"/>
+
+                  <line class="ax" x1="66" y1="270" x2="640" y2="270"/>
+                  <line class="ax" x1="66" y1="40" x2="66" y2="270"/>
+
+                  <g class="ytick">
+                    <text x="60" y="58.8" text-anchor="end">1.2</text>
+                    <text x="60" y="89.5" text-anchor="end">1.1</text>
+                    <text x="60" y="120.2" text-anchor="end">1.0</text>
+                    <text x="60" y="150.8" text-anchor="end">0.9</text>
+                    <text x="60" y="181.5" text-anchor="end">0.8</text>
+                    <text x="60" y="212.2" text-anchor="end">0.7</text>
+                    <text x="60" y="242.8" text-anchor="end">0.6</text>
+                  </g>
+                  <g class="xtick">
+                    <text x="66" y="284" text-anchor="middle">0</text>
+                    <text x="154.31" y="284" text-anchor="middle">0.02</text>
+                    <text x="242.62" y="284" text-anchor="middle">0.04</text>
+                    <text x="330.92" y="284" text-anchor="middle">0.06</text>
+                    <text x="419.23" y="284" text-anchor="middle">0.08</text>
+                    <text x="507.54" y="284" text-anchor="middle">0.10</text>
+                    <text x="595.85" y="284" text-anchor="middle">0.12</text>
+                  </g>
+
+                  <text class="ptitle" x="66" y="24">U / u_t against solid fraction &#8212; measured boxes, reference lines</text>
+                  <text class="axtitle" x="353" y="302" text-anchor="middle">solid fraction &#966; &#8212; &#966;_cloud for the 6d ladder, &#966;_env (bounding box) for the 12d rungs</text>
+                  <text class="axtitle" x="22" y="155" text-anchor="middle" transform="rotate(-90 22 155)">U / u_t</text>
+
+                  <text class="annot dim" x="648" y="114">U/u_t = 1</text>
+                  <text class="annot rzT" x="648" y="214">Rowe / RZ</text>
+                  <text class="annot rzT" x="648" y="226">n = 2.7 &#8211; 3.0</text>
+                  <text class="annot fitT" x="648" y="258">fit n = 4.57</text>
+                  <text class="annot fitT" x="648" y="270">6d confined</text>
+                  <text class="annot wT" x="470" y="50">n = &#8722;2.63</text>
+                  <text class="annot wT" x="634" y="52" text-anchor="end">enhanced settling &#8212; the 12d column</text>
+
+                  <text class="annot fitT" x="154.31" y="164" text-anchor="middle">N = 20</text>
+                  <text class="annot fitT" x="249.25" y="188" text-anchor="middle">N = 40</text>
+                  <text class="annot fitT" x="408.20" y="226" text-anchor="middle">N = 80</text>
+                  <text class="annot fitT" x="551.70" y="262" text-anchor="middle">N = 120</text>
+                  <text class="annot wT" x="255.90" y="93" text-anchor="middle">N = 40</text>
+                  <text class="annot wT" x="379.50" y="60" text-anchor="middle">N = 120</text>
+
+                  <g class="legend">
+                    <rect class="box6" x="66" y="313" width="14" height="9"/>
+                    <text x="88" y="321">measured 6d &#8212; &#966; span &#215; seed span</text>
+                    <line class="fit" x1="268" y1="317" x2="288" y2="317"/>
+                    <text x="294" y="321">fit (1 &#8722; &#966;)&#8308;&#183;&#8309;&#8311;</text>
+                    <rect class="rzband" x="400" y="313" width="14" height="9"/>
+                    <text x="422" y="321">Rowe / RZ n = 2.7&#8211;3.0 (reference)</text>
+                    <circle class="m12" cx="73" cy="335" r="4"/>
+                    <text x="88" y="339">measured 12d &#8212; &#966;_env, seed bar</text>
+                    <line class="slope" x1="268" y1="335" x2="288" y2="335"/>
+                    <text x="294" y="339">two-rung slope n = &#8722;2.63</text>
+                    <line class="one" x1="400" y1="335" x2="420" y2="335"/>
+                    <text x="426" y="339">U/u_t = 1 (unhindered)</text>
+                  </g>
+                </svg>
+                <figcaption><b>the whole stage in one chart</b>Each <strong>blue box</strong> is one rung of the 6d ladder: its width is the recorded &#966;_cloud span across the three seeds, its height the span in U/u_t, so the box <em>is</em> the measurement and nothing is smoothed. The blue line through them is the through-origin fit <strong>(1 &#8722; &#966;)<sup>4.57</sup></strong>. The <strong>green band</strong> is the Rowe/Richardson&#8211;Zaki reference for an <em>unbounded</em> suspension, n = 2.7&#8211;3.0 &#8212; a literature reference, not a measurement here &#8212; and the ladder sits far below it at every rung, with swarm Re 51&#8211;77 throughout, so this is not a low-Re effect. The <strong>orange markers</strong> are the <em>same clouds</em> re-run in the 12d column, with the vertical bar spanning the three seeds; they sit <strong>above U/u_t = 1</strong>, and the dashed orange line through them has slope <strong>n = &#8722;2.63</strong> &#8212; a negative exponent, which is why the verdict below says the Richardson&#8211;Zaki form does not merely shift but stops applying. Note the x axis carries two concentration definitions: &#966;_cloud from measured particle extents for the 6d ladder, and the bounding-box &#966;_env for the 12d rungs, so the two families are not directly superposable point for point &#8212; the <em>sign</em> is the finding.</figcaption>
+              </figure>
 
               <div class="finding">
                 <span class="h">1 — The collapse is excellent, and it certifies its own reference</span>
@@ -2602,8 +2864,27 @@ html { scroll-behavior: smooth; }
               <p class="subhead">Addendum — the wider-column discriminator <span class="v res">COMPLETE &middot; RESOLVED 2026-08-22</span></p>
 
               <div class="setup">
-                <span class="lbl">Design — exactly one variable moves</span>
-                <p>The sweep is repeated in a <strong>12d × 12d × 24d walled column</strong>: double the width, so the cloud's surface-to-wall clearance grows from <strong>≈ 0.25 d to ≈ 3.25 d</strong>. Everything else is pinned. Same <strong>d/2 resolution</strong> — the pathfinder prints <code>DNS_RESOLUTION</code> <strong>D_over_h = 8.000</strong>, identical to the 6d ladder. Same certified binary. <strong>Byte-identical particle clouds</strong>: each <code>particles.xyz</code> is copied verbatim from its 6d twin and verified with <code>cmp</code>. And the deck differs from its 6d twin by <strong>exactly one line</strong> — the mesh folder. Wall distance is the only thing that changes.</p>
+                <span class="lbl">Design &#8212; exactly one variable moves</span>
+                <p>The sweep is repeated in a <strong>12d &#215; 12d &#215; 24d</strong> walled column. Everything else is pinned: same resolution, same certified binary, <strong>byte-identical particle clouds</strong> copied verbatim from each 6d twin and verified with <code>cmp</code>, and a deck that differs from its 6d twin by <strong>exactly one line</strong> &#8212; the mesh folder. <strong>Wall distance is the only thing that changes</strong>, which is what makes the two hypotheses separate on a single number. The parameter table above lists both columns; the table below is the answer they gave.</p>
+              </div>
+
+              <div class="tablewrap">
+                <table class="num">
+                  <caption>The discriminator, quantity by quantity &#8212; same clouds, same binary, one variable</caption>
+                  <thead>
+                    <tr><th scope="col">Quantity</th><th scope="col">6d column</th><th scope="col">12d column</th><th scope="col">Reading</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row" class="id">Cross-section</th><td class="err">36 d&#178;</td><td class="err">144 d&#178;</td><td>4&#215; &#8212; the only variable moved</td></tr>
+                    <tr><th scope="row" class="id">Cloud&#8211;wall clearance</th><td class="err">&#8776; 0.25 d</td><td class="err">&#8776; 3.25 d</td><td>cloud fills the section &#8594; cloud floats free</td></tr>
+                    <tr><th scope="row" class="id">Single sphere, u_t</th><td class="err">0.4061</td><td class="err">0.4034 &#177; 0.0064</td><td><strong>0.7%, inside 1&#963;</strong> &#8212; per-particle wall drag <strong>ruled out</strong></td></tr>
+                    <tr><th scope="row" class="id">N = 40 clouds, U/u_t</th><td class="err">0.802 / 0.842 / 0.834</td><td class="err">1.046 / 1.051 / 1.057</td><td>hindered &#8594; <strong>enhanced</strong>; seed span 0.005</td></tr>
+                    <tr><th scope="row" class="id">N = 120 clouds, U/u_t</th><td class="err">0.597 / 0.561 / 0.605</td><td class="err">1.145 / 1.102 / 1.162</td><td>enhancement <strong>grows with N</strong>; span 0.024</td></tr>
+                    <tr><th scope="row" class="id">RZ exponent</th><td class="err">n = <strong>4.57</strong></td><td class="err">n = <strong>&#8722;2.63</strong></td><td>not a smaller number &#8212; the <strong>form stops applying</strong></td></tr>
+                    <tr><th scope="row" class="id">Predicted by wall-drag hypothesis</th><td class="err">&#8212;</td><td class="err">n &#8594; 2.7 &#8211; 3.0</td><td>partly right: walls matter, but by sign change</td></tr>
+                    <tr><th scope="row" class="id">Predicted by finite-cloud hypothesis</th><td class="err">&#8212;</td><td class="err">n stays &#8776; 4.5</td><td><strong>refuted decisively</strong></td></tr>
+                  </tbody>
+                </table>
               </div>
 
               <div class="finding">
@@ -2612,7 +2893,7 @@ html { scroll-behavior: smooth; }
                 <p><strong>If it is finite-cloud hindrance</strong> — a cloud of bounded extent driving its own return flow back through itself — then the walls were never the mechanism and <strong>n stays ≈ 4.5</strong>. The two candidates named above separate on a single number, and no other knob was touched that could confound it.</p>
               </div>
 
-              <p class="note"><strong>Scope — 7 runs.</strong> The two <em>ends</em> of the φ ladder, <strong>N = 40</strong> and <strong>N = 120</strong> at seeds 1–3, which is enough for a two-rung exponent, plus a <strong>wide-column single-sphere u_t reference</strong> — the analysis normalises by the terminal velocity of the <em>same</em> column, exactly as it did at 6d, so the reference has to be re-measured in the new geometry.</p>
+              <p class="note"><strong>Scope — 7 runs.</strong> The two <em>ends</em> of the φ ladder at seeds 1–3, enough for a two-rung exponent, plus a <strong>wide-column single-sphere u_t reference</strong>: the analysis normalises by the terminal velocity of the <em>same</em> column, exactly as it did at 6d, so the reference has to be re-measured in the new geometry.</p>
 
               <div class="tablewrap">
                 <table class="num">
@@ -2634,19 +2915,50 @@ html { scroll-behavior: smooth; }
 
               <div class="finding">
                 <span class="h">Result 1 — an isolated particle is not measurably wall-retarded, so per-particle wall drag is out</span>
-                <p>The wide-column single-sphere reference (job <strong>140214</strong>) gives <strong>u_t(12d) = 0.4034 ± 0.0064</strong> against <strong>u_t(6d) = 0.4061</strong> — a difference of <strong>0.7%, inside 1σ</strong>, with endpoint drift +2.6 × 10⁻³ well inside the 5 × 10⁻³ steadiness gate. Quadrupling the cross-section does <em>nothing</em> to a single particle at this Re. Whatever the 6d column was taxing, it was not taxing each sphere individually. <span class="v pass">PASS</span></p>
+                <p>The wide-column single-sphere reference (job <strong>140214</strong>) matches its 6d counterpart to <strong>0.7%, inside 1σ</strong> — the u_t row of the table above — with endpoint drift +2.6 × 10⁻³, well inside the 5 × 10⁻³ steadiness gate. Quadrupling the cross-section does <em>nothing</em> to a single particle at this Re. Whatever the 6d column was taxing, it was not taxing each sphere individually. <span class="v pass">PASS</span></p>
               </div>
 
               <div class="finding">
                 <span class="h">Result 2 — the same clouds settle <em>enhanced</em> in the wide column, and the enhancement grows with N</span>
-                <p>Not weaker hindrance. <strong>The opposite sign.</strong> The byte-identical clouds that settled at U/u_t = 0.80–0.84 (N = 40) and 0.56–0.61 (N = 120) in the 6d column come back at <strong>1.046 / 1.051 / 1.057</strong> at N = 40 (seed span 0.005) and <strong>1.145 / 1.102 / 1.162</strong> at N = 120 (span 0.024) in the 12d column. Enhancement <em>growing</em> with particle number is the signature of a collective downdraft — the cloud dragging its own fluid with it — and it is exactly what a finite cloud does when it no longer has to push its return flow past a nearby wall. <span class="v pass">PASS</span></p>
+                <p>Not weaker hindrance. <strong>The opposite sign.</strong> The byte-identical clouds that settled hindered in the 6d column come back <strong>above U/u_t = 1</strong> in the 12d column, at both rungs and every seed — the two orange markers in the chart above, tabulated seed by seed in the discriminator table. Enhancement <em>growing</em> with particle number is the signature of a collective downdraft — the cloud dragging its own fluid with it — and it is exactly what a finite cloud does when it no longer has to push its return flow past a nearby wall. <span class="v pass">PASS</span></p>
               </div>
 
               <div class="finding">
                 <span class="h">Result 3 — the RZ form does not merely shift, it stops applying</span>
-                <p>Fitting the two rungs in Richardson–Zaki form with the cloud-envelope concentration (bounding box: φ_env 0.043 at N = 40, 0.071 at N = 120) returns <strong>n = −2.63</strong>. A <em>negative</em> exponent is not a hindrance law with a smaller number in it; it says the functional form does not describe a finite cloud in a wide vessel at all. <span class="v rec">RECORDED</span></p>
+                <p>Fitting the two rungs in Richardson–Zaki form with the <strong>cloud-envelope concentration φ_env</strong> — a bounding-box estimate, values in the table above — returns <strong>n = −2.63</strong>. A <em>negative</em> exponent is not a hindrance law with a smaller number in it; it says the functional form does not describe a finite cloud in a wide vessel at all. <span class="v rec">RECORDED</span></p>
               </div>
 
+              <div class="tablewrap">
+                <table class="num">
+                  <caption>Three regimes, not two &#8212; which law applies where</caption>
+                  <thead>
+                    <tr><th scope="col">Regime</th><th scope="col">Condition</th><th scope="col">Measured / referenced</th><th scope="col">Hindrance law</th><th scope="col">Where it may be used</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="id">Confined,<br/>vessel-filling</th>
+                      <td>6d column &#8212; cloud/column cross-section ratio &#8776; 1, clearance 0.25 d</td>
+                      <td class="err">measured here:<br/>U/u_t 0.90 &#8594; 0.56 over &#966;_cloud 0.019 &#8594; 0.115</td>
+                      <td class="err"><strong>n = 4.57</strong> (through origin)<br/>n = 4.31 free intercept<br/>rms ln-residual 2.3%</td>
+                      <td><strong>Only</strong> for vessel-filling confined suspensions. <strong>Never</strong> as an unbounded hindrance law.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="id">Unbounded,<br/>homogeneous</th>
+                      <td>infinite medium, no wall constraint on the return flow</td>
+                      <td class="err">literature reference,<br/>not measured here</td>
+                      <td class="err"><strong>n = 2.7 &#8211; 3.0</strong><br/>Rowe / Richardson&#8211;Zaki at Re 51&#8211;77</td>
+                      <td>Vessel-filling <em>homogeneous</em> suspensions.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="id">Finite cloud,<br/>wide vessel</th>
+                      <td>12d column &#8212; clearance 3.25 d, same clouds</td>
+                      <td class="err">measured here:<br/>U/u_t 1.046&#8211;1.057 (N = 40)<br/>1.102&#8211;1.162 (N = 120)</td>
+                      <td class="err"><strong>RZ form fails</strong><br/>two-rung n = &#8722;2.63<br/>settling is <em>enhanced</em></td>
+                      <td>No global-&#966; correlation. EL: local-&#966; hindrance plus the resolved collective flow.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
               <div class="priority">
                 <span class="lbl">Verdict — n ≈ 4.57 is a confinement law, and there are three regimes, not two</span>
                 <p>The finite-cloud hypothesis is <strong>refuted decisively</strong>; the wall hypothesis wins, but as a <em>sign change</em> rather than a drift toward Rowe. The mechanism is <strong>collective return flow</strong>: in the 6d column the cloud fills the cross-section, so continuity forces the displaced fluid back <em>through and past the cloud itself</em> — strong hindrance, n = 4.57. In the 12d column that return flow spreads over four times the area, the constraint releases, and the cloud's own collective downdraft dominates instead.</p>
