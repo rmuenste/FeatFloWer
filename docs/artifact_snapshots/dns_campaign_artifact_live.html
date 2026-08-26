@@ -973,75 +973,49 @@ figure.fig figcaption b {
 .dktschem .eqn     { fill: var(--ink); font-family: var(--ff-mono); font-size: 11.5px; }
 .dktschem .lbl2    { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 11px; }
 
-/* ---------- D5.1 viscometer: cell schematic, eta(t) plot, phi(r) bars ---------- */
-.d51schem, .d51plot, .d51phi { display: block; width: 100%; height: auto; }
+/* ------- D5.1 V2 viscometer: through-hole cell schematic + analytic reference ------- */
+.d52schem, .d52prof { display: block; width: 100%; height: auto; }
 
-.d51schem .panel   { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
-.d51schem .fluid   { fill: var(--accent-wash); stroke: none; }
-.d51schem .bore    { fill: var(--surface); stroke: none; }
-.d51schem .wall    { fill: none; stroke: var(--ink-2); stroke-width: 2; }
-.d51schem .lid     { stroke: var(--ink-2); stroke-width: 3; stroke-linecap: round; }
-.d51schem .rot     { fill: none; stroke: var(--warm); stroke-width: 2.4; }
-.d51schem .rotarw  { fill: none; stroke: var(--warm); stroke-width: 1.6; }
-.d51schem .axis    { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
-.d51schem .ring    { fill: var(--risk); stroke: var(--surface); stroke-width: 1.2; }
-.d51schem .parked  { fill: var(--muted); opacity: .55; }
-.d51schem .pcl     { fill: var(--accent); }
-.d51schem .band    { fill: var(--accent); opacity: .14; }
-.d51schem .env     { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
-.d51schem .marg    { stroke: var(--risk); stroke-width: 1.2; }
-.d51schem .dim     { stroke: var(--muted); stroke-width: 1; }
-.d51schem .om      { fill: var(--warm); font-family: var(--ff-mono); font-size: 12px; font-weight: 600; }
-.d51schem .dimtxt  { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
-.d51schem .ringtxt { fill: var(--risk); font-family: var(--ff-mono); font-size: 9px; }
-.d51schem .step    { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; letter-spacing: .12em; font-weight: 600; }
-.d51schem .lbl     { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
+.d52schem .panel   { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
+.d52schem .fluid   { fill: var(--accent-wash); stroke: none; }
+.d52schem .void    { fill: var(--surface); stroke: none; }
+.d52schem .wall    { fill: none; stroke: var(--ink-2); stroke-width: 2.4; }
+.d52schem .rot     { fill: none; stroke: var(--warm); stroke-width: 2.6; }
+.d52schem .rotarw  { fill: none; stroke: var(--warm); stroke-width: 1.6; }
+.d52schem .sym     { stroke: var(--ok); stroke-width: 2; }
+.d52schem .symtick { stroke: var(--ok); stroke-width: 1; stroke-dasharray: 3 3; }
+.d52schem .axis    { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.d52schem .band    { fill: var(--accent); opacity: .12; }
+.d52schem .env     { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; }
+.d52schem .pcl     { fill: var(--accent); }
+.d52schem .dim     { stroke: var(--muted); stroke-width: 1; }
+.d52schem .dhead   { fill: var(--muted); }
+.d52schem .rhead   { fill: var(--warm); }
+.d52schem .om      { fill: var(--warm); font-family: var(--ff-mono); font-size: 12px; font-weight: 600; }
+.d52schem .dimtxt  { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
+.d52schem .symtxt  { fill: var(--ok); font-family: var(--ff-mono); font-size: 9px; }
+.d52schem .voidtxt { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; letter-spacing: .05em; }
+.d52schem .step    { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; letter-spacing: .12em; font-weight: 600; }
+.d52schem .lbl     { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
 
-.d51plot .plotbg   { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
-.d51plot .plateau  { fill: var(--accent); opacity: .07; }
-.d51plot .blip     { fill: var(--warm); opacity: .10; }
-.d51plot .noseg    { fill: var(--muted); opacity: .07; }
-.d51plot .tband    { fill: var(--ok); opacity: .20; }
-.d51plot .tbandline{ stroke: var(--ok); stroke-width: 1; }
-.d51plot .naive    { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 7 4; }
-.d51plot .grid line{ stroke: var(--rule-soft); stroke-width: 1; }
-.d51plot .ax       { stroke: var(--rule); stroke-width: 1.2; }
-.d51plot .restart  { stroke: var(--warm); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.d51plot .cdna     { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
-.d51plot .cres     { fill: none; stroke: var(--warm); stroke-width: 2; stroke-linejoin: round; }
-.d51plot .anchor   { fill: var(--accent); stroke: var(--surface); stroke-width: 1.2; }
-.d51plot .anchorline { fill: none; stroke: var(--accent); stroke-width: 1.4; stroke-dasharray: 2 3; }
-.d51plot .gaparw   { stroke: var(--risk); stroke-width: 1.6; }
-.d51plot .gaphead  { fill: var(--risk); }
-.d51plot .gaptxt   { fill: var(--risk); font-family: var(--ff-mono); font-size: 10px; font-weight: 600; }
-.d51plot .ytick, .d51plot .xtick { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
-.d51plot .axtitle  { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 10px; }
-.d51plot .ptitle   { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; font-weight: 600; }
-.d51plot .annot    { font-family: var(--ff-mono); font-size: 9.5px; }
-.d51plot .annot.naiveT { fill: var(--muted); }
-.d51plot .annot.bandT  { fill: var(--ok); }
-.d51plot .annot.measT  { fill: var(--ink-2); }
-.d51plot .annot.dim    { fill: var(--muted); }
-.d51plot .annot.rst    { fill: var(--warm); }
-.d51plot .annot.dnaT   { fill: var(--accent); }
-.d51plot .annot.resT   { fill: var(--warm); }
-.d51plot .legend text  { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
-.d51plot .legend line  { stroke-width: 2.4; }
-
-.d51phi .plotbg    { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
-.d51phi .depzone   { fill: var(--risk); opacity: .08; }
-.d51phi .grid line { stroke: var(--rule-soft); stroke-width: 1; }
-.d51phi .ax        { stroke: var(--rule); stroke-width: 1.2; }
-.d51phi .core      { fill: var(--accent); opacity: .85; }
-.d51phi .dep       { fill: var(--risk); opacity: .7; }
-.d51phi .nom       { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 7 4; }
-.d51phi .ytick, .d51phi .xtick { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
-.d51phi .axtitle   { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 10px; }
-.d51phi .ptitle    { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; font-weight: 600; }
-.d51phi .annot     { font-family: var(--ff-mono); font-size: 9.5px; }
-.d51phi .annot.nomT  { fill: var(--muted); }
-.d51phi .annot.coreT { fill: var(--accent); }
-.d51phi .annot.dimT  { fill: var(--risk); }
+.d52prof .plotbg   { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
+.d52prof .grid line{ stroke: var(--rule-soft); stroke-width: 1; }
+.d52prof .ax       { stroke: var(--rule); stroke-width: 1.2; }
+.d52prof .rotline  { stroke: var(--warm); stroke-width: 1.6; }
+.d52prof .wallline { stroke: var(--ink-2); stroke-width: 1.6; }
+.d52prof .fillu    { fill: var(--accent); opacity: .09; }
+.d52prof .curve    { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; }
+.d52prof .lin      { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 6 4; }
+.d52prof .nom      { stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 6 4; }
+.d52prof .mark     { fill: var(--ok); stroke: var(--surface); stroke-width: 1.2; }
+.d52prof .ytick, .d52prof .xtick { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
+.d52prof .axtitle  { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 10px; }
+.d52prof .ptitle   { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; font-weight: 600; }
+.d52prof .annot    { font-family: var(--ff-mono); font-size: 9.5px; }
+.d52prof .annot.curveT { fill: var(--accent); }
+.d52prof .annot.dim    { fill: var(--muted); }
+.d52prof .annot.rotT   { fill: var(--warm); }
+.d52prof .annot.okT    { fill: var(--ok); }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -1212,18 +1186,18 @@ html { scroll-behavior: smooth; }
           <h2>Status &amp; results</h2>
         </div>
         <div class="flow">
-          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed, mechanism rewritten 2026-08-22 &middot; D3.1 closed + audit closed &middot; D3.2 CLOSED — the confined exponent is a confinement law &middot; D5.1 viscometer V0 baseline PASS, V1 Einstein gate measured and FAILED &middot; CHERD SI finalisation in parallel</p>
+          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed, mechanism rewritten 2026-08-22 &middot; D3.1 closed + audit closed &middot; D3.2 CLOSED — the confined exponent is a confinement law &middot; D5.1 viscometer rebuilt as a through-hole cell, V2.0 queued &middot; CHERD SI finalisation in parallel</p>
 
           <div class="statusband">
 
             <div class="tally">
-              <div class="pass"><span class="n">43</span><span class="l">Pass</span></div>
-              <div class="rec"><span class="n">54</span><span class="l">Recorded</span></div>
+              <div class="pass"><span class="n">45</span><span class="l">Pass</span></div>
+              <div class="rec"><span class="n">56</span><span class="l">Recorded</span></div>
               <div class="res"><span class="n">22</span><span class="l">Resolved</span></div>
-              <div class="fail"><span class="n">3</span><span class="l">Fail</span></div>
-              <div class="run"><span class="n">0</span><span class="l">In flight</span></div>
+              <div class="fail"><span class="n">2</span><span class="l">Fail</span></div>
+              <div class="run"><span class="n">1</span><span class="l">In flight</span></div>
             </div>
-            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. Every <em>verdict</em> count above is a settled reading. <strong>Two closures landed on 2026-08-22.</strong> The <strong><a href="#D3-2">D3.2 wide-column discriminator fleet</a></strong> — 7 jobs, 140208–140214 — is complete and settles the attribution: the confined exponent is a <strong>confinement law carried by collective return flow</strong>, not per-particle wall drag. And a solver defect found in the certified binary lineage (<code>hcaf_angvel_reset</code>, angular velocity zeroed every step) <strong><a href="#D2-3">retires the D2.3 &ldquo;frictional stall&rdquo;</a></strong> as an artifact — on the repaired binary the frictional DKT run tumbles. Since then the <strong><a href="#D5-1">D5.1 numerical viscometer</a></strong> has produced its φ = 0 baseline (PASS, machine-steady), a torque-metrology finding that corrects the reaction estimator on rotating surfaces, and — as of this snapshot — its <strong>V1 Einstein gate</strong> at φ = 0.05, which is <strong>measured and FAILED</strong>: η is flat over 40 time units at 1.044–1.051 against a composite-Einstein target of 1.0791–1.0905, i.e. only <strong>55 ± 8% of the predicted viscosity excess</strong> is recovered at D/h = 8. That is the third FAIL row, and like the other two it is attributed rather than left open — the recorded reading is stresslet under-resolution, with a D/h = 16 rerun as the discriminator. <strong>Nothing is in flight at this snapshot.</strong> In parallel, <strong><a href="#d31-audit">finalising the drag benchmarks for the CHERD journal supplement</a></strong> continues — that is where four of the RESOLVED rows came from: two errata, a metrology discovery, and a 24-run re-measurement campaign that left every headline number intact.</p>
+            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. Every <em>verdict</em> count above is a settled reading. <strong>Two closures landed on 2026-08-22.</strong> The <strong><a href="#D3-2">D3.2 wide-column discriminator fleet</a></strong> — 7 jobs, 140208–140214 — is complete and settles the attribution: the confined exponent is a <strong>confinement law carried by collective return flow</strong>, not per-particle wall drag. And a solver defect found in the certified binary lineage (<code>hcaf_angvel_reset</code>, angular velocity zeroed every step) <strong><a href="#D2-3">retires the D2.3 &ldquo;frictional stall&rdquo;</a></strong> as an artifact — on the repaired binary the frictional DKT run tumbles. Since then the <strong><a href="#D5-1">D5.1 numerical viscometer</a></strong> has been <strong>rebuilt</strong>. The blind-bore cell that produced the first &#966; = 0 baseline and the first Einstein-gate attempt was retired on 2026-08-26: <strong>45.7% of its torque was generated in particle-free fluid</strong>, so &#951;(&#966;) = T(&#966;)/T(0) came out dilution-contaminated and the gate could not discriminate. That earlier FAIL verdict is revised to RECORDED in the datasheet &#8212; consistent with Einstein within instrument uncertainty, inconclusive as a resolution test &#8212; and its resolution reading is withdrawn, which is why the FAIL count now reads <strong>2</strong>. The replacement is a <strong>through-hole annulus with symmetry ends</strong>, mirroring the legacy instrument that validated Einstein under the old code, and it earns an exact analytic torque reference the blind bore never had. <strong>V2.0, the empty baseline, is queued as job 141372 &#8212; the one thing in flight at this snapshot.</strong> In parallel, <strong><a href="#d31-audit">finalising the drag benchmarks for the CHERD journal supplement</a></strong> continues — that is where four of the RESOLVED rows came from: two errata, a metrology discovery, and a 24-run re-measurement campaign that left every headline number intact.</p>
 
             <div class="statblock">
               <p class="subhead">Benchmark 1 — ten Cate sphere sedimentation (E1–E4)</p>
@@ -1727,399 +1701,269 @@ html { scroll-behavior: smooth; }
             </div>
 
             <div class="statblock">
-              <p class="subhead">Benchmark 6 — the numerical viscometer (D5.1 rheology arc) <span class="v pass">V0 BASELINE PASS</span> <span class="v fail">V1 EINSTEIN GATE FAIL</span></p>
+              <p class="subhead">Benchmark 6 &mdash; the numerical viscometer, V2 through-hole cell (D5.1 rheology arc) <span class="v run">V2.0 QUEUED &middot; AWAITING FIRST RESULTS</span></p>
 
               <figure class="fig">
-                <svg class="d51schem" viewBox="0 0 760 252" role="img" aria-labelledby="d51CellT d51CellD">
-                  <title id="d51CellT">The Searle-cell geometry, in V0 and V1 configuration</title>
-                  <desc id="d51CellD">Three diagrams. Left, a side section of the V0 baseline cell: a meshed stationary outer cylinder of radius ten and height twelve, closed at bottom and top. A coaxial cylindrical hole of radius four &#8212; the un-meshed bob &#8212; reaches from the top face down to height four, an immersed depth of eight. The hole&#8217;s side wall and its end face rotate as a rigid body via a Dirichlet condition; the outer cylinder and both end walls are stationary. Two marked dots where the rotating bob wall meets the stationary top wall indicate the circle of discontinuous wall velocity. A small inert sphere sits parked inside the bob hole at height eight. Middle, the same section in V1 configuration: the parked sphere is gone and a band of two hundred spheres fills the gap, centres between radius five and nine and heights five point five and ten point five, leaving a half-diameter particle-free margin against the bob wall, the outer wall, and the top and bottom of the band. Right, a top view showing the rotating bob, the outer cylinder wall, dashed circles marking the particle envelope, and scattered particles between them.</desc>
+                <svg class="d52schem" viewBox="0 0 760 252" role="img" aria-labelledby="d52CellT d52CellD">
+                  <title id="d52CellT">The V2 through-hole annular viscometer, in section and in plan</title>
+                  <desc id="d52CellD">Three diagrams. Left, an axial section of the empty V2.0 cell: fluid fills an annulus between an inner radius of five and an outer radius of ten, ten units tall. The inner surface is a coaxial hole that runs through the entire height from bottom to top, with no end face anywhere; that surface rotates as a rigid body about the axis. The outer surface is a stationary no-slip wall. The bottom and top planes, at height zero and height ten, are symmetry planes with free slip and zero vertical velocity, drawn as a solid line paired with a dashed line. Middle, the same section in the V2.1 configuration, with two hundred and twenty-five spheres filling the annulus inside a dashed envelope that marks the half-diameter surface clearance kept to both walls and to both symmetry planes; particle centres lie between radius six and nine and between height one and nine. Right, a plan view down the axis: the rotating inner circle at radius five, the stationary outer circle at radius ten, two dashed circles marking the particle envelope, and spheres scattered through the gap between them.</desc>
 
                   <defs>
-                    <marker id="d51Ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="rhead"/></marker>
-                    <marker id="d51Dh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="dhead"/></marker>
+                    <marker id="d52Ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="rhead"/></marker>
+                    <marker id="d52Dh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="dhead"/></marker>
                   </defs>
 
-                  <!-- ============ panel 1 : V0 side section ============ -->
+                  <!-- ============ panel 1 : V2.0 axial section ============ -->
                   <g>
                     <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
-                    <path class="fluid" d="M18,38 L84,38 L84,126 L172,126 L172,38 L238,38 L238,170 L18,170 Z"/>
-                    <rect class="bore" x="84" y="38" width="88" height="88"/>
-                    <rect class="wall" x="18" y="38" width="220" height="132"/>
-                    <line class="lid" x1="18" y1="38" x2="84" y2="38"/>
-                    <line class="lid" x1="172" y1="38" x2="238" y2="38"/>
-                    <line class="rot" x1="84" y1="38" x2="84" y2="126"/>
-                    <line class="rot" x1="172" y1="38" x2="172" y2="126"/>
-                    <line class="rot" x1="84" y1="126" x2="172" y2="126"/>
-                    <line class="axis" x1="128" y1="30" x2="128" y2="178"/>
-                    <path class="rotarw" d="M104,52 A24,10 0 0 0 152,52" marker-end="url(#d51Ah)"/>
-                    <text class="om" x="128" y="46" text-anchor="middle">&#937;</text>
-                    <circle class="ring" cx="84" cy="38" r="3.4"/>
-                    <circle class="ring" cx="172" cy="38" r="3.4"/>
-                    <text class="ringtxt" x="128" y="26" text-anchor="middle">singular shear ring</text>
-                    <circle class="parked" cx="128" cy="82" r="5.5"/>
-                    <line class="dim" x1="184" y1="38" x2="184" y2="126" marker-start="url(#d51Dh)" marker-end="url(#d51Dh)"/>
-                    <text class="dimtxt" x="190" y="86">8</text>
-                    <text class="dimtxt" x="24" y="164">r&#8336; = 10 &#183; H = 12 &#183; immersion 8</text>
-                    <text class="dimtxt" x="128" y="118" text-anchor="middle">r&#7522; = 4</text>
-                    <text class="step" x="124" y="220" text-anchor="middle">V0 &#183; &#966; = 0 BASELINE</text>
-                    <text class="lbl" x="124" y="235" text-anchor="middle">un-meshed bob (hole in the mesh), rotating u = &#937;&#215;r;</text>
-                    <text class="lbl" x="124" y="246" text-anchor="middle">inert sphere parked inside it at (0,0,8)</text>
+                    <text class="lbl" x="124" y="24" text-anchor="middle">axially uniform annular Couette</text>
+                    <rect class="fluid" x="18" y="46" width="55" height="120"/>
+                    <rect class="fluid" x="183" y="46" width="55" height="120"/>
+                    <rect class="void" x="73" y="46" width="110" height="120"/>
+                    <line class="wall" x1="18" y1="46" x2="18" y2="166"/>
+                    <line class="wall" x1="238" y1="46" x2="238" y2="166"/>
+                    <line class="rot" x1="73" y1="46" x2="73" y2="166"/>
+                    <line class="rot" x1="183" y1="46" x2="183" y2="166"/>
+                    <line class="sym" x1="18" y1="46" x2="73" y2="46"/>
+                    <line class="sym" x1="183" y1="46" x2="238" y2="46"/>
+                    <line class="sym" x1="18" y1="166" x2="73" y2="166"/>
+                    <line class="sym" x1="183" y1="166" x2="238" y2="166"/>
+                    <line class="symtick" x1="18" y1="42" x2="73" y2="42"/>
+                    <line class="symtick" x1="183" y1="42" x2="238" y2="42"/>
+                    <line class="symtick" x1="18" y1="170" x2="73" y2="170"/>
+                    <line class="symtick" x1="183" y1="170" x2="238" y2="170"/>
+                    <line class="axis" x1="128" y1="36" x2="128" y2="176"/>
+                    <path class="rotarw" d="M104,72 A24,10 0 0 0 152,72" marker-end="url(#d52Ah)"/>
+                    <text class="om" x="128" y="64" text-anchor="middle">&#937;</text>
+                    <text class="voidtxt" x="128" y="104" text-anchor="middle">BOB = UN-MESHED HOLE</text>
+                    <text class="voidtxt" x="128" y="117" text-anchor="middle">through the FULL height</text>
+                    <text class="voidtxt" x="128" y="130" text-anchor="middle">no end face anywhere</text>
+                    <text class="symtxt" x="238" y="38" text-anchor="end">z = 10 &#183; Symmetry001</text>
+                    <text class="symtxt" x="238" y="182" text-anchor="end">z = 0 &#183; Symmetry001</text>
+                    <line class="dim" x1="128" y1="152" x2="183" y2="152" marker-start="url(#d52Dh)" marker-end="url(#d52Dh)"/>
+                    <text class="dimtxt" x="155" y="148" text-anchor="middle">r&#7522; = 5</text>
+                    <line class="dim" x1="183" y1="152" x2="238" y2="152" marker-start="url(#d52Dh)" marker-end="url(#d52Dh)"/>
+                    <text class="dimtxt" x="211" y="148" text-anchor="middle">gap = 5 d</text>
+                    <text class="dimtxt" x="18" y="196">r&#7522; = 5 &#183; r&#8336; = 10 &#183; H = 10 &#183; ratio 0.5</text>
+                    <text class="step" x="124" y="220" text-anchor="middle">V2.0 &#183; &#966; = 0 BASELINE</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">Inflow14 u = &#937;&#215;r &#183; WallF torque mask</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">outer Wall &#183; ends free slip, w = 0</text>
                   </g>
 
-                  <!-- ============ panel 2 : V1 side section ============ -->
+                  <!-- ============ panel 2 : V2.1 axial section ============ -->
                   <g transform="translate(254,0)">
                     <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
-                    <path class="fluid" d="M18,38 L84,38 L84,126 L172,126 L172,38 L238,38 L238,170 L18,170 Z"/>
-                    <rect class="band" x="29" y="54.5" width="44" height="55"/>
-                    <rect class="band" x="183" y="54.5" width="44" height="55"/>
-                    <rect class="env" x="23.5" y="49" width="55" height="66"/>
-                    <rect class="env" x="177.5" y="49" width="55" height="66"/>
-                    <rect class="bore" x="84" y="38" width="88" height="88"/>
-                    <rect class="wall" x="18" y="38" width="220" height="132"/>
-                    <line class="lid" x1="18" y1="38" x2="84" y2="38"/>
-                    <line class="lid" x1="172" y1="38" x2="238" y2="38"/>
-                    <line class="rot" x1="84" y1="38" x2="84" y2="126"/>
-                    <line class="rot" x1="172" y1="38" x2="172" y2="126"/>
-                    <line class="rot" x1="84" y1="126" x2="172" y2="126"/>
-                    <line class="axis" x1="128" y1="30" x2="128" y2="178"/>
-                    <circle class="ring" cx="84" cy="38" r="3.4"/>
-                    <circle class="ring" cx="172" cy="38" r="3.4"/>
-                    <circle class="pcl" cx="34" cy="60" r="4"/><circle class="pcl" cx="48" cy="72" r="4"/><circle class="pcl" cx="63" cy="62" r="4"/>
-                    <circle class="pcl" cx="36" cy="88" r="4"/><circle class="pcl" cx="55" cy="97" r="4"/><circle class="pcl" cx="68" cy="84" r="4"/>
-                    <circle class="pcl" cx="190" cy="66" r="4"/><circle class="pcl" cx="206" cy="58" r="4"/><circle class="pcl" cx="220" cy="70" r="4"/>
-                    <circle class="pcl" cx="192" cy="93" r="4"/><circle class="pcl" cx="208" cy="83" r="4"/><circle class="pcl" cx="222" cy="99" r="4"/>
-                    <line class="marg" x1="78.5" y1="49" x2="84" y2="49" marker-start="url(#d51Dh)"/>
-                    <line class="marg" x1="177.5" y1="43" x2="172" y2="43" marker-start="url(#d51Dh)"/>
-                    <text class="dimtxt" x="128" y="118" text-anchor="middle">r&#7522; = 4</text>
-                    <text class="dimtxt" x="24" y="164">centres r &#8712; [5,9], z &#8712; [5.5,10.5]</text>
-                    <text class="step" x="124" y="220" text-anchor="middle">V1 &#183; &#966; = 0.05, 200 SPHERES</text>
-                    <text class="lbl" x="124" y="235" text-anchor="middle">dashed = particle envelope; the 0.5 d gap to</text>
-                    <text class="lbl" x="124" y="246" text-anchor="middle">every wall is the depletion layer</text>
+                    <text class="lbl" x="124" y="24" text-anchor="middle">RSA seeding &#183; &#961;_p/&#961;_f = 1.1 &#183; gravity 0</text>
+                    <rect class="fluid" x="18" y="46" width="55" height="120"/>
+                    <rect class="fluid" x="183" y="46" width="55" height="120"/>
+                    <rect class="band" x="23.5" y="52" width="44" height="108"/>
+                    <rect class="band" x="188.5" y="52" width="44" height="108"/>
+                    <rect class="env" x="23.5" y="52" width="44" height="108"/>
+                    <rect class="env" x="188.5" y="52" width="44" height="108"/>
+                    <rect class="void" x="73" y="46" width="110" height="120"/>
+                    <line class="wall" x1="18" y1="46" x2="18" y2="166"/>
+                    <line class="wall" x1="238" y1="46" x2="238" y2="166"/>
+                    <line class="rot" x1="73" y1="46" x2="73" y2="166"/>
+                    <line class="rot" x1="183" y1="46" x2="183" y2="166"/>
+                    <line class="sym" x1="18" y1="46" x2="73" y2="46"/>
+                    <line class="sym" x1="183" y1="46" x2="238" y2="46"/>
+                    <line class="sym" x1="18" y1="166" x2="73" y2="166"/>
+                    <line class="sym" x1="183" y1="166" x2="238" y2="166"/>
+                    <line class="symtick" x1="18" y1="42" x2="73" y2="42"/>
+                    <line class="symtick" x1="183" y1="42" x2="238" y2="42"/>
+                    <line class="symtick" x1="18" y1="170" x2="73" y2="170"/>
+                    <line class="symtick" x1="183" y1="170" x2="238" y2="170"/>
+                    <line class="axis" x1="128" y1="36" x2="128" y2="176"/>
+                    <circle class="pcl" cx="57" cy="70" r="4"/><circle class="pcl" cx="42" cy="82" r="4"/><circle class="pcl" cx="33" cy="66" r="4"/>
+                    <circle class="pcl" cx="55" cy="102" r="4"/><circle class="pcl" cx="39" cy="112" r="4"/><circle class="pcl" cx="60" cy="128" r="4"/>
+                    <circle class="pcl" cx="36" cy="140" r="4"/><circle class="pcl" cx="52" cy="153" r="4"/><circle class="pcl" cx="30" cy="96" r="4"/>
+                    <circle class="pcl" cx="199" cy="68" r="4"/><circle class="pcl" cx="214" cy="80" r="4"/><circle class="pcl" cx="225" cy="64" r="4"/>
+                    <circle class="pcl" cx="201" cy="100" r="4"/><circle class="pcl" cx="217" cy="112" r="4"/><circle class="pcl" cx="196" cy="128" r="4"/>
+                    <circle class="pcl" cx="221" cy="141" r="4"/><circle class="pcl" cx="203" cy="154" r="4"/><circle class="pcl" cx="226" cy="98" r="4"/>
+                    <text class="voidtxt" x="128" y="106" text-anchor="middle">BOB</text>
+                    <text class="voidtxt" x="128" y="119" text-anchor="middle">(hole)</text>
+                    <text class="dimtxt" x="18" y="196">centres r &#8712; [6, 9], z &#8712; [1, 9]</text>
+                    <text class="step" x="124" y="220" text-anchor="middle">V2.1 &#183; &#966; = 0.05, 225 SPHERES</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">dashed: 0.5 d surface clearance to</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">both walls and both symmetry planes</text>
                   </g>
 
-                  <!-- ============ panel 3 : top view ============ -->
+                  <!-- ============ panel 3 : plan view ============ -->
                   <g transform="translate(508,0)">
                     <rect class="panel" x="4" y="6" width="240" height="196" rx="4"/>
                     <circle class="fluid" cx="124" cy="104" r="90"/>
-                    <circle class="wall" cx="124" cy="104" r="90"/>
+                    <circle class="void" cx="124" cy="104" r="45"/>
                     <circle class="env" cx="124" cy="104" r="85.5"/>
-                    <circle class="env" cx="124" cy="104" r="40.5"/>
-                    <circle class="bore" cx="124" cy="104" r="36"/>
-                    <circle class="rot" cx="124" cy="104" r="36"/>
-                    <path class="rotarw" d="M124,80 A24,24 0 0 1 148,104" marker-end="url(#d51Ah)"/>
-                    <text class="om" x="124" y="132" text-anchor="middle">&#937;</text>
-                    <circle class="pcl" cx="124" cy="53" r="4"/><circle class="pcl" cx="160" cy="62" r="4"/><circle class="pcl" cx="188" cy="90" r="4"/>
-                    <circle class="pcl" cx="190" cy="126" r="4"/><circle class="pcl" cx="166" cy="156" r="4"/><circle class="pcl" cx="128" cy="172" r="4"/>
-                    <circle class="pcl" cx="86" cy="164" r="4"/><circle class="pcl" cx="58" cy="140" r="4"/><circle class="pcl" cx="48" cy="102" r="4"/>
-                    <circle class="pcl" cx="62" cy="68" r="4"/><circle class="pcl" cx="94" cy="48" r="4"/>
-                    <circle class="pcl" cx="81" cy="88" r="4"/><circle class="pcl" cx="169" cy="120" r="4"/><circle class="pcl" cx="102" cy="151" r="4"/>
-                    <circle class="pcl" cx="134" cy="47" r="4"/><circle class="pcl" cx="68" cy="130" r="4"/>
-                    <text class="step" x="124" y="220" text-anchor="middle">TOP VIEW &#183; V1</text>
-                    <text class="lbl" x="124" y="235" text-anchor="middle">nominal &#966; = 0.0496 over the annular gap,</text>
-                    <text class="lbl" x="124" y="246" text-anchor="middle">but &#966; &#8776; 0.093 inside the envelope</text>
+                    <circle class="env" cx="124" cy="104" r="49.5"/>
+                    <circle class="wall" cx="124" cy="104" r="90"/>
+                    <circle class="rot" cx="124" cy="104" r="45"/>
+                    <path class="rotarw" d="M124,74 A30,30 0 0 1 154,104" marker-end="url(#d52Ah)"/>
+                    <text class="om" x="124" y="112" text-anchor="middle">&#937;</text>
+                    <circle class="pcl" cx="192.0" cy="104.0" r="4"/><circle class="pcl" cx="189.8" cy="66.0" r="4"/>
+                    <circle class="pcl" cx="151.2" cy="52.8" r="4"/><circle class="pcl" cx="117.7" cy="32.3" r="4"/>
+                    <circle class="pcl" cx="89.6" cy="54.9" r="4"/><circle class="pcl" cx="53.3" cy="71.0" r="4"/>
+                    <circle class="pcl" cx="65.2" cy="109.1" r="4"/><circle class="pcl" cx="63.4" cy="146.4" r="4"/>
+                    <circle class="pcl" cx="99.9" cy="155.7" r="4"/><circle class="pcl" cx="130.8" cy="181.7" r="4"/>
+                    <circle class="pcl" cx="161.3" cy="157.2" r="4"/><circle class="pcl" cx="176.6" cy="123.2" r="4"/>
+                    <circle class="pcl" cx="164.3" cy="63.7" r="4"/><circle class="pcl" cx="70.4" cy="123.5" r="4"/>
+                    <circle class="pcl" cx="114.1" cy="160.1" r="4"/><circle class="pcl" cx="201.3" cy="83.3" r="4"/>
+                    <circle class="pcl" cx="109.2" cy="48.9" r="4"/><circle class="pcl" cx="65.8" cy="55.1" r="4"/>
+                    <circle class="pcl" cx="143.5" cy="157.6" r="4"/><circle class="pcl" cx="61.0" cy="92.9" r="4"/>
+                    <text class="step" x="124" y="220" text-anchor="middle">PLAN VIEW &#183; V2.1</text>
+                    <text class="lbl" x="124" y="235" text-anchor="middle">the only particle-free zones in the</text>
+                    <text class="lbl" x="124" y="246" text-anchor="middle">cell are the modelled margins</text>
                   </g>
                 </svg>
-                <figcaption><b>the numerical viscometer</b>A <strong>Searle-type rotational viscometer</strong> realized as a DNS case: a rotating inner cylinder &#8212; the <strong>bob</strong> &#8212; inside a stationary outer cylinder; the measured quantity is the torque on the rotating surface. The computational domain is the fluid. The outer cylinder (radius r&#8336; = 10, height H = 12; lengths in particle diameters) is meshed; its side wall and both end faces &#8212; bottom z = 0 and top z = 12 &#8212; are stationary no-slip walls, so the cell is closed at both ends. <strong>The bob is not meshed</strong>: the mesh contains a coaxial cylindrical hole of radius r&#7522; = 4 along the axis, reaching from the top face down to z = 4 (immersed depth 8), and the two surfaces of that hole &#8212; the cylindrical side wall and the circular end face at z = 4 &#8212; carry the Dirichlet condition <strong>u = &#937;&#215;r</strong>, a rigid rotation about the z axis. Along the circle r = r&#7522; in the top face, the prescribed wall velocity jumps from &#937;r&#7522; (rotating bob wall) to zero (stationary top wall). The wall shear stress diverges logarithmically toward that circle in the continuum problem; the discretization regularizes it at the grid spacing h = 0.125. This circle &#8212; the two marked corner points in the side view &#8212; together with the bob&#8217;s end face accounts for the +84% excess of the measured torque over the infinite-annulus analytical value. Protocol: compute the z-torque exerted by the fluid on the bob surfaces at every time step; the relative suspension viscosity is the torque ratio at fixed rotation rate, <strong>&#951;(&#966;) = T(&#966;)/T(0)</strong>.</figcaption>
+                <figcaption><b>the v2 instrument</b>A Searle-type rotational viscometer as a DNS case, rebuilt as a <strong>through-hole annulus</strong>. The computational domain is the fluid between r&#7522; = 5 and r&#8336; = 10, height H = 10 (lengths in particle diameters). <strong>The bob is not meshed</strong>: it is a coaxial hole that runs the <em>full</em> height, z = 0 to z = 10, so it has one cylindrical surface and <strong>no end face at all</strong>. That surface carries the Dirichlet condition <strong>u = &#937;&#215;r</strong> (<code>Inflow14</code>) with a coincident <code>WallF</code> overlay as the torque mask; the outer cylinder is a stationary no-slip <code>Wall</code>; the planes z = 0 and z = 10 are <code>Symmetry001</code> &#8212; free slip, w = 0. With no lid and no bob end face there is no velocity-jump ring and no end-face contribution, so the flow is <strong>axially uniform</strong> and the measured torque is the annular torque, comparable term by term with the exact solution. The instrument mirrors the legacy FF cell <code>Couette_20x4x10</code>, which validated Einstein under the old code: same radius ratio 0.5, same 5 d gap, <code>Symmetry001</code> at both ends. Protocol unchanged: the z-torque on the masked surface at every step, <strong>&#951;(&#966;) = T(&#966;)/T(0)</strong> at fixed &#937;.</figcaption>
               </figure>
 
               <div class="setup">
                 <span class="lbl">Setup &amp; expectation</span>
-                <p>The first rung is the <strong>Einstein gate</strong> — a dilute suspension must return the viscosity a mean-field theory says it should — and the cell is the entry point to the D6 Kroupa-box capstone, which is a &#956;_eff(&#966;) case end to end. <strong>V0 is the &#966; = 0 baseline</strong>, the denominator every later ratio divides by; a sphere is parked inside the bob hole &#8212; where there are no fluid nodes &#8212; with <code>FictKNPR</code> = 0 everywhere, so it is inert and the fluid is unaffected — the rig exercises the particle path without perturbing the baseline. <strong>V1 is the gate itself</strong>, 200 spheres at nominal &#966; = 0.05.</p>
+                <p><strong>This is a rebuilt instrument.</strong> An earlier blind-bore cell &#8212; closed at both ends, with the bob immersed only part-way &#8212; was retired on 2026-08-26 because <strong>45.7% of its baseline torque was generated in fluid the particles never reach</strong>, which dilutes &#951;(&#966;) = T(&#966;)/T(0) by an unmeasurable factor and leaves the Einstein gate unable to discriminate. The full trail is in the datasheet rows <code>d51_*</code>; nothing measured on that cell is carried forward here.</p>
+                <p>The replacement runs the hole through the <strong>entire height</strong> and makes both end planes symmetry planes. The flow is then an <strong>axially uniform annular Couette</strong> &#8212; quasi-2D, no rings, no end faces &#8212; and the only particle-free zones left in the cell are the modelled packing margins. Two things follow, and both are gates: the geometry earns an <strong>exact analytic torque reference</strong> the blind bore never had, so the empty baseline can be checked against a number rather than only against itself; and &#951;(&#966;) is <strong>undiluted</strong>, so the &#966; = 0.05 gate finally discriminates.</p>
+                <p>The rung is still the <strong>Einstein gate</strong> &#8212; a dilute suspension must return the viscosity a mean-field theory says it should &#8212; and the cell is still the entry point to the D6 Kroupa-box capstone, which is a &#956;_eff(&#966;) case end to end. <strong>V2.0 is the &#966; = 0 baseline</strong>, the denominator every later ratio divides by; <strong>V2.1 is the gate itself</strong>, 225 spheres at &#966; = 0.05.</p>
               </div>
 
               <div class="tablewrap">
                 <table class="num">
-                  <caption>Operating point — the same cell for V0 and V1</caption>
+                  <caption>Operating point &#8212; the same cell for V2.0 and V2.1</caption>
                   <thead>
-                    <tr><th scope="col">Quantity</th><th scope="col">V0 &#183; &#966; = 0</th><th scope="col">V1 &#183; &#966; = 0.05</th></tr>
+                    <tr><th scope="col">Quantity</th><th scope="col">V2.0 &#183; &#966; = 0</th><th scope="col">V2.1 &#183; &#966; = 0.05</th></tr>
                   </thead>
                   <tbody>
+                    <tr><th scope="row" class="id">Geometry</th><td colspan="2">annulus r&#7522; = 5 &#8594; r&#8336; = 10, H = 10 &#8212; gap 5 d, radius ratio 0.5</td></tr>
+                    <tr><th scope="row" class="id">Ends</th><td colspan="2"><code>Symmetry001</code> at z = 0 and z = 10 &#8212; free slip, w = 0</td></tr>
                     <tr><th scope="row" class="id">Fluid</th><td colspan="2">&#957; = 0.2, &#961;_f = 1 &#8594; &#956; = 0.2</td></tr>
-                    <tr><th scope="row" class="id">Rotation</th><td colspan="2">&#937; = 0.1 rad/t.u. (<code>SimPar@RPM</code> 0.9549)</td></tr>
-                    <tr><th scope="row" class="id">Nominal shear rate</th><td colspan="2">&#611;&#775; &#8776; 0.067</td></tr>
-                    <tr><th scope="row" class="id">Particle Reynolds no.</th><td>&#8212;</td><td>Re_p = 0.33</td></tr>
-                    <tr><th scope="row" class="id">Taylor number</th><td colspan="2">216 &#8212; <strong>subcritical</strong>, no Taylor vortices</td></tr>
-                    <tr><th scope="row" class="id">Viscous time</th><td colspan="2">&#964;_&#957; = gap&#178;/&#957; = 180</td></tr>
+                    <tr><th scope="row" class="id">Rotation</th><td colspan="2">&#937; = 0.1 rad/t.u. (<code>SimPar@RPM</code> 0.95493), inner wall u = &#937;&#215;r</td></tr>
+                    <tr><th scope="row" class="id">Nominal shear rate</th><td colspan="2">&#611;&#775; &#8776; &#937;r&#7522;/gap = 0.1</td></tr>
+                    <tr><th scope="row" class="id">Particle Reynolds no.</th><td>&#8212;</td><td>Re_p = 0.5</td></tr>
+                    <tr><th scope="row" class="id">Taylor number</th><td colspan="2">156 &#8212; <strong>subcritical</strong>, no Taylor vortices</td></tr>
+                    <tr><th scope="row" class="id">Viscous time</th><td colspan="2">&#964;_&#957; = gap&#178;/&#957; = 125</td></tr>
+                    <tr><th scope="row" class="id">Loading</th><td>empty baseline</td><td>N = 225 spheres, RSA, 0.5 d surface clearances</td></tr>
                     <tr><th scope="row" class="id">Timestep</th><td>dt = 0.05</td><td class="err">dt = 0.005 &#8212; contacts set the step</td></tr>
-                    <tr><th scope="row" class="id">Budget</th><td>5000 steps &#8594; t = 250</td><td>chained restart segments</td></tr>
-                    <tr><th scope="row" class="id">Resolution / shape</th><td colspan="2">D/h = 8 &#183; 109 ranks &#183; 2 nodes</td></tr>
+                    <tr><th scope="row" class="id">Budget</th><td>4000 steps &#8594; t = 200 = 1.6 &#964;_&#957;</td><td>segments to &#951;(t) flatness</td></tr>
+                    <tr><th scope="row" class="id">Mesh</th><td colspan="2"><code>d52_mesh_v1</code> O-grid &#8212; 10 radial &#215; 94 azimuthal &#215; 20 axial = 18,800 coarse hexes</td></tr>
+                    <tr><th scope="row" class="id">Resolution / shape</th><td colspan="2"><code>MaxMeshLevel</code> 3 &#8594; D/h &#8776; 8 (min 7.33 &#183; mean 8.03 &#183; max 9.00) &#183; 108 subdomains, 109 ranks</td></tr>
                   </tbody>
                 </table>
               </div>
 
-              <div class="finding">
-                <span class="h">The two-estimator gate caught real physics — the reaction method is blind to the rotational transpose term <span class="v pass">PASS</span></span>
-                <p>Two independent torque estimators were specified, agreement within 3% as the gate: a residual/reaction primary (<code>VISC_TORQUE_RES</code>, on the <code>WallF</code>-masked bob surfaces via <code>mg_DMat</code>, the <code>BenchForce</code> lineage) and a revived deformation-form secondary (<code>VISC_TORQUE_DNA</code>, a volume form over the gradient-mask band). They disagreed by <strong>30.6%</strong>, an order of magnitude outside the gate, and the investigation closed as <strong>exact metrology, not noise</strong>.</p>
-                <p><strong>Why:</strong> FF assembles the Newtonian viscous operator in <strong>gradient (Laplacian) form</strong> — a single-block <code>mg_DMat</code>; the 9-block deformation form exists only on the non-Newtonian path. The reaction estimator therefore measures the <em>gradient-form</em> boundary flux and misses the transpose term. For <strong>translation</strong> that difference integrates to zero over a closed surface — the <strong>curl of a rigid translation vanishes</strong> — which is exactly why the <code>BenchForce</code> drag lineage has always been exact and why nothing caught this before. For a <strong>rotating</strong> Dirichlet surface it does not vanish: rigid rotation has <strong>curl 2&#937;</strong>, and the missing term is precisely <strong>2&#956;&#937;V_enclosed</strong> — a prediction with no free parameters.</p>
-              </div>
-
-              <div class="tablewrap">
-                <table class="num">
-                  <caption>V0 plateau (t = 125&#8211;188) — reconciling the two estimators</caption>
-                  <thead>
-                    <tr><th scope="col">Reading</th><th scope="col">Value</th><th scope="col">Note</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr><th scope="row" class="id">RES raw</th><td>&#8722;53.9834</td><td>pop. sd 6.2 &#215; 10&#8315;&#8308;</td></tr>
-                    <tr><th scope="row" class="id">DNA raw</th><td>&#8722;70.5286</td><td>pop. sd 6.3 &#215; 10&#8315;&#8308;</td></tr>
-                    <tr><th scope="row" class="id">Disagreement</th><td class="err">30.6%</td><td>gate is 3% &#8212; 10&#215; outside</td></tr>
-                    <tr><th scope="row" class="id">Correction 2&#956;&#937;V_bob</th><td>16.085 predicted (V_bob = &#960;r&#7522;&#178;&#183;8; the datasheet writes V_bore)</td><td>measured gap 16.545 &#8594; <strong>+2.9%</strong> (mask-skirt discretization)</td></tr>
-                    <tr><th scope="row" class="id">RES + correction</th><td>&#8722;70.068</td><td>vs DNA &#8722;70.529</td></tr>
-                    <tr><th scope="row" class="id">Agreement</th><td class="ok">0.65%</td><td>well inside the 3% gate &#8594; <strong>PASS</strong></td></tr>
-                    <tr><th scope="row" class="id">Physical torque T(0)</th><td><strong>&#8722;70.53</strong></td><td>the deformation-form value is the physical one</td></tr>
-                    <tr><th scope="row" class="id">Infinite-annulus reference</th><td>38.30</td><td class="err">+84% end effects &#8212; the velocity-jump ring at the top wall dominates (&#8776; +31); bob end face &#8776; +2</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="priority">
-                <span class="lbl">Protocol rule for the whole &#966; ladder</span>
-                <p><strong>&#951;(&#966;) = T(&#966;)/T(0) must be formed from the physical torque</strong> — DNA directly, or RES plus the analytic correction <strong>2&#956;&#937;V_bob</strong>. The correction is <strong>&#966;-independent</strong> (&#956; is the solvent viscosity, &#937; is fixed), which is exactly what makes the raw-RES ratio wrong: <strong>a constant offset does not cancel in a ratio</strong>. The end-effect excess is recorded, not gated — the baseline's job is to be <em>reproducible</em>, not to match a textbook idealization a cell this squat (H/gap = 1.33) does not satisfy.</p>
-              </div>
-
               <figure class="fig">
-                <svg class="d51plot" viewBox="0 0 760 502" role="img" aria-labelledby="d51EtaT d51EtaD">
-                  <title id="d51EtaT">Measured viscosity ratio against time, with the composite-Einstein target band</title>
-                  <desc id="d51EtaD">Two stacked line charts sharing a time axis from zero to seventy-two time units. The upper chart spans viscosity ratios from one point zero zero to one point one four. A dashed line near the top at one point one two four marks the naive homogeneous Einstein value, labelled the wrong target because of the depletion layers. A shaded band from one point zero seven nine to one point zero nine one marks the composite-Einstein target computed from the measured concentration profile. Far below both, two nearly flat measured curves sit around one point zero four four and one point zero five one for the deformation-form and corrected-reaction estimators respectively, with a vertical gap arrow showing that only about fifty-five percent of the predicted viscosity excess is recovered. A vertical dashed line at time nineteen marks the restart; the interval nineteen to twenty-six is marked as a re-entrainment transient, and the window thirty to seventy is shaded as the plateau. Before time nineteen only two recorded anchor points are plotted, because the segment-one telemetry was not retained. The lower chart is a zoom on the ratio range one point zero three eight to one point zero five nine, showing the restart blip decaying and both curves running flat across the whole plateau window.</desc>
+                <svg class="d52prof" viewBox="0 0 760 200" role="img" aria-labelledby="d52ProfT d52ProfD">
+                  <title id="d52ProfT">The exact annular Couette solution the V2.0 gates are measured against</title>
+                  <desc id="d52ProfD">Two charts drawn from the analytic solution, not from simulation output. The left chart plots azimuthal velocity across the gap: it starts at zero point five at the rotating bob at radius five and falls to zero at the stationary outer wall at radius ten, bowing below the straight dashed line a plane Couette gap would give. The right chart plots the local shear rate across the same gap: it falls from about zero point two seven at the bob to about zero point zero six seven at the outer wall, crossing the nominal value of zero point one at radius eight point one six, which is marked. Both charts are expectations set before the run; no measured data is plotted.</desc>
 
-                  <defs>
-                    <clipPath id="d51ClipA"><rect x="66" y="26" width="676" height="238"/></clipPath>
-                    <clipPath id="d51ClipB"><rect x="66" y="316" width="676" height="108"/></clipPath>
-                    <marker id="d51Gap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="gaphead"/></marker>
-                  </defs>
-
-                  <!-- ================= PANEL A ================= -->
-                  <text class="ptitle" x="66" y="16">A &#183; &#951;(t) = T(&#966;,t) / T(0,t) at matched transient times &#8212; against the two candidate targets</text>
-
-                  <rect class="plotbg" x="66" y="26" width="676" height="238"/>
-                  <rect class="plateau" x="347.7" y="26" width="375.5" height="238"/>
-                  <rect class="blip" x="244.4" y="26" width="65.7" height="238"/>
-                  <rect class="noseg" x="66" y="26" width="178.4" height="238"/>
-
-                  <!-- target band -->
-                  <rect class="tband" x="66" y="110.1" width="676" height="19.4"/>
-                  <line class="tbandline" x1="66" y1="110.1" x2="742" y2="110.1"/>
-                  <line class="tbandline" x1="66" y1="129.5" x2="742" y2="129.5"/>
-
-                  <!-- naive -->
-                  <line class="naive" x1="66" y1="53.2" x2="742" y2="53.2"/>
-
-                  <!-- gridlines + y ticks -->
+                  <!-- ============ panel A : exact velocity profile ============ -->
+                  <rect class="plotbg" x="58" y="30" width="292" height="120"/>
                   <g class="grid">
-                    <line x1="66" y1="230.0" x2="742" y2="230.0"/>
-                    <line x1="66" y1="196.0" x2="742" y2="196.0"/>
-                    <line x1="66" y1="162.0" x2="742" y2="162.0"/>
-                    <line x1="66" y1="128.0" x2="742" y2="128.0"/>
-                    <line x1="66" y1="94.0" x2="742" y2="94.0"/>
-                    <line x1="66" y1="60.0" x2="742" y2="60.0"/>
+                    <line x1="58" y1="128" x2="350" y2="128"/>
+                    <line x1="58" y1="106" x2="350" y2="106"/>
+                    <line x1="58" y1="84" x2="350" y2="84"/>
+                    <line x1="58" y1="62" x2="350" y2="62"/>
+                    <line x1="58" y1="40" x2="350" y2="40"/>
                   </g>
+                  <path class="fillu" d="M58,40 L87.2,57.0 L116.4,71.8 L145.6,84.9 L174.8,96.6 L204,107.2 L233.2,117.0 L262.4,126.1 L291.6,134.5 L320.8,142.5 L350,150 L58,150 Z"/>
+                  <line class="lin" x1="58" y1="40" x2="350" y2="150"/>
+                  <polyline class="curve" points="58,40 87.2,57.0 116.4,71.8 145.6,84.9 174.8,96.6 204,107.2 233.2,117.0 262.4,126.1 291.6,134.5 320.8,142.5 350,150"/>
+                  <line class="rotline" x1="58" y1="30" x2="58" y2="150"/>
+                  <line class="wallline" x1="350" y1="30" x2="350" y2="150"/>
+                  <line class="ax" x1="58" y1="150" x2="350" y2="150"/>
                   <g class="ytick">
-                    <text x="60" y="267.5" text-anchor="end">1.00</text>
-                    <text x="60" y="233.5" text-anchor="end">1.02</text>
-                    <text x="60" y="199.5" text-anchor="end">1.04</text>
-                    <text x="60" y="165.5" text-anchor="end">1.06</text>
-                    <text x="60" y="131.5" text-anchor="end">1.08</text>
-                    <text x="60" y="97.5" text-anchor="end">1.10</text>
-                    <text x="60" y="63.5" text-anchor="end">1.12</text>
-                    <text x="60" y="29.5" text-anchor="end">1.14</text>
-                  </g>
-
-                  <!-- restart marker -->
-                  <line class="restart" x1="244.4" y1="26" x2="244.4" y2="264"/>
-
-                  <!-- curves -->
-                  <g clip-path="url(#d51ClipA)">
-                    <polyline class="cres" points="244.4,178.8 246.8,175.7 249.1,165.5 251.5,161.1 253.8,159.8 256.2,159.8 258.5,160.4 260.9,161.3 263.2,162.3 265.6,163.3 267.9,164.3 270.3,165.2 272.6,166.1 274.9,166.9 277.3,167.7 279.6,168.4 282.0,169.0 284.3,169.6 286.7,170.2 289.0,170.7 291.4,171.2 293.7,171.6 296.1,172.0 298.4,172.4 300.8,172.7 303.1,173.0 305.5,173.2 307.8,173.4 310.2,173.6 312.5,173.8 314.9,173.9 317.2,174.1 319.5,174.2 321.9,174.3 324.2,174.4 326.6,174.5 328.9,174.6 331.3,174.7 333.6,174.7 336.0,174.7 338.3,174.7 340.7,174.8 343.0,174.8 345.4,174.8 347.7,174.8 350.1,174.8 352.4,174.9 354.8,174.9 357.1,174.8 359.4,174.7 361.8,174.7 364.1,174.7 366.5,174.7 368.8,174.7 371.2,174.7 373.5,174.7 375.9,174.8 378.2,174.8 380.6,174.8 382.9,174.9 385.3,175.0 387.6,175.0 390.0,175.1 392.3,175.2 394.7,175.3 397.0,175.4 399.4,175.5 401.7,175.6 404.0,175.7 406.4,175.8 408.7,175.9 411.1,176.1 413.4,176.2 415.8,176.4 418.1,176.5 420.5,176.6 422.8,176.8 425.2,176.9 427.5,177.0 429.9,177.2 432.2,177.3 434.6,177.5 436.9,177.6 439.3,177.7 441.6,177.8 443.9,178.0 446.3,178.0 448.6,178.1 451.0,178.0 453.3,178.0 455.7,177.9 458.0,177.9 460.4,177.9 462.7,177.8 465.1,177.8 467.4,177.7 469.8,177.7 472.1,177.7 474.5,177.6 476.8,177.6 479.2,177.6 481.5,177.6 483.9,177.6 486.2,177.5 488.5,177.5 490.9,177.5 493.2,177.4 495.6,177.4 497.9,177.4 500.3,177.4 502.6,177.4 505.0,177.4 507.3,177.4 509.7,177.4 512.0,177.4 514.4,177.5 516.7,177.5 519.1,177.5 521.4,177.5 523.8,177.5 526.1,177.5 528.4,177.4 530.8,177.4 533.1,177.4 535.5,177.4 537.8,177.3 540.2,177.3 542.5,177.3 544.9,177.3 547.2,177.2 549.6,177.2 551.9,177.1 554.3,177.0 556.6,176.8 559.0,176.8 561.3,176.7 563.7,176.6 566.0,176.6 568.4,176.5 570.7,176.4 573.0,176.3 575.4,176.2 577.7,176.0 580.1,175.9 582.4,175.9 584.8,175.8 587.1,175.7 589.5,175.7 591.8,175.7 594.2,175.6 596.5,175.6 598.9,175.6 601.2,175.6 603.6,175.7 605.9,175.7 608.3,175.8 610.6,175.8 612.9,175.9 615.3,176.0 617.6,176.1 620.0,176.1 622.3,176.2 624.7,176.3 627.0,176.4 629.4,176.5 631.7,176.6 634.1,176.7 636.4,176.8 638.8,176.9 641.1,177.0 643.5,177.1 645.8,177.2 648.2,177.3 650.5,177.4 652.9,177.5 655.2,177.6 657.5,177.7 659.9,177.8 662.2,177.9 664.6,178.0 666.9,178.0 669.3,178.1 671.6,178.2 674.0,178.2 676.3,178.3 678.7,178.3 681.0,178.3 683.4,178.3 685.7,178.3 688.1,178.3 690.4,178.2 692.8,178.2 695.1,178.2 697.4,178.2 699.8,178.1 702.1,178.1 704.5,178.1 706.8,178.1 709.2,178.1 711.5,178.1 713.9,178.0 716.2,178.0 718.6,177.9 720.9,177.8 722.0,177.8"/>
-                    <polyline class="cdna" points="244.4,190.6 246.8,187.5 249.1,177.3 251.5,173.0 253.8,171.7 256.2,171.7 258.5,172.3 260.9,173.2 263.2,174.2 265.6,175.2 267.9,176.2 270.3,177.1 272.6,177.9 274.9,178.7 277.3,179.5 279.6,180.2 282.0,180.8 284.3,181.4 286.7,182.0 289.0,182.5 291.4,183.0 293.7,183.4 296.1,183.8 298.4,184.1 300.8,184.5 303.1,184.8 305.5,185.0 307.8,185.1 310.2,185.3 312.5,185.5 314.9,185.7 317.2,185.8 319.5,186.0 321.9,186.1 324.2,186.2 326.6,186.2 328.9,186.3 331.3,186.4 333.6,186.4 336.0,186.5 338.3,186.5 340.7,186.5 343.0,186.5 345.4,186.5 347.7,186.6 350.1,186.6 352.4,186.6 354.8,186.6 357.1,186.5 359.4,186.4 361.8,186.4 364.1,186.4 366.5,186.4 368.8,186.4 371.2,186.4 373.5,186.4 375.9,186.5 378.2,186.5 380.6,186.6 382.9,186.6 385.3,186.7 387.6,186.7 390.0,186.8 392.3,186.9 394.7,187.0 397.0,187.1 399.4,187.2 401.7,187.3 404.0,187.4 406.4,187.5 408.7,187.6 411.1,187.8 413.4,187.9 415.8,188.1 418.1,188.2 420.5,188.3 422.8,188.5 425.2,188.6 427.5,188.7 429.9,188.9 432.2,189.0 434.6,189.1 436.9,189.3 439.3,189.4 441.6,189.5 443.9,189.6 446.3,189.7 448.6,189.7 451.0,189.7 453.3,189.6 455.7,189.6 458.0,189.6 460.4,189.5 462.7,189.5 465.1,189.5 467.4,189.4 469.8,189.4 472.1,189.3 474.5,189.3 476.8,189.3 479.2,189.3 481.5,189.3 483.9,189.2 486.2,189.2 488.5,189.2 490.9,189.1 493.2,189.1 495.6,189.1 497.9,189.1 500.3,189.0 502.6,189.0 505.0,189.1 507.3,189.1 509.7,189.1 512.0,189.1 514.4,189.1 516.7,189.2 519.1,189.2 521.4,189.1 523.8,189.1 526.1,189.1 528.4,189.1 530.8,189.1 533.1,189.1 535.5,189.0 537.8,189.0 540.2,189.0 542.5,189.0 544.9,188.9 547.2,188.9 549.6,188.9 551.9,188.8 554.3,188.6 556.6,188.5 559.0,188.4 561.3,188.4 563.7,188.3 566.0,188.2 568.4,188.2 570.7,188.1 573.0,188.0 575.4,187.9 577.7,187.7 580.1,187.6 582.4,187.5 584.8,187.5 587.1,187.4 589.5,187.4 591.8,187.3 594.2,187.3 596.5,187.3 598.9,187.3 601.2,187.3 603.6,187.3 605.9,187.4 608.3,187.4 610.6,187.5 612.9,187.6 615.3,187.7 617.6,187.7 620.0,187.8 622.3,187.9 624.7,188.0 627.0,188.1 629.4,188.2 631.7,188.3 634.1,188.4 636.4,188.5 638.8,188.6 641.1,188.7 643.5,188.8 645.8,188.9 648.2,189.0 650.5,189.1 652.9,189.2 655.2,189.3 657.5,189.4 659.9,189.4 662.2,189.5 664.6,189.6 666.9,189.7 669.3,189.8 671.6,189.8 674.0,189.9 676.3,189.9 678.7,190.0 681.0,190.0 683.4,190.0 685.7,190.0 688.1,189.9 690.4,189.9 692.8,189.9 695.1,189.8 697.4,189.8 699.8,189.8 702.1,189.8 704.5,189.8 706.8,189.8 709.2,189.8 711.5,189.7 713.9,189.7 716.2,189.6 718.6,189.6 720.9,189.5 722.0,189.4"/>
-                  </g>
-
-                  <!-- segment-1 recorded anchors -->
-                  <polyline class="anchorline" points="159.9,199.4 244.4,189.7"/>
-                  <circle class="anchor" cx="159.9" cy="199.4" r="3.4"/>
-                  <circle class="anchor" cx="244.4" cy="189.7" r="3.4"/>
-
-                  <!-- gap arrow -->
-                  <line class="gaparw" x1="672" y1="182.3" x2="672" y2="126.8" marker-start="url(#d51Gap)" marker-end="url(#d51Gap)"/>
-                  <text class="gaptxt" x="666" y="150" text-anchor="end">only 55 &#177; 8%</text>
-                  <text class="gaptxt" x="666" y="162" text-anchor="end">of the excess</text>
-
-                  <!-- annotations -->
-                  <text class="annot naiveT" x="70" y="48">homogeneous 1 + 2.5&#966; = 1.124 &#8212; the WRONG target (depletion layers)</text>
-                  <text class="annot bandT" x="70" y="106">composite-Einstein target from the MEASURED &#966;(r,z): 1.0791 &#8211; 1.0905</text>
-                  <text class="annot measT" x="738" y="211" text-anchor="end">measured band 1.044 &#8211; 1.051</text>
-                  <text class="annot dim" x="155" y="176" text-anchor="end">segment 1 &#8212; recorded</text>
-                  <text class="annot dim" x="155" y="187" text-anchor="end">anchors only</text>
-                  <text class="annot rst" x="249" y="38">restart t = 19</text>
-                  <text class="annot dim" x="352" y="38">plateau window t = 30 &#8211; 70</text>
-
-                  <!-- x axis A -->
-                  <line class="ax" x1="66" y1="264" x2="742" y2="264"/>
-                  <g class="xtick">
-                    <text x="66" y="278" text-anchor="middle">0</text>
-                    <text x="159.9" y="278" text-anchor="middle">10</text>
-                    <text x="253.8" y="278" text-anchor="middle">20</text>
-                    <text x="347.7" y="278" text-anchor="middle">30</text>
-                    <text x="441.6" y="278" text-anchor="middle">40</text>
-                    <text x="535.4" y="278" text-anchor="middle">50</text>
-                    <text x="629.3" y="278" text-anchor="middle">60</text>
-                    <text x="723.2" y="278" text-anchor="middle">70</text>
-                  </g>
-
-                  <!-- ================= PANEL B ================= -->
-                  <text class="ptitle" x="66" y="304">B &#183; the same two curves, zoomed &#8212; flat to 8 &#215; 10&#8315;&#8309; per t.u. across 40 time units</text>
-
-                  <rect class="plotbg" x="66" y="316" width="676" height="108"/>
-                  <rect class="plateau" x="347.7" y="316" width="375.5" height="108"/>
-                  <rect class="blip" x="244.4" y="316" width="65.7" height="108"/>
-                  <rect class="noseg" x="66" y="316" width="178.4" height="108"/>
-
-                  <g class="grid">
-                    <line x1="66" y1="411.1" x2="742" y2="411.1"/>
-                    <line x1="66" y1="359.7" x2="742" y2="359.7"/>
-                  </g>
-                  <g class="ytick">
-                    <text x="60" y="414.6" text-anchor="end">1.040</text>
-                    <text x="60" y="363.2" text-anchor="end">1.050</text>
-                  </g>
-
-                  <line class="restart" x1="244.4" y1="316" x2="244.4" y2="424"/>
-
-                  <g clip-path="url(#d51ClipB)">
-                    <polyline class="cres" points="244.4,359.2 246.8,349.8 249.1,318.8 251.5,305.7 253.8,301.6 256.2,301.7 258.5,303.6 260.9,306.3 263.2,309.3 265.6,312.3 267.9,315.2 270.3,318.0 272.6,320.6 274.9,323.1 277.3,325.4 279.6,327.6 282.0,329.5 284.3,331.3 286.7,333.0 289.0,334.6 291.4,336.0 293.7,337.4 296.1,338.6 298.4,339.6 300.8,340.6 303.1,341.5 305.5,342.1 307.8,342.7 310.2,343.3 312.5,343.9 314.9,344.4 317.2,344.8 319.5,345.2 321.9,345.5 324.2,345.8 326.6,346.1 328.9,346.3 331.3,346.6 333.6,346.7 336.0,346.8 338.3,346.8 340.7,346.9 343.0,346.9 345.4,347.0 347.7,347.1 350.1,347.1 352.4,347.2 354.8,347.2 357.1,346.9 359.4,346.7 361.8,346.6 364.1,346.6 366.5,346.7 368.8,346.7 371.2,346.7 373.5,346.8 375.9,346.9 378.2,347.0 380.6,347.1 382.9,347.3 385.3,347.5 387.6,347.7 390.0,348.0 392.3,348.2 394.7,348.6 397.0,348.9 399.4,349.1 401.7,349.4 404.0,349.7 406.4,350.1 408.7,350.5 411.1,350.9 413.4,351.3 415.8,351.7 418.1,352.2 420.5,352.6 422.8,353.0 425.2,353.4 427.5,353.8 429.9,354.2 432.2,354.7 434.6,355.0 436.9,355.4 439.3,355.8 441.6,356.2 443.9,356.5 446.3,356.8 448.6,356.8 451.0,356.7 453.3,356.6 455.7,356.4 458.0,356.3 460.4,356.3 462.7,356.2 465.1,356.1 467.4,355.9 469.8,355.7 472.1,355.7 474.5,355.6 476.8,355.5 479.2,355.5 481.5,355.4 483.9,355.3 486.2,355.2 488.5,355.1 490.9,355.0 493.2,355.0 495.6,354.9 497.9,354.8 500.3,354.8 502.6,354.7 505.0,354.8 507.3,354.8 509.7,354.9 512.0,355.0 514.4,355.1 516.7,355.1 519.1,355.1 521.4,355.1 523.8,355.1 526.1,355.0 528.4,355.0 530.8,354.9 533.1,354.8 535.5,354.7 537.8,354.7 540.2,354.6 542.5,354.5 544.9,354.5 547.2,354.4 549.6,354.3 551.9,353.9 554.3,353.5 556.6,353.2 559.0,352.9 561.3,352.8 563.7,352.6 566.0,352.3 568.4,352.2 570.7,352.0 573.0,351.6 575.4,351.2 577.7,350.8 580.1,350.4 582.4,350.2 584.8,350.0 587.1,349.8 589.5,349.7 591.8,349.6 594.2,349.4 596.5,349.4 598.9,349.4 601.2,349.5 603.6,349.6 605.9,349.8 608.3,349.9 610.6,350.1 612.9,350.3 615.3,350.6 617.6,350.8 620.0,351.0 622.3,351.3 624.7,351.5 627.0,351.8 629.4,352.1 631.7,352.4 634.1,352.8 636.4,353.0 638.8,353.4 641.1,353.7 643.5,354.0 645.8,354.3 648.2,354.7 650.5,354.9 652.9,355.2 655.2,355.5 657.5,355.8 659.9,356.1 662.2,356.3 664.6,356.6 666.9,356.8 669.3,357.1 671.6,357.3 674.0,357.4 676.3,357.5 678.7,357.6 681.0,357.6 683.4,357.6 685.7,357.6 688.1,357.5 690.4,357.4 692.8,357.3 695.1,357.2 697.4,357.2 699.8,357.1 702.1,357.1 704.5,357.1 706.8,357.1 709.2,357.0 711.5,356.9 713.9,356.8 716.2,356.7 718.6,356.4 720.9,356.1 722.0,355.9"/>
-                    <polyline class="cdna" points="244.4,394.9 246.8,385.5 249.1,354.7 251.5,341.7 253.8,337.6 256.2,337.7 258.5,339.5 260.9,342.2 263.2,345.2 265.6,348.2 267.9,351.1 270.3,353.9 272.6,356.5 274.9,358.9 277.3,361.2 279.6,363.3 282.0,365.2 284.3,367.0 286.7,368.7 289.0,370.2 291.4,371.7 293.7,373.0 296.1,374.2 298.4,375.3 300.8,376.2 303.1,377.1 305.5,377.7 307.8,378.3 310.2,378.9 312.5,379.4 314.9,380.0 317.2,380.4 319.5,380.8 321.9,381.1 324.2,381.4 326.6,381.6 328.9,381.9 331.3,382.1 333.6,382.2 336.0,382.3 338.3,382.3 340.7,382.4 343.0,382.5 345.4,382.5 347.7,382.6 350.1,382.6 352.4,382.7 354.8,382.7 357.1,382.4 359.4,382.2 361.8,382.1 364.1,382.1 366.5,382.1 368.8,382.1 371.2,382.2 373.5,382.3 375.9,382.3 378.2,382.5 380.6,382.6 382.9,382.8 385.3,382.9 387.6,383.1 390.0,383.4 392.3,383.7 394.7,384.0 397.0,384.3 399.4,384.6 401.7,384.9 404.0,385.2 406.4,385.5 408.7,385.9 411.1,386.3 413.4,386.7 415.8,387.1 418.1,387.6 420.5,388.0 422.8,388.4 425.2,388.8 427.5,389.2 429.9,389.6 432.2,390.0 434.6,390.4 436.9,390.8 439.3,391.2 441.6,391.5 443.9,391.9 446.3,392.1 448.6,392.2 451.0,392.0 453.3,391.9 455.7,391.7 458.0,391.7 460.4,391.6 462.7,391.5 465.1,391.4 467.4,391.2 469.8,391.1 472.1,391.0 474.5,390.9 476.8,390.9 479.2,390.8 481.5,390.8 483.9,390.7 486.2,390.5 488.5,390.5 490.9,390.4 493.2,390.3 495.6,390.2 497.9,390.1 500.3,390.1 502.6,390.1 505.0,390.1 507.3,390.2 509.7,390.2 512.0,390.3 514.4,390.4 516.7,390.4 519.1,390.4 521.4,390.4 523.8,390.4 526.1,390.4 528.4,390.3 530.8,390.2 533.1,390.1 535.5,390.1 537.8,390.0 540.2,389.9 542.5,389.8 544.9,389.8 547.2,389.7 549.6,389.6 551.9,389.3 554.3,388.9 556.6,388.5 559.0,388.3 561.3,388.1 563.7,387.9 566.0,387.7 568.4,387.5 570.7,387.3 573.0,387.0 575.4,386.5 577.7,386.1 580.1,385.7 582.4,385.5 584.8,385.3 587.1,385.1 589.5,385.0 591.8,384.9 594.2,384.8 596.5,384.7 598.9,384.8 601.2,384.9 603.6,385.0 605.9,385.1 608.3,385.2 610.6,385.4 612.9,385.7 615.3,385.9 617.6,386.1 620.0,386.3 622.3,386.6 624.7,386.8 627.0,387.1 629.4,387.4 631.7,387.7 634.1,388.1 636.4,388.3 638.8,388.7 641.1,389.0 643.5,389.3 645.8,389.6 648.2,389.9 650.5,390.2 652.9,390.5 655.2,390.8 657.5,391.0 659.9,391.3 662.2,391.6 664.6,391.9 666.9,392.1 669.3,392.3 671.6,392.5 674.0,392.7 676.3,392.8 678.7,392.8 681.0,392.9 683.4,392.9 685.7,392.9 688.1,392.8 690.4,392.6 692.8,392.6 695.1,392.5 697.4,392.4 699.8,392.4 702.1,392.4 704.5,392.4 706.8,392.3 709.2,392.3 711.5,392.2 713.9,392.0 716.2,391.9 718.6,391.7 720.9,391.3 722.0,391.2"/>
-                  </g>
-
-                  <polyline class="anchorline" points="159.9,421.4 244.4,392.1"/>
-                  <circle class="anchor" cx="159.9" cy="421.4" r="3.4"/>
-                  <circle class="anchor" cx="244.4" cy="392.1" r="3.4"/>
-
-                  <text class="annot dim" x="314" y="330">re-entrainment blip, relaxed by t = 26</text>
-                  <text class="annot dim" x="314" y="341">(RES peak 1.061 is above this zoom)</text>
-                  <text class="annot resT" x="738" y="349" text-anchor="end">RES + correction &#183; plateau 1.0504 &#8211; 1.0526</text>
-                  <text class="annot dnaT" x="738" y="409" text-anchor="end">DNA &#183; plateau 1.0435 &#8211; 1.0457</text>
-
-                  <line class="ax" x1="66" y1="424" x2="742" y2="424"/>
-                  <g class="xtick">
-                    <text x="66" y="438" text-anchor="middle">0</text>
-                    <text x="159.9" y="438" text-anchor="middle">10</text>
-                    <text x="253.8" y="438" text-anchor="middle">20</text>
-                    <text x="347.7" y="438" text-anchor="middle">30</text>
-                    <text x="441.6" y="438" text-anchor="middle">40</text>
-                    <text x="535.4" y="438" text-anchor="middle">50</text>
-                    <text x="629.3" y="438" text-anchor="middle">60</text>
-                    <text x="723.2" y="438" text-anchor="middle">70</text>
-                  </g>
-                  <text class="axtitle" x="404" y="456" text-anchor="middle">time t</text>
-
-                  <!-- legend -->
-                  <g class="legend" transform="translate(66,474)">
-                    <line class="cdna" x1="0" y1="-4" x2="26" y2="-4"/>
-                    <text x="32" y="0">&#951;_DNA &#8212; deformation form, the physical torque</text>
-                    <line class="cres" x1="298" y1="-4" x2="324" y2="-4"/>
-                    <text x="330" y="0">&#951;_REScorr &#8212; RES + 2&#956;&#937;V_bob</text>
-                    <circle class="anchor" cx="540" cy="-4" r="3.4"/>
-                    <text x="550" y="0">recorded anchor</text>
-                  </g>
-                </svg>
-                <figcaption><b>the centrepiece</b>&#951; is formed at <em>matched transient times</em>, so the two runs' start-up transients divide out: &#951;_DNA(t) = T&#8321;_DNA(t)/T&#8320;_DNA(t) and &#951;_REScorr(t) = (|T&#8321;_RES(t)| + 16.085)/(|T&#8320;_RES(t)| + 16.085), the constant being the &#966;-independent transpose correction 2&#956;&#937;V_bob. <strong>A</strong> is the verdict in one picture: the measured curves sit far below <em>both</em> candidate targets, and the gap arrow is the finding — the DNS recovers roughly <strong>55%</strong> of the composite-Einstein viscosity excess. <strong>B</strong> is the quality control: after the restart blip decays by t = 26 both estimators are <strong>flat for 40 time units</strong> (drift 6&#8211;8 &#215; 10&#8315;&#8309; per t.u. over the final window), which is <em>model-free</em> convergence — no extrapolation, no fitted tail. The two estimators stay <strong>0.65% apart</strong> throughout, exactly the V0 metrology carrying over. <strong>Caveat:</strong> segment 1 (t = 0&#8211;19) ran before the restart and its torque log was overwritten in place; only the two recorded anchors (&#951; = 1.038 at t = 10, 1.0437 at t = 19) survive, so that stretch is drawn as points, not as a curve.</figcaption>
-              </figure>
-
-              <figure class="fig">
-                <svg class="d51phi" viewBox="0 0 760 190" role="img" aria-labelledby="d51PhiT d51PhiD">
-                  <title id="d51PhiT">Measured radial concentration profile across the gap</title>
-                  <desc id="d51PhiD">A bar chart of local solid fraction against radius from four to ten. The bars are zero at the inner and outer walls, rise steeply across a half-diameter margin, and form a broad interior plateau around nine to ten percent, roughly twice the nominal value of four point nine six percent which is drawn as a horizontal dashed reference line. The two zero regions are labelled depletion layers.</desc>
-                  <rect class="plotbg" x="58" y="30" width="542" height="120"/>
-                  <rect class="depzone" x="58" y="30" width="45.2" height="120"/>
-                  <rect class="depzone" x="554.8" y="30" width="45.2" height="120"/>
-                  <g class="grid">
-                    <line x1="58" y1="120" x2="600" y2="120"/>
-                    <line x1="58" y1="90" x2="600" y2="90"/>
-                    <line x1="58" y1="60" x2="600" y2="60"/>
-                  </g>
-                  <rect class="dep" x="103.2" y="140.7" width="21.4" height="9.3"/>
-                  <rect class="dep" x="125.8" y="105.2" width="21.4" height="44.8"/>
-                  <rect class="core" x="148.3" y="69.9" width="21.4" height="80.1"/>
-                  <rect class="core" x="170.9" y="57.1" width="21.4" height="92.9"/>
-                  <rect class="core" x="193.5" y="62.4" width="21.4" height="87.6"/>
-                  <rect class="core" x="216.1" y="60.6" width="21.4" height="89.4"/>
-                  <rect class="core" x="238.7" y="59.4" width="21.4" height="90.6"/>
-                  <rect class="core" x="261.2" y="66.2" width="21.4" height="83.8"/>
-                  <rect class="core" x="283.8" y="64.1" width="21.4" height="85.9"/>
-                  <rect class="core" x="306.4" y="57.0" width="21.4" height="93.0"/>
-                  <rect class="core" x="329.0" y="47.7" width="21.4" height="102.3"/>
-                  <rect class="core" x="351.6" y="46.5" width="21.4" height="103.5"/>
-                  <rect class="core" x="374.2" y="46.4" width="21.4" height="103.6"/>
-                  <rect class="core" x="396.8" y="52.4" width="21.4" height="97.6"/>
-                  <rect class="core" x="419.3" y="52.5" width="21.4" height="97.5"/>
-                  <rect class="core" x="441.9" y="49.9" width="21.4" height="100.1"/>
-                  <rect class="core" x="464.5" y="49.7" width="21.4" height="100.3"/>
-                  <rect class="core" x="487.1" y="76.5" width="21.4" height="73.5"/>
-                  <rect class="dep" x="509.7" y="112.5" width="21.4" height="37.5"/>
-                  <rect class="dep" x="532.2" y="142.5" width="21.4" height="7.5"/>
-                  <line class="nom" x1="58" y1="100.4" x2="600" y2="100.4"/>
-                  <text class="annot nomT" x="608" y="99">nominal &#966; = 0.0496</text>
-                  <text class="annot nomT" x="608" y="111">&#8594; 1 + 2.5&#966; = 1.124</text>
-                  <text class="annot coreT" x="608" y="56">envelope &#966; &#8776; 0.093</text>
-                  <text class="annot coreT" x="608" y="68">peak 0.104 &#8212; about 2&#215;</text>
-                  <text class="annot dimT" x="608" y="124">&#8592; depletion layers,</text>
-                  <text class="annot dimT" x="608" y="136">0.5 d at either wall:</text>
-                  <text class="annot dimT" x="608" y="148">why 1.124 is not the gate</text>
-                  <line class="ax" x1="58" y1="150" x2="600" y2="150"/>
-                  <g class="ytick">
-                    <text x="52" y="33.5" text-anchor="end">0.12</text>
-                    <text x="52" y="63.5" text-anchor="end">0.09</text>
-                    <text x="52" y="93.5" text-anchor="end">0.06</text>
-                    <text x="52" y="123.5" text-anchor="end">0.03</text>
+                    <text x="52" y="43.5" text-anchor="end">0.5</text>
+                    <text x="52" y="65.5" text-anchor="end">0.4</text>
+                    <text x="52" y="87.5" text-anchor="end">0.3</text>
+                    <text x="52" y="109.5" text-anchor="end">0.2</text>
+                    <text x="52" y="131.5" text-anchor="end">0.1</text>
                     <text x="52" y="153.5" text-anchor="end">0</text>
                   </g>
                   <g class="xtick">
-                    <text x="58" y="164" text-anchor="middle">4</text>
-                    <text x="148.3" y="164" text-anchor="middle">5</text>
-                    <text x="238.7" y="164" text-anchor="middle">6</text>
-                    <text x="329.0" y="164" text-anchor="middle">7</text>
-                    <text x="419.3" y="164" text-anchor="middle">8</text>
-                    <text x="509.7" y="164" text-anchor="middle">9</text>
-                    <text x="600" y="164" text-anchor="middle">10</text>
+                    <text x="58" y="164" text-anchor="middle">5</text>
+                    <text x="116.4" y="164" text-anchor="middle">6</text>
+                    <text x="174.8" y="164" text-anchor="middle">7</text>
+                    <text x="233.2" y="164" text-anchor="middle">8</text>
+                    <text x="291.6" y="164" text-anchor="middle">9</text>
+                    <text x="350" y="164" text-anchor="middle">10</text>
                   </g>
-                  <text class="axtitle" x="329" y="182" text-anchor="middle">radius r &#8212; bob wall at 4, outer wall at 10</text>
-                  <text class="ptitle" x="58" y="20">local solid fraction &#966;(r), Monte-Carlo over the 200 measured particle positions at t = 69.9</text>
+                  <text class="ptitle" x="58" y="20">A &#183; exact profile u&#952;(r) = A r + B/r</text>
+                  <text class="annot rotT" x="64" y="38">u&#952;(r&#7522;) = &#937;r&#7522; = 0.5</text>
+                  <text class="annot curveT" x="344" y="46" text-anchor="end">A = &#8722;1/30, B = 10/3</text>
+                  <text class="annot dim" x="344" y="58" text-anchor="end">dashed: straight plane-Couette line</text>
+                  <text class="axtitle" x="204" y="182" text-anchor="middle">radius r &#8212; bob at 5, outer wall at 10</text>
+
+                  <!-- ============ panel B : local shear rate ============ -->
+                  <rect class="plotbg" x="446" y="30" width="292" height="120"/>
+                  <g class="grid">
+                    <line x1="446" y1="130" x2="738" y2="130"/>
+                    <line x1="446" y1="110" x2="738" y2="110"/>
+                    <line x1="446" y1="90" x2="738" y2="90"/>
+                    <line x1="446" y1="70" x2="738" y2="70"/>
+                    <line x1="446" y1="50" x2="738" y2="50"/>
+                  </g>
+                  <path class="fillu" d="M446,43.3 L475.2,61.8 L504.4,75.9 L533.6,86.9 L562.8,95.6 L592,102.6 L621.2,108.3 L650.4,113.1 L679.6,117.1 L708.8,120.5 L738,123.3 L738,150 L446,150 Z"/>
+                  <line class="nom" x1="446" y1="110" x2="738" y2="110"/>
+                  <polyline class="curve" points="446,43.3 475.2,61.8 504.4,75.9 533.6,86.9 562.8,95.6 592,102.6 621.2,108.3 650.4,113.1 679.6,117.1 708.8,120.5 738,123.3"/>
+                  <circle class="mark" cx="630.8" cy="110" r="3.6"/>
+                  <line class="rotline" x1="446" y1="30" x2="446" y2="150"/>
+                  <line class="wallline" x1="738" y1="30" x2="738" y2="150"/>
+                  <line class="ax" x1="446" y1="150" x2="738" y2="150"/>
+                  <g class="ytick">
+                    <text x="440" y="53.5" text-anchor="end">0.25</text>
+                    <text x="440" y="73.5" text-anchor="end">0.20</text>
+                    <text x="440" y="93.5" text-anchor="end">0.15</text>
+                    <text x="440" y="113.5" text-anchor="end">0.10</text>
+                    <text x="440" y="133.5" text-anchor="end">0.05</text>
+                    <text x="440" y="153.5" text-anchor="end">0</text>
+                  </g>
+                  <g class="xtick">
+                    <text x="446" y="164" text-anchor="middle">5</text>
+                    <text x="504.4" y="164" text-anchor="middle">6</text>
+                    <text x="562.8" y="164" text-anchor="middle">7</text>
+                    <text x="621.2" y="164" text-anchor="middle">8</text>
+                    <text x="679.6" y="164" text-anchor="middle">9</text>
+                    <text x="738" y="164" text-anchor="middle">10</text>
+                  </g>
+                  <text class="ptitle" x="446" y="20">B &#183; local shear rate &#611;&#775;(r) = 2B/r&#178;</text>
+                  <text class="annot rotT" x="452" y="38">0.267 at the bob</text>
+                  <text class="annot dim" x="732" y="104" text-anchor="end">nominal 0.1</text>
+                  <text class="annot okT" x="628" y="128" text-anchor="end">crosses at r = 8.16</text>
+                  <text class="annot dim" x="732" y="140" text-anchor="end">0.0667 at the outer wall</text>
+                  <text class="axtitle" x="592" y="182" text-anchor="middle">radius r &#8212; the local rate varies 4&#215; across the gap</text>
                 </svg>
-                <figcaption><b>why the naive target is wrong</b>The 0.5 d particle-free packing margins act as <strong>depletion layers</strong> — the numerical counterpart of the wall-slip artifact that afflicts real rheometry. The solids are pushed into the interior, which therefore carries <strong>roughly twice the nominal concentration</strong>, and a homogeneous 1 + 2.5&#966; evaluated at the nominal &#966; is not the quantity the cell is measuring. The gate target is instead a <strong>composite-Einstein</strong> prediction built from this measured profile: Monte-Carlo over the particle positions, then parallel z-slices of radial series composites. That construction is what moves the target from 1.124 down to <strong>1.0791&#8211;1.0905</strong> — and the measurement still falls short of it.</figcaption>
+                <figcaption><b>the reference, written before the run</b>Both curves are the <strong>analytic</strong> annular Couette solution at the V2 operating point (&#956; = 0.2, &#937; = 0.1, r&#7522; = 5, r&#8336; = 10) &#8212; <em>no simulation output is plotted here</em>. <strong>A</strong> is what gate 2 compares the DNS profile against; the exact profile bows below the straight plane-Couette line because a 5 d gap at ratio 0.5 is not a thin gap. <strong>B</strong> is why the quoted Re_p = 0.5 is a nominal number: the local rate falls by a factor 4 across the gap, so spheres will see Re_p between &#8776; 1.3 at the bob and &#8776; 0.3 at the outer wall &#8212; Stokes-ish throughout, and the Taylor number 156 sits far below the &#8776; 1712 threshold, so there are no Taylor vortices to contaminate the torque. Integrating the same solution over the masked surface gives the gate-1 reference <strong>T_exact = 4&#960;&#956;&#937;H/(r&#7522;&#8315;&#178; &#8722; r&#8336;&#8315;&#178;) = 83.78</strong>.</figcaption>
               </figure>
 
               <div class="tablewrap">
                 <table class="num">
-                  <caption>V1 staging — five attempts before a stable coupled run, then two production segments</caption>
+                  <caption>V2.0 gates &#8212; pass bands fixed before the run</caption>
                   <thead>
-                    <tr><th scope="col">Job</th><th scope="col">Change</th><th scope="col">Outcome</th></tr>
+                    <tr><th scope="col">Gate</th><th scope="col">Reference</th><th scope="col">Pass band</th><th scope="col">State</th></tr>
                   </thead>
                   <tbody>
-                    <tr><th scope="row" class="id">140845</th><td>packing margins read as centre distances</td><td class="err">sphere surfaces touching the rotating bob wall &#8594; blow-up</td></tr>
-                    <tr><th scope="row" class="id">140846</th><td>dt = 0.05, &#961;_p = 1.0</td><td class="err">exponential divergence</td></tr>
-                    <tr><th scope="row" class="id">140847</th><td>dt = 0.005, &#961;_p = 1.0</td><td class="err">diverged &#8212; rate &#8776; 35/t.u., <strong>insensitive to dt</strong></td></tr>
-                    <tr><th scope="row" class="id">140848</th><td>&#961;_p = 1.1</td><td class="err">diverged &#8212; insensitive to &#961; too &#8594; <strong>CFL and added-mass both ruled out</strong></td></tr>
-                    <tr><th scope="row" class="id">&#8595; root cause</th><td colspan="2">template deck carried <code>Prop@ForceScale</code> = (0,0,4,0,0,0) &#8212; a <strong>symmetry-deck</strong> setting that reconstructs the z force from a quarter domain. In a <em>full</em> domain it is a <strong>&#215;4 gain on the z force-feedback loop</strong>.</td></tr>
-                    <tr><th scope="row" class="id">140849</th><td><code>ForceScale</code> all ones</td><td class="ok"><strong>STABLE</strong> &#8212; production segment 1, t = 0 &#8594; 19</td></tr>
-                    <tr><th scope="row" class="id">140942</th><td>dt = 0.05 full-protocol probe</td><td class="err">clean for 30 t.u., then diverged at <strong>sustained contact</strong> &#8594; contacts set the timestep</td></tr>
-                    <tr><th scope="row" class="id">140993</th><td>restart from cycling dump slot 9</td><td class="ok">production segment 2, t = 19 &#8594; 69.9</td></tr>
+                    <tr><th scope="row" class="id">1 &#183; analytic torque</th><td>T_exact = 4&#960;&#956;&#937;H/(r&#7522;&#8315;&#178; &#8722; r&#8336;&#8315;&#178;) = <strong>83.78</strong></td><td class="err">|T_DNA(&#8734;)/T_exact &#8722; 1| &#8804; 3%</td><td><span class="pill s">awaiting</span></td></tr>
+                    <tr><th scope="row" class="id">2 &#183; velocity profile</th><td>exact u&#952;(r) = A r + B/r (figure above)</td><td class="err">VTK spot check, recorded</td><td><span class="pill s">awaiting</span></td></tr>
+                    <tr><th scope="row" class="id">3 &#183; estimator concordance</th><td>DNA (deformation form, primary) vs RES + 2&#956;&#937;V_hole = <strong>31.42</strong></td><td class="err">&#8804; 3% after the correction</td><td><span class="pill s">awaiting</span></td></tr>
+                    <tr><th scope="row" class="id">4 &#183; steadiness</th><td>endpoint drift over the final window (&#964;_&#957; = 125)</td><td class="err">&lt; 5 &#215; 10&#8315;&#179;</td><td><span class="pill s">awaiting</span></td></tr>
                   </tbody>
                 </table>
               </div>
-              <p class="cost"><b>certified in passing</b>The restart mechanics: <code>StartingProc</code> = 1 with <code>StartFile</code> as a <strong>bare slot integer</strong> string (the C++ reader does <code>std::stoi</code>, so the template <code>_dump/04</code> form throws), and particles re-seeded via <code>particles.xyz</code> at their t = 19 positions. Velocities re-entrain in &#8776; 0.3 t.u. and the torque blip has relaxed by t = 26; handover is continuous (vp_max 0.215 against 0.214). <strong>V0 cost three failed stagings of its own</strong>, all infrastructure: <strong>140342</strong> <code>SubMeshNumber</code> = 1 against a 108-subdirectory partition; <strong>140615</strong> an OOM traced to the parser reading <code>MaxMeshLevel</code> = 8 out of an <em>inline deck comment</em> ending in &ldquo;&#8230;D/h=8 (CASE_SPEC 4)&rdquo; — <strong>the q2p1 parser does not reliably stop at <code>!</code>, so inline comments ending in numbers are poison</strong>; <strong>140754</strong> missing <code>start/sampleRigidBody.xml</code> boilerplate.</p>
 
               <div class="finding">
-                <span class="h">V1 verdict — the Einstein gate does not pass, and the deficit is a resolution signature <span class="v fail">FAIL</span></span>
-                <p><strong>The measurement is sound.</strong> &#951;(t) is flat for <strong>40 time units</strong> (drift 8 &#215; 10&#8315;&#8309; per t.u.), which is model-free convergence rather than a fitted asymptote; the two estimators stay concordant to <strong>0.65%</strong>; and migration is negligible over the window (mean particle radius +0.036 d in 35 t.u.), so the profile the target is built from is the profile the torque saw. Measured <strong>&#951; = 1.044</strong> (DNA) to <strong>1.051</strong> (RES + correction).</p>
-                <p><strong>The target is sound too.</strong> Built from the measured &#966;(r,z) rather than the nominal &#966;, it lands at <strong>1.0791&#8211;1.0905</strong> across variants — the low end using a_eff = a &#8722; 0.14 h and a shear-front truncation at r &#8804; 7.7, the high end the full domain at nominal a. <strong>DNA fails every variant; REScorr grazes only the loosest band edge.</strong> The measured excess is <strong>0.044&#8211;0.051</strong> against a predicted <strong>0.079&#8211;0.091</strong>: the DNS recovers <strong>55 &#177; 8%</strong> of the composite-Einstein viscosity excess.</p>
-                <p><strong>Interpretation — recorded, not proven.</strong> The deficit is consistent in sign and scale with under-resolution of the <strong>stresslet</strong> disturbance field at D/h = 8. Viscosity excess is a <em>higher moment</em> of the disturbance (r&#8315;&#178; near field) than drag (r&#8315;&#185;), so it should degrade faster than the <strong>84&#8211;87% drag recovery this campaign certified at the same resolution</strong> — and it does. Rotation is exonerated (the fixed binary lets spheres rotate freely); a_eff and Batchelor O(&#966;&#178;) corrections move the target the wrong way, or by too little to matter.</p>
+                <span class="h">Why gate 1 is new, and why gate 3 needs a correction constant</span>
+                <p><strong>Gate 1</strong> exists only because the geometry is axially uniform. A blind bore has end faces and a lid, so its torque has no closed form and the baseline can only be checked for reproducibility; a through-hole annulus with symmetry ends has an exact solution, so <strong>discretization error is the only thing left to excuse a mismatch</strong> &#8212; hence the tight 3%.</p>
+                <p><strong>Gate 3</strong> carries the campaign's physical-torque protocol. FF assembles the Newtonian viscous operator in <strong>gradient (Laplacian) form</strong>, so the reaction estimator measures the gradient-form boundary flux and misses the transpose term. For translation that difference integrates to zero over a closed surface; for a <strong>rotating</strong> Dirichlet surface it does not &#8212; rigid rotation has curl 2&#937;, and the missing term is exactly <strong>2&#956;&#937;V_enclosed</strong>. Here V_hole = &#960;r&#7522;&#178;H = 785.4, so the constant is <strong>31.42</strong>. The deformation-form torque is primary; the corrected reaction estimator is the concordance check.</p>
               </div>
 
               <div class="priority">
-                <span class="lbl">Consequence for EL closures, and the one discriminator that settles it</span>
-                <p><strong>Production-resolution DNS cannot calibrate a suspension-viscosity closure at D/h = 8 without a resolution correction of order 1.8&#215; on the excess.</strong> That is a usable number and a real constraint — the drag closures the campaign certified at this resolution do <em>not</em> license the viscosity closure at the same resolution, because the two live at different moments of the same disturbance field. <strong>Discriminator (recorded, not started):</strong> rerun V1 at <strong>D/h = 16</strong> (<code>MaxMeshLevel</code> 4). If &#951; rises toward &#8776; 1.08 the resolution attribution is confirmed; it also settles whether the instrument or the resolution owns the deficit.</p>
+                <span class="lbl">Status &#8212; awaiting first results</span>
+                <p><strong>V2.0 is queued as job 141372; nothing has been measured on this instrument yet.</strong> Everything above is specification &#8212; geometry, operating point, mesh, and four gates with their pass bands written down in advance. When V2.0 lands this block is replaced by the measured torque against 83.78, the u&#952;(r) spot check, the estimator concordance and the steadiness record; when V2.1 lands, by &#951;(0.05) against the composite-Einstein target. Until then, <strong>no V2 number appears on this page that has not been measured</strong>.</p>
               </div>
 
-              <p class="cost"><b>rows</b>Datasheet: <code>d51_v0_baseline</code> (&#966; = 0 baseline, PASS on steadiness), <code>d51_torque_metrology</code> (two-estimator gate and transpose correction, PASS at 0.65%), <code>d51_v1_run</code> (staging history and restart chain, RECORDED), <code>d51_einstein_gate</code> (<strong>FAIL</strong>, &#916; = &#8722;0.45 relative on the excess). Case specification: <code>applications/q2p1_dns_drag/validation_cases/d51_viscometer/CASE_SPEC.md</code> &#167;&#167;3&#8211;6, as amended by the depletion-layer analysis.</p>
+              <div class="priority">
+                <span class="lbl">What V2.1 is for</span>
+                <p>&#966; = 0.05, <strong>N = 225 spheres</strong> seeded by RSA with 0.5 d <em>surface</em> clearance to both walls and to both symmetry planes (FBM does not mirror particles across a symmetry plane), &#961;_p/&#961;_f = 1.1 with gravity 0 &#8212; rheologically inert, the certified coupling regime &#8212; dt = 0.005 because contacts set the step, run under <code>PE_SERIAL_MODE</code>. The gate is <strong>&#951; = T(&#966;)/T(0)</strong> against a composite-Einstein target built from the <em>measured</em> &#966;(r,z) profile, which in this geometry is <strong>undiluted</strong>: the only particle-free zones are the modelled radial and axial margins. The naive homogeneous 1 + 2.5&#966; = <strong>1.124</strong> is recorded as a reference, not as the gate. Only once that gate discriminates do the <strong>&#966; ladder</strong> (0.10, 0.20 &#8212; the legacy study's range) and a <strong>D/h = 16</strong> resolution rung become meaningful.</p>
+              </div>
+
+              <p class="cost"><b>rows</b>Datasheet suite <code>d5_rheology</code>: the V2 redesign and the instrument systematics that forced it are recorded in <code>d51_end_dilution</code>; the retired blind-bore rows (<code>d51_v0_baseline</code>, <code>d51_torque_metrology</code>, <code>d51_v1_run</code>, <code>d51_einstein_gate</code>) stand as history and are not carried into the V2 reading. Case specification: <code>applications/q2p1_dns_drag/validation_cases/d51_viscometer/CASE_SPEC_V2.md</code>. Mesh: <code>d52_mesh_v1/</code> &#8212; README, REPRODUCE, and the partitioned <code>_mesh/VISCO2_108</code>.</p>
             </div>
 
             <div class="statblock">
@@ -2146,9 +1990,8 @@ html { scroll-behavior: smooth; }
                 <li><span class="pill s">active</span><span><strong>CHERD supplementary finalisation</strong> — the steady-state methodology survived a <strong>nine-round adversarial review</strong>, and the supplement tables are being finalised with a colleague. This runs in parallel with the discriminator fleet.</span></li>
                 <li><span class="pill s">next</span><span><strong>Practitioner's guide v1</strong> — it can now carry the measured noise floor, the crossover rule and the contact-friction guideline, which were the three gaps in v0.</span></li>
                 <li><span class="v rec">RECORDED</span><span><strong><a href="#D3-2">D3.2 wall-bounded hindered settling</a> — the φ ladder is complete at 12 of 12 points and the stage closes its planned scope.</strong> The mechanism gate is PASS across the whole ladder, and the confined-configuration hindrance law is measured tightly: <strong>n ≈ 4.3–4.6</strong>, far above the unbounded Rowe/RZ band. The <em>attribution</em> between wall drag and finite-cloud effects is now settled too — see the closure above; the v3 guide write-up is what remains.</span></li>
-                <li><span class="v pass">CLOSED</span><span><strong>The D5.1 viscometer V0 baseline is measured</strong> — job <strong>140755</strong>, both estimators machine-steady (relative scatter ≈ 10⁻⁵) with the physical torque <strong>T(0) = −70.53</strong>. The two-estimator gate paid for itself immediately: a 30.6% disagreement resolved to an <em>exact</em> metrology finding — the reaction estimator is blind to the rotational transpose term <strong>2 μ Ω V_enclosed</strong>, which vanishes for translation and not for rotation.</span></li>
-                <li><span class="v fail">CLOSED · FAIL</span><span><strong>D5.1 V1 — the Einstein gate at φ = 0.05 is measured, and it does not pass.</strong> Segment 2 (job <strong>140993</strong>) reached <strong>t = 69.9</strong> and η(t) is <strong>flat for 40 time units</strong> — model-free convergence, drift 8 × 10⁻⁵ per t.u., the two estimators concordant to 0.65%. Measured <strong>η = 1.044</strong> (DNA) / <strong>1.051</strong> (RES + correction) against a composite-Einstein target of <strong>1.0791–1.0905</strong> built from the <em>measured</em> φ(r,z) — not the homogeneous 1 + 2.5φ = 1.124, which the depletion layers rule out. The DNS therefore recovers only <strong>55 ± 8% of the viscosity excess</strong>. Recorded reading: <strong>stresslet (r⁻²) under-resolution at D/h = 8</strong>, degrading faster than the certified 84–87% drag (r⁻¹) recovery. EL consequence: suspension-viscosity calibration at production resolution needs a <strong>~1.8×</strong> correction on the excess.</span></li>
-                <li><span class="pill s">next</span><span><strong>D5.1 discriminator — rerun V1 at D/h = 16</strong> (<code>MaxMeshLevel</code> 4). Not started. If η rises toward ≈ 1.08 the resolution attribution is confirmed and the 1.8× correction becomes a measured convergence trend rather than a single-point inference; if it does not, the instrument itself owns the deficit and the Searle cell needs rethinking before the D6 capstone. This is the one open follow-up the rheology arc carries.</span></li>
+                <li><span class="v rec">RECORDED</span><span><strong>The D5.1 viscometer was rebuilt, and the earlier Einstein-gate verdict retired with it.</strong> The blind-bore cell generated <strong>45.7% of its baseline torque in particle-free fluid</strong> — the velocity-jump ring at the lid and the bob end face — which dilutes η(φ) = T(φ)/T(0) by a factor that depends on an unmeasurable ring-sampling fraction. The measured ratio is consistent with Einstein <em>within that instrument uncertainty</em>, so the FAIL was revised to RECORDED, the stresslet-resolution reading was withdrawn as unproven, and the ~1.8× EL correction claim went with it. Row <code>d51_end_dilution</code>.</span></li>
+                <li><span class="v run">IN FLIGHT</span><span><strong>D5.1 V2.0 — the empty baseline of the through-hole cell</strong>, job <strong>141372</strong>, queued. dt = 0.05 to t = 200 (1.6 τ_ν) on the fresh <code>d52_mesh_v1</code> annulus at D/h ≈ 8, 108 subdomains. First gate is the <strong>analytic torque T_exact = 83.78 within 3%</strong> — a reference this geometry earns and the blind bore never had. Owner inspects the V2.0 output before V2.1, the φ = 0.05 Einstein gate, is staged.</span></li>
                 <li><span class="v res">RESOLVED</span><span><strong>The <code>libs/pe</code> upstream stack is merged and pinned at <code>f9b7115</code></strong> — PR <strong>#25</strong> (merge repair), <strong>#26</strong> (lubrication add-on, off by default), <strong>#27</strong> (checkpoint metadata), <strong>#28</strong> (cleanup against the recorded defect list). Each bump passed a bitwise <code>e4_l3</code> twin before adoption; the long-standing merge hold on <code>origin/master</code> is cleared.</span></li>
                 <li><span class="pill w">deferred</span><span>Re-interpreting the periodicity-dependent <strong>EL</strong> results (Richardson–Zaki FAIL attribution, kroupa xy shear) on the fixed binary — deferred to its own session. The DNS side of that fix is fully closed.</span></li>
               </ul>
@@ -2924,9 +2767,9 @@ html { scroll-behavior: smooth; }
           <p class="goal"><b>Goal</b>The strategic payoff — use each method where it is strong, and use DNS to close EL's documented model boundaries.</p>
 
           <div>
-            <h3 class="blk" id="D5-1"><span class="tag">D5.1</span> Same-physics twins <span class="aside">method-comparison memo</span> <span class="v pass">V0 PASS</span> <span class="v fail">V1 EINSTEIN GATE FAIL</span></h3>
+            <h3 class="blk" id="D5-1"><span class="tag">D5.1</span> Same-physics twins <span class="aside">method-comparison memo</span> <span class="v run">V2.0 QUEUED</span></h3>
             <div class="blkbody">
-              <p class="note"><strong>Executing under this heading since 2026-08-23: the numerical viscometer</strong> (datasheet suite <code>d5_rheology</code>). A Searle-cell DNS case measuring η(φ) = T(φ)/T(0) — the direct method-comparison currency for suspension rheology, and the run-up to the D6 Kroupa-box capstone. <strong>V0 (φ = 0) is closed PASS</strong> with a torque-metrology finding that corrects the reaction estimator on rotating surfaces; <strong>V1, the Einstein gate at φ = 0.05, is closed FAIL</strong> — a converged measurement that recovers only ~55% of the composite-Einstein viscosity excess at D/h = 8, read as stresslet under-resolution and carrying a D/h = 16 discriminator. Numbers in the <a href="#status">status section</a>.</p>
+              <p class="note"><strong>Executing under this heading since 2026-08-23: the numerical viscometer</strong> (datasheet suite <code>d5_rheology</code>). A rotational-viscometer DNS case measuring &#951;(&#966;) = T(&#966;)/T(0) &#8212; the direct method-comparison currency for suspension rheology, and the run-up to the D6 Kroupa-box capstone. The instrument was <strong>rebuilt on 2026-08-26</strong>: the original blind-bore cell generated 45.7% of its torque in particle-free fluid and could not discriminate the Einstein gate, so it was replaced by a <strong>through-hole annulus with symmetry ends</strong> &#8212; axially uniform, quasi-2D, and carrying an exact analytic torque reference. <strong>V2.0, the empty baseline, is queued; no V2 result has landed yet.</strong> Setup, operating point and gates in the <a href="#status">status section</a>.</p>
               <ul>
                 <li>ten Cate E1–E4: DNS (this campaign, full-box + quarter-box) vs EL v1b (existing) vs PIV — one figure per case, with the EL self-voidage bias (ε_eff ≈ 0.975, +6% co-flow) annotated. States explicitly which method to use at which D/h and cost.</li>
                 <li>Sphere–wall approach: DNS resolved curve (D2.1) vs EL's behavior (EL has no particle-wall lubrication in pipe geometry — documented boundary); quantifies what EL misses near walls.</li>
@@ -3364,7 +3207,7 @@ html { scroll-behavior: smooth; }
 
       <footer>
         <span>Sources: <code>dns-validation-campaign-plan.md</code> (repo root) and <code>docs/md_docs/dns_validation_datasheet.md</code></span>
-        <span class="mono">Drafted 2026-07-31 &middot; results current 2026-08-12</span>
+        <span class="mono">Drafted 2026-07-31 &middot; results current 2026-08-26</span>
       </footer>
 
     </main>
