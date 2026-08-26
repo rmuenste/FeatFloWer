@@ -16,8 +16,9 @@ import sys
 
 from paraview.simple import (
     XMLPartitionedUnstructuredGridReader, Slice, Sphere, Outline, Show,
-    Render, SaveScreenshot, GetActiveViewOrCreate, ColorBy,
+    Render, SaveScreenshot, SaveState, GetActiveViewOrCreate, ColorBy,
     GetColorTransferFunction, GetScalarBar, GetDisplayProperties,
+    RenameSource,
 )
 
 p = argparse.ArgumentParser()
@@ -29,8 +30,11 @@ p.add_argument("--radius", type=float)
 p.add_argument("--slice-y", type=float, default=0.5)
 p.add_argument("--title", default="velocity magnitude")
 p.add_argument("--front-cut", action="store_true",
-               help="omit spheres entirely in front of the slice plane "
-                    "(center y > slice_y + r) so the slice stays visible")
+               help="hide spheres entirely in front of the slice plane "
+                    "(center y > slice_y + r) so the slice stays visible; "
+                    "they remain in the pipeline, toggleable in the GUI")
+p.add_argument("--save-state",
+               help="also write a ParaView .pvsm state file of the scene")
 args = p.parse_args()
 
 spheres = [tuple(float(x) for x in s.split(",")) for s in args.sphere]
@@ -75,19 +79,19 @@ odisp.AmbientColor = [0.25, 0.25, 0.25]
 odisp.DiffuseColor = [0.25, 0.25, 0.25]
 odisp.LineWidth = 1.5
 
-if args.front_cut:
-    spheres = [s for s in spheres if s[1] <= args.slice_y + s[3]]
-
-for (cx, cy, cz, r) in spheres:
+for i, (cx, cy, cz, r) in enumerate(spheres, 1):
     sp = Sphere()
     sp.Center = [cx, cy, cz]
     sp.Radius = r
     sp.ThetaResolution = 48
     sp.PhiResolution = 48
+    RenameSource("particle_%03d" % i, sp)
     sdisp = Show(sp, view)
     sdisp.DiffuseColor = [0.62, 0.64, 0.68]
     sdisp.Specular = 0.35
     sdisp.SpecularPower = 40.0
+    if args.front_cut and cy > args.slice_y + r:
+        sdisp.Visibility = 0
 
 view.CameraPosition = [2.35, -1.75, 1.85]
 view.CameraFocalPoint = [0.5, 0.5, 0.5]
@@ -98,3 +102,6 @@ Render()
 SaveScreenshot(args.out, view, ImageResolution=[1800, 1500],
                TransparentBackground=0)
 print("wrote", args.out, "with", len(spheres), "spheres")
+if args.save_state:
+    SaveState(args.save_state)
+    print("wrote", args.save_state)
