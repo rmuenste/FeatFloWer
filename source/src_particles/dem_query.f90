@@ -32,6 +32,36 @@ end type tParticleData
 
 
 !================================================================================================
+!                              Function get_lubrication_enabled
+!================================================================================================
+! C++ implementation: get_lubrication_enabled() in libs/pe/pe/interface/c_interface_queries.h
+! 1 while the lubrication add-on master switch is on, else 0. Gates the DNS_LUB
+! print so lubrication-off runs keep byte-identical stdout.
+interface
+integer(c_int) function get_lubrication_enabled() bind(C, name="get_lubrication_enabled")
+  use iso_c_binding, only: c_int
+  end function
+end interface
+
+!================================================================================================
+!                              Subroutine get_lubrication_stage_diag
+!================================================================================================
+! C++ implementation: get_lubrication_stage_diag() in libs/pe/pe/interface/c_interface_queries.h
+! Diagnostics of the most recent lubrication stage invocation (rank-local PE
+! instance). Single sphere-wall pair: totalForce IS the applied lubrication
+! force, maxNormalImpulse/dt its normal component. Zeros while the add-on is
+! off or the built solver does not run the stage.
+interface
+subroutine get_lubrication_stage_diag(totalForce, dissipation, maxNormalImpulse, &
+                                      numContacts, numSaturated) &
+           bind(C, name="get_lubrication_stage_diag")
+  use iso_c_binding, only: c_double, c_int
+  real(c_double) :: totalForce, dissipation, maxNormalImpulse
+  integer(c_int) :: numContacts, numSaturated
+  end subroutine
+end interface
+
+!================================================================================================
 !                              Subroutine set_lubrication_mesh_dx
 !================================================================================================
 ! C++ implementation: set_lubrication_mesh_dx() in libs/pe/pe/interface/c_interface_queries.h

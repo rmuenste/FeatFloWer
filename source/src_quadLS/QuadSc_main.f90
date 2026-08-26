@@ -573,7 +573,8 @@ use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
 #ifdef HAVE_PE
-use dem_query, only: numLocalParticles, numTotalParticles
+use dem_query, only: numLocalParticles, numTotalParticles, &
+                     get_lubrication_enabled, get_lubrication_stage_diag
 #endif
 external E013
 
@@ -587,6 +588,8 @@ INTEGER INLComplete,I,J,IERR,iITER
 INTEGER iaux_lev
 real*8 px, py, pz
 real*8 dres_buf(2), dofs_pp, d_over_h
+real*8 dLubF, dLubDiss, dLubJmax
+integer nLubPairs, nLubSat
 integer k
 k=1
 
@@ -942,6 +945,18 @@ IF (bPrintParticleState .AND. enable_fbm) THEN
       'DNS_CFL time= ', timens, ' cfl_fluid= ', cfl_global, &
       ' cfl_particle= ', cfl_particle_global, ' vp_max= ', vp_max_global, &
       ' dt= ', tstep
+    ! Lubrication-stage record (D2.2 G2 instrumentation): rank-1 PE instance;
+    ! in PE serial mode every rank holds the full world, so this is the global
+    ! record. For a single sphere-wall pair F_total IS the applied lubrication
+    ! force and J_max/dt its normal component. Printed only while the add-on
+    ! is enabled, so lubrication-off runs keep byte-identical stdout.
+    IF (get_lubrication_enabled() .NE. 0) THEN
+      CALL get_lubrication_stage_diag(dLubF, dLubDiss, dLubJmax, nLubPairs, nLubSat)
+      WRITE(*,'(A,ES16.8,A,ES16.8,A,ES16.8,A,ES16.8,A,I6,A,I6)') &
+        'DNS_LUB time= ', timens, ' F_total= ', dLubF, &
+        ' J_max= ', dLubJmax, ' dissipation= ', dLubDiss, &
+        ' n_pairs= ', nLubPairs, ' n_saturated= ', nLubSat
+    END IF
   END IF
 END IF
 #endif
