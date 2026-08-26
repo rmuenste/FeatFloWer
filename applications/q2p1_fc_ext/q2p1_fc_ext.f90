@@ -6,6 +6,9 @@ PROGRAM Q2P1_FC_EXT
   use solution_io, only: postprocessing_app
 
   use app_initialization, only: init_q2p1_app
+  use checkpoint_config, only: checkpoint_register_application, &
+    CHECKPOINT_MASK_MPI_PRF, CHECKPOINT_MASK_DMP, &
+    CHECKPOINT_MASK_PROVENANCE
 
   use post_utils,  only: handle_statistics,&
                          print_time,&
@@ -46,6 +49,9 @@ PROGRAM Q2P1_FC_EXT
       stop
   endif
 
+  call checkpoint_register_application('q2p1_fc_ext', &
+    CHECKPOINT_MASK_MPI_PRF + CHECKPOINT_MASK_DMP + &
+    CHECKPOINT_MASK_PROVENANCE)
   call init_q2p1_app(ufile)
 
   CALL ZTIME(tt0)

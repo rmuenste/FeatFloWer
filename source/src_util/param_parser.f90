@@ -9,7 +9,12 @@ MODULE param_parser
 !-------------------------------------------------------------------------------------------------
 USE PP3D_MPI, ONLY: myid, showID, master, MPI_COMM_WORLD, dPeriodicity
 USE iniparser
-USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io
+USE checkpoint_config, ONLY: checkpoint_reset_selection, &
+  checkpoint_set_format_token, checkpoint_finalize_selection, &
+  checkpoint_format_name, checkpoint_source_name, &
+  selected_checkpoint_format, checkpoint_selection_source
+USE prov_dump_config, ONLY: set_use_prov_dump, use_prov_dump_io, &
+  sync_use_prov_dump
 USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   myMatrixRenewal, bNonNewtonian, cGridFileName, nSubCoarseMesh, cFBM_File, &
   bTracer, cProjectFile, bMeshAdaptation, myExport, cAdaptedMeshFile, &
@@ -862,12 +867,17 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   CHARACTER(len=400) :: cLongString
   CHARACTER(len=8) :: cParam
   CHARACTER(len=20) :: cParam2
+  CHARACTER(len=32) :: cDumpFormat
+  CHARACTER(len=256) :: cCheckpointError
 
   ! Local variables - logicals
   LOGICAL :: bOK, bOutNMAX
   LOGICAL :: is_open
+  INTEGER :: iCheckpointError
 
   SAVE
+
+  CALL checkpoint_reset_selection()
 
   inquire(unit=myFile, OPENED=is_open)
   if (.not. is_open) then
@@ -934,6 +944,12 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         MSTART = START_FILE_UNIT
       CASE ("UseProvDump")
         CALL set_use_prov_dump(read_yes_no_param(string, iEq))
+      CASE ("DumpFormat")
+        cDumpFormat = ' '
+        READ(string(iEq+1:),*) cDumpFormat
+        CALL checkpoint_set_format_token(cDumpFormat, iCheckpointError, &
+          cCheckpointError)
+        IF (iCheckpointError /= 0) CALL abort_checkpoint_parameter(cCheckpointError)
       CASE ("LoadAdaptedMesh")
         bMeshAdaptation = .true.
         READ(string(iEq+1:),*) cAdaptedMeshFile
@@ -1144,6 +1160,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   END IF
   END DO
 
+  CALL checkpoint_finalize_selection(iCheckpointError, cCheckpointError)
+  IF (iCheckpointError /= 0) CALL abort_checkpoint_parameter(cCheckpointError)
+  CALL sync_use_prov_dump()
+
   CLOSE (myFile)
 
   M     = 1
@@ -1189,6 +1209,10 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
     CALL write_param_str(mfile, mterm, "ProjectFile = ", TRIM(CProjectFile))
     CALL write_param_int(mfile, mterm, "StartingProc = ", ISTART)
     CALL write_param_str(mfile, mterm, "StartFile = ", CSTART)
+    CALL write_param_str(mfile, mterm, "DumpFormat = ", &
+      TRIM(checkpoint_format_name(selected_checkpoint_format)))
+    CALL write_param_str(mfile, mterm, "DumpFormat source = ", &
+      TRIM(checkpoint_source_name(checkpoint_selection_source)))
     IF (use_prov_dump_io) THEN
       CALL write_param_str(mfile, mterm, "UseProvDump = ", "YES")
     ELSE
@@ -1533,6 +1557,20 @@ CONTAINS
 
     bool_value = parse_yes_no_param(input_string, iEq_pos, cName, cPar)
   END FUNCTION read_yes_no_param
+
+  SUBROUTINE abort_checkpoint_parameter(message)
+    CHARACTER(len=*), INTENT(IN) :: message
+    INTEGER :: iAbortErr
+
+    IF (myid == master) THEN
+      WRITE(*,'(A)') REPEAT('=',78)
+      WRITE(*,'(A)') ' FATAL: invalid checkpoint configuration'
+      WRITE(*,'(A)') '  '//TRIM(message)
+      WRITE(*,'(A)') REPEAT('=',78)
+      FLUSH(6)
+    END IF
+    CALL MPI_Abort(MPI_COMM_WORLD, myErrorCode%PARAM_FILE_READ_ERROR, iAbortErr)
+  END SUBROUTINE abort_checkpoint_parameter
 
 END SUBROUTINE GDATNEW
 

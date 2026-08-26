@@ -31,14 +31,13 @@ implicit none
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:)
  INTEGER ivt,jvt,jel,kel
- integer iEntry,ndof,iComp
+ integer iEntry,ndof,iComp,effectiveMaxLevel
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
 
-  NLMAX = NLMAX+1
-  
-  nLengthE = 8**(NLMAX-2)
-  nLengthV = (2**(NLMAX-1)+1)**3
+  effectiveMaxLevel = NLMAX + 1
+  nLengthE = 8**(effectiveMaxLevel-2)
+  nLengthV = (2**(effectiveMaxLevel-1)+1)**3
  
   ILEV = NLMIN
   nel = mg_mesh%level(ILEV)%nel
@@ -179,8 +178,6 @@ implicit none
    deallocate(iaux)
   end if
   
-  NLMAX = NLMAX-1
-  
 end SUBROUTINE subWRITEMPIFieldQ2_NX
 
 
@@ -216,14 +213,13 @@ implicit none
  reaL*8,  allocatable :: daux(:)
  integer,  allocatable :: iaux(:)
  INTEGER ivt,jvt,jel,kel
- integer iEntry,ndof,iComp
+ integer iEntry,ndof,iComp,effectiveMaxLevel
  integer :: iChunk,nChunks=1,ivt_min,ivt_max
  integer(kind=MPI_Offset_kind) :: offset,myFieldOffset
 
-  NLMAX = NLMAX+1
-  
-  nLengthE = 8**(NLMAX-2)
-  nLengthV = (2**(NLMAX-1)+1)**3
+  effectiveMaxLevel = NLMAX + 1
+  nLengthE = 8**(effectiveMaxLevel-2)
+  nLengthV = (2**(effectiveMaxLevel-1)+1)**3
  
   ILEV = NLMIN
   nel = mg_mesh%level(ILEV)%nel
@@ -325,27 +321,27 @@ implicit none
       
       if (iComp.eq.6.and.present(Field6)) then
        iEntry = iEntry + 1
-       Field5(jvt) = daux(iEntry)
+       Field6(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.7.and.present(Field7)) then
        iEntry = iEntry + 1
-       Field6(jvt) = daux(iEntry)
+       Field7(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.8.and.present(Field8)) then
        iEntry = iEntry + 1
-       Field7(jvt) = daux(iEntry)
+       Field8(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.9.and.present(Field9)) then
        iEntry = iEntry + 1
-       Field8(jvt) = daux(iEntry)
+       Field9(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.10.and.present(Field10)) then
        iEntry = iEntry + 1
-       Field9(jvt) = daux(iEntry)
+       Field10(jvt) = daux(iEntry)
       end if
       
      END DO
@@ -364,27 +360,47 @@ implicit none
    deallocate(iaux)
   end if
   
-  NLMAX = NLMAX-1
-  
 end SUBROUTINE subLoadMPIFieldQ2_NX
 
 
 SUBROUTINE LoadMPIDumpFiles(iOutO,cList)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL LoadMPIDumpFilesMode(iOutO,cList,.false.)
+END SUBROUTINE LoadMPIDumpFiles
+!
+!
+SUBROUTINE LoadMPIDumpFilesRestoreClock(iOutO,cList)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL LoadMPIDumpFilesMode(iOutO,cList,.true.)
+END SUBROUTINE LoadMPIDumpFilesRestoreClock
+!
+!
+SUBROUTINE LoadMPIDumpFilesMode(iOutO,cList,bRestoreClock)
 USE def_FEAT
+USE, INTRINSIC :: iso_fortran_env, ONLY: int64
 USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 ! USE PP3D_MPI
 USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,shell,mg_mesh,Screw,MaterialDistribution,temperature,mySegmentIndicator,MixerKNPR
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
-USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
+USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI,istep_ns
+USE checkpoint_mpi_prf, ONLY: t_prf_metadata, prf_read_metadata, &
+  prf_metadata_field_chunks, PRF_STATUS_VALID, PRF_STATUS_LEGACY
 
 IMPLICIT NONE
 character(len=*),intent(in) :: cLIST
 INTEGER iOutO
+LOGICAL, INTENT(IN) :: bRestoreClock
 !----------------------------------------------------------------------
 INTEGER  :: mpiFile,ierr
 CHARACTER cPOutFile*256,cDumpFolder*256
-INTEGER iOut,myCoarseElem,nLengthE,nLengthV
+INTEGER iOut,myCoarseElem,nLengthE,nLengthV,dumpLevel
 INTEGER iP,lCmnd
 INTEGER ifilen,i
 DATA ifilen/0/
@@ -394,12 +410,45 @@ character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
 INTEGER :: dblesize=8,intsize=4
 REAL*8 datasize
+TYPE(t_prf_metadata) :: checkpointMetadata
+INTEGER :: metadataStatus
+LOGICAL :: hasCheckpointMetadata
+CHARACTER(len=256) :: metadataMessage
+
+call prf_read_metadata(iOutO,checkpointMetadata,metadataStatus,metadataMessage)
+hasCheckpointMetadata = metadataStatus.eq.PRF_STATUS_VALID
+if (hasCheckpointMetadata) then
+  if (bRestoreClock .and. checkpointMetadata%clock_valid) then
+    timens = checkpointMetadata%simulation_time
+    istep_ns = int(checkpointMetadata%completed_step)
+  end if
+else if (metadataStatus.eq.PRF_STATUS_LEGACY) then
+  if (myid.eq.showid) write(*,'(A)') 'WARNING: '//trim(metadataMessage)
+else
+  if (myid.eq.showid) write(*,'(A)') trim(metadataMessage)
+  call ProcessError('R','checkpoint metadata')
+end if
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
 nFLD = (LEN(cLIST)+1)/2
 allocate(cFLD(nFLD))
 read(cLIST,*,IOSTAT=iERR) cFLD
+
+if (myid.eq.showid) then
+  do jFld=1,nFLD
+    if ((cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') .and. &
+        .not.allocated(Screw)) call WarnUnavailableField('distance')
+    if ((cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') .and. &
+        .not.allocated(mySegmentIndicator)) call WarnUnavailableField('segment')
+    if ((cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') .and. &
+        .not.allocated(Shell)) call WarnUnavailableField('shell')
+    if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+        .not.allocated(temperature)) call WarnUnavailableField('temperature')
+    if ((cFLD(jFld).eq.'q'.or.cFLD(jFld).eq.'Q') .and. &
+        .not.allocated(GenLinScalar%Fld)) call WarnUnavailableField('generic scalars')
+  end do
+end if
 
 allocate(ElementOffsets(subnodes+1))
 ElementOffsets = 0d0
@@ -409,6 +458,20 @@ CALL Comm_SummN(ElementOffsets,subnodes+1)
 do i=2,subnodes+1
  ElementOffsets(i) = ElementOffsets(i) + ElementOffsets(i-1)
 end do
+
+if (hasCheckpointMetadata) then
+  if (checkpointMetadata%coarse_elements.ne. &
+      int(ElementOffsets(subnodes+1),int64)) then
+    if (myid.eq.showid) write(*,'(A)') &
+      'Checkpoint coarse-element count does not match the current mesh.'
+    call ProcessError('R','checkpoint mesh metadata')
+  end if
+  if (checkpointMetadata%source_level.ne.mg_mesh%maxlevel) then
+    if (myid.eq.showid) write(*,'(A)') &
+      'Checkpoint source level does not match a same-level restart.'
+    call ProcessError('R','checkpoint level metadata')
+  end if
+end if
  
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
@@ -416,16 +479,15 @@ iOut = iOutO
 
 IF (myid.NE.0) THEN
 
- NLMAX = NLMAX+1
-
  ILEV = NLMIN
-
- nLengthE = 8**(NLMAX-2)
- nLengthV = (2**(NLMAX-1)+1)**3
+ dumpLevel = NLMAX + 1
+ nLengthE = 8**(dumpLevel-2)
+ nLengthV = (2**(dumpLevel-1)+1)**3
  
  iGlobalError = 0
  DO jFld = 1,nFLD
-  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL LoadMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
+  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') &
+    CALL LoadMPIFieldP1('pressure',LinSc%valP(NLMAX)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','pressure')
   
@@ -433,7 +495,8 @@ IF (myid.NE.0) THEN
 !   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
 !   if (jGlobalError.ne.0) CALL ProcessError('R','material')
   
-  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL LoadMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
+  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') &
+    CALL LoadMPIFieldQ2_X3('coordinates',mg_mesh%level(dumpLevel)%dcorvg)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','coordinates')
   
@@ -446,7 +509,9 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','distance')
   
-  if (cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') CALL LoadMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
+  if ((cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') .and. &
+      allocated(mySegmentIndicator)) &
+    CALL LoadMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','segment')
 
@@ -462,7 +527,9 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','mixerknpr')
 
-  if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL LoadMPIFieldQ2_NX('temperature',1,temperature)
+  if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+      allocated(temperature)) &
+    CALL LoadMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
   
@@ -494,8 +561,6 @@ IF (myid.NE.0) THEN
 !   END IF
 !  END DO
  
- NLMAX = NLMAX-1
-  
 END IF
  
 !!! Exchange trhe coordinates with the master !!!!
@@ -508,6 +573,13 @@ IF (myid.ne.0) CALL CreateDumpStructures(1)
 deallocate(ElementOffsets)
 
  CONTAINS
+
+ SUBROUTINE WarnUnavailableField(fieldName)
+  character(len=*), intent(in) :: fieldName
+
+  write(*,'(A,A,A)') 'WARNING: MPI-PRF field "',trim(fieldName), &
+    '" is unallocated and will be skipped.'
+ END SUBROUTINE WarnUnavailableField
  
  SUBROUTINE ReloadMPIFieldP1(cF,Field)
  character cF*(*)
@@ -683,27 +755,27 @@ deallocate(ElementOffsets)
       
       if (iComp.eq.6.and.present(Field6)) then
        iEntry = iEntry + 1
-       Field5(jvt) = daux(iEntry)
+       Field6(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.7.and.present(Field7)) then
        iEntry = iEntry + 1
-       Field6(jvt) = daux(iEntry)
+       Field7(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.8.and.present(Field8)) then
        iEntry = iEntry + 1
-       Field7(jvt) = daux(iEntry)
+       Field8(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.9.and.present(Field9)) then
        iEntry = iEntry + 1
-       Field8(jvt) = daux(iEntry)
+       Field9(jvt) = daux(iEntry)
       end if
       
       if (iComp.eq.10.and.present(Field10)) then
        iEntry = iEntry + 1
-       Field9(jvt) = daux(iEntry)
+       Field10(jvt) = daux(iEntry)
       end if
       
      END DO
@@ -913,6 +985,8 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+  if (hasCheckpointMetadata) nChunks = &
+    prf_metadata_field_chunks(checkpointMetadata,cF,nChunks)
 
   NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
@@ -1005,6 +1079,8 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+  if (hasCheckpointMetadata) nChunks = &
+    prf_metadata_field_chunks(checkpointMetadata,cF,nChunks)
 
   NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
@@ -1088,6 +1164,8 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+  if (hasCheckpointMetadata) nChunks = &
+    prf_metadata_field_chunks(checkpointMetadata,cF,nChunks)
   
   NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
@@ -1246,22 +1324,45 @@ deallocate(ElementOffsets)
 
  END SUBROUTINE SORT2D
 
-END SUBROUTINE LoadMPIDumpFiles
+END SUBROUTINE LoadMPIDumpFilesMode
 !
 !
 !
 SUBROUTINE LoadMPIDumpFilesProlongateSSE(iOutO,cList,mfile)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO,mfile
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL LoadMPIDumpFilesProlongateMode(iOutO,cList,mfile,.false.)
+END SUBROUTINE LoadMPIDumpFilesProlongateSSE
+!
+!
+SUBROUTINE LoadMPIDumpFilesProlongateRestoreClock(iOutO,cList,mfile)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO,mfile
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL LoadMPIDumpFilesProlongateMode(iOutO,cList,mfile,.true.)
+END SUBROUTINE LoadMPIDumpFilesProlongateRestoreClock
+!
+!
+SUBROUTINE LoadMPIDumpFilesProlongateMode(iOutO,cList,mfile,bRestoreClock)
 USE def_FEAT
+USE, INTRINSIC :: iso_fortran_env, ONLY: int64
 USE PP3D_MPI, ONLY:myid,showid,master,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,&
   MPI_COMM_subs,MPI_Offset_kind,MPI_DOUBLE_PRECISION,subnodes,comm_summn
-USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,temperature,GenLinScalar,DataSizeThresholdMPI
+USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,temperature, &
+  GenLinScalar,DataSizeThresholdMPI,istep_ns
 USE var_QuadScalar,ONLY:knel
 USE PP3D_MPI, ONLY: SENDI_myMPI,RECVI_myMPI,SENDD_myMPI,RECVD_myMPI
+USE checkpoint_mpi_prf, ONLY: t_prf_metadata, prf_read_metadata, &
+  prf_metadata_field_chunks, PRF_STATUS_VALID, PRF_STATUS_LEGACY
 IMPLICIT NONE
 
 character(len=*),intent(in) :: cLIST
 INTEGER, intent(in) :: iOutO,mfile
+LOGICAL, intent(in) :: bRestoreClock
 !----------------------------------------------------------------------
 INTEGER  :: mpiFile,ierr
 CHARACTER cPOutFile*256
@@ -1275,12 +1376,39 @@ character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
 INTEGER :: dblesize=8,intsize=4
 REAL*8 datasize
+TYPE(t_prf_metadata) :: checkpointMetadata
+INTEGER :: metadataStatus
+LOGICAL :: hasCheckpointMetadata
+CHARACTER(len=256) :: metadataMessage
+
+call prf_read_metadata(iOutO,checkpointMetadata,metadataStatus,metadataMessage)
+hasCheckpointMetadata = metadataStatus.eq.PRF_STATUS_VALID
+if (hasCheckpointMetadata) then
+  if (bRestoreClock .and. checkpointMetadata%clock_valid) then
+    timens = checkpointMetadata%simulation_time
+    istep_ns = int(checkpointMetadata%completed_step)
+  end if
+else if (metadataStatus.eq.PRF_STATUS_LEGACY) then
+  if (myid.eq.showid) write(*,'(A)') 'WARNING: '//trim(metadataMessage)
+else
+  if (myid.eq.showid) write(*,'(A)') trim(metadataMessage)
+  call ProcessError('R','checkpoint metadata')
+end if
 
 IF (myid.ne.0) CALL CreateDumpStructures(0)
 
 nFLD = (LEN(cLIST)+1)/2
 allocate(cFLD(nFLD))
 read(cLIST,*,IOSTAT=iERR) cFLD
+
+if (myid.eq.showid) then
+  do jFld=1,nFLD
+    if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+        .not.allocated(temperature)) call WarnUnavailableField('temperature')
+    if ((cFLD(jFld).eq.'q'.or.cFLD(jFld).eq.'Q') .and. &
+        .not.allocated(GenLinScalar%Fld)) call WarnUnavailableField('generic scalars')
+  end do
+end if
 
 allocate(ElementOffsets(subnodes+1))
 ElementOffsets = 0d0
@@ -1290,6 +1418,20 @@ CALL Comm_SummN(ElementOffsets,subnodes+1)
 do i=2,subnodes+1
  ElementOffsets(i) = ElementOffsets(i) + ElementOffsets(i-1)
 end do
+
+if (hasCheckpointMetadata) then
+  if (checkpointMetadata%coarse_elements.ne. &
+      int(ElementOffsets(subnodes+1),int64)) then
+    if (myid.eq.showid) write(*,'(A)') &
+      'Checkpoint coarse-element count does not match the current mesh.'
+    call ProcessError('R','checkpoint mesh metadata')
+  end if
+  if (checkpointMetadata%source_level.ne.mg_mesh%maxlevel-1) then
+    if (myid.eq.showid) write(*,'(A)') &
+      'Checkpoint source level is not one level below the target mesh.'
+    call ProcessError('R','checkpoint level metadata')
+  end if
+end if
 
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
@@ -1315,7 +1457,9 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','velocity')
 
-  if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL LoadMPIFieldQ2_NX_LowLevel('temperature',1,temperature)
+  if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+      allocated(temperature)) &
+    CALL LoadMPIFieldQ2_NX_LowLevel('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('R','temperature')
 
@@ -1363,6 +1507,13 @@ deallocate(ElementOffsets)
 
 CONTAINS
 
+ SUBROUTINE WarnUnavailableField(fieldName)
+  character(len=*), intent(in) :: fieldName
+
+  write(*,'(A,A,A)') 'WARNING: MPI-PRF field "',trim(fieldName), &
+    '" is unallocated and will be skipped.'
+ END SUBROUTINE WarnUnavailableField
+
  SUBROUTINE LoadMPIFieldQ2_NX_LowLevel(cF,nF,Field1,Field2,Field3,Field4,Field5,Field6,Field7,Field8,Field9,Field10)
  character cF*(*)
  integer :: nF
@@ -1393,6 +1544,8 @@ CONTAINS
   else
    nChunks = 1
   end if
+  if (hasCheckpointMetadata) nChunks = &
+    prf_metadata_field_chunks(checkpointMetadata,cF,nChunks)
 
   NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
@@ -1485,6 +1638,8 @@ CONTAINS
   else
    nChunks = 1
   end if
+  if (hasCheckpointMetadata) nChunks = &
+    prf_metadata_field_chunks(checkpointMetadata,cF,nChunks)
 
   NNEL = knel(nlmin)
   allocate(iaux(NNEL),jaux(NNEL))
@@ -1742,25 +1897,63 @@ CONTAINS
 
  END SUBROUTINE CommQ2ScalarFieldWithMaster
 
-END SUBROUTINE LoadMPIDumpFilesProlongateSSE
+END SUBROUTINE LoadMPIDumpFilesProlongateMode
 !
 !
 !
 SUBROUTINE ReleaseMPIDumpFiles(iOutO,cList)
+USE var_QuadScalar, ONLY: istep_ns
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL ReleaseMPIDumpFilesMode(iOutO,cList,.false.,istep_ns)
+END SUBROUTINE ReleaseMPIDumpFiles
+!
+!
+SUBROUTINE ReleaseMPIDumpFilesMerge(iOutO,cList)
+USE var_QuadScalar, ONLY: istep_ns
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL ReleaseMPIDumpFilesMode(iOutO,cList,.true.,istep_ns)
+END SUBROUTINE ReleaseMPIDumpFilesMerge
+!
+!
+SUBROUTINE ReleaseMPIDumpFilesAtStep(iOutO,cList,completedStep)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: iOutO,completedStep
+CHARACTER(len=*), INTENT(IN) :: cList
+
+CALL ReleaseMPIDumpFilesMode(iOutO,cList,.false.,completedStep)
+END SUBROUTINE ReleaseMPIDumpFilesAtStep
+!
+!
+SUBROUTINE ReleaseMPIDumpFilesMode(iOutO,cList,bMergeFields,completedStep)
 USE def_FEAT
+USE, INTRINSIC :: iso_fortran_env, ONLY: int64
 USE PP3D_MPI, ONLY:myid,showid,coarse,MPI_SEEK_SET,MPI_REAL8,MPI_MODE_RDONLY,MPI_MAX
 USE PP3D_MPI, ONLY:MPI_COMM_WORLD,MPI_MODE_CREATE,MPI_MODE_WRONLY,MPI_INFO_NULL,mpi_integer,mpi_status_ignore,MPI_COMM_subs,MPI_Offset_kind,mpi_seek_cur,MPI_DOUBLE_PRECISION,subnodes,comm_summn
 USE var_QuadScalar,ONLY:QuadSc,LinSc,myDump,mg_mesh,Screw,shell,MaterialDistribution,temperature,mySegmentIndicator,MixerKNPR
 USE var_QuadScalar,ONLY:myFBM,knvt,knet,knat,knel
 USE var_QuadScalar,ONLY:GenLinScalar,DataSizeThresholdMPI
+USE checkpoint_types, ONLY: CHECKPOINT_LAYOUT_P1, CHECKPOINT_LAYOUT_Q2, &
+  CHECKPOINT_LAYOUT_Q2_COORDINATES
+USE checkpoint_mpi_prf, ONLY: t_prf_metadata, prf_metadata_initialize, &
+  prf_metadata_add_field, prf_metadata_remove_field, prf_begin_write, &
+  prf_cleanup_field, prf_commit_write, prf_read_metadata, &
+  PRF_STATUS_VALID, PRF_STATUS_LEGACY
 
 IMPLICIT NONE
 character(len=*),intent(in) :: cLIST
 INTEGER iOutO
+LOGICAL, INTENT(IN) :: bMergeFields
+INTEGER, INTENT(IN) :: completedStep
 !----------------------------------------------------------------------
 INTEGER  :: mpiFile,ierr
 CHARACTER cPOutFile*256,cDumpFolder*256
-INTEGER iOut,myCoarseElem,nLengthE,nLengthV
+INTEGER iOut,myCoarseElem,nLengthE,nLengthV,dumpLevel
 INTEGER iP,lCmnd
 INTEGER ifilen,i
 DATA ifilen/0/
@@ -1771,12 +1964,33 @@ character*(1),allocatable :: cFLD(:)
 INTEGER iGlobalError,jGlobalError
 INTEGER :: dblesize=8,intsize=4
 REAL*8 datasize
+TYPE(t_prf_metadata) :: checkpointMetadata, previousMetadata
+LOGICAL :: mergeFields, commitMetadata, transactionalWrite
+INTEGER :: metadataStatus, metadataError, globalMetadataError
+CHARACTER(len=256) :: metadataMessage
+REAL*8 :: checkpointStart,checkpointEnd
+INTEGER(int64) :: checkpointBytes
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
 nFLD = (LEN(cLIST)+1)/2
 allocate(cFLD(nFLD))
 read(cLIST,*,IOSTAT=iERR) cFLD
+
+if (myid.eq.showid) then
+  do jFld=1,nFLD
+    if ((cFLD(jFld).eq.'d'.or.cFLD(jFld).eq.'D') .and. &
+        .not.allocated(Screw)) call WarnUnavailableField('distance')
+    if ((cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') .and. &
+        .not.allocated(mySegmentIndicator)) call WarnUnavailableField('segment')
+    if ((cFLD(jFld).eq.'y'.or.cFLD(jFld).eq.'Y') .and. &
+        .not.allocated(Shell)) call WarnUnavailableField('shell')
+    if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+        .not.allocated(temperature)) call WarnUnavailableField('temperature')
+    if ((cFLD(jFld).eq.'q'.or.cFLD(jFld).eq.'Q') .and. &
+        .not.allocated(GenLinScalar%Fld)) call WarnUnavailableField('generic scalars')
+  end do
+end if
 
 allocate(ElementOffsets(subnodes+1))
 ElementOffsets = 0d0
@@ -1801,19 +2015,66 @@ if (myid.eq.0) then
 END IF
 
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ZTIME(checkpointStart)
+
+mergeFields = .false.
+mergeFields = bMergeFields
+commitMetadata = .true.
+transactionalWrite = .true.
+
+if (mergeFields) then
+  call prf_read_metadata(iOut,previousMetadata,metadataStatus,metadataMessage)
+  if (metadataStatus.eq.PRF_STATUS_VALID) then
+    checkpointMetadata = previousMetadata
+    call RemoveSelectedMetadataFields()
+  else if (metadataStatus.eq.PRF_STATUS_LEGACY) then
+    commitMetadata = .false.
+    transactionalWrite = .false.
+    if (myid.eq.showid) write(*,'(A)') &
+      'WARNING: updating marker-less legacy MPI-PRF checkpoint.'
+  else
+    if (myid.eq.showid) write(*,'(A)') trim(metadataMessage)
+    call ProcessError('W','checkpoint metadata')
+  end if
+else
+  call prf_metadata_initialize(checkpointMetadata,timens, &
+    int(completedStep,int64),subnodes, &
+    int(ElementOffsets(subnodes+1),int64), &
+    mg_mesh%maxlevel,.true.)
+end if
+
+checkpointMetadata%generation = int(completedStep,int64)*1000000_int64 + &
+  int(iOut,int64)
+checkpointMetadata%writer_ranks = subnodes
+
+metadataError = 0
+metadataMessage = ''
+if (myid.eq.0 .and. transactionalWrite) then
+  call prf_begin_write(iOut,.not.mergeFields,checkpointMetadata%generation, &
+    metadataError,metadataMessage)
+end if
+call MPI_ALLREDUCE(metadataError,globalMetadataError,1,MPI_INTEGER,MPI_MAX, &
+  MPI_COMM_WORLD,IERR)
+if (globalMetadataError.ne.0) then
+  if (myid.eq.0) write(*,'(A)') trim(metadataMessage)
+  call ProcessError('W','checkpoint transaction')
+end if
+
+if (myid.eq.0 .and. mergeFields) call CleanupSelectedFields()
+
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
 
 IF (myid.NE.0) THEN
 
- NLMAX = NLMAX+1
-
  ILEV = NLMIN
-
- nLengthE = 8**(NLMAX-2)
- nLengthV = (2**(NLMAX-1)+1)**3
+ dumpLevel = NLMAX + 1
+ nLengthE = 8**(dumpLevel-2)
+ nLengthV = (2**(dumpLevel-1)+1)**3
 
  iGlobalError = 0
  DO jFld = 1,nFLD
-  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL ReleaseMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
+  if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') &
+    CALL ReleaseMPIFieldP1('pressure',LinSc%valP(NLMAX)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','pressure')
   
@@ -1821,7 +2082,8 @@ IF (myid.NE.0) THEN
 !   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
 !   if (jGlobalError.ne.0) CALL ProcessError('W','material')
 
-  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') CALL ReleaseMPIFieldQ2_X3('coordinates',mg_mesh%level(NLMAX)%dcorvg)
+  if (cFLD(jFld).eq.'x'.or.cFLD(jFld).eq.'X') &
+    CALL ReleaseMPIFieldQ2_X3('coordinates',mg_mesh%level(dumpLevel)%dcorvg)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','coordinates')
   
@@ -1834,7 +2096,9 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','distance')
   
-  if (cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') CALL ReleaseMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
+  if ((cFLD(jFld).eq.'s'.or.cFLD(jFld).eq.'S') .and. &
+      allocated(mySegmentIndicator)) &
+    CALL ReleaseMPIFieldQ2_NX('segment',1,mySegmentIndicator(2,:))
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','segment')
   
@@ -1850,7 +2114,9 @@ IF (myid.NE.0) THEN
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','mixerknpr')
 
-  if (cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') CALL ReleaseMPIFieldQ2_NX('temperature',1,temperature)
+  if ((cFLD(jFld).eq.'t'.or.cFLD(jFld).eq.'T') .and. &
+      allocated(temperature)) &
+    CALL ReleaseMPIFieldQ2_NX('temperature',1,temperature)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
   if (jGlobalError.ne.0) CALL ProcessError('W','temperature')
   
@@ -1865,14 +2131,45 @@ IF (myid.NE.0) THEN
    END IF
   END IF
  END DO
- NLMAX = NLMAX-1
-
 END IF
+
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+metadataError = 0
+metadataMessage = ''
+if (myid.eq.showid .and. commitMetadata) then
+  call prf_commit_write(iOut,checkpointMetadata,metadataError,metadataMessage)
+end if
+call MPI_ALLREDUCE(metadataError,globalMetadataError,1,MPI_INTEGER,MPI_MAX, &
+  MPI_COMM_WORLD,IERR)
+if (globalMetadataError.ne.0) then
+  if (myid.eq.showid) write(*,'(A)') trim(metadataMessage)
+  call ProcessError('W','checkpoint metadata')
+end if
+CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
+CALL ZTIME(checkpointEnd)
+if (myid.eq.showid) then
+  checkpointBytes = 0_int64
+  do i=1,size(checkpointMetadata%field)
+    checkpointBytes = checkpointBytes + &
+      int(checkpointMetadata%field(i)%components,int64)* &
+      checkpointMetadata%field(i)%payload_bytes_per_component
+  end do
+  write(*,'(A,I0,A,F12.6,A,I0,A)') 'MPI-PRF checkpoint slot ',iOut, &
+    ' committed in ',checkpointEnd-checkpointStart,' s (', &
+    checkpointBytes,' payload bytes).'
+end if
 
 deallocate(cFLD)
 deallocate(ElementOffsets)
 
  CONTAINS
+
+ SUBROUTINE WarnUnavailableField(fieldName)
+  character(len=*), intent(in) :: fieldName
+
+  write(*,'(A,A,A)') 'WARNING: MPI-PRF field "',trim(fieldName), &
+    '" is unallocated and will be skipped.'
+ END SUBROUTINE WarnUnavailableField
  
  SUBROUTINE ReleaseMPIFieldP1(cF,Field)
  character cF*(*)
@@ -1894,6 +2191,11 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+
+  call prf_metadata_remove_field(checkpointMetadata,cF)
+  call prf_metadata_add_field(checkpointMetadata,cF,CHECKPOINT_LAYOUT_P1, &
+    1,nChunks,int(4_int64*int(ElementOffsets(subnodes+1),int64)* &
+    int(nLengthE,int64),int64),int(datasize,int64))
   
   cPOutFile = '_dump/'
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//ADJUSTL(TRIM(cF))//'_key','.prf'
@@ -1904,6 +2206,7 @@ deallocate(ElementOffsets)
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
   CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
@@ -1941,6 +2244,7 @@ deallocate(ElementOffsets)
    end if
 
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
    myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)*nF
    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
@@ -1976,6 +2280,12 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+
+  call prf_metadata_remove_field(checkpointMetadata,cF)
+  call prf_metadata_add_field(checkpointMetadata,cF, &
+    CHECKPOINT_LAYOUT_Q2_COORDINATES,3,nChunks, &
+    int(ElementOffsets(subnodes+1),int64)*int(nLengthV,int64), &
+    int(datasize,int64))
   
   cPOutFile = '_dump/'
   WRITE(cPOutFile(7:),'(I0,A,A)') iOut,'/'//TRIM(ADJUSTL(cF))//'_key','.prf'
@@ -1986,6 +2296,7 @@ deallocate(ElementOffsets)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
@@ -2025,6 +2336,7 @@ deallocate(ElementOffsets)
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+    CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
 
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
     call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
@@ -2073,6 +2385,11 @@ deallocate(ElementOffsets)
   else
    nChunks = 1
   end if
+
+  call prf_metadata_remove_field(checkpointMetadata,cF)
+  call prf_metadata_add_field(checkpointMetadata,cF,CHECKPOINT_LAYOUT_Q2, &
+    nF,nChunks,int(ElementOffsets(subnodes+1),int64)*int(nLengthV,int64), &
+    int(datasize,int64))
    
   if(myid.eq.1) write(*,*) "datasize = ",datasize, DataSizeThresholdMPI,nChunks
  
@@ -2085,6 +2402,7 @@ deallocate(ElementOffsets)
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Output the key !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
 !  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
@@ -2180,6 +2498,7 @@ deallocate(ElementOffsets)
     end if
     
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+    CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
  !   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
  !   CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
@@ -2221,6 +2540,7 @@ deallocate(ElementOffsets)
   END DO
 
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
+  CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   call MPI_Type_create_indexed_block(knel(nlmin),1,iDisp,MPI_INTEGER,keyFileType,ierr)
   IF (IERR.ne.0) iGlobalError = 1
   call MPI_Type_commit(keyFileType,ierr)
@@ -2241,8 +2561,99 @@ deallocate(ElementOffsets)
    WRITE(*,'(A)') ' ==> Done!'
   end if
  END SUBROUTINE WriteMPIFieldKeyIndex
+
+ SUBROUTINE CleanupSelectedFields()
+  integer :: fieldIndex, metadataFieldIndex, cleanupError
+  character(len=256) :: cleanupMessage
+
+  do fieldIndex = 1,nFLD
+    select case (cFLD(fieldIndex))
+    case ('p','P')
+      call prf_cleanup_field(iOut,'pressure',cleanupError,cleanupMessage)
+    case ('x','X')
+      call prf_cleanup_field(iOut,'coordinates',cleanupError,cleanupMessage)
+    case ('v','V')
+      call prf_cleanup_field(iOut,'velocity',cleanupError,cleanupMessage)
+    case ('d','D')
+      call prf_cleanup_field(iOut,'distance',cleanupError,cleanupMessage)
+    case ('s','S')
+      call prf_cleanup_field(iOut,'segment',cleanupError,cleanupMessage)
+    case ('y','Y')
+      call prf_cleanup_field(iOut,'shell',cleanupError,cleanupMessage)
+    case ('z','Z')
+      call prf_cleanup_field(iOut,'mixerknpr',cleanupError,cleanupMessage)
+    case ('t','T')
+      call prf_cleanup_field(iOut,'temperature',cleanupError,cleanupMessage)
+    case ('q','Q')
+      cleanupError = 0
+      if (metadataStatus.eq.PRF_STATUS_VALID) then
+        do metadataFieldIndex = 1,size(previousMetadata%field)
+          if (.not.IsStandardField(previousMetadata%field(metadataFieldIndex)%name)) then
+            call prf_cleanup_field(iOut, &
+              previousMetadata%field(metadataFieldIndex)%name, &
+              cleanupError,cleanupMessage)
+            if (cleanupError.ne.0) exit
+          end if
+        end do
+      end if
+    case default
+      cleanupError = 0
+    end select
+    if (cleanupError.ne.0) then
+      write(*,'(A)') trim(cleanupMessage)
+      call ProcessError('W','checkpoint cleanup')
+    end if
+  end do
+ END SUBROUTINE CleanupSelectedFields
+
+ SUBROUTINE RemoveSelectedMetadataFields()
+  integer :: fieldIndex, metadataFieldIndex
+  character(len=64), allocatable :: genericNames(:)
+
+  do fieldIndex = 1,nFLD
+    select case (cFLD(fieldIndex))
+    case ('p','P')
+      call prf_metadata_remove_field(checkpointMetadata,'pressure')
+    case ('x','X')
+      call prf_metadata_remove_field(checkpointMetadata,'coordinates')
+    case ('v','V')
+      call prf_metadata_remove_field(checkpointMetadata,'velocity')
+    case ('d','D')
+      call prf_metadata_remove_field(checkpointMetadata,'distance')
+    case ('s','S')
+      call prf_metadata_remove_field(checkpointMetadata,'segment')
+    case ('y','Y')
+      call prf_metadata_remove_field(checkpointMetadata,'shell')
+    case ('z','Z')
+      call prf_metadata_remove_field(checkpointMetadata,'mixerknpr')
+    case ('t','T')
+      call prf_metadata_remove_field(checkpointMetadata,'temperature')
+    case ('q','Q')
+      allocate(genericNames(size(checkpointMetadata%field)))
+      genericNames = checkpointMetadata%field%name
+      do metadataFieldIndex = 1,size(genericNames)
+        if (.not.IsStandardField(genericNames(metadataFieldIndex))) &
+          call prf_metadata_remove_field(checkpointMetadata, &
+            genericNames(metadataFieldIndex))
+      end do
+      deallocate(genericNames)
+    end select
+  end do
+ END SUBROUTINE RemoveSelectedMetadataFields
+
+ LOGICAL FUNCTION IsStandardField(fieldName)
+  character(len=*), intent(in) :: fieldName
+
+  select case (trim(fieldName))
+  case ('pressure','coordinates','velocity','distance','segment', &
+      'shell','mixerknpr','temperature')
+    IsStandardField = .true.
+  case default
+    IsStandardField = .false.
+  end select
+ END FUNCTION IsStandardField
  
-END SUBROUTINE ReleaseMPIDumpFiles
+END SUBROUTINE ReleaseMPIDumpFilesMode
 
 SUBROUTINE ProcessError(cRW,cF)
 USE PP3D_MPI, ONLY:myid,subnodes

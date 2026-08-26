@@ -6,6 +6,7 @@ SimPar@ProjectFile = "_data/meshDir/file.prj"
 SimPar@ProtocolFile = "_data/prot.txt"
 SimPar@StartingProc = 0                                                 ! 0,1,2
 SimPar@StartFile = 0
+SimPar@DumpFormat = MPI_PRF                                             ! MPI_PRF (MPI alias), LST
 SimPar@SolFile = "_sol/1/mySol"
 SimPar@MinMeshLevel = 1
 SimPar@MaxMeshLevel = 3

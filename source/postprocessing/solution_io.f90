@@ -17,7 +17,7 @@ contains
 ! @param iInd number of the output
 ! @param istep number of the discrete time step
 ! @param simTime current simulation time
-subroutine write_sol_to_file(imax_out, time_ns, output_idx)
+subroutine write_sol_to_file(imax_out, time_ns, output_idx, completed_step)
 USE def_FEAT
 USE var_QuadScalar,ONLY: QuadSc,LinSc,bViscoElastic,Temperature,MaterialDistribution
 use var_QuadScalar, only: myDump,istep_ns,myFBM,fieldPtr,mg_mesh
@@ -31,9 +31,11 @@ integer, intent(in) :: imax_out
 real*8, intent(in) :: time_ns
 
 integer, optional :: output_idx
+integer, optional :: completed_step
 
 ! locals
 integer :: iout,ifld
+integer :: step_to_write
 integer :: ndof
 integer :: nelem
 character(60) :: fieldName
@@ -47,6 +49,9 @@ else
   iout = output_idx
 end if
 
+step_to_write = istep_ns
+if (present(completed_step)) step_to_write = completed_step
+
 nelem = knel(nlmax)
 
 ndof = knvt(NLMAX) + knat(NLMAX) + knet(NLMAX) + knel(NLMAX)
@@ -58,7 +63,7 @@ call write_vel_sol(iout,0,ndof,NLMIN,NLMAX,&
 call write_pres_sol(iout,0,nelem,NLMIN,NLMAX,&
                     coarse%myELEMLINK,myDump%Elements,LinSc%ValP(NLMAX)%x)
 
-call write_time_sol(iout,istep_ns, time_ns)
+call write_time_sol(iout,step_to_write, time_ns)
 
 fieldName = "coordinates"
 
@@ -1420,6 +1425,12 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   use timestep_control, only: SetSimulationTimeStep
   use solution_io_provenance, only: write_sol_to_file_prov
   use prov_dump_config, only: use_prov_dump_io
+  use checkpoint_config, only: checkpoint_dispatch_enabled, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    CHECKPOINT_FORMAT_DMP, CHECKPOINT_FORMAT_PROVENANCE
+  use checkpoint_service, only: checkpoint_mpi_write
+  use checkpoint_types, only: t_checkpoint_context, checkpoint_fields_fc
+  use, intrinsic :: iso_fortran_env, only: int64
 
   implicit none
 
@@ -1429,6 +1440,7 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
   integer iXgmv
 
   INTEGER :: inlU,inlT,MFILE
+  type(t_checkpoint_context) :: checkpoint_context
 
   ! Output the solution in GMV or GiD format
   iXgmv = istep_ns
@@ -1461,10 +1473,25 @@ subroutine postprocessing_app(dout, inlU,inlT,filehandle)
     IF (insav.NE.0.AND.itns.NE.1) THEN
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
-        if (use_prov_dump_io) then
-          call write_sol_to_file_prov(insavn, timens)
+        if (checkpoint_dispatch_enabled) then
+          select case (selected_checkpoint_format)
+          case (CHECKPOINT_FORMAT_MPI_PRF)
+            checkpoint_context%slot = -1
+            checkpoint_context%completed_step = int(istep_ns,int64)
+            call checkpoint_mpi_write(checkpoint_context, &
+              checkpoint_fields_fc())
+          case (CHECKPOINT_FORMAT_PROVENANCE)
+            call write_sol_to_file_prov(insavn, timens, &
+              completed_step=istep_ns)
+          case (CHECKPOINT_FORMAT_DMP)
+            call write_sol_to_file(insavn, timens, &
+              completed_step=istep_ns)
+          end select
+        else if (use_prov_dump_io) then
+          call write_sol_to_file_prov(insavn, timens, &
+            completed_step=istep_ns)
         else
-          call write_sol_to_file(insavn, timens)
+          call write_sol_to_file(insavn, timens, completed_step=istep_ns)
         end if
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
@@ -1797,6 +1824,12 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
                             Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
                             iTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess,myTransientSolution
+  use checkpoint_config, only: checkpoint_dispatch_enabled, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    CHECKPOINT_FORMAT_LST
+  use checkpoint_service, only: checkpoint_mpi_write
+  use checkpoint_types, only: t_checkpoint_context, checkpoint_fields_sse
+  use, intrinsic :: iso_fortran_env, only: int64
 
   use visualization_out, only: viz_output_fields
 
@@ -1809,6 +1842,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   integer :: inlU,inlT
   
   integer :: iCrit_itns
+  type(t_checkpoint_context) :: checkpoint_context
 
   ! local variables
   integer :: iXgmv
@@ -1858,8 +1892,24 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-        if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
-        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y,z')
+        if (checkpoint_dispatch_enabled) then
+          if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_LST) &
+            CALL Release_ListFiles_General(int(myProcess%Angle), &
+              'v,p,d,t,s,x,q')
+          if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+            checkpoint_context%slot = int(myProcess%Angle)
+            checkpoint_context%completed_step = int(istep_ns,int64)
+            call checkpoint_mpi_write(checkpoint_context, &
+              checkpoint_fields_sse())
+          end if
+        else
+          if (myTransientSolution%DumpFormat.eq.2) &
+            CALL Release_ListFiles_General(int(myProcess%Angle), &
+              'v,p,d,t,s,x,q')
+          if (myTransientSolution%DumpFormat.eq.3) &
+            call ReleaseMPIDumpFiles(int(myProcess%Angle), &
+              'v,p,d,t,s,x,q,y,z')
+        end if
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)

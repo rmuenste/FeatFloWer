@@ -40,6 +40,9 @@ output directories:
 The launcher and solver also use `_data/prot.txt` and copy angle-specific
 protocol files such as `_data/prot_0000.txt`.
 
+Checkpoint backend selection, MPI-PRF metadata, restart behavior, and ROMIO
+tuning are documented in [MPI-PRF checkpoints](../mpi_prf_checkpoints.md).
+
 ## Progress And Status
 
 During the solve loop, `q2p1_sse.f90` calls:
@@ -67,4 +70,3 @@ The launcher interprets selected exit codes:
   is enabled.
 - `57`: run out of iterations.
 - `88`: screw could not be created, usually a wrong-angle geometry failure.
-

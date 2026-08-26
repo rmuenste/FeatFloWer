@@ -33,6 +33,7 @@ target_compile_options(ff_postprocessing PUBLIC ${Fortran_FLAGS})
 
 set(src_ini_aux
   ${CMAKE_SOURCE_DIR}/source/src_util/getpid_wrapper.c
+  ${CMAKE_SOURCE_DIR}/source/src_ini/checkpoint_fs.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/isdirectory.c
   ${CMAKE_SOURCE_DIR}/source/src_ini/mkdir_recursive.c
 )
@@ -105,6 +106,10 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/checkpoint_config.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/checkpoint_types.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/checkpoint_mpi_prf.f90
+  ${CMAKE_SOURCE_DIR}/source/src_util/checkpoint_service.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
@@ -123,6 +128,24 @@ add_library(ff_util ${src_util})
 target_link_libraries(ff_util ff_ini_c ${FF_DEFAULT_LIBS})
 target_include_directories(ff_util PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_util PUBLIC ${Fortran_FLAGS})
+
+if(BUILD_TESTING)
+  set(_checkpoint_test_directory
+    ${CMAKE_CURRENT_BINARY_DIR}/checkpoint-policy-metadata-test)
+  foreach(_slot 1 2 3 4 5 6 7)
+    file(MAKE_DIRECTORY ${_checkpoint_test_directory}/_dump/${_slot})
+  endforeach()
+  add_executable(test_checkpoint_policy_metadata
+    ${CMAKE_SOURCE_DIR}/source/src_util/tests/test_checkpoint_policy_metadata.f90)
+  target_link_libraries(test_checkpoint_policy_metadata ff_util)
+  target_include_directories(test_checkpoint_policy_metadata
+    PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_checkpoint_policy_metadata PRIVATE ${Fortran_FLAGS})
+  add_test(NAME checkpoint-policy-metadata
+    COMMAND test_checkpoint_policy_metadata)
+  set_tests_properties(checkpoint-policy-metadata PROPERTIES
+    WORKING_DIRECTORY ${_checkpoint_test_directory})
+endif()
 
 set(src_assemblies
 ${CMAKE_SOURCE_DIR}/source/assemblies/QuadSc_laplace.f

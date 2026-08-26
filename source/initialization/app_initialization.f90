@@ -27,8 +27,12 @@ subroutine init_q2p1_app(log_unit)
     Transport_ViscoScalar,IniProf_ViscoScalar,ProlongateViscoSolution
   USE Transport_Q1, ONLY : Init_LinScalar,InitCond_LinScalar, &
     Transport_LinScalar
+  USE checkpoint_config, ONLY: checkpoint_dispatch_enabled, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    checkpoint_slot_from_start_file
 
   integer, intent(in) :: log_unit
+  integer :: checkpoint_slot, checkpoint_error
 
   !-------INIT PHASE-------
 
@@ -53,25 +57,108 @@ subroutine init_q2p1_app(log_unit)
   ! Start from a solution on the same lvl
   ! with the same number of partitions
   elseif (istart.eq.1) then
-
-  call init_sol_same_level(CSTART)
+    if (checkpoint_dispatch_enabled .and. &
+        selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+      checkpoint_slot = checkpoint_slot_from_start_file(CSTART,checkpoint_error)
+      call validate_checkpoint_slot(checkpoint_slot,checkpoint_error,CSTART)
+      call init_sol_same_level_mpi(checkpoint_slot)
+    else
+      call init_sol_same_level(CSTART)
+    end if
 
   ! Start from a solution on a lower lvl
   ! with the same number of partitions
   elseif (istart.eq.2)then
-
-    call init_sol_lower_level(CSTART)
+    if (checkpoint_dispatch_enabled .and. &
+        selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+      checkpoint_slot = checkpoint_slot_from_start_file(CSTART,checkpoint_error)
+      call validate_checkpoint_slot(checkpoint_slot,checkpoint_error,CSTART)
+      call init_sol_lower_level_mpi(checkpoint_slot,log_unit)
+    else
+      call init_sol_lower_level(CSTART)
+    end if
 
   ! Start from a solution on the same lvl
   ! with a different number of partitions
   elseif (istart.eq.3) then
-
-    call init_sol_repart(CSTART)
+    if (checkpoint_dispatch_enabled .and. &
+        selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+      checkpoint_slot = checkpoint_slot_from_start_file(CSTART,checkpoint_error)
+      call validate_checkpoint_slot(checkpoint_slot,checkpoint_error,CSTART)
+      call init_sol_same_level_mpi(checkpoint_slot)
+    else
+      call init_sol_repart(CSTART)
+    end if
 
   end if
 
 
 end subroutine init_q2p1_app
+
+subroutine validate_checkpoint_slot(slot, parse_error, start_file)
+  USE PP3D_MPI, ONLY: myid,showid,MPI_COMM_WORLD
+  USE var_QuadScalar, ONLY: myErrorCode
+  implicit none
+  integer, intent(in) :: slot, parse_error
+  character(len=*), intent(in) :: start_file
+  integer :: mpi_error
+
+  if (parse_error.eq.0 .and. slot.ge.0) return
+  if (myid.eq.showid) then
+    write(*,'(A,A)') 'Invalid MPI-PRF SimPar@StartFile: ',trim(start_file)
+    write(*,'(A)') 'Use a numeric slot or a path such as _dump/1.'
+  end if
+  call MPI_Abort(MPI_COMM_WORLD,myErrorCode%PARAM_FILE_READ_ERROR,mpi_error)
+end subroutine validate_checkpoint_slot
+
+subroutine init_sol_same_level_mpi(slot)
+  USE Transport_Q2P1, ONLY: OperatorRegenaration
+  USE checkpoint_service, ONLY: checkpoint_mpi_read
+  USE checkpoint_types, ONLY: t_checkpoint_context, checkpoint_fields_fc
+  implicit none
+  integer, intent(in) :: slot
+  type(t_checkpoint_context) :: checkpoint_context
+
+  checkpoint_context%slot = slot
+  checkpoint_context%clock_valid = .true.
+  call checkpoint_mpi_read(checkpoint_context,checkpoint_fields_fc())
+  call OperatorRegenaration(1)
+  call OperatorRegenaration(2)
+  call OperatorRegenaration(3)
+end subroutine init_sol_same_level_mpi
+
+subroutine init_sol_lower_level_mpi(slot,log_unit)
+  USE Transport_Q2P1, ONLY: ProlongateSolution,OperatorRegenaration
+  USE def_QuadScalar, ONLY: ProlongateSingleFieldQ2
+  USE var_QuadScalar, ONLY: GenLinScalar, mg_mesh
+  USE checkpoint_service, ONLY: checkpoint_mpi_read
+  USE checkpoint_types, ONLY: t_checkpoint_context, checkpoint_fields_fc, &
+    CHECKPOINT_PROLONGATE
+  implicit none
+  integer, intent(in) :: slot,log_unit
+  integer :: field_index, coarse_dofs, fine_dofs, fine_level
+  type(t_checkpoint_context) :: checkpoint_context
+
+  checkpoint_context%slot = slot
+  checkpoint_context%restart_mode = CHECKPOINT_PROLONGATE
+  checkpoint_context%clock_valid = .true.
+  call checkpoint_mpi_read(checkpoint_context,checkpoint_fields_fc(),log_unit)
+  call ProlongateSolution()
+  if (allocated(GenLinScalar%Fld)) then
+    fine_level = mg_mesh%maxlevel
+    coarse_dofs = KNVT(fine_level-1) + KNAT(fine_level-1) + &
+      KNET(fine_level-1) + KNEL(fine_level-1)
+    fine_dofs = KNVT(fine_level) + KNAT(fine_level) + &
+      KNET(fine_level) + KNEL(fine_level)
+    do field_index=1,GenLinScalar%nOfFields
+      call ProlongateSingleFieldQ2(GenLinScalar%Fld(field_index)%Val, &
+        coarse_dofs,fine_dofs,adjustl(trim(GenLinScalar%Fld(field_index)%cName)))
+    end do
+  end if
+  call OperatorRegenaration(1)
+  call OperatorRegenaration(2)
+  call OperatorRegenaration(3)
+end subroutine init_sol_lower_level_mpi
 
 !========================================================================================
 !                             Sub: init_q2p1_particle_tracer
@@ -174,6 +261,7 @@ end subroutine init_sol_same_level_heat
 !                             Sub: init_sol_same_level
 !========================================================================================
 subroutine init_sol_same_level(start_file)
+use prov_dump_config, only: use_prov_dump_io
 implicit none
 character(len=*), intent(in) :: start_file
 
@@ -183,7 +271,11 @@ integer :: i, ilev
 
 if (myid.ne.0) call CreateDumpStructures(1)
 
-call SolFromFile(start_file,1)
+if (use_prov_dump_io) then
+  call SolFromFileProv(start_file,1)
+else
+  call SolFromFile(start_file,1)
+end if
 
 if (myid .ne. 0) then
   do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 
@@ -214,6 +306,7 @@ end subroutine init_sol_same_level
 subroutine init_sol_lower_level(start_file)
 USE Parametrization, ONLY: ParametrizeBndr
 use var_QuadScalar,only:ilev,nlmax
+use prov_dump_config, only: use_prov_dump_io
 implicit none
 
 character(len=*), intent(in) :: start_file
@@ -225,7 +318,11 @@ integer :: i
 ! the lower level structures are needed
 if (myid.ne.0) call CreateDumpStructures(0)
 
-call SolFromFile(start_file,0)
+if (use_prov_dump_io) then
+  call SolFromFileProv(start_file,0)
+else
+  call SolFromFile(start_file,0)
+end if
 
 
 if (myid .ne. 0) then
@@ -285,6 +382,7 @@ end subroutine init_sol_lower_level
 !                             Sub: init_sol_repart
 !========================================================================================
 subroutine init_sol_repart(start_file)
+use prov_dump_config, only: use_prov_dump_io
 implicit none
 
 character(len=*), intent(in) :: start_file
@@ -294,7 +392,11 @@ integer :: i,ilev
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
 
-call SolFromFileRepart(start_file,1)
+if (use_prov_dump_io) then
+  call SolFromFileRepartProv(start_file,1)
+else
+  call SolFromFileRepart(start_file,1)
+end if
 
 if (myid .ne. 0) then
  do i = 1, mg_mesh%level(mg_Mesh%maxlevel)%NVT 

@@ -17,6 +17,7 @@ import fileinput
 import datetime
 import configparser
 import yaml
+from mpi_io_environment import configure_mpi_io_environment
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver  
 from watchdog.events import FileSystemEventHandler
@@ -28,12 +29,6 @@ else:
 
 debugNoSim = False
 debugOutput = False
-
-# Defaults required for reliable ROMIO file I/O
-ROMIO_ENV_DEFAULTS = {
-    "ROMIO_CB_BUFFER_SIZE": "16777216",
-    "ROMIO_DS_WRITE": "enable",
-}
 
 class E3dLog:
     def __init__(self):
@@ -1213,97 +1208,8 @@ def setupMPICommand():
 #===============================================================================
 #                Detect OpenMPI ROMIO component
 #===============================================================================
-def detectOpenMPIRomioComponent():
-    """
-    Detect the ROMIO MCA component provided by the active OpenMPI
-    installation, e.g. 'romio321' or 'romio341'.
-
-    Returns:
-        ("available", component)
-            OpenMPI is available and provides ROMIO.
-
-        ("no_romio", None)
-            OpenMPI is available, but no ROMIO MCA component was found.
-
-        ("no_openmpi", None)
-            ompi_info is not available in PATH.
-
-        ("query_failed", None)
-            ompi_info was found, but querying the OpenMPI I/O components
-            failed.
-    """
-    ompi_info = shutil.which("ompi_info")
-    if ompi_info is None:
-        return "no_openmpi", None
-
-    try:
-        output = subprocess.check_output(
-            [ompi_info, "--param", "io", "all"],
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "query_failed", None
-
-    match = re.search(r"MCA io:\s+(romio[0-9]+)\b", output)
-    if match:
-        return "available", match.group(1)
-
-    return "no_romio", None
-#===============================================================================
-
-
-#===============================================================================
-#                Configure MPI environment variables
-#===============================================================================
 def configureMPIEnvironment():
-    """
-    Configure MPI file I/O settings.
-
-    For OpenMPI, detect the installed ROMIO MCA component dynamically
-    instead of relying on a hard-coded ROMIO version.
-    """
-    detection_status, romio_component = detectOpenMPIRomioComponent()
-
-    if detection_status == "no_openmpi":
-        print("OpenMPI not detected (ompi_info not found in PATH); "
-              "leaving MPI I/O environment unchanged.")
-        return
-
-    if detection_status == "query_failed":
-        print("OpenMPI detected, but querying its MPI I/O components failed; "
-              "leaving MPI I/O environment unchanged.")
-        return
-
-    if detection_status == "no_romio":
-        print("OpenMPI detected, but no ROMIO MCA component is available; "
-              "leaving MPI I/O environment unchanged.")
-        return
-
-    print("Configuring MPI environment variables for ROMIO:")
-    print(f"  Detected OpenMPI ROMIO component: {romio_component}")
-
-    # OMPI_MCA_io must match the ROMIO component detected for this
-    # OpenMPI installation. Correct a conflicting inherited value if needed.
-    prev = os.environ.get("OMPI_MCA_io")
-    os.environ["OMPI_MCA_io"] = romio_component
-    if prev is None:
-        status = "set"
-    elif prev == romio_component:
-        status = "kept"
-    else:
-        status = f"overridden (was {prev})"
-    print(f"  OMPI_MCA_io={romio_component} [{status}]")
-
-    # ROMIO tuning values are application defaults only. Respect values
-    # already provided by the user, environment modules, or cluster setup.
-    for var, default_value in ROMIO_ENV_DEFAULTS.items():
-        existing = os.environ.get(var)
-        if existing is None:
-            os.environ[var] = default_value
-            print(f"  {var}={default_value} [set default]")
-        else:
-            print(f"  {var}={existing} [kept existing]")
+    configure_mpi_io_environment()
 #===============================================================================
 #===============================================================================
 

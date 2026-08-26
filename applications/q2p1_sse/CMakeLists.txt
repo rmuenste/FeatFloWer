@@ -101,6 +101,7 @@ IF(${OUT_OF_SOURCE_BUILD})
   ENDIF()
 
   file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/mpi_io_environment.py" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
  
   file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -121,6 +122,9 @@ add_custom_target(q2p1_sse_stage
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py
           ${CMAKE_CURRENT_BINARY_DIR}/e3d_start.py
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/mpi_io_environment.py
+          ${CMAKE_CURRENT_BINARY_DIR}/mpi_io_environment.py
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_CURRENT_SOURCE_DIR}/q2p1_sse_start.py
           ${CMAKE_CURRENT_BINARY_DIR}/q2p1_sse_start.py
@@ -173,6 +177,7 @@ file(GLOB E3D_XSE_YAML_SCRIPTS
 # install the driver script
 set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
 list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/mpi_io_environment.py")
 list(APPEND E3D_SCRIPTS ${E3D_XSE_YAML_SCRIPTS})
 list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
 
@@ -183,6 +188,14 @@ install(FILES "${CMAKE_SOURCE_DIR}/_data/MG.dat" DESTINATION bin/${SSE_TARGET_NA
     PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
 
 add_test(q2p1-sse python3 ./e3d_start.py -n 16 -f _ianus/TSE/Conv -x -a 0)
+if(BUILD_TESTING)
+  if(NOT Python3_EXECUTABLE)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  endif()
+  add_test(NAME mpi-io-environment
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tools/e3d_scripts/test_mpi_io_environment.py)
+endif()
 
 
 if(NOT WIN32)
@@ -220,6 +233,7 @@ if(NOT WIN32)
     # install the driver script
     set(E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start.py")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/e3d_start_yaml.py")
+    list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/e3d_scripts/mpi_io_environment.py")
     list(APPEND E3D_SCRIPTS ${E3D_DIE_YAML_SCRIPTS})
     list(APPEND E3D_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/conv_check.sh")
     list(APPEND E3D_SCRIPTS "${CMAKE_SOURCE_DIR}/tools/computeAreas.py")

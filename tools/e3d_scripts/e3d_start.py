@@ -16,6 +16,7 @@ import partitioner
 import fileinput
 import datetime
 import configparser
+from mpi_io_environment import configure_mpi_io_environment
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver  
 from watchdog.events import FileSystemEventHandler
@@ -27,13 +28,6 @@ else:
 
 debugNoSim = False
 debugOutput = False
-
-# Defaults required for reliable MPI file I/O on OpenMPI based runs
-MPI_ENV_DEFAULTS = {
-    "OMPI_MCA_io": "romio321",
-    "ROMIO_CB_BUFFER_SIZE": "16777216",
-    "ROMIO_DS_WRITE": "enable",
-}
 
 class E3dLog:
     def __init__(self):
@@ -637,21 +631,7 @@ def setupMPICommand():
 #                Configure MPI environment variables
 #===============================================================================
 def configureMPIEnvironment():
-    """
-    Ensure the MPI file I/O environment matches the settings required
-    for the die simulations, replacing the shell logic in RunnerGenDIE.
-    """
-    print("Configuring MPI environment variables for ROMIO:")
-    for var, desired in MPI_ENV_DEFAULTS.items():
-        prev = os.environ.get(var)
-        os.environ[var] = desired
-        if prev is None:
-            status = "set"
-        elif prev == desired:
-            status = "kept"
-        else:
-            status = f"overridden (was {prev})"
-        print(f"  {var}={desired} [{status}]")
+    configure_mpi_io_environment()
 #===============================================================================
 #===============================================================================
 

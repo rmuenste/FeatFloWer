@@ -17,15 +17,26 @@ subroutine init_q2p1_ext(log_unit)
 !       DeterminePointParametrization_STRCT,ParametrizeBndryPoints_STRCT
   USE app_initialization, only:init_sol_same_level,init_sol_lower_level,init_sol_repart
   USE Sigma_User, only : myProcess, myTransientSolution, mySetup, myMultiMat
+  USE checkpoint_config, ONLY: checkpoint_register_application, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    CHECKPOINT_FORMAT_LST, CHECKPOINT_MASK_MPI_PRF, CHECKPOINT_MASK_LST
+  USE checkpoint_service, ONLY: checkpoint_mpi_read
+  USE checkpoint_types, ONLY: t_checkpoint_context, &
+    t_checkpoint_field_selection
 
   integer, intent(in) :: log_unit
   integer iPeriodicityShift,jFile,iAngle,dump_in_file,i1,i2
   real*8 dTimeStep,dPeriod,meshVelo(3)
   integer jSeg,kSeg
+  type(t_checkpoint_context) :: checkpoint_context
+  type(t_checkpoint_field_selection) :: load_fields
 
   !-------INIT PHASE-------
   ApplicationString = &
 "  |                                                          SSE-Temperature module                  |"
+
+  call checkpoint_register_application('q2p1_sse_temp', &
+    CHECKPOINT_MASK_MPI_PRF + CHECKPOINT_MASK_LST)
 
   ! Initialization for FEATFLOW
   CALL General_init_ext(79,log_unit)
@@ -83,17 +94,22 @@ subroutine init_q2p1_ext(log_unit)
   !myTransientSolution%DumpFormat = 2 ! 3::MPI_prf files
   DO iFile=0,myProcess%nTimeLevels/myProcess%Periodicity-1 !myProcess%nTimeLevels
    dump_in_file = iFile*iAngle
-   if (myTransientSolution%DumpFormat.eq.2) THEN
+   if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_LST) THEN
     CALL Load_ListFiles_General(dump_in_file,'v,d,x,t,s')
    end if
 
-   if (myTransientSolution%DumpFormat.eq.3) THEN
-    CALL LoadMPIDumpFiles(dump_in_file,'v,d,x,t')
-    if (myProcess%SegmentThermoPhysProps) CALL LoadMPIDumpFiles(dump_in_file,'s')
-    if (myMultiMat%nOfMaterials.gt.1) THEN
-     CALL LoadMPIDumpFiles(dump_in_file,'q')
-    END IF
-    CALL LoadMPIDumpFiles(dump_in_file,'y')
+   if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) THEN
+    load_fields = t_checkpoint_field_selection()
+    load_fields%velocity = .true.
+    load_fields%distance = .true.
+    load_fields%coordinates = .true.
+    load_fields%temperature = .true.
+    load_fields%shell = .true.
+    load_fields%segment = myProcess%SegmentThermoPhysProps
+    load_fields%generic_scalars = myMultiMat%nOfMaterials.gt.1
+    checkpoint_context%slot = dump_in_file
+    checkpoint_context%clock_valid = .false.
+    call checkpoint_mpi_read(checkpoint_context,load_fields)
    end if
    
    ALLOCATE(myTransientSolution%Velo(1,iFile)%x(QuadSc%ndof))
@@ -243,6 +259,8 @@ SUBROUTINE General_init_ext(MDATA,MFILE)
  USE cinterface 
  USE param_parser, ONLY: GDATNEW
  USE Sigma_User, ONLY: myTransientSolution
+ USE checkpoint_config, ONLY: selected_checkpoint_format, &
+   CHECKPOINT_FORMAT_MPI_PRF
 
  IMPLICIT NONE
  ! -------------- workspace -------------------
@@ -457,7 +475,8 @@ DO ILEV=NLMIN+1,NLMAX
  CALL E011_CreateComm(NDOF)
 
  !     ----------------------------------------------------------            
- IF (.NOT.(istart.ne.0 .and. myTransientSolution%DumpFormat.eq.3)) THEN
+ IF (.NOT.(istart.ne.0 .and. &
+     selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF)) THEN
   call init_fc_rigid_body(myid)
   call FBM_GetParticles()
   CALL FBM_ScatterParticles()

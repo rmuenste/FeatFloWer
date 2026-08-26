@@ -20,7 +20,7 @@ end type tProvQ2Meta
 
 contains
 
-subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx)
+subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx, completed_step)
   use def_FEAT, only: NLMAX
   use var_QuadScalar, only: QuadSc, LinSc, Temperature, MaterialDistribution
   use var_QuadScalar, only: bTracer, Tracer, myDump, istep_ns, fieldPtr, mg_mesh
@@ -32,8 +32,9 @@ subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx)
   integer, intent(in) :: imax_out
   real*8, intent(in) :: time_ns
   integer, optional :: output_idx
+  integer, optional :: completed_step
 
-  integer :: iout, ndof, nelem, iFld
+  integer :: iout, ndof, nelem, iFld, step_to_write
   character(len=256) :: out_dir
   character(len=60) :: field_name
   type(fieldPtr), dimension(3) :: packed
@@ -45,6 +46,9 @@ subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx)
   else
     iout = output_idx
   end if
+
+  step_to_write = istep_ns
+  if (present(completed_step)) step_to_write = completed_step
 
   nelem = knel(NLMAX)
   ndof = knvt(NLMAX) + knat(NLMAX) + knet(NLMAX) + knel(NLMAX)
@@ -92,7 +96,7 @@ subroutine write_sol_to_file_prov(imax_out, time_ns, output_idx)
   end if
 
   call write_pressure_field(out_dir, nelem, LinSc%ValP(NLMAX)%x)
-  call write_time_field(out_dir, istep_ns, time_ns)
+  call write_time_field(out_dir, step_to_write, time_ns)
 
   call free_q2_meta(meta)
 end subroutine write_sol_to_file_prov

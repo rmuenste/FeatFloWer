@@ -18,13 +18,23 @@ subroutine init_q2p1_ext(log_unit)
   use solution_io, only: read_sol_from_file
   use Sigma_User, only: myProcess,myTransientSolution
   USE iniparser, ONLY : inip_output_init
+  USE checkpoint_config, ONLY: checkpoint_register_application, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    CHECKPOINT_FORMAT_LST, CHECKPOINT_MASK_MPI_PRF, CHECKPOINT_MASK_LST
+  USE checkpoint_service, ONLY: checkpoint_mpi_read
+  USE checkpoint_types, ONLY: t_checkpoint_context, checkpoint_fields_sse, &
+    CHECKPOINT_PROLONGATE, CHECKPOINT_REPARTITION
 
 
   integer, intent(in) :: log_unit
+  type(t_checkpoint_context) :: checkpoint_context
 
   !-------INIT PHASE-------
   ApplicationString = &
 "  |                                                          SSE-FluidDynamics module                |"
+
+  call checkpoint_register_application('q2p1_sse', &
+    CHECKPOINT_MASK_MPI_PRF + CHECKPOINT_MASK_LST)
   
   ! Initialization for FEATFLOW
   call General_init_ext(79,log_unit)
@@ -54,9 +64,12 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.1) then
     bUseDumpedMixerGeometry = .false.
     if (myid.ne.0) call CreateDumpStructures(1)
-    if (myTransientSolution%DumpFormat.eq.2) call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
-    if (myTransientSolution%DumpFormat.eq.3) then
-      call LoadMPIDumpFiles(int(myProcess%Angle),'p,v,d,s,y,z,x,t,q')
+    if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_LST) &
+      call Load_ListFiles_General(int(myProcess%Angle),'p,v,d,x,t,q')
+    if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+      checkpoint_context%slot = int(myProcess%Angle)
+      checkpoint_context%clock_valid = .true.
+      call checkpoint_mpi_read(checkpoint_context,checkpoint_fields_sse())
       bUseDumpedMixerGeometry = .true.
     end if
 !     call Load_ListFiles_SSE(int(myProcess%Angle))
@@ -70,7 +83,7 @@ subroutine init_q2p1_ext(log_unit)
     bUseDumpedMixerGeometry = .false.
     ! In order to read in from a lower level
     ! the lower level structures are needed
-    if (myTransientSolution%DumpFormat.eq.3) then
+    if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
       call RestartFromMPILowerLevelSSE(log_unit)
     else
       if (myid.ne.0) call CreateDumpStructures(0)
@@ -86,7 +99,15 @@ subroutine init_q2p1_ext(log_unit)
   elseif (istart.eq.3) then
     bUseDumpedMixerGeometry = .false.
     IF (myid.ne.0) CALL CreateDumpStructures(1)
-    call SolFromFileRepart(CSTART,1)
+    if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+      checkpoint_context%slot = int(myProcess%Angle)
+      checkpoint_context%restart_mode = CHECKPOINT_REPARTITION
+      checkpoint_context%clock_valid = .true.
+      call checkpoint_mpi_read(checkpoint_context,checkpoint_fields_sse())
+      bUseDumpedMixerGeometry = .true.
+    else
+      call SolFromFileRepart(CSTART,1)
+    end if
     if (myid.ne.0) call CreateDumpStructures(1)
     call InitOperators(log_unit, mg_mesh,.true.)
   end if
@@ -106,12 +127,19 @@ subroutine RestartFromMPILowerLevelSSE(log_unit)
   USE var_QuadScalar, ONLY : mg_mesh, QuadSc, LinSc, GenLinScalar, Screw, Shell, &
     bUseDumpedMixerGeometry, knvt, knat,knet,knel,myDump
   USE Sigma_User, ONLY: myProcess
+  USE checkpoint_service, ONLY: checkpoint_mpi_read
+  USE checkpoint_types, ONLY: t_checkpoint_context, checkpoint_fields_fc, &
+    CHECKPOINT_PROLONGATE
   implicit none
 
   integer, intent(in) :: log_unit
   integer :: iFld,ndofCoarse,ndofFine
+  type(t_checkpoint_context) :: checkpoint_context
 
-  call LoadMPIDumpFilesProlongateSSE(int(myProcess%Angle),'p,v,x,t,q',log_unit)
+  checkpoint_context%slot = int(myProcess%Angle)
+  checkpoint_context%restart_mode = CHECKPOINT_PROLONGATE
+  checkpoint_context%clock_valid = .true.
+  call checkpoint_mpi_read(checkpoint_context,checkpoint_fields_fc(),log_unit)
 
   QuadSc%bProlRest = .FALSE.
   LinSc%bProlRest = .FALSE.

@@ -23,6 +23,11 @@ PROGRAM Q2P1_DEVEL
                       mg_mesh,myExport,DivergedSolution,myErrorCode
 
   USE PP3D_MPI, ONLY : myid,master,showid,Barrier_myMPI,MPI_COMM_WORLD
+  use checkpoint_config, only: selected_checkpoint_format, &
+    CHECKPOINT_FORMAT_MPI_PRF, CHECKPOINT_FORMAT_LST
+  use checkpoint_service, only: checkpoint_mpi_write
+  use checkpoint_types, only: t_checkpoint_context, &
+    checkpoint_fields_temperature, CHECKPOINT_MERGE_FIELDS
 
   
   REAL*8 ViscosityModel
@@ -38,6 +43,7 @@ PROGRAM Q2P1_DEVEL
   real               :: dtt0 = 0.0
   real*8 dTimeStep,dPeriod
   integer iRot,iStep,iSubStep,iAngle
+  type(t_checkpoint_context) :: checkpoint_context
 
   call init_q2p1_ext(ufile)
 
@@ -104,8 +110,14 @@ PROGRAM Q2P1_DEVEL
     END IF
 
     if (iAngle.eq.myProcess%Angle) THEN
-     if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'t')
-     if (myTransientSolution%DumpFormat.eq.3) CALL ReleaseMPIDumpFiles(int(myProcess%Angle),'t')
+     if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_LST) &
+       CALL Release_ListFiles_General(int(myProcess%Angle),'t')
+     if (selected_checkpoint_format.eq.CHECKPOINT_FORMAT_MPI_PRF) then
+       checkpoint_context%slot = int(myProcess%Angle)
+       checkpoint_context%write_mode = CHECKPOINT_MERGE_FIELDS
+       call checkpoint_mpi_write(checkpoint_context, &
+         checkpoint_fields_temperature())
+     end if
      CALL OUTPUT_PID_DATA(int(myProcess%angle))
     end if
 

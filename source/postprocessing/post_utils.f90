@@ -134,11 +134,18 @@ subroutine sim_finalize(dttt0, filehandle)
   use solution_io, only: write_sol_to_file
   use solution_io_provenance, only: write_sol_to_file_prov
   use prov_dump_config, only: use_prov_dump_io
+  use checkpoint_config, only: checkpoint_dispatch_enabled, &
+    selected_checkpoint_format, CHECKPOINT_FORMAT_MPI_PRF, &
+    CHECKPOINT_FORMAT_DMP, CHECKPOINT_FORMAT_PROVENANCE
+  use checkpoint_service, only: checkpoint_mpi_write
+  use checkpoint_types, only: t_checkpoint_context, checkpoint_fields_fc
+  use, intrinsic :: iso_fortran_env, only: int64
 
   real, intent(inout) :: dttt0
   integer, intent(in) :: filehandle
 
-  integer :: ierr
+  integer :: ierr, completed_step
+  type(t_checkpoint_context) :: checkpoint_context
   integer :: terminal = 6
   real :: time,time_passed
 
@@ -150,12 +157,25 @@ subroutine sim_finalize(dttt0, filehandle)
   CALL StatOut(time_passed,terminal)
 
   ! Save the final solution vector in unformatted form
-  istep_ns = istep_ns - 1
+  completed_step = istep_ns - 1
   !CALL SolToFile(-1)
-  if (use_prov_dump_io) then
-    call write_sol_to_file_prov(insavn, timens)
+  if (checkpoint_dispatch_enabled) then
+    select case (selected_checkpoint_format)
+    case (CHECKPOINT_FORMAT_MPI_PRF)
+      checkpoint_context%slot = -1
+      checkpoint_context%completed_step = int(completed_step,int64)
+      call checkpoint_mpi_write(checkpoint_context,checkpoint_fields_fc())
+    case (CHECKPOINT_FORMAT_PROVENANCE)
+      call write_sol_to_file_prov(insavn, timens, &
+        completed_step=completed_step)
+    case (CHECKPOINT_FORMAT_DMP)
+      call write_sol_to_file(insavn, timens, completed_step=completed_step)
+    end select
+  else if (use_prov_dump_io) then
+    call write_sol_to_file_prov(insavn, timens, &
+      completed_step=completed_step)
   else
-    call write_sol_to_file(insavn, timens)
+    call write_sol_to_file(insavn, timens, completed_step=completed_step)
   end if
 
   IF (myid.eq.showid) THEN

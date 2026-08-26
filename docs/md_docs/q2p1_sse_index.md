@@ -69,6 +69,9 @@ change.
   - VTK/GMV and protocol output
   - `_1D`, `_hist`, `_RTD`, `_prot*`, `_dump`
   - final status and exit codes
+- [MPI-PRF Checkpoints](mpi_prf_checkpoints.md)
+  - `SimPar@DumpFormat` selection and compatibility aliases
+  - versioned metadata, clock restoration, transactions, and ROMIO tuning
 
 ## High-Level Flow
 
