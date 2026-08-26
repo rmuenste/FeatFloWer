@@ -102,18 +102,26 @@ eps_min = h_min/a, defaulting to the absolute keys when unset.
 |---|---|---|
 | G0 | lubrication-OFF twins with refactored pe, vs certified logs — AMENDED 2026-08-20 after the hcaf_angvel_reset fix (a71c34d) joined the branch: (a) **e4_l3** stays the BITWISE instrument (settling, spin ≈ 0, ω-fix inert); (b) **DKT 20-step** is now a physics-DIFF case — the ω restoration changes rotating trajectories by construction, so its twin is EXPECTED to differ; its deviation is the ω-restoration signal and feeds the D2.3 frictional rerun (datasheet hcaf_angvel_reset) | e4_l3 bitwise; DKT diff attributed to rotation (report, don't gate); SI ten Cate family remains the AABB-sensitive one |
 | G1 | unit tests: existing 4 re-pointed at the runtime switch + the new serial/CFD-coupled test | all pass |
-| G2 | **Brenner wall-approach rerun** (D2.1 fixture, constant-V protocol, Re 0.78) with lubrication ON | sub-2h force follows Brenner's exact solution where FBM alone was −20%; ALSO measure the 2–3h overlap band overshoot = the double-counting number that decides §7 |
+| G2 | **Brenner wall-approach rerun** (D2.1 fixture, constant-V protocol, Re 0.78) with lubrication ON — DONE 2026-08-26, job 141393, row `d22_g2_brenner` | MEASURED: full Kroupa wall term double-counts the resolved film **+75%** in the 1–2h band (FBM alone −15/−26%); Eq.-10 deficit form c=2 lands +6.7/+23.0%; superposition exact (FBM force ≡ lub-OFF baseline), so variants evaluate offline; ideal correction λ = B − FBM = 0.73→4.54 over gap/h ∈ [0.83, 2) is the §7 calibration curve. Decides §7: deficit form required |
 | G3 | **lubricated ten Cate**: reproduce Fig. 13 (pairs S16/S18 at Re 1.5, S17/S19 at Re 4.1) — first `legacy` model (like-for-like with the paper's Eq. 10), then full Kroupa | early velocity-decay improvement reproduced; Kroupa's epsCritical saturation avoids the paper's documented time-to-contact overprediction ("the abrupt stop remains" pathology) |
 
-## 7. Physics follow-up (option, not blocker)
+## 7. Physics follow-up — DECIDED 2026-08-26 (G2 measurement, row `d22_g2_brenner`)
 
-Full-vs-deficit closure: in resolved FBM the fluid already carries most of
-the lubrication force down to ~2h, so the full model double-counts in the
-overlap. Deferred by design: G2 measures the actual double-count at
-D/h = 8 before deciding. If warranted, add `modelKroupaDeficit` —
-Kroupa resistances minus their value at the activation gap (reduces to
-ten Cate Eq. 10 in the leading normal term, keeps the saturation fix).
-D2.1's inverse-collapse-curve idea remains the more ambitious variant.
+Full-vs-deficit closure: G2 measured the double-count at D/h = 23.9 —
+the full resistance set overshoots Brenner by **~+75%** in the 1–2h
+overlap band (the resolved FBM already carries ~85% of the force there).
+DECISION: `modelKroupaDeficit` — Kroupa resistances minus their value at
+the activation gap (reduces to ten Cate Eq. 10 in the leading normal
+term, keeps the saturation fix) — is REQUIRED for CFD-coupled runs; it
+lands at +6.7% (1–2h) / +23% (<1h) on the G2 data. Upstream pe item.
+The measured ideal correction λ_ideal = Brenner − FBM (0.73 → 4.54 over
+gap/h ∈ [0.83, 2), tools/d21_g2_lubrication_analysis.py) is the
+calibration curve for D2.1's inverse-collapse variant — resolution-
+collapsed in gap/h per the D2.1 finding, one calibration per method;
+it would close the residual the analytic deficit leaves below 1h.
+G2 bonus finding: superposition is exact on this fixture (FBM force
+byte-close to the lub-OFF baseline), so any future model variant can be
+scored offline against the G2 dataset without new runs.
 
 ## 8. Performance & reproducibility (recorded 2026-08-20 discussion)
 
