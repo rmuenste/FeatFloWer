@@ -31,7 +31,7 @@ REAL*8 daux,tttx1,tttx0,alpha
  IF (idef.eq.-1) THEN
   DO ILEV=NLMIN,NLMAX
 
-    IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+    IF (ALLOCATED(mg_A12Mat)) THEN
      A11Mat     => mg_A11Mat(ILEV)%a
      A22Mat     => mg_A22Mat(ILEV)%a
      A33Mat     => mg_A33Mat(ILEV)%a
@@ -77,21 +77,17 @@ REAL*8 daux,tttx1,tttx0,alpha
 
     IF (myMatrixRenewal%K.GE.1) THEN
      KMat     => mg_KMat(ILEV)%a
-     IF(bNonNewtonian) THEN
-      barM11Mat     => mg_barM11Mat(ILEV)%a
-      barM22Mat     => mg_barM22Mat(ILEV)%a
-      barM33Mat     => mg_barM33Mat(ILEV)%a
-      barM12Mat     => mg_barM12Mat(ILEV)%a
-      barM13Mat     => mg_barM13Mat(ILEV)%a
-      barM23Mat     => mg_barM23Mat(ILEV)%a
-      barM21Mat     => mg_barM21Mat(ILEV)%a
-      barM31Mat     => mg_barM31Mat(ILEV)%a
-      barM32Mat     => mg_barM32Mat(ILEV)%a
-     ELSE
-      barM11Mat     => mg_barM11Mat(ILEV)%a
-      barM22Mat     => mg_barM22Mat(ILEV)%a
-      barM33Mat     => mg_barM33Mat(ILEV)%a
-     END IF
+     ! Create_CCbarMMat_iso always assembles all nine reactive blocks,
+     ! so the full set is available to every Newton treatment.
+     barM11Mat     => mg_barM11Mat(ILEV)%a
+     barM22Mat     => mg_barM22Mat(ILEV)%a
+     barM33Mat     => mg_barM33Mat(ILEV)%a
+     barM12Mat     => mg_barM12Mat(ILEV)%a
+     barM13Mat     => mg_barM13Mat(ILEV)%a
+     barM23Mat     => mg_barM23Mat(ILEV)%a
+     barM21Mat     => mg_barM21Mat(ILEV)%a
+     barM31Mat     => mg_barM31Mat(ILEV)%a
+     barM32Mat     => mg_barM32Mat(ILEV)%a
     END IF
 
     IF (myMatrixRenewal%M.GE.1) THEN
@@ -183,33 +179,60 @@ REAL*8 daux,tttx1,tttx0,alpha
 
     ELSE 
 
-! Newtonian Navier-Stokes
-!  ---> can be done with Non-newtonian problem
-
-!     IF (myMatrixRenewal%K.GE.1) THEN
-!      DO I=1,qMat%nu
-!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + zeitstep*(DMat(J)+KMat(J))
-!        daux2 = MMat(J) + zeitstep*(DMat(J)+KMat(J)+alpha*KnewMat(J))
-!        A11mat(J) =  daux
-!        A22mat(J) =  daux
-!        A33mat(J) =  daux
-!        AA11mat(J) =  daux2
-!        AA22mat(J) =  daux2
-!        AA33mat(J) =  daux2
-!       END DO
-!      END DO
-!     ELSE ! Newtonian Stokes
-!      DO I=1,qMat%nu
-!       J = qMat%LdA(I)
-!       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
-!        daux = MMat(J) + zeitstep*(DMat(J))
-!        A11mat(J) =  daux
-!        A22mat(J) =  daux
-!        A33mat(J) =  daux
-!       END DO
-!      END DO
-!     END IF
+! Newtonian Oseen operator. A forms the nonlinear defect and always stays
+! the pure Oseen matrix M + dt(D+K); the root of the defect correction is
+! therefore independent of the treatment below. AA is the correction
+! operator used by the coupled multigrid; CCuvwp@NewtonTreatment selects
+! which alpha-scaled Newton reactive blocks barMij it carries:
+! Off = none (Turek's S^F Oseen preconditioner), Diagonal = barM11/22/33,
+! Full = all nine blocks (blended Newton reaction; the exact Newton
+! derivative only when alpha = 1).
+     IF (myMatrixRenewal%K.GE.1) THEN
+      DO I=1,qMat%nu
+       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        daux = MMat(J) + zeitstep*(DMat(J)+KMat(J))
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        AA11mat(J) = daux
+        AA22mat(J) = daux
+        AA33mat(J) = daux
+       END DO
+      END DO
+      IF (ccParams%NewtonType.GE.1) THEN
+       DO I=1,qMat%nu
+        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+         AA11mat(J) = AA11mat(J) + zeitstep*alpha*barM11Mat(J)
+         AA22mat(J) = AA22mat(J) + zeitstep*alpha*barM22Mat(J)
+         AA33mat(J) = AA33mat(J) + zeitstep*alpha*barM33Mat(J)
+        END DO
+       END DO
+      END IF
+      IF (ccParams%NewtonType.GE.2) THEN
+       DO I=1,qMat%nu
+        DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+         AA12mat(J) = zeitstep*alpha*barM12Mat(J)
+         AA13mat(J) = zeitstep*alpha*barM13Mat(J)
+         AA23mat(J) = zeitstep*alpha*barM23Mat(J)
+         AA21mat(J) = zeitstep*alpha*barM21Mat(J)
+         AA31mat(J) = zeitstep*alpha*barM31Mat(J)
+         AA32mat(J) = zeitstep*alpha*barM32Mat(J)
+        END DO
+       END DO
+      END IF
+     ELSE
+      DO I=1,qMat%nu
+       DO J=qMat%LdA(I),qMat%LdA(I+1)-1
+        daux = MMat(J) + zeitstep*DMat(J)
+        A11mat(J) = daux
+        A22mat(J) = daux
+        A33mat(J) = daux
+        AA11mat(J) = daux
+        AA22mat(J) = daux
+        AA33mat(J) = daux
+       END DO
+      END DO
+     END IF
     END IF
 
   END DO
@@ -222,7 +245,7 @@ REAL*8 daux,tttx1,tttx0,alpha
  ILEV=NLMAX
  CALL SETLEV(2)
 
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_A12Mat)) THEN
   A11Mat     => mg_A11Mat(ILEV)%a
   A22Mat     => mg_A22Mat(ILEV)%a
   A33Mat     => mg_A33Mat(ILEV)%a
@@ -1178,7 +1201,7 @@ EXTERNAL E013
  ILEV = NLMAX
  CALL SETLEV(2)
 
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_A12Mat)) THEN
   A11Mat     => mg_A11Mat(ILEV)%a
   A22Mat     => mg_A22Mat(ILEV)%a
   A33Mat     => mg_A33Mat(ILEV)%a
@@ -1330,10 +1353,11 @@ END SUBROUTINE CC_GetDefect
 ! ----------------------------------------------
 !
 SUBROUTINE GetDefNorms(qScalar,lScalar,DefNorm)
+USE, INTRINSIC :: ieee_arithmetic, ONLY : ieee_is_finite
 TYPE(TQuadScalar) qScalar
 TYPE(TLinScalar)  lScalar
 REAL*8 DefNorm(4)
-INTEGER ndof
+INTEGER ndof,iCmp
 
 IF (myid.ne.0) THEN
 
@@ -1352,12 +1376,31 @@ IF (myid.ne.0) THEN
  CALL LL21(qScalar%auxV,ndof ,DefNorm(2))
  CALL LL21(qScalar%auxW,ndof ,DefNorm(3))
  CALL LL21(lScalar%defP(ILEV)%x(      1:),4*nel,DefNorm(4))
+
+ ! Map invalid local norms to a huge sentinel BEFORE the maximum
+ ! reduction: MPI_MAX drops NaN operands (and the master rank
+ ! contributes -1d99), which would turn a diverged solve into a
+ ! false convergence signal.
+ DO iCmp=1,4
+  IF (.NOT.ieee_is_finite(DefNorm(iCmp)).OR.DefNorm(iCmp).LT.0d0) THEN
+   DefNorm(iCmp) = 1d99
+  END IF
+ END DO
 END IF
 
 CALL COMM_Maximum(DefNorm(1))
 CALL COMM_Maximum(DefNorm(2))
 CALL COMM_Maximum(DefNorm(3))
 CALL COMM_Maximum(DefNorm(4))
+
+! Post-reduction guard: catches the -1d99 master sentinel and any
+! residual non-finite value, so callers can rely on DefNorm >= 0 and
+! DefNorm >= 1d98 meaning "invalid numerics".
+DO iCmp=1,4
+ IF (.NOT.ieee_is_finite(DefNorm(iCmp)).OR.DefNorm(iCmp).LT.0d0) THEN
+  DefNorm(iCmp) = 1d99
+ END IF
+END DO
 
 IF (myid.eq.showid) WRITE(*,'(A,4ES12.3)') "non-linear Defect",DefNorm
 
@@ -1876,7 +1919,7 @@ REAL*8 dmaxx(3)
  lScalar%rhsP(NLMAX)%x                     = lScalar%defP(NLMAX)%x !0d0             !Div U = 0d0
 
 ! Matrices
- IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+ IF (ALLOCATED(mg_AA12Mat)) THEN
   MyMG%A11  => mg_AA11Mat
   MyMG%A22  => mg_AA22Mat
   MyMG%A33  => mg_AA33Mat
@@ -2425,7 +2468,10 @@ END SUBROUTINE InitializeProlRest_cc
 SUBROUTINE Create_AMat_new()
 INTEGER NA,complete
 
-IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
+! The CC extraction, coarse solve, and Vanka patches use a uniform 4x4
+! block layout. Keep all nine velocity blocks present even when the
+! Newtonian operator is block diagonal.
+IF (ALLOCATED(mg_A11mat)) RETURN
   ALLOCATE(mg_A11mat(NLMIN:NLMAX))
   ALLOCATE(mg_A22mat(NLMIN:NLMAX))
   ALLOCATE(mg_A33mat(NLMIN:NLMAX))
@@ -2478,6 +2524,18 @@ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
    ALLOCATE(mg_AA21mat(ILEV)%a(NA))
    ALLOCATE(mg_AA31mat(ILEV)%a(NA))
    ALLOCATE(mg_AA32mat(ILEV)%a(NA))
+   mg_A12mat(ILEV)%a = 0d0
+   mg_A13mat(ILEV)%a = 0d0
+   mg_A21mat(ILEV)%a = 0d0
+   mg_A23mat(ILEV)%a = 0d0
+   mg_A31mat(ILEV)%a = 0d0
+   mg_A32mat(ILEV)%a = 0d0
+   mg_AA12mat(ILEV)%a = 0d0
+   mg_AA13mat(ILEV)%a = 0d0
+   mg_AA21mat(ILEV)%a = 0d0
+   mg_AA23mat(ILEV)%a = 0d0
+   mg_AA31mat(ILEV)%a = 0d0
+   mg_AA32mat(ILEV)%a = 0d0
   END DO
   A11Mat => mg_A11mat(NLMAX)%a
   A22Mat => mg_A22mat(NLMAX)%a
@@ -2497,42 +2555,6 @@ IF (bNonNewtonian.AND.myMatrixRenewal%S.NE.0) THEN
   AA21Mat => mg_AA21mat(NLMAX)%a
   AA31Mat => mg_AA31mat(NLMAX)%a
   AA32Mat => mg_AA32mat(NLMAX)%a
- ELSE
-  ALLOCATE(mg_A11mat(NLMIN:NLMAX))
-  ALLOCATE(mg_A22mat(NLMIN:NLMAX))
-  ALLOCATE(mg_A33mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA11mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA22mat(NLMIN:NLMAX))
-  ALLOCATE(mg_AA33mat(NLMIN:NLMAX))
-  DO ILEV=NLMIN,NLMAX
-
-   IF (myid.eq.showID) THEN
-    IF (ILEV.EQ.NLMIN) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='no') "Allocation of A Matrix on Level [", ILEV,"]"
-    END IF
-    IF (ILEV.EQ.NLMAX) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='yes') ", [",ILEV,"]"
-    END IF
-    IF (ILEV.NE.NLMAX.AND.ILEV.NE.NLMIN) THEN
-     WRITE(MTERM,'(A,I1,A)', advance='no') ", [",ILEV,"]"
-    END IF
-   END IF
-
-   NA = mg_qMat(ILEV)%na
-   ALLOCATE(mg_A11mat(ILEV)%a(NA))
-   ALLOCATE(mg_A22mat(ILEV)%a(NA))
-   ALLOCATE(mg_A33mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA11mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA22mat(ILEV)%a(NA))
-   ALLOCATE(mg_AA33mat(ILEV)%a(NA))
-  END DO
-  A11Mat => mg_A11mat(NLMAX)%a
-  A22Mat => mg_A22mat(NLMAX)%a
-  A33Mat => mg_A33mat(NLMAX)%a
-  AA11Mat => mg_AA11mat(NLMAX)%a
-  AA22Mat => mg_AA22mat(NLMAX)%a
-  AA33Mat => mg_AA33mat(NLMAX)%a
- END IF
 
 END SUBROUTINE Create_AMat_new
 !

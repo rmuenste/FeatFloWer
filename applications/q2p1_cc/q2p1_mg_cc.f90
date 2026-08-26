@@ -5,10 +5,13 @@ USE PP3D_MPI, ONLY:E011Sum,E011DMat,myid,showID,MGE013,&
 USE var_QuadScalar
 USE var_QuadScalar_newton
 USE UMFPackSolver_CC, ONLY : myUmfPack_CCSolve,myUmfPack_CCSolveMaster,&
-                   myUmfPack_CCSolveLocalMat    
+                   myUmfPack_CCSolveLocalMat,myUmfPack_CCFactorize,&
+                   myUmfPack_CCFree,SortIt_CC
 
 USE UMFPackSolver, only : myUmfPack_Solve
+#ifdef MUMPS_AVAIL
 USE MumpsSolver, only : MUMPS_solver_Distributed
+#endif
 
 
 IMPLICIT NONE
@@ -114,6 +117,7 @@ SUBROUTINE mg_cycle_cc()
 IF (MyMG%CycleType.EQ."W")  CALL mg_W_cycle_cc()
 IF (MyMG%CycleType.EQ."V")  CALL mg_V_cycle_cc()
 IF (MyMG%CycleType.EQ."F")  CALL mg_F_cycle_cc()
+IF (MyMG%CycleType.EQ."S")  CALL mgSmoother_cc()
 
 END SUBROUTINE mg_cycle_cc
 !
@@ -326,9 +330,9 @@ IF (myid.ne.0) THEN
    daux_u(3) = daux_u(3) + dt*MyMG%BZ(mgLev)%a(j)*dP
   END DO
 
-  IF (myMG%KNPRU(i).EQ.1) daux_u(1) = 0d0
-  IF (myMG%KNPRV(i).EQ.1) daux_u(2) = 0d0
-  IF (myMG%KNPRW(i).EQ.1) daux_u(3) = 0d0
+  IF (QuadSc%knprU(mgLev)%x(i).EQ.1) daux_u(1) = 0d0
+  IF (QuadSc%knprV(mgLev)%x(i).EQ.1) daux_u(2) = 0d0
+  IF (QuadSc%knprW(mgLev)%x(i).EQ.1) daux_u(3) = 0d0
   MyMG%D_u(mgLev)%x(         i) = daux_u(1)
   MyMG%D_u(mgLev)%x(  ndof_u+i) = daux_u(2)
   MyMG%D_u(mgLev)%x(2*ndof_u+i) = daux_u(3)
@@ -413,9 +417,9 @@ IF (myid.ne.0) THEN
    daux_u(3) = daux_u(3) - dt*MyMG%BZ(mgLev)%a(j)*dP
   END DO
 
-  IF (myMG%KNPRU(i).EQ.1) daux_u(1) = 0d0
-  IF (myMG%KNPRV(i).EQ.1) daux_u(2) = 0d0
-  IF (myMG%KNPRW(i).EQ.1) daux_u(3) = 0d0
+  IF (QuadSc%knprU(mgLev)%x(i).EQ.1) daux_u(1) = 0d0
+  IF (QuadSc%knprV(mgLev)%x(i).EQ.1) daux_u(2) = 0d0
+  IF (QuadSc%knprW(mgLev)%x(i).EQ.1) daux_u(3) = 0d0
   MyMG%A_u(mgLev)%x(         i) = daux_u(1)
   MyMG%A_u(mgLev)%x(  ndof_u+i) = daux_u(2)
   MyMG%A_u(mgLev)%x(2*ndof_u+i) = daux_u(3)
@@ -501,7 +505,8 @@ IF (myid.ne.0) THEN
 
  CALL ZTIME(time0)
  CALL E013_Restriction(myMG%D_u(mgLev+1)%x,myMG%B_u(mgLev)%x,mg_E013Rest(mgLev)%a,&
-      mg_E013RestM(mgLev)%LdA,mg_E013RestM(mgLev)%ColA,myMG%KNPRU,myMG%KNPRV,myMG%KNPRW)
+      mg_E013RestM(mgLev)%LdA,mg_E013RestM(mgLev)%ColA,&
+      QuadSc%knprU(mgLev)%x,QuadSc%knprV(mgLev)%x,QuadSc%knprW(mgLev)%x)
  CALL ZTIME(time1)
  myStat%tRestUVW = myStat%tRestUVW + (time1-time0)
 
@@ -539,7 +544,8 @@ IF (myid.ne.0) THEN
 
   CALL ZTIME(time0)
   CALL E013_Prolongation(myMG%A_u(mgLev)%x,myMG%dX_u(mgLev-1)%x,mg_E013Prol(mgLev-1)%a,&
-       mg_E013ProlM(mgLev-1)%LdA,mg_E013ProlM(mgLev-1)%ColA,myMG%KNPRU,myMG%KNPRV,myMG%KNPRW)
+       mg_E013ProlM(mgLev-1)%LdA,mg_E013ProlM(mgLev-1)%ColA,&
+       QuadSc%knprU(mgLev)%x,QuadSc%knprV(mgLev)%x,QuadSc%knprW(mgLev)%x)
   CALL ZTIME(time1)
   myStat%tProlUVW = myStat%tProlUVW + (time1-time0)
 END IF
@@ -600,9 +606,9 @@ END SUBROUTINE mgCoarseGridSolverShouldBe_cc
                myMG%dX_p(mgLev)%x,&
                myMG%D_u(mgLev)%x,&
                myMG%D_p(mgLev)%x,&
-               myMG%KNPRU,&
-               myMG%KNPRV,&
-               myMG%KNPRW)
+               QuadSc%knprU(mgLev)%x,&
+               QuadSc%knprV(mgLev)%x,&
+               QuadSc%knprW(mgLev)%x)
 
     END DO
  
@@ -647,9 +653,9 @@ REAL*8 daux
                   myMG%dX_p(mgLev)%x,&
                   myMG%D_u(mgLev)%x,&
                   myMG%D_p(mgLev)%x,&
-                  myMG%KNPRU,&
-                  myMG%KNPRV,&
-                  myMG%KNPRW)
+                  QuadSc%knprU(mgLev)%x,&
+                  QuadSc%knprV(mgLev)%x,&
+                  QuadSc%knprW(mgLev)%x)
 
    ELSE
    CALL VANKA(mg_mesh%level(ilev)%kvert,&
@@ -660,9 +666,9 @@ REAL*8 daux
               myMG%dX_p(mgLev)%x,&
               myMG%D_u(mgLev)%x,&
               myMG%D_p(mgLev)%x,&
-              myMG%KNPRU,&
-              myMG%KNPRV,&
-              myMG%KNPRW)
+              QuadSc%knprU(mgLev)%x,&
+              QuadSc%knprV(mgLev)%x,&
+              QuadSc%knprW(mgLev)%x)
    END IF
 
  ! ----------------------------------------------------------------------------------------------------- !
@@ -2099,9 +2105,9 @@ IF (myid.ne.0) THEN
    daux_u(3) = daux_u(3) - dt*MyMG%BZ(mgLev)%a(j)*dP
   END DO
 
-  IF (myMG%KNPRU(i).EQ.1) daux_u(1) = 0d0
-  IF (myMG%KNPRV(i).EQ.1) daux_u(2) = 0d0
-  IF (myMG%KNPRW(i).EQ.1) daux_u(3) = 0d0
+  IF (QuadSc%knprU(mgLev)%x(i).EQ.1) daux_u(1) = 0d0
+  IF (QuadSc%knprV(mgLev)%x(i).EQ.1) daux_u(2) = 0d0
+  IF (QuadSc%knprW(mgLev)%x(i).EQ.1) daux_u(3) = 0d0
   MyMG%A_u(mgLev)%x(         i) = daux_u(1)
   MyMG%A_u(mgLev)%x(  ndof_u+i) = daux_u(2)
   MyMG%A_u(mgLev)%x(2*ndof_u+i) = daux_u(3)
@@ -2423,9 +2429,9 @@ IF (myid.ne.0) THEN
    daux_u(3) = daux_u(3) + dt*MyMG%BZ(mgLev)%a(j)*dP
   END DO
 
-  IF (myMG%KNPRU(i).EQ.1) daux_u(1) = 0d0
-  IF (myMG%KNPRV(i).EQ.1) daux_u(2) = 0d0
-  IF (myMG%KNPRW(i).EQ.1) daux_u(3) = 0d0
+  IF (QuadSc%knprU(mgLev)%x(i).EQ.1) daux_u(1) = 0d0
+  IF (QuadSc%knprV(mgLev)%x(i).EQ.1) daux_u(2) = 0d0
+  IF (QuadSc%knprW(mgLev)%x(i).EQ.1) daux_u(3) = 0d0
   MyMG%D_u(mgLev)%x(         i) = daux_u(1)
   MyMG%D_u(mgLev)%x(  ndof_u+i) = daux_u(2)
   MyMG%D_u(mgLev)%x(2*ndof_u+i) = daux_u(3)
@@ -2479,7 +2485,11 @@ CALL COMM_cc_def(rhs_cc,neq)
  
  IF (myid.eq.0) myCrsMat%D = rhs_cc
 !  CALL MUMPS_solver_Central()
+#ifdef MUMPS_AVAIL
  CALL MUMPS_solver_Distributed(myCrsMat)
+#else
+ IF (myid.eq.0) CALL SolveCoarseWithUMFPACK(sol_cc,rhs_cc)
+#endif
  IF (myid.eq.0) sol_cc = myCrsMat%D
 !  IF (myid.eq.0) CALL myUmfPack_CCSolveMaster(sol_cc,rhs_cc,CC_crs_AMat,CC_crs_lMat%LdA,CC_crs_lMat%ColA,CC_H(1),CC_H(2),CC_crs_lMat%nu)
  
@@ -2527,6 +2537,136 @@ END SUBROUTINE MasterVanka
 !
 ! ----------------------------------------------
 !
+SUBROUTINE SolveCoarseWithUMFPACK(sol,rhs)
+REAL*8, INTENT(OUT) :: sol(:)
+REAL*8, INTENT(IN)  :: rhs(:)
+INTEGER :: i,j,k,n,nz,row,first_pressure,sym,num
+INTEGER, ALLOCATABLE :: row_count(:),next_entry(:),tmp_col(:),csr_row(:),csr_col(:)
+REAL*8, ALLOCATABLE :: tmp_val(:),csr_val(:),work_rhs(:),check_residual(:),row_amax(:)
+REAL*8 :: residual_norm,rhs_norm
+LOGICAL :: bPinPressure
+LOGICAL, SAVE :: bReported = .FALSE.
+
+n = myCrsMat%nu
+nz = myCrsMat%na
+ALLOCATE(row_count(n),next_entry(n),tmp_col(nz),tmp_val(nz),csr_row(n+1),&
+         csr_col(nz),csr_val(nz),work_rhs(n))
+
+row_count = 0
+DO k=1,nz
+  row = myCrsMat%Row(k)
+  IF (row.ge.1.and.row.le.n) row_count(row) = row_count(row) + 1
+END DO
+
+csr_row(1) = 1
+DO i=1,n
+  csr_row(i+1) = csr_row(i) + row_count(i)
+END DO
+next_entry = csr_row(1:n)
+
+DO k=1,nz
+  row = myCrsMat%Row(k)
+  IF (row.ge.1.and.row.le.n) THEN
+    j = next_entry(row)
+    tmp_col(j) = myCrsMat%Col(k)
+    tmp_val(j) = myCrsMat%A(k)
+    next_entry(row) = j + 1
+  END IF
+END DO
+
+! The CC coarse saddle-point system couples the pressure only through the
+! element-wise discontinuous-P1 gradient/divergence blocks, whose action on
+! a globally constant pressure vanishes element-wise, so a constant-pressure
+! nullspace is expected regardless of outflow boundaries. Direct proof on
+! the assembled matrix is still outstanding (see q2p1_cc_solver.md, "Coarse
+! pressure handling"); until then the unconditional pin is a pragmatic
+! regularization of the coarse direct solve. This deliberately differs from
+! Setup_UMFPACK_CoarseSolver's bNoOutflow-conditional handling, which
+! applies to the PP pressure-Poisson matrix where the outflow boundary
+! condition does enter the operator.
+bPinPressure = .TRUE.
+first_pressure = 3*mg_qMat(NLMIN)%nu + 1
+IF (first_pressure.lt.1.or.first_pressure.gt.n) bPinPressure = .FALSE.
+work_rhs = rhs
+IF (bPinPressure) work_rhs(first_pressure) = 0d0
+
+IF (.NOT.bReported) THEN
+  WRITE(*,'(A)') ' Coarse UMFPACK fallback: pinning one pressure DOF'// &
+    ' (constant-pressure nullspace of the coupled system)'
+  bReported = .TRUE.
+END IF
+
+! A structurally zero row means the assembled coarse operator itself is
+! defective (e.g. an operator block never assembled on the master); the
+! direct solver cannot recover from that, so report it loudly.
+ALLOCATE(row_amax(n))
+row_amax = 0d0
+DO k=1,nz
+  row = myCrsMat%Row(k)
+  IF (row.ge.1.and.row.le.n) row_amax(row) = MAX(row_amax(row),ABS(myCrsMat%A(k)))
+END DO
+i = COUNT(row_amax.LE.1d-300)
+IF (i.GT.0) THEN
+  WRITE(*,'(A,I0,A)') ' WARNING: coarse matrix has ',i, &
+    ' (near-)zero rows; the assembled coarse operator is singular'
+END IF
+
+k = 1
+csr_row(1) = 1
+DO i=1,n
+  IF (bPinPressure.AND.i.eq.first_pressure) THEN
+    csr_col(k) = i
+    csr_val(k) = 1d0
+    k = k + 1
+  ELSE
+    j = row_count(i)
+    IF (j.gt.0) THEN
+      CALL SortIt_CC(j,tmp_col(next_entry(i)-j),tmp_val(next_entry(i)-j))
+      csr_col(k:k+j-1) = tmp_col(next_entry(i)-j:next_entry(i)-1)
+      csr_val(k:k+j-1) = tmp_val(next_entry(i)-j:next_entry(i)-1)
+      k = k + j
+    END IF
+  END IF
+  csr_row(i+1) = k
+END DO
+
+! The row-wise CSR structure is handed to UMFPACK as CSC, i.e. as A^T;
+! the transposed solve (sys=2) in the wrapper therefore yields A*x=rhs.
+csr_row = csr_row - 1
+csr_col(1:k-1) = csr_col(1:k-1) - 1
+CALL myUmfPack_CCFactorize(csr_val,csr_row,csr_col,sym,num,n)
+CALL myUmfPack_CCSolveMaster(sol,work_rhs,csr_val,csr_row,csr_col,sym,num,n)
+CALL myUmfPack_CCFree(sym,num)
+
+! Verify the fallback against the original coordinate matrix. A pinned
+! pressure equation is excluded because it was deliberately replaced.
+ALLOCATE(check_residual(n))
+check_residual = -work_rhs
+DO k=1,nz
+  row = myCrsMat%Row(k)
+  IF (.NOT.(bPinPressure.AND.row.eq.first_pressure)) THEN
+    check_residual(row) = check_residual(row) + &
+      myCrsMat%A(k)*sol(myCrsMat%Col(k))
+  END IF
+END DO
+IF (bPinPressure) check_residual(first_pressure) = 0d0
+! Judge the solve relative to the right-hand side: the absolute defect
+! scales with the incoming rhs, which grows without bound if the outer
+! cycle diverges, and that is not the direct solver's fault.
+residual_norm = MAXVAL(ABS(check_residual))
+rhs_norm = MAX(MAXVAL(ABS(work_rhs)),1d-300)
+IF (residual_norm/rhs_norm.gt.1d-8) THEN
+  WRITE(*,'(A,ES12.4,A,ES12.4)') ' WARNING: coarse UMFPACK relative residual: ', &
+    residual_norm/rhs_norm,', rhs norm: ',rhs_norm
+END IF
+myCrsMat%D = sol
+
+DEALLOCATE(row_count,next_entry,tmp_col,tmp_val,csr_row,csr_col,csr_val,work_rhs,&
+           check_residual,row_amax)
+END SUBROUTINE SolveCoarseWithUMFPACK
+!
+! ----------------------------------------------
+!
 SUBROUTINE outputsol(u,x,dcoor,kvert,NoOfElem,NoOfVert,ndof_u,iInd)
 REAL*8 X(*),dcoor(3,*),u(*)
 INTEGER kvert(8,*),NoOfElem,NoOfVert
@@ -2537,7 +2677,7 @@ CHARACTER*12 cf
 iOutUnit = 442
 
 WRITE(cf,'(A,I1.1,A,I2.2,A)') "gmv_",iInd,'_',myid,".gmv"
-OPEN (UNIT=iOutUnit,FILE=cf,buffered="yes")
+OPEN (UNIT=iOutUnit,FILE=cf)
 
 WRITE(iOutUnit,'(A)')'gmvinput ascii'
 WRITE(iOutUnit,*)'nodes ',NoOfVert

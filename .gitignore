@@ -23,3 +23,7 @@ paraview/
 _dump/
 _gmv/
 _vtk/
+
+# vendored CI benchmark case (overrides _adc/*, *.tri, *.par above)
+!_adc/2D_FAC/
+!_adc/2D_FAC/*

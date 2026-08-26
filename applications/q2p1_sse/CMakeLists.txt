@@ -245,4 +245,23 @@ if(NOT WIN32)
         PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_WRITE GROUP_EXECUTE)
         
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES" DESTINATION bin/q2p1_gendie)
+
+#=========================================================================
+#                       INSTALL CONFIGURATION PREPROCESSING
+#=========================================================================
+
+    set(PREPROCESSING_FILES
+        "${CMAKE_BINARY_DIR}/applications/mesh_ref/meshref"
+        "${CMAKE_BINARY_DIR}/applications/mesh_ref/param_meshref.cfg"
+        "${CMAKE_SOURCE_DIR}/applications/mesh_ref/RunnerScript.sh"
+        "${CMAKE_BINARY_DIR}/applications/STLvsTRI/STLvsTRI")
+
+    install(FILES ${PREPROCESSING_FILES} DESTINATION bin/preprocessing
+        PERMISSIONS WORLD_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                    GROUP_READ GROUP_WRITE GROUP_EXECUTE)
+
+    install(DIRECTORY
+        "${CMAKE_CURRENT_BINARY_DIR}/start"
+        "${CMAKE_SOURCE_DIR}/applications/mesh_ref/PATCHES"
+        DESTINATION bin/preprocessing)
 endif(NOT WIN32)

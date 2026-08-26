@@ -5,6 +5,7 @@ USE Transport_Q2P1
 USE PP3D_MPI, ONLY:myid,master,E011Sum,COMM_Maximum,&
                    COMM_NLComplete,Comm_Summ,myMPI_Barrier,Barrier_myMPI
 USE Parametrization,ONLY : InitBoundaryStructure,myParBndr
+USE param_parser, ONLY : GetPhysiclaParameters,write_param_real,write_param_int
 ! USE PP3D_MPI, ONLY:E011Sum,E011True_False,Comm_NLComplete,&
 !               Comm_Maximum,Comm_Summ,knprmpi,myid,master
 ! USE LinScalar, ONLY: AddSurfaceTension
@@ -13,6 +14,16 @@ use def_QuadScalar
 use var_QuadScalar_newton, ONLY:zeitstep
 IMPLICIT NONE
 
+! Nonlinear-loop outcome tracking: how many loops ran, how many hit
+! NLmax without meeting the stopping criterion, and the worst achieved
+! criterion. Reported per step and summarized in sim_finalize.
+INTEGER :: nNLLoopTotal = 0
+INTEGER :: nNLLoopExhausted = 0
+REAL*8  :: worstNLCriterion = 0d0
+! Hard-failure state: a NaN/Inf was detected in defect norms or forces.
+! Distinct from tolerance exhaustion; it forces a nonzero exit status
+! regardless of CCuvwp@StrictConvergence.
+LOGICAL :: bInvalidNumerics = .FALSE.
 
 CONTAINS
 !
@@ -256,20 +267,30 @@ END SUBROUTINE Init_Q2P1_Structures_cc
 ! ----------------------------------------------
 !
 SUBROUTINE Transport_q2p1_UxyzP_cc(mfile,inl_u)
+USE, INTRINSIC :: ieee_arithmetic, ONLY : ieee_is_finite
 implicit none
 
 INTEGER mfile,INL,inl_u
 REAL*8  ResU,ResV,ResW,DefUVW,RhsUVW,DefUVWCrit
 REAL*8  ResP,DefP,RhsPG,defPG,defDivU,DefPCrit,iIter,iIterges
-INTEGER INLComplete,I,J,IERR,iOuter
+INTEGER INLComplete,I,J,IERR,iOuter,meshMaxLevel
 REAL*8  DefNormUVWP0(4),DefNormUVWP(4),DefNorm0,DefNorm,ni
 REAL*8 :: FORCES_NEW(7),FORCES_OLD(7),MGnonLin,digitcriterion
 REAL*8 stopOne,diffOne,diffTwo,myTolerance,alpha,DefNormOld
 REAL*8 B,a,h1,h2,h3
+LOGICAL bNLConverged
+REAL*8 achievedCriterion,dInvalidFlag
+INTEGER iCmp
+
+! A previous time step already hit invalid numerics; do not compute
+! further garbage steps, let sim_finalize fail the run.
+IF (bInvalidNumerics) RETURN
 
 thstep = 0d0
 FORCES_OLD = 0d0
 iIterges = 0d0
+bNLConverged = .FALSE.
+achievedCriterion = 1d30
 myTolerance = ccParams%StoppingCriterion
 ni = 0d0
 tsm = ccParams%BDF
@@ -437,6 +458,16 @@ END IF
  CALL GetDefNorms(QuadSc,LinSc,DefNormUVWP0)
 IF (i.eq.1) DefNorm0 = MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4))
 
+! GetDefNorms maps NaN/Inf to the 1d99 sentinel on all ranks.
+IF (MAX(DefNormUVWP0(1),DefNormUVWP0(2),DefNormUVWP0(3),DefNormUVWP0(4)).GE.1d98) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
+
 IF (myid.ne.master) THEN
  QuadSc%valU          = 0d0 
  QuadSc%valV          = 0d0 
@@ -503,6 +534,17 @@ END IF
  DefNorm = MAX(DefNormUVWP(1),DefNormUVWP(2),DefNormUVWP(3),DefNormUVWP(4))
 ! PLEASE DO NOT COMMENT THESE TWO LINES
 
+! Abort on invalid numerics BEFORE the ratio DefNorm/DefNormOld feeds
+! the alpha controller and digitcriterion below.
+IF (DefNorm.GE.1d98) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite nonlinear defect detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
+
 !---------------------------
 ! Fixpoint-Newton-adaptivity
 !---------------------------
@@ -541,6 +583,22 @@ END IF
  CALL FAC_GetForces_CC(mfile,FORCES_NEW)
  CALL OperatorDeallocation()
 
+! Validate the force components collectively (COMM_Maximum keeps the
+! decision identical on every rank, so all ranks leave the loop together).
+dInvalidFlag = 0d0
+DO iCmp=1,7
+ IF (.NOT.ieee_is_finite(FORCES_NEW(iCmp))) dInvalidFlag = 1d0
+END DO
+CALL COMM_Maximum(dInvalidFlag)
+IF (dInvalidFlag.GT.0.5d0) THEN
+ bInvalidNumerics = .TRUE.
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A)') " ERROR: non-finite force values detected - aborting the nonlinear loop"
+  write(mfile,'(A)') " ERROR: non-finite force values detected - aborting the nonlinear loop"
+ END IF
+ EXIT
+END IF
+
 diffOne = ABS(FORCES_NEW(1)-FORCES_OLD(1))
 diffTwo = ABS(FORCES_NEW(2)-FORCES_OLD(2))
 
@@ -564,12 +622,12 @@ FORCES_OLD = FORCES_NEW
 !!!!!!!!!!!!!!! STOPPING CRITERION !!!!!!!!!!!!!!!!!!!!
 
 IF (bSteadyState) THEN
-	IF(DefNorm.LT.myTolerance) exit
-ELSE 
-	IF (DefNorm/DefNorm0.LT.myTolerance) exit
+	achievedCriterion = DefNorm
+ELSE
+	achievedCriterion = DefNorm/DefNorm0
 END IF
-
-IF (DefNorm.EQ.0d0) exit
+bNLConverged = (achievedCriterion.LT.myTolerance).OR.(DefNorm.EQ.0d0)
+IF (bNLConverged) exit
 
 !IF (stopOne.LT.1d-4) THEN
 !	IF (myid.eq.showid) THEN
@@ -581,6 +639,18 @@ IF (DefNorm.EQ.0d0) exit
 !        exit
 !END IF
 END DO
+
+nNLLoopTotal = nNLLoopTotal + 1
+IF (.NOT.bNLConverged .AND. .NOT.bInvalidNumerics) THEN
+ nNLLoopExhausted = nNLLoopExhausted + 1
+ IF (achievedCriterion.GT.worstNLCriterion) worstNLCriterion = achievedCriterion
+ IF (myid.eq.showid) THEN
+  write(mterm,'(A,I0,A,ES10.3,A,ES10.3)') " WARNING: nonlinear loop exhausted NLmax=", &
+    ccParams%NLmax,", achieved criterion ",achievedCriterion," > required ",myTolerance
+  write(mfile,'(A,I0,A,ES10.3,A,ES10.3)') " WARNING: nonlinear loop exhausted NLmax=", &
+    ccParams%NLmax,", achieved criterion ",achievedCriterion," > required ",myTolerance
+ END IF
+END IF
 
 IF (ccParams%BDF.ne.0) THEN
 !#########################################
@@ -615,12 +685,20 @@ IF (myid.eq.showid) THEN
   MGnonLin = iIterges/ni
   write(mfile,55) 
   write(mterm,55)
-  write(mfile,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
-  write(mterm,'(A,F6.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+  write(mfile,'(A,F8.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
+  write(mterm,'(A,F8.3)')"     AVERAGE MG ITERATIONS:", MGnonLin
 END IF
 
 
- CALL GetNonNewtViscosity()
+! The shared projection routine addresses mg_mesh%nlmax, which is the
+! auxiliary output level on worker ranks rather than the CC NLMAX value.
+! Newtonian runs carry the constant viscosity initialized above.
+ IF (bNonNewtonian) THEN
+  meshMaxLevel = mg_mesh%nlmax
+  mg_mesh%nlmax = NLMAX
+  CALL GetNonNewtViscosity()
+  mg_mesh%nlmax = meshMaxLevel
+ END IF
 
 CALL QuadScP1toQ2_cc(LinSc,QuadSc)
 
@@ -750,15 +828,17 @@ DO ILEV=NLMIN,NLMAX
   CALL SETLEV(2)
   qMat => mg_qMat(ILEV)
   
-  IF (ALLOCATED(mg_S11mat(ILEV)%a)) DEALLOCATE(mg_S11mat(ILEV)%a)
-  IF (ALLOCATED(mg_S22mat(ILEV)%a)) DEALLOCATE(mg_S22mat(ILEV)%a)
-  IF (ALLOCATED(mg_S33mat(ILEV)%a)) DEALLOCATE(mg_S33mat(ILEV)%a)
-  IF (ALLOCATED(mg_S12mat(ILEV)%a)) DEALLOCATE(mg_S12mat(ILEV)%a)
-  IF (ALLOCATED(mg_S13mat(ILEV)%a)) DEALLOCATE(mg_S13mat(ILEV)%a)
-  IF (ALLOCATED(mg_S23mat(ILEV)%a)) DEALLOCATE(mg_S23mat(ILEV)%a)
-  IF (ALLOCATED(mg_S21mat(ILEV)%a)) DEALLOCATE(mg_S21mat(ILEV)%a)
-  IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
-  IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
+  IF (ALLOCATED(mg_S11mat)) THEN
+    IF (ALLOCATED(mg_S11mat(ILEV)%a)) DEALLOCATE(mg_S11mat(ILEV)%a)
+    IF (ALLOCATED(mg_S22mat(ILEV)%a)) DEALLOCATE(mg_S22mat(ILEV)%a)
+    IF (ALLOCATED(mg_S33mat(ILEV)%a)) DEALLOCATE(mg_S33mat(ILEV)%a)
+    IF (ALLOCATED(mg_S12mat(ILEV)%a)) DEALLOCATE(mg_S12mat(ILEV)%a)
+    IF (ALLOCATED(mg_S13mat(ILEV)%a)) DEALLOCATE(mg_S13mat(ILEV)%a)
+    IF (ALLOCATED(mg_S23mat(ILEV)%a)) DEALLOCATE(mg_S23mat(ILEV)%a)
+    IF (ALLOCATED(mg_S21mat(ILEV)%a)) DEALLOCATE(mg_S21mat(ILEV)%a)
+    IF (ALLOCATED(mg_S31mat(ILEV)%a)) DEALLOCATE(mg_S31mat(ILEV)%a)
+    IF (ALLOCATED(mg_S32mat(ILEV)%a)) DEALLOCATE(mg_S32mat(ILEV)%a)
+  END IF
 
   IF (myMatrixRenewal%K.ne.0) THEN  
     IF (ALLOCATED(mg_Kmat(ILEV)%a)) DEALLOCATE(mg_KMat(ILEV)%a)
@@ -792,8 +872,6 @@ EXTERNAL E013
 
  ILEV=NLMAX
  CALL SETLEV(2)
- IF (bNonNewtonian) THEN
-
 ! CALL GetForceCyl_cc(QuadSc%valU,QuadSc%valV,&
 !                     QuadSc%valW,LinSc%valP(NLMAX)%x,&
 !                     BndrForce,&
@@ -811,8 +889,6 @@ EXTERNAL E013
                      mg_mesh%level(ILEV)%kedge,&
                      mg_mesh%level(ILEV)%dcorvg,&
                      Force, E013,bNonNewtonian)
-
- END IF
 
  if (postParams%D.eq.0d0) then
    Factor = 2d0/(dens_const*postParams%U_mean*postParams%U_mean*PI*postParams%H*postParams%H)
@@ -1073,6 +1149,52 @@ DO
     CASE ("BDF")
     READ(string(iEq+1:),*) ccParams%BDF
     call write_param_int(mfile,cVar,cPar,out_string,ccParams%BDF)
+    CASE ("NewtonTreatment")
+    READ(string(iEq+1:),*) param
+    SELECT CASE (TRIM(ADJUSTL(param)))
+     CASE ("Off","off","OFF","Oseen","oseen")
+     ccParams%NewtonType = 0
+     CASE ("Diagonal","diagonal","DIAGONAL")
+     ccParams%NewtonType = 1
+     CASE ("Full","full","FULL","Newton","newton")
+     ccParams%NewtonType = 2
+     CASE DEFAULT
+     IF (myid.eq.showid) THEN
+      write(mterm,'(A)') "Invalid CCuvwp@NewtonTreatment = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Off, Diagonal or Full."
+      write(mfile,'(A)') "Invalid CCuvwp@NewtonTreatment = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Off, Diagonal or Full."
+     END IF
+     STOP 1
+    END SELECT
+    IF (myid.eq.showid) THEN
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+    END IF
+    CASE ("StrictConvergence")
+    READ(string(iEq+1:),*) param
+    SELECT CASE (TRIM(ADJUSTL(param)))
+     CASE ("Yes","yes","YES","On","on","ON")
+     ccParams%StrictConvergence = .TRUE.
+     CASE ("No","no","NO","Off","off","OFF")
+     ccParams%StrictConvergence = .FALSE.
+     CASE DEFAULT
+     IF (myid.eq.showid) THEN
+      write(mterm,'(A)') "Invalid CCuvwp@StrictConvergence = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Yes or No."
+      write(mfile,'(A)') "Invalid CCuvwp@StrictConvergence = '"//&
+        TRIM(ADJUSTL(param))//"'. Use Yes or No."
+     END IF
+     STOP 1
+    END SELECT
+    IF (myid.eq.showid) THEN
+     write(mterm,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+     write(mfile,'(A,A)') TRIM(ADJUSTL(cVar))//" - "//&
+       TRIM(ADJUSTL(cPar))//" = ",TRIM(ADJUSTL(param))
+    END IF
 
 
   END SELECT
@@ -1108,5 +1230,3 @@ END SUBROUTINE StrStuct
 END SUBROUTINE Init_CCParam
 
 END MODULE Transport_CC
-
-
