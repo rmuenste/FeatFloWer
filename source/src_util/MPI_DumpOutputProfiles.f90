@@ -1969,6 +1969,7 @@ LOGICAL :: mergeFields, commitMetadata, transactionalWrite
 INTEGER :: metadataStatus, metadataError, globalMetadataError
 CHARACTER(len=256) :: metadataMessage
 REAL*8 :: checkpointStart,checkpointEnd
+REAL*8 :: MPI_WTIME
 INTEGER(int64) :: checkpointBytes
 
 IF (myid.ne.0) CALL CreateDumpStructures(1)
@@ -2015,7 +2016,7 @@ if (myid.eq.0) then
 END IF
 
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-CALL ZTIME(checkpointStart)
+checkpointStart = MPI_WTIME()
 
 mergeFields = .false.
 mergeFields = bMergeFields
@@ -2146,7 +2147,7 @@ if (globalMetadataError.ne.0) then
   call ProcessError('W','checkpoint metadata')
 end if
 CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-CALL ZTIME(checkpointEnd)
+checkpointEnd = MPI_WTIME()
 if (myid.eq.showid) then
   checkpointBytes = 0_int64
   do i=1,size(checkpointMetadata%field)
