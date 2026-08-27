@@ -1812,6 +1812,8 @@ IF (myid.NE.0) THEN
  nLengthV = (2**(NLMAX-1)+1)**3
 
  iGlobalError = 0
+ ! All worker ranks must execute this field list in the same order and with
+ ! the same allocation predicates because the writer calls are collective.
  DO jFld = 1,nFLD
   if (cFLD(jFld).eq.'p'.or.cFLD(jFld).eq.'P') CALL ReleaseMPIFieldP1('pressure',LinSc%valP(NLMAX-1)%x)
   CALL MPI_ALLREDUCE(iGlobalError,jGlobalError,1,MPI_INTEGER,MPI_MAX,MPI_COMM_SUBS,IERR)
@@ -1906,13 +1908,17 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_write_at_all(mpiFile,myFieldOffset,coarse%myELEMLINK, &
     knel(nlmin),MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
   IF (IERR.ne.0) iGlobalError = 1
   call MPI_Barrier(MPI_COMM_subs,ierr)
   call MPI_File_sync(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   IF (myid.eq.1) then
    WRITE(*,'(A)') ' ==> Done!'
   end if
@@ -1947,13 +1953,17 @@ deallocate(ElementOffsets)
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
    CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
    IF (IERR.ne.0) iGlobalError = 1
+   call MPI_Barrier(MPI_COMM_subs,ierr)
+   IF (IERR.ne.0) iGlobalError = 1
    myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)*nF
    call MPI_File_write_at_all(mpiFile,myFieldOffset,daux,ndof, &
      MPI_DOUBLE_PRECISION,MPI_STATUS_IGNORE,ierr)
    IF (IERR.ne.0) iGlobalError = 1
    call MPI_Barrier(MPI_COMM_subs,ierr)
    call MPI_File_sync(mpiFile,ierr)
+   IF (IERR.ne.0) iGlobalError = 1
    CALL mpi_file_close(mpiFile,ierr)
+   IF (IERR.ne.0) iGlobalError = 1
    IF (myid.eq.1) then
     WRITE(*,'(A)') ' ==> Done!'
    end if
@@ -1996,6 +2006,8 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_write_at_all(mpiFile,myFieldOffset,coarse%myELEMLINK, &
@@ -2003,7 +2015,9 @@ deallocate(ElementOffsets)
   IF (IERR.ne.0) iGlobalError = 1
   call MPI_Barrier(MPI_COMM_subs,ierr)
   call MPI_File_sync(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
    IF (myid.eq.1) then
     WRITE(*,'(A,I0)') ' ==> Done!',IERR
    end if
@@ -2039,6 +2053,8 @@ deallocate(ElementOffsets)
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
     CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
     IF (IERR.ne.0) iGlobalError = 1
+    call MPI_Barrier(MPI_COMM_subs, ierr)
+    IF (IERR.ne.0) iGlobalError = 1
 
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
     call MPI_File_write_at_all(mpiFile,myFieldOffset,daux,ndof, &
@@ -2046,7 +2062,9 @@ deallocate(ElementOffsets)
     IF (IERR.ne.0) iGlobalError = 1
     call MPI_Barrier(MPI_COMM_subs,ierr)
     call MPI_File_sync(mpiFile,ierr)
+    IF (IERR.ne.0) iGlobalError = 1
     CALL mpi_file_close(mpiFile,ierr)
+    IF (IERR.ne.0) iGlobalError = 1
     IF (myid.eq.1) then
      WRITE(*,'(A,I0)') ' ==> Done!',IERR
     end if
@@ -2103,6 +2121,8 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs, ierr)
+  IF (IERR.ne.0) iGlobalError = 1
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
   call MPI_File_write_at_all(mpiFile, myFieldOffset, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE, ierr)
@@ -2113,7 +2133,9 @@ deallocate(ElementOffsets)
 
     call MPI_Barrier(MPI_COMM_subs, ierr)
     call MPI_File_sync(mpiFile, ierr)
+    IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   CALL WriteMPIFieldKeyIndex(cF)
 
@@ -2198,13 +2220,17 @@ deallocate(ElementOffsets)
     CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
     CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
     IF (IERR.ne.0) iGlobalError = 1
+    call MPI_Barrier(MPI_COMM_subs, ierr)
+    IF (IERR.ne.0) iGlobalError = 1
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
     call MPI_File_write_at_all(mpiFile, myFieldOffset, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE, ierr)
     IF (IERR.ne.0) iGlobalError = 1
 
     call MPI_Barrier(MPI_COMM_subs, ierr)
     call MPI_File_sync(mpiFile, ierr)
+    IF (IERR.ne.0) iGlobalError = 1
     CALL mpi_file_close(mpiFile,ierr)
+    IF (IERR.ne.0) iGlobalError = 1
 
     IF (myid.eq.1) then
      WRITE(*,'(A)') ' ==> Done!'
@@ -2239,6 +2265,8 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs, ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   call MPI_Type_create_indexed_block(knel(nlmin),1,iDisp,MPI_INTEGER,keyFileType,ierr)
   IF (IERR.ne.0) iGlobalError = 1
   call MPI_Type_commit(keyFileType,ierr)
@@ -2252,7 +2280,9 @@ deallocate(ElementOffsets)
   IF (IERR.ne.0) iGlobalError = 1
   call MPI_Barrier(MPI_COMM_subs, ierr)
   call MPI_File_sync(mpiFile, ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   CALL mpi_file_close(mpiFile,ierr)
+  IF (IERR.ne.0) iGlobalError = 1
   deallocate(iPos,iDisp)
 
   IF (myid.eq.1) then

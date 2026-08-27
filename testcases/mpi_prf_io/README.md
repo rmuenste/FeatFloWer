@@ -14,8 +14,17 @@ The default matrix contains:
 
 - untouched OpenMPI defaults;
 - the detected ROMIO component with its built-in defaults;
-- 4, 16, and 64 MiB collective buffers with data sieving enabled;
-- a 16 MiB collective buffer with data sieving disabled.
+- 4, 16, and 64 MiB `cb_buffer_size` hints with `romio_ds_write` enabled;
+- a 16 MiB `cb_buffer_size` hint with `romio_ds_write` disabled.
+
+The tuned ROMIO profiles generate one profile-specific hints file under
+`romio_hints/` and pass it through the real `ROMIO_HINTS` mechanism. The two
+default profiles explicitly unset `ROMIO_HINTS`; their `cb_buffer_size` and
+`romio_ds_write` columns mean “no requested hint”, not a claimed ROMIO
+default. `OMPI_MCA_io` remains the component selector for the detected ROMIO
+component. `profile_settings.tsv` records each profile's component, hints
+path, source, and requested keys; these same provenance fields are copied to
+each row in `summary.tsv`.
 
 The harness records the selected environment, full solver logs, raw samples in
 `summary.tsv`, aggregates in `profile_summary.tsv`, and a review-ready table in
@@ -26,6 +35,14 @@ files, so throughput excludes visualization and solver work.
 The active MPI module normally puts `ompi_info` on `PATH`. If it does not, set
 `PRF_BENCH_OMPI_INFO=/path/to/openmpi/bin/ompi_info`; this ensures component
 detection matches the OpenMPI installation used by the solver.
+
+To inspect effective ROMIO settings, run a focused, untimed verification with
+`PRF_BENCH_PRINT_HINTS=1`. It uses the profile named by
+`PRF_BENCH_PRINT_HINTS_PROFILE` (default `romio_4m_enable`) and writes
+`<profile>.romio_print_hints.log`. The probe runs immediately before that
+profile's timed samples and checks that ROMIO printed the requested values.
+The selected profile must be present in `PRF_BENCH_PROFILES`. Leave the option
+unset for normal measurements.
 
 ## Reload and bitwise validation
 
@@ -42,6 +59,11 @@ The write deck must produce at least one MPI-PRF checkpoint. The restart deck
 must use `StartingProc = 1`, select MPI-PRF (`DumpFormat = 3` in the current
 SSE input), and address the checkpoint slot selected by the SSE angle. A
 successful restart is recorded as `reload_ok`.
+
+If `PRF_BENCH_RESTART_COMPONENT` selects a different ROMIO component, it uses
+that component's built-in defaults. Set `PRF_BENCH_RESTART_CB_BUFFER` and/or
+`PRF_BENCH_RESTART_DS_WRITE` to generate a separate restart hints file with
+those real ROMIO keys.
 
 For a true bitwise write→read→write comparison, configure the restart run to
 read a different staged slot and regenerate the writer slot, then set:
@@ -68,6 +90,12 @@ PRF_BENCH_RANKS=16 \
 PRF_BENCH_PROFILES='openmpi_default romio_4m_enable' \
   ./benchmark_romio_matrix.sh /path/to/run ./q2p1_sse -a 0
 ```
+
+`summary.tsv` keeps a row for a failed write, including its solver exit code.
+Solver failures use `write_status=failed`; successful solver exits without a
+valid timed checkpoint use `write_status=checkpoint_failed`. Missing timing or
+payload fields are recorded as `not_available`; the summarizer excludes those
+values from timing statistics and reports `timed_samples`.
 
 Keep the screening runs small (4 or 8 ranks for correctness, 8 ranks for the
 full performance matrix). Large 72-to-288-rank experiments are deliberately

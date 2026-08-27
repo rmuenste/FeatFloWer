@@ -1,7 +1,7 @@
-ranks	profile	repetition	component	cb_buffer	ds_write	checkpoint_s	payload_bytes	throughput_mib_s	run_elapsed_s	write_exit_code	write_status	reload_elapsed_s	reload_exit_code	roundtrip_status
-8	openmpi_default	1	unset	unset	unset	1.000000	10485760	10.000000	5.0	0	ok	1.0	0	bitwise_equal
-8	openmpi_default	2	unset	unset	unset	2.000000	10485760	5.000000	6.0	0	ok	1.0	0	bitwise_equal
-8	openmpi_default	3	unset	unset	unset	3.000000	10485760	3.333333	7.0	0	ok	1.0	0	bitwise_equal
-8	romio_4m_enable	1	romio321	4194304	enable	2.000000	10485760	5.000000	5.0	0	ok	1.0	0	reload_ok
-8	romio_4m_enable	2	romio321	4194304	enable	2.000000	10485760	5.000000	5.0	0	ok	1.0	0	reload_ok
-8	romio_4m_enable	3	romio321	4194304	enable	2.000000	10485760	5.000000	5.0	0	ok	1.0	0	reload_ok
+ranks	profile	repetition	component	romio_hints	hints_source	cb_buffer_size	romio_ds_write	checkpoint_s	payload_bytes	throughput_mib_s	run_elapsed_s	write_exit_code	write_status	reload_elapsed_s	reload_exit_code	roundtrip_status
+8	openmpi_default	1	unset	unset	openmpi_default	unset	unset	1.000000	10485760	10.000000	5.0	0	ok	1.0	0	bitwise_equal
+8	openmpi_default	2	unset	unset	openmpi_default	unset	unset	2.000000	10485760	5.000000	6.0	0	ok	1.0	0	bitwise_equal
+8	openmpi_default	3	unset	unset	openmpi_default	unset	unset	3.000000	10485760	3.333333	7.0	0	ok	1.0	0	bitwise_equal
+8	romio_4m_enable	1	romio321	romio_hints/romio_4m_enable.conf	ROMIO_HINTS	4194304	enable	2.000000	10485760	5.000000	5.0	0	ok	1.0	0	reload_ok
+8	romio_4m_enable	2	romio321	romio_hints/romio_4m_enable.conf	ROMIO_HINTS	4194304	enable	2.000000	10485760	5.000000	5.0	0	ok	1.0	0	reload_ok
+8	romio_4m_enable	3	romio321	romio_hints/romio_4m_enable.conf	ROMIO_HINTS	4194304	enable	2.000000	10485760	5.0	5.0	0	ok	1.0	0	reload_ok
