@@ -425,7 +425,7 @@ if (hasCheckpointMetadata) then
 else if (metadataStatus.eq.PRF_STATUS_LEGACY) then
   if (myid.eq.showid) write(*,'(A)') 'WARNING: '//trim(metadataMessage)
 else
-  if (myid.eq.showid) write(*,'(A)') trim(metadataMessage)
+  if (myid.eq.0) write(*,'(A)') trim(metadataMessage)
   call ProcessError('R','checkpoint metadata')
 end if
 
@@ -459,16 +459,19 @@ do i=2,subnodes+1
  ElementOffsets(i) = ElementOffsets(i) + ElementOffsets(i-1)
 end do
 
-if (hasCheckpointMetadata) then
+if (hasCheckpointMetadata .and. myid.ne.0) then
   if (checkpointMetadata%coarse_elements.ne. &
       int(ElementOffsets(subnodes+1),int64)) then
-    if (myid.eq.showid) write(*,'(A)') &
-      'Checkpoint coarse-element count does not match the current mesh.'
+    if (myid.eq.showid) write(*,'(A,I0,A,I0,A)') &
+      'Checkpoint coarse-element count (', &
+      checkpointMetadata%coarse_elements,') does not match current mesh (', &
+      int(ElementOffsets(subnodes+1),int64),').'
     call ProcessError('R','checkpoint mesh metadata')
   end if
   if (checkpointMetadata%source_level.ne.mg_mesh%maxlevel) then
-    if (myid.eq.showid) write(*,'(A)') &
-      'Checkpoint source level does not match a same-level restart.'
+    if (myid.eq.showid) write(*,'(A,I0,A,I0,A)') 'Checkpoint source level (', &
+      checkpointMetadata%source_level,') does not match restart level (', &
+      mg_mesh%maxlevel,').'
     call ProcessError('R','checkpoint level metadata')
   end if
 end if
@@ -2209,9 +2212,11 @@ deallocate(ElementOffsets)
   CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+  call MPI_File_write_at_all(mpiFile,myFieldOffset,coarse%myELEMLINK, &
+    knel(nlmin),MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs,ierr)
+  call MPI_File_sync(mpiFile,ierr)
   CALL mpi_file_close(mpiFile,ierr)
   IF (myid.eq.1) then
    WRITE(*,'(A)') ' ==> Done!'
@@ -2247,9 +2252,11 @@ deallocate(ElementOffsets)
    CALL MPI_File_open(MPI_COMM_subs, Adjustl(trim(cPOutFile)), MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, mpiFile,ierr)
    CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
    myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)*nF
-   call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-   CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+   call MPI_File_write_at_all(mpiFile,myFieldOffset,daux,ndof, &
+     MPI_DOUBLE_PRECISION,MPI_STATUS_IGNORE,ierr)
    IF (IERR.ne.0) iGlobalError = 1
+   call MPI_Barrier(MPI_COMM_subs,ierr)
+   call MPI_File_sync(mpiFile,ierr)
    CALL mpi_file_close(mpiFile,ierr)
    IF (myid.eq.1) then
     WRITE(*,'(A)') ' ==> Done!'
@@ -2300,9 +2307,11 @@ deallocate(ElementOffsets)
   CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
 
   myFieldOffset = offset + intsize*INT(ElementOffsets(myid))
-  call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-  CALL MPI_File_write(mpiFile, coarse%myELEMLINK, knel(nlmin), MPI_INTEGER, MPI_STATUS_IGNORE,ierr)
+  call MPI_File_write_at_all(mpiFile,myFieldOffset,coarse%myELEMLINK, &
+    knel(nlmin),MPI_INTEGER,MPI_STATUS_IGNORE,ierr)
   IF (IERR.ne.0) iGlobalError = 1
+  call MPI_Barrier(MPI_COMM_subs,ierr)
+  call MPI_File_sync(mpiFile,ierr)
   CALL mpi_file_close(mpiFile,ierr)
    IF (myid.eq.1) then
     WRITE(*,'(A,I0)') ' ==> Done!',IERR
@@ -2340,9 +2349,11 @@ deallocate(ElementOffsets)
     CALL MPI_File_set_size(mpiFile,0_MPI_OFFSET_KIND,ierr)
 
     myFieldOffset = offset + dblesize*INT(ElementOffsets(myid))*(ivt_max-ivt_min+1)
-    call MPI_File_seek(mpiFile, myFieldOffset, MPI_SEEK_SET, ierr)
-    CALL MPI_File_write(mpiFile, daux, ndof, MPI_DOUBLE_PRECISION, MPI_STATUS_IGNORE,ierr)
+    call MPI_File_write_at_all(mpiFile,myFieldOffset,daux,ndof, &
+      MPI_DOUBLE_PRECISION,MPI_STATUS_IGNORE,ierr)
     IF (IERR.ne.0) iGlobalError = 1
+    call MPI_Barrier(MPI_COMM_subs,ierr)
+    call MPI_File_sync(mpiFile,ierr)
     CALL mpi_file_close(mpiFile,ierr)
     IF (myid.eq.1) then
      WRITE(*,'(A,I0)') ' ==> Done!',IERR
