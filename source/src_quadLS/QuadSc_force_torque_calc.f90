@@ -443,12 +443,26 @@ end subroutine Calculate_Torque
 !=========================================================================
 !
 !=========================================================================
-! DNA_GetTorques - SECONDARY (cross-check) boundary-torque estimator.
+! VISC_GetTorqueVolume - SECONDARY (cross-check) boundary-torque estimator.
 !
 ! Volume-form torque integral over the grad(alpha) band around the
-! BndrForce-masked ('WallF') surface.  Used by the D5.1 numerical
-! viscometer (q2p1_viscometer) as an independent cross-check of the
-! residual-based primary estimator (VISC_GetTorqueResidual below).
+! BndrForce-masked ('WallF') surface: the full physical stress
+! (pressure + DEFORMATION-form viscous stress) weighted by grad(alpha),
+! so it carries the rotational transpose term naturally - unlike the
+! residual estimator, which inherits the gradient-form operator and
+! needs the analytic 2*mu*Omega*V_enclosed correction (D5.1 metrology).
+! Used by the D5.1 numerical viscometer (q2p1_viscometer) as an
+! independent cross-check of the residual-based primary estimator
+! (VISC_GetTorqueResidual below).
+!
+! NAMING (2026-08-27): this routine family was historically prefixed
+! 'DNA' after a planned "discrete network approximation" for effective
+! viscosity that was never implemented - the name described an idea,
+! not this code.  Renamed to the volume-form terminology; the printed
+! log tags VISC_TORQUE_DNA / VISC_TORQUE_DNA_VEC are DELIBERATELY kept
+! for log-grammar continuity within the running D5.1 campaign (frozen
+! binaries and analysis tooling grep them); retag to VISC_TORQUE_VOL
+! only when the D5.1 arc closes.
 !
 ! The former hard-coded normalisation 1/(mu*rho*Omega*R_i^2*H) with
 ! literal 0.2/0.8/1-RPM values has been replaced by 1d0: the RAW torque
@@ -456,7 +470,7 @@ end subroutine Calculate_Torque
 ! no active call site in the tree when the change was made (the two
 ! calls in QuadSc_main.f90:822-823 are commented out), so the change is
 ! a no-op for every existing application.
-subroutine DNA_GetTorques(mfile)
+subroutine VISC_GetTorqueVolume(mfile)
   integer mfile
   real * 8 Torque1(3), daux
 
@@ -465,7 +479,7 @@ subroutine DNA_GetTorques(mfile)
   ilev = nlmax
   call setlev(2)
 
-  call GetDNATorque(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
+  call GetVolumeFormTorque(QuadSc%valU, QuadSc%valV, QuadSc%valW, &
                     LinSc%ValP(NLMAX)%x, BndrForce, & !How separate????
                     mg_mesh%level(ilev)%kvert, &
                     mg_mesh%level(ilev)%karea, &
@@ -484,7 +498,7 @@ subroutine DNA_GetTorques(mfile)
     write (mfile, '(A,3ES16.8E2)') "VISC_TORQUE_DNA_VEC ", daux * Torque1(1:3)
   end if
 
-end subroutine DNA_GetTorques
+end subroutine VISC_GetTorqueVolume
 !=========================================================================
 !
 !=========================================================================
@@ -546,7 +560,7 @@ end subroutine Get_DissipationIntegral
 !=========================================================================
 !
 !=========================================================================
-subroutine DNA_GetSoosForce(mfile)
+subroutine Get_SoosWallShear(mfile)
   integer mfile
   real * 8 Torque1(3), daux
   real*8 :: area, G, L, U
@@ -583,4 +597,4 @@ subroutine DNA_GetSoosForce(mfile)
     write (mterm, '(A,4ES14.4)') "Shear Stress acting on top wall: ", timens, daux * Torque1(1:3)
   end if
 
-end subroutine DNA_GetSoosForce
+end subroutine Get_SoosWallShear

@@ -822,8 +822,8 @@ CALL QuadScP1toQ2(LinSc,QuadSc)
 CALL FAC_GetForces(mfile)
 CALL FAC_GetSurfForces(mfile)
 
-!CALL DNA_GetTorques(mfile)
-!CALL DNA_GetTorques(mfile)
+!CALL VISC_GetTorqueVolume(mfile)
+!CALL VISC_GetTorqueVolume(mfile)
 
 CALL GetNonNewtViscosity()
 
@@ -860,7 +860,7 @@ if (enable_fbm .and. bPrintParticleReynolds) then
 end if
 
 !call Sum_myMPI(total_lubrication, global_lubrication)
-!call DNA_GetSoosForce(mfile)
+!call Get_SoosWallShear(mfile)
 !call Get_DissipationIntegral(mfile)
 
 

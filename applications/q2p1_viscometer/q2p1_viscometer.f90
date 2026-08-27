@@ -18,7 +18,7 @@
 !                                           (EvaluateTorque_residual,
 !                                            BenchForce-style reaction)
 !   VISC_TORQUE_DNA time= <t> Tz= <value>   secondary, grad(alpha)-band
-!                                           volume integral (GetDNATorque)
+!                                           volume integral (GetVolumeFormTorque)
 !
 ! Both calls live here, in the application, on purpose: the shared
 ! per-step code path in QuadSc_main.f90 is left untouched so that no
@@ -36,7 +36,7 @@ PROGRAM Q2P1_VISCOMETER
   use app_initialization, only: init_q2p1_app
 
   ! D5.1 boundary-torque estimators (both are app-local calls)
-  use Transport_Q2P1, only: VISC_GetTorqueResidual, DNA_GetTorques
+  use Transport_Q2P1, only: VISC_GetTorqueResidual, VISC_GetTorqueVolume
 
   use post_utils,  only: handle_statistics,&
                          print_time,&
@@ -77,7 +77,7 @@ PROGRAM Q2P1_VISCOMETER
   ! Evaluated after the converged NS step, on the BndrForce ('WallF')
   ! masked bore surface.  Newtonian only (deck: SimPar@FlowType = Newtonian).
   CALL VISC_GetTorqueResidual(ufile)
-  CALL DNA_GetTorques(ufile)
+  CALL VISC_GetTorqueVolume(ufile)
 
   call postprocessing_app(dout, inonln_u, inonln_t,ufile)
 
