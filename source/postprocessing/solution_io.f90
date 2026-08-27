@@ -1797,6 +1797,7 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
                             Viscosity, Screw, Shell, Shearrate,dTimeStepEnlargmentFactor,&
                             iTimeStepEnlargmentFactor 
   use Sigma_User, only: myProcess,myTransientSolution
+  use PP3D_MPI, only: myid,showid
 
   use visualization_out, only: viz_output_fields
 
@@ -1809,6 +1810,8 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
   integer :: inlU,inlT
   
   integer :: iCrit_itns
+  real*8 :: checkpointStart,checkpointEnd
+  real*8 :: MPI_WTIME
 
   ! local variables
   integer :: iXgmv
@@ -1858,8 +1861,17 @@ subroutine postprocessing_sse(dout, inlU,inlT,filehandle)
       IF (MOD(iXgmv,insav).EQ.0) THEN
         CALL ZTIME(myStat%t0)
         
-        if (myTransientSolution%DumpFormat.eq.2) CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
-        if (myTransientSolution%DumpFormat.eq.3) call ReleaseMPIDumpFiles(int(myProcess%Angle),'v,p,d,t,s,x,q,y,z')
+        if (myTransientSolution%DumpFormat.eq.2) &
+          CALL Release_ListFiles_General(int(myProcess%Angle),'v,p,d,t,s,x,q')
+        if (myTransientSolution%DumpFormat.eq.3) then
+          checkpointStart = MPI_WTIME()
+          call ReleaseMPIDumpFiles(int(myProcess%Angle), &
+            'v,p,d,t,s,x,q,y,z')
+          checkpointEnd = MPI_WTIME()
+          if (myid.eq.showid) write(*,'(A,I0,A,F12.6,A)') &
+            'MPI-PRF checkpoint slot ',int(myProcess%Angle),' written in ', &
+            checkpointEnd-checkpointStart,' s.'
+        end if
 
         CALL ZTIME(myStat%t1)
         myStat%tDumpOut = myStat%tDumpOut + (myStat%t1-myStat%t0)
