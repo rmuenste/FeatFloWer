@@ -113,7 +113,10 @@ overlap band (the resolved FBM already carries ~85% of the force there).
 DECISION: `modelKroupaDeficit` — Kroupa resistances minus their value at
 the activation gap (reduces to ten Cate Eq. 10 in the leading normal
 term, keeps the saturation fix) — is REQUIRED for CFD-coupled runs; it
-lands at +6.7% (1–2h) / +23% (<1h) on the G2 data. Upstream pe item.
+lands at +6.7% (1–2h) / +23% (<1h) on the G2 data. IMPLEMENTED AND
+VERIFIED 2026-08-27 (pe 9d24437, row d22_g2b_deficit): G2b rerun measures
++7.2% / +24.0% — on the prediction, the ~1pp excess being the
+higher-order wall terms. Twin 141658 bitwise. G3 unblocked.
 The measured ideal correction λ_ideal = Brenner − FBM (0.73 → 4.54 over
 gap/h ∈ [0.83, 2), tools/d21_g2_lubrication_analysis.py) is the
 calibration curve for D2.1's inverse-collapse variant — resolution-
