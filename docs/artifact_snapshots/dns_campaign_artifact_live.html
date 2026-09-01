@@ -1091,6 +1091,29 @@ figure.fig figcaption b {
 .d52eta .legend text { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
 .d52eta .legend line { stroke-width: 2.4; }
 
+.d52lad { display: block; width: 100%; height: auto; }
+.d52lad .plotbg    { fill: var(--surface-2); stroke: var(--rule-soft); stroke-width: 1; }
+.d52lad .grid line { stroke: var(--rule-soft); stroke-width: 1; }
+.d52lad .ax        { stroke: var(--rule); stroke-width: 1.2; }
+.d52lad .cE        { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 2 3; }
+.d52lad .cB        { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 8 4; }
+.d52lad .cK        { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 10 3 2 3; }
+.d52lad .mtarg     { fill: none; stroke: var(--ok); stroke-width: 2; }
+.d52lad .mout      { fill: none; stroke: var(--warm); stroke-width: 1.6; }
+.d52lad .mmeas     { fill: var(--accent); stroke: var(--surface); stroke-width: 1.4; }
+.d52lad .conn      { stroke: var(--warm); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.d52lad .ytick, .d52lad .xtick { fill: var(--muted); font-family: var(--ff-mono); font-size: 9.5px; }
+.d52lad .axtitle   { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 10px; }
+.d52lad .ptitle    { fill: var(--ink); font-family: var(--ff-mono); font-size: 10.5px; font-weight: 600; }
+.d52lad .annot     { font-family: var(--ff-mono); font-size: 9.5px; }
+.d52lad .annot.dim   { fill: var(--muted); }
+.d52lad .annot.okT   { fill: var(--ok); }
+.d52lad .annot.wT    { fill: var(--warm); }
+.d52lad .annot.dnaT  { fill: var(--accent); }
+.d52lad .annot.head  { fill: var(--ink-2); font-weight: 600; }
+.d52lad .legend text { fill: var(--ink-2); font-family: var(--ff-mono); font-size: 9.5px; }
+.d52lad .legend line { stroke-width: 1.8; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
@@ -1260,18 +1283,18 @@ html { scroll-behavior: smooth; }
           <h2>Status &amp; results</h2>
         </div>
         <div class="flow">
-          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed, mechanism rewritten 2026-08-22 &middot; D3.1 closed + audit closed &middot; D3.2 CLOSED — the confined exponent is a confinement law &middot; D5.1 rheology arc CLOSED &#8212; the through-hole viscometer validates Einstein at &#966; = 0.05 &middot; CHERD SI finalisation in parallel</p>
+          <p class="eyebrow">Snapshot of <code>docs/md_docs/dns_validation_datasheet.md</code> — D1 closed &middot; D2.1 rule delivered &middot; D2.3 closed, mechanism rewritten 2026-08-22 &middot; D3.1 closed + audit closed &middot; D3.2 CLOSED — the confined exponent is a confinement law &middot; D5.1 &#966; ladder COMPLETE &#8212; Einstein, Batchelor and Krieger&#8211;Dougherty each matched in their own window &middot; CHERD SI finalisation in parallel</p>
 
           <div class="statusband">
 
             <div class="tally">
-              <div class="pass"><span class="n">50</span><span class="l">Pass</span></div>
-              <div class="rec"><span class="n">56</span><span class="l">Recorded</span></div>
-              <div class="res"><span class="n">23</span><span class="l">Resolved</span></div>
+              <div class="pass"><span class="n">52</span><span class="l">Pass</span></div>
+              <div class="rec"><span class="n">57</span><span class="l">Recorded</span></div>
+              <div class="res"><span class="n">24</span><span class="l">Resolved</span></div>
               <div class="fail"><span class="n">2</span><span class="l">Fail</span></div>
-              <div class="run"><span class="n">0</span><span class="l">In flight</span></div>
+              <div class="run"><span class="n">2</span><span class="l">In flight</span></div>
             </div>
-            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. Every <em>verdict</em> count above is a settled reading. <strong>Two closures landed on 2026-08-22.</strong> The <strong><a href="#D3-2">D3.2 wide-column discriminator fleet</a></strong> — 7 jobs, 140208–140214 — is complete and settles the attribution: the confined exponent is a <strong>confinement law carried by collective return flow</strong>, not per-particle wall drag. And a solver defect found in the certified binary lineage (<code>hcaf_angvel_reset</code>, angular velocity zeroed every step) <strong><a href="#D2-3">retires the D2.3 &ldquo;frictional stall&rdquo;</a></strong> as an artifact — on the repaired binary the frictional DKT run tumbles. Since then the <strong><a href="#D5-1">D5.1 numerical viscometer</a></strong> has been <strong>rebuilt and its arc closed</strong>. The blind-bore cell that produced the first &#966; = 0 baseline and the first Einstein-gate attempt was retired on 2026-08-26: <strong>45.7% of its torque was generated in particle-free fluid</strong>, so &#951;(&#966;) = T(&#966;)/T(0) came out dilution-contaminated and the gate could not discriminate. That earlier FAIL verdict is revised to RECORDED in the datasheet and its resolution reading withdrawn, which is why the FAIL count reads <strong>2</strong>. The replacement &#8212; a <strong>through-hole annulus with symmetry ends</strong>, mirroring the legacy instrument that validated Einstein under the old code &#8212; has now been measured, and it works. <strong>V2.0</strong> (job 141372) passes <strong>all four gates</strong> against the exact analytic torque the blind bore never had, with the corrected reaction estimator landing on <strong>T_exact to five digits</strong>. <strong>V2.1</strong> (job 141522, 225 spheres at &#966; = 0.05) returns <strong>&#951; = 1.1062 against a composite-Einstein target of 1.0996 &#8212; +0.60%, PASS</strong>. <strong>V1&#8217;s apparent failure was the instrument, not the physics.</strong> Two of the PASS rows above are those runs; <strong>nothing is in flight at this snapshot</strong>. In parallel, <strong><a href="#d31-audit">finalising the drag benchmarks for the CHERD journal supplement</a></strong> continues — that is where four of the RESOLVED rows came from: two errata, a metrology discovery, and a 24-run re-measurement campaign that left every headline number intact.</p>
+            <p class="note">Counted from <code>dns_validation_datasheet.md</code>, which is the authoritative record. Every FAIL is attributed to a documented cause rather than left open — the E1 low-Re deficit, for instance, is a sim-vs-experiment gap present in the 2002 paper itself. Every <em>verdict</em> count above is a settled reading. <strong>Two closures landed on 2026-08-22.</strong> The <strong><a href="#D3-2">D3.2 wide-column discriminator fleet</a></strong> — 7 jobs, 140208–140214 — is complete and settles the attribution: the confined exponent is a <strong>confinement law carried by collective return flow</strong>, not per-particle wall drag. And a solver defect found in the certified binary lineage (<code>hcaf_angvel_reset</code>, angular velocity zeroed every step) <strong><a href="#D2-3">retires the D2.3 &ldquo;frictional stall&rdquo;</a></strong> as an artifact — on the repaired binary the frictional DKT run tumbles. Since then the <strong><a href="#D5-1">D5.1 numerical viscometer</a></strong> has been <strong>rebuilt and taken up a full &#966; ladder</strong>. The blind-bore cell that produced the first Einstein-gate attempt was retired on 2026-08-26 &#8212; <strong>45.7% of its torque was generated in particle-free fluid</strong>, so &#951;(&#966;) = T(&#966;)/T(0) came out dilution-contaminated; that FAIL verdict is revised to RECORDED in the datasheet and its resolution reading withdrawn, which is why the FAIL count reads <strong>2</strong>. The replacement, a <strong>through-hole annulus with symmetry ends</strong>, passes all four baseline gates against an exact analytic torque (the corrected reaction estimator lands on <strong>T_exact to five digits</strong>) and has now measured <strong>three concentrations</strong>. Each lands on the closure valid at its own concentration, with no tuned parameters: <strong>Einstein at &#966; = 0.05 (+0.60%), Batchelor at 0.10 (&#8722;0.78%), Krieger&#8211;Dougherty at 0.20 (&#8722;0.94%)</strong> &#8212; and sits <em>above</em> each closure it has outgrown (+4.4%, +5.6%), so the O(&#966;&#178;) term is a resolved effect rather than an error bar. <strong>V1&#8217;s apparent failure was the instrument, not the physics.</strong> The first production use of the D2.2 <strong>sub-grid lubrication</strong> add-on rides along as controlled twins, adding <strong>+2.58%</strong> at &#966; = 0.20 and &#8212; the open question &#8212; an indistinguishable <strong>+2.49%</strong> at &#966; = 0.10 despite 4&#215; fewer near-contact pairs. <strong>Two extension runs are in flight to settle it.</strong> In parallel, <strong><a href="#d31-audit">finalising the drag benchmarks for the CHERD journal supplement</a></strong> continues — that is where four of the RESOLVED rows came from: two errata, a metrology discovery, and a 24-run re-measurement campaign that left every headline number intact.</p>
 
             <div class="statblock">
               <p class="subhead">Benchmark 1 — ten Cate sphere sedimentation (E1–E4)</p>
@@ -1775,7 +1798,7 @@ html { scroll-behavior: smooth; }
             </div>
 
             <div class="statblock">
-              <p class="subhead">Benchmark 6 &mdash; the numerical viscometer, V2 through-hole cell (D5.1 rheology arc) <span class="v pass">V2.0 BASELINE PASS</span> <span class="v pass">V2.1 EINSTEIN GATE PASS</span></p>
+              <p class="subhead">Benchmark 6 &mdash; the numerical viscometer, V2 through-hole cell (D5.1 rheology arc) <span class="v pass">BASELINE + &#966; LADDER 4 / 4 PASS</span> <span class="v run">LUBRICATION EXTENSIONS RUNNING</span></p>
 
               <figure class="fig">
                 <svg class="d52schem" viewBox="0 0 760 252" role="img" aria-labelledby="d52CellT d52CellD">
@@ -1900,7 +1923,7 @@ html { scroll-behavior: smooth; }
 
               <div class="tablewrap">
                 <table class="num">
-                  <caption>Operating point &#8212; the same cell for V2.0 and V2.1</caption>
+                  <caption>Operating point &#8212; the cell for V2.0 and the V2.1 rung; the later ladder rungs differ only in particle count</caption>
                   <thead>
                     <tr><th scope="col">Quantity</th><th scope="col">V2.0 &#183; &#966; = 0</th><th scope="col">V2.1 &#183; &#966; = 0.05</th></tr>
                   </thead>
@@ -1913,7 +1936,7 @@ html { scroll-behavior: smooth; }
                     <tr><th scope="row" class="id">Particle Reynolds no.</th><td>&#8212;</td><td>Re_p = 0.5</td></tr>
                     <tr><th scope="row" class="id">Taylor number</th><td colspan="2">156 &#8212; <strong>subcritical</strong>, no Taylor vortices</td></tr>
                     <tr><th scope="row" class="id">Viscous time</th><td colspan="2">&#964;_&#957; = gap&#178;/&#957; = 125</td></tr>
-                    <tr><th scope="row" class="id">Loading</th><td>empty baseline</td><td>N = 225 spheres, RSA, 0.5 d surface clearances</td></tr>
+                    <tr><th scope="row" class="id">Loading</th><td>empty baseline</td><td>N = 225 spheres, RSA, 0.5 d surface clearances<br/>ladder rungs: N = 450 at &#966; = 0.10, N = 900 at &#966; = 0.20</td></tr>
                     <tr><th scope="row" class="id">Timestep</th><td>dt = 0.05</td><td class="err">dt = 0.005 &#8212; contacts set the step</td></tr>
                     <tr><th scope="row" class="id">Budget, as run</th><td>4000 steps &#8594; t = 200 = 1.6 &#964;_&#957;</td><td>10,000 steps, t = 200 &#8594; 250, restart from the V2.0 steady field</td></tr>
                     <tr><th scope="row" class="id">Job / wall time</th><td class="err">141372 &#183; &#8776; 9.6 h</td><td class="err">141522 &#183; 20 h 27 m</td></tr>
@@ -2172,23 +2195,191 @@ html { scroll-behavior: smooth; }
                 </table>
               </div>
 
-              <div class="finding">
-                <span class="h">Metrology &#8212; the transpose constant does not care about the particles <span class="v pass">PASS</span></span>
-                <p>With <strong>225 spheres in the gap</strong>, the measured DNA &#8722; RES gap is <strong>&#8722;31.4152</strong> against the predicted <strong>&#8722;31.416</strong> &#8212; agreement to <strong>five digits</strong>, under a load the constant was never fitted to. The transpose term <strong>2&#956;&#937;V_enclosed</strong> therefore depends only on the enclosed, <em>particle-free</em> hole volume; the suspension filling the gap does not touch it. That is what licenses the corrected reaction estimator to ride along as an independent check at every rung of the &#966; ladder, not just at &#966; = 0.</p>
-              </div>
-
               <div class="priority">
-                <span class="lbl">Verdict &#8212; the redesign is vindicated and the D5.1 arc closes</span>
-                <p><strong>&#951; = 1.1062 against a composite-Einstein target of 1.0996 &#8212; +0.60%, and both estimators agree.</strong> The naive homogeneous 1 + 2.5&#966; = 1.1250 is rejected, and rejected <em>for a reason</em>: the 0.5 d particle-free margins at the walls and symmetry planes act as series/parallel low-viscosity layers, which is precisely what the composite construction over the measured &#966;(r,z) accounts for. The residual <strong>+0.6%</strong> is consistent in sign with O(&#966;&#178;) effects at the local band concentration &#966; &#8776; 0.07 &#8212; not something this gate resolves, and not something it needs to.</p>
+                <span class="lbl">Verdict &#8212; V2.1: the redesign is vindicated</span>
+                <p><strong>&#951; = 1.1062 against a composite-Einstein target of 1.0996 &#8212; +0.60%, and both estimators agree.</strong> The naive homogeneous 1 + 2.5&#966; = 1.1250 is rejected, and rejected <em>for a reason</em>: the 0.5 d particle-free margins at the walls and symmetry planes act as series/parallel low-viscosity layers, which is precisely what the composite construction over the measured &#966;(r,z) accounts for. The residual <strong>+0.6%</strong> is consistent in sign with O(&#966;&#178;) effects at the local band concentration &#966; &#8776; 0.07 &#8212; and the next rung of the ladder turns that inference into a measurement.</p>
                 <p><strong>Read against V1:</strong> the apparent FAIL on the blind-bore cell was <strong>instrument dilution, not physics</strong>. Rebuilt as a through-hole annulus, the same solver at the same production resolution validates <strong>Einstein viscosity quantitatively at &#966; = 0.05</strong>. The instrument now carries an exact analytic reference, an undiluted ratio, and an estimator pair certified under load.</p>
               </div>
 
-              <div class="priority">
-                <span class="lbl">What comes next &#8212; campaign decisions</span>
-                <p>Two rungs are now meaningful in a way they were not before. The <strong>&#966; ladder at 0.10 and 0.20</strong> &#8212; the legacy study's range &#8212; extends the gate from a single dilute point to a curve, where the O(&#966;&#178;) term that shows up as the +0.6% residual here becomes measurable rather than inferred. And a <strong>D/h = 16 resolution rung</strong> finally answers the resolution question cleanly, because in this instrument a shift in &#951; can no longer be blamed on the geometry.</p>
+              <p class="subhead">The &#966; ladder complete &#8212; 0.05 &#8594; 0.10 &#8594; 0.20 <span class="v pass">3 / 3 PASS</span></p>
+
+              <figure class="fig">
+                <svg class="d52lad" viewBox="0 0 760 380" role="img" aria-labelledby="d52LadT d52LadD">
+                  <title id="d52LadT">Measured relative viscosity against solid fraction, with three closure curves</title>
+                  <desc id="d52LadD">A chart of relative viscosity against solid fraction from zero to twenty-two percent. Three reference curves rise from one at zero concentration: the Einstein straight line, the Batchelor quadratic, and the Krieger-Dougherty curve, which climbs fastest. Four measured points are plotted: an anchor at exactly one for zero concentration, then one point one zero six at five percent, one point two four five at ten percent and one point seven one four at twenty percent. Behind each measured point sits a green diamond marking the composite target computed from the measured concentration field for the closure valid at that concentration, and the measured point sits essentially on top of it in all three cases. Two orange diamonds below the ten and twenty percent points mark the composites the ladder has outgrown, with dotted connectors and labels of plus four point four percent and plus five point six percent. A readout in the lower right lists the measured deviation from each valid composite: plus zero point six zero percent at five percent, minus zero point seven eight at ten, minus zero point nine four at twenty.</desc>
+
+                  <rect class="plotbg" x="62" y="40" width="678" height="260"/>
+                  <g class="grid">
+                    <line x1="62" y1="242.2" x2="740" y2="242.2"/>
+                    <line x1="62" y1="184.4" x2="740" y2="184.4"/>
+                    <line x1="62" y1="126.7" x2="740" y2="126.7"/>
+                    <line x1="62" y1="68.9" x2="740" y2="68.9"/>
+                  </g>
+
+                  <polyline class="cE" points="62,300.0 123.6,285.6 185.3,271.1 246.9,256.7 308.5,242.2 370.2,227.8 431.8,213.3 493.5,198.9 555.1,184.4 616.7,170.0 678.4,155.6 740,141.1"/>
+                  <polyline class="cB" points="62,300.0 123.6,284.9 185.3,268.4 246.9,250.3 308.5,230.9 370.2,209.8 431.8,187.5 493.5,163.7 555.1,138.5 616.7,111.9 678.4,83.8 740,54.3"/>
+                  <polyline class="cK" points="62,300.0 123.6,284.9 185.3,268.6 246.9,250.7 308.5,231.2 370.2,209.7 431.8,186.1 493.5,160.0 555.1,131.1 616.7,98.8 678.4,62.7 713.6,40.0"/>
+
+                  <line class="conn" x1="370.2" y1="244.37" x2="370.2" y2="229.11"/>
+                  <line class="conn" x1="678.4" y1="120.01" x2="678.4" y2="93.64"/>
+                  <polygon class="mout" points="370.2,237.37 377.2,244.37 370.2,251.37 363.2,244.37"/>
+                  <polygon class="mout" points="678.4,113.01 685.4,120.01 678.4,127.01 671.4,120.01"/>
+
+                  <polygon class="mtarg" points="216.1,263.23 224.1,271.23 216.1,279.23 208.1,271.23"/>
+                  <polygon class="mtarg" points="370.2,218.28 378.2,226.28 370.2,234.28 362.2,226.28"/>
+                  <polygon class="mtarg" points="678.4,80.95 686.4,88.95 678.4,96.95 670.4,88.95"/>
+
+                  <circle class="mmeas" cx="62" cy="300" r="5"/>
+                  <circle class="mmeas" cx="216.1" cy="269.32" r="5"/>
+                  <circle class="mmeas" cx="370.2" cy="229.11" r="5"/>
+                  <circle class="mmeas" cx="678.4" cy="93.64" r="5"/>
+
+                  <line class="ax" x1="62" y1="300" x2="740" y2="300"/>
+                  <line class="ax" x1="62" y1="40" x2="62" y2="300"/>
+
+                  <g class="ytick">
+                    <text x="56" y="72.4" text-anchor="end">1.8</text>
+                    <text x="56" y="130.2" text-anchor="end">1.6</text>
+                    <text x="56" y="187.9" text-anchor="end">1.4</text>
+                    <text x="56" y="245.7" text-anchor="end">1.2</text>
+                    <text x="56" y="303.5" text-anchor="end">1.0</text>
+                  </g>
+                  <g class="xtick">
+                    <text x="62" y="314" text-anchor="middle">0</text>
+                    <text x="216.1" y="314" text-anchor="middle">0.05</text>
+                    <text x="370.2" y="314" text-anchor="middle">0.10</text>
+                    <text x="524.3" y="314" text-anchor="middle">0.15</text>
+                    <text x="678.4" y="314" text-anchor="middle">0.20</text>
+                  </g>
+
+                  <text class="ptitle" x="62" y="24">The &#966; ladder &#8212; measured &#951; against three closures</text>
+                  <text class="axtitle" x="401" y="332" text-anchor="middle">solid fraction &#966;</text>
+                  <text class="axtitle" x="20" y="170" text-anchor="middle" transform="rotate(-90 20 170)">&#951; = T(&#966;)/T(0)</text>
+
+                  <text class="annot dim" x="734" y="136" text-anchor="end">Einstein 1 + 2.5&#966;</text>
+                  <text class="annot dim" x="600" y="148" text-anchor="end">Batchelor</text>
+                  <text class="annot dim" x="600" y="92" text-anchor="end">Krieger&#8211;Dougherty</text>
+                  <text class="annot wT" x="386" y="248">+4.4%</text>
+                  <text class="annot wT" x="694" y="124">+5.6%</text>
+                  <text class="annot dnaT" x="70" y="294">&#951;(0) = 1</text>
+
+                  <text class="annot head" x="470" y="224">measured vs the composite valid at each &#966;:</text>
+                  <text class="annot okT" x="470" y="240">&#966; = 0.05 &#8594; Einstein 1.0996 &#183; +0.60%</text>
+                  <text class="annot okT" x="470" y="256">&#966; = 0.10 &#8594; Batchelor 1.2552 &#183; &#8722;0.78%</text>
+                  <text class="annot okT" x="470" y="272">&#966; = 0.20 &#8594; Krieger&#8211;Dougherty 1.7305 &#183; &#8722;0.94%</text>
+                  <text class="annot wT" x="380" y="290">outgrown: +4.4% (Einstein @ 0.10), +5.6% (Batchelor @ 0.20)</text>
+
+                  <g class="legend">
+                    <circle class="mmeas" cx="70" cy="350" r="5"/>
+                    <text x="84" y="354">measured &#951;_DNA (error bars smaller than the marker)</text>
+                    <polygon class="mtarg" points="400,343 407,350 400,357 393,350"/>
+                    <text x="414" y="354">composite target from measured &#966;(r,z)</text>
+                    <polygon class="mout" points="70,359 77,366 70,373 63,366"/>
+                    <text x="84" y="370">composite the ladder has outgrown</text>
+                    <line class="cE" x1="290" y1="366" x2="312" y2="366"/>
+                    <text x="318" y="370">Einstein</text>
+                    <line class="cB" x1="382" y1="366" x2="404" y2="366"/>
+                    <text x="410" y="370">Batchelor</text>
+                    <line class="cK" x1="482" y1="366" x2="504" y2="366"/>
+                    <text x="510" y="370">Krieger&#8211;Dougherty (&#966;_m 0.64)</text>
+                  </g>
+                </svg>
+                <figcaption><b>three regimes, no tuned parameters</b>The three <strong>grey curves are the plain closures</strong>, drawn for orientation only &#8212; Einstein 1 + 2.5&#966;, Batchelor 1 + 2.5&#966; + 6.2&#966;&#178;, and Krieger&#8211;Dougherty at &#966;_m = 0.64, exponent &#8722;1.6. The <strong>gates are not those curves</strong>: each is a <strong>composite evaluated pointwise over the measured &#966;(r,z)</strong>, which is why the green targets sit below the plain curves &#8212; the 0.5 d particle-free margins are real low-viscosity layers and the composite accounts for them. At every rung the measured point lands <strong>on the composite of the closure valid at that concentration</strong> and <strong>above the one it has outgrown</strong>: Einstein at &#966; = 0.05, Batchelor at 0.10, Krieger&#8211;Dougherty at 0.20. The &#966; = 0 point is an anchor by construction, not a measurement. Scatter is invisible at this scale &#8212; pstd 7.5 &#215; 10&#8315;&#8308;, 3.2 &#215; 10&#8315;&#179; and 6.5 &#215; 10&#8315;&#179; from left to right.</figcaption>
+              </figure>
+
+              <div class="tablewrap">
+                <table class="num">
+                  <caption>The &#966; ladder &#8212; measured &#951; against every composite in range. Bold marks the closure valid at that concentration</caption>
+                  <thead>
+                    <tr><th scope="col">Rung</th><th scope="col">&#951;_DNA measured</th><th scope="col">vs Einstein composite</th><th scope="col">vs Batchelor composite</th><th scope="col">vs Krieger&#8211;Dougherty composite</th><th scope="col">Verdict</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="id">&#966; = 0.05<br/>job 141522 &#183; N = 225</th>
+                      <td class="err"><strong>1.1062</strong><br/>pstd 7.5 &#215; 10&#8315;&#8308;<br/>drift &#8722;1.1 &#215; 10&#8315;&#8308;</td>
+                      <td class="err"><strong>1.0996 &#183; +0.60%</strong></td>
+                      <td class="err">&#8212;</td>
+                      <td class="err">&#8212;</td>
+                      <td><span class="v pass">PASS</span></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="id">&#966; = 0.10<br/>job 141790 &#183; N = 450</th>
+                      <td class="err"><strong>1.2454</strong><br/>pstd 3.2 &#215; 10&#8315;&#179;<br/>drift &#8722;4.7 &#215; 10&#8315;&#8308;</td>
+                      <td class="err">1.1926 &#183; +4.4%<br/><em>outgrown</em></td>
+                      <td class="err"><strong>1.2552 &#183; &#8722;0.78%</strong></td>
+                      <td class="err">&#8212;</td>
+                      <td><span class="v pass">PASS</span></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="id">&#966; = 0.20<br/>job 141983 &#183; N = 900</th>
+                      <td class="err"><strong>1.7143</strong><br/>pstd 6.5 &#215; 10&#8315;&#179;<br/>drift &#8722;3.4 &#215; 10&#8315;&#8308;</td>
+                      <td class="err">&#8212;</td>
+                      <td class="err">1.6230 &#183; +5.6%<br/><em>outgrown</em></td>
+                      <td class="err"><strong>1.7305 &#183; &#8722;0.94%</strong></td>
+                      <td><span class="v pass">PASS</span></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
-              <p class="cost"><b>rows</b>Datasheet suite <code>d5_rheology</code>: <code>d52_v20_baseline</code> (<strong>PASS</strong>, all four gates) and <code>d52_v21_einstein</code> (<strong>PASS</strong>, +0.60% on the composite target) are the V2 record; <code>d51_end_dilution</code> holds the redesign rationale. The retired blind-bore rows (<code>d51_v0_baseline</code>, <code>d51_torque_metrology</code>, <code>d51_v1_run</code>, <code>d51_einstein_gate</code>) stand as history and are not carried into the V2 reading. Case specification: <code>applications/q2p1_dns_drag/validation_cases/d51_viscometer/CASE_SPEC_V2.md</code>. Mesh: <code>d52_mesh_v1/</code> &#8212; README, REPRODUCE, and the partitioned <code>_mesh/VISCO2_108</code>.</p>
+              <p class="cost"><b>recorded with the ladder</b>Every rung uses the certified restart-from-baseline protocol against the same T(0) = &#8722;84.2296. Two deviations from ladder standard are on the record rather than smoothed over: at <strong>&#966; = 0.20</strong> the RSA packing was relaxed to <strong>1.01 d minimum pair distance and 0.25 d clearances</strong> because 900 spheres reach the RSA saturation limit at the ladder's 1.05 d / 0.5 d setting; and that rung ran on the twin-certified <code>build-twin-pe6e5ba9c</code> binary (pe <code>9d24437</code>) rather than the frozen <code>f9b7115</code>, with the bitwise-equivalence chain (jobs 141389 / 141658) keeping the T(0) ratio valid. Local concentration reaches <strong>&#966; = 0.315</strong> at &#966; = 0.10 and <strong>0.415</strong> at &#966; = 0.20, so the composites are evaluated pointwise rather than at the global &#966;.</p>
+
+              <div class="finding">
+                <span class="h">The ladder finding &#8212; each rung lands on the closure valid at its own concentration <span class="v pass">PASS</span></span>
+                <p>Three rungs, three different closures, <strong>no tuned parameters anywhere</strong>: <strong>+0.60%</strong> against Einstein at &#966; = 0.05, <strong>&#8722;0.78%</strong> against Batchelor at 0.10, <strong>&#8722;0.94%</strong> against Krieger&#8211;Dougherty at 0.20. Just as telling is where each rung <em>fails</em> to match: at &#966; = 0.10 the measurement sits <strong>+4.4% above</strong> the Einstein composite, and at 0.20 <strong>+5.6% above</strong> the Batchelor composite. First-order theory does not merely become imprecise &#8212; the instrument <strong>resolves the O(&#966;&#178;) hydrodynamic interaction term as a physical effect</strong>, and then resolves the point where the truncated series itself runs out.</p>
+                <p>That is the campaign claim the rheology arc was built to support: at production resolution, D/h &#8776; 8, this DNS reproduces suspension viscosity across a <strong>4&#215; concentration range spanning three closure regimes</strong>, each inside its own validity window. It is also the honest boundary &#8212; the agreement at &#966; = 0.20 is with a <em>concentrated</em> closure, so nothing here licenses extrapolating a dilute law past its range.</p>
+              </div>
+
+              <div class="finding">
+                <span class="h">Metrology &#8212; the transpose constant, six times over <span class="v pass">PASS</span></span>
+                <p>The DNA &#8722; RES estimator gap has now been measured at <strong>every rung of the ladder and with sub-grid lubrication both on and off</strong>: &#8722;31.4152, &#8722;31.4153, &#8722;31.4157, &#8722;31.4157, &#8722;31.4153 &#8212; against a predicted <strong>&#8722;31.416</strong>, to <strong>five digits, six consecutive times</strong>, with 225, 450 and 900 spheres in the gap. The transpose term <strong>2&#956;&#937;V_enclosed</strong> therefore depends only on the enclosed, <em>particle-free</em> hole volume: neither the suspension filling the gap nor the lubrication model touches it. A parameter-free prediction, confirmed under loads it was never fitted to &#8212; which is what licenses the corrected reaction estimator to ride along as an independent check at every rung.</p>
+              </div>
+
+              <p class="subhead">Sub-grid lubrication pairs &#8212; first production use of the D2.2 add-on <span class="v res">RESOLVED at &#966; = 0.20</span> <span class="v rec">HELD OPEN at &#966; = 0.10</span> <span class="v run">EXTENSIONS RUNNING</span></p>
+
+              <div class="setup">
+                <span class="lbl">Design &#8212; controlled single-variable twins</span>
+                <p>Each pair is the <em>same run twice</em>: identical particle cloud, identical deck, identical binary, identical restart. <strong>The only difference is the json lubrication keys</strong> &#8212; <code>lubricationEnabled_</code> true with the <code>kroupaDeficit</code> model and mesh clamp c = 2, giving an activation gap of 2h = 0.2186 in d = 1 units with <code>PE_LUB_MESHDX</code> armed. Nothing else moves, so the difference in &#951; is the sub-grid lubrication contribution and nothing else. The model itself was certified separately in D2.2 (rows <code>d22_g2b_deficit</code>, <code>d22_g3_tencate</code>); this is its first use at suspension scale.</p>
+              </div>
+
+              <div class="tablewrap">
+                <table class="num">
+                  <caption>The lubrication pairs &#8212; &#966; = 0.20 and &#966; = 0.10, each an identical twin except for the lubrication switch</caption>
+                  <thead>
+                    <tr><th scope="col">Pair</th><th scope="col">&#951; without</th><th scope="col">&#951; with</th><th scope="col">&#916;</th><th scope="col">Active / saturated pairs per step</th><th scope="col">Plateau quality</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row" class="id">&#966; = 0.20<br/>141983 / 141984</th>
+                      <td class="err">1.7143</td><td class="err">1.7585</td><td class="err"><strong>+2.58%</strong></td>
+                      <td class="err">&#8776; 1152 / 235 &#183; 20%</td>
+                      <td>with-lubrication run <strong>not fully plateaued</strong> at t = 250 (drift +3.1 &#215; 10&#8315;&#179;/t.u., pstd 1.4 &#215; 10&#8315;&#178;) &#8212; the &#916; is a <strong>mild lower bound</strong></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="id">&#966; = 0.10<br/>141790 / 142368</th>
+                      <td class="err">1.2454</td><td class="err">1.2764</td><td class="err"><strong>+2.49%</strong></td>
+                      <td class="err">&#8776; 289 / 80 &#183; 28%</td>
+                      <td>the <strong>worst plateau on the ladder</strong> (pstd 1.2 &#215; 10&#8315;&#178;, drift &#8722;1.9 &#215; 10&#8315;&#179;/t.u.) &#8212; microstructure still evolving</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="finding">
+                <span class="h">The surprise &#8212; the lubrication delta does not decay with concentration <span class="v rec">HELD OPEN</span></span>
+                <p>The &#966; = 0.10 pair was run to <em>measure the decay</em>. There are <strong>4&#215; fewer active lubrication pairs</strong> at &#966; = 0.10 than at 0.20 (289 against 1152), so a naive scaling with pair count would have put the delta near <strong>0.6%</strong>. It came back at <strong>+2.49%</strong> &#8212; statistically indistinguishable from the <strong>+2.58%</strong> at four times the concentration. The <strong>per-pair contribution is therefore about 4&#215; larger at the lower concentration</strong>.</p>
+                <p>The physical reading that fits: the delta is set by <strong>the few closest films, not the pair count</strong>. The saturated fractions support it &#8212; 28% of active pairs at &#966; = 0.10 against 20% at 0.20, so the dilute case is not short of near-contacts, only short of pairs in total.</p>
+                <p><strong>Held open, and for a stated reason.</strong> The &#966; = 0.10 lubrication run has the worst plateau quality anywhere on the ladder, so the non-decay could still be a finite-window artifact rather than physics. Two things settle it, and one is already moving: <strong>extended segments t = 250 &#8594; 300 for both lubrication runs are in flight (jobs 142543 / 142544)</strong>, and a <strong>per-pair force-distribution readout</strong> is needed &#8212; <code>DNS_LUB</code> currently logs totals only, which is exactly the quantity that would confirm or kill the closest-films reading directly.</p>
+              </div>
+
+              <div class="priority">
+                <span class="lbl">What comes next</span>
+                <p><strong>In flight now:</strong> the two lubrication extensions, t = 250 &#8594; 300 (jobs <strong>142543 / 142544</strong>). They settle whether +2.58% at &#966; = 0.20 was a lower bound, and whether the &#966; = 0.10 non-decay survives a longer window.</p>
+                <p><strong>Pending the owner:</strong> line-up against the legacy 3D study, which needs its comparison-curve family and <code>MaxMeshLevel</code> retrieved before the two can be put on the same axes.</p>
+                <p><strong>Open options, neither started:</strong> a <strong>D/h = 16 resolution rung</strong> &#8212; now a clean test, because in this instrument a shift in &#951; can no longer be blamed on the geometry &#8212; and <strong>&#966; &gt; 0.20</strong>, which would need a packing method beyond RSA, since 0.20 already sits at the RSA saturation limit.</p>
+              </div>
+
+              <p class="cost"><b>rows</b>Datasheet suite <code>d5_rheology</code>: <code>d52_v20_baseline</code> (<strong>PASS</strong>, all four gates), <code>d52_v21_einstein</code> (<strong>PASS</strong>, +0.60% on the Einstein composite), <code>d52_v22_phi10</code> (<strong>PASS</strong>, &#8722;0.78% on Batchelor), <code>d52_v23_phi20</code> (<strong>PASS</strong>, &#8722;0.94% on Krieger&#8211;Dougherty), <code>d52_v23L_lubpair</code> (<strong>RESOLVED</strong>, +2.58%) and <code>d52_v22L_lubpair</code> (<strong>RECORDED</strong>, +2.49%, interpretation held open). <code>d51_end_dilution</code> holds the redesign rationale; the retired blind-bore rows (<code>d51_v0_baseline</code>, <code>d51_torque_metrology</code>, <code>d51_v1_run</code>, <code>d51_einstein_gate</code>) stand as history and are not carried into the V2 reading. Case specification: <code>applications/q2p1_dns_drag/validation_cases/d51_viscometer/CASE_SPEC_V2.md</code>. Mesh: <code>d52_mesh_v1/</code>.</p>
             </div>
 
             <div class="statblock">
@@ -2215,9 +2406,10 @@ html { scroll-behavior: smooth; }
                 <li><span class="pill s">active</span><span><strong>CHERD supplementary finalisation</strong> — the steady-state methodology survived a <strong>nine-round adversarial review</strong>, and the supplement tables are being finalised with a colleague. This runs in parallel with the discriminator fleet.</span></li>
                 <li><span class="pill s">next</span><span><strong>Practitioner's guide v1</strong> — it can now carry the measured noise floor, the crossover rule and the contact-friction guideline, which were the three gaps in v0.</span></li>
                 <li><span class="v rec">RECORDED</span><span><strong><a href="#D3-2">D3.2 wall-bounded hindered settling</a> — the φ ladder is complete at 12 of 12 points and the stage closes its planned scope.</strong> The mechanism gate is PASS across the whole ladder, and the confined-configuration hindrance law is measured tightly: <strong>n ≈ 4.3–4.6</strong>, far above the unbounded Rowe/RZ band. The <em>attribution</em> between wall drag and finite-cloud effects is now settled too — see the closure above; the v3 guide write-up is what remains.</span></li>
-                <li><span class="v pass">CLOSED &#183; PASS</span><span><strong>D5.1 V2.0 — the through-hole empty baseline is certified.</strong> Job <strong>141372</strong>, 4000 steps to t = 200: <strong>all four gates pass with wide margins</strong>. |T_DNA| = <strong>84.2296</strong> against the exact <strong>T_exact = 83.78</strong> (+0.54%); u_θ(r) matches the exact Couette profile to 0.34% mean; steadiness 1.3 × 10⁻⁶. The headline is gate 3: <strong>RES + 31.416 = 83.774, i.e. −0.008% from the analytic value</strong> — the corrected reaction estimator lands <em>on</em> the exact torque, which identifies DNA's +0.54% as volume-quadrature discretization rather than physics. T(0) = <strong>−84.2296</strong>.</span></li>
-                <li><span class="v pass">CLOSED &#183; PASS</span><span><strong>D5.1 V2.1 — the undiluted Einstein gate passes, and the rheology arc closes.</strong> Job <strong>141522</strong>, 225 spheres at φ = 0.0500 inserted into the V2.0 steady field and run t = 200 → 250. Plateau <strong>η = 1.1062</strong> (pstd 7.5 × 10⁻⁴, drift −1.1 × 10⁻⁴ per t.u.) against a composite-Einstein target of <strong>1.0996</strong> built from the <em>measured</em> φ(r,z) — <strong>+0.60%</strong>, with the corrected reaction estimator concordant at 1.1123. The naive 1 + 2.5φ = 1.1250 is correctly rejected by the depletion-margin composite. <strong>V1's apparent FAIL was instrument dilution</strong>; the through-hole cell validates Einstein viscosity quantitatively at production resolution. Metrology bonus: with 225 particles in the gap the DNA − RES gap is <strong>−31.4152 vs −31.416 predicted</strong>, five digits — the transpose term depends only on the enclosed hole volume.</span></li>
-                <li><span class="pill s">next</span><span><strong>D5.1 next rungs, campaign decision:</strong> the <strong>φ ladder at 0.10 and 0.20</strong> (the legacy study's range), which turns the single dilute gate into a curve and makes the O(φ²) term measurable rather than inferred; and a <strong>D/h = 16 resolution rung</strong>, which is now a clean test because a shift in η can no longer be blamed on the geometry. Neither is started.</span></li>
+                <li><span class="v pass">CLOSED &#183; PASS</span><span><strong>D5.1 — the through-hole viscometer is certified end to end.</strong> V2.0 (job <strong>141372</strong>) passes all four baseline gates: |T_DNA| = 84.2296 against the exact 83.78 (+0.54%), u_θ(r) to 0.34% mean, steadiness 1.3 × 10⁻⁶ — and <strong>RES + 31.416 = 83.774, i.e. −0.008% from the analytic value</strong>, which identifies DNA's +0.54% as volume-quadrature discretization rather than physics. T(0) = <strong>−84.2296</strong> is the denominator for the whole ladder.</span></li>
+                <li><span class="v pass">CLOSED &#183; PASS</span><span><strong>D5.1 φ ladder complete — three concentrations, three closures, no tuned parameters.</strong> <strong>φ = 0.05</strong> (job 141522, N = 225) η = 1.1062, <strong>+0.60%</strong> on the Einstein composite; <strong>φ = 0.10</strong> (job 141790, N = 450) η = 1.2454, <strong>−0.78%</strong> on Batchelor and +4.4% <em>above</em> Einstein; <strong>φ = 0.20</strong> (job 141983, N = 900) η = 1.7143, <strong>−0.94%</strong> on Krieger–Dougherty and +5.6% above Batchelor. All targets are composites over the <em>measured</em> φ(r,z). The instrument resolves the O(φ²) interaction term as a physical effect and then resolves where the truncated series runs out. Metrology: the DNA − RES gap is −31.415 to five digits on <strong>all six runs</strong>, lubrication on or off.</span></li>
+                <li><span class="v run">IN FLIGHT</span><span><strong>D5.1 sub-grid lubrication pairs — extensions running</strong> (jobs <strong>142543 / 142544</strong>, t = 250 → 300). First production use of the D2.2 add-on as controlled single-variable twins: identical clouds, decks and binary, only the json lubrication keys differ. Lubrication adds <strong>+2.58%</strong> to η at φ = 0.20 (RESOLVED, a mild lower bound — the with-lubrication run was still drifting up at t = 250) and <strong>+2.49%</strong> at φ = 0.10 (RECORDED, <strong>interpretation held open</strong>): statistically the same delta with <strong>4× fewer active pairs</strong>, i.e. ~4× more per pair. Reading on the table: the delta is set by the few closest films, not the pair count — but that rung has the worst plateau on the ladder, so the extensions and a per-pair force readout have to confirm it.</span></li>
+                <li><span class="pill s">next</span><span><strong>D5.1 open options.</strong> Line-up against the legacy 3D study is <strong>pending the owner</strong> retrieving its comparison-curve family and <code>MaxMeshLevel</code>. Neither started: a <strong>D/h = 16</strong> resolution rung — now a clean test, since a shift in η can no longer be blamed on the geometry — and <strong>φ &gt; 0.20</strong>, which needs a packing method beyond RSA because 0.20 already sits at the RSA saturation limit.</span></li>
                 <li><span class="v res">RESOLVED</span><span><strong>The <code>libs/pe</code> upstream stack is merged and pinned at <code>f9b7115</code></strong> — PR <strong>#25</strong> (merge repair), <strong>#26</strong> (lubrication add-on, off by default), <strong>#27</strong> (checkpoint metadata), <strong>#28</strong> (cleanup against the recorded defect list). Each bump passed a bitwise <code>e4_l3</code> twin before adoption; the long-standing merge hold on <code>origin/master</code> is cleared.</span></li>
                 <li><span class="pill w">deferred</span><span>Re-interpreting the periodicity-dependent <strong>EL</strong> results (Richardson–Zaki FAIL attribution, kroupa xy shear) on the fixed binary — deferred to its own session. The DNS side of that fix is fully closed.</span></li>
               </ul>
@@ -3260,9 +3452,9 @@ html { scroll-behavior: smooth; }
           <p class="goal"><b>Goal</b>The strategic payoff — use each method where it is strong, and use DNS to close EL's documented model boundaries.</p>
 
           <div>
-            <h3 class="blk" id="D5-1"><span class="tag">D5.1</span> Same-physics twins <span class="aside">method-comparison memo</span> <span class="v pass">V2.0 PASS</span> <span class="v pass">V2.1 EINSTEIN GATE PASS</span></h3>
+            <h3 class="blk" id="D5-1"><span class="tag">D5.1</span> Same-physics twins <span class="aside">method-comparison memo</span> <span class="v pass">&#966; LADDER 4 / 4 PASS</span> <span class="v run">LUB EXTENSIONS RUNNING</span></h3>
             <div class="blkbody">
-              <p class="note"><strong>Executing under this heading since 2026-08-23: the numerical viscometer</strong> (datasheet suite <code>d5_rheology</code>). A rotational-viscometer DNS case measuring &#951;(&#966;) = T(&#966;)/T(0) &#8212; the direct method-comparison currency for suspension rheology, and the run-up to the D6 Kroupa-box capstone. The instrument was <strong>rebuilt on 2026-08-26</strong>: the original blind-bore cell generated 45.7% of its torque in particle-free fluid and could not discriminate the Einstein gate, so it was replaced by a <strong>through-hole annulus with symmetry ends</strong> &#8212; axially uniform, quasi-2D, and carrying an exact analytic torque reference. Both V2 runs have now landed. <strong>V2.0 passes all four baseline gates</strong> (the corrected reaction estimator reproduces T_exact = 83.78 to five digits) and <strong>V2.1 passes the undiluted Einstein gate</strong> at &#966; = 0.05: <strong>&#951; = 1.1062 vs a composite-Einstein target of 1.0996, +0.60%</strong>. The arc closes &#8212; V1&#8217;s apparent FAIL was instrument dilution. Numbers, figures and gates in the <a href="#status">status section</a>.</p>
+              <p class="note"><strong>Executing under this heading since 2026-08-23: the numerical viscometer</strong> (datasheet suite <code>d5_rheology</code>). A rotational-viscometer DNS case measuring &#951;(&#966;) = T(&#966;)/T(0) &#8212; the direct method-comparison currency for suspension rheology, and the run-up to the D6 Kroupa-box capstone. The instrument was <strong>rebuilt on 2026-08-26</strong> as a <strong>through-hole annulus with symmetry ends</strong> after the original blind-bore cell was found to generate 45.7% of its torque in particle-free fluid. It now carries an exact analytic torque reference, passes all four baseline gates, and has measured a complete <strong>&#966; ladder</strong>: <strong>Einstein at &#966; = 0.05 (+0.60%), Batchelor at 0.10 (&#8722;0.78%), Krieger&#8211;Dougherty at 0.20 (&#8722;0.94%)</strong> &#8212; each closure matched inside its own validity window, with no tuned parameters. Riding along: the first production use of the D2.2 <strong>sub-grid lubrication</strong> add-on as controlled twins (+2.58% at &#966; = 0.20, +2.49% at 0.10 &#8212; the non-decay is <strong>held open</strong> and two extension runs are in flight). Numbers, figures and gates in the <a href="#status">status section</a>.</p>
               <ul>
                 <li>ten Cate E1–E4: DNS (this campaign, full-box + quarter-box) vs EL v1b (existing) vs PIV — one figure per case, with the EL self-voidage bias (ε_eff ≈ 0.975, +6% co-flow) annotated. States explicitly which method to use at which D/h and cost.</li>
                 <li>Sphere–wall approach: DNS resolved curve (D2.1) vs EL's behavior (EL has no particle-wall lubrication in pipe geometry — documented boundary); quantifies what EL misses near walls.</li>
@@ -3700,7 +3892,7 @@ html { scroll-behavior: smooth; }
 
       <footer>
         <span>Sources: <code>dns-validation-campaign-plan.md</code> (repo root) and <code>docs/md_docs/dns_validation_datasheet.md</code></span>
-        <span class="mono">Drafted 2026-07-31 &middot; results current 2026-08-28</span>
+        <span class="mono">Drafted 2026-07-31 &middot; results current 2026-09-01</span>
       </footer>
 
     </main>
