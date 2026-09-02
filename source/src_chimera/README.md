@@ -30,7 +30,7 @@ coupling. Authoritative design document: `chimera-integration-design.md`
 - No print-and-continue stubs: an enabled-but-unimplemented or
   enabled-but-uninitialized path aborts with a clear message (`STOP 1`).
 
-## Current state (Phase 0–1)
+## Current state (Phases 0–2)
 
 | File | Phase | Purpose |
 |---|---|---|
@@ -40,15 +40,23 @@ coupling. Authoritative design document: `chimera-integration-design.md`
 | `chi_fem_eval.f90` | 1 | Q2 basis in FeatFloWer local ordering, DOF map, physical gradients, P1 eval |
 | `chi_locator.f90` | 1 | Instance-based element-bbox bucket-grid point locator |
 | `chi_sparse_direct.f90` | 1 | Instance-based UMFPACK wrapper (per-instance handles, owned CSR copies) |
-| `tests/test_chi_*.f90` | 1 | Serial ctests (`chi-*-serial`) |
+| `chi_kernels.f90` | 2 | Reentrant Q2/P1 saddle-point assembly (deformation-form NS, B/Bᵀ, Robin, Dirichlet rows, face quadrature); the legacy F77 kernels (`/ELEM/ /CUB/ /TRIAD/`) are never used for submeshes |
+| `chi_submesh.f90` | 2 | `tChimeraSubmesh`: own `tMultiMesh`, bitmask boundary classification with hierarchical propagation, radial projection, Q2 coords, boundary face lists |
+| `chi_solver.f90` | 2 | Per-submesh monolithic Picard/direct solve (Dirichlet or Robin outer BC, pressure gauge) |
+| `chi_forces.f90` | 2 | Surface-stress force/torque with the design §5 normal/sign conventions |
+| `chi_legacy_mesh_adapter.f90` | 2 (Layer H) | Sole bridge to `mesh_structures` (readTriCoarse/refineMeshLevel/genMeshStructures), with per-level classify+project |
+| `tests/` | 1–2 | Serial ctests; `chi-submesh-couette` is the Phase-2 analytic gate (fixture `tests/fixtures/annulus_coarse.tri` from `tools/chimera_meshgen`) |
 
-Phase 2+ (per the design roadmap): `chi_kernels.f90` (new reentrant
-assembly kernels — the legacy F77 kernels read `/ELEM/ /CUB/ /COAUX1/
-/TRIAD/` and must not be called for submeshes), `chi_submesh/solver/
-forces`, `chi_legacy_mesh_adapter`, `chi_exchange`, `chi_coupling`,
-`chi_penalty`, application `q2p1_chimera`, tool `tools/chimera_meshgen`.
+Implementation notes recorded in Phase 2: the FEAT 1:8 refinement yields
+child elements of mixed orientation, so boundary normals are oriented
+geometrically (`CHI_FACE_GEOM` centroid test); with Q1 geometry the
+curved-boundary L2 convergence limit is 2nd order (production shares
+this); direct surface-traction torque converges sub-quadratically.
 
-## Hooks in existing code (complete list as of Phase 0)
+Phase 3+ (per the design roadmap): `chi_exchange`, `chi_coupling`,
+`chimera_api` fill-in, application `q2p1_chimera`; Phase 4: `chi_penalty`.
+
+## Hooks in existing code (complete list as of Phase 2)
 
 - `source/src_quadLS/QuadSc_main.f90` — hook H1 in
   `Transport_q2p1_UxyzP_fluid_core` (guarded `Chimera_BeginStep`).

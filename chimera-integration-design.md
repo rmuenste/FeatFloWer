@@ -198,7 +198,11 @@ plan — v2-review blocker 1)* — **new reentrant Chimera assembly
 kernels**, written on `chi_geometry`/`chi_fem_eval`: element loops with
 `nel`, connectivity, coordinates, cubature, basis data, physical
 parameters (ρ, μ, Δt, θ), mesh velocity, and target CSR all passed
-explicitly. Terms: mass, diffusion, ALE convection (`u − u_mesh` with
+explicitly. Implementation finding (Phase 2): the FEAT 1:8 refinement
+produces child elements of MIXED orientation (negative detJ — harmless
+in production, which uses |detJ| and parametrized normals), so boundary
+normals are oriented geometrically (centroid→face test in
+`CHI_FACE_GEOM`), never from reference sign tables alone. Terms: mass, diffusion, ALE convection (`u − u_mesh` with
 constant per-submesh mesh velocity — one subtraction; nothing is lost by
 dropping `CONVQ2`), B/Bᵀ, Robin surface terms (§5), inner Dirichlet
 rows, pressure gauge (one pinned pressure DOF) for the all-Dirichlet
@@ -405,8 +409,14 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
    (Q2 delta property/partition of unity/quadratic exactness incl.
    gradients; P1), `test_chi_locator` (vs brute force),
    `test_chi_sparse_direct` (two interleaved instances — the
-   independent-handles regression), *(Phase 2)* `test_chi_kernels` +
-   annular Couette + §5 sign tests, *(Phase 3)* `test_chi_exchange`
+   independent-handles regression), *(Phase 2, green)* `test_chi_kernels`
+   + annular Couette + §5 sign tests — convergence gate 2nd-order L2
+   velocity (the Q1-geometry curved-boundary limit, shared with the
+   production discretization; 3rd order would need isoparametric Q2
+   geometry) and direct surface-traction torque monotone to < 1.5 %
+   (boundary-flux evaluation is sub-quadratic; a variationally
+   consistent force evaluation is a Phase-3+ accuracy option),
+   *(Phase 3)* `test_chi_exchange`
    (1/2/8 ranks) + **two-partition cut-cell marker test**, *(Phase 4)*
    `test_chi_algebra` (manufactured comparison vs paper eqs. (10)/(12);
    fast-path bit-identity of the correction).
@@ -421,7 +431,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 |---|---|---|
 | 0 — Scaffold | `chimera_config`, `chimera_api` (fatal-stub `BeginStep`), P1, C1, H1 | builds; off-regression tol 0; layering check; disabled deck byte-identical |
 | 1 — Services | `chi_geometry`, `chi_fem_eval`, `chi_locator`, `chi_sparse_direct` + tests | Phase-1 ctests green |
-| 2 — Submesh subsystem *(gated on this v3)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette ~3rd-order L2; analytic force/torque + sign tests |
+| 2 — Submesh subsystem *(reviewer-cleared; DONE 2026-09-02)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette 2nd-order L2 (Q1-geometry limit; measured 2.08), torque → −8π/3 (1.0 % at L3), Robin consistency, sign tests — all green (`chi-submesh-couette`) |
 | 3 — **M1: static steady Chimera-S** | `chi_exchange`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera`; steady FAC | DFG band + FBM cross-check; atmosphere-refinement convergence; 2/8-worker invariance; cut-cell marker test; off-regression exact |
 | 4 — Static Chimera-W + unsteady validation | `chi_penalty`; H8/H10/H11/H12; `test_chi_algebra` | W vs S on steady FAC; fast-path bit-identity; unsteady FAC via one-pass W; restart round-trip |
 | 5 — Arrays + periodicity | periodic donor images; H_k seeding; halo upgrade | Hasimoto ≲1 %; random arrays in Beetstra–Tenneti band |

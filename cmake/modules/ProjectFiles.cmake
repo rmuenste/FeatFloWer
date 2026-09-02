@@ -231,6 +231,10 @@ set(src_chimera
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_fem_eval.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_locator.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_sparse_direct.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_kernels.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_submesh.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_solver.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_forces.f90
   )
 
 add_library(ff_chimera ${src_chimera})
@@ -327,6 +331,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chi_legacy_mesh_adapter.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -356,6 +361,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chi_legacy_mesh_adapter.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -470,6 +476,25 @@ if(BUILD_TESTING)
   target_include_directories(test_chi_sparse_direct PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_chi_sparse_direct PRIVATE ${Fortran_FLAGS})
   add_test(NAME chi-sparse-direct-serial COMMAND test_chi_sparse_direct)
+
+  # --- Chimera Phase-2 tests: reentrant kernels + submesh subsystem ---
+  add_executable(test_chi_kernels
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_kernels.f90)
+  target_link_libraries(test_chi_kernels ff_chimera)
+  target_include_directories(test_chi_kernels PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_kernels PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-kernels-serial COMMAND test_chi_kernels)
+
+  # The annular-Couette gate (design v3 Phase-2 exit criterion): links
+  # ff_quadLS_app for the legacy mesh adapter; the committed coarse
+  # fixture is passed as an argument.
+  add_executable(test_chi_submesh
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_submesh.f90)
+  target_link_libraries(test_chi_submesh ff_quadLS_app ff_chimera)
+  target_include_directories(test_chi_submesh PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_submesh PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-submesh-couette COMMAND test_chi_submesh
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/fixtures/annulus_coarse.tri)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
