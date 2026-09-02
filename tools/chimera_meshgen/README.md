@@ -31,3 +31,21 @@ Planned (design roadmap): sphere shells (Phase 5 array closures; the
 fixtures), per-particle atmosphere width tables
 `H_k = min(H_max, 0.5 * nearest-surface gap)` for the seeding rule, and
 the FAC cylinder-annulus instantiation for the Phase-3 milestone.
+
+## channel_tri.py — structured box background mesh (+ .par/.prj)
+
+Uniform hex box for Chimera cases (no body in the mesh), with the DFG
+2D-FAC boundary types (`Inflow2` at x=0, `Symmetry011` at x=Lx, `Wall`
+at y=0/Ly, `Symmetry001` at z=0/Lz) and a project file for
+`tools/PyPartitioner.py`.
+
+```bash
+python3 channel_tri.py --lx 2.2 --ly 0.41 --lz 0.05 --nx 44 --ny 8 --nz 1 \
+        --name chimera_fac --outdir ../../applications/q2p1_chimera/_data/CHIMERA_FAC
+```
+
+This call produced the vendored milestone-1 case
+`applications/q2p1_chimera/_data/CHIMERA_FAC` (352 hexes, h = 0.05 at the
+coarse level; 0.025 at `MaxMeshLevel = 2`, 0.0125 at level 3).  The
+atmosphere for that case is the Phase-2 annulus fixture, fitted at load
+time to r_i = 0.05, r_o = 0.1 (`CHI_SUBMESH_FIT_COARSE`).

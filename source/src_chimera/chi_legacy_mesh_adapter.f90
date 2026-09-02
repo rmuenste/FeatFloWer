@@ -26,7 +26,7 @@
 !=========================================================================
 MODULE CHI_LEGACY_MESH_ADAPTER
 
-  USE CHI_SUBMESH, ONLY: tChimeraSubmesh, CHI_CLASSIFY_GEOMETRIC, &
+  USE CHI_SUBMESH, ONLY: tChimeraSubmesh, CHI_SUBMESH_FIT_COARSE, CHI_CLASSIFY_GEOMETRIC, &
     CHI_PROPAGATE_CLASSIFICATION, CHI_PROJECT_VERTICES, &
     CHI_SUBMESH_FINALIZE_LEVEL
   USE mesh_structures, ONLY: readTriCoarse, refineMeshLevel, &
@@ -70,6 +70,11 @@ CONTAINS
       WRITE(*,*) 'CHI_LOAD_SUBMESH: could not read ', TRIM(trifile)
       RETURN
     END IF
+
+    ! Fit the generic shell to this particle's placement (identity for
+    ! a shell that already matches).
+    CALL CHI_SUBMESH_FIT_COARSE(sub, sub%mesh%level(1)%dcorvg, &
+      sub%mesh%level(1)%nvt)
 
     CALL getNumberOfEdgesOnVerts(sub%mesh%level(1), noe)
     CALL genMeshStructures(sub%mesh, .FALSE., 1, noe)

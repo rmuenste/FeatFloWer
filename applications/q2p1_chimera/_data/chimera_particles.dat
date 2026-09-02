@@ -1,0 +1,7 @@
+# Chimera body table (SimPar@ChimeraParticleFile).
+# First data line: number of bodies.  Then one line per body:
+#   cylinder_z  cx cy cz  radius  H  zlo zhi     (H = atmosphere width)
+#   sphere      cx cy cz  radius  H
+# DFG 2D-1 cylinder: center (0.2, 0.2), D = 0.1, in the z-slab [0, 0.05].
+1
+cylinder_z  0.2 0.2 0.0   0.05  0.05   0.0 0.05

@@ -235,6 +235,9 @@ set(src_chimera
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_submesh.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_solver.f90
   ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_forces.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_markers.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_exchange.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_output.f90
   )
 
 add_library(ff_chimera ${src_chimera})
@@ -332,6 +335,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_legacy_mesh_adapter.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chi_coupling.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -362,6 +366,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
 ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_legacy_mesh_adapter.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chi_coupling.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -495,6 +500,31 @@ if(BUILD_TESTING)
   target_compile_options(test_chi_submesh PRIVATE ${Fortran_FLAGS})
   add_test(NAME chi-submesh-couette COMMAND test_chi_submesh
     ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/fixtures/annulus_coarse.tri)
+
+  # --- Chimera Phase-3 tests: marker classification (cut cell across two
+  # partitions, serial emulation of the MAX synchronisation) and the
+  # collective background exchange (1, 2 and 3 ranks).
+  add_executable(test_chi_markers
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_markers.f90)
+  target_link_libraries(test_chi_markers ff_quadLS_app ff_chimera)
+  target_include_directories(test_chi_markers PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_markers PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-markers-cutcell COMMAND test_chi_markers)
+
+  add_executable(test_chi_exchange
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_exchange.f90)
+  target_link_libraries(test_chi_exchange ff_quadLS_app ff_chimera)
+  target_include_directories(test_chi_exchange PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_exchange PRIVATE ${Fortran_FLAGS})
+  get_filename_component(CHI_MPI_BINDIR ${CMAKE_Fortran_COMPILER} DIRECTORY)
+  find_program(CHI_MPIEXEC NAMES mpirun mpiexec HINTS ${CHI_MPI_BINDIR})
+  if(CHI_MPIEXEC)
+    add_test(NAME chi-exchange-np1 COMMAND ${CHI_MPIEXEC} -np 1 ./test_chi_exchange)
+    add_test(NAME chi-exchange-np2 COMMAND ${CHI_MPIEXEC} -np 2 ./test_chi_exchange)
+    add_test(NAME chi-exchange-np3 COMMAND ${CHI_MPIEXEC} -np 3 ./test_chi_exchange)
+  else()
+    add_test(NAME chi-exchange-np1 COMMAND test_chi_exchange)
+  endif()
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

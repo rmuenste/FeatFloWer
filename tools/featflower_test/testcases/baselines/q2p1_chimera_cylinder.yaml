@@ -1,0 +1,20 @@
+# Regression anchor for the milestone-1 Chimera-S cylinder case
+# (chimera-integration-design.md v3, Phase 3), measured 2026-09-02 with
+# the definition's exact recipe: vendored deck (MaxMeshLevel 2,
+# ChimeraSubmeshLev 2, backward Euler dt 0.05, MaxSimTime 6.0001 ->
+# last "ChimeraForce1:" line at t = 6.05), PyPartitioner 3 subpartitions
+# (CHIFAC), mpirun -np 4 q2p1_chimera, gcc 14.3 / OpenMPI 4.1.6, USE_HYPRE.
+# Identical to all printed digits with 2 subpartitions / 3 ranks
+# (worker-count invariance) and with dt 0.01 at equal time.
+#
+# Accuracy context (NOT what this anchor claims): at this coarse
+# background (h = D/4) the drag is 1.5 % below the body-fitted L2 value
+# 5.601296 and the lift has the wrong sign - the hole/fringe staircase
+# dominates.  The refined run (MaxMeshLevel 3 / ChimeraSubmeshLev 3,
+# dt 0.05, t = 4) gives C_D 5.5649 / C_L 0.0133 (still decaying) against
+# the body-fitted L3 5.5807589 / 0.010674 and the DFG reference
+# 5.5795 / 0.01062.
+metrics:
+  drag_lift:
+    drag: 5.514568
+    lift: -0.04199148

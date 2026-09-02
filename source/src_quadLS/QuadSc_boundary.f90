@@ -546,6 +546,7 @@ END SUBROUTINE QuadScalar_FictKnpr_Wangen
 !
 !=========================================================================
 SUBROUTINE Boundary_QuadScalar_Def()
+  USE CHIMERA_API, ONLY: Chimera_IsEnabled, Chimera_ApplyBoundaryDef
   INTEGER i
   REAL*8 daux
 
@@ -581,12 +582,18 @@ SUBROUTINE Boundary_QuadScalar_Def()
 
   END DO
 
+  ! Chimera hole/fringe constraints (hook H2, chimera-integration-design.md)
+  IF (Chimera_IsEnabled()) THEN
+    CALL Chimera_ApplyBoundaryDef(QuadSc%defU,QuadSc%defV,QuadSc%defW,QuadSc%ndof)
+  END IF
+
 END SUBROUTINE Boundary_QuadScalar_Def
 !=========================================================================
 !
 !=========================================================================
 SUBROUTINE Boundary_QuadScalar_Val()
   use fbm, only: fbm_velBCUpdate
+  USE CHIMERA_API, ONLY: Chimera_IsEnabled, Chimera_ApplyBoundaryValues
   implicit none
   REAL*8 PX,PY,PZ,DAUX
   INTEGER i,inpr,finpr,minpr,inprU,inprV,inprW,ndof,iType
@@ -621,6 +628,11 @@ SUBROUTINE Boundary_QuadScalar_Val()
       CALL GetVeloMixerVal(PX,PY,PZ,QuadSc%valU(i),QuadSc%valV(i),QuadSc%valW(i),minpr,timens)
     END IF
   END DO
+
+  ! Chimera hole/fringe velocities (hook H3, chimera-integration-design.md)
+  IF (Chimera_IsEnabled()) THEN
+    CALL Chimera_ApplyBoundaryValues(QuadSc%valU,QuadSc%valV,QuadSc%valW,ndof)
+  END IF
 
   DO i=1,ndof
     IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
@@ -677,6 +689,7 @@ END SUBROUTINE Boundary_LinScalar_Def
 !=========================================================================
 SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
     KNPRU,KNPRV,KNPRW,NDOF)
+  USE CHIMERA_API, ONLY: Chimera_IsEnabled, Chimera_FilterMatrixRows
   REAL*8  DA11(*),DA22(*),DA33(*)
   INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
   REAL*8 DAUX
@@ -713,6 +726,11 @@ SUBROUTINE Boundary_QuadScalar_Mat(DA11,DA22,DA33,KLD,&
   END IF
   END DO
 
+  ! Chimera hole/fringe rows (hook H4, chimera-integration-design.md)
+  IF (Chimera_IsEnabled()) THEN
+    CALL Chimera_FilterMatrixRows(DA11,DA22,DA33,KLD,NDOF)
+  END IF
+
   DO I=1,NDOF
     IF (myBoundary%bSlip(i).and.(.not.(myBoundary%bWall(i).or.myBoundary%iInflow(i).gt.0))) then
     ICOL = KLD(I)
@@ -733,6 +751,7 @@ END SUBROUTINE Boundary_QuadScalar_Mat
 !=========================================================================
 SUBROUTINE Boundary_QuadScalar_Mat_9(DA11,DA22,DA33,DA12,DA13,DA23,DA21,DA31,DA32,&
     KLD,KNPRU,KNPRV,KNPRW,NDOF)
+  USE CHIMERA_API, ONLY: Chimera_IsEnabled, Chimera_FilterMatrixRows9
   REAL*8 DA11(*),DA22(*),DA33(*),DA12(*),DA13(*),DA23(*),DA21(*),DA31(*),DA32(*)
   INTEGER KLD(*),KNPRU(*),KNPRV(*),KNPRW(*),ICOL,I,NDOF
 
@@ -791,6 +810,11 @@ SUBROUTINE Boundary_QuadScalar_Mat_9(DA11,DA22,DA33,DA12,DA13,DA23,DA21,DA31,DA3
     END DO
   END IF
   END DO
+
+  ! Chimera hole/fringe rows (hook H4, chimera-integration-design.md)
+  IF (Chimera_IsEnabled()) THEN
+    CALL Chimera_FilterMatrixRows9(DA11,DA22,DA33,DA12,DA13,DA23,DA21,DA31,DA32,KLD,NDOF)
+  END IF
 
 END SUBROUTINE Boundary_QuadScalar_Mat_9
 !=========================================================================

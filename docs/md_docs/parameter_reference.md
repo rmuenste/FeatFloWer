@@ -709,9 +709,9 @@ parser, so decks stay portable. Values land in
 | `SimPar@ChimeraEnable` | Yes/No | `No` | Master switch. `No` = binary behaves bit-identically to a build without the component |
 | `SimPar@ChimeraVariant` | string | `strong` | `strong` (Chimera-S, hole/fringe Dirichlet) or `weak` (Chimera-W, interior penalty) |
 | `SimPar@ChimeraOuterBC` | string | `robin` | Submesh outer BC: `robin` (paper eq. 5d, acceptance path) or `dirichlet` (diagnostic mode) |
-| `SimPar@ChimeraParticleFile` | path | — | Particle centers / radii / atmosphere widths H_k |
-| `SimPar@ChimeraSubmeshFile` | path | — | Coarse body-fitted shell mesh (.tri) |
-| `SimPar@ChimeraSubmeshLev` | integer | `3` | Submesh refinement levels |
+| `SimPar@ChimeraParticleFile` | quoted path | — | Body table (format below) |
+| `SimPar@ChimeraSubmeshFile` | quoted path | — | Coarse body-fitted shell mesh (.tri, `tools/chimera_meshgen`), fitted to each body's radii at load time |
+| `SimPar@ChimeraSubmeshLev` | integer | `3` | Submesh refinement levels (choose so that the atmosphere resolution matches the background: 2 for `MaxMeshLevel` 2 on the vendored FAC case, 3 for level 3) |
 | `SimPar@ChimeraRobinAlpha` | real | `1.0` | Robin coefficient alpha (>= 0) |
 | `SimPar@ChimeraGammaMax` | real | `0.0` | Interior-penalty parameter (required > 0 for `weak`) |
 | `SimPar@ChimeraOuterIters` | integer | `1` | In-step outer coupling iterations (>= 2 for time-accurate Chimera-S) |
@@ -719,9 +719,28 @@ parser, so decks stay portable. Values land in
 | `SimPar@ChimeraWriteVTK` | Yes/No | `No` | Dump submesh solutions for visualization |
 
 `ChimeraEnable = Yes` requires an application that initializes the component
-(e.g. `q2p1_chimera`); any other application aborts with a clear message at
-the first time step. Echo lines in the protocol file are emitted only when
-the component is enabled, so a disabled run's `prot.txt` stays byte-identical.
+(`q2p1_chimera`); any other application aborts with a clear message at the
+first time step. Echo lines in the protocol file are emitted only when the
+component is enabled, so a disabled run's `prot.txt` stays byte-identical.
+Both file keys take a **quoted** path (list-directed read, like
+`SimPar@ProjectFile`). Milestone-1 restrictions (checked in
+`Chimera_Initialize`): `strong` variant only; no FBM particles in the same run.
+
+**Body table (`ChimeraParticleFile`)** — `#` comment lines, then the body
+count, then one line per body (`H` = atmosphere width, outer radius =
+radius + H):
+
+```
+# cylinder_z  cx cy cz  radius  H  zlo zhi   (cz unused; infinite along z)
+# sphere      cx cy cz  radius  H
+1
+cylinder_z  0.2 0.2 0.0   0.05  0.05   0.0 0.05
+```
+
+**Protocol output**: one `ChimeraForce<k>:` line per body and time step
+with `time  C_D  C_L  Fx  Fy  Fz  Tz` (C_D/C_L normalized with the
+`Bench_U_mean/H/D` parameters exactly like `BenchForce:`), plus a short
+`Chimera:` summary at initialization.
 
 ---
 

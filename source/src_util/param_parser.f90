@@ -1116,9 +1116,9 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
       CASE ("ChimeraOuterBC")
         READ(string(iEq+1:),*) chimera_outer_bc
       CASE ("ChimeraParticleFile")
-        chimera_particle_file = TRIM(ADJUSTL(string(iEq+1:)))
+        READ(string(iEq+1:),*) chimera_particle_file    ! quoted path, like ProjectFile
       CASE ("ChimeraSubmeshFile")
-        chimera_submesh_file = TRIM(ADJUSTL(string(iEq+1:)))
+        READ(string(iEq+1:),*) chimera_submesh_file     ! quoted path, like ProjectFile
       CASE ("ChimeraSubmeshLev")
         READ(string(iEq+1:),*) chimera_submesh_nlmax
       CASE ("ChimeraRobinAlpha")

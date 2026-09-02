@@ -25,7 +25,7 @@
 !=========================================================================
 MODULE CHI_FEM_EVAL
 
-  USE CHI_GEOMETRY, ONLY: CHI_M33INV
+  USE CHI_GEOMETRY, ONLY: CHI_M33INV, CHI_Q1_MAP
 
   IMPLICIT NONE
 
@@ -37,6 +37,7 @@ MODULE CHI_FEM_EVAL
   PUBLIC :: CHI_EVAL_Q2_SCALAR
   PUBLIC :: CHI_EVAL_Q2_GRADIENT
   PUBLIC :: CHI_EVAL_P1
+  PUBLIC :: CHI_EVAL_FIELD_AT
 
   ! 1D node index (-1, 0, +1) of each of the 27 local DOFs per direction,
   ! matching the FeatFloWer local ordering documented above.
@@ -164,5 +165,54 @@ CONTAINS
     p = pdofs(1) + pdofs(2)*(x(1)-xc(1)) + pdofs(3)*(x(2)-xc(2)) &
                  + pdofs(4)*(x(3)-xc(3))
   END FUNCTION CHI_EVAL_P1
+
+  !-----------------------------------------------------------------------
+  ! Velocity, velocity gradient and P1 pressure of a Q2/P1 field at the
+  ! reference point xi of element iel (Phase 3: background evaluation for
+  ! the Robin data and submesh evaluation for fringe values).
+  ! gradu(a,b) = d u_a / d x_b.  p holds 4 dofs per element (FeatFloWer
+  ! P1 layout: value at the centroid + 3 slopes).
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_EVAL_FIELD_AT(iel, xi, kvert, kedge, karea, nvt, net, nat, &
+                               dcorvg, u, v, w, p, uval, gradu, pval, ok)
+    INTEGER, INTENT(IN) :: iel, kvert(8,*), kedge(12,*), karea(6,*)
+    INTEGER, INTENT(IN) :: nvt, net, nat
+    REAL*8,  INTENT(IN) :: xi(3), dcorvg(3,*), u(*), v(*), w(*), p(*)
+    REAL*8,  INTENT(OUT) :: uval(3), gradu(3,3), pval
+    LOGICAL, INTENT(OUT) :: ok
+
+    REAL*8 :: nodes(3,8), phi(27), dphi(3,27), jac(3,3), detj
+    REAL*8 :: x(3), xc(3), vals(27), g(3)
+    INTEGER :: idx(27), i, a
+    LOGICAL :: gok
+
+    ok = .FALSE.
+    uval = 0d0
+    gradu = 0d0
+    pval = 0d0
+    DO i = 1, 8
+      nodes(:,i) = dcorvg(:,kvert(i,iel))
+    END DO
+    CALL CHI_Q2_DOFMAP(iel, kvert, kedge, karea, nvt, net, nat, idx)
+    CALL CHI_Q2_BASIS(xi, phi, dphi)
+    CALL CHI_Q1_MAP(nodes, xi, x, jac, detj)
+    DO a = 1, 3
+      SELECT CASE (a)
+      CASE (1)
+        vals = u(idx)
+      CASE (2)
+        vals = v(idx)
+      CASE DEFAULT
+        vals = w(idx)
+      END SELECT
+      uval(a) = CHI_EVAL_Q2_SCALAR(vals, phi)
+      CALL CHI_EVAL_Q2_GRADIENT(vals, dphi, jac, g, gok)
+      IF (.NOT. gok) RETURN
+      gradu(a,:) = g
+    END DO
+    CALL CHI_Q1_MAP(nodes, (/0d0,0d0,0d0/), xc, jac, detj)
+    pval = CHI_EVAL_P1(p(4*(iel-1)+1:4*iel), x, xc)
+    ok = .TRUE.
+  END SUBROUTINE CHI_EVAL_FIELD_AT
 
 END MODULE CHI_FEM_EVAL

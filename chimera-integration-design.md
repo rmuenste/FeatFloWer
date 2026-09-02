@@ -263,6 +263,68 @@ hole+fringe with previous-step submesh values, whose fixed point is the
 converged paper iteration. A dedicated MPI test covers a cut cell
 spanning two partitions (§9).
 
+**Phase-3 implementation notes** (deviations/refinements of the text
+above, all reviewer-visible):
+
+- *Time-discrete submesh problem.* The atmosphere step is the same
+  backward-Euler step as the background (`ρ/Δt·M` on the matrix, the
+  atmosphere's own previous level on the right-hand side,
+  `CHI_ASM_MASS_RHS`). A steady submesh solve coupled to the impulsively
+  started background blows up on the initial pressure transient
+  (observed: O(10²) atmosphere velocities, NaN in the background after
+  six steps); the time-discrete form is stable and its steady limit is
+  the intended coupled steady state. `chi_solver` keeps the steady mode
+  (`dtinv = 0`) for the analytic tests.
+- *Marker arrays* are default `INTEGER` (not `INTEGER*1`) so that the
+  production `E013Max_SUPER` synchronises them without copies; the
+  two-array semantics are unchanged. The second (id) pass is exactly
+  the conditional MAX described above.
+- *Matrix-row filter on coarse levels* follows the `FictKNPR` practice
+  (finest-level marker array indexed with coarse-level dof numbers);
+  coarse levels only shape the preconditioner, the converged solution
+  is unaffected. A per-level marker hierarchy is a possible later
+  refinement.
+- *Atmosphere z-faces* (cylinder in the slab) carry the slab symmetry
+  condition `w = 0` only; u, v are free (`CHI_DIR_*` component masks in
+  the tabulated solve). Cylinders are treated as infinite along z.
+- *Coarse shell fitting.* One generic shell `.tri` serves all bodies:
+  `CHI_SUBMESH_FIT_COARSE` remaps the shell's own radial (and axial)
+  range affinely onto `[r, r+H]` (and `[zlo, zhi]`) before
+  classification, so the Phase-2 fixture is the milestone-1 atmosphere.
+- *Fringe nodes in the chord gap* between the analytic inner surface
+  and its polygonal approximation are located by a relaxed nearest-
+  element search (`CHI_LOCATE_NEAREST`), i.e. a slight Q2 extrapolation;
+  the maximum reference-coordinate excess is reported at init (0 on the
+  milestone-1 case).
+- *Body table* format and the application layout are documented in
+  `docs/md_docs/parameter_reference.md` / `chimera_usage.md`.
+- *Milestone-1 steady FAC results* (DFG 2D-1, uniform channel
+  background h = 0.05/2^(L-1), annulus atmosphere r_o = 2 r, Robin
+  α = 1, backward Euler; forces from the atmosphere surface stress):
+
+  | Case | C_D | C_L | Note |
+  |---|---|---|---|
+  | Chimera L2 / atmosphere L2 (h = D/4), dt 0.01, t = 4.56 | 5.515 | −0.040 | lift sign wrong: hole/fringe staircase asymmetric by up to h = D/4 top vs bottom |
+  | Chimera L3 / atmosphere L3 (h = D/8), dt 0.05, t = 4.0 | 5.565 | +0.013 (decaying) | drag −0.3 % vs body-fitted L3; lift error shrinks 3–4× per refinement |
+  | body-fitted `q2p1_fc_ext` L2 / L3 (t = 10) | 5.6013 / 5.5808 | 0.00995 / 0.01067 | measured baselines |
+  | DFG reference | 5.5795 | 0.01062 | Schäfer–Turek band C_D 5.57–5.59, C_L 0.0104–0.0110 |
+
+  Conclusion: the coupled Chimera-S solution converges to the DFG
+  values under joint refinement; on the coarse L2 background (four
+  cells per diameter) the lift is dominated by the staircase
+  representation of the body in the background (as expected for the
+  strong variant — paper §6 uses h ≪ D). The pinned regression value
+  (`q2p1_chimera_cylinder`, L2, dt 0.05, t = 6) is therefore a
+  *regression anchor*, not an accuracy claim; the accuracy statement is
+  the L3 row. Atmosphere-only refinement (background fixed) does not
+  fix the lift — the limiting error is in the background near the
+  fringe, which is the motivation for the weak variant / finer
+  backgrounds in Phase 4/5.
+- *Milestone-1 restrictions enforced at init:* `strong` only; no FBM
+  particles (`myFBM%nParticles > 0` aborts — the `calculateFBM()` switch
+  is on even in the plain FAC run and is therefore not a usable
+  criterion).
+
 **`chi_penalty.f90`** *(Phase 4)* — `mg_ChiDMat(NLMIN:NLMAX)` on the
 `mg_qMat` pattern (name avoids the viscous `DMat`), `g` vector, and the
 correction solve. Cadence by explicit dirty-flag invalidation (static:
@@ -416,8 +478,13 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
    geometry) and direct surface-traction torque monotone to < 1.5 %
    (boundary-flux evaluation is sub-quadratic; a variationally
    consistent force evaluation is a Phase-3+ accuracy option),
-   *(Phase 3)* `test_chi_exchange`
-   (1/2/8 ranks) + **two-partition cut-cell marker test**, *(Phase 4)*
+   *(Phase 3, green)* `test_chi_exchange`
+   (1/2/3 ranks: exactness for quadratic fields, MIN-rank ownership,
+   bit identity across ranks, missing-point report) + the
+   **two-partition cut-cell marker test** `test_chi_markers` (serial
+   emulation of the MAX merge on the shared interface dofs of a cut
+   cell, for a body inside one partition and for a body crossing the
+   interface), *(Phase 4)*
    `test_chi_algebra` (manufactured comparison vs paper eqs. (10)/(12);
    fast-path bit-identity of the correction).
 4. **Physics case:** `q2p1_chimera_cylinder.yaml` pinning `ChimeraForce:`
@@ -432,7 +499,7 @@ CMake: `chimera_config.f90` → `src_util` list; `add_library(ff_chimera)`
 | 0 — Scaffold | `chimera_config`, `chimera_api` (fatal-stub `BeginStep`), P1, C1, H1 | builds; off-regression tol 0; layering check; disabled deck byte-identical |
 | 1 — Services | `chi_geometry`, `chi_fem_eval`, `chi_locator`, `chi_sparse_direct` + tests | Phase-1 ctests green |
 | 2 — Submesh subsystem *(reviewer-cleared; DONE 2026-09-02)* | `chi_kernels` (new reentrant kernels), `chi_legacy_mesh_adapter`, `chi_submesh/solver/forces`, meshgen | annular Couette 2nd-order L2 (Q1-geometry limit; measured 2.08), torque → −8π/3 (1.0 % at L3), Robin consistency, sign tests — all green (`chi-submesh-couette`) |
-| 3 — **M1: static steady Chimera-S** | `chi_exchange`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera`; steady FAC | DFG band + FBM cross-check; atmosphere-refinement convergence; 2/8-worker invariance; cut-cell marker test; off-regression exact |
+| 3 — **M1: static steady Chimera-S** *(DONE 2026-09-02; see §3 Phase-3 notes)* | `chi_markers`, `chi_exchange`, `chi_output`, `chi_coupling` (two-array markers); H1–H6 live; `q2p1_chimera` + vendored channel/annulus case; steady FAC | `chi-markers-cutcell`, `chi-exchange-np{1,2,3}` green; steady FAC `q2p1_chimera_cylinder` pinned (values in the baseline yaml, compared against the body-fitted `q2p1_fc_ext_cylinder` and the DFG band); worker-count invariance; off-regression exact |
 | 4 — Static Chimera-W + unsteady validation | `chi_penalty`; H8/H10/H11/H12; `test_chi_algebra` | W vs S on steady FAC; fast-path bit-identity; unsteady FAC via one-pass W; restart round-trip |
 | 5 — Arrays + periodicity | periodic donor images; H_k seeding; halo upgrade | Hasimoto ≲1 %; random arrays in Beetstra–Tenneti band |
 | 6 — Moving | submesh ALE, per-step reclassification, H14 (M3); H13 (M4) | ten Cate / FBM cross-checks; force continuity; `outer_iters=1` flow byte-identical |

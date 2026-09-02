@@ -27,3 +27,8 @@ _vtk/
 # vendored CI benchmark case (overrides _adc/*, *.tri, *.par above)
 !_adc/2D_FAC/
 !_adc/2D_FAC/*
+
+# vendored Chimera FAC case (channel background mesh from
+# tools/chimera_meshgen/channel_tri.py; overrides *.tri, *.par above)
+!applications/q2p1_chimera/_data/CHIMERA_FAC/
+!applications/q2p1_chimera/_data/CHIMERA_FAC/*

@@ -22,6 +22,7 @@ MODULE CHI_LOCATOR
   PUBLIC :: tChimeraLocator
   PUBLIC :: CHI_LOCATOR_BUILD
   PUBLIC :: CHI_LOCATE
+  PUBLIC :: CHI_LOCATE_NEAREST
   PUBLIC :: CHI_LOCATOR_RELEASE
 
   TYPE tChimeraLocator
@@ -199,6 +200,65 @@ CONTAINS
       END IF
     END DO
   END SUBROUTINE CHI_LOCATE
+
+  !-----------------------------------------------------------------------
+  ! Relaxed locate for points that lie (slightly) outside the mesh, e.g.
+  ! fringe nodes in the chord gap between a curved surface and its
+  ! polygonal approximation.  Searches the bucket cell of p and its 26
+  ! neighbours, runs the inverse map with a wide inside tolerance and
+  ! returns the element with the smallest reference-coordinate excess
+  ! max(|xi|-1, 0).  found = .FALSE. if no candidate converged.
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_LOCATE_NEAREST(loc, dcorvg, kvert, p, iel, xi, excess, found)
+    TYPE(tChimeraLocator), INTENT(IN) :: loc
+    REAL*8,  INTENT(IN)  :: dcorvg(3,*), p(3)
+    INTEGER, INTENT(IN)  :: kvert(8,*)
+    INTEGER, INTENT(OUT) :: iel
+    REAL*8,  INTENT(OUT) :: xi(3), excess
+    LOGICAL, INTENT(OUT) :: found
+
+    INTEGER :: ix, iy, iz, jx, jy, jz, c, k, je, iv
+    REAL*8 :: nodes(3,8), xit(3), ex, pad
+    LOGICAL :: conv
+
+    iel = 0
+    xi = 0d0
+    excess = HUGE(1d0)
+    found = .FALSE.
+    IF (.NOT. loc%initialized) RETURN
+
+    ix = INT(FLOOR((p(1) - loc%xmin(1))/loc%dcell(1)))
+    iy = INT(FLOOR((p(2) - loc%xmin(2))/loc%dcell(2)))
+    iz = INT(FLOOR((p(3) - loc%xmin(3))/loc%dcell(3)))
+    pad = 0.5d0*MAXVAL(loc%dcell)
+
+    DO jz = MAX(iz-1,0), MIN(iz+1,loc%nz-1)
+      DO jy = MAX(iy-1,0), MIN(iy+1,loc%ny-1)
+        DO jx = MAX(ix-1,0), MIN(ix+1,loc%nx-1)
+          c = 1 + jx + loc%nx*(jy + loc%ny*jz)
+          DO k = loc%cellStart(c), loc%cellStart(c+1)-1
+            je = loc%cellElems(k)
+            IF (p(1) .LT. loc%boxlo(1,je)-pad .OR. p(1) .GT. loc%boxhi(1,je)+pad) CYCLE
+            IF (p(2) .LT. loc%boxlo(2,je)-pad .OR. p(2) .GT. loc%boxhi(2,je)+pad) CYCLE
+            IF (p(3) .LT. loc%boxlo(3,je)-pad .OR. p(3) .GT. loc%boxhi(3,je)+pad) CYCLE
+            DO iv = 1, 8
+              nodes(:,iv) = dcorvg(:,kvert(iv,je))
+            END DO
+            CALL CHI_INVERSE_MAP(nodes, p, xit, conv, 0.45d0)
+            IF (.NOT. conv) CYCLE
+            ex = MAX(MAXVAL(ABS(xit)) - 1d0, 0d0)
+            IF (ex .LT. excess) THEN
+              excess = ex
+              iel = je
+              xi = xit
+              found = .TRUE.
+              IF (ex .EQ. 0d0) RETURN
+            END IF
+          END DO
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE CHI_LOCATE_NEAREST
 
   SUBROUTINE CHI_LOCATOR_RELEASE(loc)
     TYPE(tChimeraLocator), INTENT(INOUT) :: loc

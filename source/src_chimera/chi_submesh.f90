@@ -40,6 +40,7 @@ MODULE CHI_SUBMESH
   PUBLIC :: tChimeraSubmesh
   PUBLIC :: CHI_SHAPE_CYLINDER_Z, CHI_SHAPE_SPHERE
   PUBLIC :: CHI_SURF_INNER, CHI_SURF_OUTER, CHI_SURF_ZLO, CHI_SURF_ZHI
+  PUBLIC :: CHI_SUBMESH_FIT_COARSE
   PUBLIC :: CHI_CLASSIFY_GEOMETRIC
   PUBLIC :: CHI_PROPAGATE_CLASSIFICATION
   PUBLIC :: CHI_PROJECT_VERTICES
@@ -79,6 +80,66 @@ MODULE CHI_SUBMESH
   END TYPE tChimeraSubmesh
 
 CONTAINS
+
+  !-----------------------------------------------------------------------
+  ! Fit a generic coarse shell mesh (generator output centred at the
+  ! origin) to this submesh's placement: affine radial remap of the
+  ! shell's own [rmin, rmax] onto [radius_inner, radius_outer] (cylinder:
+  ! in-plane radius, plus an axial remap of [zmin, zmax] onto [zlo, zhi];
+  ! sphere: full radius), then translation by center.  Surface vertices
+  ! land exactly on the analytic surfaces, so the geometric
+  ! classification that follows is unaffected.  Identity when the shell
+  ! already matches (the Phase-2 Couette fixture).
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_SUBMESH_FIT_COARSE(sub, dcorvg, nvt)
+    TYPE(tChimeraSubmesh), INTENT(IN) :: sub
+    REAL*8,  INTENT(INOUT) :: dcorvg(3,*)
+    INTEGER, INTENT(IN)    :: nvt
+
+    REAL*8 :: rmin, rmax, zmin, zmax, r, rn, zn, d(3)
+    INTEGER :: i
+
+    rmin = HUGE(1d0); rmax = -HUGE(1d0)
+    zmin = HUGE(1d0); zmax = -HUGE(1d0)
+    DO i = 1, nvt
+      IF (sub%shape .EQ. CHI_SHAPE_SPHERE) THEN
+        r = SQRT(dcorvg(1,i)**2 + dcorvg(2,i)**2 + dcorvg(3,i)**2)
+      ELSE
+        r = SQRT(dcorvg(1,i)**2 + dcorvg(2,i)**2)
+        zmin = MIN(zmin, dcorvg(3,i)); zmax = MAX(zmax, dcorvg(3,i))
+      END IF
+      rmin = MIN(rmin, r); rmax = MAX(rmax, r)
+    END DO
+    IF (rmax - rmin .LE. 0d0) THEN
+      WRITE(*,*) 'CHI_SUBMESH_FIT_COARSE: degenerate shell radii', rmin, rmax
+      STOP 1
+    END IF
+
+    DO i = 1, nvt
+      IF (sub%shape .EQ. CHI_SHAPE_SPHERE) THEN
+        d = dcorvg(:,i)
+        r = SQRT(d(1)*d(1) + d(2)*d(2) + d(3)*d(3))
+        rn = sub%radius_inner + (r - rmin)/(rmax - rmin) &
+             *(sub%radius_outer - sub%radius_inner)
+        IF (r .GT. 0d0) d = d*(rn/r)
+        dcorvg(:,i) = sub%center + d
+      ELSE
+        d(1:2) = dcorvg(1:2,i)
+        r = SQRT(d(1)*d(1) + d(2)*d(2))
+        rn = sub%radius_inner + (r - rmin)/(rmax - rmin) &
+             *(sub%radius_outer - sub%radius_inner)
+        IF (r .GT. 0d0) d(1:2) = d(1:2)*(rn/r)
+        IF (zmax - zmin .GT. 0d0) THEN
+          zn = sub%zlo + (dcorvg(3,i) - zmin)/(zmax - zmin)*(sub%zhi - sub%zlo)
+        ELSE
+          zn = sub%zlo
+        END IF
+        dcorvg(1,i) = sub%center(1) + d(1)
+        dcorvg(2,i) = sub%center(2) + d(2)
+        dcorvg(3,i) = zn
+      END IF
+    END DO
+  END SUBROUTINE CHI_SUBMESH_FIT_COARSE
 
   !-----------------------------------------------------------------------
   ! Geometric classification of level-1 vertices (generator-exact

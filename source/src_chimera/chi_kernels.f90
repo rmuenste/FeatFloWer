@@ -41,7 +41,10 @@ MODULE CHI_KERNELS
 
   PUBLIC :: CHI_BUILD_SADDLE_CSR
   PUBLIC :: CHI_ASM_SADDLE
+  PUBLIC :: CHI_ASM_MASS_RHS
   PUBLIC :: CHI_ASM_ROBIN
+  PUBLIC :: CHI_ASM_ROBIN_TAB
+  PUBLIC :: CHI_ROBIN_POINTS
   PUBLIC :: CHI_APPLY_DIRICHLET_ROW
   PUBLIC :: CHI_FACE_RULE
   PUBLIC :: CHI_FACE_GEOM
@@ -353,6 +356,52 @@ CONTAINS
   END SUBROUTINE CHI_ASM_SADDLE
 
   !-----------------------------------------------------------------------
+  ! rhs += coef * M * u_old (velocity blocks), i.e. the old-time-level
+  ! term of the backward-Euler submesh step: coef = rho/dt.  Same 27-point
+  ! rule and Q1 geometry as CHI_ASM_SADDLE.
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_ASM_MASS_RHS(nel, nvt, net, nat, kvert, kedge, karea, &
+                              dcorvg, coef, uo, vo, wo, rhs)
+    INTEGER, INTENT(IN) :: nel, nvt, net, nat
+    INTEGER, INTENT(IN) :: kvert(8,*), kedge(12,*), karea(6,*)
+    REAL*8,  INTENT(IN) :: dcorvg(3,*), coef, uo(*), vo(*), wo(*)
+    REAL*8,  INTENT(INOUT) :: rhs(*)
+
+    REAL*8 :: gp(3,27), gw(27), phi(27), dphi(3,27), phig(27,27)
+    REAL*8 :: nodes(3,8), jac(3,3), detj, xq(3), w, uq(3)
+    INTEGER :: idx(27), ndof, e, q, i, j
+
+    ndof = nvt + net + nat + nel
+    IF (coef .EQ. 0d0) RETURN
+    CALL CHI_GAUSS3(gp, gw)
+    DO q = 1, 27
+      CALL CHI_Q2_BASIS(gp(:,q), phi, dphi)
+      phig(:,q) = phi
+    END DO
+    DO e = 1, nel
+      DO i = 1, 8
+        nodes(:,i) = dcorvg(:,kvert(i,e))
+      END DO
+      CALL CHI_Q2_DOFMAP(e, kvert, kedge, karea, nvt, net, nat, idx)
+      DO q = 1, 27
+        CALL CHI_Q1_MAP(nodes, gp(:,q), xq, jac, detj)
+        w = gw(q)*ABS(detj)*coef
+        uq = 0d0
+        DO j = 1, 27
+          uq(1) = uq(1) + phig(j,q)*uo(idx(j))
+          uq(2) = uq(2) + phig(j,q)*vo(idx(j))
+          uq(3) = uq(3) + phig(j,q)*wo(idx(j))
+        END DO
+        DO i = 1, 27
+          rhs(idx(i))        = rhs(idx(i))        + w*uq(1)*phig(i,q)
+          rhs(ndof+idx(i))   = rhs(ndof+idx(i))   + w*uq(2)*phig(i,q)
+          rhs(2*ndof+idx(i)) = rhs(2*ndof+idx(i)) + w*uq(3)*phig(i,q)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE CHI_ASM_MASS_RHS
+
+  !-----------------------------------------------------------------------
   ! 3x3 Gauss rule on a reference face: returns the 9 volumetric
   ! reference coordinates and 2D weights for face lface.
   !-----------------------------------------------------------------------
@@ -433,6 +482,69 @@ CONTAINS
     REAL*8,  INTENT(IN) :: alpha, uk(*), vk(*), wk(*)
     PROCEDURE(chi_robin_data) :: robin_h
 
+    REAL*8, ALLOCATABLE :: xq(:,:,:), nq(:,:,:), hq(:,:,:)
+    INTEGER :: ifc, q
+
+    ! Callback variant: tabulate h at the face quadrature points, then
+    ! run the tabulated kernel (single assembly path).
+    ALLOCATE(xq(3,9,MAX(nfaces,1)), nq(3,9,MAX(nfaces,1)), hq(3,9,MAX(nfaces,1)))
+    CALL CHI_ROBIN_POINTS(faces, nfaces, kvert, dcorvg, xq, nq)
+    DO ifc = 1, nfaces
+      DO q = 1, 9
+        CALL robin_h(xq(:,q,ifc), nq(:,q,ifc), hq(:,q,ifc))
+      END DO
+    END DO
+    CALL CHI_ASM_ROBIN_TAB(faces, nfaces, nvt, net, nat, nel, &
+                           kvert, kedge, karea, dcorvg, &
+                           n, LdA, ColA, Avals, rhs, alpha, uk, vk, wk, hq)
+    DEALLOCATE(xq, nq, hq)
+  END SUBROUTINE CHI_ASM_ROBIN
+
+  !-----------------------------------------------------------------------
+  ! Physical quadrature points and outward unit normals of a boundary
+  ! face list (the 9-point rule of CHI_FACE_RULE, same ordering as the
+  ! assembly loops).  Phase 3 caches these once per submesh and
+  ! evaluates the background there.
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_ROBIN_POINTS(faces, nfaces, kvert, dcorvg, xq, nq)
+    INTEGER, INTENT(IN) :: faces(2,*), nfaces, kvert(8,*)
+    REAL*8,  INTENT(IN) :: dcorvg(3,*)
+    REAL*8,  INTENT(OUT) :: xq(3,9,*), nq(3,9,*)
+
+    REAL*8 :: xiq(3,9), wq(9), nodes(3,8), sj
+    INTEGER :: ifc, e, f, q, i
+
+    DO ifc = 1, nfaces
+      e = faces(1,ifc)
+      f = faces(2,ifc)
+      DO i = 1, 8
+        nodes(:,i) = dcorvg(:,kvert(i,e))
+      END DO
+      CALL CHI_FACE_RULE(f, xiq, wq)
+      DO q = 1, 9
+        CALL CHI_FACE_GEOM(nodes, f, xiq(:,q), xq(:,q,ifc), nq(:,q,ifc), sj)
+      END DO
+    END DO
+  END SUBROUTINE CHI_ROBIN_POINTS
+
+  !-----------------------------------------------------------------------
+  ! Robin surface terms (design section 5) with tabulated data
+  ! hq(3,9,nfaces) at the CHI_ROBIN_POINTS quadrature points:
+  !   LHS += -alpha \oint (u_k.n)(u_{k+1}.v) ds   (Picard, u_k frozen)
+  !   RHS += +\oint h.v ds
+  !-----------------------------------------------------------------------
+  SUBROUTINE CHI_ASM_ROBIN_TAB(faces, nfaces, nvt, net, nat, nel, &
+                               kvert, kedge, karea, dcorvg, &
+                               n, LdA, ColA, Avals, rhs, &
+                               alpha, uk, vk, wk, hq)
+    INTEGER, INTENT(IN) :: faces(2,*), nfaces, nvt, net, nat, nel
+    INTEGER, INTENT(IN) :: kvert(8,*), kedge(12,*), karea(6,*)
+    REAL*8,  INTENT(IN) :: dcorvg(3,*)
+    INTEGER, INTENT(IN) :: n, LdA(*), ColA(*)
+    REAL*8,  INTENT(INOUT) :: Avals(*), rhs(*)
+    REAL*8,  INTENT(IN) :: alpha, uk(*), vk(*), wk(*)
+    REAL*8,  INTENT(IN) :: hq(3,9,*)
+
     REAL*8 :: xiq(3,9), wq(9), phi(27), dphi(3,27)
     REAL*8 :: nodes(3,8), x(3), nrm(3), sj, dSw
     REAL*8 :: ukq(3), un, h(3)
@@ -459,7 +571,7 @@ CONTAINS
           ukq(3) = ukq(3) + phi(j)*wk(idx(j))
         END DO
         un = ukq(1)*nrm(1) + ukq(2)*nrm(2) + ukq(3)*nrm(3)
-        CALL robin_h(x, nrm, h)
+        h = hq(:,q,ifc)
         DO i = 1, 27
           DO a = 1, 3
             r = (a-1)*ndof + idx(i)
@@ -472,7 +584,7 @@ CONTAINS
         END DO
       END DO
     END DO
-  END SUBROUTINE CHI_ASM_ROBIN
+  END SUBROUTINE CHI_ASM_ROBIN_TAB
 
   !-----------------------------------------------------------------------
   ! Replace row r by the identity row with right-hand side value.
