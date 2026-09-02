@@ -105,6 +105,7 @@ set(src_util
   ${CMAKE_SOURCE_DIR}/source/src_util/types.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_el/el_fields.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/prov_dump_config.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/param_parser.f90
   ${CMAKE_SOURCE_DIR}/source/src_util/timestep_control.f90
@@ -214,6 +215,29 @@ if(USE_HYPRE AND TARGET HYPRE)
   add_dependencies(ff_le_solvers HYPRE)
 endif()
 
+#=========================================================================
+#                     Chimera Library Source (Layer M)
+#=========================================================================
+# Chimera overlapping-mesh component (chimera-integration-design.md v3).
+# Layer graph: chimera_config.f90 sits low in ff_util (so param_parser can
+# write into it); this library holds the COMMON-free, var_QuadScalar-free
+# service modules; chimera_api.f90 (+ later Layer-H coupling files) are
+# compiled into ff_quadLS_app.  ff_chimera must never reference an
+# ff_quadLS_app module (build-layering rule, verified by building this
+# target standalone).  Link deps: umf4* symbols come via ff_le_solvers /
+# FF_UMFPACK_LINK_LIBS.
+set(src_chimera
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_geometry.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_fem_eval.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_locator.f90
+  ${CMAKE_SOURCE_DIR}/source/src_chimera/chi_sparse_direct.f90
+  )
+
+add_library(ff_chimera ${src_chimera})
+target_link_libraries(ff_chimera ff_le_solvers ${FF_DEFAULT_LIBS})
+target_include_directories(ff_chimera PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+target_compile_options(ff_chimera PUBLIC ${Fortran_FLAGS})
+
 set(src_fbm
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_aux.f90
   ${CMAKE_SOURCE_DIR}/source/src_fbm/fbm_main.f90
@@ -302,6 +326,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -330,6 +355,7 @@ ${CMAKE_SOURCE_DIR}/source/src_el/el_halo.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_quadrature.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_diagnostics.f90
 ${CMAKE_SOURCE_DIR}/source/src_el/el_transfer.f90
+${CMAKE_SOURCE_DIR}/source/src_chimera/chimera_api.f90
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_solver.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_proj.f
 ${CMAKE_SOURCE_DIR}/source/src_quadLS/QuadSc_force.f90
@@ -363,7 +389,7 @@ set(src_visco
 #                        QuadLS Library Source
 #=========================================================================
 add_library(ff_quadLS_app ${src_quadLS_app_only} ${src_visco})
-target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_cinterface ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ${FF_DEFAULT_LIBS})
+target_link_libraries(ff_quadLS_app ff_util ff_mesh ff_cinterface ff_assemblies ff_elements ff_le_solvers ff_fbm ff_LinSc ff_q2p1 ff_chimera ${FF_DEFAULT_LIBS})
 target_include_directories(ff_quadLS_app PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
 target_compile_options(ff_quadLS_app PUBLIC ${Fortran_FLAGS})
 add_dependencies(ff_quadLS_app ff_cinterface)
@@ -412,6 +438,38 @@ if(BUILD_TESTING)
   target_include_directories(test_el_convergence PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
   target_compile_options(test_el_convergence PRIVATE ${Fortran_FLAGS})
   add_test(NAME el-convergence-serial COMMAND test_el_convergence)
+
+  # --- Chimera Phase-1 service tests (chimera-integration-design.md v3) ---
+  # test_chi_geometry pins CHI_Q1_MAP against EL_Q1_MAP, hence the
+  # ff_quadLS_app link; the remaining tests exercise ff_chimera alone
+  # (plus ff_le_solvers for the umf4* wrapper symbols).
+  add_executable(test_chi_geometry
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_geometry.f90)
+  target_link_libraries(test_chi_geometry ff_chimera ff_quadLS_app)
+  target_include_directories(test_chi_geometry PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_geometry PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-geometry-serial COMMAND test_chi_geometry)
+
+  add_executable(test_chi_eval
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_eval.f90)
+  target_link_libraries(test_chi_eval ff_chimera)
+  target_include_directories(test_chi_eval PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_eval PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-eval-serial COMMAND test_chi_eval)
+
+  add_executable(test_chi_locator
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_locator.f90)
+  target_link_libraries(test_chi_locator ff_chimera)
+  target_include_directories(test_chi_locator PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_locator PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-locator-serial COMMAND test_chi_locator)
+
+  add_executable(test_chi_sparse_direct
+    ${CMAKE_SOURCE_DIR}/source/src_chimera/tests/test_chi_sparse_direct.f90)
+  target_link_libraries(test_chi_sparse_direct ff_chimera ff_le_solvers)
+  target_include_directories(test_chi_sparse_direct PUBLIC ${FF_APPLICATION_INCLUDE_PATH})
+  target_compile_options(test_chi_sparse_direct PRIVATE ${Fortran_FLAGS})
+  add_test(NAME chi-sparse-direct-serial COMMAND test_chi_sparse_direct)
 endif()
 
 #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

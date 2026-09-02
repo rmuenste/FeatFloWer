@@ -23,6 +23,10 @@ USE var_QuadScalar, ONLY: myDataFile, GAMMA, iCommSwitch, BaSynch, &
   bUseHashGridAccel, bUseKVEL_Accel, bPrintCFL, bPrintParticleCFL, &
   bPrintParticleReynolds, bPrintParticleState, cPartitionFormat, bRecursivePartitioning, myErrorCode
 USE var_QuadScalar, ONLY: bApplyFAC3DMeshDeformation
+USE CHIMERA_CONFIG, ONLY: chimera_enable, chimera_variant, chimera_outer_bc, &
+  chimera_particle_file, chimera_submesh_file, chimera_submesh_nlmax, &
+  chimera_robin_alpha, chimera_gamma_max, chimera_outer_iters, &
+  chimera_sub_nl, chimera_write_vtk, CHIMERA_VALIDATE_CONFIG
 USE types, ONLY: tParamV, tParamP, tProperties
 
 IMPLICIT NONE
@@ -1101,6 +1105,32 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
         bUseHashGridAccel = read_yes_no_param(string, iEq)
       CASE ("UseKVELAccel")
         bUseKVEL_Accel = read_yes_no_param(string, iEq)
+
+      ! --- Chimera overlapping-mesh component (chimera-integration-design.md) ---
+      ! Keys write into CHIMERA_CONFIG (ff_util layer); all default to the
+      ! values that keep the standard operational mode untouched.
+      CASE ("ChimeraEnable")
+        chimera_enable = read_yes_no_param(string, iEq)
+      CASE ("ChimeraVariant")
+        READ(string(iEq+1:),*) chimera_variant
+      CASE ("ChimeraOuterBC")
+        READ(string(iEq+1:),*) chimera_outer_bc
+      CASE ("ChimeraParticleFile")
+        chimera_particle_file = TRIM(ADJUSTL(string(iEq+1:)))
+      CASE ("ChimeraSubmeshFile")
+        chimera_submesh_file = TRIM(ADJUSTL(string(iEq+1:)))
+      CASE ("ChimeraSubmeshLev")
+        READ(string(iEq+1:),*) chimera_submesh_nlmax
+      CASE ("ChimeraRobinAlpha")
+        READ(string(iEq+1:),*) chimera_robin_alpha
+      CASE ("ChimeraGammaMax")
+        READ(string(iEq+1:),*) chimera_gamma_max
+      CASE ("ChimeraOuterIters")
+        READ(string(iEq+1:),*) chimera_outer_iters
+      CASE ("ChimeraSubNL")
+        READ(string(iEq+1:),*) chimera_sub_nl
+      CASE ("ChimeraWriteVTK")
+        chimera_write_vtk = read_yes_no_param(string, iEq)
       CASE ("PartitionFormat")
        READ(string(iEq+1:),*) cParam2
        cPartitionFormat = normalize_partition_format(cParam2)
@@ -1145,6 +1175,11 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
   END DO
 
   CLOSE (myFile)
+
+  ! Validate the Chimera configuration once the SimPar section is parsed
+  ! (all ranks; aborts with a clear message on invalid values).  A no-op
+  ! when ChimeraEnable is absent or No.
+  IF (TRIM(ADJUSTL(cName)) == "SimPar") CALL CHIMERA_VALIDATE_CONFIG()
 
   M     = 1
   MT    = 1
@@ -1356,6 +1391,22 @@ SUBROUTINE GDATNEW (cName,iCurrentStatus)
 #else
     CALL write_param_str(mfile, mterm, "FBM Acceleration = ", "DISABLED AT COMPILE TIME")
 #endif
+
+    ! Chimera echo: emitted ONLY when the component is enabled, so that a
+    ! disabled run's protocol output stays byte-identical to a build
+    ! without the component (design requirement: standard mode undisturbed).
+    IF (chimera_enable) THEN
+      CALL write_param_str(mfile, mterm, "ChimeraEnable = ", "YES")
+      CALL write_param_str(mfile, mterm, "ChimeraVariant = ", TRIM(chimera_variant))
+      CALL write_param_str(mfile, mterm, "ChimeraOuterBC = ", TRIM(chimera_outer_bc))
+      CALL write_param_str(mfile, mterm, "ChimeraParticleFile = ", TRIM(chimera_particle_file))
+      CALL write_param_str(mfile, mterm, "ChimeraSubmeshFile = ", TRIM(chimera_submesh_file))
+      CALL write_param_int(mfile, mterm, "ChimeraSubmeshLev = ", chimera_submesh_nlmax)
+      CALL write_param_real(mfile, mterm, "ChimeraRobinAlpha = ", chimera_robin_alpha)
+      CALL write_param_real(mfile, mterm, "ChimeraGammaMax = ", chimera_gamma_max)
+      CALL write_param_int(mfile, mterm, "ChimeraOuterIters = ", chimera_outer_iters)
+      CALL write_param_int(mfile, mterm, "ChimeraSubNL = ", chimera_sub_nl)
+    END IF
 
     IF (ProlongationDirection == 0) THEN
      WRITE(mfile,'(A,D12.4)') "Mesh Prolongation is set to  = STANDARD"

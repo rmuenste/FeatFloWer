@@ -572,6 +572,7 @@ SUBROUTINE Transport_q2p1_UxyzP_fluid_core(mfile,inl_u,itns,enable_fbm)
 use cinterface, only: calculateDynamics,calculateFBM
 use fbm, only: fbm_updateFBM, fbm_velBCTest,fbm_testFBMGeom
 use PP3D_MPI, only: Barrier_myMPI, Sum_myMPI
+use chimera_api, only: Chimera_IsEnabled, Chimera_BeginStep
 #ifdef HAVE_PE
 use dem_query, only: numLocalParticles, numTotalParticles
 #endif
@@ -593,6 +594,18 @@ k=1
 IF (enable_fbm) THEN
   CALL updateFBMGeometry()
   CALL report_and_reset_hashgrid_stats()
+END IF
+
+! Chimera coupling update (hook H1, chimera-integration-design.md).
+! Call site is worker-only because argument association of
+! LinSc%valP(NLMAX)%x is only valid on worker ranks; the facade
+! operation itself is additionally rank-safe and a no-op when the
+! component is disabled (the default).
+IF (myid.ne.master) THEN
+  IF (Chimera_IsEnabled()) THEN
+    CALL Chimera_BeginStep(QuadSc%valU,QuadSc%valV,QuadSc%valW, &
+                           LinSc%valP(NLMAX)%x)
+  END IF
 END IF
 
 thstep = tstep*(1d0-theta)

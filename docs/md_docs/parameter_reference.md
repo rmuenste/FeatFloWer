@@ -694,6 +694,37 @@ SimPar@skipFBMDynamics = Yes
 
 ---
 
+## Chimera Overlapping-Mesh Component
+
+Runtime keys of the Chimera component (design: `chimera-integration-design.md`;
+usage: `docs/md_docs/chimera_usage.md`). The component is always compiled and
+activated purely at runtime; every key defaults to the value that keeps the
+standard operational mode untouched, and unknown keys are ignored by the
+parser, so decks stay portable. Values land in
+`source/src_chimera/chimera_config.f90` and are validated on parse
+(`CHIMERA_VALIDATE_CONFIG`, hard abort on invalid values).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `SimPar@ChimeraEnable` | Yes/No | `No` | Master switch. `No` = binary behaves bit-identically to a build without the component |
+| `SimPar@ChimeraVariant` | string | `strong` | `strong` (Chimera-S, hole/fringe Dirichlet) or `weak` (Chimera-W, interior penalty) |
+| `SimPar@ChimeraOuterBC` | string | `robin` | Submesh outer BC: `robin` (paper eq. 5d, acceptance path) or `dirichlet` (diagnostic mode) |
+| `SimPar@ChimeraParticleFile` | path | — | Particle centers / radii / atmosphere widths H_k |
+| `SimPar@ChimeraSubmeshFile` | path | — | Coarse body-fitted shell mesh (.tri) |
+| `SimPar@ChimeraSubmeshLev` | integer | `3` | Submesh refinement levels |
+| `SimPar@ChimeraRobinAlpha` | real | `1.0` | Robin coefficient alpha (>= 0) |
+| `SimPar@ChimeraGammaMax` | real | `0.0` | Interior-penalty parameter (required > 0 for `weak`) |
+| `SimPar@ChimeraOuterIters` | integer | `1` | In-step outer coupling iterations (>= 2 for time-accurate Chimera-S) |
+| `SimPar@ChimeraSubNL` | integer | `3` | Picard iterations per submesh solve |
+| `SimPar@ChimeraWriteVTK` | Yes/No | `No` | Dump submesh solutions for visualization |
+
+`ChimeraEnable = Yes` requires an application that initializes the component
+(e.g. `q2p1_chimera`); any other application aborts with a clear message at
+the first time step. Echo lines in the protocol file are emitted only when
+the component is enabled, so a disabled run's `prot.txt` stays byte-identical.
+
+---
+
 ## Source Code Reference
 
 All parameters are parsed from `q2p1_param.dat` in these subroutines:

@@ -56,6 +56,7 @@ if(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_chimera
     ff_postprocessing
     )
 else(WIN32)
@@ -87,6 +88,7 @@ else(WIN32)
     ff_LinSc
     ff_q2p1
     ff_quadLS_app
+    ff_chimera
     ff_postprocessing
     ff_particles
     )
