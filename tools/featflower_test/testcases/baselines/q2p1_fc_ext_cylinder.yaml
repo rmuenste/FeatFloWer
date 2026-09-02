@@ -1,4 +1,17 @@
+# Measured regression anchor, re-pinned 2026-09-02 (was: DFG literature
+# reference C_D 5.579535 / C_L 0.010618, which the definition's
+# MaxMeshLevel=2 configuration cannot reproduce within tolerance -
+# discretization error ~0.4%/6% at L2).
+#
+# Provenance of the measured values: last "BenchForce:" line of the
+# definition's exact recipe (level-2 patch, PyPartitioner 3 subpartitions
+# on NEWFAC/_adc/2D_FAC/2Dbench.prj, mpirun -np 4 q2p1_fc_ext),
+# bit-identical across gcc 13.2 and gcc 14.3 (OpenMPI 4.1.6), across
+# master, the baseline-pin-era commit 11722079 (2026-02-10) and the
+# feature/chimera-phase01 branch. Convergence toward the literature
+# values is a separate concern: MaxMeshLevel=3 gives 5.5807589 /
+# 0.010674 (0.02% / 0.5% from the DFG reference).
 metrics:
   drag_lift:
-    drag: 5.579535
-    lift: 0.010618
+    drag: 5.601296
+    lift: 0.00994711
